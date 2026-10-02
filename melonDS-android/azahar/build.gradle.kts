@@ -35,6 +35,7 @@ android {
                     "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
                     "-DENABLE_GDBSTUB=OFF",
                 )
+                arguments += AppConfig.ccacheCmakeArguments
             }
         }
 
