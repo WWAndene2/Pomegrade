@@ -650,6 +650,10 @@
     <string name="unlimited_polygons_summary">Draw the polygons a DS would drop when a scene has too many (missing or flickering objects)</string>
     <string name="high_precision_geometry">High-precision geometry</string>
     <string name="high_precision_geometry_summary">Place vertices between pixels instead of snapping them: less shaking of moving 3D models</string>
+    <string name="oled_blacks">OLED deep blacks</string>
+    <string name="oled_blacks_summary">Near-black shades of each scene become true black (pixels off on OLED screens)</string>
+    <string name="adaptive_colours">Adaptive colours</string>
+    <string name="adaptive_colours_summary">Contrast and colour adjusted to each scene: dull, washed-out scenes are brought to life</string>
     <string name="texture_upscale">Texture upscaling</string>
     <string-array name="texture_upscale_options">
         <item>Off</item>

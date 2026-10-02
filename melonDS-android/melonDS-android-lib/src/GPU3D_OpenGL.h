@@ -43,6 +43,9 @@ public:
     void SetHighColor(bool enable) noexcept { CurGLCompositor.SetHighColor(enable); }
     // Native texture upscaling (Pomegrade): see GLHDTextures::SetUpscaleFactor
     void SetTextureUpscale(int factor) { HDTextures.SetUpscaleFactor(factor); }
+    // Scene-adaptive colour (Pomegrade): see GPU_SceneColour.h
+    void SetAdaptiveColours(bool enable) { CurGLCompositor.SetAdaptiveColours(enable); }
+    void SetOledBlacks(bool enable) { CurGLCompositor.SetOledBlacks(enable); }
     void SetScaleFactor(int scale) noexcept;
     [[nodiscard]] bool GetBetterPolygons() const noexcept { return BetterPolygons; }
     [[nodiscard]] int GetScaleFactor() const noexcept { return ScaleFactor; }

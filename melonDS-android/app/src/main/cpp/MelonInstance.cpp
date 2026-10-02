@@ -655,6 +655,8 @@ void MelonInstance::updateRenderer()
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetHighPrecision(currentConfiguration->highPrecisionGeometry);
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetHighColor(currentConfiguration->highColor);
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetTextureUpscale(currentConfiguration->textureUpscale);
+            static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetOledBlacks(currentConfiguration->oledBlacks);
+            static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetAdaptiveColours(currentConfiguration->adaptiveColours);
             break;
         }
         case Renderer::Compute:

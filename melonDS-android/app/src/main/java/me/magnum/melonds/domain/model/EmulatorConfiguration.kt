@@ -43,4 +43,7 @@ data class EmulatorConfiguration(
         val highColor: Boolean = false,
         // Pomegrade: native texture upscaling factor, 1 = off (OpenGL renderer)
         val textureUpscale: Int = 1,
+        // Pomegrade: scene-adaptive colour (OpenGL renderer)
+        val oledBlacks: Boolean = false,
+        val adaptiveColours: Boolean = false,
 )

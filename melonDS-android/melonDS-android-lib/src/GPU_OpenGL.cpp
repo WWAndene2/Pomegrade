@@ -52,6 +52,10 @@ GLCompositor::GLCompositor(GLuint compShader) noexcept : CompShader(compShader)
 {
     CompScaleLoc = glGetUniformLocation(CompShader, "u3DScale");
     CompHighColorLoc = glGetUniformLocation(CompShader, "uHighColor");
+    SceneColourState.AdjustLoc = glGetUniformLocation(CompShader, "uAdjust");
+    SceneColourState.LevelsLoc = glGetUniformLocation(CompShader, "uLevels");
+    SceneColourState.SaturationLoc = glGetUniformLocation(CompShader, "uSaturation");
+    SceneColourState.OledLoc = glGetUniformLocation(CompShader, "uOledThreshold");
 
     glUseProgram(CompShader);
     GLuint screenTextureUniform = glGetUniformLocation(CompShader, "ScreenTex");
@@ -132,6 +136,67 @@ GLCompositor::~GLCompositor()
     glDeleteBuffers(1, &CompVertexBufferID);
 
     glDeleteProgram(CompShader);
+    DeleteSceneColourTargets();
+}
+
+void GLCompositor::DeleteSceneColourTargets() noexcept
+{
+    SceneColourPass& s = SceneColourState;
+    if (s.FB) glDeleteFramebuffers(1, &s.FB);
+    if (s.Tex) glDeleteTextures(1, &s.Tex);
+    if (s.PBO) glDeleteBuffers(1, &s.PBO);
+    s.FB = s.Tex = s.PBO = 0;
+    s.Pending = false;
+}
+
+void GLCompositor::RunSceneColourPass() noexcept
+{
+    // expects the compositor's program, textures and vertex array bound
+    SceneColourPass& s = SceneColourState;
+    if (!s.FB)
+    {
+        // the active unit holds the 3D layer: put its binding back afterwards
+        GLint prevTexture;
+        glGetIntegerv(GL_TEXTURE_BINDING_2D, &prevTexture);
+        glGenTextures(1, &s.Tex);
+        glBindTexture(GL_TEXTURE_2D, s.Tex);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, SceneColourPass::Width, SceneColourPass::Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glGenFramebuffers(1, &s.FB);
+        glBindFramebuffer(GL_FRAMEBUFFER, s.FB);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s.Tex, 0);
+        glGenBuffers(1, &s.PBO);
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, s.PBO);
+        glBufferData(GL_PIXEL_PACK_BUFFER, SceneColourPass::Width * SceneColourPass::Height * 4, nullptr, GL_STREAM_READ);
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+        glBindTexture(GL_TEXTURE_2D, prevTexture);
+    }
+
+    // last frame's samples, read back in the background meanwhile
+    if (s.Pending)
+    {
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, s.PBO);
+        void* samples = glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, SceneColourPass::Width * SceneColourPass::Height * 4, GL_MAP_READ_BIT);
+        if (samples)
+        {
+            SceneStats stats = SceneColour::Measure((const u32*)samples, SceneColourPass::Width * SceneColourPass::Height);
+            s.Target = SceneColour::Target(stats, s.Adaptive, s.Oled);
+            glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+        }
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+        s.Pending = false;
+    }
+    SceneColour::Step(s.Current, s.Target);
+
+    // this frame's unadjusted image, small
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s.FB);
+    glViewport(0, 0, SceneColourPass::Width, SceneColourPass::Height);
+    glUniform1ui(s.AdjustLoc, 0);
+    glDrawArrays(GL_TRIANGLES, 0, 4*3);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, s.FB);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, s.PBO);
+    glReadPixels(0, 0, SceneColourPass::Width, SceneColourPass::Height, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    s.Pending = true;
 }
 
 
@@ -142,6 +207,7 @@ GLCompositor::GLCompositor(GLCompositor&& other) noexcept :
     CompScaleLoc(other.CompScaleLoc),
     CompHighColorLoc(other.CompHighColorLoc),
     HighColor(other.HighColor),
+    SceneColourState(other.SceneColourState),
     CompVertices(other.CompVertices),
     CompShader(other.CompShader),
     CompVertexBufferID(other.CompVertexBufferID),
@@ -150,6 +216,7 @@ GLCompositor::GLCompositor(GLCompositor&& other) noexcept :
     CompScreenOutputTex(other.CompScreenOutputTex),
     CompScreenOutputFB(other.CompScreenOutputFB)
 {
+    other.SceneColourState.FB = other.SceneColourState.Tex = other.SceneColourState.PBO = 0;
     other.CompScreenOutputFB = {};
     other.CompScreenInputTex = {};
     other.CompScreenOutputTex = {};
@@ -168,6 +235,9 @@ GLCompositor& GLCompositor::operator=(GLCompositor&& other) noexcept
         CompScaleLoc = other.CompScaleLoc;
         CompHighColorLoc = other.CompHighColorLoc;
         HighColor = other.HighColor;
+        DeleteSceneColourTargets();
+        SceneColourState = other.SceneColourState;
+        other.SceneColourState.FB = other.SceneColourState.Tex = other.SceneColourState.PBO = 0;
         CompVertices = other.CompVertices;
 
         // Clean up these resources before overwriting them
@@ -275,6 +345,25 @@ void GLCompositor::RenderFrame(const GPU& gpu, Renderer3D& renderer) noexcept
 
     glBindBuffer(GL_ARRAY_BUFFER, CompVertexBufferID);
     glBindVertexArray(CompVertexArrayID);
+
+    SceneColourPass& s = SceneColourState;
+    bool adjust = s.Adaptive || s.Oled;
+    if (adjust)
+    {
+        RunSceneColourPass();
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CompScreenOutputFB[backbuf]);
+        glViewport(0, 0, ScreenW, ScreenH);
+        glUniform2f(s.LevelsLoc, s.Current.LevelBlack, s.Current.LevelWhite);
+        glUniform1f(s.SaturationLoc, s.Current.Saturation);
+        glUniform1f(s.OledLoc, s.Current.OledThreshold);
+    }
+    else
+    {
+        // back to neutral, so turning it on again starts from the plain image
+        s.Current = s.Target = SceneColourParams();
+    }
+    glUniform1ui(s.AdjustLoc, adjust ? 1 : 0);
     glDrawArrays(GL_TRIANGLES, 0, 4*3);
 }
 

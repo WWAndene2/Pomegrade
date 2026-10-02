@@ -121,6 +121,8 @@ MelonDSAndroid::EmulatorConfiguration MelonDSAndroidConfiguration::buildEmulator
     finalEmulatorConfiguration.highPrecisionGeometry = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "highPrecisionGeometry", "Z"));
     finalEmulatorConfiguration.highColor = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "highColor", "Z"));
     finalEmulatorConfiguration.textureUpscale = env->GetIntField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "textureUpscale", "I"));
+    finalEmulatorConfiguration.oledBlacks = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "oledBlacks", "Z"));
+    finalEmulatorConfiguration.adaptiveColours = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "adaptiveColours", "Z"));
 
     return finalEmulatorConfiguration;
 }

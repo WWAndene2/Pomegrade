@@ -52,6 +52,8 @@ Pomegrade is currently **two apps side by side in one APK**: melonDS-android (DS
   | High-precision geometry: sub-pixel vertex positions | OpenGL | Done. Frame-to-frame jitter of a rotating triangle 27.2 px → 3.0 px |
   | High colour: 8-bit colour instead of the DS's 6 | OpenGL | Done. Lit sphere shading 50 → 184 colour levels |
   | Better polygons (melonDS option, fewer seams at high resolution) | OpenGL | Exposed in the settings |
+  | OLED deep blacks: each scene's near-black shades become true black (threshold follows the scene's black level) | OpenGL | Done. Dark grey background → 000000, mid tones unchanged |
+  | Adaptive colours: levels and saturation adjusted to each scene, smoothed over ~0.5 s | OpenGL | Done. Washed-out scene: contrast ×1.25-1.5 depending on its black level; full-range scenes left alone |
   | Texture upscaling ×2/×4: each texture magnified when loaded (MMPX pixel-art rules, same size on screen, no new colours) | OpenGL | Done. Diagonal line edge 7.5 px from the ideal → 4.0 (×2) → 2.25 (×4); identical to the MMPX reference code on 400 test images |
 
   Geometry fidelity (local, per edge): curvature reduced where the normals don't match the geometry (e.g. spherical normals painted on a flat cel-shaded face: 28% less bulge), round shapes unchanged. Not solved locally: an angular shape with smoothed normals (box, sharp chin) looks exactly like a rounded one from a single polygon. **Next:** detect hard edges from neighbouring polygons (a box has 90° between faces, a low-poly sphere 36-60°), which means multiplying at the end of the frame with each polygon's lighting state saved.

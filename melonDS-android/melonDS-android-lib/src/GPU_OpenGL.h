@@ -19,6 +19,7 @@
 #pragma once
 
 #include "OpenGLSupport.h"
+#include "GPU_SceneColour.h"
 
 #include <array>
 #include <optional>
@@ -42,6 +43,9 @@ public:
     void SetScaleFactor(int scale) noexcept;
     // High colour (Pomegrade): blend the 3D and 2D layers in 8 bits per channel
     void SetHighColor(bool enable) noexcept { HighColor = enable; }
+    // Scene-adaptive colour (Pomegrade), see GPU_SceneColour.h
+    void SetAdaptiveColours(bool enable) noexcept { SceneColourState.Adaptive = enable; }
+    void SetOledBlacks(bool enable) noexcept { SceneColourState.Oled = enable; }
     [[nodiscard]] int GetScaleFactor() const noexcept { return Scale; }
 
     void Stop(const GPU& gpu) noexcept;
@@ -57,6 +61,20 @@ private:
     GLuint CompScaleLoc = 0;
     GLuint CompHighColorLoc = 0;
     bool HighColor = false;
+
+    // scene-adaptive colour: each frame a small copy of the unadjusted image is
+    // read back asynchronously (used the next frame) to update the parameters
+    struct SceneColourPass
+    {
+        static constexpr int Width = 64, Height = 96; // both screens
+        bool Adaptive = false, Oled = false;
+        SceneColourParams Current, Target;
+        GLuint Tex = 0, FB = 0, PBO = 0;
+        bool Pending = false;
+        GLuint AdjustLoc = 0, LevelsLoc = 0, SaturationLoc = 0, OledLoc = 0;
+    } SceneColourState;
+    void DeleteSceneColourTargets() noexcept;
+    void RunSceneColourPass() noexcept;
 
     GLuint CompVertexBufferID = 0;
     GLuint CompVertexArrayID = 0;

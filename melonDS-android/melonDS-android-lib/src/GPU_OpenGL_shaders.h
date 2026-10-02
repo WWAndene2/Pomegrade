@@ -49,6 +49,11 @@ uniform uint u3DScale;
 // high colour (Pomegrade): blend in 8 bits per channel instead of the DS's 6,
 // keeping the 3D layer's full precision
 uniform uint uHighColor;
+// scene-adaptive colour (Pomegrade), see GPU_SceneColour: 0 = output unchanged
+uniform uint uAdjust;
+uniform vec2 uLevels;        // black, white
+uniform float uSaturation;
+uniform float uOledThreshold;
 
 uniform usampler2D ScreenTex;
 uniform sampler2D _3DTex;
@@ -56,6 +61,18 @@ uniform sampler2D _3DTex;
 smooth in vec2 fTexcoord;
 
 layout(location = 0) out vec4 oColor;
+
+// keep in sync with SceneColour::Apply
+vec3 AdjustColour(vec3 c)
+{
+    c = clamp((c - uLevels.x) / max(uLevels.y - uLevels.x, 0.05), 0.0, 1.0);
+    const vec3 lumaWeights = vec3(0.2126, 0.7152, 0.0722);
+    float l = dot(c, lumaWeights);
+    c = clamp(vec3(l) + (c - vec3(l)) * uSaturation, 0.0, 1.0);
+    if (uOledThreshold > 0.0)
+        c *= smoothstep(uOledThreshold * 0.5, uOledThreshold, dot(c, lumaWeights));
+    return c;
+}
 
 // 2D layer colour (6-bit) in the working precision
 ivec4 Expand2D(ivec4 c, bool high)
@@ -181,7 +198,9 @@ void main()
 
     // TODO: filters
 
-    oColor = vec4(vec3(pixel.bgr) / 255.0, 1.0);
+    vec3 colour = vec3(pixel.bgr) / 255.0;
+    if (uAdjust != 0u) colour = AdjustColour(colour);
+    oColor = vec4(colour, 1.0);
 }
 )";
 

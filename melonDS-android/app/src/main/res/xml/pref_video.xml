@@ -61,6 +61,20 @@
             android:defaultValue="1"/>
 
     <SwitchPreference
+            android:key="oled_blacks"
+            android:title="@string/oled_blacks"
+            android:summary="@string/oled_blacks_summary"
+            app:iconSpaceReserved="false"
+            android:defaultValue="false" />
+
+    <SwitchPreference
+            android:key="adaptive_colours"
+            android:title="@string/adaptive_colours"
+            android:summary="@string/adaptive_colours_summary"
+            app:iconSpaceReserved="false"
+            android:defaultValue="false" />
+
+    <SwitchPreference
             android:key="high_color"
             android:title="@string/high_color"
             android:summary="@string/high_color_summary"
