@@ -67,6 +67,7 @@ android {
         named("main") {
             manifest.srcFile("$azaharAndroid/AndroidManifest.xml")
             java.directories += "$azaharAndroid/java"
+            kotlin.directories += "$azaharAndroid/java"
             res.directories += "$azaharAndroid/res"
             assets.directories += "$azaharAndroid/assets"
         }
