@@ -43,12 +43,22 @@ Pomegrade is currently **two apps side by side in one APK**: melonDS-android (DS
 - Optional bilinear filtering of HD textures.
 - Easier pack installation (folder picker): `Android/data` is hard to reach on Android 11+.
 - HD textures for 3DS: Azahar already supports custom textures; both could share one pack format.
-- Native 3D enhancement, done by the emulator itself (no AI, no hand-made assets, no post-processing of the final image):
-  - **Polygon multiplier — prototype done (DS):** lit polygons are subdivided into curved sub-triangles (Phong tessellation) and relit with the DS lighting at every new point. Settings → Video → Polygon multiplier (Off/×2/×3/×4), Software and OpenGL renderers. Desktop tests in `tests/polygon-multiplier/`. Not yet tried on real games or a phone. Known limits: Compute renderer unsupported; possible small cracks where a multiplied polygon meets one that isn't; ~38 MB extra memory when on.
-  - "Better polygons" (fixes seams at high resolution): in the melonDS engine, not exposed in the settings.
+- "DS engine on steroids": native enhancements done by the emulator itself (no AI, no hand-made assets, no post-processing of the final image). The game always sees the real DS behaviour; only what is drawn changes. All in Settings → Video, off by default, verified pixel-identical to the original engine when off. Desktop tests in `tests/polygon-multiplier/`. **None tried on real games or a phone yet.**
+
+  | Enhancement | Renderers | Status, measured on the desktop |
+  |---|---|---|
+  | Polygon multiplier (×4 to ×64): lit polygons subdivided on a curved surface and relit with the DS lighting | Software, OpenGL | Done. Phong curves up to ×9, circular PN from ×16 (2.6× to 23× closer to the true shape than Phong at ×64). No fixed cap (memory guard: 262144 extra polygons per frame) |
+  | Remove polygon limit: polygons the DS would drop are drawn | Software, OpenGL | Done. 3000-polygon scene: 1536 drawn → 3000 |
+  | High-precision geometry: sub-pixel vertex positions | OpenGL | Done. Frame-to-frame jitter of a rotating triangle 27.2 px → 3.0 px |
+  | High colour: 8-bit colour instead of the DS's 6 | OpenGL | Done. Lit sphere shading 50 → 184 colour levels |
+  | Better polygons (melonDS option, fewer seams at high resolution) | OpenGL | Exposed in the settings |
+
+  Known limits: the Compute renderer ignores all of these; small cracks are possible where a multiplied polygon meets one that isn't; extra polygons aren't kept in savestates (redrawn on the next frame).
+
+  Next:
   - Native texture smoothing in the 3D engine (mipmaps).
   - Automatic texture upscaling at asset level (algorithmic, e.g. xBRZ/ScaleForce applied to each texture when loaded, as Azahar does on 3DS).
-  - 3DS: same polygon multiplier for Azahar's engine.
+  - 3DS: the same enhancements for Azahar's engine.
 
 **Performance and size**
 - Measure the release APK library by library and drop what neither core needs (e.g. check whether `libSPIRV-Tools-shared.so`, 5.7 MB, is required at runtime).
