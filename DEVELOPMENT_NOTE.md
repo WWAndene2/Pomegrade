@@ -43,9 +43,12 @@ Pomegrade is currently **two apps side by side in one APK**: melonDS-android (DS
 - Optional bilinear filtering of HD textures.
 - Easier pack installation (folder picker): `Android/data` is hard to reach on Android 11+.
 - HD textures for 3DS: Azahar already supports custom textures; both could share one pack format.
-- Automatic 3D upscaling, no texture pack needed:
-  - Polygons: melonDS already renders 3D at up to 8× the native resolution (Settings → Video → Internal resolution).
-  - Textures: melonDS has no texture upscaling filter (its 2xBR/HQ2X filters apply to the whole final image). Azahar has per-texture filters (Anime4K, bicubic, MMPX, ScaleForce, xBRZ) that could be ported to the DS core.
+- Native 3D enhancement, done by the emulator itself (no AI, no hand-made assets, no post-processing of the final image):
+  - **Polygon multiplier — prototype done (DS):** lit polygons are subdivided into curved sub-triangles (Phong tessellation) and relit with the DS lighting at every new point. Settings → Video → Polygon multiplier (Off/×2/×3/×4), Software and OpenGL renderers. Desktop tests in `tests/polygon-multiplier/`. Not yet tried on real games or a phone. Known limits: Compute renderer unsupported; possible small cracks where a multiplied polygon meets one that isn't; ~38 MB extra memory when on.
+  - "Better polygons" (fixes seams at high resolution): in the melonDS engine, not exposed in the settings.
+  - Native texture smoothing in the 3D engine (mipmaps).
+  - Automatic texture upscaling at asset level (algorithmic, e.g. xBRZ/ScaleForce applied to each texture when loaded, as Azahar does on 3DS).
+  - 3DS: same polygon multiplier for Azahar's engine.
 
 **Performance and size**
 - Measure the release APK library by library and drop what neither core needs (e.g. check whether `libSPIRV-Tools-shared.so`, 5.7 MB, is required at runtime).

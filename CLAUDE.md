@@ -96,7 +96,7 @@ Pomegrade is three codebases in one Gradle build, rooted at `melonDS-android/` (
 | CI workflows | `.github/workflows/` |
 | Kotlin unit tests | `melonDS-android/app/src/test/java/`, mirroring the package of the class under test |
 | Android instrumented tests | `melonDS-android/app/src/androidTest/java/`, same mirroring |
-| Desktop tests of the DS core's HD textures (CMake, no Android) | `tests/hd-textures/` |
+| Desktop tests of the DS core (CMake, no Android), one folder per feature | `tests/<feature>/` (`hd-textures/`, `polygon-multiplier/`) |
 | Golden/reference fixtures a test compares against | A `fixtures/` directory beside the tests that use them |
 | Project-wide documentation | Root: `README.md` (users), `CLAUDE.md` (rules), `DEVELOPMENT_NOTE.md` (roadmap) |
 
