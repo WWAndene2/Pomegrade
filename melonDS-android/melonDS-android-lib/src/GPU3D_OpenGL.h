@@ -278,6 +278,8 @@ private:
     static constexpr float ShadowStrength = 0.6f;
     GLuint ShadowMapTex {}, ShadowFramebuffer {};
     GLuint ShadowDepthSampler {}; // reads the shadow map's depths (contact-hardening search)
+    GLuint ShadowCasterBufferID {}, ShadowCasterArrayID {}; // GPU3D::RenderShadowCasters
+    std::vector<float> ShadowCasterVertices; // those facing the light, drawn this frame
     u32 LightUse[4] {}; // opaque polygons lit by each light, this frame
     struct
     {

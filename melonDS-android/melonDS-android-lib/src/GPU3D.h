@@ -428,8 +428,14 @@ public:
     std::unordered_map<u64, float> EdgeKeep;
     void UpdateEdgeKeep() noexcept;
     void RegisterEdgeFaces(int nverts) noexcept;
+    void RecordShadowCaster(int nverts);
+    std::vector<float> ShadowCasters; // the frame being submitted
     [[nodiscard]] u64 EdgeKey(int corner, int nverts) const noexcept;
     s16 RenderLightDirection[4][3] {}; // light directions (view space) at the end of the rendered frame
+    // Pomegrade: what casts shadows in the rendered frame (see RecordShadowCaster):
+    // opaque lit triangles as the game submitted them, 12 floats each: the
+    // three corners' view-space xyz, then the face's normal (its vertex normals' average)
+    std::vector<float> RenderShadowCasters;
     // the perspective projection and viewport most of the rendered frame's vertices used
     s32 RenderProjMatrix[16] {};
     u32 RenderViewport[6] {};

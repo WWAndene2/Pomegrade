@@ -391,6 +391,8 @@ GLRenderer::~GLRenderer()
     glDeleteFramebuffers(1, &ShadowFramebuffer);
     glDeleteTextures(1, &ShadowMapTex);
     glDeleteSamplers(1, &ShadowDepthSampler);
+    glDeleteBuffers(1, &ShadowCasterBufferID);
+    glDeleteVertexArrays(1, &ShadowCasterArrayID);
 
     glDeleteVertexArrays(1, &VertexArrayID);
     glDeleteBuffers(1, &VertexBufferID);
@@ -1499,18 +1501,44 @@ bool GLRenderer::RenderShadowMap(const GPU3D& gpu3d)
             hi[a] = std::max(hi[a], d);
         }
     }
+    // what casts may lie outside the view (see GPU3D::RecordShadowCaster):
+    // the depth range covers it, across the light only what is on screen
+    // matters (a directional light's shadows fall straight along it)
+    // Only faces turned towards the light cast: a closed object's lit half
+    // has its whole outline, and the inside of what encloses the scene (a
+    // room's ceiling and walls, lit by the DS too) faces away from a light
+    // coming from outside, which it would otherwise block entirely
+    const std::vector<float>& recorded = gpu3d.RenderShadowCasters;
+    ShadowCasterVertices.clear();
+    for (size_t t = 0; t + 11 < recorded.size(); t += 12)
+    {
+        const float* n = &recorded[t + 9];
+        if (n[0]*sp.Dir[0] + n[1]*sp.Dir[1] + n[2]*sp.Dir[2] <= 0)
+            continue;
+        ShadowCasterVertices.insert(ShadowCasterVertices.end(), &recorded[t], &recorded[t + 9]);
+    }
+    const std::vector<float>& casters = ShadowCasterVertices;
+    for (size_t v = 0; v + 2 < casters.size(); v += 3)
+    {
+        float d = casters[v]*sp.Dir[0] + casters[v+1]*sp.Dir[1] + casters[v+2]*sp.Dir[2];
+        lo[2] = std::min(lo[2], d);
+        hi[2] = std::max(hi[2], d);
+    }
     float extent = std::max(hi[0] - lo[0], hi[1] - lo[1]);
-    if (!(extent > 0) || !(hi[2] > lo[2]))
+    if (!(extent > 0) || !(hi[2] > lo[2]) || casters.empty())
         return false;
-    // a texel of margin all round
-    float margin = extent / ShadowMapSize;
-    sp.Bounds[0] = lo[0] - margin;
-    sp.Bounds[1] = lo[1] - margin;
-    sp.Bounds[2] = 1.0f / (hi[0] - lo[0] + 2 * margin);
-    sp.Bounds[3] = 1.0f / (hi[1] - lo[1] + 2 * margin);
-    sp.Depth[0] = hi[2] + margin;
-    sp.Depth[1] = 1.0f / (hi[2] - lo[2] + 2 * margin);
-    sp.Texel = (extent + 2 * margin) / ShadowMapSize;
+    // stable from frame to frame: the map's width in steps of 19% (with 4
+    // texels of margin), its corner on whole texels, so that a moving view
+    // doesn't make shadow edges crawl
+    float width = std::exp2(std::ceil(std::log2(extent * (1.0f + 4.0f / ShadowMapSize)) * 4.0f) / 4.0f);
+    float texel = width / ShadowMapSize;
+    sp.Bounds[0] = (std::floor(lo[0] / texel) - 1.0f) * texel;
+    sp.Bounds[1] = (std::floor(lo[1] / texel) - 1.0f) * texel;
+    sp.Bounds[2] = 1.0f / width;
+    sp.Bounds[3] = 1.0f / width;
+    sp.Depth[0] = hi[2] + texel;
+    sp.Depth[1] = 1.0f / (hi[2] - lo[2] + 2 * texel);
+    sp.Texel = texel;
 
     if (!ShadowMapTex)
     {
@@ -1554,37 +1582,25 @@ bool GLRenderer::RenderShadowMap(const GPU3D& gpu3d)
     glUniform4fv(ShadowLoc[3], 1, sp.Bounds);
     glUniform2fv(ShadowLoc[4], 1, sp.Depth);
 
-    // opaque triangles cast shadows; their indices are contiguous in polygon
-    // order, so consecutive ones are drawn in one call
-    glBindVertexArray(VertexArrayID);
-    u32 runStart = 0, runCount = 0;
-    auto flush = [&]() {
-        if (runCount) glDrawElements(GL_TRIANGLES, runCount, GL_UNSIGNED_INT, (void*)(uintptr_t)(runStart * 4));
-        runCount = 0;
-    };
-    for (int i = 0; i < NumFinalPolys; i++)
+    // the casters, on screen or not, whichever side the camera sees. Only
+    // geometry the DS lights casts: unlit polygons carry lighting the game
+    // painted in, occlusion included, or are backdrops (a sky behind a
+    // window would block the sun)
+    if (!ShadowCasterBufferID)
     {
-        const RendererPolygon& rp = PolygonList[i];
-        // only geometry the DS lights (characters, objects) casts: unlit polygons
-        // carry lighting the game painted in, occlusion included (a level's
-        // walls and ceilings, which would keep everything under them in
-        // shadow), or are backdrops (a sky behind a window would block the sun)
-        if (rp.PolyData->IsShadowMask || rp.PolyData->Translucent || rp.PrimType != GL_TRIANGLES || !rp.NumIndices ||
-            !(rp.PolyData->Attr & 0xF))
-        {
-            flush();
-            continue;
-        }
-        if (runCount && runStart + runCount == rp.IndicesOffset)
-            runCount += rp.NumIndices;
-        else
-        {
-            flush();
-            runStart = rp.IndicesOffset;
-            runCount = rp.NumIndices;
-        }
+        glGenBuffers(1, &ShadowCasterBufferID);
+        glGenVertexArrays(1, &ShadowCasterArrayID);
+        glBindVertexArray(ShadowCasterArrayID);
+        glBindBuffer(GL_ARRAY_BUFFER, ShadowCasterBufferID);
+        glEnableVertexAttribArray(5); // vViewPosition (w = 1: perspective)
+        glVertexAttribPointer(5, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
     }
-    flush();
+    glBindVertexArray(ShadowCasterArrayID);
+    glBindBuffer(GL_ARRAY_BUFFER, ShadowCasterBufferID);
+    glBufferData(GL_ARRAY_BUFFER, casters.size() * sizeof(float), casters.data(), GL_STREAM_DRAW);
+    glDisable(GL_CULL_FACE);
+    glDrawArrays(GL_TRIANGLES, 0, (GLsizei)(casters.size() / 3));
+    glBindVertexArray(VertexArrayID);
     return true;
 }
 

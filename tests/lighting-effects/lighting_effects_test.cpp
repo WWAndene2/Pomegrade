@@ -107,6 +107,11 @@ static bool FullFog = false;          // fog at full density everywhere
 static bool Bars = false;
 // a DS shadow volume (the dark disc games draw under characters) crossing the floor, left of the sphere
 static bool DSShadowVolume = false;
+// shadows come from the scene, not the view: a lit box outside the camera's
+// view, a one-sided panel turned away from the camera (the DS culls it), a
+// lit ceiling over everything, facing down (as a room's)
+static bool OffscreenBox = false, CulledPanel = false, Ceiling = false;
+static int CulledPanelWinding = 0;
 static const double LowBarX = -2.0, LowBarHeight = 0.1, HighBarX = 0.6, HighBarHeight = 2.4, BarHalf = 0.1;
 
 static void DrawSphere()
@@ -226,6 +231,55 @@ static void SubmitScene()
             Normal(0, 1, 0); Vertex16(x0, y, -4); Vertex16(x1, y, -4); Vertex16(x1, y, -6); Vertex16(x0, y, -6);
         }
         Cmd(0x41);
+    }
+
+    if (OffscreenBox || CulledPanel || Ceiling)
+    {
+        Cmd(0x30, {(0x5AD6) | (0x2108u << 16)});
+        Cmd(0x31, {0});
+        auto quad = [](const double c[4][3], const double n[3]) {
+            for (int i = 0; i < 4; i++) { Normal(n[0], n[1], n[2]); Vertex16(c[i][0], c[i][1], c[i][2]); }
+        };
+        if (OffscreenBox)
+        {
+            // left of the view, 2 above the floor: its shadow falls on the visible floor around (-2, -5.17)
+            Cmd(0x29, {(31 << 16) | (8 << 24) | 0xC0 | 0x01});
+            Cmd(0x40, {1});
+            double x0 = -4.3, x1 = -3.7, y0 = FloorY + 1.7, y1 = FloorY + 2.3, z0 = -4.2, z1 = -4.8;
+            const double top[4][3] = {{x0, y1, z0}, {x1, y1, z0}, {x1, y1, z1}, {x0, y1, z1}}, up[3] = {0, 1, 0};
+            const double bot[4][3] = {{x0, y0, z1}, {x1, y0, z1}, {x1, y0, z0}, {x0, y0, z0}}, down[3] = {0, -1, 0};
+            const double lef[4][3] = {{x0, y0, z1}, {x0, y0, z0}, {x0, y1, z0}, {x0, y1, z1}}, left[3] = {-1, 0, 0};
+            const double rig[4][3] = {{x1, y0, z0}, {x1, y0, z1}, {x1, y1, z1}, {x1, y1, z0}}, right[3] = {1, 0, 0};
+            quad(top, up); quad(bot, down); quad(lef, left); quad(rig, right);
+            Cmd(0x41);
+        }
+        if (CulledPanel)
+        {
+            // one-sided, facing up and to the left (towards the light), its
+            // front turned away from the camera: its shadow falls at (-1.6, -4.8)
+            Cmd(0x29, {(31 << 16) | (9 << 24) | 0x80 | 0x01});
+            Cmd(0x40, {1});
+            const double n[3] = {-0.7071, 0.7071, 0};
+            double c[3] = {-2.6, 0.0, -4.5}, u[3] = {0, 0, 0.3}, v[3] = {0.3, 0.3, 0};
+            double q[4][3];
+            int signs[4][2] = {{-1, -1}, {1, -1}, {1, 1}, {-1, 1}};
+            for (int i = 0; i < 4; i++)
+            {
+                int j = CulledPanelWinding ? 3 - i : i;
+                for (int k = 0; k < 3; k++) q[i][k] = c[k] + signs[j][0] * u[k] + signs[j][1] * v[k];
+            }
+            quad(q, n);
+            Cmd(0x41);
+        }
+        if (Ceiling)
+        {
+            // over the whole scene, lit, facing down into it
+            Cmd(0x29, {(31 << 16) | (10 << 24) | 0xC0 | 0x01});
+            Cmd(0x40, {1});
+            const double c[4][3] = {{-4, 2.5, -1.6}, {-4, 2.5, -8}, {4, 2.5, -8}, {4, 2.5, -1.6}}, down[3] = {0, -1, 0};
+            quad(c, down);
+            Cmd(0x41);
+        }
     }
 
     if (DSShadowVolume)
@@ -595,6 +649,52 @@ int main()
         printf("unlit canopy: floor under it (%d,%d) x%.2f, sphere's shadow x%.2f\n", bx, by, under, shadow);
         check(under > 0.99 && shadow < 0.8, "unlit canopy casts no shadow, the sphere still does");
         UnlitCanopy = false;
+    }
+    {
+        // shadows come from the scene, not from what the camera sees
+        auto shadowRatio = [&](bool& flag, double x, double z, const char* what) {
+            r->SetShadows(false);
+            flag = true;
+            auto off = Frame(*r, gpu);
+            r->SetShadows(true);
+            Frame(*r, gpu);
+            auto on = Frame(*r, gpu);
+            flag = false;
+            int px, py;
+            Project(x, FloorY, z, px, py);
+            double ratio = Brightness(on, px, py, 2) / Brightness(off, px, py, 2);
+            printf("%s: floor at (%d,%d) x%.2f\n", what, px, py, ratio);
+            return ratio;
+        };
+        double offscreen = shadowRatio(OffscreenBox, -2.0, -5.17, "a box outside the view");
+        check(offscreen < 0.8, "a box outside the view shadows the visible floor");
+
+        // the panel's winding that the DS culls (front turned away from the camera)
+        r->SetShadows(false);
+        auto noPanel = Frame(*r, gpu);
+        CulledPanel = true;
+        for (CulledPanelWinding = 0; CulledPanelWinding < 2; CulledPanelWinding++)
+            if (Frame(*r, gpu) == noPanel) break;
+        CulledPanel = false;
+        check(CulledPanelWinding < 2, "the one-sided panel turned away from the camera isn't drawn");
+        double culled = shadowRatio(CulledPanel, -1.6, -4.8, "a panel the DS culls (turned away from the camera)");
+        check(culled < 0.8, "a face turned away from the camera still casts");
+
+        int sx, sy;
+        Project(SphereCenter[0] + 1.1, FloorY, SphereCenter[2] - 0.25, sx, sy);
+        // the side light moves the ceiling's shadow 3.5 to the right: floor from x -0.5 onwards
+        double ceilingOpen = shadowRatio(Ceiling, 2.0, -5.5, "a lit ceiling over the scene, open floor under it");
+        Ceiling = true;
+        r->SetShadows(false);
+        auto ceilOff = Frame(*r, gpu);
+        r->SetShadows(true);
+        Frame(*r, gpu);
+        auto ceilOn = Frame(*r, gpu);
+        Ceiling = false;
+        double ceilingSphere = Brightness(ceilOn, sx, sy, 2) / Brightness(ceilOff, sx, sy, 2);
+        printf("with the ceiling: sphere's shadow x%.2f\n", ceilingSphere);
+        check(ceilingOpen > 0.97 && ceilingSphere < 0.8, "a ceiling facing into the scene doesn't block the light; the sphere still casts");
+        r->SetShadows(true);
     }
     {
         // contact hardening: a shadow is sharp where it meets its caster and

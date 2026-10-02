@@ -1167,6 +1167,8 @@ void GPU3D::SubmitPolygon() noexcept
     // including those culled or clipped away below
     if (PolygonMultiplierLevel > 1)
         RegisterEdgeFaces(nverts);
+    if (ViewDataRequested)
+        RecordShadowCaster(nverts);
     const u32 frameId = (PolygonSubmitCount++ << 8) | 0xFF;
 
     // culling
@@ -1734,6 +1736,39 @@ u64 GPU3D::EdgeKey(int corner, int nverts) const noexcept
     u64 texture = ((u64)TexPalette << 32) | TexParam;
     u64 key = ka * 0x9E3779B97F4A7C15ull ^ (kb + 0x632BE59BD9B4E019ull + (ka << 6) + (ka >> 2));
     return key ^ (texture * 0xC2B2AE3D27D4EB4Full + (key << 6) + (key >> 2));
+}
+
+// Shadows come from the scene, not from what the camera sees: each polygon
+// is recorded as the game submits it, before the DS discards the faces turned
+// away from the camera (half of each character, which half depending on the
+// camera's angle) and clips what lies outside the view (objects off screen
+// still shadow what is on screen). Only what the shadow map may draw: opaque
+// polygons the DS lights, in perspective (see GLRenderer::RenderShadowMap).
+// Geometry the game never submits (culled by the game itself) casts nothing.
+void GPU3D::RecordShadowCaster(int nverts)
+{
+    u32 attr = CurPolygonAttr;
+    u32 texfmt = (TexParam >> 26) & 0x7;
+    if (!(attr & 0xF) || ((attr >> 4) & 0x3) == 3 || ((attr >> 16) & 0x1F) != 31 || texfmt == 1 || texfmt == 6)
+        return;
+    float normal[3] = {};
+    for (int i = 0; i < nverts; i++)
+    {
+        const Vertex& v = TempVertexBuffer[i];
+        if (v.Orthographic || !v.HasViewNormal)
+            return;
+        for (int c = 0; c < 3; c++) normal[c] += v.ViewNormal[c];
+    }
+    // quads as two triangles (0 1 2, 0 2 3)
+    static constexpr int order[2][3] = {{0, 1, 2}, {0, 2, 3}};
+    for (int t = 0; t < nverts - 2; t++)
+    {
+        for (int k : order[t])
+            for (int c = 0; c < 3; c++)
+                ShadowCasters.push_back(TempVertexBuffer[k].ViewPosition[c]);
+        for (int c = 0; c < 3; c++)
+            ShadowCasters.push_back(normal[c]);
+    }
 }
 
 void GPU3D::RegisterEdgeFaces(int nverts) noexcept
@@ -3070,6 +3105,7 @@ void GPU3D::VBlank() noexcept
 
                 // for the renderer's effects (shadows, reflections)
                 memcpy(RenderLightDirection, LightDirection, sizeof(LightDirection));
+                std::swap(RenderShadowCasters, ShadowCasters);
                 if (FrameProjVertices >= BestProjVertices)
                 {
                     memcpy(RenderProjMatrix, FrameProjMatrix, sizeof(FrameProjMatrix));
@@ -3127,6 +3163,7 @@ void GPU3D::VBlank() noexcept
             NumSubVertices = 0;
             NumSubPolygons = 0;
             ExtraPolygons[CurRAMBank].clear();
+            ShadowCasters.clear();
             PolygonSubmitCount = 0;
 
             FlushRequest = 0;
