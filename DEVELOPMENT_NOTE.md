@@ -59,6 +59,7 @@ Pomegrade is currently **two apps side by side in one APK**: melonDS-android (DS
   | Pseudo ray tracing, step 2 - light bounce: lit surfaces light their surroundings with their colour (one diffuse bounce, from what is on screen) | OpenGL | Done. Grey floor in front of a lit red sphere 3-6% redder, floor-wall crease 3% brighter, open surfaces and 2D geometry unchanged. Screen-space: only surfaces the camera sees can send light |
   | Pseudo ray tracing, step 3 - real-time shadows: opaque 3D geometry casts shadows from the scene's main light (shadow map from the light, fitted to the scene) | OpenGL | Done. Floor in a sphere's shadow x0.66, lit surfaces and 2D geometry unchanged. In the shadow, only the main light's share of the colour (its cosine on the surface, 60%) is taken away |
   | Pseudo ray tracing, step 4 - reflections: surfaces reflect what is on screen (ray marched in view space, Fresnel; the game's specular colour makes a material shiny) | OpenGL | Done. Shiny floor in front of a red sphere: red/green x1.41; matte floor: x1.006; HUD untouched. Screen-space: what is off screen or hidden can't be reflected; reflections use facet normals (low-poly curved objects reflect in facets) |
+  | Frame generation (120 fps): an extra image between two DS frames, the 3D re-rendered with each polygon halfway between the frame shown and the next (which the DS has already rendered: no added latency); the display is asked for 120 Hz | OpenGL | Done (desktop tests; pacing untested on a phone). Moving sphere: generated frame within 0.35 px of halfway, 33x closer to a real halfway render than either frame. Limits: faces that turn towards or away from the camera between two frames shift silhouettes by about a pixel; 2D layers stay at 60; a game running at 30 fps gets no in-between images; scene cuts show the frame as is |
 
   Geometry fidelity (local, per edge): curvature reduced where the normals don't match the geometry (e.g. spherical normals painted on a flat cel-shaded face: 28% less bulge), round shapes unchanged. Geometry fidelity from neighbours: an angular shape with smoothed normals (box, sharp chin) looks exactly like a rounded one from a single polygon, so the angle between the two faces of each edge decides (kept up to 55°, flat from 80°: a box's 90° edges stay sharp, a low-poly sphere's 36-45° keep their curve). Edges are recognised from frame to frame by their model positions; the angles found in a frame apply from the next one (a model's very first frame curves as before). Box with smoothed normals at ×16: bulge 67% → 0.1% of its half size, sphere unchanged, no cracks.
 
@@ -79,7 +80,7 @@ Pomegrade is currently **two apps side by side in one APK**: melonDS-android (DS
 
 ## 3. New features
 
-- **120 fps**: frame interpolation as an option (decision pending).
+- **120 fps** (DS, OpenGL renderer): done as "Frame generation", see the enhancement table. Not yet for the 3DS core.
 - **Rewind and save states** shared by all consoles.
 - **Online play**: melonDS has early support; Azahar has none on Android.
 - **Cloud saves** (Google Drive) for all consoles.

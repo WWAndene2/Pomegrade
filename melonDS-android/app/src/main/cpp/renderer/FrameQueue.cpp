@@ -49,6 +49,20 @@ Frame* FrameQueue::getPresentFrame(std::optional<std::chrono::time_point<std::ch
         previousFrame = nullptr;
     }
 
+    if (presentInOrder)
+    {
+        // oldest first (frames are pushed at the front), keeping the last two
+        while (presentQueue.size() > 2)
+        {
+            freeQueue.push(presentQueue.back());
+            presentQueue.pop_back();
+        }
+        Frame* frame = presentQueue.back();
+        presentQueue.pop_back();
+        previousFrame = frame;
+        return frame;
+    }
+
     Frame* frame = presentQueue.front();
     presentQueue.pop_front();
 
@@ -60,6 +74,12 @@ Frame* FrameQueue::getPresentFrame(std::optional<std::chrono::time_point<std::ch
     presentQueue.clear();
     previousFrame = frame;
     return frame;
+}
+
+void FrameQueue::setPresentInOrder(bool enable)
+{
+    std::unique_lock lock(frameLock);
+    presentInOrder = enable;
 }
 
 void FrameQueue::validateRenderFrame(Frame* frame, int requiredWidth, int requiredHeight)

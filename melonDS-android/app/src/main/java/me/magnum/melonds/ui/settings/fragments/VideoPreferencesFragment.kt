@@ -59,6 +59,7 @@ class VideoPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTit
             add(findPreference("light_bounce")!!)
             add(findPreference("shadows")!!)
             add(findPreference("reflections")!!)
+            add(findPreference("frame_generation")!!)
             add(findPreference("better_polygons")!!)
             add(findPreference("enable_hd_textures")!!)
             add(findPreference("dump_textures")!!)

@@ -182,6 +182,7 @@ class SharedPreferencesSettingsRepository(
             lightBounce = preferences.getBoolean("light_bounce", false),
             shadows = preferences.getBoolean("shadows", false),
             reflections = preferences.getBoolean("reflections", false),
+            frameGeneration = preferences.getBoolean("frame_generation", false),
         )
     }
 
@@ -201,6 +202,10 @@ class SharedPreferencesSettingsRepository(
 
     override fun isSustainedPerformanceModeEnabled(): Boolean {
         return preferences.getBoolean("enable_sustained_performance", false)
+    }
+
+    override fun isFrameGenerationEnabled(): Boolean {
+        return preferences.getBoolean("frame_generation", false)
     }
 
     override fun getRomSearchDirectories(): Array<Uri> {

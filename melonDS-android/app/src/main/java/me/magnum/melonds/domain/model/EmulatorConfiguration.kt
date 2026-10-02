@@ -51,4 +51,6 @@ data class EmulatorConfiguration(
         val lightBounce: Boolean = false,
         val shadows: Boolean = false,
         val reflections: Boolean = false,
+        // Pomegrade: intermediate frames, shown at 120 Hz (OpenGL renderer)
+        val frameGeneration: Boolean = false,
 )

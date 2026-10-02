@@ -33,6 +33,11 @@ public:
     void pushRenderedFrame(Frame* frame);
     void discardRenderedFrame(Frame* frame);
     void clear();
+    // Frame generation (Pomegrade): frames are presented in the order they
+    // were rendered, one per call (each refresh), instead of only the newest.
+    // At most the last two wait, so latency stays bounded if the display runs
+    // slower than the frames come.
+    void setPresentInOrder(bool enable);
 
 private:
     std::mutex frameLock;
@@ -41,6 +46,7 @@ private:
     std::queue<Frame*> freeQueue{};
     std::deque<Frame*> presentQueue{};
     Frame* previousFrame = nullptr;
+    bool presentInOrder = false;
 };
 
 #endif //FRAMEQUEUE_H

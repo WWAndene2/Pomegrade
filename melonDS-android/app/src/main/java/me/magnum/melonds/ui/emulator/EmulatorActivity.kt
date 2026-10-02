@@ -46,6 +46,7 @@ import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
 import com.squareup.picasso.Picasso
 import dagger.hilt.android.AndroidEntryPoint
+import kotlin.math.abs
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
@@ -243,6 +244,7 @@ class EmulatorActivity : AppCompatActivity() {
     private val settingsLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         viewModel.onSettingsChanged()
         setupSustainedPerformanceMode()
+        setupDisplayRefreshRate()
         setupFpsCounter()
         viewModel.resumeEmulator()
     }
@@ -557,6 +559,7 @@ class EmulatorActivity : AppCompatActivity() {
                         is EmulatorState.RunningRom,
                         is EmulatorState.RunningFirmware -> {
                             setupSustainedPerformanceMode()
+                            setupDisplayRefreshRate()
                             setupFpsCounter()
                             binding.textLoading.isGone = true
                             binding.viewLayoutControls.isVisible = true
@@ -728,6 +731,25 @@ class EmulatorActivity : AppCompatActivity() {
 
     private fun setupSustainedPerformanceMode() {
         window.setSustainedPerformanceMode(viewModel.isSustainedPerformanceModeEnabled())
+    }
+
+    /**
+     * Frame generation (Pomegrade) makes two images per DS frame: the display
+     * is asked for its mode closest to 120 Hz (same resolution) so each one gets
+     * a refresh. Otherwise the system chooses, as before.
+     */
+    private fun setupDisplayRefreshRate() {
+        val currentDisplay = display ?: return
+        val current = currentDisplay.mode
+        val modeId = if (viewModel.isFrameGenerationEnabled()) {
+            currentDisplay.supportedModes
+                .filter { it.physicalWidth == current.physicalWidth && it.physicalHeight == current.physicalHeight && it.refreshRate >= 119f }
+                .minByOrNull { abs(it.refreshRate - 120f) }
+                ?.modeId ?: 0
+        } else {
+            0
+        }
+        window.attributes = window.attributes.also { it.preferredDisplayModeId = modeId }
     }
 
     private fun setupFpsCounter() {

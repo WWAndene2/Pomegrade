@@ -779,6 +779,10 @@ class EmulatorViewModel @Inject constructor(
         return settingsRepository.isSustainedPerformanceModeEnabled()
     }
 
+    fun isFrameGenerationEnabled(): Boolean {
+        return settingsRepository.isFrameGenerationEnabled()
+    }
+
     fun getFpsCounterPosition(): FpsCounterPosition {
         return settingsRepository.getFpsCounterPosition()
     }

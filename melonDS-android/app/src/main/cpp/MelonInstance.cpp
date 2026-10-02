@@ -344,6 +344,8 @@ u32 MelonInstance::runFrame()
     }
 
     bool isRendererAccelerated = nds->GPU.GetRenderer3D().Accelerated;
+    const bool generateFrames = currentRenderer == Renderer::OpenGl && currentConfiguration->frameGeneration;
+    frameQueue.setPresentInOrder(generateFrames);
     if (isRendererAccelerated)
     {
         int backBuffer = nds->GPU.FrontBuffer ? 0 : 1;
@@ -375,6 +377,33 @@ u32 MelonInstance::runFrame()
         renderFrame->renderFence = eglCreateSyncKHR(currentDisplay, EGL_SYNC_FENCE_KHR, nullptr);
         glFlush();
         frameQueue.pushRenderedFrame(renderFrame);
+
+        // frame generation: the image halfway to the next frame (whose 3D the
+        // DS has already rendered), presented after this one
+        if (generateFrames)
+        {
+            Frame* intermediateFrame = frameQueue.getRenderFrame();
+            if (intermediateFrame->renderFence)
+            {
+                eglDestroySyncKHR(currentDisplay, intermediateFrame->renderFence);
+                intermediateFrame->renderFence = 0;
+            }
+            if (intermediateFrame->presentFence)
+                eglWaitSyncKHR(currentDisplay, intermediateFrame->presentFence, 0);
+            frameQueue.validateRenderFrame(intermediateFrame, screenWidth, screenHeight * 2);
+
+            auto& glRenderer = static_cast<GLRenderer&>(nds->GPU.GetRenderer3D());
+            if (glRenderer.RenderIntermediateFrame(nds->GPU, intermediateFrame->frameTexture))
+            {
+                intermediateFrame->renderFence = eglCreateSyncKHR(currentDisplay, EGL_SYNC_FENCE_KHR, nullptr);
+                glFlush();
+                frameQueue.pushRenderedFrame(intermediateFrame);
+            }
+            else
+            {
+                frameQueue.discardRenderedFrame(intermediateFrame);
+            }
+        }
     }
     else
     {
@@ -663,6 +692,7 @@ void MelonInstance::updateRenderer()
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetLightBounce(currentConfiguration->lightBounce);
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetShadows(currentConfiguration->shadows);
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetReflections(currentConfiguration->reflections);
+            static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetFrameGeneration(currentConfiguration->frameGeneration);
             break;
         }
         case Renderer::Compute:

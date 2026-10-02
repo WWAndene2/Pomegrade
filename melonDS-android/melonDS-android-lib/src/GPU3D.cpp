@@ -193,6 +193,7 @@ void GPU3D::ResetRenderingState() noexcept
 
 void GPU3D::Reset() noexcept
 {
+    PolygonSubmitCount = 0;
     EdgeFaces.clear();
     EdgeKeepPending.clear();
     EdgeKeep.clear();
@@ -1166,6 +1167,7 @@ void GPU3D::SubmitPolygon() noexcept
     // including those culled or clipped away below
     if (PolygonMultiplierLevel > 1)
         RegisterEdgeFaces(nverts);
+    const u32 frameId = (PolygonSubmitCount++ << 8) | 0xFF;
 
     // culling
     // TODO: work out how it works on the real thing
@@ -1370,6 +1372,7 @@ void GPU3D::SubmitPolygon() noexcept
 
     Polygon* poly = extra ? NewSubPolygon() : &CurPolygonRAM[NumPolygons++];
     poly->NumVertices = 0;
+    poly->FrameId = frameId;
 
     poly->Attr = CurPolygonAttr;
     poly->TexParam = TexParam;
@@ -1705,6 +1708,7 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
             poly->Translucent = parent->Translucent;
             poly->IsShadowMask = false;
             poly->IsShadow = false;
+            poly->FrameId = (parent->FrameId & ~0xFFu) | ((NumSubPolygons - 1 - firstpoly) & 0xFF);
 
             FinalizePolygon(poly, nv);
         }
@@ -3088,6 +3092,7 @@ void GPU3D::VBlank() noexcept
             NumSubVertices = 0;
             NumSubPolygons = 0;
             ExtraPolygons[CurRAMBank].clear();
+            PolygonSubmitCount = 0;
 
             FlushRequest = 0;
         }

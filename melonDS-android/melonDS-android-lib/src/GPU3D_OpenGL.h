@@ -24,6 +24,8 @@
 #include "GPU3D_OpenGL_HDTextures.h"
 #include "OpenGLSupport.h"
 
+#include <unordered_map>
+
 namespace melonDS
 {
 class GPU;
@@ -53,6 +55,17 @@ public:
     void SetLightBounce(bool enable) noexcept { LightBounce = enable; }
     void SetShadows(bool enable) noexcept { Shadows = enable; }
     void SetReflections(bool enable) noexcept { Reflections = enable; }
+    // Frame generation (Pomegrade): see RenderIntermediateFrame
+    void SetFrameGeneration(bool enable) noexcept;
+    // Renders the image halfway between the 3D frame last shown and the one
+    // rendered after it (the DS renders a frame ahead): each polygon present
+    // in both, with the same texture and shape, has its vertices placed
+    // halfway (screen position, depth, colour, texture coordinates). Composited
+    // with the 2D layers of the frame just finished, into outputTexture.
+    // Returns false (nothing rendered) when there is nothing to interpolate.
+    // The renderer's own image is left as it was: display capture and the
+    // next frame see the DS render.
+    bool RenderIntermediateFrame(GPU& gpu, u32 outputTexture);
     void SetScaleFactor(int scale) noexcept;
     [[nodiscard]] bool GetBetterPolygons() const noexcept { return BetterPolygons; }
     [[nodiscard]] int GetScaleFactor() const noexcept { return ScaleFactor; }
@@ -109,6 +122,23 @@ private:
     int RenderPolygonBatch(int i) const;
     int RenderPolygonEdgeBatch(int i) const;
     void RenderSceneChunk(const GPU3D& gpu3d, int y, int h);
+    void RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys, bool intermediate);
+
+    // frame generation: copies of the polygons of the last two 3D frames
+    struct FrameSnapshot
+    {
+        std::vector<Polygon> Polygons;
+        std::vector<Vertex> Vertices;
+        std::unordered_map<u32, u32> ById; // Polygon::FrameId -> index, ~0 if not unique
+        void Take(Polygon** polys, u32 count);
+    };
+    bool FrameGeneration {};
+    FrameSnapshot Snapshots[2]; // previous, current
+    FrameSnapshot Intermediate;
+    std::vector<Polygon*> IntermediateList;
+    GLuint BackupColorTex {}, BackupLightingTex {};
+    GLuint CopyFramebuffers[2] {};
+    int BackupW {}, BackupH {};
 
     bool LightingEnabled() const noexcept { return AmbientOcclusion || LightBounce || Shadows || Reflections; }
     float* SetupViewVertex(const Vertex* vtx, float* gptr) const;

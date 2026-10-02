@@ -103,6 +103,13 @@
             android:defaultValue="false" />
 
     <SwitchPreference
+            android:key="frame_generation"
+            android:title="@string/frame_generation"
+            android:summary="@string/frame_generation_summary"
+            app:iconSpaceReserved="false"
+            android:defaultValue="false" />
+
+    <SwitchPreference
             android:key="high_color"
             android:title="@string/high_color"
             android:summary="@string/high_color_summary"

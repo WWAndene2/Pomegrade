@@ -99,6 +99,12 @@ struct Polygon
     u32 SubPolygonStart;
     u32 SubPolygonCount;
 
+    // frame generation (Pomegrade): the same polygon from one frame to the
+    // next. The game's submission order (counting polygons culled or clipped
+    // away) << 8, low byte: 0xFF, or the sub-polygon's number. Not part of the
+    // hardware state.
+    u32 FrameId;
+
     void DoSavestate(Savestate* file) noexcept;
 };
 
@@ -403,6 +409,7 @@ public:
     std::vector<Polygon*> MultipliedRenderPolygons;
     bool UnlimitedPolygons = false;
     bool ViewDataRequested = false;
+    u32 PolygonSubmitCount = 0; // polygons the game sent this frame, see Polygon::FrameId
     // Polygon multiplier, geometry fidelity from neighbours: share of the
     // curvature kept along each edge, from the angle between the two faces
     // sharing it (PolygonMultiplier::DihedralKeep). Edges are identified by

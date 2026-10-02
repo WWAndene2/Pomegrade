@@ -102,6 +102,8 @@ typedef struct
     bool lightBounce = false;
     bool shadows = false;
     bool reflections = false;
+    // Pomegrade: intermediate frames (see GLRenderer::RenderIntermediateFrame), presented in order
+    bool frameGeneration = false;
 } EmulatorConfiguration;
 
 }

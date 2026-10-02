@@ -129,6 +129,7 @@ GLCompositor::~GLCompositor()
     assert(glDeleteFramebuffers != nullptr);
 
     glDeleteFramebuffers(CompScreenOutputFB.size(), &CompScreenOutputFB[0]);
+    glDeleteFramebuffers(1, &IntermediateFB);
     glDeleteTextures(1, &CompScreenInputTex);
     glDeleteTextures(CompScreenOutputTex.size(), &CompScreenOutputTex[0]);
 
@@ -214,8 +215,10 @@ GLCompositor::GLCompositor(GLCompositor&& other) noexcept :
     CompVertexArrayID(other.CompVertexArrayID),
     CompScreenInputTex(other.CompScreenInputTex),
     CompScreenOutputTex(other.CompScreenOutputTex),
-    CompScreenOutputFB(other.CompScreenOutputFB)
+    CompScreenOutputFB(other.CompScreenOutputFB),
+    IntermediateFB(other.IntermediateFB)
 {
+    other.IntermediateFB = 0;
     other.SceneColourState.FB = other.SceneColourState.Tex = other.SceneColourState.PBO = 0;
     other.CompScreenOutputFB = {};
     other.CompScreenInputTex = {};
@@ -258,6 +261,10 @@ GLCompositor& GLCompositor::operator=(GLCompositor&& other) noexcept
 
         glDeleteFramebuffers(CompScreenOutputFB.size(), &CompScreenOutputFB[0]);
         CompScreenOutputFB = other.CompScreenOutputFB;
+
+        glDeleteFramebuffers(1, &IntermediateFB);
+        IntermediateFB = other.IntermediateFB;
+        other.IntermediateFB = 0;
 
         other.CompScreenOutputFB = {};
         other.CompScreenInputTex = {};
@@ -314,8 +321,24 @@ void GLCompositor::Stop(const GPU& gpu) noexcept
 void GLCompositor::RenderFrame(const GPU& gpu, Renderer3D& renderer) noexcept
 {
     int backbuf = gpu.FrontBuffer ^ 1;
+    Composite(gpu, renderer, CompScreenOutputFB[backbuf], backbuf, true);
+}
+
+void GLCompositor::RenderIntermediateFrame(const GPU& gpu, Renderer3D& renderer, GLuint texture) noexcept
+{
+    if (!IntermediateFB) glGenFramebuffers(1, &IntermediateFB);
+    glBindFramebuffer(GL_FRAMEBUFFER, IntermediateFB);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture, 0);
+    const GLenum attachment = GL_COLOR_ATTACHMENT0;
+    glDrawBuffers(1, &attachment);
+    // after the frame ended, its 2D layers are the front buffer
+    Composite(gpu, renderer, IntermediateFB, gpu.FrontBuffer, false);
+}
+
+void GLCompositor::Composite(const GPU& gpu, Renderer3D& renderer, GLuint framebuffer, int backbuf, bool advanceSceneColour) noexcept
+{
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CompScreenOutputFB[backbuf]);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer);
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
@@ -350,15 +373,18 @@ void GLCompositor::RenderFrame(const GPU& gpu, Renderer3D& renderer) noexcept
     bool adjust = s.Adaptive || s.Oled;
     if (adjust)
     {
-        RunSceneColourPass();
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CompScreenOutputFB[backbuf]);
-        glViewport(0, 0, ScreenW, ScreenH);
+        if (advanceSceneColour)
+        {
+            RunSceneColourPass();
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer);
+            glViewport(0, 0, ScreenW, ScreenH);
+        }
         glUniform2f(s.LevelsLoc, s.Current.LevelBlack, s.Current.LevelWhite);
         glUniform1f(s.SaturationLoc, s.Current.Saturation);
         glUniform1f(s.OledLoc, s.Current.OledThreshold);
     }
-    else
+    else if (advanceSceneColour)
     {
         // back to neutral, so turning it on again starts from the plain image
         s.Current = s.Target = SceneColourParams();

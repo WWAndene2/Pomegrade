@@ -382,6 +382,9 @@ GLRenderer::~GLRenderer()
     glDeleteProgram(LightingAOShader);
     glDeleteProgram(LightingComposeShader);
     glDeleteProgram(LightingShadowShader);
+    glDeleteTextures(1, &BackupColorTex);
+    glDeleteTextures(1, &BackupLightingTex);
+    glDeleteFramebuffers(2, CopyFramebuffers);
     glDeleteFramebuffers(1, &ShadowFramebuffer);
     glDeleteTextures(1, &ShadowMapTex);
 
@@ -1639,14 +1642,30 @@ void GLRenderer::RenderLighting(const GPU3D& gpu3d)
 
 void GLRenderer::RenderFrame(GPU& gpu)
 {
+    Polygon** renderpolys = gpu.GPU3D.GetRenderPolygons();
+    u32 numrenderpolys = gpu.GPU3D.GetRenderNumPolygons();
+    if (FrameGeneration)
+    {
+        std::swap(Snapshots[0], Snapshots[1]);
+        Snapshots[1].Take(renderpolys, numrenderpolys);
+    }
+    RenderScene(gpu, renderpolys, numrenderpolys, false);
+}
+
+void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys, bool intermediate)
+{
     CurShaderID = -1;
 
     // lighting effects: GPU3D captures view-space data while the game submits a
     // frame, so they start with the first frame submitted after being enabled
-    LightingActive = LightingEnabled() && ViewDataCaptured && LightingSupported;
+    // (an intermediate frame keeps the decision of the frame it comes from)
+    if (!intermediate)
+    {
+        LightingActive = LightingEnabled() && ViewDataCaptured && LightingSupported;
+        gpu.GPU3D.SetViewDataCapture(LightingEnabled());
+        ViewDataCaptured = gpu.GPU3D.CaptureViewData();
+    }
     LightingDone = false;
-    gpu.GPU3D.SetViewDataCapture(LightingEnabled());
-    ViewDataCaptured = gpu.GPU3D.CaptureViewData();
     if (LightingActive)
         SetupLightingTargets();
     glBindVertexArray(VertexArrayID);
@@ -1720,53 +1739,65 @@ void GLRenderer::RenderFrame(GPU& gpu)
     if (unibuf) memcpy(unibuf, &ShaderConfig, sizeof(ShaderConfig));
     glUnmapBuffer(GL_UNIFORM_BUFFER);
 
-    // SUCKY!!!!!!!!!!!!!!!!!!
-    // TODO: detect when VRAM blocks are modified!
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, TexMemID);
-    for (int i = 0; i < 4; i++)
+    // texture memory: an intermediate frame uses what the frame it comes from loaded
+    if (!intermediate)
     {
-        u32 mask = gpu.VRAMMap_Texture[i];
-        u8* vram;
-        if (!mask) continue;
-        else if (mask & (1<<0)) vram = gpu.VRAM_A;
-        else if (mask & (1<<1)) vram = gpu.VRAM_B;
-        else if (mask & (1<<2)) vram = gpu.VRAM_C;
-        else if (mask & (1<<3)) vram = gpu.VRAM_D;
-
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*128, 1024, 128, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
-    }
-
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, TexPalMemID);
-
-    u16* tempBuffer = (u16*) malloc(1024 * 8 * 2);
-    for (int i = 0; i < 6; i++)
-    {
-        // 6 x 16K chunks
-        u32 mask = gpu.VRAMMap_TexPal[i];
-        u8* vram;
-        if (!mask) continue;
-        else if (mask & (1<<4)) vram = &gpu.VRAM_E[(i&3)*0x4000];
-        else if (mask & (1<<5)) vram = gpu.VRAM_F;
-        else if (mask & (1<<6)) vram = gpu.VRAM_G;
-
-        memcpy(tempBuffer, vram, 1024 * 8 * 2);
-        for (int j = 0; j < 1024 * 8; j++)
+        // SUCKY!!!!!!!!!!!!!!!!!!
+        // TODO: detect when VRAM blocks are modified!
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, TexMemID);
+        for (int i = 0; i < 4; i++)
         {
-            u16 value = tempBuffer[j];
+            u32 mask = gpu.VRAMMap_Texture[i];
+            u8* vram;
+            if (!mask) continue;
+            else if (mask & (1<<0)) vram = gpu.VRAM_A;
+            else if (mask & (1<<1)) vram = gpu.VRAM_B;
+            else if (mask & (1<<2)) vram = gpu.VRAM_C;
+            else if (mask & (1<<3)) vram = gpu.VRAM_D;
 
-            u8 a = (value >> 15) & 0x1;
-            u8 b = (value >> 10) & 0x1F;
-            u8 g = (value >> 5) & 0x1F;
-            u8 r = (value >> 0) & 0x1F;
-
-            tempBuffer[j] = (r << 11) | (g << 6) | (b << 1) | a;
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*128, 1024, 128, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
         }
 
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*8, 1024, 8, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, tempBuffer);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, TexPalMemID);
+
+        u16* tempBuffer = (u16*) malloc(1024 * 8 * 2);
+        for (int i = 0; i < 6; i++)
+        {
+            // 6 x 16K chunks
+            u32 mask = gpu.VRAMMap_TexPal[i];
+            u8* vram;
+            if (!mask) continue;
+            else if (mask & (1<<4)) vram = &gpu.VRAM_E[(i&3)*0x4000];
+            else if (mask & (1<<5)) vram = gpu.VRAM_F;
+            else if (mask & (1<<6)) vram = gpu.VRAM_G;
+
+            memcpy(tempBuffer, vram, 1024 * 8 * 2);
+            for (int j = 0; j < 1024 * 8; j++)
+            {
+                u16 value = tempBuffer[j];
+
+                u8 a = (value >> 15) & 0x1;
+                u8 b = (value >> 10) & 0x1F;
+                u8 g = (value >> 5) & 0x1F;
+                u8 r = (value >> 0) & 0x1F;
+
+                tempBuffer[j] = (r << 11) | (g << 6) | (b << 1) | a;
+            }
+
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*8, 1024, 8, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, tempBuffer);
+        }
+        free(tempBuffer);
     }
-    free(tempBuffer);
+    else
+    {
+        // the lighting pass and the compositor use these units in between
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, TexMemID);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, TexPalMemID);
+    }
 
     glDisable(GL_SCISSOR_TEST);
     glEnable(GL_DEPTH_TEST);
@@ -1826,8 +1857,6 @@ void GLRenderer::RenderFrame(GPU& gpu)
         glDrawBuffers(2, buffers);
     }
 
-    Polygon** renderpolys = gpu.GPU3D.GetRenderPolygons();
-    u32 numrenderpolys = gpu.GPU3D.GetRenderNumPolygons();
     if (numrenderpolys)
     {
         // render shit here
@@ -1872,6 +1901,160 @@ void GLRenderer::RenderFrame(GPU& gpu)
 
     if (LightingActive)
         RenderLighting(gpu.GPU3D);
+}
+
+void GLRenderer::FrameSnapshot::Take(Polygon** polys, u32 count)
+{
+    Polygons.resize(count);
+    u32 nverts = 0;
+    for (u32 i = 0; i < count; i++) nverts += polys[i]->NumVertices;
+    Vertices.resize(nverts);
+    ById.clear();
+    u32 v = 0;
+    for (u32 i = 0; i < count; i++)
+    {
+        Polygon& copy = Polygons[i];
+        copy = *polys[i];
+        for (u32 j = 0; j < copy.NumVertices; j++)
+        {
+            Vertices[v] = *polys[i]->Vertices[j];
+            copy.Vertices[j] = &Vertices[v++];
+        }
+        auto [it, added] = ById.emplace(copy.FrameId, i);
+        if (!added) it->second = ~0u;
+    }
+}
+
+void GLRenderer::SetFrameGeneration(bool enable) noexcept
+{
+    if (enable == FrameGeneration) return;
+    FrameGeneration = enable;
+    for (FrameSnapshot& snapshot : Snapshots)
+    {
+        snapshot.Polygons.clear();
+        snapshot.Vertices.clear();
+        snapshot.ById.clear();
+    }
+}
+
+bool GLRenderer::RenderIntermediateFrame(GPU& gpu, u32 outputTexture)
+{
+    const FrameSnapshot& prev = Snapshots[0];
+    const FrameSnapshot& cur = Snapshots[1];
+    if (!FrameGeneration || cur.Polygons.empty() || prev.Polygons.empty())
+        return false;
+
+    // pair each polygon with itself in the previous frame: same texture, same
+    // kind, same shape (clipping can change a polygon's corners)
+    std::vector<int> match(cur.Polygons.size(), -1);
+    u32 matched = 0;
+    for (u32 i = 0; i < cur.Polygons.size(); i++)
+    {
+        const Polygon& c = cur.Polygons[i];
+        auto it = prev.ById.find(c.FrameId);
+        if (it == prev.ById.end() || it->second == ~0u) continue;
+        const Polygon& p = prev.Polygons[it->second];
+        if (p.NumVertices != c.NumVertices || p.TexParam != c.TexParam || p.TexPalette != c.TexPalette ||
+            p.Attr != c.Attr || p.WBuffer != c.WBuffer || p.Type != c.Type)
+            continue;
+        match[i] = (int)it->second;
+        matched++;
+    }
+    // most of the scene changed (a cut, a new screen): nothing in between to
+    // show, the frame already shown stays
+    if (matched * 2 < cur.Polygons.size())
+        return false;
+
+    Intermediate.Polygons.resize(cur.Polygons.size());
+    Intermediate.Vertices.resize(cur.Vertices.size());
+    IntermediateList.resize(cur.Polygons.size());
+    u32 v = 0;
+    for (u32 i = 0; i < cur.Polygons.size(); i++)
+    {
+        Polygon& out = Intermediate.Polygons[i];
+        const Polygon& c = cur.Polygons[i];
+        out = c;
+        const Polygon* p = match[i] >= 0 ? &prev.Polygons[match[i]] : nullptr;
+        // a polygon that jumped across the screen (teleport) isn't interpolated
+        if (p)
+        {
+            float jump = 0;
+            for (u32 j = 0; j < c.NumVertices; j++)
+                jump = std::max(jump, std::fabs(c.Vertices[j]->PreciseScreen[0] - p->Vertices[j]->PreciseScreen[0]) +
+                                      std::fabs(c.Vertices[j]->PreciseScreen[1] - p->Vertices[j]->PreciseScreen[1]));
+            if (jump > 64) p = nullptr;
+        }
+        for (u32 j = 0; j < c.NumVertices; j++)
+        {
+            Vertex& vtx = Intermediate.Vertices[v++];
+            vtx = *c.Vertices[j];
+            out.Vertices[j] = &vtx;
+            if (!p) continue;
+            const Vertex& a = *p->Vertices[j];
+            const Vertex& b = *c.Vertices[j];
+            auto mid = [](s32 x, s32 y) { return (s32)(((s64)x + y) >> 1); };
+            for (int k = 0; k < 2; k++)
+            {
+                vtx.FinalPosition[k] = mid(a.FinalPosition[k], b.FinalPosition[k]);
+                vtx.HiresPosition[k] = mid(a.HiresPosition[k], b.HiresPosition[k]);
+                vtx.PreciseScreen[k] = (a.PreciseScreen[k] + b.PreciseScreen[k]) * 0.5f;
+                vtx.TexCoords[k] = (s16)mid(a.TexCoords[k], b.TexCoords[k]);
+            }
+            for (int k = 0; k < 3; k++)
+            {
+                vtx.FinalColor[k] = mid(a.FinalColor[k], b.FinalColor[k]);
+                vtx.ViewNormal[k] = (a.ViewNormal[k] + b.ViewNormal[k]) * 0.5f;
+            }
+            for (int k = 0; k < 4; k++)
+                vtx.ViewPosition[k] = (a.ViewPosition[k] + b.ViewPosition[k]) * 0.5f;
+            vtx.Specular = (a.Specular + b.Specular) * 0.5f;
+            out.FinalZ[j] = mid(p->FinalZ[j], c.FinalZ[j]);
+            out.FinalW[j] = mid(p->FinalW[j], c.FinalW[j]);
+        }
+        IntermediateList[i] = &out;
+    }
+
+    // keep the renderer's image (the next frame shows it, the game may capture it)
+    if (BackupW != ScreenW || BackupH != ScreenH)
+    {
+        for (GLuint* tex : {&BackupColorTex, &BackupLightingTex})
+        {
+            if (!*tex) glGenTextures(1, tex);
+            SetupDefaultTexParams(*tex);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        }
+        BackupW = ScreenW;
+        BackupH = ScreenH;
+    }
+    // copied by blits: glCopyImageSubData refuses the colour buffer, whose
+    // format is unsized GL_RGBA (GL_INVALID_OPERATION, measured on Mesa)
+    if (!CopyFramebuffers[0]) glGenFramebuffers(2, CopyFramebuffers);
+    auto copy = [&](GLuint from, GLuint to) {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, CopyFramebuffers[0]);
+        glFramebufferTexture(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, from, 0);
+        glReadBuffer(GL_COLOR_ATTACHMENT0);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CopyFramebuffers[1]);
+        glFramebufferTexture(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, to, 0);
+        const GLenum attachment = GL_COLOR_ATTACHMENT0;
+        glDrawBuffers(1, &attachment);
+        glDisable(GL_SCISSOR_TEST);
+        glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glBlitFramebuffer(0, 0, ScreenW, ScreenH, 0, 0, ScreenW, ScreenH, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    };
+    const bool lightingDone = LightingDone;
+    copy(ColorBufferTex, BackupColorTex);
+    if (lightingDone)
+        copy(LightingTex, BackupLightingTex);
+
+    RenderScene(gpu, IntermediateList.data(), (u32)IntermediateList.size(), true);
+    CurGLCompositor.RenderIntermediateFrame(gpu, *this, outputTexture);
+
+    copy(BackupColorTex, ColorBufferTex);
+    if (lightingDone)
+        copy(BackupLightingTex, LightingTex);
+    LightingDone = lightingDone;
+    glBindFramebuffer(GL_FRAMEBUFFER, MainFramebuffer);
+    return true;
 }
 
 void GLRenderer::Stop(const GPU& gpu)

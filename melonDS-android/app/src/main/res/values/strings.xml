@@ -662,6 +662,8 @@
     <string name="shadows_summary">3D objects cast shadows from the scene\'s main light</string>
     <string name="reflections">Reflections</string>
     <string name="reflections_summary">Surfaces reflect what is on screen: shiny materials clearly, others only at grazing angles</string>
+    <string name="frame_generation">Frame generation (120 fps)</string>
+    <string name="frame_generation_summary">An extra image between two DS frames, with the 3D placed halfway: smoother motion on a 120 Hz screen. The game still runs at its own speed</string>
     <string name="texture_upscale">Texture upscaling</string>
     <string-array name="texture_upscale_options">
         <item>Off</item>
