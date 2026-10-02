@@ -174,6 +174,7 @@ class SharedPreferencesSettingsRepository(
             betterPolygons = preferences.getBoolean("better_polygons", false),
             unlimitedPolygons = preferences.getBoolean("unlimited_polygons", false),
             highPrecisionGeometry = preferences.getBoolean("high_precision_geometry", false),
+            highColor = preferences.getBoolean("high_color", false),
         )
     }
 

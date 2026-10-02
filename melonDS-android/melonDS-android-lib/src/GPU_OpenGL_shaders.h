@@ -46,6 +46,9 @@ precision mediump float;
 precision mediump usampler2D;
 
 uniform uint u3DScale;
+// high colour (Pomegrade): blend in 8 bits per channel instead of the DS's 6,
+// keeping the 3D layer's full precision
+uniform uint uHighColor;
 
 uniform usampler2D ScreenTex;
 uniform sampler2D _3DTex;
@@ -54,9 +57,20 @@ smooth in vec2 fTexcoord;
 
 layout(location = 0) out vec4 oColor;
 
+// 2D layer colour (6-bit) in the working precision
+ivec4 Expand2D(ivec4 c, bool high)
+{
+    if (high) c.rgb = (c.rgb << 2) | (c.rgb >> 4);
+    return c;
+}
+
 void main()
 {
-    ivec4 pixel = ivec4(texelFetch(ScreenTex, ivec2(fTexcoord), 0));
+    bool high = uHighColor != 0u;
+    int maxc = high ? 0xFF : 0x3F;
+    vec4 scale3d = high ? vec4(255,255,255,31) : vec4(63,63,63,31);
+
+    ivec4 pixel = Expand2D(ivec4(texelFetch(ScreenTex, ivec2(fTexcoord), 0)), high);
 
     ivec4 mbright = ivec4(texelFetch(ScreenTex, ivec2(256*3, int(fTexcoord.y)), 0));
     int dispmode = mbright.b & 0x3;
@@ -68,7 +82,7 @@ void main()
     if (dispmode == 1)
     {
         ivec4 val1 = pixel;
-        ivec4 val2 = ivec4(texelFetch(ScreenTex, ivec2(fTexcoord) + ivec2(256,0), 0));
+        ivec4 val2 = Expand2D(ivec4(texelFetch(ScreenTex, ivec2(fTexcoord) + ivec2(256,0), 0)), high);
         ivec4 val3 = ivec4(texelFetch(ScreenTex, ivec2(fTexcoord) + ivec2(512,0), 0));
 
         int compmode = val3.a & 0xF;
@@ -81,7 +95,7 @@ void main()
             float xpos = fTexcoord.x + _3dxpos;
             float ypos = mod(fTexcoord.y, 192.0);
             ivec4 _3dpix = ivec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos) * float(u3DScale)), 0).bgra
-                         * vec4(63,63,63,31));
+                         * scale3d);
 
             if (_3dpix.a > 0)
             {
@@ -89,7 +103,7 @@ void main()
                 evb = 32 - eva;
 
                 val1 = ((_3dpix * eva) + (val1 * evb) + 0x10) >> 5;
-                val1 = min(val1, 0x3F);
+                val1 = min(val1, maxc);
             }
             else
                 val1 = val2;
@@ -101,7 +115,7 @@ void main()
             float xpos = fTexcoord.x + _3dxpos;
             float ypos = mod(fTexcoord.y, 192.0);
             ivec4 _3dpix = ivec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos)*float(u3DScale)), 0).bgra
-                         * vec4(63,63,63,31));
+                         * scale3d);
 
             if (_3dpix.a > 0)
             {
@@ -109,7 +123,7 @@ void main()
                 evb = val3.b;
 
                 val1 = ((val1 * eva) + (_3dpix * evb) + 0x8) >> 4;
-                val1 = min(val1, 0x3F);
+                val1 = min(val1, maxc);
             }
             else
                 val1 = val2;
@@ -121,14 +135,14 @@ void main()
             float xpos = fTexcoord.x + _3dxpos;
             float ypos = mod(fTexcoord.y, 192.0);
             ivec4 _3dpix = ivec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos)*float(u3DScale)), 0).bgra
-                         * vec4(63,63,63,31));
+                         * scale3d);
 
             if (_3dpix.a > 0)
             {
                 evy = val3.g;
 
                 val1 = _3dpix;
-                if      (compmode == 2) val1 += (((0x3F - val1) * evy) + 0x8) >> 4;
+                if      (compmode == 2) val1 += (((maxc - val1) * evy) + 0x8) >> 4;
                 else if (compmode == 3) val1 -= ((val1 * evy) + 0x7) >> 4;
             }
             else
@@ -147,7 +161,7 @@ void main()
             int evy = mbright.r & 0x1F;
             if (evy > 16) evy = 16;
 
-            pixel += ((0x3F - pixel) * evy) >> 4;
+            pixel += ((maxc - pixel) * evy) >> 4;
         }
         else if (brightmode == 2)
         {
@@ -159,8 +173,11 @@ void main()
         }
     }
 
-    pixel.rgb <<= 2;
-    pixel.rgb |= (pixel.rgb >> 6);
+    if (!high)
+    {
+        pixel.rgb <<= 2;
+        pixel.rgb |= (pixel.rgb >> 6);
+    }
 
     // TODO: filters
 

@@ -653,6 +653,7 @@ void MelonInstance::updateRenderer()
             auto glRenderSettings = static_cast<OpenGlRenderSettings&>(*currentConfiguration->renderSettings);
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetRenderSettings(glRenderSettings.betterPolygons, glRenderSettings.scale);
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetHighPrecision(currentConfiguration->highPrecisionGeometry);
+            static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetHighColor(currentConfiguration->highColor);
             break;
         }
         case Renderer::Compute:
@@ -668,6 +669,8 @@ void MelonInstance::updateRenderer()
     // buffers can be allocated here. The compute renderer ignores it.
     nds->GPU.GPU3D.SetPolygonMultiplier(currentConfiguration->polygonMultiplier);
     nds->GPU.GPU3D.SetUnlimitedPolygons(currentConfiguration->unlimitedPolygons);
+    // high colour only with the OpenGL renderer: the others keep the DS's 5-bit vertex colours
+    nds->GPU.GPU3D.SetHighColor(newRenderer == Renderer::OpenGl && currentConfiguration->highColor);
 }
 
 void MelonInstance::setBatteryLevels()

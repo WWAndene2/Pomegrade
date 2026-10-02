@@ -223,6 +223,47 @@ static void SubmitRotatingTriangle(double angle)
     g.VBlank();
 }
 
+// Final image through the OpenGL compositor, with a 2D layer that only shows
+// the 3D one ("3D on top", no blending). Returns RGBA8 pixels of the top screen.
+static std::vector<u32> Composite(GLRenderer& r, GPU& gpu)
+{
+    int backbuf = gpu.FrontBuffer ^ 1;
+    const int stride = 256 * 3 + 1;
+    for (int s = 0; s < 2; s++)
+    {
+        // the GPU allocated them for the software renderer (256 wide): replace with the accelerated layout
+        gpu.Framebuffer[backbuf][s] = std::make_unique<u32[]>(stride * 192);
+        u32* fb = gpu.Framebuffer[backbuf][s].get();
+        memset(fb, 0, stride * 192 * 4);
+        // both screens show the 3D layer (which one is on top depends on the screen swap)
+        for (int y = 0; y < 192; y++)
+            fb[y * stride + 768] = 1 << 16; // master brightness entry: display mode 1, 3D shown
+    }
+
+    GLuint tex, fbo;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 256, 386, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    r.SetOutputTexture(backbuf, tex);
+    r.Blit(gpu);
+
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
+    std::vector<u32> all(256 * 386);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0); // the renderer leaves its capture buffer bound
+    glReadPixels(0, 0, 256, 386, GL_RGBA, GL_UNSIGNED_BYTE, all.data());
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDeleteFramebuffers(1, &fbo);
+    glDeleteTextures(1, &tex);
+
+    // the top screen is the upper half of the output (GL rows count from the bottom)
+    std::vector<u32> top(256 * 192);
+    for (int y = 0; y < 192; y++)
+        memcpy(&top[y * 256], &all[(385 - y) * 256], 256 * 4);
+    return top;
+}
+
 static std::vector<u32> Capture(Renderer3D& r)
 {
     std::vector<u32> img(256 * 192);
@@ -404,6 +445,45 @@ int main()
         }
         glr->SetHighPrecision(false);
         ok = ok && spread[1] < spread[0];
+    }
+
+    // high colour: the sphere's shading keeps more levels through the compositor
+    if (glr)
+    {
+        gpu.GPU3D.SetPolygonMultiplier(4);
+        size_t levels[2];
+        bool off6bit = true;
+        for (int high = 0; high < 2; high++)
+        {
+            gpu.GPU3D.SetHighColor(high);
+            glr->SetHighColor(high);
+            SubmitScene();
+            glr->RenderFrame(gpu);
+            auto img = Composite(*glr, gpu);
+
+            std::vector<u8> png(256 * 192 * 3);
+            std::vector<bool> seen(1 << 24);
+            levels[high] = 0;
+            for (int y = 0; y < 192; y++)
+                for (int x = 0; x < 256; x++)
+                {
+                    u32 c = img[y * 256 + x] & 0xFFFFFF;
+                    for (int k = 0; k < 3; k++)
+                    {
+                        u8 v = (c >> (8 * k)) & 0xFF;
+                        png[(y * 256 + x) * 3 + k] = v;
+                        // without high colour every channel is a 6-bit value expanded to 8
+                        if (!high && v != (u8)(((v >> 2) << 2) | (v >> 6))) off6bit = false;
+                    }
+                    if (x >= 60 && !seen[c]) { seen[c] = true; levels[high]++; } // sphere side of the screen
+                }
+            stbi_write_png(high ? "colour_high.png" : "colour_ds.png", 256, 192, 3, png.data(), 256 * 3);
+            printf("high colour %s: %zu distinct colours in the sphere's shading\n", high ? "on " : "off", levels[high]);
+        }
+        printf("without high colour, output is 6-bit per channel: %s\n", off6bit ? "yes" : "NO");
+        gpu.GPU3D.SetHighColor(false);
+        glr->SetHighColor(false);
+        ok = ok && off6bit && levels[1] > levels[0] * 2;
     }
 
     // off again: back to exactly the original image

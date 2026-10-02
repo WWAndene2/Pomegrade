@@ -39,6 +39,8 @@ public:
     // High-precision geometry (Pomegrade): vertices placed at sub-pixel
     // positions instead of being snapped to whole pixels of the output.
     void SetHighPrecision(bool enable) noexcept { HighPrecision = enable; }
+    // High colour (Pomegrade): see GLCompositor::SetHighColor and GPU3D::SetHighColor
+    void SetHighColor(bool enable) noexcept { CurGLCompositor.SetHighColor(enable); }
     void SetScaleFactor(int scale) noexcept;
     [[nodiscard]] bool GetBetterPolygons() const noexcept { return BetterPolygons; }
     [[nodiscard]] int GetScaleFactor() const noexcept { return ScaleFactor; }

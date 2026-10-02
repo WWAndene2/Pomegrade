@@ -51,6 +51,7 @@ std::optional<GLCompositor> GLCompositor::New() noexcept
 GLCompositor::GLCompositor(GLuint compShader) noexcept : CompShader(compShader)
 {
     CompScaleLoc = glGetUniformLocation(CompShader, "u3DScale");
+    CompHighColorLoc = glGetUniformLocation(CompShader, "uHighColor");
 
     glUseProgram(CompShader);
     GLuint screenTextureUniform = glGetUniformLocation(CompShader, "ScreenTex");
@@ -139,6 +140,8 @@ GLCompositor::GLCompositor(GLCompositor&& other) noexcept :
     ScreenH(other.ScreenH),
     ScreenW(other.ScreenW),
     CompScaleLoc(other.CompScaleLoc),
+    CompHighColorLoc(other.CompHighColorLoc),
+    HighColor(other.HighColor),
     CompVertices(other.CompVertices),
     CompShader(other.CompShader),
     CompVertexBufferID(other.CompVertexBufferID),
@@ -163,6 +166,8 @@ GLCompositor& GLCompositor::operator=(GLCompositor&& other) noexcept
         ScreenH = other.ScreenH;
         ScreenW = other.ScreenW;
         CompScaleLoc = other.CompScaleLoc;
+        CompHighColorLoc = other.CompHighColorLoc;
+        HighColor = other.HighColor;
         CompVertices = other.CompVertices;
 
         // Clean up these resources before overwriting them
@@ -252,6 +257,7 @@ void GLCompositor::RenderFrame(const GPU& gpu, Renderer3D& renderer) noexcept
     // TODO: select more shaders (filtering, etc)
     glUseProgram(CompShader);
     glUniform1ui(CompScaleLoc, Scale);
+    glUniform1ui(CompHighColorLoc, HighColor ? 1 : 0);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, CompScreenInputTex);

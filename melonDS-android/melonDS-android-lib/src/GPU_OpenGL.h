@@ -40,6 +40,8 @@ public:
     ~GLCompositor();
 
     void SetScaleFactor(int scale) noexcept;
+    // High colour (Pomegrade): blend the 3D and 2D layers in 8 bits per channel
+    void SetHighColor(bool enable) noexcept { HighColor = enable; }
     [[nodiscard]] int GetScaleFactor() const noexcept { return Scale; }
 
     void Stop(const GPU& gpu) noexcept;
@@ -53,6 +55,8 @@ private:
 
     GLuint CompShader {};
     GLuint CompScaleLoc = 0;
+    GLuint CompHighColorLoc = 0;
+    bool HighColor = false;
 
     GLuint CompVertexBufferID = 0;
     GLuint CompVertexArrayID = 0;

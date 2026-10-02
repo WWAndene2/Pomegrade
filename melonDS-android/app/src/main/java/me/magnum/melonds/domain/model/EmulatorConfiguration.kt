@@ -39,4 +39,6 @@ data class EmulatorConfiguration(
         val unlimitedPolygons: Boolean = false,
         // Pomegrade: sub-pixel vertex positions (OpenGL renderer)
         val highPrecisionGeometry: Boolean = false,
+        // Pomegrade: 8-bit colour (OpenGL renderer)
+        val highColor: Boolean = false,
 )

@@ -650,6 +650,8 @@
     <string name="unlimited_polygons_summary">Draw the polygons a DS would drop when a scene has too many (missing or flickering objects)</string>
     <string name="high_precision_geometry">High-precision geometry</string>
     <string name="high_precision_geometry_summary">Place vertices between pixels instead of snapping them: less shaking of moving 3D models</string>
+    <string name="high_color">High colour</string>
+    <string name="high_color_summary">8 bits per colour instead of the DS\'s 6: smoother gradients and lighting, less banding</string>
     <string name="better_polygons">Better polygons</string>
     <string name="better_polygons_summary">Fewer seams and distortions on large polygons at high resolution</string>
     <string name="polygon_multiplier">Polygon multiplier</string>

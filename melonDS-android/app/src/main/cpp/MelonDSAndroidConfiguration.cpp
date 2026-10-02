@@ -119,6 +119,7 @@ MelonDSAndroid::EmulatorConfiguration MelonDSAndroidConfiguration::buildEmulator
     finalEmulatorConfiguration.polygonMultiplier = env->GetIntField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "polygonMultiplier", "I"));
     finalEmulatorConfiguration.unlimitedPolygons = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "unlimitedPolygons", "Z"));
     finalEmulatorConfiguration.highPrecisionGeometry = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "highPrecisionGeometry", "Z"));
+    finalEmulatorConfiguration.highColor = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "highColor", "Z"));
 
     return finalEmulatorConfiguration;
 }

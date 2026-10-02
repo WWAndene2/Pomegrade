@@ -150,6 +150,11 @@ public:
     // behaviour (overflow flag, counters, timing) either way.
     void SetUnlimitedPolygons(bool enable) noexcept;
 
+    // High colour (Pomegrade): vertex colours keep the precision of the DS
+    // lighting instead of being rounded to 5 bits per channel. Meant for the
+    // OpenGL renderer, whose compositor then blends in 8 bits.
+    void SetHighColor(bool enable) noexcept { HighColor = enable; }
+
     // Polygons for the renderers: the hardware list, or the same list with
     // multiplied polygons replaced by their sub-polygons.
     [[nodiscard]] Polygon** GetRenderPolygons() noexcept
@@ -197,7 +202,7 @@ private:
     Polygon* NewSubPolygon() noexcept;
     void ClearSubPolygons() noexcept;
     void CalculateLighting() noexcept;
-    s32 LightVertex(const s32* normaltrans, u8* color) const noexcept;
+    s32 LightVertex(const s32* normaltrans, u8* color, s32* precisecolor = nullptr) const noexcept;
     void BoxTest(const u32* params) noexcept;
     void PosTest() noexcept;
     void VecTest(u32 param) noexcept;
@@ -388,6 +393,8 @@ public:
     u32 NumSubPolygons = 0;
     std::vector<Polygon*> MultipliedRenderPolygons;
     bool UnlimitedPolygons = false;
+    bool HighColor = false;
+    s32 VertexColorPrecise[3] {}; // current vertex colour, 5.12 fixed point (high colour)
     std::vector<Polygon*> ExtraPolygons[2]; // past the hardware limit, per bank, in the sub-polygon storage
     u32 MultipliedRenderNumPolygons = 0;
     bool RenderMultiplied = false;

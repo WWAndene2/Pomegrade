@@ -962,8 +962,17 @@ bool ClipCoordsEqual(Vertex* a, Vertex* b)
            a->Position[3] == b->Position[3];
 }
 
-static void ComputeFinalColor(Vertex* vtx) noexcept
+static void ComputeFinalColor(Vertex* vtx, bool highcolor) noexcept
 {
+    if (highcolor)
+    {
+        // high colour: Color is 5.12 fixed point without the hardware's bias;
+        // map 0..31 to the same 0..511 range, keeping the fraction
+        for (int i = 0; i < 3; i++)
+            vtx->FinalColor[i] = std::clamp((s32)(((s64)vtx->Color[i] * 511) / (31 << 12)), 0, 511);
+        return;
+    }
+
     vtx->FinalColor[0] = vtx->Color[0] >> 12;
     if (vtx->FinalColor[0]) vtx->FinalColor[0] = ((vtx->FinalColor[0] << 4) + 0xF);
     vtx->FinalColor[1] = vtx->Color[1] >> 12;
@@ -1401,7 +1410,7 @@ void GPU3D::SubmitPolygon() noexcept
 
         poly->NumVertices++;
 
-        ComputeFinalColor(vtx);
+        ComputeFinalColor(vtx, HighColor);
     }
 
     FinalizePolygon(poly, nverts);
@@ -1598,9 +1607,10 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
                     for (int i = 0; i < 3; i++)
                         normaltrans[i] = (s32)std::lround(mv.Normal[i] * normallength);
                     u8 color[3];
-                    LightVertex(normaltrans, color);
+                    s32 precise[3];
+                    LightVertex(normaltrans, color, precise);
                     for (int i = 0; i < 3; i++)
-                        out.Color[i] = (color[i] << 12) + 0xFFF;
+                        out.Color[i] = HighColor ? precise[i] : (color[i] << 12) + 0xFFF;
                 }
                 else
                 {
@@ -1631,7 +1641,7 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
                 Vertex* vtx = NewSubVertex();
                 *vtx = clipped[i];
                 ComputeScreenPosition(vtx);
-                ComputeFinalColor(vtx);
+                ComputeFinalColor(vtx, HighColor);
                 poly->Vertices[i] = vtx;
             }
             poly->NumVertices = nv;
@@ -1723,6 +1733,11 @@ void GPU3D::SubmitVertex() noexcept
     vertextrans->Color[0] = (VertexColor[0] << 12) + 0xFFF;
     vertextrans->Color[1] = (VertexColor[1] << 12) + 0xFFF;
     vertextrans->Color[2] = (VertexColor[2] << 12) + 0xFFF;
+    if (HighColor)
+    {
+        for (int i = 0; i < 3; i++)
+            vertextrans->Color[i] = VertexColorPrecise[i];
+    }
 
     if ((TexParam >> 30) == 3)
     {
@@ -1823,7 +1838,7 @@ void GPU3D::SubmitVertex() noexcept
 
 // DS lighting for one vertex: colour from the transformed normal and the
 // current lights and material. Returns the number of lights applied.
-s32 GPU3D::LightVertex(const s32* normaltrans, u8* color) const noexcept
+s32 GPU3D::LightVertex(const s32* normaltrans, u8* color, s32* precisecolor) const noexcept
 {
     s32 c = 0;
     u32 vtxbuff[3] =
@@ -1900,6 +1915,13 @@ s32 GPU3D::LightVertex(const s32* normaltrans, u8* color) const noexcept
     color[1] = (vtxbuff[1] >> 14 > 31) ? 31 : (vtxbuff[1] >> 14);
     color[2] = (vtxbuff[2] >> 14 > 31) ? 31 : (vtxbuff[2] >> 14);
 
+    // high colour: the same result before rounding, 5.12 fixed point
+    if (precisecolor)
+    {
+        for (int i = 0; i < 3; i++)
+            precisecolor[i] = (s32)std::min<u32>(vtxbuff[i] >> 2, 31u << 12);
+    }
+
     return c;
 }
 
@@ -1916,7 +1938,7 @@ void GPU3D::CalculateLighting() noexcept
     normaltrans[1] = ((Normal[0]*VecMatrix[1] + Normal[1]*VecMatrix[5] + Normal[2]*VecMatrix[9]) << 9) >> 21;
     normaltrans[2] = ((Normal[0]*VecMatrix[2] + Normal[1]*VecMatrix[6] + Normal[2]*VecMatrix[10]) << 9) >> 21;
 
-    s32 c = LightVertex(normaltrans, VertexColor);
+    s32 c = LightVertex(normaltrans, VertexColor, VertexColorPrecise);
 
     if (c < 1) c = 1;
     NormalPipeline = 7;
@@ -2295,6 +2317,8 @@ void GPU3D::ExecuteCommand() noexcept
                 VertexColor[1] = g;
                 VertexColor[2] = b;
                 CurColorFromLighting = false;
+                for (int i = 0; i < 3; i++)
+                    VertexColorPrecise[i] = VertexColor[i] << 12;
             }
             break;
 
@@ -2393,6 +2417,8 @@ void GPU3D::ExecuteCommand() noexcept
                 VertexColor[1] = MatDiffuse[1];
                 VertexColor[2] = MatDiffuse[2];
                 CurColorFromLighting = false;
+                for (int i = 0; i < 3; i++)
+                    VertexColorPrecise[i] = VertexColor[i] << 12;
             }
             AddCycles(3);
             break;

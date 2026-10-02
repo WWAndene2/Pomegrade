@@ -90,6 +90,8 @@ typedef struct
     bool unlimitedPolygons = false;
     // Pomegrade: sub-pixel vertex positions in the OpenGL renderer (see GLRenderer::SetHighPrecision)
     bool highPrecisionGeometry = false;
+    // Pomegrade: 8-bit colour in the OpenGL renderer (see GPU3D::SetHighColor, GLCompositor::SetHighColor)
+    bool highColor = false;
 } EmulatorConfiguration;
 
 }
