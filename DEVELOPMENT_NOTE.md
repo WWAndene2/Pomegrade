@@ -42,6 +42,9 @@ Pomegrade is currently **two apps side by side in one APK**: melonDS-android (DS
 - Optional bilinear filtering of HD textures.
 - Easier pack installation (folder picker): `Android/data` is hard to reach on Android 11+.
 - HD textures for 3DS: Azahar already supports custom textures; both could share one pack format.
+- Automatic 3D upscaling, no texture pack needed:
+  - Polygons: melonDS already renders 3D at up to 8× the native resolution (Settings → Video → Internal resolution).
+  - Textures: melonDS has no texture upscaling filter (its 2xBR/HQ2X filters apply to the whole final image). Azahar has per-texture filters (Anime4K, bicubic, MMPX, ScaleForce, xBRZ) that could be ported to the DS core.
 
 **Performance and size**
 - Measure the release APK library by library and drop what neither core needs (e.g. check whether `libSPIRV-Tools-shared.so`, 5.7 MB, is required at runtime).
