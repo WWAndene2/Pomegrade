@@ -46,4 +46,6 @@ data class EmulatorConfiguration(
         // Pomegrade: scene-adaptive colour (OpenGL renderer)
         val oledBlacks: Boolean = false,
         val adaptiveColours: Boolean = false,
+        // Pomegrade: lighting effects (OpenGL renderer)
+        val ambientOcclusion: Boolean = false,
 )

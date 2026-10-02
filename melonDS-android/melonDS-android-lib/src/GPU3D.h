@@ -57,6 +57,7 @@ struct Vertex
     float PreciseScreen[2];
     bool HasViewNormal;
     bool LitColor; // colour computed by the DS lighting from that normal
+    bool Orthographic; // projected without perspective (2D-like 3D: menus, HUDs)
 
     void DoSavestate(Savestate* file) noexcept;
 };
@@ -149,6 +150,11 @@ public:
     // polygons / 6144 vertices are still drawn. The game sees the hardware
     // behaviour (overflow flag, counters, timing) either way.
     void SetUnlimitedPolygons(bool enable) noexcept;
+
+    // View-space position and normal per vertex (Pomegrade), for the polygon
+    // multiplier and the renderer's lighting effects.
+    void SetViewDataCapture(bool enable) noexcept { ViewDataRequested = enable; }
+    [[nodiscard]] bool CaptureViewData() const noexcept { return PolygonMultiplierLevel > 1 || ViewDataRequested; }
 
     // High colour (Pomegrade): vertex colours keep the precision of the DS
     // lighting instead of being rounded to 5 bits per channel. Meant for the
@@ -393,6 +399,9 @@ public:
     u32 NumSubPolygons = 0;
     std::vector<Polygon*> MultipliedRenderPolygons;
     bool UnlimitedPolygons = false;
+    bool ViewDataRequested = false;
+    s16 RenderLightDirection[4][3] {}; // light directions (view space) at the end of the rendered frame
+    s32 RenderProjMatrix[16] {};       // projection matrix at the end of the rendered frame
     bool HighColor = false;
     s32 VertexColorPrecise[3] {}; // current vertex colour, 5.12 fixed point (high colour)
     std::vector<Polygon*> ExtraPolygons[2]; // past the hardware limit, per bank, in the sub-polygon storage

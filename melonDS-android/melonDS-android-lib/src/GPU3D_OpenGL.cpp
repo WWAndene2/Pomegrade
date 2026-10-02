@@ -26,9 +26,12 @@
 #include "NDS.h"
 #include "GPU.h"
 #include "GPU3D_OpenGL_shaders.h"
+#include "Platform.h"
 
 namespace melonDS
 {
+using Platform::Log;
+using Platform::LogLevel;
 
 bool GLRenderer::BuildRenderShader(u32 flags, const std::string& vs, const std::string& fs)
 {
@@ -51,8 +54,9 @@ bool GLRenderer::BuildRenderShader(u32 flags, const std::string& vs, const std::
     bool ret = OpenGL::CompileVertexFragmentProgram(prog,
         vsbuf, fsbuf,
         shadername,
-        {{"vPosition", 0}, {"vColor", 1}, {"vTexcoord", 2}, {"vPolygonAttr", 3}, {"vHDTexture", 4}},
-        {{"oColor", 0}, {"oAttr", 1}});
+        {{"vPosition", 0}, {"vColor", 1}, {"vTexcoord", 2}, {"vPolygonAttr", 3}, {"vHDTexture", 4},
+         {"vViewPosition", 5}, {"vViewNormal", 6}},
+        {{"oColor", 0}, {"oAttr", 1}, {"oViewPosition", 2}, {"oViewNormal", 3}});
 
     if (!ret) return false;
 
@@ -187,6 +191,31 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
     glUniform1i(uni_id, 1);
 
 
+    // lighting effects (Pomegrade)
+    if (!OpenGL::CompileVertexFragmentProgram(result->LightingAOShader,
+            kFinalPassVS, kLightingAOFS,
+            "LightingAOShader",
+            {{"vPosition", 0}},
+            {{"oAO", 0}}))
+        return nullptr;
+    glUseProgram(result->LightingAOShader);
+    glUniform1i(glGetUniformLocation(result->LightingAOShader, "GPosition"), 0);
+    glUniform1i(glGetUniformLocation(result->LightingAOShader, "GNormal"), 1);
+    result->LightingAORadiusLoc = glGetUniformLocation(result->LightingAOShader, "uRadius");
+
+    if (!OpenGL::CompileVertexFragmentProgram(result->LightingComposeShader,
+            kFinalPassVS, kLightingComposeFS,
+            "LightingComposeShader",
+            {{"vPosition", 0}},
+            {{"oColor", 0}}))
+        return nullptr;
+    glUseProgram(result->LightingComposeShader);
+    glUniform1i(glGetUniformLocation(result->LightingComposeShader, "Color"), 0);
+    glUniform1i(glGetUniformLocation(result->LightingComposeShader, "GPosition"), 1);
+    glUniform1i(glGetUniformLocation(result->LightingComposeShader, "GNormal"), 2);
+    glUniform1i(glGetUniformLocation(result->LightingComposeShader, "AO"), 3);
+
+
     memset(&result->ShaderConfig, 0, sizeof(ShaderConfig));
 
     glGenBuffers(1, &result->ShaderConfigUBO);
@@ -234,12 +263,21 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
     glEnableVertexAttribArray(4); // HD texture atlas location
     glVertexAttribIPointer(4, 1, GL_INT, VertexSize*4, (void*)(7*4));
 
+    // view-space data for the lighting effects, enabled per frame (RenderFrame)
+    glGenBuffers(1, &result->ViewVertexBufferID);
+    glBindBuffer(GL_ARRAY_BUFFER, result->ViewVertexBufferID);
+    glBufferData(GL_ARRAY_BUFFER, result->ViewVertexBuffer.size() * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, ViewVertexSize*4, (void*)(0));
+    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, ViewVertexSize*4, (void*)(4*4));
+
     glGenBuffers(1, &result->IndexBufferID);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, result->IndexBufferID);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, result->IndexBuffer.size() * sizeof(u32), nullptr, GL_DYNAMIC_DRAW);
 
     glGenFramebuffers(1, &result->MainFramebuffer);
     glGenFramebuffers(1, &result->DownscaleFramebuffer);
+    glGenFramebuffers(1, &result->AOFramebuffer);
+    glGenFramebuffers(1, &result->LightingFramebuffer);
 
     // color buffers
     glGenTextures(1, &result->ColorBufferTex);
@@ -303,6 +341,16 @@ GLRenderer::~GLRenderer()
     glDeleteTextures(1, &AttrBufferTex);
     glDeleteTextures(1, &DownScaleBufferTex);
 
+    glDeleteFramebuffers(1, &AOFramebuffer);
+    glDeleteFramebuffers(1, &LightingFramebuffer);
+    glDeleteTextures(1, &ViewPositionTex);
+    glDeleteTextures(1, &ViewNormalTex);
+    glDeleteTextures(1, &AOTex);
+    glDeleteTextures(1, &LightingTex);
+    glDeleteBuffers(1, &ViewVertexBufferID);
+    glDeleteProgram(LightingAOShader);
+    glDeleteProgram(LightingComposeShader);
+
     glDeleteVertexArrays(1, &VertexArrayID);
     glDeleteBuffers(1, &VertexBufferID);
     glDeleteVertexArrays(1, &ClearVertexArrayID);
@@ -365,6 +413,11 @@ void GLRenderer::SetRenderSettings(bool betterpolygons, int scale) noexcept
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, ColorBufferTex, 0);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, DepthBufferTex, 0);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, AttrBufferTex, 0);
+    // lighting targets still at the old size would limit rendering to their
+    // area: detached here, made again at the new size when next used
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, 0, 0);
+    LightingTargetsW = LightingTargetsH = 0;
     glDrawBuffers(2, fbassign);
 
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
@@ -493,6 +546,41 @@ u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u3
     return vptr;
 }
 
+float* GLRenderer::SetupViewVertex(const Vertex* vtx, float* gptr) const
+{
+    for (int i = 0; i < 3; i++) *gptr++ = vtx->ViewPosition[i];
+    *gptr++ = vtx->Orthographic ? 0.f : 1.f;
+    for (int i = 0; i < 3; i++) *gptr++ = vtx->ViewNormal[i];
+    *gptr++ = vtx->HasViewNormal ? 1.f : 0.f;
+    return gptr;
+}
+
+float* GLRenderer::SetupViewCenterVertex(const Polygon* poly, float* gptr) const
+{
+    // the centre vertex sits at the average screen position: its view-space
+    // data is the perspective-correct average (weights 1/W), as for its colour
+    float pos[3] = {}, normal[3] = {}, weight = 0;
+    bool perspective = true, hasNormal = true;
+    for (u32 j = 0; j < poly->NumVertices; j++)
+    {
+        const Vertex* vtx = poly->Vertices[j];
+        float w = 1.0f / (float)std::max(poly->FinalW[j], 1);
+        for (int i = 0; i < 3; i++)
+        {
+            pos[i] += vtx->ViewPosition[i] * w;
+            normal[i] += vtx->ViewNormal[i] * w;
+        }
+        weight += w;
+        perspective = perspective && !vtx->Orthographic;
+        hasNormal = hasNormal && vtx->HasViewNormal;
+    }
+    for (int i = 0; i < 3; i++) *gptr++ = pos[i] / weight;
+    *gptr++ = perspective ? 1.f : 0.f;
+    for (int i = 0; i < 3; i++) *gptr++ = normal[i] / weight;
+    *gptr++ = hasNormal ? 1.f : 0.f;
+    return gptr;
+}
+
 void GLRenderer::LookupHDTextures(GPU& gpu, int npolys)
 {
     bool textured = gpu.GPU3D.RenderDispCnt & (1<<0);
@@ -563,6 +651,13 @@ void GLRenderer::EnsureCapacity(Polygon** polygons, u32 npolys)
         glBufferData(GL_ARRAY_BUFFER, VertexBuffer.size() * sizeof(u32), nullptr, GL_DYNAMIC_DRAW);
     }
 
+    if (LightingActive && vertices * ViewVertexSize > ViewVertexBuffer.size())
+    {
+        ViewVertexBuffer.resize(vertices * ViewVertexSize);
+        glBindBuffer(GL_ARRAY_BUFFER, ViewVertexBufferID);
+        glBufferData(GL_ARRAY_BUFFER, ViewVertexBuffer.size() * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+    }
+
     if (triIndices > EdgeIndicesOffset || EdgeIndicesOffset + edgeIndices > IndexBuffer.size())
     {
         EdgeIndicesOffset = std::max(EdgeIndicesOffset, triIndices);
@@ -578,6 +673,9 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
 {
     u32* vptr = &VertexBuffer[0];
     u32 vidx = 0;
+    // view-space data, one entry per vertex of VertexBuffer (lighting effects)
+    float* gptr = &ViewVertexBuffer[0];
+    const bool viewdata = LightingActive;
 
     u32 iidx = 0;
     u32 eidx = EdgeIndicesOffset;
@@ -621,6 +719,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 lasty = vtx->FinalPosition[1];
 
                 vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr);
+                if (viewdata) gptr = SetupViewVertex(vtx, gptr);
 
                 IndexBuffer[iidx++] = vidx;
                 rp->NumIndices++;
@@ -639,6 +738,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 Vertex* vtx = poly->Vertices[j];
 
                 vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr);
+                if (viewdata) gptr = SetupViewVertex(vtx, gptr);
                 vidx++;
             }
 
@@ -661,6 +761,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                     Vertex* vtx = poly->Vertices[j];
 
                     vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr);
+                    if (viewdata) gptr = SetupViewVertex(vtx, gptr);
 
                     if (j >= 2)
                     {
@@ -760,6 +861,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 *vptr++ = poly->TexParam & 0xFFFF;
                 *vptr++ = (poly->TexParam >> 16 ) | (poly->TexPalette << 16);
                 *vptr++ = rp->HDTexture;
+                if (viewdata) gptr = SetupViewCenterVertex(poly, gptr);
 
                 vidx++;
 
@@ -769,6 +871,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                     Vertex* vtx = poly->Vertices[j];
 
                     vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr);
+                    if (viewdata) gptr = SetupViewVertex(vtx, gptr);
 
                     if (j >= 1)
                     {
@@ -886,6 +989,11 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
 
     glBindVertexArray(VertexArrayID);
 
+    // lighting effects: opaque polygons also write their view-space position and normal
+    const GLenum drawbuffers[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
+    if (LightingActive)
+        glDrawBuffers(4, drawbuffers);
+
     for (int i = 0; i < NumFinalPolys; )
     {
         RendererPolygon* rp = &PolygonList[i];
@@ -907,6 +1015,9 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
 
         i += RenderPolygonBatch(i);
     }
+
+    if (LightingActive)
+        glDrawBuffers(2, drawbuffers);
 
     // if edge marking is enabled, mark all opaque edges
     // TODO BETTER EDGE MARKING!!! THIS SUCKS
@@ -1230,9 +1341,118 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
 }
 
 
+void GLRenderer::SetupLightingTargets()
+{
+    if (LightingTargetsW == ScreenW && LightingTargetsH == ScreenH)
+        return;
+    LightingTargetsW = ScreenW;
+    LightingTargetsH = ScreenH;
+
+    auto makeTarget = [&](GLuint& tex, GLenum internalFormat, GLenum format, GLenum type)
+    {
+        if (!tex) glGenTextures(1, &tex);
+        SetupDefaultTexParams(tex);
+        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, ScreenW, ScreenH, 0, format, type, nullptr);
+    };
+    glActiveTexture(GL_TEXTURE0);
+    // view positions need float32: view-space units are 1/4096, with depths in the thousands
+    makeTarget(ViewPositionTex, GL_RGBA32F, GL_RGBA, GL_FLOAT);
+    makeTarget(ViewNormalTex, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
+    makeTarget(AOTex, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
+    makeTarget(LightingTex, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
+
+    // attachments 2 and 3 of the main framebuffer, drawn to by opaque polygons only
+    glBindFramebuffer(GL_FRAMEBUFFER, MainFramebuffer);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, ViewPositionTex, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, ViewNormalTex, 0);
+
+    const GLenum buffers[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
+    glDrawBuffers(4, buffers);
+    bool complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+    glDrawBuffers(2, buffers);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, AOFramebuffer);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, AOTex, 0);
+    complete = complete && glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+    glBindFramebuffer(GL_FRAMEBUFFER, LightingFramebuffer);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, LightingTex, 0);
+    complete = complete && glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+
+    if (!complete)
+    {
+        // float render targets missing: the effects stay off
+        Log(LogLevel::Warn, "Lighting effects: render targets not supported, effects disabled\n");
+        LightingSupported = false;
+        LightingActive = false;
+    }
+}
+
+void GLRenderer::RenderLighting()
+{
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_STENCIL_TEST);
+    glDisable(GL_BLEND);
+    glDisable(GL_SCISSOR_TEST);
+    glViewport(0, 0, ScreenW, ScreenH);
+    glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
+    glBindVertexArray(ClearVertexArrayID);
+
+    // pass 1: ambient occlusion, up to 24 native pixels around each pixel
+    glBindFramebuffer(GL_FRAMEBUFFER, AOFramebuffer);
+    glUseProgram(LightingAOShader);
+    glUniform1f(LightingAORadiusLoc, 24.0f * ScaleFactor);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, ViewPositionTex);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, ViewNormalTex);
+    glDrawArrays(GL_TRIANGLES, 0, 2*3);
+
+    // pass 2: the lit image
+    glBindFramebuffer(GL_FRAMEBUFFER, LightingFramebuffer);
+    glUseProgram(LightingComposeShader);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, ColorBufferTex);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, ViewPositionTex);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, ViewNormalTex);
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, AOTex);
+    glDrawArrays(GL_TRIANGLES, 0, 2*3);
+
+    // state as the scene render leaves it
+    glActiveTexture(GL_TEXTURE0);
+    glBindFramebuffer(GL_FRAMEBUFFER, MainFramebuffer);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_STENCIL_TEST);
+    glEnable(GL_BLEND);
+    CurShaderID = -1;
+    LightingDone = true;
+}
+
 void GLRenderer::RenderFrame(GPU& gpu)
 {
     CurShaderID = -1;
+
+    // lighting effects: GPU3D captures view-space data while the game submits a
+    // frame, so they start with the first frame submitted after being enabled
+    LightingActive = LightingEnabled() && ViewDataCaptured && LightingSupported;
+    LightingDone = false;
+    gpu.GPU3D.SetViewDataCapture(LightingEnabled());
+    ViewDataCaptured = gpu.GPU3D.CaptureViewData();
+    if (LightingActive)
+        SetupLightingTargets();
+    glBindVertexArray(VertexArrayID);
+    if (LightingActive)
+    {
+        glEnableVertexAttribArray(5);
+        glEnableVertexAttribArray(6);
+    }
+    else
+    {
+        glDisableVertexAttribArray(5);
+        glDisableVertexAttribArray(6);
+    }
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, MainFramebuffer);
@@ -1386,6 +1606,19 @@ void GLRenderer::RenderFrame(GPU& gpu)
         glDrawArrays(GL_TRIANGLES, 0, 2*3);
     }
 
+    if (LightingActive)
+    {
+        // no view data = background, 2D-like geometry, translucent polygons
+        const GLenum buffers[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
+        const float zero[4] = {};
+        glDrawBuffers(4, buffers);
+        glColorMaski(2, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glColorMaski(3, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glClearBufferfv(GL_COLOR, 2, zero);
+        glClearBufferfv(GL_COLOR, 3, zero);
+        glDrawBuffers(2, buffers);
+    }
+
     Polygon** renderpolys = gpu.GPU3D.GetRenderPolygons();
     u32 numrenderpolys = gpu.GPU3D.GetRenderNumPolygons();
     if (numrenderpolys)
@@ -1416,6 +1649,11 @@ void GLRenderer::RenderFrame(GPU& gpu)
         BuildPolygons(&PolygonList[0], npolys);
         glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
         glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*VertexSize*4, VertexBuffer.data());
+        if (LightingActive)
+        {
+            glBindBuffer(GL_ARRAY_BUFFER, ViewVertexBufferID);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*ViewVertexSize*4, ViewVertexBuffer.data());
+        }
 
         // bind to access the index buffer
         glBindVertexArray(VertexArrayID);
@@ -1424,6 +1662,9 @@ void GLRenderer::RenderFrame(GPU& gpu)
 
         RenderSceneChunk(gpu.GPU3D, 0, 192);
     }
+
+    if (LightingActive)
+        RenderLighting();
 }
 
 void GLRenderer::Stop(const GPU& gpu)
@@ -1490,7 +1731,9 @@ u32* GLRenderer::GetLine(int line)
 
 void GLRenderer::SetupAccelFrame()
 {
-    glBindTexture(GL_TEXTURE_2D, ColorBufferTex);
+    // the lit image is for display only: display capture (PrepareCaptureFrame)
+    // keeps reading the DS render, like the downscale of upscaled frames
+    glBindTexture(GL_TEXTURE_2D, LightingDone ? LightingTex : ColorBufferTex);
 }
 
 }

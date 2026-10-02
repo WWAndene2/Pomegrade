@@ -97,6 +97,8 @@ typedef struct
     // Pomegrade: scene-adaptive colour in the OpenGL renderer (see GPU_SceneColour.h)
     bool oledBlacks = false;
     bool adaptiveColours = false;
+    // Pomegrade: lighting effects in the OpenGL renderer (see GLRenderer::RenderLighting)
+    bool ambientOcclusion = false;
 } EmulatorConfiguration;
 
 }

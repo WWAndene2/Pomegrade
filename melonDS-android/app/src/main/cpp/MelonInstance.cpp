@@ -646,6 +646,8 @@ void MelonInstance::updateRenderer()
         {
             auto softwareRenderSettings = static_cast<SoftwareRenderSettings&>(*currentConfiguration->renderSettings);
             static_cast<SoftRenderer&>(nds->GPU.GetRenderer3D()).SetThreaded(softwareRenderSettings.threadedRendering, nds->GPU);
+            // the OpenGL renderer's lighting effects may have asked for view-space data
+            nds->GPU.GPU3D.SetViewDataCapture(false);
             break;
         }
         case Renderer::OpenGl:
@@ -657,12 +659,14 @@ void MelonInstance::updateRenderer()
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetTextureUpscale(currentConfiguration->textureUpscale);
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetOledBlacks(currentConfiguration->oledBlacks);
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetAdaptiveColours(currentConfiguration->adaptiveColours);
+            static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetAmbientOcclusion(currentConfiguration->ambientOcclusion);
             break;
         }
         case Renderer::Compute:
         {
             auto computeRenderSettings = static_cast<ComputeRenderSettings&>(*currentConfiguration->renderSettings);
             static_cast<ComputeRenderer&>(nds->GPU.GetRenderer3D()).SetRenderSettings(computeRenderSettings.scale,computeRenderSettings.highResCoordinates);
+            nds->GPU.GPU3D.SetViewDataCapture(false);
             break;
         }
         default: __builtin_unreachable();

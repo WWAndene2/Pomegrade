@@ -178,6 +178,7 @@ class SharedPreferencesSettingsRepository(
             textureUpscale = preferences.getString("texture_upscale", "1")?.toIntOrNull() ?: 1,
             oledBlacks = preferences.getBoolean("oled_blacks", false),
             adaptiveColours = preferences.getBoolean("adaptive_colours", false),
+            ambientOcclusion = preferences.getBoolean("ambient_occlusion", false),
         )
     }
 

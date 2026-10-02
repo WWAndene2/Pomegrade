@@ -250,6 +250,13 @@ smooth out vec4 fColor;
 smooth out vec2 fTexcoord;
 flat out ivec3 fPolygonAttr;
 flat out int fHDTexture;
+
+// Pomegrade lighting effects: view-space position (w: 1 = perspective, 0 = 2D-like)
+// and normal (w: 1 = from the game's normals, 0 = none)
+in vec4 vViewPosition;
+in vec4 vViewNormal;
+smooth out vec4 fViewPosition;
+smooth out vec4 fViewNormal;
 )";
 
 const char* kRenderFSCommon = R"(
@@ -281,6 +288,41 @@ flat in int fHDTexture;
 
 layout(location = 0) out vec4 oColor;
 layout(location = 1) out vec4 oAttr;
+
+// Pomegrade lighting effects: written by opaque polygons only, when enabled
+smooth in vec4 fViewPosition;
+smooth in vec4 fViewNormal;
+layout(location = 2) out vec4 oViewPosition;
+layout(location = 3) out vec4 oViewNormal;
+
+struct ViewData
+{
+    vec3 Position;
+    vec3 Normal;
+    float Valid;
+};
+
+// before any discard: the face normal needs screen-space derivatives
+ViewData ComputeViewData()
+{
+    ViewData view;
+    view.Position = fViewPosition.xyz;
+    // the surface's own orientation: occlusion is about geometry, and the
+    // game's smooth normals on flat facets would make each facet occlude itself
+    vec3 face = cross(dFdx(fViewPosition.xyz), dFdy(fViewPosition.xyz));
+    vec3 normal = dot(face, face) > 0.0 ? normalize(face) : vec3(0.0, 0.0, 1.0);
+    // the side seen from the camera (double-sided polygons, normal-less ones)
+    if (dot(normal, -view.Position) < 0.0) normal = -normal;
+    view.Normal = normal;
+    view.Valid = fViewPosition.w > 0.999 ? 1.0 : 0.0;
+    return view;
+}
+
+void WriteViewData(ViewData view)
+{
+    oViewPosition = vec4(view.Position, view.Valid);
+    oViewNormal = vec4(view.Normal * 0.5 + 0.5, view.Valid);
+}
 
 int TexcoordWrap(int c, int maxc, int mode)
 {
@@ -707,6 +749,8 @@ void main()
     fTexcoord = vec2(vTexcoord) / 16.0;
     fPolygonAttr = vPolygonAttr;
     fHDTexture = vHDTexture;
+    fViewPosition = vViewPosition;
+    fViewNormal = vViewNormal;
 
     gl_Position = fpos;
 }
@@ -733,6 +777,8 @@ void main()
     fTexcoord = vec2(vTexcoord) / 16.0;
     fPolygonAttr = vPolygonAttr;
     fHDTexture = vHDTexture;
+    fViewPosition = vViewPosition;
+    fViewNormal = vViewNormal;
 
     gl_Position = fpos;
 }
@@ -743,6 +789,7 @@ const char* kRenderFS_ZO = R"(
 
 void main()
 {
+    ViewData view = ComputeViewData();
     vec4 col = FinalColor();
     if (col.a < 30.5/31.0) discard;
 
@@ -751,6 +798,7 @@ void main()
     oAttr.g = 0.0;
     oAttr.b = float((fPolygonAttr.x >> 15) & 0x1);
     oAttr.a = 1.0;
+    WriteViewData(view);
 }
 )";
 
@@ -760,6 +808,7 @@ smooth in float fZ;
 
 void main()
 {
+    ViewData view = ComputeViewData();
     vec4 col = FinalColor();
     if (col.a < 30.5/31.0) discard;
 
@@ -768,6 +817,7 @@ void main()
     oAttr.g = 0.0;
     oAttr.b = float((fPolygonAttr.x >> 15) & 0x1);
     oAttr.a = 1.0;
+    WriteViewData(view);
     gl_FragDepth = fZ;
 }
 )";
@@ -846,6 +896,129 @@ void main()
 {
     oColor = vec4(0,0,0,1);
     gl_FragDepth = fZ;
+}
+)";
+
+// Pomegrade lighting effects, after the frame is rendered (see GLRenderer::RenderLighting).
+// Inputs: the view-space position and normal of the opaque pixels.
+
+// Ambient occlusion, screen-space (McGuire, Mara, Luebke, "Scalable Ambient
+// Obscurance", HPG 2012): around each pixel, the neighbours that rise above
+// its surface hide part of the sky, the near ones more. Out: R = visibility (1 = open),
+// G = size of one pixel in view units here (for the filter pass).
+const char* kLightingAOFS = kShaderHeader R"(
+
+precision highp float;
+precision highp int;
+
+uniform highp sampler2D GPosition;
+uniform sampler2D GNormal;
+uniform float uRadius; // in output pixels
+
+layout(location = 0) out vec4 oAO;
+
+const int NumSamples = 12;
+// moderate: DS games often have shading painted into their textures already.
+// Test scene (tests/lighting-effects): floor-wall crease 19% darker, contact
+// shadow 15% darker, open surfaces unchanged
+const float Intensity = 2.0;
+
+void main()
+{
+    ivec2 p = ivec2(gl_FragCoord.xy);
+    ivec2 size = textureSize(GPosition, 0);
+    vec4 gp = texelFetch(GPosition, p, 0);
+    if (gp.w < 0.5) { oAO = vec4(1.0, 0.0, 0.0, 1.0); return; }
+
+    vec3 P = gp.xyz;
+    vec3 N = texelFetch(GNormal, p, 0).xyz * 2.0 - 1.0;
+
+    // one pixel's size on this surface: the closest neighbour (the others may
+    // be across a silhouette)
+    float pixel = 1e30;
+    const ivec2 dirs[4] = ivec2[4](ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1));
+    for (int i = 0; i < 4; i++)
+    {
+        vec4 q = texelFetch(GPosition, clamp(p + dirs[i], ivec2(0), size - 1), 0);
+        if (q.w > 0.5 && q.xyz != P) pixel = min(pixel, length(q.xyz - P));
+    }
+    if (pixel > 1e29) { oAO = vec4(1.0, 0.0, 0.0, 1.0); return; }
+
+    float radius = pixel * uRadius; // in view units
+    // 16 rotations of the sample spiral over 4x4 pixels, averaged by the filter pass
+    int cell = (p.x & 3) + ((p.y & 3) << 2);
+    float rotation = float(cell) * (6.2831853 / 16.0);
+
+    float occlusion = 0.0;
+    for (int i = 0; i < NumSamples; i++)
+    {
+        float t = (float(i) + 0.5) / float(NumSamples);
+        float angle = float(i) * 2.3999632 + rotation; // golden angle spiral
+        vec2 offset = vec2(cos(angle), sin(angle)) * (t * uRadius + 1.0);
+        ivec2 sp = clamp(p + ivec2(round(offset)), ivec2(0), size - 1);
+        vec4 q = texelFetch(GPosition, sp, 0);
+        if (q.w < 0.5) continue;
+
+        vec3 v = q.xyz - P;
+        float vv = dot(v, v);
+        // SAO's estimator, made scale-free with the radius: occluders above the
+        // surface count more the closer they are, nothing past the radius
+        float f = max(1.0 - vv / (radius * radius), 0.0);
+        float vn = dot(v, N) - 0.02 * radius; // bias against self-occlusion
+        occlusion += f * f * f * max(vn, 0.0) * radius / (vv + 0.01 * radius * radius);
+    }
+
+    float visibility = clamp(1.0 - Intensity * occlusion / float(NumSamples), 0.0, 1.0);
+    oAO = vec4(visibility, pixel, 0.0, 1.0);
+}
+)";
+
+// Applies the lighting terms to the rendered frame, filtering the ambient
+// occlusion over the 4x4 rotation pattern within the same surface.
+const char* kLightingComposeFS = kShaderHeader R"(
+
+precision highp float;
+precision highp int;
+
+uniform sampler2D Color;
+uniform highp sampler2D GPosition;
+uniform sampler2D GNormal;
+uniform highp sampler2D AO;
+
+layout(location = 0) out vec4 oColor;
+
+void main()
+{
+    ivec2 p = ivec2(gl_FragCoord.xy);
+    ivec2 size = textureSize(GPosition, 0);
+    vec4 col = texelFetch(Color, p, 0);
+    vec4 gp = texelFetch(GPosition, p, 0);
+    vec2 ao = texelFetch(AO, p, 0).rg;
+    if (gp.w < 0.5 || ao.g <= 0.0) { oColor = col; return; }
+
+    vec3 P = gp.xyz;
+    vec3 N = texelFetch(GNormal, p, 0).xyz * 2.0 - 1.0;
+    float pixel = ao.g;
+
+    float sum = 0.0, weight = 0.0;
+    for (int y = -2; y < 2; y++)
+    {
+        for (int x = -2; x < 2; x++)
+        {
+            ivec2 sp = clamp(p + ivec2(x, y), ivec2(0), size - 1);
+            vec4 q = texelFetch(GPosition, sp, 0);
+            if (q.w < 0.5) continue;
+            vec3 nq = texelFetch(GNormal, sp, 0).xyz * 2.0 - 1.0;
+            // same surface: similar normal, near the plane
+            float plane = abs(dot(q.xyz - P, N));
+            if (dot(nq, N) < 0.8 || plane > pixel * 2.0) continue;
+            sum += texelFetch(AO, sp, 0).r;
+            weight += 1.0;
+        }
+    }
+    float visibility = weight > 0.0 ? sum / weight : ao.r;
+
+    oColor = vec4(col.rgb * visibility, col.a);
 }
 )";
 }

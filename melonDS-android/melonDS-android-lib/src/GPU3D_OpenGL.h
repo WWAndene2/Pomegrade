@@ -46,6 +46,10 @@ public:
     // Scene-adaptive colour (Pomegrade): see GPU_SceneColour.h
     void SetAdaptiveColours(bool enable) { CurGLCompositor.SetAdaptiveColours(enable); }
     void SetOledBlacks(bool enable) { CurGLCompositor.SetOledBlacks(enable); }
+    // Pseudo ray tracing (Pomegrade): lighting effects computed from the
+    // view-space position and normal of each opaque pixel, see RenderLighting.
+    // Display only: the frame the game can capture stays the DS render.
+    void SetAmbientOcclusion(bool enable) noexcept { AmbientOcclusion = enable; }
     void SetScaleFactor(int scale) noexcept;
     [[nodiscard]] bool GetBetterPolygons() const noexcept { return BetterPolygons; }
     [[nodiscard]] int GetScaleFactor() const noexcept { return ScaleFactor; }
@@ -102,6 +106,12 @@ private:
     int RenderPolygonBatch(int i) const;
     int RenderPolygonEdgeBatch(int i) const;
     void RenderSceneChunk(const GPU3D& gpu3d, int y, int h);
+
+    bool LightingEnabled() const noexcept { return AmbientOcclusion; }
+    float* SetupViewVertex(const Vertex* vtx, float* gptr) const;
+    float* SetupViewCenterVertex(const Polygon* poly, float* gptr) const;
+    void SetupLightingTargets();
+    void RenderLighting();
 
     enum
     {
@@ -184,6 +194,23 @@ private:
     GLuint PixelbufferID {};
 
     GLuint MainFramebuffer {}, DownscaleFramebuffer {};
+
+    // lighting effects (Pomegrade)
+    bool AmbientOcclusion {};
+    bool LightingActive {};   // view data is being rendered this frame
+    bool LightingDone {};     // this frame's lit image is in LightingTex
+    bool ViewDataCaptured {}; // GPU3D captured view data while the rendered frame was submitted
+    bool LightingSupported = true; // the render targets work on this GPU
+    // per vertex, beside VertexBuffer: view position xyz + perspective flag,
+    // view normal xyz + has-normal flag
+    GLuint ViewVertexBufferID {};
+    static constexpr u32 ViewVertexSize = 8; // in floats
+    std::vector<float> ViewVertexBuffer = std::vector<float>(10240 * ViewVertexSize);
+    GLuint ViewPositionTex {}, ViewNormalTex {}, AOTex {}, LightingTex {};
+    GLuint AOFramebuffer {}, LightingFramebuffer {};
+    GLuint LightingAOShader {}, LightingComposeShader {};
+    GLint LightingAORadiusLoc = -1;
+    int LightingTargetsW {}, LightingTargetsH {};
     u32 Framebuffer[256*192] {};
 };
 }

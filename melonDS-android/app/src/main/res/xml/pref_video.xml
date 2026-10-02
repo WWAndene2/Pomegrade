@@ -75,6 +75,13 @@
             android:defaultValue="false" />
 
     <SwitchPreference
+            android:key="ambient_occlusion"
+            android:title="@string/ambient_occlusion"
+            android:summary="@string/ambient_occlusion_summary"
+            app:iconSpaceReserved="false"
+            android:defaultValue="false" />
+
+    <SwitchPreference
             android:key="high_color"
             android:title="@string/high_color"
             android:summary="@string/high_color_summary"

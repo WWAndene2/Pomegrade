@@ -841,6 +841,17 @@ void ClipSegment(Vertex* outbuf, Vertex* vin, Vertex* vout)
 
         INTERPOLATE(TexCoords[0]);
         INTERPOLATE(TexCoords[1]);
+
+        // Pomegrade view-space data (not hardware state): same parameter, linear
+        // in clip space is linear in view space
+        float t = (float)factor_num / factor_den;
+        for (int i = 0; i < 4; i++)
+            outbuf->ViewPosition[i] = vin->ViewPosition[i] + (vout->ViewPosition[i] - vin->ViewPosition[i]) * t;
+        for (int i = 0; i < 3; i++)
+            outbuf->ViewNormal[i] = vin->ViewNormal[i] + (vout->ViewNormal[i] - vin->ViewNormal[i]) * t;
+        outbuf->HasViewNormal = vin->HasViewNormal && vout->HasViewNormal;
+        outbuf->LitColor = vin->LitColor && vout->LitColor;
+        outbuf->Orthographic = vin->Orthographic;
     }
 
     outbuf->Clipped = true;
@@ -1620,7 +1631,20 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
                 out.TexCoords[0] = (s16)std::lround(mv.TexCoords[0]);
                 out.TexCoords[1] = (s16)std::lround(mv.TexCoords[1]);
                 out.Clipped = false;
-                out.HasViewNormal = false;
+                // view-space data for the renderer's effects
+                if (corner >= 0)
+                {
+                    const Vertex& src = TempVertexBuffer[corner];
+                    for (int i = 0; i < 4; i++) out.ViewPosition[i] = src.ViewPosition[i];
+                }
+                else
+                {
+                    for (int i = 0; i < 3; i++) out.ViewPosition[i] = (float)mv.Position[i];
+                    out.ViewPosition[3] = vieww;
+                }
+                for (int i = 0; i < 3; i++) out.ViewNormal[i] = (float)mv.Normal[i];
+                out.HasViewNormal = true;
+                out.Orthographic = TempVertexBuffer[0].Orthographic;
             }
 
             int nv = ClipPolygon<true>(*this, clipped, 3, 0);
@@ -1753,7 +1777,7 @@ void GPU3D::SubmitVertex() noexcept
     vertextrans->Clipped = false;
 
     // polygon multiplier: view-space data for this vertex
-    if (PolygonMultiplierLevel > 1)
+    if (CaptureViewData())
     {
         for (int i = 0; i < 4; i++)
             vertextrans->ViewPosition[i] = (float)((vertex[0]*PosMatrix[i] + vertex[1]*PosMatrix[4+i] + vertex[2]*PosMatrix[8+i] + vertex[3]*PosMatrix[12+i]) >> 12);
@@ -1761,11 +1785,15 @@ void GPU3D::SubmitVertex() noexcept
             vertextrans->ViewNormal[i] = CurViewNormal[i];
         vertextrans->HasViewNormal = CurViewNormalValid;
         vertextrans->LitColor = CurColorFromLighting;
+        // the projection's W column (row-vector matrices: elements 3, 7, 11)
+        // is zero when W doesn't depend on depth
+        vertextrans->Orthographic = ProjMatrix[3] == 0 && ProjMatrix[7] == 0 && ProjMatrix[11] == 0;
     }
     else
     {
         vertextrans->HasViewNormal = false;
         vertextrans->LitColor = false;
+        vertextrans->Orthographic = false;
     }
 
     VertexNum++;
@@ -2897,6 +2925,10 @@ void GPU3D::VBlank() noexcept
 
                 RenderNumPolygons = NumPolygons;
                 RenderFrameIdentical = false;
+
+                // for the renderer's effects (shadows, reflections), as of the end of the frame
+                memcpy(RenderLightDirection, LightDirection, sizeof(LightDirection));
+                memcpy(RenderProjMatrix, ProjMatrix, sizeof(ProjMatrix));
 
                 BuildMultipliedRenderList();
             }
