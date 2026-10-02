@@ -41,6 +41,39 @@ void ConvertAXIYTexture(u32 width, u32 height, u32* output, u32 addr, u32 palAdd
 template <int outputFmt, int colorBits>
 void ConvertNColorsTexture(u32 width, u32 height, u32* output, u32 addr, u32 palAddr, bool color0Transparent, GPU& gpu);
 
+// Where a texture's data lives in texture VRAM and texture palette VRAM
+struct TexSource
+{
+    u32 TextureRAMStart[2], TextureRAMSize[2];
+    u32 TexPalStart, TexPalSize;
+};
+
+// Cache key identifying a texture: its parameters without the sampling and
+// texcoord generation bits, plus the palette base for paletted formats.
+inline u64 TexcacheKey(u32 texParam, u32 palBase)
+{
+    texParam &= ~0xC00F0000;
+
+    u32 fmt = (texParam >> 26) & 0x7;
+    u64 key = texParam;
+    if (fmt != 7)
+    {
+        key |= (u64)palBase << 32;
+        if (fmt == 5)
+            key &= ~((u64)1 << 29);
+    }
+    return key;
+}
+
+// Decodes a texture to RGB6A5 into `output` (TextureWidth*TextureHeight texels)
+// and fills in where its data comes from.
+void DecodeTexture(GPU& gpu, u32 texParam, u32 palBase, u32* output, TexSource& source);
+
+u64 TexcacheMaskedHash(u8* vram, u32 vramSize, u32 addr, u32 size);
+
+// Whether a texture range was modified, given the VRAM dirty bits
+bool TexcacheCheckInvalid(u32 start, u32 size, u64 oldHash, u64* dirty, u8* vram, u32 vramSize);
+
 template <typename TexLoaderT, typename TexHandleT>
 class Texcache
 {
@@ -51,50 +84,28 @@ public:
 
     u64 MaskedHash(u8* vram, u32 vramSize, u32 addr, u32 size)
     {
-        u64 hash = 0;
-
-        while (size > 0)
-        {
-            u32 pieceSize;
-            if (addr + size > vramSize)
-                // wraps around, only do the part inside
-                pieceSize = vramSize - addr;
-            else
-                // fits completely inside
-                pieceSize = size;
-
-            hash = XXH64(&vram[addr], pieceSize, hash);
-
-            addr += pieceSize;
-            addr &= (vramSize - 1);
-            assert(size >= pieceSize);
-            size -= pieceSize;
-        }
-
-        return hash;
+        return TexcacheMaskedHash(vram, vramSize, addr, size);
     }
 
     bool CheckInvalid(u32 start, u32 size, u64 oldHash, u64* dirty, u8* vram, u32 vramSize)
     {
-        u32 startBit = start / VRAMDirtyGranularity;
-        u32 bitsCount = ((start + size + VRAMDirtyGranularity - 1) / VRAMDirtyGranularity) - startBit;
-    
-        u32 startEntry = startBit >> 6;
-        u64 entriesCount = ((startBit + bitsCount + 0x3F) >> 6) - startEntry;
-        for (u32 j = startEntry; j < startEntry + entriesCount; j++)
-        {
-            if (GetRangedBitMask(j, startBit, bitsCount) & dirty[j & ((vramSize / VRAMDirtyGranularity)-1)])
-            {
-                if (MaskedHash(vram, vramSize, start, size) != oldHash)
-                    return true;
-            }
-        }
-
-        return false;
+        return TexcacheCheckInvalid(start, size, oldHash, dirty, vram, vramSize);
     }
 
     bool Update(GPU& gpu)
     {
+        // texture replacement settings changed: every texture has to be looked up again
+        bool replacementChanged = false;
+        Replacement.Active();
+        if (Replacement.Generation() != ReplacementGeneration)
+        {
+            ReplacementGeneration = Replacement.Generation();
+            for (auto& it : Cache)
+                FreeTextures[it.second.WidthLog2][it.second.HeightLog2].push_back(it.second.Texture);
+            replacementChanged = !Cache.empty();
+            Cache.clear();
+        }
+
         auto textureDirty = gpu.VRAMDirty_Texture.DeriveState(gpu.VRAMMap_Texture, gpu);
         auto texPalDirty = gpu.VRAMDirty_TexPal.DeriveState(gpu.VRAMMap_TexPal, gpu);
 
@@ -141,23 +152,13 @@ public:
             return true;
         }
 
-        return false;
+        return replacementChanged;
     }
 
     void GetTexture(GPU& gpu, u32 texParam, u32 palBase, TexHandleT& textureHandle, u32& layer, u32*& helper)
     {
-        // remove sampling and texcoord gen params
-        texParam &= ~0xC00F0000;
-
         u32 fmt = (texParam >> 26) & 0x7;
-        u64 key = texParam;
-        if (fmt != 7)
-        {
-            key |= (u64)palBase << 32;
-            if (fmt == 5)
-                key &= ~((u64)1 << 29);
-        }
-        //printf("%" PRIx64 " %" PRIx32 " %" PRIx32 "\n", key, texParam, palBase);
+        u64 key = TexcacheKey(texParam, palBase);
 
         assert(fmt != 0 && "no texture is not a texture format!");
 
@@ -171,74 +172,22 @@ public:
             return;
         }
 
+        // apparently a new texture
         u32 widthLog2 = (texParam >> 20) & 0x7;
         u32 heightLog2 = (texParam >> 23) & 0x7;
         u32 width = 8 << widthLog2;
         u32 height = 8 << heightLog2;
 
-        u32 addr = (texParam & 0xFFFF) * 8;
-
         TexCacheEntry entry = {0};
-
-        entry.TextureRAMStart[0] = addr;
-        entry.WidthLog2 = widthLog2;
-        entry.HeightLog2 = heightLog2;
-
-        // apparently a new texture
-        if (fmt == 7)
+        TexSource source;
+        DecodeTexture(gpu, texParam, palBase, DecodingBuffer, source);
+        for (int i = 0; i < 2; i++)
         {
-            entry.TextureRAMSize[0] = width*height*2;
-
-            ConvertBitmapTexture<outputFmt_RGB6A5>(width, height, DecodingBuffer, addr, gpu);
+            entry.TextureRAMStart[i] = source.TextureRAMStart[i];
+            entry.TextureRAMSize[i] = source.TextureRAMSize[i];
         }
-        else if (fmt == 5)
-        {
-            u32 slot1addr = 0x20000 + ((addr & 0x1FFFC) >> 1);
-            if (addr >= 0x40000)
-                slot1addr += 0x10000;
-
-            entry.TextureRAMSize[0] = width*height/16*4;
-            entry.TextureRAMStart[1] = slot1addr;
-            entry.TextureRAMSize[1] = width*height/16*2;
-            entry.TexPalStart = palBase*16;
-            entry.TexPalSize = 0x10000;
-
-            ConvertCompressedTexture<outputFmt_RGB6A5>(width, height, DecodingBuffer, addr, slot1addr, entry.TexPalStart, gpu);
-        }
-        else
-        {
-            u32 texSize, palAddr = palBase*16, numPalEntries;
-            switch (fmt)
-            {
-            case 1: texSize = width*height; numPalEntries = 32; break;
-            case 6: texSize = width*height; numPalEntries = 8; break;
-            case 2: texSize = width*height/4; numPalEntries = 4; palAddr >>= 1; break;
-            case 3: texSize = width*height/2; numPalEntries = 16; break;
-            case 4: texSize = width*height; numPalEntries = 256; break;
-            }
-
-            palAddr &= 0x1FFFF;
-
-            /*printf("creating texture | fmt: %d | %dx%d | %08x | %08x\n", fmt, width, height, addr, palAddr);
-            svcSleepThread(1000*1000);*/
-
-            entry.TextureRAMSize[0] = texSize;
-            entry.TexPalStart = palAddr;
-            entry.TexPalSize = numPalEntries*2;
-
-            //assert(entry.TexPalStart+entry.TexPalSize <= 128*1024*1024);
-
-            bool color0Transparent = texParam & (1 << 29);
-
-            switch (fmt)
-            {
-            case 1: ConvertAXIYTexture<outputFmt_RGB6A5, 3, 5>(width, height, DecodingBuffer, addr, palAddr, gpu); break;
-            case 6: ConvertAXIYTexture<outputFmt_RGB6A5, 5, 3>(width, height, DecodingBuffer, addr, palAddr, gpu); break;
-            case 2: ConvertNColorsTexture<outputFmt_RGB6A5, 2>(width, height, DecodingBuffer, addr, palAddr, color0Transparent, gpu); break;
-            case 3: ConvertNColorsTexture<outputFmt_RGB6A5, 4>(width, height, DecodingBuffer, addr, palAddr, color0Transparent, gpu); break;
-            case 4: ConvertNColorsTexture<outputFmt_RGB6A5, 8>(width, height, DecodingBuffer, addr, palAddr, color0Transparent, gpu); break;
-            }
-        }
+        entry.TexPalStart = source.TexPalStart;
+        entry.TexPalSize = source.TexPalSize;
 
         // HD texture replacement / dumping, keyed by the decoded contents
         u32* uploadData = DecodingBuffer;
@@ -253,6 +202,7 @@ public:
             u32 hdWidth, hdHeight;
             if (Replacement.Lookup(contentHash, width, height, binaryAlpha, maxSize, HDBuffer, hdWidth, hdHeight))
             {
+                TextureReplacement::ConvertToRGB6A5(HDBuffer);
                 width = hdWidth;
                 height = hdHeight;
                 widthLog2 = Log2(width / 8);
@@ -360,6 +310,7 @@ private:
     u32 DecodingBuffer[1024*1024];
 
     TextureReplacement Replacement;
+    u32 ReplacementGeneration = 0;
     std::vector<u32> HDBuffer;
 };
 

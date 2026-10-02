@@ -46,11 +46,12 @@ class VideoPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTit
 
         openGlRendererPreferences.apply {
             add(findPreference("video_internal_resolution")!!)
+            add(findPreference("enable_hd_textures")!!)
+            add(findPreference("dump_textures")!!)
         }
 
         computeRendererPreferences.apply {
             add(findPreference("video_internal_resolution")!!)
-            // texture replacement is only implemented in the compute renderer's texture cache
             add(findPreference("enable_hd_textures")!!)
             add(findPreference("dump_textures")!!)
         }

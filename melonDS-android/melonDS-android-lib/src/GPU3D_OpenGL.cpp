@@ -49,7 +49,7 @@ bool GLRenderer::BuildRenderShader(u32 flags, const std::string& vs, const std::
     bool ret = OpenGL::CompileVertexFragmentProgram(prog,
         vsbuf, fsbuf,
         shadername,
-        {{"vPosition", 0}, {"vColor", 1}, {"vTexcoord", 2}, {"vPolygonAttr", 3}},
+        {{"vPosition", 0}, {"vColor", 1}, {"vTexcoord", 2}, {"vPolygonAttr", 3}, {"vHDTexture", 4}},
         {{"oColor", 0}, {"oAttr", 1}});
 
     if (!ret) return false;
@@ -63,6 +63,8 @@ bool GLRenderer::BuildRenderShader(u32 flags, const std::string& vs, const std::
     glUniform1i(uni_id, 0);
     uni_id = glGetUniformLocation(prog, "TexPalMem");
     glUniform1i(uni_id, 1);
+    uni_id = glGetUniformLocation(prog, "HDAtlas");
+    glUniform1i(uni_id, 2);
 
     RenderShader[flags] = prog;
 
@@ -220,13 +222,15 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
     glGenVertexArrays(1, &result->VertexArrayID);
     glBindVertexArray(result->VertexArrayID);
     glEnableVertexAttribArray(0); // position
-    glVertexAttribIPointer(0, 4, GL_UNSIGNED_SHORT, 7*4, (void*)(0));
+    glVertexAttribIPointer(0, 4, GL_UNSIGNED_SHORT, VertexSize*4, (void*)(0));
     glEnableVertexAttribArray(1); // color
-    glVertexAttribIPointer(1, 4, GL_UNSIGNED_BYTE, 7*4, (void*)(2*4));
+    glVertexAttribIPointer(1, 4, GL_UNSIGNED_BYTE, VertexSize*4, (void*)(2*4));
     glEnableVertexAttribArray(2); // texcoords
-    glVertexAttribIPointer(2, 2, GL_SHORT, 7*4, (void*)(3*4));
+    glVertexAttribIPointer(2, 2, GL_SHORT, VertexSize*4, (void*)(3*4));
     glEnableVertexAttribArray(3); // attrib
-    glVertexAttribIPointer(3, 3, GL_UNSIGNED_INT, 7*4, (void*)(4*4));
+    glVertexAttribIPointer(3, 3, GL_UNSIGNED_INT, VertexSize*4, (void*)(4*4));
+    glEnableVertexAttribArray(4); // HD texture atlas location
+    glVertexAttribIPointer(4, 1, GL_INT, VertexSize*4, (void*)(7*4));
 
     glGenBuffers(1, &result->IndexBufferID);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, result->IndexBufferID);
@@ -315,6 +319,8 @@ void GLRenderer::Reset(GPU& gpu)
 {
     // This is where the compositor's Reset() method would be called,
     // except there's no such method right now.
+
+    HDTextures.Reset();
 }
 
 void GLRenderer::SetBetterPolygons(bool betterpolygons) noexcept
@@ -415,7 +421,7 @@ void GLRenderer::SetupPolygon(GLRenderer::RendererPolygon* rp, Polygon* polygon)
     }
 }
 
-u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32* vptr) const
+u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 hdTexture, u32* vptr) const
 {
     u32 z = poly->FinalZ[vid];
     u32 w = poly->FinalW[vid];
@@ -473,8 +479,56 @@ u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u3
     *vptr++ = vtxattr | (zshift << 16);
     *vptr++ = poly->TexParam & 0xFFFF;
     *vptr++ = (poly->TexParam >> 16 ) | (poly->TexPalette << 16);
+    *vptr++ = hdTexture;
 
     return vptr;
+}
+
+void GLRenderer::LookupHDTextures(GPU& gpu, int npolys)
+{
+    bool textured = gpu.GPU3D.RenderDispCnt & (1<<0);
+    if (!HDTextures.BeginFrame(gpu) || !textured)
+    {
+        for (int i = 0; i < npolys; i++)
+            PolygonList[i].HDTexture = 0;
+        return;
+    }
+
+    // the atlas lives on texture unit 2, don't disturb the rest of the renderer
+    GLint prevActiveTexture;
+    glGetIntegerv(GL_ACTIVE_TEXTURE, &prevActiveTexture);
+
+    // looked up again if the atlas had to be rebuilt along the way
+    do
+    {
+        u32 prevParam = 0, prevPal = 0, prevInfo = 0;
+        bool havePrev = false;
+        for (int i = 0; i < npolys; i++)
+        {
+            Polygon* poly = PolygonList[i].PolyData;
+            u32 info = 0;
+            if (((poly->TexParam >> 26) & 0x7) != 0)
+            {
+                // consecutive polygons very often share a texture
+                if (havePrev && poly->TexParam == prevParam && poly->TexPalette == prevPal)
+                    info = prevInfo;
+                else
+                {
+                    info = HDTextures.Lookup(gpu, poly->TexParam, poly->TexPalette);
+                    prevParam = poly->TexParam;
+                    prevPal = poly->TexPalette;
+                    prevInfo = info;
+                    havePrev = true;
+                }
+            }
+            PolygonList[i].HDTexture = info;
+        }
+    }
+    while (HDTextures.ConsumeAtlasRebuilt());
+
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, HDTextures.AtlasTexture());
+    glActiveTexture(prevActiveTexture);
 }
 
 void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys)
@@ -523,7 +577,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 lastx = vtx->FinalPosition[0];
                 lasty = vtx->FinalPosition[1];
 
-                vptr = SetupVertex(poly, j, vtx, vtxattr, vptr);
+                vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr);
 
                 IndexBuffer[iidx++] = vidx;
                 rp->NumIndices++;
@@ -541,7 +595,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
             {
                 Vertex* vtx = poly->Vertices[j];
 
-                vptr = SetupVertex(poly, j, vtx, vtxattr, vptr);
+                vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr);
                 vidx++;
             }
 
@@ -563,7 +617,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 {
                     Vertex* vtx = poly->Vertices[j];
 
-                    vptr = SetupVertex(poly, j, vtx, vtxattr, vptr);
+                    vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr);
 
                     if (j >= 2)
                     {
@@ -650,6 +704,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 *vptr++ = vtxattr | (zshift << 16);
                 *vptr++ = poly->TexParam & 0xFFFF;
                 *vptr++ = (poly->TexParam >> 16 ) | (poly->TexPalette << 16);
+                *vptr++ = rp->HDTexture;
 
                 vidx++;
 
@@ -658,7 +713,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 {
                     Vertex* vtx = poly->Vertices[j];
 
-                    vptr = SetupVertex(poly, j, vtx, vtxattr, vptr);
+                    vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr);
 
                     if (j >= 1)
                     {
@@ -1296,9 +1351,11 @@ void GLRenderer::RenderFrame(GPU& gpu)
         NumFinalPolys = npolys;
         NumOpaqueFinalPolys = firsttrans;
 
+        LookupHDTextures(gpu, npolys);
+
         BuildPolygons(&PolygonList[0], npolys);
         glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*7*4, VertexBuffer);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*VertexSize*4, VertexBuffer);
 
         // bind to access the index buffer
         glBindVertexArray(VertexArrayID);

@@ -94,6 +94,8 @@ if (ENABLE_OGLRENDERER)
         GPU3D_Compute.cpp
         GPU3D_TexcacheOpenGL.cpp
         GPU3D_TextureReplacement.cpp
+        GPU3D_OpenGL_HDTextures.cpp
+        GPU3D_OpenGL_HDTextures.h
         GPU3D_TextureReplacement.h
         GPU3D_TexcacheOpenGL.h
         GPU3D_OpenGL_shaders.h

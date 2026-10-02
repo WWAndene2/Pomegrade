@@ -17,9 +17,9 @@ Les BIOS et firmwares Nintendo ont été retirés du dépôt pour des raisons de
 
 ### Prérequis
 
-- Le moteur de rendu **« Compute »** (Paramètres → Vidéo → Moteur de rendu). Les textures HD ne fonctionnent pas avec les moteurs « OpenGL » et « Logiciel ».
-- Ce moteur demande **OpenGL ES 3.2 et un GPU Qualcomm Adreno**. Sur les autres appareils, l'application ne le propose pas : cette restriction vient de melonDS-android d'origine.
+- Le moteur de rendu **« OpenGL »** (fonctionne sur tous les téléphones compatibles OpenGL ES 3.2) ou **« Compute »** (GPU Adreno uniquement). Le moteur « Logiciel » n'est pas pris en charge.
 - **Seules les textures 3D sont concernées.** Les éléments 2D (menus, sprites, décors 2D) ne sont pas remplacés.
+- Avec le moteur OpenGL, une texture HD fait au maximum 1024×1024, et les textures HD occupent au plus 128 Mo de mémoire vidéo. Au-delà, les textures supplémentaires restent en résolution d'origine (un message apparaît dans logcat).
 
 ### Dossiers
 
@@ -48,7 +48,8 @@ Les fichiers invalides (mauvaise taille, image illisible) sont ignorés et signa
 ### Fonctionnement technique
 
 - Une texture est identifiée par une empreinte (`xxHash64`) de son contenu **décodé**, donc palette appliquée. La même texture est reconnue où que le jeu la place en mémoire vidéo.
-- Le remplacement se fait dans le cache de textures du moteur Compute (`GPU3D_Texcache.h`). Le shader lit les textures avec des coordonnées normalisées, donc une texture HD s'affiche correctement sans autre modification.
+- **Moteur Compute** : le remplacement se fait dans son cache de textures (`GPU3D_Texcache.h`). Le shader lit les textures avec des coordonnées normalisées, donc une texture HD s'affiche correctement sans autre modification.
+- **Moteur OpenGL** : ce moteur décode les textures directement dans le shader, à partir de la mémoire vidéo émulée. Les textures qui ont une version HD sont placées dans un atlas (`GPU3D_OpenGL_HDTextures.cpp`), et chaque polygone transmet au shader l'emplacement de sa texture dans l'atlas. Le shader lit alors l'atlas au lieu de la mémoire émulée, en respectant la répétition et le miroir des textures DS.
 - La transparence est préservée : pour les formats DS sans transparence partielle, l'alpha est arrondi à « opaque » ou « transparent » pour ne pas changer le rendu des polygones.
 - Les textures HD déjà chargées restent en mémoire (cache de 128 Mo) pour éviter de relire le disque quand un jeu les recharge.
 
@@ -69,3 +70,17 @@ git submodule update --init --recursive
 ```
 
 Ces sous-modules pointent sur les versions récentes de chaque projet, pas forcément celles qu'utilisait melonDS-android d'origine. Si la compilation échoue dans l'un d'eux, il faudra revenir à une version plus ancienne.
+
+## Tests
+
+`tests/hd-textures/` contient deux tests qui tournent sur un PC Linux, sans téléphone ni carte graphique (rendu logiciel Mesa) :
+
+- `replacement_test` vérifie le module de remplacement : export, chargement d'une texture 4×, transparence, et refus des images de mauvaise taille.
+- `opengl_renderer_test` fait tourner **le vrai moteur OpenGL** sur un polygone texturé et compare l'image pixel par pixel : rendu d'origine, export, texture HD 4×, répétition et miroir des textures, et retour exact à l'image d'origine quand l'option est désactivée.
+
+```
+sudo apt install libegl-dev libgles-dev libegl-mesa0 ninja-build cmake
+cmake -S tests/hd-textures -B build-tests -G Ninja -DCMAKE_BUILD_TYPE=Release
+ninja -C build-tests replacement_test opengl_renderer_test
+cd build-tests && ./replacement_test && ./opengl_renderer_test
+```

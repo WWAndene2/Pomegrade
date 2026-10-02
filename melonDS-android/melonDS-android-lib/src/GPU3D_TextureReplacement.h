@@ -41,16 +41,24 @@ public:
     // Called by the texture cache (render thread).
     bool Active();
 
+    // Changes whenever the configuration, game or set of replacement files
+    // changes: textures cached before that have to be looked up again.
+    u32 Generation() const { return SeenGeneration; }
+
     // Content hash of a decoded texture (RGB6A5 layout, one u32 per texel).
     static u64 HashDecoded(const u32* data, u32 width, u32 height);
 
-    // Looks up a replacement. On success, `out` holds the texture in RGB6A5
-    // layout and outWidth/outHeight are the native size times the scale.
+    // Looks up a replacement. On success, `out` holds the texture as RGBA8
+    // (one u32 per texel, bytes in R, G, B, A order) and outWidth/outHeight
+    // are the native size times the scale.
     // binaryAlpha: the original format has no translucency, so alpha is
-    // forced to 0 or 31 (translucent texels would change how the polygon is
+    // forced to 0 or 255 (translucent texels would change how the polygon is
     // blended).
     bool Lookup(u64 hash, u32 width, u32 height, bool binaryAlpha, u32 maxSize,
                 std::vector<u32>& out, u32& outWidth, u32& outHeight);
+
+    // Converts Lookup's output in place to the texture cache's RGB6A5 layout.
+    static void ConvertToRGB6A5(std::vector<u32>& data);
 
     void Dump(u64 hash, const u32* data, u32 width, u32 height);
 

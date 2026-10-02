@@ -145,12 +145,16 @@ std::string TextureReplacement::TextureName(u64 hash, u32 width, u32 height)
 
 // RGB6A5 is how the texture cache stores texels: one byte per channel,
 // colour channels 0-63, alpha 0-31.
-static inline u32 RGBA8ToRGB6A5(const u8* p, bool binaryAlpha)
+void TextureReplacement::ConvertToRGB6A5(std::vector<u32>& data)
 {
-    u32 a = binaryAlpha ? (p[3] >= 128 ? 31 : 0) : (p[3] * 31 + 127) / 255;
-    if (a == 0)
-        return 0;
-    return (p[0] >> 2) | ((p[1] >> 2) << 8) | ((p[2] >> 2) << 16) | (a << 24);
+    for (u32& c : data)
+    {
+        u32 a = ((c >> 24) * 31 + 127) / 255;
+        if (a == 0)
+            c = 0;
+        else
+            c = ((c & 0xFF) >> 2) | (((c >> 8) & 0xFF) >> 2 << 8) | (((c >> 16) & 0xFF) >> 2 << 16) | (a << 24);
+    }
 }
 
 static inline void RGB6A5ToRGBA8(u32 c, u8* p)
@@ -216,7 +220,13 @@ bool TextureReplacement::Lookup(u64 hash, u32 width, u32 height, bool binaryAlph
 
     out.resize((size_t)w * h);
     for (size_t i = 0; i < out.size(); i++)
-        out[i] = RGBA8ToRGB6A5(&pixels[i * 4], binaryAlpha);
+    {
+        const u8* p = &pixels[i * 4];
+        u32 a = p[3];
+        if (binaryAlpha)
+            a = a >= 128 ? 255 : 0;
+        out[i] = a ? (p[0] | (p[1] << 8) | (p[2] << 16) | (a << 24)) : 0;
+    }
     stbi_image_free(pixels);
     outWidth = w;
     outHeight = h;

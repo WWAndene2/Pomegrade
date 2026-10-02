@@ -21,6 +21,7 @@
 #ifdef OGLRENDERER_ENABLED
 #include "GPU3D.h"
 #include "GPU_OpenGL.h"
+#include "GPU3D_OpenGL_HDTextures.h"
 #include "OpenGLSupport.h"
 
 namespace melonDS
@@ -72,6 +73,8 @@ private:
         u32 EdgeIndicesOffset;
 
         u32 RenderKey;
+
+        u32 HDTexture; // packed HD atlas location, see GLHDTextures::Lookup
     };
 
     GLCompositor CurGLCompositor;
@@ -80,7 +83,8 @@ private:
     bool BuildRenderShader(u32 flags, const std::string& vs, const std::string& fs);
     void UseRenderShader(u32 flags);
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
-    u32* SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32* vptr) const;
+    u32* SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 hdTexture, u32* vptr) const;
+    void LookupHDTextures(GPU& gpu, int npolys);
     void BuildPolygons(RendererPolygon* polygons, int npolys);
     int RenderSinglePolygon(int i) const;
     int RenderPolygonBatch(int i) const;
@@ -138,7 +142,10 @@ private:
     // * bit9: W-buffering (?)
 
     GLuint VertexBufferID {};
-    u32 VertexBuffer[10240 * 7] {};
+    static constexpr u32 VertexSize = 8; // in u32s
+    u32 VertexBuffer[10240 * VertexSize] {};
+
+    GLHDTextures HDTextures;
     u32 NumVertices {};
 
     GLuint VertexArrayID {};

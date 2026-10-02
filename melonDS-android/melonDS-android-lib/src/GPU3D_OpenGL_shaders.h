@@ -244,10 +244,12 @@ in uvec4 vPosition;
 in uvec4 vColor;
 in ivec2 vTexcoord;
 in ivec3 vPolygonAttr;
+in int vHDTexture;
 
 smooth out vec4 fColor;
 smooth out vec2 fTexcoord;
 flat out ivec3 fPolygonAttr;
+flat out int fHDTexture;
 )";
 
 const char* kRenderFSCommon = R"(
@@ -258,6 +260,7 @@ precision mediump usampler2D;
 
 uniform usampler2D TexMem;
 uniform sampler2D TexPalMem;
+uniform highp sampler2DArray HDAtlas;
 
 layout(std140) uniform uConfig
 {
@@ -274,6 +277,7 @@ layout(std140) uniform uConfig
 smooth in vec4 fColor;
 smooth in vec2 fTexcoord;
 flat in ivec3 fPolygonAttr;
+flat in int fHDTexture;
 
 layout(location = 0) out vec4 oColor;
 layout(location = 1) out vec4 oAttr;
@@ -469,8 +473,29 @@ vec4 TextureFetch_Direct(ivec2 addr, ivec4 st, int wrapmode)
     return color;
 }
 
+// HD replacement from the atlas, see GLHDTextures::Lookup for the layout
+vec4 TextureLookup_HD(vec2 st)
+{
+    int attr = int(fPolygonAttr.z << 16);
+    int scaleLog2 = (fHDTexture >> 22) & 0x7;
+    int tw = (8 << ((attr >> 20) & 0x7)) << scaleLog2;
+    int th = (8 << ((attr >> 23) & 0x7)) << scaleLog2;
+    int wrapmode = (attr >> 16);
+
+    ivec2 c = ivec2(floor(st * float(1 << scaleLog2)));
+    c.x = TexcoordWrap(c.x, tw, wrapmode);
+    c.y = TexcoordWrap(c.y, th, wrapmode>>1);
+
+    ivec3 pos = ivec3(((fHDTexture & 0x7F) << 3) + c.x,
+                      (((fHDTexture >> 7) & 0x7F) << 3) + c.y,
+                      (fHDTexture >> 14) & 0xFF);
+    return texelFetch(HDAtlas, pos, 0);
+}
+
 vec4 TextureLookup_Nearest(vec2 st)
 {
+    if (fHDTexture != 0) return TextureLookup_HD(st);
+
     int vramOffset = int(fPolygonAttr.y);
     int attr = int(fPolygonAttr.z << 16); // Shift just to reuse same code as in original source. Same below
     int paladdr = int(fPolygonAttr.z >> 16);
@@ -681,6 +706,7 @@ void main()
     fColor = vec4(vColor) / vec4(255.0,255.0,255.0,31.0);
     fTexcoord = vec2(vTexcoord) / 16.0;
     fPolygonAttr = vPolygonAttr;
+    fHDTexture = vHDTexture;
 
     gl_Position = fpos;
 }
@@ -706,6 +732,7 @@ void main()
     fColor = vec4(vColor) / vec4(255.0,255.0,255.0,31.0);
     fTexcoord = vec2(vTexcoord) / 16.0;
     fPolygonAttr = vPolygonAttr;
+    fHDTexture = vHDTexture;
 
     gl_Position = fpos;
 }
