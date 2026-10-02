@@ -14,6 +14,16 @@ object AppConfig {
     val nativeBuildTypeCmakeArguments: List<String>
         get() = System.getenv("POMEGRADE_NATIVE_BUILD_TYPE")?.let { listOf("-DCMAKE_BUILD_TYPE=$it") } ?: emptyList()
 
+    // ABIs a module builds: its own list, narrowed by the POMEGRADE_ABIS environment variable
+    // (comma-separated, e.g. "arm64-v8a") when set. CI builds arm64-v8a only. Not the IDE's
+    // android.injected.build.abi property: with it, AGP marks the APK android:testOnly="true"
+    // (an Android Studio deploy), which Android refuses to install outside adb.
+    fun abis(supported: List<String>): List<String> {
+        val wanted = System.getenv("POMEGRADE_ABIS")?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }
+            ?: return supported
+        return supported.filter { it in wanted }
+    }
+
     const val compileSdkVersion = 36
     const val targetSdkVersion = compileSdkVersion
     const val minSdkVersion = 29 // Android 10, required by the 3DS core (Azahar)

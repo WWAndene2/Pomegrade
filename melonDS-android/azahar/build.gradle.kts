@@ -23,7 +23,7 @@ android {
 
         ndk {
             // dynarmic has no 32-bit ARM backend
-            abiFilters += listOf("arm64-v8a", "x86_64")
+            abiFilters += AppConfig.abis(listOf("arm64-v8a", "x86_64"))
         }
 
         externalNativeBuild {

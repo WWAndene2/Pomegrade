@@ -49,6 +49,8 @@ jobs:
 
       - name: Build debug APK
         env:
+          # 64-bit ARM phones only (see AppConfig.abis)
+          POMEGRADE_ABIS: arm64-v8a
           POMEGRADE_CCACHE: '1'
           # optimized native code: playable speed, ~5 GB of intermediates instead of ~13 GB
           POMEGRADE_NATIVE_BUILD_TYPE: Release
@@ -63,13 +65,17 @@ jobs:
           chmod +x ./gradlew
           ./gradlew --no-daemon \
             -Dorg.gradle.jvmargs=-Xmx6g -Pkotlin.daemon.jvmargs=-Xmx4g \
-            -Pandroid.injected.build.abi=arm64-v8a \
             :app:assemblePlayStoreProdDebug
           ccache --show-stats
 
+      # One file, downloaded as is: an exact path (with a wildcard, the folders after it are
+      # kept inside the artifact, and build/intermediates holds a copy too) and no zip
+      - name: Name the APK
+        run: cp app/build/outputs/apk/playStoreProd/debug/app-playStore-prod-debug.apk Pomegrade-debug-arm64.apk
+
       - name: Upload APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: Pomegrade-debug-apk
-          path: melonDS-android/app/build/**/playStoreProd/debug/*.apk
+          path: melonDS-android/Pomegrade-debug-arm64.apk
+          archive: false
           if-no-files-found: error

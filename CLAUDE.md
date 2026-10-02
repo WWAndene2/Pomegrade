@@ -330,7 +330,7 @@ Standardization · coherency · consistency · pixel-accurate precision · symme
 
 Use this section to record any reference proportions, component precedents, or exceptions unique to this project (e.g. header/navbar reference dimensions, known off-scale tokens not yet fixed, other standing exceptions). Keep such content isolated here so it stays easy to identify and to strip out when reusing this document as a template for a different project.
 
-- **Builds are expensive.** A clean build compiles two emulator cores (~2,500 C++ files). Verify locally (`./gradlew :app:assemblePlayStoreProdDebug -Pandroid.injected.build.abi=arm64-v8a`) before pushing; GitHub Actions only builds `main` and manual runs, to spare the owner's Actions minutes.
+- **Builds are expensive.** A clean build compiles two emulator cores (~2,500 C++ files). Verify locally (`POMEGRADE_ABIS=arm64-v8a ./gradlew :app:assemblePlayStoreProdDebug`) before pushing; GitHub Actions only builds `main` and manual runs, to spare the owner's Actions minutes.
 - **Nothing in this container runs the app.** "Verified" for user-facing behaviour (§2.5) means tested on the owner's phone; until then, report it as untested.
 - **Launcher icon:** pomegranate on a transparent adaptive-icon background; foreground 62dp tall inside the 66dp safe zone of the 108dp canvas; themed (monochrome) layer provided.
 - **Requirements:** Android 10+ (3DS core); 3DS games need a 64-bit device.
