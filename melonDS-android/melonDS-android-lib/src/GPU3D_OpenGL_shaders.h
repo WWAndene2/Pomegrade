@@ -1104,6 +1104,18 @@ vec4 Reflection(vec3 P, vec3 N, float pixel, ivec2 size)
             }
             vec2 hit = ScreenOf(b);
             vec4 gh = texelFetch(GPosition, ivec2(hit), 0);
+            // a reflection only sees surfaces facing the ray; one facing away
+            // is the reflecting surface itself, crossed by the ray's first
+            // steps where it is seen at a grazing angle (one pixel there
+            // spans several pixels of depth): march on
+            vec3 nh = texelFetch(GNormal, ivec2(hit), 0).xyz * 2.0 - 1.0;
+            if (gh.w > 0.5 && dot(nh, dir) > -0.05)
+            {
+                prev = R;
+                step *= 1.08;
+                t += step;
+                continue;
+            }
             if (gh.w < 0.5 || length(b) - length(gh.xyz) > max(step, pixel * 4.0)) return vec4(0.0);
             // fade near the screen's edges and towards the end of the march
             vec2 edge = min(hit, vec2(size) - hit) / (vec2(size) * 0.1);

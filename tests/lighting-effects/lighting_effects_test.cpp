@@ -94,6 +94,7 @@ static bool FrontLight = false; // light from the camera's side: the sphere's fr
 static bool SideLight = false;  // shadow test: light from the upper left, the sphere's shadow falls to its right
 static bool ShinyFloor = false; // reflection test: the floor's material has a white specular colour
 static bool PerspectiveIcon = false; // a small 3D icon drawn last, with its own projection and viewport
+static bool UnlitCanopy = false; // shadow test: an unlit canopy over the back of the room, its colours painted in
 
 static void DrawSphere()
 {
@@ -162,6 +163,19 @@ static void SubmitScene()
     if (RedSphere) Cmd(0x30, {(0x001F) | (0x0008u << 16)}); // diffuse red, ambient dark red
     Cmd(0x31, {0}); // the sphere isn't shiny
     DrawSphere();
+
+    if (UnlitCanopy)
+    {
+        // between the light and the back of the floor, as a sky or a painted
+        // ceiling would be: it carries its own lighting, it casts no shadow
+        Cmd(0x29, {(31 << 16) | (4 << 24) | 0xC0}); // no lights, both sides
+        Cmd(0x40, {1});
+        Cmd(0x20, {0x4210}); Vertex16(-4, 1.6, -3.5);
+        Cmd(0x20, {0x4210}); Vertex16(4, 1.6, -3.5);
+        Cmd(0x20, {0x4210}); Vertex16(4, 1.6, -6);
+        Cmd(0x20, {0x4210}); Vertex16(-4, 1.6, -6);
+        Cmd(0x41);
+    }
 
     if (PerspectiveIcon)
     {
@@ -474,6 +488,25 @@ int main()
         check(ratio[1] > 0.99 && ratio[2] > 0.99 && ratio[3] > 0.99, "lit surfaces unchanged");
         check(Diff(shadowOff, shadowOn, hx0, hy0, hx1, hy1) == 0, "shadows: 2D HUD panel untouched");
     }
+    {
+        // an unlit canopy between the light and the back of the floor casts
+        // nothing; the sphere still does
+        UnlitCanopy = true;
+        r->SetShadows(false);
+        auto canopyOff = Frame(*r, gpu);
+        r->SetShadows(true);
+        Frame(*r, gpu);
+        auto canopyOn = Frame(*r, gpu);
+        int bx, by, sx, sy;
+        // its line to the light crosses the canopy at (-0.6, 1.6, -4.6)
+        Project(2.0, FloorY, -5.5, bx, by);
+        Project(SphereCenter[0] + 1.1, FloorY, SphereCenter[2] - 0.25, sx, sy);
+        double under = Brightness(canopyOn, bx, by, 2) / Brightness(canopyOff, bx, by, 2);
+        double shadow = Brightness(canopyOn, sx, sy, 2) / Brightness(canopyOff, sx, sy, 2);
+        printf("unlit canopy: floor under it (%d,%d) x%.2f, sphere's shadow x%.2f\n", bx, by, under, shadow);
+        check(under > 0.99 && shadow < 0.8, "unlit canopy casts no shadow, the sphere still does");
+        UnlitCanopy = false;
+    }
     r->SetShadows(false);
     check(Frame(*r, gpu) == shadowOff, "shadows off again == original");
     SideLight = false;
@@ -507,6 +540,22 @@ int main()
         PerspectiveIcon = false;
         check(std::fabs(redness(reflOn, fx, fy) - redness(reflOff, fx, fy)) < 0.02, "open floor keeps its colour (reflects the grey wall)");
         check(Diff(reflOff, reflOn, hx0, hy0, hx1, hy1) == 0, "reflections: 2D HUD panel untouched");
+
+        // the floor left of the sphere mirrors the white wall all the way to
+        // the crease: no band where the floor, seen at a grazing angle,
+        // stops the rays as if it reflected itself (at x = -1.5 the rays go
+        // further left, never towards the sphere)
+        int dull = 0, rows = 0;
+        for (double z = -5.9; z <= -2.5; z += 0.05)
+        {
+            int sx, sy;
+            Project(-1.5, FloorY, z, sx, sy);
+            if (sx < 26) continue; // reflections fade out near the screen's edges, by design
+            rows++;
+            if (Brightness(reflOn, sx, sy, 0) < Brightness(reflOff, sx, sy, 0) * 1.05) dull++;
+        }
+        printf("floor mirroring the white wall: %d of %d points not brighter\n", dull, rows);
+        check(rows >= 40 && dull == 0, "floor mirrors the wall down to the crease (every point 5% brighter or more)");
     }
     // a matte floor (no specular colour) only reflects a little, at grazing angles
     ShinyFloor = false;

@@ -1545,7 +1545,12 @@ bool GLRenderer::RenderShadowMap(const GPU3D& gpu3d)
     for (int i = 0; i < NumFinalPolys; i++)
     {
         const RendererPolygon& rp = PolygonList[i];
-        if (rp.PolyData->IsShadowMask || rp.PolyData->Translucent || rp.PrimType != GL_TRIANGLES || !rp.NumIndices)
+        // only geometry the DS lights (characters, objects) casts: unlit polygons
+        // carry lighting the game painted in, occlusion included (a level's
+        // walls and ceilings, which would keep everything under them in
+        // shadow), or are backdrops (a sky behind a window would block the sun)
+        if (rp.PolyData->IsShadowMask || rp.PolyData->Translucent || rp.PrimType != GL_TRIANGLES || !rp.NumIndices ||
+            !(rp.PolyData->Attr & 0xF))
         {
             flush();
             continue;
