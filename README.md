@@ -9,7 +9,7 @@ Pomegrade est une version modifiée de [melonDS-android](https://github.com/rafa
 | `melonDS-android/` | L'application Android (Kotlin + JNI) |
 | `melonDS-android/melonDS-android-lib/` | Le cœur de l'émulateur (C++), intégré directement au dépôt et non plus comme sous-module |
 | `melonDS-master.zip` | Les sources de melonDS pour PC (référence) |
-| `*.apk` | Les anciennes versions compilées |
+| `melonDS.v.2.0.1.PS.apk` | La version officielle de melonDS-android (référence) |
 
 Les BIOS et firmwares Nintendo ont été retirés du dépôt pour des raisons de copyright. Gardez-les sur votre appareil et choisissez-les dans les paramètres de l'application.
 
