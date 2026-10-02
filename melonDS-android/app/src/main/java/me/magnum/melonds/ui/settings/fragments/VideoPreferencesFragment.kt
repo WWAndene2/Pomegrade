@@ -42,10 +42,12 @@ class VideoPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTit
 
         softwareRendererPreferences.apply {
             add(findPreference("enable_threaded_rendering")!!)
+            add(findPreference("polygon_multiplier")!!)
         }
 
         openGlRendererPreferences.apply {
             add(findPreference("video_internal_resolution")!!)
+            add(findPreference("polygon_multiplier")!!)
             add(findPreference("enable_hd_textures")!!)
             add(findPreference("dump_textures")!!)
         }

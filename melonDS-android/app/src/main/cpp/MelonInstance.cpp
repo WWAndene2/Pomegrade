@@ -662,6 +662,10 @@ void MelonInstance::updateRenderer()
         }
         default: __builtin_unreachable();
     }
+
+    // Pomegrade: runs on the emulation thread between frames, so the multiplier's
+    // buffers can be allocated here. The compute renderer ignores it.
+    nds->GPU.GPU3D.SetPolygonMultiplier(currentConfiguration->polygonMultiplier);
 }
 
 void MelonInstance::setBatteryLevels()

@@ -646,6 +646,19 @@
     <string name="three_ds_unsupported">3DS games need a 64-bit device</string>
     <string name="three_ds_setup_required">Set up 3DS emulation first (folder for saves and system files)</string>
     <string name="three_ds_rom_label">3DS · %1$s</string>
+    <string name="polygon_multiplier">Polygon multiplier</string>
+    <string-array name="polygon_multiplier_options">
+        <item>Off</item>
+        <item>×2 (smoother 3D models)</item>
+        <item>×3</item>
+        <item>×4 (heaviest)</item>
+    </string-array>
+    <string-array name="polygon_multiplier_values" translatable="false">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+    </string-array>
     <string name="hd_textures">HD textures</string>
     <string name="hd_textures_summary">Replace 3D textures with HD versions from Android/data/&lt;app&gt;/files/textures/&lt;game code&gt;/</string>
     <string name="dump_textures">Dump textures</string>

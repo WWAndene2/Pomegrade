@@ -108,6 +108,9 @@ MelonDSAndroid::EmulatorConfiguration MelonDSAndroidConfiguration::buildEmulator
     textureReplacementConfig.Dump = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "dumpTexturesEnabled", "Z"));
     melonDS::TextureReplacement::SetConfig(textureReplacementConfig);
 
+    // Pomegrade: polygon multiplier, applied by MelonInstance::updateRenderer
+    finalEmulatorConfiguration.polygonMultiplier = env->GetIntField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "polygonMultiplier", "I"));
+
     return finalEmulatorConfiguration;
 }
 

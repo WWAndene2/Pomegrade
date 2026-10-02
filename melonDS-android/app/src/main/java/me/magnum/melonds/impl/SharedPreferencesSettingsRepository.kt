@@ -170,6 +170,7 @@ class SharedPreferencesSettingsRepository(
             texturesDirectory = context.getExternalFilesDir("textures")?.absolutePath,
             hdTexturesEnabled = preferences.getBoolean("enable_hd_textures", false),
             dumpTexturesEnabled = preferences.getBoolean("dump_textures", false),
+            polygonMultiplier = preferences.getString("polygon_multiplier", "1")?.toIntOrNull() ?: 1,
         )
     }
 

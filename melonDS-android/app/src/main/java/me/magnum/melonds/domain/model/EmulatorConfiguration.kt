@@ -31,4 +31,6 @@ data class EmulatorConfiguration(
         val texturesDirectory: String? = null,
         val hdTexturesEnabled: Boolean = false,
         val dumpTexturesEnabled: Boolean = false,
+        // Pomegrade: polygon multiplier level, 1 = off (software and OpenGL renderers)
+        val polygonMultiplier: Int = 1,
 )

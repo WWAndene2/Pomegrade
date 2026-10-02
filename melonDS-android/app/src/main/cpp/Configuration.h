@@ -84,6 +84,8 @@ typedef struct
     SdCardSettings dsiSdCardSettings;
     SdCardSettings dldiSdCardSettings;
     Renderer renderer;
+    // Pomegrade: polygon multiplier level, 1 = off (see GPU3D::SetPolygonMultiplier)
+    int polygonMultiplier = 1;
 } EmulatorConfiguration;
 
 }

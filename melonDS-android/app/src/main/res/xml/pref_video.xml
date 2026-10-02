@@ -28,6 +28,15 @@
             app:iconSpaceReserved="false"
             android:defaultValue="true" />
 
+    <ListPreference
+            android:key="polygon_multiplier"
+            android:title="@string/polygon_multiplier"
+            android:summary="%s"
+            app:iconSpaceReserved="false"
+            android:entries="@array/polygon_multiplier_options"
+            android:entryValues="@array/polygon_multiplier_values"
+            android:defaultValue="1"/>
+
     <SwitchPreference
             android:key="enable_hd_textures"
             android:title="@string/hd_textures"
