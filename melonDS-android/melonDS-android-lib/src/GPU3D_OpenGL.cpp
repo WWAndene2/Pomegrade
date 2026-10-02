@@ -1123,6 +1123,8 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
             {
                 RendererPolygon* rp = &PolygonList[i];
 
+                if (DSShadowsReplaced && (rp->PolyData->IsShadowMask || rp->PolyData->IsShadow)) { i++; continue; }
+
                 if (rp->PolyData->IsShadowMask)
                 {
                     // draw actual shadow mask
@@ -1223,6 +1225,8 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
         for (int i = 0; i < NumFinalPolys; )
         {
             RendererPolygon* rp = &PolygonList[i];
+
+            if (DSShadowsReplaced && (rp->PolyData->IsShadowMask || rp->PolyData->IsShadow)) { i++; continue; }
 
             if (rp->PolyData->IsShadowMask)
             {
@@ -1601,6 +1605,7 @@ void GLRenderer::RenderLighting(const GPU3D& gpu3d)
     glDrawBuffers(1, &colourOnly);
 
     const bool shadows = Shadows && RenderShadowMap(gpu3d);
+    ShadowsDrawn = shadows;
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
@@ -1964,7 +1969,9 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, TexMemID);
             TranslucentPassOnly = true;
+            DSShadowsReplaced = ShadowsDrawn;
             RenderSceneChunk(gpu.GPU3D, 0, 192);
+            DSShadowsReplaced = false;
             TranslucentPassOnly = false;
             glBindFramebuffer(GL_FRAMEBUFFER, MainFramebuffer);
         }

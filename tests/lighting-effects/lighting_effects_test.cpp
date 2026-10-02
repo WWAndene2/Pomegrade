@@ -105,6 +105,8 @@ static bool FullFog = false;          // fog at full density everywhere
 // travelling (0.6, -0.8, 0)): each casts a band on the floor whose right
 // edge runs away from the camera too, measured across the screen
 static bool Bars = false;
+// a DS shadow volume (the dark disc games draw under characters) crossing the floor, left of the sphere
+static bool DSShadowVolume = false;
 static const double LowBarX = -2.0, LowBarHeight = 0.1, HighBarX = 0.6, HighBarHeight = 2.4, BarHalf = 0.1;
 
 static void DrawSphere()
@@ -135,7 +137,7 @@ static void SubmitScene()
 {
     GPU3D& g = Nds->GPU.GPU3D;
     // DISP3DCNT: textures and alpha blending for the layering tests, fog
-    g.Write32(0x04000060, (TranslucentPanel || CutoutSprite ? 0x9 : 0) | (FullFog ? 0x80 : 0));
+    g.Write32(0x04000060, (TranslucentPanel || CutoutSprite || DSShadowVolume ? 0x9 : 0) | (FullFog ? 0x80 : 0));
     if (FullFog)
     {
         g.Write32(0x04000358, (31u << 16) | (24 << 10) | (24 << 5) | 24); // light grey, opaque
@@ -224,6 +226,26 @@ static void SubmitScene()
             Normal(0, 1, 0); Vertex16(x0, y, -4); Vertex16(x1, y, -4); Vertex16(x1, y, -6); Vertex16(x0, y, -6);
         }
         Cmd(0x41);
+    }
+
+    if (DSShadowVolume)
+    {
+        // as games draw them: the volume as a mask (polygon id 0), then again
+        // as the shadow (another id), both mode 3, black, translucent
+        for (u32 id : {0u, 2u})
+        {
+            // the mask with its back faces, the shadow with its front faces
+            Cmd(0x29, {(3u << 4) | (10u << 16) | (id << 24) | (id == 0 ? 0x40u : 0x80u)});
+            Cmd(0x40, {1});
+            double x0 = -1.7, x1 = -0.9, z0 = -3.6, z1 = -4.4, y0 = FloorY - 0.2, y1 = FloorY + 0.2;
+            double q[6][4][3] = {
+                {{x0, y1, z0}, {x1, y1, z0}, {x1, y1, z1}, {x0, y1, z1}}, {{x0, y0, z1}, {x1, y0, z1}, {x1, y0, z0}, {x0, y0, z0}},
+                {{x0, y0, z0}, {x1, y0, z0}, {x1, y1, z0}, {x0, y1, z0}}, {{x1, y0, z1}, {x0, y0, z1}, {x0, y1, z1}, {x1, y1, z1}},
+                {{x0, y0, z1}, {x0, y0, z0}, {x0, y1, z0}, {x0, y1, z1}}, {{x1, y0, z0}, {x1, y0, z1}, {x1, y1, z1}, {x1, y1, z0}}};
+            for (auto& face : q)
+                for (auto& v : face) { Cmd(0x20, {0}); Vertex16(v[0], v[1], v[2]); }
+            Cmd(0x41);
+        }
     }
 
     if (CutoutSprite)
@@ -764,6 +786,35 @@ int main()
         }
         printf("cut-out sprite: %d pixels, %d changed (%d over the shadow)\n", spritePx, changed, shadowBehind);
         check(spritePx > 100 && shadowBehind > 20 && changed == 0, "cut-out sprite keeps its colours");
+
+        // the game's fake shadow (a DS shadow volume) gives way to the real
+        // shadows in the image shown; the game's own image keeps it
+        {
+            int vx, vy;
+            Project(-1.3, FloorY, -4.0, vx, vy);
+            r->SetAmbientOcclusion(false);
+            r->SetShadows(false);
+            Frame(*r, gpu);
+            auto plainOff = Frame(*r, gpu);
+            DSShadowVolume = true;
+            std::vector<u32> capVolume;
+            auto volumeOff = Frame(*r, gpu, &capVolume);
+            r->SetShadows(true);
+            Frame(*r, gpu);
+            std::vector<u32> capVolumeOn;
+            auto volumeOn = Frame(*r, gpu, &capVolumeOn);
+            DSShadowVolume = false;
+            Frame(*r, gpu);
+            std::vector<u32> capPlainOn;
+            auto plainOn = Frame(*r, gpu, &capPlainOn);
+            r->SetShadows(false);
+            double dark = Brightness(volumeOff, vx, vy, 2) / Brightness(plainOff, vx, vy, 2);
+            printf("DS shadow volume (%d,%d): shadows off x%.2f; shadows on, image %s the scene without it\n", vx, vy, dark,
+                   volumeOn == plainOn ? "==" : "!=");
+            check(dark < 0.9, "DS shadow volume: drawn as the game draws it without real-time shadows");
+            check(volumeOn == plainOn, "DS shadow volume: left out of the image with real-time shadows");
+            check(capVolumeOn != capPlainOn, "DS shadow volume: still in the game's own image (display capture)");
+        }
 
         // fog at full density hides the lit scene entirely
         FullFog = true;
