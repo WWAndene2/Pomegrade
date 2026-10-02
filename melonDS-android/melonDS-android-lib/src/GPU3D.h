@@ -52,6 +52,9 @@ struct Vertex
     // when the vertex is submitted. Not part of the hardware state.
     float ViewPosition[4];
     float ViewNormal[3];
+    // high-precision geometry (Pomegrade): screen position without the
+    // hardware's integer rounding, in native pixels. Not part of the hardware state.
+    float PreciseScreen[2];
     bool HasViewNormal;
     bool LitColor; // colour computed by the DS lighting from that normal
 

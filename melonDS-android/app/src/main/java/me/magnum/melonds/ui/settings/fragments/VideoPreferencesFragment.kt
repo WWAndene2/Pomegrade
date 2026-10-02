@@ -50,6 +50,7 @@ class VideoPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTit
             add(findPreference("video_internal_resolution")!!)
             add(findPreference("polygon_multiplier")!!)
             add(findPreference("unlimited_polygons")!!)
+            add(findPreference("high_precision_geometry")!!)
             add(findPreference("better_polygons")!!)
             add(findPreference("enable_hd_textures")!!)
             add(findPreference("dump_textures")!!)

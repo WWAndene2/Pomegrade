@@ -36,6 +36,9 @@ public:
 
     void SetRenderSettings(bool betterpolygons, int scale) noexcept;
     void SetBetterPolygons(bool betterpolygons) noexcept;
+    // High-precision geometry (Pomegrade): vertices placed at sub-pixel
+    // positions instead of being snapped to whole pixels of the output.
+    void SetHighPrecision(bool enable) noexcept { HighPrecision = enable; }
     void SetScaleFactor(int scale) noexcept;
     [[nodiscard]] bool GetBetterPolygons() const noexcept { return BetterPolygons; }
     [[nodiscard]] int GetScaleFactor() const noexcept { return ScaleFactor; }
@@ -164,6 +167,9 @@ private:
 
     int ScaleFactor {};
     bool BetterPolygons {};
+    bool HighPrecision {};
+    // sub-pixel steps per output pixel in vertex positions (16-bit, up to 4096 px)
+    u32 SubpixelScale() const noexcept { return HighPrecision ? (ScaleFactor <= 8 ? 16 : 8) : 1; }
     int ScreenW {}, ScreenH {};
 
     GLuint ColorBufferTex {}, DepthBufferTex {}, AttrBufferTex {};

@@ -88,6 +88,8 @@ typedef struct
     int polygonMultiplier = 1;
     // Pomegrade: draw polygons past the hardware limit (see GPU3D::SetUnlimitedPolygons)
     bool unlimitedPolygons = false;
+    // Pomegrade: sub-pixel vertex positions in the OpenGL renderer (see GLRenderer::SetHighPrecision)
+    bool highPrecisionGeometry = false;
 } EmulatorConfiguration;
 
 }

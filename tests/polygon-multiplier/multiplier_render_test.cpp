@@ -198,6 +198,31 @@ static void SubmitOverflowScene()
     g.VBlank();
 }
 
+// A triangle rotated by a small angle: its true area never changes, so how
+// much its drawn area varies from frame to frame measures vertex jitter.
+static void SubmitRotatingTriangle(double angle)
+{
+    GPU3D& g = Nds->GPU.GPU3D;
+    g.Write32(0x04000060, 0);
+    g.Write32(0x04000350, 0x1F0000);
+    g.Write32(0x04000354, 0x7FFF);
+    Cmd(0x60, {0 | (0 << 8) | (255u << 16) | (191u << 24)});
+    Cmd(0x10, {0}); Cmd(0x15);
+    Cmd(0x10, {2}); Cmd(0x15);
+    Cmd(0x29, {(31 << 16) | (4 << 24) | 0xC0});
+    Cmd(0x20, {0x7FFF});
+    Cmd(0x40, {0});
+    for (int i = 0; i < 3; i++)
+    {
+        double a = angle + i * 2 * M_PI / 3;
+        // 60 native pixels around the centre (clip x: 128 px, clip y: 96 px)
+        Vertex16(60.0 / 128 * std::cos(a), 60.0 / 96 * std::sin(a), -0.5);
+    }
+    Cmd(0x41);
+    Cmd(0x50, {0});
+    g.VBlank();
+}
+
 static std::vector<u32> Capture(Renderer3D& r)
 {
     std::vector<u32> img(256 * 192);
@@ -348,6 +373,37 @@ int main()
         ok = ok && overflow[0] && overflow[1] && counted[0] == counted[1] && counted[0] <= 2048;
         ok = ok && rendered[0] < 3000 && rendered[1] == 3000 && lit[1] > lit[0];
         gpu.GPU3D.SetUnlimitedPolygons(false);
+    }
+
+    // high-precision geometry: less frame-to-frame area variation of a rotating triangle
+    if (glr)
+    {
+        gpu.GPU3D.SetPolygonMultiplier(1);
+        double spread[2];
+        for (int precise = 0; precise < 2; precise++)
+        {
+            glr->SetHighPrecision(precise);
+            double sum = 0, sum2 = 0, jump = 0; int prev = -1;
+            const int frames = 90;
+            for (int f = 0; f < frames; f++)
+            {
+                SubmitRotatingTriangle(f * 0.0044); // ~0.25 degree per frame
+                glr->RenderFrame(gpu);
+                glr->PrepareCaptureFrame();
+                auto img = Capture(*glr);
+                int lit = 0;
+                for (u32 c : img) if (c & 0x3F3F3F) lit++;
+                sum += lit; sum2 += (double)lit * lit;
+                if (prev >= 0) jump += std::abs(lit - prev);
+                prev = lit;
+            }
+            double mean = sum / frames;
+            spread[precise] = std::sqrt(sum2 / frames - mean * mean);
+            printf("high precision %s: drawn area %.0f px, variation %.1f px (std dev), %.1f px average change per frame\n",
+                   precise ? "on " : "off", mean, spread[precise], jump / (frames - 1));
+        }
+        glr->SetHighPrecision(false);
+        ok = ok && spread[1] < spread[0];
     }
 
     // off again: back to exactly the original image

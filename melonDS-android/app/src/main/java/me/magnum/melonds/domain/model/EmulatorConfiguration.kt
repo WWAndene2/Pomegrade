@@ -37,4 +37,6 @@ data class EmulatorConfiguration(
         val betterPolygons: Boolean = false,
         // Pomegrade: draw polygons past the DS limit (software and OpenGL renderers)
         val unlimitedPolygons: Boolean = false,
+        // Pomegrade: sub-pixel vertex positions (OpenGL renderer)
+        val highPrecisionGeometry: Boolean = false,
 )

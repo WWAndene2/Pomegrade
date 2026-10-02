@@ -1095,6 +1095,18 @@ void GPU3D::ComputeScreenPosition(Vertex* vtx) const noexcept
     vtx->FinalPosition[0] = posX & 0x1FF;
     vtx->FinalPosition[1] = posY & 0xFF;
 
+    // high-precision geometry: the same viewport transform, without rounding
+    if (w != 0)
+    {
+        vtx->PreciseScreen[0] = (float)((double)(vtx->Position[0] + (s32)w) * Viewport[4] / (2.0 * w) + Viewport[0]);
+        vtx->PreciseScreen[1] = (float)((double)(-vtx->Position[1] + (s32)w) * Viewport[5] / (2.0 * w) + Viewport[3]);
+    }
+    else
+    {
+        vtx->PreciseScreen[0] = 0;
+        vtx->PreciseScreen[1] = 0;
+    }
+
     // hi-res positions
     // to consider: only do this when using the GL renderer? apply the aforementioned quirk to this?
     if (w != 0)

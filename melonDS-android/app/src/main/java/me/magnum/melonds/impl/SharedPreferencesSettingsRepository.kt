@@ -173,6 +173,7 @@ class SharedPreferencesSettingsRepository(
             polygonMultiplier = preferences.getString("polygon_multiplier", "1")?.toIntOrNull() ?: 1,
             betterPolygons = preferences.getBoolean("better_polygons", false),
             unlimitedPolygons = preferences.getBoolean("unlimited_polygons", false),
+            highPrecisionGeometry = preferences.getBoolean("high_precision_geometry", false),
         )
     }
 

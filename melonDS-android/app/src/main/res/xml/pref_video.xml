@@ -45,6 +45,13 @@
             android:defaultValue="false" />
 
     <SwitchPreference
+            android:key="high_precision_geometry"
+            android:title="@string/high_precision_geometry"
+            android:summary="@string/high_precision_geometry_summary"
+            app:iconSpaceReserved="false"
+            android:defaultValue="false" />
+
+    <SwitchPreference
             android:key="better_polygons"
             android:title="@string/better_polygons"
             android:summary="@string/better_polygons_summary"

@@ -19,6 +19,7 @@
 #include "GPU3D_OpenGL.h"
 
 #include <algorithm>
+#include <cmath>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -434,7 +435,14 @@ u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u3
     while (z > 0xFFFF) { z >>= 1; zshift++; }
 
     u32 x, y;
-    if (ScaleFactor > 1)
+    if (HighPrecision)
+    {
+        // positions in 1/SubpixelScale() of an output pixel; uScreenSize is scaled to match
+        float scale = (float)(ScaleFactor * SubpixelScale());
+        x = (u32)std::clamp(std::lround(vtx->PreciseScreen[0] * scale), 0L, 0xFFFFL);
+        y = (u32)std::clamp(std::lround(vtx->PreciseScreen[1] * scale), 0L, 0xFFFFL);
+    }
+    else if (ScaleFactor > 1)
     {
         x = (vtx->HiresPosition[0] * ScaleFactor) >> 4;
         y = (vtx->HiresPosition[1] * ScaleFactor) >> 4;
@@ -673,6 +681,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 // but we can attempt to reduce it
 
                 u32 cX = 0, cY = 0;
+                float cXf = 0, cYf = 0;
                 float cZ = 0;
                 float cW = 0;
 
@@ -685,6 +694,8 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
 
                     cX += vtx->HiresPosition[0];
                     cY += vtx->HiresPosition[1];
+                    cXf += vtx->PreciseScreen[0];
+                    cYf += vtx->PreciseScreen[1];
 
                     float fw = (float)poly->FinalW[j] * poly->NumVertices;
                     cW += 1.0f / fw;
@@ -715,8 +726,17 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 cS *= cW;
                 cT *= cW;
 
-                cX = (cX * ScaleFactor) >> 4;
-                cY = (cY * ScaleFactor) >> 4;
+                if (HighPrecision)
+                {
+                    float scale = (float)(ScaleFactor * SubpixelScale()) / poly->NumVertices;
+                    cX = (u32)std::clamp(std::lround(cXf * scale), 0L, 0xFFFFL);
+                    cY = (u32)std::clamp(std::lround(cYf * scale), 0L, 0xFFFFL);
+                }
+                else
+                {
+                    cX = (cX * ScaleFactor) >> 4;
+                    cY = (cY * ScaleFactor) >> 4;
+                }
 
                 u32 w = (u32)cW;
 
@@ -1217,8 +1237,9 @@ void GLRenderer::RenderFrame(GPU& gpu)
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, MainFramebuffer);
 
-    ShaderConfig.uScreenSize[0] = ScreenW;
-    ShaderConfig.uScreenSize[1] = ScreenH;
+    // vertex positions come in 1/SubpixelScale() pixel units (high-precision geometry)
+    ShaderConfig.uScreenSize[0] = ScreenW * SubpixelScale();
+    ShaderConfig.uScreenSize[1] = ScreenH * SubpixelScale();
     ShaderConfig.uDispCnt = gpu.GPU3D.RenderDispCnt;
 
     for (int i = 0; i < 32; i++)
