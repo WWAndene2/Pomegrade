@@ -1,0 +1,4 @@
+bios*.bin
+firmware.bin*
+dsifirmware.bin*
+*.ROM
