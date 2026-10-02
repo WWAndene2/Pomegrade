@@ -24,13 +24,18 @@ void ProjectOntoTangentPlane(const double* p, const MultiplierVertex& corner, do
 
 }
 
-CurveMethod PolygonMultiplier::BestMethod(int level)
+double PolygonMultiplier::PNhongShare(int level)
 {
-    // measured on low-poly spheres, ellipsoids, cylinders and tori (average
-    // distance to the true surface): Phong is closest up to level 3 but stops
-    // improving (and drifts) beyond; from level 4, circular PN is closest on
-    // all four and keeps getting closer with each level
-    return level <= 3 ? CurveMethod::Phong : CurveMethod::CircularPN;
+    // Blend with the lowest average distance to the true surface, in steps of
+    // 0.05, over six low-poly models: spheres (8x5 and 6x4), an ellipsoid, a
+    // cylinder, a torus and an egg. Phong alone is closest at level 2, stops
+    // improving beyond and drifts; circular PN keeps improving. Compared to
+    // the better of the two alone: 17% closer at levels 3 and 4, 9% at 5,
+    // 5% at 6, about equal at 7 and 8.
+    static constexpr double share[MaxLevel + 1] = {0, 0, 0, 0.50, 0.75, 0.85, 0.90, 0.95, 0.95};
+    if (level < 0) level = 0;
+    if (level > MaxLevel) level = MaxLevel;
+    return share[level];
 }
 
 bool PolygonMultiplier::NormalizeNormal(MultiplierVertex& vertex)
@@ -141,8 +146,23 @@ void InterpolatePN(const MultiplierVertex& a, const MultiplierVertex& b, const M
 }
 
 MultiplierVertex PolygonMultiplier::Interpolate(const MultiplierVertex& a, const MultiplierVertex& b, const MultiplierVertex& c,
-                                                double u, double v, double w, CurveMethod method)
+                                                double u, double v, double w, CurveMethod method, double pnShare)
 {
+    if (method == CurveMethod::PNhong)
+    {
+        MultiplierVertex phong = Interpolate(a, b, c, u, v, w, CurveMethod::Phong);
+        if (pnShare <= 0)
+            return phong;
+        MultiplierVertex pn = Interpolate(a, b, c, u, v, w, CurveMethod::CircularPN);
+        for (int i = 0; i < 3; i++)
+        {
+            phong.Position[i] += pnShare * (pn.Position[i] - phong.Position[i]);
+            phong.Normal[i] += pnShare * (pn.Normal[i] - phong.Normal[i]);
+        }
+        NormalizeNormal(phong);
+        return phong;
+    }
+
     MultiplierVertex out;
 
     if (method == CurveMethod::PNTriangles || method == CurveMethod::CircularPN)
@@ -185,6 +205,8 @@ int PolygonMultiplier::SubdivideTriangle(const MultiplierVertex& a, const Multip
     if (level < 1) level = 1;
     if (level > MaxLevel) level = MaxLevel;
 
+    const double pnShare = PNhongShare(level);
+
     // grid point (i, j): barycentric (1 - (i+j)/level, i/level, j/level)
     MultiplierVertex grid[MaxLevel + 1][MaxLevel + 1];
     for (int i = 0; i <= level; i++)
@@ -196,7 +218,7 @@ int PolygonMultiplier::SubdivideTriangle(const MultiplierVertex& a, const Multip
             if (i == 0 && j == 0)               grid[i][j] = a;
             else if (i == level)                grid[i][j] = b;
             else if (j == level)                grid[i][j] = c;
-            else                                grid[i][j] = Interpolate(a, b, c, 1.0 - v - w, v, w, method);
+            else                                grid[i][j] = Interpolate(a, b, c, 1.0 - v - w, v, w, method, pnShare);
         }
     }
 

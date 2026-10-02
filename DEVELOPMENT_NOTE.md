@@ -47,7 +47,7 @@ Pomegrade is currently **two apps side by side in one APK**: melonDS-android (DS
 
   | Enhancement | Renderers | Status, measured on the desktop |
   |---|---|---|
-  | Polygon multiplier (×4 to ×64): lit polygons subdivided on a curved surface and relit with the DS lighting | Software, OpenGL | Done. Phong curves up to ×9, circular PN from ×16 (2.6× to 23× closer to the true shape than Phong at ×64). No fixed cap (memory guard: 262144 extra polygons per frame) |
+  | Polygon multiplier (×4 to ×64): lit polygons subdivided on a curved surface and relit with the DS lighting | Software, OpenGL | Done. "PNhong" curves: per level, the measured best blend of Phong and circular PN (17% closer than either alone at ×9 and ×16, over six test models). No fixed cap (memory guard: 262144 extra polygons per frame) |
   | Remove polygon limit: polygons the DS would drop are drawn | Software, OpenGL | Done. 3000-polygon scene: 1536 drawn → 3000 |
   | High-precision geometry: sub-pixel vertex positions | OpenGL | Done. Frame-to-frame jitter of a rotating triangle 27.2 px → 3.0 px |
   | High colour: 8-bit colour instead of the DS's 6 | OpenGL | Done. Lit sphere shading 50 → 184 colour levels |

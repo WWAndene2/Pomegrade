@@ -30,6 +30,12 @@ enum class CurveMethod
     // through its two corners with their normals ((4/3) tan(angle/4) r),
     // instead of a third of the chord, which bulges too little.
     CircularPN,
+    // "PNhong": a fixed blend of Phong and circular PN for each level, the
+    // blend measured closest to the true surface (see PNhongShare). Phong is
+    // closest at low levels, circular PN at high ones, a mix in between. Both
+    // put shared-edge points from the edge's corners only, so the blend stays
+    // crack-free and exact on flat polygons.
+    PNhong,
 };
 
 struct MultiplierVertex
@@ -46,8 +52,8 @@ public:
     // level n = n*n sub-triangles per triangle
     static constexpr int MaxLevel = 8;
 
-    // The most accurate method for a level (see the .cpp for the measurements).
-    static CurveMethod BestMethod(int level);
+    // PNhong: share of circular PN (the rest is Phong) at a level.
+    static double PNhongShare(int level);
 
     // Phong tessellation shape factor: 0 = flat subdivision, 1 = full
     // projection. 3/4 is the value recommended by the paper.
@@ -67,8 +73,10 @@ public:
                                  int level, MultiplierVertex (*out)[3], CurveMethod method);
 
     // The point at barycentric coordinates (u, v, w) of triangle (a, b, c).
+    // pnShare is only used by PNhong.
+
     static MultiplierVertex Interpolate(const MultiplierVertex& a, const MultiplierVertex& b, const MultiplierVertex& c,
-                                        double u, double v, double w, CurveMethod method);
+                                        double u, double v, double w, CurveMethod method, double pnShare = 1.0);
 };
 
 }

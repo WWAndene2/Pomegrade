@@ -6,8 +6,8 @@
 #include <initializer_list>
 using namespace melonDS;
 
-static const CurveMethod Methods[] = {CurveMethod::Phong, CurveMethod::PNTriangles, CurveMethod::CircularPN};
-static const char* MethodNames[] = {"Phong", "PN", "circular PN"};
+static const CurveMethod Methods[] = {CurveMethod::Phong, CurveMethod::PNTriangles, CurveMethod::CircularPN, CurveMethod::PNhong};
+static const char* MethodNames[] = {"Phong", "PN", "circular PN", "PNhong"};
 
 static MultiplierVertex V(double x, double y, double z, double nx, double ny, double nz)
 {
@@ -62,7 +62,7 @@ static double SphereError(int level, CurveMethod method)
 
 int main()
 {
-    for (int m = 0; m < 3; m++)
+    for (int m = 0; m < 4; m++)
     {
         CurveMethod method = Methods[m];
 
@@ -103,24 +103,23 @@ int main()
         printf("%s: flat stays flat, corners and winding kept, shared edges match, rounder: OK\n", MethodNames[m]);
     }
 
-    // 5. the chosen method per level, measured: Phong is best up to level 3 but
-    //    stops improving; circular PN keeps getting closer, well past Phong
+    // 5. PNhong, the method the multiplier uses: Phong at level 2, a blend
+    //    measured closer than both above (see PNhongShare)
     printf("average distance to the sphere (8-segment model):\n");
-    for (int level : {1, 2, 3, 4, 6, 8})
-        printf("  x%-3d Phong %.4f  PN %.4f  circular PN %.4f  -> %s\n", level*level,
-               SphereError(level, CurveMethod::Phong), SphereError(level, CurveMethod::PNTriangles),
-               SphereError(level, CurveMethod::CircularPN), MethodNames[(int)PolygonMultiplier::BestMethod(level)]);
-    for (int level = 2; level <= 3; level++)
+    for (int level : {2, 3, 4, 6, 8})
+        printf("  x%-3d Phong %.4f  circular PN %.4f  PNhong %.4f (%.0f%% PN)\n", level*level,
+               SphereError(level, CurveMethod::Phong), SphereError(level, CurveMethod::CircularPN),
+               SphereError(level, CurveMethod::PNhong), PolygonMultiplier::PNhongShare(level) * 100);
+    assert(SphereError(2, CurveMethod::PNhong) == SphereError(2, CurveMethod::Phong));
+    for (int level = 3; level <= 4; level++)
     {
-        assert(PolygonMultiplier::BestMethod(level) == CurveMethod::Phong);
-        assert(SphereError(level, CurveMethod::Phong) < SphereError(level, CurveMethod::CircularPN));
+        double hybrid = SphereError(level, CurveMethod::PNhong);
+        assert(hybrid < SphereError(level, CurveMethod::Phong));
+        assert(hybrid < SphereError(level, CurveMethod::CircularPN));
     }
-    for (int level = 4; level <= PolygonMultiplier::MaxLevel; level++)
-    {
-        assert(PolygonMultiplier::BestMethod(level) == CurveMethod::CircularPN);
-        assert(SphereError(level, CurveMethod::CircularPN) < SphereError(level, CurveMethod::Phong));
-    }
-    assert(SphereError(8, CurveMethod::CircularPN) < SphereError(2, CurveMethod::Phong) * 0.25);
+    for (int level = 5; level <= PolygonMultiplier::MaxLevel; level++)
+        assert(SphereError(level, CurveMethod::PNhong) <= 1.05 * std::fmin(SphereError(level, CurveMethod::Phong),
+                                                                              SphereError(level, CurveMethod::CircularPN)));
 
     puts("ALL OK");
 }

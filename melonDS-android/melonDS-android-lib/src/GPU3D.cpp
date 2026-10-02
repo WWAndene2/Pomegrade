@@ -1558,7 +1558,7 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
         // quads are split along the 0-2 diagonal
         int a = 0, b = t + 1, c = t + 2;
         int count = PolygonMultiplier::SubdivideTriangle(corners[a], corners[b], corners[c], level, sub,
-                                                         PolygonMultiplier::BestMethod(level));
+                                                         CurveMethod::PNhong);
 
         for (int s = 0; s < count; s++)
         {
