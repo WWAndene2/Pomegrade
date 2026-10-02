@@ -34,8 +34,13 @@ android {
                     "-DANDROID_ARM_NEON=true",
                     "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
                     "-DENABLE_GDBSTUB=OFF",
+                    // the core's unit tests are a separate ~800 MB executable the app never uses
+                    "-DENABLE_TESTS=OFF",
                 )
                 arguments += AppConfig.ccacheCmakeArguments
+                arguments += AppConfig.nativeBuildTypeCmakeArguments
+                // Gradle otherwise builds every executable and library CMake defines (libyuv tools...)
+                targets("citra-android")
             }
         }
 

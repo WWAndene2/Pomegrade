@@ -35,7 +35,7 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.0.13004108" "ndk;27.3.13750724" "cmake;3.22.1" "cmake;3.31.6" "platforms;android-36"
 
-      # Compilation cache: only the first build compiles all the C++ (~30 min),
+      # Compilation cache: only the first build compiles all the C++ (~30 min on 4 cores),
       # later ones only recompile what changed
       - name: Install ccache
         run: sudo apt-get install -y -q ccache
@@ -50,6 +50,8 @@ jobs:
       - name: Build debug APK
         env:
           POMEGRADE_CCACHE: '1'
+          # optimized native code: playable speed, ~5 GB of intermediates instead of ~13 GB
+          POMEGRADE_NATIVE_BUILD_TYPE: Release
           CCACHE_DIR: /home/runner/.cache/ccache
           # paths differ between runs, hash compilers by content
           CCACHE_BASEDIR: ${{ github.workspace }}

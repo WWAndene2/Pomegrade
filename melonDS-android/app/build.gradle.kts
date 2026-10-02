@@ -39,6 +39,7 @@ android {
             cmake {
                 cppFlags("-std=c++17 -Wno-write-strings")
                 arguments += AppConfig.ccacheCmakeArguments
+                arguments += AppConfig.nativeBuildTypeCmakeArguments
             }
         }
         vectorDrawables.useSupportLibrary = true

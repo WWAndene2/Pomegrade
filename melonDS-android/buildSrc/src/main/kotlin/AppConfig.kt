@@ -8,6 +8,12 @@ object AppConfig {
             emptyList()
         }
 
+    // CMake build type override from the POMEGRADE_NATIVE_BUILD_TYPE environment variable. CI sets
+    // it to Release: the default Debug native build is unoptimized (-O0) with full debug info, so
+    // the cores run games far too slowly and their intermediates fill the runner's disk.
+    val nativeBuildTypeCmakeArguments: List<String>
+        get() = System.getenv("POMEGRADE_NATIVE_BUILD_TYPE")?.let { listOf("-DCMAKE_BUILD_TYPE=$it") } ?: emptyList()
+
     const val compileSdkVersion = 36
     const val targetSdkVersion = compileSdkVersion
     const val minSdkVersion = 29 // Android 10, required by the 3DS core (Azahar)
