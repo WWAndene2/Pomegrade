@@ -51,6 +51,10 @@ public:
 
     GLuint AtlasTexture() const { return Atlas; }
 
+    // Native texture upscaling (Pomegrade): textures without a pack
+    // replacement are magnified x2 or x4 with TextureUpscaler. 1 = off.
+    void SetUpscaleFactor(int factor);
+
     // The atlas was rebuilt during the last Lookup calls: locations returned
     // before that are stale and every polygon has to be looked up again.
     bool ConsumeAtlasRebuilt()
@@ -85,6 +89,7 @@ private:
     TextureReplacement Replacement;
     u32 ReplacementGeneration = 0;
     bool Enabled = false;
+    int UpscaleFactor = 1;
 
     std::unordered_map<u64, Entry> Cache;
     std::vector<SizeClass> SizeClasses;

@@ -41,4 +41,6 @@ data class EmulatorConfiguration(
         val highPrecisionGeometry: Boolean = false,
         // Pomegrade: 8-bit colour (OpenGL renderer)
         val highColor: Boolean = false,
+        // Pomegrade: native texture upscaling factor, 1 = off (OpenGL renderer)
+        val textureUpscale: Int = 1,
 )

@@ -51,6 +51,15 @@
             app:iconSpaceReserved="false"
             android:defaultValue="false" />
 
+    <ListPreference
+            android:key="texture_upscale"
+            android:title="@string/texture_upscale"
+            android:summary="%s"
+            app:iconSpaceReserved="false"
+            android:entries="@array/texture_upscale_options"
+            android:entryValues="@array/texture_upscale_values"
+            android:defaultValue="1"/>
+
     <SwitchPreference
             android:key="high_color"
             android:title="@string/high_color"

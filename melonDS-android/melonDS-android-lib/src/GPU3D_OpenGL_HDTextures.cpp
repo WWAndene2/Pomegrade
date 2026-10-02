@@ -1,4 +1,5 @@
 #include "GPU3D_OpenGL_HDTextures.h"
+#include "GPU3D_TextureUpscaler.h"
 #include "Platform.h"
 
 namespace melonDS
@@ -32,9 +33,18 @@ void GLHDTextures::Reset()
     AtlasFullWarned = false;
 }
 
+void GLHDTextures::SetUpscaleFactor(int factor)
+{
+    factor = factor >= 4 ? 4 : (factor >= 2 ? 2 : 1);
+    if (factor == UpscaleFactor)
+        return;
+    UpscaleFactor = factor;
+    ClearEntries();
+}
+
 bool GLHDTextures::BeginFrame(GPU& gpu)
 {
-    Enabled = Replacement.Active();
+    Enabled = Replacement.Active() || UpscaleFactor > 1;
     if (Replacement.Generation() != ReplacementGeneration)
     {
         // settings, game or replacement files changed
@@ -216,7 +226,18 @@ u32 GLHDTextures::Lookup(GPU& gpu, u32 texParam, u32 palBase)
     // A3I5 and A5I3 are the only formats with translucent texels
     bool binaryAlpha = fmt != 1 && fmt != 6;
     u32 hdWidth, hdHeight;
-    if (Replacement.Lookup(contentHash, width, height, binaryAlpha, LayerSize, HDBuffer, hdWidth, hdHeight))
+    bool haveHD = Replacement.Lookup(contentHash, width, height, binaryAlpha, LayerSize, HDBuffer, hdWidth, hdHeight);
+    // no pack replacement: native upscaling, if enabled and it fits an atlas layer
+    if (!haveHD && UpscaleFactor > 1 && width * UpscaleFactor <= LayerSize && height * UpscaleFactor <= LayerSize)
+    {
+        TextureUpscaler::Upscale(DecodingBuffer, width, height, UpscaleFactor, binaryAlpha,
+                                 TextureUpscaler::EdgeFromTexParam(texParam, 0), TextureUpscaler::EdgeFromTexParam(texParam, 1),
+                                 HDBuffer);
+        hdWidth = width * UpscaleFactor;
+        hdHeight = height * UpscaleFactor;
+        haveHD = true;
+    }
+    if (haveHD)
     {
         u32 x, y, layer, scaleLog2 = 0;
         while ((width << scaleLog2) < hdWidth) scaleLog2++;

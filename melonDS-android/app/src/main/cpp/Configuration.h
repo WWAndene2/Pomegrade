@@ -92,6 +92,8 @@ typedef struct
     bool highPrecisionGeometry = false;
     // Pomegrade: 8-bit colour in the OpenGL renderer (see GPU3D::SetHighColor, GLCompositor::SetHighColor)
     bool highColor = false;
+    // Pomegrade: native texture upscaling factor in the OpenGL renderer, 1 = off (see GLHDTextures::SetUpscaleFactor)
+    int textureUpscale = 1;
 } EmulatorConfiguration;
 
 }

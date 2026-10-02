@@ -1,7 +1,7 @@
 # Desktop tests for HD texture replacement.
 # Needs EGL + GLES 3.2 (Mesa works without a GPU: libegl-dev libgles-dev libegl-mesa0).
 #   cmake -S tests/hd-textures -B build-tests -G Ninja && ninja -C build-tests
-#   cd build-tests && ./replacement_test && ./opengl_renderer_test
+#   cd build-tests && ./replacement_test && ./opengl_renderer_test && ./texture_upscale_test
 cmake_minimum_required(VERSION 3.16)
 project(hd_textures_tests CXX C)
 
@@ -20,3 +20,6 @@ target_include_directories(replacement_test PRIVATE ${LIB_DIR}/src ${LIB_DIR})
 
 add_executable(opengl_renderer_test opengl_renderer_test.cpp platform_stubs.cpp)
 target_link_libraries(opengl_renderer_test PRIVATE core EGL GLESv2)
+
+add_executable(texture_upscale_test texture_upscale_test.cpp platform_stubs.cpp)
+target_link_libraries(texture_upscale_test PRIVATE core EGL GLESv2)
