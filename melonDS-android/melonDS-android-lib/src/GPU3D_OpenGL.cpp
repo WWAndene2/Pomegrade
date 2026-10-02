@@ -378,6 +378,8 @@ GLRenderer::~GLRenderer()
     glDeleteTextures(1, &AOTex);
     glDeleteTextures(1, &BounceTex);
     glDeleteTextures(1, &LightingTex);
+    glDeleteTextures(1, &LitDepthTex);
+    glDeleteTextures(1, &LitAttrTex);
     glDeleteBuffers(1, &ViewVertexBufferID);
     glDeleteProgram(LightingAOShader);
     glDeleteProgram(LightingComposeShader);
@@ -1033,10 +1035,10 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
 
     // lighting effects: opaque polygons also write their view-space position and normal
     const GLenum drawbuffers[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
-    if (LightingActive)
+    if (LightingActive && !TranslucentPassOnly)
         glDrawBuffers(4, drawbuffers);
 
-    for (int i = 0; i < NumFinalPolys; )
+    for (int i = TranslucentPassOnly ? NumFinalPolys : 0; i < NumFinalPolys; )
     {
         RendererPolygon* rp = &PolygonList[i];
 
@@ -1060,6 +1062,12 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
 
     if (LightingActive)
         glDrawBuffers(2, drawbuffers);
+    // the lit image of the opaque layer (LightingTex), before translucent polygons
+    if (LightingActive && !TranslucentPassOnly)
+    {
+        RenderLighting(gpu3d);
+        UseRenderShader(flags);
+    }
 
     // if edge marking is enabled, mark all opaque edges
     // TODO BETTER EDGE MARKING!!! THIS SUCKS
@@ -1335,9 +1343,9 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
         glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, 0, 0);
 
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, DepthBufferTex);
+        glBindTexture(GL_TEXTURE_2D, TranslucentPassOnly ? LitDepthTex : DepthBufferTex);
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, AttrBufferTex);
+        glBindTexture(GL_TEXTURE_2D, TranslucentPassOnly ? LitAttrTex : AttrBufferTex);
 
         glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
         glBindVertexArray(ClearVertexArrayID);
@@ -1378,7 +1386,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
             glDrawArrays(GL_TRIANGLES, 0, 2*3);
         }
 
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, DepthBufferTex, 0);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, TranslucentPassOnly ? LitDepthTex : DepthBufferTex, 0);
     }
 }
 
@@ -1403,6 +1411,9 @@ void GLRenderer::SetupLightingTargets()
     makeTarget(AOTex, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
     makeTarget(BounceTex, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
     makeTarget(LightingTex, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
+    // same formats as DepthBufferTex and AttrBufferTex (copied with blits)
+    makeTarget(LitDepthTex, GL_DEPTH24_STENCIL8, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8);
+    makeTarget(LitAttrTex, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE);
 
     // attachments 2 and 3 of the main framebuffer, drawn to by opaque polygons only
     glBindFramebuffer(GL_FRAMEBUFFER, MainFramebuffer);
@@ -1421,6 +1432,9 @@ void GLRenderer::SetupLightingTargets()
     complete = complete && glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
     glBindFramebuffer(GL_FRAMEBUFFER, LightingFramebuffer);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, LightingTex, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, LitAttrTex, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, LitDepthTex, 0);
+    glDrawBuffers(2, buffers);
     complete = complete && glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
 
     if (!complete)
@@ -1570,6 +1584,20 @@ bool GLRenderer::RenderShadowMap(const GPU3D& gpu3d)
 
 void GLRenderer::RenderLighting(const GPU3D& gpu3d)
 {
+    // depth/stencil and attributes as the opaque pass left them, for drawing
+    // the translucent layer again over the lit image
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, MainFramebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, LightingFramebuffer);
+    glDisable(GL_SCISSOR_TEST);
+    glBlitFramebuffer(0, 0, ScreenW, ScreenH, 0, 0, ScreenW, ScreenH, GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, GL_NEAREST);
+    const GLenum attrOnly[2] = {GL_NONE, GL_COLOR_ATTACHMENT1};
+    glReadBuffer(GL_COLOR_ATTACHMENT1);
+    glDrawBuffers(2, attrOnly);
+    glBlitFramebuffer(0, 0, ScreenW, ScreenH, 0, 0, ScreenW, ScreenH, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    const GLenum colourOnly = GL_COLOR_ATTACHMENT0;
+    glDrawBuffers(1, &colourOnly);
+
     const bool shadows = Shadows && RenderShadowMap(gpu3d);
 
     glDisable(GL_DEPTH_TEST);
@@ -1640,9 +1668,15 @@ void GLRenderer::RenderLighting(const GPU3D& gpu3d)
     glUniform1f(LightingComposeBounceLoc, LightBounce ? BounceIntensity : 0.0f);
     glDrawArrays(GL_TRIANGLES, 0, 2*3);
 
-    // state as the scene render leaves it
+    // state as the opaque pass leaves it (the translucent pass follows)
+    const GLenum colourAndAttr[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+    glDrawBuffers(2, colourAndAttr);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, TexPalMemID);
     glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, TexMemID);
     glBindFramebuffer(GL_FRAMEBUFFER, MainFramebuffer);
+    glBindVertexArray(VertexArrayID);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_STENCIL_TEST);
     glEnable(GL_BLEND);
@@ -1895,10 +1929,24 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
         glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, EdgeIndicesOffset * 4, NumEdgeIndices * 4, IndexBuffer.data() + EdgeIndicesOffset);
 
         RenderSceneChunk(gpu.GPU3D, 0, 192);
-    }
 
-    if (LightingActive)
-        RenderLighting(gpu.GPU3D);
+        if (LightingDone)
+        {
+            // the translucent layer, fog and edge marking again, over the lit
+            // opaque layer: the effects don't touch what is drawn in front of
+            // the opaque geometry (2D panels, water, smoke, fog)
+            glBindFramebuffer(GL_FRAMEBUFFER, LightingFramebuffer);
+            // the fog/edge pass left the depth and attribute buffers on these units
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, TexPalMemID);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, TexMemID);
+            TranslucentPassOnly = true;
+            RenderSceneChunk(gpu.GPU3D, 0, 192);
+            TranslucentPassOnly = false;
+            glBindFramebuffer(GL_FRAMEBUFFER, MainFramebuffer);
+        }
+    }
 }
 
 void GLRenderer::FrameSnapshot::Take(Polygon** polys, u32 count)

@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <map>
 #include <string>
 #include <vector>
 using namespace melonDS;
@@ -95,6 +96,10 @@ static bool SideLight = false;  // shadow test: light from the upper left, the s
 static bool ShinyFloor = false; // reflection test: the floor's material has a white specular colour
 static bool PerspectiveIcon = false; // a small 3D icon drawn last, with its own projection and viewport
 static bool UnlitCanopy = false; // shadow test: an unlit canopy over the back of the room, its colours painted in
+// layering tests: what is drawn over the opaque geometry keeps its own colours
+static bool TranslucentPanel = false; // a translucent 2D dialog box over the lower screen
+static bool CutoutSprite = false;     // a sprite with a cut-out texture (A5I3: the DS draws it in the translucent pass)
+static bool FullFog = false;          // fog at full density everywhere
 
 static void DrawSphere()
 {
@@ -123,7 +128,14 @@ static void DrawSphere()
 static void SubmitScene()
 {
     GPU3D& g = Nds->GPU.GPU3D;
-    g.Write32(0x04000060, 0);          // DISP3DCNT
+    // DISP3DCNT: textures and alpha blending for the layering tests, fog
+    g.Write32(0x04000060, (TranslucentPanel || CutoutSprite ? 0x9 : 0) | (FullFog ? 0x80 : 0));
+    if (FullFog)
+    {
+        g.Write32(0x04000358, (31u << 16) | (24 << 10) | (24 << 5) | 24); // light grey, opaque
+        g.Write16(0x0400035C, 0);
+        for (int i = 0; i < 32; i += 4) g.Write32(0x04000360 + i, 0x7F7F7F7F);
+    }
     g.Write32(0x04000350, 0x1F0000 | (8 << 10) | (6 << 5) | 4); // clear colour, opaque
     g.Write32(0x04000354, 0x7FFF);     // clear depth
     Cmd(0x60, {0 | (0 << 8) | (255u << 16) | (191u << 24)}); // viewport
@@ -141,7 +153,7 @@ static void SubmitScene()
     Cmd(0x33, {0x7FFF});                                          // light 0 white
     Cmd(0x30, {(0x5AD6) | (0x2108u << 16)});                        // diffuse light grey, ambient dark grey
     Cmd(0x31, {ShinyFloor ? 0x7FFFu : 0u}); // specular
-    Cmd(0x29, {(31 << 16) | (1 << 24) | 0x80 | 0x01}); // light 0, front faces, opaque
+    Cmd(0x29, {(FullFog ? 1u << 15 : 0) | (31 << 16) | (1 << 24) | 0x80 | 0x01}); // light 0, front faces, opaque, fog
 
     // floor, facing up, in strips so that its depth stays precise
     Cmd(0x40, {1});
@@ -194,6 +206,22 @@ static void SubmitScene()
         Cmd(0x60, {0 | (0 << 8) | (255u << 16) | (191u << 24)});
     }
 
+    if (CutoutSprite)
+    {
+        // over the sphere's shadow: left half opaque red, right half clear
+        Cmd(0x2A, {6u << 26}); // A5I3, 8x8, address 0
+        Cmd(0x2B, {0});
+        Cmd(0x29, {(31 << 16) | (5 << 24) | 0x80 | 0x01});
+        Cmd(0x40, {1});
+        auto texcoord = [](double s, double t) { Cmd(0x22, {((u32)(s * 16) & 0xFFFF) | ((u32)(t * 16) << 16)}); };
+        Normal(0, 0, 1); texcoord(0, 8); Vertex16(0.4, FloorY, -3.4);
+        Normal(0, 0, 1); texcoord(8, 8); Vertex16(1.6, FloorY, -3.4);
+        Normal(0, 0, 1); texcoord(8, 0); Vertex16(1.6, 0.2, -3.4);
+        Normal(0, 0, 1); texcoord(0, 0); Vertex16(0.4, 0.2, -3.4);
+        Cmd(0x41);
+        Cmd(0x2A, {0});
+    }
+
     // 2D HUD panel: orthographic projection, no normals
     double ortho[16] = {1, 0, 0, 0,  0, 1, 0, 0,  0, 0, -1, 0,  0, 0, 0, 1};
     Cmd(0x10, {0}); LoadMatrix(ortho);
@@ -205,6 +233,17 @@ static void SubmitScene()
     Cmd(0x20, {0x7C00}); Vertex16(0.95, -0.55, 0);
     Cmd(0x20, {0x7FFF}); Vertex16(0.55, -0.55, 0);
     Cmd(0x41);
+    if (TranslucentPanel)
+    {
+        // a translucent dialog box over the lower left, the sphere's shadow seen through it
+        Cmd(0x29, {(12u << 16) | (6 << 24) | 0xC0});
+        Cmd(0x40, {1});
+        Cmd(0x20, {0x5000}); Vertex16(-0.95, -0.95, 0);
+        Cmd(0x20, {0x5000}); Vertex16(0.5, -0.95, 0);
+        Cmd(0x20, {0x5000}); Vertex16(0.5, -0.1, 0);
+        Cmd(0x20, {0x5000}); Vertex16(-0.95, -0.1, 0);
+        Cmd(0x41);
+    }
 
     Cmd(0x50, {0}); // swap buffers
     g.VBlank();     // builds the render list, as at the end of a frame
@@ -334,6 +373,14 @@ int main()
     if (!r) { puts("GLRenderer::New failed"); return 1; }
     r->SetRenderSettings(false, 1);
     while (r->NeedsShaderCompile()) { int cur, cnt; r->ShaderCompileStep(cur, cnt); }
+
+    // cut-out sprite texture: A5I3 8x8 in VRAM A (texture slot 0), left half
+    // opaque palette colour 1 (red), right half alpha 0
+    gpu.MapVRAM_AB(0, 0x83);
+    for (int y = 0; y < 8; y++)
+        for (int x = 0; x < 8; x++) gpu.VRAM_A[y * 8 + x] = x < 4 ? (u8)((31 << 3) | 1) : 0;
+    gpu.MapVRAM_E(4, 0x83); // texture palette slot 0
+    ((u16*)gpu.VRAM_E)[1] = 0x001F;
 
     bool ok = true;
     auto check = [&](bool cond, const char* what) { printf("%s: %s\n", what, cond ? "yes" : "NO"); ok = ok && cond; };
@@ -597,6 +644,80 @@ int main()
     r->SetShadows(false);
     r->SetReflections(false);
     check(Frame(*r, gpu) == allOff, "all effects off again == original");
+
+    // layering: the effects light the opaque geometry; what the DS draws over
+    // it (translucent panels, cut-out sprites, fog) keeps its own colours
+    {
+        SideLight = true;
+        auto withEffects = [&](bool on) {
+            r->SetAmbientOcclusion(on);
+            r->SetShadows(on);
+            Frame(*r, gpu); // view data comes with the frame after enabling
+            return Frame(*r, gpu);
+        };
+        auto channel = [](u32 c, int k) { return (double)((c >> (8 * k)) & 0xFF); };
+        auto baseOff = withEffects(false), baseOn = withEffects(true);
+        check(baseOn != baseOff, "layering: the base scene changes with AO and shadows");
+
+        // the dialog box blends over the scene lit under it: it keeps 19/31 of
+        // that scene's change (alpha 12), within a 6-bit colour step and rounding
+        TranslucentPanel = true;
+        auto panelOff = withEffects(false), panelOn = withEffects(true);
+        TranslucentPanel = false;
+        int inside = 0; double worst = 0, sceneChange = 0;
+        for (int y = 1; y < 191; y++)
+            for (int x = 1; x < 255; x++)
+            {
+                bool covered = true; // the box all round (its border pixels mix both)
+                for (int dy = -1; dy <= 1; dy++)
+                    for (int dx = -1; dx <= 1; dx++)
+                        covered = covered && panelOff[(y+dy)*256+x+dx] != baseOff[(y+dy)*256+x+dx];
+                if (!covered) continue;
+                int i = y * 256 + x;
+                inside++;
+                for (int k = 0; k < 3; k++)
+                {
+                    double expect = channel(panelOff[i], k) + 19.0 / 31 * (channel(baseOn[i], k) - channel(baseOff[i], k));
+                    worst = std::max(worst, std::fabs(channel(panelOn[i], k) - expect));
+                    sceneChange = std::max(sceneChange, std::fabs(channel(baseOn[i], k) - channel(baseOff[i], k)));
+                }
+            }
+        printf("translucent dialog box: %d pixels, worst error %.1f (scene behind changes up to %.0f)\n", inside, worst, sceneChange);
+        check(inside > 1000 && sceneChange > 30 && worst <= 6, "translucent dialog box: only the scene behind it is lit");
+
+        // the cut-out sprite's opaque pixels keep their colour (no lighting
+        // data for them: the floor's shadow behind them must not show)
+        CutoutSprite = true;
+        auto spriteOff = withEffects(false), spriteOn = withEffects(true);
+        CutoutSprite = false;
+        // its colour: the most common one where it covers the scene (pixels on
+        // the seam between its two triangles are blended with the floor)
+        std::map<u32, int> colours;
+        for (int i = 0; i < 256 * 192; i++)
+            if ((spriteOff[i] & 0xFFFFFF) != (baseOff[i] & 0xFFFFFF)) colours[spriteOff[i] & 0xFFFFFF]++;
+        u32 spriteColour = 0;
+        for (auto& [c, n] : colours) if (n > colours[spriteColour]) spriteColour = c;
+        int spritePx = 0, changed = 0, shadowBehind = 0;
+        for (int i = 0; i < 256 * 192; i++)
+        {
+            u32 c = spriteOff[i];
+            if ((c & 0xFFFFFF) != spriteColour || (c & 0xFFFFFF) == (baseOff[i] & 0xFFFFFF)) continue;
+            spritePx++;
+            if ((spriteOn[i] & 0xFFFFFF) != (c & 0xFFFFFF)) changed++;
+            if (Luma(baseOn[i]) < Luma(baseOff[i]) - 8) shadowBehind++;
+        }
+        printf("cut-out sprite: %d pixels, %d changed (%d over the shadow)\n", spritePx, changed, shadowBehind);
+        check(spritePx > 100 && shadowBehind > 20 && changed == 0, "cut-out sprite keeps its colours");
+
+        // fog at full density hides the lit scene entirely
+        FullFog = true;
+        auto fogOff = withEffects(false), fogOn = withEffects(true);
+        FullFog = false;
+        check(fogOn == fogOff, "full fog: nothing of the effects shows through");
+
+        withEffects(false);
+        SideLight = false;
+    }
 
     puts(ok ? "ALL OK" : "FAILED");
     return ok ? 0 : 1;

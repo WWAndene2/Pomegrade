@@ -249,6 +249,13 @@ private:
     std::vector<float> ViewVertexBuffer = std::vector<float>(10240 * ViewVertexSize);
     GLuint ViewPositionTex {}, ViewNormalTex {}, AOTex {}, BounceTex {}, LightingTex {};
     GLuint AOFramebuffer {}, LightingFramebuffer {};
+    // the effects light the opaque layer only: translucent polygons, fog and
+    // edge marking are drawn again over the lit image (LightingFramebuffer),
+    // against the depth/stencil and attributes the opaque pass left, copied here.
+    // Limitation: the opaque pixels of polygons the DS draws in the translucent
+    // pass (A3I5/A5I3 cut-out textures) keep their colours, without effects
+    GLuint LitDepthTex {}, LitAttrTex {};
+    bool TranslucentPassOnly {}; // RenderSceneChunk: skip the opaque pass
     GLuint LightingAOShader {}, LightingComposeShader {}, LightingShadowShader {};
     // shadow map of the main light (the light the most polygons use this frame)
     static constexpr int ShadowMapSize = 2048;
