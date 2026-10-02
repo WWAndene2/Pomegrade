@@ -1,5 +1,7 @@
 #include "GPU3D_TextureUpscaler.h"
 
+#include <algorithm>
+
 namespace melonDS
 {
 
@@ -39,6 +41,101 @@ int Wrap(int v, int size, TextureUpscaler::Edge edge)
     }
 }
 
+// MMPX reads up to 3 texels around each texel
+constexpr int Pad = 3;
+
+// Texels past a clamped edge. Repeating the edge texel (what the DS shows
+// there) turns a diagonal that runs off the texture into a straight bar at
+// the edge, which MMPX keeps square: the last two texels stayed blocky. The
+// pattern is continued instead: locally, the inner line (one texel in from
+// the edge) is the edge line shifted by d texels, so the k-th line outside is
+// the edge line shifted by -k*d. d = 0 (a plain repeat) unless a shift
+// explains the neighbourhood strictly better.
+//   edge/inner: the two lines next to the edge, n texels each
+//   out: k-th line outside the edge, k = 1..Pad
+void ExtrapolateLine(const u32* edge, const u32* inner, int n, int k, u32* out)
+{
+    for (int i = 0; i < n; i++)
+    {
+        int bestShift = 0, bestMismatches = 1 << 30;
+        for (int d : {0, 1, -1, 2, -2})
+        {
+            int mismatches = 0, pairs = 0;
+            for (int j = i - 2; j <= i + 2; j++)
+            {
+                if (j < 0 || j >= n || j - d < 0 || j - d >= n) continue;
+                pairs++;
+                if (inner[j] != edge[j - d]) mismatches++;
+            }
+            if (pairs >= 2 && mismatches < bestMismatches)
+            {
+                bestShift = d;
+                bestMismatches = mismatches;
+            }
+        }
+        int src = i + k * bestShift;
+        out[i] = edge[src < 0 ? 0 : (src >= n ? n - 1 : src)];
+    }
+}
+
+// The texture with Pad texels of border on each side, as the DS samples it past
+// its edges (repeat, mirror) or continued (clamp, see ExtrapolateLine).
+std::vector<u32> PadTexture(const u32* src, int w, int h, TextureUpscaler::Edge edgeS, TextureUpscaler::Edge edgeT)
+{
+    const int pw = w + Pad * 2, ph = h + Pad * 2;
+    std::vector<u32> padded((size_t)pw * ph);
+    auto at = [&](int x, int y) -> u32& { return padded[(size_t)(y + Pad) * pw + (x + Pad)]; };
+
+    // rows, on the texture's width
+    std::vector<u32> line(std::max(w, h) + Pad * 2);
+    for (int y = -Pad; y < h + Pad; y++)
+    {
+        if (y >= 0 && y < h)
+            for (int x = 0; x < w; x++) at(x, y) = src[y * w + x];
+        else if (edgeT != TextureUpscaler::Edge::Clamp || h < 2)
+            for (int x = 0; x < w; x++) at(x, y) = src[Wrap(y, h, edgeT) * w + x];
+        else
+        {
+            bool top = y < 0;
+            const u32* edge = &src[(top ? 0 : h - 1) * w];
+            const u32* inner = &src[(top ? 1 : h - 2) * w];
+            ExtrapolateLine(edge, inner, w, top ? -y : y - (h - 1), line.data());
+            for (int x = 0; x < w; x++) at(x, y) = line[x];
+        }
+    }
+
+    // columns, on the padded height (corners follow the extended rows)
+    std::vector<u32> edgeCol(ph), innerCol(ph);
+    for (int side = 0; side < 2 && w >= 2; side++)
+    {
+        int ex = side ? w - 1 : 0, ix = side ? w - 2 : 1;
+        for (int y = 0; y < ph; y++)
+        {
+            edgeCol[y] = at(ex, y - Pad);
+            innerCol[y] = at(ix, y - Pad);
+        }
+        for (int k = 1; k <= Pad; k++)
+        {
+            int x = side ? w - 1 + k : -k;
+            if (edgeS != TextureUpscaler::Edge::Clamp)
+            {
+                int sx = Wrap(x, w, edgeS);
+                for (int y = -Pad; y < h + Pad; y++) at(x, y) = at(sx, y);
+            }
+            else
+            {
+                ExtrapolateLine(edgeCol.data(), innerCol.data(), ph, k, line.data());
+                for (int y = -Pad; y < h + Pad; y++) at(x, y) = line[y + Pad];
+            }
+        }
+    }
+    if (w < 2 && edgeS == TextureUpscaler::Edge::Clamp)
+        for (int y = -Pad; y < h + Pad; y++)
+            for (int k = 1; k <= Pad; k++) at(-k, y) = at(w - 1 + k, y) = at(0, y);
+
+    return padded;
+}
+
 }
 
 TextureUpscaler::Edge TextureUpscaler::EdgeFromTexParam(u32 texParam, int axis)
@@ -52,7 +149,9 @@ TextureUpscaler::Edge TextureUpscaler::EdgeFromTexParam(u32 texParam, int axis)
 void TextureUpscaler::MMPX2x(const u32* srcBuffer, u32 width, u32 height, Edge edgeS, Edge edgeT, u32* dst)
 {
     const int w = (int)width, h = (int)height;
-    auto src = [&](int x, int y) { return srcBuffer[Wrap(y, h, edgeT) * w + Wrap(x, w, edgeS)]; };
+    const std::vector<u32> padded = PadTexture(srcBuffer, w, h, edgeS, edgeT);
+    const int pw = w + Pad * 2;
+    auto src = [&](int x, int y) { return padded[(size_t)(y + Pad) * pw + (x + Pad)]; };
 
     for (int y = 0; y < h; y++)
     {

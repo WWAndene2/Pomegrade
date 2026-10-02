@@ -1,5 +1,5 @@
 // Native texture upscaling through the OpenGL renderer: a 16x16 pixel-art
-// texture (a diagonal line) on a full-screen quad, upscaling off, x2 and x4.
+// texture (a diagonal line) on a full-screen quad, upscaling off, x2 to x16.
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include "NDS.h"
@@ -97,10 +97,10 @@ static bool IsRed(u32 c) { return (c & 0x3F) > 32; }
 
 // average distance (pixels) between the line's left edge and the ideal straight
 // edge, over the rows where the line is drawn
-static double EdgeError(const std::vector<u32>& img)
+static double EdgeError(const std::vector<u32>& img, int fromY = 0, int toY = 192)
 {
     double sum = 0; int rows = 0;
-    for (int y = 0; y < 192; y++)
+    for (int y = fromY; y < toY; y++)
     {
         int first = -1;
         for (int x = 0; x < 256 && first < 0; x++) if (IsRed(img[y*256+x])) first = x;
@@ -138,18 +138,28 @@ int main()
     auto native = Render(*r, gpu);
     SavePng("upscale_off.png", native);
     double nativeError = EdgeError(native);
-    printf("off: edge %.2f px from the ideal line, %zu colours\n", nativeError, Colours(native).size());
+    // the line's first two texels, at the texture's clamped edge (12 px per texel row)
+    double nativeEdgeStart = EdgeError(native, 0, 24);
+    printf("off: edge %.2f px from the ideal line (first texels %.2f), %zu colours\n",
+           nativeError, nativeEdgeStart, Colours(native).size());
 
-    for (int factor : {2, 4})
+    for (int factor : {2, 4, 8, 16})
     {
         r->SetTextureUpscale(factor);
         auto img = Render(*r, gpu);
-        SavePng(factor == 2 ? "upscale_x2.png" : "upscale_x4.png", img);
-        double error = EdgeError(img);
+        char name[32];
+        snprintf(name, sizeof(name), "upscale_x%d.png", factor);
+        SavePng(name, img);
+        double error = EdgeError(img), edgeStart = EdgeError(img, 0, 24);
         // MMPX only copies texel colours: nothing new may appear
         bool sameColours = Colours(img) == Colours(native);
-        printf("x%d: edge %.2f px from the ideal line, same colours as the texture: %s\n", factor, error, sameColours ? "yes" : "NO");
-        ok = ok && error < nativeError * 0.75 && sameColours && img != native;
+        printf("x%d: edge %.2f px from the ideal line (first texels %.2f), same colours as the texture: %s\n",
+               factor, error, edgeStart, sameColours ? "yes" : "NO");
+        // the edge of the texture is smoothed like the rest: before the clamped
+        // edge was continued (TextureUpscaler's ExtrapolateLine), the first
+        // texels stayed blocky, 1.5 to 2.2 px further from the line than the rest
+        bool edgeLikeRest = edgeStart <= error + 0.5;
+        ok = ok && error < nativeError * 0.75 && edgeLikeRest && sameColours && img != native;
     }
 
     // a single-colour texture has nothing to smooth

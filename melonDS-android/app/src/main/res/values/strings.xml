@@ -659,11 +659,15 @@
         <item>Off</item>
         <item>×2 (texture detail, pixel-art style)</item>
         <item>×4</item>
+        <item>×8 (more video memory)</item>
+        <item>×16 (more video memory)</item>
     </string-array>
     <string-array name="texture_upscale_values" translatable="false">
         <item>1</item>
         <item>2</item>
         <item>4</item>
+        <item>8</item>
+        <item>16</item>
     </string-array>
     <string name="high_color">High colour</string>
     <string name="high_color_summary">8 bits per colour instead of the DS\'s 6: smoother gradients and lighting, less banding</string>

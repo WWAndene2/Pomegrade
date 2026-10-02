@@ -35,7 +35,10 @@ void GLHDTextures::Reset()
 
 void GLHDTextures::SetUpscaleFactor(int factor)
 {
-    factor = factor >= 4 ? 4 : (factor >= 2 ? 2 : 1);
+    // a power of two, up to x16
+    int power = 1;
+    while (power < 16 && power * 2 <= factor) power *= 2;
+    factor = power;
     if (factor == UpscaleFactor)
         return;
     UpscaleFactor = factor;
@@ -227,15 +230,24 @@ u32 GLHDTextures::Lookup(GPU& gpu, u32 texParam, u32 palBase)
     bool binaryAlpha = fmt != 1 && fmt != 6;
     u32 hdWidth, hdHeight;
     bool haveHD = Replacement.Lookup(contentHash, width, height, binaryAlpha, LayerSize, HDBuffer, hdWidth, hdHeight);
-    // no pack replacement: native upscaling, if enabled and it fits an atlas layer
-    if (!haveHD && UpscaleFactor > 1 && width * UpscaleFactor <= LayerSize && height * UpscaleFactor <= LayerSize)
+    // no pack replacement: native upscaling, if enabled, at the largest factor
+    // up to the setting whose result fits an atlas layer (x16 of a 128x128
+    // texture would be 2048x2048)
+    int upscaled = 1;
+    if (!haveHD)
     {
-        TextureUpscaler::Upscale(DecodingBuffer, width, height, UpscaleFactor, binaryAlpha,
-                                 TextureUpscaler::EdgeFromTexParam(texParam, 0), TextureUpscaler::EdgeFromTexParam(texParam, 1),
-                                 HDBuffer);
-        hdWidth = width * UpscaleFactor;
-        hdHeight = height * UpscaleFactor;
-        haveHD = true;
+        upscaled = UpscaleFactor;
+        while (upscaled > 1 && (width * upscaled > LayerSize || height * upscaled > LayerSize))
+            upscaled /= 2;
+        if (upscaled > 1)
+        {
+            TextureUpscaler::Upscale(DecodingBuffer, width, height, upscaled, binaryAlpha,
+                                     TextureUpscaler::EdgeFromTexParam(texParam, 0), TextureUpscaler::EdgeFromTexParam(texParam, 1),
+                                     HDBuffer);
+            hdWidth = width * upscaled;
+            hdHeight = height * upscaled;
+            haveHD = true;
+        }
     }
     if (haveHD)
     {
@@ -247,6 +259,20 @@ u32 GLHDTextures::Lookup(GPU& gpu, u32 texParam, u32 palBase)
         {
             // everything was dropped, the entry has to be redone from scratch
             return Lookup(gpu, texParam, palBase);
+        }
+        // atlas at its size limit: an upscaled texture steps down a factor
+        // (x16 -> x8 -> ... -> x2) rather than staying at native resolution
+        while (!allocated && upscaled > 2)
+        {
+            upscaled /= 2;
+            TextureUpscaler::Upscale(DecodingBuffer, width, height, upscaled, binaryAlpha,
+                                     TextureUpscaler::EdgeFromTexParam(texParam, 0), TextureUpscaler::EdgeFromTexParam(texParam, 1),
+                                     HDBuffer);
+            hdWidth = width * upscaled;
+            hdHeight = height * upscaled;
+            scaleLog2 = 0;
+            while ((width << scaleLog2) < hdWidth) scaleLog2++;
+            allocated = AllocCell(hdWidth, hdHeight, entry.SizeClass, entry.Cell, x, y, layer);
         }
 
         if (allocated)

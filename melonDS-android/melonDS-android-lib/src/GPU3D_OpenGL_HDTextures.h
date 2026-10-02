@@ -52,7 +52,8 @@ public:
     GLuint AtlasTexture() const { return Atlas; }
 
     // Native texture upscaling (Pomegrade): textures without a pack
-    // replacement are magnified x2 or x4 with TextureUpscaler. 1 = off.
+    // replacement are magnified x2, x4, x8 or x16 with TextureUpscaler, or
+    // less when the result wouldn't fit a layer or the atlas is full. 1 = off.
     void SetUpscaleFactor(int factor);
 
     // The atlas was rebuilt during the last Lookup calls: locations returned

@@ -1,7 +1,7 @@
 #ifndef GPU3D_TEXTUREUPSCALER_H
 #define GPU3D_TEXTUREUPSCALER_H
 
-// Native texture upscaling (Pomegrade): each DS texture is magnified x2 or x4
+// Native texture upscaling (Pomegrade): each DS texture is magnified x2 to x16
 // when the game loads it, at the same size on screen. No AI: MMPX, a set of
 // pixel-art rules that only copies existing texel colours (no blur, no new
 // colours), so outlines and palettes are kept.
@@ -28,7 +28,7 @@ public:
     static void MMPX2x(const u32* src, u32 width, u32 height, Edge edgeS, Edge edgeT, u32* dst);
 
     // Decoded DS texture (RGB6A5, one u32 per texel, as the texture cache
-    // decodes it) to an RGBA8 texture factor (2 or 4) times larger. With
+    // decodes it) to an RGBA8 texture factor (a power of two) times larger. With
     // binaryAlpha, texels are either opaque or fully transparent.
     static void Upscale(const u32* decoded, u32 width, u32 height, int factor, bool binaryAlpha,
                         Edge edgeS, Edge edgeT, std::vector<u32>& out);
