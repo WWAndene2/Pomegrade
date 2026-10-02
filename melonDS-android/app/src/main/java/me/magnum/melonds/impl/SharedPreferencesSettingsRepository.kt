@@ -181,6 +181,7 @@ class SharedPreferencesSettingsRepository(
             ambientOcclusion = preferences.getBoolean("ambient_occlusion", false),
             lightBounce = preferences.getBoolean("light_bounce", false),
             shadows = preferences.getBoolean("shadows", false),
+            reflections = preferences.getBoolean("reflections", false),
         )
     }
 

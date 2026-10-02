@@ -58,6 +58,7 @@ struct Vertex
     bool HasViewNormal;
     bool LitColor; // colour computed by the DS lighting from that normal
     bool Orthographic; // projected without perspective (2D-like 3D: menus, HUDs)
+    float Specular;    // how shiny the material is, 0..1 (its specular colour, when lit)
 
     void DoSavestate(Savestate* file) noexcept;
 };
@@ -401,7 +402,11 @@ public:
     bool UnlimitedPolygons = false;
     bool ViewDataRequested = false;
     s16 RenderLightDirection[4][3] {}; // light directions (view space) at the end of the rendered frame
-    s32 RenderProjMatrix[16] {};       // projection matrix at the end of the rendered frame
+    // the last perspective projection and viewport the rendered frame's vertices used
+    s32 RenderProjMatrix[16] {};
+    u32 RenderViewport[6] {};
+    s32 FrameProjMatrix[16] {}; // the same, while the frame is submitted
+    u32 FrameViewport[6] {};
     bool HighColor = false;
     s32 VertexColorPrecise[3] {}; // current vertex colour, 5.12 fixed point (high colour)
     std::vector<Polygon*> ExtraPolygons[2]; // past the hardware limit, per bank, in the sub-polygon storage

@@ -252,7 +252,7 @@ flat out ivec3 fPolygonAttr;
 flat out int fHDTexture;
 
 // Pomegrade lighting effects: view-space position (w: 1 = perspective, 0 = 2D-like)
-// and normal (w: 1 = from the game's normals, 0 = none)
+// and normal (w: how shiny the material is, 0..1)
 in vec4 vViewPosition;
 in vec4 vViewNormal;
 smooth out vec4 fViewPosition;
@@ -300,6 +300,7 @@ struct ViewData
     vec3 Position;
     vec3 Normal;
     float Valid;
+    float Specular;
 };
 
 // before any discard: the face normal needs screen-space derivatives
@@ -315,13 +316,14 @@ ViewData ComputeViewData()
     if (dot(normal, -view.Position) < 0.0) normal = -normal;
     view.Normal = normal;
     view.Valid = fViewPosition.w > 0.999 ? 1.0 : 0.0;
+    view.Specular = clamp(fViewNormal.w, 0.0, 1.0);
     return view;
 }
 
 void WriteViewData(ViewData view)
 {
     oViewPosition = vec4(view.Position, view.Valid);
-    oViewNormal = vec4(view.Normal * 0.5 + 0.5, view.Valid);
+    oViewNormal = vec4(view.Normal * 0.5 + 0.5, view.Specular);
 }
 
 int TexcoordWrap(int c, int maxc, int mode)
@@ -1059,6 +1061,62 @@ uniform vec4 uShadowBounds;
 uniform vec2 uShadowDepth;
 uniform float uShadowTexel; // one shadow map texel, in view units
 
+// reflections, traced on screen
+uniform float uReflectionStrength; // 0 = off
+uniform mat4 uProj;                // the frame's perspective projection (DS matrix as is)
+uniform vec4 uViewport;            // DS viewport: x0, y1 (top), width, height, in native pixels
+uniform float uScale;              // output pixels per native pixel
+
+// output pixel of a view-space point, as the DS viewport transform places it
+vec2 ScreenOf(vec3 view)
+{
+    vec4 clip = uProj * vec4(view, 4096.0);
+    return vec2((clip.x + clip.w) * uViewport.z / (2.0 * clip.w) + uViewport.x,
+                (-clip.y + clip.w) * uViewport.w / (2.0 * clip.w) + uViewport.y) * uScale;
+}
+
+// Colour reflected at P (view space, camera at the origin) off a surface of
+// normal N, w = how sure the hit is (0 = nothing found on screen).
+vec4 Reflection(vec3 P, vec3 N, float pixel, ivec2 size)
+{
+    vec3 dir = reflect(normalize(P), N);
+    float step = pixel * 2.0;
+    float t = step;
+    vec3 prev = P;
+    const int Steps = 48;
+    for (int i = 0; i < Steps; i++)
+    {
+        vec3 R = P + dir * t;
+        vec2 s = ScreenOf(R);
+        if (any(lessThan(s, vec2(0.0))) || any(greaterThanEqual(s, vec2(size)))) break;
+        vec4 g = texelFetch(GPosition, ivec2(s), 0);
+        // the ray went behind a surface on screen: find where it crossed it,
+        // a hit if it really meets the surface there (rather than passing
+        // behind an object)
+        if (g.w > 0.5 && length(R) > length(g.xyz))
+        {
+            vec3 a = prev, b = R;
+            for (int k = 0; k < 8; k++)
+            {
+                vec3 m = (a + b) * 0.5;
+                vec4 gm = texelFetch(GPosition, ivec2(ScreenOf(m)), 0);
+                if (gm.w > 0.5 && length(m) > length(gm.xyz)) b = m; else a = m;
+            }
+            vec2 hit = ScreenOf(b);
+            vec4 gh = texelFetch(GPosition, ivec2(hit), 0);
+            if (gh.w < 0.5 || length(b) - length(gh.xyz) > max(step, pixel * 4.0)) return vec4(0.0);
+            // fade near the screen's edges and towards the end of the march
+            vec2 edge = min(hit, vec2(size) - hit) / (vec2(size) * 0.1);
+            float sure = clamp(min(edge.x, edge.y), 0.0, 1.0) * (1.0 - float(i) / float(Steps));
+            return vec4(texelFetch(Color, ivec2(hit), 0).rgb, sure);
+        }
+        prev = R;
+        step *= 1.08;
+        t += step;
+    }
+    return vec4(0.0);
+}
+
 // 1 = lit by the main light, 0 = in its shadow (3x3 filtered)
 float ShadowLit(vec3 P, vec3 N)
 {
@@ -1121,6 +1179,18 @@ void main()
         lit *= 1.0 - uShadowStrength * cosLight * (1.0 - ShadowLit(P, N));
     }
     lit += col.rgb * bounce * uBounceIntensity;
+    if (uReflectionStrength > 0.0)
+    {
+        // Fresnel (Schlick): every surface reflects at grazing angles, shiny
+        // materials (the game's specular colour) more and head-on too
+        float specular = texelFetch(GNormal, p, 0).w;
+        float f0 = 0.02 + 0.4 * specular;
+        float cosView = clamp(dot(-normalize(P), N), 0.0, 1.0);
+        float fresnel = f0 + (1.0 - f0) * pow(1.0 - cosView, 5.0);
+        vec4 reflected = Reflection(P, N, pixel, size);
+        float amount = uReflectionStrength * fresnel * (0.25 + 0.75 * specular) * reflected.w;
+        lit = mix(lit, reflected.rgb, amount);
+    }
     oColor = vec4(min(lit, vec3(1.0)), col.a);
 }
 )";

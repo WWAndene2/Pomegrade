@@ -52,6 +52,7 @@ public:
     void SetAmbientOcclusion(bool enable) noexcept { AmbientOcclusion = enable; }
     void SetLightBounce(bool enable) noexcept { LightBounce = enable; }
     void SetShadows(bool enable) noexcept { Shadows = enable; }
+    void SetReflections(bool enable) noexcept { Reflections = enable; }
     void SetScaleFactor(int scale) noexcept;
     [[nodiscard]] bool GetBetterPolygons() const noexcept { return BetterPolygons; }
     [[nodiscard]] int GetScaleFactor() const noexcept { return ScaleFactor; }
@@ -109,7 +110,7 @@ private:
     int RenderPolygonEdgeBatch(int i) const;
     void RenderSceneChunk(const GPU3D& gpu3d, int y, int h);
 
-    bool LightingEnabled() const noexcept { return AmbientOcclusion || LightBounce || Shadows; }
+    bool LightingEnabled() const noexcept { return AmbientOcclusion || LightBounce || Shadows || Reflections; }
     float* SetupViewVertex(const Vertex* vtx, float* gptr) const;
     float* SetupViewCenterVertex(const Polygon* poly, float* gptr) const;
     void SetupLightingTargets();
@@ -202,6 +203,10 @@ private:
     bool AmbientOcclusion {};
     bool LightBounce {};
     bool Shadows {};
+    bool Reflections {};
+    // reflection strength, times Fresnel and the material's shininess
+    static constexpr float ReflectionStrength = 1.0f;
+    GLint ComposeReflectionLoc[4] {}; // compose shader: strength, projection, viewport, scale
     // light bounce strength. Test scene (tests/lighting-effects): grey floor in
     // front of a lit red sphere 3-6% redder, floor-wall crease 3% brighter
     static constexpr float BounceIntensity = 3.0f;
@@ -210,7 +215,7 @@ private:
     bool ViewDataCaptured {}; // GPU3D captured view data while the rendered frame was submitted
     bool LightingSupported = true; // the render targets work on this GPU
     // per vertex, beside VertexBuffer: view position xyz + perspective flag,
-    // view normal xyz + has-normal flag
+    // view normal xyz + shininess
     GLuint ViewVertexBufferID {};
     static constexpr u32 ViewVertexSize = 8; // in floats
     std::vector<float> ViewVertexBuffer = std::vector<float>(10240 * ViewVertexSize);

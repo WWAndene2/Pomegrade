@@ -852,6 +852,7 @@ void ClipSegment(Vertex* outbuf, Vertex* vin, Vertex* vout)
         outbuf->HasViewNormal = vin->HasViewNormal && vout->HasViewNormal;
         outbuf->LitColor = vin->LitColor && vout->LitColor;
         outbuf->Orthographic = vin->Orthographic;
+        outbuf->Specular = vin->Specular + (vout->Specular - vin->Specular) * t;
     }
 
     outbuf->Clipped = true;
@@ -1645,6 +1646,7 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
                 for (int i = 0; i < 3; i++) out.ViewNormal[i] = (float)mv.Normal[i];
                 out.HasViewNormal = true;
                 out.Orthographic = TempVertexBuffer[0].Orthographic;
+                out.Specular = TempVertexBuffer[0].Specular;
             }
 
             int nv = ClipPolygon<true>(*this, clipped, 3, 0);
@@ -1788,12 +1790,20 @@ void GPU3D::SubmitVertex() noexcept
         // the projection's W column (row-vector matrices: elements 3, 7, 11)
         // is zero when W doesn't depend on depth
         vertextrans->Orthographic = ProjMatrix[3] == 0 && ProjMatrix[7] == 0 && ProjMatrix[11] == 0;
+        vertextrans->Specular = CurColorFromLighting ? (MatSpecular[0] + MatSpecular[1] + MatSpecular[2]) / 93.0f : 0.0f;
+        if (!vertextrans->Orthographic &&
+            (memcmp(FrameProjMatrix, ProjMatrix, sizeof(ProjMatrix)) || memcmp(FrameViewport, Viewport, sizeof(FrameViewport))))
+        {
+            memcpy(FrameProjMatrix, ProjMatrix, sizeof(ProjMatrix));
+            memcpy(FrameViewport, Viewport, sizeof(FrameViewport));
+        }
     }
     else
     {
         vertextrans->HasViewNormal = false;
         vertextrans->LitColor = false;
         vertextrans->Orthographic = false;
+        vertextrans->Specular = 0.0f;
     }
 
     VertexNum++;
@@ -2926,9 +2936,10 @@ void GPU3D::VBlank() noexcept
                 RenderNumPolygons = NumPolygons;
                 RenderFrameIdentical = false;
 
-                // for the renderer's effects (shadows, reflections), as of the end of the frame
+                // for the renderer's effects (shadows, reflections)
                 memcpy(RenderLightDirection, LightDirection, sizeof(LightDirection));
-                memcpy(RenderProjMatrix, ProjMatrix, sizeof(ProjMatrix));
+                memcpy(RenderProjMatrix, FrameProjMatrix, sizeof(FrameProjMatrix));
+                memcpy(RenderViewport, FrameViewport, sizeof(FrameViewport));
 
                 BuildMultipliedRenderList();
             }

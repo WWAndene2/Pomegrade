@@ -101,6 +101,7 @@ typedef struct
     bool ambientOcclusion = false;
     bool lightBounce = false;
     bool shadows = false;
+    bool reflections = false;
 } EmulatorConfiguration;
 
 }

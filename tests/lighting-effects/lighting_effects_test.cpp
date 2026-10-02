@@ -92,6 +92,7 @@ static const double SphereRadius = 0.8, SphereCenter[3] = {0, -0.2, -3.5}, Floor
 static bool RedSphere = false; // light bounce test: a red sphere tints the grey floor
 static bool FrontLight = false; // light from the camera's side: the sphere's front is lit
 static bool SideLight = false;  // shadow test: light from the upper left, the sphere's shadow falls to its right
+static bool ShinyFloor = false; // reflection test: the floor's material has a white specular colour
 
 static void DrawSphere()
 {
@@ -137,7 +138,7 @@ static void SubmitScene()
         Cmd(0x32, {N10(-0.3) | (N10(-0.8) << 10) | (N10(-0.5) << 20)}); // light 0, from above
     Cmd(0x33, {0x7FFF});                                          // light 0 white
     Cmd(0x30, {(0x5AD6) | (0x2108u << 16)});                        // diffuse light grey, ambient dark grey
-    Cmd(0x31, {0});
+    Cmd(0x31, {ShinyFloor ? 0x7FFFu : 0u}); // specular
     Cmd(0x29, {(31 << 16) | (1 << 24) | 0x80 | 0x01}); // light 0, front faces, opaque
 
     // floor, facing up, in strips so that its depth stays precise
@@ -158,6 +159,7 @@ static void SubmitScene()
     Cmd(0x41);
 
     if (RedSphere) Cmd(0x30, {(0x001F) | (0x0008u << 16)}); // diffuse red, ambient dark red
+    Cmd(0x31, {0}); // the sphere isn't shiny
     DrawSphere();
 
     // 2D HUD panel: orthographic projection, no normals
@@ -457,6 +459,68 @@ int main()
     r->SetShadows(false);
     check(Frame(*r, gpu) == shadowOff, "shadows off again == original");
     SideLight = false;
+
+    // reflections: the red sphere mirrored in a shiny floor, below its contact point
+    RedSphere = true;
+    FrontLight = true;
+    ShinyFloor = true;
+    auto reflOff = Frame(*r, gpu);
+    SavePng("reflections_off.png", reflOff);
+    r->SetReflections(true);
+    Frame(*r, gpu);
+    auto reflOn = Frame(*r, gpu);
+    SavePng("reflections_on.png", reflOn);
+    {
+        // floor point seeing the mirror image of the sphere's lower front, (0, -0.9, -3.1)
+        int mx, my;
+        Project(0, FloorY, -2.82, mx, my);
+        double before = redness(reflOff, mx, my), after = redness(reflOn, mx, my);
+        printf("floor mirroring the red sphere (%d,%d): red/green %.3f -> %.3f\n", mx, my, before, after);
+        printf("open floor: red/green %.3f -> %.3f\n", redness(reflOff, fx, fy), redness(reflOn, fx, fy));
+        check(after > before * 1.1, "red sphere reflected in the shiny floor (10% redder or more)");
+        check(std::fabs(redness(reflOn, fx, fy) - redness(reflOff, fx, fy)) < 0.02, "open floor keeps its colour (reflects the grey wall)");
+        check(Diff(reflOff, reflOn, hx0, hy0, hx1, hy1) == 0, "reflections: 2D HUD panel untouched");
+    }
+    // a matte floor (no specular colour) only reflects a little, at grazing angles
+    ShinyFloor = false;
+    r->SetReflections(false);
+    auto matteOff = Frame(*r, gpu);
+    r->SetReflections(true);
+    Frame(*r, gpu);
+    auto matteOn = Frame(*r, gpu);
+    {
+        int mx, my;
+        Project(0, FloorY, -2.82, mx, my);
+        double change = redness(matteOn, mx, my) / redness(matteOff, mx, my);
+        double open = Brightness(matteOn, fx, fy, 2) / Brightness(matteOff, fx, fy, 2);
+        printf("matte floor: mirror point red/green x%.3f, open floor brightness x%.3f\n", change, open);
+        check(change < 1.1 && std::fabs(open - 1) < 0.05, "matte floor: faint reflections only (under 10% / 5%)");
+    }
+    ShinyFloor = true;
+    r->SetReflections(false);
+    check(Frame(*r, gpu) == reflOff, "reflections off again == original");
+    RedSphere = FrontLight = ShinyFloor = false;
+
+    // all four together, with the multiplier, at resolution x2
+    r->SetRenderSettings(false, 2);
+    gpu.GPU3D.SetPolygonMultiplier(4);
+    std::vector<u32> allCaptureOff, allCaptureOn;
+    auto allOff = Frame(*r, gpu, &allCaptureOff);
+    r->SetAmbientOcclusion(true);
+    r->SetLightBounce(true);
+    r->SetShadows(true);
+    r->SetReflections(true);
+    Frame(*r, gpu);
+    auto allOn = Frame(*r, gpu, &allCaptureOn);
+    SavePng("lighting_all.png", allOn);
+    check(Brightness(allOn, crx, cry, 6) < Brightness(allOff, crx, cry, 6), "all effects: crease darker");
+    check(Diff(allOff, allOn, hx0, hy0, hx1, hy1) == 0, "all effects: 2D HUD panel untouched");
+    check(allCaptureOn == allCaptureOff, "all effects: display capture unchanged");
+    r->SetAmbientOcclusion(false);
+    r->SetLightBounce(false);
+    r->SetShadows(false);
+    r->SetReflections(false);
+    check(Frame(*r, gpu) == allOff, "all effects off again == original");
 
     puts(ok ? "ALL OK" : "FAILED");
     return ok ? 0 : 1;

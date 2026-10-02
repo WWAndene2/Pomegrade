@@ -224,6 +224,12 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
             result->ComposeShadowLoc[i] = glGetUniformLocation(result->LightingComposeShader, names[i]);
     }
 
+    {
+        const char* names[4] = {"uReflectionStrength", "uProj", "uViewport", "uScale"};
+        for (int i = 0; i < 4; i++)
+            result->ComposeReflectionLoc[i] = glGetUniformLocation(result->LightingComposeShader, names[i]);
+    }
+
     if (!OpenGL::CompileVertexFragmentProgram(result->LightingShadowShader,
             kLightingShadowVS, kLightingShadowFS,
             "LightingShadowShader",
@@ -579,7 +585,7 @@ float* GLRenderer::SetupViewVertex(const Vertex* vtx, float* gptr) const
     for (int i = 0; i < 3; i++) *gptr++ = vtx->ViewPosition[i];
     *gptr++ = vtx->Orthographic ? 0.f : 1.f;
     for (int i = 0; i < 3; i++) *gptr++ = vtx->ViewNormal[i];
-    *gptr++ = vtx->HasViewNormal ? 1.f : 0.f;
+    *gptr++ = vtx->Specular;
     return gptr;
 }
 
@@ -587,8 +593,8 @@ float* GLRenderer::SetupViewCenterVertex(const Polygon* poly, float* gptr) const
 {
     // the centre vertex sits at the average screen position: its view-space
     // data is the perspective-correct average (weights 1/W), as for its colour
-    float pos[3] = {}, normal[3] = {}, weight = 0;
-    bool perspective = true, hasNormal = true;
+    float pos[3] = {}, normal[3] = {}, specular = 0, weight = 0;
+    bool perspective = true;
     for (u32 j = 0; j < poly->NumVertices; j++)
     {
         const Vertex* vtx = poly->Vertices[j];
@@ -598,14 +604,14 @@ float* GLRenderer::SetupViewCenterVertex(const Polygon* poly, float* gptr) const
             pos[i] += vtx->ViewPosition[i] * w;
             normal[i] += vtx->ViewNormal[i] * w;
         }
+        specular += vtx->Specular * w;
         weight += w;
         perspective = perspective && !vtx->Orthographic;
-        hasNormal = hasNormal && vtx->HasViewNormal;
     }
     for (int i = 0; i < 3; i++) *gptr++ = pos[i] / weight;
     *gptr++ = perspective ? 1.f : 0.f;
     for (int i = 0; i < 3; i++) *gptr++ = normal[i] / weight;
-    *gptr++ = hasNormal ? 1.f : 0.f;
+    *gptr++ = specular / weight;
     return gptr;
 }
 
@@ -1602,6 +1608,20 @@ void GLRenderer::RenderLighting(const GPU3D& gpu3d)
         glUniform4fv(ComposeShadowLoc[4], 1, ShadowParams.Bounds);
         glUniform2fv(ComposeShadowLoc[5], 1, ShadowParams.Depth);
         glUniform1f(ComposeShadowLoc[6], ShadowParams.Texel);
+    }
+    glUniform1f(ComposeReflectionLoc[0], Reflections ? ReflectionStrength : 0.0f);
+    if (Reflections)
+    {
+        float proj[16], viewport[4];
+        for (int i = 0; i < 16; i++) proj[i] = (float)gpu3d.RenderProjMatrix[i];
+        // x0, top row, width, height (see GPU3D::ComputeScreenPosition)
+        viewport[0] = (float)gpu3d.RenderViewport[0];
+        viewport[1] = (float)gpu3d.RenderViewport[3];
+        viewport[2] = (float)gpu3d.RenderViewport[4];
+        viewport[3] = (float)gpu3d.RenderViewport[5];
+        glUniformMatrix4fv(ComposeReflectionLoc[1], 1, GL_FALSE, proj);
+        glUniform4fv(ComposeReflectionLoc[2], 1, viewport);
+        glUniform1f(ComposeReflectionLoc[3], (float)ScaleFactor);
     }
     glUniform1i(LightingComposeAOLoc, AmbientOcclusion ? 1 : 0);
     glUniform1f(LightingComposeBounceLoc, LightBounce ? BounceIntensity : 0.0f);

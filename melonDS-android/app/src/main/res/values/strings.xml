@@ -660,6 +660,8 @@
     <string name="light_bounce_summary">Lit surfaces light up their surroundings with their own colour (one bounce, from what is on screen)</string>
     <string name="shadows">Real-time shadows</string>
     <string name="shadows_summary">3D objects cast shadows from the scene\'s main light</string>
+    <string name="reflections">Reflections</string>
+    <string name="reflections_summary">Surfaces reflect what is on screen: shiny materials clearly, others only at grazing angles</string>
     <string name="texture_upscale">Texture upscaling</string>
     <string-array name="texture_upscale_options">
         <item>Off</item>

@@ -50,4 +50,5 @@ data class EmulatorConfiguration(
         val ambientOcclusion: Boolean = false,
         val lightBounce: Boolean = false,
         val shadows: Boolean = false,
+        val reflections: Boolean = false,
 )
