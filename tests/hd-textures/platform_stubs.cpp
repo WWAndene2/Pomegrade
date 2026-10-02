@@ -36,6 +36,23 @@ int MP_RecvHostPacket(u8*, u64*, void*) { return 0; }
 u16 MP_RecvReplies(u8*, u64, u16, void*) { return 0; }
 int Net_SendPacket(u8*, int, void*) { return 0; }
 int Net_RecvPacket(u8*, void*) { return 0; }
+// cartridges (analogue stick test): no files, no save writes, no AAC audio
+void WriteNDSSave(const u8*, u32, u32, u32, void*) {}
+FileHandle* OpenFile(const std::string&, FileMode) { return nullptr; }
+FileHandle* OpenLocalFile(const std::string&, FileMode) { return nullptr; }
+bool LocalFileExists(const std::string&) { return false; }
+bool CloseFile(FileHandle*) { return true; }
+bool IsEndOfFile(FileHandle*) { return true; }
+bool FileReadLine(char*, int, FileHandle*) { return false; }
+bool FileSeek(FileHandle*, s64, FileSeekOrigin) { return false; }
+u64 FileRead(void*, u64, u64, FileHandle*) { return 0; }
+u64 FileWrite(const void*, u64, u64, FileHandle*) { return 0; }
+u64 FileWriteFormatted(FileHandle*, const char*, ...) { return 0; }
+u64 FileLength(FileHandle*) { return 0; }
+AACDecoder* AAC_Init() { return nullptr; }
+void AAC_DeInit(AACDecoder*) {}
+bool AAC_Configure(AACDecoder*, int, int) { return false; }
+bool AAC_DecodeFrame(AACDecoder*, const void*, int, void*, int) { return false; }
 void Mic_Start(void*) {}
 void Mic_Stop(void*) {}
 int Mic_ReadInput(s16*, int, void*) { return 0; }

@@ -44,6 +44,8 @@ add_library(core STATIC
     melonDLDI.h
     Mic.cpp
     NDS.cpp
+    NDS_AnaloguePatches.cpp
+    NDS_AnalogueStick.cpp
     NDSCart.cpp
     NDSCartR4.cpp
     Platform.h

@@ -1073,6 +1073,7 @@ u32 NDS::RunFrame()
 
 u32 NDS::RunFrame()
 {
+    AnalogueStick.RunFrame(*this);
 #ifdef JIT_ENABLED
     if (EnableJIT)
         return RunFrame<CPUExecuteMode::JIT>();
@@ -3178,6 +3179,11 @@ u32 NDS::ARM9IORead32(u32 addr)
     // Since it's a 64 bit reg. the CPU will access it in two parts:
     case 0x04FFFA20: return (u32)(GetSysClockCycles(0) & 0xFFFFFFFF);
     case 0x04FFFA24: return (u32)(GetSysClockCycles(0) >> 32);
+
+    // Pomegrade: analogue stick, read by patched game code
+    case melonDS::AnalogueStick::RegisterBase:
+    case melonDS::AnalogueStick::RegisterBase + 4:
+        return AnalogueStick.Read32(addr, KeyInput);
     }
 
     if ((addr >= 0x04000000 && addr < 0x04000060) || (addr == 0x0400006C))

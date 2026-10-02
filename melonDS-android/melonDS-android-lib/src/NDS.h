@@ -35,6 +35,7 @@
 #include "RTC.h"
 #include "Wifi.h"
 #include "AREngine.h"
+#include "NDS_AnalogueStick.h"
 #include "GPU.h"
 #include "ARMJIT.h"
 #include "MemRegion.h"
@@ -323,6 +324,7 @@ public: // TODO: Encapsulate the rest of these members
     GBACart::GBACartSlot GBACartSlot;
     melonDS::GPU GPU;
     melonDS::AREngine AREngine;
+    melonDS::AnalogueStick AnalogueStick; // Pomegrade: analogue movement in patched games
 
     const u32 ARM7WRAMSize = 0x10000;
     u8* ARM7WRAM;
