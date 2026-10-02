@@ -38,6 +38,13 @@
             android:defaultValue="1"/>
 
     <SwitchPreference
+            android:key="unlimited_polygons"
+            android:title="@string/unlimited_polygons"
+            android:summary="@string/unlimited_polygons_summary"
+            app:iconSpaceReserved="false"
+            android:defaultValue="false" />
+
+    <SwitchPreference
             android:key="better_polygons"
             android:title="@string/better_polygons"
             android:summary="@string/better_polygons_summary"

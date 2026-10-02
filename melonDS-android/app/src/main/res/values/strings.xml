@@ -646,6 +646,8 @@
     <string name="three_ds_unsupported">3DS games need a 64-bit device</string>
     <string name="three_ds_setup_required">Set up 3DS emulation first (folder for saves and system files)</string>
     <string name="three_ds_rom_label">3DS · %1$s</string>
+    <string name="unlimited_polygons">Remove polygon limit</string>
+    <string name="unlimited_polygons_summary">Draw the polygons a DS would drop when a scene has too many (missing or flickering objects)</string>
     <string name="better_polygons">Better polygons</string>
     <string name="better_polygons_summary">Fewer seams and distortions on large polygons at high resolution</string>
     <string name="polygon_multiplier">Polygon multiplier</string>

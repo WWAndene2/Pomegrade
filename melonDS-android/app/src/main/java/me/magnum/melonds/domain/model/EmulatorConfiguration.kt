@@ -35,4 +35,6 @@ data class EmulatorConfiguration(
         val polygonMultiplier: Int = 1,
         // Pomegrade: OpenGL renderer splits polygons around a centre vertex (fewer seams at high resolution)
         val betterPolygons: Boolean = false,
+        // Pomegrade: draw polygons past the DS limit (software and OpenGL renderers)
+        val unlimitedPolygons: Boolean = false,
 )

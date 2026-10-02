@@ -86,6 +86,8 @@ typedef struct
     Renderer renderer;
     // Pomegrade: polygon multiplier level, 1 = off (see GPU3D::SetPolygonMultiplier)
     int polygonMultiplier = 1;
+    // Pomegrade: draw polygons past the hardware limit (see GPU3D::SetUnlimitedPolygons)
+    bool unlimitedPolygons = false;
 } EmulatorConfiguration;
 
 }

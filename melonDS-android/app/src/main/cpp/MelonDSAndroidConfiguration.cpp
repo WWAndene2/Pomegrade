@@ -117,6 +117,7 @@ MelonDSAndroid::EmulatorConfiguration MelonDSAndroidConfiguration::buildEmulator
 
     // Pomegrade: polygon multiplier, applied by MelonInstance::updateRenderer
     finalEmulatorConfiguration.polygonMultiplier = env->GetIntField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "polygonMultiplier", "I"));
+    finalEmulatorConfiguration.unlimitedPolygons = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "unlimitedPolygons", "Z"));
 
     return finalEmulatorConfiguration;
 }

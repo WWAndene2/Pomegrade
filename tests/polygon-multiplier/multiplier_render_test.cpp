@@ -171,6 +171,33 @@ static void SubmitStressScene(int spheres)
     g.VBlank();
 }
 
+// More polygons than the DS can hold: a 60x50 grid of small flat quads
+// (3000 polygons, 12000 vertices), drawn with identity matrices.
+static void SubmitOverflowScene()
+{
+    GPU3D& g = Nds->GPU.GPU3D;
+    g.Write32(0x04000060, 0);
+    g.Write32(0x04000350, 0x1F0000);
+    g.Write32(0x04000354, 0x7FFF);
+    Cmd(0x60, {0 | (0 << 8) | (255u << 16) | (191u << 24)});
+    Cmd(0x10, {0}); Cmd(0x15);
+    Cmd(0x10, {2}); Cmd(0x15);
+    Cmd(0x29, {(31 << 16) | (3 << 24) | 0xC0});
+    Cmd(0x20, {0x7FFF});
+    Cmd(0x40, {1});
+    const int cols = 60, rows = 50;
+    for (int r = 0; r < rows; r++)
+        for (int c = 0; c < cols; c++)
+        {
+            double x0 = -0.95 + 1.9 * c / cols, x1 = x0 + 1.9 / cols * 0.8;
+            double y0 = 0.95 - 1.9 * r / rows, y1 = y0 - 1.9 / rows * 0.8;
+            Vertex16(x0, y0, -0.5); Vertex16(x0, y1, -0.5); Vertex16(x1, y1, -0.5); Vertex16(x1, y0, -0.5);
+        }
+    Cmd(0x41);
+    Cmd(0x50, {0});
+    g.VBlank();
+}
+
 static std::vector<u32> Capture(Renderer3D& r)
 {
     std::vector<u32> img(256 * 192);
@@ -288,6 +315,39 @@ int main()
         bool drawn = lit > 3000;
         printf("stress: %u hardware polygons -> %u rendered polygons, %d pixels drawn\n", hw, rendered, lit);
         ok = ok && rendered > 4 * SubBlockSize && drawn;
+    }
+
+    // polygon limit: off drops what doesn't fit, on draws everything; the game
+    // sees the hardware overflow and counters either way
+    {
+        gpu.GPU3D.SetPolygonMultiplier(1);
+        int lit[2]; u32 counted[2], rendered[2]; bool overflow[2];
+        for (int unlimited = 0; unlimited < 2; unlimited++)
+        {
+            gpu.GPU3D.SetUnlimitedPolygons(unlimited);
+            gpu.GPU3D.DispCnt &= ~(1 << 13);
+            SubmitOverflowScene();
+            overflow[unlimited] = gpu.GPU3D.DispCnt & (1 << 13);
+            counted[unlimited] = gpu.GPU3D.RenderNumPolygons;
+            rendered[unlimited] = gpu.GPU3D.GetRenderNumPolygons();
+            soft.RenderFrame(gpu);
+            auto img = Capture(soft);
+            SavePng(unlimited ? "limit_removed.png" : "limit_hardware.png", img);
+            lit[unlimited] = 0;
+            for (u32 c : img) if (c & 0x3F3F3F) lit[unlimited]++;
+            if (glr)
+            {
+                glr->RenderFrame(gpu);
+                glr->PrepareCaptureFrame();
+                SavePng(unlimited ? "limit_removed_gl.png" : "limit_hardware_gl.png", Capture(*glr));
+            }
+            printf("polygon limit %s: hardware polygons %u (overflow flag %s), drawn polygons %u, pixels %d\n",
+                   unlimited ? "removed" : "kept   ", counted[unlimited], overflow[unlimited] ? "set" : "clear",
+                   rendered[unlimited], lit[unlimited]);
+        }
+        ok = ok && overflow[0] && overflow[1] && counted[0] == counted[1] && counted[0] <= 2048;
+        ok = ok && rendered[0] < 3000 && rendered[1] == 3000 && lit[1] > lit[0];
+        gpu.GPU3D.SetUnlimitedPolygons(false);
     }
 
     // off again: back to exactly the original image

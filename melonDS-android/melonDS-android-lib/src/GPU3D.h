@@ -142,6 +142,11 @@ public:
     void SetPolygonMultiplier(int level) noexcept;
     [[nodiscard]] int GetPolygonMultiplier() const noexcept { return PolygonMultiplierLevel; }
 
+    // Polygon limit removed (Pomegrade): polygons past the hardware's 2048
+    // polygons / 6144 vertices are still drawn. The game sees the hardware
+    // behaviour (overflow flag, counters, timing) either way.
+    void SetUnlimitedPolygons(bool enable) noexcept;
+
     // Polygons for the renderers: the hardware list, or the same list with
     // multiplied polygons replaced by their sub-polygons.
     [[nodiscard]] Polygon** GetRenderPolygons() noexcept
@@ -379,6 +384,8 @@ public:
     u32 NumSubVertices = 0;   // in the current bank
     u32 NumSubPolygons = 0;
     std::vector<Polygon*> MultipliedRenderPolygons;
+    bool UnlimitedPolygons = false;
+    std::vector<Polygon*> ExtraPolygons[2]; // past the hardware limit, per bank, in the sub-polygon storage
     u32 MultipliedRenderNumPolygons = 0;
     bool RenderMultiplied = false;
 };

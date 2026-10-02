@@ -407,7 +407,9 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
 
     if (file->Saving)
     {
-        u32 index = LastStripPolygon ? (u32)(LastStripPolygon - &PolygonRAM[0]) : UINT32_MAX;
+        // an extra polygon (polygon limit removed) isn't saved: no strip to continue
+        bool inram = LastStripPolygon >= &PolygonRAM[0] && LastStripPolygon < &PolygonRAM[2048*2];
+        u32 index = inram ? (u32)(LastStripPolygon - &PolygonRAM[0]) : UINT32_MAX;
         file->Var32(&index);
     }
     else
@@ -1248,11 +1250,19 @@ void GPU3D::SubmitPolygon() noexcept
 
     // reject the polygon if it's not going to fit in polygon/vertex RAM
 
+    // Pomegrade: with the polygon limit removed, such a polygon is still drawn,
+    // from extra storage. The game sees the hardware behaviour either way: the
+    // overflow flag, the RAM counters and the pipeline timing of a rejected polygon.
+    bool extra = false;
     if (NumPolygons >= 2048 || NumVertices+nverts > 6144)
     {
-        LastStripPolygon = NULL;
         DispCnt |= (1<<13);
-        return;
+        if (!UnlimitedPolygons || NumSubPolygons >= MaxSubPolygons || NumSubVertices + nverts > MaxSubVertices)
+        {
+            LastStripPolygon = NULL;
+            return;
+        }
+        extra = true;
     }
 
     // compute screen coordinates
@@ -1297,7 +1307,11 @@ void GPU3D::SubmitPolygon() noexcept
 
     // build the actual polygon
 
-    if (nverts == 4)
+    if (extra)
+    {
+        // timing of a rejected polygon: nothing more
+    }
+    else if (nverts == 4)
     {
         PolygonPipeline = 35;
         VertexSlotCounter = 1;
@@ -1312,7 +1326,7 @@ void GPU3D::SubmitPolygon() noexcept
         else                   VertexSlotsFree = 0b1110;
     }
 
-    Polygon* poly = &CurPolygonRAM[NumPolygons++];
+    Polygon* poly = extra ? NewSubPolygon() : &CurPolygonRAM[NumPolygons++];
     poly->NumVertices = 0;
 
     poly->Attr = CurPolygonAttr;
@@ -1331,7 +1345,7 @@ void GPU3D::SubmitPolygon() noexcept
     poly->IsShadowMask = ((CurPolygonAttr & 0x3F000030) == 0x00000030);
     poly->IsShadow = ((CurPolygonAttr & 0x30) == 0x30) && !poly->IsShadowMask;
 
-    if (!poly->Translucent) NumOpaquePolygons++;
+    if (!poly->Translucent && !extra) NumOpaquePolygons++;
 
     poly->Type = polytype;
 
@@ -1347,11 +1361,21 @@ void GPU3D::SubmitPolygon() noexcept
             Vertex v0 = *reusedvertices[0];
             Vertex v1 = *reusedvertices[1];
 
-            CurVertexRAM[NumVertices] = v0;
-            poly->Vertices[0] = &CurVertexRAM[NumVertices];
-            CurVertexRAM[NumVertices+1] = v1;
-            poly->Vertices[1] = &CurVertexRAM[NumVertices+1];
-            NumVertices += 2;
+            if (extra)
+            {
+                poly->Vertices[0] = NewSubVertex();
+                *poly->Vertices[0] = v0;
+                poly->Vertices[1] = NewSubVertex();
+                *poly->Vertices[1] = v1;
+            }
+            else
+            {
+                CurVertexRAM[NumVertices] = v0;
+                poly->Vertices[0] = &CurVertexRAM[NumVertices];
+                CurVertexRAM[NumVertices+1] = v1;
+                poly->Vertices[1] = &CurVertexRAM[NumVertices+1];
+                NumVertices += 2;
+            }
         }
 
         poly->NumVertices += 2;
@@ -1359,11 +1383,10 @@ void GPU3D::SubmitPolygon() noexcept
 
     for (int i = clipstart; i < nverts; i++)
     {
-        Vertex* vtx = &CurVertexRAM[NumVertices];
+        Vertex* vtx = extra ? NewSubVertex() : &CurVertexRAM[NumVertices++];
         *vtx = clippedvertices[i];
         poly->Vertices[i] = vtx;
 
-        NumVertices++;
         poly->NumVertices++;
 
         ComputeFinalColor(vtx);
@@ -1376,9 +1399,17 @@ void GPU3D::SubmitPolygon() noexcept
     else
         LastStripPolygon = NULL;
 
+    if (extra)
+        ExtraPolygons[CurRAMBank].push_back(poly);
+
     poly->SubPolygonCount = 0;
     if (PolygonMultiplierLevel > 1)
         MultiplyPolygon(poly, srcverts);
+}
+
+void GPU3D::SetUnlimitedPolygons(bool enable) noexcept
+{
+    UnlimitedPolygons = enable;
 }
 
 void GPU3D::SetPolygonMultiplier(int level) noexcept
@@ -1393,6 +1424,8 @@ void GPU3D::ClearSubPolygons() noexcept
 {
     NumSubVertices = 0;
     NumSubPolygons = 0;
+    ExtraPolygons[0].clear();
+    ExtraPolygons[1].clear();
     for (Polygon& poly : PolygonRAM)
         poly.SubPolygonCount = 0;
 }
@@ -1609,29 +1642,53 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
     parent->SubPolygonCount = NumSubPolygons - firstpoly;
 }
 
+bool YSort(Polygon* a, Polygon* b); // hardware polygon sorting, see VBlank
+
 void GPU3D::BuildMultipliedRenderList() noexcept
 {
     RenderMultiplied = false;
     if (NumSubPolygons == 0)
         return;
 
-    // same order as the hardware list (opaque first, Y-sorted); each multiplied
-    // polygon is replaced by its sub-polygons
     auto& blocks = SubPolygonBlocks[CurRAMBank];
+    auto& extras = ExtraPolygons[CurRAMBank];
     if (MultipliedRenderPolygons.size() < RenderNumPolygons + NumSubPolygons)
         MultipliedRenderPolygons.resize(RenderNumPolygons + NumSubPolygons);
+
+    // each multiplied polygon is replaced by its sub-polygons
     u32 n = 0;
-    for (u32 i = 0; i < RenderNumPolygons; i++)
-    {
-        Polygon* poly = RenderPolygonRAM[i];
+    auto append = [&](Polygon* poly) {
         if (poly->SubPolygonCount == 0)
         {
             MultipliedRenderPolygons[n++] = poly;
-            continue;
+            return;
         }
-
         for (u32 j = poly->SubPolygonStart; j < poly->SubPolygonStart + poly->SubPolygonCount; j++)
             MultipliedRenderPolygons[n++] = &blocks[j / SubBlockSize][j % SubBlockSize];
+    };
+
+    if (extras.empty())
+    {
+        // same order as the hardware list (opaque first, Y-sorted)
+        for (u32 i = 0; i < RenderNumPolygons; i++)
+            append(RenderPolygonRAM[i]);
+    }
+    else
+    {
+        // polygons past the hardware limit: sort them with the others, by the
+        // hardware's rules (see VBlank): submission order, then Y-sorting of the
+        // opaque polygons, and of the translucent ones unless sorted manually
+        std::vector<Polygon*> all;
+        all.reserve(NumPolygons + extras.size());
+        for (u32 i = 0; i < NumPolygons; i++)
+            all.push_back(&CurPolygonRAM[i]);
+        all.insert(all.end(), extras.begin(), extras.end());
+
+        auto firsttrans = std::stable_partition(all.begin(), all.end(), [](Polygon* p) { return !p->Translucent; });
+        std::stable_sort(all.begin(), (FlushAttributes & 0x1) ? firsttrans : all.end(), YSort);
+
+        for (Polygon* poly : all)
+            append(poly);
     }
 
     MultipliedRenderNumPolygons = n;
@@ -2846,6 +2903,7 @@ void GPU3D::VBlank() noexcept
             NumOpaquePolygons = 0;
             NumSubVertices = 0;
             NumSubPolygons = 0;
+            ExtraPolygons[CurRAMBank].clear();
 
             FlushRequest = 0;
         }

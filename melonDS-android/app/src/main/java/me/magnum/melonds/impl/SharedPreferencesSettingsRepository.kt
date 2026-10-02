@@ -172,6 +172,7 @@ class SharedPreferencesSettingsRepository(
             dumpTexturesEnabled = preferences.getBoolean("dump_textures", false),
             polygonMultiplier = preferences.getString("polygon_multiplier", "1")?.toIntOrNull() ?: 1,
             betterPolygons = preferences.getBoolean("better_polygons", false),
+            unlimitedPolygons = preferences.getBoolean("unlimited_polygons", false),
         )
     }
 
