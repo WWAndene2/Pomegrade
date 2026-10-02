@@ -24,8 +24,6 @@
 #include "GPU3D_OpenGL_HDTextures.h"
 #include "OpenGLSupport.h"
 
-#include <unordered_map>
-
 namespace melonDS
 {
 class GPU;
@@ -129,7 +127,7 @@ private:
     {
         std::vector<Polygon> Polygons;
         std::vector<Vertex> Vertices;
-        std::unordered_map<u32, u32> ById; // Polygon::FrameId -> index, ~0 if not unique
+        std::vector<u32> Order; // indices in Polygon::FrameId order (the game's submission order)
         void Take(Polygon** polys, u32 count);
     };
     bool FrameGeneration {};

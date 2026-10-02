@@ -21,7 +21,10 @@ object AppConfig {
     fun abis(supported: List<String>): List<String> {
         val wanted = System.getenv("POMEGRADE_ABIS")?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }
             ?: return supported
-        return supported.filter { it in wanted }
+        val abis = supported.filter { it in wanted }
+        // an empty filter means every ABI to AGP: a typo would silently build them all
+        require(abis.isNotEmpty()) { "POMEGRADE_ABIS=$wanted: none of these is built by a module that supports $supported" }
+        return abis
     }
 
     const val compileSdkVersion = 36

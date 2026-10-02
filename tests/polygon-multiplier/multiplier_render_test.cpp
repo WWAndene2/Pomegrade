@@ -164,7 +164,8 @@ static void BoxRotation(double r[3][3])
         }
 }
 
-static void SubmitBoxScene()
+// secondBox: the same box mesh drawn again elsewhere, turned differently
+static void SubmitBoxScene(bool secondBox = false)
 {
     GPU3D& g = Nds->GPU.GPU3D;
     g.Write32(0x04000060, 0);
@@ -191,14 +192,25 @@ static void SubmitBoxScene()
         {{-1,-1, 1}, { 1,-1, 1}, { 1, 1, 1}, {-1, 1, 1}}, {{ 1,-1,-1}, {-1,-1,-1}, {-1, 1,-1}, { 1, 1,-1}},
         {{ 1,-1, 1}, { 1,-1,-1}, { 1, 1,-1}, { 1, 1, 1}}, {{-1,-1,-1}, {-1,-1, 1}, {-1, 1, 1}, {-1, 1,-1}},
         {{-1, 1, 1}, { 1, 1, 1}, { 1, 1,-1}, {-1, 1,-1}}, {{-1,-1,-1}, { 1,-1,-1}, { 1,-1, 1}, {-1,-1, 1}}};
-    Cmd(0x40, {1});
-    for (auto& face : faces)
-        for (auto& c : face)
-        {
-            Normal(c[0] / std::sqrt(3.0), c[1] / std::sqrt(3.0), c[2] / std::sqrt(3.0));
-            Vertex16(c[0] * BoxHalf, c[1] * BoxHalf, c[2] * BoxHalf);
-        }
-    Cmd(0x41);
+    auto drawBox = [&]() {
+        Cmd(0x40, {1});
+        for (auto& face : faces)
+            for (auto& c : face)
+            {
+                Normal(c[0] / std::sqrt(3.0), c[1] / std::sqrt(3.0), c[2] / std::sqrt(3.0));
+                Vertex16(c[0] * BoxHalf, c[1] * BoxHalf, c[2] * BoxHalf);
+            }
+        Cmd(0x41);
+    };
+    drawBox();
+    if (secondBox)
+    {
+        // above, turned the other way
+        double c2 = std::cos(-0.8), s2 = std::sin(-0.8);
+        double other[16] = {c2, 0, -s2, 0,  0, 1, 0, 0,  s2, 0, c2, 0,  -1.0, 1.9, -6.0, 1};
+        LoadMatrix(other);
+        drawBox();
+    }
 
     double ball[16] = {1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  BallCenter[0], BallCenter[1], BallCenter[2], 1};
     LoadMatrix(ball);
@@ -241,6 +253,7 @@ static void BoxAndBallShape(GPU3D& g, double& boxBulge, double& ballError)
             }
             double rr = 0;
             for (int k = 0; k < 3; k++) rr += (p[k] - BallCenter[k]) * (p[k] - BallCenter[k]);
+            if (std::sqrt(rr) > BallRadius * 1.5) continue; // another object
             ballSum += std::fabs(std::sqrt(rr) - BallRadius) / BallRadius;
             ballCount++;
         }
@@ -618,6 +631,15 @@ int main()
                    frame + 1, bulge[frame] * 100, ballErr[frame] * 100, cracks[frame]);
         }
         bool sharpened = bulge[0] > 0.1 && bulge[1] < 0.01 && bulge[2] < 0.01;
+        // the same box drawn twice (each edge then has two pairs of faces that agree)
+        double twice = 1, ballTwice = 1;
+        for (int frame = 0; frame < 2; frame++)
+        {
+            SubmitBoxScene(true);
+            BoxAndBallShape(gpu.GPU3D, twice, ballTwice);
+        }
+        printf("same box drawn twice: bulge %.1f%% from the second frame\n", twice * 100);
+        sharpened = sharpened && twice < 0.01;
         bool ballKept = std::fabs(ballErr[1] - ballErr[0]) < 1e-9 && std::fabs(ballErr[2] - ballErr[0]) < 1e-9;
         bool noCracks = cracks[0] == 0 && cracks[1] == 0 && cracks[2] == 0;
         printf("box edges kept sharp from the second frame: %s, sphere unchanged: %s, no cracks: %s\n",

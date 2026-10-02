@@ -195,7 +195,6 @@ void GPU3D::Reset() noexcept
 {
     PolygonSubmitCount = 0;
     EdgeFaces.clear();
-    EdgeKeepPending.clear();
     EdgeKeep.clear();
 
     CmdFIFO.Clear();
@@ -718,6 +717,7 @@ void GPU3D::UpdateClipMatrix() noexcept
 {
     if (!ClipMatrixDirty) return;
     ClipMatrixDirty = false;
+    FrameProjectionCheck = true; // Pomegrade: see SubmitVertex
 
     memcpy(ClipMatrix, ProjMatrix, 16*4);
     MatrixMult4x4(ClipMatrix, PosMatrix);
@@ -1708,7 +1708,9 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
             poly->Translucent = parent->Translucent;
             poly->IsShadowMask = false;
             poly->IsShadow = false;
-            poly->FrameId = (parent->FrameId & ~0xFFu) | ((NumSubPolygons - 1 - firstpoly) & 0xFF);
+            // its place in the subdivision, the same whether or not earlier
+            // sub-triangles were clipped away (at most 2 x 8 x 8 = 128)
+            poly->FrameId = (parent->FrameId & ~0xFFu) | ((t * level * level + s) & 0xFF);
 
             FinalizePolygon(poly, nv);
         }
@@ -1721,13 +1723,17 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
 u64 GPU3D::EdgeKey(int corner, int nverts) const noexcept
 {
     // the edge from this corner to the next, by its corners' model positions
-    // (48 bits each, in either order) mixed into one key
+    // (48 bits each, in either order) and the polygon's texture, mixed into
+    // one key. Model coordinates alone are shared by unrelated meshes (bones
+    // and objects in their own local space); the texture separates most.
     const s16* ma = TempVertexBuffer[corner].ModelPosition;
     const s16* mb = TempVertexBuffer[(corner + 1) % nverts].ModelPosition;
     u64 ka = ((u64)(u16)ma[0] << 32) | ((u64)(u16)ma[1] << 16) | (u16)ma[2];
     u64 kb = ((u64)(u16)mb[0] << 32) | ((u64)(u16)mb[1] << 16) | (u16)mb[2];
     if (ka > kb) std::swap(ka, kb);
-    return ka * 0x9E3779B97F4A7C15ull ^ (kb + 0x632BE59BD9B4E019ull + (ka << 6) + (ka >> 2));
+    u64 texture = ((u64)TexPalette << 32) | TexParam;
+    u64 key = ka * 0x9E3779B97F4A7C15ull ^ (kb + 0x632BE59BD9B4E019ull + (ka << 6) + (ka >> 2));
+    return key ^ (texture * 0xC2B2AE3D27D4EB4Full + (key << 6) + (key >> 2));
 }
 
 void GPU3D::RegisterEdgeFaces(int nverts) noexcept
@@ -1764,21 +1770,21 @@ void GPU3D::RegisterEdgeFaces(int nverts) noexcept
     for (int i = 0; i < nverts; i++)
     {
         u64 key = EdgeKey(i, nverts);
-        auto seen = EdgeFaces.find(key);
-        if (seen == EdgeFaces.end())
+        // faces pair up two by two: one mesh gives one pair per edge, the
+        // same mesh drawn n times n pairs that agree (see UpdateEdgeKeep)
+        EdgeFace& f = EdgeFaces[key];
+        if (f.Faces % 2 == 0)
         {
-            EdgeFace f;
             for (int k = 0; k < 3; k++) f.Normal[k] = (float)face[k];
-            f.Paired = false;
-            EdgeFaces.emplace(key, f);
         }
-        else if (!seen->second.Paired)
+        else
         {
-            // the second face of this edge: the angle between them
-            seen->second.Paired = true;
-            double cosAngle = seen->second.Normal[0]*face[0] + seen->second.Normal[1]*face[1] + seen->second.Normal[2]*face[2];
-            EdgeKeepPending[key] = (float)PolygonMultiplier::DihedralKeep(cosAngle);
+            double cosAngle = f.Normal[0]*face[0] + f.Normal[1]*face[1] + f.Normal[2]*face[2];
+            float keep = (float)PolygonMultiplier::DihedralKeep(cosAngle);
+            if (f.Faces == 1) f.Keep = keep;
+            else if (std::fabs(keep - f.Keep) > 0.1f) f.Conflict = true;
         }
+        if (f.Faces < 255) f.Faces++;
     }
 }
 
@@ -1789,9 +1795,13 @@ void GPU3D::UpdateEdgeKeep() noexcept
     // bounded: models come and go
     if (EdgeKeep.size() > (1u << 20))
         EdgeKeep.clear();
-    for (const auto& [key, keep] : EdgeKeepPending)
-        EdgeKeep[key] = keep;
-    EdgeKeepPending.clear();
+    for (const auto& [key, f] : EdgeFaces)
+    {
+        if (f.Faces < 2) continue; // its other face wasn't sent this frame
+        // pairs that disagree, or a face left over: faces of different meshes
+        // share these model coordinates. Left curved, as without this information.
+        EdgeKeep[key] = (f.Conflict || f.Faces % 2 != 0) ? 1.0f : f.Keep;
+    }
     EdgeFaces.clear();
 }
 
@@ -1897,11 +1907,26 @@ void GPU3D::SubmitVertex() noexcept
         vertextrans->Orthographic = ProjMatrix[3] == 0 && ProjMatrix[7] == 0 && ProjMatrix[11] == 0;
         vertextrans->Specular = CurColorFromLighting ? (MatSpecular[0] + MatSpecular[1] + MatSpecular[2]) / 93.0f : 0.0f;
         for (int i = 0; i < 3; i++) vertextrans->ModelPosition[i] = CurVertex[i];
-        if (!vertextrans->Orthographic &&
-            (memcmp(FrameProjMatrix, ProjMatrix, sizeof(ProjMatrix)) || memcmp(FrameViewport, Viewport, sizeof(FrameViewport))))
+        // the perspective projection and viewport used by the most vertices
+        // this frame (the scene's, not a small 3D icon's), compared only when
+        // a matrix or the viewport changed
+        if (!vertextrans->Orthographic)
         {
-            memcpy(FrameProjMatrix, ProjMatrix, sizeof(ProjMatrix));
-            memcpy(FrameViewport, Viewport, sizeof(FrameViewport));
+            if ((FrameProjectionCheck || FrameProjVertices == 0) &&
+                (memcmp(FrameProjMatrix, ProjMatrix, sizeof(ProjMatrix)) || memcmp(FrameViewport, Viewport, sizeof(FrameViewport))))
+            {
+                if (FrameProjVertices > BestProjVertices)
+                {
+                    memcpy(BestProjMatrix, FrameProjMatrix, sizeof(FrameProjMatrix));
+                    memcpy(BestViewport, FrameViewport, sizeof(FrameViewport));
+                    BestProjVertices = FrameProjVertices;
+                }
+                memcpy(FrameProjMatrix, ProjMatrix, sizeof(ProjMatrix));
+                memcpy(FrameViewport, Viewport, sizeof(FrameViewport));
+                FrameProjVertices = 0;
+            }
+            FrameProjectionCheck = false;
+            FrameProjVertices++;
         }
     }
     else
@@ -2654,6 +2679,7 @@ void GPU3D::ExecuteCommand() noexcept
             Viewport[3] = (191 - (entry.Param >> 24)) & 0xFF;             // y1
             Viewport[4] = (Viewport[2] - Viewport[0] + 1) & 0x1FF;          // width
             Viewport[5] = (Viewport[1] - Viewport[3] + 1) & 0xFF;           // height
+            FrameProjectionCheck = true; // Pomegrade: see SubmitVertex
             break;
 
         case 0x72: // vec test
@@ -3044,8 +3070,17 @@ void GPU3D::VBlank() noexcept
 
                 // for the renderer's effects (shadows, reflections)
                 memcpy(RenderLightDirection, LightDirection, sizeof(LightDirection));
-                memcpy(RenderProjMatrix, FrameProjMatrix, sizeof(FrameProjMatrix));
-                memcpy(RenderViewport, FrameViewport, sizeof(FrameViewport));
+                if (FrameProjVertices >= BestProjVertices)
+                {
+                    memcpy(RenderProjMatrix, FrameProjMatrix, sizeof(FrameProjMatrix));
+                    memcpy(RenderViewport, FrameViewport, sizeof(FrameViewport));
+                }
+                else if (BestProjVertices)
+                {
+                    memcpy(RenderProjMatrix, BestProjMatrix, sizeof(BestProjMatrix));
+                    memcpy(RenderViewport, BestViewport, sizeof(BestViewport));
+                }
+                FrameProjVertices = BestProjVertices = 0;
                 UpdateEdgeKeep();
 
                 BuildMultipliedRenderList();

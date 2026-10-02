@@ -413,23 +413,35 @@ public:
     // Polygon multiplier, geometry fidelity from neighbours: share of the
     // curvature kept along each edge, from the angle between the two faces
     // sharing it (PolygonMultiplier::DihedralKeep). Edges are identified by
-    // their corners' model positions, so they are the same edge from frame
-    // to frame. Faces seen this frame are paired in EdgeFaces; the angles
-    // found apply from the next frame (EdgeKeep), so the two polygons of an
-    // edge always use the same value within a frame (no cracks).
-    struct EdgeFace { float Normal[3]; bool Paired; };
+    // their corners' model positions and texture, so they are the same edge
+    // from frame to frame. Faces seen this frame are paired in EdgeFaces; the
+    // angles found apply from the next frame (EdgeKeep), so the two polygons
+    // of an edge always use the same value within a frame (no cracks).
+    struct EdgeFace
+    {
+        float Normal[3] {}; // the face waiting for its pair
+        float Keep = 1;     // from the first pair
+        u8 Faces = 0;       // faces seen this frame
+        bool Conflict = false; // pairs that disagree
+    };
     std::unordered_map<u64, EdgeFace> EdgeFaces;
-    std::unordered_map<u64, float> EdgeKeepPending;
     std::unordered_map<u64, float> EdgeKeep;
     void UpdateEdgeKeep() noexcept;
     void RegisterEdgeFaces(int nverts) noexcept;
     [[nodiscard]] u64 EdgeKey(int corner, int nverts) const noexcept;
     s16 RenderLightDirection[4][3] {}; // light directions (view space) at the end of the rendered frame
-    // the last perspective projection and viewport the rendered frame's vertices used
+    // the perspective projection and viewport most of the rendered frame's vertices used
     s32 RenderProjMatrix[16] {};
     u32 RenderViewport[6] {};
-    s32 FrameProjMatrix[16] {}; // the same, while the frame is submitted
+    // while the frame is submitted: the projection in use and its vertex count,
+    // and the one with the most vertices so far
+    s32 FrameProjMatrix[16] {};
     u32 FrameViewport[6] {};
+    u32 FrameProjVertices = 0;
+    s32 BestProjMatrix[16] {};
+    u32 BestViewport[6] {};
+    u32 BestProjVertices = 0;
+    bool FrameProjectionCheck = true; // a matrix or the viewport changed since the last check
     bool HighColor = false;
     s32 VertexColorPrecise[3] {}; // current vertex colour, 5.12 fixed point (high colour)
     std::vector<Polygon*> ExtraPolygons[2]; // past the hardware limit, per bank, in the sub-polygon storage

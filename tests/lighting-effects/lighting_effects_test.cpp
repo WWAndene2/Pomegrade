@@ -93,6 +93,7 @@ static bool RedSphere = false; // light bounce test: a red sphere tints the grey
 static bool FrontLight = false; // light from the camera's side: the sphere's front is lit
 static bool SideLight = false;  // shadow test: light from the upper left, the sphere's shadow falls to its right
 static bool ShinyFloor = false; // reflection test: the floor's material has a white specular colour
+static bool PerspectiveIcon = false; // a small 3D icon drawn last, with its own projection and viewport
 
 static void DrawSphere()
 {
@@ -161,6 +162,23 @@ static void SubmitScene()
     if (RedSphere) Cmd(0x30, {(0x001F) | (0x0008u << 16)}); // diffuse red, ambient dark red
     Cmd(0x31, {0}); // the sphere isn't shiny
     DrawSphere();
+
+    if (PerspectiveIcon)
+    {
+        // top-left corner (viewport y counts from the bottom), narrow field of view
+        Cmd(0x60, {4 | (150u << 8) | (44u << 16) | (185u << 24)});
+        double f2 = 1.0 / std::tan(15.0 * M_PI / 180.0);
+        double icon[16] = {f2, 0, 0, 0,  0, f2, 0, 0,  0, 0, (Zf + Zn) / (Zn - Zf), -1,  0, 0, 2 * Zf * Zn / (Zn - Zf), 0};
+        Cmd(0x10, {0}); LoadMatrix(icon);
+        Cmd(0x10, {1}); Cmd(0x15);
+        Cmd(0x29, {(31 << 16) | (3 << 24) | 0xC0});
+        Cmd(0x40, {0});
+        Cmd(0x20, {0x03E0}); Vertex16(-0.3, -0.3, -2);
+        Cmd(0x20, {0x03E0}); Vertex16(0.3, -0.3, -2);
+        Cmd(0x20, {0x03E0}); Vertex16(0, 0.3, -2);
+        Cmd(0x41);
+        Cmd(0x60, {0 | (0 << 8) | (255u << 16) | (191u << 24)});
+    }
 
     // 2D HUD panel: orthographic projection, no normals
     double ortho[16] = {1, 0, 0, 0,  0, 1, 0, 0,  0, 0, -1, 0,  0, 0, 0, 1};
@@ -478,6 +496,15 @@ int main()
         printf("floor mirroring the red sphere (%d,%d): red/green %.3f -> %.3f\n", mx, my, before, after);
         printf("open floor: red/green %.3f -> %.3f\n", redness(reflOff, fx, fy), redness(reflOn, fx, fy));
         check(after > before * 1.1, "red sphere reflected in the shiny floor (10% redder or more)");
+
+        // a small perspective 3D icon drawn last: the reflections keep the scene's projection
+        PerspectiveIcon = true;
+        Frame(*r, gpu);
+        auto withIcon = Frame(*r, gpu);
+        double iconAfter = redness(withIcon, mx, my);
+        printf("with a 3D icon drawn last: mirror point red/green %.3f\n", iconAfter);
+        check(std::fabs(iconAfter - after) < 0.02, "reflections use the scene's projection, not the icon's");
+        PerspectiveIcon = false;
         check(std::fabs(redness(reflOn, fx, fy) - redness(reflOff, fx, fy)) < 0.02, "open floor keeps its colour (reflects the grey wall)");
         check(Diff(reflOff, reflOn, hx0, hy0, hx1, hy1) == 0, "reflections: 2D HUD panel untouched");
     }

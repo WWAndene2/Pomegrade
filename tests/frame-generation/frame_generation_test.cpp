@@ -103,8 +103,10 @@ static void DrawSphere(double cx, double cy, double cz, double radius, double tu
     Cmd(0x41);
 }
 
-// sphere at x, turned by turn; other = draw something else entirely (a cut)
-static void SubmitScene(double x, double turn, bool other = false)
+// sphere at x, turned by turn; other = draw something else entirely (a cut);
+// particles: small triangles sent before the sphere (in one frame only, they
+// shift the sphere's submission order)
+static void SubmitScene(double x, double turn, bool other = false, int particles = 0)
 {
     GPU3D& g = Nds->GPU.GPU3D;
     g.Write32(0x04000060, 0);
@@ -115,6 +117,20 @@ static void SubmitScene(double x, double turn, bool other = false)
     Cmd(0x10, {0}); LoadMatrix(proj);
     Cmd(0x10, {2}); Cmd(0x15);
     Cmd(0x29, {(31 << 16) | (1 << 24) | 0x80}); // no lights: vertex colours
+    if (particles)
+    {
+        Cmd(0x29, {(31 << 16) | (5 << 24) | 0xC0}); // another polygon ID, both sides
+        Cmd(0x40, {0});
+        for (int i = 0; i < particles; i++)
+        {
+            double px = -2.2 + 0.15 * i;
+            Cmd(0x20, {0x7C1F}); Vertex16(px, 1.2, -4);
+            Cmd(0x20, {0x7C1F}); Vertex16(px + 0.1, 1.2, -4);
+            Cmd(0x20, {0x7C1F}); Vertex16(px, 1.3, -4);
+        }
+        Cmd(0x41);
+        Cmd(0x29, {(31 << 16) | (1 << 24) | 0x80});
+    }
     if (!other)
         DrawSphere(x, 0, -3.5, 0.9, turn);
     else
@@ -199,20 +215,10 @@ static std::vector<u32> Capture(GLRenderer& r)
     return img;
 }
 
-// An intermediate frame, read like Composite. It composites the 2D layers of
-// the frame just finished (the front buffer): laid out for the accelerated
-// renderer here too, as the GPU allocates them in the app.
+// An intermediate frame, read like Composite (with the 2D layers the last
+// Composite uploaded, as the frame's own composite does in the app).
 static std::vector<u32> Intermediate(GLRenderer& r, GPU& gpu, bool& rendered)
 {
-    const int stride = 256 * 3 + 1;
-    for (int s = 0; s < 2; s++)
-    {
-        gpu.Framebuffer[gpu.FrontBuffer][s] = std::make_unique<u32[]>(stride * 192);
-        u32* fb = gpu.Framebuffer[gpu.FrontBuffer][s].get();
-        memset(fb, 0, stride * 192 * 4);
-        for (int y = 0; y < 192; y++)
-            fb[y * stride + 768] = 1 << 16; // display mode 1, 3D shown
-    }
 
     GLuint tex;
     glGenTextures(1, &tex);
@@ -337,6 +343,50 @@ int main()
         double tolerance = turn == 0 ? 0.5 : 1.5;
         check(std::fabs(cm - (ca + cb) / 2) < tolerance, "intermediate sphere halfway");
         check(diffMid * 5 < std::min(diffA, diffB), "intermediate close to the real halfway render (5x fewer differences than either frame)");
+    }
+
+    // particles appear before the sphere in the second frame only: the sphere
+    // is still paired with itself (its polygons are sent later than before)
+    {
+        auto frameP = [&](double x, int particles) { SubmitScene(x, 0, false, particles); r->RenderFrame(gpu); };
+        frameP(-0.2, 0);
+        auto before = Composite(*r, gpu, 1);
+        frameP(0.2, 12);
+        auto mid = Intermediate(*r, gpu, rendered);
+        auto after = Composite(*r, gpu, 1);
+        // the sphere's centre, ignoring the particles' rows (y < 60)
+        auto sphereX = [](const std::vector<u32>& img) {
+            u32 bg = img[191 * 256] & 0xFFFFFF;
+            double sum = 0; int n = 0;
+            for (int y = 60; y < 192; y++)
+                for (int x = 0; x < 256; x++)
+                    if ((img[y * 256 + x] & 0xFFFFFF) != bg) { sum += x; n++; }
+            return n ? sum / n : -1.0;
+        };
+        double ca = sphereX(before), cm = sphereX(mid), cb = sphereX(after);
+        printf("particles added before the sphere: sphere centre %.1f -> intermediate %.1f -> %.1f (halfway %.2f)\n",
+               ca, cm, cb, (ca + cb) / 2);
+        check(rendered && std::fabs(cm - (ca + cb) / 2) < 0.5, "polygons sent in one frame only: the rest still paired");
+    }
+
+    // with the polygon multiplier: sub-polygons are paired by their place in
+    // their polygon's subdivision
+    {
+        gpu.GPU3D.SetPolygonMultiplier(4);
+        frame(-0.2, 0);
+        auto before = Composite(*r, gpu, 1);
+        frame(0.2, 0);
+        auto mid = Intermediate(*r, gpu, rendered);
+        auto after = Composite(*r, gpu, 1);
+        frame(0.0, 0);
+        auto halfway = Composite(*r, gpu, 1);
+        double ca = CenterX(before), cm = CenterX(mid), cb = CenterX(after);
+        int diffMid = Differences(mid, halfway), diffA = Differences(before, halfway), diffB = Differences(after, halfway);
+        printf("multiplier x16: sphere centre %.1f -> intermediate %.1f -> %.1f (halfway %.2f); differing pixels %d vs %d/%d\n",
+               ca, cm, cb, (ca + cb) / 2, diffMid, diffA, diffB);
+        check(rendered && std::fabs(cm - (ca + cb) / 2) < 0.5 && diffMid * 5 < std::min(diffA, diffB),
+              "multiplier: sub-polygons paired, intermediate halfway");
+        gpu.GPU3D.SetPolygonMultiplier(1);
     }
 
     // a still scene: the intermediate frame is the frame itself

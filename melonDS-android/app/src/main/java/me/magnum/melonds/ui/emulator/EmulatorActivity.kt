@@ -739,7 +739,13 @@ class EmulatorActivity : AppCompatActivity() {
      * a refresh. Otherwise the system chooses, as before.
      */
     private fun setupDisplayRefreshRate() {
-        val currentDisplay = display ?: return
+        // Activity.getDisplay() is API 30; the minimum is 29
+        val currentDisplay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            display ?: return
+        } else {
+            @Suppress("DEPRECATION")
+            windowManager.defaultDisplay
+        }
         val current = currentDisplay.mode
         val modeId = if (viewModel.isFrameGenerationEnabled()) {
             currentDisplay.supportedModes

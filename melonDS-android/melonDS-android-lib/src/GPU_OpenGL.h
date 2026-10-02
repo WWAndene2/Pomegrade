@@ -51,7 +51,8 @@ public:
     void Stop(const GPU& gpu) noexcept;
     void RenderFrame(const GPU& gpu, Renderer3D& renderer) noexcept;
     // Frame generation (Pomegrade): composites the renderer's current 3D image
-    // with the 2D layers of the frame just finished, into texture. The scene
+    // with the 2D layers of the frame just finished (already uploaded by its
+    // RenderFrame), into texture. The scene
     // colour parameters are used as they are (they advance once per DS frame).
     void RenderIntermediateFrame(const GPU& gpu, Renderer3D& renderer, GLuint texture) noexcept;
     void SetOutputTexture(int buf, GLuint texture);
@@ -79,6 +80,7 @@ private:
     } SceneColourState;
     void DeleteSceneColourTargets() noexcept;
     void RunSceneColourPass() noexcept;
+    // srcbuf: the 2D layers to upload, -1 = those already in the input texture
     void Composite(const GPU& gpu, Renderer3D& renderer, GLuint framebuffer, int srcbuf, bool advanceSceneColour) noexcept;
 
     GLuint CompVertexBufferID = 0;

@@ -1425,8 +1425,13 @@ void GLRenderer::SetupLightingTargets()
 
     if (!complete)
     {
-        // float render targets missing: the effects stay off
+        // float render targets missing: the effects stay off, and the main
+        // framebuffer gets back to its own attachments (with the unusable ones
+        // attached it would be incomplete, and nothing would render)
         Log(LogLevel::Warn, "Lighting effects: render targets not supported, effects disabled\n");
+        glBindFramebuffer(GL_FRAMEBUFFER, MainFramebuffer);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, 0, 0);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, 0, 0);
         LightingSupported = false;
         LightingActive = false;
     }
@@ -1662,7 +1667,7 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
     if (!intermediate)
     {
         LightingActive = LightingEnabled() && ViewDataCaptured && LightingSupported;
-        gpu.GPU3D.SetViewDataCapture(LightingEnabled());
+        gpu.GPU3D.SetViewDataCapture(LightingEnabled() && LightingSupported);
         ViewDataCaptured = gpu.GPU3D.CaptureViewData();
     }
     LightingDone = false;
@@ -1739,65 +1744,53 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
     if (unibuf) memcpy(unibuf, &ShaderConfig, sizeof(ShaderConfig));
     glUnmapBuffer(GL_UNIFORM_BUFFER);
 
-    // texture memory: an intermediate frame uses what the frame it comes from loaded
-    if (!intermediate)
+    // SUCKY!!!!!!!!!!!!!!!!!!
+    // TODO: detect when VRAM blocks are modified!
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, TexMemID);
+    for (int i = 0; i < 4; i++)
     {
-        // SUCKY!!!!!!!!!!!!!!!!!!
-        // TODO: detect when VRAM blocks are modified!
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, TexMemID);
-        for (int i = 0; i < 4; i++)
-        {
-            u32 mask = gpu.VRAMMap_Texture[i];
-            u8* vram;
-            if (!mask) continue;
-            else if (mask & (1<<0)) vram = gpu.VRAM_A;
-            else if (mask & (1<<1)) vram = gpu.VRAM_B;
-            else if (mask & (1<<2)) vram = gpu.VRAM_C;
-            else if (mask & (1<<3)) vram = gpu.VRAM_D;
+        u32 mask = gpu.VRAMMap_Texture[i];
+        u8* vram;
+        if (!mask) continue;
+        else if (mask & (1<<0)) vram = gpu.VRAM_A;
+        else if (mask & (1<<1)) vram = gpu.VRAM_B;
+        else if (mask & (1<<2)) vram = gpu.VRAM_C;
+        else if (mask & (1<<3)) vram = gpu.VRAM_D;
 
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*128, 1024, 128, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*128, 1024, 128, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
+    }
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, TexPalMemID);
+
+    u16* tempBuffer = (u16*) malloc(1024 * 8 * 2);
+    for (int i = 0; i < 6; i++)
+    {
+        // 6 x 16K chunks
+        u32 mask = gpu.VRAMMap_TexPal[i];
+        u8* vram;
+        if (!mask) continue;
+        else if (mask & (1<<4)) vram = &gpu.VRAM_E[(i&3)*0x4000];
+        else if (mask & (1<<5)) vram = gpu.VRAM_F;
+        else if (mask & (1<<6)) vram = gpu.VRAM_G;
+
+        memcpy(tempBuffer, vram, 1024 * 8 * 2);
+        for (int j = 0; j < 1024 * 8; j++)
+        {
+            u16 value = tempBuffer[j];
+
+            u8 a = (value >> 15) & 0x1;
+            u8 b = (value >> 10) & 0x1F;
+            u8 g = (value >> 5) & 0x1F;
+            u8 r = (value >> 0) & 0x1F;
+
+            tempBuffer[j] = (r << 11) | (g << 6) | (b << 1) | a;
         }
 
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, TexPalMemID);
-
-        u16* tempBuffer = (u16*) malloc(1024 * 8 * 2);
-        for (int i = 0; i < 6; i++)
-        {
-            // 6 x 16K chunks
-            u32 mask = gpu.VRAMMap_TexPal[i];
-            u8* vram;
-            if (!mask) continue;
-            else if (mask & (1<<4)) vram = &gpu.VRAM_E[(i&3)*0x4000];
-            else if (mask & (1<<5)) vram = gpu.VRAM_F;
-            else if (mask & (1<<6)) vram = gpu.VRAM_G;
-
-            memcpy(tempBuffer, vram, 1024 * 8 * 2);
-            for (int j = 0; j < 1024 * 8; j++)
-            {
-                u16 value = tempBuffer[j];
-
-                u8 a = (value >> 15) & 0x1;
-                u8 b = (value >> 10) & 0x1F;
-                u8 g = (value >> 5) & 0x1F;
-                u8 r = (value >> 0) & 0x1F;
-
-                tempBuffer[j] = (r << 11) | (g << 6) | (b << 1) | a;
-            }
-
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*8, 1024, 8, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, tempBuffer);
-        }
-        free(tempBuffer);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*8, 1024, 8, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, tempBuffer);
     }
-    else
-    {
-        // the lighting pass and the compositor use these units in between
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, TexMemID);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, TexPalMemID);
-    }
+    free(tempBuffer);
 
     glDisable(GL_SCISSOR_TEST);
     glEnable(GL_DEPTH_TEST);
@@ -1909,7 +1902,6 @@ void GLRenderer::FrameSnapshot::Take(Polygon** polys, u32 count)
     u32 nverts = 0;
     for (u32 i = 0; i < count; i++) nverts += polys[i]->NumVertices;
     Vertices.resize(nverts);
-    ById.clear();
     u32 v = 0;
     for (u32 i = 0; i < count; i++)
     {
@@ -1920,9 +1912,11 @@ void GLRenderer::FrameSnapshot::Take(Polygon** polys, u32 count)
             Vertices[v] = *polys[i]->Vertices[j];
             copy.Vertices[j] = &Vertices[v++];
         }
-        auto [it, added] = ById.emplace(copy.FrameId, i);
-        if (!added) it->second = ~0u;
     }
+    // the game's submission order (the render list is sorted for drawing)
+    Order.resize(count);
+    for (u32 i = 0; i < count; i++) Order[i] = i;
+    std::stable_sort(Order.begin(), Order.end(), [&](u32 a, u32 b) { return Polygons[a].FrameId < Polygons[b].FrameId; });
 }
 
 void GLRenderer::SetFrameGeneration(bool enable) noexcept
@@ -1933,7 +1927,7 @@ void GLRenderer::SetFrameGeneration(bool enable) noexcept
     {
         snapshot.Polygons.clear();
         snapshot.Vertices.clear();
-        snapshot.ById.clear();
+        snapshot.Order.clear();
     }
 }
 
@@ -1944,21 +1938,84 @@ bool GLRenderer::RenderIntermediateFrame(GPU& gpu, u32 outputTexture)
     if (!FrameGeneration || cur.Polygons.empty() || prev.Polygons.empty())
         return false;
 
-    // pair each polygon with itself in the previous frame: same texture, same
-    // kind, same shape (clipping can change a polygon's corners)
+    // pair each polygon with itself in the previous frame. Both frames are
+    // walked in the game's submission order, slot by slot (Polygon::FrameId:
+    // every polygon the game sent, drawn or not), and aligned like a diff on
+    // each slot's signature (texture, palette, attributes): a polygon sent in
+    // one frame only (a particle, a line of text) doesn't shift the pairing of
+    // the rest. A slot with nothing drawn (culled or clipped away) is
+    // compatible with anything, so faces turning away don't shift it either.
+    struct Slots
+    {
+        std::vector<int> First; // first polygon (index into Order) of each slot, -1 if none drawn
+        u32 Count = 0;
+    };
+    auto slotsOf = [](const FrameSnapshot& f) {
+        Slots sl;
+        sl.Count = f.Order.empty() ? 0 : (f.Polygons[f.Order.back()].FrameId >> 8) + 1;
+        sl.First.assign(sl.Count, -1);
+        for (size_t k = f.Order.size(); k-- > 0;)
+            sl.First[f.Polygons[f.Order[k]].FrameId >> 8] = (int)k;
+        return sl;
+    };
+    const Slots cs = slotsOf(cur), ps = slotsOf(prev);
+    auto same = [](const Polygon& a, const Polygon& b) {
+        return a.TexParam == b.TexParam && a.TexPalette == b.TexPalette && a.Attr == b.Attr &&
+               a.WBuffer == b.WBuffer && a.Type == b.Type;
+    };
+    // 1 = both drawn and alike, 0 = one or both not drawn, -1 = different
+    auto compare = [&](u32 ci, u32 pi) {
+        int a = cs.First[ci], b = ps.First[pi];
+        if (a < 0 || b < 0) return 0;
+        return same(cur.Polygons[cur.Order[a]], prev.Polygons[prev.Order[b]]) ? 1 : -1;
+    };
+    // a resync point: both drawn and alike, and the next slots don't disagree
+    auto resync = [&](u32 ci, u32 pi) {
+        return compare(ci, pi) == 1 && (ci + 1 >= cs.Count || pi + 1 >= ps.Count || compare(ci + 1, pi + 1) >= 0);
+    };
     std::vector<int> match(cur.Polygons.size(), -1);
     u32 matched = 0;
-    for (u32 i = 0; i < cur.Polygons.size(); i++)
+    u32 ci = 0, pi = 0;
+    while (ci < cs.Count && pi < ps.Count)
     {
-        const Polygon& c = cur.Polygons[i];
-        auto it = prev.ById.find(c.FrameId);
-        if (it == prev.ById.end() || it->second == ~0u) continue;
-        const Polygon& p = prev.Polygons[it->second];
-        if (p.NumVertices != c.NumVertices || p.TexParam != c.TexParam || p.TexPalette != c.TexPalette ||
-            p.Attr != c.Attr || p.WBuffer != c.WBuffer || p.Type != c.Type)
-            continue;
-        match[i] = (int)it->second;
-        matched++;
+        if (compare(ci, pi) < 0)
+        {
+            // the nearest point where both continue together, up to 64 slots ahead on either side
+            bool found = false;
+            for (u32 d = 1; d <= 64 && !found; d++)
+            {
+                if (pi + d < ps.Count && resync(ci, pi + d)) { pi += d; found = true; }
+                else if (ci + d < cs.Count && resync(ci + d, pi)) { ci += d; found = true; }
+            }
+            if (!found) { ci++; pi++; continue; } // replaced by something else
+        }
+        // pair the slots' polygons: a polygon, or the sub-polygons of one by their place
+        int a = cs.First[ci], b = ps.First[pi];
+        if (a >= 0 && b >= 0)
+        {
+            size_t ka = a, kb = b;
+            while (ka < cur.Order.size() && (cur.Polygons[cur.Order[ka]].FrameId >> 8) == ci &&
+                   kb < prev.Order.size() && (prev.Polygons[prev.Order[kb]].FrameId >> 8) == pi)
+            {
+                const Polygon& c = cur.Polygons[cur.Order[ka]];
+                const Polygon& p = prev.Polygons[prev.Order[kb]];
+                u32 subC = c.FrameId & 0xFF, subP = p.FrameId & 0xFF;
+                if (subC == subP)
+                {
+                    if (c.NumVertices == p.NumVertices)
+                    {
+                        match[cur.Order[ka]] = (int)prev.Order[kb];
+                        matched++;
+                    }
+                    ka++;
+                    kb++;
+                }
+                else if (subC < subP) ka++;
+                else kb++;
+            }
+        }
+        ci++;
+        pi++;
     }
     // most of the scene changed (a cut, a new screen): nothing in between to
     // show, the frame already shown stays

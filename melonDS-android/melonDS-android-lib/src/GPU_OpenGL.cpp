@@ -331,8 +331,10 @@ void GLCompositor::RenderIntermediateFrame(const GPU& gpu, Renderer3D& renderer,
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture, 0);
     const GLenum attachment = GL_COLOR_ATTACHMENT0;
     glDrawBuffers(1, &attachment);
-    // after the frame ended, its 2D layers are the front buffer
-    Composite(gpu, renderer, IntermediateFB, gpu.FrontBuffer, false);
+    // the frame's 2D layers are already in the input texture: its composite
+    // uploaded them at VBlank, from the buffer that became the front buffer
+    // when the frame ended
+    Composite(gpu, renderer, IntermediateFB, -1, false);
 }
 
 void GLCompositor::Composite(const GPU& gpu, Renderer3D& renderer, GLuint framebuffer, int backbuf, bool advanceSceneColour) noexcept
@@ -355,7 +357,7 @@ void GLCompositor::Composite(const GPU& gpu, Renderer3D& renderer, GLuint frameb
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, CompScreenInputTex);
 
-    if (gpu.Framebuffer[backbuf][0] && gpu.Framebuffer[backbuf][1])
+    if (backbuf >= 0 && gpu.Framebuffer[backbuf][0] && gpu.Framebuffer[backbuf][1])
     {
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3 + 1, 192, GL_RGBA_INTEGER,
                         GL_UNSIGNED_BYTE, gpu.Framebuffer[backbuf][0].get());
