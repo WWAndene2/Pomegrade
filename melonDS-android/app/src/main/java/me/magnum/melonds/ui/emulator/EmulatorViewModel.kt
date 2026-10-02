@@ -128,6 +128,7 @@ class EmulatorViewModel @Inject constructor(
     val runtimeLayout = _runtimeLayout.asStateFlow()
 
     val controllerConfiguration = settingsRepository.observeControllerConfiguration()
+    val isAnalogueMovementEnabled = settingsRepository.isAnalogueMovementEnabled()
 
     private val _runtimeRendererConfiguration = MutableStateFlow<RuntimeRendererConfiguration?>(null)
     val runtimeRendererConfiguration = _runtimeRendererConfiguration.asStateFlow()

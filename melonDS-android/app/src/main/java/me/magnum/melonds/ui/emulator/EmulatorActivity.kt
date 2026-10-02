@@ -48,6 +48,7 @@ import com.squareup.picasso.Picasso
 import dagger.hilt.android.AndroidEntryPoint
 import kotlin.math.abs
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import me.magnum.melonds.MelonEmulator
@@ -415,9 +416,9 @@ class EmulatorActivity : AppCompatActivity() {
         }
         lifecycleScope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.controllerConfiguration.collect {
-                    setupInputHandling(it)
-                    connectedControllerManager.setCurrentControllerConfiguration(it)
+                combine(viewModel.controllerConfiguration, viewModel.isAnalogueMovementEnabled, ::Pair).collect { (configuration, analogueMovement) ->
+                    setupInputHandling(configuration, analogueMovement)
+                    connectedControllerManager.setCurrentControllerConfiguration(configuration)
                 }
             }
         }
@@ -854,8 +855,8 @@ class EmulatorActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupInputHandling(controllerConfiguration: ControllerConfiguration) {
-        nativeInputListener = InputProcessor(controllerConfiguration, melonTouchHandler, frontendInputHandler)
+    private fun setupInputHandling(controllerConfiguration: ControllerConfiguration, analogueMovement: Boolean) {
+        nativeInputListener = InputProcessor(controllerConfiguration, melonTouchHandler, frontendInputHandler, analogueMovement)
     }
 
     private fun handleBackPressed() {

@@ -4,10 +4,25 @@ import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
 import me.magnum.melonds.domain.model.ControllerConfiguration
+import me.magnum.melonds.domain.model.Input
 import me.magnum.melonds.domain.model.InputConfig
 import kotlin.math.absoluteValue
+import kotlin.math.sqrt
 
-class InputProcessor(private val controllerConfiguration: ControllerConfiguration, private val systemInputListener: IInputListener, private val frontendInputListener: IInputListener) : INativeInputListener {
+/**
+ * @param analogueMovement Pomegrade: the left stick is a joystick (see [JoystickInputHandler]): its exact position for games with
+ * analogue movement, the nearest of the 8 directions as keys, in place of its own key mapping
+ */
+class InputProcessor(
+    private val controllerConfiguration: ControllerConfiguration,
+    private val systemInputListener: IInputListener,
+    private val frontendInputListener: IInputListener,
+    private val analogueMovement: Boolean = false,
+) : INativeInputListener {
+
+    private var stickX = 0f
+    private var stickY = 0f
+    private val stickInputs = mutableSetOf<Input>()
 
     private val axisStates: Map<Axis, AxisState>
 
@@ -53,10 +68,12 @@ class InputProcessor(private val controllerConfiguration: ControllerConfiguratio
 
     override fun onMotionEvent(motionEvent: MotionEvent): Boolean {
         if (motionEvent.isFromSource(InputDevice.SOURCE_CLASS_JOYSTICK)) {
-            // Pomegrade: the left stick's exact position, for games with analogue movement (the keys mapped
-            // to its axes below still tell the game a direction is held)
-            systemInputListener.onAnalogueStick(motionEvent.getAxisValue(MotionEvent.AXIS_X), -motionEvent.getAxisValue(MotionEvent.AXIS_Y))
-            val deviceAxis = axisStates.filterKeys { it.deviceId == null || it.deviceId == motionEvent.deviceId }
+            if (analogueMovement) {
+                updateAnalogueStick(motionEvent)
+            }
+            val deviceAxis = axisStates.filterKeys {
+                (it.deviceId == null || it.deviceId == motionEvent.deviceId) && !(analogueMovement && it.axisCode in LEFT_STICK_AXES)
+            }
             deviceAxis.forEach {
                 val axis = it.key
                 val axisState = it.value
@@ -88,10 +105,39 @@ class InputProcessor(private val controllerConfiguration: ControllerConfiguratio
                 }
                 axisState.value = clampedValue
             }
-            return deviceAxis.isNotEmpty()
+            return deviceAxis.isNotEmpty() || analogueMovement
         } else {
             return false
         }
+    }
+
+    private fun updateAnalogueStick(motionEvent: MotionEvent) {
+        var x = motionEvent.getAxisValue(MotionEvent.AXIS_X)
+        var y = -motionEvent.getAxisValue(MotionEvent.AXIS_Y)
+        val length = sqrt(x * x + y * y)
+        if (length < JoystickInputHandler.DEAD_ZONE) {
+            // a resting or drifting stick: the D-pad decides
+            x = 0f
+            y = 0f
+        } else if (length > 1f) {
+            x /= length
+            y /= length
+        }
+        if (x != stickX || y != stickY) {
+            stickX = x
+            stickY = y
+            systemInputListener.onAnalogueStick(x, y)
+        }
+
+        val newInputs = JoystickInputHandler.directionInputs(x, y)
+        (stickInputs - newInputs).forEach { systemInputListener.onKeyReleased(it) }
+        (newInputs - stickInputs).forEach { systemInputListener.onKeyPress(it) }
+        stickInputs.clear()
+        stickInputs.addAll(newInputs)
+    }
+
+    private companion object {
+        val LEFT_STICK_AXES = setOf(MotionEvent.AXIS_X, MotionEvent.AXIS_Y)
     }
 
     private data class Axis(
