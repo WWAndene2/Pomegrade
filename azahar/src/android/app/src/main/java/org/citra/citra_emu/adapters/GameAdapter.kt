@@ -228,7 +228,7 @@ class GameAdapter(
             binding.cardContents.setBackgroundColor(
                 MaterialColors.getColor(
                     binding.cardContents,
-                    R.attr.colorSurface
+                    com.google.android.material.R.attr.colorSurface
                 )
             )
 
