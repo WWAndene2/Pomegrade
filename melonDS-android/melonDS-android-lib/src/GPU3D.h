@@ -21,6 +21,7 @@
 
 #include <array>
 #include <memory>
+#include <vector>
 
 #include "Savestate.h"
 #include "FIFO.h"
@@ -46,6 +47,13 @@ struct Vertex
     // hi-res position (4-bit fractional part)
     // TODO maybe: hi-res color? (that survives clipping)
     s32 HiresPosition[2];
+
+    // polygon multiplier (Pomegrade): view-space position and normal, captured
+    // when the vertex is submitted. Not part of the hardware state.
+    float ViewPosition[4];
+    float ViewNormal[3];
+    bool HasViewNormal;
+    bool LitColor; // colour computed by the DS lighting from that normal
 
     void DoSavestate(Savestate* file) noexcept;
 };
@@ -85,6 +93,14 @@ struct Polygon
 class Renderer3D;
 class NDS;
 
+// Polygon multiplier (Pomegrade) capacity, per RAM bank. Sub-polygons beyond
+// it are not generated: their parent polygon is drawn as is.
+constexpr u32 MaxSubPolygons = 32768;
+constexpr u32 MaxSubVertices = MaxSubPolygons * 4;
+// Largest polygon list a renderer can receive: every hardware polygon either
+// kept, or replaced by its sub-polygons.
+constexpr u32 MaxRenderPolygons = 2048 + MaxSubPolygons;
+
 class GPU3D
 {
 public:
@@ -115,6 +131,18 @@ public:
     u32* GetLine(int line) noexcept;
 
     void WriteToGXFIFO(u32 val) noexcept;
+
+    // Polygon multiplier (Pomegrade): each lit polygon is drawn as
+    // level*level curved sub-triangles (quads: twice that). 1 = off.
+    void SetPolygonMultiplier(int level) noexcept;
+    [[nodiscard]] int GetPolygonMultiplier() const noexcept { return PolygonMultiplierLevel; }
+
+    // Polygons for the renderers: the hardware list, or the same list with
+    // multiplied polygons replaced by their sub-polygons.
+    [[nodiscard]] Polygon** GetRenderPolygons() noexcept
+    { return RenderMultiplied ? MultipliedRenderPolygons.data() : RenderPolygonRAM.data(); }
+    [[nodiscard]] u32 GetRenderNumPolygons() const noexcept
+    { return RenderMultiplied ? MultipliedRenderNumPolygons : RenderNumPolygons; }
 
     [[nodiscard]] bool IsRendererAccelerated() const noexcept;
     [[nodiscard]] Renderer3D& GetCurrentRenderer() noexcept { return *CurrentRenderer; }
@@ -148,7 +176,12 @@ private:
     void StallPolygonPipeline(s32 delay, s32 nonstalldelay) noexcept;
     void SubmitPolygon() noexcept;
     void SubmitVertex() noexcept;
+    void ComputeScreenPosition(Vertex* vtx) const noexcept;
+    void FinalizePolygon(Polygon* poly, int nverts) const noexcept;
+    void MultiplyPolygon(Polygon* parent, u32 parentIndex, int nverts) noexcept;
+    void BuildMultipliedRenderList() noexcept;
     void CalculateLighting() noexcept;
+    s32 LightVertex(const s32* normaltrans, u8* color) const noexcept;
     void BoxTest(const u32* params) noexcept;
     void PosTest() noexcept;
     void VecTest(u32 param) noexcept;
@@ -327,6 +360,21 @@ public:
     u32 FlushRequest = 0;
     u32 FlushAttributes = 0;
     u32 ScrolledLine[256]; // not part of the hardware state, don't serialize
+
+    // polygon multiplier (Pomegrade), not part of the hardware state, don't serialize
+    int PolygonMultiplierLevel = 1;
+    float CurViewNormal[3] {};
+    bool CurViewNormalValid = false;
+    bool CurColorFromLighting = false; // vertex colour last set by a normal command
+    std::vector<Vertex> SubVertexRAM;    // 2 banks of MaxSubVertices, allocated on first use
+    std::vector<Polygon> SubPolygonRAM;  // 2 banks of MaxSubPolygons
+    u32 NumSubVertices = 0;
+    u32 NumSubPolygons = 0;
+    u32 SubPolygonStart[2][2048] {};     // per hardware polygon, in its bank
+    u32 SubPolygonCount[2][2048] {};
+    std::vector<Polygon*> MultipliedRenderPolygons;
+    u32 MultipliedRenderNumPolygons = 0;
+    bool RenderMultiplied = false;
 };
 
 class Renderer3D

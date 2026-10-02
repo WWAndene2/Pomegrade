@@ -217,7 +217,7 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
 
     glGenBuffers(1, &result->VertexBufferID);
     glBindBuffer(GL_ARRAY_BUFFER, result->VertexBufferID);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(VertexBuffer), nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, result->VertexBuffer.size() * sizeof(u32), nullptr, GL_DYNAMIC_DRAW);
 
     glGenVertexArrays(1, &result->VertexArrayID);
     glBindVertexArray(result->VertexArrayID);
@@ -234,7 +234,7 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
 
     glGenBuffers(1, &result->IndexBufferID);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, result->IndexBufferID);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(IndexBuffer), nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, result->IndexBuffer.size() * sizeof(u32), nullptr, GL_DYNAMIC_DRAW);
 
     glGenFramebuffers(1, &result->MainFramebuffer);
     glGenFramebuffers(1, &result->DownscaleFramebuffer);
@@ -759,7 +759,7 @@ int GLRenderer::RenderSinglePolygon(int i) const
 {
     const RendererPolygon* rp = &PolygonList[i];
 
-    glDrawElements(rp->PrimType, rp->NumIndices, GL_UNSIGNED_SHORT, (void*)(uintptr_t)(rp->IndicesOffset * 2));
+    glDrawElements(rp->PrimType, rp->NumIndices, GL_UNSIGNED_INT, (void*)(uintptr_t)(rp->IndicesOffset * 4));
 
     return 1;
 }
@@ -782,7 +782,7 @@ int GLRenderer::RenderPolygonBatch(int i) const
         numindices += cur_rp->NumIndices;
     }
 
-    glDrawElements(primtype, numindices, GL_UNSIGNED_SHORT, (void*)(uintptr_t)(rp->IndicesOffset * 2));
+    glDrawElements(primtype, numindices, GL_UNSIGNED_INT, (void*)(uintptr_t)(rp->IndicesOffset * 4));
     return numpolys;
 }
 
@@ -802,7 +802,7 @@ int GLRenderer::RenderPolygonEdgeBatch(int i) const
         numindices += cur_rp->NumEdgeIndices;
     }
 
-    glDrawElements(GL_LINES, numindices, GL_UNSIGNED_SHORT, (void*)(uintptr_t)(rp->EdgeIndicesOffset * 2));
+    glDrawElements(GL_LINES, numindices, GL_UNSIGNED_INT, (void*)(uintptr_t)(rp->EdgeIndicesOffset * 4));
     return numpolys;
 }
 
@@ -1330,20 +1330,22 @@ void GLRenderer::RenderFrame(GPU& gpu)
         glDrawArrays(GL_TRIANGLES, 0, 2*3);
     }
 
-    if (gpu.GPU3D.RenderNumPolygons)
+    Polygon** renderpolys = gpu.GPU3D.GetRenderPolygons();
+    u32 numrenderpolys = gpu.GPU3D.GetRenderNumPolygons();
+    if (numrenderpolys)
     {
         // render shit here
         u32 flags = 0;
-        if (gpu.GPU3D.RenderPolygonRAM[0]->WBuffer) flags |= RenderFlag_WBuffer;
+        if (renderpolys[0]->WBuffer) flags |= RenderFlag_WBuffer;
 
         int npolys = 0;
         int firsttrans = -1;
-        for (u32 i = 0; i < gpu.GPU3D.RenderNumPolygons; i++)
+        for (u32 i = 0; i < numrenderpolys; i++)
         {
-            if (gpu.GPU3D.RenderPolygonRAM[i]->Degenerate) continue;
+            if (renderpolys[i]->Degenerate) continue;
 
-            SetupPolygon(&PolygonList[npolys], gpu.GPU3D.RenderPolygonRAM[i]);
-            if (firsttrans < 0 && gpu.GPU3D.RenderPolygonRAM[i]->Translucent)
+            SetupPolygon(&PolygonList[npolys], renderpolys[i]);
+            if (firsttrans < 0 && renderpolys[i]->Translucent)
                 firsttrans = npolys;
 
             npolys++;
@@ -1355,12 +1357,12 @@ void GLRenderer::RenderFrame(GPU& gpu)
 
         BuildPolygons(&PolygonList[0], npolys);
         glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*VertexSize*4, VertexBuffer);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*VertexSize*4, VertexBuffer.data());
 
         // bind to access the index buffer
         glBindVertexArray(VertexArrayID);
-        glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, NumIndices * 2, IndexBuffer);
-        glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, EdgeIndicesOffset * 2, NumEdgeIndices * 2, IndexBuffer + EdgeIndicesOffset);
+        glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, NumIndices * 4, IndexBuffer.data());
+        glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, EdgeIndicesOffset * 4, NumEdgeIndices * 4, IndexBuffer.data() + EdgeIndicesOffset);
 
         RenderSceneChunk(gpu.GPU3D, 0, 192);
     }

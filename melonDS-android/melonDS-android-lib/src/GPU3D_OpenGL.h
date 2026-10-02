@@ -78,7 +78,8 @@ private:
     };
 
     GLCompositor CurGLCompositor;
-    RendererPolygon PolygonList[2048] {};
+    // sized for the polygon multiplier (Pomegrade), see MaxRenderPolygons
+    std::vector<RendererPolygon> PolygonList = std::vector<RendererPolygon>(MaxRenderPolygons);
 
     bool BuildRenderShader(u32 flags, const std::string& vs, const std::string& fs);
     void UseRenderShader(u32 flags);
@@ -143,17 +144,21 @@ private:
 
     GLuint VertexBufferID {};
     static constexpr u32 VertexSize = 8; // in u32s
-    u32 VertexBuffer[10240 * VertexSize] {};
+    // hardware polygons need up to 10240 vertices (one per polygon corner, plus a
+    // centre vertex per polygon); sub-polygons up to MaxSubVertices + MaxSubPolygons
+    static constexpr u32 MaxVertices = 10240 + MaxSubVertices + MaxSubPolygons;
+    std::vector<u32> VertexBuffer = std::vector<u32>(MaxVertices * VertexSize);
 
     GLHDTextures HDTextures;
     u32 NumVertices {};
 
     GLuint VertexArrayID {};
     GLuint IndexBufferID {};
-    u16 IndexBuffer[2048 * 40] {};
+    // 32-bit indices: the polygon multiplier goes beyond 65536 vertices
+    std::vector<u32> IndexBuffer = std::vector<u32>(MaxRenderPolygons * 40);
     u32 NumIndices {}, NumEdgeIndices {};
 
-    const u32 EdgeIndicesOffset = 2048 * 30;
+    const u32 EdgeIndicesOffset = MaxRenderPolygons * 30;
 
     GLuint TexMemID {};
     GLuint TexPalMemID {};

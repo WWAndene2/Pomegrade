@@ -1758,7 +1758,7 @@ void SoftRenderer::RenderFrame(GPU& gpu)
     else if (!FrameIdentical)
     {
         ClearBuffers(gpu);
-        RenderPolygons(gpu, false, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
+        RenderPolygons(gpu, false, gpu.GPU3D.GetRenderPolygons(), gpu.GPU3D.GetRenderNumPolygons());
     }
 }
 
@@ -1790,7 +1790,7 @@ void SoftRenderer::RenderThreadFunc(GPU& gpu)
         else
         {
             ClearBuffers(gpu);
-            RenderPolygons(gpu, true, &gpu.GPU3D.RenderPolygonRAM[0], gpu.GPU3D.RenderNumPolygons);
+            RenderPolygons(gpu, true, gpu.GPU3D.GetRenderPolygons(), gpu.GPU3D.GetRenderNumPolygons());
         }
 
         // Tell the main thread that we're done rendering

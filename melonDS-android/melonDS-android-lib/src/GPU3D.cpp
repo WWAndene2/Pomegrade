@@ -19,12 +19,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <algorithm>
+#include <cmath>
 #include "NDS.h"
 #include "GPU.h"
 #include "FIFO.h"
 #include "GPU3D_Soft.h"
 #include "Platform.h"
 #include "GPU3D.h"
+#include "GPU3D_PolygonMultiplier.h"
 
 namespace melonDS
 {
@@ -169,6 +171,12 @@ void GPU3D::SetCurrentRenderer(std::unique_ptr<Renderer3D>&& renderer) noexcept
 void GPU3D::ResetRenderingState() noexcept
 {
     RenderNumPolygons = 0;
+
+    RenderMultiplied = false;
+    MultipliedRenderNumPolygons = 0;
+    NumSubVertices = 0;
+    NumSubPolygons = 0;
+    memset(SubPolygonCount, 0, sizeof(SubPolygonCount));
 
     RenderDispCnt = 0;
     RenderAlphaRef = 0;
@@ -508,6 +516,12 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
 
         CurVertexRAM = &VertexRAM[CurRAMBank ? 6144 : 0];
         CurPolygonRAM = &PolygonRAM[CurRAMBank ? 2048 : 0];
+
+        // polygon multiplier: sub-polygons aren't saved, render the hardware list
+        RenderMultiplied = false;
+        NumSubVertices = 0;
+        NumSubPolygons = 0;
+        memset(SubPolygonCount, 0, sizeof(SubPolygonCount));
     }
 
     file->Var32(&RenderNumPolygons);
@@ -950,6 +964,151 @@ bool ClipCoordsEqual(Vertex* a, Vertex* b)
            a->Position[3] == b->Position[3];
 }
 
+static void ComputeFinalColor(Vertex* vtx) noexcept
+{
+    vtx->FinalColor[0] = vtx->Color[0] >> 12;
+    if (vtx->FinalColor[0]) vtx->FinalColor[0] = ((vtx->FinalColor[0] << 4) + 0xF);
+    vtx->FinalColor[1] = vtx->Color[1] >> 12;
+    if (vtx->FinalColor[1]) vtx->FinalColor[1] = ((vtx->FinalColor[1] << 4) + 0xF);
+    vtx->FinalColor[2] = vtx->Color[2] >> 12;
+    if (vtx->FinalColor[2]) vtx->FinalColor[2] = ((vtx->FinalColor[2] << 4) + 0xF);
+}
+
+void GPU3D::FinalizePolygon(Polygon* poly, int nverts) const noexcept
+{
+    // determine bounds of the polygon
+    // also determine the W shift and normalize W
+    // normalization works both ways
+    // (ie two W's that span 12 bits or less will be brought to 16 bits)
+
+    u32 vtop = 0, vbot = 0;
+    s32 ytop = 192, ybot = 0;
+    s32 xtop = 256, xbot = 0;
+    u32 wsize = 0;
+
+    for (int i = 0; i < nverts; i++)
+    {
+        Vertex* vtx = poly->Vertices[i];
+
+        if (vtx->FinalPosition[1] < ytop)
+        {
+            xtop = vtx->FinalPosition[0];
+            ytop = vtx->FinalPosition[1];
+            vtop = i;
+        }
+        if (vtx->FinalPosition[1] > ybot || (vtx->FinalPosition[1] == ybot && vtx->FinalPosition[0] > xbot))
+        {
+            xbot = vtx->FinalPosition[0];
+            ybot = vtx->FinalPosition[1];
+            vbot = i;
+        }
+
+        u32 w = (u32)vtx->Position[3];
+        if (w == 0) poly->Degenerate = true;
+
+        while ((w >> wsize) && (wsize < 32))
+            wsize += 4;
+    }
+
+    poly->VTop = vtop; poly->VBottom = vbot;
+    poly->YTop = ytop; poly->YBottom = ybot;
+    poly->XTop = xtop; poly->XBottom = xbot;
+
+    if (ybot > 192) poly->Degenerate = true;
+
+    poly->SortKey = (ybot << 8) | ytop;
+    if (poly->Translucent) poly->SortKey |= 0x10000;
+
+    poly->WBuffer = (FlushAttributes & 0x2);
+
+    for (int i = 0; i < nverts; i++)
+    {
+        Vertex* vtx = poly->Vertices[i];
+        s32 w, wshifted;
+
+        // W is normalized, such that all the polygon's W values fit within 16 bits
+        // the viewport transform for X/Y/Z uses the original W values, but
+        // when W-buffering is used, the normalized W is used
+        // W normalization is applied to separate polygons, even within strips
+
+        if (wsize < 16)
+        {
+            w = vtx->Position[3] << (16 - wsize);
+            wshifted = w >> (16 - wsize);
+        }
+        else
+        {
+            w = vtx->Position[3] >> (wsize - 16);
+            wshifted = w << (wsize - 16);
+        }
+
+        s32 z;
+        if (FlushAttributes & 0x2)
+            z = wshifted;
+        else if (vtx->Position[3])
+            z = ((((s64)vtx->Position[2] * 0x4000) / vtx->Position[3]) + 0x3FFF) * 0x200;
+        else
+            z = 0x7FFE00;
+
+        // checkme (Z<0 shouldn't be possible, but Z>0xFFFFFF is possible)
+        if (z < 0) z = 0;
+        else if (z > 0xFFFFFF) z = 0xFFFFFF;
+
+        poly->FinalZ[i] = z;
+        poly->FinalW[i] = w;
+    }
+}
+
+void GPU3D::ComputeScreenPosition(Vertex* vtx) const noexcept
+{
+    // W is truncated to 24 bits at this point
+    // if this W is zero, the polygon isn't rendered
+    vtx->Position[3] &= 0x00FFFFFF;
+
+    // viewport transform
+    // note: the DS performs these divisions using a 32-bit divider
+    // thus, if W is greater than 0xFFFF, some precision is sacrificed
+    // to make the numbers fit into the divider
+    u32 posX, posY;
+    u32 w = vtx->Position[3];
+    if (w == 0)
+    {
+        posX = 0;
+        posY = 0;
+    }
+    else
+    {
+        posX = vtx->Position[0] + w;
+        posY = -vtx->Position[1] + w;
+        u32 den = w;
+
+        if (w > 0xFFFF)
+        {
+            posX >>= 1;
+            posY >>= 1;
+            den  >>= 1;
+        }
+
+        den <<= 1;
+        posX = ((posX * Viewport[4]) / den) + Viewport[0];
+        posY = ((posY * Viewport[5]) / den) + Viewport[3];
+    }
+
+    vtx->FinalPosition[0] = posX & 0x1FF;
+    vtx->FinalPosition[1] = posY & 0xFF;
+
+    // hi-res positions
+    // to consider: only do this when using the GL renderer? apply the aforementioned quirk to this?
+    if (w != 0)
+    {
+        posX = ((((s64)(vtx->Position[0] + w) * Viewport[4]) << 4) / (((s64)w) << 1)) + (Viewport[0] << 4);
+        posY = ((((s64)(-vtx->Position[1] + w) * Viewport[5]) << 4) / (((s64)w) << 1)) + (Viewport[3] << 4);
+
+        vtx->HiresPosition[0] = posX & 0x1FFF;
+        vtx->HiresPosition[1] = posY & 0xFFF;
+    }
+}
+
 void GPU3D::SubmitPolygon() noexcept
 {
     Vertex clippedvertices[10];
@@ -958,6 +1117,7 @@ void GPU3D::SubmitPolygon() noexcept
     int lastpolyverts = 0;
 
     int nverts = PolygonMode & 0x1 ? 4:3;
+    const int srcverts = nverts;
     int prev, next;
 
     // submitting a polygon starts the polygon pipeline
@@ -1102,56 +1262,7 @@ void GPU3D::SubmitPolygon() noexcept
     // compute screen coordinates
 
     for (int i = clipstart; i < nverts; i++)
-    {
-        Vertex* vtx = &clippedvertices[i];
-
-        // W is truncated to 24 bits at this point
-        // if this W is zero, the polygon isn't rendered
-        vtx->Position[3] &= 0x00FFFFFF;
-
-        // viewport transform
-        // note: the DS performs these divisions using a 32-bit divider
-        // thus, if W is greater than 0xFFFF, some precision is sacrificed
-        // to make the numbers fit into the divider
-        u32 posX, posY;
-        u32 w = vtx->Position[3];
-        if (w == 0)
-        {
-            posX = 0;
-            posY = 0;
-        }
-        else
-        {
-            posX = vtx->Position[0] + w;
-            posY = -vtx->Position[1] + w;
-            u32 den = w;
-
-            if (w > 0xFFFF)
-            {
-                posX >>= 1;
-                posY >>= 1;
-                den  >>= 1;
-            }
-
-            den <<= 1;
-            posX = ((posX * Viewport[4]) / den) + Viewport[0];
-            posY = ((posY * Viewport[5]) / den) + Viewport[3];
-        }
-
-        vtx->FinalPosition[0] = posX & 0x1FF;
-        vtx->FinalPosition[1] = posY & 0xFF;
-
-        // hi-res positions
-        // to consider: only do this when using the GL renderer? apply the aforementioned quirk to this?
-        if (w != 0)
-        {
-            posX = ((((s64)(vtx->Position[0] + w) * Viewport[4]) << 4) / (((s64)w) << 1)) + (Viewport[0] << 4);
-            posY = ((((s64)(-vtx->Position[1] + w) * Viewport[5]) << 4) / (((s64)w) << 1)) + (Viewport[3] << 4);
-
-            vtx->HiresPosition[0] = posX & 0x1FFF;
-            vtx->HiresPosition[1] = posY & 0xFFF;
-        }
-    }
+        ComputeScreenPosition(&clippedvertices[i]);
 
     // zero-dot W check:
     // * if the polygon's vertices all have the same screen coordinates, it is considered to be zero-dot
@@ -1259,100 +1370,257 @@ void GPU3D::SubmitPolygon() noexcept
         NumVertices++;
         poly->NumVertices++;
 
-        vtx->FinalColor[0] = vtx->Color[0] >> 12;
-        if (vtx->FinalColor[0]) vtx->FinalColor[0] = ((vtx->FinalColor[0] << 4) + 0xF);
-        vtx->FinalColor[1] = vtx->Color[1] >> 12;
-        if (vtx->FinalColor[1]) vtx->FinalColor[1] = ((vtx->FinalColor[1] << 4) + 0xF);
-        vtx->FinalColor[2] = vtx->Color[2] >> 12;
-        if (vtx->FinalColor[2]) vtx->FinalColor[2] = ((vtx->FinalColor[2] << 4) + 0xF);
+        ComputeFinalColor(vtx);
     }
 
-    // determine bounds of the polygon
-    // also determine the W shift and normalize W
-    // normalization works both ways
-    // (ie two W's that span 12 bits or less will be brought to 16 bits)
-
-    u32 vtop = 0, vbot = 0;
-    s32 ytop = 192, ybot = 0;
-    s32 xtop = 256, xbot = 0;
-    u32 wsize = 0;
-
-    for (int i = 0; i < nverts; i++)
-    {
-        Vertex* vtx = poly->Vertices[i];
-
-        if (vtx->FinalPosition[1] < ytop)
-        {
-            xtop = vtx->FinalPosition[0];
-            ytop = vtx->FinalPosition[1];
-            vtop = i;
-        }
-        if (vtx->FinalPosition[1] > ybot || (vtx->FinalPosition[1] == ybot && vtx->FinalPosition[0] > xbot))
-        {
-            xbot = vtx->FinalPosition[0];
-            ybot = vtx->FinalPosition[1];
-            vbot = i;
-        }
-
-        u32 w = (u32)vtx->Position[3];
-        if (w == 0) poly->Degenerate = true;
-
-        while ((w >> wsize) && (wsize < 32))
-            wsize += 4;
-    }
-
-    poly->VTop = vtop; poly->VBottom = vbot;
-    poly->YTop = ytop; poly->YBottom = ybot;
-    poly->XTop = xtop; poly->XBottom = xbot;
-
-    if (ybot > 192) poly->Degenerate = true;
-
-    poly->SortKey = (ybot << 8) | ytop;
-    if (poly->Translucent) poly->SortKey |= 0x10000;
-
-    poly->WBuffer = (FlushAttributes & 0x2);
-
-    for (int i = 0; i < nverts; i++)
-    {
-        Vertex* vtx = poly->Vertices[i];
-        s32 w, wshifted;
-
-        // W is normalized, such that all the polygon's W values fit within 16 bits
-        // the viewport transform for X/Y/Z uses the original W values, but
-        // when W-buffering is used, the normalized W is used
-        // W normalization is applied to separate polygons, even within strips
-
-        if (wsize < 16)
-        {
-            w = vtx->Position[3] << (16 - wsize);
-            wshifted = w >> (16 - wsize);
-        }
-        else
-        {
-            w = vtx->Position[3] >> (wsize - 16);
-            wshifted = w << (wsize - 16);
-        }
-
-        s32 z;
-        if (FlushAttributes & 0x2)
-            z = wshifted;
-        else if (vtx->Position[3])
-            z = ((((s64)vtx->Position[2] * 0x4000) / vtx->Position[3]) + 0x3FFF) * 0x200;
-        else
-            z = 0x7FFE00;
-
-        // checkme (Z<0 shouldn't be possible, but Z>0xFFFFFF is possible)
-        if (z < 0) z = 0;
-        else if (z > 0xFFFFFF) z = 0xFFFFFF;
-
-        poly->FinalZ[i] = z;
-        poly->FinalW[i] = w;
-    }
+    FinalizePolygon(poly, nverts);
 
     if (PolygonMode >= 2)
         LastStripPolygon = poly;
     else
         LastStripPolygon = NULL;
+
+    u32 polyindex = (u32)(poly - CurPolygonRAM);
+    SubPolygonCount[CurRAMBank][polyindex] = 0;
+    if (PolygonMultiplierLevel > 1)
+        MultiplyPolygon(poly, polyindex, srcverts);
+}
+
+void GPU3D::SetPolygonMultiplier(int level) noexcept
+{
+    if (level < 1) level = 1;
+    if (level > PolygonMultiplier::MaxLevel) level = PolygonMultiplier::MaxLevel;
+
+    // allocated once and never resized: renderers may hold pointers into them
+    if (level > 1 && SubPolygonRAM.empty())
+    {
+        SubVertexRAM.resize(MaxSubVertices * 2);
+        SubPolygonRAM.resize(MaxSubPolygons * 2);
+        MultipliedRenderPolygons.resize(MaxRenderPolygons);
+    }
+
+    PolygonMultiplierLevel = level;
+}
+
+void GPU3D::MultiplyPolygon(Polygon* parent, u32 parentIndex, int nverts) noexcept
+{
+    // lines and shadow volumes keep their exact hardware shape
+    if (parent->Type != 0 || parent->IsShadowMask || parent->IsShadow)
+        return;
+
+    // only polygons whose every corner has a normal (lit geometry); UI and
+    // other unlit polygons have none and are left alone
+    MultiplierVertex corners[4];
+    // new points are lit with the DS lighting (same lights and material) when
+    // every corner's colour came from it; otherwise colours are interpolated
+    bool relight = (parent->Attr & 0xF) != 0;
+    double normallength = 0;
+    for (int i = 0; i < nverts; i++)
+    {
+        const Vertex& src = TempVertexBuffer[i];
+        if (!src.HasViewNormal)
+            return;
+        relight = relight && src.LitColor;
+        normallength += std::sqrt((double)src.ViewNormal[0]*src.ViewNormal[0] + (double)src.ViewNormal[1]*src.ViewNormal[1] +
+                                  (double)src.ViewNormal[2]*src.ViewNormal[2]);
+        // a projective position matrix (W varying) isn't handled
+        if (src.ViewPosition[3] != TempVertexBuffer[0].ViewPosition[3])
+            return;
+
+        MultiplierVertex& c = corners[i];
+        for (int k = 0; k < 3; k++)
+        {
+            c.Position[k] = src.ViewPosition[k];
+            c.Normal[k] = src.ViewNormal[k];
+            c.Color[k] = src.Color[k];
+        }
+        c.TexCoords[0] = src.TexCoords[0];
+        c.TexCoords[1] = src.TexCoords[1];
+        if (!PolygonMultiplier::NormalizeNormal(c))
+            return;
+    }
+
+    if (!PolygonMultiplier::IsCurved(corners, nverts))
+        return;
+
+    // normals must all point to the same side of the polygon, otherwise
+    // (inverted or hand-tweaked normals) the surface would fold
+    {
+        const double* p0 = corners[0].Position;
+        const double* p1 = corners[1].Position;
+        const double* p2 = corners[2].Position;
+        const double* p3 = corners[nverts - 1].Position;
+        // for quads, the cross product of the diagonals
+        double e1[3], e2[3];
+        for (int k = 0; k < 3; k++)
+        {
+            e1[k] = (nverts == 4 ? p2[k] - p0[k] : p1[k] - p0[k]);
+            e2[k] = (nverts == 4 ? p3[k] - p1[k] : p2[k] - p0[k]);
+        }
+        double face[3] = {e1[1]*e2[2] - e1[2]*e2[1], e1[2]*e2[0] - e1[0]*e2[2], e1[0]*e2[1] - e1[1]*e2[0]};
+        int positive = 0;
+        for (int i = 0; i < nverts; i++)
+        {
+            const double* n = corners[i].Normal;
+            double dot = n[0]*face[0] + n[1]*face[1] + n[2]*face[2];
+            if (dot > 0) positive++;
+            else if (dot == 0) return;
+        }
+        if (positive != 0 && positive != nverts)
+            return;
+    }
+
+    const int level = PolygonMultiplierLevel;
+    const int numtris = nverts - 2;
+    if (NumSubPolygons + numtris*level*level > MaxSubPolygons)
+        return;
+
+    const float vieww = TempVertexBuffer[0].ViewPosition[3];
+    // scale of the lighting's transformed normal: (normal * vector matrix) >> 12
+    normallength = normallength / nverts / 4096.0;
+    Vertex* bankverts = &SubVertexRAM[CurRAMBank * MaxSubVertices];
+    Polygon* bankpolys = &SubPolygonRAM[CurRAMBank * MaxSubPolygons];
+    const u32 firstpoly = NumSubPolygons;
+    const u32 firstvert = NumSubVertices;
+
+    MultiplierVertex sub[PolygonMultiplier::MaxLevel * PolygonMultiplier::MaxLevel][3];
+    for (int t = 0; t < numtris; t++)
+    {
+        // quads are split along the 0-2 diagonal
+        int a = 0, b = t + 1, c = t + 2;
+        int count = PolygonMultiplier::SubdivideTriangle(corners[a], corners[b], corners[c], level, sub);
+
+        for (int s = 0; s < count; s++)
+        {
+            Vertex clipped[10];
+            for (int k = 0; k < 3; k++)
+            {
+                const MultiplierVertex& mv = sub[s][k];
+                Vertex& out = clipped[k];
+                out = {};
+
+                // corners keep the hardware's exact clip coordinates, so edges shared
+                // with polygons that aren't multiplied line up
+                int corner = -1;
+                const int ids[3] = {a, b, c};
+                for (int id : ids)
+                {
+                    if (mv.Position[0] == corners[id].Position[0] &&
+                        mv.Position[1] == corners[id].Position[1] &&
+                        mv.Position[2] == corners[id].Position[2])
+                        corner = id;
+                }
+
+                if (corner >= 0)
+                {
+                    for (int i = 0; i < 4; i++)
+                        out.Position[i] = TempVertexBuffer[corner].Position[i];
+                }
+                else
+                {
+                    const double view[4] = {mv.Position[0], mv.Position[1], mv.Position[2], vieww};
+                    for (int i = 0; i < 4; i++)
+                    {
+                        double clip = view[0]*ProjMatrix[i] + view[1]*ProjMatrix[4+i] + view[2]*ProjMatrix[8+i] + view[3]*ProjMatrix[12+i];
+                        out.Position[i] = (s32)std::floor(clip / 4096.0);
+                    }
+                }
+
+                if (corner >= 0)
+                {
+                    for (int i = 0; i < 3; i++)
+                        out.Color[i] = TempVertexBuffer[corner].Color[i];
+                }
+                else if (relight)
+                {
+                    s32 normaltrans[3];
+                    for (int i = 0; i < 3; i++)
+                        normaltrans[i] = (s32)std::lround(mv.Normal[i] * normallength);
+                    u8 color[3];
+                    LightVertex(normaltrans, color);
+                    for (int i = 0; i < 3; i++)
+                        out.Color[i] = (color[i] << 12) + 0xFFF;
+                }
+                else
+                {
+                    for (int i = 0; i < 3; i++)
+                        out.Color[i] = (s32)std::lround(mv.Color[i]);
+                }
+                out.TexCoords[0] = (s16)std::lround(mv.TexCoords[0]);
+                out.TexCoords[1] = (s16)std::lround(mv.TexCoords[1]);
+                out.Clipped = false;
+                out.HasViewNormal = false;
+            }
+
+            int nv = ClipPolygon<true>(*this, clipped, 3, 0);
+            if (nv == 0)
+                continue;
+
+            if (NumSubPolygons >= MaxSubPolygons || NumSubVertices + nv > MaxSubVertices)
+            {
+                // out of room: draw the parent polygon as is
+                NumSubPolygons = firstpoly;
+                NumSubVertices = firstvert;
+                return;
+            }
+
+            Polygon* poly = &bankpolys[NumSubPolygons++];
+            for (int i = 0; i < nv; i++)
+            {
+                Vertex* vtx = &bankverts[NumSubVertices++];
+                *vtx = clipped[i];
+                ComputeScreenPosition(vtx);
+                ComputeFinalColor(vtx);
+                poly->Vertices[i] = vtx;
+            }
+            poly->NumVertices = nv;
+
+            poly->Attr = parent->Attr;
+            poly->TexParam = parent->TexParam;
+            poly->TexPalette = parent->TexPalette;
+            poly->Degenerate = false;
+            poly->Type = 0;
+            poly->FacingView = parent->FacingView;
+            poly->Translucent = parent->Translucent;
+            poly->IsShadowMask = false;
+            poly->IsShadow = false;
+
+            FinalizePolygon(poly, nv);
+        }
+    }
+
+    SubPolygonStart[CurRAMBank][parentIndex] = firstpoly;
+    SubPolygonCount[CurRAMBank][parentIndex] = NumSubPolygons - firstpoly;
+}
+
+void GPU3D::BuildMultipliedRenderList() noexcept
+{
+    RenderMultiplied = false;
+    if (NumSubPolygons == 0)
+        return;
+
+    // same order as the hardware list (opaque first, Y-sorted); each multiplied
+    // polygon is replaced by its sub-polygons
+    Polygon* bankpolys = &SubPolygonRAM[CurRAMBank * MaxSubPolygons];
+    u32 n = 0;
+    for (u32 i = 0; i < RenderNumPolygons; i++)
+    {
+        Polygon* poly = RenderPolygonRAM[i];
+        u32 index = (u32)(poly - CurPolygonRAM);
+        u32 count = SubPolygonCount[CurRAMBank][index];
+        if (count == 0)
+        {
+            MultipliedRenderPolygons[n++] = poly;
+            continue;
+        }
+
+        u32 start = SubPolygonStart[CurRAMBank][index];
+        for (u32 j = 0; j < count; j++)
+            MultipliedRenderPolygons[n++] = &bankpolys[start + j];
+    }
+
+    MultipliedRenderNumPolygons = n;
+    RenderMultiplied = true;
 }
 
 void GPU3D::SubmitVertex() noexcept
@@ -1384,6 +1652,22 @@ void GPU3D::SubmitVertex() noexcept
     }
 
     vertextrans->Clipped = false;
+
+    // polygon multiplier: view-space data for this vertex
+    if (PolygonMultiplierLevel > 1)
+    {
+        for (int i = 0; i < 4; i++)
+            vertextrans->ViewPosition[i] = (float)((vertex[0]*PosMatrix[i] + vertex[1]*PosMatrix[4+i] + vertex[2]*PosMatrix[8+i] + vertex[3]*PosMatrix[12+i]) >> 12);
+        for (int i = 0; i < 3; i++)
+            vertextrans->ViewNormal[i] = CurViewNormal[i];
+        vertextrans->HasViewNormal = CurViewNormalValid;
+        vertextrans->LitColor = CurColorFromLighting;
+    }
+    else
+    {
+        vertextrans->HasViewNormal = false;
+        vertextrans->LitColor = false;
+    }
 
     VertexNum++;
     VertexNumInPoly++;
@@ -1453,19 +1737,10 @@ void GPU3D::SubmitVertex() noexcept
     AddCycles(3);
 }
 
-void GPU3D::CalculateLighting() noexcept
+// DS lighting for one vertex: colour from the transformed normal and the
+// current lights and material. Returns the number of lights applied.
+s32 GPU3D::LightVertex(const s32* normaltrans, u8* color) const noexcept
 {
-    if ((TexParam >> 30) == 2)
-    {
-        TexCoords[0] = RawTexCoords[0] + (((s64)Normal[0]*TexMatrix[0] + (s64)Normal[1]*TexMatrix[4] + (s64)Normal[2]*TexMatrix[8]) >> 21);
-        TexCoords[1] = RawTexCoords[1] + (((s64)Normal[0]*TexMatrix[1] + (s64)Normal[1]*TexMatrix[5] + (s64)Normal[2]*TexMatrix[9]) >> 21);
-    }
-
-    s32 normaltrans[3]; // should be 1 bit sign 10 bits frac
-    normaltrans[0] = ((Normal[0]*VecMatrix[0] + Normal[1]*VecMatrix[4] + Normal[2]*VecMatrix[8]) << 9) >> 21;
-    normaltrans[1] = ((Normal[0]*VecMatrix[1] + Normal[1]*VecMatrix[5] + Normal[2]*VecMatrix[9]) << 9) >> 21;
-    normaltrans[2] = ((Normal[0]*VecMatrix[2] + Normal[1]*VecMatrix[6] + Normal[2]*VecMatrix[10]) << 9) >> 21;
-
     s32 c = 0;
     u32 vtxbuff[3] =
     {
@@ -1537,9 +1812,27 @@ void GPU3D::CalculateLighting() noexcept
         c++;
     }
 
-    VertexColor[0] = (vtxbuff[0] >> 14 > 31) ? 31 : (vtxbuff[0] >> 14);
-    VertexColor[1] = (vtxbuff[1] >> 14 > 31) ? 31 : (vtxbuff[1] >> 14);
-    VertexColor[2] = (vtxbuff[2] >> 14 > 31) ? 31 : (vtxbuff[2] >> 14);
+    color[0] = (vtxbuff[0] >> 14 > 31) ? 31 : (vtxbuff[0] >> 14);
+    color[1] = (vtxbuff[1] >> 14 > 31) ? 31 : (vtxbuff[1] >> 14);
+    color[2] = (vtxbuff[2] >> 14 > 31) ? 31 : (vtxbuff[2] >> 14);
+
+    return c;
+}
+
+void GPU3D::CalculateLighting() noexcept
+{
+    if ((TexParam >> 30) == 2)
+    {
+        TexCoords[0] = RawTexCoords[0] + (((s64)Normal[0]*TexMatrix[0] + (s64)Normal[1]*TexMatrix[4] + (s64)Normal[2]*TexMatrix[8]) >> 21);
+        TexCoords[1] = RawTexCoords[1] + (((s64)Normal[0]*TexMatrix[1] + (s64)Normal[1]*TexMatrix[5] + (s64)Normal[2]*TexMatrix[9]) >> 21);
+    }
+
+    s32 normaltrans[3]; // should be 1 bit sign 10 bits frac
+    normaltrans[0] = ((Normal[0]*VecMatrix[0] + Normal[1]*VecMatrix[4] + Normal[2]*VecMatrix[8]) << 9) >> 21;
+    normaltrans[1] = ((Normal[0]*VecMatrix[1] + Normal[1]*VecMatrix[5] + Normal[2]*VecMatrix[9]) << 9) >> 21;
+    normaltrans[2] = ((Normal[0]*VecMatrix[2] + Normal[1]*VecMatrix[6] + Normal[2]*VecMatrix[10]) << 9) >> 21;
+
+    s32 c = LightVertex(normaltrans, VertexColor);
 
     if (c < 1) c = 1;
     NormalPipeline = 7;
@@ -1917,6 +2210,7 @@ void GPU3D::ExecuteCommand() noexcept
                 VertexColor[0] = r;
                 VertexColor[1] = g;
                 VertexColor[2] = b;
+                CurColorFromLighting = false;
             }
             break;
 
@@ -1926,6 +2220,11 @@ void GPU3D::ExecuteCommand() noexcept
             Normal[1] = (s16)((entry.Param & 0x000FFC00) >> 4) >> 6;
             Normal[2] = (s16)((entry.Param & 0x3FF00000) >> 14) >> 6;
             CalculateLighting();
+            // polygon multiplier: the normal in view space, as used for lighting
+            for (int i = 0; i < 3; i++)
+                CurViewNormal[i] = (float)Normal[0]*VecMatrix[i] + (float)Normal[1]*VecMatrix[4+i] + (float)Normal[2]*VecMatrix[8+i];
+            CurViewNormalValid = true;
+            CurColorFromLighting = true;
             break;
 
         case 0x22: // texcoord
@@ -2009,6 +2308,7 @@ void GPU3D::ExecuteCommand() noexcept
                 VertexColor[0] = MatDiffuse[0];
                 VertexColor[1] = MatDiffuse[1];
                 VertexColor[2] = MatDiffuse[2];
+                CurColorFromLighting = false;
             }
             AddCycles(3);
             break;
@@ -2487,6 +2787,8 @@ void GPU3D::VBlank() noexcept
 
                 RenderNumPolygons = NumPolygons;
                 RenderFrameIdentical = false;
+
+                BuildMultipliedRenderList();
             }
             else
             {
@@ -2527,6 +2829,8 @@ void GPU3D::VBlank() noexcept
             NumVertices = 0;
             NumPolygons = 0;
             NumOpaquePolygons = 0;
+            NumSubVertices = 0;
+            NumSubPolygons = 0;
 
             FlushRequest = 0;
         }
