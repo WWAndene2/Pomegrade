@@ -89,6 +89,8 @@ static void Project(double x, double y, double z, int& sx, int& sy)
 }
 
 static const double SphereRadius = 0.8, SphereCenter[3] = {0, -0.2, -3.5}, FloorY = -1;
+static bool RedSphere = false; // light bounce test: a red sphere tints the grey floor
+static bool FrontLight = false; // light from the camera's side: the sphere's front is lit
 
 static void DrawSphere()
 {
@@ -126,7 +128,10 @@ static void SubmitScene()
     Cmd(0x10, {0}); LoadMatrix(proj);
 
     Cmd(0x10, {2}); Cmd(0x15); // position & vector: identity (view space = model space)
-    Cmd(0x32, {N10(-0.3) | (N10(-0.8) << 10) | (N10(-0.5) << 20)}); // light 0, from above
+    if (FrontLight)
+        Cmd(0x32, {N10(-0.2) | (N10(-0.45) << 10) | (N10(-0.87) << 20)}); // light 0, from the front
+    else
+        Cmd(0x32, {N10(-0.3) | (N10(-0.8) << 10) | (N10(-0.5) << 20)}); // light 0, from above
     Cmd(0x33, {0x7FFF});                                          // light 0 white
     Cmd(0x30, {(0x5AD6) | (0x2108u << 16)});                        // diffuse light grey, ambient dark grey
     Cmd(0x31, {0});
@@ -149,6 +154,7 @@ static void SubmitScene()
     Normal(0, 0, 1); Vertex16(-4, 3, -6);
     Cmd(0x41);
 
+    if (RedSphere) Cmd(0x30, {(0x001F) | (0x0008u << 16)}); // diffuse red, ambient dark red
     DrawSphere();
 
     // 2D HUD panel: orthographic projection, no normals
@@ -169,8 +175,10 @@ static void SubmitScene()
 
 // --- output ---
 
-// The compositor's output (what the screen shows), RGB8, averaged back to
-// 256x192 when the renderer runs at a higher resolution.
+// The compositor's output (what the screen shows), averaged back to 256x192
+// when the renderer runs at a higher resolution. 8 bits per channel, blue in
+// the low byte and red in the third (a red sphere reads d30000 here and 000035
+// in the display capture).
 static std::vector<u32> Composite(GLRenderer& r, GPU& gpu, int scale)
 {
     int backbuf = gpu.FrontBuffer ^ 1;
@@ -240,12 +248,12 @@ static void SavePng(const std::string& name, const std::vector<u32>& img)
         {
             u32 c = img[(y / k) * 256 + x / k];
             u8* o = &out[(y * 256 * k + x) * 3];
-            o[0] = c & 0xFF; o[1] = (c >> 8) & 0xFF; o[2] = (c >> 16) & 0xFF;
+            o[0] = (c >> 16) & 0xFF; o[1] = (c >> 8) & 0xFF; o[2] = c & 0xFF;
         }
     stbi_write_png(name.c_str(), 256 * k, 192 * k, 3, out.data(), 256 * k * 3);
 }
 
-static double Luma(u32 c) { return 0.2126 * (c & 0xFF) + 0.7152 * ((c >> 8) & 0xFF) + 0.0722 * ((c >> 16) & 0xFF); }
+static double Luma(u32 c) { return 0.2126 * ((c >> 16) & 0xFF) + 0.7152 * ((c >> 8) & 0xFF) + 0.0722 * (c & 0xFF); }
 
 // average brightness over a box centred on (x, y)
 static double Brightness(const std::vector<u32>& img, int x, int y, int r)
@@ -373,6 +381,48 @@ int main()
         check(std::fabs(contact - nativeContact) < 0.04 && std::fabs(crease - nativeCrease) < 0.04 && open > 0.97,
               (std::string(c.name) + ": same shading").c_str());
     }
+
+    // light bounce: the floor beside a red sphere turns reddish, the far floor doesn't
+    r->SetRenderSettings(false, 1);
+    gpu.GPU3D.SetPolygonMultiplier(1);
+    r->SetAmbientOcclusion(false);
+    RedSphere = true;
+    FrontLight = true;
+    auto redOff = Frame(*r, gpu);
+    SavePng("bounce_off.png", redOff);
+    r->SetLightBounce(true);
+    Frame(*r, gpu);
+    auto redOn = Frame(*r, gpu);
+    SavePng("bounce_on.png", redOn);
+    auto redness = [](const std::vector<u32>& img, int x, int y) {
+        double rsum = 0, gsum = 0;
+        for (int yy = y - 2; yy <= y + 2; yy++)
+            for (int xx = x - 2; xx <= x + 2; xx++)
+            {
+                u32 c = img[yy * 256 + xx];
+                rsum += (c >> 16) & 0xFF;
+                gsum += (c >> 8) & 0xFF;
+            }
+        return rsum / gsum;
+    };
+    int bx, by;
+    // floor in front of the sphere, which its lower front faces (screen-space:
+    // only surfaces the camera sees can send light)
+    Project(SphereCenter[0], FloorY, SphereCenter[2] + SphereRadius * 0.8, bx, by);
+    double nearOff = redness(redOff, bx, by), nearOn = redness(redOn, bx, by);
+    double creaseBounce = Brightness(redOn, crx, cry, 2) / Brightness(redOff, crx, cry, 2);
+    printf("floor-wall crease brightness x%.3f\n", creaseBounce);
+    check(creaseBounce > 1.0 && creaseBounce < 1.06, "floor-wall crease a little brighter (light between them), under 6%");    double farOff = redness(redOff, fx, fy), farOn = redness(redOn, fx, fy);
+    printf("floor in front of the red sphere (%d,%d): red/green %.3f -> %.3f\n", bx, by, nearOff, nearOn);
+    printf("open floor: red/green %.3f -> %.3f, brightness x%.3f\n", farOff, farOn,
+           Brightness(redOn, fx, fy, 2) / Brightness(redOff, fx, fy, 2));
+    check(nearOn > nearOff * 1.03, "floor in front of the red sphere tinted red (3% or more)");
+    check(std::fabs(farOn - farOff) < 0.01, "open floor keeps its colour");
+    check(Diff(redOff, redOn, hx0, hy0, hx1, hy1) == 0, "light bounce: 2D HUD panel untouched");
+    r->SetLightBounce(false);
+    check(Frame(*r, gpu) == redOff, "light bounce off again == original");
+    RedSphere = false;
+    FrontLight = false;
 
     puts(ok ? "ALL OK" : "FAILED");
     return ok ? 0 : 1;

@@ -904,8 +904,12 @@ void main()
 
 // Ambient occlusion, screen-space (McGuire, Mara, Luebke, "Scalable Ambient
 // Obscurance", HPG 2012): around each pixel, the neighbours that rise above
-// its surface hide part of the sky, the near ones more. Out: R = visibility (1 = open),
-// G = size of one pixel in view units here (for the filter pass).
+// its surface hide part of the sky, the near ones more.
+// Light bounce, from the same samples: neighbours in front of the surface and
+// facing it send back part of their light, with their colour (one bounce,
+// diffuse, from what the screen shows).
+// Out 0: R = visibility (1 = open), G = size of one pixel in view units here
+// (for the filter pass). Out 1: light received from the neighbours.
 const char* kLightingAOFS = kShaderHeader R"(
 
 precision highp float;
@@ -913,9 +917,12 @@ precision highp int;
 
 uniform highp sampler2D GPosition;
 uniform sampler2D GNormal;
-uniform float uRadius; // in output pixels
+uniform sampler2D Color;
+uniform float uRadius;       // ambient occlusion, in output pixels
+uniform float uBounceRadius; // light bounce, in output pixels (light travels further than shadowing matters)
 
 layout(location = 0) out vec4 oAO;
+layout(location = 1) out vec4 oBounce;
 
 const int NumSamples = 12;
 // moderate: DS games often have shading painted into their textures already.
@@ -928,7 +935,7 @@ void main()
     ivec2 p = ivec2(gl_FragCoord.xy);
     ivec2 size = textureSize(GPosition, 0);
     vec4 gp = texelFetch(GPosition, p, 0);
-    if (gp.w < 0.5) { oAO = vec4(1.0, 0.0, 0.0, 1.0); return; }
+    if (gp.w < 0.5) { oAO = vec4(1.0, 0.0, 0.0, 1.0); oBounce = vec4(0.0); return; }
 
     vec3 P = gp.xyz;
     vec3 N = texelFetch(GNormal, p, 0).xyz * 2.0 - 1.0;
@@ -942,7 +949,7 @@ void main()
         vec4 q = texelFetch(GPosition, clamp(p + dirs[i], ivec2(0), size - 1), 0);
         if (q.w > 0.5 && q.xyz != P) pixel = min(pixel, length(q.xyz - P));
     }
-    if (pixel > 1e29) { oAO = vec4(1.0, 0.0, 0.0, 1.0); return; }
+    if (pixel > 1e29) { oAO = vec4(1.0, 0.0, 0.0, 1.0); oBounce = vec4(0.0); return; }
 
     float radius = pixel * uRadius; // in view units
     // 16 rotations of the sample spiral over 4x4 pixels, averaged by the filter pass
@@ -950,6 +957,7 @@ void main()
     float rotation = float(cell) * (6.2831853 / 16.0);
 
     float occlusion = 0.0;
+    vec3 bounce = vec3(0.0);
     for (int i = 0; i < NumSamples; i++)
     {
         float t = (float(i) + 0.5) / float(NumSamples);
@@ -968,13 +976,38 @@ void main()
         occlusion += f * f * f * max(vn, 0.0) * radius / (vv + 0.01 * radius * radius);
     }
 
+    // light bounce: same spiral, further out. Cosines at both ends (the sample
+    // faces this surface, which faces the sample), smooth falloff to the radius
+    float bounceRadius = pixel * uBounceRadius;
+    for (int i = 0; i < NumSamples; i++)
+    {
+        float t = (float(i) + 0.5) / float(NumSamples);
+        float angle = float(i) * 2.3999632 + rotation;
+        vec2 offset = vec2(cos(angle), sin(angle)) * (t * uBounceRadius + 1.0);
+        ivec2 sp = clamp(p + ivec2(round(offset)), ivec2(0), size - 1);
+        vec4 q = texelFetch(GPosition, sp, 0);
+        if (q.w < 0.5) continue;
+
+        vec3 v = q.xyz - P;
+        float vv = dot(v, v);
+        if (vv <= 0.0) continue;
+        vec3 nq = texelFetch(GNormal, sp, 0).xyz * 2.0 - 1.0;
+        float d = sqrt(vv);
+        float cosHere = dot(v, N) / d, cosThere = -dot(v, nq) / d;
+        float f = max(1.0 - vv / (bounceRadius * bounceRadius), 0.0);
+        if (cosHere > 0.0 && cosThere > 0.0)
+            bounce += texelFetch(Color, sp, 0).rgb * (cosHere * cosThere * f * f);
+    }
+
     float visibility = clamp(1.0 - Intensity * occlusion / float(NumSamples), 0.0, 1.0);
     oAO = vec4(visibility, pixel, 0.0, 1.0);
+    oBounce = vec4(bounce / float(NumSamples), 1.0);
 }
 )";
 
-// Applies the lighting terms to the rendered frame, filtering the ambient
-// occlusion over the 4x4 rotation pattern within the same surface.
+// Applies the lighting terms to the rendered frame, filtering them over the
+// 4x4 rotation pattern within the same surface. The pixel's own colour stands
+// for its albedo: the light it receives from a bounce is tinted by it.
 const char* kLightingComposeFS = kShaderHeader R"(
 
 precision highp float;
@@ -984,6 +1017,9 @@ uniform sampler2D Color;
 uniform highp sampler2D GPosition;
 uniform sampler2D GNormal;
 uniform highp sampler2D AO;
+uniform highp sampler2D Bounce;
+uniform bool uAmbientOcclusion;
+uniform float uBounceIntensity; // 0 = off
 
 layout(location = 0) out vec4 oColor;
 
@@ -1001,6 +1037,7 @@ void main()
     float pixel = ao.g;
 
     float sum = 0.0, weight = 0.0;
+    vec3 bounce = vec3(0.0);
     for (int y = -2; y < 2; y++)
     {
         for (int x = -2; x < 2; x++)
@@ -1013,12 +1050,16 @@ void main()
             float plane = abs(dot(q.xyz - P, N));
             if (dot(nq, N) < 0.8 || plane > pixel * 2.0) continue;
             sum += texelFetch(AO, sp, 0).r;
+            bounce += texelFetch(Bounce, sp, 0).rgb;
             weight += 1.0;
         }
     }
     float visibility = weight > 0.0 ? sum / weight : ao.r;
+    bounce = weight > 0.0 ? bounce / weight : texelFetch(Bounce, p, 0).rgb;
 
-    oColor = vec4(col.rgb * visibility, col.a);
+    vec3 lit = col.rgb * (uAmbientOcclusion ? visibility : 1.0);
+    lit += col.rgb * bounce * uBounceIntensity;
+    oColor = vec4(min(lit, vec3(1.0)), col.a);
 }
 )";
 }

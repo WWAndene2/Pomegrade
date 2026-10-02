@@ -660,6 +660,7 @@ void MelonInstance::updateRenderer()
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetOledBlacks(currentConfiguration->oledBlacks);
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetAdaptiveColours(currentConfiguration->adaptiveColours);
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetAmbientOcclusion(currentConfiguration->ambientOcclusion);
+            static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetLightBounce(currentConfiguration->lightBounce);
             break;
         }
         case Renderer::Compute:

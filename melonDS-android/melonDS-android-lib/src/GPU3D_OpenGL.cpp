@@ -196,12 +196,14 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
             kFinalPassVS, kLightingAOFS,
             "LightingAOShader",
             {{"vPosition", 0}},
-            {{"oAO", 0}}))
+            {{"oAO", 0}, {"oBounce", 1}}))
         return nullptr;
     glUseProgram(result->LightingAOShader);
     glUniform1i(glGetUniformLocation(result->LightingAOShader, "GPosition"), 0);
     glUniform1i(glGetUniformLocation(result->LightingAOShader, "GNormal"), 1);
+    glUniform1i(glGetUniformLocation(result->LightingAOShader, "Color"), 2);
     result->LightingAORadiusLoc = glGetUniformLocation(result->LightingAOShader, "uRadius");
+    result->LightingBounceRadiusLoc = glGetUniformLocation(result->LightingAOShader, "uBounceRadius");
 
     if (!OpenGL::CompileVertexFragmentProgram(result->LightingComposeShader,
             kFinalPassVS, kLightingComposeFS,
@@ -214,6 +216,9 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
     glUniform1i(glGetUniformLocation(result->LightingComposeShader, "GPosition"), 1);
     glUniform1i(glGetUniformLocation(result->LightingComposeShader, "GNormal"), 2);
     glUniform1i(glGetUniformLocation(result->LightingComposeShader, "AO"), 3);
+    glUniform1i(glGetUniformLocation(result->LightingComposeShader, "Bounce"), 4);
+    result->LightingComposeAOLoc = glGetUniformLocation(result->LightingComposeShader, "uAmbientOcclusion");
+    result->LightingComposeBounceLoc = glGetUniformLocation(result->LightingComposeShader, "uBounceIntensity");
 
 
     memset(&result->ShaderConfig, 0, sizeof(ShaderConfig));
@@ -346,6 +351,7 @@ GLRenderer::~GLRenderer()
     glDeleteTextures(1, &ViewPositionTex);
     glDeleteTextures(1, &ViewNormalTex);
     glDeleteTextures(1, &AOTex);
+    glDeleteTextures(1, &BounceTex);
     glDeleteTextures(1, &LightingTex);
     glDeleteBuffers(1, &ViewVertexBufferID);
     glDeleteProgram(LightingAOShader);
@@ -1359,6 +1365,7 @@ void GLRenderer::SetupLightingTargets()
     makeTarget(ViewPositionTex, GL_RGBA32F, GL_RGBA, GL_FLOAT);
     makeTarget(ViewNormalTex, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
     makeTarget(AOTex, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
+    makeTarget(BounceTex, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
     makeTarget(LightingTex, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
 
     // attachments 2 and 3 of the main framebuffer, drawn to by opaque polygons only
@@ -1373,6 +1380,8 @@ void GLRenderer::SetupLightingTargets()
 
     glBindFramebuffer(GL_FRAMEBUFFER, AOFramebuffer);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, AOTex, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, BounceTex, 0);
+    glDrawBuffers(2, buffers);
     complete = complete && glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
     glBindFramebuffer(GL_FRAMEBUFFER, LightingFramebuffer);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, LightingTex, 0);
@@ -1393,18 +1402,25 @@ void GLRenderer::RenderLighting()
     glDisable(GL_STENCIL_TEST);
     glDisable(GL_BLEND);
     glDisable(GL_SCISSOR_TEST);
+    // write masks are per draw buffer index, not per framebuffer: the scene
+    // render leaves index 1 (its attribute buffer) partly masked
+    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glColorMaski(1, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glViewport(0, 0, ScreenW, ScreenH);
     glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
     glBindVertexArray(ClearVertexArrayID);
 
-    // pass 1: ambient occlusion, up to 24 native pixels around each pixel
+    // pass 1: ambient occlusion up to 24 native pixels around each pixel, light bounce up to 64
     glBindFramebuffer(GL_FRAMEBUFFER, AOFramebuffer);
     glUseProgram(LightingAOShader);
     glUniform1f(LightingAORadiusLoc, 24.0f * ScaleFactor);
+    glUniform1f(LightingBounceRadiusLoc, 64.0f * ScaleFactor);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, ViewPositionTex);
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, ViewNormalTex);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, ColorBufferTex);
     glDrawArrays(GL_TRIANGLES, 0, 2*3);
 
     // pass 2: the lit image
@@ -1418,6 +1434,10 @@ void GLRenderer::RenderLighting()
     glBindTexture(GL_TEXTURE_2D, ViewNormalTex);
     glActiveTexture(GL_TEXTURE3);
     glBindTexture(GL_TEXTURE_2D, AOTex);
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_2D, BounceTex);
+    glUniform1i(LightingComposeAOLoc, AmbientOcclusion ? 1 : 0);
+    glUniform1f(LightingComposeBounceLoc, LightBounce ? BounceIntensity : 0.0f);
     glDrawArrays(GL_TRIANGLES, 0, 2*3);
 
     // state as the scene render leaves it

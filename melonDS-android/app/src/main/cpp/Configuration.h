@@ -99,6 +99,7 @@ typedef struct
     bool adaptiveColours = false;
     // Pomegrade: lighting effects in the OpenGL renderer (see GLRenderer::RenderLighting)
     bool ambientOcclusion = false;
+    bool lightBounce = false;
 } EmulatorConfiguration;
 
 }

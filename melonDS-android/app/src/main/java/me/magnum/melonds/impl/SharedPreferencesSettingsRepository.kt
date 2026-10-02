@@ -179,6 +179,7 @@ class SharedPreferencesSettingsRepository(
             oledBlacks = preferences.getBoolean("oled_blacks", false),
             adaptiveColours = preferences.getBoolean("adaptive_colours", false),
             ambientOcclusion = preferences.getBoolean("ambient_occlusion", false),
+            lightBounce = preferences.getBoolean("light_bounce", false),
         )
     }
 

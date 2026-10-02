@@ -50,6 +50,7 @@ public:
     // view-space position and normal of each opaque pixel, see RenderLighting.
     // Display only: the frame the game can capture stays the DS render.
     void SetAmbientOcclusion(bool enable) noexcept { AmbientOcclusion = enable; }
+    void SetLightBounce(bool enable) noexcept { LightBounce = enable; }
     void SetScaleFactor(int scale) noexcept;
     [[nodiscard]] bool GetBetterPolygons() const noexcept { return BetterPolygons; }
     [[nodiscard]] int GetScaleFactor() const noexcept { return ScaleFactor; }
@@ -107,7 +108,7 @@ private:
     int RenderPolygonEdgeBatch(int i) const;
     void RenderSceneChunk(const GPU3D& gpu3d, int y, int h);
 
-    bool LightingEnabled() const noexcept { return AmbientOcclusion; }
+    bool LightingEnabled() const noexcept { return AmbientOcclusion || LightBounce; }
     float* SetupViewVertex(const Vertex* vtx, float* gptr) const;
     float* SetupViewCenterVertex(const Polygon* poly, float* gptr) const;
     void SetupLightingTargets();
@@ -197,6 +198,10 @@ private:
 
     // lighting effects (Pomegrade)
     bool AmbientOcclusion {};
+    bool LightBounce {};
+    // light bounce strength. Test scene (tests/lighting-effects): grey floor in
+    // front of a lit red sphere 3-6% redder, floor-wall crease 3% brighter
+    static constexpr float BounceIntensity = 3.0f;
     bool LightingActive {};   // view data is being rendered this frame
     bool LightingDone {};     // this frame's lit image is in LightingTex
     bool ViewDataCaptured {}; // GPU3D captured view data while the rendered frame was submitted
@@ -206,10 +211,10 @@ private:
     GLuint ViewVertexBufferID {};
     static constexpr u32 ViewVertexSize = 8; // in floats
     std::vector<float> ViewVertexBuffer = std::vector<float>(10240 * ViewVertexSize);
-    GLuint ViewPositionTex {}, ViewNormalTex {}, AOTex {}, LightingTex {};
+    GLuint ViewPositionTex {}, ViewNormalTex {}, AOTex {}, BounceTex {}, LightingTex {};
     GLuint AOFramebuffer {}, LightingFramebuffer {};
     GLuint LightingAOShader {}, LightingComposeShader {};
-    GLint LightingAORadiusLoc = -1;
+    GLint LightingAORadiusLoc = -1, LightingBounceRadiusLoc = -1, LightingComposeAOLoc = -1, LightingComposeBounceLoc = -1;
     int LightingTargetsW {}, LightingTargetsH {};
     u32 Framebuffer[256*192] {};
 };

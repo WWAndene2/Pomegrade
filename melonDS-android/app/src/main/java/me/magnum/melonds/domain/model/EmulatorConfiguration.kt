@@ -48,4 +48,5 @@ data class EmulatorConfiguration(
         val adaptiveColours: Boolean = false,
         // Pomegrade: lighting effects (OpenGL renderer)
         val ambientOcclusion: Boolean = false,
+        val lightBounce: Boolean = false,
 )
