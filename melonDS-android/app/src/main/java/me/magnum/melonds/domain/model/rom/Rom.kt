@@ -18,6 +18,9 @@ data class Rom(
     val totalPlayTime: Duration = Duration.ZERO,
 ) {
 
+    // Derived from the file name rather than stored, so cached ROM lists stay compatible
+    val platform: RomPlatform get() = RomPlatform.fromFileName(fileName)
+
     fun hasSameFileAsRom(other: Rom): Boolean {
         return uri == other.uri
     }

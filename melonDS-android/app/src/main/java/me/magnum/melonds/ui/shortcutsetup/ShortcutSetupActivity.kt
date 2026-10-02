@@ -73,7 +73,7 @@ class ShortcutSetupActivity : AppCompatActivity() {
         }
 
         val fragment = if (savedInstanceState == null) {
-            RomListFragment.newInstance(false, RomListFragment.RomEnableCriteria.ENABLE_ALL).also {
+            RomListFragment.newInstance(false, RomListFragment.RomEnableCriteria.ENABLE_DS_ONLY).also {
                 supportFragmentManager.commit {
                     replace(binding.layoutRoot.id, it, FRAGMENT_ROM_LIST)
                 }

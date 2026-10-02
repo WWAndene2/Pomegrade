@@ -39,6 +39,7 @@ import me.magnum.melonds.databinding.RomListFragmentBinding
 import me.magnum.melonds.domain.model.RomIconFiltering
 import me.magnum.melonds.domain.model.RomScanningStatus
 import me.magnum.melonds.domain.model.rom.Rom
+import me.magnum.melonds.domain.model.rom.RomPlatform
 import me.magnum.melonds.extensions.setViewEnabledRecursive
 import me.magnum.melonds.parcelables.RomParcelable
 import me.magnum.melonds.ui.romdetails.RomDetailsActivity
@@ -63,6 +64,8 @@ class RomListFragment : Fragment() {
     enum class RomEnableCriteria {
         ENABLE_ALL,
         ENABLE_NON_DSIWARE,
+        // DS/DSi games only, for screens that hand the game to melonDS directly
+        ENABLE_DS_ONLY,
     }
 
     private lateinit var binding: RomListFragmentBinding
@@ -152,7 +155,8 @@ class RomListFragment : Fragment() {
     private fun buildRomEnabledFilter(romEnableCriteria: RomEnableCriteria): RomEnabledFilter {
         return when (romEnableCriteria) {
             RomEnableCriteria.ENABLE_ALL -> RomEnabledFilter { true }
-            RomEnableCriteria.ENABLE_NON_DSIWARE -> RomEnabledFilter { !it.isDsiWareTitle}
+            RomEnableCriteria.ENABLE_NON_DSIWARE -> RomEnabledFilter { !it.isDsiWareTitle && it.platform == RomPlatform.NDS }
+            RomEnableCriteria.ENABLE_DS_ONLY -> RomEnabledFilter { it.platform == RomPlatform.NDS }
         }
     }
 
@@ -227,7 +231,11 @@ class RomListFragment : Fragment() {
             open fun setRom(rom: Rom, isEnabled: Boolean) {
                 this.rom = rom
                 textViewRomName.text = rom.config.customName ?: rom.name
-                textViewRomPath.text = rom.fileName
+                textViewRomPath.text = if (rom.platform == RomPlatform.N3DS) {
+                    itemView.context.getString(R.string.rom_platform_3ds, rom.fileName)
+                } else {
+                    rom.fileName
+                }
                 imageViewRomIcon.setImageDrawable(null)
                 imagePlatformLogo.isVisible = rom.isDsiWareTitle
 
@@ -280,6 +288,12 @@ class RomListFragment : Fragment() {
                 imageViewButtonRomConfig.setOnClickListener {
                     onRomConfigClick(getRom())
                 }
+            }
+
+            override fun setRom(rom: Rom, isEnabled: Boolean) {
+                super.setRom(rom, isEnabled)
+                // the per-game settings are melonDS settings; 3DS games use the 3DS core's own
+                imageViewButtonRomConfig.isVisible = rom.platform == RomPlatform.NDS
             }
         }
 

@@ -15,6 +15,7 @@ import me.magnum.melonds.domain.model.ConsoleType
 import me.magnum.melonds.domain.model.emulator.validation.FirmwareLaunchPreconditionCheckResult
 import me.magnum.melonds.domain.model.emulator.validation.RomLaunchPreconditionCheckResult
 import me.magnum.melonds.domain.model.rom.Rom
+import me.magnum.melonds.domain.model.rom.RomPlatform
 import me.magnum.melonds.ui.common.rom.model.LaunchValidationResult
 import me.magnum.melonds.ui.dsiwaremanager.DSiWareManagerActivity
 import me.magnum.melonds.ui.settings.SettingsActivity
@@ -62,6 +63,11 @@ class EmulatorLaunchValidatorDelegate(
     }
 
     fun validateRom(rom: Rom) {
+        // 3DS games don't use the DS BIOS/firmware checks, they go straight to the 3DS core
+        if (rom.platform == RomPlatform.N3DS) {
+            N3dsLauncher.launch(context, rom)
+            return
+        }
         viewModel.validateRomForLaunch(rom)
     }
 
