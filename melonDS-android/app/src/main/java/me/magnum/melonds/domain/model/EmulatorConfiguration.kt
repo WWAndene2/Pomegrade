@@ -49,4 +49,5 @@ data class EmulatorConfiguration(
         // Pomegrade: lighting effects (OpenGL renderer)
         val ambientOcclusion: Boolean = false,
         val lightBounce: Boolean = false,
+        val shadows: Boolean = false,
 )

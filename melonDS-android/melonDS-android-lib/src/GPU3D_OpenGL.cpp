@@ -217,6 +217,24 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
     glUniform1i(glGetUniformLocation(result->LightingComposeShader, "GNormal"), 2);
     glUniform1i(glGetUniformLocation(result->LightingComposeShader, "AO"), 3);
     glUniform1i(glGetUniformLocation(result->LightingComposeShader, "Bounce"), 4);
+    glUniform1i(glGetUniformLocation(result->LightingComposeShader, "ShadowMap"), 5);
+    {
+        const char* names[7] = {"uShadowStrength", "uLightRight", "uLightUp", "uLightDir", "uShadowBounds", "uShadowDepth", "uShadowTexel"};
+        for (int i = 0; i < 7; i++)
+            result->ComposeShadowLoc[i] = glGetUniformLocation(result->LightingComposeShader, names[i]);
+    }
+
+    if (!OpenGL::CompileVertexFragmentProgram(result->LightingShadowShader,
+            kLightingShadowVS, kLightingShadowFS,
+            "LightingShadowShader",
+            {{"vViewPosition", 5}},
+            {}))
+        return nullptr;
+    {
+        const char* names[5] = {"uLightRight", "uLightUp", "uLightDir", "uShadowBounds", "uShadowDepth"};
+        for (int i = 0; i < 5; i++)
+            result->ShadowLoc[i] = glGetUniformLocation(result->LightingShadowShader, names[i]);
+    }
     result->LightingComposeAOLoc = glGetUniformLocation(result->LightingComposeShader, "uAmbientOcclusion");
     result->LightingComposeBounceLoc = glGetUniformLocation(result->LightingComposeShader, "uBounceIntensity");
 
@@ -283,6 +301,7 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
     glGenFramebuffers(1, &result->DownscaleFramebuffer);
     glGenFramebuffers(1, &result->AOFramebuffer);
     glGenFramebuffers(1, &result->LightingFramebuffer);
+    glGenFramebuffers(1, &result->ShadowFramebuffer);
 
     // color buffers
     glGenTextures(1, &result->ColorBufferTex);
@@ -356,6 +375,9 @@ GLRenderer::~GLRenderer()
     glDeleteBuffers(1, &ViewVertexBufferID);
     glDeleteProgram(LightingAOShader);
     glDeleteProgram(LightingComposeShader);
+    glDeleteProgram(LightingShadowShader);
+    glDeleteFramebuffers(1, &ShadowFramebuffer);
+    glDeleteTextures(1, &ShadowMapTex);
 
     glDeleteVertexArrays(1, &VertexArrayID);
     glDeleteBuffers(1, &VertexBufferID);
@@ -682,6 +704,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
     // view-space data, one entry per vertex of VertexBuffer (lighting effects)
     float* gptr = &ViewVertexBuffer[0];
     const bool viewdata = LightingActive;
+    memset(LightUse, 0, sizeof(LightUse));
 
     u32 iidx = 0;
     u32 eidx = EdgeIndicesOffset;
@@ -690,6 +713,10 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
     {
         RendererPolygon* rp = &polygons[i];
         Polygon* poly = rp->PolyData;
+
+        if (viewdata && !poly->Translucent)
+            for (int l = 0; l < 4; l++)
+                if (poly->Attr & (1 << l)) LightUse[l]++;
 
         rp->IndicesOffset = iidx;
         rp->NumIndices = 0;
@@ -1396,8 +1423,136 @@ void GLRenderer::SetupLightingTargets()
     }
 }
 
-void GLRenderer::RenderLighting()
+bool GLRenderer::RenderShadowMap(const GPU3D& gpu3d)
 {
+    // the main light: the one the most opaque polygons use
+    int light = 0;
+    for (int l = 1; l < 4; l++)
+        if (LightUse[l] > LightUse[light]) light = l;
+    if (!LightUse[light])
+        return false;
+
+    float dir[3];
+    for (int i = 0; i < 3; i++) dir[i] = (float)gpu3d.RenderLightDirection[light][i];
+    float len = std::sqrt(dir[0]*dir[0] + dir[1]*dir[1] + dir[2]*dir[2]);
+    if (len <= 0)
+        return false;
+    auto& sp = ShadowParams;
+    for (int i = 0; i < 3; i++) sp.Dir[i] = dir[i] / len;
+
+    // light space: any two axes across the light's direction
+    float hint[3] = {0, 1, 0};
+    if (std::fabs(sp.Dir[1]) > 0.9f) { hint[0] = 1; hint[1] = 0; }
+    auto cross = [](const float* a, const float* b, float* out) {
+        out[0] = a[1]*b[2] - a[2]*b[1]; out[1] = a[2]*b[0] - a[0]*b[2]; out[2] = a[0]*b[1] - a[1]*b[0];
+    };
+    cross(hint, sp.Dir, sp.Right);
+    float rlen = std::sqrt(sp.Right[0]*sp.Right[0] + sp.Right[1]*sp.Right[1] + sp.Right[2]*sp.Right[2]);
+    for (int i = 0; i < 3; i++) sp.Right[i] /= rlen;
+    cross(sp.Dir, sp.Right, sp.Up);
+
+    // fitted to the 3D geometry of the frame
+    float lo[3] = {1e30f, 1e30f, 1e30f}, hi[3] = {-1e30f, -1e30f, -1e30f};
+    for (u32 v = 0; v < NumVertices; v++)
+    {
+        const float* g = &ViewVertexBuffer[v * ViewVertexSize];
+        if (g[3] < 0.5f) continue;
+        const float* axes[3] = {sp.Right, sp.Up, sp.Dir};
+        for (int a = 0; a < 3; a++)
+        {
+            float d = g[0]*axes[a][0] + g[1]*axes[a][1] + g[2]*axes[a][2];
+            lo[a] = std::min(lo[a], d);
+            hi[a] = std::max(hi[a], d);
+        }
+    }
+    float extent = std::max(hi[0] - lo[0], hi[1] - lo[1]);
+    if (!(extent > 0) || !(hi[2] > lo[2]))
+        return false;
+    // a texel of margin all round
+    float margin = extent / ShadowMapSize;
+    sp.Bounds[0] = lo[0] - margin;
+    sp.Bounds[1] = lo[1] - margin;
+    sp.Bounds[2] = 1.0f / (hi[0] - lo[0] + 2 * margin);
+    sp.Bounds[3] = 1.0f / (hi[1] - lo[1] + 2 * margin);
+    sp.Depth[0] = hi[2] + margin;
+    sp.Depth[1] = 1.0f / (hi[2] - lo[2] + 2 * margin);
+    sp.Texel = (extent + 2 * margin) / ShadowMapSize;
+
+    if (!ShadowMapTex)
+    {
+        glGenTextures(1, &ShadowMapTex);
+        glBindTexture(GL_TEXTURE_2D, ShadowMapTex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        // hardware depth comparison, bilinear: each lookup is a 2x2 filtered test
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, ShadowMapSize, ShadowMapSize, 0,
+                     GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, nullptr);
+        glBindFramebuffer(GL_FRAMEBUFFER, ShadowFramebuffer);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, ShadowMapTex, 0);
+        const GLenum none = GL_NONE;
+        glDrawBuffers(1, &none);
+        glReadBuffer(GL_NONE);
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        {
+            Log(LogLevel::Warn, "Lighting effects: shadow map not supported, shadows disabled\n");
+            glDeleteTextures(1, &ShadowMapTex);
+            ShadowMapTex = 0;
+            Shadows = false;
+            return false;
+        }
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, ShadowFramebuffer);
+    glViewport(0, 0, ShadowMapSize, ShadowMapSize);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    glDepthMask(GL_TRUE);
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    glUseProgram(LightingShadowShader);
+    glUniform3fv(ShadowLoc[0], 1, sp.Right);
+    glUniform3fv(ShadowLoc[1], 1, sp.Up);
+    glUniform3fv(ShadowLoc[2], 1, sp.Dir);
+    glUniform4fv(ShadowLoc[3], 1, sp.Bounds);
+    glUniform2fv(ShadowLoc[4], 1, sp.Depth);
+
+    // opaque triangles cast shadows; their indices are contiguous in polygon
+    // order, so consecutive ones are drawn in one call
+    glBindVertexArray(VertexArrayID);
+    u32 runStart = 0, runCount = 0;
+    auto flush = [&]() {
+        if (runCount) glDrawElements(GL_TRIANGLES, runCount, GL_UNSIGNED_INT, (void*)(uintptr_t)(runStart * 4));
+        runCount = 0;
+    };
+    for (int i = 0; i < NumFinalPolys; i++)
+    {
+        const RendererPolygon& rp = PolygonList[i];
+        if (rp.PolyData->IsShadowMask || rp.PolyData->Translucent || rp.PrimType != GL_TRIANGLES || !rp.NumIndices)
+        {
+            flush();
+            continue;
+        }
+        if (runCount && runStart + runCount == rp.IndicesOffset)
+            runCount += rp.NumIndices;
+        else
+        {
+            flush();
+            runStart = rp.IndicesOffset;
+            runCount = rp.NumIndices;
+        }
+    }
+    flush();
+    return true;
+}
+
+void GLRenderer::RenderLighting(const GPU3D& gpu3d)
+{
+    const bool shadows = Shadows && RenderShadowMap(gpu3d);
+
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
     glDisable(GL_BLEND);
@@ -1436,6 +1591,18 @@ void GLRenderer::RenderLighting()
     glBindTexture(GL_TEXTURE_2D, AOTex);
     glActiveTexture(GL_TEXTURE4);
     glBindTexture(GL_TEXTURE_2D, BounceTex);
+    glActiveTexture(GL_TEXTURE5);
+    glBindTexture(GL_TEXTURE_2D, shadows ? ShadowMapTex : 0);
+    glUniform1f(ComposeShadowLoc[0], shadows ? ShadowStrength : 0.0f);
+    if (shadows)
+    {
+        glUniform3fv(ComposeShadowLoc[1], 1, ShadowParams.Right);
+        glUniform3fv(ComposeShadowLoc[2], 1, ShadowParams.Up);
+        glUniform3fv(ComposeShadowLoc[3], 1, ShadowParams.Dir);
+        glUniform4fv(ComposeShadowLoc[4], 1, ShadowParams.Bounds);
+        glUniform2fv(ComposeShadowLoc[5], 1, ShadowParams.Depth);
+        glUniform1f(ComposeShadowLoc[6], ShadowParams.Texel);
+    }
     glUniform1i(LightingComposeAOLoc, AmbientOcclusion ? 1 : 0);
     glUniform1f(LightingComposeBounceLoc, LightBounce ? BounceIntensity : 0.0f);
     glDrawArrays(GL_TRIANGLES, 0, 2*3);
@@ -1684,7 +1851,7 @@ void GLRenderer::RenderFrame(GPU& gpu)
     }
 
     if (LightingActive)
-        RenderLighting();
+        RenderLighting(gpu.GPU3D);
 }
 
 void GLRenderer::Stop(const GPU& gpu)

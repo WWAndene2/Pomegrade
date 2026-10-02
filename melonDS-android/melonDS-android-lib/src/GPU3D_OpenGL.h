@@ -51,6 +51,7 @@ public:
     // Display only: the frame the game can capture stays the DS render.
     void SetAmbientOcclusion(bool enable) noexcept { AmbientOcclusion = enable; }
     void SetLightBounce(bool enable) noexcept { LightBounce = enable; }
+    void SetShadows(bool enable) noexcept { Shadows = enable; }
     void SetScaleFactor(int scale) noexcept;
     [[nodiscard]] bool GetBetterPolygons() const noexcept { return BetterPolygons; }
     [[nodiscard]] int GetScaleFactor() const noexcept { return ScaleFactor; }
@@ -108,11 +109,12 @@ private:
     int RenderPolygonEdgeBatch(int i) const;
     void RenderSceneChunk(const GPU3D& gpu3d, int y, int h);
 
-    bool LightingEnabled() const noexcept { return AmbientOcclusion || LightBounce; }
+    bool LightingEnabled() const noexcept { return AmbientOcclusion || LightBounce || Shadows; }
     float* SetupViewVertex(const Vertex* vtx, float* gptr) const;
     float* SetupViewCenterVertex(const Polygon* poly, float* gptr) const;
     void SetupLightingTargets();
-    void RenderLighting();
+    void RenderLighting(const GPU3D& gpu3d);
+    bool RenderShadowMap(const GPU3D& gpu3d);
 
     enum
     {
@@ -199,6 +201,7 @@ private:
     // lighting effects (Pomegrade)
     bool AmbientOcclusion {};
     bool LightBounce {};
+    bool Shadows {};
     // light bounce strength. Test scene (tests/lighting-effects): grey floor in
     // front of a lit red sphere 3-6% redder, floor-wall crease 3% brighter
     static constexpr float BounceIntensity = 3.0f;
@@ -213,7 +216,22 @@ private:
     std::vector<float> ViewVertexBuffer = std::vector<float>(10240 * ViewVertexSize);
     GLuint ViewPositionTex {}, ViewNormalTex {}, AOTex {}, BounceTex {}, LightingTex {};
     GLuint AOFramebuffer {}, LightingFramebuffer {};
-    GLuint LightingAOShader {}, LightingComposeShader {};
+    GLuint LightingAOShader {}, LightingComposeShader {}, LightingShadowShader {};
+    // shadow map of the main light (the light the most polygons use this frame)
+    static constexpr int ShadowMapSize = 2048;
+    // share of the main light's contribution taken away in its shadow
+    static constexpr float ShadowStrength = 0.6f;
+    GLuint ShadowMapTex {}, ShadowFramebuffer {};
+    u32 LightUse[4] {}; // opaque polygons lit by each light, this frame
+    struct
+    {
+        float Right[3], Up[3], Dir[3]; // light space, Dir towards the light
+        float Bounds[4];               // min x, min y, 1 / width, 1 / height
+        float Depth[2];                // nearest to the light, 1 / depth range
+        float Texel;                   // one texel, in view units
+    } ShadowParams {};
+    GLint ShadowLoc[5] {};  // shadow shader: right, up, dir, bounds, depth
+    GLint ComposeShadowLoc[7] {}; // compose shader: strength, right, up, dir, bounds, depth, texel
     GLint LightingAORadiusLoc = -1, LightingBounceRadiusLoc = -1, LightingComposeAOLoc = -1, LightingComposeBounceLoc = -1;
     int LightingTargetsW {}, LightingTargetsH {};
     u32 Framebuffer[256*192] {};

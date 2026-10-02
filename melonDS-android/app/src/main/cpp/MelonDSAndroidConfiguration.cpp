@@ -125,6 +125,7 @@ MelonDSAndroid::EmulatorConfiguration MelonDSAndroidConfiguration::buildEmulator
     finalEmulatorConfiguration.adaptiveColours = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "adaptiveColours", "Z"));
     finalEmulatorConfiguration.ambientOcclusion = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "ambientOcclusion", "Z"));
     finalEmulatorConfiguration.lightBounce = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "lightBounce", "Z"));
+    finalEmulatorConfiguration.shadows = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "shadows", "Z"));
 
     return finalEmulatorConfiguration;
 }

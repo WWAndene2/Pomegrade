@@ -1005,6 +1005,36 @@ void main()
 }
 )";
 
+// Shadow map: depth of the opaque 3D geometry as seen from the main light,
+// orthographic, fitted to the scene (see GLRenderer::RenderShadowMap).
+const char* kLightingShadowVS = kShaderHeader R"(
+
+precision highp float;
+
+in vec4 vViewPosition; // xyz, w: 1 = perspective (2D-like geometry casts nothing)
+
+uniform vec3 uLightRight, uLightUp, uLightDir; // light space, uLightDir towards the light
+uniform vec4 uShadowBounds; // min x, min y, 1 / width, 1 / height
+uniform vec2 uShadowDepth;  // nearest to the light, 1 / depth range
+
+void main()
+{
+    vec3 p = vViewPosition.xyz;
+    vec2 uv = (vec2(dot(p, uLightRight), dot(p, uLightUp)) - uShadowBounds.xy) * uShadowBounds.zw;
+    float depth = (uShadowDepth.x - dot(p, uLightDir)) * uShadowDepth.y;
+    gl_Position = vViewPosition.w > 0.5 ? vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0) : vec4(2.0, 2.0, 2.0, 1.0);
+}
+)";
+
+const char* kLightingShadowFS = kShaderHeader R"(
+
+precision highp float;
+
+void main()
+{
+}
+)";
+
 // Applies the lighting terms to the rendered frame, filtering them over the
 // 4x4 rotation pattern within the same surface. The pixel's own colour stands
 // for its albedo: the light it receives from a bounce is tinted by it.
@@ -1020,6 +1050,31 @@ uniform highp sampler2D AO;
 uniform highp sampler2D Bounce;
 uniform bool uAmbientOcclusion;
 uniform float uBounceIntensity; // 0 = off
+
+// shadows from the main light
+uniform highp sampler2DShadow ShadowMap;
+uniform float uShadowStrength; // 0 = off
+uniform vec3 uLightRight, uLightUp, uLightDir;
+uniform vec4 uShadowBounds;
+uniform vec2 uShadowDepth;
+uniform float uShadowTexel; // one shadow map texel, in view units
+
+// 1 = lit by the main light, 0 = in its shadow (3x3 filtered)
+float ShadowLit(vec3 P, vec3 N)
+{
+    vec2 uv = (vec2(dot(P, uLightRight), dot(P, uLightUp)) - uShadowBounds.xy) * uShadowBounds.zw;
+    if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return 1.0;
+    float cosLight = max(dot(N, uLightDir), 0.05);
+    // against self-shadowing: a couple of texels, more on surfaces the light grazes
+    float bias = uShadowTexel * (1.5 + 1.0 / cosLight) * uShadowDepth.y;
+    float depth = (uShadowDepth.x - dot(P, uLightDir)) * uShadowDepth.y - bias;
+    vec2 texel = 1.0 / vec2(textureSize(ShadowMap, 0));
+    float lit = 0.0;
+    for (int y = -1; y <= 1; y++)
+        for (int x = -1; x <= 1; x++)
+            lit += texture(ShadowMap, vec3(uv + vec2(x, y) * texel, depth));
+    return lit / 9.0;
+}
 
 layout(location = 0) out vec4 oColor;
 
@@ -1058,6 +1113,13 @@ void main()
     bounce = weight > 0.0 ? bounce / weight : texelFetch(Bounce, p, 0).rgb;
 
     vec3 lit = col.rgb * (uAmbientOcclusion ? visibility : 1.0);
+    if (uShadowStrength > 0.0)
+    {
+        // the share of the colour the main light brought (its cosine on this
+        // surface) goes in its shadow; surfaces facing away keep their colour
+        float cosLight = max(dot(N, uLightDir), 0.0);
+        lit *= 1.0 - uShadowStrength * cosLight * (1.0 - ShadowLit(P, N));
+    }
     lit += col.rgb * bounce * uBounceIntensity;
     oColor = vec4(min(lit, vec3(1.0)), col.a);
 }

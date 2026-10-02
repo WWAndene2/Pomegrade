@@ -180,6 +180,7 @@ class SharedPreferencesSettingsRepository(
             adaptiveColours = preferences.getBoolean("adaptive_colours", false),
             ambientOcclusion = preferences.getBoolean("ambient_occlusion", false),
             lightBounce = preferences.getBoolean("light_bounce", false),
+            shadows = preferences.getBoolean("shadows", false),
         )
     }
 

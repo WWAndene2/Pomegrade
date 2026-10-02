@@ -89,6 +89,13 @@
             android:defaultValue="false" />
 
     <SwitchPreference
+            android:key="shadows"
+            android:title="@string/shadows"
+            android:summary="@string/shadows_summary"
+            app:iconSpaceReserved="false"
+            android:defaultValue="false" />
+
+    <SwitchPreference
             android:key="high_color"
             android:title="@string/high_color"
             android:summary="@string/high_color_summary"

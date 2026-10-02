@@ -91,6 +91,7 @@ static void Project(double x, double y, double z, int& sx, int& sy)
 static const double SphereRadius = 0.8, SphereCenter[3] = {0, -0.2, -3.5}, FloorY = -1;
 static bool RedSphere = false; // light bounce test: a red sphere tints the grey floor
 static bool FrontLight = false; // light from the camera's side: the sphere's front is lit
+static bool SideLight = false;  // shadow test: light from the upper left, the sphere's shadow falls to its right
 
 static void DrawSphere()
 {
@@ -130,6 +131,8 @@ static void SubmitScene()
     Cmd(0x10, {2}); Cmd(0x15); // position & vector: identity (view space = model space)
     if (FrontLight)
         Cmd(0x32, {N10(-0.2) | (N10(-0.45) << 10) | (N10(-0.87) << 20)}); // light 0, from the front
+    else if (SideLight)
+        Cmd(0x32, {N10(0.69) | (N10(-0.69) << 10) | (N10(-0.23) << 20)}); // light 0 travelling right and down
     else
         Cmd(0x32, {N10(-0.3) | (N10(-0.8) << 10) | (N10(-0.5) << 20)}); // light 0, from above
     Cmd(0x33, {0x7FFF});                                          // light 0 white
@@ -423,6 +426,37 @@ int main()
     check(Frame(*r, gpu) == redOff, "light bounce off again == original");
     RedSphere = false;
     FrontLight = false;
+
+    // shadows: the sphere casts its shadow on the floor, away from the light
+    SideLight = true;
+    auto shadowOff = Frame(*r, gpu);
+    SavePng("shadows_off.png", shadowOff);
+    r->SetShadows(true);
+    Frame(*r, gpu);
+    auto shadowOn = Frame(*r, gpu);
+    SavePng("shadows_on.png", shadowOn);
+    {
+        // the sphere's centre, projected along the light onto the floor: (0.8, -1, -3.77)
+        int sx, sy, lx, ly;
+        Project(SphereCenter[0] + 1.1, FloorY, SphereCenter[2] - 0.25, sx, sy);
+        // the sphere's lit upper left
+        Project(SphereCenter[0] - 0.45, SphereCenter[1] + 0.45, SphereCenter[2] + 0.5, lx, ly);
+        struct Region { const char* name; int x, y; } regions[] = {
+            {"floor in the sphere's shadow", sx, sy}, {"open floor", fx, fy},
+            {"lit side of the sphere", lx, ly}, {"back wall", wx, wy}};
+        double ratio[4];
+        for (int i = 0; i < 4; i++)
+        {
+            ratio[i] = Brightness(shadowOn, regions[i].x, regions[i].y, 2) / Brightness(shadowOff, regions[i].x, regions[i].y, 2);
+            printf("%-30s (%3d,%3d): x%.2f\n", regions[i].name, regions[i].x, regions[i].y, ratio[i]);
+        }
+        check(ratio[0] < 0.8, "floor in the sphere's shadow at least 20% darker");
+        check(ratio[1] > 0.99 && ratio[2] > 0.99 && ratio[3] > 0.99, "lit surfaces unchanged");
+        check(Diff(shadowOff, shadowOn, hx0, hy0, hx1, hy1) == 0, "shadows: 2D HUD panel untouched");
+    }
+    r->SetShadows(false);
+    check(Frame(*r, gpu) == shadowOff, "shadows off again == original");
+    SideLight = false;
 
     puts(ok ? "ALL OK" : "FAILED");
     return ok ? 0 : 1;
