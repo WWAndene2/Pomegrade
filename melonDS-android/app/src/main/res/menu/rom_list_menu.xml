@@ -54,8 +54,8 @@
     </item>
 
     <item
-        android:id="@+id/action_3ds_games"
-        android:title="@string/action_3ds_games"
+        android:id="@+id/action_three_ds_games"
+        android:title="@string/action_three_ds_games"
         android:orderInCategory="3"
         app:showAsAction="never" />
 

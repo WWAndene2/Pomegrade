@@ -199,7 +199,7 @@ class RomListActivity : AppCompatActivity() {
                 launchFirmware(ConsoleType.DSi)
                 return true
             }
-            R.id.action_3ds_games -> {
+            R.id.action_three_ds_games -> {
                 if (org.citra.citra_emu.CitraApplication.isSupported) {
                     startActivity(Intent(this, org.citra.citra_emu.ui.main.MainActivity::class.java))
                 } else {

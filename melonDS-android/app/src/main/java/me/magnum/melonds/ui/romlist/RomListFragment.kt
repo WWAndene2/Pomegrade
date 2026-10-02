@@ -232,7 +232,7 @@ class RomListFragment : Fragment() {
                 this.rom = rom
                 textViewRomName.text = rom.config.customName ?: rom.name
                 textViewRomPath.text = if (rom.platform == RomPlatform.N3DS) {
-                    itemView.context.getString(R.string.rom_platform_3ds, rom.fileName)
+                    itemView.context.getString(R.string.three_ds_rom_label, rom.fileName)
                 } else {
                     rom.fileName
                 }
