@@ -1,9 +1,9 @@
 name: Android APK
 
+# Builds take ~45 min: only main, plus manual runs from the Actions tab
 on:
   push:
-    branches: [ '**' ]
-  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 # a new push on a branch cancels the build of the previous one
