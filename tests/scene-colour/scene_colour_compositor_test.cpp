@@ -91,9 +91,11 @@ static std::vector<u32> Composite(GLRenderer& r, GPU& gpu)
     glDeleteFramebuffers(1, &fbo);
     glDeleteTextures(1, &tex);
 
+    // the top screen is rows 194-385, in screen order (checked against the
+    // display capture in tests/lighting-effects)
     std::vector<u32> top(256 * 192);
     for (int y = 0; y < 192; y++)
-        memcpy(&top[y * 256], &all[(385 - y) * 256], 256 * 4);
+        memcpy(&top[y * 256], &all[(194 + y) * 256], 256 * 4);
     return top;
 }
 
