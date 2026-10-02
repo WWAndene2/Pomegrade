@@ -28,7 +28,7 @@ jobs:
       - name: Install NDK and CMake
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.0.13004108" "cmake;3.22.1" "platforms;android-36"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.0.13004108" "ndk;27.3.13750724" "cmake;3.22.1" "cmake;3.31.6" "platforms;android-36"
 
       - name: Build debug APK
         run: |

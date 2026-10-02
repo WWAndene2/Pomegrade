@@ -54,6 +54,12 @@
     </item>
 
     <item
+        android:id="@+id/action_3ds_games"
+        android:title="@string/action_3ds_games"
+        android:orderInCategory="3"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_dsiware_manager"
         android:title="@string/dsiware_manager"
         android:orderInCategory="3"

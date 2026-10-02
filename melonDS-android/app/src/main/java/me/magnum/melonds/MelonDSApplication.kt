@@ -34,6 +34,8 @@ class MelonDSApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        // 3DS core: only stores the context, the core itself starts with its first screen
+        org.citra.citra_emu.CitraApplication.attach(this)
         createNotificationChannels()
         applyTheme()
         performMigrations()

@@ -199,6 +199,14 @@ class RomListActivity : AppCompatActivity() {
                 launchFirmware(ConsoleType.DSi)
                 return true
             }
+            R.id.action_3ds_games -> {
+                if (org.citra.citra_emu.CitraApplication.isSupported) {
+                    startActivity(Intent(this, org.citra.citra_emu.ui.main.MainActivity::class.java))
+                } else {
+                    Toast.makeText(this, R.string.three_ds_unsupported, Toast.LENGTH_LONG).show()
+                }
+                return true
+            }
             R.id.action_dsiware_manager -> {
                 val intent = Intent(this, DSiWareManagerActivity::class.java)
                 startActivity(intent)

@@ -7,3 +7,111 @@
 [submodule "melonDS-android/app/src/main/cpp/enet"]
 	path = melonDS-android/app/src/main/cpp/enet
 	url = https://github.com/lsalzman/enet.git
+[submodule "azahar/dist/compatibility_list"]
+	path = azahar/dist/compatibility_list
+	url = https://github.com/azahar-emu/compatibility-list
+[submodule "azahar/externals/boost"]
+	path = azahar/externals/boost
+	url = https://github.com/azahar-emu/ext-boost.git
+[submodule "azahar/externals/catch2"]
+	path = azahar/externals/catch2
+	url = https://github.com/catchorg/Catch2
+[submodule "azahar/externals/cpp-jwt"]
+	path = azahar/externals/cpp-jwt
+	url = https://github.com/arun11299/cpp-jwt.git
+[submodule "azahar/externals/cryptopp"]
+	path = azahar/externals/cryptopp
+	url = https://github.com/cryptopp-modern/cryptopp-modern.git
+[submodule "azahar/externals/cubeb"]
+	path = azahar/externals/cubeb
+	url = https://github.com/mozilla/cubeb
+[submodule "azahar/externals/dds-ktx"]
+	path = azahar/externals/dds-ktx
+	url = https://github.com/septag/dds-ktx
+[submodule "azahar/externals/discord-rpc"]
+	path = azahar/externals/discord-rpc
+	url = https://github.com/azahar-emu/discord-rpc.git
+[submodule "azahar/externals/dllwalker"]
+	path = azahar/externals/dllwalker
+	url = https://github.com/azahar-emu/dllwalker
+[submodule "azahar/externals/dynarmic"]
+	path = azahar/externals/dynarmic
+	url = https://github.com/azahar-emu/dynarmic.git
+[submodule "azahar/externals/enet"]
+	path = azahar/externals/enet
+	url = https://github.com/lsalzman/enet.git
+[submodule "azahar/externals/faad2/faad2"]
+	path = azahar/externals/faad2/faad2
+	url = https://github.com/knik0/faad2
+[submodule "azahar/externals/fmt"]
+	path = azahar/externals/fmt
+	url = https://github.com/fmtlib/fmt.git
+[submodule "azahar/externals/glslang"]
+	path = azahar/externals/glslang
+	url = https://github.com/KhronosGroup/glslang
+[submodule "azahar/externals/inih/inih"]
+	path = azahar/externals/inih/inih
+	url = https://github.com/benhoyt/inih.git
+[submodule "azahar/externals/libadrenotools"]
+	path = azahar/externals/libadrenotools
+	url = https://github.com/bylaws/libadrenotools
+[submodule "azahar/externals/library-headers"]
+	path = azahar/externals/library-headers
+	url = https://github.com/azahar-emu/ext-library-headers.git
+[submodule "azahar/externals/libressl"]
+	path = azahar/externals/libressl
+	url = https://github.com/azahar-emu/ext-libressl-portable.git
+[submodule "azahar/externals/libretro-common/libretro-common"]
+	path = azahar/externals/libretro-common/libretro-common
+	url = https://github.com/libretro/libretro-common.git
+[submodule "azahar/externals/libusb/libusb"]
+	path = azahar/externals/libusb/libusb
+	url = https://github.com/libusb/libusb.git
+[submodule "azahar/externals/libyuv"]
+	path = azahar/externals/libyuv
+	url = https://github.com/lemenkov/libyuv.git
+[submodule "azahar/externals/lodepng/lodepng"]
+	path = azahar/externals/lodepng/lodepng
+	url = https://github.com/lvandeve/lodepng.git
+[submodule "azahar/externals/nihstro"]
+	path = azahar/externals/nihstro
+	url = https://github.com/neobrain/nihstro.git
+[submodule "azahar/externals/oaknut"]
+	path = azahar/externals/oaknut
+	url = https://github.com/merryhime/oaknut.git
+[submodule "azahar/externals/openal-soft"]
+	path = azahar/externals/openal-soft
+	url = https://github.com/azahar-emu/openal-soft
+[submodule "azahar/externals/sdl2/SDL"]
+	path = azahar/externals/sdl2/SDL
+	url = https://github.com/libsdl-org/SDL
+[submodule "azahar/externals/sirit/sirit"]
+	path = azahar/externals/sirit/sirit
+	url = https://github.com/azahar-emu/sirit
+[submodule "azahar/externals/soundtouch"]
+	path = azahar/externals/soundtouch
+	url = https://github.com/azahar-emu/soundtouch.git
+[submodule "azahar/externals/spirv-headers"]
+	path = azahar/externals/spirv-headers
+	url = https://github.com/KhronosGroup/SPIRV-Headers
+[submodule "azahar/externals/spirv-tools"]
+	path = azahar/externals/spirv-tools
+	url = https://github.com/KhronosGroup/SPIRV-Tools
+[submodule "azahar/externals/teakra"]
+	path = azahar/externals/teakra
+	url = https://github.com/wwylele/teakra.git
+[submodule "azahar/externals/vma"]
+	path = azahar/externals/vma
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
+[submodule "azahar/externals/vulkan-headers"]
+	path = azahar/externals/vulkan-headers
+	url = https://github.com/KhronosGroup/Vulkan-Headers
+[submodule "azahar/externals/xbyak"]
+	path = azahar/externals/xbyak
+	url = https://github.com/herumi/xbyak.git
+[submodule "azahar/externals/xxHash"]
+	path = azahar/externals/xxHash
+	url = https://github.com/Cyan4973/xxHash.git
+[submodule "azahar/externals/zstd"]
+	path = azahar/externals/zstd
+	url = https://github.com/facebook/zstd.git

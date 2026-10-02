@@ -112,6 +112,8 @@ dependencies {
     implementation(projects.masterswitch)
     implementation(projects.rcheevosApi)
     implementation(projects.common)
+    // 3DS core (Azahar)
+    implementation(projects.azahar)
 
     implementation(libs.androidx.activity)
     implementation(libs.androidx.activity.compose)

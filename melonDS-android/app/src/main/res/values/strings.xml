@@ -642,6 +642,8 @@
     <string name="multiplayer_error_discovery_failed">Discovery failed</string>
     <string name="multiplayer_error_lan_init_failed">Failed to initialize LAN session</string>
     <string name="multiplayer_error_permission_denied">Required permissions not granted</string>
+    <string name="action_3ds_games">3DS games</string>
+    <string name="three_ds_unsupported">3DS games need a 64-bit device</string>
     <string name="hd_textures">HD textures</string>
     <string name="hd_textures_summary">Replace 3D textures with HD versions from Android/data/&lt;app&gt;/files/textures/&lt;game code&gt;/</string>
     <string name="dump_textures">Dump textures</string>
