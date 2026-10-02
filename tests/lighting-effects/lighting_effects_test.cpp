@@ -100,6 +100,12 @@ static bool UnlitCanopy = false; // shadow test: an unlit canopy over the back o
 static bool TranslucentPanel = false; // a translucent 2D dialog box over the lower screen
 static bool CutoutSprite = false;     // a sprite with a cut-out texture (A5I3: the DS draws it in the translucent pass)
 static bool FullFog = false;          // fog at full density everywhere
+// contact-hardening shadows: two lit bars running away from the camera (z -4
+// to -6), one just above the floor and one high, lit from the left (light 0
+// travelling (0.6, -0.8, 0)): each casts a band on the floor whose right
+// edge runs away from the camera too, measured across the screen
+static bool Bars = false;
+static const double LowBarX = -2.0, LowBarHeight = 0.1, HighBarX = 0.6, HighBarHeight = 2.4, BarHalf = 0.1;
 
 static void DrawSphere()
 {
@@ -144,7 +150,9 @@ static void SubmitScene()
     Cmd(0x10, {0}); LoadMatrix(proj);
 
     Cmd(0x10, {2}); Cmd(0x15); // position & vector: identity (view space = model space)
-    if (FrontLight)
+    if (Bars)
+        Cmd(0x32, {N10(0.6) | (N10(-0.8) << 10) | (N10(0) << 20)});
+    else if (FrontLight)
         Cmd(0x32, {N10(-0.2) | (N10(-0.45) << 10) | (N10(-0.87) << 20)}); // light 0, from the front
     else if (SideLight)
         Cmd(0x32, {N10(0.69) | (N10(-0.69) << 10) | (N10(-0.23) << 20)}); // light 0 travelling right and down
@@ -204,6 +212,18 @@ static void SubmitScene()
         Cmd(0x20, {0x03E0}); Vertex16(0, 0.3, -2);
         Cmd(0x41);
         Cmd(0x60, {0 | (0 << 8) | (255u << 16) | (191u << 24)});
+    }
+
+    if (Bars)
+    {
+        Cmd(0x29, {(31 << 16) | (7 << 24) | 0xC0 | 0x01}); // light 0, both sides
+        Cmd(0x40, {1});
+        for (auto [x, h] : {std::pair<double, double>(LowBarX, LowBarHeight), {HighBarX, HighBarHeight}})
+        {
+            double x0 = x - BarHalf, x1 = x + BarHalf, y = FloorY + h;
+            Normal(0, 1, 0); Vertex16(x0, y, -4); Vertex16(x1, y, -4); Vertex16(x1, y, -6); Vertex16(x0, y, -6);
+        }
+        Cmd(0x41);
     }
 
     if (CutoutSprite)
@@ -553,6 +573,42 @@ int main()
         printf("unlit canopy: floor under it (%d,%d) x%.2f, sphere's shadow x%.2f\n", bx, by, under, shadow);
         check(under > 0.99 && shadow < 0.8, "unlit canopy casts no shadow, the sphere still does");
         UnlitCanopy = false;
+    }
+    {
+        // contact hardening: a shadow is sharp where it meets its caster and
+        // softer the further it falls. The right edge of each bar's shadow,
+        // where z = -5 (the same distance from the camera for both): its
+        // width in pixels between 10% and 90% of the shadow's depth
+        SideLight = false;
+        Bars = true;
+        r->SetShadows(false);
+        auto barsOff = Frame(*r, gpu);
+        r->SetShadows(true);
+        Frame(*r, gpu);
+        auto barsOn = Frame(*r, gpu);
+        Bars = false;
+        auto softEdge = [&](double barX, double height) {
+            // inside the shadow: the bar's right side moved along the light
+            int sx, sy;
+            Project(barX + BarHalf + height * 0.75 - 0.03, FloorY, -5.0, sx, sy);
+            auto ratio = [&](int x) { return Brightness(barsOn, x, sy, 0) / std::max(1.0, Brightness(barsOff, x, sy, 0)); };
+            double core = 1.0;
+            for (int x = sx - 2; x <= sx; x++) core = std::min(core, ratio(x));
+            int soft = 0;
+            for (int x = sx; x < 256; x++)
+            {
+                double d = (1.0 - ratio(x)) / std::max(1e-6, 1.0 - core); // 0 lit .. 1 full shadow
+                if (d <= 0.1) break;
+                if (d < 0.9) soft++;
+            }
+            printf("bar %.1f above the floor: shadow x%.2f, soft edge %d pixels\n", height, core, soft);
+            return std::pair<int, double>(soft, core);
+        };
+        auto [nearSoft, nearCore] = softEdge(LowBarX, LowBarHeight);
+        auto [farSoft, farCore] = softEdge(HighBarX, HighBarHeight);
+        check(nearCore < 0.8 && farCore < 0.8, "contact hardening: both bars cast a shadow");
+        check(farSoft >= nearSoft + 2, "contact hardening: the high bar's shadow edge is wider (2 pixels or more)");
+        SideLight = true;
     }
     r->SetShadows(false);
     check(Frame(*r, gpu) == shadowOff, "shadows off again == original");

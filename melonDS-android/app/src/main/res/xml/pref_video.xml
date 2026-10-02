@@ -61,6 +61,13 @@
             android:defaultValue="1"/>
 
     <SwitchPreference
+            android:key="texture_filter"
+            android:title="@string/texture_filter"
+            android:summary="@string/texture_filter_summary"
+            app:iconSpaceReserved="false"
+            android:defaultValue="false" />
+
+    <SwitchPreference
             android:key="oled_blacks"
             android:title="@string/oled_blacks"
             android:summary="@string/oled_blacks_summary"

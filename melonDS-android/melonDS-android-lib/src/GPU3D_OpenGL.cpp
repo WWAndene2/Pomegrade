@@ -218,6 +218,7 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
     glUniform1i(glGetUniformLocation(result->LightingComposeShader, "AO"), 3);
     glUniform1i(glGetUniformLocation(result->LightingComposeShader, "Bounce"), 4);
     glUniform1i(glGetUniformLocation(result->LightingComposeShader, "ShadowMap"), 5);
+    glUniform1i(glGetUniformLocation(result->LightingComposeShader, "ShadowDepthMap"), 6);
     {
         const char* names[7] = {"uShadowStrength", "uLightRight", "uLightUp", "uLightDir", "uShadowBounds", "uShadowDepth", "uShadowTexel"};
         for (int i = 0; i < 7; i++)
@@ -389,6 +390,7 @@ GLRenderer::~GLRenderer()
     glDeleteFramebuffers(2, CopyFramebuffers);
     glDeleteFramebuffers(1, &ShadowFramebuffer);
     glDeleteTextures(1, &ShadowMapTex);
+    glDeleteSamplers(1, &ShadowDepthSampler);
 
     glDeleteVertexArrays(1, &VertexArrayID);
     glDeleteBuffers(1, &VertexBufferID);
@@ -1640,6 +1642,19 @@ void GLRenderer::RenderLighting(const GPU3D& gpu3d)
     glBindTexture(GL_TEXTURE_2D, BounceTex);
     glActiveTexture(GL_TEXTURE5);
     glBindTexture(GL_TEXTURE_2D, shadows ? ShadowMapTex : 0);
+    // the shadow map again, read as depths: the sampler overrides its comparison mode
+    if (!ShadowDepthSampler)
+    {
+        glGenSamplers(1, &ShadowDepthSampler);
+        glSamplerParameteri(ShadowDepthSampler, GL_TEXTURE_COMPARE_MODE, GL_NONE);
+        glSamplerParameteri(ShadowDepthSampler, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glSamplerParameteri(ShadowDepthSampler, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glSamplerParameteri(ShadowDepthSampler, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glSamplerParameteri(ShadowDepthSampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
+    glActiveTexture(GL_TEXTURE6);
+    glBindTexture(GL_TEXTURE_2D, shadows ? ShadowMapTex : 0);
+    glBindSampler(6, ShadowDepthSampler);
     glUniform1f(ComposeShadowLoc[0], shadows ? ShadowStrength : 0.0f);
     if (shadows)
     {
@@ -1667,6 +1682,7 @@ void GLRenderer::RenderLighting(const GPU3D& gpu3d)
     glUniform1i(LightingComposeAOLoc, AmbientOcclusion ? 1 : 0);
     glUniform1f(LightingComposeBounceLoc, LightBounce ? BounceIntensity : 0.0f);
     glDrawArrays(GL_TRIANGLES, 0, 2*3);
+    glBindSampler(6, 0);
 
     // state as the opaque pass leaves it (the translucent pass follows)
     const GLenum colourAndAttr[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};

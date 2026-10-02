@@ -8,6 +8,7 @@
 #include "stb/stb_image.h"
 #include "stb/stb_image_write.h"
 #include <cstdio>
+#include <cmath>
 #include <cstring>
 #include <filesystem>
 #include <vector>
@@ -173,5 +174,88 @@ int main()
     TextureReplacement::SetConfig({"tex", false, false});
     auto off = Render(*r, gpu);
     printf("off == native: %s\n", off == native ? "yes" : "NO");
-    return bad != 0 || off != native;
+
+    // 5. texture filtering (Pomegrade): 7.5 texels across the screen, each
+    // 34.13 pixels wide, so texel edges fall inside pixels. Texel middles keep
+    // their colour, each texel edge is blended over a pixel or two (none with
+    // nearest sampling), transparent texels cover the same pixels
+    bool filterOk = true;
+    {
+        auto check = [&](bool cond, const char* what) { printf("texture filter: %s: %s\n", what, cond ? "yes" : "NO"); filterOk = filterOk && cond; };
+        for (int i = 0; i < 4; i++) verts[i].TexCoords[0] = (i==1||i==2) ? 120 : 0;
+        const double w = 256.0 / 7.5;
+        u16* tex = (u16*)gpu.VRAM_A;
+        tex[3*8+3] = 0; // one transparent texel (alpha bit clear)
+        auto nearest = Render(*r, gpu);
+        r->SetTextureFilter(true);
+        auto filtered = Render(*r, gpu);
+        r->SetTextureFilter(false);
+        auto again = Render(*r, gpu);
+        tex[3*8+3] = (3*4) | ((3*4) << 5) | 0x8000;
+        for (int i = 0; i < 4; i++) verts[i].TexCoords[0] = (i==1||i==2) ? 128 : 0;
+
+        int middles = 0, middlesSame = 0;
+        for (int Y = 0; Y < 8; Y++) for (int X = 0; X < 7; X++)
+            for (int dy = -4; dy <= 4; dy++) for (int dx = -8; dx <= 8; dx++)
+            {
+                int x = (int)((X + 0.5) * w) + dx, y = Y*24 + 12 + dy;
+                middles++;
+                if ((filtered[y*256+x] & 0xFFFFFF) == (nearest[y*256+x] & 0xFFFFFF)) middlesSame++;
+            }
+        check(middlesSame == middles, "texel middles unchanged (no blur)");
+
+        // along a row through texel middles: pixels unlike both texels they sit between
+        int blendedNearest = 0, blendedFiltered = 0, badEdges = 0;
+        int y = 12 + 24;
+        for (int edge = 1; edge < 7; edge++)
+        {
+            int ex = (int)(edge * w), inEdge = 0;
+            u32 left = nearest[y*256 + ex - 8] & 0xFFFFFF, right = nearest[y*256 + ex + 8] & 0xFFFFFF;
+            for (int x = ex - 4; x <= ex + 4; x++)
+            {
+                u32 n = nearest[y*256+x] & 0xFFFFFF, f = filtered[y*256+x] & 0xFFFFFF;
+                if (n != left && n != right) blendedNearest++;
+                if (f != left && f != right) { blendedFiltered++; inEdge++; }
+            }
+            if (inEdge < 1 || inEdge > 2) badEdges++;
+        }
+        printf("texture filter: blended pixels on 6 texel edges: nearest %d, filtered %d\n", blendedNearest, blendedFiltered);
+        check(blendedNearest == 0 && badEdges == 0, "each texel edge blended over 1-2 pixels (nearest: none)");
+
+        int coverageDiff = 0, transparent = 0;
+        for (int i = 0; i < 256*192; i++)
+        {
+            if ((nearest[i] & 0xFFFFFF) == 0) transparent++;
+            if (((nearest[i] & 0xFFFFFF) == 0) != ((filtered[i] & 0xFFFFFF) == 0)) coverageDiff++;
+        }
+        printf("texture filter: transparent pixels %d, covered differently %d\n", transparent, coverageDiff);
+        check(transparent > 500 && coverageDiff == 0, "transparent texel covers the same pixels");
+        check(again == nearest, "off again == nearest");
+
+        // minified: the texture repeated across the screen at 4 texels per
+        // pixel. Nearest sampling picks one texel per pixel (aliasing); the
+        // filter's samples along the footprint come close to the average of
+        // the texels under each pixel (the texture is red = x * 4)
+        poly.TexParam = (7u << 26) | (1 << 16);
+        for (int i = 0; i < 4; i++) verts[i].TexCoords[0] = (i==1||i==2) ? 1024*16 : 0;
+        auto nearMin = Render(*r, gpu);
+        r->SetTextureFilter(true);
+        auto filtMin = Render(*r, gpu);
+        r->SetTextureFilter(false);
+        poly.TexParam = (7u << 26);
+        for (int i = 0; i < 4; i++) verts[i].TexCoords[0] = (i==1||i==2) ? 128 : 0;
+        double errNearest = 0, errFiltered = 0;
+        for (int x = 0; x < 256; x++)
+        {
+            // the true colour: the average of the 4 texels under the pixel
+            double truth = 0;
+            for (int k = 4 * x; k < 4 * x + 4; k++) truth += (k & 7) * 4 / 4.0;
+            // capture is RGB6: the 5-bit texel red, doubled
+            errNearest += std::fabs((nearMin[96*256+x] & 0x3F) / 2.0 - truth);
+            errFiltered += std::fabs((filtMin[96*256+x] & 0x3F) / 2.0 - truth);
+        }
+        printf("texture filter: minified x4, mean red error from each pixel's texels: nearest %.2f, filtered %.2f\n", errNearest / 256, errFiltered / 256);
+        check(errFiltered < errNearest * 0.6, "minified: much closer to the average (less aliasing)");
+    }
+    return bad != 0 || off != native || !filterOk;
 }

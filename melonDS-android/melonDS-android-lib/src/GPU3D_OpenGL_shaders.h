@@ -87,6 +87,7 @@ layout(std140) uniform uConfig
     float uFogDensity[34];
     int uFogOffset;
     int uFogShift;
+    int uTextureFilter; // Pomegrade: TextureLookup_Filtered
 };
 
 layout(location = 0) out vec4 oColor;
@@ -172,6 +173,7 @@ layout(std140) uniform uConfig
     float uFogDensity[34];
     int uFogOffset;
     int uFogShift;
+    int uTextureFilter; // Pomegrade: TextureLookup_Filtered
 };
 
 layout(location = 0) out vec4 oColor;
@@ -238,6 +240,7 @@ layout(std140) uniform uConfig
     float uFogDensity[34];
     int uFogOffset;
     int uFogShift;
+    int uTextureFilter; // Pomegrade: TextureLookup_Filtered
 };
 
 in uvec4 vPosition;
@@ -279,6 +282,7 @@ layout(std140) uniform uConfig
     float uFogDensity[34];
     int uFogOffset;
     int uFogShift;
+    int uTextureFilter; // Pomegrade: TextureLookup_Filtered
 };
 
 smooth in vec4 fColor;
@@ -565,6 +569,73 @@ vec4 TextureLookup_Nearest(vec2 st)
     else                return TextureFetch_Direct    (vramaddr, st_full, wrapmode);
 }
 
+// Pomegrade: one texel of the polygon's texture (the DS's, or its upscaled or
+// HD replacement), at integer coordinates, wrapped as the DS wraps
+vec4 TexelAt(ivec2 c)
+{
+    int attr = int(fPolygonAttr.z << 16);
+    int wrapmode = (attr >> 16);
+    if (fHDTexture != 0)
+    {
+        int scaleLog2 = (fHDTexture >> 22) & 0x7;
+        int tw = (8 << ((attr >> 20) & 0x7)) << scaleLog2;
+        int th = (8 << ((attr >> 23) & 0x7)) << scaleLog2;
+        c.x = TexcoordWrap(c.x, tw, wrapmode);
+        c.y = TexcoordWrap(c.y, th, wrapmode>>1);
+        return texelFetch(HDAtlas, ivec3(((fHDTexture & 0x7F) << 3) + c.x,
+                                         (((fHDTexture >> 7) & 0x7F) << 3) + c.y,
+                                         (fHDTexture >> 14) & 0xFF), 0);
+    }
+
+    float alpha0 = ((attr & (1<<29)) != 0) ? 0.0 : 1.0;
+    ivec4 st_full = ivec4(c, 8 << ((attr >> 20) & 0x7), 8 << ((attr >> 23) & 0x7));
+    ivec2 vramaddr = ivec2(int(fPolygonAttr.y) << 3, int(fPolygonAttr.z >> 16));
+    int type = (attr >> 26) & 0x7;
+    if      (type == 5) return TextureFetch_Compressed(vramaddr, st_full, wrapmode);
+    else if (type == 2) return TextureFetch_I2        (vramaddr, st_full, wrapmode, alpha0);
+    else if (type == 3) return TextureFetch_I4        (vramaddr, st_full, wrapmode, alpha0);
+    else if (type == 4) return TextureFetch_I8        (vramaddr, st_full, wrapmode, alpha0);
+    else if (type == 1) return TextureFetch_A3I5      (vramaddr, st_full, wrapmode);
+    else if (type == 6) return TextureFetch_A5I3      (vramaddr, st_full, wrapmode);
+    else                return TextureFetch_Direct    (vramaddr, st_full, wrapmode);
+}
+
+// Pomegrade texture filtering, without mipmaps. Magnified, a texel keeps its
+// colour and only its edges are blended, over one screen pixel ("sharp
+// bilinear": no blur, no stair steps); from one texel per pixel it is plain
+// bilinear. Where a pixel spans several texels along its footprint's long
+// axis (distant and grazing surfaces), up to 4 such samples along that axis
+// are averaged (no shimmer, no moire). Colour only: the DS's nearest texel
+// keeps deciding alpha, so cut-outs and what is opaque or translucent stay
+// exactly the DS's; colour is weighted by alpha (no dark fringes).
+vec4 TextureLookup_Filtered(vec2 st)
+{
+    vec4 nearest = TextureLookup_Nearest(st);
+    float scale = fHDTexture != 0 ? float(1 << ((fHDTexture >> 22) & 0x7)) : 1.0;
+    vec2 t = st * scale - 0.5; // texel centres on integers, edges on halves
+    vec2 dx = dFdx(t), dy = dFdy(t);
+    vec2 span = clamp(abs(dx) + abs(dy), vec2(1.0 / 64.0), vec2(1.0)); // texels per pixel, per axis
+    float lx = length(dx), ly = length(dy);
+    vec2 axis = lx > ly ? dx : dy;
+    int taps = int(clamp(ceil(max(lx, ly)), 1.0, 4.0));
+
+    vec3 rgb = vec3(0.0);
+    float weight = 0.0;
+    for (int i = 0; i < 4; i++)
+    {
+        if (i >= taps) break;
+        vec2 p = t + axis * ((float(i) + 0.5) / float(taps) - 0.5);
+        vec2 base = floor(p);
+        vec2 f = clamp((p - base - 0.5) / span + 0.5, 0.0, 1.0);
+        ivec2 c = ivec2(base);
+        vec4 A = TexelAt(c), B = TexelAt(c + ivec2(1, 0)), C = TexelAt(c + ivec2(0, 1)), D = TexelAt(c + ivec2(1, 1));
+        vec4 w = vec4((1.0 - f.x) * (1.0 - f.y) * A.a, f.x * (1.0 - f.y) * B.a, (1.0 - f.x) * f.y * C.a, f.x * f.y * D.a);
+        rgb += w.x * A.rgb + w.y * B.rgb + w.z * C.rgb + w.w * D.rgb;
+        weight += w.x + w.y + w.z + w.w;
+    }
+    return vec4(weight > 0.0 ? rgb / weight : nearest.rgb, nearest.a);
+}
+
 vec4 TextureLookup_Linear(vec2 texcoord)
 {
     ivec2 intpart = ivec2(texcoord);
@@ -704,7 +775,7 @@ vec4 FinalColor()
     }
     else
     {
-        vec4 tcol = TextureLookup_Nearest(fTexcoord);
+        vec4 tcol = uTextureFilter != 0 ? TextureLookup_Filtered(fTexcoord) : TextureLookup_Nearest(fTexcoord);
         //vec4 tcol = TextureLookup_Linear(fTexcoord);
 
         if ((blendmode & 1) != 0)
@@ -1055,6 +1126,7 @@ uniform float uBounceIntensity; // 0 = off
 
 // shadows from the main light
 uniform highp sampler2DShadow ShadowMap;
+uniform highp sampler2D ShadowDepthMap; // the same map, its depths as stored (no comparison)
 uniform float uShadowStrength; // 0 = off
 uniform vec3 uLightRight, uLightUp, uLightDir;
 uniform vec4 uShadowBounds;
@@ -1129,7 +1201,23 @@ vec4 Reflection(vec3 P, vec3 N, float pixel, ivec2 size)
     return vec4(0.0);
 }
 
-// 1 = lit by the main light, 0 = in its shadow (3x3 filtered)
+// 16 points spread evenly over the unit disc (Vogel spiral)
+vec2 DiscPoint(int i, float rotation)
+{
+    float r = sqrt((float(i) + 0.5) / 16.0);
+    float a = float(i) * 2.39996323 + rotation;
+    return r * vec2(cos(a), sin(a));
+}
+
+// light's apparent size: penumbra width per unit of distance between the
+// caster and the receiver (tan of the light's angular radius, ~1 degree:
+// at ~3 degrees the long shadows of a low light washed out entirely)
+const float PenumbraSlope = 0.02;
+// widest penumbra searched, in shadow map texels
+const float MaxPenumbra = 12.0;
+
+// 1 = lit by the main light, 0 = in its shadow. Contact-hardening (PCSS):
+// sharp where a shadow meets its caster, softer the further it falls
 float ShadowLit(vec3 P, vec3 N)
 {
     vec2 uv = (vec2(dot(P, uLightRight), dot(P, uLightUp)) - uShadowBounds.xy) * uShadowBounds.zw;
@@ -1139,11 +1227,24 @@ float ShadowLit(vec3 P, vec3 N)
     float bias = uShadowTexel * (1.5 + 1.0 / cosLight) * uShadowDepth.y;
     float depth = (uShadowDepth.x - dot(P, uLightDir)) * uShadowDepth.y - bias;
     vec2 texel = 1.0 / vec2(textureSize(ShadowMap, 0));
+    // a different rotation of the disc per pixel: noise instead of banding
+    float rotation = 6.2831853 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+
+    // 1. the casters: average depth of what is between this point and the light
+    float blockers = 0.0, count = 0.0;
+    for (int i = 0; i < 16; i++)
+    {
+        float d = texture(ShadowDepthMap, uv + DiscPoint(i, rotation) * MaxPenumbra * texel).r;
+        if (d < depth) { blockers += d; count += 1.0; }
+    }
+    if (count == 0.0) return 1.0;
+    float distance = (depth - blockers / count) / uShadowDepth.y; // view units
+    // 2. the penumbra from the caster's distance, filtered over that width
+    float radius = clamp(distance * PenumbraSlope / uShadowTexel, 1.0, MaxPenumbra);
     float lit = 0.0;
-    for (int y = -1; y <= 1; y++)
-        for (int x = -1; x <= 1; x++)
-            lit += texture(ShadowMap, vec3(uv + vec2(x, y) * texel, depth));
-    return lit / 9.0;
+    for (int i = 0; i < 16; i++)
+        lit += texture(ShadowMap, vec3(uv + DiscPoint(i, rotation) * radius * texel, depth));
+    return lit / 16.0;
 }
 
 layout(location = 0) out vec4 oColor;

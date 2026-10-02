@@ -94,6 +94,8 @@ typedef struct
     bool highColor = false;
     // Pomegrade: native texture upscaling factor in the OpenGL renderer, 1 = off (see GLHDTextures::SetUpscaleFactor)
     int textureUpscale = 1;
+    // Pomegrade: texture filtering in the OpenGL renderer (see TextureLookup_Filtered)
+    bool textureFilter = false;
     // Pomegrade: scene-adaptive colour in the OpenGL renderer (see GPU_SceneColour.h)
     bool oledBlacks = false;
     bool adaptiveColours = false;

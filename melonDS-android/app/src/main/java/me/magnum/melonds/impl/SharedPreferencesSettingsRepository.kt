@@ -176,6 +176,7 @@ class SharedPreferencesSettingsRepository(
             highPrecisionGeometry = preferences.getBoolean("high_precision_geometry", false),
             highColor = preferences.getBoolean("high_color", false),
             textureUpscale = preferences.getString("texture_upscale", "1")?.toIntOrNull() ?: 1,
+            textureFilter = preferences.getBoolean("texture_filter", false),
             oledBlacks = preferences.getBoolean("oled_blacks", false),
             adaptiveColours = preferences.getBoolean("adaptive_colours", false),
             ambientOcclusion = preferences.getBoolean("ambient_occlusion", false),

@@ -53,6 +53,7 @@ class VideoPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTit
             add(findPreference("high_precision_geometry")!!)
             add(findPreference("high_color")!!)
             add(findPreference("texture_upscale")!!)
+            add(findPreference("texture_filter")!!)
             add(findPreference("oled_blacks")!!)
             add(findPreference("adaptive_colours")!!)
             add(findPreference("ambient_occlusion")!!)

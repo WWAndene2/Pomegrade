@@ -43,6 +43,8 @@ public:
     void SetHighColor(bool enable) noexcept { CurGLCompositor.SetHighColor(enable); }
     // Native texture upscaling (Pomegrade): see GLHDTextures::SetUpscaleFactor
     void SetTextureUpscale(int factor) { HDTextures.SetUpscaleFactor(factor); }
+    // Pomegrade: smooth texture filtering, colour only (see TextureLookup_Filtered)
+    void SetTextureFilter(bool enable) noexcept { ShaderConfig.uTextureFilter = enable ? 1 : 0; }
     // Scene-adaptive colour (Pomegrade): see GPU_SceneColour.h
     void SetAdaptiveColours(bool enable) { CurGLCompositor.SetAdaptiveColours(enable); }
     void SetOledBlacks(bool enable) { CurGLCompositor.SetOledBlacks(enable); }
@@ -174,7 +176,8 @@ private:
         float uFogDensity[34][4];   // float[34]  168 / 136
         u32 uFogOffset;             // int        304 / 1
         u32 uFogShift;              // int        305 / 1
-        u32 _pad1[2];               // int        306 / 2
+        u32 uTextureFilter;         // int        306 / 1   Pomegrade: TextureLookup_Filtered
+        u32 _pad1;                  // int        307 / 1
     } ShaderConfig {};
 
     GLuint ShaderConfigUBO {};
@@ -270,6 +273,7 @@ private:
     // share of the main light's contribution taken away in its shadow
     static constexpr float ShadowStrength = 0.6f;
     GLuint ShadowMapTex {}, ShadowFramebuffer {};
+    GLuint ShadowDepthSampler {}; // reads the shadow map's depths (contact-hardening search)
     u32 LightUse[4] {}; // opaque polygons lit by each light, this frame
     struct
     {
