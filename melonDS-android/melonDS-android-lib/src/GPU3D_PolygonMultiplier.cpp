@@ -24,6 +24,24 @@ void ProjectOntoTangentPlane(const double* p, const MultiplierVertex& corner, do
 
 }
 
+double PolygonMultiplier::EdgeFidelity(const MultiplierVertex& a, const MultiplierVertex& b)
+{
+    double e[3] = {b.Position[0]-a.Position[0], b.Position[1]-a.Position[1], b.Position[2]-a.Position[2]};
+    double len = std::sqrt(Dot(e, e));
+    if (len < 1e-12)
+        return 1;
+    // asymmetry: 0 for a circular arc, up to 2
+    double asymmetry = std::fabs(Dot(a.Normal, e) + Dot(b.Normal, e)) / len;
+    // fade from 0.2 to 0.5: measured to leave low-poly spheres, an ellipsoid,
+    // a cylinder and a torus as round as before (torus 0.0034 -> 0.0037 at
+    // x16) while a flat face with spherical normals bulges 28% less
+    constexpr double from = 0.2, to = 0.5;
+    if (asymmetry <= from) return 1;
+    if (asymmetry >= to) return 0;
+    double x = (asymmetry - from) / (to - from);
+    return 1 - x*x*(3 - 2*x);
+}
+
 double PolygonMultiplier::PNhongShare(int level)
 {
     // Blend with the lowest average distance to the true surface, in steps of
@@ -206,6 +224,9 @@ int PolygonMultiplier::SubdivideTriangle(const MultiplierVertex& a, const Multip
     if (level > MaxLevel) level = MaxLevel;
 
     const double pnShare = PNhongShare(level);
+    // geometry fidelity, per edge so both polygons sharing it agree (no cracks)
+    const double fab = EdgeFidelity(a, b), fbc = EdgeFidelity(b, c), fca = EdgeFidelity(c, a);
+    const bool faithful = fab == 1 && fbc == 1 && fca == 1;
 
     // grid point (i, j): barycentric (1 - (i+j)/level, i/level, j/level)
     MultiplierVertex grid[MaxLevel + 1][MaxLevel + 1];
@@ -218,7 +239,22 @@ int PolygonMultiplier::SubdivideTriangle(const MultiplierVertex& a, const Multip
             if (i == 0 && j == 0)               grid[i][j] = a;
             else if (i == level)                grid[i][j] = b;
             else if (j == level)                grid[i][j] = c;
-            else                                grid[i][j] = Interpolate(a, b, c, 1.0 - v - w, v, w, method, pnShare);
+            else
+            {
+                double u = 1.0 - v - w;
+                grid[i][j] = Interpolate(a, b, c, u, v, w, method, pnShare);
+                if (!faithful)
+                {
+                    // keep each edge's share of the curvature, blended inside
+                    double weight = u*v + v*w + w*u;
+                    double keep = (fab*u*v + fbc*v*w + fca*w*u) / weight;
+                    for (int k = 0; k < 3; k++)
+                    {
+                        double flat = u*a.Position[k] + v*b.Position[k] + w*c.Position[k];
+                        grid[i][j].Position[k] = flat + keep * (grid[i][j].Position[k] - flat);
+                    }
+                }
+            }
         }
     }
 

@@ -55,6 +55,13 @@ public:
     // PNhong: share of circular PN (the rest is Phong) at a level.
     static double PNhongShare(int level);
 
+    // Geometry fidelity: share of the curvature kept along edge (a, b), 1 to 0.
+    // On a smooth surface the two corners' normals tilt symmetrically about
+    // the edge; normals that tilt one-sidedly don't match the geometry (e.g.
+    // spherical normals painted on a flat cel-shaded face, or hand-tuned
+    // lighting normals), and curving along them would deform the model.
+    static double EdgeFidelity(const MultiplierVertex& a, const MultiplierVertex& b);
+
     // Phong tessellation shape factor: 0 = flat subdivision, 1 = full
     // projection. 3/4 is the value recommended by the paper.
     static constexpr double ShapeFactor = 0.75;

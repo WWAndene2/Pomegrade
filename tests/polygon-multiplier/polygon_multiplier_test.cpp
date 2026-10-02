@@ -103,6 +103,81 @@ int main()
         printf("%s: flat stays flat, corners and winding kept, shared edges match, rounder: OK\n", MethodNames[m]);
     }
 
+    // 6. geometry fidelity: a flat cel-shaded face with spherical normals bulges
+    //    less, the subdivision stays crack-free, a sphere is untouched
+    {
+        auto faceBulge = [](bool useFidelity) {
+            double worst = 0;
+            const int n = 6, level = 4;
+            for (int a = 0; a < n; a++)
+                for (int b = 0; b < n; b++)
+                {
+                    MultiplierVertex q[4];
+                    double xy[4][2] = {{(double)a, (double)b}, {(double)a, b + 1.0}, {a + 1.0, b + 1.0}, {a + 1.0, (double)b}};
+                    for (int k = 0; k < 4; k++)
+                    {
+                        double x = -0.6 + 1.2 * xy[k][0] / n, y = -0.6 + 1.2 * xy[k][1] / n;
+                        q[k] = V(x, y, 1, x, y, 1); // normal away from the head's centre
+                    }
+                    for (int t = 0; t < 2; t++)
+                    {
+                        if (useFidelity)
+                        {
+                            int count = PolygonMultiplier::SubdivideTriangle(q[0], q[t+1], q[t+2], level, Out, CurveMethod::PNhong);
+                            for (int i = 0; i < count; i++)
+                                for (int k = 0; k < 3; k++)
+                                    worst = std::fmax(worst, std::fabs(Out[i][k].Position[2] - 1));
+                        }
+                        else
+                        {
+                            for (int i = 0; i <= level; i++)
+                                for (int j = 0; j <= level - i; j++)
+                                {
+                                    MultiplierVertex p = PolygonMultiplier::Interpolate(q[0], q[t+1], q[t+2], 1 - (double)(i + j) / level,
+                                        (double)i / level, (double)j / level, CurveMethod::PNhong, PolygonMultiplier::PNhongShare(level));
+                                    worst = std::fmax(worst, std::fabs(p.Position[2] - 1));
+                                }
+                        }
+                    }
+                }
+            return worst;
+        };
+        double without = faceBulge(false), with = faceBulge(true);
+        printf("flat face with spherical normals, bulge at x16: %.4f without fidelity, %.4f with\n", without, with);
+        assert(with < without * 0.8);
+
+        // crack-free: the shared edge q0-q2 gets the same points from both triangles
+        MultiplierVertex q[4] = {V(0,0,1, 0,0,1), V(0.3,0,1, 0.3,0,1), V(0.3,0.3,1, 0.3,0.3,1), V(0,0.3,1, 0,0.3,1)};
+        MultiplierVertex first[64][3];
+        int n1 = PolygonMultiplier::SubdivideTriangle(q[0], q[1], q[2], 4, first, CurveMethod::PNhong);
+        int n2 = PolygonMultiplier::SubdivideTriangle(q[0], q[2], q[3], 4, Out, CurveMethod::PNhong);
+        int shared = 0;
+        for (int i = 0; i < n1; i++)
+            for (int k = 0; k < 3; k++)
+            {
+                const double* p = first[i][k].Position;
+                // on the diagonal x == y?
+                if (std::fabs(p[0] - p[1]) > 1e-9) continue;
+                bool found = false;
+                for (int j = 0; j < n2 && !found; j++)
+                    for (int m = 0; m < 3 && !found; m++)
+                        found = std::fabs(Out[j][m].Position[0] - p[0]) < 1e-12 && std::fabs(Out[j][m].Position[1] - p[1]) < 1e-12 &&
+                                std::fabs(Out[j][m].Position[2] - p[2]) < 1e-12;
+                assert(found);
+                shared++;
+            }
+        assert(shared > 0);
+
+        // a sphere has consistent normals: fidelity changes nothing
+        for (int level = 2; level <= PolygonMultiplier::MaxLevel; level++)
+        {
+            MultiplierVertex s0 = S(1.2, 0.3), s1 = S(1.6, 0.3), s2 = S(1.6, 0.9);
+            assert(PolygonMultiplier::EdgeFidelity(s0, s1) == 1 && PolygonMultiplier::EdgeFidelity(s1, s2) == 1 &&
+                   PolygonMultiplier::EdgeFidelity(s2, s0) == 1);
+        }
+        puts("geometry fidelity: less bulge on painted normals, crack-free, spheres untouched: OK");
+    }
+
     // 5. PNhong, the method the multiplier uses: Phong at level 2, a blend
     //    measured closer than both above (see PNhongShare)
     printf("average distance to the sphere (8-segment model):\n");

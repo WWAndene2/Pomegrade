@@ -53,6 +53,8 @@ Pomegrade is currently **two apps side by side in one APK**: melonDS-android (DS
   | High colour: 8-bit colour instead of the DS's 6 | OpenGL | Done. Lit sphere shading 50 → 184 colour levels |
   | Better polygons (melonDS option, fewer seams at high resolution) | OpenGL | Exposed in the settings |
 
+  Geometry fidelity (local, per edge): curvature reduced where the normals don't match the geometry (e.g. spherical normals painted on a flat cel-shaded face: 28% less bulge), round shapes unchanged. Not solved locally: an angular shape with smoothed normals (box, sharp chin) looks exactly like a rounded one from a single polygon. **Next:** detect hard edges from neighbouring polygons (a box has 90° between faces, a low-poly sphere 36-60°), which means multiplying at the end of the frame with each polygon's lighting state saved.
+
   Known limits: the Compute renderer ignores all of these; small cracks are possible where a multiplied polygon meets one that isn't; extra polygons aren't kept in savestates (redrawn on the next frame).
 
   Next:
