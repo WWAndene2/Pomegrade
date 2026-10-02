@@ -48,6 +48,7 @@ class VideoPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTit
         openGlRendererPreferences.apply {
             add(findPreference("video_internal_resolution")!!)
             add(findPreference("polygon_multiplier")!!)
+            add(findPreference("better_polygons")!!)
             add(findPreference("enable_hd_textures")!!)
             add(findPreference("dump_textures")!!)
         }

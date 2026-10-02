@@ -108,6 +108,13 @@ MelonDSAndroid::EmulatorConfiguration MelonDSAndroidConfiguration::buildEmulator
     textureReplacementConfig.Dump = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "dumpTexturesEnabled", "Z"));
     melonDS::TextureReplacement::SetConfig(textureReplacementConfig);
 
+    // Pomegrade: "better polygons" (OpenGL renderer), splits polygons around a centre vertex
+    if (videoRenderer == MelonDSAndroid::Renderer::OpenGl)
+    {
+        static_cast<MelonDSAndroid::OpenGlRenderSettings&>(*finalEmulatorConfiguration.renderSettings).betterPolygons =
+            env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "betterPolygons", "Z"));
+    }
+
     // Pomegrade: polygon multiplier, applied by MelonInstance::updateRenderer
     finalEmulatorConfiguration.polygonMultiplier = env->GetIntField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "polygonMultiplier", "I"));
 

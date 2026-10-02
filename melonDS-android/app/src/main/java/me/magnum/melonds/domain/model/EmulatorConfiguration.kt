@@ -33,4 +33,6 @@ data class EmulatorConfiguration(
         val dumpTexturesEnabled: Boolean = false,
         // Pomegrade: polygon multiplier level, 1 = off (software and OpenGL renderers)
         val polygonMultiplier: Int = 1,
+        // Pomegrade: OpenGL renderer splits polygons around a centre vertex (fewer seams at high resolution)
+        val betterPolygons: Boolean = false,
 )
