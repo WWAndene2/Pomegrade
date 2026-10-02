@@ -193,6 +193,10 @@ void GPU3D::ResetRenderingState() noexcept
 
 void GPU3D::Reset() noexcept
 {
+    EdgeFaces.clear();
+    EdgeKeepPending.clear();
+    EdgeKeep.clear();
+
     CmdFIFO.Clear();
     CmdPIPE.Clear();
 
@@ -1158,6 +1162,11 @@ void GPU3D::SubmitPolygon() noexcept
     VertexSlotCounter = 1;
     VertexSlotsFree = 0b11110;
 
+    // polygon multiplier: every face counts for the angles between faces,
+    // including those culled or clipped away below
+    if (PolygonMultiplierLevel > 1)
+        RegisterEdgeFaces(nverts);
+
     // culling
     // TODO: work out how it works on the real thing
     // the normalization part is a wild guess
@@ -1523,6 +1532,15 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
             return;
     }
 
+    // geometry fidelity from neighbours: share of curvature kept along each
+    // edge, from earlier frames (see RegisterEdgeFaces)
+    double edgeKeep[4];
+    for (int i = 0; i < nverts; i++)
+    {
+        auto known = EdgeKeep.find(EdgeKey(i, nverts));
+        edgeKeep[i] = known != EdgeKeep.end() ? known->second : 1.0;
+    }
+
     if (!PolygonMultiplier::IsCurved(corners, nverts))
         return;
 
@@ -1569,8 +1587,14 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
     {
         // quads are split along the 0-2 diagonal
         int a = 0, b = t + 1, c = t + 2;
+        // the polygon's edges are 0-1, 1-2 ... (n-1)-0; a quad's diagonal is
+        // inside it, curved only as much as its least curved edge
+        double inside = std::min({edgeKeep[0], edgeKeep[1], edgeKeep[2], edgeKeep[nverts - 1]});
+        const double keep[3] = {b == 1 ? edgeKeep[0] : inside,
+                                edgeKeep[b],
+                                c == nverts - 1 ? edgeKeep[nverts - 1] : inside};
         int count = PolygonMultiplier::SubdivideTriangle(corners[a], corners[b], corners[c], level, sub,
-                                                         CurveMethod::PNhong);
+                                                         CurveMethod::PNhong, keep);
 
         for (int s = 0; s < count; s++)
         {
@@ -1690,6 +1714,83 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
     parent->SubPolygonCount = NumSubPolygons - firstpoly;
 }
 
+u64 GPU3D::EdgeKey(int corner, int nverts) const noexcept
+{
+    // the edge from this corner to the next, by its corners' model positions
+    // (48 bits each, in either order) mixed into one key
+    const s16* ma = TempVertexBuffer[corner].ModelPosition;
+    const s16* mb = TempVertexBuffer[(corner + 1) % nverts].ModelPosition;
+    u64 ka = ((u64)(u16)ma[0] << 32) | ((u64)(u16)ma[1] << 16) | (u16)ma[2];
+    u64 kb = ((u64)(u16)mb[0] << 32) | ((u64)(u16)mb[1] << 16) | (u16)mb[2];
+    if (ka > kb) std::swap(ka, kb);
+    return ka * 0x9E3779B97F4A7C15ull ^ (kb + 0x632BE59BD9B4E019ull + (ka << 6) + (ka >> 2));
+}
+
+void GPU3D::RegisterEdgeFaces(int nverts) noexcept
+{
+    // only lit geometry with view data (what the multiplier curves)
+    double pos[4][3], avg[3] = {};
+    for (int i = 0; i < nverts; i++)
+    {
+        const Vertex& v = TempVertexBuffer[i];
+        if (!v.HasViewNormal)
+            return;
+        for (int k = 0; k < 3; k++)
+        {
+            pos[i][k] = v.ViewPosition[k];
+            avg[k] += v.ViewNormal[k];
+        }
+    }
+
+    // the face's normal (a quad's: across its diagonals), on the side its
+    // normals point to, whatever the winding
+    double e1[3], e2[3];
+    for (int k = 0; k < 3; k++)
+    {
+        e1[k] = (nverts == 4 ? pos[2][k] - pos[0][k] : pos[1][k] - pos[0][k]);
+        e2[k] = (nverts == 4 ? pos[3][k] - pos[1][k] : pos[2][k] - pos[0][k]);
+    }
+    double face[3] = {e1[1]*e2[2] - e1[2]*e2[1], e1[2]*e2[0] - e1[0]*e2[2], e1[0]*e2[1] - e1[1]*e2[0]};
+    double len = std::sqrt(face[0]*face[0] + face[1]*face[1] + face[2]*face[2]);
+    if (len == 0)
+        return;
+    if (face[0]*avg[0] + face[1]*avg[1] + face[2]*avg[2] < 0) len = -len;
+    for (int k = 0; k < 3; k++) face[k] /= len;
+
+    for (int i = 0; i < nverts; i++)
+    {
+        u64 key = EdgeKey(i, nverts);
+        auto seen = EdgeFaces.find(key);
+        if (seen == EdgeFaces.end())
+        {
+            EdgeFace f;
+            for (int k = 0; k < 3; k++) f.Normal[k] = (float)face[k];
+            f.Paired = false;
+            EdgeFaces.emplace(key, f);
+        }
+        else if (!seen->second.Paired)
+        {
+            // the second face of this edge: the angle between them
+            seen->second.Paired = true;
+            double cosAngle = seen->second.Normal[0]*face[0] + seen->second.Normal[1]*face[1] + seen->second.Normal[2]*face[2];
+            EdgeKeepPending[key] = (float)PolygonMultiplier::DihedralKeep(cosAngle);
+        }
+    }
+}
+
+void GPU3D::UpdateEdgeKeep() noexcept
+{
+    if (EdgeFaces.empty())
+        return;
+    // bounded: models come and go
+    if (EdgeKeep.size() > (1u << 20))
+        EdgeKeep.clear();
+    for (const auto& [key, keep] : EdgeKeepPending)
+        EdgeKeep[key] = keep;
+    EdgeKeepPending.clear();
+    EdgeFaces.clear();
+}
+
 bool YSort(Polygon* a, Polygon* b); // hardware polygon sorting, see VBlank
 
 void GPU3D::BuildMultipliedRenderList() noexcept
@@ -1791,6 +1892,7 @@ void GPU3D::SubmitVertex() noexcept
         // is zero when W doesn't depend on depth
         vertextrans->Orthographic = ProjMatrix[3] == 0 && ProjMatrix[7] == 0 && ProjMatrix[11] == 0;
         vertextrans->Specular = CurColorFromLighting ? (MatSpecular[0] + MatSpecular[1] + MatSpecular[2]) / 93.0f : 0.0f;
+        for (int i = 0; i < 3; i++) vertextrans->ModelPosition[i] = CurVertex[i];
         if (!vertextrans->Orthographic &&
             (memcmp(FrameProjMatrix, ProjMatrix, sizeof(ProjMatrix)) || memcmp(FrameViewport, Viewport, sizeof(FrameViewport))))
         {
@@ -2940,6 +3042,7 @@ void GPU3D::VBlank() noexcept
                 memcpy(RenderLightDirection, LightDirection, sizeof(LightDirection));
                 memcpy(RenderProjMatrix, FrameProjMatrix, sizeof(FrameProjMatrix));
                 memcpy(RenderViewport, FrameViewport, sizeof(FrameViewport));
+                UpdateEdgeKeep();
 
                 BuildMultipliedRenderList();
             }

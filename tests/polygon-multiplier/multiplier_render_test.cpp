@@ -144,6 +144,109 @@ static void SubmitScene()
     g.VBlank();     // builds the render list, as at the end of a frame
 }
 
+// Geometry fidelity from neighbours: a box whose normals the game smoothed
+// (each corner's normal points diagonally out, as a lighting artist would to
+// soften it) and a sphere, side by side.
+static const double BoxCenter[3] = {-1.0, 0.0, -4.0}, BoxHalf = 0.7, BoxTurn[2] = {0.5, 0.35};
+static const double BallCenter[3] = {1.6, 0.0, -4.2}, BallRadius = 1.0;
+
+// box model -> view: rotation about y, then x, then the translation (row vectors)
+static void BoxRotation(double r[3][3])
+{
+    double cy = std::cos(BoxTurn[0]), sy = std::sin(BoxTurn[0]), cx = std::cos(BoxTurn[1]), sx = std::sin(BoxTurn[1]);
+    double ry[3][3] = {{cy, 0, -sy}, {0, 1, 0}, {sy, 0, cy}};
+    double rx[3][3] = {{1, 0, 0}, {0, cx, sx}, {0, -sx, cx}};
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++)
+        {
+            r[i][j] = 0;
+            for (int k = 0; k < 3; k++) r[i][j] += ry[i][k] * rx[k][j];
+        }
+}
+
+static void SubmitBoxScene()
+{
+    GPU3D& g = Nds->GPU.GPU3D;
+    g.Write32(0x04000060, 0);
+    g.Write32(0x04000350, 0x1F0000 | (4 << 10) | (3 << 5) | 2);
+    g.Write32(0x04000354, 0x7FFF);
+    Cmd(0x60, {0 | (0 << 8) | (255u << 16) | (191u << 24)});
+    double f = 1.0 / std::tan(25.0 * M_PI / 180.0), a = 256.0 / 192.0, zn = 0.5, zf = 20;
+    double proj[16] = {f / a, 0, 0, 0,  0, f, 0, 0,  0, 0, (zf + zn) / (zn - zf), -1,  0, 0, 2 * zf * zn / (zn - zf), 0};
+    Cmd(0x10, {0}); LoadMatrix(proj);
+    Cmd(0x10, {2}); Cmd(0x15);
+    Cmd(0x32, {N10(-0.5) | (N10(-0.6) << 10) | (N10(-0.62) << 20)});
+    Cmd(0x33, {0x7FFF});
+    Cmd(0x30, {(0x7FFF) | (0x2108u << 16)});
+    Cmd(0x31, {0});
+    Cmd(0x29, {(31 << 16) | (1 << 24) | 0x80 | 0x01});
+
+    double r[3][3];
+    BoxRotation(r);
+    double box[16] = {r[0][0], r[0][1], r[0][2], 0,  r[1][0], r[1][1], r[1][2], 0,  r[2][0], r[2][1], r[2][2], 0,
+                      BoxCenter[0], BoxCenter[1], BoxCenter[2], 1};
+    LoadMatrix(box);
+    // six faces, counter-clockwise from outside; corner normals = the corner's direction
+    static const int faces[6][4][3] = {
+        {{-1,-1, 1}, { 1,-1, 1}, { 1, 1, 1}, {-1, 1, 1}}, {{ 1,-1,-1}, {-1,-1,-1}, {-1, 1,-1}, { 1, 1,-1}},
+        {{ 1,-1, 1}, { 1,-1,-1}, { 1, 1,-1}, { 1, 1, 1}}, {{-1,-1,-1}, {-1,-1, 1}, {-1, 1, 1}, {-1, 1,-1}},
+        {{-1, 1, 1}, { 1, 1, 1}, { 1, 1,-1}, {-1, 1,-1}}, {{-1,-1,-1}, { 1,-1,-1}, { 1,-1, 1}, {-1,-1, 1}}};
+    Cmd(0x40, {1});
+    for (auto& face : faces)
+        for (auto& c : face)
+        {
+            Normal(c[0] / std::sqrt(3.0), c[1] / std::sqrt(3.0), c[2] / std::sqrt(3.0));
+            Vertex16(c[0] * BoxHalf, c[1] * BoxHalf, c[2] * BoxHalf);
+        }
+    Cmd(0x41);
+
+    double ball[16] = {1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  BallCenter[0], BallCenter[1], BallCenter[2], 1};
+    LoadMatrix(ball);
+    DrawSphere(BallRadius);
+
+    Cmd(0x50, {0});
+    g.VBlank();
+}
+
+// Of the render list's vertices: the box's furthest point outside the box
+// (relative to its half size), and the sphere's average distance to the
+// true sphere (relative to its radius).
+static void BoxAndBallShape(GPU3D& g, double& boxBulge, double& ballError)
+{
+    double r[3][3];
+    BoxRotation(r);
+    boxBulge = 0;
+    double ballSum = 0;
+    int ballCount = 0;
+    Polygon** polys = g.GetRenderPolygons();
+    for (u32 i = 0; i < g.GetRenderNumPolygons(); i++)
+        for (u32 j = 0; j < polys[i]->NumVertices; j++)
+        {
+            const Vertex* v = polys[i]->Vertices[j];
+            if (v->Clipped) continue; // clipping moves points along the edges, not off the surface
+            double p[3], d[3], dist = 0;
+            for (int k = 0; k < 3; k++) p[k] = v->ViewPosition[k] / 4096.0;
+            for (int k = 0; k < 3; k++) { d[k] = p[k] - BoxCenter[k]; dist += d[k] * d[k]; }
+            if (std::sqrt(dist) < 1.4)
+            {
+                // back to the box's own axes: local = d . R^T
+                double out = 0;
+                for (int axis = 0; axis < 3; axis++)
+                {
+                    double local = d[0] * r[axis][0] + d[1] * r[axis][1] + d[2] * r[axis][2];
+                    out = std::fmax(out, std::fabs(local) - BoxHalf);
+                }
+                boxBulge = std::fmax(boxBulge, out / BoxHalf);
+                continue;
+            }
+            double rr = 0;
+            for (int k = 0; k < 3; k++) rr += (p[k] - BallCenter[k]) * (p[k] - BallCenter[k]);
+            ballSum += std::fabs(std::sqrt(rr) - BallRadius) / BallRadius;
+            ballCount++;
+        }
+    ballError = ballCount ? ballSum / ballCount : 1e9;
+}
+
 // Many spheres at once: sub-polygons span several storage blocks and the
 // renderers' buffers have to grow well past the hardware's sizes.
 static void SubmitStressScene(int spheres)
@@ -485,6 +588,41 @@ int main()
         gpu.GPU3D.SetHighColor(false);
         glr->SetHighColor(false);
         ok = ok && off6bit && levels[1] > levels[0] * 2;
+    }
+
+    // geometry fidelity from neighbours: on the first frame the angles between
+    // faces aren't known yet (the box bulges as before); from the second, the
+    // box's 90-degree edges stay sharp while the sphere (36-45 degrees) keeps
+    // its curve. No cracks either way: both polygons of an edge use the same
+    // value in a frame.
+    {
+        gpu.GPU3D.SetPolygonMultiplier(4);
+        double bulge[3], ballErr[3];
+        int cracks[3];
+        for (int frame = 0; frame < 3; frame++)
+        {
+            SubmitBoxScene();
+            BoxAndBallShape(gpu.GPU3D, bulge[frame], ballErr[frame]);
+            soft.RenderFrame(gpu);
+            auto img = Capture(soft);
+            if (frame == 2) SavePng("fidelity_box_sphere.png", img);
+            // background showing through inside the box's silhouette = a crack
+            int bx = (int)std::lround((BoxCenter[0] / -BoxCenter[2] * (1.0 / std::tan(25.0 * M_PI / 180.0)) / (256.0 / 192.0) + 1) * 128);
+            int by = 96;
+            u32 bg = img[2 * 256 + 2] & 0x3F3F3F;
+            cracks[frame] = 0;
+            for (int y = by - 15; y <= by + 15; y++)
+                for (int x = bx - 15; x <= bx + 15; x++)
+                    if ((img[y * 256 + x] & 0x3F3F3F) == bg) cracks[frame]++;
+            printf("box and sphere, frame %d: box bulge %.1f%% of its half size, sphere off by %.2f%%, background pixels inside the box: %d\n",
+                   frame + 1, bulge[frame] * 100, ballErr[frame] * 100, cracks[frame]);
+        }
+        bool sharpened = bulge[0] > 0.1 && bulge[1] < 0.01 && bulge[2] < 0.01;
+        bool ballKept = std::fabs(ballErr[1] - ballErr[0]) < 1e-9 && std::fabs(ballErr[2] - ballErr[0]) < 1e-9;
+        bool noCracks = cracks[0] == 0 && cracks[1] == 0 && cracks[2] == 0;
+        printf("box edges kept sharp from the second frame: %s, sphere unchanged: %s, no cracks: %s\n",
+               sharpened ? "yes" : "NO", ballKept ? "yes" : "NO", noCracks ? "yes" : "NO");
+        ok = ok && sharpened && ballKept && noCracks;
     }
 
     // off again: back to exactly the original image

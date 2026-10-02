@@ -62,6 +62,13 @@ public:
     // lighting normals), and curving along them would deform the model.
     static double EdgeFidelity(const MultiplierVertex& a, const MultiplierVertex& b);
 
+    // Geometry fidelity from the neighbouring polygon: share of the curvature
+    // kept along an edge, from the cosine of the angle between the two faces
+    // that share it. A coarse curved surface has moderate angles (8-sided
+    // sphere: 45 degrees), an angular shape sharp ones (box: 90) even when the
+    // game smoothed its normals: kept up to 55 degrees, flat from 80.
+    static double DihedralKeep(double cosAngle);
+
     // Phong tessellation shape factor: 0 = flat subdivision, 1 = full
     // projection. 3/4 is the value recommended by the paper.
     static constexpr double ShapeFactor = 0.75;
@@ -76,8 +83,11 @@ public:
     // Splits triangle (a, b, c) into level*level sub-triangles, written to
     // out[i][0..2], with the same winding as (a, b, c). Returns the number of
     // sub-triangles. out must hold MaxLevel*MaxLevel triangles.
+    // edgeKeep: optional extra share of the curvature kept along (a, b),
+    // (b, c), (c, a), 1 to 0 (see DihedralKeep).
     static int SubdivideTriangle(const MultiplierVertex& a, const MultiplierVertex& b, const MultiplierVertex& c,
-                                 int level, MultiplierVertex (*out)[3], CurveMethod method);
+                                 int level, MultiplierVertex (*out)[3], CurveMethod method,
+                                 const double* edgeKeep = nullptr);
 
     // The point at barycentric coordinates (u, v, w) of triangle (a, b, c).
     // pnShare is only used by PNhong.

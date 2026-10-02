@@ -178,6 +178,44 @@ int main()
         puts("geometry fidelity: less bulge on painted normals, crack-free, spheres untouched: OK");
     }
 
+    // 7. geometry fidelity from the neighbouring polygon: the angle between the
+    //    two faces of an edge (a box edge 90 degrees, an 8-sided sphere 45)
+    {
+        const double degree = M_PI / 180.0;
+        assert(PolygonMultiplier::DihedralKeep(std::cos(0.0)) == 1.0);
+        assert(PolygonMultiplier::DihedralKeep(std::cos(45 * degree)) == 1.0);
+        assert(PolygonMultiplier::DihedralKeep(std::cos(90 * degree)) == 0.0);
+        double mid = PolygonMultiplier::DihedralKeep(std::cos(67.5 * degree));
+        assert(mid > 0.3 && mid < 0.7);
+        for (int a = 0; a < 90; a++)
+            assert(PolygonMultiplier::DihedralKeep(std::cos((a + 1) * degree)) <= PolygonMultiplier::DihedralKeep(std::cos(a * degree)));
+
+        // a box face with smoothed normals (the corners' normals point
+        // diagonally out of the box): all its edges hard -> it stays flat
+        MultiplierVertex a = V(-1, -1, 1, -1, -1, 1), b = V(1, -1, 1, 1, -1, 1), c = V(1, 1, 1, 1, 1, 1);
+        const double hard[3] = {0, 0, 0}, soft[3] = {1, 1, 1};
+        int n = PolygonMultiplier::SubdivideTriangle(a, b, c, 4, Out, CurveMethod::PNhong, hard);
+        double worst = 0;
+        for (int i = 0; i < n; i++)
+            for (int k = 0; k < 3; k++)
+                worst = std::fmax(worst, std::fabs(Out[i][k].Position[2] - 1));
+        int nCurved = PolygonMultiplier::SubdivideTriangle(a, b, c, 4, Out, CurveMethod::PNhong, soft);
+        double curved = 0;
+        for (int i = 0; i < nCurved; i++)
+            for (int k = 0; k < 3; k++)
+                curved = std::fmax(curved, std::fabs(Out[i][k].Position[2] - 1));
+        printf("box face with smoothed normals at x16: bulge %.4f with soft edges, %.4f with hard edges\n", curved, worst);
+        assert(curved > 0.05 && worst < 1e-9);
+        // all edges kept = the same as without the parameter
+        MultiplierVertex ref[PolygonMultiplier::MaxLevel * PolygonMultiplier::MaxLevel][3];
+        PolygonMultiplier::SubdivideTriangle(a, b, c, 4, ref, CurveMethod::PNhong);
+        for (int i = 0; i < nCurved; i++)
+            for (int k = 0; k < 3; k++)
+                for (int d = 0; d < 3; d++)
+                    assert(ref[i][k].Position[d] == Out[i][k].Position[d]);
+        puts("geometry fidelity from neighbours: angle rule, hard edges stay flat, soft unchanged: OK");
+    }
+
     // 5. PNhong, the method the multiplier uses: Phong at level 2, a blend
     //    measured closer than both above (see PNhongShare)
     printf("average distance to the sphere (8-segment model):\n");

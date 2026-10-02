@@ -217,15 +217,32 @@ MultiplierVertex PolygonMultiplier::Interpolate(const MultiplierVertex& a, const
     return out;
 }
 
+double PolygonMultiplier::DihedralKeep(double cosAngle)
+{
+    const double degree = 3.14159265358979323846 / 180.0;
+    const double keepUpTo = std::cos(55.0 * degree), flatFrom = std::cos(80.0 * degree);
+    if (cosAngle >= keepUpTo) return 1.0;
+    if (cosAngle <= flatFrom) return 0.0;
+    double x = (cosAngle - flatFrom) / (keepUpTo - flatFrom);
+    return x * x * (3 - 2 * x);
+}
+
 int PolygonMultiplier::SubdivideTriangle(const MultiplierVertex& a, const MultiplierVertex& b, const MultiplierVertex& c,
-                                         int level, MultiplierVertex (*out)[3], CurveMethod method)
+                                         int level, MultiplierVertex (*out)[3], CurveMethod method,
+                                         const double* edgeKeep)
 {
     if (level < 1) level = 1;
     if (level > MaxLevel) level = MaxLevel;
 
     const double pnShare = PNhongShare(level);
     // geometry fidelity, per edge so both polygons sharing it agree (no cracks)
-    const double fab = EdgeFidelity(a, b), fbc = EdgeFidelity(b, c), fca = EdgeFidelity(c, a);
+    double fab = EdgeFidelity(a, b), fbc = EdgeFidelity(b, c), fca = EdgeFidelity(c, a);
+    if (edgeKeep)
+    {
+        fab *= edgeKeep[0];
+        fbc *= edgeKeep[1];
+        fca *= edgeKeep[2];
+    }
     const bool faithful = fab == 1 && fbc == 1 && fca == 1;
 
     // grid point (i, j): barycentric (1 - (i+j)/level, i/level, j/level)

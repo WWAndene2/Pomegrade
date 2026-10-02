@@ -21,6 +21,7 @@
 
 #include <array>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 #include "Savestate.h"
@@ -59,6 +60,7 @@ struct Vertex
     bool LitColor; // colour computed by the DS lighting from that normal
     bool Orthographic; // projected without perspective (2D-like 3D: menus, HUDs)
     float Specular;    // how shiny the material is, 0..1 (its specular colour, when lit)
+    s16 ModelPosition[3]; // as the game sent it, before any matrix (polygon multiplier: edge identity)
 
     void DoSavestate(Savestate* file) noexcept;
 };
@@ -401,6 +403,20 @@ public:
     std::vector<Polygon*> MultipliedRenderPolygons;
     bool UnlimitedPolygons = false;
     bool ViewDataRequested = false;
+    // Polygon multiplier, geometry fidelity from neighbours: share of the
+    // curvature kept along each edge, from the angle between the two faces
+    // sharing it (PolygonMultiplier::DihedralKeep). Edges are identified by
+    // their corners' model positions, so they are the same edge from frame
+    // to frame. Faces seen this frame are paired in EdgeFaces; the angles
+    // found apply from the next frame (EdgeKeep), so the two polygons of an
+    // edge always use the same value within a frame (no cracks).
+    struct EdgeFace { float Normal[3]; bool Paired; };
+    std::unordered_map<u64, EdgeFace> EdgeFaces;
+    std::unordered_map<u64, float> EdgeKeepPending;
+    std::unordered_map<u64, float> EdgeKeep;
+    void UpdateEdgeKeep() noexcept;
+    void RegisterEdgeFaces(int nverts) noexcept;
+    [[nodiscard]] u64 EdgeKey(int corner, int nverts) const noexcept;
     s16 RenderLightDirection[4][3] {}; // light directions (view space) at the end of the rendered frame
     // the last perspective projection and viewport the rendered frame's vertices used
     s32 RenderProjMatrix[16] {};
