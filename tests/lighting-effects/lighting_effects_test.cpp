@@ -719,6 +719,27 @@ int main()
         SideLight = false;
     }
 
+    // a game capturing the 3D image every frame (3D on both screens, motion
+    // blur) shows the unlit copies: the effects pause, rather than each screen
+    // flickering between the lit image and the unlit copy
+    {
+        auto plain = Frame(*r, gpu);
+        r->SetAmbientOcclusion(true);
+        Frame(*r, gpu);
+        auto lit = Frame(*r, gpu);
+        std::vector<u32> copy;
+        Frame(*r, gpu, &copy);                     // a capture
+        auto afterOne = Frame(*r, gpu, &copy);     // a second one in a row
+        auto afterTwo = Frame(*r, gpu, &copy);
+        check(lit != plain && afterOne == lit, "capture: one capture doesn't pause the effects");
+        check(afterTwo == plain, "capture every frame: the effects pause");
+        auto stopped = Frame(*r, gpu); // still sees the last capture
+        for (int i = 0; i < 29; i++) stopped = Frame(*r, gpu);
+        check(stopped == plain, "capture stopped: still paused for 30 frames");
+        check(Frame(*r, gpu) == lit, "capture stopped: the effects come back after 30 frames");
+        r->SetAmbientOcclusion(false);
+    }
+
     puts(ok ? "ALL OK" : "FAILED");
     return ok ? 0 : 1;
 }

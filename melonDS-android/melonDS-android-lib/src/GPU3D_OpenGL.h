@@ -242,6 +242,14 @@ private:
     bool LightingDone {};     // this frame's lit image is in LightingTex
     bool ViewDataCaptured {}; // GPU3D captured view data while the rendered frame was submitted
     bool LightingSupported = true; // the render targets work on this GPU
+    // Display capture copies the DS render (unlit, 256x192) for the game. A game
+    // capturing every frame shows those copies (3D on both screens, motion
+    // blur): each screen would alternate between the lit image and the unlit
+    // copy. The effects pause from the second frame in a row with a capture,
+    // and come back after CapturePauseLength frames without one.
+    static constexpr int CapturePauseLength = 30;
+    bool CapturedSinceRender {};
+    int CaptureStreak {}, CapturePauseFrames {};
     // per vertex, beside VertexBuffer: view position xyz + perspective flag,
     // view normal xyz + shininess
     GLuint ViewVertexBufferID {};

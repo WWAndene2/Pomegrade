@@ -1705,7 +1705,13 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
     // (an intermediate frame keeps the decision of the frame it comes from)
     if (!intermediate)
     {
-        LightingActive = LightingEnabled() && ViewDataCaptured && LightingSupported;
+        CaptureStreak = CapturedSinceRender ? CaptureStreak + 1 : 0;
+        CapturedSinceRender = false;
+        if (CaptureStreak >= 2)
+            CapturePauseFrames = CapturePauseLength;
+        else if (CapturePauseFrames > 0)
+            CapturePauseFrames--;
+        LightingActive = LightingEnabled() && ViewDataCaptured && LightingSupported && !CapturePauseFrames;
         gpu.GPU3D.SetViewDataCapture(LightingEnabled() && LightingSupported);
         ViewDataCaptured = gpu.GPU3D.CaptureViewData();
     }
@@ -2174,6 +2180,7 @@ void GLRenderer::Stop(const GPU& gpu)
 
 void GLRenderer::PrepareCaptureFrame()
 {
+    CapturedSinceRender = true;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, MainFramebuffer);
     glReadBuffer(GL_COLOR_ATTACHMENT0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, DownscaleFramebuffer);
