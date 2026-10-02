@@ -61,6 +61,9 @@ interface SettingsRepository {
     fun getTouchHapticFeedbackStrength(): Int
     fun getSoftInputOpacity(): Flow<Int>
 
+    /** Pomegrade: the touch D-pad becomes a joystick, gamepad sticks are read as analogue */
+    fun isAnalogueMovementEnabled(): Flow<Boolean>
+
     fun isRetroAchievementsRichPresenceEnabled(): Boolean
     fun isRetroAchievementsHardcoreEnabled(): Boolean
     fun areRetroAchievementsActiveChallengeIndicatorsEnabled(): Boolean

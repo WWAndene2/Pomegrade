@@ -182,6 +182,12 @@ namespace MelonDSAndroid
             instance->releaseKey(key);
     }
 
+    void setAnalogueStick(float x, float y)
+    {
+        if (instance)
+            instance->setAnalogueStick(x, y);
+    }
+
     void start()
     {
         startAudio();

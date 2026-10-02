@@ -63,6 +63,8 @@ Pomegrade is currently **two apps side by side in one APK**: melonDS-android (DS
 
   Geometry fidelity (local, per edge): curvature reduced where the normals don't match the geometry (e.g. spherical normals painted on a flat cel-shaded face: 28% less bulge), round shapes unchanged. Geometry fidelity from neighbours: an angular shape with smoothed normals (box, sharp chin) looks exactly like a rounded one from a single polygon, so the angle between the two faces of each edge decides (kept up to 55°, flat from 80°: a box's 90° edges stay sharp, a low-poly sphere's 36-45° keep their curve). Edges are recognised from frame to frame by their model positions; the angles found in a frame apply from the next one (a model's very first frame curves as before). Box with smoothed normals at ×16: bulge 67% → 0.1% of its half size, sphere unchanged, no cracks.
 
+  Lighting effects and how games draw: they light the opaque 3D only; translucent polygons (2D dialog boxes, water, smoke), fog and edge marking are drawn again over the lit image with the DS's own rules (dialog box within one 6-bit colour step of the scene lit behind it, full fog unchanged). Unlit polygons (painted-in lighting, skies) cast no shadow; reflections ignore surfaces facing away from the ray (no more floor reflecting itself in bands). The effects pause while a game captures its 3D every frame (3D on both screens, motion blur), which would otherwise flicker; they come back 30 frames after. Limits: cut-out sprites (A3I5/A5I3 textures) get no effects; a sprite very close in front of a flat backdrop gets a faint AO halo; a shiny floor can faintly reflect an object hidden in fog.
+
   Known limits: the Compute renderer ignores all of these; small cracks are possible where a multiplied polygon meets one that isn't; extra polygons aren't kept in savestates (redrawn on the next frame).
 
   Next:
@@ -81,6 +83,7 @@ Pomegrade is currently **two apps side by side in one APK**: melonDS-android (DS
 ## 3. New features
 
 - **120 fps** (DS, OpenGL renderer): done as "Frame generation", see the enhancement table. Not yet for the 3DS core.
+- **Analogue movement** (DS, per game): a game's D-pad movement code is patched to read the stick's exact direction (Pomegrade-only register, patch written only over the game's original instructions); the touch D-pad becomes a joystick and gamepad sticks are read as analogue (setting "Analogue movement"). Done for Dragon Quest Monsters: Joker (Europe, AJRP): direction only, normal walking speed; checked in the game on desktop, untested on a phone. Next: tilt for walking speed; other games (each needs that game's code reverse-engineered).
 - **Rewind and save states** shared by all consoles.
 - **Online play**: melonDS has early support; Azahar has none on Android.
 - **Cloud saves** (Google Drive) for all consoles.

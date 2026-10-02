@@ -2,9 +2,11 @@ package me.magnum.melonds.ui.emulator
 
 import android.content.Context
 import android.util.AttributeSet
+import android.widget.ImageView
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import dagger.hilt.android.AndroidEntryPoint
+import me.magnum.melonds.R
 import me.magnum.melonds.common.vibration.TouchVibrator
 import me.magnum.melonds.domain.model.Input
 import me.magnum.melonds.domain.model.input.SoftInputBehaviour
@@ -14,6 +16,8 @@ import me.magnum.melonds.ui.emulator.input.ButtonsInputHandler
 import me.magnum.melonds.ui.emulator.input.DpadInputHandler
 import me.magnum.melonds.ui.emulator.input.FrontendInputHandler
 import me.magnum.melonds.ui.emulator.input.IInputListener
+import me.magnum.melonds.ui.emulator.input.JoystickDrawable
+import me.magnum.melonds.ui.emulator.input.JoystickInputHandler
 import me.magnum.melonds.ui.emulator.input.SingleButtonInputHandler
 import me.magnum.melonds.ui.emulator.input.TouchscreenInputHandler
 import me.magnum.melonds.ui.emulator.input.view.ToggleableImageView
@@ -90,7 +94,17 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
 
         val enableHapticFeedback = currentRuntimeLayout.isHapticFeedbackEnabled
         systemInputHandler?.let {
-            getLayoutComponentView(LayoutComponent.DPAD)?.view?.setOnTouchListener(DpadInputHandler(it, enableHapticFeedback, touchVibrator))
+            getLayoutComponentView(LayoutComponent.DPAD)?.view?.let { dpad ->
+                if (currentRuntimeLayout.isAnalogueMovementEnabled) {
+                    // Pomegrade: the D-pad's place holds a joystick
+                    val joystick = JoystickDrawable()
+                    (dpad as? ImageView)?.setImageDrawable(joystick)
+                    dpad.setOnTouchListener(JoystickInputHandler(it, joystick, enableHapticFeedback, touchVibrator))
+                } else {
+                    (dpad as? ImageView)?.setImageResource(R.drawable.keypad)
+                    dpad.setOnTouchListener(DpadInputHandler(it, enableHapticFeedback, touchVibrator))
+                }
+            }
             getLayoutComponentView(LayoutComponent.BUTTONS)?.view?.setOnTouchListener(ButtonsInputHandler(it, enableHapticFeedback, touchVibrator))
             getLayoutComponentView(LayoutComponent.BUTTON_L)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.L, enableHapticFeedback, touchVibrator))
             getLayoutComponentView(LayoutComponent.BUTTON_R)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.R, enableHapticFeedback, touchVibrator))

@@ -25,6 +25,10 @@ class MelonTouchHandler : IInputListener {
         MelonEmulator.onScreenTouch(point.x, point.y)
     }
 
+    override fun onAnalogueStick(x: Float, y: Float) {
+        MelonEmulator.onAnalogueStick(x, y)
+    }
+
     private fun handleHingePress() {
         isLidClosed = !isLidClosed
         if (isLidClosed) {

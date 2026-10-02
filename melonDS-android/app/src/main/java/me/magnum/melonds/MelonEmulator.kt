@@ -127,6 +127,12 @@ object MelonEmulator {
 
     private external fun onKeyRelease(key: Int)
 
+    /**
+     * Pomegrade: the stick's position, x to the right and y up, each -1 to 1, (0, 0) when released. Games with an analogue movement
+     * patch walk in its exact direction; the nearest of the 8 D-pad directions must still be sent as keys.
+     */
+    external fun onAnalogueStick(x: Float, y: Float)
+
     external fun takeScreenshot(): Boolean
 
     external fun setFastForwardEnabled(enabled: Boolean)

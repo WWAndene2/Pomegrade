@@ -57,6 +57,7 @@ namespace MelonDSAndroid {
     extern void touchScreen(u16 x, u16 y);
     extern void releaseScreen();
     extern void pressKey(u32 key);
+    extern void setAnalogueStick(float x, float y);
     extern void releaseKey(u32 key);
     extern void start();
     extern u32 loop();

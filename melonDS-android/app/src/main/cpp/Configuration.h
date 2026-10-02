@@ -104,6 +104,8 @@ typedef struct
     bool reflections = false;
     // Pomegrade: intermediate frames (see GLRenderer::RenderIntermediateFrame), presented in order
     bool frameGeneration = false;
+    // Pomegrade: analogue movement in the games with a patch (see NDS_AnalogueStick.h)
+    bool analogueMovement = false;
 } EmulatorConfiguration;
 
 }

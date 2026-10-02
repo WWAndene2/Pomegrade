@@ -259,6 +259,8 @@
     <string name="vibrate_on_touch">Vibrate on touch</string>
     <string name="vibration_strength">Vibration strength</string>
     <string name="soft_input_opacity">Soft input opacity</string>
+    <string name="analogue_movement">Analogue movement</string>
+    <string name="analogue_movement_summary">The touch D-pad becomes a joystick and gamepad sticks are read as analogue. Supported games walk in the stick\'s exact direction: Dragon Quest Monsters: Joker (Europe). Others get the nearest of the 8 directions</string>
     <string name="retroachievements">RetroAchievements</string> <!-- Keep words together because this is the official name -->
     <string name="retroachievements_summary">Login &amp; manage RetroAchievements integration</string> <!-- Keep words together because this is the official name -->
     <string name="enable_rich_presence">Enable rich presence</string>

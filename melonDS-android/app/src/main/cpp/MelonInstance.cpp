@@ -465,6 +465,11 @@ void MelonInstance::pressKey(u32 key)
     }
 }
 
+void MelonInstance::setAnalogueStick(float x, float y)
+{
+    nds->AnalogueStick.SetPosition(x, y);
+}
+
 void MelonInstance::releaseKey(u32 key)
 {
     // Special handling for Lid input
@@ -711,6 +716,8 @@ void MelonInstance::updateRenderer()
     nds->GPU.GPU3D.SetUnlimitedPolygons(currentConfiguration->unlimitedPolygons);
     // high colour only with the OpenGL renderer: the others keep the DS's 5-bit vertex colours
     nds->GPU.GPU3D.SetHighColor(newRenderer == Renderer::OpenGl && currentConfiguration->highColor);
+    // not a renderer setting, but applied here between frames like the multiplier
+    nds->AnalogueStick.SetEnabled(currentConfiguration->analogueMovement);
 }
 
 void MelonInstance::setBatteryLevels()

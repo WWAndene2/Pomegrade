@@ -53,6 +53,9 @@ class InputProcessor(private val controllerConfiguration: ControllerConfiguratio
 
     override fun onMotionEvent(motionEvent: MotionEvent): Boolean {
         if (motionEvent.isFromSource(InputDevice.SOURCE_CLASS_JOYSTICK)) {
+            // Pomegrade: the left stick's exact position, for games with analogue movement (the keys mapped
+            // to its axes below still tell the game a direction is held)
+            systemInputListener.onAnalogueStick(motionEvent.getAxisValue(MotionEvent.AXIS_X), -motionEvent.getAxisValue(MotionEvent.AXIS_Y))
             val deviceAxis = axisStates.filterKeys { it.deviceId == null || it.deviceId == motionEvent.deviceId }
             deviceAxis.forEach {
                 val axis = it.key

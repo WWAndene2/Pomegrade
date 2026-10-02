@@ -183,6 +183,7 @@ class SharedPreferencesSettingsRepository(
             shadows = preferences.getBoolean("shadows", false),
             reflections = preferences.getBoolean("reflections", false),
             frameGeneration = preferences.getBoolean("frame_generation", false),
+            analogueMovement = preferences.getBoolean("analogue_movement", false),
         )
     }
 
@@ -480,6 +481,12 @@ class SharedPreferencesSettingsRepository(
     override fun getTouchHapticFeedbackStrength(): Int {
         val strength = preferences.getInt("input_touch_haptic_feedback_strength", 30)
         return strength.coerceIn(1, 100)
+    }
+
+    override fun isAnalogueMovementEnabled(): Flow<Boolean> {
+        return getOrCreatePreferenceSharedFlow("analogue_movement") {
+            preferences.getBoolean("analogue_movement", false)
+        }
     }
 
     override fun getSoftInputOpacity(): Flow<Int> {

@@ -43,6 +43,13 @@
             app:min="1"
             android:max="100" />
 
+    <SwitchPreference
+            android:key="analogue_movement"
+            android:title="@string/analogue_movement"
+            android:summary="@string/analogue_movement_summary"
+            app:iconSpaceReserved="false"
+            android:defaultValue="false" />
+
     <SeekBarPreference
             android:key="input_opacity"
             android:title="@string/soft_input_opacity"

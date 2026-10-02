@@ -499,6 +499,12 @@ Java_me_magnum_melonds_MelonEmulator_onKeyRelease(JNIEnv* env, jobject thiz, jin
     MelonDSAndroid::releaseKey(key);
 }
 
+JNIEXPORT void JNICALL
+Java_me_magnum_melonds_MelonEmulator_onAnalogueStick(JNIEnv* env, jobject thiz, jfloat x, jfloat y)
+{
+    MelonDSAndroid::setAnalogueStick(x, y);
+}
+
 JNIEXPORT jboolean JNICALL
 Java_me_magnum_melonds_MelonEmulator_takeScreenshot(JNIEnv* env, jobject thiz)
 {

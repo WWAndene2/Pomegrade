@@ -53,4 +53,6 @@ data class EmulatorConfiguration(
         val reflections: Boolean = false,
         // Pomegrade: intermediate frames, shown at 120 Hz (OpenGL renderer)
         val frameGeneration: Boolean = false,
+        // Pomegrade: analogue movement in the games with a patch (any renderer)
+        val analogueMovement: Boolean = false,
 )

@@ -41,6 +41,8 @@ public:
     void touchScreen(u16 x, u16 y);
     void releaseScreen();
     void pressKey(u32 key);
+    // Pomegrade: x right, y up, -1 to 1 (see NDS_AnalogueStick.h)
+    void setAnalogueStick(float x, float y);
     void releaseKey(u32 key);
     int readAudioOutput(s16* buffer, int length);
     void setAudioOutputSkew(double skew);

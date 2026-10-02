@@ -128,6 +128,7 @@ MelonDSAndroid::EmulatorConfiguration MelonDSAndroidConfiguration::buildEmulator
     finalEmulatorConfiguration.shadows = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "shadows", "Z"));
     finalEmulatorConfiguration.reflections = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "reflections", "Z"));
     finalEmulatorConfiguration.frameGeneration = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "frameGeneration", "Z"));
+    finalEmulatorConfiguration.analogueMovement = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "analogueMovement", "Z"));
 
     return finalEmulatorConfiguration;
 }
