@@ -27,6 +27,7 @@ Pomegrade is currently **two apps side by side in one APK**: melonDS-android (DS
 | 4 | README: 3DS section (formats, Android 10+, 64-bit only, encrypted games unsupported) | Documentation is out of date |
 | 5 | Licences: one notices screen (melonDS GPLv3, Azahar GPLv2+, stb, …) | Required by the GPL when distributing the APK |
 | 6 | Nightly flavor: still has melonDS icons | Consistency (not used for now) |
+| 7 | Purge the git history of files that must not be public (the owner has the list) | The repository is public; planned once the APK works |
 
 ## 2. Improvements to what exists
 
