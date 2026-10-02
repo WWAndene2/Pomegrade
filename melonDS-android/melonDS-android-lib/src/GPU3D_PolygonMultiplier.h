@@ -4,17 +4,33 @@
 // Polygon multiplier (Pomegrade): subdivides lit 3D polygons into smaller,
 // curved ones so low-poly models look rounder. Pure geometry, no GPU state.
 //
-// Method: Phong tessellation (Boubekeur & Alexa, "Phong Tessellation", 2008).
-// Each triangle is split into level*level sub-triangles; every new point is
-// pulled towards the tangent planes of the three corners, defined by their
-// normals. Corners keep their exact position, and a polygon whose corners all
-// share the same normal (a flat surface) stays exactly flat.
+// Each triangle is split into level*level sub-triangles placed on a curved
+// surface built from the three corners' positions and normals (see
+// CurveMethod). Corners keep their exact position, points on an edge depend
+// only on that edge's two corners (no cracks between neighbours), and a
+// polygon whose corners all share the same normal (a flat surface) stays
+// exactly flat.
 //
 // Works in view space: positions after the position matrix, normals after the
 // vector matrix, as the DS geometry engine computes them for lighting.
 
 namespace melonDS
 {
+
+enum class CurveMethod
+{
+    // Phong tessellation (Boubekeur & Alexa 2008): quadratic surface.
+    Phong,
+    // Curved PN triangles (Vlachos, Peters, Boyd & Mitchell 2001): cubic
+    // Bezier surface from the same positions and normals, with quadratic
+    // normals. Rounder, and still crack-free along shared edges.
+    PNTriangles,
+    // PN triangles whose edges follow circular arcs: each edge's tangent
+    // handles get the length that makes a cubic Bezier match the circle
+    // through its two corners with their normals ((4/3) tan(angle/4) r),
+    // instead of a third of the chord, which bulges too little.
+    CircularPN,
+};
 
 struct MultiplierVertex
 {
@@ -27,7 +43,11 @@ struct MultiplierVertex
 class PolygonMultiplier
 {
 public:
-    static constexpr int MaxLevel = 4;
+    // level n = n*n sub-triangles per triangle
+    static constexpr int MaxLevel = 8;
+
+    // The most accurate method for a level (see the .cpp for the measurements).
+    static CurveMethod BestMethod(int level);
 
     // Phong tessellation shape factor: 0 = flat subdivision, 1 = full
     // projection. 3/4 is the value recommended by the paper.
@@ -44,11 +64,11 @@ public:
     // out[i][0..2], with the same winding as (a, b, c). Returns the number of
     // sub-triangles. out must hold MaxLevel*MaxLevel triangles.
     static int SubdivideTriangle(const MultiplierVertex& a, const MultiplierVertex& b, const MultiplierVertex& c,
-                                 int level, MultiplierVertex (*out)[3]);
+                                 int level, MultiplierVertex (*out)[3], CurveMethod method);
 
     // The point at barycentric coordinates (u, v, w) of triangle (a, b, c).
     static MultiplierVertex Interpolate(const MultiplierVertex& a, const MultiplierVertex& b, const MultiplierVertex& c,
-                                        double u, double v, double w);
+                                        double u, double v, double w, CurveMethod method);
 };
 
 }

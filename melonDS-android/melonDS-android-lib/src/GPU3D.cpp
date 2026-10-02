@@ -174,9 +174,7 @@ void GPU3D::ResetRenderingState() noexcept
 
     RenderMultiplied = false;
     MultipliedRenderNumPolygons = 0;
-    NumSubVertices = 0;
-    NumSubPolygons = 0;
-    memset(SubPolygonCount, 0, sizeof(SubPolygonCount));
+    ClearSubPolygons();
 
     RenderDispCnt = 0;
     RenderAlphaRef = 0;
@@ -519,9 +517,7 @@ void GPU3D::DoSavestate(Savestate* file) noexcept
 
         // polygon multiplier: sub-polygons aren't saved, render the hardware list
         RenderMultiplied = false;
-        NumSubVertices = 0;
-        NumSubPolygons = 0;
-        memset(SubPolygonCount, 0, sizeof(SubPolygonCount));
+        ClearSubPolygons();
     }
 
     file->Var32(&RenderNumPolygons);
@@ -1380,10 +1376,9 @@ void GPU3D::SubmitPolygon() noexcept
     else
         LastStripPolygon = NULL;
 
-    u32 polyindex = (u32)(poly - CurPolygonRAM);
-    SubPolygonCount[CurRAMBank][polyindex] = 0;
+    poly->SubPolygonCount = 0;
     if (PolygonMultiplierLevel > 1)
-        MultiplyPolygon(poly, polyindex, srcverts);
+        MultiplyPolygon(poly, srcverts);
 }
 
 void GPU3D::SetPolygonMultiplier(int level) noexcept
@@ -1391,18 +1386,40 @@ void GPU3D::SetPolygonMultiplier(int level) noexcept
     if (level < 1) level = 1;
     if (level > PolygonMultiplier::MaxLevel) level = PolygonMultiplier::MaxLevel;
 
-    // allocated once and never resized: renderers may hold pointers into them
-    if (level > 1 && SubPolygonRAM.empty())
-    {
-        SubVertexRAM.resize(MaxSubVertices * 2);
-        SubPolygonRAM.resize(MaxSubPolygons * 2);
-        MultipliedRenderPolygons.resize(MaxRenderPolygons);
-    }
-
     PolygonMultiplierLevel = level;
 }
 
-void GPU3D::MultiplyPolygon(Polygon* parent, u32 parentIndex, int nverts) noexcept
+void GPU3D::ClearSubPolygons() noexcept
+{
+    NumSubVertices = 0;
+    NumSubPolygons = 0;
+    for (Polygon& poly : PolygonRAM)
+        poly.SubPolygonCount = 0;
+}
+
+Vertex* GPU3D::NewSubVertex() noexcept
+{
+    if (NumSubVertices >= MaxSubVertices)
+        return nullptr;
+    auto& blocks = SubVertexBlocks[CurRAMBank];
+    u32 block = NumSubVertices / SubBlockSize;
+    if (block >= blocks.size())
+        blocks.push_back(std::make_unique<Vertex[]>(SubBlockSize));
+    return &blocks[block][NumSubVertices++ % SubBlockSize];
+}
+
+Polygon* GPU3D::NewSubPolygon() noexcept
+{
+    if (NumSubPolygons >= MaxSubPolygons)
+        return nullptr;
+    auto& blocks = SubPolygonBlocks[CurRAMBank];
+    u32 block = NumSubPolygons / SubBlockSize;
+    if (block >= blocks.size())
+        blocks.push_back(std::make_unique<Polygon[]>(SubBlockSize));
+    return &blocks[block][NumSubPolygons++ % SubBlockSize];
+}
+
+void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
 {
     // lines and shadow volumes keep their exact hardware shape
     if (parent->Type != 0 || parent->IsShadowMask || parent->IsShadow)
@@ -1478,8 +1495,6 @@ void GPU3D::MultiplyPolygon(Polygon* parent, u32 parentIndex, int nverts) noexce
     const float vieww = TempVertexBuffer[0].ViewPosition[3];
     // scale of the lighting's transformed normal: (normal * vector matrix) >> 12
     normallength = normallength / nverts / 4096.0;
-    Vertex* bankverts = &SubVertexRAM[CurRAMBank * MaxSubVertices];
-    Polygon* bankpolys = &SubPolygonRAM[CurRAMBank * MaxSubPolygons];
     const u32 firstpoly = NumSubPolygons;
     const u32 firstvert = NumSubVertices;
 
@@ -1488,7 +1503,8 @@ void GPU3D::MultiplyPolygon(Polygon* parent, u32 parentIndex, int nverts) noexce
     {
         // quads are split along the 0-2 diagonal
         int a = 0, b = t + 1, c = t + 2;
-        int count = PolygonMultiplier::SubdivideTriangle(corners[a], corners[b], corners[c], level, sub);
+        int count = PolygonMultiplier::SubdivideTriangle(corners[a], corners[b], corners[c], level, sub,
+                                                         PolygonMultiplier::BestMethod(level));
 
         for (int s = 0; s < count; s++)
         {
@@ -1564,10 +1580,10 @@ void GPU3D::MultiplyPolygon(Polygon* parent, u32 parentIndex, int nverts) noexce
                 return;
             }
 
-            Polygon* poly = &bankpolys[NumSubPolygons++];
+            Polygon* poly = NewSubPolygon();
             for (int i = 0; i < nv; i++)
             {
-                Vertex* vtx = &bankverts[NumSubVertices++];
+                Vertex* vtx = NewSubVertex();
                 *vtx = clipped[i];
                 ComputeScreenPosition(vtx);
                 ComputeFinalColor(vtx);
@@ -1589,8 +1605,8 @@ void GPU3D::MultiplyPolygon(Polygon* parent, u32 parentIndex, int nverts) noexce
         }
     }
 
-    SubPolygonStart[CurRAMBank][parentIndex] = firstpoly;
-    SubPolygonCount[CurRAMBank][parentIndex] = NumSubPolygons - firstpoly;
+    parent->SubPolygonStart = firstpoly;
+    parent->SubPolygonCount = NumSubPolygons - firstpoly;
 }
 
 void GPU3D::BuildMultipliedRenderList() noexcept
@@ -1601,22 +1617,21 @@ void GPU3D::BuildMultipliedRenderList() noexcept
 
     // same order as the hardware list (opaque first, Y-sorted); each multiplied
     // polygon is replaced by its sub-polygons
-    Polygon* bankpolys = &SubPolygonRAM[CurRAMBank * MaxSubPolygons];
+    auto& blocks = SubPolygonBlocks[CurRAMBank];
+    if (MultipliedRenderPolygons.size() < RenderNumPolygons + NumSubPolygons)
+        MultipliedRenderPolygons.resize(RenderNumPolygons + NumSubPolygons);
     u32 n = 0;
     for (u32 i = 0; i < RenderNumPolygons; i++)
     {
         Polygon* poly = RenderPolygonRAM[i];
-        u32 index = (u32)(poly - CurPolygonRAM);
-        u32 count = SubPolygonCount[CurRAMBank][index];
-        if (count == 0)
+        if (poly->SubPolygonCount == 0)
         {
             MultipliedRenderPolygons[n++] = poly;
             continue;
         }
 
-        u32 start = SubPolygonStart[CurRAMBank][index];
-        for (u32 j = 0; j < count; j++)
-            MultipliedRenderPolygons[n++] = &bankpolys[start + j];
+        for (u32 j = poly->SubPolygonStart; j < poly->SubPolygonStart + poly->SubPolygonCount; j++)
+            MultipliedRenderPolygons[n++] = &blocks[j / SubBlockSize][j % SubBlockSize];
     }
 
     MultipliedRenderNumPolygons = n;

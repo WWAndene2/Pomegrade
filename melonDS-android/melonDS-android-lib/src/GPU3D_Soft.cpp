@@ -1708,6 +1708,9 @@ void SoftRenderer::ClearBuffers(const GPU& gpu)
 
 void SoftRenderer::RenderPolygons(const GPU& gpu, bool threaded, Polygon** polygons, int npolys)
 {
+    if ((size_t)npolys > PolygonList.size())
+        PolygonList.resize(npolys);
+
     int j = 0;
     for (int i = 0; i < npolys; i++)
     {

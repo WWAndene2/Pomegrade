@@ -144,6 +144,33 @@ static void SubmitScene()
     g.VBlank();     // builds the render list, as at the end of a frame
 }
 
+// Many spheres at once: sub-polygons span several storage blocks and the
+// renderers' buffers have to grow well past the hardware's sizes.
+static void SubmitStressScene(int spheres)
+{
+    GPU3D& g = Nds->GPU.GPU3D;
+    g.Write32(0x04000060, 0);
+    g.Write32(0x04000350, 0x1F0000);
+    g.Write32(0x04000354, 0x7FFF);
+    Cmd(0x60, {0 | (0 << 8) | (255u << 16) | (191u << 24)});
+    double f = 1.0 / std::tan(25.0 * M_PI / 180.0), a = 256.0 / 192.0, zn = 0.5, zf = 20;
+    double proj[16] = {f / a, 0, 0, 0,  0, f, 0, 0,  0, 0, (zf + zn) / (zn - zf), -1,  0, 0, 2 * zf * zn / (zn - zf), 0};
+    Cmd(0x10, {0}); LoadMatrix(proj);
+    Cmd(0x10, {2}); Cmd(0x15);
+    Cmd(0x32, {N10(-0.5) | (N10(-0.6) << 10) | (N10(-0.62) << 20)});
+    Cmd(0x33, {0x7FFF});
+    Cmd(0x30, {(0x7FFF) | (0x2108u << 16)});
+    for (int i = 0; i < spheres; i++)
+    {
+        double model[16] = {1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  -2.4 + 1.6 * (i % 4), 1.2 - 1.2 * (i / 4), -6, 1};
+        LoadMatrix(model);
+        Cmd(0x29, {(31 << 16) | (1 << 24) | 0x80 | 0x01});
+        DrawSphere(0.55);
+    }
+    Cmd(0x50, {0});
+    g.VBlank();
+}
+
 static std::vector<u32> Capture(Renderer3D& r)
 {
     std::vector<u32> img(256 * 192);
@@ -198,7 +225,7 @@ int main()
     bool ok = true;
     // the flat panel's area, with a margin; the sphere stays right of x=60
     const int px0 = 2, py0 = 146, px1 = 56, py1 = 190;
-    for (int level = 1; level <= 4; level++)
+    for (int level : {1, 2, 3, 4, 6, 8})
     {
         gpu.GPU3D.SetPolygonMultiplier(level);
         SubmitScene();
@@ -240,6 +267,27 @@ int main()
             ok = ok && total > 0 && panel == 0;
             ok = ok && gpu.GPU3D.GetRenderNumPolygons() > gpu.GPU3D.RenderNumPolygons;
         }
+    }
+
+    // stress: 12 spheres at x64, tens of thousands of polygons
+    {
+        gpu.GPU3D.SetPolygonMultiplier(8);
+        SubmitStressScene(12);
+        u32 hw = gpu.GPU3D.RenderNumPolygons, rendered = gpu.GPU3D.GetRenderNumPolygons();
+        soft.RenderFrame(gpu);
+        auto img = Capture(soft);
+        SavePng("stress_soft.png", img);
+        if (glr)
+        {
+            glr->RenderFrame(gpu);
+            glr->PrepareCaptureFrame();
+            SavePng("stress_gl.png", Capture(*glr));
+        }
+        int lit = 0; // pixels that aren't the black clear colour
+        for (u32 c : img) if (c & 0x3F3F3F) lit++;
+        bool drawn = lit > 3000;
+        printf("stress: %u hardware polygons -> %u rendered polygons, %d pixels drawn\n", hw, rendered, lit);
+        ok = ok && rendered > 4 * SubBlockSize && drawn;
     }
 
     // off again: back to exactly the original image

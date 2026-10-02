@@ -18,6 +18,7 @@
 
 #include "GPU3D_OpenGL.h"
 
+#include <algorithm>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -529,6 +530,40 @@ void GLRenderer::LookupHDTextures(GPU& gpu, int npolys)
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D_ARRAY, HDTextures.AtlasTexture());
     glActiveTexture(prevActiveTexture);
+}
+
+void GLRenderer::EnsureCapacity(Polygon** polygons, u32 npolys)
+{
+    // upper bounds per polygon of n vertices, as BuildPolygons fills them:
+    // n vertices + 1 centre vertex, at most 3n triangle indices, 2n edge indices
+    u32 vertices = 0, triIndices = 0, edgeIndices = 0;
+    for (u32 i = 0; i < npolys; i++)
+    {
+        u32 n = polygons[i]->NumVertices;
+        vertices += n + 1;
+        triIndices += 3 * n;
+        edgeIndices += 2 * n;
+    }
+
+    if (npolys > PolygonList.size())
+        PolygonList.resize(npolys);
+
+    if (vertices * VertexSize > VertexBuffer.size())
+    {
+        VertexBuffer.resize(vertices * VertexSize);
+        glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
+        glBufferData(GL_ARRAY_BUFFER, VertexBuffer.size() * sizeof(u32), nullptr, GL_DYNAMIC_DRAW);
+    }
+
+    if (triIndices > EdgeIndicesOffset || EdgeIndicesOffset + edgeIndices > IndexBuffer.size())
+    {
+        EdgeIndicesOffset = std::max(EdgeIndicesOffset, triIndices);
+        IndexBuffer.resize(std::max<size_t>(IndexBuffer.size(), EdgeIndicesOffset + edgeIndices));
+        // the element buffer binding belongs to the vertex array
+        glBindVertexArray(VertexArrayID);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, IndexBuffer.size() * sizeof(u32), nullptr, GL_DYNAMIC_DRAW);
+    }
 }
 
 void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys)
@@ -1337,6 +1372,8 @@ void GLRenderer::RenderFrame(GPU& gpu)
         // render shit here
         u32 flags = 0;
         if (renderpolys[0]->WBuffer) flags |= RenderFlag_WBuffer;
+
+        EnsureCapacity(renderpolys, numrenderpolys);
 
         int npolys = 0;
         int firsttrans = -1;

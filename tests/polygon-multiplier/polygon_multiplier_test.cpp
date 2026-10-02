@@ -3,7 +3,11 @@
 #include <cassert>
 #include <cmath>
 #include <cstdio>
+#include <initializer_list>
 using namespace melonDS;
+
+static const CurveMethod Methods[] = {CurveMethod::Phong, CurveMethod::PNTriangles, CurveMethod::CircularPN};
+static const char* MethodNames[] = {"Phong", "PN", "circular PN"};
 
 static MultiplierVertex V(double x, double y, double z, double nx, double ny, double nz)
 {
@@ -14,75 +18,109 @@ static MultiplierVertex V(double x, double y, double z, double nx, double ny, do
     return v;
 }
 
+// point of a unit sphere, normal = position
+static MultiplierVertex S(double theta, double phi)
+{
+    double x = std::sin(theta)*std::cos(phi), y = std::cos(theta), z = std::sin(theta)*std::sin(phi);
+    return V(x, y, z, x, y, z);
+}
+
 static double Cross2D(const MultiplierVertex* t) // z of (t1-t0) x (t2-t0)
 {
     return (t[1].Position[0]-t[0].Position[0])*(t[2].Position[1]-t[0].Position[1])
          - (t[1].Position[1]-t[0].Position[1])*(t[2].Position[0]-t[0].Position[0]);
 }
 
-static double Radius(const MultiplierVertex& v)
+static double Radius(const double* p)
 {
-    return std::sqrt(v.Position[0]*v.Position[0] + v.Position[1]*v.Position[1] + v.Position[2]*v.Position[2]);
+    return std::sqrt(p[0]*p[0] + p[1]*p[1] + p[2]*p[2]);
+}
+
+static MultiplierVertex Out[PolygonMultiplier::MaxLevel * PolygonMultiplier::MaxLevel][3];
+
+// average distance to the unit sphere of the drawn sub-triangles' centres,
+// over one quad of an 8-segment, 5-ring sphere (a typical low-poly DS model)
+static double SphereError(int level, CurveMethod method)
+{
+    const double th0 = 2*M_PI/5, th1 = 3*M_PI/5, ph0 = 0, ph1 = 2*M_PI/8;
+    MultiplierVertex q[4] = {S(th0, ph0), S(th1, ph0), S(th1, ph1), S(th0, ph1)};
+    double sum = 0; int count = 0;
+    for (int t = 0; t < 2; t++)
+    {
+        int n = PolygonMultiplier::SubdivideTriangle(q[0], q[t+1], q[t+2], level, Out, method);
+        for (int i = 0; i < n; i++)
+        {
+            double c[3];
+            for (int k = 0; k < 3; k++)
+                c[k] = (Out[i][0].Position[k] + Out[i][1].Position[k] + Out[i][2].Position[k]) / 3;
+            sum += std::fabs(Radius(c) - 1);
+            count++;
+        }
+    }
+    return sum / count;
 }
 
 int main()
 {
-    MultiplierVertex out[PolygonMultiplier::MaxLevel * PolygonMultiplier::MaxLevel][3];
-
-    // 1. flat triangle, same normal everywhere: not curved, stays on its plane
-    MultiplierVertex f[3] = {V(0,0,5, 0,0,1), V(4,0,5, 0,0,1), V(0,4,5, 0,0,1)};
-    assert(!PolygonMultiplier::IsCurved(f, 3));
-    int n = PolygonMultiplier::SubdivideTriangle(f[0], f[1], f[2], 4, out);
-    assert(n == 16);
-    for (int i = 0; i < n; i++)
-        for (int k = 0; k < 3; k++)
-            assert(std::fabs(out[i][k].Position[2] - 5) < 1e-9);
-    puts("flat polygon stays flat: OK");
-
-    // 2. one face of an octahedron inscribed in the unit sphere, normals = positions:
-    //    curved points must be closer to the sphere than flat subdivision
-    MultiplierVertex s[3] = {V(1,0,0, 1,0,0), V(0,1,0, 0,1,0), V(0,0,1, 0,0,1)};
-    assert(PolygonMultiplier::IsCurved(s, 3));
-    for (int level = 2; level <= 4; level++)
+    for (int m = 0; m < 3; m++)
     {
-        n = PolygonMultiplier::SubdivideTriangle(s[0], s[1], s[2], level, out);
-        assert(n == level*level);
-        double errCurved = 0, errFlat = 0;
-        for (int i = 0; i <= level; i++)
-            for (int j = 0; j <= level - i; j++)
-            {
-                double u = 1.0 - (double)(i+j)/level, v = (double)i/level, w = (double)j/level;
-                MultiplierVertex p = PolygonMultiplier::Interpolate(s[0], s[1], s[2], u, v, w);
-                double flat = std::sqrt(u*u + v*v + w*w); // |u*e0 + v*e1 + w*e2|
-                errCurved = std::fmax(errCurved, std::fabs(Radius(p) - 1));
-                errFlat = std::fmax(errFlat, std::fabs(flat - 1));
-            }
-        printf("level %d: max distance to sphere, flat %.3f -> curved %.3f\n", level, errFlat, errCurved);
-        assert(errCurved < errFlat * 0.5);
+        CurveMethod method = Methods[m];
+
+        // 1. flat triangle, same normal everywhere: not curved, stays on its plane
+        MultiplierVertex f[3] = {V(0,0,5, 0,0,1), V(4,0,5, 0,0,1), V(0,4,5, 0,0,1)};
+        assert(!PolygonMultiplier::IsCurved(f, 3));
+        int n = PolygonMultiplier::SubdivideTriangle(f[0], f[1], f[2], PolygonMultiplier::MaxLevel, Out, method);
+        assert(n == PolygonMultiplier::MaxLevel * PolygonMultiplier::MaxLevel);
+        for (int i = 0; i < n; i++)
+            for (int k = 0; k < 3; k++)
+                assert(std::fabs(Out[i][k].Position[2] - 5) < 1e-9);
+
+        // 2. corners kept exactly, every sub-triangle keeps the winding
+        MultiplierVertex t[3] = {V(0,0,0, -1,-1,2), V(3,0,0, 1,-1,2), V(0,3,0, -1,1,2)};
+        double parent = Cross2D(t);
+        n = PolygonMultiplier::SubdivideTriangle(t[0], t[1], t[2], 3, Out, method);
+        assert(n == 9);
+        assert(Out[0][0].Position[0] == 0 && Out[0][0].Position[1] == 0);
+        for (int i = 0; i < n; i++)
+            assert(Cross2D(Out[i]) * parent > 0);
+
+        // 3. two triangles sharing an edge produce the same points on it (no cracks)
+        MultiplierVertex q[4] = {V(0,0,0, -1,-1,3), V(2,0,0, 1,-1,3), V(2,2,0.5, 1,1,3), V(0,2,0, -1,1,3)};
+        for (int k = 1; k < 8; k++)
+        {
+            double w = k / 8.0;
+            MultiplierVertex e1 = PolygonMultiplier::Interpolate(q[0], q[1], q[2], 1-w, 0, w, method);
+            MultiplierVertex e2 = PolygonMultiplier::Interpolate(q[0], q[2], q[3], 1-w, w, 0, method);
+            for (int i = 0; i < 3; i++)
+                assert(std::fabs(e1.Position[i] - e2.Position[i]) < 1e-12);
+        }
+
+        // 4. every method gets a low-poly sphere much closer than the flat polygon
+        double flat = SphereError(1, method);
+        for (int level = 2; level <= PolygonMultiplier::MaxLevel; level++)
+            assert(SphereError(level, method) < flat * 0.5);
+
+        printf("%s: flat stays flat, corners and winding kept, shared edges match, rounder: OK\n", MethodNames[m]);
     }
 
-    // 3. corners kept exactly, every sub-triangle keeps the winding
-    MultiplierVertex t[3] = {V(0,0,0, -1,-1,2), V(3,0,0, 1,-1,2), V(0,3,0, -1,1,2)};
-    double parent = Cross2D(t);
-    n = PolygonMultiplier::SubdivideTriangle(t[0], t[1], t[2], 3, out);
-    assert(n == 9);
-    assert(out[0][0].Position[0] == 0 && out[0][0].Position[1] == 0);
-    for (int i = 0; i < n; i++)
-        assert(Cross2D(out[i]) * parent > 0);
-    puts("corners kept, winding kept: OK");
-
-    // 4. two triangles sharing an edge produce the same points on it (no cracks)
-    MultiplierVertex q[4] = {V(0,0,0, -1,-1,3), V(2,0,0, 1,-1,3), V(2,2,0.5, 1,1,3), V(0,2,0, -1,1,3)};
-    for (int k = 1; k < 4; k++)
+    // 5. the chosen method per level, measured: Phong is best up to level 3 but
+    //    stops improving; circular PN keeps getting closer, well past Phong
+    printf("average distance to the sphere (8-segment model):\n");
+    for (int level : {1, 2, 3, 4, 6, 8})
+        printf("  x%-3d Phong %.4f  PN %.4f  circular PN %.4f  -> %s\n", level*level,
+               SphereError(level, CurveMethod::Phong), SphereError(level, CurveMethod::PNTriangles),
+               SphereError(level, CurveMethod::CircularPN), MethodNames[(int)PolygonMultiplier::BestMethod(level)]);
+    for (int level = 2; level <= 3; level++)
     {
-        double w = k / 4.0;
-        // edge q0-q2 seen from triangle (q0,q1,q2) and from triangle (q0,q2,q3)
-        MultiplierVertex e1 = PolygonMultiplier::Interpolate(q[0], q[1], q[2], 1-w, 0, w);
-        MultiplierVertex e2 = PolygonMultiplier::Interpolate(q[0], q[2], q[3], 1-w, w, 0);
-        for (int i = 0; i < 3; i++)
-            assert(std::fabs(e1.Position[i] - e2.Position[i]) < 1e-12);
+        assert(PolygonMultiplier::BestMethod(level) == CurveMethod::Phong);
+        assert(SphereError(level, CurveMethod::Phong) < SphereError(level, CurveMethod::CircularPN));
     }
-    puts("shared edges match: OK");
+    for (int level = 4; level <= PolygonMultiplier::MaxLevel; level++)
+    {
+        assert(PolygonMultiplier::BestMethod(level) == CurveMethod::CircularPN);
+        assert(SphereError(level, CurveMethod::CircularPN) < SphereError(level, CurveMethod::Phong));
+    }
+    assert(SphereError(8, CurveMethod::CircularPN) < SphereError(2, CurveMethod::Phong) * 0.25);
 
     puts("ALL OK");
 }

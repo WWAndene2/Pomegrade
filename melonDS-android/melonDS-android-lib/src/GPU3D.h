@@ -87,19 +87,24 @@ struct Polygon
 
     u32 SortKey;
 
+    // polygon multiplier (Pomegrade): this polygon's sub-polygons in its bank's
+    // sub-polygon storage (count 0 = drawn as is). Not part of the hardware state.
+    u32 SubPolygonStart;
+    u32 SubPolygonCount;
+
     void DoSavestate(Savestate* file) noexcept;
 };
 
 class Renderer3D;
 class NDS;
 
-// Polygon multiplier (Pomegrade) capacity, per RAM bank. Sub-polygons beyond
-// it are not generated: their parent polygon is drawn as is.
-constexpr u32 MaxSubPolygons = 32768;
+// Polygon multiplier (Pomegrade) storage, per RAM bank: allocated in blocks as
+// needed (blocks never move, renderers keep pointers into them). The limit only
+// guards memory (a full 2048-quad scene at x64 fits); a polygon that would go
+// beyond it is drawn as is.
+constexpr u32 SubBlockSize = 4096;
+constexpr u32 MaxSubPolygons = 262144;
 constexpr u32 MaxSubVertices = MaxSubPolygons * 4;
-// Largest polygon list a renderer can receive: every hardware polygon either
-// kept, or replaced by its sub-polygons.
-constexpr u32 MaxRenderPolygons = 2048 + MaxSubPolygons;
 
 class GPU3D
 {
@@ -178,8 +183,11 @@ private:
     void SubmitVertex() noexcept;
     void ComputeScreenPosition(Vertex* vtx) const noexcept;
     void FinalizePolygon(Polygon* poly, int nverts) const noexcept;
-    void MultiplyPolygon(Polygon* parent, u32 parentIndex, int nverts) noexcept;
+    void MultiplyPolygon(Polygon* parent, int nverts) noexcept;
     void BuildMultipliedRenderList() noexcept;
+    Vertex* NewSubVertex() noexcept;
+    Polygon* NewSubPolygon() noexcept;
+    void ClearSubPolygons() noexcept;
     void CalculateLighting() noexcept;
     s32 LightVertex(const s32* normaltrans, u8* color) const noexcept;
     void BoxTest(const u32* params) noexcept;
@@ -366,12 +374,10 @@ public:
     float CurViewNormal[3] {};
     bool CurViewNormalValid = false;
     bool CurColorFromLighting = false; // vertex colour last set by a normal command
-    std::vector<Vertex> SubVertexRAM;    // 2 banks of MaxSubVertices, allocated on first use
-    std::vector<Polygon> SubPolygonRAM;  // 2 banks of MaxSubPolygons
-    u32 NumSubVertices = 0;
+    std::vector<std::unique_ptr<Vertex[]>> SubVertexBlocks[2];
+    std::vector<std::unique_ptr<Polygon[]>> SubPolygonBlocks[2];
+    u32 NumSubVertices = 0;   // in the current bank
     u32 NumSubPolygons = 0;
-    u32 SubPolygonStart[2][2048] {};     // per hardware polygon, in its bank
-    u32 SubPolygonCount[2][2048] {};
     std::vector<Polygon*> MultipliedRenderPolygons;
     u32 MultipliedRenderNumPolygons = 0;
     bool RenderMultiplied = false;

@@ -78,8 +78,8 @@ private:
     };
 
     GLCompositor CurGLCompositor;
-    // sized for the polygon multiplier (Pomegrade), see MaxRenderPolygons
-    std::vector<RendererPolygon> PolygonList = std::vector<RendererPolygon>(MaxRenderPolygons);
+    // buffers grow past the hardware's needs for the polygon multiplier (Pomegrade), see EnsureCapacity
+    std::vector<RendererPolygon> PolygonList = std::vector<RendererPolygon>(2048);
 
     bool BuildRenderShader(u32 flags, const std::string& vs, const std::string& fs);
     void UseRenderShader(u32 flags);
@@ -87,6 +87,7 @@ private:
     u32* SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 hdTexture, u32* vptr) const;
     void LookupHDTextures(GPU& gpu, int npolys);
     void BuildPolygons(RendererPolygon* polygons, int npolys);
+    void EnsureCapacity(Polygon** polygons, u32 npolys);
     int RenderSinglePolygon(int i) const;
     int RenderPolygonBatch(int i) const;
     int RenderPolygonEdgeBatch(int i) const;
@@ -144,21 +145,19 @@ private:
 
     GLuint VertexBufferID {};
     static constexpr u32 VertexSize = 8; // in u32s
-    // hardware polygons need up to 10240 vertices (one per polygon corner, plus a
-    // centre vertex per polygon); sub-polygons up to MaxSubVertices + MaxSubPolygons
-    static constexpr u32 MaxVertices = 10240 + MaxSubVertices + MaxSubPolygons;
-    std::vector<u32> VertexBuffer = std::vector<u32>(MaxVertices * VertexSize);
+    std::vector<u32> VertexBuffer = std::vector<u32>(10240 * VertexSize);
 
     GLHDTextures HDTextures;
     u32 NumVertices {};
 
     GLuint VertexArrayID {};
     GLuint IndexBufferID {};
-    // 32-bit indices: the polygon multiplier goes beyond 65536 vertices
-    std::vector<u32> IndexBuffer = std::vector<u32>(MaxRenderPolygons * 40);
+    // 32-bit indices: the polygon multiplier goes beyond 65536 vertices.
+    // Triangle indices first, then edge indices from EdgeIndicesOffset.
+    std::vector<u32> IndexBuffer = std::vector<u32>(2048 * 40);
     u32 NumIndices {}, NumEdgeIndices {};
 
-    const u32 EdgeIndicesOffset = MaxRenderPolygons * 30;
+    u32 EdgeIndicesOffset = 2048 * 30;
 
     GLuint TexMemID {};
     GLuint TexPalMemID {};
