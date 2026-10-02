@@ -13,7 +13,7 @@ Pomegrade is currently **two apps side by side in one APK**: melonDS-android (DS
 | Unified game list: DS, DSi and 3DS games, each launched in its own core | Local build, `RomPlatformTest` |
 | App renamed Pomegrade, own application ID (`io.github.wwandene2.pomegrade`) | APK inspection |
 | Pomegrade icon (adaptive, themed, legacy) | APK inspection |
-| CI: builds only on `main` and manual runs, ccache | — (no CI run yet) |
+| CI: builds only on `main` and manual runs, ccache, only the needed 3DS target, optimized native code | Local clean build with the CI settings (27 min); no CI run yet |
 
 **Nothing has been run on a phone yet.** Every user-facing item above is untested on a device.
 
@@ -22,7 +22,7 @@ Pomegrade is currently **two apps side by side in one APK**: melonDS-android (DS
 | # | Task | Why |
 |---|---|---|
 | 1 | Test on a real phone: DS, HD textures, 3DS | Only compilation and desktop tests are verified so far |
-| 2 | Release build: stripped, optimized, signed | The debug APK is 238 MB; release should be ~70–90 MB. Needs a signing key kept in GitHub Secrets, and R8 rules checked for Azahar's JNI classes |
+| 2 | Release build: shrunk, signed | The CI debug APK (optimized native code) is 136.5 MB; release should be smaller, to be measured. Needs a signing key kept in GitHub Secrets, and R8 rules checked for Azahar's JNI classes |
 | 3 | Merge into `main` and run the GitHub build | CI only builds `main` |
 | 4 | README: 3DS section (formats, Android 10+, 64-bit only, encrypted games unsupported) | Documentation is out of date |
 | 5 | Licences: one notices screen (melonDS GPLv3, Azahar GPLv2+, stb, …) | Required by the GPL when distributing the APK |
