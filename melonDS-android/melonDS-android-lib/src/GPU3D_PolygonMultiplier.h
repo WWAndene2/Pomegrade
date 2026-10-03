@@ -89,6 +89,30 @@ public:
                                  int level, MultiplierVertex (*out)[3], CurveMethod method,
                                  const double* edgeKeep = nullptr);
 
+    // The points SubdivideTriangle places on triangle (a, b, c), each computed
+    // once: point (i, j), at barycentric (1 - (i+j)/level, i/level, j/level), is
+    // grid[GridIndex(i, j, level)]. grid must hold MaxGridPoints points.
+    static constexpr int MaxGridPoints = (MaxLevel + 1) * (MaxLevel + 2) / 2;
+    static constexpr int GridIndex(int i, int j, int level) { return i * (level + 1) - i * (i - 1) / 2 + j; }
+    static void SubdivideGrid(const MultiplierVertex& a, const MultiplierVertex& b, const MultiplierVertex& c,
+                              int level, MultiplierVertex* grid, CurveMethod method, const double* edgeKeep = nullptr);
+
+    // Calls f(p0, p1, p2) with the grid indices of each sub-triangle, in
+    // SubdivideTriangle's order and winding.
+    template <typename F>
+    static void ForEachGridTriangle(int level, F&& f)
+    {
+        for (int i = 0; i < level; i++)
+        {
+            for (int j = 0; j < level - i; j++)
+            {
+                f(GridIndex(i, j, level), GridIndex(i + 1, j, level), GridIndex(i, j + 1, level));
+                if (j < level - i - 1)
+                    f(GridIndex(i + 1, j, level), GridIndex(i + 1, j + 1, level), GridIndex(i, j + 1, level));
+            }
+        }
+    }
+
     // The point at barycentric coordinates (u, v, w) of triangle (a, b, c).
     // pnShare is only used by PNhong.
 

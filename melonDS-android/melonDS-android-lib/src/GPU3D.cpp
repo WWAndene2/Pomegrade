@@ -1587,118 +1587,177 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
     const u32 firstpoly = NumSubPolygons;
     const u32 firstvert = NumSubVertices;
 
-    MultiplierVertex sub[PolygonMultiplier::MaxLevel * PolygonMultiplier::MaxLevel][3];
+    MultiplierVertex grid[PolygonMultiplier::MaxGridPoints];
+    // each point of the subdivision as a vertex, computed once: inner points are
+    // shared by six sub-triangles, edge points by up to three
+    Vertex points[PolygonMultiplier::MaxGridPoints];
+    bool inside[PolygonMultiplier::MaxGridPoints];
+    // a point's finished vertex (screen position, final colour), shared by the
+    // sub-triangles that need no clipping; created when first used
+    Vertex* finished[PolygonMultiplier::MaxGridPoints];
+    const int numpoints = (level + 1) * (level + 2) / 2;
     for (int t = 0; t < numtris; t++)
     {
         // quads are split along the 0-2 diagonal
         int a = 0, b = t + 1, c = t + 2;
         // the polygon's edges are 0-1, 1-2 ... (n-1)-0; a quad's diagonal is
         // inside it, curved only as much as its least curved edge
-        double inside = std::min({edgeKeep[0], edgeKeep[1], edgeKeep[2], edgeKeep[nverts - 1]});
-        const double keep[3] = {b == 1 ? edgeKeep[0] : inside,
+        double inside_keep = std::min({edgeKeep[0], edgeKeep[1], edgeKeep[2], edgeKeep[nverts - 1]});
+        const double keep[3] = {b == 1 ? edgeKeep[0] : inside_keep,
                                 edgeKeep[b],
-                                c == nverts - 1 ? edgeKeep[nverts - 1] : inside};
-        int count = PolygonMultiplier::SubdivideTriangle(corners[a], corners[b], corners[c], level, sub,
-                                                         CurveMethod::PNhong, keep);
+                                c == nverts - 1 ? edgeKeep[nverts - 1] : inside_keep};
+        PolygonMultiplier::SubdivideGrid(corners[a], corners[b], corners[c], level, grid,
+                                         CurveMethod::PNhong, keep);
 
-        for (int s = 0; s < count; s++)
+        for (int g = 0; g < numpoints; g++)
         {
-            Vertex clipped[10];
-            for (int k = 0; k < 3; k++)
+            const MultiplierVertex& mv = grid[g];
+            Vertex& out = points[g];
+            out = {};
+
+            // corners keep the hardware's exact clip coordinates, so edges shared
+            // with polygons that aren't multiplied line up
+            int corner = -1;
+            const int ids[3] = {a, b, c};
+            for (int id : ids)
             {
-                const MultiplierVertex& mv = sub[s][k];
-                Vertex& out = clipped[k];
-                out = {};
-
-                // corners keep the hardware's exact clip coordinates, so edges shared
-                // with polygons that aren't multiplied line up
-                int corner = -1;
-                const int ids[3] = {a, b, c};
-                for (int id : ids)
-                {
-                    if (mv.Position[0] == corners[id].Position[0] &&
-                        mv.Position[1] == corners[id].Position[1] &&
-                        mv.Position[2] == corners[id].Position[2])
-                        corner = id;
-                }
-
-                if (corner >= 0)
-                {
-                    for (int i = 0; i < 4; i++)
-                        out.Position[i] = TempVertexBuffer[corner].Position[i];
-                }
-                else
-                {
-                    const double view[4] = {mv.Position[0], mv.Position[1], mv.Position[2], vieww};
-                    for (int i = 0; i < 4; i++)
-                    {
-                        double clip = view[0]*ProjMatrix[i] + view[1]*ProjMatrix[4+i] + view[2]*ProjMatrix[8+i] + view[3]*ProjMatrix[12+i];
-                        out.Position[i] = (s32)std::floor(clip / 4096.0);
-                    }
-                }
-
-                if (corner >= 0)
-                {
-                    for (int i = 0; i < 3; i++)
-                        out.Color[i] = TempVertexBuffer[corner].Color[i];
-                }
-                else if (relight)
-                {
-                    s32 normaltrans[3];
-                    for (int i = 0; i < 3; i++)
-                        normaltrans[i] = (s32)std::lround(mv.Normal[i] * normallength);
-                    u8 color[3];
-                    s32 precise[3];
-                    LightVertex(normaltrans, color, precise);
-                    for (int i = 0; i < 3; i++)
-                        out.Color[i] = HighColor ? precise[i] : (color[i] << 12) + 0xFFF;
-                }
-                else
-                {
-                    for (int i = 0; i < 3; i++)
-                        out.Color[i] = (s32)std::lround(mv.Color[i]);
-                }
-                out.TexCoords[0] = (s16)std::lround(mv.TexCoords[0]);
-                out.TexCoords[1] = (s16)std::lround(mv.TexCoords[1]);
-                out.Clipped = false;
-                // view-space data for the renderer's effects
-                if (corner >= 0)
-                {
-                    const Vertex& src = TempVertexBuffer[corner];
-                    for (int i = 0; i < 4; i++) out.ViewPosition[i] = src.ViewPosition[i];
-                }
-                else
-                {
-                    for (int i = 0; i < 3; i++) out.ViewPosition[i] = (float)mv.Position[i];
-                    out.ViewPosition[3] = vieww;
-                }
-                for (int i = 0; i < 3; i++) out.ViewNormal[i] = (float)mv.Normal[i];
-                out.HasViewNormal = true;
-                out.Orthographic = TempVertexBuffer[0].Orthographic;
-                out.Specular = TempVertexBuffer[0].Specular;
+                if (mv.Position[0] == corners[id].Position[0] &&
+                    mv.Position[1] == corners[id].Position[1] &&
+                    mv.Position[2] == corners[id].Position[2])
+                    corner = id;
             }
 
-            int nv = ClipPolygon<true>(*this, clipped, 3, 0);
-            if (nv == 0)
-                continue;
-
-            if (NumSubPolygons >= MaxSubPolygons || NumSubVertices + nv > MaxSubVertices)
+            if (corner >= 0)
             {
-                // out of room: draw the parent polygon as is
-                NumSubPolygons = firstpoly;
-                NumSubVertices = firstvert;
+                for (int i = 0; i < 4; i++)
+                    out.Position[i] = TempVertexBuffer[corner].Position[i];
+            }
+            else
+            {
+                const double view[4] = {mv.Position[0], mv.Position[1], mv.Position[2], vieww};
+                for (int i = 0; i < 4; i++)
+                {
+                    double clip = view[0]*ProjMatrix[i] + view[1]*ProjMatrix[4+i] + view[2]*ProjMatrix[8+i] + view[3]*ProjMatrix[12+i];
+                    out.Position[i] = (s32)std::floor(clip / 4096.0);
+                }
+            }
+
+            if (corner >= 0)
+            {
+                for (int i = 0; i < 3; i++)
+                    out.Color[i] = TempVertexBuffer[corner].Color[i];
+            }
+            else if (relight)
+            {
+                s32 normaltrans[3];
+                for (int i = 0; i < 3; i++)
+                    normaltrans[i] = (s32)std::lround(mv.Normal[i] * normallength);
+                u8 color[3];
+                s32 precise[3];
+                LightVertex(normaltrans, color, precise);
+                for (int i = 0; i < 3; i++)
+                    out.Color[i] = HighColor ? precise[i] : (color[i] << 12) + 0xFFF;
+            }
+            else
+            {
+                for (int i = 0; i < 3; i++)
+                    out.Color[i] = (s32)std::lround(mv.Color[i]);
+            }
+            out.TexCoords[0] = (s16)std::lround(mv.TexCoords[0]);
+            out.TexCoords[1] = (s16)std::lround(mv.TexCoords[1]);
+            out.Clipped = false;
+            // view-space data for the renderer's effects
+            if (corner >= 0)
+            {
+                const Vertex& src = TempVertexBuffer[corner];
+                for (int i = 0; i < 4; i++) out.ViewPosition[i] = src.ViewPosition[i];
+            }
+            else
+            {
+                for (int i = 0; i < 3; i++) out.ViewPosition[i] = (float)mv.Position[i];
+                out.ViewPosition[3] = vieww;
+            }
+            for (int i = 0; i < 3; i++) out.ViewNormal[i] = (float)mv.Normal[i];
+            out.HasViewNormal = true;
+            out.Orthographic = TempVertexBuffer[0].Orthographic;
+            out.Specular = TempVertexBuffer[0].Specular;
+
+            const s32 w = out.Position[3];
+            inside[g] = true;
+            for (int i = 0; i < 3; i++)
+                inside[g] = inside[g] && out.Position[i] <= w && out.Position[i] >= -w;
+            finished[g] = nullptr;
+        }
+
+        int s = 0;
+        bool full = false;
+        PolygonMultiplier::ForEachGridTriangle(level, [&](int p0, int p1, int p2) {
+            // its place in the subdivision, the same whether or not earlier
+            // sub-triangles were clipped away (at most 2 x 8 x 8 = 128)
+            const u32 place = (t * level * level + s++) & 0xFF;
+            if (full)
                 return;
+            const int ids[3] = {p0, p1, p2};
+            Vertex* vertices[10];
+            int nv;
+
+            if (inside[p0] && inside[p1] && inside[p2])
+            {
+                // inside the view volume: ClipPolygon would return the three
+                // vertices as they are, apart from its colour rounding (below)
+                int needed = 0;
+                for (int id : ids)
+                    needed += finished[id] ? 0 : 1;
+                if (NumSubPolygons >= MaxSubPolygons || NumSubVertices + needed > MaxSubVertices)
+                {
+                    full = true;
+                    return;
+                }
+                for (int k = 0; k < 3; k++)
+                {
+                    Vertex*& vtx = finished[ids[k]];
+                    if (!vtx)
+                    {
+                        vtx = NewSubVertex();
+                        *vtx = points[ids[k]];
+                        for (int i = 0; i < 3; i++)
+                        {
+                            vtx->Color[i] &= ~0xFFF;
+                            vtx->Color[i] += 0xFFF;
+                        }
+                        ComputeScreenPosition(vtx);
+                        ComputeFinalColor(vtx, HighColor);
+                    }
+                    vertices[k] = vtx;
+                }
+                nv = 3;
+            }
+            else
+            {
+                Vertex clipped[10];
+                for (int k = 0; k < 3; k++)
+                    clipped[k] = points[ids[k]];
+                nv = ClipPolygon<true>(*this, clipped, 3, 0);
+                if (nv == 0)
+                    return;
+                if (NumSubPolygons >= MaxSubPolygons || NumSubVertices + nv > MaxSubVertices)
+                {
+                    full = true;
+                    return;
+                }
+                for (int i = 0; i < nv; i++)
+                {
+                    Vertex* vtx = NewSubVertex();
+                    *vtx = clipped[i];
+                    ComputeScreenPosition(vtx);
+                    ComputeFinalColor(vtx, HighColor);
+                    vertices[i] = vtx;
+                }
             }
 
             Polygon* poly = NewSubPolygon();
             for (int i = 0; i < nv; i++)
-            {
-                Vertex* vtx = NewSubVertex();
-                *vtx = clipped[i];
-                ComputeScreenPosition(vtx);
-                ComputeFinalColor(vtx, HighColor);
-                poly->Vertices[i] = vtx;
-            }
+                poly->Vertices[i] = vertices[i];
             poly->NumVertices = nv;
 
             poly->Attr = parent->Attr;
@@ -1710,11 +1769,17 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
             poly->Translucent = parent->Translucent;
             poly->IsShadowMask = false;
             poly->IsShadow = false;
-            // its place in the subdivision, the same whether or not earlier
-            // sub-triangles were clipped away (at most 2 x 8 x 8 = 128)
-            poly->FrameId = (parent->FrameId & ~0xFFu) | ((t * level * level + s) & 0xFF);
+            poly->FrameId = (parent->FrameId & ~0xFFu) | place;
 
             FinalizePolygon(poly, nv);
+        });
+
+        if (full)
+        {
+            // out of room: draw the parent polygon as is
+            NumSubPolygons = firstpoly;
+            NumSubVertices = firstvert;
+            return;
         }
     }
 
