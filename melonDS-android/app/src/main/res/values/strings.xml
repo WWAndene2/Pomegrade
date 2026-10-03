@@ -646,7 +646,14 @@
     <string name="multiplayer_error_permission_denied">Required permissions not granted</string>
     <string name="action_three_ds_games">3DS games</string>
     <string name="three_ds_unsupported">3DS games need a 64-bit device</string>
-    <string name="three_ds_setup_required">Set up 3DS emulation first (folder for saves and system files)</string>
+    <string name="three_ds_file_access_title">File access for 3DS games</string>
+    <string name="three_ds_file_access_message">The 3DS core reads and writes its saves and system files directly in your storage, so Android must allow Pomegrade \"All files access\". On the next screen, turn it on for Pomegrade, then come back.</string>
+    <string name="three_ds_file_access_allow">Allow</string>
+    <string name="three_ds_file_access_denied">3DS games can\'t run without file access</string>
+    <string name="three_ds_folder_title">Folder for 3DS games</string>
+    <string name="three_ds_folder_message">3DS games keep their saves, save states and system files in a folder on your phone. Choose or create one, for example \"Pomegrade\" in your internal storage. You only do this once.</string>
+    <string name="three_ds_folder_choose">Choose folder</string>
+    <string name="three_ds_folder_invalid">This folder can\'t be used for 3DS games. Choose one in your phone\'s internal storage or SD card, not in a cloud service or another app.</string>
     <string name="three_ds_rom_label">3DS · %1$s</string>
     <string name="unlimited_polygons">Remove polygon limit</string>
     <string name="unlimited_polygons_summary">Draw the polygons a DS would drop when a scene has too many (missing or flickering objects)</string>
