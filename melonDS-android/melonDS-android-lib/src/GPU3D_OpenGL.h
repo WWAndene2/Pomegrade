@@ -299,6 +299,23 @@ private:
     GLint ComposeShadowLoc[7] {}; // compose shader: strength, right, up, dir, bounds, depth, texel
     GLint LightingAORadiusLoc = -1, LightingBounceRadiusLoc = -1, LightingComposeAOLoc = -1, LightingComposeBounceLoc = -1;
     int LightingTargetsW {}, LightingTargetsH {};
+    // At high resolutions the lighting terms (occlusion, bounce, shadows,
+    // reflections) are computed on a copy of the frame LightingFactor times
+    // smaller each way, at most MaxLightingScale times the DS resolution, and
+    // brought back by an edge-aware filter (see kLightingDownsampleFS). Measured
+    // at 8x on the desktop (llvmpipe), the effects were 83% of the GPU's work
+    // per frame at full resolution. 1 = at full resolution.
+    static constexpr int MaxLightingScale = 4;
+    int LightingFactor = 1;
+    GLuint LowPositionTex {}, LowNormalTex {}, LowColorTex {};
+    GLuint TermsTex {}, TermsBounceTex {}, TermsReflectedTex {};
+    GLuint LowGBufferFramebuffer {}, TermsFramebuffer {};
+    GLuint LightingDownsampleShader {}, LightingTermsShader {}, LightingUpsampleShader {};
+    GLint DownsampleFactorLoc = -1, LightingAOPixelInWLoc = -1;
+    GLint TermsShadowLoc[7] {}, TermsReflectionLoc[4] {}; // as ComposeShadowLoc, ComposeReflectionLoc
+    GLint UpsampleLoc[6] {}; // factor, AO on, bounce intensity, shadow strength, light direction, reflection strength
+    void SetLightingTermUniforms(const GLint* shadowLoc, const GLint* reflectionLoc, bool shadows,
+                                 const GPU3D& gpu3d, float scale) const;
     u32 Framebuffer[256*192] {};
 };
 }

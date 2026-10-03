@@ -203,6 +203,7 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
     glUniform1i(glGetUniformLocation(result->LightingAOShader, "GNormal"), 1);
     glUniform1i(glGetUniformLocation(result->LightingAOShader, "Color"), 2);
     result->LightingAORadiusLoc = glGetUniformLocation(result->LightingAOShader, "uRadius");
+    result->LightingAOPixelInWLoc = glGetUniformLocation(result->LightingAOShader, "uPixelInW");
     result->LightingBounceRadiusLoc = glGetUniformLocation(result->LightingAOShader, "uBounceRadius");
 
     if (!OpenGL::CompileVertexFragmentProgram(result->LightingComposeShader,
@@ -244,6 +245,55 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
     }
     result->LightingComposeAOLoc = glGetUniformLocation(result->LightingComposeShader, "uAmbientOcclusion");
     result->LightingComposeBounceLoc = glGetUniformLocation(result->LightingComposeShader, "uBounceIntensity");
+
+    // lighting terms at high resolutions (see MaxLightingScale)
+    if (!OpenGL::CompileVertexFragmentProgram(result->LightingDownsampleShader,
+            kFinalPassVS, kLightingDownsampleFS,
+            "LightingDownsampleShader",
+            {{"vPosition", 0}},
+            {{"oPosition", 0}, {"oNormal", 1}, {"oColor", 2}}))
+        return nullptr;
+    glUseProgram(result->LightingDownsampleShader);
+    glUniform1i(glGetUniformLocation(result->LightingDownsampleShader, "GPosition"), 0);
+    glUniform1i(glGetUniformLocation(result->LightingDownsampleShader, "GNormal"), 1);
+    glUniform1i(glGetUniformLocation(result->LightingDownsampleShader, "Color"), 2);
+    result->DownsampleFactorLoc = glGetUniformLocation(result->LightingDownsampleShader, "uFactor");
+
+    if (!OpenGL::CompileVertexFragmentProgram(result->LightingTermsShader,
+            kFinalPassVS, kLightingTermsFS,
+            "LightingTermsShader",
+            {{"vPosition", 0}},
+            {{"oTerms", 0}, {"oBounce", 1}, {"oReflected", 2}}))
+        return nullptr;
+    glUseProgram(result->LightingTermsShader);
+    // the compose shader's texture units
+    {
+        const char* samplers[7] = {"Color", "GPosition", "GNormal", "AO", "Bounce", "ShadowMap", "ShadowDepthMap"};
+        for (int i = 0; i < 7; i++)
+            glUniform1i(glGetUniformLocation(result->LightingTermsShader, samplers[i]), i);
+        const char* shadow[7] = {"uShadowStrength", "uLightRight", "uLightUp", "uLightDir", "uShadowBounds", "uShadowDepth", "uShadowTexel"};
+        for (int i = 0; i < 7; i++)
+            result->TermsShadowLoc[i] = glGetUniformLocation(result->LightingTermsShader, shadow[i]);
+        const char* reflection[4] = {"uReflectionStrength", "uProj", "uViewport", "uScale"};
+        for (int i = 0; i < 4; i++)
+            result->TermsReflectionLoc[i] = glGetUniformLocation(result->LightingTermsShader, reflection[i]);
+    }
+
+    if (!OpenGL::CompileVertexFragmentProgram(result->LightingUpsampleShader,
+            kFinalPassVS, kLightingUpsampleFS,
+            "LightingUpsampleShader",
+            {{"vPosition", 0}},
+            {{"oColor", 0}}))
+        return nullptr;
+    glUseProgram(result->LightingUpsampleShader);
+    {
+        const char* samplers[9] = {"Color", "GPosition", "GNormal", "LowPosition", "LowNormal", "Terms", "TermsBounce", "TermsReflected", "LowAO"};
+        for (int i = 0; i < 9; i++)
+            glUniform1i(glGetUniformLocation(result->LightingUpsampleShader, samplers[i]), i);
+        const char* names[6] = {"uFactor", "uAmbientOcclusion", "uBounceIntensity", "uShadowStrength", "uLightDir", "uReflectionStrength"};
+        for (int i = 0; i < 6; i++)
+            result->UpsampleLoc[i] = glGetUniformLocation(result->LightingUpsampleShader, names[i]);
+    }
 
 
     memset(&result->ShaderConfig, 0, sizeof(ShaderConfig));
@@ -308,6 +358,8 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
     glGenFramebuffers(1, &result->DownscaleFramebuffer);
     glGenFramebuffers(1, &result->AOFramebuffer);
     glGenFramebuffers(1, &result->LightingFramebuffer);
+    glGenFramebuffers(1, &result->LowGBufferFramebuffer);
+    glGenFramebuffers(1, &result->TermsFramebuffer);
     glGenFramebuffers(1, &result->ShadowFramebuffer);
 
     // color buffers
@@ -374,6 +426,13 @@ GLRenderer::~GLRenderer()
 
     glDeleteFramebuffers(1, &AOFramebuffer);
     glDeleteFramebuffers(1, &LightingFramebuffer);
+    glDeleteFramebuffers(1, &LowGBufferFramebuffer);
+    glDeleteFramebuffers(1, &TermsFramebuffer);
+    for (GLuint* tex : {&LowPositionTex, &LowNormalTex, &LowColorTex, &TermsTex, &TermsBounceTex, &TermsReflectedTex})
+        glDeleteTextures(1, tex);
+    glDeleteProgram(LightingDownsampleShader);
+    glDeleteProgram(LightingTermsShader);
+    glDeleteProgram(LightingUpsampleShader);
     glDeleteTextures(1, &ViewPositionTex);
     glDeleteTextures(1, &ViewNormalTex);
     glDeleteTextures(1, &AOTex);
@@ -1405,19 +1464,22 @@ void GLRenderer::SetupLightingTargets()
         return;
     LightingTargetsW = ScreenW;
     LightingTargetsH = ScreenH;
+    // the lighting terms' resolution (see MaxLightingScale); 256 * scale is even
+    LightingFactor = (ScaleFactor + MaxLightingScale - 1) / MaxLightingScale;
+    const int lowW = ScreenW / LightingFactor, lowH = ScreenH / LightingFactor;
 
-    auto makeTarget = [&](GLuint& tex, GLenum internalFormat, GLenum format, GLenum type)
+    auto makeTarget = [&](GLuint& tex, GLenum internalFormat, GLenum format, GLenum type, bool low = false)
     {
         if (!tex) glGenTextures(1, &tex);
         SetupDefaultTexParams(tex);
-        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, ScreenW, ScreenH, 0, format, type, nullptr);
+        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, low ? lowW : ScreenW, low ? lowH : ScreenH, 0, format, type, nullptr);
     };
     glActiveTexture(GL_TEXTURE0);
     // view positions need float32: view-space units are 1/4096, with depths in the thousands
     makeTarget(ViewPositionTex, GL_RGBA32F, GL_RGBA, GL_FLOAT);
     makeTarget(ViewNormalTex, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
-    makeTarget(AOTex, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
-    makeTarget(BounceTex, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
+    makeTarget(AOTex, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT, true);
+    makeTarget(BounceTex, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT, true);
     makeTarget(LightingTex, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
     // same formats as DepthBufferTex and AttrBufferTex (copied with blits)
     makeTarget(LitDepthTex, GL_DEPTH24_STENCIL8, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8);
@@ -1444,6 +1506,29 @@ void GLRenderer::SetupLightingTargets()
     glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, LitDepthTex, 0);
     glDrawBuffers(2, buffers);
     complete = complete && glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+
+    if (LightingFactor > 1)
+    {
+        // the smaller copy of the frame's data, and the terms computed on it
+        makeTarget(LowPositionTex, GL_RGBA32F, GL_RGBA, GL_FLOAT, true);
+        makeTarget(LowNormalTex, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, true);
+        makeTarget(LowColorTex, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, true);
+        makeTarget(TermsTex, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, true);
+        makeTarget(TermsBounceTex, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT, true);
+        makeTarget(TermsReflectedTex, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, true);
+        glBindFramebuffer(GL_FRAMEBUFFER, LowGBufferFramebuffer);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, LowPositionTex, 0);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, LowNormalTex, 0);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, LowColorTex, 0);
+        glDrawBuffers(3, buffers);
+        complete = complete && glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+        glBindFramebuffer(GL_FRAMEBUFFER, TermsFramebuffer);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, TermsTex, 0);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, TermsBounceTex, 0);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, TermsReflectedTex, 0);
+        glDrawBuffers(3, buffers);
+        complete = complete && glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+    }
 
     if (!complete)
     {
@@ -1649,6 +1734,36 @@ bool GLRenderer::FindReplacedShadows(const GPU3D& gpu3d)
     return any;
 }
 
+void GLRenderer::SetLightingTermUniforms(const GLint* shadowLoc, const GLint* reflectionLoc, bool shadows,
+                                         const GPU3D& gpu3d, float scale) const
+{
+    glUniform1f(shadowLoc[0], shadows ? ShadowStrength : 0.0f);
+    if (shadows)
+    {
+        glUniform3fv(shadowLoc[1], 1, ShadowParams.Right);
+        glUniform3fv(shadowLoc[2], 1, ShadowParams.Up);
+        glUniform3fv(shadowLoc[3], 1, ShadowParams.Dir);
+        glUniform4fv(shadowLoc[4], 1, ShadowParams.Bounds);
+        glUniform2fv(shadowLoc[5], 1, ShadowParams.Depth);
+        glUniform1f(shadowLoc[6], ShadowParams.Texel);
+    }
+    glUniform1f(reflectionLoc[0], Reflections ? ReflectionStrength : 0.0f);
+    if (Reflections)
+    {
+        float proj[16], viewport[4];
+        for (int i = 0; i < 16; i++) proj[i] = (float)gpu3d.RenderProjMatrix[i];
+        // x0, top row, width, height (see GPU3D::ComputeScreenPosition)
+        viewport[0] = (float)gpu3d.RenderViewport[0];
+        viewport[1] = (float)gpu3d.RenderViewport[3];
+        viewport[2] = (float)gpu3d.RenderViewport[4];
+        viewport[3] = (float)gpu3d.RenderViewport[5];
+        glUniformMatrix4fv(reflectionLoc[1], 1, GL_FALSE, proj);
+        glUniform4fv(reflectionLoc[2], 1, viewport);
+        // output pixels per DS pixel, of the image the terms are computed on
+        glUniform1f(reflectionLoc[3], scale);
+    }
+}
+
 void GLRenderer::RenderLighting(const GPU3D& gpu3d)
 {
     // depth/stencil and attributes as the opaque pass left them, for drawing
@@ -1676,22 +1791,43 @@ void GLRenderer::RenderLighting(const GPU3D& gpu3d)
     // render leaves index 1 (its attribute buffer) partly masked
     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glColorMaski(1, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glColorMaski(2, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE); // the passes at high resolutions write 3
     glViewport(0, 0, ScreenW, ScreenH);
     glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
     glBindVertexArray(ClearVertexArrayID);
 
+    // at high resolutions, the smaller copy of the frame's data the terms are computed on
+    const int lowW = ScreenW / LightingFactor, lowH = ScreenH / LightingFactor;
+    if (LightingFactor > 1)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, LowGBufferFramebuffer);
+        glViewport(0, 0, lowW, lowH);
+        glUseProgram(LightingDownsampleShader);
+        glUniform1i(DownsampleFactorLoc, LightingFactor);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, ViewPositionTex);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, ViewNormalTex);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, ColorBufferTex);
+        glDrawArrays(GL_TRIANGLES, 0, 2*3);
+    }
+
     // pass 1: ambient occlusion up to 24 native pixels around each pixel, light bounce up to 64
     glBindFramebuffer(GL_FRAMEBUFFER, AOFramebuffer);
+    glViewport(0, 0, lowW, lowH);
     glUseProgram(LightingAOShader);
-    glUniform1f(LightingAORadiusLoc, 24.0f * ScaleFactor);
-    glUniform1f(LightingBounceRadiusLoc, 64.0f * ScaleFactor);
+    glUniform1f(LightingAORadiusLoc, 24.0f * ScaleFactor / LightingFactor);
+    glUniform1f(LightingBounceRadiusLoc, 64.0f * ScaleFactor / LightingFactor);
+    glUniform1i(LightingAOPixelInWLoc, LightingFactor > 1 ? 1 : 0);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, ViewPositionTex);
+    glBindTexture(GL_TEXTURE_2D, LightingFactor > 1 ? LowPositionTex : ViewPositionTex);
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, ViewNormalTex);
+    glBindTexture(GL_TEXTURE_2D, LightingFactor > 1 ? LowNormalTex : ViewNormalTex);
     glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, ColorBufferTex);
+    glBindTexture(GL_TEXTURE_2D, LightingFactor > 1 ? LowColorTex : ColorBufferTex);
     glDrawArrays(GL_TRIANGLES, 0, 2*3);
+    glViewport(0, 0, ScreenW, ScreenH);
 
     // pass 2: the lit image
     glBindFramebuffer(GL_FRAMEBUFFER, LightingFramebuffer);
@@ -1721,34 +1857,50 @@ void GLRenderer::RenderLighting(const GPU3D& gpu3d)
     glActiveTexture(GL_TEXTURE6);
     glBindTexture(GL_TEXTURE_2D, shadows ? ShadowMapTex : 0);
     glBindSampler(6, ShadowDepthSampler);
-    glUniform1f(ComposeShadowLoc[0], shadows ? ShadowStrength : 0.0f);
-    if (shadows)
+    if (LightingFactor == 1)
     {
-        glUniform3fv(ComposeShadowLoc[1], 1, ShadowParams.Right);
-        glUniform3fv(ComposeShadowLoc[2], 1, ShadowParams.Up);
-        glUniform3fv(ComposeShadowLoc[3], 1, ShadowParams.Dir);
-        glUniform4fv(ComposeShadowLoc[4], 1, ShadowParams.Bounds);
-        glUniform2fv(ComposeShadowLoc[5], 1, ShadowParams.Depth);
-        glUniform1f(ComposeShadowLoc[6], ShadowParams.Texel);
+        SetLightingTermUniforms(ComposeShadowLoc, ComposeReflectionLoc, shadows, gpu3d, (float)ScaleFactor);
+        glUniform1i(LightingComposeAOLoc, AmbientOcclusion ? 1 : 0);
+        glUniform1f(LightingComposeBounceLoc, LightBounce ? BounceIntensity : 0.0f);
+        glDrawArrays(GL_TRIANGLES, 0, 2*3);
+        glBindSampler(6, 0);
     }
-    glUniform1f(ComposeReflectionLoc[0], Reflections ? ReflectionStrength : 0.0f);
-    if (Reflections)
+    else
     {
-        float proj[16], viewport[4];
-        for (int i = 0; i < 16; i++) proj[i] = (float)gpu3d.RenderProjMatrix[i];
-        // x0, top row, width, height (see GPU3D::ComputeScreenPosition)
-        viewport[0] = (float)gpu3d.RenderViewport[0];
-        viewport[1] = (float)gpu3d.RenderViewport[3];
-        viewport[2] = (float)gpu3d.RenderViewport[4];
-        viewport[3] = (float)gpu3d.RenderViewport[5];
-        glUniformMatrix4fv(ComposeReflectionLoc[1], 1, GL_FALSE, proj);
-        glUniform4fv(ComposeReflectionLoc[2], 1, viewport);
-        glUniform1f(ComposeReflectionLoc[3], (float)ScaleFactor);
+        // pass 2: the terms, on the smaller copy (the same texture units as the
+        // compose shader, its inputs replaced by the copy's)
+        glBindFramebuffer(GL_FRAMEBUFFER, TermsFramebuffer);
+        glViewport(0, 0, lowW, lowH);
+        glUseProgram(LightingTermsShader);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, LowColorTex);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, LowPositionTex);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, LowNormalTex);
+        SetLightingTermUniforms(TermsShadowLoc, TermsReflectionLoc, shadows, gpu3d, (float)ScaleFactor / LightingFactor);
+        glDrawArrays(GL_TRIANGLES, 0, 2*3);
+        glBindSampler(6, 0);
+
+        // pass 3: the lit image at full resolution
+        glBindFramebuffer(GL_FRAMEBUFFER, LightingFramebuffer);
+        glViewport(0, 0, ScreenW, ScreenH);
+        glUseProgram(LightingUpsampleShader);
+        const GLuint inputs[9] = {ColorBufferTex, ViewPositionTex, ViewNormalTex, LowPositionTex, LowNormalTex,
+                                  TermsTex, TermsBounceTex, TermsReflectedTex, AOTex};
+        for (int i = 0; i < 9; i++)
+        {
+            glActiveTexture(GL_TEXTURE0 + i);
+            glBindTexture(GL_TEXTURE_2D, inputs[i]);
+        }
+        glUniform1i(UpsampleLoc[0], LightingFactor);
+        glUniform1i(UpsampleLoc[1], AmbientOcclusion ? 1 : 0);
+        glUniform1f(UpsampleLoc[2], LightBounce ? BounceIntensity : 0.0f);
+        glUniform1f(UpsampleLoc[3], shadows ? ShadowStrength : 0.0f);
+        glUniform3fv(UpsampleLoc[4], 1, ShadowParams.Dir);
+        glUniform1f(UpsampleLoc[5], Reflections ? ReflectionStrength : 0.0f);
+        glDrawArrays(GL_TRIANGLES, 0, 2*3);
     }
-    glUniform1i(LightingComposeAOLoc, AmbientOcclusion ? 1 : 0);
-    glUniform1f(LightingComposeBounceLoc, LightBounce ? BounceIntensity : 0.0f);
-    glDrawArrays(GL_TRIANGLES, 0, 2*3);
-    glBindSampler(6, 0);
 
     // state as the opaque pass leaves it (the translucent pass follows)
     const GLenum colourAndAttr[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};

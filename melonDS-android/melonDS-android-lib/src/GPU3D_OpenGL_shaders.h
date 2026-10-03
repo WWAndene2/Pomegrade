@@ -998,6 +998,7 @@ uniform sampler2D GNormal;
 uniform sampler2D Color;
 uniform float uRadius;       // ambient occlusion, in output pixels
 uniform float uBounceRadius; // light bounce, in output pixels (light travels further than shadowing matters)
+uniform bool uPixelInW;      // on the smaller copy: GPosition.w is 1 + the size of one of its pixels (kLightingDownsampleFS)
 
 layout(location = 0) out vec4 oAO;
 layout(location = 1) out vec4 oBounce;
@@ -1022,6 +1023,9 @@ void main()
     // be across a silhouette)
     float pixel = 1e30;
     const ivec2 dirs[4] = ivec2[4](ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1));
+    if (uPixelInW)
+        pixel = gp.w - 1.0;
+    else
     for (int i = 0; i < 4; i++)
     {
         vec4 q = texelFetch(GPosition, clamp(p + dirs[i], ivec2(0), size - 1), 0);
@@ -1116,7 +1120,9 @@ void main()
 // Applies the lighting terms to the rendered frame, filtering them over the
 // 4x4 rotation pattern within the same surface. The pixel's own colour stands
 // for its albedo: the light it receives from a bounce is tinted by it.
-const char* kLightingComposeFS = kShaderHeader R"(
+// Shared by the passes that compute the lighting terms: inputs, the shadow
+// and reflection functions.
+#define kLightingCommon R"(
 
 precision highp float;
 precision highp int;
@@ -1252,7 +1258,9 @@ float ShadowLit(vec3 P, vec3 N)
     return lit / 16.0;
 }
 
-layout(location = 0) out vec4 oColor;
+)"
+
+const char* kLightingComposeFS = kShaderHeader kLightingCommon R"(layout(location = 0) out vec4 oColor;
 
 void main()
 {
@@ -1310,6 +1318,240 @@ void main()
         lit = mix(lit, reflected.rgb, amount);
     }
     oColor = vec4(min(lit, vec3(1.0)), col.a);
+}
+)";
+
+
+// At high resolutions the lighting terms are computed on a smaller copy of
+// the frame (GLRenderer::LightingFactor times smaller each way), then brought
+// back to full resolution by an edge-aware filter: occlusion, light bounce,
+// shadows and reflections change slowly across a surface, while the
+// full-resolution pass keeps what is sharp (the colours, each pixel's own
+// normal for the light's angle, Fresnel and shininess).
+
+// The smaller copy: per block of pixels one sample, alternately the one
+// nearest to the camera and the one farthest, so both sides of a silhouette
+// have samples nearby for the filter.
+const char* kLightingDownsampleFS = kShaderHeader R"(
+
+precision highp float;
+precision highp int;
+
+uniform highp sampler2D GPosition;
+uniform sampler2D GNormal;
+uniform sampler2D Color;
+uniform int uFactor;
+
+layout(location = 0) out vec4 oPosition;
+layout(location = 1) out vec4 oNormal;
+layout(location = 2) out vec4 oColor;
+
+void main()
+{
+    ivec2 lp = ivec2(gl_FragCoord.xy);
+    ivec2 size = textureSize(GPosition, 0);
+    ivec2 base = lp * uFactor;
+    bool nearest = ((lp.x + lp.y) & 1) == 0;
+    ivec2 best = ivec2(-1);
+    float bestDistance = 0.0;
+    for (int y = 0; y < uFactor; y++)
+    {
+        for (int x = 0; x < uFactor; x++)
+        {
+            ivec2 q = min(base + ivec2(x, y), size - 1);
+            vec4 g = texelFetch(GPosition, q, 0);
+            if (g.w < 0.5) continue;
+            float d = length(g.xyz);
+            if (best.x < 0 || (nearest ? d < bestDistance : d > bestDistance)) { best = q; bestDistance = d; }
+        }
+    }
+    if (best.x < 0) best = min(base, size - 1);
+    oPosition = texelFetch(GPosition, best, 0);
+    oNormal = texelFetch(GNormal, best, 0);
+    oColor = texelFetch(Color, best, 0);
+    if (oPosition.w > 0.5)
+    {
+        // the size of one pixel of this copy on the surface, for the effects'
+        // radii: the closest full-resolution neighbour, uFactor times (the
+        // samples kept from neighbouring blocks are unevenly spaced). In w,
+        // after the 1 marking data; 1e30 = unknown, as in kLightingAOFS
+        vec3 P = oPosition.xyz;
+        float pixel = 1e30;
+        const ivec2 dirs[4] = ivec2[4](ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1));
+        for (int i = 0; i < 4; i++)
+        {
+            vec4 q = texelFetch(GPosition, clamp(best + dirs[i], ivec2(0), size - 1), 0);
+            if (q.w > 0.5 && q.xyz != P) pixel = min(pixel, length(q.xyz - P));
+        }
+        oPosition.w = 1.0 + (pixel > 1e29 ? 1e30 : pixel * float(uFactor));
+    }
+}
+)";
+
+// The terms on the smaller copy: what kLightingComposeFS computes before
+// applying it. Out 0: visibility (ambient occlusion, filtered), share lit by
+// the main light, how sure the reflection is, 1 = has data. Out 1: light
+// received from the neighbours (filtered). Out 2: the reflected colour.
+const char* kLightingTermsFS = kShaderHeader kLightingCommon R"(
+layout(location = 0) out vec4 oTerms;
+layout(location = 1) out vec4 oBounce;
+layout(location = 2) out vec4 oReflected;
+
+void main()
+{
+    ivec2 p = ivec2(gl_FragCoord.xy);
+    ivec2 size = textureSize(GPosition, 0);
+    vec4 gp = texelFetch(GPosition, p, 0);
+    vec2 ao = texelFetch(AO, p, 0).rg;
+    if (gp.w < 0.5 || ao.g <= 0.0) { oTerms = vec4(1.0, 1.0, 0.0, 0.0); oBounce = vec4(0.0); oReflected = vec4(0.0); return; }
+
+    vec3 P = gp.xyz;
+    vec3 N = texelFetch(GNormal, p, 0).xyz * 2.0 - 1.0;
+    float pixel = ao.g;
+
+    float sum = 0.0, weight = 0.0;
+    vec3 bounce = vec3(0.0);
+    for (int y = -2; y < 2; y++)
+    {
+        for (int x = -2; x < 2; x++)
+        {
+            ivec2 sp = clamp(p + ivec2(x, y), ivec2(0), size - 1);
+            vec4 q = texelFetch(GPosition, sp, 0);
+            if (q.w < 0.5) continue;
+            vec3 nq = texelFetch(GNormal, sp, 0).xyz * 2.0 - 1.0;
+            float plane = abs(dot(q.xyz - P, N));
+            if (dot(nq, N) < 0.8 || plane > pixel * 2.0) continue;
+            sum += texelFetch(AO, sp, 0).r;
+            bounce += texelFetch(Bounce, sp, 0).rgb;
+            weight += 1.0;
+        }
+    }
+    float visibility = weight > 0.0 ? sum / weight : ao.r;
+    bounce = weight > 0.0 ? bounce / weight : texelFetch(Bounce, p, 0).rgb;
+
+    float lit = uShadowStrength > 0.0 ? ShadowLit(P, N) : 1.0;
+    vec4 reflected = uReflectionStrength > 0.0 ? Reflection(P, N, pixel, size) : vec4(0.0);
+    oTerms = vec4(visibility, lit, reflected.w, 1.0);
+    oBounce = vec4(bounce, 1.0);
+    oReflected = vec4(reflected.rgb, 1.0);
+}
+)";
+
+// Back to full resolution: each pixel takes the terms of the nearby samples
+// of the smaller copy on its own surface (similar normal, near its plane),
+// weighted by distance; if none, the closest such sample a little further;
+// if none either, no effect. Then applied as in kLightingComposeFS.
+const char* kLightingUpsampleFS = kShaderHeader R"(
+
+precision highp float;
+precision highp int;
+
+uniform sampler2D Color;
+uniform highp sampler2D GPosition;
+uniform sampler2D GNormal;
+uniform highp sampler2D LowPosition;
+uniform sampler2D LowNormal;
+uniform sampler2D Terms;
+uniform highp sampler2D TermsBounce;
+uniform sampler2D TermsReflected;
+uniform highp sampler2D LowAO; // its G: one pixel of the smaller copy, in view units
+uniform int uFactor;
+uniform bool uAmbientOcclusion;
+uniform float uBounceIntensity;
+uniform float uShadowStrength;
+uniform vec3 uLightDir;
+uniform float uReflectionStrength;
+
+layout(location = 0) out vec4 oColor;
+
+void main()
+{
+    ivec2 p = ivec2(gl_FragCoord.xy);
+    vec4 col = texelFetch(Color, p, 0);
+    vec4 gp = texelFetch(GPosition, p, 0);
+    if (gp.w < 0.5) { oColor = col; return; }
+    vec3 P = gp.xyz;
+    vec4 gn = texelFetch(GNormal, p, 0);
+    vec3 N = gn.xyz * 2.0 - 1.0;
+
+    ivec2 lowSize = textureSize(LowPosition, 0);
+    vec2 c = (vec2(p) + 0.5) / float(uFactor) - 0.5;
+    ivec2 base = ivec2(floor(c));
+    vec2 f = c - vec2(base);
+
+    float weight = 0.0, visibility = 0.0, lit = 0.0, sure = 0.0;
+    vec3 bounce = vec3(0.0), reflected = vec3(0.0);
+    for (int y = 0; y < 2; y++)
+    {
+        for (int x = 0; x < 2; x++)
+        {
+            ivec2 q = clamp(base + ivec2(x, y), ivec2(0), lowSize - 1);
+            vec4 t = texelFetch(Terms, q, 0);
+            if (t.w < 0.5) continue;
+            vec3 Q = texelFetch(LowPosition, q, 0).xyz;
+            vec3 nq = texelFetch(LowNormal, q, 0).xyz * 2.0 - 1.0;
+            float pixel = texelFetch(LowAO, q, 0).g;
+            if (dot(nq, N) < 0.8 || abs(dot(Q - P, N)) > pixel * 2.0) continue;
+            float w = (x == 1 ? f.x : 1.0 - f.x) * (y == 1 ? f.y : 1.0 - f.y) + 1e-3;
+            weight += w;
+            visibility += w * t.r;
+            lit += w * t.g;
+            sure += w * t.b;
+            bounce += w * texelFetch(TermsBounce, q, 0).rgb;
+            reflected += w * t.b * texelFetch(TermsReflected, q, 0).rgb;
+        }
+    }
+    if (weight == 0.0)
+    {
+        // a pixel whose surface the four nearest samples don't show (near a
+        // silhouette): the closest sample of its surface a little further
+        float bestPlane = 1e30;
+        for (int y = -1; y < 3; y++)
+        {
+            for (int x = -1; x < 3; x++)
+            {
+                ivec2 q = clamp(base + ivec2(x, y), ivec2(0), lowSize - 1);
+                vec4 t = texelFetch(Terms, q, 0);
+                if (t.w < 0.5) continue;
+                vec3 Q = texelFetch(LowPosition, q, 0).xyz;
+                vec3 nq = texelFetch(LowNormal, q, 0).xyz * 2.0 - 1.0;
+                float pixel = texelFetch(LowAO, q, 0).g;
+                float plane = abs(dot(Q - P, N));
+                if (dot(nq, N) < 0.8 || plane > pixel * 4.0 || plane >= bestPlane) continue;
+                bestPlane = plane;
+                weight = 1.0;
+                visibility = t.r;
+                lit = t.g;
+                sure = t.b;
+                bounce = texelFetch(TermsBounce, q, 0).rgb;
+                reflected = t.b * texelFetch(TermsReflected, q, 0).rgb;
+            }
+        }
+    }
+    if (weight == 0.0) { oColor = col; return; }
+    reflected = sure > 0.0 ? reflected / sure : vec3(0.0);
+    visibility /= weight;
+    lit /= weight;
+    sure /= weight;
+    bounce /= weight;
+
+    vec3 result = col.rgb * (uAmbientOcclusion ? visibility : 1.0);
+    if (uShadowStrength > 0.0)
+    {
+        float cosLight = max(dot(N, uLightDir), 0.0);
+        result *= 1.0 - uShadowStrength * cosLight * (1.0 - lit);
+    }
+    result += col.rgb * bounce * uBounceIntensity;
+    if (uReflectionStrength > 0.0)
+    {
+        float specular = gn.w;
+        float f0 = 0.02 + 0.4 * specular;
+        float cosView = clamp(dot(-normalize(P), N), 0.0, 1.0);
+        float fresnel = f0 + (1.0 - f0) * pow(1.0 - cosView, 5.0);
+        float amount = uReflectionStrength * fresnel * (0.25 + 0.75 * specular) * sure;
+        result = mix(result, reflected, amount);
+    }
+    oColor = vec4(min(result, vec3(1.0)), col.a);
 }
 )";
 }

@@ -535,7 +535,9 @@ int main()
     // same shading with the polygon multiplier (sub-polygons carry their own
     // view data) and at a higher internal resolution (radius and filter scale)
     struct Config { const char* name; int scale, multiplier; };
-    for (Config c : {Config{"multiplier x16", 1, 4}, Config{"resolution x2", 2, 1}, Config{"resolution x4", 4, 1}})
+    // (x8: the terms computed at half resolution, see GLRenderer::MaxLightingScale)
+    for (Config c : {Config{"multiplier x16", 1, 4}, Config{"resolution x2", 2, 1}, Config{"resolution x4", 4, 1},
+                     Config{"resolution x8", 8, 1}})
     {
         r->SetRenderSettings(false, c.scale);
         gpu.GPU3D.SetPolygonMultiplier(c.multiplier);
@@ -823,6 +825,50 @@ int main()
     r->SetShadows(false);
     r->SetReflections(false);
     check(Frame(*r, gpu) == allOff, "all effects off again == original");
+
+    // above x4 the effects' terms are computed at half resolution and brought
+    // back by an edge-aware filter (GLRenderer::MaxLightingScale): the change
+    // the four effects make to the image, averaged back to the DS resolution,
+    // must be as close between x8 and x4 as it is between x4 and x2 (terms at
+    // full resolution in both; the geometry itself is drawn more finely at
+    // each step). Measured: 0.21/255 on average, 723 values over 8, for x8 vs
+    // x4; 0.42 and 1500 for x4 vs x2; the change itself is 3.2/255 on average
+    {
+        const int scales[3] = {2, 4, 8};
+        std::vector<int> change[3];
+        for (int k = 0; k < 3; k++)
+        {
+            r->SetRenderSettings(false, scales[k]);
+            auto offK = Frame(*r, gpu);
+            r->SetAmbientOcclusion(true); r->SetLightBounce(true); r->SetShadows(true); r->SetReflections(true);
+            Frame(*r, gpu);
+            auto onK = Frame(*r, gpu);
+            if (scales[k] == 8) SavePng("lighting_all_x8.png", onK);
+            r->SetAmbientOcclusion(false); r->SetLightBounce(false); r->SetShadows(false); r->SetReflections(false);
+            for (size_t i = 0; i < onK.size(); i++)
+                for (int c = 0; c < 3; c++)
+                    change[k].push_back((int)((onK[i] >> (8 * c)) & 0xFF) - (int)((offK[i] >> (8 * c)) & 0xFF));
+        }
+        auto compare = [&](int a, int b, double& mean, int& over8) {
+            double sum = 0;
+            over8 = 0;
+            for (size_t i = 0; i < change[a].size(); i++)
+            {
+                int d = std::abs(change[a][i] - change[b][i]);
+                sum += d;
+                if (d > 8) over8++;
+            }
+            mean = sum / change[a].size();
+        };
+        double mean84, mean42;
+        int over84, over42;
+        compare(2, 1, mean84, over84);
+        compare(1, 0, mean42, over42);
+        printf("all effects, change to the image: x8 (terms at half resolution) vs x4 %.2f/255 on average, %d values over 8; x4 vs x2 %.2f, %d\n",
+               mean84, over84, mean42, over42);
+        check(mean84 <= mean42 && over84 <= over42, "all effects at x8: as close to x4 as x4 is to x2");
+        r->SetRenderSettings(false, 2);
+    }
 
     // layering: the effects light the opaque geometry; what the DS draws over
     // it (translucent panels, cut-out sprites, fog) keeps its own colours
