@@ -569,12 +569,26 @@ int main()
     {
         gpu.GPU3D.SetPolygonMultiplier(4);
         size_t levels[2];
-        bool off6bit = true;
+        bool off6bit = true, fraction = false;
         for (int high = 0; high < 2; high++)
         {
             gpu.GPU3D.SetHighColor(high);
             glr->SetHighColor(high);
             SubmitScene();
+            if (high)
+            {
+                // the vertices keep the lighting's fraction (5.12): the clipper's
+                // rounding to the DS's 5 bits (fraction set to 0xFFF) isn't applied
+                size_t vertices = 0, rounded = 0;
+                for (u32 i = 0; i < gpu.GPU3D.GetRenderNumPolygons(); i++)
+                {
+                    const Polygon* p = gpu.GPU3D.GetRenderPolygons()[i];
+                    for (u32 j = 0; j < p->NumVertices; j++, vertices++)
+                        if ((p->Vertices[j]->Color[0] & 0xFFF) == 0xFFF) rounded++;
+                }
+                fraction = vertices > 0 && rounded * 2 < vertices;
+                printf("high colour: %zu of %zu vertices rounded to 5 bits\n", rounded, vertices);
+            }
             glr->RenderFrame(gpu);
             auto img = Composite(*glr, gpu);
 
@@ -600,7 +614,7 @@ int main()
         printf("without high colour, output is 6-bit per channel: %s\n", off6bit ? "yes" : "NO");
         gpu.GPU3D.SetHighColor(false);
         glr->SetHighColor(false);
-        ok = ok && off6bit && levels[1] > levels[0] * 2;
+        ok = ok && off6bit && levels[1] > levels[0] * 2 && fraction;
     }
 
     // geometry fidelity from neighbours: on the first frame the angles between

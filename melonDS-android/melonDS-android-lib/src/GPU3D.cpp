@@ -934,6 +934,9 @@ int ClipAgainstPlane(const GPU3D& gpu, Vertex* vertices, int nverts, int clipsta
     }
 
     // checkme
+    // (Pomegrade: not in high colour, whose colours keep the lighting's
+    // fraction without the hardware's bias, see GPU3D::HighColor)
+    if (!gpu.HighColor)
     for (int i = 0; i < c; i++)
     {
         Vertex* vtx = &vertices[i];
@@ -1704,7 +1707,8 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
             if (inside[p0] && inside[p1] && inside[p2])
             {
                 // inside the view volume: ClipPolygon would return the three
-                // vertices as they are, apart from its colour rounding (below)
+                // vertices as they are, apart from its colour rounding (below,
+                // not in high colour)
                 int needed = 0;
                 for (int id : ids)
                     needed += finished[id] ? 0 : 1;
@@ -1720,10 +1724,13 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
                     {
                         vtx = NewSubVertex();
                         *vtx = points[ids[k]];
-                        for (int i = 0; i < 3; i++)
+                        if (!HighColor)
                         {
-                            vtx->Color[i] &= ~0xFFF;
-                            vtx->Color[i] += 0xFFF;
+                            for (int i = 0; i < 3; i++)
+                            {
+                                vtx->Color[i] &= ~0xFFF;
+                                vtx->Color[i] += 0xFFF;
+                            }
                         }
                         ComputeScreenPosition(vtx);
                         ComputeFinalColor(vtx, HighColor);
