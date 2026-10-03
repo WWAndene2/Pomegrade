@@ -16,7 +16,7 @@ class Api24RomFileProcessorFactory(context: Context, uriHandler: UriHandler, nds
 
     init {
         val ndsRomFileProcessor = NdsRomFileProcessor(context, uriHandler)
-        val n3dsRomFileProcessor = N3dsRomFileProcessor(uriHandler)
+        val n3dsRomFileProcessor = N3dsRomFileProcessor(context, uriHandler)
         prefixProcessorMap = RomPlatform.n3dsExtensions.associateWith { n3dsRomFileProcessor } + mapOf(
             "nds" to ndsRomFileProcessor,
             "dsi" to ndsRomFileProcessor,

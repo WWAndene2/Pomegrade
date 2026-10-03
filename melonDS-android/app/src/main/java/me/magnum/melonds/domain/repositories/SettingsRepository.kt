@@ -1,6 +1,7 @@
 package me.magnum.melonds.domain.repositories
 
 import android.net.Uri
+import me.magnum.melonds.domain.model.rom.RomPlatform
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import me.magnum.melonds.domain.model.*
@@ -90,6 +91,9 @@ interface SettingsRepository {
     fun includeRomSearchDirectory(directoryUri: Uri)
     // DS saves and save states next to each ROM (in its game folder)
     fun keepGameFilesNextToRom()
+    // the game list's console filter: null = every console
+    fun getRomPlatformFilter(): RomPlatform?
+    fun setRomPlatformFilter(platform: RomPlatform?)
     fun setControllerConfiguration(controllerConfiguration: ControllerConfiguration)
     fun setRomSortingMode(sortingMode: SortingMode)
     fun setRomSortingOrder(sortingOrder: SortingOrder)

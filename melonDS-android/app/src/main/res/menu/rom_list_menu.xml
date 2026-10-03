@@ -33,6 +33,28 @@
         </menu>
     </item>
 
+    <!-- Pomegrade: which console's games are listed -->
+    <item
+        android:id="@+id/action_platform_filter"
+        android:title="@string/action_platform_filter"
+        android:icon="@drawable/ic_filter"
+        android:orderInCategory="2"
+        app:showAsAction="ifRoom">
+        <menu>
+            <group android:checkableBehavior="single">
+                <item
+                    android:id="@+id/action_platform_all"
+                    android:title="@string/platform_all" />
+                <item
+                    android:id="@+id/action_platform_ds"
+                    android:title="@string/platform_ds" />
+                <item
+                    android:id="@+id/action_platform_three_ds"
+                    android:title="@string/platform_three_ds" />
+            </group>
+        </menu>
+    </item>
+
     <item
         android:id="@+id/action_boot_firmware"
         android:title="@string/action_boot_firmware"

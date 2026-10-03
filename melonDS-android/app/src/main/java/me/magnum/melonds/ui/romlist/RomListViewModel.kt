@@ -22,6 +22,7 @@ import me.magnum.melonds.domain.model.RomScanningStatus
 import me.magnum.melonds.domain.model.SortingMode
 import me.magnum.melonds.domain.model.SortingOrder
 import me.magnum.melonds.domain.model.rom.Rom
+import me.magnum.melonds.domain.model.rom.RomPlatform
 import me.magnum.melonds.domain.repositories.RomsRepository
 import me.magnum.melonds.domain.repositories.SettingsRepository
 import me.magnum.melonds.impl.PomegradeFolder
@@ -49,6 +50,9 @@ class RomListViewModel @Inject constructor(
     val organizeResult: Flow<PomegradeFolder.OrganizeResult> = _organizeResult
 
     private val _searchQuery = MutableStateFlow("")
+    // Pomegrade: the console shown, null = every console (remembered)
+    private val _platformFilter = MutableStateFlow(settingsRepository.getRomPlatformFilter())
+    val platformFilter = _platformFilter.asStateFlow()
     private val _sortingMode = MutableStateFlow(settingsRepository.getRomSortingMode())
     private val _sortingOrder = MutableStateFlow(settingsRepository.getRomSortingOrder())
 
@@ -87,7 +91,8 @@ class RomListViewModel @Inject constructor(
                 }
         }
 
-        combine(romsRepository.getRoms(), _searchQuery) { roms, query ->
+        combine(romsRepository.getRoms(), _searchQuery, _platformFilter) { allRoms, query, platform ->
+            val roms = if (platform == null) allRoms else allRoms.filter { it.platform == platform }
             val romList = if (query.isEmpty()) {
                 roms
             } else {
@@ -125,6 +130,11 @@ class RomListViewModel @Inject constructor(
 
     fun setRomLastPlayedNow(rom: Rom) {
         romsRepository.setRomLastPlayed(rom, Calendar.getInstance().time)
+    }
+
+    fun setPlatformFilter(platform: RomPlatform?) {
+        settingsRepository.setRomPlatformFilter(platform)
+        _platformFilter.value = platform
     }
 
     fun setRomSearchQuery(query: String?) {

@@ -691,6 +691,11 @@
     <string name="three_ds_settings_camera_summary">Which of the phone\'s cameras games see</string>
     <string name="three_ds_settings_debug">Debug</string>
     <string name="three_ds_settings_debug_summary">Logs and options for troubleshooting</string>
+    <string name="action_platform_filter">Console</string>
+    <string name="platform_all">All consoles</string>
+    <string name="platform_ds">DS</string>
+    <string name="platform_three_ds">3DS</string>
+    <string name="three_ds_encrypted">Encrypted: can\'t be played (decrypt the game first)</string>
     <string name="three_ds_rom_label">3DS · %1$s</string>
     <string name="unlimited_polygons">Remove polygon limit</string>
     <string name="unlimited_polygons_summary">Draw the polygons a DS would drop when a scene has too many (missing or flickering objects)</string>

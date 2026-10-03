@@ -49,6 +49,7 @@ import me.magnum.melonds.domain.model.camera.DSiCameraSourceType
 import me.magnum.melonds.domain.model.input.SoftInputBehaviour
 import me.magnum.melonds.domain.model.layout.LayoutConfiguration
 import me.magnum.melonds.domain.model.rom.Rom
+import me.magnum.melonds.domain.model.rom.RomPlatform
 import me.magnum.melonds.domain.repositories.SettingsRepository
 import me.magnum.melonds.impl.dtos.input.ControllerConfigurationDto
 import me.magnum.melonds.impl.input.ControllerConfigurationFactory
@@ -582,6 +583,16 @@ class SharedPreferencesSettingsRepository(
         }
         preferences.edit(commit = true) {
             putStringSet("rom_search_dirs", directories + directoryUri.toString())
+        }
+    }
+
+    override fun getRomPlatformFilter(): RomPlatform? {
+        return preferences.getString("rom_platform_filter", null)?.let { name -> RomPlatform.entries.find { it.name == name } }
+    }
+
+    override fun setRomPlatformFilter(platform: RomPlatform?) {
+        preferences.edit {
+            putString("rom_platform_filter", platform?.name)
         }
     }
 

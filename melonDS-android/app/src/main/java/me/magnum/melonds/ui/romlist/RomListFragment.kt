@@ -232,7 +232,8 @@ class RomListFragment : Fragment() {
                 this.rom = rom
                 textViewRomName.text = rom.config.customName ?: rom.name
                 textViewRomPath.text = if (rom.platform == RomPlatform.N3DS) {
-                    itemView.context.getString(R.string.three_ds_rom_label, rom.fileName)
+                    // its publisher (or why it can't be played), read from the game; else its file name
+                    itemView.context.getString(R.string.three_ds_rom_label, rom.developerName.ifEmpty { rom.fileName })
                 } else {
                     rom.fileName
                 }
