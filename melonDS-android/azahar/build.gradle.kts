@@ -39,8 +39,11 @@ android {
                 )
                 arguments += AppConfig.ccacheCmakeArguments
                 arguments += AppConfig.nativeBuildTypeCmakeArguments
-                // Gradle otherwise builds every executable and library CMake defines (libyuv tools...)
-                targets("citra-android")
+                // Gradle otherwise builds every executable and library CMake defines (libyuv tools...).
+                // libadrenotools' hook libraries are their own targets: its Vulkan loader opens them
+                // at runtime from the app's native library folder, and without them 3DS games abort
+                // with "Failed to load Vulkan driver library"
+                targets("citra-android", "hook_impl", "main_hook", "file_redirect_hook", "gsl_alloc_hook")
             }
         }
 

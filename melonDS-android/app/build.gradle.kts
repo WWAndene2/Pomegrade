@@ -48,6 +48,12 @@ android {
         viewBinding = true
         compose = true
     }
+    packaging {
+        // The native libraries are extracted at install, as Azahar's own app does: its Vulkan
+        // loader (libadrenotools) loads its hook libraries from the app's native library folder,
+        // and fails without them (3DS games abort with "Failed to load Vulkan driver library")
+        jniLibs.useLegacyPackaging = true
+    }
     buildTypes {
         getByName("release") {
             isMinifyEnabled = true
