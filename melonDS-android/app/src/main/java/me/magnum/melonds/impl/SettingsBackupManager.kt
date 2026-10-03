@@ -43,6 +43,28 @@ class SettingsBackupManager @Inject constructor(
             "github_updates_last_check",
             "last_version",
         )
+        // Pomegrade: the settings saved as decimals. JSON doesn't keep the type: a decimal without
+        // fraction (an on-screen control at x = 540.0) is written "540" and read back as a whole
+        // number, which the setting's reader can't read as a decimal (getFloat throws)
+        private const val FLOAT_KEYS = "pomegrade_float_keys"
+
+        // Pomegrade: the 3DS core's on-screen control positions ("<control><orientation>-X" and
+        // "-Y"), its only decimal settings (Azahar's InputOverlay: putFloat / getFloat). Backups
+        // made before FLOAT_KEYS existed have them as whole numbers
+        private fun isN3dsOverlayPosition(key: String) = key.endsWith("-X") || key.endsWith("-Y")
+    }
+
+    /**
+     * Pomegrade: turns back into decimals the 3DS control positions that a restore of a backup
+     * made before FLOAT_KEYS saved as whole numbers (the 3DS core crashed reading them). Call before
+     * the 3DS core reads its settings.
+     */
+    fun repairN3dsOverlayPositions() {
+        val damaged = preferences.all.filter { (key, value) -> isN3dsOverlayPosition(key) && (value is Int || value is Long) }
+        if (damaged.isEmpty()) return
+        preferences.edit().apply {
+            damaged.forEach { (key, value) -> putFloat(key, (value as Number).toFloat()) }
+        }.commit()
     }
 
     fun backup(treeUri: Uri) {
@@ -53,10 +75,15 @@ class SettingsBackupManager @Inject constructor(
             ?: return
         context.contentResolver.openOutputStream(settingsDoc.uri)?.use { outStream ->
             val json = JSONObject()
+            val floatKeys = JSONArray()
             for ((key, value) in preferences.all) {
                 if (key in EXCLUDED_PREF_KEYS) continue
                 when (value) {
-                    is Boolean, is Int, is Long, is Float, is String -> json.put(key, value)
+                    is Boolean, is Int, is Long, is String -> json.put(key, value)
+                    is Float -> {
+                        json.put(key, value)
+                        floatKeys.put(key)
+                    }
                     is Set<*> -> {
                         val array = JSONArray()
                         value.forEach { array.put(it) }
@@ -64,6 +91,7 @@ class SettingsBackupManager @Inject constructor(
                     }
                 }
             }
+            json.put(FLOAT_KEYS, floatKeys)
             outStream.writer().use { it.write(json.toString()) }
         }
 
@@ -106,10 +134,15 @@ class SettingsBackupManager @Inject constructor(
             context.contentResolver.openInputStream(uri)?.use { input ->
                 val text = input.reader().readText()
                 val json = JSONObject(text)
+                val floatKeys = json.optJSONArray(FLOAT_KEYS)?.let { array -> (0 until array.length()).map { array.getString(it) }.toSet() }.orEmpty()
                 val editor = preferences.edit()
                 for (key in json.keys()) {
-                    if (key in EXCLUDED_PREF_KEYS) continue
+                    if (key in EXCLUDED_PREF_KEYS || key == FLOAT_KEYS) continue
                     val value = json.get(key)
+                    if (value is Number && (key in floatKeys || isN3dsOverlayPosition(key))) {
+                        editor.putFloat(key, value.toFloat())
+                        continue
+                    }
                     when (value) {
                         is Boolean -> editor.putBoolean(key, value)
                         is Int -> {
