@@ -14,6 +14,7 @@ import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.domain.model.rom.RomPlatform
 import me.magnum.melonds.domain.repositories.RomsRepository
 import me.magnum.melonds.domain.repositories.SettingsRepository
+import org.citra.citra_emu.CitraApplication
 import org.citra.citra_emu.features.settings.model.Settings
 import org.citra.citra_emu.utils.CitraDirectoryHelper
 import org.citra.citra_emu.utils.PermissionsHandler
@@ -181,14 +182,7 @@ class PomegradeFolder(
         if (settingsRepository.getDsBiosDirectory() == null) settingsRepository.setDsBiosDirectory(bios)
         if (settingsRepository.getDsiBiosDirectory() == null) settingsRepository.setDsiBiosDirectory(bios)
 
-        // the 3DS core: its folder here, unless it was already set up elsewhere (its data stays there)
-        if (!PermissionsHandler.hasWriteAccess(context)) {
-            CitraDirectoryHelper.initializeCitraDirectory(DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$N3DS"))
-            // Azahar's own first-time setup would ask for a folder again if its home screen opens
-            PreferenceManager.getDefaultSharedPreferences(context).edit()
-                .putBoolean(Settings.PREF_FIRST_APP_LAUNCH, false)
-                .apply()
-        }
+        setUpThreeDs()
         return SetupResult.Success to organized
     }
 
@@ -232,6 +226,30 @@ class PomegradeFolder(
 
     /** Set up, with the file access moving games needs. */
     fun canOrganize(): Boolean = isSetUp() && hasFileAccess(context)
+
+    /**
+     * The 3DS core's folder: the Pomegrade folder's 3DS, unless it was already set up elsewhere (its
+     * data stays there). Also called when the Pomegrade folder is set up but this part isn't (an
+     * earlier setup stopped before it). Returns whether the 3DS core has its folder. Not on 32-bit
+     * devices: there is no 3DS core there.
+     */
+    fun setUpThreeDs(): Boolean {
+        if (!CitraApplication.isSupported) return false
+        val folder = settingsRepository.getPomegradeFolder() ?: return false
+        // Azahar starts its runtime when one of its screens first opens; its folder setup needs it
+        // (DocumentsTree): started here first
+        CitraApplication.start()
+        if (PermissionsHandler.hasWriteAccess(context)) return true
+        val treeId = DocumentsContract.getTreeDocumentId(folder)
+        val dir = pathOf("$treeId/$N3DS")
+        if (!dir.isDirectory && !dir.mkdirs()) return false
+        CitraDirectoryHelper.initializeCitraDirectory(DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$N3DS"))
+        // Azahar's own first-time setup would ask for a folder again if its home screen opens
+        PreferenceManager.getDefaultSharedPreferences(context).edit()
+            .putBoolean(Settings.PREF_FIRST_APP_LAUNCH, false)
+            .apply()
+        return PermissionsHandler.hasWriteAccess(context)
+    }
 
     /** The games of [roms] not in Roms yet. */
     fun gamesToOrganize(roms: List<Rom>): List<Rom> {

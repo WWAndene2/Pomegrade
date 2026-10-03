@@ -62,7 +62,7 @@ class PomegradeFolderSetupDelegate(private val activity: ComponentActivity) {
     fun start(onDone: (Boolean) -> Unit) {
         this.onDone = onDone
         when {
-            isSetUp() -> finish(true)
+            isSetUp() -> completeAndFinish()
             // set up before, the file access was withdrawn since
             pomegradeFolder.isSetUp() -> requestFileAccess()
             else -> AlertDialog.Builder(activity)
@@ -72,6 +72,14 @@ class PomegradeFolderSetupDelegate(private val activity: ComponentActivity) {
                 .setNegativeButton(R.string.pomegrade_folder_later) { _, _ -> finish(false) }
                 .setOnCancelListener { finish(false) }
                 .show()
+        }
+    }
+
+    // the folder is set up: its 3DS part too, which an earlier setup may not have reached
+    private fun completeAndFinish() {
+        activity.lifecycleScope.launch {
+            withContext(Dispatchers.IO) { runCatching { pomegradeFolder.setUpThreeDs() } }
+            finish(true)
         }
     }
 
@@ -99,7 +107,7 @@ class PomegradeFolderSetupDelegate(private val activity: ComponentActivity) {
                 Toast.makeText(activity, R.string.pomegrade_folder_file_access_denied, Toast.LENGTH_LONG).show()
                 finish(false)
             }
-            pomegradeFolder.isSetUp() -> finish(true)
+            pomegradeFolder.isSetUp() -> completeAndFinish()
             else -> pickFolder()
         }
     }
@@ -118,10 +126,14 @@ class PomegradeFolderSetupDelegate(private val activity: ComponentActivity) {
             .show()
         activity.lifecycleScope.launch {
             val roms = dependencies.romsRepository().getRoms().first()
+            // a failure is reported, not a crash: what was done so far stays (the next setup
+            // completes it, see completeAndFinish)
             val (result, organized) = withContext(Dispatchers.IO) {
-                pomegradeFolder.setUp(folder, roms) { game ->
-                    activity.runOnUiThread { progress.setMessage(activity.getString(R.string.pomegrade_folder_moving, game)) }
-                }
+                runCatching {
+                    pomegradeFolder.setUp(folder, roms) { game ->
+                        activity.runOnUiThread { progress.setMessage(activity.getString(R.string.pomegrade_folder_moving, game)) }
+                    }
+                }.getOrElse { PomegradeFolder.SetupResult.Failed to null }
             }
             progress.dismiss()
             when (result) {
