@@ -64,7 +64,19 @@ class SaveStateScreenshotProvider(
     }
 
     private fun getScreenshotsDir(): File {
-        return File(context.filesDir, SAVE_STATE_SCREENSHOTS_DIR)
+        // Pomegrade: in the Pomegrade folder, which stays when the app is uninstalled
+        return PomegradeFolder.subFolder(context, PomegradeFolder.SAVE_STATE_PREVIEWS)?.takeIf { it.isDirectory || it.mkdirs() }
+            ?: File(context.filesDir, SAVE_STATE_SCREENSHOTS_DIR)
+    }
+
+    /** Moves the screenshots kept in the app's own folder to [directory] (the Pomegrade folder's). */
+    fun moveTo(directory: File) {
+        val current = File(context.filesDir, SAVE_STATE_SCREENSHOTS_DIR)
+        if (!current.isDirectory || !(directory.isDirectory || directory.mkdirs())) return
+        current.listFiles()?.forEach { rom ->
+            val target = File(directory, rom.name)
+            if (!target.exists()) rom.renameTo(target) || rom.copyRecursively(target) && rom.deleteRecursively()
+        }
     }
 
     private fun invalidateScreenshotFile(screenshotFile: File) {

@@ -47,6 +47,11 @@ class PomegradeFolder(
         const val ROMS = "Roms"
         const val BIOS = "BIOS"
         const val N3DS = "3DS"
+        const val TEXTURES = "Textures"
+        const val SAVE_STATE_PREVIEWS = "Save state previews"
+        /** Where Pomegrade creates its folder: /storage/emulated/0/Pomegrade. */
+        const val DEFAULT_NAME = "Pomegrade"
+        const val PREFERENCE = "pomegrade_folder"
         private const val STORAGE_PROVIDER = "com.android.externalstorage.documents"
         // DS save states: <ROM name>.ml0 (quick save) to .ml9 (see FileSystemSaveStatesRepository)
         private const val SAVE_STATE_SLOTS = 10
@@ -61,6 +66,29 @@ class PomegradeFolder(
             } else {
                 context.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
             }
+        }
+
+        /**
+         * A sub-folder of the Pomegrade folder as a file path, for what is read and written by path
+         * (texture packs, save state previews), or null if there is no Pomegrade folder or no file
+         * access. Kept in the phone's shared storage, it stays when the app is uninstalled.
+         */
+        fun subFolder(context: Context, name: String): File? {
+            val folder = PreferenceManager.getDefaultSharedPreferences(context).getString(PREFERENCE, null)?.let { Uri.parse(it) } ?: return null
+            if (!hasFileAccess(context)) return null
+            val id = try {
+                DocumentsContract.getTreeDocumentId(folder)
+            } catch (e: IllegalArgumentException) {
+                return null
+            }
+            return pathOf("$id/$name")
+        }
+
+        /** The default Pomegrade folder (/storage/emulated/0/Pomegrade), created if needed, as the folder picker's starting point. */
+        fun createDefaultFolder(): Uri? {
+            val dir = File(Environment.getExternalStorageDirectory(), DEFAULT_NAME)
+            if (!dir.isDirectory && !dir.mkdirs()) return null
+            return DocumentsContract.buildDocumentUri(STORAGE_PROVIDER, "primary:$DEFAULT_NAME")
         }
 
         /** The document ID of the Pomegrade folder's Roms ("primary:Pomegrade/Roms"), or null. */
@@ -123,7 +151,7 @@ class PomegradeFolder(
             return SetupResult.Failed to null
         }
         val root = pathOf(DocumentsContract.getTreeDocumentId(folder))
-        for (name in listOf(ROMS, BIOS, N3DS)) {
+        for (name in listOf(ROMS, BIOS, N3DS, TEXTURES)) {
             val dir = File(root, name)
             if (!dir.isDirectory && !dir.mkdirs()) {
                 return SetupResult.Failed to null
@@ -133,6 +161,13 @@ class PomegradeFolder(
 
         // games first, while the settings still say where their saves are now
         val organized = organize(roms, onProgress)
+
+        // texture packs (and dumps) from the app's own folder, which Android deletes with the app
+        context.getExternalFilesDir("textures")?.listFiles()?.forEach { game ->
+            val target = File(File(root, TEXTURES), game.name)
+            if (!target.exists()) game.renameTo(target) || game.copyRecursively(target) && game.deleteRecursively()
+        }
+        screenshotProvider.moveTo(File(root, SAVE_STATE_PREVIEWS))
 
         val treeId = DocumentsContract.getTreeDocumentId(folder)
         val romsFolder = DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$ROMS")

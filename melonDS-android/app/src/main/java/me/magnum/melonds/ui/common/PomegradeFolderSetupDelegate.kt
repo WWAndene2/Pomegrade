@@ -100,8 +100,14 @@ class PomegradeFolderSetupDelegate(private val activity: ComponentActivity) {
                 finish(false)
             }
             pomegradeFolder.isSetUp() -> finish(true)
-            else -> folderLauncher.launch(null)
+            else -> pickFolder()
         }
+    }
+
+    // the picker opens in /storage/emulated/0/Pomegrade, created beforehand: the user confirms it
+    // (Android only gives a folder's access through its picker), or picks another
+    private fun pickFolder() {
+        folderLauncher.launch(PomegradeFolder.createDefaultFolder())
     }
 
     private fun setUp(folder: Uri) {
@@ -126,7 +132,7 @@ class PomegradeFolderSetupDelegate(private val activity: ComponentActivity) {
                 PomegradeFolder.SetupResult.UnsupportedFolder -> AlertDialog.Builder(activity)
                     .setTitle(R.string.pomegrade_folder_title)
                     .setMessage(R.string.pomegrade_folder_invalid)
-                    .setPositiveButton(R.string.pomegrade_folder_choose) { _, _ -> folderLauncher.launch(null) }
+                    .setPositiveButton(R.string.pomegrade_folder_choose) { _, _ -> pickFolder() }
                     .setNegativeButton(R.string.cancel) { _, _ -> finish(false) }
                     .setOnCancelListener { finish(false) }
                     .show()

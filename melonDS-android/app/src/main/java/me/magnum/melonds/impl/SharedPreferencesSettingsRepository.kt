@@ -167,7 +167,8 @@ class SharedPreferencesSettingsRepository(
             micSource = getMicSource(),
             firmwareConfiguration = getFirmwareConfiguration(),
             rendererConfiguration = renderConfigurationFlow.first(),
-            texturesDirectory = context.getExternalFilesDir("textures")?.absolutePath,
+            // Pomegrade: in the Pomegrade folder, which stays when the app is uninstalled
+            texturesDirectory = (PomegradeFolder.subFolder(context, PomegradeFolder.TEXTURES) ?: context.getExternalFilesDir("textures"))?.absolutePath,
             hdTexturesEnabled = preferences.getBoolean("enable_hd_textures", false),
             dumpTexturesEnabled = preferences.getBoolean("dump_textures", false),
             polygonMultiplier = preferences.getString("polygon_multiplier", "1")?.toIntOrNull() ?: 1,
@@ -563,12 +564,12 @@ class SharedPreferencesSettingsRepository(
     }
 
     override fun getPomegradeFolder(): Uri? {
-        return preferences.getString("pomegrade_folder", null)?.toUri()
+        return preferences.getString(PomegradeFolder.PREFERENCE, null)?.toUri()
     }
 
     override fun setPomegradeFolder(folderUri: Uri) {
         preferences.edit {
-            putString("pomegrade_folder", folderUri.toString())
+            putString(PomegradeFolder.PREFERENCE, folderUri.toString())
         }
     }
 

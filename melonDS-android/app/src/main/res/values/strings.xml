@@ -647,7 +647,7 @@
     <string name="action_three_ds_games">3DS games</string>
     <string name="three_ds_unsupported">3DS games need a 64-bit device</string>
     <string name="pomegrade_folder_title">Pomegrade folder</string>
-    <string name="pomegrade_folder_message">Pomegrade keeps your games and their files in one folder that you choose once:\n\n• Roms: each game in its own folder, with its saves and save states\n• BIOS: DS and DSi system files\n• 3DS: 3DS saves and system files\n\nThe games Pomegrade finds are moved there. Android will ask you to allow \"All files access\" first: Pomegrade needs it to move games and to run 3DS games.</string>
+    <string name="pomegrade_folder_message">Pomegrade keeps your games and their files in one folder, Pomegrade, in your internal storage:\n\n• Roms: each game in its own folder, with its saves and save states\n• BIOS: DS and DSi system files\n• 3DS: 3DS saves and system files\n• Textures: HD texture packs\n\nThe games Pomegrade finds are moved there. It stays on your phone if you uninstall the app.\n\nAndroid asks you to allow \"All files access\" first: Pomegrade needs it to move games and to run 3DS games. Then tap \"Use this folder\" to confirm the Pomegrade folder.</string>
     <string name="pomegrade_folder_choose">Choose folder</string>
     <string name="pomegrade_folder_later">Later</string>
     <string name="pomegrade_folder_file_access_hint">Turn on \"All files access\" for Pomegrade, then come back</string>
@@ -722,7 +722,7 @@
         <item>8</item>
     </string-array>
     <string name="hd_textures">HD textures</string>
-    <string name="hd_textures_summary">Replace 3D textures with HD versions from Android/data/&lt;app&gt;/files/textures/&lt;game code&gt;/</string>
+    <string name="hd_textures_summary">Replace 3D textures with HD versions from Pomegrade/Textures/&lt;game code&gt;/</string>
     <string name="dump_textures">Dump textures</string>
-    <string name="dump_textures_summary">Save every 3D texture the game uses to Android/data/&lt;app&gt;/files/textures/&lt;game code&gt;/dump/ (slower, for creating texture packs)</string>
+    <string name="dump_textures_summary">Save every 3D texture the game uses to Pomegrade/Textures/&lt;game code&gt;/dump/ (slower, for creating texture packs)</string>
 </resources>
