@@ -190,6 +190,8 @@ class FileSystemRomsRepository(
             return
 
         roms[romIndex] = roms[romIndex].copy(uri = uri, parentTreeUri = parentTreeUri)
+        // written at once: the file has already moved, its entry must not wait (lost if the app stops)
+        saveRomData(roms.toList())
         onRomsChanged()
     }
 
@@ -323,6 +325,7 @@ class FileSystemRomsRepository(
         }.getOrElse { emptyList() }
     }
 
+    @Synchronized // relocateRom writes from its own thread too
     private fun saveRomData(romData: List<Rom>) {
         val cacheFile = File(context.filesDir, ROM_DATA_FILE)
 

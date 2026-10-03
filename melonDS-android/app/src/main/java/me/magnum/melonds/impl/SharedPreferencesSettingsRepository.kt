@@ -567,8 +567,10 @@ class SharedPreferencesSettingsRepository(
         return preferences.getString(PomegradeFolder.PREFERENCE, null)?.toUri()
     }
 
+    // Pomegrade's folder settings are written at once (commit): they describe files already moved,
+    // and the app stopping right after (a crash) lost them with apply(), so the setup ran again
     override fun setPomegradeFolder(folderUri: Uri) {
-        preferences.edit {
+        preferences.edit(commit = true) {
             putString(PomegradeFolder.PREFERENCE, folderUri.toString())
         }
     }
@@ -578,13 +580,13 @@ class SharedPreferencesSettingsRepository(
         if (directoryUri.toString() in directories) {
             return
         }
-        preferences.edit {
+        preferences.edit(commit = true) {
             putStringSet("rom_search_dirs", directories + directoryUri.toString())
         }
     }
 
     override fun keepGameFilesNextToRom() {
-        preferences.edit {
+        preferences.edit(commit = true) {
             putBoolean("use_rom_dir", true)
             putString("save_state_location", "save_dir")
         }
