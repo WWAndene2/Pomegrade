@@ -18,6 +18,8 @@ interface RomsRepository {
     fun updateRomConfig(rom: Rom, romConfig: RomConfig)
     fun setRomLastPlayed(rom: Rom, lastPlayed: Date)
     fun addRomPlayTime(rom: Rom, playTime: Duration)
+    // the ROM's file moved: its entry (settings, last played, play time) follows it
+    fun relocateRom(rom: Rom, uri: Uri, parentTreeUri: Uri)
     fun rescanRoms()
     fun invalidateRoms()
 }

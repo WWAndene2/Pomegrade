@@ -38,6 +38,7 @@ import me.magnum.melonds.domain.model.SortingMode
 import me.magnum.melonds.domain.model.Version
 import me.magnum.melonds.domain.model.appupdate.AppUpdate
 import me.magnum.melonds.domain.model.rom.Rom
+import me.magnum.melonds.ui.common.PomegradeFolderSetupDelegate
 import me.magnum.melonds.ui.common.rom.EmulatorLaunchValidatorDelegate
 import me.magnum.melonds.ui.dsiwaremanager.DSiWareManagerActivity
 import me.magnum.melonds.ui.emulator.EmulatorActivity
@@ -47,6 +48,8 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class RomListActivity : AppCompatActivity() {
     companion object {
+        // once per app start (the process), not each time the screen is created
+        private var pomegradeFolderPrompted = false
         private const val FRAGMENT_ROM_LIST = "ROM_LIST"
         private const val FRAGMENT_NO_ROM_DIRECTORIES = "NO_ROM_DIRECTORY"
     }
@@ -55,6 +58,7 @@ class RomListActivity : AppCompatActivity() {
     private val viewModel: RomListViewModel by viewModels()
     private val updatesViewModel: UpdatesViewModel by viewModels()
     private lateinit var emulatorLauncherValidatorDelegate: EmulatorLaunchValidatorDelegate
+    private lateinit var pomegradeFolderSetup: PomegradeFolderSetupDelegate
 
     private var downloadProgressDialog: AlertDialog? = null
 
@@ -113,6 +117,20 @@ class RomListActivity : AppCompatActivity() {
                     } else {
                         addNoSearchDirectoriesFragment()
                     }
+                }
+            }
+        }
+
+        // the Pomegrade folder: asked for once per app start until it is set up
+        pomegradeFolderSetup = PomegradeFolderSetupDelegate(this)
+        if (savedInstanceState == null && !pomegradeFolderPrompted && !pomegradeFolderSetup.isSetUp()) {
+            pomegradeFolderPrompted = true
+            pomegradeFolderSetup.start { }
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.organizeResult.collectLatest {
+                    pomegradeFolderSetup.report(it)
                 }
             }
         }
@@ -331,6 +349,11 @@ class RomListActivity : AppCompatActivity() {
     }
 
     private fun launchRom(rom: Rom) {
+        // its file may be the one being moved into the Pomegrade folder
+        if (viewModel.organizing.value) {
+            Toast.makeText(this, R.string.pomegrade_folder_organizing, Toast.LENGTH_SHORT).show()
+            return
+        }
         emulatorLauncherValidatorDelegate.validateRom(rom)
     }
 

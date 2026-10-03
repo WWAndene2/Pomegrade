@@ -142,6 +142,17 @@ object MelonModule {
 
     @Provides
     @Singleton
+    fun providePomegradeFolder(
+        @ApplicationContext context: Context,
+        settingsRepository: SettingsRepository,
+        romsRepository: RomsRepository,
+        saveStateScreenshotProvider: SaveStateScreenshotProvider,
+    ): PomegradeFolder {
+        return PomegradeFolder(context, settingsRepository, romsRepository, saveStateScreenshotProvider)
+    }
+
+    @Provides
+    @Singleton
     fun provideBackgroundThumbnailProvider(@ApplicationContext context: Context): BackgroundThumbnailProvider {
         return BackgroundThumbnailProvider(context)
     }

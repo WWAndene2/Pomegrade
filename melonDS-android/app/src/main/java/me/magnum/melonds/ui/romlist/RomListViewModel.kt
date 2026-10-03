@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -17,11 +18,13 @@ import kotlinx.coroutines.withContext
 import me.magnum.melonds.common.DirectoryAccessValidator
 import me.magnum.melonds.common.Permission
 import me.magnum.melonds.common.UriPermissionManager
+import me.magnum.melonds.domain.model.RomScanningStatus
 import me.magnum.melonds.domain.model.SortingMode
 import me.magnum.melonds.domain.model.SortingOrder
 import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.domain.repositories.RomsRepository
 import me.magnum.melonds.domain.repositories.SettingsRepository
+import me.magnum.melonds.impl.PomegradeFolder
 import me.magnum.melonds.impl.RomIconProvider
 import me.magnum.melonds.utils.EventSharedFlow
 import me.magnum.melonds.utils.SubjectSharedFlow
@@ -36,7 +39,14 @@ class RomListViewModel @Inject constructor(
     private val romIconProvider: RomIconProvider,
     private val uriPermissionManager: UriPermissionManager,
     private val directoryAccessValidator: DirectoryAccessValidator,
+    private val pomegradeFolder: PomegradeFolder,
 ) : ViewModel() {
+
+    // games found outside the Pomegrade folder are moved into it after each scan
+    private val _organizing = MutableStateFlow(false)
+    val organizing = _organizing.asStateFlow()
+    private val _organizeResult = EventSharedFlow<PomegradeFolder.OrganizeResult>()
+    val organizeResult: Flow<PomegradeFolder.OrganizeResult> = _organizeResult
 
     private val _searchQuery = MutableStateFlow("")
     private val _sortingMode = MutableStateFlow(settingsRepository.getRomSortingMode())
@@ -56,6 +66,19 @@ class RomListViewModel @Inject constructor(
     val romScanningStatus = romsRepository.getRomScanningStatus()
 
     init {
+        viewModelScope.launch {
+            // after a scan, not during one (both would change the ROM list)
+            var scanned = false
+            romScanningStatus.collect { status ->
+                if (status == RomScanningStatus.SCANNING) {
+                    scanned = true
+                } else if (scanned) {
+                    scanned = false
+                    organizeNewGames()
+                }
+            }
+        }
+
         viewModelScope.launch {
             settingsRepository.observeRomSearchDirectories()
                 .distinctUntilChanged()
@@ -126,12 +149,34 @@ class RomListViewModel @Inject constructor(
         }
     }
 
+    private suspend fun organizeNewGames() {
+        if (_organizing.value || !pomegradeFolder.canOrganize()) {
+            return
+        }
+        val roms = romsRepository.getRoms().first()
+        if (pomegradeFolder.gamesToOrganize(roms).isEmpty()) {
+            return
+        }
+        _organizing.value = true
+        val result = withContext(Dispatchers.IO) {
+            pomegradeFolder.organize(roms) { }
+        }
+        _organizing.value = false
+        _organizeResult.tryEmit(result)
+    }
+
     fun addRomSearchDirectory(directoryUri: Uri) {
         val accessValidationResult = directoryAccessValidator.getDirectoryAccessForPermission(directoryUri, Permission.READ_WRITE)
 
         if (accessValidationResult == DirectoryAccessValidator.DirectoryAccessResult.OK) {
             uriPermissionManager.persistDirectoryPermissions(directoryUri, Permission.READ_WRITE)
-            settingsRepository.addRomSearchDirectory(directoryUri)
+            // with the Pomegrade folder set up, a folder is added beside its Roms (whose games it
+            // will move there); otherwise it replaces the ROM folder, as upstream
+            if (pomegradeFolder.isSetUp()) {
+                settingsRepository.includeRomSearchDirectory(directoryUri)
+            } else {
+                settingsRepository.addRomSearchDirectory(directoryUri)
+            }
         } else {
             _invalidDirectoryAccessEvent.tryEmit(Unit)
         }

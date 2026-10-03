@@ -27,6 +27,12 @@ object PermissionsHandler {
             }
 
             val uri = citraDirectory
+            // Pomegrade: the directory may be a folder inside the app's own folder (a document
+            // of a tree the app holds), whose permission is the tree's, not its own
+            if (isInsideHeldTree(context, uri)) {
+                val folder = DocumentFile.fromTreeUri(context, uri)
+                return folder != null && folder.exists()
+            }
             val takeFlags =
                 Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             context.contentResolver.takePersistableUriPermission(uri, takeFlags)
@@ -44,6 +50,13 @@ object PermissionsHandler {
             )
         }
         return false
+    }
+
+    // Pomegrade: a document URI inside a tree the app holds a persisted write permission for
+    private fun isInsideHeldTree(context: Context, uri: Uri): Boolean {
+        if (!DocumentsContract.isDocumentUri(context, uri)) return false
+        val tree = DocumentsContract.buildTreeDocumentUri(uri.authority, DocumentsContract.getTreeDocumentId(uri))
+        return context.contentResolver.persistedUriPermissions.any { it.uri == tree && it.isWritePermission }
     }
 
     val citraDirectory: Uri

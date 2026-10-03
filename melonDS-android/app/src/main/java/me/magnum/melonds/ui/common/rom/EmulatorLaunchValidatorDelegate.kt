@@ -1,13 +1,7 @@
 package me.magnum.melonds.ui.common.rom
 
-import android.Manifest
-import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.net.Uri
-import android.os.Build
-import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
@@ -22,6 +16,7 @@ import me.magnum.melonds.domain.model.emulator.validation.FirmwareLaunchPrecondi
 import me.magnum.melonds.domain.model.emulator.validation.RomLaunchPreconditionCheckResult
 import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.domain.model.rom.RomPlatform
+import me.magnum.melonds.ui.common.PomegradeFolderSetupDelegate
 import me.magnum.melonds.ui.common.rom.model.LaunchValidationResult
 import me.magnum.melonds.ui.dsiwaremanager.DSiWareManagerActivity
 import me.magnum.melonds.ui.settings.SettingsActivity
@@ -39,37 +34,8 @@ class EmulatorLaunchValidatorDelegate(
     private val dsiWareManagerLauncher = context.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         viewModel.onReturnFromDsiWareManagerSetup()
     }
-    // the 3DS game waiting for its file access or folder to be set up (lost if the activity is
-    // recreated meanwhile: what was set up stays, the game is started with one more tap)
-    private var pendingN3dsRom: Rom? = null
-    private val n3dsAllFilesAccessLauncher = context.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        resumeN3dsSetup(N3dsLauncher.hasFileAccess(context))
-    }
-    private val n3dsStoragePermissionLauncher = context.registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        resumeN3dsSetup(granted)
-    }
-    private val n3dsFolderLauncher: ActivityResultLauncher<Uri?> = context.registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { folder ->
-        val rom = pendingN3dsRom
-        pendingN3dsRom = null
-        if (folder == null) {
-            callback.onValidationAborted()
-            return@registerForActivityResult
-        }
-        if (N3dsLauncher.setUpFolder(context, folder)) {
-            if (rom != null) N3dsLauncher.launch(context, rom)
-        } else {
-            AlertDialog.Builder(context)
-                .setTitle(R.string.three_ds_folder_title)
-                .setMessage(R.string.three_ds_folder_invalid)
-                .setPositiveButton(R.string.three_ds_folder_choose) { _, _ ->
-                    pendingN3dsRom = rom
-                    n3dsFolderLauncher.launch(null)
-                }
-                .setNegativeButton(R.string.cancel) { _, _ -> callback.onValidationAborted() }
-                .setOnCancelListener { callback.onValidationAborted() }
-                .show()
-        }
-    }
+    // 3DS games need the Pomegrade folder (their core's folder is its 3DS) and file access
+    private val pomegradeFolderSetup = PomegradeFolderSetupDelegate(context)
 
     init {
         context.lifecycleScope.launch {
@@ -105,9 +71,14 @@ class EmulatorLaunchValidatorDelegate(
         if (rom.platform == RomPlatform.N3DS) {
             when {
                 !N3dsLauncher.isSupported() -> N3dsLauncher.launch(context, rom) // explains why not
-                !N3dsLauncher.hasFileAccess(context) -> showN3dsFileAccessDialog(rom)
-                !N3dsLauncher.isFolderReady(context) -> showN3dsFolderSetupDialog(rom)
-                else -> N3dsLauncher.launch(context, rom)
+                N3dsLauncher.isReady(context) -> N3dsLauncher.launch(context, rom)
+                else -> pomegradeFolderSetup.start { ready ->
+                    if (ready && N3dsLauncher.isReady(context)) {
+                        N3dsLauncher.launch(context, rom)
+                    } else {
+                        callback.onValidationAborted()
+                    }
+                }
             }
             return
         }
@@ -116,53 +87,6 @@ class EmulatorLaunchValidatorDelegate(
 
     fun validateFirmware(consoleType: ConsoleType) {
         viewModel.validateFirmwareForLaunch(consoleType)
-    }
-
-    private fun showN3dsFileAccessDialog(rom: Rom) {
-        AlertDialog.Builder(context)
-            .setTitle(R.string.three_ds_file_access_title)
-            .setMessage(R.string.three_ds_file_access_message)
-            .setPositiveButton(R.string.three_ds_file_access_allow) { _, _ ->
-                pendingN3dsRom = rom
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    try {
-                        n3dsAllFilesAccessLauncher.launch(N3dsLauncher.allFilesAccessSettings(context))
-                    } catch (e: ActivityNotFoundException) {
-                        n3dsAllFilesAccessLauncher.launch(N3dsLauncher.allFilesAccessSettingsList())
-                    }
-                } else {
-                    n3dsStoragePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                }
-            }
-            .setNegativeButton(R.string.cancel) { _, _ -> callback.onValidationAborted() }
-            .setOnCancelListener { callback.onValidationAborted() }
-            .show()
-    }
-
-    private fun resumeN3dsSetup(granted: Boolean) {
-        val rom = pendingN3dsRom
-        pendingN3dsRom = null
-        when {
-            rom == null -> callback.onValidationAborted()
-            granted -> validateRom(rom) // on to the folder, then the game
-            else -> {
-                Toast.makeText(context, R.string.three_ds_file_access_denied, Toast.LENGTH_LONG).show()
-                callback.onValidationAborted()
-            }
-        }
-    }
-
-    private fun showN3dsFolderSetupDialog(rom: Rom) {
-        AlertDialog.Builder(context)
-            .setTitle(R.string.three_ds_folder_title)
-            .setMessage(R.string.three_ds_folder_message)
-            .setPositiveButton(R.string.three_ds_folder_choose) { _, _ ->
-                pendingN3dsRom = rom
-                n3dsFolderLauncher.launch(null)
-            }
-            .setNegativeButton(R.string.cancel) { _, _ -> callback.onValidationAborted() }
-            .setOnCancelListener { callback.onValidationAborted() }
-            .show()
     }
 
     private fun showIncorrectConfigurationDirectoryDialogForFirmware(configurationDirResult: ConfigurationDirResult) {

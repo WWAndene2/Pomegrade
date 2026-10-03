@@ -43,6 +43,15 @@ class SaveStateScreenshotProvider(
         }
     }
 
+    // the ROM's file moved to newUri: its screenshots are kept under its address's hash
+    fun relocateRomScreenshots(rom: Rom, newUri: Uri) {
+        val from = File(getScreenshotsDir(), rom.uri.hashCode().toString())
+        val to = File(getScreenshotsDir(), newUri.hashCode().toString())
+        if (from.isDirectory && !to.exists()) {
+            from.renameTo(to)
+        }
+    }
+
     private fun getRomSaveStateScreenshotFile(rom: Rom, saveState: SaveStateSlot, createDirectoriesIfNeeded: Boolean = false): File? {
         val romDirectoryName = rom.uri.hashCode().toString()
         val romDirectory = File(getScreenshotsDir(), romDirectoryName)

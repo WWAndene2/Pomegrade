@@ -75,9 +75,21 @@ class FileSystemRomsRepository(
         if (!areRomsLoaded.get())
             return
 
-        // TODO: Check if existing ROMs are still found in the new directory(s). How can we do that reliably using URIs?
-        removeAllRoms()
-        rescanRoms()
+        // Pomegrade: the ROMs still found keep their entries (settings, last played, play time),
+        // those no longer found are removed. Clearing the list first lost all of that whenever a
+        // folder was added
+        coroutineScope.launch {
+            scanningStatusSubject.emit(RomScanningStatus.SCANNING)
+            val found = HashSet<Uri>()
+            scanForNewRoms().collect {
+                found.add(it.uri)
+                addRom(it)
+            }
+            if (roms.removeAll { it.uri !in found }) {
+                onRomsChanged()
+            }
+            scanningStatusSubject.emit(RomScanningStatus.NOT_SCANNING)
+        }
     }
 
     override fun getRoms(): Flow<List<Rom>> = flow {
@@ -172,6 +184,15 @@ class FileSystemRomsRepository(
         onRomsChanged()
     }
 
+    override fun relocateRom(rom: Rom, uri: Uri, parentTreeUri: Uri) {
+        val romIndex = roms.indexOfFirst { it.hasSameFileAsRom(rom) }
+        if (romIndex < 0)
+            return
+
+        roms[romIndex] = roms[romIndex].copy(uri = uri, parentTreeUri = parentTreeUri)
+        onRomsChanged()
+    }
+
     override fun rescanRoms() {
         coroutineScope.launch {
             scanningStatusSubject.emit(RomScanningStatus.SCANNING)
@@ -250,19 +271,26 @@ class FileSystemRomsRepository(
     }
 
     private fun scanForNewRoms(): Flow<Rom> = flow {
+        // Pomegrade: the Pomegrade folder's Roms is scanned as its own ROM folder; reached from
+        // another one (containing it), it is skipped, or its ROMs would be listed twice
+        val pomegradeRoms = PomegradeFolder.romsDocumentId(settingsRepository.getPomegradeFolder())
         for (directory in settingsRepository.getRomSearchDirectories()) {
             val documentFile = DocumentFile.fromTreeUri(context, directory)
             if (documentFile != null) {
-                findCachedRomFiles(documentFile, this)
+                val skip = pomegradeRoms?.takeIf { it != PomegradeFolder.documentIdOf(context, documentFile.uri) }
+                findCachedRomFiles(documentFile, this, skip)
             }
         }
     }
 
-    private suspend fun findCachedRomFiles(directory: DocumentFile, collector: FlowCollector<Rom>) {
+    private suspend fun findCachedRomFiles(directory: DocumentFile, collector: FlowCollector<Rom>, skipDocumentId: String? = null) {
         val files = directory.listFiles()
         for (file in files) {
             if (file.isDirectory) {
-                findCachedRomFiles(file, collector)
+                if (skipDocumentId != null && PomegradeFolder.documentIdOf(context, file.uri) == skipDocumentId) {
+                    continue
+                }
+                findCachedRomFiles(file, collector, skipDocumentId)
                 continue
             }
 

@@ -562,6 +562,33 @@ class SharedPreferencesSettingsRepository(
         }
     }
 
+    override fun getPomegradeFolder(): Uri? {
+        return preferences.getString("pomegrade_folder", null)?.toUri()
+    }
+
+    override fun setPomegradeFolder(folderUri: Uri) {
+        preferences.edit {
+            putString("pomegrade_folder", folderUri.toString())
+        }
+    }
+
+    override fun includeRomSearchDirectory(directoryUri: Uri) {
+        val directories = preferences.getStringSet("rom_search_dirs", emptySet()).orEmpty()
+        if (directoryUri.toString() in directories) {
+            return
+        }
+        preferences.edit {
+            putStringSet("rom_search_dirs", directories + directoryUri.toString())
+        }
+    }
+
+    override fun keepGameFilesNextToRom() {
+        preferences.edit {
+            putBoolean("use_rom_dir", true)
+            putString("save_state_location", "save_dir")
+        }
+    }
+
     @OptIn(ExperimentalSerializationApi::class)
     override fun setControllerConfiguration(controllerConfiguration: ControllerConfiguration) {
         this.controllerConfiguration.value = controllerConfiguration

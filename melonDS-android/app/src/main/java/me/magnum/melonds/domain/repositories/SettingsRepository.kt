@@ -82,6 +82,14 @@ interface SettingsRepository {
     fun setDsBiosDirectory(directoryUri: Uri)
     fun setDsiBiosDirectory(directoryUri: Uri)
     fun addRomSearchDirectory(directoryUri: Uri)
+
+    // Pomegrade folder: the folder Pomegrade keeps games and their files in (see PomegradeFolder)
+    fun getPomegradeFolder(): Uri?
+    fun setPomegradeFolder(folderUri: Uri)
+    // adds a ROM folder, keeping the others (addRomSearchDirectory replaces them)
+    fun includeRomSearchDirectory(directoryUri: Uri)
+    // DS saves and save states next to each ROM (in its game folder)
+    fun keepGameFilesNextToRom()
     fun setControllerConfiguration(controllerConfiguration: ControllerConfiguration)
     fun setRomSortingMode(sortingMode: SortingMode)
     fun setRomSortingOrder(sortingOrder: SortingOrder)
