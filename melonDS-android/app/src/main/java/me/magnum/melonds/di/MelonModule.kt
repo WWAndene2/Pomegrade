@@ -147,8 +147,9 @@ object MelonModule {
         settingsRepository: SettingsRepository,
         romsRepository: RomsRepository,
         saveStateScreenshotProvider: SaveStateScreenshotProvider,
+        settingsBackupManager: SettingsBackupManager,
     ): PomegradeFolder {
-        return PomegradeFolder(context, settingsRepository, romsRepository, saveStateScreenshotProvider)
+        return PomegradeFolder(context, settingsRepository, romsRepository, saveStateScreenshotProvider, settingsBackupManager)
     }
 
     @Provides

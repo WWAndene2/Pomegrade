@@ -41,6 +41,7 @@ class PomegradeFolder(
     private val settingsRepository: SettingsRepository,
     private val romsRepository: RomsRepository,
     private val screenshotProvider: SaveStateScreenshotProvider,
+    private val settingsBackupManager: SettingsBackupManager,
 ) {
 
     companion object {
@@ -49,6 +50,9 @@ class PomegradeFolder(
         const val N3DS = "3DS"
         const val TEXTURES = "Textures"
         const val SAVE_STATE_PREVIEWS = "Save state previews"
+        // a copy of the settings, the game list (each game's settings, last played, play time),
+        // the controller and layout configurations, read back after a reinstall
+        const val SETTINGS = "Settings"
         /** Where Pomegrade creates its folder: /storage/emulated/0/Pomegrade. */
         const val DEFAULT_NAME = "Pomegrade"
         const val PREFERENCE = "pomegrade_folder"
@@ -186,6 +190,44 @@ class PomegradeFolder(
                 .apply()
         }
         return SetupResult.Success to organized
+    }
+
+    /** The folder path, or null if not set up. */
+    fun path(): File? {
+        val folder = settingsRepository.getPomegradeFolder() ?: return null
+        return try {
+            pathOf(DocumentsContract.getTreeDocumentId(folder))
+        } catch (e: IllegalArgumentException) {
+            null
+        }
+    }
+
+    private fun settingsFolder(): Uri? {
+        val folder = settingsRepository.getPomegradeFolder() ?: return null
+        if (!isSetUp()) return null
+        val treeId = DocumentsContract.getTreeDocumentId(folder)
+        val dir = pathOf("$treeId/$SETTINGS")
+        if (!dir.isDirectory && !dir.mkdirs()) return null
+        return DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$SETTINGS")
+    }
+
+    /** Saves the settings in the folder's Settings (each save replaces the previous; one at a time). Background thread. */
+    @Synchronized
+    fun saveSettings(): Boolean {
+        val target = settingsFolder() ?: return false
+        return runCatching { settingsBackupManager.backup(target) }.isSuccess
+    }
+
+    /** Settings saved before in the folder (a previous installation's), or none. */
+    fun hasSavedSettings(): Boolean = path()?.let { File(it, "$SETTINGS/settings.json").isFile } == true
+
+    /** Restores the settings saved in the folder, and the game list with them. Background thread. */
+    @Synchronized
+    fun restoreSettings(): Boolean {
+        val source = settingsFolder() ?: return false
+        val restored = runCatching { settingsBackupManager.restore(source) }.isSuccess
+        if (restored) romsRepository.reloadRoms()
+        return restored
     }
 
     /** Set up, with the file access moving games needs. */

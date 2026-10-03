@@ -20,6 +20,8 @@ interface RomsRepository {
     fun addRomPlayTime(rom: Rom, playTime: Duration)
     // the ROM's file moved: its entry (settings, last played, play time) follows it
     fun relocateRom(rom: Rom, uri: Uri, parentTreeUri: Uri)
+    // the ROM list read again from its saved file (restored from a backup), then rescanned
+    fun reloadRoms()
     fun rescanRoms()
     fun invalidateRoms()
 }

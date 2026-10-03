@@ -1,57 +1,99 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:app="http://schemas.android.com/apk/res-auto">
-    <Preference
-            android:title="@string/category_general"
-            android:summary="@string/category_general_summary"
-            app:icon="@drawable/ic_settings"
-            android:fragment="me.magnum.melonds.ui.settings.fragments.GeneralPreferencesFragment" />
+    <!-- Pomegrade: one settings screen for every console -->
+    <PreferenceCategory
+            android:title="@string/settings_section_pomegrade"
+            app:iconSpaceReserved="false">
+        <Preference
+                android:key="pomegrade_folder_info"
+                android:title="@string/pomegrade_folder_title"
+                app:icon="@drawable/ic_folder" />
 
-    <Preference
-            android:title="@string/category_roms"
-            android:summary="@string/category_roms_summary"
-            app:icon="@drawable/ic_folder"
-            android:fragment="me.magnum.melonds.ui.settings.fragments.RomsPreferencesFragment" />
+        <Preference
+                android:key="pomegrade_settings_save"
+                android:title="@string/pomegrade_settings_save"
+                android:summary="@string/pomegrade_settings_save_summary"
+                app:icon="@drawable/ic_file" />
 
-    <Preference
-            android:title="@string/category_save_files"
-            android:summary="@string/category_save_files_summary"
-            app:icon="@drawable/ic_file"
-            android:fragment="me.magnum.melonds.ui.settings.fragments.SaveFilesPreferencesFragment" />
+        <Preference
+                android:key="pomegrade_settings_restore"
+                android:title="@string/pomegrade_settings_restore"
+                android:summary="@string/pomegrade_settings_restore_summary"
+                app:icon="@drawable/ic_file" />
 
-    <Preference
-            android:title="@string/category_system"
-            android:summary="@string/category_system_summary"
-            app:icon="@drawable/ic_firmware"
-            android:fragment="me.magnum.melonds.ui.settings.fragments.SystemPreferencesFragment" />
+        <Preference
+                android:title="@string/category_general"
+                android:summary="@string/category_general_summary"
+                app:icon="@drawable/ic_settings"
+                android:fragment="me.magnum.melonds.ui.settings.fragments.GeneralPreferencesFragment" />
+    </PreferenceCategory>
 
-    <Preference
-            android:title="@string/category_video"
-            android:summary="@string/category_video_summary"
-            app:icon="@drawable/ic_video"
-            android:fragment="me.magnum.melonds.ui.settings.fragments.VideoPreferencesFragment" />
+    <PreferenceCategory
+            android:title="@string/settings_section_ds"
+            app:iconSpaceReserved="false">
 
-    <Preference
-            android:title="@string/category_audio"
-            android:summary="@string/category_audio_summary"
-            app:icon="@drawable/ic_audio"
-            android:fragment="me.magnum.melonds.ui.settings.fragments.AudioPreferencesFragment" />
+        <Preference
+                android:title="@string/category_roms"
+                android:summary="@string/category_roms_summary"
+                app:icon="@drawable/ic_folder"
+                android:fragment="me.magnum.melonds.ui.settings.fragments.RomsPreferencesFragment" />
 
-    <Preference
-            android:title="@string/input"
-            android:summary="@string/input_summary"
-            app:icon="@drawable/ic_input"
-            android:fragment="me.magnum.melonds.ui.settings.fragments.InputPreferencesFragment" />
+        <Preference
+                android:title="@string/category_save_files"
+                android:summary="@string/category_save_files_summary"
+                app:icon="@drawable/ic_file"
+                android:fragment="me.magnum.melonds.ui.settings.fragments.SaveFilesPreferencesFragment" />
 
-    <Preference
-            android:title="@string/retroachievements"
-            android:summary="@string/retroachievements_summary"
-            app:icon="@drawable/ic_trophy"
-            android:fragment="me.magnum.melonds.ui.settings.fragments.RetroAchievementsPreferencesFragment" />
+        <Preference
+                android:title="@string/category_system"
+                android:summary="@string/category_system_summary"
+                app:icon="@drawable/ic_firmware"
+                android:fragment="me.magnum.melonds.ui.settings.fragments.SystemPreferencesFragment" />
 
-    <Preference
-            android:title="@string/cheats"
-            android:summary="@string/cheats_summary"
-            app:icon="@drawable/ic_cheat"
-            android:fragment="me.magnum.melonds.ui.settings.fragments.CheatsPreferencesFragment" />
+        <Preference
+                android:title="@string/category_video"
+                android:summary="@string/category_video_summary"
+                app:icon="@drawable/ic_video"
+                android:fragment="me.magnum.melonds.ui.settings.fragments.VideoPreferencesFragment" />
+
+        <Preference
+                android:title="@string/category_audio"
+                android:summary="@string/category_audio_summary"
+                app:icon="@drawable/ic_audio"
+                android:fragment="me.magnum.melonds.ui.settings.fragments.AudioPreferencesFragment" />
+
+        <Preference
+                android:title="@string/input"
+                android:summary="@string/input_summary"
+                app:icon="@drawable/ic_input"
+                android:fragment="me.magnum.melonds.ui.settings.fragments.InputPreferencesFragment" />
+
+        <Preference
+                android:title="@string/retroachievements"
+                android:summary="@string/retroachievements_summary"
+                app:icon="@drawable/ic_trophy"
+                android:fragment="me.magnum.melonds.ui.settings.fragments.RetroAchievementsPreferencesFragment" />
+
+        <Preference
+                android:title="@string/cheats"
+                android:summary="@string/cheats_summary"
+                app:icon="@drawable/ic_cheat"
+                android:fragment="me.magnum.melonds.ui.settings.fragments.CheatsPreferencesFragment" />
+    </PreferenceCategory>
+
+    <!-- the 3DS core's own settings (Azahar), each section opened directly -->
+    <PreferenceCategory
+            android:key="three_ds_settings"
+            android:title="@string/settings_section_three_ds"
+            app:iconSpaceReserved="false">
+        <Preference android:key="three_ds_settings_Core" android:title="@string/category_general" android:summary="@string/three_ds_settings_core_summary" app:icon="@drawable/ic_settings" />
+        <Preference android:key="three_ds_settings_System" android:title="@string/category_system" android:summary="@string/three_ds_settings_system_summary" app:icon="@drawable/ic_firmware" />
+        <Preference android:key="three_ds_settings_Renderer" android:title="@string/category_video" android:summary="@string/three_ds_settings_renderer_summary" app:icon="@drawable/ic_video" />
+        <Preference android:key="three_ds_settings_Layout" android:title="@string/three_ds_settings_layout" android:summary="@string/three_ds_settings_layout_summary" app:icon="@drawable/ic_video" />
+        <Preference android:key="three_ds_settings_Audio" android:title="@string/category_audio" android:summary="@string/three_ds_settings_audio_summary" app:icon="@drawable/ic_audio" />
+        <Preference android:key="three_ds_settings_Controls" android:title="@string/input" android:summary="@string/three_ds_settings_controls_summary" app:icon="@drawable/ic_input" />
+        <Preference android:key="three_ds_settings_Camera" android:title="@string/three_ds_settings_camera" android:summary="@string/three_ds_settings_camera_summary" app:icon="@drawable/ic_video" />
+        <Preference android:key="three_ds_settings_Debugging" android:title="@string/three_ds_settings_debug" android:summary="@string/three_ds_settings_debug_summary" app:icon="@drawable/ic_settings" />
+    </PreferenceCategory>
 </PreferenceScreen>

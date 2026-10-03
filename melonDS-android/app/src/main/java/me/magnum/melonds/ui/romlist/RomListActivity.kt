@@ -162,6 +162,12 @@ class RomListActivity : AppCompatActivity() {
         }
     }
 
+    override fun onStop() {
+        super.onStop()
+        // Pomegrade: a copy of the settings and game list in the Pomegrade folder (kept after uninstalling)
+        pomegradeFolderSetup.saveSettingsInBackground()
+    }
+
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.rom_list_menu, menu)
 

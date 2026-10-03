@@ -29,7 +29,12 @@ class SettingsBackupManager @Inject constructor(
             "sram_dir",
             "rom_search_dirs",
             "bios_dir",
-            "dsi_bios_dir"
+            "dsi_bios_dir",
+            // Pomegrade: folders whose access Android grants per installation (picked again after
+            // a reinstall), and the 3DS core's setup state that goes with its folder
+            PomegradeFolder.PREFERENCE,
+            "CITRA_DIRECTORY",
+            "FirstApplicationLaunch",
         )
         private val LONG_PREF_KEYS = setOf(
             "ra_hash_library_last_updated",

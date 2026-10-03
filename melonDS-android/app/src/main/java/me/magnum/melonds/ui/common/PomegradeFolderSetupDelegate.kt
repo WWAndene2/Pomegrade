@@ -127,7 +127,7 @@ class PomegradeFolderSetupDelegate(private val activity: ComponentActivity) {
             when (result) {
                 PomegradeFolder.SetupResult.Success -> {
                     organized?.let { report(it) }
-                    finish(true)
+                    offerSavedSettings()
                 }
                 PomegradeFolder.SetupResult.UnsupportedFolder -> AlertDialog.Builder(activity)
                     .setTitle(R.string.pomegrade_folder_title)
@@ -142,6 +142,39 @@ class PomegradeFolderSetupDelegate(private val activity: ComponentActivity) {
                 }
             }
         }
+    }
+
+    // a folder used before (a previous installation) has its settings saved: offered back, before
+    // anything new is saved over them
+    private fun offerSavedSettings() {
+        if (!pomegradeFolder.hasSavedSettings()) {
+            finish(true)
+            return
+        }
+        AlertDialog.Builder(activity)
+            .setTitle(R.string.pomegrade_settings_found_title)
+            .setMessage(R.string.pomegrade_settings_found)
+            .setPositiveButton(R.string.pomegrade_settings_restore_action) { _, _ ->
+                activity.lifecycleScope.launch {
+                    val restored = withContext(Dispatchers.IO) { pomegradeFolder.restoreSettings() }
+                    Toast.makeText(activity, if (restored) R.string.pomegrade_settings_restored else R.string.pomegrade_settings_failed, Toast.LENGTH_LONG).show()
+                    finish(true)
+                }
+            }
+            .setNegativeButton(R.string.pomegrade_settings_keep_new) { _, _ -> finish(true) }
+            .setCancelable(false)
+            .show()
+    }
+
+    /**
+     * Saves the settings in the Pomegrade folder, in the background (each save replaces the
+     * previous), so they survive a reinstall. Call when leaving a screen where they change.
+     */
+    fun saveSettingsInBackground() {
+        if (onDone != null || !isSetUp()) return // not while setting up (a restore may be offered)
+        // a thread of its own: not cancelled halfway when the screen closes
+        val folder = pomegradeFolder
+        Thread { folder.saveSettings() }.start()
     }
 
     /** What organizing the games did: how many moved, and the ones that couldn't be. */

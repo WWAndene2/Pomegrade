@@ -115,7 +115,7 @@ Pomegrade
 Steps, from least to most work:
 
 1. **Unified storage**: done (untested on a phone). One folder picked once, `Pomegrade/{Roms/<game>/, BIOS, 3DS}`: each game moved into its own folder with its DS save and save states, DS/DSi BIOS (when none was set elsewhere), Azahar's folder. Asks for "All files access" (moving by path; Azahar's standard build needs it too). Not moved yet: HD textures (still in `Android/data/<app>/files/textures`), an Azahar folder set up before elsewhere.
-2. **Unified settings**: one settings screen; each core declares its options and the interface displays them.
+2. **Unified settings**: first part done (untested on a phone). One settings screen in three sections: Pomegrade (the Pomegrade folder, settings saved in it, General), DS (melonDS's categories), 3DS (each entry opens that section of Azahar's settings, which keep their own look and their config file in Pomegrade/3DS). Settings, controls, layouts and the game list (each game's settings, play time) are saved automatically in Pomegrade/Settings and offered back when a Pomegrade folder used before is set up again (after a reinstall). Next: Azahar's settings drawn as Pomegrade settings.
 3. **Core interface**: a common contract, with melonDS and Azahar adapted to it — the largest piece of work. Same idea as RetroArch's libretro, tailored to Android.
 4. **Single emulation screen**: same controls, menu and save states for every console; Azahar's and melonDS's own screens go away.
 5. **One visual identity**: theme and icons built around the Pomegrade name and logo.

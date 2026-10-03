@@ -193,6 +193,16 @@ class FileSystemRomsRepository(
         onRomsChanged()
     }
 
+    override fun reloadRoms() {
+        if (!areRomsLoaded.get()) {
+            return // read from the file when first needed
+        }
+        coroutineScope.launch {
+            roms.clear()
+            loadCachedRoms()
+        }
+    }
+
     override fun rescanRoms() {
         coroutineScope.launch {
             scanningStatusSubject.emit(RomScanningStatus.SCANNING)

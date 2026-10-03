@@ -19,11 +19,16 @@ import androidx.preference.PreferenceFragmentCompat
 import dagger.hilt.android.AndroidEntryPoint
 import me.magnum.melonds.R
 import me.magnum.melonds.databinding.ActivitySettingsBinding
+import me.magnum.melonds.ui.common.PomegradeFolderSetupDelegate
 import me.magnum.melonds.ui.settings.fragments.CustomFirmwarePreferencesFragment
 import me.magnum.melonds.ui.settings.fragments.MainPreferencesFragment
 
 @AndroidEntryPoint
 class SettingsActivity : AppCompatActivity(), PreferenceFragmentCompat.OnPreferenceStartFragmentCallback {
+
+    // the Pomegrade folder's setup, for the settings that need it (registers for results: created with the activity)
+    lateinit var pomegradeFolderSetup: PomegradeFolderSetupDelegate
+        private set
 
     companion object {
         const val KEY_ENTRY_POINT = "entry_point"
@@ -36,6 +41,7 @@ class SettingsActivity : AppCompatActivity(), PreferenceFragmentCompat.OnPrefere
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT))
         super.onCreate(savedInstanceState)
+        pomegradeFolderSetup = PomegradeFolderSetupDelegate(this)
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
@@ -81,6 +87,12 @@ class SettingsActivity : AppCompatActivity(), PreferenceFragmentCompat.OnPrefere
             }
         }
         updateTitle()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Pomegrade: a copy of the settings and game list in the Pomegrade folder (kept after uninstalling)
+        pomegradeFolderSetup.saveSettingsInBackground()
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
