@@ -1125,7 +1125,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
             {
                 RendererPolygon* rp = &PolygonList[i];
 
-                if (DSShadowsReplaced && (rp->PolyData->IsShadowMask || rp->PolyData->IsShadow)) { i++; continue; }
+                if (DSShadowsReplaced && rp->PolyData->IsShadow && ShadowReplaced[i]) { i++; continue; }
 
                 if (rp->PolyData->IsShadowMask)
                 {
@@ -1228,7 +1228,7 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
         {
             RendererPolygon* rp = &PolygonList[i];
 
-            if (DSShadowsReplaced && (rp->PolyData->IsShadowMask || rp->PolyData->IsShadow)) { i++; continue; }
+            if (DSShadowsReplaced && rp->PolyData->IsShadow && ShadowReplaced[i]) { i++; continue; }
 
             if (rp->PolyData->IsShadowMask)
             {
@@ -1602,6 +1602,51 @@ bool GLRenderer::RenderShadowMap(const GPU3D& gpu3d)
     glDrawArrays(GL_TRIANGLES, 0, (GLsizei)(casters.size() / 3));
     glBindVertexArray(VertexArrayID);
     return true;
+}
+
+// The game's own shadows (DS shadow polygons) that real-time shadows replace:
+// each run of consecutive shadow polygons with one polygon id (one volume,
+// usually a disc under a character) where something that casts lies within
+// its bounds, grown by its own size. Elsewhere (a character the DS doesn't
+// light, a shadow polygon used for another effect) the game's shadow stays.
+// Their masks are drawn either way (stencil only).
+bool GLRenderer::FindReplacedShadows(const GPU3D& gpu3d)
+{
+    ShadowReplaced.assign(NumFinalPolys, false);
+    const std::vector<float>& casters = gpu3d.RenderShadowCasters;
+    bool any = false;
+    for (int i = 0; i < NumFinalPolys; )
+    {
+        const Polygon* first = PolygonList[i].PolyData;
+        if (!first->IsShadow) { i++; continue; }
+        u32 id = (first->Attr >> 24) & 0x3F;
+        int end = i;
+        float lo[3] = {1e30f, 1e30f, 1e30f}, hi[3] = {-1e30f, -1e30f, -1e30f};
+        while (end < NumFinalPolys && PolygonList[end].PolyData->IsShadow && ((PolygonList[end].PolyData->Attr >> 24) & 0x3F) == id)
+        {
+            const Polygon* p = PolygonList[end].PolyData;
+            for (u32 k = 0; k < p->NumVertices; k++)
+                for (int c = 0; c < 3; c++)
+                {
+                    lo[c] = std::min(lo[c], p->Vertices[k]->ViewPosition[c]);
+                    hi[c] = std::max(hi[c], p->Vertices[k]->ViewPosition[c]);
+                }
+            end++;
+        }
+        float grow = std::max({hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]});
+        bool near = false;
+        for (size_t t = 0; t + 11 < casters.size() && !near; t += 12)
+            for (int v = 0; v < 3 && !near; v++)
+            {
+                const float* p = &casters[t + v * 3];
+                near = p[0] >= lo[0] - grow && p[0] <= hi[0] + grow && p[1] >= lo[1] - grow && p[1] <= hi[1] + grow &&
+                       p[2] >= lo[2] - grow && p[2] <= hi[2] + grow;
+            }
+        for (int k = i; k < end; k++) ShadowReplaced[k] = near;
+        any = any || near;
+        i = end;
+    }
+    return any;
 }
 
 void GLRenderer::RenderLighting(const GPU3D& gpu3d)
@@ -1985,7 +2030,7 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, TexMemID);
             TranslucentPassOnly = true;
-            DSShadowsReplaced = ShadowsDrawn;
+            DSShadowsReplaced = ShadowsDrawn && FindReplacedShadows(gpu.GPU3D);
             RenderSceneChunk(gpu.GPU3D, 0, 192);
             DSShadowsReplaced = false;
             TranslucentPassOnly = false;

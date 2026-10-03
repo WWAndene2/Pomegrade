@@ -612,7 +612,12 @@ vec4 TextureLookup_Filtered(vec2 st)
 {
     vec4 nearest = TextureLookup_Nearest(st);
     float scale = fHDTexture != 0 ? float(1 << ((fHDTexture >> 22) & 0x7)) : 1.0;
-    vec2 t = st * scale - 0.5; // texel centres on integers, edges on halves
+    vec2 t = st * scale;
+    // texels as the nearest lookup picks them, so colour and alpha come from
+    // the same texel: it truncates DS texture coordinates (texel 0 spans -1
+    // to 1), where the HD path floors them
+    if (fHDTexture == 0) t += vec2(lessThan(t, vec2(0.0)));
+    t -= 0.5; // texel centres on integers, edges on halves
     vec2 dx = dFdx(t), dy = dFdy(t);
     vec2 span = clamp(abs(dx) + abs(dy), vec2(1.0 / 64.0), vec2(1.0)); // texels per pixel, per axis
     float lx = length(dx), ly = length(dy);

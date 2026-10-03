@@ -232,6 +232,29 @@ int main()
         check(transparent > 500 && coverageDiff == 0, "transparent texel covers the same pixels");
         check(again == nearest, "off again == nearest");
 
+        // negative texture coordinates (repeat): -4 to 3.5 across the screen.
+        // Texel middles keep the colour the unfiltered lookup gives them
+        {
+            poly.TexParam = (7u << 26) | (1 << 16);
+            for (int i = 0; i < 4; i++) verts[i].TexCoords[0] = (i==1||i==2) ? 56 : -64;
+            auto nearNeg = Render(*r, gpu);
+            r->SetTextureFilter(true);
+            auto filtNeg = Render(*r, gpu);
+            r->SetTextureFilter(false);
+            poly.TexParam = (7u << 26);
+            for (int i = 0; i < 4; i++) verts[i].TexCoords[0] = (i==1||i==2) ? 128 : 0;
+            int differ = 0, total = 0;
+            for (int X = 0; X < 7; X++)
+                for (int dy = -4; dy <= 4; dy++) for (int dx = -6; dx <= 6; dx++)
+                {
+                    int x = (int)((X + 0.5) * w) + dx, y = 3*24 + 12 + dy;
+                    total++;
+                    if ((filtNeg[y*256+x] & 0xFFFFFF) != (nearNeg[y*256+x] & 0xFFFFFF)) differ++;
+                }
+            printf("texture filter: negative coordinates, texel middles differing from unfiltered: %d / %d\n", differ, total);
+            check(differ == 0, "negative coordinates: texel middles unchanged");
+        }
+
         // minified: the texture repeated across the screen at 4 texels per
         // pixel. Nearest sampling picks one texel per pixel (aliasing); the
         // filter's samples along the footprint come close to the average of

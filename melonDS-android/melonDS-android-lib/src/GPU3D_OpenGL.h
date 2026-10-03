@@ -146,6 +146,7 @@ private:
     void SetupLightingTargets();
     void RenderLighting(const GPU3D& gpu3d);
     bool RenderShadowMap(const GPU3D& gpu3d);
+    bool FindReplacedShadows(const GPU3D& gpu3d);
 
     enum
     {
@@ -268,9 +269,11 @@ private:
     GLuint LitDepthTex {}, LitAttrTex {};
     bool TranslucentPassOnly {}; // RenderSceneChunk: skip the opaque pass
     // Real-time shadows replace the game's fake ones: DS shadow polygons (the
-    // dark discs games draw under characters) are left out of the lit image
-    // when the shadow map was drawn this frame; the DS image keeps them
+    // dark discs games draw under characters) next to something that casts
+    // are left out of the lit image when the shadow map was drawn this frame
+    // (see FindReplacedShadows); the DS image keeps them
     bool ShadowsDrawn {}, DSShadowsReplaced {};
+    std::vector<bool> ShadowReplaced; // per PolygonList entry
     GLuint LightingAOShader {}, LightingComposeShader {}, LightingShadowShader {};
     // shadow map of the main light (the light the most polygons use this frame)
     static constexpr int ShadowMapSize = 2048;

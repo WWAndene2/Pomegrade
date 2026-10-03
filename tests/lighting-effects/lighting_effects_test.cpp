@@ -107,6 +107,7 @@ static bool FullFog = false;          // fog at full density everywhere
 static bool Bars = false;
 // a DS shadow volume (the dark disc games draw under characters) crossing the floor, left of the sphere
 static bool DSShadowVolume = false;
+static double DSShadowVolumeX = -1.3, DSShadowVolumeZ = -4.0; // its middle on the floor
 // shadows come from the scene, not the view: a lit box outside the camera's
 // view, a one-sided panel turned away from the camera (the DS culls it), a
 // lit ceiling over everything, facing down (as a room's)
@@ -291,7 +292,7 @@ static void SubmitScene()
             // the mask with its back faces, the shadow with its front faces
             Cmd(0x29, {(3u << 4) | (10u << 16) | (id << 24) | (id == 0 ? 0x40u : 0x80u)});
             Cmd(0x40, {1});
-            double x0 = -1.7, x1 = -0.9, z0 = -3.6, z1 = -4.4, y0 = FloorY - 0.2, y1 = FloorY + 0.2;
+            double x0 = DSShadowVolumeX - 0.4, x1 = DSShadowVolumeX + 0.4, z0 = DSShadowVolumeZ + 0.4, z1 = DSShadowVolumeZ - 0.4, y0 = FloorY - 0.2, y1 = FloorY + 0.2;
             double q[6][4][3] = {
                 {{x0, y1, z0}, {x1, y1, z0}, {x1, y1, z1}, {x0, y1, z1}}, {{x0, y0, z1}, {x1, y0, z1}, {x1, y0, z0}, {x0, y0, z0}},
                 {{x0, y0, z0}, {x1, y0, z0}, {x1, y1, z0}, {x0, y1, z0}}, {{x1, y0, z1}, {x0, y0, z1}, {x0, y1, z1}, {x1, y1, z1}},
@@ -914,6 +915,23 @@ int main()
             check(dark < 0.9, "DS shadow volume: drawn as the game draws it without real-time shadows");
             check(volumeOn == plainOn, "DS shadow volume: left out of the image with real-time shadows");
             check(capVolumeOn != capPlainOn, "DS shadow volume: still in the game's own image (display capture)");
+
+            // away from anything that casts (a character the DS doesn't
+            // light, say): nothing replaces it, the game's shadow stays
+            DSShadowVolumeX = -2.2; DSShadowVolumeZ = -5.2;
+            Project(DSShadowVolumeX, FloorY, DSShadowVolumeZ, vx, vy);
+            r->SetShadows(true);
+            Frame(*r, gpu);
+            auto lonePlain = Frame(*r, gpu);
+            DSShadowVolume = true;
+            Frame(*r, gpu);
+            auto loneOn = Frame(*r, gpu);
+            DSShadowVolume = false;
+            r->SetShadows(false);
+            DSShadowVolumeX = -1.3; DSShadowVolumeZ = -4.0;
+            double lone = Brightness(loneOn, vx, vy, 2) / Brightness(lonePlain, vx, vy, 2);
+            printf("DS shadow volume with nothing casting near it (%d,%d), real-time shadows on: x%.2f\n", vx, vy, lone);
+            check(lone < 0.9, "DS shadow volume with nothing casting near it: the game's shadow stays");
         }
 
         // fog at full density hides the lit scene entirely
