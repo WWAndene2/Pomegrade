@@ -135,6 +135,10 @@ private:
     bool FrameGeneration {};
     FrameSnapshot Snapshots[2]; // previous, current
     FrameSnapshot Intermediate;
+    // the previous frame's counterparts of sub-polygons subdivided differently
+    // there (adaptive multiplier level), resampled from its subdivision
+    FrameSnapshot Resampled;
+    bool ResamplePrevious(const Polygon& cur, const Polygon* const* prevPieces, u32 count, Polygon& out);
     std::vector<Polygon*> IntermediateList;
     GLuint BackupColorTex {}, BackupLightingTex {};
     GLuint CopyFramebuffers[2] {};

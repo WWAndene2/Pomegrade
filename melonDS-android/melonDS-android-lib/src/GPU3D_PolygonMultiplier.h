@@ -14,6 +14,8 @@
 // Works in view space: positions after the position matrix, normals after the
 // vector matrix, as the DS geometry engine computes them for lighting.
 
+#include "types.h"
+
 namespace melonDS
 {
 
@@ -92,10 +94,48 @@ public:
     // The points SubdivideTriangle places on triangle (a, b, c), each computed
     // once: point (i, j), at barycentric (1 - (i+j)/level, i/level, j/level), is
     // grid[GridIndex(i, j, level)]. grid must hold MaxGridPoints points.
+    //
+    // Adaptive subdivision: edgeLevels, optional, gives each edge ((a, b),
+    // (b, c), (c, a)) its own level, at most level. The points on such an
+    // edge are moved to the edge's own subdivision (the nearest of its
+    // points) and computed from the edge alone, so a neighbour subdivided at
+    // another level places exactly the same points on it: no cracks.
+    // samePoint[g], if given, is then the first grid point at the same place
+    // as point g (g itself otherwise): the sub-triangles with two points at
+    // one place have no area. gridPoint[g], if given, is point g's place:
+    // the weights of b and c as fractions i/n, j/n, packed i | j << 4 | n << 8
+    // (n is the level, or the edge's level for a point moved onto its
+    // subdivision). shapeLevel is the level whose surface is placed
+    // (the PNhong blend, see PNhongShare), so the shape doesn't depend on how
+    // finely it is sampled; 0 = level.
     static constexpr int MaxGridPoints = (MaxLevel + 1) * (MaxLevel + 2) / 2;
     static constexpr int GridIndex(int i, int j, int level) { return i * (level + 1) - i * (i - 1) / 2 + j; }
     static void SubdivideGrid(const MultiplierVertex& a, const MultiplierVertex& b, const MultiplierVertex& c,
-                              int level, MultiplierVertex* grid, CurveMethod method, const double* edgeKeep = nullptr);
+                              int level, MultiplierVertex* grid, CurveMethod method, const double* edgeKeep = nullptr,
+                              const int* edgeLevels = nullptr, int* samePoint = nullptr, int shapeLevel = 0,
+                              u16* gridPoint = nullptr);
+
+    // Adaptive subdivision: the level an edge needs to look as it does at the
+    // highest level, from its length on screen (output pixels) and the cosine
+    // of the angle between its corners' normals. Its straight pieces stay
+    // within a quarter of a pixel of the curve (the gap of a chord of length s
+    // over an arc turning by angle a is s a / 8 for small angles, so
+    // s a / (8 level^2) <= 1/4), and the shading, interpolated between the
+    // points, turns by at most 15 degrees from one to the next. Symmetric in
+    // the edge's corners: both polygons sharing the edge find the same level.
+    static int EdgeLevel(double screenLength, double cosAngle, int maxLevel);
+    // The same before rounding up to a level; infinite when unknown (NaN).
+    static double EdgeDetail(double screenLength, double cosAngle);
+    // Adaptive subdivision from frame to frame: an edge keeps its previous
+    // level until the level it needs (EdgeDetail) is clearly past it. Raised
+    // once the need is more than 0.15 above (at worst, at level 1, its piece
+    // then stays within a third of a pixel of the curve and turns 17 degrees),
+    // lowered once a level less is enough by a margin of 0.25. Animation and
+    // camera motion move many edges across a threshold every frame: measured
+    // walking in Dragon Quest Monsters: Joker, 13-15% of the multiplied
+    // triangles changed subdivision from one frame to the next without this,
+    // each change costing frame generation its pairing of those pieces.
+    static int SteadyEdgeLevel(int previous, double detail, int maxLevel);
 
     // Calls f(p0, p1, p2) with the grid indices of each sub-triangle, in
     // SubdivideTriangle's order and winding.

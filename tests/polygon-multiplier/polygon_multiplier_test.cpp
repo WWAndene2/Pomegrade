@@ -3,7 +3,10 @@
 #include <cassert>
 #include <cmath>
 #include <cstdio>
+#include <algorithm>
+#include <array>
 #include <initializer_list>
+#include <vector>
 using namespace melonDS;
 
 static const CurveMethod Methods[] = {CurveMethod::Phong, CurveMethod::PNTriangles, CurveMethod::CircularPN, CurveMethod::PNhong};
@@ -233,6 +236,72 @@ int main()
     for (int level = 5; level <= PolygonMultiplier::MaxLevel; level++)
         assert(SphereError(level, CurveMethod::PNhong) <= 1.05 * std::fmin(SphereError(level, CurveMethod::Phong),
                                                                               SphereError(level, CurveMethod::CircularPN)));
+
+    // 6. adaptive level: each edge's level keeps its pieces within a quarter of
+    //    a pixel of the curve and turning at most 15 degrees, flat edges aren't
+    //    subdivided, and the level never exceeds the maximum
+    {
+        const double degree = M_PI / 180;
+        assert(PolygonMultiplier::EdgeLevel(500, 1.0, 8) == 1);
+        assert(PolygonMultiplier::EdgeLevel(1e6, std::cos(60 * degree), 8) == 8);
+        assert(PolygonMultiplier::EdgeLevel(std::nan(""), 0.5, 8) == 8);
+        for (double length : {2.0, 10.0, 40.0, 150.0})
+            for (double angle : {3.0, 20.0, 45.0, 90.0})
+            {
+                int l = PolygonMultiplier::EdgeLevel(length, std::cos(angle * degree), 64);
+                double gap = length * angle * degree / (8.0 * l * l);
+                assert(gap <= 0.25 + 1e-12 && angle / l <= 15 + 1e-9);
+                // and the level just below would break one of the two
+                if (l > 1)
+                    assert(length * angle * degree / (8.0 * (l - 1) * (l - 1)) > 0.25 || angle / (l - 1) > 15);
+            }
+        puts("adaptive level: within a quarter pixel and 15 degrees per piece, no more than needed: OK");
+    }
+
+    // 7. adaptive level, no cracks: two triangles sharing an edge, subdivided at
+    //    different levels with the same level on the shared edge, place exactly
+    //    the same points on it (in either winding, whichever polygon is finer)
+    {
+        MultiplierVertex a = S(1.1, 0.2), b = S(1.6, 0.9), c = S(0.6, 1.0), d = S(1.9, 0.1);
+        static MultiplierVertex g1[PolygonMultiplier::MaxGridPoints], g2[PolygonMultiplier::MaxGridPoints];
+        int same1[PolygonMultiplier::MaxGridPoints], same2[PolygonMultiplier::MaxGridPoints];
+        auto onEdge = [](const MultiplierVertex* g, int level, int edge) {
+            // grid points on edge 0 (a, b): j == 0; edge 1 (b, c): i + j == level; edge 2 (a, c): i == 0
+            std::vector<std::array<double, 3>> pts;
+            for (int i = 0; i <= level; i++)
+                for (int j = 0; j <= level - i; j++)
+                    if ((edge == 0 && j == 0) || (edge == 1 && i + j == level) || (edge == 2 && i == 0))
+                    {
+                        const double* p = g[PolygonMultiplier::GridIndex(i, j, level)].Position;
+                        pts.push_back({p[0], p[1], p[2]});
+                    }
+            std::sort(pts.begin(), pts.end());
+            pts.erase(std::unique(pts.begin(), pts.end()), pts.end());
+            return pts;
+        };
+        int checked = 0;
+        for (int shared = 1; shared <= PolygonMultiplier::MaxLevel; shared++)
+            for (int n1 = shared; n1 <= PolygonMultiplier::MaxLevel; n1++)
+                for (int n2 = shared; n2 <= PolygonMultiplier::MaxLevel; n2++)
+                {
+                    // (a, b, c) shares its edge 0 (a, b); (d, b, a) its edge 1 (b, a), the other way round
+                    const int l1[3] = {shared, n1, n1}, l2[3] = {n2, shared, n2};
+                    PolygonMultiplier::SubdivideGrid(a, b, c, n1, g1, CurveMethod::PNhong, nullptr, l1, same1, 8);
+                    PolygonMultiplier::SubdivideGrid(d, b, a, n2, g2, CurveMethod::PNhong, nullptr, l2, same2, 8);
+                    auto e1 = onEdge(g1, n1, 0), e2 = onEdge(g2, n2, 1);
+                    assert(e1.size() == (size_t)shared + 1 && e1 == e2);
+                    checked++;
+                }
+        // a triangle at its edges' level is the plain subdivision (its edge
+        // points computed from the edge alone, so equal to rounding)
+        const int all8[3] = {8, 8, 8};
+        PolygonMultiplier::SubdivideGrid(a, b, c, 8, g1, CurveMethod::PNhong, nullptr, all8, same1, 8);
+        PolygonMultiplier::SubdivideGrid(a, b, c, 8, g2, CurveMethod::PNhong);
+        for (int g = 0; g < PolygonMultiplier::MaxGridPoints; g++)
+            for (int k = 0; k < 3; k++)
+                assert(std::fabs(g1[g].Position[k] - g2[g].Position[k]) < 1e-12 && same1[g] == g);
+        printf("adaptive level: shared edges identical from both sides in %d level combinations: OK\n", checked);
+    }
 
     puts("ALL OK");
 }

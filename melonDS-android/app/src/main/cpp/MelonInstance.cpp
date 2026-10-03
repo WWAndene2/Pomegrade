@@ -714,6 +714,14 @@ void MelonInstance::updateRenderer()
     // Pomegrade: runs on the emulation thread between frames, so the multiplier's
     // buffers can be allocated here. The compute renderer ignores it.
     nds->GPU.GPU3D.SetPolygonMultiplier(currentConfiguration->polygonMultiplier);
+    // each edge subdivided only as finely as it shows at the resolution drawn
+    // (see GPU3D::SetPolygonMultiplierScale)
+    int multiplierScale = 0;
+    if (newRenderer == Renderer::OpenGl)
+        multiplierScale = static_cast<OpenGlRenderSettings&>(*currentConfiguration->renderSettings).scale;
+    else if (newRenderer == Renderer::Software)
+        multiplierScale = 1;
+    nds->GPU.GPU3D.SetPolygonMultiplierScale(multiplierScale);
     nds->GPU.GPU3D.SetUnlimitedPolygons(currentConfiguration->unlimitedPolygons);
     // high colour only with the OpenGL renderer: the others keep the DS's 5-bit vertex colours
     nds->GPU.GPU3D.SetHighColor(newRenderer == Renderer::OpenGl && currentConfiguration->highColor);

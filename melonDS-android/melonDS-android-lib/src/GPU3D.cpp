@@ -196,6 +196,8 @@ void GPU3D::Reset() noexcept
     PolygonSubmitCount = 0;
     EdgeFaces.clear();
     EdgeKeep.clear();
+    EdgeLevelsShown.clear();
+    EdgeLevelsNext.clear();
 
     CmdFIFO.Clear();
     CmdPIPE.Clear();
@@ -858,6 +860,7 @@ void ClipSegment(Vertex* outbuf, Vertex* vin, Vertex* vout)
         outbuf->LitColor = vin->LitColor && vout->LitColor;
         outbuf->Orthographic = vin->Orthographic;
         outbuf->Specular = vin->Specular + (vout->Specular - vin->Specular) * t;
+        outbuf->GridPoint = 0; // not a point of the multiplier's subdivision
     }
 
     outbuf->Clipped = true;
@@ -1378,6 +1381,7 @@ void GPU3D::SubmitPolygon() noexcept
     Polygon* poly = extra ? NewSubPolygon() : &CurPolygonRAM[NumPolygons++];
     poly->NumVertices = 0;
     poly->FrameId = frameId;
+    poly->Subdivision = 0;
 
     poly->Attr = CurPolygonAttr;
     poly->TexParam = TexParam;
@@ -1590,7 +1594,42 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
     const u32 firstpoly = NumSubPolygons;
     const u32 firstvert = NumSubVertices;
 
+    // adaptive level: the corners' screen positions in output pixels, as the
+    // viewport transform places them (unknown behind the camera: full level)
+    double screen[4][2];
+    bool onscreen[4];
+    for (int i = 0; i < nverts; i++)
+    {
+        const s32* pos = TempVertexBuffer[i].Position;
+        onscreen[i] = pos[3] > 0;
+        if (!onscreen[i]) continue;
+        screen[i][0] = (double)(pos[0] + pos[3]) * Viewport[4] / (2.0 * pos[3]) * PolygonMultiplierScale;
+        screen[i][1] = (double)(-pos[1] + pos[3]) * Viewport[5] / (2.0 * pos[3]) * PolygonMultiplierScale;
+    }
+    // computed from the edge alone, the same in either direction: a neighbour
+    // sharing the edge finds the same level and places the same points on it
+    auto edgeLevel = [&](int p, int q) {
+        if (PolygonMultiplierScale <= 0)
+            return level;
+        double detail = HUGE_VAL;
+        if (onscreen[p] && onscreen[q])
+        {
+            double dx = screen[q][0] - screen[p][0], dy = screen[q][1] - screen[p][1];
+            const double* np = corners[p].Normal;
+            const double* nq = corners[q].Normal;
+            detail = PolygonMultiplier::EdgeDetail(std::sqrt(dx*dx + dy*dy), np[0]*nq[0] + np[1]*nq[1] + np[2]*nq[2]);
+        }
+        const u64 key = EdgeKeyOf(p, q);
+        auto shown = EdgeLevelsShown.find(key);
+        int l = shown != EdgeLevelsShown.end() ? PolygonMultiplier::SteadyEdgeLevel(shown->second, detail, level)
+              : !(detail < level) ? level : std::max(1, (int)std::ceil(detail));
+        EdgeLevelsNext[key] = (u8)l;
+        return l;
+    };
+
     MultiplierVertex grid[PolygonMultiplier::MaxGridPoints];
+    int samepoint[PolygonMultiplier::MaxGridPoints];
+    u16 gridpoint[PolygonMultiplier::MaxGridPoints];
     // each point of the subdivision as a vertex, computed once: inner points are
     // shared by six sub-triangles, edge points by up to three
     Vertex points[PolygonMultiplier::MaxGridPoints];
@@ -1598,7 +1637,6 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
     // a point's finished vertex (screen position, final colour), shared by the
     // sub-triangles that need no clipping; created when first used
     Vertex* finished[PolygonMultiplier::MaxGridPoints];
-    const int numpoints = (level + 1) * (level + 2) / 2;
     for (int t = 0; t < numtris; t++)
     {
         // quads are split along the 0-2 diagonal
@@ -1609,8 +1647,13 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
         const double keep[3] = {b == 1 ? edgeKeep[0] : inside_keep,
                                 edgeKeep[b],
                                 c == nverts - 1 ? edgeKeep[nverts - 1] : inside_keep};
-        PolygonMultiplier::SubdivideGrid(corners[a], corners[b], corners[c], level, grid,
-                                         CurveMethod::PNhong, keep);
+        // edges (a, b) and (c, a) are the polygon's own, or a quad's diagonal
+        const int edgelevels[3] = {edgeLevel(a, b), edgeLevel(b, c), edgeLevel(c, a)};
+        const int trilevel = std::max({edgelevels[0], edgelevels[1], edgelevels[2]});
+        const int numpoints = (trilevel + 1) * (trilevel + 2) / 2;
+        PolygonMultiplier::SubdivideGrid(corners[a], corners[b], corners[c], trilevel, grid, CurveMethod::PNhong, keep,
+                                         PolygonMultiplierScale > 0 ? edgelevels : nullptr, samepoint, level, gridpoint);
+        const u32 subdivision = trilevel | (edgelevels[0] << 4) | (edgelevels[1] << 8) | (edgelevels[2] << 12) | (t << 16);
 
         for (int g = 0; g < numpoints; g++)
         {
@@ -1684,6 +1727,7 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
             out.HasViewNormal = true;
             out.Orthographic = TempVertexBuffer[0].Orthographic;
             out.Specular = TempVertexBuffer[0].Specular;
+            out.GridPoint = gridpoint[g];
 
             const s32 w = out.Position[3];
             inside[g] = true;
@@ -1694,11 +1738,14 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
 
         int s = 0;
         bool full = false;
-        PolygonMultiplier::ForEachGridTriangle(level, [&](int p0, int p1, int p2) {
+        PolygonMultiplier::ForEachGridTriangle(trilevel, [&](int p0, int p1, int p2) {
             // its place in the subdivision, the same whether or not earlier
             // sub-triangles were clipped away (at most 2 x 8 x 8 = 128)
             const u32 place = (t * level * level + s++) & 0xFF;
             if (full)
+                return;
+            // squeezed to nothing by an edge subdivided less than the triangle
+            if (samepoint[p0] == samepoint[p1] || samepoint[p1] == samepoint[p2] || samepoint[p2] == samepoint[p0])
                 return;
             const int ids[3] = {p0, p1, p2};
             Vertex* vertices[10];
@@ -1777,6 +1824,7 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
             poly->IsShadowMask = false;
             poly->IsShadow = false;
             poly->FrameId = (parent->FrameId & ~0xFFu) | place;
+            poly->Subdivision = subdivision;
 
             FinalizePolygon(poly, nv);
         });
@@ -1796,12 +1844,18 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
 
 u64 GPU3D::EdgeKey(int corner, int nverts) const noexcept
 {
-    // the edge from this corner to the next, by its corners' model positions
-    // (48 bits each, in either order) and the polygon's texture, mixed into
-    // one key. Model coordinates alone are shared by unrelated meshes (bones
-    // and objects in their own local space); the texture separates most.
+    // the edge from this corner to the next
+    return EdgeKeyOf(corner, (corner + 1) % nverts);
+}
+
+u64 GPU3D::EdgeKeyOf(int corner, int other) const noexcept
+{
+    // an edge by its corners' model positions (48 bits each, in either
+    // order) and the polygon's texture, mixed into one key. Model coordinates
+    // alone are shared by unrelated meshes (bones and objects in their own
+    // local space); the texture separates most.
     const s16* ma = TempVertexBuffer[corner].ModelPosition;
-    const s16* mb = TempVertexBuffer[(corner + 1) % nverts].ModelPosition;
+    const s16* mb = TempVertexBuffer[other].ModelPosition;
     u64 ka = ((u64)(u16)ma[0] << 32) | ((u64)(u16)ma[1] << 16) | (u16)ma[2];
     u64 kb = ((u64)(u16)mb[0] << 32) | ((u64)(u16)mb[1] << 16) | (u16)mb[2];
     if (ka > kb) std::swap(ka, kb);
@@ -1999,6 +2053,7 @@ void GPU3D::SubmitVertex() noexcept
     }
 
     vertextrans->Clipped = false;
+    vertextrans->GridPoint = 0;
 
     // polygon multiplier: view-space data for this vertex
     if (CaptureViewData())
@@ -3190,6 +3245,8 @@ void GPU3D::VBlank() noexcept
                 }
                 FrameProjVertices = BestProjVertices = 0;
                 UpdateEdgeKeep();
+                std::swap(EdgeLevelsShown, EdgeLevelsNext);
+                EdgeLevelsNext.clear();
 
                 BuildMultipliedRenderList();
             }

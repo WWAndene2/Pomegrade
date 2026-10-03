@@ -2074,6 +2074,85 @@ void GLRenderer::SetFrameGeneration(bool enable) noexcept
     }
 }
 
+bool GLRenderer::ResamplePrevious(const Polygon& cur, const Polygon* const* prevPieces, u32 count, Polygon& out)
+{
+    // a sub-polygon not cut by clipping: every corner knows its place
+    if (cur.NumVertices != 3)
+        return false;
+    for (u32 j = 0; j < 3; j++)
+        if (!cur.Vertices[j]->GridPoint) return false;
+    auto placeOf = [](u16 g, double& v, double& w) {
+        const double n = (g >> 8) & 0xF;
+        v = (g & 0xF) / n;
+        w = ((g >> 4) & 0xF) / n;
+    };
+
+    out = cur;
+    for (u32 j = 0; j < 3; j++)
+    {
+        double v, w;
+        placeOf(cur.Vertices[j]->GridPoint, v, w);
+        // the previous frame's piece containing that place (pieces with a
+        // corner cut by clipping can't tell their places)
+        const Polygon* piece = nullptr;
+        double weight[3];
+        for (u32 q = 0; q < count && !piece; q++)
+        {
+            const Polygon& p = *prevPieces[q];
+            if (p.NumVertices != 3 || !p.Vertices[0]->GridPoint || !p.Vertices[1]->GridPoint || !p.Vertices[2]->GridPoint)
+                continue;
+            double pv[3], pw[3];
+            for (int k = 0; k < 3; k++) placeOf(p.Vertices[k]->GridPoint, pv[k], pw[k]);
+            const double det = (pv[1] - pv[0]) * (pw[2] - pw[0]) - (pv[2] - pv[0]) * (pw[1] - pw[0]);
+            if (det == 0)
+                continue;
+            weight[1] = ((v - pv[0]) * (pw[2] - pw[0]) - (pv[2] - pv[0]) * (w - pw[0])) / det;
+            weight[2] = ((pv[1] - pv[0]) * (w - pw[0]) - (v - pv[0]) * (pw[1] - pw[0])) / det;
+            weight[0] = 1 - weight[1] - weight[2];
+            const double eps = 1e-9;
+            if (weight[0] >= -eps && weight[1] >= -eps && weight[2] >= -eps)
+                piece = &p;
+        }
+        if (!piece)
+            return false;
+
+        Resampled.Vertices.push_back(*cur.Vertices[j]);
+        Vertex& vtx = Resampled.Vertices.back();
+        out.Vertices[j] = &vtx;
+        auto lerp = [&](auto get) {
+            double sum = 0;
+            for (int k = 0; k < 3; k++) sum += weight[k] * (double)get(*piece->Vertices[k]);
+            return sum;
+        };
+        for (int k = 0; k < 2; k++)
+        {
+            vtx.PreciseScreen[k] = (float)lerp([k](const Vertex& x) { return x.PreciseScreen[k]; });
+            vtx.FinalPosition[k] = (s32)std::lround(lerp([k](const Vertex& x) { return x.FinalPosition[k]; }));
+            vtx.HiresPosition[k] = (s32)std::lround(lerp([k](const Vertex& x) { return x.HiresPosition[k]; }));
+            vtx.TexCoords[k] = (s16)std::lround(lerp([k](const Vertex& x) { return x.TexCoords[k]; }));
+        }
+        for (int k = 0; k < 3; k++)
+        {
+            vtx.FinalColor[k] = (s32)std::lround(lerp([k](const Vertex& x) { return x.FinalColor[k]; }));
+            vtx.ViewNormal[k] = (float)lerp([k](const Vertex& x) { return x.ViewNormal[k]; });
+        }
+        for (int k = 0; k < 4; k++)
+            vtx.ViewPosition[k] = (float)lerp([k](const Vertex& x) { return x.ViewPosition[k]; });
+        vtx.Specular = (float)lerp([](const Vertex& x) { return x.Specular; });
+        double z = 0, w4 = 0;
+        for (int k = 0; k < 3; k++)
+        {
+            z += weight[k] * piece->FinalZ[k];
+            w4 += weight[k] * piece->Vertices[k]->Position[3];
+        }
+        out.FinalZ[j] = (s32)std::lround(z);
+        // W as this polygon normalizes it (see GPU3D::FinalizePolygon)
+        const s32 curW = cur.Vertices[j]->Position[3];
+        out.FinalW[j] = curW > 0 ? (s32)std::lround(w4 * cur.FinalW[j] / curW) : cur.FinalW[j];
+    }
+    return true;
+}
+
 bool GLRenderer::RenderIntermediateFrame(GPU& gpu, u32 outputTexture)
 {
     const FrameSnapshot& prev = Snapshots[0];
@@ -2116,8 +2195,14 @@ bool GLRenderer::RenderIntermediateFrame(GPU& gpu, u32 outputTexture)
     auto resync = [&](u32 ci, u32 pi) {
         return compare(ci, pi) == 1 && (ci + 1 >= cs.Count || pi + 1 >= ps.Count || compare(ci + 1, pi + 1) >= 0);
     };
-    std::vector<int> match(cur.Polygons.size(), -1);
+    std::vector<const Polygon*> match(cur.Polygons.size(), nullptr);
     u32 matched = 0;
+    // room for every polygon's resampled counterpart (pointers into it stay valid)
+    Resampled.Polygons.clear();
+    Resampled.Vertices.clear();
+    Resampled.Polygons.reserve(cur.Polygons.size());
+    Resampled.Vertices.reserve(cur.Polygons.size() * 3);
+    std::vector<const Polygon*> prevPieces;
     u32 ci = 0, pi = 0;
     while (ci < cs.Count && pi < ps.Count)
     {
@@ -2145,9 +2230,11 @@ bool GLRenderer::RenderIntermediateFrame(GPU& gpu, u32 outputTexture)
                 u32 subC = c.FrameId & 0xFF, subP = p.FrameId & 0xFF;
                 if (subC == subP)
                 {
-                    if (c.NumVertices == p.NumVertices)
+                    // the same piece of the parent only if it was subdivided alike
+                    // (adaptive multiplier level, see GPU3D::SetPolygonMultiplierScale)
+                    if (c.NumVertices == p.NumVertices && c.Subdivision == p.Subdivision)
                     {
-                        match[cur.Order[ka]] = (int)prev.Order[kb];
+                        match[cur.Order[ka]] = &p;
                         matched++;
                     }
                     ka++;
@@ -2155,6 +2242,33 @@ bool GLRenderer::RenderIntermediateFrame(GPU& gpu, u32 outputTexture)
                 }
                 else if (subC < subP) ka++;
                 else kb++;
+            }
+
+            // sub-polygons left without a counterpart, their triangle subdivided
+            // differently in the previous frame (its level changed): each
+            // corner's place in the triangle is found in the previous frame's
+            // subdivision of the same triangle, and interpolated there
+            for (size_t k = a; k < cur.Order.size() && (cur.Polygons[cur.Order[k]].FrameId >> 8) == ci; k++)
+            {
+                const u32 i = cur.Order[k];
+                const Polygon& c = cur.Polygons[i];
+                if (match[i] || (c.FrameId & 0xFF) == 0xFF)
+                    continue;
+                prevPieces.clear();
+                for (size_t q = b; q < prev.Order.size() && (prev.Polygons[prev.Order[q]].FrameId >> 8) == pi; q++)
+                {
+                    const Polygon& p = prev.Polygons[prev.Order[q]];
+                    if ((p.FrameId & 0xFF) != 0xFF && (p.Subdivision >> 16) == (c.Subdivision >> 16))
+                        prevPieces.push_back(&p);
+                }
+                Resampled.Polygons.emplace_back();
+                if (ResamplePrevious(c, prevPieces.data(), (u32)prevPieces.size(), Resampled.Polygons.back()))
+                {
+                    match[i] = &Resampled.Polygons.back();
+                    matched++;
+                }
+                else
+                    Resampled.Polygons.pop_back();
             }
         }
         ci++;
@@ -2174,7 +2288,7 @@ bool GLRenderer::RenderIntermediateFrame(GPU& gpu, u32 outputTexture)
         Polygon& out = Intermediate.Polygons[i];
         const Polygon& c = cur.Polygons[i];
         out = c;
-        const Polygon* p = match[i] >= 0 ? &prev.Polygons[match[i]] : nullptr;
+        const Polygon* p = match[i];
         // a polygon that jumped across the screen (teleport) isn't interpolated
         if (p)
         {

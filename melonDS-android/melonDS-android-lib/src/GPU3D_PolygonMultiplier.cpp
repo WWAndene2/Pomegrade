@@ -1,5 +1,6 @@
 #include "GPU3D_PolygonMultiplier.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace melonDS
@@ -267,10 +268,52 @@ double PolygonMultiplier::DihedralKeep(double cosAngle)
     return x * x * (3 - 2 * x);
 }
 
-void PolygonMultiplier::SubdivideGrid(const MultiplierVertex& a, const MultiplierVertex& b, const MultiplierVertex& c,
-                                      int level, MultiplierVertex* grid, CurveMethod method, const double* edgeKeep)
+double PolygonMultiplier::EdgeDetail(double screenLength, double cosAngle)
 {
-    const double pnShare = PNhongShare(level);
+    // unknown (NaN, infinite): the full level
+    if (!(screenLength >= 0) || !(cosAngle == cosAngle) || screenLength == HUGE_VAL)
+        return HUGE_VAL;
+    const double angle = std::acos(std::fmax(-1.0, std::fmin(1.0, cosAngle)));
+    const double MaxShadingTurn = 15.0 * 3.14159265358979323846 / 180.0;
+    return std::fmax(std::sqrt(screenLength * angle / 2.0), angle / MaxShadingTurn);
+}
+
+int PolygonMultiplier::EdgeLevel(double screenLength, double cosAngle, int maxLevel)
+{
+    const double detail = EdgeDetail(screenLength, cosAngle);
+    if (!(detail < maxLevel))
+        return maxLevel;
+    return std::max(1, (int)std::ceil(detail));
+}
+
+int PolygonMultiplier::SteadyEdgeLevel(int previous, double detail, int maxLevel)
+{
+    previous = std::clamp(previous, 1, maxLevel);
+    if (detail > previous + 0.15 || detail < previous - 1.25)
+        return !(detail < maxLevel) ? maxLevel : std::max(1, (int)std::ceil(detail));
+    return previous;
+}
+
+namespace
+{
+
+// lexicographic order of two points, for a direction along an edge that both
+// polygons sharing it agree on
+bool Before(const double* p, const double* q)
+{
+    for (int k = 0; k < 3; k++)
+        if (p[k] != q[k]) return p[k] < q[k];
+    return false;
+}
+
+}
+
+void PolygonMultiplier::SubdivideGrid(const MultiplierVertex& a, const MultiplierVertex& b, const MultiplierVertex& c,
+                                      int level, MultiplierVertex* grid, CurveMethod method, const double* edgeKeep,
+                                      const int* edgeLevels, int* samePoint, int shapeLevel, u16* gridPoint)
+{
+    auto place = [](int i, int j, int n) { return (u16)(i | (j << 4) | (n << 8)); };
+    const double pnShare = PNhongShare(shapeLevel > 0 ? shapeLevel : level);
     // geometry fidelity, per edge so both polygons sharing it agree (no cracks)
     double fab = EdgeFidelity(a, b), fbc = EdgeFidelity(b, c), fca = EdgeFidelity(c, a);
     if (edgeKeep)
@@ -284,14 +327,96 @@ void PolygonMultiplier::SubdivideGrid(const MultiplierVertex& a, const Multiplie
     PNPatch patch;
     SetupPatch(a, b, c, method, pnShare, patch);
 
+    // Adaptive subdivision: the points on an edge are computed from the edge
+    // alone (its corners in the order both polygons agree on, the lower
+    // position first), so a neighbour finds them bit for bit: no cracks, not
+    // even from rounding. Edges (a, b) along v, (b, c) and (a, c) along w.
+    const MultiplierVertex* const corner[3] = {&a, &b, &c};
+    const int cornerIndex[3] = {GridIndex(0, 0, level), GridIndex(level, 0, level), GridIndex(0, level, level)};
+    const int edgeFrom[3] = {0, 1, 0}, edgeTo[3] = {1, 2, 2};
+    const double edgeFidelity[3] = {fab, fbc, fca};
+    int first[3], second[3]; // the edge's corners in the agreed order
+    PNPatch edgePatch[3];
+    int placed[3][MaxLevel + 1]; // points already placed on an edge, by their index on its own subdivision
+    if (edgeLevels)
+    {
+        for (int edge = 0; edge < 3; edge++)
+        {
+            const bool reversed = Before(corner[edgeTo[edge]]->Position, corner[edgeFrom[edge]]->Position);
+            first[edge] = reversed ? edgeTo[edge] : edgeFrom[edge];
+            second[edge] = reversed ? edgeFrom[edge] : edgeTo[edge];
+            // the edge as a triangle squeezed onto it: its third corner weighs 0
+            SetupPatch(*corner[first[edge]], *corner[second[edge]], *corner[first[edge]], method, pnShare, edgePatch[edge]);
+            for (int& g : placed[edge]) g = -1;
+        }
+    }
+
     // grid point (i, j): barycentric (1 - (i+j)/level, i/level, j/level)
     for (int i = 0; i <= level; i++)
     {
         for (int j = 0; j <= level - i; j++)
         {
-            MultiplierVertex& point = grid[GridIndex(i, j, level)];
+            const int g = GridIndex(i, j, level);
+            MultiplierVertex& point = grid[g];
+            if (samePoint) samePoint[g] = g;
+            if (gridPoint) gridPoint[g] = place(i, j, level);
             double v = (double)i / level;
             double w = (double)j / level;
+
+            int edge = -1, along = 0;
+            if (edgeLevels && !(i == 0 && j == 0) && i != level && j != level)
+            {
+                if (j == 0)              { edge = 0; along = i; }
+                else if (i + j == level) { edge = 1; along = j; }
+                else if (i == 0)         { edge = 2; along = j; }
+            }
+            if (edge >= 0)
+            {
+                // its place along the edge from the agreed first corner, moved to
+                // the nearest point of the edge's own subdivision when that is
+                // coarser (rounded half up: integers, no ties to break differently)
+                const int e = std::min(edgeLevels[edge], level);
+                const int r = first[edge] == edgeFrom[edge] ? along : level - along;
+                const int k = e < level ? (2 * r * e + level) / (2 * level) : r;
+                const int same = k == 0 ? cornerIndex[first[edge]] : k == e ? cornerIndex[second[edge]] : placed[edge][k];
+                if (same >= 0)
+                {
+                    point = k == 0 ? *corner[first[edge]] : k == e ? *corner[second[edge]] : grid[same];
+                    if (samePoint) samePoint[g] = same;
+                    if (gridPoint)
+                    {
+                        // a corner: its own place; a point placed already: the same
+                        const int c = k == 0 ? first[edge] : k == e ? second[edge] : -1;
+                        gridPoint[g] = c == 0 ? place(0, 0, 1) : c == 1 ? place(1, 0, 1) : c == 2 ? place(0, 1, 1) : gridPoint[same];
+                    }
+                    continue;
+                }
+                placed[edge][k] = g;
+                if (gridPoint)
+                {
+                    // k / e of the way from the first corner: it weighs (e - k) / e, the second k / e
+                    const int wb = first[edge] == 1 ? e - k : second[edge] == 1 ? k : 0;
+                    const int wc = first[edge] == 2 ? e - k : second[edge] == 2 ? k : 0;
+                    gridPoint[g] = place(wb, wc, e);
+                }
+
+                const MultiplierVertex& p = *corner[first[edge]];
+                const MultiplierVertex& q = *corner[second[edge]];
+                const double t = (double)k / e, u = 1.0 - t;
+                point = InterpolatePrepared(p, q, p, edgePatch[edge], u, t, 0.0, method, pnShare);
+                const double f = edgeFidelity[edge];
+                if (f != 1)
+                {
+                    double keep = (f*u*t) / (u*t);
+                    for (int d = 0; d < 3; d++)
+                    {
+                        double flat = u*p.Position[d] + t*q.Position[d];
+                        point.Position[d] = flat + keep * (point.Position[d] - flat);
+                    }
+                }
+                continue;
+            }
+
             if (i == 0 && j == 0)               point = a;
             else if (i == level)                point = b;
             else if (j == level)                point = c;

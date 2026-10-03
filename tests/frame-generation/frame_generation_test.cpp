@@ -106,7 +106,7 @@ static void DrawSphere(double cx, double cy, double cz, double radius, double tu
 // sphere at x, turned by turn; other = draw something else entirely (a cut);
 // particles: small triangles sent before the sphere (in one frame only, they
 // shift the sphere's submission order)
-static void SubmitScene(double x, double turn, bool other = false, int particles = 0)
+static void SubmitScene(double x, double turn, bool other = false, int particles = 0, double z = -3.5)
 {
     GPU3D& g = Nds->GPU.GPU3D;
     g.Write32(0x04000060, 0);
@@ -132,7 +132,7 @@ static void SubmitScene(double x, double turn, bool other = false, int particles
         Cmd(0x29, {(31 << 16) | (1 << 24) | 0x80});
     }
     if (!other)
-        DrawSphere(x, 0, -3.5, 0.9, turn);
+        DrawSphere(x, 0, z, 0.9, turn);
     else
     {
         Cmd(0x29, {(31 << 16) | (2 << 24) | 0xC0});
@@ -386,6 +386,55 @@ int main()
                ca, cm, cb, (ca + cb) / 2, diffMid, diffA, diffB);
         check(rendered && std::fabs(cm - (ca + cb) / 2) < 0.5 && diffMid * 5 < std::min(diffA, diffB),
               "multiplier: sub-polygons paired, intermediate halfway");
+        gpu.GPU3D.SetPolygonMultiplier(1);
+    }
+
+    // adaptive multiplier level: the sphere comes closer between the two
+    // frames, so its polygons are subdivided more finely in the second. Their
+    // pieces have no counterpart of the same subdivision in the first frame:
+    // each corner's place in its triangle is found in the first frame's
+    // subdivision instead. The intermediate frame must be as good as with
+    // every polygon at the full level (the same motion, each piece paired
+    // with itself), with no gaps between pieces
+    {
+        gpu.GPU3D.SetPolygonMultiplier(8);
+        auto frameZ = [&](double x, double z) { SubmitScene(x, 0, false, 0, z); r->RenderFrame(gpu); };
+        double centre[2];
+        int differing[2], gaps[2];
+        u32 pieces[2][2];
+        for (int adaptive = 0; adaptive < 2; adaptive++)
+        {
+            gpu.GPU3D.SetPolygonMultiplierScale(adaptive ? 2 : 0); // as if rendered at twice the DS resolution
+            frameZ(-0.2, -3.5); // the levels settle from one frame to the next (see SteadyEdgeLevel)
+            frameZ(-0.2, -3.5);
+            pieces[adaptive][0] = gpu.GPU3D.GetRenderNumPolygons();
+            frameZ(0.2, -2.95);
+            pieces[adaptive][1] = gpu.GPU3D.GetRenderNumPolygons();
+            auto mid = Intermediate(*r, gpu, rendered);
+            check(rendered, "intermediate frame rendered");
+            frameZ(0.0, -3.2);
+            auto halfway = Composite(*r, gpu, 1);
+            centre[adaptive] = CenterX(mid);
+            differing[adaptive] = Differences(mid, halfway);
+            // gaps: background pixels inside the sphere's outline, row by row
+            u32 bg = mid[191 * 256] & 0xFFFFFF;
+            gaps[adaptive] = 0;
+            for (int y = 0; y < 192; y++)
+            {
+                int x0 = -1, x1 = -1;
+                for (int x = 0; x < 256; x++)
+                    if ((mid[y * 256 + x] & 0xFFFFFF) != bg) { if (x0 < 0) x0 = x; x1 = x; }
+                for (int x = x0 + 1; x0 >= 0 && x < x1; x++)
+                    if ((mid[y * 256 + x] & 0xFFFFFF) == bg) gaps[adaptive]++;
+            }
+            if (adaptive) SavePng("frame_adaptive_mid.png", mid);
+            printf("%s level: %u -> %u pieces; intermediate sphere centre %.2f, %d pixels differing from the real halfway render, gaps %d\n",
+                   adaptive ? "adaptive" : "full", pieces[adaptive][0], pieces[adaptive][1], centre[adaptive], differing[adaptive], gaps[adaptive]);
+        }
+        check(pieces[1][1] > pieces[1][0] && pieces[1][1] < pieces[0][1], "adaptive level: fewer pieces, more for the closer sphere");
+        check(std::fabs(centre[1] - centre[0]) < 0.25 && differing[1] <= differing[0] * 1.2 + 20 && gaps[1] == 0,
+              "adaptive level: pieces resampled across subdivisions, intermediate as with the full level, no gaps");
+        gpu.GPU3D.SetPolygonMultiplierScale(0);
         gpu.GPU3D.SetPolygonMultiplier(1);
     }
 

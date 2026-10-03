@@ -61,6 +61,11 @@ struct Vertex
     bool Orthographic; // projected without perspective (2D-like 3D: menus, HUDs)
     float Specular;    // how shiny the material is, 0..1 (its specular colour, when lit)
     s16 ModelPosition[3]; // as the game sent it, before any matrix (polygon multiplier: edge identity)
+    // polygon multiplier: a sub-polygon vertex's place in its triangle, the
+    // barycentric weights of the triangle's 2nd and 3rd corners as fractions
+    // i/n, j/n packed i | j << 4 | n << 8; 0 when unknown (cut by clipping, or
+    // not a sub-polygon's). For frame generation across subdivisions.
+    u16 GridPoint;
 
     void DoSavestate(Savestate* file) noexcept;
 };
@@ -104,6 +109,12 @@ struct Polygon
     // away) << 8, low byte: 0xFF, or the sub-polygon's number. Not part of the
     // hardware state.
     u32 FrameId;
+    // frame generation (Pomegrade): a sub-polygon's subdivision, its
+    // triangle's level and its edges' (adaptive multiplier, 4 bits each), and
+    // which triangle of its polygon it divides (bits 16-19); sub-polygons of
+    // two frames are the same piece only when it matches. 0 for the others.
+    // Not part of the hardware state.
+    u32 Subdivision;
 
     void DoSavestate(Savestate* file) noexcept;
 };
@@ -154,6 +165,11 @@ public:
     // level*level curved sub-triangles (quads: twice that). 1 = off.
     void SetPolygonMultiplier(int level) noexcept;
     [[nodiscard]] int GetPolygonMultiplier() const noexcept { return PolygonMultiplierLevel; }
+    // Adaptive level: the renderer's output pixels per DS pixel. Each edge is
+    // then subdivided only as finely as it shows at that resolution (see
+    // PolygonMultiplier::EdgeLevel), up to the level above. 0 = every polygon
+    // at that level.
+    void SetPolygonMultiplierScale(int outputScale) noexcept { PolygonMultiplierScale = outputScale; }
 
     // Polygon limit removed (Pomegrade): polygons past the hardware's 2048
     // polygons / 6144 vertices are still drawn. The game sees the hardware
@@ -399,6 +415,7 @@ public:
 
     // polygon multiplier (Pomegrade), not part of the hardware state, don't serialize
     int PolygonMultiplierLevel = 1;
+    int PolygonMultiplierScale = 0;
     float CurViewNormal[3] {};
     bool CurViewNormalValid = false;
     bool CurColorFromLighting = false; // vertex colour last set by a normal command
@@ -431,6 +448,12 @@ public:
     void RecordShadowCaster(int nverts);
     std::vector<float> ShadowCasters; // the frame being submitted
     [[nodiscard]] u64 EdgeKey(int corner, int nverts) const noexcept;
+    [[nodiscard]] u64 EdgeKeyOf(int corner, int other) const noexcept;
+    // Adaptive multiplier level, per edge (same keys as EdgeKeep): the levels
+    // of the previous frame, read only while a frame is submitted so both
+    // polygons of an edge start from the same one (no cracks), and this
+    // frame's, for the next (see PolygonMultiplier::SteadyEdgeLevel).
+    std::unordered_map<u64, u8> EdgeLevelsShown, EdgeLevelsNext;
     s16 RenderLightDirection[4][3] {}; // light directions (view space) at the end of the rendered frame
     // Pomegrade: what casts shadows in the rendered frame (see RecordShadowCaster):
     // opaque lit triangles as the game submitted them, 12 floats each: the
