@@ -8,12 +8,14 @@
 #include "Narc.h"
 #include "NdsRom.h"
 #include "NitroCompression.h"
+#include "synthetic_files.h"
 
 #include <cstdio>
 #include <cstring>
 #include <string>
 
 using namespace remake;
+using namespace synthetic;
 
 static bool ok = true;
 static void check(bool cond, const std::string& what)
@@ -22,35 +24,8 @@ static void check(bool cond, const std::string& what)
     if (!cond) ok = false;
 }
 
-static void Put16(Bytes& b, size_t at, uint16_t v) { b[at] = v & 0xFF; b[at + 1] = v >> 8; }
-static void Put32(Bytes& b, size_t at, uint32_t v) { for (int i = 0; i < 4; i++) b[at + i] = (v >> (8 * i)) & 0xFF; }
 static void Append(Bytes& b, const std::string& s) { b.insert(b.end(), s.begin(), s.end()); }
 static void Align4(Bytes& b) { while (b.size() % 4) b.push_back(0); }
-
-// a NARC of the given members, no names
-static Bytes MakeNarc(const std::vector<Bytes>& members)
-{
-    Bytes btaf(12 + members.size() * 8, 0), gmif;
-    Append(gmif, "GMIF"); gmif.resize(8);
-    uint32_t off = 0;
-    Bytes data;
-    for (size_t i = 0; i < members.size(); i++)
-    {
-        Put32(btaf, 12 + i * 8, off);
-        data.insert(data.end(), members[i].begin(), members[i].end());
-        off += (uint32_t)members[i].size();
-        Put32(btaf, 16 + i * 8, off);
-        while (data.size() % 4) { data.push_back(0xFF); off++; }
-    }
-    memcpy(btaf.data(), "BTAF", 4); Put32(btaf, 4, (uint32_t)btaf.size()); Put16(btaf, 8, (uint16_t)members.size());
-    Bytes btnf(16, 0); memcpy(btnf.data(), "BTNF", 4); Put32(btnf, 4, 16); Put32(btnf, 8, 4); Put16(btnf, 14, 1);
-    Put32(gmif, 4, (uint32_t)(8 + data.size()));
-    gmif.insert(gmif.end(), data.begin(), data.end());
-    Bytes n(16, 0); memcpy(n.data(), "NARC", 4); Put16(n, 4, 0xFFFE); Put16(n, 6, 0x0100); Put16(n, 12, 16); Put16(n, 14, 3);
-    n.insert(n.end(), btaf.begin(), btaf.end()); n.insert(n.end(), btnf.begin(), btnf.end()); n.insert(n.end(), gmif.begin(), gmif.end());
-    Put32(n, 8, (uint32_t)n.size());
-    return n;
-}
 
 // "ABCABCABCABC": three literals, then a reference 3 back, 9 long
 static Bytes Lz10() { return {0x10, 12, 0, 0, 0x10, 'A', 'B', 'C', 0x60, 0x02}; }

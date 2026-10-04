@@ -8,6 +8,9 @@
 //   remake_tool model <file.nsbmd> <out.gltf> [tex.nsbtx] [model index]   a DS model as glTF
 //   remake_tool texindex <rom.nds>                    every texture under its emulator dump name (TSV)
 //   remake_tool identify <rom.nds> <dump dir>         which ROM file each dumped texture comes from
+//   remake_tool world <map_matrix.narc> <matrix index> <land_data.narc> <out dir>
+//                     [map textures.nsbtx|-] [buildings.narc|-] [building textures.nsbtx|-]
+//                     the world: world.json, collision.png, world.gltf
 #include "Inventory.h"
 #include "Narc.h"
 #include "NdsRom.h"
@@ -17,6 +20,7 @@
 #include "Nsbmd.h"
 #include "Png.h"
 #include "TextureIndex.h"
+#include "WorldMap.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -34,7 +38,9 @@ static int Usage()
                     "  remake_tool extract <rom.nds> <path> <out>\n  remake_tool unpack <rom.nds> <path.narc> <dir>\n"
                     "  remake_tool garc <file.garc> <dir>\n  remake_tool textures <file.nsbtx|.nsbmd> <dir>\n"
                     "  remake_tool model <file.nsbmd> <out.gltf> [tex.nsbtx] [model index]\n"
-                    "  remake_tool texindex <rom.nds>\n  remake_tool identify <rom.nds> <dump dir>\n");
+                    "  remake_tool texindex <rom.nds>\n  remake_tool identify <rom.nds> <dump dir>\n"
+                    "  remake_tool world <map_matrix.narc> <matrix index> <land_data.narc> <out dir>\n"
+                    "                    [map textures.nsbtx|-] [buildings.narc|-] [building textures.nsbtx|-]\n");
     return 2;
 }
 
@@ -95,6 +101,38 @@ int main(int argc, char** argv)
             WriteFile(argv[3], Bytes(gltf.begin(), gltf.end()));
             printf("%zu models; model %zu: %zu shapes, %zu materials\n", model.Models().size(), index,
                    model.Models().at(index).Shapes.size(), model.Models().at(index).Materials.size());
+            return 0;
+        }
+        if (cmd == "world" && argc >= 6)
+        {
+            const Narc matrices(Plain(ReadFile(argv[2])));
+            const WorldMap world(MapMatrix::Read(Plain(matrices.Member((size_t)atoi(argv[3])))), Narc(Plain(ReadFile(argv[4]))));
+            auto given = [&](int i) { return argc > i && std::string(argv[i]) != "-"; };
+            Bytes texFile, buildingTexFile;
+            std::unique_ptr<Tex0> tex, buildingTex;
+            auto loadTex = [&](int i, Bytes& file, std::unique_ptr<Tex0>& t) {
+                if (!given(i)) return;
+                file = Plain(ReadFile(argv[i]));
+                const long at = Tex0::Find(file);
+                if (at >= 0) t = std::make_unique<Tex0>(file, (size_t)at);
+            };
+            loadTex(6, texFile, tex);
+            loadTex(8, buildingTexFile, buildingTex);
+            std::unique_ptr<Narc> buildings;
+            if (given(7)) buildings = std::make_unique<Narc>(Plain(ReadFile(argv[7])));
+            const std::filesystem::path out(argv[5]);
+            std::filesystem::create_directories(out);
+            const std::string json = world.Json();
+            WriteFile((out / "world.json").string(), Bytes(json.begin(), json.end()));
+            WriteFile((out / "collision.png").string(), world.CollisionPng());
+            float cell = 0;
+            const std::string gltf = world.Gltf(tex.get(), buildings.get(), buildingTex.get(), &cell);
+            WriteFile((out / "world.gltf").string(), Bytes(gltf.begin(), gltf.end()));
+            size_t maps = 0;
+            for (const auto& c : world.Cells) maps += c.has_value();
+            printf("matrix %s: %ux%u, %zu maps read, %zu errors, cell size %g\n", world.Matrix.Name.c_str(), world.Matrix.Width,
+                   world.Matrix.Height, maps, world.Errors.size(), cell);
+            for (const std::string& e : world.Errors) fprintf(stderr, "%s\n", e.c_str());
             return 0;
         }
 

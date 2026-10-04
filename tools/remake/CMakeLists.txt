@@ -28,6 +28,9 @@ add_library(remake STATIC
     src/Nsbmd.cpp
     src/EmulatorTextureName.cpp
     src/TextureIndex.cpp
+    src/MapMatrix.cpp
+    src/LandData.cpp
+    src/WorldMap.cpp
     # the DS core's hash, so texture names match the emulator's by construction
     ${MELONDS_SRC}/xxhash/xxhash.c
 )

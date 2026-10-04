@@ -84,14 +84,15 @@ Nsbmd::Nsbmd(Bytes file) : Data(std::move(file))
     }
 }
 
-std::string ModelToGltf(const Nsbmd& file, size_t model, const Tex0* tex)
+void AppendModel(const Nsbmd& file, size_t model, const Tex0* tex, const float offset[3],
+                 std::vector<GltfPart>& parts, std::vector<GltfMaterial>& materials)
 {
     const NsbmdModel& m = file.Models().at(model);
+    const int firstMaterial = (int)materials.size();
     std::unique_ptr<Tex0> own;
     const long at = Tex0::Find(file.File());
     if (at >= 0) { own = std::make_unique<Tex0>(file.File(), (size_t)at); tex = own.get(); }
 
-    std::vector<GltfMaterial> materials;
     for (const NsbmdMaterial& nm : m.Materials)
     {
         GltfMaterial g;
@@ -114,10 +115,22 @@ std::string ModelToGltf(const Nsbmd& file, size_t model, const Tex0* tex)
             }
         materials.push_back(g);
     }
-    std::vector<GltfPart> parts;
     for (const NsbmdShape& s : m.Shapes)
-        parts.push_back({DecodeDisplayList(s.DisplayList), s.Material});
-    return WriteGltf(parts, materials, m.PosScale);
+    {
+        GltfPart part{DecodeDisplayList(s.DisplayList), s.Material < 0 ? -1 : firstMaterial + s.Material};
+        for (GxVertex& v : part.Mesh.Vertices)
+            for (int k = 0; k < 3; k++) v.Position[k] = v.Position[k] * m.PosScale + offset[k];
+        parts.push_back(std::move(part));
+    }
+}
+
+std::string ModelToGltf(const Nsbmd& file, size_t model, const Tex0* tex)
+{
+    std::vector<GltfPart> parts;
+    std::vector<GltfMaterial> materials;
+    const float origin[3] = {0, 0, 0};
+    AppendModel(file, model, tex, origin, parts, materials);
+    return WriteGltf(parts, materials);
 }
 
 }

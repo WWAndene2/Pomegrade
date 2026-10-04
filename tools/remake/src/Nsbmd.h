@@ -54,6 +54,10 @@ private:
 
 // one model as glTF; textures from the model file's own TEX0, else from tex
 // (an NSBTX's TEX0), matched by name
+// appends one model's parts and materials, its positions scaled by its
+// PosScale and moved by offset (to place it in a scene of several)
+void AppendModel(const Nsbmd& file, size_t model, const Tex0* tex, const float offset[3],
+                 std::vector<GltfPart>& parts, std::vector<GltfMaterial>& materials);
 std::string ModelToGltf(const Nsbmd& file, size_t model, const Tex0* tex = nullptr);
 
 }
