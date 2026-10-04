@@ -29,6 +29,7 @@ object InspectorDialog {
     }
 
     private const val FOLDER = "Inspector"
+    private const val MATERIALS_FOLDER = "Materials"
 
     /**
      * @param onModeChanged the mode picked, already applied to the emulator
@@ -40,6 +41,7 @@ object InspectorDialog {
         return AlertDialog.Builder(context)
             .setTitle(R.string.inspector_title)
             .setSingleChoiceItems(labels, current.ordinal) { _, which ->
+                if (mode == Mode.OFF && Mode.entries[which].enabled) loadMaterialManifest(context)
                 mode = Mode.entries[which]
                 MelonEmulator.setInspector(mode.enabled, mode.view)
                 onModeChanged(mode)
@@ -54,6 +56,17 @@ object InspectorDialog {
             .setNegativeButton(R.string.inspector_close, null)
             .setOnDismissListener { onDismiss() }
             .show()
+    }
+
+    /**
+     * The game's material manifest, Pomegrade/Materials/<game code>.txt, read when recording starts: textures named by hash there
+     * take its class over the classifier's. Missing: none.
+     */
+    private fun loadMaterialManifest(context: Context) {
+        val gameCode = MelonEmulator.getGameCode().takeIf { it.isNotBlank() } ?: return
+        val file = PomegradeFolder.subFolder(context, MATERIALS_FOLDER)?.let { File(it, gameCode.replace(Regex("[^A-Za-z0-9]"), "_") + ".txt") }
+        val text = file?.takeIf { it.isFile }?.let { runCatching { it.readText() }.getOrNull() } ?: ""
+        MelonEmulator.setMaterialManifest(text)
     }
 
     private fun saveReport(context: Context, gameName: String) {

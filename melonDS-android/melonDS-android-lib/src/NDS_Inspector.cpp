@@ -554,6 +554,22 @@ std::string Inspector::FileName(u32 id) const
     return "(file " + std::to_string(id) + ")";
 }
 
+void Inspector::SetMaterialManifest(const std::string& text)
+{
+    MaterialManifest manifest;
+    std::string errors = MaterialClassifier::ParseManifest(text, manifest);
+    std::lock_guard<std::mutex> guard(Lock);
+    Classifier.SetManifest(std::move(manifest));
+    ManifestErrors = std::move(errors);
+}
+
+std::string Inspector::CartGameCode() const
+{
+    const NDSCart::CartCommon* cart = NDS.GetNDSCart();
+    if (!cart || !cart->GetROM() || cart->GetROMLength() < 0x10) return {};
+    return std::string((const char*)cart->GetROM() + 0x0C, 4);
+}
+
 void Inspector::OnRendered(GPU& gpu, Renderer3D& renderer)
 {
     if (!Enabled) return;
@@ -785,8 +801,13 @@ std::string Inspector::Report() const
 
     {
         add("\n== Materials (%zu textures) ==\n", Last.Materials.size());
-        add("From render state and texture statistics (no manifest or file names yet); unknown below %.2f confidence.\n", MaterialClassifier::MinConfidence);
-        add("%-8s %-9s %-5s %-8s %-8s %-4s  %-31s %s\n", "texture", "size", "fmt", "palette", "class", "conf", "hue sat bright detail grain var", "lit spec emis  ids: cues");
+        add("From the manifest (%zu textures, Pomegrade/Materials/%s.txt: \"<hash> <class>\" a line), else render state and\n",
+            Classifier.ManifestSize(), CartGameCode().empty() ? "<game code: no cartridge>" : Printable(CartGameCode()).c_str());
+        add("texture statistics; unknown below %.2f confidence. Classes:", MaterialClassifier::MinConfidence);
+        for (int k = 0; k < (int)MaterialClass::Count; k++) add(" %s", MaterialClassifier::Name((MaterialClass)k));
+        add("\n");
+        if (!ManifestErrors.empty()) add("Manifest lines not read:\n%s", ManifestErrors.c_str());
+        add("%-8s %-8s %-9s %-5s %-8s %-9s %-4s  %-31s %s\n", "hash", "texture", "size", "fmt", "palette", "class", "conf", "hue sat bright detail grain var", "lit spec emis  ids: cues");
         std::vector<std::pair<u64, const FrameTables::Material*>> list;
         for (auto& [key, m] : Last.Materials) list.push_back({key, &m});
         std::sort(list.begin(), list.end(), [](auto& a, auto& b) { return a.second->Evidence.Polygons > b.second->Evidence.Polygons; });
@@ -794,7 +815,7 @@ std::string Inspector::Report() const
         {
             const u32 param = (u32)key;
             const auto& s = m->Stats;
-            add("%08X %3ux%-5u f%u   %08X %-8s %.2f  %3.0f %.2f %.2f %.3f %.2f %.2f  %3u%% %2u%s %2u   %s\n", (param & 0xFFFF) << 3, 8 << ((param >> 20) & 7), 8 << ((param >> 23) & 7),
+            add("%08X %08X %3ux%-5u f%u   %08X %-9s %.2f  %3.0f %.2f %.2f %.3f %.2f %.2f  %3u%% %2u%s %2u   %s\n", s.Hash, (param & 0xFFFF) << 3, 8 << ((param >> 20) & 7), 8 << ((param >> 23) & 7),
                 (param >> 26) & 7, (u32)(key >> 32), MaterialClassifier::Name(m->Result.Class), m->Result.Confidence,
                 s.Hue, s.Saturation, s.Brightness, s.Detail, s.Grain, s.Variety,
                 m->Evidence.Polygons ? m->Evidence.Lit * 100 / m->Evidence.Polygons : 0, m->Evidence.Specular, m->Evidence.Shininess ? "s" : " ", m->Evidence.Emission, (Ids(m->Evidence.PolygonIds) + m->Result.Cues).c_str());

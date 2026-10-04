@@ -60,6 +60,8 @@ namespace MelonDSAndroid {
     extern void setAnalogueStick(float x, float y);
     extern void setInspector(bool enabled, int view);
     extern std::string getInspectorReport();
+    extern void setMaterialManifest(const std::string& text);
+    extern std::string getGameCode();
     extern void releaseKey(u32 key);
     extern void start();
     extern u32 loop();

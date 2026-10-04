@@ -481,6 +481,16 @@ std::string MelonInstance::getInspectorReport()
     return nds->Inspector.Report();
 }
 
+void MelonInstance::setMaterialManifest(const std::string& text)
+{
+    nds->Inspector.SetMaterialManifest(text);
+}
+
+std::string MelonInstance::getGameCode()
+{
+    return nds->Inspector.CartGameCode();
+}
+
 void MelonInstance::releaseKey(u32 key)
 {
     // Special handling for Lid input

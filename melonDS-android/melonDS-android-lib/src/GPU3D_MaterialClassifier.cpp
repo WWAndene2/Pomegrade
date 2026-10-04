@@ -2,10 +2,13 @@
 
 #include "GPU.h"
 #include "GPU3D_Texcache.h"
+#include "xxhash/xxhash.h"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdlib>
+#include <sstream>
 #include <vector>
 
 namespace melonDS
@@ -30,6 +33,7 @@ const MaterialClassifier::TextureStats& MaterialClassifier::Statistics(GPU& gpu,
     DecodeTexture(gpu, texParam, palette, texels.data(), source);
 
     TextureStats s;
+    s.Hash = XXH32(texels.data(), texels.size() * 4, 0);
     double r = 0, g = 0, b = 0, dx = 0, dy = 0;
     u32 opaque = 0, pairsX = 0, pairsY = 0;
     auto lum = [](u32 c) { return ((c & 0x3F) * 2 + ((c >> 8) & 0x3F) * 5 + ((c >> 16) & 0x3F)) / (8.0 * 63); };
@@ -182,9 +186,38 @@ std::vector<MaterialClassifier::Region> MaterialClassifier::Segment(GPU& gpu, u3
     return out;
 }
 
+std::string MaterialClassifier::ParseManifest(const std::string& text, MaterialManifest& out)
+{
+    std::istringstream lines(text);
+    std::string line, errors;
+    while (std::getline(lines, line))
+    {
+        const std::string content = line.substr(0, line.find('#'));
+        std::istringstream words(content);
+        std::string hash, name;
+        if (!(words >> hash)) continue; // blank or comment
+        words >> name;
+        char* end = nullptr;
+        const unsigned long value = std::strtoul(hash.c_str(), &end, 16);
+        int cls = -1;
+        for (int c = 0; c < (int)MaterialClass::Count; c++)
+            if (name == Name((MaterialClass)c)) cls = c;
+        if (*end || hash.size() > 8 || cls < 0)
+        {
+            errors += line + "\n";
+            continue;
+        }
+        out[(u32)value] = (MaterialClass)cls;
+    }
+    return errors;
+}
+
 MaterialResult MaterialClassifier::Classify(GPU& gpu, u32 texParam, u32 palette, const TextureEvidence& e)
 {
     const TextureStats& s = Statistics(gpu, texParam, palette);
+    auto named = Manifest.find(s.Hash);
+    if (named != Manifest.end())
+        return {named->second, 1.0f, "manifest"};
     float votes[(int)MaterialClass::Count] = {};
     MaterialResult result;
     auto vote = [&](MaterialClass c, float weight, const char* cue) {

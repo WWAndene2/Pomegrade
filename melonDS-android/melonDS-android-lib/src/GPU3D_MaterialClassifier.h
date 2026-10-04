@@ -11,7 +11,8 @@
 //   saturation, brightness, high-frequency energy, grain direction.
 // Each cue votes for classes with the doc's weights (render state 0.6,
 // statistics 0.3); the best class wins with a confidence, below 0.35 it is
-// Unknown. The manifest and file-name layers are not done yet.
+// Unknown. Above all, a manual manifest (7.1 layer 1) names textures by
+// content hash and always wins. The file-name layer is not done yet.
 
 #include "types.h"
 
@@ -47,12 +48,22 @@ struct MaterialResult
     std::string Cues;     // the cues that voted, for the report
 };
 
+// the manual manifest: class by texture content hash
+using MaterialManifest = std::map<u32, MaterialClass>;
+
 class MaterialClassifier
 {
 public:
     // texParam/palette as the polygon has them (TexParam, TexPalette)
     MaterialResult Classify(GPU& gpu, u32 texParam, u32 palette, const TextureEvidence& evidence);
     void Clear() noexcept { Stats.clear(); }
+
+    // the manifest: one texture a line, "<hash> <class>" (hash in hex as the
+    // report shows it, class as Name() writes it), # starts a comment.
+    // Returns the lines it could not read, one a line
+    static std::string ParseManifest(const std::string& text, MaterialManifest& out);
+    void SetManifest(MaterialManifest manifest) { Manifest = std::move(manifest); }
+    [[nodiscard]] size_t ManifestSize() const noexcept { return Manifest.size(); }
 
     [[nodiscard]] static const char* Name(MaterialClass c) noexcept;
 
@@ -67,6 +78,7 @@ public:
         float Detail = 0;     // mean neighbour difference, 0-1 (busy: grass, stone)
         float Grain = 0;      // 0: isotropic, 1: all along one axis (wood)
         float Transparent = 0; // share of transparent texels
+        u32 Hash = 0;         // XXH32 of the decoded texels: the same texture wherever it is in VRAM
         float Variety = 0;    // mean chroma distance of texels from the mean colour, 0-1 (an atlas of many colours: high)
     };
     const TextureStats& Statistics(GPU& gpu, u32 texParam, u32 palette);
@@ -90,6 +102,7 @@ public:
 
 private:
     std::map<u64, TextureStats> Stats;
+    MaterialManifest Manifest;
 };
 
 }

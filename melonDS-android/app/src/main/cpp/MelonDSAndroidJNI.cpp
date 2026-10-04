@@ -517,6 +517,20 @@ Java_me_magnum_melonds_MelonEmulator_getInspectorReport(JNIEnv* env, jobject thi
     return env->NewStringUTF(MelonDSAndroid::getInspectorReport().c_str());
 }
 
+JNIEXPORT void JNICALL
+Java_me_magnum_melonds_MelonEmulator_setMaterialManifest(JNIEnv* env, jobject thiz, jstring text)
+{
+    const char* chars = env->GetStringUTFChars(text, nullptr);
+    MelonDSAndroid::setMaterialManifest(chars);
+    env->ReleaseStringUTFChars(text, chars);
+}
+
+JNIEXPORT jstring JNICALL
+Java_me_magnum_melonds_MelonEmulator_getGameCode(JNIEnv* env, jobject thiz)
+{
+    return env->NewStringUTF(MelonDSAndroid::getGameCode().c_str());
+}
+
 JNIEXPORT jboolean JNICALL
 Java_me_magnum_melonds_MelonEmulator_takeScreenshot(JNIEnv* env, jobject thiz)
 {

@@ -98,6 +98,11 @@ public:
 
     // any thread
     [[nodiscard]] std::string Report() const;
+    // the material manifest's text (GPU3D_MaterialClassifier.h); its
+    // unreadable lines are listed in the report
+    void SetMaterialManifest(const std::string& text);
+    // the inserted cartridge's game code ("" without one): names its manifest
+    [[nodiscard]] std::string CartGameCode() const;
 
     // a call site as an instruction address (bit 0 still says Thumb)
     static u32 InstructionAddress(u32 site) noexcept { return site & 1 ? (site & ~1u) - 4 + 1 : site - 8; }
@@ -199,7 +204,8 @@ private:
     u32 NextObjectId = 1;
 
     ParityOracle Parity; // under Lock
-    MaterialClassifier Classifier;
+    MaterialClassifier Classifier; // under Lock
+    std::string ManifestErrors;
     u32 LastParityFrame = 0;
     static constexpr u32 ParityInterval = 60;
     static constexpr size_t MaxObjects = 4096;

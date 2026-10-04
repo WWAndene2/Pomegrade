@@ -199,6 +199,17 @@ namespace MelonDSAndroid
         return instance ? instance->getInspectorReport() : std::string();
     }
 
+    void setMaterialManifest(const std::string& text)
+    {
+        if (instance)
+            instance->setMaterialManifest(text);
+    }
+
+    std::string getGameCode()
+    {
+        return instance ? instance->getGameCode() : std::string();
+    }
+
     void start()
     {
         startAudio();

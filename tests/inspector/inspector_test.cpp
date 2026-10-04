@@ -460,6 +460,22 @@ int main()
             check(r.Class == c.want, std::string("material: ") + c.what + ": " + MaterialClassifier::Name(r.Class) + " (" + std::to_string(r.Confidence).substr(0, 4) + ", " + r.Cues + ")");
         }
 
+        // the manual manifest: a texture named by its hash takes the class
+        // given, over the classifier's (the brown planks, wood, named stone)
+        {
+            const u32 planks = cases[4].param;
+            char text[160];
+            snprintf(text, sizeof(text), "# Pomegrade/Materials/TEST.txt\n%08X stone  # the pier\n\nzz water\n12345678 dragon\n", classifier.Statistics(nds->GPU, planks, 0).Hash);
+            MaterialManifest manifest;
+            std::string errors = MaterialClassifier::ParseManifest(text, manifest);
+            check(manifest.size() == 1 && errors == "zz water\n12345678 dragon\n", "manifest: one entry read, 2 bad lines reported");
+            classifier.SetManifest(manifest);
+            MaterialResult r = classify(planks, none);
+            check(r.Class == MaterialClass::Stone && r.Confidence == 1.0f && r.Cues == "manifest", "manifest: the named texture is stone (was wood)");
+            check(classify(cases[3].param, none).Cues != "manifest", "manifest: the others are still classified");
+            classifier.SetManifest({});
+        }
+
         // palette-index segmentation: a 16-colour texture of three materials,
         // each painted with a ramp of three shades: skin (entries 1-3), red
         // cloth (4-6, dark to bright: one colour, shaded), grey metal (7-9)

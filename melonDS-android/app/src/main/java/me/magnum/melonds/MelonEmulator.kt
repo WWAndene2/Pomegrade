@@ -143,6 +143,12 @@ object MelonEmulator {
     /** Pomegrade: the inspector's report (last frame's call sites, display lists, polygon IDs, 3D command trace, file reads) */
     external fun getInspectorReport(): String
 
+    /** Pomegrade: the inspector's material manifest, "<texture hash> <class>" a line (Pomegrade/Materials/<game code>.txt) */
+    external fun setMaterialManifest(text: String)
+
+    /** Pomegrade: the inserted cartridge's 4-letter game code, empty without one */
+    external fun getGameCode(): String
+
     external fun takeScreenshot(): Boolean
 
     external fun setFastForwardEnabled(enabled: Boolean)
