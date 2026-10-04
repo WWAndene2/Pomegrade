@@ -863,6 +863,33 @@ vec3 SmoothTexel(vec2 st, out vec3 c00, out vec3 c10, out vec3 c01, out vec3 c11
     return mix(mix(c00, c10, f.x), mix(c01, c11, f.x), f.y);
 }
 
+// stylised rendering: a Kuwahara filter over texels (Kuwahara et al. 1976,
+// the classic painterly filter, no learning): of the four 2x2-texel
+// quadrants around the point, the colour of the most uniform one. Noise
+// inside a surface goes, edges and painted shapes stay sharp
+vec3 KuwaharaTexel(vec2 st)
+{
+    vec3 best = vec3(0.0);
+    float bestVar = 1e9;
+    for (int q = 0; q < 4; q++)
+    {
+        vec2 dir = vec2(q == 1 || q == 3 ? 1.0 : -1.0, q >= 2 ? 1.0 : -1.0);
+        vec3 sum = vec3(0.0), sum2 = vec3(0.0);
+        for (int k = 0; k < 4; k++)
+        {
+            vec2 o = vec2(k == 1 || k == 3 ? 1.5 : 0.5, k >= 2 ? 1.5 : 0.5) * dir;
+            vec3 c00, c10, c01, c11;
+            vec3 c = SmoothTexel(st + o, c00, c10, c01, c11); // smooth samples: no texel steps (16 x 4 texel reads)
+            sum += c; sum2 += c * c;
+        }
+        vec3 mean = sum * 0.25;
+        vec3 v = sum2 * 0.25 - mean * mean;
+        float var = v.r + v.g + v.b;
+        if (var < bestVar) { bestVar = var; best = mean; }
+    }
+    return best;
+}
+
 // set by ReliefTexcoord for FinalColor: the surface's colour replaces the texel's
 bool ProcActive;
 vec3 ProcColour;
@@ -874,10 +901,10 @@ vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
     vec3 P = fViewPosition.xyz;
     vec3 dp1 = ReliefDP1, dp2 = ReliefDP2;
     vec2 du1 = ReliefDU1, du2 = ReliefDU2;
-    // Pomegrade: stylised rendering. Scenery is drawn in flat colours, as a
-    // modern stylised game paints its sets: the texture averaged over about
-    // four texels by four, which keeps its large painted shapes and drops its
-    // texel noise. Characters keep their features, only smoothed. Grass
+    // Pomegrade: stylised rendering. Scenery is drawn as a modern stylised
+    // game paints its sets: the texture through a Kuwahara filter, which
+    // drops its texel noise and keeps its edges and painted shapes (a 4x4
+    // average was tried first: the owner found it lost the objects' detail). Characters keep their features, only smoothed. Grass
     // keeps its blades (below)
     if (uStyle > 0.0 && (fPolygonAttr.x & (1<<12)) == 0 && textype != 0)
     {
@@ -885,8 +912,7 @@ vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
         if ((fPolygonAttr.x & (1<<13)) != 0)
             ProcColour = SmoothTexel(st, c00, c10, c01, c11);
         else
-            ProcColour = 0.25 * (SmoothTexel(st + vec2(-1.5, -1.5), c00, c10, c01, c11) + SmoothTexel(st + vec2(1.5, -1.5), c00, c10, c01, c11)
-                               + SmoothTexel(st + vec2(-1.5, 1.5), c00, c10, c01, c11) + SmoothTexel(st + vec2(1.5, 1.5), c00, c10, c01, c11));
+            ProcColour = KuwaharaTexel(st);
         ProcActive = true;
         return st;
     }

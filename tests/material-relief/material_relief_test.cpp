@@ -313,15 +313,34 @@ int main()
     printf("stone: mean change %.2f, brightness ratio %.3f\n", stoneChange, stoneLevel);
     check(stoneChange > 0.5 && stoneChange < 4 && stoneLevel > 0.9 && stoneLevel < 1.1, "stone texture: lit by its own relief, its look and brightness kept (nothing invented)");
 
-    // stylised rendering (relief level 3): the same stone floor in flat
-    // colours - its texel noise gone - at about the same brightness
+    // stylised rendering (relief level 3), Kuwahara-painted scenery: a stone
+    // floor dark on its left half and light on its right, both noisy. The
+    // noise inside each half goes; the step between them stays
+    for (int y = 0; y < 64; y++)
+        for (int x = 0; x < 64; x++)
+        {
+            u32 v = (x < 32 ? 9 : 19) + rnd() % 5;
+            texels[y * 64 + x] = 0x8000 | v | (v << 5) | ((v + 1) << 10);
+        }
+    upload();
+    r->SetRelief(0);
+    auto halvesOff = Frame(*r, gpu);
     r->SetRelief(3);
-    auto stoneStyle = Frame(*r, gpu);
-    SavePng("stone_stylised.png", stoneStyle, w);
-    const double styleDetail = Detail(stoneStyle, w, nearY0, nearY1), stoneDetail = Detail(stoneOff, w, nearY0, nearY1);
-    const double styleLevel = Channel(stoneStyle, w, nearY0, nearY1, 1) / Channel(stoneOff, w, nearY0, nearY1, 1);
-    printf("stylised stone: fine detail %.3f -> %.3f, brightness ratio %.3f\n", stoneDetail, styleDetail, styleLevel);
-    check(styleDetail < stoneDetail * 0.5 && styleLevel > 0.8 && styleLevel < 1.2, "stylised: flat colours (texel noise gone), brightness within 20%");
+    auto halvesStyle = Frame(*r, gpu);
+    SavePng("halves_off.png", halvesOff, w);
+    SavePng("halves_stylised.png", halvesStyle, w);
+    // green channel's spread and mean over a block of the near floor
+    auto stats = [&](const std::vector<u32>& img, int x0, int x1, double& mean, double& sd) {
+        double s = 0, s2 = 0; long n = 0;
+        for (int y = nearY0; y < nearY1; y++) for (int x = x0; x < x1; x++) { double g = (img[y * w + x] >> 8) & 0xFF; s += g; s2 += g * g; n++; }
+        mean = s / n; sd = std::sqrt(std::max(0.0, s2 / n - mean * mean));
+    };
+    double mOffL, sOffL, mOffR, sOffR, mStL, sStL, mStR, sStR;
+    stats(halvesOff, w / 10, w * 4 / 10, mOffL, sOffL); stats(halvesOff, w * 6 / 10, w * 9 / 10, mOffR, sOffR);
+    stats(halvesStyle, w / 10, w * 4 / 10, mStL, sStL); stats(halvesStyle, w * 6 / 10, w * 9 / 10, mStR, sStR);
+    printf("stylised halves: noise (spread) %.2f/%.2f -> %.2f/%.2f, step between halves %.1f -> %.1f\n", sOffL, sOffR, sStL, sStR, mOffR - mOffL, mStR - mStL);
+    check(sStL < sOffL * 0.7 && sStR < sOffR * 0.7, "stylised: noise inside a surface reduced by 30% at least");
+    check(std::abs((mStR - mStL) - (mOffR - mOffL)) < 0.3 * (mOffR - mOffL), "stylised: the step between two painted areas kept (within 30%)");
     r->SetRelief(2);
 
     // clothes: scenery of three textures (grey, sand, dark green-grey: not
