@@ -555,7 +555,7 @@ The DS design assumes things that no longer have to hold:
 
 1. ✅ Logging and quick looks (days, not weeks): call-site and display-list logging with an overlay, polygon-ID color view, palette-index histograms, one matrix push/pop trace. They show how each game really draws and make the classifier and manifest much stronger. *(The inspector: in-game menu > Inspector, colour views and a saved report; also the caller (LR) of each site and the cartridge files read.)*
 2. ✅ Texgen detection and decal ordering. Cheap, and they prevent visible errors. *(Texgen modes and scrolling textures in the report. Decals: OpenGL drew 0 of the DS's 770 decal pixels in a test scene; fixed, none missing now.)*
-3. RAM-map discovery, because it automates the largest manual task.
+3. 🟡 RAM-map discovery, because it automates the largest manual task. *(Inspector report: matrix translations found in main RAM as x, y, z words, with how often each moved. Joker's save state: 325 candidate fields in one frame; following the player as it walks is not checked yet, the save state stops after one frame on the desktop.)*
 4. Persistent object identity and previous-frame matrices (also needed by TAA, 11.3).
 5. ✅ Transform interpolation and frame generation for 30 to 60+ Hz. *(Frame generation, 120 fps, OpenGL renderer.)*
 6. 🟡 Parity oracle, so every later change can be checked. *(Desktop tests compare OpenGL against the software renderer; not yet a tool inside the app.)*

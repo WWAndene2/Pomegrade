@@ -353,6 +353,27 @@ int main()
         check(at != std::string::npos && report.substr(at, end - at).find("+") == std::string::npos, "still: no scrolling");
     }
 
+    // 4d. RAM-map discovery: an object whose position (x, y, z words in main
+    // RAM) is the translation the game draws it with, moving each frame; a
+    // translation found nowhere in RAM, and an origin (everywhere), give nothing
+    {
+        auto nds = MakeNDS(false);
+        nds->Inspector.SetEnabled(true);
+        nds->Inspector.BeginFrame();
+        for (s32 x : {0x1000, 0x1800, 0x2000})
+        {
+            const s32 pos[3] = {x, -0x345, 0x6789};
+            memcpy(&nds->MainRAM[0x100010], pos, sizeof(pos));
+            for (s32 v : pos) nds->Inspector.OnCommand(0x1C, (u32)v, 0);
+            for (s32 v : {0x7123, 0x7456, 0x7789}) nds->Inspector.OnCommand(0x1C, (u32)v, 0);
+            for (int i = 0; i < 3; i++) nds->Inspector.OnCommand(0x1C, 0, 0);
+            nds->Inspector.OnFlush();
+        }
+        std::string report = nds->Inspector.Report();
+        check(report.find("02100010   3       2      ") != std::string::npos, "RAM map: the object's position field, found 3 frames, moved twice");
+        check(report.find("== Position fields in main RAM (1) ==") != std::string::npos, "RAM map: nothing else");
+    }
+
     // 4c. palette indices of a paletted texture: 8x8, 16 colours (4 bits per
     // texel), 48 texels on index 1, 16 on index 5
     {

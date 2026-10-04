@@ -7,6 +7,7 @@
 #include "xxhash/xxhash.h"
 
 #include <algorithm>
+#include <unordered_map>
 #include <cstdio>
 #include <cstring>
 
@@ -119,6 +120,7 @@ void Inspector::BeginFrame() noexcept
         std::lock_guard<std::mutex> guard(Lock);
         Last = FrameTables();
         FileReads.clear();
+        PositionFields.clear();
         FileReadsTruncated = false;
     }
     if (Enabled) OnCartChanged();
@@ -400,6 +402,7 @@ void Inspector::OnFlush() noexcept
     PrevTexTranslation.swap(translations);
     {
         std::lock_guard<std::mutex> guard(Lock);
+        FindPositionFields();
         std::swap(Last, Current);
         LastFrameNumber = FrameNumber;
     }
@@ -461,6 +464,60 @@ std::string Inspector::FileName(u32 id) const
     if (id == 0xFFFFFFFF) return "(no file: header, ARM9/ARM7 binaries or tables)";
     if (id < FileNames.size() && !FileNames[id].empty()) return Printable(FileNames[id]);
     return "(file " + std::to_string(id) + ")";
+}
+
+void Inspector::FindPositionFields()
+{
+    // translations from the trace: MTX_TRANS (3 parameters), MTX_LOAD/MULT
+    // 4x4 (parameters 12-14) and 4x3 (9-11)
+    std::unordered_map<s32, std::vector<std::pair<s32, s32>>> byX;
+    u8 cmd = 0;
+    u32 index = 0;
+    s32 v[3] = {};
+    for (const TraceEntry& e : Current.Trace)
+    {
+        if (e.Command != cmd) { cmd = e.Command; index = 0; }
+        else index++;
+        u32 first;
+        switch (cmd)
+        {
+        case 0x1C: first = 0; index %= 3; break;
+        case 0x16: case 0x18: first = 12; index %= 16; break;
+        case 0x17: case 0x19: first = 9; index %= 12; break;
+        default: continue;
+        }
+        if (index < first || index > first + 2) continue;
+        v[index - first] = (s32)e.Param;
+        // zero is everywhere in RAM: an origin says nothing
+        if (index == first + 2 && (v[0] | v[1] | v[2]) && byX.size() < 1024)
+            byX[v[0]].push_back({v[1], v[2]});
+    }
+    if (byX.empty()) return;
+
+    const u32* ram = (const u32*)NDS.MainRAM;
+    const u32 words = (NDS.MainRAMMask + 1) / 4;
+    for (u32 i = 0; i + 2 < words; i++)
+    {
+        auto it = byX.find((s32)ram[i]);
+        if (it == byX.end()) continue;
+        for (auto& [y, z] : it->second)
+        {
+            if ((s32)ram[i + 1] != y || (s32)ram[i + 2] != z) continue;
+            u32 addr = 0x02000000 + i * 4;
+            auto field = PositionFields.find(addr);
+            if (field == PositionFields.end())
+            {
+                if (PositionFields.size() >= MaxPositionFields) break;
+                field = PositionFields.emplace(addr, PositionField{}).first;
+            }
+            PositionField& f = field->second;
+            if (f.FramesFound && (f.Value[0] != (s32)ram[i] || f.Value[1] != y || f.Value[2] != z)) f.Changes++;
+            f.FramesFound++;
+            f.LastFrame = FrameNumber;
+            f.Value[0] = (s32)ram[i]; f.Value[1] = y; f.Value[2] = z;
+            break;
+        }
+    }
 }
 
 std::string Inspector::Report() const
@@ -562,6 +619,22 @@ std::string Inspector::Report() const
         }
         add("%08X  %dx%d f%u  %u of %zu indices:%s%s\n", (param & 0xFFFF) << 3, 8 << ((param >> 20) & 7), 8 << ((param >> 23) & 7),
             (param >> 26) & 7, used, counts.size(), top.c_str(), order.size() > 12 ? " ..." : "");
+    }
+
+    // fields that changed come first: an object that moved is the best evidence
+    std::vector<std::pair<u32, const PositionField*>> fields;
+    for (auto& [addr, f] : PositionFields) fields.push_back({addr, &f});
+    std::sort(fields.begin(), fields.end(), [](auto& a, auto& b) {
+        return a.second->Changes != b.second->Changes ? a.second->Changes > b.second->Changes : a.second->FramesFound > b.second->FramesFound;
+    });
+    add("\n== Position fields in main RAM (%zu%s) ==\n", fields.size(), fields.size() >= MaxPositionFields ? ", list full" : "");
+    add("Three words (x, y, z, 20.12) equal to a matrix translation the game sent. Moved: matched with a new value.\n");
+    add("%-10s %-7s %-6s %-6s  %s\n", "address", "frames", "moved", "last", "x, y, z");
+    for (size_t i = 0; i < fields.size() && i < 64; i++)
+    {
+        const PositionField& f = *fields[i].second;
+        add("%08X   %-7u %-6u %-6u  %.3f, %.3f, %.3f\n", fields[i].first, f.FramesFound, f.Changes, f.LastFrame,
+            f.Value[0] / 4096.0, f.Value[1] / 4096.0, f.Value[2] / 4096.0);
     }
 
     add("\n== Cartridge reads since the inspector was turned on (%zu%s) ==\n", FileReads.size(), FileReadsTruncated ? ", list full" : "");

@@ -16,6 +16,10 @@
 //   from texcoords, normals: a fake reflection, positions: a projected
 //   texture) and whether the texture matrix moves from frame to frame (a
 //   scrolling texture: water, lava, conveyors) (DS_ENGINE_REMAKE.md 5.3);
+// - RAM-map discovery (5.2): the translations the game gives its matrices
+//   (MTX_TRANS, and the last row of loaded/multiplied matrices) are searched
+//   in main RAM as three consecutive words (x, y, z); the addresses found,
+//   frame after frame, are likely the position fields of game objects;
 // - per paletted texture: how many texels use each palette index (artists
 //   paint each material with its own indices: eyes, trim, glow) (5.3);
 // - Report() writes all of it as text.
@@ -118,6 +122,14 @@ private:
         std::map<u32, std::vector<u32>> PaletteHistograms;
     };
     struct CartFile { u32 Start, End, Id; };
+    // a main RAM address holding (x, y, z) words a matrix was translated by
+    struct PositionField
+    {
+        u32 FramesFound = 0;  // frames its value matched a translation
+        u32 LastFrame = 0;    // the last of them
+        u32 Changes = 0;      // matches with a value different from the last
+        s32 Value[3] = {};
+    };
 
     static constexpr int SourceRing = 1024; // > the commands the FIFOs can hold
     static constexpr size_t MaxTrace = 65536;
@@ -138,6 +150,9 @@ private:
     // texture matrix translations of the previous frame, for scrolling
     std::map<u64, std::pair<s32, s32>> PrevTexTranslation;
 
+    std::map<u32, PositionField> PositionFields; // by address
+    static constexpr size_t MaxPositionFields = 4096;
+
     std::vector<CartFile> Files; // sorted by start
     std::vector<std::string> FileNames; // by file id
     std::string GameCode;
@@ -147,6 +162,8 @@ private:
     mutable std::mutex Lock; // Last, FileReads, Files, FileNames
 
     u16 NewSource(const Source& source) noexcept;
+    // this frame's matrix translations searched in main RAM
+    void FindPositionFields();
     // texel counts per palette index of a paletted texture in VRAM (empty
     // for direct colour and compressed formats)
     std::vector<u32> PaletteHistogram(u32 texParam) const;
