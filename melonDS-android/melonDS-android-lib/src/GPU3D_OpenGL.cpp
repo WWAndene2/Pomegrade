@@ -1850,16 +1850,34 @@ bool GLRenderer::FindReplacedShadows(const GPU3D& gpu3d)
             end++;
         }
         float grow = std::max({hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]});
-        bool near = false;
-        for (size_t t = 0; t + 11 < casters.size() && !near; t += 12)
-            for (int v = 0; v < 3 && !near; v++)
+        // the game's shadow gives way only where the real one covers it: its
+        // middle, seen from the main light, inside the outline of the casters
+        // near it, and those casters between it and the light. A caster near
+        // the volume is not enough: with a grazing light (Joker's harbour) the
+        // real shadow falls away from the feet and characters lost theirs
+        const auto& sp = ShadowParams;
+        auto across = [&](const float* q, const float* axis) { return q[0]*axis[0] + q[1]*axis[1] + q[2]*axis[2]; };
+        const float mid[3] = {(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2};
+        float cLo[2] = {1e30f, 1e30f}, cHi[2] = {-1e30f, -1e30f}, casterNearest = -1e30f;
+        bool nearby = false;
+        for (size_t t = 0; t + 11 < casters.size(); t += 12)
+            for (int v = 0; v < 3; v++)
             {
                 const float* p = &casters[t + v * 3];
-                near = p[0] >= lo[0] - grow && p[0] <= hi[0] + grow && p[1] >= lo[1] - grow && p[1] <= hi[1] + grow &&
-                       p[2] >= lo[2] - grow && p[2] <= hi[2] + grow;
+                if (!(p[0] >= lo[0] - grow && p[0] <= hi[0] + grow && p[1] >= lo[1] - grow && p[1] <= hi[1] + grow &&
+                      p[2] >= lo[2] - grow && p[2] <= hi[2] + grow))
+                    continue;
+                nearby = true;
+                const float r = across(p, sp.Right), u = across(p, sp.Up);
+                cLo[0] = std::min(cLo[0], r); cHi[0] = std::max(cHi[0], r);
+                cLo[1] = std::min(cLo[1], u); cHi[1] = std::max(cHi[1], u);
+                // nearer the light: larger along Dir (as the shadow map's depth)
+                casterNearest = std::max(casterNearest, across(p, sp.Dir));
             }
-        for (int k = i; k < end; k++) ShadowReplaced[k] = near;
-        any = any || near;
+        const float mr = across(mid, sp.Right), mu = across(mid, sp.Up);
+        const bool covered = nearby && mr >= cLo[0] && mr <= cHi[0] && mu >= cLo[1] && mu <= cHi[1] && casterNearest > across(mid, sp.Dir);
+        for (int k = i; k < end; k++) ShadowReplaced[k] = covered;
+        any = any || covered;
         i = end;
     }
     return any;
