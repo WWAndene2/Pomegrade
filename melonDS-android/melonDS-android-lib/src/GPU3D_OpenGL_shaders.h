@@ -241,6 +241,8 @@ layout(std140) uniform uConfig
     int uFogOffset;
     int uFogShift;
     int uTextureFilter; // Pomegrade: TextureLookup_Filtered
+    float uRelief;      // Pomegrade: relief depth in texels, 0 = off
+    vec4 uReliefLight;  // Pomegrade: towards the main light (view space), w: 1 if known
 };
 
 in uvec4 vPosition;
@@ -283,6 +285,8 @@ layout(std140) uniform uConfig
     int uFogOffset;
     int uFogShift;
     int uTextureFilter; // Pomegrade: TextureLookup_Filtered
+    float uRelief;      // Pomegrade: relief depth in texels, 0 = off
+    vec4 uReliefLight;  // Pomegrade: towards the main light (view space), w: 1 if known
 };
 
 smooth in vec4 fColor;
@@ -752,8 +756,104 @@ vec4 TextureLookup_Linear(vec2 texcoord)
     return ret;
 }
 
+// Pomegrade: relief textures (DS_ENGINE_REMAKE.md 14.1, 15.2). The texture's
+// brightness is a height (bright = raised); the view ray is marched through it
+// (steep parallax, 8 layers) and the surface relit from the height's slope with
+// the scene's main DS light. Texture space comes from screen derivatives of
+// the view-space position and texture coordinates, so no tangents are needed.
+// For opaque, perspective, world-like textures: 4/16 colours, compressed and
+// direct colour; 256-colour (characters, in the games looked at) and the
+// A3I5/A5I3 effect formats are left flat.
+float ReliefLuma(vec2 st)
+{
+    vec4 c = TextureLookup_Nearest(st);
+    return dot(c.rgb, vec3(0.299, 0.587, 0.114));
+}
+
+// bilinear between texel centres, over a 2-texel footprint: DS textures are
+// noisy at the texel scale, the relief follows their larger shapes
+float ReliefHeight(vec2 st)
+{
+    vec2 p = st * 0.5 - 0.5;
+    vec2 f = fract(p), b = (floor(p) + 0.5) * 2.0;
+    float h00 = ReliefLuma(b), h10 = ReliefLuma(b + vec2(2.0, 0.0));
+    float h01 = ReliefLuma(b + vec2(0.0, 2.0)), h11 = ReliefLuma(b + vec2(2.0, 2.0));
+    return mix(mix(h00, h10, f.x), mix(h01, h11, f.x), f.y);
+}
+
+// screen derivatives, taken in uniform control flow (FinalColor's start):
+// inside a branch they are undefined (0 on some drivers)
+vec3 ReliefDP1, ReliefDP2;
+vec2 ReliefDU1, ReliefDU2;
+
+// returns the texture coordinate to sample; shade: the relighting factor
+vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
+{
+    shade = 1.0;
+    vec3 P = fViewPosition.xyz;
+    vec3 dp1 = ReliefDP1, dp2 = ReliefDP2;
+    vec2 du1 = ReliefDU1, du2 = ReliefDU2;
+    bool usable = uRelief > 0.0 && fViewPosition.w > 0.999
+        && fColor.a > 0.99 // opaque (the alpha comes with the vertex colour)
+        && (textype == 2 || textype == 3 || textype == 5 || textype == 7);
+    vec3 N0 = cross(dp1, dp2);
+    float det = dot(N0, N0);
+    if (!usable || !(det > 0.0)) return st; // view-space units are small: no absolute threshold
+
+    // gradients of the texture coordinates on the surface (texels per unit)
+    vec3 dp2p = cross(dp2, N0), dp1p = cross(N0, dp1);
+    vec3 gU = (dp2p * du1.x + dp1p * du2.x) / det;
+    vec3 gV = (dp2p * du1.y + dp1p * du2.y) / det;
+    float gl = length(gU) + length(gV);
+    if (!(gl > 0.0)) return st;
+    float texel = 2.0 / gl; // one texel, in view-space units
+
+    vec3 N = normalize(N0);
+    vec3 V = normalize(-P);
+    if (dot(N, V) < 0.0) N = -N;
+    float vn = max(dot(N, V), 0.15); // grazing angles: limited
+    vec3 Vs = V - N * dot(V, N);
+    // texture offset at full depth, in texels (at most 4 x the depth)
+    vec2 dir = vec2(dot(Vs, gU), dot(Vs, gV)) * (uRelief * texel / vn);
+    float dl = length(dir);
+    if (dl > 4.0 * uRelief) dir *= 4.0 * uRelief / dl;
+
+    const int layers = 8;
+    float layer = 1.0 / float(layers);
+    vec2 cur = st;
+    float depth = 0.0;
+    float surface = 1.0 - ReliefHeight(cur);
+    float prevSurface = surface;
+    for (int i = 0; i < layers && depth < surface; i++)
+    {
+        prevSurface = surface;
+        cur -= dir * layer;
+        depth += layer;
+        surface = 1.0 - ReliefHeight(cur);
+    }
+    // between the last two layers
+    float after = surface - depth, before = prevSurface - (depth - layer);
+    float t = (after - before) != 0.0 ? clamp(after / (after - before), 0.0, 1.0) : 0.0;
+    cur += dir * layer * t;
+
+    // relighting: the slope of the height under the main light
+    float hx = ReliefHeight(cur + vec2(1.0, 0.0)) - ReliefHeight(cur - vec2(1.0, 0.0));
+    float hy = ReliefHeight(cur + vec2(0.0, 1.0)) - ReliefHeight(cur - vec2(0.0, 1.0));
+    vec3 tU = normalize(gU), tV = normalize(gV);
+    // slope: height change per texel times the relief depth in texels
+    vec3 Np = normalize(N - (tU * hx + tV * hy) * (1.5 * uRelief));
+    vec3 L = uReliefLight.w > 0.5 ? normalize(uReliefLight.xyz) : normalize(V + vec3(0.0, 1.0, 0.0));
+    float base = max(dot(N, L), 0.0), lit = max(dot(Np, L), 0.0);
+    shade = clamp((0.35 + lit) / (0.35 + base), 0.5, 1.6);
+    return cur;
+}
+
 vec4 FinalColor()
 {
+    ReliefDP1 = dFdx(fViewPosition.xyz);
+    ReliefDP2 = dFdy(fViewPosition.xyz);
+    ReliefDU1 = dFdx(fTexcoord);
+    ReliefDU2 = dFdy(fTexcoord);
     vec4 col;
     vec4 vcol = fColor;
     int blendmode = (fPolygonAttr.x >> 4) & 0x3;
@@ -780,7 +880,10 @@ vec4 FinalColor()
     }
     else
     {
-        vec4 tcol = uTextureFilter != 0 ? TextureLookup_Filtered(fTexcoord) : TextureLookup_Nearest(fTexcoord);
+        float reliefShade;
+        vec2 st = ReliefTexcoord(fTexcoord, (fPolygonAttr.z >> 10) & 0x7, reliefShade);
+        vec4 tcol = uTextureFilter != 0 ? TextureLookup_Filtered(st) : TextureLookup_Nearest(st);
+        tcol.rgb = min(tcol.rgb * reliefShade, 1.0);
         //vec4 tcol = TextureLookup_Linear(fTexcoord);
 
         if ((blendmode & 1) != 0)

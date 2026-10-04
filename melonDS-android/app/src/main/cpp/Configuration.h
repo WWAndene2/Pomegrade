@@ -104,6 +104,8 @@ typedef struct
     bool lightBounce = false;
     bool shadows = false;
     bool reflections = false;
+    // Pomegrade: relief textures (see GLRenderer::SetRelief): 0 off, 1 subtle, 2 strong
+    int reliefTextures = 0;
     // Pomegrade: intermediate frames (see GLRenderer::RenderIntermediateFrame), presented in order
     bool frameGeneration = false;
     // Pomegrade: analogue movement in the games with a patch (see NDS_AnalogueStick.h)

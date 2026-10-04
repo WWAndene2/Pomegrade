@@ -185,6 +185,7 @@ class SharedPreferencesSettingsRepository(
             lightBounce = preferences.getBoolean("light_bounce", false),
             shadows = preferences.getBoolean("shadows", false),
             reflections = preferences.getBoolean("reflections", false),
+            reliefTextures = preferences.getString("relief_textures", "0")?.toIntOrNull() ?: 0,
             frameGeneration = preferences.getBoolean("frame_generation", false),
             analogueMovement = preferences.getBoolean("analogue_movement", false),
         )

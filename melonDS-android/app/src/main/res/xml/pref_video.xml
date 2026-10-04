@@ -109,6 +109,15 @@
             app:iconSpaceReserved="false"
             android:defaultValue="false" />
 
+    <ListPreference
+            android:key="relief_textures"
+            android:title="@string/relief_textures"
+            android:summary="%s"
+            app:iconSpaceReserved="false"
+            android:entries="@array/relief_textures_options"
+            android:entryValues="@array/relief_textures_values"
+            android:defaultValue="0"/>
+
     <SwitchPreference
             android:key="frame_generation"
             android:title="@string/frame_generation"

@@ -808,7 +808,7 @@ void GLRenderer::EnsureCapacity(Polygon** polygons, u32 npolys)
         glBufferData(GL_ARRAY_BUFFER, VertexBuffer.size() * sizeof(u32), nullptr, GL_DYNAMIC_DRAW);
     }
 
-    if (LightingActive && vertices * ViewVertexSize > ViewVertexBuffer.size())
+    if (ViewDataActive && vertices * ViewVertexSize > ViewVertexBuffer.size())
     {
         ViewVertexBuffer.resize(vertices * ViewVertexSize);
         glBindBuffer(GL_ARRAY_BUFFER, ViewVertexBufferID);
@@ -832,7 +832,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
     u32 vidx = 0;
     // view-space data, one entry per vertex of VertexBuffer (lighting effects)
     float* gptr = &ViewVertexBuffer[0];
-    const bool viewdata = LightingActive;
+    const bool viewdata = ViewDataActive;
     memset(LightUse, 0, sizeof(LightUse));
 
     u32 iidx = 0;
@@ -2031,14 +2031,15 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
         else if (CapturePauseFrames > 0)
             CapturePauseFrames--;
         LightingActive = LightingEnabled() && ViewDataCaptured && LightingSupported && !CapturePauseFrames;
-        gpu.GPU3D.SetViewDataCapture(LightingEnabled() && LightingSupported);
+        ViewDataActive = ViewDataCaptured && LightingSupported && (LightingActive || Relief > 0);
+        gpu.GPU3D.SetViewDataCapture(ViewDataWanted() && LightingSupported);
         ViewDataCaptured = gpu.GPU3D.CaptureViewData();
     }
     LightingDone = false;
     if (LightingActive)
         SetupLightingTargets();
     glBindVertexArray(VertexArrayID);
-    if (LightingActive)
+    if (ViewDataActive) // lighting effects or relief textures
     {
         glEnableVertexAttribArray(5);
         glEnableVertexAttribArray(6);
@@ -2098,6 +2099,20 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
     {
         u8 d = gpu.GPU3D.RenderFogDensityTable[i];
         ShaderConfig.uFogDensity[i][0] = (float)d / 127.0;
+    }
+
+    // relief textures: depth in texels, and the main light (most used by
+    // opaque polygons last frame, in view space, towards the light)
+    ShaderConfig.uRelief = ViewDataActive ? (Relief >= 2 ? 2.0f : Relief == 1 ? 1.0f : 0.0f) : 0.0f;
+    {
+        int light = 0;
+        for (int l = 1; l < 4; l++)
+            if (LightUse[l] > LightUse[light]) light = l;
+        float dir[3], len = 0;
+        for (int i = 0; i < 3; i++) { dir[i] = (float)gpu.GPU3D.RenderLightDirection[light][i]; len += dir[i] * dir[i]; }
+        len = std::sqrt(len);
+        for (int i = 0; i < 3; i++) ShaderConfig.uReliefLight[i] = len > 0 ? dir[i] / len : 0.0f;
+        ShaderConfig.uReliefLight[3] = (len > 0 && LightUse[light]) ? 1.0f : 0.0f;
     }
 
     ShaderConfig.uFogOffset = gpu.GPU3D.RenderFogOffset;
@@ -2244,7 +2259,7 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
         BuildPolygons(&PolygonList[0], npolys);
         glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
         glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*VertexSize*4, VertexBuffer.data());
-        if (LightingActive)
+        if (ViewDataActive)
         {
             glBindBuffer(GL_ARRAY_BUFFER, ViewVertexBufferID);
             glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*ViewVertexSize*4, ViewVertexBuffer.data());

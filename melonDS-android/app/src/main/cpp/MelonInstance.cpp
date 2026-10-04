@@ -709,6 +709,7 @@ void MelonInstance::updateRenderer()
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetLightBounce(currentConfiguration->lightBounce);
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetShadows(currentConfiguration->shadows);
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetReflections(currentConfiguration->reflections);
+            static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetRelief(currentConfiguration->reliefTextures);
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetFrameGeneration(currentConfiguration->frameGeneration);
             break;
         }

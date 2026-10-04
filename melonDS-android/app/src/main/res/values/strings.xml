@@ -713,6 +713,17 @@
     <string name="shadows_summary">3D objects cast shadows from the scene\'s main light: sharp where they meet the object, softer further away</string>
     <string name="reflections">Reflections</string>
     <string name="reflections_summary">Surfaces reflect what is on screen: shiny materials clearly, others only at grazing angles</string>
+    <string name="relief_textures">Relief textures</string>
+    <string-array name="relief_textures_options">
+        <item>Off</item>
+        <item>Subtle</item>
+        <item>Strong</item>
+    </string-array>
+    <string-array name="relief_textures_values" translatable="false">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </string-array>
     <string name="frame_generation">Frame generation (120 fps)</string>
     <string name="frame_generation_summary">An extra image between two DS frames, with the 3D placed halfway: smoother motion on a 120 Hz screen. The game still runs at its own speed</string>
     <string name="texture_upscale">Texture upscaling</string>

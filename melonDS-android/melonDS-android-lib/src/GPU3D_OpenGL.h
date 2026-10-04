@@ -45,6 +45,8 @@ public:
     void SetTextureUpscale(int factor) { HDTextures.SetUpscaleFactor(factor); }
     // Pomegrade: smooth texture filtering, colour only (see TextureLookup_Filtered)
     void SetTextureFilter(bool enable) noexcept { ShaderConfig.uTextureFilter = enable ? 1 : 0; }
+    // Relief textures (Pomegrade): 0 off, 1 subtle, 2 strong (DS_ENGINE_REMAKE.md 14.1, 15.2)
+    void SetRelief(int level) noexcept { Relief = level; }
     // Scene-adaptive colour (Pomegrade): see GPU_SceneColour.h
     void SetAdaptiveColours(bool enable) { CurGLCompositor.SetAdaptiveColours(enable); }
     void SetOledBlacks(bool enable) { CurGLCompositor.SetOledBlacks(enable); }
@@ -145,6 +147,8 @@ private:
     int BackupW {}, BackupH {};
 
     bool LightingEnabled() const noexcept { return AmbientOcclusion || LightBounce || Shadows || Reflections; }
+    // the view-space vertex data: for the lighting effects and for relief textures
+    bool ViewDataWanted() const noexcept { return LightingEnabled() || Relief > 0; }
     // Pomegrade: a polygon's Z-buffer depth as a plane on screen (output
     // units), when its rounded vertices need it; and its depth at a position
     bool DepthPlane(const Polygon* poly, double plane[3]) const;
@@ -186,7 +190,8 @@ private:
         u32 uFogOffset;             // int        304 / 1
         u32 uFogShift;              // int        305 / 1
         u32 uTextureFilter;         // int        306 / 1   Pomegrade: TextureLookup_Filtered
-        u32 _pad1;                  // int        307 / 1
+        float uRelief;              // float      307 / 1   Pomegrade: relief depth in texels, 0 = off
+        float uReliefLight[4];      // vec4       308 / 4   Pomegrade: towards the main light (view space), w: 1 if known
     } ShaderConfig {};
 
     GLuint ShaderConfigUBO {};
@@ -243,6 +248,8 @@ private:
     bool AmbientOcclusion {};
     bool LightBounce {};
     bool Shadows {};
+    int Relief {};
+    bool ViewDataActive {}; // view-space vertex data built and uploaded this frame
     // inspector (Pomegrade): set while polygons are drawn in its colours
     const class Inspector* ViewInspector = nullptr;
     bool Reflections {};
