@@ -101,7 +101,11 @@ Design: `DS_ENGINE_REMAKE.md` (the owner's notes). Its step 1 (5.12, "logging an
 - Step 2 (texgen detection, decal ordering): done, desktop-tested, not tried on a phone.
   - Decals ("depth test equal" polygons) in the OpenGL renderer. Measured on a floor in perspective (`tests/decals/`, against the software renderer): without high precision, OpenGL drew 0 of the 770 decal pixels the DS draws (Z-buffer) and 115 of 4418 (W-buffer). Two causes, both fixed: vertices rounded to whole output pixels kept their exact depth, so a floor and its decal got different depth planes on screen (now each vertex gets its polygon's depth at its rounded position, Z-buffer mode); and the DS margin (0x200 / 0xFF) was not applied (now the near half is, in the shaders). After: no reference pixel missing at x1 and x4, with and without high precision. Limit: a depth-equal polygon more than the margin in front of what is behind it still draws (as before).
   - Texgen detection: the inspector report lists, per call site and texture, polygons by texgen mode (normal = fake reflection, position = projected texture) and textures whose matrix scrolls from frame to frame.
-- Next: palette-index histograms (step 1); a first report from Dragon Quest Monsters: Joker; then step 3 (RAM-map discovery).
+- First look at Dragon Quest Monsters: Joker (EU), from a save state of a harbour scene rendered on the desktop (no ROM: a few frames run from RAM):
+  - 779 of 790 polygons are drawn through one routine in ITCM (01FF847C), the one that starts each display-list DMA: the call site alone names the library, not the game code. Display lists identify models (125 in the frame, up to 36 polygons each). Next for the inspector: the caller of that routine (return address), as section 7D anticipates.
+  - W-buffer; no depth-equal decals; shadows are DS shadow volumes (36 polygons); 45 translucent polygons; 6 polygon IDs in use; textures by texcoord only (no fake reflections, nothing scrolling in this scene).
+  - Software and OpenGL renders match apart from texel sampling noise and polygon edges (known upstream differences).
+- Next: the caller of the display-list routine in the inspector; palette-index histograms (step 1); then step 3 (RAM-map discovery), which a save state is enough to start.
 
 ## 4. One coherent app
 
