@@ -303,6 +303,7 @@ private:
     // (see FindReplacedShadows); the DS image keeps them
     bool ShadowsDrawn {}, DSShadowsReplaced {};
     std::vector<bool> ShadowReplaced; // per PolygonList entry
+    std::vector<float> ShadowDistances; // squared view distances of the frame's vertices (RenderShadowMap's background cut)
     GLuint LightingAOShader {}, LightingComposeShader {}, LightingShadowShader {};
     // shadow map of the main light (the light the most polygons use this frame)
     static constexpr int ShadowMapSize = 2048;

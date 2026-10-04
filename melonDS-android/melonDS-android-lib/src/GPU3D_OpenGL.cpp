@@ -1724,12 +1724,38 @@ bool GLRenderer::RenderShadowMap(const GPU3D& gpu3d)
     // has its whole outline, and the inside of what encloses the scene (a
     // room's ceiling and walls, lit by the DS too) faces away from a light
     // coming from outside, which it would otherwise block entirely
+    // Far background (a sky dome, distant mountains) casts nothing: what lies
+    // over 8 times further than the median distance of what the frame draws.
+    // On Joker's harbour a piece of the sky dome, a million units out (the
+    // scene within about 60 thousand), joined the casters on some frames and
+    // put the whole scene in shadow
+    ShadowDistances.clear();
+    for (u32 v = 0; v < NumVertices; v++)
+    {
+        const float* g = &ViewVertexBuffer[v * ViewVertexSize];
+        if (g[3] >= 0.5f) ShadowDistances.push_back(g[0]*g[0] + g[1]*g[1] + g[2]*g[2]);
+    }
+    float farthest = 1e30f;
+    if (!ShadowDistances.empty())
+    {
+        auto mid = ShadowDistances.begin() + ShadowDistances.size() / 2;
+        std::nth_element(ShadowDistances.begin(), mid, ShadowDistances.end());
+        farthest = *mid * 64.0f; // squared: 8 times the distance
+    }
     const std::vector<float>& recorded = gpu3d.RenderShadowCasters;
     ShadowCasterVertices.clear();
     for (size_t t = 0; t + 11 < recorded.size(); t += 12)
     {
         const float* n = &recorded[t + 9];
         if (n[0]*sp.Dir[0] + n[1]*sp.Dir[1] + n[2]*sp.Dir[2] <= 0)
+            continue;
+        bool background = false;
+        for (int v = 0; v < 3; v++)
+        {
+            const float* q = &recorded[t + v * 3];
+            background = background || q[0]*q[0] + q[1]*q[1] + q[2]*q[2] > farthest;
+        }
+        if (background)
             continue;
         ShadowCasterVertices.insert(ShadowCasterVertices.end(), &recorded[t], &recorded[t + 9]);
     }
