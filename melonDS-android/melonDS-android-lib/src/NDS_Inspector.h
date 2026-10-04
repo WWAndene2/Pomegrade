@@ -36,12 +36,17 @@
 // - the joint trees of the last frame's skinned models, from its trace
 //   (GPU3D_SkeletonRecovery.h, step 10);
 // - the lights the frame set, from its trace (GPU3D_LightRecovery.h, step 11);
+// - the 2D side (step 12): each text background flattened once a second
+//   (GPU2D_TilemapFlattening.h), with how often its map and its palette
+//   changed, and each engine's sprites followed from frame to frame to find
+//   those the game multiplexes (GPU2D_SpriteLimitInversion.h);
 // - Report() writes all of it as text.
 // Off by default; off, it costs nothing (the JIT emits no extra code).
 
 #include "types.h"
 #include "GPU3D_ParityOracle.h"
 #include "GPU3D_MaterialClassifier.h"
+#include "GPU2D_SpriteLimitInversion.h"
 
 #include <atomic>
 #include <map>
@@ -224,6 +229,23 @@ private:
     CaptureBank CaptureBanks[4];   // under Lock
     // this frame's display capture and VRAM use
     void RecordCapture() noexcept;
+    // a 2D engine's background as last flattened
+    struct TextLayerRecord
+    {
+        bool Checked = false;    // looked at once at least
+        bool Text = false;
+        u32 Width = 0, Height = 0, Tiles = 0, DistinctTiles = 0, FlippedTiles = 0;
+        bool ExtendedPalette = false, Colours256 = false;
+        u32 Hash = 0, PaletteHash = 0;
+        u32 Samples = 0;         // times flattened
+        u32 MapChanges = 0;      // samples whose image differed from the previous
+        u32 PaletteChanges = 0;  // samples with the same image but other colours
+    };
+    TextLayerRecord TextLayers[2][4]; // under Lock; by engine, background
+    SpriteLimitInversion SpriteTracks[2]; // under Lock; by engine
+    // this frame's sprites, and once a second the text backgrounds
+    void Record2D();
+    static constexpr u32 FlattenInterval = 60;
     std::string ManifestErrors;
     u32 LastParityFrame = 0;
     static constexpr u32 ParityInterval = 60;
