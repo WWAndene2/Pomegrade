@@ -719,7 +719,14 @@ bool NDS::DoSavestate(Savestate* file)
     file->VarArray(KeyCnt, 2*sizeof(u16));
     file->Var16(&RCnt);
 
-    file->Var8(&WRAMCnt);
+    // Pomegrade: read into a copy, so that MapSharedWRAM below (which returns
+    // early when the value is unchanged) still remaps from the value before
+    // loading; reading straight into WRAMCnt left the shared WRAM mapped as
+    // it was, so a state whose WRAMCNT differed from the running one's (one
+    // loaded on a freshly started console) ran the ARM7 on the wrong memory
+    u8 wramCnt = WRAMCnt;
+    file->Var8(&wramCnt);
+    if (file->Saving) WRAMCnt = wramCnt;
 
     file->Bool32(&RunningGame);
 
@@ -727,7 +734,7 @@ bool NDS::DoSavestate(Savestate* file)
     {
         // 'dept of redundancy dept'
         // but we do need to update the mappings
-        MapSharedWRAM(WRAMCnt);
+        MapSharedWRAM(wramCnt);
 
         InitTimings();
         SetGBASlotTimings();
