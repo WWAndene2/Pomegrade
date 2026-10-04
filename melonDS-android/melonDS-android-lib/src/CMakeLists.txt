@@ -49,6 +49,7 @@ add_library(core STATIC
     NDS_Inspector.cpp
     GPU3D_ParityOracle.cpp
     GPU3D_MaterialClassifier.cpp
+    GPU3D_SkeletonRecovery.cpp
     NDSCart.cpp
     NDSCartR4.cpp
     Platform.h

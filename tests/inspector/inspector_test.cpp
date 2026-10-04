@@ -11,6 +11,7 @@
 #include "GPU3D.h"
 #include "GPU3D_OpenGL.h"
 #include "GPU3D_MaterialClassifier.h"
+#include "GPU3D_SkeletonRecovery.h"
 #include "GPU3D_Soft.h"
 #include "NDSCart.h"
 #include "NDS_Inspector.h"
@@ -533,7 +534,44 @@ int main()
         if (!ok) printf("%s\n", report.substr(report.find("== Display captures")).substr(0, 600).c_str());
     }
 
-    // 4c. palette indices    // 4c. palette indices of a paletted texture: 8x8, 16 colours (4 bits per
+    // 4h. skeleton recovery from a command trace, the NitroSDK way: a model
+    // starts with the projection loaded; joints are stored after their
+    // parent's matrix is restored (or chained); a scratch slot may hold two
+    // joints in turn; vertices go to the joint restored last (model scale
+    // after it); a billboard joint is loaded from the joint restored last
+    {
+        std::vector<GeometryCommand> t;
+        auto cmd = [&](u8 c, u32 p = 0, int params = 1) { for (int i = 0; i < params; i++) t.push_back({c, p, 0x02001000}); };
+        auto vertices = [&](int n) { for (int i = 0; i < n; i++) cmd(0x23, 0, 2); };
+        for (int model = 0; model < 2; model++)
+        {
+            cmd(0x10, 0); cmd(0x16, 0, 16);           // projection
+            cmd(0x10, 2); cmd(0x17, 0, 12);           // camera
+            cmd(0x19, 0, 12); cmd(0x13, 0);           // root, slot 0              joint 0
+            cmd(0x14, 0); cmd(0x19, 0, 12); cmd(0x13, 1);   // hips, slot 1         joint 1
+            cmd(0x19, 0, 12); cmd(0x13, 2);           // spine, chained, slot 2    joint 2
+            cmd(0x14, 1); cmd(0x19, 0, 12); cmd(0x13, 0);   // leg in scratch slot 0 joint 3
+            cmd(0x14, 2); cmd(0x10, 1); cmd(0x17, 0, 12);   // billboard from spine
+            cmd(0x10, 2); cmd(0x13, 3);                      //                    joint 4
+            // a skinned polygon: 2 vertices on the spine, 1 on the leg
+            cmd(0x40, 0);
+            cmd(0x14, 2); cmd(0x1B, 0, 3); vertices(2);
+            cmd(0x14, 0); cmd(0x1B, 0, 3); vertices(1);
+            cmd(0x41, 0);
+        }
+        const std::vector<Skeleton> sk = RecoverSkeletons(t);
+        bool shape = sk.size() == 2;
+        for (const Skeleton& s : sk)
+        {
+            const auto& j = s.Joints;
+            shape = shape && j.size() == 5 && j[0].Parent == -1 && j[1].Parent == 0 && j[2].Parent == 1 && j[3].Parent == 1 &&
+                    j[3].Slot == 0 && j[4].Parent == 2 && j[2].Vertices == 2 && j[3].Vertices == 1 && s.Depth() == 4;
+        }
+        if (!shape) for (const Skeleton& s : sk) printf("%s", SkeletonTree(s).c_str());
+        check(shape, "skeletons: 2 models (split at the projection load), 5 joints each: chain, scratch slot, billboard, skinned vertices");
+    }
+
+    // 4c. palette indices    // 4c. palette indices    // 4c. palette indices of a paletted texture: 8x8, 16 colours (4 bits per
     // texel), 48 texels on index 1, 16 on index 5
     {
         auto nds = MakeNDS(false);

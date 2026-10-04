@@ -4,6 +4,7 @@
 #include "NDSCart.h"
 #include "DMA.h"
 #include "GPU3D.h"
+#include "GPU3D_SkeletonRecovery.h"
 #include "xxhash/xxhash.h"
 
 #include <algorithm>
@@ -881,6 +882,21 @@ std::string Inspector::Report() const
         add("Fog: %s, colour %u,%u,%u alpha %u, from depth 0x%X, density %u to %u (of 127) in 32 steps of 0x%X\n",
             (g3.RenderDispCnt & (1 << 7)) ? "on" : "off", g3.RenderFogColor & 0x1F, (g3.RenderFogColor >> 5) & 0x1F, (g3.RenderFogColor >> 10) & 0x1F,
             (g3.RenderFogColor >> 16) & 0x1F, g3.RenderFogOffset, g3.RenderFogDensityTable[0], g3.RenderFogDensityTable[33], 0x400u >> g3.RenderFogShift);
+    }
+
+    {
+        std::vector<GeometryCommand> trace;
+        trace.reserve(Last.Trace.size());
+        for (const TraceEntry& e : Last.Trace) trace.push_back({e.Command, e.Param, e.Site});
+        const std::vector<Skeleton> skeletons = RecoverSkeletons(trace);
+        add("\n== Skeletons (%zu models with 3 joints or more%s) ==\n", skeletons.size(), Last.TraceTruncated ? ", trace truncated" : "");
+        add("Joints from the matrix stack: a joint is a matrix stored in a slot (MTX_STORE) after its parent's was restored\n");
+        add("and transformed; its vertices are drawn after its slot is restored.\n");
+        for (const Skeleton& s : skeletons)
+        {
+            add("Model at %s (command %zu): %zu joints, depth %d, %u vertices\n", site(s.Site).c_str(), s.FirstCommand, s.Joints.size(), s.Depth(), s.Vertices());
+            out += SkeletonTree(s);
+        }
     }
 
     out += Parity.Report();

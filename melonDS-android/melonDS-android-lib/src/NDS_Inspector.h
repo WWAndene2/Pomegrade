@@ -33,6 +33,8 @@
 // - display captures (5.4): where the game captures the screen to, and how
 //   it uses that VRAM bank after (as a texture, shown, as a background), and
 //   the fog settings (5.5);
+// - the joint trees of the last frame's skinned models, from its trace
+//   (GPU3D_SkeletonRecovery.h, step 10);
 // - Report() writes all of it as text.
 // Off by default; off, it costs nothing (the JIT emits no extra code).
 
