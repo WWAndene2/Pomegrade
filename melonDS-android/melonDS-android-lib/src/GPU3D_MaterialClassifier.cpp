@@ -12,7 +12,7 @@ namespace melonDS
 
 const char* MaterialClassifier::Name(MaterialClass c) noexcept
 {
-    static const char* names[] = {"unknown", "water", "lava", "foliage", "wood", "stone", "sky"};
+    static const char* names[] = {"unknown", "water", "lava", "foliage", "wood", "stone", "sky", "character"};
     return names[(int)c];
 }
 
@@ -59,10 +59,17 @@ const MaterialClassifier::TextureStats& MaterialClassifier::Statistics(GPU& gpu,
             else hue = 60 * ((r - g) / (mx - mn) + 4);
         }
         s.Hue = (float)hue;
+        // chroma only (each channel minus the texel's mean): a stone's light
+        // and dark spots are one colour, an atlas's skin and cloth are not
+        const double m = (r + g + b) / 3;
         double spread = 0;
         for (u32 c : texels)
             if (c >> 24)
-                spread += (std::fabs((c & 0x3F) / 63.0 - r) + std::fabs(((c >> 8) & 0x3F) / 63.0 - g) + std::fabs(((c >> 16) & 0x3F) / 63.0 - b)) / 3;
+            {
+                const double cr = (c & 0x3F) / 63.0, cg = ((c >> 8) & 0x3F) / 63.0, cb = ((c >> 16) & 0x3F) / 63.0;
+                const double l = (cr + cg + cb) / 3;
+                spread += (std::fabs(cr - l - (r - m)) + std::fabs(cg - l - (g - m)) + std::fabs(cb - l - (b - m))) / 3;
+            }
         s.Variety = (float)(spread / opaque);
         const double ex = pairsX ? dx / pairsX : 0, ey = pairsY ? dy / pairsY : 0;
         s.Detail = (float)((ex + ey) / 2);
@@ -97,7 +104,7 @@ MaterialResult MaterialClassifier::Classify(GPU& gpu, u32 texParam, u32 palette,
     }
     // texture statistics. A texture of many colours (a character's atlas)
     // has no one hue to go by
-    const bool coloured = s.Saturation > 0.25f && s.Variety < 0.15f;
+    const bool coloured = s.Saturation > 0.25f && s.Variety < 0.10f;
     const bool green = coloured && s.Hue >= 70 && s.Hue < 170;
     if (cutout && green) vote(MaterialClass::Foliage, RenderState * 0.5f, "cut-out alpha, green");
     if (coloured && s.Hue >= 170 && s.Hue <= 250)
@@ -115,6 +122,12 @@ MaterialResult MaterialClassifier::Classify(GPU& gpu, u32 texParam, u32 palette,
     if (s.Transparent < 0.05f && s.Saturation < 0.4f && s.Detail > 0.02f && s.Grain < 0.3f)
         vote(MaterialClass::Stone, TextureStats, "dull, isotropic noise");
     if (coloured && (s.Hue < 15 || s.Hue > 340) && s.Brightness > 0.6f) vote(MaterialClass::Lava, TextureStats * 0.5f, "red, bright");
+
+    // polygon IDs: games give characters IDs of their own (edge marking
+    // outlines each ID) while the scenery shares one. Drawn apart from the
+    // scenery, a texture of many colours (a character's atlas) is a character
+    if (e.SceneryId >= 0 && e.PolygonIds && !(e.PolygonIds >> e.SceneryId & 1) && s.Variety >= 0.05f)
+        vote(MaterialClass::Character, RenderState, "own polygon ID, many colours");
 
     // fusion: the best class, its confidence its share of the votes
     float total = 0, best = 0;

@@ -128,6 +128,7 @@ private:
         u32 Lit = 0;              // polygons with a light enabled
         u8 Specular = 0, Emission = 0; // largest material channel (0-31) of lit polygons
         bool Shininess = false;   // the shininess table used
+        u64 PolygonIds = 0;       // bit n: polygon ID n drawn with it
     };
     // one draw of an object in a frame
     struct ObjectDraw

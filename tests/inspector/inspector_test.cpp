@@ -426,6 +426,9 @@ int main()
         };
         TextureEvidence none, scrolling, translucent, selfLit;
         selfLit.Polygons = 4; selfLit.Lit = 4; selfLit.Emission = 31;
+        TextureEvidence ownId, sceneryId;
+        ownId.PolygonIds = 1ull << 6; ownId.SceneryId = 63;
+        sceneryId.PolygonIds = 1ull << 63; sceneryId.SceneryId = 63;
         scrolling.Scrolling = true;
         translucent.Polygons = 4; translucent.Translucent = 4;
         struct Case { const char* what; u32 param; TextureEvidence e; MaterialClass want; };
@@ -433,11 +436,14 @@ int main()
             {"green leaves with holes", texture([&](int x, int y) { return (x * 7 + y * 3) % 10 < 3 ? (u16)0 : rgb(6 + noise(), 20 + 2 * noise(), 5 + noise()); }), none, MaterialClass::Foliage},
             {"deep blue water, scrolling", texture([&](int, int) { return rgb(2, 10 + noise() / 2, 24 + noise() / 2); }), scrolling, MaterialClass::Water},
             {"deep blue water, translucent", texture([&](int, int) { return rgb(2, 10 + noise() / 2, 24 + noise() / 2); }), translucent, MaterialClass::Water},
-            {"grey stone", texture([&](int, int) { return rgb(16 + 2 * noise(), 16 + 2 * noise(), 15 + 2 * noise()); }), none, MaterialClass::Stone},
+            {"grey stone (light and dark spots of one colour)", texture([&](int, int) { int n = 2 * noise(); return rgb(16 + n, 16 + n, 15 + n); }), none, MaterialClass::Stone},
             {"brown planks, grain along x", texture([&](int, int y) { int v = (y % 4 == 0) ? -5 : 0; return rgb(18 + v, 10 + v, 3); }), none, MaterialClass::Wood},
             {"bright sky", texture([&](int, int y) { return rgb(12 + y / 4, 20 + y / 4, 31); }), none, MaterialClass::Sky},
             {"dim blue sky, self-lit (full emission)", texture([&](int, int y) { return rgb(8 + y / 4, 14 + y / 4, 22); }), selfLit, MaterialClass::Sky},
             {"the same, not self-lit: deep blue water", texture([&](int, int y) { return rgb(8 + y / 4, 14 + y / 4, 22); }), none, MaterialClass::Water},
+            {"a character's atlas, its own polygon ID", texture([&](int x, int y) { return rgb((x * 5) % 32, (y * 7) % 32, ((x + y) * 3) % 32); }), ownId, MaterialClass::Character},
+            {"the same atlas in the scenery's ID", texture([&](int x, int y) { return rgb((x * 5) % 32, (y * 7) % 32, ((x + y) * 3) % 32); }), sceneryId, MaterialClass::Unknown},
+            {"one-colour grey noise, its own ID: stone, not a character", texture([&](int, int) { int n = 2 * noise(); return rgb(16 + n, 16 + n, 15 + n); }), ownId, MaterialClass::Stone},
             {"red lava, scrolling", texture([&](int, int) { return rgb(30, 8 + noise(), 2); }), scrolling, MaterialClass::Lava},
             {"a character's atlas of many colours", texture([&](int x, int y) { return rgb((x * 5) % 32, (y * 7) % 32, ((x + y) * 3) % 32); }), none, MaterialClass::Unknown},
         };

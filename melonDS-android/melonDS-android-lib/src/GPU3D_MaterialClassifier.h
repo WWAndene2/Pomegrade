@@ -5,7 +5,8 @@
 // what a texture is (water, foliage, wood, stone...) from two of the
 // classifier's layers, with no learning:
 // - render state: translucent polygons, a scrolling texture matrix, a cut-out
-//   alpha (1-bit or a transparent colour 0), a lit polygon's emission;
+//   alpha (1-bit or a transparent colour 0), a lit polygon's emission, its
+//   polygon IDs (games give each character its own, for its outline);
 // - texture statistics, computed once per texture and palette: hue and
 //   saturation, brightness, high-frequency energy, grain direction.
 // Each cue votes for classes with the doc's weights (render state 0.6,
@@ -21,7 +22,7 @@ namespace melonDS
 {
 class GPU;
 
-enum class MaterialClass : int { Unknown, Water, Lava, Foliage, Wood, Stone, Sky, Count };
+enum class MaterialClass : int { Unknown, Water, Lava, Foliage, Wood, Stone, Sky, Character, Count };
 
 // what the game's polygons say about a texture, over a frame
 struct TextureEvidence
@@ -33,6 +34,9 @@ struct TextureEvidence
     u32 Lit = 0;
     u8 Specular = 0, Emission = 0; // largest channel, 0-31
     bool Shininess = false;
+    u64 PolygonIds = 0;  // bit n: polygon ID n
+    // the frame's scenery ID (the one shared by the most textures), -1: none
+    int SceneryId = -1;
 };
 
 struct MaterialResult
@@ -62,7 +66,7 @@ public:
         float Detail = 0;     // mean neighbour difference, 0-1 (busy: grass, stone)
         float Grain = 0;      // 0: isotropic, 1: all along one axis (wood)
         float Transparent = 0; // share of transparent texels
-        float Variety = 0;    // mean distance of texels from the mean colour, 0-1 (an atlas of many colours: high)
+        float Variety = 0;    // mean chroma distance of texels from the mean colour, 0-1 (an atlas of many colours: high)
     };
     const TextureStats& Statistics(GPU& gpu, u32 texParam, u32 palette);
 

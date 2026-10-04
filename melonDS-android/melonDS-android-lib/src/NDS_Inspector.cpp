@@ -374,6 +374,7 @@ void Inspector::OnPolygon(Polygon& poly, u16 source, s32 texX, s32 texY, const s
         use.Palette = poly.TexPalette;
         const u32 alpha = (poly.Attr >> 16) & 0x1F;
         if (alpha && alpha < 31) use.Translucent++;
+        use.PolygonIds |= 1ull << ((poly.Attr >> 24) & 0x3F);
         // material registers in effect (DIF_AMB, SPE_EMI): they shade lit polygons only
         if (poly.Attr & 0xF)
         {
@@ -448,7 +449,16 @@ void Inspector::OnFlush() noexcept
             e.Specular = std::max(e.Specular, use.Specular);
             e.Emission = std::max(e.Emission, use.Emission);
             e.Shininess = e.Shininess || use.Shininess;
+            e.PolygonIds |= use.PolygonIds;
         }
+        // the scenery ID: shared by the most textures (3 at least)
+        int counts[64] = {}, scenery = -1;
+        for (auto& [key, e] : evidence)
+            for (int i = 0; i < 64; i++)
+                if (e.PolygonIds >> i & 1) counts[i]++;
+        for (int i = 0; i < 64; i++)
+            if (counts[i] >= 3 && (scenery < 0 || counts[i] > counts[scenery])) scenery = i;
+        for (auto& [key, e] : evidence) e.SceneryId = scenery;
         Current.MaterialEvidence.swap(evidence);
     }
 
@@ -624,6 +634,18 @@ void Inspector::FindPositionFields()
     }
 }
 
+namespace
+{
+// polygon IDs as "ids 1,5: "
+std::string Ids(u64 bits)
+{
+    std::string out;
+    for (int i = 0; i < 64; i++)
+        if (bits >> i & 1) out += (out.empty() ? "ids " : ",") + std::to_string(i);
+    return out.empty() ? out : out + ": ";
+}
+}
+
 std::string Inspector::Report() const
 {
     std::lock_guard<std::mutex> guard(Lock);
@@ -761,7 +783,7 @@ std::string Inspector::Report() const
     {
         add("\n== Materials (%zu textures) ==\n", Last.Materials.size());
         add("From render state and texture statistics (no manifest or file names yet); unknown below %.2f confidence.\n", MaterialClassifier::MinConfidence);
-        add("%-8s %-9s %-5s %-8s %-8s %-4s  %-31s %s\n", "texture", "size", "fmt", "palette", "class", "conf", "hue sat bright detail grain var", "lit spec emis  cues");
+        add("%-8s %-9s %-5s %-8s %-8s %-4s  %-31s %s\n", "texture", "size", "fmt", "palette", "class", "conf", "hue sat bright detail grain var", "lit spec emis  ids: cues");
         std::vector<std::pair<u64, const FrameTables::Material*>> list;
         for (auto& [key, m] : Last.Materials) list.push_back({key, &m});
         std::sort(list.begin(), list.end(), [](auto& a, auto& b) { return a.second->Evidence.Polygons > b.second->Evidence.Polygons; });
@@ -772,7 +794,7 @@ std::string Inspector::Report() const
             add("%08X %3ux%-5u f%u   %08X %-8s %.2f  %3.0f %.2f %.2f %.3f %.2f %.2f  %3u%% %2u%s %2u   %s\n", (param & 0xFFFF) << 3, 8 << ((param >> 20) & 7), 8 << ((param >> 23) & 7),
                 (param >> 26) & 7, (u32)(key >> 32), MaterialClassifier::Name(m->Result.Class), m->Result.Confidence,
                 s.Hue, s.Saturation, s.Brightness, s.Detail, s.Grain, s.Variety,
-                m->Evidence.Polygons ? m->Evidence.Lit * 100 / m->Evidence.Polygons : 0, m->Evidence.Specular, m->Evidence.Shininess ? "s" : " ", m->Evidence.Emission, m->Result.Cues.c_str());
+                m->Evidence.Polygons ? m->Evidence.Lit * 100 / m->Evidence.Polygons : 0, m->Evidence.Specular, m->Evidence.Shininess ? "s" : " ", m->Evidence.Emission, (Ids(m->Evidence.PolygonIds) + m->Result.Cues).c_str());
         }
     }
 
