@@ -17,6 +17,7 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
 namespace melonDS
 {
@@ -69,6 +70,23 @@ public:
         float Variety = 0;    // mean chroma distance of texels from the mean colour, 0-1 (an atlas of many colours: high)
     };
     const TextureStats& Statistics(GPU& gpu, u32 texParam, u32 palette);
+
+    // palette-index segmentation (DS_ENGINE_REMAKE.md 5.3): artists paint
+    // each material of a paletted texture with its own palette entries. The
+    // entries the texture uses are grouped by colour (scaled to its brightest
+    // channel: shading changes a material's lightness, not its colour), each
+    // group a region
+    struct Region
+    {
+        std::vector<u8> Indices;
+        float Share = 0;      // of the opaque texels
+        u16 Colour = 0;       // mean, BGR555
+        const char* Label = ""; // "skin" when its colour is in skin's band
+    };
+    // empty for direct colour, compressed and translucent (A3I5, A5I3) formats
+    std::vector<Region> Segment(GPU& gpu, u32 texParam, u32 palette) const;
+
+    static constexpr float RegionDistance = 0.2f;  // colour distance merging two entries' groups
 
 private:
     std::map<u64, TextureStats> Stats;

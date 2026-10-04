@@ -4,6 +4,7 @@
 #include "GPU3D_Texcache.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <vector>
 
@@ -77,6 +78,108 @@ const MaterialClassifier::TextureStats& MaterialClassifier::Statistics(GPU& gpu,
         s.Grain = ex + ey > 0 ? (float)(std::fabs(ex - ey) / (ex + ey)) : 0;
     }
     return Stats.emplace(key, s).first->second;
+}
+
+std::vector<MaterialClassifier::Region> MaterialClassifier::Segment(GPU& gpu, u32 texParam, u32 palette) const
+{
+    // bits per texel by format: 4, 16 and 256 colours only
+    static const int bits[8] = {0, 0, 2, 4, 8, 0, 0, 0};
+    const u32 format = (texParam >> 26) & 7;
+    if (!bits[format]) return {};
+    const u32 entries = 1u << bits[format];
+    const u32 w = 8u << ((texParam >> 20) & 7), h = 8u << ((texParam >> 23) & 7);
+    const u32 addr = (texParam & 0xFFFF) << 3;
+    const u32 palAddr = format == 2 ? palette << 3 : palette << 4;
+    const bool colour0Transparent = (texParam >> 29) & 1;
+
+    std::vector<u32> counts(entries, 0);
+    for (u32 i = 0; i < w * h; i++)
+    {
+        const u32 bit = i * bits[format];
+        const u8 byte = gpu.ReadVRAM_Texture<u8>(addr + (bit >> 3));
+        counts[(byte >> (bit & 7)) & (entries - 1)]++;
+    }
+    if (colour0Transparent) counts[0] = 0;
+
+    // the used entries' colours, as lightness and chroma
+    struct Entry { u8 Index; u32 Count; float R, G, B, L; int Group; };
+    std::vector<Entry> used;
+    for (u32 i = 0; i < entries; i++)
+    {
+        if (!counts[i]) continue;
+        const u16 c = gpu.ReadVRAM_TexPal<u16>(palAddr + i * 2);
+        Entry e {(u8)i, counts[i], (c & 0x1F) / 31.0f, ((c >> 5) & 0x1F) / 31.0f, ((c >> 10) & 0x1F) / 31.0f, 0, (int)used.size()};
+        e.L = (e.R + e.G + e.B) / 3;
+        used.push_back(e);
+    }
+    auto distance = [](const Entry& a, const Entry& b) {
+        // the colour scaled to its brightest channel counts fully (shading
+        // a material scales its channels: dark red and red are one colour),
+        // lightness a quarter
+        const float ma = std::max({a.R, a.G, a.B, 1.0f / 31}), mb = std::max({b.R, b.G, b.B, 1.0f / 31});
+        const float dr = a.R / ma - b.R / mb, dg = a.G / ma - b.G / mb, db = a.B / ma - b.B / mb;
+        return std::sqrt(dr * dr + dg * dg + db * db) + 0.25f * std::fabs(a.L - b.L);
+    };
+    // centroid linkage: the two groups whose mean colours are closest merge,
+    // until none are closer than RegionDistance (single linkage chains a
+    // 256-colour palette's ramps from one hue to the next into one group)
+    std::vector<Entry> centres = used; // a group's weighted mean, Count its texels
+    std::vector<bool> alive(centres.size(), true);
+    for (;;)
+    {
+        float best = RegionDistance;
+        int a = -1, b = -1;
+        for (size_t i = 0; i < centres.size(); i++)
+            if (alive[i])
+                for (size_t j = i + 1; j < centres.size(); j++)
+                    if (alive[j])
+                    {
+                        const float d = distance(centres[i], centres[j]);
+                        if (d < best) { best = d; a = (int)i; b = (int)j; }
+                    }
+        if (a < 0) break;
+        Entry& A = centres[a];
+        const Entry& B = centres[b];
+        const float n = (float)A.Count + B.Count;
+        A.R = (A.R * A.Count + B.R * B.Count) / n;
+        A.G = (A.G * A.Count + B.G * B.Count) / n;
+        A.B = (A.B * A.Count + B.B * B.Count) / n;
+        A.L = (A.R + A.G + A.B) / 3;
+        A.Count = (u32)n;
+        alive[b] = false;
+        for (Entry& e : used) if (e.Group == b) e.Group = a;
+    }
+
+    u32 total = 0;
+    for (const Entry& e : used) total += e.Count;
+    std::map<int, Region> groups;
+    std::map<int, std::array<double, 4>> sums; // r, g, b, count
+    for (const Entry& e : used)
+    {
+        Region& r = groups[e.Group];
+        r.Indices.push_back(e.Index);
+        auto& s = sums[e.Group];
+        s[0] += e.R * e.Count; s[1] += e.G * e.Count; s[2] += e.B * e.Count; s[3] += e.Count;
+    }
+    std::vector<Region> out;
+    for (auto& [g, r] : groups)
+    {
+        const auto& s = sums[g];
+        const float R = (float)(s[0] / s[3]), G = (float)(s[1] / s[3]), B = (float)(s[2] / s[3]);
+        r.Share = total ? (float)(s[3] / total) : 0;
+        r.Colour = (u16)(std::lround(R * 31) | (std::lround(G * 31) << 5) | (std::lround(B * 31) << 10));
+        // skin: an orange hue, moderately saturated, light (any complexion
+        // painted in DS games' usual ramps)
+        const float mx = std::max({R, G, B}), mn = std::min({R, G, B});
+        const float sat = mx > 0 ? (mx - mn) / mx : 0;
+        float hue = 0;
+        if (mx > mn && mx == R) hue = 60 * std::fmod((G - B) / (mx - mn) + 6, 6.0f);
+        else if (mx > mn && mx == G) hue = 60 * ((B - R) / (mx - mn) + 2);
+        if (mx == R && hue >= 10 && hue <= 45 && sat >= 0.2f && sat <= 0.65f && mx >= 0.45f) r.Label = "skin";
+        out.push_back(std::move(r));
+    }
+    std::sort(out.begin(), out.end(), [](const Region& a, const Region& b) { return a.Share > b.Share; });
+    return out;
 }
 
 MaterialResult MaterialClassifier::Classify(GPU& gpu, u32 texParam, u32 palette, const TextureEvidence& e)

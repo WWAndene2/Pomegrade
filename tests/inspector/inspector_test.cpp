@@ -459,6 +459,37 @@ int main()
             MaterialResult r = classify(c.param, c.e);
             check(r.Class == c.want, std::string("material: ") + c.what + ": " + MaterialClassifier::Name(r.Class) + " (" + std::to_string(r.Confidence).substr(0, 4) + ", " + r.Cues + ")");
         }
+
+        // palette-index segmentation: a 16-colour texture of three materials,
+        // each painted with a ramp of three shades: skin (entries 1-3), red
+        // cloth (4-6, dark to bright: one colour, shaded), grey metal (7-9)
+        {
+            const u16 palette[10] = {0, rgb(28, 19, 13), rgb(24, 15, 9), rgb(20, 11, 6),
+                                     rgb(10, 0, 0), rgb(20, 1, 1), rgb(30, 2, 2),
+                                     rgb(8, 8, 9), rgb(16, 16, 17), rgb(26, 26, 27)};
+            memcpy(nds->GPU.VRAM_E, palette, sizeof(palette));
+            nds->GPU.MapVRAM_E(4, 0x83);
+            // 16x16, 4 bits a texel at 0x8000: skin 1/2, red 1/4, grey 1/4
+            const u32 addr = 0x8000;
+            for (int y = 0; y < 16; y++)
+                for (int x = 0; x < 16; x += 2)
+                {
+                    auto index = [&](int px) { int shade = (px + y) % 3; return x < 8 ? 1 + shade : y < 8 ? 4 + shade : 7 + shade; };
+                    nds->GPU.VRAM_A[addr + y * 8 + x / 2] = (u8)(index(x) | (index(x + 1) << 4));
+                }
+            const u32 param = (3u << 26) | (1u << 20) | (1u << 23) | (addr >> 3);
+            auto regions = classifier.Segment(nds->GPU, param, 0);
+            bool skin = false, red = false, grey = false;
+            for (auto& r : regions)
+            {
+                std::vector<u8> ids(r.Indices);
+                if (ids == std::vector<u8>{1, 2, 3}) skin = std::string(r.Label) == "skin" && r.Share > 0.49f && r.Share < 0.51f;
+                if (ids == std::vector<u8>{4, 5, 6}) red = std::string(r.Label).empty();
+                if (ids == std::vector<u8>{7, 8, 9}) grey = std::string(r.Label).empty();
+            }
+            check(regions.size() == 3 && skin && red && grey,
+                  "segmentation: 3 regions, one per material and its shades; skin labelled, half the texels (" + std::to_string(regions.size()) + " regions)");
+        }
     }
 
     // 4c. palette indices of a paletted texture: 8x8, 16 colours (4 bits per

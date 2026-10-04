@@ -571,6 +571,9 @@ void Inspector::OnRendered(GPU& gpu, Renderer3D& renderer)
             m.Result = Classifier.Classify(gpu, (u32)key, (u32)(key >> 32), e);
             m.Stats = Classifier.Statistics(gpu, (u32)key, (u32)(key >> 32));
             m.Evidence = e;
+            // a character's parts (skin, cloth, hair...) by palette entries
+            if (m.Result.Class == MaterialClass::Character)
+                m.Regions = Classifier.Segment(gpu, (u32)key, (u32)(key >> 32));
             Last.Materials[key] = m;
         }
     }
@@ -795,6 +798,16 @@ std::string Inspector::Report() const
                 (param >> 26) & 7, (u32)(key >> 32), MaterialClassifier::Name(m->Result.Class), m->Result.Confidence,
                 s.Hue, s.Saturation, s.Brightness, s.Detail, s.Grain, s.Variety,
                 m->Evidence.Polygons ? m->Evidence.Lit * 100 / m->Evidence.Polygons : 0, m->Evidence.Specular, m->Evidence.Shininess ? "s" : " ", m->Evidence.Emission, (Ids(m->Evidence.PolygonIds) + m->Result.Cues).c_str());
+            // its regions, largest first (6 at most)
+            for (size_t k = 0; k < m->Regions.size() && k < 6; k++)
+            {
+                const auto& r = m->Regions[k];
+                std::string idx;
+                for (size_t n = 0; n < r.Indices.size() && n < 12; n++) idx += (n ? "," : "") + std::to_string(r.Indices[n]);
+                if (r.Indices.size() > 12) idx += ",...";
+                add("    region %3.0f%%  colour %02u,%02u,%02u  %-4s indices %s\n", r.Share * 100, r.Colour & 0x1F, (r.Colour >> 5) & 0x1F, (r.Colour >> 10) & 0x1F, r.Label, idx.c_str());
+            }
+            if (m->Regions.size() > 6) add("    ... %zu regions\n", m->Regions.size());
         }
     }
 

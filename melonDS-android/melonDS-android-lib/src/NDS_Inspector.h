@@ -157,7 +157,7 @@ private:
         std::map<u32, std::vector<u32>> PaletteHistograms;
         std::vector<ObjectDraw> Objects;
         // material of each texture drawn, by (palette << 32) | parameters
-        struct Material { MaterialResult Result; MaterialClassifier::TextureStats Stats; TextureEvidence Evidence; };
+        struct Material { MaterialResult Result; MaterialClassifier::TextureStats Stats; TextureEvidence Evidence; std::vector<MaterialClassifier::Region> Regions; };
         std::map<u64, Material> Materials;
         std::map<u64, TextureEvidence> MaterialEvidence; // same keys
     };
