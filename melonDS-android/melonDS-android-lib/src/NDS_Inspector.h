@@ -30,6 +30,9 @@
 //   the software renderer (GPU3D_ParityOracle.h, 5.12 step 6);
 // - each texture drawn gets a material class (water, foliage, wood...) from
 //   its render state and statistics (GPU3D_MaterialClassifier.h, step 7);
+// - display captures (5.4): where the game captures the screen to, and how
+//   it uses that VRAM bank after (as a texture, shown, as a background), and
+//   the fog settings (5.5);
 // - Report() writes all of it as text.
 // Off by default; off, it costs nothing (the JIT emits no extra code).
 
@@ -167,6 +170,15 @@ private:
         std::map<u64, TextureEvidence> MaterialEvidence; // same keys
     };
     struct CartFile { u32 Start, End, Id; };
+    // a VRAM bank (A-D) the game captures the screen to
+    struct CaptureBank
+    {
+        u32 Captures = 0;      // frames captured to it
+        u32 LastCnt = 0;       // DISPCAPCNT of the last capture
+        u32 AsTexture = 0;     // frames mapped as texture image after a capture
+        u32 Displayed = 0;     // frames shown from VRAM (display mode 2)
+        u32 AsBackground = 0;  // frames mapped as a background
+    };
     // a main RAM address holding (x, y, z) words a matrix was translated by
     struct PositionField
     {
@@ -205,6 +217,9 @@ private:
 
     ParityOracle Parity; // under Lock
     MaterialClassifier Classifier; // under Lock
+    CaptureBank CaptureBanks[4];   // under Lock
+    // this frame's display capture and VRAM use
+    void RecordCapture() noexcept;
     std::string ManifestErrors;
     u32 LastParityFrame = 0;
     static constexpr u32 ParityInterval = 60;

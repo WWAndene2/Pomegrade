@@ -104,7 +104,7 @@ void Inspector::BeginFrame() noexcept
 {
     FrameNumber++;
     bool requested = RequestedEnabled;
-    if (requested == Enabled) return;
+    if (requested == Enabled) { if (Enabled) RecordCapture(); return; }
 
     Enabled = requested;
     // JIT code writes ARM::StorePC only while this is on
@@ -123,6 +123,7 @@ void Inspector::BeginFrame() noexcept
         Last = FrameTables();
         FileReads.clear();
         PositionFields.clear();
+        for (CaptureBank& b : CaptureBanks) b = CaptureBank();
         Parity.Clear();
         FileReadsTruncated = false;
     }
@@ -554,6 +555,32 @@ std::string Inspector::FileName(u32 id) const
     return "(file " + std::to_string(id) + ")";
 }
 
+void Inspector::RecordCapture() noexcept
+{
+    std::lock_guard<std::mutex> guard(Lock);
+    // DISPCAPCNT bit 31: a capture this frame, to bank A-D (bits 16-17)
+    const u32 cnt = NDS.GPU.GPU2D_A.CaptureCnt;
+    if (cnt >> 31)
+    {
+        CaptureBank& b = CaptureBanks[(cnt >> 16) & 3];
+        b.Captures++;
+        b.LastCnt = cnt;
+    }
+    // how the banks captured to are used: VRAMCNT A-D (bit 7: on, bits 0-1:
+    // 0 LCDC, 1 main background, 3 texture image), DISPCNT display mode 2 shows
+    // a bank (bits 18-19) as the screen
+    const u32 dispCnt = NDS.GPU.GPU2D_A.DispCnt;
+    for (int i = 0; i < 4; i++)
+    {
+        CaptureBank& b = CaptureBanks[i];
+        if (!b.Captures) continue;
+        const u8 vramCnt = NDS.GPU.VRAMCNT[i];
+        if ((vramCnt & 0x80) && (vramCnt & 3) == 3) b.AsTexture++;
+        if ((vramCnt & 0x80) && (vramCnt & 3) == 1) b.AsBackground++;
+        if (((dispCnt >> 16) & 3) == 2 && (int)((dispCnt >> 18) & 3) == i) b.Displayed++;
+    }
+}
+
 void Inspector::SetMaterialManifest(const std::string& text)
 {
     MaterialManifest manifest;
@@ -830,6 +857,30 @@ std::string Inspector::Report() const
             }
             if (m->Regions.size() > 6) add("    ... %zu regions\n", m->Regions.size());
         }
+    }
+
+    {
+        add("\n== Display captures and fog ==\n");
+        bool any = false;
+        static const char* sources[4] = {"the 3D or the screen", "VRAM or main memory", "a blend of both", "a blend of both"};
+        for (int i = 0; i < 4; i++)
+        {
+            const CaptureBank& b = CaptureBanks[i];
+            if (!b.Captures) continue;
+            any = true;
+            const u32 cnt = b.LastCnt;
+            static const char* sizes[4] = {"128x128", "256x64", "256x128", "256x192"};
+            add("Bank %c: %u captures of %s (%s, offset 0x%X); after, used as a texture %u frames, shown %u, as a background %u\n",
+                'A' + i, b.Captures, sources[(cnt >> 29) & 3], sizes[(cnt >> 20) & 3], ((cnt >> 18) & 3) * 0x8000, b.AsTexture, b.Displayed, b.AsBackground);
+            if (b.AsTexture) add("    render to texture: a reflection, haze or glow drawn from the captured image\n");
+            if (b.Displayed) add("    the frame shown from VRAM: motion blur, a fade or a frozen frame\n");
+            if (b.AsBackground) add("    a background layer: a blur, a ghost image or a screen transition\n");
+        }
+        if (!any) add("No display capture since recording started.\n");
+        const GPU3D& g3 = NDS.GPU.GPU3D;
+        add("Fog: %s, colour %u,%u,%u alpha %u, from depth 0x%X, density %u to %u (of 127) in 32 steps of 0x%X\n",
+            (g3.RenderDispCnt & (1 << 7)) ? "on" : "off", g3.RenderFogColor & 0x1F, (g3.RenderFogColor >> 5) & 0x1F, (g3.RenderFogColor >> 10) & 0x1F,
+            (g3.RenderFogColor >> 16) & 0x1F, g3.RenderFogOffset, g3.RenderFogDensityTable[0], g3.RenderFogDensityTable[33], 0x400u >> g3.RenderFogShift);
     }
 
     out += Parity.Report();

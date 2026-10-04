@@ -508,7 +508,32 @@ int main()
         }
     }
 
-    // 4c. palette indices of a paletted texture: 8x8, 16 colours (4 bits per
+    // 4g. display captures: to bank B then mapped as a texture (render to
+    // texture), to bank C then shown from VRAM (motion blur, fades)
+    {
+        auto nds = MakeNDS(false);
+        nds->Inspector.SetEnabled(true);
+        nds->Inspector.BeginFrame();
+        GPU2D::Unit& a = nds->GPU.GPU2D_A;
+        for (int frame = 0; frame < 2; frame++)
+        {
+            a.CaptureCnt = (1u << 31) | (1u << 16) | (3u << 20);   // bank B, 256x192, source A
+            nds->GPU.VRAMCNT[1] = 0x83;                             // bank B: texture image
+            nds->Inspector.BeginFrame();
+        }
+        a.CaptureCnt = (1u << 31) | (2u << 16) | (1u << 29);       // bank C, source B
+        nds->GPU.VRAMCNT[2] = 0x80;                                 // LCDC
+        a.DispCnt = (2u << 16) | (2u << 18);                        // display mode 2: bank C
+        nds->Inspector.BeginFrame();
+        std::string report = nds->Inspector.Report();
+        check(report.find("Bank B: 2 captures of the 3D or the screen (256x192, offset 0x0); after, used as a texture 3 frames") != std::string::npos &&
+              report.find("    render to texture") != std::string::npos, "captures: bank B captured twice, then used as a texture (render to texture)");
+        check(report.find("Bank C: 1 captures of VRAM or main memory") != std::string::npos && report.find("shown 1") != std::string::npos &&
+              report.find("    the frame shown from VRAM") != std::string::npos, "captures: bank C shown from VRAM");
+        if (!ok) printf("%s\n", report.substr(report.find("== Display captures")).substr(0, 600).c_str());
+    }
+
+    // 4c. palette indices    // 4c. palette indices of a paletted texture: 8x8, 16 colours (4 bits per
     // texel), 48 texels on index 1, 16 on index 5
     {
         auto nds = MakeNDS(false);
