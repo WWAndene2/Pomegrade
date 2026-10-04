@@ -107,7 +107,10 @@ static bool FullFog = false;          // fog at full density everywhere
 static bool Bars = false;
 // a DS shadow volume (the dark disc games draw under characters) crossing the floor, left of the sphere
 static bool DSShadowVolume = false;
-static double DSShadowVolumeX = -1.3, DSShadowVolumeZ = -4.0; // its middle on the floor
+// its middle on the floor: inside the sphere's real shadow, which the side
+// light (travelling right and down) throws to its right (about 0.8 right and
+// 0.27 back of the sphere's middle), where the sphere does not hide it
+static double DSShadowVolumeX = 1.1, DSShadowVolumeZ = -3.8;
 // shadows come from the scene, not the view: a lit box outside the camera's
 // view, a one-sided panel turned away from the camera (the DS culls it), a
 // lit ceiling over everything, facing down (as a room's)
@@ -935,10 +938,11 @@ int main()
         check(spritePx > 100 && shadowBehind > 20 && changed == 0, "cut-out sprite keeps its colours");
 
         // the game's fake shadow (a DS shadow volume) gives way to the real
-        // shadows in the image shown; the game's own image keeps it
+        // shadows in the image shown where they cover it; the game's own
+        // image keeps it
         {
             int vx, vy;
-            Project(-1.3, FloorY, -4.0, vx, vy);
+            Project(DSShadowVolumeX, FloorY, DSShadowVolumeZ, vx, vy);
             r->SetAmbientOcclusion(false);
             r->SetShadows(false);
             Frame(*r, gpu);
@@ -974,10 +978,28 @@ int main()
             auto loneOn = Frame(*r, gpu);
             DSShadowVolume = false;
             r->SetShadows(false);
-            DSShadowVolumeX = -1.3; DSShadowVolumeZ = -4.0;
             double lone = Brightness(loneOn, vx, vy, 2) / Brightness(lonePlain, vx, vy, 2);
             printf("DS shadow volume with nothing casting near it (%d,%d), real-time shadows on: x%.2f\n", vx, vy, lone);
             check(lone < 0.9, "DS shadow volume with nothing casting near it: the game's shadow stays");
+
+            // next to the sphere but outside its real shadow (the side light
+            // throws that to the right; this one is on its left): the game's
+            // shadow stays. Replacing every shadow near a caster lost the
+            // shadow under Joker's hero, whose real one falls away from him
+            DSShadowVolumeX = -1.3; DSShadowVolumeZ = -4.0;
+            Project(DSShadowVolumeX, FloorY, DSShadowVolumeZ, vx, vy);
+            r->SetShadows(true);
+            Frame(*r, gpu);
+            auto besidePlain = Frame(*r, gpu);
+            DSShadowVolume = true;
+            Frame(*r, gpu);
+            auto besideOn = Frame(*r, gpu);
+            DSShadowVolume = false;
+            r->SetShadows(false);
+            double beside = Brightness(besideOn, vx, vy, 2) / Brightness(besidePlain, vx, vy, 2);
+            printf("DS shadow volume beside a caster, outside its real shadow (%d,%d), real-time shadows on: x%.2f\n", vx, vy, beside);
+            check(beside < 0.9, "DS shadow volume outside the real shadow: the game's shadow stays");
+            DSShadowVolumeX = 1.1; DSShadowVolumeZ = -3.8;
         }
 
         // fog at full density hides the lit scene entirely

@@ -34,6 +34,14 @@ const MaterialClassifier::TextureStats& MaterialClassifier::Statistics(GPU& gpu,
     return Stats.emplace(key, ComputeStatistics(texels.data(), w, h)).first->second;
 }
 
+int MaterialClassifier::SceneryId(const int counts[64]) noexcept
+{
+    int scenery = -1;
+    for (int i = 0; i < 64; i++)
+        if (counts[i] >= 3 && (scenery < 0 || counts[i] > counts[scenery])) scenery = i;
+    return scenery;
+}
+
 MaterialClassifier::TextureStats MaterialClassifier::ComputeStatistics(const u32* texels, u32 w, u32 h)
 {
     TextureStats s;
@@ -84,6 +92,7 @@ MaterialClassifier::TextureStats MaterialClassifier::ComputeStatistics(const u32
         s.Detail = (float)((ex + ey) / 2);
         // grain: texels change across the grain, not along it
         s.Grain = ex + ey > 0 ? (float)(std::fabs(ex - ey) / (ex + ey)) : 0;
+        s.GrainAlongT = ex > ey;
     }
     return s;
 }

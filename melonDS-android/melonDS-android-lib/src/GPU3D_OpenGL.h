@@ -22,6 +22,7 @@
 #include "GPU3D.h"
 #include "GPU_OpenGL.h"
 #include "GPU3D_OpenGL_HDTextures.h"
+#include "GPU3D_OpenGL_MaterialRelief.h"
 #include "OpenGLSupport.h"
 
 namespace melonDS
@@ -45,7 +46,8 @@ public:
     void SetTextureUpscale(int factor) { HDTextures.SetUpscaleFactor(factor); }
     // Pomegrade: smooth texture filtering, colour only (see TextureLookup_Filtered)
     void SetTextureFilter(bool enable) noexcept { ShaderConfig.uTextureFilter = enable ? 1 : 0; }
-    // Relief textures (Pomegrade): 0 off, 1 subtle, 2 strong (DS_ENGINE_REMAKE.md 14.1, 15.2)
+    // Relief textures (Pomegrade): 0 off, 1 subtle, 2 strong, 3 stylised (strong, and the
+    // scene redrawn in flat colours and soft painted light) (DS_ENGINE_REMAKE.md 14.1, 15.2)
     void SetRelief(int level) noexcept { Relief = level; }
     // Scene-adaptive colour (Pomegrade): see GPU_SceneColour.h
     void SetAdaptiveColours(bool enable) { CurGLCompositor.SetAdaptiveColours(enable); }
@@ -107,6 +109,7 @@ private:
         u32 RenderKey;
 
         u32 HDTexture; // packed HD atlas location, see GLHDTextures::Lookup
+        u32 ReliefScale; // Pomegrade: relief depth of its texture's material, eighths (GLMaterialRelief)
     };
 
     GLCompositor CurGLCompositor;
@@ -116,8 +119,10 @@ private:
     bool BuildRenderShader(u32 flags, const std::string& vs, const std::string& fs);
     void UseRenderShader(u32 flags);
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
-    u32* SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 hdTexture, u32* vptr) const;
+    // procedural: GLMaterialRelief's procedural bits, into the texture address attribute's bits 16-19
+    u32* SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 hdTexture, u32* vptr, u32 procedural) const;
     void LookupHDTextures(GPU& gpu, int npolys);
+    void LookupReliefScales(GPU& gpu, int npolys);
     void BuildPolygons(RendererPolygon* polygons, int npolys);
     void EnsureCapacity(Polygon** polygons, u32 npolys);
     int RenderSinglePolygon(int i) const;
@@ -192,6 +197,9 @@ private:
         u32 uTextureFilter;         // int        306 / 1   Pomegrade: TextureLookup_Filtered
         float uRelief;              // float      307 / 1   Pomegrade: relief depth in texels, 0 = off
         float uReliefLight[4];      // vec4       308 / 4   Pomegrade: towards the main light (view space), w: 1 if known
+        float uWindPhase;           // float      312 / 1   Pomegrade: wind phase in radians (0-2 pi), sways volumetric grass
+        float uStyle;               // float      313 / 1   Pomegrade: 1 = stylised rendering (relief level 3)
+        float __pad1[2];            // the block's size stays a multiple of 16 bytes
     } ShaderConfig {};
 
     GLuint ShaderConfigUBO {};
@@ -217,6 +225,10 @@ private:
     std::vector<u32> VertexBuffer = std::vector<u32>(10240 * VertexSize);
 
     GLHDTextures HDTextures;
+    GLMaterialRelief MaterialRelief;
+    u64 WindFrames = 0; // frames rendered with relief, for uWindPhase
+    int FrameSceneryId = -1; // the frame's scenery polygon ID (MaterialClassifier::SceneryId), -1: none
+    GLint ComposeAttrLoc[2] {}, UpsampleAttrLoc[2] {}; // AttrBuf and uSceneryId of the lighting compose and upsample shaders
     u32 NumVertices {};
 
     GLuint VertexArrayID {};
@@ -291,6 +303,7 @@ private:
     // (see FindReplacedShadows); the DS image keeps them
     bool ShadowsDrawn {}, DSShadowsReplaced {};
     std::vector<bool> ShadowReplaced; // per PolygonList entry
+    std::vector<float> ShadowDistances; // squared view distances of the frame's vertices (RenderShadowMap's background cut)
     GLuint LightingAOShader {}, LightingComposeShader {}, LightingShadowShader {};
     // shadow map of the main light (the light the most polygons use this frame)
     static constexpr int ShadowMapSize = 2048;
@@ -318,7 +331,10 @@ private:
     // brought back by an edge-aware filter (see kLightingDownsampleFS). Measured
     // at 8x on the desktop (llvmpipe), the effects were 83% of the GPU's work
     // per frame at full resolution. 1 = at full resolution.
-    static constexpr int MaxLightingScale = 4;
+    // 2 (was 4): on Joker's harbour at x4 with every effect, the effects'
+    // cost fell by 62% (197 -> 75 ms over the frame without them, software
+    // rendering) for at most half a level of difference in the image
+    static constexpr int MaxLightingScale = 2;
     int LightingFactor = 1;
     GLuint LowPositionTex {}, LowNormalTex {}, LowColorTex {};
     GLuint TermsTex {}, TermsBounceTex {}, TermsReflectedTex {};

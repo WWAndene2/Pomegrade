@@ -54,14 +54,28 @@ bool GLHDTextures::BeginFrame(GPU& gpu)
         ReplacementGeneration = Replacement.Generation();
         ClearEntries();
     }
-    if (!Enabled)
+    Changed = false;
+    if (!Enabled && !KeepCoherent)
+    {
+        WasCoherent = false;
         return false;
+    }
 
     auto textureDirty = gpu.VRAMDirty_Texture.DeriveState(gpu.VRAMMap_Texture, gpu);
     auto texPalDirty = gpu.VRAMDirty_TexPal.DeriveState(gpu.VRAMMap_TexPal, gpu);
 
     bool textureChanged = gpu.MakeVRAMFlat_TextureCoherent(textureDirty);
     bool texPalChanged = gpu.MakeVRAMFlat_TexPalCoherent(texPalDirty);
+    // the first coherent frame after a pause: anything may have changed
+    Changed = textureChanged || texPalChanged || !WasCoherent;
+    WasCoherent = true;
+    if (!Enabled)
+    {
+        // the changes are consumed here: textures kept from before replacement
+        // was turned off would be stale when it is turned back on
+        if (textureChanged || texPalChanged) ClearEntries();
+        return false;
+    }
 
     if (textureChanged || texPalChanged)
     {

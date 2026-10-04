@@ -95,6 +95,7 @@ Pomegrade is three codebases in one Gradle build, rooted at `melonDS-android/` (
 | Emulation screen UI shared by both cores: in-game menu, its theme, save state dialog (Kotlin, package `io.github.wwandene2.pomegrade.emulatorui`) | `melonDS-android/emulator-ui/` (`:emulator-ui`) |
 | Build configuration shared by modules (`AppConfig`) | `melonDS-android/buildSrc/src/main/kotlin/` |
 | CI workflows | `.github/workflows/` |
+| Pokemon remake tooling (DS/3DS game data readers, converters, editor; desktop C++, no app code) | `tools/remake/` (`src/`), tests in `tests/remake/` |
 | Kotlin unit tests | `melonDS-android/app/src/test/java/`, mirroring the package of the class under test |
 | Android instrumented tests | `melonDS-android/app/src/androidTest/java/`, same mirroring |
 | Desktop tests of the DS core (CMake, no Android), one folder per feature | `tests/<feature>/` (`hd-textures/`, `polygon-multiplier/`) |

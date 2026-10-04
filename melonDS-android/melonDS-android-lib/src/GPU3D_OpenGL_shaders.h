@@ -243,6 +243,8 @@ layout(std140) uniform uConfig
     int uTextureFilter; // Pomegrade: TextureLookup_Filtered
     float uRelief;      // Pomegrade: relief depth in texels, 0 = off
     vec4 uReliefLight;  // Pomegrade: towards the main light (view space), w: 1 if known
+    float uWindPhase;   // Pomegrade: wind phase in radians (0-2 pi), sways volumetric grass
+    float uStyle;       // Pomegrade: 1 = stylised rendering
 };
 
 in uvec4 vPosition;
@@ -287,6 +289,8 @@ layout(std140) uniform uConfig
     int uTextureFilter; // Pomegrade: TextureLookup_Filtered
     float uRelief;      // Pomegrade: relief depth in texels, 0 = off
     vec4 uReliefLight;  // Pomegrade: towards the main light (view space), w: 1 if known
+    float uWindPhase;   // Pomegrade: wind phase in radians (0-2 pi), sways volumetric grass
+    float uStyle;       // Pomegrade: 1 = stylised rendering
 };
 
 smooth in vec4 fColor;
@@ -548,7 +552,7 @@ vec4 TextureLookup_Nearest(vec2 st)
 {
     if (fHDTexture != 0) return TextureLookup_HD(st);
 
-    int vramOffset = int(fPolygonAttr.y);
+    int vramOffset = int(fPolygonAttr.y) & 0xFFFF; // bits 16-19: procedural surface (Pomegrade)
     int attr = int(fPolygonAttr.z << 16); // Shift just to reuse same code as in original source. Same below
     int paladdr = int(fPolygonAttr.z >> 16);
 
@@ -593,7 +597,7 @@ vec4 TexelAt(ivec2 c)
 
     float alpha0 = ((attr & (1<<29)) != 0) ? 0.0 : 1.0;
     ivec4 st_full = ivec4(c, 8 << ((attr >> 20) & 0x7), 8 << ((attr >> 23) & 0x7));
-    ivec2 vramaddr = ivec2(int(fPolygonAttr.y) << 3, int(fPolygonAttr.z >> 16));
+    ivec2 vramaddr = ivec2((int(fPolygonAttr.y) & 0xFFFF) << 3, int(fPolygonAttr.z >> 16));
     int type = (attr >> 26) & 0x7;
     if      (type == 5) return TextureFetch_Compressed(vramaddr, st_full, wrapmode);
     else if (type == 2) return TextureFetch_I2        (vramaddr, st_full, wrapmode, alpha0);
@@ -650,7 +654,7 @@ vec4 TextureLookup_Linear(vec2 texcoord)
     ivec2 intpart = ivec2(texcoord);
     vec2 fracpart = fract(texcoord);
 
-    int vramOffset = int(fPolygonAttr.y);
+    int vramOffset = int(fPolygonAttr.y) & 0xFFFF; // bits 16-19: procedural surface (Pomegrade)
     int attr = int(fPolygonAttr.z << 16);  // Shift just to reuse same code as in original source. Same below
     int paladdr = int(fPolygonAttr.z >> 16);
 
@@ -786,6 +790,110 @@ float ReliefHeight(vec2 st)
 vec3 ReliefDP1, ReliefDP2;
 vec2 ReliefDU1, ReliefDU2;
 
+// two pseudo-random numbers in [0, 1) per texel cell (volumetric grass)
+vec2 BladeHash(vec2 cell)
+{
+    vec2 q = vec2(dot(cell, vec2(127.1, 311.7)), dot(cell, vec2(269.5, 183.3)));
+    return fract(sin(q) * 43758.5453);
+}
+
+// Pomegrade: procedural surfaces (DS_ENGINE_REMAKE.md 16.1), fitted to the
+// texture they replace: its colours, smoothed, and detail generated at any
+// resolution, as heights in [0, 1] over texel coordinates
+float ValueNoise(vec2 p)
+{
+    vec2 i = floor(p), f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = BladeHash(i).x, b = BladeHash(i + vec2(1.0, 0.0)).x;
+    float c = BladeHash(i + vec2(0.0, 1.0)).x, d = BladeHash(i + vec2(1.0, 1.0)).x;
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+// the pixel's size in texels, set before the procedural heights are taken:
+// octaves finer than a pixel are faded out (they would alias as blotches)
+float ProcFootprint;
+float Fbm(vec2 p)
+{
+    float sum = 0.0, amp = 0.5, freq = 1.0;
+    for (int i = 0; i < 4; i++)
+    {
+        float keep = clamp(2.0 - 4.0 * freq * ProcFootprint, 0.0, 1.0); // full under 1/4 cycle a pixel, none from 1/2
+        sum += amp * (0.5 + keep * (ValueNoise(p) - 0.5));
+        p = p * 2.03 + vec2(17.0, 31.0); amp *= 0.5; freq *= 2.03;
+    }
+    return sum / 0.9375;
+}
+// stone: the relief the texture paints - its dark texels hollows, its light
+// ones bumps - as a smooth surface (Hermite between texel centres, so each
+// painted shape becomes a rounded one at any resolution), with a light grain
+// on top. Nothing is drawn that the texture does not suggest
+float SmoothLuma(vec2 p)
+{
+    vec2 b = floor(p - 0.5) + 0.5, f = fract(p - 0.5);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(ReliefLuma(b), ReliefLuma(b + vec2(1.0, 0.0)), f.x),
+               mix(ReliefLuma(b + vec2(0.0, 1.0)), ReliefLuma(b + vec2(1.0, 1.0)), f.x), f.y);
+}
+float StoneHeight(vec2 p)
+{
+    // the larger painted shapes (over two texels): single texels are grain,
+    // not relief, and as bumps they read as shiny droplets
+    return 0.7 * ReliefHeight(p) + 0.3 * SmoothLuma(p);
+}
+// wood: streaks along the grain, wavering, with fine fibres
+float WoodHeight(vec2 p, bool alongT)
+{
+    float across = alongT ? p.x : p.y, along = alongT ? p.y : p.x;
+    float streak = 0.5 + 0.5 * sin((across * 0.9 + Fbm(vec2(across * 0.4, along * 0.05)) * 2.5) * 6.2832);
+    float fibre = Fbm(vec2(across * 3.0, along * 0.2));
+    return 0.6 * streak + 0.4 * fibre;
+}
+float ProceduralHeight(vec2 p, int proc)
+{
+    int kind = proc & 3;
+    if (kind == 1) return StoneHeight(p);
+    if (kind == 2) return WoodHeight(p, (proc & 4) != 0);
+    return 0.5 * Fbm(p * 0.7) + 0.5 * Fbm(p * 2.5); // wood with no clear grain: soft fibres, no direction
+}
+// the texture's colour bilinear between texel centres: no texel grid
+vec3 SmoothTexel(vec2 st, out vec3 c00, out vec3 c10, out vec3 c01, out vec3 c11)
+{
+    vec2 b = floor(st - 0.5) + 0.5, f = fract(st - 0.5);
+    c00 = TextureLookup_Nearest(b).rgb; c10 = TextureLookup_Nearest(b + vec2(1.0, 0.0)).rgb;
+    c01 = TextureLookup_Nearest(b + vec2(0.0, 1.0)).rgb; c11 = TextureLookup_Nearest(b + vec2(1.0, 1.0)).rgb;
+    return mix(mix(c00, c10, f.x), mix(c01, c11, f.x), f.y);
+}
+
+// stylised rendering: a Kuwahara filter over texels (Kuwahara et al. 1976,
+// the classic painterly filter, no learning): of the four 2x2-texel
+// quadrants around the point, the colour of the most uniform one. Noise
+// inside a surface goes, edges and painted shapes stay sharp
+vec3 KuwaharaTexel(vec2 st)
+{
+    vec3 best = vec3(0.0);
+    float bestVar = 1e9;
+    for (int q = 0; q < 4; q++)
+    {
+        vec2 dir = vec2(q == 1 || q == 3 ? 1.0 : -1.0, q >= 2 ? 1.0 : -1.0);
+        vec3 sum = vec3(0.0), sum2 = vec3(0.0);
+        for (int k = 0; k < 4; k++)
+        {
+            vec2 o = vec2(k == 1 || k == 3 ? 1.5 : 0.5, k >= 2 ? 1.5 : 0.5) * dir;
+            vec3 c00, c10, c01, c11;
+            vec3 c = SmoothTexel(st + o, c00, c10, c01, c11); // smooth samples: no texel steps (16 x 4 texel reads)
+            sum += c; sum2 += c * c;
+        }
+        vec3 mean = sum * 0.25;
+        vec3 v = sum2 * 0.25 - mean * mean;
+        float var = v.r + v.g + v.b;
+        if (var < bestVar) { bestVar = var; best = mean; }
+    }
+    return best;
+}
+
+// set by ReliefTexcoord for FinalColor: the surface's colour replaces the texel's
+bool ProcActive;
+vec3 ProcColour;
+
 // returns the texture coordinate to sample; shade: the relighting factor
 vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
 {
@@ -793,9 +901,40 @@ vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
     vec3 P = fViewPosition.xyz;
     vec3 dp1 = ReliefDP1, dp2 = ReliefDP2;
     vec2 du1 = ReliefDU1, du2 = ReliefDU2;
-    bool usable = uRelief > 0.0 && fViewPosition.w > 0.999
+    // Pomegrade: stylised rendering. Scenery is drawn as a modern stylised
+    // game paints its sets: the texture through a Kuwahara filter, which
+    // drops its texel noise and keeps its edges and painted shapes (a 4x4
+    // average was tried first: the owner found it lost the objects' detail). Characters keep their features, only smoothed. Grass
+    // keeps its blades (below)
+    // a texture redrawn at high resolution (MMPX upscaling or a pack: HD
+    // atlas) already has clean edges and all its detail: drawn as it is
+    if (uStyle > 0.0 && (fPolygonAttr.x & (1<<12)) == 0 && textype != 0 && fHDTexture == 0)
+    {
+        vec3 c00, c10, c01, c11;
+        if ((fPolygonAttr.x & (1<<13)) != 0)
+            ProcColour = SmoothTexel(st, c00, c10, c01, c11);
+        else
+            ProcColour = KuwaharaTexel(st);
+        ProcActive = true;
+        return st;
+    }
+
+    // Pomegrade: sky and water (procedural bit 3 alone): their colours
+    // without the texel grid, no detail, whatever their opacity or angle
+    if (uRelief > 0.0 && ((int(fPolygonAttr.y) >> 16) & 0xF) == 8 && textype != 0)
+    {
+        vec3 c00, c10, c01, c11;
+        ProcColour = SmoothTexel(st, c00, c10, c01, c11);
+        ProcActive = true;
+        return st;
+    }
+
+    // depth by the texture's material (GLMaterialRelief), eighths of the setting
+    float relief = uRelief * float(fPolygonAttr.x & 0xF) / 8.0;
+    bool usable = relief > 0.0 && fViewPosition.w > 0.999
         && fColor.a > 0.99 // opaque (the alpha comes with the vertex colour)
-        && (textype == 2 || textype == 3 || textype == 5 || textype == 7);
+        && (textype == 2 || textype == 3 || textype == 5 || textype == 7
+            || ((fPolygonAttr.x & (1<<13)) != 0 && textype == 4)); // characters often use 256 colours
     vec3 N0 = cross(dp1, dp2);
     float det = dot(N0, N0);
     if (!usable || !(det > 0.0)) return st; // view-space units are small: no absolute threshold
@@ -814,9 +953,113 @@ vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
     float vn = max(dot(N, V), 0.15); // grazing angles: limited
     vec3 Vs = V - N * dot(V, N);
     // texture offset at full depth, in texels (at most 4 x the depth)
-    vec2 dir = vec2(dot(Vs, gU), dot(Vs, gV)) * (uRelief * texel / vn);
+    vec2 dir = vec2(dot(Vs, gU), dot(Vs, gV)) * (relief * texel / vn);
     float dl = length(dir);
-    if (dl > 4.0 * uRelief) dir *= 4.0 * uRelief / dl;
+    if (dl > 4.0 * relief) dir *= 4.0 * relief / dl;
+
+    float footprint = max(length(du1), length(du2)); // texels per pixel
+
+    // Pomegrade: procedural stone and wood (texture address bits 16-19): the
+    // colour, bilinear between texel centres (no texel grid), carries the
+    // texture's look; the detail on top is the procedural height scaled by
+    // the original's own texel-scale contrast (the spread of the four texels
+    // around), and the same height relights the surface. Where a texel nears
+    // a pixel the detail fades (it would shimmer) and the plain texture shows
+    int proc = (int(fPolygonAttr.y) >> 16) & 0xF;
+    if (proc != 0)
+    {
+        vec3 c00, c10, c01, c11;
+        vec3 smoothColour = SmoothTexel(st, c00, c10, c01, c11);
+        const vec3 lw = vec3(0.299, 0.587, 0.114);
+        float l00 = dot(c00, lw), l10 = dot(c10, lw), l01 = dot(c01, lw), l11 = dot(c11, lw);
+        float lm = (l00 + l10 + l01 + l11) * 0.25;
+        float spread = sqrt(((l00 - lm) * (l00 - lm) + (l10 - lm) * (l10 - lm) + (l01 - lm) * (l01 - lm) + (l11 - lm) * (l11 - lm)) * 0.25);
+        float amp = clamp(spread * 2.0 + 0.04, 0.0, 0.3);
+        float fade = clamp((1.0 - footprint) * 2.0, 0.0, 1.0);
+        ProcFootprint = footprint;
+        float h = ProceduralHeight(st, proc);
+        // stone's height is the texture's own light, already in its colour:
+        // only wood's generated streaks add to the colour
+        float detail = (proc & 3) == 1 ? 0.0 : (h - 0.5) * amp * 1.5;
+        // stone keeps most of its painted grain: the texel's own colour,
+        // its square edges softened towards the smooth colour
+        vec3 grain = (proc & 3) == 1 ? (TextureLookup_Nearest(st).rgb - smoothColour) * 0.6 : vec3(0.0);
+        ProcColour = clamp(smoothColour + (grain + detail) * fade, 0.0, 1.0);
+        ProcActive = true;
+
+        const float e = 0.2; // texels
+        float hx = (ProceduralHeight(st + vec2(e, 0.0), proc) - h) / e;
+        float hy = (ProceduralHeight(st + vec2(0.0, e), proc) - h) / e;
+        float strength = (proc & 3) == 1 ? 0.6 : 0.3; // stone's height is its painted light, of small range
+        vec3 pN = normalize(N - (normalize(gU) * hx + normalize(gV) * hy) * (strength * relief * fade));
+        vec3 pL = uReliefLight.w > 0.5 ? normalize(uReliefLight.xyz) : normalize(V + vec3(0.0, 1.0, 0.0));
+        float pBase = max(dot(N, pL), 0.0), pLit = max(dot(pN, pL), 0.0);
+        shade = clamp((0.35 + pLit) / (0.35 + pBase), 0.75, 1.3);
+        return st;
+    }
+
+    // Pomegrade: clothes (bit 13, characters). Skin, by the classifier's
+    // colour band (orange hue, moderately saturated, light), stays smooth.
+    // The rest is cloth: the painted light's large shapes (ReliefHeight)
+    // become folds, by shading only - no parallax, so animated cloth does not
+    // swim - and a fine weave of three threads a texel ripples the light,
+    // faded out where a texel covers less than 4 pixels
+    if ((fPolygonAttr.x & (1<<13)) != 0)
+    {
+        vec3 c = TextureLookup_Nearest(st).rgb;
+        float mx = max(c.r, max(c.g, c.b)), mn = min(c.r, min(c.g, c.b));
+        float sat = mx > 0.0 ? (mx - mn) / mx : 0.0;
+        float hue = (mx > mn && mx == c.r) ? 60.0 * mod((c.g - c.b) / (mx - mn) + 6.0, 6.0) : -1.0;
+        if (hue >= 10.0 && hue <= 45.0 && sat >= 0.2 && sat <= 0.65 && mx >= 0.3) return st;
+
+        float fx = ReliefHeight(st + vec2(1.0, 0.0)) - ReliefHeight(st - vec2(1.0, 0.0));
+        float fy = ReliefHeight(st + vec2(0.0, 1.0)) - ReliefHeight(st - vec2(0.0, 1.0));
+        vec3 fN = normalize(N - (normalize(gU) * fx + normalize(gV) * fy) * (4.0 * relief));
+        vec3 fL = uReliefLight.w > 0.5 ? normalize(uReliefLight.xyz) : normalize(V + vec3(0.0, 1.0, 0.0));
+        float fBase = max(dot(N, fL), 0.0), fLit = max(dot(fN, fL), 0.0);
+        shade = clamp((0.35 + fLit) / (0.35 + fBase), 0.6, 1.4);
+        vec2 thread = st * 3.0 * 3.14159;
+        float weave = sin(thread.x + 1.5708 * floor(st.y * 3.0)) * sin(thread.y + 1.5708 * floor(st.x * 3.0));
+        float fade = clamp((0.5 - footprint) * 4.0, 0.0, 1.0); // full from 4 pixels a texel, none under 2
+        shade *= 1.0 + 0.1 * weave * fade;
+        return st;
+    }
+
+    // Pomegrade: volumetric grass (bit 12, foliage): the slab above the
+    // surface holds one blade per texel, a cone of random place and height
+    // (taller on brighter texels), coloured by the ground under its root and
+    // darker towards it. The view ray is marched down through the slab and
+    // the first blade hit is drawn; where none is, the ground deep below.
+    // Blades smaller than a pixel would shimmer: plain relief there.
+    if ((fPolygonAttr.x & (1<<12)) != 0 && footprint < 0.75)
+    {
+        const int steps = 12;
+        vec2 slab = dir * 2.0; // blades twice the relief depth
+        // each pixel starts at a random fraction of a step: no banding (14.2)
+        float jitter = BladeHash(floor(gl_FragCoord.xy)).x;
+        for (int i = 0; i < steps; i++)
+        {
+            float h = 1.0 - (float(i) + jitter) / float(steps);
+            vec2 p = st - slab * (1.0 - h);
+            vec2 cell = floor(p);
+            vec2 r = BladeHash(cell);
+            vec2 root = cell + 0.2 + 0.6 * r;
+            float height = (0.3 + 0.7 * r.y) * (0.5 + 0.5 * ReliefLuma(root));
+            float radius = 0.45 * (1.0 - h / height);
+            // wind: blades lean along one direction, by the square of their
+            // height, in waves that cross the field (gusts); a blade leaning
+            // out of its cell is cut at the cell's edge
+            float gust = sin(uWindPhase + dot(root, vec2(0.21, 0.13))) * 0.5 + 0.15;
+            vec2 bend = vec2(0.94, 0.34) * gust * (h / height) * (h / height);
+            if (h < height && length(p - bend - root) < radius)
+            {
+                shade = 0.8 + 0.45 * h / height;
+                return root;
+            }
+        }
+        shade = 0.75;
+        return st - slab;
+    }
 
     const int layers = 8;
     float layer = 1.0 / float(layers);
@@ -841,7 +1084,7 @@ vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
     float hy = ReliefHeight(cur + vec2(0.0, 1.0)) - ReliefHeight(cur - vec2(0.0, 1.0));
     vec3 tU = normalize(gU), tV = normalize(gV);
     // slope: height change per texel times the relief depth in texels
-    vec3 Np = normalize(N - (tU * hx + tV * hy) * (1.5 * uRelief));
+    vec3 Np = normalize(N - (tU * hx + tV * hy) * (1.5 * relief));
     vec3 L = uReliefLight.w > 0.5 ? normalize(uReliefLight.xyz) : normalize(V + vec3(0.0, 1.0, 0.0));
     float base = max(dot(N, L), 0.0), lit = max(dot(Np, L), 0.0);
     shade = clamp((0.35 + lit) / (0.35 + base), 0.5, 1.6);
@@ -850,6 +1093,7 @@ vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
 
 vec4 FinalColor()
 {
+    ProcActive = false;
     ReliefDP1 = dFdx(fViewPosition.xyz);
     ReliefDP2 = dFdy(fViewPosition.xyz);
     ReliefDU1 = dFdx(fTexcoord);
@@ -883,6 +1127,7 @@ vec4 FinalColor()
         float reliefShade;
         vec2 st = ReliefTexcoord(fTexcoord, (fPolygonAttr.z >> 10) & 0x7, reliefShade);
         vec4 tcol = uTextureFilter != 0 ? TextureLookup_Filtered(st) : TextureLookup_Nearest(st);
+        if (ProcActive) tcol.rgb = ProcColour; // Pomegrade: procedural surface
         tcol.rgb = min(tcol.rgb * reliefShade, 1.0);
         //vec4 tcol = TextureLookup_Linear(fTexcoord);
 
@@ -932,6 +1177,25 @@ vec4 FinalColor()
             vec3 tooncolor = uToonColors[int(vcol.r * 31.0)].rgb;
             col.rgb = min(col.rgb + tooncolor, 1.0);
         }
+    }
+
+    // Pomegrade: stylised light over everything drawn with view data: a soft
+    // two-tone ramp from the smooth vertex normals (slightly cool shade, warm
+    // light: the surface keeps its own colour), a warm rim on silhouettes,
+    // and livelier colours. Lighter convex edges from the normal's screen
+    // derivatives were tried and dropped: per pixel they are noise (grain)
+    if (uStyle > 0.0 && fViewPosition.w > 0.999)
+    {
+        vec3 sN = normalize(fViewNormal.xyz);
+        vec3 sV = normalize(-fViewPosition.xyz);
+        if (dot(sN, sV) < 0.0) sN = -sN;
+        vec3 sL = uReliefLight.w > 0.5 ? normalize(uReliefLight.xyz) : normalize(sV + vec3(0.0, 1.0, 0.0));
+        float ramp = smoothstep(0.38, 0.62, dot(sN, sL) * 0.5 + 0.5);
+        vec3 light = mix(vec3(0.84, 0.87, 0.95), vec3(1.06, 1.03, 0.97), ramp);
+        float rim = pow(1.0 - max(dot(sN, sV), 0.0), 3.0) * 0.18;
+        col.rgb = col.rgb * light + rim * vec3(1.0, 0.95, 0.85);
+        float lum = dot(col.rgb, vec3(0.299, 0.587, 0.114));
+        col.rgb = clamp(mix(vec3(lum), col.rgb, 1.3), 0.0, 1.0);
     }
 
     return col.bgra;
@@ -1143,6 +1407,7 @@ const int NumSamples = 12;
 // Test scene (tests/lighting-effects): floor-wall crease 19% darker, contact
 // shadow 15% darker, open surfaces unchanged
 const float Intensity = 2.0;
+const float AngleBias = 0.26; // sin(15 degrees)
 
 void main()
 {
@@ -1189,7 +1454,16 @@ void main()
         // SAO's estimator, made scale-free with the radius: occluders above the
         // surface count more the closer they are, nothing past the radius
         float f = max(1.0 - vv / (radius * radius), 0.0);
-        float vn = dot(v, N) - 0.02 * radius; // bias against self-occlusion
+        // bias against self-occlusion; and where the occluder faces nearly the
+        // same way as this surface (normals within 25 degrees: the next facet
+        // of the same smooth mesh), an angle bias like horizon-based AO's -
+        // rising less than 15 degrees above the surface does not occlude - so
+        // the shallow folds between facets (Joker's cliff) do not draw the
+        // mesh's edges as dark lines. Other occluders (a sphere on the floor,
+        // a wall) count in full
+        vec3 nq = texelFetch(GNormal, sp, 0).xyz * 2.0 - 1.0;
+        float bias = dot(nq, N) > 0.9 ? AngleBias * sqrt(vv) : 0.0;
+        float vn = dot(v, N) - 0.02 * radius - bias;
         occlusion += f * f * f * max(vn, 0.0) * radius / (vv + 0.01 * radius * radius);
     }
 
@@ -1397,6 +1671,21 @@ float ShadowLit(vec3 P, vec3 N)
 
 const char* kLightingComposeFS = kShaderHeader kLightingCommon R"(layout(location = 0) out vec4 oColor;
 
+// Pomegrade: characters (a polygon ID apart from the scenery's) get a third
+// of the shadow and of the ambient occlusion: with one light standing for the
+// game's four, and low-poly heads, full strength split faces in two and
+// smudged them; they still get some shade from what stands over them
+uniform sampler2D AttrBuf; // polygon ID per pixel, r: ID / 63
+uniform int uSceneryId;    // -1: none this frame
+// the vertex attributes keep the ID's low 5 bits (mask 0x1F00C8F0), so the
+// buffer holds ID & 31: IDs that differ only in bit 5 are not told apart
+bool IsCharacter(ivec2 p)
+{
+    int id = int(texelFetch(AttrBuf, p, 0).r * 63.0 + 0.5);
+    return uSceneryId >= 0 && id != (uSceneryId & 31);
+}
+const float CharacterShade = 0.33;
+
 void main()
 {
     ivec2 p = ivec2(gl_FragCoord.xy);
@@ -1431,13 +1720,17 @@ void main()
     float visibility = weight > 0.0 ? sum / weight : ao.r;
     bounce = weight > 0.0 ? bounce / weight : texelFetch(Bounce, p, 0).rgb;
 
+    bool character = IsCharacter(p);
+    if (character) visibility = mix(1.0, visibility, CharacterShade);
     vec3 lit = col.rgb * (uAmbientOcclusion ? visibility : 1.0);
     if (uShadowStrength > 0.0)
     {
         // the share of the colour the main light brought (its cosine on this
         // surface) goes in its shadow; surfaces facing away keep their colour
         float cosLight = max(dot(N, uLightDir), 0.0);
-        lit *= 1.0 - uShadowStrength * cosLight * (1.0 - ShadowLit(P, N));
+        float shadowLit = ShadowLit(P, N);
+        if (character) shadowLit = mix(1.0, shadowLit, CharacterShade);
+        lit *= 1.0 - uShadowStrength * cosLight * (1.0 - shadowLit);
     }
     lit += col.rgb * bounce * uBounceIntensity;
     if (uReflectionStrength > 0.0)
@@ -1599,6 +1892,21 @@ uniform float uReflectionStrength;
 
 layout(location = 0) out vec4 oColor;
 
+// Pomegrade: characters (a polygon ID apart from the scenery's) get a third
+// of the shadow and of the ambient occlusion: with one light standing for the
+// game's four, and low-poly heads, full strength split faces in two and
+// smudged them; they still get some shade from what stands over them
+uniform sampler2D AttrBuf; // polygon ID per pixel, r: ID / 63
+uniform int uSceneryId;    // -1: none this frame
+// the vertex attributes keep the ID's low 5 bits (mask 0x1F00C8F0), so the
+// buffer holds ID & 31: IDs that differ only in bit 5 are not told apart
+bool IsCharacter(ivec2 p)
+{
+    int id = int(texelFetch(AttrBuf, p, 0).r * 63.0 + 0.5);
+    return uSceneryId >= 0 && id != (uSceneryId & 31);
+}
+const float CharacterShade = 0.33;
+
 void main()
 {
     ivec2 p = ivec2(gl_FragCoord.xy);
@@ -1670,6 +1978,7 @@ void main()
     sure /= weight;
     bounce /= weight;
 
+    if (IsCharacter(p)) { visibility = mix(1.0, visibility, CharacterShade); lit = mix(1.0, lit, CharacterShade); }
     vec3 result = col.rgb * (uAmbientOcclusion ? visibility : 1.0);
     if (uShadowStrength > 0.0)
     {

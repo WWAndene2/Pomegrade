@@ -1,0 +1,202 @@
+// remake_tool: looks into DS cartridges for the Pokemon remake work.
+//   remake_tool info <rom.nds>                        title, game code, file count
+//   remake_tool inventory <rom.nds>                   every file and archive member, as JSON
+//   remake_tool extract <rom.nds> <path> <out>        one file (LZ data decompressed)
+//   remake_tool unpack <rom.nds> <path.narc> <dir>    every member of a NARC, decompressed
+//   remake_tool garc <file.garc> <dir>                every sub-file of a 3DS GARC, decompressed
+//   remake_tool textures <file.nsbtx|.nsbmd> <dir>    every texture as PNG
+//   remake_tool model <file.nsbmd> <out.gltf> [tex.nsbtx] [model index]   a DS model as glTF
+//   remake_tool texindex <rom.nds>                    every texture under its emulator dump name (TSV)
+//   remake_tool identify <rom.nds> <dump dir>         which ROM file each dumped texture comes from
+//   remake_tool world <map_matrix.narc> <matrix index> <land_data.narc> <out dir>
+//                     [map textures.nsbtx|-] [buildings.narc|-] [building textures.nsbtx|-]
+//                     the world: world.json, collision.png, world.gltf
+#include "Inventory.h"
+#include "Narc.h"
+#include "NdsRom.h"
+#include "NitroCompression.h"
+#include "FormatSniffer.h"
+#include "Garc.h"
+#include "Nsbmd.h"
+#include "Png.h"
+#include "TextureIndex.h"
+#include "WorldMap.h"
+
+#include <cstdio>
+#include <cstdlib>
+#include <memory>
+#include <filesystem>
+#include <map>
+#include <set>
+#include <string>
+
+using namespace remake;
+
+static int Usage()
+{
+    fprintf(stderr, "usage:\n  remake_tool info <rom.nds>\n  remake_tool inventory <rom.nds>\n"
+                    "  remake_tool extract <rom.nds> <path> <out>\n  remake_tool unpack <rom.nds> <path.narc> <dir>\n"
+                    "  remake_tool garc <file.garc> <dir>\n  remake_tool textures <file.nsbtx|.nsbmd> <dir>\n"
+                    "  remake_tool model <file.nsbmd> <out.gltf> [tex.nsbtx] [model index]\n"
+                    "  remake_tool texindex <rom.nds>\n  remake_tool identify <rom.nds> <dump dir>\n"
+                    "  remake_tool world <map_matrix.narc> <matrix index> <land_data.narc> <out dir>\n"
+                    "                    [map textures.nsbtx|-] [buildings.narc|-] [building textures.nsbtx|-]\n");
+    return 2;
+}
+
+static Bytes Plain(const Bytes& data) { return IsLzCompressed(data) ? LzDecompress(data) : data; }
+
+int main(int argc, char** argv)
+{
+    if (argc < 3) return Usage();
+    const std::string cmd = argv[1];
+    try
+    {
+        // loose files
+        if (cmd == "garc" && argc >= 4)
+        {
+            const Garc garc(Plain(ReadFile(argv[2])));
+            std::filesystem::create_directories(argv[3]);
+            size_t written = 0;
+            for (size_t i = 0; i < garc.Count(); i++)
+                for (size_t s = 0; s < garc.SubCount(i); s++)
+                {
+                    if (!garc.Has(i, s)) continue;
+                    const Bytes m = Plain(garc.Sub(i, s));
+                    WriteFile((std::filesystem::path(argv[3]) / (std::to_string(i) + (s ? "_" + std::to_string(s) : "") + "." + Sniff(m).Id)).string(), m);
+                    written++;
+                }
+            printf("%zu entries, %zu files\n", garc.Count(), written);
+            return 0;
+        }
+        if (cmd == "textures" && argc >= 4)
+        {
+            const Bytes file = Plain(ReadFile(argv[2]));
+            const long at = Tex0::Find(file);
+            if (at < 0) { fprintf(stderr, "no TEX0 block\n"); return 1; }
+            const Tex0 tex(file, (size_t)at);
+            std::filesystem::create_directories(argv[3]);
+            for (size_t t = 0; t < tex.Textures().size(); t++)
+            {
+                const Tex0Texture& x = tex.Textures()[t];
+                try { WriteFile((std::filesystem::path(argv[3]) / (x.Name + ".png")).string(), EncodePng(x.Format.Width, x.Format.Height, tex.Decode(t))); }
+                catch (const FormatError& e) { fprintf(stderr, "%s: %s\n", x.Name.c_str(), e.what()); }
+            }
+            printf("%zu textures, %zu palettes\n", tex.Textures().size(), tex.Palettes().size());
+            return 0;
+        }
+        if (cmd == "model" && argc >= 4)
+        {
+            const Nsbmd model(Plain(ReadFile(argv[2])));
+            std::unique_ptr<Tex0> tex;
+            Bytes texFile;
+            if (argc >= 5 && std::string(argv[4]) != "-")
+            {
+                texFile = Plain(ReadFile(argv[4]));
+                const long at = Tex0::Find(texFile);
+                if (at >= 0) tex = std::make_unique<Tex0>(texFile, (size_t)at);
+            }
+            const size_t index = argc >= 6 ? (size_t)atoi(argv[5]) : 0;
+            const std::string gltf = ModelToGltf(model, index, tex.get());
+            WriteFile(argv[3], Bytes(gltf.begin(), gltf.end()));
+            printf("%zu models; model %zu: %zu shapes, %zu materials\n", model.Models().size(), index,
+                   model.Models().at(index).Shapes.size(), model.Models().at(index).Materials.size());
+            return 0;
+        }
+        if (cmd == "world" && argc >= 6)
+        {
+            const Narc matrices(Plain(ReadFile(argv[2])));
+            const WorldMap world(MapMatrix::Read(Plain(matrices.Member((size_t)atoi(argv[3])))), Narc(Plain(ReadFile(argv[4]))));
+            auto given = [&](int i) { return argc > i && std::string(argv[i]) != "-"; };
+            Bytes texFile, buildingTexFile;
+            std::unique_ptr<Tex0> tex, buildingTex;
+            auto loadTex = [&](int i, Bytes& file, std::unique_ptr<Tex0>& t) {
+                if (!given(i)) return;
+                file = Plain(ReadFile(argv[i]));
+                const long at = Tex0::Find(file);
+                if (at >= 0) t = std::make_unique<Tex0>(file, (size_t)at);
+            };
+            loadTex(6, texFile, tex);
+            loadTex(8, buildingTexFile, buildingTex);
+            std::unique_ptr<Narc> buildings;
+            if (given(7)) buildings = std::make_unique<Narc>(Plain(ReadFile(argv[7])));
+            const std::filesystem::path out(argv[5]);
+            std::filesystem::create_directories(out);
+            const std::string json = world.Json();
+            WriteFile((out / "world.json").string(), Bytes(json.begin(), json.end()));
+            WriteFile((out / "collision.png").string(), world.CollisionPng());
+            float cell = 0;
+            const std::string gltf = world.Gltf(tex.get(), buildings.get(), buildingTex.get(), &cell);
+            WriteFile((out / "world.gltf").string(), Bytes(gltf.begin(), gltf.end()));
+            size_t maps = 0;
+            for (const auto& c : world.Cells) maps += c.has_value();
+            printf("matrix %s: %ux%u, %zu maps read, %zu errors, cell size %g\n", world.Matrix.Name.c_str(), world.Matrix.Width,
+                   world.Matrix.Height, maps, world.Errors.size(), cell);
+            for (const std::string& e : world.Errors) fprintf(stderr, "%s\n", e.c_str());
+            return 0;
+        }
+
+        const NdsRom rom(ReadFile(argv[2]));
+        if (cmd == "info")
+        {
+            printf("title %s\ngame code %s\nfiles %zu\n", rom.Title().c_str(), rom.GameCode().c_str(), rom.Files().size());
+            return 0;
+        }
+        if (cmd == "texindex")
+        {
+            printf("name\tpath\ttexture\tpalette\tformat\n");
+            for (const TextureSource& t : IndexTextures(rom))
+                printf("%s\t%s\t%s\t%s\t%d\n", t.Name.c_str(), t.Path.c_str(), t.Texture.c_str(), t.Palette.c_str(), t.Format);
+            return 0;
+        }
+        if (cmd == "identify" && argc >= 4)
+        {
+            // the dump folder: <emulator textures dir>/<game code>/dump/tex_*.png
+            std::multimap<std::string, TextureSource> byName;
+            for (TextureSource& t : IndexTextures(rom)) byName.emplace(t.Name, std::move(t));
+            size_t found = 0, total = 0;
+            std::set<std::string> files;
+            for (const auto& e : std::filesystem::directory_iterator(argv[3]))
+            {
+                const std::string stem = e.path().stem().string();
+                if (e.path().extension() != ".png" || stem.rfind("tex_", 0) != 0) continue;
+                total++;
+                const auto [first, last] = byName.equal_range(stem);
+                if (first == last) { printf("%s\t(not in a TEX0 file)\n", stem.c_str()); continue; }
+                found++;
+                for (auto it = first; it != last; ++it)
+                {
+                    const TextureSource& t = it->second;
+                    printf("%s\t%s\t%s\t%s\n", stem.c_str(), t.Path.c_str(), t.Texture.c_str(), t.Palette.c_str());
+                    files.insert(t.Path);
+                }
+            }
+            fprintf(stderr, "%zu of %zu dumped textures found, from %zu files\n", found, total, files.size());
+            return 0;
+        }
+        if (cmd == "inventory") { fputs(InventoryJson(rom).c_str(), stdout); return 0; }
+        if ((cmd == "extract" || cmd == "unpack") && argc >= 5)
+        {
+            const NdsFile* f = rom.Find(argv[3]);
+            if (!f) { fprintf(stderr, "no file %s\n", argv[3]); return 1; }
+            const Bytes data = Plain(rom.Read(*f));
+            if (cmd == "extract") { WriteFile(argv[4], data); return 0; }
+            const Narc narc(data);
+            std::filesystem::create_directories(argv[4]);
+            for (size_t i = 0; i < narc.Count(); i++)
+            {
+                const Bytes m = Plain(narc.Member(i));
+                const std::string name = narc.Name(i).empty() ? std::to_string(i) + "." + Sniff(m).Id : narc.Name(i);
+                WriteFile((std::filesystem::path(argv[4]) / name).string(), m);
+            }
+            printf("%zu members\n", narc.Count());
+            return 0;
+        }
+        return Usage();
+    }
+    catch (const std::exception& e)
+    {
+        fprintf(stderr, "error: %s\n", e.what());
+        return 1;
+    }
+}

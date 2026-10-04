@@ -245,6 +245,8 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
     }
     result->LightingComposeAOLoc = glGetUniformLocation(result->LightingComposeShader, "uAmbientOcclusion");
     result->LightingComposeBounceLoc = glGetUniformLocation(result->LightingComposeShader, "uBounceIntensity");
+    result->ComposeAttrLoc[0] = glGetUniformLocation(result->LightingComposeShader, "AttrBuf");
+    result->ComposeAttrLoc[1] = glGetUniformLocation(result->LightingComposeShader, "uSceneryId");
 
     // lighting terms at high resolutions (see MaxLightingScale)
     if (!OpenGL::CompileVertexFragmentProgram(result->LightingDownsampleShader,
@@ -294,6 +296,8 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
         for (int i = 0; i < 6; i++)
             result->UpsampleLoc[i] = glGetUniformLocation(result->LightingUpsampleShader, names[i]);
     }
+    result->UpsampleAttrLoc[0] = glGetUniformLocation(result->LightingUpsampleShader, "AttrBuf");
+    result->UpsampleAttrLoc[1] = glGetUniformLocation(result->LightingUpsampleShader, "uSceneryId");
 
 
     memset(&result->ShaderConfig, 0, sizeof(ShaderConfig));
@@ -625,7 +629,7 @@ u32 GLRenderer::PlaneDepth(const double plane[3], u32 x, u32 y) noexcept
     return (u32)std::clamp(std::lround(z), 0L, 0xFFFFFFL);
 }
 
-u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 hdTexture, u32* vptr) const
+u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 hdTexture, u32* vptr, u32 procedural) const
 {
     u32 z = poly->FinalZ[vid];
     u32 w = poly->FinalW[vid];
@@ -696,7 +700,7 @@ u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u3
 
     // Split TexParam into 2 because some GPUs don't have 32 bit ints. TexPalette only uses 13 bits
     *vptr++ = vtxattr | (zshift << 16);
-    *vptr++ = poly->TexParam & 0xFFFF;
+    *vptr++ = (poly->TexParam & 0xFFFF) | (procedural << 16);
     *vptr++ = (poly->TexParam >> 16 ) | (poly->TexPalette << 16);
     *vptr++ = hdTexture;
 
@@ -741,6 +745,8 @@ float* GLRenderer::SetupViewCenterVertex(const Polygon* poly, float* gptr) const
 void GLRenderer::LookupHDTextures(GPU& gpu, int npolys)
 {
     bool textured = gpu.GPU3D.RenderDispCnt & (1<<0);
+    // relief by material reads texels from the flat texture VRAM
+    HDTextures.SetKeepCoherent(ViewDataActive && Relief > 0);
     if (!HDTextures.BeginFrame(gpu) || !textured)
     {
         for (int i = 0; i < npolys; i++)
@@ -783,6 +789,45 @@ void GLRenderer::LookupHDTextures(GPU& gpu, int npolys)
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D_ARRAY, HDTextures.AtlasTexture());
     glActiveTexture(prevActiveTexture);
+}
+
+void GLRenderer::LookupReliefScales(GPU& gpu, int npolys)
+{
+    const bool active = ViewDataActive && Relief > 0 && (gpu.GPU3D.RenderDispCnt & (1<<0));
+    // the frame's polygon IDs per texture: evidence for the character class
+    // (relief) and characters' softer shade (lighting effects)
+    std::unordered_map<u64, u64> textureIds;
+    if (active || LightingActive)
+        for (int i = 0; i < npolys; i++)
+        {
+            const Polygon* poly = PolygonList[i].PolyData;
+            if ((poly->TexParam >> 26) & 0x7)
+                textureIds[TexcacheKey(poly->TexParam, poly->TexPalette)] |= 1ull << ((poly->Attr >> 24) & 0x3F);
+        }
+    int counts[64] = {};
+    for (auto& [key, ids] : textureIds)
+        for (int n = 0; n < 64; n++) counts[n] += (ids >> n) & 1;
+    FrameSceneryId = MaterialClassifier::SceneryId(counts);
+    MaterialRelief.BeginFrame(HDTextures.TexturesChanged(), FrameSceneryId);
+    u32 prevParam = 0, prevPal = 0, prevScale = 0;
+    bool havePrev = false;
+    for (int i = 0; i < npolys; i++)
+    {
+        Polygon* poly = PolygonList[i].PolyData;
+        u32 scale = 0;
+        if (active && ((poly->TexParam >> 26) & 0x7) != 0)
+        {
+            if (havePrev && poly->TexParam == prevParam && poly->TexPalette == prevPal)
+                scale = prevScale;
+            else
+            {
+                scale = MaterialRelief.Scale(gpu, poly->TexParam, poly->TexPalette, textureIds[TexcacheKey(poly->TexParam, poly->TexPalette)]);
+                prevParam = poly->TexParam; prevPal = poly->TexPalette; prevScale = scale;
+                havePrev = true;
+            }
+        }
+        PolygonList[i].ReliefScale = scale;
+    }
 }
 
 void GLRenderer::EnsureCapacity(Polygon** polygons, u32 npolys)
@@ -857,6 +902,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
         u32 alpha = (polyattr >> 16) & 0x1F;
 
         u32 vtxattr = polyattr & 0x1F00C8F0;
+        vtxattr |= rp->ReliefScale & (0xF | GLMaterialRelief::VolumetricGrass | GLMaterialRelief::Fabric); // bits 0-3, 12, 13: free in the DS attributes kept here
         if (poly->FacingView) vtxattr |= (1<<8);
         if (poly->WBuffer)    vtxattr |= (1<<9);
 
@@ -880,7 +926,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 lastx = vtx->FinalPosition[0];
                 lasty = vtx->FinalPosition[1];
 
-                vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr);
+                vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr, (rp->ReliefScale >> GLMaterialRelief::ProceduralShift) & 0xF);
                 if (viewdata) gptr = SetupViewVertex(vtx, gptr);
 
                 IndexBuffer[iidx++] = vidx;
@@ -899,7 +945,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
             {
                 Vertex* vtx = poly->Vertices[j];
 
-                vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr);
+                vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr, (rp->ReliefScale >> GLMaterialRelief::ProceduralShift) & 0xF);
                 if (viewdata) gptr = SetupViewVertex(vtx, gptr);
                 vidx++;
             }
@@ -922,7 +968,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 {
                     Vertex* vtx = poly->Vertices[j];
 
-                    vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr);
+                    vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr, (rp->ReliefScale >> GLMaterialRelief::ProceduralShift) & 0xF);
                     if (viewdata) gptr = SetupViewVertex(vtx, gptr);
 
                     if (j >= 2)
@@ -1030,7 +1076,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
 
                 // Split TexParam into 2 because some GPUs don't have 32 bit ints. TexPalette only uses 13 bits
                 *vptr++ = vtxattr | (zshift << 16);
-                *vptr++ = poly->TexParam & 0xFFFF;
+                *vptr++ = (poly->TexParam & 0xFFFF) | (((rp->ReliefScale >> GLMaterialRelief::ProceduralShift) & 0xF) << 16);
                 *vptr++ = (poly->TexParam >> 16 ) | (poly->TexPalette << 16);
                 *vptr++ = rp->HDTexture;
                 if (viewdata) gptr = SetupViewCenterVertex(poly, gptr);
@@ -1042,7 +1088,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 {
                     Vertex* vtx = poly->Vertices[j];
 
-                    vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr);
+                    vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr, (rp->ReliefScale >> GLMaterialRelief::ProceduralShift) & 0xF);
                     if (viewdata) gptr = SetupViewVertex(vtx, gptr);
 
                     if (j >= 1)
@@ -1678,12 +1724,38 @@ bool GLRenderer::RenderShadowMap(const GPU3D& gpu3d)
     // has its whole outline, and the inside of what encloses the scene (a
     // room's ceiling and walls, lit by the DS too) faces away from a light
     // coming from outside, which it would otherwise block entirely
+    // Far background (a sky dome, distant mountains) casts nothing: what lies
+    // over 8 times further than the median distance of what the frame draws.
+    // On Joker's harbour a piece of the sky dome, a million units out (the
+    // scene within about 60 thousand), joined the casters on some frames and
+    // put the whole scene in shadow
+    ShadowDistances.clear();
+    for (u32 v = 0; v < NumVertices; v++)
+    {
+        const float* g = &ViewVertexBuffer[v * ViewVertexSize];
+        if (g[3] >= 0.5f) ShadowDistances.push_back(g[0]*g[0] + g[1]*g[1] + g[2]*g[2]);
+    }
+    float farthest = 1e30f;
+    if (!ShadowDistances.empty())
+    {
+        auto mid = ShadowDistances.begin() + ShadowDistances.size() / 2;
+        std::nth_element(ShadowDistances.begin(), mid, ShadowDistances.end());
+        farthest = *mid * 64.0f; // squared: 8 times the distance
+    }
     const std::vector<float>& recorded = gpu3d.RenderShadowCasters;
     ShadowCasterVertices.clear();
     for (size_t t = 0; t + 11 < recorded.size(); t += 12)
     {
         const float* n = &recorded[t + 9];
         if (n[0]*sp.Dir[0] + n[1]*sp.Dir[1] + n[2]*sp.Dir[2] <= 0)
+            continue;
+        bool background = false;
+        for (int v = 0; v < 3; v++)
+        {
+            const float* q = &recorded[t + v * 3];
+            background = background || q[0]*q[0] + q[1]*q[1] + q[2]*q[2] > farthest;
+        }
+        if (background)
             continue;
         ShadowCasterVertices.insert(ShadowCasterVertices.end(), &recorded[t], &recorded[t + 9]);
     }
@@ -1804,16 +1876,34 @@ bool GLRenderer::FindReplacedShadows(const GPU3D& gpu3d)
             end++;
         }
         float grow = std::max({hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]});
-        bool near = false;
-        for (size_t t = 0; t + 11 < casters.size() && !near; t += 12)
-            for (int v = 0; v < 3 && !near; v++)
+        // the game's shadow gives way only where the real one covers it: its
+        // middle, seen from the main light, inside the outline of the casters
+        // near it, and those casters between it and the light. A caster near
+        // the volume is not enough: with a grazing light (Joker's harbour) the
+        // real shadow falls away from the feet and characters lost theirs
+        const auto& sp = ShadowParams;
+        auto across = [&](const float* q, const float* axis) { return q[0]*axis[0] + q[1]*axis[1] + q[2]*axis[2]; };
+        const float mid[3] = {(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2};
+        float cLo[2] = {1e30f, 1e30f}, cHi[2] = {-1e30f, -1e30f}, casterNearest = -1e30f;
+        bool nearby = false;
+        for (size_t t = 0; t + 11 < casters.size(); t += 12)
+            for (int v = 0; v < 3; v++)
             {
                 const float* p = &casters[t + v * 3];
-                near = p[0] >= lo[0] - grow && p[0] <= hi[0] + grow && p[1] >= lo[1] - grow && p[1] <= hi[1] + grow &&
-                       p[2] >= lo[2] - grow && p[2] <= hi[2] + grow;
+                if (!(p[0] >= lo[0] - grow && p[0] <= hi[0] + grow && p[1] >= lo[1] - grow && p[1] <= hi[1] + grow &&
+                      p[2] >= lo[2] - grow && p[2] <= hi[2] + grow))
+                    continue;
+                nearby = true;
+                const float r = across(p, sp.Right), u = across(p, sp.Up);
+                cLo[0] = std::min(cLo[0], r); cHi[0] = std::max(cHi[0], r);
+                cLo[1] = std::min(cLo[1], u); cHi[1] = std::max(cHi[1], u);
+                // nearer the light: larger along Dir (as the shadow map's depth)
+                casterNearest = std::max(casterNearest, across(p, sp.Dir));
             }
-        for (int k = i; k < end; k++) ShadowReplaced[k] = near;
-        any = any || near;
+        const float mr = across(mid, sp.Right), mu = across(mid, sp.Up);
+        const bool covered = nearby && mr >= cLo[0] && mr <= cHi[0] && mu >= cLo[1] && mu <= cHi[1] && casterNearest > across(mid, sp.Dir);
+        for (int k = i; k < end; k++) ShadowReplaced[k] = covered;
+        any = any || covered;
         i = end;
     }
     return any;
@@ -1942,6 +2032,16 @@ void GLRenderer::RenderLighting(const GPU3D& gpu3d)
     glActiveTexture(GL_TEXTURE6);
     glBindTexture(GL_TEXTURE_2D, shadows ? ShadowMapTex : 0);
     glBindSampler(6, ShadowDepthSampler);
+    // characters' softer shade: polygon IDs (the opaque pass's attributes)
+    glActiveTexture(GL_TEXTURE9);
+    glBindTexture(GL_TEXTURE_2D, AttrBufferTex);
+    glUseProgram(LightingComposeShader);
+    glUniform1i(ComposeAttrLoc[0], 9);
+    glUniform1i(ComposeAttrLoc[1], FrameSceneryId);
+    glUseProgram(LightingUpsampleShader);
+    glUniform1i(UpsampleAttrLoc[0], 9);
+    glUniform1i(UpsampleAttrLoc[1], FrameSceneryId);
+    glUseProgram(LightingComposeShader);
     if (LightingFactor == 1)
     {
         SetLightingTermUniforms(ComposeShadowLoc, ComposeReflectionLoc, shadows, gpu3d, (float)ScaleFactor);
@@ -2104,6 +2204,11 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
     // relief textures: depth in texels, and the main light (most used by
     // opaque polygons last frame, in view space, towards the light)
     ShaderConfig.uRelief = ViewDataActive ? (Relief >= 2 ? 2.0f : Relief == 1 ? 1.0f : 0.0f) : 0.0f;
+    // wind for volumetric grass: 2 radians a second at the DS's 60 frames a
+    // second, reduced here in doubles so the float never loses precision
+    if (ShaderConfig.uRelief > 0) WindFrames++;
+    ShaderConfig.uWindPhase = (float)std::fmod(WindFrames * (2.0 / 60.0), 2.0 * M_PI);
+    ShaderConfig.uStyle = ShaderConfig.uRelief > 0 && Relief >= 3 ? 1.0f : 0.0f;
     {
         int light = 0;
         for (int l = 1; l < 4; l++)
@@ -2253,6 +2358,7 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
         NumOpaqueFinalPolys = firsttrans;
 
         LookupHDTextures(gpu, npolys);
+        LookupReliefScales(gpu, npolys);
 
         // inspector (Pomegrade): polygons coloured by what drew them
         ViewInspector = gpu.NDS.Inspector.GetView() != Inspector::View::Off ? &gpu.NDS.Inspector : nullptr;
