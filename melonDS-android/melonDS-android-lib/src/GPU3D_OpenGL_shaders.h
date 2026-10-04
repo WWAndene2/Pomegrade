@@ -906,7 +906,9 @@ vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
     // drops its texel noise and keeps its edges and painted shapes (a 4x4
     // average was tried first: the owner found it lost the objects' detail). Characters keep their features, only smoothed. Grass
     // keeps its blades (below)
-    if (uStyle > 0.0 && (fPolygonAttr.x & (1<<12)) == 0 && textype != 0)
+    // a texture redrawn at high resolution (MMPX upscaling or a pack: HD
+    // atlas) already has clean edges and all its detail: drawn as it is
+    if (uStyle > 0.0 && (fPolygonAttr.x & (1<<12)) == 0 && textype != 0 && fHDTexture == 0)
     {
         vec3 c00, c10, c01, c11;
         if ((fPolygonAttr.x & (1<<13)) != 0)
