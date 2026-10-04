@@ -520,7 +520,8 @@ Java_me_magnum_melonds_MelonEmulator_getInspectorReport(JNIEnv* env, jobject thi
 JNIEXPORT void JNICALL
 Java_me_magnum_melonds_MelonEmulator_setMaterialManifest(JNIEnv* env, jobject thiz, jstring text)
 {
-    const char* chars = env->GetStringUTFChars(text, nullptr);
+    const char* chars = text ? env->GetStringUTFChars(text, nullptr) : nullptr;
+    if (!chars) return; // out of memory (an exception is pending)
     MelonDSAndroid::setMaterialManifest(chars);
     env->ReleaseStringUTFChars(text, chars);
 }
