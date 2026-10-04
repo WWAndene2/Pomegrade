@@ -1407,6 +1407,7 @@ const int NumSamples = 12;
 // Test scene (tests/lighting-effects): floor-wall crease 19% darker, contact
 // shadow 15% darker, open surfaces unchanged
 const float Intensity = 2.0;
+const float AngleBias = 0.26; // sin(15 degrees)
 
 void main()
 {
@@ -1453,7 +1454,16 @@ void main()
         // SAO's estimator, made scale-free with the radius: occluders above the
         // surface count more the closer they are, nothing past the radius
         float f = max(1.0 - vv / (radius * radius), 0.0);
-        float vn = dot(v, N) - 0.02 * radius; // bias against self-occlusion
+        // bias against self-occlusion; and where the occluder faces nearly the
+        // same way as this surface (normals within 25 degrees: the next facet
+        // of the same smooth mesh), an angle bias like horizon-based AO's -
+        // rising less than 15 degrees above the surface does not occlude - so
+        // the shallow folds between facets (Joker's cliff) do not draw the
+        // mesh's edges as dark lines. Other occluders (a sphere on the floor,
+        // a wall) count in full
+        vec3 nq = texelFetch(GNormal, sp, 0).xyz * 2.0 - 1.0;
+        float bias = dot(nq, N) > 0.9 ? AngleBias * sqrt(vv) : 0.0;
+        float vn = dot(v, N) - 0.02 * radius - bias;
         occlusion += f * f * f * max(vn, 0.0) * radius / (vv + 0.01 * radius * radius);
     }
 
