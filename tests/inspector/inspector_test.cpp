@@ -67,6 +67,9 @@ struct Program
 constexpr u32 POWCNT1 = 0x04000304, POLYGON_ATTR = 0x040004A4, BEGIN_VTXS = 0x04000500, END_VTXS = 0x04000504;
 constexpr u32 VTX_16 = 0x0400048C, SWAP_BUFFERS = 0x04000540, MTX_PUSH = 0x04000444, MTX_POP = 0x04000448;
 constexpr u32 DMA0SAD = 0x040000B0, DMA0DAD = 0x040000B4, DMA0CNT = 0x040000B8;
+constexpr u32 TEXIMAGE_PARAM = 0x040004A8;
+// texture at 0x2000 (param 0x400 in 8-byte units), 16x16, direct colour (7), texgen from normals (2)
+constexpr u32 TexParamNormal = (2u << 30) | (7u << 26) | (1u << 23) | (1u << 20) | 0x400;
 constexpr u32 Attr = 0x051F00C0; // polygon ID 5, opaque, front and back drawn
 const u32 Vertices[3][2] = {{0, 0}, {0x0800, 0}, {0x08000000, 0}};
 
@@ -200,6 +203,7 @@ int main()
             prog.Write(POWCNT1, 0x820F);
             u32 pushSite = prog.Write(MTX_PUSH, 0);
             prog.Write(POLYGON_ATTR, Attr);
+            prog.Write(TEXIMAGE_PARAM, TexParamNormal);
             u32 loop = prog.LoopStart(3);
             prog.Write(BEGIN_VTXS, 0);
             u32 lastVertex = 0;
@@ -222,6 +226,9 @@ int main()
             check(report.find("id  5: 3 polygons") != std::string::npos, mode + ": its polygon ID is counted");
             check(report.find("[" + Hex(pushSite) + "]\n    MTX_PUSH") != std::string::npos, mode + ": the trace has MTX_PUSH at its call site");
             check(report.find("MTX_POP        00000001") != std::string::npos, mode + ": and MTX_POP with its parameter");
+            char tex[96];
+            snprintf(tex, sizeof(tex), "%-22s %08X  %-11s %6u %8u %7u %9u", Hex(lastVertex).c_str(), 0x2000u, "16x16 f7", 0u, 0u, 3u, 0u);
+            check(report.find(tex) != std::string::npos, mode + ": its texture, generated from normals (a fake reflection)");
             if (!ok) printf("%s\n", report.c_str());
         }
 
@@ -278,6 +285,28 @@ int main()
         check(nds->Inspector.Report().find("== Polygons: 0 ==") != std::string::npos, "off: no polygons recorded");
         check(nds->GPU.GPU3D.GetRenderNumPolygons() == 1 && nds->GPU.GPU3D.GetRenderPolygons()[0]->CallSite == 0,
               "off: the polygon is drawn, with no call site");
+    }
+
+    // 4b. scrolling: the texture matrix's translation moving from frame to frame
+    {
+        auto nds = MakeNDS(false);
+        nds->Inspector.SetEnabled(true);
+        nds->Inspector.BeginFrame();
+        Polygon poly {};
+        poly.TexParam = (1u << 30) | (7u << 26) | 0x400;
+        for (s32 x : {0, 64, 128})
+        {
+            nds->Inspector.OnPolygon(poly, 0, x, -32);
+            nds->Inspector.OnFlush();
+        }
+        std::string report = nds->Inspector.Report();
+        check(report.find("+64, +0") != std::string::npos, "a texture whose matrix moves 64 per frame scrolls");
+        nds->Inspector.OnPolygon(poly, 0, 128, -32);
+        nds->Inspector.OnFlush();
+        report = nds->Inspector.Report();
+        size_t at = report.find("== Textures by call site (1) ==");
+        size_t end = report.find("== Cartridge");
+        check(at != std::string::npos && report.substr(at, end - at).find("+") == std::string::npos, "still: no scrolling");
     }
 
     // 4. cartridge reads named after NitroFS files

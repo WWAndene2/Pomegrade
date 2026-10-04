@@ -12,6 +12,10 @@
 // - the last frame's polygons per call site and per display list, its polygon
 //   IDs and its 3D command trace (matrix stack operations included) are kept,
 //   as is a log of the cartridge files the game reads (NitroFS names);
+// - per call site and texture: how texture coordinates are generated (none,
+//   from texcoords, normals: a fake reflection, positions: a projected
+//   texture) and whether the texture matrix moves from frame to frame (a
+//   scrolling texture: water, lava, conveyors) (DS_ENGINE_REMAKE.md 5.3);
 // - Report() writes all of it as text.
 // Off by default; off, it costs nothing (the JIT emits no extra code).
 
@@ -57,8 +61,9 @@ public:
     void OnDmaEnabled(DMA& dma, u32 srcAddr, u32 dstAddr, u32 count) noexcept;
     // the geometry engine runs a command
     void OnCommand(u8 command, u32 param, u16 source) noexcept;
-    // a polygon is made from the command whose source was given
-    void OnPolygon(Polygon& poly, u16 source) noexcept;
+    // a polygon is made from the command whose source was given, with the
+    // texture matrix's translation (TexMatrix[12], [13]) in effect
+    void OnPolygon(Polygon& poly, u16 source, s32 texX, s32 texY) noexcept;
     // the polygon lists were handed to the renderer: this frame's tables
     // become the last frame's
     void OnFlush() noexcept;
@@ -86,6 +91,14 @@ private:
     struct ListStats { u32 Addr = 0; u32 Words = 0; u32 Site = 0; u32 Polygons = 0; };
     struct TraceEntry { u8 Command; u32 Param; u32 Site; };
     struct FileRead { u32 Frame; u32 File; u32 Offset; u32 Length; };
+    // a texture as one call site uses it
+    struct TexUse
+    {
+        u32 Polygons[4] = {}; // by texgen mode: none, texcoord, normal, position
+        s32 TexX = 0, TexY = 0;   // texture matrix translation (last polygon)
+        bool Moved = false;       // translation changed since the previous frame
+        s32 DeltaX = 0, DeltaY = 0;
+    };
     struct FrameTables
     {
         std::map<u32, SiteStats> Sites;
@@ -94,6 +107,7 @@ private:
         u32 Polygons = 0;
         std::vector<TraceEntry> Trace;
         bool TraceTruncated = false;
+        std::map<u64, TexUse> Textures;     // (site << 32) | texture parameters
     };
     struct CartFile { u32 Start, End, Id; };
 
@@ -113,6 +127,8 @@ private:
     FrameTables Current;
     FrameTables Last;
     u32 LastFrameNumber = 0;
+    // texture matrix translations of the previous frame, for scrolling
+    std::map<u64, std::pair<s32, s32>> PrevTexTranslation;
 
     std::vector<CartFile> Files; // sorted by start
     std::vector<std::string> FileNames; // by file id

@@ -578,6 +578,53 @@ void GLRenderer::SetupPolygon(GLRenderer::RendererPolygon* rp, Polygon* polygon)
     }
 }
 
+bool GLRenderer::DepthPlane(const Polygon* poly, double plane[3]) const
+{
+    // Pomegrade: rounding a vertex to a whole output pixel moves it on screen
+    // but not in depth, so two coplanar polygons (a floor, a decal on it) get
+    // different screen-space depth planes, differing by far more than the DS's
+    // "depth equal" margin where the depth changes fast (towards the horizon).
+    // In Z-buffer mode, depth is affine on screen: fitted here from the exact
+    // screen positions (output units), it gives each rounded vertex the depth
+    // its polygon really has there.
+    if (HighPrecision || poly->WBuffer || poly->NumVertices < 3)
+        return false;
+    const double scale = ScaleFactor;
+    auto pos = [&](u32 j, double& x, double& y) {
+        x = poly->Vertices[j]->PreciseScreen[0] * scale;
+        y = poly->Vertices[j]->PreciseScreen[1] * scale;
+    };
+    double x0, y0;
+    pos(0, x0, y0);
+    double best = 0, a = 0, b = 0;
+    for (u32 j = 1; j + 1 < poly->NumVertices; j++)
+        for (u32 k = j + 1; k < poly->NumVertices; k++)
+        {
+            double x1, y1, x2, y2;
+            pos(j, x1, y1);
+            pos(k, x2, y2);
+            double det = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
+            if (std::abs(det) <= best) continue;
+            double dz1 = (double)poly->FinalZ[j] - poly->FinalZ[0], dz2 = (double)poly->FinalZ[k] - poly->FinalZ[0];
+            best = std::abs(det);
+            a = (dz1 * (y2 - y0) - dz2 * (y1 - y0)) / det;
+            b = (dz2 * (x1 - x0) - dz1 * (x2 - x0)) / det;
+        }
+    // degenerate on screen (or a vertex the DS couldn't place): keep its depths
+    if (best < 0.25 * scale * scale)
+        return false;
+    plane[0] = a;
+    plane[1] = b;
+    plane[2] = poly->FinalZ[0] - a * x0 - b * y0;
+    return true;
+}
+
+u32 GLRenderer::PlaneDepth(const double plane[3], u32 x, u32 y) noexcept
+{
+    double z = plane[0] * x + plane[1] * y + plane[2];
+    return (u32)std::clamp(std::lround(z), 0L, 0xFFFFFFL);
+}
+
 u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 hdTexture, u32* vptr) const
 {
     u32 z = poly->FinalZ[vid];
@@ -628,6 +675,14 @@ u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u3
                 x = vtop->FinalPosition[0];
         }
     }*/
+
+    double plane[3];
+    if (DepthPlane(poly, plane))
+    {
+        z = PlaneDepth(plane, x, y);
+        zshift = 0;
+        while (z > 0xFFFF) { z >>= 1; zshift++; }
+    }
 
     *vptr++ = x | (y << 16);
     *vptr++ = z | (w << 16);
@@ -948,6 +1003,11 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
 
                 u32 w = (u32)cW;
 
+                // Pomegrade: the centre's depth where it is drawn (see DepthPlane)
+                double plane[3];
+                if (DepthPlane(poly, plane))
+                    cZ = (float)PlaneDepth(plane, cX, cY);
+
                 u32 z = (u32)cZ;
                 u32 zshift = 0;
                 while (z > 0xFFFF) { z >>= 1; zshift++; }
@@ -1097,9 +1157,12 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
 
     GLboolean fogenable = (gpu3d.RenderDispCnt & (1<<7)) ? GL_TRUE : GL_FALSE;
 
-    // TODO: proper 'equal' depth test!
-    // (has margin of +-0x200 in Z-buffer mode, +-0xFF in W-buffer mode)
-    // for now we're using GL_LEQUAL to make it work to some extent
+    // 'equal' depth test: the DS passes within a margin of +-0x200 in Z-buffer
+    // mode, +-0xFF in W-buffer mode. Pomegrade: the vertex shaders move these
+    // polygons that margin towards the camera and GL_LEQUAL is used, so the
+    // near half of the margin is honoured; a polygon more than the margin in
+    // front of what is there still passes (the far bound would need the depth
+    // already drawn, which one depth test can't check from both sides)
 
     // pass 1: opaque pixels
 

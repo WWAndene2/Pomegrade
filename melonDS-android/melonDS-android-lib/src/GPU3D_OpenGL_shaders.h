@@ -820,6 +820,9 @@ void main()
     vec4 fpos;
     fpos.xy = (((vec2(vPosition.xy) ) * 2.0) / uScreenSize) - 1.0;
     fpos.z = (float(vPosition.z << zshift) / 8388608.0) - 1.0;
+    // Pomegrade: "depth test equal" polygons (decals) pass within the DS margin
+    // of +-0x200 (Z-buffer): moved that much towards the camera, then LEQUAL
+    if ((attr & (1<<14)) != 0) fpos.z -= 512.0 / 8388608.0;
     fpos.w = float(vPosition.w) / 65536.0f;
     fpos.xyz *= fpos.w;
 
@@ -847,6 +850,9 @@ void main()
     fpos.xy = (((vec2(vPosition.xy) ) * 2.0) / uScreenSize) - 1.0;
     fpos.z = 0.0;
     fZ = float(vPosition.z << zshift) / 16777216.0;
+    // Pomegrade: "depth test equal" polygons (decals) pass within the DS margin
+    // of +-0xFF (W-buffer): moved that much towards the camera, then LEQUAL
+    if ((attr & (1<<14)) != 0) fZ -= 255.0 / 16777216.0;
     fpos.w = float(vPosition.w) / 65536.0f;
     fpos.xy *= fpos.w;
     fpos.z = 0.0;

@@ -145,6 +145,10 @@ private:
     int BackupW {}, BackupH {};
 
     bool LightingEnabled() const noexcept { return AmbientOcclusion || LightBounce || Shadows || Reflections; }
+    // Pomegrade: a polygon's Z-buffer depth as a plane on screen (output
+    // units), when its rounded vertices need it; and its depth at a position
+    bool DepthPlane(const Polygon* poly, double plane[3]) const;
+    static u32 PlaneDepth(const double plane[3], u32 x, u32 y) noexcept;
     float* SetupViewVertex(const Vertex* vtx, float* gptr) const;
     float* SetupViewCenterVertex(const Polygon* poly, float* gptr) const;
     void SetupLightingTargets();

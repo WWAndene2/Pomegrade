@@ -1387,7 +1387,7 @@ void GPU3D::SubmitPolygon() noexcept
     poly->TexParam = TexParam;
     poly->TexPalette = TexPalette;
     if (NDS.Inspector.IsEnabled())
-        NDS.Inspector.OnPolygon(*poly, CurCommandSource);
+        NDS.Inspector.OnPolygon(*poly, CurCommandSource, TexMatrix[12], TexMatrix[13]);
     else
         poly->CallSite = poly->ListHash = 0;
 

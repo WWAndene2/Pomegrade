@@ -111,6 +111,7 @@ void Inspector::BeginFrame() noexcept
         NDS.JIT.SetTrackStoreSites(Enabled);
 
     Current = FrameTables();
+    PrevTexTranslation.clear();
     LastSource = 0;
     for (auto& s : Sources) s = Source();
     if (Enabled)
@@ -309,7 +310,7 @@ void Inspector::OnCommand(u8 command, u32 param, u16 source) noexcept
         Current.TraceTruncated = true;
 }
 
-void Inspector::OnPolygon(Polygon& poly, u16 source) noexcept
+void Inspector::OnPolygon(Polygon& poly, u16 source, s32 texX, s32 texY) noexcept
 {
     const Source& s = Sources[source < SourceRing ? source : 0];
     poly.CallSite = s.Site;
@@ -328,10 +329,34 @@ void Inspector::OnPolygon(Polygon& poly, u16 source) noexcept
     }
     Current.PolygonIds[(poly.Attr >> 24) & 0x3F]++;
     Current.Polygons++;
+
+    // textured polygons: texgen mode and texture matrix (address, size,
+    // format bits of the texture parameters identify the texture)
+    if ((poly.TexParam >> 26) & 0x7)
+    {
+        TexUse& use = Current.Textures[((u64)s.Site << 32) | (poly.TexParam & 0x3FFFFFFF)];
+        use.Polygons[poly.TexParam >> 30]++;
+        use.TexX = texX;
+        use.TexY = texY;
+    }
 }
 
 void Inspector::OnFlush() noexcept
 {
+    // scrolling: the translation compared with the frame before
+    std::map<u64, std::pair<s32, s32>> translations;
+    for (auto& [key, use] : Current.Textures)
+    {
+        auto prev = PrevTexTranslation.find(key);
+        if (prev != PrevTexTranslation.end() && (prev->second.first != use.TexX || prev->second.second != use.TexY))
+        {
+            use.Moved = true;
+            use.DeltaX = use.TexX - prev->second.first;
+            use.DeltaY = use.TexY - prev->second.second;
+        }
+        translations[key] = {use.TexX, use.TexY};
+    }
+    PrevTexTranslation.swap(translations);
     {
         std::lock_guard<std::mutex> guard(Lock);
         std::swap(Last, Current);
@@ -343,6 +368,7 @@ void Inspector::OnFlush() noexcept
     Current.Polygons = 0;
     Current.Trace.clear();
     Current.TraceTruncated = false;
+    Current.Textures.clear();
 }
 
 void Inspector::OnCartRead(u32 addr, u32 len) noexcept
@@ -445,6 +471,22 @@ std::string Inspector::Report() const
     add("\n== Polygon IDs ==\n");
     for (int i = 0; i < 64; i++)
         if (Last.PolygonIds[i]) add("id %2d: %u polygons\n", i, Last.PolygonIds[i]);
+
+    add("\n== Textures by call site (%zu) ==\n", Last.Textures.size());
+    add("Texgen: how texture coordinates are made. normal = a fake reflection (sphere map), position = a projected texture\n");
+    add("(often a fake shadow or light). Scrolls: the texture matrix translation changed since the frame before (per frame,\n");
+    add("raw 1/4096 units; a flowing texture: water, lava, conveyors).\n");
+    add("%-22s %-9s %-11s %6s %8s %7s %9s  %s\n", "site", "address", "size/format", "none", "texcoord", "normal", "position", "scrolls");
+    for (auto& [key, use] : Last.Textures)
+    {
+        u32 param = (u32)key;
+        char scroll[48] = "";
+        if (use.Moved) snprintf(scroll, sizeof(scroll), "%+d, %+d", use.DeltaX, use.DeltaY);
+        char fmt[24];
+        snprintf(fmt, sizeof(fmt), "%dx%d f%u", 8 << ((param >> 20) & 7), 8 << ((param >> 23) & 7), (param >> 26) & 7);
+        add("%-22s %08X  %-11s %6u %8u %7u %9u  %s\n", site((u32)(key >> 32)).c_str(), (param & 0xFFFF) << 3, fmt,
+            use.Polygons[0], use.Polygons[1], use.Polygons[2], use.Polygons[3], scroll);
+    }
 
     add("\n== Cartridge reads since the inspector was turned on (%zu%s) ==\n", FileReads.size(), FileReadsTruncated ? ", list full" : "");
     add("%-8s %-10s %-10s  %s\n", "frame", "offset", "bytes", "file");
