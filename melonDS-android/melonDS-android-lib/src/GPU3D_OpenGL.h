@@ -331,7 +331,10 @@ private:
     // brought back by an edge-aware filter (see kLightingDownsampleFS). Measured
     // at 8x on the desktop (llvmpipe), the effects were 83% of the GPU's work
     // per frame at full resolution. 1 = at full resolution.
-    static constexpr int MaxLightingScale = 4;
+    // 2 (was 4): on Joker's harbour at x4 with every effect, the effects'
+    // cost fell by 62% (197 -> 75 ms over the frame without them, software
+    // rendering) for at most half a level of difference in the image
+    static constexpr int MaxLightingScale = 2;
     int LightingFactor = 1;
     GLuint LowPositionTex {}, LowNormalTex {}, LowColorTex {};
     GLuint TermsTex {}, TermsBounceTex {}, TermsReflectedTex {};
