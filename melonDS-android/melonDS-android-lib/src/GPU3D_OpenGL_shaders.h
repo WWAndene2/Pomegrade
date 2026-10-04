@@ -786,6 +786,13 @@ float ReliefHeight(vec2 st)
 vec3 ReliefDP1, ReliefDP2;
 vec2 ReliefDU1, ReliefDU2;
 
+// two pseudo-random numbers in [0, 1) per texel cell (volumetric grass)
+vec2 BladeHash(vec2 cell)
+{
+    vec2 q = vec2(dot(cell, vec2(127.1, 311.7)), dot(cell, vec2(269.5, 183.3)));
+    return fract(sin(q) * 43758.5453);
+}
+
 // returns the texture coordinate to sample; shade: the relighting factor
 vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
 {
@@ -819,6 +826,38 @@ vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
     vec2 dir = vec2(dot(Vs, gU), dot(Vs, gV)) * (relief * texel / vn);
     float dl = length(dir);
     if (dl > 4.0 * relief) dir *= 4.0 * relief / dl;
+
+    // Pomegrade: volumetric grass (bit 12, foliage): the slab above the
+    // surface holds one blade per texel, a cone of random place and height
+    // (taller on brighter texels), coloured by the ground under its root and
+    // darker towards it. The view ray is marched down through the slab and
+    // the first blade hit is drawn; where none is, the ground deep below.
+    // Blades smaller than a pixel would shimmer: plain relief there.
+    float footprint = max(length(du1), length(du2)); // texels per pixel
+    if ((fPolygonAttr.x & (1<<12)) != 0 && footprint < 0.75)
+    {
+        const int steps = 12;
+        vec2 slab = dir * 2.0; // blades twice the relief depth
+        // each pixel starts at a random fraction of a step: no banding (14.2)
+        float jitter = BladeHash(floor(gl_FragCoord.xy)).x;
+        for (int i = 0; i < steps; i++)
+        {
+            float h = 1.0 - (float(i) + jitter) / float(steps);
+            vec2 p = st - slab * (1.0 - h);
+            vec2 cell = floor(p);
+            vec2 r = BladeHash(cell);
+            vec2 root = cell + 0.2 + 0.6 * r;
+            float height = (0.3 + 0.7 * r.y) * (0.5 + 0.5 * ReliefLuma(root));
+            float radius = 0.45 * (1.0 - h / height);
+            if (h < height && length(p - root) < radius)
+            {
+                shade = 0.8 + 0.45 * h / height;
+                return root;
+            }
+        }
+        shade = 0.75;
+        return st - slab;
+    }
 
     const int layers = 8;
     float layer = 1.0 / float(layers);

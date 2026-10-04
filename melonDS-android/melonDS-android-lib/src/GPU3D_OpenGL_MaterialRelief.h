@@ -8,6 +8,8 @@
 // texels (MaterialClassifier, texture statistics only: the renderer has no
 // render-state evidence) and gets a relief depth by class, in eighths of the
 // relief setting, carried to the shader in the polygon attributes' bits 0-3.
+// Foliage also sets bit 12 (VolumetricGrass): the shader draws it as a slab
+// of grass blades instead of parallax.
 
 #include "GPU3D_MaterialClassifier.h"
 
@@ -23,7 +25,8 @@ public:
     // once per frame before Scale: texture VRAM or palettes changed since the
     // last frame (GLHDTextures::TexturesChanged), so classes may be stale
     void BeginFrame(bool texturesChanged);
-    // relief depth of a polygon's texture, 0-15 eighths
+    static constexpr u32 VolumetricGrass = 1 << 12;
+    // relief depth of a polygon's texture, 0-15 eighths, | VolumetricGrass
     u32 Scale(GPU& gpu, u32 texParam, u32 palette);
     void Reset() { Classifier.Clear(); Scales.clear(); }
 

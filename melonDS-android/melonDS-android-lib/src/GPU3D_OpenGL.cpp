@@ -884,7 +884,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
         u32 alpha = (polyattr >> 16) & 0x1F;
 
         u32 vtxattr = polyattr & 0x1F00C8F0;
-        vtxattr |= rp->ReliefScale & 0xF; // bits 0-3, free in the DS attributes kept here
+        vtxattr |= rp->ReliefScale & (0xF | GLMaterialRelief::VolumetricGrass); // bits 0-3 and 12, free in the DS attributes kept here
         if (poly->FacingView) vtxattr |= (1<<8);
         if (poly->WBuffer)    vtxattr |= (1<<9);
 

@@ -11,7 +11,7 @@ u32 GLMaterialRelief::ScaleOf(MaterialClass c)
     {
     case MaterialClass::Stone: return 8;      // the relief setting as is
     case MaterialClass::Wood: return 6;
-    case MaterialClass::Foliage: return 6;
+    case MaterialClass::Foliage: return 6 | VolumetricGrass;
     case MaterialClass::Lava: return 4;
     case MaterialClass::Character: return 2;  // painted shading, not height
     case MaterialClass::Sky: return 0;
