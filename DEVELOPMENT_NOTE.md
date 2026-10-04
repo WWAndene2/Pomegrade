@@ -107,7 +107,8 @@ Design: `DS_ENGINE_REMAKE.md` (the owner's notes). Its step 1 (5.12, "logging an
   - Software and OpenGL renders match apart from texel sampling noise and polygon edges (known upstream differences).
   - Callers (the inspector now records LR at each store): the DMA routine (01FF847C) is called from 01FF8460, also ITCM. Joker queues display lists in a buffer that an SDK routine empties later, so no call stack names the game function that drew a model; the display list (and its RAM address, 0228xxxx-022Dxxxx: loaded model data) is the identity. The 11 directly written polygons (020095A4) are called from game code (02029338).
   - "Better polygons" on phones: textures swirled into the centre of quads with negative texture coordinates (17 of 207 quads in the scene); fixed (float to unsigned conversion, wrapped on x86, clamped on ARM64).
-- Next: tie display lists to the files they were loaded from (cartridge reads to RAM addresses, section 5.2), which needs the ROM in the session; palette-index histograms (step 1); then step 3 (RAM-map discovery), which a save state is enough to start.
+- Palette-index histograms (end of step 1): done; on Joker's scene the 256-colour textures are colour ramps (nearly every index used), so per-index material masks suit only small few-colour textures.
+- Next: tie display lists to the files they were loaded from (cartridge reads to RAM addresses, section 5.2), which needs the ROM in the session; then step 3 (RAM-map discovery), which a save state is enough to start.
 
 ## 4. One coherent app
 
