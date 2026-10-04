@@ -66,6 +66,9 @@ public:
     [[nodiscard]] size_t ManifestSize() const noexcept { return Manifest.size(); }
 
     [[nodiscard]] static const char* Name(MaterialClass c) noexcept;
+    // the frame's scenery polygon ID: the one shared by the most textures, 3
+    // at least (counts: textures drawn with each ID); -1 when none
+    [[nodiscard]] static int SceneryId(const int counts[64]) noexcept;
 
     static constexpr float MinConfidence = 0.35f;
 

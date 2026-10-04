@@ -1,9 +1,10 @@
-// Relief by material and volumetric grass (OpenGL renderer): a floor drawn
-// through the real DS 3D engine with a grass texture, then a sky texture,
-// relief off and strong. The grass texture is classified as foliage and
-// drawn as a slab of blades (more detail than the flat texture, still
-// green); the sky texture gets no relief at all. Writes the images next to
-// the binary.
+// Relief by material (OpenGL renderer), drawn through the real DS 3D engine,
+// relief off and strong: a floor with a grass texture is classified as
+// foliage and drawn as a slab of blades swaying in the wind; with a sky
+// texture it gets no relief at all; a character (a texture of skin and
+// cloth drawn with its own polygon ID, in front of scenery sharing one) is
+// drawn with cloth folds while its skin stays as it was. Writes the images
+// next to the binary.
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include "NDS.h"
@@ -77,8 +78,14 @@ static void TexCoord(double s, double t) { Cmd(0x22, {((u32)(s32)std::lround(s *
 
 static const double F = 1.0 / std::tan(25.0 * M_PI / 180.0), Aspect = 256.0 / 192.0, Zn = 0.5, Zf = 20, FloorY = -1;
 
-// a lit floor seen from above, textured with the 64x64 direct-colour texture
-// at VRAM address 0, one texel for 1/8 of a unit
+// texture parameters: direct colour (7), 64x64 (3, 3), repeat in s and t,
+// texture slot n (8 KB each) of bank A
+static u32 Tex(int n) { return (7u << 26) | (3u << 23) | (3u << 20) | (3u << 16) | (u32)(n * 0x2000 >> 3); }
+static bool ClothScene = false;
+
+// a lit floor seen from above, one texel for 1/8 of a unit: texture 0, or
+// in the cloth scene textures 1-3 (scenery, polygon ID 63) and a character
+// standing on it, facing the camera (texture 4, polygon ID 1)
 static void SubmitScene()
 {
     GPU3D& g = Nds->GPU.GPU3D;
@@ -93,19 +100,29 @@ static void SubmitScene()
     Cmd(0x33, {0x7FFF});
     Cmd(0x30, {(0x5AD6) | (0x2108u << 16)});
     Cmd(0x31, {0});
-    Cmd(0x29, {(31 << 16) | (1 << 24) | 0x80 | 0x01});
-    // texture: direct colour (7), 64x64 (3, 3), repeat in s and t, address 0
-    Cmd(0x2A, {(7u << 26) | (3u << 23) | (3u << 20) | (3u << 16)});
-    Cmd(0x40, {1});
+    Cmd(0x29, {(31 << 16) | ((ClothScene ? 63u : 1u) << 24) | 0x80 | 0x01});
     for (int i = 0; i < 8; i++)
     {
+        Cmd(0x2A, {Tex(ClothScene ? 1 + i % 3 : 0)});
+        Cmd(0x40, {1});
         double z0 = -1.6 - i * 0.8, z1 = z0 - 0.8;
         Cmd(0x21, {N10(0) | (N10(1) << 10)}); TexCoord(0, -z0 * 8);  Vertex16(-4, FloorY, z0);
         Cmd(0x21, {N10(0) | (N10(1) << 10)}); TexCoord(64, -z0 * 8); Vertex16(4, FloorY, z0);
         Cmd(0x21, {N10(0) | (N10(1) << 10)}); TexCoord(64, -z1 * 8); Vertex16(4, FloorY, z1);
         Cmd(0x21, {N10(0) | (N10(1) << 10)}); TexCoord(0, -z1 * 8);  Vertex16(-4, FloorY, z1);
+        Cmd(0x41);
     }
-    Cmd(0x41);
+    if (ClothScene)
+    {
+        Cmd(0x29, {(31 << 16) | (1u << 24) | 0x80 | 0x01});
+        Cmd(0x2A, {Tex(4)});
+        Cmd(0x40, {1});
+        Cmd(0x21, {N10(0) | (N10(0) << 10) | (N10(1) << 20)}); TexCoord(0, 64);  Vertex16(-0.8, FloorY, -3);
+        Cmd(0x21, {N10(0) | (N10(0) << 10) | (N10(1) << 20)}); TexCoord(64, 64); Vertex16(0.8, FloorY, -3);
+        Cmd(0x21, {N10(0) | (N10(0) << 10) | (N10(1) << 20)}); TexCoord(64, 0);  Vertex16(0.8, 0.6, -3);
+        Cmd(0x21, {N10(0) | (N10(0) << 10) | (N10(1) << 20)}); TexCoord(0, 0);   Vertex16(-0.8, 0.6, -3);
+        Cmd(0x41);
+    }
     Cmd(0x50, {0});
     Nds->GPU.GPU3D.VBlank();
     Nds->GPU.GPU3D.VCount215(Nds->GPU);
@@ -144,11 +161,15 @@ static std::vector<u32> Composite(GLRenderer& r, GPU& gpu, int scale)
     return top;
 }
 
+// the renderer's output has red in bits 16-23 (as the lighting test's images)
 static void SavePng(const std::string& name, const std::vector<u32>& img, int w)
 {
-    std::vector<u32> out(img);
-    for (u32& c : out) c |= 0xFF000000;
-    stbi_write_png(name.c_str(), w, (int)(img.size() / w), 4, out.data(), w * 4);
+    std::vector<u8> out(img.size() * 3);
+    for (size_t i = 0; i < img.size(); i++)
+    {
+        out[i * 3] = (img[i] >> 16) & 0xFF; out[i * 3 + 1] = (img[i] >> 8) & 0xFF; out[i * 3 + 2] = img[i] & 0xFF;
+    }
+    stbi_write_png(name.c_str(), w, (int)(img.size() / w), 3, out.data(), w * 3);
 }
 
 static std::vector<u32> Frame(GLRenderer& r, GPU& gpu)
@@ -212,9 +233,9 @@ int main()
     // textures are written as a game does, through bank A mapped to the CPU
     // (LCDC), so the renderer sees VRAM change; then mapped as texture slot 0
     std::vector<u16> texels(64 * 64);
-    auto upload = [&]() {
+    auto upload = [&](int slot = 0) {
         gpu.MapVRAM_AB(0, 0x80);
-        for (int i = 0; i < 64 * 64; i++) nds->ARM9Write16(0x06800000 + i * 2, texels[i]);
+        for (int i = 0; i < 64 * 64; i++) nds->ARM9Write16(0x06800000 + slot * 0x2000 + i * 2, texels[i]);
         gpu.MapVRAM_AB(0, 0x83);
     };
     u32 seed = 12345;
@@ -244,7 +265,7 @@ int main()
     check(change > 8, "grass: drawn as blades (the near floor changes)");
     // plain relief on the same texture: x1.4; blades: x4.6 (measured)
     check(detailOn > detailOff * 3, "grass: blades add fine detail (edges between blades), far more than parallax");
-    check(Channel(grassOn, w, nearY0, nearY1, 1) > 2 * Channel(grassOn, w, nearY0, nearY1, 0), "grass: still green (blades coloured by the texture under them)");
+    check(Channel(grassOn, w, nearY0, nearY1, 1) > 2 * Channel(grassOn, w, nearY0, nearY1, 2), "grass: still green (blades coloured by the texture under them)");
 
     // wind: the blades sway with time (2 radians a second): the field moves,
     // a little from one frame to the next, more over a quarter second
@@ -265,6 +286,54 @@ int main()
     r->SetRelief(2);
     auto skyOn = Frame(*r, gpu);
     check(MeanDiff(skyOn, skyOff, w, 0, 192 * scale) == 0, "sky texture: relief leaves it untouched");
+
+    // clothes: scenery of three textures (grey, sand, dark green-grey: not
+    // foliage) with polygon ID 63, and a character with ID 1 whose texture is
+    // skin on its left half and blue cloth with painted folds (vertical
+    // light and dark bands) on its right half
+    const u16 scenery[3][3] = {{14, 14, 14}, {22, 19, 12}, {9, 11, 9}};
+    for (int t = 0; t < 3; t++)
+    {
+        for (int i = 0; i < 64 * 64; i++)
+        {
+            u32 v = rnd() % 4;
+            texels[i] = 0x8000 | (scenery[t][0] + v) | ((scenery[t][1] + v) << 5) | ((scenery[t][2] + v) << 10);
+        }
+        upload(1 + t);
+    }
+    for (int y = 0; y < 64; y++)
+        for (int x = 0; x < 64; x++)
+        {
+            u32 v = rnd() % 2;
+            if (x < 32) texels[y * 64 + x] = 0x8000 | (26 + v) | (18 << 5) | (12 << 10); // skin
+            else
+            {
+                int fold = (int)std::lround(5 * std::sin((x - 32) * 0.6)); // light and shade of folds
+                texels[y * 64 + x] = 0x8000 | (6 + v) | ((10 + fold / 2) << 5) | ((22 + fold) << 10);
+            }
+        }
+    upload(4);
+    ClothScene = true;
+    r->SetRelief(0);
+    auto clothOff = Frame(*r, gpu);
+    r->SetRelief(2);
+    auto clothOn = Frame(*r, gpu);
+    SavePng("cloth_relief_off.png", clothOff, w);
+    SavePng("cloth_relief_on.png", clothOn, w);
+    // the character's halves on screen: x -0.8..0 and 0..0.8 at z -3,
+    // y -1..0.6 (inset by 1/8 unit against edges)
+    auto region = [&](double x0, double x1) {
+        double s = 0; long n = 0;
+        auto sx = [&](double x) { return (int)std::lround((x * F / Aspect / 3 + 1) * 128 * scale); };
+        auto sy = [&](double y) { return (int)std::lround((1 - y * F / 3) * 96 * scale); };
+        for (int y = sy(0.475); y < sy(-0.875); y++) for (int x = sx(x0 + 0.125); x < sx(x1 - 0.125); x++)
+            for (int k = 0; k < 3; k++) { s += std::abs((int)((clothOn[y * w + x] >> (8 * k)) & 0xFF) - (int)((clothOff[y * w + x] >> (8 * k)) & 0xFF)); n++; }
+        return s / n;
+    };
+    const double skin = region(-0.8, 0), cloth = region(0, 0.8);
+    printf("character: relief changes skin by %.2f, cloth by %.2f\n", skin, cloth);
+    check(skin == 0, "clothes: the character's skin is left as it was");
+    check(cloth > 2, "clothes: the cloth gets folds and weave");
 
     printf(ok ? "ALL OK\n" : "FAILURES\n");
     return ok ? 0 : 1;

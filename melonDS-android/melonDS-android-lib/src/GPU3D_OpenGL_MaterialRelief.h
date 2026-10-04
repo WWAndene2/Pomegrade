@@ -9,7 +9,10 @@
 // render-state evidence) and gets a relief depth by class, in eighths of the
 // relief setting, carried to the shader in the polygon attributes' bits 0-3.
 // Foliage also sets bit 12 (VolumetricGrass): the shader draws it as a slab
-// of grass blades instead of parallax.
+// of grass blades instead of parallax. Characters (a texture of many colours
+// drawn with a polygon ID apart from the scenery's, the frame's IDs being the
+// renderer's evidence) set bit 13 (Fabric): skin stays smooth, the rest is
+// drawn as cloth, folds shaded from its painted light and a fine weave.
 
 #include "GPU3D_MaterialClassifier.h"
 
@@ -23,18 +26,21 @@ class GLMaterialRelief
 {
 public:
     // once per frame before Scale: texture VRAM or palettes changed since the
-    // last frame (GLHDTextures::TexturesChanged), so classes may be stale
-    void BeginFrame(bool texturesChanged);
-    static constexpr u32 VolumetricGrass = 1 << 12;
-    // relief depth of a polygon's texture, 0-15 eighths, | VolumetricGrass
-    u32 Scale(GPU& gpu, u32 texParam, u32 palette);
+    // last frame (GLHDTextures::TexturesChanged), so statistics may be stale;
+    // sceneryId: the frame's scenery polygon ID (MaterialClassifier::SceneryId)
+    void BeginFrame(bool texturesChanged, int sceneryId);
+    static constexpr u32 VolumetricGrass = 1 << 12, Fabric = 1 << 13;
+    // relief depth of a polygon's texture, 0-15 eighths, | VolumetricGrass or
+    // Fabric; polygonIds: bit n set when this frame drew it with polygon ID n
+    u32 Scale(GPU& gpu, u32 texParam, u32 palette, u64 polygonIds);
     void Reset() { Classifier.Clear(); Scales.clear(); }
 
     static u32 ScaleOf(MaterialClass c);
 
 private:
-    MaterialClassifier Classifier;
-    std::unordered_map<u64, u32> Scales; // by TexcacheKey
+    MaterialClassifier Classifier; // its statistics persist until textures change
+    std::unordered_map<u64, u32> Scales; // this frame's, by TexcacheKey
+    int SceneryId = -1;
 };
 
 }

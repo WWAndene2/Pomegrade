@@ -460,12 +460,11 @@ void Inspector::OnFlush() noexcept
             e.PolygonIds |= use.PolygonIds;
         }
         // the scenery ID: shared by the most textures (3 at least)
-        int counts[64] = {}, scenery = -1;
+        int counts[64] = {};
         for (auto& [key, e] : evidence)
             for (int i = 0; i < 64; i++)
                 if (e.PolygonIds >> i & 1) counts[i]++;
-        for (int i = 0; i < 64; i++)
-            if (counts[i] >= 3 && (scenery < 0 || counts[i] > counts[scenery])) scenery = i;
+        const int scenery = MaterialClassifier::SceneryId(counts);
         for (auto& [key, e] : evidence) e.SceneryId = scenery;
         Current.MaterialEvidence.swap(evidence);
     }

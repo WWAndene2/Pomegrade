@@ -790,7 +790,19 @@ void GLRenderer::LookupHDTextures(GPU& gpu, int npolys)
 void GLRenderer::LookupReliefScales(GPU& gpu, int npolys)
 {
     const bool active = ViewDataActive && Relief > 0 && (gpu.GPU3D.RenderDispCnt & (1<<0));
-    MaterialRelief.BeginFrame(HDTextures.TexturesChanged());
+    // the frame's polygon IDs per texture: evidence for the character class
+    std::unordered_map<u64, u64> textureIds;
+    if (active)
+        for (int i = 0; i < npolys; i++)
+        {
+            const Polygon* poly = PolygonList[i].PolyData;
+            if ((poly->TexParam >> 26) & 0x7)
+                textureIds[TexcacheKey(poly->TexParam, poly->TexPalette)] |= 1ull << ((poly->Attr >> 24) & 0x3F);
+        }
+    int counts[64] = {};
+    for (auto& [key, ids] : textureIds)
+        for (int n = 0; n < 64; n++) counts[n] += (ids >> n) & 1;
+    MaterialRelief.BeginFrame(HDTextures.TexturesChanged(), MaterialClassifier::SceneryId(counts));
     u32 prevParam = 0, prevPal = 0, prevScale = 0;
     bool havePrev = false;
     for (int i = 0; i < npolys; i++)
@@ -803,7 +815,7 @@ void GLRenderer::LookupReliefScales(GPU& gpu, int npolys)
                 scale = prevScale;
             else
             {
-                scale = MaterialRelief.Scale(gpu, poly->TexParam, poly->TexPalette);
+                scale = MaterialRelief.Scale(gpu, poly->TexParam, poly->TexPalette, textureIds[TexcacheKey(poly->TexParam, poly->TexPalette)]);
                 prevParam = poly->TexParam; prevPal = poly->TexPalette; prevScale = scale;
                 havePrev = true;
             }
@@ -884,7 +896,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
         u32 alpha = (polyattr >> 16) & 0x1F;
 
         u32 vtxattr = polyattr & 0x1F00C8F0;
-        vtxattr |= rp->ReliefScale & (0xF | GLMaterialRelief::VolumetricGrass); // bits 0-3 and 12, free in the DS attributes kept here
+        vtxattr |= rp->ReliefScale & (0xF | GLMaterialRelief::VolumetricGrass | GLMaterialRelief::Fabric); // bits 0-3, 12, 13: free in the DS attributes kept here
         if (poly->FacingView) vtxattr |= (1<<8);
         if (poly->WBuffer)    vtxattr |= (1<<9);
 

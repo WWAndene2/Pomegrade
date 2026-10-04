@@ -806,7 +806,8 @@ vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
     float relief = uRelief * float(fPolygonAttr.x & 0xF) / 8.0;
     bool usable = relief > 0.0 && fViewPosition.w > 0.999
         && fColor.a > 0.99 // opaque (the alpha comes with the vertex colour)
-        && (textype == 2 || textype == 3 || textype == 5 || textype == 7);
+        && (textype == 2 || textype == 3 || textype == 5 || textype == 7
+            || ((fPolygonAttr.x & (1<<13)) != 0 && textype == 4)); // characters often use 256 colours
     vec3 N0 = cross(dp1, dp2);
     float det = dot(N0, N0);
     if (!usable || !(det > 0.0)) return st; // view-space units are small: no absolute threshold
@@ -829,13 +830,41 @@ vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
     float dl = length(dir);
     if (dl > 4.0 * relief) dir *= 4.0 * relief / dl;
 
+    float footprint = max(length(du1), length(du2)); // texels per pixel
+
+    // Pomegrade: clothes (bit 13, characters). Skin, by the classifier's
+    // colour band (orange hue, moderately saturated, light), stays smooth.
+    // The rest is cloth: the painted light's large shapes (ReliefHeight)
+    // become folds, by shading only - no parallax, so animated cloth does not
+    // swim - and a fine weave of three threads a texel ripples the light,
+    // faded out where a texel covers less than 4 pixels
+    if ((fPolygonAttr.x & (1<<13)) != 0)
+    {
+        vec3 c = TextureLookup_Nearest(st).rgb;
+        float mx = max(c.r, max(c.g, c.b)), mn = min(c.r, min(c.g, c.b));
+        float sat = mx > 0.0 ? (mx - mn) / mx : 0.0;
+        float hue = (mx > mn && mx == c.r) ? 60.0 * mod((c.g - c.b) / (mx - mn) + 6.0, 6.0) : -1.0;
+        if (hue >= 10.0 && hue <= 45.0 && sat >= 0.2 && sat <= 0.65 && mx >= 0.3) return st;
+
+        float fx = ReliefHeight(st + vec2(1.0, 0.0)) - ReliefHeight(st - vec2(1.0, 0.0));
+        float fy = ReliefHeight(st + vec2(0.0, 1.0)) - ReliefHeight(st - vec2(0.0, 1.0));
+        vec3 fN = normalize(N - (normalize(gU) * fx + normalize(gV) * fy) * (4.0 * relief));
+        vec3 fL = uReliefLight.w > 0.5 ? normalize(uReliefLight.xyz) : normalize(V + vec3(0.0, 1.0, 0.0));
+        float fBase = max(dot(N, fL), 0.0), fLit = max(dot(fN, fL), 0.0);
+        shade = clamp((0.35 + fLit) / (0.35 + fBase), 0.6, 1.4);
+        vec2 thread = st * 3.0 * 3.14159;
+        float weave = sin(thread.x + 1.5708 * floor(st.y * 3.0)) * sin(thread.y + 1.5708 * floor(st.x * 3.0));
+        float fade = clamp((0.5 - footprint) * 4.0, 0.0, 1.0); // full from 4 pixels a texel, none under 2
+        shade *= 1.0 + 0.1 * weave * fade;
+        return st;
+    }
+
     // Pomegrade: volumetric grass (bit 12, foliage): the slab above the
     // surface holds one blade per texel, a cone of random place and height
     // (taller on brighter texels), coloured by the ground under its root and
     // darker towards it. The view ray is marched down through the slab and
     // the first blade hit is drawn; where none is, the ground deep below.
     // Blades smaller than a pixel would shimmer: plain relief there.
-    float footprint = max(length(du1), length(du2)); // texels per pixel
     if ((fPolygonAttr.x & (1<<12)) != 0 && footprint < 0.75)
     {
         const int steps = 12;
