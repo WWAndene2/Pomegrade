@@ -11,6 +11,7 @@
 #include "GPU3D.h"
 #include "GPU3D_OpenGL.h"
 #include "stb/stb_image_write.h"
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -167,6 +168,18 @@ static double MeanDiff(const std::vector<u32>& a, const std::vector<u32>& b, int
         for (int k = 0; k < 3; k++) { s += std::abs((int)((a[y * w + x] >> (8 * k)) & 0xFF) - (int)((b[y * w + x] >> (8 * k)) & 0xFF)); n++; }
     return s / n;
 }
+// share of pixels whose largest channel difference exceeds 16 levels
+static double Changed(const std::vector<u32>& a, const std::vector<u32>& b, int w, int y0, int y1)
+{
+    long n = 0, m = 0;
+    for (int y = y0; y < y1; y++) for (int x = 0; x < w; x++)
+    {
+        int d = 0;
+        for (int k = 0; k < 3; k++) d = std::max(d, std::abs((int)((a[y * w + x] >> (8 * k)) & 0xFF) - (int)((b[y * w + x] >> (8 * k)) & 0xFF)));
+        m += d > 16; n++;
+    }
+    return (double)m / n;
+}
 static double Detail(const std::vector<u32>& a, int w, int y0, int y1)
 {
     double s = 0; long n = 0;
@@ -232,6 +245,17 @@ int main()
     // plain relief on the same texture: x1.4; blades: x4.6 (measured)
     check(detailOn > detailOff * 3, "grass: blades add fine detail (edges between blades), far more than parallax");
     check(Channel(grassOn, w, nearY0, nearY1, 1) > 2 * Channel(grassOn, w, nearY0, nearY1, 0), "grass: still green (blades coloured by the texture under them)");
+
+    // wind: the blades sway with time (2 radians a second): the field moves,
+    // a little from one frame to the next, more over a quarter second
+    SubmitScene(); r->RenderFrame(gpu);
+    auto next = Composite(*r, gpu, scale);
+    for (int i = 0; i < 14; i++) { SubmitScene(); r->RenderFrame(gpu); }
+    auto later = Composite(*r, gpu, scale);
+    SavePng("grass_wind_later.png", later, w);
+    const double step = Changed(next, grassOn, w, nearY0, nearY1), sway = Changed(later, grassOn, w, nearY0, nearY1);
+    printf("wind: pixels changed in one frame %.1f%%, in 15 frames %.1f%%\n", step * 100, sway * 100);
+    check(sway > 0.05 && step < sway / 3, "grass: sways in the wind, smoothly (one frame moves it far less than a quarter second)");
 
     // sky: bright, smooth blue (MaterialClassifier: sky): no relief
     for (int i = 0; i < 64 * 64; i++) texels[i] = 0x8000 | (14 + rnd() % 2) | (24 << 5) | (31 << 10);

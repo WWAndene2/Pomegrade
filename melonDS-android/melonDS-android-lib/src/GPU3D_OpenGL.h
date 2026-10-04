@@ -195,6 +195,8 @@ private:
         u32 uTextureFilter;         // int        306 / 1   Pomegrade: TextureLookup_Filtered
         float uRelief;              // float      307 / 1   Pomegrade: relief depth in texels, 0 = off
         float uReliefLight[4];      // vec4       308 / 4   Pomegrade: towards the main light (view space), w: 1 if known
+        float uWindPhase;           // float      312 / 1   Pomegrade: wind phase in radians (0-2 pi), sways volumetric grass
+        float __pad1[3];            // the block's size stays a multiple of 16 bytes
     } ShaderConfig {};
 
     GLuint ShaderConfigUBO {};
@@ -221,6 +223,7 @@ private:
 
     GLHDTextures HDTextures;
     GLMaterialRelief MaterialRelief;
+    u64 WindFrames = 0; // frames rendered with relief, for uWindPhase
     u32 NumVertices {};
 
     GLuint VertexArrayID {};

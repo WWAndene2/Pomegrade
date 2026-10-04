@@ -2132,6 +2132,10 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
     // relief textures: depth in texels, and the main light (most used by
     // opaque polygons last frame, in view space, towards the light)
     ShaderConfig.uRelief = ViewDataActive ? (Relief >= 2 ? 2.0f : Relief == 1 ? 1.0f : 0.0f) : 0.0f;
+    // wind for volumetric grass: 2 radians a second at the DS's 60 frames a
+    // second, reduced here in doubles so the float never loses precision
+    if (ShaderConfig.uRelief > 0) WindFrames++;
+    ShaderConfig.uWindPhase = (float)std::fmod(WindFrames * (2.0 / 60.0), 2.0 * M_PI);
     {
         int light = 0;
         for (int l = 1; l < 4; l++)

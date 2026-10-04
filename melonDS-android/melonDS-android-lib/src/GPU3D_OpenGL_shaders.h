@@ -243,6 +243,7 @@ layout(std140) uniform uConfig
     int uTextureFilter; // Pomegrade: TextureLookup_Filtered
     float uRelief;      // Pomegrade: relief depth in texels, 0 = off
     vec4 uReliefLight;  // Pomegrade: towards the main light (view space), w: 1 if known
+    float uWindPhase;   // Pomegrade: wind phase in radians (0-2 pi), sways volumetric grass
 };
 
 in uvec4 vPosition;
@@ -287,6 +288,7 @@ layout(std140) uniform uConfig
     int uTextureFilter; // Pomegrade: TextureLookup_Filtered
     float uRelief;      // Pomegrade: relief depth in texels, 0 = off
     vec4 uReliefLight;  // Pomegrade: towards the main light (view space), w: 1 if known
+    float uWindPhase;   // Pomegrade: wind phase in radians (0-2 pi), sways volumetric grass
 };
 
 smooth in vec4 fColor;
@@ -849,7 +851,12 @@ vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
             vec2 root = cell + 0.2 + 0.6 * r;
             float height = (0.3 + 0.7 * r.y) * (0.5 + 0.5 * ReliefLuma(root));
             float radius = 0.45 * (1.0 - h / height);
-            if (h < height && length(p - root) < radius)
+            // wind: blades lean along one direction, by the square of their
+            // height, in waves that cross the field (gusts); a blade leaning
+            // out of its cell is cut at the cell's edge
+            float gust = sin(uWindPhase + dot(root, vec2(0.21, 0.13))) * 0.5 + 0.15;
+            vec2 bend = vec2(0.94, 0.34) * gust * (h / height) * (h / height);
+            if (h < height && length(p - bend - root) < radius)
             {
                 shade = 0.8 + 0.45 * h / height;
                 return root;
