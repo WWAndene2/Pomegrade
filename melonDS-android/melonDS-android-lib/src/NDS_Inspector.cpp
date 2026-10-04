@@ -371,6 +371,9 @@ void Inspector::OnPolygon(Polygon& poly, u16 source, s32 texX, s32 texY, const s
         TexUse& use = Current.Textures[((u64)s.Site << 32) | (poly.TexParam & 0x3FFFFFFF)];
         use.Polygons[poly.TexParam >> 30]++;
         use.TexX = texX;
+        use.Palette = poly.TexPalette;
+        const u32 alpha = (poly.Attr >> 16) & 0x1F;
+        if (alpha && alpha < 31) use.Translucent++;
         use.TexY = texY;
     }
 }
@@ -423,6 +426,19 @@ void Inspector::OnFlush() noexcept
     }
     PrevTexTranslation.swap(translations);
 
+    // materials: the evidence of every call site drawing the texture
+    {
+        std::map<u64, TextureEvidence> evidence;
+        for (auto& [key, use] : Current.Textures)
+        {
+            TextureEvidence& e = evidence[((u64)use.Palette << 32) | (u32)key];
+            for (u32 n : use.Polygons) e.Polygons += n;
+            e.Translucent += use.Translucent;
+            e.Scrolling = e.Scrolling || use.Moved;
+        }
+        Current.MaterialEvidence.swap(evidence);
+    }
+
     // objects: the same (key, rank) as in the previous frame keeps its id
     std::map<std::pair<u64, u32>, ObjectHistory> objects;
     for (ObjectDraw& draw : Current.Objects)
@@ -460,6 +476,8 @@ void Inspector::OnFlush() noexcept
     Current.TraceTruncated = false;
     Current.Textures.clear();
     Current.Objects.clear();
+    Current.Materials.clear();
+    Current.MaterialEvidence.clear();
     Current.PaletteHistograms.clear();
 }
 
@@ -515,6 +533,24 @@ std::string Inspector::FileName(u32 id) const
 
 void Inspector::OnRendered(GPU& gpu, Renderer3D& renderer)
 {
+    if (!Enabled) return;
+    {
+        // materials of the frame just drawn: the renderer has brought the
+        // flat texture VRAM the classifier decodes up to date (doing it here
+        // would take the VRAM changes from the renderer's texture cache).
+        // Statistics per frame: the texels at an address change with the scene
+        std::lock_guard<std::mutex> guard(Lock);
+        Classifier.Clear();
+        Last.Materials.clear();
+        for (auto& [key, e] : Last.MaterialEvidence)
+        {
+            FrameTables::Material m;
+            m.Result = Classifier.Classify(gpu, (u32)key, (u32)(key >> 32), e);
+            m.Stats = Classifier.Statistics(gpu, (u32)key, (u32)(key >> 32));
+            m.Polygons = e.Polygons;
+            Last.Materials[key] = m;
+        }
+    }
     if (!Enabled || !renderer.Accelerated || FrameNumber - LastParityFrame < ParityInterval) return;
     LastParityFrame = FrameNumber;
     std::lock_guard<std::mutex> guard(Lock);
@@ -707,6 +743,23 @@ std::string Inspector::Report() const
         const PositionField& f = *fields[i].second;
         add("%08X   %-7u %-6u %-6u  %.3f, %.3f, %.3f\n", fields[i].first, f.FramesFound, f.Changes, f.LastFrame,
             f.Value[0] / 4096.0, f.Value[1] / 4096.0, f.Value[2] / 4096.0);
+    }
+
+    {
+        add("\n== Materials (%zu textures) ==\n", Last.Materials.size());
+        add("From render state and texture statistics (no manifest or file names yet); unknown below %.2f confidence.\n", MaterialClassifier::MinConfidence);
+        add("%-8s %-9s %-5s %-8s %-8s %-4s  %-31s %s\n", "texture", "size", "fmt", "palette", "class", "conf", "hue sat bright detail grain var", "cues");
+        std::vector<std::pair<u64, const FrameTables::Material*>> list;
+        for (auto& [key, m] : Last.Materials) list.push_back({key, &m});
+        std::sort(list.begin(), list.end(), [](auto& a, auto& b) { return a.second->Polygons > b.second->Polygons; });
+        for (auto& [key, m] : list)
+        {
+            const u32 param = (u32)key;
+            const auto& s = m->Stats;
+            add("%08X %3ux%-5u f%u   %08X %-8s %.2f  %3.0f %.2f %.2f %.3f %.2f %.2f  %s\n", (param & 0xFFFF) << 3, 8 << ((param >> 20) & 7), 8 << ((param >> 23) & 7),
+                (param >> 26) & 7, (u32)(key >> 32), MaterialClassifier::Name(m->Result.Class), m->Result.Confidence,
+                s.Hue, s.Saturation, s.Brightness, s.Detail, s.Grain, s.Variety, m->Result.Cues.c_str());
+        }
     }
 
     out += Parity.Report();

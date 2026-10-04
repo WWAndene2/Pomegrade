@@ -28,11 +28,14 @@
 //   paint each material with its own indices: eyes, trim, glow) (5.3);
 // - with a hardware renderer, once a second the frame is checked against
 //   the software renderer (GPU3D_ParityOracle.h, 5.12 step 6);
+// - each texture drawn gets a material class (water, foliage, wood...) from
+//   its render state and statistics (GPU3D_MaterialClassifier.h, step 7);
 // - Report() writes all of it as text.
 // Off by default; off, it costs nothing (the JIT emits no extra code).
 
 #include "types.h"
 #include "GPU3D_ParityOracle.h"
+#include "GPU3D_MaterialClassifier.h"
 
 #include <atomic>
 #include <map>
@@ -120,6 +123,8 @@ private:
         s32 TexX = 0, TexY = 0;   // texture matrix translation (last polygon)
         bool Moved = false;       // translation changed since the previous frame
         s32 DeltaX = 0, DeltaY = 0;
+        u32 Palette = 0;          // TexPalette (last polygon)
+        u32 Translucent = 0;      // polygons with alpha 1-30
     };
     // one draw of an object in a frame
     struct ObjectDraw
@@ -147,6 +152,10 @@ private:
         // parameters (address, size, format); texel counts per index
         std::map<u32, std::vector<u32>> PaletteHistograms;
         std::vector<ObjectDraw> Objects;
+        // material of each texture drawn, by (palette << 32) | parameters
+        struct Material { MaterialResult Result; MaterialClassifier::TextureStats Stats; u32 Polygons; };
+        std::map<u64, Material> Materials;
+        std::map<u64, TextureEvidence> MaterialEvidence; // same keys
     };
     struct CartFile { u32 Start, End, Id; };
     // a main RAM address holding (x, y, z) words a matrix was translated by
@@ -186,6 +195,7 @@ private:
     u32 NextObjectId = 1;
 
     ParityOracle Parity; // under Lock
+    MaterialClassifier Classifier;
     u32 LastParityFrame = 0;
     static constexpr u32 ParityInterval = 60;
     static constexpr size_t MaxObjects = 4096;

@@ -10,11 +10,13 @@
 #include "GPU.h"
 #include "GPU3D.h"
 #include "GPU3D_OpenGL.h"
+#include "GPU3D_MaterialClassifier.h"
 #include "GPU3D_Soft.h"
 #include "NDSCart.h"
 #include "NDS_Inspector.h"
 #include "xxhash/xxhash.h"
 #include <array>
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -398,6 +400,56 @@ int main()
         std::string report = nds->Inspector.Report();
         check(report.find("1      2       site unknown           0      1          1.500, 0.000, 0.000 (+0.500, +0.000, +0.000)") != std::string::npos,
               "objects: the same draw keeps id 1 over 2 frames, moved by 0.5");
+    }
+
+    // 4f. materials: direct-colour 16x16 textures in VRAM bank A, classified
+    // from their statistics and the evidence of the polygons drawing them
+    {
+        auto nds = MakeNDS(false);
+        u32 seed = 12345;
+        auto noise = [&]() { seed = seed * 1103515245 + 12345; return (int)((seed >> 16) & 0x7FFF) % 9 - 4; };
+        auto rgb = [](int r, int g, int b) {
+            auto c = [](int v) { return (u16)std::clamp(v, 0, 31); };
+            return (u16)(0x8000 | c(r) | (c(g) << 5) | (c(b) << 10));
+        };
+        u32 slot = 0;
+        // a texture from a function of (x, y), 0 = transparent
+        auto texture = [&](auto texel) {
+            const u32 addr = slot++ * 512;
+            for (int y = 0; y < 16; y++)
+                for (int x = 0; x < 16; x++)
+                {
+                    u16 t = texel(x, y);
+                    memcpy(&nds->GPU.VRAM_A[addr + (y * 16 + x) * 2], &t, 2);
+                }
+            return (7u << 26) | (1u << 20) | (1u << 23) | (addr >> 3);
+        };
+        TextureEvidence none, scrolling, translucent;
+        scrolling.Scrolling = true;
+        translucent.Polygons = 4; translucent.Translucent = 4;
+        struct Case { const char* what; u32 param; TextureEvidence e; MaterialClass want; };
+        const Case cases[] = {
+            {"green leaves with holes", texture([&](int x, int y) { return (x * 7 + y * 3) % 10 < 3 ? (u16)0 : rgb(6 + noise(), 20 + 2 * noise(), 5 + noise()); }), none, MaterialClass::Foliage},
+            {"deep blue water, scrolling", texture([&](int, int) { return rgb(2, 10 + noise() / 2, 24 + noise() / 2); }), scrolling, MaterialClass::Water},
+            {"deep blue water, translucent", texture([&](int, int) { return rgb(2, 10 + noise() / 2, 24 + noise() / 2); }), translucent, MaterialClass::Water},
+            {"grey stone", texture([&](int, int) { return rgb(16 + 2 * noise(), 16 + 2 * noise(), 15 + 2 * noise()); }), none, MaterialClass::Stone},
+            {"brown planks, grain along x", texture([&](int, int y) { int v = (y % 4 == 0) ? -5 : 0; return rgb(18 + v, 10 + v, 3); }), none, MaterialClass::Wood},
+            {"bright sky", texture([&](int, int y) { return rgb(12 + y / 4, 20 + y / 4, 31); }), none, MaterialClass::Sky},
+            {"red lava, scrolling", texture([&](int, int) { return rgb(30, 8 + noise(), 2); }), scrolling, MaterialClass::Lava},
+            {"a character's atlas of many colours", texture([&](int x, int y) { return rgb((x * 5) % 32, (y * 7) % 32, ((x + y) * 3) % 32); }), none, MaterialClass::Unknown},
+        };
+        // the bank mapped for textures once filled (mapping marks it changed),
+        // then, as a renderer does before drawing, the flat texture VRAM made current
+        nds->GPU.MapVRAM_AB(0, 0x83);
+        auto dirty = nds->GPU.VRAMDirty_Texture.DeriveState(nds->GPU.VRAMMap_Texture, nds->GPU);
+        nds->GPU.MakeVRAMFlat_TextureCoherent(dirty);
+        MaterialClassifier classifier;
+        auto classify = [&](u32 param, TextureEvidence e) { e.Polygons = e.Polygons ? e.Polygons : 4; return classifier.Classify(nds->GPU, param, 0, e); };
+        for (const Case& c : cases)
+        {
+            MaterialResult r = classify(c.param, c.e);
+            check(r.Class == c.want, std::string("material: ") + c.what + ": " + MaterialClassifier::Name(r.Class) + " (" + std::to_string(r.Confidence).substr(0, 4) + ", " + r.Cues + ")");
+        }
     }
 
     // 4c. palette indices of a paletted texture: 8x8, 16 colours (4 bits per
