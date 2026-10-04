@@ -30,16 +30,13 @@ import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
 import android.widget.PopupMenu
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.get
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.drawerlayout.widget.DrawerLayout.DrawerListener
 import androidx.fragment.app.Fragment
@@ -53,6 +50,10 @@ import androidx.navigation.fragment.navArgs
 import androidx.preference.PreferenceManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.slider.Slider
+import io.github.wwandene2.pomegrade.emulatorui.EmulatorMenu
+import io.github.wwandene2.pomegrade.emulatorui.R as EmulatorMenuR
+import io.github.wwandene2.pomegrade.emulatorui.SaveStateSlotUi
+import io.github.wwandene2.pomegrade.emulatorui.SaveStatesDialog
 import java.io.File
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -209,12 +210,27 @@ class EmulationFragment :
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentEmulationBinding.inflate(inflater)
-        binding.inGameMenu.menu.findItem(R.id.menu_secondary_screen_layout).isVisible =
+        // Pomegrade: the in-game menu shared with the DS screen, with the 3DS core's entries
+        EmulatorMenu.showOnly(
+            binding.inGameMenu.menu,
+            EmulatorMenu.commonItems + setOf(
+                EmulatorMenuR.id.emulator_menu_pause,
+                EmulatorMenuR.id.emulator_menu_controls,
+                EmulatorMenuR.id.emulator_menu_amiibo,
+                EmulatorMenuR.id.emulator_menu_landscape_layout,
+                EmulatorMenuR.id.emulator_menu_portrait_layout,
+                EmulatorMenuR.id.emulator_menu_secondary_layout,
+                EmulatorMenuR.id.emulator_menu_rotate_upright,
+                EmulatorMenuR.id.emulator_menu_lock_drawer,
+                EmulatorMenuR.id.emulator_menu_multiplayer,
+            )
+        )
+        binding.inGameMenu.menu.findItem(EmulatorMenuR.id.emulator_menu_secondary_layout).isVisible =
             emulationActivity.secondaryDisplayManager.availableDisplays.isNotEmpty()
-        binding.inGameMenu.menu.findItem(R.id.menu_landscape_screen_layout).isVisible =
+        binding.inGameMenu.menu.findItem(EmulatorMenuR.id.emulator_menu_landscape_layout).isVisible =
             CitraApplication.appContext.resources.configuration.orientation !=
             Configuration.ORIENTATION_PORTRAIT
-        binding.inGameMenu.menu.findItem(R.id.menu_portrait_screen_layout).isVisible =
+        binding.inGameMenu.menu.findItem(EmulatorMenuR.id.emulator_menu_portrait_layout).isVisible =
             CitraApplication.appContext.resources.configuration.orientation ==
             Configuration.ORIENTATION_PORTRAIT
         return binding.root
@@ -273,12 +289,12 @@ class EmulationFragment :
                 // No op
             }
         })
-        binding.inGameMenu.menu.findItem(R.id.menu_lock_drawer).apply {
+        binding.inGameMenu.menu.findItem(EmulatorMenuR.id.emulator_menu_lock_drawer).apply {
             val titleId =
                 if (EmulationMenuSettings.drawerLockMode == DrawerLayout.LOCK_MODE_LOCKED_CLOSED) {
-                    R.string.unlock_drawer
+                    EmulatorMenuR.string.emulator_menu_unlock_drawer
                 } else {
-                    R.string.lock_drawer
+                    EmulatorMenuR.string.emulator_menu_lock_drawer
                 }
             val iconId =
                 if (EmulationMenuSettings.drawerLockMode == DrawerLayout.LOCK_MODE_UNLOCKED) {
@@ -295,21 +311,20 @@ class EmulationFragment :
             )
         }
 
-        binding.inGameMenu.getHeaderView(0).apply {
-            val titleView = findViewById<TextView>(R.id.text_game_title)
-            val iconView = findViewById<ImageView>(R.id.game_icon)
-
-            titleView.text = game.title
-
+        EmulatorMenu.setHeader(
+            binding.inGameMenu,
+            game.title,
+            getString(EmulatorMenuR.string.emulator_menu_console_three_ds)
+        )?.let { iconView ->
             GameIconUtils.loadGameIcon(requireActivity(), game, iconView)
         }
 
         binding.inGameMenu.setNavigationItemSelectedListener {
             when (it.itemId) {
-                R.id.menu_emulation_pause -> {
+                EmulatorMenuR.id.emulator_menu_pause -> {
                     if (emulationState.isPaused) {
                         emulationState.unpause()
-                        it.title = resources.getString(R.string.pause_emulation)
+                        it.title = resources.getString(EmulatorMenuR.string.emulator_menu_pause)
                         it.icon = ResourcesCompat.getDrawable(
                             resources,
                             R.drawable.ic_pause,
@@ -317,7 +332,7 @@ class EmulationFragment :
                         )
                     } else {
                         emulationState.pause()
-                        it.title = resources.getString(R.string.resume_emulation)
+                        it.title = resources.getString(EmulatorMenuR.string.emulator_menu_resume)
                         it.icon = ResourcesCompat.getDrawable(
                             resources,
                             R.drawable.ic_play,
@@ -327,52 +342,57 @@ class EmulationFragment :
                     true
                 }
 
-                R.id.menu_emulation_savestates -> {
-                    showSavestateMenu()
+                EmulatorMenuR.id.emulator_menu_save_state -> {
+                    showSaveStatesDialog(isSaving = true)
                     true
                 }
 
-                R.id.menu_overlay_options -> {
+                EmulatorMenuR.id.emulator_menu_load_state -> {
+                    showSaveStatesDialog(isSaving = false)
+                    true
+                }
+
+                EmulatorMenuR.id.emulator_menu_controls -> {
                     showOverlayMenu()
                     true
                 }
 
-                R.id.menu_amiibo -> {
+                EmulatorMenuR.id.emulator_menu_amiibo -> {
                     showAmiiboMenu()
                     true
                 }
 
-                R.id.menu_landscape_screen_layout -> {
+                EmulatorMenuR.id.emulator_menu_landscape_layout -> {
                     showLandscapeScreenLayoutMenu()
                     true
                 }
 
-                R.id.menu_portrait_screen_layout -> {
+                EmulatorMenuR.id.emulator_menu_portrait_layout -> {
                     showPortraitScreenLayoutMenu()
                     true
                 }
 
-                R.id.menu_secondary_screen_layout -> {
+                EmulatorMenuR.id.emulator_menu_secondary_layout -> {
                     showSecondaryScreenLayoutMenu()
                     true
                 }
 
-                R.id.menu_swap_screens -> {
+                EmulatorMenuR.id.emulator_menu_swap_screens -> {
                     screenAdjustmentUtil.swapScreen()
                     true
                 }
 
-                R.id.menu_rotate_upright -> {
+                EmulatorMenuR.id.emulator_menu_rotate_upright -> {
                     screenAdjustmentUtil.toggleScreenUpright()
                     true
                 }
 
-                R.id.menu_lock_drawer -> {
+                EmulatorMenuR.id.emulator_menu_lock_drawer -> {
                     when (EmulationMenuSettings.drawerLockMode) {
                         DrawerLayout.LOCK_MODE_UNLOCKED -> {
                             EmulationMenuSettings.drawerLockMode =
                                 DrawerLayout.LOCK_MODE_LOCKED_CLOSED
-                            it.title = resources.getString(R.string.unlock_drawer)
+                            it.title = resources.getString(EmulatorMenuR.string.emulator_menu_unlock_drawer)
                             it.icon = ResourcesCompat.getDrawable(
                                 resources,
                                 R.drawable.ic_lock,
@@ -382,7 +402,7 @@ class EmulationFragment :
 
                         DrawerLayout.LOCK_MODE_LOCKED_CLOSED -> {
                             EmulationMenuSettings.drawerLockMode = DrawerLayout.LOCK_MODE_UNLOCKED
-                            it.title = resources.getString(R.string.lock_drawer)
+                            it.title = resources.getString(EmulatorMenuR.string.emulator_menu_lock_drawer)
                             it.icon = ResourcesCompat.getDrawable(
                                 resources,
                                 R.drawable.ic_unlocked,
@@ -393,14 +413,14 @@ class EmulationFragment :
                     true
                 }
 
-                R.id.menu_cheats -> {
+                EmulatorMenuR.id.emulator_menu_cheats -> {
                     val action = EmulationNavigationDirections
                         .actionGlobalCheatsActivity(NativeLibrary.getRunningTitleId())
                     binding.root.findNavController().navigate(action)
                     true
                 }
 
-                R.id.menu_settings -> {
+                EmulatorMenuR.id.emulator_menu_settings -> {
                     SettingsActivity.launch(
                         requireContext(),
                         SettingsFile.FILE_NAME_CONFIG,
@@ -410,12 +430,12 @@ class EmulationFragment :
                     true
                 }
 
-                R.id.menu_multiplayer -> {
+                EmulatorMenuR.id.emulator_menu_multiplayer -> {
                     emulationActivity.displayMultiplayerDialog()
                     true
                 }
 
-                R.id.menu_exit -> {
+                EmulatorMenuR.id.emulator_menu_exit -> {
                     emulationState.pause()
                     MaterialAlertDialogBuilder(requireContext())
                         .setTitle(R.string.emulation_close_game)
@@ -503,8 +523,11 @@ class EmulationFragment :
                         if (started) {
                             ViewUtils.hideView(binding.loadingIndicator)
                             ViewUtils.showView(binding.surfaceInputOverlay)
-                            binding.inGameMenu.menu.findItem(R.id.menu_emulation_savestates)
-                                .setVisible(NativeLibrary.getSavestateInfo() != null)
+                            val hasSavestates = NativeLibrary.getSavestateInfo() != null
+                            binding.inGameMenu.menu.findItem(EmulatorMenuR.id.emulator_menu_save_state)
+                                .setVisible(hasSavestates)
+                            binding.inGameMenu.menu.findItem(EmulatorMenuR.id.emulator_menu_load_state)
+                                .setVisible(hasSavestates)
                             binding.drawerLayout.setDrawerLockMode(
                                 EmulationMenuSettings.drawerLockMode
                             )
@@ -537,8 +560,8 @@ class EmulationFragment :
             val position = IntSetting.PERFORMANCE_OVERLAY_POSITION.int
             updateStatsPosition(position)
 
-            binding.inGameMenu.menu.findItem(R.id.menu_emulation_pause)?.let { menuItem ->
-                menuItem.title = resources.getString(R.string.pause_emulation)
+            binding.inGameMenu.menu.findItem(EmulatorMenuR.id.emulator_menu_pause)?.let { menuItem ->
+                menuItem.title = resources.getString(EmulatorMenuR.string.emulator_menu_pause)
                 menuItem.icon = ResourcesCompat.getDrawable(
                     resources,
                     R.drawable.ic_pause,
@@ -603,111 +626,37 @@ class EmulationFragment :
         }
     }
 
-    private fun showSavestateMenu() {
-        val popupMenu = PopupMenu(
-            requireContext(),
-            binding.inGameMenu.findViewById(R.id.menu_emulation_savestates)
-        )
-
-        popupMenu.menuInflater.inflate(R.menu.menu_savestates, popupMenu.menu)
-
-        popupMenu.setOnMenuItemClickListener {
-            when (it.itemId) {
-                R.id.menu_emulation_save_state -> {
-                    showStateSubmenu(true)
-                    true
-                }
-
-                R.id.menu_emulation_load_state -> {
-                    showStateSubmenu(false)
-                    true
-                }
-
-                else -> true
-            }
+    // Pomegrade: the save state dialog shared with the DS screen (the 3DS core keeps no screenshots)
+    private fun showSaveStatesDialog(isSaving: Boolean) {
+        val savedAt = NativeLibrary.getSavestateInfo()?.associate { it.slot to it.time } ?: emptyMap()
+        val slots = (0 until NativeLibrary.SAVESTATE_SLOT_COUNT).map { slot ->
+            SaveStateSlotUi(
+                slot = slot,
+                isQuickSlot = slot == NativeLibrary.QUICKSAVE_SLOT,
+                savedAt = savedAt[slot],
+                screenshot = null
+            )
         }
 
-        popupMenu.show()
-    }
-
-    private fun showStateSubmenu(isSaving: Boolean) {
-        val savestates = NativeLibrary.getSavestateInfo()
-
-        val popupMenu = PopupMenu(
-            requireContext(),
-            binding.inGameMenu.findViewById(R.id.menu_emulation_savestates)
-        )
-
-        popupMenu.menu.apply {
-            for (i in 0 until NativeLibrary.SAVESTATE_SLOT_COUNT) {
-                val slot = i
-                var enableClick = isSaving
-                val text = if (slot == NativeLibrary.QUICKSAVE_SLOT) {
-                    getString(R.string.emulation_quicksave_slot)
+        SaveStatesDialog.show(
+            context = requireContext(),
+            saving = isSaving,
+            slots = slots,
+            onSlotPicked = { picked ->
+                if (isSaving) {
+                    NativeLibrary.saveState(picked.slot)
+                    Toast.makeText(context, getString(R.string.saving), Toast.LENGTH_SHORT).show()
                 } else {
-                    getString(R.string.emulation_empty_state_slot, slot)
+                    NativeLibrary.loadState(picked.slot)
+                    binding.drawerLayout.close()
+                    Toast.makeText(context, getString(R.string.loading), Toast.LENGTH_SHORT).show()
                 }
-
-                add(text).setEnabled(enableClick).setOnMenuItemClickListener {
-                    if (isSaving) {
-                        NativeLibrary.saveState(slot)
-                        Toast.makeText(
-                            context,
-                            getString(R.string.saving),
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    } else {
-                        NativeLibrary.loadState(slot)
-                        binding.drawerLayout.close()
-                        Toast.makeText(
-                            context,
-                            getString(R.string.loading),
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                    true
-                }
-            }
-        }
-
-        savestates?.forEach {
-            var text: String
-            if (it.slot == NativeLibrary.QUICKSAVE_SLOT) {
-                text = getString(R.string.emulation_occupied_quicksave_slot, it.time)
-            } else {
-                text = getString(R.string.emulation_occupied_state_slot, it.slot, it.time)
-            }
-            popupMenu.menu.getItem(it.slot).setTitle(text).setEnabled(true)
-        }
-
-        popupMenu.show()
-    }
-
-    private fun showLoadStateSubmenu() {
-        val savestates = NativeLibrary.getSavestateInfo()
-
-        val popupMenu = PopupMenu(
-            requireContext(),
-            binding.inGameMenu.findViewById(R.id.menu_emulation_savestates)
+            },
+            // the 3DS core has no way to delete a save state
+            onSlotDeleted = null,
+            onCancel = {},
+            onDismiss = {}
         )
-
-        popupMenu.menu.apply {
-            for (i in 0 until NativeLibrary.SAVESTATE_SLOT_COUNT) {
-                val slot = i + 1
-                val text = getString(R.string.emulation_empty_state_slot, slot)
-                add(text).setEnabled(false).setOnMenuItemClickListener {
-                    NativeLibrary.loadState(slot)
-                    true
-                }
-            }
-        }
-
-        savestates?.forEach {
-            val text = getString(R.string.emulation_occupied_state_slot, it.slot, it.time)
-            popupMenu.menu[it.slot - 1].setTitle(text).setEnabled(true)
-        }
-
-        popupMenu.show()
     }
 
     private fun displaySavestateWarning() {
@@ -731,7 +680,7 @@ class EmulationFragment :
     private fun showOverlayMenu() {
         val popupMenu = PopupMenu(
             requireContext(),
-            binding.inGameMenu.findViewById(R.id.menu_overlay_options)
+            binding.inGameMenu.findViewById(EmulatorMenuR.id.emulator_menu_controls)
         )
 
         popupMenu.menuInflater.inflate(R.menu.menu_overlay_options, popupMenu.menu)
@@ -913,7 +862,7 @@ class EmulationFragment :
     private fun showAmiiboMenu() {
         val popupMenu = PopupMenu(
             requireContext(),
-            binding.inGameMenu.findViewById(R.id.menu_amiibo)
+            binding.inGameMenu.findViewById(EmulatorMenuR.id.emulator_menu_amiibo)
         )
 
         popupMenu.menuInflater.inflate(R.menu.menu_amiibo_options, popupMenu.menu)
@@ -962,7 +911,7 @@ class EmulationFragment :
     private fun showLandscapeScreenLayoutMenu() {
         val popupMenu = PopupMenu(
             requireContext(),
-            binding.inGameMenu.findViewById(R.id.menu_landscape_screen_layout)
+            binding.inGameMenu.findViewById(EmulatorMenuR.id.emulator_menu_landscape_layout)
         )
 
         popupMenu.menuInflater.inflate(R.menu.menu_landscape_screen_layout, popupMenu.menu)
@@ -1034,7 +983,7 @@ class EmulationFragment :
     private fun showPortraitScreenLayoutMenu() {
         val popupMenu = PopupMenu(
             requireContext(),
-            binding.inGameMenu.findViewById(R.id.menu_portrait_screen_layout)
+            binding.inGameMenu.findViewById(EmulatorMenuR.id.emulator_menu_portrait_layout)
         )
 
         popupMenu.menuInflater.inflate(R.menu.menu_portrait_screen_layout, popupMenu.menu)
@@ -1093,7 +1042,7 @@ class EmulationFragment :
     private fun showSecondaryScreenLayoutMenu() {
         val popupMenu = PopupMenu(
             requireContext(),
-            binding.inGameMenu.findViewById(R.id.menu_secondary_screen_layout)
+            binding.inGameMenu.findViewById(EmulatorMenuR.id.emulator_menu_secondary_layout)
         )
         popupMenu.menuInflater.inflate(R.menu.menu_secondary_screen_layout, popupMenu.menu)
 

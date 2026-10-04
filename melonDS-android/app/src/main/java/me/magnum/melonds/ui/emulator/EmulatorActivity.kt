@@ -12,7 +12,6 @@ import android.view.Display
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewGroup
 import android.view.Window
 import android.view.WindowManager
 import android.widget.Toast
@@ -26,7 +25,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
-import androidx.core.os.ConfigurationCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -34,18 +32,20 @@ import androidx.core.view.isGone
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.DEFAULT_ARGS_KEY
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.MutableCreationExtras
-import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
-import com.squareup.picasso.Picasso
 import dagger.hilt.android.AndroidEntryPoint
+import io.github.wwandene2.pomegrade.emulatorui.EmulatorMenu
+import io.github.wwandene2.pomegrade.emulatorui.R as EmulatorMenuR
+import io.github.wwandene2.pomegrade.emulatorui.SaveStateSlotUi
+import io.github.wwandene2.pomegrade.emulatorui.SaveStatesDialog
 import kotlin.math.abs
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -67,6 +67,7 @@ import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.domain.model.ui.Orientation
 import me.magnum.melonds.extensions.insetsControllerCompat
 import me.magnum.melonds.extensions.setLayoutOrientation
+import me.magnum.melonds.impl.RomIconProvider
 import me.magnum.melonds.impl.emulator.LifecycleOwnerProvider
 import me.magnum.melonds.impl.layout.DeviceLayoutDisplayMapper
 import me.magnum.melonds.impl.layout.SecondaryDisplaySelector
@@ -76,6 +77,7 @@ import me.magnum.melonds.parcelables.RomParcelable
 import me.magnum.melonds.ui.cheats.CheatsActivity
 import me.magnum.melonds.ui.common.rom.EmulatorLaunchValidatorDelegate
 import me.magnum.melonds.ui.emulator.component.EmulatorOverlayTracker
+import me.magnum.melonds.ui.emulator.firmware.FirmwarePauseMenuOption
 import me.magnum.melonds.ui.emulator.input.ConnectedControllerManager
 import me.magnum.melonds.ui.emulator.input.EmulatorRumbleManager
 import me.magnum.melonds.ui.emulator.input.FrontendInputHandler
@@ -97,15 +99,14 @@ import me.magnum.melonds.ui.emulator.render.ExternalPresentation
 import me.magnum.melonds.ui.emulator.render.FrameRenderCoordinator
 import me.magnum.melonds.ui.emulator.rewind.EdgeSpacingDecorator
 import me.magnum.melonds.ui.emulator.rewind.RewindSaveStateAdapter
+import me.magnum.melonds.ui.emulator.rom.RomPauseMenuOption
 import me.magnum.melonds.ui.emulator.rewind.model.RewindWindow
-import me.magnum.melonds.ui.emulator.rom.SaveStateAdapter
 import me.magnum.melonds.ui.emulator.ui.AchievementListDialog
 import me.magnum.melonds.ui.emulator.ui.AchievementUpdatesUi
 import me.magnum.melonds.ui.emulator.ui.PendingSubmissionsDialog
 import me.magnum.melonds.ui.layouteditor.model.LayoutTarget
 import me.magnum.melonds.ui.settings.SettingsActivity
 import me.magnum.melonds.ui.theme.MelonTheme
-import java.text.SimpleDateFormat
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -152,7 +153,7 @@ class EmulatorActivity : AppCompatActivity() {
     lateinit var deviceLayoutDisplayMapper: DeviceLayoutDisplayMapper
 
     @Inject
-    lateinit var picasso: Picasso
+    lateinit var romIconProvider: RomIconProvider
 
     @Inject
     lateinit var permissionHandler: PermissionHandler
@@ -270,6 +271,9 @@ class EmulatorActivity : AppCompatActivity() {
         viewModel.rewindToState(it)
         closeRewindWindow()
     }
+    // the pause menu's entries while it is open, and whether one was picked (else closing it resumes)
+    private var pauseMenuOptions: List<PauseMenuOption> = emptyList()
+    private var pauseMenuOptionPicked = false
     private val showAchievementList = mutableStateOf(false)
     private val showPendingSubmissionsDialog = mutableStateOf(false)
 
@@ -306,6 +310,7 @@ class EmulatorActivity : AppCompatActivity() {
         }
 
         onBackPressedDispatcher.addCallback(backPressedCallback)
+        setupInGameMenu()
 
         emulatorLaunchValidatorDelegate = EmulatorLaunchValidatorDelegate(this, object : EmulatorLaunchValidatorDelegate.Callback {
             override fun onRomValidated(rom: Rom) {
@@ -508,7 +513,7 @@ class EmulatorActivity : AppCompatActivity() {
                         is EmulatorUiEvent.ShowPauseMenu -> showPauseMenu(it.pauseMenu)
                         is EmulatorUiEvent.ShowRewindWindow -> showRewindWindow(it.rewindWindow)
                         is EmulatorUiEvent.ShowRomSaveStates -> {
-                            showSaveStateSlotsDialog(it.saveStates) { slot ->
+                            showSaveStateSlotsDialog(it.saveStates, saving = it.reason == EmulatorUiEvent.ShowRomSaveStates.Reason.SAVING) { slot ->
                                 if (it.reason == EmulatorUiEvent.ShowRomSaveStates.Reason.SAVING) {
                                     viewModel.saveStateToSlot(slot)
                                 } else {
@@ -559,6 +564,7 @@ class EmulatorActivity : AppCompatActivity() {
                         EmulatorState.LoadingRom -> showLoadingState()
                         is EmulatorState.RunningRom,
                         is EmulatorState.RunningFirmware -> {
+                            updateInGameMenuHeader(it)
                             setupSustainedPerformanceMode()
                             setupDisplayRefreshRate()
                             setupFpsCounter()
@@ -860,32 +866,87 @@ class EmulatorActivity : AppCompatActivity() {
     }
 
     private fun handleBackPressed() {
-        if (isRewindWindowOpen()) {
+        if (binding.drawerLayout.isOpen) {
+            binding.drawerLayout.close()
+        } else if (isRewindWindowOpen()) {
             closeRewindWindow()
         } else {
             viewModel.pauseEmulator(true)
         }
     }
 
-    private fun showPauseMenu(pauseMenu: PauseMenu) {
-        val options = Array(pauseMenu.options.size) {
-            getString(pauseMenu.options[it].textResource)
-        }
-
-        activeOverlays.addActiveOverlay(EmulatorOverlay.PAUSE_MENU)
-        AlertDialog.Builder(this)
-                .setTitle(R.string.pause)
-                .setItems(options) { _, which ->
-                    val selectedOption = pauseMenu.options[which]
-                    viewModel.onPauseMenuOptionSelected(selectedOption)
-                }
-                .setOnDismissListener {
-                    activeOverlays.removeActiveOverlay(EmulatorOverlay.PAUSE_MENU)
-                }
-                .setOnCancelListener {
+    // Pomegrade: the in-game menu shared with the 3DS screen (module :emulator-ui), a drawer opened
+    // by pausing. Only opened from code: an edge swipe would fight with the touch screen
+    private fun setupInGameMenu() {
+        binding.drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
+        binding.drawerLayout.addDrawerListener(object : DrawerLayout.SimpleDrawerListener() {
+            override fun onDrawerClosed(drawerView: View) {
+                binding.drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
+                activeOverlays.removeActiveOverlay(EmulatorOverlay.PAUSE_MENU)
+                if (!pauseMenuOptionPicked) {
                     viewModel.resumeEmulator()
                 }
-                .show()
+            }
+        })
+        binding.inGameMenu.setNavigationItemSelectedListener { item ->
+            pauseMenuOptionPicked = true
+            binding.drawerLayout.close()
+            if (item.itemId == EmulatorMenuR.id.emulator_menu_swap_screens) {
+                swapScreen()
+                viewModel.resumeEmulator()
+            } else {
+                pauseMenuOptions.firstOrNull { inGameMenuItemId(it) == item.itemId }?.let {
+                    viewModel.onPauseMenuOptionSelected(it)
+                }
+            }
+            true
+        }
+    }
+
+    private fun updateInGameMenuHeader(state: EmulatorState) {
+        val (title, consoleType) = when (state) {
+            is EmulatorState.RunningRom -> state.rom.name to ConsoleType.DS
+            is EmulatorState.RunningFirmware -> getString(R.string.action_boot_firmware) to state.console
+            else -> return
+        }
+        val console = getString(
+            if (consoleType == ConsoleType.DSi) EmulatorMenuR.string.emulator_menu_console_dsi else EmulatorMenuR.string.emulator_menu_console_ds
+        )
+        val iconView = EmulatorMenu.setHeader(binding.inGameMenu, title, console) ?: return
+        iconView.isVisible = false
+        if (state is EmulatorState.RunningRom) {
+            lifecycleScope.launch {
+                romIconProvider.getRomIcon(state.rom)?.let {
+                    iconView.setImageBitmap(it)
+                    iconView.isVisible = true
+                }
+            }
+        }
+    }
+
+    private fun inGameMenuItemId(option: PauseMenuOption): Int? {
+        return when (option) {
+            RomPauseMenuOption.SETTINGS, FirmwarePauseMenuOption.SETTINGS -> EmulatorMenuR.id.emulator_menu_settings
+            RomPauseMenuOption.SAVE_STATE -> EmulatorMenuR.id.emulator_menu_save_state
+            RomPauseMenuOption.LOAD_STATE -> EmulatorMenuR.id.emulator_menu_load_state
+            RomPauseMenuOption.REWIND -> EmulatorMenuR.id.emulator_menu_rewind
+            RomPauseMenuOption.CHEATS -> EmulatorMenuR.id.emulator_menu_cheats
+            RomPauseMenuOption.VIEW_ACHIEVEMENTS -> EmulatorMenuR.id.emulator_menu_achievements
+            RomPauseMenuOption.RESET, FirmwarePauseMenuOption.RESET -> EmulatorMenuR.id.emulator_menu_reset
+            RomPauseMenuOption.EXIT, FirmwarePauseMenuOption.EXIT -> EmulatorMenuR.id.emulator_menu_exit
+            else -> null
+        }
+    }
+
+    private fun showPauseMenu(pauseMenu: PauseMenu) {
+        pauseMenuOptions = pauseMenu.options
+        pauseMenuOptionPicked = false
+        val shownItems = pauseMenu.options.mapNotNull { inGameMenuItemId(it) }.toSet() + EmulatorMenuR.id.emulator_menu_swap_screens
+        EmulatorMenu.showOnly(binding.inGameMenu.menu, shownItems)
+
+        activeOverlays.addActiveOverlay(EmulatorOverlay.PAUSE_MENU)
+        binding.drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED)
+        binding.drawerLayout.open()
     }
 
     private fun disableScreenTimeOut() {
@@ -911,54 +972,40 @@ class EmulatorActivity : AppCompatActivity() {
     }
 
     private fun isRewindWindowOpen(): Boolean {
-        return binding.root.currentState == R.id.rewind_visible
+        return binding.layoutRoot.currentState == R.id.rewind_visible
     }
 
-    private fun showSaveStateSlotsDialog(slots: List<SaveStateSlot>, onSlotPicked: (SaveStateSlot) -> Unit) {
-        val dateFormatter = SimpleDateFormat("EEE, dd MMM yyyy", ConfigurationCompat.getLocales(resources.configuration)[0])
-        val timeFormatter = SimpleDateFormat("kk:mm:ss", ConfigurationCompat.getLocales(resources.configuration)[0])
-        var dialog: AlertDialog? = null
-        var adapter: SaveStateAdapter? = null
-
-        adapter = SaveStateAdapter(
-            slots = slots,
-            picasso = picasso,
-            dateFormat = dateFormatter,
-            timeFormat = timeFormatter,
-            onSlotSelected = {
-                dialog?.dismiss()
-                onSlotPicked(it)
-            },
-            onDeletedSlot = {
-                viewModel.deleteSaveStateSlot(it)?.let { newSlots ->
-                    adapter?.updateSaveStateSlots(newSlots)
-                }
-            },
-        )
-
-        val recyclerView = RecyclerView(this).apply {
-            val layoutManager = LinearLayoutManager(this@EmulatorActivity)
-            this.layoutManager = layoutManager
-            addItemDecoration(DividerItemDecoration(context, layoutManager.orientation))
-            this.adapter = adapter
-            descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+    // Pomegrade: the save state dialog shared with the 3DS screen (module :emulator-ui)
+    private fun showSaveStateSlotsDialog(slots: List<SaveStateSlot>, saving: Boolean, onSlotPicked: (SaveStateSlot) -> Unit) {
+        fun toUi(slots: List<SaveStateSlot>) = slots.map {
+            SaveStateSlotUi(
+                slot = it.slot,
+                isQuickSlot = it.slot == SaveStateSlot.QUICK_SAVE_SLOT,
+                savedAt = it.lastUsedDate.takeIf { _ -> it.exists },
+                screenshot = it.screenshot,
+            )
         }
+        var currentSlots = slots
 
         activeOverlays.addActiveOverlay(EmulatorOverlay.SAVE_STATES_DIALOG)
-
-        dialog = AlertDialog.Builder(this)
-            .setTitle(getString(R.string.save_slot))
-            .setView(recyclerView)
-            .setNegativeButton(R.string.cancel) { _dialog, _ ->
-                _dialog.cancel()
-            }
-            .setOnDismissListener {
-                activeOverlays.removeActiveOverlay(EmulatorOverlay.SAVE_STATES_DIALOG)
-            }
-            .setOnCancelListener {
-                viewModel.resumeEmulator()
-            }
-            .show()
+        SaveStatesDialog.show(
+            context = this,
+            saving = saving,
+            slots = toUi(slots),
+            onSlotPicked = { picked ->
+                currentSlots.firstOrNull { it.slot == picked.slot }?.let(onSlotPicked)
+            },
+            onSlotDeleted = { deleted ->
+                currentSlots.firstOrNull { it.slot == deleted.slot }?.let { slot ->
+                    viewModel.deleteSaveStateSlot(slot)?.let { newSlots ->
+                        currentSlots = newSlots
+                        toUi(newSlots)
+                    }
+                }
+            },
+            onCancel = { viewModel.resumeEmulator() },
+            onDismiss = { activeOverlays.removeActiveOverlay(EmulatorOverlay.SAVE_STATES_DIALOG) },
+        )
     }
 
     private fun showRomLoadErrorDialog() {
@@ -1003,13 +1050,13 @@ class EmulatorActivity : AppCompatActivity() {
 
     private fun showRewindWindow(rewindWindow: RewindWindow) {
         activeOverlays.addActiveOverlay(EmulatorOverlay.REWIND_WINDOW)
-        binding.root.transitionToState(R.id.rewind_visible)
+        binding.layoutRoot.transitionToState(R.id.rewind_visible)
         rewindSaveStateAdapter.setRewindWindow(rewindWindow)
     }
 
     private fun closeRewindWindow() {
         activeOverlays.removeActiveOverlay(EmulatorOverlay.REWIND_WINDOW)
-        binding.root.transitionToState(R.id.rewind_hidden)
+        binding.layoutRoot.transitionToState(R.id.rewind_hidden)
         viewModel.resumeEmulator()
     }
 

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Pomegrade palette (as the app's res/values/colors.xml), fixed so the in-game menu looks the same
+         on both consoles whatever theme colour each core's own screens use -->
+    <color name="emulator_menu_primary">#A20F27</color>
+    <color name="emulator_menu_on_primary">#FFFFFF</color>
+    <color name="emulator_menu_primary_container">#FFDADB</color>
+    <color name="emulator_menu_on_primary_container">#40000A</color>
+    <color name="emulator_menu_secondary_container">#F9DEDE</color>
+    <color name="emulator_menu_on_secondary_container">#2C1616</color>
+    <color name="emulator_menu_surface">#FBF7F5</color>
+    <color name="emulator_menu_on_surface">#1F1B1B</color>
+    <color name="emulator_menu_on_surface_variant">#4F4545</color>
+</resources>

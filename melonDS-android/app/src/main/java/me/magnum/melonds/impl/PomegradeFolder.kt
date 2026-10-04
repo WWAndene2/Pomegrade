@@ -58,8 +58,8 @@ class PomegradeFolder(
         const val DEFAULT_NAME = "Pomegrade"
         const val PREFERENCE = "pomegrade_folder"
         private const val STORAGE_PROVIDER = "com.android.externalstorage.documents"
-        // DS save states: <ROM name>.ml0 (quick save) to .ml9 (see FileSystemSaveStatesRepository)
-        private const val SAVE_STATE_SLOTS = 10
+        // DS save states: <ROM name>.ml0 (quick save) to .ml10
+        private const val SAVE_STATE_SLOTS = FileSystemSaveStatesRepository.SAVE_STATE_SLOT_COUNT
 
         /**
          * Moving games by path, and the 3DS core (Azahar's standard build, which reads its folder by

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="emulator_menu_pause">Pause</string>
+    <string name="emulator_menu_save_state">Save state</string>
+    <string name="emulator_menu_load_state">Load state</string>
+    <string name="emulator_menu_rewind">Rewind</string>
+    <string name="emulator_menu_controls">On-screen controls</string>
+    <string name="emulator_menu_amiibo">Amiibo</string>
+    <string name="emulator_menu_landscape_layout">Screen layout</string>
+    <string name="emulator_menu_portrait_layout">Portrait layout</string>
+    <string name="emulator_menu_secondary_layout">Second display</string>
+    <string name="emulator_menu_swap_screens">Swap screens</string>
+    <string name="emulator_menu_rotate_upright">Rotate upright</string>
+    <string name="emulator_menu_lock_drawer">Lock menu</string>
+    <string name="emulator_menu_cheats">Cheats</string>
+    <string name="emulator_menu_achievements">Achievements</string>
+    <string name="emulator_menu_settings">Settings</string>
+    <string name="emulator_menu_multiplayer">Multiplayer</string>
+    <string name="emulator_menu_reset">Reset</string>
+    <string name="emulator_menu_exit">Close game</string>
+    <string name="emulator_menu_console_ds">DS</string>
+    <string name="emulator_menu_console_dsi">DSi</string>
+    <string name="emulator_menu_console_three_ds">3DS</string>
+    <string name="emulator_menu_resume">Resume</string>
+    <string name="emulator_menu_unlock_drawer">Unlock menu</string>
+    <string name="emulator_save_states_save_title">Save state</string>
+    <string name="emulator_save_states_load_title">Load state</string>
+    <string name="emulator_save_states_quick_slot">Quick slot</string>
+    <string name="emulator_save_states_slot">Slot %1$d</string>
+    <string name="emulator_save_states_empty">Empty</string>
+    <string name="emulator_save_states_delete">Delete</string>
+    <string name="emulator_save_states_cancel">Cancel</string>
+</resources>

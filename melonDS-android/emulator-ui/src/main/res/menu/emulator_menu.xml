@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The in-game menu of both consoles, in this order. Each screen hides what its core does not have
+     (EmulatorMenu.showOnly): rewind, reset and achievements are DS only; on-screen control options,
+     amiibo, layouts, rotation, menu lock and multiplayer are 3DS only -->
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/emulator_menu_pause"
+        android:icon="@drawable/emulator_menu_ic_pause"
+        android:title="@string/emulator_menu_pause" />
+
+    <item
+        android:id="@+id/emulator_menu_save_state"
+        android:icon="@drawable/emulator_menu_ic_save"
+        android:title="@string/emulator_menu_save_state" />
+
+    <item
+        android:id="@+id/emulator_menu_load_state"
+        android:icon="@drawable/emulator_menu_ic_restore"
+        android:title="@string/emulator_menu_load_state" />
+
+    <item
+        android:id="@+id/emulator_menu_rewind"
+        android:icon="@drawable/emulator_menu_ic_rewind"
+        android:title="@string/emulator_menu_rewind" />
+
+    <item
+        android:id="@+id/emulator_menu_controls"
+        android:icon="@drawable/emulator_menu_ic_controller"
+        android:title="@string/emulator_menu_controls" />
+
+    <item
+        android:id="@+id/emulator_menu_amiibo"
+        android:icon="@drawable/emulator_menu_ic_nfc"
+        android:title="@string/emulator_menu_amiibo" />
+
+    <item
+        android:id="@+id/emulator_menu_landscape_layout"
+        android:icon="@drawable/emulator_menu_ic_fit_screen"
+        android:title="@string/emulator_menu_landscape_layout" />
+
+    <item
+        android:id="@+id/emulator_menu_portrait_layout"
+        android:icon="@drawable/emulator_menu_ic_portrait_fit_screen"
+        android:title="@string/emulator_menu_portrait_layout" />
+
+    <item
+        android:id="@+id/emulator_menu_secondary_layout"
+        android:icon="@drawable/emulator_menu_ic_secondary_fit_screen"
+        android:title="@string/emulator_menu_secondary_layout" />
+
+    <item
+        android:id="@+id/emulator_menu_swap_screens"
+        android:icon="@drawable/emulator_menu_ic_splitscreen"
+        android:title="@string/emulator_menu_swap_screens" />
+
+    <item
+        android:id="@+id/emulator_menu_rotate_upright"
+        android:icon="@drawable/emulator_menu_ic_rotate_up_right"
+        android:title="@string/emulator_menu_rotate_upright" />
+
+    <item
+        android:id="@+id/emulator_menu_lock_drawer"
+        android:icon="@drawable/emulator_menu_ic_unlocked"
+        android:title="@string/emulator_menu_lock_drawer" />
+
+    <item
+        android:id="@+id/emulator_menu_cheats"
+        android:icon="@drawable/emulator_menu_ic_code"
+        android:title="@string/emulator_menu_cheats" />
+
+    <item
+        android:id="@+id/emulator_menu_achievements"
+        android:icon="@drawable/emulator_menu_ic_trophy"
+        android:title="@string/emulator_menu_achievements" />
+
+    <item
+        android:id="@+id/emulator_menu_settings"
+        android:icon="@drawable/emulator_menu_ic_settings"
+        android:title="@string/emulator_menu_settings" />
+
+    <item
+        android:id="@+id/emulator_menu_multiplayer"
+        android:icon="@drawable/emulator_menu_ic_network"
+        android:title="@string/emulator_menu_multiplayer" />
+
+    <item
+        android:id="@+id/emulator_menu_reset"
+        android:icon="@drawable/emulator_menu_ic_reset"
+        android:title="@string/emulator_menu_reset" />
+
+    <item
+        android:id="@+id/emulator_menu_exit"
+        android:icon="@drawable/emulator_menu_ic_exit"
+        android:title="@string/emulator_menu_exit" />
+
+</menu>

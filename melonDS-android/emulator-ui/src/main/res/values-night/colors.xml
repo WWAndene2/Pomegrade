@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="emulator_menu_primary">#FFB2B6</color>
+    <color name="emulator_menu_on_primary">#680015</color>
+    <color name="emulator_menu_primary_container">#8C0D22</color>
+    <color name="emulator_menu_on_primary_container">#FFDADB</color>
+    <color name="emulator_menu_secondary_container">#5C3D3D</color>
+    <color name="emulator_menu_on_secondary_container">#F9DEDE</color>
+    <color name="emulator_menu_surface">#1E1517</color>
+    <color name="emulator_menu_on_surface">#E6E1E1</color>
+    <color name="emulator_menu_on_surface_variant">#D0C5C5</color>
+</resources>

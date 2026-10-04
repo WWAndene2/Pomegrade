@@ -92,6 +92,7 @@ Pomegrade is three codebases in one Gradle build, rooted at `melonDS-android/` (
 | DS/DSi emulator core, including HD texture replacement (C++) | `melonDS-android/melonDS-android-lib/src/` |
 | 3DS core sources (Azahar, C++ and its Android frontend) | `azahar/` — consumed by the `:azahar` Gradle module |
 | `:azahar` Gradle module definition (manifest, build script) | `melonDS-android/azahar/` |
+| Emulation screen UI shared by both cores: in-game menu, its theme, save state dialog (Kotlin, package `io.github.wwandene2.pomegrade.emulatorui`) | `melonDS-android/emulator-ui/` (`:emulator-ui`) |
 | Build configuration shared by modules (`AppConfig`) | `melonDS-android/buildSrc/src/main/kotlin/` |
 | CI workflows | `.github/workflows/` |
 | Kotlin unit tests | `melonDS-android/app/src/test/java/`, mirroring the package of the class under test |
@@ -114,6 +115,7 @@ Naming is not a stylistic afterthought; a misleading or inconsistent name is a h
 - **C++ (DS core):** the existing melonDS style — `PascalCase` file names prefixed by subsystem (`GPU3D_TextureReplacement.cpp`).
 - **Console names in identifiers:** `Nds` for DS/DSi and `N3ds` for 3DS in Kotlin/C++ identifiers (an identifier cannot start with a digit); `three_ds` for 3DS in Android resource names, after the category prefix upstream uses when there is one (`three_ds_unsupported`, menu action `action_three_ds_games`); "3DS" in user-visible text. Never a second spelling.
 - **Azahar resources that clash with app resources:** renamed with the `citra_` prefix, so neither module overrides the other's.
+- **`:emulator-ui` resources:** prefixed `emulator_menu_` / `emulator_save_state(s)_` (and `Theme.Pomegrade.EmulatorMenu`), so they clash with neither core.
 - **Build switches read from the environment:** `POMEGRADE_<WHAT>` (`POMEGRADE_CCACHE`, `POMEGRADE_NATIVE_BUILD_TYPE`).
 - **Tests:** `<ClassUnderTest>Test.kt`; C++ tests `<subject>_test.cpp`.
 - **Fixtures:** named after their subject, beside the tests that use them, never inline-duplicated elsewhere.
@@ -141,7 +143,8 @@ A directory taxonomy only holds if files placed correctly are also only *importi
 ```
 azahar/externals/*, app/src/main/cpp/<submodules>  →  (third-party, depend on nothing of ours)
 melonDS-android-lib (DS core, C++)  →  its own externals only — never Android or app code
-:azahar module (3DS core + its Android frontend)  →  azahar/ sources — never the app module
+:emulator-ui (shared emulation screen UI)  →  AndroidX and Material only — never a core or the app
+:azahar module (3DS core + its Android frontend)  →  azahar/ sources, :emulator-ui — never the app module
 :masterswitch, :common, :rcheevos-api  →  as upstream melonDS-android defines them
 :app (me.magnum.melonds)  →  all of the above
 ```

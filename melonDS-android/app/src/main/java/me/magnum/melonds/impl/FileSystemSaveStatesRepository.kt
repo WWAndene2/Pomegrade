@@ -18,18 +18,23 @@ class FileSystemSaveStatesRepository(
     private val uriHandler: UriHandler
 ) : SaveStatesRepository {
 
+    companion object {
+        const val SAVE_STATE_SLOT_COUNT = 11
+    }
+
     override fun getRomSaveStates(rom: Rom): List<SaveStateSlot> {
         val saveStateDirectoryDocument = getSaveStateDirectoryDocument(rom) ?: return emptyList()
         val romFileName = getRomFileNameWithoutExtension(rom) ?: return emptyList()
 
-        val saveStateSlots = Array(9) {
+        // Pomegrade: the quick slot (.ml0) and slots 1 to 10, as the 3DS core has
+        val saveStateSlots = Array(SAVE_STATE_SLOT_COUNT) {
             SaveStateSlot(it, false, null, null)
         }
-        val fileNameRegex = "${Regex.escape(romFileName)}\\.ml[0-8]".toRegex()
+        val fileNameRegex = "${Regex.escape(romFileName)}\\.ml([0-9]|10)".toRegex()
         saveStateDirectoryDocument.listFiles().forEach {
             val fileName = it.name
             if (fileName?.matches(fileNameRegex) == true) {
-                val slotNumber = fileName.last().digitToInt()
+                val slotNumber = fileName.substringAfterLast(".ml").toInt()
                 val slot = SaveStateSlot(slotNumber, true, Date(it.lastModified()), null)
                 val screenshotUri = saveStateScreenshotProvider.getRomSaveStateScreenshotUri(rom, slot)
                 saveStateSlots[slotNumber] = slot.copy(screenshot = screenshotUri)
