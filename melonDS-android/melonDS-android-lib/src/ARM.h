@@ -202,6 +202,9 @@ public:
     // while the JIT tracks store sites, where R[15] is only updated per block.
     // Last, after the fields whose offsets the x64 JIT hard-codes
     u32 StorePC = 0;
+    // and R[14] (LR) at that store: the return address of the function
+    // making it, which names the caller of a library routine
+    u32 StoreLR = 0;
 protected:
     virtual u8 BusRead8(u32 addr) = 0;
     virtual u16 BusRead16(u32 addr) = 0;

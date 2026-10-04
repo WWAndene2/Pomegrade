@@ -54,6 +54,8 @@ public:
     // R[15] of the ARM9 instruction writing to hardware right now (bit 0:
     // Thumb), or 0 when unknown
     [[nodiscard]] u32 CpuSite() const noexcept;
+    // R[14] (LR) at that store: the return address into the function's caller
+    [[nodiscard]] u32 CpuCaller() const noexcept;
     // the source tag of a 3D command written now (0: none)
     [[nodiscard]] u16 CommandSource() noexcept;
     // a DMA was enabled by the CPU: records who started it and, for the
@@ -83,11 +85,12 @@ private:
     struct Source
     {
         u32 Site = 0;      // CPU store or DMA start, R[15] form
+        u32 Caller = 0;    // LR at that store (return address, bit 0: Thumb)
         u32 ListAddr = 0;  // display list (DMA source), 0 for CPU writes
         u32 ListWords = 0;
         u32 ListHash = 0;
     };
-    struct SiteStats { u32 Polygons = 0; u32 Commands = 0; std::map<u32, u32> Lists; };
+    struct SiteStats { u32 Polygons = 0; u32 Commands = 0; std::map<u32, u32> Lists; std::map<u32, u32> Callers; };
     struct ListStats { u32 Addr = 0; u32 Words = 0; u32 Site = 0; u32 Polygons = 0; };
     struct TraceEntry { u8 Command; u32 Param; u32 Site; };
     struct FileRead { u32 Frame; u32 File; u32 Offset; u32 Length; };

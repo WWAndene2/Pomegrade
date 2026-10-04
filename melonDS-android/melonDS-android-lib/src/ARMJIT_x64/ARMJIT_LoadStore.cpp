@@ -118,6 +118,15 @@ void Compiler::Comp_RecordStoreSite()
     if (Num != 0 || !NDS.JIT.StoreSitesTracked())
         return;
     MOV(32, MDisp(RCPU, offsetof(ARM, StorePC)), Imm32(R15 | (Thumb ? 1 : 0)));
+    // LR: in its host register when the block has it loaded (memory may be
+    // stale then), else in memory. RSCRATCH is free before an access
+    if (RegCache.LoadedRegs & (1 << 14))
+        MOV(32, MDisp(RCPU, offsetof(ARM, StoreLR)), R(RegCache.Mapping[14]));
+    else
+    {
+        MOV(32, R(RSCRATCH), MDisp(RCPU, offsetof(ARM, R[14])));
+        MOV(32, MDisp(RCPU, offsetof(ARM, StoreLR)), R(RSCRATCH));
+    }
 }
 
 void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flags)

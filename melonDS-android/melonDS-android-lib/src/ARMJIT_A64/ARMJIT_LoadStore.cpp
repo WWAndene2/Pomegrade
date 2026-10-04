@@ -113,6 +113,15 @@ void Compiler::Comp_RecordStoreSite()
         return;
     MOVI2R(W0, R15 | (Thumb ? 1 : 0));
     STR(INDEX_UNSIGNED, W0, RCPU, offsetof(ARM, StorePC));
+    // LR: in its host register when the block has it loaded (memory may be
+    // stale then), else in memory
+    if (RegCache.LoadedRegs & (1 << 14))
+        STR(INDEX_UNSIGNED, RegCache.Mapping[14], RCPU, offsetof(ARM, StoreLR));
+    else
+    {
+        LDR(INDEX_UNSIGNED, W0, RCPU, offsetof(ARM, R[14]));
+        STR(INDEX_UNSIGNED, W0, RCPU, offsetof(ARM, StoreLR));
+    }
 }
 
 void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)

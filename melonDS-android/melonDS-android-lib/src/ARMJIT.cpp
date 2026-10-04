@@ -676,7 +676,10 @@ void ARMJIT::CompileBlock(ARM* cpu) noexcept
         cpu->CodeCycles = instrs[i].CodeCycles;
         // Pomegrade (inspector): the block is run once here, interpreted
         if (TrackStoreSites)
+        {
             cpu->StorePC = r15 | (thumb ? 1 : 0);
+            cpu->StoreLR = cpu->R[14];
+        }
 
         if (instrs[i].Info.DstRegs & (1 << 14)
             || (!thumb

@@ -41,6 +41,11 @@ struct Program
     // starting at the program's entry) and the second (a new block starting at
     // the loop) are interpreted, the third runs compiled code
     u32 LoopStart(u32 count) { Code.push_back(0xE3A09000 | count); return Here(); }
+    // BL target, BX LR, and a forward B patched later
+    u32 Bl(u32 target) { u32 at = Here(); Code.push_back(0xEB000000 | (((target - (at + 8)) / 4) & 0xFFFFFF)); return at; }
+    void BxLr() { Code.push_back(0xE12FFF1E); }
+    size_t BForward() { Code.push_back(0xEA000000); return Code.size() - 1; }
+    void PatchB(size_t index, u32 target) { Code[index] |= ((target - (Base + (u32)index * 4 + 8)) / 4) & 0xFFFFFF; }
     void LoopEnd(u32 start)
     {
         Code.push_back(0xE2599001); // SUBS r9, r9, #1
@@ -266,6 +271,45 @@ int main()
             check(report.find(line) != std::string::npos, mode + ": its display list: hash of its content, address, length, polygons, started by");
             if (!ok) printf("%s\n", report.c_str());
         }
+    }
+
+    // 2b. a library-like routine starting the DMA, called from two places:
+    // the call site is the routine, "called from" names each caller
+    for (int jit = 0; jit < 2; jit++)
+    {
+        const std::string mode = jit ? "JIT" : "interpreter";
+        auto nds = MakeNDS(jit);
+        nds->Inspector.SetEnabled(true);
+        std::vector<u32> list = {0x23232340, 0};
+        for (auto& v : Vertices) { list.push_back(v[0]); list.push_back(v[1]); }
+        list.push_back(0x00000041);
+        memcpy(&nds->MainRAM[0x02010000 & nds->MainRAMMask], list.data(), list.size() * 4);
+
+        Program prog(0x02000000);
+        size_t toMain = prog.BForward();
+        // the routine: starts the DMA, returns
+        u32 routine = prog.Here();
+        prog.Write(DMA0SAD, 0x02010000);
+        prog.Write(DMA0DAD, 0x04000400);
+        u32 dmaSite = prog.Write(DMA0CNT, 0x84400000 | (u32)list.size());
+        prog.BxLr();
+        prog.PatchB(toMain, prog.Here());
+        prog.Write(POWCNT1, 0x820F);
+        prog.Write(POLYGON_ATTR, Attr);
+        u32 loop = prog.LoopStart(3);
+        u32 call1 = prog.Bl(routine);
+        prog.LoopEnd(loop);
+        u32 call2 = prog.Bl(routine);
+        prog.Write(SWAP_BUFFERS, 0);
+        prog.Loop();
+        prog.Place(*nds);
+        Run(*nds, 0x02000000, 3);
+
+        std::string report = nds->Inspector.Report();
+        check(SitePolygons(report, dmaSite) == 4, mode + ": the routine's DMA start is the call site of all 4 polygons");
+        check(report.find("called from " + Hex(call1 + 4) + ": 3 polygons") != std::string::npos, mode + ": 3 called from the loop (" + Hex(call1 + 4) + ")");
+        check(report.find("called from " + Hex(call2 + 4) + ": 1 polygons") != std::string::npos, mode + ": 1 from the other call (" + Hex(call2 + 4) + ")");
+        if (!ok) printf("%s\n", report.c_str());
     }
 
     // 3. off: nothing recorded, and polygons carry no source

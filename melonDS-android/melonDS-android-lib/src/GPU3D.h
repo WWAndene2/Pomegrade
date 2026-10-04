@@ -120,6 +120,7 @@ struct Polygon
     // and the hash of the display list this polygon was drawn from, 0 when
     // unknown. Not part of the hardware state.
     u32 CallSite;
+    u32 Caller; // LR at that store: the return address into the caller
     u32 ListHash;
 
     void DoSavestate(Savestate* file) noexcept;

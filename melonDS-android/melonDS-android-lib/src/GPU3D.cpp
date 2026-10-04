@@ -1389,7 +1389,7 @@ void GPU3D::SubmitPolygon() noexcept
     if (NDS.Inspector.IsEnabled())
         NDS.Inspector.OnPolygon(*poly, CurCommandSource, TexMatrix[12], TexMatrix[13]);
     else
-        poly->CallSite = poly->ListHash = 0;
+        poly->CallSite = poly->Caller = poly->ListHash = 0;
 
     poly->Degenerate = false;
     poly->Type = 0;
@@ -1830,6 +1830,7 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
             poly->FrameId = (parent->FrameId & ~0xFFu) | place;
             poly->Subdivision = subdivision;
             poly->CallSite = parent->CallSite;
+            poly->Caller = parent->Caller;
             poly->ListHash = parent->ListHash;
 
             FinalizePolygon(poly, nv);

@@ -232,12 +232,18 @@ u32 Inspector::CpuSite() const noexcept
     return arm9.R[15] | ((arm9.CPSR >> 5) & 1);
 }
 
+u32 Inspector::CpuCaller() const noexcept
+{
+    const ARMv5& arm9 = NDS.ARM9;
+    return NDS.IsJITEnabled() ? arm9.StoreLR : arm9.R[14];
+}
+
 u16 Inspector::NewSource(const Source& source) noexcept
 {
     if (LastSource >= FirstCpuSource)
     {
         const Source& last = Sources[LastSource];
-        if (last.Site == source.Site && last.ListHash == source.ListHash && last.ListAddr == source.ListAddr)
+        if (last.Site == source.Site && last.Caller == source.Caller && last.ListHash == source.ListHash && last.ListAddr == source.ListAddr)
             return LastSource;
     }
     u16 next = LastSource + 1;
@@ -258,6 +264,7 @@ u16 Inspector::CommandSource() noexcept
     if (!site) return 0;
     Source s;
     s.Site = site;
+    s.Caller = CpuCaller();
     return NewSource(s);
 }
 
@@ -272,6 +279,7 @@ void Inspector::OnDmaEnabled(DMA& dma, u32 srcAddr, u32 dstAddr, u32 count) noex
 
     Source s;
     s.Site = CpuSite();
+    s.Caller = CpuCaller();
     s.ListAddr = srcAddr;
     s.ListWords = words;
     if ((srcAddr >> 24) == 0x02)
@@ -314,10 +322,12 @@ void Inspector::OnPolygon(Polygon& poly, u16 source, s32 texX, s32 texY) noexcep
 {
     const Source& s = Sources[source < SourceRing ? source : 0];
     poly.CallSite = s.Site;
+    poly.Caller = s.Caller;
     poly.ListHash = s.ListHash;
 
     SiteStats& site = Current.Sites[s.Site];
     site.Polygons++;
+    site.Callers[s.Caller]++;
     if (s.ListAddr || s.ListHash)
     {
         site.Lists[s.ListHash]++;
@@ -403,7 +413,7 @@ u32 Inspector::ViewColour(const Polygon& poly) const noexcept
     switch (GetView())
     {
     case View::PolygonId: key = (poly.Attr >> 24) & 0x3F; break;
-    case View::CallSite: key = poly.CallSite; break;
+    case View::CallSite: key = poly.CallSite ? poly.CallSite ^ Mix(poly.Caller) : 0; break; // a library routine differs by caller
     case View::DisplayList: key = poly.ListHash; break;
     default: return 0;
     }
@@ -439,6 +449,7 @@ std::string Inspector::Report() const
     add("Game code: %s\n", GameCode.empty() ? "?" : Printable(GameCode).c_str());
     add("Frame: %u (3D of the last finished frame)\n", LastFrameNumber);
     add("Call site: address of the ARM9 instruction that wrote the 3D command, or that started the DMA copying it.\n");
+    add("Called from: the return address (LR) at that instruction, in the caller (for a library routine: the game code using it).\n");
     add("Display list: a block of 3D commands copied by DMA (address, length in words, hash of its content).\n\n");
 
     add("== Polygons: %u ==\n\n", Last.Polygons);
@@ -458,6 +469,17 @@ std::string Inspector::Report() const
             char b[32]; snprintf(b, sizeof(b), " %08X:%u", h, c); lists += b;
         }
         add("%-22s %9u %9u %s\n", site(k).c_str(), v->Polygons, v->Commands, lists.c_str());
+        // callers (LR at the store, a return address): which function called
+        // the code at this site; the most polygons first
+        std::vector<std::pair<u32, u32>> callers(v->Callers.begin(), v->Callers.end());
+        std::sort(callers.begin(), callers.end(), [](auto& a, auto& b) { return a.second > b.second; });
+        int shown = 0;
+        for (auto& [lr, c] : callers)
+        {
+            if (!c) continue;
+            if (shown++ == 12) { add("      ... %zu more callers\n", callers.size() - 12); break; }
+            add("      called from %08X%s: %u polygons\n", lr & ~1u, (lr & 1) ? " (Thumb)" : "", c);
+        }
     }
 
     add("\n== Display lists (%zu) ==\n", Last.Lists.size());
