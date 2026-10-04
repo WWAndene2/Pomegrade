@@ -1021,7 +1021,12 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                           ((u32)cB << 16) |
                           (alpha << 24);
 
-                *vptr++ = (u16)cS | ((u16)cT << 16);
+                // Pomegrade: through a signed integer. A negative float converted
+                // straight to an unsigned type is undefined: x86 happens to wrap
+                // it, ARM64 clamps it to 0, so on phones the centre of every
+                // quad with negative texture coordinates (repeated textures)
+                // sampled the wrong texel and the texture swirled into it
+                *vptr++ = (u16)(s32)std::lround(cS) | ((u32)(u16)(s32)std::lround(cT) << 16);
 
                 // Split TexParam into 2 because some GPUs don't have 32 bit ints. TexPalette only uses 13 bits
                 *vptr++ = vtxattr | (zshift << 16);
