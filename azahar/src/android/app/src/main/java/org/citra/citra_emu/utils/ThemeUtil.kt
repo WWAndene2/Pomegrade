@@ -25,8 +25,9 @@ object ThemeUtil {
     private val preferences: SharedPreferences get() =
         PreferenceManager.getDefaultSharedPreferences(CitraApplication.appContext)
 
+    // Pomegrade: red (index 2, recoloured to the Pomegrade palette) is the default
     private fun getSelectedStaticThemeColor(): Int {
-        val themeIndex = preferences.getInt(Settings.PREF_STATIC_THEME_COLOR, 0)
+        val themeIndex = preferences.getInt(Settings.PREF_STATIC_THEME_COLOR, 2)
         val themes = arrayOf(
             R.style.Theme_Citra_Blue,
             R.style.Theme_Citra_Cyan,

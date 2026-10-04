@@ -39,6 +39,7 @@ import me.magnum.melonds.domain.model.Version
 import me.magnum.melonds.domain.model.appupdate.AppUpdate
 import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.domain.model.rom.RomPlatform
+import me.magnum.melonds.ui.about.AboutActivity
 import me.magnum.melonds.ui.common.PomegradeFolderSetupDelegate
 import me.magnum.melonds.ui.common.rom.EmulatorLaunchValidatorDelegate
 import me.magnum.melonds.ui.common.rom.N3dsLauncher
@@ -265,6 +266,10 @@ class RomListActivity : AppCompatActivity() {
             R.id.action_settings -> {
                 val intent = Intent(this, SettingsActivity::class.java)
                 startActivity(intent)
+                return true
+            }
+            R.id.action_about -> {
+                startActivity(Intent(this, AboutActivity::class.java))
                 return true
             }
         }

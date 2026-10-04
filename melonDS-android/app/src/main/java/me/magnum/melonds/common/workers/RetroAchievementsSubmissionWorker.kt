@@ -43,8 +43,8 @@ class RetroAchievementsSubmissionWorker @AssistedInject constructor(
         val notification = NotificationCompat.Builder(applicationContext, MelonDSApplication.NOTIFICATION_CHANNEL_ID_BACKGROUND_TASKS)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setContentTitle(applicationContext.getString(R.string.submitting_achievements))
-            .setColor(ContextCompat.getColor(applicationContext, R.color.melonMain))
-            .setSmallIcon(R.drawable.ic_melon_small)
+            .setColor(ContextCompat.getColor(applicationContext, R.color.colorAccent))
+            .setSmallIcon(R.drawable.ic_pomegrade_small)
             .build()
 
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {

@@ -100,4 +100,10 @@
         android:icon="@drawable/ic_settings"
         android:orderInCategory="4"
         app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_about"
+        android:title="@string/pomegrade_about"
+        android:orderInCategory="5"
+        app:showAsAction="never" />
 </menu>

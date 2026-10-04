@@ -10,13 +10,14 @@ import me.magnum.melonds.R
 val uncheckedThumbColor: Color @Composable get() = colorResource(id = R.color.switchThumbUnselected)
 val gameMasteryColor: Color get() = Color(0xFFFFD700)
 
+// Pomegrade palette, from the icon's pomegranate red (#A20F27); kept in step with res/values*/colors.xml
 val LightMelonColors @Composable get() = lightColors(
-    primary = Color(0xFFF44336),          // R.color.colorPrimary
-    primaryVariant = Color(0xFFD32F2F),   // R.color.colorPrimaryDark
-    secondary = Color(0xFF5C913B),        // R.color.colorAccent
-    secondaryVariant = Color(0xFF5C913B), // R.color.colorAccent
-    background = Color(0xFFFFFFFF),       // R.color.colorBackground
-    surface = Color(0xFFFAFAFA),          // R.color.colorSurface
+    primary = Color(0xFFA20F27),          // R.color.colorPrimary
+    primaryVariant = Color(0xFF7A0B1D),   // R.color.colorPrimaryDark
+    secondary = Color(0xFFC62839),        // R.color.colorAccent
+    secondaryVariant = Color(0xFFC62839), // R.color.colorAccent
+    background = Color(0xFFFBF7F5),       // R.color.colorBackground
+    surface = Color(0xFFFBF7F5),          // R.color.colorSurface
     onPrimary = Color(0xFFFFFFFF),        // R.color.colorOnSecondary
     onSecondary = Color(0xFFFFFFFF),      // R.color.colorOnSecondary
     onSurface = Color(0xFF222222),        // R.color.textColorPrimary
@@ -24,12 +25,12 @@ val LightMelonColors @Composable get() = lightColors(
 )
 
 val DarkMelonColors @Composable get() = darkColors(
-    primary = Color(0xFF333333),          // R.color.colorPrimary,
-    primaryVariant = Color(0xFF222222),   // R.color.colorPrimaryDark,
-    secondary = Color(0xFFF44336),        // R.color.colorAccent,
-    secondaryVariant = Color(0xFFF44336), // R.color.colorAccent,
-    background = Color(0xFF000000),       // R.color.colorBackground,
-    surface = Color(0xFF303030),          // R.color.colorSurface,
+    primary = Color(0xFF2A1A1D),          // R.color.colorPrimary,
+    primaryVariant = Color(0xFF1C1113),   // R.color.colorPrimaryDark,
+    secondary = Color(0xFFF0566B),        // R.color.colorAccent,
+    secondaryVariant = Color(0xFFF0566B), // R.color.colorAccent,
+    background = Color(0xFF1E1517),       // R.color.colorBackground,
+    surface = Color(0xFF1E1517),          // R.color.colorSurface,
     onPrimary = Color(0xFFFFFFFF),        // R.color.colorOnSecondary,
     onSecondary = Color(0xFFFFFFFF),      // R.color.colorOnSecondary,
     onSurface = Color(0xFFFFFFFF),        // R.color.textColorPrimary,

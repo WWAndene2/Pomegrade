@@ -758,4 +758,20 @@
     <string name="hd_textures_summary">Replace 3D textures with HD versions from Pomegrade/Textures/&lt;game code&gt;/</string>
     <string name="dump_textures">Dump textures</string>
     <string name="dump_textures_summary">Save every 3D texture the game uses to Pomegrade/Textures/&lt;game code&gt;/dump/ (slower, for creating texture packs)</string>
+
+    <!-- Pomegrade: about screen -->
+    <string name="pomegrade_about">About</string>
+    <string name="pomegrade_about_version">Version %1$s</string>
+    <string name="pomegrade_about_description">DS, DSi and 3DS games in one app, with HD textures and graphics enhancements for the DS.</string>
+    <string name="pomegrade_about_source_code">Source code</string>
+    <string name="pomegrade_about_built_on">Built on</string>
+    <string name="pomegrade_about_role_melonds">DS and DSi emulator core</string>
+    <string name="pomegrade_about_role_melonds_android">Android app Pomegrade is based on</string>
+    <string name="pomegrade_about_role_azahar">3DS emulator core and its Android frontend</string>
+    <string name="pomegrade_about_role_stb">PNG reading and writing for HD textures</string>
+    <string name="pomegrade_about_role_oboe">Audio output (DS)</string>
+    <string name="pomegrade_about_role_faad2">AAC audio decoding (DSi)</string>
+    <string name="pomegrade_about_role_enet">Local wireless play (DS)</string>
+    <string name="pomegrade_about_credit_authors_licence">%1$s · %2$s</string>
+    <string name="pomegrade_about_licences_notice">Pomegrade is free software under the GNU General Public License, version 3. Tap to read the GNU licences. The 3DS core\'s other libraries are listed in its own about screen (3DS games → Settings → About).</string>
 </resources>

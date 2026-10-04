@@ -2046,7 +2046,7 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
 
             val staticThemeColor: AbstractIntSetting = object : AbstractIntSetting {
                 override var int: Int
-                    get() = preferences.getInt(Settings.PREF_STATIC_THEME_COLOR, 0)
+                    get() = preferences.getInt(Settings.PREF_STATIC_THEME_COLOR, 2)
                     set(value) {
                         preferences.edit()
                             .putInt(Settings.PREF_STATIC_THEME_COLOR, value)
@@ -2057,8 +2057,8 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                 override val section: String? = null
                 override val isRuntimeEditable: Boolean = false
                 override val valueAsString: String
-                    get() = preferences.getInt(Settings.PREF_STATIC_THEME_COLOR, 0).toString()
-                override val defaultValue: Any = 0
+                    get() = preferences.getInt(Settings.PREF_STATIC_THEME_COLOR, 2).toString()
+                override val defaultValue: Any = 2
             }
 
             add(

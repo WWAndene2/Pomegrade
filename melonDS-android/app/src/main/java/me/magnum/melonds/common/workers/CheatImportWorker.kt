@@ -117,8 +117,8 @@ class CheatImportWorker @AssistedInject constructor(
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setSubText(applicationContext.getString(R.string.importing_cheats))
                 .setContentTitle(gameName ?: "")
-                .setColor(ContextCompat.getColor(applicationContext, R.color.melonMain))
-                .setSmallIcon(R.drawable.ic_melon_small)
+                .setColor(ContextCompat.getColor(applicationContext, R.color.colorAccent))
+                .setSmallIcon(R.drawable.ic_pomegrade_small)
                 .setProgress(100, progress, indeterminate)
                 .build()
 

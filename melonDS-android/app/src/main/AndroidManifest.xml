@@ -86,6 +86,12 @@
                 android:value="me.magnum.melonds.ui.romlist.RomListActivity"/>
         </activity>
         <activity
+            android:name=".ui.about.AboutActivity"
+            android:label="@string/pomegrade_about"
+            android:parentActivityName=".ui.romlist.RomListActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ui.inputsetup.InputSetupActivity"
             android:label="@string/key_mapping"
             android:parentActivityName=".ui.settings.SettingsActivity"
