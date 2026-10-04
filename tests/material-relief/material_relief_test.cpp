@@ -1,8 +1,8 @@
 // Relief by material (OpenGL renderer), drawn through the real DS 3D engine,
 // relief off and strong: a floor with a grass texture is classified as
 // foliage and drawn as a slab of blades swaying in the wind; with a sky
-// texture it gets no relief, only its texel grid smoothed away; with a stone
-// texture it is redrawn as a procedural surface; a character (a texture of skin and
+// texture it gets no relief, only its texel grid smoothed away; a stone
+// texture keeps its look, lit by its own painted relief; a character (a texture of skin and
 // cloth drawn with its own polygon ID, in front of scenery sharing one) is
 // drawn with cloth folds while its skin stays as it was. Writes the images
 // next to the binary.
@@ -297,8 +297,9 @@ int main()
     printf("sky: fine detail %.3f -> %.3f, largest mean channel shift %.2f\n", skyDetailOff, skyDetailOn, skyShift);
     check(skyDetailOn < skyDetailOff * 0.6 && skyShift < 2, "sky texture: no relief, smoothed (texel steps gone, same colours)");
 
-    // stone: dull grey noise (MaterialClassifier: stone) is redrawn as a
-    // procedural surface fitted to it: changed, but its brightness kept
+    // stone: dull grey noise (MaterialClassifier: stone) keeps its painted
+    // look: lit by the relief its own larger shapes give, its grain kept, no
+    // pattern drawn that it does not have (invented cracks were rejected)
     for (int i = 0; i < 64 * 64; i++) { u32 v = rnd() % 6; texels[i] = 0x8000 | (12 + v) | ((12 + v) << 5) | ((13 + v) << 10); }
     upload();
     r->SetRelief(0);
@@ -310,7 +311,7 @@ int main()
     const double stoneChange = MeanDiff(stoneOn, stoneOff, w, nearY0, nearY1);
     const double stoneLevel = Channel(stoneOn, w, nearY0, nearY1, 1) / Channel(stoneOff, w, nearY0, nearY1, 1);
     printf("stone: mean change %.2f, brightness ratio %.3f\n", stoneChange, stoneLevel);
-    check(stoneChange > 4 && stoneLevel > 0.9 && stoneLevel < 1.1, "stone texture: redrawn procedurally, its brightness kept within 10%");
+    check(stoneChange > 0.5 && stoneChange < 4 && stoneLevel > 0.9 && stoneLevel < 1.1, "stone texture: lit by its own relief, its look and brightness kept (nothing invented)");
 
     // clothes: scenery of three textures (grey, sand, dark green-grey: not
     // foliage) with polygon ID 63, and a character with ID 1 whose texture is

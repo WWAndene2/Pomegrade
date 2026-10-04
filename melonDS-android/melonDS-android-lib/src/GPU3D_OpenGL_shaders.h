@@ -809,7 +809,6 @@ float ValueNoise(vec2 p)
 // the pixel's size in texels, set before the procedural heights are taken:
 // octaves finer than a pixel are faded out (they would alias as blotches)
 float ProcFootprint;
-float ProcCrack = 1.0; // stone: 0 in a crack (darkened in colour), 1 elsewhere
 float Fbm(vec2 p)
 {
     float sum = 0.0, amp = 0.5, freq = 1.0;
@@ -821,25 +820,22 @@ float Fbm(vec2 p)
     }
     return sum / 0.9375;
 }
-// stone: grainy rock broken by a few irregular cracks (cells about eight
-// texels wide, their outlines warped by noise, drawn only in places so they
-// do not read as paving)
+// stone: the relief the texture paints - its dark texels hollows, its light
+// ones bumps - as a smooth surface (Hermite between texel centres, so each
+// painted shape becomes a rounded one at any resolution), with a light grain
+// on top. Nothing is drawn that the texture does not suggest
+float SmoothLuma(vec2 p)
+{
+    vec2 b = floor(p - 0.5) + 0.5, f = fract(p - 0.5);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(ReliefLuma(b), ReliefLuma(b + vec2(1.0, 0.0)), f.x),
+               mix(ReliefLuma(b + vec2(0.0, 1.0)), ReliefLuma(b + vec2(1.0, 1.0)), f.x), f.y);
+}
 float StoneHeight(vec2 p)
 {
-    vec2 q = p * 0.12 + (vec2(ValueNoise(p * 0.1), ValueNoise(p * 0.1 + 9.0)) - 0.5) * 0.9, cell = floor(q);
-    float f1 = 8.0, f2 = 8.0;
-    for (int y = -1; y <= 1; y++)
-        for (int x = -1; x <= 1; x++)
-        {
-            vec2 c = cell + vec2(float(x), float(y));
-            float d = length(q - c - BladeHash(c));
-            if (d < f1) { f2 = f1; f1 = d; } else if (d < f2) f2 = d;
-        }
-    float crack = smoothstep(0.0, 0.06, f2 - f1);
-    // cracks only in places, so they break off instead of forming a network
-    crack = mix(1.0, crack, smoothstep(0.45, 0.65, ValueNoise(p * 0.08 + 5.0)));
-    ProcCrack = crack;
-    return 0.75 * Fbm(p * 0.6) + 0.25 * crack;
+    // the larger painted shapes (over two texels): single texels are grain,
+    // not relief, and as bumps they read as shiny droplets
+    return 0.7 * ReliefHeight(p) + 0.3 * SmoothLuma(p);
 }
 // wood: streaks along the grain, wavering, with fine fibres
 float WoodHeight(vec2 p, bool alongT)
@@ -934,16 +930,21 @@ vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
         float amp = clamp(spread * 2.0 + 0.04, 0.0, 0.3);
         float fade = clamp((1.0 - footprint) * 2.0, 0.0, 1.0);
         ProcFootprint = footprint;
-        ProcCrack = 1.0;
         float h = ProceduralHeight(st, proc);
-        float crack = mix(1.0, 0.55 + 0.45 * ProcCrack, fade); // read before the gradient's samples overwrite it
-        ProcColour = clamp((smoothColour + (h - 0.5) * amp * 1.5 * fade) * crack, 0.0, 1.0);
+        // stone's height is the texture's own light, already in its colour:
+        // only wood's generated streaks add to the colour
+        float detail = (proc & 3) == 1 ? 0.0 : (h - 0.5) * amp * 1.5;
+        // stone keeps most of its painted grain: the texel's own colour,
+        // its square edges softened towards the smooth colour
+        vec3 grain = (proc & 3) == 1 ? (TextureLookup_Nearest(st).rgb - smoothColour) * 0.6 : vec3(0.0);
+        ProcColour = clamp(smoothColour + (grain + detail) * fade, 0.0, 1.0);
         ProcActive = true;
 
         const float e = 0.2; // texels
         float hx = (ProceduralHeight(st + vec2(e, 0.0), proc) - h) / e;
         float hy = (ProceduralHeight(st + vec2(0.0, e), proc) - h) / e;
-        vec3 pN = normalize(N - (normalize(gU) * hx + normalize(gV) * hy) * (0.3 * relief * fade));
+        float strength = (proc & 3) == 1 ? 0.6 : 0.3; // stone's height is its painted light, of small range
+        vec3 pN = normalize(N - (normalize(gU) * hx + normalize(gV) * hy) * (strength * relief * fade));
         vec3 pL = uReliefLight.w > 0.5 ? normalize(uReliefLight.xyz) : normalize(V + vec3(0.0, 1.0, 0.0));
         float pBase = max(dot(N, pL), 0.0), pLit = max(dot(pN, pL), 0.0);
         shade = clamp((0.35 + pLit) / (0.35 + pBase), 0.75, 1.3);
