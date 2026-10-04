@@ -741,6 +741,8 @@ float* GLRenderer::SetupViewCenterVertex(const Polygon* poly, float* gptr) const
 void GLRenderer::LookupHDTextures(GPU& gpu, int npolys)
 {
     bool textured = gpu.GPU3D.RenderDispCnt & (1<<0);
+    // relief by material reads texels from the flat texture VRAM
+    HDTextures.SetKeepCoherent(ViewDataActive && Relief > 0);
     if (!HDTextures.BeginFrame(gpu) || !textured)
     {
         for (int i = 0; i < npolys; i++)
@@ -783,6 +785,31 @@ void GLRenderer::LookupHDTextures(GPU& gpu, int npolys)
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D_ARRAY, HDTextures.AtlasTexture());
     glActiveTexture(prevActiveTexture);
+}
+
+void GLRenderer::LookupReliefScales(GPU& gpu, int npolys)
+{
+    const bool active = ViewDataActive && Relief > 0 && (gpu.GPU3D.RenderDispCnt & (1<<0));
+    MaterialRelief.BeginFrame(HDTextures.TexturesChanged());
+    u32 prevParam = 0, prevPal = 0, prevScale = 0;
+    bool havePrev = false;
+    for (int i = 0; i < npolys; i++)
+    {
+        Polygon* poly = PolygonList[i].PolyData;
+        u32 scale = 0;
+        if (active && ((poly->TexParam >> 26) & 0x7) != 0)
+        {
+            if (havePrev && poly->TexParam == prevParam && poly->TexPalette == prevPal)
+                scale = prevScale;
+            else
+            {
+                scale = MaterialRelief.Scale(gpu, poly->TexParam, poly->TexPalette);
+                prevParam = poly->TexParam; prevPal = poly->TexPalette; prevScale = scale;
+                havePrev = true;
+            }
+        }
+        PolygonList[i].ReliefScale = scale;
+    }
 }
 
 void GLRenderer::EnsureCapacity(Polygon** polygons, u32 npolys)
@@ -857,6 +884,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
         u32 alpha = (polyattr >> 16) & 0x1F;
 
         u32 vtxattr = polyattr & 0x1F00C8F0;
+        vtxattr |= rp->ReliefScale & 0xF; // bits 0-3, free in the DS attributes kept here
         if (poly->FacingView) vtxattr |= (1<<8);
         if (poly->WBuffer)    vtxattr |= (1<<9);
 
@@ -2253,6 +2281,7 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
         NumOpaqueFinalPolys = firsttrans;
 
         LookupHDTextures(gpu, npolys);
+        LookupReliefScales(gpu, npolys);
 
         // inspector (Pomegrade): polygons coloured by what drew them
         ViewInspector = gpu.NDS.Inspector.GetView() != Inspector::View::Off ? &gpu.NDS.Inspector : nullptr;

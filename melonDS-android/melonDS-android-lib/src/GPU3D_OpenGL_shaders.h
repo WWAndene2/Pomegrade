@@ -793,7 +793,9 @@ vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
     vec3 P = fViewPosition.xyz;
     vec3 dp1 = ReliefDP1, dp2 = ReliefDP2;
     vec2 du1 = ReliefDU1, du2 = ReliefDU2;
-    bool usable = uRelief > 0.0 && fViewPosition.w > 0.999
+    // depth by the texture's material (GLMaterialRelief), eighths of the setting
+    float relief = uRelief * float(fPolygonAttr.x & 0xF) / 8.0;
+    bool usable = relief > 0.0 && fViewPosition.w > 0.999
         && fColor.a > 0.99 // opaque (the alpha comes with the vertex colour)
         && (textype == 2 || textype == 3 || textype == 5 || textype == 7);
     vec3 N0 = cross(dp1, dp2);
@@ -814,9 +816,9 @@ vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
     float vn = max(dot(N, V), 0.15); // grazing angles: limited
     vec3 Vs = V - N * dot(V, N);
     // texture offset at full depth, in texels (at most 4 x the depth)
-    vec2 dir = vec2(dot(Vs, gU), dot(Vs, gV)) * (uRelief * texel / vn);
+    vec2 dir = vec2(dot(Vs, gU), dot(Vs, gV)) * (relief * texel / vn);
     float dl = length(dir);
-    if (dl > 4.0 * uRelief) dir *= 4.0 * uRelief / dl;
+    if (dl > 4.0 * relief) dir *= 4.0 * relief / dl;
 
     const int layers = 8;
     float layer = 1.0 / float(layers);
@@ -841,7 +843,7 @@ vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
     float hy = ReliefHeight(cur + vec2(0.0, 1.0)) - ReliefHeight(cur - vec2(0.0, 1.0));
     vec3 tU = normalize(gU), tV = normalize(gV);
     // slope: height change per texel times the relief depth in texels
-    vec3 Np = normalize(N - (tU * hx + tV * hy) * (1.5 * uRelief));
+    vec3 Np = normalize(N - (tU * hx + tV * hy) * (1.5 * relief));
     vec3 L = uReliefLight.w > 0.5 ? normalize(uReliefLight.xyz) : normalize(V + vec3(0.0, 1.0, 0.0));
     float base = max(dot(N, L), 0.0), lit = max(dot(Np, L), 0.0);
     shade = clamp((0.35 + lit) / (0.35 + base), 0.5, 1.6);

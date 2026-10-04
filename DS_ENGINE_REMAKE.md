@@ -1974,6 +1974,8 @@ The idea: a flat painted cloth texture gets real 3D shape and conforms to a wall
 | Slice stacking | Smoke, fog, cloud | Back-to-front semi-transparent quads |
 | Hardware fog | Cheap depth-based atmosphere | Built into DS and GL |
 
+*Status: 🟡 parallax occlusion mapping is done as relief textures (OpenGL renderer, video setting), height from texel brightness. Its depth follows each texture's material class (7.3, texture statistics only): stone full, wood and foliage 3/4, unknown 1/2, characters 1/4, sky and water none. On Joker's harbour this leaves the sky and sea flat and the rock and floor as before. Shells, 3D-texture raymarching, tessellation and slice stacking are not done.*
+
 #### 14.2 Raymarching a 3D texture inside a shell mesh
 
 ```glsl

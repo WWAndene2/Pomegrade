@@ -22,6 +22,7 @@
 #include "GPU3D.h"
 #include "GPU_OpenGL.h"
 #include "GPU3D_OpenGL_HDTextures.h"
+#include "GPU3D_OpenGL_MaterialRelief.h"
 #include "OpenGLSupport.h"
 
 namespace melonDS
@@ -107,6 +108,7 @@ private:
         u32 RenderKey;
 
         u32 HDTexture; // packed HD atlas location, see GLHDTextures::Lookup
+        u32 ReliefScale; // Pomegrade: relief depth of its texture's material, eighths (GLMaterialRelief)
     };
 
     GLCompositor CurGLCompositor;
@@ -118,6 +120,7 @@ private:
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
     u32* SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 hdTexture, u32* vptr) const;
     void LookupHDTextures(GPU& gpu, int npolys);
+    void LookupReliefScales(GPU& gpu, int npolys);
     void BuildPolygons(RendererPolygon* polygons, int npolys);
     void EnsureCapacity(Polygon** polygons, u32 npolys);
     int RenderSinglePolygon(int i) const;
@@ -217,6 +220,7 @@ private:
     std::vector<u32> VertexBuffer = std::vector<u32>(10240 * VertexSize);
 
     GLHDTextures HDTextures;
+    GLMaterialRelief MaterialRelief;
     u32 NumVertices {};
 
     GLuint VertexArrayID {};
