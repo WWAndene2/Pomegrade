@@ -886,7 +886,33 @@ vec4 FinalColor()
         tcol.rgb = min(tcol.rgb * reliefShade, 1.0);
         //vec4 tcol = TextureLookup_Linear(fTexcoord);
 
-        if ((blendmode & 1) != 0)
+        if (fHDTexture == 0)
+        {
+            // Pomegrade: a DS texel, blended with the DS's integer formulas
+            // (GPU3D_Soft.cpp): 6-bit channels, a 5-bit texel widened to 2t+1
+            // (0 stays 0), the vertex colour's 9 bits cut to 6. In floats
+            // the result was up to a level darker (texel 5: 41/255 here,
+            // 11/63 on the DS). A filtered texel, between two DS texels, is
+            // widened the same way without being rounded to one of them
+            vec3 t5 = uTextureFilter != 0 ? tcol.rgb * 31.0 : floor(tcol.rgb * 31.0 + 0.5);
+            vec3 t6 = t5 * 2.0 + min(t5, vec3(1.0));
+            vec3 v6 = floor((floor(vcol.rgb * 255.0 + 0.5)) / 4.0);
+            float ta = uTextureFilter != 0 ? tcol.a * 31.0 : floor(tcol.a * 31.0 + 0.5), va = floor(vcol.a * 31.0 + 0.5);
+            if ((blendmode & 1) != 0)
+            {
+                // decal
+                col.rgb = ta == 0.0 ? v6 : ta == 31.0 ? t6 : floor((t6 * ta + v6 * (31.0 - ta)) / 32.0);
+                col.rgb /= 63.0;
+                col.a = vcol.a;
+            }
+            else
+            {
+                // modulate
+                col.rgb = floor(((t6 + 1.0) * (v6 + 1.0) - 1.0) / 64.0) / 63.0;
+                col.a = floor(((ta + 1.0) * (va + 1.0) - 1.0) / 32.0) / 31.0;
+            }
+        }
+        else if ((blendmode & 1) != 0)
         {
             // decal
             col.rgb = (tcol.rgb * tcol.a) + (vcol.rgb * (1.0-tcol.a));

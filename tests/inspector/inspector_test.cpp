@@ -10,6 +10,7 @@
 #include "GPU.h"
 #include "GPU3D.h"
 #include "GPU3D_OpenGL.h"
+#include "GPU3D_Soft.h"
 #include "NDSCart.h"
 #include "NDS_Inspector.h"
 #include "xxhash/xxhash.h"
@@ -495,8 +496,20 @@ int main()
         auto nds = MakeNDS(false);
         GPU& gpu = nds->GPU;
         nds->Inspector.SetEnabled(true);
+        // textured, modulated by the vertex colour: a direct-colour 8x8
+        // texture of one texel (5, 16, 27) in VRAM bank A, vertex colour
+        // (31, 20, 9). OpenGL blended these in floats, up to a level darker
+        nds->GPU.MapVRAM_AB(0, 0x83);
+        for (int i = 0; i < 64; i++)
+        {
+            const u16 texel = 0x8000 | 5 | (16 << 5) | (27 << 10);
+            memcpy(&nds->GPU.VRAM_A[i * 2], &texel, 2);
+        }
         Program prog(0x02000000);
         prog.Write(POWCNT1, 0x820F);
+        prog.Write(0x04000060, 1); // DISP3DCNT: textures on
+        prog.Write(TEXIMAGE_PARAM, 7u << 26);
+        prog.Write(0x04000480, 31 | (20 << 5) | (9 << 10)); // COLOR
         prog.Write(0x04000580, 0xBFFF0000); // VIEWPORT: the whole screen
         prog.Write(POLYGON_ATTR, Attr);
         prog.Write(BEGIN_VTXS, 0);
@@ -537,7 +550,24 @@ int main()
         printf("%s", same.c_str());
         int n = differing(same);
         check(same.find("1 checks.") != std::string::npos && n >= 0 && n <= 1568 / 20 && same.find("largest colour difference 0/63") != std::string::npos,
-              "parity: OpenGL (x4) draws the triangle as the software renderer does, but for edge pixels (" + std::to_string(n) + ")");
+              "parity: OpenGL (x4) draws the textured triangle in the software renderer's colours, but for edge pixels (" + std::to_string(n) + ")");
+        // exact: the oracle's tolerance (2 levels) would hide a level's error
+        {
+            SoftRenderer sr;
+            gpu.GPU3D.RenderFrameIdentical = false;
+            sr.RenderFrame(gpu);
+            r->RenderFrame(gpu);
+            r->PrepareCaptureFrame();
+            int both = 0, exact = 0;
+            for (int y = 0; y < 192; y++)
+            {
+                const u32* h = r->GetLine(y);
+                const u32* d = sr.GetLine(y);
+                for (int x = 0; x < 256; x++)
+                    if ((h[x] >> 24) && (d[x] >> 24)) { both++; if ((h[x] & 0x3F3F3F) == (d[x] & 0x3F3F3F)) exact++; }
+            }
+            check(both > 1400 && exact == both, "textured triangle: every pixel in exactly the DS colour (" + std::to_string(exact) + " of " + std::to_string(both) + ")");
+        }
         std::string none = parity(blank);
         printf("%s", none.c_str());
         check(none.find("2 checks.") != std::string::npos && differing(none) >= 1500 && none.find("....9") != std::string::npos,
