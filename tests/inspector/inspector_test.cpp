@@ -269,6 +269,12 @@ int main()
             char line[96];
             snprintf(line, sizeof(line), "%08X  %08X  %7u %9u  %08X", hash, listAddr, (u32)list.size(), 3u, dmaSite);
             check(report.find(line) != std::string::npos, mode + ": its display list: hash of its content, address, length, polygons, started by");
+            // objects: the list drawn 3 times, as 3 draws ranked 0 to 2
+            for (u32 rank = 0; rank < 3; rank++)
+            {
+                snprintf(line, sizeof(line), "%-6u %-7u list %08X          %-6u %-9u", rank + 1, 1u, hash, rank, 1u);
+                check(report.find(line) != std::string::npos, mode + ": object " + std::to_string(rank + 1) + ": the list's draw of rank " + std::to_string(rank));
+            }
             if (!ok) printf("%s\n", report.c_str());
         }
     }
@@ -349,7 +355,7 @@ int main()
         nds->Inspector.OnFlush();
         report = nds->Inspector.Report();
         size_t at = report.find("== Textures by call site (1) ==");
-        size_t end = report.find("== Cartridge");
+        size_t end = report.find("\n== ", at + 1);
         check(at != std::string::npos && report.substr(at, end - at).find("+") == std::string::npos, "still: no scrolling");
     }
 
@@ -372,6 +378,25 @@ int main()
         std::string report = nds->Inspector.Report();
         check(report.find("02100010   3       2      ") != std::string::npos, "RAM map: the object's position field, found 3 frames, moved twice");
         check(report.find("== Position fields in main RAM (1) ==") != std::string::npos, "RAM map: nothing else");
+    }
+
+    // 4e. objects: a draw keeps its id from frame to frame, with the move of
+    // its position matrix's translation
+    {
+        auto nds = MakeNDS(false);
+        nds->Inspector.SetEnabled(true);
+        nds->Inspector.BeginFrame();
+        Polygon poly {};
+        s32 m[16] = {};
+        for (s32 x : {0x1000, 0x1800})
+        {
+            m[12] = x;
+            nds->Inspector.OnPolygon(poly, 0, 0, 0, m);
+            nds->Inspector.OnFlush();
+        }
+        std::string report = nds->Inspector.Report();
+        check(report.find("1      2       site unknown           0      1          1.500, 0.000, 0.000 (+0.500, +0.000, +0.000)") != std::string::npos,
+              "objects: the same draw keeps id 1 over 2 frames, moved by 0.5");
     }
 
     // 4c. palette indices of a paletted texture: 8x8, 16 colours (4 bits per

@@ -20,6 +20,10 @@
 //   (MTX_TRANS, and the last row of loaded/multiplied matrices) are searched
 //   in main RAM as three consecutive words (x, y, z); the addresses found,
 //   frame after frame, are likely the position fields of game objects;
+// - objects (5.12 step 4): each draw (a display list, or a run of polygons
+//   from one call site) is an object, identified across frames by what it
+//   draws and its rank among the draws of the same thing; it keeps its id,
+//   and its position (model-view) matrix translation this frame and the previous one;
 // - per paletted texture: how many texels use each palette index (artists
 //   paint each material with its own indices: eyes, trim, glow) (5.3);
 // - Report() writes all of it as text.
@@ -70,8 +74,9 @@ public:
     // the geometry engine runs a command
     void OnCommand(u8 command, u32 param, u16 source) noexcept;
     // a polygon is made from the command whose source was given, with the
-    // texture matrix's translation (TexMatrix[12], [13]) in effect
-    void OnPolygon(Polygon& poly, u16 source, s32 texX, s32 texY) noexcept;
+    // texture matrix's translation (TexMatrix[12], [13]) and the position
+    // matrix (PosMatrix, 4x4 20.12; null: unknown) in effect
+    void OnPolygon(Polygon& poly, u16 source, s32 texX, s32 texY, const s32* posMatrix = nullptr) noexcept;
     // the polygon lists were handed to the renderer: this frame's tables
     // become the last frame's
     void OnFlush() noexcept;
@@ -95,6 +100,7 @@ private:
         u32 ListAddr = 0;  // display list (DMA source), 0 for CPU writes
         u32 ListWords = 0;
         u32 ListHash = 0;
+        u32 Draw = 0;      // DMA start count: each DMA is a draw of its own (objects)
     };
     struct SiteStats { u32 Polygons = 0; u32 Commands = 0; std::map<u32, u32> Lists; std::map<u32, u32> Callers; };
     struct ListStats { u32 Addr = 0; u32 Words = 0; u32 Site = 0; u32 Polygons = 0; };
@@ -108,6 +114,19 @@ private:
         bool Moved = false;       // translation changed since the previous frame
         s32 DeltaX = 0, DeltaY = 0;
     };
+    // one draw of an object in a frame
+    struct ObjectDraw
+    {
+        u64 Key = 0;          // display list hash, or call site | 1 << 32
+        u32 Rank = 0;         // among this frame's draws with the same key
+        u32 Id = 0;           // the same from frame to frame
+        u32 Frames = 0;       // consecutive frames it was drawn
+        u32 Polygons = 0;
+        s32 Translation[3] = {};
+        s32 PrevTranslation[3] = {};
+        bool HasPrev = false;
+    };
+    struct ObjectHistory { u32 Id; u32 Frames; s32 Translation[3]; };
     struct FrameTables
     {
         std::map<u32, SiteStats> Sites;
@@ -120,6 +139,7 @@ private:
         // palette-index histograms of the paletted textures drawn, by texture
         // parameters (address, size, format); texel counts per index
         std::map<u32, std::vector<u32>> PaletteHistograms;
+        std::vector<ObjectDraw> Objects;
     };
     struct CartFile { u32 Start, End, Id; };
     // a main RAM address holding (x, y, z) words a matrix was translated by
@@ -151,6 +171,13 @@ private:
     std::map<u64, std::pair<s32, s32>> PrevTexTranslation;
 
     std::map<u32, PositionField> PositionFields; // by address
+    // objects of the previous frame by (key, rank), and the next new id
+    std::map<std::pair<u64, u32>, ObjectHistory> PrevObjects;
+    std::map<u64, u32> ObjectRanks; // this frame: draws per key so far
+    u32 CurrentDraw = 0;            // Source::Draw of the object being drawn
+    u32 DmaDraws = 0;
+    u32 NextObjectId = 1;
+    static constexpr size_t MaxObjects = 4096;
     static constexpr size_t MaxPositionFields = 4096;
 
     std::vector<CartFile> Files; // sorted by start

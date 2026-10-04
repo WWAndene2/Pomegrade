@@ -113,6 +113,8 @@ void Inspector::BeginFrame() noexcept
 
     Current = FrameTables();
     PrevTexTranslation.clear();
+    PrevObjects.clear();
+    ObjectRanks.clear();
     LastSource = 0;
     for (auto& s : Sources) s = Source();
     if (Enabled)
@@ -284,6 +286,7 @@ void Inspector::OnDmaEnabled(DMA& dma, u32 srcAddr, u32 dstAddr, u32 count) noex
     s.Caller = CpuCaller();
     s.ListAddr = srcAddr;
     s.ListWords = words;
+    s.Draw = ++DmaDraws;
     if ((srcAddr >> 24) == 0x02)
     {
         // the list's content, read once (main RAM wraps at its mask)
@@ -320,9 +323,27 @@ void Inspector::OnCommand(u8 command, u32 param, u16 source) noexcept
         Current.TraceTruncated = true;
 }
 
-void Inspector::OnPolygon(Polygon& poly, u16 source, s32 texX, s32 texY) noexcept
+void Inspector::OnPolygon(Polygon& poly, u16 source, s32 texX, s32 texY, const s32* posMatrix) noexcept
 {
     const Source& s = Sources[source < SourceRing ? source : 0];
+
+    // a new source (another display list, or a CPU write after it) is a new
+    // draw; consecutive CPU writes from one site stay one draw
+    const u64 key = s.ListHash ? s.ListHash : (s.Site | 1ull << 32);
+    if (Current.Objects.empty() || key != Current.Objects.back().Key || s.Draw != CurrentDraw)
+    {
+        if (Current.Objects.size() < MaxObjects)
+        {
+            ObjectDraw draw;
+            draw.Key = key;
+            draw.Rank = ObjectRanks[key]++;
+            if (posMatrix)
+                for (int i = 0; i < 3; i++) draw.Translation[i] = posMatrix[12 + i];
+            Current.Objects.push_back(draw);
+        }
+    }
+    CurrentDraw = s.Draw;
+    if (!Current.Objects.empty()) Current.Objects.back().Polygons++;
     poly.CallSite = s.Site;
     poly.Caller = s.Caller;
     poly.ListHash = s.ListHash;
@@ -400,6 +421,30 @@ void Inspector::OnFlush() noexcept
         translations[key] = {use.TexX, use.TexY};
     }
     PrevTexTranslation.swap(translations);
+
+    // objects: the same (key, rank) as in the previous frame keeps its id
+    std::map<std::pair<u64, u32>, ObjectHistory> objects;
+    for (ObjectDraw& draw : Current.Objects)
+    {
+        auto prev = PrevObjects.find({draw.Key, draw.Rank});
+        if (prev != PrevObjects.end())
+        {
+            draw.Id = prev->second.Id;
+            draw.Frames = prev->second.Frames + 1;
+            memcpy(draw.PrevTranslation, prev->second.Translation, sizeof(draw.PrevTranslation));
+            draw.HasPrev = true;
+        }
+        else
+        {
+            draw.Id = NextObjectId++;
+            draw.Frames = 1;
+        }
+        ObjectHistory h {draw.Id, draw.Frames, {}};
+        memcpy(h.Translation, draw.Translation, sizeof(h.Translation));
+        objects[{draw.Key, draw.Rank}] = h;
+    }
+    PrevObjects.swap(objects);
+    ObjectRanks.clear();
     {
         std::lock_guard<std::mutex> guard(Lock);
         FindPositionFields();
@@ -413,6 +458,7 @@ void Inspector::OnFlush() noexcept
     Current.Trace.clear();
     Current.TraceTruncated = false;
     Current.Textures.clear();
+    Current.Objects.clear();
     Current.PaletteHistograms.clear();
 }
 
@@ -619,6 +665,23 @@ std::string Inspector::Report() const
         }
         add("%08X  %dx%d f%u  %u of %zu indices:%s%s\n", (param & 0xFFFF) << 3, 8 << ((param >> 20) & 7), 8 << ((param >> 23) & 7),
             (param >> 26) & 7, used, counts.size(), top.c_str(), order.size() > 12 ? " ..." : "");
+    }
+
+    add("\n== Objects (%zu draws%s) ==\n", Last.Objects.size(), Last.Objects.size() >= MaxObjects ? ", list full" : "");
+    add("A draw is a display list, or a run of polygons from one call site. Its id stays the same while the same thing is drawn\n");
+    add("in the same rank from frame to frame. Translation of its position matrix (model-view, 20.12), and its move since the previous frame.\n");
+    add("%-6s %-7s %-22s %-6s %-9s  %s\n", "id", "frames", "drawn from", "rank", "polygons", "translation (move)");
+    for (const ObjectDraw& d : Last.Objects)
+    {
+        char from[32];
+        if (d.Key >> 32) snprintf(from, sizeof(from), "site %s", site((u32)d.Key).c_str());
+        else snprintf(from, sizeof(from), "list %08X", (u32)d.Key);
+        char move[64] = "new";
+        if (d.HasPrev)
+            snprintf(move, sizeof(move), "%+.3f, %+.3f, %+.3f", (d.Translation[0] - d.PrevTranslation[0]) / 4096.0,
+                     (d.Translation[1] - d.PrevTranslation[1]) / 4096.0, (d.Translation[2] - d.PrevTranslation[2]) / 4096.0);
+        add("%-6u %-7u %-22s %-6u %-9u  %.3f, %.3f, %.3f (%s)\n", d.Id, d.Frames, from, d.Rank, d.Polygons,
+            d.Translation[0] / 4096.0, d.Translation[1] / 4096.0, d.Translation[2] / 4096.0, move);
     }
 
     // fields that changed come first: an object that moved is the best evidence
