@@ -50,7 +50,7 @@ int Tex0::DefaultPalette(size_t texture) const
     return PaletteNames.empty() ? -1 : 0;
 }
 
-Bytes Tex0::Decode(size_t texture, int palette) const
+Tex0Raw Tex0::Raw(size_t texture, int palette) const
 {
     const Tex0Texture& t = TextureList.at(texture);
     const size_t offset = (size_t)(t.Param & 0xFFFF) << 3;
@@ -72,7 +72,13 @@ Bytes Tex0::Decode(size_t texture, int palette) const
         const size_t start = PalData + PaletteOffsets.at(palette);
         pal = Slice(File, start, f == 5 ? std::min<size_t>(File.size() - start, 0x10000) : colours * 2);
     }
-    return DecodeTexture(t.Format, data, pal, info);
+    return {t.Format, data, pal, info};
+}
+
+Bytes Tex0::Decode(size_t texture, int palette) const
+{
+    const Tex0Raw r = Raw(texture, palette);
+    return DecodeTexture(r.Format, r.Texels, r.Palette, r.BlockInfo);
 }
 
 }

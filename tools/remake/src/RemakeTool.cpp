@@ -6,6 +6,8 @@
 //   remake_tool garc <file.garc> <dir>                every sub-file of a 3DS GARC, decompressed
 //   remake_tool textures <file.nsbtx|.nsbmd> <dir>    every texture as PNG
 //   remake_tool model <file.nsbmd> <out.gltf> [tex.nsbtx] [model index]   a DS model as glTF
+//   remake_tool texindex <rom.nds>                    every texture under its emulator dump name (TSV)
+//   remake_tool identify <rom.nds> <dump dir>         which ROM file each dumped texture comes from
 #include "Inventory.h"
 #include "Narc.h"
 #include "NdsRom.h"
@@ -14,11 +16,14 @@
 #include "Garc.h"
 #include "Nsbmd.h"
 #include "Png.h"
+#include "TextureIndex.h"
 
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
 #include <filesystem>
+#include <map>
+#include <set>
 #include <string>
 
 using namespace remake;
@@ -28,7 +33,8 @@ static int Usage()
     fprintf(stderr, "usage:\n  remake_tool info <rom.nds>\n  remake_tool inventory <rom.nds>\n"
                     "  remake_tool extract <rom.nds> <path> <out>\n  remake_tool unpack <rom.nds> <path.narc> <dir>\n"
                     "  remake_tool garc <file.garc> <dir>\n  remake_tool textures <file.nsbtx|.nsbmd> <dir>\n"
-                    "  remake_tool model <file.nsbmd> <out.gltf> [tex.nsbtx] [model index]\n");
+                    "  remake_tool model <file.nsbmd> <out.gltf> [tex.nsbtx] [model index]\n"
+                    "  remake_tool texindex <rom.nds>\n  remake_tool identify <rom.nds> <dump dir>\n");
     return 2;
 }
 
@@ -96,6 +102,38 @@ int main(int argc, char** argv)
         if (cmd == "info")
         {
             printf("title %s\ngame code %s\nfiles %zu\n", rom.Title().c_str(), rom.GameCode().c_str(), rom.Files().size());
+            return 0;
+        }
+        if (cmd == "texindex")
+        {
+            printf("name\tpath\ttexture\tpalette\tformat\n");
+            for (const TextureSource& t : IndexTextures(rom))
+                printf("%s\t%s\t%s\t%s\t%d\n", t.Name.c_str(), t.Path.c_str(), t.Texture.c_str(), t.Palette.c_str(), t.Format);
+            return 0;
+        }
+        if (cmd == "identify" && argc >= 4)
+        {
+            // the dump folder: <emulator textures dir>/<game code>/dump/tex_*.png
+            std::multimap<std::string, TextureSource> byName;
+            for (TextureSource& t : IndexTextures(rom)) byName.emplace(t.Name, std::move(t));
+            size_t found = 0, total = 0;
+            std::set<std::string> files;
+            for (const auto& e : std::filesystem::directory_iterator(argv[3]))
+            {
+                const std::string stem = e.path().stem().string();
+                if (e.path().extension() != ".png" || stem.rfind("tex_", 0) != 0) continue;
+                total++;
+                const auto [first, last] = byName.equal_range(stem);
+                if (first == last) { printf("%s\t(not in a TEX0 file)\n", stem.c_str()); continue; }
+                found++;
+                for (auto it = first; it != last; ++it)
+                {
+                    const TextureSource& t = it->second;
+                    printf("%s\t%s\t%s\t%s\n", stem.c_str(), t.Path.c_str(), t.Texture.c_str(), t.Palette.c_str());
+                    files.insert(t.Path);
+                }
+            }
+            fprintf(stderr, "%zu of %zu dumped textures found, from %zu files\n", found, total, files.size());
             return 0;
         }
         if (cmd == "inventory") { fputs(InventoryJson(rom).c_str(), stdout); return 0; }

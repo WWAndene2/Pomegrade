@@ -25,6 +25,13 @@ struct Tex0Texture
     uint32_t Param = 0;
 };
 
+// a texture's bytes as the game uploads them to VRAM
+struct Tex0Raw
+{
+    TextureFormat Format;
+    Bytes Texels, Palette, BlockInfo;
+};
+
 class Tex0
 {
 public:
@@ -37,6 +44,7 @@ public:
     const std::vector<std::string>& Palettes() const { return PaletteNames; }
     // RGBA8; palette: an index into Palettes(), -1: the default pairing
     Bytes Decode(size_t texture, int palette = -1) const;
+    Tex0Raw Raw(size_t texture, int palette = -1) const;
     int DefaultPalette(size_t texture) const;
 
 private:

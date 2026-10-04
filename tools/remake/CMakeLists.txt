@@ -4,10 +4,12 @@
 #   cmake -S tools/remake -B build-remake -G Ninja && ninja -C build-remake
 #   ./build-remake/remake_tool inventory platinum.nds > inventory.json
 cmake_minimum_required(VERSION 3.16)
-project(remake_tools CXX)
+project(remake_tools C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(MELONDS_SRC ${CMAKE_CURRENT_LIST_DIR}/../../melonDS-android/melonDS-android-lib/src)
 
 add_library(remake STATIC
     src/Bytes.cpp
@@ -24,8 +26,12 @@ add_library(remake STATIC
     src/NitroDictionary.cpp
     src/Nsbtx.cpp
     src/Nsbmd.cpp
+    src/EmulatorTextureName.cpp
+    src/TextureIndex.cpp
+    # the DS core's hash, so texture names match the emulator's by construction
+    ${MELONDS_SRC}/xxhash/xxhash.c
 )
-target_include_directories(remake PUBLIC src)
+target_include_directories(remake PUBLIC src PRIVATE ${MELONDS_SRC})
 
 add_executable(remake_tool src/RemakeTool.cpp)
 target_link_libraries(remake_tool PRIVATE remake)

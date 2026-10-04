@@ -12,6 +12,7 @@
 #include "Nsbtx.h"
 #include "NitroTexture.h"
 #include "Png.h"
+#include "TextureIndex.h"
 
 #include <cmath>
 #include <cstdio>
@@ -209,6 +210,13 @@ int main()
         const Bytes out = t.Decode(0);
         check(t.Textures().size() == 1 && t.Textures()[0].Name == "tex" && t.Palettes()[0] == "tex_pl" && t.DefaultPalette(0) == 0 &&
               Is(Px(out, 8, 1, 0), 0, 255, 0, 255), "NSBTX: texture and palette by name, decoded");
+        // the index: one palette, a palette format, so both colour-0 transparency variants;
+        // the names themselves are checked against the core by emulator_texture_name_test
+        std::vector<TextureSource> index;
+        IndexTextures(btx, "a/b.nsbtx", index);
+        check(index.size() == 2 && index[0].Name != index[1].Name && index[0].Name.rfind("tex_8x8_", 0) == 0 &&
+              index[0].Name.size() == 24 && index[0].Path == "a/b.nsbtx" && index[0].Texture == "tex" && index[0].Palette == "tex_pl",
+              "texture index: emulator names for each palette and transparency");
     }
     // NSBMD: one model, one shape (a quad), one material using "tex"/"tex_pl"
     {
