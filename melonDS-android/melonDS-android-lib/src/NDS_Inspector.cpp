@@ -665,7 +665,12 @@ std::string Inspector::CartGameCode() const
 {
     const NDSCart::CartCommon* cart = NDS.GetNDSCart();
     if (!cart || !cart->GetROM() || cart->GetROMLength() < 0x10) return {};
-    return std::string((const char*)cart->GetROM() + 0x0C, 4);
+    // letters and digits only: the code names a folder and crosses JNI, where
+    // a homebrew header's arbitrary bytes would not be valid modified UTF-8
+    std::string code((const char*)cart->GetROM() + 0x0C, 4);
+    for (char c : code)
+        if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))) return {};
+    return code;
 }
 
 void Inspector::OnRendered(GPU& gpu, Renderer3D& renderer)
