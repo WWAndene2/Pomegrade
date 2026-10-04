@@ -105,6 +105,8 @@ MaterialResult MaterialClassifier::Classify(GPU& gpu, u32 texParam, u32 palette,
         // sky: bright (clouds); water: deep blue; grey-blue (metal) neither
         if (s.Brightness > 0.85f && s.Detail < 0.04f) vote(MaterialClass::Sky, TextureStats, "blue, bright, smooth");
         else if (s.Saturation > 0.5f && s.Brightness <= 0.85f) vote(MaterialClass::Water, TextureStats, "deep blue");
+        // full emission: it lights itself, whatever the scene's lights (Joker's sky)
+        if (e.Lit * 2 > e.Polygons && e.Emission >= 24 && s.Detail < 0.04f) vote(MaterialClass::Sky, RenderState, "blue, self-lit");
     }
     if (green && s.Detail > 0.04f) vote(MaterialClass::Foliage, TextureStats, "green, busy");
     if (coloured && s.Hue >= 15 && s.Hue < 50 && s.Saturation > 0.5f && s.Brightness < 0.85f)

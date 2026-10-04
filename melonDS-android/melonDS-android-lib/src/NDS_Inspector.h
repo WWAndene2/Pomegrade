@@ -125,6 +125,9 @@ private:
         s32 DeltaX = 0, DeltaY = 0;
         u32 Palette = 0;          // TexPalette (last polygon)
         u32 Translucent = 0;      // polygons with alpha 1-30
+        u32 Lit = 0;              // polygons with a light enabled
+        u8 Specular = 0, Emission = 0; // largest material channel (0-31) of lit polygons
+        bool Shininess = false;   // the shininess table used
     };
     // one draw of an object in a frame
     struct ObjectDraw
@@ -153,7 +156,7 @@ private:
         std::map<u32, std::vector<u32>> PaletteHistograms;
         std::vector<ObjectDraw> Objects;
         // material of each texture drawn, by (palette << 32) | parameters
-        struct Material { MaterialResult Result; MaterialClassifier::TextureStats Stats; u32 Polygons; };
+        struct Material { MaterialResult Result; MaterialClassifier::TextureStats Stats; TextureEvidence Evidence; };
         std::map<u64, Material> Materials;
         std::map<u64, TextureEvidence> MaterialEvidence; // same keys
     };

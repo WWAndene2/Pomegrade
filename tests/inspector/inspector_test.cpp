@@ -424,7 +424,8 @@ int main()
                 }
             return (7u << 26) | (1u << 20) | (1u << 23) | (addr >> 3);
         };
-        TextureEvidence none, scrolling, translucent;
+        TextureEvidence none, scrolling, translucent, selfLit;
+        selfLit.Polygons = 4; selfLit.Lit = 4; selfLit.Emission = 31;
         scrolling.Scrolling = true;
         translucent.Polygons = 4; translucent.Translucent = 4;
         struct Case { const char* what; u32 param; TextureEvidence e; MaterialClass want; };
@@ -435,6 +436,8 @@ int main()
             {"grey stone", texture([&](int, int) { return rgb(16 + 2 * noise(), 16 + 2 * noise(), 15 + 2 * noise()); }), none, MaterialClass::Stone},
             {"brown planks, grain along x", texture([&](int, int y) { int v = (y % 4 == 0) ? -5 : 0; return rgb(18 + v, 10 + v, 3); }), none, MaterialClass::Wood},
             {"bright sky", texture([&](int, int y) { return rgb(12 + y / 4, 20 + y / 4, 31); }), none, MaterialClass::Sky},
+            {"dim blue sky, self-lit (full emission)", texture([&](int, int y) { return rgb(8 + y / 4, 14 + y / 4, 22); }), selfLit, MaterialClass::Sky},
+            {"the same, not self-lit: deep blue water", texture([&](int, int y) { return rgb(8 + y / 4, 14 + y / 4, 22); }), none, MaterialClass::Water},
             {"red lava, scrolling", texture([&](int, int) { return rgb(30, 8 + noise(), 2); }), scrolling, MaterialClass::Lava},
             {"a character's atlas of many colours", texture([&](int x, int y) { return rgb((x * 5) % 32, (y * 7) % 32, ((x + y) * 3) % 32); }), none, MaterialClass::Unknown},
         };

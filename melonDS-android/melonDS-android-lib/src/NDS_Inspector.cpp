@@ -374,6 +374,15 @@ void Inspector::OnPolygon(Polygon& poly, u16 source, s32 texX, s32 texY, const s
         use.Palette = poly.TexPalette;
         const u32 alpha = (poly.Attr >> 16) & 0x1F;
         if (alpha && alpha < 31) use.Translucent++;
+        // material registers in effect (DIF_AMB, SPE_EMI): they shade lit polygons only
+        if (poly.Attr & 0xF)
+        {
+            const GPU3D& g = NDS.GPU.GPU3D;
+            use.Lit++;
+            use.Specular = std::max({use.Specular, g.MatSpecular[0], g.MatSpecular[1], g.MatSpecular[2]});
+            use.Emission = std::max({use.Emission, g.MatEmission[0], g.MatEmission[1], g.MatEmission[2]});
+            use.Shininess = use.Shininess || g.UseShininessTable;
+        }
         use.TexY = texY;
     }
 }
@@ -435,6 +444,10 @@ void Inspector::OnFlush() noexcept
             for (u32 n : use.Polygons) e.Polygons += n;
             e.Translucent += use.Translucent;
             e.Scrolling = e.Scrolling || use.Moved;
+            e.Lit += use.Lit;
+            e.Specular = std::max(e.Specular, use.Specular);
+            e.Emission = std::max(e.Emission, use.Emission);
+            e.Shininess = e.Shininess || use.Shininess;
         }
         Current.MaterialEvidence.swap(evidence);
     }
@@ -547,7 +560,7 @@ void Inspector::OnRendered(GPU& gpu, Renderer3D& renderer)
             FrameTables::Material m;
             m.Result = Classifier.Classify(gpu, (u32)key, (u32)(key >> 32), e);
             m.Stats = Classifier.Statistics(gpu, (u32)key, (u32)(key >> 32));
-            m.Polygons = e.Polygons;
+            m.Evidence = e;
             Last.Materials[key] = m;
         }
     }
@@ -748,17 +761,18 @@ std::string Inspector::Report() const
     {
         add("\n== Materials (%zu textures) ==\n", Last.Materials.size());
         add("From render state and texture statistics (no manifest or file names yet); unknown below %.2f confidence.\n", MaterialClassifier::MinConfidence);
-        add("%-8s %-9s %-5s %-8s %-8s %-4s  %-31s %s\n", "texture", "size", "fmt", "palette", "class", "conf", "hue sat bright detail grain var", "cues");
+        add("%-8s %-9s %-5s %-8s %-8s %-4s  %-31s %s\n", "texture", "size", "fmt", "palette", "class", "conf", "hue sat bright detail grain var", "lit spec emis  cues");
         std::vector<std::pair<u64, const FrameTables::Material*>> list;
         for (auto& [key, m] : Last.Materials) list.push_back({key, &m});
-        std::sort(list.begin(), list.end(), [](auto& a, auto& b) { return a.second->Polygons > b.second->Polygons; });
+        std::sort(list.begin(), list.end(), [](auto& a, auto& b) { return a.second->Evidence.Polygons > b.second->Evidence.Polygons; });
         for (auto& [key, m] : list)
         {
             const u32 param = (u32)key;
             const auto& s = m->Stats;
-            add("%08X %3ux%-5u f%u   %08X %-8s %.2f  %3.0f %.2f %.2f %.3f %.2f %.2f  %s\n", (param & 0xFFFF) << 3, 8 << ((param >> 20) & 7), 8 << ((param >> 23) & 7),
+            add("%08X %3ux%-5u f%u   %08X %-8s %.2f  %3.0f %.2f %.2f %.3f %.2f %.2f  %3u%% %2u%s %2u   %s\n", (param & 0xFFFF) << 3, 8 << ((param >> 20) & 7), 8 << ((param >> 23) & 7),
                 (param >> 26) & 7, (u32)(key >> 32), MaterialClassifier::Name(m->Result.Class), m->Result.Confidence,
-                s.Hue, s.Saturation, s.Brightness, s.Detail, s.Grain, s.Variety, m->Result.Cues.c_str());
+                s.Hue, s.Saturation, s.Brightness, s.Detail, s.Grain, s.Variety,
+                m->Evidence.Polygons ? m->Evidence.Lit * 100 / m->Evidence.Polygons : 0, m->Evidence.Specular, m->Evidence.Shininess ? "s" : " ", m->Evidence.Emission, m->Result.Cues.c_str());
         }
     }
 

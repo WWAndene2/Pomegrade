@@ -5,7 +5,7 @@
 // what a texture is (water, foliage, wood, stone...) from two of the
 // classifier's layers, with no learning:
 // - render state: translucent polygons, a scrolling texture matrix, a cut-out
-//   alpha (1-bit or a transparent colour 0);
+//   alpha (1-bit or a transparent colour 0), a lit polygon's emission;
 // - texture statistics, computed once per texture and palette: hue and
 //   saturation, brightness, high-frequency energy, grain direction.
 // Each cue votes for classes with the doc's weights (render state 0.6,
@@ -29,6 +29,10 @@ struct TextureEvidence
     u32 Polygons = 0;
     u32 Translucent = 0;  // polygons with alpha 1-30
     bool Scrolling = false;
+    // material registers of its lit polygons (DIF_AMB, SPE_EMI)
+    u32 Lit = 0;
+    u8 Specular = 0, Emission = 0; // largest channel, 0-31
+    bool Shininess = false;
 };
 
 struct MaterialResult
