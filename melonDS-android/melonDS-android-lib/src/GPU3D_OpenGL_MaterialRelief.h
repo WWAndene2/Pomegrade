@@ -13,6 +13,8 @@
 // drawn with a polygon ID apart from the scenery's, the frame's IDs being the
 // renderer's evidence) set bit 13 (Fabric): skin stays smooth, the rest is
 // drawn as cloth, folds shaded from its painted light and a fine weave.
+// Stone and wood are redrawn as procedural surfaces fitted to the texture
+// (section 16.1): no texel grid, detail at any resolution.
 
 #include "GPU3D_MaterialClassifier.h"
 
@@ -30,6 +32,13 @@ public:
     // sceneryId: the frame's scenery polygon ID (MaterialClassifier::SceneryId)
     void BeginFrame(bool texturesChanged, int sceneryId);
     static constexpr u32 VolumetricGrass = 1 << 12, Fabric = 1 << 13;
+    // procedural surface (DS_ENGINE_REMAKE.md 16.1), bits 16-18 of Scale's
+    // result, for the shader in the texture address attribute's bits 16-18:
+    // the texture's smoothed colours with detail generated at any resolution
+    // wood streaks only where the texture has a clear grain (Grain 0.3 or
+    // more, as the classifier's "grain" cue): otherwise its axis is noise
+    // Smooth alone: the colour without its texel grid and no detail (sky, water)
+    static constexpr u32 ProceduralShift = 16, ProceduralStone = 1, ProceduralWood = 2, ProceduralWoodNoGrain = 3, GrainAlongT = 4, Smooth = 8;
     // relief depth of a polygon's texture, 0-15 eighths, | VolumetricGrass or
     // Fabric; polygonIds: bit n set when this frame drew it with polygon ID n
     u32 Scale(GPU& gpu, u32 texParam, u32 palette, u64 polygonIds);

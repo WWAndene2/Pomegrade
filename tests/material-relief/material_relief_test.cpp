@@ -1,7 +1,8 @@
 // Relief by material (OpenGL renderer), drawn through the real DS 3D engine,
 // relief off and strong: a floor with a grass texture is classified as
 // foliage and drawn as a slab of blades swaying in the wind; with a sky
-// texture it gets no relief at all; a character (a texture of skin and
+// texture it gets no relief, only its texel grid smoothed away; with a stone
+// texture it is redrawn as a procedural surface; a character (a texture of skin and
 // cloth drawn with its own polygon ID, in front of scenery sharing one) is
 // drawn with cloth folds while its skin stays as it was. Writes the images
 // next to the binary.
@@ -278,14 +279,38 @@ int main()
     printf("wind: pixels changed in one frame %.1f%%, in 15 frames %.1f%%\n", step * 100, sway * 100);
     check(sway > 0.05 && step < sway / 3, "grass: sways in the wind, smoothly (one frame moves it far less than a quarter second)");
 
-    // sky: bright, smooth blue (MaterialClassifier: sky): no relief
-    for (int i = 0; i < 64 * 64; i++) texels[i] = 0x8000 | (14 + rnd() % 2) | (24 << 5) | (31 << 10);
+    // sky: bright blue in a soft checker of two close shades, one texel each
+    // (MaterialClassifier: sky): no relief, but drawn without its texel
+    // grid - the steps blended away, the same colours on average
+    for (int y = 0; y < 64; y++)
+        for (int x = 0; x < 64; x++) texels[y * 64 + x] = 0x8000 | (((x + y) & 1) ? 12 : 15) | (24 << 5) | (31 << 10);
     upload();
     r->SetRelief(0);
     auto skyOff = Frame(*r, gpu);
     r->SetRelief(2);
     auto skyOn = Frame(*r, gpu);
-    check(MeanDiff(skyOn, skyOff, w, 0, 192 * scale) == 0, "sky texture: relief leaves it untouched");
+    SavePng("sky_relief_off.png", skyOff, w);
+    SavePng("sky_relief_on.png", skyOn, w);
+    const double skyDetailOff = Detail(skyOff, w, nearY0, nearY1), skyDetailOn = Detail(skyOn, w, nearY0, nearY1);
+    double skyShift = 0;
+    for (int k = 0; k < 3; k++) skyShift = std::max(skyShift, std::abs(Channel(skyOn, w, nearY0, nearY1, k) - Channel(skyOff, w, nearY0, nearY1, k)));
+    printf("sky: fine detail %.3f -> %.3f, largest mean channel shift %.2f\n", skyDetailOff, skyDetailOn, skyShift);
+    check(skyDetailOn < skyDetailOff * 0.6 && skyShift < 2, "sky texture: no relief, smoothed (texel steps gone, same colours)");
+
+    // stone: dull grey noise (MaterialClassifier: stone) is redrawn as a
+    // procedural surface fitted to it: changed, but its brightness kept
+    for (int i = 0; i < 64 * 64; i++) { u32 v = rnd() % 6; texels[i] = 0x8000 | (12 + v) | ((12 + v) << 5) | ((13 + v) << 10); }
+    upload();
+    r->SetRelief(0);
+    auto stoneOff = Frame(*r, gpu);
+    r->SetRelief(2);
+    auto stoneOn = Frame(*r, gpu);
+    SavePng("stone_relief_off.png", stoneOff, w);
+    SavePng("stone_relief_on.png", stoneOn, w);
+    const double stoneChange = MeanDiff(stoneOn, stoneOff, w, nearY0, nearY1);
+    const double stoneLevel = Channel(stoneOn, w, nearY0, nearY1, 1) / Channel(stoneOff, w, nearY0, nearY1, 1);
+    printf("stone: mean change %.2f, brightness ratio %.3f\n", stoneChange, stoneLevel);
+    check(stoneChange > 4 && stoneLevel > 0.9 && stoneLevel < 1.1, "stone texture: redrawn procedurally, its brightness kept within 10%");
 
     // clothes: scenery of three textures (grey, sand, dark green-grey: not
     // foliage) with polygon ID 63, and a character with ID 1 whose texture is

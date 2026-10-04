@@ -41,7 +41,12 @@ u32 GLMaterialRelief::Scale(GPU& gpu, u32 texParam, u32 palette, u64 polygonIds)
     e.Polygons = 1;
     e.PolygonIds = polygonIds;
     e.SceneryId = SceneryId;
-    const u32 scale = ScaleOf(MaterialClassifier::Vote(s, texParam, e).Class);
+    const MaterialClass cls = MaterialClassifier::Vote(s, texParam, e).Class;
+    u32 scale = ScaleOf(cls);
+    if (cls == MaterialClass::Stone) scale |= ProceduralStone << ProceduralShift;
+    if (cls == MaterialClass::Sky || cls == MaterialClass::Water) scale |= Smooth << ProceduralShift;
+    if (cls == MaterialClass::Wood)
+        scale |= (s.Grain < 0.3f ? ProceduralWoodNoGrain : ProceduralWood | (s.GrainAlongT ? GrainAlongT : 0)) << ProceduralShift;
     Scales.emplace(key, scale);
     return scale;
 }

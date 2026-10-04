@@ -80,6 +80,7 @@ public:
         float Brightness = 0; // 0-1
         float Detail = 0;     // mean neighbour difference, 0-1 (busy: grass, stone)
         float Grain = 0;      // 0: isotropic, 1: all along one axis (wood)
+        bool GrainAlongT = false; // the grain runs along t (texels change more across s)
         float Transparent = 0; // share of transparent texels
         u32 Hash = 0;         // XXH32 of the decoded texels: the same texture wherever it is in VRAM
         float Variety = 0;    // mean chroma distance of texels from the mean colour, 0-1 (an atlas of many colours: high)

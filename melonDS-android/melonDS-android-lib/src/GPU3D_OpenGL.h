@@ -118,7 +118,8 @@ private:
     bool BuildRenderShader(u32 flags, const std::string& vs, const std::string& fs);
     void UseRenderShader(u32 flags);
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
-    u32* SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 hdTexture, u32* vptr) const;
+    // procedural: GLMaterialRelief's procedural bits, into the texture address attribute's bits 16-19
+    u32* SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 hdTexture, u32* vptr, u32 procedural) const;
     void LookupHDTextures(GPU& gpu, int npolys);
     void LookupReliefScales(GPU& gpu, int npolys);
     void BuildPolygons(RendererPolygon* polygons, int npolys);

@@ -92,6 +92,7 @@ MaterialClassifier::TextureStats MaterialClassifier::ComputeStatistics(const u32
         s.Detail = (float)((ex + ey) / 2);
         // grain: texels change across the grain, not along it
         s.Grain = ex + ey > 0 ? (float)(std::fabs(ex - ey) / (ex + ey)) : 0;
+        s.GrainAlongT = ex > ey;
     }
     return s;
 }

@@ -550,7 +550,7 @@ vec4 TextureLookup_Nearest(vec2 st)
 {
     if (fHDTexture != 0) return TextureLookup_HD(st);
 
-    int vramOffset = int(fPolygonAttr.y);
+    int vramOffset = int(fPolygonAttr.y) & 0xFFFF; // bits 16-19: procedural surface (Pomegrade)
     int attr = int(fPolygonAttr.z << 16); // Shift just to reuse same code as in original source. Same below
     int paladdr = int(fPolygonAttr.z >> 16);
 
@@ -595,7 +595,7 @@ vec4 TexelAt(ivec2 c)
 
     float alpha0 = ((attr & (1<<29)) != 0) ? 0.0 : 1.0;
     ivec4 st_full = ivec4(c, 8 << ((attr >> 20) & 0x7), 8 << ((attr >> 23) & 0x7));
-    ivec2 vramaddr = ivec2(int(fPolygonAttr.y) << 3, int(fPolygonAttr.z >> 16));
+    ivec2 vramaddr = ivec2((int(fPolygonAttr.y) & 0xFFFF) << 3, int(fPolygonAttr.z >> 16));
     int type = (attr >> 26) & 0x7;
     if      (type == 5) return TextureFetch_Compressed(vramaddr, st_full, wrapmode);
     else if (type == 2) return TextureFetch_I2        (vramaddr, st_full, wrapmode, alpha0);
@@ -652,7 +652,7 @@ vec4 TextureLookup_Linear(vec2 texcoord)
     ivec2 intpart = ivec2(texcoord);
     vec2 fracpart = fract(texcoord);
 
-    int vramOffset = int(fPolygonAttr.y);
+    int vramOffset = int(fPolygonAttr.y) & 0xFFFF; // bits 16-19: procedural surface (Pomegrade)
     int attr = int(fPolygonAttr.z << 16);  // Shift just to reuse same code as in original source. Same below
     int paladdr = int(fPolygonAttr.z >> 16);
 
@@ -795,6 +795,80 @@ vec2 BladeHash(vec2 cell)
     return fract(sin(q) * 43758.5453);
 }
 
+// Pomegrade: procedural surfaces (DS_ENGINE_REMAKE.md 16.1), fitted to the
+// texture they replace: its colours, smoothed, and detail generated at any
+// resolution, as heights in [0, 1] over texel coordinates
+float ValueNoise(vec2 p)
+{
+    vec2 i = floor(p), f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = BladeHash(i).x, b = BladeHash(i + vec2(1.0, 0.0)).x;
+    float c = BladeHash(i + vec2(0.0, 1.0)).x, d = BladeHash(i + vec2(1.0, 1.0)).x;
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+// the pixel's size in texels, set before the procedural heights are taken:
+// octaves finer than a pixel are faded out (they would alias as blotches)
+float ProcFootprint;
+float ProcCrack = 1.0; // stone: 0 in a crack (darkened in colour), 1 elsewhere
+float Fbm(vec2 p)
+{
+    float sum = 0.0, amp = 0.5, freq = 1.0;
+    for (int i = 0; i < 4; i++)
+    {
+        float keep = clamp(2.0 - 4.0 * freq * ProcFootprint, 0.0, 1.0); // full under 1/4 cycle a pixel, none from 1/2
+        sum += amp * (0.5 + keep * (ValueNoise(p) - 0.5));
+        p = p * 2.03 + vec2(17.0, 31.0); amp *= 0.5; freq *= 2.03;
+    }
+    return sum / 0.9375;
+}
+// stone: grainy rock broken by a few irregular cracks (cells about eight
+// texels wide, their outlines warped by noise, drawn only in places so they
+// do not read as paving)
+float StoneHeight(vec2 p)
+{
+    vec2 q = p * 0.12 + (vec2(ValueNoise(p * 0.1), ValueNoise(p * 0.1 + 9.0)) - 0.5) * 0.9, cell = floor(q);
+    float f1 = 8.0, f2 = 8.0;
+    for (int y = -1; y <= 1; y++)
+        for (int x = -1; x <= 1; x++)
+        {
+            vec2 c = cell + vec2(float(x), float(y));
+            float d = length(q - c - BladeHash(c));
+            if (d < f1) { f2 = f1; f1 = d; } else if (d < f2) f2 = d;
+        }
+    float crack = smoothstep(0.0, 0.06, f2 - f1);
+    // cracks only in places, so they break off instead of forming a network
+    crack = mix(1.0, crack, smoothstep(0.45, 0.65, ValueNoise(p * 0.08 + 5.0)));
+    ProcCrack = crack;
+    return 0.75 * Fbm(p * 0.6) + 0.25 * crack;
+}
+// wood: streaks along the grain, wavering, with fine fibres
+float WoodHeight(vec2 p, bool alongT)
+{
+    float across = alongT ? p.x : p.y, along = alongT ? p.y : p.x;
+    float streak = 0.5 + 0.5 * sin((across * 0.9 + Fbm(vec2(across * 0.4, along * 0.05)) * 2.5) * 6.2832);
+    float fibre = Fbm(vec2(across * 3.0, along * 0.2));
+    return 0.6 * streak + 0.4 * fibre;
+}
+float ProceduralHeight(vec2 p, int proc)
+{
+    int kind = proc & 3;
+    if (kind == 1) return StoneHeight(p);
+    if (kind == 2) return WoodHeight(p, (proc & 4) != 0);
+    return 0.5 * Fbm(p * 0.7) + 0.5 * Fbm(p * 2.5); // wood with no clear grain: soft fibres, no direction
+}
+// the texture's colour bilinear between texel centres: no texel grid
+vec3 SmoothTexel(vec2 st, out vec3 c00, out vec3 c10, out vec3 c01, out vec3 c11)
+{
+    vec2 b = floor(st - 0.5) + 0.5, f = fract(st - 0.5);
+    c00 = TextureLookup_Nearest(b).rgb; c10 = TextureLookup_Nearest(b + vec2(1.0, 0.0)).rgb;
+    c01 = TextureLookup_Nearest(b + vec2(0.0, 1.0)).rgb; c11 = TextureLookup_Nearest(b + vec2(1.0, 1.0)).rgb;
+    return mix(mix(c00, c10, f.x), mix(c01, c11, f.x), f.y);
+}
+
+// set by ReliefTexcoord for FinalColor: the surface's colour replaces the texel's
+bool ProcActive;
+vec3 ProcColour;
+
 // returns the texture coordinate to sample; shade: the relighting factor
 vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
 {
@@ -802,6 +876,16 @@ vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
     vec3 P = fViewPosition.xyz;
     vec3 dp1 = ReliefDP1, dp2 = ReliefDP2;
     vec2 du1 = ReliefDU1, du2 = ReliefDU2;
+    // Pomegrade: sky and water (procedural bit 3 alone): their colours
+    // without the texel grid, no detail, whatever their opacity or angle
+    if (uRelief > 0.0 && ((int(fPolygonAttr.y) >> 16) & 0xF) == 8 && textype != 0)
+    {
+        vec3 c00, c10, c01, c11;
+        ProcColour = SmoothTexel(st, c00, c10, c01, c11);
+        ProcActive = true;
+        return st;
+    }
+
     // depth by the texture's material (GLMaterialRelief), eighths of the setting
     float relief = uRelief * float(fPolygonAttr.x & 0xF) / 8.0;
     bool usable = relief > 0.0 && fViewPosition.w > 0.999
@@ -831,6 +915,40 @@ vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
     if (dl > 4.0 * relief) dir *= 4.0 * relief / dl;
 
     float footprint = max(length(du1), length(du2)); // texels per pixel
+
+    // Pomegrade: procedural stone and wood (texture address bits 16-19): the
+    // colour, bilinear between texel centres (no texel grid), carries the
+    // texture's look; the detail on top is the procedural height scaled by
+    // the original's own texel-scale contrast (the spread of the four texels
+    // around), and the same height relights the surface. Where a texel nears
+    // a pixel the detail fades (it would shimmer) and the plain texture shows
+    int proc = (int(fPolygonAttr.y) >> 16) & 0xF;
+    if (proc != 0)
+    {
+        vec3 c00, c10, c01, c11;
+        vec3 smoothColour = SmoothTexel(st, c00, c10, c01, c11);
+        const vec3 lw = vec3(0.299, 0.587, 0.114);
+        float l00 = dot(c00, lw), l10 = dot(c10, lw), l01 = dot(c01, lw), l11 = dot(c11, lw);
+        float lm = (l00 + l10 + l01 + l11) * 0.25;
+        float spread = sqrt(((l00 - lm) * (l00 - lm) + (l10 - lm) * (l10 - lm) + (l01 - lm) * (l01 - lm) + (l11 - lm) * (l11 - lm)) * 0.25);
+        float amp = clamp(spread * 2.0 + 0.04, 0.0, 0.3);
+        float fade = clamp((1.0 - footprint) * 2.0, 0.0, 1.0);
+        ProcFootprint = footprint;
+        ProcCrack = 1.0;
+        float h = ProceduralHeight(st, proc);
+        float crack = mix(1.0, 0.55 + 0.45 * ProcCrack, fade); // read before the gradient's samples overwrite it
+        ProcColour = clamp((smoothColour + (h - 0.5) * amp * 1.5 * fade) * crack, 0.0, 1.0);
+        ProcActive = true;
+
+        const float e = 0.2; // texels
+        float hx = (ProceduralHeight(st + vec2(e, 0.0), proc) - h) / e;
+        float hy = (ProceduralHeight(st + vec2(0.0, e), proc) - h) / e;
+        vec3 pN = normalize(N - (normalize(gU) * hx + normalize(gV) * hy) * (0.3 * relief * fade));
+        vec3 pL = uReliefLight.w > 0.5 ? normalize(uReliefLight.xyz) : normalize(V + vec3(0.0, 1.0, 0.0));
+        float pBase = max(dot(N, pL), 0.0), pLit = max(dot(pN, pL), 0.0);
+        shade = clamp((0.35 + pLit) / (0.35 + pBase), 0.75, 1.3);
+        return st;
+    }
 
     // Pomegrade: clothes (bit 13, characters). Skin, by the classifier's
     // colour band (orange hue, moderately saturated, light), stays smooth.
@@ -927,6 +1045,7 @@ vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
 
 vec4 FinalColor()
 {
+    ProcActive = false;
     ReliefDP1 = dFdx(fViewPosition.xyz);
     ReliefDP2 = dFdy(fViewPosition.xyz);
     ReliefDU1 = dFdx(fTexcoord);
@@ -960,6 +1079,7 @@ vec4 FinalColor()
         float reliefShade;
         vec2 st = ReliefTexcoord(fTexcoord, (fPolygonAttr.z >> 10) & 0x7, reliefShade);
         vec4 tcol = uTextureFilter != 0 ? TextureLookup_Filtered(st) : TextureLookup_Nearest(st);
+        if (ProcActive) tcol.rgb = ProcColour; // Pomegrade: procedural surface
         tcol.rgb = min(tcol.rgb * reliefShade, 1.0);
         //vec4 tcol = TextureLookup_Linear(fTexcoord);
 

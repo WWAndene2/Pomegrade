@@ -625,7 +625,7 @@ u32 GLRenderer::PlaneDepth(const double plane[3], u32 x, u32 y) noexcept
     return (u32)std::clamp(std::lround(z), 0L, 0xFFFFFFL);
 }
 
-u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 hdTexture, u32* vptr) const
+u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 hdTexture, u32* vptr, u32 procedural) const
 {
     u32 z = poly->FinalZ[vid];
     u32 w = poly->FinalW[vid];
@@ -696,7 +696,7 @@ u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u3
 
     // Split TexParam into 2 because some GPUs don't have 32 bit ints. TexPalette only uses 13 bits
     *vptr++ = vtxattr | (zshift << 16);
-    *vptr++ = poly->TexParam & 0xFFFF;
+    *vptr++ = (poly->TexParam & 0xFFFF) | (procedural << 16);
     *vptr++ = (poly->TexParam >> 16 ) | (poly->TexPalette << 16);
     *vptr++ = hdTexture;
 
@@ -920,7 +920,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 lastx = vtx->FinalPosition[0];
                 lasty = vtx->FinalPosition[1];
 
-                vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr);
+                vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr, (rp->ReliefScale >> GLMaterialRelief::ProceduralShift) & 0xF);
                 if (viewdata) gptr = SetupViewVertex(vtx, gptr);
 
                 IndexBuffer[iidx++] = vidx;
@@ -939,7 +939,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
             {
                 Vertex* vtx = poly->Vertices[j];
 
-                vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr);
+                vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr, (rp->ReliefScale >> GLMaterialRelief::ProceduralShift) & 0xF);
                 if (viewdata) gptr = SetupViewVertex(vtx, gptr);
                 vidx++;
             }
@@ -962,7 +962,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 {
                     Vertex* vtx = poly->Vertices[j];
 
-                    vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr);
+                    vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr, (rp->ReliefScale >> GLMaterialRelief::ProceduralShift) & 0xF);
                     if (viewdata) gptr = SetupViewVertex(vtx, gptr);
 
                     if (j >= 2)
@@ -1070,7 +1070,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
 
                 // Split TexParam into 2 because some GPUs don't have 32 bit ints. TexPalette only uses 13 bits
                 *vptr++ = vtxattr | (zshift << 16);
-                *vptr++ = poly->TexParam & 0xFFFF;
+                *vptr++ = (poly->TexParam & 0xFFFF) | (((rp->ReliefScale >> GLMaterialRelief::ProceduralShift) & 0xF) << 16);
                 *vptr++ = (poly->TexParam >> 16 ) | (poly->TexPalette << 16);
                 *vptr++ = rp->HDTexture;
                 if (viewdata) gptr = SetupViewCenterVertex(poly, gptr);
@@ -1082,7 +1082,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 {
                     Vertex* vtx = poly->Vertices[j];
 
-                    vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr);
+                    vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr, (rp->ReliefScale >> GLMaterialRelief::ProceduralShift) & 0xF);
                     if (viewdata) gptr = SetupViewVertex(vtx, gptr);
 
                     if (j >= 1)
