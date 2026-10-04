@@ -46,7 +46,8 @@ public:
     void SetTextureUpscale(int factor) { HDTextures.SetUpscaleFactor(factor); }
     // Pomegrade: smooth texture filtering, colour only (see TextureLookup_Filtered)
     void SetTextureFilter(bool enable) noexcept { ShaderConfig.uTextureFilter = enable ? 1 : 0; }
-    // Relief textures (Pomegrade): 0 off, 1 subtle, 2 strong (DS_ENGINE_REMAKE.md 14.1, 15.2)
+    // Relief textures (Pomegrade): 0 off, 1 subtle, 2 strong, 3 stylised (strong, and the
+    // scene redrawn in flat colours and soft painted light) (DS_ENGINE_REMAKE.md 14.1, 15.2)
     void SetRelief(int level) noexcept { Relief = level; }
     // Scene-adaptive colour (Pomegrade): see GPU_SceneColour.h
     void SetAdaptiveColours(bool enable) { CurGLCompositor.SetAdaptiveColours(enable); }
@@ -197,7 +198,8 @@ private:
         float uRelief;              // float      307 / 1   Pomegrade: relief depth in texels, 0 = off
         float uReliefLight[4];      // vec4       308 / 4   Pomegrade: towards the main light (view space), w: 1 if known
         float uWindPhase;           // float      312 / 1   Pomegrade: wind phase in radians (0-2 pi), sways volumetric grass
-        float __pad1[3];            // the block's size stays a multiple of 16 bytes
+        float uStyle;               // float      313 / 1   Pomegrade: 1 = stylised rendering (relief level 3)
+        float __pad1[2];            // the block's size stays a multiple of 16 bytes
     } ShaderConfig {};
 
     GLuint ShaderConfigUBO {};

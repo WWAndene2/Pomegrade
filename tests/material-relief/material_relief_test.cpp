@@ -313,6 +313,17 @@ int main()
     printf("stone: mean change %.2f, brightness ratio %.3f\n", stoneChange, stoneLevel);
     check(stoneChange > 0.5 && stoneChange < 4 && stoneLevel > 0.9 && stoneLevel < 1.1, "stone texture: lit by its own relief, its look and brightness kept (nothing invented)");
 
+    // stylised rendering (relief level 3): the same stone floor in flat
+    // colours - its texel noise gone - at about the same brightness
+    r->SetRelief(3);
+    auto stoneStyle = Frame(*r, gpu);
+    SavePng("stone_stylised.png", stoneStyle, w);
+    const double styleDetail = Detail(stoneStyle, w, nearY0, nearY1), stoneDetail = Detail(stoneOff, w, nearY0, nearY1);
+    const double styleLevel = Channel(stoneStyle, w, nearY0, nearY1, 1) / Channel(stoneOff, w, nearY0, nearY1, 1);
+    printf("stylised stone: fine detail %.3f -> %.3f, brightness ratio %.3f\n", stoneDetail, styleDetail, styleLevel);
+    check(styleDetail < stoneDetail * 0.5 && styleLevel > 0.8 && styleLevel < 1.2, "stylised: flat colours (texel noise gone), brightness within 20%");
+    r->SetRelief(2);
+
     // clothes: scenery of three textures (grey, sand, dark green-grey: not
     // foliage) with polygon ID 63, and a character with ID 1 whose texture is
     // skin on its left half and blue cloth with painted folds (vertical

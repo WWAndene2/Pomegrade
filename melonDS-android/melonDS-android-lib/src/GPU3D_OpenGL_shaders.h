@@ -244,6 +244,7 @@ layout(std140) uniform uConfig
     float uRelief;      // Pomegrade: relief depth in texels, 0 = off
     vec4 uReliefLight;  // Pomegrade: towards the main light (view space), w: 1 if known
     float uWindPhase;   // Pomegrade: wind phase in radians (0-2 pi), sways volumetric grass
+    float uStyle;       // Pomegrade: 1 = stylised rendering
 };
 
 in uvec4 vPosition;
@@ -289,6 +290,7 @@ layout(std140) uniform uConfig
     float uRelief;      // Pomegrade: relief depth in texels, 0 = off
     vec4 uReliefLight;  // Pomegrade: towards the main light (view space), w: 1 if known
     float uWindPhase;   // Pomegrade: wind phase in radians (0-2 pi), sways volumetric grass
+    float uStyle;       // Pomegrade: 1 = stylised rendering
 };
 
 smooth in vec4 fColor;
@@ -872,6 +874,23 @@ vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
     vec3 P = fViewPosition.xyz;
     vec3 dp1 = ReliefDP1, dp2 = ReliefDP2;
     vec2 du1 = ReliefDU1, du2 = ReliefDU2;
+    // Pomegrade: stylised rendering. Scenery is drawn in flat colours, as a
+    // modern stylised game paints its sets: the texture averaged over about
+    // four texels by four, which keeps its large painted shapes and drops its
+    // texel noise. Characters keep their features, only smoothed. Grass
+    // keeps its blades (below)
+    if (uStyle > 0.0 && (fPolygonAttr.x & (1<<12)) == 0 && textype != 0)
+    {
+        vec3 c00, c10, c01, c11;
+        if ((fPolygonAttr.x & (1<<13)) != 0)
+            ProcColour = SmoothTexel(st, c00, c10, c01, c11);
+        else
+            ProcColour = 0.25 * (SmoothTexel(st + vec2(-1.5, -1.5), c00, c10, c01, c11) + SmoothTexel(st + vec2(1.5, -1.5), c00, c10, c01, c11)
+                               + SmoothTexel(st + vec2(-1.5, 1.5), c00, c10, c01, c11) + SmoothTexel(st + vec2(1.5, 1.5), c00, c10, c01, c11));
+        ProcActive = true;
+        return st;
+    }
+
     // Pomegrade: sky and water (procedural bit 3 alone): their colours
     // without the texel grid, no detail, whatever their opacity or angle
     if (uRelief > 0.0 && ((int(fPolygonAttr.y) >> 16) & 0xF) == 8 && textype != 0)
@@ -1130,6 +1149,25 @@ vec4 FinalColor()
             vec3 tooncolor = uToonColors[int(vcol.r * 31.0)].rgb;
             col.rgb = min(col.rgb + tooncolor, 1.0);
         }
+    }
+
+    // Pomegrade: stylised light over everything drawn with view data: a soft
+    // two-tone ramp from the smooth vertex normals (slightly cool shade, warm
+    // light: the surface keeps its own colour), a warm rim on silhouettes,
+    // and livelier colours. Lighter convex edges from the normal's screen
+    // derivatives were tried and dropped: per pixel they are noise (grain)
+    if (uStyle > 0.0 && fViewPosition.w > 0.999)
+    {
+        vec3 sN = normalize(fViewNormal.xyz);
+        vec3 sV = normalize(-fViewPosition.xyz);
+        if (dot(sN, sV) < 0.0) sN = -sN;
+        vec3 sL = uReliefLight.w > 0.5 ? normalize(uReliefLight.xyz) : normalize(sV + vec3(0.0, 1.0, 0.0));
+        float ramp = smoothstep(0.38, 0.62, dot(sN, sL) * 0.5 + 0.5);
+        vec3 light = mix(vec3(0.84, 0.87, 0.95), vec3(1.06, 1.03, 0.97), ramp);
+        float rim = pow(1.0 - max(dot(sN, sV), 0.0), 3.0) * 0.18;
+        col.rgb = col.rgb * light + rim * vec3(1.0, 0.95, 0.85);
+        float lum = dot(col.rgb, vec3(0.299, 0.587, 0.114));
+        col.rgb = clamp(mix(vec3(lum), col.rgb, 1.3), 0.0, 1.0);
     }
 
     return col.bgra;

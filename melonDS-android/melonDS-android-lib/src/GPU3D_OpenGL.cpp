@@ -2148,6 +2148,7 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
     // second, reduced here in doubles so the float never loses precision
     if (ShaderConfig.uRelief > 0) WindFrames++;
     ShaderConfig.uWindPhase = (float)std::fmod(WindFrames * (2.0 / 60.0), 2.0 * M_PI);
+    ShaderConfig.uStyle = ShaderConfig.uRelief > 0 && Relief >= 3 ? 1.0f : 0.0f;
     {
         int light = 0;
         for (int l = 1; l < 4; l++)
