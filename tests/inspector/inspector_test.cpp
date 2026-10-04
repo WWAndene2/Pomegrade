@@ -687,6 +687,34 @@ int main()
         if (!ok) printf("%s\n", report.c_str());
     }
 
+    // 4m. material votes measured on Joker's own textures (258 dumped from
+    // the owner's phone, and the harbour run over frames): an atlas of many
+    // colours is not stone; vivid green, even finely detailed, is foliage
+    // while dull green (moss) stays stone; a character whose texture matrix
+    // moves is still a character, not a liquid
+    {
+        using TS = MaterialClassifier::TextureStats;
+        const u32 opaque = 2u << 26; // 4-colour, no transparency
+        TS stone {}; stone.Hue = 203; stone.Saturation = 0.26f; stone.Brightness = 0.35f; stone.Detail = 0.046f; stone.Grain = 0.09f; stone.Variety = 0.008f;
+        TS atlas = stone; atlas.Hue = 357; atlas.Saturation = 0.13f; atlas.Detail = 0.154f; atlas.Variety = 0.081f;
+        TS grass {}; grass.Hue = 103; grass.Saturation = 1.0f; grass.Brightness = 0.54f; grass.Detail = 0.024f; grass.Grain = 0.07f; grass.Variety = 0.044f;
+        TS moss = grass; moss.Hue = 75; moss.Saturation = 0.29f; moss.Detail = 0.027f; moss.Variety = 0.050f;
+        TS hero {}; hero.Hue = 20; hero.Saturation = 0.52f; hero.Brightness = 0.62f; hero.Detail = 0.049f; hero.Grain = 0.10f; hero.Variety = 0.13f;
+        TextureEvidence none {};
+        TextureEvidence moving {}; moving.Polygons = 100; moving.Scrolling = true; moving.PolygonIds = 1ull << 1; moving.SceneryId = 63;
+        TextureEvidence sea {}; sea.Polygons = 100; sea.Scrolling = true; sea.PolygonIds = 1ull << 63; sea.SceneryId = 63;
+        TS water {}; water.Hue = 209; water.Saturation = 1.0f; water.Brightness = 0.79f; water.Detail = 0.017f; water.Variety = 0.02f;
+        check(MaterialClassifier::Vote(stone, opaque, none).Class == MaterialClass::Stone &&
+              MaterialClassifier::Vote(atlas, opaque, none).Class == MaterialClass::Unknown,
+              "materials: dull one-colour noise is stone, an atlas of many colours is not");
+        check(MaterialClassifier::Vote(grass, opaque, none).Class == MaterialClass::Foliage &&
+              MaterialClassifier::Vote(moss, opaque, none).Class == MaterialClass::Stone,
+              "materials: vivid fine green is foliage, dull green (moss on stone) stays stone");
+        check(MaterialClassifier::Vote(hero, opaque, moving).Class == MaterialClass::Character &&
+              MaterialClassifier::Vote(water, opaque, sea).Class == MaterialClass::Water,
+              "materials: a character's moving texture is a character; scenery that scrolls is still water");
+    }
+
     // 4c. palette indices    // 4c. palette indices    // 4c. palette indices    // 4c. palette indices of a paletted texture: 8x8, 16 colours (4 bits per
     // texel), 48 texels on index 1, 16 on index 5
     {
