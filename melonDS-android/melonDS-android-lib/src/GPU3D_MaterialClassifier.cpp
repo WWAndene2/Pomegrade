@@ -31,9 +31,13 @@ const MaterialClassifier::TextureStats& MaterialClassifier::Statistics(GPU& gpu,
     std::vector<u32> texels(w * h);
     TexSource source;
     DecodeTexture(gpu, texParam, palette, texels.data(), source);
+    return Stats.emplace(key, ComputeStatistics(texels.data(), w, h)).first->second;
+}
 
+MaterialClassifier::TextureStats MaterialClassifier::ComputeStatistics(const u32* texels, u32 w, u32 h)
+{
     TextureStats s;
-    s.Hash = XXH32(texels.data(), texels.size() * 4, 0);
+    s.Hash = XXH32(texels, (size_t)w * h * 4, 0);
     double r = 0, g = 0, b = 0, dx = 0, dy = 0;
     u32 opaque = 0, pairsX = 0, pairsY = 0;
     auto lum = [](u32 c) { return ((c & 0x3F) * 2 + ((c >> 8) & 0x3F) * 5 + ((c >> 16) & 0x3F)) / (8.0 * 63); };
@@ -68,8 +72,8 @@ const MaterialClassifier::TextureStats& MaterialClassifier::Statistics(GPU& gpu,
         // and dark spots are one colour, an atlas's skin and cloth are not
         const double m = (r + g + b) / 3;
         double spread = 0;
-        for (u32 c : texels)
-            if (c >> 24)
+        for (u32 i = 0; i < w * h; i++)
+            if (const u32 c = texels[i]; c >> 24)
             {
                 const double cr = (c & 0x3F) / 63.0, cg = ((c >> 8) & 0x3F) / 63.0, cb = ((c >> 16) & 0x3F) / 63.0;
                 const double l = (cr + cg + cb) / 3;
@@ -81,7 +85,7 @@ const MaterialClassifier::TextureStats& MaterialClassifier::Statistics(GPU& gpu,
         // grain: texels change across the grain, not along it
         s.Grain = ex + ey > 0 ? (float)(std::fabs(ex - ey) / (ex + ey)) : 0;
     }
-    return Stats.emplace(key, s).first->second;
+    return s;
 }
 
 std::vector<MaterialClassifier::Region> MaterialClassifier::Segment(GPU& gpu, u32 texParam, u32 palette) const
@@ -218,6 +222,11 @@ MaterialResult MaterialClassifier::Classify(GPU& gpu, u32 texParam, u32 palette,
     auto named = Manifest.find(s.Hash);
     if (named != Manifest.end())
         return {named->second, 1.0f, "manifest"};
+    return Vote(s, texParam, e);
+}
+
+MaterialResult MaterialClassifier::Vote(const TextureStats& s, u32 texParam, const TextureEvidence& e)
+{
     float votes[(int)MaterialClass::Count] = {};
     MaterialResult result;
     auto vote = [&](MaterialClass c, float weight, const char* cue) {
@@ -232,7 +241,13 @@ MaterialResult MaterialClassifier::Classify(GPU& gpu, u32 texParam, u32 palette,
     const bool cutout = s.Transparent > 0.05f && s.Transparent < 0.95f &&
                         (format == 7 || ((texParam >> 29) & 1) || format == 1 || format == 6);
     if (e.Polygons && e.Translucent * 2 > e.Polygons) vote(MaterialClass::Water, RenderState * 0.5f, "translucent");
-    if (e.Scrolling)
+    // polygon IDs: games give characters IDs of their own (edge marking
+    // outlines each ID) while the scenery shares one. Drawn apart from the
+    // scenery, a texture of many colours (a character's atlas) is a character
+    const bool character = e.SceneryId >= 0 && e.PolygonIds && !(e.PolygonIds >> e.SceneryId & 1) && s.Variety >= 0.05f;
+    // a character's texture matrix moves too (Joker's hero and monster,
+    // over several frames): scrolling says liquid only for the scenery
+    if (e.Scrolling && !character)
     {
         // scrolling: water, or lava when the texture is red
         const bool warm = s.Saturation > 0.3f && (s.Hue < 50 || s.Hue > 340);
@@ -251,18 +266,21 @@ MaterialResult MaterialClassifier::Classify(GPU& gpu, u32 texParam, u32 palette,
         // full emission: it lights itself, whatever the scene's lights (Joker's sky)
         if (e.Lit * 2 > e.Polygons && e.Emission >= 24 && s.Detail < 0.04f) vote(MaterialClass::Sky, RenderState, "blue, self-lit");
     }
-    if (green && s.Detail > 0.04f) vote(MaterialClass::Foliage, TextureStats, "green, busy");
+    // vivid green is vegetation even when finely detailed (Joker's grass and
+    // canopy: saturation 0.8-1.0, detail 0.02-0.03); moss on stone is dull
+    // (0.3 or less) and stays stone
+    if (green && (s.Detail > 0.04f || (s.Detail > 0.02f && s.Saturation > 0.6f)))
+        vote(MaterialClass::Foliage, TextureStats, s.Detail > 0.04f ? "green, busy" : "green, vivid");
     if (coloured && s.Hue >= 15 && s.Hue < 50 && s.Saturation > 0.5f && s.Brightness < 0.85f)
         vote(MaterialClass::Wood, s.Grain > 0.3f ? TextureStats * 1.5f : TextureStats, s.Grain > 0.3f ? "brown, grain" : "brown");
-    // stone: an opaque surface of dull, isotropic noise
-    if (s.Transparent < 0.05f && s.Saturation < 0.4f && s.Detail > 0.02f && s.Grain < 0.3f)
+    // stone: an opaque surface of dull, isotropic noise, of one colour (the
+    // atlases of many colours - portraits, rugs, shelves - are not: Joker's
+    // stone has variety 0.05 or less, its atlases 0.06 and more)
+    if (s.Transparent < 0.05f && s.Saturation < 0.4f && s.Detail > 0.02f && s.Grain < 0.3f && s.Variety < 0.06f)
         vote(MaterialClass::Stone, TextureStats, "dull, isotropic noise");
     if (coloured && (s.Hue < 15 || s.Hue > 340) && s.Brightness > 0.6f) vote(MaterialClass::Lava, TextureStats * 0.5f, "red, bright");
 
-    // polygon IDs: games give characters IDs of their own (edge marking
-    // outlines each ID) while the scenery shares one. Drawn apart from the
-    // scenery, a texture of many colours (a character's atlas) is a character
-    if (e.SceneryId >= 0 && e.PolygonIds && !(e.PolygonIds >> e.SceneryId & 1) && s.Variety >= 0.05f)
+    if (character)
         vote(MaterialClass::Character, RenderState, "own polygon ID, many colours");
 
     // fusion: the best class, its confidence its share of the votes

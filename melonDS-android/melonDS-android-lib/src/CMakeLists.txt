@@ -51,6 +51,8 @@ add_library(core STATIC
     GPU3D_MaterialClassifier.cpp
     GPU3D_SkeletonRecovery.cpp
     GPU3D_LightRecovery.cpp
+    GPU2D_TilemapFlattening.cpp
+    GPU2D_SpriteLimitInversion.cpp
     NDSCart.cpp
     NDSCartR4.cpp
     Platform.h

@@ -13,6 +13,8 @@
 #include "GPU3D_MaterialClassifier.h"
 #include "GPU3D_SkeletonRecovery.h"
 #include "GPU3D_LightRecovery.h"
+#include "GPU2D_TilemapFlattening.h"
+#include "GPU2D_SpriteLimitInversion.h"
 #include "GPU3D_Soft.h"
 #include "NDSCart.h"
 #include "NDS_Inspector.h"
@@ -587,6 +589,130 @@ int main()
         check(l.size() == 3 && l[0].Light == 2 && l[0].Direction[2] == -1.0f && l[0].Colour == 0x7FFF && l[0].Times == 2 &&
               l[1].Colour == 0x001F && l[1].Times == 1 && l[2].Light == 0 && l[2].Direction[0] == 0.5f && l[2].Direction[1] == -0.5f && l[2].Colour == 0x03E0,
               "lights: directions decoded (signed 1.9), settings in order, a repeat counted");
+    }
+
+    // 4j. tilemap flattening: a 512x256 16-colour text layer on engine B
+    // (tiles at 0x4000, map at 0x1000), tile 1 drawn at map (0, 0) with
+    // palette 2 and, flipped horizontally, at (33, 1) in the second screen
+    // block with palette 1; then a 256-colour layer on an extended palette
+    {
+        std::vector<u8> vram(0x20000, 0);
+        auto entry = [&](u32 addr, u16 v) { vram[addr] = v & 0xFF; vram[addr + 1] = v >> 8; };
+        vram[0x4000 + 32] = 3;          // tile 1, pixel (0, 0): colour 3
+        vram[0x4000 + 32 + 3] = 5 << 4; // pixel (7, 0): colour 5
+        entry(0x1000, 0x2001);
+        entry(0x1000 + 0x800 + (1 << 6) + (1 << 1), 0x1401);
+        std::array<u16, 256> pal {};
+        pal[0x23] = 0x1234; pal[0x15] = 0x0042;
+        TextLayerState s;
+        s.BgCnt = 0x4000 | (2 << 8) | (1 << 2);
+        s.EngineB = true;
+        s.Vram = vram.data();
+        s.VramMask = 0x1FFFF;
+        s.Palette = pal.data();
+        FlatLayer f = FlattenTextLayer(s);
+        auto px = [&](u32 x, u32 y) { return f.Pixels[y * f.Width + x]; };
+        const std::vector<u16> col = FlatLayerColours(f, s);
+        check(f.Width == 512 && f.Height == 256 && f.Tiles == 64 * 32 && f.DistinctTiles == 2 && f.FlippedTiles == 1 &&
+              px(0, 0) == (0x8000 | 0x23) && px(7, 0) == (0x8000 | 0x25) && px(1, 0) == 0 &&
+              px(264, 8) == (0x8000 | 0x15) && px(271, 8) == (0x8000 | 0x13) && col[0] == (0x1234 | 0x8000) && col[8 * 512 + 264] == (0x0042 | 0x8000),
+              "tilemap flattening: tiles placed across screen blocks, flips and 16-colour palettes applied after stitching");
+
+        std::vector<u8> vram2(0x20000, 0);
+        vram2[0] = 0; vram2[64] = 7; // tile 1, pixel (0, 0): index 7
+        vram2[0x800] = 0x01; vram2[0x801] = 0x30; // map at 0x800: tile 1, extended palette 3
+        std::array<std::array<u16, 256>, 16> ext {};
+        ext[3][7] = 0x7C00;
+        TextLayerState e;
+        e.DispCnt = 0x40000000;
+        e.BgCnt = 0x0080 | (1 << 8);
+        e.EngineB = true;
+        e.Vram = vram2.data();
+        e.VramMask = 0x1FFFF;
+        e.Palette = pal.data();
+        e.ExtPalette = [&](u32 p) -> const u16* { return ext[p].data(); };
+        FlatLayer g = FlattenTextLayer(e);
+        check(g.ExtendedPalette && g.Pixels[0] == (0x8000 | 0x300 | 7) && FlatLayerColours(g, e)[0] == (0x7C00 | 0x8000) &&
+              ExtPaletteSlot(0, 0x2000) == 2 && ExtPaletteSlot(2, 0x2000) == 2,
+              "tilemap flattening: 256 colours on an extended palette, slot 2 for BG0 with BGCNT bit 13");
+        check(IsTextLayer(1, 2, false) && !IsTextLayer(1, 3, false) && !IsTextLayer(0x8, 0, false) && IsTextLayer(0x8, 0, true),
+              "tilemap flattening: text layers by mode (BG2 in mode 1, not BG3; BG0 not when 3D)");
+    }
+
+    // 4k. sprite-limit inversion: one sprite always drawn; two sharing OAM
+    // slot 1, drawn every other frame (multiplexed, one of them moving);
+    // one blinking every 8 frames (on purpose, too slow to count)
+    {
+        SpriteLimitInversion inv;
+        std::array<u16, 512> oam {};
+        auto put = [&](int slot, u16 tile, int x, int y) { oam[slot * 4] = y & 0xFF; oam[slot * 4 + 1] = x & 0x1FF; oam[slot * 4 + 2] = tile; };
+        for (int f = 0; f < 12; f++)
+        {
+            for (int i = 0; i < 128; i++) oam[i * 4] = 0x0200; // disabled
+            put(0, 10, 20, 20);
+            if (f % 2 == 0) put(1, 11, 100, 50); else put(1, 12, 140 + f, 60);
+            if ((f / 8) % 2 == 0) put(2, 13, 60, 100);
+            inv.AddFrame(oam.data());
+        }
+        const std::vector<SpriteLimitInversion::Sprite> r = inv.Restored();
+        check(inv.GetTracks().size() == 4 && inv.Flickering() == 2 && r.size() == 1 && (r[0].Attr[2] & 0x3FF) == 11 && r[0].X == 100 && r[0].Y == 50,
+              "sprite-limit inversion: the two multiplexed sprites found, the hidden one restored at its place; the slow blink left alone");
+        oam.fill(0);
+        for (int i = 0; i < 128; i++) oam[i * 4] = 0x0200;
+        put(0, 1, -4, 250); // partly on screen at the top-left (y wraps)
+        put(1, 1, 300, 10); // off screen
+        check(SpriteLimitInversion::IsDrawn(&oam[0]) && !SpriteLimitInversion::IsDrawn(&oam[4]) && !SpriteLimitInversion::IsDrawn(&oam[8]),
+              "sprite-limit inversion: on-screen test with wrapped coordinates, off-screen and disabled sprites");
+    }
+
+    // 4l. the report's 2D section: engine B's BG0 flattened once a second; a
+    // palette change between two samples is a palette change, not a map one
+    {
+        auto nds = MakeNDS(false);
+        nds->GPU.GPU2D_B.DispCnt = 0x100 | 0x1000; // BG0 and sprites on
+        nds->GPU.GPU2D_B.BGCnt[0] = 0;
+        for (int i = 0; i < 128; i++) nds->GPU.OAM[0x400 + i * 8 + 1] = i < 2 ? 0 : 0x02; // two sprites, the rest disabled
+        nds->Inspector.SetEnabled(true);
+        for (int f = 0; f < 121; f++)
+        {
+            if (f == 90) nds->GPU.Palette[0x400 + 2] = 0x1F;
+            nds->Inspector.BeginFrame();
+        }
+        std::string report = nds->Inspector.Report();
+        check(report.find("engine B BG0  256x256  16 colours  1024 tiles, 1 distinct, 0 flipped") != std::string::npos &&
+              report.find("2 samples, 0 map changes, 1 palette changes") != std::string::npos &&
+              report.find("engine A: 0 sprites followed") != std::string::npos && report.find("engine B: 2 sprites followed") != std::string::npos &&
+              report.find("engine A BG0") == std::string::npos,
+              "report: engine B's background flattened twice, its palette change seen; sprites only where on; layers off not listed");
+        if (!ok) printf("%s\n", report.c_str());
+    }
+
+    // 4m. material votes measured on Joker's own textures (258 dumped from
+    // the owner's phone, and the harbour run over frames): an atlas of many
+    // colours is not stone; vivid green, even finely detailed, is foliage
+    // while dull green (moss) stays stone; a character whose texture matrix
+    // moves is still a character, not a liquid
+    {
+        using TS = MaterialClassifier::TextureStats;
+        const u32 opaque = 2u << 26; // 4-colour, no transparency
+        TS stone {}; stone.Hue = 203; stone.Saturation = 0.26f; stone.Brightness = 0.35f; stone.Detail = 0.046f; stone.Grain = 0.09f; stone.Variety = 0.008f;
+        TS atlas = stone; atlas.Hue = 357; atlas.Saturation = 0.13f; atlas.Detail = 0.154f; atlas.Variety = 0.081f;
+        TS grass {}; grass.Hue = 103; grass.Saturation = 1.0f; grass.Brightness = 0.54f; grass.Detail = 0.024f; grass.Grain = 0.07f; grass.Variety = 0.044f;
+        TS moss = grass; moss.Hue = 75; moss.Saturation = 0.29f; moss.Detail = 0.027f; moss.Variety = 0.050f;
+        TS hero {}; hero.Hue = 20; hero.Saturation = 0.52f; hero.Brightness = 0.62f; hero.Detail = 0.049f; hero.Grain = 0.10f; hero.Variety = 0.13f;
+        TextureEvidence none {};
+        TextureEvidence moving {}; moving.Polygons = 100; moving.Scrolling = true; moving.PolygonIds = 1ull << 1; moving.SceneryId = 63;
+        TextureEvidence sea {}; sea.Polygons = 100; sea.Scrolling = true; sea.PolygonIds = 1ull << 63; sea.SceneryId = 63;
+        TS water {}; water.Hue = 209; water.Saturation = 1.0f; water.Brightness = 0.79f; water.Detail = 0.017f; water.Variety = 0.02f;
+        check(MaterialClassifier::Vote(stone, opaque, none).Class == MaterialClass::Stone &&
+              MaterialClassifier::Vote(atlas, opaque, none).Class == MaterialClass::Unknown,
+              "materials: dull one-colour noise is stone, an atlas of many colours is not");
+        check(MaterialClassifier::Vote(grass, opaque, none).Class == MaterialClass::Foliage &&
+              MaterialClassifier::Vote(moss, opaque, none).Class == MaterialClass::Stone,
+              "materials: vivid fine green is foliage, dull green (moss on stone) stays stone");
+        check(MaterialClassifier::Vote(hero, opaque, moving).Class == MaterialClass::Character &&
+              MaterialClassifier::Vote(water, opaque, sea).Class == MaterialClass::Water,
+              "materials: a character's moving texture is a character; scenery that scrolls is still water");
     }
 
     // 4c. palette indices    // 4c. palette indices    // 4c. palette indices    // 4c. palette indices of a paletted texture: 8x8, 16 colours (4 bits per

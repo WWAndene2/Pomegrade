@@ -7,6 +7,7 @@
 #include "GPU3D_SkeletonRecovery.h"
 #include "GPU3D_LightRecovery.h"
 #include "xxhash/xxhash.h"
+#include "GPU2D_TilemapFlattening.h"
 
 #include <algorithm>
 #include <unordered_map>
@@ -106,7 +107,7 @@ void Inspector::BeginFrame() noexcept
 {
     FrameNumber++;
     bool requested = RequestedEnabled;
-    if (requested == Enabled) { if (Enabled) RecordCapture(); return; }
+    if (requested == Enabled) { if (Enabled) { RecordCapture(); Record2D(); } return; }
 
     Enabled = requested;
     // JIT code writes ARM::StorePC only while this is on
@@ -126,6 +127,8 @@ void Inspector::BeginFrame() noexcept
         FileReads.clear();
         PositionFields.clear();
         for (CaptureBank& b : CaptureBanks) b = CaptureBank();
+        for (auto& engine : TextLayers) for (TextLayerRecord& l : engine) l = TextLayerRecord();
+        for (SpriteLimitInversion& s : SpriteTracks) s.Clear();
         Parity.Clear();
         FileReadsTruncated = false;
     }
@@ -560,6 +563,70 @@ std::string Inspector::FileName(u32 id) const
     return "(file " + std::to_string(id) + ")";
 }
 
+void Inspector::Record2D()
+{
+    std::lock_guard<std::mutex> guard(Lock);
+    GPU& gpu = NDS.GPU;
+    for (int e = 0; e < 2; e++)
+    {
+        // DISPCNT bit 12: sprites on
+        const GPU2D::Unit& unit = e ? gpu.GPU2D_B : gpu.GPU2D_A;
+        SpriteTracks[e].AddFrame((unit.DispCnt & 0x1000) ? (const u16*)&gpu.OAM[e * 0x400] : nullptr);
+    }
+
+    if (FrameNumber % FlattenInterval) return;
+    for (int e = 0; e < 2; e++)
+    {
+        GPU2D::Unit& unit = e ? gpu.GPU2D_B : gpu.GPU2D_A;
+        for (int bg = 0; bg < 4; bg++)
+        {
+            TextLayerRecord& r = TextLayers[e][bg];
+            r.Checked = true;
+            r.Text = IsTextLayer(unit.DispCnt, bg, e == 1);
+            if (!r.Text || !(unit.DispCnt & (0x100 << bg))) continue; // not a text layer, or off
+
+            TextLayerState s;
+            s.DispCnt = unit.DispCnt;
+            s.BgCnt = unit.BGCnt[bg];
+            s.EngineB = e == 1;
+            u8* vram; u32 mask;
+            unit.GetBGVRAM(vram, mask);
+            s.Vram = vram;
+            s.VramMask = mask;
+            s.Palette = (const u16*)&gpu.Palette[e * 0x400];
+            const u32 slot = ExtPaletteSlot(bg, s.BgCnt);
+            s.ExtPalette = [&unit, slot](u32 pal) -> const u16* { return unit.GetBGExtPal(slot, pal); };
+            const FlatLayer flat = FlattenTextLayer(s);
+
+            // the colours this layer can use: its extended palette slot, or
+            // the standard palette
+            u32 paletteHash;
+            if (flat.ExtendedPalette)
+            {
+                XXH32_state_t* state = XXH32_createState();
+                XXH32_reset(state, 0);
+                for (u32 p = 0; p < 16; p++) XXH32_update(state, s.ExtPalette(p), 512);
+                paletteHash = XXH32_digest(state);
+                XXH32_freeState(state);
+            }
+            else paletteHash = XXH32(s.Palette, 512, 0);
+
+            if (r.Samples)
+            {
+                if (flat.Hash != r.Hash) r.MapChanges++;
+                else if (paletteHash != r.PaletteHash) r.PaletteChanges++;
+            }
+            r.Samples++;
+            r.Width = flat.Width; r.Height = flat.Height;
+            r.Tiles = flat.Tiles; r.DistinctTiles = flat.DistinctTiles; r.FlippedTiles = flat.FlippedTiles;
+            r.ExtendedPalette = flat.ExtendedPalette;
+            r.Colours256 = s.BgCnt & 0x0080;
+            r.Hash = flat.Hash;
+            r.PaletteHash = paletteHash;
+        }
+    }
+}
+
 void Inspector::RecordCapture() noexcept
 {
     std::lock_guard<std::mutex> guard(Lock);
@@ -916,6 +983,30 @@ std::string Inspector::Report() const
             add("Model at %s (command %zu): %zu joints, depth %d, %u vertices\n", site(s.Site).c_str(), s.FirstCommand, s.Joints.size(), s.Depth(), s.Vertices());
             out += SkeletonTree(s);
         }
+    }
+
+    add("\n== 2D backgrounds (flattened once a second) ==\n");
+    add("A text background stitched into one image of palette indices; map changes: a different image; palette\n");
+    add("changes: the same image in other colours (palette animation). Affine and bitmap layers are not flattened.\n");
+    for (int e = 0; e < 2; e++)
+    for (int bg = 0; bg < 4; bg++)
+    {
+        const TextLayerRecord& r = TextLayers[e][bg];
+        if (!r.Samples) { if (r.Checked && !r.Text) add("engine %c BG%d  not a text layer\n", 'A' + e, bg); continue; }
+        add("engine %c BG%d  %ux%u  %s%s  %u tiles, %u distinct, %u flipped  image %08X  %u samples, %u map changes, %u palette changes\n",
+            'A' + e, bg, r.Width, r.Height, r.Colours256 ? "256 colours" : "16 colours", r.ExtendedPalette ? " (extended palette)" : "",
+            r.Tiles, r.DistinctTiles, r.FlippedTiles, r.Hash, r.Samples, r.MapChanges, r.PaletteChanges);
+    }
+
+    add("\n== Sprites followed (multiplexing: drawn on a 2-4 frame cycle) ==\n");
+    for (int e = 0; e < 2; e++)
+    {
+        const SpriteLimitInversion& t = SpriteTracks[e];
+        add("engine %c: %zu sprites followed, %u flickering, %zu hidden this frame to restore\n", 'A' + e, t.GetTracks().size(), t.Flickering(), t.Restored().size());
+        for (const SpriteLimitInversion::Track& s : t.GetTracks())
+            if (s.Period)
+                add("  sprite %u  tile %u palette %u  at %d,%d  drawn %u of %u frames, every %d\n", s.Id, s.Last.Attr[2] & 0x3FF, s.Last.Attr[2] >> 12,
+                    s.Last.X, s.Last.Y, s.Shown, s.Frames, s.Period);
     }
 
     out += Parity.Report();

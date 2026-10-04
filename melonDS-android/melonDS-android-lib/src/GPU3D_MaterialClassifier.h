@@ -82,6 +82,11 @@ public:
         float Variety = 0;    // mean chroma distance of texels from the mean colour, 0-1 (an atlas of many colours: high)
     };
     const TextureStats& Statistics(GPU& gpu, u32 texParam, u32 palette);
+    // the statistics of decoded texels (RGB6A5, as DecodeTexture writes
+    // them), and the vote from statistics and render state, without VRAM:
+    // what Classify does once the manifest has not named the texture
+    static TextureStats ComputeStatistics(const u32* texels, u32 width, u32 height);
+    static MaterialResult Vote(const TextureStats& stats, u32 texParam, const TextureEvidence& evidence);
 
     // palette-index segmentation (DS_ENGINE_REMAKE.md 5.3): artists paint
     // each material of a paletted texture with its own palette entries. The
