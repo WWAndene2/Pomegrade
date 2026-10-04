@@ -702,7 +702,12 @@ std::string Inspector::Report() const
     std::lock_guard<std::mutex> guard(Lock);
     std::string out;
     char line[256];
-    auto add = [&](const char* fmt, auto... args) { snprintf(line, sizeof(line), fmt, args...); out += line; };
+    // text without arguments is appended as is: a format string that is not a
+    // literal fails the NDK's -Werror=format-security
+    auto add = [&](const char* fmt, auto... args) {
+        if constexpr (sizeof...(args) == 0) out += fmt;
+        else { snprintf(line, sizeof(line), fmt, args...); out += line; }
+    };
     auto site = [&](u32 s) -> std::string {
         if (!s) return "unknown";
         char b[32];
