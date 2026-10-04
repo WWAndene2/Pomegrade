@@ -93,6 +93,13 @@ Pomegrade is currently **two apps side by side in one APK**: melonDS-android (DS
 - **Controllers**: one mapping for all consoles.
 - **GBA**: an mGBA core would complete the Nintendo handheld family.
 
+## 3b. DS engine remake
+
+Design: `DS_ENGINE_REMAKE.md` (the owner's notes). Its step 1 (5.12, "logging and quick looks") is in progress:
+
+- **Inspector** (DS, in-game menu > Inspector): done, desktop-tested (`tests/inspector/`: interpreter and x86-64 JIT, real ARM code), not compiled for Android nor tried on a phone. Records which ARM9 instruction (call site) or command DMA (display list: address, length, content hash) drew each polygon, the polygon IDs, the 3D command trace with matrix stack operations, and the cartridge files read (NitroFS names); colours the 3D by polygon ID, call site or display list (OpenGL renderer); saves a text report to `Pomegrade/Inspector/`. With the JIT on, ARM9 stores record their address (one extra write per store, only while the inspector is on); the ARM64 JIT change mirrors the tested x86-64 one but is untested.
+- Next in step 1: palette-index histograms per texture; then a first report from Dragon Quest Monsters: Joker to answer the open questions (25) before step 2.
+
 ## 4. One coherent app
 
 Today each core keeps its own settings, screens, visual style and file storage. Target architecture:

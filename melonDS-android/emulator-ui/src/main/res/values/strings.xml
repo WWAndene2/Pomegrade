@@ -17,6 +17,7 @@
     <string name="emulator_menu_settings">Settings</string>
     <string name="emulator_menu_multiplayer">Multiplayer</string>
     <string name="emulator_menu_reset">Reset</string>
+    <string name="emulator_menu_inspector">Inspector</string>
     <string name="emulator_menu_exit">Close game</string>
     <string name="emulator_menu_console_ds">DS</string>
     <string name="emulator_menu_console_dsi">DSi</string>

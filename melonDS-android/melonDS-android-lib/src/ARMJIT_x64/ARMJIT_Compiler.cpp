@@ -731,6 +731,7 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
             MOV(32, MDisp(RCPU, offsetof(ARM, R[15])), Imm32(R15));
             if (comp == NULL)
             {
+                Comp_RecordStoreSite(); // Pomegrade: interpreted, may store
                 MOV(32, MDisp(RCPU, offsetof(ARM, CodeCycles)), Imm32(CurInstr.CodeCycles));
                 MOV(32, MDisp(RCPU, offsetof(ARM, CurInstr)), Imm32(CurInstr.Instr));
 

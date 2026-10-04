@@ -773,6 +773,7 @@ bool NDS::DoSavestate(Savestate* file)
 void NDS::SetNDSCart(std::unique_ptr<NDSCart::CartCommon>&& cart)
 {
     NDSCartSlot.SetCart(std::move(cart));
+    if (Inspector.IsEnabled()) Inspector.OnCartChanged(); // Pomegrade: its file names
     // The existing cart will always be ejected;
     // if cart is null, then that's equivalent to ejecting a cart
     // without inserting a new one.
@@ -1074,6 +1075,7 @@ u32 NDS::RunFrame()
 u32 NDS::RunFrame()
 {
     AnalogueStick.RunFrame(*this);
+    Inspector.BeginFrame();
 #ifdef JIT_ENABLED
     if (EnableJIT)
         return RunFrame<CPUExecuteMode::JIT>();

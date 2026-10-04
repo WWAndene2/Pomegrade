@@ -122,6 +122,10 @@ void DMA::WriteCnt(u32 val)
         CurSrcAddr = SrcAddr;
         CurDstAddr = DstAddr;
 
+        // Pomegrade (inspector): who started it, and the display list it copies
+        if (CPU == 0 && NDS.Inspector.IsEnabled())
+            NDS.Inspector.OnDmaEnabled(*this, SrcAddr, DstAddr, Cnt & 0x001FFFFF);
+
         switch (Cnt & 0x00600000)
         {
         case 0x00000000: DstAddrInc = 1; break;

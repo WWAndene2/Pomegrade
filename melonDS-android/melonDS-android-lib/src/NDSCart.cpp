@@ -507,6 +507,7 @@ int CartRetail::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, const 
         {
             u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
             memset(data, 0, len);
+            if (nds.Inspector.IsEnabled()) nds.Inspector.OnCartRead(addr, len); // Pomegrade
 
             if (((addr + len - 1) >> 12) != (addr >> 12))
             {
@@ -1392,6 +1393,7 @@ int CartHomebrew::ROMCommandStart(NDS& nds, NDSCart::NDSCartSlot& cartslot, cons
         {
             u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
             memset(data, 0, len);
+            if (nds.Inspector.IsEnabled()) nds.Inspector.OnCartRead(addr, len); // Pomegrade
 
             if (((addr + len - 1) >> 12) != (addr >> 12))
             {

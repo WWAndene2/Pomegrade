@@ -58,6 +58,8 @@ namespace MelonDSAndroid {
     extern void releaseScreen();
     extern void pressKey(u32 key);
     extern void setAnalogueStick(float x, float y);
+    extern void setInspector(bool enabled, int view);
+    extern std::string getInspectorReport();
     extern void releaseKey(u32 key);
     extern void start();
     extern u32 loop();

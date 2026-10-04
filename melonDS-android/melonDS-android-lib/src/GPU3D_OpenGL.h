@@ -239,6 +239,8 @@ private:
     bool AmbientOcclusion {};
     bool LightBounce {};
     bool Shadows {};
+    // inspector (Pomegrade): set while polygons are drawn in its colours
+    const class Inspector* ViewInspector = nullptr;
     bool Reflections {};
     // reflection strength, times Fresnel and the material's shininess
     static constexpr float ReflectionStrength = 1.0f;

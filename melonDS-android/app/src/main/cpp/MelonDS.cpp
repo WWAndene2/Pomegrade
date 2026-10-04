@@ -188,6 +188,17 @@ namespace MelonDSAndroid
             instance->setAnalogueStick(x, y);
     }
 
+    void setInspector(bool enabled, int view)
+    {
+        if (instance)
+            instance->setInspector(enabled, view);
+    }
+
+    std::string getInspectorReport()
+    {
+        return instance ? instance->getInspectorReport() : std::string();
+    }
+
     void start()
     {
         startAudio();

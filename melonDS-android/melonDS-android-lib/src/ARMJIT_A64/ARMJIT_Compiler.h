@@ -217,6 +217,7 @@ public:
         memop_SubtractOffset = 1 << 4
     };
     void Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags);
+    void Comp_RecordStoreSite();
 
     // 0 = switch mode, 1 = stay arm, 2 = stay thumb
     void* Gen_JumpTo9(int kind);

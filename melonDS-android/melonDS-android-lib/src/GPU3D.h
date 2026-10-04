@@ -116,6 +116,12 @@ struct Polygon
     // Not part of the hardware state.
     u32 Subdivision;
 
+    // inspector (Pomegrade): the ARM9 call site (R[15] form, bit 0: Thumb)
+    // and the hash of the display list this polygon was drawn from, 0 when
+    // unknown. Not part of the hardware state.
+    u32 CallSite;
+    u32 ListHash;
+
     void DoSavestate(Savestate* file) noexcept;
 };
 
@@ -214,9 +220,16 @@ private:
         {
             u32 Param;
             u8 Command;
+            u8 Unused;
+            // Pomegrade (inspector): who wrote this command (Inspector
+            // source tag, 0: none). Fits in the entry's former padding
+            u16 Source;
         };
 
     } CmdFIFOEntry;
+
+    // inspector (Pomegrade): source tag of the command being executed
+    u16 CurCommandSource = 0;
 
     void UpdateClipMatrix() noexcept;
     void ResetRenderingState() noexcept;

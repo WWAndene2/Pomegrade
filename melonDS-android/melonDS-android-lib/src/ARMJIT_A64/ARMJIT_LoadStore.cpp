@@ -104,6 +104,17 @@ bool Compiler::Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr)
     return true;
 }
 
+// Pomegrade (inspector): the ARM9 store's R[15] (bit 0: Thumb) into
+// ARM::StorePC, so hardware writes know which instruction made them. W0 is
+// free here: the access below computes its address into it
+void Compiler::Comp_RecordStoreSite()
+{
+    if (Num != 0 || !NDS.JIT.StoreSitesTracked())
+        return;
+    MOVI2R(W0, R15 | (Thumb ? 1 : 0));
+    STR(INDEX_UNSIGNED, W0, RCPU, offsetof(ARM, StorePC));
+}
+
 void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
 {
     u32 addressMask = ~0;
@@ -121,7 +132,10 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
     }
     
     if (flags & memop_Store)
+    {
         Comp_AddCycles_CD();
+        Comp_RecordStoreSite();
+    }
     else
         Comp_AddCycles_CDI();
 
@@ -468,6 +482,8 @@ void Compiler::T_Comp_MemSPRel()
 s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode, bool skipLoadingRn)
 {
     IrregularCycles = true;
+    if (store)
+        Comp_RecordStoreSite();
 
     int regsCount = regs.Count();
 

@@ -72,6 +72,7 @@ private:
     bool LiteralOptimizations = false;
     bool BranchOptimizations = false;
     bool FastMemory = false;
+    bool TrackStoreSites = false;
 
 public:
     melonDS::NDS& NDS;
@@ -84,6 +85,10 @@ public:
     bool LiteralOptimizationsEnabled() const noexcept { return LiteralOptimizations; }
     bool BranchOptimizationsEnabled() const noexcept { return BranchOptimizations; }
     bool FastMemoryEnabled() const noexcept { return FastMemory; }
+    // Pomegrade (inspector): ARM9 stores record their address in
+    // ARM::StorePC. Off by default: one extra write per store
+    bool StoreSitesTracked() const noexcept { return TrackStoreSites; }
+    void SetTrackStoreSites(bool enabled) noexcept;
 
     void SetJITArgs(JITArgs args) noexcept;
     void SetMaxBlockSize(int size) noexcept;
@@ -194,6 +199,8 @@ public:
     void JitEnableExecute() noexcept {}
     void CompileBlock(ARM*) noexcept {}
     void ResetBlockCache() noexcept {}
+    bool StoreSitesTracked() const noexcept { return false; }
+    void SetTrackStoreSites(bool) noexcept {}
     template <u32, int>
     void CheckAndInvalidate(u32 addr) noexcept {}
 

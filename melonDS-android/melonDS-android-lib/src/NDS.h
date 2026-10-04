@@ -36,6 +36,7 @@
 #include "Wifi.h"
 #include "AREngine.h"
 #include "NDS_AnalogueStick.h"
+#include "NDS_Inspector.h"
 #include "GPU.h"
 #include "ARMJIT.h"
 #include "MemRegion.h"
@@ -240,6 +241,7 @@ class ARMJIT;
 
 class NDS
 {
+    friend class Inspector; // Pomegrade: reads the DMAs
 private:
 #ifdef JIT_ENABLED
     bool EnableJIT;
@@ -325,6 +327,7 @@ public: // TODO: Encapsulate the rest of these members
     melonDS::GPU GPU;
     melonDS::AREngine AREngine;
     melonDS::AnalogueStick AnalogueStick; // Pomegrade: analogue movement in patched games
+    melonDS::Inspector Inspector {*this}; // Pomegrade: how the game draws (DS_ENGINE_REMAKE.md 5.12)
 
     const u32 ARM7WRAMSize = 0x10000;
     u8* ARM7WRAM;

@@ -470,6 +470,17 @@ void MelonInstance::setAnalogueStick(float x, float y)
     nds->AnalogueStick.SetPosition(x, y);
 }
 
+void MelonInstance::setInspector(bool enabled, int view)
+{
+    nds->Inspector.SetEnabled(enabled);
+    nds->Inspector.SetView(static_cast<melonDS::Inspector::View>(view));
+}
+
+std::string MelonInstance::getInspectorReport()
+{
+    return nds->Inspector.Report();
+}
+
 void MelonInstance::releaseKey(u32 key)
 {
     // Special handling for Lid input

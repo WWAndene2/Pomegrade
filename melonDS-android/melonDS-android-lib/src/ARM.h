@@ -196,6 +196,12 @@ public:
 #endif
 
     melonDS::NDS& NDS;
+
+    // Pomegrade (inspector): R[15] as it was at the last store (instruction
+    // address + 8, or + 4 in Thumb; bit 0 set in Thumb). Written by JIT code
+    // while the JIT tracks store sites, where R[15] is only updated per block.
+    // Last, after the fields whose offsets the x64 JIT hard-codes
+    u32 StorePC = 0;
 protected:
     virtual u8 BusRead8(u32 addr) = 0;
     virtual u16 BusRead16(u32 addr) = 0;

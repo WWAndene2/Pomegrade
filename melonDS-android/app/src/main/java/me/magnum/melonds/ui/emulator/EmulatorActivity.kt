@@ -78,6 +78,7 @@ import me.magnum.melonds.ui.cheats.CheatsActivity
 import me.magnum.melonds.ui.common.rom.EmulatorLaunchValidatorDelegate
 import me.magnum.melonds.ui.emulator.component.EmulatorOverlayTracker
 import me.magnum.melonds.ui.emulator.firmware.FirmwarePauseMenuOption
+import me.magnum.melonds.ui.emulator.inspector.InspectorDialog
 import me.magnum.melonds.ui.emulator.input.ConnectedControllerManager
 import me.magnum.melonds.ui.emulator.input.EmulatorRumbleManager
 import me.magnum.melonds.ui.emulator.input.FrontendInputHandler
@@ -274,6 +275,9 @@ class EmulatorActivity : AppCompatActivity() {
     // the pause menu's entries while it is open, and whether one was picked (else closing it resumes)
     private var pauseMenuOptions: List<PauseMenuOption> = emptyList()
     private var pauseMenuOptionPicked = false
+    // Pomegrade: the inspector's mode for this game (the core starts with it off)
+    private var inspectorMode = InspectorDialog.Mode.OFF
+    private var inspectorGameName = ""
     private val showAchievementList = mutableStateOf(false)
     private val showPendingSubmissionsDialog = mutableStateOf(false)
 
@@ -894,6 +898,8 @@ class EmulatorActivity : AppCompatActivity() {
             if (item.itemId == EmulatorMenuR.id.emulator_menu_swap_screens) {
                 swapScreen()
                 viewModel.resumeEmulator()
+            } else if (item.itemId == EmulatorMenuR.id.emulator_menu_inspector) {
+                showInspectorDialog()
             } else {
                 pauseMenuOptions.firstOrNull { inGameMenuItemId(it) == item.itemId }?.let {
                     viewModel.onPauseMenuOptionSelected(it)
@@ -912,6 +918,11 @@ class EmulatorActivity : AppCompatActivity() {
         val console = getString(
             if (consoleType == ConsoleType.DSi) EmulatorMenuR.string.emulator_menu_console_dsi else EmulatorMenuR.string.emulator_menu_console_ds
         )
+        if (inspectorGameName != title) {
+            // a new game: the core's inspector starts off
+            inspectorGameName = title
+            inspectorMode = InspectorDialog.Mode.OFF
+        }
         val iconView = EmulatorMenu.setHeader(binding.inGameMenu, title, console) ?: return
         iconView.isVisible = false
         if (state is EmulatorState.RunningRom) {
@@ -938,10 +949,26 @@ class EmulatorActivity : AppCompatActivity() {
         }
     }
 
+    // Pomegrade: the inspector (DS_ENGINE_REMAKE.md 5.12 step 1), opened from the in-game menu; the game stays paused while it is open
+    private fun showInspectorDialog() {
+        activeOverlays.addActiveOverlay(EmulatorOverlay.INSPECTOR_DIALOG)
+        InspectorDialog.show(
+            context = this,
+            current = inspectorMode,
+            gameName = inspectorGameName,
+            onModeChanged = { inspectorMode = it },
+            onDismiss = {
+                activeOverlays.removeActiveOverlay(EmulatorOverlay.INSPECTOR_DIALOG)
+                viewModel.resumeEmulator()
+            },
+        )
+    }
+
     private fun showPauseMenu(pauseMenu: PauseMenu) {
         pauseMenuOptions = pauseMenu.options
         pauseMenuOptionPicked = false
-        val shownItems = pauseMenu.options.mapNotNull { inGameMenuItemId(it) }.toSet() + EmulatorMenuR.id.emulator_menu_swap_screens
+        val shownItems = pauseMenu.options.mapNotNull { inGameMenuItemId(it) }.toSet() +
+                EmulatorMenuR.id.emulator_menu_swap_screens + EmulatorMenuR.id.emulator_menu_inspector
         EmulatorMenu.showOnly(binding.inGameMenu.menu, shownItems)
 
         activeOverlays.addActiveOverlay(EmulatorOverlay.PAUSE_MENU)

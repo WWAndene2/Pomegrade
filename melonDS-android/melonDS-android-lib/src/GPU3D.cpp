@@ -1386,6 +1386,10 @@ void GPU3D::SubmitPolygon() noexcept
     poly->Attr = CurPolygonAttr;
     poly->TexParam = TexParam;
     poly->TexPalette = TexPalette;
+    if (NDS.Inspector.IsEnabled())
+        NDS.Inspector.OnPolygon(*poly, CurCommandSource);
+    else
+        poly->CallSite = poly->ListHash = 0;
 
     poly->Degenerate = false;
     poly->Type = 0;
@@ -1825,6 +1829,8 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
             poly->IsShadow = false;
             poly->FrameId = (parent->FrameId & ~0xFFu) | place;
             poly->Subdivision = subdivision;
+            poly->CallSite = parent->CallSite;
+            poly->ListHash = parent->ListHash;
 
             FinalizePolygon(poly, nv);
         });
@@ -2482,6 +2488,11 @@ GPU3D::CmdFIFOEntry GPU3D::CmdFIFORead() noexcept
 void GPU3D::ExecuteCommand() noexcept
 {
     CmdFIFOEntry entry = CmdFIFORead();
+    if (NDS.Inspector.IsEnabled())
+    {
+        CurCommandSource = entry.Source;
+        NDS.Inspector.OnCommand(entry.Command, entry.Param, entry.Source);
+    }
 
     //printf("FIFO: processing %02X %08X. Levels: FIFO=%d, PIPE=%d\n", entry.Command, entry.Param, CmdFIFO->Level(), CmdPIPE->Level());
 
@@ -3233,6 +3244,8 @@ void GPU3D::VBlank() noexcept
                 // for the renderer's effects (shadows, reflections)
                 memcpy(RenderLightDirection, LightDirection, sizeof(LightDirection));
                 std::swap(RenderShadowCasters, ShadowCasters);
+                if (NDS.Inspector.IsEnabled())
+                    NDS.Inspector.OnFlush();
                 if (FrameProjVertices >= BestProjVertices)
                 {
                     memcpy(RenderProjMatrix, FrameProjMatrix, sizeof(FrameProjMatrix));
@@ -3355,6 +3368,7 @@ bool GPU3D::IsRendererAccelerated() const noexcept
 
 void GPU3D::WriteToGXFIFO(u32 val) noexcept
 {
+    const u16 source = NDS.Inspector.IsEnabled() ? NDS.Inspector.CommandSource() : 0;
     if (NumCommands == 0)
     {
         NumCommands = 4;
@@ -3373,6 +3387,8 @@ void GPU3D::WriteToGXFIFO(u32 val) noexcept
         {
             CmdFIFOEntry entry;
             entry.Command = CurCommand & 0xFF;
+            entry.Unused = 0;
+            entry.Source = source;
             entry.Param = val;
             CmdFIFOWrite(entry);
         }
@@ -3728,6 +3744,8 @@ void GPU3D::Write32(u32 addr, u32 val) noexcept
     {
         CmdFIFOEntry entry;
         entry.Command = (addr & 0x1FC) >> 2;
+        entry.Unused = 0;
+        entry.Source = NDS.Inspector.IsEnabled() ? NDS.Inspector.CommandSource() : 0;
         entry.Param = val;
         CmdFIFOWrite(entry);
         return;

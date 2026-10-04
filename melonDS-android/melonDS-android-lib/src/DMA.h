@@ -77,6 +77,11 @@ public:
     u32 DstAddr {};
     u32 Cnt {};
 
+    // Pomegrade (inspector): copying right now, and the source tag of the
+    // geometry commands it copies (0: none). Not part of the hardware state
+    [[nodiscard]] bool IsExecuting() const noexcept { return Executing; }
+    u16 InspectorSource = 0;
+
 private:
     melonDS::NDS& NDS;
     u32 CPU {};

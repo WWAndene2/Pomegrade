@@ -999,6 +999,23 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
             }
         }
 
+        if (ViewInspector)
+        {
+            // flat, untextured, in the polygon's inspector colour (alpha kept)
+            // 5 bits per channel to the vertex colour's 8 (FinalColor >> 1: white is 255)
+            u32 c = ViewInspector->ViewColour(*poly);
+            auto to8 = [](u32 v) { return (v << 3) | (v >> 2); };
+            u32 rgb = to8(c & 0x1F) | (to8((c >> 5) & 0x1F) << 8) | (to8((c >> 10) & 0x1F) << 16);
+            for (u32 v = vidx_first; v < vidx; v++)
+            {
+                u32* vtx = &VertexBuffer[v * VertexSize];
+                vtx[2] = (vtx[2] & 0xFF000000) | rgb;
+                vtx[5] = 0;
+                vtx[6] &= 0xFFFF0000; // texture format 0: none (the palette stays)
+                vtx[7] = 0;
+            }
+        }
+
         rp->EdgeIndicesOffset = eidx;
         rp->NumEdgeIndices = 0;
 
@@ -2154,6 +2171,8 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
 
         LookupHDTextures(gpu, npolys);
 
+        // inspector (Pomegrade): polygons coloured by what drew them
+        ViewInspector = gpu.NDS.Inspector.GetView() != Inspector::View::Off ? &gpu.NDS.Inspector : nullptr;
         BuildPolygons(&PolygonList[0], npolys);
         glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
         glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*VertexSize*4, VertexBuffer.data());

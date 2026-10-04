@@ -505,6 +505,18 @@ Java_me_magnum_melonds_MelonEmulator_onAnalogueStick(JNIEnv* env, jobject thiz, 
     MelonDSAndroid::setAnalogueStick(x, y);
 }
 
+JNIEXPORT void JNICALL
+Java_me_magnum_melonds_MelonEmulator_setInspector(JNIEnv* env, jobject thiz, jboolean enabled, jint view)
+{
+    MelonDSAndroid::setInspector(enabled, view);
+}
+
+JNIEXPORT jstring JNICALL
+Java_me_magnum_melonds_MelonEmulator_getInspectorReport(JNIEnv* env, jobject thiz)
+{
+    return env->NewStringUTF(MelonDSAndroid::getInspectorReport().c_str());
+}
+
 JNIEXPORT jboolean JNICALL
 Java_me_magnum_melonds_MelonEmulator_takeScreenshot(JNIEnv* env, jobject thiz)
 {

@@ -46,6 +46,7 @@ add_library(core STATIC
     NDS.cpp
     NDS_AnaloguePatches.cpp
     NDS_AnalogueStick.cpp
+    NDS_Inspector.cpp
     NDSCart.cpp
     NDSCartR4.cpp
     Platform.h

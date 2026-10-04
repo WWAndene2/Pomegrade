@@ -774,4 +774,17 @@
     <string name="pomegrade_about_role_enet">Local wireless play (DS)</string>
     <string name="pomegrade_about_credit_authors_licence">%1$s · %2$s</string>
     <string name="pomegrade_about_licences_notice">Pomegrade is free software under the GNU General Public License, version 3. Tap to read the GNU licences. The 3DS core\'s other libraries are listed in its own about screen (3DS games → Settings → About).</string>
+
+    <!-- Pomegrade: inspector (in-game menu, DS) -->
+    <string name="inspector_title">Inspector</string>
+    <string name="inspector_mode_off">Off</string>
+    <string name="inspector_mode_record">Record only (normal picture)</string>
+    <string name="inspector_mode_polygon_id">Colour by polygon ID</string>
+    <string name="inspector_mode_call_site">Colour by game function</string>
+    <string name="inspector_mode_display_list">Colour by display list</string>
+    <string name="inspector_save_report">Save report</string>
+    <string name="inspector_close">Close</string>
+    <string name="inspector_save_needs_recording">Pick a mode other than Off, play a moment, then save the report</string>
+    <string name="inspector_saved">Report saved: %1$s</string>
+    <string name="inspector_save_failed">The report could not be saved</string>
 </resources>

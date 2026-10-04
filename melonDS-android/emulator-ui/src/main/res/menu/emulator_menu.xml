@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The in-game menu of both consoles, in this order. Each screen hides what its core does not have
-     (EmulatorMenu.showOnly): rewind, reset and achievements are DS only; on-screen control options,
+     (EmulatorMenu.showOnly): rewind, reset, achievements and the inspector are DS only; on-screen control options,
      amiibo, layouts, rotation, menu lock and multiplayer are 3DS only -->
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
@@ -88,6 +88,11 @@
         android:id="@+id/emulator_menu_reset"
         android:icon="@drawable/emulator_menu_ic_reset"
         android:title="@string/emulator_menu_reset" />
+
+    <item
+        android:id="@+id/emulator_menu_inspector"
+        android:icon="@drawable/emulator_menu_ic_inspector"
+        android:title="@string/emulator_menu_inspector" />
 
     <item
         android:id="@+id/emulator_menu_exit"

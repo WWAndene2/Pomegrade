@@ -529,6 +529,14 @@ void ARMJIT::SetFastMemory(bool enabled) noexcept
     SetJITArgs(JITArgs{static_cast<unsigned>(MaxBlockSize), LiteralOptimizations, BranchOptimizations, enabled});
 }
 
+void ARMJIT::SetTrackStoreSites(bool enabled) noexcept
+{
+    if (TrackStoreSites == enabled) return;
+    TrackStoreSites = enabled;
+    // compiled blocks were made with or without the extra write
+    ResetBlockCache();
+}
+
 void ARMJIT::CompileBlock(ARM* cpu) noexcept
 {
     bool thumb = cpu->CPSR & 0x20;
@@ -666,6 +674,9 @@ void ARMJIT::CompileBlock(ARM* cpu) noexcept
         cpu->R[15] = r15;
         cpu->CurInstr = instrs[i].Instr;
         cpu->CodeCycles = instrs[i].CodeCycles;
+        // Pomegrade (inspector): the block is run once here, interpreted
+        if (TrackStoreSites)
+            cpu->StorePC = r15 | (thumb ? 1 : 0);
 
         if (instrs[i].Info.DstRegs & (1 << 14)
             || (!thumb

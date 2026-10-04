@@ -719,6 +719,7 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
             STR(INDEX_UNSIGNED, W0, RCPU, offsetof(ARM, R[15]));
             if (comp == NULL)
             {
+                Comp_RecordStoreSite(); // Pomegrade: interpreted, may store
                 MOVI2R(W0, CurInstr.Instr);
                 STR(INDEX_UNSIGNED, W0, RCPU, offsetof(ARM, CurInstr));
             }
