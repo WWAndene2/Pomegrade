@@ -123,6 +123,7 @@ void Inspector::BeginFrame() noexcept
         Last = FrameTables();
         FileReads.clear();
         PositionFields.clear();
+        Parity.Clear();
         FileReadsTruncated = false;
     }
     if (Enabled) OnCartChanged();
@@ -512,6 +513,14 @@ std::string Inspector::FileName(u32 id) const
     return "(file " + std::to_string(id) + ")";
 }
 
+void Inspector::OnRendered(GPU& gpu, Renderer3D& renderer)
+{
+    if (!Enabled || !renderer.Accelerated || FrameNumber - LastParityFrame < ParityInterval) return;
+    LastParityFrame = FrameNumber;
+    std::lock_guard<std::mutex> guard(Lock);
+    Parity.Check(gpu, renderer, FrameNumber);
+}
+
 void Inspector::FindPositionFields()
 {
     // translations from the trace: MTX_TRANS (3 parameters), MTX_LOAD/MULT
@@ -699,6 +708,8 @@ std::string Inspector::Report() const
         add("%08X   %-7u %-6u %-6u  %.3f, %.3f, %.3f\n", fields[i].first, f.FramesFound, f.Changes, f.LastFrame,
             f.Value[0] / 4096.0, f.Value[1] / 4096.0, f.Value[2] / 4096.0);
     }
+
+    out += Parity.Report();
 
     add("\n== Cartridge reads since the inspector was turned on (%zu%s) ==\n", FileReads.size(), FileReadsTruncated ? ", list full" : "");
     add("%-8s %-10s %-10s  %s\n", "frame", "offset", "bytes", "file");

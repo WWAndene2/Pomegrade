@@ -47,6 +47,7 @@ add_library(core STATIC
     NDS_AnaloguePatches.cpp
     NDS_AnalogueStick.cpp
     NDS_Inspector.cpp
+    GPU3D_ParityOracle.cpp
     NDSCart.cpp
     NDSCartR4.cpp
     Platform.h

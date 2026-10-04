@@ -486,6 +486,62 @@ int main()
         nds->Inspector.SetView(Inspector::View::Off);
         auto back = render();
         check(back == normal, "view back to off: the original picture");
+
+    }
+
+    // 6. parity oracle: once a second while recording, the frame a hardware
+    // renderer drew against the software renderer's
+    {
+        auto nds = MakeNDS(false);
+        GPU& gpu = nds->GPU;
+        nds->Inspector.SetEnabled(true);
+        Program prog(0x02000000);
+        prog.Write(POWCNT1, 0x820F);
+        prog.Write(0x04000580, 0xBFFF0000); // VIEWPORT: the whole screen
+        prog.Write(POLYGON_ATTR, Attr);
+        prog.Write(BEGIN_VTXS, 0);
+        for (auto& v : Vertices) { prog.Write(VTX_16, v[0]); prog.Write(VTX_16, v[1]); }
+        prog.Write(END_VTXS, 0);
+        prog.Write(SWAP_BUFFERS, 0);
+        prog.Loop();
+        prog.Place(*nds);
+        Run(*nds, 0x02000000, 3);
+
+        auto r = GLRenderer::New();
+        if (!r) { puts("GLRenderer::New failed"); return 1; }
+        r->SetRenderSettings(false, 4);
+        while (r->NeedsShaderCompile()) { int cur, cnt; r->ShaderCompileStep(cur, cnt); }
+        struct Blank : Renderer3D
+        {
+            u32 Line[256] {};
+            Blank() : Renderer3D(true) {}
+            void Reset(GPU&) override {}
+            void RenderFrame(GPU&) override {}
+            u32* GetLine(int) override { return Line; }
+        } blank;
+        auto parity = [&](Renderer3D& renderer) {
+            for (int i = 0; i < 60; i++) nds->Inspector.BeginFrame();
+            renderer.RenderFrame(gpu);
+            nds->Inspector.OnRendered(gpu, renderer);
+            std::string report = nds->Inspector.Report();
+            size_t at = report.find("== Parity");
+            return report.substr(at, report.find("\n== ", at + 1) - at);
+        };
+        auto differing = [](const std::string& section) {
+            size_t at = section.find("Last: ");
+            return at == std::string::npos ? -1 : atoi(section.c_str() + at + 6);
+        };
+        // the triangle: 1568 pixels. OpenGL fills polygon edges by its own
+        // rule, not the DS's: a few edge pixels differ, the rest must not
+        std::string same = parity(*r);
+        printf("%s", same.c_str());
+        int n = differing(same);
+        check(same.find("1 checks.") != std::string::npos && n >= 0 && n <= 1568 / 20 && same.find("largest colour difference 0/63") != std::string::npos,
+              "parity: OpenGL (x4) draws the triangle as the software renderer does, but for edge pixels (" + std::to_string(n) + ")");
+        std::string none = parity(blank);
+        printf("%s", none.c_str());
+        check(none.find("2 checks.") != std::string::npos && differing(none) >= 1500 && none.find("....9") != std::string::npos,
+              "parity: a renderer that draws nothing is caught, in the triangle's tiles");
     }
 
     printf(ok ? "ALL OK\n" : "FAILURES\n");

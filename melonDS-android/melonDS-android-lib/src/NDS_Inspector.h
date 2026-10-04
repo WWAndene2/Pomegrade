@@ -26,10 +26,13 @@
 //   and its position (model-view) matrix translation this frame and the previous one;
 // - per paletted texture: how many texels use each palette index (artists
 //   paint each material with its own indices: eyes, trim, glow) (5.3);
+// - with a hardware renderer, once a second the frame is checked against
+//   the software renderer (GPU3D_ParityOracle.h, 5.12 step 6);
 // - Report() writes all of it as text.
 // Off by default; off, it costs nothing (the JIT emits no extra code).
 
 #include "types.h"
+#include "GPU3D_ParityOracle.h"
 
 #include <atomic>
 #include <map>
@@ -40,6 +43,8 @@
 namespace melonDS
 {
 class NDS;
+class GPU;
+class Renderer3D;
 class DMA;
 struct Polygon;
 
@@ -80,6 +85,8 @@ public:
     // the polygon lists were handed to the renderer: this frame's tables
     // become the last frame's
     void OnFlush() noexcept;
+    // the renderer drew this frame's 3D (emulator thread, its context current)
+    void OnRendered(GPU& gpu, Renderer3D& renderer);
     // the cartridge is read (command B7)
     void OnCartRead(u32 addr, u32 len) noexcept;
 
@@ -177,6 +184,10 @@ private:
     u32 CurrentDraw = 0;            // Source::Draw of the object being drawn
     u32 DmaDraws = 0;
     u32 NextObjectId = 1;
+
+    ParityOracle Parity; // under Lock
+    u32 LastParityFrame = 0;
+    static constexpr u32 ParityInterval = 60;
     static constexpr size_t MaxObjects = 4096;
     static constexpr size_t MaxPositionFields = 4096;
 

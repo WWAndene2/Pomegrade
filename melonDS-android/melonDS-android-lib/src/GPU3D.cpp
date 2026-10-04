@@ -3317,6 +3317,8 @@ void GPU3D::VBlank() noexcept
 void GPU3D::VCount215(GPU& gpu) noexcept
 {
     CurrentRenderer->RenderFrame(gpu);
+    if (NDS.Inspector.IsEnabled())
+        NDS.Inspector.OnRendered(gpu, *CurrentRenderer);
 }
 
 void GPU3D::SetRenderXPos(u16 xpos) noexcept
