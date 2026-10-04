@@ -10,3 +10,6 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../tools/remake remake EXCLUDE_F
 
 add_executable(remake_formats_test remake_formats_test.cpp)
 target_link_libraries(remake_formats_test PRIVATE remake)
+
+add_executable(remake_models_test remake_models_test.cpp)
+target_link_libraries(remake_models_test PRIVATE remake)

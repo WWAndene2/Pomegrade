@@ -3,13 +3,21 @@
 //   remake_tool inventory <rom.nds>                   every file and archive member, as JSON
 //   remake_tool extract <rom.nds> <path> <out>        one file (LZ data decompressed)
 //   remake_tool unpack <rom.nds> <path.narc> <dir>    every member of a NARC, decompressed
+//   remake_tool garc <file.garc> <dir>                every sub-file of a 3DS GARC, decompressed
+//   remake_tool textures <file.nsbtx|.nsbmd> <dir>    every texture as PNG
+//   remake_tool model <file.nsbmd> <out.gltf> [tex.nsbtx] [model index]   a DS model as glTF
 #include "Inventory.h"
 #include "Narc.h"
 #include "NdsRom.h"
 #include "NitroCompression.h"
 #include "FormatSniffer.h"
+#include "Garc.h"
+#include "Nsbmd.h"
+#include "Png.h"
 
 #include <cstdio>
+#include <cstdlib>
+#include <memory>
 #include <filesystem>
 #include <string>
 
@@ -18,7 +26,9 @@ using namespace remake;
 static int Usage()
 {
     fprintf(stderr, "usage:\n  remake_tool info <rom.nds>\n  remake_tool inventory <rom.nds>\n"
-                    "  remake_tool extract <rom.nds> <path> <out>\n  remake_tool unpack <rom.nds> <path.narc> <dir>\n");
+                    "  remake_tool extract <rom.nds> <path> <out>\n  remake_tool unpack <rom.nds> <path.narc> <dir>\n"
+                    "  remake_tool garc <file.garc> <dir>\n  remake_tool textures <file.nsbtx|.nsbmd> <dir>\n"
+                    "  remake_tool model <file.nsbmd> <out.gltf> [tex.nsbtx] [model index]\n");
     return 2;
 }
 
@@ -30,6 +40,58 @@ int main(int argc, char** argv)
     const std::string cmd = argv[1];
     try
     {
+        // loose files
+        if (cmd == "garc" && argc >= 4)
+        {
+            const Garc garc(Plain(ReadFile(argv[2])));
+            std::filesystem::create_directories(argv[3]);
+            size_t written = 0;
+            for (size_t i = 0; i < garc.Count(); i++)
+                for (size_t s = 0; s < garc.SubCount(i); s++)
+                {
+                    if (!garc.Has(i, s)) continue;
+                    const Bytes m = Plain(garc.Sub(i, s));
+                    WriteFile((std::filesystem::path(argv[3]) / (std::to_string(i) + (s ? "_" + std::to_string(s) : "") + "." + Sniff(m).Id)).string(), m);
+                    written++;
+                }
+            printf("%zu entries, %zu files\n", garc.Count(), written);
+            return 0;
+        }
+        if (cmd == "textures" && argc >= 4)
+        {
+            const Bytes file = Plain(ReadFile(argv[2]));
+            const long at = Tex0::Find(file);
+            if (at < 0) { fprintf(stderr, "no TEX0 block\n"); return 1; }
+            const Tex0 tex(file, (size_t)at);
+            std::filesystem::create_directories(argv[3]);
+            for (size_t t = 0; t < tex.Textures().size(); t++)
+            {
+                const Tex0Texture& x = tex.Textures()[t];
+                try { WriteFile((std::filesystem::path(argv[3]) / (x.Name + ".png")).string(), EncodePng(x.Format.Width, x.Format.Height, tex.Decode(t))); }
+                catch (const FormatError& e) { fprintf(stderr, "%s: %s\n", x.Name.c_str(), e.what()); }
+            }
+            printf("%zu textures, %zu palettes\n", tex.Textures().size(), tex.Palettes().size());
+            return 0;
+        }
+        if (cmd == "model" && argc >= 4)
+        {
+            const Nsbmd model(Plain(ReadFile(argv[2])));
+            std::unique_ptr<Tex0> tex;
+            Bytes texFile;
+            if (argc >= 5 && std::string(argv[4]) != "-")
+            {
+                texFile = Plain(ReadFile(argv[4]));
+                const long at = Tex0::Find(texFile);
+                if (at >= 0) tex = std::make_unique<Tex0>(texFile, (size_t)at);
+            }
+            const size_t index = argc >= 6 ? (size_t)atoi(argv[5]) : 0;
+            const std::string gltf = ModelToGltf(model, index, tex.get());
+            WriteFile(argv[3], Bytes(gltf.begin(), gltf.end()));
+            printf("%zu models; model %zu: %zu shapes, %zu materials\n", model.Models().size(), index,
+                   model.Models().at(index).Shapes.size(), model.Models().at(index).Materials.size());
+            return 0;
+        }
+
         const NdsRom rom(ReadFile(argv[2]));
         if (cmd == "info")
         {

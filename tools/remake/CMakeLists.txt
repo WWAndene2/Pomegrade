@@ -16,6 +16,14 @@ add_library(remake STATIC
     src/NitroCompression.cpp
     src/FormatSniffer.cpp
     src/Inventory.cpp
+    src/Garc.cpp
+    src/Png.cpp
+    src/NitroTexture.cpp
+    src/GxDisplayList.cpp
+    src/Gltf.cpp
+    src/NitroDictionary.cpp
+    src/Nsbtx.cpp
+    src/Nsbmd.cpp
 )
 target_include_directories(remake PUBLIC src)
 
