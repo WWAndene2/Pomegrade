@@ -245,6 +245,8 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
     }
     result->LightingComposeAOLoc = glGetUniformLocation(result->LightingComposeShader, "uAmbientOcclusion");
     result->LightingComposeBounceLoc = glGetUniformLocation(result->LightingComposeShader, "uBounceIntensity");
+    result->ComposeAttrLoc[0] = glGetUniformLocation(result->LightingComposeShader, "AttrBuf");
+    result->ComposeAttrLoc[1] = glGetUniformLocation(result->LightingComposeShader, "uSceneryId");
 
     // lighting terms at high resolutions (see MaxLightingScale)
     if (!OpenGL::CompileVertexFragmentProgram(result->LightingDownsampleShader,
@@ -294,6 +296,8 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
         for (int i = 0; i < 6; i++)
             result->UpsampleLoc[i] = glGetUniformLocation(result->LightingUpsampleShader, names[i]);
     }
+    result->UpsampleAttrLoc[0] = glGetUniformLocation(result->LightingUpsampleShader, "AttrBuf");
+    result->UpsampleAttrLoc[1] = glGetUniformLocation(result->LightingUpsampleShader, "uSceneryId");
 
 
     memset(&result->ShaderConfig, 0, sizeof(ShaderConfig));
@@ -791,8 +795,9 @@ void GLRenderer::LookupReliefScales(GPU& gpu, int npolys)
 {
     const bool active = ViewDataActive && Relief > 0 && (gpu.GPU3D.RenderDispCnt & (1<<0));
     // the frame's polygon IDs per texture: evidence for the character class
+    // (relief) and characters' softer shade (lighting effects)
     std::unordered_map<u64, u64> textureIds;
-    if (active)
+    if (active || LightingActive)
         for (int i = 0; i < npolys; i++)
         {
             const Polygon* poly = PolygonList[i].PolyData;
@@ -802,7 +807,8 @@ void GLRenderer::LookupReliefScales(GPU& gpu, int npolys)
     int counts[64] = {};
     for (auto& [key, ids] : textureIds)
         for (int n = 0; n < 64; n++) counts[n] += (ids >> n) & 1;
-    MaterialRelief.BeginFrame(HDTextures.TexturesChanged(), MaterialClassifier::SceneryId(counts));
+    FrameSceneryId = MaterialClassifier::SceneryId(counts);
+    MaterialRelief.BeginFrame(HDTextures.TexturesChanged(), FrameSceneryId);
     u32 prevParam = 0, prevPal = 0, prevScale = 0;
     bool havePrev = false;
     for (int i = 0; i < npolys; i++)
@@ -1982,6 +1988,16 @@ void GLRenderer::RenderLighting(const GPU3D& gpu3d)
     glActiveTexture(GL_TEXTURE6);
     glBindTexture(GL_TEXTURE_2D, shadows ? ShadowMapTex : 0);
     glBindSampler(6, ShadowDepthSampler);
+    // characters' softer shade: polygon IDs (the opaque pass's attributes)
+    glActiveTexture(GL_TEXTURE9);
+    glBindTexture(GL_TEXTURE_2D, AttrBufferTex);
+    glUseProgram(LightingComposeShader);
+    glUniform1i(ComposeAttrLoc[0], 9);
+    glUniform1i(ComposeAttrLoc[1], FrameSceneryId);
+    glUseProgram(LightingUpsampleShader);
+    glUniform1i(UpsampleAttrLoc[0], 9);
+    glUniform1i(UpsampleAttrLoc[1], FrameSceneryId);
+    glUseProgram(LightingComposeShader);
     if (LightingFactor == 1)
     {
         SetLightingTermUniforms(ComposeShadowLoc, ComposeReflectionLoc, shadows, gpu3d, (float)ScaleFactor);

@@ -227,6 +227,8 @@ private:
     GLHDTextures HDTextures;
     GLMaterialRelief MaterialRelief;
     u64 WindFrames = 0; // frames rendered with relief, for uWindPhase
+    int FrameSceneryId = -1; // the frame's scenery polygon ID (MaterialClassifier::SceneryId), -1: none
+    GLint ComposeAttrLoc[2] {}, UpsampleAttrLoc[2] {}; // AttrBuf and uSceneryId of the lighting compose and upsample shaders
     u32 NumVertices {};
 
     GLuint VertexArrayID {};

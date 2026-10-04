@@ -1661,6 +1661,21 @@ float ShadowLit(vec3 P, vec3 N)
 
 const char* kLightingComposeFS = kShaderHeader kLightingCommon R"(layout(location = 0) out vec4 oColor;
 
+// Pomegrade: characters (a polygon ID apart from the scenery's) get a third
+// of the shadow and of the ambient occlusion: with one light standing for the
+// game's four, and low-poly heads, full strength split faces in two and
+// smudged them; they still get some shade from what stands over them
+uniform sampler2D AttrBuf; // polygon ID per pixel, r: ID / 63
+uniform int uSceneryId;    // -1: none this frame
+// the vertex attributes keep the ID's low 5 bits (mask 0x1F00C8F0), so the
+// buffer holds ID & 31: IDs that differ only in bit 5 are not told apart
+bool IsCharacter(ivec2 p)
+{
+    int id = int(texelFetch(AttrBuf, p, 0).r * 63.0 + 0.5);
+    return uSceneryId >= 0 && id != (uSceneryId & 31);
+}
+const float CharacterShade = 0.33;
+
 void main()
 {
     ivec2 p = ivec2(gl_FragCoord.xy);
@@ -1695,13 +1710,17 @@ void main()
     float visibility = weight > 0.0 ? sum / weight : ao.r;
     bounce = weight > 0.0 ? bounce / weight : texelFetch(Bounce, p, 0).rgb;
 
+    bool character = IsCharacter(p);
+    if (character) visibility = mix(1.0, visibility, CharacterShade);
     vec3 lit = col.rgb * (uAmbientOcclusion ? visibility : 1.0);
     if (uShadowStrength > 0.0)
     {
         // the share of the colour the main light brought (its cosine on this
         // surface) goes in its shadow; surfaces facing away keep their colour
         float cosLight = max(dot(N, uLightDir), 0.0);
-        lit *= 1.0 - uShadowStrength * cosLight * (1.0 - ShadowLit(P, N));
+        float shadowLit = ShadowLit(P, N);
+        if (character) shadowLit = mix(1.0, shadowLit, CharacterShade);
+        lit *= 1.0 - uShadowStrength * cosLight * (1.0 - shadowLit);
     }
     lit += col.rgb * bounce * uBounceIntensity;
     if (uReflectionStrength > 0.0)
@@ -1863,6 +1882,21 @@ uniform float uReflectionStrength;
 
 layout(location = 0) out vec4 oColor;
 
+// Pomegrade: characters (a polygon ID apart from the scenery's) get a third
+// of the shadow and of the ambient occlusion: with one light standing for the
+// game's four, and low-poly heads, full strength split faces in two and
+// smudged them; they still get some shade from what stands over them
+uniform sampler2D AttrBuf; // polygon ID per pixel, r: ID / 63
+uniform int uSceneryId;    // -1: none this frame
+// the vertex attributes keep the ID's low 5 bits (mask 0x1F00C8F0), so the
+// buffer holds ID & 31: IDs that differ only in bit 5 are not told apart
+bool IsCharacter(ivec2 p)
+{
+    int id = int(texelFetch(AttrBuf, p, 0).r * 63.0 + 0.5);
+    return uSceneryId >= 0 && id != (uSceneryId & 31);
+}
+const float CharacterShade = 0.33;
+
 void main()
 {
     ivec2 p = ivec2(gl_FragCoord.xy);
@@ -1934,6 +1968,7 @@ void main()
     sure /= weight;
     bounce /= weight;
 
+    if (IsCharacter(p)) { visibility = mix(1.0, visibility, CharacterShade); lit = mix(1.0, lit, CharacterShade); }
     vec3 result = col.rgb * (uAmbientOcclusion ? visibility : 1.0);
     if (uShadowStrength > 0.0)
     {

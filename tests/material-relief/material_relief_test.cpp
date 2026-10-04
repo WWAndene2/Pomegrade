@@ -83,6 +83,7 @@ static const double F = 1.0 / std::tan(25.0 * M_PI / 180.0), Aspect = 256.0 / 19
 // texture slot n (8 KB each) of bank A
 static u32 Tex(int n) { return (7u << 26) | (3u << 23) | (3u << 20) | (3u << 16) | (u32)(n * 0x2000 >> 3); }
 static bool ClothScene = false;
+static bool Roof = false; // a scenery roof over the character, casting a shadow on it and on the floor beside it
 
 // a lit floor seen from above, one texel for 1/8 of a unit: texture 0, or
 // in the cloth scene textures 1-3 (scenery, polygon ID 63) and a character
@@ -124,9 +125,21 @@ static void SubmitScene()
         Cmd(0x21, {N10(0) | (N10(0) << 10) | (N10(1) << 20)}); TexCoord(0, 0);   Vertex16(-0.8, 0.6, -3);
         Cmd(0x41);
     }
+    if (Roof)
+    {
+        Cmd(0x29, {(31 << 16) | (63u << 24) | 0xC0 | 0x01}); // both sides
+        Cmd(0x2A, {Tex(1)});
+        Cmd(0x40, {1});
+        Cmd(0x21, {N10(0) | (N10(-1) << 10)}); TexCoord(0, 0);   Vertex16(-2, 0.8, -1.6);
+        Cmd(0x21, {N10(0) | (N10(-1) << 10)}); TexCoord(64, 0);  Vertex16(2, 0.8, -1.6);
+        Cmd(0x21, {N10(0) | (N10(-1) << 10)}); TexCoord(64, 64); Vertex16(2, 0.8, -4.4);
+        Cmd(0x21, {N10(0) | (N10(-1) << 10)}); TexCoord(0, 64);  Vertex16(-2, 0.8, -4.4);
+        Cmd(0x41);
+    }
     Cmd(0x50, {0});
+    // builds the render list, as at the end of a frame (VCount215 is left
+    // out: it reports a display capture, which pauses the lighting effects)
     Nds->GPU.GPU3D.VBlank();
-    Nds->GPU.GPU3D.VCount215(Nds->GPU);
 }
 
 // the top screen as the renderer composites it, at its scale, 0xBBGGRR
@@ -390,6 +403,32 @@ int main()
     printf("character: relief changes skin by %.2f, cloth by %.2f\n", skin, cloth);
     check(skin == 0, "clothes: the character's skin is left as it was");
     check(cloth > 2, "clothes: the cloth gets folds and weave");
+
+    // lighting effects (shadows) with a scenery roof: the scenery (its polygon
+    // ID, 63, is kept as 63 & 31 in the attribute buffer) still gets the full
+    // shadow - characters get a third of it, checked on Joker's hero (this
+    // scene's character stands out of the roof's shadow)
+    Roof = true;
+    r->SetRelief(0);
+    auto plain = Frame(*r, gpu);
+    r->SetShadows(true);
+    auto shaded = Frame(*r, gpu);
+    r->SetShadows(false);
+    Roof = false;
+    SavePng("roof_plain.png", plain, w);
+    SavePng("roof_shadow.png", shaded, w);
+    auto px = [&](double x, double z) { return (int)std::lround((x * F / Aspect / -z + 1) * 128 * scale); };
+    auto py = [&](double y, double z) { return (int)std::lround((1 - y * F / -z) * 96 * scale); };
+    // mean darkening (green, plain minus shaded) over a box of the screen
+    auto darkening = [&](int x0, int x1, int y0, int y1) {
+        double s = 0; long n = 0;
+        for (int y = y0; y < y1; y++) for (int x = x0; x < x1; x++)
+        { s += (double)((plain[y * w + x] >> 8) & 0xFF) - (double)((shaded[y * w + x] >> 8) & 0xFF); n++; }
+        return s / n;
+    };
+    const double floorShade = darkening(px(-1.8, -4.0), px(-1.2, -4.0), py(-1, -4.4), py(-1, -3.6)); // the light travels towards -x
+    printf("shadow of the roof: floor darkened by %.2f\n", floorShade);
+    check(floorShade > 4, "lighting: the roof shadows the scenery floor fully (not taken for a character)");
 
     printf(ok ? "ALL OK\n" : "FAILURES\n");
     return ok ? 0 : 1;
