@@ -16,6 +16,8 @@
 //   from texcoords, normals: a fake reflection, positions: a projected
 //   texture) and whether the texture matrix moves from frame to frame (a
 //   scrolling texture: water, lava, conveyors) (DS_ENGINE_REMAKE.md 5.3);
+// - per paletted texture: how many texels use each palette index (artists
+//   paint each material with its own indices: eyes, trim, glow) (5.3);
 // - Report() writes all of it as text.
 // Off by default; off, it costs nothing (the JIT emits no extra code).
 
@@ -111,6 +113,9 @@ private:
         std::vector<TraceEntry> Trace;
         bool TraceTruncated = false;
         std::map<u64, TexUse> Textures;     // (site << 32) | texture parameters
+        // palette-index histograms of the paletted textures drawn, by texture
+        // parameters (address, size, format); texel counts per index
+        std::map<u32, std::vector<u32>> PaletteHistograms;
     };
     struct CartFile { u32 Start, End, Id; };
 
@@ -142,6 +147,9 @@ private:
     mutable std::mutex Lock; // Last, FileReads, Files, FileNames
 
     u16 NewSource(const Source& source) noexcept;
+    // texel counts per palette index of a paletted texture in VRAM (empty
+    // for direct colour and compressed formats)
+    std::vector<u32> PaletteHistogram(u32 texParam) const;
     [[nodiscard]] std::string FileName(u32 id) const;
 };
 

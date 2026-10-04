@@ -4,6 +4,8 @@ Custom engine based on melonDS, hardware limits removed, OpenGL backend, target 
 
 > This is a restructured version of the original notes. Content is kept; sections are regrouped into parts that follow the logical order of work, all cross-references were renumbered, and the three overlapping DS-limit sections (old 21, 21B and 24) are merged into section 5 with duplicate ideas combined. Appendix A maps old numbers to new ones.
 
+> **Status in Pomegrade** (updated 2026-10-04): ✅ done, 🟡 partly done, each with what was measured. Done means built and tested on the desktop (`tests/`, and a save state of Dragon Quest Monsters: Joker); nothing below has been tried on a phone yet. Details and history: `DEVELOPMENT_NOTE.md` and the git log.
+
 ---
 
 ## How to read this document
@@ -385,7 +387,7 @@ The ideas below recover lost information (5.2 and 5.3), reinterpret design trick
 
 **Unify the 2D/3D split.** The DS can show the 3D image as background 0 and mix it with sprites and layers. Resolve the whole stack into one scene with true depth (section 15), where HUD parts and sprites can sit in front of, behind or inside 3D objects, not just on top.
 
-**Rebuild the effect stack in float.** Fixed-point vertices cause jitter, wobbling edges and z-fighting at distance. Capturing model-space vertices and projecting in floating point removes most of these without any asset change.
+✅ **Rebuild the effect stack in float.** *(High-precision geometry: sub-pixel vertex positions, frame-to-frame jitter 27.2 px → 3.0 px.)* Fixed-point vertices cause jitter, wobbling edges and z-fighting at distance. Capturing model-space vertices and projecting in floating point removes most of these without any asset change.
 
 **Reversed-Z float depth**
 - Fact: the DS depth range is small, and the game's fog, LOD and culling hide the lack of precision.
@@ -399,7 +401,7 @@ The ideas below recover lost information (5.2 and 5.3), reinterpret design trick
 - Gain: glass, water, ghosts and effects look identical in behavior to the original, with none of the popping or wrong ordering that a naive sort introduces at high resolution.
 - Risk: weighted blended OIT is approximate. Keep an exact path (sorted by submission order) for important translucent objects, and use OIT for particles.
 
-**Decal and coplanar ordering**
+✅ **Decal and coplanar ordering** *(Depth-equal decals in the OpenGL renderer: DS margin applied, each vertex given its plane's depth at its rounded position; `tests/decals/`.)*
 - Fact: games stack decals (road markings, blob shadows, signs, floor patterns) on the same plane and rely on draw order and the depth-equal polygon flag, because the DS depth buffer is coarse and does not z-fight the same way.
 - Idea: detect groups of coplanar polygons in a draw. Give each one a depth bias by submission order (or draw them as projected decals), and honor the depth-equal flag instead of the default depth test.
 - Gain: no flickering or disappearing decals when rendering at high resolution with float depth.
@@ -439,7 +441,7 @@ The ideas below recover lost information (5.2 and 5.3), reinterpret design trick
 
 #### 5.6 Use the emulator's superpowers
 
-**Transform interpolation and exact motion vectors**
+🟡 **Transform interpolation and exact motion vectors** *(Frame generation interpolates polygons between frames, with no added latency; motion vectors for TAA and motion blur are not done.)*
 - Fact: the game submits matrices for frame N and frame N+1, and you capture current and previous model and view matrices. 2D layers have scroll deltas and sprite positions.
 - Idea: because you hold the objects (5.2) you can render in-between frames by interpolating bone and object transforms, which is true motion interpolation with no pixel smearing and no optical flow. The same exact per-pixel motion drives TAA and motion blur (11.3). For 2D layers, use scroll and OAM deltas.
 - Gain: many games animate at 30 Hz, so this alone makes them feel like 60, 120 or 144 Hz. Combines with the decoupled render rate in section 18.6.
@@ -533,11 +535,11 @@ The DS design assumes things that no longer have to hold:
 
 #### 5.10 Cheap experiments
 
-1. Log the ARM9 program counter on every GX command write and group draws by call site. Check whether categories fall out cleanly.
-2. Dump the matrix push/pop trace for one monster and check that a skeleton tree can be rebuilt.
-3. Color every draw by polygon ID and look at what the game uses it for.
-4. Compare the palette index histograms of two textures from the same monster to see whether indices are consistent.
-5. Interpolate one scene using captured matrix motion and look for artifacts at turns and cuts.
+1. ✅ Log the ARM9 program counter on every GX command write and group draws by call site. Check whether categories fall out cleanly. *(Inspector. In Joker they don't: 779 of 790 polygons go through one SDK routine that sends queued display lists; the display list is the identity.)*
+2. 🟡 Dump the matrix push/pop trace for one monster and check that a skeleton tree can be rebuilt. *(The trace is in the inspector report; the skeleton rebuild is not done.)*
+3. 🟡 Color every draw by polygon ID and look at what the game uses it for. *(The view exists; Joker's harbour scene uses 6 IDs, what each means is not analysed yet.)*
+4. 🟡 Compare the palette index histograms of two textures from the same monster to see whether indices are consistent. *(Histograms are in the report. In Joker's scene the 256-colour textures use nearly every index, as colour ramps rather than materials; comparing one monster's textures is not done.)*
+5. ✅ Interpolate one scene using captured matrix motion and look for artifacts at turns and cuts. *(Frame generation: polygons paired from frame to frame, cuts detected; see the enhancement table in `DEVELOPMENT_NOTE.md`.)*
 6. Fork a savestate, move the game's camera by patching its RAM struct, and see whether geometry for the new angle appears.
 7. Check whether DQMJ uses per-scanline affine changes or display capture at all, and where.
 
@@ -551,12 +553,12 @@ The DS design assumes things that no longer have to hold:
 
 #### 5.12 Suggested build order
 
-1. Logging and quick looks (days, not weeks): call-site and display-list logging with an overlay, polygon-ID color view, palette-index histograms, one matrix push/pop trace. They show how each game really draws and make the classifier and manifest much stronger.
-2. Texgen detection and decal ordering. Cheap, and they prevent visible errors.
+1. ✅ Logging and quick looks (days, not weeks): call-site and display-list logging with an overlay, polygon-ID color view, palette-index histograms, one matrix push/pop trace. They show how each game really draws and make the classifier and manifest much stronger. *(The inspector: in-game menu > Inspector, colour views and a saved report; also the caller (LR) of each site and the cartridge files read.)*
+2. ✅ Texgen detection and decal ordering. Cheap, and they prevent visible errors. *(Texgen modes and scrolling textures in the report. Decals: OpenGL drew 0 of the DS's 770 decal pixels in a test scene; fixed, none missing now.)*
 3. RAM-map discovery, because it automates the largest manual task.
 4. Persistent object identity and previous-frame matrices (also needed by TAA, 11.3).
-5. Transform interpolation and frame generation for 30 to 60+ Hz.
-6. Parity oracle, so every later change can be checked.
+5. ✅ Transform interpolation and frame generation for 30 to 60+ Hz. *(Frame generation, 120 fps, OpenGL renderer.)*
+6. 🟡 Parity oracle, so every later change can be checked. *(Desktop tests compare OpenGL against the software renderer; not yet a tool inside the app.)*
 7. Material registers, polygon IDs and palette-index segmentation feeding the classifier (section 7).
 8. Translucency rules and reversed-Z, before more rendering features depend on the old assumptions.
 9. Display-capture interception for the first effect found in the game, LOD and fog inversion, procedural dressing.

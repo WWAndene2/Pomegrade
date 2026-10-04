@@ -351,8 +351,39 @@ void Inspector::OnPolygon(Polygon& poly, u16 source, s32 texX, s32 texY) noexcep
     }
 }
 
+std::vector<u32> Inspector::PaletteHistogram(u32 texParam) const
+{
+    // bits per texel and index mask by format: A3I5, 4, 16, 256 colours, -, A5I3
+    static const int bits[8] = {0, 8, 2, 4, 8, 0, 8, 0};
+    static const u32 mask[8] = {0, 0x1F, 0x3, 0xF, 0xFF, 0, 0x7, 0};
+    const u32 format = (texParam >> 26) & 7;
+    if (!bits[format]) return {};
+    const u32 width = 8u << ((texParam >> 20) & 7), height = 8u << ((texParam >> 23) & 7);
+    const u32 addr = (texParam & 0xFFFF) << 3;
+    std::vector<u32> counts(mask[format] + 1, 0);
+    const u32 texels = width * height;
+    for (u32 i = 0; i < texels; i++)
+    {
+        u32 bit = i * bits[format];
+        u8 byte = NDS.GPU.ReadVRAM_Texture<u8>(addr + (bit >> 3));
+        counts[(byte >> (bit & 7)) & mask[format]]++;
+    }
+    return counts;
+}
+
 void Inspector::OnFlush() noexcept
 {
+    // palette indices of each paletted texture drawn this frame
+    for (auto& [key, use] : Current.Textures)
+    {
+        u32 param = (u32)key;
+        if (!Current.PaletteHistograms.count(param))
+        {
+            std::vector<u32> h = PaletteHistogram(param);
+            if (!h.empty()) Current.PaletteHistograms[param] = std::move(h);
+        }
+    }
+
     // scrolling: the translation compared with the frame before
     std::map<u64, std::pair<s32, s32>> translations;
     for (auto& [key, use] : Current.Textures)
@@ -379,6 +410,7 @@ void Inspector::OnFlush() noexcept
     Current.Trace.clear();
     Current.TraceTruncated = false;
     Current.Textures.clear();
+    Current.PaletteHistograms.clear();
 }
 
 void Inspector::OnCartRead(u32 addr, u32 len) noexcept
@@ -508,6 +540,28 @@ std::string Inspector::Report() const
         snprintf(fmt, sizeof(fmt), "%dx%d f%u", 8 << ((param >> 20) & 7), 8 << ((param >> 23) & 7), (param >> 26) & 7);
         add("%-22s %08X  %-11s %6u %8u %7u %9u  %s\n", site((u32)(key >> 32)).c_str(), (param & 0xFFFF) << 3, fmt,
             use.Polygons[0], use.Polygons[1], use.Polygons[2], use.Polygons[3], scroll);
+    }
+
+    add("\n== Palette indices of paletted textures (%zu) ==\n", Last.PaletteHistograms.size());
+    add("Texels per palette index, most used first (index:percent). Indices an artist gives one material (eyes, trim, glow)\n");
+    add("show as their own entries; textures of one model using the same indices for the same parts can share masks.\n");
+    for (auto& [param, counts] : Last.PaletteHistograms)
+    {
+        u32 total = 0, used = 0;
+        std::vector<std::pair<u32, u32>> order;
+        for (u32 i = 0; i < counts.size(); i++)
+        {
+            total += counts[i];
+            if (counts[i]) { used++; order.push_back({counts[i], i}); }
+        }
+        std::sort(order.begin(), order.end(), [](auto& a, auto& b) { return a.first > b.first || (a.first == b.first && a.second < b.second); });
+        std::string top;
+        for (size_t k = 0; k < order.size() && k < 12; k++)
+        {
+            char b[24]; snprintf(b, sizeof(b), " %u:%u%%", order[k].second, (order[k].first * 100 + total / 2) / total); top += b;
+        }
+        add("%08X  %dx%d f%u  %u of %zu indices:%s%s\n", (param & 0xFFFF) << 3, 8 << ((param >> 20) & 7), 8 << ((param >> 23) & 7),
+            (param >> 26) & 7, used, counts.size(), top.c_str(), order.size() > 12 ? " ..." : "");
     }
 
     add("\n== Cartridge reads since the inspector was turned on (%zu%s) ==\n", FileReads.size(), FileReadsTruncated ? ", list full" : "");

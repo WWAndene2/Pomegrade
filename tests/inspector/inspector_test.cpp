@@ -353,6 +353,28 @@ int main()
         check(at != std::string::npos && report.substr(at, end - at).find("+") == std::string::npos, "still: no scrolling");
     }
 
+    // 4c. palette indices of a paletted texture: 8x8, 16 colours (4 bits per
+    // texel), 48 texels on index 1, 16 on index 5
+    {
+        auto nds = MakeNDS(false);
+        nds->GPU.MapVRAM_AB(0, 0x83); // bank A: texture slot 0
+        u8* vram = nds->GPU.VRAM_A;
+        for (int i = 0; i < 64; i += 2)
+        {
+            u8 lo = i < 48 ? 1 : 5, hi = (i + 1) < 48 ? 1 : 5;
+            vram[i / 2] = lo | (hi << 4);
+        }
+        nds->Inspector.SetEnabled(true);
+        nds->Inspector.BeginFrame();
+        Polygon poly {};
+        poly.TexParam = (3u << 26); // 16 colours, 8x8, address 0
+        nds->Inspector.OnPolygon(poly, 0, 0, 0);
+        nds->Inspector.OnFlush();
+        std::string report = nds->Inspector.Report();
+        check(report.find("00000000  8x8 f3  2 of 16 indices: 1:75% 5:25%") != std::string::npos, "palette indices: 2 of 16 used, 75% and 25%");
+        if (!ok) printf("%s\n", report.c_str());
+    }
+
     // 4. cartridge reads named after NitroFS files
     {
         auto nds = MakeNDS(false);
