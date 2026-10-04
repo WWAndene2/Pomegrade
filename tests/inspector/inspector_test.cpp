@@ -12,6 +12,7 @@
 #include "GPU3D_OpenGL.h"
 #include "GPU3D_MaterialClassifier.h"
 #include "GPU3D_SkeletonRecovery.h"
+#include "GPU3D_LightRecovery.h"
 #include "GPU3D_Soft.h"
 #include "NDSCart.h"
 #include "NDS_Inspector.h"
@@ -571,7 +572,24 @@ int main()
         check(shape, "skeletons: 2 models (split at the projection load), 5 joints each: chain, scratch slot, billboard, skinned vertices");
     }
 
-    // 4c. palette indices    // 4c. palette indices    // 4c. palette indices of a paletted texture: 8x8, 16 colours (4 bits per
+    // 4i. light recovery: LIGHT_VECTOR (light in bits 30-31, x/y/z 10-bit
+    // signed 1.9) and LIGHT_COLOR; a setting is a direction and a colour
+    {
+        auto vec = [](u32 light, int x, int y, int z) { return (light << 30) | ((u32)z & 0x3FF) << 20 | ((u32)y & 0x3FF) << 10 | ((u32)x & 0x3FF); };
+        std::vector<GeometryCommand> t = {
+            {0x32, vec(2, 0, 0, -512), 1},           // light 2 direction, no colour yet: nothing
+            {0x33, (2u << 30) | 0x7FFF, 1},          // white: light 2 (0, 0, -1) white
+            {0x32, vec(2, 0, 0, -512), 2},           // the same again: counted
+            {0x33, (2u << 30) | 0x001F, 3},          // red: a new setting
+            {0x32, vec(0, 256, -256, 0), 4}, {0x33, 0x03E0, 4},  // light 0 (0.5, -0.5, 0) green
+        };
+        const std::vector<LightSetting> l = RecoverLights(t);
+        check(l.size() == 3 && l[0].Light == 2 && l[0].Direction[2] == -1.0f && l[0].Colour == 0x7FFF && l[0].Times == 2 &&
+              l[1].Colour == 0x001F && l[1].Times == 1 && l[2].Light == 0 && l[2].Direction[0] == 0.5f && l[2].Direction[1] == -0.5f && l[2].Colour == 0x03E0,
+              "lights: directions decoded (signed 1.9), settings in order, a repeat counted");
+    }
+
+    // 4c. palette indices    // 4c. palette indices    // 4c. palette indices    // 4c. palette indices of a paletted texture: 8x8, 16 colours (4 bits per
     // texel), 48 texels on index 1, 16 on index 5
     {
         auto nds = MakeNDS(false);

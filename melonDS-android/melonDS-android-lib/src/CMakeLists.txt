@@ -50,6 +50,7 @@ add_library(core STATIC
     GPU3D_ParityOracle.cpp
     GPU3D_MaterialClassifier.cpp
     GPU3D_SkeletonRecovery.cpp
+    GPU3D_LightRecovery.cpp
     NDSCart.cpp
     NDSCartR4.cpp
     Platform.h

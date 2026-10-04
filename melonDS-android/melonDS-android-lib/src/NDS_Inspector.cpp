@@ -5,6 +5,7 @@
 #include "DMA.h"
 #include "GPU3D.h"
 #include "GPU3D_SkeletonRecovery.h"
+#include "GPU3D_LightRecovery.h"
 #include "xxhash/xxhash.h"
 
 #include <algorithm>
@@ -364,6 +365,8 @@ void Inspector::OnPolygon(Polygon& poly, u16 source, s32 texX, s32 texY, const s
         list.Polygons++;
     }
     Current.PolygonIds[(poly.Attr >> 24) & 0x3F]++;
+    for (int i = 0; i < 4; i++)
+        if (poly.Attr >> i & 1) Current.LitPolygons[i]++;
     Current.Polygons++;
 
     // textured polygons: texgen mode and texture matrix (address, size,
@@ -496,6 +499,7 @@ void Inspector::OnFlush() noexcept
     Current.Sites.clear();
     Current.Lists.clear();
     memset(Current.PolygonIds, 0, sizeof(Current.PolygonIds));
+    memset(Current.LitPolygons, 0, sizeof(Current.LitPolygons));
     Current.Polygons = 0;
     Current.Trace.clear();
     Current.TraceTruncated = false;
@@ -888,6 +892,16 @@ std::string Inspector::Report() const
         std::vector<GeometryCommand> trace;
         trace.reserve(Last.Trace.size());
         for (const TraceEntry& e : Last.Trace) trace.push_back({e.Command, e.Param, e.Site});
+        const std::vector<LightSetting> lights = RecoverLights(trace);
+        add("\n== Lights (%zu settings) ==\n", lights.size());
+        add("Direction as sent (before the vector matrix: often the camera's), colour 0-31, how often sent this frame.\n");
+        add("Polygons lit by each light:");
+        for (int i = 0; i < 4; i++) add(" %d: %u", i, Last.LitPolygons[i]);
+        add(" (of %u)\n", Last.Polygons);
+        for (const LightSetting& l : lights)
+            add("light %d  direction %+.3f %+.3f %+.3f  colour %2u,%2u,%2u  %u times, first at %s\n", l.Light, l.Direction[0], l.Direction[1], l.Direction[2],
+                l.Colour & 0x1F, (l.Colour >> 5) & 0x1F, (l.Colour >> 10) & 0x1F, l.Times, site(l.FirstSite).c_str());
+
         const std::vector<Skeleton> skeletons = RecoverSkeletons(trace);
         add("\n== Skeletons (%zu models with 3 joints or more%s) ==\n", skeletons.size(), Last.TraceTruncated ? ", trace truncated" : "");
         add("Joints from the matrix stack: a joint is a matrix stored in a slot (MTX_STORE) after its parent's was restored\n");

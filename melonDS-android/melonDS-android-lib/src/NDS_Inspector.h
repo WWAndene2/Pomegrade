@@ -35,6 +35,7 @@
 //   the fog settings (5.5);
 // - the joint trees of the last frame's skinned models, from its trace
 //   (GPU3D_SkeletonRecovery.h, step 10);
+// - the lights the frame set, from its trace (GPU3D_LightRecovery.h, step 11);
 // - Report() writes all of it as text.
 // Off by default; off, it costs nothing (the JIT emits no extra code).
 
@@ -158,6 +159,7 @@ private:
         std::map<u32, SiteStats> Sites;
         std::map<u32, ListStats> Lists;     // by hash
         u32 PolygonIds[64] = {};
+        u32 LitPolygons[4] = {}; // polygons with each light enabled
         u32 Polygons = 0;
         std::vector<TraceEntry> Trace;
         bool TraceTruncated = false;
