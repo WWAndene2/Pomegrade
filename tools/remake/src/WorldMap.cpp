@@ -90,7 +90,7 @@ Bytes WorldMap::CollisionPng() const
     return EncodePng(w, h, rgba);
 }
 
-std::string WorldMap::Gltf(const Tex0* tex, const Narc* buildings, const Tex0* buildingTex, float* cellSizeOut) const
+std::string WorldMap::Gltf(const Tex0* tex, const Narc* buildings, const Tex0* buildingTex, float* cellSizeOut, float scale) const
 {
     // the terrain models, read once, and the cell size they span
     std::map<size_t, Nsbmd> terrain;
@@ -142,7 +142,7 @@ std::string WorldMap::Gltf(const Tex0* tex, const Narc* buildings, const Tex0* b
             try { AppendModel(*it->second, 0, buildingTex, at, parts, materials); } catch (const FormatError&) {}
         }
     }
-    return WriteGltf(parts, materials);
+    return WriteGltf(parts, materials, scale);
 }
 
 }

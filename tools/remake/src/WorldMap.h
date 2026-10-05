@@ -37,9 +37,10 @@ struct WorldMap
     std::string Json() const;
     Bytes CollisionPng() const;
     // tex: the area's map textures (map pieces usually carry none);
-    // buildings: the building models' NARC, by id; buildingTex: their textures
+    // buildings: the building models' NARC, by id; buildingTex: their textures;
+    // scale: applied to the whole scene (N3dsWorld::Scale for ORAS's)
     std::string Gltf(const Tex0* tex, const Narc* buildings = nullptr, const Tex0* buildingTex = nullptr,
-                     float* cellSize = nullptr) const;
+                     float* cellSize = nullptr, float scale = 1.0f) const;
 };
 
 }

@@ -11,6 +11,9 @@
 //   remake_tool world <map_matrix.narc> <matrix index> <land_data.narc> <out dir>
 //                     [map textures.nsbtx|-] [buildings.narc|-] [building textures.nsbtx|-]
 //                     the world: world.json, collision.png, world.gltf
+//   remake_tool oras-world <same arguments as world>
+//                     the world translated to Omega Ruby / Alpha Sapphire's scale and 40-tile
+//                     map pieces: world_oras.json, world_oras.gltf
 #include "Inventory.h"
 #include "Narc.h"
 #include "NdsRom.h"
@@ -20,6 +23,7 @@
 #include "Nsbmd.h"
 #include "Png.h"
 #include "TextureIndex.h"
+#include "N3dsWorld.h"
 #include "WorldMap.h"
 
 #include <cstdio>
@@ -40,7 +44,8 @@ static int Usage()
                     "  remake_tool model <file.nsbmd> <out.gltf> [tex.nsbtx] [model index]\n"
                     "  remake_tool texindex <rom.nds>\n  remake_tool identify <rom.nds> <dump dir>\n"
                     "  remake_tool world <map_matrix.narc> <matrix index> <land_data.narc> <out dir>\n"
-                    "                    [map textures.nsbtx|-] [buildings.narc|-] [building textures.nsbtx|-]\n");
+                    "                    [map textures.nsbtx|-] [buildings.narc|-] [building textures.nsbtx|-]\n"
+                    "  remake_tool oras-world <same arguments as world>\n");
     return 2;
 }
 
@@ -103,7 +108,7 @@ int main(int argc, char** argv)
                    model.Models().at(index).Shapes.size(), model.Models().at(index).Materials.size());
             return 0;
         }
-        if (cmd == "world" && argc >= 6)
+        if ((cmd == "world" || cmd == "oras-world") && argc >= 6)
         {
             const Narc matrices(Plain(ReadFile(argv[2])));
             const WorldMap world(MapMatrix::Read(Plain(matrices.Member((size_t)atoi(argv[3])))), Narc(Plain(ReadFile(argv[4]))));
@@ -122,6 +127,24 @@ int main(int argc, char** argv)
             if (given(7)) buildings = std::make_unique<Narc>(Plain(ReadFile(argv[7])));
             const std::filesystem::path out(argv[5]);
             std::filesystem::create_directories(out);
+            if (cmd == "oras-world")
+            {
+                // the DS tile, measured from the terrain models: the scene first (it measures them)
+                float cell = 0;
+                world.Gltf(nullptr, nullptr, nullptr, &cell);
+                const N3dsWorld oras = N3dsWorld::Translate(world, cell / LandTiles);
+                const std::string json = oras.Json();
+                WriteFile((out / "world_oras.json").string(), Bytes(json.begin(), json.end()));
+                const std::string gltf = world.Gltf(tex.get(), buildings.get(), buildingTex.get(), nullptr, oras.Scale());
+                WriteFile((out / "world_oras.gltf").string(), Bytes(gltf.begin(), gltf.end()));
+                size_t placed = 0;
+                for (const N3dsPiece& p : oras.Pieces) placed += p.Buildings.size();
+                printf("matrix %s: DS tile %g units, ORAS %ux%u pieces of %u tiles (%zu used), scale %g, %zu buildings\n",
+                       world.Matrix.Name.c_str(), oras.NdsTile, oras.Width, oras.Height, N3dsMapTiles, oras.Pieces.size(), oras.Scale(), placed);
+                if (oras.NdsTile != NdsTileUnits)
+                    fprintf(stderr, "warning: DS tile measured %g units, not %g: check the terrain models\n", oras.NdsTile, NdsTileUnits);
+                return 0;
+            }
             const std::string json = world.Json();
             WriteFile((out / "world.json").string(), Bytes(json.begin(), json.end()));
             WriteFile((out / "collision.png").string(), world.CollisionPng());
