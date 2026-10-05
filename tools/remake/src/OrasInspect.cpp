@@ -239,24 +239,34 @@ std::string InspectMatrices(N3dsRom& game)
             const Bytes& f = c.Files.at(0);
             const size_t w = U16(f, 4), h = U16(f, 6), zw = 4 * w, zh = 4 * h;
             const size_t zoneAt = 8 + 2 * w * h, end = zoneAt + 2 * zw * zh;
-            std::string layout = U16(f, 0) == 1 && U16(f, 2) == 0 && end <= f.size() ? "ok" : "BAD";
-            for (size_t k = end; k + 1 < f.size() && layout == "ok"; k += 2) if (U16(f, k) != 0xFFFF) layout = "BAD tail";
+            // two layouts: the piece grid alone, padded to 4 bytes (interiors), or the piece grid, the zone grid and a third
+            // grid of width x height words (0xFFFF in most matrices, data in a few: unknown)
+            const bool short_ = f.size() == ((8 + 2 * w * h + 3) & ~(size_t)3);
+            const bool full = f.size() == end + 2 * w * h;
+            std::string layout = U16(f, 0) != 1 || U16(f, 2) != 0 ? "BAD header" : short_ ? "piece grid only" : full ? "ok" : "BAD size";
+            if (full)
+            {
+                bool third = false;
+                for (size_t k = end; k + 1 < f.size(); k += 2) if (U16(f, k) != 0xFFFF) third = true;
+                if (third) layout = "ok, third grid used";
+            }
+            const bool hasZones = full;
             size_t pieces = 0;
             std::set<int> zones;
-            if (end <= f.size())
+            for (size_t k = 0; k < w * h && 8 + 2 * k + 1 < f.size(); k++) if (U16(f, 8 + 2 * k) != 0xFFFF) pieces++;
+            if (hasZones)
             {
-                for (size_t k = 0; k < w * h; k++) if (U16(f, 8 + 2 * k) != 0xFFFF) pieces++;
                 for (size_t k = 0; k < zw * zh; k++) if (U16(f, zoneAt + 2 * k) != 0xFFFF) zones.insert(U16(f, zoneAt + 2 * k));
             }
             size_t on = 0, all = 0;
             for (const Spot& sp : byMatrix[(int)m])
             {
-                if (end > f.size()) break;
+                if (!hasZones) break;
                 const int bx = (int)(sp.X / 10), bz = (int)(sp.Z / 10);
                 all++;
                 if (bx >= 0 && bz >= 0 && (size_t)bx < zw && (size_t)bz < zh && U16(f, zoneAt + 2 * (bz * zw + bx)) == sp.Zone) on++;
             }
-            if (layout != "ok") layoutBad++;
+            if (layout.rfind("BAD", 0) == 0) layoutBad++;
             entitiesOn += on; entitiesAll += all;
             maxCells = std::max(maxCells, w * h); maxFile0 = std::max(maxFile0, f.size());
             sizeByCells[w * h] = f.size();
