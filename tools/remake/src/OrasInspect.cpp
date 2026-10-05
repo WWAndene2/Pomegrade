@@ -65,7 +65,12 @@ std::string InspectZone(N3dsRom& game, size_t zone)
     s += F("  %zu furniture, %zu characters, %zu warps, %zu triggers, %zu of the fifth kind\n", z.Furniture.size(), z.Characters.size(), z.Doors.size(), z.Triggers.size(), z.Others.size());
     for (const ZoneFurniture& f : z.Furniture) s += F("    furniture at tile (%d, %d)\n", f.TileX(), f.TileZ());
     for (const ZoneCharacter& c : z.Characters) s += F("    character %u: model %d at tile (%d, %d)\n", c.Raw[0], c.Model(), c.TileX(), c.TileZ());
-    for (const ZoneDoor& d : z.Doors) s += F("    warp to zone %d at tile (%.1f, %.1f)\n", d.DestZone(), d.TileX(), d.TileZ());
+    for (const ZoneDoor& d : z.Doors)
+    {
+        s += F("    warp to zone %d at tile (%.1f, %.1f), words:", d.DestZone(), d.TileX(), d.TileZ());
+        for (uint16_t w : d.Raw) s += F(" %u", w);
+        s += "\n";
+    }
     for (const ZoneTrigger& t : z.Triggers) s += F("    trigger at tile (%d, %d)\n", t.TileX(), t.TileZ());
     s += Script("initialisation script", z.InitScript);
     s += Script("zone script", z.Script);
