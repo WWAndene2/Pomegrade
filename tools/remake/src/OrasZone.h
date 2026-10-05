@@ -30,7 +30,13 @@ namespace remake
 // in pixels (a pixel is 1/18 of a tile, a tile's centre is at +9) x at 4, z at 6; triggers: tile x, z at 6, 7.
 struct ZoneFurniture  { std::array<uint16_t, 10> Raw{}; int TileX() const { return Raw[4]; } int TileZ() const { return Raw[5]; } };
 struct ZoneCharacter  { std::array<uint16_t, 24> Raw{}; int Model() const { return Raw[1]; } int TileX() const { return Raw[20]; } int TileZ() const { return Raw[21]; } };
-struct ZoneDoor       { std::array<uint16_t, 12> Raw{}; int DestZone() const { return Raw[0]; } float TileX() const { return Raw[4] / 18.0f; } float TileZ() const { return Raw[6] / 18.0f; } };
+// warps, seen on zones 6, 7, 8, 24, 30 (house doors and the edge warps joining overworld matrices): word 1 the destination
+// zone's warp the player arrives at; word 2's low byte the kind (1 a door, 2 an edge on the section's east side, 3 its west
+// side; north and south not seen), its high byte 3 for doors, 5 for edges; word 5 the height in pixels, signed; word 8 the
+// span in tiles along the edge from the warp's tile (1 for doors; an edge 19 tiles long is two warps of 15 and 4, each
+// pointing at the other side's warp of the same index)
+struct ZoneDoor       { std::array<uint16_t, 12> Raw{}; int DestZone() const { return Raw[0]; } int DestWarp() const { return Raw[1]; } int Kind() const { return Raw[2] & 0xFF; }
+                        float TileX() const { return Raw[4] / 18.0f; } float Height() const { return (int16_t)Raw[5] / 18.0f; } float TileZ() const { return Raw[6] / 18.0f; } int Span() const { return Raw[8]; } };
 struct ZoneTrigger    { std::array<uint16_t, 12> Raw{}; int TileX() const { return Raw[6]; } int TileZ() const { return Raw[7]; } };
 struct ZoneOther      { std::array<uint16_t, 12> Raw{}; };
 
