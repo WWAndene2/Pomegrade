@@ -272,7 +272,8 @@ static void AddOutline(BchGeometry& g, const ShapeChain& chain, const float tip[
 // A white picket fence as ORAS builds one (piece 153's c103_saku mesh, measured): vertical panels 14 units high standing on the
 // ground, the texture (two pickets) once a panel, panels about 24 units long (23.1 and 24.6 measured), each made of two sheets
 // 0.25 apart facing out of either side, the front one's vertex colour white, the back one's 0.78. Here a panel run follows each
-// straight row or column of fence tiles, from the first tile's centre to the last's.
+// straight row or column of fence tiles, from the first tile's centre to the last's; a lone fence tile (no fence beside it) has
+// no run and so no panel (Twinleaf's fences are closed rectangles: none is lone).
 static void AddFence(BchGeometry& g, const std::vector<std::string>& vis, int N, float corner)
 {
     auto fence = [&](int c, int r) { return c >= 0 && r >= 0 && c < N && r < N && vis[r][c] == 'F'; };
@@ -773,21 +774,23 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     // the terrain model's name tells its place (world<matrix>_<x>_<y>): Petalburg's world02_02_03 becomes
     // Littleroot's world01_02_04, every copy (model and nodes)
     Bytes terrain = BchReplaceString(BchReplaceGeometry(petalTerrain, 0, list), pm.Name, Bch::Read(BinLinker::Read(lr, "GR").Files[1]).Models[0].Name);
+    auto show = [&](size_t mesh, int slot, const std::string& texture) {
+        const BchMaterial& m = pm.Materials[pm.Meshes[mesh].Material];
+        if (!texture.empty() && m.Texture[slot] != texture) terrain = BchSetTextureName(terrain, 0, pm.Meshes[mesh].Material, slot, texture);
+    };
     // the outline mesh's material shows chip_alpha (grass blades), as Littleroot's does, in place of Petalburg's touka_alpha
     if (ownGrass)
     {
         terrain = BchSetTextureName(terrain, 0, pm.Meshes[Outline].Material, 0, "chip_alpha");
-        auto show = [&](size_t mesh, int slot, const std::string& texture) {
-            const BchMaterial& m = pm.Materials[pm.Meshes[mesh].Material];
-            if (!texture.empty() && m.Texture[slot] != texture) terrain = BchSetTextureName(terrain, 0, pm.Meshes[mesh].Material, slot, texture);
-        };
         show(Ground, 0, src.GroundTexture);
         show(Pale, 0, src.SnowTexture.empty() ? src.LightTexture : src.SnowTexture);
         show(SnowBand, 0, src.SnowClumpTexture);
-        show(Bank, 0, src.BankTexture);
-        show(Hedge, 0, src.FenceTexture);
         show(Edge, 1, src.EdgeTexture);
     }
+    // the pond's walls and the fence are built whatever the grass (BanksFine with the texture's rows, AddFence), so their
+    // textures are shown whatever the grass too (with --grass -1 they kept the donor's rock and hedge, mapped for others)
+    show(Bank, 0, src.BankTexture);
+    show(Hedge, 0, src.FenceTexture);
     gr.Files[1] = terrain;
     note("%zu trees, %d flower patches, %zu vertices; terrain model %zu bytes (Petalburg's %zu, Littleroot's %zu)\n", trees.size(), nFlowers, verts,
          gr.Files[1].size(), petalTerrain.size(), BinLinker::Read(lr, "GR").Files[1].size());

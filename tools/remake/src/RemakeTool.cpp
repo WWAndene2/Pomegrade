@@ -256,14 +256,19 @@ int main(int argc, char** argv)
             const Bch bch = Bch::Read(file);
             if (bch.Models.empty()) { fprintf(stderr, "no model\n"); return 1; }
             const BchModel& m = bch.Models[0];
+            auto quoted = [](const std::string& text) { // a JSON string: quotes and backslashes escaped
+                std::string q = "\"";
+                for (char c : text) { if (c == '"' || c == '\\') q += '\\'; q += c; }
+                return q + "\"";
+            };
             std::string json = "[";
             char num[160];
             for (size_t i = 0; i < m.Meshes.size(); i++)
             {
                 const BchMesh& me = m.Meshes[i];
                 const BchMaterial& mat = m.Materials.at(me.Material);
-                json += std::string(i ? "," : "") + "{\"mesh\":" + std::to_string(i) + ",\"layer\":" + std::to_string(me.Layer) + ",\"material\":\"" + mat.Name +
-                        "\",\"tex\":\"" + mat.Texture[0] + "\",\"tex1\":\"" + mat.Texture[1] + "\",\"v\":[";
+                json += std::string(i ? "," : "") + "{\"mesh\":" + std::to_string(i) + ",\"layer\":" + std::to_string(me.Layer) + ",\"material\":" + quoted(mat.Name) +
+                        ",\"tex\":" + quoted(mat.Texture[0]) + ",\"tex1\":" + quoted(mat.Texture[1]) + ",\"v\":[";
                 for (size_t k = 0; k < me.Vertices.size(); k++)
                 {
                     const BchVertex& v = me.Vertices[k];
