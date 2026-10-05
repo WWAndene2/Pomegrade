@@ -36,6 +36,7 @@ struct OrasRegionOptions
     // no block in the rectangle and a door leading to it (a house) is that door's interior: the door's warp leads into the zone,
     // whose warp 0 leads back out to the door; one zone per door
     std::map<int, int> Zones;
+    bool OthersOut = false;     // a header Zones does not name is left out, as with -1 (a large matrix holding a few places)
     size_t MatrixTemplate = 1;  // the matrix whose file 1 (meaning unknown) the new matrix copies: Littleroot's
     int ModelMatrix = 15;       // the pieces' model names, world<NN>_<x>_<y> (the game's run from world01 to world14)
     bool PlanOnly = false;      // print the rectangle's map headers, block by block, and build nothing

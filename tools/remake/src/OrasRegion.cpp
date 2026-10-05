@@ -190,12 +190,12 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
     for (const auto& [h, n] : blocksOf)
     {
         const auto z = o.Zones.find(h);
-        plan += F("header %d: %d blocks -> %s\n", h, n, z == o.Zones.end() ? "no ORAS zone given" : z->second < 0 ? "left out" : F("ORAS zone %d", z->second).c_str());
+        plan += F("header %d: %d blocks -> %s\n", h, n, z == o.Zones.end() ? (o.OthersOut ? "left out (--others-out)" : "no ORAS zone given") : z->second < 0 ? "left out" : F("ORAS zone %d", z->second).c_str());
         if (z == o.Zones.end()) missing += F(" --zone %d:<ORAS zone or -1>", h);
     }
     log.push_back(plan);
     if (o.PlanOnly) return log;
-    if (!missing.empty()) throw FormatError("every map header in the region needs an ORAS zone or -1:" + missing);
+    if (!missing.empty() && !o.OthersOut) throw FormatError("every map header in the region needs an ORAS zone or -1 (or --others-out):" + missing);
     std::set<int> used;
     for (const auto& [h, z] : o.Zones) if (z >= 0 && blocksOf.count(h)) { if (!used.insert(z).second) throw FormatError(F("ORAS zone %d is given to two map headers", z)); }
 
@@ -219,7 +219,7 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
         matrix.Lead[0] = model.Lead[0]; matrix.Lead[1] = model.Lead[1]; // file 0's first two words, meaning unknown
     }
     for (size_t k = 0; k < headers.size(); k++)
-        if (headers[k] >= 0 && o.Zones.at(headers[k]) >= 0) matrix.Zones[k] = (uint16_t)o.Zones.at(headers[k]);
+        if (headers[k] >= 0 && o.Zones.count(headers[k]) && o.Zones.at(headers[k]) >= 0) matrix.Zones[k] = (uint16_t)o.Zones.at(headers[k]);
 
     const PieceBudget budget = GamePieceBudget(pieceArchive);
     std::map<int, std::vector<RegionDoor>> doorsOf; // ORAS zone -> its doors, in matrix tiles
