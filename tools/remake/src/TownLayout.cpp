@@ -90,7 +90,8 @@ void TownLayout::Classify(const TerrainScan& whole, const TerrainScan& half)
     for (int r = 0; r < 2 * N; r++)
         for (int c = 0; c < 2 * N; c++)
         {
-            if (Sand(half.At(c, r))) out.Path2[r][c] = ':';
+            // a flower bed's flowers are partly sand-coloured: no path inside a bed
+            if (Sand(half.At(c, r)) && out.Vis[r / 2][c / 2] != '*') out.Path2[r][c] = ':';
             if (out.Vis[r / 2][c / 2] == '~') out.Water2[r][c] = '~';
         }
 

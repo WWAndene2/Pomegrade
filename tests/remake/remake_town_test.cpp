@@ -49,6 +49,7 @@ int main()
     // a ring of fence around one tile
     for (int c = 20; c <= 22; c++) for (int r = 20; r <= 22; r++) At(whole, c, r).Materials = {"imped"};
     At(whole, 21, 21).Materials = {"ngrass"};
+    // a yellow flower in that bed (half tile 43, 43 is in tile 21, 21, away from the crossroads below) is sand-coloured
     // half tiles: sand-coloured is path, grass-coloured is not, no colour is not
     At(half, 10, 10).HasColour = true; At(half, 10, 10).Rgb[0] = 230; At(half, 10, 10).Rgb[1] = 200; At(half, 10, 10).Rgb[2] = 120;
     At(half, 11, 10).HasColour = true; At(half, 11, 10).Rgb[0] = 30; At(half, 11, 10).Rgb[1] = 170; At(half, 11, 10).Rgb[2] = 80;
@@ -58,10 +59,12 @@ int main()
     auto sand = [&](int c, int r) { TerrainSample& s = At(half, c, r); s.HasColour = true; s.Rgb[0] = 230; s.Rgb[1] = 200; s.Rgb[2] = 120; };
     for (int k = 30; k <= 50; k++) for (int w = 38; w <= 41; w++) { sand(w, k); sand(k, w); }
     sand(37, 37);
+    sand(43, 43);
 
     TownLayout layout;
     layout.Classify(whole, half);
     check(layout.Path2[37][37] == '.', "a crossroads' rounded inner corner is not a step of path");
+    check(layout.Path2[43][43] == '.', "a sand-coloured flower in a bed is not path");
     check(layout.Path2[38][37] == ':' && layout.Path2[37][38] == ':' && layout.Path2[38][38] == ':', "the arms beside it stay path");
     check(layout.Path2[30][38] == ':' && layout.Path2[30][41] == ':' && layout.Path2[38][30] == ':' && layout.Path2[41][50] == ':', "an arm's outer corners stay path");
     check(layout.Vis.size() == (size_t)TownTiles && layout.Vis[0].size() == (size_t)TownTiles, "the layout is a full window");
