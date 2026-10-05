@@ -10,10 +10,9 @@ on:
       variants:
         description: 'One mod per line, "name: oras-town options" (no options = the defaults)'
         default: |
-          t15_model_and_tiles: --zone-warps 0 --tree-reach -1 --snow -1 --fence -1 --snow-clumps 0 --pond-wall 0 --piece-files 3
-          t16_model_and_collision: --zone-warps 0 --tree-reach -1 --snow -1 --fence -1 --snow-clumps 0 --pond-wall 0 --piece-files 6
-          t17_model_and_doors: --zone-warps 0 --tree-reach -1 --snow -1 --fence -1 --snow-clumps 0 --pond-wall 0 --piece-files 10
-          v23_preview_full_model: --zone-warps 0 --tree-reach 1 --piece-files 2
+          v24: --tree-reach 1
+          v24_trees2: --tree-reach 2
+          v24_trees3: --tree-reach 3
         required: true
 
 permissions:
