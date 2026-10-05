@@ -43,7 +43,7 @@ static Bytes MoveZoneWarps(const Bytes& zoneData, const OrasTownOptions& o, cons
     Bytes& entries = zone.Files.at(1);
     const int files = entries.at(4), npcs = entries.at(5), warps = entries.at(6);
     const size_t first = 8 + files * 0x14 + npcs * 0x30;
-    const int placed = std::min<int>(warps, (int)layout.Doors.size());
+    const int placed = o.ZoneWarps ? std::min<int>(warps, (int)layout.Doors.size()) : 0;
     for (int k = 0; k < placed; k++)
     {
         const size_t at = first + k * 0x18;
@@ -53,7 +53,8 @@ static Bytes MoveZoneWarps(const Bytes& zoneData, const OrasTownOptions& o, cons
     }
     log.push_back("zone " + std::to_string(o.Zone) + ": " + std::to_string(placed) + " of its " + std::to_string(warps) + " warps moved onto " +
                   std::to_string(layout.Doors.size()) + " doors" + (layout.Doors.size() > (size_t)warps ? " (the zone has no warp for the others)" : ""));
-    Put16(zone.Files.at(0), 2, (uint16_t)o.AreaPack);
+    if (o.ZonePack) Put16(zone.Files.at(0), 2, (uint16_t)o.AreaPack);
+    else log.push_back("zone " + std::to_string(o.Zone) + ": area pack kept");
     return zone.Write(); // plain: ReplaceMember compresses it as the original was
 }
 

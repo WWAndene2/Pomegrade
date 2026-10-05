@@ -1,0 +1,73 @@
+name: Remake mod
+
+# Builds Pokemon remake mods (tools/remake, `remake_tool oras-town`) from the owner's game dumps, for testing on the
+# phone. Manual runs only. The dumps are never committed: GitHub's runners fetch them from the owner's Google Drive
+# (files shared by link, ids in the secrets ORAS_DRIVE_ID and PLATINUM_DRIVE_ID), and an Actions cache keeps them
+# between runs (evicted after 7 days unused, then fetched again). Only the mods' BPS patches leave the runner.
+on:
+  workflow_dispatch:
+    inputs:
+      variants:
+        description: 'One mod per line, "name: oras-town options" (no options = the defaults)'
+        default: |
+          v21:
+          z1_zone_pack_kept: --zone-pack 0
+          z2_zone_warps_kept: --zone-warps 0
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  mods:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Game dumps from the cache
+        id: dumps
+        uses: actions/cache@v4
+        with:
+          path: dumps
+          key: remake-dumps-v1
+
+      - name: Game dumps from Google Drive
+        if: steps.dumps.outputs.cache-hit != 'true'
+        env:
+          ORAS_DRIVE_ID: ${{ secrets.ORAS_DRIVE_ID }}
+          PLATINUM_DRIVE_ID: ${{ secrets.PLATINUM_DRIVE_ID }}
+        run: |
+          pip install --quiet gdown
+          mkdir -p dumps
+          gdown --quiet --output dumps/oras.3ds "$ORAS_DRIVE_ID"
+          gdown --quiet --output dumps/platinum.nds "$PLATINUM_DRIVE_ID"
+          ls -l dumps
+
+      - name: Build remake_tool
+        run: |
+          sudo apt-get install --yes --quiet ninja-build > /dev/null
+          cmake -S tools/remake -B build-remake -G Ninja -DCMAKE_BUILD_TYPE=Release
+          ninja -C build-remake remake_tool
+
+      - name: Build the mods
+        env:
+          VARIANTS: ${{ inputs.variants }}
+        run: |
+          mkdir -p mods
+          while IFS= read -r line; do
+            [ -z "${line// }" ] && continue
+            name="${line%%:*}"; name="${name// }"
+            options="${line#*:}"
+            echo "::group::$name ($options)"
+            # options are split on spaces on purpose: they are oras-town flags
+            ./build-remake/remake_tool oras-town dumps/platinum.nds dumps/oras.3ds "out/$name" $options | tee "mods/${name}_log.txt"
+            (cd "out/$name" && zip -q -r "../../mods/Pomegrade_Sinnoh_$name.zip" load)
+            echo "::endgroup::"
+          done <<< "$VARIANTS"
+          ls -l mods
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: remake-mods
+          path: mods
+          retention-days: 14
