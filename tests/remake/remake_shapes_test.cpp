@@ -88,30 +88,54 @@ int main()
         check(run.Chains.size() == 1 && !run.Chains[0].Closed, "a zone on the border has an open chain");
     }
 
-    // an outline's chain with its corners rounded (RoundCorners): no point left on a corner, the curve stays near the stairs,
-    // normals unit and still pointing out, an open chain keeps its ends
+    // where ORAS's outline strip puts its tips and roots (OutlineStrip): along the normal on a straight run, along the bisector
+    // at a corner, at the depths measured on Littleroot (in cells: straight 0.23 in / 0.25 out, the zone's corner 0.32 / 0.22,
+    // an inner corner 0.13 / 0.36)
     {
-        const ZoneShape square = StairZone(Rect(6, 6, 1, 5, 1, 5), 10, 0, 0, false, 0);
-        const ShapeChain round = RoundCorners(square.Chains.at(0), 5);
-        bool cornerGone = true, near = true, outward = true;
-        for (size_t i = 0; i < round.Points.size(); i++)
+        auto near = [](ShapePoint p, float x, float z) { return std::hypot(p.X - x, p.Z - z) < 1e-3f; };
+        // an L: cells (row, col) (1,1) (1,2) (2,1), 10 units a cell; its inner corner is the lattice point (20, 20)
+        std::vector<std::vector<bool>> l(4, std::vector<bool>(4, false));
+        l[1][1] = l[1][2] = l[2][1] = true;
+        const ShapeChain chain = StairZone(l, 10, 0, 0, false, 0).Chains.at(0);
+        const OutlinePoints strip = OutlineStrip(chain, 10);
+        check(strip.Tips.size() == chain.Points.size() && strip.Roots.size() == chain.Points.size(), "one tip and one root a chain point");
+        const float d = 1 / std::sqrt(2.0f);
+        bool outer = false, inner = false, straight = false;
+        for (size_t i = 0; i < chain.Points.size(); i++)
         {
-            const ShapePoint &p = round.Points[i], &nrm = round.Normals[i];
-            for (float cx : {10.0f, 50.0f}) for (float cz : {10.0f, 50.0f}) if (std::hypot(p.X - cx, p.Z - cz) < 1.0f) cornerGone = false;
-            // distance to the square's border, x and z from 10 to 50
-            const float d = std::min(std::min(std::fabs(p.X - 10), std::fabs(p.X - 50)), std::min(std::fabs(p.Z - 10), std::fabs(p.Z - 50)));
-            if (d > 5 * 0.3f) near = false;
-            if ((p.X - 30) * nrm.X + (p.Z - 30) * nrm.Z <= 0 || std::fabs(std::hypot(nrm.X, nrm.Z) - 1) > 1e-3f) outward = false;
+            const ShapePoint c = chain.Points[i], t = strip.Tips[i], r = strip.Roots[i];
+            // the zone's own corner at (10, 10): tip 3.2 towards (+, +), root 2.2 towards (-, -)
+            if (near(c, 10, 10)) outer = near(t, 10 + 3.2f * d, 10 + 3.2f * d) && near(r, 10 - 2.2f * d, 10 - 2.2f * d);
+            // the inner corner at (20, 20): the outside pokes in from (+, +); tip 1.3 back towards (-, -), root 3.6 out towards (+, +)
+            if (near(c, 20, 20)) inner = near(t, 20 - 1.3f * d, 20 - 1.3f * d) && near(r, 20 + 3.6f * d, 20 + 3.6f * d);
+            // a straight run's point at (20, 10), on the top side (the zone below it): tip 2.3 down, root 2.5 up
+            if (near(c, 20, 10)) straight = near(t, 20, 12.3f) && near(r, 20, 7.5f);
         }
-        check(cornerGone, "a rounded outline has no point on the zone's corners");
-        check(near, "it stays within 0.3 radius of the zone's border");
-        check(outward && round.Closed, "its normals are unit and point out of the zone, and it stays closed");
-        std::vector<std::vector<bool>> edge(3, std::vector<bool>(3, false));
-        edge[0][0] = edge[1][0] = edge[1][1] = true;
-        const ShapeChain open = StairZone(edge, 10, 0, 0, false, 0).Chains.at(0);
-        const ShapeChain openRound = RoundCorners(open, 3);
-        const ShapePoint &a0 = open.Points.front(), &b0 = openRound.Points.front(), &a1 = open.Points.back(), &b1 = openRound.Points.back();
-        check(!openRound.Closed && a0.X == b0.X && a0.Z == b0.Z && a1.X == b1.X && a1.Z == b1.Z, "an open chain keeps its two ends");
+        check(outer, "the zone's corner: tip 0.32 cell in, root 0.22 out, on the bisector");
+        check(inner, "an inner corner: tip 0.13 cell in, root 0.36 out, on the bisector");
+        check(straight, "a straight run: tip 0.23 cell in, root 0.25 out, on the normal");
+    }
+
+    // the zone's own corners pulled in (outerPull), as Littleroot's: a single cell's four corners move 0.12 cell in on the
+    // diagonal; an inner corner of an L does not move
+    {
+        std::vector<std::vector<bool>> one(3, std::vector<bool>(3, false));
+        one[1][1] = true;
+        const ZoneShape cell = StairZone(one, 10, 0, 0, false, 0, 0.12f);
+        const float d = 1.2f / std::sqrt(2.0f);
+        bool pulled = cell.Chains.size() == 1 && cell.Chains[0].Points.size() == 4;
+        for (const ShapePoint& p : cell.Chains[0].Points)
+        {
+            const float ex = p.X < 15 ? 10 + d : 20 - d, ez = p.Z < 15 ? 10 + d : 20 - d;
+            if (std::hypot(p.X - ex, p.Z - ez) > 1e-3f) pulled = false;
+        }
+        check(pulled, "a zone's own corners move 0.12 cell into it on the diagonal");
+        std::vector<std::vector<bool>> l(4, std::vector<bool>(4, false));
+        l[1][1] = l[1][2] = l[2][1] = true;
+        bool innerStays = false;
+        const ZoneShape lShape = StairZone(l, 10, 0, 0, false, 0, 0.12f);
+        for (const ShapePoint& p : lShape.Chains.at(0).Points) if (std::hypot(p.X - 20, p.Z - 20) < 1e-3f) innerStays = true;
+        check(innerStays, "an inner corner stays on the lattice");
     }
 
     printf(ok ? "all passed\n" : "FAILED\n");

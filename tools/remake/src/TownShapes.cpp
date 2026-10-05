@@ -18,7 +18,8 @@ static ShapePoint Jitter(int i, int j, float cell, float spread)
     return {x * cell, z * cell};
 }
 
-ZoneShape StairZone(const std::vector<std::vector<bool>>& mask, float cellSize, float originX, float originZ, bool roundTips, float jitter)
+ZoneShape StairZone(const std::vector<std::vector<bool>>& mask, float cellSize, float originX, float originZ, bool roundTips, float jitter,
+                    float outerPull)
 {
     ZoneShape shape;
     const int H = (int)mask.size();
@@ -26,7 +27,15 @@ ZoneShape StairZone(const std::vector<std::vector<bool>>& mask, float cellSize, 
     if (!W) return shape;
     auto in = [&](int c, int r) { return mask[std::clamp(r, 0, H - 1)][std::clamp(c, 0, W - 1)]; };
     auto point = [&](int i, int j) {
-        const ShapePoint s = Jitter(i, j, cellSize, jitter);
+        ShapePoint s = Jitter(i, j, cellSize, jitter);
+        // the zone's own corner (one of the four cells around the point in the zone): pulled towards that cell, on the diagonal
+        if (outerPull != 0)
+        {
+            int count = 0, di = 0, dj = 0;
+            for (int k = 0; k < 4; k++)
+                if (in(i - 1 + (k & 1), j - 1 + (k >> 1))) { count++; di = (k & 1) ? 1 : -1; dj = (k >> 1) ? 1 : -1; }
+            if (count == 1) { const float d = outerPull * cellSize / std::sqrt(2.0f); s.X += di * d; s.Z += dj * d; }
+        }
         return ShapePoint{originX + i * cellSize + s.X, originZ + j * cellSize + s.Z};
     };
 
@@ -117,46 +126,38 @@ ZoneShape StairZone(const std::vector<std::vector<bool>>& mask, float cellSize, 
     return shape;
 }
 
-ShapeChain RoundCorners(const ShapeChain& chain, float radius, int steps)
+OutlinePoints OutlineStrip(const ShapeChain& chain, float cellSize)
 {
+    OutlinePoints out;
     const size_t n = chain.Points.size();
-    if (n < 3) return chain;
-    ShapeChain out;
-    out.Closed = chain.Closed;
-    std::vector<ShapePoint> side; // the original normal each new point takes its side from
-    auto add = [&](ShapePoint p, ShapePoint nrm) { out.Points.push_back(p); side.push_back(nrm); };
-    auto at = [&](size_t i) { return chain.Points[i % n]; };
     for (size_t i = 0; i < n; i++)
     {
+        const ShapePoint c = chain.Points[i], nrm = chain.Normals[i];
+        float mx = nrm.X, mz = nrm.Z, tip = 0.23f, root = 0.25f; // a straight run: along the normal
         const bool end = !chain.Closed && (i == 0 || i == n - 1);
-        if (end) { add(chain.Points[i], chain.Normals[i]); continue; }
-        const ShapePoint p = chain.Points[i], a = at(i + n - 1), b = at(i + 1);
-        float ax = p.X - a.X, az = p.Z - a.Z, bx = b.X - p.X, bz = b.Z - p.Z;
-        const float la = std::hypot(ax, az), lb = std::hypot(bx, bz);
-        if (la < 1e-4f || lb < 1e-4f) { add(p, chain.Normals[i]); continue; }
-        ax /= la; az /= la; bx /= lb; bz /= lb;
-        if (ax * bx + az * bz > std::cos(10.0f * 3.14159265f / 180)) { add(p, chain.Normals[i]); continue; }
-        const float t = std::min(radius, std::min(la, lb) / 2);
-        const ShapePoint s{p.X - ax * t, p.Z - az * t}, e{p.X + bx * t, p.Z + bz * t};
-        for (int k = 0; k <= steps; k++)
+        if (!end && n >= 3)
         {
-            const float u = (float)k / steps, w0 = (1 - u) * (1 - u), w1 = 2 * u * (1 - u), w2 = u * u;
-            add({w0 * s.X + w1 * p.X + w2 * e.X, w0 * s.Z + w1 * p.Z + w2 * e.Z}, chain.Normals[i]);
+            const ShapePoint a = chain.Points[(i + n - 1) % n], b = chain.Points[(i + 1) % n];
+            float ax = a.X - c.X, az = a.Z - c.Z, bx = b.X - c.X, bz = b.Z - c.Z;
+            const float la = std::hypot(ax, az), lb = std::hypot(bx, bz);
+            if (la > 1e-4f && lb > 1e-4f)
+            {
+                ax /= la; az /= la; bx /= lb; bz /= lb;
+                // a corner when the two sides turn by more than 30 degrees (their directions from the point are then not opposite)
+                if (ax * bx + az * bz > -std::cos(30.0f * 3.14159265f / 180))
+                {
+                    float sx = ax + bx, sz = az + bz;
+                    const float l = std::hypot(sx, sz);
+                    sx /= l; sz /= l;
+                    // the bisector points into the angle between the sides: into the zone at its own corner, out of it at an inner one
+                    const bool outer = sx * nrm.X + sz * nrm.Z < 0;
+                    mx = outer ? -sx : sx; mz = outer ? -sz : sz;
+                    tip = outer ? 0.32f : 0.13f; root = outer ? 0.22f : 0.36f;
+                }
+            }
         }
-    }
-    // normals from the curve's direction (central differences), on the side the original normals point to
-    const size_t m = out.Points.size();
-    for (size_t i = 0; i < m; i++)
-    {
-        const bool open = !out.Closed;
-        const ShapePoint prev = (open && i == 0) ? out.Points[i] : out.Points[(i + m - 1) % m];
-        const ShapePoint next = (open && i == m - 1) ? out.Points[i] : out.Points[(i + 1) % m];
-        float nx = next.Z - prev.Z, nz = -(next.X - prev.X);
-        const float l = std::hypot(nx, nz);
-        if (l < 1e-6f) { out.Normals.push_back(side[i]); continue; }
-        nx /= l; nz /= l;
-        if (nx * side[i].X + nz * side[i].Z < 0) { nx = -nx; nz = -nz; }
-        out.Normals.push_back({nx, nz});
+        out.Tips.push_back({c.X - mx * tip * cellSize, c.Z - mz * tip * cellSize});
+        out.Roots.push_back({c.X + mx * root * cellSize, c.Z + mz * root * cellSize});
     }
     return out;
 }

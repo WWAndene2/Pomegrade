@@ -34,14 +34,20 @@ struct ZoneShape
 // roundTips: where three of the four cells around a lattice point are in the zone (a tip of the *outside* pokes into it), the
 // point is replaced by an arc's middle vertex, 0.36 cell towards that outside cell on each axis, so the border cuts the tip with
 // a radius of one cell (the forest's edge); a tip of the zone itself stays square. Cells outside the mask repeat its edge.
-ZoneShape StairZone(const std::vector<std::vector<bool>>& mask, float cellSize, float originX, float originZ, bool roundTips, float jitter = 0.18f);
+// outerPull: each corner of the zone itself (one of the four cells around a lattice point in it) moves that many cells into the
+// zone along the diagonal, as ORAS cuts them. Littleroot's lighter grass, measured against the lattice (94 border corners): its
+// own corners 0.122 cell in (median; 10%-90% 0.00-0.16), its inner corners 0.000 and its straight runs 0.006, so no jitter.
+ZoneShape StairZone(const std::vector<std::vector<bool>>& mask, float cellSize, float originX, float originZ, bool roundTips, float jitter = 0.18f,
+                    float outerPull = 0);
 
-// The chain an outline strip follows, with every corner rounded: ORAS keeps a zone's fill square, but its outline turns each
-// corner in a fan about a cell wide (Littleroot's chip_grass_decolate mesh, measured), so the blades do not draw the stairs'
-// right angles. Each corner becomes a curve (a quadratic Bezier through steps points) from `radius` before it to `radius`
-// after it, shortened to half of a shorter side so neighbouring corners never cross; corners turning less than 10 degrees and
-// an open chain's ends stay. Normals are the curve's, unit, on the side the chain's own normals point to.
-ShapeChain RoundCorners(const ShapeChain& chain, float radius, int steps = 4);
+// Where ORAS's outline strip puts its blades' tips (inside the zone) and roots (outside) at each point of a zone's chain, measured
+// on Littleroot's lighter grass (its chip_grass_decolate mesh against its chip_kusa_b fill, 94 border corners): ORAS does not
+// round the stairs; it offsets each lattice point along the corner's normal (straight run) or bisector (corner), by a depth
+// that depends on the corner. Medians, in cells: straight run tip 0.23, root 0.25; a corner of the zone (outer) tip 0.32,
+// root 0.22; a corner of the outside poking in (inner) tip 0.13, root 0.36. Rebuilt from Littleroot's own border, these land
+// a median 0.06 cell from its real tips and roots (0.07 for a strip centred 0.25 each side); the rest is ORAS's own scatter.
+struct OutlinePoints { std::vector<ShapePoint> Tips, Roots; };
+OutlinePoints OutlineStrip(const ShapeChain& chain, float cellSize);
 
 }
 

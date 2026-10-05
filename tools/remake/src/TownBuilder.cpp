@@ -174,28 +174,29 @@ static void AddFill(BchGeometry& g, const ZoneShape& shape, float y, const float
     for (const auto& t : shape.Fill) for (const ShapePoint& p : t) g.Triangles.push_back(vertex(p));
 }
 
-// The grass's soft edge around a zone (its outline), laid on the zone's rounded border, centred on it: 9 units wide, 4.5 into
-// the zone and 4.5 out, 0.3 above the ground, with Littleroot's chip_grass_decolate mesh's width, height and texture band
-// (measured). The blades are chip_alpha's grass band (rows 38-60 of 128): the tips (v 0.302, white) into the zone, the roots
+// The grass's soft edge around a zone (its outline), laid on the zone's border with its tips and roots where ORAS puts them at
+// each lattice point (OutlineStrip, measured: about 4 units into the zone and 4.5 out on a straight run), 0.3 above the ground,
+// with Littleroot's chip_grass_decolate mesh's height and texture band (measured). The blades are chip_alpha's grass band (rows 38-60 of 128): the tips (v 0.302, white) into the zone, the roots
 // (v 0.496, the grass's colour) out on the grass, so the grass's edge is jagged and runs on beyond it. u advances 0.0245 a
 // unit along the border, wrapping inside the band (u 0.046-0.453), the strip cut where it wraps.
 static void AddOutline(BchGeometry& g, const ShapeChain& chain, const float tip[4], const float root[4])
 {
-    const float half = 4.5f, perUnit = 0.0245f, lo = 0.046f, span = 0.407f;
+    const float perUnit = 0.0245f, lo = 0.046f, span = 0.407f;
+    const OutlinePoints strip = OutlineStrip(chain, T);
     float s = 0;
     const size_t n = chain.Points.size();
     const size_t last = chain.Closed ? n : n - 1;
-    auto vertex = [&](const ShapePoint& p, const ShapePoint& nrm, bool tipSide, float u) {
+    auto vertex = [&](const ShapePoint& p, bool tipSide, float u) {
         BchVertex v;
-        const float off = tipSide ? -half : half;
-        v.Position[0] = p.X + nrm.X * off; v.Position[1] = 0.3f; v.Position[2] = p.Z + nrm.Z * off;
+        v.Position[0] = p.X; v.Position[1] = 0.3f; v.Position[2] = p.Z;
         v.TexCoord[0] = u; v.TexCoord[1] = tipSide ? 0.302f : 0.496f;
         std::copy(tipSide ? tip : root, (tipSide ? tip : root) + 4, v.Colour);
         g.Vertices.push_back(v);
     };
     for (size_t i = 0; i < last; i++)
     {
-        const ShapePoint &a = chain.Points[i], &b = chain.Points[(i + 1) % n], &na = chain.Normals[i], &nb = chain.Normals[(i + 1) % n];
+        const size_t j = (i + 1) % n;
+        const ShapePoint &a = chain.Points[i], &b = chain.Points[j], &na = chain.Normals[i], &nb = chain.Normals[j];
         const float length = std::hypot(b.X - a.X, b.Z - a.Z);
         if (length < 1e-4f) continue;
         float at = 0; // along this segment
@@ -206,18 +207,19 @@ static void AddOutline(BchGeometry& g, const ShapeChain& chain, const float tip[
             const float toWrap = (lo + span - u0) / perUnit;
             const float to = std::min(length, at + std::max(toWrap, 1e-3f));
             auto lerp = [&](float x, float y2, float t) { return x + (y2 - x) * t; };
-            auto along = [&](float d, ShapePoint& p, ShapePoint& nrm) {
+            // the tips' and the roots' lines between this point's and the next one's
+            auto along = [&](float d, ShapePoint& p, ShapePoint& nrm, ShapePoint& tipAt, ShapePoint& rootAt) {
                 const float t = d / length;
                 p = {lerp(a.X, b.X, t), lerp(a.Z, b.Z, t)};
                 nrm = {lerp(na.X, nb.X, t), lerp(na.Z, nb.Z, t)};
-                const float m = std::hypot(nrm.X, nrm.Z);
-                if (m > 1e-6f) { nrm.X /= m; nrm.Z /= m; }
+                tipAt = {lerp(strip.Tips[i].X, strip.Tips[j].X, t), lerp(strip.Tips[i].Z, strip.Tips[j].Z, t)};
+                rootAt = {lerp(strip.Roots[i].X, strip.Roots[j].X, t), lerp(strip.Roots[i].Z, strip.Roots[j].Z, t)};
             };
-            ShapePoint p0, n0, p1, n1;
-            along(at, p0, n0); along(to, p1, n1);
+            ShapePoint p0, n0, t0, r0, p1, n1, t1, r1;
+            along(at, p0, n0, t0, r0); along(to, p1, n1, t1, r1);
             const uint32_t base = (uint32_t)g.Vertices.size();
             const float u1 = u0 + (to - at) * perUnit;
-            vertex(p0, n0, true, u0); vertex(p0, n0, false, u0); vertex(p1, n1, true, u1); vertex(p1, n1, false, u1);
+            vertex(t0, true, u0); vertex(r0, false, u0); vertex(t1, true, u1); vertex(r1, false, u1);
             // facing up, as the ground (see the quads': a, e, d / a, d, b); the zone is on the tips' side
             const float cross = (p1.X - p0.X) * n0.Z - (p1.Z - p0.Z) * n0.X;
             if (cross > 0) for (uint32_t k : {0u, 2u, 3u, 0u, 3u, 1u}) g.Triangles.push_back(base + k);
@@ -451,7 +453,8 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         std::vector<std::vector<bool>> pathMask(M, std::vector<bool>(M, false));
         for (int r = 0; r < M; r++) for (int c = 0; c < M; c++) pathMask[r][c] = path(c, r);
         const float corner = -20 * T; // the window's corner (X(0), Z(0))
-        const ZoneShape lightShape = StairZone(tileMask(lightGrass, path), T, corner, corner, false);
+        // the lighter grass (and snow) as Littleroot's is cut, measured: no jitter, its own corners 0.12 tile in (TownShapes.h)
+        const ZoneShape lightShape = StairZone(tileMask(lightGrass, path), T, corner, corner, false, 0, 0.12f);
         const ZoneShape pathShape = StairZone(pathMask, T / 2, corner, corner, false);
         // Platinum's snow patches (role s) are these zones: with a snow texture they show it, untinted, and lie over the outline
         // strips (0.3 up), so no blade shows on the snow: snow covers grass, grass does not grow over it
@@ -462,12 +465,12 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         // the outline of each zone, on its border, coloured as the target's own outline (one colour for tips and roots, the
         // grass's less 15%, put a dark band over the lighter grass and the paths); the grass's less 15% when it has none
         const float blade[4] = {grass[0] * 0.85f, grass[1] * 0.85f, grass[2] * 0.85f, grass[3]};
-        // the strip follows the border with its corners rounded over half a tile, as Littleroot's turns (TownShapes.h); snow has none
+        // the strip on each zone's border, its tips and roots placed as ORAS places them (TownShapes.h, OutlineStrip); snow has none
         for (const ZoneShape* shape : {&lightShape, &pathShape})
         {
             if (shape == &lightShape && snowy) continue;
             for (const ShapeChain& chain : shape->Chains)
-                AddOutline(geo[Outline], RoundCorners(chain, T / 2), haveBlades ? bladeTip : blade, haveBlades ? bladeRoot : blade);
+                AddOutline(geo[Outline], chain, haveBlades ? bladeTip : blade, haveBlades ? bladeRoot : blade);
         }
         note("outline blades: %s (tips %.2f %.2f %.2f, roots %.2f %.2f %.2f)\n", haveBlades ? "the target's" : "NOT found, the grass's less 15%",
              (haveBlades ? bladeTip : blade)[0], (haveBlades ? bladeTip : blade)[1], (haveBlades ? bladeTip : blade)[2],
