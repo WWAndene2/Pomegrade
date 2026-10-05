@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstring>
 #include <map>
+#include <set>
 
 // Twinleaf-style towns from a TownLayout. The donor is Petalburg's map piece (a/0/3/9 piece 8): its terrain
 // model's materials (and so its area pack, 9), the house, the flower patch and the hedge are cut out of it by
@@ -155,10 +156,14 @@ static void BanksFine(BchGeometry& g, const std::vector<std::string>& water2)
 
 
 // A zone's rounded fill (TownShapes) as ground triangles at a height, textured by the plane as the game's ground
-// (u = x/72, v = -z/72). Corners shared by triangles are one vertex.
-static void AddFill(BchGeometry& g, const ZoneShape& shape, float y, const float colour[4])
+// (u = x/72, v = -z/72). Corners shared by triangles are one vertex. borderAlpha < 1: the vertices on the zone's border take
+// that alpha (vertex colour's fourth channel), so a blended layer fades out over its last tile instead of stopping square.
+static void AddFill(BchGeometry& g, const ZoneShape& shape, float y, const float colour[4], float borderAlpha = 1)
 {
     std::map<std::pair<int, int>, uint32_t> corner;
+    std::set<std::pair<int, int>> border;
+    for (const ShapeChain& chain : shape.Chains)
+        for (const ShapePoint& p : chain.Points) border.insert({(int)std::lround(p.X * 100), (int)std::lround(p.Z * 100)});
     auto vertex = [&](const ShapePoint& p) {
         const std::pair<int, int> key{(int)std::lround(p.X * 100), (int)std::lround(p.Z * 100)};
         auto it = corner.find(key);
@@ -167,6 +172,7 @@ static void AddFill(BchGeometry& g, const ZoneShape& shape, float y, const float
         v.Position[0] = p.X; v.Position[1] = y; v.Position[2] = p.Z;
         v.TexCoord[0] = p.X / 72.0f; v.TexCoord[1] = -p.Z / 72.0f;
         std::copy(colour, colour + 4, v.Colour);
+        if (border.count(key)) v.Colour[3] = borderAlpha;
         const uint32_t i = (uint32_t)g.Vertices.size();
         g.Vertices.push_back(v);
         return corner[key] = i;
@@ -228,6 +234,48 @@ static void AddOutline(BchGeometry& g, const ShapeChain& chain, const float tip[
         }
         s += length;
     }
+}
+
+// A white picket fence as ORAS builds one (piece 153's c103_saku mesh, measured): vertical panels 14 units high standing on the
+// ground, the texture (two pickets) once a panel, panels about 24 units long (23.1 and 24.6 measured), each made of two sheets
+// 0.25 apart facing out of either side, the front one's vertex colour white, the back one's 0.78. Here a panel run follows each
+// straight row or column of fence tiles, from the first tile's centre to the last's.
+static void AddFence(BchGeometry& g, const std::vector<std::string>& vis, int N, float corner)
+{
+    auto fence = [&](int c, int r) { return c >= 0 && r >= 0 && c < N && r < N && vis[r][c] == 'F'; };
+    auto run = [&](float x0, float z0, float x1, float z1) {
+        const float length = std::hypot(x1 - x0, z1 - z0);
+        if (length < 1e-3f) return;
+        const int panels = std::max(1, (int)std::lround(length / 24));
+        const float ux = (x1 - x0) / length, uz = (z1 - z0) / length;
+        const float nx = -uz, nz = ux; // the side a sheet faces: along x up = n (the ground's convention, TownBuilder's Flat)
+        for (int k = 0; k < panels; k++)
+            for (int side : {1, -1})
+            {
+                const float ax = x0 + (x1 - x0) * k / panels, az = z0 + (z1 - z0) * k / panels;
+                const float bx = x0 + (x1 - x0) * (k + 1) / panels, bz = z0 + (z1 - z0) * (k + 1) / panels;
+                const float ox = nx * 0.125f * side, oz = nz * 0.125f * side, shade = side > 0 ? 1.0f : 0.78f;
+                const uint32_t base = (uint32_t)g.Vertices.size();
+                const float corners[4][4] = {{ax, 0, az, 0}, {ax, 14, az, 0}, {bx, 0, bz, 1}, {bx, 14, bz, 1}}; // x, y, z, u
+                for (const auto& p : corners)
+                {
+                    BchVertex v;
+                    v.Position[0] = p[0] + ox; v.Position[1] = p[1]; v.Position[2] = p[2] + oz;
+                    v.TexCoord[0] = p[3]; v.TexCoord[1] = p[1] / 14;
+                    v.Colour[0] = v.Colour[1] = v.Colour[2] = shade; v.Colour[3] = 1;
+                    g.Vertices.push_back(v);
+                }
+                if (side > 0) for (uint32_t i : {0u, 2u, 1u, 1u, 2u, 3u}) g.Triangles.push_back(base + i);
+                else for (uint32_t i : {0u, 1u, 2u, 1u, 3u, 2u}) g.Triangles.push_back(base + i);
+            }
+    };
+    auto centre = [&](int i) { return corner + (i + 0.5f) * T; };
+    for (int r = 0; r < N; r++)
+        for (int c = 0; c < N; c++)
+        {
+            if (fence(c, r) && !fence(c - 1, r) && fence(c + 1, r)) { int e = c; while (fence(e + 1, r)) e++; run(centre(c), centre(r), centre(e), centre(r)); }
+            if (fence(c, r) && !fence(c, r - 1) && fence(c, r + 1)) { int e = r; while (fence(c, e + 1)) e++; run(centre(c), centre(r), centre(c), centre(e)); }
+        }
 }
 
 // The rim of the playable ground, as Littleroot lays it (its chip_edge_tex mesh, measured): a strip along the border where
@@ -331,7 +379,7 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     const BchModel rm = Bch::Read(BinLinker::Read(r101, "GR").Files[1]).Models[0];
     // Petalburg's meshes (world02_02_03)
     enum { FlowerA = 0, FlowerB = 1, Canopy = 2, Bank = 11, Ground = 12, Soil = 13, Pale = 14, House = 16, Frame = 17, Window = 18,
-           Hedge = 7, Trunk = 19, Outline = 20, Edge = 21, Wall = 24, Water = 25, Shadow = 26 };
+           Hedge = 7, Trunk = 19, Outline = 20, Edge = 21, Snow = 22, Wall = 24, Water = 25, Shadow = 26 };
 
     // kits: Petalburg's house at (24-28, 21-25), its door (25, 25) the anchor; a flower patch; Route 101's tree
     std::map<int, Part> house;
@@ -456,11 +504,14 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         // the lighter grass (and snow) as Littleroot's is cut, measured: no jitter, its own corners 0.12 tile in (TownShapes.h)
         const ZoneShape lightShape = StairZone(tileMask(lightGrass, path), T, corner, corner, false, 0, 0.12f);
         const ZoneShape pathShape = StairZone(pathMask, T / 2, corner, corner, false);
-        // Platinum's snow patches (role s) are these zones: with a snow texture they show it, untinted, and lie over the outline
-        // strips (0.3 up), so no blade shows on the snow: snow covers grass, grass does not grow over it
-        const float snow[4] = {1, 1, 1, 1};
+        // Platinum's snow patches (role s) are these zones. With a snow texture they are laid as ORAS lays the snow of its ice cave
+        // (piece 386, mesh 7, chip_icedoukutsu02, measured): a blended layer (the donor's field slot, mesh 22, layer 1) over the
+        // ground, vertex colour 0.95 1 1, alpha 1 inside and about 0.55 on the border (0.5-0.6 there), so it fades over its
+        // last tile; 0.45 up, over the outline strips (0.3), and with no outline of its own: snow covers the grass
+        const float snow[4] = {0.95f, 1, 1, 1};
         const bool snowy = !src.SnowTexture.empty();
-        AddFill(geo[Pale], lightShape, snowy ? 0.45f : 0.15f, snowy ? snow : white);
+        if (snowy) AddFill(geo[Snow], lightShape, 0.45f, snow, 0.55f);
+        else AddFill(geo[Pale], lightShape, 0.15f, white);
         AddFill(geo[Soil], pathShape, 0.15f, soil);
         // the outline of each zone, on its border, coloured as the target's own outline (one colour for tips and roots, the
         // grass's less 15%, put a dark band over the lighter grass and the paths); the grass's less 15% when it has none
@@ -499,17 +550,23 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
 
     // fences: a low Petalburg hedge (one tile of its mesh 7 run at column 37, rows 1-6) on each fence tile,
     // turned along the fence where it runs east-west
+    // (with a fence texture, ORAS's white picket fence instead, AddFence, in the same mesh slot)
     const Part hedge = Cut(pm.Meshes[Hedge], 36.9f, 38.1f, 3.0f, 4.0f, 37.5f, 3.5f);
     int nHedges = 0;
     auto fence = [&](int c, int r) { return c >= 0 && r >= 0 && c < N && r < N && vis[r][c] == 'F'; };
-    for (int r = 0; r < N; r++) for (int c = 0; c < N; c++)
+    if (!src.FenceTexture.empty())
+    {
+        AddFence(geo[Hedge], vis, N, -20 * T);
+        note("fence: %zu panel triangles\n", geo[Hedge].Triangles.size() / 3);
+    }
+    else for (int r = 0; r < N; r++) for (int c = 0; c < N; c++)
         if (fence(c, r))
         {
             const bool eastWest = (fence(c - 1, r) || fence(c + 1, r)) && !(fence(c, r - 1) || fence(c, r + 1));
             Place(geo[Hedge], hedge, c + 0.5f, r + 0.5f, 1, eastWest, 0.55f);
             nHedges++;
         }
-    note("%d hedge tiles (%zu triangles each)\n", nHedges, hedge.I.size() / 3);
+    if (src.FenceTexture.empty()) note("%d hedge tiles (%zu triangles each)\n", nHedges, hedge.I.size() / 3);
 
     // houses: each DS house's solid tiles (joined to its door) give its width; Petalburg's house is 5 wide
     std::vector<std::pair<int, int>> houseTiles;
@@ -622,7 +679,9 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
             if (!texture.empty() && m.Texture[slot] != texture) terrain = BchSetTextureName(terrain, 0, pm.Meshes[mesh].Material, slot, texture);
         };
         show(Ground, 0, src.GroundTexture);
-        show(Pale, 0, src.SnowTexture.empty() ? src.LightTexture : src.SnowTexture);
+        show(Pale, 0, src.LightTexture);
+        show(Snow, 0, src.SnowTexture);
+        show(Hedge, 0, src.FenceTexture);
         show(Edge, 1, src.EdgeTexture);
     }
     gr.Files[1] = terrain;

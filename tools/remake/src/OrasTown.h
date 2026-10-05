@@ -29,9 +29,12 @@ struct OrasTownOptions
     // a/0/1/4 member: the target piece's own area (Littleroot's), whose grass the town takes: its pixels go into AreaPack
     // under the donor's grass texture names. -1: the donor's grass is kept
     int GrassPack = 8;
-    // a/0/1/4 member holding ORAS's snow texture (c109_pur_yaneyuki), added to AreaPack and shown on Platinum's snow patches
-    // (in Twinleaf, the zones that were the lighter grass). -1: no snow, the patches stay the lighter grass
-    int SnowPack = 155;
+    // a/0/1/4 member holding ORAS's snow texture, the snow of its ice cave (chip_icedoukutsu02, area pack 72), added to AreaPack
+    // and shown on Platinum's snow patches (in Twinleaf, the zones that were the lighter grass). -1: no snow, they stay the lighter grass
+    int SnowPack = 72;
+    // a/0/1/4 member holding ORAS's white picket fence texture (c103_saku, area pack 21), added to AreaPack; Platinum's fences
+    // become that fence. -1: a hedge, as before
+    int FencePack = 21;
     bool AllowErrors = false;         // write the mod even if a design rule (TownCheck.h) is broken
     std::string OutDir;
 };

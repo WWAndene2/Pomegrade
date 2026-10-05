@@ -24,8 +24,9 @@ struct TownSources
     // the textures the ground's materials show, when they are not the donor's (empty: kept): the main grass, the lighter grass, and the
     // grass edge (the rim's second texture slot). They must be in the area pack: OrasTown adds them there.
     std::string GroundTexture, LightTexture, EdgeTexture;
-    // the texture Platinum's snow patches show (empty: they are the lighter grass); it must be in the area pack too
-    std::string SnowTexture;
+    // the texture Platinum's snow patches show (empty: they are the lighter grass), and the one its fences show (empty: a hedge);
+    // both must be in the area pack too
+    std::string SnowTexture, FenceTexture;
 };
 
 // the new piece's bytes; log: what was placed
