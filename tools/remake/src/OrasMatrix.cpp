@@ -26,6 +26,8 @@ OrasMatrix OrasMatrix::Read(const Bytes& mm)
         m.Third = words(8 + 2 * (cells + blocks), cells);
     }
     m.File1 = c.Files[1];
+    m.Align = c.Align;
+    if (!full) m.Padding.assign(f.begin() + 8 + 2 * cells, f.end());
     return m;
 }
 
@@ -37,7 +39,12 @@ Bytes OrasMatrix::Write() const
     Bytes f;
     for (uint16_t v : {(uint16_t)1, (uint16_t)0, Width, Height}) Put16(f, v);
     for (uint16_t v : Pieces) Put16(f, v);
-    if (Zones.empty()) { while (f.size() % 4) f.push_back(0); }
+    if (Zones.empty())
+    {
+        if (Padding.empty()) while (f.size() % 4) f.push_back(0);
+        else f.insert(f.end(), Padding.begin(), Padding.end());
+        if (f.size() % 4) throw FormatError("map matrix: the piece grid's padding does not end on 4 bytes");
+    }
     else
     {
         for (uint16_t v : Zones) Put16(f, v);
@@ -45,7 +52,7 @@ Bytes OrasMatrix::Write() const
     }
     BinLinker c;
     c.Tag = "MM";
-    c.Align = 4;
+    c.Align = Align;
     c.Files = {f, File1};
     return c.Write();
 }

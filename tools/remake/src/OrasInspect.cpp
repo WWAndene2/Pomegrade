@@ -376,14 +376,26 @@ std::string VerifyGame(N3dsRom& game, bool& ok)
     {
         const Garc matrices(game.Read("a/0/4/0"));
         int total = 0, same = 0;
+        std::string first; // the first matrix that differs, where: what to fix in OrasMatrix
         for (size_t i = 0; i < matrices.Count(); i++)
         {
             if (!matrices.Has(i)) continue;
             const Bytes data = Plain(matrices.Sub(i));
             total++;
-            try { same += OrasMatrix::Read(data).Write() == data; } catch (const FormatError&) {}
+            try
+            {
+                const Bytes back = OrasMatrix::Read(data).Write();
+                if (back == data) { same++; continue; }
+                if (first.empty())
+                {
+                    size_t at = 0;
+                    while (at < back.size() && at < data.size() && back[at] == data[at]) at++;
+                    first = F("; first differing: matrix %zu, %zu bytes written for %zu, from byte %zu", i, back.size(), data.size(), at);
+                }
+            }
+            catch (const FormatError& e) { if (first.empty()) first = F("; first refused: matrix %zu (%s)", i, e.what()); }
         }
-        s += F("map matrices: %d of %d rewritten identically\n", same, total);
+        s += F("map matrices: %d of %d rewritten identically%s\n", same, total, first.c_str());
         ok = ok && same == total;
     }
     s += ok ? "all checks passed\n" : "SOME CHECKS FAILED\n";

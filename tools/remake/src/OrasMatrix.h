@@ -28,6 +28,10 @@ struct OrasMatrix
     std::vector<uint16_t> Zones;    // (4 Width) x (4 Height), empty for a matrix with the piece grid only
     std::vector<uint16_t> Third;    // Width x Height, present with Zones
     Bytes File1;
+    // as read, so a game matrix is written back byte for byte: the container's alignment (BinLinker measures it from the offsets,
+    // 4 to 0x80) and the bytes after the piece grid of a matrix without a zone grid (its padding)
+    uint32_t Align = 4;
+    Bytes Padding;
 
     uint16_t& Piece(int x, int y) { return Pieces.at((size_t)y * Width + x); }
     uint16_t& Zone(int bx, int bz) { return Zones.at((size_t)bz * Width * BlocksPerPiece + bx); }
