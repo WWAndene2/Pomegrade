@@ -239,8 +239,10 @@ jobs:
           s = open(p).read()
           line = "            texture_color[i] = LookupTexture(texture_data, s, t, info);\n"
           assert s.count(line) == 1, "the software renderer's texture lookup not found"
-          # run 56: a non-null pointer crashed too, so the texture's last byte must map as well
-          s = s.replace(line, "            const bool mapped = texture_data && memory.GetPhysicalPointer(texture_address + static_cast<u32>(info.stride * (info.height / 8)) - 1);\n"
+          # run 56: a non-null pointer crashed too, so the texture's last byte must map as well; run 60 crashed with that check, so
+          # the wrapped coordinates are checked too (a wrap mode GetWrappedTexCoord does not handle returns them unwrapped)
+          s = s.replace(line, "            const bool mapped = texture_data && s >= 0 && t >= 0 && s < static_cast<s32>(info.width) && t < static_cast<s32>(info.height) &&\n"
+                              "                memory.GetPhysicalPointer(texture_address + static_cast<u32>(info.stride * (info.height / 8)) - 1);\n"
                               "            texture_color[i] = mapped ? LookupTexture(texture_data, s, t, info) : Common::Vec4<u8>{0, 0, 0, 255};\n")
           open(p, "w").write(s)
           PY
