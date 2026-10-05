@@ -29,6 +29,7 @@
 //                     a Platinum window of 40x40 tiles (default: Twinleaf Town) rebuilt as an ORAS map piece with
 //                     ORAS's own assets, as an Azahar mod (BPS patches), with town_preview.gltf, town_layout.txt and
 //                     town_piece.bin (the piece the mod writes, decompressed)
+//   remake_tool oras-code <oras.3ds> <out.bin>   the game's ExeFS .code, decompressed (ARM, loaded at 0x100000)
 //   remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--plan] [--matrix-template M]
 //                     [--model-matrix NN] [oras-town's kit options]
 //                     a rectangle of Sinnoh's piece grid (as oras-world cuts it) rebuilt as a new ORAS map matrix: its pieces built
@@ -108,6 +109,7 @@ static int Usage()
                     "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
                     "                    [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]\n"
+                    "  remake_tool oras-code <oras.3ds> <out.bin>\n"
                     "  remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--plan]\n"
                     "                    [--matrix-template M] [--model-matrix NN] [oras-town's --matrix, --target, --donor, --trees, --donor-pack, --grass, ... --allow-errors]\n");
     return 2;
@@ -396,6 +398,17 @@ int main(int argc, char** argv)
             const OrasTownResult result = BuildOrasTown(platinum, oras, options);
             for (const std::string& line : result.Log) printf("%s%s", line.c_str(), !line.empty() && line.back() == '\n' ? "" : "\n");
             printf("mod written under %s: copy its load folder into the 3DS folder (Pomegrade/3DS)\n", options.OutDir.c_str());
+            return 0;
+        }
+        if (cmd == "oras-code" && argc >= 4)
+        {
+            // the game's code, decompressed, for a disassembler (prototype/code_find.py); where "KAGE" lies, against section 7
+            N3dsRom oras(argv[2]);
+            const Bytes code = oras.Code();
+            WriteFile(argv[3], code);
+            printf(".code: %zu bytes (0x%zX), loaded at 0x100000\n", code.size(), code.size());
+            for (size_t k = 0; k + 4 <= code.size(); k++)
+                if (code[k] == 'K' && code[k + 1] == 'A' && code[k + 2] == 'G' && code[k + 3] == 'E') printf("\"KAGE\" at 0x%zX\n", 0x100000 + k);
             return 0;
         }
         if (cmd == "oras-region" && argc >= 5)

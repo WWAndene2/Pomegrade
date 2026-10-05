@@ -1,4 +1,5 @@
 #include "N3dsRom.h"
+#include "Blz.h"
 
 #include <functional>
 
@@ -40,6 +41,7 @@ N3dsRom::N3dsRom(const std::string& path) : File(path, std::ios::binary)
     const Bytes head = ReadAt(0, 0x200);
     uint64_t ncch = 0;
     if (Text(head, 0x100, 4) == "NCSD") ncch = (uint64_t)U32(head, 0x120) * 0x200;
+    Ncch = ncch;
     const Bytes n = ReadAt(ncch, 0x200);
     if (Text(n, 0x100, 4) != "NCCH") throw FormatError("not a 3DS game image (no NCCH)");
     Program = U64(n, 0x118);
@@ -82,6 +84,25 @@ Bytes N3dsRom::Read(const std::string& path)
     const auto it = FileList.find(path);
     if (it == FileList.end()) throw FormatError("no " + path + " in the RomFS");
     return ReadAt(it->second.first, it->second.second);
+}
+
+Bytes N3dsRom::Code()
+{
+    // ExeFS at the NCCH's 0x1A0 (0x200-byte units): a 0x200-byte header of 10 entries (name[8], offset, size; offsets from the
+    // header's end); the extended header follows the NCCH header at 0x200, its system control info's flags at 0x0D (bit 0: code packed)
+    const Bytes n = ReadAt(Ncch, 0x200);
+    const uint64_t exefs = Ncch + (uint64_t)U32(n, 0x1A0) * 0x200;
+    if (!U32(n, 0x1A4)) throw FormatError("the game image has no ExeFS");
+    const Bytes header = ReadAt(exefs, 0x200);
+    const Bytes exheader = ReadAt(Ncch + 0x200, 0x10);
+    for (int k = 0; k < 10; k++)
+    {
+        const size_t e = (size_t)k * 16;
+        if (Text(header, e, 8).rfind(".code", 0) != 0) continue;
+        const Bytes code = ReadAt(exefs + 0x200 + U32(header, e + 8), U32(header, e + 12));
+        return (U8(exheader, 0x0D) & 1) ? BlzDecompress(code) : code;
+    }
+    throw FormatError("the ExeFS has no .code");
 }
 
 }
