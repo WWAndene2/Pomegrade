@@ -161,6 +161,7 @@ Bch Bch::Read(const Bytes& data)
             bm.Material = r.H(mesh);
             bm.Layer = (r.H(mesh + 6) >> 8) & 3;
             const uint32_t meshCommands = r.P(mesh + 8);
+            bm.CommandsAt = meshCommands; bm.CommandWords = r.P(mesh + 12);
             const PicaCommands cmd = PicaCommands::Parse(r.Words(meshCommands, r.P(mesh + 12)));
             uint64_t formats = 0, attributes = 0, permutation = 0;
             uint32_t buffer = 0, stride = 0, total = 0, fixedIndex = 0;

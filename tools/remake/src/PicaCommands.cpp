@@ -17,23 +17,38 @@ float PicaFloat24(uint32_t v)
     return f;
 }
 
+uint32_t ToPicaFloat24(float f)
+{
+    uint32_t bits;
+    memcpy(&bits, &f, 4);
+    const uint32_t sign = bits >> 31;
+    const int exponent = (int)((bits >> 23) & 0xFF) - 127 + 63;
+    if ((bits & 0x7FFFFFFF) == 0 || exponent <= 0) return sign << 23; // zero (and values too small for 24 bits)
+    if (exponent >= 127) throw FormatError("PICA float24: value out of range");
+    return sign << 23 | (uint32_t)exponent << 16 | ((bits >> 7) & 0xFFFF);
+}
+
 static float AsFloat(uint32_t v) { float f; memcpy(&f, &v, 4); return f; }
 
 PicaCommands PicaCommands::Parse(const std::vector<uint32_t>& words)
 {
     PicaCommands out;
+    for (auto& u : out.UniformWords) for (int& w : u) w = -1;
     uint32_t uniformIndex = 0;
     bool uniform32 = false;
     uint32_t f24[3] = {};
-    auto uniformData = [&](uint32_t param) {
+    auto uniformData = [&](uint32_t param, size_t word) {
         const uint32_t u = (uniformIndex >> 2) % 96;
+        out.Uniform32[u] = uniform32;
         if (uniform32)
         {
             out.VertexUniforms[u][3 - (uniformIndex & 3)] = AsFloat(param); // w, z, y, x
+            out.UniformWords[u][3 - (uniformIndex & 3)] = (int)word;
         }
         else
         {
             f24[uniformIndex & 3] = param;
+            out.UniformWords[u][uniformIndex & 3] = (int)word;
             if ((uniformIndex & 3) == 2)
             {
                 out.VertexUniforms[u][0] = PicaFloat24(f24[2] & 0xFFFFFF);
@@ -45,9 +60,11 @@ PicaCommands PicaCommands::Parse(const std::vector<uint32_t>& words)
         }
         uniformIndex++;
     };
+    // at: the word index of params[0]; the others follow its header (non-consecutive commands only have more than one)
     auto add = [&](uint16_t reg, std::vector<uint32_t> params, size_t at) {
         if (reg == 0x2C0) { uniformIndex = (params[0] & 0xFF) << 2; uniform32 = (params[0] >> 31) != 0; }
-        else if (reg >= 0x2C1 && reg <= 0x2C8) for (uint32_t p : params) uniformData(p);
+        else if (reg >= 0x2C1 && reg <= 0x2C8)
+            for (size_t k = 0; k < params.size(); k++) uniformData(params[k], k ? at + 1 + k : at);
         out.List.push_back({reg, std::move(params), at});
     };
 

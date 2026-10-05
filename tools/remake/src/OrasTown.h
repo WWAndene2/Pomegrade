@@ -68,6 +68,9 @@ struct OrasTownOptions
     // as bits; the others are the target's own. The game's piece shows, the built one does not even when small (t12): this tells
     // which file it refuses
     unsigned PieceFiles = 0x7F;
+    // the built piece's vertices in fewer bytes (BchCompactVertices): 0 as built (f32), 1 the trees' meshes only, 2 every mesh. Untried by
+    // the game's own data (all f32): 1 first tells whether ORAS draws such a mesh at all
+    int Compact = 0;
     bool AllowErrors = false;         // write the mod even if a design rule (TownCheck.h) is broken
     std::string OutDir;
 };

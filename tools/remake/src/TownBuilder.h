@@ -41,6 +41,10 @@ struct TownSources
     std::string ModelName;
 };
 
+// the meshes of the built terrain model the trees are drawn in (the donor's canopy and trunk meshes, which BuildTown fills with
+// Route 101's tree)
+constexpr size_t TownTreeMeshes[2] = {2, 19};
+
 // the new piece's bytes; log: what was placed
 Bytes BuildTown(const TownLayout& layout, const TownSources& sources, std::vector<std::string>* log = nullptr);
 

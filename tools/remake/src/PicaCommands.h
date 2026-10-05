@@ -27,6 +27,10 @@ struct PicaCommands
 {
     std::vector<PicaCommand> List;
     float VertexUniforms[96][4] = {}; // x, y, z, w
+    // where each uniform was last loaded, for a writer: the word index (in the list) of its x, y, z, w when loaded as 32-bit
+    // floats, or of its three packed words (w first) when loaded as 24-bit floats; -1 when not loaded
+    int UniformWords[96][4];
+    bool Uniform32[96] = {};
 
     static PicaCommands Parse(const std::vector<uint32_t>& words);
     // the last value written to a register (0 when none)
@@ -35,6 +39,8 @@ struct PicaCommands
 
 // a PICA 24-bit float (1 sign, 7 exponent, 16 mantissa bits)
 float PicaFloat24(uint32_t v);
+// the PICA 24-bit float nearest a float (mantissa truncated), PicaFloat24's inverse on its range
+uint32_t ToPicaFloat24(float f);
 
 }
 

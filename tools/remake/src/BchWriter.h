@@ -25,6 +25,8 @@
 
 #include "Bch.h"
 
+#include <string>
+
 namespace remake
 {
 
@@ -51,6 +53,12 @@ Bytes BchSetTextureName(const Bytes& bch, size_t model, size_t material, int slo
 // world01_02_04): a model taken from another piece is renamed for its new place. Throws when the
 // lengths differ or no string matches.
 Bytes BchReplaceString(const Bytes& bch, const std::string& from, const std::string& to);
+
+// bch with the given meshes' vertices stored in fewer bytes: positions and texture coordinates as s16 over their largest
+// magnitude, normals as s8 (colours as they are), the scales in the mesh's vertex shader uniforms (c7, c8), as the PICA reads
+// them. None of the game's 857 pieces stores vertices this way (all f32: ORAS_LITTLEROOT.md 10, item 5), so whether ORAS's
+// engine and shaders accept it is for a phone run to tell. A mesh with any other attribute is left as it is (log says so).
+Bytes BchCompactVertices(const Bytes& bch, size_t model, const std::vector<size_t>& meshes, std::vector<std::string>* log = nullptr);
 
 }
 

@@ -35,10 +35,10 @@ std::vector<TownIssue> CheckLayout(const Bytes& tileBlock, const Bytes& doorBloc
 bool TileValueEstablished(uint32_t value);
 
 struct PieceBudget { size_t MaxFileBytes = 0, MaxVertices = 0; }; // the largest of the game's own pieces
-// the largest piece seen to show in Littleroot's place on the phone (v24_trees2); 1,074,944 bytes and Littleroot's own piece
-// grown to 1,126 KB showed no picture (v24_trees3, t9), although the game's own pieces reach 1,368,064 bytes elsewhere: the
-// field's room for a piece is below what other places get, by how much and why is not known
-constexpr size_t PieceBytesShown = 996992;
+// the largest piece seen to show in an overworld place on the phone: v24 padded to 1,044,480 bytes showed (p1), to 1,052,672 it
+// did not (p2; nor 1,074,944, v24_trees3). So an overworld piece gets about 1 MiB (1,048,576), whatever its neighbours (the game's
+// own 3 x 3 neighbourhoods reach 4.2 MB); the game's 1.1-1.37 MB pieces are all single-piece places (ORAS_LITTLEROOT.md 10, item 5)
+constexpr size_t PieceBytesShown = 1044480;
 std::vector<TownIssue> CheckBudget(const BchModel& model, size_t fileBytes, const PieceBudget& original);
 
 }

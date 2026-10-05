@@ -1,5 +1,6 @@
 #include "OrasTown.h"
 #include "Bch.h"
+#include "BchWriter.h"
 #include "BinLinker.h"
 #include "Bps.h"
 #include "BchTextureFile.h"
@@ -238,6 +239,17 @@ Bytes BuildTownPiece(const TownLayout& layout, const OrasTownOptions& o, const G
     sources.TreeReach = o.TreeReach;
     sources.DoorType = o.DoorType;
     Bytes town = o.DonorAsIs ? sources.Donor : BuildTown(layout, sources, &log);
+    if (o.Compact)
+    {
+        BinLinker gr = BinLinker::Read(town, "GR");
+        std::vector<size_t> meshes;
+        if (o.Compact == 1) meshes = {TownTreeMeshes[0], TownTreeMeshes[1]};
+        else for (size_t m = 0; m < Bch::Read(gr.Files.at(1)).Models.at(0).Meshes.size(); m++) meshes.push_back(m);
+        const size_t before = town.size();
+        gr.Files.at(1) = BchCompactVertices(gr.Files.at(1), 0, meshes, &log);
+        town = gr.Write();
+        log.push_back("piece: vertices compacted (" + std::string(o.Compact == 1 ? "trees" : "every mesh") + "), " + std::to_string(before) + " -> " + std::to_string(town.size()) + " bytes");
+    }
     if ((o.PieceFiles & 0x7F) != 0x7F)
     {
         const BinLinker own = BinLinker::Read(sources.Target, "GR");

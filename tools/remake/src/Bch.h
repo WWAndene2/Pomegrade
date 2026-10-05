@@ -64,6 +64,7 @@ struct BchMesh
     float PositionOffset[3] = {};
     uint32_t VertexBuffer = 0, Stride = 0;
     uint32_t VertexBufferWord = 0;    // file offset of the command word holding the vertex buffer's address
+    uint32_t CommandsAt = 0, CommandWords = 0; // the mesh's command list: file offset, length in words (a writer re-parses it)
     std::vector<BchSubMesh> SubMeshes;
 };
 
