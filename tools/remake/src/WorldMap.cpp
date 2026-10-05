@@ -136,7 +136,9 @@ std::string WorldMap::Gltf(const Tex0* tex, const Narc* buildings, const Tex0* b
                 it = buildingModels.emplace(b.Model, std::move(bm)).first;
             }
             if (!it->second || it->second->Models().empty()) continue;
-            const float at[3] = {centre[0] + b.Position[0], centre[1] + b.Position[1], centre[2] + b.Position[2]};
+            // positions are in tiles from the cell's centre (see LandBuilding)
+            const float tile = cell / LandTiles;
+            const float at[3] = {centre[0] + b.Position[0] * tile, centre[1] + b.Position[1] * tile, centre[2] + b.Position[2] * tile};
             try { AppendModel(*it->second, 0, buildingTex, at, parts, materials); } catch (const FormatError&) {}
         }
     }

@@ -84,14 +84,15 @@ int main()
     check(png.size() > 8 && png[0] == 0x89 && png[16] == 0 && png[19] == 64 && png[23] == 64, "collision overview: 64x64 PNG (2x2 maps of 32 tiles)");
 
     // the quad spans 0..2 in X (scale 2): cells of 2; cell (1,1) centred at (3, 0, 3);
-    // the building (the same quad) at its cell centre + (1.5, 0, -2)
+    // the building (the same quad) at its cell centre + (1.5, 0, -2) tiles: a tile is a 32nd
+    // of the cell (0.0625), as measured on Platinum (positions in tiles, see LandBuilding)
     float cell = 0;
     const Narc buildings(MakeNarc({terrain}));
     const std::string g = w.Gltf(nullptr, &buildings, nullptr, &cell);
     WriteFile("world.gltf", Bytes(g.begin(), g.end()));
     check(cell == 2.0f, "world glTF: cell size measured from the terrain");
     check(g.find("\"min\":[1,0,1],\"max\":[3,2,1]") != std::string::npos && g.find("\"min\":[3,0,3],\"max\":[5,2,3]") != std::string::npos &&
-          g.find("\"min\":[4.5,0,1],\"max\":[6.5,2,1]") != std::string::npos, "world glTF: terrain placed in its cells, building placed in its cell");
+          g.find("\"min\":[3.09375,0,2.875],\"max\":[5.09375,2,2.875]") != std::string::npos, "world glTF: terrain placed in its cells, building placed in its cell");
 
     printf(ok ? "ALL OK\n" : "FAILURES\n");
     return ok ? 0 : 1;

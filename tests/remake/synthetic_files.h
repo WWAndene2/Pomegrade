@@ -28,7 +28,8 @@ inline Bytes Dict(const std::vector<Bytes>& entries, const std::vector<std::stri
     const uint8_t n = (uint8_t)entries.size();
     const uint16_t unit = entries.empty() ? 4 : (uint16_t)entries[0].size();
     Bytes d = {0, n, 0, 0};
-    Push16(d, 8); Push16(d, (uint16_t)(8 + 4 * n)); Push32(d, 0x17F);
+    // the tree's size counts from the dictionary's start (as in Platinum's files)
+    Push16(d, 8); Push16(d, (uint16_t)(4 + 8 + 4 * n)); Push32(d, 0x17F);
     for (int i = 0; i < n; i++) Push32(d, 0);
     Push16(d, unit); Push16(d, (uint16_t)(4 + unit * n));
     for (const Bytes& e : entries) d.insert(d.end(), e.begin(), e.end());
