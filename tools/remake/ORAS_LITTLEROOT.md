@@ -47,7 +47,7 @@ cmake -S tools/remake -B build-remake -G Ninja && ninja -C build-remake remake_t
 4. Show results: render and send images, deliver mods as a zip; say what was not tested.
 5. A diagnostic is deleted once it has served; a finding goes in this file, a code comment or a commit message.
 
-**State** (latest mod: v21, `oras-town` default options): Twinleaf (Platinum) rebuilt as Littleroot's piece 6, with Littleroot's grass and its zone rules (tile-stepped zones with their own corners pulled in, half-tile paths, forest-tip arcs on the rim, outlines on soil paths placed as measured, 9d), square crossroads corners, ORAS's white picket fence, the pond's walls in earth, snow from the ice cave at half-tile precision with snow clumps (9f), door models at scale 1, tile values by surface (9e), trees within 3 tiles of open ground (33,094 vertices against the game's largest 35,691), and no design-rule warning. **Phone results: none for v2 to v21** (v2 fixed the zone compressed twice; nothing since has run on a phone). Known deviations: 3 warps for 4 doors (a new warp needs the zone's entity words, unknown); a Route 201 piece not rebuilt by this tool; **the houses are Petalburg's red-roofed ones, not Littleroot's wooden tiled ones, and there are no house cast shadows, flower sprites or grass tufts**, so the owner's reference screenshot (Littleroot in game) is matched on the ground only.
+**State** (latest mod: v24, `oras-town` default options, built by the `Remake mod` workflow): Twinleaf (Platinum) rebuilt as Littleroot's piece 6, with Littleroot's grass and its zone rules (tile-stepped zones with their own corners pulled in, half-tile paths, forest-tip arcs on the rim, outlines on soil paths placed as measured, 9d), square crossroads corners, ORAS's white picket fence, the pond's walls in earth, snow from the ice cave at half-tile precision with snow clumps (9f), tile values by surface (9e), trees within 2 tiles of open ground (996,992 bytes), the zone on Littleroot's own area pack 8 with the donor's textures added to it, and Littleroot's own door models moved onto the new doors. **Phone results (checked, Littleroot save, Azahar on Android): v24 shows the town** (section 11 has every run). Not yet reported: walking, collision, doors and warps in v24. Known deviations: 3 warps for 4 doors (a new warp needs the zone's entity words, unknown); Littleroot's door models (types 2, 7) on Petalburg's houses, whose own door (type 4) hides the map (11); a Route 201 piece not rebuilt by this tool; **the houses are Petalburg's red-roofed ones, not Littleroot's wooden tiled ones, and there are no house cast shadows, flower sprites or grass tufts**, so the owner's reference screenshot (Littleroot in game) is matched on the ground only.
 
 **Littleroot's houses, measured but not built** (tile coordinates of its piece 6, `a/0/3/9`): two small houses, 6 tiles wide by 5 deep (solid cols 11-16 and 23-28, rows 7-11), door tile (14, 11) and (26, 11) (door type 2, index 3 of 6 from the left), made of mesh 5 (`t01_01`, texture `t101_01`; boxes x 10.5-17.5, z 6.5-12.8) plus a cast shadow in mesh 11 (`shadow1`, box x 11-20, z 5.5-12.5); one large house, 7 wide by 6 deep (cols 13-19, rows 18-23), door tile (16, 23) (door type 7), made of mesh 7 (`t01_02`, `t101_02_fix`; box x 12.4-20.5, z 18.5-24.8) plus mesh 5's trim and chimney and its shadow (box x 12.5-22.5, z 16.5-24.5). Mesh 2 (`chip_mado`) holds the windows, meshes 4 and 6 (`chip_wood_*`) the trims, mesh 12 (`t01_a01`, blended) a large cover over the ground. The Petalburg donor already has same-texture slots for the windows (18, `chip_mado`) and the shadow (26, `shadow1`), a `touka_house01` slot (16) and a `touka_waku01` slot (17) that `BchSetTextureName` can re-point to `t101_01` and `t101_02_fix`; those two and the door texture `t101_door` (pack 8's file 1) must first be added to the donor pack by `ImportTextures` (today it adds the three grass textures). Whether door type 2 and 7 models find their textures in the donor pack is unknown and untested.
 
@@ -149,6 +149,9 @@ The `.code` in ExeFS is packed with BLZ (backward LZ, flag 0x01 of the extended 
 | A replaced archive member is the container it must be (GR, ZO, AD), compressed once, and reads back identical | a zone compressed twice crashed the field's start | error (`ReplaceMember`) |
 | A texture's v is used as stored, never flipped (previews included) | PICA textures are stored bottom row first, decoded in that order | rule of the BCH preview |
 | Textures are added to an area pack under their own names, never written over an existing one (`--grass -1` adds none) | a pack is shared by every piece of its area | by construction |
+| The piece is at most 996,992 bytes (`PieceBytesShown`) | the largest seen to show in Littleroot's place; 1,074,944 showed nothing (11) | error |
+| The zone keeps its own area pack; what the piece needs is added to it | a zone moved to another town's pack hung the game (11) | by construction (`--area` 8) |
+| Door models are the target's own entries, only moved | Petalburg's door type with zeroed words hid the map (11) | by construction |
 
 Layout rules (`CheckLayout`, all warnings except the first two): the tile block is 40 x 40 (error); the door block fits its count (error); tile values are among the 94 the game uses in at least 5 pieces; door models are at scale 1, turned by a multiple of 90 degrees, and centred on a tile (section 9b). The builder places door models at scale 1, so Twinleaf raises none of them.
 
@@ -233,6 +236,31 @@ Seen on the real meshes (welded vertices, tile units; no other piece measured ye
 2. The remaining words of zones' entries, and the zone-to-name-line link.
 3. The `coll` geometry fields, GR parts 4-6, the 124-byte tail of part 0, the area pack's small files.
 4. How the engine draws a mesh with projected texture (the material's render state is not decoded by the BCH reader).
-5. How a map piece is placed by the matrix (`a/0/4/0`) and how much memory the engine gives the pieces around the player (not tested since the zone fix: Twinleaf's 39,863 vertices exceed every original piece's maximum of 35,691).
+5. How a map piece is placed by the matrix (`a/0/4/0`), and why a piece in Littleroot's place shows only up to between 996,992 and 1,074,944 bytes (11) when the game's own pieces reach 1,368,064 elsewhere.
+8. What a door model type needs from its area (Petalburg's type 4 hides the map in Littleroot's, 11), and why a zone on another town's area pack hangs the game.
 6. Interior zones (houses), encounter tables, music, weather, camera: not looked at.
 7. The Platinum side of Twinleaf (zone events, scripts, text): read for the world, collision and warps only; scripts and text not decoded.
+
+## 11. Phone runs (checked: the owner's phone, Xiaomi 2306EPN60G, Azahar in Pomegrade, a save in Littleroot)
+
+Each mod built by the `Remake mod` workflow (`.github/workflows/remake-mod.yml`) from these options; "picture" is the map shown, "music" the field running with a black screen, "hang" neither.
+
+| Mod | What differs from the game | Result |
+|---|---|---|
+| v21 (and the zone alone) | zone on area pack 9 | hang |
+| z1 | piece and pack 9, zone on pack 8 | music |
+| v22 | zone on pack 8, the donor's textures added to pack 8 | music |
+| t1 | pack 8 enlarged only (69 textures) | picture |
+| t6 | Littleroot's piece recompressed and rewritten | picture |
+| t7, t8, t10, t11 | Littleroot's piece, its model padded to about 450, 540, 700, 860 KB | picture |
+| t9 | the same, about 1,126 KB | music |
+| t5 | Petalburg's piece as it is in the game | music |
+| t13, t15, t16 | the built model, alone or with the built tiles or collision | picture |
+| t14, t17 | the built door block (Petalburg's type 4, other words zeroed) | music |
+| v23 preview | the full model with trees within 1 tile (887 KB), Littleroot's other files | picture |
+| v24, v24 trees 2 | the whole town, Littleroot's door entries moved (886,528 and 996,992 bytes) | picture |
+| v24 trees 3 | the same, 1,074,944 bytes | music |
+| v24 door 4 | v24 with door type 4, the other words Littleroot's | music |
+
+What follows (inferred from these runs, the engine not read): a zone's area pack is tied to more than its textures (a zone on another town's pack hangs the game); a piece in Littleroot's place shows up to at least 996,992 bytes and not from 1,074,944, below the game's largest piece elsewhere (1,368,064); a door model type the area does not use (4 in Littleroot's) hides the map, so Petalburg's door needs something of pack 9 that pack 8 lacks, which one is unknown (its pack's slot 1 holds door and prop textures: the first suspect). The archive rewrite itself (GARC version 4, all 857 pieces LZ11, members 4-byte aligned, the header's largest member 514,942 bytes) is sound.
+

@@ -50,7 +50,7 @@ struct OrasTownOptions
     // the new piece written over the target's (a/0/3/9); 0 keeps the game's piece, to tell a broken piece from a broken pack
     // (v22: the game ran with no picture, its music playing)
     bool WritePiece = true;
-    int TreeReach = 3;                // TownSources::TreeReach
+    int TreeReach = 2;                // TownSources::TreeReach
     uint32_t DoorType = 0;            // TownSources::DoorType (Petalburg's houses: 4)
     // the donor piece written as it is in the game in place of the built one (with the textures it names added to the area pack):
     // tells whether any foreign piece shows at the target's place, the built one being the first suspect (v22: no picture)

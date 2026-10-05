@@ -32,8 +32,9 @@ struct TownSources
     // the pond's inner walls (empty: the donor's cliff band): their texture and its rows at the top and the foot of the wall
     std::string BankTexture;
     float BankV[2] = {0, 0};
-    // trees are placed up to this many tiles from open ground (-1: none). 3 keeps the piece within the game's largest
-    int TreeReach = 3;
+    // trees are placed up to this many tiles from open ground (-1: none). Twinleaf with 2 is the largest piece seen to show on the
+    // phone (996,992 bytes); with 3 (1,074,944 bytes) the map showed nothing
+    int TreeReach = 2;
     // the door models' type (0: the target's own, entry by entry); their other words stay the target's
     uint32_t DoorType = 0;
 };

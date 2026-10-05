@@ -148,6 +148,9 @@ int main()
         issues = CheckBudget(model, 500, budget);
         check(issues.size() == 1 && !issues[0].Error, "more vertices than the game's largest piece is a warning, not an error");
         check(CheckBudget(model, 500, PieceBudget{1000, 100}).empty(), "within the game's largest piece: no issue");
+        check(CheckBudget(model, PieceBytesShown, PieceBudget{2000000, 100}).empty(), "the largest piece seen to show on the phone: no issue");
+        issues = CheckBudget(model, PieceBytesShown + 1, PieceBudget{2000000, 100});
+        check(issues.size() == 1 && issues[0].Error, "a piece larger than any seen to show on the phone is an error, even within the game's largest");
         model.Meshes[0].Vertices.resize(70000);
         bool tooMany = false;
         for (const TownIssue& i : CheckBudget(model, 500, PieceBudget{1000, 1000000})) tooMany = tooMany || i.Error;
