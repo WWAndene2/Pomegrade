@@ -10,8 +10,9 @@ on:
       variants:
         description: 'One mod per line, "name: oras-town options" (no options = the defaults)'
         default: |
-          t1_pack_only: --piece 0 --zone-warps 0
-          t2_fewer_textures: --zone-warps 0 --snow -1 --fence -1 --snow-clumps 0 --pond-wall 0
+          t3_no_trees: --zone-warps 0 --tree-reach -1
+          t4_edge_trees: --zone-warps 0 --tree-reach 1
+          t5_donor_as_is: --zone-warps 0 --donor-as-is 1
         required: true
 
 permissions:

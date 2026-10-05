@@ -704,7 +704,7 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
                 if (fc >= 0 && fr >= 0 && fc < 2 * N && fr < 2 * N && water2[fr][fc] == '~') nearWater = true;
             }
             // within 3 tiles of open ground: with 4 the piece passes the game's largest (35,691 vertices, 'oras-town' warns)
-            if (d <= 3 && !nearWater) spots.push_back({c, r, d});
+            if (d <= src.TreeReach && !nearWater) spots.push_back({c, r, d});
         }
     std::stable_sort(spots.begin(), spots.end(), [](const Spot& a, const Spot& b) { return a.d < b.d; });
     // the tree's two upper leaf layers (Route 101's layers span y 27-52, 43-68, 54-79, 71-96)

@@ -188,7 +188,9 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
         areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub((size_t)o.FencePack)), (size_t)o.FencePack, {"c103_saku"}, finalName, result.Log);
         sources.FenceTexture = finalName["c103_saku"];
     }
-    const Bytes town = BuildTown(result.Layout, sources, &result.Log);
+    sources.TreeReach = o.TreeReach;
+    const Bytes town = o.DonorAsIs ? sources.Donor : BuildTown(result.Layout, sources, &result.Log);
+    if (o.DonorAsIs) result.Log.push_back("piece: the donor's, as it is in the game");
 
     // the donor's textures the piece names and the area pack lacks, added to it when it is not the donor's own pack (a name the
     // pack already holds keeps the pack's texture: Littleroot's chip_mado, shadow1, ... over Petalburg's)

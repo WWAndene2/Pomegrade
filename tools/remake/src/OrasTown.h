@@ -50,6 +50,10 @@ struct OrasTownOptions
     // the new piece written over the target's (a/0/3/9); 0 keeps the game's piece, to tell a broken piece from a broken pack
     // (v22: the game ran with no picture, its music playing)
     bool WritePiece = true;
+    int TreeReach = 3;                // TownSources::TreeReach
+    // the donor piece written as it is in the game in place of the built one (with the textures it names added to the area pack):
+    // tells whether any foreign piece shows at the target's place, the built one being the first suspect (v22: no picture)
+    bool DonorAsIs = false;
     bool AllowErrors = false;         // write the mod even if a design rule (TownCheck.h) is broken
     std::string OutDir;
 };

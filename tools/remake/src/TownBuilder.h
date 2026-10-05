@@ -32,6 +32,8 @@ struct TownSources
     // the pond's inner walls (empty: the donor's cliff band): their texture and its rows at the top and the foot of the wall
     std::string BankTexture;
     float BankV[2] = {0, 0};
+    // trees are placed up to this many tiles from open ground (-1: none). 3 keeps the piece within the game's largest
+    int TreeReach = 3;
 };
 
 // the new piece's bytes; log: what was placed
