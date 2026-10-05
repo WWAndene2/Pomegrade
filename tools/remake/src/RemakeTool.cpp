@@ -15,6 +15,9 @@
 //                     a Platinum map matrix translated to Omega Ruby / Alpha Sapphire's scale and
 //                     40-tile map pieces, with its warps and each cell's own textures:
 //                     world_oras.json (the editor's file), world_oras.gltf
+//   remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]
+//                     a 3DS model (ORAS map pieces: their terrain) as glTF; textures: BCH files or
+//                     ORAS area packs (a/0/1/4 entries: "AD") whose textures the model uses
 //   remake_tool oras-list <oras.3ds>                  a decrypted 3DS game's RomFS files, with sizes
 //   remake_tool oras-extract <oras.3ds> <path> <out>  one RomFS file
 //   remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...
@@ -31,6 +34,7 @@
 #include "Png.h"
 #include "TextureIndex.h"
 #include "AreaData.h"
+#include "Bch.h"
 #include "BinLinker.h"
 #include "N3dsRom.h"
 #include "MapHeaders.h"
@@ -38,6 +42,8 @@
 #include "ZoneEvents.h"
 #include "WorldMap.h"
 
+#include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
@@ -58,7 +64,7 @@ static int Usage()
                     "  remake_tool world <map_matrix.narc> <matrix index> <land_data.narc> <out dir>\n"
                     "                    [map textures.nsbtx|-] [buildings.narc|-] [building textures.nsbtx|-]\n"
                     "  remake_tool oras-world <rom.nds> <matrix index> <out dir>\n"
-                    "  remake_tool oras-list <oras.3ds>\n  remake_tool oras-extract <oras.3ds> <path> <out>\n"
+                    "  remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]\n  remake_tool oras-list <oras.3ds>\n  remake_tool oras-extract <oras.3ds> <path> <out>\n"
                     "  remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...\n");
     return 2;
 }
@@ -86,6 +92,48 @@ int main(int argc, char** argv)
                     written++;
                 }
             printf("%zu entries, %zu files\n", garc.Count(), written);
+            return 0;
+        }
+        if (cmd == "bch" && argc >= 4)
+        {
+            Bytes file = Plain(ReadFile(argv[2]));
+            if (Text(file, 0, 2) == "GR") file = BinLinker::Read(file, "GR").Files.at(1); // a map piece: its terrain
+            Bch bch = Bch::Read(file);
+            // textures from other files: BCH files, or containers holding them (an ORAS area: "AD")
+            for (int i = 4; i < argc; i++)
+            {
+                const Bytes t = Plain(ReadFile(argv[i]));
+                std::vector<Bytes> files;
+                if (Bch::Is(t)) files.push_back(t);
+                else if (t.size() > 4 && std::isalpha(t[0]) && std::isalpha(t[1]))
+                    files = BinLinker::Read(t, Text(t, 0, 2)).Files;
+                for (const Bytes& f : files)
+                {
+                    if (!Bch::Is(f)) continue;
+                    Bch more = Bch::Read(f);
+                    for (BchTexture& x : more.Textures) bch.Textures.push_back(std::move(x));
+                }
+            }
+            std::vector<GltfPart> parts;
+            std::vector<GltfMaterial> materials;
+            const float origin[3] = {0, 0, 0};
+            size_t meshes = 0, triangles = 0;
+            for (const BchModel& m : bch.Models)
+            {
+                AppendBchModel(m, bch.Textures, origin, parts, materials);
+                meshes += m.Meshes.size();
+                for (const BchMesh& mesh : m.Meshes) triangles += mesh.Triangles.size() / 3;
+            }
+            const std::string gltf = WriteGltf(parts, materials);
+            WriteFile(argv[3], Bytes(gltf.begin(), gltf.end()));
+            float lo[3] = {1e30f, 1e30f, 1e30f}, hi[3] = {-1e30f, -1e30f, -1e30f};
+            for (const GltfPart& p : parts)
+                for (const GxVertex& v : p.Mesh.Vertices)
+                    for (int k = 0; k < 3; k++) { lo[k] = std::min(lo[k], v.Position[k]); hi[k] = std::max(hi[k], v.Position[k]); }
+            size_t textured = 0;
+            for (const GltfMaterial& m : materials) textured += !m.Png.empty();
+            printf("BCH version 0x%x: %zu models, %zu meshes, %zu triangles, %zu textures, %zu of %zu materials textured; bounds x %g..%g y %g..%g z %g..%g\n", bch.Version,
+                   bch.Models.size(), meshes, triangles, bch.Textures.size(), textured, materials.size(), lo[0], hi[0], lo[1], hi[1], lo[2], hi[2]);
             return 0;
         }
         if (cmd == "textures" && argc >= 4)

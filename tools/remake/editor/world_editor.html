@@ -60,6 +60,7 @@
   #stage #gl { display: none; }  /* over "#stage canvas": hidden until the 3D tab, or it takes the map's clicks */
   #stage.three #map { display: none; }
   #stage.three #gl { display: block; }
+  #stage.three #empty { display: none; } /* the 3D tab has its own prompt (#gl-msg) */
   aside { width: 320px; border-left: 1px solid var(--divider); background: var(--surface); display: flex; flex-direction: column; min-height: 0; }
   aside nav { display: flex; border-bottom: 1px solid var(--divider); }
   aside nav button { flex: 1; border-radius: 0; height: 48px; background: transparent; border-bottom: 2px solid transparent; }
