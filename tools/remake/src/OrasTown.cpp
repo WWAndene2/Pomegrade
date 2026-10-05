@@ -6,6 +6,7 @@
 #include "Garc.h"
 #include "Gltf.h"
 #include "NitroCompression.h"
+#include "OrasZone.h"
 #include "PicaTexture.h"
 #include "TownBuilder.h"
 #include "TownCheck.h"
@@ -22,6 +23,7 @@ namespace remake
 static Bytes Plain(const Bytes& data) { return IsLzCompressed(data) ? LzDecompress(data) : data; }
 
 static void Put16(Bytes& b, size_t at, uint16_t v) { b.at(at) = (uint8_t)v; b.at(at + 1) = (uint8_t)(v >> 8); }
+static void Put32(Bytes& b, size_t at, uint32_t v) { for (int k = 0; k < 4; k++) b.at(at + k) = (uint8_t)(v >> (8 * k)); }
 
 void ReplaceMember(Garc& archive, const Garc& original, size_t index, const Bytes& plain, const std::string& tag)
 {
@@ -33,8 +35,10 @@ void ReplaceMember(Garc& archive, const Garc& original, size_t index, const Byte
     if (back != plain) throw FormatError("member " + std::to_string(index) + " does not read back identical");
 }
 
-// the zone's warps moved onto the new doors (its entries hold the zone matrix's pixel position of a tile:
-// (tile + 0.5) * 18, as u16 at +0x0C and +0x10), and its area pack set to the donor's
+// the zone's warps moved onto the new doors (an entry holds the zone matrix's pixel position of a tile, (tile + 0.5) * 18, as its
+// u16 words 4 and 6: OrasZone.h), and, with AddWarps, one more warp per door the zone has none for: a copy of its last warp
+// (same destination zone and other words), inserted after the warps, the events file's size and warp count raised to match;
+// its area pack set to AreaPack
 static Bytes MoveZoneWarps(const Bytes& zoneData, const OrasTownOptions& o, const TownLayout& layout, std::vector<std::string>& log)
 {
     const Bytes plain = IsLzCompressed(zoneData) ? LzDecompress(zoneData) : zoneData;
@@ -42,20 +46,33 @@ static Bytes MoveZoneWarps(const Bytes& zoneData, const OrasTownOptions& o, cons
     if (zone.Write() != plain) throw FormatError("the zone does not rewrite identical");
     Bytes& entries = zone.Files.at(1);
     const int files = entries.at(4), npcs = entries.at(5), warps = entries.at(6);
-    const size_t first = 8 + files * 0x14 + npcs * 0x30;
-    const int placed = o.ZoneWarps ? std::min<int>(warps, (int)layout.Doors.size()) : 0;
+    const size_t first = 12 + files * 0x14 + npcs * 0x30; // the arrays start after the size, four counts and the fifth count
+    int added = 0;
+    if (o.ZoneWarps && o.AddWarps && warps > 0 && (int)layout.Doors.size() > warps)
+    {
+        added = std::min((int)layout.Doors.size(), 255) - warps;
+        const Bytes last(entries.begin() + first + (warps - 1) * 0x18, entries.begin() + first + warps * 0x18);
+        for (int k = 0; k < added; k++) entries.insert(entries.begin() + first + (warps + k) * 0x18, last.begin(), last.end());
+        entries.at(6) = (uint8_t)(warps + added);
+        Put32(entries, 0, U32(entries, 0) + added * 0x18);
+    }
+    const int total = warps + added;
+    const int placed = o.ZoneWarps ? std::min<int>(total, (int)layout.Doors.size()) : 0;
     for (int k = 0; k < placed; k++)
     {
         const size_t at = first + k * 0x18;
         const int x = (o.CellX * TownTiles + layout.Doors[k].Column) * 18 + 9, y = (o.CellY * TownTiles + layout.Doors[k].Row) * 18 + 9;
-        Put16(entries, at + 0xC, (uint16_t)x);
-        Put16(entries, at + 0x10, (uint16_t)y);
+        Put16(entries, at + 8, (uint16_t)x);
+        Put16(entries, at + 12, (uint16_t)y);
     }
-    log.push_back("zone " + std::to_string(o.Zone) + ": " + std::to_string(placed) + " of its " + std::to_string(warps) + " warps moved onto " +
-                  std::to_string(layout.Doors.size()) + " doors" + (layout.Doors.size() > (size_t)warps ? " (the zone has no warp for the others)" : ""));
+    log.push_back("zone " + std::to_string(o.Zone) + ": " + std::to_string(placed) + " of its " + std::to_string(total) + " warps (" + std::to_string(added) +
+                  " added) moved onto " + std::to_string(layout.Doors.size()) + " doors" + (layout.Doors.size() > (size_t)total ? " (the zone has no warp for the others)" : ""));
     if (o.ZonePack) Put16(zone.Files.at(0), 2, (uint16_t)o.AreaPack);
     else log.push_back("zone " + std::to_string(o.Zone) + ": area pack kept");
-    return zone.Write(); // plain: ReplaceMember compresses it as the original was
+    const Bytes out = zone.Write();
+    const OrasZone check = OrasZone::Read(out); // the events file's size rule and counts must still hold
+    if ((int)check.Doors.size() != total) throw FormatError("the rewritten zone reads " + std::to_string(check.Doors.size()) + " warps, not " + std::to_string(total));
+    return out; // plain: ReplaceMember compresses it as the original was
 }
 
 // Textures of another area pack added to this one, under their own names (the pack's existing textures are untouched: other pieces of the
