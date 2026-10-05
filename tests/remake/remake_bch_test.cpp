@@ -3,8 +3,10 @@
 // small BCH built here to SPICA's layout (one model, material, mesh with a
 // 16-bit index buffer, texture), read end to end through its relocation
 // table. On the real game the same code reads Omega Ruby's map pieces and
-// area texture packs (see Bch.h).
+// area texture packs (see Bch.h). Writing (BchWriter.h): the mesh's geometry
+// replaced and read back.
 #include "Bch.h"
+#include "BchWriter.h"
 #include "PicaCommands.h"
 #include "PicaTexture.h"
 #include "synthetic_files.h"
@@ -195,6 +197,51 @@ int main()
         check(parts.size() == 1 && mats.size() == 1 && !mats[0].Png.empty() && parts[0].Mesh.Vertices[2].TexCoord[1] == 0.0f,
               "BCH to glTF: textured, texture v flipped (the GPU's runs bottom-up)");
     }
+    // writing: the mesh's triangle replaced by a quad (two triangles), positions given in the world (the
+    // writer takes the mesh's offset of x + 10 off), then read back through the same reader
+    BchGeometry quad;
+    quad.Mesh = 0;
+    const float corners[4][2] = {{10, 0}, {14, 0}, {14, 4}, {10, 4}};
+    for (const auto& c : corners)
+    {
+        BchVertex v;
+        v.Position[0] = c[0]; v.Position[2] = c[1];
+        v.TexCoord[0] = (c[0] - 10) / 4; v.TexCoord[1] = c[1] / 4;
+        quad.Vertices.push_back(v);
+    }
+    quad.Triangles = {0, 1, 2, 0, 2, 3};
+    const Bytes written = BchReplaceGeometry(file, 0, {quad});
+    const Bch back = Bch::Read(written);
+    if (back.Models.size() == 1 && back.Models[0].Meshes.size() == 1 && back.Textures.size() == 1)
+    {
+        const BchMesh& me = back.Models[0].Meshes[0];
+        bool same = me.Vertices.size() == 4;
+        for (size_t i = 0; same && i < 4; i++)
+            same = me.Vertices[i].Position[0] == quad.Vertices[i].Position[0] && me.Vertices[i].Position[2] == quad.Vertices[i].Position[2] &&
+                   me.Vertices[i].TexCoord[0] == quad.Vertices[i].TexCoord[0] && me.Vertices[i].TexCoord[1] == quad.Vertices[i].TexCoord[1];
+        check(same && me.Triangles == quad.Triangles, "BCH writer: a mesh's geometry replaced, read back the same (positions less the mesh's offset)");
+        check(back.Models[0].Name == "m" && back.Models[0].Materials[0].Texture[0] == "tex" && back.Textures[0].Data == rgb565,
+              "BCH writer: the model's name, material and texture kept");
+        check(written.size() > file.size() && written.size() % 4 == 0 && Slice(written, 0, 8) == Slice(file, 0, 8), "BCH writer: the file grown, its header's start kept");
+        check(Bch::Read(BchReplaceGeometry(written, 0, {quad})).Models[0].Meshes[0].Triangles == quad.Triangles, "BCH writer: a written file written again");
+    }
+    // a mesh with 8-bit indices (the relocation naming section 6): written with 16-bit ones
+    Bytes narrow = file;
+    {
+        const BchSections sec = BchSections::Read(narrow);
+        const std::vector<BchPointer> ps = BchPointers(narrow, sec);
+        for (size_t i = 0; i < ps.size(); i++)
+            if (ps[i].Target == 7) Put32(narrow, sec.Relocation + i * 4, (U32(narrow, sec.Relocation + i * 4) & ~(0xFu << 25)) | 6u << 25);
+        narrow[sec.Raw + indices] = 0; narrow[sec.Raw + indices + 1] = 1; narrow[sec.Raw + indices + 2] = 2;
+    }
+    check(Bch::Read(narrow).Models[0].Meshes[0].Triangles == std::vector<uint32_t>({0, 1, 2}), "BCH: 8-bit index buffer read");
+    check(Bch::Read(BchReplaceGeometry(narrow, 0, {quad})).Models[0].Meshes[0].Triangles == quad.Triangles, "BCH writer: 8-bit indices become 16-bit");
+    refused = false;
+    try { BchGeometry bad = quad; bad.Triangles = {0, 1, 4}; BchReplaceGeometry(file, 0, {bad}); } catch (const FormatError&) { refused = true; }
+    bool refused2 = false;
+    try { BchGeometry bad = quad; bad.Mesh = 1; BchReplaceGeometry(file, 0, {bad}); } catch (const FormatError&) { refused2 = true; }
+    check(refused && refused2, "BCH writer: an index past the vertices, a mesh the model lacks: refused");
+
     refused = false;
     // the model list's entry (contents + 180), relocated by the contents' address: far past the end
     try { Bytes bad = file; Put32(bad, 0x44 + 15 * 12, 0x00FFFFFF); Bch::Read(bad); } catch (const FormatError&) { refused = true; }

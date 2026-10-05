@@ -35,12 +35,36 @@ struct BchVertex
     float Position[3] = {}, Normal[3] = {0, 1, 0}, TexCoord[2] = {}, Colour[4] = {1, 1, 1, 1};
 };
 
+// how a mesh stores its vertices: attributes in buffer order, each scaled by its uniform (the
+// position also offset), every attribute 2-byte aligned unless bytes
+struct BchAttribute
+{
+    int Name = 0;                     // PICA attribute: 0 position, 1 normal, 3 colour, 4 texture coordinates, ...
+    int Format = 0;                   // 0 s8, 1 u8, 2 s16, 3 float
+    int Elements = 0;
+    float Scale = 1;
+};
+
+struct BchSubMesh
+{
+    uint32_t IndexBuffer = 0, Count = 0, Mode = 0; // file offset, index count, 0 triangles / 1 strip / 2 fan
+    bool Wide = false;                             // 16-bit indices
+    // file offsets of the command words a writer changes: the index buffer's address and the count
+    uint32_t IndexBufferWord = 0, CountWord = 0;
+};
+
 struct BchMesh
 {
     uint16_t Material = 0;
     int Layer = 0;                    // drawing layer 0-3 (opaque, translucent, subtractive, additive)
     std::vector<BchVertex> Vertices;
     std::vector<uint32_t> Triangles;  // three indices each
+
+    std::vector<BchAttribute> Attributes;
+    float PositionOffset[3] = {};
+    uint32_t VertexBuffer = 0, Stride = 0;
+    uint32_t VertexBufferWord = 0;    // file offset of the command word holding the vertex buffer's address
+    std::vector<BchSubMesh> SubMeshes;
 };
 
 struct BchMaterial
@@ -73,6 +97,23 @@ struct Bch
     static bool Is(const Bytes& data) { return data.size() >= 0x44 && Text(data, 0, 3) == "BCH"; }
     static Bch Read(const Bytes& data);
 };
+
+// the file's sections, from its header (addresses and lengths)
+struct BchSections
+{
+    uint32_t Contents = 0, Strings = 0, Commands = 0, Raw = 0, RawExt = 0, Relocation = 0, RelocationLength = 0;
+    // the address a relocation's section number (SPICA's numbering, 0-14) adds; 16-bit index buffers
+    // (sections 7 and 12) are flagged in bit 31
+    uint32_t Base(uint32_t section) const;
+    static BchSections Read(const Bytes& data);
+};
+
+// a pointer the relocation table fixes: its file offset and the section number whose address is added
+struct BchPointer
+{
+    uint32_t At = 0, Target = 0;
+};
+std::vector<BchPointer> BchPointers(const Bytes& data, const BchSections& sections);
 
 // a BCH model's meshes into glTF parts, its textures (by name, from textures) decoded,
 // placed at offset

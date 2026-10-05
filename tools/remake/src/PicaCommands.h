@@ -20,6 +20,7 @@ struct PicaCommand
 {
     uint16_t Register = 0;
     std::vector<uint32_t> Params;
+    size_t At = 0; // the word index of Params[0] in the list (a writer patches it there)
 };
 
 struct PicaCommands

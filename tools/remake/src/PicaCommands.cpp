@@ -45,15 +45,16 @@ PicaCommands PicaCommands::Parse(const std::vector<uint32_t>& words)
         }
         uniformIndex++;
     };
-    auto add = [&](uint16_t reg, std::vector<uint32_t> params) {
+    auto add = [&](uint16_t reg, std::vector<uint32_t> params, size_t at) {
         if (reg == 0x2C0) { uniformIndex = (params[0] & 0xFF) << 2; uniform32 = (params[0] >> 31) != 0; }
         else if (reg >= 0x2C1 && reg <= 0x2C8) for (uint32_t p : params) uniformData(p);
-        out.List.push_back({reg, std::move(params)});
+        out.List.push_back({reg, std::move(params), at});
     };
 
     size_t i = 0;
     while (i + 1 < words.size())
     {
+        size_t paramAt = i;
         uint32_t param = words[i++];
         const uint32_t header = words[i++];
         uint16_t id = header & 0xFFFF;
@@ -63,15 +64,15 @@ PicaCommands PicaCommands::Parse(const std::vector<uint32_t>& words)
         {
             for (uint32_t k = 0; k <= extra; k++)
             {
-                add(id++, {param});
-                if (k < extra) param = words[i++];
+                add(id++, {param}, paramAt);
+                if (k < extra) { paramAt = i; param = words[i++]; }
             }
         }
         else
         {
             std::vector<uint32_t> params{param};
             for (uint32_t k = 0; k < extra; k++) params.push_back(words[i++]);
-            add(id, std::move(params));
+            add(id, std::move(params), paramAt);
         }
         if (i & 1) i++; // commands are padded to 8 bytes
     }

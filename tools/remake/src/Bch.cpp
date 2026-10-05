@@ -33,47 +33,72 @@ struct Reader
 
 }
 
+uint32_t BchSections::Base(uint32_t section) const
+{
+    switch (section)
+    {
+    case 0: return Contents;
+    case 1: return Strings;
+    case 2: case 3: return Commands;
+    case 4: case 5: case 6: case 8: return Raw;
+    case 7: return Raw | 0x80000000u;          // 16-bit index buffers: flagged in the address
+    case 9: case 10: case 11: case 13: return RawExt;
+    case 12: return RawExt | 0x80000000u;
+    case 14: return 0;                          // "base address": from the file's start
+    }
+    throw FormatError("BCH: unknown relocation section " + std::to_string(section));
+}
+
+BchSections BchSections::Read(const Bytes& data)
+{
+    const uint8_t version = data.at(4);
+    const bool ext = version >= 0x21; // the RawExt section exists from version 0x21
+    const size_t a = 8, n = ext ? 6 : 5;  // addresses: contents, strings, commands, raw data, [raw ext], relocation
+    BchSections s;
+    s.Contents = U32(data, a); s.Strings = U32(data, a + 4); s.Commands = U32(data, a + 8); s.Raw = U32(data, a + 12);
+    s.RawExt = ext ? U32(data, a + 16) : 0;
+    s.Relocation = U32(data, a + 4 * (n - 1));
+    s.RelocationLength = U32(data, a + 4 * n + 4 * (n - 1));
+    return s;
+}
+
+std::vector<BchPointer> BchPointers(const Bytes& data, const BchSections& sections)
+{
+    // each word names a pointer (its section and its offset there, in words except for pointers
+    // to strings) and the section it points into
+    const uint8_t version = data.at(4);
+    std::vector<BchPointer> out;
+    for (uint32_t off = 0; off + 4 <= sections.RelocationLength; off += 4)
+    {
+        const uint32_t v = U32(data, sections.Relocation + off);
+        uint32_t ptr = v & 0x1FFFFFF, target = (v >> 25) & 0xF;
+        const uint32_t source = v >> 29;
+        // older versions numbered the sections differently (SPICA's GetLegacyRelocDiff)
+        if (version > 7 && version < 0x21 && target >= 6) target -= 1;
+        else if (version < 7 && target >= 3) target += 1;
+        if (target != 1) ptr <<= 2;
+        const size_t at = (size_t)sections.Base(source) + ptr;
+        if (source == 7 || at + 4 > data.size()) throw FormatError("BCH: a relocation outside the file");
+        out.push_back({(uint32_t)at, target});
+    }
+    return out;
+}
+
 Bch Bch::Read(const Bytes& data)
 {
     if (!Is(data)) throw FormatError("not a BCH");
     Bch out;
     out.Version = data[4];
-    const bool ext = out.Version >= 0x21; // the RawExt section exists from version 0x21
-    const size_t a = 8, n = ext ? 6 : 5;  // addresses: contents, strings, commands, raw data, [raw ext], relocation
-    const uint32_t contents = U32(data, a), strings = U32(data, a + 4), commands = U32(data, a + 8), raw = U32(data, a + 12);
-    const uint32_t rawExt = ext ? U32(data, a + 16) : 0, reloc = U32(data, a + 4 * (n - 1));
-    const uint32_t relocLength = U32(data, a + 4 * n + 4 * (n - 1));
+    const bool ext = out.Version >= 0x21;
+    const BchSections sections = BchSections::Read(data);
+    const uint32_t contents = sections.Contents;
 
-    // relocation: each word names a pointer (its section and its offset there, in words except for
-    // pointers to strings) and the section it points into, whose address is added to it
+    // relocation: each pointer gets its target section's address added
     Reader r{data};
-    auto base = [&](uint32_t section) -> uint32_t {
-        switch (section)
-        {
-        case 0: return contents;
-        case 1: return strings;
-        case 2: case 3: return commands;
-        case 4: case 5: case 6: case 8: return raw;
-        case 7: return raw | 0x80000000u;          // 16-bit index buffers: flagged in the address
-        case 9: case 10: case 11: case 13: return rawExt;
-        case 12: return rawExt | 0x80000000u;
-        case 14: return 0;                          // "base address": from the file's start
-        }
-        throw FormatError("BCH: unknown relocation section " + std::to_string(section));
-    };
-    for (uint32_t off = 0; off + 4 <= relocLength; off += 4)
+    for (const BchPointer& p : BchPointers(data, sections))
     {
-        const uint32_t v = U32(data, reloc + off);
-        uint32_t ptr = v & 0x1FFFFFF, target = (v >> 25) & 0xF;
-        const uint32_t source = v >> 29;
-        // older versions numbered the sections differently (SPICA's GetLegacyRelocDiff)
-        if (out.Version > 7 && out.Version < 0x21 && target >= 6) target -= 1;
-        else if (out.Version < 7 && target >= 3) target += 1;
-        if (target != 1) ptr <<= 2;
-        const size_t at = (size_t)base(source) + ptr;
-        if (source == 7 || at + 4 > r.D.size()) throw FormatError("BCH: a relocation outside the file");
-        const uint32_t now = U32(r.D, at) + base(target);
-        for (int k = 0; k < 4; k++) r.D[at + k] = (uint8_t)(now >> (8 * k));
+        const uint32_t now = U32(r.D, p.At) + sections.Base(p.Target);
+        for (int k = 0; k < 4; k++) r.D[p.At + k] = (uint8_t)(now >> (8 * k));
     }
 
     // contents: 15 dictionaries (values pointer, count, name tree); models are the first, textures the fourth
@@ -131,7 +156,8 @@ Bch Bch::Read(const Bytes& data)
             BchMesh bm;
             bm.Material = r.H(mesh);
             bm.Layer = (r.H(mesh + 6) >> 8) & 3;
-            const PicaCommands cmd = PicaCommands::Parse(r.Words(r.P(mesh + 8), r.P(mesh + 12)));
+            const uint32_t meshCommands = r.P(mesh + 8);
+            const PicaCommands cmd = PicaCommands::Parse(r.Words(meshCommands, r.P(mesh + 12)));
             uint64_t formats = 0, attributes = 0, permutation = 0;
             uint32_t buffer = 0, stride = 0, total = 0, fixedIndex = 0;
             uint32_t fixed[12][3] = {};
@@ -142,7 +168,7 @@ Bch Bch::Read(const Bytes& data)
                 {
                 case 0x201: formats |= p; break;
                 case 0x202: formats |= (uint64_t)p << 32; break;
-                case 0x203: buffer = p; break;
+                case 0x203: buffer = p; bm.VertexBufferWord = meshCommands + (uint32_t)c.At * 4; break;
                 case 0x204: attributes |= p; break;
                 case 0x205: attributes |= (uint64_t)(p & 0xFFFF) << 32; stride = (p >> 16) & 0xFF; break;
                 case 0x232: fixedIndex = p % 12; break;
@@ -155,8 +181,7 @@ Bch Bch::Read(const Bytes& data)
             const float* u6 = cmd.VertexUniforms[6];
             const float* u7 = cmd.VertexUniforms[7];
             const float* u8 = cmd.VertexUniforms[8];
-            struct Attribute { int Name, Format, Elements; float Scale; };
-            std::vector<Attribute> attrs;
+            std::vector<BchAttribute>& attrs = bm.Attributes;
             float fixedColour[4] = {1, 1, 1, 1};
             bool hasFixedColour = false;
             for (uint32_t k = 0; k < total && k < 12; k++)
@@ -193,14 +218,25 @@ Bch Bch::Read(const Bytes& data)
             for (uint32_t s = 0; s < subCount; s++)
             {
                 const uint32_t sub = subList + s * 0x34;
-                const PicaCommands sc = PicaCommands::Parse(r.Words(r.P(sub + 0x2C), r.P(sub + 0x30)));
+                const uint32_t subCommands = r.P(sub + 0x2C);
+                const PicaCommands sc = PicaCommands::Parse(r.Words(subCommands, r.P(sub + 0x30)));
                 const uint32_t ib = sc.Last(0x227), count = sc.Last(0x228), mode = sc.Last(0x25E) >> 8;
                 const bool wide = ib >> 31;
+                BchSubMesh layout;
+                layout.IndexBuffer = ib & 0x7FFFFFFF; layout.Count = count; layout.Mode = mode; layout.Wide = wide;
+                for (const PicaCommand& c : sc.List)
+                {
+                    if (c.Register == 0x227) layout.IndexBufferWord = subCommands + (uint32_t)c.At * 4;
+                    if (c.Register == 0x228) layout.CountWord = subCommands + (uint32_t)c.At * 4;
+                }
+                bm.SubMeshes.push_back(layout);
                 std::vector<uint32_t> idx(count);
                 for (uint32_t k = 0; k < count; k++) idx[k] = wide ? r.H((ib & 0x7FFFFFFF) + k * 2) : r.D.at((ib & 0x7FFFFFFF) + k);
                 for (uint32_t v : idx) maxIndex = std::max(maxIndex, v);
                 lists.push_back({std::move(idx), mode});
             }
+            bm.VertexBuffer = buffer; bm.Stride = stride;
+            std::copy(u6, u6 + 3, bm.PositionOffset);
             if (!stride || lists.empty()) { model.Meshes.push_back(bm); continue; }
 
             // vertices: each attribute 2-byte aligned unless bytes (SPICA's AlignStream)
@@ -212,7 +248,7 @@ Bch Bch::Read(const Bytes& data)
                 size_t at = buffer + (size_t)v * stride;
                 BchVertex& out = bm.Vertices[v];
                 if (hasFixedColour) std::copy(fixedColour, fixedColour + 4, out.Colour);
-                for (const Attribute& attr : attrs)
+                for (const BchAttribute& attr : attrs)
                 {
                     if (attr.Format >= 2) at += at & 1;
                     float e[4] = {0, 0, 0, 1};
