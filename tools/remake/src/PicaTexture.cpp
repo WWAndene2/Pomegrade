@@ -61,6 +61,24 @@ static void Etc1Block(uint64_t block, uint8_t rgb[16][3])
         }
 }
 
+Bytes PicaTextureEncodeRgba8(const Bytes& rgba, uint32_t w, uint32_t h)
+{
+    if (w % 8 || h % 8 || !w || !h) throw FormatError("PICA texture: size not a multiple of 8");
+    if (rgba.size() < (size_t)w * h * 4) throw FormatError("PICA texture: fewer pixels than its size");
+    Bytes out(PicaTextureLength(w, h, 0), 0);
+    size_t at = 0;
+    for (uint32_t ty = 0; ty < h; ty += 8)
+        for (uint32_t tx = 0; tx < w; tx += 8)
+            for (int px = 0; px < 64; px++, at += 4)
+            {
+                // texel (x, y) counted from the bottom row, as PicaTextureDecode reads it
+                const uint32_t x = tx + (Swizzle[px] & 7), yUp = ty + (Swizzle[px] >> 3);
+                const uint8_t* p = &rgba[((size_t)(h - 1 - yUp) * w + x) * 4];
+                out[at] = p[3]; out[at + 1] = p[2]; out[at + 2] = p[1]; out[at + 3] = p[0];
+            }
+    return out;
+}
+
 Bytes PicaTextureDecode(const Bytes& in, uint32_t w, uint32_t h, uint8_t format)
 {
     if (format >= 14) throw FormatError("PICA texture: unknown format " + std::to_string(format));

@@ -35,9 +35,8 @@ struct OrasTownOptions
     // a/0/1/4 member holding ORAS's white picket fence texture (c103_saku, area pack 21), added to AreaPack; Platinum's fences
     // become that fence. -1: a hedge, as before
     int FencePack = 21;
-    // the snow's outline, a band of Route 113's edge atlas chip_alpha_haji (area pack 15): 0 none, 1 its top band (sandy soil
-    // with pebbles, rows 0-30 of 128, full width), 2 its bottom-left band (cracked soil and pebbles, rows 97-127, left half)
-    int SnowOutline = 0;
+    // the snow's edge laid with clumps: Littleroot's stone cluster (chip_alpha, area pack 8) filled with the snow
+    bool SnowClumps = true;
     // the pond's inner walls: 0 the donor's cliff band (gake_01_touka, rock with a blue water line), 1 Littleroot's earth cliff
     // (chip_gake_b, area pack 8: a grass lip over brown earth and stones; the owner's choice), 2 the paths' soil (chip_soil_a)
     int PondWall = 1;

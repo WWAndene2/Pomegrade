@@ -77,6 +77,13 @@ struct BchBuilder
 int main()
 {
     // 24-bit floats: 1 sign, 7 exponent (bias 63), 16 mantissa bits
+    {
+        // a texture written as RGBA8 reads back the same (16 x 8: two tiles, every texel different)
+        Bytes rgba(16 * 8 * 4);
+        for (size_t i = 0; i < rgba.size(); i++) rgba[i] = (uint8_t)(i * 7 + 3);
+        const Bytes stored = PicaTextureEncodeRgba8(rgba, 16, 8);
+        check(stored.size() == PicaTextureLength(16, 8, 0) && PicaTextureDecode(stored, 16, 8, 0) == rgba, "an RGBA8 texture encodes and decodes back unchanged");
+    }
     check(PicaFloat24(63u << 16) == 1.0f && PicaFloat24(1u << 23 | 64u << 16 | 0x8000) == -3.0f && PicaFloat24(0) == 0.0f, "PICA float24: 1, -3, 0");
 
     // commands: a multi-parameter one, a consecutive run, uniforms as 32-bit and as 24-bit floats

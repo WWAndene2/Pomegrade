@@ -6,6 +6,7 @@
 #include "Garc.h"
 #include "Gltf.h"
 #include "NitroCompression.h"
+#include "PicaTexture.h"
 #include "TownBuilder.h"
 #include "TownCheck.h"
 
@@ -97,6 +98,22 @@ static Bytes ImportTextures(const Bytes& packData, const Bytes& fromData, size_t
     return pack.Write();
 }
 
+// A texture made here, added to the pack's main texture file (slot 11) under its name, the pack's own textures untouched
+static Bytes AddTexture(const Bytes& packData, const BchTextureSource& added, std::vector<std::string>& log)
+{
+    BinLinker pack = BinLinker::Read(packData, "AD");
+    std::vector<BchTextureSource> all;
+    for (const BchTexture& t : Bch::Read(pack.Files.at(11)).Textures)
+    {
+        if (t.Name == added.Name) throw FormatError("the area pack already holds a texture named " + added.Name);
+        all.push_back({t.Name, t.Width, t.Height, t.Format, t.Data});
+    }
+    all.push_back(added);
+    pack.Files.at(11) = BchWriteTextureFile(all);
+    log.push_back("texture " + added.Name + " made and added to the area pack's main texture file (" + std::to_string(all.size()) + " in all)");
+    return pack.Write();
+}
+
 OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTownOptions& o)
 {
     OrasTownResult result;
@@ -130,13 +147,30 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
         areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub((size_t)o.SnowPack)), (size_t)o.SnowPack, {"chip_icedoukutsu02"}, finalName, result.Log);
         sources.SnowTexture = finalName["chip_icedoukutsu02"];
     }
-    if (o.SnowOutline == 1 || o.SnowOutline == 2)
+    if (o.SnowClumps && !sources.SnowTexture.empty())
     {
-        std::map<std::string, std::string> finalName;
-        areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub(15)), 15, {"chip_alpha_haji"}, finalName, result.Log);
-        sources.SnowOutlineTexture = finalName["chip_alpha_haji"];
-        if (o.SnowOutline == 1) { sources.SnowOutlineV[0] = 0.0f; sources.SnowOutlineV[1] = 0.24f; sources.SnowOutlineU[0] = 0.0f; sources.SnowOutlineU[1] = 0.99f; }
-        else { sources.SnowOutlineV[0] = 0.758f; sources.SnowOutlineV[1] = 0.995f; sources.SnowOutlineU[0] = 0.004f; sources.SnowOutlineU[1] = 0.49f; }
+        // chip_alpha (Littleroot's area pack, 8): its shapes (alpha) kept, its colour the cave's snow (chip_icedoukutsu02, at
+        // the same texel, the snow tiling): the stone cluster becomes a clump of snow
+        const Bch littleroot = Bch::Read(BinLinker::Read(Plain(areaArchive.Sub(8)), "AD").Files.at(11));
+        const Bch snowFile = Bch::Read(BinLinker::Read(Plain(areaArchive.Sub((size_t)o.SnowPack)), "AD").Files.at(11));
+        const BchTexture *shapes = nullptr, *snow = nullptr;
+        for (const BchTexture& t : littleroot.Textures) if (t.Name == "chip_alpha") shapes = &t;
+        for (const BchTexture& t : snowFile.Textures) if (t.Name == "chip_icedoukutsu02") snow = &t;
+        if (shapes && snow)
+        {
+            Bytes rgba = PicaTextureDecode(shapes->Data, shapes->Width, shapes->Height, shapes->Format);
+            const Bytes white = PicaTextureDecode(snow->Data, snow->Width, snow->Height, snow->Format);
+            for (uint32_t y = 0; y < shapes->Height; y++)
+                for (uint32_t x = 0; x < shapes->Width; x++)
+                {
+                    uint8_t* p = &rgba[((size_t)y * shapes->Width + x) * 4];
+                    const uint8_t* q = &white[((size_t)(y % snow->Height) * snow->Width + x % snow->Width) * 4];
+                    p[0] = q[0]; p[1] = q[1]; p[2] = q[2];
+                }
+            areaPack = AddTexture(areaPack, {"snow_clump", shapes->Width, shapes->Height, 0, PicaTextureEncodeRgba8(rgba, shapes->Width, shapes->Height)}, result.Log);
+            sources.SnowClumpTexture = "snow_clump";
+        }
+        else result.Log.push_back("snow clumps: chip_alpha or chip_icedoukutsu02 not found, none laid");
     }
     if (o.PondWall == 1)
     {

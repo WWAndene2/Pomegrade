@@ -16,6 +16,9 @@ namespace remake
 size_t PicaTextureLength(uint32_t width, uint32_t height, uint8_t format);
 // RGBA, rows top to bottom (as PNG and glTF expect)
 Bytes PicaTextureDecode(const Bytes& data, uint32_t width, uint32_t height, uint8_t format);
+// the reverse for format 0 (RGBA8): RGBA rows top to bottom in, the stored bytes out (8x8 tiles, bottom row first, ABGR),
+// padded to PicaTextureLength; PicaTextureDecode(PicaTextureEncodeRgba8(x), w, h, 0) == x
+Bytes PicaTextureEncodeRgba8(const Bytes& rgba, uint32_t width, uint32_t height);
 
 }
 

@@ -180,22 +180,17 @@ static void AddFill(BchGeometry& g, const ZoneShape& shape, float y, const float
 // with Littleroot's chip_grass_decolate mesh's height and texture band (measured). The blades are chip_alpha's grass band (rows 38-60 of 128): the tips (v 0.302, white) into the zone, the roots
 // (v 0.496, the grass's colour) out on the grass, so the grass's edge is jagged and runs on beyond it. u advances 0.0245 a
 // unit along the border, wrapping inside the band (u 0.046-0.453), the strip cut where it wraps.
-// The band is one row range of an atlas: vTip and vRoot its two edges' v (a decoded texture's row / 128 for a 128-row atlas),
-// uStart and span its columns (chip_alpha's blades: 0.046 and 0.407); tipsOut: the band's tip edge out of the zone, where
-// the roots were; y: the height.
-struct OutlineBand { float VTip = 0.302f, VRoot = 0.496f, UStart = 0.046f, Span = 0.407f; };
-static void AddOutline(BchGeometry& g, const ShapeChain& chain, const float tip[4], const float root[4], const OutlineBand& band = {},
-                       bool tipsOut = false, float y = 0.3f)
+static void AddOutline(BchGeometry& g, const ShapeChain& chain, const float tip[4], const float root[4])
 {
-    const float perUnit = 0.0245f, lo = band.UStart, span = band.Span;
+    const float perUnit = 0.0245f, lo = 0.046f, span = 0.407f;
     const OutlinePoints strip = OutlineStrip(chain, T);
     float s = 0;
     const size_t n = chain.Points.size();
     const size_t last = chain.Closed ? n : n - 1;
     auto vertex = [&](const ShapePoint& p, bool tipSide, float u) {
         BchVertex v;
-        v.Position[0] = p.X; v.Position[1] = y; v.Position[2] = p.Z;
-        v.TexCoord[0] = u; v.TexCoord[1] = tipSide ? band.VTip : band.VRoot;
+        v.Position[0] = p.X; v.Position[1] = 0.3f; v.Position[2] = p.Z;
+        v.TexCoord[0] = u; v.TexCoord[1] = tipSide ? 0.302f : 0.496f;
         std::copy(tipSide ? tip : root, (tipSide ? tip : root) + 4, v.Colour);
         g.Vertices.push_back(v);
     };
@@ -218,10 +213,8 @@ static void AddOutline(BchGeometry& g, const ShapeChain& chain, const float tip[
                 const float t = d / length;
                 p = {lerp(a.X, b.X, t), lerp(a.Z, b.Z, t)};
                 nrm = {lerp(na.X, nb.X, t), lerp(na.Z, nb.Z, t)};
-                const std::vector<ShapePoint>& tips = tipsOut ? strip.Roots : strip.Tips;
-                const std::vector<ShapePoint>& roots = tipsOut ? strip.Tips : strip.Roots;
-                tipAt = {lerp(tips[i].X, tips[j].X, t), lerp(tips[i].Z, tips[j].Z, t)};
-                rootAt = {lerp(roots[i].X, roots[j].X, t), lerp(roots[i].Z, roots[j].Z, t)};
+                tipAt = {lerp(strip.Tips[i].X, strip.Tips[j].X, t), lerp(strip.Tips[i].Z, strip.Tips[j].Z, t)};
+                rootAt = {lerp(strip.Roots[i].X, strip.Roots[j].X, t), lerp(strip.Roots[i].Z, strip.Roots[j].Z, t)};
             };
             ShapePoint p0, n0, t0, r0, p1, n1, t1, r1;
             along(at, p0, n0, t0, r0); along(to, p1, n1, t1, r1);
@@ -230,8 +223,7 @@ static void AddOutline(BchGeometry& g, const ShapeChain& chain, const float tip[
             vertex(t0, true, u0); vertex(r0, false, u0); vertex(t1, true, u1); vertex(r1, false, u1);
             // facing up, as the ground (see the quads': a, e, d / a, d, b); the zone is on the tips' side
             const float cross = (p1.X - p0.X) * n0.Z - (p1.Z - p0.Z) * n0.X;
-            // (tips turned out: the quad's two sides swap, and so does the winding that faces up)
-            if ((cross > 0) != tipsOut) for (uint32_t k : {0u, 2u, 3u, 0u, 3u, 1u}) g.Triangles.push_back(base + k);
+            if (cross > 0) for (uint32_t k : {0u, 2u, 3u, 0u, 3u, 1u}) g.Triangles.push_back(base + k);
             else for (uint32_t k : {0u, 3u, 2u, 0u, 1u, 3u}) g.Triangles.push_back(base + k);
             at = to;
         }
@@ -279,6 +271,44 @@ static void AddFence(BchGeometry& g, const std::vector<std::string>& vis, int N,
             if (fence(c, r) && !fence(c - 1, r) && fence(c + 1, r)) { int e = c; while (fence(e + 1, r)) e++; run(centre(c), centre(r), centre(e), centre(r)); }
             if (fence(c, r) && !fence(c, r - 1) && fence(c, r + 1)) { int e = r; while (fence(c, e + 1)) e++; run(centre(c), centre(r), centre(c), centre(e)); }
         }
+}
+
+// The snow's edge made of clumps (the owner's choice): the earth-patch decal of Littleroot's chip_alpha (its cluster of stones,
+// u 0.02-0.48, v 0.52-0.98, the quad GrassDecals lays) in a texture filled with the ice cave's snow (OrasTown's snow_clump),
+// laid along the snow zone's border, centred on it so half of each clump lies on the grass: one every 12 units of border,
+// 20 to 28 units wide, turned at random (a hash of its place: the same edge for the same town), 0.5 up, over the snow (0.45).
+static void SnowClumps(BchGeometry& g, const ShapeChain& chain)
+{
+    const size_t n = chain.Points.size();
+    const size_t last = chain.Closed ? n : n - 1;
+    float next = 0, s = 0;
+    for (size_t i = 0; i < last; i++)
+    {
+        const ShapePoint a = chain.Points[i], b = chain.Points[(i + 1) % n];
+        const float length = std::hypot(b.X - a.X, b.Z - a.Z);
+        for (; next <= s + length; next += 12)
+        {
+            const float t = length > 1e-4f ? (next - s) / length : 0;
+            const float cx = a.X + (b.X - a.X) * t, cz = a.Z + (b.Z - a.Z) * t;
+            uint32_t h = (uint32_t)std::lround(cx * 7) * 73856093u ^ (uint32_t)std::lround(cz * 7) * 19349663u;
+            h ^= h >> 13; h *= 1274126177u; h ^= h >> 16;
+            const float size = 20.0f + (float)(h % 9), angle = (float)((h >> 8) % 628) / 100.0f;
+            const float ca = std::cos(angle), sa = std::sin(angle);
+            const uint32_t base = (uint32_t)g.Vertices.size();
+            for (int j = 0; j < 2; j++)
+                for (int k = 0; k < 2; k++)
+                {
+                    const float lx = (k - 0.5f) * size, lz = (j - 0.5f) * size;
+                    BchVertex v;
+                    v.Position[0] = cx + lx * ca - lz * sa; v.Position[1] = 0.5f; v.Position[2] = cz + lx * sa + lz * ca;
+                    v.TexCoord[0] = k ? 0.48f : 0.02f; v.TexCoord[1] = j ? 0.52f : 0.98f;
+                    for (int c = 0; c < 4; c++) v.Colour[c] = 1.0f;
+                    g.Vertices.push_back(v);
+                }
+            for (uint32_t k : {0u, 2u, 3u, 0u, 3u, 1u}) g.Triangles.push_back(base + k);
+        }
+        s += length;
+    }
 }
 
 // The rim of the playable ground, as Littleroot lays it (its chip_edge_tex mesh, measured): a strip along the border where
@@ -520,17 +550,10 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         // is translucent (alpha 0.57 inside and on its open border, 1.0 against the walls, measured) because it lies on white
         // ice; on green grass that would show pale green, so it is opaque here (the owner's choice): white, as Platinum's
         const float snow[4] = {0.95f, 1, 1, 1};
-        // (in the lighter grass's opaque slot: the snow is opaque; the blended slot 22 carries its outline, src.SnowOutline)
+        // (in the lighter grass's opaque slot: the snow is opaque; the blended slot 22 carries its edge clumps, SnowClumps)
         if (snowy) AddFill(geo[Pale], snowShape, 0.45f, snow);
-        if (snowy && !src.SnowOutlineTexture.empty())
-        {
-            // the outline the owner is choosing between (oras-town --snow-outline): a band of an atlas on the snow's border, 0.5
-            // up over the snow, its ragged edge out onto the grass and its solid edge over the snow's
-            const float white4[4] = {1, 1, 1, 1};
-            OutlineBand band;
-            band.VTip = src.SnowOutlineV[0]; band.VRoot = src.SnowOutlineV[1]; band.UStart = src.SnowOutlineU[0]; band.Span = src.SnowOutlineU[1];
-            for (const ShapeChain& chain : snowShape.Chains) AddOutline(geo[SnowBand], chain, white4, white4, band, true, 0.5f);
-        }
+        if (snowy && !src.SnowClumpTexture.empty())
+            for (const ShapeChain& chain : snowShape.Chains) SnowClumps(geo[SnowBand], chain);
         else AddFill(geo[Pale], lightShape, 0.15f, white);
         AddFill(geo[Soil], pathShape, 0.15f, soil);
         // the outline of each zone, on its border, coloured as the target's own outline (one colour for tips and roots, the
@@ -701,7 +724,7 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         };
         show(Ground, 0, src.GroundTexture);
         show(Pale, 0, src.SnowTexture.empty() ? src.LightTexture : src.SnowTexture);
-        show(SnowBand, 0, src.SnowOutlineTexture);
+        show(SnowBand, 0, src.SnowClumpTexture);
         show(Bank, 0, src.BankTexture);
         show(Hedge, 0, src.FenceTexture);
         show(Edge, 1, src.EdgeTexture);
