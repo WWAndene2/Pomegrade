@@ -24,6 +24,10 @@
 //                     an Azahar mod: each file replaces that RomFS path, laid out as Azahar loads
 //                     mods (<out dir>/load/mods/<program id>/romfs/<path>); copy <out dir>/load
 //                     into the 3DS folder (Pomegrade/3DS)
+//   remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...
+//                     the same as BPS patches against the game's own files (<out dir>/load/mods/
+//                     <program id>/romfs_ext/<path>.bps): a few changed pieces of a large archive
+//                     make a small mod; each patch is applied back and checked before it is written
 #include "Inventory.h"
 #include "Narc.h"
 #include "NdsRom.h"
@@ -35,6 +39,7 @@
 #include "TextureIndex.h"
 #include "AreaData.h"
 #include "Bch.h"
+#include "Bps.h"
 #include "BinLinker.h"
 #include "N3dsRom.h"
 #include "MapHeaders.h"
@@ -65,7 +70,8 @@ static int Usage()
                     "                    [map textures.nsbtx|-] [buildings.narc|-] [building textures.nsbtx|-]\n"
                     "  remake_tool oras-world <rom.nds> <matrix index> <out dir>\n"
                     "  remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]\n  remake_tool oras-list <oras.3ds>\n  remake_tool oras-extract <oras.3ds> <path> <out>\n"
-                    "  remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...\n");
+                    "  remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...\n"
+                    "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n");
     return 2;
 }
 
@@ -171,7 +177,7 @@ int main(int argc, char** argv)
             return 0;
         }
         // decrypted 3DS game images
-        if (cmd == "oras-list" || cmd == "oras-extract" || cmd == "oras-mod")
+        if (cmd == "oras-list" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch")
         {
             N3dsRom game(argv[2]);
             char id[17];
@@ -183,9 +189,10 @@ int main(int argc, char** argv)
                 return 0;
             }
             if (cmd == "oras-extract" && argc >= 5) { WriteFile(argv[4], game.Read(argv[3])); return 0; }
-            if (cmd == "oras-mod" && argc >= 5)
+            if ((cmd == "oras-mod" || cmd == "oras-patch") && argc >= 5)
             {
-                const std::filesystem::path root = std::filesystem::path(argv[3]) / "load" / "mods" / id / "romfs";
+                const bool patch = cmd == "oras-patch";
+                const std::filesystem::path root = std::filesystem::path(argv[3]) / "load" / "mods" / id / (patch ? "romfs_ext" : "romfs");
                 for (int i = 4; i < argc; i++)
                 {
                     const std::string arg = argv[i];
@@ -193,12 +200,22 @@ int main(int argc, char** argv)
                     if (eq == std::string::npos) { fprintf(stderr, "expected <path>=<file>: %s\n", arg.c_str()); return 2; }
                     const std::string path = arg.substr(0, eq);
                     if (!game.Has(path)) { fprintf(stderr, "no %s in the game's RomFS: a mod only replaces files the game has\n", path.c_str()); return 1; }
-                    const Bytes data = ReadFile(arg.substr(eq + 1));
+                    const Bytes data = ReadFile(arg.substr(eq + 1)), original = game.Read(path);
                     // an archive the game reads as GARC must still be one
-                    if (Garc::Is(game.Read(path))) Garc check(data);
+                    if (Garc::Is(original)) Garc check(data);
+                    // Azahar keeps a patched file at least its original size (see Bps.h)
+                    if (patch && data.size() < original.size()) { fprintf(stderr, "%s: shorter than the game's file; Azahar would leave its old tail (use oras-mod)\n", path.c_str()); return 1; }
                     std::filesystem::create_directories((root / path).parent_path());
-                    WriteFile((root / path).string(), data);
-                    printf("%s <- %s (%zu bytes)\n", path.c_str(), arg.substr(eq + 1).c_str(), data.size());
+                    if (!patch)
+                    {
+                        WriteFile((root / path).string(), data);
+                        printf("%s <- %s (%zu bytes)\n", path.c_str(), arg.substr(eq + 1).c_str(), data.size());
+                        continue;
+                    }
+                    const Bytes bps = BpsCreate(original, data);
+                    if (BpsApply(original, bps) != data) { fprintf(stderr, "%s: the patch does not rebuild the file\n", path.c_str()); return 1; }
+                    WriteFile((root / (path + ".bps")).string(), bps);
+                    printf("%s <- %s (%zu bytes, patch %zu bytes, checked)\n", path.c_str(), arg.substr(eq + 1).c_str(), data.size(), bps.size());
                 }
                 printf("mod written under %s: copy %s into the 3DS folder (Pomegrade/3DS)\n", root.string().c_str(),
                        (std::filesystem::path(argv[3]) / "load").string().c_str());
