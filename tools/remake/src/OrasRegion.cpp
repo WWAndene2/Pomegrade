@@ -468,9 +468,11 @@ std::vector<std::string> PlanSinnoh(const NdsRom& platinum, N3dsRom& oras, int s
             if (z.Characters.empty() && z.Doors.empty() && z.Triggers.empty() && z.Furniture.empty() && !overworld.count((int)i)) empty++;
         }
         catch (const FormatError&) {}
+    const ptrdiff_t spare = (ptrdiff_t)(overworld.size() + empty) - (ptrdiff_t)allHeaders.size();
     log.push_back(F("map headers on Sinnoh's overworld (header 0, the scenery with no events, left out): %zu; ORAS zones on Hoenn's overworld grids: %zu, "
-                    "empty zones: %zu, so %zd more must come from Hoenn's interiors or the zones its code reaches", allHeaders.size(), overworld.size(), empty,
-                    (ptrdiff_t)allHeaders.size() - (ptrdiff_t)(overworld.size() + empty)));
+                    "empty zones: %zu: ", allHeaders.size(), overworld.size(), empty) +
+                  (spare >= 0 ? F("%zd to spare, no interior or code-reached zone needed", spare)
+                              : F("%zd more must come from Hoenn's interiors or the zones its code reaches", -spare)));
     return log;
 }
 
