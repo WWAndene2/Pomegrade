@@ -122,7 +122,9 @@ Done (desktop-tested on the real files, nothing tried in the game yet):
 
 Not known yet (needed to put anything in the game): ORAS's 32-bit tile values, its collision block, its zone data (pk3DS: "not researched enough"), its scripts; writing BCH models.
 
-Next, agreed with the owner: a playable slice first (Twinleaf Town, Route 201, Sandgem Town in ORAS, the mod replacing Hoenn at a new game), then the rest of Sinnoh:
+Hoenn stays (owner's decision): at a new game the player picks one of two separate stories, Hoenn (ORAS as it is) or Sinnoh (the remake); a save holds one. Later goal: both regions in one world. So Sinnoh's maps, zones and scripts are added next to Hoenn's, not over them, and the new-game choice is a patch of the game's code: Azahar applies code.ips / code.bps from the mod folder (load/mods/<program id>/exefs/, ncch_container.cpp), beside the romfs/ replacements. To check early: whether ORAS's code has fixed counts of zones, matrices or map pieces that new entries would exceed.
+
+Next, agreed with the owner: a playable slice first (Twinleaf Town, Route 201, Sandgem Town in ORAS, reached by choosing Sinnoh at a new game), then the rest of Sinnoh:
 1. Decode ORAS's map data with small test mods run on the owner's phone (nothing here runs ORAS).
 2. Write BCH models.
 3. Generate ORAS-style terrain from Platinum's layout; place ORAS buildings, trees, characters; new models for Sinnoh landmarks ORAS lacks.
