@@ -526,6 +526,34 @@ int main(int argc, char** argv)
             printf("reached zones by matrix:");
             for (const auto& [m, n] : byMatrix) printf(" %d:%d", m, n);
             printf("\n");
+            // the headers no warp reaches, one line each: their matrix and event file, what the events hold, the reached headers
+            // sharing their matrix or events, and how many times the scripts hold the bytes BE 00 <header> (a guess at a warp
+            // command, the script format not being decoded: a hint, not a proof)
+            std::map<uint16_t, std::vector<int>> eventsOf, matrixOf;
+            for (int h : reached) { eventsOf[plat.Headers[h].Events].push_back(h); matrixOf[plat.Headers[h].Matrix].push_back(h); }
+            const NdsFile* scriptFile = rom.Find("fielddata/script/scr_seq.narc");
+            if (!scriptFile) throw FormatError("no fielddata/script/scr_seq.narc in the cartridge");
+            const Narc scripts(Plain(rom.Read(*scriptFile)));
+            size_t live = 0;
+            for (size_t h = 0; h < plat.Headers.size(); h++)
+            {
+                if (reached.count((int)h)) continue;
+                const MapHeader& m = plat.Headers[h];
+                size_t objects = 0, warps = 0, bg = 0, coord = 0;
+                try { const ZoneEvents ev = ZoneEvents::Read(Plain(plat.Events.Member(m.Events))); objects = ev.Objects.size(); warps = ev.Warps.size(); bg = ev.BgEvents; coord = ev.CoordEvents; }
+                catch (const std::exception&) {}
+                size_t hits = 0;
+                for (size_t f = 0; f < scripts.Count(); f++)
+                {
+                    const Bytes& b = scripts.Member(f);
+                    for (size_t k = 0; k + 3 < b.size(); k++) if (b[k] == 0xBE && b[k + 1] == 0 && b[k + 2] == (h & 0xFF) && b[k + 3] == (h >> 8)) hits++;
+                }
+                const bool empty = objects + warps + bg + coord == 0;
+                if (!empty || hits) live++;
+                printf("unreached %zu: matrix %u events %u (objects %zu warps %zu bg %zu coord %zu)%s%s, script hits %zu\n", h, m.Matrix, m.Events, objects, warps, bg, coord,
+                       eventsOf.count(m.Events) ? " events shared with a reached header" : "", matrixOf.count(m.Matrix) ? " matrix shared with a reached header" : "", hits);
+            }
+            printf("unreached with events or script hits: %zu of %zu\n", live, plat.Headers.size() - reached.size());
             return 0;
         }
         if (cmd == "oras-world" && argc >= 5)
