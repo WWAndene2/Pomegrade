@@ -106,7 +106,9 @@ The `.code` in ExeFS is packed with BLZ (backward LZ, flag 0x01 of the extended 
 | A texture's v is used as stored, never flipped (previews included) | PICA textures are stored bottom row first, decoded in that order | rule of the BCH preview |
 | Textures are added to an area pack under their own names, never written over an existing one (`--grass -1` adds none) | a pack is shared by every piece of its area | by construction |
 
-Not yet checked by code (by hand until it is): tile values only from the known set, a door model per placed door (the block holds 5), warps inside the piece's cell, the zone's area pack matching the piece's.
+Layout rules (`CheckLayout`, all warnings except the first two): the tile block is 40 x 40 (error); the door block fits its count (error); tile values are among the 94 the game uses in at least 5 pieces; door models are at scale 1, turned by a multiple of 90 degrees, and centred on a tile (section 9b). The builder's 0.8-scaled doors trigger the scale warning: a known deviation from the game.
+
+Not yet checked by code: a door model per placed door (the block holds 5), warps inside the piece's cell, the zone's area pack matching the piece's.
 
 ## 9. The whole game, not only Littleroot (checked: `oras-verify`, `oras-catalog`)
 
@@ -115,6 +117,16 @@ Not yet checked by code (by hand until it is): tile values only from the known s
 - **Materials are town-specific**: 2884 distinct names for 857 pieces, because each town names its own objects (`c108_rune_*`, `t101_*`, `touka_*`). Shared across the game: `shadow_a` (285 pieces), `chip_kusa` (177), `chip_rock_b` (158), `chip_wood_b` (132), `gake_basic` (128, cliffs), `chip_sea_b` (126), `shadow1` (123), `platan_bk` (114), `chip_edge_tex` (77), `chip_grass_decolate` (54). Buildings are baked into each piece's terrain with the town's own materials.
 - **Texture files**: `BchWriteTextureFile` (`BchTextureFile.h`) writes a texture BCH from a list of decoded textures and reproduces **all 439 texture files that hold data, byte for byte** up to the relocation table, whose entries (9 * count + 16) match as a set. So **a texture of any pack can be added to any other pack's main texture file** (done by `oras-town` for the grass). The 17 other files are empty placeholders (one texture, no data).
 - **What stays limited**: a piece's terrain keeps its donor's meshes and materials: only their geometry (`BchReplaceGeometry`) and texture names (`BchSetTextureName`) can change, not add or remove a mesh or a material. A material's render state (blending, culling, layer, texture mappers) is not decoded, so a mesh slot cannot yet be chosen by what it does. Composing assets from several pieces therefore means choosing a donor piece with the slots wanted, then re-texturing them from any pack.
+
+## 9b. Construction rules (measured on all 857 pieces)
+
+- **Frame**: a piece is 40 x 40 tiles; one tile is 18 model units (Platinum: 16 DS units, scale 1.125). Geometry, props and doors are aligned to this grid.
+- **Heights**: ground levels are multiples of 18 (one tile of height).
+- **Planar UVs**: ground textures repeat every 72 units horizontally and 54 vertically (4 and 3 tiles).
+- **Doors**: door models sit at a tile's centre (x, z = 9 mod 18), scale 1 (all 368 door models in the game), rotation a multiple of 90 degrees; the door block is a u32 count followed by 44-byte entries.
+- **Tile block**: 40 x 40 u32 values after a 40, 40 header; 94 values occur in at least 5 pieces (`TileValueEstablished`), and each maps to a surface kind.
+- **Seams**: neighbouring pieces continue each other's ground at the shared edge.
+- **Collision**: a `coll` block with its own header, geometry fields undecoded.
 
 ## 10. What is NOT known (the work left)
 

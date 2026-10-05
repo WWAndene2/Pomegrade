@@ -27,6 +27,13 @@ struct TownIssue
 // the textures `model`'s materials name that are not in `available` (the area pack's texture names; "projection_dummy" and empty names need none)
 std::vector<TownIssue> CheckMaterials(const BchModel& model, const std::set<std::string>& available);
 
+// the tile block (GR part 0) and the door block (part 3) of a piece against what the game's 857 pieces do (measured: 208 distinct tile
+// values, 94 of them in at least 5 pieces; every door model at scale 1, rotated by a multiple of 90 degrees, at a tile's centre)
+std::vector<TownIssue> CheckLayout(const Bytes& tileBlock, const Bytes& doorBlock);
+
+// the tile values the game's pieces use in at least 5 pieces (documented in tools/remake/ORAS_LITTLEROOT.md section 9)
+bool TileValueEstablished(uint32_t value);
+
 struct PieceBudget { size_t MaxFileBytes = 0, MaxVertices = 0; }; // the largest of the game's own pieces
 std::vector<TownIssue> CheckBudget(const BchModel& model, size_t fileBytes, const PieceBudget& original);
 

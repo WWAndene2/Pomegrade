@@ -154,6 +154,7 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
         result.Log.push_back("design rules: " + std::to_string(available.size()) + " textures in the area pack; piece " + std::to_string(town.size()) + " bytes, " + std::to_string(vertices) +
                              " vertices (the game's largest piece: " + std::to_string(original.MaxFileBytes) + " bytes, " + std::to_string(original.MaxVertices) + " vertices)");
         std::vector<TownIssue> issues = CheckMaterials(model, available);
+        for (const TownIssue& i : CheckLayout(BinLinker::Read(town, "GR").Files.at(0), BinLinker::Read(town, "GR").Files.at(3))) issues.push_back(i);
         for (const TownIssue& i : CheckBudget(model, town.size(), original)) issues.push_back(i);
         std::string refusal;
         for (const TownIssue& i : issues)

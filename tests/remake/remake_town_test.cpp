@@ -8,6 +8,7 @@
 #include "TownLayout.h"
 
 #include <cstdio>
+#include <cstring>
 #include <string>
 
 using namespace remake;
@@ -116,6 +117,35 @@ int main()
         bool tooMany = false;
         for (const TownIssue& i : CheckBudget(model, 500, PieceBudget{1000, 1000000})) tooMany = tooMany || i.Error;
         check(tooMany, "a mesh past 16-bit indices is an error");
+    }
+
+    // design rules: the layout blocks follow what the game's own 857 pieces do
+    {
+        auto put32 = [](Bytes& b, size_t at, uint32_t v) { memcpy(&b[at], &v, 4); };
+        auto putf = [&](Bytes& b, size_t at, float f) { uint32_t v; memcpy(&v, &f, 4); put32(b, at, v); };
+        Bytes tiles(4 + 1600 * 4, 0);
+        tiles[0] = 40; tiles[2] = 40;
+        Bytes doors(4 + 44, 0);
+        put32(doors, 0, 1);
+        putf(doors, 4 + 4, 1); putf(doors, 4 + 8, 1); putf(doors, 4 + 12, 1);
+        putf(doors, 4 + 28, 27); putf(doors, 4 + 36, 45);
+        auto has = [](const std::vector<TownIssue>& v, bool error, const char* word) {
+            for (const TownIssue& i : v) if (i.Error == error && i.Text.find(word) != std::string::npos) return true;
+            return false; };
+        const bool zeroOk = TileValueEstablished(0);
+        auto issues = CheckLayout(tiles, doors);
+        check(zeroOk ? issues.empty() : has(issues, false, "tile value"), "a 40 x 40 block of an established value, a unit door on a tile centre: no issue (or only the value warning)");
+        put32(tiles, 4, 0xDEADBEEF);
+        check(has(CheckLayout(tiles, doors), false, "0xDEADBEEF"), "an unestablished tile value is a warning that names it");
+        tiles[0] = 39;
+        check(has(CheckLayout(tiles, doors), true, "40 x 40"), "a tile block that is not 40 x 40 is an error");
+        putf(doors, 4 + 4, 0.8f);
+        check(has(CheckLayout(Bytes(), doors), false, "scaled"), "a scaled door model is a warning");
+        putf(doors, 4 + 4, 1); putf(doors, 4 + 20, 45); putf(doors, 4 + 28, 20);
+        issues = CheckLayout(Bytes(), doors);
+        check(has(issues, false, "multiple of 90") && has(issues, false, "centre"), "a door turned 45 degrees and off a tile centre is warned twice");
+        put32(doors, 0, 9);
+        check(has(CheckLayout(Bytes(), doors), true, "9 doors"), "a door count past the block is an error");
     }
 
     printf(ok ? "all passed\n" : "FAILED\n");
