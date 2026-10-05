@@ -23,6 +23,8 @@ std::string InspectPieceNames(N3dsRom& game);
 std::string InspectZones(N3dsRom& game);
 // every a/0/4/0 matrix checked against the layout of ORAS_LITTLEROOT.md 2b, and every zone entity against the zone grid
 std::string InspectMatrices(N3dsRom& game);
+// every RomFS file: GARC member count, size and the first member's first bytes (what a zone number or a piece number may index)
+std::string InspectArchives(N3dsRom& game);
 
 
 // Conformity of the tooling with the real game, run on the owner's dump: every texture file of every area pack rewritten by
