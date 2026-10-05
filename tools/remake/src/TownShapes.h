@@ -28,11 +28,13 @@ struct ZoneShape
 
 // mask[row][column], cells of cellSize world units whose top-left corner is (originX, originZ). The boundary runs along the cell
 // lattice, one point at every lattice point, so a zone is made of whole cells and its corners are square; each lattice point
-// is moved by a small fixed jitter (a hash of the lattice point: the same zone, the same shape; the fill and the chains share it).
+// is moved by a small fixed jitter, up to jitter/2 of a cell either way (a hash of the lattice point: the same zone, the same shape; the fill
+// and the chains share it). Over the whole game the norm is no jitter at all (mean 0.007 tile on light grass; ORAS_LITTLEROOT.md 9e): it is Littleroot's style
+// (mean 0.056), the one the town is cut like.
 // roundTips: where three of the four cells around a lattice point are in the zone (a tip of the *outside* pokes into it), the
 // point is replaced by an arc's middle vertex, 0.36 cell towards that outside cell on each axis, so the border cuts the tip with
 // a radius of one cell (the forest's edge); a tip of the zone itself stays square. Cells outside the mask repeat its edge.
-ZoneShape StairZone(const std::vector<std::vector<bool>>& mask, float cellSize, float originX, float originZ, bool roundTips);
+ZoneShape StairZone(const std::vector<std::vector<bool>>& mask, float cellSize, float originX, float originZ, bool roundTips, float jitter = 0.18f);
 
 }
 

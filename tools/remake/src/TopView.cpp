@@ -44,15 +44,14 @@ const char* TopViewName(TopViewKind kind)
     return names[(int)kind];
 }
 
-namespace
-{
-
-// a blended structure mesh (layer above 0) is a cover laid over the ground, not a building: drawn as an effect
 TopViewKind MeshKind(const BchModel& model, const BchMesh& mesh)
 {
     const TopViewKind kind = ClassifyMesh(model.Materials[mesh.Material]);
     return kind == TopViewKind::Structure && mesh.Layer > 0 ? TopViewKind::Effect : kind;
 }
+
+namespace
+{
 
 struct Canvas
 {

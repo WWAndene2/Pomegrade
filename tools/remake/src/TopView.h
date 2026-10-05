@@ -24,6 +24,8 @@ struct TopViewOptions
 
 // the kind a mesh is drawn as, from its material's name and first textures
 TopViewKind ClassifyMesh(const BchMaterial& material);
+// the same for a mesh of a model: a blended structure mesh (layer above 0) is a cover over the ground, so an effect
+TopViewKind MeshKind(const BchModel& model, const BchMesh& mesh);
 
 // the picture as RGBA8, 40 * PixelsPerTile square (what the PNG holds)
 Bytes RenderTopViewRgba(const BchModel& model, const Bytes& tileBlock, const Bytes& doorBlock, const TopViewOptions& options);

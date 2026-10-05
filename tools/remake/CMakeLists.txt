@@ -37,6 +37,7 @@ add_library(remake STATIC
     src/TownLayout.cpp
     src/TownShapes.cpp
     src/TopView.cpp
+    src/OrasMeasure.cpp
     src/TownBuilder.cpp
     src/OrasTown.cpp
     src/OrasZone.cpp

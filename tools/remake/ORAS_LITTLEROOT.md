@@ -31,10 +31,11 @@ cmake -S tools/remake -B build-remake -G Ninja && ninja -C build-remake remake_t
 | Search every piece and pack | `oras-catalog <oras.3ds> <dir>`: `pieces.tsv` (meshes and materials), `packs.tsv` (textures per pack), `tiles.tsv` (every tile value, pieces and tiles using it; the source of `TownCheck`'s established set) |
 | Read Platinum's world | `oras-world <platinum.nds> <matrix> <dir>` |
 | Build a Platinum town as an ORAS mod | `oras-town <platinum.nds> <oras.3ds> <out dir> [options]` (usage in `prototype/README.md`); prints its design-rule results (section 8) and writes the mod, `town_preview.gltf` and `town_layout.txt` |
+| Measure the whole game's zone, outline and tile rules | `oras-measure <oras.3ds> <dir>` (`OrasMeasure.h`; 23 s; the findings are in section 9e) |
 | See a piece from above, simplified (zones, rim, blades, structures; optional tile grid, tile values, doors) | `oras-topview <oras.3ds> <piece> <out.png> [--grid] [--tiles] [--doors] [--px N]`, or `topview <GR piece file> <out.png> ...` for a mod's piece (`TopView.h`; the legend is printed). Colours: green ground, light green lighter grass, tan path, yellow blades, red rim, grey structure, dark shadow, blue water |
 | Preview a piece or glTF | `bch`, the editor `tools/remake/editor/world_editor.html`, `prototype/render_compare.js` |
 
-**Where the code is** (`tools/remake/src/`): `Bch` (read) and `BchWriter` / `BchTextureFile` (write), `Garc` and `BinLinker` (containers), `OrasZone` and `Amx` (zones, scripts), `PlatinumWorld` and `TerrainScan` (Platinum side), `TownLayout` (roles, collision, doors), `TownBuilder` and `TownShapes` (the ORAS piece), `OrasTown` (zone, area pack, patches, preview, design-rule block), `TownCheck` (the rules), `OrasInspect` (inspect, verify, catalog), `TopView` (the simplified top view). Tests mirror them in `tests/remake/`.
+**Where the code is** (`tools/remake/src/`): `Bch` (read) and `BchWriter` / `BchTextureFile` (write), `Garc` and `BinLinker` (containers), `OrasZone` and `Amx` (zones, scripts), `PlatinumWorld` and `TerrainScan` (Platinum side), `TownLayout` (roles, collision, doors), `TownBuilder` and `TownShapes` (the ORAS piece), `OrasTown` (zone, area pack, patches, preview, design-rule block), `TownCheck` (the rules), `OrasInspect` (inspect, verify, catalog), `TopView` (the simplified top view), `OrasMeasure` (the whole-game measures). Tests mirror them in `tests/remake/`.
 
 **Rules the work follows** (they exist because each one broke a phone run or the owner's patience):
 1. Never write an archive member except through `ReplaceMember` (a member compressed twice crashed the field's start).
@@ -182,10 +183,32 @@ Not yet checked by code: a door model per placed door (the block holds 5), warps
 ## 9d. How ORAS cuts its ground zones (checked on Littleroot's piece 6, `chip_kusa_b`, `chip_grass_decolate`, `chip_edge_tex`)
 
 Seen on the real meshes (welded vertices, tile units; no other piece measured yet):
-- **A zone is made of whole tiles.** The light-grass patches (`chip_kusa_b`) have every boundary vertex on a lattice point of the 18-unit tile grid, one vertex per lattice point along the edge (edges of exactly 1 tile), shifted by under 0.11 tile in each axis (a fixed jitter, not a curve). All their corners are square, convex and concave alike (94 boundary edges: angles 0 and 90 degrees only, plus the jitter). So the game's zones are **not rounded**: what reads as soft in game is the blade strip.
+- **A zone is made of whole tiles** (the whole game agrees: 9e). The light-grass patches (`chip_kusa_b`) have every boundary vertex on a lattice point of the 18-unit tile grid, one vertex per lattice point along the edge (edges of exactly 1 tile), shifted by under 0.11 tile in each axis (a fixed jitter, not a curve). All their corners are square, convex and concave alike (94 boundary edges: angles 0 and 90 degrees only, plus the jitter). So the game's zones are **not rounded**: what reads as soft in game is the blade strip.
 - **The blade outline** (`chip_grass_decolate`, chip_alpha) is a ribbon centred on that stair border (about 0.45 tile wide: 0.225 each side), with a vertex at every lattice point, also with square corners (its nearest vertex to a patch corner is 0.15 tile away on average, convex and concave).
 - **The rim** (`chip_edge_tex`, where open ground meets the forest) follows the lattice too, but cuts the **forest's convex tips**: where three of the four tiles around a lattice point are open, the lattice point is replaced by one vertex 0.36 tile towards the forest tile on each axis, so the border passes 1 tile before and after the corner (a radius of one tile, three points). A tip of the open ground (one open tile of four) stays square. Checked: of 7 such arcs in Littleroot's rim, 5 are reproduced by `StairZone` to 0.01 tile; the 2 others sit beside sign tiles, which are blocking tiles that are not forest. The strip's far side is 0.5 tile into the forest (9 units), rising from 1 to 3.5.
 - `TownShapes` (`StairZone`) builds exactly this: fill from whole cells, chains with a point per lattice point, normals mitred at corners, `roundTips` for the rim. `oras-town` makes a tile a zone's when at least two of its four half-tiles are (a tie goes to the path). Its old blurred, rounded zones were wrong and are removed.
+
+## 9e. The whole game's rules for zones, outlines and tiles (checked: `oras-measure`, all 857 pieces, 12,481 materials)
+
+`remake_tool oras-measure <oras.3ds> <dir>` measures every mesh's boundary against the tile lattice and writes `zone_shapes.tsv`, `tile_surfaces.tsv` and `outline_offsets.tsv`. What it shows (boundary vertices welded to 0.05 tile; "kind" by `TopView`'s classification of the material):
+
+| Rule | Measured |
+|---|---|
+| Zones lie on the tile lattice | lighter grass: 96.8% of boundary vertices on a tile lattice point, 98.9% of edges axis-aligned, 93% of edges exactly 1 tile long, **62 of 73 meshes stair-cut on the tile lattice, 6 on the half-tile lattice**. Paths: 65% on the tile lattice, 81% on the half-tile one (**103 meshes tile lattice, 94 half-tile lattice, 65 other axis-aligned offsets, 16 free-form, 8 diagonal-rich**), 93% axis-aligned edges. Water: 69% / 86% (132 tile, 89 half-tile, 56 other, 40 free-form). |
+| Half-tile steps exist | a path or a pond may step by half tiles, not only light grass (which almost never does). Platinum's own paths are half-tile, so `oras-town` keeps them at half-tile precision. |
+| Jitter is Littleroot's style, not the rule | mean shift from the lattice: 0.007 tile on light grass (59 of 73 meshes under 0.01), 0.011 on paths, 0.002 on water. Littleroot's (0.056 on its light grass) is among the 3 meshes of 73 above 0.05. `StairZone` takes the jitter as a parameter; the town uses Littleroot's because that is the look asked for; 0 is the game-wide norm. |
+| Zone corners | square (a point per lattice point, diag-edges under 3% for zones), never rounded. Only the forest rim cuts tips (9d). |
+| Blade outlines | a ribbon centred on the zone border, **half-width 0.256 tile** (median over 143 blade meshes; 10th to 90th percentile 0.248-0.297; Littleroot 0.252 = 4.5 units, as built). |
+| What gets an outline | lighter grass: 66 of its 73 meshes (85% of its border vertices have a blade vertex within 0.45 tile); **paths in `chip_soil_a`: 49 of 63 meshes; sand and road paths (`sand`, `batres_sand`, `r124_sand`, `r110_road`): 0 of 29**; water: 2 of 323; the forest rim: none. So soil paths and light grass are outlined, water, sand and roads are not. |
+| The rim | bimodal offsets: inner edge on the lattice, outer edge 0.5 tile into the forest (9 units), 93% of its vertices on the half-tile lattice. |
+| Heights | ground meshes: 54% of vertices at a multiple of 18; 143 of 520 ground meshes have one height level, 377 several (terraces); light grass is flat (66 of 78 meshes one level); water 265 of 330. |
+| Tile value to surface | see below. |
+
+**Tile values** (`tile_surfaces.tsv`: for each value, the surface found under its tiles' centres; 208 values, 1.37 million tiles). The value is a bit field; what the data says about its parts, for the surface mesh under the tile:
+- low byte `0x21` solid (842 pieces, 1.05 million tiles: the forest, houses and the outside); `0x20` walkable, nothing special; `0x06` water (93% of its 89,635 tiles lie under water meshes; with byte 2 `0x1A` 85%, `0x18` 80%); `0x04` an encounter tile (tall grass: `20004004`, `27005004`, `20084004`, 95-99% under plain ground meshes).
+- a **path tile** has its own value: `020A8020` (81 pieces, 7,944 tiles, **95% under path meshes**), also `025A8020` (100%); byte 1 `0x80` with byte 3 `0x02` is 83% path. A puddle you can walk through is `070AA020` (98% under water meshes). The sea is `3D1A0006` (173 pieces, 95% water) or `411A0006` (88%).
+- So the surface decides the value: `oras-town` writes `0x3D1A0006` under the pond (it wrote `0x3D180006`, the shore variant, before), `0x020A8020` under a path tile (it wrote plain `0x20`), and keeps `0x01000021` solid and `0x20004004` tall grass.
+- Not yet known: what each bit means exactly (the surface under a tile is the evidence, not the engine), and values used by fewer than 5 pieces.
 
 ## 10. What is NOT known (the work left)
 

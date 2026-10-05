@@ -48,6 +48,10 @@ int main()
         }
         check(near, "its points lie within 0.09 of a cell of the lattice points (the jitter)");
         check(StairZone(one, 10, 0, 0, false).Chains[0].Points[0].X == cell.Chains[0].Points[0].X, "the same zone gives the same shape");
+        const ZoneShape exact = StairZone(one, 10, 0, 0, false, 0.0f);
+        bool onLattice = true;
+        for (const ShapePoint& p : exact.Chains[0].Points) onLattice = onLattice && std::fmod(p.X, 10.0f) == 0.0f && std::fmod(p.Z, 10.0f) == 0.0f;
+        check(onLattice, "without jitter every point is exactly on a lattice point (the game-wide norm)");
 
         std::vector<std::vector<bool>> hole(3, std::vector<bool>(3, true));
         hole[1][1] = false;

@@ -408,15 +408,16 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     // the pond's frame (f) is grass: Platinum has no sand around its pond
     if (ownGrass)
     {
-        // Zones with rounded corners: the lighter grass patches and the paths are cut from a blurred mask (TownShapes) and
-        // laid just over a main grass that covers the whole open ground, so a rounded corner shows grass, not a hole
-        const int M = 2 * N;
+        // The lighter grass patches and the paths are cut as ORAS cuts them (TownShapes) and laid just over a main grass that covers
+        // the whole open ground, so a corner cut off a zone shows grass, not a hole
         auto open = [&](int c, int r, const char* classes) { return path2[r][c] != ':' && water2[r][c] != '~' && std::string(classes).find(fineVis(c, r)) != std::string::npos; };
         auto lightGrass = [&](int c, int r) { return open(c, r, "s"); };
         auto path = [&](int c, int r) { return path2[r][c] == ':' && water2[r][c] != '~'; };
         FlatFine(geo[Ground], 2, [&](int c, int r) { return water2[r][c] != '~' && (path(c, r) || open(c, r, ".*HtF:f~s")); }, 0, grass);
-        // ORAS's zones are made of whole tiles (ORAS_LITTLEROOT.md 9d): a tile is in a zone when at least two of its four
-        // halves are, and a tie goes to the path
+        // ORAS's zones follow the tile lattice (ORAS_LITTLEROOT.md 9d, 9e): the lighter grass is made of whole tiles (a tile is in it
+        // when at least two of its four halves are, a tie going to the path); a path may step by half tiles, as 94 of the game's 286
+        // path meshes do, which is Platinum's own precision
+        const int M = 2 * N;
         auto tileMask = [&](auto zone, auto other) {
             std::vector<std::vector<bool>> mask(N, std::vector<bool>(N, false));
             for (int r = 0; r < N; r++)
@@ -428,9 +429,11 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
                 }
             return mask;
         };
-        const float cell = T, corner = -20 * T; // a tile; the window's corner (X(0), Z(0))
-        const ZoneShape lightShape = StairZone(tileMask(lightGrass, path), cell, corner, corner, false);
-        const ZoneShape pathShape = StairZone(tileMask(path, [&](int, int) { return false; }), cell, corner, corner, false);
+        std::vector<std::vector<bool>> pathMask(M, std::vector<bool>(M, false));
+        for (int r = 0; r < M; r++) for (int c = 0; c < M; c++) pathMask[r][c] = path(c, r);
+        const float corner = -20 * T; // the window's corner (X(0), Z(0))
+        const ZoneShape lightShape = StairZone(tileMask(lightGrass, path), T, corner, corner, false);
+        const ZoneShape pathShape = StairZone(pathMask, T / 2, corner, corner, false);
         AddFill(geo[Pale], lightShape, 0.15f, white);
         AddFill(geo[Soil], pathShape, 0.15f, soil);
         // the outline of each zone, on its border
@@ -548,7 +551,11 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     for (int r = 0; r < N; r++) for (int c = 0; c < N; c++)
     {
         const char ch = coll[r][c];
-        const uint32_t v = ch == '#' ? 0x01000021 : ch == '~' ? 0x3d180006 : ch == 'g' ? 0x20004004 : 0x00000020;
+        // the value ORAS gives the surface under a tile (tile_surfaces.tsv, ORAS_LITTLEROOT.md 9e): the most used of the game's for solid (842 pieces),
+        // water (173), a path (81, 95% of its tiles lie under a path mesh) and tall grass (59), plain ground otherwise
+        int pathHalves = 0;
+        for (int k = 0; k < 4; k++) pathHalves += layout.Path2[2 * r + (k >> 1)][2 * c + (k & 1)] == ':';
+        const uint32_t v = ch == '#' ? 0x01000021 : ch == '~' ? 0x3d1a0006 : ch == 'g' ? 0x20004004 : pathHalves >= 2 ? 0x020a8020 : 0x00000020;
         for (int k = 0; k < 4; k++) tiles[4 + (r * N + c) * 4 + k] = (uint8_t)(v >> (8 * k));
     }
     // door models: Petalburg's house door (type 4) on each door, at scale 1 and on the door tile's centre:

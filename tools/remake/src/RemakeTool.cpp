@@ -54,6 +54,7 @@
 #include "MapHeaders.h"
 #include "N3dsWorld.h"
 #include "OrasInspect.h"
+#include "OrasMeasure.h"
 #include "TopView.h"
 #include "OrasTown.h"
 #include "PlatinumWorld.h"
@@ -85,6 +86,7 @@ static int Usage()
                     "  remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]\n  remake_tool oras-list <oras.3ds>\n  remake_tool oras-extract <oras.3ds> <path> <out>\n"
                     "  remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-inspect <oras.3ds> zone|piece|area <index>\n"
+                    "  remake_tool oras-measure <oras.3ds> <out dir>\n"
                     "  remake_tool oras-topview <oras.3ds> <piece> <out.png> [--grid] [--tiles] [--doors] [--px N]\n"
                     "  remake_tool topview <GR piece file> <out.png> [--grid] [--tiles] [--doors] [--px N]\n"
                     "  remake_tool oras-verify <oras.3ds>\n  remake_tool oras-catalog <oras.3ds> <out dir>\n"
@@ -214,6 +216,12 @@ int main(int argc, char** argv)
             else if (what == "area") text = InspectArea(game, index);
             else return Usage();
             fputs(text.c_str(), stdout);
+            return 0;
+        }
+        if (cmd == "oras-measure" && argc >= 4)
+        {
+            N3dsRom game(argv[2]);
+            fputs(MeasureGame(game, argv[3]).c_str(), stdout);
             return 0;
         }
         if ((cmd == "oras-topview" && argc >= 5) || (cmd == "topview" && argc >= 4))

@@ -9,16 +9,16 @@
 namespace remake
 {
 
-// a small fixed shift of a lattice point, up to 0.09 of a cell either way (Littleroot's own are up to 0.11): a hash of the point
-static ShapePoint Jitter(int i, int j, float cell)
+// a small fixed shift of a lattice point, up to spread / 2 of a cell either way: a hash of the point
+static ShapePoint Jitter(int i, int j, float cell, float spread)
 {
     uint32_t h = (uint32_t)(i * 73856093) ^ (uint32_t)(j * 19349663);
     h ^= h >> 13; h *= 1274126177u; h ^= h >> 16;
-    const float x = ((h & 0xFFFF) / 65535.0f - 0.5f) * 0.18f, z = (((h >> 16) & 0xFFFF) / 65535.0f - 0.5f) * 0.18f;
+    const float x = ((h & 0xFFFF) / 65535.0f - 0.5f) * spread, z = (((h >> 16) & 0xFFFF) / 65535.0f - 0.5f) * spread;
     return {x * cell, z * cell};
 }
 
-ZoneShape StairZone(const std::vector<std::vector<bool>>& mask, float cellSize, float originX, float originZ, bool roundTips)
+ZoneShape StairZone(const std::vector<std::vector<bool>>& mask, float cellSize, float originX, float originZ, bool roundTips, float jitter)
 {
     ZoneShape shape;
     const int H = (int)mask.size();
@@ -26,7 +26,7 @@ ZoneShape StairZone(const std::vector<std::vector<bool>>& mask, float cellSize, 
     if (!W) return shape;
     auto in = [&](int c, int r) { return mask[std::clamp(r, 0, H - 1)][std::clamp(c, 0, W - 1)]; };
     auto point = [&](int i, int j) {
-        const ShapePoint s = Jitter(i, j, cellSize);
+        const ShapePoint s = Jitter(i, j, cellSize, jitter);
         return ShapePoint{originX + i * cellSize + s.X, originZ + j * cellSize + s.Z};
     };
 
