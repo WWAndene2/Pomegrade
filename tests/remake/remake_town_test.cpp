@@ -53,8 +53,17 @@ int main()
     At(half, 10, 10).HasColour = true; At(half, 10, 10).Rgb[0] = 230; At(half, 10, 10).Rgb[1] = 200; At(half, 10, 10).Rgb[2] = 120;
     At(half, 11, 10).HasColour = true; At(half, 11, 10).Rgb[0] = 30; At(half, 11, 10).Rgb[1] = 170; At(half, 11, 10).Rgb[2] = 80;
 
+    // a crossroads, half tiles 40-60: arms 4 wide, Platinum's rounding in its inner corner above and to the left
+    // of the centre, one half tile at (37, 39); the corners of the arms' ends stay
+    auto sand = [&](int c, int r) { TerrainSample& s = At(half, c, r); s.HasColour = true; s.Rgb[0] = 230; s.Rgb[1] = 200; s.Rgb[2] = 120; };
+    for (int k = 30; k <= 50; k++) for (int w = 38; w <= 41; w++) { sand(w, k); sand(k, w); }
+    sand(37, 37);
+
     TownLayout layout;
     layout.Classify(whole, half);
+    check(layout.Path2[37][37] == '.', "a crossroads' rounded inner corner is not a step of path");
+    check(layout.Path2[38][37] == ':' && layout.Path2[37][38] == ':' && layout.Path2[38][38] == ':', "the arms beside it stay path");
+    check(layout.Path2[30][38] == ':' && layout.Path2[30][41] == ':' && layout.Path2[38][30] == ':' && layout.Path2[41][50] == ':', "an arm's outer corners stay path");
     check(layout.Vis.size() == (size_t)TownTiles && layout.Vis[0].size() == (size_t)TownTiles, "the layout is a full window");
     check(layout.Vis[3][3] == 't', "a tree wins over the grass and its shadow");
     check(layout.Vis[3][4] == 'H', "a house wins over grass");

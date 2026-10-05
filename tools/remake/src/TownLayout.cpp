@@ -93,6 +93,22 @@ void TownLayout::Classify(const TerrainScan& whole, const TerrainScan& half)
             if (Sand(half.At(c, r))) out.Path2[r][c] = ':';
             if (out.Vis[r / 2][c / 2] == '~') out.Water2[r][c] = '~';
         }
+
+    // Platinum rounds a crossroads' inner corners with a little sand that reaches one half tile into the grass's
+    // corner; drawn in square half tiles, that became a step the grass seemed to lack. Such a half tile has grass on
+    // two adjacent sides and path on the other two, with path on both diagonals that lie between a grass side and
+    // a path side (one arm of the crossing each); a path's outer corner has grass there. All are found before any
+    // is cleared, so one pass removes the rounding and nothing more.
+    std::vector<std::pair<int, int>> rounding;
+    auto path = [&](int c, int r) { return c >= 0 && r >= 0 && c < 2 * N && r < 2 * N && out.Path2[r][c] == ':'; };
+    for (int r = 0; r < 2 * N; r++)
+        for (int c = 0; c < 2 * N; c++)
+            for (int dr : {-1, 1})
+                for (int dc : {-1, 1})
+                    if (path(c, r) && !path(c, r + dr) && !path(c + dc, r) && path(c, r - dr) && path(c - dc, r) &&
+                        path(c - dc, r + dr) && path(c + dc, r - dr))
+                        rounding.push_back({r, c});
+    for (const auto& [r, c] : rounding) out.Path2[r][c] = '.';
 }
 
 TownLayout TownLayout::Read(const PlatinumWorld& plat, int left, int top)
