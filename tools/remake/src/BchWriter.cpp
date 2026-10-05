@@ -148,10 +148,50 @@ Bytes BchReplaceGeometry(const Bytes& bch, size_t modelIndex, const std::vector<
         Put32(out, at, (U32(out, at) & ~(0xFu << 25)) | target << 25);
     }
     out.insert(out.begin() + insertAt, extra.begin(), extra.end());
-    const uint32_t grown = (uint32_t)extra.size();
-    Put32(out, HeaderLengths + Raw * 4, s.RawExt - s.Raw + grown);
-    Put32(out, HeaderAddresses + RawExt * 4, s.RawExt + grown);
-    Put32(out, HeaderAddresses + Relocation * 4, s.Relocation + grown);
+
+    // the replaced meshes' old buffers, in whole 0x80 blocks (what stays keeps its alignment), unless a
+    // pointer still points into them (a buffer another mesh shares)
+    std::vector<std::pair<uint32_t, uint32_t>> drop; // [start, end), file offsets, sorted, disjoint
+    auto block = [&](uint32_t start, uint32_t length) {
+        const uint32_t a = (start + 0x7F) & ~0x7Fu, b = (start + length) & ~0x7Fu;
+        if (a < b && a >= s.Raw && b <= insertAt) drop.push_back({a, b});
+    };
+    for (const BchGeometry& g : meshes)
+    {
+        const BchMesh& mesh = model.Meshes[g.Mesh];
+        block(mesh.VertexBuffer, (uint32_t)(mesh.Vertices.size() * mesh.Stride));
+        for (const BchSubMesh& sub : mesh.SubMeshes) block(sub.IndexBuffer, sub.Count * (sub.Wide ? 2 : 1));
+    }
+    auto rawTarget = [](uint32_t section) { return section >= 4 && section <= 8; };
+    for (const BchPointer& p : pointers)
+    {
+        if (p.At >= s.Raw) throw FormatError("BCH writer: a pointer stored in the raw data");
+        if (p.Target == 14 && U32(out, p.At) >= s.Raw) throw FormatError("BCH writer: a pointer from the file's start into the raw data");
+        if (!rawTarget(p.Target)) continue;
+        const uint32_t target = U32(out, p.At) + s.Raw;
+        for (auto& d : drop) if (target >= d.first && target < d.second) d = {0, 0}; // still used
+    }
+    std::sort(drop.begin(), drop.end());
+    std::vector<std::pair<uint32_t, uint32_t>> merged;
+    for (const auto& d : drop)
+    {
+        if (d.first == d.second) continue;
+        if (!merged.empty() && d.first <= merged.back().second) merged.back().second = std::max(merged.back().second, d.second);
+        else merged.push_back(d);
+    }
+    auto removedBefore = [&](uint32_t at) {
+        uint32_t n = 0;
+        for (const auto& d : merged) if (d.second <= at) n += d.second - d.first;
+        return n;
+    };
+    for (const BchPointer& p : pointers)
+        if (rawTarget(p.Target)) Put32(out, p.At, U32(out, p.At) - removedBefore(U32(out, p.At) + s.Raw));
+    for (auto d = merged.rbegin(); d != merged.rend(); ++d) out.erase(out.begin() + d->first, out.begin() + d->second);
+
+    const uint32_t grown = (uint32_t)extra.size(), removed = removedBefore(insertAt);
+    Put32(out, HeaderLengths + Raw * 4, s.RawExt - s.Raw + grown - removed);
+    Put32(out, HeaderAddresses + RawExt * 4, s.RawExt + grown - removed);
+    Put32(out, HeaderAddresses + Relocation * 4, s.Relocation + grown - removed);
     return out;
 }
 

@@ -225,6 +225,21 @@ int main()
         check(written.size() > file.size() && written.size() % 4 == 0 && Slice(written, 0, 8) == Slice(file, 0, 8), "BCH writer: the file grown, its header's start kept");
         check(Bch::Read(BchReplaceGeometry(written, 0, {quad})).Models[0].Meshes[0].Triangles == quad.Triangles, "BCH writer: a written file written again");
     }
+    // the replaced buffers removed: a 400-vertex grid written, then the quad over it; the grid's
+    // buffers (whole 0x80 blocks) leave the file, the texture after them still reads
+    BchGeometry grid;
+    for (int z = 0; z < 20; z++) for (int x = 0; x < 20; x++) { BchVertex v; v.Position[0] = 10.0f + x; v.Position[2] = (float)z; grid.Vertices.push_back(v); }
+    for (int z = 0; z < 19; z++) for (int x = 0; x < 19; x++)
+    {
+        const uint32_t a = z * 20 + x;
+        for (uint32_t i : {a, a + 20, a + 21, a, a + 21, a + 1}) grid.Triangles.push_back(i);
+    }
+    const Bytes big = BchReplaceGeometry(file, 0, {grid});
+    const Bytes small = BchReplaceGeometry(big, 0, {quad});
+    const Bch smallRead = Bch::Read(small);
+    check(Bch::Read(big).Models[0].Meshes[0].Triangles == grid.Triangles && small.size() + 8000 < big.size() &&
+              smallRead.Models[0].Meshes[0].Triangles == quad.Triangles && smallRead.Textures[0].Data == rgb565,
+          "BCH writer: a replaced mesh's buffers removed (" + std::to_string(big.size()) + " -> " + std::to_string(small.size()) + " bytes), the texture kept");
     // a mesh with 8-bit indices (the relocation naming section 6): written with 16-bit ones
     Bytes narrow = file;
     {

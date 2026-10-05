@@ -19,8 +19,9 @@
 //
 // Not changed: the model's and meshes' bounding data (the game may cull a
 // mesh by its old bounds; a map piece's terrain keeps the piece's extent).
-// The old buffers stay in the file, unused: it grows by the new geometry
-// (whether the game has room for much larger pieces is not known yet).
+// The replaced meshes' old buffers are removed, in whole 0x80 blocks (the
+// data left keeps its alignment) and only where no pointer points into them,
+// and every pointer into the raw data after them moves down.
 
 #include "Bch.h"
 
