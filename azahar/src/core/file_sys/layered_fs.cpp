@@ -199,8 +199,12 @@ void LayeredFS::LoadExtRelocations() {
 
     FileUtil::FSTEntry result;
     FileUtil::ScanDirectoryTree(patch_ext_path, result, 256);
+    // Pomegrade: the tree is nested, and most patched files are in subdirectories
+    // (romfs_ext/a/0/3/9.bps); its top level alone holds only those directories
+    std::vector<FileUtil::FSTEntry> entries;
+    FileUtil::GetAllFilesFromNestedEntries(result, entries);
 
-    for (const auto& entry : result.children) {
+    for (const auto& entry : entries) {
         if (FileUtil::IsDirectory(entry.physicalName)) {
             continue;
         }
