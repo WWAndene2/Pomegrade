@@ -93,7 +93,10 @@ Bch Bch::Read(const Bytes& data)
         tex.Height = dim & 0x7FF; tex.Width = (dim >> 16) & 0x7FF;
         const uint32_t address = cmd.Last(0x85);
         if (address && tex.Width && tex.Height && tex.Format < 14)
+        {
             tex.Data = Slice(r.D, address, PicaTextureLength(tex.Width, tex.Height, tex.Format));
+            tex.DataOffset = address;
+        }
         out.Textures.push_back(std::move(tex));
     }
 

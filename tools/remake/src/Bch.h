@@ -61,6 +61,7 @@ struct BchTexture
     uint32_t Width = 0, Height = 0;
     uint8_t Format = 0;               // PICA texture format, see PicaTexture.h
     Bytes Data;
+    size_t DataOffset = 0;            // where Data lies in the BCH file (texture data isn't relocated)
 };
 
 struct Bch

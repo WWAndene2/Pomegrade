@@ -187,6 +187,7 @@ int main()
               "BCH: positions (with the uniform offset) and texture coordinates");
         const BchTexture& tx = r.Textures[0];
         check(tx.Name == "tex" && tx.Width == 8 && tx.Height == 8 && tx.Format == 3 && tx.Data == rgb565, "BCH: texture size, format, data from its commands");
+        check(Slice(file, tx.DataOffset, tx.Data.size()) == tx.Data, "BCH: the texture data's offset in the file (to patch it in place)");
         std::vector<GltfPart> parts;
         std::vector<GltfMaterial> mats;
         const float origin[3] = {0, 0, 0};
