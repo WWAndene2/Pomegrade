@@ -13,7 +13,7 @@ on:
           v25_three_warps: --add-warps 0
         required: true
       inspect:
-        description: 'One "oras-inspect" query per line, e.g. "matrix 1" or "piece-names 0" (printed and kept with the mods)'
+        description: 'One query per line: oras-inspect arguments ("matrix 1", "zones 0") or "world N" for Platinum matrix N as ORAS pieces'
         default: ''
         required: false
 
@@ -101,7 +101,11 @@ jobs:
             n=$((n + 1))
             echo "::group::oras-inspect $query"
             # the query is split on spaces on purpose: it is oras-inspect's arguments
-            ./build-remake/remake_tool oras-inspect dumps/oras.3ds $query | tee "mods/inspect_$n.txt"
+            case "$query" in
+              # "world N": Platinum's matrix N laid out as ORAS pieces (oras-world)
+              world\ *) ./build-remake/remake_tool oras-world dumps/platinum.nds ${query#world } "out/world_$n" | tee "mods/inspect_$n.txt" ;;
+              *) ./build-remake/remake_tool oras-inspect dumps/oras.3ds $query | tee "mods/inspect_$n.txt" ;;
+            esac
             echo "::endgroup::"
           done <<< "$QUERIES"
 
