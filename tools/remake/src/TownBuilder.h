@@ -18,6 +18,9 @@ struct TownSources
     Bytes Donor;  // the piece whose terrain materials and models the town is made of
     Bytes Trees;  // the piece the trees come from
     int CellX = 0, CellY = 0; // the target piece's cell in its map matrix (its model name's two numbers)
+    // the ground is the target piece's own grass (its chip_kusa_a and chip_kusa_b materials' vertex colours) instead of the
+    // donor's: the donor's area pack must then hold that grass's pixels under the donor's grass texture names (OrasTown does this)
+    bool TargetGrass = false;
 };
 
 // the new piece's bytes; log: what was placed

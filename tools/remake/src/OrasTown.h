@@ -25,6 +25,9 @@ struct OrasTownOptions
     int CellX = 2, CellY = 4;         // the target piece's cell in its ORAS map matrix (Littleroot: world01_02_04)
     size_t Zone = 6;                  // a/0/1/3 member: the zone of the target piece
     size_t AreaPack = 9;              // a/0/1/4 member: the donor's textures, which the new piece names
+    // a/0/1/4 member: the target piece's own area (Littleroot's), whose grass the town takes: its pixels go into AreaPack
+    // under the donor's grass texture names. -1: the donor's grass is kept
+    int GrassPack = 8;
     std::string OutDir;
 };
 

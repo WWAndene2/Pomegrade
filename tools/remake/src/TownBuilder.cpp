@@ -205,14 +205,55 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     toward(grass, kusaTex, ngrass); toward(soil, soilTex, nsand); toward(waterColour, riverTex, puddle);
     note("colours after:  grass %.2f %.2f %.2f, path %.2f %.2f %.2f, water %.2f %.2f %.2f\n", grass[0], grass[1], grass[2], soil[0], soil[1], soil[2], waterColour[0], waterColour[1], waterColour[2]);
     for (BchVertex& v : tree[Canopy].V) toward(v.Colour, woodTex, tree01);
-    const float white[4] = {1, 1, 1, 1};
+    float white[4] = {1, 1, 1, 1};
+    // the target's own grass: the mean vertex colour of its two grass meshes (as its artists painted them)
+    bool ownGrass = false;
+    if (src.TargetGrass)
+    {
+        const BchModel tm = Bch::Read(BinLinker::Read(lr, "GR").Files[1]).Models[0];
+        bool haveA = false, haveB = false;
+        float colourA[4] = {}, colourB[4] = {};
+        for (const BchMesh& m : tm.Meshes)
+        {
+            const std::string& t = tm.Materials[m.Material].Texture[0];
+            if ((t != "chip_kusa_a" && t != "chip_kusa_b") || m.Vertices.empty()) continue;
+            // the main grass is painted dark under trees and cliffs: its open ground is the brighter half of its vertices
+            std::vector<float> light;
+            for (const BchVertex& v : m.Vertices) light.push_back(v.Colour[0] + v.Colour[1] + v.Colour[2]);
+            std::sort(light.begin(), light.end());
+            const float median = light[light.size() / 2];
+            const bool brighterHalf = t == "chip_kusa_a";
+            float mean[4] = {0, 0, 0, 0};
+            size_t used = 0;
+            for (const BchVertex& v : m.Vertices)
+            {
+                if (brighterHalf && v.Colour[0] + v.Colour[1] + v.Colour[2] < median) continue;
+                for (int k = 0; k < 4; k++) mean[k] += v.Colour[k];
+                used++;
+            }
+            for (float& x : mean) x /= used;
+            std::copy(mean, mean + 4, t == "chip_kusa_a" ? colourA : colourB);
+            (t == "chip_kusa_a" ? haveA : haveB) = true;
+        }
+        ownGrass = haveA && haveB;
+        if (ownGrass) { std::copy(colourA, colourA + 4, grass); std::copy(colourB, colourB + 4, white); }
+        note("target's own grass: %s (grass %.2f %.2f %.2f, light %.2f %.2f %.2f)\n", ownGrass ? "found" : "NOT found, the donor's grass kept", grass[0], grass[1], grass[2], white[0], white[1], white[2]);
+    }
     float forest[4]; for (int k = 0; k < 3; k++) forest[k] = grass[k] * 0.7f; forest[3] = grass[3];
     const std::vector<std::string>& path2 = layout.Path2;
     const std::vector<std::string>& water2 = layout.Water2;
     auto fineVis = [&](int c, int r) { return vis[r / 2][c / 2]; };
     // the town's ground (ORAS's light grass, nearest Platinum's) and its paths at half-tile precision
     // the pond's frame (f) is grass: Platinum has no sand around its pond
-    FlatFine(geo[Pale], 2, [&](int c, int r) { return path2[r][c] != ':' && water2[r][c] != '~' && std::string(".*HstF:f~").find(fineVis(c, r)) != std::string::npos; }, 0, white);
+    if (ownGrass)
+    {
+        // the main grass on the open ground, the lighter grass on Platinum's pale patches
+        auto open = [&](int c, int r, const char* classes) { return path2[r][c] != ':' && water2[r][c] != '~' && std::string(classes).find(fineVis(c, r)) != std::string::npos; };
+        FlatFine(geo[Ground], 2, [&](int c, int r) { return open(c, r, ".*HtF:f~"); }, 0, grass);
+        FlatFine(geo[Pale], 2, [&](int c, int r) { return open(c, r, "s"); }, 0, white);
+    }
+    else
+        FlatFine(geo[Pale], 2, [&](int c, int r) { return path2[r][c] != ':' && water2[r][c] != '~' && std::string(".*HstF:f~").find(fineVis(c, r)) != std::string::npos; }, 0, white);
     FlatFine(geo[Soil], 2, [&](int c, int r) { return path2[r][c] == ':' && water2[r][c] != '~'; }, 0, soil);
     Flat(geo[Ground], vis, "T", 0, forest, 12);
     // the pond from Platinum's colours (its blue edge, lakep, is water too)

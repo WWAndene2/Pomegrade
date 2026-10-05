@@ -52,6 +52,45 @@ static Bytes MoveZoneWarps(const Bytes& zoneData, const OrasTownOptions& o, cons
     return lz ? Lz11Compress(out) : out;
 }
 
+// Pixels of one area pack's textures put under another pack's texture names (same size and format: a texture's data
+// is not relocated, so it is overwritten in place). Pack contents that have no such texture are skipped, with a note.
+// pairs: {name in the pack to change, name in the pack to copy from}
+static Bytes CopyTexturePixels(const Bytes& packData, const Bytes& fromData, const std::vector<std::pair<std::string, std::string>>& pairs,
+                               std::vector<std::string>& log, size_t& copied)
+{
+    BinLinker pack = BinLinker::Read(packData, "AD");
+    if (pack.Write() != packData) throw FormatError("the area pack does not rewrite identical");
+    const BinLinker from = BinLinker::Read(fromData, "AD");
+    copied = 0;
+    for (const auto& [to, source] : pairs)
+    {
+        const BchTexture* src = nullptr;
+        std::vector<BchTexture> fromTextures;
+        for (const Bytes& f : from.Files) if (Bch::Is(f)) for (BchTexture& t : Bch::Read(f).Textures) if (t.Name == source) { fromTextures.push_back(t); src = &fromTextures.back(); }
+        bool done = false;
+        for (Bytes& f : pack.Files)
+        {
+            if (!Bch::Is(f) || done) continue;
+            for (const BchTexture& t : Bch::Read(f).Textures)
+            {
+                if (t.Name != to) continue;
+                if (!src || src->Width != t.Width || src->Height != t.Height || src->Format != t.Format || src->Data.size() != t.Data.size())
+                {
+                    log.push_back("texture " + to + ": no " + source + " of the same size and format to copy, left as it is");
+                    done = true;
+                    break;
+                }
+                std::copy(src->Data.begin(), src->Data.end(), f.begin() + t.DataOffset);
+                copied++;
+                done = true;
+                break;
+            }
+        }
+        if (!done) log.push_back("texture " + to + " is not in the area pack, nothing to replace");
+    }
+    return pack.Write();
+}
+
 OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTownOptions& o)
 {
     OrasTownResult result;
@@ -67,6 +106,19 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
     TownSources sources;
     sources.Target = piece(o.TargetPiece); sources.Donor = piece(o.DonorPiece); sources.Trees = piece(o.TreePiece);
     sources.CellX = o.CellX; sources.CellY = o.CellY;
+
+    // the grass: Littleroot's pixels under the donor's grass texture names, in the donor's area pack
+    const Bytes areas = oras.Read("a/0/1/4");
+    const Garc areaArchive(areas);
+    Bytes areaPack = Plain(areaArchive.Sub(o.AreaPack));
+    if (o.GrassPack >= 0)
+    {
+        size_t copied = 0;
+        const std::vector<std::pair<std::string, std::string>> grass = {{"chip_kusa", "chip_kusa_a"}, {"chip_kusa_b", "chip_kusa_b"}, {"chip_kusa_edge", "chip_grass_edge"}};
+        areaPack = CopyTexturePixels(areaPack, Plain(areaArchive.Sub((size_t)o.GrassPack)), grass, result.Log, copied);
+        sources.TargetGrass = copied == grass.size();
+        result.Log.push_back("area pack " + std::to_string(o.AreaPack) + ": " + std::to_string(copied) + " of " + std::to_string(grass.size()) + " grass textures replaced by area pack " + std::to_string(o.GrassPack) + "'s");
+    }
     const Bytes town = BuildTown(result.Layout, sources, &result.Log);
     result.PieceBytes = town.size();
 
@@ -82,7 +134,14 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
     snprintf(id, sizeof id, "%016llX", (unsigned long long)oras.ProgramId());
     const std::filesystem::path out(o.OutDir);
     const std::filesystem::path root = out / "load" / "mods" / id / "romfs_ext";
-    for (const auto& [path, data, original] : {std::make_tuple("a/0/3/9", newPieces.Write(), pieces), std::make_tuple("a/0/1/3", newZones.Write(), zones)})
+    Garc newAreas(areas);
+    std::vector<std::tuple<const char*, Bytes, Bytes>> changed = {{"a/0/3/9", newPieces.Write(), pieces}, {"a/0/1/3", newZones.Write(), zones}};
+    if (o.GrassPack >= 0)
+    {
+        SetMember(newAreas, areaArchive, o.AreaPack, areaPack);
+        changed.emplace_back("a/0/1/4", newAreas.Write(), areas);
+    }
+    for (const auto& [path, data, original] : changed)
     {
         if (data.size() < original.size()) throw FormatError(std::string(path) + ": shorter than the game's file; Azahar would leave its old tail");
         const Bytes bps = BpsCreate(original, data);
@@ -94,7 +153,7 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
 
     // the preview: the new piece's terrain with the donor's area pack textures
     std::vector<BchTexture> textures;
-    for (const Bytes& f : BinLinker::Read(Plain(Garc(oras.Read("a/0/1/4")).Sub(o.AreaPack)), "AD").Files)
+    for (const Bytes& f : BinLinker::Read(areaPack, "AD").Files)
         if (Bch::Is(f)) for (BchTexture& t : Bch::Read(f).Textures) textures.push_back(std::move(t));
     std::vector<GltfPart> parts;
     std::vector<GltfMaterial> materials;
