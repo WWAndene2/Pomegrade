@@ -69,11 +69,6 @@ jobs:
           cmake -S tools/remake -B build-remake -G Ninja -DCMAKE_BUILD_TYPE=Release
           ninja -C build-remake remake_tool
 
-      - name: TEMPORARY a/0/3/9 layout check
-        run: |
-          ./build-remake/remake_tool oras-extract dumps/oras.3ds a/0/3/9 garc039.bin
-          python3 .github/workflows/garc_check.py garc039.bin
-
       - name: Build the mods
         env:
           VARIANTS: ${{ inputs.variants }}
