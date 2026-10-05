@@ -41,7 +41,8 @@ void PushElement(Bytes& out, size_t base, int format, float value)
     }
 }
 
-// the vertices in the mesh's format; base: the buffer's file offset (alignment is the file's)
+// the vertices in the mesh's format; base: the buffer's file offset (alignment is the file's: an element's
+// offset is base plus what is written so far)
 Bytes EncodeVertices(const BchMesh& mesh, const std::vector<BchVertex>& vertices, size_t base)
 {
     Bytes out;
@@ -62,7 +63,7 @@ Bytes EncodeVertices(const BchMesh& mesh, const std::vector<BchVertex>& vertices
             }
             const int available = a.Name == 0 || a.Name == 1 ? 3 : a.Name == 3 ? 4 : 2;
             for (int k = 0; k < a.Elements; k++)
-                PushElement(out, base + start, a.Format, (k < available ? src[k] : 1.0f) / (a.Scale ? a.Scale : 1.0f));
+                PushElement(out, base, a.Format, (k < available ? src[k] : 1.0f) / (a.Scale ? a.Scale : 1.0f));
         }
         // a vertex is padded to its stride (2 bytes when it ends with byte attributes)
         while (out.size() - start < mesh.Stride && out.size() - start + 4 > mesh.Stride) out.push_back(0);
@@ -114,6 +115,13 @@ Bytes BchReplaceGeometry(const Bytes& bch, size_t modelIndex, const std::vector<
         const Bytes vb = EncodeVertices(mesh, g.Vertices, vertexAt);
         extra.insert(extra.end(), vb.begin(), vb.end());
         const BchPointer& vp = pointers[pointerIndex(mesh.VertexBufferWord)];
+        // the new buffers are in the raw section: a mesh whose buffers RawExt holds (sections 9-13) is refused
+        if (vp.Target < 4 || vp.Target > 8) throw FormatError("BCH writer: mesh " + std::to_string(g.Mesh) + "'s vertex buffer is not in the raw data");
+        for (const BchSubMesh& sub : mesh.SubMeshes)
+        {
+            const uint32_t t = pointers[pointerIndex(sub.IndexBufferWord)].Target;
+            if (t < 4 || t > 8) throw FormatError("BCH writer: mesh " + std::to_string(g.Mesh) + "'s index buffer is not in the raw data");
+        }
         Put32(out, vp.At, vertexAt - (s.Base(vp.Target) & 0x7FFFFFFF));
 
         std::vector<uint32_t> indices = g.Triangles;
@@ -151,10 +159,13 @@ Bytes BchReplaceGeometry(const Bytes& bch, size_t modelIndex, const std::vector<
 
     // the replaced meshes' old buffers, in whole 0x80 blocks (what stays keeps its alignment), unless a
     // pointer still points into them (a buffer another mesh shares)
-    std::vector<std::pair<uint32_t, uint32_t>> drop; // [start, end), file offsets, sorted, disjoint
+    // [start, end) of the blocks, and of the whole buffer they come from: a pointer anywhere in the buffer
+    // (another mesh sharing it, even short of the aligned blocks) keeps them
+    struct Drop { uint32_t start, end, bufferStart, bufferEnd; };
+    std::vector<Drop> drop;
     auto block = [&](uint32_t start, uint32_t length) {
         const uint32_t a = (start + 0x7F) & ~0x7Fu, b = (start + length) & ~0x7Fu;
-        if (a < b && a >= s.Raw && b <= insertAt) drop.push_back({a, b});
+        if (a < b && a >= s.Raw && b <= insertAt) drop.push_back({a, b, start, start + length});
     };
     for (const BchGeometry& g : meshes)
     {
@@ -169,15 +180,19 @@ Bytes BchReplaceGeometry(const Bytes& bch, size_t modelIndex, const std::vector<
         if (p.Target == 14 && U32(out, p.At) >= s.Raw) throw FormatError("BCH writer: a pointer from the file's start into the raw data");
         if (!rawTarget(p.Target)) continue;
         const uint32_t target = U32(out, p.At) + s.Raw;
-        for (auto& d : drop) if (target >= d.first && target < d.second) d = {0, 0}; // still used
+        for (auto& d : drop) if (target >= d.bufferStart && target < d.bufferEnd) d.start = d.end = 0; // still used
     }
-    std::sort(drop.begin(), drop.end());
     std::vector<std::pair<uint32_t, uint32_t>> merged;
-    for (const auto& d : drop)
+    for (const Drop& d : drop) if (d.start < d.end) merged.push_back({d.start, d.end});
+    std::sort(merged.begin(), merged.end());
     {
-        if (d.first == d.second) continue;
-        if (!merged.empty() && d.first <= merged.back().second) merged.back().second = std::max(merged.back().second, d.second);
-        else merged.push_back(d);
+        std::vector<std::pair<uint32_t, uint32_t>> joined;
+        for (const auto& d : merged)
+        {
+            if (!joined.empty() && d.first <= joined.back().second) joined.back().second = std::max(joined.back().second, d.second);
+            else joined.push_back(d);
+        }
+        merged.swap(joined);
     }
     auto removedBefore = [&](uint32_t at) {
         uint32_t n = 0;

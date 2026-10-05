@@ -240,6 +240,21 @@ int main()
     check(Bch::Read(big).Models[0].Meshes[0].Triangles == grid.Triangles && small.size() + 8000 < big.size() &&
               smallRead.Models[0].Meshes[0].Triangles == quad.Triangles && smallRead.Textures[0].Data == rgb565,
           "BCH writer: a replaced mesh's buffers removed (" + std::to_string(big.size()) + " -> " + std::to_string(small.size()) + " bytes), the texture kept");
+    // a buffer something else still points into is kept: the texture pointed at the grid's index buffer, which
+    // doesn't start on a 0x80 block; replacing the grid must leave those bytes where the texture finds them
+    {
+        Bytes shared = big;
+        const BchSections sec = BchSections::Read(shared);
+        const uint32_t indexAt = Bch::Read(shared).Models[0].Meshes[0].SubMeshes[0].IndexBuffer;
+        const size_t texAt = Bch::Read(shared).Textures[0].DataOffset;
+        bool repointed = false;
+        for (const BchPointer& p : BchPointers(shared, sec))
+            if (p.Target >= 4 && p.Target <= 8 && U32(shared, p.At) + sec.Raw == texAt) { Put32(shared, p.At, indexAt - sec.Raw); repointed = true; }
+        const Bytes before = Bch::Read(shared).Textures[0].Data;
+        const Bch after = Bch::Read(BchReplaceGeometry(shared, 0, {quad}));
+        check(repointed && indexAt % 0x80 != 0 && after.Textures[0].Data == before && after.Models[0].Meshes[0].Triangles == quad.Triangles,
+              "BCH writer: an old buffer another pointer reaches (short of its first 0x80 block) kept");
+    }
     // a material's texture renamed: the new name read back, the rest intact, the file still writable
     const Bytes renamed = BchSetTextureName(file, 0, 0, 0, "a_longer_texture_name");
     const Bch rn = Bch::Read(renamed);
