@@ -378,3 +378,100 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
 }
 
 }
+
+namespace remake
+{
+
+std::vector<std::string> PlanSinnoh(const NdsRom& platinum, N3dsRom& oras, int stripWidth)
+{
+    if (stripWidth <= 0) throw FormatError("the strip width must be at least one piece");
+    std::vector<std::string> log;
+    const PlatinumWorld world(platinum, 0);
+    const WorldMap& w = world.World;
+    const int tilesX = (int)(w.Matrix.Width * LandTiles), tilesY = (int)(w.Matrix.Height * LandTiles);
+    const int gw = (tilesX + TownTiles - 1) / TownTiles, gh = (tilesY + TownTiles - 1) / TownTiles;
+    auto passable = [&](int gx, int gy) {
+        if (gx < 0 || gy < 0 || gx >= tilesX || gy >= tilesY) return false;
+        const auto& cell = w.Cells[w.Matrix.Cell((uint32_t)gx / LandTiles, (uint32_t)gy / LandTiles)];
+        return cell && !LandData::Solid(cell->Permissions[(gy % LandTiles) * LandTiles + gx % LandTiles]);
+    };
+    // a piece is used when a map lies under any of its tiles; its headers are read block by block, as oras-region reads them
+    std::vector<char> used((size_t)gw * gh, 0);
+    std::vector<std::map<int, int>> headersOf((size_t)gw * gh);
+    for (int py = 0; py < gh; py++)
+        for (int px = 0; px < gw; px++)
+        {
+            for (int by = 0; by < OrasMatrix::BlocksPerPiece; by++)
+                for (int bx = 0; bx < OrasMatrix::BlocksPerPiece; bx++)
+                {
+                    const int h = HeaderAt(w, px * TownTiles + bx * BlockTiles + BlockTiles / 2, py * TownTiles + by * BlockTiles + BlockTiles / 2);
+                    if (h >= 0) headersOf[(size_t)py * gw + px][h]++;
+                }
+            for (int t = 0; t < TownTiles * TownTiles && !used[(size_t)py * gw + px]; t++)
+                if (HeaderAt(w, px * TownTiles + t % TownTiles, py * TownTiles + t / TownTiles) >= 0) used[(size_t)py * gw + px] = 1;
+        }
+    size_t usedCount = 0;
+    for (char u : used) usedCount += u;
+    log.push_back(F("Sinnoh (Platinum matrix 0, %d x %d tiles) as ORAS pieces of %d tiles: %d x %d grid, %zu pieces used", tilesX, tilesY, TownTiles, gw, gh, usedCount));
+
+    // strips of whole columns, as tall as their used pieces: neighbouring strips meet on east and west edges only, the only edge
+    // kinds seen in ORAS (2 and 3, ORAS_LITTLEROOT.md 2b); north and south edges are never needed
+    std::set<int> allHeaders;
+    for (int left = 0; left < gw; left += stripWidth)
+    {
+        const int right = std::min(gw, left + stripWidth);
+        int top = gh, bottom = -1;
+        std::map<int, int> headers;
+        size_t pieces = 0;
+        for (int py = 0; py < gh; py++)
+            for (int px = left; px < right; px++)
+                if (used[(size_t)py * gw + px])
+                {
+                    top = std::min(top, py); bottom = std::max(bottom, py); pieces++;
+                    for (const auto& [h, n] : headersOf[(size_t)py * gw + px]) headers[h] += n;
+                }
+        if (bottom < 0) { log.push_back(F("strip x %d..%d: no map", left, right - 1)); continue; }
+        const int width = right - left, height = bottom - top + 1;
+        std::string list;
+        for (const auto& [h, n] : headers) { if (h) allHeaders.insert(h); list += F(" %d", h); }
+        log.push_back(F("strip x %d..%d: oras-region --rect %d %d %d %d, %d cells (%zu with a piece)%s, %zu map headers:%s", left, right - 1, left, top, width, height,
+                        width * height, pieces, width * height > 140 ? " - over the game's largest matrix (140 cells), untried" : height > 10 ? " - taller than any matrix of the game (10), untried" : "",
+                        headers.size(), list.c_str()));
+        // where the strip meets the next one: runs of tiles passable on both sides of the edge, each one warp per side (spans of up
+        // to 15 tiles seen: an edge 19 tiles long is two warps of 15 and 4)
+        if (right >= gw) continue;
+        const int ex = right * TownTiles;
+        int warps = 0;
+        std::string runs;
+        for (int gy = 0; gy < gh * TownTiles;)
+        {
+            if (!(passable(ex - 1, gy) && passable(ex, gy))) { gy++; continue; }
+            int end = gy;
+            while (end < gh * TownTiles && passable(ex - 1, end) && passable(ex, end)) end++;
+            runs += F(" z %d..%d", gy, end - 1);
+            warps += (end - gy + 14) / 15;
+            gy = end;
+        }
+        log.push_back(F("  edge with the next strip at tile x %d: %s -> %d warps on each side", ex, runs.empty() ? " no crossing" : runs.c_str(), warps));
+    }
+
+    // the ORAS zones to give the headers: those on Hoenn's overworld grids (outdoor area packs), the empty ones, the rest
+    const Garc zo(oras.Read("a/0/1/3")), mm(oras.Read("a/0/4/0"));
+    std::set<int> overworld;
+    for (size_t m = 0; m < mm.Count(); m++)
+        try { for (uint16_t z : OrasMatrix::Read(Plain(mm.Sub(m))).Zones) if (z != OrasMatrix::None) overworld.insert(z); } catch (const FormatError&) {}
+    size_t empty = 0;
+    for (size_t i = 0; i < zo.Count(); i++)
+        try
+        {
+            const OrasZone z = OrasZone::Read(Plain(zo.Sub(i)));
+            if (z.Characters.empty() && z.Doors.empty() && z.Triggers.empty() && z.Furniture.empty() && !overworld.count((int)i)) empty++;
+        }
+        catch (const FormatError&) {}
+    log.push_back(F("map headers on Sinnoh's overworld (header 0, the scenery with no events, left out): %zu; ORAS zones on Hoenn's overworld grids: %zu, "
+                    "empty zones: %zu, so %zd more must come from Hoenn's interiors or the zones its code reaches", allHeaders.size(), overworld.size(), empty,
+                    (ptrdiff_t)allHeaders.size() - (ptrdiff_t)(overworld.size() + empty)));
+    return log;
+}
+
+}

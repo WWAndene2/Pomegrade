@@ -36,6 +36,9 @@
 //                     as oras-town builds one, the zone grid from Platinum's map headers, each header on the ORAS zone given
 //                     (-1: left out); --plan prints the rectangle's headers and builds nothing. Writes the mod, region_preview.gltf,
 //                     region_plan.txt and region_piece_<x>_<y>.bin
+//   remake_tool oras-sinnoh <platinum.nds> <oras.3ds> [strip width, default 5]
+//                     the plan for all of Sinnoh, nothing written: strips of whole piece columns (one matrix each), their
+//                     oras-region rectangles and map headers, the edge warps between strips, the ORAS zones needed and available
 //   remake_tool oras-texture <oras.3ds> <area pack> <name> <out.png>   one texture of an area pack (a/0/1/4 member), as a PNG
 //   remake_tool mesh-json <GR piece file|file.bch> <out.json>   a terrain model's meshes as JSON, to measure them: for each
 //                     mesh its index, layer, material, textures, vertices [x, z, y, u, v, r, g, b, a] and triangles
@@ -111,6 +114,7 @@ static int Usage()
                     "                    [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]\n"
                     "  remake_tool oras-code <oras.3ds> <out.bin>\n"
                     "  remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--plan]\n"
+                    "  remake_tool oras-sinnoh <platinum.nds> <oras.3ds> [strip width]\n"
                     "                    [--matrix-template M] [--model-matrix NN] [oras-town's --matrix, --target, --donor, --trees, --donor-pack, --grass, ... --allow-errors]\n");
     return 2;
 }
@@ -616,6 +620,13 @@ int main(int argc, char** argv)
                        eventsOf.count(m.Events) ? " events shared with a reached header" : "", matrixOf.count(m.Matrix) ? " matrix shared with a reached header" : "", hits);
             }
             printf("unreached with events or script hits: %zu of %zu\n", live, plat.Headers.size() - reached.size());
+            return 0;
+        }
+        if (cmd == "oras-sinnoh" && argc >= 4)
+        {
+            const NdsRom platinum(ReadFile(argv[2]));
+            N3dsRom oras(argv[3]);
+            for (const std::string& line : PlanSinnoh(platinum, oras, argc >= 5 ? atoi(argv[4]) : 5)) printf("%s\n", line.c_str());
             return 0;
         }
         if (cmd == "oras-world" && argc >= 5)

@@ -46,6 +46,11 @@ struct OrasRegionOptions
 // returns what it did, line by line
 std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, const OrasRegionOptions& options);
 
+// The plan for the whole of Sinnoh as oras-region builds it, nothing written: Sinnoh's piece grid cut into strips of `stripWidth`
+// columns (each a matrix, trimmed to its used rows), the oras-region rectangle and map headers of each, the edge warps between
+// neighbouring strips, and how many ORAS zones the headers need against the ones that can be reused
+std::vector<std::string> PlanSinnoh(const NdsRom& platinum, N3dsRom& oras, int stripWidth);
+
 }
 
 #endif // REMAKE_ORASREGION_H

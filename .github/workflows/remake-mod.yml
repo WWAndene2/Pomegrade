@@ -144,6 +144,8 @@ jobs:
               platinum-zones) ./build-remake/remake_tool platinum-zones dumps/platinum.nds | tee "mods/inspect_$n.txt" ;;
               # "region <options>": which Platinum map header each zone block of the rectangle holds (oras-region --plan)
               region\ *) ./build-remake/remake_tool oras-region dumps/platinum.nds dumps/oras.3ds "out/region_$n" ${query#region } --plan | tee "mods/inspect_$n.txt" ;;
+              # "sinnoh [strip width]": the plan for all of Sinnoh (oras-sinnoh), nothing built
+              sinnoh*) ./build-remake/remake_tool oras-sinnoh dumps/platinum.nds dumps/oras.3ds ${query#sinnoh} | tee "mods/inspect_$n.txt" ;;
               verify) ./build-remake/remake_tool oras-verify dumps/oras.3ds | tee "mods/inspect_$n.txt" ;;
               # "code <code_find.py options>": the game's code searched (prototype/code_find.py, capstone)
               code\ *)
