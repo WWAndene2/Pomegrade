@@ -10,7 +10,12 @@ import collections, itertools, json, math, sys
 import numpy as np
 
 T = 18.0                       # a tile, in units; a piece spans -360..360
-meshes = {m['tex']: m for m in json.load(open(sys.argv[1]))}
+# a texture can be drawn by several meshes: they are merged (triangle indices shifted), so none is dropped
+meshes = {}
+for m in json.load(open(sys.argv[1])):
+    d = meshes.setdefault(m['tex'], {'v': [], 't': []})
+    d['t'] += [i + len(d['v']) for i in m['t']]
+    d['v'] += m['v']
 zone_tex = sys.argv[2] if len(sys.argv) > 2 else 'chip_kusa_b'
 strip_tex = sys.argv[3] if len(sys.argv) > 3 else 'chip_alpha'
 if zone_tex not in meshes: sys.exit('no mesh shows %s; textures: %s' % (zone_tex, ', '.join(sorted(meshes))))
