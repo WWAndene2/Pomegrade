@@ -47,9 +47,17 @@ jobs:
             if ! printf '%s' "$id" | grep -qE '^[A-Za-z0-9_-]{25,}$'; then
               echo "::error::the secret for $2 is not a Drive file id (${#id} characters after cleaning)"; exit 1
             fi
-            curl --fail --location --silent --show-error --retry 3 --output "$2" \
-              "https://drive.usercontent.google.com/download?id=$id&export=download&confirm=t"
-            if head -c 512 "$2" | grep -qi '<html'; then echo "::error::Drive answered a web page, not $2"; exit 1; fi
+            # Drive's two download endpoints, each tried in turn; their answers are logged (never the id) since a 404
+            # came back for a file shared by link
+            local url code
+            for url in "https://drive.usercontent.google.com/download?id=$id&export=download&confirm=t" \
+                       "https://drive.google.com/uc?id=$id&export=download&confirm=t"; do
+              code=$(curl --location --silent --show-error --output "$2" --write-out '%{http_code}' "$url" || true)
+              echo "$2: ${url%%\?*} answered $code, $(stat -c %s "$2" 2>/dev/null || echo 0) bytes"
+              if [ "$code" = 200 ] && ! head -c 512 "$2" | grep -qi '<html'; then return 0; fi
+              head -c 300 "$2" 2>/dev/null | tr -s '[:space:]' ' ' | sed 's/^/  answer starts: /'; echo
+            done
+            echo "::error::Drive did not serve $2"; exit 1
           }
           fetch "$ORAS_DRIVE_ID" dumps/oras.3ds
           fetch "$PLATINUM_DRIVE_ID" dumps/platinum.nds
