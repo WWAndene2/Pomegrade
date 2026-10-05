@@ -277,7 +277,10 @@ static void AddFence(BchGeometry& g, const std::vector<std::string>& vis, int N,
 // u 0.02-0.48, v 0.52-0.98, the quad GrassDecals lays) in a texture filled with the ice cave's snow (OrasTown's snow_clump),
 // laid along the snow zone's border, centred on it so half of each clump lies on the grass: one every 12 units of border,
 // 20 to 28 units wide, turned at random (a hash of its place: the same edge for the same town), 0.5 up, over the snow (0.45).
-static void SnowClumps(BchGeometry& g, const ShapeChain& chain)
+// open(x, z): whether the ground there is open (not a tree, the forest or a house); a clump is laid only where the ground both
+// at its centre and half a tile out from the snow is open, so none lies half under a trunk (the owner: they clipped the trees).
+template <typename Open>
+static void SnowClumps(BchGeometry& g, const ShapeChain& chain, Open open)
 {
     const size_t n = chain.Points.size();
     const size_t last = chain.Closed ? n : n - 1;
@@ -290,6 +293,9 @@ static void SnowClumps(BchGeometry& g, const ShapeChain& chain)
         {
             const float t = length > 1e-4f ? (next - s) / length : 0;
             const float cx = a.X + (b.X - a.X) * t, cz = a.Z + (b.Z - a.Z) * t;
+            const ShapePoint na = chain.Normals[i], nb = chain.Normals[(i + 1) % n];
+            const float nx = na.X + (nb.X - na.X) * t, nz = na.Z + (nb.Z - na.Z) * t;
+            if (!open(cx, cz) || !open(cx + nx * T / 2, cz + nz * T / 2)) continue;
             uint32_t h = (uint32_t)std::lround(cx * 7) * 73856093u ^ (uint32_t)std::lround(cz * 7) * 19349663u;
             h ^= h >> 13; h *= 1274126177u; h ^= h >> 16;
             const float size = 20.0f + (float)(h % 9), angle = (float)((h >> 8) % 628) / 100.0f;
@@ -315,7 +321,10 @@ static void SnowClumps(BchGeometry& g, const ShapeChain& chain)
 // walkable ground meets the solid trees and forest around it (the border of the rounded walkable zone), 9 units wide on
 // the solid side, rising from 1 at the border to 3.5 outside, in the rim's blue-green. The texture is projected by the
 // material (chip_grass_edge, from the stored positions), so the coordinates are Littleroot's own.
-static void AddRim(BchGeometry& g, const ShapeChain& chain)
+// covered(x, z): whether the walkable ground there lies under snow; a segment whose inner side (half a tile in) is snow is left
+// out, so the rim does not show as a grey line over the snow against the trees.
+template <typename Covered>
+static void AddRim(BchGeometry& g, const ShapeChain& chain, Covered covered)
 {
     const float colour[4] = {0.26f, 0.75f, 0.87f, 1.0f};
     const size_t n = chain.Points.size();
@@ -324,6 +333,7 @@ static void AddRim(BchGeometry& g, const ShapeChain& chain)
     {
         const ShapePoint &a = chain.Points[i], &b = chain.Points[(i + 1) % n], &na = chain.Normals[i], &nb = chain.Normals[(i + 1) % n];
         if (std::hypot(b.X - a.X, b.Z - a.Z) < 1e-4f) continue;
+        if (covered((a.X + b.X) / 2 - (na.X + nb.X) / 2 * T / 4, (a.Z + b.Z) / 2 - (na.Z + nb.Z) / 2 * T / 4)) continue;
         const uint32_t base = (uint32_t)g.Vertices.size();
         const ShapePoint ends[2] = {a, b}, normals[2] = {na, nb};
         for (int e = 0; e < 2; e++)
@@ -553,7 +563,14 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         // (in the lighter grass's opaque slot: the snow is opaque; the blended slot 22 carries its edge clumps, SnowClumps)
         if (snowy) AddFill(geo[Pale], snowShape, 0.45f, snow);
         if (snowy && !src.SnowClumpTexture.empty())
-            for (const ShapeChain& chain : snowShape.Chains) SnowClumps(geo[SnowBand], chain);
+        {
+            // open ground: not a tree, the forest or a house (tile roles), off the window counting as forest
+            auto open = [&](float x, float z) {
+                const int c = (int)std::floor(x / T + N / 2), r = (int)std::floor(z / T + N / 2);
+                return c >= 0 && r >= 0 && c < N && r < N && std::string("tTH").find(vis[r][c]) == std::string::npos;
+            };
+            for (const ShapeChain& chain : snowShape.Chains) SnowClumps(geo[SnowBand], chain, open);
+        }
         else AddFill(geo[Pale], lightShape, 0.15f, white);
         AddFill(geo[Soil], pathShape, 0.15f, soil);
         // the outline of each zone, on its border, coloured as the target's own outline (one colour for tips and roots, the
@@ -572,7 +589,11 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         // the rim where walkable ground meets solid trees and forest, from a mask of everything else
         std::vector<std::vector<bool>> notWall(N, std::vector<bool>(N, true));
         for (int r = 0; r < N; r++) for (int c = 0; c < N; c++) notWall[r][c] = !(coll[r][c] == '#' && (vis[r][c] == 't' || vis[r][c] == 'T'));
-        for (const ShapeChain& chain : StairZone(notWall, T, corner, corner, true).Chains) AddRim(geo[Edge], chain);
+        auto snowAt = [&](float x, float z) {
+            const int c = (int)std::floor(x / (T / 2) + N), r = (int)std::floor(z / (T / 2) + N);
+            return snowy && c >= 0 && r >= 0 && c < M && r < M && layout.Snow2[r][c] == '#';
+        };
+        for (const ShapeChain& chain : StairZone(notWall, T, corner, corner, true).Chains) AddRim(geo[Edge], chain, snowAt);
         // decals on plain open grass: grass-role tiles away from paths, water, houses and fences
         // (not on snow: grass decals do not grow there)
         auto plain = [&](int c, int r) { return c >= 0 && r >= 0 && c < N && r < N && (vis[r][c] == '.' || (vis[r][c] == 's' && src.SnowTexture.empty())) && coll[r][c] == '.' && path2[2 * r][2 * c] != ':' && path2[2 * r + 1][2 * c + 1] != ':'; };
