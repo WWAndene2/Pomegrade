@@ -1,5 +1,5 @@
-// The remake tooling's rounded zone shapes (SmoothZone) on masks whose answer is known: a rectangle's area, the
-// rounding of its corners, its outline's normals, a zone running off the mask's edge, and an empty mask.
+// The remake tooling's zone shapes (StairZone) on masks whose answer is known: whole cells, square corners, the cut of a
+// tip, a zone running off the mask's edge, the outline's normals and the fill's winding.
 #include "TownShapes.h"
 
 #include <cmath>
@@ -31,48 +31,58 @@ static float Area(const ZoneShape& s)
 
 int main()
 {
-    // 10x10 cells of 10 units; a 4x6-cell rectangle inside (240 x 10 x 10 units wide... 40 x 60 = 2400 square units)
-    const auto mask = Rect(10, 10, 3, 7, 2, 8);
-    const ZoneShape square = SmoothZone(mask, 10, 0, 0, 0);
-    // the lattice corners hold the mean of four sub-cells, so even unblurred a corner is cut by one sub-cell (5 units): 12.5 square units each
-    check(std::fabs(Area(square) - (2400.0f - 4 * 12.5f)) < 1.0f, "no blur: the rectangle's area less its four corner chamfers");
-    check(square.Chains.size() == 1 && square.Chains[0].Closed, "no blur: one closed outline");
-
-    const ZoneShape round = SmoothZone(mask, 10, 0, 0, 1);
-    check(Area(round) < 2350.0f && Area(round) > 2400.0f * 0.9f, "blurred: the corners are cut, the area is a little under the rectangle's");
-    check(round.Chains.size() == 1 && round.Chains[0].Closed, "blurred: still one closed outline");
-
-    // the corner point of the square mask (20, 30) is cut off: no outline point lies in the rectangle's corner
-    float nearest = 1e9f;
-    for (const ShapePoint& p : round.Chains[0].Points) nearest = std::min(nearest, std::hypot(p.X - 20.0f, p.Z - 30.0f));
-    check(nearest > 2.0f, "blurred: the outline stays away from the rectangle's corner");
-    float farthest = 0;
-    for (const ShapePoint& p : round.Chains[0].Points) farthest = std::max(farthest, std::hypot(p.X - 50.0f, p.Z - 50.0f));
-    check(farthest < std::hypot(30.0f, 20.0f), "blurred: nowhere outside the rectangle's corners");
-
-    // the rectangle is convex: an outward normal has a positive dot product with the vector from its centre (50, 50) to the point
-    bool outwardOk = true;
-    for (size_t i = 0; i < round.Chains[0].Points.size(); i++)
+    // ORAS's stair zones (StairZone): whole cells, a point at every lattice point, square corners, tips cut only where asked
     {
-        const ShapePoint& p = round.Chains[0].Points[i];
-        const ShapePoint& n = round.Chains[0].Normals[i];
-        if ((p.X - 50.0f) * n.X + (p.Z - 50.0f) * n.Z <= 0) outwardOk = false;
-        if (std::fabs(std::hypot(n.X, n.Z) - 1.0f) > 1e-3f) outwardOk = false;
+        std::vector<std::vector<bool>> one(3, std::vector<bool>(3, false));
+        one[1][1] = true;
+        const ZoneShape cell = StairZone(one, 10, 0, 0, false);
+        check(cell.Fill.size() == 2, "a single cell is two triangles");
+        check(cell.Chains.size() == 1 && cell.Chains[0].Closed && cell.Chains[0].Points.size() == 4, "a single cell has one closed chain of four lattice points");
+        bool near = true;
+        const float lattice[4][2] = {{10, 10}, {20, 10}, {20, 20}, {10, 20}};
+        for (const ShapePoint& p : cell.Chains[0].Points)
+        {
+            bool ok2 = false;
+            for (const auto& l : lattice) ok2 = ok2 || (std::fabs(p.X - l[0]) <= 0.91f && std::fabs(p.Z - l[1]) <= 0.91f);
+            near = near && ok2;
+        }
+        check(near, "its points lie within 0.09 of a cell of the lattice points (the jitter)");
+        check(StairZone(one, 10, 0, 0, false).Chains[0].Points[0].X == cell.Chains[0].Points[0].X, "the same zone gives the same shape");
+
+        std::vector<std::vector<bool>> hole(3, std::vector<bool>(3, true));
+        hole[1][1] = false;
+        const ZoneShape square = StairZone(hole, 10, 0, 0, false), cut = StairZone(hole, 10, 0, 0, true);
+        check(square.Chains.size() == 1 && square.Chains[0].Points.size() == 4, "a hole's border is four lattice points");
+        // the hole's corner (1, 1) is cut towards the hole by 0.36 of a cell on each axis
+        bool arc = false;
+        for (const ShapePoint& p : cut.Chains[0].Points) arc = arc || (std::fabs(p.X - 13.6f) < 0.01f && std::fabs(p.Z - 13.6f) < 0.01f);
+        check(arc, "with roundTips a corner of the zone that three of its cells meet is cut towards the outside cell");
+        bool sharp = true;
+        const ZoneShape tipped = StairZone(one, 10, 0, 0, true);
+        for (const ShapePoint& p : tipped.Chains[0].Points) sharp = sharp && (p.X < 10.91f && p.X > 9.09f ? true : p.X > 19.09f && p.X < 20.91f);
+        check(sharp, "a corner of the zone itself (one cell of four) stays square even with roundTips");
+
+        // a rectangle of 4 x 6 cells: its area is whole cells (jitter aside), outward unit normals, the ground's winding
+        const ZoneShape rect = StairZone(Rect(10, 10, 3, 9, 2, 6), 10, 0, 0, false);
+        check(std::fabs(Area(rect) - 2400.0f) < 90.0f, "a 4 x 6 cell rectangle fills about 2400 square units (the lattice jitter moves its border by under 0.9)");
+        bool outward = rect.Chains.size() == 1 && rect.Chains[0].Closed && rect.Chains[0].Points.size() == 20;
+        for (size_t i = 0; outward && i < rect.Chains[0].Points.size(); i++)
+        {
+            const ShapePoint &p2 = rect.Chains[0].Points[i], &n = rect.Chains[0].Normals[i];
+            if ((p2.X - 40.0f) * n.X + (p2.Z - 60.0f) * n.Z <= 0 || std::fabs(std::hypot(n.X, n.Z) - 1.0f) > 1e-3f) outward = false;
+        }
+        check(outward, "its outline is one closed chain of 20 points whose normals are unit and point out of the zone");
+        bool winding = true;
+        for (const auto& tri : rect.Fill) if ((tri[1].X - tri[0].X) * (tri[2].Z - tri[0].Z) - (tri[1].Z - tri[0].Z) * (tri[2].X - tri[0].X) > 1e-3f) winding = false;
+        check(winding, "the fill triangles all face up (the ground's winding)");
+        check(StairZone(Rect(4, 4, 0, 0, 0, 0), 10, 0, 0, true).Fill.empty() && StairZone({}, 10, 0, 0, true).Chains.empty(), "an empty mask has no shape");
+
+        // a zone touching the mask's border runs on: an open chain, not a closed loop
+        std::vector<std::vector<bool>> edge(3, std::vector<bool>(3, false));
+        edge[0][0] = edge[1][0] = true;
+        const ZoneShape run = StairZone(edge, 10, 0, 0, false);
+        check(run.Chains.size() == 1 && !run.Chains[0].Closed, "a zone on the border has an open chain");
     }
-    check(outwardOk, "the outline's normals are unit and point out of the zone");
-
-    // a zone running off the mask's edge: its outline is open, and it still fills to the edge
-    const ZoneShape edge = SmoothZone(Rect(10, 10, 3, 7, 5, 10), 10, 0, 0, 1);
-    bool open = false;
-    for (const ShapeChain& c : edge.Chains) open = open || !c.Closed;
-    check(open && Area(edge) > 0.9f * 4 * 5 * 100, "a zone touching the edge: an open outline, filled up to the edge");
-
-    check(SmoothZone(Rect(4, 4, 0, 0, 0, 0), 10, 0, 0, 2).Fill.empty() && SmoothZone({}, 10, 0, 0, 2).Chains.empty(), "an empty mask has no shape");
-
-    // the winding of the fill is the ground's: negative area in (X, Z)
-    bool winding = true;
-    for (const auto& t : round.Fill) if ((t[1].X - t[0].X) * (t[2].Z - t[0].Z) - (t[1].Z - t[0].Z) * (t[2].X - t[0].X) > 1e-3f) winding = false;
-    check(winding, "the fill triangles all face up (the ground's winding)");
 
     printf(ok ? "all passed\n" : "FAILED\n");
     return ok ? 0 : 1;

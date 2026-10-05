@@ -38,11 +38,11 @@ cmake -S tools/remake -B build-remake -G Ninja && ninja -C build-remake remake_t
 **Rules the work follows** (they exist because each one broke a phone run or the owner's patience):
 1. Never write an archive member except through `ReplaceMember` (a member compressed twice crashed the field's start).
 2. Never flip a PICA texture's v; textures are stored bottom row first.
-3. Look at how ORAS does it in the game's own data before inventing (outline blades on the zone border, rounded zones: the owner insisted).
+3. Look at how ORAS does it in the game's own data before inventing (outline blades on the zone border, tile-stepped zones: the owner insisted, and a first version with blurred, rounded zones was wrong).
 4. Show results: render and send images, deliver mods as a zip; say what was not tested.
 5. A diagnostic is deleted once it has served; a finding goes in this file, a code comment or a commit message.
 
-**State**: Twinleaf (Platinum) rebuilt as Littleroot's piece 6 with Littleroot's grass; the mod v2 (zone fix) was handed to the owner and **has no phone result yet**. `oras-town` now passes every design rule with no warning (v3): door models at scale 1 (the houses' own geometry is still scaled to the DS house's width), forest trees only within 2 tiles of open ground, 34,697 vertices against the game's largest 35,691. Known deviations: 3 warps for 4 doors (adding a warp needs the zone's entity words, unknown), a Route 201 piece not rebuilt by this tool. v3 has no phone result yet.
+**State**: Twinleaf (Platinum) rebuilt as Littleroot's piece 6 with Littleroot's grass; the mod v2 (zone fix) was handed to the owner and **has no phone result yet**. `oras-town` now passes every design rule with no warning (v3): door models at scale 1 (the houses' own geometry is still scaled to the DS house's width); zones are tile-stepped as ORAS's (9d); the houses are still Petalburg's, not Littleroot's own wooden ones, forest trees only within 2 tiles of open ground, 34,697 vertices against the game's largest 35,691. Known deviations: 3 warps for 4 doors (adding a warp needs the zone's entity words, unknown), a Route 201 piece not rebuilt by this tool. v3 has no phone result yet.
 
 **Next steps, in the order that pays most**: (1) rebuild towns from several ORAS pieces and packs, choosing a donor by its layers and mesh slots (section 9c: blend is a layer flag, not per-material registers); (2) read the engine's per-layer state and how it draws a projected texture (`.code` is BLZ-compressed; capstone ARM works); (3) the Pawn scripts (needed for NPCs and events), the `coll` geometry, matrix a/0/4/0, adding meshes or materials to a terrain model: section 10.
 
@@ -177,6 +177,14 @@ Not yet checked by code: a door model per placed door (the block holds 5), warps
 | `Mappers[0]` | `00020200` (most), `00000200`, `00020300`, `00030300`, `01020200`, `00020203` | wrap and filter words; `...03` on unit 0 pairs with the projected edge material. Individual bits not separated. |
 
 `oras-inspect piece` prints each mesh's layer and blended/opaque. **Checked**: between an opaque material (`chip_kusa_`) and a blended one (`chip_grass_decolate`, `shadow1`) the whole 0xC0-byte parameter block differs in that one bit and nothing else, and across the corpus the top byte of `Flags` only ever takes `0x3A`, `0x3E` and `0x00`. So the BCH holds **no per-material blend factors, depth or alpha-test registers**: the engine derives them from the layer and this flag. Culling and depth are therefore not material data to decode; what a layer does (draw order, which state it sets) is engine code, still unread.
+
+## 9d. How ORAS cuts its ground zones (checked on Littleroot's piece 6, `chip_kusa_b`, `chip_grass_decolate`, `chip_edge_tex`)
+
+Seen on the real meshes (welded vertices, tile units; no other piece measured yet):
+- **A zone is made of whole tiles.** The light-grass patches (`chip_kusa_b`) have every boundary vertex on a lattice point of the 18-unit tile grid, one vertex per lattice point along the edge (edges of exactly 1 tile), shifted by under 0.11 tile in each axis (a fixed jitter, not a curve). All their corners are square, convex and concave alike (94 boundary edges: angles 0 and 90 degrees only, plus the jitter). So the game's zones are **not rounded**: what reads as soft in game is the blade strip.
+- **The blade outline** (`chip_grass_decolate`, chip_alpha) is a ribbon centred on that stair border (about 0.45 tile wide: 0.225 each side), with a vertex at every lattice point, also with square corners (its nearest vertex to a patch corner is 0.15 tile away on average, convex and concave).
+- **The rim** (`chip_edge_tex`, where open ground meets the forest) follows the lattice too, but cuts the **forest's convex tips**: where three of the four tiles around a lattice point are open, the lattice point is replaced by one vertex 0.36 tile towards the forest tile on each axis, so the border passes 1 tile before and after the corner (a radius of one tile, three points). A tip of the open ground (one open tile of four) stays square. Checked: of 7 such arcs in Littleroot's rim, 5 are reproduced by `StairZone` to 0.01 tile; the 2 others sit beside sign tiles, which are blocking tiles that are not forest. The strip's far side is 0.5 tile into the forest (9 units), rising from 1 to 3.5.
+- `TownShapes` (`StairZone`) builds exactly this: fill from whole cells, chains with a point per lattice point, normals mitred at corners, `roundTips` for the rim. `oras-town` makes a tile a zone's when at least two of its four half-tiles are (a tie goes to the path). Its old blurred, rounded zones were wrong and are removed.
 
 ## 10. What is NOT known (the work left)
 

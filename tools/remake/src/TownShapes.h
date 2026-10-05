@@ -1,9 +1,8 @@
 #ifndef REMAKE_TOWNSHAPES_H
 #define REMAKE_TOWNSHAPES_H
 
-// Rounded shapes from a grid of cells: a zone's mask (paths, lighter grass, the walkable ground) is blurred and cut
-// at its half level (marching squares), so its corners are rounded instead of square. The result is the zone's fill
-// (triangles) and its outlines (chains of points with their outward normals) from the same cut, so a fill and the
+// Zone shapes from a grid of cells, as ORAS lays them: a zone's mask (paths, lighter grass, the walkable ground) becomes its
+// fill (triangles) and its outlines (chains of points with their outward normals) from the same lattice, so a fill and the
 // strip laid along its border always agree.
 
 #include <array>
@@ -27,10 +26,13 @@ struct ZoneShape
     std::vector<ShapeChain> Chains;
 };
 
-// mask[row][column], cells of cellSize world units whose top-left corner is (originX, originZ). Each cell is split
-// in two each way; blur: the radius, in those halves, of the two box blurs that round the corners (0: square, as the
-// mask). Cells outside the mask repeat its edge, so a zone touching the border runs on.
-ZoneShape SmoothZone(const std::vector<std::vector<bool>>& mask, float cellSize, float originX, float originZ, int blur);
+// mask[row][column], cells of cellSize world units whose top-left corner is (originX, originZ). The boundary runs along the cell
+// lattice, one point at every lattice point, so a zone is made of whole cells and its corners are square; each lattice point
+// is moved by a small fixed jitter (a hash of the lattice point: the same zone, the same shape; the fill and the chains share it).
+// roundTips: where three of the four cells around a lattice point are in the zone (a tip of the *outside* pokes into it), the
+// point is replaced by an arc's middle vertex, 0.36 cell towards that outside cell on each axis, so the border cuts the tip with
+// a radius of one cell (the forest's edge); a tip of the zone itself stays square. Cells outside the mask repeat its edge.
+ZoneShape StairZone(const std::vector<std::vector<bool>>& mask, float cellSize, float originX, float originZ, bool roundTips);
 
 }
 

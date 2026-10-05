@@ -415,14 +415,22 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         auto lightGrass = [&](int c, int r) { return open(c, r, "s"); };
         auto path = [&](int c, int r) { return path2[r][c] == ':' && water2[r][c] != '~'; };
         FlatFine(geo[Ground], 2, [&](int c, int r) { return water2[r][c] != '~' && (path(c, r) || open(c, r, ".*HtF:f~s")); }, 0, grass);
-        auto maskOf = [&](auto zone) {
-            std::vector<std::vector<bool>> mask(M, std::vector<bool>(M, false));
-            for (int r = 0; r < M; r++) for (int c = 0; c < M; c++) mask[r][c] = zone(c, r);
+        // ORAS's zones are made of whole tiles (ORAS_LITTLEROOT.md 9d): a tile is in a zone when at least two of its four
+        // halves are, and a tie goes to the path
+        auto tileMask = [&](auto zone, auto other) {
+            std::vector<std::vector<bool>> mask(N, std::vector<bool>(N, false));
+            for (int r = 0; r < N; r++)
+                for (int c = 0; c < N; c++)
+                {
+                    int mine = 0, theirs = 0;
+                    for (int k = 0; k < 4; k++) { mine += zone(2 * c + (k & 1), 2 * r + (k >> 1)); theirs += other(2 * c + (k & 1), 2 * r + (k >> 1)); }
+                    mask[r][c] = mine >= 2 && theirs < 2;
+                }
             return mask;
         };
-        const float cell = T / 2, corner = -20 * T; // a half tile; the window's corner (X(0), Z(0))
-        const ZoneShape lightShape = SmoothZone(maskOf(lightGrass), cell, corner, corner, 1);
-        const ZoneShape pathShape = SmoothZone(maskOf(path), cell, corner, corner, 1);
+        const float cell = T, corner = -20 * T; // a tile; the window's corner (X(0), Z(0))
+        const ZoneShape lightShape = StairZone(tileMask(lightGrass, path), cell, corner, corner, false);
+        const ZoneShape pathShape = StairZone(tileMask(path, [&](int, int) { return false; }), cell, corner, corner, false);
         AddFill(geo[Pale], lightShape, 0.15f, white);
         AddFill(geo[Soil], pathShape, 0.15f, soil);
         // the outline of each zone, on its border
@@ -434,7 +442,7 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         // the rim where walkable ground meets solid trees and forest, from a mask of everything else
         std::vector<std::vector<bool>> notWall(N, std::vector<bool>(N, true));
         for (int r = 0; r < N; r++) for (int c = 0; c < N; c++) notWall[r][c] = !(coll[r][c] == '#' && (vis[r][c] == 't' || vis[r][c] == 'T'));
-        for (const ShapeChain& chain : SmoothZone(notWall, T, corner, corner, 1).Chains) AddRim(geo[Edge], chain);
+        for (const ShapeChain& chain : StairZone(notWall, T, corner, corner, true).Chains) AddRim(geo[Edge], chain);
         // decals on plain open grass: grass-role tiles away from paths, water, houses and fences
         auto plain = [&](int c, int r) { return c >= 0 && r >= 0 && c < N && r < N && (vis[r][c] == '.' || vis[r][c] == 's') && coll[r][c] == '.' && path2[2 * r][2 * c] != ':' && path2[2 * r + 1][2 * c + 1] != ':'; };
         const int decals = GrassDecals(geo[Outline], plain);
@@ -497,8 +505,8 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
                 const int fc = 2 * c + dc, fr = 2 * r + dr;
                 if (fc >= 0 && fr >= 0 && fc < 2 * N && fr < 2 * N && water2[fr][fc] == '~') nearWater = true;
             }
-            // within 2 tiles of open ground: with 3 or more the piece (37,362 vertices) passes the game's largest (35,691)
-            if (d <= 2 && !nearWater) spots.push_back({c, r, d});
+            // within 3 tiles of open ground: with 4 the piece passes the game's largest (35,691 vertices, 'oras-town' warns)
+            if (d <= 3 && !nearWater) spots.push_back({c, r, d});
         }
     std::stable_sort(spots.begin(), spots.end(), [](const Spot& a, const Spot& b) { return a.d < b.d; });
     // the tree's two upper leaf layers (Route 101's layers span y 27-52, 43-68, 54-79, 71-96)
