@@ -54,7 +54,7 @@ struct OrasTownOptions
     // the donor piece written as it is in the game in place of the built one (with the textures it names added to the area pack):
     // tells whether any foreign piece shows at the target's place, the built one being the first suspect (v22: no picture)
     bool DonorAsIs = false;
-    // zero bytes appended to the piece written (after its GR container's last file): a piece that only grows, to tell its size
+    // zero bytes appended to the piece's terrain model (its GR file 1, after the BCH's data): a piece that only grows, to tell its size
     // from its content (the game's own piece shows; every other piece tried, 536 KB and more, shows no picture)
     size_t PadPiece = 0;
     bool AllowErrors = false;         // write the mod even if a design rule (TownCheck.h) is broken

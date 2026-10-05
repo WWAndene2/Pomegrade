@@ -190,7 +190,13 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
     }
     sources.TreeReach = o.TreeReach;
     Bytes town = o.DonorAsIs ? sources.Donor : BuildTown(result.Layout, sources, &result.Log);
-    if (o.PadPiece) { town.resize(town.size() + o.PadPiece, 0); result.Log.push_back("piece: " + std::to_string(o.PadPiece) + " zero bytes appended"); }
+    if (o.PadPiece)
+    {
+        BinLinker gr = BinLinker::Read(town, "GR");
+        gr.Files.at(1).resize(gr.Files.at(1).size() + o.PadPiece, 0);
+        town = gr.Write();
+        result.Log.push_back("piece: " + std::to_string(o.PadPiece) + " zero bytes appended to its terrain model");
+    }
     if (o.DonorAsIs) result.Log.push_back("piece: the donor's, as it is in the game");
 
     // the donor's textures the piece names and the area pack lacks, added to it when it is not the donor's own pack (a name the
