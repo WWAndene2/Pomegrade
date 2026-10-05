@@ -19,6 +19,8 @@ std::string InspectArea(N3dsRom& game, size_t area);   // a/0/1/4 member: its fi
 std::string InspectMatrix(N3dsRom& game, size_t matrix);
 // every a/0/3/9 piece's terrain model name (world<matrix>_<x>_<y> for the overworld's): "index name" lines
 std::string InspectPieceNames(N3dsRom& game);
+// every a/0/1/3 zone in one line: its matrix and area pack, entity counts, its warps' destinations and tiles, its triggers' tiles
+std::string InspectZones(N3dsRom& game);
 
 
 // Conformity of the tooling with the real game, run on the owner's dump: every texture file of every area pack rewritten by

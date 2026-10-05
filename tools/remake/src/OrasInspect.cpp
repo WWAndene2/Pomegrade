@@ -181,6 +181,26 @@ std::string InspectPieceNames(N3dsRom& game)
     return s;
 }
 
+std::string InspectZones(N3dsRom& game)
+{
+    const Garc g(game.Read("a/0/1/3"));
+    std::string s = "zone matrix area | furniture characters warps triggers others | warps: dest@tileX,tileZ | triggers: tileX,tileZ\n";
+    for (size_t i = 0; i < g.Count(); i++)
+    {
+        try
+        {
+            const OrasZone z = OrasZone::Read(Plain(g.Sub(i)));
+            s += F("%zu %d %d | %zu %zu %zu %zu %zu |", i, z.Matrix(), z.AreaPack(), z.Furniture.size(), z.Characters.size(), z.Doors.size(), z.Triggers.size(), z.Others.size());
+            for (const ZoneDoor& d : z.Doors) s += F(" %d@%.1f,%.1f", d.DestZone(), d.TileX(), d.TileZ());
+            s += " |";
+            for (const ZoneTrigger& t : z.Triggers) s += F(" %d,%d", t.TileX(), t.TileZ());
+            s += "\n";
+        }
+        catch (const FormatError& e) { s += F("%zu not read: %s\n", i, e.what()); }
+    }
+    return s;
+}
+
 std::string VerifyGame(N3dsRom& game, bool& ok)
 {
     ok = true;
