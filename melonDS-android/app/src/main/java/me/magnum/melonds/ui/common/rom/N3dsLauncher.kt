@@ -29,6 +29,12 @@ object N3dsLauncher {
             return
         }
 
+        // the remake's test bench, when Pomegrade/3DS/bench holds mods (temporary: N3dsModBench)
+        if (N3dsModBench.isRequested(activity)) {
+            N3dsModBench.start(activity, rom)
+            return
+        }
+
         val intent = Intent(activity, EmulationActivity::class.java).apply {
             action = Intent.ACTION_VIEW
             data = rom.uri

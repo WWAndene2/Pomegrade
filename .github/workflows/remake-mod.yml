@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       variants:
-        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"; "... +cro <module> OFFSET=OLD:NEW" also patches a code module'
+        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options", "name: append unused|piece|matrix|zone" or "name: bench" (the app's test bench); "... +cro <module> OFFSET=OLD:NEW" also patches a code module'
         default: |
           v24:
         required: true
@@ -86,7 +86,20 @@ jobs:
             if [[ "$options" == *" +cro "* ]]; then cro="${options#* +cro }"; options="${options%% +cro *}"; fi
             echo "::group::$name ($options)"
             # options are split on spaces on purpose: they are oras-town flags
-            if [[ "$options" == *"append "* ]]; then
+            if [[ "$options" == *"bench"* ]]; then
+              # "name: bench": the phone test bench's mods (prototype/bench_mods.py), zipped as bench/ for Pomegrade/3DS
+              ./build-remake/remake_tool oras-town dumps/platinum.nds dumps/oras.3ds "out/${name}_p1" --pad-piece 47488 --allow-errors > "mods/${name}_log.txt"
+              ./build-remake/remake_tool oras-town dumps/platinum.nds dumps/oras.3ds "out/${name}_p2" --pad-piece 55680 --allow-errors >> "mods/${name}_log.txt"
+              [ -f out/code.bin ] || ./build-remake/remake_tool oras-code dumps/oras.3ds out/code.bin
+              python3 -c "import capstone" 2>/dev/null || pip install --quiet capstone
+              mkdir -p "out/$name"
+              python3 tools/remake/prototype/bench_mods.py out/code.bin "out/${name}_p1/load/mods/000400000011C400" \
+                "out/${name}_p2/load/mods/000400000011C400" "out/$name/bench" | tee -a "mods/${name}_log.txt"
+              cp "out/$name/bench/candidates.txt" "mods/${name}_candidates.txt"
+              (cd "out/$name" && zip -q -r "../../mods/Pomegrade_Sinnoh_$name.zip" bench)
+              echo "::endgroup::"
+              continue
+            elif [[ "$options" == *"append "* ]]; then
               # "name: append unused|piece|matrix|zone": the archive-member tests of oras-append-test
               ./build-remake/remake_tool oras-append-test dumps/oras.3ds "out/$name" ${options#*append } | tee "mods/${name}_log.txt"
             elif [[ "$options" == *"region "* ]]; then
