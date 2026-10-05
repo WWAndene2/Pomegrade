@@ -189,7 +189,8 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
         sources.FenceTexture = finalName["c103_saku"];
     }
     sources.TreeReach = o.TreeReach;
-    const Bytes town = o.DonorAsIs ? sources.Donor : BuildTown(result.Layout, sources, &result.Log);
+    Bytes town = o.DonorAsIs ? sources.Donor : BuildTown(result.Layout, sources, &result.Log);
+    if (o.PadPiece) { town.resize(town.size() + o.PadPiece, 0); result.Log.push_back("piece: " + std::to_string(o.PadPiece) + " zero bytes appended"); }
     if (o.DonorAsIs) result.Log.push_back("piece: the donor's, as it is in the game");
 
     // the donor's textures the piece names and the area pack lacks, added to it when it is not the donor's own pack (a name the

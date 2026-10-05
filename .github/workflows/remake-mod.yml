@@ -10,7 +10,9 @@ on:
       variants:
         description: 'One mod per line, "name: oras-town options" (no options = the defaults)'
         default: |
-          t6_own_piece_rewritten: --zone-warps 0 --donor 6 --donor-pack 8 --donor-as-is 1
+          t7_own_piece_450k: --zone-warps 0 --donor 6 --donor-pack 8 --donor-as-is 1 --pad-piece 57344
+          t8_own_piece_540k: --zone-warps 0 --donor 6 --donor-pack 8 --donor-as-is 1 --pad-piece 147456
+          t9_own_piece_1100k: --zone-warps 0 --donor 6 --donor-pack 8 --donor-as-is 1 --pad-piece 733184
         required: true
 
 permissions:
