@@ -27,6 +27,8 @@ std::string InspectMatrices(N3dsRom& game);
 std::string InspectArchives(N3dsRom& game);
 // every overworld cell's piece size and its neighbourhood's, the largest, Littleroot's, and how the largest pieces spend their bytes
 std::string InspectPieceBudget(N3dsRom& game);
+// the zones reached by walking (an overworld zone grid) and warps, transitively, and the others, with what they hold
+std::string InspectZoneReach(N3dsRom& game);
 
 
 // Conformity of the tooling with the real game, run on the owner's dump: every texture file of every area pack rewritten by

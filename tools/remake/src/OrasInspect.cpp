@@ -15,6 +15,7 @@
 #include <fstream>
 #include <set>
 #include <map>
+#include <optional>
 
 namespace remake
 {
@@ -359,6 +360,67 @@ std::string InspectPieceBudget(N3dsRom& game)
         }
         catch (const std::exception& e) { s += F("piece %zu: not read (%s)\n", i, e.what()); }
     }
+    return s;
+}
+
+// Which zones the game reaches by walking and warps alone (ORAS_LITTLEROOT.md 0, step (1): reuse ORAS's zone numbers for
+// Sinnoh, keeping clear of the ones its code names). The overworld zones are those a matrix's zone grid holds (walked into);
+// from them every warp's destination is followed, transitively. A zone never reached that way is reached by the code or a
+// script (a new game's start, flying, events) or not at all: the zones to check before reusing one.
+std::string InspectZoneReach(N3dsRom& game)
+{
+    const Garc zo(game.Read("a/0/1/3")), mm(game.Read("a/0/4/0"));
+    std::vector<std::optional<OrasZone>> zones(zo.Count());
+    for (size_t i = 0; i < zo.Count(); i++)
+        try { zones[i] = OrasZone::Read(Plain(zo.Sub(i))); } catch (const FormatError&) {}
+    std::set<int> overworld;
+    for (size_t m = 0; m < mm.Count(); m++)
+    {
+        try
+        {
+            const OrasMatrix mat = OrasMatrix::Read(Plain(mm.Sub(m)));
+            for (uint16_t z : mat.Zones) if (z != OrasMatrix::None && z < zones.size()) overworld.insert(z);
+        }
+        catch (const FormatError&) {}
+    }
+    std::set<int> reached(overworld.begin(), overworld.end());
+    std::vector<int> queue(overworld.begin(), overworld.end());
+    std::map<int, int> firstFrom; // zone -> a zone whose warp reaches it
+    while (!queue.empty())
+    {
+        const int z = queue.back();
+        queue.pop_back();
+        if (!zones[z]) continue;
+        for (const ZoneDoor& d : zones[z]->Doors)
+        {
+            const int to = d.DestZone();
+            if (to < 0 || (size_t)to >= zones.size() || reached.count(to)) continue;
+            reached.insert(to);
+            firstFrom[to] = z;
+            queue.push_back(to);
+        }
+    }
+    std::string s = F("%zu zones: %zu on an overworld zone grid, %zu reached by walking and warps, %zu not\n", zones.size(), overworld.size(),
+                      reached.size(), zones.size() - reached.size());
+    // the zones no warp reaches, with what they hold (an empty one is likely unused) and the warps leaving them
+    size_t withContent = 0;
+    for (size_t i = 0; i < zones.size(); i++)
+    {
+        if (reached.count((int)i)) continue;
+        if (!zones[i]) { s += F("unreached %zu: not a zone\n", i); continue; }
+        const OrasZone& z = *zones[i];
+        const bool empty = z.Characters.empty() && z.Doors.empty() && z.Triggers.empty() && z.Furniture.empty();
+        if (!empty) withContent++;
+        s += F("unreached %zu: matrix %d area %d, %zu characters %zu warps %zu triggers %zu furniture%s", i, z.Matrix(), z.AreaPack(),
+               z.Characters.size(), z.Doors.size(), z.Triggers.size(), z.Furniture.size(), empty ? " (empty)" : "");
+        if (!z.Doors.empty())
+        {
+            s += ", warps to";
+            for (const ZoneDoor& d : z.Doors) s += F(" %d", d.DestZone());
+        }
+        s += "\n";
+    }
+    s += F("unreached with content: %zu\n", withContent);
     return s;
 }
 
