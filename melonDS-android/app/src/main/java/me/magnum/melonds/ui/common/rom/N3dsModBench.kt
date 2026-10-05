@@ -26,8 +26,10 @@ import java.util.Locale
  * A run: the mod is copied over load/mods/<title>/ (the game's mod folder, emptied first), the game started, A pressed every
  * [PRESS_EVERY_MS] (title screen, "Continue"), and Azahar's log read: the field is up when the module DllFieldEventPlayer loads
  * (seen on the phone: it loads a few seconds after DllField when the map shows, and never when the field hangs). After
- * [TIMEOUT_MS] without it, the run fails. The log is read from where it ended before the run: Azahar flushes it on each
- * error-level line, which the field writes every few seconds.
+ * [TIMEOUT_MS] without it, the run fails. The log is read from where it ended before the run, or from its start when it is
+ * shorter (Azahar starts a new log when the game starts: the first bench run read nothing and reported p1 as no field). Azahar
+ * flushes it on each error-level line, which the field writes every few seconds. A bench started again (the app restarted)
+ * skips the mods results.txt already has a result for: delete results.txt to run them all again.
  */
 object N3dsModBench {
     private const val TAG = "N3dsModBench"
@@ -46,6 +48,8 @@ object N3dsModBench {
         var started = 0L
         var logFrom = 0L
         var lastPress = 0L
+        var presses = 0
+        var consumed = 0
     }
 
     private fun benchFolder(activity: Activity): File? =
@@ -57,8 +61,13 @@ object N3dsModBench {
     fun start(activity: Activity, rom: Rom) {
         val bench = benchFolder(activity) ?: return
         val n3ds = bench.parentFile ?: return
-        val mods = bench.listFiles { f -> f.isDirectory }?.sortedBy { it.name }.orEmpty()
-        if (mods.isEmpty()) return
+        val done = File(bench, "results.txt").takeIf { it.exists() }?.readLines().orEmpty()
+            .mapNotNull { line -> line.substringAfter(' ', "").substringBefore(": ", "").takeIf { it.isNotEmpty() && ": " in line } }.toSet()
+        val mods = bench.listFiles { f -> f.isDirectory }?.sortedBy { it.name }.orEmpty().filter { it.name !in done }
+        if (mods.isEmpty()) {
+            Toast.makeText(activity, "Test bench: every mod has a result (delete 3DS/bench/results.txt to run them again)", Toast.LENGTH_LONG).show()
+            return
+        }
         running = true
         watchEmulation(activity.application)
         result(bench, "bench started, ${mods.size} mods: ${mods.joinToString { it.name }}")
@@ -86,6 +95,9 @@ object N3dsModBench {
         run.logFrom = log(run).let { if (it.exists()) it.length() else 0L }
         run.started = System.currentTimeMillis()
         run.lastPress = run.started
+        run.presses = 0
+        run.consumed = 0
+        Toast.makeText(run.launcher, "Test bench: ${run.index + 1}/${run.mods.size} ${mod.name}", Toast.LENGTH_SHORT).show()
         N3dsLauncher.launch(run.launcher, run.rom)
         handler.postDelayed({ watch(run) }, POLL_MS)
     }
@@ -94,9 +106,14 @@ object N3dsModBench {
         val mod = run.mods[run.index]
         val now = System.currentTimeMillis()
         val elapsed = now - run.started
-        val fieldUp = newLog(run).contains(SUCCESS)
+        val text = newLog(run)
+        val fieldUp = text.contains(SUCCESS)
         if (fieldUp || elapsed > TIMEOUT_MS) {
-            result(File(run.n3ds, "bench"), "${mod.name}: ${if (fieldUp) "FIELD" else "NO FIELD"} after ${elapsed / 1000} s")
+            // where the game got to: the last code module it loaded (DllTitle: title screen, DllStartMenu: the Continue menu,
+            // DllField: the field loading), the log's size and whether the presses reached the game
+            val lastModule = Regex("CRO \"([^\"]+)\" loaded").findAll(text).lastOrNull()?.groupValues?.get(1) ?: "none"
+            result(File(run.n3ds, "bench"), "${mod.name}: ${if (fieldUp) "FIELD" else "NO FIELD"} after ${elapsed / 1000} s " +
+                "(last module $lastModule, log ${text.length} new bytes of ${log(run).length()}, A pressed ${run.presses}x, taken ${run.consumed}x)")
             emulation?.finish()
             run.index++
             waitStopped(run)
@@ -104,7 +121,8 @@ object N3dsModBench {
         }
         if (now - run.lastPress >= PRESS_EVERY_MS && NativeLibrary.isRunning()) {
             run.lastPress = now
-            NativeLibrary.onGamePadEvent(NativeLibrary.TOUCHSCREEN_DEVICE, NativeLibrary.ButtonType.BUTTON_A, NativeLibrary.ButtonState.PRESSED)
+            run.presses++
+            if (NativeLibrary.onGamePadEvent(NativeLibrary.TOUCHSCREEN_DEVICE, NativeLibrary.ButtonType.BUTTON_A, NativeLibrary.ButtonState.PRESSED)) run.consumed++
             handler.postDelayed({
                 NativeLibrary.onGamePadEvent(NativeLibrary.TOUCHSCREEN_DEVICE, NativeLibrary.ButtonType.BUTTON_A, NativeLibrary.ButtonState.RELEASED)
             }, 150)
@@ -126,9 +144,10 @@ object N3dsModBench {
     // what Azahar wrote to its log since this run started (the log is per app start, so it holds the earlier runs too)
     private fun newLog(run: Run): String {
         val file = log(run)
-        if (!file.exists() || file.length() <= run.logFrom) return ""
+        if (!file.exists()) return ""
+        val from = if (file.length() < run.logFrom) 0L else run.logFrom // a new log, started with this run's game
         return file.inputStream().use { input ->
-            input.skip(run.logFrom)
+            input.skip(from)
             input.readBytes().toString(Charsets.UTF_8)
         }
     }
