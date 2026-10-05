@@ -38,6 +38,9 @@ add_library(remake STATIC
     src/TownShapes.cpp
     src/TownBuilder.cpp
     src/OrasTown.cpp
+    src/OrasZone.cpp
+    src/OrasInspect.cpp
+    src/Amx.cpp
     src/MapHeaders.cpp
     src/ZoneEvents.cpp
     src/BinLinker.cpp

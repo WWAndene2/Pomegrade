@@ -28,6 +28,8 @@
 //                     [--cell X Y] [--zone Z] [--area A] [--grass P]
 //                     a Platinum window of 40x40 tiles (default: Twinleaf Town) rebuilt as an ORAS map piece with
 //                     ORAS's own assets, as an Azahar mod (BPS patches), with town_preview.gltf and town_layout.txt
+//   remake_tool oras-inspect <oras.3ds> zone|piece|area <index>
+//                     what an ORAS zone (a/0/1/3), map piece (a/0/3/9) or area pack (a/0/1/4) is made of, as text
 //   remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...
 //                     the same as BPS patches against the game's own files (<out dir>/load/mods/
 //                     <program id>/romfs_ext/<path>.bps): a few changed pieces of a large archive
@@ -48,6 +50,7 @@
 #include "N3dsRom.h"
 #include "MapHeaders.h"
 #include "N3dsWorld.h"
+#include "OrasInspect.h"
 #include "OrasTown.h"
 #include "PlatinumWorld.h"
 #include "ZoneEvents.h"
@@ -77,6 +80,7 @@ static int Usage()
                     "  remake_tool oras-world <rom.nds> <matrix index> <out dir>\n"
                     "  remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]\n  remake_tool oras-list <oras.3ds>\n  remake_tool oras-extract <oras.3ds> <path> <out>\n"
                     "  remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...\n"
+                    "  remake_tool oras-inspect <oras.3ds> zone|piece|area <index>\n"
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
                     "                    [--cell X Y] [--zone Z] [--area A] [--grass P]\n");
@@ -182,6 +186,19 @@ int main(int argc, char** argv)
             WriteFile(argv[3], Bytes(gltf.begin(), gltf.end()));
             printf("%zu models; model %zu: %zu shapes, %zu materials\n", model.Models().size(), index,
                    model.Models().at(index).Shapes.size(), model.Models().at(index).Materials.size());
+            return 0;
+        }
+        if (cmd == "oras-inspect" && argc >= 5)
+        {
+            N3dsRom game(argv[2]);
+            const std::string what = argv[3];
+            const size_t index = (size_t)atoi(argv[4]);
+            std::string text;
+            if (what == "zone") text = InspectZone(game, index);
+            else if (what == "piece") text = InspectPiece(game, index);
+            else if (what == "area") text = InspectArea(game, index);
+            else return Usage();
+            fputs(text.c_str(), stdout);
             return 0;
         }
         if (cmd == "oras-town" && argc >= 5)
