@@ -267,6 +267,15 @@ int main()
     check(Bch::Read(big).Models[0].Meshes[0].Triangles == grid.Triangles && small.size() + 8000 < big.size() &&
               smallRead.Models[0].Meshes[0].Triangles == quad.Triangles && smallRead.Textures[0].Data == rgb565,
           "BCH writer: a replaced mesh's buffers removed (" + std::to_string(big.size()) + " -> " + std::to_string(small.size()) + " bytes), the texture kept");
+    {
+        // compacting frees the old (wider) vertex buffer: the grid's vertices go from 20 to 10 bytes each; freed buffers leave only
+        // whole 0x80 blocks (the rest of a partial block stays, at most 0x7F at each end, and the one-vertex buffer of the first pass)
+        const Bytes compact = BchCompactVertices(big, 0, {0});
+        const Bch compactRead = Bch::Read(compact);
+        const size_t saved = grid.Vertices.size() * 10;
+        check(compact.size() + saved <= big.size() + 0x400 && compactRead.Models[0].Meshes[0].Triangles == grid.Triangles && compactRead.Textures[0].Data == rgb565,
+              "BCH compact: the file shrinks by the vertices' saved bytes (" + std::to_string(big.size()) + " -> " + std::to_string(compact.size()) + "), triangles and texture kept");
+    }
     // a buffer something else still points into is kept: the texture pointed at the grid's index buffer, which
     // doesn't start on a 0x80 block; replacing the grid must leave those bytes where the texture finds them
     {

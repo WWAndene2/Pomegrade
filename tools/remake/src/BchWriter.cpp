@@ -290,11 +290,13 @@ static void SetFloat24(uint32_t w[3], int c, uint32_t f)
 
 Bytes BchCompactVertices(const Bytes& bch, size_t modelIndex, const std::vector<size_t>& meshes, std::vector<std::string>* log)
 {
-    Bytes out = bch;
     std::vector<BchGeometry> geometry;
     const Bch parsed = Bch::Read(bch);
     if (modelIndex >= parsed.Models.size()) throw FormatError("BCH compact: no such model");
     const BchModel& model = parsed.Models[modelIndex];
+    Bytes out = bch;
+    std::vector<std::pair<size_t, uint32_t>> patched; // every command word changed, to apply again after the old buffers are freed
+    auto patch = [&](size_t at, uint32_t value) { Put32(out, at, value); patched.push_back({at, value}); };
     auto word = [&](size_t at) { uint32_t v = 0; for (int i = 0; i < 4; i++) v |= (uint32_t)out.at(at + i) << (8 * i); return v; };
     for (size_t index : meshes)
     {
@@ -353,16 +355,16 @@ Bytes BchCompactVertices(const Bytes& bch, size_t modelIndex, const std::vector<
         }
         stride += stride & 1;
         const size_t base = mesh.CommandsAt;
-        Put32(out, base + 4 * formatAt[0], (uint32_t)formats);
-        Put32(out, base + 4 * formatAt[1], (uint32_t)(formats >> 32));
-        Put32(out, base + 4 * strideAt, (word(base + 4 * strideAt) & 0xFF00FFFF) | (stride << 16));
+        patch(base + 4 * formatAt[0], (uint32_t)formats);
+        patch(base + 4 * formatAt[1], (uint32_t)(formats >> 32));
+        patch(base + 4 * strideAt, (word(base + 4 * strideAt) & 0xFF00FFFF) | (stride << 16));
         auto setUniform = [&](int u, int c, float value) {
             if (cmd.UniformWords[u][cmd.Uniform32[u] ? c : 0] < 0) throw FormatError("BCH compact: mesh " + std::to_string(index) + " does not load uniform c" + std::to_string(u));
-            if (cmd.Uniform32[u]) { uint32_t v; memcpy(&v, &value, 4); Put32(out, base + 4 * cmd.UniformWords[u][c], v); return; }
+            if (cmd.Uniform32[u]) { uint32_t v; memcpy(&v, &value, 4); patch(base + 4 * cmd.UniformWords[u][c], v); return; }
             uint32_t w[3];
             for (int k = 0; k < 3; k++) w[k] = word(base + 4 * cmd.UniformWords[u][k]);
             SetFloat24(w, c, ToPicaFloat24(value));
-            for (int k = 0; k < 3; k++) Put32(out, base + 4 * cmd.UniformWords[u][k], w[k]);
+            for (int k = 0; k < 3; k++) patch(base + 4 * cmd.UniformWords[u][k], w[k]);
         };
         for (const BchAttribute& a : mesh.Attributes)
         {
@@ -373,8 +375,16 @@ Bytes BchCompactVertices(const Bytes& bch, size_t modelIndex, const std::vector<
         geometry.push_back({index, mesh.Vertices, mesh.Triangles});
         if (log) log->push_back("mesh " + std::to_string(index) + ": " + std::to_string(mesh.Vertices.size()) + " vertices, stride " + std::to_string(mesh.Stride) + " -> " + std::to_string(stride));
     }
-    // the buffers written again in the new layouts (BchReplaceGeometry encodes each vertex as the patched commands now describe it)
-    return geometry.empty() ? out : BchReplaceGeometry(out, modelIndex, geometry);
+    if (geometry.empty()) return out;
+    // BchReplaceGeometry frees a mesh's old buffer by its vertex count times the stride the file states: so the old buffers are freed
+    // first, while the file still states the old strides (each mesh down to one vertex and no triangle), then the format words are
+    // patched (on that file, at the same command offsets: commands lie before the raw data and do not move) and the buffers written
+    // again in the new layouts
+    std::vector<BchGeometry> emptied;
+    for (const BchGeometry& g : geometry) emptied.push_back({g.Mesh, {g.Vertices.front()}, {}});
+    Bytes freed = BchReplaceGeometry(bch, modelIndex, emptied);
+    for (const auto& [at, value] : patched) Put32(freed, at, value); // command words: before the raw data, at the same offsets
+    return BchReplaceGeometry(freed, modelIndex, geometry);
 }
 
 }
