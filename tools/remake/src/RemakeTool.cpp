@@ -25,7 +25,7 @@
 //                     mods (<out dir>/load/mods/<program id>/romfs/<path>); copy <out dir>/load
 //                     into the 3DS folder (Pomegrade/3DS)
 //   remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]
-//                     [--cell X Y] [--zone Z] [--area A] [--grass P]
+//                     [--cell X Y] [--zone Z] [--area A] [--grass P] [--allow-errors]
 //                     a Platinum window of 40x40 tiles (default: Twinleaf Town) rebuilt as an ORAS map piece with
 //                     ORAS's own assets, as an Azahar mod (BPS patches), with town_preview.gltf and town_layout.txt
 //   remake_tool oras-inspect <oras.3ds> zone|piece|area <index>
@@ -83,7 +83,7 @@ static int Usage()
                     "  remake_tool oras-inspect <oras.3ds> zone|piece|area <index>\n"
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
-                    "                    [--cell X Y] [--zone Z] [--area A] [--grass P]\n");
+                    "                    [--cell X Y] [--zone Z] [--area A] [--grass P] [--allow-errors]\n");
     return 2;
 }
 
@@ -219,6 +219,7 @@ int main(int argc, char** argv)
                 else if (flag == "--zone") options.Zone = (size_t)number(++i);
                 else if (flag == "--area") options.AreaPack = (size_t)number(++i);
                 else if (flag == "--grass") options.GrassPack = number(++i);
+                else if (flag == "--allow-errors") options.AllowErrors = true;
                 else { fprintf(stderr, "unknown option %s\n", flag.c_str()); return 2; }
             }
             const NdsRom platinum(ReadFile(argv[2]));

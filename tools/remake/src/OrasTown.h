@@ -29,6 +29,7 @@ struct OrasTownOptions
     // a/0/1/4 member: the target piece's own area (Littleroot's), whose grass the town takes: its pixels go into AreaPack
     // under the donor's grass texture names. -1: the donor's grass is kept
     int GrassPack = 8;
+    bool AllowErrors = false;         // write the mod even if a design rule (TownCheck.h) is broken
     std::string OutDir;
 };
 

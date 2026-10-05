@@ -40,6 +40,7 @@ add_library(remake STATIC
     src/OrasTown.cpp
     src/OrasZone.cpp
     src/OrasInspect.cpp
+    src/TownCheck.cpp
     src/Amx.cpp
     src/MapHeaders.cpp
     src/ZoneEvents.cpp

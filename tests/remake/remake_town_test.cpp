@@ -4,6 +4,7 @@
 // colours are the ones measured on Platinum's Twinleaf Town; the arithmetic built on them is checked here.
 #include "NitroCompression.h"
 #include "OrasTown.h"
+#include "TownCheck.h"
 #include "TownLayout.h"
 
 #include <cstdio>
@@ -89,6 +90,32 @@ int main()
         bool refused = false;
         try { ReplaceMember(out, original, 0, Lz11Compress(changed), "ZO"); } catch (const FormatError&) { refused = true; }
         check(refused, "a member compressed before the call (it would be compressed twice) is refused");
+    }
+
+    // design rules: a texture the area pack lacks is an error, the budget is a warning
+    {
+        BchModel model;
+        model.Materials.resize(3);
+        model.Materials[0].Name = "grass"; model.Materials[0].Texture[0] = "chip_kusa";
+        model.Materials[1].Name = "edge"; model.Materials[1].Texture[0] = "projection_dummy"; model.Materials[1].Texture[1] = "chip_grass_edge";
+        model.Materials[2].Name = "unused"; model.Materials[2].Texture[0] = "nowhere";
+        model.Meshes.resize(3);
+        for (size_t i = 0; i < 3; i++) { model.Meshes[i].Material = i; model.Meshes[i].Vertices.resize(10); model.Meshes[i].Triangles = {0, 1, 2}; }
+        model.Meshes[2].Triangles.clear(); // draws nothing: its texture is not needed
+        auto issues = CheckMaterials(model, {"chip_kusa", "chip_grass_edge"});
+        check(issues.empty(), "textures present in the pack (the projection placeholder and an unused mesh's need none): no issue");
+        issues = CheckMaterials(model, {"chip_kusa"});
+        check(issues.size() == 1 && issues[0].Error && issues[0].Text.find("chip_grass_edge") != std::string::npos, "a texture missing from the area pack is an error that names it");
+        model.Meshes[2].Triangles = {0, 1, 2};
+        check(CheckMaterials(model, {"chip_kusa", "chip_grass_edge"}).size() == 1, "a drawn mesh's missing texture is reported once");
+        PieceBudget budget; budget.MaxFileBytes = 1000; budget.MaxVertices = 20;
+        issues = CheckBudget(model, 500, budget);
+        check(issues.size() == 1 && !issues[0].Error, "more vertices than the game's largest piece is a warning, not an error");
+        check(CheckBudget(model, 500, PieceBudget{1000, 100}).empty(), "within the game's largest piece: no issue");
+        model.Meshes[0].Vertices.resize(70000);
+        bool tooMany = false;
+        for (const TownIssue& i : CheckBudget(model, 500, PieceBudget{1000, 1000000})) tooMany = tooMany || i.Error;
+        check(tooMany, "a mesh past 16-bit indices is an error");
     }
 
     printf(ok ? "all passed\n" : "FAILED\n");

@@ -93,7 +93,22 @@ The `.code` in ExeFS is packed with BLZ (backward LZ, flag 0x01 of the extended 
 - `0x4D83FC(this, slot)` returns a pointer to a zone header from `this + 0x94C0 + slot*4`; `0x4D8978` reads its word 1 (the area pack), `0x4D83EC` word 2 (the matrix). A garbage pointer there crashed the first phone run of `oras-town` (a zone member compressed twice, now refused by `ReplaceMember`).
 - Blocks are validated by a magic then a version word (`KAGE` at `0x3CA7C0`); `coll` is validated elsewhere (not found by a literal load).
 
-## 8. What is NOT known (the work left)
+## 8. Design rules, enforced
+
+`oras-town` checks these before writing a mod (`TownCheck.h`, `ReplaceMember`), because each broke or could break a phone run:
+
+| Rule | Why | Kind |
+|---|---|---|
+| Every texture a material names is in the area pack the piece uses (`projection_dummy` and meshes that draw nothing excepted) | the pack holds the only textures the game loads for the area | error: no mod written (`--allow-errors` overrides) |
+| A mesh has at most 65536 vertices | 16-bit indices | error |
+| The piece stays within the game's largest piece (1,368,064 bytes, 35,691 vertices) | memory use beyond what any original piece needs is untested | warning |
+| A replaced archive member is the container it must be (GR, ZO, AD), compressed once, and reads back identical | a zone compressed twice crashed the field's start | error (`ReplaceMember`) |
+| A texture's v is used as stored, never flipped (previews included) | PICA textures are stored bottom row first, decoded in that order | rule of the BCH preview |
+| No shared area pack is changed unless the piece needs it (`--grass -1` leaves pack 9 alone) | a pack is shared by every piece of its area | by option |
+
+Not yet checked by code (by hand until it is): tile values only from the known set, a door model per placed door (the block holds 5), warps inside the piece's cell, the zone's area pack matching the piece's.
+
+## 9. What is NOT known (the work left)
 
 1. The scripts' semantics (packed Pawn code, 58+ natives, the text links): needed for any NPC, sign or story event.
 2. The remaining words of zones' entries, and the zone-to-name-line link.

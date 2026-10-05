@@ -6,8 +6,11 @@
 #include "Gltf.h"
 #include "NitroCompression.h"
 #include "TownBuilder.h"
+#include "TownCheck.h"
 
+#include <algorithm>
 #include <filesystem>
+#include <set>
 #include <tuple>
 
 namespace remake
@@ -120,6 +123,43 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
     }
     const Bytes town = BuildTown(result.Layout, sources, &result.Log);
     result.PieceBytes = town.size();
+
+    // design rules (TownCheck.h): the textures the piece names must be in the area pack it will use; the size against the game's largest piece
+    {
+        std::set<std::string> available;
+        for (const Bytes& f : BinLinker::Read(areaPack, "AD").Files)
+            if (Bch::Is(f)) for (const BchTexture& t : Bch::Read(f).Textures) available.insert(t.Name);
+        PieceBudget original;
+        for (size_t i = 0; i < pieceArchive.Count(); i++)
+        {
+            if (!pieceArchive.Has(i)) continue;
+            try
+            {
+                const Bytes raw = Plain(pieceArchive.Sub(i));
+                if (raw.size() < 2 || raw[0] != 'G' || raw[1] != 'R') continue;
+                const Bch bch = Bch::Read(BinLinker::Read(raw, "GR").Files.at(1)); // kept alive while its meshes are walked
+                size_t vertices = 0;
+                for (const BchMesh& m : bch.Models.at(0).Meshes) vertices += m.Vertices.size();
+                original.MaxVertices = std::max(original.MaxVertices, vertices);
+                original.MaxFileBytes = std::max(original.MaxFileBytes, raw.size());
+            }
+            catch (const FormatError&) {} // a piece that does not read does not set the bound
+        }
+        const BchModel model = Bch::Read(BinLinker::Read(town, "GR").Files.at(1)).Models.at(0);
+        size_t vertices = 0;
+        for (const BchMesh& m : model.Meshes) vertices += m.Vertices.size();
+        result.Log.push_back("design rules: " + std::to_string(available.size()) + " textures in the area pack; piece " + std::to_string(town.size()) + " bytes, " + std::to_string(vertices) +
+                             " vertices (the game's largest piece: " + std::to_string(original.MaxFileBytes) + " bytes, " + std::to_string(original.MaxVertices) + " vertices)");
+        std::vector<TownIssue> issues = CheckMaterials(model, available);
+        for (const TownIssue& i : CheckBudget(model, town.size(), original)) issues.push_back(i);
+        std::string refusal;
+        for (const TownIssue& i : issues)
+        {
+            result.Log.push_back(std::string(i.Error ? "ERROR: " : "warning: ") + i.Text);
+            if (i.Error) refusal += (refusal.empty() ? "" : "; ") + i.Text;
+        }
+        if (!refusal.empty() && !o.AllowErrors) throw FormatError("the piece breaks a design rule, no mod written (--allow-errors to write it anyway): " + refusal);
+    }
 
     Garc newPieces(pieces);
     ReplaceMember(newPieces, pieceArchive, o.TargetPiece, town, "GR");
