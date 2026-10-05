@@ -47,6 +47,9 @@ struct OrasTownOptions
     // what the zone (a/0/1/3) takes from the new piece, each switchable to find which change a phone run refuses
     // (v21 hung at the field's start with both): its area pack set to AreaPack, its warps moved onto the new doors
     bool ZonePack = true, ZoneWarps = true;
+    // the new piece written over the target's (a/0/3/9); 0 keeps the game's piece, to tell a broken piece from a broken pack
+    // (v22: the game ran with no picture, its music playing)
+    bool WritePiece = true;
     bool AllowErrors = false;         // write the mod even if a design rule (TownCheck.h) is broken
     std::string OutDir;
 };

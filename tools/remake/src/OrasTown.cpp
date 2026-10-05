@@ -261,7 +261,9 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
     const std::filesystem::path out(o.OutDir);
     const std::filesystem::path root = out / "load" / "mods" / id / "romfs_ext";
     Garc newAreas(areas);
-    std::vector<std::tuple<const char*, Bytes, Bytes>> changed = {{"a/0/3/9", newPieces.Write(), pieces}, {"a/0/1/3", newZones.Write(), zones}};
+    std::vector<std::tuple<const char*, Bytes, Bytes>> changed = {{"a/0/1/3", newZones.Write(), zones}};
+    if (o.WritePiece) changed.emplace_back("a/0/3/9", newPieces.Write(), pieces);
+    else result.Log.push_back("a/0/3/9: the game's piece kept");
     if (o.GrassPack >= 0)
     {
         ReplaceMember(newAreas, areaArchive, o.AreaPack, areaPack, "AD");
