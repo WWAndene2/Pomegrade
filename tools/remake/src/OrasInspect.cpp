@@ -281,6 +281,26 @@ std::string InspectMatrices(N3dsRom& game)
     return s + "\n";
 }
 
+std::string InspectArchives(N3dsRom& game)
+{
+    std::string s = "path members size | the first member's first bytes\n";
+    for (const auto& [path, where] : game.Files())
+    {
+        Bytes data;
+        try { data = game.Read(path); } catch (const FormatError&) { continue; }
+        if (!Garc::Is(data)) { s += F("%s - %zu | not a GARC\n", path.c_str(), data.size()); continue; }
+        try
+        {
+            const Garc g(data);
+            std::string head;
+            if (g.Count() && g.Has(0)) { const Bytes m = Plain(g.Sub(0)); for (size_t k = 0; k < 8 && k < m.size(); k++) head += F("%02x", m[k]); }
+            s += F("%s %zu %zu | %s\n", path.c_str(), g.Count(), data.size(), head.c_str());
+        }
+        catch (const FormatError& e) { s += F("%s ? %zu | %s\n", path.c_str(), data.size(), e.what()); }
+    }
+    return s;
+}
+
 std::string VerifyGame(N3dsRom& game, bool& ok)
 {
     ok = true;
