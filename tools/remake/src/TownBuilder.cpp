@@ -770,6 +770,7 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     {
         const size_t e = 4 + k * 44, from = 4 + std::min(k, ownCount - 1) * 44;
         std::copy(own.begin() + from, own.begin() + from + 44, dm.begin() + e);
+        if (src.DoorType) put(e, src.DoorType);
         putf(e + 28, (float)((src.CellX * N + doors[k][0]) * 18 + 9)); putf(e + 36, (float)((src.CellY * N + doors[k][1]) * 18 + 9));
     }
 

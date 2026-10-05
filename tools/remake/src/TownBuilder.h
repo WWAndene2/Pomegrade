@@ -34,6 +34,8 @@ struct TownSources
     float BankV[2] = {0, 0};
     // trees are placed up to this many tiles from open ground (-1: none). 3 keeps the piece within the game's largest
     int TreeReach = 3;
+    // the door models' type (0: the target's own, entry by entry); their other words stay the target's
+    uint32_t DoorType = 0;
 };
 
 // the new piece's bytes; log: what was placed

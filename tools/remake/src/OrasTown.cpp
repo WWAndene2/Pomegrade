@@ -189,6 +189,7 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
         sources.FenceTexture = finalName["c103_saku"];
     }
     sources.TreeReach = o.TreeReach;
+    sources.DoorType = o.DoorType;
     Bytes town = o.DonorAsIs ? sources.Donor : BuildTown(result.Layout, sources, &result.Log);
     if ((o.PieceFiles & 0x7F) != 0x7F)
     {
