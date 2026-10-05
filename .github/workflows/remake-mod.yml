@@ -36,11 +36,17 @@ jobs:
         env:
           ORAS_DRIVE_ID: ${{ secrets.ORAS_DRIVE_ID }}
           PLATINUM_DRIVE_ID: ${{ secrets.PLATINUM_DRIVE_ID }}
+        # gdown refused the 1.9 GB file ("Cannot retrieve the public link") although it is shared by link: Drive's
+        # direct download endpoint, with confirm=t to skip the too-large-to-scan page, serves it
         run: |
-          pip install --quiet gdown
           mkdir -p dumps
-          gdown --quiet --output dumps/oras.3ds "$ORAS_DRIVE_ID"
-          gdown --quiet --output dumps/platinum.nds "$PLATINUM_DRIVE_ID"
+          fetch() {
+            curl --fail --location --silent --show-error --retry 3 --output "$2" \
+              "https://drive.usercontent.google.com/download?id=$(echo "$1" | tr -d '[:space:]')&export=download&confirm=t"
+            if head -c 512 "$2" | grep -qi '<html'; then echo "::error::Drive answered a web page, not $2"; exit 1; fi
+          }
+          fetch "$ORAS_DRIVE_ID" dumps/oras.3ds
+          fetch "$PLATINUM_DRIVE_ID" dumps/platinum.nds
           ls -l dumps
 
       - name: Build remake_tool
