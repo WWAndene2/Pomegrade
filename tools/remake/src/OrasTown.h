@@ -40,6 +40,9 @@ struct OrasTownOptions
     // the pond's inner walls: 0 the donor's cliff band (gake_01_touka, rock with a blue water line), 1 Littleroot's earth cliff
     // (chip_gake_b, area pack 8: a grass lip over brown earth and stones; the owner's choice), 2 the paths' soil (chip_soil_a)
     int PondWall = 1;
+    // what the zone (a/0/1/3) takes from the new piece, each switchable to find which change a phone run refuses
+    // (v21 hung at the field's start with both): its area pack set to AreaPack, its warps moved onto the new doors
+    bool ZonePack = true, ZoneWarps = true;
     bool AllowErrors = false;         // write the mod even if a design rule (TownCheck.h) is broken
     std::string OutDir;
 };
