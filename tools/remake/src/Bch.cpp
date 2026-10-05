@@ -300,6 +300,11 @@ void AppendBchModel(const BchModel& model, const std::vector<BchTexture>& textur
                     std::vector<GltfPart>& parts, std::vector<GltfMaterial>& materials)
 {
     const int first = (int)materials.size();
+    // blended in the game when a mesh using the material draws in a layer above 0 (ORAS_LITTLEROOT.md 9c: blend is a layer
+    // flag, not the texture's); a layer-0 texture with holes (leaves, pickets) is cut out, solid and hiding what is behind it
+    std::vector<bool> blended(model.Materials.size(), false);
+    for (const BchMesh& mesh : model.Meshes)
+        if (mesh.Material < blended.size() && mesh.Layer > 0) blended[mesh.Material] = true;
     for (const BchMaterial& m : model.Materials)
     {
         GltfMaterial g;
@@ -316,7 +321,7 @@ void AppendBchModel(const BchModel& model, const std::vector<BchTexture>& textur
                 const Bytes rgba = PicaTextureDecode(t.Data, t.Width, t.Height, t.Format);
                 g.Png = EncodePng(t.Width, t.Height, rgba);
                 g.TexWidth = t.Width; g.TexHeight = t.Height;
-                for (size_t p = 3; p < rgba.size(); p += 4) if (rgba[p] < 255) { g.AlphaBlend = true; break; }
+                g.AlphaBlend = blended[materials.size() - first];
             }
             catch (const FormatError&) {} // left untextured
             break;

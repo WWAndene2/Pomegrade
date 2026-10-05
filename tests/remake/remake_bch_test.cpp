@@ -7,6 +7,7 @@
 // replaced and read back.
 #include "Bch.h"
 #include "BchWriter.h"
+#include "Gltf.h"
 #include "PicaCommands.h"
 #include "PicaTexture.h"
 #include "synthetic_files.h"
@@ -299,6 +300,29 @@ int main()
     // the model list's entry (contents + 180), relocated by the contents' address: far past the end
     try { Bytes bad = file; Put32(bad, 0x44 + 15 * 12, 0x00FFFFFF); Bch::Read(bad); } catch (const FormatError&) { refused = true; }
     check(refused, "BCH: a model pointer outside the file refused");
+
+    {
+        // the preview blends a material only when a mesh draws it in a layer above 0, as the game does; a layer-0 texture with
+        // holes (leaves) is cut out, so it hides what is behind it
+        BchModel model;
+        BchMaterial leaves, band;
+        leaves.Name = "leaves"; leaves.Texture[0] = "holes";
+        band.Name = "band"; band.Texture[0] = "holes";
+        model.Materials = {leaves, band};
+        BchMesh opaque, blended;
+        opaque.Material = 0; opaque.Layer = 0;
+        blended.Material = 1; blended.Layer = 1;
+        for (BchMesh* m : {&opaque, &blended}) { m->Vertices.resize(3); m->Triangles = {0, 1, 2}; }
+        model.Meshes = {opaque, blended};
+        BchTexture holes;
+        holes.Name = "holes"; holes.Width = 8; holes.Height = 8; holes.Format = 0;
+        holes.Data = Bytes(PicaTextureLength(8, 8, 0), 0); // RGBA8, every texel clear
+        std::vector<GltfPart> parts;
+        std::vector<GltfMaterial> mats;
+        const float origin[3] = {0, 0, 0};
+        AppendBchModel(model, {holes}, origin, parts, mats);
+        check(mats.size() == 2 && !mats[0].AlphaBlend && mats[1].AlphaBlend, "a material blends in the preview by its mesh's layer, not by its texture's holes");
+    }
 
     printf(ok ? "ALL OK\n" : "FAILURES\n");
     return ok ? 0 : 1;
