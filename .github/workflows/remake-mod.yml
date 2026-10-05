@@ -10,9 +10,7 @@ on:
       variants:
         description: 'One mod per line, "name: oras-town options" (no options = the defaults)'
         default: |
-          t3_no_trees: --zone-warps 0 --tree-reach -1
-          t4_edge_trees: --zone-warps 0 --tree-reach 1
-          t5_donor_as_is: --zone-warps 0 --donor-as-is 1
+          t6_own_piece_rewritten: --zone-warps 0 --donor 6 --donor-pack 8 --donor-as-is 1
         required: true
 
 permissions:
@@ -68,6 +66,11 @@ jobs:
           sudo apt-get install --yes --quiet ninja-build > /dev/null
           cmake -S tools/remake -B build-remake -G Ninja -DCMAKE_BUILD_TYPE=Release
           ninja -C build-remake remake_tool
+
+      - name: TEMPORARY a/0/3/9 layout check
+        run: |
+          ./build-remake/remake_tool oras-extract dumps/oras.3ds a/0/3/9 garc039.bin
+          python3 .github/workflows/garc_check.py garc039.bin
 
       - name: Build the mods
         env:
