@@ -110,6 +110,24 @@ Design: `DS_ENGINE_REMAKE.md` (the owner's notes). Its step 1 (5.12, "logging an
 - Palette-index histograms (end of step 1): done; on Joker's scene the 256-colour textures are colour ramps (nearly every index used), so per-index material masks suit only small few-colour textures.
 - Next: tie display lists to the files they were loaded from (cartridge reads to RAM addresses, section 5.2), which needs the ROM in the session; then step 3 (RAM-map discovery), which a save state is enough to start.
 
+## 3c. Pokemon Platinum remake in Omega Ruby
+
+**Goal (owner's words): a remake, not a remaster.** Sinnoh rebuilt in Omega Ruby / Alpha Sapphire's engine with ORAS's own assets and models, played in Azahar with all of ORAS's features and gameplay, as an ORAS mod (LayeredFS). Kept from Platinum: the world's layout, story, trainers, wild Pokemon, texts. Not wanted: Platinum's own geometry or models re-textured. Tooling: `tools/remake/` (desktop C++, no dependencies), tests `tests/remake/`, editor `tools/remake/editor/world_editor.html`. The owner's dumps (French Platinum CPUF, Omega Ruby Europe decrypted) are never committed.
+
+Done (desktop-tested on the real files, nothing tried in the game yet):
+- Platinum read: cartridge, NARC, LZ, textures, models to glTF, map matrix, land data, map headers (found in ARM9), zone events (warps), area data. Two layout errors fixed on the real ROM (dictionaries; buildings are in tiles).
+- Scale, measured: Platinum 32x32-tile pieces, a tile 16 units; ORAS 40x40-tile pieces, a tile 18 units (piece spans -360..360). `remake_tool oras-world` re-cuts Sinnoh into ORAS pieces (24x24) with its tiles, buildings and warps: `world_oras.json`, the editor's file.
+- ORAS read and written: decrypted .3ds RomFS (`oras-list`, `oras-extract`), GARC and its "mini" containers rewritten byte-identical, LZ11 compression, mod folders as Azahar loads them (`oras-mod`: `load/mods/000400000011C400/romfs/`). 3D models (BCH) with their textures (`remake_tool bch`).
+- Where ORAS keeps things: a/0/3/9 map pieces (GR: tiles, terrain model, collision "coll", ...); a/0/4/0 map matrices (MM); a/0/1/4 area packs (AD: an area's textures: ground, Pokemon Center, houses; one area holds all of a piece's textures); a/0/2/3 building and prop models (BM); a/0/2/1 characters (MM); a/0/3/2 effects; a/2/6/7 tall grass. Texture names say what they are (chip_kusa grass, chip_sea, chip_wood trees, gake cliffs, pokecen01).
+
+Not known yet (needed to put anything in the game): ORAS's 32-bit tile values, its collision block, its zone data (pk3DS: "not researched enough"), its scripts; writing BCH models.
+
+Next, agreed with the owner: a playable slice first (Twinleaf Town, Route 201, Sandgem Town in ORAS, the mod replacing Hoenn at a new game), then the rest of Sinnoh:
+1. Decode ORAS's map data with small test mods run on the owner's phone (nothing here runs ORAS).
+2. Write BCH models.
+3. Generate ORAS-style terrain from Platinum's layout; place ORAS buildings, trees, characters; new models for Sinnoh landmarks ORAS lacks.
+4. Warps, interiors, people, the story's start (scripts), trainers, wild Pokemon.
+
 ## 4. One coherent app
 
 Today each core keeps its own settings, screens, visual style and file storage. Target architecture:
