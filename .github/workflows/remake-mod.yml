@@ -10,9 +10,8 @@ on:
       variants:
         description: 'One mod per line, "name: oras-town options" (no options = the defaults)'
         default: |
-          v21:
-          z1_zone_pack_kept: --zone-pack 0
-          z2_zone_warps_kept: --zone-warps 0
+          v22:
+          v22_zone_warps_kept: --zone-warps 0
         required: true
 
 permissions:

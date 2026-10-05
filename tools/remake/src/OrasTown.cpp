@@ -131,7 +131,7 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
     sources.Target = piece(o.TargetPiece); sources.Donor = piece(o.DonorPiece); sources.Trees = piece(o.TreePiece);
     sources.CellX = o.CellX; sources.CellY = o.CellY;
 
-    // the grass: Littleroot's textures, added to the donor's area pack under their own names, and shown by the ground's materials
+    // the grass: Littleroot's textures, added to the area pack under their own names (none when it is Littleroot's), and shown by the ground's materials
     const Bytes areas = oras.Read("a/0/1/4");
     const Garc areaArchive(areas);
     Bytes areaPack = Plain(areaArchive.Sub(o.AreaPack));
@@ -189,6 +189,25 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
         sources.FenceTexture = finalName["c103_saku"];
     }
     const Bytes town = BuildTown(result.Layout, sources, &result.Log);
+
+    // the donor's textures the piece names and the area pack lacks, added to it when it is not the donor's own pack (a name the
+    // pack already holds keeps the pack's texture: Littleroot's chip_mado, shadow1, ... over Petalburg's)
+    if (o.AreaPack != o.DonorPack)
+    {
+        std::set<std::string> held, wanted;
+        for (const Bytes& f : BinLinker::Read(areaPack, "AD").Files)
+            if (Bch::Is(f)) for (const BchTexture& t : Bch::Read(f).Textures) held.insert(t.Name);
+        const BchModel built = Bch::Read(BinLinker::Read(town, "GR").Files.at(1)).Models.at(0);
+        for (const BchMesh& mesh : built.Meshes)
+        {
+            if (mesh.Triangles.empty() || mesh.Material >= built.Materials.size()) continue; // draws nothing
+            for (const std::string& name : built.Materials[mesh.Material].Texture)
+                if (!name.empty() && name != "projection_dummy" && !held.count(name)) wanted.insert(name);
+        }
+        std::map<std::string, std::string> finalName;
+        if (!wanted.empty())
+            areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub(o.DonorPack)), o.DonorPack, {wanted.begin(), wanted.end()}, finalName, result.Log);
+    }
     result.PieceBytes = town.size();
 
     // design rules (TownCheck.h): the textures the piece names must be in the area pack it will use; the size against the game's largest piece

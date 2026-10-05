@@ -25,7 +25,11 @@ struct OrasTownOptions
     size_t TargetPiece = 6, DonorPiece = 8, TreePiece = 5; // a/0/3/9 members: Littleroot, Petalburg, Route 101
     int CellX = 2, CellY = 4;         // the target piece's cell in its ORAS map matrix (Littleroot: world01_02_04)
     size_t Zone = 6;                  // a/0/1/3 member: the zone of the target piece
-    size_t AreaPack = 9;              // a/0/1/4 member: the donor's textures, which the new piece names
+    // a/0/1/4 member the zone draws its textures from, which every texture the new piece names is added to: Littleroot's own.
+    // v21 pointed the zone at the donor's pack (9) instead, and the field's start hung on the phone (no sound, no picture) with
+    // the zone's warps left alone too; with the zone kept on pack 8 it ran, without the donor's textures (no picture)
+    size_t AreaPack = 8;
+    size_t DonorPack = 9;             // a/0/1/4 member holding the textures the donor piece's materials name (Petalburg's)
     // a/0/1/4 member: the target piece's own area (Littleroot's), whose grass the town takes: its pixels go into AreaPack
     // under the donor's grass texture names. -1: the donor's grass is kept
     int GrassPack = 8;
