@@ -7,7 +7,7 @@
 namespace remake
 {
 
-N3dsWorld N3dsWorld::Translate(const WorldMap& world, float ndsTile)
+N3dsWorld N3dsWorld::Translate(const WorldMap& world, float ndsTile, const std::vector<NdsWarp>& warps)
 {
     N3dsWorld out;
     out.NdsTile = ndsTile;
@@ -58,6 +58,17 @@ N3dsWorld N3dsWorld::Translate(const WorldMap& world, float ndsTile)
             }
         }
 
+    // warps: a tile each, kept with the tile (same index in the world's grid)
+    for (const NdsWarp& w : warps)
+    {
+        if (w.Warp.X >= tilesW || w.Warp.Z >= tilesH) continue; // outside the world
+        N3dsWarp n;
+        n.Tile[0] = w.Warp.X % N3dsMapTiles;
+        n.Tile[1] = w.Warp.Z % N3dsMapTiles;
+        n.Zone = w.Zone; n.Index = w.Index; n.DestZone = w.Warp.DestHeader; n.DestWarp = w.Warp.DestWarp;
+        piece(w.Warp.X / N3dsMapTiles, w.Warp.Z / N3dsMapTiles).Warps.push_back(n);
+    }
+
     for (auto& [key, p] : pieces) out.Pieces.push_back(std::move(p));
     return out;
 }
@@ -80,6 +91,13 @@ std::string N3dsWorld::Json() const
             const N3dsBuilding& x = p.Buildings[b];
             o << (b ? ", " : "") << "{\"model\": " << x.Model << ", \"position\": [" << x.Position[0] << ", " << x.Position[1] << ", "
               << x.Position[2] << "], \"sourceCell\": " << x.SourceCell << "}";
+        }
+        o << "], \"warps\": [";
+        for (size_t w = 0; w < p.Warps.size(); w++)
+        {
+            const N3dsWarp& x = p.Warps[w];
+            o << (w ? ", " : "") << "{\"tile\": [" << x.Tile[0] << ", " << x.Tile[1] << "], \"zone\": " << x.Zone << ", \"index\": " << x.Index
+              << ", \"destZone\": " << x.DestZone << ", \"destWarp\": " << x.DestWarp << "}";
         }
         o << "]}";
     }

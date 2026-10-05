@@ -11,9 +11,10 @@
 //   remake_tool world <map_matrix.narc> <matrix index> <land_data.narc> <out dir>
 //                     [map textures.nsbtx|-] [buildings.narc|-] [building textures.nsbtx|-]
 //                     the world: world.json, collision.png, world.gltf
-//   remake_tool oras-world <same arguments as world>
-//                     the world translated to Omega Ruby / Alpha Sapphire's scale and 40-tile
-//                     map pieces: world_oras.json, world_oras.gltf
+//   remake_tool oras-world <rom.nds> <matrix index> <out dir>
+//                     a Platinum map matrix translated to Omega Ruby / Alpha Sapphire's scale and
+//                     40-tile map pieces, with its warps and each cell's own textures:
+//                     world_oras.json (the editor's file), world_oras.gltf
 #include "Inventory.h"
 #include "Narc.h"
 #include "NdsRom.h"
@@ -23,7 +24,10 @@
 #include "Nsbmd.h"
 #include "Png.h"
 #include "TextureIndex.h"
+#include "AreaData.h"
+#include "MapHeaders.h"
 #include "N3dsWorld.h"
+#include "ZoneEvents.h"
 #include "WorldMap.h"
 
 #include <cstdio>
@@ -45,7 +49,7 @@ static int Usage()
                     "  remake_tool texindex <rom.nds>\n  remake_tool identify <rom.nds> <dump dir>\n"
                     "  remake_tool world <map_matrix.narc> <matrix index> <land_data.narc> <out dir>\n"
                     "                    [map textures.nsbtx|-] [buildings.narc|-] [building textures.nsbtx|-]\n"
-                    "  remake_tool oras-world <same arguments as world>\n");
+                    "  remake_tool oras-world <rom.nds> <matrix index> <out dir>\n");
     return 2;
 }
 
@@ -108,7 +112,7 @@ int main(int argc, char** argv)
                    model.Models().at(index).Shapes.size(), model.Models().at(index).Materials.size());
             return 0;
         }
-        if ((cmd == "world" || cmd == "oras-world") && argc >= 6)
+        if (cmd == "world" && argc >= 6)
         {
             const Narc matrices(Plain(ReadFile(argv[2])));
             const WorldMap world(MapMatrix::Read(Plain(matrices.Member((size_t)atoi(argv[3])))), Narc(Plain(ReadFile(argv[4]))));
@@ -127,24 +131,6 @@ int main(int argc, char** argv)
             if (given(7)) buildings = std::make_unique<Narc>(Plain(ReadFile(argv[7])));
             const std::filesystem::path out(argv[5]);
             std::filesystem::create_directories(out);
-            if (cmd == "oras-world")
-            {
-                // the DS tile, measured from the terrain models: the scene first (it measures them)
-                float cell = 0;
-                world.Gltf(nullptr, nullptr, nullptr, &cell);
-                const N3dsWorld oras = N3dsWorld::Translate(world, cell / LandTiles);
-                const std::string json = oras.Json();
-                WriteFile((out / "world_oras.json").string(), Bytes(json.begin(), json.end()));
-                const std::string gltf = world.Gltf(tex.get(), buildings.get(), buildingTex.get(), nullptr, oras.Scale());
-                WriteFile((out / "world_oras.gltf").string(), Bytes(gltf.begin(), gltf.end()));
-                size_t placed = 0;
-                for (const N3dsPiece& p : oras.Pieces) placed += p.Buildings.size();
-                printf("matrix %s: DS tile %g units, ORAS %ux%u pieces of %u tiles (%zu used), scale %g, %zu buildings\n",
-                       world.Matrix.Name.c_str(), oras.NdsTile, oras.Width, oras.Height, N3dsMapTiles, oras.Pieces.size(), oras.Scale(), placed);
-                if (oras.NdsTile != NdsTileUnits)
-                    fprintf(stderr, "warning: DS tile measured %g units, not %g: check the terrain models\n", oras.NdsTile, NdsTileUnits);
-                return 0;
-            }
             const std::string json = world.Json();
             WriteFile((out / "world.json").string(), Bytes(json.begin(), json.end()));
             WriteFile((out / "collision.png").string(), world.CollisionPng());
@@ -195,6 +181,81 @@ int main(int argc, char** argv)
                 }
             }
             fprintf(stderr, "%zu of %zu dumped textures found, from %zu files\n", found, total, files.size());
+            return 0;
+        }
+        if (cmd == "oras-world" && argc >= 5)
+        {
+            auto archive = [&](const char* path) {
+                const NdsFile* f = rom.Find(path);
+                if (!f) throw FormatError(std::string("no ") + path + " in the cartridge (not Platinum?)");
+                return Narc(Plain(rom.Read(*f)));
+            };
+            const Narc matrices = archive("fielddata/mapmatrix/map_matrix.narc"), lands = archive("fielddata/land_data/land_data.narc");
+            const Narc areas = archive("fielddata/areadata/area_data.narc"), events = archive("fielddata/eventdata/zone_event.narc");
+            const Narc mapTex = archive("fielddata/areadata/area_map_tex/map_tex_set.narc");
+            const Narc buildingTex = archive("fielddata/areadata/area_build_model/areabm_texset.narc");
+            const Narc buildingModels = archive("fielddata/build_model/build_model.narc");
+            size_t tableAt = 0;
+            const std::vector<MapHeader> headers = FindMapHeaders(rom.Arm9(), areas.Count(), matrices.Count(), events.Count(), &tableAt);
+            const size_t matrix = (size_t)atoi(argv[3]);
+            const WorldMap world(MapMatrix::Read(Plain(matrices.Member(matrix))), lands);
+
+            // each cell's textures: its zone's area (the cell's map header; matrices without headers: the
+            // first zone using the matrix)
+            int defaultZone = -1;
+            for (size_t h = 0; h < headers.size() && defaultZone < 0; h++) if (headers[h].Matrix == matrix) defaultZone = (int)h;
+            std::map<uint16_t, std::unique_ptr<Tex0>> texSets, buildingSets;
+            std::map<uint16_t, Bytes> texFiles, buildingFiles;
+            auto tex0 = [&](const Narc& narc, uint16_t id, std::map<uint16_t, Bytes>& files, std::map<uint16_t, std::unique_ptr<Tex0>>& sets) -> const Tex0* {
+                if (!sets.count(id))
+                {
+                    sets[id] = nullptr;
+                    if (id < narc.Count())
+                    {
+                        files[id] = Plain(narc.Member(id));
+                        const long at = Tex0::Find(files[id]);
+                        if (at >= 0) sets[id] = std::make_unique<Tex0>(files[id], (size_t)at);
+                    }
+                }
+                return sets[id].get();
+            };
+            std::vector<CellTextures> cellTex(world.Cells.size());
+            for (size_t c = 0; c < cellTex.size(); c++)
+            {
+                const int zone = world.Matrix.Headers[c] >= 0 ? world.Matrix.Headers[c] : defaultZone;
+                if (zone < 0 || (size_t)zone >= headers.size() || headers[zone].Area >= areas.Count()) continue;
+                const AreaData area = AreaData::Read(Plain(areas.Member(headers[zone].Area)));
+                cellTex[c] = {tex0(mapTex, area.MapTextures, texFiles, texSets), tex0(buildingTex, area.BuildingSet, buildingFiles, buildingSets)};
+            }
+
+            // the warps of every zone on this matrix (their tiles are the matrix's)
+            std::vector<NdsWarp> warps;
+            for (size_t h = 0; h < headers.size(); h++)
+            {
+                if (headers[h].Matrix != matrix) continue;
+                const ZoneEvents ev = ZoneEvents::Read(Plain(events.Member(headers[h].Events)));
+                for (size_t i = 0; i < ev.Warps.size(); i++) warps.push_back({ev.Warps[i], (uint16_t)h, (uint16_t)i});
+            }
+
+            const std::filesystem::path out(argv[4]);
+            std::filesystem::create_directories(out);
+            // the DS tile, measured from the terrain models
+            float cell = 0;
+            world.Gltf(nullptr, nullptr, nullptr, &cell);
+            const N3dsWorld oras = N3dsWorld::Translate(world, cell / LandTiles, warps);
+            const std::string json = oras.Json();
+            WriteFile((out / "world_oras.json").string(), Bytes(json.begin(), json.end()));
+            const std::string gltf = world.Gltf(nullptr, &buildingModels, nullptr, nullptr, oras.Scale(), &cellTex);
+            WriteFile((out / "world_oras.gltf").string(), Bytes(gltf.begin(), gltf.end()));
+            size_t placed = 0, warped = 0;
+            for (const N3dsPiece& p : oras.Pieces) { placed += p.Buildings.size(); warped += p.Warps.size(); }
+            printf("%zu map headers at ARM9 +0x%zx; matrix %zu (%s): DS tile %g units, ORAS %ux%u pieces of %u tiles (%zu used), scale %g, "
+                   "%zu buildings, %zu of %zu warps, %zu map texture sets\n",
+                   headers.size(), tableAt, matrix, world.Matrix.Name.c_str(), oras.NdsTile, oras.Width, oras.Height, N3dsMapTiles,
+                   oras.Pieces.size(), oras.Scale(), placed, warped, warps.size(), texSets.size());
+            if (oras.NdsTile != NdsTileUnits)
+                fprintf(stderr, "warning: DS tile measured %g units, not %g: check the terrain models\n", oras.NdsTile, NdsTileUnits);
+            for (const std::string& e : world.Errors) fprintf(stderr, "%s\n", e.c_str());
             return 0;
         }
         if (cmd == "inventory") { fputs(InventoryJson(rom).c_str(), stdout); return 0; }

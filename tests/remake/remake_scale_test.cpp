@@ -44,7 +44,9 @@ int main()
     c11.Buildings.push_back({4, {1.5f, 2, -2}, {}}); // world tile (49.5, 46): ORAS piece (1,1)
     w.Cells[0] = c00; w.Cells[1] = c10; w.Cells[3] = c11;
 
-    const N3dsWorld o = N3dsWorld::Translate(w);
+    // warps in the world's tiles: (45,3) -> piece (1,0) tile (5,3); (70,10) is past the world (64 wide)
+    std::vector<NdsWarp> warps = {{{45, 3, 7, 1}, 2, 0}, {{70, 10, 7, 0}, 2, 1}};
+    const N3dsWorld o = N3dsWorld::Translate(w, NdsTileUnits, warps);
     check(o.Width == 2 && o.Height == 2 && o.Pieces.size() == 4, "64x64 DS tiles: 2x2 ORAS pieces of 40, all holding DS tiles");
     auto piece = [&](uint32_t x, uint32_t y) -> const N3dsPiece* {
         for (const N3dsPiece& p : o.Pieces) if (p.X == x && p.Y == y) return &p;
@@ -69,10 +71,18 @@ int main()
         check(at[1] == 36.0f, "building height: 2 tiles, 36 ORAS units");
     }
 
+    check(p10->Warps.size() == 1 && p10->Warps[0].Tile[0] == 5 && p10->Warps[0].Tile[1] == 3 && p10->Warps[0].Zone == 2 &&
+          p10->Warps[0].DestZone == 7 && p10->Warps[0].DestWarp == 1, "a warp keeps its tile, zone and destination");
+    size_t allWarps = 0;
+    for (const N3dsPiece& p : o.Pieces) allWarps += p.Warps.size();
+    check(allWarps == 1, "a warp outside the world is dropped");
+
     check(o.Scale() == 1.125f && N3dsWorld::Translate(w, 8).Scale() == 2.25f, "scale: 18 over the DS tile's size");
     const std::string json = o.Json();
     check(json.find("\"format\": \"pomegrade-remake-n3ds-world\"") != std::string::npos && json.find("\"scale\": 1.125") != std::string::npos &&
-          json.find("\"position\": [-189, 36, -252], \"sourceCell\": 3") != std::string::npos, "JSON: format, scale, building");
+          json.find("\"position\": [-189, 36, -252], \"sourceCell\": 3") != std::string::npos &&
+          json.find("\"warps\": [{\"tile\": [5, 3], \"zone\": 2, \"index\": 0, \"destZone\": 7, \"destWarp\": 1}]") != std::string::npos,
+          "JSON: format, scale, building, warp");
 
     printf(ok ? "ALL OK\n" : "FAILURES\n");
     return ok ? 0 : 1;

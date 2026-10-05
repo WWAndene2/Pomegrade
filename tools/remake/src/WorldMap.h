@@ -26,6 +26,13 @@
 namespace remake
 {
 
+// the textures of one matrix cell's area (its map and its buildings)
+struct CellTextures
+{
+    const Tex0* Map = nullptr;
+    const Tex0* Buildings = nullptr;
+};
+
 struct WorldMap
 {
     MapMatrix Matrix;
@@ -38,9 +45,10 @@ struct WorldMap
     Bytes CollisionPng() const;
     // tex: the area's map textures (map pieces usually carry none);
     // buildings: the building models' NARC, by id; buildingTex: their textures;
-    // scale: applied to the whole scene (N3dsWorld::Scale for ORAS's)
+    // scale: applied to the whole scene (N3dsWorld::Scale for ORAS's); perCell: each cell's own
+    // textures (by cell index, over tex and buildingTex where set)
     std::string Gltf(const Tex0* tex, const Narc* buildings = nullptr, const Tex0* buildingTex = nullptr,
-                     float* cellSize = nullptr, float scale = 1.0f) const;
+                     float* cellSize = nullptr, float scale = 1.0f, const std::vector<CellTextures>* perCell = nullptr) const;
 };
 
 }

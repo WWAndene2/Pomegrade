@@ -90,7 +90,8 @@ Bytes WorldMap::CollisionPng() const
     return EncodePng(w, h, rgba);
 }
 
-std::string WorldMap::Gltf(const Tex0* tex, const Narc* buildings, const Tex0* buildingTex, float* cellSizeOut, float scale) const
+std::string WorldMap::Gltf(const Tex0* tex, const Narc* buildings, const Tex0* buildingTex, float* cellSizeOut, float scale,
+                           const std::vector<CellTextures>* perCell) const
 {
     // the terrain models, read once, and the cell size they span
     std::map<size_t, Nsbmd> terrain;
@@ -124,7 +125,8 @@ std::string WorldMap::Gltf(const Tex0* tex, const Narc* buildings, const Tex0* b
     {
         const uint32_t x = (uint32_t)(c % Matrix.Width), y = (uint32_t)(c / Matrix.Width);
         const float centre[3] = {(x + 0.5f) * cell, 0, (y + 0.5f) * cell};
-        try { AppendModel(m, 0, tex, centre, parts, materials); } catch (const FormatError&) {}
+        const CellTextures own = perCell && c < perCell->size() ? (*perCell)[c] : CellTextures{};
+        try { AppendModel(m, 0, own.Map ? own.Map : tex, centre, parts, materials); } catch (const FormatError&) {}
         if (!buildings) continue;
         for (const LandBuilding& b : Cells[c]->Buildings)
         {
@@ -139,7 +141,7 @@ std::string WorldMap::Gltf(const Tex0* tex, const Narc* buildings, const Tex0* b
             // positions are in tiles from the cell's centre (see LandBuilding)
             const float tile = cell / LandTiles;
             const float at[3] = {centre[0] + b.Position[0] * tile, centre[1] + b.Position[1] * tile, centre[2] + b.Position[2] * tile};
-            try { AppendModel(*it->second, 0, buildingTex, at, parts, materials); } catch (const FormatError&) {}
+            try { AppendModel(*it->second, 0, own.Buildings ? own.Buildings : buildingTex, at, parts, materials); } catch (const FormatError&) {}
         }
     }
     return WriteGltf(parts, materials, scale);

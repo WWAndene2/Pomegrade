@@ -1,0 +1,780 @@
+<!doctype html>
+<!--
+  Pomegrade remake: the world editor (remake step 6). Opens world_oras.json, as
+  remake_tool oras-world writes it (a Platinum map matrix at Omega Ruby's scale,
+  in 40x40-tile pieces), edits its tiles, buildings, warps and the DS -> ORAS
+  model associations, and saves it back in the same format. The 3D tab shows
+  world_oras.gltf. One self-contained page, no library: open it in a browser
+  (PC or phone), nothing to install.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Remake World Editor</title>
+<style>
+  /* Pomegrade palette (melonDS-android/app ui/theme/Colors.kt); sizes on the project's scale (CLAUDE.md section 7) */
+  :root {
+    --primary: #A20F27; --primary-dark: #7A0B1D; --accent: #C62839;
+    --bg: #FBF7F5; --surface: #FFFFFF; --nav: #F3ECE9; --divider: #E6DCD8;
+    --text: #222222; --text-2: #767676; --on-primary: #FFFFFF;
+    --map-bg: #E6DCD8; --sel: #F0566B;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --primary: #2A1A1D; --primary-dark: #1C1113; --accent: #F0566B;
+      --bg: #1E1517; --surface: #2A1A1D; --nav: #241719; --divider: #3A2A2D;
+      --text: #FFFFFF; --text-2: #C1C1C1; --on-primary: #FFFFFF;
+      --map-bg: #120C0D; --sel: #F0566B;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         display: flex; flex-direction: column; overflow: hidden; }
+  header { background: var(--primary); color: var(--on-primary); display: flex; align-items: center; gap: 8px;
+           padding: 8px 16px; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0 16px 0 0; font-weight: 600; white-space: nowrap; }
+  header .spacer { flex: 1; }
+  button, .button { font: inherit; height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid transparent;
+                    background: var(--surface); color: var(--text); cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
+                    white-space: nowrap; }
+  header button, header .button { background: rgba(255,255,255,0.12); color: var(--on-primary); }
+  header button:hover, header .button:hover { background: rgba(255,255,255,0.24); }
+  button:disabled { opacity: 0.48; cursor: default; }
+  button.on { background: var(--accent); color: #fff; }
+  header button.on { background: #fff; color: var(--primary-dark); }
+  input[type=file] { display: none; }
+  .toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: var(--nav);
+             border-bottom: 1px solid var(--divider); flex-wrap: wrap; }
+  .toolbar .group { display: flex; align-items: center; gap: 4px 12px; flex-wrap: wrap; }
+  .toolbar #tools { gap: 4px; }
+  .toolbar .sep { width: 1px; height: 24px; background: var(--divider); margin: 0 4px; }
+  .toolbar label { display: inline-flex; align-items: center; gap: 4px; color: var(--text-2); }
+  input[type=text], input[type=number] { font: inherit; height: 32px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--divider);
+                                          background: var(--surface); color: var(--text); width: 96px; }
+  input.narrow { width: 64px; }
+  main { flex: 1; display: flex; min-height: 0; }
+  #stage { flex: 1; position: relative; min-width: 0; background: var(--map-bg); }
+  #stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
+  #stage #gl { display: none; }  /* over "#stage canvas": hidden until the 3D tab, or it takes the map's clicks */
+  #stage.three #map { display: none; }
+  #stage.three #gl { display: block; }
+  aside { width: 320px; border-left: 1px solid var(--divider); background: var(--surface); display: flex; flex-direction: column; min-height: 0; }
+  aside nav { display: flex; border-bottom: 1px solid var(--divider); }
+  aside nav button { flex: 1; border-radius: 0; height: 48px; background: transparent; border-bottom: 2px solid transparent; }
+  aside nav button.on { background: transparent; color: var(--accent); border-bottom-color: var(--accent); }
+  aside section { padding: 16px; overflow: auto; flex: 1; }
+  aside h2 { font-size: 14px; margin: 0 0 8px; color: var(--text-2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .kv { display: grid; grid-template-columns: 96px 1fr; gap: 4px 8px; margin-bottom: 16px; align-items: center; }
+  .kv span:nth-child(odd) { color: var(--text-2); }
+  .row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .muted { color: var(--text-2); }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 4px; border-bottom: 1px solid var(--divider); }
+  td input { width: 100%; }
+  footer { padding: 4px 16px; background: var(--nav); border-top: 1px solid var(--divider); color: var(--text-2); font-size: 12px;
+           display: flex; gap: 16px; white-space: nowrap; overflow: hidden; }
+  #empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  #empty div { max-width: 512px; background: var(--surface); border-radius: 16px; padding: 24px; border: 1px solid var(--divider); }
+  #empty h2 { margin: 0 0 8px; font-size: 16px; }
+  #empty code { background: var(--nav); padding: 0 4px; border-radius: 4px; }
+  #gl-msg { position: absolute; left: 16px; top: 16px; right: 16px; color: var(--text); background: var(--surface);
+            border: 1px solid var(--divider); border-radius: 8px; padding: 8px 12px; display: none; }
+  #stage.three #gl-msg.show { display: block; }
+  .drop { outline: 3px dashed var(--accent); outline-offset: -8px; }
+  @media (max-width: 768px) {
+    main { flex-direction: column; }
+    aside { width: auto; height: 40%; border-left: 0; border-top: 1px solid var(--divider); }
+    header h1 { display: none; }
+    .toolbar .sep { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Pomegrade · Remake world editor</h1>
+  <label class="button" title="Open world_oras.json (Ctrl+O)">Open world<input id="open" type="file" accept=".json,application/json"></label>
+  <button id="save" disabled title="Save (Ctrl+S)">Save</button>
+  <button id="undo" disabled title="Undo (Ctrl+Z)">Undo</button>
+  <button id="redo" disabled title="Redo (Ctrl+Y)">Redo</button>
+  <span class="spacer"></span>
+  <button id="tab2d" class="on">Map</button>
+  <button id="tab3d">3D</button>
+</header>
+<div class="toolbar">
+  <div class="group" id="tools">
+    <button data-tool="select" class="on" title="Select and move (V)">Select</button>
+    <button data-tool="paint" title="Paint tiles (B)">Paint</button>
+    <button data-tool="pick" title="Pick a tile's value into the brush (I)">Pick</button>
+    <button data-tool="building" title="Add a building (click to place)">+ Building</button>
+    <button data-tool="warp" title="Add a warp (click a tile)">+ Warp</button>
+  </div>
+  <span class="sep"></span>
+  <div class="group">
+    <label>Behaviour <input id="brush-behaviour" class="narrow" type="text" value="00" maxlength="2" title="Tile behaviour, hex 00-FF"></label>
+    <label><input id="brush-solid" type="checkbox"> Solid</label>
+    <label>Model <input id="new-model" class="narrow" type="number" min="0" value="0" title="DS building model for + Building"></label>
+  </div>
+  <span class="sep"></span>
+  <div class="group" id="layers">
+    <label><input type="checkbox" data-layer="tiles" checked> Tiles</label>
+    <label><input type="checkbox" data-layer="grid" checked> Pieces</label>
+    <label><input type="checkbox" data-layer="buildings" checked> Buildings</label>
+    <label><input type="checkbox" data-layer="warps" checked> Warps</label>
+  </div>
+  <span class="sep"></span>
+  <button id="fit" title="Fit the world in view (F)">Fit</button>
+</div>
+<main>
+  <div id="stage">
+    <canvas id="map"></canvas>
+    <canvas id="gl"></canvas>
+    <div id="gl-msg"></div>
+    <div id="empty"><div>
+      <h2>Open a world</h2>
+      <p>Open or drop <code>world_oras.json</code>, written by
+        <code>remake_tool oras-world &lt;rom.nds&gt; &lt;matrix&gt; &lt;out dir&gt;</code>.</p>
+      <p class="muted">The 3D tab opens <code>world_oras.gltf</code> from the same folder.</p>
+    </div></div>
+  </div>
+  <aside>
+    <nav><button id="ptab-inspect" class="on">Inspector</button><button id="ptab-assoc">Associations</button></nav>
+    <section id="panel-inspect"></section>
+    <section id="panel-assoc" hidden></section>
+  </aside>
+</main>
+<footer><span id="st-tile">—</span><span id="st-world">No world open</span><span id="st-msg"></span></footer>
+<input id="open3d" type="file" accept=".gltf,model/gltf+json,application/json">
+
+<script>
+"use strict";
+// ---- constants: the world format (tools/remake/src/N3dsWorld.h) ----
+const PIECE = 40, UNIT = 18;          // ORAS: tiles a piece, units a tile
+const SOLID = 0x8000;                 // a permission's high byte 0x80: solid (Platinum: the only high-byte value)
+const $ = (id) => document.getElementById(id);
+
+// ---- state ----
+let world = null, fileName = "world_oras.json";
+let pieces = new Map();               // "x,y" -> piece
+let W = 0, H = 0;                     // world size in tiles
+let dirty = false;
+const undoStack = [], redoStack = [];
+let tool = "select", selection = null, hover = null;
+const layers = { tiles: true, grid: true, buildings: true, warps: true };
+const view = { scale: 1, ox: 0, oy: 0 };  // screen = (tile - o) * scale
+let base = null, baseCtx = null, baseImg = null;
+
+// ---- world access ----
+function key(px, py) { return px + "," + py; }
+function tileAt(gx, gy) {
+  if (gx < 0 || gy < 0 || gx >= W || gy >= H) return -1;
+  const p = pieces.get(key(Math.floor(gx / PIECE), Math.floor(gy / PIECE)));
+  return p ? p.permissions[(gy % PIECE) * PIECE + gx % PIECE] : -1;
+}
+function pieceFor(px, py, create) {
+  let p = pieces.get(key(px, py));
+  if (!p && create) {
+    p = { x: px, y: py, permissions: new Array(PIECE * PIECE).fill(-1), buildings: [], warps: [] };
+    world.pieces.push(p); pieces.set(key(px, py), p);
+  }
+  return p;
+}
+function setTile(gx, gy, v) {
+  const p = pieceFor(Math.floor(gx / PIECE), Math.floor(gy / PIECE), true);
+  p.permissions[(gy % PIECE) * PIECE + gx % PIECE] = v;
+  paintBasePixel(gx, gy, v);
+}
+// a building's place in world tiles (its position is ORAS units from its piece's centre)
+function buildingTile(p, b) { return [p.x * PIECE + PIECE / 2 + b.position[0] / UNIT, p.y * PIECE + PIECE / 2 + b.position[2] / UNIT]; }
+function warpTile(p, w) { return [p.x * PIECE + w.tile[0], p.y * PIECE + w.tile[1]]; }
+
+// ---- colours: as remake_tool's collision.png (solid dark, behaviour 0 white, others a stable colour each) ----
+function colourOf(v) {
+  if (v < 0) return [0, 0, 0, 0];
+  if (v & SOLID) return [32, 32, 32, 255];
+  const b = v & 0xFF;
+  if (!b) return [255, 255, 255, 255];
+  const k = Math.imul(b, 2654435761) >>> 0;
+  return [96 + (k >>> 8 & 127), 96 + (k >>> 16 & 127), 96 + (k >>> 24 & 127), 255];
+}
+function buildBase() {
+  base = document.createElement("canvas"); base.width = W; base.height = H;
+  baseCtx = base.getContext("2d"); baseImg = baseCtx.createImageData(W, H);
+  for (const p of world.pieces)
+    for (let t = 0; t < PIECE * PIECE; t++) {
+      const gx = p.x * PIECE + t % PIECE, gy = p.y * PIECE + Math.floor(t / PIECE);
+      if (gx < W && gy < H) writePixel(gx, gy, p.permissions[t]);
+    }
+  baseCtx.putImageData(baseImg, 0, 0);
+}
+function writePixel(gx, gy, v) { const c = colourOf(v), i = (gy * W + gx) * 4; baseImg.data.set(c, i); }
+function paintBasePixel(gx, gy, v) {
+  if (gx >= W || gy >= H) return;
+  writePixel(gx, gy, v);
+  baseCtx.putImageData(baseImg, 0, 0, gx, gy, 1, 1);
+}
+
+// ---- loading and saving ----
+function load(json, name) {
+  const w = JSON.parse(json);
+  if (w.format !== "pomegrade-remake-n3ds-world") throw new Error("Not a remake world file (format " + w.format + ")");
+  if (w.version !== 1) throw new Error("World format version " + w.version + " is not supported (1 is)");
+  if (w.pieceTiles !== PIECE || w.tileUnits !== UNIT) throw new Error("Unexpected piece size or tile units");
+  for (const p of w.pieces) { p.buildings = p.buildings || []; p.warps = p.warps || []; }
+  w.associations = w.associations || {};
+  world = w; fileName = name || "world_oras.json";
+  pieces = new Map(w.pieces.map((p) => [key(p.x, p.y), p]));
+  W = w.width * PIECE; H = w.height * PIECE;
+  undoStack.length = 0; redoStack.length = 0; selection = null; setDirty(false);
+  buildBase(); fit(); $("empty").style.display = "none";
+  $("save").disabled = false;
+  const nb = w.pieces.reduce((n, p) => n + p.buildings.length, 0), nw = w.pieces.reduce((n, p) => n + p.warps.length, 0);
+  $("st-world").textContent = `${fileName}: ${w.width}×${w.height} pieces (${w.pieces.length} used), ${nb} buildings, ${nw} warps`;
+  refreshPanels(); render();
+}
+function save() {
+  if (!world) return;
+  const blob = new Blob([JSON.stringify(world)], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = fileName; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  setDirty(false); status("Saved " + fileName + " (downloaded)");
+}
+function setDirty(d) { dirty = d; document.title = (d ? "• " : "") + "Remake World Editor"; }
+window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+function openFile(file) {
+  if (!file) return;
+  if (dirty && !confirm("Discard the unsaved changes?")) return;
+  file.text().then((t) => load(t, file.name)).catch((e) => alert("Could not open " + file.name + ":\n" + e.message));
+}
+$("open").addEventListener("change", (e) => { openFile(e.target.files[0]); e.target.value = ""; });
+$("save").addEventListener("click", save);
+
+// ---- undo / redo: each edit is a {label, undo, redo} ----
+function commit(op) { op.redo(); undoStack.push(op); redoStack.length = 0; setDirty(true); refreshUndo(); refreshPanels(); render(); }
+function undo() { const op = undoStack.pop(); if (!op) return; op.undo(); redoStack.push(op); setDirty(true); after(op, "Undid"); }
+function redo() { const op = redoStack.pop(); if (!op) return; op.redo(); undoStack.push(op); setDirty(true); after(op, "Redid"); }
+function after(op, verb) { refreshUndo(); validateSelection(); refreshPanels(); render(); status(verb + " " + op.label); }
+function refreshUndo() { $("undo").disabled = !undoStack.length; $("redo").disabled = !redoStack.length; }
+$("undo").addEventListener("click", undo); $("redo").addEventListener("click", redo);
+function validateSelection() {
+  if (!selection) return;
+  const list = selection.piece[selection.kind === "building" ? "buildings" : "warps"];
+  if (!list.includes(selection.item)) selection = null;
+}
+
+// moving an object to another tile may move it to another piece: remove it, recompute, insert
+function placeObject(kind, item, gx, gy) {
+  const px = Math.min(Math.max(Math.floor(gx / PIECE), 0), world.width - 1), py = Math.min(Math.max(Math.floor(gy / PIECE), 0), world.height - 1);
+  const p = pieceFor(px, py, true);
+  if (kind === "building") { item.position[0] = (gx - (px * PIECE + PIECE / 2)) * UNIT; item.position[2] = (gy - (py * PIECE + PIECE / 2)) * UNIT; }
+  else item.tile = [Math.floor(gx) - px * PIECE, Math.floor(gy) - py * PIECE];
+  p[kind === "building" ? "buildings" : "warps"].push(item);
+  return p;
+}
+function removeObject(kind, piece, item) {
+  const list = piece[kind === "building" ? "buildings" : "warps"], i = list.indexOf(item);
+  if (i >= 0) list.splice(i, 1);
+}
+function objectTile(kind, piece, item) { return kind === "building" ? buildingTile(piece, item) : warpTile(piece, item); }
+function moveOp(kind, piece, item, from, to) {
+  let at = piece;
+  return {
+    label: "move " + kind,
+    redo() { removeObject(kind, at, item); at = placeObject(kind, item, to[0], to[1]); if (selection && selection.item === item) selection.piece = at; },
+    undo() { removeObject(kind, at, item); at = placeObject(kind, item, from[0], from[1]); if (selection && selection.item === item) selection.piece = at; },
+  };
+}
+function addOp(kind, item, gx, gy) {
+  let at = null;
+  return {
+    label: "add " + kind,
+    redo() { at = placeObject(kind, item, gx, gy); selection = { kind, piece: at, item }; },
+    undo() { removeObject(kind, at, item); if (selection && selection.item === item) selection = null; },
+  };
+}
+function deleteOp(kind, piece, item) {
+  const [gx, gy] = objectTile(kind, piece, item);
+  let at = piece;
+  return {
+    label: "delete " + kind,
+    redo() { removeObject(kind, at, item); if (selection && selection.item === item) selection = null; },
+    undo() { at = placeObject(kind, item, kind === "warp" ? gx + 0.5 : gx, kind === "warp" ? gy + 0.5 : gy); },
+  };
+}
+function fieldOp(label, target, field, value) {
+  const old = target[field];
+  return { label, redo() { target[field] = value; }, undo() { target[field] = old; } };
+}
+
+// ---- 2D view ----
+const map = $("map"), ctx = map.getContext("2d");
+// both canvases fill the stage (the hidden one measures 0)
+function resize() {
+  const r = $("stage").getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  map.width = Math.max(1, Math.round(r.width * dpr)); map.height = Math.max(1, Math.round(r.height * dpr));
+  render(); if (gl3d) draw3d();
+}
+window.addEventListener("resize", resize);
+function fit() {
+  if (!world) return;
+  const r = $("stage").getBoundingClientRect(), s = Math.min(r.width / W, r.height / H) * 0.96;
+  view.scale = s; view.ox = W / 2 - r.width / 2 / s; view.oy = H / 2 - r.height / 2 / s; render();
+}
+$("fit").addEventListener("click", fit);
+function toScreen(gx, gy) { return [(gx - view.ox) * view.scale, (gy - view.oy) * view.scale]; }
+function toTile(sx, sy) { return [sx / view.scale + view.ox, sy / view.scale + view.oy]; }
+function render() {
+  const dpr = window.devicePixelRatio || 1;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, map.width, map.height);
+  if (!world) return;
+  const s = view.scale;
+  if (layers.tiles) { ctx.imageSmoothingEnabled = false; ctx.drawImage(base, -view.ox * s, -view.oy * s, W * s, H * s); }
+  else { ctx.fillStyle = "rgba(128,128,128,0.24)"; for (const p of world.pieces) ctx.fillRect((p.x * PIECE - view.ox) * s, (p.y * PIECE - view.oy) * s, PIECE * s, PIECE * s); }
+  if (layers.grid) {
+    ctx.strokeStyle = "rgba(162,15,39,0.48)"; ctx.lineWidth = 1; ctx.beginPath();
+    for (let x = 0; x <= world.width; x++) { const sx = Math.round((x * PIECE - view.ox) * s) + 0.5; ctx.moveTo(sx, (-view.oy) * s); ctx.lineTo(sx, (H - view.oy) * s); }
+    for (let y = 0; y <= world.height; y++) { const sy = Math.round((y * PIECE - view.oy) * s) + 0.5; ctx.moveTo((-view.ox) * s, sy); ctx.lineTo((W - view.ox) * s, sy); }
+    ctx.stroke();
+  }
+  const r = Math.max(4, s * 0.5);
+  if (layers.warps) {
+    for (const p of world.pieces) for (const w of p.warps) {
+      const [sx, sy] = toScreen(...warpTile(p, w));
+      ctx.fillStyle = "#1E88E5"; ctx.fillRect(sx, sy, Math.max(4, s), Math.max(4, s));
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.strokeRect(sx + 0.5, sy + 0.5, Math.max(4, s) - 1, Math.max(4, s) - 1);
+    }
+  }
+  if (layers.buildings) {
+    for (const p of world.pieces) for (const b of p.buildings) {
+      const [sx, sy] = toScreen(...buildingTile(p, b));
+      ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      ctx.fillStyle = world.associations[b.model] && world.associations[b.model].oras ? "#43A047" : "#FB8C00"; ctx.fill();
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.stroke();
+    }
+  }
+  if (selection) {
+    const [gx, gy] = objectTile(selection.kind, selection.piece, selection.item);
+    const [sx, sy] = toScreen(gx + (selection.kind === "warp" ? 0.5 : 0), gy + (selection.kind === "warp" ? 0.5 : 0));
+    ctx.beginPath(); ctx.arc(sx, sy, r + 6, 0, Math.PI * 2); ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--sel"); ctx.lineWidth = 3; ctx.stroke();
+  }
+  if (hover && s >= 4) {
+    const [sx, sy] = toScreen(Math.floor(hover[0]), Math.floor(hover[1]));
+    ctx.strokeStyle = "rgba(240,86,107,0.96)"; ctx.lineWidth = 2; ctx.strokeRect(sx, sy, s, s);
+  }
+}
+
+// hit test: the nearest building or warp within 12px
+function hitObject(sx, sy) {
+  let best = null, bestD = 12;
+  for (const p of world.pieces) {
+    if (layers.buildings) for (const b of p.buildings) {
+      const [x, y] = toScreen(...buildingTile(p, b)), d = Math.hypot(x - sx, y - sy);
+      if (d < bestD) { bestD = d; best = { kind: "building", piece: p, item: b }; }
+    }
+    if (layers.warps) for (const w of p.warps) {
+      const [tx, ty] = warpTile(p, w), [x, y] = toScreen(tx + 0.5, ty + 0.5), d = Math.hypot(x - sx, y - sy);
+      if (d < bestD) { bestD = d; best = { kind: "warp", piece: p, item: w }; }
+    }
+  }
+  return best;
+}
+
+// ---- pointer input: pan, zoom, pinch, tools ----
+const pointers = new Map();
+let gesture = null; // {type: "pan"|"paint"|"drag"|"pinch", ...}
+function localPoint(e) { const r = map.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+function brushValue() {
+  const b = parseInt($("brush-behaviour").value, 16);
+  return ((isNaN(b) ? 0 : b) & 0xFF) | ($("brush-solid").checked ? SOLID : 0);
+}
+map.addEventListener("pointerdown", (e) => {
+  if (!world) return;
+  map.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, localPoint(e));
+  if (pointers.size === 2) { // pinch: ends any single-pointer gesture
+    if (gesture && gesture.type === "paint") finishPaint();
+    const [a, b] = [...pointers.values()];
+    gesture = { type: "pinch", dist: Math.hypot(a[0] - b[0], a[1] - b[1]), mid: toTile((a[0] + b[0]) / 2, (a[1] + b[1]) / 2) };
+    return;
+  }
+  const [sx, sy] = localPoint(e), [gx, gy] = toTile(sx, sy);
+  if (e.button === 1 || e.button === 2 || e.shiftKey) { gesture = { type: "pan", last: [sx, sy] }; return; }
+  if (tool === "select") {
+    const hit = hitObject(sx, sy);
+    selection = hit; refreshPanels(); render();
+    gesture = hit ? { type: "drag", hit, from: objectTile(hit.kind, hit.piece, hit.item), moved: false } : { type: "pan", last: [sx, sy] };
+  } else if (tool === "paint") {
+    gesture = { type: "paint", changes: new Map() }; paintAt(gx, gy);
+  } else if (tool === "pick") {
+    const v = tileAt(Math.floor(gx), Math.floor(gy));
+    if (v >= 0) { $("brush-behaviour").value = (v & 0xFF).toString(16).toUpperCase().padStart(2, "0"); $("brush-solid").checked = !!(v & SOLID); status("Brush set from the tile"); }
+  } else if (tool === "building") {
+    if (gx < 0 || gy < 0 || gx >= W || gy >= H) return;
+    const model = Math.max(0, parseInt($("new-model").value, 10) || 0);
+    const snap = (v) => Math.round(v * 2) / 2; // half tiles, as most DS buildings sit
+    commit(addOp("building", { model, position: [0, 0, 0], sourceCell: null }, snap(gx), snap(gy)));
+  } else if (tool === "warp") {
+    if (gx < 0 || gy < 0 || gx >= W || gy >= H) return;
+    commit(addOp("warp", { tile: [0, 0], zone: 0, index: 0, destZone: 0, destWarp: 0 }, gx, gy));
+  }
+});
+map.addEventListener("pointermove", (e) => {
+  if (!world) return;
+  const [sx, sy] = localPoint(e);
+  if (pointers.has(e.pointerId)) pointers.set(e.pointerId, [sx, sy]);
+  const [gx, gy] = toTile(sx, sy);
+  hover = gx >= 0 && gy >= 0 && gx < W && gy < H ? [gx, gy] : null;
+  showTile();
+  if (!gesture) { render(); return; }
+  if (gesture.type === "pinch" && pointers.size === 2) {
+    const [a, b] = [...pointers.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+    view.scale = clampScale(view.scale * d / gesture.dist); gesture.dist = d;
+    view.ox = gesture.mid[0] - mx / view.scale; view.oy = gesture.mid[1] - my / view.scale;
+  } else if (gesture.type === "pan") {
+    view.ox -= (sx - gesture.last[0]) / view.scale; view.oy -= (sy - gesture.last[1]) / view.scale; gesture.last = [sx, sy];
+  } else if (gesture.type === "paint") {
+    paintAt(gx, gy);
+  } else if (gesture.type === "drag") {
+    const k = gesture.hit.kind, snap = (v) => e.altKey ? v : Math.round(v * 2) / 2;
+    removeObject(k, gesture.hit.piece, gesture.hit.item);
+    gesture.hit.piece = placeObject(k, gesture.hit.item, Math.min(Math.max(snap(gx), 0), W - 0.01), Math.min(Math.max(snap(gy), 0), H - 0.01));
+    selection.piece = gesture.hit.piece; gesture.moved = true;
+  }
+  render();
+});
+function endPointer(e) {
+  pointers.delete(e.pointerId);
+  if (!gesture) return;
+  if (gesture.type === "paint") finishPaint();
+  else if (gesture.type === "drag" && gesture.moved) {
+    const h = gesture.hit, to = objectTile(h.kind, h.piece, h.item);
+    // put it back, then move through an undoable edit
+    removeObject(h.kind, h.piece, h.item);
+    const from = gesture.from, fromAdj = h.kind === "warp" ? [from[0] + 0.5, from[1] + 0.5] : from, toAdj = h.kind === "warp" ? [to[0] + 0.5, to[1] + 0.5] : to;
+    const start = placeObject(h.kind, h.item, fromAdj[0], fromAdj[1]);
+    commit(moveOp(h.kind, start, h.item, fromAdj, toAdj));
+  }
+  gesture = pointers.size ? gesture : null;
+  if (gesture && gesture.type !== "pinch") gesture = null;
+}
+map.addEventListener("pointerup", endPointer);
+map.addEventListener("pointercancel", endPointer);
+map.addEventListener("pointerleave", () => { hover = null; showTile(); render(); });
+map.addEventListener("contextmenu", (e) => e.preventDefault());
+map.addEventListener("wheel", (e) => {
+  if (!world) return;
+  e.preventDefault();
+  const [sx, sy] = localPoint(e), [gx, gy] = toTile(sx, sy);
+  view.scale = clampScale(view.scale * Math.pow(1.0016, -e.deltaY));
+  view.ox = gx - sx / view.scale; view.oy = gy - sy / view.scale; render();
+}, { passive: false });
+function clampScale(s) { return Math.min(Math.max(s, 0.125), 64); }
+
+function paintAt(gx, gy) {
+  const tx = Math.floor(gx), ty = Math.floor(gy);
+  if (tx < 0 || ty < 0 || tx >= W || ty >= H) return;
+  const k = ty * W + tx, v = brushValue();
+  if (!gesture.changes.has(k)) gesture.changes.set(k, tileAt(tx, ty));
+  if (tileAt(tx, ty) !== v) setTile(tx, ty, v);
+}
+function finishPaint() {
+  const changes = gesture.changes, v = brushValue();
+  gesture = null;
+  const real = [...changes].filter(([, old]) => old !== v);
+  if (!real.length) return;
+  commit({
+    label: `paint ${real.length} tile${real.length > 1 ? "s" : ""}`,
+    redo() { for (const [k] of real) setTile(k % W, Math.floor(k / W), v); },
+    undo() { for (const [k, old] of real) setTile(k % W, Math.floor(k / W), old); },
+  });
+}
+
+// ---- tools, layers, keys ----
+function setTool(t) {
+  tool = t;
+  for (const b of document.querySelectorAll("#tools button")) b.classList.toggle("on", b.dataset.tool === t);
+  map.style.cursor = t === "select" ? "default" : "crosshair";
+}
+for (const b of document.querySelectorAll("#tools button")) b.addEventListener("click", () => setTool(b.dataset.tool));
+for (const c of document.querySelectorAll("#layers input")) c.addEventListener("change", () => { layers[c.dataset.layer] = c.checked; render(); });
+window.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT" && e.target.type !== "checkbox") { if (e.key === "Escape") e.target.blur(); return; }
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+  else if (mod && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); }
+  else if (mod && e.key.toLowerCase() === "s") { e.preventDefault(); save(); }
+  else if (mod && e.key.toLowerCase() === "o") { e.preventDefault(); $("open").click(); }
+  else if (mod) return;
+  else if (e.key === "v") setTool("select");
+  else if (e.key === "b") setTool("paint");
+  else if (e.key === "i") setTool("pick");
+  else if (e.key === "f") fit();
+  else if (e.key === "Escape") { selection = null; refreshPanels(); render(); }
+  else if ((e.key === "Delete" || e.key === "Backspace") && selection) { e.preventDefault(); commit(deleteOp(selection.kind, selection.piece, selection.item)); }
+});
+
+// drop a file anywhere
+document.addEventListener("dragover", (e) => { e.preventDefault(); $("stage").classList.add("drop"); });
+document.addEventListener("dragleave", () => $("stage").classList.remove("drop"));
+document.addEventListener("drop", (e) => {
+  e.preventDefault(); $("stage").classList.remove("drop");
+  const f = e.dataTransfer.files[0];
+  if (!f) return;
+  if (/\.gltf$/i.test(f.name)) { showTab("3d"); open3d(f); } else openFile(f);
+});
+
+// ---- panels ----
+function status(text) { $("st-msg").textContent = text; }
+function hex(v, n) { return "0x" + v.toString(16).toUpperCase().padStart(n, "0"); }
+function showTile() {
+  if (!hover) { $("st-tile").textContent = "—"; return; }
+  const gx = Math.floor(hover[0]), gy = Math.floor(hover[1]), v = tileAt(gx, gy);
+  const piece = `piece ${Math.floor(gx / PIECE)},${Math.floor(gy / PIECE)} tile ${gx % PIECE},${gy % PIECE}`;
+  $("st-tile").textContent = v < 0 ? `${piece} · no DS map` : `${piece} · ${hex(v, 4)} · behaviour ${hex(v & 0xFF, 2)}${v & SOLID ? " · solid" : ""}`;
+}
+function el(tag, attrs, ...children) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) { if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (k === "text") e.textContent = v; else e.setAttribute(k, v); }
+  for (const c of children) e.append(c);
+  return e;
+}
+function numberField(value, onCommit, step) {
+  const i = el("input", { type: "number", value: String(value), step: step || "1" });
+  i.addEventListener("change", () => { const v = Number(i.value); if (!isNaN(v)) onCommit(v); else i.value = String(value); });
+  return i;
+}
+function refreshPanels() { refreshInspector(); refreshAssociations(); }
+function refreshInspector() {
+  const s = $("panel-inspect"); s.textContent = "";
+  if (!world) { s.append(el("p", { class: "muted", text: "No world open." })); return; }
+  if (!selection) {
+    s.append(el("h2", { text: "Nothing selected" }),
+      el("p", { class: "muted", text: "Select a building (orange: no ORAS equivalent yet, green: associated) or a warp (blue) to edit it. Paint changes tiles; Pick copies a tile into the brush." }),
+      el("p", { class: "muted", text: "Pan: drag empty space (or Shift / right-drag). Zoom: wheel or pinch. Delete removes the selection." }));
+    return;
+  }
+  const { kind, piece, item } = selection, [gx, gy] = objectTile(kind, piece, item);
+  const set = (label, field, v, target) => commit(fieldOp(label, target || item, field, v));
+  if (kind === "building") {
+    s.append(el("h2", { text: "Building" }));
+    const kv = el("div", { class: "kv" });
+    const assoc = world.associations[item.model];
+    kv.append(el("span", { text: "DS model" }), numberField(item.model, (v) => set("change model", "model", Math.max(0, Math.round(v)))),
+      el("span", { text: "ORAS model" }), el("span", { text: assoc && assoc.oras ? assoc.oras : "— (Associations tab)" }),
+      el("span", { text: "Piece" }), el("span", { text: `${piece.x}, ${piece.y}` }),
+      el("span", { text: "World tile" }), el("span", { text: `${gx.toFixed(2)}, ${gy.toFixed(2)}` }),
+      el("span", { text: "Height (units)" }), numberField(item.position[1], (v) => { const p = item.position.slice(); p[1] = v; set("change height", "position", p); }, "0.5"),
+      el("span", { text: "From DS cell" }), el("span", { text: item.sourceCell === null || item.sourceCell === undefined ? "added here" : String(item.sourceCell) }));
+    s.append(kv);
+  } else {
+    s.append(el("h2", { text: "Warp" }));
+    const kv = el("div", { class: "kv" });
+    kv.append(el("span", { text: "Tile" }), el("span", { text: `${gx}, ${gy} (piece ${piece.x}, ${piece.y})` }),
+      el("span", { text: "Zone" }), numberField(item.zone, (v) => set("change zone", "zone", Math.max(0, Math.round(v)))),
+      el("span", { text: "Index" }), numberField(item.index, (v) => set("change index", "index", Math.max(0, Math.round(v)))),
+      el("span", { text: "To zone" }), numberField(item.destZone, (v) => set("change destination", "destZone", Math.max(0, Math.round(v)))),
+      el("span", { text: "To warp" }), numberField(item.destWarp, (v) => set("change destination", "destWarp", Math.max(0, Math.round(v)))));
+    s.append(kv, el("p", { class: "muted", text: "Zones are Platinum map header numbers; the destination is a zone and the index of a warp there." }));
+  }
+  s.append(el("div", { class: "row" },
+    el("button", { text: "Show in 3D", onclick: () => { showTab("3d"); focus3d(gx * UNIT, gy * UNIT); } }),
+    el("button", { text: "Delete", onclick: () => commit(deleteOp(kind, piece, item)) }),
+    el("button", { text: "Deselect", onclick: () => { selection = null; refreshPanels(); render(); } })));
+}
+function refreshAssociations() {
+  const s = $("panel-assoc"); s.textContent = "";
+  if (!world) { s.append(el("p", { class: "muted", text: "No world open." })); return; }
+  const counts = new Map();
+  for (const p of world.pieces) for (const b of p.buildings) counts.set(b.model, (counts.get(b.model) || 0) + 1);
+  const done = [...counts.keys()].filter((m) => world.associations[m] && world.associations[m].oras).length;
+  s.append(el("h2", { text: `DS → ORAS models (${done} of ${counts.size})` }),
+    el("p", { class: "muted", text: "Each DS building model used in this world, and the ORAS model that replaces it at export. Not suggested automatically yet: ORAS's own models are not read by the tools yet; enter the ORAS model by hand (its GARC path and entry, e.g. a/0/3/9:12)." }));
+  const table = el("table", {}, el("tr", {}, el("th", { text: "DS" }), el("th", { text: "Uses" }), el("th", { text: "ORAS model" }), el("th", { text: "Note" })));
+  for (const [model, n] of [...counts].sort((a, b) => b[1] - a[1])) {
+    const a = world.associations[model] || { oras: "", note: "" };
+    const edit = (field) => {
+      const i = el("input", { type: "text", value: a[field] || "" });
+      i.addEventListener("change", () => {
+        const before = world.associations[model] ? { ...world.associations[model] } : undefined, after = { ...(before || { oras: "", note: "" }), [field]: i.value.trim() };
+        commit({
+          label: "edit association",
+          redo() { world.associations[model] = after; },
+          undo() { if (before) world.associations[model] = before; else delete world.associations[model]; },
+        });
+      });
+      return i;
+    };
+    const tr = el("tr", {}, el("td", { text: String(model) }), el("td", { text: String(n) }), el("td", {}, edit("oras")), el("td", {}, edit("note")));
+    tr.addEventListener("click", (e) => { if (e.target.tagName !== "INPUT") { $("new-model").value = model; status("Model " + model + " set for + Building"); } });
+    table.append(tr);
+  }
+  s.append(table);
+}
+$("ptab-inspect").addEventListener("click", () => panelTab("inspect"));
+$("ptab-assoc").addEventListener("click", () => panelTab("assoc"));
+function panelTab(t) {
+  $("ptab-inspect").classList.toggle("on", t === "inspect"); $("ptab-assoc").classList.toggle("on", t === "assoc");
+  $("panel-inspect").hidden = t !== "inspect"; $("panel-assoc").hidden = t !== "assoc";
+}
+
+// ---- 3D view: world_oras.gltf as remake_tool writes it (one mesh; float positions, normals,
+// UVs and colours, uint32 indices; PNG textures as data URIs) ----
+let gl3d = null;
+const cam = { target: [0, 0, 0], dist: 4000, yaw: 0.6, pitch: 0.9 };
+const glCanvas = $("gl");
+function showTab(t) {
+  $("tab2d").classList.toggle("on", t === "2d"); $("tab3d").classList.toggle("on", t === "3d");
+  $("stage").classList.toggle("three", t === "3d");
+  if (t === "3d") {
+    if (!gl3d) { msg3d("Open world_oras.gltf (written next to world_oras.json): click here, or drop it.", true); }
+    resize();
+  } else resize();
+}
+$("tab2d").addEventListener("click", () => showTab("2d"));
+$("tab3d").addEventListener("click", () => showTab("3d"));
+$("gl-msg").addEventListener("click", () => { if (!gl3d) $("open3d").click(); });
+$("open3d").addEventListener("change", (e) => { open3d(e.target.files[0]); e.target.value = ""; });
+function msg3d(text, show) { const m = $("gl-msg"); m.textContent = text; m.classList.toggle("show", !!show); m.style.cursor = gl3d ? "default" : "pointer"; }
+
+const VS = `#version 300 es
+in vec3 aPos; in vec3 aNrm; in vec2 aUv; in vec3 aCol;
+uniform mat4 uMvp; out vec2 vUv; out vec3 vCol; out float vLight;
+void main() { gl_Position = uMvp * vec4(aPos, 1.0); vUv = aUv; vCol = aCol;
+  vLight = 0.64 + 0.36 * max(dot(normalize(aNrm), normalize(vec3(0.4, 1.0, 0.3))), 0.0); }`;
+const FS = `#version 300 es
+precision mediump float; in vec2 vUv; in vec3 vCol; in float vLight;
+uniform sampler2D uTex; uniform bool uHasTex; uniform float uCutoff; out vec4 o;
+void main() { vec4 c = uHasTex ? texture(uTex, vUv) : vec4(1.0); c.rgb *= vCol * vLight;
+  if (c.a < uCutoff) discard; o = c; }`;
+// a base64 data URI's bytes; decoded here, not with fetch(): the world's geometry is one data URI of
+// tens of MB, which fetch() refuses ("Failed to fetch")
+function dataUriBytes(uri) {
+  const b64 = uri.slice(uri.indexOf(",") + 1), out = new Uint8Array(Math.floor(b64.length * 3 / 4) - (b64.endsWith("==") ? 2 : b64.endsWith("=") ? 1 : 0));
+  const CHUNK = 1 << 20; // a multiple of 4 characters
+  let at = 0;
+  for (let i = 0; i < b64.length; i += CHUNK) {
+    const bin = atob(b64.slice(i, i + CHUNK));
+    for (let k = 0; k < bin.length; k++) out[at++] = bin.charCodeAt(k);
+  }
+  return out;
+}
+async function open3d(file) {
+  if (!file) return;
+  msg3d("Reading " + file.name + "…", true);
+  try {
+    const g = JSON.parse(await file.text());
+    const ctx3 = glCanvas.getContext("webgl2", { antialias: true });
+    if (!ctx3) throw new Error("WebGL2 is not available in this browser");
+    const g3 = ctx3;
+    const prog = g3.createProgram();
+    for (const [type, src] of [[g3.VERTEX_SHADER, VS], [g3.FRAGMENT_SHADER, FS]]) {
+      const s = g3.createShader(type); g3.shaderSource(s, src); g3.compileShader(s);
+      if (!g3.getShaderParameter(s, g3.COMPILE_STATUS)) throw new Error(g3.getShaderInfoLog(s));
+      g3.attachShader(prog, s);
+    }
+    g3.linkProgram(prog);
+    if (!g3.getProgramParameter(prog, g3.LINK_STATUS)) throw new Error(g3.getProgramInfoLog(prog));
+    const bytes = dataUriBytes(g.buffers[0].uri).buffer;
+    const arrayOf = (acc, Type, comps) => { const a = g.accessors[acc], bv = g.bufferViews[a.bufferView]; return new Type(bytes, (bv.byteOffset || 0) + (a.byteOffset || 0), a.count * comps); };
+    msg3d("Decoding " + (g.images ? g.images.length : 0) + " textures…", true);
+    const textures = await Promise.all((g.textures || []).map(async (t) => {
+      const img = await createImageBitmap(new Blob([dataUriBytes(g.images[t.source].uri)], { type: "image/png" }));
+      const smp = g.samplers[t.sampler], tex = g3.createTexture();
+      g3.bindTexture(g3.TEXTURE_2D, tex); g3.texImage2D(g3.TEXTURE_2D, 0, g3.RGBA, g3.RGBA, g3.UNSIGNED_BYTE, img);
+      g3.texParameteri(g3.TEXTURE_2D, g3.TEXTURE_MAG_FILTER, g3.NEAREST); g3.texParameteri(g3.TEXTURE_2D, g3.TEXTURE_MIN_FILTER, g3.NEAREST);
+      g3.texParameteri(g3.TEXTURE_2D, g3.TEXTURE_WRAP_S, smp.wrapS); g3.texParameteri(g3.TEXTURE_2D, g3.TEXTURE_WRAP_T, smp.wrapT);
+      return tex;
+    }));
+    const prims = [];
+    let lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    for (const p of g.meshes[0].primitives) {
+      const vao = g3.createVertexArray(); g3.bindVertexArray(vao);
+      for (const [name, acc, comps] of [["aPos", p.attributes.POSITION, 3], ["aNrm", p.attributes.NORMAL, 3], ["aUv", p.attributes.TEXCOORD_0, 2], ["aCol", p.attributes.COLOR_0, 3]]) {
+        const loc = g3.getAttribLocation(prog, name), buf = g3.createBuffer();
+        g3.bindBuffer(g3.ARRAY_BUFFER, buf); g3.bufferData(g3.ARRAY_BUFFER, arrayOf(acc, Float32Array, comps), g3.STATIC_DRAW);
+        g3.enableVertexAttribArray(loc); g3.vertexAttribPointer(loc, comps, g3.FLOAT, false, 0, 0);
+      }
+      const ib = g3.createBuffer(), ia = g.accessors[p.indices];
+      g3.bindBuffer(g3.ELEMENT_ARRAY_BUFFER, ib); g3.bufferData(g3.ELEMENT_ARRAY_BUFFER, arrayOf(p.indices, Uint32Array, 1), g3.STATIC_DRAW);
+      const pa = g.accessors[p.attributes.POSITION];
+      lo = lo.map((v, k) => Math.min(v, pa.min[k])); hi = hi.map((v, k) => Math.max(v, pa.max[k]));
+      const m = p.material !== undefined ? g.materials[p.material] : null;
+      const texIdx = m && m.pbrMetallicRoughness.baseColorTexture ? m.pbrMetallicRoughness.baseColorTexture.index : -1;
+      prims.push({ vao, count: ia.count, tex: texIdx >= 0 ? textures[texIdx] : null, blend: m && m.alphaMode === "BLEND", mask: m && m.alphaMode === "MASK" });
+    }
+    g3.bindVertexArray(null);
+    gl3d = { g: g3, prog, prims, lo, hi };
+    cam.target = [(lo[0] + hi[0]) / 2, 0, (lo[2] + hi[2]) / 2]; cam.dist = Math.max(hi[0] - lo[0], hi[2] - lo[2]) * 0.8;
+    msg3d(`${file.name}: ${prims.length} parts, ${textures.length} textures. Drag: orbit · Shift/right-drag: pan · wheel/pinch: zoom`, true);
+    setTimeout(() => msg3d("", false), 4000);
+    resize();
+  } catch (e) { gl3d = null; msg3d("Could not show " + file.name + ": " + e.message, true); }
+}
+function mat4Mul(a, b) { const o = new Float32Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = s; } return o; }
+function perspective(fovy, aspect, near, far) { const f = 1 / Math.tan(fovy / 2), o = new Float32Array(16); o[0] = f / aspect; o[5] = f; o[10] = (far + near) / (near - far); o[11] = -1; o[14] = 2 * far * near / (near - far); return o; }
+function lookAt(eye, t) {
+  const z = norm(sub(eye, t)), x = norm(cross([0, 1, 0], z)), y = cross(z, x);
+  return new Float32Array([x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -dot(x, eye), -dot(y, eye), -dot(z, eye), 1]);
+}
+const sub = (a, b) => a.map((v, i) => v - b[i]), dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const norm = (a) => { const l = Math.hypot(...a) || 1; return a.map((v) => v / l); };
+function eyePos() { const cp = Math.cos(cam.pitch); return [cam.target[0] + cam.dist * cp * Math.sin(cam.yaw), cam.target[1] + cam.dist * Math.sin(cam.pitch), cam.target[2] + cam.dist * cp * Math.cos(cam.yaw)]; }
+function draw3d() {
+  if (!gl3d || !$("stage").classList.contains("three")) return;
+  const { g, prog, prims } = gl3d;
+  glCanvas.width = map.width; glCanvas.height = map.height;
+  g.viewport(0, 0, glCanvas.width, glCanvas.height);
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  g.clearColor(dark ? 0.07 : 0.9, dark ? 0.05 : 0.86, dark ? 0.05 : 0.85, 1); g.clear(g.COLOR_BUFFER_BIT | g.DEPTH_BUFFER_BIT);
+  g.enable(g.DEPTH_TEST); g.useProgram(prog);
+  const mvp = mat4Mul(perspective(0.8, glCanvas.width / glCanvas.height, cam.dist / 256, cam.dist * 16), lookAt(eyePos(), cam.target));
+  g.uniformMatrix4fv(g.getUniformLocation(prog, "uMvp"), false, mvp);
+  const uHas = g.getUniformLocation(prog, "uHasTex"), uCut = g.getUniformLocation(prog, "uCutoff");
+  g.uniform1i(g.getUniformLocation(prog, "uTex"), 0);
+  for (const pass of [false, true]) { // opaque and masked, then blended
+    g.depthMask(!pass); if (pass) { g.enable(g.BLEND); g.blendFunc(g.SRC_ALPHA, g.ONE_MINUS_SRC_ALPHA); } else g.disable(g.BLEND);
+    for (const p of prims) {
+      if (p.blend !== pass) continue;
+      g.uniform1i(uHas, p.tex ? 1 : 0); g.uniform1f(uCut, p.mask ? 0.5 : 0.004);
+      if (p.tex) { g.activeTexture(g.TEXTURE0); g.bindTexture(g.TEXTURE_2D, p.tex); }
+      g.bindVertexArray(p.vao); g.drawElements(g.TRIANGLES, p.count, g.UNSIGNED_INT, 0);
+    }
+  }
+  g.depthMask(true); g.bindVertexArray(null);
+}
+function focus3d(x, z) { cam.target = [x, 0, z]; cam.dist = PIECE * UNIT; cam.pitch = 0.8; draw3d(); }
+const glPointers = new Map(); let glGesture = null;
+glCanvas.addEventListener("pointerdown", (e) => {
+  glCanvas.setPointerCapture(e.pointerId); glPointers.set(e.pointerId, [e.clientX, e.clientY]);
+  if (glPointers.size === 2) { const [a, b] = [...glPointers.values()]; glGesture = { pinch: Math.hypot(a[0] - b[0], a[1] - b[1]) }; }
+  else glGesture = { pan: e.button === 2 || e.shiftKey, last: [e.clientX, e.clientY] };
+});
+glCanvas.addEventListener("pointermove", (e) => {
+  if (!glPointers.has(e.pointerId) || !glGesture) return;
+  glPointers.set(e.pointerId, [e.clientX, e.clientY]);
+  if (glGesture.pinch && glPointers.size === 2) {
+    const [a, b] = [...glPointers.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+    cam.dist = Math.min(Math.max(cam.dist * glGesture.pinch / d, 16), 1e6); glGesture.pinch = d;
+  } else if (glGesture.last) {
+    const dx = e.clientX - glGesture.last[0], dy = e.clientY - glGesture.last[1]; glGesture.last = [e.clientX, e.clientY];
+    if (glGesture.pan) {
+      const s = cam.dist / 512, cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+      cam.target[0] -= (dx * cy + dy * sy) * s; cam.target[2] -= (-dx * sy + dy * cy) * s;
+    } else { cam.yaw -= dx * 0.008; cam.pitch = Math.min(Math.max(cam.pitch + dy * 0.008, 0.05), 1.55); }
+  }
+  draw3d();
+});
+const glEnd = (e) => { glPointers.delete(e.pointerId); if (!glPointers.size) glGesture = null; };
+glCanvas.addEventListener("pointerup", glEnd); glCanvas.addEventListener("pointercancel", glEnd);
+glCanvas.addEventListener("contextmenu", (e) => e.preventDefault());
+glCanvas.addEventListener("wheel", (e) => { e.preventDefault(); cam.dist = Math.min(Math.max(cam.dist * Math.pow(1.0016, e.deltaY), 16), 1e6); draw3d(); }, { passive: false });
+
+// ---- start ----
+setTool("select"); refreshPanels(); resize();
+</script>
+</body>
+</html>

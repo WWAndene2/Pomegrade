@@ -13,11 +13,13 @@
 // into 40-tile pieces (the DS world's corner on the ORAS world's corner),
 // and every length scales by 18/16 (heights included: one scale for the
 // whole world keeps its proportions).
+// Warps keep their tile (their zone and destination as DS map headers).
 // Not translated here: the tiles' meaning (a DS permission is kept as is:
 // ORAS's 32-bit tile values are not decoded yet), characters (DS sprites,
 // ORAS models) and cameras.
 
 #include "WorldMap.h"
+#include "ZoneEvents.h"
 
 #include <string>
 #include <vector>
@@ -36,11 +38,25 @@ struct N3dsBuilding
     size_t SourceCell = 0;   // the DS matrix cell it came from
 };
 
+// a DS warp, as the world's events list it: its zone (map header) and index there
+struct NdsWarp
+{
+    ZoneWarp Warp; // X, Z: tiles in the DS world's matrix
+    uint16_t Zone = 0, Index = 0;
+};
+
+struct N3dsWarp
+{
+    uint32_t Tile[2] = {};  // x, z in its ORAS piece
+    uint16_t Zone = 0, Index = 0, DestZone = 0, DestWarp = 0; // DS map headers and warp indices
+};
+
 struct N3dsPiece
 {
     uint32_t X = 0, Y = 0;
     std::vector<int32_t> Permissions; // N3dsMapTiles^2, row-major: the DS tile's permission, -1 where no DS map is
     std::vector<N3dsBuilding> Buildings;
+    std::vector<N3dsWarp> Warps;
 };
 
 struct N3dsWorld
@@ -49,8 +65,9 @@ struct N3dsWorld
     float NdsTile = NdsTileUnits;   // the DS world's tile, in its model units
     std::vector<N3dsPiece> Pieces;  // the pieces holding at least one DS tile
 
-    // ndsTile: a DS tile in the DS models' units (the cell size WorldMap measured / 32)
-    static N3dsWorld Translate(const WorldMap& world, float ndsTile = NdsTileUnits);
+    // ndsTile: a DS tile in the DS models' units (the cell size WorldMap measured / 32);
+    // warps: the matrix's warps (its zones' events), placed with the tiles
+    static N3dsWorld Translate(const WorldMap& world, float ndsTile = NdsTileUnits, const std::vector<NdsWarp>& warps = {});
     float Scale() const { return N3dsTileUnits / NdsTile; } // DS model units to ORAS units
     std::string Json() const;
 };

@@ -33,6 +33,8 @@ public:
     // nullptr when there is no such path
     const NdsFile* Find(const std::string& path) const;
     Bytes Read(const NdsFile& file) const;
+    // the main ARM9 binary (header +0x20 offset, +0x2C size), as stored: not compressed in Platinum
+    Bytes Arm9() const { return Slice(Image, U32(Image, 0x20), U32(Image, 0x2C)); }
 
 private:
     Bytes Image;

@@ -32,6 +32,8 @@ add_library(remake STATIC
     src/LandData.cpp
     src/WorldMap.cpp
     src/N3dsWorld.cpp
+    src/MapHeaders.cpp
+    src/ZoneEvents.cpp
     # the DS core's hash, so texture names match the emulator's by construction
     ${MELONDS_SRC}/xxhash/xxhash.c
 )
