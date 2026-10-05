@@ -9,9 +9,12 @@
 // - FATB ("BTAF"): per entry, a bit mask of which sub-files exist, then for
 //   each a start, end and length, relative to the data;
 // - FIMB ("BMIF"): the data.
-// Written from the format's community documentation, to be checked on a
-// real ORAS archive. Most entries have one sub-file (bit 0); some (a
-// Pokemon's several forms) have more.
+// Checked on ORAS's map archives (a/0/3/9, a/0/4/0): version 4, header
+// 0x1C bytes (magic, header size, 0xFEFF, version, 4 sections, data start,
+// file size, the largest sub-file's length); FATO's count is followed by
+// 0xFFFF; each sub-file starts 4-byte aligned, padded with 0xFF, its FATB
+// end at the padded end and its length unpadded. Most entries have one
+// sub-file (bit 0); some (a Pokemon's several forms) have more.
 
 #include "Bytes.h"
 
@@ -32,6 +35,12 @@ public:
     size_t SubCount(size_t i) const { return Entries.at(i).size(); }
     const Bytes& Sub(size_t i, size_t sub = 0) const { return Entries.at(i).at(sub); }
     bool Has(size_t i, size_t sub = 0) const { return sub < Entries.at(i).size() && Present.at(i) >> sub & 1; }
+
+    // replaces (or adds) entry i's sub-file; i == Count() appends an entry
+    void Set(size_t i, Bytes data, size_t sub = 0);
+    // the archive as the game reads it (version 4 only: X/Y, ORAS); byte-identical to the file read
+    // when nothing was changed
+    Bytes Write() const;
 
 private:
     uint16_t VersionNumber = 0;

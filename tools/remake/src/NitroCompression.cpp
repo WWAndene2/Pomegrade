@@ -1,5 +1,8 @@
 #include "NitroCompression.h"
 
+#include <algorithm>
+#include <vector>
+
 namespace remake
 {
 
@@ -59,6 +62,66 @@ Bytes LzDecompress(const Bytes& data)
             }
             if (disp > out.size()) throw FormatError("LZ: reference before the start of the data");
             for (size_t i = 0; i < len && out.size() < size; i++) out.push_back(out[out.size() - disp]);
+        }
+    }
+    return out;
+}
+
+Bytes Lz11Compress(const Bytes& data)
+{
+    constexpr size_t Window = 0x1000, MaxLen = 0x10110, Chain = 64;
+    Bytes out;
+    if (data.size() <= 0xFFFFFF) { out = {0x11, (uint8_t)(data.size()), (uint8_t)(data.size() >> 8), (uint8_t)(data.size() >> 16)}; }
+    else { out = {0x11, 0, 0, 0}; for (int i = 0; i < 4; i++) out.push_back((uint8_t)(data.size() >> (8 * i))); }
+
+    // the latest position of each 3-byte sequence, and the previous one with the same hash
+    std::vector<int64_t> head(1 << 16, -1), prev(data.size(), -1);
+    auto hash = [&](size_t i) { return (size_t)((data[i] << 8 ^ data[i + 1] << 4 ^ data[i + 2]) & 0xFFFF); };
+    auto insert = [&](size_t i) { if (i + 2 < data.size()) { const size_t h = hash(i); prev[i] = head[h]; head[h] = (int64_t)i; } };
+
+    size_t at = 0;
+    while (at < data.size())
+    {
+        const size_t flagsAt = out.size();
+        out.push_back(0);
+        for (int bit = 7; bit >= 0 && at < data.size(); bit--)
+        {
+            size_t bestLen = 0, bestDisp = 0;
+            if (at + 2 < data.size())
+            {
+                size_t steps = 0;
+                for (int64_t c = head[hash(at)]; c >= 0 && at - (size_t)c <= Window && steps < Chain; c = prev[(size_t)c], steps++)
+                {
+                    size_t len = 0;
+                    const size_t limit = std::min(MaxLen, data.size() - at);
+                    while (len < limit && data[(size_t)c + len] == data[at + len]) len++;
+                    if (len > bestLen) { bestLen = len; bestDisp = at - (size_t)c; if (len == limit) break; }
+                }
+            }
+            if (bestLen < 3)
+            {
+                out.push_back(data[at]);
+                insert(at++);
+                continue;
+            }
+            out[flagsAt] |= (uint8_t)(1 << bit);
+            const size_t d = bestDisp - 1;
+            if (bestLen <= 0x10)
+            {
+                out.push_back((uint8_t)((bestLen - 1) << 4 | d >> 8)); out.push_back((uint8_t)d);
+            }
+            else if (bestLen <= 0x110)
+            {
+                const size_t l = bestLen - 0x11;
+                out.push_back((uint8_t)(l >> 4)); out.push_back((uint8_t)((l & 0xF) << 4 | d >> 8)); out.push_back((uint8_t)d);
+            }
+            else
+            {
+                const size_t l = bestLen - 0x111;
+                out.push_back((uint8_t)(0x10 | l >> 12)); out.push_back((uint8_t)(l >> 4));
+                out.push_back((uint8_t)((l & 0xF) << 4 | d >> 8)); out.push_back((uint8_t)d);
+            }
+            for (size_t k = 0; k < bestLen; k++) insert(at++);
         }
     }
     return out;

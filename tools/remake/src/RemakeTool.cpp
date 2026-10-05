@@ -15,6 +15,12 @@
 //                     a Platinum map matrix translated to Omega Ruby / Alpha Sapphire's scale and
 //                     40-tile map pieces, with its warps and each cell's own textures:
 //                     world_oras.json (the editor's file), world_oras.gltf
+//   remake_tool oras-list <oras.3ds>                  a decrypted 3DS game's RomFS files, with sizes
+//   remake_tool oras-extract <oras.3ds> <path> <out>  one RomFS file
+//   remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...
+//                     an Azahar mod: each file replaces that RomFS path, laid out as Azahar loads
+//                     mods (<out dir>/load/mods/<program id>/romfs/<path>); copy <out dir>/load
+//                     into the 3DS folder (Pomegrade/3DS)
 #include "Inventory.h"
 #include "Narc.h"
 #include "NdsRom.h"
@@ -25,6 +31,8 @@
 #include "Png.h"
 #include "TextureIndex.h"
 #include "AreaData.h"
+#include "BinLinker.h"
+#include "N3dsRom.h"
 #include "MapHeaders.h"
 #include "N3dsWorld.h"
 #include "ZoneEvents.h"
@@ -49,7 +57,9 @@ static int Usage()
                     "  remake_tool texindex <rom.nds>\n  remake_tool identify <rom.nds> <dump dir>\n"
                     "  remake_tool world <map_matrix.narc> <matrix index> <land_data.narc> <out dir>\n"
                     "                    [map textures.nsbtx|-] [buildings.narc|-] [building textures.nsbtx|-]\n"
-                    "  remake_tool oras-world <rom.nds> <matrix index> <out dir>\n");
+                    "  remake_tool oras-world <rom.nds> <matrix index> <out dir>\n"
+                    "  remake_tool oras-list <oras.3ds>\n  remake_tool oras-extract <oras.3ds> <path> <out>\n"
+                    "  remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...\n");
     return 2;
 }
 
@@ -111,6 +121,42 @@ int main(int argc, char** argv)
             printf("%zu models; model %zu: %zu shapes, %zu materials\n", model.Models().size(), index,
                    model.Models().at(index).Shapes.size(), model.Models().at(index).Materials.size());
             return 0;
+        }
+        // decrypted 3DS game images
+        if (cmd == "oras-list" || cmd == "oras-extract" || cmd == "oras-mod")
+        {
+            N3dsRom game(argv[2]);
+            char id[17];
+            snprintf(id, sizeof id, "%016llX", (unsigned long long)game.ProgramId());
+            if (cmd == "oras-list")
+            {
+                printf("program %s, product %s, %zu files\n", id, game.ProductCode().c_str(), game.Files().size());
+                for (const auto& [path, at] : game.Files()) printf("%12llu %s\n", (unsigned long long)at.second, path.c_str());
+                return 0;
+            }
+            if (cmd == "oras-extract" && argc >= 5) { WriteFile(argv[4], game.Read(argv[3])); return 0; }
+            if (cmd == "oras-mod" && argc >= 5)
+            {
+                const std::filesystem::path root = std::filesystem::path(argv[3]) / "load" / "mods" / id / "romfs";
+                for (int i = 4; i < argc; i++)
+                {
+                    const std::string arg = argv[i];
+                    const size_t eq = arg.find('=');
+                    if (eq == std::string::npos) { fprintf(stderr, "expected <path>=<file>: %s\n", arg.c_str()); return 2; }
+                    const std::string path = arg.substr(0, eq);
+                    if (!game.Has(path)) { fprintf(stderr, "no %s in the game's RomFS: a mod only replaces files the game has\n", path.c_str()); return 1; }
+                    const Bytes data = ReadFile(arg.substr(eq + 1));
+                    // an archive the game reads as GARC must still be one
+                    if (Garc::Is(game.Read(path))) Garc check(data);
+                    std::filesystem::create_directories((root / path).parent_path());
+                    WriteFile((root / path).string(), data);
+                    printf("%s <- %s (%zu bytes)\n", path.c_str(), arg.substr(eq + 1).c_str(), data.size());
+                }
+                printf("mod written under %s: copy %s into the 3DS folder (Pomegrade/3DS)\n", root.string().c_str(),
+                       (std::filesystem::path(argv[3]) / "load").string().c_str());
+                return 0;
+            }
+            return Usage();
         }
         if (cmd == "world" && argc >= 6)
         {

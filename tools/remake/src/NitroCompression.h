@@ -15,6 +15,10 @@ namespace remake
 // whether data looks LZ-compressed: type byte 0x10/0x11 and a plausible size
 bool IsLzCompressed(const Bytes& data);
 Bytes LzDecompress(const Bytes& data);
+// LZ11, as LzDecompress (and the games' own decompressor, as far as the format goes) reads it: ORAS
+// stores its map pieces (a/0/3/9) this way. Greedy matching over the 4 KB window; the output is
+// not the games' own compressor's byte for byte, only equivalent once decompressed
+Bytes Lz11Compress(const Bytes& data);
 
 }
 
