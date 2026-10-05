@@ -184,7 +184,9 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
             snprintf(name, sizeof name, "world%02d_%02d_%02d", o.ModelMatrix, x, y);
             if (strlen(name) != 13) throw FormatError("a piece's model name must be 13 characters as the game's (world<NN>_<x>_<y>)");
             log.push_back(F("piece (%d, %d), Sinnoh (%d, %d): zone %d, area pack %d, %zu doors", x, y, o.Left + x, o.Top + y, owner, pack, layout.Doors.size()));
-            const Bytes piece = BuildTownPiece(layout, to, pieceArchive, areaArchive, budget, x, y, name, packs[pack], log);
+            Bytes piece;
+            try { piece = BuildTownPiece(layout, to, pieceArchive, areaArchive, budget, x, y, name, packs[pack], log); }
+            catch (const FormatError& e) { throw FormatError(F("piece (%d, %d), Sinnoh (%d, %d): ", x, y, o.Left + x, o.Top + y) + e.what()); }
             const size_t index = AppendMember(newPieces, pieceArchive, o.Town.TargetPiece, piece, "GR");
             matrix.Piece(x, y) = (uint16_t)index;
             log.push_back(F("piece (%d, %d): a/0/3/9 member %zu, %zu bytes", x, y, index, piece.size()));
