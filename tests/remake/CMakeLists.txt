@@ -38,6 +38,9 @@ target_link_libraries(remake_town_test PRIVATE remake)
 add_executable(remake_shapes_test remake_shapes_test.cpp)
 target_link_libraries(remake_shapes_test PRIVATE remake)
 
+add_executable(remake_topview_test remake_topview_test.cpp)
+target_link_libraries(remake_topview_test PRIVATE remake)
+
 add_executable(remake_zone_test remake_zone_test.cpp)
 target_link_libraries(remake_zone_test PRIVATE remake)
 

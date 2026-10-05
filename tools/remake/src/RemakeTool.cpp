@@ -29,6 +29,7 @@
 //                     a Platinum window of 40x40 tiles (default: Twinleaf Town) rebuilt as an ORAS map piece with
 //                     ORAS's own assets, as an Azahar mod (BPS patches), with town_preview.gltf and town_layout.txt
 //   remake_tool oras-inspect <oras.3ds> zone|piece|area <index>
+//   remake_tool oras-topview <oras.3ds> <piece> <out.png> [--grid] [--tiles] [--doors] [--px N]   (topview <GR file> <out.png> for a mod's piece)
 //                     what an ORAS zone (a/0/1/3), map piece (a/0/3/9) or area pack (a/0/1/4) is made of, as text
 //   remake_tool oras-verify <oras.3ds>                the tooling's readers and writers checked against the real game (exit 1 on a failure)
 //   remake_tool oras-catalog <oras.3ds> <out dir>     packs.tsv and pieces.tsv: every area pack's textures, every map piece's meshes and materials
@@ -53,6 +54,7 @@
 #include "MapHeaders.h"
 #include "N3dsWorld.h"
 #include "OrasInspect.h"
+#include "TopView.h"
 #include "OrasTown.h"
 #include "PlatinumWorld.h"
 #include "ZoneEvents.h"
@@ -83,6 +85,8 @@ static int Usage()
                     "  remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]\n  remake_tool oras-list <oras.3ds>\n  remake_tool oras-extract <oras.3ds> <path> <out>\n"
                     "  remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-inspect <oras.3ds> zone|piece|area <index>\n"
+                    "  remake_tool oras-topview <oras.3ds> <piece> <out.png> [--grid] [--tiles] [--doors] [--px N]\n"
+                    "  remake_tool topview <GR piece file> <out.png> [--grid] [--tiles] [--doors] [--px N]\n"
                     "  remake_tool oras-verify <oras.3ds>\n  remake_tool oras-catalog <oras.3ds> <out dir>\n"
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
@@ -210,6 +214,40 @@ int main(int argc, char** argv)
             else if (what == "area") text = InspectArea(game, index);
             else return Usage();
             fputs(text.c_str(), stdout);
+            return 0;
+        }
+        if ((cmd == "oras-topview" && argc >= 5) || (cmd == "topview" && argc >= 4))
+        {
+            // oras-topview <oras.3ds> <piece> <out.png> | topview <GR piece file> <out.png>, then [--grid] [--tiles] [--doors] [--px N]
+            const bool fromGame = cmd == "oras-topview";
+            const int firstFlag = fromGame ? 5 : 4;
+            TopViewOptions view;
+            for (int i = firstFlag; i < argc; i++)
+            {
+                const std::string flag = argv[i];
+                if (flag == "--grid") view.Grid = true;
+                else if (flag == "--tiles") view.Tiles = true;
+                else if (flag == "--doors") view.Doors = true;
+                else if (flag == "--px" && i + 1 < argc) view.PixelsPerTile = atoi(argv[++i]);
+                else return Usage();
+            }
+            Bytes piece;
+            if (fromGame)
+            {
+                N3dsRom game(argv[2]);
+                piece = Garc(game.Read("a/0/3/9")).Sub((size_t)atoi(argv[3]));
+            }
+            else piece = ReadFile(argv[2]);
+            if (IsLzCompressed(piece)) piece = LzDecompress(piece);
+            WriteFile(argv[fromGame ? 4 : 3], RenderTopViewOfPiece(piece, view));
+            printf("legend:");
+            for (int k = 0; k <= (int)TopViewKind::Other; k++)
+            {
+                uint8_t rgb[3];
+                TopViewColour((TopViewKind)k, rgb);
+                printf(" %s=#%02X%02X%02X", TopViewName((TopViewKind)k), rgb[0], rgb[1], rgb[2]);
+            }
+            printf("\n");
             return 0;
         }
         if (cmd == "oras-town" && argc >= 5)
