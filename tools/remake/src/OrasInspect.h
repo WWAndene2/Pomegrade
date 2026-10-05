@@ -16,6 +16,16 @@ std::string InspectZone(N3dsRom& game, size_t zone);   // a/0/1/3 member: header
 std::string InspectPiece(N3dsRom& game, size_t piece); // a/0/3/9 member: tiles, terrain model, collision, doors
 std::string InspectArea(N3dsRom& game, size_t area);   // a/0/1/4 member: its files and textures
 
+
+// Conformity of the tooling with the real game, run on the owner's dump: every texture file of every area pack rewritten by
+// BchWriteTextureFile (sections before the relocations identical, relocations equal as a set), every zone and its scripts read by
+// OrasZone, every map piece's terrain read. Returns the report; ok is false when anything fails.
+std::string VerifyGame(N3dsRom& game, bool& ok);
+
+// packs.tsv (each area pack's textures) and pieces.tsv (each map piece's size, model, and per mesh its material, textures and triangles)
+// written to a directory: the index to look assets up in, instead of opening 857 pieces by hand
+std::string CatalogGame(N3dsRom& game, const std::string& directory);
+
 }
 
 #endif // REMAKE_ORASINSPECT_H

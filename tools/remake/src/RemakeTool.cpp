@@ -30,6 +30,8 @@
 //                     ORAS's own assets, as an Azahar mod (BPS patches), with town_preview.gltf and town_layout.txt
 //   remake_tool oras-inspect <oras.3ds> zone|piece|area <index>
 //                     what an ORAS zone (a/0/1/3), map piece (a/0/3/9) or area pack (a/0/1/4) is made of, as text
+//   remake_tool oras-verify <oras.3ds>                the tooling's readers and writers checked against the real game (exit 1 on a failure)
+//   remake_tool oras-catalog <oras.3ds> <out dir>     packs.tsv and pieces.tsv: every area pack's textures, every map piece's meshes and materials
 //   remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...
 //                     the same as BPS patches against the game's own files (<out dir>/load/mods/
 //                     <program id>/romfs_ext/<path>.bps): a few changed pieces of a large archive
@@ -81,6 +83,7 @@ static int Usage()
                     "  remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]\n  remake_tool oras-list <oras.3ds>\n  remake_tool oras-extract <oras.3ds> <path> <out>\n"
                     "  remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-inspect <oras.3ds> zone|piece|area <index>\n"
+                    "  remake_tool oras-verify <oras.3ds>\n  remake_tool oras-catalog <oras.3ds> <out dir>\n"
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
                     "                    [--cell X Y] [--zone Z] [--area A] [--grass P] [--allow-errors]\n");
@@ -187,6 +190,14 @@ int main(int argc, char** argv)
             printf("%zu models; model %zu: %zu shapes, %zu materials\n", model.Models().size(), index,
                    model.Models().at(index).Shapes.size(), model.Models().at(index).Materials.size());
             return 0;
+        }
+        if ((cmd == "oras-verify" && argc >= 3) || (cmd == "oras-catalog" && argc >= 4))
+        {
+            N3dsRom game(argv[2]);
+            if (cmd == "oras-catalog") { fputs(CatalogGame(game, argv[3]).c_str(), stdout); return 0; }
+            bool passed = false;
+            fputs(VerifyGame(game, passed).c_str(), stdout);
+            return passed ? 0 : 1;
         }
         if (cmd == "oras-inspect" && argc >= 5)
         {

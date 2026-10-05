@@ -21,6 +21,9 @@ struct TownSources
     // the ground is the target piece's own grass (its chip_kusa_a and chip_kusa_b materials' vertex colours) instead of the
     // donor's: the donor's area pack must then hold that grass's pixels under the donor's grass texture names (OrasTown does this)
     bool TargetGrass = false;
+    // the textures the ground's materials show, when they are not the donor's (empty: kept): the main grass, the lighter grass, and the
+    // grass edge (the rim's second texture slot). They must be in the area pack: OrasTown adds them there.
+    std::string GroundTexture, LightTexture, EdgeTexture;
 };
 
 // the new piece's bytes; log: what was placed

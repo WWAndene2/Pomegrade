@@ -104,12 +104,21 @@ The `.code` in ExeFS is packed with BLZ (backward LZ, flag 0x01 of the extended 
 | The piece stays within the game's largest piece (1,368,064 bytes, 35,691 vertices) | memory use beyond what any original piece needs is untested | warning |
 | A replaced archive member is the container it must be (GR, ZO, AD), compressed once, and reads back identical | a zone compressed twice crashed the field's start | error (`ReplaceMember`) |
 | A texture's v is used as stored, never flipped (previews included) | PICA textures are stored bottom row first, decoded in that order | rule of the BCH preview |
-| No shared area pack is changed unless the piece needs it (`--grass -1` leaves pack 9 alone) | a pack is shared by every piece of its area | by option |
+| Textures are added to an area pack under their own names, never written over an existing one (`--grass -1` adds none) | a pack is shared by every piece of its area | by construction |
 
 Not yet checked by code (by hand until it is): tile values only from the known set, a door model per placed door (the block holds 5), warps inside the piece's cell, the zone's area pack matching the piece's.
 
-## 9. What is NOT known (the work left)
+## 9. The whole game, not only Littleroot (checked: `oras-verify`, `oras-catalog`)
 
+- **Area packs**: 228 packs hold textures (the 229th member is not one). Every pack is an `AD` container of exactly **12 files, always the same slots**: 0 and 3, 4, 6 small tables (unknown), 1 a BCH of textures (doors, windows, props: 14 in Littleroot's), 2 a BCH with neither model nor texture (animations, inferred), 11 the main BCH of textures (45 in Littleroot's), 8 filled in 7 packs only, 5, 7, 9 and 10 empty. Pack sizes: 4 to 123 textures, median 30; the richest are 11 (123), 196 and 15 (99), 14 (95).
+- **Map pieces**: 857, all with a readable terrain model. They are outdoor maps **and interiors** (materials `table01`, `shelf01`, `chair01`, `wall01`, `floor01` appear in 50-80 pieces each). 684 pieces are compatible with exactly one pack (the textures they name are all in it and in no other), the rest with 2-14: a piece's pack is determined by its textures.
+- **Materials are town-specific**: 2884 distinct names for 857 pieces, because each town names its own objects (`c108_rune_*`, `t101_*`, `touka_*`). Shared across the game: `shadow_a` (285 pieces), `chip_kusa` (177), `chip_rock_b` (158), `chip_wood_b` (132), `gake_basic` (128, cliffs), `chip_sea_b` (126), `shadow1` (123), `platan_bk` (114), `chip_edge_tex` (77), `chip_grass_decolate` (54). Buildings are baked into each piece's terrain with the town's own materials.
+- **Texture files**: `BchWriteTextureFile` (`BchTextureFile.h`) writes a texture BCH from a list of decoded textures and reproduces **all 439 texture files that hold data, byte for byte** up to the relocation table, whose entries (9 * count + 16) match as a set. So **a texture of any pack can be added to any other pack's main texture file** (done by `oras-town` for the grass). The 17 other files are empty placeholders (one texture, no data).
+- **What stays limited**: a piece's terrain keeps its donor's meshes and materials: only their geometry (`BchReplaceGeometry`) and texture names (`BchSetTextureName`) can change, not add or remove a mesh or a material. A material's render state (blending, culling, layer, texture mappers) is not decoded, so a mesh slot cannot yet be chosen by what it does. Composing assets from several pieces therefore means choosing a donor piece with the slots wanted, then re-texturing them from any pack.
+
+## 10. What is NOT known (the work left)
+
+0. How to add a mesh or a material to a terrain model, and what a material's render state means (section 9).
 1. The scripts' semantics (packed Pawn code, 58+ natives, the text links): needed for any NPC, sign or story event.
 2. The remaining words of zones' entries, and the zone-to-name-line link.
 3. The `coll` geometry fields, GR parts 4-6, the 124-byte tail of part 0, the area pack's small files.

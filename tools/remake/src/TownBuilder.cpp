@@ -567,7 +567,17 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     // Littleroot's world01_02_04, every copy (model and nodes)
     Bytes terrain = BchReplaceString(BchReplaceGeometry(petalTerrain, 0, list), pm.Name, Bch::Read(BinLinker::Read(lr, "GR").Files[1]).Models[0].Name);
     // the outline mesh's material shows chip_alpha (grass blades), as Littleroot's does, in place of Petalburg's touka_alpha
-    if (ownGrass) terrain = BchSetTextureName(terrain, 0, pm.Meshes[Outline].Material, 0, "chip_alpha");
+    if (ownGrass)
+    {
+        terrain = BchSetTextureName(terrain, 0, pm.Meshes[Outline].Material, 0, "chip_alpha");
+        auto show = [&](size_t mesh, int slot, const std::string& texture) {
+            const BchMaterial& m = pm.Materials[pm.Meshes[mesh].Material];
+            if (!texture.empty() && m.Texture[slot] != texture) terrain = BchSetTextureName(terrain, 0, pm.Meshes[mesh].Material, slot, texture);
+        };
+        show(Ground, 0, src.GroundTexture);
+        show(Pale, 0, src.LightTexture);
+        show(Edge, 1, src.EdgeTexture);
+    }
     gr.Files[1] = terrain;
     note("%zu trees, %d flower patches, %zu vertices; terrain model %zu bytes (Petalburg's %zu, Littleroot's %zu)\n", trees.size(), nFlowers, verts,
          gr.Files[1].size(), petalTerrain.size(), BinLinker::Read(lr, "GR").Files[1].size());

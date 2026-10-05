@@ -2,6 +2,7 @@
 #include "Bch.h"
 #include "BinLinker.h"
 #include "Bps.h"
+#include "BchTextureFile.h"
 #include "Garc.h"
 #include "Gltf.h"
 #include "NitroCompression.h"
@@ -10,6 +11,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <map>
 #include <set>
 #include <tuple>
 
@@ -54,42 +56,44 @@ static Bytes MoveZoneWarps(const Bytes& zoneData, const OrasTownOptions& o, cons
     return zone.Write(); // plain: ReplaceMember compresses it as the original was
 }
 
-// Pixels of one area pack's textures put under another pack's texture names (same size and format: a texture's data
-// is not relocated, so it is overwritten in place). Pack contents that have no such texture are skipped, with a note.
-// pairs: {name in the pack to change, name in the pack to copy from}
-static Bytes CopyTexturePixels(const Bytes& packData, const Bytes& fromData, const std::vector<std::pair<std::string, std::string>>& pairs,
-                               std::vector<std::string>& log, size_t& copied)
+// Textures of another area pack added to this one, under their own names (the pack's existing textures are untouched: other pieces of the
+// area keep theirs). A wanted name the pack already holds with other content gets a suffix. The pack's main texture file (slot 11) is
+// rewritten with BchWriteTextureFile; the result says each wanted name's final name, empty when the other pack has no such texture.
+static Bytes ImportTextures(const Bytes& packData, const Bytes& fromData, size_t fromIndex, const std::vector<std::string>& wanted,
+                            std::map<std::string, std::string>& finalName, std::vector<std::string>& log)
 {
     BinLinker pack = BinLinker::Read(packData, "AD");
     if (pack.Write() != packData) throw FormatError("the area pack does not rewrite identical");
     const BinLinker from = BinLinker::Read(fromData, "AD");
-    copied = 0;
-    for (const auto& [to, source] : pairs)
+    std::vector<BchTextureSource> all;
+    std::set<std::string> taken;
+    auto read = [&](const Bytes& file, bool own) {
+        std::vector<BchTexture> list;
+        if (file.empty() || !Bch::Is(file)) return list;
+        for (BchTexture& t : Bch::Read(file).Textures) { if (own) taken.insert(t.Name); list.push_back(std::move(t)); }
+        return list;
+    };
+    for (size_t slot : {(size_t)1, (size_t)11}) read(pack.Files.at(slot), true);
+    for (BchTexture& t : read(pack.Files.at(11), false)) all.push_back({t.Name, t.Width, t.Height, t.Format, t.Data});
+    size_t added = 0;
+    for (const std::string& name : wanted)
     {
         const BchTexture* src = nullptr;
-        std::vector<BchTexture> fromTextures;
-        for (const Bytes& f : from.Files) if (Bch::Is(f)) for (BchTexture& t : Bch::Read(f).Textures) if (t.Name == source) { fromTextures.push_back(t); src = &fromTextures.back(); }
-        bool done = false;
-        for (Bytes& f : pack.Files)
-        {
-            if (!Bch::Is(f) || done) continue;
-            for (const BchTexture& t : Bch::Read(f).Textures)
-            {
-                if (t.Name != to) continue;
-                if (!src || src->Width != t.Width || src->Height != t.Height || src->Format != t.Format || src->Data.size() != t.Data.size())
-                {
-                    log.push_back("texture " + to + ": no " + source + " of the same size and format to copy, left as it is");
-                    done = true;
-                    break;
-                }
-                std::copy(src->Data.begin(), src->Data.end(), f.begin() + t.DataOffset);
-                copied++;
-                done = true;
-                break;
-            }
-        }
-        if (!done) log.push_back("texture " + to + " is not in the area pack, nothing to replace");
+        std::vector<BchTexture> held[2] = {read(from.Files.at(1), false), read(from.Files.at(11), false)};
+        for (auto& list : held) for (const BchTexture& t : list) if (t.Name == name && !t.Data.empty()) src = &t;
+        if (!src) { finalName[name] = ""; log.push_back("texture " + name + " is not in area pack " + std::to_string(fromIndex)); continue; }
+        std::string final = name;
+        const auto same = std::find_if(all.begin(), all.end(), [&](const BchTextureSource& t) { return t.Name == name; });
+        if (same != all.end() && same->Width == src->Width && same->Height == src->Height && same->Format == src->Format && same->Data == src->Data) { finalName[name] = name; continue; }
+        if (taken.count(name)) final = name + "_" + std::to_string(fromIndex);
+        taken.insert(final);
+        all.push_back({final, src->Width, src->Height, src->Format, src->Data});
+        finalName[name] = final;
+        added++;
     }
+    if (!added) return packData;
+    pack.Files.at(11) = BchWriteTextureFile(all);
+    log.push_back(std::to_string(added) + " texture(s) added to the area pack's main texture file (" + std::to_string(all.size()) + " in all)");
     return pack.Write();
 }
 
@@ -109,17 +113,16 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
     sources.Target = piece(o.TargetPiece); sources.Donor = piece(o.DonorPiece); sources.Trees = piece(o.TreePiece);
     sources.CellX = o.CellX; sources.CellY = o.CellY;
 
-    // the grass: Littleroot's pixels under the donor's grass texture names, in the donor's area pack
+    // the grass: Littleroot's textures, added to the donor's area pack under their own names, and shown by the ground's materials
     const Bytes areas = oras.Read("a/0/1/4");
     const Garc areaArchive(areas);
     Bytes areaPack = Plain(areaArchive.Sub(o.AreaPack));
     if (o.GrassPack >= 0)
     {
-        size_t copied = 0;
-        const std::vector<std::pair<std::string, std::string>> grass = {{"chip_kusa", "chip_kusa_a"}, {"chip_kusa_b", "chip_kusa_b"}, {"chip_kusa_edge", "chip_grass_edge"}};
-        areaPack = CopyTexturePixels(areaPack, Plain(areaArchive.Sub((size_t)o.GrassPack)), grass, result.Log, copied);
-        sources.TargetGrass = copied == grass.size();
-        result.Log.push_back("area pack " + std::to_string(o.AreaPack) + ": " + std::to_string(copied) + " of " + std::to_string(grass.size()) + " grass textures replaced by area pack " + std::to_string(o.GrassPack) + "'s");
+        std::map<std::string, std::string> finalName;
+        areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub((size_t)o.GrassPack)), (size_t)o.GrassPack, {"chip_kusa_a", "chip_kusa_b", "chip_grass_edge"}, finalName, result.Log);
+        sources.TargetGrass = !finalName["chip_kusa_a"].empty() && !finalName["chip_kusa_b"].empty() && !finalName["chip_grass_edge"].empty();
+        sources.GroundTexture = finalName["chip_kusa_a"]; sources.LightTexture = finalName["chip_kusa_b"]; sources.EdgeTexture = finalName["chip_grass_edge"];
     }
     const Bytes town = BuildTown(result.Layout, sources, &result.Log);
     result.PieceBytes = town.size();

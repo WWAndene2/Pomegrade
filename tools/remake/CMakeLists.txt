@@ -50,6 +50,7 @@ add_library(remake STATIC
     src/PicaTexture.cpp
     src/Bch.cpp
     src/BchWriter.cpp
+    src/BchTextureFile.cpp
     src/Bps.cpp
     # the DS core's hash, so texture names match the emulator's by construction
     ${MELONDS_SRC}/xxhash/xxhash.c

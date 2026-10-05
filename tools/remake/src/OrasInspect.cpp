@@ -1,6 +1,7 @@
 #include "OrasInspect.h"
 #include "Amx.h"
 #include "Bch.h"
+#include "BchTextureFile.h"
 #include "BinLinker.h"
 #include "Garc.h"
 #include "NitroCompression.h"
@@ -8,7 +9,10 @@
 
 #include <algorithm>
 #include <cstdarg>
+#include <filesystem>
 #include <cstdio>
+#include <fstream>
+#include <set>
 #include <map>
 
 namespace remake
@@ -130,6 +134,130 @@ std::string InspectArea(N3dsRom& game, size_t area)
         s += "\n";
     }
     return s;
+}
+
+
+std::string VerifyGame(N3dsRom& game, bool& ok)
+{
+    ok = true;
+    std::string s;
+    // texture files
+    {
+        const Garc areas(game.Read("a/0/1/4"));
+        int files = 0, same = 0, placeholders = 0;
+        for (size_t j = 0; j < areas.Count(); j++)
+        {
+            BinLinker ad;
+            try { ad = BinLinker::Read(Plain(areas.Sub(j)), "AD"); } catch (const FormatError&) { continue; }
+            for (size_t slot : {(size_t)1, (size_t)11})
+            {
+                if (ad.Files.size() <= slot || ad.Files[slot].size() < 0x44 || !Bch::Is(ad.Files[slot])) continue;
+                const Bytes& orig = ad.Files[slot];
+                if (U32(orig, 0x2C) == 0) { placeholders++; continue; } // one texture, no data
+                files++;
+                try
+                {
+                    std::vector<BchTextureSource> sources;
+                    for (const BchTexture& t : Bch::Read(orig).Textures) sources.push_back({t.Name, t.Width, t.Height, t.Format, t.Data});
+                    const Bytes w = BchWriteTextureFile(sources);
+                    const uint32_t at = U32(orig, 0x18), length = U32(orig, 0x34);
+                    auto words = [](const Bytes& f, uint32_t from, uint32_t n) { std::multiset<uint32_t> m; for (uint32_t k = 0; k < n; k += 4) m.insert(U32(f, from + k)); return m; };
+                    if (U32(w, 0x18) == at && U32(w, 0x34) == length && std::equal(w.begin(), w.begin() + at, orig.begin()) && words(w, at, length) == words(orig, at, length)) same++;
+                }
+                catch (const FormatError&) {}
+            }
+        }
+        s += F("texture files: %d of %d rewritten identically (sections before the relocations byte for byte, relocations as a set); %d empty placeholders skipped\n", same, files, placeholders);
+        ok = ok && same == files;
+    }
+    // zones
+    {
+        const Garc zones(game.Read("a/0/1/3"));
+        int total = 0, read = 0, scripts = 0, notZone = 0;
+        for (size_t i = 0; i < zones.Count(); i++)
+        {
+            if (!zones.Has(i)) continue;
+            const Bytes data = Plain(zones.Sub(i));
+            if (data.size() < 2 || data[0] != 'Z' || data[1] != 'O') { notZone++; continue; }
+            total++;
+            try
+            {
+                const OrasZone z = OrasZone::Read(data);
+                read++;
+                AmxInfo::Read(z.Script); AmxInfo::Read(z.InitScript);
+                scripts += 2;
+            }
+            catch (const FormatError&) {}
+        }
+        s += F("zones: %d of %d ZO containers read exactly (%d scripts with a valid header); %d members are not ZO\n", read, total, scripts, notZone);
+        ok = ok && read == total && scripts == 2 * read;
+    }
+    // map pieces
+    {
+        const Garc pieces(game.Read("a/0/3/9"));
+        int total = 0, read = 0;
+        for (size_t i = 0; i < pieces.Count(); i++)
+        {
+            if (!pieces.Has(i)) continue;
+            const Bytes data = Plain(pieces.Sub(i));
+            if (data.size() < 2 || data[0] != 'G' || data[1] != 'R') continue;
+            total++;
+            try { read += !Bch::Read(BinLinker::Read(data, "GR").Files.at(1)).Models.empty(); } catch (const std::exception&) {}
+        }
+        s += F("map pieces: %d of %d GR containers have a readable terrain model\n", read, total);
+        ok = ok && read == total;
+    }
+    s += ok ? "all checks passed\n" : "SOME CHECKS FAILED\n";
+    return s;
+}
+
+std::string CatalogGame(N3dsRom& game, const std::string& directory)
+{
+    std::filesystem::create_directories(directory);
+    std::ofstream packs(directory + "/packs.tsv"), pieces(directory + "/pieces.tsv");
+    packs << "pack\ttextures\tnames\n";
+    pieces << "piece\tmodel\tfile_bytes\tvertices\ttriangles\tmeshes\tmaterials (name:texture0|texture1|texture2:triangles)\n";
+    size_t packCount = 0, pieceCount = 0;
+    const Garc areas(game.Read("a/0/1/4"));
+    for (size_t j = 0; j < areas.Count(); j++)
+    {
+        try
+        {
+            const BinLinker ad = BinLinker::Read(Plain(areas.Sub(j)), "AD");
+            std::set<std::string> names;
+            for (const Bytes& f : ad.Files) if (!f.empty() && Bch::Is(f)) for (const BchTexture& t : Bch::Read(f).Textures) names.insert(t.Name);
+            packs << j << '\t' << names.size() << '\t';
+            bool first = true;
+            for (const std::string& n : names) { packs << (first ? "" : ",") << n; first = false; }
+            packs << '\n';
+            packCount++;
+        }
+        catch (const std::exception&) {}
+    }
+    const Garc grs(game.Read("a/0/3/9"));
+    for (size_t i = 0; i < grs.Count(); i++)
+    {
+        try
+        {
+            const Bytes raw = Plain(grs.Sub(i));
+            if (raw.size() < 2 || raw[0] != 'G' || raw[1] != 'R') continue;
+            const Bch b = Bch::Read(BinLinker::Read(raw, "GR").Files.at(1));
+            if (b.Models.empty()) continue;
+            const BchModel& m = b.Models[0];
+            size_t vertices = 0, triangles = 0;
+            for (const BchMesh& me : m.Meshes) { vertices += me.Vertices.size(); triangles += me.Triangles.size() / 3; }
+            pieces << i << '\t' << m.Name << '\t' << raw.size() << '\t' << vertices << '\t' << triangles << '\t' << m.Meshes.size() << '\t';
+            for (size_t k = 0; k < m.Meshes.size(); k++)
+            {
+                const BchMaterial& mat = m.Materials[m.Meshes[k].Material];
+                pieces << (k ? ";" : "") << mat.Name << ':' << mat.Texture[0] << '|' << mat.Texture[1] << '|' << mat.Texture[2] << ':' << m.Meshes[k].Triangles.size() / 3;
+            }
+            pieces << '\n';
+            pieceCount++;
+        }
+        catch (const std::exception&) {}
+    }
+    return F("%zu area packs and %zu map pieces indexed in %s (packs.tsv, pieces.tsv)\n", packCount, pieceCount, directory.c_str());
 }
 
 }
