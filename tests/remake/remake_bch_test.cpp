@@ -255,6 +255,17 @@ int main()
         check(repointed && indexAt % 0x80 != 0 && after.Textures[0].Data == before && after.Models[0].Meshes[0].Triangles == quad.Triangles,
               "BCH writer: an old buffer another pointer reaches (short of its first 0x80 block) kept");
     }
+    // a whole string replaced in place (a terrain model renamed for its new place): the model "m" becomes "n",
+    // the material "mat" (which contains no whole "m") stays; a missing string or another length refused
+    {
+        const Bch moved = Bch::Read(BchReplaceString(file, "m", "n")); // "mat" ends with no "@m": kept
+        check(moved.Models[0].Name == "n" && moved.Models[0].Materials[0].Name == "mat" && moved.Models[0].Meshes[0].Triangles == std::vector<uint32_t>({0, 1, 2}),
+              "BCH writer: a model renamed in place, its material's name (holding the letter) kept");
+        bool r1 = false, r2 = false;
+        try { BchReplaceString(file, "m", "nn"); } catch (const FormatError&) { r1 = true; }
+        try { BchReplaceString(file, "zz", "yy"); } catch (const FormatError&) { r2 = true; }
+        check(r1 && r2, "BCH writer: a string of another length, or one the file lacks: refused");
+    }
     // a material's texture renamed: the new name read back, the rest intact, the file still writable
     const Bytes renamed = BchSetTextureName(file, 0, 0, 0, "a_longer_texture_name");
     const Bch rn = Bch::Read(renamed);

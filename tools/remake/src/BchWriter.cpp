@@ -244,4 +244,30 @@ Bytes BchSetTextureName(const Bytes& bch, size_t modelIndex, size_t material, in
     return out;
 }
 
+Bytes BchReplaceString(const Bytes& bch, const std::string& from, const std::string& to)
+{
+    if (from.size() != to.size() || from.empty()) throw FormatError("BCH writer: a string replaced by one of another length");
+    const BchSections s = BchSections::Read(bch);
+    const uint32_t end = s.Strings + U32(bch, HeaderLengths + Strings * 4);
+    if (end > bch.size() || end > s.Commands) throw FormatError("BCH writer: the string section runs past its neighbours");
+    Bytes out = bch;
+    int replaced = 0;
+    // whole strings, and the model part of qualified ones ("material@model"): each string starts after a zero
+    // byte (or at the section's start) and ends at one
+    for (uint32_t at = s.Strings; at < end;)
+    {
+        uint32_t stop = at;
+        while (stop < end && bch[stop]) stop++;
+        const uint32_t length = stop - at, n = (uint32_t)from.size();
+        if (length >= n && memcmp(&bch[stop - n], from.data(), n) == 0 && (length == n || bch[stop - n - 1] == '@'))
+        {
+            memcpy(&out[stop - n], to.data(), n);
+            replaced++;
+        }
+        at = stop + 1;
+    }
+    if (!replaced) throw FormatError("BCH writer: no string \"" + from + "\" to replace");
+    return out;
+}
+
 }

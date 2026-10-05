@@ -45,6 +45,13 @@ Bytes BchReplaceGeometry(const Bytes& bch, size_t model, const std::vector<BchGe
 // being relative to their own section, only the header's addresses move) and the slot repointed to it.
 Bytes BchSetTextureName(const Bytes& bch, size_t model, size_t material, int slot, const std::string& name);
 
+// bch with every string equal to `from` in its string section, and every "<name>@<from>" (a material
+// qualified by its model), made `to` (the same length: nothing moves).
+// For a map piece's terrain model, whose name tells its place (world<matrix>_<x>_<y>: Littleroot's
+// world01_02_04): a model taken from another piece is renamed for its new place. Throws when the
+// lengths differ or no string matches.
+Bytes BchReplaceString(const Bytes& bch, const std::string& from, const std::string& to);
+
 }
 
 #endif // REMAKE_BCHWRITER_H
