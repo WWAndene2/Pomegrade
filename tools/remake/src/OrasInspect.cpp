@@ -96,7 +96,8 @@ std::string InspectPiece(N3dsRom& game, size_t piece)
         {
             const BchMesh& mesh = m.Meshes[i];
             const BchMaterial& mat = m.Materials[mesh.Material];
-            s += F("      mesh %2zu: material %-24s texture %-22s%s%s  %5zu vertices, %5zu triangles\n", i, mat.Name.c_str(), mat.Texture[0].c_str(),
+            s += F("      mesh %2zu: layer %u %s material %-24s texture %-22s%s%s  %5zu vertices, %5zu triangles\n", i, (unsigned)mesh.Layer,
+                   ((mat.Flags >> 24) & 4) ? "blended" : "opaque ", mat.Name.c_str(), mat.Texture[0].c_str(),
                    mat.Texture[1].empty() ? "" : " + ", mat.Texture[1].c_str(), mesh.Vertices.size(), mesh.Triangles.size() / 3);
         }
     }

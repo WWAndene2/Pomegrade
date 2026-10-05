@@ -70,6 +70,11 @@ struct BchMesh
 struct BchMaterial
 {
     std::string Name, Texture[3];
+    // Render state, read from the material's parameter block and command lists. What each field MEANS is inferred from
+    // how it correlates with the 12,481 materials of ORAS's 857 pieces (ORAS_LITTLEROOT.md section 9c), not from the engine.
+    uint32_t Flags = 0;               // parameter block word 1: 0x3E vs 0x3A in the top byte = translucent (blended), 0x10 in the low byte = projected/shared
+    uint32_t TextureUnits = 0;        // bit mask of the texture units the material enables (command register 0x80)
+    uint32_t Mappers[3] = {};         // texture mapper words (wrap and filter) of the three units
     uint32_t TextureNameWord[3] = {}; // file offsets of the texture name pointers (a writer repoints them)
 };
 

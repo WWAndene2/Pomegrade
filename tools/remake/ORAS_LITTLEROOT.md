@@ -116,7 +116,7 @@ Not yet checked by code: a door model per placed door (the block holds 5), warps
 - **Map pieces**: 857, all with a readable terrain model. They are outdoor maps **and interiors** (materials `table01`, `shelf01`, `chair01`, `wall01`, `floor01` appear in 50-80 pieces each). 684 pieces are compatible with exactly one pack (the textures they name are all in it and in no other), the rest with 2-14: a piece's pack is determined by its textures.
 - **Materials are town-specific**: 2884 distinct names for 857 pieces, because each town names its own objects (`c108_rune_*`, `t101_*`, `touka_*`). Shared across the game: `shadow_a` (285 pieces), `chip_kusa` (177), `chip_rock_b` (158), `chip_wood_b` (132), `gake_basic` (128, cliffs), `chip_sea_b` (126), `shadow1` (123), `platan_bk` (114), `chip_edge_tex` (77), `chip_grass_decolate` (54). Buildings are baked into each piece's terrain with the town's own materials.
 - **Texture files**: `BchWriteTextureFile` (`BchTextureFile.h`) writes a texture BCH from a list of decoded textures and reproduces **all 439 texture files that hold data, byte for byte** up to the relocation table, whose entries (9 * count + 16) match as a set. So **a texture of any pack can be added to any other pack's main texture file** (done by `oras-town` for the grass). The 17 other files are empty placeholders (one texture, no data).
-- **What stays limited**: a piece's terrain keeps its donor's meshes and materials: only their geometry (`BchReplaceGeometry`) and texture names (`BchSetTextureName`) can change, not add or remove a mesh or a material. A material's render state (blending, culling, layer, texture mappers) is not decoded, so a mesh slot cannot yet be chosen by what it does. Composing assets from several pieces therefore means choosing a donor piece with the slots wanted, then re-texturing them from any pack.
+- **What stays limited**: a piece's terrain keeps its donor's meshes and materials: only their geometry (`BchReplaceGeometry`) and texture names (`BchSetTextureName`) can change, not add or remove a mesh or a material. A material's render state is now read (section 9c) but only partly understood, and culling and the depth/blend registers are still not decoded. Composing assets from several pieces therefore means choosing a donor piece with the slots wanted, then re-texturing them from any pack.
 
 ## 9b. Construction rules (measured on all 857 pieces)
 
@@ -128,9 +128,22 @@ Not yet checked by code: a door model per placed door (the block holds 5), warps
 - **Seams**: neighbouring pieces continue each other's ground at the shared edge.
 - **Collision**: a `coll` block with its own header, geometry fields undecoded.
 
+## 9c. Material render state (inferred, not engine-confirmed)
+
+`BchMaterial` now carries `Flags` (parameter block word 1), `TextureUnits` (command register 0x80, low 3 bits) and `Mappers[3]`. Read on all 12,481 materials of the 857 pieces; the meaning below is **inferred from correlations, not tested in game**:
+
+| Field | Values seen | Reading |
+|---|---|---|
+| `Flags` top byte | `0x3A` (9,188 materials), `0x3E` (3,225) | bit 2 set = **blended**: all of `chip_grass_decolate`, `shadow1`, `shadow_a`, `chip_wind`, `chip_edge_tex`, light and sea meshes; none of `chip_kusa`, `chip_wood_b`, `window01_gr`. In Littleroot, layer 0 meshes are all opaque and layers 1-3 all blended. |
+| `Flags` low byte | `01` (12,413), `11`, `02`, `13` | bit 4 (`0x10`) goes with projected or shared textures (`platan_bk`, `chip_edge_tex`, cliffs). Meaning unconfirmed. |
+| `TextureUnits` | 1 (most), 3, 7, 0 | the number of texture units a material samples: the edge ribbon uses 3 (unit 0 projected, unit 1 `chip_grass_edge`); 0 = untextured (68 materials). |
+| `Mappers[0]` | `00020200` (most), `00000200`, `00020300`, `00030300`, `01020200`, `00020203` | wrap and filter words; `...03` on unit 0 pairs with the projected edge material. Individual bits not separated. |
+
+`oras-inspect piece` prints each mesh's layer and blended/opaque. Still undecoded: culling, depth test, the blend factors, the alpha test.
+
 ## 10. What is NOT known (the work left)
 
-0. How to add a mesh or a material to a terrain model, and what a material's render state means (section 9).
+0. How to add a mesh or a material to a terrain model, and the rest of a material's render state (section 9c: culling, depth, blend factors, alpha test).
 1. The scripts' semantics (packed Pawn code, 58+ natives, the text links): needed for any NPC, sign or story event.
 2. The remaining words of zones' entries, and the zone-to-name-line link.
 3. The `coll` geometry fields, GR parts 4-6, the 124-byte tail of part 0, the area pack's small files.

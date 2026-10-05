@@ -144,6 +144,10 @@ Bch Bch::Read(const Bytes& data)
             const uint32_t mat = matList + i * (ext ? 0x2C : 0x2C);
             if (!ext) throw FormatError("BCH: materials before version 0x21 are not read");
             BchMaterial bm;
+            const uint32_t params = r.P(mat), commands = r.P(mat + 0x10), mappers = r.P(mat + 0x18);
+            bm.Flags = r.P(params + 4);
+            bm.TextureUnits = r.P(commands + 16) & 7;
+            for (int k = 0; k < 3; k++) bm.Mappers[k] = r.P(mappers + k * 16);
             for (int k = 0; k < 3; k++) { bm.Texture[k] = r.Str(r.P(mat + 0x1C + k * 4)); bm.TextureNameWord[k] = mat + 0x1C + k * 4; }
             bm.Name = r.Str(r.P(mat + 0x28));
             model.Materials.push_back(bm);
