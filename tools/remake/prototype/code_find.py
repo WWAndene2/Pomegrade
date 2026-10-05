@@ -11,6 +11,7 @@ instructions; ORAS's code is ARM, its data pools read as junk instructions and a
   --imm      every instruction with that immediate operand, and every LDR from a literal pool word holding it
   --string   every place the text lies, and every literal pool word holding its address (the code that loads it)
   --at       the instructions around an address (to read a hit's function)
+  --word     every aligned word holding a value, with its neighbours (data tables)
 Each hit is printed with N instructions of context before and after (default 8). Needs capstone (pip install capstone).
 """
 import argparse
@@ -29,6 +30,8 @@ def main():
     ap.add_argument("--imm", action="append", default=[], type=lambda v: int(v, 0))
     ap.add_argument("--string", action="append", default=[])
     ap.add_argument("--at", action="append", default=[], type=lambda v: int(v, 0))
+    ap.add_argument("--word", action="append", default=[], type=lambda v: int(v, 0),
+                    help="every aligned word holding the value (data, such as a table of heap sizes), with the 8 words around it")
     ap.add_argument("--context", type=int, default=8)
     ap.add_argument("--max", type=int, default=60, help="hits printed per value")
     ap.add_argument("--base", type=lambda v: int(v, 0), default=BASE, help="the file's load address (0 for a CRO module)")
@@ -92,6 +95,13 @@ def main():
                     ins = next(md.disasm(code[off - BASE:off - BASE + 4], off), None)
                     if ins and ins.mnemonic.startswith("ldr") and any(o.type == ARM_OP_MEM and o.mem.base == ARM_REG_PC and off + 8 + o.mem.disp == r for o in ins.operands):
                         show(off, f"load of {text!r}")
+
+    for v in a.word:
+        places = [BASE + off for off in range(0, len(code) - 3, 4) if struct.unpack_from("<I", code, off)[0] == v]
+        print(f"== word 0x{v:X}: {len(places)} places")
+        for p in places[:a.max]:
+            around = " ".join("%08X" % word(q) if word(q) is not None else "--------" for q in range(p - 16, p + 20, 4))
+            print(f"   0x{p:X}: {around}")
 
     for addr in a.at:
         show(addr, "requested")
