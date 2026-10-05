@@ -243,7 +243,17 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
             const int pack = zoneOf.at(owner).AreaPack();
             OrasTownOptions to = o.Town;
             to.AreaPack = (size_t)pack;
-            const TownLayout layout = TownLayout::Read(world, (o.Left + x) * TownTiles, (o.Top + y) * TownTiles);
+            TownLayout layout = TownLayout::Read(world, (o.Left + x) * TownTiles, (o.Top + y) * TownTiles);
+            // a door of a header left out of the region (-1 or not given) gets no house, no door model and no warp: r2 built two
+            // houses 39 tiles wide at Route 201's exit warps (header 334, each read twice), and they took the door-model slots,
+            // so the last real door (the top-right house) got no door model on the phone
+            for (auto d = layout.Doors.begin(); d != layout.Doors.end();)
+            {
+                const auto z = o.Zones.find(d->Zone);
+                if (z != o.Zones.end() && z->second >= 0) { ++d; continue; }
+                log.push_back(F("door at (%d, %d) of header %u: header left out, no house, door model or warp", x * TownTiles + d->Column, y * TownTiles + d->Row, d->Zone));
+                d = layout.Doors.erase(d);
+            }
             char name[32];
             snprintf(name, sizeof name, "world%02d_%02d_%02d", o.ModelMatrix, x, y);
             if (strlen(name) != 13) throw FormatError("a piece's model name must be 13 characters as the game's (world<NN>_<x>_<y>)");
@@ -271,7 +281,7 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
             for (const TownDoor& d : layout.Doors)
             {
                 const auto z = o.Zones.find(d.Zone);
-                if (z == o.Zones.end() || z->second < 0) { log.push_back(F("door at (%d, %d) of header %u: no ORAS zone, no warp", x * TownTiles + d.Column, y * TownTiles + d.Row, d.Zone)); continue; }
+                if (z == o.Zones.end() || z->second < 0) continue; // left out above
                 // the door's own interior: its Platinum destination given an ORAS zone that is not on the matrix
                 const auto in = o.Zones.find(d.DestZone);
                 const int interior = in != o.Zones.end() && in->second >= 0 && !used.count(in->second) ? in->second : -1;
