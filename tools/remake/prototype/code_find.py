@@ -23,6 +23,7 @@ BASE = 0x100000  # the .code's load address; --base for another file (a CRO modu
 
 
 def main():
+    global BASE
     ap = argparse.ArgumentParser()
     ap.add_argument("code")
     ap.add_argument("--imm", action="append", default=[], type=lambda v: int(v, 0))
@@ -32,7 +33,6 @@ def main():
     ap.add_argument("--max", type=int, default=60, help="hits printed per value")
     ap.add_argument("--base", type=lambda v: int(v, 0), default=BASE, help="the file's load address (0 for a CRO module)")
     a = ap.parse_args()
-    global BASE
     BASE = a.base
     code = open(a.code, "rb").read()
     md = Cs(CS_ARCH_ARM, CS_MODE_ARM)
