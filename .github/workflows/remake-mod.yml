@@ -41,8 +41,14 @@ jobs:
         run: |
           mkdir -p dumps
           fetch() {
+            # the secret may hold the file id or a whole share link (…/d/<id>/view, …?id=<id>): keep the id
+            local id
+            id=$(printf '%s' "$1" | tr -d '[:space:]' | sed -E 's#.*/d/([^/?]+).*#\1#; s#.*[?&]id=([^&]+).*#\1#')
+            if ! printf '%s' "$id" | grep -qE '^[A-Za-z0-9_-]{25,}$'; then
+              echo "::error::the secret for $2 is not a Drive file id (${#id} characters after cleaning)"; exit 1
+            fi
             curl --fail --location --silent --show-error --retry 3 --output "$2" \
-              "https://drive.usercontent.google.com/download?id=$(echo "$1" | tr -d '[:space:]')&export=download&confirm=t"
+              "https://drive.usercontent.google.com/download?id=$id&export=download&confirm=t"
             if head -c 512 "$2" | grep -qi '<html'; then echo "::error::Drive answered a web page, not $2"; exit 1; fi
           }
           fetch "$ORAS_DRIVE_ID" dumps/oras.3ds
