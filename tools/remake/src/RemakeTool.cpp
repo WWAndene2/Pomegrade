@@ -61,6 +61,7 @@
 #include "OrasInspect.h"
 #include "OrasMeasure.h"
 #include "TopView.h"
+#include "OrasAppend.h"
 #include "OrasTown.h"
 #include "PlatinumWorld.h"
 #include "ZoneEvents.h"
@@ -97,6 +98,7 @@ static int Usage()
                     "  remake_tool oras-verify <oras.3ds>\n  remake_tool oras-catalog <oras.3ds> <out dir>\n"
                     "  remake_tool oras-texture <oras.3ds> <area pack> <name> <out.png>\n  remake_tool mesh-json <GR piece file|file.bch> <out.json>\n"
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
+                    "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
                     "                    [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]\n");
     return 2;
@@ -323,6 +325,15 @@ int main(int argc, char** argv)
             }
             printf("\n");
             if (view.Points) printf("points: lighter-grass border dark green, path border dark brown, blade strip orange, its tips red, its roots blue\n");
+            return 0;
+        }
+        if (cmd == "oras-append-test" && argc >= 5)
+        {
+            const std::string what = argv[4];
+            const AppendTest test = what == "unused" ? AppendTest::Unused : what == "piece" ? AppendTest::Piece : what == "matrix" ? AppendTest::Matrix
+                                  : what == "zone" ? AppendTest::Zone : throw FormatError("append test: unused, piece, matrix or zone");
+            N3dsRom oras(argv[2]);
+            for (const std::string& line : BuildAppendTest(oras, test, argv[3])) printf("%s\n", line.c_str());
             return 0;
         }
         if (cmd == "oras-town" && argc >= 5)
