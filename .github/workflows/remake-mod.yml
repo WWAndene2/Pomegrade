@@ -75,12 +75,13 @@ jobs:
         env:
           VARIANTS: ${{ inputs.variants }}
         run: |
+          set -o pipefail   # a failing command before "| tee" fails the step (a mod built without its patch must not ship)
           mkdir -p mods
           while IFS= read -r line; do
             [ -z "${line// }" ] && continue
             name="${line%%:*}"; name="${name// }"
             options="${line#*:}"
-            # "... +cro <module> OFFSET=OLD:NEW ...": the module patched too (prototype/cro_patch.py), its hash in .crr/static.crr
+            # "... +cro <module> OFFSET=OLD:NEW ...": the module patched too (prototype/cro_patch.py; for Azahar, which skips the CRR check)
             cro=""
             if [[ "$options" == *" +cro "* ]]; then cro="${options#* +cro }"; options="${options%% +cro *}"; fi
             echo "::group::$name ($options)"
@@ -100,10 +101,9 @@ jobs:
               set -- $cro
               module="$1"; shift
               ./build-remake/remake_tool oras-extract dumps/oras.3ds "$module" "out/$name.orig.cro"
-              ./build-remake/remake_tool oras-extract dumps/oras.3ds .crr/static.crr "out/$name.orig.crr"
               mkdir -p "out/$name.cro" && cp "out/$name.orig.cro" "out/$name.cro/$(basename "$module")"
-              python3 tools/remake/prototype/cro_patch.py "out/$name.cro/$(basename "$module")" "out/$name.orig.crr" "out/$name.patched" "$@" | tee -a "mods/${name}_log.txt"
-              ./build-remake/remake_tool oras-patch dumps/oras.3ds "out/$name" "$module=out/$name.patched/$(basename "$module")" ".crr/static.crr=out/$name.patched/static.crr" | tee -a "mods/${name}_log.txt"
+              python3 tools/remake/prototype/cro_patch.py "out/$name.cro/$(basename "$module")" "out/$name.patched" "$@" | tee -a "mods/${name}_log.txt"
+              ./build-remake/remake_tool oras-patch dumps/oras.3ds "out/$name" "$module=out/$name.patched/$(basename "$module")" | tee -a "mods/${name}_log.txt"
             fi
             (cd "out/$name" && zip -q -r "../../mods/Pomegrade_Sinnoh_$name.zip" load)
             echo "::endgroup::"
@@ -115,6 +115,7 @@ jobs:
         env:
           QUERIES: ${{ inputs.inspect }}
         run: |
+          set -o pipefail
           mkdir -p mods
           n=0
           while IFS= read -r query; do
