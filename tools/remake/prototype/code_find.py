@@ -30,6 +30,8 @@ def main():
     ap.add_argument("--imm", action="append", default=[], type=lambda v: int(v, 0))
     ap.add_argument("--string", action="append", default=[])
     ap.add_argument("--at", action="append", default=[], type=lambda v: int(v, 0))
+    ap.add_argument("--range", nargs=2, type=lambda v: int(v, 0), metavar=("LOW", "HIGH"),
+                    help="every immediate, literal pool load and aligned data word in [LOW, HIGH] (a size known only within bounds)")
     ap.add_argument("--word", action="append", default=[], type=lambda v: int(v, 0),
                     help="every aligned word holding the value (data, such as a table of heap sizes), with the 8 words around it")
     ap.add_argument("--context", type=int, default=8)
@@ -57,6 +59,8 @@ def main():
     # one sweep: immediates and literal loads
     wanted = set(a.imm)
     hits = {v: [] for v in wanted}
+    lo, hi = a.range if a.range else (1, 0)
+    ranged = []
     for off in range(0, len(code) - 3, 4):
         ins = next(md.disasm(code[off:off + 4], BASE + off), None)
         if ins is None:
@@ -64,15 +68,29 @@ def main():
         for op in ins.operands:
             if op.type == ARM_OP_IMM and (op.imm & 0xFFFFFFFF) in wanted:
                 hits[op.imm & 0xFFFFFFFF].append((ins.address, f"{ins.mnemonic} {ins.op_str}"))
+            if op.type == ARM_OP_IMM and lo <= (op.imm & 0xFFFFFFFF) <= hi:
+                ranged.append((ins.address, f"{ins.mnemonic} {ins.op_str}"))
             if op.type == ARM_OP_MEM and op.mem.base == ARM_REG_PC and ins.mnemonic.startswith("ldr"):
                 pool = ins.address + 8 + op.mem.disp
                 v = word(pool)
                 if v in wanted:
                     hits[v].append((ins.address, f"{ins.mnemonic} {ins.op_str} (pool 0x{pool:X} = 0x{v:X})"))
+                if v is not None and lo <= v <= hi:
+                    ranged.append((ins.address, f"{ins.mnemonic} {ins.op_str} (pool 0x{pool:X} = 0x{v:X})"))
     for v in a.imm:
         print(f"== value 0x{v:X}: {len(hits[v])} instructions")
         for addr, text in hits[v][:a.max]:
             show(addr, text)
+
+    if a.range:
+        print(f"== range 0x{lo:X}-0x{hi:X}: {len(ranged)} instructions")
+        for addr, text in ranged[:a.max]:
+            show(addr, text)
+        words = [(BASE + off, struct.unpack_from("<I", code, off)[0]) for off in range(0, len(code) - 3, 4)
+                 if lo <= struct.unpack_from("<I", code, off)[0] <= hi]
+        print(f"== range 0x{lo:X}-0x{hi:X}: {len(words)} data words")
+        for p, v in words[:a.max]:
+            print(f"   0x{p:X} = 0x{v:X}: " + " ".join("%08X" % word(q) if word(q) is not None else "--------" for q in range(p - 16, p + 20, 4)))
 
     for text in a.string:
         needle = text.encode()
