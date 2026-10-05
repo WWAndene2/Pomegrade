@@ -29,6 +29,12 @@
 //                     a Platinum window of 40x40 tiles (default: Twinleaf Town) rebuilt as an ORAS map piece with
 //                     ORAS's own assets, as an Azahar mod (BPS patches), with town_preview.gltf, town_layout.txt and
 //                     town_piece.bin (the piece the mod writes, decompressed)
+//   remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--plan] [--matrix-template M]
+//                     [--model-matrix NN] [oras-town's kit options]
+//                     a rectangle of Sinnoh's piece grid (as oras-world cuts it) rebuilt as a new ORAS map matrix: its pieces built
+//                     as oras-town builds one, the zone grid from Platinum's map headers, each header on the ORAS zone given
+//                     (-1: left out); --plan prints the rectangle's headers and builds nothing. Writes the mod, region_preview.gltf,
+//                     region_plan.txt and region_piece_<x>_<y>.bin
 //   remake_tool oras-texture <oras.3ds> <area pack> <name> <out.png>   one texture of an area pack (a/0/1/4 member), as a PNG
 //   remake_tool mesh-json <GR piece file|file.bch> <out.json>   a terrain model's meshes as JSON, to measure them: for each
 //                     mesh its index, layer, material, textures, vertices [x, z, y, u, v, r, g, b, a] and triangles
@@ -62,6 +68,7 @@
 #include "OrasMeasure.h"
 #include "TopView.h"
 #include "OrasAppend.h"
+#include "OrasRegion.h"
 #include "OrasTown.h"
 #include "PlatinumWorld.h"
 #include "ZoneEvents.h"
@@ -100,11 +107,37 @@ static int Usage()
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
-                    "                    [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]\n");
+                    "                    [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]\n"
+                    "  remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--plan]\n"
+                    "                    [--matrix-template M] [--model-matrix NN] [oras-town's --matrix, --target, --donor, --trees, --donor-pack, --grass, ... --allow-errors]\n");
     return 2;
 }
 
 static Bytes Plain(const Bytes& data) { return IsLzCompressed(data) ? LzDecompress(data) : data; }
+
+// the options oras-town and oras-region share: Platinum's matrix, the kit pieces and packs, the builder's switches. false: not one of them
+static bool TownKitOption(const std::string& flag, int argc, char** argv, int& i, OrasTownOptions& options)
+{
+    auto number = [&](int at) { if (at >= argc) throw FormatError("missing a number after " + flag); return atoi(argv[at]); };
+    if (flag == "--matrix") options.Matrix = (size_t)number(++i);
+    else if (flag == "--target") options.TargetPiece = (size_t)number(++i);
+    else if (flag == "--donor") options.DonorPiece = (size_t)number(++i);
+    else if (flag == "--trees") options.TreePiece = (size_t)number(++i);
+    else if (flag == "--donor-pack") options.DonorPack = (size_t)number(++i);
+    else if (flag == "--grass") options.GrassPack = number(++i);
+    else if (flag == "--snow") options.SnowPack = number(++i);
+    else if (flag == "--fence") options.FencePack = number(++i);
+    else if (flag == "--snow-clumps") options.SnowClumps = number(++i) != 0;
+    else if (flag == "--pond-wall") options.PondWall = number(++i);
+    else if (flag == "--door-type") options.DoorType = (uint32_t)number(++i);
+    else if (flag == "--tree-reach") options.TreeReach = number(++i);
+    else if (flag == "--donor-as-is") options.DonorAsIs = number(++i) != 0;
+    else if (flag == "--pad-piece") options.PadPiece = (size_t)number(++i);
+    else if (flag == "--piece-files") options.PieceFiles = (unsigned)number(++i);
+    else if (flag == "--allow-errors") options.AllowErrors = true;
+    else return false;
+    return true;
+}
 
 int main(int argc, char** argv)
 {
@@ -345,31 +378,16 @@ int main(int argc, char** argv)
             {
                 const std::string flag = argv[i];
                 auto number = [&](int at) { if (at >= argc) throw FormatError("missing a number after " + flag); return atoi(argv[at]); };
-                if (flag == "--matrix") options.Matrix = (size_t)number(++i);
-                else if (flag == "--left") options.Left = number(++i);
+                if (TownKitOption(flag, argc, argv, i, options)) continue;
+                if (flag == "--left") options.Left = number(++i);
                 else if (flag == "--top") options.Top = number(++i);
-                else if (flag == "--target") options.TargetPiece = (size_t)number(++i);
-                else if (flag == "--donor") options.DonorPiece = (size_t)number(++i);
-                else if (flag == "--trees") options.TreePiece = (size_t)number(++i);
                 else if (flag == "--cell") { options.CellX = number(++i); options.CellY = number(++i); }
                 else if (flag == "--zone") options.Zone = (size_t)number(++i);
                 else if (flag == "--area") options.AreaPack = (size_t)number(++i);
-                else if (flag == "--donor-pack") options.DonorPack = (size_t)number(++i);
-                else if (flag == "--grass") options.GrassPack = number(++i);
-                else if (flag == "--snow") options.SnowPack = number(++i);
-                else if (flag == "--fence") options.FencePack = number(++i);
-                else if (flag == "--snow-clumps") options.SnowClumps = number(++i) != 0;
-                else if (flag == "--pond-wall") options.PondWall = number(++i);
                 else if (flag == "--zone-pack") options.ZonePack = number(++i) != 0;
-                else if (flag == "--door-type") options.DoorType = (uint32_t)number(++i);
-                else if (flag == "--tree-reach") options.TreeReach = number(++i);
-                else if (flag == "--donor-as-is") options.DonorAsIs = number(++i) != 0;
-                else if (flag == "--pad-piece") options.PadPiece = (size_t)number(++i);
-                else if (flag == "--piece-files") options.PieceFiles = (unsigned)number(++i);
                 else if (flag == "--piece") options.WritePiece = number(++i) != 0;
                 else if (flag == "--add-warps") options.AddWarps = number(++i) != 0;
                 else if (flag == "--zone-warps") options.ZoneWarps = number(++i) != 0;
-                else if (flag == "--allow-errors") options.AllowErrors = true;
                 else { fprintf(stderr, "unknown option %s\n", flag.c_str()); return 2; }
             }
             const NdsRom platinum(ReadFile(argv[2]));
@@ -377,6 +395,35 @@ int main(int argc, char** argv)
             const OrasTownResult result = BuildOrasTown(platinum, oras, options);
             for (const std::string& line : result.Log) printf("%s%s", line.c_str(), !line.empty() && line.back() == '\n' ? "" : "\n");
             printf("mod written under %s: copy its load folder into the 3DS folder (Pomegrade/3DS)\n", options.OutDir.c_str());
+            return 0;
+        }
+        if (cmd == "oras-region" && argc >= 5)
+        {
+            OrasRegionOptions options;
+            options.OutDir = argv[4];
+            for (int i = 5; i < argc; i++)
+            {
+                const std::string flag = argv[i];
+                auto number = [&](int at) { if (at >= argc) throw FormatError("missing a number after " + flag); return atoi(argv[at]); };
+                if (TownKitOption(flag, argc, argv, i, options.Town)) continue;
+                if (flag == "--rect") { options.Left = number(++i); options.Top = number(++i); options.Width = number(++i); options.Height = number(++i); }
+                else if (flag == "--zone")
+                {
+                    if (++i >= argc) throw FormatError("missing <map header>:<ORAS zone> after --zone");
+                    const std::string pair = argv[i];
+                    const size_t colon = pair.find(':');
+                    if (colon == std::string::npos) throw FormatError("--zone takes <map header>:<ORAS zone or -1>, not " + pair);
+                    options.Zones[atoi(pair.substr(0, colon).c_str())] = atoi(pair.substr(colon + 1).c_str());
+                }
+                else if (flag == "--matrix-template") options.MatrixTemplate = (size_t)number(++i);
+                else if (flag == "--model-matrix") options.ModelMatrix = number(++i);
+                else if (flag == "--plan") options.PlanOnly = true;
+                else { fprintf(stderr, "unknown option %s\n", flag.c_str()); return 2; }
+            }
+            const NdsRom platinum(ReadFile(argv[2]));
+            N3dsRom oras(argv[3]);
+            for (const std::string& line : BuildOrasRegion(platinum, oras, options)) printf("%s%s", line.c_str(), !line.empty() && line.back() == '\n' ? "" : "\n");
+            if (!options.PlanOnly) printf("mod written under %s: copy its load folder into the 3DS folder (Pomegrade/3DS)\n", options.OutDir.c_str());
             return 0;
         }
         // decrypted 3DS game images

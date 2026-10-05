@@ -126,6 +126,16 @@ int main()
         bool refused = false;
         try { ReplaceMember(out, original, 0, Lz11Compress(changed), "ZO"); } catch (const FormatError&) { refused = true; }
         check(refused, "a member compressed before the call (it would be compressed twice) is refused");
+
+        // appended: a new last member, compressed as the member it is modelled on
+        const size_t added = AppendMember(out, original, 0, changed, "ZO");
+        const Garc grown(out.Write());
+        check(added == 2 && grown.Count() == 3 && IsLzCompressed(grown.Sub(2)) && LzDecompress(grown.Sub(2)) == changed, "an appended member is the last, compressed once like its model");
+        AppendMember(out, original, 1, Bytes{'Z', 'O', 8}, "ZO");
+        check(Garc(out.Write()).Sub(3) == Bytes({'Z', 'O', 8}), "appended after an uncompressed model, it stays uncompressed");
+        refused = false;
+        try { AppendMember(out, original, 0, Lz11Compress(changed), "ZO"); } catch (const FormatError&) { refused = true; }
+        check(refused, "an already compressed member is refused when appended too");
     }
 
     // design rules: a texture the area pack lacks is an error, the budget is a warning

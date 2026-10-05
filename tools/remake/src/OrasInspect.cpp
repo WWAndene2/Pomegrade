@@ -5,6 +5,7 @@
 #include "BinLinker.h"
 #include "Garc.h"
 #include "NitroCompression.h"
+#include "OrasMatrix.h"
 #include "OrasZone.h"
 
 #include <algorithm>
@@ -370,6 +371,20 @@ std::string VerifyGame(N3dsRom& game, bool& ok)
         }
         s += F("map pieces: %d of %d GR containers have a readable terrain model\n", read, total);
         ok = ok && read == total;
+    }
+    // map matrices: read and written back byte for byte (OrasMatrix, which oras-region writes its matrix with)
+    {
+        const Garc matrices(game.Read("a/0/4/0"));
+        int total = 0, same = 0;
+        for (size_t i = 0; i < matrices.Count(); i++)
+        {
+            if (!matrices.Has(i)) continue;
+            const Bytes data = Plain(matrices.Sub(i));
+            total++;
+            try { same += OrasMatrix::Read(data).Write() == data; } catch (const FormatError&) {}
+        }
+        s += F("map matrices: %d of %d rewritten identically\n", same, total);
+        ok = ok && same == total;
     }
     s += ok ? "all checks passed\n" : "SOME CHECKS FAILED\n";
     return s;

@@ -35,6 +35,18 @@ void ReplaceMember(Garc& archive, const Garc& original, size_t index, const Byte
     if (back != plain) throw FormatError("member " + std::to_string(index) + " does not read back identical");
 }
 
+size_t AppendMember(Garc& archive, const Garc& original, size_t like, const Bytes& plain, const std::string& tag)
+{
+    if (plain.size() < tag.size() || Text(plain, 0, tag.size()) != tag)
+        throw FormatError("the appended member is not a " + tag + " container (already compressed?)");
+    const size_t index = archive.Count();
+    archive.Set(index, IsLzCompressed(original.Sub(like)) ? Lz11Compress(plain) : plain);
+    Bytes back = Garc(archive.Write()).Sub(index);
+    if (IsLzCompressed(back)) back = LzDecompress(back);
+    if (back != plain) throw FormatError("appended member " + std::to_string(index) + " does not read back identical");
+    return index;
+}
+
 // the zone's warps moved onto the new doors (an entry holds the zone matrix's pixel position of a tile, (tile + 0.5) * 18, as its
 // u16 words 4 and 6: OrasZone.h), and, with AddWarps, one more warp per door the zone has none for: a copy of its last warp
 // (same destination zone and other words), inserted after the warps, the events file's size and warp count raised to match;
@@ -78,8 +90,8 @@ static Bytes MoveZoneWarps(const Bytes& zoneData, const OrasTownOptions& o, cons
 // Textures of another area pack added to this one, under their own names (the pack's existing textures are untouched: other pieces of the
 // area keep theirs). A wanted name the pack already holds with other content gets a suffix. The pack's main texture file (slot 11) is
 // rewritten with BchWriteTextureFile; the result says each wanted name's final name, empty when the other pack has no such texture.
-static Bytes ImportTextures(const Bytes& packData, const Bytes& fromData, size_t fromIndex, const std::vector<std::string>& wanted,
-                            std::map<std::string, std::string>& finalName, std::vector<std::string>& log)
+Bytes ImportTextures(const Bytes& packData, const Bytes& fromData, size_t fromIndex, const std::vector<std::string>& wanted,
+                     std::map<std::string, std::string>& finalName, std::vector<std::string>& log)
 {
     BinLinker pack = BinLinker::Read(packData, "AD");
     if (pack.Write() != packData) throw FormatError("the area pack does not rewrite identical");
@@ -116,14 +128,17 @@ static Bytes ImportTextures(const Bytes& packData, const Bytes& fromData, size_t
     return pack.Write();
 }
 
-// A texture made here, added to the pack's main texture file (slot 11) under its name, the pack's own textures untouched
+// A texture made here, added to the pack's main texture file (slot 11) under its name, the pack's own textures untouched (unchanged
+// when the pack already holds this very texture)
 static Bytes AddTexture(const Bytes& packData, const BchTextureSource& added, std::vector<std::string>& log)
 {
     BinLinker pack = BinLinker::Read(packData, "AD");
     std::vector<BchTextureSource> all;
     for (const BchTexture& t : Bch::Read(pack.Files.at(11)).Textures)
     {
-        if (t.Name == added.Name) throw FormatError("the area pack already holds a texture named " + added.Name);
+        // the same texture made for an earlier piece of the same pack (oras-region): already there
+        if (t.Name == added.Name && t.Width == added.Width && t.Height == added.Height && t.Format == added.Format && t.Data == added.Data) return packData;
+        if (t.Name == added.Name) throw FormatError("the area pack already holds another texture named " + added.Name);
         all.push_back({t.Name, t.Width, t.Height, t.Format, t.Data});
     }
     all.push_back(added);
@@ -132,37 +147,52 @@ static Bytes AddTexture(const Bytes& packData, const BchTextureSource& added, st
     return pack.Write();
 }
 
-OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTownOptions& o)
+PieceBudget GamePieceBudget(const Garc& pieceArchive)
 {
-    OrasTownResult result;
-    const PlatinumWorld world(platinum, o.Matrix);
-    result.Layout = TownLayout::Read(world, o.Left, o.Top);
-    for (const auto& [name, count] : result.Layout.UnknownTextures)
-        result.Log.push_back("texture without a role: " + name + " (" + std::to_string(count) + " tiles), treated as grass: add it to TownLayout.cpp");
+    PieceBudget original;
+    for (size_t i = 0; i < pieceArchive.Count(); i++)
+    {
+        if (!pieceArchive.Has(i)) continue;
+        try
+        {
+            const Bytes raw = Plain(pieceArchive.Sub(i));
+            if (raw.size() < 2 || raw[0] != 'G' || raw[1] != 'R') continue;
+            const Bch bch = Bch::Read(BinLinker::Read(raw, "GR").Files.at(1)); // kept alive while its meshes are walked
+            size_t vertices = 0;
+            for (const BchMesh& m : bch.Models.at(0).Meshes) vertices += m.Vertices.size();
+            original.MaxVertices = std::max(original.MaxVertices, vertices);
+            original.MaxFileBytes = std::max(original.MaxFileBytes, raw.size());
+        }
+        catch (const FormatError&) {} // a piece that does not read does not set the bound
+    }
+    return original;
+}
+
+Bytes BuildTownPiece(const TownLayout& layout, const OrasTownOptions& o, const Garc& pieceArchive, const Garc& areaArchive, const PieceBudget& budget,
+                     int cellX, int cellY, const std::string& modelName, Bytes& areaPack, std::vector<std::string>& log)
+{
+    for (const auto& [name, count] : layout.UnknownTextures)
+        log.push_back("texture without a role: " + name + " (" + std::to_string(count) + " tiles), treated as grass: add it to TownLayout.cpp");
 
     // the three ORAS pieces
-    const Bytes pieces = oras.Read("a/0/3/9");
-    const Garc pieceArchive(pieces);
     auto piece = [&](size_t i) { return Plain(pieceArchive.Sub(i)); };
     TownSources sources;
     sources.Target = piece(o.TargetPiece); sources.Donor = piece(o.DonorPiece); sources.Trees = piece(o.TreePiece);
-    sources.CellX = o.CellX; sources.CellY = o.CellY;
+    sources.CellX = cellX; sources.CellY = cellY;
+    sources.ModelName = modelName;
 
     // the grass: Littleroot's textures, added to the area pack under their own names (none when it is Littleroot's), and shown by the ground's materials
-    const Bytes areas = oras.Read("a/0/1/4");
-    const Garc areaArchive(areas);
-    Bytes areaPack = Plain(areaArchive.Sub(o.AreaPack));
     if (o.GrassPack >= 0)
     {
         std::map<std::string, std::string> finalName;
-        areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub((size_t)o.GrassPack)), (size_t)o.GrassPack, {"chip_kusa_a", "chip_kusa_b", "chip_grass_edge"}, finalName, result.Log);
+        areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub((size_t)o.GrassPack)), (size_t)o.GrassPack, {"chip_kusa_a", "chip_kusa_b", "chip_grass_edge"}, finalName, log);
         sources.TargetGrass = !finalName["chip_kusa_a"].empty() && !finalName["chip_kusa_b"].empty() && !finalName["chip_grass_edge"].empty();
         sources.GroundTexture = finalName["chip_kusa_a"]; sources.LightTexture = finalName["chip_kusa_b"]; sources.EdgeTexture = finalName["chip_grass_edge"];
     }
     if (o.SnowPack >= 0)
     {
         std::map<std::string, std::string> finalName;
-        areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub((size_t)o.SnowPack)), (size_t)o.SnowPack, {"chip_icedoukutsu02"}, finalName, result.Log);
+        areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub((size_t)o.SnowPack)), (size_t)o.SnowPack, {"chip_icedoukutsu02"}, finalName, log);
         sources.SnowTexture = finalName["chip_icedoukutsu02"];
     }
     if (o.SnowClumps && !sources.SnowTexture.empty())
@@ -185,16 +215,16 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
                     const uint8_t* q = &white[((size_t)(y % snow->Height) * snow->Width + x % snow->Width) * 4];
                     p[0] = q[0]; p[1] = q[1]; p[2] = q[2];
                 }
-            areaPack = AddTexture(areaPack, {"snow_clump", shapes->Width, shapes->Height, 0, PicaTextureEncodeRgba8(rgba, shapes->Width, shapes->Height)}, result.Log);
+            areaPack = AddTexture(areaPack, {"snow_clump", shapes->Width, shapes->Height, 0, PicaTextureEncodeRgba8(rgba, shapes->Width, shapes->Height)}, log);
             sources.SnowClumpTexture = "snow_clump";
         }
-        else result.Log.push_back("snow clumps: chip_alpha or chip_icedoukutsu02 not found, none laid");
+        else log.push_back("snow clumps: chip_alpha or chip_icedoukutsu02 not found, none laid");
     }
     if (o.PondWall == 1)
     {
         // chip_gake_b (256 rows): its grass lip from row 140, stones below; the wall shows rows 140 to 204
         std::map<std::string, std::string> finalName;
-        areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub(8)), 8, {"chip_gake_b"}, finalName, result.Log);
+        areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub(8)), 8, {"chip_gake_b"}, finalName, log);
         sources.BankTexture = finalName["chip_gake_b"];
         sources.BankV[0] = 140.0f / 256; sources.BankV[1] = 204.0f / 256;
     }
@@ -202,12 +232,12 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
     if (o.FencePack >= 0)
     {
         std::map<std::string, std::string> finalName;
-        areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub((size_t)o.FencePack)), (size_t)o.FencePack, {"c103_saku"}, finalName, result.Log);
+        areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub((size_t)o.FencePack)), (size_t)o.FencePack, {"c103_saku"}, finalName, log);
         sources.FenceTexture = finalName["c103_saku"];
     }
     sources.TreeReach = o.TreeReach;
     sources.DoorType = o.DoorType;
-    Bytes town = o.DonorAsIs ? sources.Donor : BuildTown(result.Layout, sources, &result.Log);
+    Bytes town = o.DonorAsIs ? sources.Donor : BuildTown(layout, sources, &log);
     if ((o.PieceFiles & 0x7F) != 0x7F)
     {
         const BinLinker own = BinLinker::Read(sources.Target, "GR");
@@ -216,16 +246,16 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
         for (size_t f = 0; f < gr.Files.size() && f < own.Files.size(); f++)
             if (!(o.PieceFiles >> f & 1)) { gr.Files[f] = own.Files[f]; kept += (kept.empty() ? "" : ", ") + std::to_string(f); }
         town = gr.Write();
-        result.Log.push_back("piece: the target's own file(s) " + kept + " kept");
+        log.push_back("piece: the target's own file(s) " + kept + " kept");
     }
     if (o.PadPiece)
     {
         BinLinker gr = BinLinker::Read(town, "GR");
         gr.Files.at(1).resize(gr.Files.at(1).size() + o.PadPiece, 0);
         town = gr.Write();
-        result.Log.push_back("piece: " + std::to_string(o.PadPiece) + " zero bytes appended to its terrain model");
+        log.push_back("piece: " + std::to_string(o.PadPiece) + " zero bytes appended to its terrain model");
     }
-    if (o.DonorAsIs) result.Log.push_back("piece: the donor's, as it is in the game");
+    if (o.DonorAsIs) log.push_back("piece: the donor's, as it is in the game");
 
     // the donor's textures the piece names and the area pack lacks, added to it when it is not the donor's own pack (a name the
     // pack already holds keeps the pack's texture: Littleroot's chip_mado, shadow1, ... over Petalburg's)
@@ -243,47 +273,46 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
         }
         std::map<std::string, std::string> finalName;
         if (!wanted.empty())
-            areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub(o.DonorPack)), o.DonorPack, {wanted.begin(), wanted.end()}, finalName, result.Log);
+            areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub(o.DonorPack)), o.DonorPack, {wanted.begin(), wanted.end()}, finalName, log);
     }
-    result.PieceBytes = town.size();
 
     // design rules (TownCheck.h): the textures the piece names must be in the area pack it will use; the size against the game's largest piece
     {
         std::set<std::string> available;
         for (const Bytes& f : BinLinker::Read(areaPack, "AD").Files)
             if (Bch::Is(f)) for (const BchTexture& t : Bch::Read(f).Textures) available.insert(t.Name);
-        PieceBudget original;
-        for (size_t i = 0; i < pieceArchive.Count(); i++)
-        {
-            if (!pieceArchive.Has(i)) continue;
-            try
-            {
-                const Bytes raw = Plain(pieceArchive.Sub(i));
-                if (raw.size() < 2 || raw[0] != 'G' || raw[1] != 'R') continue;
-                const Bch bch = Bch::Read(BinLinker::Read(raw, "GR").Files.at(1)); // kept alive while its meshes are walked
-                size_t vertices = 0;
-                for (const BchMesh& m : bch.Models.at(0).Meshes) vertices += m.Vertices.size();
-                original.MaxVertices = std::max(original.MaxVertices, vertices);
-                original.MaxFileBytes = std::max(original.MaxFileBytes, raw.size());
-            }
-            catch (const FormatError&) {} // a piece that does not read does not set the bound
-        }
         const BchModel model = Bch::Read(BinLinker::Read(town, "GR").Files.at(1)).Models.at(0);
         size_t vertices = 0;
         for (const BchMesh& m : model.Meshes) vertices += m.Vertices.size();
-        result.Log.push_back("design rules: " + std::to_string(available.size()) + " textures in the area pack; piece " + std::to_string(town.size()) + " bytes, " + std::to_string(vertices) +
-                             " vertices (the game's largest piece: " + std::to_string(original.MaxFileBytes) + " bytes, " + std::to_string(original.MaxVertices) + " vertices)");
+        log.push_back("design rules: " + std::to_string(available.size()) + " textures in the area pack; piece " + std::to_string(town.size()) + " bytes, " + std::to_string(vertices) +
+                      " vertices (the game's largest piece: " + std::to_string(budget.MaxFileBytes) + " bytes, " + std::to_string(budget.MaxVertices) + " vertices)");
         std::vector<TownIssue> issues = CheckMaterials(model, available);
         for (const TownIssue& i : CheckLayout(BinLinker::Read(town, "GR").Files.at(0), BinLinker::Read(town, "GR").Files.at(3))) issues.push_back(i);
-        for (const TownIssue& i : CheckBudget(model, town.size(), original)) issues.push_back(i);
+        for (const TownIssue& i : CheckBudget(model, town.size(), budget)) issues.push_back(i);
         std::string refusal;
         for (const TownIssue& i : issues)
         {
-            result.Log.push_back(std::string(i.Error ? "ERROR: " : "warning: ") + i.Text);
+            log.push_back(std::string(i.Error ? "ERROR: " : "warning: ") + i.Text);
             if (i.Error) refusal += (refusal.empty() ? "" : "; ") + i.Text;
         }
         if (!refusal.empty() && !o.AllowErrors) throw FormatError("the piece breaks a design rule, no mod written (--allow-errors to write it anyway): " + refusal);
     }
+
+    return town;
+}
+
+OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTownOptions& o)
+{
+    OrasTownResult result;
+    const PlatinumWorld world(platinum, o.Matrix);
+    result.Layout = TownLayout::Read(world, o.Left, o.Top);
+    const Bytes pieces = oras.Read("a/0/3/9");
+    const Garc pieceArchive(pieces);
+    const Bytes areas = oras.Read("a/0/1/4");
+    const Garc areaArchive(areas);
+    Bytes areaPack = Plain(areaArchive.Sub(o.AreaPack));
+    const Bytes town = BuildTownPiece(result.Layout, o, pieceArchive, areaArchive, GamePieceBudget(pieceArchive), o.CellX, o.CellY, "", areaPack, result.Log);
+    result.PieceBytes = town.size();
 
     Garc newPieces(pieces);
     ReplaceMember(newPieces, pieceArchive, o.TargetPiece, town, "GR");

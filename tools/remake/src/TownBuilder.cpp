@@ -780,7 +780,8 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     // the outline's material (3, chip_grass_decolate) shows r120_alpha, in area pack 9, in place of touka_alpha
     // the terrain model's name tells its place (world<matrix>_<x>_<y>): Petalburg's world02_02_03 becomes
     // Littleroot's world01_02_04, every copy (model and nodes)
-    Bytes terrain = BchReplaceString(BchReplaceGeometry(petalTerrain, 0, list), pm.Name, Bch::Read(BinLinker::Read(lr, "GR").Files[1]).Models[0].Name);
+    Bytes terrain = BchReplaceString(BchReplaceGeometry(petalTerrain, 0, list), pm.Name,
+                                     src.ModelName.empty() ? Bch::Read(BinLinker::Read(lr, "GR").Files[1]).Models[0].Name : src.ModelName);
     auto show = [&](size_t mesh, int slot, const std::string& texture) {
         const BchMaterial& m = pm.Materials[pm.Meshes[mesh].Material];
         if (!texture.empty() && m.Texture[slot] != texture) terrain = BchSetTextureName(terrain, 0, pm.Meshes[mesh].Material, slot, texture);

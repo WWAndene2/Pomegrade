@@ -1,6 +1,6 @@
 name: Remake mod
 
-# Builds Pokemon remake mods (tools/remake, `remake_tool oras-town`) from the owner's game dumps, for testing on the
+# Builds Pokemon remake mods (tools/remake, `remake_tool oras-town` and `oras-region`) from the owner's game dumps, for testing on the
 # phone. Manual runs only. The dumps are never committed: GitHub's runners fetch them from the owner's Google Drive
 # (files shared by link, ids in the secrets ORAS_DRIVE_ID and PLATINUM_DRIVE_ID), and an Actions cache keeps them
 # between runs (evicted after 7 days unused, then fetched again). Only the mods' BPS patches leave the runner.
@@ -8,12 +8,12 @@ on:
   workflow_dispatch:
     inputs:
       variants:
-        description: 'One mod per line, "name: oras-town options" (no options = the defaults) or "name: append unused|piece|matrix|zone"'
+        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"'
         default: |
           v24:
         required: true
       inspect:
-        description: 'One query per line: oras-inspect arguments ("matrix 1", "zones 0") or "world N" for Platinum matrix N as ORAS pieces'
+        description: 'One query per line: oras-inspect arguments ("matrix 1", "zones 0"), "world N" (Platinum matrix N as ORAS pieces), "region <oras-region options>" (its plan), "verify" or "platinum-zones"'
         default: ''
         required: false
 
@@ -85,6 +85,10 @@ jobs:
             if [[ "$options" == *"append "* ]]; then
               # "name: append unused|piece|matrix|zone": the archive-member tests of oras-append-test
               ./build-remake/remake_tool oras-append-test dumps/oras.3ds "out/$name" ${options#*append } | tee "mods/${name}_log.txt"
+            elif [[ "$options" == *"region "* ]]; then
+              # "name: region --rect L T W H --zone H:Z ...": a new matrix of rebuilt pieces (oras-region)
+              ./build-remake/remake_tool oras-region dumps/platinum.nds dumps/oras.3ds "out/$name" ${options#*region } | tee "mods/${name}_log.txt"
+              cp "out/$name/region_plan.txt" "mods/${name}_plan.txt"
             else
               ./build-remake/remake_tool oras-town dumps/platinum.nds dumps/oras.3ds "out/$name" $options | tee "mods/${name}_log.txt"
               grep '^door' "out/$name/town_layout.txt" || true   # Platinum's doors and the zones they lead to
@@ -110,6 +114,9 @@ jobs:
               # "world N": Platinum's matrix N laid out as ORAS pieces (oras-world)
               world\ *) ./build-remake/remake_tool oras-world dumps/platinum.nds ${query#world } "out/world_$n" | tee "mods/inspect_$n.txt" ;;
               platinum-zones) ./build-remake/remake_tool platinum-zones dumps/platinum.nds | tee "mods/inspect_$n.txt" ;;
+              # "region <options>": which Platinum map header each zone block of the rectangle holds (oras-region --plan)
+              region\ *) ./build-remake/remake_tool oras-region dumps/platinum.nds dumps/oras.3ds "out/region_$n" ${query#region } --plan | tee "mods/inspect_$n.txt" ;;
+              verify) ./build-remake/remake_tool oras-verify dumps/oras.3ds | tee "mods/inspect_$n.txt" ;;
               *) ./build-remake/remake_tool oras-inspect dumps/oras.3ds $query | tee "mods/inspect_$n.txt" ;;
             esac
             echo "::endgroup::"
