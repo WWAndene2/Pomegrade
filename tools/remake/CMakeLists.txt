@@ -48,3 +48,12 @@ target_include_directories(remake PUBLIC src PRIVATE ${MELONDS_SRC})
 
 add_executable(remake_tool src/RemakeTool.cpp)
 target_link_libraries(remake_tool PRIVATE remake)
+
+# The Sinnoh test mod's prototypes (Twinleaf over Littleroot): off by default, see prototype/README.md
+option(REMAKE_PROTOTYPES "Build the remake prototypes in prototype/" OFF)
+if(REMAKE_PROTOTYPES)
+    foreach(prototype TwinleafBuild ZoneWarps SliceGarc BpsMake PiecePreview)
+        add_executable(${prototype} prototype/${prototype}.cpp)
+        target_link_libraries(${prototype} PRIVATE remake)
+    endforeach()
+endif()
