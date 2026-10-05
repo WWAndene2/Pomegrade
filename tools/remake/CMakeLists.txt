@@ -35,6 +35,7 @@ add_library(remake STATIC
     src/PlatinumWorld.cpp
     src/TerrainScan.cpp
     src/TownLayout.cpp
+    src/TownShapes.cpp
     src/TownBuilder.cpp
     src/OrasTown.cpp
     src/MapHeaders.cpp

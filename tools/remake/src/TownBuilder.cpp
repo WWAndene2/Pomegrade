@@ -1,6 +1,7 @@
 #include "TownBuilder.h"
 #include "BchWriter.h"
 #include "BinLinker.h"
+#include "TownShapes.h"
 
 #include <algorithm>
 #include <array>
@@ -153,86 +154,110 @@ static void BanksFine(BchGeometry& g, const std::vector<std::string>& water2)
 }
 
 
-// The grass's soft edge around a zone (its outline): a strip on every half-tile edge where the zone meets the grass,
-// 9 units wide on the grass's side, 0.3 above the ground, with the width, height, texture band and wobble that Littleroot's
-// chip_grass_decolate mesh has (measured). The blades are chip_alpha's grass band (rows 38-60 of 128): the roots (v 0.496,
-// the grass's colour) on the zone's edge, the tips (v 0.302, white) outside, pointing away from the zone. (Littleroot's own
-// strips put the tips on the zone's edge; the owner asked for them pointing outward, from the game's screenshot.) u advances
-// 0.0245 a unit, running from the edge's end to its start (mirrored along x, as the owner asked), so two half tiles span the band (u 0.046-0.453). Each corner moves up to 2 units along the
-// edge's normal (a fixed hash of its position), as Littleroot's strips wander.
-template <typename Light, typename Dark>
-static void GrassFringe(BchGeometry& g, int M, Light zone, Dark grassBeside, const float tip[4], const float root[4])
+// A zone's rounded fill (TownShapes) as ground triangles at a height, textured by the plane as the game's ground
+// (u = x/72, v = -z/72). Corners shared by triangles are one vertex.
+static void AddFill(BchGeometry& g, const ZoneShape& shape, float y, const float colour[4])
 {
-    const float cell = T / 2, width = 9.0f;
-    auto at = [&](int c) { return c * cell - 360; };
-    auto wobble = [](float x, float z) { uint32_t h = (uint32_t)(int)(x * 7 + 1000) * 2654435761u ^ (uint32_t)(int)(z * 13 + 1000) * 40503u; return ((h >> 8) % 401) / 100.0f - 2.0f; };
-    // the edge from (x0, z0) to (x1, z1); the main grass lies towards (nx, nz); k alternates the half of the band used
-    auto strip = [&](float x0, float z0, float x1, float z1, float nx, float nz, int k) {
-        const uint32_t base = (uint32_t)g.Vertices.size();
-        const float ends[2][2] = {{x0, z0}, {x1, z1}};
-        const float u0 = 0.046f + 0.2035f * (k & 1);
-        for (int e = 0; e < 2; e++)
-            for (int side = 0; side < 2; side++)
-            {
-                const float off = side ? width : 0.0f, w = wobble(ends[e][0], ends[e][1]);
-                BchVertex v;
-                v.Position[0] = ends[e][0] + nx * (off + w); v.Position[1] = 0.3f; v.Position[2] = ends[e][1] + nz * (off + w);
-                v.TexCoord[0] = u0 + (e ? 0.0f : 0.2035f); v.TexCoord[1] = side ? 0.302f : 0.496f; // u runs against the edge: the blades mirrored, as the owner asked
-                std::copy(side ? tip : root, (side ? tip : root) + 4, v.Colour);
-                g.Vertices.push_back(v);
-            }
-        const float cross = (x1 - x0) * nz - (z1 - z0) * nx;
-        if (cross > 0) for (uint32_t i : {0u, 2u, 3u, 0u, 3u, 1u}) g.Triangles.push_back(base + i);
-        else for (uint32_t i : {0u, 3u, 2u, 0u, 1u, 3u}) g.Triangles.push_back(base + i);
+    std::map<std::pair<int, int>, uint32_t> corner;
+    auto vertex = [&](const ShapePoint& p) {
+        const std::pair<int, int> key{(int)std::lround(p.X * 100), (int)std::lround(p.Z * 100)};
+        auto it = corner.find(key);
+        if (it != corner.end()) return it->second;
+        BchVertex v;
+        v.Position[0] = p.X; v.Position[1] = y; v.Position[2] = p.Z;
+        v.TexCoord[0] = p.X / 72.0f; v.TexCoord[1] = -p.Z / 72.0f;
+        std::copy(colour, colour + 4, v.Colour);
+        const uint32_t i = (uint32_t)g.Vertices.size();
+        g.Vertices.push_back(v);
+        return corner[key] = i;
     };
-    auto ok = [&](int c, int r) { return c >= 0 && r >= 0 && c < M && r < M; };
-    for (int r = 0; r < M; r++)
-        for (int c = 0; c < M; c++)
-        {
-            if (!zone(c, r)) continue;
-            const int k = c + r;
-            if (ok(c, r - 1) && grassBeside(c, r - 1)) strip(at(c), at(r), at(c + 1), at(r), 0, -1, k);
-            if (ok(c, r + 1) && grassBeside(c, r + 1)) strip(at(c), at(r + 1), at(c + 1), at(r + 1), 0, 1, k);
-            if (ok(c - 1, r) && grassBeside(c - 1, r)) strip(at(c), at(r), at(c), at(r + 1), -1, 0, k);
-            if (ok(c + 1, r) && grassBeside(c + 1, r)) strip(at(c + 1), at(r), at(c + 1), at(r + 1), 1, 0, k);
-        }
-}
+    for (const auto& t : shape.Fill) for (const ShapePoint& p : t) g.Triangles.push_back(vertex(p));
 }
 
-// The rim of the playable ground, as Littleroot lays it (its chip_edge_tex mesh, measured): a strip on every tile edge
-// where walkable ground meets the solid trees and forest around it, 18 units a tile, 9 wide on the solid side, rising
-// from 1 at the edge to 3.5 outside, in the rim's blue-green. The texture is projected by the material (chip_grass_edge,
-// from the stored positions), so the coordinates are Littleroot's own.
-static void GroundRim(BchGeometry& g, const std::vector<std::string>& coll, const std::vector<std::string>& vis)
+// The grass's soft edge around a zone (its outline), laid on the zone's rounded border, centred on it: 9 units wide, 4.5 into
+// the zone and 4.5 out, 0.3 above the ground, with Littleroot's chip_grass_decolate mesh's width, height and texture band
+// (measured). The blades are chip_alpha's grass band (rows 38-60 of 128): the tips (v 0.302, white) into the zone, the roots
+// (v 0.496, the grass's colour) out on the grass, so the grass's edge is jagged and runs on beyond it. u advances 0.0245 a
+// unit along the border, wrapping inside the band (u 0.046-0.453), the strip cut where it wraps.
+static void AddOutline(BchGeometry& g, const ShapeChain& chain, const float tip[4], const float root[4])
+{
+    const float half = 4.5f, perUnit = 0.0245f, lo = 0.046f, span = 0.407f;
+    float s = 0;
+    const size_t n = chain.Points.size();
+    const size_t last = chain.Closed ? n : n - 1;
+    auto vertex = [&](const ShapePoint& p, const ShapePoint& nrm, bool tipSide, float u) {
+        BchVertex v;
+        const float off = tipSide ? -half : half;
+        v.Position[0] = p.X + nrm.X * off; v.Position[1] = 0.3f; v.Position[2] = p.Z + nrm.Z * off;
+        v.TexCoord[0] = u; v.TexCoord[1] = tipSide ? 0.302f : 0.496f;
+        std::copy(tipSide ? tip : root, (tipSide ? tip : root) + 4, v.Colour);
+        g.Vertices.push_back(v);
+    };
+    for (size_t i = 0; i < last; i++)
+    {
+        const ShapePoint &a = chain.Points[i], &b = chain.Points[(i + 1) % n], &na = chain.Normals[i], &nb = chain.Normals[(i + 1) % n];
+        const float length = std::hypot(b.X - a.X, b.Z - a.Z);
+        if (length < 1e-4f) continue;
+        float at = 0; // along this segment
+        while (at < length - 1e-5f)
+        {
+            // up to where the texture band wraps or the segment ends
+            const float u0 = lo + std::fmod((s + at) * perUnit, span);
+            const float toWrap = (lo + span - u0) / perUnit;
+            const float to = std::min(length, at + std::max(toWrap, 1e-3f));
+            auto lerp = [&](float x, float y2, float t) { return x + (y2 - x) * t; };
+            auto along = [&](float d, ShapePoint& p, ShapePoint& nrm) {
+                const float t = d / length;
+                p = {lerp(a.X, b.X, t), lerp(a.Z, b.Z, t)};
+                nrm = {lerp(na.X, nb.X, t), lerp(na.Z, nb.Z, t)};
+                const float m = std::hypot(nrm.X, nrm.Z);
+                if (m > 1e-6f) { nrm.X /= m; nrm.Z /= m; }
+            };
+            ShapePoint p0, n0, p1, n1;
+            along(at, p0, n0); along(to, p1, n1);
+            const uint32_t base = (uint32_t)g.Vertices.size();
+            const float u1 = u0 + (to - at) * perUnit;
+            vertex(p0, n0, true, u0); vertex(p0, n0, false, u0); vertex(p1, n1, true, u1); vertex(p1, n1, false, u1);
+            // facing up, as the ground (see the quads': a, e, d / a, d, b); the zone is on the tips' side
+            const float cross = (p1.X - p0.X) * n0.Z - (p1.Z - p0.Z) * n0.X;
+            if (cross > 0) for (uint32_t k : {0u, 2u, 3u, 0u, 3u, 1u}) g.Triangles.push_back(base + k);
+            else for (uint32_t k : {0u, 3u, 2u, 0u, 1u, 3u}) g.Triangles.push_back(base + k);
+            at = to;
+        }
+        s += length;
+    }
+}
+
+// The rim of the playable ground, as Littleroot lays it (its chip_edge_tex mesh, measured): a strip along the border where
+// walkable ground meets the solid trees and forest around it (the border of the rounded walkable zone), 9 units wide on
+// the solid side, rising from 1 at the border to 3.5 outside, in the rim's blue-green. The texture is projected by the
+// material (chip_grass_edge, from the stored positions), so the coordinates are Littleroot's own.
+static void AddRim(BchGeometry& g, const ShapeChain& chain)
 {
     const float colour[4] = {0.26f, 0.75f, 0.87f, 1.0f};
-    auto walkable = [&](int c, int r) { return c >= 0 && r >= 0 && c < N && r < N && coll[r][c] != '#' && coll[r][c] != '~'; };
-    auto wall = [&](int c, int r) { return c >= 0 && r >= 0 && c < N && r < N && coll[r][c] == '#' && (vis[r][c] == 't' || vis[r][c] == 'T'); };
-    auto strip = [&](float x0, float z0, float x1, float z1, float nx, float nz) {
+    const size_t n = chain.Points.size();
+    const size_t last = chain.Closed ? n : n - 1;
+    for (size_t i = 0; i < last; i++)
+    {
+        const ShapePoint &a = chain.Points[i], &b = chain.Points[(i + 1) % n], &na = chain.Normals[i], &nb = chain.Normals[(i + 1) % n];
+        if (std::hypot(b.X - a.X, b.Z - a.Z) < 1e-4f) continue;
         const uint32_t base = (uint32_t)g.Vertices.size();
-        const float ends[2][2] = {{x0, z0}, {x1, z1}};
+        const ShapePoint ends[2] = {a, b}, normals[2] = {na, nb};
         for (int e = 0; e < 2; e++)
             for (int side = 0; side < 2; side++)
             {
                 BchVertex v;
-                v.Position[0] = ends[e][0] + nx * 9.0f * side; v.Position[1] = side ? 3.5f : 1.0f; v.Position[2] = ends[e][1] + nz * 9.0f * side;
+                v.Position[0] = ends[e].X + normals[e].X * 9.0f * side; v.Position[1] = side ? 3.5f : 1.0f; v.Position[2] = ends[e].Z + normals[e].Z * 9.0f * side;
                 v.TexCoord[0] = e ? -1.0f : -1.5f; v.TexCoord[1] = side ? 1.0f : 0.75f;
                 std::copy(colour, colour + 4, v.Colour);
                 g.Vertices.push_back(v);
             }
-        const float cross = (x1 - x0) * nz - (z1 - z0) * nx;
-        if (cross > 0) for (uint32_t i : {0u, 2u, 3u, 0u, 3u, 1u}) g.Triangles.push_back(base + i);
-        else for (uint32_t i : {0u, 3u, 2u, 0u, 1u, 3u}) g.Triangles.push_back(base + i);
-    };
-    for (int r = 0; r < N; r++)
-        for (int c = 0; c < N; c++)
-        {
-            if (!walkable(c, r)) continue;
-            if (wall(c, r - 1)) strip(X(c), Z(r), X(c + 1), Z(r), 0, -1);
-            if (wall(c, r + 1)) strip(X(c), Z(r + 1), X(c + 1), Z(r + 1), 0, 1);
-            if (wall(c - 1, r)) strip(X(c), Z(r), X(c), Z(r + 1), -1, 0);
-            if (wall(c + 1, r)) strip(X(c + 1), Z(r), X(c + 1), Z(r + 1), 1, 0);
-        }
+        const float cross = (b.X - a.X) * na.Z - (b.Z - a.Z) * na.X;
+        if (cross > 0) for (uint32_t k : {0u, 2u, 3u, 0u, 3u, 1u}) g.Triangles.push_back(base + k);
+        else for (uint32_t k : {0u, 3u, 2u, 0u, 1u, 3u}) g.Triangles.push_back(base + k);
+    }
+}
+
 }
 
 // Loose decals on the open grass, as Littleroot scatters them (square quads of chip_alpha, 0.2 above the ground): a patch
@@ -383,28 +408,41 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     // the pond's frame (f) is grass: Platinum has no sand around its pond
     if (ownGrass)
     {
-        // the main grass on the open ground, the lighter grass on Platinum's pale patches
+        // Zones with rounded corners: the lighter grass patches and the paths are cut from a blurred mask (TownShapes) and
+        // laid just over a main grass that covers the whole open ground, so a rounded corner shows grass, not a hole
+        const int M = 2 * N;
         auto open = [&](int c, int r, const char* classes) { return path2[r][c] != ':' && water2[r][c] != '~' && std::string(classes).find(fineVis(c, r)) != std::string::npos; };
-        FlatFine(geo[Ground], 2, [&](int c, int r) { return open(c, r, ".*HtF:f~"); }, 0, grass);
-        FlatFine(geo[Pale], 2, [&](int c, int r) { return open(c, r, "s"); }, 0, white);
-        // the soft edge (outline) of the lighter patches and of the paths, over the main grass beside them (and, for the
-        // paths, over the lighter patches too)
-        const float tip[4] = {1, 1, 1, 1};
         auto lightGrass = [&](int c, int r) { return open(c, r, "s"); };
-        auto mainGrass = [&](int c, int r) { return open(c, r, ".*HtF:f~"); };
         auto path = [&](int c, int r) { return path2[r][c] == ':' && water2[r][c] != '~'; };
-        auto grassOrLight = [&](int c, int r) { return mainGrass(c, r) || lightGrass(c, r); };
-        GrassFringe(geo[Outline], 2 * N, lightGrass, mainGrass, tip, grass);
-        GrassFringe(geo[Outline], 2 * N, path, grassOrLight, tip, grass);
-        GroundRim(geo[Edge], coll, vis);
+        FlatFine(geo[Ground], 2, [&](int c, int r) { return water2[r][c] != '~' && (path(c, r) || open(c, r, ".*HtF:f~s")); }, 0, grass);
+        auto maskOf = [&](auto zone) {
+            std::vector<std::vector<bool>> mask(M, std::vector<bool>(M, false));
+            for (int r = 0; r < M; r++) for (int c = 0; c < M; c++) mask[r][c] = zone(c, r);
+            return mask;
+        };
+        const float cell = T / 2, corner = -20 * T; // a half tile; the window's corner (X(0), Z(0))
+        const ZoneShape lightShape = SmoothZone(maskOf(lightGrass), cell, corner, corner, 1);
+        const ZoneShape pathShape = SmoothZone(maskOf(path), cell, corner, corner, 1);
+        AddFill(geo[Pale], lightShape, 0.15f, white);
+        AddFill(geo[Soil], pathShape, 0.15f, soil);
+        // the outline of each zone, on its border
+        // the blades' texel colour is brighter than the ground texture's mean, so their vertex colour is the grass's less 15%:
+        // the base fades into the grass without a lighter line
+        const float blade[4] = {grass[0] * 0.85f, grass[1] * 0.85f, grass[2] * 0.85f, grass[3]};
+        for (const ZoneShape* shape : {&lightShape, &pathShape})
+            for (const ShapeChain& chain : shape->Chains) AddOutline(geo[Outline], chain, blade, blade);
+        // the rim where walkable ground meets solid trees and forest, from a mask of everything else
+        std::vector<std::vector<bool>> notWall(N, std::vector<bool>(N, true));
+        for (int r = 0; r < N; r++) for (int c = 0; c < N; c++) notWall[r][c] = !(coll[r][c] == '#' && (vis[r][c] == 't' || vis[r][c] == 'T'));
+        for (const ShapeChain& chain : SmoothZone(notWall, T, corner, corner, 1).Chains) AddRim(geo[Edge], chain);
         // decals on plain open grass: grass-role tiles away from paths, water, houses and fences
         auto plain = [&](int c, int r) { return c >= 0 && r >= 0 && c < N && r < N && (vis[r][c] == '.' || vis[r][c] == 's') && coll[r][c] == '.' && path2[2 * r][2 * c] != ':' && path2[2 * r + 1][2 * c + 1] != ':'; };
         const int decals = GrassDecals(geo[Outline], plain);
-        note("grass edge: %d decals, rim strips on the forest's side\n", decals);
+        note("grass edge: %zu outlines, %d decals\n", lightShape.Chains.size() + pathShape.Chains.size(), decals);
     }
     else
         FlatFine(geo[Pale], 2, [&](int c, int r) { return path2[r][c] != ':' && water2[r][c] != '~' && std::string(".*HstF:f~").find(fineVis(c, r)) != std::string::npos; }, 0, white);
-    FlatFine(geo[Soil], 2, [&](int c, int r) { return path2[r][c] == ':' && water2[r][c] != '~'; }, 0, soil);
+    if (!ownGrass) FlatFine(geo[Soil], 2, [&](int c, int r) { return path2[r][c] == ':' && water2[r][c] != '~'; }, 0, soil);
     Flat(geo[Ground], vis, "T", 0, forest, 12);
     // the pond from Platinum's colours (its blue edge, lakep, is water too)
     FlatFine(geo[Water], 2, [&](int c, int r) { return water2[r][c] == '~'; }, -4.2f, waterColour);

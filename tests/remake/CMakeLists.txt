@@ -35,6 +35,9 @@ target_link_libraries(remake_bps_test PRIVATE remake)
 add_executable(remake_town_test remake_town_test.cpp)
 target_link_libraries(remake_town_test PRIVATE remake)
 
+add_executable(remake_shapes_test remake_shapes_test.cpp)
+target_link_libraries(remake_shapes_test PRIVATE remake)
+
 # Checks the tool's texture names against the DS core's own decoder and hash;
 # builds the core (as tests/hd-textures does), so it is skipped unless asked:
 #   cmake -S tests/remake -B build-remake-tests -DREMAKE_CORE_CHECK=ON
