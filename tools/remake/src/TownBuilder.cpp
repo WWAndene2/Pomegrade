@@ -460,8 +460,8 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     const BchModel pm = Bch::Read(petalTerrain).Models[0];
     const BchModel rm = Bch::Read(BinLinker::Read(r101, "GR").Files[1]).Models[0];
     // Petalburg's meshes (world02_02_03)
-    enum { FlowerA = 0, FlowerB = 1, Canopy = TownTreeMeshes[0], Bank = 11, Ground = 12, Soil = 13, Pale = 14, House = 16, Frame = 17, Window = 18,
-           Hedge = 7, Trunk = TownTreeMeshes[1], Outline = 20, Edge = 21, SnowBand = 22, Wall = 24, Water = 25, Shadow = 26 };
+    enum { FlowerA = 0, FlowerB = 1, Canopy = 2, Bank = 11, Ground = 12, Soil = 13, Pale = 14, House = 16, Frame = 17, Window = 18,
+           Hedge = 7, Trunk = 19, Outline = 20, Edge = 21, SnowBand = 22, Wall = 24, Water = 25, Shadow = 26 };
 
     // kits: Petalburg's house at (24-28, 21-25), its door (25, 25) the anchor; a flower patch; Route 101's tree
     std::map<int, Part> house;

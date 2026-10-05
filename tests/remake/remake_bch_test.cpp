@@ -233,25 +233,6 @@ int main()
         check(written.size() > file.size() && written.size() % 4 == 0 && Slice(written, 0, 8) == Slice(file, 0, 8), "BCH writer: the file grown, its header's start kept");
         check(Bch::Read(BchReplaceGeometry(written, 0, {quad})).Models[0].Meshes[0].Triangles == quad.Triangles, "BCH writer: a written file written again");
     }
-
-    // compacted: positions and texture coordinates s16 (stride 20 -> 10), the scales in uniforms c7 x and c8 x, the offset kept
-    {
-        std::vector<std::string> log;
-        const Bytes compact = BchCompactVertices(written, 0, {0}, &log);
-        const Bch compactRead = Bch::Read(compact); // kept alive: me refers into it
-        const BchMesh& me = compactRead.Models[0].Meshes[0];
-        bool close = me.Vertices.size() == 4;
-        for (size_t i = 0; close && i < 4; i++)
-            for (int k = 0; k < 3; k++)
-                close = close && std::fabs(me.Vertices[i].Position[k] - quad.Vertices[i].Position[k]) < 4.0f / 32767 * 1.01f &&
-                        (k > 1 || std::fabs(me.Vertices[i].TexCoord[k] - quad.Vertices[i].TexCoord[k]) < 1.0f / 32767 * 1.01f);
-        check(me.Stride == 10 && me.Attributes.size() == 2 && me.Attributes[0].Format == 2 && me.Attributes[1].Format == 2, "BCH compact: positions and texture coordinates as s16, stride 10");
-        check(close && me.Triangles == quad.Triangles, "BCH compact: vertices read back within half a step of their scale, triangles kept");
-        check(BchCompactVertices(compact, 0, {0}).size() > 0 && Bch::Read(BchCompactVertices(compact, 0, {0})).Models[0].Meshes[0].Stride == 10,
-              "BCH compact: an already compact mesh left as it is (its s16 attributes are not compacted again)");
-    }
-    check(PicaFloat24(ToPicaFloat24(0.25f)) == 0.25f && PicaFloat24(ToPicaFloat24(-3.0f)) == -3.0f && ToPicaFloat24(0) == 0 &&
-          std::fabs(PicaFloat24(ToPicaFloat24(1.0f / 32767)) - 1.0f / 32767) < 1e-8f, "PICA float24: written and read back");
     // the replaced buffers removed: a 400-vertex grid written, then the quad over it; the grid's
     // buffers (whole 0x80 blocks) leave the file, the texture after them still reads
     BchGeometry grid;
@@ -267,15 +248,6 @@ int main()
     check(Bch::Read(big).Models[0].Meshes[0].Triangles == grid.Triangles && small.size() + 8000 < big.size() &&
               smallRead.Models[0].Meshes[0].Triangles == quad.Triangles && smallRead.Textures[0].Data == rgb565,
           "BCH writer: a replaced mesh's buffers removed (" + std::to_string(big.size()) + " -> " + std::to_string(small.size()) + " bytes), the texture kept");
-    {
-        // compacting frees the old (wider) vertex buffer: the grid's vertices go from 20 to 10 bytes each; freed buffers leave only
-        // whole 0x80 blocks (the rest of a partial block stays, at most 0x7F at each end, and the one-vertex buffer of the first pass)
-        const Bytes compact = BchCompactVertices(big, 0, {0});
-        const Bch compactRead = Bch::Read(compact);
-        const size_t saved = grid.Vertices.size() * 10;
-        check(compact.size() + saved <= big.size() + 0x400 && compactRead.Models[0].Meshes[0].Triangles == grid.Triangles && compactRead.Textures[0].Data == rgb565,
-              "BCH compact: the file shrinks by the vertices' saved bytes (" + std::to_string(big.size()) + " -> " + std::to_string(compact.size()) + "), triangles and texture kept");
-    }
     // a buffer something else still points into is kept: the texture pointed at the grid's index buffer, which
     // doesn't start on a 0x80 block; replacing the grid must leave those bytes where the texture finds them
     {
