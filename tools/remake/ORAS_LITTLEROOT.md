@@ -13,14 +13,15 @@ Inspect any zone, piece or area pack with `remake_tool oras-inspect <oras.3ds> z
 
 **Goal (owner's words)**: recreate Pokemon Platinum in Omega Ruby with ORAS's own assets, as a LayeredFS mod played in Azahar; tools good enough to rebuild any map right the first time, whatever the setup. Any ORAS asset pack may be used, not Littleroot's alone. The owner tests on a phone and sends Azahar logs; nothing in the container runs the game, so every in-game claim is "untested" until the owner reports.
 
-**Inputs** (the owner's dumps, never committed; the Google Drive folder has them): `platinum.nds` (French Platinum CPUF) and `oras.3ds` (Omega Ruby Europe, decrypted).
+**Inputs** (the owner's dumps, never committed; the Google Drive folder "Radiant Platinum" has them): `platinum.nds` (French Platinum CPUF) and `oras.3ds` (Omega Ruby Europe, decrypted, 1.9 GB).
 
-**Build and test** (about 3 minutes cold):
+**Where the dumps can be used: GitHub Actions, not the container.** The development container's network policy refuses Google Drive (403 at the proxy) and the Drive connector cannot move files that large, so the tools run on the dumps through the manual workflow **`Remake mod`** (`.github/workflows/remake-mod.yml`, run from the Actions tab or with the GitHub MCP `actions_run_trigger`, workflow `remake-mod.yml`, on `main` or a branch that has it):
+- it downloads both dumps from Drive by file id (repository secrets `ORAS_DRIVE_ID`, `PLATINUM_DRIVE_ID`; the files shared "anyone with the link"; a share link also works), caches them (`remake-dumps-v1`, evicted after 7 days unused), builds `remake_tool`, and uploads the artifact `remake-mods`;
+- input **`variants`**: one mod per line, `name: oras-town options` (a blank line builds nothing); each gives `Pomegrade_Sinnoh_<name>.zip`, its log, and Platinum's doors with their destinations;
+- input **`inspect`**: one query per line, `oras-inspect` arguments (`matrices 0`, `zone 7`, `zones 0`, `matrix 1`, `piece-names 0`) or `world N` (Platinum matrix N as ORAS pieces); the output is in the job log and the artifact;
+- read results with the GitHub MCP (`actions_list` list_workflow_jobs, then `get_job_logs` with the job id and `return_content`; a long log is saved to a file to slice). The container cannot download the artifact (blob storage is refused too): the owner downloads it from the run's page.
 
-```
-cmake -S tests/remake -B build-remake-tests -G Ninja && ninja -C build-remake-tests   # libremake and the 13 suites (run each remake_*_test; all print ok)
-cmake -S tools/remake -B build-remake -G Ninja && ninja -C build-remake remake_tool     # the command line tool
-```
+**Phone test protocol** (the owner, Azahar in Pomegrade on a Xiaomi, a save in Littleroot): unzip the mod's `load` folder into `Pomegrade/3DS`, **deleting `load/mods/000400000011C400` before each test**, load the save, report "picture", "music only" (the field runs, black screen) or "nothing" (hang), and send `azahar_log.txt` when useful. A test answers one question: change one thing per mod, and make each mod consistent on its own (a zone, its area pack and its piece go together: section 11).
 
 **Commands, by what you want to know or make**:
 
@@ -37,6 +38,9 @@ cmake -S tools/remake -B build-remake -G Ninja && ninja -C build-remake remake_t
 | See a zone's border and blade points on the tile grid | `oras-topview ... --grid --points` (the game's piece) or `topview town_piece.bin ... --grid --points` (`oras-town`'s piece): borders dark green / brown, strip orange, tips red, roots blue |
 | Measure how a piece lays a zone and its strip | `mesh-json <GR piece> mesh.json`, then `python3 prototype/measure_zone.py mesh.json [zone texture] [strip texture]` (9d) |
 | Look at a texture | `oras-texture <oras.3ds> <area pack> <name> <out.png>` (find the pack with `oras-catalog`'s `packs.tsv`) |
+| Read a map matrix, every piece's place, every zone's warps | `oras-inspect <oras.3ds> matrix <n>` (raw words), `piece-names 0` (each piece's model name `world<matrix>_<x>_<y>`), `zones 0` (each zone's matrix, warps with destinations, triggers), `matrices 0` (all 431 matrices checked against section 2b), `zone <n>` (every word of each warp) |
+| Size Platinum's world in ORAS pieces | `oras-world <platinum.nds> <matrix> <dir>` prints the grid (Sinnoh: 24 x 24, 372 used) |
+| Test one change on the phone | `oras-town` options made for it: `--zone-pack 0|1`, `--zone-warps 0|1`, `--add-warps 0|1`, `--piece 0` (keep the game's piece), `--donor-as-is 1` (a game piece as it is), `--pad-piece BYTES` (grow a piece without changing it), `--piece-files MASK` (GR files from the built piece: 1 tiles, 2 model, 4 collision, 8 doors), `--tree-reach N`, `--door-type T`, `--area A`, `--donor-pack P` |
 
 **Where the code is** (`tools/remake/src/`): `Bch` (read) and `BchWriter` / `BchTextureFile` (write), `Garc` and `BinLinker` (containers), `OrasZone` and `Amx` (zones, scripts), `PlatinumWorld` and `TerrainScan` (Platinum side), `TownLayout` (roles, collision, doors), `TownBuilder` and `TownShapes` (the ORAS piece), `OrasTown` (zone, area pack, patches, preview, design-rule block), `TownCheck` (the rules), `OrasInspect` (inspect, verify, catalog), `TopView` (the simplified top view), `OrasMeasure` (the whole-game measures). Tests mirror them in `tests/remake/`.
 
@@ -46,12 +50,17 @@ cmake -S tools/remake -B build-remake -G Ninja && ninja -C build-remake remake_t
 3. Look at how ORAS does it in the game's own data before inventing (outline blades on the zone border, tile-stepped zones: the owner insisted, and a first version with blurred, rounded zones was wrong).
 4. Show results: render and send images, deliver mods as a zip; say what was not tested.
 5. A diagnostic is deleted once it has served; a finding goes in this file, a code comment or a commit message.
+6. A zone keeps its own area pack; whatever the piece needs is added to that pack (a zone on another town's pack hangs the game, 11).
+7. A piece in Littleroot's place stays at most 996,992 bytes (`PieceBytesShown`, a design-rule error; 1,074,944 showed nothing, 11).
+8. Door model entries are the target's own, only moved; a door type the area does not use hides the map (11).
+9. Base a plan on the target game's data and the source game's data, never on the place being replaced: Twinleaf's 4 doors lead to 4 interiors in Platinum (zones 412, 414, 416, 417), so copying one of Littleroot's 3 warps for the 4th door was wrong (the owner: read Platinum first).
+10. Do not propose what the engine already rules out: the owner refused "enlarge a matrix to 30 x 30 to test"; stay within what the game itself does unless a test is the only way and is cheap.
 
-**State** (latest mod: v21, `oras-town` default options): Twinleaf (Platinum) rebuilt as Littleroot's piece 6, with Littleroot's grass and its zone rules (tile-stepped zones with their own corners pulled in, half-tile paths, forest-tip arcs on the rim, outlines on soil paths placed as measured, 9d), square crossroads corners, ORAS's white picket fence, the pond's walls in earth, snow from the ice cave at half-tile precision with snow clumps (9f), door models at scale 1, tile values by surface (9e), trees within 3 tiles of open ground (33,094 vertices against the game's largest 35,691), and no design-rule warning. **Phone results: none for v2 to v21** (v2 fixed the zone compressed twice; nothing since has run on a phone). Known deviations: 3 warps for 4 doors (a new warp needs the zone's entity words, unknown); a Route 201 piece not rebuilt by this tool; **the houses are Petalburg's red-roofed ones, not Littleroot's wooden tiled ones, and there are no house cast shadows, flower sprites or grass tufts**, so the owner's reference screenshot (Littleroot in game) is matched on the ground only.
+**State** (latest mod: v24, `oras-town` default options, built by the `Remake mod` workflow): Twinleaf (Platinum) rebuilt as Littleroot's piece 6, with Littleroot's grass and its zone rules (tile-stepped zones with their own corners pulled in, half-tile paths, forest-tip arcs on the rim, outlines on soil paths placed as measured, 9d), square crossroads corners, ORAS's white picket fence, the pond's walls in earth, snow from the ice cave at half-tile precision with snow clumps (9f), tile values by surface (9e), trees within 2 tiles of open ground (996,992 bytes), the zone on Littleroot's own area pack 8 with the donor's textures added to it, and Littleroot's own door models moved onto the new doors. **Phone results (checked, Littleroot save, Azahar on Android): v24 shows the town** (section 11 has every run). Not yet reported: walking, collision, doors and warps in v24. Known deviations: 3 warps for 4 doors (the zone's warp words are now decoded, 2b, but each door needs its own interior zone: next steps); Littleroot's door models (types 2, 7) on Petalburg's houses, whose own door (type 4) hides the map (11); a Route 201 piece not rebuilt by this tool; **the houses are Petalburg's red-roofed ones, not Littleroot's wooden tiled ones, and there are no house cast shadows, flower sprites or grass tufts**, so the owner's reference screenshot (Littleroot in game) is matched on the ground only.
 
 **Littleroot's houses, measured but not built** (tile coordinates of its piece 6, `a/0/3/9`): two small houses, 6 tiles wide by 5 deep (solid cols 11-16 and 23-28, rows 7-11), door tile (14, 11) and (26, 11) (door type 2, index 3 of 6 from the left), made of mesh 5 (`t01_01`, texture `t101_01`; boxes x 10.5-17.5, z 6.5-12.8) plus a cast shadow in mesh 11 (`shadow1`, box x 11-20, z 5.5-12.5); one large house, 7 wide by 6 deep (cols 13-19, rows 18-23), door tile (16, 23) (door type 7), made of mesh 7 (`t01_02`, `t101_02_fix`; box x 12.4-20.5, z 18.5-24.8) plus mesh 5's trim and chimney and its shadow (box x 12.5-22.5, z 16.5-24.5). Mesh 2 (`chip_mado`) holds the windows, meshes 4 and 6 (`chip_wood_*`) the trims, mesh 12 (`t01_a01`, blended) a large cover over the ground. The Petalburg donor already has same-texture slots for the windows (18, `chip_mado`) and the shadow (26, `shadow1`), a `touka_house01` slot (16) and a `touka_waku01` slot (17) that `BchSetTextureName` can re-point to `t101_01` and `t101_02_fix`; those two and the door texture `t101_door` (pack 8's file 1) must first be added to the donor pack by `ImportTextures` (today it adds the three grass textures). Whether door type 2 and 7 models find their textures in the donor pack is unknown and untested.
 
-**Next steps, in the order that pays most**: (0) Littleroot's houses, shadows and sprites as above, to match the owner's screenshot; (1) rebuild towns from several ORAS pieces and packs, choosing a donor by its layers and mesh slots (section 9c: blend is a layer flag, not per-material registers); (2) read the engine's per-layer state and how it draws a projected texture (`.code` is BLZ-compressed; capstone ARM works); (3) the Pawn scripts (needed for NPCs and events), the `coll` geometry, matrix a/0/4/0, adding meshes or materials to a terrain model: section 10.
+**Plan agreed with the owner (rebuild Sinnoh as whole regions, not piece by piece)**: ORAS's overworld is matrices of pieces with a zone grid (section 2b), joined by edge warps whose words are decoded; Sinnoh is 24 x 24 pieces, 372 used, so it needs several matrices of at most 140 cells (the game's largest) and more pieces than Hoenn's 165. **Next steps, in order**: (1) test on the phone whether the game accepts an **added** GARC member (a 858th piece in `a/0/3/9`, a 432nd matrix in `a/0/4/0`, a new zone in `a/0/1/3`): if so Sinnoh gets its own numbers, if not it reuses Hoenn's; (2) a command that writes a matrix (piece grid, zone grid, the third grid as `0xFFFF`) and builds several pieces at once, first Twinleaf and Route 201 with their own zones; (3) Twinleaf's 4 interiors, each a zone whose warp 0 returns to its own door (warp word 1 = arrival warp); (4) north and south edge warp kinds (only east 2 and west 3 seen); (5) the third matrix grid (data in 7 matrices); (6) the region map in the menu (an image and a zone-to-position table, not located yet); (7) Petalburg's door type 4 (copy what pack 9 has that pack 8 lacks, first suspect its file 1); lighter vertex formats to fit more trees; Littleroot's houses, shadows and sprites (below).
 
 ## 1. Littleroot's identity (checked)
 
@@ -73,7 +82,7 @@ Zone 6's name: the English place names are in text bank 90 (`a/0/7/3`), "Littler
 | `a/0/1/3` | 538 | zones (ZO), checked (section 3) |
 | `a/0/1/4` | 229 | area packs (AD): textures and small tables of a zone's area (section 5) |
 | `a/0/3/9` | 857 | map pieces (GR), the 40x40-tile terrain and collision (section 4) |
-| `a/0/4/0` | 431 | map matrices (MM); member 1 is a 24x24 grid of packed `u32` (two `u16` each: e.g. 0x00190019, 0x00060006), meaning **unknown** |
+| `a/0/4/0` | 431 | map matrices (MM), section 2b |
 | `a/0/2/3` | 380 | building and prop models (BM), seen (not used by Littleroot's houses: they are in its terrain model) |
 | `a/0/2/1` | 544 | characters, seen |
 | `a/0/3/2` | 1030 | effects, seen |
@@ -84,6 +93,21 @@ Zone 6's name: the English place names are in text bank 90 (`a/0/7/3`), "Littler
 
 All 300 RomFS archives are listed with their member counts by a throwaway scan (not kept): `a/0/9/1` (974 LZ members), `a/0/9/2` (631), `a/0/2/2` (511), `a/1/2/0`, `a/1/2/1` (500 each) are per-id tables whose use is **unknown**.
 
+## 2b. Map matrix (MM) - checked on all 431 matrices (`oras-inspect matrices`), meanings seen on matrices 1 and 2
+
+A matrix is a `MM` container of two files.
+- **File 0**: `u16` 1, `u16` 0, `u16` width and height, then width x height `u16` **map piece numbers** (`a/0/3/9` members), row by row, `0xFFFF` for no piece. Then one of two layouts, by size (all 431 fit one or the other):
+  - **piece grid only**, padded to 4 bytes (416 matrices, 1 x 1 to 3 x 3: interiors, gyms, small places; the whole matrix is one zone, its own number not stored here);
+  - **piece grid, zone grid, third grid** (15 matrices, the overworld sections and large places): the zone grid is (4 x width) x (4 x height) `u16` **zone numbers** (`a/0/1/3` members), one per 10 x 10 tiles (a piece's 40 x 40 tiles are 4 x 4 of them), `0xFFFF` outside the map; the third grid is width x height `u16`, `0xFFFF` in 8 of them and holding data in 7 (matrices 4, 10, 11, 28, 155, 347, 348): **unknown**. Size 8 + 2wh + 32wh + 2wh, padded to 4.
+  - **Zone grid checked**: of the 1,012 furniture, characters, warps and triggers of all zones lying in a matrix with a zone grid, 1,009 stand on a 10-tile block the grid gives their own zone (the 3 others not looked at). So a zone changes as the player walks from one block to the next, with no warp: matrix 1 has zone 25 over its row 1, 7 (Oldale) over cell (2, 2), 23 (Route 101) over (2, 3), 6 (Littleroot) over (2, 4).
+  - Pieces seen at the cells their models name: matrix 1 pieces 1-6 (`world01_02_04` = piece 6, Littleroot, at x 2, y 4), matrix 2 pieces 7-10.
+  - **Largest matrix in the game: 14 x 10 (140 cells, file 0 5,048 bytes)**; others 8 x 8 to 16 x 6. Whether the engine accepts larger is **unknown** (not tried).
+  - **Sinnoh against it** (checked, `oras-world` on Platinum's matrix 0): Platinum's overworld laid out as ORAS pieces of 40 tiles is a 24 x 24 grid with 372 pieces used, against 165 overworld pieces in all of Hoenn and 140 cells for its largest matrix. So Sinnoh needs several matrices joined by edge warps (at least 3 by count, more as each must be a rectangle), and 372 overworld pieces where `a/0/3/9` holds 857 pieces in all: whether the game accepts more pieces or matrices than it has is **unknown**.
+- **File 1** (324 bytes): a `u32` count, then groups that start `0001 0000` followed by pairs of words that read as floats (0x44B9A000 = 1485, 0x45067000 = 2151 in matrix 1): **unknown**, perhaps the camera or areas in world units.
+- **The overworld is not one matrix**: the 165 pieces named `world<NN>_<x>_<y>` belong to 14 matrices (`world01` to `world14`, 3 to 23 pieces each), each a section of Hoenn.
+- **Sections are joined by warps at their edges** (seen, `oras-inspect zones`, header word 2 = matrix): zones of one matrix have no warp between them (Littleroot, zone 6, and zone 23, both on matrix 1, cell rows 4 and 3), while zone 7 (matrix 1, cell 2,2: Oldale, its 5 warps) has a warp to zone 24 at tile (80.5, 100.5), on its section's west edge (x 80 = cell 2's first column), and zone 24 (matrix 2) one back to zone 7 at (199.5, 140.5), the east edge of its cell 4. Zones 8 and 30 (matrices 3 and 5) are joined the same way, by two warps each at one tile's distance. A warp's words (seen on zones 6, 7, 8, 24, 30, `OrasZone.h`): 0 destination zone, 1 the destination's warp index the player arrives at, 2 the kind (low byte 1 a door, 2 an edge on the section's east side, 3 its west side; high byte 3 doors, 5 edges), 4 and 6 x and z in pixels, 5 the height (signed pixels), 7 always 1, 8 the **span in tiles** along the edge (1 for doors). Zones 8 and 30 share an edge 19 tiles long as two warps of 15 and 4 tiles, contiguous (z 285.5 + 15 = 300.5), each pointing at the other side's warp of the same index; zones 7 and 24 one of 3 tiles. North and south edges, and whether 15 is a span's maximum, are not seen.
+- So a region rebuilt from Platinum can be laid out as matrices of pieces, walked across seamlessly inside a matrix, and joined to the next matrix by edge warps, a kind of entry the tools already write (inferred, untested). The other pieces (`c101...`, `battle01...`) are towns' interiors, gyms and battle maps, one piece each.
+
 ## 3. Zone (ZO) - checked on all 536 zones that are ZO containers
 
 Reader: `OrasZone` (`OrasZone.h` holds the layout), test `remake_zone_test`. Of the 538 members, 536 are ZO containers and all 536 read; the other two are not ZO.
@@ -91,7 +115,7 @@ Reader: `OrasZone` (`OrasZone.h` holds the layout), test `remake_zone_test`. Of 
 - file 0, 56 bytes: 28 `u16` words. Word 1 area pack, word 2 matrix, word 13 the zone's own number, words 22-24 and 25-27 a position in pixels (1/18 tile). Others kept raw.
 - file 1: `u32` size (counts what follows the field), four `u8` counts (furniture, characters, warps, triggers), `u32` count of a fifth kind, then the arrays from offset 12: furniture 0x14 bytes, characters 0x30, warps 0x18, triggers 0x18, fifth kind 0x18. Rule `size + 4 == 12 + 0x14 nf + 0x30 nn + 0x18 (nw + nt + n5)` holds for all 536. Then, immediately, a Pawn script (the initialisation script), padded to 4.
 - file 2: a Pawn script (the zone's own). file 3 empty, file 4 12 bytes of zeros in Littleroot's.
-- Field meaning (seen on Littleroot, positions land in its cell): furniture tile x, z at words 4, 5; characters: index word 0, model word 1 (289, 281, 4153, ...), tile x, z at words 20, 21; warps: destination zone word 0, position in pixels x word 4, z word 6 (a tile's centre is at +9); triggers tile x, z at words 6, 7. The other words (movement, facing, script ids, flags) are **unknown**.
+- Field meaning (seen on Littleroot, positions land in its cell): furniture tile x, z at words 4, 5; characters: index word 0, model word 1 (289, 281, 4153, ...), tile x, z at words 20, 21; warps: every word decoded in section 2b (destination zone 0, arrival warp 1, kind 2, x 4, height 5, z 6, span 8; a tile's centre is at +9); triggers tile x, z at words 6, 7. The other words (movement, facing, script ids, flags) are **unknown**.
 - Totals over all zones: 2904 characters, 911 warps, 832 furniture, 361 triggers.
 
 ### Scripts - header checked, content unknown
@@ -149,6 +173,9 @@ The `.code` in ExeFS is packed with BLZ (backward LZ, flag 0x01 of the extended 
 | A replaced archive member is the container it must be (GR, ZO, AD), compressed once, and reads back identical | a zone compressed twice crashed the field's start | error (`ReplaceMember`) |
 | A texture's v is used as stored, never flipped (previews included) | PICA textures are stored bottom row first, decoded in that order | rule of the BCH preview |
 | Textures are added to an area pack under their own names, never written over an existing one (`--grass -1` adds none) | a pack is shared by every piece of its area | by construction |
+| The piece is at most 996,992 bytes (`PieceBytesShown`) | the largest seen to show in Littleroot's place; 1,074,944 showed nothing (11) | error |
+| The zone keeps its own area pack; what the piece needs is added to it | a zone moved to another town's pack hung the game (11) | by construction (`--area` 8) |
+| Door models are the target's own entries, only moved | Petalburg's door type with zeroed words hid the map (11) | by construction |
 
 Layout rules (`CheckLayout`, all warnings except the first two): the tile block is 40 x 40 (error); the door block fits its count (error); tile values are among the 94 the game uses in at least 5 pieces; door models are at scale 1, turned by a multiple of 90 degrees, and centred on a tile (section 9b). The builder places door models at scale 1, so Twinleaf raises none of them.
 
@@ -233,6 +260,31 @@ Seen on the real meshes (welded vertices, tile units; no other piece measured ye
 2. The remaining words of zones' entries, and the zone-to-name-line link.
 3. The `coll` geometry fields, GR parts 4-6, the 124-byte tail of part 0, the area pack's small files.
 4. How the engine draws a mesh with projected texture (the material's render state is not decoded by the BCH reader).
-5. How a map piece is placed by the matrix (`a/0/4/0`) and how much memory the engine gives the pieces around the player (not tested since the zone fix: Twinleaf's 39,863 vertices exceed every original piece's maximum of 35,691).
+5. How a map piece is placed by the matrix (`a/0/4/0`), and why a piece in Littleroot's place shows only up to between 996,992 and 1,074,944 bytes (11) when the game's own pieces reach 1,368,064 elsewhere.
+8. What a door model type needs from its area (Petalburg's type 4 hides the map in Littleroot's, 11), and why a zone on another town's area pack hangs the game.
 6. Interior zones (houses), encounter tables, music, weather, camera: not looked at.
 7. The Platinum side of Twinleaf (zone events, scripts, text): read for the world, collision and warps only; scripts and text not decoded.
+
+## 11. Phone runs (checked: the owner's phone, Xiaomi 2306EPN60G, Azahar in Pomegrade, a save in Littleroot)
+
+Each mod built by the `Remake mod` workflow (`.github/workflows/remake-mod.yml`) from these options; "picture" is the map shown, "music" the field running with a black screen, "hang" neither.
+
+| Mod | What differs from the game | Result |
+|---|---|---|
+| v21 (and the zone alone) | zone on area pack 9 | hang |
+| z1 | piece and pack 9, zone on pack 8 | music |
+| v22 | zone on pack 8, the donor's textures added to pack 8 | music |
+| t1 | pack 8 enlarged only (69 textures) | picture |
+| t6 | Littleroot's piece recompressed and rewritten | picture |
+| t7, t8, t10, t11 | Littleroot's piece, its model padded to about 450, 540, 700, 860 KB | picture |
+| t9 | the same, about 1,126 KB | music |
+| t5 | Petalburg's piece as it is in the game | music |
+| t13, t15, t16 | the built model, alone or with the built tiles or collision | picture |
+| t14, t17 | the built door block (Petalburg's type 4, other words zeroed) | music |
+| v23 preview | the full model with trees within 1 tile (887 KB), Littleroot's other files | picture |
+| v24, v24 trees 2 | the whole town, Littleroot's door entries moved (886,528 and 996,992 bytes) | picture |
+| v24 trees 3 | the same, 1,074,944 bytes | music |
+| v24 door 4 | v24 with door type 4, the other words Littleroot's | music |
+
+What follows (inferred from these runs, the engine not read): a zone's area pack is tied to more than its textures (a zone on another town's pack hangs the game); a piece in Littleroot's place shows up to at least 996,992 bytes and not from 1,074,944, below the game's largest piece elsewhere (1,368,064); a door model type the area does not use (4 in Littleroot's) hides the map, so Petalburg's door needs something of pack 9 that pack 8 lacks, which one is unknown (its pack's slot 1 holds door and prop textures: the first suspect). The archive rewrite itself (GARC version 4, all 857 pieces LZ11, members 4-byte aligned, the header's largest member 514,942 bytes) is sound.
+

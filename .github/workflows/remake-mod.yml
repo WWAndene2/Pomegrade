@@ -10,10 +10,12 @@ on:
       variants:
         description: 'One mod per line, "name: oras-town options" (no options = the defaults)'
         default: |
-          v21:
-          z1_zone_pack_kept: --zone-pack 0
-          z2_zone_warps_kept: --zone-warps 0
+          v24:
         required: true
+      inspect:
+        description: 'One query per line: oras-inspect arguments ("matrix 1", "zones 0") or "world N" for Platinum matrix N as ORAS pieces'
+        default: ''
+        required: false
 
 permissions:
   contents: read
@@ -36,11 +38,31 @@ jobs:
         env:
           ORAS_DRIVE_ID: ${{ secrets.ORAS_DRIVE_ID }}
           PLATINUM_DRIVE_ID: ${{ secrets.PLATINUM_DRIVE_ID }}
+        # gdown refused the 1.9 GB file ("Cannot retrieve the public link") although it is shared by link: Drive's
+        # direct download endpoint, with confirm=t to skip the too-large-to-scan page, serves it
         run: |
-          pip install --quiet gdown
           mkdir -p dumps
-          gdown --quiet --output dumps/oras.3ds "$ORAS_DRIVE_ID"
-          gdown --quiet --output dumps/platinum.nds "$PLATINUM_DRIVE_ID"
+          fetch() {
+            # the secret may hold the file id or a whole share link (…/d/<id>/view, …?id=<id>): keep the id
+            local id
+            id=$(printf '%s' "$1" | tr -d '[:space:]' | sed -E 's#.*/d/([^/?]+).*#\1#; s#.*[?&]id=([^&]+).*#\1#')
+            if ! printf '%s' "$id" | grep -qE '^[A-Za-z0-9_-]{25,}$'; then
+              echo "::error::the secret for $2 is not a Drive file id (${#id} characters after cleaning)"; exit 1
+            fi
+            # Drive's two download endpoints, each tried in turn; their answers are logged (never the id) since a 404
+            # came back for a file shared by link
+            local url code
+            for url in "https://drive.usercontent.google.com/download?id=$id&export=download&confirm=t" \
+                       "https://drive.google.com/uc?id=$id&export=download&confirm=t"; do
+              code=$(curl --location --silent --show-error --output "$2" --write-out '%{http_code}' "$url" || true)
+              echo "$2: ${url%%\?*} answered $code, $(stat -c %s "$2" 2>/dev/null || echo 0) bytes"
+              if [ "$code" = 200 ] && ! head -c 512 "$2" | grep -qi '<html'; then return 0; fi
+              head -c 300 "$2" 2>/dev/null | tr -s '[:space:]' ' ' | sed 's/^/  answer starts: /'; echo
+            done
+            echo "::error::Drive did not serve $2"; exit 1
+          }
+          fetch "$ORAS_DRIVE_ID" dumps/oras.3ds
+          fetch "$PLATINUM_DRIVE_ID" dumps/platinum.nds
           ls -l dumps
 
       - name: Build remake_tool
@@ -61,10 +83,31 @@ jobs:
             echo "::group::$name ($options)"
             # options are split on spaces on purpose: they are oras-town flags
             ./build-remake/remake_tool oras-town dumps/platinum.nds dumps/oras.3ds "out/$name" $options | tee "mods/${name}_log.txt"
+            grep '^door' "out/$name/town_layout.txt" || true   # Platinum's doors and the zones they lead to
             (cd "out/$name" && zip -q -r "../../mods/Pomegrade_Sinnoh_$name.zip" load)
             echo "::endgroup::"
           done <<< "$VARIANTS"
           ls -l mods
+
+      - name: Inspect the game
+        if: inputs.inspect != ''
+        env:
+          QUERIES: ${{ inputs.inspect }}
+        run: |
+          mkdir -p mods
+          n=0
+          while IFS= read -r query; do
+            [ -z "${query// }" ] && continue
+            n=$((n + 1))
+            echo "::group::oras-inspect $query"
+            # the query is split on spaces on purpose: it is oras-inspect's arguments
+            case "$query" in
+              # "world N": Platinum's matrix N laid out as ORAS pieces (oras-world)
+              world\ *) ./build-remake/remake_tool oras-world dumps/platinum.nds ${query#world } "out/world_$n" | tee "mods/inspect_$n.txt" ;;
+              *) ./build-remake/remake_tool oras-inspect dumps/oras.3ds $query | tee "mods/inspect_$n.txt" ;;
+            esac
+            echo "::endgroup::"
+          done <<< "$QUERIES"
 
       - uses: actions/upload-artifact@v4
         with:

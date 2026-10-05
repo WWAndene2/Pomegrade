@@ -704,7 +704,7 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
                 if (fc >= 0 && fr >= 0 && fc < 2 * N && fr < 2 * N && water2[fr][fc] == '~') nearWater = true;
             }
             // within 3 tiles of open ground: with 4 the piece passes the game's largest (35,691 vertices, 'oras-town' warns)
-            if (d <= 3 && !nearWater) spots.push_back({c, r, d});
+            if (d <= src.TreeReach && !nearWater) spots.push_back({c, r, d});
         }
     std::stable_sort(spots.begin(), spots.end(), [](const Spot& a, const Spot& b) { return a.d < b.d; });
     // the tree's two upper leaf layers (Route 101's layers span y 27-52, 43-68, 54-79, 71-96)
@@ -753,17 +753,24 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         const uint32_t v = ch == '#' ? 0x01000021 : ch == '~' ? 0x3d1a0006 : ch == 'g' ? 0x20004004 : pathHalves >= 2 ? 0x020a8020 : 0x00000020;
         for (int k = 0; k < 4; k++) tiles[4 + (r * N + c) * 4 + k] = (uint8_t)(v >> (8 * k));
     }
-    // door models: Petalburg's house door (type 4) on each door, at scale 1 and on the door tile's centre:
-    // all 368 door models of the game are (ORAS_LITTLEROOT.md 9b), however wide the house is
+    // door models: the target's own entries (its door types, scale, height, rotation and unknown words), each moved onto a
+    // door tile's centre, as all 368 door models of the game sit (ORAS_LITTLEROOT.md 9b). Writing Petalburg's door type (4)
+    // with every other word zeroed hid the whole map on the phone (t17: the built model with these doors shows nothing, with
+    // Littleroot's own doors it shows); which of the type or the zeroed words the game refused is not known
     Bytes& dm = gr.Files[3];
-    std::fill(dm.begin(), dm.end(), 0);
+    const Bytes own = dm;
+    auto get = [&](size_t at) { uint32_t v = 0; for (int k = 0; k < 4; k++) v |= (uint32_t)own.at(at + k) << (8 * k); return v; };
     auto put = [&](size_t at, uint32_t v) { for (int k = 0; k < 4; k++) dm.at(at + k) = (uint8_t)(v >> (8 * k)); };
     auto putf = [&](size_t at, float f) { uint32_t v; memcpy(&v, &f, 4); put(at, v); };
-    put(0, (uint32_t)doors.size());
-    for (size_t k = 0; k < doors.size(); k++)
+    const size_t ownCount = get(0);
+    if (ownCount == 0) throw FormatError("the target piece has no door model to place");
+    const size_t placed = std::min(doors.size(), (dm.size() - 4) / 44);
+    put(0, (uint32_t)placed);
+    for (size_t k = 0; k < placed; k++)
     {
-        const size_t e = 4 + k * 44;
-        put(e, 4); putf(e + 4, 1); putf(e + 8, 1); putf(e + 12, 1);
+        const size_t e = 4 + k * 44, from = 4 + std::min(k, ownCount - 1) * 44;
+        std::copy(own.begin() + from, own.begin() + from + 44, dm.begin() + e);
+        if (src.DoorType) put(e, src.DoorType);
         putf(e + 28, (float)((src.CellX * N + doors[k][0]) * 18 + 9)); putf(e + 36, (float)((src.CellY * N + doors[k][1]) * 18 + 9));
     }
 

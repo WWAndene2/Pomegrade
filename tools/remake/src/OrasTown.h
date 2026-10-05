@@ -25,7 +25,11 @@ struct OrasTownOptions
     size_t TargetPiece = 6, DonorPiece = 8, TreePiece = 5; // a/0/3/9 members: Littleroot, Petalburg, Route 101
     int CellX = 2, CellY = 4;         // the target piece's cell in its ORAS map matrix (Littleroot: world01_02_04)
     size_t Zone = 6;                  // a/0/1/3 member: the zone of the target piece
-    size_t AreaPack = 9;              // a/0/1/4 member: the donor's textures, which the new piece names
+    // a/0/1/4 member the zone draws its textures from, which every texture the new piece names is added to: Littleroot's own.
+    // v21 pointed the zone at the donor's pack (9) instead, and the field's start hung on the phone (no sound, no picture) with
+    // the zone's warps left alone too; with the zone kept on pack 8 it ran, without the donor's textures (no picture)
+    size_t AreaPack = 8;
+    size_t DonorPack = 9;             // a/0/1/4 member holding the textures the donor piece's materials name (Petalburg's)
     // a/0/1/4 member: the target piece's own area (Littleroot's), whose grass the town takes: its pixels go into AreaPack
     // under the donor's grass texture names. -1: the donor's grass is kept
     int GrassPack = 8;
@@ -43,6 +47,25 @@ struct OrasTownOptions
     // what the zone (a/0/1/3) takes from the new piece, each switchable to find which change a phone run refuses
     // (v21 hung at the field's start with both): its area pack set to AreaPack, its warps moved onto the new doors
     bool ZonePack = true, ZoneWarps = true;
+    // a warp added for each door the zone has none for (Littleroot: 3 warps, Twinleaf 4 doors), a copy of the last one, so it
+    // leads into the same house. Off: the owner rejected it, each of Twinleaf's 4 doors leads to its own interior in Platinum
+    // (zones 412, 414, 416, 417), so each needs its own ORAS interior zone (ORAS_LITTLEROOT.md section 0, next steps)
+    bool AddWarps = false;
+    // the new piece written over the target's (a/0/3/9); 0 keeps the game's piece, to tell a broken piece from a broken pack
+    // (v22: the game ran with no picture, its music playing)
+    bool WritePiece = true;
+    int TreeReach = 2;                // TownSources::TreeReach
+    uint32_t DoorType = 0;            // TownSources::DoorType (Petalburg's houses: 4)
+    // the donor piece written as it is in the game in place of the built one (with the textures it names added to the area pack):
+    // tells whether any foreign piece shows at the target's place, the built one being the first suspect (v22: no picture)
+    bool DonorAsIs = false;
+    // zero bytes appended to the piece's terrain model (its GR file 1, after the BCH's data): a piece that only grows, to tell its size
+    // from its content (the game's own piece shows; every other piece tried, 536 KB and more, shows no picture)
+    size_t PadPiece = 0;
+    // which of the GR container's files (0 tiles, 1 terrain model, 2 collision, 3 doors, 4-6 unknown) come from the built piece,
+    // as bits; the others are the target's own. The game's piece shows, the built one does not even when small (t12): this tells
+    // which file it refuses
+    unsigned PieceFiles = 0x7F;
     bool AllowErrors = false;         // write the mod even if a design rule (TownCheck.h) is broken
     std::string OutDir;
 };

@@ -65,7 +65,12 @@ std::string InspectZone(N3dsRom& game, size_t zone)
     s += F("  %zu furniture, %zu characters, %zu warps, %zu triggers, %zu of the fifth kind\n", z.Furniture.size(), z.Characters.size(), z.Doors.size(), z.Triggers.size(), z.Others.size());
     for (const ZoneFurniture& f : z.Furniture) s += F("    furniture at tile (%d, %d)\n", f.TileX(), f.TileZ());
     for (const ZoneCharacter& c : z.Characters) s += F("    character %u: model %d at tile (%d, %d)\n", c.Raw[0], c.Model(), c.TileX(), c.TileZ());
-    for (const ZoneDoor& d : z.Doors) s += F("    warp to zone %d at tile (%.1f, %.1f)\n", d.DestZone(), d.TileX(), d.TileZ());
+    for (const ZoneDoor& d : z.Doors)
+    {
+        s += F("    warp to zone %d at tile (%.1f, %.1f), words:", d.DestZone(), d.TileX(), d.TileZ());
+        for (uint16_t w : d.Raw) s += F(" %u", w);
+        s += "\n";
+    }
     for (const ZoneTrigger& t : z.Triggers) s += F("    trigger at tile (%d, %d)\n", t.TileX(), t.TileZ());
     s += Script("initialisation script", z.InitScript);
     s += Script("zone script", z.Script);
@@ -137,6 +142,144 @@ std::string InspectArea(N3dsRom& game, size_t area)
     return s;
 }
 
+
+std::string InspectMatrix(N3dsRom& game, size_t matrix)
+{
+    Bytes data;
+    std::string s = Member(game, "a/0/4/0", matrix, data);
+    if (!s.empty()) return s;
+    s += F("map matrix %zu (a/0/4/0 member %zu, %zu bytes decompressed), starts %c%c\n", matrix, matrix, data.size(), data.size() > 1 ? data[0] : '?', data.size() > 1 ? data[1] : '?');
+    std::vector<Bytes> files;
+    try { files = BinLinker::Read(data, std::string(data.begin(), data.begin() + 2)).Files; }
+    catch (const FormatError& e) { s += F("  not a container (%s): read as one file\n", e.what()); files = {data}; }
+    for (size_t i = 0; i < files.size(); i++)
+    {
+        const Bytes& f = files[i];
+        s += F("  file %zu: %zu bytes\n", i, f.size());
+        // every u16 word, 16 per line, with its offset: the layout is unknown, so nothing is interpreted
+        for (size_t at = 0; at + 1 < f.size() && at < 8192; at += 32)
+        {
+            s += F("    %04zx:", at);
+            for (size_t k = at; k + 1 < f.size() && k < at + 32; k += 2) s += F(" %04x", U16(f, k));
+            s += "\n";
+        }
+    }
+    return s;
+}
+
+std::string InspectPieceNames(N3dsRom& game)
+{
+    const Garc g(game.Read("a/0/3/9"));
+    std::string s;
+    for (size_t i = 0; i < g.Count(); i++)
+    {
+        std::string name = "?";
+        try
+        {
+            const Bytes raw = Plain(g.Sub(i));
+            const Bch bch = Bch::Read(BinLinker::Read(raw, "GR").Files.at(1));
+            if (!bch.Models.empty()) name = bch.Models[0].Name;
+        }
+        catch (const FormatError&) {}
+        s += F("%zu %s\n", i, name.c_str());
+    }
+    return s;
+}
+
+std::string InspectZones(N3dsRom& game)
+{
+    const Garc g(game.Read("a/0/1/3"));
+    std::string s = "zone matrix area | furniture characters warps triggers others | warps: dest@tileX,tileZ | triggers: tileX,tileZ\n";
+    for (size_t i = 0; i < g.Count(); i++)
+    {
+        try
+        {
+            const OrasZone z = OrasZone::Read(Plain(g.Sub(i)));
+            s += F("%zu %d %d | %zu %zu %zu %zu %zu |", i, z.Matrix(), z.AreaPack(), z.Furniture.size(), z.Characters.size(), z.Doors.size(), z.Triggers.size(), z.Others.size());
+            for (const ZoneDoor& d : z.Doors) s += F(" %d@%.1f,%.1f", d.DestZone(), d.TileX(), d.TileZ());
+            s += " |";
+            for (const ZoneTrigger& t : z.Triggers) s += F(" %d,%d", t.TileX(), t.TileZ());
+            s += "\n";
+        }
+        catch (const FormatError& e) { s += F("%zu not read: %s\n", i, e.what()); }
+    }
+    return s;
+}
+
+// Every map matrix checked against the layout read on matrix 1 (ORAS_LITTLEROOT.md 2b): file 0 = u16 1, 0, width, height, a
+// width x height piece grid, a (4 width) x (4 height) zone grid, then 0xFFFF; and every entity of every zone (furniture,
+// characters, warps, triggers) placed on a 10-tile block that the matrix's zone grid gives to that zone
+std::string InspectMatrices(N3dsRom& game)
+{
+    const Garc mm(game.Read("a/0/4/0")), zo(game.Read("a/0/1/3"));
+    struct Spot { int Zone; float X, Z; const char* What; };
+    std::map<int, std::vector<Spot>> byMatrix;
+    for (size_t i = 0; i < zo.Count(); i++)
+    {
+        try
+        {
+            const OrasZone z = OrasZone::Read(Plain(zo.Sub(i)));
+            auto& v = byMatrix[z.Matrix()];
+            for (const ZoneFurniture& f : z.Furniture) v.push_back({(int)i, f.TileX() + 0.5f, f.TileZ() + 0.5f, "furniture"});
+            for (const ZoneCharacter& c : z.Characters) v.push_back({(int)i, c.TileX() + 0.5f, c.TileZ() + 0.5f, "character"});
+            for (const ZoneDoor& d : z.Doors) v.push_back({(int)i, d.TileX(), d.TileZ(), "warp"});
+            for (const ZoneTrigger& t : z.Triggers) v.push_back({(int)i, t.TileX() + 0.5f, t.TileZ() + 0.5f, "trigger"});
+        }
+        catch (const FormatError&) {}
+    }
+    std::string s = "matrix width height file0 file1 pieces zones | entities on their zone / checked | layout\n";
+    size_t layoutBad = 0, entitiesOn = 0, entitiesAll = 0, maxCells = 0, maxFile0 = 0;
+    std::map<size_t, size_t> sizeByCells;
+    for (size_t m = 0; m < mm.Count(); m++)
+    {
+        try
+        {
+            const Bytes data = Plain(mm.Sub(m));
+            const BinLinker c = BinLinker::Read(data, "MM");
+            const Bytes& f = c.Files.at(0);
+            const size_t w = U16(f, 4), h = U16(f, 6), zw = 4 * w, zh = 4 * h;
+            const size_t zoneAt = 8 + 2 * w * h, end = zoneAt + 2 * zw * zh;
+            // two layouts: the piece grid alone, padded to 4 bytes (interiors), or the piece grid, the zone grid and a third
+            // grid of width x height words (0xFFFF in most matrices, data in a few: unknown)
+            const bool short_ = f.size() == ((8 + 2 * w * h + 3) & ~(size_t)3);
+            const bool full = f.size() == end + 2 * w * h;
+            std::string layout = U16(f, 0) != 1 || U16(f, 2) != 0 ? "BAD header" : short_ ? "piece grid only" : full ? "ok" : "BAD size";
+            if (full)
+            {
+                bool third = false;
+                for (size_t k = end; k + 1 < f.size(); k += 2) if (U16(f, k) != 0xFFFF) third = true;
+                if (third) layout = "ok, third grid used";
+            }
+            const bool hasZones = full;
+            size_t pieces = 0;
+            std::set<int> zones;
+            for (size_t k = 0; k < w * h && 8 + 2 * k + 1 < f.size(); k++) if (U16(f, 8 + 2 * k) != 0xFFFF) pieces++;
+            if (hasZones)
+            {
+                for (size_t k = 0; k < zw * zh; k++) if (U16(f, zoneAt + 2 * k) != 0xFFFF) zones.insert(U16(f, zoneAt + 2 * k));
+            }
+            size_t on = 0, all = 0;
+            for (const Spot& sp : byMatrix[(int)m])
+            {
+                if (!hasZones) break;
+                const int bx = (int)(sp.X / 10), bz = (int)(sp.Z / 10);
+                all++;
+                if (bx >= 0 && bz >= 0 && (size_t)bx < zw && (size_t)bz < zh && U16(f, zoneAt + 2 * (bz * zw + bx)) == sp.Zone) on++;
+            }
+            if (layout.rfind("BAD", 0) == 0) layoutBad++;
+            entitiesOn += on; entitiesAll += all;
+            maxCells = std::max(maxCells, w * h); maxFile0 = std::max(maxFile0, f.size());
+            sizeByCells[w * h] = f.size();
+            s += F("%zu %zu %zu %zu %zu %zu %zu | %zu / %zu | %s\n", m, w, h, f.size(), c.Files.size() > 1 ? c.Files[1].size() : 0, pieces, zones.size(), on, all, layout.c_str());
+        }
+        catch (const FormatError& e) { s += F("%zu not read: %s\n", m, e.what()); layoutBad++; }
+    }
+    s += F("summary: %zu matrices, layout bad in %zu; entities on their zone's block %zu of %zu; largest matrix %zu cells, file 0 at most %zu bytes\n",
+           mm.Count(), layoutBad, entitiesOn, entitiesAll, maxCells, maxFile0);
+    s += "file 0 size by cell count:";
+    for (const auto& [cells, size] : sizeByCells) s += F(" %zu:%zu", cells, size);
+    return s + "\n";
+}
 
 std::string VerifyGame(N3dsRom& game, bool& ok)
 {

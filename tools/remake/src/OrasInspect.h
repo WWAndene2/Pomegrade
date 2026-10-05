@@ -15,6 +15,14 @@ namespace remake
 std::string InspectZone(N3dsRom& game, size_t zone);   // a/0/1/3 member: header, entities, scripts
 std::string InspectPiece(N3dsRom& game, size_t piece); // a/0/3/9 member: tiles, terrain model, collision, doors
 std::string InspectArea(N3dsRom& game, size_t area);   // a/0/1/4 member: its files and textures
+// a/0/4/0 member: its files' u16 words as they are (the map matrix's layout is unknown: this is what decodes it)
+std::string InspectMatrix(N3dsRom& game, size_t matrix);
+// every a/0/3/9 piece's terrain model name (world<matrix>_<x>_<y> for the overworld's): "index name" lines
+std::string InspectPieceNames(N3dsRom& game);
+// every a/0/1/3 zone in one line: its matrix and area pack, entity counts, its warps' destinations and tiles, its triggers' tiles
+std::string InspectZones(N3dsRom& game);
+// every a/0/4/0 matrix checked against the layout of ORAS_LITTLEROOT.md 2b, and every zone entity against the zone grid
+std::string InspectMatrices(N3dsRom& game);
 
 
 // Conformity of the tooling with the real game, run on the owner's dump: every texture file of every area pack rewritten by

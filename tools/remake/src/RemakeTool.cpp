@@ -25,14 +25,14 @@
 //                     mods (<out dir>/load/mods/<program id>/romfs/<path>); copy <out dir>/load
 //                     into the 3DS folder (Pomegrade/3DS)
 //   remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]
-//                     [--cell X Y] [--zone Z] [--area A] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--allow-errors]
+//                     [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]
 //                     a Platinum window of 40x40 tiles (default: Twinleaf Town) rebuilt as an ORAS map piece with
 //                     ORAS's own assets, as an Azahar mod (BPS patches), with town_preview.gltf, town_layout.txt and
 //                     town_piece.bin (the piece the mod writes, decompressed)
 //   remake_tool oras-texture <oras.3ds> <area pack> <name> <out.png>   one texture of an area pack (a/0/1/4 member), as a PNG
 //   remake_tool mesh-json <GR piece file|file.bch> <out.json>   a terrain model's meshes as JSON, to measure them: for each
 //                     mesh its index, layer, material, textures, vertices [x, z, y, u, v, r, g, b, a] and triangles
-//   remake_tool oras-inspect <oras.3ds> zone|piece|area <index>
+//   remake_tool oras-inspect <oras.3ds> zone|piece|area|matrix|piece-names|zones|matrices <index>
 //   remake_tool oras-topview <oras.3ds> <piece> <out.png> [--grid] [--tiles] [--doors] [--points] [--px N]   (topview <GR file> <out.png> for a mod's piece)
 //                     what an ORAS zone (a/0/1/3), map piece (a/0/3/9) or area pack (a/0/1/4) is made of, as text
 //   remake_tool oras-verify <oras.3ds>                the tooling's readers and writers checked against the real game (exit 1 on a failure)
@@ -90,7 +90,7 @@ static int Usage()
                     "  remake_tool oras-world <rom.nds> <matrix index> <out dir>\n"
                     "  remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]\n  remake_tool oras-list <oras.3ds>\n  remake_tool oras-extract <oras.3ds> <path> <out>\n"
                     "  remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...\n"
-                    "  remake_tool oras-inspect <oras.3ds> zone|piece|area <index>\n"
+                    "  remake_tool oras-inspect <oras.3ds> zone|piece|area|matrix|piece-names|zones|matrices <index>\n"
                     "  remake_tool oras-measure <oras.3ds> <out dir>\n"
                     "  remake_tool oras-topview <oras.3ds> <piece> <out.png> [--grid] [--tiles] [--doors] [--points] [--px N]\n"
                     "  remake_tool topview <GR piece file> <out.png> [--grid] [--tiles] [--doors] [--points] [--px N]\n"
@@ -98,7 +98,7 @@ static int Usage()
                     "  remake_tool oras-texture <oras.3ds> <area pack> <name> <out.png>\n  remake_tool mesh-json <GR piece file|file.bch> <out.json>\n"
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
-                    "                    [--cell X Y] [--zone Z] [--area A] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--allow-errors]\n");
+                    "                    [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]\n");
     return 2;
 }
 
@@ -220,6 +220,10 @@ int main(int argc, char** argv)
             if (what == "zone") text = InspectZone(game, index);
             else if (what == "piece") text = InspectPiece(game, index);
             else if (what == "area") text = InspectArea(game, index);
+            else if (what == "matrix") text = InspectMatrix(game, index);
+            else if (what == "piece-names") text = InspectPieceNames(game);
+            else if (what == "zones") text = InspectZones(game);
+            else if (what == "matrices") text = InspectMatrices(game);
             else return Usage();
             fputs(text.c_str(), stdout);
             return 0;
@@ -338,12 +342,20 @@ int main(int argc, char** argv)
                 else if (flag == "--cell") { options.CellX = number(++i); options.CellY = number(++i); }
                 else if (flag == "--zone") options.Zone = (size_t)number(++i);
                 else if (flag == "--area") options.AreaPack = (size_t)number(++i);
+                else if (flag == "--donor-pack") options.DonorPack = (size_t)number(++i);
                 else if (flag == "--grass") options.GrassPack = number(++i);
                 else if (flag == "--snow") options.SnowPack = number(++i);
                 else if (flag == "--fence") options.FencePack = number(++i);
                 else if (flag == "--snow-clumps") options.SnowClumps = number(++i) != 0;
                 else if (flag == "--pond-wall") options.PondWall = number(++i);
                 else if (flag == "--zone-pack") options.ZonePack = number(++i) != 0;
+                else if (flag == "--door-type") options.DoorType = (uint32_t)number(++i);
+                else if (flag == "--tree-reach") options.TreeReach = number(++i);
+                else if (flag == "--donor-as-is") options.DonorAsIs = number(++i) != 0;
+                else if (flag == "--pad-piece") options.PadPiece = (size_t)number(++i);
+                else if (flag == "--piece-files") options.PieceFiles = (unsigned)number(++i);
+                else if (flag == "--piece") options.WritePiece = number(++i) != 0;
+                else if (flag == "--add-warps") options.AddWarps = number(++i) != 0;
                 else if (flag == "--zone-warps") options.ZoneWarps = number(++i) != 0;
                 else if (flag == "--allow-errors") options.AllowErrors = true;
                 else { fprintf(stderr, "unknown option %s\n", flag.c_str()); return 2; }

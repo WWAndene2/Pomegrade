@@ -92,6 +92,9 @@ std::vector<TownIssue> CheckBudget(const BchModel& model, size_t fileBytes, cons
     }
     if (original.MaxVertices && vertices > original.MaxVertices)
         issues.push_back({false, std::to_string(vertices) + " vertices, more than the game's largest piece (" + std::to_string(original.MaxVertices) + "): memory use is untested"});
+    if (fileBytes > PieceBytesShown)
+        issues.push_back({true, "piece of " + std::to_string(fileBytes) + " bytes, larger than any seen to show on the phone (" + std::to_string(PieceBytesShown) +
+                                    "; 1,074,944 showed no picture): lower --tree-reach"});
     if (original.MaxFileBytes && fileBytes > original.MaxFileBytes)
         issues.push_back({false, "piece of " + std::to_string(fileBytes) + " bytes, larger than the game's largest (" + std::to_string(original.MaxFileBytes) + ")"});
     return issues;
