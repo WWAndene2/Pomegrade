@@ -75,6 +75,10 @@ def main():
             i = code.find(needle, i + 1)
         print(f"== string {text!r}: at {', '.join('0x%X' % p for p in places) or 'nowhere'}")
         for p in places:
+            # the whole NUL-terminated text the match lies in
+            st = code.rfind(b"\0", 0, p - BASE) + 1
+            en = code.find(b"\0", p - BASE)
+            print(f"   0x{p:X}: {code[st:en][:120]!r} (starts at 0x{BASE + st:X})")
             refs = [BASE + off for off in range(0, len(code) - 3, 4) if struct.unpack_from("<I", code, off)[0] == p]
             print(f"   0x{p:X}: pool words holding it at {', '.join('0x%X' % r for r in refs) or 'none'}")
             for r in refs[:a.max]:
