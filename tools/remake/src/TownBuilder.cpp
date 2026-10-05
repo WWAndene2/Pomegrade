@@ -153,13 +153,15 @@ static void BanksFine(BchGeometry& g, const std::vector<std::string>& water2)
 }
 
 
-// The grass's soft edge, as Littleroot lays it (its chip_grass_decolate mesh, measured): a strip on every half-tile edge
-// where the lighter grass meets the main grass, 9 units wide on the main grass's side, 0.3 above the ground. Its blades
-// are chip_alpha's grass band (rows 38-60 of 128): the tips (v 0.302, white) on the edge, the roots (v 0.496, the grass's
-// colour) outside. u advances 0.0245 a unit along the edge, so two half tiles span the band (u 0.046-0.453). Each corner
-// moves up to 2 units along the edge's normal (a fixed hash of its position), as Littleroot's own strips wander.
+// The grass's soft edge around a zone (its outline): a strip on every half-tile edge where the zone meets the grass,
+// 9 units wide on the grass's side, 0.3 above the ground, with the width, height, texture band and wobble that Littleroot's
+// chip_grass_decolate mesh has (measured). The blades are chip_alpha's grass band (rows 38-60 of 128): the roots (v 0.496,
+// the grass's colour) on the zone's edge, the tips (v 0.302, white) outside, pointing away from the zone. (Littleroot's own
+// strips put the tips on the zone's edge; the owner asked for them pointing outward, from the game's screenshot.) u advances
+// 0.0245 a unit along the edge, so two half tiles span the band (u 0.046-0.453). Each corner moves up to 2 units along the
+// edge's normal (a fixed hash of its position), as Littleroot's strips wander.
 template <typename Light, typename Dark>
-static void GrassFringe(BchGeometry& g, int M, Light light, Dark dark, const float tip[4], const float root[4])
+static void GrassFringe(BchGeometry& g, int M, Light zone, Dark grassBeside, const float tip[4], const float root[4])
 {
     const float cell = T / 2, width = 9.0f;
     auto at = [&](int c) { return c * cell - 360; };
@@ -175,8 +177,8 @@ static void GrassFringe(BchGeometry& g, int M, Light light, Dark dark, const flo
                 const float off = side ? width : 0.0f, w = wobble(ends[e][0], ends[e][1]);
                 BchVertex v;
                 v.Position[0] = ends[e][0] + nx * (off + w); v.Position[1] = 0.3f; v.Position[2] = ends[e][1] + nz * (off + w);
-                v.TexCoord[0] = u0 + (e ? 0.2035f : 0.0f); v.TexCoord[1] = side ? 0.496f : 0.302f;
-                std::copy(side ? root : tip, (side ? root : tip) + 4, v.Colour);
+                v.TexCoord[0] = u0 + (e ? 0.2035f : 0.0f); v.TexCoord[1] = side ? 0.302f : 0.496f;
+                std::copy(side ? tip : root, (side ? tip : root) + 4, v.Colour);
                 g.Vertices.push_back(v);
             }
         const float cross = (x1 - x0) * nz - (z1 - z0) * nx;
@@ -187,12 +189,12 @@ static void GrassFringe(BchGeometry& g, int M, Light light, Dark dark, const flo
     for (int r = 0; r < M; r++)
         for (int c = 0; c < M; c++)
         {
-            if (!light(c, r)) continue;
+            if (!zone(c, r)) continue;
             const int k = c + r;
-            if (ok(c, r - 1) && dark(c, r - 1)) strip(at(c), at(r), at(c + 1), at(r), 0, -1, k);
-            if (ok(c, r + 1) && dark(c, r + 1)) strip(at(c), at(r + 1), at(c + 1), at(r + 1), 0, 1, k);
-            if (ok(c - 1, r) && dark(c - 1, r)) strip(at(c), at(r), at(c), at(r + 1), -1, 0, k);
-            if (ok(c + 1, r) && dark(c + 1, r)) strip(at(c + 1), at(r), at(c + 1), at(r + 1), 1, 0, k);
+            if (ok(c, r - 1) && grassBeside(c, r - 1)) strip(at(c), at(r), at(c + 1), at(r), 0, -1, k);
+            if (ok(c, r + 1) && grassBeside(c, r + 1)) strip(at(c), at(r + 1), at(c + 1), at(r + 1), 0, 1, k);
+            if (ok(c - 1, r) && grassBeside(c - 1, r)) strip(at(c), at(r), at(c), at(r + 1), -1, 0, k);
+            if (ok(c + 1, r) && grassBeside(c + 1, r)) strip(at(c + 1), at(r), at(c + 1), at(r + 1), 1, 0, k);
         }
 }
 }
@@ -385,9 +387,15 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         auto open = [&](int c, int r, const char* classes) { return path2[r][c] != ':' && water2[r][c] != '~' && std::string(classes).find(fineVis(c, r)) != std::string::npos; };
         FlatFine(geo[Ground], 2, [&](int c, int r) { return open(c, r, ".*HtF:f~"); }, 0, grass);
         FlatFine(geo[Pale], 2, [&](int c, int r) { return open(c, r, "s"); }, 0, white);
-        // the soft edge of the lighter patches (the outline mesh, shown with chip_alpha's grass blades below)
+        // the soft edge (outline) of the lighter patches and of the paths, over the main grass beside them (and, for the
+        // paths, over the lighter patches too)
         const float tip[4] = {1, 1, 1, 1};
-        GrassFringe(geo[Outline], 2 * N, [&](int c, int r) { return open(c, r, "s"); }, [&](int c, int r) { return open(c, r, ".*HtF:f~"); }, tip, grass);
+        auto lightGrass = [&](int c, int r) { return open(c, r, "s"); };
+        auto mainGrass = [&](int c, int r) { return open(c, r, ".*HtF:f~"); };
+        auto path = [&](int c, int r) { return path2[r][c] == ':' && water2[r][c] != '~'; };
+        auto grassOrLight = [&](int c, int r) { return mainGrass(c, r) || lightGrass(c, r); };
+        GrassFringe(geo[Outline], 2 * N, lightGrass, mainGrass, tip, grass);
+        GrassFringe(geo[Outline], 2 * N, path, grassOrLight, tip, grass);
         GroundRim(geo[Edge], coll, vis);
         // decals on plain open grass: grass-role tiles away from paths, water, houses and fences
         auto plain = [&](int c, int r) { return c >= 0 && r >= 0 && c < N && r < N && (vis[r][c] == '.' || vis[r][c] == 's') && coll[r][c] == '.' && path2[2 * r][2 * c] != ':' && path2[2 * r + 1][2 * c + 1] != ':'; };
