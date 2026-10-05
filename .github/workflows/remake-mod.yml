@@ -221,6 +221,16 @@ jobs:
         run: |
           # the report is added to the runner's copy only, never to the repository's Azahar sources
           cat tools/remake/headless/pomegrade_report.inc >> azahar/src/citra_libretro/citra_libretro.cpp
+          python3 - <<'PY'
+          # the file-open trace (fs_open_trace.inc) in place of OpenFile's debug line; fails loudly if Azahar's line moved
+          p = "azahar/src/core/hle/service/fs/fs_user.cpp"
+          s = open(p).read()
+          line = '    LOG_DEBUG(Service_FS, "path={}, mode={} attrs={}", file_path.DebugStr(), mode.hex, attributes);\n'
+          assert s.count(line) == 1, "OpenFile's debug line not found"
+          s = s.replace(line, open("tools/remake/headless/fs_open_trace.inc").read())
+          s = s.replace('#include "core/hle/kernel/process.h"', '#include "core/hle/kernel/process.h"\n#include "core/hle/kernel/thread.h"\n#include "core/memory.h"', 1)
+          open(p, "w").write(s)
+          PY
           export CCACHE_DIR=~/.cache/ccache CCACHE_MAXSIZE=2G
           cmake -S azahar -B build-azahar -G Ninja -DCMAKE_BUILD_TYPE=Release -DENABLE_LIBRETRO=ON \
             -DENABLE_OPENGL=OFF -DENABLE_VULKAN=OFF -DENABLE_TESTS=OFF -DENABLE_CCACHE=ON > /dev/null
