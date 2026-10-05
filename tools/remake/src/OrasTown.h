@@ -48,8 +48,9 @@ struct OrasTownOptions
     // (v21 hung at the field's start with both): its area pack set to AreaPack, its warps moved onto the new doors
     bool ZonePack = true, ZoneWarps = true;
     // a warp added for each door the zone has none for (Littleroot: 3 warps, Twinleaf 4 doors), a copy of the last one, so it
-    // leads into the same house. Untested on the phone: the zone's scripts may count on its warps
-    bool AddWarps = true;
+    // leads into the same house. Off: the owner rejected it, each of Twinleaf's 4 doors leads to its own interior in Platinum
+    // (zones 412, 414, 416, 417), so each needs its own ORAS interior zone (ORAS_LITTLEROOT.md section 0, next steps)
+    bool AddWarps = false;
     // the new piece written over the target's (a/0/3/9); 0 keeps the game's piece, to tell a broken piece from a broken pack
     // (v22: the game ran with no picture, its music playing)
     bool WritePiece = true;
