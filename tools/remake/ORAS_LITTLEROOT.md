@@ -42,7 +42,7 @@ cmake -S tools/remake -B build-remake -G Ninja && ninja -C build-remake remake_t
 4. Show results: render and send images, deliver mods as a zip; say what was not tested.
 5. A diagnostic is deleted once it has served; a finding goes in this file, a code comment or a commit message.
 
-**State**: Twinleaf (Platinum) rebuilt as Littleroot's piece 6 with Littleroot's grass; the mod v2 (zone fix) was handed to the owner and **has no phone result yet**. Known deviations: two door models at scale 0.8, 39,863 vertices against the game's largest 35,691, 3 warps for 4 doors, a Route 201 piece not rebuilt by this tool.
+**State**: Twinleaf (Platinum) rebuilt as Littleroot's piece 6 with Littleroot's grass; the mod v2 (zone fix) was handed to the owner and **has no phone result yet**. `oras-town` now passes every design rule with no warning (v3): door models at scale 1 (the houses' own geometry is still scaled to the DS house's width), forest trees only within 2 tiles of open ground, 34,697 vertices against the game's largest 35,691. Known deviations: 3 warps for 4 doors (adding a warp needs the zone's entity words, unknown), a Route 201 piece not rebuilt by this tool. v3 has no phone result yet.
 
 **Next steps, in the order that pays most**: (1) rebuild towns from several ORAS pieces and packs, choosing a donor by its layers and mesh slots (section 9c: blend is a layer flag, not per-material registers); (2) read the engine's per-layer state and how it draws a projected texture (`.code` is BLZ-compressed; capstone ARM works); (3) the Pawn scripts (needed for NPCs and events), the `coll` geometry, matrix a/0/4/0, adding meshes or materials to a terrain model: section 10.
 
@@ -143,7 +143,7 @@ The `.code` in ExeFS is packed with BLZ (backward LZ, flag 0x01 of the extended 
 | A texture's v is used as stored, never flipped (previews included) | PICA textures are stored bottom row first, decoded in that order | rule of the BCH preview |
 | Textures are added to an area pack under their own names, never written over an existing one (`--grass -1` adds none) | a pack is shared by every piece of its area | by construction |
 
-Layout rules (`CheckLayout`, all warnings except the first two): the tile block is 40 x 40 (error); the door block fits its count (error); tile values are among the 94 the game uses in at least 5 pieces; door models are at scale 1, turned by a multiple of 90 degrees, and centred on a tile (section 9b). The builder's 0.8-scaled doors trigger the scale warning: a known deviation from the game.
+Layout rules (`CheckLayout`, all warnings except the first two): the tile block is 40 x 40 (error); the door block fits its count (error); tile values are among the 94 the game uses in at least 5 pieces; door models are at scale 1, turned by a multiple of 90 degrees, and centred on a tile (section 9b). The builder places door models at scale 1, so Twinleaf raises none of them.
 
 Not yet checked by code: a door model per placed door (the block holds 5), warps inside the piece's cell, the zone's area pack matching the piece's.
 

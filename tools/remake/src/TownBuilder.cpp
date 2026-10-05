@@ -497,7 +497,8 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
                 const int fc = 2 * c + dc, fr = 2 * r + dr;
                 if (fc >= 0 && fr >= 0 && fc < 2 * N && fr < 2 * N && water2[fr][fc] == '~') nearWater = true;
             }
-            if (d <= 4 && !nearWater) spots.push_back({c, r, d});
+            // within 2 tiles of open ground: with 3 or more the piece (37,362 vertices) passes the game's largest (35,691)
+            if (d <= 2 && !nearWater) spots.push_back({c, r, d});
         }
     std::stable_sort(spots.begin(), spots.end(), [](const Spot& a, const Spot& b) { return a.d < b.d; });
     // the tree's two upper leaf layers (Route 101's layers span y 27-52, 43-68, 54-79, 71-96)
@@ -542,7 +543,8 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         const uint32_t v = ch == '#' ? 0x01000021 : ch == '~' ? 0x3d180006 : ch == 'g' ? 0x20004004 : 0x00000020;
         for (int k = 0; k < 4; k++) tiles[4 + (r * N + c) * 4 + k] = (uint8_t)(v >> (8 * k));
     }
-    // door models: Petalburg's house door (type 4) on each door, scaled with its house
+    // door models: Petalburg's house door (type 4) on each door, at scale 1 and on the door tile's centre:
+    // all 368 door models of the game are (ORAS_LITTLEROOT.md 9b), however wide the house is
     Bytes& dm = gr.Files[3];
     std::fill(dm.begin(), dm.end(), 0);
     auto put = [&](size_t at, uint32_t v) { for (int k = 0; k < 4; k++) dm.at(at + k) = (uint8_t)(v >> (8 * k)); };
@@ -550,12 +552,8 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     put(0, (uint32_t)doors.size());
     for (size_t k = 0; k < doors.size(); k++)
     {
-        int c0 = doors[k][0], c1 = doors[k][0];
-        while (c0 > 0 && coll[doors[k][1]][c0 - 1] == '#') c0--;
-        while (c1 < N - 1 && coll[doors[k][1]][c1 + 1] == '#') c1++;
-        const float scale = (c1 - c0 + 1) / 5.0f;
         const size_t e = 4 + k * 44;
-        put(e, 4); putf(e + 4, scale); putf(e + 8, scale); putf(e + 12, scale);
+        put(e, 4); putf(e + 4, 1); putf(e + 8, 1); putf(e + 12, 1);
         putf(e + 28, (float)((src.CellX * N + doors[k][0]) * 18 + 9)); putf(e + 36, (float)((src.CellY * N + doors[k][1]) * 18 + 9));
     }
 
