@@ -453,7 +453,9 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         const float corner = -20 * T; // the window's corner (X(0), Z(0))
         const ZoneShape lightShape = StairZone(tileMask(lightGrass, path), T, corner, corner, false);
         const ZoneShape pathShape = StairZone(pathMask, T / 2, corner, corner, false);
-        AddFill(geo[Pale], lightShape, 0.15f, white);
+        // Platinum's snow patches (role s) are these zones: with a snow texture they show it, untinted
+        const float snow[4] = {1, 1, 1, 1};
+        AddFill(geo[Pale], lightShape, 0.15f, src.SnowTexture.empty() ? white : snow);
         AddFill(geo[Soil], pathShape, 0.15f, soil);
         // the outline of each zone, on its border, coloured as the target's own outline (one colour for tips and roots, the
         // grass's less 15%, put a dark band over the lighter grass and the paths); the grass's less 15% when it has none
@@ -468,7 +470,8 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         for (int r = 0; r < N; r++) for (int c = 0; c < N; c++) notWall[r][c] = !(coll[r][c] == '#' && (vis[r][c] == 't' || vis[r][c] == 'T'));
         for (const ShapeChain& chain : StairZone(notWall, T, corner, corner, true).Chains) AddRim(geo[Edge], chain);
         // decals on plain open grass: grass-role tiles away from paths, water, houses and fences
-        auto plain = [&](int c, int r) { return c >= 0 && r >= 0 && c < N && r < N && (vis[r][c] == '.' || vis[r][c] == 's') && coll[r][c] == '.' && path2[2 * r][2 * c] != ':' && path2[2 * r + 1][2 * c + 1] != ':'; };
+        // (not on snow: grass decals do not grow there)
+        auto plain = [&](int c, int r) { return c >= 0 && r >= 0 && c < N && r < N && (vis[r][c] == '.' || (vis[r][c] == 's' && src.SnowTexture.empty())) && coll[r][c] == '.' && path2[2 * r][2 * c] != ':' && path2[2 * r + 1][2 * c + 1] != ':'; };
         const int decals = GrassDecals(geo[Outline], plain);
         note("grass edge: %zu outlines, %d decals\n", lightShape.Chains.size() + pathShape.Chains.size(), decals);
     }
@@ -609,7 +612,7 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
             if (!texture.empty() && m.Texture[slot] != texture) terrain = BchSetTextureName(terrain, 0, pm.Meshes[mesh].Material, slot, texture);
         };
         show(Ground, 0, src.GroundTexture);
-        show(Pale, 0, src.LightTexture);
+        show(Pale, 0, src.SnowTexture.empty() ? src.LightTexture : src.SnowTexture);
         show(Edge, 1, src.EdgeTexture);
     }
     gr.Files[1] = terrain;

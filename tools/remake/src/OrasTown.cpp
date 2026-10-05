@@ -124,6 +124,12 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
         sources.TargetGrass = !finalName["chip_kusa_a"].empty() && !finalName["chip_kusa_b"].empty() && !finalName["chip_grass_edge"].empty();
         sources.GroundTexture = finalName["chip_kusa_a"]; sources.LightTexture = finalName["chip_kusa_b"]; sources.EdgeTexture = finalName["chip_grass_edge"];
     }
+    if (o.SnowPack >= 0)
+    {
+        std::map<std::string, std::string> finalName;
+        areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub((size_t)o.SnowPack)), (size_t)o.SnowPack, {"c109_pur_yaneyuki"}, finalName, result.Log);
+        sources.SnowTexture = finalName["c109_pur_yaneyuki"];
+    }
     const Bytes town = BuildTown(result.Layout, sources, &result.Log);
     result.PieceBytes = town.size();
 
