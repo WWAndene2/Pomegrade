@@ -88,7 +88,7 @@ static int Usage()
                     "  remake_tool texindex <rom.nds>\n  remake_tool identify <rom.nds> <dump dir>\n"
                     "  remake_tool world <map_matrix.narc> <matrix index> <land_data.narc> <out dir>\n"
                     "                    [map textures.nsbtx|-] [buildings.narc|-] [building textures.nsbtx|-]\n"
-                    "  remake_tool oras-world <rom.nds> <matrix index> <out dir>\n"
+                    "  remake_tool oras-world <rom.nds> <matrix index> <out dir>\n  remake_tool platinum-zones <rom.nds>\n"
                     "  remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]\n  remake_tool oras-list <oras.3ds>\n  remake_tool oras-extract <oras.3ds> <path> <out>\n"
                     "  remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-inspect <oras.3ds> zone|piece|area|matrix|piece-names|zones|matrices|archives <index>\n"
@@ -495,6 +495,37 @@ int main(int argc, char** argv)
                 }
             }
             fprintf(stderr, "%zu of %zu dumped textures found, from %zu files\n", found, total, files.size());
+            return 0;
+        }
+        if (cmd == "platinum-zones")
+        {
+            // the zones Sinnoh needs: the overworld matrix's zones, then every zone a warp leads to from those, transitively
+            // (houses, floors, caves); a map header nothing reaches is not counted
+            const PlatinumWorld plat(rom, 0);
+            std::set<int> overworld, reached;
+            for (int h : plat.World.Matrix.Headers) if (h >= 0) overworld.insert(h);
+            std::vector<int> todo(overworld.begin(), overworld.end());
+            reached = overworld;
+            size_t badEvents = 0;
+            while (!todo.empty())
+            {
+                const int h = todo.back(); todo.pop_back();
+                if (h < 0 || (size_t)h >= plat.Headers.size()) continue;
+                try
+                {
+                    const ZoneEvents ev = ZoneEvents::Read(Plain(plat.Events.Member(plat.Headers[h].Events)));
+                    for (const ZoneWarp& w : ev.Warps)
+                        if (w.DestHeader < plat.Headers.size() && reached.insert(w.DestHeader).second) todo.push_back(w.DestHeader);
+                }
+                catch (const FormatError&) { badEvents++; }
+            }
+            std::map<int, int> byMatrix;
+            for (int h : reached) byMatrix[plat.Headers[h].Matrix]++;
+            printf("map headers %zu; overworld (matrix 0) zones %zu; reached through warps %zu (events not read: %zu); unreached %zu\n",
+                   plat.Headers.size(), overworld.size(), reached.size(), badEvents, plat.Headers.size() - reached.size());
+            printf("reached zones by matrix:");
+            for (const auto& [m, n] : byMatrix) printf(" %d:%d", m, n);
+            printf("\n");
             return 0;
         }
         if (cmd == "oras-world" && argc >= 5)
