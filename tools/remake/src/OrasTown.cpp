@@ -278,6 +278,8 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
     WriteFile((out / "town_preview.gltf").string(), Bytes(gltf.begin(), gltf.end()));
     const std::string text = result.Layout.Text();
     WriteFile((out / "town_layout.txt").string(), Bytes(text.begin(), text.end()));
+    // the piece the mod writes, decompressed: `remake_tool topview town_piece.bin ...` and `mesh-json` read it as they read the game's
+    WriteFile((out / "town_piece.bin").string(), town);
     return result;
 }
 

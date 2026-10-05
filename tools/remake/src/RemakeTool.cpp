@@ -27,7 +27,11 @@
 //   remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]
 //                     [--cell X Y] [--zone Z] [--area A] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--allow-errors]
 //                     a Platinum window of 40x40 tiles (default: Twinleaf Town) rebuilt as an ORAS map piece with
-//                     ORAS's own assets, as an Azahar mod (BPS patches), with town_preview.gltf and town_layout.txt
+//                     ORAS's own assets, as an Azahar mod (BPS patches), with town_preview.gltf, town_layout.txt and
+//                     town_piece.bin (the piece the mod writes, decompressed)
+//   remake_tool oras-texture <oras.3ds> <area pack> <name> <out.png>   one texture of an area pack (a/0/1/4 member), as a PNG
+//   remake_tool mesh-json <GR piece file|file.bch> <out.json>   a terrain model's meshes as JSON, to measure them: for each
+//                     mesh its index, layer, material, textures, vertices [x, z, y, u, v, r, g, b, a] and triangles
 //   remake_tool oras-inspect <oras.3ds> zone|piece|area <index>
 //   remake_tool oras-topview <oras.3ds> <piece> <out.png> [--grid] [--tiles] [--doors] [--points] [--px N]   (topview <GR file> <out.png> for a mod's piece)
 //                     what an ORAS zone (a/0/1/3), map piece (a/0/3/9) or area pack (a/0/1/4) is made of, as text
@@ -45,6 +49,7 @@
 #include "Garc.h"
 #include "Nsbmd.h"
 #include "Png.h"
+#include "PicaTexture.h"
 #include "TextureIndex.h"
 #include "AreaData.h"
 #include "Bch.h"
@@ -90,6 +95,7 @@ static int Usage()
                     "  remake_tool oras-topview <oras.3ds> <piece> <out.png> [--grid] [--tiles] [--doors] [--points] [--px N]\n"
                     "  remake_tool topview <GR piece file> <out.png> [--grid] [--tiles] [--doors] [--points] [--px N]\n"
                     "  remake_tool oras-verify <oras.3ds>\n  remake_tool oras-catalog <oras.3ds> <out dir>\n"
+                    "  remake_tool oras-texture <oras.3ds> <area pack> <name> <out.png>\n  remake_tool mesh-json <GR piece file|file.bch> <out.json>\n"
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
                     "                    [--cell X Y] [--zone Z] [--area A] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--allow-errors]\n");
@@ -222,6 +228,56 @@ int main(int argc, char** argv)
         {
             N3dsRom game(argv[2]);
             fputs(MeasureGame(game, argv[3]).c_str(), stdout);
+            return 0;
+        }
+        if (cmd == "oras-texture" && argc >= 6)
+        {
+            // an area pack's texture (any of its BCH files), decoded, rows top-down as PNG shows them
+            N3dsRom game(argv[2]);
+            const BinLinker pack = BinLinker::Read(Plain(Garc(game.Read("a/0/1/4")).Sub((size_t)atoi(argv[3]))), "AD");
+            for (const Bytes& f : pack.Files)
+            {
+                if (f.empty() || !Bch::Is(f)) continue;
+                for (const BchTexture& t : Bch::Read(f).Textures)
+                    if (t.Name == argv[4] && !t.Data.empty())
+                    {
+                        WriteFile(argv[5], EncodePng(t.Width, t.Height, PicaTextureDecode(t.Data, t.Width, t.Height, t.Format)));
+                        printf("%s: %ux%u, format %u\n", t.Name.c_str(), t.Width, t.Height, (unsigned)t.Format);
+                        return 0;
+                    }
+            }
+            fprintf(stderr, "no texture %s in area pack %s\n", argv[4], argv[3]);
+            return 1;
+        }
+        if (cmd == "mesh-json" && argc >= 4)
+        {
+            Bytes file = Plain(ReadFile(argv[2]));
+            if (Text(file, 0, 2) == "GR") file = BinLinker::Read(file, "GR").Files.at(1); // a map piece: its terrain
+            const Bch bch = Bch::Read(file);
+            if (bch.Models.empty()) { fprintf(stderr, "no model\n"); return 1; }
+            const BchModel& m = bch.Models[0];
+            std::string json = "[";
+            char num[160];
+            for (size_t i = 0; i < m.Meshes.size(); i++)
+            {
+                const BchMesh& me = m.Meshes[i];
+                const BchMaterial& mat = m.Materials.at(me.Material);
+                json += std::string(i ? "," : "") + "{\"mesh\":" + std::to_string(i) + ",\"layer\":" + std::to_string(me.Layer) + ",\"material\":\"" + mat.Name +
+                        "\",\"tex\":\"" + mat.Texture[0] + "\",\"tex1\":\"" + mat.Texture[1] + "\",\"v\":[";
+                for (size_t k = 0; k < me.Vertices.size(); k++)
+                {
+                    const BchVertex& v = me.Vertices[k];
+                    snprintf(num, sizeof num, "%s[%.3f,%.3f,%.3f,%.4f,%.4f,%.3f,%.3f,%.3f,%.3f]", k ? "," : "", v.Position[0], v.Position[2], v.Position[1],
+                             v.TexCoord[0], v.TexCoord[1], v.Colour[0], v.Colour[1], v.Colour[2], v.Colour[3]);
+                    json += num;
+                }
+                json += "],\"t\":[";
+                for (size_t k = 0; k < me.Triangles.size(); k++) json += (k ? "," : "") + std::to_string(me.Triangles[k]);
+                json += "]}";
+            }
+            json += "]\n";
+            WriteFile(argv[3], Bytes(json.begin(), json.end()));
+            printf("%zu meshes written to %s\n", m.Meshes.size(), argv[3]);
             return 0;
         }
         if ((cmd == "oras-topview" && argc >= 5) || (cmd == "topview" && argc >= 4))

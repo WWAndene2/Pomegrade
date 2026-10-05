@@ -12,7 +12,7 @@ These are working prototypes, not finished tools. They built the Twinleaf test m
 remake_tool oras-town <platinum.nds> <oras.3ds> <out dir>
 ```
 
-It reads the window (Twinleaf Town by default: `--left 92 --top 856` on matrix 0) from Platinum's own data (what each tile shows, collision, doors), rebuilds it as the target ORAS piece (`--target 6`, Littleroot's, with Petalburg's `--donor 8` and Route 101's `--trees 5`; `--cell 2 4` and `--zone 6` name that piece's place; `--grass 8` takes Littleroot's grass, `--grass -1` keeps Petalburg's; `--snow 72` adds ORAS's snow `chip_icedoukutsu02` (its ice cave's) from that area pack and lays it on Platinum's snow patches as a blended layer fading on its border, `--snow -1` leaves them the lighter grass; `--fence 21` adds ORAS's white picket fence `c103_saku` and builds Platinum's fences with it, `--fence -1` keeps a hedge), and writes the mod (`load/mods/<program id>/romfs_ext/a/0/3/9.bps`, `a/0/1/3.bps` and `a/0/1/4.bps`, each checked by applying it back), `town_preview.gltf` and `town_layout.txt` (the roles, collision and doors it found, and any texture it had no role for). The piece it builds is byte-identical to the one the steps below build. The preview opens in `../editor/world_editor.html` and renders with `render_compare.js` (step 8). Route 201 is not rebuilt by it (step 6's `gr5_route201.bin` came from a tool that is not in the repository).
+It reads the window (Twinleaf Town by default: `--left 92 --top 856` on matrix 0) from Platinum's own data (what each tile shows, collision, doors), rebuilds it as the target ORAS piece (`--target 6`, Littleroot's, with Petalburg's `--donor 8` and Route 101's `--trees 5`; `--cell 2 4` and `--zone 6` name that piece's place; `--grass 8` takes Littleroot's grass, `--grass -1` keeps Petalburg's; `--snow 72` adds ORAS's snow `chip_icedoukutsu02` (its ice cave's) from that area pack and lays it, opaque, on Platinum's snow patches read at half-tile precision and grown a tile under the trees, `--snow -1` leaves them the lighter grass; `--snow-clumps 1` edges the snow with clumps (Littleroot's stone cluster filled with that snow, `snow_clump`, made and added to the pack), never under a tree; `--fence 21` adds ORAS's white picket fence `c103_saku` and builds Platinum's fences with it, `--fence -1` keeps a hedge; `--pond-wall 1` gives the pond's inner walls Littleroot's earth cliff `chip_gake_b`, 0 the donor's rock band, 2 the paths' soil), and writes the mod (`load/mods/<program id>/romfs_ext/a/0/3/9.bps`, `a/0/1/3.bps` and `a/0/1/4.bps`, each checked by applying it back), `town_preview.gltf`, `town_layout.txt` (the roles, collision and doors it found, and any texture it had no role for) and `town_piece.bin` (the piece the mod writes, decompressed: `remake_tool topview town_piece.bin out.png --grid --points` draws it as the game's pieces are drawn). The piece it builds is byte-identical to the one the steps below build. The preview opens in `../editor/world_editor.html` and renders with `render_compare.js` (step 8). Route 201 is not rebuilt by it (step 6's `gr5_route201.bin` came from a tool that is not in the repository).
 
 The scripts and programs below stay for the checks and for comparing; they are not needed to build the town.
 
@@ -46,8 +46,19 @@ Every tool runs from a work directory (`REMAKE_WORK` for the Python and JS tools
 7. `./BpsMake <original> <modified> <out.bps>` makes the patch. Install the patches as `load/mods/000400000011C400/romfs_ext/a/0/3/9.bps` and `.../a/0/1/3.bps`.
 8. Checks:
    - `./PiecePreview` exports pieces to glTF, which you open in `../editor/world_editor.html`.
-   - `node render_compare.js <gltf> <prefix> <ox> <oz>` and `node render_closeups.js <gltf> <prefix> <ox> <oz> name:col:row...` render Platinum and the rebuild side by side.
+   - `node render_compare.js <gltf> <prefix> <ox> <oz>` and `node render_closeups.js [--top] <gltf> <prefix> <ox> <oz> name:col:row...` render Platinum and the rebuild side by side (`--top`: from straight above). Platinum's reference: `pref/ref.gltf` at offset `2016 15768`; a town's `town_preview.gltf` at `0 0`.
    - `python3 scene_diff.py <name> <gc0> <gr0>` maps where the paths and water differ.
+
+## Measuring how ORAS lays a zone (`measure_zone.py`)
+
+The rules `oras-town` follows for its zones and blade strips were measured on the game's own meshes, not guessed (ORAS_LITTLEROOT.md 9d, 9f). To measure a piece the same way:
+
+```
+remake_tool mesh-json <GR piece file> mesh.json            # the game's piece (remake_tool garc ... to get one) or a town_piece.bin
+python3 measure_zone.py mesh.json [chip_kusa_b] [chip_alpha]
+```
+
+It prints how far the zone's border corners sit from the tile lattice by kind (straight run, the zone's own corner, an inner corner), whether tiles with the same neighbourhood have the same border, and where the strip's tips and roots sit around each corner. On Littleroot (piece 6) it gives the numbers `TownShapes` uses: own corners 0.12 tile in, tips 0.23 / 0.32 / 0.13 in and roots 0.25 / 0.22 / 0.36 out. Run it on another piece (a town with paths, a snowy cave) before laying that kind of zone. `remake_tool oras-texture <oras.3ds> <pack> <name> out.png` shows any texture of an area pack, and `oras-catalog` finds which packs and pieces use it.
 
 ## Check against Azahar's own code (`azahar_check/`)
 
