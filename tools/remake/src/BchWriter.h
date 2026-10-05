@@ -39,6 +39,12 @@ struct BchGeometry
 // file's layout or a mesh's vertex format doesn't allow it
 Bytes BchReplaceGeometry(const Bytes& bch, size_t model, const std::vector<BchGeometry>& meshes);
 
+// bch with one material's texture (slot 0-2, one that names a texture already) named otherwise: the
+// game binds a material's textures by name, from the zone's area pack. The new name is appended to the
+// string section (padded to 0x80, so the sections after it keep their alignment and, their pointers
+// being relative to their own section, only the header's addresses move) and the slot repointed to it.
+Bytes BchSetTextureName(const Bytes& bch, size_t model, size_t material, int slot, const std::string& name);
+
 }
 
 #endif // REMAKE_BCHWRITER_H

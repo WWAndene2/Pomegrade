@@ -240,6 +240,18 @@ int main()
     check(Bch::Read(big).Models[0].Meshes[0].Triangles == grid.Triangles && small.size() + 8000 < big.size() &&
               smallRead.Models[0].Meshes[0].Triangles == quad.Triangles && smallRead.Textures[0].Data == rgb565,
           "BCH writer: a replaced mesh's buffers removed (" + std::to_string(big.size()) + " -> " + std::to_string(small.size()) + " bytes), the texture kept");
+    // a material's texture renamed: the new name read back, the rest intact, the file still writable
+    const Bytes renamed = BchSetTextureName(file, 0, 0, 0, "a_longer_texture_name");
+    const Bch rn = Bch::Read(renamed);
+    check(rn.Models[0].Materials[0].Texture[0] == "a_longer_texture_name" && rn.Models[0].Materials[0].Name == "mat" &&
+              rn.Models[0].Meshes[0].Triangles == std::vector<uint32_t>({0, 1, 2}) && rn.Models[0].Meshes[0].Vertices[1].Position[0] == 11 &&
+              rn.Textures[0].Name == "tex" && rn.Textures[0].Data == rgb565,
+          "BCH writer: a material's texture renamed, the model's other names, mesh and texture kept");
+    check(Bch::Read(BchReplaceGeometry(renamed, 0, {quad})).Models[0].Materials[0].Texture[0] == "a_longer_texture_name",
+          "BCH writer: a renamed file's geometry replaced");
+    refused = false;
+    try { BchSetTextureName(file, 0, 0, 1, "x"); } catch (const FormatError&) { refused = true; }
+    check(refused, "BCH writer: renaming a texture slot that names none refused");
     // a mesh with 8-bit indices (the relocation naming section 6): written with 16-bit ones
     Bytes narrow = file;
     {

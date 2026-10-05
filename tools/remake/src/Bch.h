@@ -70,6 +70,7 @@ struct BchMesh
 struct BchMaterial
 {
     std::string Name, Texture[3];
+    uint32_t TextureNameWord[3] = {}; // file offsets of the texture name pointers (a writer repoints them)
 };
 
 struct BchModel

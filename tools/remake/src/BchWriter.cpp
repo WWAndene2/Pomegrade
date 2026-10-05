@@ -195,4 +195,38 @@ Bytes BchReplaceGeometry(const Bytes& bch, size_t modelIndex, const std::vector<
     return out;
 }
 
+Bytes BchSetTextureName(const Bytes& bch, size_t modelIndex, size_t material, int slot, const std::string& name)
+{
+    const Bch parsed = Bch::Read(bch);
+    if (parsed.Version < 0x21) throw FormatError("BCH writer: only version 0x21 files (Omega Ruby / Alpha Sapphire)");
+    if (modelIndex >= parsed.Models.size() || material >= parsed.Models[modelIndex].Materials.size() || slot < 0 || slot > 2)
+        throw FormatError("BCH writer: no such material or texture slot");
+    if (name.empty() || name.size() > 255 || name.find('\0') != std::string::npos) throw FormatError("BCH writer: a texture name of 1-255 characters");
+    const BchMaterial& mat = parsed.Models[modelIndex].Materials[material];
+    if (mat.Texture[slot].empty()) throw FormatError("BCH writer: the slot names no texture (it has no pointer to repoint)");
+    const BchSections s = BchSections::Read(bch);
+    bool relocated = false;
+    for (const BchPointer& p : BchPointers(bch, s))
+    {
+        if (p.At == mat.TextureNameWord[slot]) relocated = p.Target == 1;
+        if (p.Target == 14 && U32(bch, p.At) >= s.Commands) throw FormatError("BCH writer: a pointer from the file's start past the strings would move");
+    }
+    if (!relocated) throw FormatError("BCH writer: the texture name pointer is not a relocated string pointer");
+    if (!(s.Strings < s.Commands && s.Commands <= s.Raw && s.Raw <= s.RawExt && s.RawExt <= s.Relocation))
+        throw FormatError("BCH writer: the sections are not in the expected order");
+
+    // the name at the end of the strings, before the commands; padded to 0x80
+    const uint32_t insertAt = s.Commands;
+    Bytes text(name.begin(), name.end());
+    text.push_back(0);
+    while (text.size() % 0x80) text.push_back(0);
+    Bytes out = bch;
+    Put32(out, mat.TextureNameWord[slot], insertAt - s.Strings);
+    out.insert(out.begin() + insertAt, text.begin(), text.end());
+    const uint32_t grown = (uint32_t)text.size();
+    Put32(out, HeaderLengths + Strings * 4, insertAt - s.Strings + (uint32_t)name.size() + 1);
+    for (Section k : {Commands, Raw, RawExt, Relocation}) Put32(out, HeaderAddresses + k * 4, U32(bch, HeaderAddresses + k * 4) + grown);
+    return out;
+}
+
 }
