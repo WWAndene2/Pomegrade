@@ -130,6 +130,23 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
         areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub((size_t)o.SnowPack)), (size_t)o.SnowPack, {"chip_icedoukutsu02"}, finalName, result.Log);
         sources.SnowTexture = finalName["chip_icedoukutsu02"];
     }
+    if (o.SnowOutline == 1 || o.SnowOutline == 2)
+    {
+        std::map<std::string, std::string> finalName;
+        areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub(15)), 15, {"chip_alpha_haji"}, finalName, result.Log);
+        sources.SnowOutlineTexture = finalName["chip_alpha_haji"];
+        if (o.SnowOutline == 1) { sources.SnowOutlineV[0] = 0.0f; sources.SnowOutlineV[1] = 0.24f; sources.SnowOutlineU[0] = 0.0f; sources.SnowOutlineU[1] = 0.99f; }
+        else { sources.SnowOutlineV[0] = 0.758f; sources.SnowOutlineV[1] = 0.995f; sources.SnowOutlineU[0] = 0.004f; sources.SnowOutlineU[1] = 0.49f; }
+    }
+    if (o.PondWall == 1)
+    {
+        // chip_gake_b (256 rows): its grass lip from row 140, stones below; the wall shows rows 140 to 204
+        std::map<std::string, std::string> finalName;
+        areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub(8)), 8, {"chip_gake_b"}, finalName, result.Log);
+        sources.BankTexture = finalName["chip_gake_b"];
+        sources.BankV[0] = 140.0f / 256; sources.BankV[1] = 204.0f / 256;
+    }
+    if (o.PondWall == 2) { sources.BankTexture = "chip_soil_a"; sources.BankV[0] = 0; sources.BankV[1] = 0.25f; } // the paths': in the pack
     if (o.FencePack >= 0)
     {
         std::map<std::string, std::string> finalName;

@@ -27,6 +27,12 @@ struct TownSources
     // the texture Platinum's snow patches show (empty: they are the lighter grass), and the one its fences show (empty: a hedge);
     // both must be in the area pack too
     std::string SnowTexture, FenceTexture;
+    // the snow's outline (empty: none): its atlas, the band's rows (v of its ragged and solid edges) and columns (u start, width)
+    std::string SnowOutlineTexture;
+    float SnowOutlineV[2] = {0, 0}, SnowOutlineU[2] = {0, 1};
+    // the pond's inner walls (empty: the donor's cliff band): their texture and its rows at the top and the foot of the wall
+    std::string BankTexture;
+    float BankV[2] = {0, 0};
 };
 
 // the new piece's bytes; log: what was placed

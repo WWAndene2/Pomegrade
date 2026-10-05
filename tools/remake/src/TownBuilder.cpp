@@ -128,7 +128,8 @@ static void FlatFine(BchGeometry& g, int k, F select, float y, const float colou
 
 // the pond's banks: a wall from the ground down past the water on every edge between water and land, on the
 // half-tile water grid, textured as Petalburg's (u along the bank / 36, v = 0.843 - y / 100)
-static void BanksFine(BchGeometry& g, const std::vector<std::string>& water2)
+// v0, v1: the wall's texture rows at its top (the ground) and at its foot, 9 units down (gake_01_touka: 0.843 to 0.933)
+static void BanksFine(BchGeometry& g, const std::vector<std::string>& water2, float v0 = 0.843f, float v1 = 0.933f)
 {
     const int M = 2 * N; const float cell = T / 2;
     auto water = [&](int c, int r) { return c >= 0 && r >= 0 && c < M && r < M && water2[r][c] == '~'; };
@@ -139,7 +140,7 @@ static void BanksFine(BchGeometry& g, const std::vector<std::string>& water2)
         for (float y : ys) for (int e = 0; e < 2; e++)
         {
             BchVertex v; v.Position[0] = e ? x1 : x0; v.Position[1] = y; v.Position[2] = e ? z1 : z0;
-            v.TexCoord[0] = (e ? len : 0) / 36.0f; v.TexCoord[1] = 0.843f - y / 100.0f; g.Vertices.push_back(v);
+            v.TexCoord[0] = (e ? len : 0) / 36.0f; v.TexCoord[1] = v0 + (v1 - v0) * (-y / 9.0f); g.Vertices.push_back(v);
         }
         for (uint32_t i : {0u, 2u, 3u, 0u, 3u, 1u}) g.Triangles.push_back(base + i);
     };
@@ -179,17 +180,22 @@ static void AddFill(BchGeometry& g, const ZoneShape& shape, float y, const float
 // with Littleroot's chip_grass_decolate mesh's height and texture band (measured). The blades are chip_alpha's grass band (rows 38-60 of 128): the tips (v 0.302, white) into the zone, the roots
 // (v 0.496, the grass's colour) out on the grass, so the grass's edge is jagged and runs on beyond it. u advances 0.0245 a
 // unit along the border, wrapping inside the band (u 0.046-0.453), the strip cut where it wraps.
-static void AddOutline(BchGeometry& g, const ShapeChain& chain, const float tip[4], const float root[4])
+// The band is one row range of an atlas: vTip and vRoot its two edges' v (a decoded texture's row / 128 for a 128-row atlas),
+// uStart and span its columns (chip_alpha's blades: 0.046 and 0.407); tipsOut: the band's tip edge out of the zone, where
+// the roots were; y: the height.
+struct OutlineBand { float VTip = 0.302f, VRoot = 0.496f, UStart = 0.046f, Span = 0.407f; };
+static void AddOutline(BchGeometry& g, const ShapeChain& chain, const float tip[4], const float root[4], const OutlineBand& band = {},
+                       bool tipsOut = false, float y = 0.3f)
 {
-    const float perUnit = 0.0245f, lo = 0.046f, span = 0.407f;
+    const float perUnit = 0.0245f, lo = band.UStart, span = band.Span;
     const OutlinePoints strip = OutlineStrip(chain, T);
     float s = 0;
     const size_t n = chain.Points.size();
     const size_t last = chain.Closed ? n : n - 1;
     auto vertex = [&](const ShapePoint& p, bool tipSide, float u) {
         BchVertex v;
-        v.Position[0] = p.X; v.Position[1] = 0.3f; v.Position[2] = p.Z;
-        v.TexCoord[0] = u; v.TexCoord[1] = tipSide ? 0.302f : 0.496f;
+        v.Position[0] = p.X; v.Position[1] = y; v.Position[2] = p.Z;
+        v.TexCoord[0] = u; v.TexCoord[1] = tipSide ? band.VTip : band.VRoot;
         std::copy(tipSide ? tip : root, (tipSide ? tip : root) + 4, v.Colour);
         g.Vertices.push_back(v);
     };
@@ -212,8 +218,10 @@ static void AddOutline(BchGeometry& g, const ShapeChain& chain, const float tip[
                 const float t = d / length;
                 p = {lerp(a.X, b.X, t), lerp(a.Z, b.Z, t)};
                 nrm = {lerp(na.X, nb.X, t), lerp(na.Z, nb.Z, t)};
-                tipAt = {lerp(strip.Tips[i].X, strip.Tips[j].X, t), lerp(strip.Tips[i].Z, strip.Tips[j].Z, t)};
-                rootAt = {lerp(strip.Roots[i].X, strip.Roots[j].X, t), lerp(strip.Roots[i].Z, strip.Roots[j].Z, t)};
+                const std::vector<ShapePoint>& tips = tipsOut ? strip.Roots : strip.Tips;
+                const std::vector<ShapePoint>& roots = tipsOut ? strip.Tips : strip.Roots;
+                tipAt = {lerp(tips[i].X, tips[j].X, t), lerp(tips[i].Z, tips[j].Z, t)};
+                rootAt = {lerp(roots[i].X, roots[j].X, t), lerp(roots[i].Z, roots[j].Z, t)};
             };
             ShapePoint p0, n0, t0, r0, p1, n1, t1, r1;
             along(at, p0, n0, t0, r0); along(to, p1, n1, t1, r1);
@@ -222,7 +230,8 @@ static void AddOutline(BchGeometry& g, const ShapeChain& chain, const float tip[
             vertex(t0, true, u0); vertex(r0, false, u0); vertex(t1, true, u1); vertex(r1, false, u1);
             // facing up, as the ground (see the quads': a, e, d / a, d, b); the zone is on the tips' side
             const float cross = (p1.X - p0.X) * n0.Z - (p1.Z - p0.Z) * n0.X;
-            if (cross > 0) for (uint32_t k : {0u, 2u, 3u, 0u, 3u, 1u}) g.Triangles.push_back(base + k);
+            // (tips turned out: the quad's two sides swap, and so does the winding that faces up)
+            if ((cross > 0) != tipsOut) for (uint32_t k : {0u, 2u, 3u, 0u, 3u, 1u}) g.Triangles.push_back(base + k);
             else for (uint32_t k : {0u, 3u, 2u, 0u, 1u, 3u}) g.Triangles.push_back(base + k);
             at = to;
         }
@@ -373,7 +382,7 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     const BchModel rm = Bch::Read(BinLinker::Read(r101, "GR").Files[1]).Models[0];
     // Petalburg's meshes (world02_02_03)
     enum { FlowerA = 0, FlowerB = 1, Canopy = 2, Bank = 11, Ground = 12, Soil = 13, Pale = 14, House = 16, Frame = 17, Window = 18,
-           Hedge = 7, Trunk = 19, Outline = 20, Edge = 21, Snow = 22, Wall = 24, Water = 25, Shadow = 26 };
+           Hedge = 7, Trunk = 19, Outline = 20, Edge = 21, SnowBand = 22, Wall = 24, Water = 25, Shadow = 26 };
 
     // kits: Petalburg's house at (24-28, 21-25), its door (25, 25) the anchor; a flower patch; Route 101's tree
     std::map<int, Part> house;
@@ -511,7 +520,17 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         // is translucent (alpha 0.57 inside and on its open border, 1.0 against the walls, measured) because it lies on white
         // ice; on green grass that would show pale green, so it is opaque here (the owner's choice): white, as Platinum's
         const float snow[4] = {0.95f, 1, 1, 1};
-        if (snowy) AddFill(geo[Snow], snowShape, 0.45f, snow);
+        // (in the lighter grass's opaque slot: the snow is opaque; the blended slot 22 carries its outline, src.SnowOutline)
+        if (snowy) AddFill(geo[Pale], snowShape, 0.45f, snow);
+        if (snowy && !src.SnowOutlineTexture.empty())
+        {
+            // the outline the owner is choosing between (oras-town --snow-outline): a band of an atlas on the snow's border, 0.5
+            // up over the snow, its ragged edge out onto the grass and its solid edge over the snow's
+            const float white4[4] = {1, 1, 1, 1};
+            OutlineBand band;
+            band.VTip = src.SnowOutlineV[0]; band.VRoot = src.SnowOutlineV[1]; band.UStart = src.SnowOutlineU[0]; band.Span = src.SnowOutlineU[1];
+            for (const ShapeChain& chain : snowShape.Chains) AddOutline(geo[SnowBand], chain, white4, white4, band, true, 0.5f);
+        }
         else AddFill(geo[Pale], lightShape, 0.15f, white);
         AddFill(geo[Soil], pathShape, 0.15f, soil);
         // the outline of each zone, on its border, coloured as the target's own outline (one colour for tips and roots, the
@@ -543,7 +562,8 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     Flat(geo[Ground], vis, "T", 0, forest, 12);
     // the pond from Platinum's colours (its blue edge, lakep, is water too)
     FlatFine(geo[Water], 2, [&](int c, int r) { return water2[r][c] == '~'; }, -4.2f, waterColour);
-    BanksFine(geo[Bank], water2);
+    if (src.BankTexture.empty()) BanksFine(geo[Bank], water2);
+    else BanksFine(geo[Bank], water2, src.BankV[0], src.BankV[1]);
     // no outline on the paths (the owner's choice): the outline mesh is left empty
     int nFlowers = 0;
     for (int r = 0; r < N; r++) for (int c = 0; c < N; c++)
@@ -680,8 +700,9 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
             if (!texture.empty() && m.Texture[slot] != texture) terrain = BchSetTextureName(terrain, 0, pm.Meshes[mesh].Material, slot, texture);
         };
         show(Ground, 0, src.GroundTexture);
-        show(Pale, 0, src.LightTexture);
-        show(Snow, 0, src.SnowTexture);
+        show(Pale, 0, src.SnowTexture.empty() ? src.LightTexture : src.SnowTexture);
+        show(SnowBand, 0, src.SnowOutlineTexture);
+        show(Bank, 0, src.BankTexture);
         show(Hedge, 0, src.FenceTexture);
         show(Edge, 1, src.EdgeTexture);
     }
