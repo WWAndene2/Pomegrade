@@ -6,6 +6,10 @@
 // tile grid (a line every tile, stronger every 5), each tile's value from the piece's tile block (a colour per value),
 // and the doors. It shows geometry the way the zone shapes are built, which a textured preview hides; the same
 // image can be made from the game's piece or from a mod's.
+// The points overlay is the view the zone and outline rules were measured with (TownShapes.h): the border of each
+// lighter-grass and path zone (the edges of one triangle only, dark green and dark brown), and the grass blades' strip,
+// its triangles' edges in orange, its tips (texture v 0.30) red and its roots (v 0.50) blue. With the grid on, it shows
+// where each point sits against the tile lattice; drawn from the game's piece and from a mod's, the two can be compared.
 
 #include "Bch.h"
 
@@ -20,6 +24,7 @@ struct TopViewOptions
     bool Grid = false;   // lines on the 18-unit tile lattice
     bool Tiles = false;  // a colour per tile value of the tile block
     bool Doors = false;  // the door models' tiles
+    bool Points = false; // zone borders and the blades' strip, its tips and roots
 };
 
 // the kind a mesh is drawn as, from its material's name and first textures

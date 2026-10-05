@@ -1,5 +1,5 @@
 // The top view (TopView.h) on a hand-made piece whose picture is known: the kind of each material, a flat-coloured triangle,
-// the drawing order (ground under a path), the tile grid, the tile values and a door.
+// the drawing order (ground under a path), the tile grid, the tile values, a door, and the points overlay.
 #include "TopView.h"
 
 #include <cstdio>
@@ -95,6 +95,28 @@ int main()
     check(got[0] == 255 && got[1] == 40 && got[2] == 40, "a door is drawn red on its tile within the piece (world coordinates modulo 40)");
     at(plain, 11.5, 3.5, got);
     check(!(got[0] == 255 && got[1] == 40), "and not without the option");
+
+    // the points overlay: a lighter-grass square's border, and a blade strip's tip (v 0.302) and root (v 0.496)
+    {
+        BchModel zones;
+        zones.Materials = {Material("chip_kusa_b", "chip_kusa_b"), Material("chip_grass_decolate", "chip_alpha")};
+        BchMesh blades = Square(1, 25, 25, 27, 27);
+        blades.Vertices[0].TexCoord[1] = 0.302f; // tile (25, 25): a tip
+        blades.Vertices[2].TexCoord[1] = 0.496f; // tile (27, 27): a root
+        zones.Meshes = {Square(0, 20, 20, 24, 24), blades};
+        TopViewOptions withPoints = options; withPoints.Points = true;
+        const Bytes points = RenderTopViewRgba(zones, tiles, doors, withPoints);
+        at(points, 20.0, 22.0, got);
+        check(got[0] == 0 && got[1] == 110 && got[2] == 0, "a lighter-grass zone's border is drawn dark green");
+        at(points, 22.0, 22.0, got);
+        check(!(got[0] == 0 && got[1] == 110 && got[2] == 0), "its inner diagonal (two triangles share it) is not");
+        at(points, 25.0, 25.0, got);
+        check(got[0] == 220 && got[1] == 0 && got[2] == 0, "a blade tip is a red dot");
+        at(points, 27.0, 27.0, got);
+        check(got[0] == 0 && got[1] == 0 && got[2] == 220, "a blade root is a blue dot");
+        at(RenderTopViewRgba(zones, tiles, doors, options), 25.0, 25.0, got);
+        check(!(got[0] == 220 && got[1] == 0 && got[2] == 0), "and none of it without the option");
+    }
 
     const Bytes png = RenderTopView(model, tiles, doors, options);
     check(png.size() > 64 && png[1] == 'P' && png[2] == 'N' && png[3] == 'G', "the PNG wraps the same picture");

@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <map>
+#include <utility>
 
 namespace remake
 {
@@ -83,6 +85,24 @@ void Triangle(Canvas& c, const float a[2], const float b[2], const float d[2], c
         }
 }
 
+void Line(Canvas& c, const float a[2], const float b[2], const uint8_t rgb[3], int width)
+{
+    const int steps = std::max(1, (int)std::ceil(std::max(std::fabs(b[0] - a[0]), std::fabs(b[1] - a[1]))));
+    for (int i = 0; i <= steps; i++)
+    {
+        const float x = a[0] + (b[0] - a[0]) * i / steps, y = a[1] + (b[1] - a[1]) * i / steps;
+        for (int dy = -(width / 2); dy <= (width - 1) / 2; dy++)
+            for (int dx = -(width / 2); dx <= (width - 1) / 2; dx++) c.Set((int)std::floor(x) + dx, (int)std::floor(y) + dy, rgb);
+    }
+}
+
+void Dot(Canvas& c, const float p[2], int radius, const uint8_t rgb[3])
+{
+    for (int dy = -radius; dy <= radius; dy++)
+        for (int dx = -radius; dx <= radius; dx++)
+            if (dx * dx + dy * dy <= radius * radius) c.Set((int)std::floor(p[0]) + dx, (int)std::floor(p[1]) + dy, rgb);
+}
+
 }
 
 Bytes RenderTopView(const BchModel& model, const Bytes& tileBlock, const Bytes& doorBlock, const TopViewOptions& o)
@@ -129,6 +149,59 @@ Bytes RenderTopViewRgba(const BchModel& model, const Bytes& tileBlock, const Byt
             const float alpha = i % 5 == 0 ? 0.55f : 0.2f;
             for (int k = 0; k < size; k++) { canvas.Set(std::min(i * px, size - 1), k, line, alpha); canvas.Set(k, std::min(i * px, size - 1), line, alpha); }
         }
+    if (o.Points)
+    {
+        const int width = std::max(1, px / 12), radius = std::max(1, px / 10);
+        // a zone's border: the edges only one of its triangles has (vertices merged by position, to a tenth of a unit)
+        for (const BchMesh& mesh : model.Meshes)
+        {
+            if (mesh.Material >= model.Materials.size()) continue;
+            const TopViewKind kind = MeshKind(model, mesh);
+            if (kind != TopViewKind::Light && kind != TopViewKind::Path) continue;
+            auto key = [&](uint32_t i) { return std::make_pair((long)std::lround(mesh.Vertices[i].Position[0] * 10), (long)std::lround(mesh.Vertices[i].Position[2] * 10)); };
+            std::map<std::pair<std::pair<long, long>, std::pair<long, long>>, std::pair<int, uint32_t>> edges; // edge -> (uses, a vertex pair)
+            std::map<std::pair<std::pair<long, long>, std::pair<long, long>>, std::pair<uint32_t, uint32_t>> ends;
+            for (size_t t = 0; t + 2 < mesh.Triangles.size(); t += 3)
+                for (int e = 0; e < 3; e++)
+                {
+                    const uint32_t i = mesh.Triangles[t + e], j = mesh.Triangles[t + (e + 1) % 3];
+                    auto ki = key(i), kj = key(j);
+                    if (ki == kj) continue;
+                    const auto k = ki < kj ? std::make_pair(ki, kj) : std::make_pair(kj, ki);
+                    edges[k].first++;
+                    ends[k] = {i, j};
+                }
+            const uint8_t colour[3] = {(uint8_t)(kind == TopViewKind::Light ? 0 : 110), (uint8_t)(kind == TopViewKind::Light ? 110 : 60), (uint8_t)(kind == TopViewKind::Light ? 0 : 20)};
+            for (const auto& [k, use] : edges)
+            {
+                if (use.first != 1) continue;
+                float a[2], b[2];
+                toPixel(mesh.Vertices[ends[k].first], a); toPixel(mesh.Vertices[ends[k].second], b);
+                Line(canvas, a, b, colour, width + 1);
+            }
+        }
+        // the blades' strip: its triangles' edges, then its tips and roots
+        for (const BchMesh& mesh : model.Meshes)
+        {
+            if (mesh.Material >= model.Materials.size() || MeshKind(model, mesh) != TopViewKind::Blades) continue;
+            const uint8_t orange[3] = {230, 120, 40}, red[3] = {220, 0, 0}, blue[3] = {0, 0, 220};
+            for (size_t t = 0; t + 2 < mesh.Triangles.size(); t += 3)
+                for (int e = 0; e < 3; e++)
+                {
+                    float a[2], b[2];
+                    toPixel(mesh.Vertices[mesh.Triangles[t + e]], a); toPixel(mesh.Vertices[mesh.Triangles[t + (e + 1) % 3]], b);
+                    Line(canvas, a, b, orange, 1);
+                }
+            for (const BchVertex& v : mesh.Vertices)
+            {
+                const bool tip = std::fabs(v.TexCoord[1] - 0.302f) < 0.02f, root = std::fabs(v.TexCoord[1] - 0.496f) < 0.02f;
+                if (!tip && !root) continue;
+                float p[2];
+                toPixel(v, p);
+                Dot(canvas, p, radius, tip ? red : blue);
+            }
+        }
+    }
     if (o.Doors && doorBlock.size() >= 4)
     {
         const uint32_t count = std::min<uint32_t>(U32(doorBlock, 0), (uint32_t)((doorBlock.size() - 4) / 44));
