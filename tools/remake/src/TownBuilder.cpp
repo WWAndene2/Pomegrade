@@ -453,17 +453,19 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         const float corner = -20 * T; // the window's corner (X(0), Z(0))
         const ZoneShape lightShape = StairZone(tileMask(lightGrass, path), T, corner, corner, false);
         const ZoneShape pathShape = StairZone(pathMask, T / 2, corner, corner, false);
-        // Platinum's snow patches (role s) are these zones: with a snow texture they show it, untinted
+        // Platinum's snow patches (role s) are these zones: with a snow texture they show it, untinted, and lie over the outline
+        // strips (0.3 up), so no blade shows on the snow: snow covers grass, grass does not grow over it
         const float snow[4] = {1, 1, 1, 1};
         const bool snowy = !src.SnowTexture.empty();
-        AddFill(geo[Pale], lightShape, 0.15f, snowy ? snow : white);
+        AddFill(geo[Pale], lightShape, snowy ? 0.45f : 0.15f, snowy ? snow : white);
         AddFill(geo[Soil], pathShape, 0.15f, soil);
         // the outline of each zone, on its border, coloured as the target's own outline (one colour for tips and roots, the
         // grass's less 15%, put a dark band over the lighter grass and the paths); the grass's less 15% when it has none
         const float blade[4] = {grass[0] * 0.85f, grass[1] * 0.85f, grass[2] * 0.85f, grass[3]};
-        // the strip follows the border with its corners rounded over half a tile, as Littleroot's turns (TownShapes.h)
+        // the strip follows the border with its corners rounded over half a tile, as Littleroot's turns (TownShapes.h); snow has none
         for (const ZoneShape* shape : {&lightShape, &pathShape})
         {
+            if (shape == &lightShape && snowy) continue;
             for (const ShapeChain& chain : shape->Chains)
                 AddOutline(geo[Outline], RoundCorners(chain, T / 2), haveBlades ? bladeTip : blade, haveBlades ? bladeRoot : blade);
         }
@@ -478,7 +480,7 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         // (not on snow: grass decals do not grow there)
         auto plain = [&](int c, int r) { return c >= 0 && r >= 0 && c < N && r < N && (vis[r][c] == '.' || (vis[r][c] == 's' && src.SnowTexture.empty())) && coll[r][c] == '.' && path2[2 * r][2 * c] != ':' && path2[2 * r + 1][2 * c + 1] != ':'; };
         const int decals = GrassDecals(geo[Outline], plain);
-        note("grass edge: %zu outlines, %d decals\n", lightShape.Chains.size() + pathShape.Chains.size(), decals);
+        note("grass edge: %zu outlines, %d decals\n", (snowy ? 0 : lightShape.Chains.size()) + pathShape.Chains.size(), decals);
     }
     else
         FlatFine(geo[Pale], 2, [&](int c, int r) { return path2[r][c] != ':' && water2[r][c] != '~' && std::string(".*HstF:f~").find(fineVis(c, r)) != std::string::npos; }, 0, white);
