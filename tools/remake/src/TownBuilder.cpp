@@ -9,6 +9,8 @@
 #include <cstdio>
 #include <cstring>
 #include <map>
+#include <tuple>
+#include <functional>
 
 // Twinleaf-style towns from a TownLayout. The donor is Petalburg's map piece (a/0/3/9 piece 8): its terrain
 // model's materials (and so its area pack, 9), the house, the flower patch and the hedge are cut out of it by
@@ -53,6 +55,42 @@ static Part Cut(const BchMesh& m, float c0, float c1, float r0, float r1, float 
         }
     }
     return p;
+}
+
+// A kit's connected pieces (triangles joined by their vertices' positions) whose centre lies within maxDistance units of the
+// anchor (the kit's origin): a rectangle cut out of a piece can catch a sliver of a neighbour, which every copy then carries
+// (Route 101's tree cut caught one triangle of the next tree's canopy, 2 tiles off and 27-38 units up: the owner saw it
+// float beside the trees).
+static Part KeepNear(const Part& p, float maxDistance)
+{
+    auto key = [&](uint32_t i) { const auto& q = p.V[i].Position; return std::make_tuple(std::lround(q[0] * 10), std::lround(q[1] * 10), std::lround(q[2] * 10)); };
+    std::map<std::tuple<long, long, long>, std::tuple<long, long, long>> up;
+    std::function<std::tuple<long, long, long>(std::tuple<long, long, long>)> find = [&](std::tuple<long, long, long> k) {
+        auto it = up.find(k);
+        if (it == up.end() || it->second == k) { up[k] = k; return k; }
+        return it->second = find(it->second);
+    };
+    for (size_t t = 0; t + 2 < p.I.size(); t += 3)
+        for (int k = 1; k < 3; k++) up[find(key(p.I[t + k]))] = find(key(p.I[t]));
+    std::map<std::tuple<long, long, long>, std::array<float, 3>> centre; // x sum, z sum, count
+    for (size_t t = 0; t + 2 < p.I.size(); t += 3)
+    {
+        auto& c = centre[find(key(p.I[t]))];
+        for (int k = 0; k < 3; k++) { c[0] += p.V[p.I[t + k]].Position[0]; c[1] += p.V[p.I[t + k]].Position[2]; c[2] += 1; }
+    }
+    Part out; std::map<uint32_t, uint32_t> remap;
+    for (size_t t = 0; t + 2 < p.I.size(); t += 3)
+    {
+        const auto& c = centre[find(key(p.I[t]))];
+        if (std::hypot(c[0] / c[2], c[1] / c[2]) > maxDistance) continue;
+        for (int k = 0; k < 3; k++)
+        {
+            auto it = remap.find(p.I[t + k]);
+            if (it == remap.end()) { it = remap.emplace(p.I[t + k], (uint32_t)out.V.size()).first; out.V.push_back(p.V[p.I[t + k]]); }
+            out.I.push_back(it->second);
+        }
+    }
+    return out;
 }
 
 // a part placed with its anchor at (c, r) in tiles, scaled about it
@@ -429,9 +467,9 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     for (int m : {House, Frame, Window, Wall}) house[m] = Cut(pm.Meshes[m], 23.5f, 29.5f, 21.4f, 26.7f, 25.5f, 25.5f);
     std::map<int, Part> flowers = {{FlowerA, Cut(pm.Meshes[FlowerA], 21.0f, 22.2f, 24.8f, 25.9f, 21.5f, 25.4f)},
                                    {FlowerB, Cut(pm.Meshes[FlowerB], 21.0f, 22.2f, 24.8f, 25.9f, 21.5f, 25.4f)}};
-    std::map<int, Part> tree = {{Canopy, Cut(rm.Meshes[0], 6.3f, 11.0f, 23.0f, 27.0f, 8.6f, 25.1f)},
-                                {Trunk, Cut(rm.Meshes[5], 6.3f, 11.0f, 23.0f, 27.0f, 8.6f, 25.1f)},
-                                {Shadow, Cut(rm.Meshes[9], 6.3f, 11.0f, 23.0f, 27.0f, 8.6f, 25.1f)}};
+    std::map<int, Part> tree = {{Canopy, KeepNear(Cut(rm.Meshes[0], 6.3f, 11.0f, 23.0f, 27.0f, 8.6f, 25.1f), T)},
+                                {Trunk, KeepNear(Cut(rm.Meshes[5], 6.3f, 11.0f, 23.0f, 27.0f, 8.6f, 25.1f), T)},
+                                {Shadow, KeepNear(Cut(rm.Meshes[9], 6.3f, 11.0f, 23.0f, 27.0f, 8.6f, 25.1f), T)}};
     for (auto& [m, p] : house) note("house kit mesh %d: %zu triangles\n", m, p.I.size() / 3);
 
     std::map<size_t, BchGeometry> geo;
