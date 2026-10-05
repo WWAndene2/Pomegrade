@@ -109,6 +109,7 @@ jobs:
             case "$query" in
               # "world N": Platinum's matrix N laid out as ORAS pieces (oras-world)
               world\ *) ./build-remake/remake_tool oras-world dumps/platinum.nds ${query#world } "out/world_$n" | tee "mods/inspect_$n.txt" ;;
+              platinum-zones) ./build-remake/remake_tool platinum-zones dumps/platinum.nds | tee "mods/inspect_$n.txt" ;;
               *) ./build-remake/remake_tool oras-inspect dumps/oras.3ds $query | tee "mods/inspect_$n.txt" ;;
             esac
             echo "::endgroup::"
