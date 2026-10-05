@@ -9,7 +9,6 @@
 #include <cstdio>
 #include <cstring>
 #include <map>
-#include <set>
 
 // Twinleaf-style towns from a TownLayout. The donor is Petalburg's map piece (a/0/3/9 piece 8): its terrain
 // model's materials (and so its area pack, 9), the house, the flower patch and the hedge are cut out of it by
@@ -156,14 +155,10 @@ static void BanksFine(BchGeometry& g, const std::vector<std::string>& water2)
 
 
 // A zone's rounded fill (TownShapes) as ground triangles at a height, textured by the plane as the game's ground
-// (u = x/72, v = -z/72). Corners shared by triangles are one vertex. borderAlpha < 1: the vertices on the zone's border take
-// that alpha (vertex colour's fourth channel), so a blended layer fades out over its last tile instead of stopping square.
-static void AddFill(BchGeometry& g, const ZoneShape& shape, float y, const float colour[4], float borderAlpha = 1)
+// (u = x/72, v = -z/72). Corners shared by triangles are one vertex.
+static void AddFill(BchGeometry& g, const ZoneShape& shape, float y, const float colour[4])
 {
     std::map<std::pair<int, int>, uint32_t> corner;
-    std::set<std::pair<int, int>> border;
-    for (const ShapeChain& chain : shape.Chains)
-        for (const ShapePoint& p : chain.Points) border.insert({(int)std::lround(p.X * 100), (int)std::lround(p.Z * 100)});
     auto vertex = [&](const ShapePoint& p) {
         const std::pair<int, int> key{(int)std::lround(p.X * 100), (int)std::lround(p.Z * 100)};
         auto it = corner.find(key);
@@ -172,7 +167,6 @@ static void AddFill(BchGeometry& g, const ZoneShape& shape, float y, const float
         v.Position[0] = p.X; v.Position[1] = y; v.Position[2] = p.Z;
         v.TexCoord[0] = p.X / 72.0f; v.TexCoord[1] = -p.Z / 72.0f;
         std::copy(colour, colour + 4, v.Colour);
-        if (border.count(key)) v.Colour[3] = borderAlpha;
         const uint32_t i = (uint32_t)g.Vertices.size();
         g.Vertices.push_back(v);
         return corner[key] = i;
@@ -501,16 +495,18 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         std::vector<std::vector<bool>> pathMask(M, std::vector<bool>(M, false));
         for (int r = 0; r < M; r++) for (int c = 0; c < M; c++) pathMask[r][c] = path(c, r);
         const float corner = -20 * T; // the window's corner (X(0), Z(0))
-        // the lighter grass (and snow) as Littleroot's is cut, measured: no jitter, its own corners 0.12 tile in (TownShapes.h)
-        const ZoneShape lightShape = StairZone(tileMask(lightGrass, path), T, corner, corner, false, 0, 0.12f);
+        // the lighter grass as Littleroot's is cut, measured: no jitter, its own corners 0.12 tile in (TownShapes.h); snow as the ice
+        // cave's (piece 386, mesh 7, measured): on the tile lattice exactly (217 of its 270 vertices, median 0.001 tile off), no pull
+        const bool snowy = !src.SnowTexture.empty();
+        const ZoneShape lightShape = StairZone(tileMask(lightGrass, path), T, corner, corner, false, 0, snowy ? 0.0f : 0.12f);
         const ZoneShape pathShape = StairZone(pathMask, T / 2, corner, corner, false);
         // Platinum's snow patches (role s) are these zones. With a snow texture they are laid as ORAS lays the snow of its ice cave
-        // (piece 386, mesh 7, chip_icedoukutsu02, measured): a blended layer (the donor's field slot, mesh 22, layer 1) over the
-        // ground, vertex colour 0.95 1 1, alpha 1 inside and about 0.55 on the border (0.5-0.6 there), so it fades over its
-        // last tile; 0.45 up, over the outline strips (0.3), and with no outline of its own: snow covers the grass
+        // (piece 386, mesh 7, chip_icedoukutsu02): its texture, planar mapping and vertex colour 0.95 1 1, in a blended layer (the
+        // donor's field slot, mesh 22, layer 1), 0.45 up, over the outline strips (0.3), with no outline of its own. The cave's snow
+        // is translucent (alpha 0.57 inside and on its open border, 1.0 against the walls, measured) because it lies on white
+        // ice; on green grass that would show pale green, so it is opaque here (the owner's choice): white, as Platinum's
         const float snow[4] = {0.95f, 1, 1, 1};
-        const bool snowy = !src.SnowTexture.empty();
-        if (snowy) AddFill(geo[Snow], lightShape, 0.45f, snow, 0.55f);
+        if (snowy) AddFill(geo[Snow], lightShape, 0.45f, snow);
         else AddFill(geo[Pale], lightShape, 0.15f, white);
         AddFill(geo[Soil], pathShape, 0.15f, soil);
         // the outline of each zone, on its border, coloured as the target's own outline (one colour for tips and roots, the
