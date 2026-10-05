@@ -51,7 +51,7 @@ cmake -S tools/remake -B build-remake -G Ninja && ninja -C build-remake remake_t
 
 **Littleroot's houses, measured but not built** (tile coordinates of its piece 6, `a/0/3/9`): two small houses, 6 tiles wide by 5 deep (solid cols 11-16 and 23-28, rows 7-11), door tile (14, 11) and (26, 11) (door type 2, index 3 of 6 from the left), made of mesh 5 (`t01_01`, texture `t101_01`; boxes x 10.5-17.5, z 6.5-12.8) plus a cast shadow in mesh 11 (`shadow1`, box x 11-20, z 5.5-12.5); one large house, 7 wide by 6 deep (cols 13-19, rows 18-23), door tile (16, 23) (door type 7), made of mesh 7 (`t01_02`, `t101_02_fix`; box x 12.4-20.5, z 18.5-24.8) plus mesh 5's trim and chimney and its shadow (box x 12.5-22.5, z 16.5-24.5). Mesh 2 (`chip_mado`) holds the windows, meshes 4 and 6 (`chip_wood_*`) the trims, mesh 12 (`t01_a01`, blended) a large cover over the ground. The Petalburg donor already has same-texture slots for the windows (18, `chip_mado`) and the shadow (26, `shadow1`), a `touka_house01` slot (16) and a `touka_waku01` slot (17) that `BchSetTextureName` can re-point to `t101_01` and `t101_02_fix`; those two and the door texture `t101_door` (pack 8's file 1) must first be added to the donor pack by `ImportTextures` (today it adds the three grass textures). Whether door type 2 and 7 models find their textures in the donor pack is unknown and untested.
 
-**Next steps, in the order that pays most**: (0) Littleroot's houses, shadows and sprites as above, to match the owner's screenshot; (1) rebuild towns from several ORAS pieces and packs, choosing a donor by its layers and mesh slots (section 9c: blend is a layer flag, not per-material registers); (2) read the engine's per-layer state and how it draws a projected texture (`.code` is BLZ-compressed; capstone ARM works); (3) the Pawn scripts (needed for NPCs and events), the `coll` geometry, matrix a/0/4/0, adding meshes or materials to a terrain model: section 10.
+**Next steps, in the order that pays most**: (0) Littleroot's houses, shadows and sprites as above, to match the owner's screenshot; (1) rebuild towns from several ORAS pieces and packs, choosing a donor by its layers and mesh slots (section 9c: blend is a layer flag, not per-material registers); (2) read the engine's per-layer state and how it draws a projected texture (`.code` is BLZ-compressed; capstone ARM works); (3) the Pawn scripts (needed for NPCs and events), the `coll` geometry, how matrices (2b) connect, adding meshes or materials to a terrain model: section 10.
 
 ## 1. Littleroot's identity (checked)
 
@@ -73,7 +73,7 @@ Zone 6's name: the English place names are in text bank 90 (`a/0/7/3`), "Littler
 | `a/0/1/3` | 538 | zones (ZO), checked (section 3) |
 | `a/0/1/4` | 229 | area packs (AD): textures and small tables of a zone's area (section 5) |
 | `a/0/3/9` | 857 | map pieces (GR), the 40x40-tile terrain and collision (section 4) |
-| `a/0/4/0` | 431 | map matrices (MM); member 1 is a 24x24 grid of packed `u32` (two `u16` each: e.g. 0x00190019, 0x00060006), meaning **unknown** |
+| `a/0/4/0` | 431 | map matrices (MM), section 2b |
 | `a/0/2/3` | 380 | building and prop models (BM), seen (not used by Littleroot's houses: they are in its terrain model) |
 | `a/0/2/1` | 544 | characters, seen |
 | `a/0/3/2` | 1030 | effects, seen |
@@ -83,6 +83,13 @@ Zone 6's name: the English place names are in text bank 90 (`a/0/7/3`), "Littler
 | `a/0/8/8`, `a/0/0/8`, `a/1/5/2`, `a/1/6/0` ... | large | not looked at |
 
 All 300 RomFS archives are listed with their member counts by a throwaway scan (not kept): `a/0/9/1` (974 LZ members), `a/0/9/2` (631), `a/0/2/2` (511), `a/1/2/0`, `a/1/2/1` (500 each) are per-id tables whose use is **unknown**.
+
+## 2b. Map matrix (MM) - seen on matrices 0, 1 and 2 (`oras-inspect matrix N`, `oras-inspect piece-names`)
+
+A matrix is a `MM` container of two files.
+- **File 0** (2312 bytes in matrices 1 and 2, 12 in matrix 0): `u16` 1, `u16` 0, then `u16` width and height (8 and 8 in matrices 1 and 2; 1 and 1 in matrix 0), then width x height `u16` **map piece numbers** (`a/0/3/9` members), row by row, `0xFFFF` for no piece; the rest of the file is `0xFFFF`. Seen: matrix 1 holds pieces 1-6 at the cells their models name (`world01_02_01` = piece 1 at x 2, y 1; ... `world01_02_04` = piece 6, Littleroot, at x 2, y 4), matrix 2 pieces 7-10 at `world02_*`'s cells. Why the file has room for 1,152 words is **unknown** (a bound on a matrix's size is inferred, not checked).
+- **File 1** (324 bytes): a `u32` count, then groups that start `0001 0000` followed by pairs of words that read as floats (0x44B9A000 = 1485, 0x45067000 = 2151 in matrix 1): **unknown**, perhaps the camera or areas in world units.
+- **The overworld is not one matrix**: the 165 pieces named `world<NN>_<x>_<y>` belong to 14 matrices (`world01` to `world14`, 3 to 23 pieces each), each a section of Hoenn; how the game passes from one section to the next (zone links, warps or edges) is **unknown**. The other pieces (`c101...`, `battle01...`) are towns' interiors, gyms and battle maps, one piece each.
 
 ## 3. Zone (ZO) - checked on all 536 zones that are ZO containers
 
