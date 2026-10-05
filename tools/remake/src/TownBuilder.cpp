@@ -197,6 +197,97 @@ static void GrassFringe(BchGeometry& g, int M, Light light, Dark dark, const flo
 }
 }
 
+// The rim of the playable ground, as Littleroot lays it (its chip_edge_tex mesh, measured): a strip on every tile edge
+// where walkable ground meets the solid trees and forest around it, 18 units a tile, 9 wide on the solid side, rising
+// from 1 at the edge to 3.5 outside, in the rim's blue-green. The texture is projected by the material (chip_grass_edge,
+// from the stored positions), so the coordinates are Littleroot's own.
+static void GroundRim(BchGeometry& g, const std::vector<std::string>& coll, const std::vector<std::string>& vis)
+{
+    const float colour[4] = {0.26f, 0.75f, 0.87f, 1.0f};
+    auto walkable = [&](int c, int r) { return c >= 0 && r >= 0 && c < N && r < N && coll[r][c] != '#' && coll[r][c] != '~'; };
+    auto wall = [&](int c, int r) { return c >= 0 && r >= 0 && c < N && r < N && coll[r][c] == '#' && (vis[r][c] == 't' || vis[r][c] == 'T'); };
+    auto strip = [&](float x0, float z0, float x1, float z1, float nx, float nz) {
+        const uint32_t base = (uint32_t)g.Vertices.size();
+        const float ends[2][2] = {{x0, z0}, {x1, z1}};
+        for (int e = 0; e < 2; e++)
+            for (int side = 0; side < 2; side++)
+            {
+                BchVertex v;
+                v.Position[0] = ends[e][0] + nx * 9.0f * side; v.Position[1] = side ? 3.5f : 1.0f; v.Position[2] = ends[e][1] + nz * 9.0f * side;
+                v.TexCoord[0] = e ? -1.0f : -1.5f; v.TexCoord[1] = side ? 1.0f : 0.75f;
+                std::copy(colour, colour + 4, v.Colour);
+                g.Vertices.push_back(v);
+            }
+        const float cross = (x1 - x0) * nz - (z1 - z0) * nx;
+        if (cross > 0) for (uint32_t i : {0u, 2u, 3u, 0u, 3u, 1u}) g.Triangles.push_back(base + i);
+        else for (uint32_t i : {0u, 3u, 2u, 0u, 1u, 3u}) g.Triangles.push_back(base + i);
+    };
+    for (int r = 0; r < N; r++)
+        for (int c = 0; c < N; c++)
+        {
+            if (!walkable(c, r)) continue;
+            if (wall(c, r - 1)) strip(X(c), Z(r), X(c + 1), Z(r), 0, -1);
+            if (wall(c, r + 1)) strip(X(c), Z(r + 1), X(c + 1), Z(r + 1), 0, 1);
+            if (wall(c - 1, r)) strip(X(c), Z(r), X(c), Z(r + 1), -1, 0);
+            if (wall(c + 1, r)) strip(X(c + 1), Z(r), X(c + 1), Z(r + 1), 1, 0);
+        }
+}
+
+// Loose decals on the open grass, as Littleroot scatters them (square quads of chip_alpha, 0.2 above the ground): a patch
+// of bare earth (texture u 0.02-0.48, v 0.52-0.98; 35 units) or a drift of flowers (u 0.51-0.99, v 0.51-0.99; 34-66 units,
+// turned at random). About one per 60 tiles of plain open grass (Littleroot: 13 over some 1600 tiles, here denser because
+// the town's open ground is small), on a tile whose 3x3 neighbourhood is plain, never within 4 tiles of another, taken in
+// the order of a fixed hash of the tile: the same layout for the same window.
+template <typename Plain>
+static int GrassDecals(BchGeometry& g, Plain plain)
+{
+    struct Candidate { uint32_t Hash; int C, R; };
+    std::vector<Candidate> candidates;
+    int plainTiles = 0;
+    for (int r = 1; r < N - 1; r++)
+        for (int c = 1; c < N - 1; c++)
+        {
+            if (!plain(c, r)) continue;
+            plainTiles++;
+            bool around = true;
+            for (int dr = -1; dr <= 1 && around; dr++) for (int dc = -1; dc <= 1; dc++) if (!plain(c + dc, r + dr)) { around = false; break; }
+            if (!around) continue;
+            uint32_t h = (uint32_t)(c * 73856093) ^ (uint32_t)(r * 19349663);
+            h ^= h >> 13; h *= 1274126177u; h ^= h >> 16;
+            candidates.push_back({h, c, r});
+        }
+    std::sort(candidates.begin(), candidates.end(), [](const Candidate& a, const Candidate& b) { return a.Hash != b.Hash ? a.Hash < b.Hash : a.R != b.R ? a.R < b.R : a.C < b.C; });
+    const int wanted = std::max(1, plainTiles / 60);
+    std::vector<std::pair<int, int>> placed;
+    for (const Candidate& cand : candidates)
+    {
+        if ((int)placed.size() >= wanted) break;
+        bool clear = true;
+        for (const auto& [pc, pr] : placed) if (std::abs(pc - cand.C) < 4 && std::abs(pr - cand.R) < 4) clear = false;
+        if (!clear) continue;
+        placed.push_back({cand.C, cand.R});
+        const uint32_t h = cand.Hash;
+        const bool earth = (h >> 8) % 4 == 0;
+        const float size = earth ? 35.0f : 34.0f + (float)((h >> 12) % 33), angle = earth ? 0.0f : (float)((h >> 4) % 628) / 100.0f;
+        const float u0 = earth ? 0.02f : 0.51f, u1 = earth ? 0.48f : 0.99f, v0 = earth ? 0.52f : 0.51f, v1 = earth ? 0.98f : 0.99f;
+        const float cx = X(cand.C + 0.5f), cz = Z(cand.R + 0.5f), ca = std::cos(angle), sa = std::sin(angle);
+        const uint32_t base = (uint32_t)g.Vertices.size();
+        for (int j = 0; j < 2; j++)
+            for (int i = 0; i < 2; i++)
+            {
+                const float lx = (i - 0.5f) * size, lz = (j - 0.5f) * size;
+                BchVertex v;
+                v.Position[0] = cx + lx * ca - lz * sa; v.Position[1] = 0.2f; v.Position[2] = cz + lx * sa + lz * ca;
+                v.TexCoord[0] = i ? u1 : u0; v.TexCoord[1] = j ? v0 : v1; // z up the page: v down
+                for (int k = 0; k < 4; k++) v.Colour[k] = 1.0f;
+                g.Vertices.push_back(v);
+            }
+        // facing up, as the ground's quads (a, e, d / a, d, b)
+        for (uint32_t i : {0u, 2u, 3u, 0u, 3u, 1u}) g.Triangles.push_back(base + i);
+    }
+    return (int)placed.size();
+}
+
 Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<std::string>* log)
 {
 
@@ -211,7 +302,7 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     const BchModel rm = Bch::Read(BinLinker::Read(r101, "GR").Files[1]).Models[0];
     // Petalburg's meshes (world02_02_03)
     enum { FlowerA = 0, FlowerB = 1, Canopy = 2, Bank = 11, Ground = 12, Soil = 13, Pale = 14, House = 16, Frame = 17, Window = 18,
-           Hedge = 7, Trunk = 19, Outline = 20, Wall = 24, Water = 25, Shadow = 26 };
+           Hedge = 7, Trunk = 19, Outline = 20, Edge = 21, Wall = 24, Water = 25, Shadow = 26 };
 
     // kits: Petalburg's house at (24-28, 21-25), its door (25, 25) the anchor; a flower patch; Route 101's tree
     std::map<int, Part> house;
@@ -297,6 +388,11 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         // the soft edge of the lighter patches (the outline mesh, shown with chip_alpha's grass blades below)
         const float tip[4] = {1, 1, 1, 1};
         GrassFringe(geo[Outline], 2 * N, [&](int c, int r) { return open(c, r, "s"); }, [&](int c, int r) { return open(c, r, ".*HtF:f~"); }, tip, grass);
+        GroundRim(geo[Edge], coll, vis);
+        // decals on plain open grass: grass-role tiles away from paths, water, houses and fences
+        auto plain = [&](int c, int r) { return c >= 0 && r >= 0 && c < N && r < N && (vis[r][c] == '.' || vis[r][c] == 's') && coll[r][c] == '.' && path2[2 * r][2 * c] != ':' && path2[2 * r + 1][2 * c + 1] != ':'; };
+        const int decals = GrassDecals(geo[Outline], plain);
+        note("grass edge: %d decals, rim strips on the forest's side\n", decals);
     }
     else
         FlatFine(geo[Pale], 2, [&](int c, int r) { return path2[r][c] != ':' && water2[r][c] != '~' && std::string(".*HstF:f~").find(fineVis(c, r)) != std::string::npos; }, 0, white);
