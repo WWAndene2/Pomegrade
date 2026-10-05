@@ -156,6 +156,18 @@ void TownLayout::Classify(const TerrainScan& whole, const TerrainScan& half)
             if (out.Snow2[r][c] != '#' && neighbours(out.Snow2, c, r) >= 3 && std::string("HF*~f").find(out.Vis[r / 2][c / 2]) == std::string::npos) cleaned[r][c] = '#';
         }
     out.Snow2 = cleaned;
+    // under the trees: Platinum shows the trees there, not the ground, so the white stops at the forest's edge; the snow goes on
+    // under it (the owner: it stopped straight instead of passing under the trees), into the tree and forest half tiles beside
+    // it, two passes (a tile), so its end lies under the canopies
+    for (int pass = 0; pass < 2; pass++)
+    {
+        std::vector<std::string> grown = out.Snow2;
+        for (int r = 0; r < 2 * N; r++)
+            for (int c = 0; c < 2 * N; c++)
+                if (out.Snow2[r][c] != '#' && std::string("tT").find(out.Vis[r / 2][c / 2]) != std::string::npos && neighbours(out.Snow2, c, r) >= 1)
+                    grown[r][c] = '#';
+        out.Snow2 = grown;
+    }
 }
 
 TownLayout TownLayout::Read(const PlatinumWorld& plat, int left, int top)

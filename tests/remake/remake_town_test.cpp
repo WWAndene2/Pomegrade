@@ -68,6 +68,9 @@ int main()
     // a dark grey half tile (a tree's shadow over the snow) at (63, 61), with snow on two sides: (62, 61) and the white (63, 62)
     auto grey = [&](int c, int r) { TerrainSample& t = At(half, c, r); t.HasColour = true; t.Rgb[0] = 70; t.Rgb[1] = 80; t.Rgb[2] = 72; };
     white(63, 62); grey(63, 61);
+    // a tree on tile (32, 30) (half tiles 64-65, 60-61), beside the blob: the snow goes on under it, a tile, and no further
+    At(whole, 32, 30).Materials = {"tree01"};
+    At(whole, 33, 30).Materials = {"tree01"};
     // a green half tile beside the snow stays grass: (59, 61)
     { TerrainSample& t = At(half, 59, 61); t.HasColour = true; t.Rgb[0] = 90; t.Rgb[1] = 240; t.Rgb[2] = 150; }
     // and white on the fence tile (20, 20): half tile (40, 40)
@@ -80,6 +83,8 @@ int main()
     check(layout.Snow2[70][70] == '.', "a lone white speck is dropped");
     check(layout.Snow2[61][63] == '#', "a grey shadow with snow on two sides is snow");
     check(layout.Snow2[61][59] == '.', "green grass beside the snow is not");
+    check(layout.Snow2[61][64] == '#' && layout.Snow2[61][65] == '#', "the snow goes on under a tree beside it");
+    check(layout.Snow2[61][66] == '.', "a tile under the trees, no further");
     check(layout.Snow2[40][40] == '.' && layout.Snow2[40][41] == '.', "no snow on a fence tile");
     check(layout.Path2[37][37] == '.', "a crossroads' rounded inner corner is not a step of path");
     check(layout.Path2[43][43] == '.', "a sand-coloured flower in a bed is not path");
