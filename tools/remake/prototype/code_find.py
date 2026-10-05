@@ -4,7 +4,9 @@
 
   code_find.py <code.bin> [--imm VALUE]... [--string TEXT]... [--at ADDRESS]... [--context N]
 
-code.bin: `remake_tool oras-code` (the ExeFS .code, decompressed, loaded at 0x100000). The code is swept as ARM (32-bit
+code.bin: `remake_tool oras-code` (the ExeFS .code, decompressed, loaded at 0x100000), or a CRO module from the RomFS
+(`oras-extract <oras.3ds> DllField.cro out`, with --base 0: its relocations are not applied, so pool words naming its own
+addresses are offsets). The code is swept as ARM (32-bit
 instructions; ORAS's code is ARM, its data pools read as junk instructions and are skipped by what they match):
   --imm      every instruction with that immediate operand, and every LDR from a literal pool word holding it
   --string   every place the text lies, and every literal pool word holding its address (the code that loads it)
@@ -17,7 +19,7 @@ import struct
 from capstone import CS_ARCH_ARM, CS_MODE_ARM, Cs
 from capstone.arm import ARM_OP_IMM, ARM_OP_MEM, ARM_REG_PC
 
-BASE = 0x100000
+BASE = 0x100000  # the .code's load address; --base for another file (a CRO module: 0, addresses are file offsets)
 
 
 def main():
@@ -28,7 +30,10 @@ def main():
     ap.add_argument("--at", action="append", default=[], type=lambda v: int(v, 0))
     ap.add_argument("--context", type=int, default=8)
     ap.add_argument("--max", type=int, default=60, help="hits printed per value")
+    ap.add_argument("--base", type=lambda v: int(v, 0), default=BASE, help="the file's load address (0 for a CRO module)")
     a = ap.parse_args()
+    global BASE
+    BASE = a.base
     code = open(a.code, "rb").read()
     md = Cs(CS_ARCH_ARM, CS_MODE_ARM)
     md.detail = True

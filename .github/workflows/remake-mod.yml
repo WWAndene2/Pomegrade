@@ -122,6 +122,13 @@ jobs:
                 [ -f out/code.bin ] || ./build-remake/remake_tool oras-code dumps/oras.3ds out/code.bin
                 python3 -c "import capstone" 2>/dev/null || pip install --quiet capstone
                 python3 tools/remake/prototype/code_find.py out/code.bin ${query#code } | tee "mods/inspect_$n.txt" ;;
+              # "cro <RomFS file> <code_find.py options>": a code module of the RomFS (DllField.cro: the field) searched the same way
+              cro\ *)
+                set -- ${query#cro }
+                ./build-remake/remake_tool oras-extract dumps/oras.3ds "$1" "out/$(basename "$1")"
+                python3 -c "import capstone" 2>/dev/null || pip install --quiet capstone
+                file="out/$(basename "$1")"; shift
+                python3 tools/remake/prototype/code_find.py "$file" --base 0 "$@" | tee "mods/inspect_$n.txt" ;;
               *) ./build-remake/remake_tool oras-inspect dumps/oras.3ds $query | tee "mods/inspect_$n.txt" ;;
             esac
             echo "::endgroup::"
