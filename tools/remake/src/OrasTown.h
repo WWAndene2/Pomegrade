@@ -6,6 +6,7 @@
 // that owns the piece gets its warps on the new doors, and both changed archives
 // are written as BPS patches (the mod), with a glTF preview and the layout report.
 
+#include "Garc.h"
 #include "N3dsRom.h"
 #include "NdsRom.h"
 #include "TownLayout.h"
@@ -37,6 +38,12 @@ struct OrasTownResult
     std::vector<std::string> Log;     // what was built, one line each
     size_t PieceBytes = 0;
 };
+
+// Member `index` of `archive` replaced by `plain`, LZ-compressed once if the original member was. `plain` must be the
+// container itself (its first two letters are `tag`: "GR", "ZO", "AD"): a member that was compressed before this call
+// would be compressed twice and the game would read a compressed stream as its data. The member is read back and must
+// decompress to exactly `plain`.
+void ReplaceMember(Garc& archive, const Garc& original, size_t index, const Bytes& plain, const std::string& tag);
 
 // writes <OutDir>/load/mods/<program>/romfs_ext/{a/0/3/9,a/0/1/3}.bps, town_preview.gltf and town_layout.txt
 OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTownOptions& options);

@@ -17,21 +17,21 @@ static Bytes Plain(const Bytes& data) { return IsLzCompressed(data) ? LzDecompre
 
 static void Put16(Bytes& b, size_t at, uint16_t v) { b.at(at) = (uint8_t)v; b.at(at + 1) = (uint8_t)(v >> 8); }
 
-// a member put back as the game keeps it: compressed when it was
-static void SetMember(Garc& garc, const Garc& original, size_t index, const Bytes& data)
+void ReplaceMember(Garc& archive, const Garc& original, size_t index, const Bytes& plain, const std::string& tag)
 {
-    garc.Set(index, IsLzCompressed(original.Sub(index)) ? Lz11Compress(data) : data);
-    Bytes back = Garc(garc.Write()).Sub(index);
+    if (plain.size() < tag.size() || Text(plain, 0, tag.size()) != tag)
+        throw FormatError("member " + std::to_string(index) + " is not a " + tag + " container (already compressed?)");
+    archive.Set(index, IsLzCompressed(original.Sub(index)) ? Lz11Compress(plain) : plain);
+    Bytes back = Garc(archive.Write()).Sub(index);
     if (IsLzCompressed(back)) back = LzDecompress(back);
-    if (back != data) throw FormatError("member " + std::to_string(index) + " does not read back identical");
+    if (back != plain) throw FormatError("member " + std::to_string(index) + " does not read back identical");
 }
 
 // the zone's warps moved onto the new doors (its entries hold the zone matrix's pixel position of a tile:
 // (tile + 0.5) * 18, as u16 at +0x0C and +0x10), and its area pack set to the donor's
 static Bytes MoveZoneWarps(const Bytes& zoneData, const OrasTownOptions& o, const TownLayout& layout, std::vector<std::string>& log)
 {
-    const bool lz = IsLzCompressed(zoneData);
-    const Bytes plain = lz ? LzDecompress(zoneData) : zoneData;
+    const Bytes plain = IsLzCompressed(zoneData) ? LzDecompress(zoneData) : zoneData;
     BinLinker zone = BinLinker::Read(plain, "ZO");
     if (zone.Write() != plain) throw FormatError("the zone does not rewrite identical");
     Bytes& entries = zone.Files.at(1);
@@ -48,8 +48,7 @@ static Bytes MoveZoneWarps(const Bytes& zoneData, const OrasTownOptions& o, cons
     log.push_back("zone " + std::to_string(o.Zone) + ": " + std::to_string(placed) + " of its " + std::to_string(warps) + " warps moved onto " +
                   std::to_string(layout.Doors.size()) + " doors" + (layout.Doors.size() > (size_t)warps ? " (the zone has no warp for the others)" : ""));
     Put16(zone.Files.at(0), 2, (uint16_t)o.AreaPack);
-    const Bytes out = zone.Write();
-    return lz ? Lz11Compress(out) : out;
+    return zone.Write(); // plain: ReplaceMember compresses it as the original was
 }
 
 // Pixels of one area pack's textures put under another pack's texture names (same size and format: a texture's data
@@ -123,11 +122,11 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
     result.PieceBytes = town.size();
 
     Garc newPieces(pieces);
-    SetMember(newPieces, pieceArchive, o.TargetPiece, town);
+    ReplaceMember(newPieces, pieceArchive, o.TargetPiece, town, "GR");
     const Bytes zones = oras.Read("a/0/1/3");
     const Garc zoneArchive(zones);
     Garc newZones(zones);
-    SetMember(newZones, zoneArchive, o.Zone, MoveZoneWarps(zoneArchive.Sub(o.Zone), o, result.Layout, result.Log));
+    ReplaceMember(newZones, zoneArchive, o.Zone, MoveZoneWarps(zoneArchive.Sub(o.Zone), o, result.Layout, result.Log), "ZO");
 
     // the mod: BPS patches of the two archives, each checked by applying it back
     char id[17];
@@ -138,7 +137,7 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
     std::vector<std::tuple<const char*, Bytes, Bytes>> changed = {{"a/0/3/9", newPieces.Write(), pieces}, {"a/0/1/3", newZones.Write(), zones}};
     if (o.GrassPack >= 0)
     {
-        SetMember(newAreas, areaArchive, o.AreaPack, areaPack);
+        ReplaceMember(newAreas, areaArchive, o.AreaPack, areaPack, "AD");
         changed.emplace_back("a/0/1/4", newAreas.Write(), areas);
     }
     for (const auto& [path, data, original] : changed)

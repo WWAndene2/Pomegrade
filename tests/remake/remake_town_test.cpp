@@ -2,6 +2,8 @@
 // tile shows decides its role by a fixed precedence, fences enclose flower beds, sand-coloured half tiles
 // are path, and a texture with no role is reported rather than guessed. The texture names and sand
 // colours are the ones measured on Platinum's Twinleaf Town; the arithmetic built on them is checked here.
+#include "NitroCompression.h"
+#include "OrasTown.h"
 #include "TownLayout.h"
 
 #include <cstdio>
@@ -65,6 +67,29 @@ int main()
     char role = 'x';
     check(TextureRole("tshadow", role) && role == 0, "a shadow has no role");
     check(!TextureRole("never_seen", role), "a name not in the table is unknown");
+
+    // an archive member put back as the game keeps it: compressed once, read back as the container it is
+    {
+        Garc g(Bytes{'C', 'R', 'A', 'G', 0x1C, 0, 0, 0, 0xFF, 0xFE, 0, 4, 4, 0, 0, 0, 0x28, 0, 0, 0, 0x28, 0, 0, 0, 0, 0, 0, 0,
+                     'O', 'T', 'A', 'F', 12, 0, 0, 0, 0, 0, 0xFF, 0xFF, 'B', 'T', 'A', 'F', 12, 0, 0, 0, 0, 0, 0, 0,
+                     'B', 'M', 'I', 'F', 12, 0, 0, 0, 0, 0, 0, 0});
+        Bytes zone = {'Z', 'O', 5, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
+        for (int i = 0; i < 8; i++) zone.insert(zone.end(), zone.begin() + 4, zone.begin() + 20); // something the compressor can shrink
+        g.Set(0, Lz11Compress(zone));
+        g.Set(1, Bytes{'Z', 'O', 1});
+        const Garc original(g.Write());
+        Bytes changed = zone;
+        changed[10] = 99;
+        Garc out(original.Write());
+        ReplaceMember(out, original, 0, changed, "ZO");
+        const Garc back(out.Write());
+        check(IsLzCompressed(back.Sub(0)) && LzDecompress(back.Sub(0)) == changed, "a compressed member stays compressed once and reads back as the container");
+        ReplaceMember(out, original, 1, Bytes{'Z', 'O', 7}, "ZO");
+        check(Garc(out.Write()).Sub(1) == Bytes({'Z', 'O', 7}), "an uncompressed member stays uncompressed");
+        bool refused = false;
+        try { ReplaceMember(out, original, 0, Lz11Compress(changed), "ZO"); } catch (const FormatError&) { refused = true; }
+        check(refused, "a member compressed before the call (it would be compressed twice) is refused");
+    }
 
     printf(ok ? "all passed\n" : "FAILED\n");
     return ok ? 0 : 1;
