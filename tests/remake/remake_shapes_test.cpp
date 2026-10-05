@@ -88,6 +88,32 @@ int main()
         check(run.Chains.size() == 1 && !run.Chains[0].Closed, "a zone on the border has an open chain");
     }
 
+    // an outline's chain with its corners rounded (RoundCorners): no point left on a corner, the curve stays near the stairs,
+    // normals unit and still pointing out, an open chain keeps its ends
+    {
+        const ZoneShape square = StairZone(Rect(6, 6, 1, 5, 1, 5), 10, 0, 0, false, 0);
+        const ShapeChain round = RoundCorners(square.Chains.at(0), 5);
+        bool cornerGone = true, near = true, outward = true;
+        for (size_t i = 0; i < round.Points.size(); i++)
+        {
+            const ShapePoint &p = round.Points[i], &nrm = round.Normals[i];
+            for (float cx : {10.0f, 50.0f}) for (float cz : {10.0f, 50.0f}) if (std::hypot(p.X - cx, p.Z - cz) < 1.0f) cornerGone = false;
+            // distance to the square's border, x and z from 10 to 50
+            const float d = std::min(std::min(std::fabs(p.X - 10), std::fabs(p.X - 50)), std::min(std::fabs(p.Z - 10), std::fabs(p.Z - 50)));
+            if (d > 5 * 0.3f) near = false;
+            if ((p.X - 30) * nrm.X + (p.Z - 30) * nrm.Z <= 0 || std::fabs(std::hypot(nrm.X, nrm.Z) - 1) > 1e-3f) outward = false;
+        }
+        check(cornerGone, "a rounded outline has no point on the zone's corners");
+        check(near, "it stays within 0.3 radius of the zone's border");
+        check(outward && round.Closed, "its normals are unit and point out of the zone, and it stays closed");
+        std::vector<std::vector<bool>> edge(3, std::vector<bool>(3, false));
+        edge[0][0] = edge[1][0] = edge[1][1] = true;
+        const ShapeChain open = StairZone(edge, 10, 0, 0, false, 0).Chains.at(0);
+        const ShapeChain openRound = RoundCorners(open, 3);
+        const ShapePoint &a0 = open.Points.front(), &b0 = openRound.Points.front(), &a1 = open.Points.back(), &b1 = openRound.Points.back();
+        check(!openRound.Closed && a0.X == b0.X && a0.Z == b0.Z && a1.X == b1.X && a1.Z == b1.Z, "an open chain keeps its two ends");
+    }
+
     printf(ok ? "all passed\n" : "FAILED\n");
     return ok ? 0 : 1;
 }

@@ -117,4 +117,48 @@ ZoneShape StairZone(const std::vector<std::vector<bool>>& mask, float cellSize, 
     return shape;
 }
 
+ShapeChain RoundCorners(const ShapeChain& chain, float radius, int steps)
+{
+    const size_t n = chain.Points.size();
+    if (n < 3) return chain;
+    ShapeChain out;
+    out.Closed = chain.Closed;
+    std::vector<ShapePoint> side; // the original normal each new point takes its side from
+    auto add = [&](ShapePoint p, ShapePoint nrm) { out.Points.push_back(p); side.push_back(nrm); };
+    auto at = [&](size_t i) { return chain.Points[i % n]; };
+    for (size_t i = 0; i < n; i++)
+    {
+        const bool end = !chain.Closed && (i == 0 || i == n - 1);
+        if (end) { add(chain.Points[i], chain.Normals[i]); continue; }
+        const ShapePoint p = chain.Points[i], a = at(i + n - 1), b = at(i + 1);
+        float ax = p.X - a.X, az = p.Z - a.Z, bx = b.X - p.X, bz = b.Z - p.Z;
+        const float la = std::hypot(ax, az), lb = std::hypot(bx, bz);
+        if (la < 1e-4f || lb < 1e-4f) { add(p, chain.Normals[i]); continue; }
+        ax /= la; az /= la; bx /= lb; bz /= lb;
+        if (ax * bx + az * bz > std::cos(10.0f * 3.14159265f / 180)) { add(p, chain.Normals[i]); continue; }
+        const float t = std::min(radius, std::min(la, lb) / 2);
+        const ShapePoint s{p.X - ax * t, p.Z - az * t}, e{p.X + bx * t, p.Z + bz * t};
+        for (int k = 0; k <= steps; k++)
+        {
+            const float u = (float)k / steps, w0 = (1 - u) * (1 - u), w1 = 2 * u * (1 - u), w2 = u * u;
+            add({w0 * s.X + w1 * p.X + w2 * e.X, w0 * s.Z + w1 * p.Z + w2 * e.Z}, chain.Normals[i]);
+        }
+    }
+    // normals from the curve's direction (central differences), on the side the original normals point to
+    const size_t m = out.Points.size();
+    for (size_t i = 0; i < m; i++)
+    {
+        const bool open = !out.Closed;
+        const ShapePoint prev = (open && i == 0) ? out.Points[i] : out.Points[(i + m - 1) % m];
+        const ShapePoint next = (open && i == m - 1) ? out.Points[i] : out.Points[(i + 1) % m];
+        float nx = next.Z - prev.Z, nz = -(next.X - prev.X);
+        const float l = std::hypot(nx, nz);
+        if (l < 1e-6f) { out.Normals.push_back(side[i]); continue; }
+        nx /= l; nz /= l;
+        if (nx * side[i].X + nz * side[i].Z < 0) { nx = -nx; nz = -nz; }
+        out.Normals.push_back({nx, nz});
+    }
+    return out;
+}
+
 }

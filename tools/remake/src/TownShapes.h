@@ -36,6 +36,13 @@ struct ZoneShape
 // a radius of one cell (the forest's edge); a tip of the zone itself stays square. Cells outside the mask repeat its edge.
 ZoneShape StairZone(const std::vector<std::vector<bool>>& mask, float cellSize, float originX, float originZ, bool roundTips, float jitter = 0.18f);
 
+// The chain an outline strip follows, with every corner rounded: ORAS keeps a zone's fill square, but its outline turns each
+// corner in a fan about a cell wide (Littleroot's chip_grass_decolate mesh, measured), so the blades do not draw the stairs'
+// right angles. Each corner becomes a curve (a quadratic Bezier through steps points) from `radius` before it to `radius`
+// after it, shortened to half of a shorter side so neighbouring corners never cross; corners turning less than 10 degrees and
+// an open chain's ends stay. Normals are the curve's, unit, on the side the chain's own normals point to.
+ShapeChain RoundCorners(const ShapeChain& chain, float radius, int steps = 4);
+
 }
 
 #endif // REMAKE_TOWNSHAPES_H

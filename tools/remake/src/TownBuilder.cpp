@@ -455,13 +455,18 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         const ZoneShape pathShape = StairZone(pathMask, T / 2, corner, corner, false);
         // Platinum's snow patches (role s) are these zones: with a snow texture they show it, untinted
         const float snow[4] = {1, 1, 1, 1};
-        AddFill(geo[Pale], lightShape, 0.15f, src.SnowTexture.empty() ? white : snow);
+        const bool snowy = !src.SnowTexture.empty();
+        AddFill(geo[Pale], lightShape, 0.15f, snowy ? snow : white);
         AddFill(geo[Soil], pathShape, 0.15f, soil);
         // the outline of each zone, on its border, coloured as the target's own outline (one colour for tips and roots, the
         // grass's less 15%, put a dark band over the lighter grass and the paths); the grass's less 15% when it has none
         const float blade[4] = {grass[0] * 0.85f, grass[1] * 0.85f, grass[2] * 0.85f, grass[3]};
+        // the strip follows the border with its corners rounded over half a tile, as Littleroot's turns (TownShapes.h)
         for (const ZoneShape* shape : {&lightShape, &pathShape})
-            for (const ShapeChain& chain : shape->Chains) AddOutline(geo[Outline], chain, haveBlades ? bladeTip : blade, haveBlades ? bladeRoot : blade);
+        {
+            for (const ShapeChain& chain : shape->Chains)
+                AddOutline(geo[Outline], RoundCorners(chain, T / 2), haveBlades ? bladeTip : blade, haveBlades ? bladeRoot : blade);
+        }
         note("outline blades: %s (tips %.2f %.2f %.2f, roots %.2f %.2f %.2f)\n", haveBlades ? "the target's" : "NOT found, the grass's less 15%",
              (haveBlades ? bladeTip : blade)[0], (haveBlades ? bladeTip : blade)[1], (haveBlades ? bladeTip : blade)[2],
              (haveBlades ? bladeRoot : blade)[0], (haveBlades ? bladeRoot : blade)[1], (haveBlades ? bladeRoot : blade)[2]);
