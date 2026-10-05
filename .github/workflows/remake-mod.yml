@@ -234,7 +234,8 @@ jobs:
         run: |
           cmake -S tools/remake -B build-remake -G Ninja -DCMAKE_BUILD_TYPE=Release > /dev/null
           ninja -C build-remake remake_tool
-          g++ -std=c++17 -O2 -I azahar/externals/libretro-common/libretro-common/include tools/remake/headless/retro_host.cpp -ldl -o retro_host
+          sudo apt-get install -y -qq gdb > /dev/null
+          g++ -std=c++17 -O2 -g -I azahar/externals/libretro-common/libretro-common/include tools/remake/headless/retro_host.cpp -ldl -o retro_host
 
       - name: Run the game with each mod
         env:
@@ -267,7 +268,9 @@ jobs:
             cp -r "$mod" "$user/load/mods/"
             savedir="$user/sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/00040000/0011c400/data/00000001"
             if [ -n "$SAVE_DIR" ]; then mkdir -p "$savedir" && cp -r "$SAVE_DIR"/. "$savedir/"; fi
-            ./retro_host "$CORE" dumps/oras.3ds "$work" "$SECONDS_GIVEN" | tee "results/$name.txt" || true
+            # under gdb: a crash of the core prints its backtrace instead of a bare "Segmentation fault"
+            gdb -q -batch -ex 'handle SIGSEGV stop' -ex run -ex 'bt 30' -ex 'info sharedlibrary' --args \
+              ./retro_host "$CORE" dumps/oras.3ds "$work" "$SECONDS_GIVEN" 2>&1 | grep -v '^\[New Thread\|^\[Thread' | tee "results/$name.txt" || true
             grep '^RESULT' "results/$name.txt" || echo "RESULT: the host stopped without a result"
             echo "::endgroup::"
           done <<< "$RUNS"
