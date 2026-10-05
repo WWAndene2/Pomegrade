@@ -529,7 +529,13 @@ Java_me_magnum_melonds_MelonEmulator_setMaterialManifest(JNIEnv* env, jobject th
 JNIEXPORT jstring JNICALL
 Java_me_magnum_melonds_MelonEmulator_getGameCode(JNIEnv* env, jobject thiz)
 {
-    return env->NewStringUTF(MelonDSAndroid::getGameCode().c_str());
+    // the cartridge header's 4 raw bytes: NewStringUTF needs modified UTF-8, which a homebrew
+    // header's bytes above 0x7F (or a NUL, which would cut the code short) are not. Printable
+    // ASCII is kept, anything else becomes '_', as the Kotlin side names files anyway
+    std::string code = MelonDSAndroid::getGameCode();
+    for (char& c : code)
+        if ((unsigned char)c < 0x20 || (unsigned char)c > 0x7E) c = '_';
+    return env->NewStringUTF(code.c_str());
 }
 
 JNIEXPORT jboolean JNICALL
