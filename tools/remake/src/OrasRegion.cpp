@@ -323,6 +323,23 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
         log.push_back(F("zone %d: its spawn tile (%.1f, %.1f) lies %s", z, zone.SpawnTileX(), zone.SpawnTileZ(),
                         !inside ? "outside the new matrix" : matrix.Zone(bx, bz) == z ? "on its own block"
                         : matrix.Zone(bx, bz) == OrasMatrix::None ? "on a block of no zone" : F("on a block of zone %d", matrix.Zone(bx, bz)).c_str()));
+        if (inside)
+        {
+            // what the save's player stands on there (a save made at the spawn keeps that tile, inferred): Platinum's collision around it,
+            // '#' solid, '~' water, 'g' tall grass, '.' free, '@' the tile itself (still '#' or '~' under it if solid)
+            const int tx = (int)zone.SpawnTileX(), tz = (int)zone.SpawnTileZ();
+            const TownLayout around = TownLayout::Read(world, (o.Left + tx / TownTiles) * TownTiles, (o.Top + tz / TownTiles) * TownTiles);
+            const int cx = tx % TownTiles, cz = tz % TownTiles;
+            std::string grid;
+            for (int r = std::max(0, cz - 3); r <= std::min(TownTiles - 1, cz + 3); r++)
+            {
+                grid += "\n  ";
+                for (int c = std::max(0, cx - 6); c <= std::min(TownTiles - 1, cx + 6); c++)
+                    grid += r == cz && c == cx && around.Collision[r][c] == '.' ? '@' : around.Collision[r][c];
+            }
+            log.push_back(F("zone %d: the spawn tile is %s (role '%c'); collision around it:", z,
+                            around.Collision[cz][cx] == '.' || around.Collision[cz][cx] == 'g' ? "walkable" : "SOLID", around.Vis[cz][cx]) + grid);
+        }
     }
     for (const auto& [pack, data] : packs)
         if (data != originalPacks.at(pack)) ReplaceMember(newAreas, areaArchive, (size_t)pack, data, "AD");
