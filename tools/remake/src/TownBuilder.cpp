@@ -158,7 +158,7 @@ static void BanksFine(BchGeometry& g, const std::vector<std::string>& water2)
 // chip_grass_decolate mesh has (measured). The blades are chip_alpha's grass band (rows 38-60 of 128): the roots (v 0.496,
 // the grass's colour) on the zone's edge, the tips (v 0.302, white) outside, pointing away from the zone. (Littleroot's own
 // strips put the tips on the zone's edge; the owner asked for them pointing outward, from the game's screenshot.) u advances
-// 0.0245 a unit along the edge, so two half tiles span the band (u 0.046-0.453). Each corner moves up to 2 units along the
+// 0.0245 a unit, running from the edge's end to its start (mirrored along x, as the owner asked), so two half tiles span the band (u 0.046-0.453). Each corner moves up to 2 units along the
 // edge's normal (a fixed hash of its position), as Littleroot's strips wander.
 template <typename Light, typename Dark>
 static void GrassFringe(BchGeometry& g, int M, Light zone, Dark grassBeside, const float tip[4], const float root[4])
@@ -177,7 +177,7 @@ static void GrassFringe(BchGeometry& g, int M, Light zone, Dark grassBeside, con
                 const float off = side ? width : 0.0f, w = wobble(ends[e][0], ends[e][1]);
                 BchVertex v;
                 v.Position[0] = ends[e][0] + nx * (off + w); v.Position[1] = 0.3f; v.Position[2] = ends[e][1] + nz * (off + w);
-                v.TexCoord[0] = u0 + (e ? 0.2035f : 0.0f); v.TexCoord[1] = side ? 0.302f : 0.496f;
+                v.TexCoord[0] = u0 + (e ? 0.0f : 0.2035f); v.TexCoord[1] = side ? 0.302f : 0.496f; // u runs against the edge: the blades mirrored, as the owner asked
                 std::copy(side ? tip : root, (side ? tip : root) + 4, v.Colour);
                 g.Vertices.push_back(v);
             }
