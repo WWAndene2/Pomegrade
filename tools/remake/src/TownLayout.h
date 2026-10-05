@@ -29,13 +29,14 @@ struct TownLayout
     std::vector<std::string> Vis;        // TownTiles rows of TownTiles roles
     std::vector<std::string> Path2;      // 2*TownTiles rows: ':' where a half tile is path
     std::vector<std::string> Water2;     // 2*TownTiles rows: '~' where a half tile is water
+    std::vector<std::string> Snow2;      // 2*TownTiles rows: '#' where a half tile is snow (white), specks and pinholes cleaned
     std::vector<std::string> Collision;  // TownTiles rows: '#' solid, '~' water, 'g' tall grass, '.' free
     std::vector<TownDoor> Doors;
     std::map<std::string, int> UnknownTextures; // textures with no role: counted, left as grass
     int BedTiles = 0;                    // tiles a fence encloses, filled with flowers
 
     static TownLayout Read(const PlatinumWorld& world, int left, int top);
-    // Vis, Path2, Water2, BedTiles and UnknownTextures from two scans of the window (one sample a tile, two a tile)
+    // Vis, Path2, Water2, Snow2, BedTiles and UnknownTextures from two scans of the window (one sample a tile, two a tile)
     void Classify(const TerrainScan& whole, const TerrainScan& half);
     std::string Text() const;            // the layout as text, for inspection
 };

@@ -45,6 +45,23 @@ static bool Sand(const TerrainSample& s)
     return r > 200 && g > 160 && b < 200 && r > b + 50 && r >= g - 10;
 }
 
+// a half tile is snow when its centre's colour is white: bright and grey (Platinum's snow is white; its light grass is green)
+static bool White(const TerrainSample& s)
+{
+    if (!s.HasColour) return false;
+    const int r = s.Rgb[0], g = s.Rgb[1], b = s.Rgb[2];
+    return r > 215 && g > 215 && b > 215 && std::max({r, g, b}) - std::min({r, g, b}) < 40;
+}
+
+// a grey half tile, light or dark (no hue): beside snow, it is snow under a tree's shadow (Platinum's shadows over its snow
+// sample (64, 80, 64) to (96, 96, 112)); its grass and light grass are strongly green
+static bool Grey(const TerrainSample& s)
+{
+    if (!s.HasColour) return false;
+    const int r = s.Rgb[0], g = s.Rgb[1], b = s.Rgb[2];
+    return std::max({r, g, b}) - std::min({r, g, b}) < 40;
+}
+
 void TownLayout::Classify(const TerrainScan& whole, const TerrainScan& half)
 {
     TownLayout& out = *this;
@@ -110,6 +127,35 @@ void TownLayout::Classify(const TerrainScan& whole, const TerrainScan& half)
                         path(c - dc, r + dr) && path(c + dc, r - dr))
                         rounding.push_back({r, c});
     for (const auto& [r, c] : rounding) out.Path2[r][c] = '.';
+
+    // snow at half-tile precision, from the colour Platinum shows (its snow patches are round blobs, which whole tiles turn to
+    // squares): white half tiles, not on a house, fence, flower bed or water; snow grows into grey half tiles (shadows over
+    // it) with snow on at least two sides, a few passes; then a half tile with no snow beside it (a speck of a blob's edge) is
+    // dropped and one with snow on at least three sides (a pinhole) filled, in one pass each
+    out.Snow2.assign(2 * N, std::string(2 * N, '.'));
+    for (int r = 0; r < 2 * N; r++)
+        for (int c = 0; c < 2 * N; c++)
+            if (White(half.At(c, r)) && std::string("HF*~f").find(out.Vis[r / 2][c / 2]) == std::string::npos) out.Snow2[r][c] = '#';
+    auto snowAt = [&](const std::vector<std::string>& g, int c, int r) { return c >= 0 && r >= 0 && c < 2 * N && r < 2 * N && g[r][c] == '#'; };
+    auto neighbours = [&](const std::vector<std::string>& g, int c, int r) { return snowAt(g, c - 1, r) + snowAt(g, c + 1, r) + snowAt(g, c, r - 1) + snowAt(g, c, r + 1); };
+    for (int pass = 0; pass < 4; pass++)
+    {
+        std::vector<std::string> grown = out.Snow2;
+        for (int r = 0; r < 2 * N; r++)
+            for (int c = 0; c < 2 * N; c++)
+                if (out.Snow2[r][c] != '#' && Grey(half.At(c, r)) && neighbours(out.Snow2, c, r) >= 2 &&
+                    std::string("HF*~f").find(out.Vis[r / 2][c / 2]) == std::string::npos)
+                    grown[r][c] = '#';
+        out.Snow2 = grown;
+    }
+    std::vector<std::string> cleaned = out.Snow2;
+    for (int r = 0; r < 2 * N; r++)
+        for (int c = 0; c < 2 * N; c++)
+        {
+            if (out.Snow2[r][c] == '#' && neighbours(out.Snow2, c, r) == 0) cleaned[r][c] = '.';
+            if (out.Snow2[r][c] != '#' && neighbours(out.Snow2, c, r) >= 3 && std::string("HF*~f").find(out.Vis[r / 2][c / 2]) == std::string::npos) cleaned[r][c] = '#';
+        }
+    out.Snow2 = cleaned;
 }
 
 TownLayout TownLayout::Read(const PlatinumWorld& plat, int left, int top)

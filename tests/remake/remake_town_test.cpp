@@ -61,8 +61,26 @@ int main()
     sand(37, 37);
     sand(43, 43);
 
+    // snow (white half tiles): a 3 x 3 blob with a pinhole at its centre (60, 60 to 62, 62), a lone white speck (70, 70)
+    auto white = [&](int c, int r) { TerrainSample& t = At(half, c, r); t.HasColour = true; t.Rgb[0] = 240; t.Rgb[1] = 245; t.Rgb[2] = 250; };
+    for (int c = 60; c <= 62; c++) for (int r = 60; r <= 62; r++) if (c != 61 || r != 61) white(c, r);
+    white(70, 70);
+    // a dark grey half tile (a tree's shadow over the snow) at (63, 61), with snow on two sides: (62, 61) and the white (63, 62)
+    auto grey = [&](int c, int r) { TerrainSample& t = At(half, c, r); t.HasColour = true; t.Rgb[0] = 70; t.Rgb[1] = 80; t.Rgb[2] = 72; };
+    white(63, 62); grey(63, 61);
+    // a green half tile beside the snow stays grass: (59, 61)
+    { TerrainSample& t = At(half, 59, 61); t.HasColour = true; t.Rgb[0] = 90; t.Rgb[1] = 240; t.Rgb[2] = 150; }
+    // and white on the fence tile (20, 20): half tile (40, 40)
+    white(40, 40); white(41, 40);
+
     TownLayout layout;
     layout.Classify(whole, half);
+    check(layout.Snow2.size() == 80 && layout.Snow2[60][60] == '#' && layout.Snow2[62][62] == '#', "white half tiles are snow");
+    check(layout.Snow2[61][61] == '#', "a pinhole in the snow is filled");
+    check(layout.Snow2[70][70] == '.', "a lone white speck is dropped");
+    check(layout.Snow2[61][63] == '#', "a grey shadow with snow on two sides is snow");
+    check(layout.Snow2[61][59] == '.', "green grass beside the snow is not");
+    check(layout.Snow2[40][40] == '.' && layout.Snow2[40][41] == '.', "no snow on a fence tile");
     check(layout.Path2[37][37] == '.', "a crossroads' rounded inner corner is not a step of path");
     check(layout.Path2[43][43] == '.', "a sand-coloured flower in a bed is not path");
     check(layout.Path2[38][37] == ':' && layout.Path2[37][38] == ':' && layout.Path2[38][38] == ':', "the arms beside it stay path");

@@ -495,10 +495,15 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         std::vector<std::vector<bool>> pathMask(M, std::vector<bool>(M, false));
         for (int r = 0; r < M; r++) for (int c = 0; c < M; c++) pathMask[r][c] = path(c, r);
         const float corner = -20 * T; // the window's corner (X(0), Z(0))
-        // the lighter grass as Littleroot's is cut, measured: no jitter, its own corners 0.12 tile in (TownShapes.h); snow as the ice
-        // cave's (piece 386, mesh 7, measured): on the tile lattice exactly (217 of its 270 vertices, median 0.001 tile off), no pull
+        // the lighter grass as Littleroot's is cut, measured: no jitter, its own corners 0.12 tile in (TownShapes.h)
         const bool snowy = !src.SnowTexture.empty();
-        const ZoneShape lightShape = StairZone(tileMask(lightGrass, path), T, corner, corner, false, 0, snowy ? 0.0f : 0.12f);
+        const ZoneShape lightShape = StairZone(tileMask(lightGrass, path), T, corner, corner, false, 0, 0.12f);
+        // snow: the half tiles Platinum shows white (TownLayout's Snow2), so its round blobs keep their shape; half-tile steps as
+        // ORAS's paths may take (94 of the game's 286 path meshes), on the lattice exactly as the ice cave's snow (piece 386,
+        // mesh 7: 217 of its 270 vertices, median 0.001 tile off), no pull
+        std::vector<std::vector<bool>> snowMask(M, std::vector<bool>(M, false));
+        for (int r = 0; r < M; r++) for (int c = 0; c < M; c++) snowMask[r][c] = layout.Snow2[r][c] == '#';
+        const ZoneShape snowShape = StairZone(snowMask, T / 2, corner, corner, false, 0, 0);
         const ZoneShape pathShape = StairZone(pathMask, T / 2, corner, corner, false);
         // Platinum's snow patches (role s) are these zones. With a snow texture they are laid as ORAS lays the snow of its ice cave
         // (piece 386, mesh 7, chip_icedoukutsu02): its texture, planar mapping and vertex colour 0.95 1 1, in a blended layer (the
@@ -506,7 +511,7 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         // is translucent (alpha 0.57 inside and on its open border, 1.0 against the walls, measured) because it lies on white
         // ice; on green grass that would show pale green, so it is opaque here (the owner's choice): white, as Platinum's
         const float snow[4] = {0.95f, 1, 1, 1};
-        if (snowy) AddFill(geo[Snow], lightShape, 0.45f, snow);
+        if (snowy) AddFill(geo[Snow], snowShape, 0.45f, snow);
         else AddFill(geo[Pale], lightShape, 0.15f, white);
         AddFill(geo[Soil], pathShape, 0.15f, soil);
         // the outline of each zone, on its border, coloured as the target's own outline (one colour for tips and roots, the
