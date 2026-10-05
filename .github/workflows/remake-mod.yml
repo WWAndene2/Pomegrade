@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       variants:
-        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options", "name: append unused|piece|matrix|zone" or "name: bench" (the app's test bench); "... +cro <module> OFFSET=OLD:NEW" also patches a code module'
+        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options", "name: append unused|piece|matrix|zone" or "name: bench" (the phone test bench); "... +cro <module> OFFSET=OLD:NEW" also patches a code module'
         default: |
           v24:
         required: true
