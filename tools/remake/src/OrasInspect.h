@@ -21,6 +21,8 @@ std::string InspectMatrix(N3dsRom& game, size_t matrix);
 std::string InspectPieceNames(N3dsRom& game);
 // every a/0/1/3 zone in one line: its matrix and area pack, entity counts, its warps' destinations and tiles, its triggers' tiles
 std::string InspectZones(N3dsRom& game);
+// every a/0/4/0 matrix checked against the layout of ORAS_LITTLEROOT.md 2b, and every zone entity against the zone grid
+std::string InspectMatrices(N3dsRom& game);
 
 
 // Conformity of the tooling with the real game, run on the owner's dump: every texture file of every area pack rewritten by

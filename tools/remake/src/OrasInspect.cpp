@@ -206,6 +206,71 @@ std::string InspectZones(N3dsRom& game)
     return s;
 }
 
+// Every map matrix checked against the layout read on matrix 1 (ORAS_LITTLEROOT.md 2b): file 0 = u16 1, 0, width, height, a
+// width x height piece grid, a (4 width) x (4 height) zone grid, then 0xFFFF; and every entity of every zone (furniture,
+// characters, warps, triggers) placed on a 10-tile block that the matrix's zone grid gives to that zone
+std::string InspectMatrices(N3dsRom& game)
+{
+    const Garc mm(game.Read("a/0/4/0")), zo(game.Read("a/0/1/3"));
+    struct Spot { int Zone; float X, Z; const char* What; };
+    std::map<int, std::vector<Spot>> byMatrix;
+    for (size_t i = 0; i < zo.Count(); i++)
+    {
+        try
+        {
+            const OrasZone z = OrasZone::Read(Plain(zo.Sub(i)));
+            auto& v = byMatrix[z.Matrix()];
+            for (const ZoneFurniture& f : z.Furniture) v.push_back({(int)i, f.TileX() + 0.5f, f.TileZ() + 0.5f, "furniture"});
+            for (const ZoneCharacter& c : z.Characters) v.push_back({(int)i, c.TileX() + 0.5f, c.TileZ() + 0.5f, "character"});
+            for (const ZoneDoor& d : z.Doors) v.push_back({(int)i, d.TileX(), d.TileZ(), "warp"});
+            for (const ZoneTrigger& t : z.Triggers) v.push_back({(int)i, t.TileX() + 0.5f, t.TileZ() + 0.5f, "trigger"});
+        }
+        catch (const FormatError&) {}
+    }
+    std::string s = "matrix width height file0 file1 pieces zones | entities on their zone / checked | layout\n";
+    size_t layoutBad = 0, entitiesOn = 0, entitiesAll = 0, maxCells = 0, maxFile0 = 0;
+    std::map<size_t, size_t> sizeByCells;
+    for (size_t m = 0; m < mm.Count(); m++)
+    {
+        try
+        {
+            const Bytes data = Plain(mm.Sub(m));
+            const BinLinker c = BinLinker::Read(data, "MM");
+            const Bytes& f = c.Files.at(0);
+            const size_t w = U16(f, 4), h = U16(f, 6), zw = 4 * w, zh = 4 * h;
+            const size_t zoneAt = 8 + 2 * w * h, end = zoneAt + 2 * zw * zh;
+            std::string layout = U16(f, 0) == 1 && U16(f, 2) == 0 && end <= f.size() ? "ok" : "BAD";
+            for (size_t k = end; k + 1 < f.size() && layout == "ok"; k += 2) if (U16(f, k) != 0xFFFF) layout = "BAD tail";
+            size_t pieces = 0;
+            std::set<int> zones;
+            if (end <= f.size())
+            {
+                for (size_t k = 0; k < w * h; k++) if (U16(f, 8 + 2 * k) != 0xFFFF) pieces++;
+                for (size_t k = 0; k < zw * zh; k++) if (U16(f, zoneAt + 2 * k) != 0xFFFF) zones.insert(U16(f, zoneAt + 2 * k));
+            }
+            size_t on = 0, all = 0;
+            for (const Spot& sp : byMatrix[(int)m])
+            {
+                if (end > f.size()) break;
+                const int bx = (int)(sp.X / 10), bz = (int)(sp.Z / 10);
+                all++;
+                if (bx >= 0 && bz >= 0 && (size_t)bx < zw && (size_t)bz < zh && U16(f, zoneAt + 2 * (bz * zw + bx)) == sp.Zone) on++;
+            }
+            if (layout != "ok") layoutBad++;
+            entitiesOn += on; entitiesAll += all;
+            maxCells = std::max(maxCells, w * h); maxFile0 = std::max(maxFile0, f.size());
+            sizeByCells[w * h] = f.size();
+            s += F("%zu %zu %zu %zu %zu %zu %zu | %zu / %zu | %s\n", m, w, h, f.size(), c.Files.size() > 1 ? c.Files[1].size() : 0, pieces, zones.size(), on, all, layout.c_str());
+        }
+        catch (const FormatError& e) { s += F("%zu not read: %s\n", m, e.what()); layoutBad++; }
+    }
+    s += F("summary: %zu matrices, layout bad in %zu; entities on their zone's block %zu of %zu; largest matrix %zu cells, file 0 at most %zu bytes\n",
+           mm.Count(), layoutBad, entitiesOn, entitiesAll, maxCells, maxFile0);
+    s += "file 0 size by cell count:";
+    for (const auto& [cells, size] : sizeByCells) s += F(" %zu:%zu", cells, size);
+    return s + "\n";
+}
+
 std::string VerifyGame(N3dsRom& game, bool& ok)
 {
     ok = true;
