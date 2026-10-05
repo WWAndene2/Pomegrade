@@ -230,6 +230,14 @@ jobs:
           s = s.replace(line, open("tools/remake/headless/fs_open_trace.inc").read())
           s = s.replace('#include "core/hle/kernel/process.h"', '#include "core/hle/kernel/process.h"\n#include "core/hle/kernel/thread.h"\n#include "core/memory.h"', 1)
           open(p, "w").write(s)
+          # the software renderer reads a texture whose address maps to no memory as a null pointer and crashes (both headless runs
+          # with the save, at the title screen's exit: SIGSEGV in LookupTexelInTile from TextureColor); such a texel is read as black
+          p = "azahar/src/video_core/renderer_software/sw_rasterizer.cpp"
+          s = open(p).read()
+          line = "            texture_color[i] = LookupTexture(texture_data, s, t, info);\n"
+          assert s.count(line) == 1, "the software renderer's texture lookup not found"
+          s = s.replace(line, "            texture_color[i] = texture_data ? LookupTexture(texture_data, s, t, info) : Common::Vec4<u8>{0, 0, 0, 255};\n")
+          open(p, "w").write(s)
           PY
           export CCACHE_DIR=~/.cache/ccache CCACHE_MAXSIZE=2G
           cmake -S azahar -B build-azahar -G Ninja -DCMAKE_BUILD_TYPE=Release -DENABLE_LIBRETRO=ON \
