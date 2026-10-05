@@ -282,6 +282,86 @@ std::string InspectMatrices(N3dsRom& game)
     return s + "\n";
 }
 
+// Where a piece's size counts (ORAS_LITTLEROOT.md 11: in Littleroot's place a piece shows up to 996,992 bytes and not from
+// 1,074,944, while the game's largest is 1,368,064 elsewhere). Every overworld matrix cell with its piece's decompressed size and the
+// sum over the 3 x 3 cells around it (if the engine keeps the neighbours loaded, that sum is what a budget would bound), the largest
+// of each, Littleroot's neighbourhood, and how the largest pieces and Littleroot's spend their bytes (GR files, vertex formats)
+std::string InspectPieceBudget(N3dsRom& game)
+{
+    const Garc mm(game.Read("a/0/4/0")), gr(game.Read("a/0/3/9"));
+    std::vector<size_t> bytes(gr.Count(), 0);
+    for (size_t i = 0; i < gr.Count(); i++) if (gr.Has(i)) bytes[i] = Plain(gr.Sub(i)).size();
+    struct Cell { size_t Matrix; int X, Y; uint16_t Piece; size_t Own, Around, Cross; };
+    std::vector<Cell> cells;
+    for (size_t m = 0; m < mm.Count(); m++)
+    {
+        OrasMatrix mat;
+        try { mat = OrasMatrix::Read(Plain(mm.Sub(m))); } catch (const FormatError&) { continue; }
+        if (mat.Zones.empty()) continue; // interiors: one place, no neighbours
+        auto at = [&](int x, int y) -> size_t {
+            if (x < 0 || y < 0 || x >= mat.Width || y >= mat.Height) return 0;
+            const uint16_t p = mat.Piece(x, y);
+            return p < bytes.size() ? bytes[p] : 0;
+        };
+        for (int y = 0; y < mat.Height; y++)
+            for (int x = 0; x < mat.Width; x++)
+            {
+                if (mat.Piece(x, y) == OrasMatrix::None) continue;
+                size_t around = 0;
+                for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) around += at(x + dx, y + dy);
+                cells.push_back({m, x, y, mat.Piece(x, y), at(x, y), around, at(x, y) + at(x - 1, y) + at(x + 1, y) + at(x, y - 1) + at(x, y + 1)});
+            }
+    }
+    std::string s = F("%zu overworld cells (matrices with a zone grid)\n", cells.size());
+    auto top = [&](const char* what, auto key) {
+        std::vector<Cell> v = cells;
+        std::sort(v.begin(), v.end(), [&](const Cell& a, const Cell& b) { return key(a) > key(b); });
+        s += F("largest by %s:\n", what);
+        for (size_t k = 0; k < v.size() && k < 12; k++)
+            s += F("  matrix %zu cell (%d, %d) piece %u: own %zu, 3x3 %zu, cross %zu\n", v[k].Matrix, v[k].X, v[k].Y, v[k].Piece, v[k].Own, v[k].Around, v[k].Cross);
+    };
+    top("own size", [](const Cell& c) { return c.Own; });
+    top("3x3 sum", [](const Cell& c) { return c.Around; });
+    top("cross sum (own and 4 sides)", [](const Cell& c) { return c.Cross; });
+    for (const Cell& c : cells)
+        if (c.Matrix == 1 && c.X == 2 && c.Y == 4)
+            s += F("Littleroot (matrix 1 cell (2, 4), piece %u): own %zu, 3x3 %zu, cross %zu; with a piece of P bytes in its place: 3x3 %zu + P, cross %zu + P\n",
+                   c.Piece, c.Own, c.Around, c.Cross, c.Around - c.Own, c.Cross - c.Own);
+
+    // how bytes are spent: GR files and each mesh's vertex format, for the largest pieces and Littleroot's
+    std::vector<size_t> order(bytes.size());
+    for (size_t i = 0; i < order.size(); i++) order[i] = i;
+    std::sort(order.begin(), order.end(), [&](size_t a, size_t b) { return bytes[a] > bytes[b]; });
+    std::vector<size_t> shown(order.begin(), order.begin() + std::min<size_t>(3, order.size()));
+    shown.push_back(6);
+    static const char* formats[] = {"s8", "u8", "s16", "f32"};
+    for (size_t i : shown)
+    {
+        try
+        {
+            const BinLinker c = BinLinker::Read(Plain(gr.Sub(i)), "GR");
+            s += F("piece %zu: %zu bytes; GR files", i, bytes[i]);
+            for (size_t f = 0; f < c.Files.size(); f++) s += F(" %zu:%zu", f, c.Files[f].size());
+            const Bch bch = Bch::Read(c.Files.at(1));
+            std::map<std::string, std::pair<size_t, size_t>> byFormat; // vertex layout -> meshes, vertex bytes
+            size_t vertexBytes = 0, indexCount = 0;
+            for (const BchMesh& m : bch.Models.at(0).Meshes)
+            {
+                std::string layout = F("stride %u:", m.Stride);
+                for (const BchAttribute& a : m.Attributes) layout += F(" %d=%dx%s", a.Name, a.Elements, a.Format >= 0 && a.Format < 4 ? formats[a.Format] : "?");
+                byFormat[layout].first++;
+                byFormat[layout].second += m.Vertices.size() * m.Stride;
+                vertexBytes += m.Vertices.size() * m.Stride;
+                indexCount += m.Triangles.size();
+            }
+            s += F("; vertex data %zu bytes, %zu indices\n", vertexBytes, indexCount);
+            for (const auto& [layout, use] : byFormat) s += F("  %s: %zu meshes, %zu bytes\n", layout.c_str(), use.first, use.second);
+        }
+        catch (const std::exception& e) { s += F("piece %zu: not read (%s)\n", i, e.what()); }
+    }
+    return s;
+}
+
 std::string InspectArchives(N3dsRom& game)
 {
     std::string s = "path members size | the first member's first bytes\n";

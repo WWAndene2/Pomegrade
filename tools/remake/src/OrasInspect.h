@@ -25,6 +25,8 @@ std::string InspectZones(N3dsRom& game);
 std::string InspectMatrices(N3dsRom& game);
 // every RomFS file: GARC member count, size and the first member's first bytes (what a zone number or a piece number may index)
 std::string InspectArchives(N3dsRom& game);
+// every overworld cell's piece size and its neighbourhood's, the largest, Littleroot's, and how the largest pieces spend their bytes
+std::string InspectPieceBudget(N3dsRom& game);
 
 
 // Conformity of the tooling with the real game, run on the owner's dump: every texture file of every area pack rewritten by
