@@ -24,6 +24,10 @@
 //                     an Azahar mod: each file replaces that RomFS path, laid out as Azahar loads
 //                     mods (<out dir>/load/mods/<program id>/romfs/<path>); copy <out dir>/load
 //                     into the 3DS folder (Pomegrade/3DS)
+//   remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]
+//                     [--cell X Y] [--zone Z] [--area A]
+//                     a Platinum window of 40x40 tiles (default: Twinleaf Town) rebuilt as an ORAS map piece with
+//                     ORAS's own assets, as an Azahar mod (BPS patches), with town_preview.gltf and town_layout.txt
 //   remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...
 //                     the same as BPS patches against the game's own files (<out dir>/load/mods/
 //                     <program id>/romfs_ext/<path>.bps): a few changed pieces of a large archive
@@ -44,6 +48,8 @@
 #include "N3dsRom.h"
 #include "MapHeaders.h"
 #include "N3dsWorld.h"
+#include "OrasTown.h"
+#include "PlatinumWorld.h"
 #include "ZoneEvents.h"
 #include "WorldMap.h"
 
@@ -71,7 +77,9 @@ static int Usage()
                     "  remake_tool oras-world <rom.nds> <matrix index> <out dir>\n"
                     "  remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]\n  remake_tool oras-list <oras.3ds>\n  remake_tool oras-extract <oras.3ds> <path> <out>\n"
                     "  remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...\n"
-                    "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n");
+                    "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
+                    "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
+                    "                    [--cell X Y] [--zone Z] [--area A]\n");
     return 2;
 }
 
@@ -174,6 +182,32 @@ int main(int argc, char** argv)
             WriteFile(argv[3], Bytes(gltf.begin(), gltf.end()));
             printf("%zu models; model %zu: %zu shapes, %zu materials\n", model.Models().size(), index,
                    model.Models().at(index).Shapes.size(), model.Models().at(index).Materials.size());
+            return 0;
+        }
+        if (cmd == "oras-town" && argc >= 5)
+        {
+            OrasTownOptions options;
+            options.OutDir = argv[4];
+            for (int i = 5; i < argc; i++)
+            {
+                const std::string flag = argv[i];
+                auto number = [&](int at) { if (at >= argc) throw FormatError("missing a number after " + flag); return atoi(argv[at]); };
+                if (flag == "--matrix") options.Matrix = (size_t)number(++i);
+                else if (flag == "--left") options.Left = number(++i);
+                else if (flag == "--top") options.Top = number(++i);
+                else if (flag == "--target") options.TargetPiece = (size_t)number(++i);
+                else if (flag == "--donor") options.DonorPiece = (size_t)number(++i);
+                else if (flag == "--trees") options.TreePiece = (size_t)number(++i);
+                else if (flag == "--cell") { options.CellX = number(++i); options.CellY = number(++i); }
+                else if (flag == "--zone") options.Zone = (size_t)number(++i);
+                else if (flag == "--area") options.AreaPack = (size_t)number(++i);
+                else { fprintf(stderr, "unknown option %s\n", flag.c_str()); return 2; }
+            }
+            const NdsRom platinum(ReadFile(argv[2]));
+            N3dsRom oras(argv[3]);
+            const OrasTownResult result = BuildOrasTown(platinum, oras, options);
+            for (const std::string& line : result.Log) printf("%s%s", line.c_str(), !line.empty() && line.back() == '\n' ? "" : "\n");
+            printf("mod written under %s: copy its load folder into the 3DS folder (Pomegrade/3DS)\n", options.OutDir.c_str());
             return 0;
         }
         // decrypted 3DS game images
@@ -296,74 +330,26 @@ int main(int argc, char** argv)
         }
         if (cmd == "oras-world" && argc >= 5)
         {
-            auto archive = [&](const char* path) {
-                const NdsFile* f = rom.Find(path);
-                if (!f) throw FormatError(std::string("no ") + path + " in the cartridge (not Platinum?)");
-                return Narc(Plain(rom.Read(*f)));
-            };
-            const Narc matrices = archive("fielddata/mapmatrix/map_matrix.narc"), lands = archive("fielddata/land_data/land_data.narc");
-            const Narc areas = archive("fielddata/areadata/area_data.narc"), events = archive("fielddata/eventdata/zone_event.narc");
-            const Narc mapTex = archive("fielddata/areadata/area_map_tex/map_tex_set.narc");
-            const Narc buildingTex = archive("fielddata/areadata/area_build_model/areabm_texset.narc");
-            const Narc buildingModels = archive("fielddata/build_model/build_model.narc");
-            size_t tableAt = 0;
-            const std::vector<MapHeader> headers = FindMapHeaders(rom.Arm9(), areas.Count(), matrices.Count(), events.Count(), &tableAt);
             const size_t matrix = (size_t)atoi(argv[3]);
-            const WorldMap world(MapMatrix::Read(Plain(matrices.Member(matrix))), lands);
-
-            // each cell's textures: its zone's area (the cell's map header; matrices without headers: the
-            // first zone using the matrix)
-            int defaultZone = -1;
-            for (size_t h = 0; h < headers.size() && defaultZone < 0; h++) if (headers[h].Matrix == matrix) defaultZone = (int)h;
-            std::map<uint16_t, std::unique_ptr<Tex0>> texSets, buildingSets;
-            std::map<uint16_t, Bytes> texFiles, buildingFiles;
-            auto tex0 = [&](const Narc& narc, uint16_t id, std::map<uint16_t, Bytes>& files, std::map<uint16_t, std::unique_ptr<Tex0>>& sets) -> const Tex0* {
-                if (!sets.count(id))
-                {
-                    sets[id] = nullptr;
-                    if (id < narc.Count())
-                    {
-                        files[id] = Plain(narc.Member(id));
-                        const long at = Tex0::Find(files[id]);
-                        if (at >= 0) sets[id] = std::make_unique<Tex0>(files[id], (size_t)at);
-                    }
-                }
-                return sets[id].get();
-            };
-            std::vector<CellTextures> cellTex(world.Cells.size());
-            for (size_t c = 0; c < cellTex.size(); c++)
-            {
-                const int zone = world.Matrix.Headers[c] >= 0 ? world.Matrix.Headers[c] : defaultZone;
-                if (zone < 0 || (size_t)zone >= headers.size() || headers[zone].Area >= areas.Count()) continue;
-                const AreaData area = AreaData::Read(Plain(areas.Member(headers[zone].Area)));
-                cellTex[c] = {tex0(mapTex, area.MapTextures, texFiles, texSets), tex0(buildingTex, area.BuildingSet, buildingFiles, buildingSets)};
-            }
-
-            // the warps of every zone on this matrix (their tiles are the matrix's)
-            std::vector<NdsWarp> warps;
-            for (size_t h = 0; h < headers.size(); h++)
-            {
-                if (headers[h].Matrix != matrix) continue;
-                const ZoneEvents ev = ZoneEvents::Read(Plain(events.Member(headers[h].Events)));
-                for (size_t i = 0; i < ev.Warps.size(); i++) warps.push_back({ev.Warps[i], (uint16_t)h, (uint16_t)i});
-            }
+            const PlatinumWorld plat(rom, matrix);
+            const WorldMap& world = plat.World;
 
             const std::filesystem::path out(argv[4]);
             std::filesystem::create_directories(out);
             // the DS tile, measured from the terrain models
             float cell = 0;
             world.Gltf(nullptr, nullptr, nullptr, &cell);
-            const N3dsWorld oras = N3dsWorld::Translate(world, cell / LandTiles, warps);
+            const N3dsWorld oras = N3dsWorld::Translate(world, cell / LandTiles, plat.Warps);
             const std::string json = oras.Json();
             WriteFile((out / "world_oras.json").string(), Bytes(json.begin(), json.end()));
-            const std::string gltf = world.Gltf(nullptr, &buildingModels, nullptr, nullptr, oras.Scale(), &cellTex);
+            const std::string gltf = world.Gltf(nullptr, &plat.BuildingModels, nullptr, nullptr, oras.Scale(), &plat.CellTex);
             WriteFile((out / "world_oras.gltf").string(), Bytes(gltf.begin(), gltf.end()));
             size_t placed = 0, warped = 0;
             for (const N3dsPiece& p : oras.Pieces) { placed += p.Buildings.size(); warped += p.Warps.size(); }
             printf("%zu map headers at ARM9 +0x%zx; matrix %zu (%s): DS tile %g units, ORAS %ux%u pieces of %u tiles (%zu used), scale %g, "
                    "%zu buildings, %zu of %zu warps, %zu map texture sets\n",
-                   headers.size(), tableAt, matrix, world.Matrix.Name.c_str(), oras.NdsTile, oras.Width, oras.Height, N3dsMapTiles,
-                   oras.Pieces.size(), oras.Scale(), placed, warped, warps.size(), texSets.size());
+                   plat.Headers.size(), plat.HeaderTableAt, matrix, world.Matrix.Name.c_str(), oras.NdsTile, oras.Width, oras.Height, N3dsMapTiles,
+                   oras.Pieces.size(), oras.Scale(), placed, warped, plat.Warps.size(), plat.MapTextureSets());
             if (oras.NdsTile != NdsTileUnits)
                 fprintf(stderr, "warning: DS tile measured %g units, not %g: check the terrain models\n", oras.NdsTile, NdsTileUnits);
             for (const std::string& e : world.Errors) fprintf(stderr, "%s\n", e.c_str());

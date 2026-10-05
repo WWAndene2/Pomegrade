@@ -1,0 +1,147 @@
+#include "TownLayout.h"
+
+#include <algorithm>
+#include <set>
+
+namespace remake
+{
+
+// Platinum's texture names, by what they show. A texture not listed is "unknown" (reported, treated as grass).
+// '\0': no role (shadows; a path's outline, drawn over the grass beside it; the base under a pond, where what lies on it decides).
+static const std::map<std::string, char>& Roles()
+{
+    static const std::map<std::string, char> roles = {
+        {"conttree_b", 'T'}, {"conttree_t", 'T'}, {"tree01", 't'}, {"tree04_2", 't'}, {"tree04", 't'},
+        {"nsand", ':'}, {"hage", ':'},                // hage: a bald (dirt) patch
+        {"nsandp", 0},
+        {"imped", 'F'}, {"fenter", 'F'},
+        {"nhana", '*'},
+        {"lake", '~'}, {"puddle", '~'}, {"lakep", 'f'}, {"puddlep", 'f'}, {"puddle_b", 0},
+        {"s_snow", 's'}, {"s_snow02", 's'}, {"s_snow03", 's'}, {"s_snow04", 's'}, {"s_sonwp", 's'}, {"s_snow_lm", 's'},
+        {"ngrass", '.'}, {"nectgr", 'g'}, {"allpeak", 'L'},
+        {"h_kage", 'H'}, {"t1_s01_1", 'H'}, {"t1_s01_2", 'H'}, {"t1_h01", 'H'}, {"door", 'H'}, {"light", 'H'},
+        {"tshadow", 0}, {"seaside3", 0},
+    };
+    return roles;
+}
+
+bool TextureRole(const std::string& baseName, char& role)
+{
+    const auto it = Roles().find(baseName);
+    if (it == Roles().end()) return false;
+    role = it->second;
+    return true;
+}
+
+// the first of these a tile shows wins: a house over water over ... over plain grass
+static const char RolePrecedence[] = "H~fF*gL:Tts.";
+
+// a half tile is path when its centre's colour is sand: Platinum's path outline (nsandp) is sand on its inner half,
+// which texture names cannot tell
+static bool Sand(const TerrainSample& s)
+{
+    if (!s.HasColour) return false;
+    const int r = s.Rgb[0], g = s.Rgb[1], b = s.Rgb[2];
+    return r > 200 && g > 160 && b < 200 && r > b + 50 && r >= g - 10;
+}
+
+void TownLayout::Classify(const TerrainScan& whole, const TerrainScan& half)
+{
+    TownLayout& out = *this;
+    const int N = TownTiles;
+
+    // each tile's role from the textures over its centre
+    std::vector<std::string> grid(N, std::string(N, '.'));
+    for (int r = 0; r < N; r++)
+        for (int c = 0; c < N; c++)
+        {
+            std::set<char> roles;
+            for (const std::string& m : whole.At(c, r).Materials)
+            {
+                char role;
+                if (!TextureRole(m, role)) { out.UnknownTextures[m]++; continue; }
+                if (role) roles.insert(role);
+            }
+            for (const char* p = RolePrecedence; *p; p++)
+                if (roles.count(*p)) { grid[r][c] = *p; break; }
+        }
+
+    // flower beds: the tiles a fence encloses (not reachable from the window's edge without crossing one) hold flowers
+    std::vector<std::string> beds = grid;
+    std::vector<std::vector<bool>> seen(N, std::vector<bool>(N, false));
+    std::vector<std::pair<int, int>> todo;
+    for (int r = 0; r < N; r++) for (int c = 0; c < N; c++) if (r == 0 || r == N - 1 || c == 0 || c == N - 1) todo.push_back({r, c});
+    while (!todo.empty())
+    {
+        const auto [r, c] = todo.back();
+        todo.pop_back();
+        if (r < 0 || c < 0 || r >= N || c >= N || seen[r][c] || grid[r][c] == 'F') continue;
+        seen[r][c] = true;
+        todo.insert(todo.end(), {{r + 1, c}, {r - 1, c}, {r, c + 1}, {r, c - 1}});
+    }
+    for (int r = 0; r < N; r++)
+        for (int c = 0; c < N; c++)
+            if (!seen[r][c] && grid[r][c] != 'F') { beds[r][c] = '*'; out.BedTiles++; }
+    out.Vis = beds;
+
+    // paths and water at half-tile precision
+    out.Path2.assign(2 * N, std::string(2 * N, '.'));
+    out.Water2.assign(2 * N, std::string(2 * N, '.'));
+    for (int r = 0; r < 2 * N; r++)
+        for (int c = 0; c < 2 * N; c++)
+        {
+            if (Sand(half.At(c, r))) out.Path2[r][c] = ':';
+            if (out.Vis[r / 2][c / 2] == '~') out.Water2[r][c] = '~';
+        }
+}
+
+TownLayout TownLayout::Read(const PlatinumWorld& plat, int left, int top)
+{
+    TownLayout out;
+    out.Left = left; out.Top = top;
+    const int N = TownTiles;
+    out.Classify(TerrainScan::Run(plat, left, top, N, 1), TerrainScan::Run(plat, left, top, N, 2));
+
+    // collision: Platinum's own permissions (no map there: solid); the pond is water, tall grass has encounters
+    const WorldMap& world = plat.World;
+    out.Collision.assign(N, std::string(N, '#'));
+    for (int r = 0; r < N; r++)
+        for (int c = 0; c < N; c++)
+        {
+            const int gx = left + c, gy = top + r;
+            if (gx < 0 || gy < 0 || gx / (int)LandTiles >= (int)world.Matrix.Width || gy / (int)LandTiles >= (int)world.Matrix.Height) continue;
+            const auto& cell = world.Cells[world.Matrix.Cell(gx / LandTiles, gy / LandTiles)];
+            if (!cell) continue;
+            const uint16_t permission = cell->Permissions[(gy % LandTiles) * LandTiles + gx % LandTiles];
+            char ch = LandData::Solid(permission) ? '#' : '.';
+            if (ch == '.' && out.Vis[r][c] == 'g') ch = 'g';
+            if (out.Vis[r][c] == '~') ch = '~';
+            out.Collision[r][c] = ch;
+        }
+
+    // doors: the warps of every zone on the matrix that lie in the window
+    for (const NdsWarp& w : plat.Warps)
+    {
+        const int c = (int)w.Warp.X - left, r = (int)w.Warp.Z - top;
+        if (c < 0 || r < 0 || c >= N || r >= N) continue;
+        out.Doors.push_back({c, r, w.Zone, w.Index, w.Warp.DestHeader, w.Warp.DestWarp});
+    }
+    // north to south, west to east: the same layout whatever order the zones list their warps in
+    std::sort(out.Doors.begin(), out.Doors.end(), [](const TownDoor& a, const TownDoor& b) { return a.Row != b.Row ? a.Row < b.Row : a.Column < b.Column; });
+    return out;
+}
+
+std::string TownLayout::Text() const
+{
+    std::string s = "window " + std::to_string(Left) + "," + std::to_string(Top) + "\nroles:\n";
+    for (const std::string& r : Vis) s += r + "\n";
+    s += "collision:\n";
+    for (const std::string& r : Collision) s += r + "\n";
+    for (const TownDoor& d : Doors)
+        s += "door " + std::to_string(d.Column) + " " + std::to_string(d.Row) + " zone " + std::to_string(d.Zone) + " warp " + std::to_string(d.Warp) +
+             " to zone " + std::to_string(d.DestZone) + "\n";
+    for (const auto& [name, count] : UnknownTextures) s += "unknown texture " + name + " x" + std::to_string(count) + "\n";
+    return s;
+}
+
+}

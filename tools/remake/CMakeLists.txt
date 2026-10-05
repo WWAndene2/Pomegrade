@@ -32,6 +32,11 @@ add_library(remake STATIC
     src/LandData.cpp
     src/WorldMap.cpp
     src/N3dsWorld.cpp
+    src/PlatinumWorld.cpp
+    src/TerrainScan.cpp
+    src/TownLayout.cpp
+    src/TownBuilder.cpp
+    src/OrasTown.cpp
     src/MapHeaders.cpp
     src/ZoneEvents.cpp
     src/BinLinker.cpp

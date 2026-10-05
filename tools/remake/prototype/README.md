@@ -2,6 +2,18 @@
 
 These are working prototypes, not finished tools. They built the Twinleaf test mods (tests 1-4). None of them contains game data. You supply it from your own dumps.
 
+## One command for Twinleaf
+
+`remake_tool oras-town` now does the pipeline below, steps 1 to 7, from the two game images alone (no work directory, no Python):
+
+```
+remake_tool oras-town <platinum.nds> <oras.3ds> <out dir>
+```
+
+It reads the window (Twinleaf Town by default: `--left 92 --top 856` on matrix 0) from Platinum's own data (what each tile shows, collision, doors), rebuilds it as the target ORAS piece (`--target 6`, Littleroot's, with Petalburg's `--donor 8` and Route 101's `--trees 5`; `--cell 2 4` and `--zone 6` name that piece's place), and writes the mod (`load/mods/<program id>/romfs_ext/a/0/3/9.bps` and `a/0/1/3.bps`, each checked by applying it back), `town_preview.gltf` and `town_layout.txt` (the roles, collision and doors it found, and any texture it had no role for). The piece it builds is byte-identical to the one the steps below build. The preview opens in `../editor/world_editor.html` and renders with `render_compare.js` (step 8). Route 201 is not rebuilt by it (step 6's `gr5_route201.bin` came from a tool that is not in the repository).
+
+The scripts and programs below stay for the checks and for comparing; they are not needed to build the town.
+
 ## Build
 
 ```
