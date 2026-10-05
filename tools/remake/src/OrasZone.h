@@ -31,7 +31,7 @@ namespace remake
 struct ZoneFurniture  { std::array<uint16_t, 10> Raw{}; int TileX() const { return Raw[4]; } int TileZ() const { return Raw[5]; } };
 struct ZoneCharacter  { std::array<uint16_t, 24> Raw{}; int Model() const { return Raw[1]; } int TileX() const { return Raw[20]; } int TileZ() const { return Raw[21]; } };
 // warps, seen on zones 6, 7, 8, 24, 30 (house doors and the edge warps joining overworld matrices): word 1 the destination
-// zone's warp the player arrives at; word 2's low byte the kind (1 a door, 2 an edge on the section's east side, 3 its west
+// zone's warp the player arrives at; word 2's low byte the kind (1 a door, 0 a house's exit (zone 223's warp 0), 2 an edge on the section's east side, 3 its west
 // side; north and south not seen), its high byte 3 for doors, 5 for edges; word 5 the height in pixels, signed; word 8 the
 // span in tiles along the edge from the warp's tile (1 for doors; an edge 19 tiles long is two warps of 15 and 4, each
 // pointing at the other side's warp of the same index)

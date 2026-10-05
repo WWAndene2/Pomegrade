@@ -125,7 +125,10 @@ static Bytes LinkInterior(const Bytes& plain, size_t zoneIndex, int town, int wa
     if (zone.Write() != plain) throw FormatError("zone " + std::to_string(zoneIndex) + " does not rewrite identical");
     const OrasZone before = OrasZone::Read(plain);
     if (before.Doors.empty()) throw FormatError(F("interior zone %zu has no warp to lead back out", zoneIndex));
-    if (before.Doors[0].Kind() != 1) throw FormatError(F("interior zone %zu: its warp 0 is not a door warp (kind %d)", zoneIndex, before.Doors[0].Kind()));
+    // an interior's exit is kind 0 (zone 223, Littleroot's first house: its warp 0 to zone 6), where a door into it is kind 1; edges (2, 3)
+    // join overworld sections and are no way out of a house
+    const int kind = before.Doors[0].Kind();
+    if (kind == 2 || kind == 3) throw FormatError(F("interior zone %zu: its warp 0 is a section edge (kind %d), not a way out of a house", zoneIndex, kind));
     Bytes& entries = zone.Files.at(1);
     const size_t first = 12 + entries.at(4) * 0x14 + entries.at(5) * 0x30;
     Put16(entries, first, (uint16_t)town);
