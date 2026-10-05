@@ -11,8 +11,9 @@ OrasMatrix OrasMatrix::Read(const Bytes& mm)
     const BinLinker c = BinLinker::Read(mm, "MM");
     if (c.Files.size() != 2) throw FormatError("a map matrix holds 2 files, this one " + std::to_string(c.Files.size()));
     const Bytes& f = c.Files[0];
-    if (f.size() < 8 || U16(f, 0) != 1 || U16(f, 2) != 0) throw FormatError("map matrix: file 0 does not start 1, 0");
+    if (f.size() < 8) throw FormatError("map matrix: file 0 shorter than its header");
     OrasMatrix m;
+    m.Lead[0] = U16(f, 0); m.Lead[1] = U16(f, 2);
     m.Width = U16(f, 4); m.Height = U16(f, 6);
     const size_t cells = (size_t)m.Width * m.Height, blocks = cells * BlocksPerPiece * BlocksPerPiece;
     const size_t shortSize = (8 + 2 * cells + 3) & ~(size_t)3, fullSize = 8 + 2 * (cells + blocks + cells);
@@ -37,7 +38,7 @@ Bytes OrasMatrix::Write() const
     if (Pieces.size() != cells) throw FormatError("map matrix: the piece grid is not width x height");
     if (!Zones.empty() && (Zones.size() != blocks || Third.size() != cells)) throw FormatError("map matrix: the zone or third grid does not fit width x height");
     Bytes f;
-    for (uint16_t v : {(uint16_t)1, (uint16_t)0, Width, Height}) Put16(f, v);
+    for (uint16_t v : {Lead[0], Lead[1], Width, Height}) Put16(f, v);
     for (uint16_t v : Pieces) Put16(f, v);
     if (Zones.empty())
     {

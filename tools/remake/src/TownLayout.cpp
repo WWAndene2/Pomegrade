@@ -16,7 +16,7 @@ static const std::map<std::string, char>& Roles()
         {"nsandp", 0},
         {"imped", 'F'}, {"fenter", 'F'},
         {"nhana", '*'},
-        {"lake", '~'}, {"puddle", '~'}, {"lakep", 'f'}, {"puddlep", 'f'}, {"puddle_b", 0},
+        {"lake", '~'}, {"sea", '~'}, {"puddle", '~'}, {"lakep", 'f'}, {"puddlep", 'f'}, {"puddle_b", 0},
         {"s_snow", 's'}, {"s_snow02", 's'}, {"s_snow03", 's'}, {"s_snow04", 's'}, {"s_sonwp", 's'}, {"s_snow_lm", 's'},
         {"ngrass", '.'}, {"nectgr", 'g'}, {"allpeak", 'L'},
         {"h_kage", 'H'}, {"t1_s01_1", 'H'}, {"t1_s01_2", 'H'}, {"t1_h01", 'H'}, {"door", 'H'}, {"light", 'H'},

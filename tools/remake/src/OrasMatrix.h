@@ -4,7 +4,8 @@
 // One map matrix of Omega Ruby / Alpha Sapphire (a member of a/0/4/0, an "MM" container of two files), as
 // ORAS_LITTLEROOT.md section 2b reads it, checked on all 431 matrices (`oras-inspect matrices`, `oras-verify`):
 //
-//   file 0   u16 1, u16 0, u16 width, u16 height, then width x height u16 map piece numbers (a/0/3/9 members), row by row,
+//   file 0   two u16 words (1, 0 in Littleroot's matrix 1; other values elsewhere, matrix 0 among them: meaning unknown, kept
+//            raw), u16 width, u16 height, then width x height u16 map piece numbers (a/0/3/9 members), row by row,
 //            0xFFFF for no piece. Then either nothing more (padded to 4 bytes: interiors and small places, the whole matrix
 //            one zone) or a (4 width) x (4 height) grid of u16 zone numbers (a/0/1/3 members), one per 10 x 10 tiles,
 //            0xFFFF outside the map, and a third width x height u16 grid (0xFFFF in 8 of the 15 such matrices, data in 7:
@@ -23,6 +24,7 @@ struct OrasMatrix
     static constexpr uint16_t None = 0xFFFF;
     static constexpr int BlocksPerPiece = 4; // a piece's 40 tiles are 4 zone blocks of 10 across
 
+    uint16_t Lead[2] = {1, 0};     // file 0's first two words, kept raw
     uint16_t Width = 0, Height = 0;
     std::vector<uint16_t> Pieces;   // Width x Height
     std::vector<uint16_t> Zones;    // (4 Width) x (4 Height), empty for a matrix with the piece grid only

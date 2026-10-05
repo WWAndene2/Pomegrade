@@ -153,7 +153,11 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
     matrix.Pieces.assign((size_t)o.Width * o.Height, OrasMatrix::None);
     matrix.Zones.assign((size_t)bw * bh, OrasMatrix::None);
     matrix.Third.assign((size_t)o.Width * o.Height, OrasMatrix::None); // data in 7 of the game's matrices, meaning unknown (next step 5)
-    matrix.File1 = OrasMatrix::Read(Plain(matrixArchive.Sub(o.MatrixTemplate))).File1;
+    {
+        const OrasMatrix model = OrasMatrix::Read(Plain(matrixArchive.Sub(o.MatrixTemplate)));
+        matrix.File1 = model.File1;
+        matrix.Lead[0] = model.Lead[0]; matrix.Lead[1] = model.Lead[1]; // file 0's first two words, meaning unknown
+    }
     for (size_t k = 0; k < headers.size(); k++)
         if (headers[k] >= 0 && o.Zones.at(headers[k]) >= 0) matrix.Zones[k] = (uint16_t)o.Zones.at(headers[k]);
 
@@ -232,7 +236,7 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
     const Bytes matrixData = matrix.Write();
     if (OrasMatrix::Read(matrixData).Write() != matrixData) throw FormatError("the new matrix does not read back identical");
     const size_t matrixIndex = AppendMember(newMatrices, matrixArchive, o.MatrixTemplate, matrixData, "MM");
-    log.push_back(F("matrix: a/0/4/0 member %zu, %d x %d pieces, file 1 copied from matrix %zu", matrixIndex, o.Width, o.Height, o.MatrixTemplate));
+    log.push_back(F("matrix: a/0/4/0 member %zu, %d x %d pieces, file 0's first words and file 1 copied from matrix %zu", matrixIndex, o.Width, o.Height, o.MatrixTemplate));
 
     for (int z : used)
     {
