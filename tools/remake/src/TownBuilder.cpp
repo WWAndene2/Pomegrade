@@ -368,7 +368,8 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     for (BchVertex& v : tree[Canopy].V) toward(v.Colour, woodTex, tree01);
     float white[4] = {1, 1, 1, 1};
     // the target's own grass: the mean vertex colour of its two grass meshes (as its artists painted them)
-    bool ownGrass = false;
+    bool ownGrass = false, haveBlades = false;
+    float bladeTip[4] = {}, bladeRoot[4] = {};
     if (src.TargetGrass)
     {
         const BchModel tm = Bch::Read(BinLinker::Read(lr, "GR").Files[1]).Models[0];
@@ -377,6 +378,24 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         for (const BchMesh& m : tm.Meshes)
         {
             const std::string& t = tm.Materials[m.Material].Texture[0];
+            // its outline's blades: the tips' and the roots' colours as its artists painted them (Littleroot: tips white, so
+            // they take the lighter grass's colour; roots 0.66 0.93 0.80, the grass's), so they fade into both sides
+            if (t == "chip_alpha")
+            {
+                float tips[4] = {}, roots[4] = {};
+                int nTips = 0, nRoots = 0;
+                for (const BchVertex& v : m.Vertices)
+                {
+                    const bool tip = std::fabs(v.TexCoord[1] - 0.302f) < 0.01f, root = std::fabs(v.TexCoord[1] - 0.496f) < 0.01f;
+                    for (int k = 0; k < 4; k++) { if (tip) tips[k] += v.Colour[k]; if (root) roots[k] += v.Colour[k]; }
+                    nTips += tip; nRoots += root;
+                }
+                if (nTips && nRoots)
+                {
+                    for (int k = 0; k < 4; k++) { bladeTip[k] = tips[k] / nTips; bladeRoot[k] = roots[k] / nRoots; }
+                    haveBlades = true;
+                }
+            }
             if ((t != "chip_kusa_a" && t != "chip_kusa_b") || m.Vertices.empty()) continue;
             // the main grass is painted dark under trees and cliffs: its open ground is the brighter half of its vertices
             std::vector<float> light;
@@ -436,12 +455,14 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         const ZoneShape pathShape = StairZone(pathMask, T / 2, corner, corner, false);
         AddFill(geo[Pale], lightShape, 0.15f, white);
         AddFill(geo[Soil], pathShape, 0.15f, soil);
-        // the outline of each zone, on its border
-        // the blades' texel colour is brighter than the ground texture's mean, so their vertex colour is the grass's less 15%:
-        // the base fades into the grass without a lighter line
+        // the outline of each zone, on its border, coloured as the target's own outline (one colour for tips and roots, the
+        // grass's less 15%, put a dark band over the lighter grass and the paths); the grass's less 15% when it has none
         const float blade[4] = {grass[0] * 0.85f, grass[1] * 0.85f, grass[2] * 0.85f, grass[3]};
         for (const ZoneShape* shape : {&lightShape, &pathShape})
-            for (const ShapeChain& chain : shape->Chains) AddOutline(geo[Outline], chain, blade, blade);
+            for (const ShapeChain& chain : shape->Chains) AddOutline(geo[Outline], chain, haveBlades ? bladeTip : blade, haveBlades ? bladeRoot : blade);
+        note("outline blades: %s (tips %.2f %.2f %.2f, roots %.2f %.2f %.2f)\n", haveBlades ? "the target's" : "NOT found, the grass's less 15%",
+             (haveBlades ? bladeTip : blade)[0], (haveBlades ? bladeTip : blade)[1], (haveBlades ? bladeTip : blade)[2],
+             (haveBlades ? bladeRoot : blade)[0], (haveBlades ? bladeRoot : blade)[1], (haveBlades ? bladeRoot : blade)[2]);
         // the rim where walkable ground meets solid trees and forest, from a mask of everything else
         std::vector<std::vector<bool>> notWall(N, std::vector<bool>(N, true));
         for (int r = 0; r < N; r++) for (int c = 0; c < N; c++) notWall[r][c] = !(coll[r][c] == '#' && (vis[r][c] == 't' || vis[r][c] == 'T'));
