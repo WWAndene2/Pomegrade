@@ -24,12 +24,17 @@
 namespace remake
 {
 
+// a door of the region, in matrix tiles, with its Platinum destination header and the ORAS zone it leads into (-1: none of its own)
+struct RegionDoor { int X = 0, Y = 0, DestHeader = 0, Interior = -1; };
+
 struct OrasRegionOptions
 {
     // the kits, textures and design rules of each piece, as oras-town takes them; its window, cell, zone and area pack are not used
     OrasTownOptions Town;
     int Left = 0, Top = 0, Width = 0, Height = 0;   // the rectangle, in ORAS pieces of Sinnoh's grid
-    // Platinum map header -> ORAS zone (a/0/1/3 member); -1: the header's blocks are left out of the matrix (0xFFFF)
+    // Platinum map header -> ORAS zone (a/0/1/3 member); -1: the header's blocks are left out of the matrix (0xFFFF). A header with
+    // no block in the rectangle and a door leading to it (a house) is that door's interior: the door's warp leads into the zone,
+    // whose warp 0 leads back out to the door; one zone per door
     std::map<int, int> Zones;
     size_t MatrixTemplate = 1;  // the matrix whose file 1 (meaning unknown) the new matrix copies: Littleroot's
     int ModelMatrix = 15;       // the pieces' model names, world<NN>_<x>_<y> (the game's run from world01 to world14)

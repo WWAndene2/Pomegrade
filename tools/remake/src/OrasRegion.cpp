@@ -46,9 +46,13 @@ static int HeaderAt(const WorldMap& world, int gx, int gy)
 }
 
 // The zone moved onto the new matrix (header word 2) and its warps onto `doors` (matrix tiles, in order); warps beyond the doors are
-// removed (they would stand at their Hoenn tile somewhere in the new matrix), doors beyond the warps get none (a zone's warp count
-// is its own: each door needs its own interior, ORAS_LITTLEROOT.md 0, next step 3)
-static Bytes MoveZone(const Bytes& plain, size_t zoneIndex, size_t matrix, const std::vector<std::pair<int, int>>& doors, std::vector<std::string>& log)
+// removed (they would stand at their Hoenn tile somewhere in the new matrix). A door whose Platinum destination has an ORAS zone of
+// its own (Interior) gets a warp into it, arriving at the interior's warp 0 (ORAS_LITTLEROOT.md 0, next step 3: each door its own
+// interior); when the zone has fewer warps than that, warps are added, copies of its first door warp (kind 1) with the door's
+// position and destination. A door without an interior keeps the Hoenn destination of the warp it is given, or gets none when
+// the zone has no warp left for it; adding warps up to a door with an interior needs every door before it to have one too, so
+// that no copy leads into a Hoenn house by accident (the owner refused that: OrasTown.h, AddWarps)
+static Bytes MoveZone(const Bytes& plain, size_t zoneIndex, size_t matrix, const std::vector<RegionDoor>& doors, std::vector<std::string>& log)
 {
     BinLinker zone = BinLinker::Read(plain, "ZO");
     if (zone.Write() != plain) throw FormatError("zone " + std::to_string(zoneIndex) + " does not rewrite identical");
@@ -57,15 +61,44 @@ static Bytes MoveZone(const Bytes& plain, size_t zoneIndex, size_t matrix, const
     Bytes& entries = zone.Files.at(1);
     const int files = entries.at(4), npcs = entries.at(5), warps = entries.at(6);
     const size_t first = 12 + files * 0x14 + npcs * 0x30; // the warps follow the size, four counts, the fifth count, furniture and characters
-    const int placed = std::min<int>(warps, (int)doors.size()), removed = warps - placed;
+    int wanted = std::min<int>(warps, (int)doors.size());
+    for (int k = 0; k < (int)doors.size(); k++)
+        if (doors[k].Interior >= 0) wanted = std::max(wanted, k + 1);
+    int added = 0;
+    if (wanted > warps)
+    {
+        std::string bare;
+        for (int k = warps; k < wanted; k++)
+            if (doors[k].Interior < 0) bare += F(" (%d, %d) to header %d", doors[k].X, doors[k].Y, doors[k].DestHeader);
+        if (!bare.empty())
+            throw FormatError(F("zone %zu has %d warps; a warp added for a door with an interior needs the doors before it to have one too: give "
+                                "an interior (--zone <header>:<ORAS zone>) to the doors at", zoneIndex, warps) + bare);
+        int model = -1;
+        for (int k = 0; k < warps && model < 0; k++) if (before.Doors[k].Kind() == 1) model = k;
+        if (model < 0) throw FormatError(F("zone %zu has no door warp (kind 1) to copy for its added doors", zoneIndex));
+        const Bytes copy(entries.begin() + first + model * 0x18, entries.begin() + first + (model + 1) * 0x18);
+        added = wanted - warps;
+        for (int k = 0; k < added; k++) entries.insert(entries.begin() + first + (warps + k) * 0x18, copy.begin(), copy.end());
+        entries.at(6) = (uint8_t)wanted;
+        const uint32_t size = U32(entries, 0) + added * 0x18;
+        for (int k = 0; k < 4; k++) entries.at(k) = (uint8_t)(size >> (8 * k));
+    }
+    const int total = warps + added, placed = std::min<int>(total, (int)doors.size()), removed = total - placed;
+    int linked = 0;
     for (int k = 0; k < placed; k++)
     {
-        Put16(entries, first + k * 0x18 + 8, (uint16_t)(doors[k].first * 18 + 9));
-        Put16(entries, first + k * 0x18 + 12, (uint16_t)(doors[k].second * 18 + 9));
+        const size_t at = first + k * 0x18;
+        Put16(entries, at + 8, (uint16_t)(doors[k].X * 18 + 9));
+        Put16(entries, at + 12, (uint16_t)(doors[k].Y * 18 + 9));
+        if (doors[k].Interior < 0) continue;
+        if (U16(entries, at + 4) % 256 != 1) throw FormatError(F("zone %zu: warp %d is not a door warp (kind %d), it cannot lead into an interior", zoneIndex, k, U16(entries, at + 4) % 256));
+        Put16(entries, at, (uint16_t)doors[k].Interior);
+        Put16(entries, at + 2, 0);
+        linked++;
     }
     if (removed)
     {
-        entries.erase(entries.begin() + first + placed * 0x18, entries.begin() + first + warps * 0x18);
+        entries.erase(entries.begin() + first + placed * 0x18, entries.begin() + first + total * 0x18);
         entries.at(6) = (uint8_t)placed;
         const uint32_t size = U32(entries, 0) - removed * 0x18;
         for (int k = 0; k < 4; k++) entries.at(k) = (uint8_t)(size >> (8 * k));
@@ -73,11 +106,35 @@ static Bytes MoveZone(const Bytes& plain, size_t zoneIndex, size_t matrix, const
     const Bytes out = zone.Write();
     const OrasZone check = OrasZone::Read(out); // the events file's size rule and counts must still hold
     if ((int)check.Doors.size() != placed || check.Matrix() != (int)matrix) throw FormatError("zone " + std::to_string(zoneIndex) + " does not read back as written");
-    log.push_back(F("zone %zu: matrix %d -> %zu, area pack %d kept; %d of its %d warps on %zu doors, %d removed%s; kept from Hoenn: %zu characters, %zu furniture, "
-                    "%zu triggers, %zu other entries, its scripts; spawn tile (%.1f, %.1f) kept",
-                    zoneIndex, before.Matrix(), matrix, before.AreaPack(), placed, warps, doors.size(), removed,
-                    (int)doors.size() > warps ? " (doors without a warp lead nowhere)" : "", before.Characters.size(), before.Furniture.size(),
+    for (int k = 0; k < placed; k++)
+        if (doors[k].Interior >= 0 && (check.Doors[k].DestZone() != doors[k].Interior || check.Doors[k].DestWarp() != 0))
+            throw FormatError(F("zone %zu: warp %d does not read back leading into zone %d", zoneIndex, k, doors[k].Interior));
+    log.push_back(F("zone %zu: matrix %d -> %zu, area pack %d kept; %d of its %d warps (%d added) on %zu doors, %d into their own interior, %d removed%s; "
+                    "kept from Hoenn: %zu characters, %zu furniture, %zu triggers, %zu other entries, its scripts; spawn tile (%.1f, %.1f) kept",
+                    zoneIndex, before.Matrix(), matrix, before.AreaPack(), placed, total, added, doors.size(), linked, removed,
+                    (int)doors.size() > total ? " (doors without a warp lead nowhere)" : "", before.Characters.size(), before.Furniture.size(),
                     before.Triggers.size(), before.Others.size(), before.SpawnTileX(), before.SpawnTileZ()));
+    return out;
+}
+
+// An interior zone's warp 0 (its way out, ORAS_LITTLEROOT.md 0, next step 3) pointed back at the door that leads in: zone `town`,
+// arriving at its warp `warp`. The interior keeps its own map, characters and scripts (Hoenn's house, until Platinum's is rebuilt)
+static Bytes LinkInterior(const Bytes& plain, size_t zoneIndex, int town, int warp, std::vector<std::string>& log)
+{
+    BinLinker zone = BinLinker::Read(plain, "ZO");
+    if (zone.Write() != plain) throw FormatError("zone " + std::to_string(zoneIndex) + " does not rewrite identical");
+    const OrasZone before = OrasZone::Read(plain);
+    if (before.Doors.empty()) throw FormatError(F("interior zone %zu has no warp to lead back out", zoneIndex));
+    if (before.Doors[0].Kind() != 1) throw FormatError(F("interior zone %zu: its warp 0 is not a door warp (kind %d)", zoneIndex, before.Doors[0].Kind()));
+    Bytes& entries = zone.Files.at(1);
+    const size_t first = 12 + entries.at(4) * 0x14 + entries.at(5) * 0x30;
+    Put16(entries, first, (uint16_t)town);
+    Put16(entries, first + 2, (uint16_t)warp);
+    const Bytes out = zone.Write();
+    const OrasZone check = OrasZone::Read(out);
+    if (check.Doors[0].DestZone() != town || check.Doors[0].DestWarp() != warp) throw FormatError(F("interior zone %zu does not read back as written", zoneIndex));
+    log.push_back(F("zone %zu (interior, matrix %d): warp 0 leads back to zone %d warp %d (was zone %d warp %d); %zu other warps kept", zoneIndex,
+                    before.Matrix(), town, warp, before.Doors[0].DestZone(), before.Doors[0].DestWarp(), before.Doors.size() - 1));
     return out;
 }
 
@@ -162,7 +219,7 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
         if (headers[k] >= 0 && o.Zones.at(headers[k]) >= 0) matrix.Zones[k] = (uint16_t)o.Zones.at(headers[k]);
 
     const PieceBudget budget = GamePieceBudget(pieceArchive);
-    std::map<int, std::vector<std::pair<int, int>>> doorsOf; // ORAS zone -> its doors, in matrix tiles
+    std::map<int, std::vector<RegionDoor>> doorsOf; // ORAS zone -> its doors, in matrix tiles
     std::vector<GltfPart> parts;
     std::vector<GltfMaterial> materials;
     const std::filesystem::path out(o.OutDir);
@@ -212,7 +269,10 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
             {
                 const auto z = o.Zones.find(d.Zone);
                 if (z == o.Zones.end() || z->second < 0) { log.push_back(F("door at (%d, %d) of header %u: no ORAS zone, no warp", x * TownTiles + d.Column, y * TownTiles + d.Row, d.Zone)); continue; }
-                doorsOf[z->second].push_back({x * TownTiles + d.Column, y * TownTiles + d.Row});
+                // the door's own interior: its Platinum destination given an ORAS zone that is not on the matrix
+                const auto in = o.Zones.find(d.DestZone);
+                const int interior = in != o.Zones.end() && in->second >= 0 && !used.count(in->second) ? in->second : -1;
+                doorsOf[z->second].push_back({x * TownTiles + d.Column, y * TownTiles + d.Row, d.DestZone, interior});
             }
 
             // the preview: the piece placed at its cell (a piece spans -360..360 around its centre)
@@ -238,12 +298,21 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
     const size_t matrixIndex = AppendMember(newMatrices, matrixArchive, o.MatrixTemplate, matrixData, "MM");
     log.push_back(F("matrix: a/0/4/0 member %zu, %d x %d pieces, file 0's first words and file 1 copied from matrix %zu", matrixIndex, o.Width, o.Height, o.MatrixTemplate));
 
+    std::map<int, std::pair<int, int>> interiors; // interior zone -> the zone and warp of the door leading in
     for (int z : used)
     {
         // the doors north to south, west to east, as TownLayout orders them within a piece
         auto& doors = doorsOf[z];
-        std::sort(doors.begin(), doors.end(), [](const auto& a, const auto& b) { return a.second != b.second ? a.second < b.second : a.first < b.first; });
+        std::sort(doors.begin(), doors.end(), [](const RegionDoor& a, const RegionDoor& b) { return a.Y != b.Y ? a.Y < b.Y : a.X < b.X; });
         ReplaceMember(newZones, zoneArchive, (size_t)z, MoveZone(Plain(zoneArchive.Sub((size_t)z)), (size_t)z, matrixIndex, doors, log), "ZO");
+        for (size_t k = 0; k < doors.size(); k++)
+        {
+            if (doors[k].Interior < 0) continue;
+            if (!interiors.emplace(doors[k].Interior, std::make_pair(z, (int)k)).second)
+                throw FormatError(F("ORAS zone %d is the interior of two doors: its warp 0 leads back to one only", doors[k].Interior));
+            ReplaceMember(newZones, zoneArchive, (size_t)doors[k].Interior,
+                          LinkInterior(Plain(zoneArchive.Sub((size_t)doors[k].Interior)), (size_t)doors[k].Interior, z, (int)k, log), "ZO");
+        }
         // where the zone's spawn tile (Littleroot's: where a new game and a save's warp land, inferred) falls on the new matrix
         const OrasZone& zone = zoneOf.at(z);
         const int bx = (int)(zone.SpawnTileX() / BlockTiles), bz = (int)(zone.SpawnTileZ() / BlockTiles);
