@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       variants:
-        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"'
+        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"; "... +cro <module> OFFSET=OLD:NEW" also patches a code module'
         default: |
           v24:
         required: true
@@ -80,6 +80,9 @@ jobs:
             [ -z "${line// }" ] && continue
             name="${line%%:*}"; name="${name// }"
             options="${line#*:}"
+            # "... +cro <module> OFFSET=OLD:NEW ...": the module patched too (prototype/cro_patch.py), its hash in .crr/static.crr
+            cro=""
+            if [[ "$options" == *" +cro "* ]]; then cro="${options#* +cro }"; options="${options%% +cro *}"; fi
             echo "::group::$name ($options)"
             # options are split on spaces on purpose: they are oras-town flags
             if [[ "$options" == *"append "* ]]; then
@@ -92,6 +95,15 @@ jobs:
             else
               ./build-remake/remake_tool oras-town dumps/platinum.nds dumps/oras.3ds "out/$name" $options | tee "mods/${name}_log.txt"
               grep '^door' "out/$name/town_layout.txt" || true   # Platinum's doors and the zones they lead to
+            fi
+            if [ -n "$cro" ]; then
+              set -- $cro
+              module="$1"; shift
+              ./build-remake/remake_tool oras-extract dumps/oras.3ds "$module" "out/$name.orig.cro"
+              ./build-remake/remake_tool oras-extract dumps/oras.3ds .crr/static.crr "out/$name.orig.crr"
+              mkdir -p "out/$name.cro" && cp "out/$name.orig.cro" "out/$name.cro/$(basename "$module")"
+              python3 tools/remake/prototype/cro_patch.py "out/$name.cro/$(basename "$module")" "out/$name.orig.crr" "out/$name.patched" "$@" | tee -a "mods/${name}_log.txt"
+              ./build-remake/remake_tool oras-patch dumps/oras.3ds "out/$name" "$module=out/$name.patched/$(basename "$module")" ".crr/static.crr=out/$name.patched/static.crr" | tee -a "mods/${name}_log.txt"
             fi
             (cd "out/$name" && zip -q -r "../../mods/Pomegrade_Sinnoh_$name.zip" load)
             echo "::endgroup::"
