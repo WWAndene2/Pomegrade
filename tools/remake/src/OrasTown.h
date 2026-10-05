@@ -57,6 +57,10 @@ struct OrasTownOptions
     // zero bytes appended to the piece's terrain model (its GR file 1, after the BCH's data): a piece that only grows, to tell its size
     // from its content (the game's own piece shows; every other piece tried, 536 KB and more, shows no picture)
     size_t PadPiece = 0;
+    // which of the GR container's files (0 tiles, 1 terrain model, 2 collision, 3 doors, 4-6 unknown) come from the built piece,
+    // as bits; the others are the target's own. The game's piece shows, the built one does not even when small (t12): this tells
+    // which file it refuses
+    unsigned PieceFiles = 0x7F;
     bool AllowErrors = false;         // write the mod even if a design rule (TownCheck.h) is broken
     std::string OutDir;
 };

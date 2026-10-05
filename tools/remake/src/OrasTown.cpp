@@ -190,6 +190,16 @@ OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTo
     }
     sources.TreeReach = o.TreeReach;
     Bytes town = o.DonorAsIs ? sources.Donor : BuildTown(result.Layout, sources, &result.Log);
+    if ((o.PieceFiles & 0x7F) != 0x7F)
+    {
+        const BinLinker own = BinLinker::Read(sources.Target, "GR");
+        BinLinker gr = BinLinker::Read(town, "GR");
+        std::string kept;
+        for (size_t f = 0; f < gr.Files.size() && f < own.Files.size(); f++)
+            if (!(o.PieceFiles >> f & 1)) { gr.Files[f] = own.Files[f]; kept += (kept.empty() ? "" : ", ") + std::to_string(f); }
+        town = gr.Write();
+        result.Log.push_back("piece: the target's own file(s) " + kept + " kept");
+    }
     if (o.PadPiece)
     {
         BinLinker gr = BinLinker::Read(town, "GR");
