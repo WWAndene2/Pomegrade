@@ -219,6 +219,8 @@ std::string CatalogGame(N3dsRom& game, const std::string& directory)
     packs << "pack\ttextures\tnames\n";
     pieces << "piece\tmodel\tfile_bytes\tvertices\ttriangles\tmeshes\tmaterials (name:texture0|texture1|texture2:triangles)\n";
     size_t packCount = 0, pieceCount = 0;
+    struct TileUse { size_t Pieces = 0, Tiles = 0; };
+    std::map<uint32_t, TileUse> tileUse; // tile value -> pieces and tiles using it (the source of TownCheck's established set)
     const Garc areas(game.Read("a/0/1/4"));
     for (size_t j = 0; j < areas.Count(); j++)
     {
@@ -242,9 +244,17 @@ std::string CatalogGame(N3dsRom& game, const std::string& directory)
         {
             const Bytes raw = Plain(grs.Sub(i));
             if (raw.size() < 2 || raw[0] != 'G' || raw[1] != 'R') continue;
-            const Bch b = Bch::Read(BinLinker::Read(raw, "GR").Files.at(1));
+            const BinLinker gr = BinLinker::Read(raw, "GR");
+            const Bch b = Bch::Read(gr.Files.at(1));
             if (b.Models.empty()) continue;
             const BchModel& m = b.Models[0];
+            const Bytes& tileBlock = gr.Files.at(0);
+            if (tileBlock.size() >= 4 + 1600 * 4)
+            {
+                std::set<uint32_t> seen;
+                for (int t = 0; t < 1600; t++) { const uint32_t v = U32(tileBlock, 4 + t * 4); tileUse[v].Tiles++; seen.insert(v); }
+                for (uint32_t v : seen) tileUse[v].Pieces++;
+            }
             size_t vertices = 0, triangles = 0;
             for (const BchMesh& me : m.Meshes) { vertices += me.Vertices.size(); triangles += me.Triangles.size() / 3; }
             pieces << i << '\t' << m.Name << '\t' << raw.size() << '\t' << vertices << '\t' << triangles << '\t' << m.Meshes.size() << '\t';
@@ -258,7 +268,10 @@ std::string CatalogGame(N3dsRom& game, const std::string& directory)
         }
         catch (const std::exception&) {}
     }
-    return F("%zu area packs and %zu map pieces indexed in %s (packs.tsv, pieces.tsv)\n", packCount, pieceCount, directory.c_str());
+    std::ofstream tiles(directory + "/tiles.tsv");
+    tiles << "value\tpieces\ttiles\n";
+    for (const auto& [value, use] : tileUse) tiles << F("%08X", value) << '\t' << use.Pieces << '\t' << use.Tiles << '\n';
+    return F("%zu area packs and %zu map pieces indexed in %s (packs.tsv, pieces.tsv, tiles.tsv)\n", packCount, pieceCount, directory.c_str());
 }
 
 }

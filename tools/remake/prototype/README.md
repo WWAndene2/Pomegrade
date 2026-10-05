@@ -1,5 +1,7 @@
 # Remake prototypes: Sinnoh test mod (Twinleaf over Littleroot)
 
+Start with `../ORAS_LITTLEROOT.md` section 0 (handover): the current commands, build, rules and next steps. This file keeps the prototypes' details.
+
 These are working prototypes, not finished tools. They built the Twinleaf test mods (tests 1-4). None of them contains game data. You supply it from your own dumps.
 
 ## One command for Twinleaf

@@ -9,6 +9,43 @@ Reference for the Platinum-in-ORAS remake: where everything that makes up a town
 
 Inspect any zone, piece or area pack with `remake_tool oras-inspect <oras.3ds> zone|piece|area <index>`. The owner's dumps are never committed.
 
+## 0. Start here (handover for the next agent)
+
+**Goal (owner's words)**: recreate Pokemon Platinum in Omega Ruby with ORAS's own assets, as a LayeredFS mod played in Azahar; tools good enough to rebuild any map right the first time, whatever the setup. Any ORAS asset pack may be used, not Littleroot's alone. The owner tests on a phone and sends Azahar logs; nothing in the container runs the game, so every in-game claim is "untested" until the owner reports.
+
+**Inputs** (the owner's dumps, never committed; the Google Drive folder has them): `platinum.nds` (French Platinum CPUF) and `oras.3ds` (Omega Ruby Europe, decrypted).
+
+**Build and test** (about 3 minutes cold):
+
+```
+cmake -S tests/remake -B build-remake-tests -G Ninja && ninja -C build-remake-tests   # libremake and the 12 suites (run each remake_*_test; all print ok)
+cmake -S tools/remake -B build-remake -G Ninja && ninja -C build-remake remake_tool     # the command line tool
+```
+
+**Commands, by what you want to know or make**:
+
+| Want | Command |
+|---|---|
+| Understand a zone, a map piece or an area pack | `oras-inspect <oras.3ds> zone\|piece\|area <n>` (piece lists each mesh's layer, blended or opaque, material and textures) |
+| Check the readers still match the game | `oras-verify <oras.3ds>` (439/439 texture files, 536/536 zones, 857/857 pieces) |
+| Search every piece and pack | `oras-catalog <oras.3ds> <dir>`: `pieces.tsv` (meshes and materials), `packs.tsv` (textures per pack), `tiles.tsv` (every tile value, pieces and tiles using it; the source of `TownCheck`'s established set) |
+| Read Platinum's world | `oras-world <platinum.nds> <matrix> <dir>` |
+| Build a Platinum town as an ORAS mod | `oras-town <platinum.nds> <oras.3ds> <out dir> [options]` (usage in `prototype/README.md`); prints its design-rule results (section 8) and writes the mod, `town_preview.gltf` and `town_layout.txt` |
+| Preview a piece or glTF | `bch`, the editor `tools/remake/editor/world_editor.html`, `prototype/render_compare.js` |
+
+**Where the code is** (`tools/remake/src/`): `Bch` (read) and `BchWriter` / `BchTextureFile` (write), `Garc` and `BinLinker` (containers), `OrasZone` and `Amx` (zones, scripts), `PlatinumWorld` and `TerrainScan` (Platinum side), `TownLayout` (roles, collision, doors), `TownBuilder` and `TownShapes` (the ORAS piece), `OrasTown` (zone, area pack, patches, preview, design-rule block), `TownCheck` (the rules), `OrasInspect` (inspect, verify, catalog). Tests mirror them in `tests/remake/`.
+
+**Rules the work follows** (they exist because each one broke a phone run or the owner's patience):
+1. Never write an archive member except through `ReplaceMember` (a member compressed twice crashed the field's start).
+2. Never flip a PICA texture's v; textures are stored bottom row first.
+3. Look at how ORAS does it in the game's own data before inventing (outline blades on the zone border, rounded zones: the owner insisted).
+4. Show results: render and send images, deliver mods as a zip; say what was not tested.
+5. A diagnostic is deleted once it has served; a finding goes in this file, a code comment or a commit message.
+
+**State**: Twinleaf (Platinum) rebuilt as Littleroot's piece 6 with Littleroot's grass; the mod v2 (zone fix) was handed to the owner and **has no phone result yet**. Known deviations: two door models at scale 0.8, 39,863 vertices against the game's largest 35,691, 3 warps for 4 doors, a Route 201 piece not rebuilt by this tool.
+
+**Next steps, in the order that pays most**: (1) rebuild towns from several ORAS pieces and packs, choosing a donor by its layers and mesh slots (section 9c: blend is a layer flag, not per-material registers); (2) read the engine's per-layer state and how it draws a projected texture (`.code` is BLZ-compressed; capstone ARM works); (3) the Pawn scripts (needed for NPCs and events), the `coll` geometry, matrix a/0/4/0, adding meshes or materials to a terrain model: section 10.
+
 ## 1. Littleroot's identity (checked)
 
 | What | Value | How known |
