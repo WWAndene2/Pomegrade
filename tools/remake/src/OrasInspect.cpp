@@ -138,6 +138,49 @@ std::string InspectArea(N3dsRom& game, size_t area)
 }
 
 
+std::string InspectMatrix(N3dsRom& game, size_t matrix)
+{
+    Bytes data;
+    std::string s = Member(game, "a/0/4/0", matrix, data);
+    if (!s.empty()) return s;
+    s += F("map matrix %zu (a/0/4/0 member %zu, %zu bytes decompressed), starts %c%c\n", matrix, matrix, data.size(), data.size() > 1 ? data[0] : '?', data.size() > 1 ? data[1] : '?');
+    std::vector<Bytes> files;
+    try { files = BinLinker::Read(data, std::string(data.begin(), data.begin() + 2)).Files; }
+    catch (const FormatError& e) { s += F("  not a container (%s): read as one file\n", e.what()); files = {data}; }
+    for (size_t i = 0; i < files.size(); i++)
+    {
+        const Bytes& f = files[i];
+        s += F("  file %zu: %zu bytes\n", i, f.size());
+        // every u16 word, 16 per line, with its offset: the layout is unknown, so nothing is interpreted
+        for (size_t at = 0; at + 1 < f.size() && at < 8192; at += 32)
+        {
+            s += F("    %04zx:", at);
+            for (size_t k = at; k + 1 < f.size() && k < at + 32; k += 2) s += F(" %04x", U16(f, k));
+            s += "\n";
+        }
+    }
+    return s;
+}
+
+std::string InspectPieceNames(N3dsRom& game)
+{
+    const Garc g(game.Read("a/0/3/9"));
+    std::string s;
+    for (size_t i = 0; i < g.Count(); i++)
+    {
+        std::string name = "?";
+        try
+        {
+            const Bytes raw = Plain(g.Sub(i));
+            const Bch bch = Bch::Read(BinLinker::Read(raw, "GR").Files.at(1));
+            if (!bch.Models.empty()) name = bch.Models[0].Name;
+        }
+        catch (const FormatError&) {}
+        s += F("%zu %s\n", i, name.c_str());
+    }
+    return s;
+}
+
 std::string VerifyGame(N3dsRom& game, bool& ok)
 {
     ok = true;

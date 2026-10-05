@@ -12,6 +12,10 @@ on:
         default: |
           v25_three_warps: --add-warps 0
         required: true
+      inspect:
+        description: 'One "oras-inspect" query per line, e.g. "matrix 1" or "piece-names 0" (printed and kept with the mods)'
+        default: ''
+        required: false
 
 permissions:
   contents: read
@@ -84,6 +88,22 @@ jobs:
             echo "::endgroup::"
           done <<< "$VARIANTS"
           ls -l mods
+
+      - name: Inspect the game
+        if: inputs.inspect != ''
+        env:
+          QUERIES: ${{ inputs.inspect }}
+        run: |
+          mkdir -p mods
+          n=0
+          while IFS= read -r query; do
+            [ -z "${query// }" ] && continue
+            n=$((n + 1))
+            echo "::group::oras-inspect $query"
+            # the query is split on spaces on purpose: it is oras-inspect's arguments
+            ./build-remake/remake_tool oras-inspect dumps/oras.3ds $query | tee "mods/inspect_$n.txt"
+            echo "::endgroup::"
+          done <<< "$QUERIES"
 
       - uses: actions/upload-artifact@v4
         with:
