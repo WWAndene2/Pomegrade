@@ -194,8 +194,8 @@ int main()
         std::vector<GltfMaterial> mats;
         const float origin[3] = {0, 0, 0};
         AppendBchModel(m, r.Textures, origin, parts, mats);
-        check(parts.size() == 1 && mats.size() == 1 && !mats[0].Png.empty() && parts[0].Mesh.Vertices[2].TexCoord[1] == 0.0f,
-              "BCH to glTF: textured, texture v flipped (the GPU's runs bottom-up)");
+        check(parts.size() == 1 && mats.size() == 1 && !mats[0].Png.empty() && parts[0].Mesh.Vertices[2].TexCoord[1] == 8.0f,
+              "BCH to glTF: textured, texture v kept (rows are stored bottom first and decoded in that order, so v indexes them directly)");
     }
     // writing: the mesh's triangle replaced by a quad (two triangles), positions given in the world (the
     // writer takes the mesh's offset of x + 10 off), then read back through the same reader

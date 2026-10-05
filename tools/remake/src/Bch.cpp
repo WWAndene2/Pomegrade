@@ -329,9 +329,12 @@ void AppendBchModel(const BchModel& model, const std::vector<BchTexture>& textur
         {
             GxVertex g;
             for (int k = 0; k < 3; k++) { g.Position[k] = v.Position[k] + offset[k]; g.Normal[k] = v.Normal[k]; }
-            // the glTF writer divides texel coordinates by the texture's size; the GPU's v runs bottom-up
+            // the glTF writer divides texel coordinates by the texture's size. v is not flipped: PICA textures are stored
+            // bottom row first, and the decoded image keeps that order, so the game's v indexes its rows directly.
+            // Checked on Littleroot, whose grass-blade strips (v 0.30-0.50) land on chip_alpha's blades only this way,
+            // and whose signs then read as in the game
             g.TexCoord[0] = v.TexCoord[0] * (mat ? mat->TexWidth : 1);
-            g.TexCoord[1] = (1.0f - v.TexCoord[1]) * (mat ? mat->TexHeight : 1);
+            g.TexCoord[1] = v.TexCoord[1] * (mat ? mat->TexHeight : 1);
             auto c5 = [](float c) { return (uint16_t)std::clamp((int)std::lround(c * 31.0f), 0, 31); };
             g.Colour = (uint16_t)(c5(v.Colour[0]) | c5(v.Colour[1]) << 5 | c5(v.Colour[2]) << 10);
             part.Mesh.Vertices.push_back(g);

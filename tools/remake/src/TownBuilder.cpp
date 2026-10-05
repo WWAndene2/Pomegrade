@@ -152,6 +152,49 @@ static void BanksFine(BchGeometry& g, const std::vector<std::string>& water2)
     }
 }
 
+
+// The grass's soft edge, as Littleroot lays it (its chip_grass_decolate mesh, measured): a strip on every half-tile edge
+// where the lighter grass meets the main grass, 9 units wide on the main grass's side, 0.3 above the ground. Its blades
+// are chip_alpha's grass band (rows 38-60 of 128): the tips (v 0.302, white) on the edge, the roots (v 0.496, the grass's
+// colour) outside. u advances 0.0245 a unit along the edge, so two half tiles span the band (u 0.046-0.453). Each corner
+// moves up to 2 units along the edge's normal (a fixed hash of its position), as Littleroot's own strips wander.
+template <typename Light, typename Dark>
+static void GrassFringe(BchGeometry& g, int M, Light light, Dark dark, const float tip[4], const float root[4])
+{
+    const float cell = T / 2, width = 9.0f;
+    auto at = [&](int c) { return c * cell - 360; };
+    auto wobble = [](float x, float z) { uint32_t h = (uint32_t)(int)(x * 7 + 1000) * 2654435761u ^ (uint32_t)(int)(z * 13 + 1000) * 40503u; return ((h >> 8) % 401) / 100.0f - 2.0f; };
+    // the edge from (x0, z0) to (x1, z1); the main grass lies towards (nx, nz); k alternates the half of the band used
+    auto strip = [&](float x0, float z0, float x1, float z1, float nx, float nz, int k) {
+        const uint32_t base = (uint32_t)g.Vertices.size();
+        const float ends[2][2] = {{x0, z0}, {x1, z1}};
+        const float u0 = 0.046f + 0.2035f * (k & 1);
+        for (int e = 0; e < 2; e++)
+            for (int side = 0; side < 2; side++)
+            {
+                const float off = side ? width : 0.0f, w = wobble(ends[e][0], ends[e][1]);
+                BchVertex v;
+                v.Position[0] = ends[e][0] + nx * (off + w); v.Position[1] = 0.3f; v.Position[2] = ends[e][1] + nz * (off + w);
+                v.TexCoord[0] = u0 + (e ? 0.2035f : 0.0f); v.TexCoord[1] = side ? 0.496f : 0.302f;
+                std::copy(side ? root : tip, (side ? root : tip) + 4, v.Colour);
+                g.Vertices.push_back(v);
+            }
+        const float cross = (x1 - x0) * nz - (z1 - z0) * nx;
+        if (cross > 0) for (uint32_t i : {0u, 2u, 3u, 0u, 3u, 1u}) g.Triangles.push_back(base + i);
+        else for (uint32_t i : {0u, 3u, 2u, 0u, 1u, 3u}) g.Triangles.push_back(base + i);
+    };
+    auto ok = [&](int c, int r) { return c >= 0 && r >= 0 && c < M && r < M; };
+    for (int r = 0; r < M; r++)
+        for (int c = 0; c < M; c++)
+        {
+            if (!light(c, r)) continue;
+            const int k = c + r;
+            if (ok(c, r - 1) && dark(c, r - 1)) strip(at(c), at(r), at(c + 1), at(r), 0, -1, k);
+            if (ok(c, r + 1) && dark(c, r + 1)) strip(at(c), at(r + 1), at(c + 1), at(r + 1), 0, 1, k);
+            if (ok(c - 1, r) && dark(c - 1, r)) strip(at(c), at(r), at(c), at(r + 1), -1, 0, k);
+            if (ok(c + 1, r) && dark(c + 1, r)) strip(at(c + 1), at(r), at(c + 1), at(r + 1), 1, 0, k);
+        }
+}
 }
 
 Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<std::string>* log)
@@ -251,6 +294,9 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         auto open = [&](int c, int r, const char* classes) { return path2[r][c] != ':' && water2[r][c] != '~' && std::string(classes).find(fineVis(c, r)) != std::string::npos; };
         FlatFine(geo[Ground], 2, [&](int c, int r) { return open(c, r, ".*HtF:f~"); }, 0, grass);
         FlatFine(geo[Pale], 2, [&](int c, int r) { return open(c, r, "s"); }, 0, white);
+        // the soft edge of the lighter patches (the outline mesh, shown with chip_alpha's grass blades below)
+        const float tip[4] = {1, 1, 1, 1};
+        GrassFringe(geo[Outline], 2 * N, [&](int c, int r) { return open(c, r, "s"); }, [&](int c, int r) { return open(c, r, ".*HtF:f~"); }, tip, grass);
     }
     else
         FlatFine(geo[Pale], 2, [&](int c, int r) { return path2[r][c] != ':' && water2[r][c] != '~' && std::string(".*HstF:f~").find(fineVis(c, r)) != std::string::npos; }, 0, white);
@@ -377,7 +423,10 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     // the outline's material (3, chip_grass_decolate) shows r120_alpha, in area pack 9, in place of touka_alpha
     // the terrain model's name tells its place (world<matrix>_<x>_<y>): Petalburg's world02_02_03 becomes
     // Littleroot's world01_02_04, every copy (model and nodes)
-    gr.Files[1] = BchReplaceString(BchReplaceGeometry(petalTerrain, 0, list), pm.Name, Bch::Read(BinLinker::Read(lr, "GR").Files[1]).Models[0].Name);
+    Bytes terrain = BchReplaceString(BchReplaceGeometry(petalTerrain, 0, list), pm.Name, Bch::Read(BinLinker::Read(lr, "GR").Files[1]).Models[0].Name);
+    // the outline mesh's material shows chip_alpha (grass blades), as Littleroot's does, in place of Petalburg's touka_alpha
+    if (ownGrass) terrain = BchSetTextureName(terrain, 0, pm.Meshes[Outline].Material, 0, "chip_alpha");
+    gr.Files[1] = terrain;
     note("%zu trees, %d flower patches, %zu vertices; terrain model %zu bytes (Petalburg's %zu, Littleroot's %zu)\n", trees.size(), nFlowers, verts,
          gr.Files[1].size(), petalTerrain.size(), BinLinker::Read(lr, "GR").Files[1].size());
     const Bytes out = gr.Write();
