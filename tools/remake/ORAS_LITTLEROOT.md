@@ -139,11 +139,11 @@ Not yet checked by code: a door model per placed door (the block holds 5), warps
 | `TextureUnits` | 1 (most), 3, 7, 0 | the number of texture units a material samples: the edge ribbon uses 3 (unit 0 projected, unit 1 `chip_grass_edge`); 0 = untextured (68 materials). |
 | `Mappers[0]` | `00020200` (most), `00000200`, `00020300`, `00030300`, `01020200`, `00020203` | wrap and filter words; `...03` on unit 0 pairs with the projected edge material. Individual bits not separated. |
 
-`oras-inspect piece` prints each mesh's layer and blended/opaque. Still undecoded: culling, depth test, the blend factors, the alpha test.
+`oras-inspect piece` prints each mesh's layer and blended/opaque. **Checked**: between an opaque material (`chip_kusa_`) and a blended one (`chip_grass_decolate`, `shadow1`) the whole 0xC0-byte parameter block differs in that one bit and nothing else, and across the corpus the top byte of `Flags` only ever takes `0x3A`, `0x3E` and `0x00`. So the BCH holds **no per-material blend factors, depth or alpha-test registers**: the engine derives them from the layer and this flag. Culling and depth are therefore not material data to decode; what a layer does (draw order, which state it sets) is engine code, still unread.
 
 ## 10. What is NOT known (the work left)
 
-0. How to add a mesh or a material to a terrain model, and the rest of a material's render state (section 9c: culling, depth, blend factors, alpha test).
+0. How to add a mesh or a material to a terrain model, and the rest of a material's render state (section 9c: not stored in the BCH; the engine's per-layer state is code, unread).
 1. The scripts' semantics (packed Pawn code, 58+ natives, the text links): needed for any NPC, sign or story event.
 2. The remaining words of zones' entries, and the zone-to-name-line link.
 3. The `coll` geometry fields, GR parts 4-6, the 124-byte tail of part 0, the area pack's small files.
