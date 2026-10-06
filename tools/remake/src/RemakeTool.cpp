@@ -479,6 +479,7 @@ int main(int argc, char** argv)
                 const Bytes original = game.Read(path);
                 const Garc source(original);
                 Garc g(original);
+                size_t last = SIZE_MAX; // the last member written
                 for (int i = 5; i < argc; i++)
                 {
                     const std::string arg = argv[i];
@@ -498,9 +499,22 @@ int main(int argc, char** argv)
                         for (size_t sub = 0; sub < std::max(source.SubCount(s0 + k), g.SubCount(d0 + k)); sub++)
                             g.Set(d0 + k, source.Has(s0 + k, sub) ? source.Sub(s0 + k, sub) : Bytes{}, sub);
                         printf("%s member %zu <- member %zu\n", path.c_str(), d0 + k, s0 + k);
+                        last = d0 + k;
                     }
                 }
-                const Bytes data = g.Write();
+                Bytes data = g.Write();
+                // shorter than the game's file: the last member copied gets zeros after its data (an LZ stream ends at its
+                // declared size, so they are never read), and the archive keeps its size and ships as a small patch: whole,
+                // a/0/0/8 made a 930 MB mod (t2)
+                if (data.size() < original.size() && last != SIZE_MAX && IsLzCompressed(g.Sub(last)))
+                {
+                    Bytes padded = g.Sub(last);
+                    const size_t pad = (original.size() - data.size() + 3) / 4 * 4;
+                    padded.resize(padded.size() + pad, 0);
+                    g.Set(last, padded);
+                    data = g.Write();
+                    printf("%s member %zu: %zu bytes of padding after its LZ data, the archive keeps its size\n", path.c_str(), last, pad);
+                }
                 Garc check(data);
                 const std::filesystem::path base = std::filesystem::path(argv[3]) / "load" / "mods" / id;
                 if (data.size() < original.size())
