@@ -29,11 +29,13 @@ object N3dsLauncher {
             return
         }
 
-        val intent = Intent(activity, EmulationActivity::class.java).apply {
-            action = Intent.ACTION_VIEW
-            data = rom.uri
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        activity.startActivity(intent)
+        activity.startActivity(launchIntent(activity, rom))
+    }
+
+    /** The intent that runs [rom] in the 3DS core, as Azahar's own home-screen shortcuts do. */
+    fun launchIntent(context: Context, rom: Rom): Intent = Intent(context, EmulationActivity::class.java).apply {
+        action = Intent.ACTION_VIEW
+        data = rom.uri
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
 }

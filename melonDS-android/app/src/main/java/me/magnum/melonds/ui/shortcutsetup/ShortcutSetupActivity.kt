@@ -29,6 +29,8 @@ import me.magnum.melonds.R
 import me.magnum.melonds.databinding.ActivityShortcutSetupBinding
 import me.magnum.melonds.domain.model.RomIconFiltering
 import me.magnum.melonds.domain.model.rom.Rom
+import me.magnum.melonds.domain.model.rom.RomPlatform
+import me.magnum.melonds.ui.common.rom.N3dsLauncher
 import me.magnum.melonds.ui.emulator.EmulatorActivity
 import me.magnum.melonds.ui.romlist.RomIcon
 import me.magnum.melonds.ui.romlist.RomListFragment
@@ -73,7 +75,9 @@ class ShortcutSetupActivity : AppCompatActivity() {
         }
 
         val fragment = if (savedInstanceState == null) {
-            RomListFragment.newInstance(false, RomListFragment.RomEnableCriteria.ENABLE_DS_ONLY).also {
+            // 3DS games too where the 3DS core runs (64-bit devices)
+            val criteria = if (N3dsLauncher.isSupported()) RomListFragment.RomEnableCriteria.ENABLE_ALL else RomListFragment.RomEnableCriteria.ENABLE_DS_ONLY
+            RomListFragment.newInstance(false, criteria).also {
                 supportFragmentManager.commit {
                     replace(binding.layoutRoot.id, it, FRAGMENT_ROM_LIST)
                 }
@@ -86,8 +90,12 @@ class ShortcutSetupActivity : AppCompatActivity() {
     }
 
     private fun onRomSelected(rom: Rom) {
-        val intent = Intent("${packageName}.LAUNCH_ROM").apply {
-            putExtra(EmulatorActivity.KEY_URI, rom.uri.toString())
+        val intent = if (rom.platform == RomPlatform.N3DS) {
+            N3dsLauncher.launchIntent(this, rom)
+        } else {
+            Intent("${packageName}.LAUNCH_ROM").apply {
+                putExtra(EmulatorActivity.KEY_URI, rom.uri.toString())
+            }
         }
 
         lifecycleScope.launch {
