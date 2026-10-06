@@ -7,8 +7,9 @@
 //   on a 0x200 boundary. All 58 blocks of the owner's save match their checksum.
 //   block 4 (offset 0x1400, 336 bytes): where the player stands. u16 at +2 the zone (a/0/1/3 member; 6 in a save made in Littleroot),
 //   f32 at +0x10 and +0x18 the position x and z in pixels (18 a tile, a tile's centre at +9), as the zone files hold positions
-//   (inferred from the save: zone 6, x 1797.9, z 3151.0, a few tiles from Littleroot's spawn tile (100.5, 172.5)). Moving these alone
-//   did not move the player on the phone: the game reads the position from elsewhere too (unknown).
+//   (inferred from the save: zone 6, x 1797.9, z 3151.0, a few tiles from Littleroot's spawn tile (100.5, 172.5)). The same two floats
+//   are held again at +0x104 and +0x10C (two saves a few steps apart differ at both, with the same values); moving only the first pair
+//   did not move the player on the phone.
 
 #include "Bytes.h"
 

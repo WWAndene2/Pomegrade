@@ -47,8 +47,9 @@ void OrasSave::MoveTo(int zone, float tileX, float tileZ)
 {
     Data[0x1402] = (uint8_t)zone; Data[0x1403] = (uint8_t)(zone >> 8);
     const float x = tileX * 18, z = tileZ * 18;
-    std::memcpy(&Data[0x1410], &x, 4);
-    std::memcpy(&Data[0x1418], &z, 4);
+    // the position is held twice in block 4 (+0x10/+0x18 and +0x104/+0x10C: two saves of the owner, a few steps apart, differ at both
+    // with the same values); r5 on the phone kept the player in place when only the first was written
+    for (size_t at : {(size_t)0x1410, (size_t)0x1504}) { std::memcpy(&Data[at], &x, 4); std::memcpy(&Data[at + 8], &z, 4); }
     const OrasSaveBlock& b = Blocks[Situation];
     const uint16_t crc = Crc16Ccitt(&Data[b.Offset], b.Length);
     const size_t entry = TableAt + Situation * 8 + 6;
