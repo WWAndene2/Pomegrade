@@ -22,6 +22,7 @@
 //   remake_tool oras-extract <oras.3ds> <path> <out>  one RomFS file
 //   remake_tool oras-find <oras.3ds> <text>...
 //   remake_tool oras-members <oras.3ds> <archive> <first> <last>
+//   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>]...
 //   remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...
 //                     an Azahar mod: each file replaces that RomFS path, laid out as Azahar loads
 //                     mods (<out dir>/load/mods/<program id>/romfs/<path>); copy <out dir>/load
@@ -457,7 +458,7 @@ int main(int argc, char** argv)
             return 0;
         }
         // decrypted 3DS game images
-        if (cmd == "oras-list" || cmd == "oras-find" || cmd == "oras-members" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch")
+        if (cmd == "oras-list" || cmd == "oras-find" || cmd == "oras-members" || cmd == "oras-copy" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch")
         {
             N3dsRom game(argv[2]);
             char id[17];
@@ -469,6 +470,55 @@ int main(int argc, char** argv)
                 return 0;
             }
             if (cmd == "oras-extract" && argc >= 5) { WriteFile(argv[4], game.Read(argv[3])); return 0; }
+            if (cmd == "oras-copy" && argc >= 6)
+            {
+                // members of an archive copied over others of the same archive, as they are (every sub-file):
+                // <dst first>-<dst last>=<src first>-<src last> or <dst>=<src>; the mod is a BPS patch, or the archive whole
+                // under romfs/ when it comes out shorter (Azahar would keep a shorter patched file's old tail)
+                const std::string path = argv[4];
+                const Bytes original = game.Read(path);
+                const Garc source(original);
+                Garc g(original);
+                for (int i = 5; i < argc; i++)
+                {
+                    const std::string arg = argv[i];
+                    const size_t eq = arg.find('=');
+                    if (eq == std::string::npos) { fprintf(stderr, "expected <dst>=<src>: %s\n", arg.c_str()); return 2; }
+                    auto range = [](const std::string& r, size_t& lo, size_t& hi) {
+                        const size_t dash = r.find('-');
+                        lo = (size_t)std::stoul(r.substr(0, dash));
+                        hi = dash == std::string::npos ? lo : (size_t)std::stoul(r.substr(dash + 1));
+                    };
+                    size_t d0, d1, s0, s1;
+                    range(arg.substr(0, eq), d0, d1);
+                    range(arg.substr(eq + 1), s0, s1);
+                    if (d1 - d0 != s1 - s0 || d1 >= g.Count() || s1 >= g.Count()) { fprintf(stderr, "ranges of different lengths or past the archive: %s\n", arg.c_str()); return 2; }
+                    for (size_t k = 0; k <= d1 - d0; k++)
+                    {
+                        for (size_t sub = 0; sub < std::max(source.SubCount(s0 + k), g.SubCount(d0 + k)); sub++)
+                            g.Set(d0 + k, source.Has(s0 + k, sub) ? source.Sub(s0 + k, sub) : Bytes{}, sub);
+                        printf("%s member %zu <- member %zu\n", path.c_str(), d0 + k, s0 + k);
+                    }
+                }
+                const Bytes data = g.Write();
+                Garc check(data);
+                const std::filesystem::path base = std::filesystem::path(argv[3]) / "load" / "mods" / id;
+                if (data.size() < original.size())
+                {
+                    std::filesystem::create_directories((base / "romfs" / path).parent_path());
+                    WriteFile((base / "romfs" / path).string(), data);
+                    printf("%s: %zu bytes, shorter than the game's %zu: written whole under romfs/\n", path.c_str(), data.size(), original.size());
+                }
+                else
+                {
+                    const Bytes bps = BpsCreate(original, data);
+                    if (BpsApply(original, bps) != data) { fprintf(stderr, "%s: the patch does not rebuild the file\n", path.c_str()); return 1; }
+                    std::filesystem::create_directories((base / "romfs_ext" / path).parent_path());
+                    WriteFile((base / "romfs_ext" / (path + ".bps")).string(), bps);
+                    printf("%s: patch %zu bytes, checked\n", path.c_str(), bps.size());
+                }
+                return 0;
+            }
             if (cmd == "oras-members" && argc >= 6)
             {
                 // what members of an archive hold, nested: size, LZ, 2-letter containers and their files, BCH models, textures
