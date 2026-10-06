@@ -174,6 +174,8 @@ jobs:
               find\ *) ./build-remake/remake_tool oras-find dumps/oras.3ds ${query#find } | tee "mods/inspect_$n.txt" ;;
               # "members <archive> <first> <last>": what those archive members hold, nested (oras-members)
               members\ *) ./build-remake/remake_tool oras-members dumps/oras.3ds ${query#members } | tee "mods/inspect_$n.txt" ;;
+              # "hex <archive> <member> <file|-1> <offset> <length>": the bytes, 16 a line (oras-hex)
+              hex\ *) ./build-remake/remake_tool oras-hex dumps/oras.3ds ${query#hex } | tee "mods/inspect_$n.txt" ;;
               # "code <code_find.py options>": the game's code searched (prototype/code_find.py, capstone)
               code\ *)
                 [ -f out/code.bin ] || ./build-remake/remake_tool oras-code dumps/oras.3ds out/code.bin

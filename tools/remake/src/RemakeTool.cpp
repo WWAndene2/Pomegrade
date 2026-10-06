@@ -22,6 +22,7 @@
 //   remake_tool oras-extract <oras.3ds> <path> <out>  one RomFS file
 //   remake_tool oras-find <oras.3ds> <text>...
 //   remake_tool oras-members <oras.3ds> <archive> <first> <last>
+//   remake_tool oras-hex <oras.3ds> <archive> <member> <file|-1> <offset> <length>
 //   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>] | <dst>=<archive>:<member>:<file> ...
 //   remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...
 //                     an Azahar mod: each file replaces that RomFS path, laid out as Azahar loads
@@ -458,7 +459,7 @@ int main(int argc, char** argv)
             return 0;
         }
         // decrypted 3DS game images
-        if (cmd == "oras-list" || cmd == "oras-find" || cmd == "oras-members" || cmd == "oras-copy" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch")
+        if (cmd == "oras-list" || cmd == "oras-find" || cmd == "oras-members" || cmd == "oras-copy" || cmd == "oras-hex" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch")
         {
             N3dsRom game(argv[2]);
             char id[17];
@@ -549,6 +550,24 @@ int main(int argc, char** argv)
                     std::filesystem::create_directories((base / "romfs_ext" / path).parent_path());
                     WriteFile((base / "romfs_ext" / (path + ".bps")).string(), bps);
                     printf("%s: patch %zu bytes, checked\n", path.c_str(), bps.size());
+                }
+                return 0;
+            }
+            if (cmd == "oras-hex" && argc >= 8)
+            {
+                // bytes of a member (LZ-decompressed), or of one file of its 2-letter container (<file> -1: the member itself),
+                // from <offset>, <length> of them, 16 a line: to read formats the tool does not know yet (ORAS_TITLE.md)
+                const Garc g(game.Read(argv[3]));
+                const Bytes& m = g.Sub((size_t)atoi(argv[4]));
+                Bytes d = IsLzCompressed(m) ? LzDecompress(m) : m;
+                if (atoi(argv[5]) >= 0) d = BinLinker::Read(d, std::string(d.begin(), d.begin() + 2)).Files.at((size_t)atoi(argv[5]));
+                const size_t from = (size_t)std::stoul(argv[6], nullptr, 0), length = (size_t)std::stoul(argv[7], nullptr, 0);
+                printf("%zu bytes in all\n", d.size());
+                for (size_t at = from; at < std::min(d.size(), from + length); at += 16)
+                {
+                    printf("%06zX:", at);
+                    for (size_t k = at; k < at + 16 && k < d.size(); k++) printf(" %02X", d[k]);
+                    printf("\n");
                 }
                 return 0;
             }
