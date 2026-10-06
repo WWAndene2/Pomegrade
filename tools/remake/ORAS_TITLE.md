@@ -113,7 +113,8 @@ bytes (name, flags `0x00040000`, per-axis keys), the layout documented by the 3D
   `src/GfMotion.h`): the first `u16` is the count of 3-bit codes (0x1F7 = 503 for Giratina's 105 bones), not flags, and the
   "bit field" is those codes. `oras-copy ... <member>=motion:<archive>:<member>:<file>:<slot>:<frames>` writes the motion
   looped up to `<frames>`. `r9` (run 122) puts Giratina Origin's idle looped 50 times (3500 frames, Primal Groudon's own
-  length) in member 126: not yet run on the phone.
+  length) in member 126. On the phone (owner): **Giratina Origin moves on the title**. So the Primal slot plays its motion
+  once on the title's clock, as inferred, and a looped motion is the fix.
 
 - Run 124/125, the logo (checked with `oras-layout`): `a/1/5/2` members 1120-1135 are bare BCLIM images in RGBA8, no
   layout around them: 1120 and 1128 are 400 x 240 (a full top screen), 1121 and 1135 400 x 128. So the logo can be

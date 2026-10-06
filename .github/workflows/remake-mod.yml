@@ -17,7 +17,7 @@ on:
         default: ''
         required: false
       headless:
-        description: 'Runs of the game on the runner (tools/remake/headless), one per line, "name: oras-town options" (+cro ... allowed); empty: none'
+        description: 'Runs of the game on the runner (tools/remake/headless), one per line, "name: oras-town options" or "name: region <oras-region options>" (+save ZONE X Z moves the player, +cro ... patches a module); empty: none'
         default: ''
         required: false
       seconds:
@@ -104,6 +104,10 @@ jobs:
             # "... +cro <module> OFFSET=OLD:NEW ...": the module patched too (prototype/cro_patch.py; for Azahar, which skips the CRR check)
             cro=""
             if [[ "$options" == *" +cro "* ]]; then cro="${options#* +cro }"; options="${options%% +cro *}"; fi
+            # "+save ZONE X Z": the owner's save with the player moved there (oras-save), to start the game where a freeze
+            # happens (Route 201: the thread report then shows where every thread stands)
+            move=""
+            if [[ "$options" == *" +save "* ]]; then move="${options#* +save }"; options="${options%% +save *}"; fi
             echo "::group::$name ($options)"
             # options are split on spaces on purpose: they are oras-town flags
             if [[ "$options" =~ ^[[:space:]]*cro[[:space:]] ]]; then
@@ -398,7 +402,11 @@ jobs:
             if [[ "$options" == *" +cro "* ]]; then cro="${options#* +cro }"; options="${options%% +cro *}"; fi
             echo "::group::$name ($options${cro:+ +cro $cro})"
             # the mod, as the Remake mod workflow builds it
-            ./build-remake/remake_tool oras-town dumps/platinum.nds dumps/oras.3ds "out/$name" $options > "results/${name}_build.txt"
+            if [[ "$options" =~ ^[[:space:]]*region[[:space:]] ]]; then
+              ./build-remake/remake_tool oras-region dumps/platinum.nds dumps/oras.3ds "out/$name" ${options#*region } > "results/${name}_build.txt"
+            else
+              ./build-remake/remake_tool oras-town dumps/platinum.nds dumps/oras.3ds "out/$name" $options > "results/${name}_build.txt"
+            fi
             mod="out/$name/load/mods/000400000011C400"
             if [ -n "$cro" ]; then
               set -- $cro
@@ -415,6 +423,9 @@ jobs:
             savedir="$user/sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/00040000/0011c400/data/00000001"
             if [ -n "$SAVE_DIR" ]; then
               mkdir -p "$savedir" && cp -r "$SAVE_DIR"/. "$savedir/"
+              if [ -n "$move" ]; then
+                ./build-remake/remake_tool oras-save "$SAVE_DIR/main" "$savedir/main" $move | tee "results/${name}_save.txt"
+              fi
               if [ -n "$SAVE_METADATA" ]; then cp "$SAVE_METADATA" "$savedir.metadata"
               # ArchiveFormatInfo, 16 bytes: total size, directories, files (u32 each), duplicate data (u8), padding. GUESSED
               # (not the game's own values): the size of the files in the save, 0 directories, their count, no duplication
