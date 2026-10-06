@@ -108,10 +108,6 @@ jobs:
             # "... +cro <module> OFFSET=OLD:NEW ...": the module patched too (prototype/cro_patch.py; for Azahar, which skips the CRR check)
             cro=""
             if [[ "$options" == *" +cro "* ]]; then cro="${options#* +cro }"; options="${options%% +cro *}"; fi
-            # "+save ZONE X Z": the owner's save with the player moved there (oras-save), to start the game where a freeze
-            # happens (Route 201: the thread report then shows where every thread stands)
-            move=""
-            if [[ "$options" == *" +save "* ]]; then move="${options#* +save }"; options="${options%% +save *}"; fi
             echo "::group::$name ($options)"
             # options are split on spaces on purpose: they are oras-town flags
             if [[ "$options" =~ ^[[:space:]]*cro[[:space:]] ]]; then
@@ -420,6 +416,10 @@ jobs:
             options="${line#*:}"
             cro=""
             if [[ "$options" == *" +cro "* ]]; then cro="${options#* +cro }"; options="${options%% +cro *}"; fi
+            # "+save ZONE X Z": the owner's save with the player moved there (oras-save), to start the game where a freeze
+            # happens (Route 201: the thread report then shows where every thread stands)
+            move=""
+            if [[ "$options" == *" +save "* ]]; then move="${options#* +save }"; options="${options%% +save *}"; fi
             echo "::group::$name ($options${cro:+ +cro $cro})"
             # the mod, as the Remake mod workflow builds it
             if [[ "$options" =~ ^[[:space:]]*region[[:space:]] ]]; then
