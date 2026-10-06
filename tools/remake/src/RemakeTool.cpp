@@ -638,7 +638,19 @@ int main(int argc, char** argv)
             {
                 // where texts lie (model and texture names: pm0383 for Groudon's models): every RomFS file, and every member of
                 // every GARC, LZ-decompressed when compressed; prints file, member, sub-file and offset of each hit
-                std::vector<std::string> texts(argv + 3, argv + argc);
+                // a text "hex:5210" is that byte string (a u16 4178), found at any alignment
+                std::vector<std::string> texts;
+                for (int i = 3; i < argc; i++)
+                {
+                    std::string t = argv[i];
+                    if (t.rfind("hex:", 0) == 0)
+                    {
+                        std::string bytes;
+                        for (size_t k = 4; k + 1 < t.size(); k += 2) bytes.push_back((char)std::stoi(t.substr(k, 2), nullptr, 16));
+                        t = bytes;
+                    }
+                    texts.push_back(t);
+                }
                 auto scan = [&](const Bytes& d, const std::string& where) {
                     for (const std::string& t : texts)
                         for (auto it = std::search(d.begin(), d.end(), t.begin(), t.end()); it != d.end();
@@ -647,7 +659,9 @@ int main(int argc, char** argv)
                             const size_t at = (size_t)(it - d.begin());
                             size_t e = at;
                             while (e < d.size() && e - at < 40 && d[e] >= 0x20 && d[e] < 0x7F) e++;
-                            printf("%s +0x%zX: %s\n", where.c_str(), at, std::string(d.begin() + at, d.begin() + e).c_str());
+                            std::string around;
+                            for (size_t k = at >= 8 ? at - 8 : 0; k < std::min(d.size(), at + t.size() + 8); k++) { char h[4]; snprintf(h, sizeof h, "%02X", d[k]); around += h; around += k + 1 == at ? "|" : " "; }
+                            printf("%s +0x%zX: %s  [%s]\n", where.c_str(), at, std::string(d.begin() + at, d.begin() + e).c_str(), around.c_str());
                         }
                 };
                 for (const auto& [path, at] : game.Files())
