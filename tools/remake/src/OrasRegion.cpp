@@ -242,6 +242,7 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
             const int owner = std::max_element(count.begin(), count.end(), [](const auto& a, const auto& b) { return a.second < b.second; })->first;
             const int pack = zoneOf.at(owner).AreaPack();
             OrasTownOptions to = o.Town;
+            to.CloseEdges = false; // pieces meet their neighbours
             to.AreaPack = (size_t)pack;
             TownLayout layout = TownLayout::Read(world, (o.Left + x) * TownTiles, (o.Top + y) * TownTiles);
             // a door of a header left out of the region (-1 or not given) gets no house, no door model and no warp: r2 built two

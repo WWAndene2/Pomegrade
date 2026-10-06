@@ -237,7 +237,7 @@ Bytes BuildTownPiece(const TownLayout& layout, const OrasTownOptions& o, const G
     }
     sources.TreeReach = o.TreeReach;
     sources.DoorType = o.DoorType;
-    sources.AllWalkable = o.AllWalkable;
+    sources.CloseEdges = o.CloseEdges;
     Bytes town = o.DonorAsIs ? sources.Donor : BuildTown(layout, sources, &log);
     if ((o.PieceFiles & 0x7F) != 0x7F)
     {
