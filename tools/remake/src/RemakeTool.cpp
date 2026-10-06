@@ -24,6 +24,7 @@
 //   remake_tool oras-members <oras.3ds> <archive> <first> <last>
 //   remake_tool oras-hex <oras.3ds> <archive> <member> <file|-1> <offset> <length>
 //   remake_tool oras-member <oras.3ds> <archive> <member> <file|-1> <out>
+//   remake_tool oras-layout <oras.3ds> <archive> <member> [file]  DARC/BCLYT/BCLAN/BCLIM described
 //   remake_tool oras-text <oras.3ds> <archive> <member>   a game text file's lines
 //   remake_tool oras-script <oras.3ds> <zone> [init]      a zone's script, unpacked and disassembled
 //   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>] | <dst>=<archive>:<member>:<file> | <dst>=motion:<archive>:<member>:<file>:<slot>[:<frames>] ...
@@ -75,6 +76,9 @@
 #include "Bps.h"
 #include "BinLinker.h"
 #include "GfMotion.h"
+#include "Layout.h"
+#include "Darc.h"
+#include "Bclim.h"
 #include "OrasZone.h"
 #include "GameText.h"
 #include "Amx.h"
@@ -467,7 +471,7 @@ int main(int argc, char** argv)
             return 0;
         }
         // decrypted 3DS game images
-        if (cmd == "oras-list" || cmd == "oras-find" || cmd == "oras-members" || cmd == "oras-copy" || cmd == "oras-hex" || cmd == "oras-member" || cmd == "oras-text" || cmd == "oras-script" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch")
+        if (cmd == "oras-list" || cmd == "oras-find" || cmd == "oras-members" || cmd == "oras-copy" || cmd == "oras-hex" || cmd == "oras-member" || cmd == "oras-layout" || cmd == "oras-text" || cmd == "oras-script" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch")
         {
             N3dsRom game(argv[2]);
             char id[17];
@@ -610,6 +614,33 @@ int main(int argc, char** argv)
                     WriteFile((base / "romfs_ext" / (path + ".bps")).string(), bps);
                     printf("%s: patch %zu bytes, checked\n", path.c_str(), bps.size());
                 }
+                return 0;
+            }
+            if (cmd == "oras-layout" && argc >= 5)
+            {
+                // a member holding a layout's files, described: a DARC archive's files one by one, a BCLYT/BCLAN
+                // (Layout.h), a BCLIM image (Bclim.h); <file>: one file of its 2-letter container
+                const Garc g(game.Read(argv[3]));
+                Bytes d = Plain(g.Sub((size_t)atoi(argv[4])));
+                if (argc >= 6 && atoi(argv[5]) >= 0) d = BinLinker::Read(d, std::string(d.begin(), d.begin() + 2)).Files.at((size_t)atoi(argv[5]));
+                auto describe = [](const std::string& name, const Bytes& b) {
+                    const std::string m = b.size() >= 4 ? std::string(b.begin(), b.begin() + 4) : "";
+                    if (m == "CLYT" || m == "CLAN") return name + ": " + DescribeLayout(b);
+                    try
+                    {
+                        const ClimImage c = ClimImage::Read(b);
+                        char line[160];
+                        snprintf(line, sizeof line, "%s: BCLIM %u x %u %s (stored %u x %u)\n", name.c_str(), c.Width, c.Height, ClimFormatName(c.Format), c.StoredWidth, c.StoredHeight);
+                        return std::string(line);
+                    }
+                    catch (const FormatError&) {}
+                    char line[160];
+                    snprintf(line, sizeof line, "%s: %zu bytes, starts %s\n", name.c_str(), b.size(), m.c_str());
+                    return std::string(line);
+                };
+                if (d.size() >= 4 && std::string(d.begin(), d.begin() + 4) == "darc")
+                    for (const DarcFile& file : ReadDarc(d)) printf("%s", describe(file.Path, file.Data).c_str());
+                else printf("%s", describe(std::string("member ") + argv[4], d).c_str());
                 return 0;
             }
             if (cmd == "oras-text" && argc >= 5)

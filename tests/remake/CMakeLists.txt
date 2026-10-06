@@ -75,3 +75,6 @@ target_link_libraries(remake_text_test PRIVATE remake)
 
 add_executable(remake_script_test remake_script_test.cpp)
 target_link_libraries(remake_script_test PRIVATE remake)
+
+add_executable(remake_layout_test remake_layout_test.cpp)
+target_link_libraries(remake_layout_test PRIVATE remake)
