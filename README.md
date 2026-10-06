@@ -24,12 +24,14 @@ Les BIOS et firmwares Nintendo ont été retirés du dépôt pour des raisons de
 ### Dossiers
 
 ```
-Android/data/<paquet de l'appli>/files/textures/<CODE DU JEU>/
+Pomegrade/Textures/<CODE DU JEU>/
 ├── dump/                       ← textures exportées depuis le jeu (taille d'origine)
 │   └── tex_64x32_1a2b3c4d5e6f7a8b.png
 └── (n'importe quel sous-dossier, sauf dump/)
     └── tex_64x32_1a2b3c4d5e6f7a8b.png   ← votre version HD
 ```
+
+`Pomegrade` est le dossier Pomegrade choisi au premier lancement (par défaut dans le stockage interne) : n'importe quel gestionnaire de fichiers y a accès. Sans dossier Pomegrade, les textures sont dans `Android/data/<paquet de l'appli>/files/textures/`, et elles sont déplacées dans `Pomegrade/Textures` quand le dossier est choisi.
 
 `<CODE DU JEU>` est le code à 4 caractères inscrit dans la ROM (par exemple `AMCE`). Le dossier `dump/` est créé automatiquement, ce qui permet de retrouver le code du jeu.
 
@@ -40,7 +42,7 @@ Android/data/<paquet de l'appli>/files/textures/<CODE DU JEU>/
    - **Gardez le même nom de fichier.**
    - La taille doit valoir **exactement 1×, 2×, 4×, 8× ou 16×** l'originale, avec le même facteur en largeur et en hauteur. Une texture de 64×32 en 4× fait donc 256×128.
    - Au maximum 4096 pixels de côté, et pas plus que ce que le GPU accepte.
-3. Placez les images HD dans `textures/<CODE DU JEU>/`, dans le dossier lui-même ou un sous-dossier, mais **pas dans `dump/`**.
+3. Placez les images HD dans `Textures/<CODE DU JEU>/`, dans le dossier lui-même ou un sous-dossier, mais **pas dans `dump/`**.
 4. Désactivez « Dump textures », activez **« HD textures »**, puis relancez le jeu.
 
 Les fichiers invalides (mauvaise taille, image illisible) sont ignorés et signalés dans le journal (logcat).
@@ -51,15 +53,15 @@ Les fichiers invalides (mauvaise taille, image illisible) sont ignorés et signa
 - **Moteur Compute** : le remplacement se fait dans son cache de textures (`GPU3D_Texcache.h`). Le shader lit les textures avec des coordonnées normalisées, donc une texture HD s'affiche correctement sans autre modification.
 - **Moteur OpenGL** : ce moteur décode les textures directement dans le shader, à partir de la mémoire vidéo émulée. Les textures qui ont une version HD sont placées dans un atlas (`GPU3D_OpenGL_HDTextures.cpp`), et chaque polygone transmet au shader l'emplacement de sa texture dans l'atlas. Le shader lit alors l'atlas au lieu de la mémoire émulée, en respectant la répétition et le miroir des textures DS.
 - La transparence est préservée : pour les formats DS sans transparence partielle, l'alpha est arrondi à « opaque » ou « transparent » pour ne pas changer le rendu des polygones.
+- Les fichiers HD sont lus en arrière-plan : la première fois qu'une texture apparaît, elle s'affiche une ou deux images en résolution d'origine, le temps de lire son fichier, puis en HD, sans à-coup.
 - Les textures HD déjà chargées restent en mémoire (cache de 128 Mo) pour éviter de relire le disque quand un jeu les recharge.
 
 Code : `melonDS-android-lib/src/GPU3D_TextureReplacement.{h,cpp}`. Lecture et écriture des PNG avec [stb](https://github.com/nothings/stb), dans le domaine public.
 
 ### Limites connues
 
-- Les textures HD sont chargées pendant la partie : de légers à-coups peuvent apparaître la première fois qu'une texture apparaît.
 - Les textures 2D ne sont pas remplacées.
-- Sur Android 11 et plus, certains gestionnaires de fichiers n'ont pas accès à `Android/data/`. Utilisez un ordinateur en USB, ou un gestionnaire qui y a accès.
+- Une texture HD sortie du cache de 128 Mo s'affiche de nouveau une ou deux images en résolution d'origine quand le jeu la réaffiche.
 
 ## Compilation
 
