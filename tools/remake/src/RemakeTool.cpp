@@ -22,7 +22,7 @@
 //   remake_tool oras-extract <oras.3ds> <path> <out>  one RomFS file
 //   remake_tool oras-find <oras.3ds> <text>...
 //   remake_tool oras-members <oras.3ds> <archive> <first> <last>
-//   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>]...
+//   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>] | <dst>=<archive>:<member>:<file> ...
 //   remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...
 //                     an Azahar mod: each file replaces that RomFS path, laid out as Azahar loads
 //                     mods (<out dir>/load/mods/<program id>/romfs/<path>); copy <out dir>/load
@@ -485,6 +485,25 @@ int main(int argc, char** argv)
                     const std::string arg = argv[i];
                     const size_t eq = arg.find('=');
                     if (eq == std::string::npos) { fprintf(stderr, "expected <dst>=<src>: %s\n", arg.c_str()); return 2; }
+                    const std::string src = arg.substr(eq + 1);
+                    if (src.find(':') != std::string::npos)
+                    {
+                        // <dst>=<archive>:<member>:<file>: one file of a 2-letter container member of another archive (an
+                        // animation of a Pokemon's PB pack), written as the member, LZ-compressed as the member it replaces
+                        const size_t c1 = src.find(':'), c2 = src.find(':', c1 + 1);
+                        if (c2 == std::string::npos) { fprintf(stderr, "expected <archive>:<member>:<file>: %s\n", src.c_str()); return 2; }
+                        const Garc other(game.Read(src.substr(0, c1)));
+                        const Bytes& m = other.Sub((size_t)std::stoul(src.substr(c1 + 1, c2 - c1 - 1)));
+                        const Bytes plain = IsLzCompressed(m) ? LzDecompress(m) : m;
+                        const BinLinker pack = BinLinker::Read(plain, std::string(plain.begin(), plain.begin() + 2));
+                        const Bytes file = pack.Files.at((size_t)std::stoul(src.substr(c2 + 1)));
+                        const size_t dst = (size_t)std::stoul(arg.substr(0, eq));
+                        if (file.size() < 4 || std::string(file.begin(), file.begin() + 3) != "BCH") { fprintf(stderr, "%s is not a BCH file\n", src.c_str()); return 1; }
+                        ReplaceMember(g, source, dst, file, "BCH");
+                        printf("%s member %zu <- %s (%zu bytes)\n", path.c_str(), dst, src.c_str(), file.size());
+                        last = dst;
+                        continue;
+                    }
                     auto range = [](const std::string& r, size_t& lo, size_t& hi) {
                         const size_t dash = r.find('-');
                         lo = (size_t)std::stoul(r.substr(0, dash));
@@ -492,7 +511,7 @@ int main(int argc, char** argv)
                     };
                     size_t d0, d1, s0, s1;
                     range(arg.substr(0, eq), d0, d1);
-                    range(arg.substr(eq + 1), s0, s1);
+                    range(src, s0, s1);
                     if (d1 - d0 != s1 - s0 || d1 >= g.Count() || s1 >= g.Count()) { fprintf(stderr, "ranges of different lengths or past the archive: %s\n", arg.c_str()); return 2; }
                     for (size_t k = 0; k <= d1 - d0; k++)
                     {
