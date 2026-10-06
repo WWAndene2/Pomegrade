@@ -302,8 +302,14 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
             for (auto d = layout.Doors.begin(); d != layout.Doors.end();)
             {
                 const auto z = o.Zones.find(d->Zone);
-                if (z != o.Zones.end() && z->second >= 0) { ++d; continue; }
-                log.push_back(F("door at (%d, %d) of header %u: header left out, no house, door model or warp", x * TownTiles + d->Column, y * TownTiles + d->Row, d->Zone));
+                // a door is kept only when it leads into an interior of its own (its destination header given an ORAS zone
+                // that is not on the matrix): with --auto-zones every header has a zone, and s3's Twinleaf piece got 6 doors
+                // for Littleroot's 4 door-model entries, so the real doors lost their models on the phone (all4)
+                const auto in = o.Zones.find(d->DestZone);
+                const bool interior = in != o.Zones.end() && in->second >= 0 && !used.count(in->second);
+                if (z != o.Zones.end() && z->second >= 0 && interior) { ++d; continue; }
+                log.push_back(F("door at (%d, %d) of header %u to header %u: %s, no house, door model or warp", x * TownTiles + d->Column,
+                                y * TownTiles + d->Row, d->Zone, d->DestZone, z == o.Zones.end() || z->second < 0 ? "header left out" : "no interior given"));
                 d = layout.Doors.erase(d);
             }
             char name[32];
