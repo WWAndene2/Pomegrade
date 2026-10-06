@@ -23,7 +23,7 @@
 //   remake_tool oras-find <oras.3ds> <text>...
 //   remake_tool oras-members <oras.3ds> <archive> <first> <last>
 //   remake_tool oras-hex <oras.3ds> <archive> <member> <file|-1> <offset> <length>
-//   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>] | <dst>=<archive>:<member>:<file> ...
+//   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>] | <dst>=<archive>:<member>:<file> | <dst>=motion:<archive>:<member>:<file>:<slot>[:<frames>] ...
 //   remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...
 //                     an Azahar mod: each file replaces that RomFS path, laid out as Azahar loads
 //                     mods (<out dir>/load/mods/<program id>/romfs/<path>); copy <out dir>/load
@@ -71,6 +71,7 @@
 #include "Bch.h"
 #include "Bps.h"
 #include "BinLinker.h"
+#include "GfMotion.h"
 #include "N3dsRom.h"
 #include "MapHeaders.h"
 #include "N3dsWorld.h"
@@ -492,7 +493,8 @@ int main(int argc, char** argv)
                     {
                         // <dst>=motion:<archive>:<member>:<file>:<slot>: a title-style motion pack built from a Pokemon's
                         // (ORAS_TITLE.md 1b): u32 count 2, the offsets of slot 0 (the skeleton) and slot 1, the end, then the
-                        // skeleton and the one motion taken from the Pokemon pack's slot <slot> (1: ba10_waitA01)
+                        // skeleton and the one motion taken from the Pokemon pack's slot <slot> (1: ba10_waitA01);
+                        // ...:<slot>:<frames>: the motion looped up to <frames> (a multiple of its own), LoopGfMotion
                         std::vector<std::string> f;
                         for (size_t at = 7, next; at <= src.size(); at = next + 1)
                         {
@@ -500,7 +502,7 @@ int main(int argc, char** argv)
                             if (next == std::string::npos) next = src.size();
                             f.push_back(src.substr(at, next - at));
                         }
-                        if (f.size() != 4) { fprintf(stderr, "expected motion:<archive>:<member>:<file>:<slot>: %s\n", src.c_str()); return 2; }
+                        if (f.size() != 4 && f.size() != 5) { fprintf(stderr, "expected motion:<archive>:<member>:<file>:<slot>[:<frames>]: %s\n", src.c_str()); return 2; }
                         const Garc other(game.Read(f[0]));
                         const Bytes& m = other.Sub((size_t)std::stoul(f[1]));
                         const Bytes plain = IsLzCompressed(m) ? LzDecompress(m) : m;
@@ -516,7 +518,16 @@ int main(int argc, char** argv)
                             if (!from || to < from || to > pack.size()) throw FormatError("motion pack slot " + std::to_string(k) + " is empty or out of the pack");
                             return Bytes(pack.begin() + from, pack.begin() + to);
                         };
-                        const Bytes skeleton = slotBytes(0), motion = slotBytes(slot);
+                        const Bytes skeleton = slotBytes(0);
+                        Bytes motion = slotBytes(slot);
+                        if (f.size() == 5)
+                        {
+                            const int period = GfMotionFrames(motion), frames = std::stoi(f[4]);
+                            if (frames < period || frames % period) { fprintf(stderr, "%s: %d frames is not a multiple of the motion's %d\n", src.c_str(), frames, period); return 2; }
+                            if (skeleton.size() % 4) throw FormatError("the skeleton would leave the motion unaligned");
+                            motion = LoopGfMotion(motion, frames / period);
+                            printf("motion of %d frames looped %d times: %d frames\n", period, frames / period, frames);
+                        }
                         Bytes out(16, 0);
                         auto put32 = [&](size_t at, uint32_t v) { for (int k = 0; k < 4; k++) out[at + k] = (uint8_t)(v >> (8 * k)); };
                         put32(0, 2); put32(4, 16); put32(8, (uint32_t)(16 + skeleton.size())); put32(12, (uint32_t)(16 + skeleton.size() + motion.size()));
