@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       variants:
-        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"; "... +cro <module> OFFSET=OLD:NEW" also patches a code module'
+        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"; "... +cro <module> OFFSET=OLD:NEW" also patches a code module, "name: cro <module> OFFSET=OLD:NEW" patches one alone'
         # no default mod: an empty input fell back to "v24:", and an inspect-only run shipped a v24 zip the owner took for r5
         default: ''
         required: false
@@ -105,7 +105,10 @@ jobs:
             if [[ "$options" == *" +cro "* ]]; then cro="${options#* +cro }"; options="${options%% +cro *}"; fi
             echo "::group::$name ($options)"
             # options are split on spaces on purpose: they are oras-town flags
-            if [[ "$options" == *"append "* ]]; then
+            if [[ "$options" =~ ^[[:space:]]*cro[[:space:]] ]]; then
+              # "name: cro <module> OFFSET=OLD:NEW ...": a code module patched alone, no map built (the title screen's species)
+              cro="${options#*cro }"; mkdir -p "out/$name"
+            elif [[ "$options" == *"append "* ]]; then
               # "name: append unused|piece|matrix|zone": the archive-member tests of oras-append-test
               ./build-remake/remake_tool oras-append-test dumps/oras.3ds "out/$name" ${options#*append } | tee "mods/${name}_log.txt"
             elif [[ "$options" == *"region "* ]]; then
