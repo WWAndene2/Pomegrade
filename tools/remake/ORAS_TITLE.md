@@ -98,6 +98,17 @@ bytes (name, flags `0x00040000`, per-axis keys), the layout documented by the 3D
   still there is the game's own behaviour. Moving it needs either the animated (Groudon) slot or a `DllTitle.cro` change
   that plays a motion on the Primal slot (code not found).
 
+- Run 120: `DllTitle.cro` holds neither the title motions' frame counts (3080.0, 3500.0 as `f32`) nor the title members'
+  numbers (108-145) as immediates or words (checked): which slot moves is not decided by such a constant in the module.
+- The owner (seen): the title alternates the two forms, and Giratina Altered in Groudon's slot plays its idle **in a loop**
+  for its whole turn.
+- Run 121, the motions' first words (checked): a motion starts `u16` flags, `u16` frame count: 87 `0x0104`, 500 frames;
+  120 `0x0104`, 3080 frames; 126 (Primal Groudon) `0x0117`, 3500 frames; Giratina's idle `0x01F7`, 70 frames. In the title
+  motions (over 255 frames) the key lists are `u16` (count, then frames): 126 has tracks of 93 keys about 36 frames apart,
+  so Primal Groudon's motion does move bones in the data, if slightly (the owner sees none on the phone). Lead (inferred,
+  untested): the Primal slot plays its motion on the title's own clock without looping, so a 70-frame motion stays on its
+  last frame; then Giratina's idle unrolled to 3500 frames (the format written, not only copied) would move.
+
 ## 2. Plan
 
 1. Giratina Origin with its battle idle animation (`pm0487_12_ba10_waitA01`) in the four members 122-125, converted from
