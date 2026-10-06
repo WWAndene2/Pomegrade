@@ -56,6 +56,7 @@ N3dsRom::N3dsRom(const std::string& path) : File(path, std::ios::binary)
     if (blockLog2 > 20) throw FormatError("RomFS: level 3 block size out of range");
     const uint64_t align = 1ull << blockLog2;
     const uint64_t level3 = romfs + (0x60 + masterHash + align - 1) / align * align;
+    RomfsLevel3 = level3;
     const Bytes h = ReadAt(level3, 0x28);
     if (U32(h, 0) != 0x28) throw FormatError("RomFS: unexpected level 3 header");
     const Bytes dirs = ReadAt(level3 + U32(h, 0x0C), U32(h, 0x10));

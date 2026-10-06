@@ -222,6 +222,20 @@ jobs:
               layout\ *) ./build-remake/remake_tool oras-layout dumps/oras.3ds ${query#layout } | tee "mods/inspect_$n.txt" ;;
               text\ *) ./build-remake/remake_tool oras-text dumps/oras.3ds ${query#text } | tee "mods/inspect_$n.txt" ;;
               script\ *) ./build-remake/remake_tool oras-script dumps/oras.3ds ${query#script } | tee "mods/inspect_$n.txt" ;;
+              # "romfs-at <offset>... region <oras-region options>": the mod built as oras-region builds it, its RomFS rebuilt by
+              # Azahar's own LayeredFS (prototype/azahar_check/romfs_offset_check.cpp), and the file (and GARC member) holding each
+              # RomFS offset: the offsets a code trace's file reads give
+              romfs-at\ *)
+                rest=${query#romfs-at }
+                offsets=${rest%% region *}
+                ./build-remake/remake_tool oras-region dumps/platinum.nds dumps/oras.3ds "out/romfs_$n" ${rest#* region } > "out/romfs_${n}_build.txt"
+                git submodule update --init --depth 1 azahar/externals/fmt azahar/externals/boost azahar/externals/cryptopp > /dev/null 2>&1
+                g++ -std=c++20 -O1 -Itools/remake/prototype/azahar_check/stub -Iazahar/src -Iazahar/externals/fmt/include \
+                  -Iazahar/externals/boost -Iazahar/externals/cryptopp/include -Itools/remake/src -DFMT_HEADER_ONLY \
+                  tools/remake/prototype/azahar_check/romfs_offset_check.cpp azahar/src/core/file_sys/layered_fs.cpp \
+                  azahar/src/core/file_sys/patch.cpp azahar/src/common/file_util.cpp azahar/src/common/string_util.cpp \
+                  build-remake/libremake.a -Wl,--unresolved-symbols=ignore-all -o out/romfs_offset_check
+                out/romfs_offset_check dumps/oras.3ds "out/romfs_$n/load/mods/000400000011C400/" $offsets | tee "mods/inspect_$n.txt" ;;
               # "crodis <module.cro> [other .cro/.crs ...] info|symbols|dis <address|symbol> [n]|xref <...>|functions": a code
               # module read as the loader reads it (prototype/cro_dis.py: exports, imports, relocations, named calls)
               crodis\ *)
