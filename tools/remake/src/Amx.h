@@ -41,10 +41,8 @@ std::vector<int32_t> AmxCells(const Bytes& script);
 std::vector<std::pair<uint32_t, std::string>> AmxPublics(const Bytes& script);
 std::vector<std::string> AmxNatives(const Bytes& script);
 
-// The code disassembled with Pawn 3's opcode numbers (amx.h). On the game's scripts (run 125, zone 6: 2608 code cells,
-// unpacked exactly) 1093 cells are no Pawn 3 opcode and read as packed opcodes, an opcode in the low 16 bits and its
-// operand in the high 16 (0x1400A4: opcode 164, operand 20), as Pawn's packed instructions are; which opcode each
-// number is is not known yet, so such cells are shown "p<opcode> <operand>" and the plain names are unchecked there.
+// The code disassembled (the opcode table and how it was checked: Amx.cpp). The listing ends with its own check on the
+// script: cells that are no opcode, calls that land on a proc, jumps that land on an instruction.
 std::string AmxDisassemble(const Bytes& script);
 
 }

@@ -26,7 +26,7 @@
 //   remake_tool oras-member <oras.3ds> <archive> <member> <file|-1> <out>
 //   remake_tool oras-layout <oras.3ds> <archive> <member> [file]  DARC/BCLYT/BCLAN/BCLIM described
 //   remake_tool oras-text <oras.3ds> <archive> <member>   a game text file's lines
-//   remake_tool oras-script <oras.3ds> <zone> [init]      a zone's script, unpacked and disassembled
+//   remake_tool oras-script <oras.3ds> <zone>|all [init]  a zone's script, unpacked and disassembled (all: every script, checked)
 //   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>] | <dst>=<archive>:<member>:<file> | <dst>=motion:<archive>:<member>:<file>:<slot>[:<frames>] ...
 //   remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...
 //                     an Azahar mod: each file replaces that RomFS path, laid out as Azahar loads
@@ -670,6 +670,35 @@ int main(int argc, char** argv)
             {
                 // a zone's script (a/0/1/3 member, OrasZone), or with "init" its init script, disassembled (Amx.h)
                 const Garc g(game.Read("a/0/1/3"));
+                if (std::string(argv[3]) == "all")
+                {
+                    // every zone's two scripts disassembled, the listings' own checks summed: the opcode table on the whole game
+                    size_t scripts = 0, failed = 0, cells = 0, unknown = 0, callsOk = 0, calls = 0, jumpsOk = 0, jumps = 0;
+                    for (size_t i = 0; i < g.Count(); i++)
+                    {
+                        OrasZone z;
+                        try { z = OrasZone::Read(Plain(g.Sub(i))); } catch (const FormatError&) { continue; }
+                        for (const Bytes* script : {&z.InitScript, &z.Script})
+                        {
+                            if (script->empty()) continue;
+                            scripts++;
+                            try
+                            {
+                                const std::string d = AmxDisassemble(*script);
+                                const std::string last = d.substr(d.rfind('\n', d.size() - 2) + 1);
+                                size_t c, u, n, dc, co, ca, jo, ja;
+                                if (sscanf(last.c_str(), "%zu code cells, %zu not an opcode, %zu natives, %zu data cells; %zu of %zu calls land on a proc, %zu of %zu jumps",
+                                           &c, &u, &n, &dc, &co, &ca, &jo, &ja) == 8)
+                                { cells += c; unknown += u; callsOk += co; calls += ca; jumpsOk += jo; jumps += ja; }
+                                if (u || co != ca || jo != ja) printf("zone %zu %s: %s", i, script == &z.Script ? "script" : "init", last.c_str());
+                            }
+                            catch (const FormatError& e) { failed++; printf("zone %zu: %s\n", i, e.what()); }
+                        }
+                    }
+                    printf("%zu scripts (%zu not read), %zu code cells, %zu not an opcode; %zu of %zu calls land on a proc, %zu of %zu jumps on an instruction\n",
+                           scripts, failed, cells, unknown, callsOk, calls, jumpsOk, jumps);
+                    return 0;
+                }
                 const OrasZone z = OrasZone::Read(Plain(g.Sub((size_t)atoi(argv[3]))));
                 const Bytes& script = argc >= 5 && std::string(argv[4]) == "init" ? z.InitScript : z.Script;
                 const std::vector<std::string> natives = AmxNatives(script);
