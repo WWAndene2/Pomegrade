@@ -81,6 +81,8 @@ bytes (name, flags `0x00040000`, per-axis keys), the layout documented by the 3D
 
 - `all3` (run 108) on the phone: Giratina Origin shows right (its own skeleton in member 126 ended the deformation), with no motion: the title's motion comes from elsewhere or from another slot (to find).
 
+- `c2` (run 110) on the phone: the title as in all3, Giratina Origin still without motion (confirmed).
+
 ## 2. Plan
 
 1. Giratina Origin with its battle idle animation (`pm0487_12_ba10_waitA01`) in the four members 122-125, converted from
