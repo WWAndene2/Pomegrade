@@ -89,6 +89,12 @@ std::string InspectPiece(N3dsRom& game, size_t piece)
     const Bytes& tiles = gr.Files.at(0);
     const unsigned w = U16(tiles, 0), h = U16(tiles, 2);
     s += F("  part 0: tile block %ux%u, %zu bytes (%zu after the tiles)\n", w, h, tiles.size(), tiles.size() - 4 - (size_t)w * h * 4);
+    {
+        // the bytes after the tiles (meaning unknown), as words: compared between pieces (the built pieces keep Littleroot's)
+        std::string tail = "    after the tiles:";
+        for (size_t at = 4 + (size_t)w * h * 4; at + 4 <= tiles.size(); at += 4) tail += F(" %08x", U32(tiles, at));
+        s += tail + "\n";
+    }
     std::map<uint32_t, int> values;
     for (size_t i = 0; i < (size_t)w * h; i++) values[U32(tiles, 4 + i * 4)]++;
     for (const auto& [value, n] : values) s += F("    tile value 0x%08X: %d tiles\n", value, n);
