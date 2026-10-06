@@ -13,7 +13,7 @@ on:
         default: ''
         required: false
       inspect:
-        description: 'One query per line: oras-inspect arguments ("matrix 1", "zones 0"), "world N" (Platinum matrix N as ORAS pieces), "region <oras-region options>" (its plan), "code <code_find.py options>", "verify", "list" or "platinum-zones"'
+        description: 'One query per line: oras-inspect arguments ("matrix 1", "zones 0"), "world N" (Platinum matrix N as ORAS pieces), "region <oras-region options>" (its plan), "code <code_find.py options>", "verify", "list", "platinum-zones" "layout <archive> <member> [file]", "text <archive> <member>", "script <zone> [init]", "crodis <module.cro> [others] info|symbols|dis|xref|functions" or "spica <archive> <member> <file|-1> info|motions [--skeleton <archive>:<member>:<file|-1>]"'
         default: ''
         required: false
       headless:
@@ -173,11 +173,16 @@ jobs:
           set -o pipefail
           mkdir -p mods out   # out/: the extracted files, even when no mod was built before
           n=0
+          failed=0
           while IFS= read -r query; do
             [ -z "${query// }" ] && continue
             n=$((n + 1))
             echo "::group::oras-inspect $query"
             # the query is split on spaces on purpose: it is oras-inspect's arguments
+            # each query in a subshell: one that fails is reported and the others still run (the step fails at the end);
+            # the subshell runs outside any if/|| so that its set -e holds (bash ignores set -e in a condition)
+            set +e
+            ( set -eo pipefail
             case "$query" in
               # "world N": Platinum's matrix N laid out as ORAS pieces (oras-world)
               world\ *) ./build-remake/remake_tool oras-world dumps/platinum.nds ${query#world } "out/world_$n" | tee "mods/inspect_$n.txt" ;;
@@ -207,10 +212,49 @@ jobs:
                 python3 -c "import capstone" 2>/dev/null || pip install --quiet capstone
                 file="out/$(basename "$1")"; shift
                 python3 tools/remake/prototype/code_find.py "$file" --base 0 "$@" | tee "mods/inspect_$n.txt" ;;
+              # "text <archive> <member>": a game text file's lines (GameText.h); "script <zone> [init]": a zone's script
+              # unpacked and disassembled (Amx.h)
+              # "layout <archive> <member> [file]": a layout member described (DARC, BCLYT, BCLAN, BCLIM)
+              layout\ *) ./build-remake/remake_tool oras-layout dumps/oras.3ds ${query#layout } | tee "mods/inspect_$n.txt" ;;
+              text\ *) ./build-remake/remake_tool oras-text dumps/oras.3ds ${query#text } | tee "mods/inspect_$n.txt" ;;
+              script\ *) ./build-remake/remake_tool oras-script dumps/oras.3ds ${query#script } | tee "mods/inspect_$n.txt" ;;
+              # "crodis <module.cro> [other .cro/.crs ...] info|symbols|dis <address|symbol> [n]|xref <...>|functions": a code
+              # module read as the loader reads it (prototype/cro_dis.py: exports, imports, relocations, named calls)
+              crodis\ *)
+                set -- ${query#crodis }
+                files=()
+                while [ $# -gt 0 ] && case "$1" in *.cro|*.crs) true ;; *) false ;; esac; do
+                  ./build-remake/remake_tool oras-extract dumps/oras.3ds "$1" "out/$(basename "$1")"
+                  files+=("out/$(basename "$1")"); shift
+                done
+                python3 -c "import capstone" 2>/dev/null || pip install --quiet capstone
+                python3 tools/remake/prototype/cro_dis.py "${files[@]}" "$@" | tee "mods/inspect_$n.txt" ;;
+              # "spica <archive> <member> <file|-1> info|motions [--skeleton <archive>:<member>:<file|-1>]": what SPICA reads of
+              # a member (tools/remake/spica); only its text report leaves the runner
+              spica\ *)
+                set -- ${query#spica }
+                if [ ! -x out/spica/spica ]; then
+                  git submodule update --init --depth 1 tools/remake/external/SPICA
+                  dotnet build -c Release -o out/spica tools/remake/spica/SpicaCli.csproj > /dev/null
+                fi
+                ./build-remake/remake_tool oras-member dumps/oras.3ds "$1" "$2" "$3" out/spica_in.bin
+                cmd=$4; shift 4
+                extra=()
+                if [ "${1:-}" = --skeleton ]; then
+                  IFS=: read -r sa sm sf <<< "$2"
+                  ./build-remake/remake_tool oras-member dumps/oras.3ds "$sa" "$sm" "$sf" out/spica_skeleton.bin
+                  extra=(--skeleton out/spica_skeleton.bin)
+                fi
+                out/spica/spica "$cmd" out/spica_in.bin "${extra[@]}" | tee "mods/inspect_$n.txt" ;;
               *) ./build-remake/remake_tool oras-inspect dumps/oras.3ds $query | tee "mods/inspect_$n.txt" ;;
             esac
+            )
+            rc=$?
+            set -e
+            if [ $rc -ne 0 ]; then echo "::error::inspect query failed: $query"; failed=1; fi
             echo "::endgroup::"
           done <<< "$QUERIES"
+          exit $failed
 
       - name: Moved saves
         if: inputs.saves != ''

@@ -23,7 +23,11 @@
 //   remake_tool oras-find <oras.3ds> <text>...
 //   remake_tool oras-members <oras.3ds> <archive> <first> <last>
 //   remake_tool oras-hex <oras.3ds> <archive> <member> <file|-1> <offset> <length>
-//   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>] | <dst>=<archive>:<member>:<file> ...
+//   remake_tool oras-member <oras.3ds> <archive> <member> <file|-1> <out>
+//   remake_tool oras-layout <oras.3ds> <archive> <member> [file]  DARC/BCLYT/BCLAN/BCLIM described
+//   remake_tool oras-text <oras.3ds> <archive> <member>   a game text file's lines
+//   remake_tool oras-script <oras.3ds> <zone> [init]      a zone's script, unpacked and disassembled
+//   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>] | <dst>=<archive>:<member>:<file> | <dst>=motion:<archive>:<member>:<file>:<slot>[:<frames>] ...
 //   remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...
 //                     an Azahar mod: each file replaces that RomFS path, laid out as Azahar loads
 //                     mods (<out dir>/load/mods/<program id>/romfs/<path>); copy <out dir>/load
@@ -34,7 +38,7 @@
 //                     ORAS's own assets, as an Azahar mod (BPS patches), with town_preview.gltf, town_layout.txt and
 //                     town_piece.bin (the piece the mod writes, decompressed)
 //   remake_tool oras-code <oras.3ds> <out.bin>   the game's ExeFS .code, decompressed (ARM, loaded at 0x100000)
-//   remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--auto-zones] [--others-out] [--no-triggers] [--plan] [--matrix-template M]
+//   remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--auto-zones] [--others-out] [--no-triggers] [--no-characters] [--plan] [--matrix-template M]
 //                     [--model-matrix NN] [oras-town's kit options]
 //                     a rectangle of Sinnoh's piece grid (as oras-world cuts it) rebuilt as a new ORAS map matrix: its pieces built
 //                     as oras-town builds one, the zone grid from Platinum's map headers, each header on the ORAS zone given
@@ -71,6 +75,13 @@
 #include "Bch.h"
 #include "Bps.h"
 #include "BinLinker.h"
+#include "GfMotion.h"
+#include "Layout.h"
+#include "Darc.h"
+#include "Bclim.h"
+#include "OrasZone.h"
+#include "GameText.h"
+#include "Amx.h"
 #include "N3dsRom.h"
 #include "MapHeaders.h"
 #include "N3dsWorld.h"
@@ -450,6 +461,7 @@ int main(int argc, char** argv)
                 else if (flag == "--others-out") options.OthersOut = true;
                 else if (flag == "--auto-zones") options.AutoZones = true;
                 else if (flag == "--no-triggers") options.NoTriggers = true;
+                else if (flag == "--no-characters") options.NoCharacters = true;
                 else { fprintf(stderr, "unknown option %s\n", flag.c_str()); return 2; }
             }
             const NdsRom platinum(ReadFile(argv[2]));
@@ -459,7 +471,7 @@ int main(int argc, char** argv)
             return 0;
         }
         // decrypted 3DS game images
-        if (cmd == "oras-list" || cmd == "oras-find" || cmd == "oras-members" || cmd == "oras-copy" || cmd == "oras-hex" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch")
+        if (cmd == "oras-list" || cmd == "oras-find" || cmd == "oras-members" || cmd == "oras-copy" || cmd == "oras-hex" || cmd == "oras-member" || cmd == "oras-layout" || cmd == "oras-text" || cmd == "oras-script" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch")
         {
             N3dsRom game(argv[2]);
             char id[17];
@@ -491,7 +503,8 @@ int main(int argc, char** argv)
                     {
                         // <dst>=motion:<archive>:<member>:<file>:<slot>: a title-style motion pack built from a Pokemon's
                         // (ORAS_TITLE.md 1b): u32 count 2, the offsets of slot 0 (the skeleton) and slot 1, the end, then the
-                        // skeleton and the one motion taken from the Pokemon pack's slot <slot> (1: ba10_waitA01)
+                        // skeleton and the one motion taken from the Pokemon pack's slot <slot> (1: ba10_waitA01);
+                        // ...:<slot>:<frames>: the motion looped up to <frames> (a multiple of its own), LoopGfMotion
                         std::vector<std::string> f;
                         for (size_t at = 7, next; at <= src.size(); at = next + 1)
                         {
@@ -499,7 +512,7 @@ int main(int argc, char** argv)
                             if (next == std::string::npos) next = src.size();
                             f.push_back(src.substr(at, next - at));
                         }
-                        if (f.size() != 4) { fprintf(stderr, "expected motion:<archive>:<member>:<file>:<slot>: %s\n", src.c_str()); return 2; }
+                        if (f.size() != 4 && f.size() != 5) { fprintf(stderr, "expected motion:<archive>:<member>:<file>:<slot>[:<frames>]: %s\n", src.c_str()); return 2; }
                         const Garc other(game.Read(f[0]));
                         const Bytes& m = other.Sub((size_t)std::stoul(f[1]));
                         const Bytes plain = IsLzCompressed(m) ? LzDecompress(m) : m;
@@ -515,7 +528,16 @@ int main(int argc, char** argv)
                             if (!from || to < from || to > pack.size()) throw FormatError("motion pack slot " + std::to_string(k) + " is empty or out of the pack");
                             return Bytes(pack.begin() + from, pack.begin() + to);
                         };
-                        const Bytes skeleton = slotBytes(0), motion = slotBytes(slot);
+                        const Bytes skeleton = slotBytes(0);
+                        Bytes motion = slotBytes(slot);
+                        if (f.size() == 5)
+                        {
+                            const int period = GfMotionFrames(motion), frames = std::stoi(f[4]);
+                            if (frames < period || frames % period) { fprintf(stderr, "%s: %d frames is not a multiple of the motion's %d\n", src.c_str(), frames, period); return 2; }
+                            if (skeleton.size() % 4) throw FormatError("the skeleton would leave the motion unaligned");
+                            motion = LoopGfMotion(motion, frames / period);
+                            printf("motion of %d frames looped %d times: %d frames\n", period, frames / period, frames);
+                        }
                         Bytes out(16, 0);
                         auto put32 = [&](size_t at, uint32_t v) { for (int k = 0; k < 4; k++) out[at + k] = (uint8_t)(v >> (8 * k)); };
                         put32(0, 2); put32(4, 16); put32(8, (uint32_t)(16 + skeleton.size())); put32(12, (uint32_t)(16 + skeleton.size() + motion.size()));
@@ -592,6 +614,64 @@ int main(int argc, char** argv)
                     WriteFile((base / "romfs_ext" / (path + ".bps")).string(), bps);
                     printf("%s: patch %zu bytes, checked\n", path.c_str(), bps.size());
                 }
+                return 0;
+            }
+            if (cmd == "oras-layout" && argc >= 5)
+            {
+                // a member holding a layout's files, described: a DARC archive's files one by one, a BCLYT/BCLAN
+                // (Layout.h), a BCLIM image (Bclim.h); <file>: one file of its 2-letter container
+                const Garc g(game.Read(argv[3]));
+                Bytes d = Plain(g.Sub((size_t)atoi(argv[4])));
+                if (argc >= 6 && atoi(argv[5]) >= 0) d = BinLinker::Read(d, std::string(d.begin(), d.begin() + 2)).Files.at((size_t)atoi(argv[5]));
+                auto describe = [](const std::string& name, const Bytes& b) {
+                    const std::string m = b.size() >= 4 ? std::string(b.begin(), b.begin() + 4) : "";
+                    if (m == "CLYT" || m == "CLAN") return name + ": " + DescribeLayout(b);
+                    try
+                    {
+                        const ClimImage c = ClimImage::Read(b);
+                        char line[160];
+                        snprintf(line, sizeof line, "%s: BCLIM %u x %u %s (stored %u x %u)\n", name.c_str(), c.Width, c.Height, ClimFormatName(c.Format), c.StoredWidth, c.StoredHeight);
+                        return std::string(line);
+                    }
+                    catch (const FormatError&) {}
+                    char line[160];
+                    snprintf(line, sizeof line, "%s: %zu bytes, starts %s\n", name.c_str(), b.size(), m.c_str());
+                    return std::string(line);
+                };
+                if (d.size() >= 4 && std::string(d.begin(), d.begin() + 4) == "darc")
+                    for (const DarcFile& file : ReadDarc(d)) printf("%s", describe(file.Path, file.Data).c_str());
+                else printf("%s", describe(std::string("member ") + argv[4], d).c_str());
+                return 0;
+            }
+            if (cmd == "oras-text" && argc >= 5)
+            {
+                // the lines of a game text file (a GARC member, GameText.h), one a line, numbered
+                const Garc g(game.Read(argv[3]));
+                const std::vector<std::string> lines = ReadGameText(Plain(g.Sub((size_t)atoi(argv[4]))));
+                for (size_t i = 0; i < lines.size(); i++) printf("%zu\t%s\n", i, lines[i].c_str());
+                return 0;
+            }
+            if (cmd == "oras-script" && argc >= 4)
+            {
+                // a zone's script (a/0/1/3 member, OrasZone), or with "init" its init script, disassembled (Amx.h)
+                const Garc g(game.Read("a/0/1/3"));
+                const OrasZone z = OrasZone::Read(Plain(g.Sub((size_t)atoi(argv[3]))));
+                const Bytes& script = argc >= 5 && std::string(argv[4]) == "init" ? z.InitScript : z.Script;
+                const std::vector<std::string> natives = AmxNatives(script);
+                for (size_t i = 0; i < natives.size(); i++) printf("native %zu %s\n", i, natives[i].c_str());
+                printf("%s", AmxDisassemble(script).c_str());
+                return 0;
+            }
+            if (cmd == "oras-member" && argc >= 7)
+            {
+                // a member (LZ-decompressed), or one file of its 2-letter container (<file> -1: the member itself), written
+                // to <out>: for tools/remake/spica, which reads the 3DS formats SPICA knows
+                const Garc g(game.Read(argv[3]));
+                const Bytes& m = g.Sub((size_t)atoi(argv[4]));
+                Bytes d = IsLzCompressed(m) ? LzDecompress(m) : m;
+                if (atoi(argv[5]) >= 0) d = BinLinker::Read(d, std::string(d.begin(), d.begin() + 2)).Files.at((size_t)atoi(argv[5]));
+                WriteFile(argv[6], d);
+                printf("%s member %s%s: %zu bytes\n", argv[3], argv[4], atoi(argv[5]) >= 0 ? (std::string(" file ") + argv[5]).c_str() : "", d.size());
                 return 0;
             }
             if (cmd == "oras-hex" && argc >= 8)

@@ -66,3 +66,15 @@ if(REMAKE_CORE_CHECK)
         ${CMAKE_CURRENT_SOURCE_DIR}/../hd-textures/platform_stubs.cpp)
     target_link_libraries(emulator_texture_name_test PRIVATE remake core EGL GLESv2)
 endif()
+
+add_executable(remake_motion_test remake_motion_test.cpp)
+target_link_libraries(remake_motion_test PRIVATE remake)
+
+add_executable(remake_text_test remake_text_test.cpp)
+target_link_libraries(remake_text_test PRIVATE remake)
+
+add_executable(remake_script_test remake_script_test.cpp)
+target_link_libraries(remake_script_test PRIVATE remake)
+
+add_executable(remake_layout_test remake_layout_test.cpp)
+target_link_libraries(remake_layout_test PRIVATE remake)

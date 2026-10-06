@@ -83,6 +83,42 @@ bytes (name, flags `0x00040000`, per-axis keys), the layout documented by the 3D
 
 - `c2` (run 110) on the phone: the title as in all3, Giratina Origin still without motion (confirmed).
 
+- Run 118 dumps (checked): the title's BCH skeleton animations are long, made for the whole title loop: member 125
+  (Primal Groudon) has 61 bones and a frame count of 3500.0 (`f32` 0x455AC000 at 0x1C4), member 119 (Groudon) 58 bones
+  and 3080 frames (960,744 bytes). The motion packs 120 and 126 hold the same bones (count 2: skeleton, one motion of
+  64,936 bytes in 126 against 8,208 bytes for Giratina's 70-frame idle). Every mod so far put the PB pack's file 20 (748
+  bytes, an empty shell: a Pokémon's motion lives in the compact pack) in 125, so if the title drives the bones from 125,
+  Origin has nothing to play (inferred). `r8` (run 119) restores the original 125 with Giratina's skeleton in 126: if
+  Origin then moves (likely deformed), 125 drives the motion and the fix is a BCH skeletal animation written from the
+  compact idle; if it stays still, the motion comes from 126.
+
+- `r8` (run 119) on the phone: Giratina Origin still does not move with the original member 125. The owner's observation
+  (seen, unmodified game): **Primal Groudon has no skeleton animation on the title, only texture animation**, while
+  Groudon has one. So the game never plays a skeleton motion on the Primal slot, whatever 125 and 126 hold: Origin standing
+  still there is the game's own behaviour. Moving it needs either the animated (Groudon) slot or a `DllTitle.cro` change
+  that plays a motion on the Primal slot (code not found).
+
+- Run 120: `DllTitle.cro` holds neither the title motions' frame counts (3080.0, 3500.0 as `f32`) nor the title members'
+  numbers (108-145) as immediates or words (checked): which slot moves is not decided by such a constant in the module.
+- The owner (seen): the title alternates the two forms, and Giratina Altered in Groudon's slot plays its idle **in a loop**
+  for its whole turn.
+- Run 121, the motions' first words (checked): a motion starts `u16` flags, `u16` frame count: 87 `0x0104`, 500 frames;
+  120 `0x0104`, 3080 frames; 126 (Primal Groudon) `0x0117`, 3500 frames; Giratina's idle `0x01F7`, 70 frames. In the title
+  motions (over 255 frames) the key lists are `u16` (count, then frames): 126 has tracks of 93 keys about 36 frames apart,
+  so Primal Groudon's motion does move bones in the data, if slightly (the owner sees none on the phone). Lead (inferred,
+  untested): the Primal slot plays its motion on the title's own clock without looping, so a 70-frame motion stays on its
+  last frame; then Giratina's idle unrolled to 3500 frames (the format written, not only copied) would move.
+
+- The motion layout is SPICA's `GF1Motion` (checked against its source, `Formats/GFL/Motion/GF1Motion.cs`; summed up in
+  `src/GfMotion.h`): the first `u16` is the count of 3-bit codes (0x1F7 = 503 for Giratina's 105 bones), not flags, and the
+  "bit field" is those codes. `oras-copy ... <member>=motion:<archive>:<member>:<file>:<slot>:<frames>` writes the motion
+  looped up to `<frames>`. `r9` (run 122) puts Giratina Origin's idle looped 50 times (3500 frames, Primal Groudon's own
+  length) in member 126: not yet run on the phone.
+
+- Run 124/125, the logo (checked with `oras-layout`): `a/1/5/2` members 1120-1135 are bare BCLIM images in RGBA8, no
+  layout around them: 1120 and 1128 are 400 x 240 (a full top screen), 1121 and 1135 400 x 128. So the logo can be
+  replaced image for image (`Bclim.h` writes RGBA8 BCLIMs); which member shows in which language is still to read.
+
 ## 2. Plan
 
 1. Giratina Origin with its battle idle animation (`pm0487_12_ba10_waitA01`) in the four members 122-125, converted from
