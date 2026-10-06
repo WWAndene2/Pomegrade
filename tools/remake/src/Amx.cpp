@@ -1,5 +1,8 @@
 #include "Amx.h"
 
+#include <algorithm>
+#include <cstdio>
+
 namespace remake
 {
 
@@ -45,7 +48,13 @@ std::vector<int32_t> AmxCells(const Bytes& b)
     return cells;
 }
 
-static std::string Name(const Bytes& b, uint32_t at) { return Text(b, at, at < b.size() ? std::min<size_t>(64, b.size() - at) : 64); }
+// a name offset, or, as ORAS's scripts store (run 124: 0x0B13A189 in zone 6's script, past its 6440 bytes), a value
+// that is no offset into the script (a hash of the name, inferred), shown in hexadecimal
+static std::string Name(const Bytes& b, uint32_t at)
+{
+    if (at >= b.size()) { char hex[16]; snprintf(hex, sizeof hex, "#%08X", at); return hex; }
+    return Text(b, at, std::min<size_t>(64, b.size() - at));
+}
 
 std::vector<std::pair<uint32_t, std::string>> AmxPublics(const Bytes& b)
 {
