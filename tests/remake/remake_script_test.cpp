@@ -47,7 +47,7 @@ int main()
     check(AmxNatives(b) == std::vector<std::string>{"MoveObj"}, "native named");
     const std::string dis = AmxDisassemble(b);
     check(dis.find("push.c 5") != std::string::npos && dis.find("sysreq.c 0  ; MoveObj") != std::string::npos
-          && dis.find("const.pri -200000") != std::string::npos && dis.find("0 not a Pawn 3 opcode") != std::string::npos,
+          && dis.find("const.pri -200000") != std::string::npos && dis.find("0 packed (not a Pawn 3 opcode)") != std::string::npos,
           "disassembled with Pawn 3 opcodes and native names");
     Bytes truncated = b;
     truncated.push_back(0); Put32(truncated, 0, (uint32_t)truncated.size());

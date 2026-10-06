@@ -99,7 +99,7 @@ std::vector<std::string> ReadGameText(const Bytes& f)
             u.push_back(U16(f, sectionOffset + offset + 2 * k) ^ key);
             key = NextKey(key);
         }
-        if (!u.empty() && u.back() == 0) u.pop_back(); // the terminator
+        while (!u.empty() && u.back() == 0) u.pop_back(); // the terminator, and the zero padding some files keep (a/0/7/1)
         lines.push_back(Escape(u));
     }
     return lines;

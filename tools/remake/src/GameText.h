@@ -7,7 +7,8 @@
 // UTF-16 units are XORed with a key starting at 0x7C89 + 0x2983 x line index, rotated left by 3 bits after each unit.
 // In a line, 0x10 starts a variable (u16 count of the units that follow, u16 code, then count - 1 arguments); 0xE07F is
 // a non-breaking space, 0xE08D and 0xE08E the male and female symbols. The layout is the one the community's text
-// editors read; it is checked here only against itself (GameTextTest) until a run reads the game's files with it.
+// editors read; checked on the game's files (run 125: a/0/7/1 member 0, place names, a/0/7/3 member 2, species
+// categories, read as text). Trailing zero units (padding in some files) are dropped on reading.
 
 #include "Bytes.h"
 

@@ -115,6 +115,10 @@ bytes (name, flags `0x00040000`, per-axis keys), the layout documented by the 3D
   looped up to `<frames>`. `r9` (run 122) puts Giratina Origin's idle looped 50 times (3500 frames, Primal Groudon's own
   length) in member 126: not yet run on the phone.
 
+- Run 124/125, the logo (checked with `oras-layout`): `a/1/5/2` members 1120-1135 are bare BCLIM images in RGBA8, no
+  layout around them: 1120 and 1128 are 400 x 240 (a full top screen), 1121 and 1135 400 x 128. So the logo can be
+  replaced image for image (`Bclim.h` writes RGBA8 BCLIMs); which member shows in which language is still to read.
+
 ## 2. Plan
 
 1. Giratina Origin with its battle idle animation (`pm0487_12_ba10_waitA01`) in the four members 122-125, converted from

@@ -110,7 +110,12 @@ std::string AmxDisassemble(const Bytes& b)
         const int32_t op = cells[i];
         snprintf(line, sizeof line, "%06zX:", i * 4);
         out += line;
-        if (op < 0 || (size_t)op >= sizeof Ops / sizeof Ops[0]) { snprintf(line, sizeof line, " ?%d\n", op); out += line; unknown++; i++; continue; }
+        if (op < 0 || (size_t)op >= sizeof Ops / sizeof Ops[0])
+        {
+            // a packed instruction (Amx.h): opcode in the low 16 bits, operand in the high 16
+            snprintf(line, sizeof line, " p%d %d\n", op & 0xFFFF, (int16_t)(op >> 16));
+            out += line; unknown++; i++; continue;
+        }
         out += " "; out += Ops[op].Name;
         int n = Ops[op].Operands;
         if (n == -1 && i + 1 < codeCells) n = 1 + 2 * (cells[i + 1] + 1);      // casetbl: count, default, count (value, address)
@@ -120,7 +125,7 @@ std::string AmxDisassemble(const Bytes& b)
         out += "\n";
         i += 1 + std::max(n, 0);
     }
-    snprintf(line, sizeof line, "%zu code cells, %zu not a Pawn 3 opcode, %zu natives, %zu data cells\n", codeCells, unknown, natives.size(), cells.size() - codeCells);
+    snprintf(line, sizeof line, "%zu code cells, %zu packed (not a Pawn 3 opcode), %zu natives, %zu data cells\n", codeCells, unknown, natives.size(), cells.size() - codeCells);
     return out + line;
 }
 
