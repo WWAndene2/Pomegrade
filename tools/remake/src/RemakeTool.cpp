@@ -36,6 +36,8 @@
 //                     as oras-town builds one, the zone grid from Platinum's map headers, each header on the ORAS zone given
 //                     (-1: left out); --plan prints the rectangle's headers and builds nothing. Writes the mod, region_preview.gltf,
 //                     region_plan.txt and region_piece_<x>_<y>.bin
+//   remake_tool oras-save <main> [<out> <zone> <tile x> <tile z>]
+//                     where an ORAS save puts the player (OrasSave.h); with the rest, a copy with the player moved there
 //   remake_tool oras-sinnoh <platinum.nds> <oras.3ds> [strip width, default 5]
 //                     the plan for all of Sinnoh, nothing written: strips of whole piece columns (one matrix each), their
 //                     oras-region rectangles and map headers, the edge warps between strips, the ORAS zones needed and available
@@ -73,6 +75,7 @@
 #include "TopView.h"
 #include "OrasAppend.h"
 #include "OrasRegion.h"
+#include "OrasSave.h"
 #include "OrasTown.h"
 #include "PlatinumWorld.h"
 #include "ZoneEvents.h"
@@ -115,6 +118,7 @@ static int Usage()
                     "  remake_tool oras-code <oras.3ds> <out.bin>\n"
                     "  remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--plan]\n"
                     "  remake_tool oras-sinnoh <platinum.nds> <oras.3ds> [strip width]\n"
+                    "  remake_tool oras-save <main> [<out> <zone> <tile x> <tile z>]\n"
                     "                    [--matrix-template M] [--model-matrix NN] [oras-town's --matrix, --target, --donor, --trees, --donor-pack, --grass, ... --allow-errors]\n");
     return 2;
 }
@@ -528,6 +532,20 @@ int main(int argc, char** argv)
             return 0;
         }
 
+        if (cmd == "oras-save" && argc >= 3)
+        {
+            // print where an ORAS save puts the player; with <out> <zone> <tile x> <tile z>, write a copy moved there
+            OrasSave save = OrasSave::Read(ReadFile(argv[2]));
+            printf("%zu blocks, checksums match; player in zone %d at tile (%.2f, %.2f)\n", save.Blocks.size(), save.Zone(), save.X() / 18, save.Z() / 18);
+            if (argc >= 7)
+            {
+                save.MoveTo(atoi(argv[4]), (float)atof(argv[5]), (float)atof(argv[6]));
+                const OrasSave check = OrasSave::Read(save.Data);
+                WriteFile(argv[3], save.Data);
+                printf("written %s: zone %d at tile (%.2f, %.2f)\n", argv[3], check.Zone(), check.X() / 18, check.Z() / 18);
+            }
+            return 0;
+        }
         const NdsRom rom(ReadFile(argv[2]));
         if (cmd == "info")
         {
