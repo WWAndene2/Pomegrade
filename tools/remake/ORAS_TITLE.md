@@ -109,6 +109,12 @@ bytes (name, flags `0x00040000`, per-axis keys), the layout documented by the 3D
   untested): the Primal slot plays its motion on the title's own clock without looping, so a 70-frame motion stays on its
   last frame; then Giratina's idle unrolled to 3500 frames (the format written, not only copied) would move.
 
+- The motion layout is SPICA's `GF1Motion` (checked against its source, `Formats/GFL/Motion/GF1Motion.cs`; summed up in
+  `src/GfMotion.h`): the first `u16` is the count of 3-bit codes (0x1F7 = 503 for Giratina's 105 bones), not flags, and the
+  "bit field" is those codes. `oras-copy ... <member>=motion:<archive>:<member>:<file>:<slot>:<frames>` writes the motion
+  looped up to `<frames>`. `r9` (run 122) puts Giratina Origin's idle looped 50 times (3500 frames, Primal Groudon's own
+  length) in member 126: not yet run on the phone.
+
 ## 2. Plan
 
 1. Giratina Origin with its battle idle animation (`pm0487_12_ba10_waitA01`) in the four members 122-125, converted from
