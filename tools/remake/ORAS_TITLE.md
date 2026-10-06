@@ -22,9 +22,10 @@ checked (read in the game's files or seen on the phone), inferred, or unknown.
 | 130-145 | the same for Kyogre (`title_battle_pm0382_00` / `_51`) |
 | 1120-1135 | the logo layouts (`title_logo_ruby01.bclim` ... and `title_loop.bclan`), one per language; 1128-1135 sapphire |
 
-Each title Pokémon is 4 members, named as a battle model's: the model (122), the model with its skins (123:
-`pm0383_51_BodySkin` ...), `_conv` (124: animation conversion, inferred), the model with its skins again (125). The title's
-animations are made for Groudon's skeleton (inferred from the skins' names), so Giratina's model cannot take them.
+Each title Pokémon is 4 members, bare BCH files holding animations and no model (`oras-members`, checked): 122 (764
+bytes, a material animation of `BodyBInc`), 123 (896 bytes, the skins `pm0383_51_BodySkin` ...), 124 (`_conv`, 92,380
+bytes, material constants animated), 125 (153,672 bytes, the skeleton animation: bones `Hips`, `Jaw`, `LFeeler...`). They
+are made for Groudon's skeleton, so Giratina's model cannot take them.
 
 - The game's own Pokémon models: `a/0/0/8`, 8 members a form: Primal Groudon `pm0383_51` 4179-4184, Giratina Altered
   `pm0487_11` 5427-5433, Origin `pm0487_12` 5435-5441. Animations by name: `ba10_waitA01` (battle idle), `ba20_buturi`,
