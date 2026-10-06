@@ -20,6 +20,10 @@ on:
         description: 'Runs of the game on the runner (tools/remake/headless), one per line, "name: oras-town options" or "name: region <oras-region options>" (+save ZONE X Z moves the player, +cro ... patches a module); empty: none'
         default: ''
         required: false
+      script:
+        description: 'Commands for the headless runs, one per line or separated by ";" (tools/remake/headless/retro_host.cpp: wait N, hold KEYS N, press KEYS, mash KEYS N, field [N], screen, report, save NAME, load NAME); empty: A through the title to the field'
+        default: ''
+        required: false
       seconds:
         description: 'Game time each headless run is given to reach the field'
         default: '120'
@@ -300,8 +304,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # the core built once and kept: a run then takes minutes, not the 20+ of a build. Rebuilt when Azahar's sources or
+      # what the runner adds to them change
+      - name: Emulator core from the cache
+        id: core
+        uses: actions/cache/restore@v4
+        with:
+          path: core
+          key: remake-core-v1-${{ hashFiles('azahar/src/**', 'azahar/CMakeLists.txt', 'azahar/externals/CMakeLists.txt', 'tools/remake/headless/pomegrade_report.inc', 'tools/remake/headless/fs_open_trace.inc', 'tools/remake/headless/patch_core.py') }}
+
       - name: Azahar's submodules
-        run: git submodule update --init --recursive --depth 1 azahar
+        run: |
+          if [ "${{ steps.core.outputs.cache-hit }}" = true ]; then
+            git submodule update --init --depth 1 azahar/externals/libretro-common/libretro-common  # retro_host's libretro.h only
+          else
+            git submodule update --init --recursive --depth 1 azahar
+          fi
 
       - name: Game dumps from the cache
         id: dumps
@@ -341,6 +359,7 @@ jobs:
         run: sudo apt-get install --yes --quiet ninja-build ccache > /dev/null
 
       - name: Compilation cache
+        if: steps.core.outputs.cache-hit != 'true'
         uses: actions/cache@v4
         with:
           path: ~/.cache/ccache
@@ -348,37 +367,32 @@ jobs:
           restore-keys: remake-headless-ccache-
 
       - name: Build Azahar's libretro core (software renderer) with the thread report
+        if: steps.core.outputs.cache-hit != 'true'
         run: |
           # the report is added to the runner's copy only, never to the repository's Azahar sources
           cat tools/remake/headless/pomegrade_report.inc >> azahar/src/citra_libretro/citra_libretro.cpp
-          python3 - <<'PY'
-          # the file-open trace (fs_open_trace.inc) in place of OpenFile's debug line; fails loudly if Azahar's line moved
-          p = "azahar/src/core/hle/service/fs/fs_user.cpp"
-          s = open(p).read()
-          line = '    LOG_DEBUG(Service_FS, "path={}, mode={} attrs={}", file_path.DebugStr(), mode.hex, attributes);\n'
-          assert s.count(line) == 1, "OpenFile's debug line not found"
-          s = s.replace(line, open("tools/remake/headless/fs_open_trace.inc").read())
-          s = s.replace('#include "core/hle/kernel/process.h"', '#include "core/hle/kernel/process.h"\n#include "core/hle/kernel/thread.h"\n#include "core/memory.h"', 1)
-          open(p, "w").write(s)
-          # the software renderer crashes reading a texel (every headless run with the save, at the title screen's exit: SIGSEGV in
-          # LookupTexelInTile from TextureColor)
-          p = "azahar/src/video_core/renderer_software/sw_rasterizer.cpp"
-          s = open(p).read()
-          line = "            texture_color[i] = LookupTexture(texture_data, s, t, info);\n"
-          assert s.count(line) == 1, "the software renderer's texture lookup not found"
-          # runs 56, 60 and 63 crashed there even with the pointer, the texture's last byte and the coordinates checked: no texel is read
-          # at all (black). The headless runs need the field's modules and the threads, not the picture
-          s = s.replace(line, "            (void)texture_data; (void)info;\n            texture_color[i] = Common::Vec4<u8>{0, 0, 0, 255};\n")
-          open(p, "w").write(s)
-          PY
+          python3 tools/remake/headless/patch_core.py
           export CCACHE_DIR=~/.cache/ccache CCACHE_MAXSIZE=2G
           cmake -S azahar -B build-azahar -G Ninja -DCMAKE_BUILD_TYPE=Release -DENABLE_LIBRETRO=ON \
             -DENABLE_OPENGL=OFF -DENABLE_VULKAN=OFF -DENABLE_TESTS=OFF -DENABLE_CCACHE=ON > /dev/null
           ninja -C build-azahar citra_libretro
           ccache --show-stats | head -5
-          core=$(find build-azahar -name '*libretro*.so' | head -n 1)
-          echo "CORE=$core" >> "$GITHUB_ENV"
-          ls -l "$core"
+          mkdir -p core && cp "$(find build-azahar -name '*libretro*.so' | head -n 1)" core/azahar_libretro.so
+
+      - name: Keep the core
+        if: steps.core.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: core
+          key: ${{ steps.core.outputs.cache-primary-key }}
+
+      # save states made by scripts (save NAME), kept between runs: a script's load NAME resumes there
+      - name: Save states from the cache
+        uses: actions/cache/restore@v4
+        with:
+          path: states
+          key: remake-states-${{ github.run_id }}
+          restore-keys: remake-states-
 
       - name: Build remake_tool and retro_host
         run: |
@@ -391,9 +405,15 @@ jobs:
         env:
           RUNS: ${{ inputs.headless }}
           SECONDS_GIVEN: ${{ inputs.seconds }}
+          SCRIPT: ${{ inputs.script }}
         run: |
           set -o pipefail
-          mkdir -p results
+          mkdir -p results states
+          CORE=core/azahar_libretro.so
+          ls -l "$CORE"
+          # a script (input script, retro_host's commands) drives every run instead of A through the title
+          script=()
+          if [ -n "${SCRIPT// }" ]; then printf '%s\n' "$SCRIPT" | tr ';' '\n' > script.txt; script=("$PWD/script.txt"); cat script.txt; fi
           while IFS= read -r line; do
             [ -z "${line// }" ] && continue
             name="${line%%:*}"; name="${name// }"
@@ -431,11 +451,21 @@ jobs:
               # (not the game's own values): the size of the files in the save, 0 directories, their count, no duplication
               else python3 -c "import struct,sys,os; d=sys.argv[1]; f=[os.path.join(r,n) for r,_,ns in os.walk(d) for n in ns]; open(d+'.metadata','wb').write(struct.pack('<IIIB3x', sum(map(os.path.getsize,f)), 0, len(f), 0))" "$savedir"; fi
             fi
+            cp states/*.state "$work/" 2>/dev/null || true
             # under gdb: a crash of the core prints its backtrace instead of a bare "Segmentation fault"
             gdb -q -batch -ex 'handle SIGSEGV stop' -ex run -ex 'bt 30' -ex 'info sharedlibrary' --args \
-              ./retro_host "$CORE" dumps/oras.3ds "$work" "$SECONDS_GIVEN" 2>&1 | grep -v '^\[New Thread\|^\[Thread' | tee "results/$name.txt" || true
+              ./retro_host "$CORE" dumps/oras.3ds "$work" "$SECONDS_GIVEN" "${script[@]}" 2>&1 | grep -v '^\[New Thread\|^\[Thread' | tee "results/$name.txt" || true
+            cp "$work"/*.state states/ 2>/dev/null || true
             grep '^RESULT' "results/$name.txt" || echo "RESULT: the host stopped without a result"
             echo "::endgroup::"
           done <<< "$RUNS"
           echo "== results"
           grep -H '^RESULT' results/*.txt || true
+          ls -l states
+
+      - name: Keep the save states
+        if: always() && hashFiles('states/*.state') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: states
+          key: remake-states-${{ github.run_id }}
