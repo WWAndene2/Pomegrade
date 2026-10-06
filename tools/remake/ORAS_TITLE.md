@@ -45,6 +45,28 @@ are made for Groudon's skeleton, so Giratina's model cannot take them.
   skeleton's motion is in the PB pack's file 0 (160,964 bytes, a format the tool does not read yet), not in file 20.
   a/1/5/2's member 125 is padded with zeros after its LZ data so the archive keeps its size.
 
+## 1b. The Pokémon animation pack's compact motions (being decoded)
+
+`a/0/0/8`'s PB pack (Giratina Origin: member 5440) holds, as its file 0, the motions in a format of their own (not BCH),
+read so far from `oras-hex` dumps (checked on that file, the rest inferred):
+
+- `u32` count (0x1D = 29 motion slots), then 29 `u32` offsets from the file's start, 0 for an absent slot (Giratina's
+  first at 0x12E0, 0x32F0, ...), then `u32` 0x69 (105, the bone count).
+- The skeleton, from 0x7C: a byte list (parent and child indices, inferred), the bone names as NUL-ended text (`Waist`,
+  `Hips`, `LThighC`, ... `RFeelerA12`, up to 0x575), then from 0x580 each bone's rest transform as `f32` (scale 1.0,
+  rotation, translation).
+- A motion: `u16` 0x01F7 (meaning unknown), `u16` frame count (70 for `ba10_waitA01` at 0x12E0, 100 at 0x32F0), a bit
+  field (`40 92 FF FF 13 FC 49 AF ...`, one code per bone and axis, inferred), then key lists, each a `u8` count and that
+  many `u8` frame numbers (`02 08 2B`: two keys, frames 8 and 43; every frame below the count), then the values (`f32`,
+  not yet read).
+
+The title's skeleton animations are standard BCH (H3D) skeletal animations: member 125 holds 61 bone entries of 0x30
+bytes (name, flags `0x00040000`, per-axis keys), the layout documented by the 3DS community's tools.
+
+- How the title picks its model: not by a number in `DllTitle.cro` (its only 383, as a word or an unaligned `u16`, is
+  the cry). Next suspect: a function of the main program giving the version's Pokémon (Groudon in Omega Ruby, Kyogre in
+  Alpha Sapphire).
+
 ## 2. Plan
 
 1. Giratina Origin with its battle idle animation (`pm0487_12_ba10_waitA01`) in the four members 122-125, converted from
