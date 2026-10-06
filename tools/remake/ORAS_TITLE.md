@@ -60,6 +60,16 @@ read so far from `oras-hex` dumps (checked on that file, the rest inferred):
   many `u8` frame numbers (`02 08 2B`: two keys, frames 8 and 43; every frame below the count), then the values (`f32`,
   not yet read).
 
+- The pack's header (checked on two files): `u32` count, `count` `u32` offsets (0 for an absent slot), then the end
+  offset; data from `4 + 4 * (count + 1)`. Slot 0 is the skeleton (`u32` bone count, the hierarchy bytes, the names, the
+  rest transforms), slot k a motion: in a Pokémon's pack slot k matches the PB pack's BCH file k+1 (slot 1 =
+  `ba10_waitA01`, 70 frames). Motion values come as (`f32` value, `f32` slope) pairs per key (Hermite), the last key of a
+  looping track equal to the first (seen, inferred).
+- **The title has packs of this format of its own** (checked): `a/1/5/2` members 87 (first scene), 120 (the battle
+  scene's Groudon, 58 bones) and 126 (Primal Groudon, 61 bones), each with count 2: Groudon's skeleton and one motion.
+  Members 104-107, 113 and 127-129 are `CGFX` files (effects, inferred). So Giratina's own skeleton and idle motion can be
+  put in their place as they are, with no conversion: `oras-copy ... <member>=motion:a/0/0/8:<PB member>:0:1`.
+
 The title's skeleton animations are standard BCH (H3D) skeletal animations: member 125 holds 61 bone entries of 0x30
 bytes (name, flags `0x00040000`, per-axis keys), the layout documented by the 3DS community's tools.
 

@@ -487,6 +487,47 @@ int main(int argc, char** argv)
                     const size_t eq = arg.find('=');
                     if (eq == std::string::npos) { fprintf(stderr, "expected <dst>=<src>: %s\n", arg.c_str()); return 2; }
                     const std::string src = arg.substr(eq + 1);
+                    if (src.rfind("motion:", 0) == 0)
+                    {
+                        // <dst>=motion:<archive>:<member>:<file>:<slot>: a title-style motion pack built from a Pokemon's
+                        // (ORAS_TITLE.md 1b): u32 count 2, the offsets of slot 0 (the skeleton) and slot 1, the end, then the
+                        // skeleton and the one motion taken from the Pokemon pack's slot <slot> (1: ba10_waitA01)
+                        std::vector<std::string> f;
+                        for (size_t at = 7, next; at <= src.size(); at = next + 1)
+                        {
+                            next = src.find(':', at);
+                            if (next == std::string::npos) next = src.size();
+                            f.push_back(src.substr(at, next - at));
+                        }
+                        if (f.size() != 4) { fprintf(stderr, "expected motion:<archive>:<member>:<file>:<slot>: %s\n", src.c_str()); return 2; }
+                        const Garc other(game.Read(f[0]));
+                        const Bytes& m = other.Sub((size_t)std::stoul(f[1]));
+                        const Bytes plain = IsLzCompressed(m) ? LzDecompress(m) : m;
+                        const Bytes pack = BinLinker::Read(plain, std::string(plain.begin(), plain.begin() + 2)).Files.at((size_t)std::stoul(f[2]));
+                        const uint32_t count = U32(pack, 0);
+                        const size_t slot = (size_t)std::stoul(f[3]);
+                        if (count < 2 || slot == 0 || slot >= count || pack.size() < 4 + 4 * (count + 1)) { fprintf(stderr, "%s: not a motion pack with slot %zu\n", src.c_str(), slot); return 1; }
+                        // a slot ends where the next non-empty one (or the pack) does
+                        auto slotBytes = [&](size_t k) {
+                            const uint32_t from = U32(pack, 4 + 4 * k);
+                            uint32_t to = U32(pack, 4 + 4 * count);
+                            for (size_t j = k + 1; j < count; j++) if (U32(pack, 4 + 4 * j)) { to = U32(pack, 4 + 4 * j); break; }
+                            if (!from || to < from || to > pack.size()) throw FormatError("motion pack slot " + std::to_string(k) + " is empty or out of the pack");
+                            return Bytes(pack.begin() + from, pack.begin() + to);
+                        };
+                        const Bytes skeleton = slotBytes(0), motion = slotBytes(slot);
+                        Bytes out(16, 0);
+                        auto put32 = [&](size_t at, uint32_t v) { for (int k = 0; k < 4; k++) out[at + k] = (uint8_t)(v >> (8 * k)); };
+                        put32(0, 2); put32(4, 16); put32(8, (uint32_t)(16 + skeleton.size())); put32(12, (uint32_t)(16 + skeleton.size() + motion.size()));
+                        out.insert(out.end(), skeleton.begin(), skeleton.end());
+                        out.insert(out.end(), motion.begin(), motion.end());
+                        const size_t dst = (size_t)std::stoul(arg.substr(0, eq));
+                        const Bytes& old = source.Sub(dst);
+                        g.Set(dst, IsLzCompressed(old) ? Lz11Compress(out) : out);
+                        printf("%s member %zu <- %s: skeleton %zu bytes, motion %zu bytes\n", path.c_str(), dst, src.c_str(), skeleton.size(), motion.size());
+                        last = dst;
+                        continue;
+                    }
                     if (src.find(':') != std::string::npos)
                     {
                         // <dst>=<archive>:<member>:<file>: one file of a 2-letter container member of another archive (an
