@@ -1,6 +1,7 @@
 #include "Darc.h"
 
-#include <map>
+#include <cstdint>
+#include <functional>
 
 namespace remake
 {
@@ -41,34 +42,33 @@ std::vector<DarcFile> ReadDarc(const Bytes& f)
 
 Bytes WriteDarc(const std::vector<DarcFile>& files)
 {
-    // nodes: root, then each folder before the files under it, in the files' order
-    struct Node { std::string Name; bool Folder; uint32_t Parent; size_t File; uint32_t End; };
-    std::vector<Node> nodes = {{"", true, 0, 0, 0}};
-    std::map<std::string, size_t> folderOf = {{"", 0}};
-    std::vector<std::string> open;
+    // the folder tree, children in order of first appearance; the nodes are laid out depth first, so that each folder's
+    // nodes follow it contiguously (its End) whatever order the files come in
+    struct Dir { std::string Name; std::vector<size_t> Dirs, Files; };
+    std::vector<Dir> dirs = {{"", {}, {}}};
     for (size_t i = 0; i < files.size(); i++)
     {
-        std::vector<std::string> parts;
-        for (size_t at = 0, next; at <= files[i].Path.size(); at = next + 1)
+        size_t d = 0;
+        for (size_t at = 0, slash; (slash = files[i].Path.find('/', at)) != std::string::npos; at = slash + 1)
         {
-            next = files[i].Path.find('/', at);
-            if (next == std::string::npos) next = files[i].Path.size();
-            parts.push_back(files[i].Path.substr(at, next - at));
+            const std::string part = files[i].Path.substr(at, slash - at);
+            size_t found = SIZE_MAX;
+            for (size_t c : dirs[d].Dirs) if (dirs[c].Name == part) found = c;
+            if (found == SIZE_MAX) { found = dirs.size(); dirs.push_back({part, {}, {}}); dirs[d].Dirs.push_back(found); }
+            d = found;
         }
-        std::string dir;
-        for (size_t k = 0; k + 1 < parts.size(); k++)
-        {
-            const std::string parent = dir;
-            dir += (dir.empty() ? "" : "/") + parts[k];
-            if (!folderOf.count(dir)) { folderOf[dir] = nodes.size(); nodes.push_back({parts[k], true, (uint32_t)folderOf[parent], 0, 0}); }
-        }
-        nodes.push_back({parts.back(), false, 0, i, 0});
-        for (std::string d = dir;; d = d.substr(0, d.rfind('/') == std::string::npos ? 0 : d.rfind('/')))
-        {
-            nodes[folderOf[d]].End = (uint32_t)nodes.size();
-            if (d.empty()) break;
-        }
+        dirs[d].Files.push_back(i);
     }
+    struct Node { std::string Name; bool Folder; uint32_t Parent; size_t File; uint32_t End; };
+    std::vector<Node> nodes;
+    std::function<void(size_t, uint32_t)> lay = [&](size_t d, uint32_t parent) {
+        const size_t self = nodes.size();
+        nodes.push_back({dirs[d].Name, true, parent, 0, 0});
+        for (size_t f : dirs[d].Files) nodes.push_back({files[f].Path.substr(files[f].Path.rfind('/') + 1), false, 0, f, 0});
+        for (size_t c : dirs[d].Dirs) lay(c, (uint32_t)self);
+        nodes[self].End = (uint32_t)nodes.size();
+    };
+    lay(0, 0);
     Bytes nameTable;
     std::vector<uint32_t> nameAt;
     for (const Node& n : nodes)

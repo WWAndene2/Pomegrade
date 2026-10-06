@@ -20,10 +20,6 @@ AmxInfo AmxInfo::Read(const Bytes& b)
     return a;
 }
 
-}
-
-namespace remake
-{
 
 std::vector<int32_t> AmxCells(const Bytes& b)
 {
@@ -118,7 +114,7 @@ std::string AmxDisassemble(const Bytes& b)
         }
         out += " "; out += Ops[op].Name;
         int n = Ops[op].Operands;
-        if (n == -1 && i + 1 < codeCells) n = 1 + 2 * (cells[i + 1] + 1);      // casetbl: count, default, count (value, address)
+        if (n == -1 && i + 1 < codeCells) n = 2 + 2 * cells[i + 1];            // casetbl: count, default, count (value, address)
         else if (n == -2 && i + 1 < codeCells) n = 1 + cells[i + 1] / 4;       // file/symbol: a size in bytes, then that many
         for (int k = 1; k <= n && i + k < codeCells; k++) { snprintf(line, sizeof line, " %d", cells[i + k]); out += line; }
         if (op == 123 && i + 1 < codeCells && cells[i + 1] >= 0 && (size_t)cells[i + 1] < natives.size()) out += "  ; " + natives[cells[i + 1]];

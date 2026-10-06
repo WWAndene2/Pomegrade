@@ -6,7 +6,8 @@
 // "imag" block (u32 size 0x10, u16 width, u16 height, u32 format), u32 pixel data size. The stored size is the image's
 // rounded up to powers of two (at least 8) when the data size says so. Format numbers are CLIM's own (0 L8, 1 A8, 2 LA4,
 // 3 LA8, 4 HiLo8, 5 RGB565, 6 RGB8, 7 RGBA5551, 8 RGBA4, 9 RGBA8, 10 ETC1, 11 ETC1A4, 12 L4, 13 A4), mapped to PICA's.
-// The layout is the community's (Ohana3DS, Kuriimu); checked here against itself (remake_bclim_test).
+// The layout is the community's (Ohana3DS, Kuriimu); checked here against itself (remake_layout_test) and read
+// on the game's title logos (run 125).
 
 #include "Bytes.h"
 

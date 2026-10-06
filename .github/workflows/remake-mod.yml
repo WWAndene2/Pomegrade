@@ -235,7 +235,8 @@ jobs:
                 set -- ${query#spica }
                 if [ ! -x out/spica/spica ]; then
                   git submodule update --init --depth 1 tools/remake/external/SPICA
-                  dotnet build -c Release -o out/spica tools/remake/spica/SpicaCli.csproj > /dev/null
+                  # dotnet writes its compiler errors to stdout: kept, and shown when the build fails
+                  dotnet build -c Release -o out/spica tools/remake/spica/SpicaCli.csproj > out/spica_build.txt || { cat out/spica_build.txt; exit 1; }
                 fi
                 ./build-remake/remake_tool oras-member dumps/oras.3ds "$1" "$2" "$3" out/spica_in.bin
                 cmd=$4; shift 4

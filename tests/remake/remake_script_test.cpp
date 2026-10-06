@@ -49,6 +49,16 @@ int main()
     check(dis.find("push.c 5") != std::string::npos && dis.find("sysreq.c 0  ; MoveObj") != std::string::npos
           && dis.find("const.pri -200000") != std::string::npos && dis.find("0 packed (not a Pawn 3 opcode)") != std::string::npos,
           "disassembled with Pawn 3 opcodes and native names");
+    // casetbl: count, default, then count (value, address) pairs, and the next instruction read after them
+    {
+        const int32_t sw[] = {129, 8, 130, 1, 100, 5, 200, 48};  // switch; casetbl 1 default 100 (5 -> 200); retn
+        Bytes c(b.begin(), b.begin() + (long)cod);
+        for (int32_t v : sw) Pack(c, v);
+        Pack(c, 7);
+        Put32(c, 0, (uint32_t)c.size()); Put32(c, 16, (uint32_t)cod + 32); Put32(c, 20, (uint32_t)cod + 36); Put32(c, 24, (uint32_t)cod + 36);
+        const std::string d = AmxDisassemble(c);
+        check(d.find("casetbl 1 100 5 200\n") != std::string::npos && d.find("retn") != std::string::npos, "casetbl takes 2 + 2 x count operands");
+    }
     Bytes truncated = b;
     truncated.push_back(0); Put32(truncated, 0, (uint32_t)truncated.size());
     bool threw = false;

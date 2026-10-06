@@ -141,6 +141,20 @@ static int Usage()
 
 static Bytes Plain(const Bytes& data) { return IsLzCompressed(data) ? LzDecompress(data) : data; }
 
+// one file of a 2-letter container (a member LZ-decompressed), checked to be one
+static Bytes ContainerFile(const Bytes& plain, size_t file)
+{
+    if (plain.size() < 2) throw FormatError("a member of " + std::to_string(plain.size()) + " bytes is no container");
+    return BinLinker::Read(plain, std::string(plain.begin(), plain.begin() + 2)).Files.at(file);
+}
+
+// a member, LZ-decompressed, or one file of its container (file -1: the member itself)
+static Bytes MemberOrFile(const Garc& archive, size_t member, int file)
+{
+    const Bytes plain = Plain(archive.Sub(member));
+    return file >= 0 ? ContainerFile(plain, (size_t)file) : plain;
+}
+
 // the options oras-town and oras-region share: Platinum's matrix, the kit pieces and packs, the builder's switches. false: not one of them
 static bool TownKitOption(const std::string& flag, int argc, char** argv, int& i, OrasTownOptions& options)
 {
@@ -515,8 +529,7 @@ int main(int argc, char** argv)
                         if (f.size() != 4 && f.size() != 5) { fprintf(stderr, "expected motion:<archive>:<member>:<file>:<slot>[:<frames>]: %s\n", src.c_str()); return 2; }
                         const Garc other(game.Read(f[0]));
                         const Bytes& m = other.Sub((size_t)std::stoul(f[1]));
-                        const Bytes plain = IsLzCompressed(m) ? LzDecompress(m) : m;
-                        const Bytes pack = BinLinker::Read(plain, std::string(plain.begin(), plain.begin() + 2)).Files.at((size_t)std::stoul(f[2]));
+                        const Bytes pack = ContainerFile(Plain(m), (size_t)std::stoul(f[2]));
                         const uint32_t count = U32(pack, 0);
                         const size_t slot = (size_t)std::stoul(f[3]);
                         if (count < 2 || slot == 0 || slot >= count || pack.size() < 4 + 4 * (count + 1)) { fprintf(stderr, "%s: not a motion pack with slot %zu\n", src.c_str(), slot); return 1; }
@@ -526,6 +539,8 @@ int main(int argc, char** argv)
                             uint32_t to = U32(pack, 4 + 4 * count);
                             for (size_t j = k + 1; j < count; j++) if (U32(pack, 4 + 4 * j)) { to = U32(pack, 4 + 4 * j); break; }
                             if (!from || to < from || to > pack.size()) throw FormatError("motion pack slot " + std::to_string(k) + " is empty or out of the pack");
+                            // GfMotion counts a motion's alignments from its start, right only for a 4-aligned slot
+                            if (from % 4) throw FormatError("motion pack slot " + std::to_string(k) + " is not 4-aligned in its pack");
                             return Bytes(pack.begin() + from, pack.begin() + to);
                         };
                         const Bytes skeleton = slotBytes(0);
@@ -533,6 +548,7 @@ int main(int argc, char** argv)
                         if (f.size() == 5)
                         {
                             const int period = GfMotionFrames(motion), frames = std::stoi(f[4]);
+                            if (period < 1) { fprintf(stderr, "%s: the motion has no frames to loop\n", src.c_str()); return 1; }
                             if (frames < period || frames % period) { fprintf(stderr, "%s: %d frames is not a multiple of the motion's %d\n", src.c_str(), frames, period); return 2; }
                             if (skeleton.size() % 4) throw FormatError("the skeleton would leave the motion unaligned");
                             motion = LoopGfMotion(motion, frames / period);
@@ -621,8 +637,7 @@ int main(int argc, char** argv)
                 // a member holding a layout's files, described: a DARC archive's files one by one, a BCLYT/BCLAN
                 // (Layout.h), a BCLIM image (Bclim.h); <file>: one file of its 2-letter container
                 const Garc g(game.Read(argv[3]));
-                Bytes d = Plain(g.Sub((size_t)atoi(argv[4])));
-                if (argc >= 6 && atoi(argv[5]) >= 0) d = BinLinker::Read(d, std::string(d.begin(), d.begin() + 2)).Files.at((size_t)atoi(argv[5]));
+                const Bytes d = MemberOrFile(g, (size_t)atoi(argv[4]), argc >= 6 ? atoi(argv[5]) : -1);
                 auto describe = [](const std::string& name, const Bytes& b) {
                     const std::string m = b.size() >= 4 ? std::string(b.begin(), b.begin() + 4) : "";
                     if (m == "CLYT" || m == "CLAN") return name + ": " + DescribeLayout(b);
@@ -667,9 +682,7 @@ int main(int argc, char** argv)
                 // a member (LZ-decompressed), or one file of its 2-letter container (<file> -1: the member itself), written
                 // to <out>: for tools/remake/spica, which reads the 3DS formats SPICA knows
                 const Garc g(game.Read(argv[3]));
-                const Bytes& m = g.Sub((size_t)atoi(argv[4]));
-                Bytes d = IsLzCompressed(m) ? LzDecompress(m) : m;
-                if (atoi(argv[5]) >= 0) d = BinLinker::Read(d, std::string(d.begin(), d.begin() + 2)).Files.at((size_t)atoi(argv[5]));
+                const Bytes d = MemberOrFile(g, (size_t)atoi(argv[4]), atoi(argv[5]));
                 WriteFile(argv[6], d);
                 printf("%s member %s%s: %zu bytes\n", argv[3], argv[4], atoi(argv[5]) >= 0 ? (std::string(" file ") + argv[5]).c_str() : "", d.size());
                 return 0;
@@ -679,9 +692,7 @@ int main(int argc, char** argv)
                 // bytes of a member (LZ-decompressed), or of one file of its 2-letter container (<file> -1: the member itself),
                 // from <offset>, <length> of them, 16 a line: to read formats the tool does not know yet (ORAS_TITLE.md)
                 const Garc g(game.Read(argv[3]));
-                const Bytes& m = g.Sub((size_t)atoi(argv[4]));
-                Bytes d = IsLzCompressed(m) ? LzDecompress(m) : m;
-                if (atoi(argv[5]) >= 0) d = BinLinker::Read(d, std::string(d.begin(), d.begin() + 2)).Files.at((size_t)atoi(argv[5]));
+                const Bytes d = MemberOrFile(g, (size_t)atoi(argv[4]), atoi(argv[5]));
                 const size_t from = (size_t)std::stoul(argv[6], nullptr, 0), length = (size_t)std::stoul(argv[7], nullptr, 0);
                 printf("%zu bytes in all\n", d.size());
                 for (size_t at = from; at < std::min(d.size(), from + length); at += 16)

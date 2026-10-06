@@ -18,6 +18,7 @@ patched word, 10, 28 and 29 are branches (the Azahar loader leaves them unimplem
 Needs capstone (pip install capstone).
 """
 import argparse
+import re
 import struct
 import sys
 
@@ -188,6 +189,10 @@ def main():
         from capstone.arm import ARM_OP_IMM
         md = Cs(CS_ARCH_ARM, CS_MODE_ARM)
         md.detail = True
+        md.skipdata = True  # a literal pool word that decodes to nothing must not end the sweep of a segment
+        cond = "(eq|ne|cs|hs|cc|lo|mi|pl|vs|vc|hi|ls|ge|lt|gt|le|al)?"
+        branch = re.compile(f"^(b|bl|blx){cond}$")
+        call = re.compile(f"^blx?{cond}$")  # "ble", "bls", "blt" are b + le/ls/lt: not calls
         code = [(off, size) for off, size, kind in cro.segments if kind == 0]
 
         def name_of(address):
@@ -198,7 +203,7 @@ def main():
             return None
 
         def branch_target(ins):
-            if ins.mnemonic.startswith(("bl", "b")) and ins.operands and ins.operands[0].type == ARM_OP_IMM:
+            if branch.match(ins.mnemonic) and ins.operands and ins.operands[0].type == ARM_OP_IMM:
                 return ins.operands[0].imm
             return None
 
@@ -234,7 +239,8 @@ def main():
             for name, _module, relocations in cro.imports:
                 if name == target_text or name.endswith("::" + target_text):
                     for t, _k, _a in relocations:
-                        print(f"import {name} used at 0x{t:X}")
+                        if t is not None:
+                            print(f"import {name} used at 0x{t:X}")
             if target is not None:
                 for off, size in code:
                     for ins in md.disasm(bytes(cro.data[off:off + size]), off):
@@ -250,7 +256,7 @@ def main():
                     if ins.mnemonic in ("push", "stmdb") and "lr" in ins.op_str:
                         starts.setdefault(ins.address, 0)
                     t = branch_target(ins)
-                    if t is not None and ins.mnemonic.startswith("bl"):
+                    if t is not None and call.match(ins.mnemonic):
                         starts[t] = starts.get(t, 0) + 1
             for address in sorted(starts):
                 print(f"0x{address:X} called {starts[address]}x {name_of(address) or ''}")

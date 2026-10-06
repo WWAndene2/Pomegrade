@@ -2,6 +2,8 @@
 
 #include "PicaTexture.h"
 
+#include <algorithm>
+
 namespace remake
 {
 
@@ -24,8 +26,11 @@ ClimImage ClimImage::Read(const Bytes& f)
     if (c.Format >= 14) throw FormatError("BCLIM: format " + std::to_string(c.Format));
     const uint32_t dataSize = U32(f, footer + 0x24);
     if (dataSize > footer) throw FormatError("BCLIM: data size past the file");
-    c.StoredWidth = c.Width; c.StoredHeight = c.Height;
-    if (PicaTextureLength(c.Width, c.Height, ToPica[c.Format]) != dataSize) { c.StoredWidth = Pow2(c.Width); c.StoredHeight = Pow2(c.Height); }
+    // stored at the image's size only when that is whole 8x8 tiles and fills the data exactly; otherwise rounded to powers
+    // of two (two sizes can give the same length once rounded up to 0x80, so the length alone does not decide)
+    const bool tiled = c.Width % 8 == 0 && c.Height % 8 == 0 && PicaTextureLength(c.Width, c.Height, ToPica[c.Format]) == dataSize;
+    c.StoredWidth = tiled ? c.Width : Pow2(c.Width);
+    c.StoredHeight = tiled ? c.Height : Pow2(c.Height);
     if (PicaTextureLength(c.StoredWidth, c.StoredHeight, ToPica[c.Format]) != dataSize) throw FormatError("BCLIM: data size matches neither the image's size nor its power-of-two rounding");
     c.Pixels = Slice(f, 0, dataSize);
     return c;
