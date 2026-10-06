@@ -92,6 +92,12 @@ bytes (name, flags `0x00040000`, per-axis keys), the layout documented by the 3D
   Origin then moves (likely deformed), 125 drives the motion and the fix is a BCH skeletal animation written from the
   compact idle; if it stays still, the motion comes from 126.
 
+- `r8` (run 119) on the phone: Giratina Origin still does not move with the original member 125. The owner's observation
+  (seen, unmodified game): **Primal Groudon has no skeleton animation on the title, only texture animation**, while
+  Groudon has one. So the game never plays a skeleton motion on the Primal slot, whatever 125 and 126 hold: Origin standing
+  still there is the game's own behaviour. Moving it needs either the animated (Groudon) slot or a `DllTitle.cro` change
+  that plays a motion on the Primal slot (code not found).
+
 ## 2. Plan
 
 1. Giratina Origin with its battle idle animation (`pm0487_12_ba10_waitA01`) in the four members 122-125, converted from
