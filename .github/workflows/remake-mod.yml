@@ -135,7 +135,7 @@ jobs:
           QUERIES: ${{ inputs.inspect }}
         run: |
           set -o pipefail
-          mkdir -p mods
+          mkdir -p mods out   # out/: the extracted files, even when no mod was built before
           n=0
           while IFS= read -r query; do
             [ -z "${query// }" ] && continue
