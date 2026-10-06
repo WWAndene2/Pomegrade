@@ -142,6 +142,11 @@ jobs:
                 cp -r "out/$part/." "out/$name/"
               done
               (cd "out/$name" && find . -type f) | tee "mods/${name}_log.txt"
+            elif [[ "$options" =~ ^[[:space:]]*asset[[:space:]] ]]; then
+              # "name: asset <archive> <member> <file|-1> <edit>...": a model's textures edited (oras-asset edit, AssetEdit.h),
+              # e.g. recolour:<texture>:<hue>:<saturation>:<brightness>[:<around>:<range>]
+              set -- ${options#*asset }
+              ./build-remake/remake_tool oras-asset dumps/oras.3ds "$1" "$2" "$3" edit "out/$name" "${@:4}" | tee "mods/${name}_log.txt"
             elif [[ "$options" =~ ^[[:space:]]*copy[[:space:]] ]]; then
               # "name: copy <archive> <dst>[-<last>]=<src>[-<last>] ...": archive members copied over others (oras-copy)
               ./build-remake/remake_tool oras-copy dumps/oras.3ds "out/$name" ${options#*copy } | tee "mods/${name}_log.txt"
@@ -238,6 +243,8 @@ jobs:
                   azahar/src/core/file_sys/patch.cpp azahar/src/common/file_util.cpp azahar/src/common/string_util.cpp \
                   build-remake/libremake.a -Wl,--unresolved-symbols=ignore-all -o out/romfs_offset_check
                 out/romfs_offset_check dumps/oras.3ds "out/romfs_$n/load/mods/000400000011C400/" $offsets | tee "mods/inspect_$n.txt" ;;
+              # "asset <archive> <member> <file|-1>": a model file's models and textures (oras-asset list)
+              asset\ *) ./build-remake/remake_tool oras-asset dumps/oras.3ds ${query#asset } list | tee "mods/inspect_$n.txt" ;;
               # "crodis <module.cro> [other .cro/.crs ...] info|symbols|dis <address|symbol> [n]|xref <...>|functions": a code
               # module read as the loader reads it (prototype/cro_dis.py: exports, imports, relocations, named calls)
               crodis\ *)
