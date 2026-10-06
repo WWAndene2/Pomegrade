@@ -38,7 +38,7 @@ struct OrasRegionOptions
     std::map<int, int> Zones;
     // a zone for every header Zones does not name: Hoenn's overworld zones first, then the empty ones; header 0 left out
     bool AutoZones = false;
-    // the zones moved onto the matrix lose Hoenn's triggers (tiles that start a script when stepped on): r5 froze on the phone
+    // the zones moved onto the matrix have Hoenn's triggers (tiles that start a script when stepped on) moved off the map: r5 froze on the phone
     // with the field running and no emulator error, and its zones 6 and 23 kept Littleroot's and Route 101's triggers at their
     // Hoenn tiles, whose scripts look for Hoenn's characters and places (suspect, untested)
     bool NoTriggers = false;
