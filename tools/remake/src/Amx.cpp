@@ -76,6 +76,8 @@ std::vector<std::string> AmxNatives(const Bytes& b)
 // pk3DS checks the operands of the global and the local (.s) variants of load/lref/stor/sref/inc/dec as such, opcode
 // for opcode. 0x9E-0xA1 have no Pawn 3.3 name known here: named op158..op161 with pk3DS's operand counts (0xA0 is not
 // accepted by it). Jump and call targets are relative to the instruction (pk3DS: line * 4 + delta).
+// Checked on the whole game (run 126, `oras-script all`): 1072 scripts, 569031 code cells, none that is no opcode,
+// 40720 of 40720 calls landing on a proc, 33478 of 33478 jumps on an instruction.
 // Operands: n cells, -1 casetbl (count, then 1 + 2 x count), -3 op161 (a byte size s, then 2 x (s / 4) + 1), -9 refused
 struct Op { const char* Name; int Operands; };
 static const Op Ops[] = {
