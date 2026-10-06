@@ -31,18 +31,9 @@ Pomegrade is currently **two apps side by side in one APK**: melonDS-android (DS
 
 ## 2. Improvements to what exists
 
-**Unified list**
-- Real title and icon of 3DS games, read in the background and cached (today: file name only, since reading them needs the 3DS core).
-- Filter by console (DS / DSi / 3DS).
-- Home-screen shortcuts for 3DS games (the shortcut picker offers DS games only).
-- `.cia` installation from the main list (today: Azahar's "3DS games" screen).
+The open items of the unified list, HD textures, native enhancements and performance are in the work list (below "Recommended order"); this section keeps what is done and how it was measured.
 
 **HD textures**
-- Background loading, to remove the hitch the first time a texture appears.
-- 2D graphics replacement (menus, sprites): a separate engine in melonDS.
-- Optional bilinear filtering of HD textures.
-- Easier pack installation (folder picker): `Android/data` is hard to reach on Android 11+.
-- HD textures for 3DS: Azahar already supports custom textures; both could share one pack format.
 - "DS engine on steroids": native enhancements done by the emulator itself (no AI, no hand-made assets, no post-processing of the final image). The game always sees the real DS behaviour; only what is drawn changes. All in Settings → Video, off by default, verified pixel-identical to the original engine when off. Desktop tests in `tests/polygon-multiplier/`. **None tried on real games or a phone yet.**
 
   | Enhancement | Renderers | Status, measured on the desktop |
@@ -67,15 +58,6 @@ Pomegrade is currently **two apps side by side in one APK**: melonDS-android (DS
   Lighting effects and how games draw: they light the opaque 3D only; translucent polygons (2D dialog boxes, water, smoke), fog and edge marking are drawn again over the lit image with the DS's own rules (dialog box within one 6-bit colour step of the scene lit behind it, full fog unchanged). Unlit polygons (painted-in lighting, skies) cast no shadow; reflections ignore surfaces facing away from the ray (no more floor reflecting itself in bands). The effects pause while a game captures its 3D every frame (3D on both screens, motion blur), which would otherwise flicker; they come back 30 frames after. Limits: cut-out sprites (A3I5/A5I3 textures) get no effects; a sprite very close in front of a flat backdrop gets a faint AO halo; a shiny floor can faintly reflect an object hidden in fog.
 
   Known limits: the Compute renderer ignores all of these; small cracks are possible where a multiplied polygon meets one that isn't; extra polygons aren't kept in savestates (redrawn on the next frame).
-
-  Next:
-  - Native texture smoothing in the 3D engine (mipmaps).
-  - 3DS: the same enhancements for Azahar's engine.
-
-**Performance and size**
-- Measure the release APK library by library and drop what neither core needs (e.g. check whether `libSPIRV-Tools-shared.so`, 5.7 MB, is required at runtime).
-- One copy of shared libraries: both cores ship their own zstd, xxhash, fmt, …
-- Device profiles: renderer and resolution chosen from the phone's capabilities.
 
 **Build**
 - Remove or fix the unused upstream workflows in `melonDS-android/.github/`.
@@ -171,3 +153,18 @@ Steps 1–2 take a few work sessions; steps 3–4 are a major rebuild measured i
 1. Section 1, for a stable, tested version.
 2. Steps 1–2 of section 4 (storage and settings), the most visible improvement day to day.
 3. Then decide on the core interface and single emulation screen, once the base has been tested on a phone.
+
+## Work list, step by step (owner's list, 6 October 2026)
+
+Done one step at a time, in this order; each step is ticked here when done, with how it was verified.
+
+1. **LayeredFS mods: a BPS patch that makes a file shorter keeps the old file's tail.** Azahar applies a patch into a buffer of the original file's size (`azahar/src/core/file_sys/layered_fs.cpp`, `buffer(file.relocation.size)`). Today `oras-region` and `oras-copy` work around it (the archive shipped whole under `romfs/`, or zero padding after the last member). Fix: size the file from the patch's target size in Azahar.
+2. **Software renderer: crashes reading some textures** (seen in the `Remake mod` workflow's headless runs: SIGSEGV in `LookupTexelInTile` from `TextureColor` at the title screen's exit; worked around on the runner only by reading no texel, `tools/remake/headless/patch_core.py`). To fix in Azahar itself, for phones without a good GPU.
+3. **Mods installed in one gesture**: import a mod zip from the app instead of copying `load/` and `sdmc/` by hand.
+4. **Game list**: real title and icon of 3DS games, read in the background and cached (today: the file name, since reading them needs the 3DS core); filter by console (DS / DSi / 3DS); home-screen shortcuts for 3DS games (the shortcut picker offers DS games only); `.cia` installation from the main list (today: Azahar's "3DS games" screen).
+5. **HD textures**: background loading, to remove the hitch the first time a texture appears; optional bilinear filtering; easier pack installation (`Android/data` is hard to reach on Android 11+); one pack format for DS and 3DS (Azahar already supports custom textures); DS 2D graphics replacement (menus, sprites: a separate engine in melonDS).
+6. **Native DS enhancements** ("DS engine on steroids", all done on the desktop, never tried on a phone): try them on real games; native texture smoothing (mipmaps); remove the multiplier's small cracks where a multiplied polygon meets one that isn't; extend them to Azahar's 3DS engine.
+7. **120 fps for the 3DS** (done for the DS: frame generation).
+8. **Performance and size**: measure the APK library by library and drop what neither core needs (e.g. `libSPIRV-Tools-shared.so`, 5.7 MB); one copy of the libraries both cores ship (zstd, xxhash, fmt, …); device profiles (renderer and resolution chosen from the phone).
+9. **DS Inspector**: compile it for Android; tie display lists to the cartridge files they were loaded from (section 3b).
+10. **One coherent app** (major work, section 4): unified storage done, untested; unified settings, first part done; core interface, one contract for melonDS and Azahar (the largest piece, weeks of work); single emulation screen, first part done, not compiled; visual identity done, not compiled.
