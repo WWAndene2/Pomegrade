@@ -109,7 +109,7 @@ jobs:
             if [[ "$options" =~ ^[[:space:]]*cro[[:space:]] ]]; then
               # "name: cro <module> OFFSET=OLD:NEW ...": a code module patched alone, no map built (the title screen's species)
               cro="${options#*cro }"; mkdir -p "out/$name"
-            elif [[ "$options" =~ ^[[:space:]]*save[[:space:]] ]]; then
+            elif [[ "$options" =~ ^[[:space:]]*save([[:space:]]|$) ]]; then
               # "name: save <zone> <tile x> <tile z>": the owner's save (Drive) with the player moved (oras-save), as the
               # sdmc folder Azahar reads under Pomegrade/3DS, with the save's 00000001.metadata beside it (to merge with a mod)
               if [ ! -d save ]; then
@@ -121,8 +121,10 @@ jobs:
               meta=$(find save -type f -name '00000001.metadata' | head -n 1)
               data="out/$name/sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/00040000/0011c400/data"
               mkdir -p "$data" && cp -r "$(dirname "$main")" "$data/00000001"
-              set -- ${options#*save }
-              ./build-remake/remake_tool oras-save "$main" "$data/00000001/main" "$1" "$2" "$3" | tee "mods/${name}_log.txt"
+              set -- ${options#*save}
+              # "name: save" alone: the save as it is (the player where the owner left them)
+              if [ $# -ge 3 ]; then ./build-remake/remake_tool oras-save "$main" "$data/00000001/main" "$1" "$2" "$3" | tee "mods/${name}_log.txt"
+              else ./build-remake/remake_tool oras-save "$main" | tee "mods/${name}_log.txt"; fi
               if [ -n "$meta" ]; then cp "$meta" "$data/"; else echo "::warning::the Drive save has no 00000001.metadata"; fi
               mkdir -p "out/$name/load"
             elif [[ "$options" =~ ^[[:space:]]*merge[[:space:]] ]]; then
