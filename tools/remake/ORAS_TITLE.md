@@ -83,6 +83,15 @@ bytes (name, flags `0x00040000`, per-axis keys), the layout documented by the 3D
 
 - `c2` (run 110) on the phone: the title as in all3, Giratina Origin still without motion (confirmed).
 
+- Run 118 dumps (checked): the title's BCH skeleton animations are long, made for the whole title loop: member 125
+  (Primal Groudon) has 61 bones and a frame count of 3500.0 (`f32` 0x455AC000 at 0x1C4), member 119 (Groudon) 58 bones
+  and 3080 frames (960,744 bytes). The motion packs 120 and 126 hold the same bones (count 2: skeleton, one motion of
+  64,936 bytes in 126 against 8,208 bytes for Giratina's 70-frame idle). Every mod so far put the PB pack's file 20 (748
+  bytes, an empty shell: a Pokémon's motion lives in the compact pack) in 125, so if the title drives the bones from 125,
+  Origin has nothing to play (inferred). `r8` (run 119) restores the original 125 with Giratina's skeleton in 126: if
+  Origin then moves (likely deformed), 125 drives the motion and the fix is a BCH skeletal animation written from the
+  compact idle; if it stays still, the motion comes from 126.
+
 ## 2. Plan
 
 1. Giratina Origin with its battle idle animation (`pm0487_12_ba10_waitA01`) in the four members 122-125, converted from
