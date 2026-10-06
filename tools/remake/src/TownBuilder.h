@@ -37,6 +37,11 @@ struct TownSources
     int TreeReach = 2;
     // the door models' type (0: the target's own, entry by entry); their other words stay the target's
     uint32_t DoorType = 0;
+    // the bottom row and the side columns made solid: a town built alone in another place's cell (oras-town); oras-region's pieces
+    // meet their neighbours there
+    bool CloseEdges = true;
+    // the terrain model's name, which tells its place (world<matrix>_<x>_<y>, 13 characters as the game's); empty: the target's
+    std::string ModelName;
 };
 
 // the new piece's bytes; log: what was placed

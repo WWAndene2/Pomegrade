@@ -31,8 +31,12 @@ public:
     const std::map<std::string, std::pair<uint64_t, uint64_t>>& Files() const { return FileList; }
     bool Has(const std::string& path) const { return FileList.count(path) != 0; }
     Bytes Read(const std::string& path);
+    // the game's code (ExeFS ".code"), decompressed when the extended header says it is packed (BLZ, BlzDecompress): ARM code
+    // loaded at 0x100000 (ORAS_LITTLEROOT.md 7)
+    Bytes Code();
 
 private:
+    uint64_t Ncch = 0;
     std::ifstream File;
     uint64_t ImageSize = 0, Program = 0;
     std::string Product;

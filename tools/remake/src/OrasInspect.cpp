@@ -5,6 +5,7 @@
 #include "BinLinker.h"
 #include "Garc.h"
 #include "NitroCompression.h"
+#include "OrasMatrix.h"
 #include "OrasZone.h"
 
 #include <algorithm>
@@ -14,6 +15,7 @@
 #include <fstream>
 #include <set>
 #include <map>
+#include <optional>
 
 namespace remake
 {
@@ -87,6 +89,12 @@ std::string InspectPiece(N3dsRom& game, size_t piece)
     const Bytes& tiles = gr.Files.at(0);
     const unsigned w = U16(tiles, 0), h = U16(tiles, 2);
     s += F("  part 0: tile block %ux%u, %zu bytes (%zu after the tiles)\n", w, h, tiles.size(), tiles.size() - 4 - (size_t)w * h * 4);
+    {
+        // the bytes after the tiles (meaning unknown), as words: compared between pieces (the built pieces keep Littleroot's)
+        std::string tail = "    after the tiles:";
+        for (size_t at = 4 + (size_t)w * h * 4; at + 4 <= tiles.size(); at += 4) tail += F(" %08x", U32(tiles, at));
+        s += tail + "\n";
+    }
     std::map<uint32_t, int> values;
     for (size_t i = 0; i < (size_t)w * h; i++) values[U32(tiles, 4 + i * 4)]++;
     for (const auto& [value, n] : values) s += F("    tile value 0x%08X: %d tiles\n", value, n);
@@ -281,6 +289,176 @@ std::string InspectMatrices(N3dsRom& game)
     return s + "\n";
 }
 
+// Where a piece's size counts (ORAS_LITTLEROOT.md 11: in Littleroot's place a piece shows up to 996,992 bytes and not from
+// 1,074,944, while the game's largest is 1,368,064 elsewhere). Every overworld matrix cell with its piece's decompressed size and the
+// sum over the 3 x 3 cells around it (if the engine keeps the neighbours loaded, that sum is what a budget would bound), the largest
+// of each, Littleroot's neighbourhood, and how the largest pieces and Littleroot's spend their bytes (GR files, vertex formats)
+std::string InspectPieceBudget(N3dsRom& game)
+{
+    const Garc mm(game.Read("a/0/4/0")), gr(game.Read("a/0/3/9"));
+    std::vector<size_t> bytes(gr.Count(), 0);
+    for (size_t i = 0; i < gr.Count(); i++) if (gr.Has(i)) bytes[i] = Plain(gr.Sub(i)).size();
+    struct Cell { size_t Matrix; int X, Y; uint16_t Piece; size_t Own, Around, Cross; };
+    std::vector<Cell> cells;
+    for (size_t m = 0; m < mm.Count(); m++)
+    {
+        OrasMatrix mat;
+        try { mat = OrasMatrix::Read(Plain(mm.Sub(m))); } catch (const FormatError&) { continue; }
+        if (mat.Zones.empty()) continue; // interiors: one place, no neighbours
+        auto at = [&](int x, int y) -> size_t {
+            if (x < 0 || y < 0 || x >= mat.Width || y >= mat.Height) return 0;
+            const uint16_t p = mat.Piece(x, y);
+            return p < bytes.size() ? bytes[p] : 0;
+        };
+        for (int y = 0; y < mat.Height; y++)
+            for (int x = 0; x < mat.Width; x++)
+            {
+                if (mat.Piece(x, y) == OrasMatrix::None) continue;
+                size_t around = 0;
+                for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) around += at(x + dx, y + dy);
+                cells.push_back({m, x, y, mat.Piece(x, y), at(x, y), around, at(x, y) + at(x - 1, y) + at(x + 1, y) + at(x, y - 1) + at(x, y + 1)});
+            }
+    }
+    std::string s = F("%zu overworld cells (matrices with a zone grid)\n", cells.size());
+    auto top = [&](const char* what, auto key) {
+        std::vector<Cell> v = cells;
+        std::sort(v.begin(), v.end(), [&](const Cell& a, const Cell& b) { return key(a) > key(b); });
+        s += F("largest by %s:\n", what);
+        for (size_t k = 0; k < v.size() && k < 12; k++)
+            s += F("  matrix %zu cell (%d, %d) piece %u: own %zu, 3x3 %zu, cross %zu\n", v[k].Matrix, v[k].X, v[k].Y, v[k].Piece, v[k].Own, v[k].Around, v[k].Cross);
+    };
+    top("own size", [](const Cell& c) { return c.Own; });
+    top("3x3 sum", [](const Cell& c) { return c.Around; });
+    top("cross sum (own and 4 sides)", [](const Cell& c) { return c.Cross; });
+    for (const Cell& c : cells)
+        if (c.Matrix == 1 && c.X == 2 && c.Y == 4)
+            s += F("Littleroot (matrix 1 cell (2, 4), piece %u): own %zu, 3x3 %zu, cross %zu; with a piece of P bytes in its place: 3x3 %zu + P, cross %zu + P\n",
+                   c.Piece, c.Own, c.Around, c.Cross, c.Around - c.Own, c.Cross - c.Own);
+
+    // how bytes are spent: GR files and each mesh's vertex format, for the largest pieces and Littleroot's
+    std::vector<size_t> order(bytes.size());
+    for (size_t i = 0; i < order.size(); i++) order[i] = i;
+    std::sort(order.begin(), order.end(), [&](size_t a, size_t b) { return bytes[a] > bytes[b]; });
+    std::vector<size_t> shown(order.begin(), order.begin() + std::min<size_t>(3, order.size()));
+    shown.push_back(6);
+    static const char* formats[] = {"s8", "u8", "s16", "f32"};
+    for (size_t i : shown)
+    {
+        try
+        {
+            const BinLinker c = BinLinker::Read(Plain(gr.Sub(i)), "GR");
+            s += F("piece %zu: %zu bytes; GR files", i, bytes[i]);
+            for (size_t f = 0; f < c.Files.size(); f++) s += F(" %zu:%zu", f, c.Files[f].size());
+            const Bch bch = Bch::Read(c.Files.at(1));
+            std::map<std::string, std::pair<size_t, size_t>> byFormat; // vertex layout -> meshes, vertex bytes
+            size_t vertexBytes = 0, indexCount = 0;
+            for (const BchMesh& m : bch.Models.at(0).Meshes)
+            {
+                std::string layout = F("stride %u:", m.Stride);
+                for (const BchAttribute& a : m.Attributes) layout += F(" %d=%dx%s", a.Name, a.Elements, a.Format >= 0 && a.Format < 4 ? formats[a.Format] : "?");
+                byFormat[layout].first++;
+                byFormat[layout].second += m.Vertices.size() * m.Stride;
+                vertexBytes += m.Vertices.size() * m.Stride;
+                indexCount += m.Triangles.size();
+            }
+            s += F("; vertex data %zu bytes, %zu indices\n", vertexBytes, indexCount);
+            for (const auto& [layout, use] : byFormat) s += F("  %s: %zu meshes, %zu bytes\n", layout.c_str(), use.first, use.second);
+        }
+        catch (const std::exception& e) { s += F("piece %zu: not read (%s)\n", i, e.what()); }
+    }
+    return s;
+}
+
+// Which zones the game reaches by walking and warps alone (ORAS_LITTLEROOT.md 0, step (1): reuse ORAS's zone numbers for
+// Sinnoh, keeping clear of the ones its code names). The overworld zones are those a matrix's zone grid holds (walked into);
+// from them every warp's destination is followed, transitively. A zone never reached that way is reached by the code or a
+// script (a new game's start, flying, events) or not at all: the zones to check before reusing one.
+std::string InspectZoneReach(N3dsRom& game)
+{
+    const Garc zo(game.Read("a/0/1/3")), mm(game.Read("a/0/4/0"));
+    std::vector<std::optional<OrasZone>> zones(zo.Count());
+    for (size_t i = 0; i < zo.Count(); i++)
+        try { zones[i] = OrasZone::Read(Plain(zo.Sub(i))); } catch (const FormatError&) {}
+    std::set<int> overworld;
+    for (size_t m = 0; m < mm.Count(); m++)
+    {
+        try
+        {
+            const OrasMatrix mat = OrasMatrix::Read(Plain(mm.Sub(m)));
+            for (uint16_t z : mat.Zones) if (z != OrasMatrix::None && z < zones.size()) overworld.insert(z);
+        }
+        catch (const FormatError&) {}
+    }
+    std::set<int> reached(overworld.begin(), overworld.end());
+    std::vector<int> queue(overworld.begin(), overworld.end());
+    std::map<int, int> firstFrom; // zone -> a zone whose warp reaches it
+    while (!queue.empty())
+    {
+        const int z = queue.back();
+        queue.pop_back();
+        if (!zones[z]) continue;
+        for (const ZoneDoor& d : zones[z]->Doors)
+        {
+            const int to = d.DestZone();
+            if (to < 0 || (size_t)to >= zones.size() || reached.count(to)) continue;
+            reached.insert(to);
+            firstFrom[to] = z;
+            queue.push_back(to);
+        }
+    }
+    std::string s = F("%zu zones: %zu on an overworld zone grid, %zu reached by walking and warps, %zu not\n", zones.size(), overworld.size(),
+                      reached.size(), zones.size() - reached.size());
+    // the zones no warp reaches, with what they hold (an empty one is likely unused) and the warps leaving them
+    size_t withContent = 0;
+    for (size_t i = 0; i < zones.size(); i++)
+    {
+        if (reached.count((int)i)) continue;
+        if (!zones[i]) { s += F("unreached %zu: not a zone\n", i); continue; }
+        const OrasZone& z = *zones[i];
+        const bool empty = z.Characters.empty() && z.Doors.empty() && z.Triggers.empty() && z.Furniture.empty();
+        if (!empty) withContent++;
+        s += F("unreached %zu: matrix %d area %d, %zu characters %zu warps %zu triggers %zu furniture%s", i, z.Matrix(), z.AreaPack(),
+               z.Characters.size(), z.Doors.size(), z.Triggers.size(), z.Furniture.size(), empty ? " (empty)" : "");
+        if (!z.Doors.empty())
+        {
+            s += ", warps to";
+            for (const ZoneDoor& d : z.Doors) s += F(" %d", d.DestZone());
+        }
+        s += "\n";
+    }
+    s += F("unreached with content: %zu\n", withContent);
+    return s;
+}
+
+// every overworld piece's collision geometry (GR file 2, magic "coll", fields undecoded: ORAS_LITTLEROOT.md 4), smallest first, with
+// its first words: the built pieces keep Littleroot's, whose walls stand in every piece built (r4: a wall across Twinleaf at a seam)
+std::string InspectCollSizes(N3dsRom& game)
+{
+    const Garc mm(game.Read("a/0/4/0")), gr(game.Read("a/0/3/9"));
+    std::set<uint16_t> overworld;
+    for (size_t m = 0; m < mm.Count(); m++)
+        try { const OrasMatrix mat = OrasMatrix::Read(Plain(mm.Sub(m))); if (!mat.Zones.empty()) for (uint16_t p : mat.Pieces) if (p != OrasMatrix::None) overworld.insert(p); }
+        catch (const FormatError&) {}
+    std::vector<std::pair<size_t, uint16_t>> sizes;
+    std::map<uint16_t, Bytes> coll;
+    for (uint16_t p : overworld)
+    {
+        if (p >= gr.Count() || !gr.Has(p)) continue;
+        try { coll[p] = BinLinker::Read(Plain(gr.Sub(p)), "GR").Files.at(2); sizes.push_back({coll[p].size(), p}); } catch (const std::exception&) {}
+    }
+    std::sort(sizes.begin(), sizes.end());
+    std::string s = F("%zu overworld pieces; collision geometry sizes, smallest first (bytes, piece, first 16 words):\n", sizes.size());
+    for (size_t k = 0; k < sizes.size(); k++)
+    {
+        if (k >= 12 && k + 3 < sizes.size() && sizes[k].second != 6) continue; // the 12 smallest, Littleroot's, the 3 largest
+        const Bytes& c = coll[sizes[k].second];
+        s += F("%zu piece %u:", sizes[k].first, sizes[k].second);
+        for (size_t w = 0; w < 16 && w * 4 + 4 <= c.size(); w++) s += F(" %08x", U32(c, w * 4));
+        s += "\n";
+    }
+    return s;
+}
+
 std::string InspectArchives(N3dsRom& game)
 {
     std::string s = "path members size | the first member's first bytes\n";
@@ -370,6 +548,32 @@ std::string VerifyGame(N3dsRom& game, bool& ok)
         }
         s += F("map pieces: %d of %d GR containers have a readable terrain model\n", read, total);
         ok = ok && read == total;
+    }
+    // map matrices: read and written back byte for byte (OrasMatrix, which oras-region writes its matrix with)
+    {
+        const Garc matrices(game.Read("a/0/4/0"));
+        int total = 0, same = 0;
+        std::string first; // the first matrix that differs, where: what to fix in OrasMatrix
+        for (size_t i = 0; i < matrices.Count(); i++)
+        {
+            if (!matrices.Has(i)) continue;
+            const Bytes data = Plain(matrices.Sub(i));
+            total++;
+            try
+            {
+                const Bytes back = OrasMatrix::Read(data).Write();
+                if (back == data) { same++; continue; }
+                if (first.empty())
+                {
+                    size_t at = 0;
+                    while (at < back.size() && at < data.size() && back[at] == data[at]) at++;
+                    first = F("; first differing: matrix %zu, %zu bytes written for %zu, from byte %zu", i, back.size(), data.size(), at);
+                }
+            }
+            catch (const FormatError& e) { if (first.empty()) first = F("; first refused: matrix %zu (%s)", i, e.what()); }
+        }
+        s += F("map matrices: %d of %d rewritten identically%s\n", same, total, first.c_str());
+        ok = ok && same == total;
     }
     s += ok ? "all checks passed\n" : "SOME CHECKS FAILED\n";
     return s;

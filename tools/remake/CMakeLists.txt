@@ -41,6 +41,8 @@ add_library(remake STATIC
     src/TownBuilder.cpp
     src/OrasTown.cpp
     src/OrasAppend.cpp
+    src/OrasMatrix.cpp
+    src/OrasRegion.cpp
     src/OrasZone.cpp
     src/OrasInspect.cpp
     src/TownCheck.cpp
@@ -55,6 +57,7 @@ add_library(remake STATIC
     src/BchWriter.cpp
     src/BchTextureFile.cpp
     src/Bps.cpp
+    src/Blz.cpp
     # the DS core's hash, so texture names match the emulator's by construction
     ${MELONDS_SRC}/xxhash/xxhash.c
 )

@@ -1,6 +1,6 @@
 name: Remake mod
 
-# Builds Pokemon remake mods (tools/remake, `remake_tool oras-town`) from the owner's game dumps, for testing on the
+# Builds Pokemon remake mods (tools/remake, `remake_tool oras-town` and `oras-region`) from the owner's game dumps, for testing on the
 # phone. Manual runs only. The dumps are never committed: GitHub's runners fetch them from the owner's Google Drive
 # (files shared by link, ids in the secrets ORAS_DRIVE_ID and PLATINUM_DRIVE_ID), and an Actions cache keeps them
 # between runs (evicted after 7 days unused, then fetched again). Only the mods' BPS patches leave the runner.
@@ -8,15 +8,30 @@ on:
   workflow_dispatch:
     inputs:
       variants:
-        description: 'One mod per line, "name: oras-town options" (no options = the defaults) or "name: append unused|piece|matrix|zone"'
-        default: |
-          v24:
-        required: true
-      inspect:
-        description: 'One query per line: oras-inspect arguments ("matrix 1", "zones 0") or "world N" for Platinum matrix N as ORAS pieces'
+        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"; "... +cro <module> OFFSET=OLD:NEW" also patches a code module'
+        # no default mod: an empty input fell back to "v24:", and an inspect-only run shipped a v24 zip the owner took for r5
         default: ''
         required: false
+      inspect:
+        description: 'One query per line: oras-inspect arguments ("matrix 1", "zones 0"), "world N" (Platinum matrix N as ORAS pieces), "region <oras-region options>" (its plan), "code <code_find.py options>", "verify" or "platinum-zones"'
+        default: ''
+        required: false
+      headless:
+        description: 'Runs of the game on the runner (tools/remake/headless), one per line, "name: oras-town options" (+cro ... allowed); empty: none'
+        default: ''
+        required: false
+      seconds:
+        description: 'Game time each headless run is given to reach the field'
+        default: '120'
+        required: false
 
+# Headless runs (job headless):
+# Runs Omega Ruby with remake mods in Azahar's libretro core on the runner (software renderer, no screen), with the owner's
+# save, and reports whether the field comes up; when it does not, where every thread of the game stands
+# (tools/remake/headless: retro_host.cpp, pomegrade_report.inc). The phone tests without the phone, to find the code that
+# bounds a map piece (tools/remake/ORAS_LITTLEROOT.md section 10, item 5). Manual runs only. The game dumps come from the
+# cache the Remake mod workflow fills; the save from the owner's Drive (secret ORAS_SAVE_DRIVE_ID: a zip of the save folder
+# .../title/00040000/0011c400/data/00000001). Nothing of the game or the save leaves the runner but the run's text output.
 permissions:
   contents: read
 
@@ -75,19 +90,35 @@ jobs:
         env:
           VARIANTS: ${{ inputs.variants }}
         run: |
+          set -o pipefail   # a failing command before "| tee" fails the step (a mod built without its patch must not ship)
           mkdir -p mods
           while IFS= read -r line; do
             [ -z "${line// }" ] && continue
             name="${line%%:*}"; name="${name// }"
             options="${line#*:}"
+            # "... +cro <module> OFFSET=OLD:NEW ...": the module patched too (prototype/cro_patch.py; for Azahar, which skips the CRR check)
+            cro=""
+            if [[ "$options" == *" +cro "* ]]; then cro="${options#* +cro }"; options="${options%% +cro *}"; fi
             echo "::group::$name ($options)"
             # options are split on spaces on purpose: they are oras-town flags
             if [[ "$options" == *"append "* ]]; then
               # "name: append unused|piece|matrix|zone": the archive-member tests of oras-append-test
               ./build-remake/remake_tool oras-append-test dumps/oras.3ds "out/$name" ${options#*append } | tee "mods/${name}_log.txt"
+            elif [[ "$options" == *"region "* ]]; then
+              # "name: region --rect L T W H --zone H:Z ...": a new matrix of rebuilt pieces (oras-region)
+              ./build-remake/remake_tool oras-region dumps/platinum.nds dumps/oras.3ds "out/$name" ${options#*region } | tee "mods/${name}_log.txt"
+              cp "out/$name/region_plan.txt" "mods/${name}_plan.txt"
             else
               ./build-remake/remake_tool oras-town dumps/platinum.nds dumps/oras.3ds "out/$name" $options | tee "mods/${name}_log.txt"
               grep '^door' "out/$name/town_layout.txt" || true   # Platinum's doors and the zones they lead to
+            fi
+            if [ -n "$cro" ]; then
+              set -- $cro
+              module="$1"; shift
+              ./build-remake/remake_tool oras-extract dumps/oras.3ds "$module" "out/$name.orig.cro"
+              mkdir -p "out/$name.cro" && cp "out/$name.orig.cro" "out/$name.cro/$(basename "$module")"
+              python3 tools/remake/prototype/cro_patch.py "out/$name.cro/$(basename "$module")" "out/$name.patched" "$@" | tee -a "mods/${name}_log.txt"
+              ./build-remake/remake_tool oras-patch dumps/oras.3ds "out/$name" "$module=out/$name.patched/$(basename "$module")" | tee -a "mods/${name}_log.txt"
             fi
             (cd "out/$name" && zip -q -r "../../mods/Pomegrade_Sinnoh_$name.zip" load)
             echo "::endgroup::"
@@ -99,6 +130,7 @@ jobs:
         env:
           QUERIES: ${{ inputs.inspect }}
         run: |
+          set -o pipefail
           mkdir -p mods
           n=0
           while IFS= read -r query; do
@@ -110,6 +142,23 @@ jobs:
               # "world N": Platinum's matrix N laid out as ORAS pieces (oras-world)
               world\ *) ./build-remake/remake_tool oras-world dumps/platinum.nds ${query#world } "out/world_$n" | tee "mods/inspect_$n.txt" ;;
               platinum-zones) ./build-remake/remake_tool platinum-zones dumps/platinum.nds | tee "mods/inspect_$n.txt" ;;
+              # "region <options>": which Platinum map header each zone block of the rectangle holds (oras-region --plan)
+              region\ *) ./build-remake/remake_tool oras-region dumps/platinum.nds dumps/oras.3ds "out/region_$n" ${query#region } --plan | tee "mods/inspect_$n.txt" ;;
+              # "sinnoh [strip width]": the plan for all of Sinnoh (oras-sinnoh), nothing built
+              sinnoh*) ./build-remake/remake_tool oras-sinnoh dumps/platinum.nds dumps/oras.3ds ${query#sinnoh} | tee "mods/inspect_$n.txt" ;;
+              verify) ./build-remake/remake_tool oras-verify dumps/oras.3ds | tee "mods/inspect_$n.txt" ;;
+              # "code <code_find.py options>": the game's code searched (prototype/code_find.py, capstone)
+              code\ *)
+                [ -f out/code.bin ] || ./build-remake/remake_tool oras-code dumps/oras.3ds out/code.bin
+                python3 -c "import capstone" 2>/dev/null || pip install --quiet capstone
+                python3 tools/remake/prototype/code_find.py out/code.bin ${query#code } | tee "mods/inspect_$n.txt" ;;
+              # "cro <RomFS file> <code_find.py options>": a code module of the RomFS (DllField.cro: the field) searched the same way
+              cro\ *)
+                set -- ${query#cro }
+                ./build-remake/remake_tool oras-extract dumps/oras.3ds "$1" "out/$(basename "$1")"
+                python3 -c "import capstone" 2>/dev/null || pip install --quiet capstone
+                file="out/$(basename "$1")"; shift
+                python3 tools/remake/prototype/code_find.py "$file" --base 0 "$@" | tee "mods/inspect_$n.txt" ;;
               *) ./build-remake/remake_tool oras-inspect dumps/oras.3ds $query | tee "mods/inspect_$n.txt" ;;
             esac
             echo "::endgroup::"
@@ -120,3 +169,132 @@ jobs:
           name: remake-mods
           path: mods
           retention-days: 14
+
+  headless:
+    # Omega Ruby run on the runner in Azahar's libretro core (tools/remake/headless): see the comment at the top
+    if: inputs.headless != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azahar's submodules
+        run: git submodule update --init --recursive --depth 1 azahar
+
+      - name: Game dumps from the cache
+        id: dumps
+        uses: actions/cache/restore@v4
+        with:
+          path: dumps
+          key: remake-dumps-v1
+
+      - name: Stop without the dumps
+        if: steps.dumps.outputs.cache-hit != 'true'
+        run: |
+          echo "::error::no game dumps in the cache: run the Remake mod workflow once first (it fetches them from Drive)"
+          exit 1
+
+      - name: The owner's save from Google Drive
+        env:
+          SAVE_DRIVE_ID: ${{ secrets.ORAS_SAVE_DRIVE_ID }}
+        run: |
+          id=$(printf '%s' "$SAVE_DRIVE_ID" | tr -d '[:space:]' | sed -E 's#.*/d/([^/?]+).*#\1#; s#.*[?&]id=([^&]+).*#\1#')
+          # without a save the game starts a new game and cannot reach the field: such a run only checks the core and the host
+          if [ -z "$id" ]; then echo "::warning::no secret ORAS_SAVE_DRIVE_ID: runs without a save (new game, no field)"; exit 0; fi
+          curl --location --silent --show-error --output save.zip "https://drive.usercontent.google.com/download?id=$id&export=download&confirm=t"
+          if ! unzip -tq save.zip > /dev/null; then echo "::error::Drive did not serve a zip for the save"; exit 1; fi
+          mkdir -p save && unzip -q save.zip -d save
+          # the zip may hold the folder 00000001 or its content: the folder holding "main" is the save
+          main=$(find save -type f -name main | head -n 1)
+          if [ -z "$main" ]; then echo "::error::the save zip has no file named main"; exit 1; fi
+          echo "SAVE_DIR=$(dirname "$main")" >> "$GITHUB_ENV"
+          ls -l "$(dirname "$main")"
+
+      - name: Install the build tools
+        run: sudo apt-get install --yes --quiet ninja-build ccache > /dev/null
+
+      - name: Compilation cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: remake-headless-ccache-${{ github.sha }}
+          restore-keys: remake-headless-ccache-
+
+      - name: Build Azahar's libretro core (software renderer) with the thread report
+        run: |
+          # the report is added to the runner's copy only, never to the repository's Azahar sources
+          cat tools/remake/headless/pomegrade_report.inc >> azahar/src/citra_libretro/citra_libretro.cpp
+          python3 - <<'PY'
+          # the file-open trace (fs_open_trace.inc) in place of OpenFile's debug line; fails loudly if Azahar's line moved
+          p = "azahar/src/core/hle/service/fs/fs_user.cpp"
+          s = open(p).read()
+          line = '    LOG_DEBUG(Service_FS, "path={}, mode={} attrs={}", file_path.DebugStr(), mode.hex, attributes);\n'
+          assert s.count(line) == 1, "OpenFile's debug line not found"
+          s = s.replace(line, open("tools/remake/headless/fs_open_trace.inc").read())
+          s = s.replace('#include "core/hle/kernel/process.h"', '#include "core/hle/kernel/process.h"\n#include "core/hle/kernel/thread.h"\n#include "core/memory.h"', 1)
+          open(p, "w").write(s)
+          # the software renderer crashes reading a texel (every headless run with the save, at the title screen's exit: SIGSEGV in
+          # LookupTexelInTile from TextureColor)
+          p = "azahar/src/video_core/renderer_software/sw_rasterizer.cpp"
+          s = open(p).read()
+          line = "            texture_color[i] = LookupTexture(texture_data, s, t, info);\n"
+          assert s.count(line) == 1, "the software renderer's texture lookup not found"
+          # runs 56, 60 and 63 crashed there even with the pointer, the texture's last byte and the coordinates checked: no texel is read
+          # at all (black). The headless runs need the field's modules and the threads, not the picture
+          s = s.replace(line, "            (void)texture_data; (void)info;\n            texture_color[i] = Common::Vec4<u8>{0, 0, 0, 255};\n")
+          open(p, "w").write(s)
+          PY
+          export CCACHE_DIR=~/.cache/ccache CCACHE_MAXSIZE=2G
+          cmake -S azahar -B build-azahar -G Ninja -DCMAKE_BUILD_TYPE=Release -DENABLE_LIBRETRO=ON \
+            -DENABLE_OPENGL=OFF -DENABLE_VULKAN=OFF -DENABLE_TESTS=OFF -DENABLE_CCACHE=ON > /dev/null
+          ninja -C build-azahar citra_libretro
+          ccache --show-stats | head -5
+          core=$(find build-azahar -name '*libretro*.so' | head -n 1)
+          echo "CORE=$core" >> "$GITHUB_ENV"
+          ls -l "$core"
+
+      - name: Build remake_tool and retro_host
+        run: |
+          cmake -S tools/remake -B build-remake -G Ninja -DCMAKE_BUILD_TYPE=Release > /dev/null
+          ninja -C build-remake remake_tool
+          sudo apt-get install -y -qq gdb > /dev/null
+          g++ -std=c++17 -O2 -g -I azahar/externals/libretro-common/libretro-common/include tools/remake/headless/retro_host.cpp -ldl -o retro_host
+
+      - name: Run the game with each mod
+        env:
+          RUNS: ${{ inputs.headless }}
+          SECONDS_GIVEN: ${{ inputs.seconds }}
+        run: |
+          set -o pipefail
+          mkdir -p results
+          while IFS= read -r line; do
+            [ -z "${line// }" ] && continue
+            name="${line%%:*}"; name="${name// }"
+            options="${line#*:}"
+            cro=""
+            if [[ "$options" == *" +cro "* ]]; then cro="${options#* +cro }"; options="${options%% +cro *}"; fi
+            echo "::group::$name ($options${cro:+ +cro $cro})"
+            # the mod, as the Remake mod workflow builds it
+            ./build-remake/remake_tool oras-town dumps/platinum.nds dumps/oras.3ds "out/$name" $options > "results/${name}_build.txt"
+            mod="out/$name/load/mods/000400000011C400"
+            if [ -n "$cro" ]; then
+              set -- $cro
+              module="$1"; shift
+              ./build-remake/remake_tool oras-extract dumps/oras.3ds "$module" "out/$name.cro"
+              python3 tools/remake/prototype/cro_patch.py "out/$name.cro" "out/$name.patched" "$@"
+              ./build-remake/remake_tool oras-patch dumps/oras.3ds "out/$name" "$module=out/$name.patched/$(basename "out/$name.cro")" > /dev/null
+            fi
+            # a fresh user folder per run: the mod and the save
+            work="work/$name"
+            user="$work/Azahar"
+            mkdir -p "$user/load/mods"
+            cp -r "$mod" "$user/load/mods/"
+            savedir="$user/sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/00040000/0011c400/data/00000001"
+            if [ -n "$SAVE_DIR" ]; then mkdir -p "$savedir" && cp -r "$SAVE_DIR"/. "$savedir/"; fi
+            # under gdb: a crash of the core prints its backtrace instead of a bare "Segmentation fault"
+            gdb -q -batch -ex 'handle SIGSEGV stop' -ex run -ex 'bt 30' -ex 'info sharedlibrary' --args \
+              ./retro_host "$CORE" dumps/oras.3ds "$work" "$SECONDS_GIVEN" 2>&1 | grep -v '^\[New Thread\|^\[Thread' | tee "results/$name.txt" || true
+            grep '^RESULT' "results/$name.txt" || echo "RESULT: the host stopped without a result"
+            echo "::endgroup::"
+          done <<< "$RUNS"
+          echo "== results"
+          grep -H '^RESULT' results/*.txt || true

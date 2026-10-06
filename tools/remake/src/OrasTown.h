@@ -9,8 +9,10 @@
 #include "Garc.h"
 #include "N3dsRom.h"
 #include "NdsRom.h"
+#include "TownCheck.h"
 #include "TownLayout.h"
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -56,6 +58,7 @@ struct OrasTownOptions
     bool WritePiece = true;
     int TreeReach = 2;                // TownSources::TreeReach
     uint32_t DoorType = 0;            // TownSources::DoorType (Petalburg's houses: 4)
+    bool CloseEdges = true;           // TownSources::CloseEdges (oras-region sets it false)
     // the donor piece written as it is in the game in place of the built one (with the textures it names added to the area pack):
     // tells whether any foreign piece shows at the target's place, the built one being the first suspect (v22: no picture)
     bool DonorAsIs = false;
@@ -82,6 +85,26 @@ struct OrasTownResult
 // would be compressed twice and the game would read a compressed stream as its data. The member is read back and must
 // decompress to exactly `plain`.
 void ReplaceMember(Garc& archive, const Garc& original, size_t index, const Bytes& plain, const std::string& tag);
+
+// `plain` appended to `archive` as its last member, compressed once as member `like` of `original` is, read back to check (the
+// rules of ReplaceMember). Returns the new member's index. The game reads appended pieces and matrices (ORAS_LITTLEROOT.md 11:
+// a2, a3), not an appended zone (a4)
+size_t AppendMember(Garc& archive, const Garc& original, size_t like, const Bytes& plain, const std::string& tag);
+
+// Textures of area pack `fromData` (a/0/1/4 member `fromIndex`, plain) added to `packData` under their own names (the pack's own
+// textures untouched; a name the pack holds with other content gets the suffix _<fromIndex>). finalName: each wanted name's name in
+// the pack, empty when `fromData` has no such texture
+Bytes ImportTextures(const Bytes& packData, const Bytes& fromData, size_t fromIndex, const std::vector<std::string>& wanted,
+                     std::map<std::string, std::string>& finalName, std::vector<std::string>& log);
+
+// the largest of the game's own pieces (a/0/3/9), the bound of CheckBudget
+PieceBudget GamePieceBudget(const Garc& pieceArchive);
+
+// One ORAS piece built from a Platinum window with o's kits and textures (everything BuildOrasTown does to the piece): the textures
+// it needs are added to `areaPack` (plain, the pack of the zone that will hold it), the design rules run (throws when one is broken,
+// unless o.AllowErrors). cellX, cellY: its cell in the matrix (door models hold matrix positions); modelName: TownSources::ModelName
+Bytes BuildTownPiece(const TownLayout& layout, const OrasTownOptions& o, const Garc& pieceArchive, const Garc& areaArchive, const PieceBudget& budget,
+                     int cellX, int cellY, const std::string& modelName, Bytes& areaPack, std::vector<std::string>& log);
 
 // writes <OutDir>/load/mods/<program>/romfs_ext/{a/0/3/9,a/0/1/3}.bps, town_preview.gltf and town_layout.txt
 OrasTownResult BuildOrasTown(const NdsRom& platinum, N3dsRom& oras, const OrasTownOptions& options);

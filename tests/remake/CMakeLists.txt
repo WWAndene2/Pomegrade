@@ -44,6 +44,9 @@ target_link_libraries(remake_topview_test PRIVATE remake)
 add_executable(remake_zone_test remake_zone_test.cpp)
 target_link_libraries(remake_zone_test PRIVATE remake)
 
+add_executable(remake_matrix_test remake_matrix_test.cpp)
+target_link_libraries(remake_matrix_test PRIVATE remake)
+
 add_executable(remake_textures_test remake_textures_test.cpp)
 target_link_libraries(remake_textures_test PRIVATE remake)
 
