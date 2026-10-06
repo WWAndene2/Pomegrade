@@ -9,9 +9,9 @@ on:
     inputs:
       variants:
         description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"; "... +cro <module> OFFSET=OLD:NEW" also patches a code module'
-        default: |
-          v24:
-        required: true
+        # no default mod: an empty input fell back to "v24:", and an inspect-only run shipped a v24 zip the owner took for r5
+        default: ''
+        required: false
       inspect:
         description: 'One query per line: oras-inspect arguments ("matrix 1", "zones 0"), "world N" (Platinum matrix N as ORAS pieces), "region <oras-region options>" (its plan), "code <code_find.py options>", "verify" or "platinum-zones"'
         default: ''
