@@ -9,13 +9,3 @@ assert s.count(line) == 1, "OpenFile's debug line not found"
 s = s.replace(line, open("tools/remake/headless/fs_open_trace.inc").read())
 s = s.replace('#include "core/hle/kernel/process.h"', '#include "core/hle/kernel/process.h"\n#include "core/hle/kernel/thread.h"\n#include "core/memory.h"', 1)
 open(p, "w").write(s)
-# the software renderer crashes reading a texel (every headless run with the save, at the title screen's exit: SIGSEGV in
-# LookupTexelInTile from TextureColor)
-p = "azahar/src/video_core/renderer_software/sw_rasterizer.cpp"
-s = open(p).read()
-line = "            texture_color[i] = LookupTexture(texture_data, s, t, info);\n"
-assert s.count(line) == 1, "the software renderer's texture lookup not found"
-# runs 56, 60 and 63 crashed there even with the pointer, the texture's last byte and the coordinates checked: no texel is read
-# at all (black). The headless runs need the field's modules and the threads, not the picture
-s = s.replace(line, "            (void)texture_data; (void)info;\n            texture_color[i] = Common::Vec4<u8>{0, 0, 0, 255};\n")
-open(p, "w").write(s)
