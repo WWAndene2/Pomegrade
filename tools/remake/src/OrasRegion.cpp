@@ -52,7 +52,7 @@ static int HeaderAt(const WorldMap& world, int gx, int gy)
 // position and destination. A door without an interior keeps the Hoenn destination of the warp it is given, or gets none when
 // the zone has no warp left for it; adding warps up to a door with an interior needs every door before it to have one too, so
 // that no copy leads into a Hoenn house by accident (the owner refused that: OrasTown.h, AddWarps)
-static Bytes MoveZone(const Bytes& plain, size_t zoneIndex, size_t matrix, const std::vector<RegionDoor>& doors, std::vector<std::string>& log)
+static Bytes MoveZone(const Bytes& plain, size_t zoneIndex, size_t matrix, const std::vector<RegionDoor>& doors, bool noTriggers, std::vector<std::string>& log)
 {
     BinLinker zone = BinLinker::Read(plain, "ZO");
     if (zone.Write() != plain) throw FormatError("zone " + std::to_string(zoneIndex) + " does not rewrite identical");
@@ -103,17 +103,24 @@ static Bytes MoveZone(const Bytes& plain, size_t zoneIndex, size_t matrix, const
         const uint32_t size = U32(entries, 0) - removed * 0x18;
         for (int k = 0; k < 4; k++) entries.at(k) = (uint8_t)(size >> (8 * k));
     }
+    // parked rather than removed: the zone keeps its size and layout
+    const int triggers = noTriggers ? entries.at(7) : 0;
+    for (int k = 0; k < triggers; k++)
+    {
+        const size_t at = first + placed * 0x18 + k * 0x18; // the triggers follow the warps
+        Put16(entries, at + 12, 0xFFFF); Put16(entries, at + 14, 0xFFFF); // words 6, 7: tile x, z, far outside any matrix
+    }
     const Bytes out = zone.Write();
     const OrasZone check = OrasZone::Read(out); // the events file's size rule and counts must still hold
-    if ((int)check.Doors.size() != placed || check.Matrix() != (int)matrix) throw FormatError("zone " + std::to_string(zoneIndex) + " does not read back as written");
+    if ((int)check.Doors.size() != placed || (triggers && check.Triggers.at(0).TileX() != 0xFFFF) || check.Matrix() != (int)matrix) throw FormatError("zone " + std::to_string(zoneIndex) + " does not read back as written");
     for (int k = 0; k < placed; k++)
         if (doors[k].Interior >= 0 && (check.Doors[k].DestZone() != doors[k].Interior || check.Doors[k].DestWarp() != 0))
             throw FormatError(F("zone %zu: warp %d does not read back leading into zone %d", zoneIndex, k, doors[k].Interior));
     log.push_back(F("zone %zu: matrix %d -> %zu, area pack %d kept; %d of its %d warps (%d added) on %zu doors, %d into their own interior, %d removed%s; "
-                    "kept from Hoenn: %zu characters, %zu furniture, %zu triggers, %zu other entries, its scripts; spawn tile (%.1f, %.1f) kept",
+                    "kept from Hoenn: %zu characters, %zu furniture, %zu triggers%s, %zu other entries, its scripts; spawn tile (%.1f, %.1f) kept",
                     zoneIndex, before.Matrix(), matrix, before.AreaPack(), placed, total, added, doors.size(), linked, removed,
                     (int)doors.size() > total ? " (doors without a warp lead nowhere)" : "", before.Characters.size(), before.Furniture.size(),
-                    before.Triggers.size(), before.Others.size(), before.SpawnTileX(), before.SpawnTileZ()));
+                    before.Triggers.size(), triggers ? " (moved off the map)" : "", before.Others.size(), before.SpawnTileX(), before.SpawnTileZ()));
     return out;
 }
 
@@ -263,6 +270,7 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
     const std::filesystem::path out(o.OutDir);
     std::filesystem::create_directories(out);
     std::string layouts;
+    int skipped = 0;
     for (int y = 0; y < o.Height; y++)
         for (int x = 0; x < o.Width; x++)
         {
@@ -296,7 +304,15 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
             log.push_back(F("piece (%d, %d), Sinnoh (%d, %d): zone %d, area pack %d, %zu doors", x, y, o.Left + x, o.Top + y, owner, pack, layout.Doors.size()));
             Bytes piece;
             try { piece = BuildTownPiece(layout, to, pieceArchive, areaArchive, budget, x, y, name, packs[pack], log); }
-            catch (const FormatError& e) { throw FormatError(F("piece (%d, %d), Sinnoh (%d, %d): ", x, y, o.Left + x, o.Top + y) + e.what()); }
+            catch (const FormatError& e)
+            {
+                const std::string what = F("piece (%d, %d), Sinnoh (%d, %d): ", x, y, o.Left + x, o.Top + y) + e.what();
+                if (!o.Town.AllowErrors) throw FormatError(what);
+                // a whole region is built even where a piece cannot be yet: the cell is left without a piece, its blocks keep their zone
+                log.push_back("error, piece left out (--allow-errors): " + what);
+                skipped++;
+                continue;
+            }
             const size_t index = AppendMember(newPieces, pieceArchive, o.Town.TargetPiece, piece, "GR");
             matrix.Piece(x, y) = (uint16_t)index;
             log.push_back(F("piece (%d, %d): a/0/3/9 member %zu, %zu bytes", x, y, index, piece.size()));
@@ -345,6 +361,7 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
     const Bytes matrixData = matrix.Write();
     if (OrasMatrix::Read(matrixData).Write() != matrixData) throw FormatError("the new matrix does not read back identical");
     const size_t matrixIndex = AppendMember(newMatrices, matrixArchive, o.MatrixTemplate, matrixData, "MM");
+    if (skipped) log.push_back(F("%d piece(s) left out on errors (listed above)", skipped));
     log.push_back(F("matrix: a/0/4/0 member %zu, %d x %d pieces, file 0's first words and file 1 copied from matrix %zu", matrixIndex, o.Width, o.Height, o.MatrixTemplate));
 
     std::map<int, std::pair<int, int>> interiors; // interior zone -> the zone and warp of the door leading in
@@ -353,7 +370,7 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
         // the doors north to south, west to east, as TownLayout orders them within a piece
         auto& doors = doorsOf[z];
         std::sort(doors.begin(), doors.end(), [](const RegionDoor& a, const RegionDoor& b) { return a.Y != b.Y ? a.Y < b.Y : a.X < b.X; });
-        ReplaceMember(newZones, zoneArchive, (size_t)z, MoveZone(Plain(zoneArchive.Sub((size_t)z)), (size_t)z, matrixIndex, doors, log), "ZO");
+        ReplaceMember(newZones, zoneArchive, (size_t)z, MoveZone(Plain(zoneArchive.Sub((size_t)z)), (size_t)z, matrixIndex, doors, o.NoTriggers, log), "ZO");
         for (size_t k = 0; k < doors.size(); k++)
         {
             if (doors[k].Interior < 0) continue;
@@ -445,7 +462,17 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
     {
         const Bytes data = archive->Write();
         if (data == *original) continue;
-        if (data.size() < original->size()) throw FormatError(std::string(path) + ": shorter than the game's file; Azahar would leave its old tail");
+        if (data.size() < original->size())
+        {
+            // a recompressed member can come out shorter (s1's zones): a patched file shorter than the game's would keep the old
+            // file's tail (Bps.h), so the archive is shipped whole in romfs/, which Azahar serves as it is (oras-mod's way)
+            const std::filesystem::path whole = out / "load" / "mods" / id / "romfs" / path;
+            std::filesystem::create_directories(whole.parent_path());
+            Garc check(data);
+            WriteFile(whole.string(), data);
+            log.push_back(F("%s: %zu members, %zu bytes (shorter than the game's %zu): written whole under romfs/", path, check.Count(), data.size(), original->size()));
+            continue;
+        }
         const Bytes bps = BpsCreate(*original, data);
         if (BpsApply(*original, bps) != data) throw FormatError(std::string(path) + ": the patch does not rebuild the file");
         std::filesystem::create_directories((root / path).parent_path());

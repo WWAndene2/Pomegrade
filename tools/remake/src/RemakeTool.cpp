@@ -20,6 +20,10 @@
 //                     ORAS area packs (a/0/1/4 entries: "AD") whose textures the model uses
 //   remake_tool oras-list <oras.3ds>                  a decrypted 3DS game's RomFS files, with sizes
 //   remake_tool oras-extract <oras.3ds> <path> <out>  one RomFS file
+//   remake_tool oras-find <oras.3ds> <text>...
+//   remake_tool oras-members <oras.3ds> <archive> <first> <last>
+//   remake_tool oras-hex <oras.3ds> <archive> <member> <file|-1> <offset> <length>
+//   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>] | <dst>=<archive>:<member>:<file> ...
 //   remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...
 //                     an Azahar mod: each file replaces that RomFS path, laid out as Azahar loads
 //                     mods (<out dir>/load/mods/<program id>/romfs/<path>); copy <out dir>/load
@@ -30,7 +34,7 @@
 //                     ORAS's own assets, as an Azahar mod (BPS patches), with town_preview.gltf, town_layout.txt and
 //                     town_piece.bin (the piece the mod writes, decompressed)
 //   remake_tool oras-code <oras.3ds> <out.bin>   the game's ExeFS .code, decompressed (ARM, loaded at 0x100000)
-//   remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--auto-zones] [--others-out] [--plan] [--matrix-template M]
+//   remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--auto-zones] [--others-out] [--no-triggers] [--plan] [--matrix-template M]
 //                     [--model-matrix NN] [oras-town's kit options]
 //                     a rectangle of Sinnoh's piece grid (as oras-world cuts it) rebuilt as a new ORAS map matrix: its pieces built
 //                     as oras-town builds one, the zone grid from Platinum's map headers, each header on the ORAS zone given
@@ -88,6 +92,7 @@
 #include <memory>
 #include <filesystem>
 #include <map>
+#include <functional>
 #include <set>
 #include <string>
 
@@ -444,6 +449,7 @@ int main(int argc, char** argv)
                 else if (flag == "--plan") options.PlanOnly = true;
                 else if (flag == "--others-out") options.OthersOut = true;
                 else if (flag == "--auto-zones") options.AutoZones = true;
+                else if (flag == "--no-triggers") options.NoTriggers = true;
                 else { fprintf(stderr, "unknown option %s\n", flag.c_str()); return 2; }
             }
             const NdsRom platinum(ReadFile(argv[2]));
@@ -453,7 +459,7 @@ int main(int argc, char** argv)
             return 0;
         }
         // decrypted 3DS game images
-        if (cmd == "oras-list" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch")
+        if (cmd == "oras-list" || cmd == "oras-find" || cmd == "oras-members" || cmd == "oras-copy" || cmd == "oras-hex" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch")
         {
             N3dsRom game(argv[2]);
             char id[17];
@@ -465,6 +471,257 @@ int main(int argc, char** argv)
                 return 0;
             }
             if (cmd == "oras-extract" && argc >= 5) { WriteFile(argv[4], game.Read(argv[3])); return 0; }
+            if (cmd == "oras-copy" && argc >= 6)
+            {
+                // members of an archive copied over others of the same archive, as they are (every sub-file):
+                // <dst first>-<dst last>=<src first>-<src last> or <dst>=<src>; the mod is a BPS patch, or the archive whole
+                // under romfs/ when it comes out shorter (Azahar would keep a shorter patched file's old tail)
+                const std::string path = argv[4];
+                const Bytes original = game.Read(path);
+                const Garc source(original);
+                Garc g(original);
+                size_t last = SIZE_MAX; // the last member written
+                for (int i = 5; i < argc; i++)
+                {
+                    const std::string arg = argv[i];
+                    const size_t eq = arg.find('=');
+                    if (eq == std::string::npos) { fprintf(stderr, "expected <dst>=<src>: %s\n", arg.c_str()); return 2; }
+                    const std::string src = arg.substr(eq + 1);
+                    if (src.rfind("motion:", 0) == 0)
+                    {
+                        // <dst>=motion:<archive>:<member>:<file>:<slot>: a title-style motion pack built from a Pokemon's
+                        // (ORAS_TITLE.md 1b): u32 count 2, the offsets of slot 0 (the skeleton) and slot 1, the end, then the
+                        // skeleton and the one motion taken from the Pokemon pack's slot <slot> (1: ba10_waitA01)
+                        std::vector<std::string> f;
+                        for (size_t at = 7, next; at <= src.size(); at = next + 1)
+                        {
+                            next = src.find(':', at);
+                            if (next == std::string::npos) next = src.size();
+                            f.push_back(src.substr(at, next - at));
+                        }
+                        if (f.size() != 4) { fprintf(stderr, "expected motion:<archive>:<member>:<file>:<slot>: %s\n", src.c_str()); return 2; }
+                        const Garc other(game.Read(f[0]));
+                        const Bytes& m = other.Sub((size_t)std::stoul(f[1]));
+                        const Bytes plain = IsLzCompressed(m) ? LzDecompress(m) : m;
+                        const Bytes pack = BinLinker::Read(plain, std::string(plain.begin(), plain.begin() + 2)).Files.at((size_t)std::stoul(f[2]));
+                        const uint32_t count = U32(pack, 0);
+                        const size_t slot = (size_t)std::stoul(f[3]);
+                        if (count < 2 || slot == 0 || slot >= count || pack.size() < 4 + 4 * (count + 1)) { fprintf(stderr, "%s: not a motion pack with slot %zu\n", src.c_str(), slot); return 1; }
+                        // a slot ends where the next non-empty one (or the pack) does
+                        auto slotBytes = [&](size_t k) {
+                            const uint32_t from = U32(pack, 4 + 4 * k);
+                            uint32_t to = U32(pack, 4 + 4 * count);
+                            for (size_t j = k + 1; j < count; j++) if (U32(pack, 4 + 4 * j)) { to = U32(pack, 4 + 4 * j); break; }
+                            if (!from || to < from || to > pack.size()) throw FormatError("motion pack slot " + std::to_string(k) + " is empty or out of the pack");
+                            return Bytes(pack.begin() + from, pack.begin() + to);
+                        };
+                        const Bytes skeleton = slotBytes(0), motion = slotBytes(slot);
+                        Bytes out(16, 0);
+                        auto put32 = [&](size_t at, uint32_t v) { for (int k = 0; k < 4; k++) out[at + k] = (uint8_t)(v >> (8 * k)); };
+                        put32(0, 2); put32(4, 16); put32(8, (uint32_t)(16 + skeleton.size())); put32(12, (uint32_t)(16 + skeleton.size() + motion.size()));
+                        out.insert(out.end(), skeleton.begin(), skeleton.end());
+                        out.insert(out.end(), motion.begin(), motion.end());
+                        const size_t dst = (size_t)std::stoul(arg.substr(0, eq));
+                        const Bytes& old = source.Sub(dst);
+                        g.Set(dst, IsLzCompressed(old) ? Lz11Compress(out) : out);
+                        printf("%s member %zu <- %s: skeleton %zu bytes, motion %zu bytes\n", path.c_str(), dst, src.c_str(), skeleton.size(), motion.size());
+                        last = dst;
+                        continue;
+                    }
+                    if (src.find(':') != std::string::npos)
+                    {
+                        // <dst>=<archive>:<member>:<file>: one file of a 2-letter container member of another archive (an
+                        // animation of a Pokemon's PB pack), written as the member, LZ-compressed as the member it replaces
+                        const size_t c1 = src.find(':'), c2 = src.find(':', c1 + 1);
+                        if (c2 == std::string::npos) { fprintf(stderr, "expected <archive>:<member>:<file>: %s\n", src.c_str()); return 2; }
+                        const Garc other(game.Read(src.substr(0, c1)));
+                        const Bytes& m = other.Sub((size_t)std::stoul(src.substr(c1 + 1, c2 - c1 - 1)));
+                        const Bytes plain = IsLzCompressed(m) ? LzDecompress(m) : m;
+                        const BinLinker pack = BinLinker::Read(plain, std::string(plain.begin(), plain.begin() + 2));
+                        const Bytes file = pack.Files.at((size_t)std::stoul(src.substr(c2 + 1)));
+                        const size_t dst = (size_t)std::stoul(arg.substr(0, eq));
+                        if (file.size() < 4 || std::string(file.begin(), file.begin() + 3) != "BCH") { fprintf(stderr, "%s is not a BCH file\n", src.c_str()); return 1; }
+                        ReplaceMember(g, source, dst, file, "BCH");
+                        printf("%s member %zu <- %s (%zu bytes)\n", path.c_str(), dst, src.c_str(), file.size());
+                        last = dst;
+                        continue;
+                    }
+                    auto range = [](const std::string& r, size_t& lo, size_t& hi) {
+                        const size_t dash = r.find('-');
+                        lo = (size_t)std::stoul(r.substr(0, dash));
+                        hi = dash == std::string::npos ? lo : (size_t)std::stoul(r.substr(dash + 1));
+                    };
+                    size_t d0, d1, s0, s1;
+                    range(arg.substr(0, eq), d0, d1);
+                    range(src, s0, s1);
+                    if (d1 - d0 != s1 - s0 || d1 >= g.Count() || s1 >= g.Count()) { fprintf(stderr, "ranges of different lengths or past the archive: %s\n", arg.c_str()); return 2; }
+                    for (size_t k = 0; k <= d1 - d0; k++)
+                    {
+                        for (size_t sub = 0; sub < std::max(source.SubCount(s0 + k), g.SubCount(d0 + k)); sub++)
+                            g.Set(d0 + k, source.Has(s0 + k, sub) ? source.Sub(s0 + k, sub) : Bytes{}, sub);
+                        printf("%s member %zu <- member %zu\n", path.c_str(), d0 + k, s0 + k);
+                        last = d0 + k;
+                    }
+                }
+                Bytes data = g.Write();
+                // shorter than the game's file: the last member copied gets zeros after its data (an LZ stream ends at its
+                // declared size, so they are never read), and the archive keeps its size and ships as a small patch: whole,
+                // a/0/0/8 made a 930 MB mod (t2)
+                if (data.size() < original.size() && last != SIZE_MAX && IsLzCompressed(g.Sub(last)))
+                {
+                    Bytes padded = g.Sub(last);
+                    const size_t pad = (original.size() - data.size() + 3) / 4 * 4;
+                    padded.resize(padded.size() + pad, 0);
+                    g.Set(last, padded);
+                    data = g.Write();
+                    printf("%s member %zu: %zu bytes of padding after its LZ data, the archive keeps its size\n", path.c_str(), last, pad);
+                }
+                Garc check(data);
+                const std::filesystem::path base = std::filesystem::path(argv[3]) / "load" / "mods" / id;
+                if (data.size() < original.size())
+                {
+                    std::filesystem::create_directories((base / "romfs" / path).parent_path());
+                    WriteFile((base / "romfs" / path).string(), data);
+                    printf("%s: %zu bytes, shorter than the game's %zu: written whole under romfs/\n", path.c_str(), data.size(), original.size());
+                }
+                else
+                {
+                    const Bytes bps = BpsCreate(original, data);
+                    if (BpsApply(original, bps) != data) { fprintf(stderr, "%s: the patch does not rebuild the file\n", path.c_str()); return 1; }
+                    std::filesystem::create_directories((base / "romfs_ext" / path).parent_path());
+                    WriteFile((base / "romfs_ext" / (path + ".bps")).string(), bps);
+                    printf("%s: patch %zu bytes, checked\n", path.c_str(), bps.size());
+                }
+                return 0;
+            }
+            if (cmd == "oras-hex" && argc >= 8)
+            {
+                // bytes of a member (LZ-decompressed), or of one file of its 2-letter container (<file> -1: the member itself),
+                // from <offset>, <length> of them, 16 a line: to read formats the tool does not know yet (ORAS_TITLE.md)
+                const Garc g(game.Read(argv[3]));
+                const Bytes& m = g.Sub((size_t)atoi(argv[4]));
+                Bytes d = IsLzCompressed(m) ? LzDecompress(m) : m;
+                if (atoi(argv[5]) >= 0) d = BinLinker::Read(d, std::string(d.begin(), d.begin() + 2)).Files.at((size_t)atoi(argv[5]));
+                const size_t from = (size_t)std::stoul(argv[6], nullptr, 0), length = (size_t)std::stoul(argv[7], nullptr, 0);
+                printf("%zu bytes in all\n", d.size());
+                for (size_t at = from; at < std::min(d.size(), from + length); at += 16)
+                {
+                    printf("%06zX:", at);
+                    for (size_t k = at; k < at + 16 && k < d.size(); k++) printf(" %02X", d[k]);
+                    printf("\n");
+                }
+                return 0;
+            }
+            if (cmd == "oras-members" && argc >= 6)
+            {
+                // what members of an archive hold, nested: size, LZ, 2-letter containers and their files, BCH models, textures
+                // and the names inside (the title screen's members against a Pokemon's, ORAS_TITLE.md)
+                const Garc g(game.Read(argv[3]));
+                std::function<void(const Bytes&, const std::string&)> describe = [&](const Bytes& d, const std::string& pad) {
+                    if (d.size() >= 4 && d[0] == 'B' && d[1] == 'C' && d[2] == 'H' && d[3] == 0)
+                    {
+                        printf("%sBCH %zu bytes", pad.c_str(), d.size());
+                        try
+                        {
+                            const Bch b = Bch::Read(d);
+                            printf(": %zu models, %zu textures\n", b.Models.size(), b.Textures.size());
+                            for (const BchModel& m : b.Models) printf("%s  model %s: %zu meshes, %zu materials\n", pad.c_str(), m.Name.c_str(), m.Meshes.size(), m.Materials.size());
+                            for (const BchTexture& t : b.Textures) printf("%s  texture %s %ux%u format %d\n", pad.c_str(), t.Name.c_str(), t.Width, t.Height, t.Format);
+                        }
+                        catch (const std::exception& e) { printf(" (not read: %s)\n", e.what()); }
+                        // every name in it (animations, bones, materials)
+                        std::set<std::string> names;
+                        for (size_t i = 0; i < d.size();)
+                        {
+                            size_t e = i;
+                            while (e < d.size() && d[e] >= 0x20 && d[e] < 0x7F) e++;
+                            if (e - i >= 4 && e < d.size() && d[e] == 0) names.insert(std::string(d.begin() + i, d.begin() + e));
+                            i = e + 1;
+                        }
+                        std::string all;
+                        for (const std::string& n : names) all += " " + n;
+                        printf("%s  names (%zu):%s\n", pad.c_str(), names.size(), all.substr(0, 3000).c_str());
+                        return;
+                    }
+                    if (d.size() >= 12 && isupper(d[0]) && isupper(d[1]))
+                    {
+                        try
+                        {
+                            const BinLinker c = BinLinker::Read(d, std::string(d.begin(), d.begin() + 2));
+                            printf("%scontainer %s, %zu files, %zu bytes\n", pad.c_str(), c.Tag.c_str(), c.Files.size(), d.size());
+                            for (size_t i = 0; i < c.Files.size(); i++)
+                            {
+                                printf("%s  file %zu:\n", pad.c_str(), i);
+                                describe(c.Files[i], pad + "    ");
+                            }
+                            return;
+                        }
+                        catch (const std::exception&) {}
+                    }
+                    printf("%s%zu bytes, starts", pad.c_str(), d.size());
+                    for (size_t i = 0; i < std::min<size_t>(16, d.size()); i++) printf(" %02X", d[i]);
+                    printf("\n");
+                };
+                for (size_t i = (size_t)atoi(argv[4]); i <= (size_t)atoi(argv[5]) && i < g.Count(); i++)
+                    for (size_t sub = 0; sub < g.SubCount(i); sub++)
+                    {
+                        if (!g.Has(i, sub)) continue;
+                        const Bytes& m = g.Sub(i, sub);
+                        const bool lz = IsLzCompressed(m);
+                        Bytes plain = m;
+                        if (lz) try { plain = LzDecompress(m); } catch (const std::exception&) {}
+                        printf("member %zu%s: %zu bytes%s\n", i, sub ? ("." + std::to_string(sub)).c_str() : "", m.size(), lz ? (", LZ to " + std::to_string(plain.size())).c_str() : "");
+                        describe(plain, "  ");
+                    }
+                return 0;
+            }
+            if (cmd == "oras-find" && argc >= 4)
+            {
+                // where texts lie (model and texture names: pm0383 for Groudon's models): every RomFS file, and every member of
+                // every GARC, LZ-decompressed when compressed; prints file, member, sub-file and offset of each hit
+                // a text "hex:5210" is that byte string (a u16 4178), found at any alignment
+                std::vector<std::string> texts;
+                for (int i = 3; i < argc; i++)
+                {
+                    std::string t = argv[i];
+                    if (t.rfind("hex:", 0) == 0)
+                    {
+                        std::string bytes;
+                        for (size_t k = 4; k + 1 < t.size(); k += 2) bytes.push_back((char)std::stoi(t.substr(k, 2), nullptr, 16));
+                        t = bytes;
+                    }
+                    texts.push_back(t);
+                }
+                auto scan = [&](const Bytes& d, const std::string& where) {
+                    for (const std::string& t : texts)
+                        for (auto it = std::search(d.begin(), d.end(), t.begin(), t.end()); it != d.end();
+                             it = std::search(it + 1, d.end(), t.begin(), t.end()))
+                        {
+                            const size_t at = (size_t)(it - d.begin());
+                            size_t e = at;
+                            while (e < d.size() && e - at < 40 && d[e] >= 0x20 && d[e] < 0x7F) e++;
+                            std::string around;
+                            for (size_t k = at >= 8 ? at - 8 : 0; k < std::min(d.size(), at + t.size() + 8); k++) { char h[4]; snprintf(h, sizeof h, "%02X", d[k]); around += h; around += k + 1 == at ? "|" : " "; }
+                            printf("%s +0x%zX: %s  [%s]\n", where.c_str(), at, std::string(d.begin() + at, d.begin() + e).c_str(), around.c_str());
+                        }
+                };
+                for (const auto& [path, at] : game.Files())
+                {
+                    const Bytes data = game.Read(path);
+                    if (!Garc::Is(data)) { scan(data, path); continue; }
+                    const Garc g(data);
+                    for (size_t i = 0; i < g.Count(); i++)
+                        for (size_t sub = 0; sub < g.SubCount(i); sub++)
+                        {
+                            if (!g.Has(i, sub)) continue;
+                            const Bytes& m = g.Sub(i, sub);
+                            Bytes plain;
+                            try { plain = IsLzCompressed(m) ? LzDecompress(m) : m; } catch (const std::exception&) { plain = m; }
+                            scan(plain, path + " member " + std::to_string(i) + (sub ? "." + std::to_string(sub) : ""));
+                        }
+                }
+                return 0;
+            }
             if ((cmd == "oras-mod" || cmd == "oras-patch") && argc >= 5)
             {
                 const bool patch = cmd == "oras-patch";

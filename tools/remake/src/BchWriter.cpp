@@ -106,7 +106,7 @@ Bytes BchReplaceGeometry(const Bytes& bch, size_t modelIndex, const std::vector<
         if (g.Mesh >= model.Meshes.size()) throw FormatError("BCH writer: no such mesh");
         const BchMesh& mesh = model.Meshes[g.Mesh];
         if (!mesh.Stride || mesh.SubMeshes.empty() || !mesh.VertexBufferWord) throw FormatError("BCH writer: mesh " + std::to_string(g.Mesh) + " has no vertex buffer to replace");
-        if (g.Vertices.empty() || g.Vertices.size() > 65536) throw FormatError("BCH writer: 1 to 65536 vertices a mesh");
+        if (g.Vertices.empty() || g.Vertices.size() > 65536) throw FormatError("BCH writer: 1 to 65536 vertices a mesh; mesh " + std::to_string(g.Mesh) + " has " + std::to_string(g.Vertices.size()));
         if (g.Triangles.size() % 3) throw FormatError("BCH writer: triangles are three indices each");
         for (uint32_t i : g.Triangles) if (i >= g.Vertices.size()) throw FormatError("BCH writer: an index past the vertices");
 

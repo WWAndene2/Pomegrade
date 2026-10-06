@@ -8,12 +8,12 @@ on:
   workflow_dispatch:
     inputs:
       variants:
-        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"; "... +cro <module> OFFSET=OLD:NEW" also patches a code module'
+        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"; "... +cro <module> OFFSET=OLD:NEW" also patches a code module, "name: cro <module> OFFSET=OLD:NEW" patches one alone, "name: copy <archive> <dst>=<src>" copies archive members, "name: merge a b" joins mods built on earlier lines, "name: save Z X Y" a moved save to merge'
         # no default mod: an empty input fell back to "v24:", and an inspect-only run shipped a v24 zip the owner took for r5
         default: ''
         required: false
       inspect:
-        description: 'One query per line: oras-inspect arguments ("matrix 1", "zones 0"), "world N" (Platinum matrix N as ORAS pieces), "region <oras-region options>" (its plan), "code <code_find.py options>", "verify" or "platinum-zones"'
+        description: 'One query per line: oras-inspect arguments ("matrix 1", "zones 0"), "world N" (Platinum matrix N as ORAS pieces), "region <oras-region options>" (its plan), "code <code_find.py options>", "verify", "list" or "platinum-zones"'
         default: ''
         required: false
       headless:
@@ -23,6 +23,10 @@ on:
       seconds:
         description: 'Game time each headless run is given to reach the field'
         default: '120'
+        required: false
+      saves:
+        description: 'Copies of the owner save with the player moved, one per line, "name: zone tile_x tile_z" (oras-save); each gives Save_<name>.zip'
+        default: ''
         required: false
 
 # Headless runs (job headless):
@@ -89,6 +93,7 @@ jobs:
       - name: Build the mods
         env:
           VARIANTS: ${{ inputs.variants }}
+          SAVE_DRIVE_ID: ${{ secrets.ORAS_SAVE_DRIVE_ID }}
         run: |
           set -o pipefail   # a failing command before "| tee" fails the step (a mod built without its patch must not ship)
           mkdir -p mods
@@ -101,7 +106,42 @@ jobs:
             if [[ "$options" == *" +cro "* ]]; then cro="${options#* +cro }"; options="${options%% +cro *}"; fi
             echo "::group::$name ($options)"
             # options are split on spaces on purpose: they are oras-town flags
-            if [[ "$options" == *"append "* ]]; then
+            if [[ "$options" =~ ^[[:space:]]*cro[[:space:]] ]]; then
+              # "name: cro <module> OFFSET=OLD:NEW ...": a code module patched alone, no map built (the title screen's species)
+              cro="${options#*cro }"; mkdir -p "out/$name"
+            elif [[ "$options" =~ ^[[:space:]]*save([[:space:]]|$) ]]; then
+              # "name: save <zone> <tile x> <tile z>": the owner's save (Drive) with the player moved (oras-save), as the
+              # sdmc folder Azahar reads under Pomegrade/3DS, with the save's 00000001.metadata beside it (to merge with a mod)
+              if [ ! -d save ]; then
+                id=$(printf '%s' "$SAVE_DRIVE_ID" | tr -d '[:space:]' | sed -E 's#.*/d/([^/?]+).*#\1#; s#.*[?&]id=([^&]+).*#\1#')
+                curl --location --silent --show-error --output save.zip "https://drive.usercontent.google.com/download?id=$id&export=download&confirm=t"
+                mkdir -p save && unzip -q save.zip -d save
+              fi
+              main=$(find save -type f -name main | head -n 1)
+              meta=$(find save -type f -name '00000001.metadata' | head -n 1)
+              data="out/$name/sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/00040000/0011c400/data"
+              mkdir -p "$data" && cp -r "$(dirname "$main")" "$data/00000001"
+              set -- ${options#*save}
+              # "name: save" alone: the save as it is (the player where the owner left them)
+              if [ $# -ge 3 ]; then ./build-remake/remake_tool oras-save "$main" "$data/00000001/main" "$1" "$2" "$3" | tee "mods/${name}_log.txt"
+              else ./build-remake/remake_tool oras-save "$main" | tee "mods/${name}_log.txt"; fi
+              if [ -n "$meta" ]; then cp "$meta" "$data/"; else echo "::warning::the Drive save has no 00000001.metadata"; fi
+              mkdir -p "out/$name/load"
+            elif [[ "$options" =~ ^[[:space:]]*merge[[:space:]] ]]; then
+              # "name: merge a b ...": the load (and sdmc) folders of mods built above on earlier lines, in one mod (they must
+              # change different files: a file two of them change is refused)
+              mkdir -p "out/$name"
+              for part in ${options#*merge }; do
+                (cd "out/$part" && find . -type f) | while read -r f; do
+                  if [ -e "out/$name/$f" ]; then echo "::error::$f is in two of the merged mods"; exit 1; fi
+                done
+                cp -r "out/$part/." "out/$name/"
+              done
+              (cd "out/$name" && find . -type f) | tee "mods/${name}_log.txt"
+            elif [[ "$options" =~ ^[[:space:]]*copy[[:space:]] ]]; then
+              # "name: copy <archive> <dst>[-<last>]=<src>[-<last>] ...": archive members copied over others (oras-copy)
+              ./build-remake/remake_tool oras-copy dumps/oras.3ds "out/$name" ${options#*copy } | tee "mods/${name}_log.txt"
+            elif [[ "$options" == *"append "* ]]; then
               # "name: append unused|piece|matrix|zone": the archive-member tests of oras-append-test
               ./build-remake/remake_tool oras-append-test dumps/oras.3ds "out/$name" ${options#*append } | tee "mods/${name}_log.txt"
             elif [[ "$options" == *"region "* ]]; then
@@ -120,7 +160,7 @@ jobs:
               python3 tools/remake/prototype/cro_patch.py "out/$name.cro/$(basename "$module")" "out/$name.patched" "$@" | tee -a "mods/${name}_log.txt"
               ./build-remake/remake_tool oras-patch dumps/oras.3ds "out/$name" "$module=out/$name.patched/$(basename "$module")" | tee -a "mods/${name}_log.txt"
             fi
-            (cd "out/$name" && zip -q -r "../../mods/Pomegrade_Sinnoh_$name.zip" load)
+            (cd "out/$name" && zip -q -r "../../mods/Pomegrade_Sinnoh_$name.zip" load $( [ -d sdmc ] && echo sdmc ))
             echo "::endgroup::"
           done <<< "$VARIANTS"
           ls -l mods
@@ -131,7 +171,7 @@ jobs:
           QUERIES: ${{ inputs.inspect }}
         run: |
           set -o pipefail
-          mkdir -p mods
+          mkdir -p mods out   # out/: the extracted files, even when no mod was built before
           n=0
           while IFS= read -r query; do
             [ -z "${query// }" ] && continue
@@ -147,6 +187,14 @@ jobs:
               # "sinnoh [strip width]": the plan for all of Sinnoh (oras-sinnoh), nothing built
               sinnoh*) ./build-remake/remake_tool oras-sinnoh dumps/platinum.nds dumps/oras.3ds ${query#sinnoh} | tee "mods/inspect_$n.txt" ;;
               verify) ./build-remake/remake_tool oras-verify dumps/oras.3ds | tee "mods/inspect_$n.txt" ;;
+              # "list": every RomFS file of ORAS with its size (oras-list)
+              list) ./build-remake/remake_tool oras-list dumps/oras.3ds | tee "mods/inspect_$n.txt" ;;
+              # "find <text>...": where texts lie in ORAS's files and archive members (oras-find)
+              find\ *) ./build-remake/remake_tool oras-find dumps/oras.3ds ${query#find } | tee "mods/inspect_$n.txt" ;;
+              # "members <archive> <first> <last>": what those archive members hold, nested (oras-members)
+              members\ *) ./build-remake/remake_tool oras-members dumps/oras.3ds ${query#members } | tee "mods/inspect_$n.txt" ;;
+              # "hex <archive> <member> <file|-1> <offset> <length>": the bytes, 16 a line (oras-hex)
+              hex\ *) ./build-remake/remake_tool oras-hex dumps/oras.3ds ${query#hex } | tee "mods/inspect_$n.txt" ;;
               # "code <code_find.py options>": the game's code searched (prototype/code_find.py, capstone)
               code\ *)
                 [ -f out/code.bin ] || ./build-remake/remake_tool oras-code dumps/oras.3ds out/code.bin
@@ -163,6 +211,32 @@ jobs:
             esac
             echo "::endgroup::"
           done <<< "$QUERIES"
+
+      - name: Moved saves
+        if: inputs.saves != ''
+        env:
+          SAVE_DRIVE_ID: ${{ secrets.ORAS_SAVE_DRIVE_ID }}
+          SAVES: ${{ inputs.saves }}
+        run: |
+          set -o pipefail
+          mkdir -p mods
+          id=$(printf '%s' "$SAVE_DRIVE_ID" | tr -d '[:space:]' | sed -E 's#.*/d/([^/?]+).*#\1#; s#.*[?&]id=([^&]+).*#\1#')
+          if [ -z "$id" ]; then echo "::error::no secret ORAS_SAVE_DRIVE_ID"; exit 1; fi
+          curl --location --silent --show-error --output save.zip "https://drive.usercontent.google.com/download?id=$id&export=download&confirm=t"
+          mkdir -p save && unzip -q save.zip -d save
+          main=$(find save -type f -name main | head -n 1)
+          if [ -z "$main" ]; then echo "::error::the save zip has no file named main"; exit 1; fi
+          meta=$(find save -type f -name '00000001.metadata' | head -n 1)
+          while IFS= read -r line; do
+            [ -z "${line// }" ] && continue
+            name="${line%%:*}"; name="${name// }"
+            set -- ${line#*:}
+            # the zip as the phone holds it: the folder 00000001 (the moved main, the rest copied) and its .metadata beside it
+            rm -rf "out/save_$name" && mkdir -p "out/save_$name" && cp -r "$(dirname "$main")" "out/save_$name/00000001"
+            ./build-remake/remake_tool oras-save "$main" "out/save_$name/00000001/main" "$1" "$2" "$3" | tee "mods/Save_${name}_log.txt"
+            if [ -n "$meta" ]; then cp "$meta" "out/save_$name/"; fi
+            (cd "out/save_$name" && zip -q -r "../../mods/Save_$name.zip" .)
+          done <<< "$SAVES"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -207,6 +281,11 @@ jobs:
           main=$(find save -type f -name main | head -n 1)
           if [ -z "$main" ]; then echo "::error::the save zip has no file named main"; exit 1; fi
           echo "SAVE_DIR=$(dirname "$main")" >> "$GITHUB_ENV"
+          # Azahar keeps a save's format info beside its folder (data/00000001.metadata, archive_source_sd_savedata.cpp); without
+          # it GetFormatInfo fails and the game treats the save as absent: run 70 deleted it and started a new game
+          # (DllSangoIntro, then name entry). The phone's own file is used when the zip holds one
+          meta=$(find save -type f -name '00000001.metadata' | head -n 1)
+          if [ -n "$meta" ]; then echo "SAVE_METADATA=$meta" >> "$GITHUB_ENV"; else echo "::warning::the save zip has no 00000001.metadata: a guessed one is written (see the run step)"; fi
           ls -l "$(dirname "$main")"
 
       - name: Install the build tools
@@ -289,7 +368,13 @@ jobs:
             mkdir -p "$user/load/mods"
             cp -r "$mod" "$user/load/mods/"
             savedir="$user/sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/00040000/0011c400/data/00000001"
-            if [ -n "$SAVE_DIR" ]; then mkdir -p "$savedir" && cp -r "$SAVE_DIR"/. "$savedir/"; fi
+            if [ -n "$SAVE_DIR" ]; then
+              mkdir -p "$savedir" && cp -r "$SAVE_DIR"/. "$savedir/"
+              if [ -n "$SAVE_METADATA" ]; then cp "$SAVE_METADATA" "$savedir.metadata"
+              # ArchiveFormatInfo, 16 bytes: total size, directories, files (u32 each), duplicate data (u8), padding. GUESSED
+              # (not the game's own values): the size of the files in the save, 0 directories, their count, no duplication
+              else python3 -c "import struct,sys,os; d=sys.argv[1]; f=[os.path.join(r,n) for r,_,ns in os.walk(d) for n in ns]; open(d+'.metadata','wb').write(struct.pack('<IIIB3x', sum(map(os.path.getsize,f)), 0, len(f), 0))" "$savedir"; fi
+            fi
             # under gdb: a crash of the core prints its backtrace instead of a bare "Segmentation fault"
             gdb -q -batch -ex 'handle SIGSEGV stop' -ex run -ex 'bt 30' -ex 'info sharedlibrary' --args \
               ./retro_host "$CORE" dumps/oras.3ds "$work" "$SECONDS_GIVEN" 2>&1 | grep -v '^\[New Thread\|^\[Thread' | tee "results/$name.txt" || true
