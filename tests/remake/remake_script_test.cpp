@@ -47,7 +47,7 @@ int main()
     check(AmxNatives(b) == std::vector<std::string>{"MoveObj"}, "native named");
     const std::string dis = AmxDisassemble(b);
     check(dis.find("push.c 5") != std::string::npos && dis.find("sysreq.c 0  ; MoveObj") != std::string::npos
-          && dis.find("const.pri -200000") != std::string::npos && dis.find("0 packed (not a Pawn 3 opcode)") != std::string::npos,
+          && dis.find("const.pri -200000") != std::string::npos && dis.find("0 not an opcode") != std::string::npos,
           "disassembled with Pawn 3 opcodes and native names");
     // casetbl: count, default, then count (value, address) pairs, and the next instruction read after them
     {
@@ -58,6 +58,18 @@ int main()
         Put32(c, 0, (uint32_t)c.size()); Put32(c, 16, (uint32_t)cod + 32); Put32(c, 20, (uint32_t)cod + 36); Put32(c, 24, (uint32_t)cod + 36);
         const std::string d = AmxDisassemble(c);
         check(d.find("casetbl 1 100 5 200\n") != std::string::npos && d.find("retn") != std::string::npos, "casetbl takes 2 + 2 x count operands");
+    }
+    // packed instructions and a relative call: proc; push.p.c 8 (0x800BC); load.p.s.pri -4 (0xFFFC00A4); retn; then
+    // call -16 at byte 16, back to the proc at byte 0; zero.pri
+    {
+        const int32_t code[] = {46, 0x800BC, (int32_t)0xFFFC00A4, 48, 49, -16, 89};
+        Bytes c(b.begin(), b.begin() + (long)cod);
+        for (int32_t v : code) Pack(c, v);
+        Pack(c, 7);
+        Put32(c, 0, (uint32_t)c.size()); Put32(c, 16, (uint32_t)cod + 28); Put32(c, 20, (uint32_t)cod + 32); Put32(c, 24, (uint32_t)cod + 32);
+        const std::string d = AmxDisassemble(c);
+        check(d.find("push.p.c 8") != std::string::npos && d.find("load.p.s.pri -4") != std::string::npos, "packed instructions named, operand in the high 16 bits");
+        check(d.find("call -16  ; -> 000000") != std::string::npos && d.find("1 of 1 calls land on a proc") != std::string::npos, "a relative call checked to land on a proc");
     }
     Bytes truncated = b;
     truncated.push_back(0); Put32(truncated, 0, (uint32_t)truncated.size());
