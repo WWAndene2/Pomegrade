@@ -122,6 +122,13 @@ class EmulationActivity : AppCompatActivity() {
 
         settingsViewModel.settings.loadSettings()
 
+        // Pomegrade: the code trace, turned on in Pomegrade's settings (3DS > Record a code trace),
+        // which also give the folder it is written to
+        PreferenceManager.getDefaultSharedPreferences(this).let { prefs ->
+            val folder = prefs.getString(CODE_TRACE_FOLDER, null)
+            NativeLibrary.setCodeTrace(prefs.getBoolean(CODE_TRACE, false) && folder != null, folder ?: "")
+        }
+
         screenAdjustmentUtil = ScreenAdjustmentUtil(this, windowManager, settingsViewModel.settings)
 
         // Block orientation until emulation is ready to prevent unneccesary
@@ -643,6 +650,10 @@ class EmulationActivity : AppCompatActivity() {
 
     companion object {
         private var instance: EmulationActivity? = null
+
+        // Pomegrade: the code trace's settings (set by Pomegrade's settings screen)
+        const val CODE_TRACE = "three_ds_code_trace"
+        const val CODE_TRACE_FOLDER = "three_ds_code_trace_folder"
 
         fun isRunning(): Boolean = instance?.isEmulationRunning ?: false
     }

@@ -277,7 +277,14 @@ Loader::ResultStatus ApplyBpsPatch(const std::vector<u8>& patch, std::vector<u8>
     Bps::Stream source_stream{source.data(), source.size()};
     Bps::Stream target_stream{buffer.data(), buffer.size()};
     Bps::PatchApplier applier{source_stream, target_stream, patch_stream};
-    return applier.Apply();
+    const Loader::ResultStatus result = applier.Apply();
+    // Pomegrade: a target shorter than its source is cut to its own size; it used to keep the
+    // source's size, zero-filled past the target's end
+    if (result == Loader::ResultStatus::Success && target_size < buffer.size()) {
+        LOG_INFO(Service_FS, "Resizing target to {}", target_size);
+        buffer.resize(target_size);
+    }
+    return result;
 }
 
 } // namespace FileSys::Patch

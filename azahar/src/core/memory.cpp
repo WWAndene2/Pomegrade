@@ -892,11 +892,10 @@ std::string MemorySystem::ReadCString(VAddr vaddr, std::size_t max_length) {
 }
 
 MemorySystem::PhysMemRegionInfo MemorySystem::GetPhysMemRegionInfo(PAddr address) {
-    if (address >= phys_mem_region_info_cache.region_start &&
-        address < phys_mem_region_info_cache.region_end) {
-        return phys_mem_region_info_cache;
-    }
-
+    // Pomegrade: no cache of the last region found. The software renderer's worker threads call
+    // this at once, and a cache shared between threads was read half-written (one region's start
+    // with another's memory): its texture reads then fell outside memory (SIGSEGV in
+    // LookupTexelInTile). Finding the region is a few comparisons.
     constexpr std::array memory_areas = {
         std::make_pair(VRAM_PADDR, VRAM_SIZE),
         std::make_pair(DSP_RAM_PADDR, DSP_RAM_SIZE),
@@ -913,28 +912,22 @@ MemorySystem::PhysMemRegionInfo MemorySystem::GetPhysMemRegionInfo(PAddr address
     if (area == memory_areas.end()) [[unlikely]] {
         LOG_ERROR(HW_Memory, "Unknown GetPhysMemRegionInfo @ {:#08X} at PC {:#08X}", address,
                   impl->GetPC());
-        phys_mem_region_info_cache = PhysMemRegionInfo();
-        return phys_mem_region_info_cache;
+        return PhysMemRegionInfo();
     }
 
     switch (area->first) {
     case VRAM_PADDR:
-        phys_mem_region_info_cache = {&impl->vram_mem, area->first, area->second};
-        break;
+        return {&impl->vram_mem, area->first, area->second};
     case DSP_RAM_PADDR:
-        phys_mem_region_info_cache = {&impl->dsp_mem, area->first, area->second};
-        break;
+        return {&impl->dsp_mem, area->first, area->second};
     case FCRAM_PADDR:
-        phys_mem_region_info_cache = {&impl->fcram_mem, area->first, area->second};
-        break;
+        return {&impl->fcram_mem, area->first, area->second};
     case N3DS_EXTRA_RAM_PADDR:
-        phys_mem_region_info_cache = {&impl->n3ds_extra_ram_mem, area->first, area->second};
-        break;
+        return {&impl->n3ds_extra_ram_mem, area->first, area->second};
     default:
         UNREACHABLE();
     }
-
-    return phys_mem_region_info_cache;
+    return PhysMemRegionInfo();
 }
 
 u8* MemorySystem::GetPhysicalPointer(PAddr address) {

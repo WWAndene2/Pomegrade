@@ -9,8 +9,10 @@
 #include "stb/stb_image_write.h"
 #include <cstdio>
 #include <cmath>
+#include <chrono>
 #include <cstring>
 #include <filesystem>
+#include <thread>
 #include <vector>
 using namespace melonDS;
 namespace fs = std::filesystem;
@@ -175,6 +177,24 @@ int main()
     auto off = Render(*r, gpu);
     printf("off == native: %s\n", off == native ? "yes" : "NO");
 
+    // 4b. background loading (Pomegrade, as on Android): the frame that first
+    // meets the texture draws it at native resolution while the file is read,
+    // a later frame draws the same picture as the synchronous load
+    TextureReplacement::SetConfig({"tex", true, false, true});
+    auto firstFrame = Render(*r, gpu);
+    int frames = 1;
+    auto later = firstFrame;
+    while (later != hdimg && frames < 1000)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        later = Render(*r, gpu);
+        frames++;
+    }
+    bool backgroundOk = firstFrame == native && later == hdimg;
+    printf("background: first frame == native: %s, HD after %d frames == synchronous HD: %s\n",
+           firstFrame == native ? "yes" : "NO", frames, later == hdimg ? "yes" : "NO");
+    TextureReplacement::SetConfig({"tex", false, false});
+
     // 5. texture filtering (Pomegrade): 7.5 texels across the screen, each
     // 34.13 pixels wide, so texel edges fall inside pixels. Texel middles keep
     // their colour, each texel edge is blended over a pixel or two (none with
@@ -280,5 +300,5 @@ int main()
         printf("texture filter: minified x4, mean red error from each pixel's texels: nearest %.2f, filtered %.2f\n", errNearest / 256, errFiltered / 256);
         check(errFiltered < errNearest * 0.6, "minified: much closer to the average (less aliasing)");
     }
-    return bad != 0 || off != native || !filterOk;
+    return bad != 0 || off != native || !backgroundOk || !filterOk;
 }

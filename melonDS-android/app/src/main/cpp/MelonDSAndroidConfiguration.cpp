@@ -106,6 +106,8 @@ MelonDSAndroid::EmulatorConfiguration MelonDSAndroidConfiguration::buildEmulator
     }
     textureReplacementConfig.Replace = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "hdTexturesEnabled", "Z"));
     textureReplacementConfig.Dump = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "dumpTexturesEnabled", "Z"));
+    // replacement files decoded off the render thread: no hitch when a texture first appears
+    textureReplacementConfig.Background = true;
     melonDS::TextureReplacement::SetConfig(textureReplacementConfig);
 
     // Pomegrade: "better polygons" (OpenGL renderer), splits polygons around a centre vertex

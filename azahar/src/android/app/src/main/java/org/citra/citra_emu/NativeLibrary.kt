@@ -138,6 +138,12 @@ object NativeLibrary {
      */
     external fun setUserDirectory(directory: String)
 
+    /**
+     * Pomegrade: records a code trace of the next game (kernel calls, service requests, files,
+     * modules, threads) into [folder] when it stops; see core/pomegrade_code_trace.h.
+     */
+    external fun setCodeTrace(enabled: Boolean, folder: String)
+
     data class InstalledGame(val path: String, val mediaType: Game.MediaType)
 
     fun getInstalledGamePaths(): Array<InstalledGame> {

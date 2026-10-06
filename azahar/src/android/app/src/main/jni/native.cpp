@@ -35,6 +35,7 @@
 #include "common/scope_exit.h"
 #include "common/settings.h"
 #include "common/string_util.h"
+#include "core/pomegrade_code_trace.h"
 #include "core/core.h"
 #include "core/frontend/applets/default_applets.h"
 #include "core/frontend/camera/factory.h"
@@ -734,6 +735,12 @@ jstring Java_org_citra_citra_1emu_NativeLibrary_getRecommendedExtension(
     }
 
     return env->NewStringUTF(j_should_compress ? compressed_ext.c_str() : uncompressed_ext.c_str());
+}
+
+// Pomegrade: the code trace (core/pomegrade_code_trace.h) for the next game, written to folder
+void Java_org_citra_citra_1emu_NativeLibrary_setCodeTrace(JNIEnv* env, [[maybe_unused]] jobject obj,
+                                                         jboolean enabled, jstring j_folder) {
+    Pomegrade::CodeTrace::Configure(enabled, GetJString(env, j_folder));
 }
 
 void Java_org_citra_citra_1emu_NativeLibrary_setUserDirectory(JNIEnv* env,

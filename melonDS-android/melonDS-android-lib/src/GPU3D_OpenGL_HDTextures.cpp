@@ -55,6 +55,24 @@ bool GLHDTextures::BeginFrame(GPU& gpu)
         ClearEntries();
     }
     Changed = false;
+    if (Replacement.Loaded() != ReplacementLoaded)
+    {
+        // replacements loaded in the background since: the textures that were
+        // waiting for one are looked up again
+        ReplacementLoaded = Replacement.Loaded();
+        for (auto it = Cache.begin(); it != Cache.end();)
+        {
+            if (!it->second.ReplacementPending)
+            {
+                it++;
+                continue;
+            }
+            if (it->second.SizeClass >= 0)
+                FreeCell(it->second.SizeClass, it->second.Cell);
+            it = Cache.erase(it);
+            Changed = true;
+        }
+    }
     if (!Enabled && !KeepCoherent)
     {
         WasCoherent = false;
@@ -243,7 +261,7 @@ u32 GLHDTextures::Lookup(GPU& gpu, u32 texParam, u32 palBase)
     // A3I5 and A5I3 are the only formats with translucent texels
     bool binaryAlpha = fmt != 1 && fmt != 6;
     u32 hdWidth, hdHeight;
-    bool haveHD = Replacement.Lookup(contentHash, width, height, binaryAlpha, LayerSize, HDBuffer, hdWidth, hdHeight);
+    bool haveHD = Replacement.Lookup(contentHash, width, height, binaryAlpha, LayerSize, HDBuffer, hdWidth, hdHeight, &entry.ReplacementPending);
     // no pack replacement: native upscaling, if enabled, at the largest factor
     // up to the setting whose result fits an atlas layer (x16 of a 128x128
     // texture would be 2048x2048)

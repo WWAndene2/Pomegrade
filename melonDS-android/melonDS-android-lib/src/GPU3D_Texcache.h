@@ -105,6 +105,23 @@ public:
             replacementChanged = !Cache.empty();
             Cache.clear();
         }
+        if (Replacement.Loaded() != ReplacementLoaded)
+        {
+            // replacements loaded in the background since: the textures that
+            // were waiting for one are looked up again
+            ReplacementLoaded = Replacement.Loaded();
+            for (auto it = Cache.begin(); it != Cache.end();)
+            {
+                if (!it->second.ReplacementPending)
+                {
+                    it++;
+                    continue;
+                }
+                FreeTextures[it->second.WidthLog2][it->second.HeightLog2].push_back(it->second.Texture);
+                it = Cache.erase(it);
+                replacementChanged = true;
+            }
+        }
 
         auto textureDirty = gpu.VRAMDirty_Texture.DeriveState(gpu.VRAMMap_Texture, gpu);
         auto texPalDirty = gpu.VRAMDirty_TexPal.DeriveState(gpu.VRAMMap_TexPal, gpu);
@@ -200,7 +217,7 @@ public:
             bool binaryAlpha = fmt != 1 && fmt != 6;
             u32 maxSize = std::min<u32>(TexLoader.MaxTextureSize(), 8u << (MaxSizeLog2 - 1));
             u32 hdWidth, hdHeight;
-            if (Replacement.Lookup(contentHash, width, height, binaryAlpha, maxSize, HDBuffer, hdWidth, hdHeight))
+            if (Replacement.Lookup(contentHash, width, height, binaryAlpha, maxSize, HDBuffer, hdWidth, hdHeight, &entry.ReplacementPending))
             {
                 TextureReplacement::ConvertToRGB6A5(HDBuffer);
                 width = hdWidth;
@@ -299,6 +316,7 @@ private:
 
         u64 TextureHash[2];
         u64 TexPalHash;
+        bool ReplacementPending; // its replacement is being loaded in the background
     };
     std::unordered_map<u64, TexCacheEntry> Cache;
 
@@ -311,6 +329,7 @@ private:
 
     TextureReplacement Replacement;
     u32 ReplacementGeneration = 0;
+    u32 ReplacementLoaded = 0;
     std::vector<u32> HDBuffer;
 };
 

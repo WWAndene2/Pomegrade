@@ -67,6 +67,15 @@ void TextureReplacement::Refresh()
         gameCode = SharedGameCode;
     }
 
+    // loads queued for the previous settings or game are dropped; one already
+    // being decoded is discarded when it comes back (TakeLoaded)
+    {
+        std::lock_guard<std::mutex> lock(WorkerMutex);
+        Queue.clear();
+        Results.clear();
+    }
+    Pending.clear();
+
     Index.clear();
     Dumped.clear();
     Rejected.clear();
@@ -128,7 +137,78 @@ void TextureReplacement::IndexDirectory()
 bool TextureReplacement::Active()
 {
     Refresh();
+    TakeLoaded();
     return !GameDir.empty();
+}
+
+TextureReplacement::~TextureReplacement()
+{
+    StopWorker();
+}
+
+void TextureReplacement::StopWorker()
+{
+    {
+        std::lock_guard<std::mutex> lock(WorkerMutex);
+        WorkerStop = true;
+    }
+    WorkerWake.notify_all();
+    if (Worker.joinable())
+        Worker.join();
+}
+
+void TextureReplacement::WorkerLoop()
+{
+    std::unique_lock<std::mutex> lock(WorkerMutex);
+    for (;;)
+    {
+        WorkerWake.wait(lock, [this] { return WorkerStop || !Queue.empty(); });
+        if (WorkerStop)
+            return;
+        LoadRequest request = std::move(Queue.front());
+        Queue.pop_front();
+        WorkerBusy = true;
+        lock.unlock();
+
+        LoadResult result{request.Generation, request.CacheKey, false, {}};
+        result.Ok = Decode(request.Path, request.Width, request.Height, request.BinaryAlpha, request.MaxSize, result.Texture);
+
+        lock.lock();
+        Results.push_back(std::move(result));
+        WorkerBusy = false;
+        WorkerIdle.notify_all();
+    }
+}
+
+void TextureReplacement::WaitForLoads()
+{
+    std::unique_lock<std::mutex> lock(WorkerMutex);
+    WorkerIdle.wait(lock, [this] { return Queue.empty() && !WorkerBusy; });
+}
+
+// decoded replacements go to the memory cache (or the rejected set), on the
+// render thread
+void TextureReplacement::TakeLoaded()
+{
+    std::vector<LoadResult> results;
+    {
+        std::lock_guard<std::mutex> lock(WorkerMutex);
+        results.swap(Results);
+    }
+    bool any = false;
+    for (LoadResult& result : results)
+    {
+        if (result.Generation != SeenGeneration)
+            continue;
+        Pending.erase(result.CacheKey);
+        if (result.Ok)
+            Store(result.CacheKey, std::move(result.Texture));
+        else
+            Rejected.insert(result.CacheKey);
+        any = true;
+    }
+    if (any)
+        LoadedCount++;
 }
 
 u64 TextureReplacement::HashDecoded(const u32* data, u32 width, u32 height)
@@ -167,8 +247,10 @@ static inline void RGB6A5ToRGBA8(u32 c, u8* p)
 }
 
 bool TextureReplacement::Lookup(u64 hash, u32 width, u32 height, bool binaryAlpha, u32 maxSize,
-                                std::vector<u32>& out, u32& outWidth, u32& outHeight)
+                                std::vector<u32>& out, u32& outWidth, u32& outHeight, bool* pending)
 {
+    if (pending)
+        *pending = false;
     if (!Config.Replace || Index.empty())
         return false;
 
@@ -180,25 +262,64 @@ bool TextureReplacement::Lookup(u64 hash, u32 width, u32 height, bool binaryAlph
     std::string cacheKey = name + (binaryAlpha ? "/b" : "/a");
 
     auto cached = MemoryCache.find(cacheKey);
-    if (cached != MemoryCache.end())
+    if (cached == MemoryCache.end())
     {
-        LRU.splice(LRU.begin(), LRU, cached->second.second);
-        const CachedTexture& tex = cached->second.first;
-        out = tex.Data;
-        outWidth = tex.Width;
-        outHeight = tex.Height;
-        return true;
+        if (Rejected.count(cacheKey))
+            return false;
+
+        if (Config.Background)
+        {
+            if (pending)
+                *pending = true;
+            if (!Pending.insert(cacheKey).second)
+                return false; // already queued
+            {
+                std::lock_guard<std::mutex> lock(WorkerMutex);
+                if (!Worker.joinable())
+                {
+                    WorkerStop = false;
+                    Worker = std::thread(&TextureReplacement::WorkerLoop, this);
+                }
+                Queue.push_back(LoadRequest{SeenGeneration, cacheKey, file->second, width, height, binaryAlpha, maxSize});
+            }
+            WorkerWake.notify_one();
+            return false;
+        }
+
+        CachedTexture tex;
+        if (!Decode(file->second, width, height, binaryAlpha, maxSize, tex))
+        {
+            Rejected.insert(cacheKey);
+            return false;
+        }
+        if (tex.Data.size() * sizeof(u32) > MemoryCacheBudget)
+        {
+            // too large to keep: handed out once, decoded again next time
+            out = std::move(tex.Data);
+            outWidth = tex.Width;
+            outHeight = tex.Height;
+            return true;
+        }
+        Store(cacheKey, std::move(tex));
+        cached = MemoryCache.find(cacheKey);
     }
 
-    if (Rejected.count(cacheKey))
-        return false;
+    LRU.splice(LRU.begin(), LRU, cached->second.second);
+    const CachedTexture& tex = cached->second.first;
+    out = tex.Data;
+    outWidth = tex.Width;
+    outHeight = tex.Height;
+    return true;
+}
 
+// reads and checks a replacement file; thread-safe (also run by the worker)
+bool TextureReplacement::Decode(const std::string& path, u32 width, u32 height, bool binaryAlpha, u32 maxSize, CachedTexture& out)
+{
     int w, h, comp;
-    u8* pixels = stbi_load(file->second.c_str(), &w, &h, &comp, 4);
+    u8* pixels = stbi_load(path.c_str(), &w, &h, &comp, 4);
     if (!pixels)
     {
-        Log(LogLevel::Warn, "TextureReplacement: cannot load %s: %s\n", file->second.c_str(), stbi_failure_reason());
-        Rejected.insert(cacheKey);
+        Log(LogLevel::Warn, "TextureReplacement: cannot load %s: %s\n", path.c_str(), stbi_failure_reason());
         return false;
     }
 
@@ -212,41 +333,43 @@ bool TextureReplacement::Lookup(u64 hash, u32 width, u32 height, bool binaryAlph
     if (!valid)
     {
         Log(LogLevel::Warn, "TextureReplacement: %s is %dx%d, expected %ux%u times 1, 2, 4, 8 or 16 (max %u)\n",
-            file->second.c_str(), w, h, width, height, maxSize);
+            path.c_str(), w, h, width, height, maxSize);
         stbi_image_free(pixels);
-        Rejected.insert(cacheKey);
         return false;
     }
 
-    out.resize((size_t)w * h);
-    for (size_t i = 0; i < out.size(); i++)
+    out.Data.resize((size_t)w * h);
+    for (size_t i = 0; i < out.Data.size(); i++)
     {
         const u8* p = &pixels[i * 4];
         u32 a = p[3];
         if (binaryAlpha)
             a = a >= 128 ? 255 : 0;
-        out[i] = a ? (p[0] | (p[1] << 8) | (p[2] << 16) | (a << 24)) : 0;
+        out.Data[i] = a ? (p[0] | (p[1] << 8) | (p[2] << 16) | (a << 24)) : 0;
     }
     stbi_image_free(pixels);
-    outWidth = w;
-    outHeight = h;
-
-    size_t bytes = out.size() * sizeof(u32);
-    if (bytes <= MemoryCacheBudget)
-    {
-        while (MemoryCacheSize + bytes > MemoryCacheBudget && !LRU.empty())
-        {
-            auto victim = MemoryCache.find(LRU.back());
-            MemoryCacheSize -= victim->second.first.Data.size() * sizeof(u32);
-            MemoryCache.erase(victim);
-            LRU.pop_back();
-        }
-        LRU.push_front(cacheKey);
-        MemoryCache.emplace(cacheKey, std::make_pair(CachedTexture{out, outWidth, outHeight}, LRU.begin()));
-        MemoryCacheSize += bytes;
-    }
-
+    out.Width = w;
+    out.Height = h;
     return true;
+}
+
+// into the memory cache, oldest entries evicted to stay within the budget;
+// a texture larger than the whole budget is not kept
+void TextureReplacement::Store(const std::string& cacheKey, CachedTexture&& tex)
+{
+    size_t bytes = tex.Data.size() * sizeof(u32);
+    if (bytes > MemoryCacheBudget)
+        return;
+    while (MemoryCacheSize + bytes > MemoryCacheBudget && !LRU.empty())
+    {
+        auto victim = MemoryCache.find(LRU.back());
+        MemoryCacheSize -= victim->second.first.Data.size() * sizeof(u32);
+        MemoryCache.erase(victim);
+        LRU.pop_back();
+    }
+    LRU.push_front(cacheKey);
+    MemoryCache.emplace(cacheKey, std::make_pair(std::move(tex), LRU.begin()));
+    MemoryCacheSize += bytes;
 }
 
 void TextureReplacement::Dump(u64 hash, const u32* data, u32 width, u32 height)
