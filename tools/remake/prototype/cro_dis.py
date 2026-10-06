@@ -118,6 +118,10 @@ class Cro:
             for i in range(anon_num):
                 tag, batch = struct.unpack_from("<II", self.data, anon_off + 8 * i)
                 name = f"{module}@seg{tag & 0xF}+0x{tag >> 4:X}"
+                if module == "|static|" and tag & 0xF == 0:
+                    # the static module is the program itself: its segment 0 is the .code loaded at 0x100000, so the
+                    # name matches code_find.py's addresses in `remake_tool oras-code`'s code.bin
+                    name = f"code:0x{0x100000 + (tag >> 4):X}"
                 if other:
                     address = other.tag(tag)
                     if address is not None and address in other.labels:
