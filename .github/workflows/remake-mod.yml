@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       variants:
-        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"; "... +cro <module> OFFSET=OLD:NEW" also patches a code module, "name: cro <module> OFFSET=OLD:NEW" patches one alone, "name: copy <archive> <dst>=<src>" copies archive members, "name: merge a b" joins mods built on earlier lines'
+        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"; "... +cro <module> OFFSET=OLD:NEW" also patches a code module, "name: cro <module> OFFSET=OLD:NEW" patches one alone, "name: copy <archive> <dst>=<src>" copies archive members, "name: merge a b" joins mods built on earlier lines, "name: save Z X Y" a moved save to merge'
         # no default mod: an empty input fell back to "v24:", and an inspect-only run shipped a v24 zip the owner took for r5
         default: ''
         required: false
@@ -93,6 +93,7 @@ jobs:
       - name: Build the mods
         env:
           VARIANTS: ${{ inputs.variants }}
+          SAVE_DRIVE_ID: ${{ secrets.ORAS_SAVE_DRIVE_ID }}
         run: |
           set -o pipefail   # a failing command before "| tee" fails the step (a mod built without its patch must not ship)
           mkdir -p mods
@@ -108,17 +109,33 @@ jobs:
             if [[ "$options" =~ ^[[:space:]]*cro[[:space:]] ]]; then
               # "name: cro <module> OFFSET=OLD:NEW ...": a code module patched alone, no map built (the title screen's species)
               cro="${options#*cro }"; mkdir -p "out/$name"
+            elif [[ "$options" =~ ^[[:space:]]*save[[:space:]] ]]; then
+              # "name: save <zone> <tile x> <tile z>": the owner's save (Drive) with the player moved (oras-save), as the
+              # sdmc folder Azahar reads under Pomegrade/3DS, with the save's 00000001.metadata beside it (to merge with a mod)
+              if [ ! -d save ]; then
+                id=$(printf '%s' "$SAVE_DRIVE_ID" | tr -d '[:space:]' | sed -E 's#.*/d/([^/?]+).*#\1#; s#.*[?&]id=([^&]+).*#\1#')
+                curl --location --silent --show-error --output save.zip "https://drive.usercontent.google.com/download?id=$id&export=download&confirm=t"
+                mkdir -p save && unzip -q save.zip -d save
+              fi
+              main=$(find save -type f -name main | head -n 1)
+              meta=$(find save -type f -name '00000001.metadata' | head -n 1)
+              data="out/$name/sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/00040000/0011c400/data"
+              mkdir -p "$data" && cp -r "$(dirname "$main")" "$data/00000001"
+              set -- ${options#*save }
+              ./build-remake/remake_tool oras-save "$main" "$data/00000001/main" "$1" "$2" "$3" | tee "mods/${name}_log.txt"
+              if [ -n "$meta" ]; then cp "$meta" "$data/"; else echo "::warning::the Drive save has no 00000001.metadata"; fi
+              mkdir -p "out/$name/load"
             elif [[ "$options" =~ ^[[:space:]]*merge[[:space:]] ]]; then
-              # "name: merge a b ...": the load folders of mods built above on earlier lines, in one mod (they must change
-              # different files: a file two of them change is refused)
+              # "name: merge a b ...": the load (and sdmc) folders of mods built above on earlier lines, in one mod (they must
+              # change different files: a file two of them change is refused)
               mkdir -p "out/$name"
               for part in ${options#*merge }; do
-                (cd "out/$part" && find load -type f) | while read -r f; do
+                (cd "out/$part" && find . -type f) | while read -r f; do
                   if [ -e "out/$name/$f" ]; then echo "::error::$f is in two of the merged mods"; exit 1; fi
                 done
-                cp -r "out/$part/load" "out/$name/"
+                cp -r "out/$part/." "out/$name/"
               done
-              (cd "out/$name" && find load -type f) | tee "mods/${name}_log.txt"
+              (cd "out/$name" && find . -type f) | tee "mods/${name}_log.txt"
             elif [[ "$options" =~ ^[[:space:]]*copy[[:space:]] ]]; then
               # "name: copy <archive> <dst>[-<last>]=<src>[-<last>] ...": archive members copied over others (oras-copy)
               ./build-remake/remake_tool oras-copy dumps/oras.3ds "out/$name" ${options#*copy } | tee "mods/${name}_log.txt"
@@ -141,7 +158,7 @@ jobs:
               python3 tools/remake/prototype/cro_patch.py "out/$name.cro/$(basename "$module")" "out/$name.patched" "$@" | tee -a "mods/${name}_log.txt"
               ./build-remake/remake_tool oras-patch dumps/oras.3ds "out/$name" "$module=out/$name.patched/$(basename "$module")" | tee -a "mods/${name}_log.txt"
             fi
-            (cd "out/$name" && zip -q -r "../../mods/Pomegrade_Sinnoh_$name.zip" load)
+            (cd "out/$name" && zip -q -r "../../mods/Pomegrade_Sinnoh_$name.zip" load $( [ -d sdmc ] && echo sdmc ))
             echo "::endgroup::"
           done <<< "$VARIANTS"
           ls -l mods
