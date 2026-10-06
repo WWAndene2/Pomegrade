@@ -179,8 +179,10 @@ jobs:
             n=$((n + 1))
             echo "::group::oras-inspect $query"
             # the query is split on spaces on purpose: it is oras-inspect's arguments
-            # each query in a subshell: one that fails is reported and the others still run (the step fails at the end)
-            if ! ( set -eo pipefail
+            # each query in a subshell: one that fails is reported and the others still run (the step fails at the end);
+            # the subshell runs outside any if/|| so that its set -e holds (bash ignores set -e in a condition)
+            set +e
+            ( set -eo pipefail
             case "$query" in
               # "world N": Platinum's matrix N laid out as ORAS pieces (oras-world)
               world\ *) ./build-remake/remake_tool oras-world dumps/platinum.nds ${query#world } "out/world_$n" | tee "mods/inspect_$n.txt" ;;
@@ -246,7 +248,10 @@ jobs:
                 out/spica/spica "$cmd" out/spica_in.bin "${extra[@]}" | tee "mods/inspect_$n.txt" ;;
               *) ./build-remake/remake_tool oras-inspect dumps/oras.3ds $query | tee "mods/inspect_$n.txt" ;;
             esac
-            ); then echo "::error::inspect query failed: $query"; failed=1; fi
+            )
+            rc=$?
+            set -e
+            if [ $rc -ne 0 ]; then echo "::error::inspect query failed: $query"; failed=1; fi
             echo "::endgroup::"
           done <<< "$QUERIES"
           exit $failed

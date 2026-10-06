@@ -79,7 +79,7 @@ class Cro:
 
     def tag(self, raw):
         index, offset = raw & 0xF, raw >> 4
-        if index >= len(self.segments) or offset > self.segments[index][1]:
+        if index >= len(self.segments) or offset >= self.segments[index][1]:  # as Azahar's SegmentTagToAddress
             return None
         return self.segments[index][0] + offset
 
@@ -211,9 +211,8 @@ def main():
                 notes.append(cro.patches[off])
             if ins:
                 target = branch_target(ins)
-                if target is not None:
-                    # a branch patched by an import is the import's call
-                    notes.append(cro.patches.get(off) or name_of(target) or "")
+                if target is not None and off not in cro.patches:  # a branch an import patches is named above
+                    notes.append(name_of(target) or "")
                 if "[pc, #" in ins.op_str:
                     lit = off + 8 + int(ins.op_str.split("[pc, #")[1].split("]")[0], 0)
                     if 0 <= lit < len(cro.data) - 3:
