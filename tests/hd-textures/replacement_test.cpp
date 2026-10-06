@@ -48,5 +48,30 @@ int main(){
   TextureReplacement::ConvertToRGB6A5(out); assert((out[0]>>24)==12);
   assert(r.Lookup(hsh,w,h,true,4096,out,ow,oh)); // from memory cache
   assert(!r.Lookup(h2,w,h,true,4096,out,ow,oh)); // rejected
+  // background loading: the first lookup queues the file and says pending,
+  // the next frame (Active) takes the decoded texture in, Loaded() changes
+  // and the same texels come back; a rejected file is not pending again
+  {
+    // the synchronous result to compare with, before the (shared) settings change
+    std::vector<u32> sync; u32 sw,sh; assert(r.Lookup(hsh,w,h,true,4096,sync,sw,sh));
+    TextureReplacement b;
+    TextureReplacement::SetConfig({"root",true,false,true}); assert(b.Active());
+    bool pending=false; u32 loaded=b.Loaded();
+    assert(!b.Lookup(hsh,w,h,true,4096,out,ow,oh,&pending)); assert(pending);
+    assert(!b.Lookup(hsh,w,h,true,4096,out,ow,oh,&pending)); assert(pending); // queued once
+    assert(!b.Lookup(h2,w,h,true,4096,out,ow,oh,&pending)); assert(pending);
+    b.WaitForLoads(); b.Active(); assert(b.Loaded()!=loaded);
+    assert(b.Lookup(hsh,w,h,true,4096,out,ow,oh,&pending)); assert(!pending); assert(out==sync&&ow==sw&&oh==sh);
+    assert(!b.Lookup(h2,w,h,true,4096,out,ow,oh,&pending)); assert(!pending); // rejected
+    // a load still queued when the settings change is dropped
+    TextureReplacement::SetConfig({"root",true,false,true}); b.Active();
+    assert(!b.Lookup(hsh,w,h,false,4096,out,ow,oh,&pending)); assert(pending);
+    TextureReplacement::SetConfig({"root",true,false,true}); b.Active();
+    b.WaitForLoads(); b.Active();
+    assert(!b.Lookup(hsh,w,h,false,4096,out,ow,oh,&pending)); assert(pending); // queued again for the new settings
+    b.WaitForLoads(); b.Active();
+    assert(b.Lookup(hsh,w,h,false,4096,out,ow,oh,&pending)); assert(!pending);
+    puts("background OK");
+  }
   puts("ALL OK");
 }

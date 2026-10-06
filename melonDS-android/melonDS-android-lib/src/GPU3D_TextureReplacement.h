@@ -13,9 +13,12 @@
 
 #include "types.h"
 
+#include <condition_variable>
+#include <deque>
 #include <list>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -28,22 +31,35 @@ struct TextureReplacementConfig
     std::string RootDir;   // empty = feature disabled
     bool Replace = false;  // load HD replacements
     bool Dump = false;     // write decoded textures to dump/
+    // decode replacements on a worker thread: a texture shows at native
+    // resolution until its file is read (no hitch the first time it appears)
+    bool Background = false;
 };
 
 class TextureReplacement
 {
 public:
+    TextureReplacement() = default;
+    TextureReplacement(const TextureReplacement&) = delete;
+    TextureReplacement& operator=(const TextureReplacement&) = delete;
+    ~TextureReplacement();
+
     // Thread-safe, can be called from the frontend at any time.
     // Changes are picked up by the renderer on its next texture lookup.
     static void SetConfig(const TextureReplacementConfig& config);
     static void SetGameCode(const std::string& gameCode);
 
-    // Called by the texture cache (render thread).
+    // Called by the texture cache (render thread), once a frame: also takes
+    // in the replacements the worker thread has decoded since.
     bool Active();
 
     // Changes whenever the configuration, game or set of replacement files
     // changes: textures cached before that have to be looked up again.
     u32 Generation() const { return SeenGeneration; }
+
+    // Changes whenever replacements loaded in the background become ready:
+    // textures whose Lookup said "pending" have to be looked up again.
+    u32 Loaded() const { return LoadedCount; }
 
     // Content hash of a decoded texture (RGB6A5 layout, one u32 per texel).
     static u64 HashDecoded(const u32* data, u32 width, u32 height);
@@ -54,8 +70,13 @@ public:
     // binaryAlpha: the original format has no translucency, so alpha is
     // forced to 0 or 255 (translucent texels would change how the polygon is
     // blended).
+    // With Background on, a replacement not decoded yet is queued and Lookup
+    // returns false with *pending set (pending may be null).
     bool Lookup(u64 hash, u32 width, u32 height, bool binaryAlpha, u32 maxSize,
-                std::vector<u32>& out, u32& outWidth, u32& outHeight);
+                std::vector<u32>& out, u32& outWidth, u32& outHeight, bool* pending = nullptr);
+
+    // Waits until every queued replacement is decoded (tests).
+    void WaitForLoads();
 
     // Converts Lookup's output in place to the texture cache's RGB6A5 layout.
     static void ConvertToRGB6A5(std::vector<u32>& data);
@@ -77,6 +98,39 @@ private:
         std::vector<u32> Data;
         u32 Width, Height;
     };
+
+    static bool Decode(const std::string& path, u32 width, u32 height, bool binaryAlpha, u32 maxSize, CachedTexture& out);
+    void Store(const std::string& cacheKey, CachedTexture&& tex);
+    void TakeLoaded();
+    void WorkerLoop();
+    void StopWorker();
+
+    struct LoadRequest
+    {
+        u32 Generation;
+        std::string CacheKey, Path;
+        u32 Width, Height;
+        bool BinaryAlpha;
+        u32 MaxSize;
+    };
+    struct LoadResult
+    {
+        u32 Generation;
+        std::string CacheKey;
+        bool Ok;
+        CachedTexture Texture;
+    };
+
+    // shared with the worker thread, under WorkerMutex
+    std::thread Worker;
+    std::mutex WorkerMutex;
+    std::condition_variable WorkerWake, WorkerIdle;
+    std::deque<LoadRequest> Queue;
+    std::vector<LoadResult> Results;
+    bool WorkerBusy = false, WorkerStop = false;
+
+    std::unordered_set<std::string> Pending; // queued, by cache key
+    u32 LoadedCount = 0;
 
     u32 SeenGeneration = 0;
     TextureReplacementConfig Config;

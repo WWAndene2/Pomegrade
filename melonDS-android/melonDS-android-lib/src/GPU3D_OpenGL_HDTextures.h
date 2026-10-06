@@ -79,6 +79,7 @@ private:
         u32 Info;      // packed location, 0 = no replacement
         s32 SizeClass; // -1 = no replacement
         u32 Cell;
+        bool ReplacementPending; // its replacement is being loaded in the background
     };
 
     struct SizeClass
@@ -94,6 +95,7 @@ private:
 
     TextureReplacement Replacement;
     u32 ReplacementGeneration = 0;
+    u32 ReplacementLoaded = 0;
     bool Enabled = false;
     bool KeepCoherent = false, Changed = false, WasCoherent = false;
     int UpscaleFactor = 1;
