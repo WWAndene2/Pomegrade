@@ -103,8 +103,7 @@ static Bytes MoveZone(const Bytes& plain, size_t zoneIndex, size_t matrix, const
         const uint32_t size = U32(entries, 0) - removed * 0x18;
         for (int k = 0; k < 4; k++) entries.at(k) = (uint8_t)(size >> (8 * k));
     }
-    // parked rather than removed: a shorter zone makes a/0/1/3 shorter than the game's file, which Azahar's LayeredFS would
-    // finish with the old file's tail (the r6 build refused it)
+    // parked rather than removed: the zone keeps its size and layout
     const int triggers = noTriggers ? entries.at(7) : 0;
     for (int k = 0; k < triggers; k++)
     {
@@ -463,7 +462,17 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
     {
         const Bytes data = archive->Write();
         if (data == *original) continue;
-        if (data.size() < original->size()) throw FormatError(std::string(path) + ": shorter than the game's file; Azahar would leave its old tail");
+        if (data.size() < original->size())
+        {
+            // a recompressed member can come out shorter (s1's zones): a patched file shorter than the game's would keep the old
+            // file's tail (Bps.h), so the archive is shipped whole in romfs/, which Azahar serves as it is (oras-mod's way)
+            const std::filesystem::path whole = out / "load" / "mods" / id / "romfs" / path;
+            std::filesystem::create_directories(whole.parent_path());
+            Garc check(data);
+            WriteFile(whole.string(), data);
+            log.push_back(F("%s: %zu members, %zu bytes (shorter than the game's %zu): written whole under romfs/", path, check.Count(), data.size(), original->size()));
+            continue;
+        }
         const Bytes bps = BpsCreate(*original, data);
         if (BpsApply(*original, bps) != data) throw FormatError(std::string(path) + ": the patch does not rebuild the file");
         std::filesystem::create_directories((root / path).parent_path());
