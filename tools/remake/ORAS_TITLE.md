@@ -30,6 +30,12 @@ animations are made for Groudon's skeleton (inferred from the skins' names), so 
   `pm0487_11` 5427-5433, Origin `pm0487_12` 5435-5441. Animations by name: `ba10_waitA01` (battle idle), `ba20_buturi`,
   `kw..` (Pokémon-Amie) ...
 
+- Mod `t2` (`copy a/0/0/8 4178-4185=5434-5441`, Giratina Origin's eight members over Primal Groudon's, plus `t1`'s cry), on
+  the phone: **the title shows Giratina Origin**, deformed: the title's animations (122-125, made for Groudon's bones) drive
+  its bones. So the title takes its model from `a/0/0/8` (checked) and its animations from `a/1/5/2`. A form's block is 8
+  members, its first a small `PC` container (88 bytes); Groudon 4170-4177, Primal Groudon 4178-4185, Giratina Altered
+  5426-5433, Origin 5434-5441. The swap also changes Primal Groudon in battle: fine for a test, not for the Hoenn story.
+
 ## 2. Plan
 
 1. Giratina Origin with its battle idle animation (`pm0487_12_ba10_waitA01`) in the four members 122-125, converted from
