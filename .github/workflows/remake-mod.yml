@@ -147,6 +147,13 @@ jobs:
               # e.g. recolour:<texture>:<hue>:<saturation>:<brightness>[:<around>:<range>]
               set -- ${options#*asset }
               ./build-remake/remake_tool oras-asset dumps/oras.3ds "$1" "$2" "$3" edit "out/$name" "${@:4}" | tee "mods/${name}_log.txt"
+              # previews before and after (prototype/render_model.js: the editor's 3D view in Chromium, four sides)
+              [ -d out/pw/node_modules/playwright ] || { (mkdir -p out/pw && cd out/pw && npm install --silent playwright@1 > /dev/null && npx playwright install --with-deps chromium > /dev/null); }
+              for side in before after; do
+                ./build-remake/remake_tool bch "out/$name/asset_$side.bch" "out/$name/asset_$side.gltf" > /dev/null
+                (cd "out/$name" && PLAYWRIGHT="$GITHUB_WORKSPACE/out/pw/node_modules/playwright" REMAKE_WORK=. node "$GITHUB_WORKSPACE/tools/remake/prototype/render_model.js" "asset_$side.gltf" "$side")
+                cp "out/$name/${side}_"*.png "mods/" 2>/dev/null && for f in "out/$name/${side}_"*.png; do mv "mods/$(basename "$f")" "mods/${name}_$(basename "$f")"; done
+              done
             elif [[ "$options" =~ ^[[:space:]]*copy[[:space:]] ]]; then
               # "name: copy <archive> <dst>[-<last>]=<src>[-<last>] ...": archive members copied over others (oras-copy)
               ./build-remake/remake_tool oras-copy dumps/oras.3ds "out/$name" ${options#*copy } | tee "mods/${name}_log.txt"

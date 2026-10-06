@@ -710,6 +710,10 @@ int main(int argc, char** argv)
                     }
                     Garc g(original);
                     ReplaceMember(g, source, member, newPlain, newTag);
+                    // the model file before and after, beside the mod: the previews shown before it is built in (render_model.js)
+                    std::filesystem::create_directories(argv[7]);
+                    WriteFile((std::filesystem::path(argv[7]) / "asset_before.bch").string(), target);
+                    WriteFile((std::filesystem::path(argv[7]) / "asset_after.bch").string(), edited);
                     return WriteArchiveMod(g, original, member, path, std::filesystem::path(argv[7]) / "load" / "mods" / id);
                 }
                 fprintf(stderr, "oras-asset: list, export <dir> or edit <out dir> <edit>...\n");
