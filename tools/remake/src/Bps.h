@@ -9,7 +9,9 @@
 //
 // Two limits of Azahar's applier: no metadata, and a target shorter than its
 // source keeps the source's size (zero-filled past the target's end), so a
-// patch for Azahar should not shrink the file.
+// patch for Azahar should not shrink the file. Pomegrade's Azahar cuts such a
+// target to its size since 6 October 2026 (patch.cpp, ApplyBpsPatch); the
+// workarounds stay for builds older than that.
 
 #include "Bytes.h"
 
