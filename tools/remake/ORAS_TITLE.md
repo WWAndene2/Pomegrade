@@ -77,6 +77,8 @@ bytes (name, flags `0x00040000`, per-axis keys), the layout documented by the 3D
   the cry). Next suspect: a function of the main program giving the version's Pokémon (Groudon in Omega Ruby, Kyogre in
   Alpha Sapphire).
 
+- `all` (t4, run 97) on the phone: Giratina Altered in Groudon's place shows right; Giratina Origin is still deformed, as member 126 (Primal Groudon's motion pack) was not yet replaced. `all2` (run 106) replaces 87, 120 and 126 with Giratina's packs: not yet run.
+
 ## 2. Plan
 
 1. Giratina Origin with its battle idle animation (`pm0487_12_ba10_waitA01`) in the four members 122-125, converted from
