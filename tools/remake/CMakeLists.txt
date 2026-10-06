@@ -60,6 +60,7 @@ add_library(remake STATIC
     src/Bps.cpp
     src/Blz.cpp
     src/GfMotion.cpp
+    src/GameText.cpp
     # the DS core's hash, so texture names match the emulator's by construction
     ${MELONDS_SRC}/xxhash/xxhash.c
 )

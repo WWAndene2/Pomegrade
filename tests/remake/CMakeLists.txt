@@ -69,3 +69,9 @@ endif()
 
 add_executable(remake_motion_test remake_motion_test.cpp)
 target_link_libraries(remake_motion_test PRIVATE remake)
+
+add_executable(remake_text_test remake_text_test.cpp)
+target_link_libraries(remake_text_test PRIVATE remake)
+
+add_executable(remake_script_test remake_script_test.cpp)
+target_link_libraries(remake_script_test PRIVATE remake)

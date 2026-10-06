@@ -24,6 +24,8 @@
 //   remake_tool oras-members <oras.3ds> <archive> <first> <last>
 //   remake_tool oras-hex <oras.3ds> <archive> <member> <file|-1> <offset> <length>
 //   remake_tool oras-member <oras.3ds> <archive> <member> <file|-1> <out>
+//   remake_tool oras-text <oras.3ds> <archive> <member>   a game text file's lines
+//   remake_tool oras-script <oras.3ds> <zone> [init]      a zone's script, unpacked and disassembled
 //   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>] | <dst>=<archive>:<member>:<file> | <dst>=motion:<archive>:<member>:<file>:<slot>[:<frames>] ...
 //   remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...
 //                     an Azahar mod: each file replaces that RomFS path, laid out as Azahar loads
@@ -73,6 +75,9 @@
 #include "Bps.h"
 #include "BinLinker.h"
 #include "GfMotion.h"
+#include "OrasZone.h"
+#include "GameText.h"
+#include "Amx.h"
 #include "N3dsRom.h"
 #include "MapHeaders.h"
 #include "N3dsWorld.h"
@@ -462,7 +467,7 @@ int main(int argc, char** argv)
             return 0;
         }
         // decrypted 3DS game images
-        if (cmd == "oras-list" || cmd == "oras-find" || cmd == "oras-members" || cmd == "oras-copy" || cmd == "oras-hex" || cmd == "oras-member" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch")
+        if (cmd == "oras-list" || cmd == "oras-find" || cmd == "oras-members" || cmd == "oras-copy" || cmd == "oras-hex" || cmd == "oras-member" || cmd == "oras-text" || cmd == "oras-script" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch")
         {
             N3dsRom game(argv[2]);
             char id[17];
@@ -605,6 +610,25 @@ int main(int argc, char** argv)
                     WriteFile((base / "romfs_ext" / (path + ".bps")).string(), bps);
                     printf("%s: patch %zu bytes, checked\n", path.c_str(), bps.size());
                 }
+                return 0;
+            }
+            if (cmd == "oras-text" && argc >= 5)
+            {
+                // the lines of a game text file (a GARC member, GameText.h), one a line, numbered
+                const Garc g(game.Read(argv[3]));
+                const std::vector<std::string> lines = ReadGameText(Plain(g.Sub((size_t)atoi(argv[4]))));
+                for (size_t i = 0; i < lines.size(); i++) printf("%zu\t%s\n", i, lines[i].c_str());
+                return 0;
+            }
+            if (cmd == "oras-script" && argc >= 4)
+            {
+                // a zone's script (a/0/1/3 member, OrasZone), or with "init" its init script, disassembled (Amx.h)
+                const Garc g(game.Read("a/0/1/3"));
+                const OrasZone z = OrasZone::Read(Plain(g.Sub((size_t)atoi(argv[3]))));
+                const Bytes& script = argc >= 5 && std::string(argv[4]) == "init" ? z.InitScript : z.Script;
+                const std::vector<std::string> natives = AmxNatives(script);
+                for (size_t i = 0; i < natives.size(); i++) printf("native %zu %s\n", i, natives[i].c_str());
+                printf("%s", AmxDisassemble(script).c_str());
                 return 0;
             }
             if (cmd == "oras-member" && argc >= 7)

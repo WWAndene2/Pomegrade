@@ -13,7 +13,7 @@ on:
         default: ''
         required: false
       inspect:
-        description: 'One query per line: oras-inspect arguments ("matrix 1", "zones 0"), "world N" (Platinum matrix N as ORAS pieces), "region <oras-region options>" (its plan), "code <code_find.py options>", "verify", "list", "platinum-zones" "crodis <module.cro> [others] info|symbols|dis|xref|functions" or "spica <archive> <member> <file|-1> info|motions [--skeleton <archive>:<member>:<file|-1>]"'
+        description: 'One query per line: oras-inspect arguments ("matrix 1", "zones 0"), "world N" (Platinum matrix N as ORAS pieces), "region <oras-region options>" (its plan), "code <code_find.py options>", "verify", "list", "platinum-zones" "text <archive> <member>", "script <zone> [init]", "crodis <module.cro> [others] info|symbols|dis|xref|functions" or "spica <archive> <member> <file|-1> info|motions [--skeleton <archive>:<member>:<file|-1>]"'
         default: ''
         required: false
       headless:
@@ -207,6 +207,10 @@ jobs:
                 python3 -c "import capstone" 2>/dev/null || pip install --quiet capstone
                 file="out/$(basename "$1")"; shift
                 python3 tools/remake/prototype/code_find.py "$file" --base 0 "$@" | tee "mods/inspect_$n.txt" ;;
+              # "text <archive> <member>": a game text file's lines (GameText.h); "script <zone> [init]": a zone's script
+              # unpacked and disassembled (Amx.h)
+              text\ *) ./build-remake/remake_tool oras-text dumps/oras.3ds ${query#text } | tee "mods/inspect_$n.txt" ;;
+              script\ *) ./build-remake/remake_tool oras-script dumps/oras.3ds ${query#script } | tee "mods/inspect_$n.txt" ;;
               # "crodis <module.cro> [other .cro/.crs ...] info|symbols|dis <address|symbol> [n]|xref <...>|functions": a code
               # module read as the loader reads it (prototype/cro_dis.py: exports, imports, relocations, named calls)
               crodis\ *)
