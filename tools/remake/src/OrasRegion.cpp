@@ -257,7 +257,15 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
     matrix.Third.assign((size_t)o.Width * o.Height, OrasMatrix::None); // data in 7 of the game's matrices, meaning unknown (next step 5)
     {
         const OrasMatrix model = OrasMatrix::Read(Plain(matrixArchive.Sub(o.MatrixTemplate)));
+        // file 1: rectangles in world units (u32 count, then per rectangle f32 x min, x max, z min, z max and a u32, 324 bytes in
+        // all 431 matrices; matrix 1 holds Littleroot's three, the largest x 711-3555, z 1269-3805). The player must stand in one:
+        // with Littleroot's copied, s1's Twinleaf (z about 16,000) lay outside them all and the field never started (all3), while
+        // r5 and m1 (z about 3,070, inside) loaded. One rectangle covers the whole matrix (camera areas, inferred)
         matrix.File1 = model.File1;
+        std::fill(matrix.File1.begin(), matrix.File1.end(), 0);
+        const float whole[4] = {0.0f, o.Width * 720.0f, 0.0f, o.Height * 720.0f};
+        matrix.File1[0] = 1;
+        std::memcpy(&matrix.File1[4], whole, sizeof whole);
         matrix.Lead[0] = model.Lead[0]; matrix.Lead[1] = model.Lead[1]; // file 0's first two words, meaning unknown
     }
     for (size_t k = 0; k < headers.size(); k++)
