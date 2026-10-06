@@ -30,7 +30,7 @@
 //                     ORAS's own assets, as an Azahar mod (BPS patches), with town_preview.gltf, town_layout.txt and
 //                     town_piece.bin (the piece the mod writes, decompressed)
 //   remake_tool oras-code <oras.3ds> <out.bin>   the game's ExeFS .code, decompressed (ARM, loaded at 0x100000)
-//   remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--auto-zones] [--others-out] [--plan] [--matrix-template M]
+//   remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--auto-zones] [--others-out] [--no-triggers] [--plan] [--matrix-template M]
 //                     [--model-matrix NN] [oras-town's kit options]
 //                     a rectangle of Sinnoh's piece grid (as oras-world cuts it) rebuilt as a new ORAS map matrix: its pieces built
 //                     as oras-town builds one, the zone grid from Platinum's map headers, each header on the ORAS zone given
@@ -444,6 +444,7 @@ int main(int argc, char** argv)
                 else if (flag == "--plan") options.PlanOnly = true;
                 else if (flag == "--others-out") options.OthersOut = true;
                 else if (flag == "--auto-zones") options.AutoZones = true;
+                else if (flag == "--no-triggers") options.NoTriggers = true;
                 else { fprintf(stderr, "unknown option %s\n", flag.c_str()); return 2; }
             }
             const NdsRom platinum(ReadFile(argv[2]));

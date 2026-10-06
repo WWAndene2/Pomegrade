@@ -52,7 +52,7 @@ static int HeaderAt(const WorldMap& world, int gx, int gy)
 // position and destination. A door without an interior keeps the Hoenn destination of the warp it is given, or gets none when
 // the zone has no warp left for it; adding warps up to a door with an interior needs every door before it to have one too, so
 // that no copy leads into a Hoenn house by accident (the owner refused that: OrasTown.h, AddWarps)
-static Bytes MoveZone(const Bytes& plain, size_t zoneIndex, size_t matrix, const std::vector<RegionDoor>& doors, std::vector<std::string>& log)
+static Bytes MoveZone(const Bytes& plain, size_t zoneIndex, size_t matrix, const std::vector<RegionDoor>& doors, bool noTriggers, std::vector<std::string>& log)
 {
     BinLinker zone = BinLinker::Read(plain, "ZO");
     if (zone.Write() != plain) throw FormatError("zone " + std::to_string(zoneIndex) + " does not rewrite identical");
@@ -103,17 +103,26 @@ static Bytes MoveZone(const Bytes& plain, size_t zoneIndex, size_t matrix, const
         const uint32_t size = U32(entries, 0) - removed * 0x18;
         for (int k = 0; k < 4; k++) entries.at(k) = (uint8_t)(size >> (8 * k));
     }
+    const int triggers = noTriggers ? entries.at(7) : 0;
+    if (triggers)
+    {
+        const size_t at = first + placed * 0x18; // the triggers follow the warps
+        entries.erase(entries.begin() + at, entries.begin() + at + triggers * 0x18);
+        entries.at(7) = 0;
+        const uint32_t size = U32(entries, 0) - triggers * 0x18;
+        for (int k = 0; k < 4; k++) entries.at(k) = (uint8_t)(size >> (8 * k));
+    }
     const Bytes out = zone.Write();
     const OrasZone check = OrasZone::Read(out); // the events file's size rule and counts must still hold
-    if ((int)check.Doors.size() != placed || check.Matrix() != (int)matrix) throw FormatError("zone " + std::to_string(zoneIndex) + " does not read back as written");
+    if ((int)check.Doors.size() != placed || (triggers && !check.Triggers.empty()) || check.Matrix() != (int)matrix) throw FormatError("zone " + std::to_string(zoneIndex) + " does not read back as written");
     for (int k = 0; k < placed; k++)
         if (doors[k].Interior >= 0 && (check.Doors[k].DestZone() != doors[k].Interior || check.Doors[k].DestWarp() != 0))
             throw FormatError(F("zone %zu: warp %d does not read back leading into zone %d", zoneIndex, k, doors[k].Interior));
     log.push_back(F("zone %zu: matrix %d -> %zu, area pack %d kept; %d of its %d warps (%d added) on %zu doors, %d into their own interior, %d removed%s; "
-                    "kept from Hoenn: %zu characters, %zu furniture, %zu triggers, %zu other entries, its scripts; spawn tile (%.1f, %.1f) kept",
+                    "kept from Hoenn: %zu characters, %zu furniture, %zu triggers%s, %zu other entries, its scripts; spawn tile (%.1f, %.1f) kept",
                     zoneIndex, before.Matrix(), matrix, before.AreaPack(), placed, total, added, doors.size(), linked, removed,
                     (int)doors.size() > total ? " (doors without a warp lead nowhere)" : "", before.Characters.size(), before.Furniture.size(),
-                    before.Triggers.size(), before.Others.size(), before.SpawnTileX(), before.SpawnTileZ()));
+                    before.Triggers.size(), triggers ? " (removed)" : "", before.Others.size(), before.SpawnTileX(), before.SpawnTileZ()));
     return out;
 }
 
@@ -353,7 +362,7 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
         // the doors north to south, west to east, as TownLayout orders them within a piece
         auto& doors = doorsOf[z];
         std::sort(doors.begin(), doors.end(), [](const RegionDoor& a, const RegionDoor& b) { return a.Y != b.Y ? a.Y < b.Y : a.X < b.X; });
-        ReplaceMember(newZones, zoneArchive, (size_t)z, MoveZone(Plain(zoneArchive.Sub((size_t)z)), (size_t)z, matrixIndex, doors, log), "ZO");
+        ReplaceMember(newZones, zoneArchive, (size_t)z, MoveZone(Plain(zoneArchive.Sub((size_t)z)), (size_t)z, matrixIndex, doors, o.NoTriggers, log), "ZO");
         for (size_t k = 0; k < doors.size(); k++)
         {
             if (doors[k].Interior < 0) continue;
