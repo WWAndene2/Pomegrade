@@ -113,10 +113,18 @@ Bytes ImportTextures(const Bytes& packData, const Bytes& fromData, size_t fromIn
         std::vector<BchTexture> held[2] = {read(from.Files.at(1), false), read(from.Files.at(11), false)};
         for (auto& list : held) for (const BchTexture& t : list) if (t.Name == name && !t.Data.empty()) src = &t;
         if (!src) { finalName[name] = ""; log.push_back("texture " + name + " is not in area pack " + std::to_string(fromIndex)); continue; }
+        // the texture may be there already, under its own name or, imported by an earlier piece of the same pack (oras-region: s1 refused
+        // chip_kusa_b_8 twice), under its suffixed name
+        const std::string suffixed = name + "_" + std::to_string(fromIndex);
+        auto holds = [&](const std::string& n) {
+            const auto t = std::find_if(all.begin(), all.end(), [&](const BchTextureSource& a) { return a.Name == n; });
+            return t != all.end() && t->Width == src->Width && t->Height == src->Height && t->Format == src->Format && t->Data == src->Data;
+        };
+        if (holds(name)) { finalName[name] = name; continue; }
+        if (holds(suffixed)) { finalName[name] = suffixed; continue; }
         std::string final = name;
-        const auto same = std::find_if(all.begin(), all.end(), [&](const BchTextureSource& t) { return t.Name == name; });
-        if (same != all.end() && same->Width == src->Width && same->Height == src->Height && same->Format == src->Format && same->Data == src->Data) { finalName[name] = name; continue; }
-        if (taken.count(name)) final = name + "_" + std::to_string(fromIndex);
+        if (taken.count(name)) final = suffixed;
+        if (taken.count(final)) throw FormatError("area pack: " + final + " is taken by another texture");
         taken.insert(final);
         all.push_back({final, src->Width, src->Height, src->Format, src->Data});
         finalName[name] = final;
