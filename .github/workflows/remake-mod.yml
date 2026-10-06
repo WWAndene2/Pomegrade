@@ -207,6 +207,11 @@ jobs:
           main=$(find save -type f -name main | head -n 1)
           if [ -z "$main" ]; then echo "::error::the save zip has no file named main"; exit 1; fi
           echo "SAVE_DIR=$(dirname "$main")" >> "$GITHUB_ENV"
+          # Azahar keeps a save's format info beside its folder (data/00000001.metadata, archive_source_sd_savedata.cpp); without
+          # it GetFormatInfo fails and the game treats the save as absent: run 70 deleted it and started a new game
+          # (DllSangoIntro, then name entry). The phone's own file is used when the zip holds one
+          meta=$(find save -type f -name '00000001.metadata' | head -n 1)
+          if [ -n "$meta" ]; then echo "SAVE_METADATA=$meta" >> "$GITHUB_ENV"; else echo "::warning::the save zip has no 00000001.metadata: a guessed one is written (see the run step)"; fi
           ls -l "$(dirname "$main")"
 
       - name: Install the build tools
@@ -289,7 +294,13 @@ jobs:
             mkdir -p "$user/load/mods"
             cp -r "$mod" "$user/load/mods/"
             savedir="$user/sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/00040000/0011c400/data/00000001"
-            if [ -n "$SAVE_DIR" ]; then mkdir -p "$savedir" && cp -r "$SAVE_DIR"/. "$savedir/"; fi
+            if [ -n "$SAVE_DIR" ]; then
+              mkdir -p "$savedir" && cp -r "$SAVE_DIR"/. "$savedir/"
+              if [ -n "$SAVE_METADATA" ]; then cp "$SAVE_METADATA" "$savedir.metadata"
+              # ArchiveFormatInfo, 16 bytes: total size, directories, files (u32 each), duplicate data (u8), padding. GUESSED
+              # (not the game's own values): the size of the files in the save, 0 directories, their count, no duplication
+              else python3 -c "import struct,sys,os; d=sys.argv[1]; f=[os.path.join(r,n) for r,_,ns in os.walk(d) for n in ns]; open(d+'.metadata','wb').write(struct.pack('<IIIB3x', sum(map(os.path.getsize,f)), 0, len(f), 0))" "$savedir"; fi
+            fi
             # under gdb: a crash of the core prints its backtrace instead of a bare "Segmentation fault"
             gdb -q -batch -ex 'handle SIGSEGV stop' -ex run -ex 'bt 30' -ex 'info sharedlibrary' --args \
               ./retro_host "$CORE" dumps/oras.3ds "$work" "$SECONDS_GIVEN" 2>&1 | grep -v '^\[New Thread\|^\[Thread' | tee "results/$name.txt" || true
