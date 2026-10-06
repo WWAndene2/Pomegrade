@@ -34,6 +34,8 @@ def main():
                     help="every immediate, literal pool load and aligned data word in [LOW, HIGH] (a size known only within bounds)")
     ap.add_argument("--word", action="append", default=[], type=lambda v: int(v, 0),
                     help="every aligned word holding the value (data, such as a table of heap sizes), with the 8 words around it")
+    ap.add_argument("--bytes", action="append", default=[],
+                    help="every place a byte string lies, at any alignment (hex, e.g. 7F01 for a u16 383), with the bytes around it")
     ap.add_argument("--context", type=int, default=8)
     ap.add_argument("--max", type=int, default=60, help="hits printed per value")
     ap.add_argument("--base", type=lambda v: int(v, 0), default=BASE, help="the file's load address (0 for a CRO module)")
@@ -120,6 +122,16 @@ def main():
         for p in places[:a.max]:
             around = " ".join("%08X" % word(q) if word(q) is not None else "--------" for q in range(p - 16, p + 20, 4))
             print(f"   0x{p:X}: {around}")
+
+    for h in a.bytes:
+        needle = bytes.fromhex(h)
+        places, at = [], code.find(needle)
+        while at >= 0:
+            places.append(at)
+            at = code.find(needle, at + 1)
+        print(f"== bytes {h}: {len(places)} places")
+        for p in places[:a.max]:
+            print(f"   0x{BASE + p:X}: " + code[max(0, p - 16):p + 16].hex(" "))
 
     for addr in a.at:
         show(addr, "requested")
