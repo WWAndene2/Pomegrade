@@ -21,6 +21,7 @@
 //   remake_tool oras-list <oras.3ds>                  a decrypted 3DS game's RomFS files, with sizes
 //   remake_tool oras-extract <oras.3ds> <path> <out>  one RomFS file
 //   remake_tool oras-find <oras.3ds> <text>...
+//   remake_tool oras-members <oras.3ds> <archive> <first> <last>
 //   remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...
 //                     an Azahar mod: each file replaces that RomFS path, laid out as Azahar loads
 //                     mods (<out dir>/load/mods/<program id>/romfs/<path>); copy <out dir>/load
@@ -89,6 +90,7 @@
 #include <memory>
 #include <filesystem>
 #include <map>
+#include <functional>
 #include <set>
 #include <string>
 
@@ -455,7 +457,7 @@ int main(int argc, char** argv)
             return 0;
         }
         // decrypted 3DS game images
-        if (cmd == "oras-list" || cmd == "oras-find" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch")
+        if (cmd == "oras-list" || cmd == "oras-find" || cmd == "oras-members" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch")
         {
             N3dsRom game(argv[2]);
             char id[17];
@@ -467,6 +469,69 @@ int main(int argc, char** argv)
                 return 0;
             }
             if (cmd == "oras-extract" && argc >= 5) { WriteFile(argv[4], game.Read(argv[3])); return 0; }
+            if (cmd == "oras-members" && argc >= 6)
+            {
+                // what members of an archive hold, nested: size, LZ, 2-letter containers and their files, BCH models, textures
+                // and the names inside (the title screen's members against a Pokemon's, ORAS_TITLE.md)
+                const Garc g(game.Read(argv[3]));
+                std::function<void(const Bytes&, const std::string&)> describe = [&](const Bytes& d, const std::string& pad) {
+                    if (d.size() >= 4 && d[0] == 'B' && d[1] == 'C' && d[2] == 'H' && d[3] == 0)
+                    {
+                        printf("%sBCH %zu bytes", pad.c_str(), d.size());
+                        try
+                        {
+                            const Bch b = Bch::Read(d);
+                            printf(": %zu models, %zu textures\n", b.Models.size(), b.Textures.size());
+                            for (const BchModel& m : b.Models) printf("%s  model %s: %zu meshes, %zu materials\n", pad.c_str(), m.Name.c_str(), m.Meshes.size(), m.Materials.size());
+                            for (const BchTexture& t : b.Textures) printf("%s  texture %s %ux%u format %d\n", pad.c_str(), t.Name.c_str(), t.Width, t.Height, t.Format);
+                        }
+                        catch (const std::exception& e) { printf(" (not read: %s)\n", e.what()); }
+                        // every name in it (animations, bones, materials)
+                        std::set<std::string> names;
+                        for (size_t i = 0; i < d.size();)
+                        {
+                            size_t e = i;
+                            while (e < d.size() && d[e] >= 0x20 && d[e] < 0x7F) e++;
+                            if (e - i >= 4 && e < d.size() && d[e] == 0) names.insert(std::string(d.begin() + i, d.begin() + e));
+                            i = e + 1;
+                        }
+                        std::string all;
+                        for (const std::string& n : names) all += " " + n;
+                        printf("%s  names (%zu):%s\n", pad.c_str(), names.size(), all.substr(0, 3000).c_str());
+                        return;
+                    }
+                    if (d.size() >= 12 && isupper(d[0]) && isupper(d[1]))
+                    {
+                        try
+                        {
+                            const BinLinker c = BinLinker::Read(d, std::string(d.begin(), d.begin() + 2));
+                            printf("%scontainer %s, %zu files, %zu bytes\n", pad.c_str(), c.Tag.c_str(), c.Files.size(), d.size());
+                            for (size_t i = 0; i < c.Files.size(); i++)
+                            {
+                                printf("%s  file %zu:\n", pad.c_str(), i);
+                                describe(c.Files[i], pad + "    ");
+                            }
+                            return;
+                        }
+                        catch (const std::exception&) {}
+                    }
+                    printf("%s%zu bytes, starts", pad.c_str(), d.size());
+                    for (size_t i = 0; i < std::min<size_t>(16, d.size()); i++) printf(" %02X", d[i]);
+                    printf("\n");
+                };
+                for (size_t i = (size_t)atoi(argv[4]); i <= (size_t)atoi(argv[5]) && i < g.Count(); i++)
+                    for (size_t sub = 0; sub < g.SubCount(i); sub++)
+                    {
+                        if (!g.Has(i, sub)) continue;
+                        const Bytes& m = g.Sub(i, sub);
+                        const bool lz = IsLzCompressed(m);
+                        Bytes plain = m;
+                        if (lz) try { plain = LzDecompress(m); } catch (const std::exception&) {}
+                        printf("member %zu%s: %zu bytes%s\n", i, sub ? ("." + std::to_string(sub)).c_str() : "", m.size(), lz ? (", LZ to " + std::to_string(plain.size())).c_str() : "");
+                        describe(plain, "  ");
+                    }
+                return 0;
+            }
             if (cmd == "oras-find" && argc >= 4)
             {
                 // where texts lie (model and texture names: pm0383 for Groudon's models): every RomFS file, and every member of
