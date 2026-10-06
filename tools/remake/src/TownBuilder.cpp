@@ -232,6 +232,13 @@ static void AddOutline(BchGeometry& g, const ShapeChain& chain, const float tip[
         std::copy(tipSide ? tip : root, (tipSide ? tip : root) + 4, v.Colour);
         g.Vertices.push_back(v);
     };
+    // a quad starts where the one before it ended (same points, same u) unless the texture band wrapped: its first two
+    // vertices are then the previous quad's last two, shared. The tall grass of Sinnoh's routes took the mesh past the 65,536
+    // vertices 16-bit indices reach (s1: 81,776 on piece (6, 14)) with four vertices a quad
+    bool joined = false;
+    uint32_t endTip = 0, endRoot = 0;
+    ShapePoint endTipAt{}, endRootAt{};
+    float endU = -1;
     for (size_t i = 0; i < last; i++)
     {
         const size_t j = (i + 1) % n;
@@ -256,13 +263,19 @@ static void AddOutline(BchGeometry& g, const ShapeChain& chain, const float tip[
             };
             ShapePoint p0, n0, t0, r0, p1, n1, t1, r1;
             along(at, p0, n0, t0, r0); along(to, p1, n1, t1, r1);
-            const uint32_t base = (uint32_t)g.Vertices.size();
             const float u1 = u0 + (to - at) * perUnit;
-            vertex(t0, true, u0); vertex(r0, false, u0); vertex(t1, true, u1); vertex(r1, false, u1);
+            uint32_t q[4]; // tip, root at the start; tip, root at the end
+            // (within rounding: u0 comes from fmod, the points from interpolations that meet at the same place)
+            auto near = [](const ShapePoint& x, const ShapePoint& y) { return std::fabs(x.X - y.X) < 1e-3f && std::fabs(x.Z - y.Z) < 1e-3f; };
+            if (joined && std::fabs(u0 - endU) < 1e-5f && near(t0, endTipAt) && near(r0, endRootAt))
+            { q[0] = endTip; q[1] = endRoot; }
+            else { q[0] = (uint32_t)g.Vertices.size(); vertex(t0, true, u0); q[1] = (uint32_t)g.Vertices.size(); vertex(r0, false, u0); }
+            q[2] = (uint32_t)g.Vertices.size(); vertex(t1, true, u1); q[3] = (uint32_t)g.Vertices.size(); vertex(r1, false, u1);
+            joined = true; endTip = q[2]; endRoot = q[3]; endTipAt = t1; endRootAt = r1; endU = u1;
             // facing up, as the ground (see the quads': a, e, d / a, d, b); the zone is on the tips' side
             const float cross = (p1.X - p0.X) * n0.Z - (p1.Z - p0.Z) * n0.X;
-            if (cross > 0) for (uint32_t k : {0u, 2u, 3u, 0u, 3u, 1u}) g.Triangles.push_back(base + k);
-            else for (uint32_t k : {0u, 3u, 2u, 0u, 1u, 3u}) g.Triangles.push_back(base + k);
+            if (cross > 0) for (uint32_t k : {0u, 2u, 3u, 0u, 3u, 1u}) g.Triangles.push_back(q[k]);
+            else for (uint32_t k : {0u, 3u, 2u, 0u, 1u, 3u}) g.Triangles.push_back(q[k]);
             at = to;
         }
         s += length;
