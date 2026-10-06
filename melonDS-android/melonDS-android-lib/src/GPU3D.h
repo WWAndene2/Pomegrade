@@ -22,6 +22,7 @@
 #include <array>
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "Savestate.h"
@@ -468,6 +469,15 @@ public:
     // polygons of an edge start from the same one (no cracks), and this
     // frame's, for the next (see PolygonMultiplier::SteadyEdgeLevel).
     std::unordered_map<u64, u8> EdgeLevelsShown, EdgeLevelsNext;
+    // Edges of the polygons drawn without being multiplied (flat, unlit, out
+    // of room...), keyed by their corners' model positions only (a neighbour
+    // with another texture shares the edge too): the previous frame's, read
+    // while a frame is submitted, and this frame's. A multiplied polygon keeps
+    // such an edge straight and unsubdivided, as its neighbour draws it, or a
+    // crack opens between the two.
+    std::unordered_set<u64> StraightEdgesShown, StraightEdgesNext;
+    void RecordStraightEdges(int nverts) noexcept;
+    [[nodiscard]] u64 EdgePositionKey(int corner, int other) const noexcept;
     s16 RenderLightDirection[4][3] {}; // light directions (view space) at the end of the rendered frame
     // Pomegrade: what casts shadows in the rendered frame (see RecordShadowCaster):
     // opaque lit triangles as the game submitted them, 12 floats each: the

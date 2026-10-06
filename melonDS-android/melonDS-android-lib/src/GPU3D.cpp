@@ -198,6 +198,8 @@ void GPU3D::Reset() noexcept
     EdgeKeep.clear();
     EdgeLevelsShown.clear();
     EdgeLevelsNext.clear();
+    StraightEdgesShown.clear();
+    StraightEdgesNext.clear();
 
     CmdFIFO.Clear();
     CmdPIPE.Clear();
@@ -1462,7 +1464,11 @@ void GPU3D::SubmitPolygon() noexcept
 
     poly->SubPolygonCount = 0;
     if (PolygonMultiplierLevel > 1)
+    {
         MultiplyPolygon(poly, srcverts);
+        if (poly->SubPolygonCount == 0 && poly->Type == 0 && !poly->IsShadowMask && !poly->IsShadow)
+            RecordStraightEdges(srcverts);
+    }
 }
 
 void GPU3D::SetUnlimitedPolygons(bool enable) noexcept
@@ -1549,13 +1555,18 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
     }
 
     // geometry fidelity from neighbours: share of curvature kept along each
-    // edge, from earlier frames (see RegisterEdgeFaces)
+    // edge, from earlier frames (see RegisterEdgeFaces); none along an edge
+    // the neighbour draws straight (see StraightEdgesShown)
     double edgeKeep[4];
+    bool straight[4];
     for (int i = 0; i < nverts; i++)
     {
         auto known = EdgeKeep.find(EdgeKey(i, nverts));
         edgeKeep[i] = known != EdgeKeep.end() ? known->second : 1.0;
+        straight[i] = StraightEdgesShown.count(EdgePositionKey(i, (i + 1) % nverts)) != 0;
+        if (straight[i]) edgeKeep[i] = 0.0;
     }
+    const bool anyStraight = straight[0] || straight[1] || straight[2] || (nverts == 4 && straight[3]);
 
     if (!PolygonMultiplier::IsCurved(corners, nverts))
         return;
@@ -1613,6 +1624,11 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
     // computed from the edge alone, the same in either direction: a neighbour
     // sharing the edge finds the same level and places the same points on it
     auto edgeLevel = [&](int p, int q) {
+        // an edge its neighbour draws straight: its two corners only, as the
+        // neighbour has them (no point in between, which rounding to the
+        // screen could put off the neighbour's edge)
+        if ((q == (p + 1) % nverts && straight[p]) || (p == (q + 1) % nverts && straight[q]))
+            return 1;
         if (PolygonMultiplierScale <= 0)
             return level;
         double detail = HUGE_VAL;
@@ -1656,7 +1672,7 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
         const int trilevel = std::max({edgelevels[0], edgelevels[1], edgelevels[2]});
         const int numpoints = (trilevel + 1) * (trilevel + 2) / 2;
         PolygonMultiplier::SubdivideGrid(corners[a], corners[b], corners[c], trilevel, grid, CurveMethod::PNhong, keep,
-                                         PolygonMultiplierScale > 0 ? edgelevels : nullptr, samepoint, level, gridpoint);
+                                         PolygonMultiplierScale > 0 || anyStraight ? edgelevels : nullptr, samepoint, level, gridpoint);
         const u32 subdivision = trilevel | (edgelevels[0] << 4) | (edgelevels[1] << 8) | (edgelevels[2] << 12) | (t << 16);
 
         for (int g = 0; g < numpoints; g++)
@@ -1853,6 +1869,26 @@ u64 GPU3D::EdgeKey(int corner, int nverts) const noexcept
 {
     // the edge from this corner to the next
     return EdgeKeyOf(corner, (corner + 1) % nverts);
+}
+
+void GPU3D::RecordStraightEdges(int nverts) noexcept
+{
+    // bounded: models come and go
+    if (StraightEdgesNext.size() > (1u << 20))
+        return;
+    for (int i = 0; i < nverts; i++)
+        StraightEdgesNext.insert(EdgePositionKey(i, (i + 1) % nverts));
+}
+
+u64 GPU3D::EdgePositionKey(int corner, int other) const noexcept
+{
+    // an edge by its corners' model positions only, in either order
+    const s16* ma = TempVertexBuffer[corner].ModelPosition;
+    const s16* mb = TempVertexBuffer[other].ModelPosition;
+    u64 ka = ((u64)(u16)ma[0] << 32) | ((u64)(u16)ma[1] << 16) | (u16)ma[2];
+    u64 kb = ((u64)(u16)mb[0] << 32) | ((u64)(u16)mb[1] << 16) | (u16)mb[2];
+    if (ka > kb) std::swap(ka, kb);
+    return ka * 0x9E3779B97F4A7C15ull ^ (kb + 0x632BE59BD9B4E019ull + (ka << 6) + (ka >> 2));
 }
 
 u64 GPU3D::EdgeKeyOf(int corner, int other) const noexcept
@@ -3261,6 +3297,8 @@ void GPU3D::VBlank() noexcept
                 UpdateEdgeKeep();
                 std::swap(EdgeLevelsShown, EdgeLevelsNext);
                 EdgeLevelsNext.clear();
+                std::swap(StraightEdgesShown, StraightEdgesNext);
+                StraightEdgesNext.clear();
 
                 BuildMultipliedRenderList();
             }

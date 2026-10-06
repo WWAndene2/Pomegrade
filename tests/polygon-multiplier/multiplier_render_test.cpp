@@ -98,6 +98,61 @@ static void DrawSphere(double radius)
     Cmd(0x41);
 }
 
+// The same sphere with one ring drawn faceted (each face one normal, as a
+// model's flat-shaded part): that ring is flat, so it is not multiplied, while
+// the smooth rings next to it are; they share its edges.
+static void DrawBandedSphere(double radius, int flatRing)
+{
+    const int seg = 8, rings = 5;
+    auto point = [&](int r, int s, double* p) {
+        double th = M_PI * r / rings, ph = 2 * M_PI * s / seg;
+        p[0] = std::sin(th) * std::cos(ph); p[1] = std::cos(th); p[2] = std::sin(th) * std::sin(ph);
+    };
+    Cmd(0x40, {1}); // quads
+    for (int r = 0; r < rings; r++)
+        for (int s = 0; s < seg; s++)
+        {
+            int corners[4][2] = {{r, s}, {r + 1, s}, {r + 1, s + 1}, {r, s + 1}};
+            double face[3] = {};
+            for (auto& c : corners) { double p[3]; point(c[0], c[1], p); for (int k = 0; k < 3; k++) face[k] += p[k]; }
+            double len = std::sqrt(face[0]*face[0] + face[1]*face[1] + face[2]*face[2]);
+            for (auto& c : corners)
+            {
+                double p[3]; point(c[0], c[1], p);
+                if (r == flatRing) Normal(face[0] / len, face[1] / len, face[2] / len);
+                else Normal(p[0], p[1], p[2]);
+                Vertex16(p[0] * radius, p[1] * radius, p[2] * radius);
+            }
+        }
+    Cmd(0x41);
+}
+
+// the banded sphere alone, centred, seen slightly from above
+static const double BandCenter[3] = {0.0, 0.0, -3.4}, BandRadius = 1.25;
+static void SubmitBandScene()
+{
+    GPU3D& g = Nds->GPU.GPU3D;
+    g.Write32(0x04000060, 0);
+    g.Write32(0x04000350, 0x1F0000 | (4 << 10) | (3 << 5) | 2);
+    g.Write32(0x04000354, 0x7FFF);
+    Cmd(0x60, {0 | (0 << 8) | (255u << 16) | (191u << 24)});
+    double f = 1.0 / std::tan(25.0 * M_PI / 180.0), a = 256.0 / 192.0, zn = 0.5, zf = 20;
+    double proj[16] = {f / a, 0, 0, 0,  0, f, 0, 0,  0, 0, (zf + zn) / (zn - zf), -1,  0, 0, 2 * zf * zn / (zn - zf), 0};
+    Cmd(0x10, {0}); LoadMatrix(proj);
+    Cmd(0x10, {2}); Cmd(0x15);
+    Cmd(0x32, {N10(-0.5) | (N10(-0.6) << 10) | (N10(-0.62) << 20)});
+    Cmd(0x33, {0x7FFF});
+    Cmd(0x30, {(0x7FFF) | (0x2108u << 16)});
+    Cmd(0x31, {0x4210});
+    double c = std::cos(0.3), s = std::sin(0.3);
+    double model[16] = {1, 0, 0, 0,  0, c, s, 0,  0, -s, c, 0,  BandCenter[0], BandCenter[1], BandCenter[2], 1};
+    LoadMatrix(model);
+    Cmd(0x29, {(31 << 16) | (1 << 24) | 0x80 | 0x01});
+    DrawBandedSphere(BandRadius, 2);
+    Cmd(0x50, {0});
+    g.VBlank();
+}
+
 // A flat textured-looking panel without normals (like a 2D UI element): must stay untouched.
 static void DrawFlatPanel()
 {
@@ -659,6 +714,53 @@ int main()
         printf("box edges kept sharp from the second frame: %s, sphere unchanged: %s, no cracks: %s\n",
                sharpened ? "yes" : "NO", ballKept ? "yes" : "NO", noCracks ? "yes" : "NO");
         ok = ok && sharpened && ballKept && noCracks;
+    }
+
+    // a multiplied polygon next to one that isn't (a faceted ring between two
+    // smooth ones): from the second frame, their shared edges stay straight on
+    // the multiplied side too, so no background shows through the sphere.
+    // Both the fixed level and the adaptive one (the app's: per edge, from its
+    // size on screen)
+    {
+        // background pixels inside the sphere's silhouette (its projected
+        // disc, less a 3-pixel margin for the curved outline)
+        auto cracksIn = [&](const std::vector<u32>& img) {
+            double pf = 1.0 / std::tan(25.0 * M_PI / 180.0);
+            double cx = (BandCenter[0] / -BandCenter[2] * pf / (256.0 / 192.0) + 1) * 128;
+            double cy = (1 - BandCenter[1] / -BandCenter[2] * pf) * 96;
+            double rad = BandRadius / -BandCenter[2] * pf * 96 * 0.92 - 3;
+            u32 bg = img[2 * 256 + 2] & 0x3F3F3F;
+            int n = 0;
+            for (int y = 0; y < 192; y++)
+                for (int x = 0; x < 256; x++)
+                    if ((x - cx) * (x - cx) + (y - cy) * (y - cy) < rad * rad && (img[y * 256 + x] & 0x3F3F3F) == bg) n++;
+            return n;
+        };
+        gpu.GPU3D.SetPolygonMultiplier(1);
+        SubmitBandScene();
+        soft.RenderFrame(gpu);
+        int offCracks = cracksIn(Capture(soft));
+        bool bandOk = offCracks == 0;
+        for (int scale : {0, 1})
+        {
+            gpu.GPU3D.SetPolygonMultiplierScale(scale);
+            gpu.GPU3D.SetPolygonMultiplier(8);
+            int cracks[3];
+            for (int frame = 0; frame < 3; frame++)
+            {
+                SubmitBandScene();
+                soft.RenderFrame(gpu);
+                auto img = Capture(soft);
+                if (frame == 2) SavePng(scale ? "band_adaptive.png" : "band_fixed.png", img);
+                cracks[frame] = cracksIn(img);
+            }
+            printf("faceted ring between smooth ones (%s level): background pixels inside the sphere, frames 1-3: %d %d %d (multiplier off: %d)\n",
+                   scale ? "adaptive" : "fixed", cracks[0], cracks[1], cracks[2], offCracks);
+            bandOk = bandOk && cracks[1] == 0 && cracks[2] == 0;
+        }
+        gpu.GPU3D.SetPolygonMultiplierScale(0);
+        printf("multiplied polygons meet unmultiplied ones without cracks from the second frame: %s\n", bandOk ? "yes" : "NO");
+        ok = ok && bandOk;
     }
 
     // off again: back to exactly the original image
