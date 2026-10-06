@@ -750,7 +750,7 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         // water (173), a path (81, 95% of its tiles lie under a path mesh) and tall grass (59), plain ground otherwise
         int pathHalves = 0;
         for (int k = 0; k < 4; k++) pathHalves += layout.Path2[2 * r + (k >> 1)][2 * c + (k & 1)] == ':';
-        const uint32_t v = ch == '#' ? 0x01000021 : ch == '~' ? 0x3d1a0006 : ch == 'g' ? 0x20004004 : pathHalves >= 2 ? 0x020a8020 : 0x00000020;
+        const uint32_t v = src.AllWalkable ? 0x00000020 : ch == '#' ? 0x01000021 : ch == '~' ? 0x3d1a0006 : ch == 'g' ? 0x20004004 : pathHalves >= 2 ? 0x020a8020 : 0x00000020;
         for (int k = 0; k < 4; k++) tiles[4 + (r * N + c) * 4 + k] = (uint8_t)(v >> (8 * k));
     }
     // door models: the target's own entries (its door types, scale, height, rotation and unknown words), each moved onto a

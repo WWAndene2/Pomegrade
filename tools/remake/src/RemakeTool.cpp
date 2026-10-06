@@ -137,6 +137,7 @@ static bool TownKitOption(const std::string& flag, int argc, char** argv, int& i
     else if (flag == "--pond-wall") options.PondWall = number(++i);
     else if (flag == "--door-type") options.DoorType = (uint32_t)number(++i);
     else if (flag == "--tree-reach") options.TreeReach = number(++i);
+    else if (flag == "--all-walkable") options.AllWalkable = true;
     else if (flag == "--donor-as-is") options.DonorAsIs = number(++i) != 0;
     else if (flag == "--pad-piece") options.PadPiece = (size_t)number(++i);
     else if (flag == "--piece-files") options.PieceFiles = (unsigned)number(++i);

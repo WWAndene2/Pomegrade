@@ -37,6 +37,9 @@ struct TownSources
     int TreeReach = 2;
     // the door models' type (0: the target's own, entry by entry); their other words stay the target's
     uint32_t DoorType = 0;
+    // every tile of the tile block walkable (0x00000020), whatever Platinum's collision: a test of whether a wall the phone shows comes
+    // from the tile block (r4: a wall across Twinleaf at the seam of two built pieces, where Platinum's collision is open)
+    bool AllWalkable = false;
     // the terrain model's name, which tells its place (world<matrix>_<x>_<y>, 13 characters as the game's); empty: the target's
     std::string ModelName;
 };
