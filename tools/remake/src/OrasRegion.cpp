@@ -351,6 +351,52 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
                             around.Collision[cz][cx] == '.' || around.Collision[cz][cx] == 'g' ? "walkable" : "SOLID", around.Vis[cz][cx]) + grid);
         }
     }
+
+    // where one can walk, by Platinum's collision, inside blocks that have a zone (a block of no zone is outside the map): each
+    // walkable area that holds tiles of more than one zone, or of a zone with doors, with the zones it joins. A path the owner
+    // could not take (r4: Twinleaf to Route 201) shows here as two areas instead of one
+    {
+        const int tw = bw * BlockTiles, th = bh * BlockTiles;
+        auto free = [&](int mx, int mz) {
+            if (matrix.Zone(mx / BlockTiles, mz / BlockTiles) == OrasMatrix::None) return false;
+            const int gx = o.Left * TownTiles + mx, gy = o.Top * TownTiles + mz;
+            if (gx < 0 || gy < 0 || gx / (int)LandTiles >= (int)world.World.Matrix.Width || gy / (int)LandTiles >= (int)world.World.Matrix.Height) return false;
+            const auto& cell = world.World.Cells[world.World.Matrix.Cell(gx / LandTiles, gy / LandTiles)];
+            return cell && !LandData::Solid(cell->Permissions[(gy % LandTiles) * LandTiles + gx % LandTiles]);
+        };
+        std::vector<int> area((size_t)tw * th, -1);
+        int areas = 0;
+        for (int start = 0; start < tw * th; start++)
+        {
+            if (area[start] >= 0 || !free(start % tw, start / tw)) continue;
+            std::vector<int> stack{start};
+            area[start] = areas;
+            std::map<int, int> tilesOf;
+            while (!stack.empty())
+            {
+                const int at = stack.back();
+                stack.pop_back();
+                const int mx = at % tw, mz = at / tw;
+                tilesOf[matrix.Zone(mx / BlockTiles, mz / BlockTiles)]++;
+                const int next[4][2] = {{mx + 1, mz}, {mx - 1, mz}, {mx, mz + 1}, {mx, mz - 1}};
+                for (const auto& n : next)
+                    if (n[0] >= 0 && n[1] >= 0 && n[0] < tw && n[1] < th && area[(size_t)n[1] * tw + n[0]] < 0 && free(n[0], n[1]))
+                    {
+                        area[(size_t)n[1] * tw + n[0]] = areas;
+                        stack.push_back(n[1] * tw + n[0]);
+                    }
+            }
+            size_t total = 0;
+            for (const auto& [zz, n] : tilesOf) total += n;
+            if (total >= 20)
+            {
+                std::string list;
+                for (const auto& [zz, n] : tilesOf) list += F(" zone %d (%d tiles)", zz, n);
+                log.push_back(F("walkable area %d, %zu tiles, from tile (%d, %d):", areas, total, start % tw, start / tw) + list);
+            }
+            areas++;
+        }
+    }
     for (const auto& [pack, data] : packs)
         if (data != originalPacks.at(pack)) ReplaceMember(newAreas, areaArchive, (size_t)pack, data, "AD");
 
