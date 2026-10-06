@@ -121,6 +121,8 @@ Next, agreed with the owner: a playable slice first (Twinleaf Town, Route 201, S
 3. Generate ORAS-style terrain from Platinum's layout; place ORAS buildings, trees, characters; new models for Sinnoh landmarks ORAS lacks.
 4. Warps, interiors, people, the story's start (scripts), trainers, wild Pokemon.
 
+**Asset customization (owner's request, 6 October; not started)**: Pokemon, characters, buildings and props, map terrain from X/Y first, then Sun/Moon and Sword/Shield, brought into ORAS and modified on the owner's instructions. The owner cannot edit models on the phone: the tooling is commands that Claude runs on the Remake mod workflow, showing rendered previews before building a mod zip. Steps: read a game's models (textures, skeleton, animations); modify (recolour, replace textures, resize, swap or merge parts, retarget animations); check against ORAS's limits (polygons, bones per mesh, texture sizes and formats, materials) with a report before writing; preview; write through `BchWriter` and `ReplaceMember`. Compatibility as known: X/Y share ORAS's engine (GARC, BCH, GF motions) but an earlier BCH version (the writer takes version 0x21 only); Sun/Moon share the GPU with other containers and shaders (SPICA reads them); Sword/Shield (Switch) need polygon reduction, texture re-encoding and fewer bones. Needs: the owner's X or Y dump on the Drive (a secret like `ORAS_DRIVE_ID`).
+
 ## 4. One coherent app
 
 Today each core keeps its own settings, screens, visual style and file storage. Target architecture:
