@@ -156,8 +156,9 @@ static std::set<std::string> ShownTextures(const Bytes& piece)
     return names;
 }
 
-std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, const OrasRegionOptions& o)
+std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, const OrasRegionOptions& given)
 {
+    OrasRegionOptions o = given; // AutoZones adds to Zones
     std::vector<std::string> log;
     if (o.Width <= 0 || o.Height <= 0) throw FormatError("the region needs a width and a height in pieces");
     const PlatinumWorld world(platinum, o.Town.Matrix);
@@ -195,6 +196,40 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
     }
     log.push_back(plan);
     if (o.PlanOnly) return log;
+    if (o.AutoZones)
+    {
+        // every header of the region not given a zone gets one: first the zones of Hoenn's overworld grids (outdoor area packs), then the
+        // empty zones (oras-sinnoh counts 107 of them against Sinnoh's 66 overworld headers); header 0, Platinum's scenery with no
+        // events (forest, sea), is left out as before. Zones already given (a save's zone, interiors) are not reused
+        const Garc zo(oras.Read("a/0/1/3")), mm(oras.Read("a/0/4/0"));
+        std::set<int> taken;
+        for (const auto& [h, z] : o.Zones) if (z >= 0) taken.insert(z);
+        std::set<int> overworld;
+        for (size_t m = 0; m < mm.Count(); m++)
+            try { for (uint16_t z : OrasMatrix::Read(Plain(mm.Sub(m))).Zones) if (z != OrasMatrix::None) overworld.insert(z); } catch (const FormatError&) {}
+        std::vector<int> pool(overworld.begin(), overworld.end());
+        for (size_t i = 0; i < zo.Count(); i++)
+            try
+            {
+                const OrasZone z = OrasZone::Read(Plain(zo.Sub(i)));
+                if (z.Characters.empty() && z.Doors.empty() && z.Triggers.empty() && z.Furniture.empty() && !overworld.count((int)i)) pool.push_back((int)i);
+            }
+            catch (const FormatError&) {}
+        size_t next = 0;
+        std::string assigned;
+        for (const auto& [h, n] : blocksOf)
+        {
+            if (o.Zones.count(h)) continue;
+            if (h == 0) { o.Zones[h] = -1; continue; }
+            while (next < pool.size() && taken.count(pool[next])) next++;
+            if (next >= pool.size()) throw FormatError(F("--auto-zones: no reusable ORAS zone left for header %d", h));
+            o.Zones[h] = pool[next];
+            taken.insert(pool[next++]);
+            assigned += F(" %d:%d", h, o.Zones[h]);
+        }
+        log.push_back("auto zones (header:zone):" + assigned);
+        missing.clear();
+    }
     if (!missing.empty() && !o.OthersOut) throw FormatError("every map header in the region needs an ORAS zone or -1 (or --others-out):" + missing);
     std::set<int> used;
     for (const auto& [h, z] : o.Zones) if (z >= 0 && blocksOf.count(h)) { if (!used.insert(z).second) throw FormatError(F("ORAS zone %d is given to two map headers", z)); }
