@@ -115,3 +115,6 @@
 [submodule "azahar/externals/zstd"]
 	path = azahar/externals/zstd
 	url = https://github.com/facebook/zstd.git
+[submodule "tools/remake/external/SPICA"]
+	path = tools/remake/external/SPICA
+	url = https://github.com/gdkchan/SPICA.git

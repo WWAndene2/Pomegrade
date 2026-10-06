@@ -203,7 +203,7 @@ Prose discipline alone is a weaker guarantee than a rule a tool can actually ver
 
 | Path | Scope | May be touched only when |
 |---|---|---|
-| Git submodules (`azahar/externals/*`, `azahar/dist/compatibility_list`, `melonDS-android/app/src/main/cpp/{oboe,faad2,enet}`) | Pinned third-party code | Bumping the pinned commit as its own change |
+| Git submodules (`azahar/externals/*`, `azahar/dist/compatibility_list`, `melonDS-android/app/src/main/cpp/{oboe,faad2,enet}`, `tools/remake/external/SPICA`) | Pinned third-party code | Bumping the pinned commit as its own change |
 | `melonDS-master.zip`, `melonDS.v.2.0.1.PS.apk` | Reference copies of upstream melonDS | Never modified; removed only on the owner's request |
 | Upstream melonDS-android and Azahar code | Code Pomegrade did not write | Required by a Pomegrade feature or fix: keep the edit minimal so upstream updates still merge, and say why in the commit message. Upstream style and naming are kept rather than "corrected" to this document |
 

@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- spica: the 3DS formats SPICA reads (external/SPICA, public domain), from the command line, for the remake tooling
+       (ORAS_TITLE.md). Builds SPICA's library sources and the GF package readers of its WinForms front end, none of the
+       UI or rendering. Texture images need System.Drawing, which .NET does not run on Linux: their sizes and formats are
+       listed, their pixels are not decoded here (remake_tool reads them). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>spica</AssemblyName>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <NoWarn>CS0168;CS0219;CS0414;CS0649;CS0169;CS0162;CS0108;CS0114;CA1416;SYSLIB0011;CS8981;CS0618</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../external/SPICA/SPICA/**/*.cs" Exclude="../external/SPICA/SPICA/Properties/**" />
+    <Compile Include="../external/SPICA/SPICA.WinForms/Formats/GF*.cs" Exclude="../external/SPICA/SPICA.WinForms/Formats/GFPackedTexture.cs" />
+    <Compile Include="*.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Drawing.Common" Version="8.0.10" />
+  </ItemGroup>
+</Project>
