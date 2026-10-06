@@ -424,6 +424,35 @@ std::string InspectZoneReach(N3dsRom& game)
     return s;
 }
 
+// every overworld piece's collision geometry (GR file 2, magic "coll", fields undecoded: ORAS_LITTLEROOT.md 4), smallest first, with
+// its first words: the built pieces keep Littleroot's, whose walls stand in every piece built (r4: a wall across Twinleaf at a seam)
+std::string InspectCollSizes(N3dsRom& game)
+{
+    const Garc mm(game.Read("a/0/4/0")), gr(game.Read("a/0/3/9"));
+    std::set<uint16_t> overworld;
+    for (size_t m = 0; m < mm.Count(); m++)
+        try { const OrasMatrix mat = OrasMatrix::Read(Plain(mm.Sub(m))); if (!mat.Zones.empty()) for (uint16_t p : mat.Pieces) if (p != OrasMatrix::None) overworld.insert(p); }
+        catch (const FormatError&) {}
+    std::vector<std::pair<size_t, uint16_t>> sizes;
+    std::map<uint16_t, Bytes> coll;
+    for (uint16_t p : overworld)
+    {
+        if (p >= gr.Count() || !gr.Has(p)) continue;
+        try { coll[p] = BinLinker::Read(Plain(gr.Sub(p)), "GR").Files.at(2); sizes.push_back({coll[p].size(), p}); } catch (const std::exception&) {}
+    }
+    std::sort(sizes.begin(), sizes.end());
+    std::string s = F("%zu overworld pieces; collision geometry sizes, smallest first (bytes, piece, first 16 words):\n", sizes.size());
+    for (size_t k = 0; k < sizes.size(); k++)
+    {
+        if (k >= 12 && k + 3 < sizes.size() && sizes[k].second != 6) continue; // the 12 smallest, Littleroot's, the 3 largest
+        const Bytes& c = coll[sizes[k].second];
+        s += F("%zu piece %u:", sizes[k].first, sizes[k].second);
+        for (size_t w = 0; w < 16 && w * 4 + 4 <= c.size(); w++) s += F(" %08x", U32(c, w * 4));
+        s += "\n";
+    }
+    return s;
+}
+
 std::string InspectArchives(N3dsRom& game)
 {
     std::string s = "path members size | the first member's first bytes\n";
