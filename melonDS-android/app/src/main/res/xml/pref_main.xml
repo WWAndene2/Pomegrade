@@ -87,6 +87,11 @@
             android:key="three_ds_settings"
             android:title="@string/settings_section_three_ds"
             app:iconSpaceReserved="false">
+        <Preference
+                android:key="three_ds_mod_install"
+                android:title="@string/three_ds_mod_install"
+                android:summary="@string/three_ds_mod_install_summary"
+                app:icon="@drawable/ic_add" />
         <Preference android:key="three_ds_settings_Core" android:title="@string/category_general" android:summary="@string/three_ds_settings_core_summary" app:icon="@drawable/ic_settings" />
         <Preference android:key="three_ds_settings_System" android:title="@string/category_system" android:summary="@string/three_ds_settings_system_summary" app:icon="@drawable/ic_firmware" />
         <Preference android:key="three_ds_settings_Renderer" android:title="@string/category_video" android:summary="@string/three_ds_settings_renderer_summary" app:icon="@drawable/ic_video" />
