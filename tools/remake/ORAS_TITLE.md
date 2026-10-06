@@ -37,6 +37,14 @@ are made for Groudon's skeleton, so Giratina's model cannot take them.
   members, its first a small `PC` container (88 bytes); Groudon 4170-4177, Primal Groudon 4178-4185, Giratina Altered
   5426-5433, Origin 5434-5441. The swap also changes Primal Groudon in battle: fine for a test, not for the Hoenn story.
 
+- Mod `t4a` + `t4b` (in `all`, with s2; built, **not run on the phone**): `t3`'s models (Giratina Altered over Groudon
+  4170-4177, Origin over Primal Groudon 4178-4185) and the title's 12 animation members replaced by Giratina's own BCH
+  animation files from its PB packs (Altered 5432, Origin 5440; files 38 `$FormatType ..._ba10_waitA01`, 748 bytes, into
+  the material members 83/85, 116/118, 122/124; file 2, the skin animation, into 84, 117, 123; file 20 `..._ba10_waitA01`,
+  748 bytes, into the skeleton members 86, 119, 125). Expected (inferred): no deformation, Giratina still, since the
+  skeleton's motion is in the PB pack's file 0 (160,964 bytes, a format the tool does not read yet), not in file 20.
+  a/1/5/2's member 125 is padded with zeros after its LZ data so the archive keeps its size.
+
 ## 2. Plan
 
 1. Giratina Origin with its battle idle animation (`pm0487_12_ba10_waitA01`) in the four members 122-125, converted from
