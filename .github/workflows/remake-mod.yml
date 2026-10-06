@@ -153,6 +153,8 @@ jobs:
               verify) ./build-remake/remake_tool oras-verify dumps/oras.3ds | tee "mods/inspect_$n.txt" ;;
               # "list": every RomFS file of ORAS with its size (oras-list)
               list) ./build-remake/remake_tool oras-list dumps/oras.3ds | tee "mods/inspect_$n.txt" ;;
+              # "find <text>...": where texts lie in ORAS's files and archive members (oras-find)
+              find\ *) ./build-remake/remake_tool oras-find dumps/oras.3ds ${query#find } | tee "mods/inspect_$n.txt" ;;
               # "code <code_find.py options>": the game's code searched (prototype/code_find.py, capstone)
               code\ *)
                 [ -f out/code.bin ] || ./build-remake/remake_tool oras-code dumps/oras.3ds out/code.bin

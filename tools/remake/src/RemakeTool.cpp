@@ -20,6 +20,7 @@
 //                     ORAS area packs (a/0/1/4 entries: "AD") whose textures the model uses
 //   remake_tool oras-list <oras.3ds>                  a decrypted 3DS game's RomFS files, with sizes
 //   remake_tool oras-extract <oras.3ds> <path> <out>  one RomFS file
+//   remake_tool oras-find <oras.3ds> <text>...
 //   remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...
 //                     an Azahar mod: each file replaces that RomFS path, laid out as Azahar loads
 //                     mods (<out dir>/load/mods/<program id>/romfs/<path>); copy <out dir>/load
@@ -454,7 +455,7 @@ int main(int argc, char** argv)
             return 0;
         }
         // decrypted 3DS game images
-        if (cmd == "oras-list" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch")
+        if (cmd == "oras-list" || cmd == "oras-find" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch")
         {
             N3dsRom game(argv[2]);
             char id[17];
@@ -466,6 +467,39 @@ int main(int argc, char** argv)
                 return 0;
             }
             if (cmd == "oras-extract" && argc >= 5) { WriteFile(argv[4], game.Read(argv[3])); return 0; }
+            if (cmd == "oras-find" && argc >= 4)
+            {
+                // where texts lie (model and texture names: pm0383 for Groudon's models): every RomFS file, and every member of
+                // every GARC, LZ-decompressed when compressed; prints file, member, sub-file and offset of each hit
+                std::vector<std::string> texts(argv + 3, argv + argc);
+                auto scan = [&](const Bytes& d, const std::string& where) {
+                    for (const std::string& t : texts)
+                        for (auto it = std::search(d.begin(), d.end(), t.begin(), t.end()); it != d.end();
+                             it = std::search(it + 1, d.end(), t.begin(), t.end()))
+                        {
+                            const size_t at = (size_t)(it - d.begin());
+                            size_t e = at;
+                            while (e < d.size() && e - at < 40 && d[e] >= 0x20 && d[e] < 0x7F) e++;
+                            printf("%s +0x%zX: %s\n", where.c_str(), at, std::string(d.begin() + at, d.begin() + e).c_str());
+                        }
+                };
+                for (const auto& [path, at] : game.Files())
+                {
+                    const Bytes data = game.Read(path);
+                    if (!Garc::Is(data)) { scan(data, path); continue; }
+                    const Garc g(data);
+                    for (size_t i = 0; i < g.Count(); i++)
+                        for (size_t sub = 0; sub < g.SubCount(i); sub++)
+                        {
+                            if (!g.Has(i, sub)) continue;
+                            const Bytes& m = g.Sub(i, sub);
+                            Bytes plain;
+                            try { plain = IsLzCompressed(m) ? LzDecompress(m) : m; } catch (const std::exception&) { plain = m; }
+                            scan(plain, path + " member " + std::to_string(i) + (sub ? "." + std::to_string(sub) : ""));
+                        }
+                }
+                return 0;
+            }
             if ((cmd == "oras-mod" || cmd == "oras-patch") && argc >= 5)
             {
                 const bool patch = cmd == "oras-patch";
