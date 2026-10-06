@@ -60,6 +60,7 @@
 #include "video_core/custom_textures/custom_tex_manager.h"
 #include "video_core/gpu.h"
 #include "video_core/renderer_base.h"
+#include "core/pomegrade_code_trace.h"
 
 namespace Core {
 
@@ -90,6 +91,7 @@ System::ResultStatus System::RunLoop(bool tight_loop) {
     if (!IsPoweredOn()) {
         return ResultStatus::ErrorNotInitialized;
     }
+    Pomegrade::CodeTrace::Tick(*this); // Pomegrade: code trace, threads' snapshots
 
 #ifdef ENABLE_GDBSTUB
     if (GDBStub::IsServerEnabled()) {
@@ -473,6 +475,7 @@ System::ResultStatus System::Load(Frontend::EmuWindow& emu_window, const std::st
 
     cheat_engine.LoadCheatFile(title_id);
     cheat_engine.Connect(process->process_id);
+    Pomegrade::CodeTrace::Start(*this, title_id); // Pomegrade: code trace, when turned on
 
     perf_stats = std::make_unique<PerfStats>(title_id);
 
@@ -723,6 +726,11 @@ void System::RegisterImageInterface(std::shared_ptr<Frontend::ImageInterface> im
 }
 
 void System::Shutdown(bool is_deserializing) {
+
+    // Pomegrade: the code trace is written when the game stops
+    if (!is_deserializing) {
+        Pomegrade::CodeTrace::Stop();
+    }
 
     // Shutdown emulation session
     is_powered_on = false;

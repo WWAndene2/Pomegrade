@@ -17,6 +17,7 @@ import me.magnum.melonds.impl.PomegradeFolder
 import me.magnum.melonds.ui.common.rom.N3dsLauncher
 import me.magnum.melonds.ui.settings.PreferenceFragmentTitleProvider
 import me.magnum.melonds.ui.settings.SettingsActivity
+import org.citra.citra_emu.activities.EmulationActivity
 import org.citra.citra_emu.utils.PermissionsHandler
 import java.io.IOException
 import java.io.InputStream
@@ -79,6 +80,24 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
 
         // 3DS: Azahar's own settings, the section of each entry; 64-bit devices only
         findPreference<Preference>("three_ds_settings")?.isVisible = N3dsLauncher.isSupported()
+        // the code trace is written next to the 3DS core's folder: its path is kept with the
+        // setting, for Azahar's emulation screen
+        findPreference<androidx.preference.SwitchPreference>(EmulationActivity.CODE_TRACE)?.setOnPreferenceChangeListener { _, value ->
+            if (value != true) return@setOnPreferenceChangeListener true
+            withThreeDsFolder {
+                val traces = threeDsFolder()?.let { java.io.File(it, "Traces") }
+                if (traces == null) {
+                    toast(R.string.three_ds_code_trace_no_folder)
+                    findPreference<androidx.preference.SwitchPreference>(EmulationActivity.CODE_TRACE)?.isChecked = false
+                } else {
+                    androidx.preference.PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
+                        .putString(EmulationActivity.CODE_TRACE_FOLDER, traces.absolutePath)
+                        .apply()
+                    Toast.makeText(requireContext(), getString(R.string.three_ds_code_trace_on, traces.absolutePath), Toast.LENGTH_LONG).show()
+                }
+            }
+            true
+        }
         findPreference<Preference>("three_ds_mod_install")?.setOnPreferenceClickListener {
             withThreeDsFolder { modZipLauncher.launch(arrayOf("application/zip", "application/x-zip-compressed")) }
             true

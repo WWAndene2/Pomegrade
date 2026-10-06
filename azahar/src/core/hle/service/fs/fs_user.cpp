@@ -31,6 +31,7 @@
 #include "core/hle/service/fs/fs_user.h"
 #include "core/hw/aes/key.h"
 #include "core/hw/unique_data.h"
+#include "core/pomegrade_code_trace.h"
 
 SERVICE_CONSTRUCT_IMPL(Service::FS::FS_USER)
 SERIALIZE_EXPORT_IMPL(Service::FS::FS_USER)
@@ -66,6 +67,7 @@ void FS_USER::OpenFile(Kernel::HLERequestContext& ctx) {
     const FileSys::Path file_path(filename_type, std::move(filename));
 
     LOG_DEBUG(Service_FS, "path={}, mode={} attrs={}", file_path.DebugStr(), mode.hex, attributes);
+    Pomegrade::CodeTrace::FileOpened(system, "open file", file_path.DebugStr());
 
     if (!archives.ArchiveIsSlow(archive_handle) && !Settings::values.async_fs_operations) {
         const auto [file_res, open_timeout_ns] =
@@ -147,6 +149,9 @@ void FS_USER::OpenFileDirectly(Kernel::HLERequestContext& ctx) {
     const FileSys::Path archive_path(archivename_type, std::move(archivename));
     const FileSys::Path file_path(filename_type, std::move(filename));
 
+    Pomegrade::CodeTrace::FileOpened(system, "open file directly",
+                                     fmt::format("archive {:08X} {} {}", static_cast<u32>(archive_id), archive_path.DebugStr(),
+                                                 file_path.DebugStr()));
     LOG_DEBUG(Service_FS, "archive_id=0x{:08X} archive_path={} file_path={}, mode={} attributes={}",
               archive_id, archive_path.DebugStr(), file_path.DebugStr(), mode.hex, attributes);
 
@@ -675,6 +680,8 @@ void FS_USER::OpenArchive(Kernel::HLERequestContext& ctx) {
 
     LOG_DEBUG(Service_FS, "archive_id=0x{:08X} archive_path={}", archive_id,
               archive_path.DebugStr());
+    Pomegrade::CodeTrace::FileOpened(system, "open archive",
+                                     fmt::format("{:08X} {}", static_cast<u32>(archive_id), archive_path.DebugStr()));
     ClientSlot* slot = GetSessionData(ctx.Session());
     u64 program_id = slot->program_id;
 

@@ -56,6 +56,7 @@
 #include "core/hle/service/soc/soc_u.h"
 #include "core/hle/service/ssl/ssl_c.h"
 #include "core/loader/loader.h"
+#include "core/pomegrade_code_trace.h"
 
 namespace Service {
 
@@ -185,6 +186,10 @@ void ServiceFrameworkBase::HandleSyncRequest(Kernel::HLERequestContext& context)
 
     LOG_TRACE(Service, "{}",
               MakeFunctionString(info->name, GetServiceName(), context.CommandBuffer()));
+    if (Pomegrade::CodeTrace::Enabled()) {
+        Pomegrade::CodeTrace::ServiceRequest(Core::System::GetInstance(), GetServiceName(), info->name,
+                                             context.CommandBuffer(), 5);
+    }
     handler_invoker(this, info->handler_callback, context);
 }
 

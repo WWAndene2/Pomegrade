@@ -94,6 +94,8 @@ Design: `DS_ENGINE_REMAKE.md` (the owner's notes). Its step 1 (5.12, "logging an
 
 ## 3c. Pokemon Platinum remake in Omega Ruby
 
+**Code trace (3DS, debug; 6 October, not compiled for Android, untested on a phone)**: Settings > 3DS > Record a code trace. While a 3DS game runs, Azahar keeps the last 131,072 kernel calls and service requests (thread, PC, LR, first words), the files and archives opened, the code modules loaded, and every game thread 4 times a second (state, PC, LR, SP, code addresses on its stack); written to `Pomegrade/3DS/Traces/<program id>_<date>/` (calls.txt, files_and_modules.txt, threads.txt, summary.txt) when the game stops and every 30 seconds (`azahar/src/core/pomegrade_code_trace.h`). Made to see where a mod freezes the game (Route 201) on the phone.
+
 **Goal (owner's words): a remake, not a remaster.** Sinnoh rebuilt in Omega Ruby / Alpha Sapphire's engine with ORAS's own assets and models, played in Azahar with all of ORAS's features and gameplay, as an ORAS mod (LayeredFS). Kept from Platinum: the world's layout, story, trainers, wild Pokemon, texts. Not wanted: Platinum's own geometry or models re-textured. Tooling: `tools/remake/` (desktop C++, no dependencies), tests `tests/remake/`, editor `tools/remake/editor/world_editor.html`. The owner's dumps (French Platinum CPUF, Omega Ruby Europe decrypted) are never committed.
 
 Done (desktop-tested on the real files; in the game so far two phone tests: an area pack (a/0/1/4) rebuilt by these tools with Route 101's textures recoloured loads and shows in Pomegrade; a BPS patch of Route 101's tiles applies and changes its collision and encounters):

@@ -44,6 +44,7 @@
 #include "core/hle/kernel/wait_object.h"
 #include "core/hle/result.h"
 #include "core/hle/service/plgldr/plgldr.h"
+#include "core/pomegrade_code_trace.h"
 
 namespace Kernel {
 
@@ -2439,6 +2440,7 @@ void SVC::CallSVC(u32 immediate) {
 
     const FunctionDef* info = GetSVCInfo(immediate);
     LOG_TRACE(Kernel_SVC, "calling {}", info->name);
+    Pomegrade::CodeTrace::KernelCall(system, immediate, info ? info->name : nullptr);
     if (info) {
         if (info->func) {
             system.GetRunningCore().GetTimer().AddTicks(info->cycles);
