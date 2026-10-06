@@ -24,6 +24,10 @@ on:
         description: 'Game time each headless run is given to reach the field'
         default: '120'
         required: false
+      saves:
+        description: 'Copies of the owner save with the player moved, one per line, "name: zone tile_x tile_z" (oras-save); each gives Save_<name>.zip'
+        default: ''
+        required: false
 
 # Headless runs (job headless):
 # Runs Omega Ruby with remake mods in Azahar's libretro core on the runner (software renderer, no screen), with the owner's
@@ -163,6 +167,32 @@ jobs:
             esac
             echo "::endgroup::"
           done <<< "$QUERIES"
+
+      - name: Moved saves
+        if: inputs.saves != ''
+        env:
+          SAVE_DRIVE_ID: ${{ secrets.ORAS_SAVE_DRIVE_ID }}
+          SAVES: ${{ inputs.saves }}
+        run: |
+          set -o pipefail
+          mkdir -p mods
+          id=$(printf '%s' "$SAVE_DRIVE_ID" | tr -d '[:space:]' | sed -E 's#.*/d/([^/?]+).*#\1#; s#.*[?&]id=([^&]+).*#\1#')
+          if [ -z "$id" ]; then echo "::error::no secret ORAS_SAVE_DRIVE_ID"; exit 1; fi
+          curl --location --silent --show-error --output save.zip "https://drive.usercontent.google.com/download?id=$id&export=download&confirm=t"
+          mkdir -p save && unzip -q save.zip -d save
+          main=$(find save -type f -name main | head -n 1)
+          if [ -z "$main" ]; then echo "::error::the save zip has no file named main"; exit 1; fi
+          meta=$(find save -type f -name '00000001.metadata' | head -n 1)
+          while IFS= read -r line; do
+            [ -z "${line// }" ] && continue
+            name="${line%%:*}"; name="${name// }"
+            set -- ${line#*:}
+            # the zip as the phone holds it: the folder 00000001 (the moved main, the rest copied) and its .metadata beside it
+            rm -rf "out/save_$name" && mkdir -p "out/save_$name" && cp -r "$(dirname "$main")" "out/save_$name/00000001"
+            ./build-remake/remake_tool oras-save "$main" "out/save_$name/00000001/main" "$1" "$2" "$3" | tee "mods/Save_${name}_log.txt"
+            if [ -n "$meta" ]; then cp "$meta" "out/save_$name/"; fi
+            (cd "out/save_$name" && zip -q -r "../../mods/Save_$name.zip" .)
+          done <<< "$SAVES"
 
       - uses: actions/upload-artifact@v4
         with:
