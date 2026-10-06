@@ -48,18 +48,20 @@ static class SpicaCli
                 if (s == null || s.Models.Count == 0) throw new InvalidDataException(skeletonFile + " holds no model to take a skeleton from");
                 skeleton = s.Models[0].Skeleton;
             }
+            if (rest.Count < 2) return Usage();
             switch (rest[0])
             {
-                case "info": Info(Open(rest[1], skeleton) ?? throw new InvalidDataException("format not recognised")); return 0;
-                case "dae" when rest.Count >= 3: new DAE(Open(rest[1], skeleton), model, anim).Save(rest[2]); return 0;
-                case "smd" when rest.Count >= 3: new SMD(Open(rest[1], skeleton), model, anim).Save(rest[2]); return 0;
+                case "info": Info(Recognised(rest[1], skeleton)); return 0;
+                case "dae" when rest.Count >= 3: new DAE(Recognised(rest[1], skeleton), model, anim).Save(rest[2]); return 0;
+                case "smd" when rest.Count >= 3: new SMD(Recognised(rest[1], skeleton), model, anim).Save(rest[2]); return 0;
                 case "motions": Motions(rest[1]); return 0;
             }
             return Usage();
         }
-        catch (Exception e) when (e is InvalidDataException || e is IOException || e is FormatException || e is EndOfStreamException)
+        catch (Exception e)
         {
-            Console.Error.WriteLine("error: " + e.Message);
+            // SPICA's readers throw whatever their parsing hits (an index, a cast) on a file they do not expect
+            Console.Error.WriteLine($"error: {e.GetType().Name}: {e.Message}");
             return 1;
         }
     }
@@ -69,6 +71,9 @@ static class SpicaCli
         Console.Error.WriteLine("usage: spica info|dae|smd|motions <file> [out] [--model N] [--anim N] [--skeleton <file>]");
         return 2;
     }
+
+    static H3D Recognised(string path, H3DDict<H3DBone> skeleton) =>
+        Open(path, skeleton) ?? throw new InvalidDataException(path + ": format not recognised");
 
     // the file's format, by magic (SPICA.WinForms' FormatIdentifier, without its UI)
     static H3D Open(string path, H3DDict<H3DBone> skeleton)

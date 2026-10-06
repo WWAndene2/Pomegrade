@@ -2,7 +2,8 @@
 #define REMAKE_AMX_H
 
 // The header of a Pawn (AMX) script, which is what ORAS's zone scripts are (magic 0xF1E0, versions 10/10, the "compact"
-// flag 0x04 set: the code is stored packed). The header is the standard AMX one; only it is read here, not the code.
+// flag 0x04 set: the code is stored packed). The header is the standard AMX one (AmxInfo); AmxCells unpacks the code and
+// data, AmxDisassemble lists the code.
 // Measured on Littleroot's zone script: 6438 bytes holding 10432 bytes of code, 684 of data, 1 public, 58 natives.
 
 #include "Bytes.h"

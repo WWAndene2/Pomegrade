@@ -32,13 +32,33 @@ int main()
     check(c.Width == 20 && c.Height == 10 && c.StoredWidth == 32 && c.StoredHeight == 16 && c.Format == 9, "BCLIM size, rounded storage and format read back");
     check(c.Rgba() == rgba, "BCLIM pixels read back");
 
+    // an L8 image 20 x 8 stored 32 x 8: 256 bytes, the same length as 20 x 8 rounded up to 0x80, so the length alone
+    // does not decide; 20 is no whole number of 8x8 tiles, so the stored size is the power of two
+    {
+        Bytes l8(256);
+        for (size_t i = 0; i < l8.size(); i++) l8[i] = (uint8_t)i;
+        Bytes f = l8;
+        for (char ch : std::string("CLIM")) f.push_back((uint8_t)ch);
+        P16(f, 0xFEFF); P16(f, 0x14); P32(f, 0x02020000); P32(f, (uint32_t)(256 + 0x28)); P16(f, 1); P16(f, 0);
+        for (char ch : std::string("imag")) f.push_back((uint8_t)ch);
+        P32(f, 0x10); P16(f, 20); P16(f, 8); P32(f, 0); P32(f, 256);
+        const ClimImage s = ClimImage::Read(f);
+        check(s.StoredWidth == 32 && s.StoredHeight == 8 && s.Rgba().size() == 20 * 8 * 4, "a size not in whole tiles is read as stored at powers of two");
+    }
+
     // DARC
     const std::vector<DarcFile> files = {{"blyt/title.bclyt", {1, 2, 3}}, {"blyt/menu.bclyt", {4}}, {"timg/logo.bclim", clim}, {"root.bin", {9, 9}}};
     const Bytes darc = WriteDarc(files);
-    const std::vector<DarcFile> back = ReadDarc(darc);
-    bool same = back.size() == files.size();
-    for (size_t i = 0; same && i < files.size(); i++) same = back[i].Path == files[i].Path && back[i].Data == files[i].Data;
-    check(same, "DARC files and folders read back in order");
+    auto same = [](const std::vector<DarcFile>& got, const std::vector<DarcFile>& want) {
+        bool ok = got.size() == want.size();
+        for (size_t i = 0; ok && i < want.size(); i++) ok = got[i].Path == want[i].Path && got[i].Data == want[i].Data;
+        return ok;
+    };
+    // read back folder by folder: the root's files, then each folder's in order of first appearance
+    check(same(ReadDarc(darc), {files[3], files[0], files[1], files[2]}), "DARC files and folders read back, folder by folder");
+    // a folder's files given apart (a/x, b/y, a/z) stay in their own folders
+    const std::vector<DarcFile> apart = {{"a/x", {1}}, {"b/y", {2}}, {"a/z", {3}}};
+    check(same(ReadDarc(WriteDarc(apart)), {apart[0], apart[2], apart[1]}), "DARC folders kept apart when their files are interleaved");
 
     // BCLYT: lyt1, txl1 (one texture), pas1, pic1, pae1
     Bytes body;

@@ -52,6 +52,25 @@ static int HeaderAt(const WorldMap& world, int gx, int gy)
 // position and destination. A door without an interior keeps the Hoenn destination of the warp it is given, or gets none when
 // the zone has no warp left for it; adding warps up to a door with an interior needs every door before it to have one too, so
 // that no copy leads into a Hoenn house by accident (the owner refused that: OrasTown.h, AddWarps)
+// a door's own interior: the ORAS zone its Platinum destination header is given, when that zone is not on the matrix; -1
+// otherwise. Decides both which doors are kept and where each kept door's warp leads
+static int InteriorOf(const OrasRegionOptions& o, const std::set<int>& used, unsigned destHeader)
+{
+    const auto in = o.Zones.find((int)destHeader);
+    return in != o.Zones.end() && in->second >= 0 && !used.count(in->second) ? in->second : -1;
+}
+
+// entries parked rather than removed, so the zone keeps its size and layout: their tile x, z words (wordX, wordX + 1)
+// set far outside any matrix
+static void Park(Bytes& entries, size_t first, int count, size_t stride, size_t wordX)
+{
+    for (int k = 0; k < count; k++)
+    {
+        Put16(entries, first + k * stride + 2 * wordX, 0xFFFF);
+        Put16(entries, first + k * stride + 2 * wordX + 2, 0xFFFF);
+    }
+}
+
 static Bytes MoveZone(const Bytes& plain, size_t zoneIndex, size_t matrix, const std::vector<RegionDoor>& doors, bool noTriggers, bool noCharacters, std::vector<std::string>& log)
 {
     BinLinker zone = BinLinker::Read(plain, "ZO");
@@ -103,19 +122,9 @@ static Bytes MoveZone(const Bytes& plain, size_t zoneIndex, size_t matrix, const
         const uint32_t size = U32(entries, 0) - removed * 0x18;
         for (int k = 0; k < 4; k++) entries.at(k) = (uint8_t)(size >> (8 * k));
     }
-    // parked rather than removed: the zone keeps its size and layout
-    const int triggers = noTriggers ? entries.at(7) : 0;
-    for (int k = 0; k < triggers; k++)
-    {
-        const size_t at = first + placed * 0x18 + k * 0x18; // the triggers follow the warps
-        Put16(entries, at + 12, 0xFFFF); Put16(entries, at + 14, 0xFFFF); // words 6, 7: tile x, z, far outside any matrix
-    }
-    const int characters = noCharacters ? npcs : 0;
-    for (int k = 0; k < characters; k++)
-    {
-        const size_t at = 12 + files * 0x14 + k * 0x30; // the characters follow the furniture
-        Put16(entries, at + 40, 0xFFFF); Put16(entries, at + 42, 0xFFFF); // words 20, 21: tile x, z, far outside any matrix
-    }
+    const int triggers = noTriggers ? entries.at(7) : 0, characters = noCharacters ? npcs : 0;
+    Park(entries, first + placed * 0x18, triggers, 0x18, 6);   // the triggers follow the warps; tile x, z at words 6, 7
+    Park(entries, 12 + files * 0x14, characters, 0x30, 20);   // the characters follow the furniture; words 20, 21
     const Bytes out = zone.Write();
     const OrasZone check = OrasZone::Read(out); // the events file's size rule and counts must still hold
     if ((int)check.Doors.size() != placed || (triggers && check.Triggers.at(0).TileX() != 0xFFFF) || (characters && check.Characters.at(0).TileX() != 0xFFFF) || check.Matrix() != (int)matrix) throw FormatError("zone " + std::to_string(zoneIndex) + " does not read back as written");
@@ -311,9 +320,7 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
                 // a door is kept only when it leads into an interior of its own (its destination header given an ORAS zone
                 // that is not on the matrix): with --auto-zones every header has a zone, and s3's Twinleaf piece got 6 doors
                 // for Littleroot's 4 door-model entries, so the real doors lost their models on the phone (all4)
-                const auto in = o.Zones.find(d->DestZone);
-                const bool interior = in != o.Zones.end() && in->second >= 0 && !used.count(in->second);
-                if (z != o.Zones.end() && z->second >= 0 && interior) { ++d; continue; }
+                if (z != o.Zones.end() && z->second >= 0 && InteriorOf(o, used, d->DestZone) >= 0) { ++d; continue; }
                 log.push_back(F("door at (%d, %d) of header %u to header %u: %s, no house, door model or warp", x * TownTiles + d->Column,
                                 y * TownTiles + d->Row, d->Zone, d->DestZone, z == o.Zones.end() || z->second < 0 ? "header left out" : "no interior given"));
                 d = layout.Doors.erase(d);
@@ -354,10 +361,7 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
             {
                 const auto z = o.Zones.find(d.Zone);
                 if (z == o.Zones.end() || z->second < 0) continue; // left out above
-                // the door's own interior: its Platinum destination given an ORAS zone that is not on the matrix
-                const auto in = o.Zones.find(d.DestZone);
-                const int interior = in != o.Zones.end() && in->second >= 0 && !used.count(in->second) ? in->second : -1;
-                doorsOf[z->second].push_back({x * TownTiles + d.Column, y * TownTiles + d.Row, d.DestZone, interior});
+                doorsOf[z->second].push_back({x * TownTiles + d.Column, y * TownTiles + d.Row, d.DestZone, InteriorOf(o, used, d.DestZone)});
             }
 
             // the preview: the piece placed at its cell (a piece spans -360..360 around its centre)

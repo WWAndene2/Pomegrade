@@ -26,6 +26,9 @@ int main()
     check(U16(file, section + U32(file, section + 4) + 2) == ('o' ^ k1), "the key rotates left by 3 after each unit");
     check(ReadGameText(file) == lines, "lines read back as written, variables and escapes kept");
     check(U16(file, section + 4 + 8 * 3 + 4) == 1, "an empty line holds its terminator");
+    bool threw = false;
+    try { WriteGameText({std::string(70000, 'a')}); } catch (const FormatError&) { threw = true; }
+    check(threw, "a line over 65535 units refused, not truncated");
     printf(ok ? "all passed\n" : "FAILED\n");
     return ok ? 0 : 1;
 }

@@ -18,7 +18,8 @@ namespace remake
 struct DarcFile { std::string Path; Bytes Data; };
 
 std::vector<DarcFile> ReadDarc(const Bytes& file);
-// the files in that order, their folders built from the paths (the reverse of ReadDarc for the files it returns)
+// the files under folders built from their paths, each folder's files and subfolders contiguous (ReadDarc returns them
+// folder by folder: a folder's files in their given order, then its subfolders')
 Bytes WriteDarc(const std::vector<DarcFile>& files);
 
 }

@@ -1,5 +1,6 @@
 #include "GameText.h"
 
+#include <algorithm>
 #include <cstdio>
 
 namespace remake
@@ -37,7 +38,7 @@ static std::string Escape(const std::vector<uint16_t>& u)
         if (c == '\n') out += "\\n";
         else if (c == '\\') out += "\\\\";
         else if (c == '[') out += "\\[";
-        else if (c < 0x20 || (c >= 0xD800 && c < 0xE000) || c >= 0xE000) { snprintf(buf, sizeof buf, "\\x%04X", c); out += buf; }
+        else if (c < 0x20 || c >= 0xD800) { snprintf(buf, sizeof buf, "\\x%04X", c); out += buf; } // controls, surrogates, private-use symbols
         else PutUtf8(out, c);
     }
     return out;
@@ -107,8 +108,9 @@ std::vector<std::string> ReadGameText(const Bytes& f)
 
 Bytes WriteGameText(const std::vector<std::string>& lines)
 {
+    if (lines.size() > 0xFFFF) throw FormatError("game text: more than 65535 lines");
     std::vector<std::vector<uint16_t>> units;
-    for (const std::string& s : lines) { units.push_back(Unescape(s)); units.back().push_back(0); }
+    for (const std::string& s : lines) { units.push_back(Unescape(s)); units.back().push_back(0); if (units.back().size() > 0xFFFF) throw FormatError("game text: a line over 65535 units"); }
     Bytes table, text;
     const size_t tableSize = 4 + 8 * lines.size();
     for (size_t i = 0; i < units.size(); i++)
