@@ -80,6 +80,9 @@ static bool Environment(unsigned cmd, void* data)
         auto* var = static_cast<retro_variable*>(data);
         var->value = nullptr;
         if (!strcmp(var->key, "citra_graphics_api")) var->value = "Software";
+        // the interpreter instead of the JIT, for code coverage ("trace on"): slower, but every block passes its dispatch
+        // (and not the FastInterp interpreter, which bypasses it too: the classic one, DynCom)
+        if ((!strcmp(var->key, "citra_use_cpu_jit") || !strcmp(var->key, "citra_use_fastinterp")) && getenv("POMEGRADE_INTERPRETER")) var->value = "disabled";
         return var->value != nullptr;
     }
     case RETRO_ENVIRONMENT_GET_CORE_OPTIONS_VERSION:
@@ -336,6 +339,16 @@ static int RunScript(void* core, const char* path)
             const std::string path = workDir + "/" + file;
             if (!dump) printf("(no pomegrade_dump in this core)\n");
             else printf("dump %s: %u bytes mapped of %s\n", path.c_str(), dump(strtoul(arg.c_str(), nullptr, 0), strtoul(length.c_str(), nullptr, 0), path.c_str()), length.c_str());
+        }
+        else if (cmd == "trace")
+        {
+            // trace on | trace off FILE: the blocks of code the game runs in between (pomegrade_trace), FILE in the work folder
+            auto trace = reinterpret_cast<uint32_t (*)(int, const char*)>(dlsym(core, "pomegrade_trace"));
+            std::string file; words >> file;
+            const std::string path = workDir + "/" + file;
+            if (!trace) printf("(no pomegrade_trace in this core)\n");
+            else if (arg == "on") { trace(1, nullptr); printf("[frame %lu] trace on\n", frame); }
+            else printf("[frame %lu] trace off: %u blocks in %s\n", frame, trace(0, path.c_str()), path.c_str());
         }
         else if (cmd == "gdb")
         {

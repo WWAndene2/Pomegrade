@@ -1,0 +1,786 @@
+# Function names of the Ghidra program (ORAS_ENGINE.md 6), applied by ApplyNames.java: address, name, role, read|guess.
+# "read": the code shows the role; "guess": named from context. Subsystem prefixes: Zone_ Map_ Event_ Field_ Script_ Res_ Mem_
+# Gfx_ Snd_ Text_ Save_ Util_ Sys_. A module address is its linked one (cro_link.py: DllField at 0x10242000).
+# Zone change (7 October): the 782 functions entering a zone runs that walking does not (coverage_map.py), read by sub-agents.
+001001B0	Util_CopyName40	Copies 0x40 bytes from the source's second word into the object at +0xDF22.	guess
+001001E0	Util_WStrNCopyPad	Copies up to n 16-bit chars, padding with the terminator once the source ends.	read
+001001FC	Mem_FreeWithHeader	If non-null, frees a block using the size/heap words stored 8 and 4 bytes before it.	guess
+00100294	Util_ArrayDestructReverse	Calls a destructor callback on each element of an array from last to first and returns the allocation header (base-8).	read
+001002B6	Util_StrNCat	Appends at most n chars of a string to a NUL-terminated string (strncat).	read
+00102D8A	Util_StrStr	Finds the first occurrence of one byte string inside another (strstr).	read
+0010E17C	Util_GetSubFlagBool	Returns whether byte 1 of the sub-object at +0x178 is non-zero.	read
+0010FBCC	Util_InitDefaultMatrixOnce	Lazily initialises a static 3x4 identity-like matrix (guard flag) and copies it to the argument.	read
+00111B38	Gfx_AnimSlotsStopAll	Stops every slot in an object's 0x2C-byte animation slot table (count at +0xAC) via FUN_0014d550.	guess
+00112354	Util_ObjectInitWithBuffer	Constructor setting a vtable, fields 0x1f/0x21/0x22 and clearing a 0x78-byte sub-buffer.	guess
+00112C10	Zone_CreateZoneArchiveHandle	Allocates a handle and opens archive 13 (zones), or reuses a shared one when the flag is set.	read
+001153A4	Snd_ReleaseActiveStream	If active, stops/releases the current entry of a 0x9C-byte stream table and clears its slot.	guess
+00117884	Sys_SvcCreateEvent	Issues kernel SVC 8 (thread/sync object creation) and stores the resulting handle.	guess
+001184C8	Sys_ClearThreadLocalBlock	Zeroes the first 16 words of the thread-local storage block.	read
+00118514	Sys_InitThreadLocalStorage	Initialises the current thread's TLS block fields from the thread ID register.	read
+0011C930	Res_ArchiveMemberSize	Returns the size of an archive member (wraps FUN_001287bc).	read
+0011D990	Gfx_SetSceneEntryFlag	Sets byte 1 of entry i (0x2C-byte rows) of an object's table if the entry is active and in range.	read
+0011D9BC	Gfx_AnimSlotPlay	Starts the animation in slot i of the 0x2C-byte slot table with a given loop flag and resets its frame.	guess
+0011E298	Res_ArchiveSlotCall	If slot index is below the table count at +0x65C, forwards the slot's object to FUN_00127b68.	guess
+0011EB78	Util_ClearWord	Stores 0 into the given word.	read
+0011F9E8	Save_ClearEventFlag_0011F9E8	Clears bit n in the save's event-flag bitfield (save+0x13140, +0x2F4 for n<0xD00, separate area for 0x3000+).	read
+0011FA10	Save_ClearEventFlag_0011FA10	Clears bit N in the flag bitfield (flags <0xD00 in object at +0x2F4, 0x3000-0x303F in a global table).	read
+0012344C	Mem_FreeToHeap	Frees a block through the heap object's allocator (vtable +0x1C then FUN_0012b9a0).	guess
+001235A8	Mem_GetDefaultHeapSize	Returns the constant 0x3000000.	guess
+00124150	Sys_TryLockSpin	Atomically tries to take a lock word (exclusive access), returns 1 on success.	read
+00125EB0	Util_GetGlobalByte1	Returns a signed byte from a global structure.	read
+00127B68	Snd_FadeOutOrStopPlayer	Sets up a fade (volume ramp) on a player object or calls its stop vfunc.	guess
+001287BC	Res_GetContainerEntryInfo	Fetches the 12-byte table entry i of an archive container, reading the table from file if not cached.	read
+0012B5B0	Text_WideStringBuffer_Init	Constructs a UTF-16 string buffer of given capacity allocated from a heap.	read
+0012B624	Util_ObjectDestructor	Resets a vtable and releases the owned object at +4 if present.	guess
+0012C430	Field_ResetCameraState	Zeroes and resets a large state object (vectors, 4 sub-blocks via FUN_0012c370, buffers at 0x8A4); likely camera/controller reset.	guess
+0012F990	Gfx_AnimSlotIsFinished	Returns 1 when the animation in slot i is absent, stopped or has reached its last frame.	guess
+0012FAF4	Res_ContainerFileCount	Returns the file count (u16 at +2) of a container header.	read
+0012FDD8	Save_WorkValuePtr	Returns a pointer to the 16-bit script work variable 0x4000+i (0 if out of range).	guess
+00130390	Sys_GetMemoryRegionBase	Returns a memory region base/size for a region id 0x20000/0x30000.	guess
+00131F98	Sys_ThreadEntry	Thread start routine: clears TLS, runs the init/entry callbacks, then exits the thread (svc 9).	read
+001320D0	Res_DecompressLz11	LZ10/LZ11 (header-type nibble) decompressor into a destination buffer.	read
+0013222C	Util_ReadU24OrU32Size	Reads a 24-bit size from a header, falling back to the next 32-bit word when zero (LZ header style).	read
+00132230	Res_GetCompressedSize	Reads a 24-bit size from a compression header, using the extended word when zero.	read
+00134BF4	Snd_InitPlayParams	Initialises a small parameter struct (volume 0x7F, pan 0x40) to defaults.	guess
+00135340	Sys_OpenFileByUtf8Path	Converts a UTF-8 path to UTF-16 and opens it, storing the handle; fatal on failure in non-try mode.	guess
+00139414	Text_WideStringBuffer_Clear	Clears a UTF-16 string buffer to empty.	read
+00139448	Text_GetMessageString	Reads string #n of a message data file (bank-selected, cached or streamed) into a string buffer.	guess
+00139670	Res_AsyncFileRead_Start	Starts an async read job of a file at a priority (clamped to 31), aborting on failure.	guess
+0013CCEC	Text_ExpandControlTags	Walks a message string, expanding 0x10 control tags (variables, grammar forms) into an output buffer.	read
+0013CD30	Text_ExpandControlCodes	Expands a message's 0x10 control codes (sub-messages, plural/gender selection, word buffers) into an output string.	read
+0013D4AC	Util_IndexedTable_SetEntry	Sets entry i of a 12-byte-entry table (bounds checked, fatal error otherwise).	read
+0013F16C	Text_DecodeMessageString	Copies a message string into a UTF-16 buffer, XOR-decrypting it with a rolling key when encrypted.	read
+0013F48C	Mem_HeapAllocTail	Allocates from a heap object at its tail (negative alignment) via FUN_0012b9a0.	guess
+0014D550	Gfx_AnimSlotStop	Stops the animation in slot i of the 0x2C-byte slot table and resets its frame.	guess
+0014DFB4	Text_GetTagCommand	Returns the command word of a 0x10 control tag in a text string, else 0.	read
+0014DFCC	Text_GetTagParam	Returns parameter i of a 0x10 control tag in a text string, else 0.	read
+0014E008	Util_SkipHeaderChunk0x10	If a chunk starts with tag 0x10, returns the pointer past it.	read
+0014E054	Text_CopyStrBuf	Copies one string buffer into another, storing the resulting length.	read
+0014E088	Text_BufferAppendChar	Appends a 16-bit char to a bounded string buffer and keeps it 0-terminated.	read
+0014E104	Text_StringLength	Counts characters of a 16-bit encoded string, skipping 0x10 control-code payloads, capped at 0x800.	read
+0014E240	Text_CopyTaggedString	Copies a UTF-16 string with 0x10 control tags up to a max length; returns length.	read
+0014E3EC	Res_FileReaderInit	Constructs a file/archive reader object that owns either a plain 0xC buffer object or a 0x24 stream object depending on mode.	guess
+0014FBA4	Util_InitSmallObject	Constructor: sets vtable and clears four fields.	guess
+0015EB9C	Util_MemSet	memset: fills n bytes with a byte value, word-optimised.	read
+0016668C	Util_LinkedList_FindByKey	Walks a linked list and returns the node whose key matches.	read
+00168DD4	Gfx_AnimController_Init	Initialises a small controller object with two pointers and clears flags.	guess
+0016A7A4	Save_IncrementCounter	Increments a saved game counter/record (indices <100 words, <200 halfwords) with a cap.	read
+0016A850	Script_SetWorkValue	Sets a script work value (index <100 word, <200 halfword) and returns it.	guess
+0016BD00	Gfx_ShaderUniformBlockGet	Returns a pointer to a 0x38-byte stride sub-block of a graphics descriptor or a default one.	guess
+0016BD80	Gfx_GetMaterialEntryB	Returns a pointer to a 0x38-byte entry selected by format bits, or a default.	guess
+00174C28	Res_OpenFileByName	Looks a file name up in a file table and opens it via the archive vfunc.	guess
+00176A74	Gfx_ResourceDictLookup	Looks up an entry in a resource dictionary and returns its data pointer/size or type info.	guess
+00176EFC	Gfx_GetMaterialEntryA	Returns a pointer to a 0x38-byte entry selected by format bits, or a default.	guess
+001781F0	Sys_SyncObjectInitOnce	Issues SVC 0x24 (WaitSynchronization) once and marks the object initialised, aborting on error.	read
+0017B42C	Util_ClearPair	Zeroes two words.	read
+0017CDB0	Res_FsOpenRelativePath	Prefixes a relative path with the device's base path (max 255 chars) then calls the vtable open.	read
+0017CF4C	Gfx_ResourceDictEntry	Returns entry i of a resource dictionary table at header+0x34, or 0 when out of range.	read
+0017CFE0	Res_GetChunkData	Returns a pointer to chunk data if the chunk header has type 0x220D.	read
+0017D00C	Gfx_ResourceEntryType	Classifies a resource entry by its 0x220C/0x220D tag into 0, 1 or 2 (other).	read
+0017E38C	Sys_CreateThread	Builds a thread stack frame and creates an OS thread with mapped priority.	guess
+00180F24	Gfx_SetupBufferedAnimation	Builds per-object animation/vertex buffers and registers them, rolling back on failure.	guess
+001816F8	Snd_StreamPlayerSetup	Configures a multi-track (up to 8 channels, 4 tracks) player and allocates its voices; likely sound streaming.	guess
+00181890	Snd_StartStream	Binds a stream/request object to a player, copies its parameters and queues it.	guess
+00187C68	Util_ForEachCallItem	Calls a function on every non-null pointer in an array.	read
+00187F9C	Mem_PoolFreeBlock	Clears the bitmap bit of a fixed-size pool block and decrements count.	read
+00187FDC	Mem_PoolAllocBlock	Finds a free bit in a fixed-size pool bitmap and returns that block.	read
+0018CB00	Snd_StopAllChannels	Stops every channel in a list (FUN_0018ecf0(ch,1)) and clears the playing flags.	guess
+0018ECD4	Gfx_RenderFlagSetBit6	Sets or clears bit 6 of a render-state halfword at object->+0x68 +0x1E.	guess
+001960C8	Util_CopyMatrix3x3From3x4	Copies the 3x3 part of a 3x4 matrix into a 9-float buffer.	read
+0019C5E0	Util_Thunk_0019C5E0	Jump-table thunk through a function pointer (Ghidra labels it as a thunk of FUN_00146000).	read
+0019C660	Sys_ThunkJump0	Jumps through a function pointer (veneer).	read
+0019C668	Util_ImportThunk_19C668	Indirect jump thunk through a pointer (Ghidra labels it thunk of FUN_00146000).	read
+0019C670	Util_Thunk_0019C670	Jump-table thunk through a function pointer (thunk of FUN_00146000).	read
+0019C678	Sys_ThunkJump1	Jumps through a function pointer (veneer).	read
+0019C7C8	Util_ImportThunk_19C7C8	Indirect jump thunk through a pointer (Ghidra labels it thunk of FUN_00146000).	read
+0019C7F8	Util_Thunk_0019C7F8	Jump-table thunk through a function pointer (thunk of FUN_00146000).	read
+0019C800	Sys_ThunkJump2	Jumps through a function pointer (veneer).	read
+0019C808	Util_ThunkIndirect146000	Indirect jump thunk (Ghidra names it thunk_FUN_00146000).	guess
+0019C878	Util_ImportThunk_19C878	Indirect jump thunk through a pointer (Ghidra labels it thunk of FUN_00146000).	read
+0019C8C8	Util_Thunk_0019C8C8	Jump-table thunk through a function pointer (thunk of FUN_00146000).	read
+0019C8D0	Sys_ThunkJump3	Jumps through a function pointer (veneer).	read
+0019C8D8	Util_ThunkIndirect146000b	Indirect jump thunk (Ghidra names it thunk_FUN_00146000).	guess
+0019C8F8	Util_ImportThunk_19C8F8	Indirect jump thunk through a pointer (Ghidra labels it thunk of FUN_00146000).	read
+0019C900	Util_Thunk146000_0019C900	Thunk jumping through a function pointer (FUN_00146000).	read
+0019C910	Util_Thunk_0019C910	Jump-table thunk through a function pointer (thunk of FUN_00146000).	read
+0019CA20	Sys_ThunkJump4	Jumps through a function pointer (veneer).	read
+0019CA48	Util_ThunkIndirect146000c	Indirect jump thunk (Ghidra names it thunk_FUN_00146000).	guess
+0019CA68	Sys_ThunkJump5	Jumps through a function pointer (veneer).	read
+0019CA78	Util_ThunkIndirect146000d	Indirect jump thunk (Ghidra names it thunk_FUN_00146000).	guess
+001D3630	Script_ValidateBytecode	Walks a bytecode command stream (opcodes up to 0xD6), checks jump/offset targets and returns error 4/6/0x1C or 0.	guess
+001F5EB8	Util_CallVirtual18IfNotNull	Calls vtable slot 0x18 on an object if it is not null.	read
+001F9544	Util_Nop_001F9544	Empty function.	read
+001F9854	Gfx_InitMaterialParams	Initialises a small render/material parameter struct to defaults.	guess
+001F98A8	Util_TreeNodeChainCreate	Creates a chain of four linked tree/list nodes of types 5,0,0,0 holding a value.	guess
+002E6E14	Util_SetInvalid	Stores 0xFFFFFFFF into a handle.	read
+002FF034	Util_StrLen	Returns the length of a NUL-terminated string (word-at-a-time).	read
+002FF10C	Mem_HeapFreeBlock	Frees a heap block by locating its owning heap from the block header and calling the heap's free.	read
+003009F4	Mem_DeleteObject	Runs a destructor-step then frees the object (operator delete wrapper).	guess
+0031D954	Gfx_BindAnimToModelMembers	Maps each animation member to a model node index by name lookup, filling an index table.	guess
+0031DA6C	Gfx_BindMaterialNameIndices	Resolves a list of named entries to indices via a name dictionary, filling unresolved slots with a sentinel.	guess
+0031DC98	Util_U16ArrayFill	Sets an array pointer/count and fills every 16-bit entry with a constant.	read
+0031E6B8	Mem_BumpAllocAligned	Reserves an aligned block from a running offset and returns offset and size.	read
+0031F0C8	Util_ZeroPadBlockEnd	Pads a parsed block to 16-byte alignment with zeros and records its word count.	guess
+0031F38C	Gfx_ResolveModelResourceRefs	Resolves model/material texture and shader references by name in a resource dictionary, returning error bits for missing ones.	guess
+0031F808	Gfx_SetupMaterialUniforms	Builds per-material shader binding blocks (TexMtx0-2, TexTran, TexcMap, MatAmbi, MatDiff) for a model resource.	read
+0031FC24	Gfx_ModelResourceSetup	Validates a model/texture resource header (version, alignment) and initializes its runtime object.	guess
+0031FDDC	Sys_ApplyRelocations	Applies a table of typed relocation entries to segments (module/shader-binary patching).	guess
+00322648	Gfx_SceneNode_SetVisibleRecursive	Sets a scene node flag and propagates it to children and attached nodes via vtables.	guess
+0032288C	Gfx_Resource_FindByName	Searches a resource dictionary (12-byte entries) for a name, returning the entry.	read
+00326D14	Text_SetSubstring	Copies up to N UTF-16 characters into a text buffer at a position and marks it dirty.	guess
+00326DD0	Gfx_TextureSetupFromHeader	Copies texture/sampler parameters (wrap modes, sizes) into a render descriptor.	guess
+00326FA8	Gfx_UpdateDrawState	Builds a local render state, applies pending settings and submits it.	guess
+00327318	Text_DrawBuffer	Renders a text object's string when non-empty (glyph setup and draw calls).	guess
+00328E04	Gfx_ForwardSubobjectCall	Calls FUN_0017a8e8 with the object's +4 and +8 fields.	guess
+00328EDC	Gfx_SetNodeVisible	Gets a node via vtable 0x18 and sets its byte +0xE to the inverse of the flag (hidden).	guess
+00329CBC	Snd_StopAllLayers	Stops five sound/channel slots 0-4 and two more by id.	guess
+0032B2A4	Util_CallVirtual08	Returns the result of vtable slot 8.	read
+0032BB4C	Util_DetachOwnerLink	Clears an object's back-pointer and the owner's link slot at +0x29E0 when it points to it.	guess
+0032BB88	Util_DynamicCastAttach	Checks an object's runtime type chain and attaches it to the holder on match.	guess
+0032CF48	Gfx_SetupLightEnvironment	Copies four 13-byte light entries from a descriptor and configures lighting/fog for a scene environment.	guess
+0032ECB0	Util_HasPointerAtC	Returns 1 when the field at +0xC is non-null.	read
+0032F25C	Snd_ResetSoundManager	Resets a sound manager object and its four channel slots.	guess
+0032F61C	Snd_QueueStreamPlayRequest	Fills a request of type 0x26 with player parameters and posts it to a command queue.	guess
+0032F6F0	Gfx_PushRenderCommand	Queues a render command (type 0x27) with two parameters.	guess
+0032F74C	Gfx_RefreshIfDirty	When a dirty flag is set, clears it and recomputes the object's derived state.	guess
+0032F84C	Snd_StopPlayersById	Stops every queued player in 3 lists whose id matches.	guess
+0032F900	Sys_WaitEventOrCallback	Waits on a kernel handle and calls a completion callback when signalled.	guess
+0032FAB0	Mem_FreeOwnedBuffer	Frees a buffer held by the object if it is owned and allocated.	read
+0032FB00	Res_AsyncFileOpenInit	Constructs an async file request: opens a path, gets its size, allocates and calls a completion callback on failure.	guess
+003304A8	Util_ClampMode3	Returns the value if 0 or 1, else 3.	read
+00330584	Snd_SetSourceRange	Stores two values and resets two handles to -1 on a sound source object.	guess
+003306E4	Res_StreamSeek	Seek on a stream object: whence 0=set, 1=cur, 2=end, or forwards to the inner stream.	read
+0033077C	Util_InitHandleStruct	Initialises a small handle struct with defaults and -1 indexes.	read
+00331010	Res_ReadBcwavHeader	Reads a 0x40-byte header from a stream, validates it, reads the full file and parses its info.	guess
+0033120C	Gfx_BindBinaryHeader	Validates a binary header magic/version and records its data pointer.	read
+00331258	Util_ClearTwoWords	Zeros words 1 and 2 of an object.	read
+003316D4	Gfx_SetDirtyByteField	Sets a byte field and marks the object dirty (flag 2) when it changes.	read
+0033183C	Gfx_ResetObjectState	Resets an object's state fields after a base reset call.	guess
+00331880	Gfx_TextureContainer_Load	Parses a texture/graphics container header and sets up its layer entries.	guess
+00331EFC	Res_StreamListDestroy	Destroys all nodes of an object's linked list and releases its inner handle.	guess
+0033208C	Sys_PostStateMessage	Builds a message of type 0xF with a computed state byte and posts it to a queue.	guess
+00332134	Snd_StopById	Gets the sound manager and stops players with the given id.	read
+003346AC	Snd_PlayerReset	Resets a sound player: volume 0x7F, pan 0x40 on 4 tracks, clears 8 voice slots.	guess
+00334CC4	Snd_StopSoundHandle	Stops a sound object's players and releases its tracks.	guess
+00334D3C	Gfx_SetVisibleAll	Sets a visibility flag and propagates it to every 0x340-byte child entry.	guess
+00334DBC	Snd_StreamPlayerUpdate	Per-frame update of the multi-track player: refreshes voices and volume/mute state once.	guess
+003350B0	Snd_ReleaseSoundObject	Frees a sound object's voice blocks and tracks and marks it unloaded.	guess
+00337B7C	Gfx_DrawTexturedQuad	Computes quad corners and UVs from a glyph/sprite rect and issues GPU commands.	guess
+00337ED4	Snd_ResetSequenceState	Clears counters of the object at +0x44.	guess
+00337EF0	Gfx_ComputeTexelScale	Stores 1/width and 1/height of a texture-like object (vtable +8/+0xC) as floats.	guess
+003384A4	Snd_UpdateVolumeRamp	Polls a stream's status and advances a volume/pitch accumulator.	guess
+00338834	Field_InitCameraParams	Initialises a parameter block with -1 ids and default float values.	guess
+003388E8	Util_Identity	Returns its argument.	read
+0033899C	Gfx_BuildCommandList	Builds a GPU command list for a batch of sorted draw items (material/texture state changes, uniforms).	guess
+0033917C	Gfx_FlushLightAndMatrixCommands	Writes pending GPU uniform/register commands (matrices, lights) into a command buffer.	guess
+0033983C	Mem_Free	Frees a block (forwards to FUN_002ff8c0).	guess
+00339B4C	Util_ClearByte12	Clears byte +0x12 of a struct (status init).	read
+0034AE44	Snd_StopMatchingTracks	Calls a stop function on every track whose owner id matches.	guess
+0034BB7C	Gfx_SwitchModelVariant	Swaps between two models/resources at +0x24/+0x28 by flag, loading/attaching one and detaching the other.	guess
+00366A14	Util_GetField0C	Returns word +0xC of an object.	read
+00366C24	Res_IsResourceAvailable	Returns 1 if a resource descriptor has no file id or its file exists in the container.	guess
+0036AF08	Res_Decompress	Decompresses data by header type: 0x10 LZ, 0x20 Huffman, 0x30 RLE, 0x40/0x50 extended LZ (needs heap).	read
+0036E0DC	Res_AsyncReadFinish	Finishes an async read job: waits for the file, invokes its completion callback once and signals.	guess
+0036E1A4	Res_AsyncReadStep	Advances an async read job by reading the next chunk (raw or compressed modes) and completes it when done.	guess
+0036E2F0	Res_AsyncJob_Complete	Finishes an async job: closes the file if needed and calls its completion callback.	read
+0036E334	Res_AsyncSystem_Update	Ticks the async loading system (two update calls).	guess
+0036E694	Res_AsyncLoad_Create	Allocates a 0x54-byte async read job for a file with callback and starts it.	read
+0036EA38	Res_AsyncLoaderPoll	Returns 1 while a pending load job is busy, else destroys the job and returns 0.	guess
+0036EA84	Res_AsyncLoadMember	Gets a member's offset/size in an archive and starts an async load of it.	read
+0036EC70	Res_AsyncLoadIsDone	Returns 1 when an async load job has finished (destroying it), 0 while busy.	guess
+0036EF3C	Res_AsyncFileRead	If the stream is open, reads via FUN_001326f4 and reports error codes; returns bytes read.	guess
+00371C04	Util_SetChildByteFlag	Writes a byte flag into the object's sub-structure (+5).	read
+00372704	Util_Nop_00372704	Empty function.	read
+00372728	Util_SetFieldAndCallVirtual18	Stores a value at +4 then calls vtable slot 0x18.	read
+00374084	Util_SetIfUnset	Stores a value at +0x3C only if the slot is empty, returning whether it did.	read
+003740A0	Gfx_ResourceSlotFree	Frees a model/texture resource slot's buffers and resets its state to defaults (0x10000).	guess
+003748B0	Gfx_InitModelResourceBindings	Once per object, allocates a 0x34 bind block, resolves six resource offsets and allocs buffers then binds them (FUN_0031fc24).	guess
+003749F4	Gfx_ModelBinding_Update	Binds a model's resources and attaches animations, returning whether binding succeeded (flag 4).	guess
+00374A94	Gfx_ModelBinding_BindResources	Resolves each of a model's referenced resources once, setting bound/ok flags.	read
+00374B3C	Gfx_BindModelAnimations	Binds animation resources to a model's nodes once, setting a ready flag.	guess
+00374CBC	Util_HandleInit	Initialises a two-word object with its vtable and a null pointer.	read
+00374CD4	Util_Nop2_00374CD4	Empty function.	read
+0037A194	Gfx_ScenePool_RemoveEntry	Removes an object from a scene list and clears its slot bit in a bitmap.	read
+0037A278	Util_PoolAllocSlot	Finds a free bit in a bitmap, marks it, appends the object to a list and stores its index.	read
+0037B4AC	Gfx_ParseCommandStream	Walks a packed u32 command list and dispatches each entry to visitor vtable callbacks (+8/+0xC/+0x10/+0x14).	read
+0037FEA8	Gfx_BindAnimation	Binds an animation (skeletal/material/visibility type) to a model and returns a status code.	guess
+00380060	Gfx_Material_ResetDefaults	Resets a material/state block's colour values and halfword table to defaults.	guess
+003800C0	Gfx_InitAnimChannelBuffer	Sizes and allocates a per-channel buffer from the largest bound animation curve and stores its type.	guess
+00380370	Gfx_BindShaderUniforms	For a non-DefaultShader material, allocates uniform entries and binds them by name/index.	read
+00380704	Gfx_ResourceArray_Destroy	Destructor freeing an array of owned resources and clearing fields.	read
+00380ABC	Gfx_AnimSlotsDestroy	Destructor: frees three animation slot buffers and clears them.	guess
+00380B44	Gfx_Material_ParseUserData	Reads a material's "PrivateMod" user-data and render-state words into a render state block.	read
+003813A4	Gfx_InitLightSet	Clears six 0x24-byte entries and related light/fog state.	guess
+003818B8	Gfx_ResourceSetRelease	Frees the pointer array at +0x16C, resets counts and calls base cleanup.	read
+00381A68	Util_HandleReset	Releases the handle at +0x10 if set and resets fields to empty (-1/0).	read
+00381B00	Gfx_AnimControllerInit	Initializes a 0x1C-byte animation controller object (vtable, index -1).	guess
+00381B94	Util_ResetVtableChain	Runs successive base-class reset methods on an object (constructor/destructor chain).	guess
+00381BF4	Gfx_LookupNamedIndexAndDispatch	Looks up a name in the model dictionary at +0x40 and passes the index (or -1) to virtual +0x18.	read
+00381CA8	Gfx_AnimControllerReset	Resets an animation controller's index to -1 and clears its resource.	guess
+00381CBC	Gfx_AnimControllerInitSmall	Initializes a 0x10-byte animation controller object (vtable, index -1).	guess
+00381CE0	Util_DestroyAndFree	Runs the destructor chain of an object and frees it.	read
+003821C0	Gfx_AnimSetCreate	Allocates N 0x3C-byte animation entries for a model and binds each to a resource.	guess
+00384EE4	Gfx_SetupMaterialEdgeParams	Reads the _EdgeType/_EdgeMapAlphaMask user data of a material and configures edge/outline render state for it.	read
+0038B374	Gfx_SceneGroupAddModel	Registers a model in a scene group's slot list, cloning group membership bits.	read
+0038B69C	Gfx_SceneGroupMarkBit	Finds a scene-group node matching a key and sets a bit in its mask, returning the single set index.	guess
+00390FC8	Gfx_DestroyMaterialArrays	Releases the 7 sub-objects of each 0x20-byte entry then frees three arrays.	read
+00391544	Gfx_SceneGroupRemoveModel	Unlinks a model from the scene group lists it belongs to and frees its slot.	guess
+00391C80	Gfx_ResetBitmaskState	Resets a state struct and clears its bitmask buffer.	read
+003962E4	Util_InitPair1_4	Sets fields to 1 and 4.	read
+00396324	Gfx_ResourceHolderDestroy	Destructor: frees two buffers and an owned object, then itself.	guess
+00396454	Gfx_SetPosition	Stores an xyz vector at +0xF4 of an object and sets a dirty flag.	read
+00396510	Gfx_BindStandardUniforms	Looks up shader uniforms WrldMtx, NormMtx, ProjMtx, ViewMtx, LightCt, UnivReg, Hsl*, MatAmbi, MatDiff.	read
+00396A8C	Gfx_ModelBindAnimation	Forwards an animation bind to the model's animation set at +0x13C if present.	guess
+00396AB8	Gfx_SetModelAnimSlot	Assigns an animation into slot n of a model object.	guess
+003975D8	Gfx_ModelBuildBoneMap	Builds a per-bone mapping table between a model skeleton and a skeleton resource.	guess
+00397760	Gfx_AllocModelChildArray	Allocates a holder with an n-pointer array (zeroed) on a model.	read
+00397940	Gfx_SetMaterialParamByName	Finds a named parameter in a material and sets it to a 4-float value.	read
+00397C80	Gfx_ModelSetMaterialParam	Forwards a parameter to the model's material i, returning 6 if absent.	guess
+00397CAC	Gfx_BuildMaterialCommandLists	Builds per-material GPU command buffers (colors, blend, textures) for a model.	guess
+00399694	Gfx_ModelSetMaterialFlag	Sets a per-material/per-pass byte flag in the model's 0x174-byte material table.	guess
+0039A084	Gfx_CreateModelInstance	Instantiates a model from a resource: copies root matrix, allocates mesh/material/skeleton buffers and per-material state.	guess
+0039AC0C	Gfx_ModelInstanceDestroy	Tears down a model instance: frees animations, buffers, unregisters from scene, resets fields.	guess
+0039AC48	Gfx_ModelInstanceRelease	Releases a model instance: removes it from scene groups, frees buffers and resets its state.	guess
+0039B2F4	Field_SetVector3At0xE8	Copies a 3-float vector into the object at +0xE8.	read
+0039B740	Field_MoveObject_ResetState	Resets a movement/transform state block (positions, scales to defaults).	guess
+0039B818	Gfx_RenderNodeConstruct	Constructor: sets vtable, resets fields to defaults and registers the node with a global manager.	read
+0039B8F4	Gfx_RenderNodeConstructDerived	Constructor: sets vtable, base init, and registers with a global manager list.	read
+003A0208	Gfx_ComponentSetup	Tears down if already set up, stores params and calls four virtual setup stages, marking it initialized.	read
+003A07E4	Gfx_AnimPlayer_Update	Calls the object's update virtual and clears the busy flag when a sub-animation ends.	guess
+003A09B8	Res_AsyncFileLoad_Request	Requests an async load of member N of an archive when the async system is idle.	guess
+003A0EB0	Util_MemClear0x184	Clears a 0x184-byte block (non-returning tail call in decompilation).	guess
+003A1340	Res_AsyncLoadRelease	Waits on/cancels a pending async load and frees its buffer, resetting the request.	guess
+003A1554	Res_ArchiveFileLoadStart	Gets a member's size (FUN_001287bc), allocates a buffer and starts an async (mode 1) or sync read.	guess
+003A2EFC	Sys_SendTwoCommands	Builds two small command packets (8 and 0x18 bytes) and submits each via FUN_0016dfe8.	guess
+003A2FB0	Mem_FreeTwoBuffers	Frees the two owned pointers at +4 and +0 and clears them.	read
+003A4A1C	Gfx_ObjectDestroyAndFree	Destroys an object then frees its memory.	guess
+003A4BF0	Gfx_ModelSlot_ApplyAnimation	Applies animation to model slot i depending on its animation kind (1/2/3).	guess
+003A4CE8	Gfx_IsSlotIdle	Returns 1 if slot index is in range and its entry at +0x658 is not active per FUN_0032b2a4.	read
+003A5308	Gfx_StartSlotFade	Starts a fade in/out of a slot entry over a given frame count, setting its fade state at +0x9D.	read
+003A5DB4	Res_ObjectDeleteWithBuffer	Destructor: frees an owned buffer then deletes the object.	guess
+003A7B60	Gfx_ResourceList_Destroy	Destructor releasing each 0x14-byte entry's object and freeing the lists.	read
+003A7EA8	Util_Nop_003A7EA8	Empty function.	read
+003A7EE8	Res_FileReaderDestroy	Destructor of the file reader: closes the kernel handle (SVC 0x23/0x24) and frees owned objects.	guess
+003A818C	Util_InitVec4	Sets a 4-float vector from two constants (x,y,z, w).	read
+003A8F3C	Util_EllipseFoci	Computes ellipse focus points and perimeter-like sum from semi-axes.	guess
+003AADAC	Script_CallFunctionToEnd	Calls the script VM (FUN_00503308) on a function index and keeps resuming (-2) while it yields (code 0xC); returns the result.	guess
+003AADFC	Res_Dictionary_Lookup	Looks up a name in a dictionary and returns its value or 0.	guess
+003AAE3C	Snd_SequenceReset	Frees a sequence buffer and clears the state block.	guess
+003AAF8C	Script_VmPoll	Returns -3 if no VM loaded, counts down a wait counter, otherwise calls virtual +0x10.	guess
+003AAF90	Gfx_AnimState_Step	Advances a delayed state: counts down a wait or calls the step virtual.	guess
+003AAFC8	Snd_SequenceStep	Advances a sequence/script interpreter until it yields or finishes.	guess
+003AB068	Util_HashMapFind	Looks up a key in a map at +4; returns value or -1.	guess
+003AB234	Script_VmHolderDestructor	Destructor: resets vtable and frees the VM buffer at +4.	guess
+003AD7E4	Gfx_Skeleton_Build	Parses a skeleton blob: bones, parent links, names and transforms into joint arrays.	read
+003AEC48	Gfx_SkeletonUpdateChain	Recomputes world matrices of a chain of joints from their parents.	guess
+003AF70C	Gfx_TextureSetDestroy	Destructor freeing several owned buffers of a graphics resource object.	guess
+003B278C	Mem_AllocAndConstruct0xE8	Allocates a 0xE8-byte object on a heap and runs its constructor.	read
+003B345C	Gfx_ResetStateBlock	Optionally copies 0xE8 bytes of state into a block, marks it dirty and re-applies it.	guess
+003B38EC	Gfx_SetMaterialAlpha	Sets a byte (alpha, clamped to 255) in a material's state block.	guess
+003B3A64	Gfx_SetMaterialMaskBit	Sets bit N (0..63) in a material's 64-bit flag mask.	guess
+003B5758	Gfx_StateHolderConstruct	Constructor: allocates the 0xE8 state object and a 0x10 helper and links them.	read
+003B5840	Gfx_StateHolderDestroy	Deleting destructor: frees its two buffers and helper object, then itself.	read
+003B6150	Util_Array6Get	Returns element i (0..5) of a 6-word array, fatal if out of range.	read
+003BD498	Snd_SequenceStart	Resets a sequence block and starts it with a default program.	guess
+003BEF4C	Gfx_CollisionBallsResolve	Pushes a joint out of up to 7 collision spheres ("too many collision balls" otherwise).	read
+003BF210	Gfx_SetScaledVector	Stores two bytes and three scaled floats (from integer inputs) into a struct.	read
+003BF3A4	Gfx_LightCreateSpot	Initializes a 0x60-byte light/effect object from integer angles.	guess
+003BF450	Gfx_EffectSetVisible	Sets visibility flags of an effect and updates its emitters.	guess
+003C0838	Gfx_ParseBoneWeightList	Parses a count-prefixed byte list into 16-byte entries (node pointer + two scaled values) and links them to matching skeleton nodes.	guess
+003C0CE4	Gfx_ParseEffectDescriptor	Parses a flag-driven descriptor (sections 1,2,4,8,0x10,0x20,0x40) into an effect object.	guess
+003C12A8	Gfx_SkeletonModelInit	Initializes a model instance from its resource: per-node attributes, bounds and per-bone chain links.	guess
+003C221C	Gfx_ParseAnimGroupList	Parses a counted list of entries into one or more 0x24-byte groups split by distinct target, allocating from a heap.	guess
+003C2EB8	Gfx_CreateLightFromDescriptor	Allocates a light of type 1..10 from a descriptor record.	guess
+003C42A8	Map_PieceSet_Release	Destroys a map/terrain object's sub-objects, models and buffers.	guess
+003C7738	Zone_GetMapMatrixForZone	Loads a zone header and returns its map/area id, with special cases by flag 0x4000 and zone 0x2D.	guess
+003C79F8	Zone_ResolveFlagVariant	Chooses a value for a zone by checking event flags against a 0x54-entry table.	read
+003C7CC8	Zone_PlayZoneEntrySound	Looks the new zone number up in a 3-entry table (flag-gated) and plays its sound/BGM with fade 30.	guess
+003C7D5C	Snd_ReleaseHandle	If a handle is set, releases it via FUN_00450274(h,0x1E) and invalidates it.	guess
+003C7D84	Zone_ChangeBgmOnEnter	Loads the new zone header, picks the zone's BGM and, if different from the current one, queues a fade-out/fade-in sequence change.	read
+003C8A24	Map_PieceSlotFile	Files a loaded map piece into the first free slot with its cell word and tags its sub-objects.	read
+003C8C84	Map_FreeMapPieces	Frees the map-piece slots matching a cell word and clears references to them.	read
+003CA7B4	Res_ValidateMagic	Checks a buffer starts with an expected 8-byte magic, else fatal error.	read
+003CBADC	Text_FormatValueByType	Switch on a value type that formats a value (number, name, zone name via zone header etc.) into a text buffer.	guess
+003CC3B4	Field_CollectTableRowsById	Copies the rows of a fixed 85-entry 0x14-byte table whose either id matches into a buffer and counts them.	read
+003CC9D0	Util_PeriodicCallback	Counts ticks and calls a callback each time the period elapses.	read
+003D402C	Zone_ApplyEventFlagsForZone	Sets save event flags tied to a zone number from two static tables.	guess
+003D9888	Zone_DataContainerFile	Returns file i of one of the zone data containers kept by the zone loader (+0x94C0 slots).	read
+003D9918	Zone_HeaderLoad_Poll	Polls the zone-header async load and, once done, indexes the loaded zone data.	guess
+003D99B8	Zone_LoadHeader	Loads zone header n (<0x218): either from the resident 0x38-byte table or by starting an async read of the zone archive member; fatal on bad size.	read
+003D9B04	Zone_DataSwapBuffers	Swaps the current and pending zone data container slots and updates the current zone id.	read
+003D9C4C	Zone_HeaderLoader_Destroy	Releases the zone header loader's file object.	guess
+003DB5F4	Event_SetCharacterEntryParams	Sets fields of 0x30-byte character entry i of an events set if it has no live object yet.	guess
+003DB6E4	Event_LoadZoneEventsFile	Copies a zone's events file into the 0xC84 buffer and sets pointers/counts for furniture, characters, warps, triggers.	read
+003DB7E4	Event_SetCharacterMoveParams	Sets parameters on character event i (0x30-byte rows) if it is of type 1.	read
+003E7F38	Zone_SetVisitedFlags	Sets visited/fly flags for the current zone using tables keyed by zone id.	guess
+003F16F4	Event_SetCharacterTransform	Sets a field character's 0x2C-byte transform, updates its dirty flag and, if collision is enabled, its collision shape.	guess
+003F1A08	Event_CheckObjectContact	Tests whether two field objects touch/face each other within range, for interaction or collision.	guess
+003F54E8	Event_CharacterPool_Acquire	Finds the field-manager character entry (0xAB0 bytes) matching an event row, or allocates a free one and initialises it.	read
+003F62D8	Field_GetCharacterModelInfo	Gets a character's 0x18-byte model info by model id from a cache, then from already-placed characters (0xAB0 pool), else reads it from the archive.	read
+003F6CB4	Event_RequestCharacterModel	Requests loading of a character model id unless already loaded or already present in the pool.	guess
+003F6DF0	Event_ReleaseCharactersNotInZone	For each active character entry (0xAB0 bytes) not belonging to the zone, releases it; others get timer 2000.	read
+003F7FF4	Event_PlaceZoneCharacters	Spawns each 0x30-byte character record whose flag is unset into the field manager pool (max 26), fatal on overflow.	read
+003F88F4	Event_CharacterUpdate	Per-character update: runs its behaviour function from a 23-entry table and lazily creates its model.	guess
+003F8A50	Event_CharacterInitComponents	Initializes a character entry's movement/model sub-components once.	guess
+003F8B18	Event_InitCharacterPosition	Computes a placed character's position/rotation matrices from its event record (grid or rail coords, special case for type 0x2009).	guess
+003F9464	Field_InitCharacterFromEventEntry	Copies a zone event's character entry (id, model, position, movement fields) into a 0xAB0 character object and fetches its model info.	read
+003FA6D4	Event_CharacterAbort	Calls a no-return routine (FUN_0014e348).	guess
+003FB03C	Event_Character_ResetForReuse	Detaches a character entry's model/animation objects and resets its state.	guess
+003FB220	Event_CharacterFree	Destroys an object (FUN_003ab234) and frees its memory.	guess
+003FBC80	Snd_PlayEffectsByMask	Starts one sound/sequence per bit set in a mask.	guess
+003FC1A4	Gfx_LoadCharacterModels	Counts model slots, loads up to 8 models via FUN_003fe45c (archive request) and creates their instances.	guess
+003FC544	Field_ReleaseCharacterAttachments	For 8 slots, frees attached sub-objects and clears matching in-use flags, then destroys each.	read
+003FE118	Script_ResolveWorkValue	Resolves a script argument: ids 0x4000-0x7FFF read event work values, 0x8000-0xBFFF script-local temps, else the literal.	read
+003FE348	Event_ManagerInit	Constructs a field event/character manager and its id table.	guess
+003FE3F4	Script_Context_Destroy	Releases a script context's sub-object and buffer.	read
+003FE5C8	Script_GetGlobalPair	Returns a global value pair (0 when the global is unset).	guess
+003FEC30	Script_RunFieldScriptMode	Creates a script context and runner, starts a script with a mode value (g_mode) and sets work variables.	guess
+003FF110	Gfx_ClearRenderFlag	Clears flag 0x9000 on a render object and bit0 of its state.	guess
+003FF288	Script_ResetZoneLocalState	Resets script/event state on zone change: stops running scripts, clears local work values and flags.	guess
+003FF450	Event_ScriptReady	Checks that a pending zone script is loaded and starts it once.	guess
+003FF534	Util_NoOp	Empty function.	read
+003FF538	Field_RunScriptReadTriplets	Sets up a scripted object by index, runs a script function and stores up to 8 returned (value,u16,u16) triplets.	guess
+003FF878	Event_RunZoneEnterScripts	Runs enter scripts of the zone (up to two) then notifies the event manager.	guess
+00402770	Field_StepCounterUpdate	Increments a step/frame counter and advances a level value bounded by a parameter table.	guess
+00402834	Field_UpdateAttributeState	Stores a new attribute code and resets the tracker when its category changes.	guess
+004033A4	Script_CommandTypeFromOpcodeByte	Maps the high byte of a word (0x94-0x97) to a small command type index.	read
+00403588	Event_DirectionFromCode	Maps codes 0x76..0x79 in the top byte to direction 0..3 (9 otherwise).	read
+0040476C	Util_SetDefault6C	Sets field +0x6C to a constant.	read
+00404ED0	Util_IsCounterAtLimit	Returns whether field +0x70 has reached a constant limit.	read
+00404EEC	Script_AddClampedCounter	Adds to a counter at +0x70, clamping at a maximum.	read
+00406B30	Save_SetEventFlag	Sets an event flag bit (system flags <0xD00 or 0x3000+ range).	read
+00406C5C	Event_ResetTwoSlots	Clears two 0x20-byte slot records at +0x4C8.	read
+00406CD0	Save_ClearEventFlagRange	Clears event flags in an id range (ids <0xD00 in save block, 0x3000-0x303F in a second bitfield).	read
+00406D9C	Script_ClearWorkRange	Zeroes a range of event work values (0x4000+) after bounds checks.	read
+00408548	Util_Nop2_00408548	Empty function.	read
+00418F2C	Text_MeasureStringWidth	Measures a message string's maximum line width (and line count) using a font's glyph widths.	read
+004190C8	Gfx_ModelLacksResources	Returns 1 if a model lacks two named resources and the type is 2-6.	guess
+004191B8	Text_GetLanguageTable	Returns the per-language table entry, 8 meaning the current language.	guess
+00419290	Text_LabelSetString	Sets a text label's string and scales its font to fit.	guess
+004192EC	Text_LayoutLabel	Sets a text widget's font scale (g2d_fw) and dispatches drawing of a string.	guess
+00437B40	Util_ScaleByTableFactor	Scales a value by a per-id factor from a 0x16-byte-row table.	read
+0044B4E8	Text_QueueCommand	Pushes a 0x1C-byte command into a ring buffer, or flushes on a 0x0D command when full.	guess
+0044B81C	Snd_HandleEventMessage11	Forwards a message (type 10) as command 0xB when the id differs from the current ones.	guess
+0044B88C	Gfx_AnimPlayer_PlayCurrent	Starts the current entry's animation (index from a 0x9C-byte row).	guess
+0044BA58	Gfx_CommandStartSlotFadeOut	Command handler: fades out the current slot entry with a given duration.	read
+0044BAE4	Gfx_AnimPlayer_PostStop	Posts command 3 to an animation/state queue.	guess
+0044BB28	Snd_ApplyPendingTrackParam	Forwards the current track entry's parameter to a sound call when active.	guess
+0044BBB4	Util_MatchCommandType0B	Returns the command pointer if its type byte is 0x0B, else null.	read
+0044BBDC	Util_MatchCommandType0D	Returns the command pointer if its type byte is 0x0D, else null.	read
+0044BC04	Gfx_AnimPlayer_IsFinished	Returns whether the current entry's animation has finished.	guess
+0044BC9C	Text_QueueSimpleCommand	Builds a type-0 command with one parameter and queues it.	read
+0044BD80	Snd_QueueCommandType1	Pushes a type-1 command with one argument onto the BGM command queue.	guess
+0044BDC0	Snd_BgmQueueCheckDuplicate	Scans the BGM command queue for a play command and drops redundant ones for the same track.	guess
+0044BF18	Snd_PostCommand2	Posts a command of type 2 to the sound command queue.	guess
+0044BF5C	Snd_ApplyBgmTrack	If active, sets sound track parameters from the current entry; stores a value.	guess
+0044BFF0	Gfx_CommandWaitSlotAnim	Command handler: checks the current slot's animation state by kind and asks a callback whether it finished.	guess
+0044C0F8	Snd_ForwardCommandArg	Forwards a command argument to the player, only keeping the flag for type 7.	guess
+0044C134	Gfx_AnimPlayer_PostPlay	Posts command 0xC (play with parameters) to an animation/state queue.	guess
+0044C1B0	Snd_FindQueuedCommand0C	Searches the command queue backwards for a type-0xC command and handles it if matching.	guess
+0044C238	Snd_PostStopCurrent	Posts command 9 for the current track and clears it.	guess
+0044C298	Snd_PostCommand8	Builds a command record of type 8 and posts it.	guess
+0044C2DC	Gfx_AnimPlayer_PostSetId	Posts command 7 with an id to the queue and records it.	guess
+0044D580	Snd_SetBgmVolume	Locks, updates the current BGM entry with a value and applies it to the player.	guess
+0044E4C8	Snd_ChangeZoneMusic	Switches the field BGM to a new track when it differs (fade out, stop, start).	guess
+0044E858	Snd_ChangeZoneBgm	Looks up the BGM for the zone and, if different from the playing one, queues fade-out / play commands.	guess
+00450914	Text_FormatLocationName	Fetches a string from message file 0x5A (location names, inferred) and expands it into a string buffer.	guess
+00451244	Text_GetMessageFile	Finds a cached message file by id or loads it from the text archive, then reads a string.	guess
+00459A44	Field_GetRemainingTime	Computes a frame countdown (30 or 31 x 30) minus elapsed value for an object.	guess
+00459B58	Save_CountEmptyBoxSlots	Iterates 31 boxes x 30 slots and counts empty Pokemon slots.	guess
+00463EF8	Util_CountdownByteReachedOne	Decrements the byte counter at +6 and returns 1 when it goes from 1 to 0.	read
+00465808	Util_ShiftTwoSlotTimers	Adds a delta to the active timers of two 0x1F0-byte slots (two timers each).	guess
+00466E1C	Field_SetObjParamEA	Setter for halfword +0xEA of a field object.	read
+00466E34	Field_SetObjFlagBits	Sets a 2-bit field in byte +0xE6 of a field object.	read
+00466E6C	Field_SetObjParamEC	Setter for word +0xEC of a field object.	read
+00466EA4	Field_SetObjParam14E	Setter for halfword +0x14E of a field object.	read
+00466EB0	Util_SetField0xF0	Stores a 16-bit value at +0xF0.	read
+00466EB8	Util_SetU16At0xF2	Stores a u16 at offset 0xF2.	read
+00478830	Gfx_FadeStep	Steps a fade on a set of up to 6 objects; returns 1 when complete.	guess
+00480590	Map_InitCollisionGrid	Parses a spatial grid/octree collision header: dims, cell count, and overall bounding box from cell bounds.	guess
+004807D0	Gfx_ParseTermCollChunks	Walks chunks until "term" and processes "coll" chunks.	read
+00480880	Gfx_ModelInstanceInitMaterials	Allocates per-material arrays for a model instance, fills them and sets up each material.	guess
+00480BCC	Gfx_ModelSetMaterialAnim	Binds or clears an animation on material slot i of a model, freeing the old one.	guess
+00480E48	Gfx_ModelBindAnimSlot	Binds an animation to a model slot, or resets that slot.	guess
+004811B0	Res_QueryStatus	Looks up an entry and returns 0..3 status code.	guess
+00481A48	Gfx_FreeBufferArray	Frees an array of owned buffers and the array itself.	read
+004820E4	Gfx_ModelCreate	Creates a model instance from resources with default/explicit options, then attaches animation.	guess
+0048225C	Gfx_ModelInstanceCreate	Constructs a 0x17C-byte model instance object.	guess
+00482298	Gfx_ModelInstanceDelete	Destructor of the 0x17C-byte model instance object.	guess
+00491860	Util_SetIdAndFlag	Stores a 16-bit id at +0x14 and a byte at +0x1E.	read
+00492070	Gfx_ModelSetAllMaterialsFlag	Sets one flag on every material of a model.	guess
+004A70E0	Util_GetFirstHalfword	Returns the first halfword of the buffer at +0x200.	read
+004A7D00	Gfx_Shader_FindUniform	Looks up a shader uniform by name and decodes its register type/range.	guess
+004A7E68	Gfx_GetShaderUniformEntry	Finds the n-th uniform/register entry of a given type in a shader binary block.	guess
+004A8DBC	Gfx_WriteDepthStateCommand	Writes a GPU register command built from material depth/blend flags.	guess
+004A8E4C	Gfx_BuildTextureSamplerCommands	Encodes a texture's address, size, format, filter and LOD settings into PICA200 GPU register command words.	guess
+004A90E4	Gfx_EncodeTextureCommands	Encodes texture-unit settings into GPU register commands.	guess
+004A92AC	Gfx_WriteFragmentLightingCmds	Writes a block of GPU register commands (depth/blend/alpha-test style state) from a material into a command buffer.	guess
+004B9CC4	Gfx_WriteDepthOffsetCommand	Writes a GPU register command encoding a depth/float value.	guess
+004B9DC0	Res_PatriciaDict_FindIndex	Looks up a name in a Patricia-tree dictionary (bit test walk), returning the entry index or 0xFFFF.	read
+004BB23C	Gfx_ComputeModelBufferSizes	Computes the buffer sizes needed to instantiate a model (materials, meshes, bones).	guess
+004BB450	Gfx_SetupMeshBuffers	Allocates and fills index/bone buffers for a mesh from its description.	guess
+004BB608	Gfx_GetMaterialParams	Copies a material's parameters into a descriptor.	guess
+004BB7D4	Gfx_BitArray_Setup	Builds a bitmask buffer descriptor and copies initial bits into it.	guess
+004BB850	Gfx_ComputeBoneMatrices	For each bone, builds a 4x4 matrix from Euler rotation (sin/cos table), scale and translation.	read
+004BBB28	Gfx_InitAnimationChannels	Allocates and constructs 0x154-byte channel entries and lays out their buffers from a work area.	guess
+004BC294	Gfx_Material_FlagUsedAttributes	Marks per-material flags according to the kind of each attribute/animation channel bound.	guess
+004BE674	Text_GetLineCount	Returns (field 0xF8 / 2) - 1 or 0.	guess
+004BEA54	Gfx_UpdateWithChild	ORs the result of updating the object with that of its optional child.	guess
+004BF410	Gfx_GetSectionField8	Returns word 8 of the first of three sub-blocks tagged 0x4000.	read
+004BF448	Gfx_FindSectionByTag	Returns the data word of whichever of three header entries matches a tag.	read
+004BF488	Gfx_GetSectionField4	Returns word 4 of the first of three sub-blocks tagged 0x4000.	read
+004BF4C0	Gfx_Header_FindSectionByTag	Returns the data of the header section (of three) whose tag matches.	read
+004BF500	Gfx_GetSection0x300	Returns the data pointer of a section tagged 0x300, else 0.	read
+004BF534	Gfx_GetBlock4100Data	Returns the data pointer of a block tagged 0x4100, else null.	read
+004BF54C	Gfx_GetSection0x101	Returns the data pointer of a section tagged 0x101, else 0.	read
+004BF8F0	Util_OffsetPtr14	Returns base + offset stored at +0x14.	read
+004BF8FC	Gfx_GetBlock101Data	Returns the data pointer of a block tagged 0x101, else null.	read
+004BF918	Res_GetChunkData_2210	Returns the chunk data pointer if the chunk type is 0x2210.	read
+004BFB58	Util_OffsetFromField10	Returns base + its own offset word at +0x10.	read
+004C0080	Gfx_ReleaseIfSet	Releases the resource held at +4 if present.	guess
+004C00A4	Gfx_GetSection0x101First	Returns the first word of the 0x101 section if present.	read
+004C00C8	Gfx_TextureLayer_Read	Reads one texture layer descriptor if the container is open.	guess
+004C00EC	Res_CheckHeaderMagicVersion	Checks a header's magic and that its version lies in a range.	read
+004C011C	Gfx_CopyBoundingInfo	Copies a 0x38-byte block from a resource section into the output.	read
+004C01F0	Gfx_Container_IsOldVersion	Returns whether the container version is at most a constant.	read
+004C03CC	Gfx_TextureContainer_ReadHeader	Reads a graphics container's header (version 2) into a descriptor, including up to 4 layer entries.	guess
+004C3FE0	Text_GetFontMetricFloat	Fetches a font metric through a virtual call and converts it to float.	guess
+004C40A4	Text_GetFontAscent	Returns bits 16-23 of the font metrics from virtual +0x3C.	guess
+004C40D0	Text_FontGetGlyphWidths	Finds a character's glyph-width record by walking the font's code-range table, falling back to the default.	guess
+004C4148	Text_FontCharToGlyphIndex	Maps a character code to a glyph index through the font's code-map chain, caching the last result.	read
+004C4294	Gfx_GetTextureFrameInfo	Computes a texture/glyph cell's address and dimensions from its sheet header.	guess
+004C42CC	Gfx_GetTextureFrame	Computes the frame/tile entry for an animated texture.	guess
+004C4478	Gfx_GetViewportOffset	Fills a struct with 0 and a global offset pair when the given object's mode is 1.	guess
+004C4514	Text_PairFontMaxHeight	Returns the larger of two fonts' virtual +0x24 values.	read
+004C45A8	Res_DualSourceDispatch	Forwards a call to the primary or secondary source object depending on which can handle it.	guess
+004C4780	Text_PairFontMaxWidth	Returns the larger of two fonts' virtual +0x18 values.	read
+004C4880	Text_PairFontDrawGlyph	Draws a character with the primary font if it has the glyph, else with the fallback font.	guess
+004C490C	Text_FontMaxMetricA	Returns the larger of a metric from two fonts.	guess
+004C4990	Text_FontDispatchLarger	Calls a method on whichever of two fonts has the larger metric.	guess
+004C49EC	Res_DualSourceMaxValue	Returns the larger of a vfunc result on two child objects.	read
+004C70E4	Util_IsHandleValid	Returns 1 if a held handle is set and valid.	guess
+004C7334	Gfx_GetIfValid	Returns field [5] if virtual +0x28 reports valid, else 0.	read
+004C8864	Gfx_GetMaterialByIndex	Returns a model's material entry n (+0xC) if in range.	guess
+004C88D8	Gfx_AnimSlotGetType	Returns the type byte of animation slot i.	read
+004C8AE4	Util_FindObjectOfType	Finds a child object and returns it if its runtime type chain contains a given type.	read
+004C90F0	Gfx_GetSubResourceCount	Returns a 16-bit count from the sub-resource at +0xC/+0x14, or 0.	read
+004C971C	Gfx_ModelGetCount64	Returns the 16-bit count at +0x64 of the model resource bound at +0x40, or 0.	guess
+004C97C8	Gfx_AnimFrameCheck	Bounds-checks an animation frame index (no effect).	guess
+004CCD54	Util_GetVec3At0xF4	Copies the vec3 at +0xF4 out.	read
+004CCE00	Gfx_FindNodeByName_004CCE00	Looks a name up in a model's name dictionary; returns index or -1.	guess
+004CCE98	Gfx_ModelGetMaterialField	Returns field +0x28 of a model's 0x2C-byte material entry i, with bounds check.	read
+004CD00C	Gfx_GetMaterialEntryPtr	Stores pointer to the i-th 0xC-byte entry of the resource table at +0x28/+0x94 into an output struct.	read
+004CD15C	Gfx_FindMaterialNameIndex	Searches the name list of the i-th 0x174-byte material for a string and returns its index or -1.	read
+004CD288	Gfx_FindNodeByName_004CD288	Looks up a named node in a model's name table; returns index or -1.	read
+004CD3B0	Gfx_GetModelAnimFrameData	Copies four words of slot n's current animation data into an output.	guess
+004CD4E4	Gfx_MaterialGetId	Returns the halfword id of a material's sub-resource.	guess
+004CD508	Gfx_ModelFindNameIndex	Looks up a name (by string) in a material's name dictionary, returning the index or -1.	read
+004CDE4C	Util_GetVec3At0xE8	Copies the vec3 at +0xE8 out.	read
+004CECA8	Util_AssertByteIsOne	Halts when the byte at +6 is not 1.	read
+004CECDC	Util_ByteEquals6	Tests whether byte 6 of an object equals a value.	read
+004CECF0	Util_GetField0x20	Returns word at +0x20.	read
+004CEF78	Snd_ChannelRemaining	Returns remaining length of channel i.	guess
+004CF068	Gfx_AnimGetRemainingFrames	Returns end minus current frame of animation slot i, or 0.	guess
+004CF1B4	Util_GetField0xA	Returns halfword at +0xA.	read
+004CF3F8	Util_QuatToEuler	Normalises a quaternion and converts it to three Euler angles.	read
+004D00C8	Util_SegmentPlaneIntersect	Intersects a segment with a plane; writes the hit point and returns 1 on hit.	read
+004D17F0	Util_GetFlagBit2	Returns bit 2 of the u16 at (+8)->+4.	read
+004D2050	Gfx_GetMaterialByteA	Locks, reads byte 0x1A of a material entry, unlocks.	guess
+004D2058	Save_ReadLockedByte1A	Locks a block, reads byte +0x1A of its first entry, unlocks.	guess
+004D225C	Gfx_GetMaterialAlpha	Reads a material alpha byte.	guess
+004D2264	Gfx_GetLockedByte36	Locks an object, reads byte +0x36 of its first element and unlocks.	guess
+004D22A0	Gfx_GetMaterialByteB	Locks, reads byte 0x37 of a material entry, unlocks.	guess
+004D23F4	Save_ReadLockedFlagBit30	Locks a block, returns bit 30 of word +0x34 of its first entry, unlocks.	guess
+004D2E28	Util_CombineFlagMasks	Combines two bit masks by mode (and-not, plain, or).	read
+004D2E7C	Gfx_ObjectIsIdle	Returns true when the object's state check is 0.	guess
+004D3424	Util_GetByte18	Returns the byte at offset 0x18.	read
+004D3434	Gfx_CountObjectsInState	Counts objects in a 6-object set that are in the given state.	guess
+004D343C	Gfx_CountMatchingSubObjects	Counts up to 6 sub-objects in a given state (mode 0-5), masked by bits.	read
+004D8358	Util_Thunk146000_A	Thunk through a function pointer (target FUN_00146000, ROM/file id lookup).	read
+004D836C	Util_Thunk146000_B	Thunk through a function pointer (target FUN_00146000).	read
+004D8388	Sys_ThunkJump6	Jumps through a function pointer (veneer).	read
+004D8390	Util_Thunk_004D8390	Indirect-call thunk (Ghidra names it a thunk of FUN_00146000).	read
+004D84B4	Zone_HeaderGetField1ELow5	Returns the low 5 bits of u16 +0x1E of the loaded zone header row.	read
+004D857C	Field_GetFlagBit5	Returns bit 5 of the halfword at +0x1E of a looked-up object entry.	guess
+004D86EC	Zone_GetLocationNameId	Returns the low 10 bits of halfword +0x1C of the current zone header (passed to the location-name text lookup on zone change).	guess
+004D8704	Zone_HeaderGetField26	Returns u16 +0x26 of the loaded zone header row.	read
+004D8734	Util_ReturnZero_004D8734	Returns 0.	read
+004D8750	Zone_GetLocationNameIdPlus1	Returns (zone header +0x1C & 0x3FF) + 1.	read
+004D87A0	Field_HasUpperBits1C	Returns whether the upper bits of halfword +0x1C of a looked-up entry are set.	guess
+004D88FC	Util_IsIdInTable	Returns 1 if the u16 at +0xC is in a fixed table of up to 50 ids.	read
+004D8980	Util_ReturnZero_004D8980	Returns 0.	read
+004D8CD4	Zone_GetCurrentZoneId	Returns the halfword from FUN_004d8988's object, or a default constant.	guess
+004DBE10	Zone_GetHeaderByte1A	Returns the low byte of halfword +0x1A of a zone header.	guess
+004DBE24	Util_GetHalfword10	Returns the halfword at +0x10.	read
+004DD848	Event_CheckRailPositionsOverlap	Converts two (grid or rail) positions and tests whether any of their footprint cells come within range of each other.	guess
+004DE514	Event_IsWarpEnabledByFlag	For certain event types checks a save flag derived from the event's id and returns 1 if clear.	guess
+004E3908	Save_ResolveWorkValue	Replaces ids 0x7A-0x89 by the value of the corresponding save work variable.	guess
+004E394C	Event_AllocObjectWork	Claims the first free 0x9D8-byte work slot and attaches it to a field object.	guess
+004E4244	Field_IsEntryReady	Looks up one of 12 entries by id; returns 1 if missing or loaded/ready, else 0.	guess
+004E4DC0	Map_CellAttribute	Returns the cell attribute at index i of a width*height grid.	read
+004E7FFC	Event_FindObjectById	Finds a field object entry by id among the player slot and 30 0x3E0-byte entries.	guess
+004E8548	Gfx_CopyResolvedNode	Resolves a node and copies its 0x310-byte data out.	guess
+004E9F90	Util_GetFlagBit26	Returns bit 26 of the word at +0x34.	read
+004EA924	Util_GetByte0xD	Returns byte at +0xD.	read
+004EAD48	Zone_GetWordEA	Getter for halfword +0xEA.	guess
+004EAD60	Util_GetWordEC	Returns the word at +0xEC.	read
+004EAD70	Util_GetField0x14E	Returns halfword at +0x14E.	read
+004EAD7C	Zone_GetWordF0	Getter for halfword +0xF0.	guess
+004EADE8	Util_GetU16F2	Returns the u16 at +0xF2 (pair of FUN_00466eb8).	read
+004EC9C0	Map_RaycastTriangles	Finds the nearest triangle hit by a segment in a collision mesh, returning its normal.	read
+004ED284	Map_SpatialTree_FindCell	Descends a regular subdivision tree to the cell containing a bounding box and returns its data pair.	read
+004ED3BC	Map_RaycastAabb	Intersects a segment with a collision mesh bounding box and returns hit point and normal.	guess
+004ED628	Gfx_GetModelBBoxMinMax	Reads a model's _BBoxMinMax user data into min/max float vectors.	read
+004F3C68	Util_FloatIsIntegral	Checks whether a float has a fractional part (result in flags).	guess
+0050327C	Script_CallCommandHandler	Calls the handler of command n from a command table, patching the call record.	guess
+00503308	Script_VmCall	Script VM entry: calls function index n (-1 main, -2 resume), checks stack bounds and dispatches opcodes via a jump table; returns status codes.	guess
+00505904	Sys_FindSymbolByNameHash	Hashes a name and searches a module's symbol table for it.	read
+005059E0	Script_FindSymbolByHash	Hashes a name (x131 hash) and searches a symbol table for it.	read
+00505ABC	Sys_ResolveSegmentOffset	Converts an offset into an address within a module's data, or error 5.	guess
+00505BB4	Res_LoadRelocatableModule	Validates and relocates a loaded code module (CRO-like) image.	guess
+00505F34	Script_VmPushValue	Pushes a word onto a VM stack, updating high-water marks; error 3 on overflow.	read
+00506118	Script_LinkNativeImports	Hashes native function names (x*0x83^c) and patches unresolved import slots in a loaded script.	guess
+00506190	Sys_LinkImportsByNameHash	Resolves a module's imported symbols by name hash against a provided table.	read
+0054C0E8	Gfx_Layout_ApplyAlignment	Adjusts a position by a layout element's horizontal/vertical alignment flags.	guess
+0054C2B8	Text_MeasureString	Copies a text-layout state and measures the string from it; returns the result block.	guess
+0054C334	Text_MeasureLineBounds	Iterates glyphs of a string line, accumulating its bounding box/width with kerning and line-wrap handling.	guess
+0054C71C	Text_ComputeStringBounds	Iterates over a string range, accumulating min/max of each glyph's rectangle.	guess
+0054C804	Gfx_ApplyStateCopy	Copies a 100-byte state block, applies two parameters and returns the copy.	guess
+0054C860	Text_LayoutLine	Lays out a run of glyphs, handling wrapping and alignment.	guess
+0054CD08	Gfx_InitDefaultRenderState	Initialises a render-state block with default values.	guess
+10242240	Mem_Free_Thunk	DllField import stub to FUN_002ff8c0 (free).	read
+10242278	Util_DllThunk0012BB5C	DllField import thunk to main FUN_0012bb5c.	read
+10242290	Text_WideStringBuffer_Init_Thunk	DllField import stub to FUN_0012b5b0.	read
+102422B8	Sys_ImportThunk_00139448	Import veneer to main-program function 0x139448.	read
+10242418	Util_DllThunk004EA924	DllField import thunk to main FUN_004ea924.	read
+102424B0	Mem_HeapAlloc_Thunk	DllField import stub to FUN_0012344c (heap allocation; used as alloc(size, heap) in DllField).	read
+10242530	Mem_ImportFree	Import veneer to the main-program free routine 0x2FF8C0.	guess
+102426B8	Util_DllThunkObjectDestructor	DllField import thunk to FUN_0012b624 (Util_ObjectDestructor).	read
+102428A0	Gfx_Thunk_0034AE44	DllField import stub to FUN_0034ae44.	read
+10242918	Sys_ImportThunk_003AF70C	Import veneer to main-program function 0x3AF70C.	read
+10242928	Util_DllThunk003A818C	DllField import thunk to main FUN_003a818c.	read
+10242930	Gfx_Thunk_0048225C	DllField import stub to FUN_0048225c.	read
+10242938	Gfx_ImportModelGetCount64	Import veneer to 0x4C971C.	read
+10242940	Util_DllThunk00381CBC	DllField import thunk to main FUN_00381cbc.	read
+10242950	Gfx_Thunk_00381B00	DllField import stub to FUN_00381b00.	read
+10242968	Gfx_ThunkSceneRegisterModel	Thunk to FUN_0038b374 (register model in scene group).	read
+10242970	Gfx_ImportThunk_0038B69C	Import veneer to 0x38B69C (scene-group code).	read
+10242998	Util_DllThunk004CDE4C	DllField import thunk to main FUN_004cde4c.	read
+102429A0	Util_Thunk_004CCD54	DllField import stub to FUN_004ccd54.	read
+102429A8	Util_ThunkCopyMatrix	Thunk to FUN_001960c8.	read
+102429B8	Sys_ImportThunk_004ED628	Import veneer to 0x4ED628.	read
+10242B20	Util_DllThunkGetByte18	DllField import thunk to FUN_004d3424 (Util_GetByte18).	read
+10242B30	Gfx_Thunk_004D2E28	DllField import stub to FUN_004d2e28 (sub-object state query).	read
+10242D38	Gfx_Thunk16a7a4	Thunk to FUN_0016a7a4.	read
+10242D88	Util_ImportGetHalfword10	Import veneer to 0x4DBE24.	read
+10242DD8	Util_DllThunk004E3908	DllField import thunk to main FUN_004e3908.	read
+10242EB0	Util_Thunk_00391544	DllField import stub to FUN_00391544.	read
+10242EB8	Map_Thunk4e9e64	Thunk to FUN_004e9e64.	read
+10242F68	Res_ImportContainerFileCount	Import veneer to 0x12FAF4 (container file count).	read
+10242F88	Util_DllThunk0012FB08	DllField import thunk to main FUN_0012fb08 (container helper).	read
+10243040	Script_GetGlobalPair_Thunk	DllField import stub to FUN_003fe5c8.	read
+10243088	Util_Thunk465808	Thunk to FUN_00465808.	read
+102430A0	Sys_ImportThunk_003B6150	Import veneer to 0x3B6150.	read
+10243108	Util_DllThunk004CECF0	DllField import thunk to main FUN_004cecf0.	read
+10243120	Util_Thunk_004807D0	DllField import stub to FUN_004807d0.	read
+10243128	Map_Thunk3ca7b4	Thunk to FUN_003ca7b4.	read
+10243130	Sys_ImportThunk_004CECA8	Import veneer to 0x4CECA8.	read
+10243138	Map_DllThunkFileMapPieces	DllField import thunk to FUN_003c8a24 (file map pieces).	read
+10243140	Util_Thunk_00397CAC	DllField import stub to FUN_00397cac.	read
+102431B0	Gfx_ThunkAnimSlotPlay	Thunk to FUN_0011d9bc.	read
+102431B8	Res_ImportThunk_0011D990	Import veneer to 0x11D990 (archive code range).	read
+102431C0	Util_DllThunk004EAD48	DllField import thunk to main FUN_004ead48.	read
+102431C8	Sys_Thunk_00112C10	DllField import stub to FUN_00112c10.	read
+102431D0	Zone_ThunkLoadHeader	Thunk to FUN_003d9740 (load zone header).	read
+102431D8	Sys_ImportThunk_004D86EC	Import veneer to 0x4D86EC.	read
+102431E0	Zone_DllThunk003D9C4C	DllField import thunk to main FUN_003d9c4c (zone header area).	guess
+102431F0	Util_Thunk_004D8750	DllField import stub to FUN_004d8750.	read
+102431F8	Zone_Thunk1001b0	Thunk to FUN_001001b0.	read
+10243230	Text_ImportExpandControlTags	Import veneer to 0x13CCEC.	read
+10243238	Util_DllThunk004CF1B4	DllField import thunk to main FUN_004cf1b4.	read
+10243240	Text_Thunk_0014E054	DllField import stub to FUN_0014e054 (string copy into buffer).	read
+10243250	Gfx_ThunkAnimSlotGetType	Thunk to FUN_004c88d8.	read
+10243258	Res_ImportThunk_0012F990	Import veneer to 0x12F990 (container code range).	read
+10243278	Util_DllThunk00371C04	DllField import thunk to main FUN_00371c04.	read
+10243298	Sys_Thunk_00111B38	DllField import stub to FUN_00111b38.	read
+102432A0	Gfx_Thunk4c8ae4	Thunk to FUN_004c8ae4.	read
+102432A8	Text_ImportThunk_00419290	Import veneer to 0x419290.	read
+102433B8	Util_DllThunk004D3434	DllField import thunk to main FUN_004d3434.	read
+10243438	Util_Thunk_004D8CD4	DllField import stub to FUN_004d8cd4.	read
+102434A8	Map_Thunk4e9f90	Thunk to FUN_004e9f90.	read
+10243530	Sys_ImportThunk_004EAD60	Import veneer to 0x4EAD60.	read
+10243538	Util_DllThunk00437B40	DllField import thunk to main FUN_00437b40.	read
+10243550	Snd_Thunk_00466E6C	DllField import stub to FUN_00466e6c.	read
+10243558	Gfx_Thunk4d2050	Thunk to FUN_004d2050.	read
+10243580	Sys_ImportThunk_00403588	Import veneer to 0x403588.	read
+10243590	Util_DllThunk004033A4	DllField import thunk to main FUN_004033a4.	read
+10243598	Script_Thunk_004031DC	DllField import stub to FUN_004031dc.	read
+102435A0	Event_Thunk403330	Thunk to FUN_00403330.	read
+102435B0	Sys_ImportThunk_004039E0	Import veneer to 0x4039E0.	read
+102435C0	Util_DllThunk00408548	DllField import thunk to main FUN_00408548.	read
+102435C8	Util_Thunk_004EADE8	DllField import stub to FUN_004eade8.	read
+102435D0	Gfx_ThunkFadeStep	Thunk to FUN_00478830.	read
+102435D8	Sys_ImportThunk_00466EB8	Import veneer to 0x466EB8.	read
+102435E0	Util_DllThunk004EAD7C	DllField import thunk to main FUN_004ead7c.	read
+102435E8	Snd_Thunk_00466EB0	DllField import stub to FUN_00466eb0.	read
+102435F8	Map_Thunk4ead70	Thunk to FUN_004ead70.	read
+10243600	Sys_ImportThunk_00404ED0	Import veneer to 0x404ED0.	read
+10243610	Util_DllThunk00466EA4	DllField import thunk to main FUN_00466ea4.	read
+10243618	Script_AddClampedCounter_Thunk	DllField import stub to FUN_00404eec.	read
+10243620	Map_Thunk3cc9d0	Thunk to FUN_003cc9d0.	read
+10243628	Sys_ImportThunk_00463EF8	Import veneer to 0x463EF8.	read
+10243748	Util_DllThunk00374084	DllField import thunk to main FUN_00374084.	read
+10243750	Gfx_ModelBinding_Update_Thunk	DllField import stub to FUN_003749f4.	read
+10243760	Gfx_Thunk3740a0	Thunk to FUN_003740a0.	read
+102437A0	Sys_ImportThunk_0039B2F4	Import veneer to 0x39B2F4.	read
+102437A8	Util_Thunk_Gfx_SetPosition	DllField import thunk to 0x396454 (set object position).	read
+10243A48	Util_DllThunk00374CBC	DllField import thunk to main FUN_00374cbc (user-data reader construct).	read
+10243A60	Util_Nop2_Thunk	DllField import stub to FUN_00374cd4.	read
+10243B50	Gfx_Thunk381b94	Thunk to FUN_00381b94.	read
+10243C30	Sys_ImportThunk_004D8704	Import veneer to 0x4D8704.	read
+10243DB8	Util_Thunk_Map_FreePiece	DllField import thunk to 0x3C8C84 (free map piece).	read
+10243DD0	Util_DllThunk004E4DC0	DllField import thunk to main FUN_004e4dc0.	read
+10243E98	Map_Thunk_003C12A8	DllField import stub to FUN_003c12a8.	read
+10243EA0	Gfx_Thunk3962cc	Thunk to FUN_003962cc.	read
+10243EF0	Sys_ImportThunk_003C42A8	Import veneer to 0x3C42A8.	read
+10243F28	Util_Thunk_00397940	DllField import thunk to main-program function 0x397940.	read
+10243F30	Util_DllThunk00492070	DllField import thunk to main FUN_00492070.	read
+102440A0	Util_Thunk_004CD4E4	DllField import stub to FUN_004cd4e4.	read
+102440A8	Gfx_Thunk4cd508	Thunk to FUN_004cd508.	read
+10244260	Sys_ImportThunk_004C7F10	Import veneer to 0x4C7F10.	read
+102442E0	Util_Thunk_00505ABC	DllField import thunk to main-program function 0x505ABC.	read
+10244518	Util_DllThunk0014FE1C	DllField import thunk to main FUN_0014fe1c.	read
+10244848	Util_ImportStub_10244848	DllField import stub (indirect jump through a pointer).	read
+10244878	Util_Thunk11f9e8	Thunk to FUN_0011f9e8.	read
+10244880	Sys_ImportThunk_10244880	Import veneer through a pointer (target unresolved).	read
+10244C68	Util_Thunk_Text_FormatLocationName	DllField import thunk to 0x450914.	read
+10244EA0	Util_DllThunk004DBE10	DllField import thunk to main FUN_004dbe10.	read
+102450B0	Zone_Thunk_003D9888	DllField import stub to FUN_003d9888 (zone header subsystem).	read
+10245598	Util_Thunk146000_10245598	Thunk to FUN_00146000.	read
+10245E78	Sys_ImportThunk_00146000	Import veneer to 0x146000.	read
+10245E80	Util_Thunk_00146000	DllField import thunk through a function pointer (labelled FUN_00146000).	read
+10245E88	Util_DllThunk00146000	DllField import thunk to main FUN_00146000.	read
+10245E98	Gfx_Thunk_004A70E0	DllField import stub to FUN_004a70e0.	read
+10245EA0	Map_Thunk4e8548	Thunk to FUN_004e8548.	read
+10245F30	Sys_ImportThunk_00366A14	Import veneer to 0x366A14.	read
+10245F38	Zone_ImportThunk_004D88FC	DllField import thunk to main FUN_004d88fc.	read
+10245F50	Util_Thunk_Res_IsResourceAvailable	DllField import thunk to 0x366C24.	read
+102461B0	Zone_DllThunk003D9918	DllField import thunk to main FUN_003d9918 (zone header area).	guess
+102461B8	Zone_LoadHeader_Thunk	DllField import stub to FUN_003d99b8 (load zone header).	read
+102461C0	Util_ThunkIndirect	Indirect jump thunk into the main program.	read
+102461C8	Sys_ImportThunk_00466E34	Import veneer to 0x466E34.	read
+102461D0	Zone_ImportThunk_004D84B4	DllField import thunk to main FUN_004d84b4.	read
+102461D8	Util_Thunk_00491860	DllField import thunk to main-program function 0x491860.	read
+102461E0	Util_DllThunk004D857C	DllField import thunk to main FUN_004d857c.	read
+102461E8	Script_ResetZoneLocalState_Thunk	DllField import stub to FUN_003ff288.	read
+102461F0	Event_Thunk3ff110	Thunk to FUN_003ff110.	read
+102461F8	Sys_ImportThunk_003FF534	Import veneer to 0x3FF534.	read
+10246200	Event_ReleaseCharactersNotInZoneThunk	DllField import thunk to FUN_003f6df0.	read
+10246208	Util_Thunk_Field_SetObjParamEA	DllField import thunk to 0x466E1C.	read
+10246220	Util_DllThunk003CC3B4	DllField import thunk to main FUN_003cc3b4.	read
+10246390	Mem_Thunk_00123D98	DllField import stub to FUN_00123d98.	read
+10246610	Gfx_Thunk4c8864	Thunk to FUN_004c8864.	read
+10246688	Sys_ImportThunk_004D00C8	Import veneer to 0x4D00C8.	read
+102466D0	Util_SetDefault6CThunk	DllField import thunk to FUN_0040476c.	read
+102468A0	Util_Thunk_00402770	DllField import thunk to main-program function 0x402770.	read
+10246988	Util_DllThunk003C7D5C	DllField import thunk to main FUN_003c7d5c (map piece area).	read
+10246A18	Script_Thunk_003FF450	DllField import stub to FUN_003ff450.	read
+10246A20	Zone_ThunkSetVisitedFlags	Thunk to FUN_003e7f38.	read
+10246A28	Util_ImportReturnZero	Import veneer to 0x4D8734 (returns 0).	read
+10246A30	Zone_ImportThunk_003D9B04	DllField import thunk to FUN_003d9b04 (zone header code range).	read
+10246A38	Util_Thunk_Event_CopyZoneEvents	DllField import thunk to 0x3DB6E4 (copy zone events file).	read
+10246A40	Field_DllThunkRunScriptReadTriplets	DllField import thunk to FUN_003ff538.	read
+10246A48	Script_Thunk_003FEC30	DllField import stub to FUN_003fec30.	read
+10246A58	Map_Thunk3c7d84	Thunk to FUN_003c7d84.	read
+10246A60	Sys_ImportThunk_003C7CC8	Import veneer to 0x3C7CC8.	read
+10246A68	Zone_ImportThunk_004D8980	DllField import thunk to FUN_004d8980.	read
+10246A70	Util_Thunk_004D87A0	DllField import thunk to main-program function 0x4D87A0 (zone header accessor family).	read
+10246D98	Util_DllThunk003962F4	DllField import thunk to main FUN_003962f4.	read
+10246DB0	Gfx_AnimPlayer_Update_Thunk	DllField import stub to FUN_003a07e4.	read
+10246DC0	Gfx_Thunk4cecdc	Thunk to FUN_004cecdc.	read
+10247AC8	Event_ImportAllocObjectWork	Import veneer to 0x4E394C.	read
+10247BB0	Util_ImportThunk_004ED3BC	DllField import thunk to FUN_004ed3bc.	read
+10257388	Field_AllocWorkArray	Allocates an array of n 0x120-byte entries on the field heap and constructs them.	read
+102574F8	Field_ObjectTransformInit	Initializes an object's default transform matrices and vectors (identity, zero) and two sub-objects.	guess
+10257694	Gfx_AllocEntryArray96	Allocates and constructs an array of N 0x60-byte entries with a count header.	read
+10257718	Field_MapObjectCreate	Creates a field map object: model instance, up to 16 animations, registers it in the scene group.	read
+10257A7C	Gfx_UpdateModelRotationMatrix	Builds a rotation-scale-translation matrix from a model's Euler angles (sine table) and stores it.	guess
+102601A8	Field_UpdateAmbientSpawns	Every ~256 calls, for 2 slots picks random objects with a percentage table and spawns/clears them.	guess
+1026052C	Map_SelectGroundLayer	For a position inside a map piece, tests each terrain layer (container files) for a ground height and keeps the closest one.	guess
+102607A4	Map_PlacePropsFromContainer	Reads 11-word rows (id, position, scaled rotation, scale) from container file 3 and places each object.	read
+102608CC	Map_LoadPieceModelFromContainer	Two-step loader: from a map-piece container (>=7 files) builds the model, animations and textures, files the map pieces, then registers the model in the scene group.	read
+10260D00	Field_ResolveObjectBinding	Binds an object to a named target when found, else falls back to default setup.	guess
+10261C4C	Field_SetupLayerVisibility	Toggles groups 0x4D/0x4E and 3 scene layers depending on a flag, then attaches a model.	guess
+10264D3C	Field_CheckPartyWalkEffect	Advances a step counter and, past a threshold, applies an effect to party members and may start a script.	guess
+10265384	Field_CreateTransitionTask	Chooses and creates one of several field task objects (0x34-0x44 bytes) depending on the player's state.	guess
+102691A8	Event_SpawnFieldModelInstance	Takes a free 0xE4-byte slot, finds the model entry with the given id, creates the instance and sets its rotation, scale and position, then registers it in the scene.	guess
+10277A70	Gfx_ReleaseSlotAnimations	For each of 6 unused slots, detaches and releases its two animation bindings.	guess
+1027B808	Field_CameraObjectInit	Constructs a field object with an embedded animation controller (camera or player-like defaults).	guess
+1027B990	Map_AreaObject_Destroy	Destructor of a large field map/area object: releases models, buffers and map piece set.	read
+1027BD08	Field_InitMoveProbe	Initialises a small movement/probe state structure with defaults.	guess
+1027BD9C	Field_FindPassableDirection	Rotates through directions testing the cell ahead for collision/attributes and returns the first passable one.	guess
+102837C8	Util_TableLookup7	Returns entry i of a 7-entry table, error for out-of-range.	read
+10285088	Field_ReleaseFlaggedObjects	Destroys objects in two field object lists that are flagged for removal.	read
+10285B04	Map_WaterMirrorInit	Creates the map's reflection models and sets MirrorMatrix0..2/MirrorEnable uniforms.	read
+10285D7C	Gfx_ApplyMaterialUserDataFlag	For each material of the model (or its sub-models) whose named user data is set, applies a material setting.	guess
+10286F8C	Util_LookupTable24	Returns entry n (<0x18) of a constant table, asserting on overflow.	read
+10286FBC	Util_LookupTable63	Returns entry n (<0x3F) of a constant table, asserting on overflow.	read
+1028E39C	Script_CmdCallNoReturn1	Script command handler calling no-return FUN_003fe5c8 with one argument.	guess
+1028F0AC	Script_HandleZoneCommand	Dispatches a field command by id, possibly jumping to a non-returning field transition routine.	guess
+102902B0	Script_CmdCallNoReturn4	Script command handler calling no-return FUN_003fe5c8 with four arguments.	guess
+10290478	Script_CmdGetGlobalPair	Script/field callback forwarding to FUN_003fe5c8 with two arguments.	guess
+10293308	Util_AssertNonNull	Raises the DllField error routine if a pointer field is null.	read
+102933F4	Script_CmdCallNoReturn2	Script command handler calling no-return FUN_003fe5c8 with two arguments.	guess
+10293470	Script_CmdGetGlobalPairB	Callback forwarding to FUN_003fe5c8.	guess
+1029354C	Script_CmdClearFlag	Script command: clears the event flag given by its argument.	read
+102938D8	Script_CmdGetGlobalPairC	Callback forwarding to FUN_003fe5c8.	guess
+1029EF60	Field_RequestTransition	Sets flag 8, optionally a second flag, then enters a non-returning field transition routine (0x3FE5C8).	guess
+1029FB14	Script_CmdGetGlobalPairD	Callback forwarding to FUN_003fe5c8 with one argument.	guess
+102A99FC	Event_SpawnCharacterModel	Creates a field character's model with parameters from its entry and accumulates load time.	guess
+102AA0BC	Field_MarkObjectForRemoval	Flags a field object for removal and stops its animations.	read
+102AA1BC	Event_DetachCharacterModel	Releases an attached model slot of a field object and refreshes its state.	guess
+102B46A4	Field_UpdateObjectFlagById	Checks several registries for an entry matching an id, sets three result flags, and propagates a bit to the object and its children.	guess
+102B48B4	Gfx_SetNodeTreeFlag	Sets a flag bit on a scene node and all its children of a given type.	guess
+102B5450	Zone_ShowLocationName	On entering a zone, loads its header, formats the location name and sets up the place-name banner layout.	guess
+102B5CDC	Text_FieldLabelSet	Formats a message string and sets it on a field text label.	guess
+102BAC50	Zone_ApplyZoneParamEntries	Reads a per-zone data block (via 0x3D9888, kind 4), clears matching active entries and fills 4 parameter slots.	guess
+102BC9C0	Zone_PlaceZoneObjects	On zone change, places up to 6 table-defined objects (of 0x5A) for the new zone at grid positions and registers their models in the scene.	read
+102BCDA0	Event_ZoneObjectsRefresh	On zone id change, unloads models of up to 6 slots not used by the new zone and assigns new ones.	guess
+102BFFE8	Map_GetAttributeEffectEntry	Maps a tile/collision attribute (0x1F,0x20,0x24,0x25,0x27,0x2B,0x2D,0x42) to an entry of a 6-byte effect table.	guess
+102C23D4	Field_RegisterObjectModelsInScene	Adds an object's main model (or sub-model set) and two extra models to a scene group.	read
+102C28D4	Util_MulDiv64	64-bit multiply then divide helper (fixed-point scaling).	guess
+102C2974	Gfx_RegisterModelAnimations	Registers a model's animation(s) with the field's animation manager.	guess
+102C2BD0	Field_ObjectModelInit	Initializes a field object model: model resource, skeleton, material flags, bounding box radius and defaults.	guess
+102C2F98	Event_FindActiveEntryById	Searches 33 0xA0-byte entries for an active one with a given id.	read
+102C2FF4	Event_AllocFieldObject	Finds a free slot and allocates a 0x2F0-byte field object in it (fatal if full).	read
+102C30A4	Snd_IsTrackPlaying	Searches 33 player slots for a sound id and returns whether it is in the playing state.	guess
+102C5930	Field_ObjectModelRelease	Releases a field object's model and its scene group links.	guess
+102C5A94	Gfx_ResourceHolderRelease	Releases the owned objects of a holder by kind (1 or 2) and clears it.	read
+102C6210	Field_InitActorState	Constructs a field actor/camera state object with default vectors.	guess
+102CAE58	Util_GetTableEntry10	Copies a 10-byte entry n (<0x5A) of a constant table; returns success.	read
+102CD26C	Gfx_SetGroupVisibleBit	Sets the visibility bit in every node of a scene group's list.	guess
+102CD640	Gfx_SceneAddModel	Asserts a model is non-null and forwards it to the scene object's add vfunc.	guess
+102CD674	Sys_GetElapsedMs	Converts the tick count since a start time to milliseconds.	guess
+102CF380	Zone_FindZoneGroup	Finds which of 76 0x22-byte table rows lists a zone number; returns row or -1.	guess
+102CF3D8	Gfx_PokemonModelSlots_Update	Reloads/creates the models of up to 6 Pokemon slots whose species changed and registers them in the scene.	guess
+102D3A74	Field_ReleaseZoneResources	Frees a zone-bound object's buffers, model, and 16 child objects and clears it.	guess
+102D3EB4	Util_AabbTransform	Transforms an axis-aligned bounding box by a 3x4 matrix.	read
+102D3F94	Snd_SetChannelState	For channel <16, starts or stops it via the sound object's vtable.	guess
+102D4088	Gfx_EnableAnimSlot	Starts the animation in slot n (<16) of a model if the slot is set.	guess
+102D64A8	Event_Thunk3fe5c8	Calls FUN_003fe5c8.	read
+102D8254	Field_JumpToTransition	Calls the non-returning field transition routine with the given args.	guess
+102DDD8C	Zone_ChangeLoad	Zone transition: swaps zone data, copies the new zone's events, places characters, sets flags, switches music when the area changes.	read
+102E28F0	Field_SetObjectModelVisible	Toggles an object's model and shadow visibility; when hiding, removes them from the scene.	guess
+102E297C	Gfx_DetachSceneModel	Removes a model (and its shadow/child) from the scene and releases its animation.	guess
+102E2ACC	Map_TerrainUnload	Unloads the terrain/map-model block: unregisters, frees, destroys instance and resource slot.	guess
+102E2DC8	Gfx_SetupCharacterModelInstance	Binds model resources and animations to a model instance and groups its materials by name.	guess
+102E2FA0	Map_BuildPieceGroups	Groups up to 50 map-piece entries by id and initialises their records (0x3C bytes).	guess
+102E32D8	Field_ObjectQueryCollision	Queries a collision/ground shape for a position and stores the hit result.	guess
+1030D29C	Event_UpdateTriggerCountdown	Ticks a field event's countdown and fires its action when finished or when its trigger condition holds.	guess
+1031B700	Zone_GetGroupField2	Returns halfword +2 of the zone-group table row containing the current zone.	guess
+1031B8B8	Zone_GetGroupVariantValue	Returns a per-variant halfword (by game state 0-9) from the zone-group table row.	guess
+1031B974	Field_LookupObjectParam	Looks up a halfword parameter for an object index (<0x5A) from a 0x22-byte-row table.	read
+1031BD2C	Event_ResolveWarpTarget	If a warp target exists, resolves its destination index in the field; otherwise uses the default handler.	guess
+1031DAEC	Field_InitCharacterEventHandler	Initializes a character handler: reads a byte for the character, sets up a sub-object and registers it.	guess
+10321C80	Field_ForwardCommandReturn1	Calls FUN_004dc6c4 with the object and a parameter, returns 1.	read
+10327F20	Map_GetGroundHeight	Gets the ground height and normal at a position from collision piece i via a vertical raycast.	guess

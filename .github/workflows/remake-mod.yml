@@ -21,7 +21,7 @@ on:
         default: ''
         required: false
       script:
-        description: 'Commands for the headless runs, one per line or separated by ";" (tools/remake/headless/retro_host.cpp: wait N, hold KEYS N, press KEYS, mash KEYS N, field [N], screen, report, save NAME, load NAME, mem ADDRESS LENGTH, watch FRAMES [KEYS] ADDRESS..., gdb PORT, dump ADDRESS LENGTH FILE); empty: A through the title to the field'
+        description: 'Commands for the headless runs, one per line or separated by ";" (tools/remake/headless/retro_host.cpp: wait N, hold KEYS N, press KEYS, mash KEYS N, field [N], screen, report, save NAME, load NAME, mem ADDRESS LENGTH, watch FRAMES [KEYS] ADDRESS..., gdb PORT, dump ADDRESS LENGTH FILE, shot NAME, trace on|off FILE); empty: A through the title to the field'
         default: ''
         required: false
       seconds:
