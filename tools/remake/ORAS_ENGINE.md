@@ -31,13 +31,15 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
    trainer battle live. Run `trainer1` (7 October) **failed**: the save moved by `oras-save` into another matrix (zone
    13, Petalburg, matrix 2) never reached the field (black from frame 805). The save's block 4 holds a second zone and
    position (+0xAE zone, +0xB8/+0xC0 x and z) that `oras-save` leaves alone; suspected, not established. Moves within
-   matrix 1 work. Run `trainer2` was started and its result not read when the session ended: the save moved within
-   matrix 1 to Oldale (zone 7, 83.5 101.5), `hold left 72` through its west edge warp into Route 102 (zone 24), `hold
-   left 600` (stops at x 178 against the trees: `oras-inspect piece 10`), `hold down 90` (5 tiles, row 146), `trace on`,
-   `hold left 108` (stops against trainer 7, a Youngster with a Zigzagoon at 4, at (173, 146)), `press a`, `mash a 10`,
-   shots after each step. Re-run it exactly (the command below) and check the shots; a wrong row on arrival from the
-   warp (140 or 142, not 141) is the likeliest miss. Then `coverage_map.py <work> trainer2 trainer.txt --minus
-   enc1/enc_grass.txt` and name the set.
+   matrix 1 work. Run `trainer2` (7 October) **reached the trainer, checked on its shots**: Route 102 on arrival, the
+   Youngster on the player's row, then his challenge ("J'vois que t'as un Pokémon avec toi..."); it was stopped at 1,759
+   s by the 30-minute limit on a background command, before the battle shot and `trace off`, so the trace was lost. Its
+   steps: the save moved within matrix 1 to Oldale (zone 7, 83.5 101.5), `hold left 72` through its west edge warp into
+   Route 102 (zone 24), `hold left 600` (stops at x 178 against the trees: `oras-inspect piece 10`), `hold down 90` (5
+   tiles, row 146), `trace on`, `hold left 108` (stops against trainer 7, a Youngster with a Zigzagoon at 4, at (173,
+   146)), `press a`, `mash a 10`, shots after each step. Re-run it exactly (the command below) with the Bash `timeout`
+   raised (the run went at 2.0 frames/s under the interpreter and needs about 35 min) and check the shots. Then
+   `coverage_map.py <work> trainer2 trainer.txt --minus enc1/enc_grass.txt` and name the set.
    ```
    POMEGRADE_INTERPRETER=1 tools/remake/headless/run_local.sh <work> trainer2 - "7 83.5 101.5" "mash a 15;wait 500;\
    shot start;hold left 72;wait 200;shot arrive;hold left 600;wait 20;shot column;hold down 90;wait 20;shot row;\
