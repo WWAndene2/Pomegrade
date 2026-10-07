@@ -3452,3 +3452,7 @@
 102BFDD4	Field_WildEncounter_InitContext	Fills the encounter context: zone, tile, table kind, flags word +0xA0 from player and party state, the lead's species and ability.	guess
 102C00C0	Field_WildEncounter_ClearContext	Clears the encounter context (slot pick 0x49, all fields 0).	read
 102DCA88	Field_WildEncounter_PickSlotAndLevel	Picks the slot (filtered to type 8 or 12 slots under context flags 0x10000/0x20000, else by the table kind's pick function) and the level: minimum + random(max - min + 1), +5 under flag 0x40000 capped at the maximum; slot = halfword (species bits 0-10, form 11-15, form 31 empty), minimum level, maximum level; a horde rolls 20% for one different member.	read
+# Trainers (7 October, static: the trainer natives followed to their readers; checked on the data of all 950 trainers)
+00453E08	Trainer_ReadData	Reads trainer id's 24-byte record from a/0/3/6 (archive 0x24); id 0 or >= 950 (0x3B6) reads trainer 1.	read
+004540CC	Trainer_ReadClass	Reads a trainer class's record from a/0/3/7 (archive 0x25); class > 279 reads class 0.	read
+00454434	Trainer_BuildTeams	For each trainer of a battle: the record (a/0/3/6), its class (u16 +2, < 280) and name texts, then the team (a/0/3/8, archive 0x26): byte +7 Pokemon, entries of 8, 16, 10 or 18 bytes by the format byte +0, species u16 +4, form +6.	read
