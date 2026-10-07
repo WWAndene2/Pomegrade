@@ -356,6 +356,22 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
                     log.push_back(F("piece (%d, %d): all wall, its 1600 tiles set to 0x%08X (--solid-piece-tiles)", x, y, o.SolidPieceTiles));
                 }
             }
+            if (!o.TileReplace.empty())
+            {
+                // one tile value turned into another in every built piece: which value freezes the game (Route 201)
+                BinLinker gr = BinLinker::Read(piece, "GR");
+                Bytes& tiles = gr.Files.at(0);
+                int changed = 0;
+                for (size_t t = 0; t < 1600 && 4 + t * 4 + 4 <= tiles.size(); t++)
+                    for (const auto& [from, to] : o.TileReplace)
+                        if (U32(tiles, 4 + t * 4) == from)
+                        {
+                            for (int k = 0; k < 4; k++) tiles[4 + t * 4 + k] = (uint8_t)(to >> (8 * k));
+                            changed++;
+                            break;
+                        }
+                if (changed) { piece = gr.Write(); log.push_back(F("piece (%d, %d): %d tiles changed (--tile-replace)", x, y, changed)); }
+            }
             const size_t index = AppendMember(newPieces, pieceArchive, o.Town.TargetPiece, piece, "GR");
             matrix.Piece(x, y) = (uint16_t)index;
             log.push_back(F("piece (%d, %d): a/0/3/9 member %zu, %zu bytes", x, y, index, piece.size()));

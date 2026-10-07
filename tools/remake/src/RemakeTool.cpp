@@ -539,6 +539,13 @@ int main(int argc, char** argv)
                 else if (flag == "--plan") options.PlanOnly = true;
                 else if (flag == "--others-out") options.OthersOut = true;
                 else if (flag == "--solid-piece-tiles") options.SolidPieceTiles = (uint32_t)number(++i);
+                else if (flag == "--tile-replace" && i + 1 < argc)
+                {
+                    const std::string pair = argv[++i];
+                    const size_t colon = pair.find(':');
+                    if (colon == std::string::npos) throw FormatError("--tile-replace FROM:TO, got " + pair);
+                    options.TileReplace.push_back({(uint32_t)OptionNumber(pair.substr(0, colon).c_str(), flag), (uint32_t)OptionNumber(pair.substr(colon + 1).c_str(), flag)});
+                }
                 else if (flag == "--auto-zones") options.AutoZones = true;
                 else if (flag == "--no-triggers") options.NoTriggers = true;
                 else if (flag == "--no-characters") options.NoCharacters = true;
