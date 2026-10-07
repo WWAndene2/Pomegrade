@@ -128,3 +128,21 @@ extern "C" RETRO_API u32 pomegrade_dump(u32 address, u32 length, const char* pat
     }
     return 0;
 }
+
+// Code coverage (script commands "trace on" / "trace off FILE", with the interpreter: POMEGRADE_INTERPRETER=1): the address
+// of every block of ARM code the game enters between the two, hooked at the interpreter's dispatch by patch_core.py; the
+// sorted distinct addresses written to FILE, one per line. What an activity runs (entering a zone, a script, a battle) is
+// the difference between two traces: ORAS_ENGINE.md 6
+#include <algorithm>
+#include <unordered_set>
+bool pomegrade_trace_on = false;
+static std::unordered_set<u32> pomegrade_trace_blocks;
+extern "C" void pomegrade_trace_block(u32 pc) { pomegrade_trace_blocks.insert(pc); }
+extern "C" RETRO_API u32 pomegrade_trace(int on, const char* path) {
+    if (on) { pomegrade_trace_blocks.clear(); pomegrade_trace_on = true; return 0; }
+    pomegrade_trace_on = false;
+    std::vector<u32> blocks(pomegrade_trace_blocks.begin(), pomegrade_trace_blocks.end());
+    std::sort(blocks.begin(), blocks.end());
+    if (FILE* f = fopen(path, "w")) { for (u32 b : blocks) fprintf(f, "%08X\n", b); fclose(f); }
+    return (u32)blocks.size();
+}

@@ -8,7 +8,7 @@
 # zone x z  the save moved there first (oras-save); empty to keep the owner's position (Littleroot, zone 6)
 # script    retro_host commands separated by ';' (retro_host.cpp: wait N, hold KEYS N, press KEYS, mash KEYS N, field [N],
 #           screen, shot NAME, report, mem ADDRESS LENGTH, watch FRAMES [KEYS] ADDRESS..., dump ADDRESS LENGTH FILE,
-#           gdb PORT, save NAME / load NAME). A save state can only be loaded after the core has booted ("wait 120" first)
+#           gdb PORT, trace on / trace off FILE (with POMEGRADE_INTERPRETER=1), save NAME / load NAME). A save state can only be loaded after the core has booted ("wait 120" first)
 #           and does not restore a pending asset load: to freeze again, replay from the start.
 # gdb       given as the 7th argument: run in the background and attach gdb-multiarch with the commands of the file
 #           <work>/runs/<name>.gdb (see gdb_attach notes below); the script must hold "gdb 24689" after its first "wait".
