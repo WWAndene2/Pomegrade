@@ -69,26 +69,35 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   placed when the player **enters** it: to test them, start next door (zone 23, 100.5 150.5) and walk south. `shot NAME`
   saves the screen (the host's own "field up" detection is wrong under some mods: look at the picture). `report` lists every
   thread; one in the fatal-error loop shows pc 0x11EF50 / 0x11ABxx / 0x110Axx, `0011EF60` in its stack code addresses, and
-  its registers and raw stack, from which the frames' saved registers give the object that failed.
+  its registers and raw stack, from which the frames' saved registers give the object that failed. The host prints `speed:`
+  once a minute of real time (frames/s over the last minute and since the start; the other `[frame N]` lines come only with
+  an event, so the last of them is not where the game is: 7 October). `headless/peek.sh <work> <name>` looks at a run that
+  goes on: its speed, the last commands it reached and its screenshots so far as PNG.
 - **Show that a function runs**: `trace on` / `trace off FILE` around the action (needs `POMEGRADE_INTERPRETER=1`), then
   look for the function's running address in the file (a DllField function at its linked address - 0x10242000 + 0x6F3000) or
-  map the whole trace with `prototype/coverage_map.py`. Not GDB: `gdb-multiarch` is not installed by `session_setup.sh` and
-  the stub dropped the connection in both tries of 7 October.
+  map the whole trace with `prototype/coverage_map.py` (`--minus <run>/<trace>` subtracts a trace of another run). Not GDB:
+  `gdb-multiarch` is not installed by `session_setup.sh` and the stub dropped the connection in both tries of 7 October.
 - **Read a value while it runs**: script commands `mem`, `watch` (a word's changes frame by frame), `dump ADDRESS LENGTH
   FILE`. A script's state: `dump 0x08000000 0x6000000 heap.bin` while the thing is on screen, then
   `prototype/amx_dump.py heap.bin --script <size>` lists the loaded scripts, their contexts (native mask, wait) and the call
   frames left in their stack (how `TalkMdlMsg_Seq`'s first argument, 16, was read).
-- **Read code**: `analyzeHeadless <work>/ghidra_proj oras -process code.bin -noanalysis -readOnly -scriptPath
-  tools/remake/ghidra -postScript Export.java <out> <address>...` decompiles the functions holding those addresses (a
-  module's address is its linked one: `linked/modules.tsv` gives each base, DllField 0x10242000; in the running game
-  DllField sits at 0x6F3000). `prototype/code_find.py <work>/dumps/code.bin --at|--imm|--word|--calls ...` finds an
-  instruction, a constant or every call to an address (`--base 0x10000000` on `linked/modules.bin` for the modules);
-  `prototype/cro_dis.py <module.cro> dis <offset> <n>` reads a module with its imports resolved (`symbols` on `static.crs`
-  and a module lists which module function each `.code` import stub reaches).
+- **Read code**: `ghidra/decompile.sh <work> <out> ADDRESS... [--callers ADDRESS] [--callees ADDRESS]` decompiles the
+  functions holding those addresses, or calling or called by one (the call graph `edges.tsv`, which follows the import
+  stubs: the script natives that reach a function show up), with their names, into `<out>/decomp.c` (about 15 s; it runs
+  `Export.java` read-only) (a module's address is its linked one: `linked/modules.tsv` gives each base, DllField 0x10242000;
+  in the running game DllField sits at 0x6F3000). `prototype/code_find.py <work>/dumps/code.bin --at|--imm|--word|--calls
+  ...` finds an instruction, a constant or every call to an address (`--base 0x10000000` on `linked/modules.bin` for the
+  modules); `prototype/cro_dis.py <module.cro> dis <offset> <n>` reads a module with its imports resolved (`symbols` on
+  `static.crs` and a module lists which module function each `.code` import stub reaches).
 - **Read a script**: `remake_tool oras-script <oras.3ds> <zone> [init]` disassembles it; `prototype/amx_natives.py tables
   <code.bin> <linked/modules.bin> natives.tsv`, then `... | amx_natives.py names natives.tsv` puts each native's name beside
   its hash, and `amx_natives.py check` proves every zone script's natives are registered (section 6). A zone's text:
   `remake_tool oras-text <oras.3ds> a/0/8/2 <member>` (French; `a/0/7/9`-`a/0/8/6` one archive per language).
+  `prototype/oras_tables.py native-zones <work> NAME` lists the zones whose files import a native.
+- **Read game tables**: `prototype/oras_tables.py files <file>` (a two-letter container's files), `encounters <work> <zone>`
+  (a zone's wild tables: species, form, levels by kind), `trainer <work> <id>...` (record and team), each decoded the way
+  the code reads it (its docstring says what is read and what only seen); the archives are extracted once into
+  `<work>/tables/`.
 - **Name functions**: read the code (Export.java), then write `address, name, role, read|guess` in
   `ghidra/function_names.tsv`; a guess is a lead, read it before relying on it. `prototype/name_review.py` lists the names to
   read again (`grew` after a change to the program, `suspects` from the call graph, `placeholders`) and `summary` makes a
