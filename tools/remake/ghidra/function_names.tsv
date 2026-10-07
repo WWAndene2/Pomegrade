@@ -3435,3 +3435,19 @@
 10246738	Field_Import_0034D76C	DllField import stub to 0x0034D76C.	read
 10244190	Field_Import_003C0F28	DllField import stub to 0x3C0F28.	read
 102450B8	Field_Import_0044C83C	DllField import stub to 0x44C83C.	read
+# Wild encounter selection (7 October, run enc1: grass walk minus idle; the zone's encounter file is its own member's file 3)
+0012FB40	BinLinker_GetFile	File i of a two-letter container (count at +2, offsets from +4); 0 when out of range.	read
+0012FB08	BinLinker_GetFileSize	Size of file i of a two-letter container (next offset minus this one); 0 when out of range.	read
+003D9BBC	Zone_DataContainerFileSize	Size of file i of one of the zone data containers kept by the zone loader (+0x94C0 slots).	read
+0010E89C	GameData_LoadBootTables	Boot load: archive 0xB4 file 0 (28 sub-files registered), all of member 537 of archive 13 (the encounter container, every zone's encounter file) and 0x118 entries of archive 0x25.	read
+00403BC4	Map_TileAttr_Kind	Kind of a tile attribute word (bits 24-31).	read
+00403ADC	Map_TileAttr_Flags	Flags of a tile attribute word (bits 0-11; 1 for an empty word).	read
+0048AD84	Util_RandomBelow	Random number below the bound, from the game's generator at [DAT_0048adbc+0x14].	guess
+004E4778	Field_WildEncounter_StepRate	Encounter rate of the tile's attribute entry (halfword +6), 0 when its level gate (+5 bit 1) is not met.	guess
+003DADE8	Field_StartEncounterEvent	Allocates the 0x290-byte event and starts it with the encounter context (called when a wild battle is chosen).	guess
+102CD2B4	Field_WildEncounter_StepCheck	On a step: tile kind to table (kinds 0x1F 0x20 0x24 0x25 0x2B 0x2D 0x42 table 0, 0x27 table 1, flag bit 1 table 3, others none), zone's encounter file (zone data file 3), horde roll on byte +8, rate roll random(100), table chosen, encounter event started; returns 1 when a battle starts.	read
+102D9CA4	Field_WildEncounter_TileEntry	Same tile-kind test as the step check, then hands the tile's attribute entry for the zone's encounter file to the field.	guess
+102BFBA4	Field_WildEncounter_SelectTable	Kind 0-8 to the table's offset in the zone's encounter file (+0xE grass, +0x3E, +0x6E, +0x7A, +0x8E, +0xA2, +0xAE, +0xBA, +0xC6 hordes), then picks the slot (FUN_102dca88).	read
+102BFCB4	Field_WildEncounter_ApplyRateModifiers	Rate scaled by the context's flags (doubled, halved, quartered, kept for kinds 5-7) and the lead's state, capped at 100, then compared.	guess
+102BFDD4	Field_WildEncounter_InitContext	Fills the encounter context: zone, tile, table kind, flags word +0xA0 from player and party state, the lead's species and ability.	guess
+102C00C0	Field_WildEncounter_ClearContext	Clears the encounter context (slot pick 0x49, all fields 0).	read
