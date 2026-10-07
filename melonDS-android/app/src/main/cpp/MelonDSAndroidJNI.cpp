@@ -24,6 +24,7 @@
 
 #include "Platform.h"
 #include "PerformanceCounters.h"
+#include "DebugTrace.h"
 
 enum GbaSlotType {
     NONE = 0,
@@ -62,6 +63,7 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_me_magnum_melonds_MelonEmulator_setupEmulator(JNIEnv* env, jobject thiz, jobject emulatorConfiguration, jobject cameraManager, jobject screenshotBuffer)
 {
+    DebugTrace::Stage("setting up the emulator");
     MelonDSAndroid::EmulatorConfiguration finalEmulatorConfiguration = MelonDSAndroidConfiguration::buildEmulatorConfiguration(env, emulatorConfiguration);
     fastForwardSpeedMultiplier = finalEmulatorConfiguration.fastForwardSpeedMultiplier;
 
@@ -74,6 +76,7 @@ Java_me_magnum_melonds_MelonEmulator_setupEmulator(JNIEnv* env, jobject thiz, jo
     MelonDSAndroid::setConfiguration(std::move(finalEmulatorConfiguration));
     MelonDSAndroid::setup(androidCameraHandler, std::move(androidEventMessenger), screenshotBufferPointer, 0);
     paused = false;
+    DebugTrace::Stage("emulator set up");
 }
 
 JNIEXPORT void JNICALL
@@ -220,7 +223,11 @@ Java_me_magnum_melonds_MelonEmulator_loadRomInternal(JNIEnv* env, jobject thiz, 
     const char* gbaSram = gbaSramPath == nullptr ? nullptr : env->GetStringUTFChars(gbaSramPath, &isCopy);
 
     MelonDSAndroid::RomGbaSlotConfig* gbaSlotConfig = buildGbaSlotConfig((GbaSlotType) gbaSlotType, gbaRom, gbaSram);
+    DebugTrace::Stage("loading the ROM");
+    DebugTrace::Note("ROM %s, save %s", rom ? rom : "(none)", sram ? sram : "(none)");
     int result = MelonDSAndroid::loadRom(rom, sram, gbaSlotConfig);
+    DebugTrace::Note("ROM loaded: result %d (0 = loaded)", result);
+    DebugTrace::Stage("ROM loaded");
     delete gbaSlotConfig;
 
     if (isCopy == JNI_TRUE) {
@@ -235,7 +242,10 @@ Java_me_magnum_melonds_MelonEmulator_loadRomInternal(JNIEnv* env, jobject thiz, 
 
 JNIEXPORT jint JNICALL
 Java_me_magnum_melonds_MelonEmulator_bootFirmwareInternal(JNIEnv* env, jobject thiz) {
-    return MelonDSAndroid::bootFirmware();
+    DebugTrace::Stage("booting the firmware");
+    const int result = MelonDSAndroid::bootFirmware();
+    DebugTrace::Note("firmware booted: result %d", result);
+    return result;
 }
 
 JNIEXPORT void JNICALL
@@ -249,6 +259,7 @@ Java_me_magnum_melonds_MelonEmulator_startEmulation(JNIEnv* env, jobject thiz)
 
     pthread_mutex_init(&emuThreadMutex, NULL);
     pthread_cond_init(&emuThreadCond, NULL);
+    DebugTrace::Stage("starting the emulation thread");
     pthread_create(&emuThread, NULL, emulate, NULL);
     pthread_setname_np(emuThread, "EmulatorThread");
 
@@ -273,6 +284,7 @@ Java_me_magnum_melonds_MelonEmulator_presentFrame(JNIEnv* env, jobject thiz, jlo
     }
 
     Frame* presentationFrame = MelonDSAndroid::getPresentationFrame(deadlineTime);
+    DebugTrace::FramePresented(presentationFrame != nullptr);
     EGLDisplay currentDisplay = eglGetCurrentDisplay();
 
     if (presentationFrame != nullptr && presentationFrame->presentFence)
@@ -543,6 +555,33 @@ Java_me_magnum_melonds_MelonEmulator_getFrameRate(JNIEnv* env, jobject thiz)
     return MelonDSAndroid::getFrameRate();
 }
 
+// Pomegrade: DS debug trace (see DebugTrace.h): folder null = off
+JNIEXPORT void JNICALL
+Java_me_magnum_melonds_MelonEmulator_setDebugTrace(JNIEnv* env, jobject thiz, jstring folder, jstring header)
+{
+    if (!folder)
+    {
+        DebugTrace::Configure(false, "", "");
+        return;
+    }
+    const char* folderChars = env->GetStringUTFChars(folder, nullptr);
+    const char* headerChars = header ? env->GetStringUTFChars(header, nullptr) : nullptr;
+    if (folderChars)
+        DebugTrace::Configure(true, folderChars, headerChars ? headerChars : "");
+    if (headerChars) env->ReleaseStringUTFChars(header, headerChars);
+    if (folderChars) env->ReleaseStringUTFChars(folder, folderChars);
+}
+
+JNIEXPORT void JNICALL
+Java_me_magnum_melonds_MelonEmulator_debugTraceNote(JNIEnv* env, jobject thiz, jstring text)
+{
+    if (!text || !DebugTrace::Enabled()) return;
+    const char* chars = env->GetStringUTFChars(text, nullptr);
+    if (!chars) return;
+    DebugTrace::Note("app: %s", chars);
+    env->ReleaseStringUTFChars(text, chars);
+}
+
 JNIEXPORT void JNICALL
 Java_me_magnum_melonds_MelonEmulator_setPerformanceCounters(JNIEnv* env, jobject thiz, jboolean enabled)
 {
@@ -689,6 +728,7 @@ void* emulate(void*)
     double lastMeasureFpsTick = startTick;
     double frameLimitError = 0.0;
 
+    DebugTrace::Stage("emulation thread: started");
     MelonDSAndroid::start();
 
     auto manager = PerformanceHintManagerFactory::create(jniEnvHandler);
@@ -720,6 +760,7 @@ void* emulate(void*)
         auto frameStart = std::chrono::steady_clock::now();
 
         u32 nLines = MelonDSAndroid::loop();
+        DebugTrace::FrameEmulated();
 
         auto frameDuration = std::chrono::steady_clock::now() - frameStart;
         if (performanceHintSession != nullptr)

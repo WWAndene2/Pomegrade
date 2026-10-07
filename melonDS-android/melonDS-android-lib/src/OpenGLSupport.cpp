@@ -18,6 +18,7 @@
 
 #include "OpenGLSupport.h"
 
+#include <chrono>
 #include <mutex>
 
 #include <unordered_map>
@@ -350,6 +351,11 @@ bool CompileVertexFragmentProgram(GLuint& result,
     };
     result = glCreateProgram();
 
+    // Pomegrade: each program and its compile time, for the DS debug trace
+    // (a driver that takes long, or never returns, shows here)
+    Log(LogLevel::Debug, "OpenGL: compiling shader program %s\n", name.c_str());
+    const auto compileStart = std::chrono::steady_clock::now();
+
     bool linkingSucess = false;
 
     if (!CompilerShader(shaders[0], vs, name, "vertex"))
@@ -378,6 +384,8 @@ error:
     if (!linkingSucess)
         glDeleteProgram(result);
 
+    Log(LogLevel::Debug, "OpenGL: shader program %s %s in %lld ms\n", name.c_str(), linkingSucess ? "built" : "FAILED",
+        (long long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - compileStart).count());
     return linkingSucess;
 }
 

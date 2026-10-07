@@ -32,6 +32,7 @@
 #include "MelonDSAudio.h"
 #include "ROMManager.h"
 #include "PlatformAndroid.h"
+#include "DebugTrace.h"
 #include "MelonInstance.h"
 #include "MelonLog.h"
 #include "net/MPInterface.h"
@@ -300,6 +301,17 @@ namespace Platform
 
         va_list args;
         va_start(args, fmt);
+
+        // Pomegrade: every message goes into the DS debug trace too
+        if (DebugTrace::Enabled())
+        {
+            va_list traceArgs;
+            va_copy(traceArgs, args);
+            static const char* prefixes[] = {"debug: ", "info: ", "warning: ", "ERROR: "};
+            const int index = level == LogLevel::Debug ? 0 : level == LogLevel::Info ? 1 : level == LogLevel::Warn ? 2 : 3;
+            DebugTrace::NoteV(prefixes[index], fmt, traceArgs);
+            va_end(traceArgs);
+        }
 
         switch (level)
         {
