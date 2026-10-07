@@ -131,7 +131,7 @@ static int Usage()
                     "  remake_tool oras-verify <oras.3ds>\n  remake_tool oras-catalog <oras.3ds> <out dir>\n"
                     "  remake_tool oras-texture <oras.3ds> <area pack> <name> <out.png>\n  remake_tool mesh-json <GR piece file|file.bch> <out.json>\n"
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
-                    "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone\n"
+                    "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone|zone-raised\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
                     "                    [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]\n"
                     "  remake_tool oras-code <oras.3ds> <out.bin>\n"
@@ -473,7 +473,8 @@ int main(int argc, char** argv)
         {
             const std::string what = argv[4];
             const AppendTest test = what == "unused" ? AppendTest::Unused : what == "piece" ? AppendTest::Piece : what == "matrix" ? AppendTest::Matrix
-                                  : what == "zone" ? AppendTest::Zone : throw FormatError("append test: unused, piece, matrix or zone");
+                                  : what == "zone" ? AppendTest::Zone : what == "zone-raised" ? AppendTest::ZoneRaised
+                                  : throw FormatError("append test: unused, piece, matrix, zone or zone-raised");
             N3dsRom oras(argv[2]);
             for (const std::string& line : BuildAppendTest(oras, test, argv[3])) printf("%s\n", line.c_str());
             return 0;

@@ -28,6 +28,8 @@ target_link_libraries(remake_n3ds_test PRIVATE remake)
 
 add_executable(remake_bch_test remake_bch_test.cpp)
 target_link_libraries(remake_bch_test PRIVATE remake)
+add_executable(remake_codepatch_test remake_codepatch_test.cpp)
+target_link_libraries(remake_codepatch_test PRIVATE remake)
 add_executable(remake_asset_test remake_asset_test.cpp)
 target_link_libraries(remake_asset_test PRIVATE remake)
 
