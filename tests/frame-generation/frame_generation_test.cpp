@@ -217,14 +217,14 @@ static std::vector<u32> Capture(GLRenderer& r)
 
 // An intermediate frame, read like Composite (with the 2D layers the last
 // Composite uploaded, as the frame's own composite does in the app).
-static std::vector<u32> Intermediate(GLRenderer& r, GPU& gpu, bool& rendered)
+static std::vector<u32> Intermediate(GLRenderer& r, GPU& gpu, bool& rendered, float position = 0.5f)
 {
 
     GLuint tex;
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 256, 386, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-    rendered = r.RenderIntermediateFrame(gpu, tex);
+    rendered = r.RenderIntermediateFrame(gpu, tex, position);
     GLuint fbo;
     glGenFramebuffers(1, &fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
@@ -436,6 +436,44 @@ int main()
               "adaptive level: pieces resampled across subdivisions, intermediate as with the full level, no gaps");
         gpu.GPU3D.SetPolygonMultiplierScale(0);
         gpu.GPU3D.SetPolygonMultiplier(1);
+    }
+
+    // 240 fps: three images between two frames, at a quarter, half and three
+    // quarters of the way, each compared with a real render there; the pairing
+    // made for the first serves the others
+    {
+        frame(-0.4, 0);
+        auto before = Composite(*r, gpu, 1);
+        frame(0.4, 0);
+        const float positions[3] = {0.25f, 0.5f, 0.75f};
+        std::vector<u32> images[3];
+        bool all = true;
+        for (int k = 0; k < 3; k++)
+        {
+            images[k] = Intermediate(*r, gpu, rendered, positions[k]);
+            all = all && rendered;
+        }
+        auto again = Intermediate(*r, gpu, rendered, 0.5f);
+        auto after = Composite(*r, gpu, 1);
+        check(all, "three images rendered between two frames");
+        check(again == images[1], "the same position renders the same image");
+        double ca = CenterX(before), cb = CenterX(after);
+        for (int k = 0; k < 3; k++)
+        {
+            frame(-0.4 + 0.8 * positions[k], 0);
+            auto real = Composite(*r, gpu, 1);
+            double ck = CenterX(images[k]), expected = ca + (cb - ca) * positions[k];
+            int diff = Differences(images[k], real), diffA = Differences(before, real), diffB = Differences(after, real);
+            printf("position %.2f: sphere centre %.2f (expected %.2f, real render %.2f); differing pixels %d (frames: %d, %d)\n",
+                   positions[k], ck, expected, CenterX(real), diff, diffA, diffB);
+            // within a pixel: faces seen in one frame only (the sphere's edge,
+            // culled in the other) have no counterpart and stay where the newer
+            // frame has them at every position, which pulls the quarter
+            // positions by up to 0.95 px (measured; 0.25 px halfway, 0.69 px
+            // with high-precision geometry, where 0.5 is exact)
+            check(std::fabs(ck - expected) < 1.0, "image at its position (within a pixel)");
+            check(diff * 5 < std::min(diffA, diffB), "image close to a real render there (5x fewer differences than either frame)");
+        }
     }
 
     // a still scene: the intermediate frame is the frame itself

@@ -162,6 +162,18 @@ class AndroidEmulatorManager(
         return MelonEmulator.getFPS()
     }
 
+    override fun setDisplayRefreshRate(hz: Float) {
+        MelonEmulator.setDisplayRefreshRate(hz)
+    }
+
+    override fun setThermalLimit(limited: Boolean) {
+        MelonEmulator.setThermalLimit(limited)
+    }
+
+    override fun getShownFrameRate(): Int {
+        return MelonEmulator.getFrameRate()
+    }
+
     override fun setPerformanceDetailsEnabled(enabled: Boolean) {
         MelonEmulator.setPerformanceCounters(enabled)
     }

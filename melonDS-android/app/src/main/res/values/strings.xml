@@ -90,6 +90,8 @@
     <string name="no_dsiware_roms_found">No DSiWare ROMs found</string>
 
     <string name="info_fps">FPS: %1$d</string>
+    <!-- FPS of the emulator, then images shown per second (frame rate mode other than 60) -->
+    <string name="info_fps_shown">FPS: %1$d · %2$d shown</string>
     <!-- performance details (Pomegrade), milliseconds per DS frame -->
     <string name="info_performance_cpu">CPU: %1$.1f ms (multiplier %2$.1f, textures %3$.1f)</string>
     <string name="info_performance_gpu">GPU: %1$.1f ms</string>
@@ -748,8 +750,22 @@
         <item>1</item>
         <item>2</item>
     </string-array>
-    <string name="frame_generation">Frame generation (120 fps)</string>
-    <string name="frame_generation_summary">An extra image between two DS frames, with the 3D placed halfway: smoother motion on a 120 Hz screen. The game still runs at its own speed</string>
+    <string name="frame_rate">Frame rate</string>
+    <!-- the game always runs at its own speed; generated images need the OpenGL renderer and a screen that refreshes as often -->
+    <string-array name="frame_rate_options">
+        <item>30 fps: one frame in two shown (saves battery, animation look)</item>
+        <item>60 fps: the game as it is</item>
+        <item>120 fps: 1 image generated between two frames (OpenGL renderer, 120 Hz screen)</item>
+        <item>240 fps: 3 images generated between two frames (OpenGL renderer, 240 Hz screen; 120 on a 120 Hz screen)</item>
+        <item>Adaptive: the most your screen and phone keep up with (lower while the phone is hot)</item>
+    </string-array>
+    <string-array name="frame_rate_values" translatable="false">
+        <item>30</item>
+        <item>60</item>
+        <item>120</item>
+        <item>240</item>
+        <item>adaptive</item>
+    </string-array>
     <string name="texture_upscale">Texture upscaling</string>
     <string name="texture_filter">Texture filtering</string>
     <string name="texture_filter_summary">Smooth texel edges up close without blurring, and less shimmer on distant surfaces. Costs more texture reads</string>

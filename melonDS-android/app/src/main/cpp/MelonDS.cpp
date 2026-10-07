@@ -188,6 +188,23 @@ namespace MelonDSAndroid
             instance->setAnalogueStick(x, y);
     }
 
+    void setDisplayRefreshRate(float hz)
+    {
+        if (instance)
+            instance->setDisplayRefreshRate(hz);
+    }
+
+    void setThermalLimit(bool limited)
+    {
+        if (instance)
+            instance->setThermalLimit(limited);
+    }
+
+    int getFrameRate()
+    {
+        return instance ? instance->getFrameRate() : 60;
+    }
+
     void setInspector(bool enabled, int view)
     {
         if (instance)

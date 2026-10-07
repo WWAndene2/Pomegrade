@@ -288,6 +288,12 @@ void MelonInstance::reset()
 
 u32 MelonInstance::runFrame()
 {
+    // Pomegrade: frame rate mode: is this frame shown, how many images follow it
+    const auto frameStart = std::chrono::steady_clock::now();
+    frameRatePacer.SetMode(currentConfiguration->frameRate);
+    frameRatePacer.SetGenerationAvailable(currentRenderer == Renderer::OpenGl);
+    const FrameRatePacer::Plan framePlan = frameRatePacer.NextFrame();
+
     if (isRenderConfigurationDirty)
     {
         updateRenderer();
@@ -347,8 +353,16 @@ u32 MelonInstance::runFrame()
     }
 
     bool isRendererAccelerated = nds->GPU.GetRenderer3D().Accelerated;
-    const bool generateFrames = currentRenderer == Renderer::OpenGl && currentConfiguration->frameGeneration;
+    const bool generateFrames = currentRenderer == Renderer::OpenGl && framePlan.Show && framePlan.Generated > 0;
     frameQueue.setPresentInOrder(generateFrames);
+    if (currentRenderer == Renderer::OpenGl)
+    {
+        auto& glRenderer = static_cast<GLRenderer&>(nds->GPU.GetRenderer3D());
+        // the 3D the DS renders during this frame is shown with the next one
+        glRenderer.SetFrameHidden(!framePlan.NextShow);
+        // the polygons of each frame are kept only while images are generated
+        glRenderer.SetFrameGeneration(framePlan.Generated > 0);
+    }
     if (isRendererAccelerated)
     {
         int backBuffer = nds->GPU.FrontBuffer ? 0 : 1;
@@ -356,7 +370,7 @@ u32 MelonInstance::runFrame()
     }
 
     // performance details (Pomegrade): the emulation thread's work for this
-    // frame, its in-between image included (not the frame limiter's wait)
+    // frame, its generated images included (not the frame limiter's wait)
     std::optional<PerformanceCounters::CpuScope> emulationTime;
     emulationTime.emplace(PerformanceCounters::Section::EmulationCpu);
 
@@ -380,15 +394,17 @@ u32 MelonInstance::runFrame()
     }
 
     bool isSleeping = nds->CPUStop & CPUStop_Sleep;
-    if (!isSleeping) [[likely]]
+    if (!isSleeping && framePlan.Show) [[likely]]
     {
         renderFrame->renderFence = eglCreateSyncKHR(currentDisplay, EGL_SYNC_FENCE_KHR, nullptr);
         glFlush();
         frameQueue.pushRenderedFrame(renderFrame);
 
-        // frame generation: the image halfway to the next frame (whose 3D the
-        // DS has already rendered), presented after this one
-        if (generateFrames)
+        // frame generation: the images between this frame and the next (whose
+        // 3D the DS has already rendered), presented after this one: 1 halfway
+        // (120 fps), or 3 at a quarter, half and three quarters (240 fps)
+        auto& glRenderer = static_cast<GLRenderer&>(nds->GPU.GetRenderer3D());
+        for (int k = 1; generateFrames && k <= framePlan.Generated; k++)
         {
             Frame* intermediateFrame = frameQueue.getRenderFrame();
             if (intermediateFrame->renderFence)
@@ -400,8 +416,8 @@ u32 MelonInstance::runFrame()
                 eglWaitSyncKHR(currentDisplay, intermediateFrame->presentFence, 0);
             frameQueue.validateRenderFrame(intermediateFrame, screenWidth, screenHeight * 2);
 
-            auto& glRenderer = static_cast<GLRenderer&>(nds->GPU.GetRenderer3D());
-            if (glRenderer.RenderIntermediateFrame(nds->GPU, intermediateFrame->frameTexture))
+            const float position = (float) k / (float) (framePlan.Generated + 1);
+            if (glRenderer.RenderIntermediateFrame(nds->GPU, intermediateFrame->frameTexture, position))
             {
                 intermediateFrame->renderFence = eglCreateSyncKHR(currentDisplay, EGL_SYNC_FENCE_KHR, nullptr);
                 glFlush();
@@ -409,17 +425,29 @@ u32 MelonInstance::runFrame()
             }
             else
             {
+                // nothing to interpolate (a cut): the frame shown stays, for all positions
                 frameQueue.discardRenderedFrame(intermediateFrame);
+                break;
             }
         }
     }
     else
     {
+        // asleep, or hidden (30 fps mode): the screen keeps the frame it shows
         frameQueue.discardRenderedFrame(renderFrame);
     }
     emulationTime.reset();
     GLTimer::Collect();
     PerformanceCounters::EndFrame();
+    // the work of this frame, and the time since the previous one started (adaptive mode)
+    {
+        const auto now = std::chrono::steady_clock::now();
+        const double workMs = std::chrono::duration<double, std::milli>(now - frameStart).count();
+        const double intervalMs = lastFrameStart.time_since_epoch().count() == 0
+                ? 1000.0 / 60.0 : std::chrono::duration<double, std::milli>(frameStart - lastFrameStart).count();
+        lastFrameStart = frameStart;
+        frameRatePacer.FrameDone(workMs, intervalMs);
+    }
 
     if (ndsSave)
         ndsSave->CheckFlush();
@@ -479,6 +507,21 @@ void MelonInstance::pressKey(u32 key)
 void MelonInstance::setAnalogueStick(float x, float y)
 {
     nds->AnalogueStick.SetPosition(x, y);
+}
+
+void MelonInstance::setDisplayRefreshRate(float hz)
+{
+    frameRatePacer.SetDisplayRate(hz);
+}
+
+void MelonInstance::setThermalLimit(bool limited)
+{
+    frameRatePacer.SetThermalLimit(limited);
+}
+
+int MelonInstance::getFrameRate() const
+{
+    return frameRatePacer.CurrentRate();
 }
 
 void MelonInstance::setInspector(bool enabled, int view)
@@ -731,7 +774,6 @@ void MelonInstance::updateRenderer()
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetShadows(currentConfiguration->shadows);
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetReflections(currentConfiguration->reflections);
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetRelief(currentConfiguration->reliefTextures);
-            static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetFrameGeneration(currentConfiguration->frameGeneration);
             break;
         }
         case Renderer::Compute:

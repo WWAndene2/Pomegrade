@@ -32,6 +32,12 @@ interface EmulatorManager {
 
     fun setPerformanceDetailsEnabled(enabled: Boolean)
 
+    fun setDisplayRefreshRate(hz: Float)
+
+    fun setThermalLimit(limited: Boolean)
+
+    fun getShownFrameRate(): Int
+
     fun getPerformanceDetails(): PerformanceDetails?
 
     suspend fun pauseEmulator()

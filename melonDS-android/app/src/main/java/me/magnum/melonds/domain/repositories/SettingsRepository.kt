@@ -18,8 +18,8 @@ interface SettingsRepository {
     fun getFastForwardSpeedMultiplier(): Float
     fun isRewindEnabled(): Boolean
     fun isSustainedPerformanceModeEnabled(): Boolean
-    // Pomegrade: intermediate frames, shown at 120 Hz (OpenGL renderer)
-    fun isFrameGenerationEnabled(): Boolean
+    // Pomegrade: frame rate mode (30, 60, 120, 240 fps or adaptive)
+    fun getFrameRateMode(): FrameRateMode
 
     fun getRomSearchDirectories(): Array<Uri>
     fun clearRomSearchDirectories()

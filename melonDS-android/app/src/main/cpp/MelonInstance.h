@@ -9,6 +9,7 @@
 #include "SaveManager.h"
 #include "RewindManager.h"
 #include "renderer/FrameQueue.h"
+#include "renderer/FrameRatePacer.h"
 #include "renderer/Renderer.h"
 #include "renderer/ScreenshotRenderer.h"
 #include "retroachievements/RetroAchievementsManager.h"
@@ -45,6 +46,10 @@ public:
     void setAnalogueStick(float x, float y);
     // Pomegrade: the inspector (see NDS_Inspector.h); view 0 = off. Any thread
     void setInspector(bool enabled, int view);
+    // Pomegrade: frame rate modes (see FrameRatePacer). Any thread
+    void setDisplayRefreshRate(float hz);
+    void setThermalLimit(bool limited);
+    int getFrameRate() const;
     std::string getInspectorReport();
     void setMaterialManifest(const std::string& text);
     std::string getGameCode();
@@ -95,6 +100,8 @@ private:
 
     std::shared_ptr<EmulatorConfiguration> currentConfiguration;
     FrameQueue frameQueue;
+    FrameRatePacer frameRatePacer;
+    std::chrono::steady_clock::time_point lastFrameStart;
     std::unique_ptr<ScreenshotRenderer> screenshotRenderer;
     RewindManager rewindManager;
     Renderer currentRenderer;

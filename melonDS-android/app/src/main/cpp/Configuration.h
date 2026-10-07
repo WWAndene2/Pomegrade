@@ -106,8 +106,9 @@ typedef struct
     bool reflections = false;
     // Pomegrade: relief textures (see GLRenderer::SetRelief): 0 off, 1 subtle, 2 strong
     int reliefTextures = 0;
-    // Pomegrade: intermediate frames (see GLRenderer::RenderIntermediateFrame), presented in order
-    bool frameGeneration = false;
+    // Pomegrade: frame rate mode (see FrameRatePacer): 30, 60, 120, 240, 0 = adaptive. Generated
+    // images (GLRenderer::RenderIntermediateFrame, OpenGL renderer) are presented in order
+    int frameRate = 60;
     // Pomegrade: analogue movement in the games with a patch (see NDS_AnalogueStick.h)
     bool analogueMovement = false;
 } EmulatorConfiguration;
