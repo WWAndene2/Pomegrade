@@ -9,6 +9,7 @@
 #include "OboeCallback.h"
 #include "MicInputOboeCallback.h"
 #include "OpenGLContext.h"
+#include "OpenGLSupport.h"
 #include "mic_blow.h"
 #include "NDS.h"
 #include "GPU.h"
@@ -52,6 +53,9 @@ namespace MelonDSAndroid
     void setConfiguration(EmulatorConfiguration emulatorConfiguration) {
         currentConfiguration = std::make_shared<EmulatorConfiguration>(std::move(emulatorConfiguration));
         internalFilesDir = currentConfiguration->internalFilesDir;
+        // Pomegrade: compiled OpenGL programs kept between runs (some drivers take
+        // minutes to compile the DS renderer's shaders)
+        melonDS::OpenGL::SetProgramCacheFolder(internalFilesDir + "/gl_programs");
 
         net = std::make_shared<Net>();
         net->SetDriver(std::make_unique<Net_Slirp>([](const u8* data, int len) {
