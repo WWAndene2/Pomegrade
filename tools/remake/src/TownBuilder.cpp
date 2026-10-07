@@ -816,6 +816,14 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     show(Bank, 0, src.BankTexture);
     show(Hedge, 0, src.FenceTexture);
     gr.Files[1] = terrain;
+    // file 4 opens with the piece's own matrix cell, row then column (Littleroot's 04 02 at world01_02_04; checked on Hoenn's
+    // pieces). The game files its piece-slot table (4 slots, code 0x3C8A24) under that word and frees a slot only for the
+    // cell leaving the player's window (0x3C8C84): a piece carrying Littleroot's cell was never freed, so the fifth piece
+    // loaded hit "no free slot", the fatal-error loop of every Route 201 freeze (ORAS_LITTLEROOT.md 0)
+    Bytes& cell = gr.Files.at(4);
+    if (cell.size() < 2) throw FormatError("piece file 4 holds no cell");
+    cell[0] = (uint8_t)src.CellY;
+    cell[1] = (uint8_t)src.CellX;
     note("%zu trees, %d flower patches, %zu vertices; terrain model %zu bytes (Petalburg's %zu, Littleroot's %zu)\n", trees.size(), nFlowers, verts,
          gr.Files[1].size(), petalTerrain.size(), BinLinker::Read(lr, "GR").Files[1].size());
     const Bytes out = gr.Write();
