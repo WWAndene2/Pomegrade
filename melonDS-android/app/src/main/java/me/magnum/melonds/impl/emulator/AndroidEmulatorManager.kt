@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
-import me.magnum.melonds.BuildConfig
 import me.magnum.melonds.MelonEmulator
 import me.magnum.melonds.common.PermissionHandler
 import me.magnum.melonds.common.romprocessors.RomFileProcessorFactory
@@ -270,9 +269,16 @@ class AndroidEmulatorManager(
         val soc = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) ", ${Build.SOC_MANUFACTURER} ${Build.SOC_MODEL}" else ""
         return listOf(
             "Device: ${Build.MANUFACTURER} ${Build.MODEL} (${Build.HARDWARE}$soc), Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ABIs ${Build.SUPPORTED_ABIS.joinToString()}",
-            "App: ${BuildConfig.APPLICATION_ID} ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+            "App: ${context.packageName} ${appVersion()}",
             "Settings: $configuration",
         ).joinToString("\n")
+    }
+
+    private fun appVersion(): String {
+        return runCatching {
+            val info = context.packageManager.getPackageInfo(context.packageName, 0)
+            "${info.versionName} (${info.longVersionCode})"
+        }.getOrDefault("?")
     }
 
     override fun debugTraceNote(text: String) {
