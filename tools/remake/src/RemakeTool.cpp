@@ -539,6 +539,7 @@ int main(int argc, char** argv)
                 else if (flag == "--plan") options.PlanOnly = true;
                 else if (flag == "--others-out") options.OthersOut = true;
                 else if (flag == "--solid-piece-tiles") options.SolidPieceTiles = (uint32_t)number(++i);
+                else if (flag == "--skip-solid-pieces") options.SkipSolidPieces = true;
                 else if (flag == "--tile-replace" && i + 1 < argc)
                 {
                     const std::string pair = argv[++i];

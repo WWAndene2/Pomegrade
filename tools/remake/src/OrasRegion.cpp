@@ -340,6 +340,18 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
                 skipped++;
                 continue;
             }
+            if (o.SkipSolidPieces)
+            {
+                const Bytes tiles = BinLinker::Read(piece, "GR").Files.at(0);
+                bool wall = tiles.size() >= 4 + 1600 * 4;
+                for (size_t t = 0; wall && t < 1600; t++) wall = U32(tiles, 4 + t * 4) == 0x01000021;
+                if (wall)
+                {
+                    log.push_back(F("piece (%d, %d): all wall, left out (--skip-solid-pieces)", x, y));
+                    skipped++;
+                    continue;
+                }
+            }
             if (o.SolidPieceTiles)
             {
                 // a piece of wall only (its blocks hold no map: forest, the region's edge): its tile grid filled with another
