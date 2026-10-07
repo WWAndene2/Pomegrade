@@ -211,6 +211,10 @@ class SharedPreferencesSettingsRepository(
         return preferences.getBoolean("enable_sustained_performance", false)
     }
 
+    override fun getDsDebugTraceFolder(): String? {
+        return if (preferences.getBoolean("ds_debug_trace", false)) preferences.getString("ds_debug_trace_folder", null) else null
+    }
+
     override fun getFrameRateMode(): FrameRateMode {
         return FrameRateMode.fromPreferenceValue(preferences.getString("frame_rate", null)) ?: FrameRateMode.DEFAULT
     }

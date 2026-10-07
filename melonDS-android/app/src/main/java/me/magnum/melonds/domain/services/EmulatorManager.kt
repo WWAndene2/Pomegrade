@@ -40,6 +40,8 @@ interface EmulatorManager {
 
     fun takeRendererError(): String?
 
+    fun debugTraceNote(text: String)
+
     fun getPerformanceDetails(): PerformanceDetails?
 
     suspend fun pauseEmulator()

@@ -102,6 +102,12 @@ object MelonEmulator {
     /** Why the OpenGL or Compute renderer could not be used (the software one stands in); null if nothing failed. */
     external fun takeRendererError(): String?
 
+    /** DS debug trace (Pomegrade, see DebugTrace.h): a new record in folder, starting with header; folder null = off. */
+    external fun setDebugTrace(folder: String?, header: String?)
+
+    /** A line of the DS debug trace, from the app (nothing when it is off). */
+    external fun debugTraceNote(text: String)
+
     external fun getPerformanceCounters(): FloatArray
 
 	external fun pauseEmulation()

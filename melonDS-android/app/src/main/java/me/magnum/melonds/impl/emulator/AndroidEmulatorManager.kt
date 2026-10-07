@@ -1,6 +1,7 @@
 package me.magnum.melonds.impl.emulator
 
 import android.content.Context
+import android.os.Build
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.Dispatchers
@@ -9,6 +10,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import me.magnum.melonds.BuildConfig
 import me.magnum.melonds.MelonEmulator
 import me.magnum.melonds.common.PermissionHandler
 import me.magnum.melonds.common.romprocessors.RomFileProcessorFactory
@@ -237,7 +239,9 @@ class AndroidEmulatorManager(
     }
 
     override fun stopEmulator() {
+        MelonEmulator.debugTraceNote("stopping the emulator")
         MelonEmulator.stopEmulation()
+        MelonEmulator.setDebugTrace(null, null)
         cameraManager.stopCurrentCameraSource()
         messageQueue.stop()
     }
@@ -252,11 +256,27 @@ class AndroidEmulatorManager(
     }
 
     private fun setupEmulator(emulatorConfiguration: EmulatorConfiguration) {
+        // DS debug trace: a new record for each game, before anything of it is set up
+        val traceFolder = settingsRepository.getDsDebugTraceFolder()
+        MelonEmulator.setDebugTrace(traceFolder, traceFolder?.let { debugTraceHeader(emulatorConfiguration) })
         MelonEmulator.setupEmulator(
             emulatorConfiguration = emulatorConfiguration,
             dsiCameraSource = cameraManager,
             screenshotBuffer = screenshotFrameBufferProvider.frameBuffer(),
         )
+    }
+
+    private fun debugTraceHeader(configuration: EmulatorConfiguration): String {
+        val soc = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) ", ${Build.SOC_MANUFACTURER} ${Build.SOC_MODEL}" else ""
+        return listOf(
+            "Device: ${Build.MANUFACTURER} ${Build.MODEL} (${Build.HARDWARE}$soc), Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ABIs ${Build.SUPPORTED_ABIS.joinToString()}",
+            "App: ${BuildConfig.APPLICATION_ID} ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+            "Settings: $configuration",
+        ).joinToString("\n")
+    }
+
+    override fun debugTraceNote(text: String) {
+        MelonEmulator.debugTraceNote(text)
     }
 
     private suspend fun getRomEmulatorConfiguration(rom: Rom): EmulatorConfiguration {
