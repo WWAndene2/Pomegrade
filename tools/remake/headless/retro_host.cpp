@@ -313,6 +313,12 @@ static int RunScript(void* core, const char* path)
                 else keys = Keys(word);
             Watch(core, strtoul(arg.c_str(), nullptr, 10), addresses, keys);
         }
+        else if (cmd == "gdb")
+        {
+            // gdb PORT: the core's GDB stub listens there; the game waits for gdb-multiarch to connect and continue
+            auto gdb = reinterpret_cast<bool (*)(uint16_t)>(dlsym(core, "pomegrade_gdb"));
+            printf("gdb stub on port %s: %s\n", arg.c_str(), gdb && gdb((uint16_t)strtoul(arg.c_str(), nullptr, 10)) ? "open" : "not in this core");
+        }
         else if (cmd == "mem") { std::string length; words >> length; MemoryDump(core, arg, length); }
         else if (cmd == "save" || cmd == "load") StateFile(core, arg, cmd == "save");
         else printf("unknown command %s\n", cmd.c_str());

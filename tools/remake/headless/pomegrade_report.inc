@@ -7,6 +7,9 @@
 #include "core/hle/kernel/kernel.h"
 #include "core/hle/kernel/process.h"
 #include "core/hle/kernel/thread.h"
+#ifdef ENABLE_GDBSTUB
+#include "core/gdbstub/gdbstub.h"
+#endif
 
 extern "C" RETRO_API void pomegrade_report(void (*out)(const char* line)) {
     auto& system = Core::System::GetInstance();
@@ -90,4 +93,16 @@ extern "C" RETRO_API void pomegrade_peek(u32 address, u32 length, void (*out)(co
         }
         return;
     }
+}
+
+// the emulator's GDB stub opened on a port (script command "gdb PORT"): breakpoints, watchpoints and memory on the running
+// game from gdb-multiarch (target remote :PORT), to read the engine's code at work. Only in a core built with ENABLE_GDBSTUB
+extern "C" RETRO_API bool pomegrade_gdb(u16 port) {
+#ifdef ENABLE_GDBSTUB
+    GDBStub::SetServerPort(port);
+    GDBStub::ToggleServer(true);
+    return true;
+#else
+    return false;
+#endif
 }
