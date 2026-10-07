@@ -4,6 +4,7 @@
 #
 #   tools/remake/headless/run_local.sh <work dir> <name> <mod dir|-> "<zone x z>|" "<script>" [seconds] [gdb]
 #
+# (env) POMEGRADE_SAVE  a save file to start from instead of <work>/dumps/save/main
 # mod dir   a folder holding load/mods/000400000011C400 (oras-region, oras-engine, oras-append-test ... write one); - for none
 # zone x z  the save moved there first (oras-save); empty to keep the owner's position (Littleroot, zone 6)
 # script    retro_host commands separated by ';' (retro_host.cpp: wait N, hold KEYS N, press KEYS, mash KEYS N, field [N],
@@ -22,8 +23,12 @@ run=runs/$name
 rm -rf "$run"; mkdir -p "$run/Azahar/load/mods"
 [ "$mod" != - ] && cp -r "$mod/load/mods/000400000011C400" "$run/Azahar/load/mods/"
 save="$run/Azahar/sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/00040000/0011c400/data/00000001"
-mkdir -p "$save"; cp dumps/save/main "$save/"; cp dumps/save/00000001.metadata "$save.metadata"
-[ -n "$move" ] && ./build-remake/remake_tool oras-save dumps/save/main "$save/main" $move > "$run/save.txt"
+# POMEGRADE_SAVE: another save file than the owner's dumps/save/main (one the owner made in the game where a run must start,
+# 7 October: in front of a trainer, as a save moved by oras-save into another matrix does not load and one moved into a zone
+# finds no characters there)
+start=${POMEGRADE_SAVE:-dumps/save/main}
+mkdir -p "$save"; cp "$start" "$save/main"; cp dumps/save/00000001.metadata "$save.metadata"
+[ -n "$move" ] && ./build-remake/remake_tool oras-save "$start" "$save/main" $move > "$run/save.txt"
 printf '%s\n' "$script" | tr ';' '\n' > "$run/script.txt"
 host() { (ulimit -f 4000000; ./retro_host build-azahar/bin/Release/azahar_libretro.so dumps/oras.3ds "$run" "$secs" "$PWD/$run/script.txt" > "$run/log.txt" 2>&1); }
 if [ -z "$gdb" ]; then

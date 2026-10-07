@@ -3456,3 +3456,5 @@
 00453E08	Trainer_ReadData	Reads trainer id's 24-byte record from a/0/3/6 (archive 0x24); id 0 or >= 950 (0x3B6) reads trainer 1.	read
 004540CC	Trainer_ReadClass	Reads a trainer class's record from a/0/3/7 (archive 0x25); class > 279 reads class 0.	read
 00454434	Trainer_BuildTeams	For each trainer of a battle: the record (a/0/3/6), its class (u16 +2, < 280) and name texts, then the team (a/0/3/8, archive 0x26): byte +7 Pokemon, entries of 8, 16, 10 or 18 bytes by the format byte +0, species u16 +4, form +6.	read
+00454EA4	Trainer_BuildOneTeam	One trainer's battle data: its record (a/0/3/6, id 0 or past the bound read as 1), its class through the record's u16 +2 (a/0/3/7), then its team (a/0/3/8) by the format byte +0, the count +7; ran for trainer 7's battle (run trainer3).	read
+00455450	Trainer_FillInfo	One trainer's info: its record (a/0/3/6), its class (FUN_001f019c with u16 +2), its name text (text archive 0x16, line = trainer id), byte +0x15 and the pair at +8; ran for trainer 7's battle (run trainer3).	read

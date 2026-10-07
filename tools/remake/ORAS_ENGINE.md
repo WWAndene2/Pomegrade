@@ -18,7 +18,7 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 
 | Objective | State |
 |---|---|
-| 1 Decomposition | the whole code (`.code` + 145 modules) in one Ghidra program, checked against the game's own load; Ghidra's wrong no-return marks cleared (`FixNoReturn.java`: code was missing from 1,753 functions); **3,446 functions named** (`ghidra/function_names.tsv`, read or guess), from coverage traces (section 6: entering a zone, a door warp, a sign, the start menu) and from the game's own tables: **every script native** (799, all 16,321 native calls of the 1,072 zone scripts resolved), the script machine (load, run, wait, natives by mask), the message command `TalkMdlMsg_Seq` **checked live** with its first argument (section 6); the names **reviewed** on 7 October (99 changed: section 6), 1,159 still marked guess, to be read before they are relied on. talking to a character **traced and checked** (section 6: 307 functions beyond a sign, all but 10 named); the wild encounter selection **read and checked live** (section 6: the step check, the zone's encounter file, its tables, the slot and level pick; a wild Wurmple at level 2 in run `enc2`); the trainers' data **read and checked on the data** (section 6); **next** for trainers: where a field character names its trainer, then a trainer battle live; then saving; the region map (needs touch input in retro_host). Then objectives 3 and 6 |
+| 1 Decomposition | the whole code (`.code` + 145 modules) in one Ghidra program, checked against the game's own load; Ghidra's wrong no-return marks cleared (`FixNoReturn.java`: code was missing from 1,753 functions); **3,448 functions named** (`ghidra/function_names.tsv`, read or guess), from coverage traces (section 6: entering a zone, a door warp, a sign, the start menu) and from the game's own tables: **every script native** (799, all 16,321 native calls of the 1,072 zone scripts resolved), the script machine (load, run, wait, natives by mask), the message command `TalkMdlMsg_Seq` **checked live** with its first argument (section 6); the names **reviewed** on 7 October (99 changed: section 6), 1,159 still marked guess, to be read before they are relied on. talking to a character **traced and checked** (section 6: 307 functions beyond a sign, all but 10 named); the wild encounter selection **read and checked live** (section 6: the step check, the zone's encounter file, its tables, the slot and level pick; a wild Wurmple at level 2 in run `enc2`); the trainers **read and checked live** (section 6: a battle against trainer 7 in run `trainer3`); then saving; the region map (needs touch input in retro_host). Then objectives 3 and 6 |
 | 2 Tables and assets | zones (section 2), map pieces (3), the boot memory map (4.2), the 299 archives tied to their code where opened by a constant (5); not yet: the 210 archives opened by computed numbers, the asset formats beyond `tools/remake/src`'s readers |
 | 4 Limits | **done for building a world** (section 4.6): all 927 fatal checks listed, the field's and the `.code`'s classified; lifted and checked headless: zones 536 -> 1024 (2), application memory 64 -> 124 MB (New 3DS mode) and the linear heap 43.3 -> 88 MB, the normal heap and heap 4, heap 0xC 2 -> 8 MB, heap 0x17 28.4 -> 64 MB (4.4), characters past 26 (4.5); refused at build time where they cannot be raised: a zone's events file under 0xC84 bytes (4.5), a piece model's 51 textures (4.6), the 178 MB mode (4.4); **found, not lifted yet**: a zone script's native mask table holds 536 entries (section 6: zones from 536 read past it); left with their reason: the 8-deep load queue per object, collision objects per cell, the 174-entry Secret Base table (4.6) |
 | 5 Patches | `remake_tool oras-engine` writes them all (`exheader.bin`, `exefs/code.ips`); **checked on the phone (owner, 7 October): mod `all6`** (the whole of Sinnoh as r12, the title, the save in Twinleaf, and `engine --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 --characters 64`, Remake mod run 147) with the APK of `main` at PR #33: "everything works fine" |
@@ -26,26 +26,15 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 | After 6: Platinum's music | added by the owner (7 October), after building Sinnoh's map: a tool that moves Platinum's music into Omega Ruby. Not started; nothing in `tools/remake` reads either game's sound yet. Platinum keeps sequences played by the DS sound hardware (SDAT: SSEQ with SBNK/SWAR instruments), Omega Ruby recorded streams in its sound archive (BCSTM, inferred from the format's common use, not checked on this game): the tool must extract, render, encode and replace. First step: how Omega Ruby stores and picks its songs (`Snd_ChangeZoneBgm`, section 6) |
 
 **What remains, and how** (handover, 7 October; in this order, each with rule 4's budget):
-1. **Trainers, finish (next).** The data is read (section 6, **Trainers**), and which character is which trainer is
-   now printed by `oras-inspect zone` (script 3000 + trainer id: inferred on all zones, not read in code). Missing: a
-   trainer battle live. Run `trainer1` (7 October) **failed**: the save moved by `oras-save` into another matrix (zone
-   13, Petalburg, matrix 2) never reached the field (black from frame 805). The save's block 4 holds a second zone and
-   position (+0xAE zone, +0xB8/+0xC0 x and z) that `oras-save` leaves alone; suspected, not established. Moves within
-   matrix 1 work. Run `trainer2` (7 October) **reached the trainer, checked on its shots**: Route 102 on arrival, the
-   Youngster on the player's row, then his challenge ("J'vois que t'as un Pokémon avec toi..."); it was stopped at 1,759
-   s by the 30-minute limit on a background command, before the battle shot and `trace off`, so the trace was lost. Its
-   steps: the save moved within matrix 1 to Oldale (zone 7, 83.5 101.5), `hold left 72` through its west edge warp into
-   Route 102 (zone 24), `hold left 600` (stops at x 178 against the trees: `oras-inspect piece 10`), `hold down 90` (5
-   tiles, row 146), `trace on`, `hold left 108` (stops against trainer 7, a Youngster with a Zigzagoon at 4, at (173,
-   146)), `press a`, `mash a 10`, shots after each step. Re-run it exactly (the command below) with the Bash `timeout`
-   raised (the run went at 2.0 frames/s under the interpreter and needs about 35 min) and check the shots. Then
-   `coverage_map.py <work> trainer2 trainer.txt --minus enc1/enc_grass.txt` and name the set.
-   ```
-   POMEGRADE_INTERPRETER=1 tools/remake/headless/run_local.sh <work> trainer2 - "7 83.5 101.5" "mash a 15;wait 500;\
-   shot start;hold left 72;wait 200;shot arrive;hold left 600;wait 20;shot column;hold down 90;wait 20;shot row;\
-   trace on;hold left 108;wait 30;shot front;press a;wait 150;shot talk;mash a 10;wait 400;shot battle;\
-   trace off trainer.txt;wait 200;shot battle2" 150
-   ```
+1. **Trainers: name the battle's functions (next).** The battle is **checked live** (run `trainer3`, section 6,
+   **Trainers**). To trace it again in about 25 minutes: the owner's save in front of trainer 7 (zone 24, tile 174.5
+   146.5, made in the game; ask the owner for it, it is not in the repository) with `POMEGRADE_SAVE=<that file>` and
+   `POMEGRADE_INTERPRETER=1 run_local.sh <work> trainer3 - "" "mash a 15;wait 500;shot start;trace on;press a;wait
+   150;shot talk;mash a 10;wait 400;shot battle;trace off trainer.txt;wait 200;shot battle2" 150`, launched with a Bash
+   `timeout` over 30 minutes. Left: the 347 unnamed (after the two named here) functions of `coverage_map.py <work>
+   trainer3 trainer.txt --minus enc1/enc_grass.txt --minus enc1/enc_idle.txt --minus enc2/enc_battle.txt`
+   (`decompile.sh`, then names). A save moved by `oras-save` into another matrix does not load (`trainer1`): walk
+   through an edge warp instead (`trainer2`, Oldale 83.5 101.5 to Route 102), or use a save made in the game.
 2. **Encounters, the rest.** Not read: each table kind's own slot pick (the method table at `DAT_102dd028 + 0x3F0` in
    `Field_WildEncounter_PickSlotAndLevel`), what kinds 1-7 are (fishing, rock smash, ...: find a zone and a tile kind
    that uses each with `oras_tables.py encounters`), and what member 537, loaded whole at boot, is for
@@ -506,17 +495,25 @@ October: 32 walks of two tiles, a battle within the first 8): a wild Wurmple at 
 pick function ran in `enc2` and not in `enc1`. Not read: the per-kind pick functions, the meaning of tables 1-7 beyond
 their offsets, the battle side.
 
-**Trainers** (7 October, static; **checked on the data**, not yet live). The natives `_CallTrainerBattleCore` (44 zone
-scripts) and `_TrainerEyeBattleStart` read a trainer through `Trainer_ReadData` (0x453E08): member <id> of `a/0/3/6`
-(archive 0x24, 950 members), id 0 or past 949 read as 1. `Trainer_BuildTeams` (0x454434) builds each trainer of a battle
-from it: the record is 24 bytes, byte +0 the team's format, u16 +2 the class (under 280: `a/0/3/7`, read by
-`Trainer_ReadClass` and loaded whole at boot by `GameData_LoadBootTables`), byte +7 the number of Pokemon; the team is
-member <id> of `a/0/3/8` (archive 0x26), entries of 8, 16, 10 or 18 bytes for formats 0 to 3 (read: the four loops),
-species u16 at +4, form at +6. **Checked**: all 949 trainers' team sizes equal count x entry size (trainer 0 is a
-16-byte placeholder); trainers 1-3 (class 127) hold one Pokemon each, species 252, 255, 258 (Treecko, Torchic, Mudkip),
-u16 +2 of the entry 5 (the level: seen, fits the rival's first fight); trainer 10, class 131, a Zigzagoon at 5. Not
-read: what formats 1-3 add (likely moves and items: a guess), the record's other bytes, where a field character names
-its trainer (the character records `oras-inspect` prints show no trainer id).
+**Trainers** (7 October; **checked on the data and live**: run `trainer3`, a battle against trainer 7 on Route 102, his
+Zigzagoon at level 4 on screen as `a/0/3/8` gives it). The natives `_CallTrainerBattleCore` (44 zone scripts) and
+`_TrainerEyeBattleStart` read a trainer through `Trainer_ReadData` (0x453E08): member <id> of `a/0/3/6` (archive 0x24,
+950 members), id 0 or past 949 read as 1. `Trainer_BuildTeams` (0x454434) builds each trainer of a battle from it: the
+record is 24 bytes, byte +0 the team's format, u16 +2 the class (under 280: `a/0/3/7`, read by `Trainer_ReadClass` and
+loaded whole at boot by `GameData_LoadBootTables`), byte +7 the number of Pokemon; the team is member <id> of `a/0/3/8`
+(archive 0x26), entries of 8, 16, 10 or 18 bytes for formats 0 to 3 (read: the four loops), species u16 at +4, form at
++6. **Checked**: all 949 trainers' team sizes equal count x entry size (trainer 0 is a 16-byte placeholder); trainers
+1-3 (class 127) hold one Pokemon each, species 252, 255, 258 (Treecko, Torchic, Mudkip), u16 +2 of the entry 5 (the
+level: seen, fits the rival's first fight); trainer 10, class 131, a Zigzagoon at 5. Not read: what formats 1-3 add
+(likely moves and items: a guess), the record's other bytes, where a field character names its trainer (the character
+records `oras-inspect` prints show no trainer id). **Live** (run `trainer3`, from a save the owner made in the game in
+front of the trainer, `POMEGRADE_SAVE`): the battle ran `Trainer_ReadData`, `Trainer_ReadClass`, the native
+`TrainerGetInfo`, `Trainer_BuildOneTeam` (0x454EA4, one trainer's record, class and team) and `Trainer_FillInfo`
+(0x455450); `Trainer_BuildTeams` did not run (used elsewhere: not read). The trace minus `enc1`'s walk and idle and
+`enc2`'s wild battle: 592 functions (209 `.code`, 177 `DllBattle?`, 193 `DllField?`, 13 DllUSAreaFriendShip), 347
+unnamed (after the two named here). Which character is which trainer: `oras-inspect zone` (script 3000 + id, inferred).
+A save made by the game holds 0 in block 4's second zone word (+0xAE) where the owner's first save held 6 (a lead for
+why `trainer1`'s moved save did not load).
 
 **Door, sign and menu** (the three traces above, 1,728 more functions named on 7 October by six sub-agents over the
 decompilation, two per part where a part was re-run; names that only said "role not determined" were left out; most of
