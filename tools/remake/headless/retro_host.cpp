@@ -26,6 +26,8 @@
 
 #include <dlfcn.h>
 
+#include <chrono>
+
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -252,11 +254,26 @@ static void (*runFrame)() = nullptr;
 static uint64_t sameSince = 0, sameHash = 0;
 static bool freezeShown = false;
 
-// one frame, watching for a screen that no longer changes
+// one frame, watching for a screen that no longer changes; once a minute of real time, the speed: the other "[frame N]"
+// lines come only with an event, so the last of them is not the frame the game is at (ORAS_ENGINE.md 0, rule 3)
 static void Step()
 {
+    using Clock = std::chrono::steady_clock;
+    static const Clock::time_point start = Clock::now();
+    static Clock::time_point lastSpeed = start;
+    static unsigned long lastSpeedFrame = 0;
     runFrame();
     frame++;
+    const Clock::time_point now = Clock::now();
+    if (now - lastSpeed >= std::chrono::seconds(60))
+    {
+        const double minute = std::chrono::duration<double>(now - lastSpeed).count();
+        const double total = std::chrono::duration<double>(now - start).count();
+        printf("[frame %lu] speed: %.1f frames/s over the last minute, %.1f since the start (%.0f s)\n", frame,
+               (frame - lastSpeedFrame) / minute, frame / total, total);
+        fflush(stdout);
+        lastSpeed = now; lastSpeedFrame = frame;
+    }
     if (frameHash != sameHash) { sameHash = frameHash; sameSince = frame; freezeShown = false; }
     else if (!freezeShown && frame - sameSince >= 600)
     {
