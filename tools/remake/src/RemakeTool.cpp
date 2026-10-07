@@ -190,10 +190,23 @@ static int WriteArchiveMod(Garc& g, const Bytes& original, size_t last, const st
     return 0;
 }
 
+// an option's number: decimal, or hexadecimal after 0x (masks: --piece-files 0x7E); anything else is refused rather than read
+// as 0, as atoi did (four headless variants of --piece-files 0x7E.. each built Littleroot's whole piece, run 37546725658)
+static int OptionNumber(const char* text, const std::string& flag)
+{
+    const std::string t = text;
+    const bool hex = t.size() > 2 && t[0] == '0' && (t[1] == 'x' || t[1] == 'X');
+    size_t used = 0;
+    long v = 0;
+    try { v = std::stol(hex ? t.substr(2) : t, &used, hex ? 16 : 10); } catch (const std::exception&) { used = 0; }
+    if (used == 0 || used != (hex ? t.size() - 2 : t.size())) throw FormatError("not a number after " + flag + ": " + t);
+    return (int)v;
+}
+
 // the options oras-town and oras-region share: Platinum's matrix, the kit pieces and packs, the builder's switches. false: not one of them
 static bool TownKitOption(const std::string& flag, int argc, char** argv, int& i, OrasTownOptions& options)
 {
-    auto number = [&](int at) { if (at >= argc) throw FormatError("missing a number after " + flag); return atoi(argv[at]); };
+    auto number = [&](int at) { if (at >= argc) throw FormatError("missing a number after " + flag); return OptionNumber(argv[at], flag); };
     if (flag == "--matrix") options.Matrix = (size_t)number(++i);
     else if (flag == "--target") options.TargetPiece = (size_t)number(++i);
     else if (flag == "--donor") options.DonorPiece = (size_t)number(++i);
@@ -455,7 +468,7 @@ int main(int argc, char** argv)
             for (int i = 5; i < argc; i++)
             {
                 const std::string flag = argv[i];
-                auto number = [&](int at) { if (at >= argc) throw FormatError("missing a number after " + flag); return atoi(argv[at]); };
+                auto number = [&](int at) { if (at >= argc) throw FormatError("missing a number after " + flag); return OptionNumber(argv[at], flag); };
                 if (TownKitOption(flag, argc, argv, i, options)) continue;
                 if (flag == "--left") options.Left = number(++i);
                 else if (flag == "--top") options.Top = number(++i);
@@ -493,7 +506,7 @@ int main(int argc, char** argv)
             for (int i = 5; i < argc; i++)
             {
                 const std::string flag = argv[i];
-                auto number = [&](int at) { if (at >= argc) throw FormatError("missing a number after " + flag); return atoi(argv[at]); };
+                auto number = [&](int at) { if (at >= argc) throw FormatError("missing a number after " + flag); return OptionNumber(argv[at], flag); };
                 if (TownKitOption(flag, argc, argv, i, options.Town)) continue;
                 if (flag == "--rect") { options.Left = number(++i); options.Top = number(++i); options.Width = number(++i); options.Height = number(++i); }
                 else if (flag == "--zone")
