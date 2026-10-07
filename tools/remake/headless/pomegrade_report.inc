@@ -106,3 +106,25 @@ extern "C" RETRO_API bool pomegrade_gdb(u16 port) {
     return false;
 #endif
 }
+
+// the game's memory from address for length bytes written raw to path (unmapped pages as zeros): the code modules as the
+// loader relocated and linked them, for Ghidra (script command "dump ADDRESS LENGTH FILE"); returns the bytes that were mapped
+extern "C" RETRO_API u32 pomegrade_dump(u32 address, u32 length, const char* path) {
+    auto& system = Core::System::GetInstance();
+    if (!system.IsPoweredOn()) return 0;
+    for (const auto& thread : system.Kernel().GetThreadManager(0).GetThreadList()) {
+        const auto process = thread->owner_process.lock();
+        if (!process || process->codeset == nullptr || process->codeset->program_id != 0x000400000011C400) continue;
+        auto& memory = system.Memory();
+        std::vector<u8> data(length, 0);
+        u32 mapped = 0;
+        for (u32 page = 0; page < length; page += 0x1000) {
+            if (!memory.IsValidVirtualAddress(*process, address + page)) continue;
+            memory.ReadBlock(*process, address + page, data.data() + page, std::min<u32>(0x1000, length - page));
+            mapped += std::min<u32>(0x1000, length - page);
+        }
+        if (FILE* f = fopen(path, "wb")) { fwrite(data.data(), 1, data.size(), f); fclose(f); }
+        return mapped;
+    }
+    return 0;
+}
