@@ -20,7 +20,7 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 |---|---|
 | 1 Decomposition | the whole code (`.code` + 145 modules, 47,602 functions) in one Ghidra program, checked against the game's own load; not yet: naming functions by what they do (record which run during each activity) |
 | 2 Tables and assets | zones (section 2), map pieces (3), the boot memory map (4.2), the 299 archives tied to their code where opened by a constant (5); not yet: the 210 archives opened by computed numbers, the asset formats beyond `tools/remake/src`'s readers |
-| 4 Limits | all 927 fatal checks listed, the field's and the `.code`'s classified (4.1, 4.3); lifted and checked headless: zones 536 -> 1024 (2), application memory 64 -> 124 MB (New 3DS mode) and the linear heap 43.3 -> 88 MB (4.4), the normal heap and heap 4 (heap 0xC 2 -> 8 MB, 4.4), characters 26 -> past 32 (4.5); refused at build time where it cannot be raised: a zone's events file under 0xC84 bytes (4.5); 178 MB is unusable (the system font: 4.4); not yet: the async load queue (8), collision objects per cell (4), texture slots per model (51), the 174-entry table (meaning unknown) |
+| 4 Limits | **done for building a world** (section 4.6): all 927 fatal checks listed, the field's and the `.code`'s classified; lifted and checked headless: zones 536 -> 1024 (2), application memory 64 -> 124 MB (New 3DS mode) and the linear heap 43.3 -> 88 MB, the normal heap and heap 4, heap 0xC 2 -> 8 MB, heap 0x17 28.4 -> 64 MB (4.4), characters past 26 (4.5); refused at build time where they cannot be raised: a zone's events file under 0xC84 bytes (4.5), a piece model's 51 textures (4.6), the 178 MB mode (4.4); left with their reason: the 8-deep load queue per object, collision objects per cell, the 174-entry Secret Base table (4.6) |
 | 5 Patches | `remake_tool oras-engine` writes them all (`exheader.bin`, `exefs/code.ips`); none run on the phone yet |
 | 3, 6, 7 | not started on this basis: Sinnoh's region tools (`oras-region`, `ORAS_LITTLEROOT.md`) still borrow Hoenn's zones; next is building Sinnoh's zones from 538 up with the tools above |
 
@@ -282,6 +282,27 @@ capacities that bound a larger world:
   its characters across zones.
 - **`OrasZone::Write`** writes a zone back over its container (header, events, the rest kept): **checked identical on all 536
   zones** (`remake_tool oras-zone-check`).
+
+
+### 4.6 What is left of the limits, and why (7 October)
+
+- **Texture slots per model, 51** (`FUN_0048883c`, read; that it governs map pieces is inferred): Hoenn's 857 pieces use at
+  most 45 distinct textures (member 552), a built Sinnoh piece 29 (measured). Not raised (the arrays are inline in the
+  model object); `TownBuilder` refuses a piece whose model names more than 51, so it cannot reach the phone.
+- **8 pending loads per object** (`FUN_00471520`, read): the pending list is inline (+0x3FC .. +0x41B) with other fields
+  after it, so raising it means moving the array; it bounds one object's simultaneous asynchronous loads, not a map's
+  size, and no run has reached it. Left as is.
+- **Collision objects per cell, 4** (`FUN_003f2ed8`, read: gathers the collisions in the grid around a moving entity, a
+  48-entry result buffer): what fills a cell is not read yet, and no run has reached it, the 35-character crowd included.
+  If a build ever stops there, the frozen thread's stack holds `003F2ED8`-area return addresses: read it then.
+- **The 174-entry table** (`FUN_003cc4fc` and seven others, entries of 0x28 bytes at 0x5837D8): used only by the Secret
+  Base modules (`DllUSSecretBase`, `DllFieldEventSecretBaseMyBasePc`, one call from DllField): the Secret Base goods
+  (inferred). Not a world-building limit.
+- **The 4 loaded pieces**: the 2 x 2 window around the player, by design; what had to be right was each piece's cell word
+  (section 3).
+
+So for building a region the limits are lifted (zones, memory, heaps, characters) or checked when the mod is built (a
+zone's events size, a model's textures); the rest bound features Sinnoh does not need or have not been reached.
 
 ## 5. The archives
 
