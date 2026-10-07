@@ -48,6 +48,10 @@ struct OrasRegionOptions
     // test of the Route 201 freeze (ORAS_LITTLEROOT.md 0): a built piece whose 1600 tiles are all a blocking wall
     // (0x01000021) gets every tile set to this value instead; 0: off
     uint32_t SolidPieceTiles = 0;
+    // a built piece whose 1600 tiles are all wall (0x01000021: forest, the region's edge) is left out, its cell without a
+    // piece as for a left-out header: two such pieces of Route 201's northern edge are what the game loads right before
+    // its fatal error (ORAS_LITTLEROOT.md 0); a cell without a piece next to the player did not freeze (r7a)
+    bool SkipSolidPieces = false;
     // test of the Route 201 freeze: every tile of one value in the built pieces set to another (--tile-replace FROM:TO)
     std::vector<std::pair<uint32_t, uint32_t>> TileReplace;
     bool OthersOut = false;     // a header Zones does not name is left out, as with -1 (a large matrix holding a few places)
