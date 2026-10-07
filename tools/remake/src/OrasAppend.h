@@ -8,6 +8,9 @@
 //   AppendPiece    matrix 1's cell (2, 4) points at the added piece
 //   AppendMatrix   zone 6's header (word 2) points at the added matrix
 //   AppendZone     the added zone (own number, header word 13, its index) over Littleroot's blocks of matrix 1's zone grid
+//   AppendZoneRaised  AppendZone with what the engine needs to accept it (ORAS_ENGINE.md 2): the zone header table (member
+//                  536) and the encounter container (member 537) grown to the new zone count, and code.ips raising the
+//                  header loaders' zone bound and the table's size check
 
 #include "N3dsRom.h"
 
@@ -17,9 +20,10 @@
 namespace remake
 {
 
-enum class AppendTest { Unused, Piece, Matrix, Zone };
+enum class AppendTest { Unused, Piece, Matrix, Zone, ZoneRaised };
 
-// writes the mod (BPS patches under <outDir>/load/mods/<program id>/romfs_ext) and returns what it did, line by line
+// writes the mod (BPS patches under <outDir>/load/mods/<program id>/romfs_ext, and exefs/code.ips for ZoneRaised) and returns
+// what it did, line by line
 std::vector<std::string> BuildAppendTest(N3dsRom& oras, AppendTest test, const std::string& outDir);
 
 }
