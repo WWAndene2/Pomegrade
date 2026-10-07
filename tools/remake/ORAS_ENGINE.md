@@ -26,13 +26,24 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 | After 6: Platinum's music | added by the owner (7 October), after building Sinnoh's map: a tool that moves Platinum's music into Omega Ruby. Not started; nothing in `tools/remake` reads either game's sound yet. Platinum keeps sequences played by the DS sound hardware (SDAT: SSEQ with SBNK/SWAR instruments), Omega Ruby recorded streams in its sound archive (BCSTM, inferred from the format's common use, not checked on this game): the tool must extract, render, encode and replace. First step: how Omega Ruby stores and picks its songs (`Snd_ChangeZoneBgm`, section 6) |
 
 **What remains, and how** (handover, 7 October; in this order, each with rule 4's budget):
-1. **Trainers, finish (next).** The data is read (section 6, **Trainers**); missing: which field character is which
-   trainer. Read `Script_Native_TrainerGetInfo` (0x102968D0) and `_TrainerEyeRegist` (0x10290F40, through the import
-   stub it calls) with `ghidra/decompile.sh <work> <out> 102968D0 --callees 102968D0` to the character record word that
-   holds the trainer id; print it in `oras-inspect zone` (`src/OrasInspect.cpp`, the character line, as done for
-   movement on 7 October). Then one run: save two tiles out of a trainer's sight (trainer 10, `oras_tables.py trainer
-   <work> 10`: a Zigzagoon at 5, likely Route 102's first), walk into it with a trace, `peek.sh` for the battle,
-   `coverage_map.py ... --minus enc1/enc_grass.txt` for what the sight and the battle start run.
+1. **Trainers, finish (next).** The data is read (section 6, **Trainers**), and which character is which trainer is
+   now printed by `oras-inspect zone` (script 3000 + trainer id: inferred on all zones, not read in code). Missing: a
+   trainer battle live. Run `trainer1` (7 October) **failed**: the save moved by `oras-save` into another matrix (zone
+   13, Petalburg, matrix 2) never reached the field (black from frame 805). The save's block 4 holds a second zone and
+   position (+0xAE zone, +0xB8/+0xC0 x and z) that `oras-save` leaves alone; suspected, not established. Moves within
+   matrix 1 work. Run `trainer2` was started and its result not read when the session ended: the save moved within
+   matrix 1 to Oldale (zone 7, 83.5 101.5), `hold left 72` through its west edge warp into Route 102 (zone 24), `hold
+   left 600` (stops at x 178 against the trees: `oras-inspect piece 10`), `hold down 90` (5 tiles, row 146), `trace on`,
+   `hold left 108` (stops against trainer 7, a Youngster with a Zigzagoon at 4, at (173, 146)), `press a`, `mash a 10`,
+   shots after each step. Re-run it exactly (the command below) and check the shots; a wrong row on arrival from the
+   warp (140 or 142, not 141) is the likeliest miss. Then `coverage_map.py <work> trainer2 trainer.txt --minus
+   enc1/enc_grass.txt` and name the set.
+   ```
+   POMEGRADE_INTERPRETER=1 tools/remake/headless/run_local.sh <work> trainer2 - "7 83.5 101.5" "mash a 15;wait 500;\
+   shot start;hold left 72;wait 200;shot arrive;hold left 600;wait 20;shot column;hold down 90;wait 20;shot row;\
+   trace on;hold left 108;wait 30;shot front;press a;wait 150;shot talk;mash a 10;wait 400;shot battle;\
+   trace off trainer.txt;wait 200;shot battle2" 150
+   ```
 2. **Encounters, the rest.** Not read: each table kind's own slot pick (the method table at `DAT_102dd028 + 0x3F0` in
    `Field_WildEncounter_PickSlotAndLevel`), what kinds 1-7 are (fishing, rock smash, ...: find a zone and a tile kind
    that uses each with `oras_tables.py encounters`), and what member 537, loaded whole at boot, is for
