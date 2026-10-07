@@ -18,7 +18,7 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 
 | Objective | State |
 |---|---|
-| 1 Decomposition | the whole code (`.code` + 145 modules, 47,602 functions) in one Ghidra program, checked against the game's own load; **2,510 functions named** by what they do, from coverage traces (section 6): entering a zone, a door warp, a sign's script and message window, the start menu. **Next**, in this order: the script command that shows a message; a trace talking to a character; the encounter selection (`.code`, the EN container member 537 reader near 0x10E9DC; the 3,425 encounter functions are traced but not named); trainers; saving; the region map (needs touch input in retro_host). Then objectives 3 and 6 |
+| 1 Decomposition | the whole code (`.code` + 145 modules, 47,602 functions) in one Ghidra program, checked against the game's own load; **2,510 functions named** by what they do (and 727 natives, section 6), from coverage traces (section 6): entering a zone, a door warp, a sign's script and message window, the start menu. **the script commands**: all 384 natives the zone scripts call named from the game's tables, the message command `TalkMdlMsg_Seq` checked (section 6). **Next**, in this order: a trace talking to a character; the encounter selection (`.code`, the EN container member 537 reader near 0x10E9DC; the 3,425 encounter functions are traced but not named); trainers; saving; the region map (needs touch input in retro_host). Then objectives 3 and 6 |
 | 2 Tables and assets | zones (section 2), map pieces (3), the boot memory map (4.2), the 299 archives tied to their code where opened by a constant (5); not yet: the 210 archives opened by computed numbers, the asset formats beyond `tools/remake/src`'s readers |
 | 4 Limits | **done for building a world** (section 4.6): all 927 fatal checks listed, the field's and the `.code`'s classified; lifted and checked headless: zones 536 -> 1024 (2), application memory 64 -> 124 MB (New 3DS mode) and the linear heap 43.3 -> 88 MB, the normal heap and heap 4, heap 0xC 2 -> 8 MB, heap 0x17 28.4 -> 64 MB (4.4), characters past 26 (4.5); refused at build time where they cannot be raised: a zone's events file under 0xC84 bytes (4.5), a piece model's 51 textures (4.6), the 178 MB mode (4.4); left with their reason: the 8-deep load queue per object, collision objects per cell, the 174-entry Secret Base table (4.6) |
 | 5 Patches | `remake_tool oras-engine` writes them all (`exheader.bin`, `exefs/code.ips`); **checked on the phone (owner, 7 October): mod `all6`** (the whole of Sinnoh as r12, the title, the save in Twinleaf, and `engine --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 --characters 64`, Remake mod run 147) with the APK of `main` at PR #33: "everything works fine" |
@@ -416,7 +416,28 @@ these are graphics, layout and import stubs, **read** only where an agent read t
   0x68-byte line slots), `Msg_SetText` (0x3A6F10), `Msg_TextPrinter_Update` (0x3A5F18: a character per tick, control codes
   0xBE00/0xBE01, likely wait-for-button and scroll), `Msg_ParseNextLineTag` (0x3A6D48), `Text_CountLines` (0x3A5C14),
   `Text_SeekToLine` (0x3A60A4). Text is UTF-16, 0x0A a line break, 0x10 the start of a tag. The script command that asks
-  for the message is not identified yet (no script-command handler in these sets).
+  for the message: below.
+- **Script commands are Pawn (AMX) natives, named by the game** (7 October). A zone script calls the game through
+  `sysreq.n`, by a native's name hash (`h = h * 0x83 ^ c`, `Script_LinkNativeImports` 0x506118, read): the game ships the
+  names, in tables of `{name, function}` pairs that the linker hashes and matches, first match wins. 8 such tables (5 in
+  DllField at 0x1033958C, 0x1033A234, 0x1033AAAC, 0x1033AB44, 0x1033ACDC; 3 in the `.code`) hold 745 natives, all
+  named `Script_Native_<name>` in `function_names.tsv`. **Checked**: the 1,072 zone scripts call 384 distinct natives and
+  all 384 resolve (`_Suspend`, called by 341 scripts, by hashing every string: its table is not found). Not yet read:
+  three tables of the same shape that no zone script uses (`IECreate`..., `PokerusCheckTemoti`...`HideItemInit`,
+  `AILoad`...). Ghidra cuts these natives short at their call to 0x3FE5C8, which it treats as no-return (inferred): 18
+  of them had been guessed as "no-return stubs" and are renamed.
+- **The message command is `TalkMdlMsg_Seq`** (DllField 0x10296260, hash 0x9ADF1616, 324 scripts), **checked** (run
+  `actE2`, recipe below): reading the Littleroot sign shows "Maison d'Andene", and the trace holds the native (running
+  0x747260, DllField at 0x6F3000) and `Field_PopupIcon_Show` (0x102C1B74, running 0x772B74), which the idle trace does
+  not. Each script wraps it in a 19-parameter function (zone 6: 0xAC8). Read: params[1] compared to -1; params[2] & 0xFF;
+  params[3] sign-extended, a model id (-1 none); params[4] as u16 into the request at +0x1C (the message id: inferred);
+  then 8 floats and 6 flags; the request goes to 0x102C1B74, a slot of 6 (a speech balloon: inferred). The other text
+  natives: `MsgLoad`, `MsgIsLoaded`, `MsgRelease`, `MsgSwap` (131 scripts), `MsgWinCloseNo`, `YesNoWin_Seq`,
+  `ListMenuInit_Seq`/`ListMenuStart_Seq`, `WordSet*` (text variables).
+  The recipe (`run_local.sh <work> actE2 - "6 103.5 172.5" "<script>" 420`, `POMEGRADE_INTERPRETER=1`, 6 min alone on 4
+  cores): `mash a 15; wait 500; trace on; wait 120; trace off idle.txt; hold up 4; wait 30; trace on; press a; wait 90;
+  shot sign1; press a; wait 60; press a; wait 60; trace off sign.txt; shot sign2`. The field's load time varies between
+  runs (DllField loaded at frame 886, 1,100 and 1,361): with `wait 200` the field came up only during the sign trace.
 - **The start menu**: `Field_CreateProcessByRequest` (0x3D7DD0, guess: one factory creating each field sub-screen by request
   id), `Field_CreateSimpleProcess` (0x52AF94, read), `Menu_LoadLayoutResources` (0x330A4C, read),
   `Menu_UpdateItemPanes` (0x102C0CDC, read: six entries shown by their enable bits), `Menu_CreateItemList` (0x103102F0,
