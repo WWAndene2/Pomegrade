@@ -91,6 +91,17 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         words.push_back({0x112C0C, 0x00007540, *o.ZoneRows * 56, "the zone header table's size"});
         log.push_back("zones: bound 1024, header table " + std::to_string(*o.ZoneRows) + " rows");
     }
+    if (o.Characters)
+    {
+        // FUN_003f7ff4 stops the game when a zone lists more than 26 characters (cmpne r6, #0x1A; zones 0x10, 0x30 and 0x1C3
+        // excepted) and before a 27th appears (cmp r0, #0x1A on the count at +0x36AE); each takes an 0xAB0-byte entry of the
+        // field manager's pool, made by FUN_00112d4c with 32 entries (mov r3, #0x20 at 0x109048) beside 32 inline 0x1B4-byte
+        // records, so 32 is the most the bound may reach without a larger manager
+        if (*o.Characters < 26 || *o.Characters > 32) throw FormatError("characters: 26 to 32 (the field manager's pool)");
+        words.push_back({0x3F8038, 0x1356001A, 0x13560000 | *o.Characters, "characters a zone may list"});
+        words.push_back({0x3F808C, 0xE350001A, 0xE3500000 | *o.Characters, "characters shown at once"});
+        log.push_back("characters: " + std::to_string(*o.Characters) + " per zone (the game's 26)");
+    }
     for (const auto& [id, size] : o.HeapSizes)
     {
         const HeapSize* h = nullptr;

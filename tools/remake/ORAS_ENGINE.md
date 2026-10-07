@@ -508,3 +508,19 @@ capacities that bound a larger world:
     0x08000000-0x09800000), heap 4 6.2 -> 16 MB, **heap 0xC (async member loads) 2 -> 8 MB**, linear heap 65 MB: the field
     loads (screenshot, `shot` command) and the player walks, thread 1 idle.
   Not yet: the New 3DS modes (124 and 178 MB, which also need Azahar's New 3DS setting), the phone.
+
+### 4.5 Characters per zone, raised to 32 (checked headless, 7 October)
+
+- **The limit** (**read**): `FUN_003f7ff4` places a zone's characters (its 0x30-byte records) when the player **enters** the
+  zone; it stops the game when the zone lists more than 26 (`cmpne r6, #0x1A` at 0x3F8038; zones 0x10, 0x30 and 0x1C3 are
+  exempt) and before a 27th appears (`cmp r0, #0x1A` at 0x3F808C, the count at +0x36AE). Each character takes an 0xAB0-byte
+  entry of the field manager's pool, which `FUN_00112d4c` makes with the count its caller passes: **32** (`mov r3, #0x20` at
+  0x109048), beside 32 inline records of 0x1B4 bytes in the manager. A continued save restores its characters from the save,
+  not from the zone file: the check runs on entering a zone (checked: a crowded zone 6 resumed into does not stop).
+- **`oras-engine --characters N`** (26 to 32) raises both bounds. **Checked**: zone 6 given 30 characters (`oras-append-test
+  ... crowd`, clones of its own 11 on a grid; written with `OrasZone::Write`), the save on Route 101 (zone 23) north of it,
+  walking south into Littleroot: **without the patch the game stops in the fatal-error loop; with `--characters 32` it enters,
+  the clones stand in the town** (screenshot) and thread 1 is idle. Beyond 32 needs a larger field manager (its pool count
+  and the inline records): not done.
+- **`OrasZone::Write`** writes a zone back over its container (header, events, the rest kept): **checked identical on all 536
+  zones** (`remake_tool oras-zone-check`).

@@ -11,6 +11,8 @@
 //   AppendZoneRaised  AppendZone with what the engine needs to accept it (ORAS_ENGINE.md 2): the zone header table (member
 //                  536) and the encounter container (member 537) grown to the new zone count, and code.ips raising the
 //                  header loaders' zone bound and the table's size check
+//   Crowd          zone 6 (Littleroot) listing 30 characters, clones of its own placed on a grid near the save's spawn:
+//                  more than the game's 26 (FUN_003f7ff4), for oras-engine --characters
 
 #include "N3dsRom.h"
 
@@ -20,7 +22,7 @@
 namespace remake
 {
 
-enum class AppendTest { Unused, Piece, Matrix, Zone, ZoneRaised };
+enum class AppendTest { Unused, Piece, Matrix, Zone, ZoneRaised, Crowd };
 
 // writes the mod (BPS patches under <outDir>/load/mods/<program id>/romfs_ext, and exefs/code.ips for ZoneRaised) and returns
 // what it did, line by line

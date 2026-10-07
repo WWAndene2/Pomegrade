@@ -58,6 +58,12 @@ struct OrasZone
 
     // throws FormatError when the container, the header or the arrays' total do not fit the layout above
     static OrasZone Read(const Bytes& zo);
+
+    // the zone written back over the container it was read from: its header (file 0) and events (file 1: the arrays, the
+    // initialisation script and whatever followed it) from the fields above, every other file and byte as the original has
+    // them, so that Read then Write gives the original back (checked on all 536 zones: oras-zone-check). Throws FormatError
+    // when an array has more entries than its count byte holds (255; 4096 for the fifth kind)
+    Bytes Write(const Bytes& original) const;
 };
 
 }

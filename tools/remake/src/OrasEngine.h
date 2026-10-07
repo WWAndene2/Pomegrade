@@ -23,6 +23,7 @@ struct OrasEngineOptions
     std::optional<uint32_t> LinearHeap;      // the linear heap FUN_00106448 asks for (bytes)
     std::optional<uint32_t> NormalHeap;      // the normal heap it asks for (bytes); heap 4, carved from its top, grows with it
     std::optional<uint32_t> ZoneRows;        // rows of the zone header table (a/0/1/3 member 536) the mod's archive holds
+    std::optional<uint32_t> Characters;      // characters a zone may list and show (the game's 26; at most 32, its pool)
     std::map<uint32_t, uint32_t> HeapSizes;  // heap id -> size (bytes)
 };
 
