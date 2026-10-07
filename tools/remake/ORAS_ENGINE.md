@@ -49,8 +49,9 @@ marked **checked** (seen in memory or under the debugger), **read** (from the de
   to 539 files, and writes `exefs/code.ips` (`CodePatch.h`, each word checked against the game's own): the two bounds `cmp rN,
   #0x218` -> `#0x400` (zones below 1024) and the table size word 0x7540 -> 539 x 56. With the owner's save moved onto zone 538
   (`oras-save ... 538 100.5 172.5`): **without the code patch** (`zone`, the old a4) the game stops in the fatal-error loop
-  (black screen); **with it** the field loads, the player walks, thread 1 idle. So the 536-zone limit is lifted by data plus
-  three code words. Not yet checked: the phone; save data kept per zone (flags, visited places); the region map; zones far
+  (black screen); **with it** the field loads, the player walks, thread 1 idle. Under the debugger (breakpoint on the bound at 0x3D9774,
+  gdb attached after boot) the header loader receives **zone 538**. So the 536-zone limit is lifted by data plus three code
+  words. Not yet checked: the phone; save data kept per zone (flags, visited places); the region map; zones far
   above 538.
 - **What raising the zone count takes** (derived first, now built as above): the table member 536 grown by 56 bytes a
   zone and the size word at 0x112C0C patched to match; the bound 0x217 in the two loaders raised (the immediate `cmp r5,
