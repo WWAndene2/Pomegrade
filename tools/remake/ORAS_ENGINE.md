@@ -33,9 +33,12 @@ they hold for every run):
    command. Check `nproc` / `top` first.
 3. **Measure in the first 5 minutes.** Read the frame counter after 3-5 min. Under 4 frames/s, stop and find out why;
    never wait 30-60 min hoping it gets better.
-   (Measured on 7 October, averaged over whole runs: the previous session's sign trace `actE1` ran at about 5.6 frames/s
-   (261 s to frame 1,471); the later runs of that day (`actE1` again, `actE2`, `msgdump`), alone on 4 cores, 2.3 to 4.2
-   frames/s: "Run the game" below. The bound is the owner's to adjust.)
+   (Read from the logs of 7 October's runs, alone on 4 cores: at 5 minutes the frame counter stood between 896 and 1,103,
+   about 3.0 to 3.7 frames/s, in every run, the failed ones too; the map loaded between 230 and 348 s, frame 886 to
+   1,361. Averaged over a whole run it reads lower, 1.7 to 3.9 (why is not established): judge a run at 5 minutes, not by
+   that average. The previous session reported 5.6 frames/s for its sign trace (not checked here: its logs are not kept).
+   The two runs that failed, `sign1` and `sign2`, were not slow: the map loaded, but the script's `field` command never
+   saw it and the script waited until the run was stopped; use fixed waits, as the sign recipe in section 6 does.)
 4. **Budget per attempt: 10 minutes, at most 2 failed attempts** on the same thing. After that, stop and write to the owner
    what failed, the evidence, and one proposal. Don't keep running.
 5. **Static first, live to confirm.** Read the code to find the answer, then run the game once to confirm it with a trace.
@@ -56,21 +59,21 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
 `noreturn.tsv`). Run the steps one at a time (`session_setup.sh <work> core`, then `ghidra`): together they slow each other
 (rule 2). Then:
 
-- **Run the game** (`tools/remake/headless/run_local.sh <work> <name> <mod|-> "<zone x z>" "<script>" [seconds]`): measured
-  on 7 October over whole runs, alone on 4 cores: about 5.6 frames/s for the first sign trace (`actE1`, 261 s to frame
-  1,471), 2.3 to 4.2 frames/s for the later ones under the interpreter (`POMEGRADE_INTERPRETER=1`, needed for `trace`; runs
-  `actE1`, `actE2`), 2.8 with the JIT (`msgdump`): the JIT is no faster here, the software renderer likely dominates
-  (inferred); so a run to the field and one action takes 6 to 13 minutes. The field comes up between frame 886 and 1,361 (it
-  varies between runs: wait 500 frames after `mash a 15` before acting, as the sign recipe in section 6 does). The owner's
-  save stands in Littleroot (zone 6, tile 104.5, 170.5); move it with the zone and tile. A zone's characters are placed when
-  the player **enters** it: to test them, start next door (zone 23, 100.5 150.5) and walk south. `shot NAME` saves the
-  screen (the host's own "field up" detection is wrong under some mods: look at the picture). `report` lists every thread;
-  one in the fatal-error loop shows pc 0x11EF50 / 0x11ABxx / 0x110Axx, `0011EF60` in its stack code addresses, and its
-  registers and raw stack, from which the frames' saved registers give the object that failed.
-- **Show that a function runs**: `trace on` / `trace off FILE` around the action (interpreter), then look for the
-  function's running address in the file (a DllField function at its linked address - 0x10242000 + 0x6F3000) or map the
-  whole trace with `prototype/coverage_map.py`. Not GDB: `gdb-multiarch` is not installed by `session_setup.sh` and the stub
-  dropped the connection in both tries of 7 October.
+- **Run the game** (`tools/remake/headless/run_local.sh <work> <name> <mod|-> "<zone x z>" "<script>" [seconds]`): the game
+  runs at about 3.0 to 3.7 frames/s in its first 5 minutes (read from the logs of 7 October, alone on 4 cores; `msgdump`
+  with the JIT at frame 1,086 after 5 minutes, `actE2` under the interpreter at 963), and a run to the map and one action
+  took 6 to 13 minutes (`actE1` 380 s, `msgdump` 513 s, `actE2` 772 s). The field comes up between frame 886 and 1,361 (it
+  varies between runs: wait 500 frames after `mash a 15` before acting, as the sign recipe in section 6 does; the host's
+  `field` command, which waits for the map, never saw it in two runs, `sign1` and `sign2`, which waited until stopped). The
+  owner's save stands in Littleroot (zone 6, tile 104.5, 170.5); move it with the zone and tile. A zone's characters are
+  placed when the player **enters** it: to test them, start next door (zone 23, 100.5 150.5) and walk south. `shot NAME`
+  saves the screen (the host's own "field up" detection is wrong under some mods: look at the picture). `report` lists every
+  thread; one in the fatal-error loop shows pc 0x11EF50 / 0x11ABxx / 0x110Axx, `0011EF60` in its stack code addresses, and
+  its registers and raw stack, from which the frames' saved registers give the object that failed.
+- **Show that a function runs**: `trace on` / `trace off FILE` around the action (needs `POMEGRADE_INTERPRETER=1`), then
+  look for the function's running address in the file (a DllField function at its linked address - 0x10242000 + 0x6F3000) or
+  map the whole trace with `prototype/coverage_map.py`. Not GDB: `gdb-multiarch` is not installed by `session_setup.sh` and
+  the stub dropped the connection in both tries of 7 October.
 - **Read a value while it runs**: script commands `mem`, `watch` (a word's changes frame by frame), `dump ADDRESS LENGTH
   FILE`. A script's state: `dump 0x08000000 0x6000000 heap.bin` while the thing is on screen, then
   `prototype/amx_dump.py heap.bin --script <size>` lists the loaded scripts, their contexts (native mask, wait) and the call
