@@ -20,6 +20,7 @@
 #include "NDSCart.h"
 #include "OpenGLSupport.h"
 #include "PerformanceCounters.h"
+#include "DebugTrace.h"
 #include "net/Net_Slirp.h"
 #include "Platform.h"
 #include "SDCardArgsBuilder.h"
@@ -297,9 +298,11 @@ u32 MelonInstance::runFrame()
 
     if (isRenderConfigurationDirty)
     {
+        DebugTrace::Stage("frame: setting up the renderer");
         updateRenderer();
         isRenderConfigurationDirty = false;
     }
+    DebugTrace::Stage("frame: preparing the output");
 
     int screenWidth;
     int screenHeight;
@@ -375,7 +378,9 @@ u32 MelonInstance::runFrame()
     std::optional<PerformanceCounters::CpuScope> emulationTime;
     emulationTime.emplace(PerformanceCounters::Section::EmulationCpu);
 
+    DebugTrace::Stage("frame: running the DS (RunFrame)");
     u32 nLines = nds->RunFrame();
+    DebugTrace::Stage("frame: presenting");
     retroAchievementsManager->FrameUpdate();
 
     if (!isRendererAccelerated)
@@ -748,10 +753,14 @@ void MelonInstance::updateRenderer()
                 nds->GPU.SetRenderer3D(std::make_unique<SoftRenderer>());
                 break;
             case Renderer::OpenGl:
+                DebugTrace::Stage("creating the OpenGL renderer (shaders compiled)");
                 nds->GPU.SetRenderer3D(GLRenderer::New());
+                DebugTrace::Note("OpenGL renderer %s", nds->GPU.GPU3D.IsRendererAccelerated() ? "created" : "NOT created (software stands in)");
                 break;
             case Renderer::Compute:
+                DebugTrace::Stage("creating the Compute renderer");
                 nds->GPU.SetRenderer3D(ComputeRenderer::New());
+                DebugTrace::Note("Compute renderer %s", nds->GPU.GPU3D.IsRendererAccelerated() ? "created" : "NOT created (software stands in)");
                 break;
             default: __builtin_unreachable();
         }

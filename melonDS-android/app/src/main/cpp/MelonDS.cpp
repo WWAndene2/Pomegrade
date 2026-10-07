@@ -4,6 +4,7 @@
 #include <oboe/Oboe.h>
 #include "EmulatorArgsBuilder.h"
 #include "MelonDS.h"
+#include "DebugTrace.h"
 #include "MelonDSAudio.h"
 #include "OboeCallback.h"
 #include "MicInputOboeCallback.h"
@@ -234,10 +235,21 @@ namespace MelonDSAndroid
 
     void start()
     {
+        DebugTrace::Stage("emulation thread: starting audio");
         startAudio();
-        setupOpenGlContext();
+        DebugTrace::Stage("emulation thread: making the OpenGL context current");
+        if (setupOpenGlContext())
+        {
+            DebugTrace::Note("OpenGL context current: %s / %s / %s / GLSL %s",
+                             (const char*) glGetString(GL_VENDOR), (const char*) glGetString(GL_RENDERER),
+                             (const char*) glGetString(GL_VERSION), (const char*) glGetString(GL_SHADING_LANGUAGE_VERSION));
+        }
+        else
+            DebugTrace::Note("OpenGL context NOT current (%s)", openGlContext ? "Use() failed" : "no context");
 
+        DebugTrace::Stage("emulation thread: starting the console");
         instance->start();
+        DebugTrace::Stage("emulation thread: console started");
     }
 
     u32 loop()
