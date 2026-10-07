@@ -20,7 +20,7 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 |---|---|
 | 1 Decomposition | the whole code (`.code` + 145 modules, 47,602 functions) in one Ghidra program, checked against the game's own load; **2,510 functions named** by what they do (and 779 natives, section 6), from coverage traces (section 6): entering a zone, a door warp, a sign's script and message window, the start menu. **the script commands**: all 384 natives the zone scripts call named from the game's tables, the message command `TalkMdlMsg_Seq` checked (section 6). **Next**, in this order: a trace talking to a character; the encounter selection (`.code`, the EN container member 537 reader near 0x10E9DC; the 3,425 encounter functions are traced but not named); trainers; saving; the region map (needs touch input in retro_host). Then objectives 3 and 6 |
 | 2 Tables and assets | zones (section 2), map pieces (3), the boot memory map (4.2), the 299 archives tied to their code where opened by a constant (5); not yet: the 210 archives opened by computed numbers, the asset formats beyond `tools/remake/src`'s readers |
-| 4 Limits | **done for building a world** (section 4.6): all 927 fatal checks listed, the field's and the `.code`'s classified; lifted and checked headless: zones 536 -> 1024 (2), application memory 64 -> 124 MB (New 3DS mode) and the linear heap 43.3 -> 88 MB, the normal heap and heap 4, heap 0xC 2 -> 8 MB, heap 0x17 28.4 -> 64 MB (4.4), characters past 26 (4.5); refused at build time where they cannot be raised: a zone's events file under 0xC84 bytes (4.5), a piece model's 51 textures (4.6), the 178 MB mode (4.4); left with their reason: the 8-deep load queue per object, collision objects per cell, the 174-entry Secret Base table (4.6) |
+| 4 Limits | **done for building a world** (section 4.6): all 927 fatal checks listed, the field's and the `.code`'s classified; lifted and checked headless: zones 536 -> 1024 (2), application memory 64 -> 124 MB (New 3DS mode) and the linear heap 43.3 -> 88 MB, the normal heap and heap 4, heap 0xC 2 -> 8 MB, heap 0x17 28.4 -> 64 MB (4.4), characters past 26 (4.5); refused at build time where they cannot be raised: a zone's events file under 0xC84 bytes (4.5), a piece model's 51 textures (4.6), the 178 MB mode (4.4); **found, not lifted yet**: a zone script's native mask table holds 536 entries (section 6: zones from 536 read past it); left with their reason: the 8-deep load queue per object, collision objects per cell, the 174-entry Secret Base table (4.6) |
 | 5 Patches | `remake_tool oras-engine` writes them all (`exheader.bin`, `exefs/code.ips`); **checked on the phone (owner, 7 October): mod `all6`** (the whole of Sinnoh as r12, the title, the save in Twinleaf, and `engine --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 --characters 64`, Remake mod run 147) with the APK of `main` at PR #33: "everything works fine" |
 | 3, 6, 7 | not started on this basis: Sinnoh's region tools (`oras-region`, `ORAS_LITTLEROOT.md`) still borrow Hoenn's zones; next is building Sinnoh's zones from 538 up with the tools above |
 | After 6: Platinum's music | added by the owner (7 October), after building Sinnoh's map: a tool that moves Platinum's music into Omega Ruby. Not started; nothing in `tools/remake` reads either game's sound yet. Platinum keeps sequences played by the DS sound hardware (SDAT: SSEQ with SBNK/SWAR instruments), Omega Ruby recorded streams in its sound archive (BCSTM, inferred from the format's common use, not checked on this game): the tool must extract, render, encode and replace. First step: how Omega Ruby stores and picks its songs (`Snd_ChangeZoneBgm`, section 6) |
@@ -393,10 +393,24 @@ these are graphics, layout and import stubs, **read** only where an agent read t
   2 0x10339594 (332 natives: messages, talk, sound, camera, models...), 4 0x1033A99C (`IECreate`...), 8 0x1033AFBC
   (`AILoad`...), 0x10 0x1033A9FC (`PokerusCheckTemoti`...), 0x20 0x1033958C (one `GetKeyCont` row before 2's rows), 0x40
   0x1033AA9C (`HideItemInit`), 0x80 0x1033AAAC, 0x100 0x1033AB44, 0x200 `.code` 0x5885CC, 0x400 0x1033ACDC. With the
-  `.code`'s 0x57A860 (`_FadeRequestIn`...) and 0x5A630C (`floatround`...), registered elsewhere (not read), 799 functions,
-  all named `Script_Native_<name>` in `function_names.tsv`. Which mask a script gets is not read yet. **Checked**: the 1,072
-  zone scripts call 384 distinct natives and all 384 resolve (`_Suspend`, 341 scripts, in a one-entry table at 0x5A6768:
-  0x1E2C1C stores params[1] - 1 in the context's wait counter at +0x88).
+  `.code`'s 0x57A860 (`_FadeRequestIn`...) and 0x5A630C (`floatround`...), registered at load (below), 799 functions, all
+  named `Script_Native_<name>` in `function_names.tsv`. **Which tables a script gets** (read, and checked against every
+  script): `Script_Load` (0x3AAE3C) registers for every script Pawn's core (0x5A6394: `numargs`... `random`), console
+  (0x6179E4: `printf`) and float (0x5A630C) natives and `_Suspend` (0x5A6758); `Script_LoadFieldScript` (0x3BD498) adds the
+  `.code`'s field table 0x57A860 (`_FadeRequestIn`...); then the mask. A zone script's mask comes from a table of **536
+  words, one per zone**, at 0x587D58 (read by 0x3FF5AC): 0x243 (bits 1, 2, 0x40, 0x200) for 507 zones, 0x2C3 (+ 0x80) for
+  19, 0x643 (+ 0x400) for 7, 0x343 (+ 0x100) for 3. **Checked**: all 16,321 native calls of the 1,072 zone scripts come from
+  a table their zone's mask or the load registers; the running Littleroot script's context (0x8D734D0, run `msgdump`) holds
+  mask 0x243 at +0x98. Other scripts take their mask from a record (+0x10, `Script_RunContextStack`) or from +0x34 of their
+  owner (0x3FCA2C, 0x400D20: the `g_ai_flag` scripts). **A limit, not lifted yet**: the mask table has 536 entries, so a
+  zone numbered 536 or more (allowed since the zone count was raised to 1,024, section 2) reads the words after it
+  (0x05050502...: bits 2, 0x100, 0x400 and not bit 1, the flags and work values). Sinnoh's zones from 538 need the table
+  moved and grown first. The functions around the script machine had been guessed as sound or graphics code
+  (`Snd_SequenceReset`, `Snd_SequenceStep`, `Snd_SequenceStart`, `Gfx_AnimState_Step`, `Res_Dictionary_Lookup`,
+  `Util_HashMapFind`): renamed `Script_Load`, `Script_RunUntilYield`, `Script_LoadFieldScript`, `Script_StepOrWait`,
+  `Script_FindPublicVariable`, `Script_FindPublicFunction`. **Checked**: the 1,072 zone scripts call 384 distinct natives
+  and all 384 resolve (`_Suspend`, 341 scripts, in a one-entry table at 0x5A6768: 0x1E2C1C stores params[1] - 1 in the
+  context's wait counter at +0x88).
 - **Ghidra's wrong no-return marks** (fixed 7 October, `ghidra/FixNoReturn.java`, run by `session_setup.sh` before
   `ApplyNames`). Its analysis marked 172 functions no-return; 8 hold a return: `memclr` 0x301FBC (357 callers), the global
   getters 0x14E348 (275) and 0x139660 (44), 0x3FE5C8 (the script context getter every native calls, through DllField's stub
