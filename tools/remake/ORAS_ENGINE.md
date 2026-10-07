@@ -18,12 +18,39 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 
 | Objective | State |
 |---|---|
-| 1 Decomposition | the whole code (`.code` + 145 modules) in one Ghidra program, checked against the game's own load; Ghidra's wrong no-return marks cleared (`FixNoReturn.java`: code was missing from 1,753 functions); **3,446 functions named** (`ghidra/function_names.tsv`, read or guess), from coverage traces (section 6: entering a zone, a door warp, a sign, the start menu) and from the game's own tables: **every script native** (799, all 16,321 native calls of the 1,072 zone scripts resolved), the script machine (load, run, wait, natives by mask), the message command `TalkMdlMsg_Seq` **checked live** with its first argument (section 6); the names **reviewed** on 7 October (99 changed: section 6), 1,113 still marked guess, to be read before they are relied on. talking to a character **traced and checked** (section 6: 307 functions beyond a sign, all but 10 named); the wild encounter selection **read and checked live** (section 6: the step check, the zone's encounter file, its tables, the slot and level pick; a wild Wurmple at level 2 in run `enc2`); the trainers' data **read and checked on the data** (section 6); **next** for trainers: where a field character names its trainer, then a trainer battle live; then saving; the region map (needs touch input in retro_host). Then objectives 3 and 6 |
+| 1 Decomposition | the whole code (`.code` + 145 modules) in one Ghidra program, checked against the game's own load; Ghidra's wrong no-return marks cleared (`FixNoReturn.java`: code was missing from 1,753 functions); **3,446 functions named** (`ghidra/function_names.tsv`, read or guess), from coverage traces (section 6: entering a zone, a door warp, a sign, the start menu) and from the game's own tables: **every script native** (799, all 16,321 native calls of the 1,072 zone scripts resolved), the script machine (load, run, wait, natives by mask), the message command `TalkMdlMsg_Seq` **checked live** with its first argument (section 6); the names **reviewed** on 7 October (99 changed: section 6), 1,159 still marked guess, to be read before they are relied on. talking to a character **traced and checked** (section 6: 307 functions beyond a sign, all but 10 named); the wild encounter selection **read and checked live** (section 6: the step check, the zone's encounter file, its tables, the slot and level pick; a wild Wurmple at level 2 in run `enc2`); the trainers' data **read and checked on the data** (section 6); **next** for trainers: where a field character names its trainer, then a trainer battle live; then saving; the region map (needs touch input in retro_host). Then objectives 3 and 6 |
 | 2 Tables and assets | zones (section 2), map pieces (3), the boot memory map (4.2), the 299 archives tied to their code where opened by a constant (5); not yet: the 210 archives opened by computed numbers, the asset formats beyond `tools/remake/src`'s readers |
 | 4 Limits | **done for building a world** (section 4.6): all 927 fatal checks listed, the field's and the `.code`'s classified; lifted and checked headless: zones 536 -> 1024 (2), application memory 64 -> 124 MB (New 3DS mode) and the linear heap 43.3 -> 88 MB, the normal heap and heap 4, heap 0xC 2 -> 8 MB, heap 0x17 28.4 -> 64 MB (4.4), characters past 26 (4.5); refused at build time where they cannot be raised: a zone's events file under 0xC84 bytes (4.5), a piece model's 51 textures (4.6), the 178 MB mode (4.4); **found, not lifted yet**: a zone script's native mask table holds 536 entries (section 6: zones from 536 read past it); left with their reason: the 8-deep load queue per object, collision objects per cell, the 174-entry Secret Base table (4.6) |
 | 5 Patches | `remake_tool oras-engine` writes them all (`exheader.bin`, `exefs/code.ips`); **checked on the phone (owner, 7 October): mod `all6`** (the whole of Sinnoh as r12, the title, the save in Twinleaf, and `engine --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 --characters 64`, Remake mod run 147) with the APK of `main` at PR #33: "everything works fine" |
 | 3, 6, 7 | not started on this basis: Sinnoh's region tools (`oras-region`, `ORAS_LITTLEROOT.md`) still borrow Hoenn's zones; next is building Sinnoh's zones from 538 up with the tools above |
 | After 6: Platinum's music | added by the owner (7 October), after building Sinnoh's map: a tool that moves Platinum's music into Omega Ruby. Not started; nothing in `tools/remake` reads either game's sound yet. Platinum keeps sequences played by the DS sound hardware (SDAT: SSEQ with SBNK/SWAR instruments), Omega Ruby recorded streams in its sound archive (BCSTM, inferred from the format's common use, not checked on this game): the tool must extract, render, encode and replace. First step: how Omega Ruby stores and picks its songs (`Snd_ChangeZoneBgm`, section 6) |
+
+**What remains, and how** (handover, 7 October; in this order, each with rule 4's budget):
+1. **Trainers, finish (next).** The data is read (section 6, **Trainers**); missing: which field character is which
+   trainer. Read `Script_Native_TrainerGetInfo` (0x102968D0) and `_TrainerEyeRegist` (0x10290F40, through the import
+   stub it calls) with `ghidra/decompile.sh <work> <out> 102968D0 --callees 102968D0` to the character record word that
+   holds the trainer id; print it in `oras-inspect zone` (`src/OrasInspect.cpp`, the character line, as done for
+   movement on 7 October). Then one run: save two tiles out of a trainer's sight (trainer 10, `oras_tables.py trainer
+   <work> 10`: a Zigzagoon at 5, likely Route 102's first), walk into it with a trace, `peek.sh` for the battle,
+   `coverage_map.py ... --minus enc1/enc_grass.txt` for what the sight and the battle start run.
+2. **Encounters, the rest.** Not read: each table kind's own slot pick (the method table at `DAT_102dd028 + 0x3F0` in
+   `Field_WildEncounter_PickSlotAndLevel`), what kinds 1-7 are (fishing, rock smash, ...: find a zone and a tile kind
+   that uses each with `oras_tables.py encounters`), and what member 537, loaded whole at boot, is for
+   (`GameData_LoadBootTables` 0x10E89C: decompile its users of the object at +0xC).
+3. **Saving.** Trace the save from the menu (the menu row of section 6's traces table), minus the menu trace; name
+   the set.
+4. **Region map.** Needs touch input: add a `touch X Y FRAMES` command to `headless/retro_host.cpp` (the libretro
+   pointer device), then trace it.
+5. **Names to read.** 1,159 names are still guesses (`function_names.tsv`, last column `guess`) and 10 talk functions
+   unnamed (section 6, **Talking to a character**): read before relying on them; `prototype/name_review.py suspects`
+   flags the likeliest wrong ones and `summary` reads a decompilation fast.
+6. **Zones past 536, the rest.** A new zone needs its own file 3 (encounters) beside its member 537 entry (section
+   2), and a script mask word: the 536-word mask table at 0x587D58 is read past its end for zone 536 and up (section 6).
+   Then objectives 3 and 6: Sinnoh's zones from 538 up.
+
+The tools made for this on 7 October are in **Setting up a session** below (`decompile.sh`, `peek.sh`, `oras_tables.py`,
+`coverage_map.py --minus <run>/<trace>`, the host's `speed:` line). Every run's work folder stays outside the repository
+(rule 8); merge to `main` the same day (rule 7).
 
 **How to work** (the owner's rules, 7 October, after a session lost hours to slow and failed runs; read before any run,
 they hold for every run):
