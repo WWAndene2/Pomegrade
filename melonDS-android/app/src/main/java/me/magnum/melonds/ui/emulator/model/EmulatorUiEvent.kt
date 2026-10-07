@@ -20,4 +20,6 @@ sealed class EmulatorUiEvent {
     data object ShowAchievementList : EmulatorUiEvent()
     data object ShowPendingSubmissionsDialog : EmulatorUiEvent()
     data object CloseEmulator : EmulatorUiEvent()
+    // Pomegrade: the OpenGL or Compute renderer failed (the driver's message); the game runs with the software one
+    data class ShowRendererError(val message: String) : EmulatorUiEvent()
 }

@@ -1,6 +1,7 @@
 #ifndef MELONINSTANCE_H
 #define MELONINSTANCE_H
 
+#include <mutex>
 #include <string>
 #include "Args.h"
 #include "Configuration.h"
@@ -50,6 +51,9 @@ public:
     void setDisplayRefreshRate(float hz);
     void setThermalLimit(bool limited);
     int getFrameRate() const;
+    // Pomegrade: why the OpenGL or Compute renderer could not be used (the software one stands in), then forgets it;
+    // empty if nothing failed. Any thread
+    std::string takeRendererError();
     std::string getInspectorReport();
     void setMaterialManifest(const std::string& text);
     std::string getGameCode();
@@ -101,6 +105,8 @@ private:
     std::shared_ptr<EmulatorConfiguration> currentConfiguration;
     FrameQueue frameQueue;
     FrameRatePacer frameRatePacer;
+    std::mutex rendererErrorMutex;
+    std::string rendererError;
     std::chrono::steady_clock::time_point lastFrameStart;
     std::unique_ptr<ScreenshotRenderer> screenshotRenderer;
     RewindManager rewindManager;

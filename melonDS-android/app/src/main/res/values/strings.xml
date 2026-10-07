@@ -750,6 +750,8 @@
         <item>1</item>
         <item>2</item>
     </string-array>
+    <string name="renderer_unavailable">Renderer unavailable</string>
+    <string name="renderer_unavailable_message">The renderer chosen in the settings could not start on this device, so the game runs with the software renderer. The graphics driver said:\n\n%1$s</string>
     <string name="frame_rate">Frame rate</string>
     <!-- the game always runs at its own speed; generated images need the OpenGL renderer and a screen that refreshes as often -->
     <string-array name="frame_rate_options">

@@ -1027,6 +1027,7 @@ class EmulatorViewModel @Inject constructor(
                     emulatorManager.setThermalLimit(thermalLimited)
                     delay(1.seconds)
                     _currentFps.value = emulatorManager.getFps().roundToInt()
+                    emulatorManager.takeRendererError()?.let { _uiEvent.tryEmit(EmulatorUiEvent.ShowRendererError(it)) }
                     _shownFrameRate.value = if (settingsRepository.getFrameRateMode() == FrameRateMode.FPS_60) null else emulatorManager.getShownFrameRate()
                     _performanceDetails.value = if (showDetails) emulatorManager.getPerformanceDetails() else null
                 }

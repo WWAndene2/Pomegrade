@@ -63,6 +63,8 @@ namespace MelonDSAndroid {
     extern void setDisplayRefreshRate(float hz);
     extern void setThermalLimit(bool limited);
     extern int getFrameRate();
+    // Pomegrade: see MelonInstance::takeRendererError
+    extern std::string takeRendererError();
     extern std::string getInspectorReport();
     extern void setMaterialManifest(const std::string& text);
     extern std::string getGameCode();

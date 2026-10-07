@@ -38,6 +38,8 @@ interface EmulatorManager {
 
     fun getShownFrameRate(): Int
 
+    fun takeRendererError(): String?
+
     fun getPerformanceDetails(): PerformanceDetails?
 
     suspend fun pauseEmulator()

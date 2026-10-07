@@ -18,6 +18,8 @@
 
 #include "OpenGLSupport.h"
 
+#include <mutex>
+
 #include <unordered_map>
 #include <vector>
 
@@ -185,6 +187,24 @@ writeError:
     NewShaders.clear();
 }
 
+// Pomegrade: the last shader the driver refused, and why (see TakeLastError)
+static std::mutex LastErrorMutex;
+static std::string LastError;
+
+static void SetLastError(const std::string& error)
+{
+    std::lock_guard lock(LastErrorMutex);
+    LastError = error;
+}
+
+std::string TakeLastError()
+{
+    std::lock_guard lock(LastErrorMutex);
+    std::string error;
+    error.swap(LastError);
+    return error;
+}
+
 bool CompilerShader(GLuint& id, const std::string& source, const std::string& name, const std::string& type)
 {
     int res;
@@ -209,6 +229,7 @@ bool CompilerShader(GLuint& id, const std::string& source, const std::string& na
         char* log = new char[res+1];
         glGetShaderInfoLog(id, res+1, NULL, log);
         Log(LogLevel::Error, "OpenGL: failed to compile %s shader %s: %s\n", type.c_str(), name.c_str(), log);
+        SetLastError("failed to compile " + type + " shader " + name + ": " + log);
         Log(LogLevel::Debug, "shader source:\n--\n%s\n--\n", source.c_str());
         delete[] log;
 
@@ -248,6 +269,7 @@ bool LinkProgram(GLuint& result, GLuint* ids, int numIds)
         char* log = new char[res+1];
         glGetProgramInfoLog(result, res+1, NULL, log);
         Log(LogLevel::Error, "OpenGL: failed to link shader program: %s\n", log);
+        SetLastError(std::string("failed to link shader program: ") + log);
         delete[] log;
 
         return false;

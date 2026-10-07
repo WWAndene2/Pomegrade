@@ -18,6 +18,7 @@
 #include "MelonInstance.h"
 #include "NDS.h"
 #include "NDSCart.h"
+#include "OpenGLSupport.h"
 #include "PerformanceCounters.h"
 #include "net/Net_Slirp.h"
 #include "Platform.h"
@@ -519,6 +520,14 @@ void MelonInstance::setThermalLimit(bool limited)
     frameRatePacer.SetThermalLimit(limited);
 }
 
+std::string MelonInstance::takeRendererError()
+{
+    std::lock_guard lock(rendererErrorMutex);
+    std::string error;
+    error.swap(rendererError);
+    return error;
+}
+
 int MelonInstance::getFrameRate() const
 {
     return frameRatePacer.CurrentRate();
@@ -747,14 +756,33 @@ void MelonInstance::updateRenderer()
             default: __builtin_unreachable();
         }
         currentRenderer = newRenderer;
+
+        // Pomegrade: GLRenderer::New and ComputeRenderer::New return null when the driver refuses a shader, and the
+        // GPU then renders in software. currentRenderer must say so: the renderer is cast by it every frame (casting
+        // the software renderer as the OpenGL one left games on a black screen). The driver's error is kept for the
+        // app to show (takeRendererError)
+        if (newRenderer != Renderer::Software && !nds->GPU.GPU3D.IsRendererAccelerated())
+        {
+            std::string error = OpenGL::TakeLastError();
+            if (error.empty())
+                error = "the renderer could not be created";
+            Log(LogLevel::Error, "%s renderer unavailable, software renderer used: %s\n",
+                newRenderer == Renderer::OpenGl ? "OpenGL" : "Compute", error.c_str());
+            std::lock_guard lock(rendererErrorMutex);
+            rendererError = error;
+            currentRenderer = Renderer::Software;
+        }
     }
 
-    switch (newRenderer)
+    switch (currentRenderer)
     {
         case Renderer::Software:
         {
-            auto softwareRenderSettings = static_cast<SoftwareRenderSettings&>(*currentConfiguration->renderSettings);
-            static_cast<SoftRenderer&>(nds->GPU.GetRenderer3D()).SetThreaded(softwareRenderSettings.threadedRendering, nds->GPU);
+            // the software renderer's own settings, unless it stands in for one that failed
+            bool threaded = false;
+            if (currentConfiguration->renderer == Renderer::Software)
+                threaded = static_cast<SoftwareRenderSettings&>(*currentConfiguration->renderSettings).threadedRendering;
+            static_cast<SoftRenderer&>(nds->GPU.GetRenderer3D()).SetThreaded(threaded, nds->GPU);
             // the OpenGL renderer's lighting effects may have asked for view-space data
             nds->GPU.GPU3D.SetViewDataCapture(false);
             break;
