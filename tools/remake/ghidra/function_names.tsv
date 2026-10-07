@@ -264,12 +264,12 @@
 003A818C	Util_InitVec4	Sets a 4-float vector from two constants (x,y,z, w).	read
 003A8F3C	Util_EllipseFoci	Computes ellipse focus points and perimeter-like sum from semi-axes.	guess
 003AADAC	Script_CallFunctionToEnd	Calls the script VM (FUN_00503308) on a function index and keeps resuming (-2) while it yields (code 0xC); returns the result.	guess
-003AADFC	Res_Dictionary_Lookup	Looks up a name in a dictionary and returns its value or 0.	guess
-003AAE3C	Snd_SequenceReset	Frees a sequence buffer and clears the state block.	guess
+003AADFC	Script_FindPublicVariable	Finds a script's public variable by name (Sys_FindSymbolByNameHash) and returns its address, or 0: used for g_mode, g_interactive_flag, g_ai_flag. Was guessed Res_Dictionary_Lookup.	read
+003AAE3C	Script_Load	Loads a script into a context: frees the old image, clears the 0x78-byte Pawn state at +4, copies the image to the heap, prepares it (Res_LoadRelocatableModule) and registers the natives every script gets: Pawn core (0x5032F8), printf (0x505F24), float (0x505AAC) and _Suspend (table 0x5A6758). Was guessed Snd_SequenceReset.	read
 003AAF8C	Script_VmPoll	Returns -3 if no VM loaded, counts down a wait counter, otherwise calls virtual +0x10.	guess
-003AAF90	Gfx_AnimState_Step	Advances a delayed state: counts down a wait or calls the step virtual.	guess
-003AAFC8	Snd_SequenceStep	Advances a sequence/script interpreter until it yields or finishes.	guess
-003AB068	Util_HashMapFind	Looks up a key in a map at +4; returns value or -1.	guess
+003AAF90	Script_StepOrWait	Returns -3 with no script loaded; counts down the _Suspend wait at +0x88 (-1), otherwise steps the script through its virtual +0x10. Was guessed Gfx_AnimState_Step.	read
+003AAFC8	Script_RunUntilYield	Runs the script (Script_VmCall from main) until it ends (0) or sleeps (0xC); returns -1 while a _Suspend wait at +0x88 counts down. Was guessed Snd_SequenceStep.	read
+003AB068	Script_FindPublicFunction	Finds a script's public function by name hash (Script_FindSymbolByHash); returns its index or -1. Was guessed Util_HashMapFind.	read
 003AB234	Script_VmHolderDestructor	Destructor: resets vtable and frees the VM buffer at +4.	guess
 003AD7E4	Gfx_Skeleton_Build	Parses a skeleton blob: bones, parent links, names and transforms into joint arrays.	read
 003AEC48	Gfx_SkeletonUpdateChain	Recomputes world matrices of a chain of joints from their parents.	guess
@@ -281,7 +281,7 @@
 003B5758	Gfx_StateHolderConstruct	Constructor: allocates the 0xE8 state object and a 0x10 helper and links them.	read
 003B5840	Gfx_StateHolderDestroy	Deleting destructor: frees its two buffers and helper object, then itself.	read
 003B6150	Util_Array6Get	Returns element i (0..5) of a 6-word array, fatal if out of range.	read
-003BD498	Snd_SequenceStart	Resets a sequence block and starts it with a default program.	guess
+003BD498	Script_LoadFieldScript	Script_Load, then the context points to itself at +0x48 and the field natives of .code table 0x57A860 (_FadeRequestIn...) are linked; every caller then registers the zone's tables (Script_RegisterNativeTablesByMask). Was guessed Snd_SequenceStart.	read
 003BEF4C	Gfx_CollisionBallsResolve	Pushes a joint out of up to 7 collision spheres ("too many collision balls" otherwise).	read
 003BF210	Gfx_SetScaledVector	Stores two bytes and three scaled floats (from integer inputs) into a struct.	read
 003BF3A4	Gfx_LightCreateSpot	Initializes a 0x60-byte light/effect object from integer angles.	guess
@@ -3242,7 +3242,7 @@
 102D90A8	Script_Native_ShakeCameraBeginEndFrame	Pawn (AMX) native, named by the game's own native table; "ShakeCameraBeginEndFrame" (hash 0xB35B6A60, table 0x10339594, bit 2): called by 24 of the 1072 zone scripts.	read
 102D915C	Script_Native_EVCameraSetGameCameraParam	Pawn (AMX) native, named by the game's own native table; "EVCameraSetGameCameraParam" (hash 0xDB16CBCE, table 0x10339594, bit 2): called by 54 of the 1072 zone scripts.	read
 102E2098	Script_Native_WaitInitMotionBlur	Pawn (AMX) native, named by the game's own native table; "WaitInitMotionBlur" (hash 0xE7E50918, table 0x10339594, bit 2): called by 6 of the 1072 zone scripts.	read
-001E2C1C	Script_Native__Suspend	Pawn (AMX) native, named by the game's own native table; "_Suspend" (hash 0x0B13A389, a one-entry table at 0x5A6768): called by 341 of the 1072 zone scripts. Stores params[1] - 1 at +0x88 of the script context, the wait counter Script_VmPoll counts down: suspends the script for that many frames (counter read; frames inferred).	read
+001E2C1C	Script_Native__Suspend	Pawn (AMX) native, named by the game's own native table; "_Suspend" (hash 0x0B13A389, a one-entry table at 0x5A6758, registered for every script by Script_Load): called by 341 of the 1072 zone scripts. Stores params[1] - 1 at +0x88 of the script context, the wait counter Script_VmPoll counts down: suspends the script for that many frames (counter read; frames inferred).	read
 # Script natives no zone script calls (7 October): three DllField tables registered under bits 4, 8, 0x10 by 0x3FBC80
 1029FDC4	Script_Native_BallsCreate	Pawn (AMX) native, named by the game's own native table; "BallsCreate" (hash 0xD79B4142, table 0x1033A9FC, bit 0x10): called by no zone script.	read
 102A0134	Script_Native_BallsDelete	Pawn (AMX) native, named by the game's own native table; "BallsDelete" (hash 0x76D538DF, table 0x1033A9FC, bit 0x10): called by no zone script.	read
@@ -3295,3 +3295,20 @@
 102D9BA8	Script_Native_AICreate	Pawn (AMX) native, named by the game's own native table; "AICreate" (hash 0x576344BE, table 0x1033AFBC, bit 8): called by no zone script.	read
 102D9C20	Script_Native_AIDelete	Pawn (AMX) native, named by the game's own native table; "AIDelete" (hash 0x65F7D413, table 0x1033AFBC, bit 8): called by no zone script.	read
 102D9C84	Script_Native_AIIsAlive	Pawn (AMX) native, named by the game's own native table; "AIIsAlive" (hash 0xA9B58F29, table 0x1033AFBC, bit 8): called by no zone script.	read
+# Script loading and the natives every script gets (7 October): renamed where they had been guessed as sound or graphics code
+005032F8	Script_RegisterCoreNatives	Registers Pawn's core natives (table 0x5A6394: numargs, getarg, ... random) for a script (Sys_LinkImportsByNameHash).	read
+00505F24	Script_RegisterConsoleNatives	Registers Pawn's console native (table 0x6179E4: printf) for a script.	read
+00505AAC	Script_RegisterFloatNatives	Registers Pawn's float natives (table 0x5A630C: float, floatround, ...) for a script.	read
+0050DDAC	Script_Native_numargs	Pawn (AMX) core native, named by the game's own native table; "numargs" (hash 0x16DD0F1F, table 0x5A6394, registered for every script by Script_Load): called by no zone script.	read
+0050A5E8	Script_Native_getarg	Pawn (AMX) core native, named by the game's own native table; "getarg" (hash 0xFDCD35F8, table 0x5A6394, registered for every script by Script_Load): called by no zone script.	read
+00522B34	Script_Native_setarg	Pawn (AMX) core native, named by the game's own native table; "setarg" (hash 0x00F398D4, table 0x5A6394, registered for every script by Script_Load): called by no zone script.	read
+0050C3B4	Script_Native_heapspace	Pawn (AMX) core native, named by the game's own native table; "heapspace" (hash 0xEADA7200, table 0x5A6394, registered for every script by Script_Load): called by no zone script.	read
+0050A140	Script_Native_funcidx	Pawn (AMX) core native, named by the game's own native table; "funcidx" (hash 0xDCF4EB53, table 0x5A6394, registered for every script by Script_Load): called by no zone script.	read
+00527634	Script_Native_swapchars	Pawn (AMX) core native, named by the game's own native table; "swapchars" (hash 0x515FDA88, table 0x5A6394, registered for every script by Script_Load): called by no zone script.	read
+00507C9C	Script_Native_tolower	Pawn (AMX) core native, named by the game's own native table; "tolower" (hash 0xE176A402, table 0x5A6394, registered for every script by Script_Load): called by no zone script.	read
+00507CB0	Script_Native_toupper	Pawn (AMX) core native, named by the game's own native table; "toupper" (hash 0x47A0AC11, table 0x5A6394, registered for every script by Script_Load): called by no zone script.	read
+00507C08	Script_Native_min	Pawn (AMX) core native, named by the game's own native table; "min" (hash 0x001C7E64, table 0x5A6394, registered for every script by Script_Load): called by no zone script.	read
+00507BF8	Script_Native_max	Pawn (AMX) core native, named by the game's own native table; "max" (hash 0x001C798A, table 0x5A6394, registered for every script by Script_Load): called by no zone script.	read
+00507BC0	Script_Native_clamp	Pawn (AMX) core native, named by the game's own native table; "clamp" (hash 0xCD8589C5, table 0x5A6394, registered for every script by Script_Load): called by no zone script.	read
+00507C18	Script_Native_random	Pawn (AMX) core native, named by the game's own native table; "random" (hash 0xE5C01CCD, table 0x5A6394, registered for every script by Script_Load): called by no zone script.	read
+0050CD1C	Script_Native_printf	Pawn (AMX) console native, named by the game's own native table; "printf" (hash 0xD6C79CD1, table 0x6179E4, registered for every script by Script_Load): called by no zone script.	read
