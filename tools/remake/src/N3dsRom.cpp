@@ -106,4 +106,6 @@ Bytes N3dsRom::Code()
     throw FormatError("the ExeFS has no .code");
 }
 
+Bytes N3dsRom::ExHeader() { return ReadAt(Ncch + 0x200, 0x800); }
+
 }
