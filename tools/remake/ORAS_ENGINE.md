@@ -58,6 +58,38 @@ both looped the game); an ARM immediate holds only an 8-bit value rotated by an 
 0x1800000); a continued save restores state from the save rather than from the files (the characters); a limit can hide
 another (51 characters passed the count check and stopped on the events buffer).
 
+### How to work in this project (read before any run; owner's rule, 7 October)
+
+**Review of the "script message command" session.** The static work is good: `TalkMdlMsg_Seq` (DllField 0x10296260), the
+native tables, 384/384 natives resolved and the wrongly named "no-return stubs" are real findings; rename those from the
+native tables. The live check failed for reasons of method, not of the engine:
+- the previous traces **did** run the interpreter from boot, and it is fast enough: the sign trace `actE1` reached the
+  field at frame ~1,100 and finished at frame 1,471 in **261 s** (about 5.6 frames/s, 4.5 min in total). Your 2 frames/s,
+  on the interpreter **and** the JIT, means the machine was busy (Ghidra and the core build running beside it), not a
+  slow core. Run the emulator alone.
+- the recipe that worked (`run_local.sh <work> actE1 - "6 103.5 172.5" "<script>" 420`):
+  `mash a 15; wait 200; trace on; wait 120; trace off idle.txt; hold up 4; wait 30; trace on; press a; wait 90; shot
+  sign1; press a; wait 60; press a; wait 60; trace off sign.txt; shot sign2` (with `POMEGRADE_INTERPRETER=1`).
+- to show that a function runs, use **`trace`** and look for its address in the trace file (`coverage_map.py`), not
+  GDB: the stub is flaky and `gdb-multiarch` is not installed by `session_setup.sh`.
+
+**Rules from now on**
+1. **Copy before you invent.** Before any run, open the last run that did the same kind of thing (`runs/<name>/script.txt`,
+   `log.txt`, `ORAS_ENGINE.md` 6) and reuse it exactly; change one thing at a time.
+2. **One heavy job at a time.** Never run the emulator, Ghidra or a core build together, and never several in one shell
+   command. Check `nproc` / `top` first.
+3. **Measure in the first 5 minutes.** Read the frame counter after 3-5 min. Under 4 frames/s, stop and find out why;
+   never wait 30-60 min hoping it gets better.
+4. **Budget per attempt: 10 minutes, at most 2 failed attempts** on the same thing. After that, stop and write to the owner
+   what failed, the evidence, and one proposal. Don't keep running.
+5. **Static first, live to confirm.** Read the code to find the answer, then run the game once to confirm it with a trace.
+6. **Short reports**: what is checked (with the evidence), what is a guess, the next step. No logs, no history.
+7. **Every result goes to its home the same day**: names in `ghidra/function_names.tsv` (read|guess), the finding in
+   `ORAS_ENGINE.md`, a tooling fix in the script that failed (e.g. add `gdb-multiarch` to `session_setup.sh` if you need
+   it). Commit, push and merge it; never leave a result only in the scratch folder.
+8. **Nothing in the repository from a run**: work folders and dumps stay in the scratchpad; check `git status` before
+   each commit.
+
 ## 1. How the engine is read
 
 - **The dumps** (Drive folder "Pokemon Project - Radiant Platinum": the cartridge, Platinum, the owner's save `main.zip`) are
