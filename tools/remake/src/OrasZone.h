@@ -28,6 +28,11 @@ namespace remake
 // Words are u16 from the start of each entry. Known (read on Littleroot's, whose positions fall in its matrix cell):
 // furniture: tile x, z at words 4, 5; characters: model at 1, tile x, z at 20, 21; warps: destination zone at 0, position
 // in pixels (a pixel is 1/18 of a tile, a tile's centre is at +9) x at 4, z at 6; triggers: tile x, z at 6, 7.
+// Characters, read from the game's reader (Field_InitCharacterFromEventEntry 0x3F9464, ORAS_ENGINE.md 6): word 0 the id,
+// 6 & 0xFF the facing it starts with (read). Inferred from Littleroot's and its houses' characters, not read in code:
+// word 2 & 0xFF the movement (0 standing; 47 with a range over 1 x 1 in all three seen; 53 seen with a range of 1 x 1,
+// meaning not established), words 12-13 that range; word 5 a flag, meaning not established (2000 is the most common
+// value; the mother of house 225, present in the owner's save, has it).
 struct ZoneFurniture  { std::array<uint16_t, 10> Raw{}; int TileX() const { return Raw[4]; } int TileZ() const { return Raw[5]; } };
 struct ZoneCharacter  { std::array<uint16_t, 24> Raw{}; int Model() const { return Raw[1]; } int TileX() const { return Raw[20]; } int TileZ() const { return Raw[21]; } };
 // warps, seen on zones 6, 7, 8, 24, 30 (house doors and the edge warps joining overworld matrices): word 1 the destination
