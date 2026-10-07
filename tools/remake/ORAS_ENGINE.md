@@ -434,8 +434,9 @@ these are graphics, layout and import stubs, **read** only where an agent read t
   the mark. Every call to them ended its caller, so code after it was missing from 1,753 functions: the natives
   decompiled as one line and 18 had been guessed as "no-return stubs" (renamed). **Checked**: after the fix
   `TalkMdlMsg_Seq` decompiles whole (its call to 0x102C1B74 shown); the function count is unchanged (47,557); 26
-  functions stay no-return, none with a return. `ApplyNames` now makes a function where a named address has none (152
-  natives reached only through their table), so all 3,289 names apply.
+  functions stay no-return, none with a return. `ApplyNames` now makes a function where a named address has none (177
+  named addresses, natives reached only through their table), so all 3,289 names apply. **Checked** on a fresh
+  `session_setup.sh`: 47,737 functions, the 47,557 of the analysis and 180 more, none lost.
 - **The message command is `TalkMdlMsg_Seq`** (DllField 0x10296260, hash 0x9ADF1616, 324 scripts), **checked** (run
   `actE2`, recipe below): reading the Littleroot sign shows "Maison d'Andene", and the trace holds the native (running
   0x747260, DllField at 0x6F3000) and `Field_PopupIcon_Show` (0x102C1B74, running 0x772B74), which the idle trace does
