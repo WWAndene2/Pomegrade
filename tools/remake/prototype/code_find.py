@@ -2,7 +2,7 @@
 """Where ORAS's code uses a value or a string: the leads to the code that sizes the overworld piece buffer
 (ORAS_LITTLEROOT.md 10, item 5: about 1 MiB a piece, measured by phone runs p1 and p2).
 
-  code_find.py <code.bin> [--imm VALUE]... [--string TEXT]... [--at ADDRESS]... [--context N]
+  code_find.py <code.bin> [--imm VALUE]... [--string TEXT]... [--at ADDRESS]... [--calls ADDRESS]... [--context N]
 
 code.bin: `remake_tool oras-code` (the ExeFS .code, decompressed, loaded at 0x100000), or a CRO module from the RomFS
 (`oras-extract <oras.3ds> DllField.cro out`, with --base 0: its relocations are not applied, so pool words naming its own
@@ -12,6 +12,9 @@ instructions; ORAS's code is ARM, its data pools read as junk instructions and a
   --string   every place the text lies, and every literal pool word holding its address (the code that loads it)
   --at       the instructions around an address (to read a hit's function)
   --word     every aligned word holding a value, with its neighbours (data tables)
+  --calls    every BL/BLX/B to an address (its callers and tail calls), each with N instructions before it: the arguments a
+             caller sets up (the linked modules too: linked/modules.bin with --base 0x10000000; a call through an import
+             stub or a function pointer is not seen: ghidra/CallGraph.java follows the stubs)
 Each hit is printed with N instructions of context before and after (default 8). Needs capstone (pip install capstone).
 """
 import argparse
@@ -36,6 +39,8 @@ def main():
                     help="every aligned word holding the value (data, such as a table of heap sizes), with the 8 words around it")
     ap.add_argument("--bytes", action="append", default=[],
                     help="every place a byte string lies, at any alignment (hex, e.g. 7F01 for a u16 383), with the bytes around it")
+    ap.add_argument("--calls", action="append", default=[], type=lambda v: int(v, 0),
+                    help="every direct call or branch (BL, BLX immediate, B) to the address, with the instructions before it")
     ap.add_argument("--context", type=int, default=8)
     ap.add_argument("--max", type=int, default=60, help="hits printed per value")
     ap.add_argument("--base", type=lambda v: int(v, 0), default=BASE, help="the file's load address (0 for a CRO module)")
@@ -132,6 +137,27 @@ def main():
         print(f"== bytes {h}: {len(places)} places")
         for p in places[:a.max]:
             print(f"   0x{BASE + p:X}: " + code[max(0, p - 16):p + 16].hex(" "))
+
+    for target in a.calls:
+        sites = []
+        for off in range(0, len(code) - 3, 4):
+            w = struct.unpack_from("<I", code, off)[0]
+            if (w >> 28) == 0xF:                      # BLX immediate: H bit 24 gives a halfword, Thumb target
+                if (w & 0xFE000000) == 0xFA000000:
+                    disp = (w & 0xFFFFFF) - (0x1000000 if w & 0x800000 else 0)
+                    if BASE + off + 8 + disp * 4 + ((w >> 23) & 2) == target:
+                        sites.append((BASE + off, "blx"))
+            elif (w & 0x0E000000) == 0x0A000000:      # B / BL, any condition
+                disp = (w & 0xFFFFFF) - (0x1000000 if w & 0x800000 else 0)
+                if BASE + off + 8 + disp * 4 == target:
+                    sites.append((BASE + off, "bl" if w & 0x01000000 else "b"))
+        print(f"== calls to 0x{target:X}: {len(sites)} sites")
+        for addr, kind in sites[:a.max]:
+            start = max(BASE, addr - 4 * a.context)
+            print(f"-- {kind} at 0x{addr:X}")
+            for off in range(start, addr + 4, 4):
+                ins = next(md.disasm(code[off - BASE:off - BASE + 4], off), None)
+                print(f"{'>' if off == addr else ' '} 0x{off:X}: {ins.mnemonic + ' ' + ins.op_str if ins else '(data) %08X' % word(off)}")
 
     for addr in a.at:
         show(addr, "requested")

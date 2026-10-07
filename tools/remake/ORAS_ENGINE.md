@@ -18,35 +18,72 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 
 | Objective | State |
 |---|---|
-| 1 Decomposition | the whole code (`.code` + 145 modules, 47,602 functions) in one Ghidra program, checked against the game's own load; **2,510 functions named** by what they do (and 779 natives, section 6), from coverage traces (section 6): entering a zone, a door warp, a sign's script and message window, the start menu. **the script commands**: all 384 natives the zone scripts call named from the game's tables, the message command `TalkMdlMsg_Seq` checked (section 6). **Next**, in this order: a trace talking to a character; the encounter selection (`.code`, the EN container member 537 reader near 0x10E9DC; the 3,425 encounter functions are traced but not named); trainers; saving; the region map (needs touch input in retro_host). Then objectives 3 and 6 |
+| 1 Decomposition | the whole code (`.code` + 145 modules) in one Ghidra program, checked against the game's own load; Ghidra's wrong no-return marks cleared (`FixNoReturn.java`: code was missing from 1,753 functions); **3,299 functions named** (`ghidra/function_names.tsv`, read or guess), from coverage traces (section 6: entering a zone, a door warp, a sign, the start menu) and from the game's own tables: **every script native** (799, all 16,321 native calls of the 1,072 zone scripts resolved), the script machine (load, run, wait, natives by mask), the message command `TalkMdlMsg_Seq` **checked live** with its first argument (section 6); the names **reviewed** on 7 October (99 changed: section 6), 1,113 still marked guess, to be read before they are relied on. **Next**, in this order: a trace talking to a character (`TalkMdlMsg_Seq` with a model; Littleroot's townsfolk say lines 6-13); the encounter selection (`.code`, the EN container member 537 reader near 0x10E9DC; the 3,425 encounter functions are traced but not named); trainers; saving; the region map (needs touch input in retro_host). Then objectives 3 and 6 |
 | 2 Tables and assets | zones (section 2), map pieces (3), the boot memory map (4.2), the 299 archives tied to their code where opened by a constant (5); not yet: the 210 archives opened by computed numbers, the asset formats beyond `tools/remake/src`'s readers |
 | 4 Limits | **done for building a world** (section 4.6): all 927 fatal checks listed, the field's and the `.code`'s classified; lifted and checked headless: zones 536 -> 1024 (2), application memory 64 -> 124 MB (New 3DS mode) and the linear heap 43.3 -> 88 MB, the normal heap and heap 4, heap 0xC 2 -> 8 MB, heap 0x17 28.4 -> 64 MB (4.4), characters past 26 (4.5); refused at build time where they cannot be raised: a zone's events file under 0xC84 bytes (4.5), a piece model's 51 textures (4.6), the 178 MB mode (4.4); **found, not lifted yet**: a zone script's native mask table holds 536 entries (section 6: zones from 536 read past it); left with their reason: the 8-deep load queue per object, collision objects per cell, the 174-entry Secret Base table (4.6) |
 | 5 Patches | `remake_tool oras-engine` writes them all (`exheader.bin`, `exefs/code.ips`); **checked on the phone (owner, 7 October): mod `all6`** (the whole of Sinnoh as r12, the title, the save in Twinleaf, and `engine --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 --characters 64`, Remake mod run 147) with the APK of `main` at PR #33: "everything works fine" |
 | 3, 6, 7 | not started on this basis: Sinnoh's region tools (`oras-region`, `ORAS_LITTLEROOT.md`) still borrow Hoenn's zones; next is building Sinnoh's zones from 538 up with the tools above |
 | After 6: Platinum's music | added by the owner (7 October), after building Sinnoh's map: a tool that moves Platinum's music into Omega Ruby. Not started; nothing in `tools/remake` reads either game's sound yet. Platinum keeps sequences played by the DS sound hardware (SDAT: SSEQ with SBNK/SWAR instruments), Omega Ruby recorded streams in its sound archive (BCSTM, inferred from the format's common use, not checked on this game): the tool must extract, render, encode and replace. First step: how Omega Ruby stores and picks its songs (`Snd_ChangeZoneBgm`, section 6) |
 
+**How to work** (the owner's rules, 7 October, after a session lost hours to slow and failed runs; they hold for every run):
+1. **Copy before you invent.** Before any run, open the last run that did the same kind of thing (`runs/<name>/script.txt`,
+   `log.txt`, this file's recipes) and reuse it exactly; change one thing at a time.
+2. **One heavy job at a time.** Never run the emulator, Ghidra or a core build together, nor several in one shell command.
+   Check `nproc` / `top` first.
+3. **Measure in the first 5 minutes.** Read the frame counter after 3-5 minutes; under 4 frames/s, stop and find out why.
+   (Measured on 7 October, alone on 4 cores, averaged over whole runs: 2.3 to 4.2 frames/s, below this bound at times;
+   "Run the game" below. The bound is the owner's to adjust.)
+4. **Budget per attempt: 10 minutes, at most 2 failed attempts** on the same thing; then stop and write to the owner what
+   failed, the evidence and one proposal.
+5. **Static first, live to confirm**: read the code to find the answer, then run the game once to confirm it.
+6. **Short reports**: what is checked (with the evidence), what is a guess, the next step.
+7. **Every result goes to its home the same day**: names in `ghidra/function_names.tsv` (read|guess), the finding here, a
+   tooling fix in the script that failed. Commit, push and merge it; never leave a result only in the scratch folder.
+8. **Nothing in the repository from a run**: work folders and dumps stay in the scratch space; check `git status` before
+   each commit.
+
 **Setting up a session** (`tools/remake/headless/session_setup.sh <work dir>`): fetches the dumps from Drive into a work
 folder outside the repository (ids in `POMEGRADE_ORAS_DRIVE_ID`, `POMEGRADE_PLATINUM_DRIVE_ID`, `POMEGRADE_SAVE_DRIVE_ID`:
 the files of the owner's Drive folder "Pokemon Project - Radiant Platinum"; the Drive connector may not list recent
 uploads, so ask the owner for share links), builds `remake_tool` and the code image, builds Azahar's libretro core with the
-headless patches (about 30 min on 4 cores, once) and the Ghidra program (9 min, checked on a fresh folder: 47,557 functions
-in one pass, against 47,602 when the modules were added to an analysed `.code`; DllField's piece handler decompiles as in
-section 3). Then:
+headless patches (about 30 min on 4 cores, once) and the Ghidra program (about 17 min: the analysis, then `FixNoReturn` and
+`ApplyNames` in a pass of their own; checked on a fresh folder on 7 October: 47,737 functions, the analysis's 47,557 and 180
+made by `ApplyNames` where a named address had none; it also writes `functions.tsv`, `edges.tsv` and `noreturn.tsv`). Run
+the steps one at a time (`session_setup.sh <work> core`, then `ghidra`): together they slow each other (rule 2). Then:
 
-- **Run the game** (`tools/remake/headless/run_local.sh <work> <name> <mod|-> "<zone x z>" "<script>"`): 2 min to the field,
-  6 for a walk; the owner's save stands in Littleroot (zone 6, tile 104.5, 170.5); move it with the zone and tile. A zone's
+- **Run the game** (`tools/remake/headless/run_local.sh <work> <name> <mod|-> "<zone x z>" "<script>" [seconds]`): measured
+  on 7 October over whole runs, alone on 4 cores: 2.3 to 4.2 frames/s under the interpreter (`POMEGRADE_INTERPRETER=1`,
+  needed for `trace`; runs `actE1`, `actE2`), 2.8 with the JIT (`msgdump`): the JIT is no faster here, the software renderer
+  likely dominates (inferred); so a run to the field and one action takes 6 to 13 minutes. The field comes up between frame
+  886 and 1,361 (it varies between runs: wait 500 frames after `mash a 15` before acting, as the sign recipe in section 6
+  does). The owner's save stands in Littleroot (zone 6, tile 104.5, 170.5); move it with the zone and tile. A zone's
   characters are placed when the player **enters** it: to test them, start next door (zone 23, 100.5 150.5) and walk south.
-  `shot NAME` saves the screen (the host's own "field up" detection is wrong under some mods: look at the picture).
-  `report` lists every thread; one in the fatal-error loop shows pc 0x11EF50 / 0x11ABxx / 0x110Axx, `0011EF60` in its stack
-  code addresses, and its registers and raw stack, from which the frames' saved registers give the object that failed.
+  `shot NAME` saves the screen (the host's own "field up" detection is wrong under some mods: look at the picture). `report`
+  lists every thread; one in the fatal-error loop shows pc 0x11EF50 / 0x11ABxx / 0x110Axx, `0011EF60` in its stack code
+  addresses, and its registers and raw stack, from which the frames' saved registers give the object that failed.
+- **Show that a function runs**: `trace on` / `trace off FILE` around the action (interpreter), then look for the
+  function's running address in the file (a DllField function at its linked address - 0x10242000 + 0x6F3000) or map the
+  whole trace with `prototype/coverage_map.py`. Not GDB: `gdb-multiarch` is not installed by `session_setup.sh` and the stub
+  dropped the connection in both tries of 7 October.
+- **Read a value while it runs**: script commands `mem`, `watch` (a word's changes frame by frame), `dump ADDRESS LENGTH
+  FILE`. A script's state: `dump 0x08000000 0x6000000 heap.bin` while the thing is on screen, then
+  `prototype/amx_dump.py heap.bin --script <size>` lists the loaded scripts, their contexts (native mask, wait) and the call
+  frames left in their stack (how `TalkMdlMsg_Seq`'s first argument, 16, was read).
 - **Read code**: `analyzeHeadless <work>/ghidra_proj oras -process code.bin -noanalysis -readOnly -scriptPath
-  tools/remake/ghidra -postScript Export.java <out> <address>...` decompiles the functions holding those addresses (a module's
-  address is its linked one: `linked/modules.tsv` gives each base, DllField 0x10242000; in the running game DllField sits
-  at 0x6F3000). `prototype/code_find.py <work>/dumps/code.bin --at|--imm|--word ...` finds an instruction or constant;
-  `prototype/cro_dis.py <module.cro> dis <offset> <n>` reads a module with its imports resolved.
-- **Read memory while it runs**: script commands `mem`, `watch` (a word's changes frame by frame, cheap and reliable),
-  `dump` (raw memory for Ghidra). The GDB stub (`gdb 24689`, `run_local.sh ... gdb`) can stop on any instruction but is
-  flaky in this host (section notes in `run_local.sh`): prefer `watch` and static reading when they suffice.
+  tools/remake/ghidra -postScript Export.java <out> <address>...` decompiles the functions holding those addresses (a
+  module's address is its linked one: `linked/modules.tsv` gives each base, DllField 0x10242000; in the running game
+  DllField sits at 0x6F3000). `prototype/code_find.py <work>/dumps/code.bin --at|--imm|--word|--calls ...` finds an
+  instruction, a constant or every call to an address (`--base 0x10000000` on `linked/modules.bin` for the modules);
+  `prototype/cro_dis.py <module.cro> dis <offset> <n>` reads a module with its imports resolved (`symbols` on `static.crs`
+  and a module lists which module function each `.code` import stub reaches).
+- **Read a script**: `remake_tool oras-script <oras.3ds> <zone> [init]` disassembles it; `prototype/amx_natives.py tables
+  <code.bin> <linked/modules.bin> natives.tsv`, then `... | amx_natives.py names natives.tsv` puts each native's name beside
+  its hash, and `amx_natives.py check` proves every zone script's natives are registered (section 6). A zone's text:
+  `remake_tool oras-text <oras.3ds> a/0/8/2 <member>` (French; `a/0/7/9`-`a/0/8/6` one archive per language).
+- **Name functions**: read the code (Export.java), then write `address, name, role, read|guess` in
+  `ghidra/function_names.tsv`; a guess is a lead, read it before relying on it. `prototype/name_review.py` lists the names to
+  read again (`grew` after a change to the program, `suspects` from the call graph, `placeholders`) and `summary` makes a
+  decompilation quick to read; the method and the 7 October review are in section 6.
 
 **How a limit is lifted, the way every one above was**: find the fatal call (the census, or the stack of a frozen run),
 read its function, find where the bound and the matching allocation live (an immediate, a literal-pool word, a caller's
@@ -99,9 +136,13 @@ native tables. The live check failed for reasons of method, not of the engine:
   0x100000); imported raw as `ARM:LE:32:v6` at 0x100000 and auto-analysed (256 s on 4 cores): **16,402 functions, 3.9 MB of
   code**. `ghidra/Export.java` lists them (entry, size, callers, callees) and decompiles given addresses:
   `analyzeHeadless <project> oras -process code.bin -noanalysis -scriptPath tools/remake/ghidra -postScript Export.java <out dir> <address>...`
-- **The running game**: the headless core (`tools/remake/headless`) with the GDB stub; script command `gdb 24689`, then
-  `gdb-multiarch` with `set architecture arm`, `set osabi none` (the stub's "3DS" OS type crashes gdb), `target remote :24689`.
-  Breakpoints stop the emulated CPU; the core runs a scripted walk meanwhile.
+- **The running game**: the headless core (`tools/remake/headless`): code coverage (`trace`), memory (`mem`, `watch`, `dump`,
+  `prototype/amx_dump.py` for scripts) and screenshots, section 0. It also has a GDB stub (script command `gdb 24689`, then
+  `gdb-multiarch` with `set architecture arm`, `set osabi none`, `target remote :24689`), but `gdb-multiarch` is not
+  installed by `session_setup.sh` and the stub dropped the connection in both tries of 7 October: use the trace and dumps.
+- **Ghidra's wrong no-return marks**: the analysis marks some functions that return as no-return, and every call to them ends
+  its caller (8 such functions on 7 October, code missing from 1,753 functions). `ghidra/FixNoReturn.java` clears them in the
+  setup; `ghidra/CallGraph.java` lists the marks left (`noreturn.tsv`: 26, none returning) and every call (`edges.tsv`).
 - **All the code in one program**: `prototype/cro_link.py <out> static.crs <all .cro>` links the 145 modules at once from 0x10000000 (8.9 MB, to 0x108D9000), their imports resolved to the `.code` through `static.crs`'s absolute segments (code 0x100000, rodata 0x57A000, data 0x5EC000) and to each other; 0 unresolved. **Checked** against the game's own load of DllField (memory dump on the field, script command `dump`): every code word matches but the 340 that call other modules (placed elsewhere by design); 101 data words differ (written at run time). `ghidra/AddModules.java` adds the image to the `.code`'s program, names the exports and disassembles from them before auto-analysis.
 - **The whole program analysed** (7 October, 417 s): the `.code` and the 145 linked modules, **47,602 functions** (18,373 in the `.code`, 4.05 MB; 29,229 in the modules, 3.87 MB). **Checked**: DllField's piece handler (offset 0x1E8CC, linked at 0x102608CC) decompiles with its calls into the `.code` resolved (the file count `< 7` test, the fatal call 0x11EF4C), as read by hand in `ORAS_LITTLEROOT.md` 0.
 - **Code modules**: 145 CRO files in the RomFS (655 files in all), loaded above the `.code` (DllField at 0x6F3000 on the field);
@@ -465,7 +506,9 @@ these are graphics, layout and import stubs, **read** only where an agent read t
   unnamed rather than wrongly named, and the 59 player-state and move-command handlers (`Field_PlayerStateHandler_`,
   `Field_PlayerStateCheck_`, `Event_MoveCmd_`) kept, each setting the state code its role says. 99 names changed in this
   review; each renamed role says what it was guessed before. The 1,113 names still marked **guess** pass the neighbour check
-  of pass 2, but their code was not read in this review: a guess is a lead, to be read before it is relied on.
+  of pass 2, but their code was not read in this review: a guess is a lead, to be read before it is relied on. To review
+  again: `prototype/name_review.py` (`grew`, `suspects`, `placeholders`, then `summary` of the Export.java decompilation);
+  on the names of 7 October `suspects` still lists 88, all read that day and kept.
 - **The message command is `TalkMdlMsg_Seq`** (DllField 0x10296260, hash 0x9ADF1616, 324 scripts), **checked** (run `actE2`,
   recipe below): reading the Littleroot sign shows "Maison d'Andene", and the trace holds the native (running 0x747260,
   DllField at 0x6F3000) and `Msg_Balloon_Show` (0x102C1B74, running 0x772B74; guessed `Field_PopupIcon_Show` before), which
@@ -479,11 +522,11 @@ these are graphics, layout and import stubs, **read** only where an agent read t
   (role unknown); then 8 floats and 6 flags; the request goes to 0x102C1B74, a slot of 6 (a speech balloon: read, it opens
   the message window). Story texts: `a/0/7/9`-`a/0/8/6`, 637 members each, one archive per language (French `a/0/8/2`). The
   other text natives: `MsgLoad`, `MsgIsLoaded`, `MsgRelease`, `MsgSwap` (131 scripts), `MsgWinCloseNo`, `YesNoWin_Seq`,
-  `ListMenuInit_Seq`/`ListMenuStart_Seq`, `WordSet*` (text variables).
-  The recipe (`run_local.sh <work> actE2 - "6 103.5 172.5" "<script>" 420`, `POMEGRADE_INTERPRETER=1`, 6 min alone on 4
-  cores): `mash a 15; wait 500; trace on; wait 120; trace off idle.txt; hold up 4; wait 30; trace on; press a; wait 90;
-  shot sign1; press a; wait 60; press a; wait 60; trace off sign.txt; shot sign2`. The field's load time varies between
-  runs (DllField loaded at frame 886, 1,100 and 1,361): with `wait 200` the field came up only during the sign trace.
+  `ListMenuInit_Seq`/`ListMenuStart_Seq`, `WordSet*` (text variables). The recipe (`run_local.sh <work> actE2 - "6 103.5
+  172.5" "<script>" 420`, `POMEGRADE_INTERPRETER=1`, 6 to 13 min alone on 4 cores): `mash a 15; wait 500; trace on; wait
+  120; trace off idle.txt; hold up 4; wait 30; trace on; press a; wait 90; shot sign1; press a; wait 60; press a; wait 60;
+  trace off sign.txt; shot sign2`. The field's load time varies between runs (DllField loaded at frame 886, 1,100 and
+  1,361): with `wait 200` the field came up only during the sign trace.
 - **The start menu**: `Field_CreateProcessByRequest` (0x3D7DD0, guess: one factory creating each field sub-screen by request
   id), `Field_CreateSimpleProcess` (0x52AF94, read), `Menu_LoadLayoutResources` (0x330A4C, read),
   `Menu_UpdateItemPanes` (0x102C0CDC, read: six entries shown by their enable bits), `Menu_CreateItemList` (0x103102F0,
