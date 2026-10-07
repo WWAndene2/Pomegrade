@@ -421,20 +421,33 @@ these are graphics, layout and import stubs, **read** only where an agent read t
   stay no-return, none with a return. `ApplyNames` now makes a function where a named address has none (177 named addresses,
   natives reached only through their table), so all 3,289 names apply. **Checked** on a fresh `session_setup.sh`: 47,737
   functions, the 47,557 of the analysis and 180 more, none lost.
+- **The names reviewed** (7 October, after Ghidra's no-return fix): the earlier names were given from traces and from code
+  Ghidra had cut short, and several were wrong. Three passes over `function_names.tsv`: (1) every named function whose code
+  grew once read whole (600; 577 natives named from the game's tables, unaffected): the other 24 read again, 12 renamed (and
+  `Zone_LoadZoneScript`, which they led to); (2) every **guess** whose subsystem prefix matches none of its named callers
+  and callees (105, from Ghidra's call graph, `Util_`, `Sys_` and `Mem_` left out as used everywhere): each read, 19 renamed
+  where the code contradicts the name (four `Warp_LargeUpdate_*` that only draw models, `Field_PopupIcon_Show` that opens
+  the message balloon...), the rest kept where the code fits; (3) every placeholder naming a subsystem by the trace it ran
+  in and an address (`Warp_LargeUpdate_`, `Warp_CheckedStep_`, `Warp_AllocInit_`, `Res_ReleaseHandles_`,
+  `Gfx_ProcessEntries_`, `Util_Accessor_`..., 137): 72 named from their code, 6 whose role could not be determined left
+  unnamed rather than wrongly named, and the 59 player-state and move-command handlers (`Field_PlayerStateHandler_`,
+  `Field_PlayerStateCheck_`, `Event_MoveCmd_`) kept, each setting the state code its role says. 99 names changed in this
+  review; each renamed role says what it was guessed before. The 1,113 names still marked **guess** pass the neighbour check
+  of pass 2, but their code was not read in this review: a guess is a lead, to be read before it is relied on.
 - **The message command is `TalkMdlMsg_Seq`** (DllField 0x10296260, hash 0x9ADF1616, 324 scripts), **checked** (run `actE2`,
   recipe below): reading the Littleroot sign shows "Maison d'Andene", and the trace holds the native (running 0x747260,
-  DllField at 0x6F3000) and `Field_PopupIcon_Show` (0x102C1B74, running 0x772B74), which the idle trace does not. Each
-  script wraps it in a 19-parameter function (zone 6: 0xAC8) behind smaller ones (0x130: message, model, ...). **params[1]
-  is the line of the zone's text file**, **checked** (run `msgdump`: the sign's recipe below with `wait 500`, then `dump
-  0x08000000 0x6000000` while "Maison d'Andene" is on screen): in the running copy of Littleroot's script (0x8D73898, data +
-  0x11B8) the call frame is 19 cells whose first is **16**, the line "Maison [VAR 1408]" of Littleroot's text (`a/0/8/2`
-  member 66, French), and whose third is -1 (no model: a sign). Littleroot's script also passes 6 to 13, the lines its
-  townsfolk say (line 8 "Les hautes herbes qui bordent cette route…"). Read: params[2] & 0xFF; params[3] sign-extended, a
-  model id (-1 none: checked on the sign); params[4] a u16 stored in the request at +0x1C (role unknown); then 8 floats and
-  6 flags; the request goes to 0x102C1B74, a slot of 6 (a speech balloon: inferred). Story texts: `a/0/7/9`-`a/0/8/6`, 637
-  members each, one archive per language (French `a/0/8/2`). The other text natives: `MsgLoad`, `MsgIsLoaded`, `MsgRelease`,
-  `MsgSwap` (131 scripts), `MsgWinCloseNo`, `YesNoWin_Seq`, `ListMenuInit_Seq`/`ListMenuStart_Seq`, `WordSet*` (text
-  variables).
+  DllField at 0x6F3000) and `Msg_Balloon_Show` (0x102C1B74, running 0x772B74; guessed `Field_PopupIcon_Show` before), which
+  the idle trace does not. Each script wraps it in a 19-parameter function (zone 6: 0xAC8) behind smaller ones (0x130:
+  message, model, ...). **params[1] is the line of the zone's text file**, **checked** (run `msgdump`: the sign's recipe
+  below with `wait 500`, then `dump 0x08000000 0x6000000` while "Maison d'Andene" is on screen): in the running copy of
+  Littleroot's script (0x8D73898, data + 0x11B8) the call frame is 19 cells whose first is **16**, the line "Maison [VAR
+  1408]" of Littleroot's text (`a/0/8/2` member 66, French), and whose third is -1 (no model: a sign). Littleroot's script
+  also passes 6 to 13, the lines its townsfolk say (line 8 "Les hautes herbes qui bordent cette route…"). Read: params[2] &
+  0xFF; params[3] sign-extended, a model id (-1 none: checked on the sign); params[4] a u16 stored in the request at +0x1C
+  (role unknown); then 8 floats and 6 flags; the request goes to 0x102C1B74, a slot of 6 (a speech balloon: read, it opens
+  the message window). Story texts: `a/0/7/9`-`a/0/8/6`, 637 members each, one archive per language (French `a/0/8/2`). The
+  other text natives: `MsgLoad`, `MsgIsLoaded`, `MsgRelease`, `MsgSwap` (131 scripts), `MsgWinCloseNo`, `YesNoWin_Seq`,
+  `ListMenuInit_Seq`/`ListMenuStart_Seq`, `WordSet*` (text variables).
   The recipe (`run_local.sh <work> actE2 - "6 103.5 172.5" "<script>" 420`, `POMEGRADE_INTERPRETER=1`, 6 min alone on 4
   cores): `mash a 15; wait 500; trace on; wait 120; trace off idle.txt; hold up 4; wait 30; trace on; press a; wait 90;
   shot sign1; press a; wait 60; press a; wait 60; trace off sign.txt; shot sign2`. The field's load time varies between
