@@ -44,12 +44,13 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 
 **Setting up a session** (`tools/remake/headless/session_setup.sh <work dir>`): fetches the dumps from Drive into a work
 folder outside the repository (ids in `POMEGRADE_ORAS_DRIVE_ID`, `POMEGRADE_PLATINUM_DRIVE_ID`, `POMEGRADE_SAVE_DRIVE_ID`:
-the files of the owner's Drive folder "Pokemon Project - Radiant Platinum"; the Drive connector may not list recent
-uploads, so ask the owner for share links), builds `remake_tool` and the code image, builds Azahar's libretro core with the
-headless patches (about 30 min on 4 cores, once) and the Ghidra program (about 17 min: the analysis, then `FixNoReturn` and
-`ApplyNames` in a pass of their own; checked on a fresh folder on 7 October: 47,737 functions, the analysis's 47,557 and 180
-made by `ApplyNames` where a named address had none; it also writes `functions.tsv`, `edges.tsv` and `noreturn.tsv`). Run
-the steps one at a time (`session_setup.sh <work> core`, then `ghidra`): together they slow each other (rule 2). Then:
+the files of the owner's Drive folder "Pokemon Project - Radiant Platinum"; the Drive connector may not list recent uploads,
+so ask the owner for share links), builds `remake_tool` and the code image, builds Azahar's libretro core with the headless
+patches (about 30 min on 4 cores, once) and the Ghidra program (15 min on 7 October: the analysis, then `FixNoReturn` and
+`ApplyNames` in a pass of their own; checked on a fresh folder on 7 October: 47,750 functions, the analysis's 47,557 and 193
+more, 190 made by `ApplyNames` where a named address had none; it also writes `functions.tsv`, `edges.tsv` and
+`noreturn.tsv`). Run the steps one at a time (`session_setup.sh <work> core`, then `ghidra`): together they slow each other
+(rule 2). Then:
 
 - **Run the game** (`tools/remake/headless/run_local.sh <work> <name> <mod|-> "<zone x z>" "<script>" [seconds]`): measured
   on 7 October over whole runs, alone on 4 cores: 2.3 to 4.2 frames/s under the interpreter (`POMEGRADE_INTERPRETER=1`,
@@ -460,8 +461,8 @@ these are graphics, layout and import stubs, **read** only where an agent read t
   natives decompiled as one line and 18 had been guessed as "no-return stubs" (renamed). **Checked**: after the fix
   `TalkMdlMsg_Seq` decompiles whole (its call to 0x102C1B74 shown); the function count is unchanged (47,557); 26 functions
   stay no-return, none with a return. `ApplyNames` now makes a function where a named address has none (177 named addresses,
-  natives reached only through their table), so all 3,289 names apply. **Checked** on a fresh `session_setup.sh`: 47,737
-  functions, the 47,557 of the analysis and 180 more, none lost.
+  natives reached only through their table), so all the names apply (3,299 at the end of 7 October). **Checked** on a fresh
+  `session_setup.sh`: 47,750 functions, the 47,557 of the analysis and 193 more (190 at named addresses), none lost.
 - **The names reviewed** (7 October, after Ghidra's no-return fix): the earlier names were given from traces and from code
   Ghidra had cut short, and several were wrong. Three passes over `function_names.tsv`: (1) every named function whose code
   grew once read whole (600; 577 natives named from the game's tables, unaffected): the other 24 read again, 12 renamed (and

@@ -15,7 +15,7 @@
 #         dump, GDB stub), built from a copy of azahar/ (about 30 min on 4 cores, once), and retro_host
 # ghidra  Ghidra 11.4.2 and the whole game's code analysed in one program: the .code and the 145 code modules linked by
 #         prototype/cro_link.py, Ghidra's wrong no-return marks cleared (FixNoReturn.java), the names of
-#         ghidra/function_names.tsv applied (about 17 min) -> ghidra_proj/, linked/, functions.tsv, edges.tsv, noreturn.tsv
+#         ghidra/function_names.tsv applied (15 min) -> ghidra_proj/, linked/, functions.tsv, edges.tsv, noreturn.tsv
 # all     the four, in that order (the default)
 set -euo pipefail
 repo=$(cd "$(dirname "$0")/../../.." && pwd)
