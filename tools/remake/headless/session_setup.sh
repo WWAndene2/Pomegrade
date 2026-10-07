@@ -69,7 +69,7 @@ ghidra)
     ./ghidra_11.4.2_PUBLIC/support/analyzeHeadless "$work/ghidra_proj" oras -import dumps/code.bin -loader BinaryLoader \
         -loader-baseAddr 0x100000 -processor ARM:LE:32:v6 -max-cpu 4 -scriptPath "$repo/tools/remake/ghidra" \
         -preScript AddModules.java "$work/linked/modules.bin" "$work/linked/modules.tsv" \
-        -postScript ApplyNames.java "$repo/tools/remake/ghidra/function_names.tsv" > ghidra_setup.log 2>&1
+        -postScript FixNoReturn.java -postScript ApplyNames.java "$repo/tools/remake/ghidra/function_names.tsv" > ghidra_setup.log 2>&1
     # the function list the coverage tools read (coverage_map.py), with the names applied
     ./ghidra_11.4.2_PUBLIC/support/analyzeHeadless "$work/ghidra_proj" oras -process code.bin -noanalysis -readOnly \
         -scriptPath "$repo/tools/remake/ghidra" -postScript Export.java "$work" > /dev/null 2>&1
