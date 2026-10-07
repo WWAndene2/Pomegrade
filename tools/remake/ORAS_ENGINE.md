@@ -18,7 +18,7 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 
 | Objective | State |
 |---|---|
-| 1 Decomposition | the whole code (`.code` + 145 modules) in one Ghidra program, checked against the game's own load; Ghidra's wrong no-return marks cleared (`FixNoReturn.java`: code was missing from 1,753 functions); **3,299 functions named** (`ghidra/function_names.tsv`, read or guess), from coverage traces (section 6: entering a zone, a door warp, a sign, the start menu) and from the game's own tables: **every script native** (799, all 16,321 native calls of the 1,072 zone scripts resolved), the script machine (load, run, wait, natives by mask), the message command `TalkMdlMsg_Seq` **checked live** with its first argument (section 6); the names **reviewed** on 7 October (99 changed: section 6), 1,113 still marked guess, to be read before they are relied on. **Next**, in this order: a trace talking to a character (`TalkMdlMsg_Seq` with a model; Littleroot's townsfolk say lines 6-13); the encounter selection (`.code`, the EN container member 537 reader near 0x10E9DC; the 3,425 encounter functions are traced but not named); trainers; saving; the region map (needs touch input in retro_host). Then objectives 3 and 6 |
+| 1 Decomposition | the whole code (`.code` + 145 modules) in one Ghidra program, checked against the game's own load; Ghidra's wrong no-return marks cleared (`FixNoReturn.java`: code was missing from 1,753 functions); **3,442 functions named** (`ghidra/function_names.tsv`, read or guess), from coverage traces (section 6: entering a zone, a door warp, a sign, the start menu) and from the game's own tables: **every script native** (799, all 16,321 native calls of the 1,072 zone scripts resolved), the script machine (load, run, wait, natives by mask), the message command `TalkMdlMsg_Seq` **checked live** with its first argument (section 6); the names **reviewed** on 7 October (99 changed: section 6), 1,113 still marked guess, to be read before they are relied on. talking to a character **traced and checked** (section 6: 307 functions beyond a sign, all but 10 named); the wild encounter selection **read** (section 6: the step check, the zone's encounter file, its tables; checked on the data). **Next**, in this order: a battle actually started (the encounter run had none: the slot pick `FUN_102dca88` and the battle side are still unread); trainers; saving; the region map (needs touch input in retro_host). Then objectives 3 and 6 |
 | 2 Tables and assets | zones (section 2), map pieces (3), the boot memory map (4.2), the 299 archives tied to their code where opened by a constant (5); not yet: the 210 archives opened by computed numbers, the asset formats beyond `tools/remake/src`'s readers |
 | 4 Limits | **done for building a world** (section 4.6): all 927 fatal checks listed, the field's and the `.code`'s classified; lifted and checked headless: zones 536 -> 1024 (2), application memory 64 -> 124 MB (New 3DS mode) and the linear heap 43.3 -> 88 MB, the normal heap and heap 4, heap 0xC 2 -> 8 MB, heap 0x17 28.4 -> 64 MB (4.4), characters past 26 (4.5); refused at build time where they cannot be raised: a zone's events file under 0xC84 bytes (4.5), a piece model's 51 textures (4.6), the 178 MB mode (4.4); **found, not lifted yet**: a zone script's native mask table holds 536 entries (section 6: zones from 536 read past it); left with their reason: the 8-deep load queue per object, collision objects per cell, the 174-entry Secret Base table (4.6) |
 | 5 Patches | `remake_tool oras-engine` writes them all (`exheader.bin`, `exefs/code.ips`); **checked on the phone (owner, 7 October): mod `all6`** (the whole of Sinnoh as r12, the title, the save in Twinleaf, and `engine --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 --characters 64`, Remake mod run 147) with the APK of `main` at PR #33: "everything works fine" |
@@ -33,9 +33,12 @@ they hold for every run):
    command. Check `nproc` / `top` first.
 3. **Measure in the first 5 minutes.** Read the frame counter after 3-5 min. Under 4 frames/s, stop and find out why;
    never wait 30-60 min hoping it gets better.
-   (Measured on 7 October, averaged over whole runs: the previous session's sign trace `actE1` ran at about 5.6 frames/s
-   (261 s to frame 1,471); the later runs of that day (`actE1` again, `actE2`, `msgdump`), alone on 4 cores, 2.3 to 4.2
-   frames/s: "Run the game" below. The bound is the owner's to adjust.)
+   (Read from the logs of 7 October's runs, alone on 4 cores: at 5 minutes the frame counter stood between 896 and 1,103,
+   about 3.0 to 3.7 frames/s, in every run, the failed ones too; the map loaded between 230 and 348 s, frame 886 to
+   1,361. Averaged over a whole run it reads lower, 1.7 to 3.9 (why is not established): judge a run at 5 minutes, not by
+   that average. The previous session reported 5.6 frames/s for its sign trace (not checked here: its logs are not kept).
+   The two runs that failed, `sign1` and `sign2`, were not slow: the map loaded, but the script's `field` command never
+   saw it and the script waited until the run was stopped; use fixed waits, as the sign recipe in section 6 does.)
 4. **Budget per attempt: 10 minutes, at most 2 failed attempts** on the same thing. After that, stop and write to the owner
    what failed, the evidence, and one proposal. Don't keep running.
 5. **Static first, live to confirm.** Read the code to find the answer, then run the game once to confirm it with a trace.
@@ -56,21 +59,21 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
 `noreturn.tsv`). Run the steps one at a time (`session_setup.sh <work> core`, then `ghidra`): together they slow each other
 (rule 2). Then:
 
-- **Run the game** (`tools/remake/headless/run_local.sh <work> <name> <mod|-> "<zone x z>" "<script>" [seconds]`): measured
-  on 7 October over whole runs, alone on 4 cores: about 5.6 frames/s for the first sign trace (`actE1`, 261 s to frame
-  1,471), 2.3 to 4.2 frames/s for the later ones under the interpreter (`POMEGRADE_INTERPRETER=1`, needed for `trace`; runs
-  `actE1`, `actE2`), 2.8 with the JIT (`msgdump`): the JIT is no faster here, the software renderer likely dominates
-  (inferred); so a run to the field and one action takes 6 to 13 minutes. The field comes up between frame 886 and 1,361 (it
-  varies between runs: wait 500 frames after `mash a 15` before acting, as the sign recipe in section 6 does). The owner's
-  save stands in Littleroot (zone 6, tile 104.5, 170.5); move it with the zone and tile. A zone's characters are placed when
-  the player **enters** it: to test them, start next door (zone 23, 100.5 150.5) and walk south. `shot NAME` saves the
-  screen (the host's own "field up" detection is wrong under some mods: look at the picture). `report` lists every thread;
-  one in the fatal-error loop shows pc 0x11EF50 / 0x11ABxx / 0x110Axx, `0011EF60` in its stack code addresses, and its
-  registers and raw stack, from which the frames' saved registers give the object that failed.
-- **Show that a function runs**: `trace on` / `trace off FILE` around the action (interpreter), then look for the
-  function's running address in the file (a DllField function at its linked address - 0x10242000 + 0x6F3000) or map the
-  whole trace with `prototype/coverage_map.py`. Not GDB: `gdb-multiarch` is not installed by `session_setup.sh` and the stub
-  dropped the connection in both tries of 7 October.
+- **Run the game** (`tools/remake/headless/run_local.sh <work> <name> <mod|-> "<zone x z>" "<script>" [seconds]`): the game
+  runs at about 3.0 to 3.7 frames/s in its first 5 minutes (read from the logs of 7 October, alone on 4 cores; `msgdump`
+  with the JIT at frame 1,086 after 5 minutes, `actE2` under the interpreter at 963), and a run to the map and one action
+  took 6 to 13 minutes (`actE1` 380 s, `msgdump` 513 s, `actE2` 772 s). The field comes up between frame 886 and 1,361 (it
+  varies between runs: wait 500 frames after `mash a 15` before acting, as the sign recipe in section 6 does; the host's
+  `field` command, which waits for the map, never saw it in two runs, `sign1` and `sign2`, which waited until stopped). The
+  owner's save stands in Littleroot (zone 6, tile 104.5, 170.5); move it with the zone and tile. A zone's characters are
+  placed when the player **enters** it: to test them, start next door (zone 23, 100.5 150.5) and walk south. `shot NAME`
+  saves the screen (the host's own "field up" detection is wrong under some mods: look at the picture). `report` lists every
+  thread; one in the fatal-error loop shows pc 0x11EF50 / 0x11ABxx / 0x110Axx, `0011EF60` in its stack code addresses, and
+  its registers and raw stack, from which the frames' saved registers give the object that failed.
+- **Show that a function runs**: `trace on` / `trace off FILE` around the action (needs `POMEGRADE_INTERPRETER=1`), then
+  look for the function's running address in the file (a DllField function at its linked address - 0x10242000 + 0x6F3000) or
+  map the whole trace with `prototype/coverage_map.py`. Not GDB: `gdb-multiarch` is not installed by `session_setup.sh` and
+  the stub dropped the connection in both tries of 7 October.
 - **Read a value while it runs**: script commands `mem`, `watch` (a word's changes frame by frame), `dump ADDRESS LENGTH
   FILE`. A script's state: `dump 0x08000000 0x6000000 heap.bin` while the thing is on screen, then
   `prototype/amx_dump.py heap.bin --script <size>` lists the loaded scripts, their contexts (native mask, wait) and the call
@@ -128,7 +131,9 @@ another (51 characters passed the count check and stopped on the events buffer).
 
 - A zone is three records in `a/0/1/3`: its own member (0-535, a `ZO` container: header copy, events, scripts), a 56-byte
   entry in the **zone header table** (member 536, 30,016 bytes = 536 x 56) and an entry in the **encounter container**
-  (member 537, `EN`, 536 files). **Read.**
+  (member 537, `EN`, 536 files). **Read.** Each `EN` file is byte for byte the zone's own file 3 (checked on all 536 zones,
+  150 not empty); the field reads the zone's copy, member 537 is loaded whole at boot by `GameData_LoadBootTables` (its use
+  there not read).
 - The header loader (`FUN_003d9740`): `if (zone > 0x217) fatal; header = table + zone * 0x38`, the table kept in memory whole;
   its other branch reads a zone file whose decompressed size must stay under a constant (`DAT_003d9884`). **Read; the
   `cmp r5, #536` at 0x3D9774 checked under the debugger** (zone 6 on the field).
@@ -153,10 +158,11 @@ another (51 characters passed the count check and stopped on the events buffer).
   gdb attached after boot) the header loader receives **zone 538**. So the 536-zone limit is lifted by data plus three code
   words. Not yet checked: the phone; save data kept per zone (flags, visited places); the region map; zones far
   above 538.
-- **What raising the zone count takes** (derived first, now built as above): the table member 536 grown by 56 bytes a
-  zone and the size word at 0x112C0C patched to match; the bound 0x217 in the two loaders raised (the immediate `cmp r5,
-  #0x218` at 0x3D9774 and the one in `FUN_003d99b8`); the encounter container (member 537) grown with them (its reader not yet
-  read); the new zones' members appended from 538. Other per-zone tables (flags, names, the region map) still to find.
+- **What raising the zone count takes** (derived first, now built as above): the table member 536 grown by 56 bytes a zone
+  and the size word at 0x112C0C patched to match; the bound 0x217 in the two loaders raised (the immediate `cmp r5, #0x218`
+  at 0x3D9774 and the one in `FUN_003d99b8`); the encounter container (member 537) grown with them (the field reads the
+  zone's own file 3 instead, section 2); the new zones' members appended from 538. Other per-zone tables (flags, names, the
+  region map) still to find.
 
 ## 3. Map pieces
 
@@ -372,12 +378,13 @@ program (`session_setup.sh` does it): the decompilation then reads `Zone_LoadHea
 | opening the menu (X) | Littleroot | 381 | 127 | yes (see below) |
 | entering a house (door at 106.5, 171.5) | save at (106.5, 172.5), walking up | 2,481 | 1,522 beyond walking and zone change (842 `.code`, 652 DllField, 28 DllFieldEventEntranceIn) | yes (see below) |
 | reading a sign ("Maison d'Andene", furniture at 103, 171) | save at (103.5, 172.5), facing up, A | traced (`actE1`) | 199 beyond walking | yes (see below) |
+| talking to a character (the mother in the player's house, zone 225, character 6 at tile 12, 16: "Ça va, Andene ? Tu as l'air fatiguée...") | run `house1`: save at (106.5, 172.5), walk up through the door, then one tile up, five right, up to face her, A | 874 | **307** beyond the sign (232 `.code`, 75 DllField; 169 named before) | 128 more named (10 left: role not readable) |
 | a wild encounter (Route 101's tall grass, x 89-95, z 147-151) | save at (92.5, 149.5), walking left and right | 3,882 | 3,425 (2,043 `.code`, 1,325 DllBattle, 57 DllBackGround) | not yet |
+| walking in tall grass, no battle (run `enc1`, 7 October) | zone 23 at (92.5, 149.5), left and right 34 frames x 8 | 844 beyond idle | 844 (595 `.code`, 237 DllField, 12 DllFieldEventPlayer) | the encounter path: 15 named |
 
-Not recorded yet: talking to a character (the scripted position missed the character twice: place the player against one
-that does not walk, and check the dialog on a screenshot), a trainer battle, saving, the region map (needs the touch
-screen, which retro_host does not drive), a script started on entering a zone. The battle itself under the interpreter
-is very slow (more than 10 minutes for a few turns).
+Not recorded yet: a trainer battle, saving, the region map (needs the touch screen, which retro_host does not drive), a
+script started on entering a zone. The battle itself under the interpreter is very slow (more than 10 minutes for a few
+turns).
 
 **How a zone is entered** (from the 782 named functions; **read** where the code shows it, otherwise **guess**):
 
@@ -405,6 +412,39 @@ is very slow (more than 10 minutes for a few turns).
   `Res_AsyncLoad_Create` (0x36E694, read: a 0x54-byte job with a completion callback).
 
 Most of the 782 are support code (221 `Gfx_`, 178 `Util_`, 49 `Sys_`): the zone-specific ones above are about 140.
+
+**Talking to a character** (7 October, run `house1`; **checked**: the mother's words on screen, `TalkMdlMsg_Seq` (running
+0x747260) and `Msg_Balloon_Show` (0x772B74) in the talk trace and not in the idle one). Beyond what reading a sign runs,
+talking loads and runs the character's own script (`Script_Load`, `Script_LoadFieldScript`,
+`Script_RegisterNativeTablesByMask`, the core, float and console natives), turns the two to face each other
+(`_TalkMdlStartInit`, `TalkMdlSetEyeToEye`, `TalkMdlSetTalkMotion`, `MdlAcmd*`), reads the story state (`FlagGet`,
+`WorkGet`, `GetMonth`, `BadgeGetFlag`) and plays a jingle (`MEPlay` and the sound stream functions). **How to reach a
+character** (two failed runs before this one): a zone's characters are placed when the player enters it, so a save moved
+inside the zone has none (run `talk1`: the tile in front of Littleroot's character 6 was empty); walking in from the next
+zone places them, but a walk by held frames ends where it ends (`talk2` stopped beside the lab). A house is the short way:
+the door recipe enters the zone, and its characters stand a few tiles from the arrival. `remake_tool oras-inspect <oras.3ds>
+zone <n>` lists each character's tile, movement, flag, facing and range (movement 0 stands still), the way the mother was
+chosen. The walk counted about 17 frames a tile (`hold right 90` for five tiles, checked on the screenshot). The talk
+trace's functions: `prototype/coverage_map.py <work> house1 house_talk.txt --minus house_idle.txt`. Its 138 unnamed
+functions were read on 7 October and 128 named: the speech balloons and their windows (`Msg_Balloon_*`, `Msg_Window_*`: six
+slots, the tail pointed at the speaker), the look-at controller that turns the two characters' heads
+(`Gfx_LookAtController_*`, `Field_LookAt_*`, the joint "Spine2"), the music saved around the jingle (`Snd_BgmStack_*`), the
+script's resource slots and work values (`Script_*`), matrix helpers (`Util_Mtx34_*`) and 27 DllField import stubs; the
+meaning of the look-at and music names is a guess, their mechanics read.
+
+**Wild encounter selection** (7 October, run `enc1`, grass walk minus idle; no battle came in eight steps, the
+screenshot shows the player still in the grass). **Read** in the decompilation: on each step
+`Field_WildEncounter_StepCheck` (0x102CD2B4, DllField) takes the tile's kind (`Map_TileAttr_Kind`, bits 24-31: 0x1F,
+0x20, 0x24, 0x25, 0x2B, 0x2D and 0x42 table 0, 0x27 table 1, any other kind no encounter; flag bit 1 set, table 3
+whatever the kind: water, a guess), the zone's encounter file (`Zone_DataContainerFile`, file 3 of the zone loader's
+slot 0), the tile's rate (`Field_WildEncounter_StepRate`), rolls a horde on the file's byte +8 (when the horde table at
++0xC6 is not empty), scales the rate (`Field_WildEncounter_ApplyRateModifiers`) and rolls it against `random(100)`,
+picks the table (`Field_WildEncounter_SelectTable`: kinds 0-8 at +0xE, +0x3E, +0x6E, +0x7A, +0x8E, +0xA2, +0xAE, +0xBA,
++0xC6) and starts the encounter event. The container accessor `BinLinker_GetFile` never ran in the walk: the file is
+fetched through the zone loader. **Checked on the data**: the zone's file 3 equals its member 537 entry for all 536
+zones, and zone 23's table 0 reads 12 slots of species 265, 263 and 261 (Wurmple, Zigzagoon, Poochyena) at level 2, 4
+bytes a slot (species in the low 11 bits, then two level bytes). Not read: the slot pick (`FUN_102dca88`), the meaning
+of tables 1-7 beyond their offsets, the level bytes' order. Next: a run that reaches a battle.
 
 **Door, sign and menu** (the three traces above, 1,728 more functions named on 7 October by six sub-agents over the
 decompilation, two per part where a part was re-run; names that only said "role not determined" were left out; most of

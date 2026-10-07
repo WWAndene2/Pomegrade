@@ -3306,3 +3306,148 @@
 00507BC0	Script_Native_clamp	Pawn (AMX) core native, named by the game's own native table; "clamp" (hash 0xCD8589C5, table 0x5A6394, registered for every script by Script_Load): called by no zone script.	read
 00507C18	Script_Native_random	Pawn (AMX) core native, named by the game's own native table; "random" (hash 0xE5C01CCD, table 0x5A6394, registered for every script by Script_Load): called by no zone script.	read
 0050CD1C	Script_Native_printf	Pawn (AMX) console native, named by the game's own native table; "printf" (hash 0xD6C79CD1, table 0x6179E4, registered for every script by Script_Load): called by no zone script.	read
+# Talking to a character (7 October, run house1): the functions its trace runs beyond a sign's, read from their decompilation; 10 left unnamed (role not readable)
+00100078	Util_Mbtowc	Converts one multibyte character with a fresh state (Util_Mbrtowc with no state); the C library's mbtowc shape.	guess
+002FEC7C	Util_Mbrtowc	Converts the next multibyte character to a wide one through the locale's converter: -2 when incomplete, -1 with error 4 when invalid, else its length; the C library's mbrtowc shape.	guess
+002FED38	Util_LocaleConvertChar	The locale's character converter: its own function when the table at +0x101 says so, else the single-byte table.	read
+002FEDF0	Util_GetLocaleTable	Returns the locale data (Util_GetLocaleState + 4).	read
+002FF7EC	Util_GetLocaleState	Returns a global (the C library's locale state, inferred from its users).	guess
+0011BE64	Snd_FadeOutGroupPlayers	Fades out or stops (Snd_FadeOutOrStopPlayer) every player of sound group N (Snd_GetGroupEntry of +0x528).	read
+0011BE84	Snd_FadeOutPlayersInList	Fades out or stops every player of a linked list.	read
+0011BF04	Snd_GetGroupEntry	Returns entry N (low 24 bits) of a table of 0x5C-byte entries at +0x1C.	read
+0011CB70	Gfx_ColorFade_Start	Starts a colour fade: from a colour (given, or the last one at +0x34), to a colour, over a number of frames (+0xC), counter reset.	guess
+0014BC48	Gfx_ClearWithStoredColor	Clears a render target with the colour stored at +0x34..+0x40 (and the depth at +0x54 when asked).	read
+003048BE	Util_IsNullOrEmpty	1 when the pointer is null or points to 0.	read
+00328DBC	Util_SetByteInTable28	Sets byte N (below 0x1C) of the table at +0x10.	read
+0019C460	Util_Thunk_00146000_19C460	.code stub jumping to 0x146000.	read
+00347D00	Msg_Balloon_RefreshIfAt	Reads the window's anchor position (Msg_Window_GetAnchorPos) and refreshes the window (0x4F32B4), with other parameters when it equals the given point.	guess
+00347E54	Msg_Balloon_PlaceTail	Points a speech balloon's tail at a 3D point: compares it with the window's rectangle (Gfx_ComputePaneRect), hides the tail pane when the point lies inside (style 0x8B has none), then picks the tail's side (Msg_Balloon_ChooseTailSide).	guess
+00348844	Msg_Balloon_ChooseTailSide	Chooses which side of the window a balloon's tail leaves from: computes candidate vectors to the target (0x348540, 0x3485D0, 0x348664, 0x3486F8), keeps the shortest and stores its side (0-3) at +0x69.	read
+00348540	Msg_Balloon_TailVectorY	Candidate tail vector to a target, scaled along the y difference (Msg_Balloon_ChooseTailSide).	read
+003485D0	Msg_Balloon_TailVectorX_3485D0	Candidate tail vector to a target, scaled along the x difference (Msg_Balloon_ChooseTailSide).	read
+00348664	Msg_Balloon_TailVectorX_348664	Candidate tail vector to a target, scaled along the x difference with another constant (Msg_Balloon_ChooseTailSide).	read
+0034D514	Msg_WindowStyle_GetByte1A	Byte +0x1A of window style N (0x34-byte entries).	read
+0034D530	Msg_Window_GetAnchorPos	A window's anchor position: the sum of its two panes' translations (one pane for style 0x8B).	read
+0034D76C	Msg_Window_GetPaneRect	The rectangle of a window's pane (Gfx_ComputePaneRect); none for style 0x8B.	read
+0034DB14	Msg_Window_SetPaneScale	Sets a window pane's +0x40/+0x44 (its scale: inferred from the layout pane format) and marks it dirty; not for style 0x8B.	guess
+0034DBCC	Msg_Window_SetPaneRotation	Sets a window pane's +0x34/+0x38 to a constant and +0x3C to the given value (its rotation: inferred from the layout pane format) and marks it dirty; not for style 0x8B.	guess
+0034E25C	Msg_Window_SetSizeAligned	Sets a window's width and height (+0x28, +0x2C), each rounded up to its style's grid (+0x20, +0x24).	read
+0034E6E4	Msg_Window_SetPosition	Stores a window's position (+0x10) and moves its pane 0x78 there (Gfx_LayoutPane_SetTranslate).	read
+0034E80C	Msg_Window_SetWidthFromText	Sizes a window from a text width plus its style's margins, rounded to its grid, then lays its frame out (Menu_SetItemPanePosition, Msg_Window_LayoutFrame).	guess
+0034E960	Msg_Window_GetRootPosition	Copies the position (+0x28..+0x30) of the object at +0x30.	read
+0036D9DC	Res_AsyncLoad_Enqueue	Queues an asynchronous archive read: finds the archive by key, makes a 0x4C-byte reader job (Res_FileReaderInit) with the request's member, heap and callback, inserts it in the sorted queue (Util_SortedInsert20; fatal loop if it cannot) and counts it on the archive.	read
+0036E348	Res_AsyncLoadJob_Run	Runs one queued read: opens the stream and the archive's index if needed, reads the member (compressed or not) into a new buffer, stores buffer and size, then calls the job's completion once.	read
+0036E4D4	Res_FileReaderDelete_0036E4D4	Destroys a file reader (Res_FileReaderDestroy) and frees it.	read
+00370778	Gfx_AreFadesDone	1 when neither of the two screen fades is running (state 1 or 3); Script_Native_FadeIsEnd's body.	read
+003A1B50	Gfx_ColorFade_StartOnScreens	Starts a colour fade (Gfx_ColorFade_Start) on the top screen (0), the bottom one (1) or both (2).	read
+003A6988	Msg_TextPrinter_Advance	When the printer waits (state 2): shows the next line, or starts a new page, moving each line's pane up and seeking the text (Text_SeekToLine); state 3 or 5.	read
+003A81B0	Util_Mtx34_RotationY	Builds a 3x4 rotation matrix about Y from a sine and cosine.	read
+003A81F4	Util_Mtx34_RotationZ	Builds a 3x4 rotation matrix about Z from a sine and cosine.	read
+003A8238	Util_Mtx34_QuarterTurn_3A8238	Moves column 2 into column 1 and the negated column 1 into column 2 of a 3x4 matrix (a quarter turn).	read
+003A8400	Util_Mtx34_QuarterTurn_3A8400	Swaps two columns of a 3x4 matrix with a sign change (a quarter turn).	read
+003A87D8	Util_Mtx34_MulRotation	Multiplies the 3x3 rotation parts of two 3x4 matrices.	read
+003A8934	Util_Mtx34_RotateX	Rotates a 3x4 matrix about X by an angle given as sine and cosine.	read
+003A8998	Util_Mtx34_RotateY	Rotates a 3x4 matrix about Y by an angle given as sine and cosine.	read
+003A89FC	Util_Mtx34_RotateZ	Rotates a 3x4 matrix about Z by an angle given as sine and cosine.	read
+003A8D1C	Util_ClampPointToEllipse	Keeps a 2D point inside an ellipse (two foci, a sum of distances) or a band when one radius is 0; returns 1 and the overshoot when it moved it.	read
+003ADB58	Gfx_AnimBlend_SampleJoints	Samples an animation into its joints (translation +0x70, rotation turned into angles +0x94, scale +0xA0), blending towards a second animation by the weight at +0x20.	guess
+003AE5F4	Gfx_AnimBlend_Evaluate	Evaluates an animation: one source when the blend weight (+0x20) is 0 or full, else allocates the blend buffer and blends two.	guess
+003AED3C	Gfx_Joints_MulRotation	Multiplies N joint matrices' rotations by a matrix (Util_Mtx34_MulRotation), stride +0x4C.	read
+003AF004	Gfx_Joints_ComputeWorldMatrices	Computes each joint's matrix from its parent's and its own translation, joint by joint.	guess
+003BF274	Gfx_LookAt_ClampAngles	Keeps a pair of angles inside one of two ellipses (+0x10 or +0x34, by the sign of the second; Util_ClampPointToEllipse) and returns the overshoot; a head-turn limit (inferred).	guess
+003BF9C4	Gfx_LookAtController_Update	Updates a character's look-at controller: reads its joints' positions, computes the target angles (Gfx_LookAtController_TargetAngles), turns the joints (Gfx_LookAtController_ApplyToJoints), then evaluates the animation (Gfx_AnimBlend_Evaluate); runs only while talking (run house1).	guess
+003BFDBC	Gfx_LookAtController_EmptyLoop	Loops over +0x26 entries without doing anything when flag 0x100 of +0x140 is clear.	read
+003C02D8	Gfx_LookAtController_ApplyToJoints	Turns the controller's joints by its angles (rotations about X, Y, Z and quarter turns on their matrices).	guess
+003C0FA4	Gfx_LookAtController_TargetAngles	Computes the angles towards the target from the controller's rotation (+0x120) and its joints' positions.	guess
+003C15E8	Gfx_LookAtController_UpdateChains	Updates the controller's sub-chains (+0xE4 entries in state 1): their joints' matrices from the model's.	guess
+003C19E4	Gfx_LookAtController_TrackTarget	Follows the controller's target: its distance and direction from the object (+0x124), then the angles to reach it.	guess
+003C25CC	Gfx_LookAtController_SolveJoint	Solves one joint's turn towards the target within its limits (Gfx_LookAt_ClampAngles, Util_ClampWithOvershoot).	guess
+003C2D64	Gfx_LookAtController_SmoothAndRotate	Moves the current angle (+0x138) a step towards the wanted one (+0x134), then rotates the joint matrices by it.	guess
+003C36EC	Gfx_LookAtController_ApplyJointList	Applies the turn to each joint of a list (rotations of their matrices).	guess
+003C499C	Gfx_LookAtController_SetWeight	Sets the controller's weight (+0x14) and resets its state (+0x21).	guess
+003C4A44	Util_ClampWithOvershoot	Clamps a value between two bounds and returns how far it went past.	read
+003C8124	Snd_FadeOutFieldSounds	Sends the event's sound and animation resets (Snd_PostEventResets), then fades out a sound group's players over 10 frames (Snd_FadeOutGroupPlayers).	guess
+0044FBEC	Snd_PostEventResets	Posts a series of commands to the field's sound and animation queue: play 0, command 1 (10), commands 2 and 8, stop the current sound.	read
+003DBE58	Field_StartScriptTask	Creates a field task (Field_CreateTaskObject30), starts its script once its resources are loaded (Script_StartWhenResourcesReady) and gives it four parameters (Script_SetStartParams).	read
+003FEB1C	Script_SetStartParams	Stores four halfwords at +0x74..+0x7A of a script context's record.	read
+003FE1C4	Script_SetWorkValueById	Writes a script value by id: 0x4000-0x7FFF the save's event work (0x13140), 0x8000-0xBFFF the script's temporaries; 1 when written. Script_ResolveWorkValue's counterpart.	read
+003FD9E0	Script_ReleaseResourceSlot	Frees the script resource slot holding an id (12-byte entries, 0xFFFF free): releases its buffer and clears it.	read
+003FDA78	Script_RequestResourceSlot	Returns the slot holding an id, or takes a free one, gives it the id and requests an asynchronous read from archive 0x1D for it.	read
+003FDFE4	Script_QueuePush	Appends a 4-byte entry (u16, two bytes) to a script queue (+0x14, count +0x1A, capacity +0x18); 0 and resets the batch when full.	read
+003F4558	Event_Character_GetGroundY	A character's height on the ground: its position's y plus +0x118, or from its stored position when flags say so (inferred).	guess
+0044DF80	Snd_BgmStack_Push	Pushes a 0x9C-byte entry on the field sound's music stack (at most 4; +0x10 the index): keeps the current track and copies the given 0x88-byte state (music saved around a jingle: inferred from MEPlay's run).	guess
+0044DB28	Snd_BgmStack_PlayCurrent	Starts the music of the stack's current entry when its sound slot is loaded (Snd_HasSoundSlot), with fresh play parameters (Snd_PlayerParams_Init).	guess
+0044B78C	Snd_Cmd_ResumeBgm	Sound command: plays the stack's current entry again when its slot is loaded (Snd_BgmStack_PlayCurrent).	guess
+0044B9BC	Snd_QueueBgmPush	Queues sound command 5 and records the current track at the next stack level (at most 3 deep).	guess
+0044C330	Snd_Cmd_Forward0E	Sound command: forwards its value to 0x44D64C, with its argument only for type 0x0E.	read
+0044D26C	Snd_IsBgmDifferent	1 when no music change is pending and the stack's current track differs from the given one.	guess
+004CEF34	Snd_HasSoundSlot	1 when sound slot N (below +0x65C) holds an object (+0x658 table).	read
+004CEE5C	Snd_SoundSlot_Release	Releases the object of sound slot N (0x152EC4 on its +0xAC).	read
+004CEFA0	Snd_SoundSlot_Query	Queries sound slot N when it is in state 2 (0x4BEDE0 through a checked owner link); -1 otherwise.	guess
+0012747C	Snd_PlayerParams_Init	Initialises a sound player's parameters: ids -1, volume 0x7F (inferred), the rest zero.	guess
+004C0750	Util_GetByte50OrOne	Byte +0x50 of an object, or 1 when its first word is 0.	read
+004CF694	Util_Mtx34_ToLocalPoint	Brings a point into a 3x4 matrix's space: removes its translation, then multiplies by its transposed rotation.	read
+004CF6D0	Util_Mtx34_MulTransposeVec	Multiplies a vector by the transposed rotation of a 3x4 matrix.	read
+004CF730	Util_QuatFromMtx34	Converts a 3x4 matrix's rotation to a quaternion (out, matrix).	read
+004CF740	Util_QuatFromMtx34_Swapped	Converts a 3x4 matrix's rotation to a quaternion (matrix, out).	read
+004CF97C	Util_Mtx34_LocalDirection	A target's direction in a matrix's space (Util_Mtx34_ToLocalPoint, optionally negated), returned as angles.	guess
+004CFDF8	Util_Mtx34_MulVec3	Multiplies a vector by a 3x4 matrix's rotation.	read
+004CFE84	Util_Mtx34_GetTranslation	Copies a 3x4 matrix's translation.	read
+004DBDEC	Event_Character_GetFlagWord	Halfword +0x18 of a character: its event entry's word 5 (Field_InitCharacterFromEventEntry), the flag.	read
+004DC198	Event_Character_GetMovementCode	Byte +0x12 of a character: its event entry's word 2 & 0xFF, the movement (Field_InitCharacterFromEventEntry).	read
+004E40C0	Script_FindResourceSlotById	Finds the script resource slot (12-byte entries) holding an id.	read
+004E430C	Script_QueueCurrentEntry	The script queue's current entry (+0x14 + 4 x +0x1E); fatal when past its count.	read
+004E9DEC	Util_GetCheckedByte4	Byte +4 of the object a pointer holds; fatal when null.	read
+10279D88	Msg_Balloon_CloseForOwner	Closes the balloons (6 slots of 0xF4 bytes) that a given owner opened.	read
+1027A18C	Msg_Balloon_FindOldest	The open balloon with the highest age (+0x1DC), or -1.	read
+102D2900	Msg_Balloon_UpdateScale	Sets a balloon's pane scale: a default when its timer (+0xB6) is 0, else from its position and tail side.	guess
+102D29C8	Msg_Balloon_UpdatePosition	Refreshes a balloon's position (Msg_Balloon_RefreshIfAt) and its pane's rotation unless its tail side is 4.	guess
+102D2B00	Msg_Balloon_Layout	Lays a balloon out: places its tail (Msg_Balloon_PlaceTail), reads its window's position and rectangle and fits the window to them.	guess
+10259150	Msg_Balloon_IsAnchorNearTarget	1 when the window's anchor lies close to the line between two points of the balloon.	guess
+102D0B38	Field_LookAt_SetMode	Sets a character's look-at mode (+0x23C, 0-3) and resets or rebuilds its joints for it (the string "Spine2" names a joint it uses).	guess
+102C05F8	Field_LookAt_Update	Updates a character's look-at for its mode (+0x23C) when it has a target (+0x224).	guess
+102C606C	Field_LookAt_BindTarget	Finds the target character's model (+0x224) and binds it (+0x228).	guess
+1028D808	Field_IsAdvanceInput	1 when a button of mask 0x10 or 0x20 is pressed, or 0x4C75D8 reports input (touch: inferred).	guess
+102429D8	Field_Import_0034D514	DllField import stub to 0x0034D514.	read
+10242A60	Field_Import_0034E25C	DllField import stub to 0x0034E25C.	read
+10242A68	Field_Import_0034E6E4	DllField import stub to 0x0034E6E4.	read
+10242A70	Field_Import_0034E80C	DllField import stub to 0x0034E80C.	read
+10242AC0	Field_Import_0034D530	DllField import stub to 0x0034D530.	read
+10242C38	Field_Import_003DBE58	DllField import stub to 0x003DBE58.	read
+10242CC8	Field_Import_003F15B4	DllField import stub to 0x003F15B4 (Util_LookupByteTable8).	read
+10242DC8	Field_Import_004DCE98	DllField import stub to 0x004DCE98.	read
+102433E8	Field_Import_004DBDEC	DllField import stub to 0x004DBDEC.	read
+102439D8	Field_Import_003F82D0	DllField import stub to 0x003F82D0 (Event_CharacterSetMoveCommand).	read
+102439E0	Field_Import_003F8F48_2	DllField import stub to 0x003F8F48 (Event_Character_IsState3).	read
+10243EB8	Field_Import_003F024C	DllField import stub to 0x003F024C.	read
+10243ED0	Field_Import_003BF9C4	DllField import stub to 0x003BF9C4.	read
+102442E8	Field_Import_00505B18	DllField import stub to 0x00505B18.	read
+10244400	Field_Import_004DC198	DllField import stub to 0x004DC198.	read
+10244898	Field_Import_003FE1C4	DllField import stub to 0x003FE1C4.	read
+10244968	Field_Import_003583E4	DllField import stub to 0x003583E4.	read
+10245048	Field_Import_004E4748	DllField import stub to 0x004E4748.	read
+10246700	Field_Import_0034E960	DllField import stub to 0x0034E960.	read
+10246710	Field_Import_0034DB14	DllField import stub to 0x0034DB14.	read
+10246718	Field_Import_0034D674	DllField import stub to 0x0034D674 (Msg_WindowLayout_SetPanePos).	read
+10246720	Field_Import_00347D00	DllField import stub to 0x00347D00.	read
+10246728	Field_Import_0034DBCC	DllField import stub to 0x0034DBCC.	read
+10246730	Field_Import_00347E54	DllField import stub to 0x00347E54.	read
+10246738	Field_Import_0034D76C	DllField import stub to 0x0034D76C.	read
+10244190	Field_Import_003C0F28	DllField import stub to 0x3C0F28.	read
+102450B8	Field_Import_0044C83C	DllField import stub to 0x44C83C.	read
+# Wild encounter selection (7 October, run enc1: grass walk minus idle; the zone's encounter file is its own member's file 3)
+0012FB40	BinLinker_GetFile	File i of a two-letter container (count at +2, offsets from +4); 0 when out of range.	read
+0012FB08	BinLinker_GetFileSize	Size of file i of a two-letter container (next offset minus this one); 0 when out of range.	read
+003D9BBC	Zone_DataContainerFileSize	Size of file i of one of the zone data containers kept by the zone loader (+0x94C0 slots).	read
+0010E89C	GameData_LoadBootTables	Boot load: archive 0xB4 file 0 (28 sub-files registered), all of member 537 of archive 13 (the encounter container, every zone's encounter file) and 0x118 entries of archive 0x25.	read
+00403BC4	Map_TileAttr_Kind	Kind of a tile attribute word (bits 24-31).	read
+00403ADC	Map_TileAttr_Flags	Flags of a tile attribute word (bits 0-11; 1 for an empty word).	read
+0048AD84	Util_RandomBelow	Random number below the bound, from the game's generator at [DAT_0048adbc+0x14].	guess
+004E4778	Field_WildEncounter_StepRate	Encounter rate of the tile's attribute entry (halfword +6), 0 when its level gate (+5 bit 1) is not met.	guess
+003DADE8	Field_StartEncounterEvent	Allocates the 0x290-byte event and starts it with the encounter context (called when a wild battle is chosen).	guess
+102CD2B4	Field_WildEncounter_StepCheck	On a step: tile kind to table (kinds 0x1F 0x20 0x24 0x25 0x2B 0x2D 0x42 table 0, 0x27 table 1, flag bit 1 table 3, others none), zone's encounter file (zone data file 3), horde roll on byte +8, rate roll random(100), table chosen, encounter event started; returns 1 when a battle starts.	read
+102D9CA4	Field_WildEncounter_TileEntry	Same tile-kind test as the step check, then hands the tile's attribute entry for the zone's encounter file to the field.	guess
+102BFBA4	Field_WildEncounter_SelectTable	Kind 0-8 to the table's offset in the zone's encounter file (+0xE grass, +0x3E, +0x6E, +0x7A, +0x8E, +0xA2, +0xAE, +0xBA, +0xC6 hordes), then picks the slot (FUN_102dca88).	read
+102BFCB4	Field_WildEncounter_ApplyRateModifiers	Rate scaled by the context's flags (doubled, halved, quartered, kept for kinds 5-7) and the lead's state, capped at 100, then compared.	guess
+102BFDD4	Field_WildEncounter_InitContext	Fills the encounter context: zone, tile, table kind, flags word +0xA0 from player and party state, the lead's species and ability.	guess
+102C00C0	Field_WildEncounter_ClearContext	Clears the encounter context (slot pick 0x49, all fields 0).	read

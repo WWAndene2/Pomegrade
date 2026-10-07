@@ -66,7 +66,10 @@ std::string InspectZone(N3dsRom& game, size_t zone)
     s += "\n";
     s += F("  %zu furniture, %zu characters, %zu warps, %zu triggers, %zu of the fifth kind\n", z.Furniture.size(), z.Characters.size(), z.Doors.size(), z.Triggers.size(), z.Others.size());
     for (const ZoneFurniture& f : z.Furniture) s += F("    furniture at tile (%d, %d)\n", f.TileX(), f.TileZ());
-    for (const ZoneCharacter& c : z.Characters) s += F("    character %u: model %d at tile (%d, %d)\n", c.Raw[0], c.Model(), c.TileX(), c.TileZ());
+    // movement, flag, facing and range as ORAS_ENGINE.md 6 reads them ("Talking to a character"): words 2, 5, 6, 12-13
+    for (const ZoneCharacter& c : z.Characters)
+        s += F("    character %u: model %d at tile (%d, %d), movement %u, flag %u, facing %u, range %ux%u\n", c.Raw[0], c.Model(),
+               c.TileX(), c.TileZ(), c.Raw[2] & 0xFF, c.Raw[5], c.Raw[6] & 0xFF, c.Raw[12], c.Raw[13]);
     for (const ZoneDoor& d : z.Doors)
     {
         s += F("    warp to zone %d at tile (%.1f, %.1f), words:", d.DestZone(), d.TileX(), d.TileZ());
