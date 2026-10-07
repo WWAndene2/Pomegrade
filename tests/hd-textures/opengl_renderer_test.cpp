@@ -316,5 +316,43 @@ int main()
         errorOk = !built && error.find("BrokenShader") != std::string::npos && OpenGL::TakeLastError().empty();
         printf("refused shader: error kept once, naming the shader: %s\n", errorOk ? "yes" : "NO");
     }
-    return bad != 0 || off != native || !backgroundOk || !filterOk || !errorOk;
+    // compiled programs kept on disk: the first renderer compiles and saves
+    // them, the next one loads them, and draws the same
+    // (last: the extra renderers change the GL state the one above relies on)
+    bool cacheOk;
+    {
+        const fs::path cache = fs::temp_directory_path() / "pomegrade_program_cache_test";
+        fs::remove_all(cache);
+        OpenGL::SetProgramCacheFolder(cache.string());
+        auto t0 = std::chrono::steady_clock::now();
+        auto compiled = GLRenderer::New();
+        auto t1 = std::chrono::steady_clock::now();
+        int files = 0;
+        for (auto& e : fs::directory_iterator(cache)) files += e.path().extension() == ".bin";
+        auto loaded = GLRenderer::New();
+        auto t2 = std::chrono::steady_clock::now();
+        loaded->SetRenderSettings(false, 1);
+        auto fromCache = Render(*loaded, gpu);
+        // relief on compiles its own variants; off again takes the light ones from the cache
+        loaded->SetRelief(2);
+        loaded->SetRelief(0);
+        auto afterRelief = Render(*loaded, gpu);
+        const double ms1 = std::chrono::duration<double, std::milli>(t1 - t0).count();
+        const double ms2 = std::chrono::duration<double, std::milli>(t2 - t1).count();
+        printf("program cache: %d programs saved; renderer created in %.0f ms compiling, %.0f ms from the cache\n", files, ms1, ms2);
+        cacheOk = compiled && loaded && files >= 8 && fromCache == native && afterRelief == native && ms2 < ms1;
+        printf("program cache: saved, loaded faster, same image: %s\n", cacheOk ? "yes" : "NO");
+        // a damaged file is compiled again, not used
+        for (auto& e : fs::directory_iterator(cache))
+            if (e.path().extension() == ".bin") { FILE* f = fopen(e.path().c_str(), "r+b"); fseek(f, 12, SEEK_SET); fputs("garbage", f); fclose(f); }
+        auto repaired = GLRenderer::New();
+        bool sameAfterDamage = false;
+        if (repaired) { repaired->SetRenderSettings(false, 1); sameAfterDamage = Render(*repaired, gpu) == native; }
+        printf("program cache: damaged files compiled again, same image: %s\n", sameAfterDamage ? "yes" : "NO");
+        cacheOk = cacheOk && sameAfterDamage;
+        OpenGL::SetProgramCacheFolder("");
+        fs::remove_all(cache);
+    }
+
+    return bad != 0 || off != native || !backgroundOk || !filterOk || !errorOk || !cacheOk;
 }

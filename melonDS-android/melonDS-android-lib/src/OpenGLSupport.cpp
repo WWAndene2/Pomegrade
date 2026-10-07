@@ -19,6 +19,8 @@
 #include "OpenGLSupport.h"
 
 #include <chrono>
+#include <cstdio>
+#include <filesystem>
 #include <mutex>
 
 #include <unordered_map>
@@ -338,12 +340,119 @@ error:
     return linkingSucess;
 }
 
+// Pomegrade: compiled programs kept on disk (glProgramBinary), one file per
+// program, named by a hash of its sources, attribute locations and the driver
+// (vendor, renderer, version): a Mali-G610 took up to 25 s per DS polygon
+// shader, at every game start. Off while no folder is set
+static std::string ProgramCacheFolder;
+
+void SetProgramCacheFolder(const std::string& folder)
+{
+    ProgramCacheFolder = folder;
+}
+
+static constexpr u32 ProgramCacheMagic = 0x50475042; // "PGPB"
+
+static std::string ProgramCachePath(const std::string& vs, const std::string& fs,
+    const std::initializer_list<AttributeTarget>& vertexInAttrs)
+{
+    if (ProgramCacheFolder.empty())
+        return {};
+    GLint formats = 0;
+    glGetIntegerv(GL_NUM_PROGRAM_BINARY_FORMATS, &formats);
+    if (formats <= 0)
+        return {};
+    std::string key = vs;
+    key += '\0';
+    key += fs;
+    for (const AttributeTarget& target : vertexInAttrs)
+    {
+        key += '\0';
+        key += target.Name;
+        key += std::to_string(target.Location);
+    }
+    for (GLenum what : {GL_VENDOR, GL_RENDERER, GL_VERSION})
+    {
+        key += '\0';
+        if (const char* text = (const char*)glGetString(what)) key += text;
+    }
+    char name[32];
+    snprintf(name, sizeof(name), "%016llx.bin", (unsigned long long)XXH64(key.data(), key.size(), 0));
+    return ProgramCacheFolder + "/" + name;
+}
+
+// a program from the cache, linked, or false (none, or the driver refuses it)
+static bool LoadCachedProgram(GLuint program, const std::string& path)
+{
+    FILE* file = fopen(path.c_str(), "rb");
+    if (!file)
+        return false;
+    u32 header[3] = {};
+    std::vector<u8> binary;
+    bool read = fread(header, sizeof(header), 1, file) == 1 && header[0] == ProgramCacheMagic && header[2] > 0;
+    if (read)
+    {
+        binary.resize(header[2]);
+        read = fread(binary.data(), binary.size(), 1, file) == 1;
+    }
+    fclose(file);
+    if (!read)
+        return false;
+    glProgramBinary(program, header[1], binary.data(), (GLsizei)binary.size());
+    GLint linked = GL_FALSE;
+    glGetProgramiv(program, GL_LINK_STATUS, &linked);
+    return linked == GL_TRUE;
+}
+
+static void SaveCachedProgram(GLuint program, const std::string& path)
+{
+    GLint length = 0;
+    glGetProgramiv(program, GL_PROGRAM_BINARY_LENGTH, &length);
+    if (length <= 0)
+        return;
+    std::vector<u8> binary(length);
+    GLenum format = 0;
+    GLsizei written = 0;
+    glGetProgramBinary(program, length, &written, &format, binary.data());
+    if (written <= 0)
+        return;
+    std::error_code error;
+    std::filesystem::create_directories(ProgramCacheFolder, error);
+    // written whole then renamed: a file cut short (app killed) is never read
+    const std::string temp = path + ".tmp";
+    FILE* file = fopen(temp.c_str(), "wb");
+    if (!file)
+        return;
+    const u32 header[3] = {ProgramCacheMagic, format, (u32)written};
+    const bool ok = fwrite(header, sizeof(header), 1, file) == 1 && fwrite(binary.data(), written, 1, file) == 1;
+    fclose(file);
+    if (ok)
+        std::filesystem::rename(temp, path, error);
+    else
+        std::filesystem::remove(temp, error);
+}
+
 bool CompileVertexFragmentProgram(GLuint& result,
     const std::string& vs, const std::string& fs,
     const std::string& name,
     const std::initializer_list<AttributeTarget>& vertexInAttrs,
     const std::initializer_list<AttributeTarget>& fragmentOutAttrs)
 {
+    const std::string cachePath = ProgramCachePath(vs, fs, vertexInAttrs);
+    if (!cachePath.empty())
+    {
+        const auto loadStart = std::chrono::steady_clock::now();
+        result = glCreateProgram();
+        if (LoadCachedProgram(result, cachePath))
+        {
+            Log(LogLevel::Debug, "OpenGL: shader program %s loaded from the cache in %lld ms\n", name.c_str(),
+                (long long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - loadStart).count());
+            return true;
+        }
+        // none yet, or refused (another driver build): compiled below
+        glDeleteProgram(result);
+    }
+
     GLuint shaders[2] =
     {
         glCreateShader(GL_VERTEX_SHADER),
@@ -375,7 +484,11 @@ bool CompileVertexFragmentProgram(GLuint& result,
     //     glBindFragDataLocation(result, target.Location, target.Name);
     // }
 
+    if (!cachePath.empty())
+        glProgramParameteri(result, GL_PROGRAM_BINARY_RETRIEVABLE_HINT, GL_TRUE);
     linkingSucess = LinkProgram(result, shaders, 2);
+    if (linkingSucess && !cachePath.empty())
+        SaveCachedProgram(result, cachePath);
 
 error:
     glDeleteShader(shaders[1]);

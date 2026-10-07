@@ -48,7 +48,9 @@ public:
     void SetTextureFilter(bool enable) noexcept { ShaderConfig.uTextureFilter = enable ? 1 : 0; }
     // Relief textures (Pomegrade): 0 off, 1 subtle, 2 strong, 3 stylised (strong, and the
     // scene redrawn in flat colours and soft painted light) (DS_ENGINE_REMAKE.md 14.1, 15.2)
-    void SetRelief(int level) noexcept { Relief = level; }
+    // The relief code is compiled into the polygon shaders only while relief is
+    // on: turning it on or off rebuilds them (GL context current)
+    void SetRelief(int level) noexcept;
     // Scene-adaptive colour (Pomegrade): see GPU_SceneColour.h
     void SetAdaptiveColours(bool enable) { CurGLCompositor.SetAdaptiveColours(enable); }
     void SetOledBlacks(bool enable) { CurGLCompositor.SetOledBlacks(enable); }
@@ -122,6 +124,8 @@ private:
     GLCompositor CurGLCompositor;
     // buffers grow past the hardware's needs for the polygon multiplier (Pomegrade), see EnsureCapacity
     std::vector<RendererPolygon> PolygonList = std::vector<RendererPolygon>(2048);
+
+    bool BuildRenderShaders();
 
     bool BuildRenderShader(u32 flags, const std::string& vs, const std::string& fs);
     void UseRenderShader(u32 flags);
@@ -275,6 +279,7 @@ private:
     bool LightBounce {};
     bool Shadows {};
     int Relief {};
+    bool ReliefShaders {}; // the polygon shaders hold the relief code (see BuildRenderShaders)
     bool ViewDataActive {}; // view-space vertex data built and uploaded this frame
     // inspector (Pomegrade): set while polygons are drawn in its colours
     const class Inspector* ViewInspector = nullptr;

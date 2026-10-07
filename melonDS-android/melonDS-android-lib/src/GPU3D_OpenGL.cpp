@@ -34,6 +34,45 @@ namespace melonDS
 using Platform::Log;
 using Platform::LogLevel;
 
+// Pomegrade: the eight variants of the polygon shader. The relief textures and
+// stylised rendering are compiled in only while relief is on (ReliefShaders):
+// with them, a Mali-G610 driver took 10 to 25 s per variant, two minutes of
+// black screen before every DS game (DS debug trace, owner's phone); without,
+// a few milliseconds each
+bool GLRenderer::BuildRenderShaders()
+{
+    for (GLuint& prog : RenderShader)
+    {
+        if (prog) glDeleteProgram(prog);
+        prog = 0;
+    }
+    CurShaderID = -1;
+    return BuildRenderShader(0, kRenderVS_Z, kRenderFS_ZO)
+        && BuildRenderShader(RenderFlag_WBuffer, kRenderVS_W, kRenderFS_WO)
+        && BuildRenderShader(RenderFlag_Edge, kRenderVS_Z, kRenderFS_ZE)
+        && BuildRenderShader(RenderFlag_Edge | RenderFlag_WBuffer, kRenderVS_W, kRenderFS_WE)
+        && BuildRenderShader(RenderFlag_Trans, kRenderVS_Z, kRenderFS_ZT)
+        && BuildRenderShader(RenderFlag_Trans | RenderFlag_WBuffer, kRenderVS_W, kRenderFS_WT)
+        && BuildRenderShader(RenderFlag_ShadowMask, kRenderVS_Z, kRenderFS_ZSM)
+        && BuildRenderShader(RenderFlag_ShadowMask | RenderFlag_WBuffer, kRenderVS_W, kRenderFS_WSM);
+}
+
+void GLRenderer::SetRelief(int level) noexcept
+{
+    Relief = level;
+    if ((level > 0) == ReliefShaders)
+        return;
+    ReliefShaders = level > 0;
+    if (!BuildRenderShaders())
+    {
+        // the driver refused the relief code: the scene keeps drawing without it
+        Log(LogLevel::Error, "Relief textures: shaders refused, relief disabled\n");
+        Relief = 0;
+        ReliefShaders = false;
+        BuildRenderShaders();
+    }
+}
+
 bool GLRenderer::BuildRenderShader(u32 flags, const std::string& vs, const std::string& fs)
 {
     char shadername[32];
@@ -48,6 +87,7 @@ bool GLRenderer::BuildRenderShader(u32 flags, const std::string& vs, const std::
 
     std::string fsbuf;
     fsbuf += kShaderHeader;
+    fsbuf += ReliefShaders ? "\n#define POMEGRADE_RELIEF 1\n" : "\n#define POMEGRADE_RELIEF 0\n";
     fsbuf += kRenderFSCommon;
     fsbuf += fs;
 
@@ -135,29 +175,7 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
     result->ClearUniformLoc[3] = glGetUniformLocation(result->ClearShaderPlain, "uFogFlag");
 
     memset(result->RenderShader, 0, sizeof(RenderShader));
-
-    if (!result->BuildRenderShader(0, kRenderVS_Z, kRenderFS_ZO))
-        return nullptr;
-
-    if (!result->BuildRenderShader(RenderFlag_WBuffer, kRenderVS_W, kRenderFS_WO))
-        return nullptr;
-
-    if (!result->BuildRenderShader(RenderFlag_Edge, kRenderVS_Z, kRenderFS_ZE))
-        return nullptr;
-
-    if (!result->BuildRenderShader(RenderFlag_Edge | RenderFlag_WBuffer, kRenderVS_W, kRenderFS_WE))
-        return nullptr;
-
-    if (!result->BuildRenderShader(RenderFlag_Trans, kRenderVS_Z, kRenderFS_ZT))
-        return nullptr;
-
-    if (!result->BuildRenderShader(RenderFlag_Trans | RenderFlag_WBuffer, kRenderVS_W, kRenderFS_WT))
-        return nullptr;
-
-    if (!result->BuildRenderShader(RenderFlag_ShadowMask, kRenderVS_Z, kRenderFS_ZSM))
-        return nullptr;
-
-    if (!result->BuildRenderShader(RenderFlag_ShadowMask | RenderFlag_WBuffer, kRenderVS_W, kRenderFS_WSM))
+    if (!result->BuildRenderShaders())
         return nullptr;
 
     if (!OpenGL::CompileVertexFragmentProgram(result->FinalPassEdgeShader,
