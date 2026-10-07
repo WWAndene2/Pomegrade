@@ -304,6 +304,60 @@ capacities that bound a larger world:
 So for building a region the limits are lifted (zones, memory, heaps, characters) or checked when the mod is built (a
 zone's events size, a model's textures); the rest bound features Sinnoh does not need or have not been reached.
 
+
+## 6. What each activity runs: the subsystems that matter, named (7 October)
+
+**Method** (the owner's choice: decompose the parts the remake needs, not all 47,600 functions). A headless run under the
+interpreter (`POMEGRADE_INTERPRETER=1`) records every block of code the game enters between `trace on` and `trace off
+FILE`; `prototype/coverage_map.py` maps the blocks to the Ghidra program's functions (modules moved from where the run's log
+says they were loaded to their linked address) and subtracts other traces: an activity minus the idle field (and minus
+walking) is what that activity alone runs. Each set is then decompiled and read (sub-agents for the large ones), and the
+names go to **`ghidra/function_names.tsv`** (address, name, role, read|guess), which `ghidra/ApplyNames.java` gives the
+program (`session_setup.sh` does it): the decompilation then reads `Zone_LoadHeader` with its role as comment.
+
+**Traces recorded** (vanilla game, the owner's save; each checked on screen):
+
+| Activity | Run (script) | Functions beyond the idle field | Specific (not run by walking) | Named |
+|---|---|---|---|---|
+| walking a few steps | Littleroot | 521 (398 `.code`, 111 DllField, 12 DllFieldEventPlayer) | | |
+| entering a zone (Route 101 -> Littleroot, walking south) | save on zone 23 at (100.5, 150.5) | 1,261 | **782** (546 `.code`, 236 DllField) | **all 782** |
+| opening the menu (X) | Littleroot | 381 | 127 | not yet |
+| entering a house (door at 106.5, 171.5) | save at (106.5, 172.5), walking up | 2,481 | 1,522 beyond walking and zone change (842 `.code`, 652 DllField, 28 DllFieldEventEntranceIn) | not yet |
+| reading a sign ("Maison d'Andene", furniture at 103, 171) | save at (103.5, 172.5), facing up, A | traced (`actE1`) | | not yet |
+| a wild encounter (Route 101's tall grass, x 89-95, z 147-151) | save at (92.5, 149.5), walking left and right | 3,882 | 3,425 (2,043 `.code`, 1,325 DllBattle, 57 DllBackGround) | not yet |
+
+Not recorded yet: talking to a character (the scripted position missed the character twice: place the player against one
+that does not walk, and check the dialog on a screenshot), a trainer battle, saving, the region map (needs the touch
+screen, which retro_host does not drive), a script started on entering a zone. The battle itself under the interpreter
+is very slow (more than 10 minutes for a few turns).
+
+**How a zone is entered** (from the 782 named functions; **read** where the code shows it, otherwise **guess**):
+
+- `Zone_LoadHeader` (0x3D99B8, read) and `Zone_HeaderLoad_Poll` (0x3D9918, guess): a zone's 0x38-byte header, from the resident
+  table or by an async read of its member of `a/0/1/3` (`Zone_CreateZoneArchiveHandle` 0x112C10, read: archive 13).
+- Music: `Zone_ChangeBgmOnEnter` (0x3C7D84, read) compares the new header's word at +0x1C with the playing one and queues a
+  fade (0x3C frames); `Snd_ChangeZoneBgm` (0x44E858, guess); `Zone_ResolveFlagVariant` (0x3C79F8, read) picks a per-zone value
+  from event flags at save +0x13140 against a 0x54-entry table (music or layout variants: guess).
+- The place name: `Zone_ShowLocationName` (DllField 0x102B5450, guess) and `Zone_GetLocationNameId` (0x4D86EC, guess: the
+  header's halfword +0x1C & 0x3FF, passed with text file 0x5A).
+- Map pieces: `Map_LoadPieceModelFromContainer` (DllField 0x102608CC, read: files 1, 2, 6, 7+ the model, animations and
+  textures; file 4 the cell word to `FUN_003c8a24`; files 3 and 5), `Map_PlacePropsFromContainer` (DllField 0x102607A4, read:
+  file 3's 11-word rows: id, position, rotation, scale), `Map_FreeMapPieces` (0x3C8C84, read), `Map_AreaObject_Destroy`
+  (DllField 0x1027B990, read) on leaving.
+- Characters: `Event_PlaceZoneCharacters` (0x3F7FF4, read), `Event_CharacterPool_Acquire` (0x3F54E8, read),
+  `Field_InitCharacterFromEventEntry` (0x3F9464, read: a 0x30-byte record into a 0xAB0-byte object),
+  `Field_GetCharacterModelInfo` (0x3F62D8, read: a model's 0x18-byte info from a cache, the pool or the archive).
+- Other zone objects: `Zone_PlaceZoneObjects` (DllField 0x102BC9C0, read: up to 6 entries of a 0x5A-row table belonging to
+  the zone, at grid positions cell * 18 + 9).
+- Scripts: `Script_ResetZoneLocalState` (0x3FF288, guess: on a zone change, stops scripts and clears the work values from
+  0x4000 and 12 slots), `Script_ResolveWorkValue` (0x3FE118, read: ids 0x4000-0x7FFF are event work in the save,
+  0x8000-0xBFFF script temporaries, others literals), `Script_RunFieldScriptMode` (0x3FEC30, guess), a script VM call
+  (0x3AADAC, guess).
+- Resources: `Res_Decompress` (0x36AF08, read: by header type, 0x10 LZ, 0x20 Huffman, 0x30 RLE, 0x40/0x50 extended LZ),
+  `Res_AsyncLoad_Create` (0x36E694, read: a 0x54-byte job with a completion callback).
+
+Most of the 782 are support code (221 `Gfx_`, 178 `Util_`, 49 `Sys_`): the zone-specific ones above are about 140.
+
 ## 5. The archives
 
 The game opens its archives by number: the code holds a table of 299 pointers (0x5F5050) to their paths in UTF-16
