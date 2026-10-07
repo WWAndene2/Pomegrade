@@ -210,6 +210,27 @@ static void MemoryDump(void* core, const std::string& address, const std::string
     else printf("(no pomegrade_peek in this core)\n");
 }
 
+// "watch FRAMES ADDRESS...": runs FRAMES frames holding the keys of the last hold (none), printing each address's word
+// whenever one changes, with the frame: the order in which the game writes a loader's fields (a race between threads)
+static void Step();
+static void Watch(void* core, unsigned long frames, const std::vector<uint32_t>& addresses, unsigned keys)
+{
+    auto peek = reinterpret_cast<void (*)(uint32_t, uint32_t, void (*)(const char*))>(dlsym(core, "pomegrade_peek"));
+    if (!peek) { printf("(no pomegrade_peek in this core)\n"); return; }
+    static std::string last;
+    static void (*keep)(const char*) = [](const char* line) { last += line + 6; }; // "  mem " dropped
+    std::string before;
+    for (unsigned long k = 0; k < frames; k++)
+    {
+        held = keys;
+        Step();
+        last.clear();
+        for (uint32_t a : addresses) peek(a, 4, keep);
+        if (last != before) { printf("[frame %lu] watch%s\n", frame, last.c_str()); before = last; }
+    }
+    held = 0;
+}
+
 static void (*runFrame)() = nullptr;
 static uint64_t sameSince = 0, sameHash = 0;
 static bool freezeShown = false;
@@ -281,6 +302,17 @@ static int RunScript(void* core, const char* path)
         }
         else if (cmd == "screen") Screen();
         else if (cmd == "report") ThreadReport(core);
+        else if (cmd == "watch")
+        {
+            // watch FRAMES [KEYS] ADDRESS...: KEYS held meanwhile when the word after FRAMES is not a number
+            std::vector<uint32_t> addresses;
+            std::string word;
+            unsigned keys = 0;
+            while (words >> word)
+                if (isdigit((unsigned char)word[0])) addresses.push_back(strtoul(word.c_str(), nullptr, 0));
+                else keys = Keys(word);
+            Watch(core, strtoul(arg.c_str(), nullptr, 10), addresses, keys);
+        }
         else if (cmd == "mem") { std::string length; words >> length; MemoryDump(core, arg, length); }
         else if (cmd == "save" || cmd == "load") StateFile(core, arg, cmd == "save");
         else printf("unknown command %s\n", cmd.c_str());
