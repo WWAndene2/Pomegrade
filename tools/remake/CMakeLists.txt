@@ -44,6 +44,7 @@ add_library(remake STATIC
     src/CodePatch.cpp
     src/OrasAppend.cpp
     src/OrasMemory.cpp
+    src/OrasEngine.cpp
     src/OrasMatrix.cpp
     src/OrasRegion.cpp
     src/OrasSave.cpp

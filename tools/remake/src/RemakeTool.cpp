@@ -92,7 +92,7 @@
 #include "OrasMeasure.h"
 #include "TopView.h"
 #include "OrasAppend.h"
-#include "OrasMemory.h"
+#include "OrasEngine.h"
 #include "OrasRegion.h"
 #include "OrasSave.h"
 #include "OrasTown.h"
@@ -132,8 +132,9 @@ static int Usage()
                     "  remake_tool oras-verify <oras.3ds>\n  remake_tool oras-catalog <oras.3ds> <out dir>\n"
                     "  remake_tool oras-texture <oras.3ds> <area pack> <name> <out.png>\n  remake_tool mesh-json <GR piece file|file.bch> <out.json>\n"
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
-                    "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone|zone-raised\n"
-                    "  remake_tool oras-memory <oras.3ds> <out dir> 64|72|80|96 <linear heap bytes>\n"
+                    "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone|zone-raised|crowd\n"
+                    "  remake_tool oras-zone-check <oras.3ds>\n"
+                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N] [--characters N] [--heap ID:BYTES]...\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
                     "                    [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]\n"
                     "  remake_tool oras-code <oras.3ds> <out.bin>\n"
@@ -471,14 +472,52 @@ int main(int argc, char** argv)
             if (view.Points) printf("points: lighter-grass border dark green, path border dark brown, blade strip orange, its tips red, its roots blue\n");
             return 0;
         }
-        if (cmd == "oras-memory" && argc >= 6)
+        if (cmd == "oras-zone-check" && argc >= 3)
         {
-            // more application memory and a larger linear heap (OrasMemory.h, ORAS_ENGINE.md 4.2)
-            const int mb = OptionNumber(argv[4], "memory mode");
-            const OrasMemoryMode mode = mb == 64 ? OrasMemoryMode::Prod64 : mb == 72 ? OrasMemoryMode::Dev3_72 : mb == 80 ? OrasMemoryMode::Dev2_80
-                                      : mb == 96 ? OrasMemoryMode::Dev1_96 : throw FormatError("memory mode: 64, 72, 80 or 96 (MB)");
+            // every zone of a/0/1/3 read and written back (OrasZone::Write): the writer must give the game's own bytes
             N3dsRom oras(argv[2]);
-            for (const std::string& line : BuildMemoryMod(oras, mode, (uint32_t)OptionNumber(argv[5], "linear heap"), argv[3])) printf("%s\n", line.c_str());
+            const Garc zones(oras.Read("a/0/1/3"));
+            int same = 0, differ = 0;
+            for (size_t i = 0; i < zones.Count(); i++)
+            {
+                const Bytes plain = Plain(zones.Sub(i));
+                if (plain.size() < 4 || plain[0] != 'Z' || plain[1] != 'O') continue; // members 536, 537: the tables
+                if (OrasZone::Read(plain).Write(plain) == plain) same++;
+                else { differ++; printf("zone %zu: written back differently\n", i); }
+            }
+            printf("%d zones written back identical, %d differ\n", same, differ);
+            return differ ? 1 : 0;
+        }
+        if (cmd == "oras-engine" && argc >= 4)
+        {
+            // the engine patches (OrasEngine.h, ORAS_ENGINE.md 4): --memory 64|72|80|96, --linear-heap BYTES, --zone-rows N,
+            // --heap ID:BYTES (repeatable)
+            OrasEngineOptions o;
+            for (int i = 4; i < argc; i++)
+            {
+                const std::string flag = argv[i];
+                if (i + 1 >= argc) throw FormatError(flag + ": a value is missing");
+                const std::string value = argv[++i];
+                if (flag == "--memory")
+                {
+                    const int mb = OptionNumber(value.c_str(), flag);
+                    o.Memory = mb == 64 ? OrasMemoryMode::Prod64 : mb == 72 ? OrasMemoryMode::Dev3_72 : mb == 80 ? OrasMemoryMode::Dev2_80
+                             : mb == 96 ? OrasMemoryMode::Dev1_96 : throw FormatError("--memory: 64, 72, 80 or 96 (MB)");
+                }
+                else if (flag == "--linear-heap") o.LinearHeap = (uint32_t)OptionNumber(value.c_str(), flag);
+                else if (flag == "--normal-heap") o.NormalHeap = (uint32_t)OptionNumber(value.c_str(), flag);
+                else if (flag == "--zone-rows") o.ZoneRows = (uint32_t)OptionNumber(value.c_str(), flag);
+                else if (flag == "--characters") o.Characters = (uint32_t)OptionNumber(value.c_str(), flag);
+                else if (flag == "--heap")
+                {
+                    const size_t colon = value.find(':');
+                    if (colon == std::string::npos) throw FormatError("--heap ID:BYTES");
+                    o.HeapSizes[(uint32_t)OptionNumber(value.substr(0, colon).c_str(), flag)] = (uint32_t)OptionNumber(value.substr(colon + 1).c_str(), flag);
+                }
+                else throw FormatError("oras-engine: unknown option " + flag);
+            }
+            N3dsRom oras(argv[2]);
+            for (const std::string& line : BuildEngineMod(oras, o, argv[3])) printf("%s\n", line.c_str());
             return 0;
         }
         if (cmd == "oras-append-test" && argc >= 5)
@@ -486,7 +525,7 @@ int main(int argc, char** argv)
             const std::string what = argv[4];
             const AppendTest test = what == "unused" ? AppendTest::Unused : what == "piece" ? AppendTest::Piece : what == "matrix" ? AppendTest::Matrix
                                   : what == "zone" ? AppendTest::Zone : what == "zone-raised" ? AppendTest::ZoneRaised
-                                  : throw FormatError("append test: unused, piece, matrix, zone or zone-raised");
+                                  : what == "crowd" ? AppendTest::Crowd : throw FormatError("append test: unused, piece, matrix, zone, zone-raised or crowd");
             N3dsRom oras(argv[2]);
             for (const std::string& line : BuildAppendTest(oras, test, argv[3])) printf("%s\n", line.c_str());
             return 0;

@@ -33,6 +33,34 @@ static void Rewrite(Garc& archive, size_t index, const Bytes& plain, bool compre
 std::vector<std::string> BuildAppendTest(N3dsRom& oras, AppendTest test, const std::string& outDir)
 {
     std::vector<std::string> log;
+    if (test == AppendTest::Crowd)
+    {
+        const Bytes zones = oras.Read("a/0/1/3");
+        const Garc gz(zones);
+        Garc nz(zones);
+        const Bytes plain = Plain(gz.Sub(6));
+        OrasZone z = OrasZone::Read(plain);
+        if (z.Characters.empty()) throw FormatError("zone 6 has no character to clone");
+        const size_t own = z.Characters.size();
+        // clones of the zone's characters, 6 a row from tile (94, 160), north-west of the Littleroot save's (100.5, 172.5)
+        for (size_t i = own; i < 30; i++)
+        {
+            ZoneCharacter c = z.Characters[i % own];
+            c.Raw[20] = (uint16_t)(94 + (i - own) % 6 * 2);
+            c.Raw[21] = (uint16_t)(160 + (i - own) / 6 * 2);
+            z.Characters.push_back(c);
+        }
+        Rewrite(nz, 6, z.Write(plain), IsLzCompressed(gz.Sub(6)));
+        log.push_back("zone 6: " + std::to_string(own) + " characters -> " + std::to_string(z.Characters.size()));
+        char id[17];
+        snprintf(id, sizeof id, "%016llX", (unsigned long long)oras.ProgramId());
+        const std::filesystem::path path = std::filesystem::path(outDir) / "load" / "mods" / id / "romfs_ext" / "a/0/1/3.bps";
+        const Bytes data = nz.Write(), bps = BpsCreate(zones, data);
+        if (BpsApply(zones, bps) != data) throw FormatError("a/0/1/3: the patch does not rebuild the file");
+        std::filesystem::create_directories(path.parent_path());
+        WriteFile(path.string(), bps);
+        return log;
+    }
     const Bytes pieces = oras.Read("a/0/3/9"), matrices = oras.Read("a/0/4/0"), zones = oras.Read("a/0/1/3");
     const Garc gp(pieces), gm(matrices), gz(zones);
     Garc np(pieces), nm(matrices), nz(zones);
