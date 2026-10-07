@@ -6,6 +6,58 @@ goal (owner, 7 October): a sandbox in which Sinnoh and a story are built on a bl
 marked **checked** (seen in memory or under the debugger), **read** (from the decompiled code) or **inferred**.
 `ORAS_LITTLEROOT.md` keeps the history of the Littleroot and Route 201 work; this file keeps the engine.
 
+
+## 0. Start here (the state on 7 October, for whoever continues)
+
+**The owner's objectives, in order** (their words, 7 October): (1) take the game apart to the binary and learn every part;
+(2) reference every table and asset; (3) a limitless sandbox; (4) remove the memory, cache, zone and asset limits; (5)
+patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothing tied to Hoenn; (7) a story mod. Step
+1-5 are under way here; 6 and 7 wait on them. The owner tests mods on their phone (Pomegrade, `ORAS_LITTLEROOT.md` 0).
+
+**Where each stands**:
+
+| Objective | State |
+|---|---|
+| 1 Decomposition | the whole code (`.code` + 145 modules, 47,602 functions) in one Ghidra program, checked against the game's own load; not yet: naming functions by what they do (record which run during each activity) |
+| 2 Tables and assets | zones (section 2), map pieces (3), the boot memory map (4.2), the 299 archives tied to their code where opened by a constant (5); not yet: the 210 archives opened by computed numbers, the asset formats beyond `tools/remake/src`'s readers |
+| 4 Limits | all 927 fatal checks listed, the field's and the `.code`'s classified (4.1, 4.3); lifted and checked headless: zones 536 -> 1024 (2), application memory 64 -> 96 MB and the linear heap 43.3 -> 71.3 MB (4.4), the normal heap and heap 4 (heap 0xC 2 -> 8 MB, 4.4), characters 26 -> past 32 (4.5); refused at build time where it cannot be raised: a zone's events file under 0xC84 bytes (4.5); not yet: the New 3DS memory modes (124 and 178 MB), the async load queue (8), collision objects per cell (4), texture slots per model (51), the 174-entry table (meaning unknown) |
+| 5 Patches | `remake_tool oras-engine` writes them all (`exheader.bin`, `exefs/code.ips`); none run on the phone yet |
+| 3, 6, 7 | not started on this basis: Sinnoh's region tools (`oras-region`, `ORAS_LITTLEROOT.md`) still borrow Hoenn's zones; next is building Sinnoh's zones from 538 up with the tools above |
+
+**Setting up a session** (`tools/remake/headless/session_setup.sh <work dir>`): fetches the dumps from Drive into a work
+folder outside the repository (ids in `POMEGRADE_ORAS_DRIVE_ID`, `POMEGRADE_PLATINUM_DRIVE_ID`, `POMEGRADE_SAVE_DRIVE_ID`:
+the files of the owner's Drive folder "Pokemon Project - Radiant Platinum"; the Drive connector may not list recent
+uploads, so ask the owner for share links), builds `remake_tool` and the code image, builds Azahar's libretro core with the
+headless patches (about 30 min on 4 cores, once) and the Ghidra program (9 min, checked on a fresh folder: 47,557 functions
+in one pass, against 47,602 when the modules were added to an analysed `.code`; DllField's piece handler decompiles as in
+section 3). Then:
+
+- **Run the game** (`tools/remake/headless/run_local.sh <work> <name> <mod|-> "<zone x z>" "<script>"`): 2 min to the field,
+  6 for a walk; the owner's save stands in Littleroot (zone 6, tile 104.5, 170.5); move it with the zone and tile. A zone's
+  characters are placed when the player **enters** it: to test them, start next door (zone 23, 100.5 150.5) and walk south.
+  `shot NAME` saves the screen (the host's own "field up" detection is wrong under some mods: look at the picture).
+  `report` lists every thread; one in the fatal-error loop shows pc 0x11EF50 / 0x11ABxx / 0x110Axx, `0011EF60` in its stack
+  code addresses, and its registers and raw stack, from which the frames' saved registers give the object that failed.
+- **Read code**: `analyzeHeadless <work>/ghidra_proj oras -process code.bin -noanalysis -readOnly -scriptPath
+  tools/remake/ghidra -postScript Export.java <out> <address>...` decompiles the functions holding those addresses (a module's
+  address is its linked one: `linked/modules.tsv` gives each base, DllField 0x10242000; in the running game DllField sits
+  at 0x6F3000). `prototype/code_find.py <work>/dumps/code.bin --at|--imm|--word ...` finds an instruction or constant;
+  `prototype/cro_dis.py <module.cro> dis <offset> <n>` reads a module with its imports resolved.
+- **Read memory while it runs**: script commands `mem`, `watch` (a word's changes frame by frame, cheap and reliable),
+  `dump` (raw memory for Ghidra). The GDB stub (`gdb 24689`, `run_local.sh ... gdb`) can stop on any instruction but is
+  flaky in this host (section notes in `run_local.sh`): prefer `watch` and static reading when they suffice.
+
+**How a limit is lifted, the way every one above was**: find the fatal call (the census, or the stack of a frozen run),
+read its function, find where the bound and the matching allocation live (an immediate, a literal-pool word, a caller's
+argument), predict what a patch changes, build a mod that crosses the limit **and an unpatched control** with the same
+data, run both: the control must stop, the patched one must not, and a screenshot or a memory read must show the new
+thing is really used. Add the words to `OrasEngine.cpp` (each with the game's own value: `CodePatchIps` refuses a word
+that is not), a test where the code is new (`tests/remake/remake_codepatch_test.cpp`), and a subsection here. Pitfalls
+met: a value can appear in the code for unrelated reasons (0x5ED000 is both heap 4's size and a data address: patching
+both looped the game); an ARM immediate holds only an 8-bit value rotated by an even amount (pick sizes like 0x800000,
+0x1800000); a continued save restores state from the save rather than from the files (the characters); a limit can hide
+another (51 characters passed the count check and stopped on the events buffer).
+
 ## 1. How the engine is read
 
 - **The dumps** (Drive folder "Pokemon Project - Radiant Platinum": the cartridge, Platinum, the owner's save `main.zip`) are
@@ -110,6 +162,118 @@ address - 0x10242000). The ones that bound a larger region:
 The others are invariants (idle state byte 0x14 before a new request, objects initialised twice, required globals present,
 a character still stuck after a corrected move): rules on order, not capacities. Not in DllField: the zone bound (section 2),
 the 4-slot piece table (section 3).
+
+### 4.2 The memory map: every heap, created at boot by `FUN_00107c0c`
+
+**Read, and the sizes held in data words read from the code** (7 October). `FUN_00145d44(0x8000000)` takes the application
+memory, `0xE88000` of it goes to a system region (heap 1, `FUN_0010abd8`), the rest is split by `FUN_001120b4(parent, id, size)`
+into sub-heaps. These sizes are the memory budgets: a larger world means larger heaps here (a patch to these words), within the
+console's memory (ORAS asks the 3DS for its standard application memory; whether more can be had is not yet checked).
+
+| Heap id | Size | | Heap id | Size |
+|---|---|---|---|---|
+| 8 | 0x20000 (128 KB; event work buffers) | | 0x13 | 0xA800 |
+| 9 | 0x392000 (3.6 MB) | | 0x14 | 0x14100 |
+| 10 | 0x10000 | | 0x196 | 0x2900 |
+| 0xB | 0x1400 | | 0x197 | 0x8000 |
+| **0xC** | **0x200000 (2 MB; whole archive members loaded asynchronously, zones and areas)** | | 0x19 | 0x10000 |
+| 0xD | 0x142420 (1.3 MB) | | 0x1A | 0x16D300 (1.4 MB) |
+| 0xE | 0x3A000 | | 0xF8 | 0x80000 (512 KB) |
+| 0xF | 0x115000 (1.1 MB) | | 0x18 | 0x1E000 |
+| 0x10, 0x11 | 0x2000 each | | 0xF1 | 0x1B8000 (1.7 MB) |
+| 0x12 | 0x4110 | | 0x1DD | 0x5000 |
+| 0x112 / 0x113 | 0x3000 / 0x18000 | | **0x16** | **0x504000 (5 MB)** |
+| 0x195 | 0x4000 | | **0x17** | **0x1C6D000 (28.4 MB, the largest)** |
+| 0x1DE / 0x1DF | 0x3C00 / 0x10000 | | 0x1D9 / 0x1DA | 0x600 / 0x15C500 |
+
+What lives in each heap is known only where a check names it (0xC: async member loads; 8: event work; 0xD, 0xF8: the
+allocations in sections 4.3); the rest is to read.
+
+### 4.3 The `.code`'s 548 checks, classified
+
+Read in six parts by sub-agents from the decompiled functions, as DllField's; the memory map above checked by hand. Most are
+invariants (singletons created or freed twice, null pointers, save-block magic checks, objects destroyed while loading). The
+capacities that bound a larger world:
+
+| Function | Check | Limit | |
+|---|---|---|---|
+| `FUN_003d9740`, `FUN_003d99b8`, `FUN_00112b50` | zone bound, zone file size, header table size | 536 zones, 0x4A58-byte zone files (section 2) | read; lifted (section 2) |
+| `FUN_003c8a24` | no free slot | 4 map pieces loaded (section 3) | read, checked |
+| `FUN_003f7ff4` | `0x1A < count` (zones 0x10, 0x30, 0x1C3 exempt), spawned `> 0x19` | **26 field entities per zone**, 0xAB0 bytes each | read (that they are characters: guess) |
+| `FUN_003f54e8` | no free entry among the count at +0x36A0 | the field object pool (0xAB0-byte entries) | read |
+| `FUN_003f2ed8` | `4 <` objects in a cell; 48-entry result buffer | 4 collision objects per cell | read (collision: guess) |
+| `FUN_00471520` | pending count `>= 8` | async load queue of 8 | read |
+| `FUN_004074c4`, `FUN_00404a5c`, `FUN_0049d830` and others | an async load could not start | whole members loaded into heap 0xC (2 MB) | read |
+| `FUN_003d7dd0`, `FUN_0043abb0` | allocation returned null | the event heap and other heaps out of memory (section 4.2) | read |
+| `FUN_0048883c` | `0x33 <` entries | 51 texture-slot entries per model (arrays inline in the model object) | read (textures: guess) |
+| `FUN_00361604` | index `>=` capacity at +0x20 | model and animation slots of a resource set | read |
+| `FUN_003623ec` | index `>=` capacity at +0x24 | resource slots, each an archive | read |
+| `FUN_003cc4fc` and 7 others | `0xAD <` id | a table of 174 entries of 0x28 bytes (DAT_003cc530 ...) | read (what it holds: unknown) |
+| `FUN_003fb230` | id over a range's max | 86 id ranges of 0x10 bytes (DAT_003fb388) | read (message or script ids: guess) |
+| `FUN_003db6e4` | size `>=` DAT_003db770 | a multi-section event block copied into a fixed buffer | read (script data: guess) |
+| `FUN_0010a4b0` (from the boot) | 0x20 | 32 code module slots | read |
+| `FUN_00368600` and 10 others | module list `< 2` or `< 3` | each process loads 2-3 named CRO modules together | read |
+| `FUN_004a0108` | `999 <` nodes | resource cache bucket walk | read |
+| `FUN_00459018` and 5 others | `0x1E <` box, `0x1D <` slot, 0xE8 bytes | 31 x 30 Pokemon storage (PC boxes: guess from 232-byte records) | read |
+| `FUN_004d343c` and others | `5 <` index | 6-entry arrays (party: guess) | read |
+| `FUN_004ebde4` and others | magic checks, 0x2D1 | save blocks; 721 species bitfields | read |
+
+### 4.4 The application memory, raised (checked headless, 7 October)
+
+- **What the game gets** (**checked** in memory on the field): a linear heap of **0x2B48000 (43.3 MB)** at 0x14000000 and a
+  normal heap of **0xDF0000 (14.3 MB)** at 0x08000000, plus the code (to 0x6AF000): the 3DS's standard 64 MB application
+  mode, which the game declares in its extended header (`system_mode` 0, flags0 bits 4-7 of the ARM11 local caps at 0x20E).
+- **Where it asks for them** (**read**): `FUN_00106448` at boot checks that 0x3938000 bytes are free, asks for the normal heap
+  `mov r6, #0xDF0000` and the linear heap at the word **0x106508 = 0x2B48000** (`FUN_00107090`); `FUN_00107c0c` then makes
+  heap 1 of the linear heap less 0xE88000, from which the sub-heaps of section 4.2 are carved. A larger linear heap grows
+  heap 1 with it; the sub-heaps keep their sizes until patched.
+- **A larger system mode alone changes nothing** (checked): with `exheader.bin` set to 96 MB (Azahar applies it: the game
+  is reported "tainted") the game still takes 43.3 MB. **With the linear heap word raised too** (`code.ips`), it takes what
+  it is given: 0x4748000 (71.3 MB, +28 MB, mapped 0x14000000-0x18748000 and read back in the game's own variable at
+  0x61726C); the field loads and the player walks, thread 1 idle.
+- **The parents** (**read**, `FUN_00107c0c`): heap 1 = the linear heap less 0xE88000 (it holds heap 0x17 only); **heap 4**
+  (`[0x5F5014 + 0x18]`) = the top **0x5ED000** bytes of the normal heap (heaps 8, 0xB, 0xC, 0xD, 0xF8, 0x18, 0x10, 0x196 ...);
+  heap 5 (`+0x1C`) = the last 0xE88000 bytes of the linear heap (9, 0xA, 0xF, 0x12, 0x14, 0x1A ...); heaps 0xE, 0xF1, 0x16 come
+  from the system heap and 0x17 from heap 1. Heap 4's size is read by `FUN_00106448` (two `sub`s, 0x500000 + 0xED000) and from
+  the word 0x108564; the same value in the words 0x110254 and 0x11AB74 is an address in the game's data, not this size
+  (patching them sent the game reading 0xFFD000 in a loop: checked).
+- **`remake_tool oras-engine <oras.3ds> <out> [--memory 64|72|80|96] [--linear-heap BYTES] [--normal-heap BYTES]
+  [--zone-rows N] [--heap ID:BYTES]...`** (`OrasEngine.h`) writes every engine patch into the one `exheader.bin` and
+  `exefs/code.ips` a mod carries, each word checked against the game's own; a heap whose size is an instruction's immediate
+  takes only ARM-encodable sizes. **Checked headless (7 October)**:
+  - `--memory 96 --linear-heap 0x4748000`: the same bytes as the run above;
+  - `--heap 0x17:0x346D000` with it: heap 0x17 28.4 -> 52.4 MB, field and walk;
+  - `--heap 0xC:0x800000` alone: **the boot stops in heap 0xC's creation**, heap 4 has no room;
+  - `--memory 96 --linear-heap 0x4100000 --normal-heap 0x1800000 --heap 0xC:0x800000`: normal heap 14.3 -> 24 MB (mapped
+    0x08000000-0x09800000), heap 4 6.2 -> 16 MB, **heap 0xC (async member loads) 2 -> 8 MB**, linear heap 65 MB: the field
+    loads (screenshot, `shot` command) and the player walks, thread 1 idle.
+  Not yet: the New 3DS modes (124 and 178 MB, which also need Azahar's New 3DS setting), the phone.
+
+### 4.5 Characters per zone, raised past 26, bounded by the events buffer (checked headless, 7 October)
+
+- **The limit** (**read**): `FUN_003f7ff4` places a zone's characters (its 0x30-byte records) when the player **enters** the
+  zone; it stops the game when the zone lists more than 26 (`cmpne r6, #0x1A` at 0x3F8038; zones 0x10, 0x30 and 0x1C3 are
+  exempt) and before a 27th appears (`cmp r0, #0x1A` at 0x3F808C, the count at +0x36AE). Each character takes an 0xAB0-byte
+  entry of the field manager's pool, which `FUN_00112d4c` makes with the count its caller passes: **32** (`mov r3, #0x20` at
+  0x109048), beside 32 inline records of 0x1B4 bytes in the manager. A continued save restores its characters from the save,
+  not from the zone file: the check runs on entering a zone (checked: a crowded zone 6 resumed into does not stop).
+- **`oras-engine --characters N`** (26 to 32) raises both bounds. **Checked**: zone 6 given 30 characters (`oras-append-test
+  ... crowd`, clones of its own 11 on a grid; written with `OrasZone::Write`), the save on Route 101 (zone 23) north of it,
+  walking south into Littleroot: **without the patch the game stops in the fatal-error loop; with `--characters 32` it enters,
+  the clones stand in the town** (screenshot) and thread 1 is idle.
+- **Above 32** (Platinum needs it: `platinum-zones` counts 28 headers listing more than 26 characters, 8 more than 32, at most
+  51 in header 466): `--characters` up to 255 also grows the pool (`mov r3, #0x20` at 0x109048 -> the bound; the pool is
+  allocated apart from the manager). With it, 51 clones still stop the game, elsewhere: `FUN_003db6e4`, called on entering
+  a zone (DllField `FUN_102ddd8c`), copies the zone's **events file** (file 1: the arrays and the initialisation script) into
+  a buffer of **0xC84 bytes** and stops when it does not fit (`DAT_003db770`); the buffer's size is also returned by a
+  virtual getter (0x4605BC) of a save-data block, so it is part of the save's layout and is **not raised**. Zone 6's events
+  file is 2,032 bytes, 1,268 of them its script: predicted and **checked** 35 clones (3,184 bytes) enter and show, 36
+  (3,232 bytes) stop at the same place. So a zone's characters are bounded by that byte budget (each 0x30 bytes), not by 26:
+  `OrasZone::Write` refuses an events file of 0xC84 bytes or more (`OrasZone::EventsBudget`), so a zone that would stop the
+  game is refused when the mod is built. A Platinum map of 51 characters fits only with a short script, or by splitting
+  its characters across zones.
+- **`OrasZone::Write`** writes a zone back over its container (header, events, the rest kept): **checked identical on all 536
+  zones** (`remake_tool oras-zone-check`).
 
 ## 5. The archives
 
@@ -422,115 +586,3 @@ reader in `tools/remake/src` or `ORAS_LITTLEROOT.md` shows it.
 | `a/2/9/6` | 1 | 27,808 | (a computed number) |
 | `a/2/9/7` | 1 | 254,412 | (a computed number) |
 | `a/2/9/8` | 1 | 21,372 | (a computed number) |
-
-### 4.2 The memory map: every heap, created at boot by `FUN_00107c0c`
-
-**Read, and the sizes held in data words read from the code** (7 October). `FUN_00145d44(0x8000000)` takes the application
-memory, `0xE88000` of it goes to a system region (heap 1, `FUN_0010abd8`), the rest is split by `FUN_001120b4(parent, id, size)`
-into sub-heaps. These sizes are the memory budgets: a larger world means larger heaps here (a patch to these words), within the
-console's memory (ORAS asks the 3DS for its standard application memory; whether more can be had is not yet checked).
-
-| Heap id | Size | | Heap id | Size |
-|---|---|---|---|---|
-| 8 | 0x20000 (128 KB; event work buffers) | | 0x13 | 0xA800 |
-| 9 | 0x392000 (3.6 MB) | | 0x14 | 0x14100 |
-| 10 | 0x10000 | | 0x196 | 0x2900 |
-| 0xB | 0x1400 | | 0x197 | 0x8000 |
-| **0xC** | **0x200000 (2 MB; whole archive members loaded asynchronously, zones and areas)** | | 0x19 | 0x10000 |
-| 0xD | 0x142420 (1.3 MB) | | 0x1A | 0x16D300 (1.4 MB) |
-| 0xE | 0x3A000 | | 0xF8 | 0x80000 (512 KB) |
-| 0xF | 0x115000 (1.1 MB) | | 0x18 | 0x1E000 |
-| 0x10, 0x11 | 0x2000 each | | 0xF1 | 0x1B8000 (1.7 MB) |
-| 0x12 | 0x4110 | | 0x1DD | 0x5000 |
-| 0x112 / 0x113 | 0x3000 / 0x18000 | | **0x16** | **0x504000 (5 MB)** |
-| 0x195 | 0x4000 | | **0x17** | **0x1C6D000 (28.4 MB, the largest)** |
-| 0x1DE / 0x1DF | 0x3C00 / 0x10000 | | 0x1D9 / 0x1DA | 0x600 / 0x15C500 |
-
-What lives in each heap is known only where a check names it (0xC: async member loads; 8: event work; 0xD, 0xF8: the
-allocations in sections 4.3); the rest is to read.
-
-### 4.3 The `.code`'s 548 checks, classified
-
-Read in six parts by sub-agents from the decompiled functions, as DllField's; the memory map above checked by hand. Most are
-invariants (singletons created or freed twice, null pointers, save-block magic checks, objects destroyed while loading). The
-capacities that bound a larger world:
-
-| Function | Check | Limit | |
-|---|---|---|---|
-| `FUN_003d9740`, `FUN_003d99b8`, `FUN_00112b50` | zone bound, zone file size, header table size | 536 zones, 0x4A58-byte zone files (section 2) | read; lifted (section 2) |
-| `FUN_003c8a24` | no free slot | 4 map pieces loaded (section 3) | read, checked |
-| `FUN_003f7ff4` | `0x1A < count` (zones 0x10, 0x30, 0x1C3 exempt), spawned `> 0x19` | **26 field entities per zone**, 0xAB0 bytes each | read (that they are characters: guess) |
-| `FUN_003f54e8` | no free entry among the count at +0x36A0 | the field object pool (0xAB0-byte entries) | read |
-| `FUN_003f2ed8` | `4 <` objects in a cell; 48-entry result buffer | 4 collision objects per cell | read (collision: guess) |
-| `FUN_00471520` | pending count `>= 8` | async load queue of 8 | read |
-| `FUN_004074c4`, `FUN_00404a5c`, `FUN_0049d830` and others | an async load could not start | whole members loaded into heap 0xC (2 MB) | read |
-| `FUN_003d7dd0`, `FUN_0043abb0` | allocation returned null | the event heap and other heaps out of memory (section 4.2) | read |
-| `FUN_0048883c` | `0x33 <` entries | 51 texture-slot entries per model (arrays inline in the model object) | read (textures: guess) |
-| `FUN_00361604` | index `>=` capacity at +0x20 | model and animation slots of a resource set | read |
-| `FUN_003623ec` | index `>=` capacity at +0x24 | resource slots, each an archive | read |
-| `FUN_003cc4fc` and 7 others | `0xAD <` id | a table of 174 entries of 0x28 bytes (DAT_003cc530 ...) | read (what it holds: unknown) |
-| `FUN_003fb230` | id over a range's max | 86 id ranges of 0x10 bytes (DAT_003fb388) | read (message or script ids: guess) |
-| `FUN_003db6e4` | size `>=` DAT_003db770 | a multi-section event block copied into a fixed buffer | read (script data: guess) |
-| `FUN_0010a4b0` (from the boot) | 0x20 | 32 code module slots | read |
-| `FUN_00368600` and 10 others | module list `< 2` or `< 3` | each process loads 2-3 named CRO modules together | read |
-| `FUN_004a0108` | `999 <` nodes | resource cache bucket walk | read |
-| `FUN_00459018` and 5 others | `0x1E <` box, `0x1D <` slot, 0xE8 bytes | 31 x 30 Pokemon storage (PC boxes: guess from 232-byte records) | read |
-| `FUN_004d343c` and others | `5 <` index | 6-entry arrays (party: guess) | read |
-| `FUN_004ebde4` and others | magic checks, 0x2D1 | save blocks; 721 species bitfields | read |
-
-### 4.4 The application memory, raised (checked headless, 7 October)
-
-- **What the game gets** (**checked** in memory on the field): a linear heap of **0x2B48000 (43.3 MB)** at 0x14000000 and a
-  normal heap of **0xDF0000 (14.3 MB)** at 0x08000000, plus the code (to 0x6AF000): the 3DS's standard 64 MB application
-  mode, which the game declares in its extended header (`system_mode` 0, flags0 bits 4-7 of the ARM11 local caps at 0x20E).
-- **Where it asks for them** (**read**): `FUN_00106448` at boot checks that 0x3938000 bytes are free, asks for the normal heap
-  `mov r6, #0xDF0000` and the linear heap at the word **0x106508 = 0x2B48000** (`FUN_00107090`); `FUN_00107c0c` then makes
-  heap 1 of the linear heap less 0xE88000, from which the sub-heaps of section 4.2 are carved. A larger linear heap grows
-  heap 1 with it; the sub-heaps keep their sizes until patched.
-- **A larger system mode alone changes nothing** (checked): with `exheader.bin` set to 96 MB (Azahar applies it: the game
-  is reported "tainted") the game still takes 43.3 MB. **With the linear heap word raised too** (`code.ips`), it takes what
-  it is given: 0x4748000 (71.3 MB, +28 MB, mapped 0x14000000-0x18748000 and read back in the game's own variable at
-  0x61726C); the field loads and the player walks, thread 1 idle.
-- **The parents** (**read**, `FUN_00107c0c`): heap 1 = the linear heap less 0xE88000 (it holds heap 0x17 only); **heap 4**
-  (`[0x5F5014 + 0x18]`) = the top **0x5ED000** bytes of the normal heap (heaps 8, 0xB, 0xC, 0xD, 0xF8, 0x18, 0x10, 0x196 ...);
-  heap 5 (`+0x1C`) = the last 0xE88000 bytes of the linear heap (9, 0xA, 0xF, 0x12, 0x14, 0x1A ...); heaps 0xE, 0xF1, 0x16 come
-  from the system heap and 0x17 from heap 1. Heap 4's size is read by `FUN_00106448` (two `sub`s, 0x500000 + 0xED000) and from
-  the word 0x108564; the same value in the words 0x110254 and 0x11AB74 is an address in the game's data, not this size
-  (patching them sent the game reading 0xFFD000 in a loop: checked).
-- **`remake_tool oras-engine <oras.3ds> <out> [--memory 64|72|80|96] [--linear-heap BYTES] [--normal-heap BYTES]
-  [--zone-rows N] [--heap ID:BYTES]...`** (`OrasEngine.h`) writes every engine patch into the one `exheader.bin` and
-  `exefs/code.ips` a mod carries, each word checked against the game's own; a heap whose size is an instruction's immediate
-  takes only ARM-encodable sizes. **Checked headless (7 October)**:
-  - `--memory 96 --linear-heap 0x4748000`: the same bytes as the run above;
-  - `--heap 0x17:0x346D000` with it: heap 0x17 28.4 -> 52.4 MB, field and walk;
-  - `--heap 0xC:0x800000` alone: **the boot stops in heap 0xC's creation**, heap 4 has no room;
-  - `--memory 96 --linear-heap 0x4100000 --normal-heap 0x1800000 --heap 0xC:0x800000`: normal heap 14.3 -> 24 MB (mapped
-    0x08000000-0x09800000), heap 4 6.2 -> 16 MB, **heap 0xC (async member loads) 2 -> 8 MB**, linear heap 65 MB: the field
-    loads (screenshot, `shot` command) and the player walks, thread 1 idle.
-  Not yet: the New 3DS modes (124 and 178 MB, which also need Azahar's New 3DS setting), the phone.
-
-### 4.5 Characters per zone, raised to 32 (checked headless, 7 October)
-
-- **The limit** (**read**): `FUN_003f7ff4` places a zone's characters (its 0x30-byte records) when the player **enters** the
-  zone; it stops the game when the zone lists more than 26 (`cmpne r6, #0x1A` at 0x3F8038; zones 0x10, 0x30 and 0x1C3 are
-  exempt) and before a 27th appears (`cmp r0, #0x1A` at 0x3F808C, the count at +0x36AE). Each character takes an 0xAB0-byte
-  entry of the field manager's pool, which `FUN_00112d4c` makes with the count its caller passes: **32** (`mov r3, #0x20` at
-  0x109048), beside 32 inline records of 0x1B4 bytes in the manager. A continued save restores its characters from the save,
-  not from the zone file: the check runs on entering a zone (checked: a crowded zone 6 resumed into does not stop).
-- **`oras-engine --characters N`** (26 to 32) raises both bounds. **Checked**: zone 6 given 30 characters (`oras-append-test
-  ... crowd`, clones of its own 11 on a grid; written with `OrasZone::Write`), the save on Route 101 (zone 23) north of it,
-  walking south into Littleroot: **without the patch the game stops in the fatal-error loop; with `--characters 32` it enters,
-  the clones stand in the town** (screenshot) and thread 1 is idle.
-- **Above 32** (Platinum needs it: `platinum-zones` counts 28 headers listing more than 26 characters, 8 more than 32, at most
-  51 in header 466): `--characters` up to 255 also grows the pool (`mov r3, #0x20` at 0x109048 -> the bound; the pool is
-  allocated apart from the manager). With it, 51 clones still stop the game, elsewhere: `FUN_003db6e4`, called on entering
-  a zone (DllField `FUN_102ddd8c`), copies the zone's **events file** (file 1: the arrays and the initialisation script) into
-  a buffer of **0xC84 bytes** and stops when it does not fit (`DAT_003db770`); the buffer's size is also returned by a
-  virtual getter (0x4605BC) of a save-data block, so it is part of the save's layout and is **not raised**. Zone 6's events
-  file is 2,032 bytes, 1,268 of them its script: predicted and **checked** 35 clones (3,184 bytes) enter and show, 36
-  (3,232 bytes) stop at the same place. So a zone's characters are bounded by that byte budget (each 0x30 bytes), not by 26:
-  `OrasZone::Write` refuses an events file of 0xC84 bytes or more (`OrasZone::EventsBudget`), so a zone that would stop the
-  game is refused when the mod is built. A Platinum map of 51 characters fits only with a short script, or by splitting
-  its characters across zones.
-- **`OrasZone::Write`** writes a zone back over its container (header, events, the rest kept): **checked identical on all 536
-  zones** (`remake_tool oras-zone-check`).
