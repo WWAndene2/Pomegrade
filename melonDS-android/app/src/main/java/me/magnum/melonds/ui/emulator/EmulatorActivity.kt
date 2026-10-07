@@ -8,6 +8,7 @@ import android.hardware.input.InputManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
+import android.os.PowerManager
 import android.view.Display
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -58,6 +59,8 @@ import me.magnum.melonds.databinding.ActivityEmulatorBinding
 import me.magnum.melonds.domain.model.ConsoleType
 import me.magnum.melonds.domain.model.ControllerConfiguration
 import me.magnum.melonds.domain.model.FpsCounterPosition
+import me.magnum.melonds.domain.model.FrameRateMode
+import me.magnum.melonds.domain.model.PerformanceDetails
 import me.magnum.melonds.domain.model.Rect
 import me.magnum.melonds.domain.model.SaveStateSlot
 import me.magnum.melonds.domain.model.layout.Insets
@@ -184,7 +187,13 @@ class EmulatorActivity : AppCompatActivity() {
 
         override fun onDisplayChanged(displayId: Int) {
             updateDisplays()
+            reportDisplayRefreshRate()
         }
+    }
+
+    // frame rate modes (Pomegrade): while the phone is hot, the adaptive mode stays at 60 fps at most
+    private val thermalStatusListener = PowerManager.OnThermalStatusChangedListener { status ->
+        viewModel.onThermalLimitChanged(status >= PowerManager.THERMAL_STATUS_MODERATE)
     }
 
     private val connectedControllerManager = ConnectedControllerManager()
@@ -463,11 +472,15 @@ class EmulatorActivity : AppCompatActivity() {
         }
         lifecycleScope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.currentFps.collectLatest {
-                    if (it == null) {
+                combine(viewModel.currentFps, viewModel.shownFrameRate, viewModel.performanceDetails) { fps, shown, details ->
+                    Triple(fps, shown, details)
+                }.collectLatest { (fps, shown, details) ->
+                    if (fps == null) {
                         binding.textFps.text = null
                     } else {
-                        binding.textFps.text = getString(R.string.info_fps, it)
+                        // with a frame rate mode other than 60: the images the screen gets per second too
+                        val fpsText = if (shown == null) getString(R.string.info_fps, fps) else getString(R.string.info_fps_shown, fps, shown)
+                        binding.textFps.text = if (details == null) fpsText else "$fpsText\n${getPerformanceDetailsText(details)}"
                     }
                 }
             }
@@ -515,6 +528,13 @@ class EmulatorActivity : AppCompatActivity() {
                             settingsLauncher.launch(settingsIntent)
                         }
                         is EmulatorUiEvent.ShowPauseMenu -> showPauseMenu(it.pauseMenu)
+                        is EmulatorUiEvent.ShowRendererError -> {
+                            AlertDialog.Builder(this@EmulatorActivity)
+                                .setTitle(R.string.renderer_unavailable)
+                                .setMessage(getString(R.string.renderer_unavailable_message, it.message))
+                                .setPositiveButton(R.string.ok, null)
+                                .show()
+                        }
                         is EmulatorUiEvent.ShowRewindWindow -> showRewindWindow(it.rewindWindow)
                         is EmulatorUiEvent.ShowRomSaveStates -> {
                             showSaveStateSlotsDialog(it.saveStates, saving = it.reason == EmulatorUiEvent.ShowRomSaveStates.Reason.SAVING) { slot ->
@@ -550,6 +570,7 @@ class EmulatorActivity : AppCompatActivity() {
         lifecycleScope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.CREATED) {
                 viewModel.emulatorState.collectLatest {
+                    viewModel.debugTraceNote("emulator screen: ${it.javaClass.simpleName}")
                     when (it) {
                         is EmulatorState.Uninitialized -> {
                             binding.viewLayoutControls.isInvisible = true
@@ -628,8 +649,10 @@ class EmulatorActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        viewModel.debugTraceNote("emulator screen started")
         updateDisplays()
         getSystemService<DisplayManager>()?.registerDisplayListener(displayListener, null)
+        getSystemService<PowerManager>()?.addThermalStatusListener(thermalStatusListener)
         getSystemService<InputManager>()?.registerInputDeviceListener(connectedControllerManager, null)
         connectedControllerManager.startTrackingControllers()
         frameRenderCoordinator.addSurface(binding.surfaceMain)
@@ -745,28 +768,51 @@ class EmulatorActivity : AppCompatActivity() {
     }
 
     /**
-     * Frame generation (Pomegrade) makes two images per DS frame: the display
-     * is asked for its mode closest to 120 Hz (same resolution) so each one gets
-     * a refresh. Otherwise the system chooses, as before.
+     * Frame rate modes (Pomegrade): 120 and 240 fps need a screen that refreshes that often, so the display is asked for
+     * its mode closest to that rate (same resolution), and the adaptive mode for its fastest. 30 and 60 fps: the system
+     * chooses, as before. The rate the screen ends up at goes to the emulator, which never generates more images than
+     * the screen shows (see FrameRatePacer.h).
      */
     private fun setupDisplayRefreshRate() {
+        val currentDisplay = getCurrentDisplay() ?: return
+        val current = currentDisplay.mode
+        val modes = currentDisplay.supportedModes.filter {
+            it.physicalWidth == current.physicalWidth && it.physicalHeight == current.physicalHeight
+        }
+        // a screen mode at exactly the images' rate: 120 images on a 144 Hz screen would be shown unevenly
+        fun modeAt(rate: Float) = modes.filter { abs(it.refreshRate - rate) < 1f }.minByOrNull { abs(it.refreshRate - rate) }
+        val modeId = when (viewModel.getFrameRateMode()) {
+            FrameRateMode.FPS_120 -> modeAt(120f)
+            FrameRateMode.FPS_240, FrameRateMode.ADAPTIVE -> modeAt(240f) ?: modeAt(120f)
+            FrameRateMode.FPS_30, FrameRateMode.FPS_60 -> null
+        }?.modeId ?: 0
+        window.attributes = window.attributes.also { it.preferredDisplayModeId = modeId }
+        reportDisplayRefreshRate()
+    }
+
+    private fun reportDisplayRefreshRate() {
+        getCurrentDisplay()?.let { viewModel.onDisplayRefreshRateChanged(it.refreshRate) }
+    }
+
+    private fun getCurrentDisplay(): Display? {
         // Activity.getDisplay() is API 30; the minimum is 29
-        val currentDisplay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            display ?: return
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            display
         } else {
             @Suppress("DEPRECATION")
             windowManager.defaultDisplay
         }
-        val current = currentDisplay.mode
-        val modeId = if (viewModel.isFrameGenerationEnabled()) {
-            currentDisplay.supportedModes
-                .filter { it.physicalWidth == current.physicalWidth && it.physicalHeight == current.physicalHeight && it.refreshRate >= 119f }
-                .minByOrNull { abs(it.refreshRate - 120f) }
-                ?.modeId ?: 0
-        } else {
-            0
-        }
-        window.attributes = window.attributes.also { it.preferredDisplayModeId = modeId }
+    }
+
+    private fun getPerformanceDetailsText(details: PerformanceDetails): String {
+        val cpu = getString(R.string.info_performance_cpu, details.emulationCpuMs, details.polygonMultiplierCpuMs, details.texturesCpuMs)
+        val gpuTotal = details.gpuTotalMs ?: return "$cpu\n${getString(R.string.info_performance_gpu_unavailable)}"
+        return listOf(
+            cpu,
+            getString(R.string.info_performance_gpu, gpuTotal),
+            getString(R.string.info_performance_gpu_passes, details.gpuSceneMs, details.gpuShadowsMs, details.gpuLightingMs),
+            getString(R.string.info_performance_gpu_more, details.gpuFrameGenerationMs, details.gpuCompositorMs),
+        ).joinToString("\n")
     }
 
     private fun setupFpsCounter() {
@@ -1104,6 +1150,7 @@ class EmulatorActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        viewModel.debugTraceNote("emulator screen paused (left or covered)")
         enableScreenTimeOut()
         choreographerFrameRenderer.stopRendering()
         viewModel.pauseEmulator(false)
@@ -1122,6 +1169,7 @@ class EmulatorActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         getSystemService<DisplayManager>()?.unregisterDisplayListener(displayListener)
+        getSystemService<PowerManager>()?.removeThermalStatusListener(thermalStatusListener)
         getSystemService<InputManager>()?.unregisterInputDeviceListener(connectedControllerManager)
         connectedControllerManager.stopTrackingControllers()
         frameRenderCoordinator.removeSurface(binding.surfaceMain)

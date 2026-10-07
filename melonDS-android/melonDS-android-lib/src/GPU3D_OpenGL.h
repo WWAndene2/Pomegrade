@@ -48,7 +48,9 @@ public:
     void SetTextureFilter(bool enable) noexcept { ShaderConfig.uTextureFilter = enable ? 1 : 0; }
     // Relief textures (Pomegrade): 0 off, 1 subtle, 2 strong, 3 stylised (strong, and the
     // scene redrawn in flat colours and soft painted light) (DS_ENGINE_REMAKE.md 14.1, 15.2)
-    void SetRelief(int level) noexcept { Relief = level; }
+    // The relief code is compiled into the polygon shaders only while relief is
+    // on: turning it on or off rebuilds them (GL context current)
+    void SetRelief(int level) noexcept;
     // Scene-adaptive colour (Pomegrade): see GPU_SceneColour.h
     void SetAdaptiveColours(bool enable) { CurGLCompositor.SetAdaptiveColours(enable); }
     void SetOledBlacks(bool enable) { CurGLCompositor.SetOledBlacks(enable); }
@@ -61,15 +63,22 @@ public:
     void SetReflections(bool enable) noexcept { Reflections = enable; }
     // Frame generation (Pomegrade): see RenderIntermediateFrame
     void SetFrameGeneration(bool enable) noexcept;
-    // Renders the image halfway between the 3D frame last shown and the one
-    // rendered after it (the DS renders a frame ahead): each polygon present
-    // in both, with the same texture and shape, has its vertices placed
-    // halfway (screen position, depth, colour, texture coordinates). Composited
+    // Pomegrade: the next frame won't be shown (30 fps mode): the display-only
+    // lighting effects are skipped. The DS render itself is made as always
+    // (the game may capture it)
+    void SetFrameHidden(bool hidden) noexcept { FrameHidden = hidden; }
+    // Renders an image between the 3D frame last shown and the one rendered
+    // after it (the DS renders a frame ahead), at position (0 = the frame
+    // shown, 1 = the next; 0.5 halfway, 0.25/0.5/0.75 for three images): each
+    // polygon present in both, with the same texture and shape, has its
+    // vertices placed there (screen position, depth, colour, texture
+    // coordinates). The pairing is made once for all the images between the
+    // same two frames. Composited
     // with the 2D layers of the frame just finished, into outputTexture.
     // Returns false (nothing rendered) when there is nothing to interpolate.
     // The renderer's own image is left as it was: display capture and the
     // next frame see the DS render.
-    bool RenderIntermediateFrame(GPU& gpu, u32 outputTexture);
+    bool RenderIntermediateFrame(GPU& gpu, u32 outputTexture, float position = 0.5f);
     void SetScaleFactor(int scale) noexcept;
     [[nodiscard]] bool GetBetterPolygons() const noexcept { return BetterPolygons; }
     [[nodiscard]] int GetScaleFactor() const noexcept { return ScaleFactor; }
@@ -116,6 +125,8 @@ private:
     // buffers grow past the hardware's needs for the polygon multiplier (Pomegrade), see EnsureCapacity
     std::vector<RendererPolygon> PolygonList = std::vector<RendererPolygon>(2048);
 
+    bool BuildRenderShaders();
+
     bool BuildRenderShader(u32 flags, const std::string& vs, const std::string& fs);
     void UseRenderShader(u32 flags);
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
@@ -140,12 +151,19 @@ private:
         void Take(Polygon** polys, u32 count);
     };
     bool FrameGeneration {};
+    bool FrameHidden {};
     FrameSnapshot Snapshots[2]; // previous, current
     FrameSnapshot Intermediate;
     // the previous frame's counterparts of sub-polygons subdivided differently
     // there (adaptive multiplier level), resampled from its subdivision
     FrameSnapshot Resampled;
     bool ResamplePrevious(const Polygon& cur, const Polygon* const* prevPieces, u32 count, Polygon& out);
+    // each polygon of the current snapshot paired with the previous one's
+    // (null: none), once per pair of frames for all the images between them
+    bool PairSnapshots();
+    std::vector<const Polygon*> Match;
+    u32 SnapshotVersion = 0, PairedVersion = ~0u;
+    bool Paired = false;
     std::vector<Polygon*> IntermediateList;
     GLuint BackupColorTex {}, BackupLightingTex {};
     GLuint CopyFramebuffers[2] {};
@@ -261,6 +279,7 @@ private:
     bool LightBounce {};
     bool Shadows {};
     int Relief {};
+    bool ReliefShaders {}; // the polygon shaders hold the relief code (see BuildRenderShaders)
     bool ViewDataActive {}; // view-space vertex data built and uploaded this frame
     // inspector (Pomegrade): set while polygons are drawn in its colours
     const class Inspector* ViewInspector = nullptr;

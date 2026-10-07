@@ -87,6 +87,29 @@ object MelonEmulator {
 
 	external fun getFPS(): Float
 
+    /** Performance details (Pomegrade): see [me.magnum.melonds.domain.model.PerformanceDetails]. */
+    external fun setPerformanceCounters(enabled: Boolean)
+
+    /** Frame rate modes (Pomegrade): the screen's current refresh rate, which caps the generated images. */
+    external fun setDisplayRefreshRate(hz: Float)
+
+    /** Frame rate modes: the phone is hot, the adaptive mode stays at 60 fps at most. */
+    external fun setThermalLimit(limited: Boolean)
+
+    /** Frame rate modes: images shown per second now (the adaptive mode's current choice). */
+    external fun getFrameRate(): Int
+
+    /** Why the OpenGL or Compute renderer could not be used (the software one stands in); null if nothing failed. */
+    external fun takeRendererError(): String?
+
+    /** DS debug trace (Pomegrade, see DebugTrace.h): a new record in folder, starting with header; folder null = off. */
+    external fun setDebugTrace(folder: String?, header: String?)
+
+    /** A line of the DS debug trace, from the app (nothing when it is off). */
+    external fun debugTraceNote(text: String)
+
+    external fun getPerformanceCounters(): FloatArray
+
 	external fun pauseEmulation()
 
 	external fun resumeEmulation()

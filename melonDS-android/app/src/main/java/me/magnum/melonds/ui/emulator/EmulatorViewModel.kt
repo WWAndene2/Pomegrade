@@ -41,6 +41,8 @@ import me.magnum.melonds.common.runtime.ScreenshotFrameBufferProvider
 import me.magnum.melonds.domain.model.Cheat
 import me.magnum.melonds.domain.model.ConsoleType
 import me.magnum.melonds.domain.model.FpsCounterPosition
+import me.magnum.melonds.domain.model.FrameRateMode
+import me.magnum.melonds.domain.model.PerformanceDetails
 import me.magnum.melonds.domain.model.RomInfo
 import me.magnum.melonds.domain.model.RuntimeBackground
 import me.magnum.melonds.domain.model.SaveStateSlot
@@ -147,6 +149,13 @@ class EmulatorViewModel @Inject constructor(
 
     private val _currentFps = MutableStateFlow<Int?>(null)
     val currentFps = _currentFps.asStateFlow()
+
+    // images shown per second when the frame rate mode isn't 60 (null: 60, nothing to add to the FPS counter)
+    private val _shownFrameRate = MutableStateFlow<Int?>(null)
+    val shownFrameRate = _shownFrameRate.asStateFlow()
+
+    private val _performanceDetails = MutableStateFlow<PerformanceDetails?>(null)
+    val performanceDetails = _performanceDetails.asStateFlow()
 
     private val _toastEvent = EventSharedFlow<ToastEvent>()
     val toastEvent = _toastEvent.asSharedFlow()
@@ -644,6 +653,8 @@ class EmulatorViewModel @Inject constructor(
         emulatorSession.reset()
         raSessionJob = null
         _currentFps.value = null
+        _shownFrameRate.value = null
+        _performanceDetails.value = null
         _emulatorState.value = newState
         _mainScreenBackground.value = RuntimeBackground.None
         _secondaryScreenBackground.value = RuntimeBackground.None
@@ -781,8 +792,27 @@ class EmulatorViewModel @Inject constructor(
         return settingsRepository.isSustainedPerformanceModeEnabled()
     }
 
-    fun isFrameGenerationEnabled(): Boolean {
-        return settingsRepository.isFrameGenerationEnabled()
+    fun getFrameRateMode(): FrameRateMode {
+        return settingsRepository.getFrameRateMode()
+    }
+
+    // the last screen refresh rate and heat state the activity reported, sent again every second (a game's emulator
+    // instance starts without them, and may start after they were reported)
+    private var displayRefreshRate = 60f
+    private var thermalLimited = false
+
+    fun onDisplayRefreshRateChanged(hz: Float) {
+        displayRefreshRate = hz
+        emulatorManager.setDisplayRefreshRate(hz)
+    }
+
+    fun debugTraceNote(text: String) {
+        emulatorManager.debugTraceNote(text)
+    }
+
+    fun onThermalLimitChanged(limited: Boolean) {
+        thermalLimited = limited
+        emulatorManager.setThermalLimit(limited)
     }
 
     fun getFpsCounterPosition(): FpsCounterPosition {
@@ -989,9 +1019,24 @@ class EmulatorViewModel @Inject constructor(
 
     private fun startTrackingFps() {
         sessionCoroutineScope.launch {
-            while (isActive) {
-                delay(1.seconds)
-                _currentFps.value = emulatorManager.getFps().roundToInt()
+            // performance details: shown with the FPS counter, measured only while shown. The setting can change while
+            // the game runs, so it is applied every second (also undoing a previous session's loop turning the
+            // counters off as it ends)
+            try {
+                while (isActive) {
+                    val showDetails = settingsRepository.isPerformanceDetailsEnabled() &&
+                            settingsRepository.getFpsCounterPosition() != FpsCounterPosition.HIDDEN
+                    emulatorManager.setPerformanceDetailsEnabled(showDetails)
+                    emulatorManager.setDisplayRefreshRate(displayRefreshRate)
+                    emulatorManager.setThermalLimit(thermalLimited)
+                    delay(1.seconds)
+                    _currentFps.value = emulatorManager.getFps().roundToInt()
+                    emulatorManager.takeRendererError()?.let { _uiEvent.tryEmit(EmulatorUiEvent.ShowRendererError(it)) }
+                    _shownFrameRate.value = if (settingsRepository.getFrameRateMode() == FrameRateMode.FPS_60) null else emulatorManager.getShownFrameRate()
+                    _performanceDetails.value = if (showDetails) emulatorManager.getPerformanceDetails() else null
+                }
+            } finally {
+                emulatorManager.setPerformanceDetailsEnabled(false)
             }
         }
     }

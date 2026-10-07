@@ -18,8 +18,10 @@ interface SettingsRepository {
     fun getFastForwardSpeedMultiplier(): Float
     fun isRewindEnabled(): Boolean
     fun isSustainedPerformanceModeEnabled(): Boolean
-    // Pomegrade: intermediate frames, shown at 120 Hz (OpenGL renderer)
-    fun isFrameGenerationEnabled(): Boolean
+    // Pomegrade: frame rate mode (30, 60, 120, 240 fps or adaptive)
+    fun getFrameRateMode(): FrameRateMode
+    // Pomegrade: where the DS debug trace is written, null when it is off
+    fun getDsDebugTraceFolder(): String?
 
     fun getRomSearchDirectories(): Array<Uri>
     fun clearRomSearchDirectories()
@@ -39,6 +41,7 @@ interface SettingsRepository {
     fun getVideoFiltering(): Flow<VideoFiltering>
     fun isThreadedRenderingEnabled(): Flow<Boolean>
     fun getFpsCounterPosition(): FpsCounterPosition
+    fun isPerformanceDetailsEnabled(): Boolean
     fun getDSiCameraSource(): DSiCameraSourceType
     fun getDSiCameraStaticImage(): Uri?
 

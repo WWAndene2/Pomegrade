@@ -46,6 +46,14 @@ bool CompileVertexFragmentProgram(GLuint& result,
 
 bool CompileComputeProgram(GLuint& result, const std::string& source, const std::string& name);
 
+// Pomegrade: where compiled vertex/fragment programs are kept between runs
+// (empty: not kept). Set before the renderer is created
+void SetProgramCacheFolder(const std::string& folder);
+
+// Pomegrade: why the last shader failed to compile or link (the driver's log),
+// then forgets it; empty if none failed since the last call. Any thread
+std::string TakeLastError();
+
 }
 
 #endif // OPENGLSUPPORT_H

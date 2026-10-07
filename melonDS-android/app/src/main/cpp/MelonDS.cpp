@@ -4,10 +4,12 @@
 #include <oboe/Oboe.h>
 #include "EmulatorArgsBuilder.h"
 #include "MelonDS.h"
+#include "DebugTrace.h"
 #include "MelonDSAudio.h"
 #include "OboeCallback.h"
 #include "MicInputOboeCallback.h"
 #include "OpenGLContext.h"
+#include "OpenGLSupport.h"
 #include "mic_blow.h"
 #include "NDS.h"
 #include "GPU.h"
@@ -51,6 +53,9 @@ namespace MelonDSAndroid
     void setConfiguration(EmulatorConfiguration emulatorConfiguration) {
         currentConfiguration = std::make_shared<EmulatorConfiguration>(std::move(emulatorConfiguration));
         internalFilesDir = currentConfiguration->internalFilesDir;
+        // Pomegrade: compiled OpenGL programs kept between runs (some drivers take
+        // minutes to compile the DS renderer's shaders)
+        melonDS::OpenGL::SetProgramCacheFolder(internalFilesDir + "/gl_programs");
 
         net = std::make_shared<Net>();
         net->SetDriver(std::make_unique<Net_Slirp>([](const u8* data, int len) {
@@ -188,6 +193,28 @@ namespace MelonDSAndroid
             instance->setAnalogueStick(x, y);
     }
 
+    void setDisplayRefreshRate(float hz)
+    {
+        if (instance)
+            instance->setDisplayRefreshRate(hz);
+    }
+
+    void setThermalLimit(bool limited)
+    {
+        if (instance)
+            instance->setThermalLimit(limited);
+    }
+
+    std::string takeRendererError()
+    {
+        return instance ? instance->takeRendererError() : std::string();
+    }
+
+    int getFrameRate()
+    {
+        return instance ? instance->getFrameRate() : 60;
+    }
+
     void setInspector(bool enabled, int view)
     {
         if (instance)
@@ -212,10 +239,21 @@ namespace MelonDSAndroid
 
     void start()
     {
+        DebugTrace::Stage("emulation thread: starting audio");
         startAudio();
-        setupOpenGlContext();
+        DebugTrace::Stage("emulation thread: making the OpenGL context current");
+        if (setupOpenGlContext())
+        {
+            DebugTrace::Note("OpenGL context current: %s / %s / %s / GLSL %s",
+                             (const char*) glGetString(GL_VENDOR), (const char*) glGetString(GL_RENDERER),
+                             (const char*) glGetString(GL_VERSION), (const char*) glGetString(GL_SHADING_LANGUAGE_VERSION));
+        }
+        else
+            DebugTrace::Note("OpenGL context NOT current (%s)", openGlContext ? "Use() failed" : "no context");
 
+        DebugTrace::Stage("emulation thread: starting the console");
         instance->start();
+        DebugTrace::Stage("emulation thread: console started");
     }
 
     u32 loop()

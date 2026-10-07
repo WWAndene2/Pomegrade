@@ -90,6 +90,14 @@
     <string name="no_dsiware_roms_found">No DSiWare ROMs found</string>
 
     <string name="info_fps">FPS: %1$d</string>
+    <!-- FPS of the emulator, then images shown per second (frame rate mode other than 60) -->
+    <string name="info_fps_shown">FPS: %1$d · %2$d shown</string>
+    <!-- performance details (Pomegrade), milliseconds per DS frame -->
+    <string name="info_performance_cpu">CPU: %1$.1f ms (multiplier %2$.1f, textures %3$.1f)</string>
+    <string name="info_performance_gpu">GPU: %1$.1f ms</string>
+    <string name="info_performance_gpu_passes">3D %1$.1f · shadows %2$.1f · lighting %3$.1f</string>
+    <string name="info_performance_gpu_more">frame generation %1$.1f · screens %2$.1f</string>
+    <string name="info_performance_gpu_unavailable">GPU: not timed (software renderer, or no GPU timer on this device)</string>
     <string name="info_play_time_hours_minutes">Play time: %1$dh %2$dm</string> <!-- Ex: 4h 28m -->
     <string name="info_play_time_minutes">Play time: %1$dm</string> <!-- Ex: 28m -->
     <string name="info_loading">LOADING…</string>
@@ -220,6 +228,8 @@
     <string name="external_layout_restore_error">Failed to restore external layout</string>
     <string name="threaded_rendering">Threaded rendering</string>
     <string name="fps_counter_position">FPS counter position</string>
+    <string name="performance_details">Performance details</string>
+    <string name="performance_details_summary">Under the FPS counter, in milliseconds per DS frame: the emulation\'s CPU time (polygon multiplier and textures included) and the GPU time of each pass (3D, shadows, lighting effects, frame generation, screens). Turn the effects on one at a time to see what each costs. Shown only with the FPS counter</string>
     <string name="threaded_rendering_summary">Improves performance on 3D games when enabled but may cause graphical glitches.</string>
     <string name="category_video">Video</string>
     <string name="category_video_summary">Filter, threaded rendering, FPS counter</string>
@@ -693,6 +703,10 @@
     <string name="three_ds_settings_debug_summary">Logs and options for troubleshooting</string>
     <string name="three_ds_code_trace">Record a code trace (debug)</string>
     <string name="three_ds_code_trace_summary">While a 3DS game runs, records what its code does (kernel calls, system requests, files opened, modules loaded, every thread several times a second). Written to Pomegrade/3DS/Traces when you quit the game, and every 30 seconds. Slows the game a little</string>
+    <string name="ds_debug_trace">Record a debug trace (debug)</string>
+    <string name="ds_debug_trace_summary">While a DS game starts and runs, records what the emulator does: the emulator\'s messages (OpenGL errors, each shader compiled and how long it took), each stage of the start (ROM, OpenGL, renderer, first frames) and, every second, where it is. Written to Pomegrade/DS/Traces as it happens: if a game freezes, close the app and the file shows where it stopped</string>
+    <string name="ds_debug_trace_no_folder">The Pomegrade folder could not be found, or Pomegrade can\'t write to it: set it up first</string>
+    <string name="ds_debug_trace_on">Debug trace on: each game you start writes a trace to %1$s</string>
     <string name="three_ds_code_trace_no_folder">The 3DS folder could not be found: set up the Pomegrade folder first</string>
     <string name="three_ds_code_trace_on">Code trace on: quit the game to write it to %1$s</string>
     <string name="three_ds_mod_install">Install a mod</string>
@@ -740,8 +754,24 @@
         <item>1</item>
         <item>2</item>
     </string-array>
-    <string name="frame_generation">Frame generation (120 fps)</string>
-    <string name="frame_generation_summary">An extra image between two DS frames, with the 3D placed halfway: smoother motion on a 120 Hz screen. The game still runs at its own speed</string>
+    <string name="renderer_unavailable">Renderer unavailable</string>
+    <string name="renderer_unavailable_message">The renderer chosen in the settings could not start on this device, so the game runs with the software renderer. The graphics driver said:\n\n%1$s</string>
+    <string name="frame_rate">Frame rate</string>
+    <!-- the game always runs at its own speed; generated images need the OpenGL renderer and a screen that refreshes as often -->
+    <string-array name="frame_rate_options">
+        <item>30 fps: one frame in two shown (saves battery, animation look)</item>
+        <item>60 fps: the game as it is</item>
+        <item>120 fps: 1 image generated between two frames (OpenGL renderer, 120 Hz screen)</item>
+        <item>240 fps: 3 images generated between two frames (OpenGL renderer, 240 Hz screen; 120 on a 120 Hz screen)</item>
+        <item>Adaptive: the most your screen and phone keep up with (lower while the phone is hot)</item>
+    </string-array>
+    <string-array name="frame_rate_values" translatable="false">
+        <item>30</item>
+        <item>60</item>
+        <item>120</item>
+        <item>240</item>
+        <item>adaptive</item>
+    </string-array>
     <string name="texture_upscale">Texture upscaling</string>
     <string name="texture_filter">Texture filtering</string>
     <string name="texture_filter_summary">Smooth texel edges up close without blurring, and less shimmer on distant surfaces. Costs more texture reads</string>

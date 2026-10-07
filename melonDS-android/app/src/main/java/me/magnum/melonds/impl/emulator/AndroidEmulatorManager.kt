@@ -1,6 +1,7 @@
 package me.magnum.melonds.impl.emulator
 
 import android.content.Context
+import android.os.Build
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.Dispatchers
@@ -17,6 +18,7 @@ import me.magnum.melonds.domain.model.Cheat
 import me.magnum.melonds.domain.model.ConsoleType
 import me.magnum.melonds.domain.model.EmulatorConfiguration
 import me.magnum.melonds.domain.model.MicSource
+import me.magnum.melonds.domain.model.PerformanceDetails
 import me.magnum.melonds.domain.model.emulator.EmulatorEvent
 import me.magnum.melonds.domain.model.emulator.FirmwareLaunchResult
 import me.magnum.melonds.domain.model.emulator.RomLaunchResult
@@ -161,6 +163,30 @@ class AndroidEmulatorManager(
         return MelonEmulator.getFPS()
     }
 
+    override fun setDisplayRefreshRate(hz: Float) {
+        MelonEmulator.setDisplayRefreshRate(hz)
+    }
+
+    override fun setThermalLimit(limited: Boolean) {
+        MelonEmulator.setThermalLimit(limited)
+    }
+
+    override fun getShownFrameRate(): Int {
+        return MelonEmulator.getFrameRate()
+    }
+
+    override fun takeRendererError(): String? {
+        return MelonEmulator.takeRendererError()
+    }
+
+    override fun setPerformanceDetailsEnabled(enabled: Boolean) {
+        MelonEmulator.setPerformanceCounters(enabled)
+    }
+
+    override fun getPerformanceDetails(): PerformanceDetails? {
+        return PerformanceDetails.fromCounters(MelonEmulator.getPerformanceCounters())
+    }
+
     override suspend fun pauseEmulator() {
         MelonEmulator.pauseEmulation()
     }
@@ -212,7 +238,9 @@ class AndroidEmulatorManager(
     }
 
     override fun stopEmulator() {
+        MelonEmulator.debugTraceNote("stopping the emulator")
         MelonEmulator.stopEmulation()
+        MelonEmulator.setDebugTrace(null, null)
         cameraManager.stopCurrentCameraSource()
         messageQueue.stop()
     }
@@ -227,11 +255,34 @@ class AndroidEmulatorManager(
     }
 
     private fun setupEmulator(emulatorConfiguration: EmulatorConfiguration) {
+        // DS debug trace: a new record for each game, before anything of it is set up
+        val traceFolder = settingsRepository.getDsDebugTraceFolder()
+        MelonEmulator.setDebugTrace(traceFolder, traceFolder?.let { debugTraceHeader(emulatorConfiguration) })
         MelonEmulator.setupEmulator(
             emulatorConfiguration = emulatorConfiguration,
             dsiCameraSource = cameraManager,
             screenshotBuffer = screenshotFrameBufferProvider.frameBuffer(),
         )
+    }
+
+    private fun debugTraceHeader(configuration: EmulatorConfiguration): String {
+        val soc = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) ", ${Build.SOC_MANUFACTURER} ${Build.SOC_MODEL}" else ""
+        return listOf(
+            "Device: ${Build.MANUFACTURER} ${Build.MODEL} (${Build.HARDWARE}$soc), Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ABIs ${Build.SUPPORTED_ABIS.joinToString()}",
+            "App: ${context.packageName} ${appVersion()}",
+            "Settings: $configuration",
+        ).joinToString("\n")
+    }
+
+    private fun appVersion(): String {
+        return runCatching {
+            val info = context.packageManager.getPackageInfo(context.packageName, 0)
+            "${info.versionName} (${info.longVersionCode})"
+        }.getOrDefault("?")
+    }
+
+    override fun debugTraceNote(text: String) {
+        MelonEmulator.debugTraceNote(text)
     }
 
     private suspend fun getRomEmulatorConfiguration(rom: Rom): EmulatorConfiguration {

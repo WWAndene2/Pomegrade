@@ -27,6 +27,7 @@
 #include "GPU3D_OpenGL.h"
 #include "OpenGLSupport.h"
 #include "GPU_OpenGL_shaders.h"
+#include "GPU_OpenGL_Timer.h"
 
 namespace melonDS
 {
@@ -339,6 +340,7 @@ void GLCompositor::RenderIntermediateFrame(const GPU& gpu, Renderer3D& renderer,
 
 void GLCompositor::Composite(const GPU& gpu, Renderer3D& renderer, GLuint framebuffer, int backbuf, bool advanceSceneColour) noexcept
 {
+    GLTimer::Scope gpuTime(PerformanceCounters::Section::GpuCompositor);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer);
 

@@ -1,6 +1,7 @@
 #ifndef MELONINSTANCE_H
 #define MELONINSTANCE_H
 
+#include <mutex>
 #include <string>
 #include "Args.h"
 #include "Configuration.h"
@@ -9,6 +10,7 @@
 #include "SaveManager.h"
 #include "RewindManager.h"
 #include "renderer/FrameQueue.h"
+#include "renderer/FrameRatePacer.h"
 #include "renderer/Renderer.h"
 #include "renderer/ScreenshotRenderer.h"
 #include "retroachievements/RetroAchievementsManager.h"
@@ -45,6 +47,13 @@ public:
     void setAnalogueStick(float x, float y);
     // Pomegrade: the inspector (see NDS_Inspector.h); view 0 = off. Any thread
     void setInspector(bool enabled, int view);
+    // Pomegrade: frame rate modes (see FrameRatePacer). Any thread
+    void setDisplayRefreshRate(float hz);
+    void setThermalLimit(bool limited);
+    int getFrameRate() const;
+    // Pomegrade: why the OpenGL or Compute renderer could not be used (the software one stands in), then forgets it;
+    // empty if nothing failed. Any thread
+    std::string takeRendererError();
     std::string getInspectorReport();
     void setMaterialManifest(const std::string& text);
     std::string getGameCode();
@@ -95,6 +104,10 @@ private:
 
     std::shared_ptr<EmulatorConfiguration> currentConfiguration;
     FrameQueue frameQueue;
+    FrameRatePacer frameRatePacer;
+    std::mutex rendererErrorMutex;
+    std::string rendererError;
+    std::chrono::steady_clock::time_point lastFrameStart;
     std::unique_ptr<ScreenshotRenderer> screenshotRenderer;
     RewindManager rewindManager;
     Renderer currentRenderer;

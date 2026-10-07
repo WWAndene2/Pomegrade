@@ -59,6 +59,12 @@ namespace MelonDSAndroid {
     extern void pressKey(u32 key);
     extern void setAnalogueStick(float x, float y);
     extern void setInspector(bool enabled, int view);
+    // Pomegrade: frame rate modes (see FrameRatePacer). Any thread
+    extern void setDisplayRefreshRate(float hz);
+    extern void setThermalLimit(bool limited);
+    extern int getFrameRate();
+    // Pomegrade: see MelonInstance::takeRendererError
+    extern std::string takeRendererError();
     extern std::string getInspectorReport();
     extern void setMaterialManifest(const std::string& text);
     extern std::string getGameCode();

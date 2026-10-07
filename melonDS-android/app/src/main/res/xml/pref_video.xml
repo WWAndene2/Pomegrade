@@ -118,12 +118,14 @@
             android:entryValues="@array/relief_textures_values"
             android:defaultValue="0"/>
 
-    <SwitchPreference
-            android:key="frame_generation"
-            android:title="@string/frame_generation"
-            android:summary="@string/frame_generation_summary"
+    <ListPreference
+            android:key="frame_rate"
+            android:title="@string/frame_rate"
+            android:summary="%s"
             app:iconSpaceReserved="false"
-            android:defaultValue="false" />
+            android:entries="@array/frame_rate_options"
+            android:entryValues="@array/frame_rate_values"
+            android:defaultValue="60"/>
 
     <SwitchPreference
             android:key="high_color"
@@ -170,6 +172,13 @@
             android:entries="@array/fps_counter_position_options"
             android:entryValues="@array/fps_counter_position_values"
             android:defaultValue="hidden" />
+
+    <SwitchPreference
+            android:key="performance_details"
+            android:title="@string/performance_details"
+            android:summary="@string/performance_details_summary"
+            app:iconSpaceReserved="false"
+            android:defaultValue="false" />
 
     <ListPreference
             android:key="dsi_camera_source"

@@ -760,6 +760,10 @@ vec4 TextureLookup_Linear(vec2 texcoord)
     return ret;
 }
 
+// Pomegrade: POMEGRADE_RELIEF (set by GLRenderer::BuildRenderShader): the
+// relief and stylised code below is compiled in only while relief is on. A
+// Mali-G610 driver took 10 to 25 s per polygon shader with it, every start
+#if POMEGRADE_RELIEF
 // Pomegrade: relief textures (DS_ENGINE_REMAKE.md 14.1, 15.2). The texture's
 // brightness is a height (bright = raised); the view ray is marched through it
 // (steep parallax, 8 layers) and the surface relit from the height's slope with
@@ -1090,14 +1094,18 @@ vec2 ReliefTexcoord(vec2 st, int textype, out float shade)
     shade = clamp((0.35 + lit) / (0.35 + base), 0.5, 1.6);
     return cur;
 }
+#endif
+
 
 vec4 FinalColor()
 {
+#if POMEGRADE_RELIEF
     ProcActive = false;
     ReliefDP1 = dFdx(fViewPosition.xyz);
     ReliefDP2 = dFdy(fViewPosition.xyz);
     ReliefDU1 = dFdx(fTexcoord);
     ReliefDU2 = dFdy(fTexcoord);
+#endif
     vec4 col;
     vec4 vcol = fColor;
     int blendmode = (fPolygonAttr.x >> 4) & 0x3;
@@ -1124,11 +1132,15 @@ vec4 FinalColor()
     }
     else
     {
+#if POMEGRADE_RELIEF
         float reliefShade;
         vec2 st = ReliefTexcoord(fTexcoord, (fPolygonAttr.z >> 10) & 0x7, reliefShade);
         vec4 tcol = uTextureFilter != 0 ? TextureLookup_Filtered(st) : TextureLookup_Nearest(st);
         if (ProcActive) tcol.rgb = ProcColour; // Pomegrade: procedural surface
         tcol.rgb = min(tcol.rgb * reliefShade, 1.0);
+#else
+        vec4 tcol = uTextureFilter != 0 ? TextureLookup_Filtered(fTexcoord) : TextureLookup_Nearest(fTexcoord);
+#endif
         //vec4 tcol = TextureLookup_Linear(fTexcoord);
 
         if (fHDTexture == 0)
@@ -1179,6 +1191,7 @@ vec4 FinalColor()
         }
     }
 
+#if POMEGRADE_RELIEF
     // Pomegrade: stylised light over everything drawn with view data: a soft
     // two-tone ramp from the smooth vertex normals (slightly cool shade, warm
     // light: the surface keeps its own colour), a warm rim on silhouettes,
@@ -1197,6 +1210,7 @@ vec4 FinalColor()
         float lum = dot(col.rgb, vec3(0.299, 0.587, 0.114));
         col.rgb = clamp(mix(vec3(lum), col.rgb, 1.3), 0.0, 1.0);
     }
+#endif
 
     return col.bgra;
 }
