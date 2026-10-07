@@ -313,6 +313,15 @@ static int RunScript(void* core, const char* path)
                 else keys = Keys(word);
             Watch(core, strtoul(arg.c_str(), nullptr, 10), addresses, keys);
         }
+        else if (cmd == "dump")
+        {
+            // dump ADDRESS LENGTH FILE: the game's memory written raw to FILE in the work folder (pomegrade_dump)
+            std::string length, file; words >> length >> file;
+            auto dump = reinterpret_cast<uint32_t (*)(uint32_t, uint32_t, const char*)>(dlsym(core, "pomegrade_dump"));
+            const std::string path = workDir + "/" + file;
+            if (!dump) printf("(no pomegrade_dump in this core)\n");
+            else printf("dump %s: %u bytes mapped of %s\n", path.c_str(), dump(strtoul(arg.c_str(), nullptr, 0), strtoul(length.c_str(), nullptr, 0), path.c_str()), length.c_str());
+        }
         else if (cmd == "gdb")
         {
             // gdb PORT: the core's GDB stub listens there; the game waits for gdb-multiarch to connect and continue
