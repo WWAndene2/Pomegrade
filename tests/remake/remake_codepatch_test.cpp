@@ -1,6 +1,7 @@
 // Patches to the game's code (CodePatch.h): the IPS Azahar applies to the decompressed code, written only over the words
-// the game ships, applied back as Azahar does
+// the game ships, applied back as Azahar does; and the extended header's memory mode (OrasMemory.h)
 #include "CodePatch.h"
+#include "OrasMemory.h"
 #include <cstdio>
 #include <string>
 
@@ -38,6 +39,22 @@ int main()
     refused = false;
     try { CodePatchIps(code, {{0x10, 0, 0, "below the code"}}); } catch (const FormatError&) { refused = true; }
     check(refused, "an address outside the code is refused");
+
+    // an extended header as a decrypted dump has it: the program id at the jump id (0x1C8) and the local caps (0x200), flags0
+    // at 0x20E (low nibble: processor and affinity, high nibble: system mode)
+    Bytes exheader(0x800, 0);
+    for (int k = 0; k < 8; k++) exheader[0x1C8 + k] = exheader[0x200 + k] = (uint8_t)(0x11 * k);
+    exheader[0x20E] = 0x04;
+    const Bytes moded = ExHeaderWithSystemMode(exheader, OrasMemoryMode::Dev1_96);
+    check(moded[0x20E] == 0x24, "the system mode set in flags0's high nibble, the low nibble kept");
+    Bytes others = moded;
+    others[0x20E] = 0x04;
+    check(others == exheader, "nothing else changed in the header");
+    refused = false;
+    Bytes encrypted = exheader;
+    encrypted[0x1C8] ^= 0xFF;
+    try { ExHeaderWithSystemMode(encrypted, OrasMemoryMode::Dev1_96); } catch (const FormatError&) { refused = true; }
+    check(refused, "a header whose jump id and program id differ (encrypted) is refused");
 
     printf(ok ? "ALL OK\n" : "FAILED\n");
     return ok ? 0 : 1;

@@ -34,6 +34,9 @@ public:
     // the game's code (ExeFS ".code"), decompressed when the extended header says it is packed (BLZ, BlzDecompress): ARM code
     // loaded at 0x100000 (ORAS_LITTLEROOT.md 7)
     Bytes Code();
+    // the extended header (0x800 bytes after the NCCH header), as a decrypted dump holds it: what Azahar reads from
+    // load/mods/<id>/exheader.bin when a mod replaces it
+    Bytes ExHeader();
     // the RomFS level 3 (its header, file tree and data) in the image, and the image's size: what
     // Azahar's RomFS reader serves to LayeredFS (prototype/azahar_check)
     uint64_t Level3() const { return RomfsLevel3; }

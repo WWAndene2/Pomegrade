@@ -477,3 +477,22 @@ capacities that bound a larger world:
 | `FUN_00459018` and 5 others | `0x1E <` box, `0x1D <` slot, 0xE8 bytes | 31 x 30 Pokemon storage (PC boxes: guess from 232-byte records) | read |
 | `FUN_004d343c` and others | `5 <` index | 6-entry arrays (party: guess) | read |
 | `FUN_004ebde4` and others | magic checks, 0x2D1 | save blocks; 721 species bitfields | read |
+
+### 4.4 The application memory, raised (checked headless, 7 October)
+
+- **What the game gets** (**checked** in memory on the field): a linear heap of **0x2B48000 (43.3 MB)** at 0x14000000 and a
+  normal heap of **0xDF0000 (14.3 MB)** at 0x08000000, plus the code (to 0x6AF000): the 3DS's standard 64 MB application
+  mode, which the game declares in its extended header (`system_mode` 0, flags0 bits 4-7 of the ARM11 local caps at 0x20E).
+- **Where it asks for them** (**read**): `FUN_00106448` at boot checks that 0x3938000 bytes are free, asks for the normal heap
+  `mov r6, #0xDF0000` and the linear heap at the word **0x106508 = 0x2B48000** (`FUN_00107090`); `FUN_00107c0c` then makes
+  heap 1 of the linear heap less 0xE88000, from which the sub-heaps of section 4.2 are carved. A larger linear heap grows
+  heap 1 with it; the sub-heaps keep their sizes until patched.
+- **A larger system mode alone changes nothing** (checked): with `exheader.bin` set to 96 MB (Azahar applies it: the game
+  is reported "tainted") the game still takes 43.3 MB. **With the linear heap word raised too** (`code.ips`), it takes what
+  it is given: 0x4748000 (71.3 MB, +28 MB, mapped 0x14000000-0x18748000 and read back in the game's own variable at
+  0x61726C); the field loads and the player walks, thread 1 idle.
+- **The tool**: `remake_tool oras-memory <oras.3ds> <out> 64|72|80|96 <linear heap bytes>` (`OrasMemory.h`) writes both,
+  refusing an encrypted header and a heap that does not fit the mode with the code and the normal heap; its output is the
+  same bytes as the run above. Not yet done: the New 3DS modes (124 and 178 MB, which also need Azahar's New 3DS setting),
+  growing the sub-heaps (heap 0xC's 2 MB first), one `code.ips` merging several engine patches (each tool writes its own
+  today), the phone.
