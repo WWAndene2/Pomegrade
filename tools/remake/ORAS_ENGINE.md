@@ -454,24 +454,25 @@ turns).
 
 Most of the 782 are support code (221 `Gfx_`, 178 `Util_`, 49 `Sys_`): the zone-specific ones above are about 140.
 
-**Talking to a character** (7 October, run `house1`; **checked**: the mother's words on screen, `TalkMdlMsg_Seq` (running
-0x747260) and `Msg_Balloon_Show` (0x772B74) in the talk trace and not in the idle one). Beyond what reading a sign runs,
-talking loads and runs the character's own script (`Script_Load`, `Script_LoadFieldScript`,
+**Talking to a character** (7 October, run `house1`; **checked**: the mother's words on screen, `TalkMdlMsg_Seq`
+(running 0x747260) and `Msg_Balloon_Show` (0x772B74) in the talk trace and not in the idle one). Beyond what reading a
+sign runs, talking loads and runs the character's own script (`Script_Load`, `Script_LoadFieldScript`,
 `Script_RegisterNativeTablesByMask`, the core, float and console natives), turns the two to face each other
 (`_TalkMdlStartInit`, `TalkMdlSetEyeToEye`, `TalkMdlSetTalkMotion`, `MdlAcmd*`), reads the story state (`FlagGet`,
 `WorkGet`, `GetMonth`, `BadgeGetFlag`) and plays a jingle (`MEPlay` and the sound stream functions). **How to reach a
 character** (two failed runs before this one): a zone's characters are placed when the player enters it, so a save moved
-inside the zone has none (run `talk1`: the tile in front of Littleroot's character 6 was empty); walking in from the next
-zone places them, but a walk by held frames ends where it ends (`talk2` stopped beside the lab). A house is the short way:
-the door recipe enters the zone, and its characters stand a few tiles from the arrival. `remake_tool oras-inspect <oras.3ds>
-zone <n>` lists each character's tile, movement, kind, script, facing, sight and range (movement 0 stands still) and the
-trainer it is (script 3000 + trainer id: inferred, `OrasZone.h`), the way the mother was chosen. The walk counted about 17 frames a tile (`hold right 90` for five tiles, checked on the screenshot). The talk
-trace's functions: `prototype/coverage_map.py <work> house1 house_talk.txt --minus house_idle.txt`. Its 138 unnamed
-functions were read on 7 October and 128 named: the speech balloons and their windows (`Msg_Balloon_*`, `Msg_Window_*`: six
-slots, the tail pointed at the speaker), the look-at controller that turns the two characters' heads
-(`Gfx_LookAtController_*`, `Field_LookAt_*`, the joint "Spine2"), the music saved around the jingle (`Snd_BgmStack_*`), the
-script's resource slots and work values (`Script_*`), matrix helpers (`Util_Mtx34_*`) and 27 DllField import stubs; the
-meaning of the look-at and music names is a guess, their mechanics read.
+inside the zone has none (run `talk1`: the tile in front of Littleroot's character 6 was empty); walking in from the
+next zone places them, but a walk by held frames ends where it ends (`talk2` stopped beside the lab). A house is the
+short way: the door recipe enters the zone, and its characters stand a few tiles from the arrival. `remake_tool
+oras-inspect <oras.3ds> zone <n>` lists each character's tile, movement, kind, script, facing, sight and range (movement
+0 stands still) and the trainer it is (script 3000 + trainer id: inferred, `OrasZone.h`), the way the mother was chosen.
+The walk counted about 17 frames a tile (`hold right 90` for five tiles, checked on the screenshot). The talk trace's
+functions: `prototype/coverage_map.py <work> house1 house_talk.txt --minus house_idle.txt`. Its 138 unnamed functions
+were read on 7 October and 128 named: the speech balloons and their windows (`Msg_Balloon_*`, `Msg_Window_*`: six slots,
+the tail pointed at the speaker), the look-at controller that turns the two characters' heads (`Gfx_LookAtController_*`,
+`Field_LookAt_*`, the joint "Spine2"), the music saved around the jingle (`Snd_BgmStack_*`), the script's resource slots
+and work values (`Script_*`), matrix helpers (`Util_Mtx34_*`) and 27 DllField import stubs; the meaning of the look-at
+and music names is a guess, their mechanics read.
 
 **Wild encounter selection** (7 October, run `enc1`, grass walk minus idle, no battle in eight walks; run `enc2` with a
 battle). **Read** in the decompilation: on each step `Field_WildEncounter_StepCheck` (0x102CD2B4, DllField) takes the
