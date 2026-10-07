@@ -25,21 +25,25 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 | 3, 6, 7 | not started on this basis: Sinnoh's region tools (`oras-region`, `ORAS_LITTLEROOT.md`) still borrow Hoenn's zones; next is building Sinnoh's zones from 538 up with the tools above |
 | After 6: Platinum's music | added by the owner (7 October), after building Sinnoh's map: a tool that moves Platinum's music into Omega Ruby. Not started; nothing in `tools/remake` reads either game's sound yet. Platinum keeps sequences played by the DS sound hardware (SDAT: SSEQ with SBNK/SWAR instruments), Omega Ruby recorded streams in its sound archive (BCSTM, inferred from the format's common use, not checked on this game): the tool must extract, render, encode and replace. First step: how Omega Ruby stores and picks its songs (`Snd_ChangeZoneBgm`, section 6) |
 
-**How to work** (the owner's rules, 7 October, after a session lost hours to slow and failed runs; they hold for every run):
+**How to work** (the owner's rules, 7 October, after a session lost hours to slow and failed runs; read before any run,
+they hold for every run):
 1. **Copy before you invent.** Before any run, open the last run that did the same kind of thing (`runs/<name>/script.txt`,
-   `log.txt`, this file's recipes) and reuse it exactly; change one thing at a time.
-2. **One heavy job at a time.** Never run the emulator, Ghidra or a core build together, nor several in one shell command.
-   Check `nproc` / `top` first.
-3. **Measure in the first 5 minutes.** Read the frame counter after 3-5 minutes; under 4 frames/s, stop and find out why.
-   (Measured on 7 October, alone on 4 cores, averaged over whole runs: 2.3 to 4.2 frames/s, below this bound at times;
-   "Run the game" below. The bound is the owner's to adjust.)
-4. **Budget per attempt: 10 minutes, at most 2 failed attempts** on the same thing; then stop and write to the owner what
-   failed, the evidence and one proposal.
-5. **Static first, live to confirm**: read the code to find the answer, then run the game once to confirm it.
-6. **Short reports**: what is checked (with the evidence), what is a guess, the next step.
-7. **Every result goes to its home the same day**: names in `ghidra/function_names.tsv` (read|guess), the finding here, a
-   tooling fix in the script that failed. Commit, push and merge it; never leave a result only in the scratch folder.
-8. **Nothing in the repository from a run**: work folders and dumps stay in the scratch space; check `git status` before
+   `log.txt`, `ORAS_ENGINE.md` 6) and reuse it exactly; change one thing at a time.
+2. **One heavy job at a time.** Never run the emulator, Ghidra or a core build together, and never several in one shell
+   command. Check `nproc` / `top` first.
+3. **Measure in the first 5 minutes.** Read the frame counter after 3-5 min. Under 4 frames/s, stop and find out why;
+   never wait 30-60 min hoping it gets better.
+   (Measured on 7 October, averaged over whole runs: the previous session's sign trace `actE1` ran at about 5.6 frames/s
+   (261 s to frame 1,471); the later runs of that day (`actE1` again, `actE2`, `msgdump`), alone on 4 cores, 2.3 to 4.2
+   frames/s: "Run the game" below. The bound is the owner's to adjust.)
+4. **Budget per attempt: 10 minutes, at most 2 failed attempts** on the same thing. After that, stop and write to the owner
+   what failed, the evidence, and one proposal. Don't keep running.
+5. **Static first, live to confirm.** Read the code to find the answer, then run the game once to confirm it with a trace.
+6. **Short reports**: what is checked (with the evidence), what is a guess, the next step. No logs, no history.
+7. **Every result goes to its home the same day**: names in `ghidra/function_names.tsv` (read|guess), the finding in
+   `ORAS_ENGINE.md`, a tooling fix in the script that failed (e.g. add `gdb-multiarch` to `session_setup.sh` if you need
+   it). Commit, push and merge it; never leave a result only in the scratch folder.
+8. **Nothing in the repository from a run**: work folders and dumps stay in the scratchpad; check `git status` before
    each commit.
 
 **Setting up a session** (`tools/remake/headless/session_setup.sh <work dir>`): fetches the dumps from Drive into a work
@@ -53,15 +57,16 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
 (rule 2). Then:
 
 - **Run the game** (`tools/remake/headless/run_local.sh <work> <name> <mod|-> "<zone x z>" "<script>" [seconds]`): measured
-  on 7 October over whole runs, alone on 4 cores: 2.3 to 4.2 frames/s under the interpreter (`POMEGRADE_INTERPRETER=1`,
-  needed for `trace`; runs `actE1`, `actE2`), 2.8 with the JIT (`msgdump`): the JIT is no faster here, the software renderer
-  likely dominates (inferred); so a run to the field and one action takes 6 to 13 minutes. The field comes up between frame
-  886 and 1,361 (it varies between runs: wait 500 frames after `mash a 15` before acting, as the sign recipe in section 6
-  does). The owner's save stands in Littleroot (zone 6, tile 104.5, 170.5); move it with the zone and tile. A zone's
-  characters are placed when the player **enters** it: to test them, start next door (zone 23, 100.5 150.5) and walk south.
-  `shot NAME` saves the screen (the host's own "field up" detection is wrong under some mods: look at the picture). `report`
-  lists every thread; one in the fatal-error loop shows pc 0x11EF50 / 0x11ABxx / 0x110Axx, `0011EF60` in its stack code
-  addresses, and its registers and raw stack, from which the frames' saved registers give the object that failed.
+  on 7 October over whole runs, alone on 4 cores: about 5.6 frames/s for the first sign trace (`actE1`, 261 s to frame
+  1,471), 2.3 to 4.2 frames/s for the later ones under the interpreter (`POMEGRADE_INTERPRETER=1`, needed for `trace`; runs
+  `actE1`, `actE2`), 2.8 with the JIT (`msgdump`): the JIT is no faster here, the software renderer likely dominates
+  (inferred); so a run to the field and one action takes 6 to 13 minutes. The field comes up between frame 886 and 1,361 (it
+  varies between runs: wait 500 frames after `mash a 15` before acting, as the sign recipe in section 6 does). The owner's
+  save stands in Littleroot (zone 6, tile 104.5, 170.5); move it with the zone and tile. A zone's characters are placed when
+  the player **enters** it: to test them, start next door (zone 23, 100.5 150.5) and walk south. `shot NAME` saves the
+  screen (the host's own "field up" detection is wrong under some mods: look at the picture). `report` lists every thread;
+  one in the fatal-error loop shows pc 0x11EF50 / 0x11ABxx / 0x110Axx, `0011EF60` in its stack code addresses, and its
+  registers and raw stack, from which the frames' saved registers give the object that failed.
 - **Show that a function runs**: `trace on` / `trace off FILE` around the action (interpreter), then look for the
   function's running address in the file (a DllField function at its linked address - 0x10242000 + 0x6F3000) or map the
   whole trace with `prototype/coverage_map.py`. Not GDB: `gdb-multiarch` is not installed by `session_setup.sh` and the stub
@@ -96,38 +101,6 @@ met: a value can appear in the code for unrelated reasons (0x5ED000 is both heap
 both looped the game); an ARM immediate holds only an 8-bit value rotated by an even amount (pick sizes like 0x800000,
 0x1800000); a continued save restores state from the save rather than from the files (the characters); a limit can hide
 another (51 characters passed the count check and stopped on the events buffer).
-
-### How to work in this project (read before any run; owner's rule, 7 October)
-
-**Review of the "script message command" session.** The static work is good: `TalkMdlMsg_Seq` (DllField 0x10296260), the
-native tables, 384/384 natives resolved and the wrongly named "no-return stubs" are real findings; rename those from the
-native tables. The live check failed for reasons of method, not of the engine:
-- the previous traces **did** run the interpreter from boot, and it is fast enough: the sign trace `actE1` reached the
-  field at frame ~1,100 and finished at frame 1,471 in **261 s** (about 5.6 frames/s, 4.5 min in total). Your 2 frames/s,
-  on the interpreter **and** the JIT, means the machine was busy (Ghidra and the core build running beside it), not a
-  slow core. Run the emulator alone.
-- the recipe that worked (`run_local.sh <work> actE1 - "6 103.5 172.5" "<script>" 420`):
-  `mash a 15; wait 200; trace on; wait 120; trace off idle.txt; hold up 4; wait 30; trace on; press a; wait 90; shot
-  sign1; press a; wait 60; press a; wait 60; trace off sign.txt; shot sign2` (with `POMEGRADE_INTERPRETER=1`).
-- to show that a function runs, use **`trace`** and look for its address in the trace file (`coverage_map.py`), not
-  GDB: the stub is flaky and `gdb-multiarch` is not installed by `session_setup.sh`.
-
-**Rules from now on**
-1. **Copy before you invent.** Before any run, open the last run that did the same kind of thing (`runs/<name>/script.txt`,
-   `log.txt`, `ORAS_ENGINE.md` 6) and reuse it exactly; change one thing at a time.
-2. **One heavy job at a time.** Never run the emulator, Ghidra or a core build together, and never several in one shell
-   command. Check `nproc` / `top` first.
-3. **Measure in the first 5 minutes.** Read the frame counter after 3-5 min. Under 4 frames/s, stop and find out why;
-   never wait 30-60 min hoping it gets better.
-4. **Budget per attempt: 10 minutes, at most 2 failed attempts** on the same thing. After that, stop and write to the owner
-   what failed, the evidence, and one proposal. Don't keep running.
-5. **Static first, live to confirm.** Read the code to find the answer, then run the game once to confirm it with a trace.
-6. **Short reports**: what is checked (with the evidence), what is a guess, the next step. No logs, no history.
-7. **Every result goes to its home the same day**: names in `ghidra/function_names.tsv` (read|guess), the finding in
-   `ORAS_ENGINE.md`, a tooling fix in the script that failed (e.g. add `gdb-multiarch` to `session_setup.sh` if you need
-   it). Commit, push and merge it; never leave a result only in the scratch folder.
-8. **Nothing in the repository from a run**: work folders and dumps stay in the scratchpad; check `git status` before
-   each commit.
 
 ## 1. How the engine is read
 
