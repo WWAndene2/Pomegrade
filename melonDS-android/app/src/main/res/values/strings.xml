@@ -703,6 +703,10 @@
     <string name="three_ds_settings_debug_summary">Logs and options for troubleshooting</string>
     <string name="three_ds_code_trace">Record a code trace (debug)</string>
     <string name="three_ds_code_trace_summary">While a 3DS game runs, records what its code does (kernel calls, system requests, files opened, modules loaded, every thread several times a second). Written to Pomegrade/3DS/Traces when you quit the game, and every 30 seconds. Slows the game a little</string>
+    <string name="ds_debug_trace">Record a debug trace (debug)</string>
+    <string name="ds_debug_trace_summary">While a DS game starts and runs, records what the emulator does: the emulator\'s messages (OpenGL errors, each shader compiled and how long it took), each stage of the start (ROM, OpenGL, renderer, first frames) and, every second, where it is. Written to Pomegrade/DS/Traces as it happens: if a game freezes, close the app and the file shows where it stopped</string>
+    <string name="ds_debug_trace_no_folder">The Pomegrade folder could not be found, or Pomegrade can\'t write to it: set it up first</string>
+    <string name="ds_debug_trace_on">Debug trace on: each game you start writes a trace to %1$s</string>
     <string name="three_ds_code_trace_no_folder">The 3DS folder could not be found: set up the Pomegrade folder first</string>
     <string name="three_ds_code_trace_on">Code trace on: quit the game to write it to %1$s</string>
     <string name="three_ds_mod_install">Install a mod</string>

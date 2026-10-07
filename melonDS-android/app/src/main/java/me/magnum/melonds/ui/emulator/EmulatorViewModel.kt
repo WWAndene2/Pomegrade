@@ -806,6 +806,10 @@ class EmulatorViewModel @Inject constructor(
         emulatorManager.setDisplayRefreshRate(hz)
     }
 
+    fun debugTraceNote(text: String) {
+        emulatorManager.debugTraceNote(text)
+    }
+
     fun onThermalLimitChanged(limited: Boolean) {
         thermalLimited = limited
         emulatorManager.setThermalLimit(limited)

@@ -78,6 +78,21 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
             true
         }
 
+        // DS debug trace: written by path into the Pomegrade folder, the path kept with the setting
+        findPreference<androidx.preference.SwitchPreference>("ds_debug_trace")?.setOnPreferenceChangeListener { _, value ->
+            if (value != true) return@setOnPreferenceChangeListener true
+            val traces = PomegradeFolder.subFolder(requireContext(), "DS/Traces")
+            if (traces == null) {
+                toast(R.string.ds_debug_trace_no_folder)
+                return@setOnPreferenceChangeListener false
+            }
+            androidx.preference.PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
+                .putString("ds_debug_trace_folder", traces.absolutePath)
+                .apply()
+            Toast.makeText(requireContext(), getString(R.string.ds_debug_trace_on, traces.absolutePath), Toast.LENGTH_LONG).show()
+            true
+        }
+
         // 3DS: Azahar's own settings, the section of each entry; 64-bit devices only
         findPreference<Preference>("three_ds_settings")?.isVisible = N3dsLauncher.isSupported()
         // the code trace is written next to the 3DS core's folder: its path is kept with the

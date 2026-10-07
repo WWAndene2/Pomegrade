@@ -80,6 +80,13 @@
                 android:summary="@string/cheats_summary"
                 app:icon="@drawable/ic_cheat"
                 android:fragment="me.magnum.melonds.ui.settings.fragments.CheatsPreferencesFragment" />
+
+        <SwitchPreference
+                android:key="ds_debug_trace"
+                android:title="@string/ds_debug_trace"
+                android:summary="@string/ds_debug_trace_summary"
+                android:defaultValue="false"
+                app:icon="@drawable/ic_settings" />
     </PreferenceCategory>
 
     <!-- the 3DS core's own settings (Azahar), each section opened directly -->

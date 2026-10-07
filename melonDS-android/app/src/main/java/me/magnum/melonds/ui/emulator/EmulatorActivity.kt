@@ -570,6 +570,7 @@ class EmulatorActivity : AppCompatActivity() {
         lifecycleScope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.CREATED) {
                 viewModel.emulatorState.collectLatest {
+                    viewModel.debugTraceNote("emulator screen: ${it.javaClass.simpleName}")
                     when (it) {
                         is EmulatorState.Uninitialized -> {
                             binding.viewLayoutControls.isInvisible = true
@@ -648,6 +649,7 @@ class EmulatorActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        viewModel.debugTraceNote("emulator screen started")
         updateDisplays()
         getSystemService<DisplayManager>()?.registerDisplayListener(displayListener, null)
         getSystemService<PowerManager>()?.addThermalStatusListener(thermalStatusListener)
@@ -1148,6 +1150,7 @@ class EmulatorActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        viewModel.debugTraceNote("emulator screen paused (left or covered)")
         enableScreenTimeOut()
         choreographerFrameRenderer.stopRendering()
         viewModel.pauseEmulator(false)

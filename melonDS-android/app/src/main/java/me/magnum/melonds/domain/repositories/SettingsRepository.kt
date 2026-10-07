@@ -20,6 +20,8 @@ interface SettingsRepository {
     fun isSustainedPerformanceModeEnabled(): Boolean
     // Pomegrade: frame rate mode (30, 60, 120, 240 fps or adaptive)
     fun getFrameRateMode(): FrameRateMode
+    // Pomegrade: where the DS debug trace is written, null when it is off
+    fun getDsDebugTraceFolder(): String?
 
     fun getRomSearchDirectories(): Array<Uri>
     fun clearRomSearchDirectories()
