@@ -422,3 +422,58 @@ reader in `tools/remake/src` or `ORAS_LITTLEROOT.md` shows it.
 | `a/2/9/6` | 1 | 27,808 | (a computed number) |
 | `a/2/9/7` | 1 | 254,412 | (a computed number) |
 | `a/2/9/8` | 1 | 21,372 | (a computed number) |
+
+### 4.2 The memory map: every heap, created at boot by `FUN_00107c0c`
+
+**Read, and the sizes held in data words read from the code** (7 October). `FUN_00145d44(0x8000000)` takes the application
+memory, `0xE88000` of it goes to a system region (heap 1, `FUN_0010abd8`), the rest is split by `FUN_001120b4(parent, id, size)`
+into sub-heaps. These sizes are the memory budgets: a larger world means larger heaps here (a patch to these words), within the
+console's memory (ORAS asks the 3DS for its standard application memory; whether more can be had is not yet checked).
+
+| Heap id | Size | | Heap id | Size |
+|---|---|---|---|---|
+| 8 | 0x20000 (128 KB; event work buffers) | | 0x13 | 0xA800 |
+| 9 | 0x392000 (3.6 MB) | | 0x14 | 0x14100 |
+| 10 | 0x10000 | | 0x196 | 0x2900 |
+| 0xB | 0x1400 | | 0x197 | 0x8000 |
+| **0xC** | **0x200000 (2 MB; whole archive members loaded asynchronously, zones and areas)** | | 0x19 | 0x10000 |
+| 0xD | 0x142420 (1.3 MB) | | 0x1A | 0x16D300 (1.4 MB) |
+| 0xE | 0x3A000 | | 0xF8 | 0x80000 (512 KB) |
+| 0xF | 0x115000 (1.1 MB) | | 0x18 | 0x1E000 |
+| 0x10, 0x11 | 0x2000 each | | 0xF1 | 0x1B8000 (1.7 MB) |
+| 0x12 | 0x4110 | | 0x1DD | 0x5000 |
+| 0x112 / 0x113 | 0x3000 / 0x18000 | | **0x16** | **0x504000 (5 MB)** |
+| 0x195 | 0x4000 | | **0x17** | **0x1C6D000 (28.4 MB, the largest)** |
+| 0x1DE / 0x1DF | 0x3C00 / 0x10000 | | 0x1D9 / 0x1DA | 0x600 / 0x15C500 |
+
+What lives in each heap is known only where a check names it (0xC: async member loads; 8: event work; 0xD, 0xF8: the
+allocations in sections 4.3); the rest is to read.
+
+### 4.3 The `.code`'s 548 checks, classified
+
+Read in six parts by sub-agents from the decompiled functions, as DllField's; the memory map above checked by hand. Most are
+invariants (singletons created or freed twice, null pointers, save-block magic checks, objects destroyed while loading). The
+capacities that bound a larger world:
+
+| Function | Check | Limit | |
+|---|---|---|---|
+| `FUN_003d9740`, `FUN_003d99b8`, `FUN_00112b50` | zone bound, zone file size, header table size | 536 zones, 0x4A58-byte zone files (section 2) | read; lifted (section 2) |
+| `FUN_003c8a24` | no free slot | 4 map pieces loaded (section 3) | read, checked |
+| `FUN_003f7ff4` | `0x1A < count` (zones 0x10, 0x30, 0x1C3 exempt), spawned `> 0x19` | **26 field entities per zone**, 0xAB0 bytes each | read (that they are characters: guess) |
+| `FUN_003f54e8` | no free entry among the count at +0x36A0 | the field object pool (0xAB0-byte entries) | read |
+| `FUN_003f2ed8` | `4 <` objects in a cell; 48-entry result buffer | 4 collision objects per cell | read (collision: guess) |
+| `FUN_00471520` | pending count `>= 8` | async load queue of 8 | read |
+| `FUN_004074c4`, `FUN_00404a5c`, `FUN_0049d830` and others | an async load could not start | whole members loaded into heap 0xC (2 MB) | read |
+| `FUN_003d7dd0`, `FUN_0043abb0` | allocation returned null | the event heap and other heaps out of memory (section 4.2) | read |
+| `FUN_0048883c` | `0x33 <` entries | 51 texture-slot entries per model (arrays inline in the model object) | read (textures: guess) |
+| `FUN_00361604` | index `>=` capacity at +0x20 | model and animation slots of a resource set | read |
+| `FUN_003623ec` | index `>=` capacity at +0x24 | resource slots, each an archive | read |
+| `FUN_003cc4fc` and 7 others | `0xAD <` id | a table of 174 entries of 0x28 bytes (DAT_003cc530 ...) | read (what it holds: unknown) |
+| `FUN_003fb230` | id over a range's max | 86 id ranges of 0x10 bytes (DAT_003fb388) | read (message or script ids: guess) |
+| `FUN_003db6e4` | size `>=` DAT_003db770 | a multi-section event block copied into a fixed buffer | read (script data: guess) |
+| `FUN_0010a4b0` (from the boot) | 0x20 | 32 code module slots | read |
+| `FUN_00368600` and 10 others | module list `< 2` or `< 3` | each process loads 2-3 named CRO modules together | read |
+| `FUN_004a0108` | `999 <` nodes | resource cache bucket walk | read |
+| `FUN_00459018` and 5 others | `0x1E <` box, `0x1D <` slot, 0xE8 bytes | 31 x 30 Pokemon storage (PC boxes: guess from 232-byte records) | read |
+| `FUN_004d343c` and others | `5 <` index | 6-entry arrays (party: guess) | read |
+| `FUN_004ebde4` and others | magic checks, 0x2D1 | save blocks; 721 species bitfields | read |
