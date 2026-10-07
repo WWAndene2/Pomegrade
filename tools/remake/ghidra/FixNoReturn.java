@@ -4,7 +4,7 @@
 // global getters (0x14E348, 0x139660) and 0x3FE5C8; every caller stopped at the call, so the script natives decompiled as
 // one-line "no-return stubs". A function marked no-return is cleared when its body holds a return (a terminal flow that is
 // not a call); clearing one lengthens its callers, which can hold a return in turn, so the pass repeats until nothing
-// changes. Runs after the analysis, before ApplyNames.
+// changes. Runs after the analysis, in a pass with -noanalysis (session_setup.sh), before ApplyNames.
 import ghidra.app.cmd.function.CreateFunctionCmd;
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;
