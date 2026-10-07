@@ -3,6 +3,7 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <filesystem>
+#include <optional>
 #include <GLES3/gl3.h>
 #include "Args.h"
 #include "GPU3D_Compute.h"
@@ -12,10 +13,12 @@
 #include "DSi_I2C.h"
 #include "GPU3D_OpenGL.h"
 #include "GPU3D_TextureReplacement.h"
+#include "GPU_OpenGL_Timer.h"
 #include "MelonDS.h"
 #include "MelonInstance.h"
 #include "NDS.h"
 #include "NDSCart.h"
+#include "PerformanceCounters.h"
 #include "net/Net_Slirp.h"
 #include "Platform.h"
 #include "SDCardArgsBuilder.h"
@@ -352,6 +355,11 @@ u32 MelonInstance::runFrame()
         nds->GPU.GetRenderer3D().SetOutputTexture(backBuffer, renderFrame->frameTexture);
     }
 
+    // performance details (Pomegrade): the emulation thread's work for this
+    // frame, its in-between image included (not the frame limiter's wait)
+    std::optional<PerformanceCounters::CpuScope> emulationTime;
+    emulationTime.emplace(PerformanceCounters::Section::EmulationCpu);
+
     u32 nLines = nds->RunFrame();
     retroAchievementsManager->FrameUpdate();
 
@@ -409,6 +417,9 @@ u32 MelonInstance::runFrame()
     {
         frameQueue.discardRenderedFrame(renderFrame);
     }
+    emulationTime.reset();
+    GLTimer::Collect();
+    PerformanceCounters::EndFrame();
 
     if (ndsSave)
         ndsSave->CheckFlush();

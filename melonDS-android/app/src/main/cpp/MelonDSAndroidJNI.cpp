@@ -23,6 +23,7 @@
 #include "performancehint/PerformanceHintManagerFactory.h"
 
 #include "Platform.h"
+#include "PerformanceCounters.h"
 
 enum GbaSlotType {
     NONE = 0,
@@ -515,6 +516,28 @@ JNIEXPORT jstring JNICALL
 Java_me_magnum_melonds_MelonEmulator_getInspectorReport(JNIEnv* env, jobject thiz)
 {
     return env->NewStringUTF(MelonDSAndroid::getInspectorReport().c_str());
+}
+
+JNIEXPORT void JNICALL
+Java_me_magnum_melonds_MelonEmulator_setPerformanceCounters(JNIEnv* env, jobject thiz, jboolean enabled)
+{
+    melonDS::PerformanceCounters::SetEnabled(enabled);
+}
+
+// [frames, then milliseconds per frame of each section, in the order of
+// PerformanceCounters::Section]; frames 0: nothing measured yet
+JNIEXPORT jfloatArray JNICALL
+Java_me_magnum_melonds_MelonEmulator_getPerformanceCounters(JNIEnv* env, jobject thiz)
+{
+    const melonDS::PerformanceCounters::Snapshot snapshot = melonDS::PerformanceCounters::Get();
+    jfloat values[1 + melonDS::PerformanceCounters::SectionCount];
+    values[0] = (jfloat) snapshot.Frames;
+    for (int i = 0; i < melonDS::PerformanceCounters::SectionCount; i++)
+        values[1 + i] = snapshot.Ms[i];
+    jfloatArray result = env->NewFloatArray(1 + melonDS::PerformanceCounters::SectionCount);
+    if (result)
+        env->SetFloatArrayRegion(result, 0, 1 + melonDS::PerformanceCounters::SectionCount, values);
+    return result;
 }
 
 JNIEXPORT void JNICALL

@@ -26,6 +26,7 @@
 #include "GPU3D_Soft.h"
 #include "Platform.h"
 #include "GPU3D.h"
+#include "PerformanceCounters.h"
 #include "GPU3D_PolygonMultiplier.h"
 
 namespace melonDS
@@ -1521,6 +1522,7 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
     // lines and shadow volumes keep their exact hardware shape
     if (parent->Type != 0 || parent->IsShadowMask || parent->IsShadow)
         return;
+    PerformanceCounters::CpuScope cpuTime(PerformanceCounters::Section::PolygonMultiplierCpu);
 
     // only polygons whose every corner has a normal (lit geometry); UI and
     // other unlit polygons have none and are left alone
