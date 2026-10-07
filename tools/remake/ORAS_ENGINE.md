@@ -464,8 +464,8 @@ character** (two failed runs before this one): a zone's characters are placed wh
 inside the zone has none (run `talk1`: the tile in front of Littleroot's character 6 was empty); walking in from the next
 zone places them, but a walk by held frames ends where it ends (`talk2` stopped beside the lab). A house is the short way:
 the door recipe enters the zone, and its characters stand a few tiles from the arrival. `remake_tool oras-inspect <oras.3ds>
-zone <n>` lists each character's tile, movement, flag, facing and range (movement 0 stands still), the way the mother was
-chosen. The walk counted about 17 frames a tile (`hold right 90` for five tiles, checked on the screenshot). The talk
+zone <n>` lists each character's tile, movement, kind, script, facing, sight and range (movement 0 stands still) and the
+trainer it is (script 3000 + trainer id: inferred, `OrasZone.h`), the way the mother was chosen. The walk counted about 17 frames a tile (`hold right 90` for five tiles, checked on the screenshot). The talk
 trace's functions: `prototype/coverage_map.py <work> house1 house_talk.txt --minus house_idle.txt`. Its 138 unnamed
 functions were read on 7 October and 128 named: the speech balloons and their windows (`Msg_Balloon_*`, `Msg_Window_*`: six
 slots, the tail pointed at the speaker), the look-at controller that turns the two characters' heads
