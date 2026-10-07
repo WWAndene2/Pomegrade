@@ -30,7 +30,7 @@ static void Rewrite(Garc& archive, size_t index, const Bytes& plain, bool compre
     if (Plain(Garc(archive.Write()).Sub(index)) != plain) throw FormatError("member " + std::to_string(index) + " does not read back identical");
 }
 
-std::vector<std::string> BuildAppendTest(N3dsRom& oras, AppendTest test, const std::string& outDir)
+std::vector<std::string> BuildAppendTest(N3dsRom& oras, AppendTest test, const std::string& outDir, size_t crowd)
 {
     std::vector<std::string> log;
     if (test == AppendTest::Crowd)
@@ -42,12 +42,13 @@ std::vector<std::string> BuildAppendTest(N3dsRom& oras, AppendTest test, const s
         OrasZone z = OrasZone::Read(plain);
         if (z.Characters.empty()) throw FormatError("zone 6 has no character to clone");
         const size_t own = z.Characters.size();
-        // clones of the zone's characters, 6 a row from tile (94, 160), north-west of the Littleroot save's (100.5, 172.5)
-        for (size_t i = own; i < 30; i++)
+        // clones of the zone's characters, 8 a row from tile (92, 158), north-west of the Littleroot save's (100.5, 172.5)
+        if (crowd > 255) throw FormatError("crowd: at most 255 characters (a count byte)");
+        for (size_t i = own; i < crowd; i++)
         {
             ZoneCharacter c = z.Characters[i % own];
-            c.Raw[20] = (uint16_t)(94 + (i - own) % 6 * 2);
-            c.Raw[21] = (uint16_t)(160 + (i - own) / 6 * 2);
+            c.Raw[20] = (uint16_t)(92 + (i - own) % 8 * 2);
+            c.Raw[21] = (uint16_t)(158 + (i - own) / 8 * 2);
             z.Characters.push_back(c);
         }
         Rewrite(nz, 6, z.Write(plain), IsLzCompressed(gz.Sub(6)));

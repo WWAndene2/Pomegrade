@@ -95,12 +95,15 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
     {
         // FUN_003f7ff4 stops the game when a zone lists more than 26 characters (cmpne r6, #0x1A; zones 0x10, 0x30 and 0x1C3
         // excepted) and before a 27th appears (cmp r0, #0x1A on the count at +0x36AE); each takes an 0xAB0-byte entry of the
-        // field manager's pool, made by FUN_00112d4c with 32 entries (mov r3, #0x20 at 0x109048) beside 32 inline 0x1B4-byte
-        // records, so 32 is the most the bound may reach without a larger manager
-        if (*o.Characters < 26 || *o.Characters > 32) throw FormatError("characters: 26 to 32 (the field manager's pool)");
+        // field manager's pool, allocated apart from the manager by FUN_00112d4c with the count its caller passes (mov r3,
+        // #0x20 at 0x109048): above 32 the pool grows with the bound. What then bounds a zone is its events file, copied on
+        // entry into a 0xC84-byte buffer of the save data (FUN_003db6e4; OrasZone::Write refuses a larger one): 35 clones
+        // in Littleroot fit and show, 36 stop the game there (checked headless, ORAS_ENGINE.md 4.5)
+        if (*o.Characters < 26 || *o.Characters > 255) throw FormatError("characters: 26 to 255");
         words.push_back({0x3F8038, 0x1356001A, 0x13560000 | *o.Characters, "characters a zone may list"});
         words.push_back({0x3F808C, 0xE350001A, 0xE3500000 | *o.Characters, "characters shown at once"});
-        log.push_back("characters: " + std::to_string(*o.Characters) + " per zone (the game's 26)");
+        if (*o.Characters > 32) words.push_back({0x109048, 0xE3A03020, 0xE3A03000 | *o.Characters, "the field manager's character pool"});
+        log.push_back("characters: " + std::to_string(*o.Characters) + " per zone (the game's 26)" + (*o.Characters > 32 ? ", pool " + std::to_string(*o.Characters) : ""));
     }
     for (const auto& [id, size] : o.HeapSizes)
     {

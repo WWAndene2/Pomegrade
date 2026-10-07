@@ -96,6 +96,8 @@ Bytes OrasZone::Write(const Bytes& original) const
     for (int k = 0; k < 4; k++) e[k] = (uint8_t)(field >> (8 * k));
     e.insert(e.end(), InitScript.begin(), InitScript.end());
     e.insert(e.end(), tail.begin(), tail.end());
+    if (e.size() >= EventsBudget)
+        throw FormatError("zone: events file of " + std::to_string(e.size()) + " bytes, the game's buffer holds less than " + std::to_string(EventsBudget));
     c.Files[1] = e;
     return c.Write();
 }

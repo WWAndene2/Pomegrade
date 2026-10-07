@@ -132,7 +132,7 @@ static int Usage()
                     "  remake_tool oras-verify <oras.3ds>\n  remake_tool oras-catalog <oras.3ds> <out dir>\n"
                     "  remake_tool oras-texture <oras.3ds> <area pack> <name> <out.png>\n  remake_tool mesh-json <GR piece file|file.bch> <out.json>\n"
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
-                    "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone|zone-raised|crowd\n"
+                    "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone|zone-raised|crowd [N]\n"
                     "  remake_tool oras-zone-check <oras.3ds>\n"
                     "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N] [--characters N] [--heap ID:BYTES]...\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
@@ -527,7 +527,8 @@ int main(int argc, char** argv)
                                   : what == "zone" ? AppendTest::Zone : what == "zone-raised" ? AppendTest::ZoneRaised
                                   : what == "crowd" ? AppendTest::Crowd : throw FormatError("append test: unused, piece, matrix, zone, zone-raised or crowd");
             N3dsRom oras(argv[2]);
-            for (const std::string& line : BuildAppendTest(oras, test, argv[3])) printf("%s\n", line.c_str());
+            const size_t crowd = argc >= 6 ? (size_t)OptionNumber(argv[5], "crowd size") : 30;
+            for (const std::string& line : BuildAppendTest(oras, test, argv[3], crowd)) printf("%s\n", line.c_str());
             return 0;
         }
         if (cmd == "oras-town" && argc >= 5)
@@ -1168,6 +1169,20 @@ int main(int argc, char** argv)
             printf("reached zones by matrix:");
             for (const auto& [m, n] : byMatrix) printf(" %d:%d", m, n);
             printf("\n");
+            // the most characters (overworld objects) a reached header lists, against ORAS's per-zone bound (26, raised to
+            // at most 32 by oras-engine --characters: ORAS_ENGINE.md 4.5)
+            size_t most = 0, over26 = 0, over32 = 0;
+            int mostHeader = -1;
+            for (int h : reached)
+                try
+                {
+                    const size_t n = ZoneEvents::Read(Plain(plat.Events.Member(plat.Headers[h].Events))).Objects.size();
+                    if (n > most) { most = n; mostHeader = h; }
+                    over26 += n > 26;
+                    over32 += n > 32;
+                }
+                catch (const FormatError&) {}
+            printf("characters: at most %zu (header %d); %zu headers list more than 26, %zu more than 32\n", most, mostHeader, over26, over32);
             // the headers no warp reaches, one line each: their matrix and event file, what the events hold, the reached headers
             // sharing their matrix or events, and how many times the scripts hold the bytes BE 00 <header> (a guess at a warp
             // command, the script format not being decoded: a hint, not a proof)
