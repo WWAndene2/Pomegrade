@@ -14,7 +14,8 @@
 # core    Azahar's libretro core with the headless patches (pomegrade_report.inc, patch_core.py: thread report, memory
 #         dump, GDB stub), built from a copy of azahar/ (about 30 min on 4 cores, once), and retro_host
 # ghidra  Ghidra 11.4.2 and the whole game's code analysed in one program: the .code and the 145 code modules linked by
-#         prototype/cro_link.py (about 15 min) -> ghidra_proj/, linked/
+#         prototype/cro_link.py, Ghidra's wrong no-return marks cleared (FixNoReturn.java), the names of
+#         ghidra/function_names.tsv applied (about 17 min) -> ghidra_proj/, linked/, functions.tsv, edges.tsv, noreturn.tsv
 # all     the four, in that order (the default)
 set -euo pipefail
 repo=$(cd "$(dirname "$0")/../../.." && pwd)
@@ -76,10 +77,12 @@ ghidra)
     ./ghidra_11.4.2_PUBLIC/support/analyzeHeadless "$work/ghidra_proj" oras -process code.bin -noanalysis \
         -scriptPath "$repo/tools/remake/ghidra" -postScript FixNoReturn.java \
         -postScript ApplyNames.java "$repo/tools/remake/ghidra/function_names.tsv" >> ghidra_setup.log 2>&1
-    # the function list the coverage tools read (coverage_map.py), with the names applied
+    # the function list the coverage tools read (coverage_map.py), with the names applied, and the call graph the name
+    # review reads (CallGraph.java: edges.tsv, noreturn.tsv; prototype/name_review.py)
     ./ghidra_11.4.2_PUBLIC/support/analyzeHeadless "$work/ghidra_proj" oras -process code.bin -noanalysis -readOnly \
-        -scriptPath "$repo/tools/remake/ghidra" -postScript Export.java "$work" > /dev/null 2>&1
-    grep -E "REPORT" ghidra_setup.log | tail -3 ;;
+        -scriptPath "$repo/tools/remake/ghidra" -postScript Export.java "$work" -postScript CallGraph.java "$work" \
+        >> ghidra_setup.log 2>&1
+    grep -E "REPORT|FixNoReturn.java>|ApplyNames.java>|CallGraph.java>" ghidra_setup.log | tail -6 ;;
 *) echo "unknown step $step (dumps, tool, core, ghidra, all)"; exit 2 ;;
 esac
 done
