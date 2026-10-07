@@ -51,6 +51,10 @@ int main()
     Bytes others = moded;
     others[0x20E] = 0x04;
     check(others == exheader, "nothing else changed in the header");
+    const Bytes newer = ExHeaderWithSystemMode(exheader, OrasMemoryMode::New124);
+    Bytes rest124 = newer;
+    rest124[0x20D] = 0;
+    check(newer[0x20D] == 1 && newer[0x20E] == 0x04 && rest124 == exheader, "the New 3DS mode written as n3ds_mode 1, the system mode kept");
     refused = false;
     Bytes encrypted = exheader;
     encrypted[0x1C8] ^= 0xFF;

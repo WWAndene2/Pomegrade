@@ -134,7 +134,7 @@ static int Usage()
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone|zone-raised|crowd [N]\n"
                     "  remake_tool oras-zone-check <oras.3ds>\n"
-                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N] [--characters N] [--heap ID:BYTES]...\n"
+                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N] [--characters N] [--heap ID:BYTES]...\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
                     "                    [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]\n"
                     "  remake_tool oras-code <oras.3ds> <out.bin>\n"
@@ -502,7 +502,8 @@ int main(int argc, char** argv)
                 {
                     const int mb = OptionNumber(value.c_str(), flag);
                     o.Memory = mb == 64 ? OrasMemoryMode::Prod64 : mb == 72 ? OrasMemoryMode::Dev3_72 : mb == 80 ? OrasMemoryMode::Dev2_80
-                             : mb == 96 ? OrasMemoryMode::Dev1_96 : throw FormatError("--memory: 64, 72, 80 or 96 (MB)");
+                             : mb == 96 ? OrasMemoryMode::Dev1_96 : mb == 124 ? OrasMemoryMode::New124
+                             : throw FormatError("--memory: 64, 72, 80, 96 or 124 (MB; 124 needs the emulator's New 3DS setting; 178 stops the game at boot)");
                 }
                 else if (flag == "--linear-heap") o.LinearHeap = (uint32_t)OptionNumber(value.c_str(), flag);
                 else if (flag == "--normal-heap") o.NormalHeap = (uint32_t)OptionNumber(value.c_str(), flag);

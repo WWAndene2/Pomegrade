@@ -1,4 +1,6 @@
 #include "TownBuilder.h"
+
+#include <set>
 #include "BchWriter.h"
 #include "BinLinker.h"
 #include "TownShapes.h"
@@ -820,6 +822,15 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     // pieces). The game files its piece-slot table (4 slots, code 0x3C8A24) under that word and frees a slot only for the
     // cell leaving the player's window (0x3C8C84): a piece carrying Littleroot's cell was never freed, so the fifth piece
     // loaded hit "no free slot", the fatal-error loop of every Route 201 freeze (ORAS_LITTLEROOT.md 0)
+    // a model's distinct textures: the engine stops past 51 (FUN_0048883c, `0x33 <` its texture-slot entries, 3 a material;
+    // read, ORAS_ENGINE.md 4.3; that it governs map pieces is inferred). Hoenn's pieces use at most 45, a built one 29
+    {
+        std::set<std::string> textures;
+        for (const BchModel& m : Bch::Read(gr.Files.at(1)).Models)
+            for (const BchMaterial& mat : m.Materials)
+                for (const std::string& t : mat.Texture) if (!t.empty()) textures.insert(t);
+        if (textures.size() > 51) throw FormatError("the piece's model names " + std::to_string(textures.size()) + " textures, the game stops past 51");
+    }
     Bytes& cell = gr.Files.at(4);
     if (cell.size() < 2) throw FormatError("piece file 4 holds no cell");
     cell[0] = (uint8_t)src.CellY;
