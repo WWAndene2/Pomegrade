@@ -20,7 +20,7 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 |---|---|
 | 1 Decomposition | the whole code (`.code` + 145 modules, 47,602 functions) in one Ghidra program, checked against the game's own load; not yet: naming functions by what they do (record which run during each activity) |
 | 2 Tables and assets | zones (section 2), map pieces (3), the boot memory map (4.2), the 299 archives tied to their code where opened by a constant (5); not yet: the 210 archives opened by computed numbers, the asset formats beyond `tools/remake/src`'s readers |
-| 4 Limits | all 927 fatal checks listed, the field's and the `.code`'s classified (4.1, 4.3); lifted and checked headless: zones 536 -> 1024 (2), application memory 64 -> 96 MB and the linear heap 43.3 -> 71.3 MB (4.4), the normal heap and heap 4 (heap 0xC 2 -> 8 MB, 4.4), characters 26 -> past 32 (4.5); refused at build time where it cannot be raised: a zone's events file under 0xC84 bytes (4.5); not yet: the New 3DS memory modes (124 and 178 MB), the async load queue (8), collision objects per cell (4), texture slots per model (51), the 174-entry table (meaning unknown) |
+| 4 Limits | all 927 fatal checks listed, the field's and the `.code`'s classified (4.1, 4.3); lifted and checked headless: zones 536 -> 1024 (2), application memory 64 -> 124 MB (New 3DS mode) and the linear heap 43.3 -> 88 MB (4.4), the normal heap and heap 4 (heap 0xC 2 -> 8 MB, 4.4), characters 26 -> past 32 (4.5); refused at build time where it cannot be raised: a zone's events file under 0xC84 bytes (4.5); 178 MB is unusable (the system font: 4.4); not yet: the async load queue (8), collision objects per cell (4), texture slots per model (51), the 174-entry table (meaning unknown) |
 | 5 Patches | `remake_tool oras-engine` writes them all (`exheader.bin`, `exefs/code.ips`); none run on the phone yet |
 | 3, 6, 7 | not started on this basis: Sinnoh's region tools (`oras-region`, `ORAS_LITTLEROOT.md`) still borrow Hoenn's zones; next is building Sinnoh's zones from 538 up with the tools above |
 
@@ -247,7 +247,15 @@ capacities that bound a larger world:
   - `--memory 96 --linear-heap 0x4100000 --normal-heap 0x1800000 --heap 0xC:0x800000`: normal heap 14.3 -> 24 MB (mapped
     0x08000000-0x09800000), heap 4 6.2 -> 16 MB, **heap 0xC (async member loads) 2 -> 8 MB**, linear heap 65 MB: the field
     loads (screenshot, `shot` command) and the player walks, thread 1 idle.
-  Not yet: the New 3DS modes (124 and 178 MB, which also need Azahar's New 3DS setting), the phone.
+- **The New 3DS mode, 124 MB** (`--memory 124`: the extended header's `n3ds_mode` 1 at 0x20D instead of the system mode;
+  Azahar grants it with its New 3DS setting on, its default, on the phone too unless changed). **Checked headless**: with
+  `--linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000` the game takes an 88 MB linear
+  heap (read back at 0x61726C), a 24 MB normal heap, heap 0xC 8 MB and heap 0x17 64 MB (the game's 28.4), loads the field
+  (screenshot) and walks. **178 MB (`n3ds_mode` 2) cannot be used**: the system's shared font is mapped at 0x14000000 plus its
+  place after the application's memory, beyond the game's 128 MB linear window, and the game panics at boot
+  (`svcBreak`, "cannot map APT:SharedFont") even with its own heaps unchanged (checked); the tool refuses it. In 124 MB the
+  linear heap's ceiling is the total (code, normal heap and linear heap within 124 MB), which the tool checks.
+  Not yet: the phone.
 
 ### 4.5 Characters per zone, raised past 26, bounded by the events buffer (checked headless, 7 October)
 
