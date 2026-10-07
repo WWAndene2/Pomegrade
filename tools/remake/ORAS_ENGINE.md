@@ -491,8 +491,20 @@ capacities that bound a larger world:
   is reported "tainted") the game still takes 43.3 MB. **With the linear heap word raised too** (`code.ips`), it takes what
   it is given: 0x4748000 (71.3 MB, +28 MB, mapped 0x14000000-0x18748000 and read back in the game's own variable at
   0x61726C); the field loads and the player walks, thread 1 idle.
-- **The tool**: `remake_tool oras-memory <oras.3ds> <out> 64|72|80|96 <linear heap bytes>` (`OrasMemory.h`) writes both,
-  refusing an encrypted header and a heap that does not fit the mode with the code and the normal heap; its output is the
-  same bytes as the run above. Not yet done: the New 3DS modes (124 and 178 MB, which also need Azahar's New 3DS setting),
-  growing the sub-heaps (heap 0xC's 2 MB first), one `code.ips` merging several engine patches (each tool writes its own
-  today), the phone.
+- **The parents** (**read**, `FUN_00107c0c`): heap 1 = the linear heap less 0xE88000 (it holds heap 0x17 only); **heap 4**
+  (`[0x5F5014 + 0x18]`) = the top **0x5ED000** bytes of the normal heap (heaps 8, 0xB, 0xC, 0xD, 0xF8, 0x18, 0x10, 0x196 ...);
+  heap 5 (`+0x1C`) = the last 0xE88000 bytes of the linear heap (9, 0xA, 0xF, 0x12, 0x14, 0x1A ...); heaps 0xE, 0xF1, 0x16 come
+  from the system heap and 0x17 from heap 1. Heap 4's size is read by `FUN_00106448` (two `sub`s, 0x500000 + 0xED000) and from
+  the word 0x108564; the same value in the words 0x110254 and 0x11AB74 is an address in the game's data, not this size
+  (patching them sent the game reading 0xFFD000 in a loop: checked).
+- **`remake_tool oras-engine <oras.3ds> <out> [--memory 64|72|80|96] [--linear-heap BYTES] [--normal-heap BYTES]
+  [--zone-rows N] [--heap ID:BYTES]...`** (`OrasEngine.h`) writes every engine patch into the one `exheader.bin` and
+  `exefs/code.ips` a mod carries, each word checked against the game's own; a heap whose size is an instruction's immediate
+  takes only ARM-encodable sizes. **Checked headless (7 October)**:
+  - `--memory 96 --linear-heap 0x4748000`: the same bytes as the run above;
+  - `--heap 0x17:0x346D000` with it: heap 0x17 28.4 -> 52.4 MB, field and walk;
+  - `--heap 0xC:0x800000` alone: **the boot stops in heap 0xC's creation**, heap 4 has no room;
+  - `--memory 96 --linear-heap 0x4100000 --normal-heap 0x1800000 --heap 0xC:0x800000`: normal heap 14.3 -> 24 MB (mapped
+    0x08000000-0x09800000), heap 4 6.2 -> 16 MB, **heap 0xC (async member loads) 2 -> 8 MB**, linear heap 65 MB: the field
+    loads (screenshot, `shot` command) and the player walks, thread 1 idle.
+  Not yet: the New 3DS modes (124 and 178 MB, which also need Azahar's New 3DS setting), the phone.

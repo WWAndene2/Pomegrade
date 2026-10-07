@@ -1,6 +1,7 @@
 // Patches to the game's code (CodePatch.h): the IPS Azahar applies to the decompressed code, written only over the words
 // the game ships, applied back as Azahar does; and the extended header's memory mode (OrasMemory.h)
 #include "CodePatch.h"
+#include "OrasEngine.h"
 #include "OrasMemory.h"
 #include <cstdio>
 #include <string>
@@ -55,6 +56,18 @@ int main()
     encrypted[0x1C8] ^= 0xFF;
     try { ExHeaderWithSystemMode(encrypted, OrasMemoryMode::Dev1_96); } catch (const FormatError&) { refused = true; }
     check(refused, "a header whose jump id and program id differ (encrypted) is refused");
+
+    // ARM immediates, as the game's own instructions encode them (mov r6, #0xDF0000 = E3A068DF; cmp r5, #0x218 = ...0F86)
+    check(ArmImmediate(0xDF0000) == 0x8DFu && ArmImmediate(0x218) == 0xF86u && ArmImmediate(0x400) == 0xB01u,
+          "immediates encoded as the game's instructions have them");
+    // a value with several encodings (0x1800000: 6 ror 10 or 0x18 ror 12) takes the smallest rotation, as assemblers do; any
+    // encoding must give the value back
+    auto decode = [](uint32_t e) { const uint32_t v = e & 0xFF, r = 2 * (e >> 8); return r ? (v >> r) | (v << (32 - r)) : v; };
+    bool roundTrip = true;
+    for (uint32_t v : {0x1800000u, 0x200000u, 0x800000u, 0x1000000u, 0x2000000u, 0xF00000u, 0xFD000u})
+        roundTrip = roundTrip && ArmImmediate(v) && decode(*ArmImmediate(v)) == v;
+    check(roundTrip, "every encoding decodes back to its value");
+    check(!ArmImmediate(0x21B) && !ArmImmediate(0x13F0000), "values no 8-bit rotation holds are refused");
 
     printf(ok ? "ALL OK\n" : "FAILED\n");
     return ok ? 0 : 1;

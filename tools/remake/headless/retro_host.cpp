@@ -186,6 +186,20 @@ static void Screen()
     }
 }
 
+// "shot NAME": the last frame written to NAME.ppm in the work folder (binary PPM, 8-bit RGB), to look at a screen the text
+// rendering of "screen" cannot tell apart (an error dialog, a white screen)
+static void Shot(const std::string& name)
+{
+    if (lastFrame.empty()) { printf("(no frame yet)\n"); return; }
+    const std::string path = workDir + "/" + name + ".ppm";
+    FILE* f = fopen(path.c_str(), "wb");
+    if (!f) { printf("shot: cannot write %s\n", path.c_str()); return; }
+    fprintf(f, "P6\n%u %u\n255\n", lastWidth, lastHeight);
+    for (uint32_t p : lastFrame) { const unsigned char rgb[3] = {(unsigned char)(p >> 16), (unsigned char)(p >> 8), (unsigned char)p}; fwrite(rgb, 1, 3, f); }
+    fclose(f);
+    printf("shot %s at frame %lu\n", path.c_str(), frame);
+}
+
 template <typename T> static T Symbol(void* core, const char* name)
 {
     void* p = dlsym(core, name);
@@ -301,6 +315,7 @@ static int RunScript(void* core, const char* path)
             printf("[frame %lu] field %s\n", frame, fieldUp ? "up" : "not up");
         }
         else if (cmd == "screen") Screen();
+        else if (cmd == "shot") Shot(arg);
         else if (cmd == "report") ThreadReport(core);
         else if (cmd == "watch")
         {
