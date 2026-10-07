@@ -321,9 +321,9 @@ program (`session_setup.sh` does it): the decompilation then reads `Zone_LoadHea
 |---|---|---|---|---|
 | walking a few steps | Littleroot | 521 (398 `.code`, 111 DllField, 12 DllFieldEventPlayer) | | |
 | entering a zone (Route 101 -> Littleroot, walking south) | save on zone 23 at (100.5, 150.5) | 1,261 | **782** (546 `.code`, 236 DllField) | **all 782** |
-| opening the menu (X) | Littleroot | 381 | 127 | not yet |
-| entering a house (door at 106.5, 171.5) | save at (106.5, 172.5), walking up | 2,481 | 1,522 beyond walking and zone change (842 `.code`, 652 DllField, 28 DllFieldEventEntranceIn) | not yet |
-| reading a sign ("Maison d'Andene", furniture at 103, 171) | save at (103.5, 172.5), facing up, A | traced (`actE1`) | | not yet |
+| opening the menu (X) | Littleroot | 381 | 127 | yes (see below) |
+| entering a house (door at 106.5, 171.5) | save at (106.5, 172.5), walking up | 2,481 | 1,522 beyond walking and zone change (842 `.code`, 652 DllField, 28 DllFieldEventEntranceIn) | yes (see below) |
+| reading a sign ("Maison d'Andene", furniture at 103, 171) | save at (103.5, 172.5), facing up, A | traced (`actE1`) | 199 beyond walking | yes (see below) |
 | a wild encounter (Route 101's tall grass, x 89-95, z 147-151) | save at (92.5, 149.5), walking left and right | 3,882 | 3,425 (2,043 `.code`, 1,325 DllBattle, 57 DllBackGround) | not yet |
 
 Not recorded yet: talking to a character (the scripted position missed the character twice: place the player against one
@@ -357,6 +357,37 @@ is very slow (more than 10 minutes for a few turns).
   `Res_AsyncLoad_Create` (0x36E694, read: a 0x54-byte job with a completion callback).
 
 Most of the 782 are support code (221 `Gfx_`, 178 `Util_`, 49 `Sys_`): the zone-specific ones above are about 140.
+
+**Door, sign and menu** (the three traces above, 1,728 more functions named on 7 October by six sub-agents over the
+decompilation, two per part where a part was re-run; names that only said "role not determined" were left out; most of
+these are graphics, layout and import stubs, **read** only where an agent read the code, the rest **guess**):
+
+- **A door warp**, in order: `Warp_BuildDestinationFromWarpRecord` (0x4D8F3C, read: warp N, a 0x18-byte record of the
+  zone's events, to a location of zone, warp index and kind 3/4); `Warp_CreateZoneChangeEvent` (0x3D60D4, read: a 0x7C-byte
+  event, the destination header loaded); `Warp_GetArrivalPosition` (0x3CD634, read: the record's grid shorts to floats, 18
+  units per tile, offset along its width/height); the entrance module `DllFieldEventEntranceIn` picks the door animation by
+  kind (`Warp_EntranceIn_SelectHandler` 0x10393750, read: 0x1C-byte records) and walks the player in
+  (`Warp_EntranceInStep` 0x103949A4, read: door sound, move command 0xEF); `Warp_ZoneChangeStep` (0x3E9F64, read) calls
+  `Script_ResetZoneLocalState`, then `Zone_ChangeLoadStep` (0x3D5698, read: the new header, map and matrix reloaded only
+  when the **area** id changes (0x4D896C), then the zone's events and scripts), then places the player by arrival kind
+  (2, 4, 5; `Warp_PlacePlayerAtArrival` 0x3D5A0C, read). DllField frees the old field (`Warp_FieldTeardownStep`
+  0x102DD418, read), reloads per-zone resources (`Field_ReloadZoneResources` 0x40405C, read: 3 handles), loads in up to 3
+  steps per time budget (`Warp_FieldLoad_RunSteps` 0x102DEC18, read), rebuilds the field (`Field_ZoneSetupStep`
+  0x102DF70C, read), loads the area's own module (`Field_LoadAreaSpecificModule` 0x10273D30, read: DllUSPokecen,
+  DllUSGym*...) and shows the place name when it differs (`Field_ShowZoneNamePopup` 0x10261660, read).
+- **A script showing a message**: `Event_FindTalkTargetInFront` (0x102665A8, read) finds the sign or character ahead;
+  `Script_StartEventScript` (0x3DC070, read) and `Event_CreateScriptManager` (0x3FE45C, read: a 0x168-byte context);
+  `Script_RunContextStack` (0x3FFA90, guess); `Msg_ResolveTextSource` (0x3FB230, guess: system text or the zone's script
+  text). The window: `Msg_Window_Open` (0x10258B50, guess), `Msg_WindowLayout_SetStyle` (0x34E2D8, guess: 14 styles),
+  `Msg_Window_CreateTextPrinter` (0x3482A8, guess: 0xF0 bytes). The printer, read: `Msg_TextPrinter_Construct` (0x3A7070,
+  0x68-byte line slots), `Msg_SetText` (0x3A6F10), `Msg_TextPrinter_Update` (0x3A5F18: a character per tick, control codes
+  0xBE00/0xBE01, likely wait-for-button and scroll), `Msg_ParseNextLineTag` (0x3A6D48), `Text_CountLines` (0x3A5C14),
+  `Text_SeekToLine` (0x3A60A4). Text is UTF-16, 0x0A a line break, 0x10 the start of a tag. The script command that asks
+  for the message is not identified yet (no script-command handler in these sets).
+- **The start menu**: `Field_CreateProcessByRequest` (0x3D7DD0, guess: one factory creating each field sub-screen by request
+  id), `Field_CreateSimpleProcess` (0x52AF94, read), `Menu_LoadLayoutResources` (0x330A4C, read),
+  `Menu_UpdateItemPanes` (0x102C0CDC, read: six entries shown by their enable bits), `Menu_CreateItemList` (0x103102F0,
+  guess: the 6-slot list), `Menu_SetPaneVisible` (0x102AF4EC, read).
 
 ## 5. The archives
 
