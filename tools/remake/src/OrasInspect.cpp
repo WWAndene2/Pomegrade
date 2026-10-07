@@ -100,7 +100,21 @@ std::string InspectPiece(N3dsRom& game, size_t piece)
     }
     std::map<uint32_t, int> values;
     for (size_t i = 0; i < (size_t)w * h; i++) values[U32(tiles, 4 + i * 4)]++;
-    for (const auto& [value, n] : values) s += F("    tile value 0x%08X: %d tiles\n", value, n);
+    // each value lettered in that order, then the grid, row by row (z), west to east (x): where a run can walk. The word is
+    // the tile attribute the field reads (Map_TileAttr_Kind, bits 24-31, and Map_TileAttr_Flags, bits 0-11, ORAS_ENGINE.md 6)
+    std::map<uint32_t, char> letter;
+    for (const auto& [value, n] : values)
+    {
+        letter[value] = letter.size() < 26 ? (char)('A' + letter.size()) : '*';
+        s += F("    tile value 0x%08X (%c): %d tiles\n", value, letter[value], n);
+    }
+    s += "    tiles, row z = 0 at the top, x = 0 on the left:\n";
+    for (unsigned z = 0; z < h; z++)
+    {
+        std::string row = F("    %2u ", z);
+        for (unsigned x = 0; x < w; x++) row += letter[U32(tiles, 4 + ((size_t)z * w + x) * 4)];
+        s += row + "\n";
+    }
     const Bch bch = Bch::Read(gr.Files.at(1));
     s += F("  part 1: terrain model, %zu bytes\n", gr.Files[1].size());
     for (const BchModel& m : bch.Models)
