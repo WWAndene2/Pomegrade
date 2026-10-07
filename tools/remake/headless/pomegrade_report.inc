@@ -2,6 +2,8 @@
 // repository's Azahar sources): retro_host calls it when the game has not reached the field, to see where the game is stuck.
 // For every thread of the game: its state, PC, LR and SP (the running one's from its core, the others' from their saved
 // context), and the words of its stack that look like code addresses (a call chain, read without frame pointers).
+// A thread in the game's fatal-error loop (code 0x11EF3C-0x11EF64, ORAS_LITTLEROOT.md 0) also gets its registers and its
+// raw stack, to rebuild the frames' saved registers and find the object whose check failed; pomegrade_peek dumps memory.
 #include "core/hle/kernel/kernel.h"
 #include "core/hle/kernel/process.h"
 #include "core/hle/kernel/thread.h"
@@ -47,6 +49,45 @@ extern "C" RETRO_API void pomegrade_report(void (*out)(const char* line)) {
                 }
             }
             out(chain.c_str());
+            if (chain.find("0011EF60") == std::string::npos && (pc < 0x11EF3C || pc > 0x11EF64)) continue;
+            std::string regs = "  registers:";
+            for (int r = 0; r < 16; r++) {
+                char item[24];
+                snprintf(item, sizeof item, " r%d=%08X", r, live ? cpu.GetReg(r) : thread->context.cpu_registers[r]);
+                regs += item;
+            }
+            out(regs.c_str());
+            for (u32 at = sp; at < sp + 0x400; at += 0x20) {
+                std::string row;
+                char item[24];
+                snprintf(item, sizeof item, "  stack +%03X:", at - sp);
+                row = item;
+                for (u32 w = at; w < at + 0x20 && memory.IsValidVirtualAddress(*process, w); w += 4) {
+                    snprintf(item, sizeof item, " %08X", memory.Read32(*process, w));
+                    row += item;
+                }
+                out(row.c_str());
+            }
         }
+    }
+}
+
+// the game's memory from address for length bytes, 32 bytes a line, words as the game reads them
+extern "C" RETRO_API void pomegrade_peek(u32 address, u32 length, void (*out)(const char* line)) {
+    auto& system = Core::System::GetInstance();
+    if (!system.IsPoweredOn()) return;
+    for (const auto& thread : system.Kernel().GetThreadManager(0).GetThreadList()) {
+        const auto process = thread->owner_process.lock();
+        if (!process || process->codeset == nullptr || process->codeset->program_id != 0x000400000011C400) continue;
+        auto& memory = system.Memory();
+        for (u32 at = address & ~3u; at < address + length; at += 0x20) {
+            char line[512];
+            int used = snprintf(line, sizeof line, "  mem %08X:", at);
+            for (u32 w = at; w < at + 0x20 && used < 480; w += 4)
+                used += memory.IsValidVirtualAddress(*process, w) ? snprintf(line + used, sizeof line - used, " %08X", memory.Read32(*process, w))
+                                                                  : snprintf(line + used, sizeof line - used, " --------");
+            out(line);
+        }
+        return;
     }
 }

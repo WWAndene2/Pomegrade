@@ -202,6 +202,14 @@ static void ThreadReport(void* core)
     else printf("(no pomegrade_report in this core)\n");
 }
 
+// "mem ADDRESS LENGTH": the game's memory (pomegrade_peek), to read the objects a fatal-error report's registers point at
+static void MemoryDump(void* core, const std::string& address, const std::string& length)
+{
+    auto peek = reinterpret_cast<void (*)(uint32_t, uint32_t, void (*)(const char*))>(dlsym(core, "pomegrade_peek"));
+    if (peek) peek(strtoul(address.c_str(), nullptr, 0), strtoul(length.c_str(), nullptr, 0), Report);
+    else printf("(no pomegrade_peek in this core)\n");
+}
+
 static void (*runFrame)() = nullptr;
 static uint64_t sameSince = 0, sameHash = 0;
 static bool freezeShown = false;
@@ -273,6 +281,7 @@ static int RunScript(void* core, const char* path)
         }
         else if (cmd == "screen") Screen();
         else if (cmd == "report") ThreadReport(core);
+        else if (cmd == "mem") { std::string length; words >> length; MemoryDump(core, arg, length); }
         else if (cmd == "save" || cmd == "load") StateFile(core, arg, cmd == "save");
         else printf("unknown command %s\n", cmd.c_str());
         fflush(stdout);
