@@ -5,6 +5,7 @@
 #include "GPU3D.h"
 #include "GPU3D_OpenGL.h"
 #include "GPU3D_TextureReplacement.h"
+#include "OpenGLSupport.h"
 #include "stb/stb_image.h"
 #include "stb/stb_image_write.h"
 #include <cstdio>
@@ -300,5 +301,20 @@ int main()
         printf("texture filter: minified x4, mean red error from each pixel's texels: nearest %.2f, filtered %.2f\n", errNearest / 256, errFiltered / 256);
         check(errFiltered < errNearest * 0.6, "minified: much closer to the average (less aliasing)");
     }
-    return bad != 0 || off != native || !backgroundOk || !filterOk;
+    // a shader the driver refuses: its log is kept for the app to show (a
+    // renderer that can't start falls back to software, see MelonInstance)
+    bool errorOk;
+    {
+        OpenGL::TakeLastError();
+        GLuint prog = 0;
+        const bool built = OpenGL::CompileVertexFragmentProgram(prog,
+            "#version 320 es\nvoid main() { gl_Position = vec4(0.0); }\n",
+            "#version 320 es\nprecision highp float;\nout vec4 c;\nvoid main() { c = undefinedName; }\n",
+            "BrokenShader", {}, {});
+        const std::string error = OpenGL::TakeLastError();
+        printf("refused shader: %s\n", error.c_str());
+        errorOk = !built && error.find("BrokenShader") != std::string::npos && OpenGL::TakeLastError().empty();
+        printf("refused shader: error kept once, naming the shader: %s\n", errorOk ? "yes" : "NO");
+    }
+    return bad != 0 || off != native || !backgroundOk || !filterOk || !errorOk;
 }

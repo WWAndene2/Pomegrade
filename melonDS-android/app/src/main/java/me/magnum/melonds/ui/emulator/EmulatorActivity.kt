@@ -528,6 +528,13 @@ class EmulatorActivity : AppCompatActivity() {
                             settingsLauncher.launch(settingsIntent)
                         }
                         is EmulatorUiEvent.ShowPauseMenu -> showPauseMenu(it.pauseMenu)
+                        is EmulatorUiEvent.ShowRendererError -> {
+                            AlertDialog.Builder(this@EmulatorActivity)
+                                .setTitle(R.string.renderer_unavailable)
+                                .setMessage(getString(R.string.renderer_unavailable_message, it.message))
+                                .setPositiveButton(R.string.ok, null)
+                                .show()
+                        }
                         is EmulatorUiEvent.ShowRewindWindow -> showRewindWindow(it.rewindWindow)
                         is EmulatorUiEvent.ShowRomSaveStates -> {
                             showSaveStateSlotsDialog(it.saveStates, saving = it.reason == EmulatorUiEvent.ShowRomSaveStates.Reason.SAVING) { slot ->

@@ -530,6 +530,13 @@ Java_me_magnum_melonds_MelonEmulator_setThermalLimit(JNIEnv* env, jobject thiz, 
     MelonDSAndroid::setThermalLimit(limited);
 }
 
+JNIEXPORT jstring JNICALL
+Java_me_magnum_melonds_MelonEmulator_takeRendererError(JNIEnv* env, jobject thiz)
+{
+    std::string error = MelonDSAndroid::takeRendererError();
+    return error.empty() ? nullptr : env->NewStringUTF(error.c_str());
+}
+
 JNIEXPORT jint JNICALL
 Java_me_magnum_melonds_MelonEmulator_getFrameRate(JNIEnv* env, jobject thiz)
 {

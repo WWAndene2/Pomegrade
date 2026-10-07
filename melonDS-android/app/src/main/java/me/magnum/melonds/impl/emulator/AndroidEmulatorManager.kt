@@ -174,6 +174,10 @@ class AndroidEmulatorManager(
         return MelonEmulator.getFrameRate()
     }
 
+    override fun takeRendererError(): String? {
+        return MelonEmulator.takeRendererError()
+    }
+
     override fun setPerformanceDetailsEnabled(enabled: Boolean) {
         MelonEmulator.setPerformanceCounters(enabled)
     }

@@ -99,6 +99,9 @@ object MelonEmulator {
     /** Frame rate modes: images shown per second now (the adaptive mode's current choice). */
     external fun getFrameRate(): Int
 
+    /** Why the OpenGL or Compute renderer could not be used (the software one stands in); null if nothing failed. */
+    external fun takeRendererError(): String?
+
     external fun getPerformanceCounters(): FloatArray
 
 	external fun pauseEmulation()

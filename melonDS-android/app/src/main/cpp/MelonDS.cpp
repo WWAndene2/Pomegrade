@@ -200,6 +200,11 @@ namespace MelonDSAndroid
             instance->setThermalLimit(limited);
     }
 
+    std::string takeRendererError()
+    {
+        return instance ? instance->takeRendererError() : std::string();
+    }
+
     int getFrameRate()
     {
         return instance ? instance->getFrameRate() : 60;
