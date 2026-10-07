@@ -19,6 +19,12 @@ Bytes PicaTextureDecode(const Bytes& data, uint32_t width, uint32_t height, uint
 // the reverse for format 0 (RGBA8): RGBA rows top to bottom in, the stored bytes out (8x8 tiles, bottom row first, ABGR),
 // padded to PicaTextureLength; PicaTextureDecode(PicaTextureEncodeRgba8(x), w, h, 0) == x
 Bytes PicaTextureEncodeRgba8(const Bytes& rgba, uint32_t width, uint32_t height);
+// the reverse of PicaTextureDecode for every format: RGBA rows top to bottom in, the stored bytes out, padded to
+// PicaTextureLength. Formats with fewer bits round each channel to the nearest level (decoding gives back the same
+// levels); ETC1 and ETC1A4 are compressed: each 4x4 block takes the base colours, tables and split (two halves side by
+// side or one above the other, individual or differential colours) whose decoding is closest to the pixels, checked
+// through the decoder itself. Used to rewrite a model's texture in its own format (asset customization)
+Bytes PicaTextureEncode(const Bytes& rgba, uint32_t width, uint32_t height, uint8_t format);
 
 }
 

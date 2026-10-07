@@ -34,11 +34,15 @@ public:
     // the game's code (ExeFS ".code"), decompressed when the extended header says it is packed (BLZ, BlzDecompress): ARM code
     // loaded at 0x100000 (ORAS_LITTLEROOT.md 7)
     Bytes Code();
+    // the RomFS level 3 (its header, file tree and data) in the image, and the image's size: what
+    // Azahar's RomFS reader serves to LayeredFS (prototype/azahar_check)
+    uint64_t Level3() const { return RomfsLevel3; }
+    uint64_t Size() const { return ImageSize; }
 
 private:
     uint64_t Ncch = 0;
     std::ifstream File;
-    uint64_t ImageSize = 0, Program = 0;
+    uint64_t ImageSize = 0, Program = 0, RomfsLevel3 = 0;
     std::string Product;
     std::map<std::string, std::pair<uint64_t, uint64_t>> FileList;
     Bytes ReadAt(uint64_t offset, uint64_t size);

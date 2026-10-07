@@ -24,6 +24,7 @@
 //   remake_tool oras-members <oras.3ds> <archive> <first> <last>
 //   remake_tool oras-hex <oras.3ds> <archive> <member> <file|-1> <offset> <length>
 //   remake_tool oras-member <oras.3ds> <archive> <member> <file|-1> <out>
+//   remake_tool oras-asset <oras.3ds> <archive> <member> <file|-1> [list] | export <dir> | edit <out dir> recolour:<texture>:<hue>:<sat>:<bright>[:<around>:<range>]...
 //   remake_tool oras-layout <oras.3ds> <archive> <member> [file]  DARC/BCLYT/BCLAN/BCLIM described
 //   remake_tool oras-text <oras.3ds> <archive> <member>   a game text file's lines
 //   remake_tool oras-script <oras.3ds> <zone>|all [init]  a zone's script, unpacked and disassembled (all: every script, checked)
@@ -72,7 +73,9 @@
 #include "PicaTexture.h"
 #include "TextureIndex.h"
 #include "AreaData.h"
+#include "AssetEdit.h"
 #include "Bch.h"
+#include "TownCheck.h"
 #include "Bps.h"
 #include "BinLinker.h"
 #include "GfMotion.h"
@@ -155,10 +158,56 @@ static Bytes MemberOrFile(const Garc& archive, size_t member, int file)
     return file >= 0 ? ContainerFile(plain, (size_t)file) : plain;
 }
 
+// an edited archive as the mod Azahar loads: a BPS patch of the game's file, checked by applying it back, or, when the
+// archive came out shorter, the archive whole under romfs/; an LZ member last written gets zero padding first so the archive
+// keeps its size (an LZ stream ends at its declared size: the zeros are never read; whole, a/0/0/8 made a 930 MB mod, t2)
+static int WriteArchiveMod(Garc& g, const Bytes& original, size_t last, const std::string& path, const std::filesystem::path& base)
+{
+    Bytes data = g.Write();
+    if (data.size() < original.size() && last != SIZE_MAX && IsLzCompressed(g.Sub(last)))
+    {
+        Bytes padded = g.Sub(last);
+        const size_t pad = (original.size() - data.size() + 3) / 4 * 4;
+        padded.resize(padded.size() + pad, 0);
+        g.Set(last, padded);
+        data = g.Write();
+        printf("%s member %zu: %zu bytes of padding after its LZ data, the archive keeps its size\n", path.c_str(), last, pad);
+    }
+    Garc check(data);
+    if (data.size() < original.size())
+    {
+        std::filesystem::create_directories((base / "romfs" / path).parent_path());
+        WriteFile((base / "romfs" / path).string(), data);
+        printf("%s: %zu bytes, shorter than the game's %zu: written whole under romfs/\n", path.c_str(), data.size(), original.size());
+    }
+    else
+    {
+        const Bytes bps = BpsCreate(original, data);
+        if (BpsApply(original, bps) != data) { fprintf(stderr, "%s: the patch does not rebuild the file\n", path.c_str()); return 1; }
+        std::filesystem::create_directories((base / "romfs_ext" / path).parent_path());
+        WriteFile((base / "romfs_ext" / (path + ".bps")).string(), bps);
+        printf("%s: patch %zu bytes, checked\n", path.c_str(), bps.size());
+    }
+    return 0;
+}
+
+// an option's number: decimal, or hexadecimal after 0x (masks: --piece-files 0x7E); anything else is refused rather than read
+// as 0, as atoi did (four headless variants of --piece-files 0x7E.. each built Littleroot's whole piece, run 37546725658)
+static int OptionNumber(const char* text, const std::string& flag)
+{
+    const std::string t = text;
+    const bool hex = t.size() > 2 && t[0] == '0' && (t[1] == 'x' || t[1] == 'X');
+    size_t used = 0;
+    long v = 0;
+    try { v = std::stol(hex ? t.substr(2) : t, &used, hex ? 16 : 10); } catch (const std::exception&) { used = 0; }
+    if (used == 0 || used != (hex ? t.size() - 2 : t.size())) throw FormatError("not a number after " + flag + ": " + t);
+    return (int)v;
+}
+
 // the options oras-town and oras-region share: Platinum's matrix, the kit pieces and packs, the builder's switches. false: not one of them
 static bool TownKitOption(const std::string& flag, int argc, char** argv, int& i, OrasTownOptions& options)
 {
-    auto number = [&](int at) { if (at >= argc) throw FormatError("missing a number after " + flag); return atoi(argv[at]); };
+    auto number = [&](int at) { if (at >= argc) throw FormatError("missing a number after " + flag); return OptionNumber(argv[at], flag); };
     if (flag == "--matrix") options.Matrix = (size_t)number(++i);
     else if (flag == "--target") options.TargetPiece = (size_t)number(++i);
     else if (flag == "--donor") options.DonorPiece = (size_t)number(++i);
@@ -368,6 +417,22 @@ int main(int argc, char** argv)
             printf("%zu meshes written to %s\n", m.Meshes.size(), argv[3]);
             return 0;
         }
+        if (cmd == "piece-tiles" && argc >= 3)
+        {
+            // the tile values of map pieces (GR files, as oras-region writes them: region_piece_<x>_<y>.bin), how many tiles
+            // hold each, and whether the game itself uses the value (TownCheck's established set): to compare a piece that
+            // freezes the game with one that does not (ORAS_LITTLEROOT.md 0, Route 201)
+            for (int a = 2; a < argc; a++)
+            {
+                const Bytes tiles = BinLinker::Read(Plain(ReadFile(argv[a])), "GR").Files.at(0);
+                std::map<uint32_t, int> count;
+                for (int t = 0; t < 1600 && 4 + (size_t)t * 4 + 4 <= tiles.size(); t++) count[U32(tiles, 4 + (size_t)t * 4)]++;
+                printf("%s:", argv[a]);
+                for (const auto& [value, n] : count) printf(" %08X x%d%s", value, n, TileValueEstablished(value) ? "" : " (not the game's)");
+                printf("\n");
+            }
+            return 0;
+        }
         if ((cmd == "oras-topview" && argc >= 5) || (cmd == "topview" && argc >= 4))
         {
             // oras-topview <oras.3ds> <piece> <out.png> | topview <GR piece file> <out.png>, then [--grid] [--tiles] [--doors] [--points] [--px N]
@@ -420,7 +485,7 @@ int main(int argc, char** argv)
             for (int i = 5; i < argc; i++)
             {
                 const std::string flag = argv[i];
-                auto number = [&](int at) { if (at >= argc) throw FormatError("missing a number after " + flag); return atoi(argv[at]); };
+                auto number = [&](int at) { if (at >= argc) throw FormatError("missing a number after " + flag); return OptionNumber(argv[at], flag); };
                 if (TownKitOption(flag, argc, argv, i, options)) continue;
                 if (flag == "--left") options.Left = number(++i);
                 else if (flag == "--top") options.Top = number(++i);
@@ -458,7 +523,7 @@ int main(int argc, char** argv)
             for (int i = 5; i < argc; i++)
             {
                 const std::string flag = argv[i];
-                auto number = [&](int at) { if (at >= argc) throw FormatError("missing a number after " + flag); return atoi(argv[at]); };
+                auto number = [&](int at) { if (at >= argc) throw FormatError("missing a number after " + flag); return OptionNumber(argv[at], flag); };
                 if (TownKitOption(flag, argc, argv, i, options.Town)) continue;
                 if (flag == "--rect") { options.Left = number(++i); options.Top = number(++i); options.Width = number(++i); options.Height = number(++i); }
                 else if (flag == "--zone")
@@ -473,6 +538,14 @@ int main(int argc, char** argv)
                 else if (flag == "--model-matrix") options.ModelMatrix = number(++i);
                 else if (flag == "--plan") options.PlanOnly = true;
                 else if (flag == "--others-out") options.OthersOut = true;
+                else if (flag == "--solid-piece-tiles") options.SolidPieceTiles = (uint32_t)number(++i);
+                else if (flag == "--tile-replace" && i + 1 < argc)
+                {
+                    const std::string pair = argv[++i];
+                    const size_t colon = pair.find(':');
+                    if (colon == std::string::npos) throw FormatError("--tile-replace FROM:TO, got " + pair);
+                    options.TileReplace.push_back({(uint32_t)OptionNumber(pair.substr(0, colon).c_str(), flag), (uint32_t)OptionNumber(pair.substr(colon + 1).c_str(), flag)});
+                }
                 else if (flag == "--auto-zones") options.AutoZones = true;
                 else if (flag == "--no-triggers") options.NoTriggers = true;
                 else if (flag == "--no-characters") options.NoCharacters = true;
@@ -485,7 +558,7 @@ int main(int argc, char** argv)
             return 0;
         }
         // decrypted 3DS game images
-        if (cmd == "oras-list" || cmd == "oras-find" || cmd == "oras-members" || cmd == "oras-copy" || cmd == "oras-hex" || cmd == "oras-member" || cmd == "oras-layout" || cmd == "oras-text" || cmd == "oras-script" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch")
+        if (cmd == "oras-list" || cmd == "oras-find" || cmd == "oras-members" || cmd == "oras-copy" || cmd == "oras-hex" || cmd == "oras-member" || cmd == "oras-layout" || cmd == "oras-text" || cmd == "oras-script" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch" || cmd == "oras-asset")
         {
             N3dsRom game(argv[2]);
             char id[17];
@@ -601,36 +674,88 @@ int main(int argc, char** argv)
                         last = d0 + k;
                     }
                 }
-                Bytes data = g.Write();
-                // shorter than the game's file: the last member copied gets zeros after its data (an LZ stream ends at its
-                // declared size, so they are never read), and the archive keeps its size and ships as a small patch: whole,
-                // a/0/0/8 made a 930 MB mod (t2)
-                if (data.size() < original.size() && last != SIZE_MAX && IsLzCompressed(g.Sub(last)))
+                return WriteArchiveMod(g, original, last, path, std::filesystem::path(argv[3]) / "load" / "mods" / id);
+            }
+            if (cmd == "oras-asset" && argc >= 6)
+            {
+                // asset customization (AssetEdit.h): a member's models and textures listed, its textures exported as PNG,
+                // or edited and written as a mod. <file>: one file of the member's 2-letter container, -1 the member
+                //   oras-asset <oras.3ds> <archive> <member> <file> [list]
+                //   oras-asset <oras.3ds> <archive> <member> <file> export <dir>
+                //   oras-asset <oras.3ds> <archive> <member> <file> edit <out dir> recolour:<texture>:<hue>:<saturation>:<brightness>[:<around>:<range>]...
+                const std::string path = argv[3];
+                const Bytes original = game.Read(path);
+                const Garc source(original);
+                const size_t member = (size_t)std::stoul(argv[4]);
+                const int file = atoi(argv[5]);
+                const Bytes plain = Plain(source.Sub(member));
+                const std::string tag = plain.size() >= 2 ? std::string(plain.begin(), plain.begin() + 2) : "";
+                const Bytes target = file >= 0 ? ContainerFile(plain, (size_t)file) : plain;
+                const std::string where = path + " member " + std::to_string(member) + (file >= 0 ? " file " + std::to_string(file) : "");
+                if (!Bch::Is(target)) { fprintf(stderr, "%s is not a BCH model file\n", where.c_str()); return 1; }
+                const Bch bch = Bch::Read(target);
+                const std::string what = argc >= 7 ? argv[6] : "list";
+                if (what == "list")
                 {
-                    Bytes padded = g.Sub(last);
-                    const size_t pad = (original.size() - data.size() + 3) / 4 * 4;
-                    padded.resize(padded.size() + pad, 0);
-                    g.Set(last, padded);
-                    data = g.Write();
-                    printf("%s member %zu: %zu bytes of padding after its LZ data, the archive keeps its size\n", path.c_str(), last, pad);
+                    printf("%s: BCH version 0x%02X, %zu model(s), %zu texture(s)\n", where.c_str(), (unsigned)bch.Version, bch.Models.size(), bch.Textures.size());
+                    for (const BchModel& m : bch.Models) printf("  model %s: %zu meshes, %zu materials\n", m.Name.c_str(), m.Meshes.size(), m.Materials.size());
+                    for (const BchTexture& t : bch.Textures) printf("  texture %s: %ux%u, format %u\n", t.Name.c_str(), t.Width, t.Height, (unsigned)t.Format);
+                    return 0;
                 }
-                Garc check(data);
-                const std::filesystem::path base = std::filesystem::path(argv[3]) / "load" / "mods" / id;
-                if (data.size() < original.size())
+                if (what == "export" && argc >= 8)
                 {
-                    std::filesystem::create_directories((base / "romfs" / path).parent_path());
-                    WriteFile((base / "romfs" / path).string(), data);
-                    printf("%s: %zu bytes, shorter than the game's %zu: written whole under romfs/\n", path.c_str(), data.size(), original.size());
+                    std::filesystem::create_directories(argv[7]);
+                    for (const BchTexture& t : bch.Textures)
+                    {
+                        if (t.Data.empty()) continue;
+                        const std::string out = (std::filesystem::path(argv[7]) / (t.Name + ".png")).string();
+                        WriteFile(out, EncodePng(t.Width, t.Height, PicaTextureDecode(t.Data, t.Width, t.Height, t.Format)));
+                        printf("%s: %ux%u, format %u\n", out.c_str(), t.Width, t.Height, (unsigned)t.Format);
+                    }
+                    return 0;
                 }
-                else
+                if (what == "edit" && argc >= 9)
                 {
-                    const Bytes bps = BpsCreate(original, data);
-                    if (BpsApply(original, bps) != data) { fprintf(stderr, "%s: the patch does not rebuild the file\n", path.c_str()); return 1; }
-                    std::filesystem::create_directories((base / "romfs_ext" / path).parent_path());
-                    WriteFile((base / "romfs_ext" / (path + ".bps")).string(), bps);
-                    printf("%s: patch %zu bytes, checked\n", path.c_str(), bps.size());
+                    Bytes edited = target;
+                    for (int i = 8; i < argc; i++)
+                    {
+                        const std::string op = argv[i];
+                        std::vector<std::string> f;
+                        for (size_t at = 0, next; at <= op.size(); at = next + 1)
+                        {
+                            next = op.find(':', at);
+                            if (next == std::string::npos) next = op.size();
+                            f.push_back(op.substr(at, next - at));
+                        }
+                        if (f[0] == "recolour" && (f.size() == 5 || f.size() == 7))
+                        {
+                            const double hue = std::stod(f[2]), sat = std::stod(f[3]), bright = std::stod(f[4]);
+                            const double around = f.size() == 7 ? std::stod(f[5]) : 0, range = f.size() == 7 ? std::stod(f[6]) : 180;
+                            edited = BchEditTexture(edited, f[1], [&](Bytes& rgba, uint32_t, uint32_t) { Recolour(rgba, hue, sat, bright, around, range); });
+                            printf("texture %s: hue %+g degrees, saturation x%g, brightness x%g%s\n", f[1].c_str(), hue, sat, bright,
+                                   range < 180 ? (" (colours within " + f[6] + " degrees of hue " + f[5] + ")").c_str() : "");
+                        }
+                        else { fprintf(stderr, "unknown edit %s (recolour:<texture>:<hue>:<saturation>:<brightness>[:<around>:<range>])\n", op.c_str()); return 2; }
+                    }
+                    Bytes newPlain = edited;
+                    std::string newTag = "BCH";
+                    if (file >= 0)
+                    {
+                        BinLinker pack = BinLinker::Read(plain, tag);
+                        pack.Files.at((size_t)file) = edited;
+                        newPlain = pack.Write();
+                        newTag = tag;
+                    }
+                    Garc g(original);
+                    ReplaceMember(g, source, member, newPlain, newTag);
+                    // the model file before and after, beside the mod: the previews shown before it is built in (render_model.js)
+                    std::filesystem::create_directories(argv[7]);
+                    WriteFile((std::filesystem::path(argv[7]) / "asset_before.bch").string(), target);
+                    WriteFile((std::filesystem::path(argv[7]) / "asset_after.bch").string(), edited);
+                    return WriteArchiveMod(g, original, member, path, std::filesystem::path(argv[7]) / "load" / "mods" / id);
                 }
-                return 0;
+                fprintf(stderr, "oras-asset: list, export <dir> or edit <out dir> <edit>...\n");
+                return 2;
             }
             if (cmd == "oras-layout" && argc >= 5)
             {

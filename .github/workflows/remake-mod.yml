@@ -142,6 +142,18 @@ jobs:
                 cp -r "out/$part/." "out/$name/"
               done
               (cd "out/$name" && find . -type f) | tee "mods/${name}_log.txt"
+            elif [[ "$options" =~ ^[[:space:]]*asset[[:space:]] ]]; then
+              # "name: asset <archive> <member> <file|-1> <edit>...": a model's textures edited (oras-asset edit, AssetEdit.h),
+              # e.g. recolour:<texture>:<hue>:<saturation>:<brightness>[:<around>:<range>]
+              set -- ${options#*asset }
+              ./build-remake/remake_tool oras-asset dumps/oras.3ds "$1" "$2" "$3" edit "out/$name" "${@:4}" | tee "mods/${name}_log.txt"
+              # previews before and after (prototype/render_model.js: the editor's 3D view in Chromium, four sides)
+              [ -d out/pw/node_modules/playwright ] || { (mkdir -p out/pw && cd out/pw && npm install --silent playwright@1 > /dev/null && npx playwright install --with-deps chromium > /dev/null); }
+              for side in before after; do
+                ./build-remake/remake_tool bch "out/$name/asset_$side.bch" "out/$name/asset_$side.gltf" > /dev/null
+                (cd "out/$name" && PLAYWRIGHT="$GITHUB_WORKSPACE/out/pw/node_modules/playwright" REMAKE_WORK=. node "$GITHUB_WORKSPACE/tools/remake/prototype/render_model.js" "asset_$side.gltf" "$side")
+                cp "out/$name/${side}_"*.png "mods/" 2>/dev/null && for f in "out/$name/${side}_"*.png; do mv "mods/$(basename "$f")" "mods/${name}_$(basename "$f")"; done
+              done
             elif [[ "$options" =~ ^[[:space:]]*copy[[:space:]] ]]; then
               # "name: copy <archive> <dst>[-<last>]=<src>[-<last>] ...": archive members copied over others (oras-copy)
               ./build-remake/remake_tool oras-copy dumps/oras.3ds "out/$name" ${options#*copy } | tee "mods/${name}_log.txt"
@@ -222,6 +234,28 @@ jobs:
               layout\ *) ./build-remake/remake_tool oras-layout dumps/oras.3ds ${query#layout } | tee "mods/inspect_$n.txt" ;;
               text\ *) ./build-remake/remake_tool oras-text dumps/oras.3ds ${query#text } | tee "mods/inspect_$n.txt" ;;
               script\ *) ./build-remake/remake_tool oras-script dumps/oras.3ds ${query#script } | tee "mods/inspect_$n.txt" ;;
+              # "romfs-at <offset>... region <oras-region options>": the mod built as oras-region builds it, its RomFS rebuilt by
+              # Azahar's own LayeredFS (prototype/azahar_check/romfs_offset_check.cpp), and the file (and GARC member) holding each
+              # RomFS offset: the offsets a code trace's file reads give
+              romfs-at\ *)
+                rest=${query#romfs-at }
+                offsets=${rest%% region *}
+                ./build-remake/remake_tool oras-region dumps/platinum.nds dumps/oras.3ds "out/romfs_$n" ${rest#* region } > "out/romfs_${n}_build.txt"
+                # the build's own report (pieces and the members they went to), to read the members against
+                cat "out/romfs_${n}_build.txt"
+                git submodule update --init --depth 1 azahar/externals/fmt azahar/externals/boost azahar/externals/cryptopp > /dev/null 2>&1
+                g++ -std=c++20 -O1 -Itools/remake/prototype/azahar_check/stub -Iazahar/src -Iazahar/externals/fmt/include \
+                  -Iazahar/externals/boost -Iazahar/externals/cryptopp/include -Itools/remake/src -DFMT_HEADER_ONLY \
+                  tools/remake/prototype/azahar_check/romfs_offset_check.cpp azahar/src/core/file_sys/layered_fs.cpp \
+                  azahar/src/core/file_sys/patch.cpp azahar/src/common/file_util.cpp azahar/src/common/string_util.cpp \
+                  build-remake/libremake.a -Wl,--unresolved-symbols=ignore-all -o out/romfs_offset_check
+                out/romfs_offset_check dumps/oras.3ds "out/romfs_$n/load/mods/000400000011C400/" $offsets | tee "mods/inspect_$n.txt" ;;
+              # "tiles region <oras-region options>": the region built, each new piece's tile values (piece-tiles)
+              tiles\ region\ *)
+                ./build-remake/remake_tool oras-region dumps/platinum.nds dumps/oras.3ds "out/tiles_$n" ${query#tiles region } > "out/tiles_${n}_build.txt"
+                ./build-remake/remake_tool piece-tiles out/tiles_$n/region_piece_*.bin | tee "mods/inspect_$n.txt" ;;
+              # "asset <archive> <member> <file|-1>": a model file's models and textures (oras-asset list)
+              asset\ *) ./build-remake/remake_tool oras-asset dumps/oras.3ds ${query#asset } list | tee "mods/inspect_$n.txt" ;;
               # "crodis <module.cro> [other .cro/.crs ...] info|symbols|dis <address|symbol> [n]|xref <...>|functions": a code
               # module read as the loader reads it (prototype/cro_dis.py: exports, imports, relocations, named calls)
               crodis\ *)

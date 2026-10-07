@@ -74,6 +74,8 @@ A=azahar; g++ -std=c++20 -O1 -Itools/remake/prototype/azahar_check/stub -I$A/src
 
 `bps_check.cpp` builds the same way, with `patch.cpp` only. Usage: `bps_check <original> <patch.bps> <expected>`.
 
+`romfs_offset_check <oras.3ds> <mod folder> <offset>...` (same build, with `romfs_offset_check.cpp`): the file, and the GARC member, that hold RomFS offsets in the mod's RomFS as LayeredFS rebuilds it (a code trace's file reads). Workflow query `romfs-at <offset>... region <oras-region options>`. The `stub/common/archives.h` leaves Boost serialization out (its registration crashed at start-up without the library).
+
 `layered_fs_check` builds against the repository sources. Its run on the test 4 mod has not been rechecked since it moved here: its earlier version, with a copy of `file_util.cpp`, passed.
 
 ## Limits

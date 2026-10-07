@@ -84,6 +84,47 @@ int main()
         const Bytes stored = PicaTextureEncodeRgba8(rgba, 16, 8);
         check(stored.size() == PicaTextureLength(16, 8, 0) && PicaTextureDecode(stored, 16, 8, 0) == rgba, "an RGBA8 texture encodes and decodes back unchanged");
     }
+    // every format encoded the reverse of how it decodes (asset customization rewrites textures in their own format):
+    // an image whose pixels are already at the format's levels (one decoded from bytes) comes back exactly
+    {
+        Bytes raw(PicaTextureLength(16, 16, 0));
+        for (size_t i = 0; i < raw.size(); i++) raw[i] = (uint8_t)(i * 37 + (i >> 5) * 11);
+        bool same = true;
+        for (uint8_t f = 0; f < 12; f++)
+        {
+            const Bytes levels = PicaTextureDecode(raw, 16, 16, f); // pixels at f's levels
+            const Bytes again = PicaTextureDecode(PicaTextureEncode(levels, 16, 16, f), 16, 16, f);
+            if (again != levels) { same = false; printf("  format %u does not come back\n", (unsigned)f); }
+        }
+        check(same, "uncompressed formats 0-11: encoding a decoded image gives it back");
+        // ETC1, ETC1A4: an image that is an ETC1 decode (here of arbitrary bytes: both modes, both splits, clamped colours)
+        // re-encodes close to it. Not exactly: the encoder tries base colours near each half's mean, not all of them (a
+        // flat colour already at a level comes back exact, checked while writing it: the bit layout, channels and pixel
+        // order follow the decoder)
+        for (uint8_t f = 12; f <= 13; f++)
+        {
+            const Bytes etc = PicaTextureDecode(raw, 16, 16, f);
+            const Bytes again = PicaTextureDecode(PicaTextureEncode(etc, 16, 16, f), 16, 16, f);
+            long err = 0;
+            for (size_t i = 0; i < etc.size(); i++) err += std::abs((int)etc[i] - (int)again[i]);
+            printf("  format %u: an ETC1 decode re-encoded, total difference %ld over %zu values\n", (unsigned)f, err, etc.size());
+            check(err <= (long)etc.size(), "ETC1" + std::string(f == 13 ? "A4" : "") + ": a decoded image re-encodes within one level on average");
+        }
+        // a smooth image (no ETC1 decode) keeps close: mean error per channel
+        Bytes smooth(64 * 64 * 4);
+        for (int y = 0; y < 64; y++)
+            for (int x = 0; x < 64; x++)
+            {
+                uint8_t* p = &smooth[(y * 64 + x) * 4];
+                p[0] = (uint8_t)(x * 4); p[1] = (uint8_t)(y * 4); p[2] = (uint8_t)(128 + 60 * std::sin(x * 0.2) * std::cos(y * 0.15)); p[3] = 255;
+            }
+        const Bytes back = PicaTextureDecode(PicaTextureEncode(smooth, 64, 64, 12), 64, 64, 12);
+        double mean = 0;
+        for (size_t i = 0; i < smooth.size(); i++) if (i % 4 != 3) mean += std::abs((int)smooth[i] - (int)back[i]);
+        mean /= 64 * 64 * 3;
+        printf("  ETC1 on a smooth gradient: mean error %.2f levels per channel\n", mean);
+        check(mean < 4.0, "ETC1: a smooth image stays within 4 levels on average");
+    }
     check(PicaFloat24(63u << 16) == 1.0f && PicaFloat24(1u << 23 | 64u << 16 | 0x8000) == -3.0f && PicaFloat24(0) == 0.0f, "PICA float24: 1, -3, 0");
 
     // commands: a multi-parameter one, a consecutive run, uniforms as 32-bit and as 24-bit floats

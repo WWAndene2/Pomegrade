@@ -45,6 +45,11 @@ struct OrasRegionOptions
     // Hoenn's characters moved off the map the same way: r7a (Route 201, zone 23, left out) ended a freeze nearing Route 201 that
     // all5a/all5b/all6 had with zone 23 keeping Route 101's 12 characters and scripts; this separates the characters from the pieces
     bool NoCharacters = false;
+    // test of the Route 201 freeze (ORAS_LITTLEROOT.md 0): a built piece whose 1600 tiles are all a blocking wall
+    // (0x01000021) gets every tile set to this value instead; 0: off
+    uint32_t SolidPieceTiles = 0;
+    // test of the Route 201 freeze: every tile of one value in the built pieces set to another (--tile-replace FROM:TO)
+    std::vector<std::pair<uint32_t, uint32_t>> TileReplace;
     bool OthersOut = false;     // a header Zones does not name is left out, as with -1 (a large matrix holding a few places)
     size_t MatrixTemplate = 1;  // the matrix whose file 1 (meaning unknown) the new matrix copies: Littleroot's
     int ModelMatrix = 15;       // the pieces' model names, world<NN>_<x>_<y> (the game's run from world01 to world14)

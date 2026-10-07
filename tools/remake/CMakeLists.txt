@@ -12,6 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(MELONDS_SRC ${CMAKE_CURRENT_LIST_DIR}/../../melonDS-android/melonDS-android-lib/src)
 
 add_library(remake STATIC
+    src/AssetEdit.cpp
     src/Bytes.cpp
     src/NdsRom.cpp
     src/Narc.cpp
