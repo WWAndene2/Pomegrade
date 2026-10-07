@@ -3451,3 +3451,4 @@
 102BFCB4	Field_WildEncounter_ApplyRateModifiers	Rate scaled by the context's flags (doubled, halved, quartered, kept for kinds 5-7) and the lead's state, capped at 100, then compared.	guess
 102BFDD4	Field_WildEncounter_InitContext	Fills the encounter context: zone, tile, table kind, flags word +0xA0 from player and party state, the lead's species and ability.	guess
 102C00C0	Field_WildEncounter_ClearContext	Clears the encounter context (slot pick 0x49, all fields 0).	read
+102DCA88	Field_WildEncounter_PickSlotAndLevel	Picks the slot (filtered to type 8 or 12 slots under context flags 0x10000/0x20000, else by the table kind's pick function) and the level: minimum + random(max - min + 1), +5 under flag 0x40000 capped at the maximum; slot = halfword (species bits 0-10, form 11-15, form 31 empty), minimum level, maximum level; a horde rolls 20% for one different member.	read
