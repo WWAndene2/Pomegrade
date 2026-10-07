@@ -520,7 +520,17 @@ capacities that bound a larger world:
 - **`oras-engine --characters N`** (26 to 32) raises both bounds. **Checked**: zone 6 given 30 characters (`oras-append-test
   ... crowd`, clones of its own 11 on a grid; written with `OrasZone::Write`), the save on Route 101 (zone 23) north of it,
   walking south into Littleroot: **without the patch the game stops in the fatal-error loop; with `--characters 32` it enters,
-  the clones stand in the town** (screenshot) and thread 1 is idle. Beyond 32 needs a larger field manager (its pool count
-  and the inline records): not done.
+  the clones stand in the town** (screenshot) and thread 1 is idle.
+- **Above 32** (Platinum needs it: `platinum-zones` counts 28 headers listing more than 26 characters, 8 more than 32, at most
+  51 in header 466): `--characters` up to 255 also grows the pool (`mov r3, #0x20` at 0x109048 -> the bound; the pool is
+  allocated apart from the manager). With it, 51 clones still stop the game, elsewhere: `FUN_003db6e4`, called on entering
+  a zone (DllField `FUN_102ddd8c`), copies the zone's **events file** (file 1: the arrays and the initialisation script) into
+  a buffer of **0xC84 bytes** and stops when it does not fit (`DAT_003db770`); the buffer's size is also returned by a
+  virtual getter (0x4605BC) of a save-data block, so it is part of the save's layout and is **not raised**. Zone 6's events
+  file is 2,032 bytes, 1,268 of them its script: predicted and **checked** 35 clones (3,184 bytes) enter and show, 36
+  (3,232 bytes) stop at the same place. So a zone's characters are bounded by that byte budget (each 0x30 bytes), not by 26:
+  `OrasZone::Write` refuses an events file of 0xC84 bytes or more (`OrasZone::EventsBudget`), so a zone that would stop the
+  game is refused when the mod is built. A Platinum map of 51 characters fits only with a short script, or by splitting
+  its characters across zones.
 - **`OrasZone::Write`** writes a zone back over its container (header, events, the rest kept): **checked identical on all 536
   zones** (`remake_tool oras-zone-check`).

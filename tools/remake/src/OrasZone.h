@@ -62,8 +62,14 @@ struct OrasZone
     // the zone written back over the container it was read from: its header (file 0) and events (file 1: the arrays, the
     // initialisation script and whatever followed it) from the fields above, every other file and byte as the original has
     // them, so that Read then Write gives the original back (checked on all 536 zones: oras-zone-check). Throws FormatError
-    // when an array has more entries than its count byte holds (255; 4096 for the fifth kind)
+    // when an array has more entries than its count byte holds (255; 4096 for the fifth kind), and when the events file
+    // reaches EventsBudget bytes
     Bytes Write(const Bytes& original) const;
+
+    // the events file's room: the game copies it on entering the zone into a buffer of the save data, 0xC84 bytes, and stops
+    // in its fatal-error loop when the file does not fit (FUN_003db6e4, `size >= 0xC84`; checked: zone 6 with 35 characters
+    // enters, 36 stops: ORAS_ENGINE.md 4.5)
+    static constexpr size_t EventsBudget = 0xC84;
 };
 
 }
