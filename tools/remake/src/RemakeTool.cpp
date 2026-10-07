@@ -538,6 +538,7 @@ int main(int argc, char** argv)
                 else if (flag == "--model-matrix") options.ModelMatrix = number(++i);
                 else if (flag == "--plan") options.PlanOnly = true;
                 else if (flag == "--others-out") options.OthersOut = true;
+                else if (flag == "--solid-piece-tiles") options.SolidPieceTiles = (uint32_t)number(++i);
                 else if (flag == "--auto-zones") options.AutoZones = true;
                 else if (flag == "--no-triggers") options.NoTriggers = true;
                 else if (flag == "--no-characters") options.NoCharacters = true;
