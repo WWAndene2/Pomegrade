@@ -75,6 +75,7 @@
 #include "AreaData.h"
 #include "AssetEdit.h"
 #include "Bch.h"
+#include "TownCheck.h"
 #include "Bps.h"
 #include "BinLinker.h"
 #include "GfMotion.h"
@@ -414,6 +415,22 @@ int main(int argc, char** argv)
             json += "]\n";
             WriteFile(argv[3], Bytes(json.begin(), json.end()));
             printf("%zu meshes written to %s\n", m.Meshes.size(), argv[3]);
+            return 0;
+        }
+        if (cmd == "piece-tiles" && argc >= 3)
+        {
+            // the tile values of map pieces (GR files, as oras-region writes them: region_piece_<x>_<y>.bin), how many tiles
+            // hold each, and whether the game itself uses the value (TownCheck's established set): to compare a piece that
+            // freezes the game with one that does not (ORAS_LITTLEROOT.md 0, Route 201)
+            for (int a = 2; a < argc; a++)
+            {
+                const Bytes tiles = BinLinker::Read(Plain(ReadFile(argv[a])), "GR").Files.at(0);
+                std::map<uint32_t, int> count;
+                for (int t = 0; t < 1600 && 4 + (size_t)t * 4 + 4 <= tiles.size(); t++) count[U32(tiles, 4 + (size_t)t * 4)]++;
+                printf("%s:", argv[a]);
+                for (const auto& [value, n] : count) printf(" %08X x%d%s", value, n, TileValueEstablished(value) ? "" : " (not the game's)");
+                printf("\n");
+            }
             return 0;
         }
         if ((cmd == "oras-topview" && argc >= 5) || (cmd == "topview" && argc >= 4))

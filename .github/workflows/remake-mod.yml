@@ -250,6 +250,10 @@ jobs:
                   azahar/src/core/file_sys/patch.cpp azahar/src/common/file_util.cpp azahar/src/common/string_util.cpp \
                   build-remake/libremake.a -Wl,--unresolved-symbols=ignore-all -o out/romfs_offset_check
                 out/romfs_offset_check dumps/oras.3ds "out/romfs_$n/load/mods/000400000011C400/" $offsets | tee "mods/inspect_$n.txt" ;;
+              # "tiles region <oras-region options>": the region built, each new piece's tile values (piece-tiles)
+              tiles\ region\ *)
+                ./build-remake/remake_tool oras-region dumps/platinum.nds dumps/oras.3ds "out/tiles_$n" ${query#tiles region } > "out/tiles_${n}_build.txt"
+                ./build-remake/remake_tool piece-tiles out/tiles_$n/region_piece_*.bin | tee "mods/inspect_$n.txt" ;;
               # "asset <archive> <member> <file|-1>": a model file's models and textures (oras-asset list)
               asset\ *) ./build-remake/remake_tool oras-asset dumps/oras.3ds ${query#asset } list | tee "mods/inspect_$n.txt" ;;
               # "crodis <module.cro> [other .cro/.crs ...] info|symbols|dis <address|symbol> [n]|xref <...>|functions": a code
