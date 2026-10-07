@@ -87,6 +87,11 @@ object MelonEmulator {
 
 	external fun getFPS(): Float
 
+    /** Performance details (Pomegrade): see [me.magnum.melonds.domain.model.PerformanceDetails]. */
+    external fun setPerformanceCounters(enabled: Boolean)
+
+    external fun getPerformanceCounters(): FloatArray
+
 	external fun pauseEmulation()
 
 	external fun resumeEmulation()

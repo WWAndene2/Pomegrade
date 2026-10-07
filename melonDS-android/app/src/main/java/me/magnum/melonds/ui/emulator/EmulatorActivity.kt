@@ -58,6 +58,7 @@ import me.magnum.melonds.databinding.ActivityEmulatorBinding
 import me.magnum.melonds.domain.model.ConsoleType
 import me.magnum.melonds.domain.model.ControllerConfiguration
 import me.magnum.melonds.domain.model.FpsCounterPosition
+import me.magnum.melonds.domain.model.PerformanceDetails
 import me.magnum.melonds.domain.model.Rect
 import me.magnum.melonds.domain.model.SaveStateSlot
 import me.magnum.melonds.domain.model.layout.Insets
@@ -463,11 +464,12 @@ class EmulatorActivity : AppCompatActivity() {
         }
         lifecycleScope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.currentFps.collectLatest {
-                    if (it == null) {
+                viewModel.currentFps.combine(viewModel.performanceDetails) { fps, details -> fps to details }.collectLatest { (fps, details) ->
+                    if (fps == null) {
                         binding.textFps.text = null
                     } else {
-                        binding.textFps.text = getString(R.string.info_fps, it)
+                        val fpsText = getString(R.string.info_fps, fps)
+                        binding.textFps.text = if (details == null) fpsText else "$fpsText\n${getPerformanceDetailsText(details)}"
                     }
                 }
             }
@@ -767,6 +769,17 @@ class EmulatorActivity : AppCompatActivity() {
             0
         }
         window.attributes = window.attributes.also { it.preferredDisplayModeId = modeId }
+    }
+
+    private fun getPerformanceDetailsText(details: PerformanceDetails): String {
+        val cpu = getString(R.string.info_performance_cpu, details.emulationCpuMs, details.polygonMultiplierCpuMs, details.texturesCpuMs)
+        val gpuTotal = details.gpuTotalMs ?: return "$cpu\n${getString(R.string.info_performance_gpu_unavailable)}"
+        return listOf(
+            cpu,
+            getString(R.string.info_performance_gpu, gpuTotal),
+            getString(R.string.info_performance_gpu_passes, details.gpuSceneMs, details.gpuShadowsMs, details.gpuLightingMs),
+            getString(R.string.info_performance_gpu_more, details.gpuFrameGenerationMs, details.gpuCompositorMs),
+        ).joinToString("\n")
     }
 
     private fun setupFpsCounter() {

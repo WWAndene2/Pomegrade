@@ -47,6 +47,7 @@ add_library(core STATIC
     NDS_AnaloguePatches.cpp
     NDS_AnalogueStick.cpp
     NDS_Inspector.cpp
+    PerformanceCounters.cpp
     GPU3D_ParityOracle.cpp
     GPU3D_MaterialClassifier.cpp
     GPU3D_SkeletonRecovery.cpp
@@ -101,6 +102,7 @@ if (ENABLE_OGLRENDERER)
     target_sources(core PRIVATE
         GPU_OpenGL.cpp
         GPU_OpenGL_shaders.h
+        GPU_OpenGL_Timer.cpp
         GPU_SceneColour.cpp
         GPU3D_OpenGL.cpp
         GPU3D_Compute.cpp

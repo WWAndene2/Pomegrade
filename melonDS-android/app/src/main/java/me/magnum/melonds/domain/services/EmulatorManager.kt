@@ -4,6 +4,7 @@ import android.net.Uri
 import kotlinx.coroutines.flow.Flow
 import me.magnum.melonds.domain.model.Cheat
 import me.magnum.melonds.domain.model.ConsoleType
+import me.magnum.melonds.domain.model.PerformanceDetails
 import me.magnum.melonds.domain.model.emulator.EmulatorEvent
 import me.magnum.melonds.domain.model.emulator.FirmwareLaunchResult
 import me.magnum.melonds.domain.model.emulator.RomLaunchResult
@@ -28,6 +29,10 @@ interface EmulatorManager {
     suspend fun getRewindWindow(): RewindWindow
 
     fun getFps(): Float
+
+    fun setPerformanceDetailsEnabled(enabled: Boolean)
+
+    fun getPerformanceDetails(): PerformanceDetails?
 
     suspend fun pauseEmulator()
 

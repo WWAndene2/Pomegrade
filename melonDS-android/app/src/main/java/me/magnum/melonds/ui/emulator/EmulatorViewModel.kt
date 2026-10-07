@@ -41,6 +41,7 @@ import me.magnum.melonds.common.runtime.ScreenshotFrameBufferProvider
 import me.magnum.melonds.domain.model.Cheat
 import me.magnum.melonds.domain.model.ConsoleType
 import me.magnum.melonds.domain.model.FpsCounterPosition
+import me.magnum.melonds.domain.model.PerformanceDetails
 import me.magnum.melonds.domain.model.RomInfo
 import me.magnum.melonds.domain.model.RuntimeBackground
 import me.magnum.melonds.domain.model.SaveStateSlot
@@ -147,6 +148,9 @@ class EmulatorViewModel @Inject constructor(
 
     private val _currentFps = MutableStateFlow<Int?>(null)
     val currentFps = _currentFps.asStateFlow()
+
+    private val _performanceDetails = MutableStateFlow<PerformanceDetails?>(null)
+    val performanceDetails = _performanceDetails.asStateFlow()
 
     private val _toastEvent = EventSharedFlow<ToastEvent>()
     val toastEvent = _toastEvent.asSharedFlow()
@@ -644,6 +648,7 @@ class EmulatorViewModel @Inject constructor(
         emulatorSession.reset()
         raSessionJob = null
         _currentFps.value = null
+        _performanceDetails.value = null
         _emulatorState.value = newState
         _mainScreenBackground.value = RuntimeBackground.None
         _secondaryScreenBackground.value = RuntimeBackground.None
@@ -989,9 +994,20 @@ class EmulatorViewModel @Inject constructor(
 
     private fun startTrackingFps() {
         sessionCoroutineScope.launch {
-            while (isActive) {
-                delay(1.seconds)
-                _currentFps.value = emulatorManager.getFps().roundToInt()
+            // performance details: shown with the FPS counter, measured only while shown. The setting can change while
+            // the game runs, so it is applied every second (also undoing a previous session's loop turning the
+            // counters off as it ends)
+            try {
+                while (isActive) {
+                    val showDetails = settingsRepository.isPerformanceDetailsEnabled() &&
+                            settingsRepository.getFpsCounterPosition() != FpsCounterPosition.HIDDEN
+                    emulatorManager.setPerformanceDetailsEnabled(showDetails)
+                    delay(1.seconds)
+                    _currentFps.value = emulatorManager.getFps().roundToInt()
+                    _performanceDetails.value = if (showDetails) emulatorManager.getPerformanceDetails() else null
+                }
+            } finally {
+                emulatorManager.setPerformanceDetailsEnabled(false)
             }
         }
     }

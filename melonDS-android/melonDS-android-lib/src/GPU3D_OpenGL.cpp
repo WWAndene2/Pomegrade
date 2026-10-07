@@ -26,6 +26,7 @@
 #include "NDS.h"
 #include "GPU.h"
 #include "GPU3D_OpenGL_shaders.h"
+#include "GPU_OpenGL_Timer.h"
 #include "Platform.h"
 
 namespace melonDS
@@ -418,6 +419,8 @@ GLRenderer::~GLRenderer()
 {
     assert(glDeleteTextures != nullptr);
 
+    GLTimer::Release();
+
     glDeleteTextures(1, &TexMemID);
     glDeleteTextures(1, &TexPalMemID);
 
@@ -744,6 +747,7 @@ float* GLRenderer::SetupViewCenterVertex(const Polygon* poly, float* gptr) const
 
 void GLRenderer::LookupHDTextures(GPU& gpu, int npolys)
 {
+    PerformanceCounters::CpuScope cpuTime(PerformanceCounters::Section::TexturesCpu);
     bool textured = gpu.GPU3D.RenderDispCnt & (1<<0);
     // relief by material reads texels from the flat texture VRAM
     HDTextures.SetKeepCoherent(ViewDataActive && Relief > 0);
@@ -1941,6 +1945,7 @@ void GLRenderer::SetLightingTermUniforms(const GLint* shadowLoc, const GLint* re
 
 void GLRenderer::RenderLighting(const GPU3D& gpu3d)
 {
+    GLTimer::Scope gpuTime(PerformanceCounters::Section::GpuLighting);
     // depth/stencil and attributes as the opaque pass left them, for drawing
     // the translucent layer again over the lit image
     glBindFramebuffer(GL_READ_FRAMEBUFFER, MainFramebuffer);
@@ -1955,7 +1960,11 @@ void GLRenderer::RenderLighting(const GPU3D& gpu3d)
     const GLenum colourOnly = GL_COLOR_ATTACHMENT0;
     glDrawBuffers(1, &colourOnly);
 
-    const bool shadows = Shadows && RenderShadowMap(gpu3d);
+    bool shadows;
+    {
+        GLTimer::Scope shadowTime(PerformanceCounters::Section::GpuShadows);
+        shadows = Shadows && RenderShadowMap(gpu3d);
+    }
     ShadowsDrawn = shadows;
 
     glDisable(GL_DEPTH_TEST);
@@ -2112,6 +2121,7 @@ void GLRenderer::RenderFrame(GPU& gpu)
         std::swap(Snapshots[0], Snapshots[1]);
         Snapshots[1].Take(renderpolys, numrenderpolys);
     }
+    GLTimer::Scope gpuTime(PerformanceCounters::Section::GpuScene);
     RenderScene(gpu, renderpolys, numrenderpolys, false);
 }
 
@@ -2515,6 +2525,7 @@ bool GLRenderer::ResamplePrevious(const Polygon& cur, const Polygon* const* prev
 
 bool GLRenderer::RenderIntermediateFrame(GPU& gpu, u32 outputTexture)
 {
+    GLTimer::Scope gpuTime(PerformanceCounters::Section::GpuFrameGeneration);
     const FrameSnapshot& prev = Snapshots[0];
     const FrameSnapshot& cur = Snapshots[1];
     if (!FrameGeneration || cur.Polygons.empty() || prev.Polygons.empty())

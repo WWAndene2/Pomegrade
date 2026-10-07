@@ -17,6 +17,7 @@ import me.magnum.melonds.domain.model.Cheat
 import me.magnum.melonds.domain.model.ConsoleType
 import me.magnum.melonds.domain.model.EmulatorConfiguration
 import me.magnum.melonds.domain.model.MicSource
+import me.magnum.melonds.domain.model.PerformanceDetails
 import me.magnum.melonds.domain.model.emulator.EmulatorEvent
 import me.magnum.melonds.domain.model.emulator.FirmwareLaunchResult
 import me.magnum.melonds.domain.model.emulator.RomLaunchResult
@@ -159,6 +160,14 @@ class AndroidEmulatorManager(
 
     override fun getFps(): Float {
         return MelonEmulator.getFPS()
+    }
+
+    override fun setPerformanceDetailsEnabled(enabled: Boolean) {
+        MelonEmulator.setPerformanceCounters(enabled)
+    }
+
+    override fun getPerformanceDetails(): PerformanceDetails? {
+        return PerformanceDetails.fromCounters(MelonEmulator.getPerformanceCounters())
     }
 
     override suspend fun pauseEmulator() {

@@ -90,6 +90,12 @@
     <string name="no_dsiware_roms_found">No DSiWare ROMs found</string>
 
     <string name="info_fps">FPS: %1$d</string>
+    <!-- performance details (Pomegrade), milliseconds per DS frame -->
+    <string name="info_performance_cpu">CPU: %1$.1f ms (multiplier %2$.1f, textures %3$.1f)</string>
+    <string name="info_performance_gpu">GPU: %1$.1f ms</string>
+    <string name="info_performance_gpu_passes">3D %1$.1f · shadows %2$.1f · lighting %3$.1f</string>
+    <string name="info_performance_gpu_more">frame generation %1$.1f · screens %2$.1f</string>
+    <string name="info_performance_gpu_unavailable">GPU: not timed (software renderer, or no GPU timer on this device)</string>
     <string name="info_play_time_hours_minutes">Play time: %1$dh %2$dm</string> <!-- Ex: 4h 28m -->
     <string name="info_play_time_minutes">Play time: %1$dm</string> <!-- Ex: 28m -->
     <string name="info_loading">LOADING…</string>
@@ -220,6 +226,8 @@
     <string name="external_layout_restore_error">Failed to restore external layout</string>
     <string name="threaded_rendering">Threaded rendering</string>
     <string name="fps_counter_position">FPS counter position</string>
+    <string name="performance_details">Performance details</string>
+    <string name="performance_details_summary">Under the FPS counter, in milliseconds per DS frame: the emulation\'s CPU time (polygon multiplier and textures included) and the GPU time of each pass (3D, shadows, lighting effects, frame generation, screens). Turn the effects on one at a time to see what each costs. Shown only with the FPS counter</string>
     <string name="threaded_rendering_summary">Improves performance on 3D games when enabled but may cause graphical glitches.</string>
     <string name="category_video">Video</string>
     <string name="category_video_summary">Filter, threaded rendering, FPS counter</string>

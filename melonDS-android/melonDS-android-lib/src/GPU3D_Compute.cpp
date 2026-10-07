@@ -26,6 +26,7 @@
 #include "OpenGLSupport.h"
 
 #include "GPU3D_Compute_shaders.h"
+#include "GPU_OpenGL_Timer.h"
 
 namespace melonDS
 {
@@ -262,6 +263,8 @@ std::unique_ptr<ComputeRenderer> ComputeRenderer::New()
 
 ComputeRenderer::~ComputeRenderer()
 {
+    GLTimer::Release();
+
     Texcache.Reset();
 
     glDeleteBuffers(1, &YSpanSetupMemory);
@@ -643,6 +646,7 @@ struct Variant
 void ComputeRenderer::RenderFrame(GPU& gpu)
 {
     assert(!NeedsShaderCompile());
+    GLTimer::Scope gpuTime(PerformanceCounters::Section::GpuScene);
     if (!Texcache.Update(gpu) && gpu.GPU3D.RenderFrameIdentical)
     {
         return;
