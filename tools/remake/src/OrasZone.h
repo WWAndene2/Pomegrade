@@ -31,10 +31,29 @@ namespace remake
 // Characters, read from the game's reader (Field_InitCharacterFromEventEntry 0x3F9464, ORAS_ENGINE.md 6): word 0 the id,
 // 6 & 0xFF the facing it starts with (read). Inferred from Littleroot's and its houses' characters, not read in code:
 // word 2 & 0xFF the movement (0 standing; 47 with a range over 1 x 1 in all three seen; 53 seen with a range of 1 x 1,
-// meaning not established), words 12-13 that range; word 5 a flag, meaning not established (2000 is the most common
-// value; the mother of house 225, present in the owner's save, has it).
+// meaning not established), words 12-13 that range. Inferred from all 536 zones on 7 October, not read in code: word 5
+// the character's script, 3000 + the trainer id for a trainer (of the 367 characters with kind 1, 3 or 9 and a script
+// 3001-3999, 355 wear the model most characters of that trainer's class wear, a/0/3/6 record word +2; zone 24's
+// character 5 is trainer 10, the Youngster with a Zigzagoon at 5 seen on Route 102), 5000 + id for the second of a
+// double (zone 25's twins, kind 9, scripts 3012 and 5012); word 3 the kind (1, 3, 9 on trainers; 0 most others; the
+// reader sets flag 0x200 when it is 6 and word 9 is not 0, none in the game's zones); word 7 the trainer's sight in
+// tiles (2 to 6 on trainers, 0 elsewhere).
 struct ZoneFurniture  { std::array<uint16_t, 10> Raw{}; int TileX() const { return Raw[4]; } int TileZ() const { return Raw[5]; } };
-struct ZoneCharacter  { std::array<uint16_t, 24> Raw{}; int Model() const { return Raw[1]; } int TileX() const { return Raw[20]; } int TileZ() const { return Raw[21]; } };
+struct ZoneCharacter
+{
+    std::array<uint16_t, 24> Raw{};
+    int Model() const { return Raw[1]; }
+    int TileX() const { return Raw[20]; }
+    int TileZ() const { return Raw[21]; }
+    // the trainer this character is, 0 when none (inferred: see the comment above)
+    int TrainerId() const
+    {
+        const bool kind = Raw[3] == 1 || Raw[3] == 3 || Raw[3] == 9;
+        if (kind && Raw[5] > 3000 && Raw[5] < 3950) return Raw[5] - 3000;
+        if (kind && Raw[5] > 5000 && Raw[5] < 5950) return Raw[5] - 5000;
+        return 0;
+    }
+};
 // warps, seen on zones 6, 7, 8, 24, 30 (house doors and the edge warps joining overworld matrices): word 1 the destination
 // zone's warp the player arrives at; word 2's low byte the kind (1 a door, 0 a house's exit (zone 223's warp 0), 2 an edge on the section's east side, 3 its west
 // side; north and south not seen), its high byte 3 for doors, 5 for edges; word 5 the height in pixels, signed; word 8 the

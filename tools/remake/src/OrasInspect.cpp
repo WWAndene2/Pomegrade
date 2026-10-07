@@ -66,10 +66,15 @@ std::string InspectZone(N3dsRom& game, size_t zone)
     s += "\n";
     s += F("  %zu furniture, %zu characters, %zu warps, %zu triggers, %zu of the fifth kind\n", z.Furniture.size(), z.Characters.size(), z.Doors.size(), z.Triggers.size(), z.Others.size());
     for (const ZoneFurniture& f : z.Furniture) s += F("    furniture at tile (%d, %d)\n", f.TileX(), f.TileZ());
-    // movement, flag, facing and range as ORAS_ENGINE.md 6 reads them ("Talking to a character"): words 2, 5, 6, 12-13
+    // the words of OrasZone.h's character comment: movement 2, kind 3, script 5, facing 6, sight 7, range 12-13; the trainer
+    // id when the kind and script say it is one (inferred, ZoneCharacter::TrainerId)
     for (const ZoneCharacter& c : z.Characters)
-        s += F("    character %u: model %d at tile (%d, %d), movement %u, flag %u, facing %u, range %ux%u\n", c.Raw[0], c.Model(),
-               c.TileX(), c.TileZ(), c.Raw[2] & 0xFF, c.Raw[5], c.Raw[6] & 0xFF, c.Raw[12], c.Raw[13]);
+    {
+        s += F("    character %u: model %d at tile (%d, %d), movement %u, kind %u, script %u, facing %u, sight %u, range %ux%u",
+               c.Raw[0], c.Model(), c.TileX(), c.TileZ(), c.Raw[2] & 0xFF, c.Raw[3], c.Raw[5], c.Raw[6] & 0xFF, c.Raw[7],
+               c.Raw[12], c.Raw[13]);
+        s += c.TrainerId() ? F(", trainer %d\n", c.TrainerId()) : "\n";
+    }
     for (const ZoneDoor& d : z.Doors)
     {
         s += F("    warp to zone %d at tile (%.1f, %.1f), words:", d.DestZone(), d.TileX(), d.TileZ());
@@ -100,7 +105,21 @@ std::string InspectPiece(N3dsRom& game, size_t piece)
     }
     std::map<uint32_t, int> values;
     for (size_t i = 0; i < (size_t)w * h; i++) values[U32(tiles, 4 + i * 4)]++;
-    for (const auto& [value, n] : values) s += F("    tile value 0x%08X: %d tiles\n", value, n);
+    // each value lettered in that order, then the grid, row by row (z), west to east (x): where a run can walk. The word is
+    // the tile attribute the field reads (Map_TileAttr_Kind, bits 24-31, and Map_TileAttr_Flags, bits 0-11, ORAS_ENGINE.md 6)
+    std::map<uint32_t, char> letter;
+    for (const auto& [value, n] : values)
+    {
+        letter[value] = letter.size() < 26 ? (char)('A' + letter.size()) : '*';
+        s += F("    tile value 0x%08X (%c): %d tiles\n", value, letter[value], n);
+    }
+    s += "    tiles, row z = 0 at the top, x = 0 on the left:\n";
+    for (unsigned z = 0; z < h; z++)
+    {
+        std::string row = F("    %2u ", z);
+        for (unsigned x = 0; x < w; x++) row += letter[U32(tiles, 4 + ((size_t)z * w + x) * 4)];
+        s += row + "\n";
+    }
     const Bch bch = Bch::Read(gr.Files.at(1));
     s += F("  part 1: terrain model, %zu bytes\n", gr.Files[1].size());
     for (const BchModel& m : bch.Models)

@@ -26,13 +26,24 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 | After 6: Platinum's music | added by the owner (7 October), after building Sinnoh's map: a tool that moves Platinum's music into Omega Ruby. Not started; nothing in `tools/remake` reads either game's sound yet. Platinum keeps sequences played by the DS sound hardware (SDAT: SSEQ with SBNK/SWAR instruments), Omega Ruby recorded streams in its sound archive (BCSTM, inferred from the format's common use, not checked on this game): the tool must extract, render, encode and replace. First step: how Omega Ruby stores and picks its songs (`Snd_ChangeZoneBgm`, section 6) |
 
 **What remains, and how** (handover, 7 October; in this order, each with rule 4's budget):
-1. **Trainers, finish (next).** The data is read (section 6, **Trainers**); missing: which field character is which
-   trainer. Read `Script_Native_TrainerGetInfo` (0x102968D0) and `_TrainerEyeRegist` (0x10290F40, through the import
-   stub it calls) with `ghidra/decompile.sh <work> <out> 102968D0 --callees 102968D0` to the character record word that
-   holds the trainer id; print it in `oras-inspect zone` (`src/OrasInspect.cpp`, the character line, as done for
-   movement on 7 October). Then one run: save two tiles out of a trainer's sight (trainer 10, `oras_tables.py trainer
-   <work> 10`: a Zigzagoon at 5, likely Route 102's first), walk into it with a trace, `peek.sh` for the battle,
-   `coverage_map.py ... --minus enc1/enc_grass.txt` for what the sight and the battle start run.
+1. **Trainers, finish (next).** The data is read (section 6, **Trainers**), and which character is which trainer is
+   now printed by `oras-inspect zone` (script 3000 + trainer id: inferred on all zones, not read in code). Missing: a
+   trainer battle live. Run `trainer1` (7 October) **failed**: the save moved by `oras-save` into another matrix (zone
+   13, Petalburg, matrix 2) never reached the field (black from frame 805). The save's block 4 holds a second zone and
+   position (+0xAE zone, +0xB8/+0xC0 x and z) that `oras-save` leaves alone; suspected, not established. Moves within
+   matrix 1 work. Run `trainer2` was started and its result not read when the session ended: the save moved within
+   matrix 1 to Oldale (zone 7, 83.5 101.5), `hold left 72` through its west edge warp into Route 102 (zone 24), `hold
+   left 600` (stops at x 178 against the trees: `oras-inspect piece 10`), `hold down 90` (5 tiles, row 146), `trace on`,
+   `hold left 108` (stops against trainer 7, a Youngster with a Zigzagoon at 4, at (173, 146)), `press a`, `mash a 10`,
+   shots after each step. Re-run it exactly (the command below) and check the shots; a wrong row on arrival from the
+   warp (140 or 142, not 141) is the likeliest miss. Then `coverage_map.py <work> trainer2 trainer.txt --minus
+   enc1/enc_grass.txt` and name the set.
+   ```
+   POMEGRADE_INTERPRETER=1 tools/remake/headless/run_local.sh <work> trainer2 - "7 83.5 101.5" "mash a 15;wait 500;\
+   shot start;hold left 72;wait 200;shot arrive;hold left 600;wait 20;shot column;hold down 90;wait 20;shot row;\
+   trace on;hold left 108;wait 30;shot front;press a;wait 150;shot talk;mash a 10;wait 400;shot battle;\
+   trace off trainer.txt;wait 200;shot battle2" 150
+   ```
 2. **Encounters, the rest.** Not read: each table kind's own slot pick (the method table at `DAT_102dd028 + 0x3F0` in
    `Field_WildEncounter_PickSlotAndLevel`), what kinds 1-7 are (fishing, rock smash, ...: find a zone and a tile kind
    that uses each with `oras_tables.py encounters`), and what member 537, loaded whole at boot, is for
@@ -454,24 +465,25 @@ turns).
 
 Most of the 782 are support code (221 `Gfx_`, 178 `Util_`, 49 `Sys_`): the zone-specific ones above are about 140.
 
-**Talking to a character** (7 October, run `house1`; **checked**: the mother's words on screen, `TalkMdlMsg_Seq` (running
-0x747260) and `Msg_Balloon_Show` (0x772B74) in the talk trace and not in the idle one). Beyond what reading a sign runs,
-talking loads and runs the character's own script (`Script_Load`, `Script_LoadFieldScript`,
+**Talking to a character** (7 October, run `house1`; **checked**: the mother's words on screen, `TalkMdlMsg_Seq`
+(running 0x747260) and `Msg_Balloon_Show` (0x772B74) in the talk trace and not in the idle one). Beyond what reading a
+sign runs, talking loads and runs the character's own script (`Script_Load`, `Script_LoadFieldScript`,
 `Script_RegisterNativeTablesByMask`, the core, float and console natives), turns the two to face each other
 (`_TalkMdlStartInit`, `TalkMdlSetEyeToEye`, `TalkMdlSetTalkMotion`, `MdlAcmd*`), reads the story state (`FlagGet`,
 `WorkGet`, `GetMonth`, `BadgeGetFlag`) and plays a jingle (`MEPlay` and the sound stream functions). **How to reach a
 character** (two failed runs before this one): a zone's characters are placed when the player enters it, so a save moved
-inside the zone has none (run `talk1`: the tile in front of Littleroot's character 6 was empty); walking in from the next
-zone places them, but a walk by held frames ends where it ends (`talk2` stopped beside the lab). A house is the short way:
-the door recipe enters the zone, and its characters stand a few tiles from the arrival. `remake_tool oras-inspect <oras.3ds>
-zone <n>` lists each character's tile, movement, flag, facing and range (movement 0 stands still), the way the mother was
-chosen. The walk counted about 17 frames a tile (`hold right 90` for five tiles, checked on the screenshot). The talk
-trace's functions: `prototype/coverage_map.py <work> house1 house_talk.txt --minus house_idle.txt`. Its 138 unnamed
-functions were read on 7 October and 128 named: the speech balloons and their windows (`Msg_Balloon_*`, `Msg_Window_*`: six
-slots, the tail pointed at the speaker), the look-at controller that turns the two characters' heads
-(`Gfx_LookAtController_*`, `Field_LookAt_*`, the joint "Spine2"), the music saved around the jingle (`Snd_BgmStack_*`), the
-script's resource slots and work values (`Script_*`), matrix helpers (`Util_Mtx34_*`) and 27 DllField import stubs; the
-meaning of the look-at and music names is a guess, their mechanics read.
+inside the zone has none (run `talk1`: the tile in front of Littleroot's character 6 was empty); walking in from the
+next zone places them, but a walk by held frames ends where it ends (`talk2` stopped beside the lab). A house is the
+short way: the door recipe enters the zone, and its characters stand a few tiles from the arrival. `remake_tool
+oras-inspect <oras.3ds> zone <n>` lists each character's tile, movement, kind, script, facing, sight and range (movement
+0 stands still) and the trainer it is (script 3000 + trainer id: inferred, `OrasZone.h`), the way the mother was chosen.
+The walk counted about 17 frames a tile (`hold right 90` for five tiles, checked on the screenshot). The talk trace's
+functions: `prototype/coverage_map.py <work> house1 house_talk.txt --minus house_idle.txt`. Its 138 unnamed functions
+were read on 7 October and 128 named: the speech balloons and their windows (`Msg_Balloon_*`, `Msg_Window_*`: six slots,
+the tail pointed at the speaker), the look-at controller that turns the two characters' heads (`Gfx_LookAtController_*`,
+`Field_LookAt_*`, the joint "Spine2"), the music saved around the jingle (`Snd_BgmStack_*`), the script's resource slots
+and work values (`Script_*`), matrix helpers (`Util_Mtx34_*`) and 27 DllField import stubs; the meaning of the look-at
+and music names is a guess, their mechanics read.
 
 **Wild encounter selection** (7 October, run `enc1`, grass walk minus idle, no battle in eight walks; run `enc2` with a
 battle). **Read** in the decompilation: on each step `Field_WildEncounter_StepCheck` (0x102CD2B4, DllField) takes the
