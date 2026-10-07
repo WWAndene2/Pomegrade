@@ -32,8 +32,22 @@ marked **checked** (seen in memory or under the debugger), **read** (from the de
 - The header loader (`FUN_003d9740`): `if (zone > 0x217) fatal; header = table + zone * 0x38`, the table kept in memory whole;
   its other branch reads a zone file whose decompressed size must stay under a constant (`DAT_003d9884`). **Read; the
   `cmp r5, #536` at 0x3D9774 checked under the debugger** (zone 6 on the field).
-- Other comparisons with 536/537 to classify: `.code` 0x3D99F8, 0x4E4C64, 0x4E4CA4 (cmp), 0x112BC0, 0x1D6C7C, 0x31D60C,
-  0x3CBDF4, 0x444964, 0x444B84 (mov); DllField 0x1B8EC, 0x35FE4, 0x9D998.
+- **The zone header table** is loaded once by `FUN_00112b50`: archive 13 (`a/0/1/3`) opened, **0x7540 bytes** (30,016 =
+  536 x 56) allocated, member 536 read into it, **fatal unless the read size is exactly 0x7540** (the word at 0x112C0C); the
+  pointer kept at 0x5F45BC, which the header loaders index with `zone * 0x38` (`DAT_003d9880` = 0x5F45BC). **Read.**
+- **Two header loaders bound the zone number**: `FUN_003d9740` and `FUN_003d99b8`, `if (0x217 < zone) fatal`. Their other
+  branch reads the zone's own member (`a/0/1/3` member = zone number) into a buffer of **0x4A58 bytes** (19,032; the word at
+  0x3D9884): a zone file decompressed larger is fatal. **Read.**
+- **536 (0x218) is also the "no zone" value**: lists of zones end with it (`FUN_004e4c08`), `FUN_003cbdec` returns it for an
+  invalid id, and DllField initialises its zone fields to it (offsets 0x1B8EC, 0x35FE4, 0x9D998). Members 536 and 537 being the
+  tables, a zone numbered 536 or 537 cannot exist; new zones are members **538 and up**, and the sentinel needs no change.
+  **Read.**
+- Not zone limits (other structures of size 0x218): 0x1D6C7C (an allocation), 0x31D60C (records of 0x218 bytes); 0x444964,
+  0x444B84 not yet read.
+- **What raising the zone count takes** (from the above; not yet built or tested): the table member 536 grown by 56 bytes a
+  zone and the size word at 0x112C0C patched to match; the bound 0x217 in the two loaders raised (the immediate `cmp r5,
+  #0x218` at 0x3D9774 and the one in `FUN_003d99b8`); the encounter container (member 537) grown with them (its reader not yet
+  read); the new zones' members appended from 538. Other per-zone tables (flags, names, the region map) still to find.
 
 ## 3. Map pieces
 
