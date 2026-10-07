@@ -2120,6 +2120,7 @@ void GLRenderer::RenderFrame(GPU& gpu)
     {
         std::swap(Snapshots[0], Snapshots[1]);
         Snapshots[1].Take(renderpolys, numrenderpolys);
+        SnapshotVersion++;
     }
     GLTimer::Scope gpuTime(PerformanceCounters::Section::GpuScene);
     RenderScene(gpu, renderpolys, numrenderpolys, false);
@@ -2140,7 +2141,7 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
             CapturePauseFrames = CapturePauseLength;
         else if (CapturePauseFrames > 0)
             CapturePauseFrames--;
-        LightingActive = LightingEnabled() && ViewDataCaptured && LightingSupported && !CapturePauseFrames;
+        LightingActive = LightingEnabled() && ViewDataCaptured && LightingSupported && !CapturePauseFrames && !FrameHidden;
         ViewDataActive = ViewDataCaptured && LightingSupported && (LightingActive || Relief > 0);
         gpu.GPU3D.SetViewDataCapture(ViewDataWanted() && LightingSupported);
         ViewDataCaptured = gpu.GPU3D.CaptureViewData();
@@ -2436,6 +2437,7 @@ void GLRenderer::SetFrameGeneration(bool enable) noexcept
 {
     if (enable == FrameGeneration) return;
     FrameGeneration = enable;
+    SnapshotVersion++;
     for (FrameSnapshot& snapshot : Snapshots)
     {
         snapshot.Polygons.clear();
@@ -2523,14 +2525,10 @@ bool GLRenderer::ResamplePrevious(const Polygon& cur, const Polygon* const* prev
     return true;
 }
 
-bool GLRenderer::RenderIntermediateFrame(GPU& gpu, u32 outputTexture)
+bool GLRenderer::PairSnapshots()
 {
-    GLTimer::Scope gpuTime(PerformanceCounters::Section::GpuFrameGeneration);
     const FrameSnapshot& prev = Snapshots[0];
     const FrameSnapshot& cur = Snapshots[1];
-    if (!FrameGeneration || cur.Polygons.empty() || prev.Polygons.empty())
-        return false;
-
     // pair each polygon with itself in the previous frame. Both frames are
     // walked in the game's submission order, slot by slot (Polygon::FrameId:
     // every polygon the game sent, drawn or not), and aligned like a diff on
@@ -2566,7 +2564,7 @@ bool GLRenderer::RenderIntermediateFrame(GPU& gpu, u32 outputTexture)
     auto resync = [&](u32 ci, u32 pi) {
         return compare(ci, pi) == 1 && (ci + 1 >= cs.Count || pi + 1 >= ps.Count || compare(ci + 1, pi + 1) >= 0);
     };
-    std::vector<const Polygon*> match(cur.Polygons.size(), nullptr);
+    Match.assign(cur.Polygons.size(), nullptr);
     u32 matched = 0;
     // room for every polygon's resampled counterpart (pointers into it stay valid)
     Resampled.Polygons.clear();
@@ -2605,7 +2603,7 @@ bool GLRenderer::RenderIntermediateFrame(GPU& gpu, u32 outputTexture)
                     // (adaptive multiplier level, see GPU3D::SetPolygonMultiplierScale)
                     if (c.NumVertices == p.NumVertices && c.Subdivision == p.Subdivision)
                     {
-                        match[cur.Order[ka]] = &p;
+                        Match[cur.Order[ka]] = &p;
                         matched++;
                     }
                     ka++;
@@ -2623,7 +2621,7 @@ bool GLRenderer::RenderIntermediateFrame(GPU& gpu, u32 outputTexture)
             {
                 const u32 i = cur.Order[k];
                 const Polygon& c = cur.Polygons[i];
-                if (match[i] || (c.FrameId & 0xFF) == 0xFF)
+                if (Match[i] || (c.FrameId & 0xFF) == 0xFF)
                     continue;
                 prevPieces.clear();
                 for (size_t q = b; q < prev.Order.size() && (prev.Polygons[prev.Order[q]].FrameId >> 8) == pi; q++)
@@ -2635,7 +2633,7 @@ bool GLRenderer::RenderIntermediateFrame(GPU& gpu, u32 outputTexture)
                 Resampled.Polygons.emplace_back();
                 if (ResamplePrevious(c, prevPieces.data(), (u32)prevPieces.size(), Resampled.Polygons.back()))
                 {
-                    match[i] = &Resampled.Polygons.back();
+                    Match[i] = &Resampled.Polygons.back();
                     matched++;
                 }
                 else
@@ -2647,8 +2645,25 @@ bool GLRenderer::RenderIntermediateFrame(GPU& gpu, u32 outputTexture)
     }
     // most of the scene changed (a cut, a new screen): nothing in between to
     // show, the frame already shown stays
-    if (matched * 2 < cur.Polygons.size())
+    return matched * 2 >= cur.Polygons.size();
+}
+
+bool GLRenderer::RenderIntermediateFrame(GPU& gpu, u32 outputTexture, float position)
+{
+    GLTimer::Scope gpuTime(PerformanceCounters::Section::GpuFrameGeneration);
+    const FrameSnapshot& prev = Snapshots[0];
+    const FrameSnapshot& cur = Snapshots[1];
+    if (!FrameGeneration || cur.Polygons.empty() || prev.Polygons.empty())
         return false;
+    // the pairing holds for every image between the same two frames
+    if (PairedVersion != SnapshotVersion)
+    {
+        PairedVersion = SnapshotVersion;
+        Paired = PairSnapshots();
+    }
+    if (!Paired)
+        return false;
+    const float t = position;
 
     Intermediate.Polygons.resize(cur.Polygons.size());
     Intermediate.Vertices.resize(cur.Vertices.size());
@@ -2659,7 +2674,7 @@ bool GLRenderer::RenderIntermediateFrame(GPU& gpu, u32 outputTexture)
         Polygon& out = Intermediate.Polygons[i];
         const Polygon& c = cur.Polygons[i];
         out = c;
-        const Polygon* p = match[i];
+        const Polygon* p = Match[i];
         // a polygon that jumped across the screen (teleport) isn't interpolated
         if (p)
         {
@@ -2677,22 +2692,27 @@ bool GLRenderer::RenderIntermediateFrame(GPU& gpu, u32 outputTexture)
             if (!p) continue;
             const Vertex& a = *p->Vertices[j];
             const Vertex& b = *c.Vertices[j];
-            auto mid = [](s32 x, s32 y) { return (s32)(((s64)x + y) >> 1); };
+            // at t, rounded to the nearest, halves up whichever way the vertex
+            // moves (rounding down pulled the image back towards the frame
+            // shown: up to a pixel at t = 0.25)
+            auto mid = [t](s32 x, s32 y) { return x + (s32)std::floor((double)((s64)y - x) * t + 0.5); };
+            // a (1 - t) + b t: exactly (a + b) / 2 halfway
+            auto mix = [t](float x, float y) { return x * (1.0f - t) + y * t; };
             for (int k = 0; k < 2; k++)
             {
                 vtx.FinalPosition[k] = mid(a.FinalPosition[k], b.FinalPosition[k]);
                 vtx.HiresPosition[k] = mid(a.HiresPosition[k], b.HiresPosition[k]);
-                vtx.PreciseScreen[k] = (a.PreciseScreen[k] + b.PreciseScreen[k]) * 0.5f;
+                vtx.PreciseScreen[k] = mix(a.PreciseScreen[k], b.PreciseScreen[k]);
                 vtx.TexCoords[k] = (s16)mid(a.TexCoords[k], b.TexCoords[k]);
             }
             for (int k = 0; k < 3; k++)
             {
                 vtx.FinalColor[k] = mid(a.FinalColor[k], b.FinalColor[k]);
-                vtx.ViewNormal[k] = (a.ViewNormal[k] + b.ViewNormal[k]) * 0.5f;
+                vtx.ViewNormal[k] = mix(a.ViewNormal[k], b.ViewNormal[k]);
             }
             for (int k = 0; k < 4; k++)
-                vtx.ViewPosition[k] = (a.ViewPosition[k] + b.ViewPosition[k]) * 0.5f;
-            vtx.Specular = (a.Specular + b.Specular) * 0.5f;
+                vtx.ViewPosition[k] = mix(a.ViewPosition[k], b.ViewPosition[k]);
+            vtx.Specular = mix(a.Specular, b.Specular);
             out.FinalZ[j] = mid(p->FinalZ[j], c.FinalZ[j]);
             out.FinalW[j] = mid(p->FinalW[j], c.FinalW[j]);
         }

@@ -59,6 +59,7 @@ add_library(
         ${ANDROID-CPP}/performancehint/PerformanceHintManagerFactory.cpp
         ${ANDROID-CPP}/performancehint/ThreadSafePerformanceHintSession.cpp
         ${ANDROID-CPP}/renderer/FrameQueue.cpp
+        ${ANDROID-CPP}/renderer/FrameRatePacer.cpp
         ${ANDROID-CPP}/renderer/ScreenshotRenderer.cpp
         ${ANDROID-CPP}/retroachievements/RetroAchievementsManager.cpp
 )

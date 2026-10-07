@@ -118,12 +118,14 @@
             android:entryValues="@array/relief_textures_values"
             android:defaultValue="0"/>
 
-    <SwitchPreference
-            android:key="frame_generation"
-            android:title="@string/frame_generation"
-            android:summary="@string/frame_generation_summary"
+    <ListPreference
+            android:key="frame_rate"
+            android:title="@string/frame_rate"
+            android:summary="%s"
             app:iconSpaceReserved="false"
-            android:defaultValue="false" />
+            android:entries="@array/frame_rate_options"
+            android:entryValues="@array/frame_rate_values"
+            android:defaultValue="60"/>
 
     <SwitchPreference
             android:key="high_color"

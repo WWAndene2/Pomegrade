@@ -35,6 +35,7 @@ import me.magnum.melonds.domain.model.ControllerConfiguration
 import me.magnum.melonds.domain.model.EmulatorConfiguration
 import me.magnum.melonds.domain.model.FirmwareConfiguration
 import me.magnum.melonds.domain.model.FpsCounterPosition
+import me.magnum.melonds.domain.model.FrameRateMode
 import me.magnum.melonds.domain.model.MacAddress
 import me.magnum.melonds.domain.model.MicSource
 import me.magnum.melonds.domain.model.RendererConfiguration
@@ -94,6 +95,7 @@ class SharedPreferencesSettingsRepository(
         preferences.registerOnSharedPreferenceChangeListener(this)
         setDefaultThemeIfRequired()
         setDefaultMacAddressIfRequired()
+        migrateFrameGenerationSetting()
 
         renderConfigurationFlow = combine(
             getVideoRenderer(),
@@ -186,7 +188,7 @@ class SharedPreferencesSettingsRepository(
             shadows = preferences.getBoolean("shadows", false),
             reflections = preferences.getBoolean("reflections", false),
             reliefTextures = preferences.getString("relief_textures", "0")?.toIntOrNull() ?: 0,
-            frameGeneration = preferences.getBoolean("frame_generation", false),
+            frameRate = getFrameRateMode().nativeValue,
             analogueMovement = preferences.getBoolean("analogue_movement", false),
         )
     }
@@ -209,8 +211,25 @@ class SharedPreferencesSettingsRepository(
         return preferences.getBoolean("enable_sustained_performance", false)
     }
 
-    override fun isFrameGenerationEnabled(): Boolean {
-        return preferences.getBoolean("frame_generation", false)
+    override fun getFrameRateMode(): FrameRateMode {
+        return FrameRateMode.fromPreferenceValue(preferences.getString("frame_rate", null)) ?: FrameRateMode.DEFAULT
+    }
+
+    /**
+     * Before the frame rate modes (Pomegrade), frame generation was a switch: on meant 120 fps. Converted when the app
+     * starts, before the settings screen can store its default (60) over it. Done here rather than as a Migration, which
+     * would need a new versionCode.
+     */
+    private fun migrateFrameGenerationSetting() {
+        if (!preferences.contains("frame_generation")) {
+            return
+        }
+        preferences.edit {
+            if (!preferences.contains("frame_rate") && preferences.getBoolean("frame_generation", false)) {
+                putString("frame_rate", FrameRateMode.FPS_120.preferenceValue)
+            }
+            remove("frame_generation")
+        }
     }
 
     override fun getRomSearchDirectories(): Array<Uri> {

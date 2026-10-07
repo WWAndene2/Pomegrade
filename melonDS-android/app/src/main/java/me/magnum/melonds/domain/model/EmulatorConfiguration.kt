@@ -55,8 +55,8 @@ data class EmulatorConfiguration(
         val reflections: Boolean = false,
         // Pomegrade: relief from texture brightness, 0 off, 1 subtle, 2 strong (OpenGL renderer)
         val reliefTextures: Int = 0,
-        // Pomegrade: intermediate frames, shown at 120 Hz (OpenGL renderer)
-        val frameGeneration: Boolean = false,
+        // Pomegrade: frame rate mode, FrameRateMode.nativeValue (generated images: OpenGL renderer)
+        val frameRate: Int = FrameRateMode.DEFAULT.nativeValue,
         // Pomegrade: analogue movement in the games with a patch (any renderer)
         val analogueMovement: Boolean = false,
 )

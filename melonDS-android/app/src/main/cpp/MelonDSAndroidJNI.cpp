@@ -519,6 +519,24 @@ Java_me_magnum_melonds_MelonEmulator_getInspectorReport(JNIEnv* env, jobject thi
 }
 
 JNIEXPORT void JNICALL
+Java_me_magnum_melonds_MelonEmulator_setDisplayRefreshRate(JNIEnv* env, jobject thiz, jfloat hz)
+{
+    MelonDSAndroid::setDisplayRefreshRate(hz);
+}
+
+JNIEXPORT void JNICALL
+Java_me_magnum_melonds_MelonEmulator_setThermalLimit(JNIEnv* env, jobject thiz, jboolean limited)
+{
+    MelonDSAndroid::setThermalLimit(limited);
+}
+
+JNIEXPORT jint JNICALL
+Java_me_magnum_melonds_MelonEmulator_getFrameRate(JNIEnv* env, jobject thiz)
+{
+    return MelonDSAndroid::getFrameRate();
+}
+
+JNIEXPORT void JNICALL
 Java_me_magnum_melonds_MelonEmulator_setPerformanceCounters(JNIEnv* env, jobject thiz, jboolean enabled)
 {
     melonDS::PerformanceCounters::SetEnabled(enabled);

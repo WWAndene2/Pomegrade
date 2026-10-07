@@ -285,6 +285,19 @@ int main()
     // llvmpipe runs on the CPU, inside the GL calls the emulation thread makes
     check(gpuTotal < all.Ms[(int)Section::EmulationCpu] * 1.5, "GPU total plausible against the frame's CPU time");
 
+    // --- on: hidden frames (30 fps mode) skip the lighting effects only ---
+    r->SetFrameGeneration(false);
+    auto lit = Frame(*r, gpu, 0, false);
+    r->SetFrameHidden(true);
+    auto hidden = Measure(*r, gpu, false);
+    Print(hidden);
+    check(hidden.Ms[(int)Section::GpuLighting] == 0 && hidden.Ms[(int)Section::GpuShadows] == 0,
+          "hidden frames: no lighting effects drawn");
+    check(hidden.Ms[(int)Section::GpuScene] > 0, "hidden frames: the DS render still made");
+    r->SetFrameHidden(false);
+    check(Frame(*r, gpu, 0, false) == lit, "shown again: lit as before");
+    r->SetFrameGeneration(true);
+
     // --- on: effects off, no frame generation, no multiplier ---
     r->SetAmbientOcclusion(false);
     r->SetLightBounce(false);
