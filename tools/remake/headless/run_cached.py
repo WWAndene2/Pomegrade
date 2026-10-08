@@ -93,8 +93,16 @@ def main():
         os.remove(tmp)
 
     run = os.path.join(work, "runs", name)
+    log = open(os.path.join(run, "log.txt"), errors="replace").read()
     for i, (cp, key) in keys.items():
         made = os.path.join(run, f"cp_{cp}.state")
+        saved = log.find(f"state cp_{cp} saved")
+        frozen = log.find("the screen has not changed for 10 s")
+        if os.path.exists(made) and 0 <= frozen < saved:
+            # a state saved after the game froze is not a checkpoint (run cache1, 8 October: the field never loaded, the
+            # "field" state then refused): not cached
+            print(f"checkpoint {cp} NOT cached: the screen had frozen before it")
+            continue
         if os.path.exists(made) and not os.path.exists(os.path.join(cache, key + ".state")):
             shutil.copyfile(made, os.path.join(cache, key + ".state"))
             print(f"checkpoint {cp} cached ({key})")
