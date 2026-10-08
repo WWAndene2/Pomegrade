@@ -239,8 +239,14 @@ another (51 characters passed the count check and stopped on the events buffer).
   the zone's characters appear, and trainer 10 (face 2, sight 5, east of the player) walks up and says his line before
   the battle, with zone 6's scripts as with Route 102's (a trainer's script is not the zone's: inferred). Face 2 looks
   west (seen). A save moved into a zone shows none of its characters: a continued save restores them from its block 10,
-  which `oras-save` empties (`sand3`); walking in from another zone loads them. Not built yet: houses, fences, ledges,
-  doors, warps between matrices; not yet tested on the phone.
+  which `oras-save` empties (`sand3`); walking in from another zone loads them. **Houses, doors, fences** (8 October): map
+  letters `H` (a house's wall), `D` (its door), `F` (a fence), and `door X Z house Z2` in a zone: Petalburg's house is put on
+  the door as wide as the walls beside it, the door gets a warp (a copy of Littleroot's) into a new zone after the
+  described ones, a copy of game interior Z2 with no characters or triggers whose warp 0 leads back out. A door tile is
+  solid, as Littleroot's (0x01000021 in piece 6): with it free the player stood on it and nothing happened (`house2`).
+  **Checked live** (`house3`): the player walks into the door, enters the inside (zone 540, a copy of 223) and walks back
+  out in front of the door; the fence shows (`house2`). Not built yet: ledges (the piece builder has none), warps between
+  matrices; not yet tested on the phone.
 
 ## 3. Map pieces
 

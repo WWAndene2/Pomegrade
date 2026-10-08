@@ -27,6 +27,7 @@ struct SandboxZone
     float SpawnX = -1, SpawnZ = -1;
     std::string Name;
     std::vector<std::array<int, 8>> Characters; // model, x, z, facing, script, movement, kind, sight
+    std::vector<std::array<int, 3>> Doors;      // x, z, the game interior zone copied as the house's inside
 };
 
 struct SandboxDescription
@@ -39,7 +40,7 @@ struct SandboxDescription
 
 static constexpr int BlockTiles = 10; // a zone block of the matrix (OrasMatrix.h)
 
-static bool Solid(char c) { return c == '~' || c == 't' || c == 'T'; }
+static bool Solid(char c) { return c == '~' || c == 't' || c == 'T' || c == 'H' || c == 'F'; }
 
 static SandboxDescription ReadDescription(const std::string& text)
 {
@@ -93,6 +94,14 @@ static SandboxDescription ReadDescription(const std::string& text)
             if (what == "trainer" && (id < 1 || id > 949)) fail("trainer ids are 1-949 (a/0/3/6)");
             z.Characters.push_back(c);
         }
+        else if (what == "door")
+        {
+            // door X Z house Z2: the door tile ('D' on the map) and the game interior its house's inside is copied from
+            std::array<int, 3> door{0, 0, 0};
+            std::string house;
+            ok = (bool)(words >> door[0] >> door[1] >> house >> door[2]) && house == "house";
+            z.Doors.push_back(door);
+        }
         else fail("unknown statement " + what);
         if (!ok) fail(what + " needs its numbers");
     }
@@ -105,8 +114,8 @@ static SandboxDescription ReadDescription(const std::string& text)
             throw FormatError("sandbox description: map row " + std::to_string(r) + " has " + std::to_string(d.Map[r].size()) + " letters, pieces asks for " +
                               std::to_string(d.Width * TownTiles));
         for (char c : d.Map[r])
-            if (std::string(".g:s*~tT").find(c) == std::string::npos)
-                throw FormatError(std::string("sandbox description: map row ") + std::to_string(r) + ": letter '" + c + "' is not built yet (. g : s * ~ t T)");
+            if (std::string(".g:s*~tTHDF").find(c) == std::string::npos)
+                throw FormatError(std::string("sandbox description: map row ") + std::to_string(r) + ": letter '" + c + "' is not built yet (. g : s * ~ t T H D F)");
     }
     const int bw = d.Width * OrasMatrix::BlocksPerPiece, bh = d.Height * OrasMatrix::BlocksPerPiece;
     if (d.Blocks.empty())
@@ -139,6 +148,12 @@ static SandboxDescription ReadDescription(const std::string& text)
         };
         check(z.SpawnX, z.SpawnZ, "the spawn tile");
         for (const auto& c : z.Characters) check((float)c[1], (float)c[2], "a character");
+        for (const auto& door : z.Doors)
+        {
+            check((float)door[0], (float)door[1], "a door");
+            if (d.Map[(size_t)door[1]][(size_t)door[0]] != 'D') throw FormatError(which + ": a door is not on a 'D' of the map");
+            if (door[2] < 0 || door[2] >= 536) throw FormatError(which + ": a house's inside is a game zone, 0-535");
+        }
     }
     return d;
 }
@@ -148,6 +163,12 @@ static TownLayout PieceLayout(const SandboxDescription& d, int px, int py)
 {
     TownLayout l;
     for (int r = 0; r < TownTiles; r++) l.Vis.push_back(d.Map[(size_t)py * TownTiles + r].substr((size_t)px * TownTiles, TownTiles));
+    // a door: a house tile to the builder, which puts Petalburg's house on it, as wide as the solid tiles beside it on its row
+    // (BuildTown), and its door model; solid, as Littleroot's door tiles are (0x01000021 in piece 6: the player
+    // enters by walking into it from the tile below, where the warp stands at the door tile)
+    for (int r = 0; r < TownTiles; r++)
+        for (int c = 0; c < TownTiles; c++)
+            if (l.Vis[r][c] == 'D') { l.Vis[r][c] = 'H'; TownDoor door; door.Column = c; door.Row = r; l.Doors.push_back(door); }
     for (int r = 0; r < 2 * TownTiles; r++)
     {
         std::string path, water;
@@ -164,7 +185,7 @@ static TownLayout PieceLayout(const SandboxDescription& d, int px, int py)
     for (const std::string& row : l.Vis)
     {
         std::string c;
-        for (char v : row) c += v == '~' ? '~' : v == 't' || v == 'T' ? '#' : v == 'g' ? 'g' : '.';
+        for (char v : row) c += v == '~' ? '~' : v == 't' || v == 'T' || v == 'H' || v == 'F' || v == 'D' ? '#' : v == 'g' ? 'g' : '.';
         l.Collision.push_back(c);
     }
     return l;
@@ -269,6 +290,21 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
     BinLinker en = BinLinker::Read(Plain(zoneArchive.Sub(537)), "EN");
     if (en.Files.size() != 536) throw FormatError("member 537 is not the 536-file encounter container");
     const OrasZone route = OrasZone::Read(Plain(zoneArchive.Sub(24)));
+    // every 'D' of the map is one zone's door; each door's house inside is a new zone after the described ones, a copy of a game
+    // interior: its warp 0 (an interior's way out, kind 0: zone 223, Littleroot's first house) leads back to the door's warp
+    size_t doorsGiven = 0, doorsDrawn = 0;
+    for (const SandboxZone& z : d.Zones) doorsGiven += z.Doors.size();
+    for (const std::string& row : d.Map) doorsDrawn += (size_t)std::count(row.begin(), row.end(), 'D');
+    if (doorsGiven != doorsDrawn) throw FormatError("sandbox: the map has " + std::to_string(doorsDrawn) + " doors ('D'), the zones give " + std::to_string(doorsGiven));
+    struct Inside { int Zone, Template, Outside, Warp; };
+    std::vector<Inside> insides;
+    int nextZone = d.Zones.back().Number + 1;
+    for (const SandboxZone& z : d.Zones)
+        for (size_t w = 0; w < z.Doors.size(); w++) insides.push_back({nextZone++, z.Doors[w][2], z.Number, (int)w});
+    // a door's warp: a copy of Littleroot's warp 0 (kind 1, its first house's door) with the destination and the tile set
+    const ZoneDoor doorWarp = OrasZone::Read(Plain(zoneArchive.Sub(6))).Doors.at(0);
+    if (doorWarp.Kind() != 1) throw FormatError("zone 6's warp 0 is not a door (kind 1)");
+    size_t insideAt = 0;
     for (size_t k = 0; k < d.Zones.size(); k++)
     {
         const SandboxZone& z = d.Zones[k];
@@ -286,6 +322,13 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
             ch.Raw[6] = (uint16_t)c[3]; ch.Raw[7] = (uint16_t)(c[6] == 1 ? c[7] : 0); ch.Raw[20] = (uint16_t)c[1]; ch.Raw[21] = (uint16_t)c[2];
             zone.Characters.push_back(ch);
         }
+        for (const auto& door : z.Doors)
+        {
+            ZoneDoor w = doorWarp;
+            w.Raw[0] = (uint16_t)insides.at(insideAt++).Zone; w.Raw[1] = 0;
+            w.Raw[4] = (uint16_t)(door[0] * 18 + 9); w.Raw[6] = (uint16_t)(door[1] * 18 + 9);
+            zone.Doors.push_back(w);
+        }
         zone.Header[1] = (uint16_t)pack;
         zone.Header[2] = (uint16_t)matrixIndex;
         zone.Header[13] = (uint16_t)z.Number;
@@ -300,7 +343,7 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
         zc.Files.at(3) = encounter;
         const Bytes zoneData = zc.Write();
         const OrasZone check = OrasZone::Read(zoneData);
-        if (check.Number() != z.Number || check.Matrix() != (int)matrixIndex || check.Characters.size() != zone.Characters.size() || !check.Doors.empty())
+        if (check.Number() != z.Number || check.Matrix() != (int)matrixIndex || check.Characters.size() != zone.Characters.size() || check.Doors.size() != zone.Doors.size())
             throw FormatError("zone " + std::to_string(z.Number) + " does not read back as written");
         const size_t zoneIndex = AppendMember(newZones, zoneArchive, (size_t)z.Template, zoneData, "ZO");
         if ((int)zoneIndex != z.Number) throw FormatError("zone " + std::to_string(z.Number) + " was appended as member " + std::to_string(zoneIndex));
@@ -316,6 +359,34 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
         snprintf(line, sizeof line, "zone %zu: template %d's header and scripts, area pack %d, %zu character(s), spawn (%.1f, %.1f), name %s, encounters %s", zoneIndex,
                  z.Template, pack, zone.Characters.size(), z.SpawnX, z.SpawnZ, nameLine[k] >= 0 ? ("\"" + z.Name + "\" (line " + std::to_string(nameLine[k]) + ")").c_str() : "the template's",
                  z.Encounters >= 0 ? ("of zone " + std::to_string(z.Encounters)).c_str() : "none");
+        log.push_back(line);
+    }
+    for (const Inside& in : insides)
+    {
+        // the inside: the game interior as it is (its own matrix, area pack, furniture, scripts), its own number, no characters
+        // or triggers, warp 0 leading out to the door's warp
+        const Bytes templateData = Plain(zoneArchive.Sub((size_t)in.Template));
+        OrasZone zone = OrasZone::Read(templateData);
+        if (zone.Doors.empty() || zone.Doors[0].Kind() != 0)
+            throw FormatError("sandbox: zone " + std::to_string(in.Template) + " is not a house's inside (its warp 0 is not a way out, kind 0)");
+        zone.Characters.clear(); zone.Triggers.clear(); zone.Others.clear();
+        zone.Doors.resize(1);
+        zone.Doors[0].Raw[0] = (uint16_t)in.Outside; zone.Doors[0].Raw[1] = (uint16_t)in.Warp;
+        zone.Header[13] = (uint16_t)in.Zone;
+        BinLinker zc = BinLinker::Read(zone.Write(templateData), "ZO");
+        zc.Files.at(3) = Bytes{};
+        const Bytes zoneData = zc.Write();
+        const OrasZone check = OrasZone::Read(zoneData);
+        if (check.Number() != in.Zone || check.Doors.size() != 1 || check.Doors[0].DestZone() != in.Outside || check.Doors[0].DestWarp() != in.Warp)
+            throw FormatError("the inside zone " + std::to_string(in.Zone) + " does not read back as written");
+        const size_t zoneIndex = AppendMember(newZones, zoneArchive, (size_t)in.Template, zoneData, "ZO");
+        if ((int)zoneIndex != in.Zone) throw FormatError("the inside zone " + std::to_string(in.Zone) + " was appended as member " + std::to_string(zoneIndex));
+        while (table.size() < zoneIndex * rowBytes) table.insert(table.end(), rowBytes, 0);
+        table.insert(table.end(), zc.Files.at(0).begin(), zc.Files.at(0).end());
+        while (en.Files.size() < zoneIndex) en.Files.push_back(Bytes{});
+        en.Files.push_back(Bytes{});
+        snprintf(line, sizeof line, "zone %zu: the inside of zone %d's door %d, a copy of game zone %d (its matrix %d, area pack %d), warp 0 back out", zoneIndex,
+                 in.Outside, in.Warp, in.Template, zone.Matrix(), zone.AreaPack());
         log.push_back(line);
     }
     ReplaceMember(newZones, zoneArchive, 536, table, "");
