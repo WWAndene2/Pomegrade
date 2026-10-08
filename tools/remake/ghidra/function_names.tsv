@@ -3458,3 +3458,224 @@
 00454434	Trainer_BuildTeams	For each trainer of a battle: the record (a/0/3/6), its class (u16 +2, < 280) and name texts, then the team (a/0/3/8, archive 0x26): byte +7 Pokemon, entries of 8, 16, 10 or 18 bytes by the format byte +0, species u16 +4, form +6.	read
 00454EA4	Trainer_BuildOneTeam	One trainer's battle data: its record (a/0/3/6, id 0 or past the bound read as 1), its class through the record's u16 +2 (a/0/3/7), then its team (a/0/3/8) by the format byte +0, the count +7; ran for trainer 7's battle (run trainer3).	read
 00455450	Trainer_FillInfo	One trainer's info: its record (a/0/3/6), its class (FUN_001f019c with u16 +2), its name text (text archive 0x16, line = trainer id), byte +0x15 and the pair at +8; ran for trainer 7's battle (run trainer3).	read
+# Trainer battle (8 October, run trainer3: the battle's functions minus walking, idle and the wild battle; read by three sub-agents from the decompilation, checked here: no name or address reused, the three sight names and two read names re-read; DllBattle confirmed by the linker map for the Battle_ names)
+0010FC5C	Util_TinyMT_Init	Seeds a 4-word TinyMT state from a value, with the 'TINY' fallback for an all-zero state and 8 warm-up steps.	read
+00115A20	Util_InitInvalidRecord	Initialises a 5-word record to id -1 and zero fields.	guess
+001289A4	Res_ReadContainerEntryAt	Reads bytes at an offset inside a container entry by looking up the entry info and reading the archive there.	read
+0012BE2C	Res_PersonalRecord_Ctor	Constructs an object holding a freshly allocated 0x50-byte record buffer (the per-species record filled by Res_PersonalRecord_LoadSpeciesForm).	guess
+00168830	Res_PersonalRecord_LoadSpeciesForm	Copies a species' 0x50-byte record from a global table, redirecting to the form's record via its form index and count, and stores species and form.	guess
+001D6E0C	Trainer_SetupBattleParty	Allocates party and trainer-info objects for a battle side, builds the trainer team and copies per-trainer-class constants.	guess
+001F019C	Trainer_LoadInfoAndName	Fills a trainer-info object from a 0x14-stride class table and reads the trainer name from message archive 0x15.	guess
+001F036C	Trainer_Info_Ctor	Constructs a trainer-info object with two wide string buffers (15 and 23 chars) and an empty 0x14-byte record.	guess
+003486F8	Util_Vec3_ScaleDirByHeight	Computes a normalised direction from one point to another scaled by a factor divided by its vertical component.	guess
+003675CC	Trainer_BuildTeamWithLevelOffset	Fills trainer info and builds the team, then applies a level offset clamped to 1-100 to every party member.	read
+003A5D30	Text_TaggedString_CopyCtor	Constructs a string object by allocating a buffer and copying a tagged string of the given length.	read
+003A86D4	Util_Mtx34_RotateTowardPoint	Rotates a matrix about Z then Y so it faces a target point.	read
+003AA62C	Util_NopStub	Empty function.	read
+003AE874	Gfx_Skeleton_UpdateBoneMatrices	Computes each bone's world matrix from its parent, translation, scale compensation and Z/Y/X rotations.	read
+003AFA2C	Gfx_Transform_InitFromPosition	Initialises a transform with the given position and default scale/rotation constants.	guess
+003B06BC	Util_DestroyGlobalObject	Frees a global object's resource and deletes the object, clearing the pointer.	guess
+003B3970	Trainer_Pokemon_Clear	Zeroes a Pokemon's 0xE8-byte stored data and 0x1C-byte extra block and resets its flags.	guess
+003B47EC	Trainer_Pokemon_SetU8Clamped	Sets a byte parameter of a Pokemon, clamping the value to 255.	guess
+003B63A0	Trainer_Party_Clear	Clears all 6 party slots and resets the party count.	read
+003B6DF8	Util_FindIndexInTable67	Returns the index of a value in a 67-entry global table, or 0xFF if absent.	read
+003BD4C0	Gfx_ParseJointChainRecords	Parses joint-chain records (joint references and a scaled parameter) from a byte stream into a heap array.	guess
+003BDD14	Gfx_Joint_AimAtTarget	Copies a joint's rotation from its parent and rotates it to face another joint's translation.	guess
+003BDFE4	Gfx_Joint_AimAtTargetAlt	Aims a joint at another joint's translation via an alternate rotation helper.	guess
+003BEEC8	Gfx_TransformNode_Init	Initialises a transform node from global defaults and the identity transform.	guess
+003BF4F0	Gfx_ParseLeftRightJointRecords	Parses joint records from a byte stream, sorting them into left/right lists by the joint name's first letter and linking them to chain records.	read
+003C0DFC	Gfx_SetJointControllersEnabled	Enables or disables a model's joint controllers, capturing current poses when enabling.	guess
+003C194C	Gfx_DisableJointControllers	Disables all joint controllers of a model and starts their blend-out.	guess
+003C4D04	Util_StreamWriteAdvance	Writes a value at a stream cursor and optionally advances the cursor.	guess
+003D9DE0	Battle_CreateSetupParam	Allocates a 0x290-byte battle setup object and initialises it from the given parameters.	guess
+003D9E5C	Battle_InitSetupParam	Initialises a battle setup by type (wild, double wild, or trainer), sets weather/flags and copies party info.	guess
+003F89CC	Field_Actor_ChangeControllers	Replaces an actor's two controller objects with new ones created from the given codes.	guess
+0045055C	Util_Thunk_IndexedTableSetEntry	Forwards to Util_IndexedTable_SetEntry.	read
+00451AB8	Text_BuildTrainerClassAndName	Builds a 'class + name' string in language-dependent order (with a localized connector) and stores it in a word table entry.	guess
+004533B0	Res_FindIndexInArchive135	Searches archive 0x87 for an entry matching an id and returns its index or -1.	read
+00453B30	Trainer_GeneratePokemonFromSeed	Seeds TinyMT, derives PID, gender and nature from the species record, and constructs a Pokemon object.	guess
+004673E8	Save_Pokedex_SetSeenForm	Sets a species' form and gender flag bits in the Pokedex save block.	guess
+004A769C	Trainer_Info_GetClassFlagsHi	Returns the high nibble of a trainer-info byte filled from the trainer class table.	guess
+004C8E4C	Gfx_FindIndexByName	Finds the index of a named entry in a 0x20-stride name table.	read
+004CFD18	Util_Mtx34_DirToYawPitch	Computes sin/cos of yaw and pitch toward a point in a matrix's local space.	read
+004D3280	Trainer_Pokemon_HasMove	Returns whether any of a Pokemon's 4 move slots holds the given move.	guess
+004DC6C4	Field_Object_GetPosition	Copies an object's position vector.	guess
+004E3D54	Field_Actor_GetPosition	Gets an actor's position from its controller if any, else from its own field.	guess
+00505FB4	Gfx_CmdBuffer_PushData	Reserves space in a command buffer, copies data into it and tracks high-water marks.	guess
+00546930	Gfx_AnimCurve_Evaluate	Evaluates an animation curve at the current frame by interpolating between keyframes.	guess
+00548C1C	Gfx_AnimCurve_FindKey	Finds the keyframe of a curve containing the current frame.	read
+0054E924	Util_Mtx34_CopyRotation	Copies the 3x3 rotation part of a 3x4 matrix.	read
+10025510	Gfx_Thunk_FindIndexByName	Import stub to Gfx_FindIndexByName.	read
+10026548	Util_Thunk2_IndexedTableSetEntry	Import stub to Util_Thunk_IndexedTableSetEntry.	read
+100269D8	Trainer_Thunk_InfoGetClassFlagsHi	Import stub to Trainer_Info_GetClassFlagsHi.	read
+100269E0	Text_Thunk_TaggedStringCopyCtor	Import stub to Text_TaggedString_CopyCtor.	read
+10026C70	Util_Thunk_StreamWriteAdvance	Import stub to Util_StreamWriteAdvance.	read
+10027228	Msg_ExpandMessage3	Loads message 3 and expands its control tags into an output buffer.	guess
+10027288	Battle_UiMain_Dtor	Destroys a large UI object, freeing its sub-objects and render contexts.	guess
+10027428	Battle_DestroyProcess	Deletes a child object and destroys its process.	guess
+10037BB4	Gfx_SetPaneTexture	Creates a texture in a free slot of 6 and binds it to a named pane's material.	guess
+1003BEAC	Battle_RunInitSequence	Runs a step table of init callbacks after setting default side/position data.	guess
+1003C218	Battle_InitStep	Executes one step of a battle module initialisation sequence (allocating its sub-objects).	guess
+100461AC	Battle_ApplyDamageAndQueue	Subtracts damage from targets' HP and queues a damage result command.	guess
+10047378	Battle_GetMaxOpponentLevel	Returns the highest level among opposing battlers.	guess
+10071798	Battle_UiObject_Ctor	Constructs a UI object, initialising its arrays and render context.	guess
+10071CA8	Battle_UiSetInfoPageText	Fills labels of an info page by case with message text and plays its animation.	guess
+1007258C	Battle_UiMenuFlow_Update	State machine switching between sub-menus by their results.	guess
+100744D0	Battle_Handler_PushMessageAction	Event handler that pushes a message action (type 4 with a formatted string, or type 3 with message 0xD2) and commits it.	guess
+100745C8	Battle_Handler_PushWrappedAction10	Event handler that, when a check passes, pushes action type 10 for the Pokemon between two bracketing handler calls.	guess
+10075AE0	Battle_Handler_RemoveSelfOnMatch	Event handler that, when event vars 2/0x2F match its owner, detaches itself and notifies with mode 0.	guess
+10075B6C	Battle_Pokemon_FindMoveSlot	Returns the slot index (0-3) of a move id in the Pokemon's four move entries, or 4 if absent.	read
+10075BCC	Battle_Handler_PushTargetItemMessage	Event handler that, when attacker/target vars match, pushes action 0x24 with message 0xBC and the item id from event var 0x12.	guess
+100762C8	Battle_Handler_PushAction15OnCondition	Event handler that pushes action 0x15 when event vars 4/0x16/0x47/0x39 meet its conditions and returns whether it fired.	guess
+100763C0	Battle_Party_HasAliveReserve	Returns whether any party member from the side's first reserve slot onward is not fainted and has nonzero HP.	guess
+100768D4	Battle_SetHandlerTableEntry	Stores a pointer into a seven-entry table at offset 0x1C of an object, asserting the index.	guess
+10076B14	Battle_ActionList_Free	Unlinks an action node from its list, clears it and returns it to the free pool, or marks it for later release when locked.	read
+10076BE4	Battle_ActionArgs_PushArg	Appends a 32-bit argument to a message-argument block, up to eight arguments.	read
+10076C1C	Battle_ActionArgs_Init	Initializes a message-argument block with a message id and kind, keeping the top flag bits.	read
+10076CB8	Battle_ActionList_FindNextSameKind	Walks the action list after a node and returns the next live node with the same kind and sub-id.	read
+10076D5C	Battle_UI_CreatePanelsForMode	Lazily creates the battle UI panel objects for mode 0 (three panels) or mode 1 (two panels) and activates them.	guess
+10078FF8	Battle_UI_ShowMessageText	Builds a battle message string (with tag expansion for ids 0x36 and 0x54) and shows it in the message window.	read
+100791A0	Battle_UI_SetupGaugePanel	Fills a battle UI panel with numbers, a colored value and two eight-segment gauge bars computed from a Pokemon's data.	guess
+10079460	Battle_UI_DrawPokemonSummaryPane10	Draws a Pokemon's name, level, gender, item and status icons on a UI layout, ending with pane 0x10.	guess
+1007966C	Battle_UI_SetStaticLabels	Sets the fixed text labels of a battle UI layout, choosing one label by mode.	guess
+10079824	Battle_UI_IsCommandSelectable	Returns whether a battle menu command is available given the current Pokemon's state and flags.	guess
+10079A24	Battle_UI_UpdateButtonStateTrack6	Switches a battle UI layout's panes and animation track 6/7 according to its enabled/selected flags.	guess
+1007A3B0	Battle_UI_IsCommandSelectableAlt	Variant of the command-availability check for indices 0-3 against the current Pokemon's state.	guess
+1007A58C	Battle_UI_UpdateButtonStateTrack5	Switches a battle UI layout's panes and animation track 5/7 according to its enabled/selected flags.	guess
+1007B4E8	Battle_UI_ApplyLayoutTracks	Sets up five layout animation tracks from a state table, stopping or starting each one.	guess
+1007B610	Battle_UI_Screen_Dtor	Destructor of a battle UI screen: releases models, sub-objects and processes and returns the base.	read
+1007B6C8	Battle_UI_SelectStateAnim	Maps the screen state to an animation index from a table, plays it and applies its setting.	guess
+1007C514	Battle_UI_DrawMoveEntry	Draws one move entry (move name, current/max PP and type color) of the battle move menu.	guess
+1007C698	Battle_UI_DrawPokemonSummaryPane18	Draws a Pokemon's name, level, gender, item and status icons on a UI layout, ending with pane 0x18.	guess
+1007C8A4	Battle_UI_SetMoveListLabels	Sets the fixed text labels of the five move-list entries.	guess
+1007C930	Battle_Move_GetMissingPP	Returns the difference between a move slot's max PP byte and its current PP byte.	guess
+1007C974	Battle_Move_GetCurrentPP	Returns a move slot's current PP byte.	guess
+1007C9AC	Battle_UI_SetupMoveInfo	Stores a target and fills the move info panel (name, PP, type, category, power, accuracy).	guess
+1007C9E0	Battle_UI_RefreshMoveInfo	Fills the move info panel (name, PP, type, category, power, accuracy) for a move slot.	guess
+1007D368	Battle_UI_DrawPartyMemberEntry	Draws a party member entry with name, HP gauge ratio and status icon.	guess
+1007D7A4	Battle_Gfx_LoadArchive5FTextures	Opens archive 0x5F, builds a texture resource from it and binds its textures.	read
+1007EA88	Battle_Task_StartTweenA	Creates a task that runs an interpolator object (FUN_10086f60) on a target over a duration.	guess
+1007ED00	Battle_Gfx_ResetModelNodes	Calls a reset virtual on every node of a model.	guess
+1007EDAC	Battle_GetSideSlotTableEntry	Returns a value from a static table indexed by side (0-1) and slot (0-16).	guess
+1007FEE8	Battle_UI_GetPokemonStatusIcon	Chooses a status icon kind for the current Pokemon (fainted, status, etc.) and fills an icon descriptor.	guess
+1008215C	Battle_UI_UpdatePartyInfo	Collects species, form, gender and level of two Pokemon and passes them to a UI updater.	guess
+100828FC	Battle_Task_StartShakeEffect	Creates a task with two motion objects that moves a target over time.	guess
+10082A58	Battle_Task_StartTweenB	Creates a task that runs an interpolator object (FUN_10086f60) on a target over a duration.	guess
+10087C1C	Battle_ResolveTargetPosition	Maps a target selector (self, ally, opponents) to a battle position according to the battle rule.	guess
+1008AB24	Battle_CalcTypeEffectivenessWithEvents	Computes the effectiveness of a move type against a defender, letting event handlers override it.	read
+1008AFC8	Battle_TypeChart_Lookup	Looks up attack type vs defender type in the 18x18 type chart and returns an effectiveness code.	read
+1008B7D4	Battle_ProcessActionQueue	Runs queued battle actions in order, recomputing priorities and stopping on battle-end conditions.	guess
+1008E67C	Battle_ExecuteMoveBetweenPositions	Fetches attacker and target by position, builds the move parameters and runs the move.	guess
+10094600	Battle_BuildMoveParam	Fills a move parameter block (move id, type, category, flags) through event vars and handlers 0x28/0x29.	read
+100963A8	Battle_EventVar_Set	Adds an event variable with its value to the current event var stack.	read
+10097A20	Battle_Trainer_InitParam	Copies trainer data into a battle trainer record and loads its message strings.	guess
+1009AA14	Battle_Pokemon_HasType	Returns whether a battle Pokemon currently has the given type.	read
+1009BA10	Battle_Pokemon_GetPackedTypes	Returns a battle Pokemon's types packed in 5-bit fields.	read
+1009F7B0	Battle_Rule_GetPositionsPerSide	Returns the number of positions per side for the current battle rule.	guess
+100A1E08	Battle_Seq_GetTypeArgument	Battle sequence query returning a type of the attacker, defender or a resolved position by selector.	guess
+100A3450	Battle_SeqCond_HasCondition	Sequence condition: true if the selected Pokemon has the given condition slot set.	guess
+100A34A8	Battle_Task_UpdateCameraTween	Task step copying three interpolators into a camera slot and ending when done.	guess
+100A3614	Battle_Task_ApplyVectorTween	Task step applying an interpolated vector to a target and ending when done.	guess
+100A3878	Battle_SeqCond_LacksCondition	Sequence condition: true if the selected Pokemon lacks the given condition slot.	guess
+100A38E8	Battle_SeqCond_SpeciesEquals	Sequence condition: true if the selected Pokemon's species equals the argument.	guess
+100A3AB0	Battle_Task_WaitThenRelease	Task step counting down then releasing an effect object.	guess
+100A4444	Battle_SeqCond_ParamEquals	Sequence condition: true if the selected Pokemon's parameter equals a value.	guess
+100A4630	Battle_Task_ScaleAxisTween	Task step scaling one axis of a target by interpolated values and ending when done.	guess
+100A473C	Battle_Task_ApplyVectorTweenAlt	Task step applying an interpolated vector to a target through a second setter and ending when done.	guess
+100A4950	Battle_SeqCmd_SetModelsVector	Sequence command setting a vector on all models of a group, immediately or over time.	guess
+100A4B04	Battle_Seq_CountFasterOpponents	Counts Pokemon on other sides whose speed exceeds the selected Pokemon's.	guess
+100A4BB8	Battle_SeqCond_PartyLacksFlag	Sequence condition: true if no party member from the reserve slots meets a check.	guess
+100A4C78	Battle_SeqCond_ParamNotEquals	Sequence condition: true if the selected Pokemon's parameter differs from a value.	guess
+100A4CB8	Battle_SeqCond_PartyHasLowHp	Sequence condition: true if a party member's HP percentage falls below a threshold.	guess
+100A5A04	Battle_SeqCmd_StartModelTasks	Sequence command creating a timed task for each model of a group.	guess
+100A5AF8	Battle_SeqCmd_MoveModelsByOffset	Sequence command moving all models of a group by an offset, immediately or over time.	guess
+100A60C0	Battle_Seq_SumStatBoosts	Sums positive stage boosts above neutral over seven stats of the selected Pokemon.	read
+100A6194	Battle_Seq_IsHpAboveDamage	Returns whether the defender's HP exceeds a computed damage value.	guess
+100A622C	Battle_Task_StopAnimAfterDelay	Task step counting down then stopping an animation slot.	read
+100A627C	Battle_SeqCmd_MoveCamera	Sequence command computing a camera position and moving it over time.	guess
+100A6450	Battle_SeqCmd_Fade	Sequence command starting a screen fade with mode, direction and duration.	read
+100A64FC	Battle_SeqCmd_ToggleEffect	Sequence command turning a battle effect on or off.	guess
+100AA9BC	Battle_SeqCmd_ResetModelScene	Sequence command re-adding models to the scene group and setting their scale.	guess
+100AB260	Battle_SeqCmd_SetLightParams	Sequence command reading six values and applying two light settings.	guess
+100AB4B8	Battle_Seq_MoveHasFlag3	Returns whether the current move has flag 3.	guess
+100AB568	Battle_SeqCond_EffectivenessMatches	Sequence condition comparing a computed effectiveness class with the argument.	guess
+100AC9C4	Battle_SeqCmd_SetupPositionEffect	Sequence command resolving a position and applying an effect setup to it.	guess
+100ACAAC	Battle_SeqCond_PositionMatches	Sequence condition comparing a resolved position with the argument.	guess
+100AD460	Battle_SeqCmd_LoadEffectModel	Sequence command replacing a model group with a newly loaded effect model.	guess
+100AE998	Battle_SeqCmd_ShakeModels	Sequence command starting a shake task on every model of a group.	guess
+100AF8CC	Battle_SeqCmd_MoveModelsRelative	Sequence command moving all models of a group relative to their position.	guess
+100AF9B0	Battle_SeqCmd_LoadModelAnimation	Sequence command loading an animation archive member and binding it to all models of a group.	guess
+100B016C	Battle_SeqCmd_MoveEffectNode	Sequence command moving an effect node, mirrored by side.	guess
+100B1668	Battle_Task_ApplyNodeTween	Task step applying interpolated values to a node and ending when done.	guess
+100B3ADC	Battle_SeqCmd_SetSideColor	Sequence command copying a side's color preset into the effect state.	guess
+100B3B40	Battle_Seq_PlayPokemonVoice	Plays the selected Pokemon's voice when it is not fainted.	guess
+100B3B8C	Battle_SeqCmd_SetFloatParam	Sequence command setting a scaled float parameter.	guess
+100B3BC8	Battle_SeqCmd_UpdateEffects	Sequence command updating each effect of a group with a vector over time.	guess
+100B4D30	Battle_SeqCmd_SetCameraParams	Sequence command reading two floats and applying them to the camera.	guess
+100B569C	Battle_SeqCmd_LoadCompressedResource	Sequence command loading a compressed resource entry (cached) into a slot.	guess
+100B57F0	Battle_SeqCmd_MoveModelsToTarget	Sequence command moving all models of a group toward a target position.	guess
+100B59D0	Gfx_SeqCmd_PlaceModelsRelative	Reads target ids and offset vectors from a command stream and positions each model of a slot relative to a target, optionally rotated and over a duration.	guess
+100B5CB0	Gfx_SeqCmd_ResetSlotObjectAnim	Gets the current slot object and either re-applies animation flag 4 or resets its animation state.	guess
+100B5D68	Gfx_SeqCmd_PlaceModelAtTarget	Reads ids and an offset from a command stream, resolves a target position and moves a model there immediately or over a duration.	guess
+100B6088	Gfx_SeqCmd_SetCameraPosition	Reads camera command parameters, computes a position and orientation from a target (or keeps the current camera) and writes them into the camera object.	guess
+100B62CC	Gfx_SeqCmd_SetObjectTransform	Reads two 0x18-byte transform blocks from a command stream and applies the resulting transform to the slot object.	guess
+100B92E0	Gfx_ModelScene_Create	Constructs a model scene object: opens archive 5, loads a resource set and model instance, binds six animations and creates a four-entry layout/animation table.	guess
+100C635C	Gfx_ModelScene_Destroy	Destructor that releases the scene's sub-objects, model instances and processes before destroying the base object.	guess
+100C6440	Gfx_ModelScene_SetupByType	Stores setup parameters and starts animation 0x2A/0x2B/0x2D/0x2E depending on a type byte 0-3.	guess
+100C8120	Gfx_Layout_SetValueGauge	Sets two numeric values on layout panes and drives a gauge animation with their percentage, or hides the panes when a flag is set.	guess
+100CDF10	Battle_PickRandomEligibleSlotMember	In mode 3 picks at random one of up to three slot members that pass two flag checks, otherwise returns the default member via FUN_1009b850.	guess
+100CE6B0	Battle_DispatchHandlerById	Calls the handler for a command id below 0x68 from a function table, asserting on an unknown id.	guess
+10243708	Util_Thunk_Acos	Import thunk used right after clamping a dot product to [-1,1] to obtain an angle.	guess
+10254BB4	Field_ProcResource_DeleteDtor	Deleting destructor that releases the held resource at +0x14 and frees the object.	guess
+10254BEC	Field_ProcResource_Dtor	Destructor that releases the held resource at +0x14.	guess
+10255990	Field_ProcResourceB_Dtor	Destructor of a sibling class that releases the held resource at +0x14.	guess
+10254C20	Field_SceneProc_Init	Sets up a resource context, allocates and starts a 0x7C-byte scene object and marks the process as initialised.	guess
+10255A00	Field_SceneProc_CheckFinish	Polls a completion check and, when done, flags the process finished and notifies its owner, otherwise sets a pending flag.	guess
+10263530	Field_TrainerSight_CheckLine	Checks whether a target lies on the same grid row or column within N steps of an actor (and close in height), then validates the path.	guess
+1028328C	Field_RotateStep_UpdateFinish	Advances a rotation step and applies the final value when it completes.	guess
+10289FE8	Field_Event_SetLookAtAboveTarget	Computes a target's grid position, raises it by a constant and makes the look-at controller aim there.	guess
+102A7A18	Field_Model_FaceDirectionMatrix	Builds a rotation matrix from the direction between two points and writes it into a model's transform.	guess
+102A7BC0	Field_Model_SetPositionAlongDir	Places a model at a point offset along the normalised direction between two points.	guess
+102A7F80	Field_InputToDirection	Converts an analog vector or held direction pad bits into a 0-3 facing direction (9 for none), randomising diagonals.	guess
+102A88B0	Event_MoveCode_RandomLook	NPC movement routine that, after a random delay, turns to a random allowed direction or keeps the current one.	guess
+102A8964	Event_MoveCode_RandomTurn	NPC movement routine that periodically picks a new direction and plays the matching turn command.	guess
+102AA4E8	Gfx_CameraParam_Lerp	Interpolates two seven-float camera parameter sets by a factor, wrapping the angle components.	read
+102AB748	Field_EffectSlot_Alloc	Claims the first free of five slots, registers its ids and starts its model/animation, returning the slot index or 5.	guess
+102B16D8	Field_FindInteractableNearby	Scans object lists for an object of type 0xC, 0x16, 0x27 or 0x2E near a position that passes its own check.	guess
+102B89A4	Field_ComputeGridDelta	Computes the X/Z offset between two grid positions, handling different map blocks and wrap-around.	guess
+102BEDFC	Field_Effect_SpawnAtOrigin	Positions an effect at a model's origin joint plus an offset, randomly mirrors it and starts it.	guess
+102BEEF0	Gfx_LoadModelSetWithAnims	Loads a model and its animation files from a packed file, binds them and sets up animation slots.	guess
+102C0AF4	Field_FindFreeSlotIndex	Returns the first empty index of a list, or 0x18 / -1 depending on two flags.	guess
+102C3138	Util_AngleAxisBetweenVectors	Computes the angle and normalised rotation axis between two vectors.	read
+102C3244	Field_RotateStep_Tick	Advances a frame counter, applies an interpolated axis rotation, and reports completion when the frame count is reached.	guess
+102C551C	Util_Mtx33_FromAxisAngle	Builds a 3x3 rotation matrix from an axis and an angle.	read
+102C8574	Field_SnapToGrid18	Runs a query on a rectangle scaled to 18-unit grid cells and stores the snapped result.	guess
+102C8BD8	Gfx_LoadModelWithAnimPack	Loads the model and animation files of a packed archive and binds each to the model and optional extra resources.	guess
+102CA2A8	Field_Event_LoadActorSequence	Step machine that creates an actor model, animation and sequence player, starts sequence 0xA2 and waits for it to finish.	guess
+102CA5E4	Field_SetPendingRequest	Stores a request and its parameter if none is pending.	guess
+102CA604	Msg_WindowContext_Init	Allocates the heaps, layout and message objects of a message window and creates 0x100-character string buffers.	guess
+102CB574	Field_ModelSlots_Reset	Frees a buffer, destroys the model instance and clears the slot tables.	guess
+102CB74C	Field_GetObjectPosition	Returns an object's position from its grid data or from its actor.	guess
+102CC01C	Field_WildEncounter_StartFromTable	Fills a wild encounter context from a table entry and starts the encounter.	read
+102CC814	Field_CheckMoveCollision	Checks collision for a move from a grid position in both axes and returns collision flags.	guess
+102CCC18	Field_TrainerSight_CheckDirection	Checks a target in one of eight directions by calling the line check of the matching axis.	guess
+102CD1D0	Field_GridPos_Construct	Constructs a grid position object from a source position record.	guess
+102CD5A4	Field_EventActorSeq_Clear	Zeroes the fields of an actor sequence context.	guess
+102D1CA8	Field_Player_ComputeMoveInput	Computes the player's movement vector, speed and direction from input or from a forced vector.	guess
+102D2680	Gfx_Camera_FollowTargetSmoothed	Moves the camera target toward the computed position, limiting per-frame steps.	guess
+102D27AC	Gfx_Camera_ComputeTargetPos	Computes the camera target position from the tracked position, an area mode and a direction offset table.	guess
+102E81A0	Field_EffectSlot_ReleaseForState	Releases an effect slot when the state is 4, 13, 14 or 15 and the slot is set.	guess
+102E8204	Event_Actor_StopMove	Stops an actor's movement, resets its direction state and marks it idle.	guess
+1031D1F4	Event_MoveCode_CheckTurnDone	Applies a parameter to an actor and returns whether its turn command 0xF4/0xF6 is still running.	guess
+1031FD08	Event_LookAtPlayerIfInRange	Makes an actor's look-at aim at the player when the player stands in its sight band, else resets the look-at.	guess
+1031FFA4	Event_ResetLookAt	Resets an actor's look-at controller to its default state.	guess
+1031FFE4	Event_ResetLookAt_Alias	Identical copy of the look-at reset routine.	guess
+10320030	Event_MoveCode_ApplyParam	Applies a parameter to an actor and returns 1.	guess
+10320E5C	Event_MoveCode_InitRandomWait2	Initialises a movement state with mode 2 and a random wait below 22.	guess
+103213E8	Event_MoveCode_InitRandomWait3	Initialises a movement state with mode 3 and a random wait below 22.	guess
+10842CC4	Field_ZoneEffect_CheckAnimDone	Updates the zone effect and flags it finished when one of its animations completes.	guess
+10842E20	Gfx_ModelGroup_Destroy	Destroys every model and animation of a group, frees the group and clears its fields.	guess
+10843068	Gfx_ModelGroupSet_Destroy	Destroys ten model groups and frees the container.	guess
+10843330	Field_ZoneEffect_Construct	Constructs a zone effect, picking its data table from the zone id and allocating its model resources.	guess
+10843F20	Field_ZoneEffect_SaveVisibilityFlags	Builds per-group visibility bitmasks and stores them into a 16-byte state block.	guess
+10844C88	Field_ZoneEffect_UpdateByDistance	Starts the zone effect when the player comes within range, or waits for its animations to finish.	guess
