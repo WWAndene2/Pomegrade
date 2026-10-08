@@ -393,7 +393,7 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
                 uint32_t bits; std::memcpy(&bits, &value, 4);
                 for (int b = 0; b < 4; b++) light[at + b] = (uint8_t)(bits >> (8 * b));
             }
-            what += " its light";
+            what += std::string(z.Lighting >= 0 || !z.Camera.empty() ? " and" : "") + " its light";
         }
         packOf[k] = zonePacks[key] = takeFree(copy.Write(), what);
     }
