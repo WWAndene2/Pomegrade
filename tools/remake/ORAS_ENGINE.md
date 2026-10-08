@@ -52,6 +52,8 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
    lists them): `sb: sandbox tools/remake/sandbox/demo.txt`, `eng: engine --zone-rows 541`, `sv: save 538 14.5 20.5`,
    `demo: merge sb eng sv`. Headless reruns: `headless/fast_run.sh` (about 3 minutes). Not built yet: east and west
    ledges, relief (hills, cliffs), warps between matrices, writing scripts, trainers and encounter tables of one's own.
+   Camera and light done (8 October, section 2): `camera ...` and `light ...`, read and checked headless; this closes
+   the sandbox's "reused from the game" column.
 7. **Zones past 536, the rest.** A new zone needs its own file 3 (encounters) beside its member 537 entry (section
    2), and a script mask word (`oras-engine --script-mask`, 0x243 by default; lifted 8 October, section 6).
    Then objectives 3 and 6: Sinnoh's zones from 538 up.
@@ -138,6 +140,15 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   FILE`. A script's state: `dump 0x08000000 0x6000000 heap.bin` while the thing is on screen, then
   `prototype/amx_dump.py heap.bin --script <size>` lists the loaded scripts, their contexts (native mask, wait) and the call
   frames left in their stack (how `TalkMdlMsg_Seq`'s first argument, 16, was read).
+- **Find where a value comes from** (8 October, the light; section 2): `lights on` / `lights off FILE` (the GPU's light
+  registers and shader uniforms at each draw, with counts: what the screen really gets); search both dumps, the heap
+  `dump 0x08000000 0x6000000` and the linear heap `dump 0x14000000 0x2B48000`, for every form of the value (float, byte,
+  GPU register) and eliminate the known copies; `poke ADDRESS VALUE` (a word written while the game runs; at the title,
+  after `load title`, to change what a zone load reads); `writers LO HI` / `writers off FILE` with
+  `POMEGRADE_INTERPRETER=1` (each write into the range with its instruction and return address), then read that code.
+  The full decompilation for grepping: `Export.java` with every address of `functions.tsv` (15 min, 47,750 functions).
+- **Area packs read so far** (section 2): file 4 the light's colours, file 6 the camera presets, file 3 read by
+  `Field_AreaTriggers_Init`, file 7 by `FUN_1025EF50`; `a/0/5/9` holds tables of file 4's layout for battles.
 - **Read code**: `ghidra/decompile.sh <work> <out> ADDRESS... [--callers ADDRESS] [--callees ADDRESS]` decompiles the
   functions holding those addresses, or calling or called by one (the call graph `edges.tsv`, which follows the import
   stubs: the script natives that reach a function show up), with their names, into `<out>/decomp.c` (about 15 s; it runs
