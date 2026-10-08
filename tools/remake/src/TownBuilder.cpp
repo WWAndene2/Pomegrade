@@ -673,8 +673,9 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     // the pond from Platinum's colours (its blue edge, lakep, is water too)
     FlatFine(geo[Water], 2, [&](int c, int r) { return water2[r][c] == '~'; }, -4.2f, waterColour);
     // a bed under the water: the water is translucent and with nothing under it the pond showed nearly black (the owner, on
-    // the phone, 8 October: the sandbox demo's pond); the soil, below the water's surface
-    FlatFine(geo[Soil], 2, [&](int c, int r) { return water2[r][c] == '~'; }, -6.0f, soil);
+    // the phone, 8 October: the sandbox demo's pond); the soil, below the water's surface, in the water's colour (plain soil
+    // showed as a bare earth pit through the clear water: run fix1)
+    FlatFine(geo[Soil], 2, [&](int c, int r) { return water2[r][c] == '~'; }, -6.0f, waterColour);
     if (src.BankTexture.empty()) BanksFine(geo[Bank], water2);
     else BanksFine(geo[Bank], water2, src.BankV[0], src.BankV[1]);
     // no outline on the paths (the owner's choice): the outline mesh is left empty
