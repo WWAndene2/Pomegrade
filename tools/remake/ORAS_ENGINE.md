@@ -282,6 +282,22 @@ another (51 characters passed the count check and stopped on the events buffer).
   | Area pack | yes | | the sandbox fills the game's 9 placeholder packs no zone uses (0, 1, 39-42, 88, 97, 195) and changes no Hoenn pack (`light5`); a pack appended past 229 is refused (fatal-error loop: a/1/3/7, one member per pack, is one cause, read under the debugger in `apk1`-`apk4`; another not found) |
   | Ground | yes | the game's grass, paths, water | checked: grass, tall grass (its ground since `fix1`), paths, pond (a bed in the water's colour, `fix2`: the surface still faint), trees, forest |
 
+- **Camera and lighting, where the search stands** (8 October, for whoever continues):
+  - Seen in a memory dump with the field up (run `mem1`, heap 0x08000000 and linear heap 0x14000000):
+    - The active camera is an `xy_system::CCameraULCD` (RTTI; vtable 0x5E0D14) at 0x08286A6C, holding 15.85 at +0xB0.
+    - The file-6 preset table has a copy at 0x082D48E8.
+    - Area pack file 4 sits in the loaded pack at 0x14269300 and has a copy at 0x08DBAC18, inside a heap block.
+  - False lead: the only reference to the vtable, 0x47A2EC, is a literal pool of `Gfx_Color4_InitDefault`.
+  - Seen, its role inferred: `FUN_0048cf44` takes files 0-7 of two containers (at +0x5C and +0x64 of its object) into
+    two tables at +0x74 and +0x7C. Those may be the zone and its area pack; not checked.
+  - The GDB stub drops after the first stop, so a watchpoint did not fire (run `cam2`): use code search and memory diffs
+    instead.
+  - Next, camera: change one of preset 0's 17 floats per run (`fast_run.sh`, `camera-pitch` as the model). Find the code
+    that copies a preset into the camera at +0xB0, which is how a zone picks one. Then replace `camera-pitch` with a
+    `camera` statement naming each setting, and drop `camera Z` (zone file 4, no change seen).
+  - Next, lighting: find the reader of the file-4 copy at 0x08DBAC18. Failing that, look at the shader colour uniforms
+    (`HslSCol`, `HslGCol`) and the zone header. Claim nothing until a run shows the change.
+
 ## 3. Map pieces
 
 - The piece slot table: 4 slots, filed under the word opening each piece's file 4 (`row | column << 8`); full table = fatal
