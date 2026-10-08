@@ -17,13 +17,17 @@
 //   lighting Z        optional: game zone Z's area pack's file 4 (the light's colours, below) in a copy of the sandbox's pack
 //   light NAME R G B...
 //                     optional: the zone's light, ambient and/or diffuse colours (0-1) of the terrain's light (light set 0;
-//                     characters keep theirs), in a copy of the sandbox's pack's file 4, every time of day. Checked (run
+//                     characters: character-light), in a copy of the sandbox's pack's file 4, every time of day. Checked (run
 //                     lit_red2): "light diffuse 1 0 0 ambient 0 0 1" gives the GPU diffuse (254, 0, 0), ambient (0, 0, 254)
 //                     and a red and blue field. The game's outdoors: diffuse 1 1 0.5, ambient 1 1 0.8 (seen in Littleroot)
 //                     "direction X Y Z": the way the light goes (normalised by the game; outdoors 0 -1 0, from above).
 //                     Checked (runs lt_below, lt_sunset, lt_cave): "direction 0 1 0" reverses the GPU's light (from below,
 //                     the ground dark), a grazing orange sunset and a dim blue cave light. Example (sunset):
 //                     light direction -0.9 -0.25 0.35 diffuse 1 0.55 0.25 ambient 0.45 0.3 0.45
+//   character-light NAME R G B...
+//                     optional: the same for the characters' light (the second light set of file 4, 0x2D0 further; the
+//                     player included). Checked (run lt_char): "diffuse 1 0 0 ambient 0 0 1" reaches the GPU for the
+//                     characters only, the field unchanged. The game's: ambient 0.7 0.8 1 (Littleroot), diffuse 1 1 1
 //   camera NAME V...  optional: the zone's camera, one or more settings of preset 0 of its pack's file 6, in a copy of the
 //                     sandbox's pack (each zone with its own settings takes one of the game's 9 free packs). Read in the code
 //                     (Field_CameraComputePos: the camera stands at distance from the point aimed at, along pitch and yaw):

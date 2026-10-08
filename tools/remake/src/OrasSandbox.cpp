@@ -76,7 +76,7 @@ static SandboxDescription ReadDescription(const std::string& text)
         if (what == "template") ok = (bool)(words >> z.Template);
         else if (what == "encounters") ok = (bool)(words >> z.Encounters);
         else if (what == "lighting") ok = (bool)(words >> z.Lighting);
-        else if (what == "light")
+        else if (what == "light" || what == "character-light")
         {
             // "light NAME R G B..." (OrasSandbox.h): a colour of the area pack's file 4, in each of its 12 entries. The file holds
             // its colours in planes of 12 floats (3 kinds x 4 times of day, FUN_0013D908 0x13D908 reads them, FUN_0012DDF4 blends
@@ -90,8 +90,10 @@ static SandboxDescription ReadDescription(const std::string& text)
             {
                 const auto at = colours.find(name);
                 if (at == colours.end()) fail("no light setting \"" + name + "\" (ambient, diffuse, direction)");
+                // character-light: the second light set, the characters' (the same layout 0x2D0 further, read by FUN_0013DC4C)
+                const uint32_t set = what == "light" ? 0 : 0x2D0;
                 for (uint32_t c = 0; c < 3; c++)
-                    for (uint32_t entry = 0; entry < 12; entry++) z.Light[at->second + c * 0x30 + entry * 4] = rgb[c];
+                    for (uint32_t entry = 0; entry < 12; entry++) z.Light[set + at->second + c * 0x30 + entry * 4] = rgb[c];
                 ok = true;
             }
         }
