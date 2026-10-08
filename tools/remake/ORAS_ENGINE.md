@@ -290,11 +290,14 @@ another (51 characters passed the count check and stopped on the events buffer).
     +0x1C far (2000), +0x20 field of view in degrees (30), +0x24 distance (254.4); +0x28 is clamped to 1 and kept at +0xA8,
     +0x2C at +0xA4 (roles not read); +0x14 is read by neither. **Seen** (run `cam10`, a heap dump in Littleroot): N = 0, and
     the preset 0 copy at the camera. Where N comes from is not found; the sandbox writes preset 0, which its zones use.
-  - Lighting: see the table above. Next: the GPU light's command writer (`FUN_004C9D24`, read: it writes the light
-    registers and the HslSCol/HslGCol/HslSDir uniforms from an entry of 0x3F4 bytes, 8 lights of 0x70 and the hemisphere at
-    +0x3B0) reads its entry from `param_3 + 0x7C`; find that entry in a heap dump by the light's direction and follow who
-    fills it. An interior (another matrix: reached by walking through a door, a moved save does not load) would show whether
-    the light ever changes.
+  - Lighting (8 October, continued): the materials of the 857 pieces are white in 93% of cases (12,820 materials read with
+    SPICA's H3DMaterialParams layout: ambient and diffuse FFFFFF, light set 0), so the GPU colours are the light's own: light
+    set 0 diffuse (1, 1, 0.5), ambient (1, 1, 0.8), a yellow sun (seen). Those exact floats are in the outdoor packs' file 4
+    (+0xA8, +0x2F8; other values in the interiors' and caves' variants) and in `a/0/5/9` member 0, at the same offsets. Neither
+    is where the field takes its light: the sandbox's file 4 set to red and blue (run `lit_red`) and `a/0/5/9` member 0 set
+    likewise (run `lit_a059`, Littleroot, the mod's load not confirmed) left the GPU's light unchanged (checked with `lights`).
+    Next: find the GPU command list words in a heap dump (the value 0x0FE3F87F next to a header for register 0x142, light 0
+    diffuse) and add to the core a watch that logs the PC writing them, then read that code.
 
 ## 3. Map pieces
 
