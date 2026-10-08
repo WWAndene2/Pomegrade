@@ -3818,3 +3818,7 @@
 # Member 537's reader (8 October, static)
 00401040	Encounter_ListSpeciesByCategory	The species of one zone encounter file by category: 0 kinds 0, 1 and 8 (when header bytes 0, 1, 8 are set), 1 kind 3 (byte 3), 2 kinds 5-7 (bytes 5-7), 3 and 4 kind 2 when header byte 2 is 1 or 2.	read
 102B4FEC	Field_ListZoneEncounterSpecies	Lists a zone's wild species by category from member 537 (the whole encounter container loaded at boot), zone from +0xF0 of an object, each species checked by FUN_0035f7fc; the only reader of member 537 found. What screen uses it: not read (DexNav or the Pokedex's area page: a guess).	guess
+# Wild encounters started by an action (8 October, static)
+102D9DF8	Field_WildEncounter_TryKind	Tries an encounter of a given kind: rate = the zone encounter file's header byte [kind] - 1 (plus a bonus), scaled by ApplyRateModifiers, against random(100); then SelectTable and the encounter event. Called by the fishing module with kinds 5-7.	read
+102D9F04	Field_WildEncounter_StartRockSmash	Starts a kind-4 encounter with no rate roll (SelectTable, Field_StartEncounterEvent); called by the script native CallWildBattleRockCrash (Rock Smash).	read
+103997E0	Fishing_TryEncounter	DllFieldEventFishing: after a countdown, picks kind 5, 6 or 7 by the rod field +0xE0 (0, 1, 2) and calls Field_WildEncounter_TryKind; a message whether something bit or not.	read
