@@ -27,7 +27,10 @@
 //   remake_tool oras-asset <oras.3ds> <archive> <member> <file|-1> [list] | export <dir> | edit <out dir> recolour:<texture>:<hue>:<sat>:<bright>[:<around>:<range>]...
 //   remake_tool oras-layout <oras.3ds> <archive> <member> [file]  DARC/BCLYT/BCLAN/BCLIM described
 //   remake_tool oras-text <oras.3ds> <archive> <member>   a game text file's lines
-//   remake_tool oras-script <oras.3ds> <zone>|all [init]  a zone's script, unpacked and disassembled (all: every script, checked)
+//   remake_tool oras-script <oras.3ds> <zone>|all [init] [source]  a zone's script, unpacked and disassembled, or as amx-asm
+//                     source (all: every script, checked, and written and assembled back)
+//   remake_tool amx-asm <in.txt> <out.amx> [function_names.tsv]  a Pawn (AMX) script assembled (Amx.h: AmxAssemble), with
+//                     the natives named checked against the game's tables in tools/remake/ghidra/function_names.tsv
 //   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>] | <dst>=<archive>:<member>:<file> | <dst>=motion:<archive>:<member>:<file>:<slot>[:<frames>] ...
 //   remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...
 //                     an Azahar mod: each file replaces that RomFS path, laid out as Azahar loads
@@ -111,6 +114,7 @@
 #include <map>
 #include <functional>
 #include <set>
+#include <sstream>
 #include <string>
 
 using namespace remake;
@@ -241,6 +245,34 @@ int main(int argc, char** argv)
     try
     {
         // loose files
+        if (cmd == "amx-asm" && argc >= 4)
+        {
+            // a script assembled from source (Amx.h), its natives checked by name against the game's tables when the names
+            // file is given; the result read back by the disassembler, whose own checks it must pass
+            std::set<std::string> natives;
+            if (argc >= 5)
+            {
+                std::istringstream names(Text(ReadFile(argv[4]), 0, ReadFile(argv[4]).size()));
+                for (std::string row; std::getline(names, row);)
+                {
+                    const size_t at = row.find("\tScript_Native_");
+                    if (at != std::string::npos) natives.insert(row.substr(at + 15, row.find('\t', at + 1) - at - 15));
+                }
+                if (natives.empty()) throw FormatError(std::string(argv[4]) + " names no Script_Native_ function");
+            }
+            const Bytes source = ReadFile(argv[2]);
+            const Bytes script = AmxAssemble(std::string(source.begin(), source.end()),
+                                             natives.empty() ? std::function<bool(const std::string&)>{} : [&](const std::string& n) { return natives.count(n) > 0; });
+            const std::string listing = AmxDisassemble(script);
+            const std::string last = listing.substr(listing.rfind('\n', listing.size() - 2) + 1);
+            size_t c, u, n, dc, co, ca, jo, ja;
+            if (sscanf(last.c_str(), "%zu code cells, %zu not an opcode, %zu natives, %zu data cells; %zu of %zu calls land on a proc, %zu of %zu jumps",
+                       &c, &u, &n, &dc, &co, &ca, &jo, &ja) != 8 || u || co != ca || jo != ja)
+                throw FormatError("the script assembled fails the disassembler's checks: " + last);
+            WriteFile(argv[3], script);
+            printf("%s: %zu bytes; %s", argv[3], script.size(), last.c_str());
+            return 0;
+        }
         if (cmd == "garc" && argc >= 4)
         {
             const Garc garc(Plain(ReadFile(argv[2])));
@@ -863,6 +895,7 @@ int main(int argc, char** argv)
                 {
                     // every zone's two scripts disassembled, the listings' own checks summed: the opcode table on the whole game
                     size_t scripts = 0, failed = 0, cells = 0, unknown = 0, callsOk = 0, calls = 0, jumpsOk = 0, jumps = 0;
+                    size_t rewritten = 0, reassembled = 0; // the writer's checks (AmxScript, AmxAssemble): the same bytes back
                     for (size_t i = 0; i < g.Count(); i++)
                     {
                         OrasZone z;
@@ -880,16 +913,30 @@ int main(int argc, char** argv)
                                            &c, &u, &n, &dc, &co, &ca, &jo, &ja) == 8)
                                 { cells += c; unknown += u; callsOk += co; calls += ca; jumpsOk += jo; jumps += ja; }
                                 if (u || co != ca || jo != ja) printf("zone %zu %s: %s", i, script == &z.Script ? "script" : "init", last.c_str());
+                                // the script's bytes up to its size (the init script is followed by the file's padding)
+                                const Bytes own(script->begin(), script->begin() + AmxInfo::Read(*script).Size);
+                                if (AmxScript::Read(own).Write() == own) rewritten++;
+                                else printf("zone %zu %s: written back differently\n", i, script == &z.Script ? "script" : "init");
+                                if (AmxAssemble(AmxSource(own)) == own) reassembled++;
+                                else printf("zone %zu %s: assembled back differently\n", i, script == &z.Script ? "script" : "init");
                             }
                             catch (const FormatError& e) { failed++; printf("zone %zu: %s\n", i, e.what()); }
                         }
                     }
                     printf("%zu scripts (%zu not read), %zu code cells, %zu not an opcode; %zu of %zu calls land on a proc, %zu of %zu jumps on an instruction\n",
                            scripts, failed, cells, unknown, callsOk, calls, jumpsOk, jumps);
+                    printf("%zu of %zu written back to the same bytes, %zu of %zu assembled back from their source to the same bytes\n",
+                           rewritten, scripts, reassembled, scripts);
                     return 0;
                 }
                 const OrasZone z = OrasZone::Read(Plain(g.Sub((size_t)atoi(argv[3]))));
                 const Bytes& script = argc >= 5 && std::string(argv[4]) == "init" ? z.InitScript : z.Script;
+                if (std::string(argv[argc - 1]) == "source")
+                {
+                    // as assembler source (amx-asm reads it back)
+                    printf("%s", AmxSource(Bytes(script.begin(), script.begin() + AmxInfo::Read(script).Size)).c_str());
+                    return 0;
+                }
                 const std::vector<std::string> natives = AmxNatives(script);
                 for (size_t i = 0; i < natives.size(); i++) printf("native %zu %s\n", i, natives[i].c_str());
                 printf("%s", AmxDisassemble(script).c_str());

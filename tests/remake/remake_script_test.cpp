@@ -71,6 +71,42 @@ int main()
         check(d.find("push.p.c 8") != std::string::npos && d.find("load.p.s.pri -4") != std::string::npos, "packed instructions named, operand in the high 16 bits");
         check(d.find("call -16  ; -> 000000") != std::string::npos && d.find("1 of 1 calls land on a proc") != std::string::npos, "a relative call checked to land on a proc");
     }
+
+    // the writer (AmxScript, AmxAssemble, AmxSource): a zone script written by hand as the game's smallest one is laid
+    // out (zone 80: main dispatches on the public variable the game sets, data cell 0), natives named, a switch by labels
+    {
+        const std::string source =
+            "pubvar #865A53E1 8\npubvar #29654047 4\npubvar #D7477C97 command\n"
+            "code\n    halt.p 0\nmain:\n    proc\n    load.p.pri 0\n    switch cases\n"
+            "enter:\n    sysreq.n _FieldMapBlockIsLoading 0\n    jump done\n"
+            "other:\n    push.c -200000000\n    sysreq.n CommandNOP 4\n    stack 4\n    jump done\n"
+            "cases:\n    casetbl 1 other -1 enter\n"
+            "done:\n    zero.pri\n    retn\n"
+            "data\ncommand:\n    cell -1 0 0\n";
+        std::vector<std::string> asked;
+        const Bytes script = AmxAssemble("header 10 10 0x1C main 4096\n" + source, [&](const std::string& n) { asked.push_back(n); return true; });
+        check(asked == std::vector<std::string>{"_FieldMapBlockIsLoading", "CommandNOP"}, "natives named are checked, in order of use");
+        check(AmxNameHash("_Suspend") == 0x0B13A389 && AmxNameHash("Float") == 0xCA18AA2E, "names hashed as the game links them");
+        const AmxScript s = AmxScript::Read(script);
+        check(s.Natives.size() == 2 && s.Natives[1].Name == AmxNameHash("CommandNOP") && s.Cip == 4, "natives declared on first use, cip on main");
+        check(s.Libraries.size() == 1 && s.Tags.size() == 1 && s.Tags[0].Address == 0x40000002 && s.NameTable == Bytes{0x3F, 0, 0, 0},
+              "the game's library, tag and name table by default");
+        check(s.PublicVars.size() == 3 && s.PublicVars[2].Address == 0 && s.Data == std::vector<int32_t>{-1, 0, 0}, "public variables on data labels");
+        const std::string d = AmxDisassemble(script);
+        check(d.find("0 not an opcode") != std::string::npos && d.find("3 of 3 jumps") != std::string::npos, "the script passes the disassembler's checks");
+        check(d.find("push.c -200000000") != std::string::npos, "a cell of five groups packs and unpacks");
+        // casetbl at 0x4C (cell 19): its default, `other` at 0x28, in cell 0x54 relative to 0x50; the case -1, `enter` at
+        // 0x14, in cell 0x5C relative to 0x58
+        check(s.Code[19] == 130 && s.Code[21] == 0x28 - 0x50 && s.Code[23] == 0x14 - 0x58, "casetbl addresses relative to the cell before each");
+        check(AmxAssemble(AmxSource(script)) == script, "its source assembles back to the same bytes");
+        check(AmxScript::Read(script).Write() == script, "read and written back to the same bytes");
+        bool refused = false;
+        try { AmxAssemble("code\n    sysreq.n NoSuchNative 0\n", [](const std::string&) { return false; }); } catch (const FormatError&) { refused = true; }
+        check(refused, "an unknown native refused");
+        refused = false;
+        try { AmxAssemble("code\n    push.c\n"); } catch (const FormatError& e) { refused = std::string(e.what()).find("line 2") != std::string::npos; }
+        check(refused, "a wrong operand count refused, naming the line");
+    }
     Bytes truncated = b;
     truncated.push_back(0); Put32(truncated, 0, (uint32_t)truncated.size());
     bool threw = false;

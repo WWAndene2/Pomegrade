@@ -157,6 +157,12 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   ...` finds an instruction, a constant or every call to an address (`--base 0x10000000` on `linked/modules.bin` for the
   modules); `prototype/cro_dis.py <module.cro> dis <offset> <n>` reads a module with its imports resolved (`symbols` on
   `static.crs` and a module lists which module function each `.code` import stub reaches).
+- **Write a script**: `remake_tool amx-asm <source.txt> <out.amx> tools/remake/ghidra/function_names.tsv` assembles Pawn
+  source (format in `Amx.h`, above `AmxSource`: labels for jumps, calls and `casetbl`, natives by name, checked against the
+  game's tables); `oras-script <oras.3ds> <zone> [init] source` gives a game script in that format. **Checked** (8 October):
+  all 1,072 scripts come back byte for byte, read and written (`AmxScript`) and assembled from their source; packing as
+  pawncc writes it (a 5-group cell's top group holds 4 bits); 7,962 of 7,962 `casetbl` addresses, relative to the cell
+  before each, land on an instruction. Not yet run in the game.
 - **Read a script**: `remake_tool oras-script <oras.3ds> <zone> [init]` disassembles it; `prototype/amx_natives.py tables
   <code.bin> <linked/modules.bin> natives.tsv`, then `... | amx_natives.py names natives.tsv` puts each native's name beside
   its hash, and `amx_natives.py check` proves every zone script's natives are registered (section 6). A zone's text:

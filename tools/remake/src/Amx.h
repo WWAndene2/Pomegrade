@@ -8,6 +8,7 @@
 
 #include "Bytes.h"
 
+#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -44,6 +45,48 @@ std::vector<std::string> AmxNatives(const Bytes& script);
 // The code disassembled (the opcode table and how it was checked: Amx.cpp). The listing ends with its own check on the
 // script: cells that are no opcode, calls that land on a proc, jumps that land on an instruction.
 std::string AmxDisassemble(const Bytes& script);
+
+// The whole script as fields, to write one (SINNOH_BUILD.md R1). Layout of every ORAS zone script (all 536 measured on
+// 8 October): Pawn 3.3's header, file version 10 with its overlays word (60 bytes: the overlays word equals the name
+// table's offset), then the tables publics, natives, libraries, public variables, tags (8 bytes an entry: an address or
+// value, and a name stored as its hash, AmxNameHash), the name table (4 bytes, 0x3F: the longest name), then the code and
+// data cells packed (flags 0x1C). Write lays the tables out in that order and packs the cells with Pawn's compact
+// encoding; Read then Write gives back the same bytes on every script of the game (`oras-script all`).
+struct AmxScript
+{
+    struct Entry { uint32_t Address = 0, Name = 0; };
+    uint8_t FileVersion = 10, AmxVersion = 10;
+    uint16_t Flags = 0x1C, DefSize = 8;
+    uint32_t Cip = 0, StackBytes = 0;   // where the code starts, and the stack and heap's size (Stp - Hea)
+    std::vector<Entry> Publics, Natives, Libraries, PublicVars, Tags;
+    Bytes NameTable;
+    std::vector<int32_t> Code, Data;
+
+    static AmxScript Read(const Bytes& script);
+    Bytes Write() const;
+};
+
+// The hash a name is stored and linked by (Script_LinkNativeImports 0x506118: h = h * 0x83 ^ c, c a signed char)
+uint32_t AmxNameHash(const std::string& name);
+
+// A script as assembler source that AmxAssemble reads back to the same bytes. Format, one statement a line, ';' starts a
+// comment:
+//   header <file version> <amx version> <flags> <cip> <stack bytes>     (cip a code label or a number)
+//   public|native|library|pubvar|tag <name> [address]   a table entry; <name> a name (hashed) or #XXXXXXXX (the hash);
+//            the address a code label (public), a data label (pubvar) or a number; natives may be left undeclared:
+//            sysreq.c / sysreq.n NAME declares it on first use, in order
+//   nametable <hex bytes>
+//   code / data   start the code or data cells; "label:" names the next cell's byte address in either
+//   <opcode> <operands>   Amx.cpp's table; a jump or call operand may be a code label (written relative, as the game
+//            reads it); packed opcodes (.p.) take their 16-bit operand; casetbl takes its numbers as they are stored
+//   cell <n>...   raw cells
+// Left out, the header is the game's (10 10 0x1C, cip the label "main" or 0, stack 4096: every zone script's) and the
+// library, tag and name table entries are the ones every zone script has ("Float" twice, 0x3F).
+std::string AmxSource(const Bytes& script);
+
+// Assembles AmxSource's format; throws FormatError naming the line. `knownNative`, when given, is asked for each native
+// named (not given as #hash): false refuses it, so a misspelled native fails here rather than in the game.
+Bytes AmxAssemble(const std::string& source, const std::function<bool(const std::string&)>& knownNative = {});
 
 }
 
