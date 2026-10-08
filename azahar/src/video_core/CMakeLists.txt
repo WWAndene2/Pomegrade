@@ -16,6 +16,8 @@ add_library(video_core STATIC EXCLUDE_FROM_ALL
     gpu_debugger.h
     gpu_impl.h
     pica_types.h
+    pomegrade_scene_black.cpp
+    pomegrade_scene_black.h
     precompiled_headers.h
     rasterizer_accelerated.cpp
     rasterizer_accelerated.h
@@ -51,6 +53,7 @@ add_library(video_core STATIC EXCLUDE_FROM_ALL
     rasterizer_cache/framebuffer_base.h
     rasterizer_cache/pixel_format.cpp
     rasterizer_cache/pixel_format.h
+    rasterizer_cache/pomegrade_texture_upscaling.h
     rasterizer_cache/rasterizer_cache.cpp
     rasterizer_cache/rasterizer_cache.h
     rasterizer_cache/rasterizer_cache_base.h

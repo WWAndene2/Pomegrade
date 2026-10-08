@@ -229,6 +229,8 @@ private:
     u32 resolution_scale_factor;
     FramebufferParams fb_params;
     Settings::TextureFilter filter;
+    u32 texture_upscale_factor; ///< Pomegrade: see pomegrade_texture_upscaling.h
+    u32 texture_anisotropy;     ///< Pomegrade: the Texture filtering setting's
     bool dump_textures;
     bool use_custom_textures;
 };

@@ -5,6 +5,7 @@
 #include "common/hash.h"
 #include "common/settings.h"
 #include "common/vector_math.h"
+#include "video_core/rasterizer_cache/pomegrade_texture_upscaling.h"
 #include "video_core/renderer_vulkan/vk_blit_helper.h"
 #include "video_core/renderer_vulkan/vk_descriptor_update_queue.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
@@ -631,7 +632,8 @@ vk::Pipeline BlitHelper::MakeDepthStencilBlitPipeline() {
 }
 
 bool BlitHelper::Filter(Surface& surface, const VideoCore::TextureBlit& blit) {
-    const auto filter = Settings::values.texture_filter.GetValue();
+    // Pomegrade: xBRZ when only the texture upscaling is on
+    const auto filter = VideoCore::TextureUpscalingFilter();
     if (filter == Settings::TextureFilter::NoFilter) {
         return false;
     }

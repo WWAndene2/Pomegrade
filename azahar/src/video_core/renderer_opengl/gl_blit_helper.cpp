@@ -5,6 +5,7 @@
 #include "common/scope_exit.h"
 #include "common/settings.h"
 #include "video_core/rasterizer_cache/pixel_format.h"
+#include "video_core/rasterizer_cache/pomegrade_texture_upscaling.h"
 #include "video_core/renderer_opengl/gl_blit_helper.h"
 #include "video_core/renderer_opengl/gl_driver.h"
 #include "video_core/renderer_opengl/gl_state.h"
@@ -161,7 +162,8 @@ bool BlitHelper::ConvertRGBA4ToRGB5A1(Surface& source, Surface& dest,
 }
 
 bool BlitHelper::Filter(Surface& surface, const VideoCore::TextureBlit& blit) {
-    const auto filter = Settings::values.texture_filter.GetValue();
+    // Pomegrade: xBRZ when only the texture upscaling is on
+    const auto filter = VideoCore::TextureUpscalingFilter();
     const bool is_depth =
         surface.type == SurfaceType::Depth || surface.type == SurfaceType::DepthStencil;
     if (filter == Settings::TextureFilter::NoFilter || is_depth) {

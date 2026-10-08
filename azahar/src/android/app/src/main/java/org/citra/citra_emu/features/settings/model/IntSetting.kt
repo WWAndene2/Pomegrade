@@ -56,6 +56,9 @@ enum class IntSetting(
     CPU_CLOCK_SPEED(SettingKeys.cpu_clock_percentage(), Settings.SECTION_CORE, 100),
     TEXTURE_FILTER(SettingKeys.texture_filter(), Settings.SECTION_RENDERER, 0),
     TEXTURE_SAMPLING(SettingKeys.texture_sampling(), Settings.SECTION_RENDERER, 0),
+    // Pomegrade picture options
+    TEXTURE_ANISOTROPY(SettingKeys.texture_anisotropy(), Settings.SECTION_RENDERER, 16),
+    TEXTURE_UPSCALE_FACTOR(SettingKeys.texture_upscale_factor(), Settings.SECTION_RENDERER, 1),
     USE_FRAME_LIMIT(SettingKeys.use_frame_limit(), Settings.SECTION_RENDERER, 1),
     DELAY_RENDER_THREAD_US(SettingKeys.delay_game_render_thread_us(), Settings.SECTION_RENDERER, 0),
     ORIENTATION_OPTION(SettingKeys.screen_orientation(), Settings.SECTION_LAYOUT, 2),

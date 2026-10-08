@@ -2,6 +2,8 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#include <algorithm>
+#include <string_view>
 #include "common/scope_exit.h"
 #include "common/settings.h"
 #include "video_core/custom_textures/material.h"
@@ -23,6 +25,31 @@ using VideoCore::SurfaceType;
 using VideoCore::TextureType;
 
 constexpr GLenum TEMP_UNIT = GL_TEXTURE15;
+
+// Pomegrade: anisotropic filtering (GL_EXT/ARB_texture_filter_anisotropic, core in GL 4.6),
+// whose enums glad doesn't declare here
+constexpr GLenum TEXTURE_MAX_ANISOTROPY = 0x84FE;
+constexpr GLenum MAX_TEXTURE_MAX_ANISOTROPY = 0x84FF;
+
+/// The GPU's largest anisotropy, 1 when it has no anisotropic filtering
+float MaxSupportedAnisotropy() {
+    static const float max_anisotropy = [] {
+        GLint num_extensions = 0;
+        glGetIntegerv(GL_NUM_EXTENSIONS, &num_extensions);
+        for (GLint i = 0; i < num_extensions; i++) {
+            const std::string_view extension{
+                reinterpret_cast<const char*>(glGetStringi(GL_EXTENSIONS, i))};
+            if (extension == "GL_EXT_texture_filter_anisotropic" ||
+                extension == "GL_ARB_texture_filter_anisotropic") {
+                GLfloat value = 1.f;
+                glGetFloatv(MAX_TEXTURE_MAX_ANISOTROPY, &value);
+                return std::max(value, 1.f);
+            }
+        }
+        return 1.f;
+    }();
+    return max_anisotropy;
+}
 
 constexpr FormatTuple DEFAULT_TUPLE = {GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE};
 
@@ -714,6 +741,16 @@ Sampler::Sampler(TextureRuntime&, VideoCore::SamplerParams params) {
 
     glSamplerParameterf(handle, GL_TEXTURE_MIN_LOD, lod_min);
     glSamplerParameterf(handle, GL_TEXTURE_MAX_LOD, lod_max);
+
+    // Pomegrade: anisotropic filtering (Texture filtering setting), only with linear filtering,
+    // as Vulkan does (some drivers force linear filtering when it is on)
+    const float anisotropy =
+        std::min(static_cast<float>(Settings::values.texture_anisotropy.GetValue()),
+                 MaxSupportedAnisotropy());
+    if (anisotropy > 1.f && mag_filter == GL_LINEAR && min_filter != GL_NEAREST &&
+        min_filter != GL_NEAREST_MIPMAP_NEAREST && min_filter != GL_NEAREST_MIPMAP_LINEAR) {
+        glSamplerParameterf(handle, TEXTURE_MAX_ANISOTROPY, anisotropy);
+    }
 }
 
 Sampler::~Sampler() = default;

@@ -160,6 +160,16 @@ RendererVulkan::~RendererVulkan() {
     device.destroyPipeline(cursor_pipeline);
     device.destroyShaderModule(cursor_vertex_shader);
     device.destroyShaderModule(cursor_fragment_shader);
+
+    if (scene_black_buffer) {
+        vmaDestroyBuffer(instance.GetAllocator(), scene_black_buffer, scene_black_allocation);
+    }
+    if (scene_black_frame.image) {
+        device.destroyFramebuffer(scene_black_frame.framebuffer);
+        device.destroyImageView(scene_black_frame.image_view);
+        vmaDestroyImage(instance.GetAllocator(), scene_black_frame.image,
+                        scene_black_frame.allocation);
+    }
 }
 
 void RendererVulkan::PrepareRendertarget() {
@@ -804,6 +814,11 @@ void RendererVulkan::DrawSingleScreen(u32 screen_id, float x, float y, float w, 
                         1.0f / static_cast<f32>(screen_info.texture.height * scale_factor));
     draw_info.o_resolution = Common::MakeVec(h, w, 1.0f / h, 1.0f / w);
     draw_info.screen_id_l = screen_id;
+    // Pomegrade: Rich colours and Deep black, off while the scene is measured
+    draw_info.rich_colours =
+        !scene_black_measuring && Settings::values.rich_colours.GetValue() ? 1 : 0;
+    draw_info.deep_black_threshold =
+        scene_black_measuring ? 0.f : scene_black.Threshold(screen_id == 2);
 
     scheduler.Record([this, offset = offset, info = draw_info](vk::CommandBuffer cmdbuf) {
         const u32 first_vertex = static_cast<u32>(offset) / sizeof(ScreenRectVertex);
@@ -1154,6 +1169,7 @@ void RendererVulkan::SwapBuffers() {
 
     const Layout::FramebufferLayout& layout = render_window.GetFramebufferLayout();
     PrepareRendertarget();
+    MeasureSceneBlack();
     RenderScreenshot();
     isSecondaryWindow = false;
     RenderToWindow(main_present_window, layout, false);
@@ -1190,6 +1206,126 @@ void RendererVulkan::SwapBuffers() {
     system.perf_stats->EndSwap();
     rasterizer.TickFrame();
     EndFrame();
+}
+
+/**
+ * Pomegrade: Deep black's measurement of the scene (see video_core/pomegrade_scene_black.h). The
+ * screens are drawn unadjusted into a small frame copied to a host buffer, read a frame or more
+ * later, once the GPU is done with it, so the emulation never waits. The copy is the screenshot's
+ * (RenderScreenshotWithStagingCopy).
+ */
+void RendererVulkan::MeasureSceneBlack() {
+    constexpr u32 width = VideoCore::SceneBlack::Width;
+    constexpr u32 height = VideoCore::SceneBlack::Height;
+    constexpr vk::DeviceSize size = width * height * 4;
+
+    if (scene_black_tick) {
+        if (!scheduler.IsFree(scene_black_tick)) {
+            scene_black.Step();
+            return;
+        }
+        scene_black_tick = 0;
+        vmaInvalidateAllocation(instance.GetAllocator(), scene_black_allocation, 0, size);
+        scene_black.Measure(static_cast<const u8*>(scene_black_pixels),
+                            main_present_window.GetSurfaceFormat() != vk::Format::eR8G8B8A8Unorm);
+    }
+
+    if (!Settings::values.deep_black.GetValue()) {
+        scene_black.Reset();
+        return;
+    }
+    scene_black.Step();
+
+    if (!scene_black_buffer) {
+        const vk::BufferCreateInfo buffer_info = {
+            .size = size,
+            .usage = vk::BufferUsageFlagBits::eTransferDst,
+        };
+        const VmaAllocationCreateInfo alloc_create_info = {
+            .flags = VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT |
+                     VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT,
+            .usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+            .requiredFlags = 0,
+            .preferredFlags = 0,
+            .pool = VK_NULL_HANDLE,
+            .pUserData = nullptr,
+        };
+        VkBuffer unsafe_buffer{};
+        VmaAllocationInfo alloc_info{};
+        VkBufferCreateInfo unsafe_buffer_info = static_cast<VkBufferCreateInfo>(buffer_info);
+        if (vmaCreateBuffer(instance.GetAllocator(), &unsafe_buffer_info, &alloc_create_info,
+                            &unsafe_buffer, &scene_black_allocation, &alloc_info) != VK_SUCCESS) {
+            LOG_ERROR(Render_Vulkan, "Deep black: no buffer for the scene's measurement");
+            return;
+        }
+        scene_black_buffer = vk::Buffer{unsafe_buffer};
+        scene_black_pixels = alloc_info.pMappedData;
+        main_present_window.RecreateFrame(&scene_black_frame, width, height);
+    }
+
+    scene_black_measuring = true;
+    DrawScreens(&scene_black_frame, VideoCore::SceneBlack::MeasurementLayout(), false);
+    scene_black_measuring = false;
+
+    scheduler.Record([source_image = scene_black_frame.image,
+                      buffer = scene_black_buffer](vk::CommandBuffer cmdbuf) {
+        const vk::ImageSubresourceRange range{
+            .aspectMask = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel = 0,
+            .levelCount = VK_REMAINING_MIP_LEVELS,
+            .baseArrayLayer = 0,
+            .layerCount = VK_REMAINING_ARRAY_LAYERS,
+        };
+        const vk::ImageMemoryBarrier read_barrier = {
+            .srcAccessMask = vk::AccessFlagBits::eMemoryWrite,
+            .dstAccessMask = vk::AccessFlagBits::eTransferRead,
+            .oldLayout = vk::ImageLayout::eTransferSrcOptimal,
+            .newLayout = vk::ImageLayout::eTransferSrcOptimal,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = source_image,
+            .subresourceRange = range,
+        };
+        const vk::ImageMemoryBarrier write_barrier = {
+            .srcAccessMask = vk::AccessFlagBits::eTransferRead,
+            .dstAccessMask = vk::AccessFlagBits::eMemoryWrite,
+            .oldLayout = vk::ImageLayout::eTransferSrcOptimal,
+            .newLayout = vk::ImageLayout::eTransferSrcOptimal,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = source_image,
+            .subresourceRange = range,
+        };
+        static constexpr vk::MemoryBarrier host_read_barrier = {
+            .srcAccessMask = vk::AccessFlagBits::eTransferWrite,
+            .dstAccessMask = vk::AccessFlagBits::eHostRead,
+        };
+        const vk::BufferImageCopy image_copy = {
+            .bufferOffset = 0,
+            .bufferRowLength = 0,
+            .bufferImageHeight = 0,
+            .imageSubresource =
+                {
+                    .aspectMask = vk::ImageAspectFlagBits::eColor,
+                    .mipLevel = 0,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                },
+            .imageOffset = {0, 0, 0},
+            .imageExtent = {width, height, 1},
+        };
+
+        cmdbuf.pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands,
+                               vk::PipelineStageFlagBits::eTransfer,
+                               vk::DependencyFlagBits::eByRegion, {}, {}, read_barrier);
+        cmdbuf.copyImageToBuffer(source_image, vk::ImageLayout::eTransferSrcOptimal, buffer,
+                                 image_copy);
+        cmdbuf.pipelineBarrier(
+            vk::PipelineStageFlagBits::eTransfer,
+            vk::PipelineStageFlagBits::eHost | vk::PipelineStageFlagBits::eAllCommands,
+            vk::DependencyFlagBits::eByRegion, host_read_barrier, {}, write_barrier);
+    });
+    scene_black_tick = scheduler.CurrentTick();
 }
 
 void RendererVulkan::RenderScreenshot() {

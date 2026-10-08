@@ -88,7 +88,14 @@ RendererOpenGL::RendererOpenGL(Core::System& system, Pica::PicaCore& pica_,
     InitOpenGLObjects();
 }
 
-RendererOpenGL::~RendererOpenGL() = default;
+RendererOpenGL::~RendererOpenGL() {
+    if (scene_black_fence) {
+        glDeleteSync(scene_black_fence);
+    }
+    if (scene_black_renderbuffer) {
+        glDeleteRenderbuffers(1, &scene_black_renderbuffer);
+    }
+}
 
 void RendererOpenGL::SwapBuffers() {
     system.perf_stats->StartSwap();
@@ -121,6 +128,7 @@ void RendererOpenGL::SwapBuffers() {
     }
 
     PrepareRendertarget();
+    MeasureSceneBlack();
     RenderScreenshot();
     isSecondaryWindow = false;
 #ifdef HAVE_LIBRETRO
@@ -195,6 +203,74 @@ void RendererOpenGL::RenderScreenshot() {
 
         settings.screenshot_complete_callback(true);
     }
+}
+
+/**
+ * Pomegrade: Deep black's measurement of the scene (see video_core/pomegrade_scene_black.h). The
+ * screens are drawn unadjusted into a small frame read back through a pixel buffer, which is
+ * mapped a frame or more later, once the GPU is done with it, so the emulation never waits.
+ */
+void RendererOpenGL::MeasureSceneBlack() {
+    constexpr u32 width = VideoCore::SceneBlack::Width;
+    constexpr u32 height = VideoCore::SceneBlack::Height;
+
+    if (scene_black_fence) {
+        if (glClientWaitSync(scene_black_fence, 0, 0) == GL_TIMEOUT_EXPIRED) {
+            scene_black.Step();
+            return;
+        }
+        glDeleteSync(scene_black_fence);
+        scene_black_fence = nullptr;
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, scene_black_pixels.handle);
+        const void* pixels =
+            glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, width * height * 4, GL_MAP_READ_BIT);
+        if (pixels) {
+            scene_black.Measure(static_cast<const u8*>(pixels), false);
+            glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+        }
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    }
+
+    if (!Settings::values.deep_black.GetValue()) {
+        scene_black.Reset();
+        return;
+    }
+    scene_black.Step();
+
+    const bool create = !scene_black_framebuffer.handle;
+    if (create) {
+        scene_black_framebuffer.Create();
+        scene_black_pixels.Create();
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, scene_black_pixels.handle);
+        glBufferData(GL_PIXEL_PACK_BUFFER, width * height * 4, nullptr, GL_STREAM_READ);
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    }
+
+    const GLuint old_read_fb = state.draw.read_framebuffer;
+    const GLuint old_draw_fb = state.draw.draw_framebuffer;
+    state.draw.read_framebuffer = state.draw.draw_framebuffer = scene_black_framebuffer.handle;
+    state.Apply();
+    if (create) {
+        glGenRenderbuffers(1, &scene_black_renderbuffer);
+        glBindRenderbuffer(GL_RENDERBUFFER, scene_black_renderbuffer);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, width, height);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER,
+                                  scene_black_renderbuffer);
+        glBindRenderbuffer(GL_RENDERBUFFER, state.renderbuffer);
+    }
+
+    scene_black_measuring = true;
+    DrawScreens(VideoCore::SceneBlack::MeasurementLayout(), false);
+    scene_black_measuring = false;
+
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, scene_black_pixels.handle);
+    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    scene_black_fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+
+    state.draw.read_framebuffer = old_read_fb;
+    state.draw.draw_framebuffer = old_draw_fb;
+    state.Apply();
 }
 
 void RendererOpenGL::PrepareRendertarget() {
@@ -471,6 +547,9 @@ void RendererOpenGL::ReloadShader(Settings::StereoRenderOption render_3d) {
     uniform_i_resolution = glGetUniformLocation(shader.handle, "i_resolution");
     uniform_o_resolution = glGetUniformLocation(shader.handle, "o_resolution");
     uniform_layer = glGetUniformLocation(shader.handle, "layer");
+    // Pomegrade: only in the built-in present shader (-1, ignored, in the others)
+    uniform_rich_colours = glGetUniformLocation(shader.handle, "rich_colours");
+    uniform_deep_black_threshold = glGetUniformLocation(shader.handle, "deep_black_threshold");
     attrib_position = glGetAttribLocation(shader.handle, "vert_position");
     attrib_tex_coord = glGetAttribLocation(shader.handle, "vert_tex_coord");
 }
@@ -599,6 +678,12 @@ void RendererOpenGL::DrawSingleScreen(const ScreenInfo& screen_info, float x, fl
                 1.0f / static_cast<float>(screen_info.texture.width * scale_factor),
                 1.0f / static_cast<float>(screen_info.texture.height * scale_factor));
     glUniform4f(uniform_o_resolution, h, w, 1.0f / h, 1.0f / w);
+    // Pomegrade: Rich colours and Deep black, off while the scene is measured
+    const bool bottom_screen = &screen_info == &screen_infos[2];
+    glUniform1i(uniform_rich_colours,
+                !scene_black_measuring && Settings::values.rich_colours.GetValue() ? 1 : 0);
+    glUniform1f(uniform_deep_black_threshold,
+                scene_black_measuring ? 0.f : scene_black.Threshold(bottom_screen));
     state.texture_units[0].texture_2d = screen_info.display_texture;
     state.texture_units[0].sampler = sampler;
     state.Apply();

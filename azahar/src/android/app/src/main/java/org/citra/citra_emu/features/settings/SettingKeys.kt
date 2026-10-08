@@ -48,6 +48,11 @@ object SettingKeys {
     external fun turbo_limit(): String
     external fun texture_filter(): String
     external fun texture_sampling(): String
+    // Pomegrade picture options
+    external fun texture_anisotropy(): String
+    external fun texture_upscale_factor(): String
+    external fun rich_colours(): String
+    external fun deep_black(): String
     external fun delay_game_render_thread_us(): String
     external fun simulate_3ds_gpu_timings(): String
     external fun layout_option(): String

@@ -1131,4 +1131,16 @@
     <string name="update_check_channel_stable">Stable</string>
     <string name="update_check_channel_prerelease">Prerelease</string>
 
+
+    <!-- Pomegrade picture options (3DS graphics settings) -->
+    <string name="three_ds_picture">Picture</string>
+    <string name="three_ds_texture_filtering">Texture filtering</string>
+    <string name="three_ds_texture_filtering_description">Anisotropic filtering: keeps floors, roads and walls sharp when they are seen at an angle. Limited to what the GPU supports.</string>
+    <string name="three_ds_texture_upscaling">Texture upscaling</string>
+    <string name="three_ds_texture_upscaling_description">Enlarges the games\' textures with the Texture Filter algorithm (xBRZ when it is None), even at 1x internal resolution. Each texture stops at 4096×4096 to spare memory.</string>
+    <string name="three_ds_rich_colours">Rich colours</string>
+    <string name="three_ds_rich_colours_description">Smooths the steps in gradients left by the games\' 16-bit textures (sky, shadows, lighting), then dithers to the screen: smoother colours, no banding</string>
+    <string name="three_ds_deep_black">Deep black</string>
+    <string name="three_ds_deep_black_description">Near-black shades of each scene become true black: deeper blacks on any screen, pixels off on OLED screens</string>
+    <string name="three_ds_off">Off</string>
 </resources>

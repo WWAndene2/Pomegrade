@@ -16,6 +16,7 @@
 #include "video_core/custom_textures/custom_tex_manager.h"
 #include "video_core/pica/regs_external.h"
 #include "video_core/pica/regs_internal.h"
+#include "video_core/rasterizer_cache/pomegrade_texture_upscaling.h"
 #include "video_core/rasterizer_cache/rasterizer_cache_base.h"
 #include "video_core/rasterizer_cache/surface_base.h"
 #include "video_core/renderer_base.h"
@@ -39,6 +40,8 @@ RasterizerCache<T>::RasterizerCache(Memory::MemorySystem& memory_,
     : memory{memory_}, custom_tex_manager{custom_tex_manager_}, runtime{runtime_}, regs{regs_},
       renderer{renderer_}, resolution_scale_factor{renderer.GetResolutionScaleFactor()},
       filter{Settings::values.texture_filter.GetValue()},
+      texture_upscale_factor{Settings::values.texture_upscale_factor.GetValue()},
+      texture_anisotropy{Settings::values.texture_anisotropy.GetValue()},
       dump_textures{Settings::values.dump_textures.GetValue()},
       use_custom_textures{Settings::values.custom_textures.GetValue()} {
     using TextureConfig = Pica::TexturingRegs::TextureConfig;
@@ -106,9 +109,21 @@ void RasterizerCache<T>::TickFrame() {
     RunGarbageCollector();
 
     const auto new_filter = Settings::values.texture_filter.GetValue();
-    if (filter != new_filter) [[unlikely]] {
+    // Pomegrade: the textures are also recreated when the texture upscaling changes
+    const u32 new_texture_upscale_factor = Settings::values.texture_upscale_factor.GetValue();
+    if (filter != new_filter || texture_upscale_factor != new_texture_upscale_factor) [[unlikely]] {
         filter = new_filter;
+        texture_upscale_factor = new_texture_upscale_factor;
         UnregisterAll();
+    }
+
+    // Pomegrade: samplers are created with the Texture filtering's anisotropy, so new ones are
+    // made when it changes. The old ones stay in their slots (a few dozen at most) since the GPU
+    // may still be using them.
+    const u32 new_texture_anisotropy = Settings::values.texture_anisotropy.GetValue();
+    if (texture_anisotropy != new_texture_anisotropy) [[unlikely]] {
+        texture_anisotropy = new_texture_anisotropy;
+        samplers.clear();
     }
 
     const u32 scale_factor = renderer.GetResolutionScaleFactor();
@@ -581,7 +596,8 @@ SurfaceId RasterizerCache<T>::GetTextureSurface(const Pica::Texture::TextureInfo
     params.levels = max_level + 1;
     params.is_tiled = true;
     params.pixel_format = PixelFormatFromTextureFormat(info.format);
-    params.res_scale = filter != Settings::TextureFilter::NoFilter ? resolution_scale_factor : 1;
+    // Pomegrade: the texture upscaling's scale (upstream: the internal resolution with a filter)
+    params.res_scale = TextureUpscalingScale(info.width, info.height, resolution_scale_factor);
     SurfaceFlagBits initial_flags{};
     if (info.is_shadow_source) {
         initial_flags |= SurfaceFlagBits::ShadowSource;
