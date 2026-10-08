@@ -20,15 +20,18 @@
 //                     them; face 0-3; script: a number of the template zone's script, 0 none; move: the movement, 0 standing)
 //   trainer ID MODEL X Z [face F] [sight N] [move M]
 //                     a trainer of a/0/3/6 (script 3000 + ID, kind 1, sight 4 tiles unless given: inferred, OrasZone.h)
+//   door X Z house Z2 a door ('D' on the map) into a new zone after the described ones, a copy of game interior Z2 (no
+//                     characters or triggers; its warp 0 leads back out)
 //   pieces W H        the size in map pieces (40 x 40 tiles each)
 //   blocks            with several zones: then 4 H rows of 4 W digits, the zone (0 the first given, 1 the next...) of each
 //                     10 x 10 block; one zone alone takes every block
 //   map               then 40 H rows of 40 W letters: '.' grass, 'g' tall grass, ':' path, 's' pale grass, '*' flowers,
-//                     '~' water, 't' a tree, 'T' forest; trees, forest and water are solid
+//                     '~' water, 't' a tree, 'T' forest, 'H' a house's wall, 'D' its door, 'F' a fence; all but grass,
+//                     tall grass, paths and flowers are solid
 //
 // A save moved into a zone (oras-save) shows none of its characters: a continued save restores them from its own block 10,
 // which oras-save empties on a zone change (ORAS_ENGINE.md 0); walking in from another zone loads them from the zone's file.
-// Houses, fences, ledges and doors are not built yet.
+// Ledges are not built yet.
 
 #include "N3dsRom.h"
 
