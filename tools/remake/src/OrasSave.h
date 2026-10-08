@@ -32,6 +32,9 @@ struct OrasSave
     float Z() const;
     // moves the player (zone, and the tile's centre in pixels) and writes block 4's checksum again
     void MoveTo(int zone, float tileX, float tileZ);
+    // copies the whole player block (block 4) from another save (one the game made in the target matrix), before MoveTo: the
+    // block's other words (last warp, a second zone and position record, ...) then come from a place the game wrote itself
+    void TakePlayerBlockFrom(const OrasSave& other);
 };
 
 uint16_t Crc16Ccitt(const uint8_t* data, size_t size);

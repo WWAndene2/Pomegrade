@@ -43,6 +43,14 @@ int OrasSave::Zone() const { return U16(Data, 0x1402); }
 float OrasSave::X() const { float f; std::memcpy(&f, &Data[0x1410], 4); return f; }
 float OrasSave::Z() const { float f; std::memcpy(&f, &Data[0x1418], 4); return f; }
 
+void OrasSave::TakePlayerBlockFrom(const OrasSave& other)
+{
+    const OrasSaveBlock& b = Blocks[Situation];
+    if (other.Blocks[Situation].Offset != b.Offset || other.Blocks[Situation].Length != b.Length) throw FormatError("the template save's player block differs in place or size");
+    std::memcpy(&Data[b.Offset], &other.Data[b.Offset], b.Length);
+    // MoveTo writes the checksum again
+}
+
 void OrasSave::MoveTo(int zone, float tileX, float tileZ)
 {
     // the zone is held twice too: +2 and +0xF4, each before its position (+0x10/+0x18 and +0x104/+0x10C). A save made by the game

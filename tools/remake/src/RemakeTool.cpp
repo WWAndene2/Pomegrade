@@ -45,7 +45,7 @@
 //                     as oras-town builds one, the zone grid from Platinum's map headers, each header on the ORAS zone given
 //                     (-1: left out); --plan prints the rectangle's headers and builds nothing. Writes the mod, region_preview.gltf,
 //                     region_plan.txt and region_piece_<x>_<y>.bin
-//   remake_tool oras-save <main> [<out> <zone> <tile x> <tile z>]
+//   remake_tool oras-save <main> [<out> <zone> <tile x> <tile z> [--template <save>]]
 //                     where an ORAS save puts the player (OrasSave.h); with the rest, a copy with the player moved there
 //   remake_tool oras-sinnoh <platinum.nds> <oras.3ds> [strip width, default 5]
 //                     the plan for all of Sinnoh, nothing written: strips of whole piece columns (one matrix each), their
@@ -140,7 +140,7 @@ static int Usage()
                     "  remake_tool oras-code <oras.3ds> <out.bin>\n"
                     "  remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--plan]\n"
                     "  remake_tool oras-sinnoh <platinum.nds> <oras.3ds> [strip width]\n"
-                    "  remake_tool oras-save <main> [<out> <zone> <tile x> <tile z>]\n"
+                    "  remake_tool oras-save <main> [<out> <zone> <tile x> <tile z> [--template <save>]]\n"
                     "                    [--matrix-template M] [--model-matrix NN] [oras-town's --matrix, --target, --donor, --trees, --donor-pack, --grass, ... --allow-errors]\n");
     return 2;
 }
@@ -1096,6 +1096,13 @@ int main(int argc, char** argv)
             printf("%zu blocks, checksums match; player in zone %d at tile (%.2f, %.2f)\n", save.Blocks.size(), save.Zone(), save.X() / 18, save.Z() / 18);
             if (argc >= 7)
             {
+                // --template FILE: the player block taken from that save first (a save the game made in the target matrix)
+                for (int i = 7; i + 1 < argc; i++)
+                    if (std::string(argv[i]) == "--template")
+                    {
+                        save.TakePlayerBlockFrom(OrasSave::Read(ReadFile(argv[i + 1])));
+                        printf("player block taken from %s\n", argv[i + 1]);
+                    }
                 save.MoveTo(atoi(argv[4]), (float)atof(argv[5]), (float)atof(argv[6]));
                 const OrasSave check = OrasSave::Read(save.Data);
                 WriteFile(argv[3], save.Data);
