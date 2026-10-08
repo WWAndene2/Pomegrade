@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <array>
+#include <map>
 #include <cstring>
 #include <filesystem>
 #include <sstream>
@@ -23,7 +24,7 @@ static Bytes Plain(const Bytes& data) { return IsLzCompressed(data) ? LzDecompre
 
 struct SandboxZone
 {
-    int Number = -1, Template = -1, Encounters = -1;
+    int Number = -1, Template = -1, Encounters = -1, Lighting = -1;
     float SpawnX = -1, SpawnZ = -1;
     std::string Name;
     std::vector<std::array<int, 8>> Characters; // model, x, z, facing, script, movement, kind, sight
@@ -71,6 +72,7 @@ static SandboxDescription ReadDescription(const std::string& text)
         SandboxZone& z = d.Zones.back();
         if (what == "template") ok = (bool)(words >> z.Template);
         else if (what == "encounters") ok = (bool)(words >> z.Encounters);
+        else if (what == "lighting") ok = (bool)(words >> z.Lighting);
         else if (what == "spawn") ok = (bool)(words >> z.SpawnX >> z.SpawnZ);
         else if (what == "name") { std::getline(words >> std::ws, z.Name); ok = !z.Name.empty(); }
         else if (what == "character" || what == "trainer")
@@ -203,7 +205,7 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
     if ((size_t)d.Zones[0].Number != zoneArchive.Count())
         throw FormatError("sandbox: zone " + std::to_string(d.Zones[0].Number) + " is not the next free member of a/0/1/3 (" + std::to_string(zoneArchive.Count()) + ")");
     for (const SandboxZone& z : d.Zones)
-        if (z.Template >= 536 || z.Encounters >= 536) throw FormatError("sandbox: template and encounters are game zones, 0-535");
+        if (z.Template >= 536 || z.Encounters >= 536 || z.Lighting >= 536) throw FormatError("sandbox: template, encounters and lighting are game zones, 0-535");
 
     // every zone draws its textures from the first template's area pack (header word 1), which the pieces are built into
     const int pack = OrasZone::Read(Plain(zoneArchive.Sub((size_t)d.Zones[0].Template))).AreaPack();
@@ -284,6 +286,24 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
         texts.emplace_back(path, data, std::move(n));
     }
 
+    // lighting: an area pack's file 4 (2,944 bytes of RGBA colours, 6 different ones among the game's 229 packs: outdoors,
+    // interiors and a few places; read as the light and fog colours: inferred, not read in code) taken from the pack of game
+    // zone `lighting`, in an appended copy of the shared pack the zone then draws from, so Littleroot's own pack keeps its light
+    std::map<int, uint16_t> lightingPack; // game zone -> the appended pack carrying its light
+    for (const SandboxZone& z : d.Zones)
+    {
+        if (z.Lighting < 0 || lightingPack.count(z.Lighting)) continue;
+        const int from = OrasZone::Read(Plain(zoneArchive.Sub((size_t)z.Lighting))).AreaPack();
+        BinLinker copy = BinLinker::Read(packData, "AD");
+        const Bytes light = BinLinker::Read(Plain(areaArchive.Sub((size_t)from)), "AD").Files.at(4);
+        if (copy.Files.size() < 5 || light.size() != copy.Files[4].size()) throw FormatError("sandbox: an area pack's file 4 is not the size of the shared pack's");
+        copy.Files[4] = light;
+        const size_t index = AppendMember(newAreas, areaArchive, (size_t)pack, copy.Write(), "AD");
+        lightingPack[z.Lighting] = (uint16_t)index;
+        snprintf(line, sizeof line, "lighting of zone %d (area pack %d's file 4): area pack %zu, a copy of pack %d", z.Lighting, from, index, pack);
+        log.push_back(line);
+    }
+
     // the zones: each its template's header and scripts, its events emptied but for its characters, its own number, the new
     // matrix, the shared area pack, the spawn tile and the name
     const size_t rowBytes = 56;
@@ -331,7 +351,7 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
             w.Raw[4] = (uint16_t)(door[0] * 18 + 9); w.Raw[6] = (uint16_t)(door[1] * 18 + 9);
             zone.Doors.push_back(w);
         }
-        zone.Header[1] = (uint16_t)pack;
+        zone.Header[1] = z.Lighting >= 0 ? lightingPack.at(z.Lighting) : (uint16_t)pack;
         zone.Header[2] = (uint16_t)matrixIndex;
         zone.Header[13] = (uint16_t)z.Number;
         for (int at : {22, 25}) { zone.Header[at] = (uint16_t)(z.SpawnX * 18); zone.Header[at + 2] = (uint16_t)(z.SpawnZ * 18); }
