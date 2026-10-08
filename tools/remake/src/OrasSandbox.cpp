@@ -25,6 +25,7 @@ static Bytes Plain(const Bytes& data) { return IsLzCompressed(data) ? LzDecompre
 struct SandboxZone
 {
     int Number = -1, Template = -1, Encounters = -1, Lighting = -1, Camera = -1;
+    float Pitch = -1000; // a test of the area pack's camera table (file 6): preset 0's pitch, degrees
     float SpawnX = -1, SpawnZ = -1;
     std::string Name;
     std::vector<std::array<int, 8>> Characters; // model, x, z, facing, script, movement, kind, sight
@@ -75,6 +76,7 @@ static SandboxDescription ReadDescription(const std::string& text)
         else if (what == "encounters") ok = (bool)(words >> z.Encounters);
         else if (what == "lighting") ok = (bool)(words >> z.Lighting);
         else if (what == "camera") ok = (bool)(words >> z.Camera);
+        else if (what == "camera-pitch") ok = (bool)(words >> z.Pitch);
         else if (what == "spawn") ok = (bool)(words >> z.SpawnX >> z.SpawnZ);
         else if (what == "name") { std::getline(words >> std::ws, z.Name); ok = !z.Name.empty(); }
         else if (what == "character" || what == "trainer")
@@ -312,7 +314,19 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
         log.push_back(line);
         return slot;
     };
-    const uint16_t ownPack = takeFree(packData, "the sandbox's pack, a copy of pack " + std::to_string(pack) + " with the pieces' textures");
+    Bytes ownData = packData;
+    for (const SandboxZone& z : d.Zones)
+        if (z.Pitch > -1000)
+        {
+            // file 6: u32 1, u32 0, then presets of 17 floats (68 bytes) from offset 8, the first word of each its pitch (15.85
+            // in preset 0 of every pack): preset 0's pitch set, to see whether the field's camera follows it
+            BinLinker c = BinLinker::Read(ownData, "AD");
+            Bytes& f6 = c.Files.at(6);
+            uint32_t bits; std::memcpy(&bits, &z.Pitch, 4);
+            for (int k = 0; k < 4; k++) f6.at(8 + k) = (uint8_t)(bits >> (8 * k));
+            ownData = c.Write();
+        }
+    const uint16_t ownPack = takeFree(ownData, "the sandbox's pack, a copy of pack " + std::to_string(pack) + " with the pieces' textures");
     // `lighting`: an area pack's file 4 (2,944 bytes of RGBA colours, 6 different ones among the game's 229 packs: outdoors,
     // interiors and a few places) taken from the pack of game zone `lighting`. Taken for the light and fog colours, but an
     // interior's (zone 216's, run light5: zone 538 on the copy in pack 1) changed nothing seen outdoors, terrain or player:
