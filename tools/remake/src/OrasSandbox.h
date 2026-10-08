@@ -14,8 +14,12 @@
 //                     its textures from the first zone's template's area pack
 //   spawn X Z         the tile the zone's header names (where a new game and a save's warp land, inferred), on its own blocks
 //   name TEXT         optional: the place name (Navi-Map, the sign on entering), added to the eight languages' names
-//   lighting Z        optional: game zone Z's area pack's file 4 in a copy of the sandbox's pack (2,944 bytes of floats the
-//                     field copies into a graphics buffer; no change seen outdoors: what it does is not known, not the light)
+//   lighting Z        optional: game zone Z's area pack's file 4 (the light's colours, below) in a copy of the sandbox's pack
+//   light NAME R G B...
+//                     optional: the zone's light, ambient and/or diffuse colours (0-1) of the terrain's light (light set 0;
+//                     characters keep theirs), in a copy of the sandbox's pack's file 4, every time of day. Checked (run
+//                     lit_red2): "light diffuse 1 0 0 ambient 0 0 1" gives the GPU diffuse (254, 0, 0), ambient (0, 0, 254)
+//                     and a red and blue field. The game's outdoors: diffuse 1 1 0.5, ambient 1 1 0.8 (seen in Littleroot)
 //   camera NAME V...  optional: the zone's camera, one or more settings of preset 0 of its pack's file 6, in a copy of the
 //                     sandbox's pack (each zone with its own settings takes one of the game's 9 free packs). Read in the code
 //                     (Field_CameraComputePos: the camera stands at distance from the point aimed at, along pitch and yaw):

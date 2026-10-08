@@ -274,7 +274,7 @@ another (51 characters passed the count check and stopped on the events buffer).
   | Event, script | no | the template zone's scripts | scripts are read (disassembler), not written |
   | Cutscene | no | no | not studied |
   | Camera | yes | | `camera height H pitch P yaw Y distance D fov F near N far F` (`OrasSandbox.h`): preset 0 of the zone's own pack. **Read** (`Field_CameraApplyParams` 0x102CB460, `Field_CopyCameraParams` 0x102CB128, `Field_CameraComputePos` 0x1031C0AC) and **checked live** on 8 October: pitch -70 looks straight down (`w1`), distance 600 shows the whole sandbox (`w7`), fov 60 widens the view (`w6`), `height 14 pitch -8 distance 40 near 4` a view over the shoulder (`pov`); near and far read from their values only |
-  | Lighting | no | `lighting Z`: a pack's file 4 | **Seen** (runs `lit1` Littleroot, `lit2` Route 101; `lights on/off` in `headless/retro_host.cpp`, the GPU's state at each draw): the field is lit by the GPU's fragment lighting, **one directional light**, the same in both zones: direction (0, 0.757, 0.652) in view space, the vertical seen at the camera's -40.74 degrees (inferred: a light from straight above); the colours the game writes (light x material) vary only with the material: diffuse (254, 254, 127) or (254, 254, 254), ambient (215, 215, 172), (254, 254, 203) or (124, 141, 177). Where the game makes that light is not found: not file 4 (floats, no light value in it, `light5`), no light in the packs or the 857 pieces' BCH (checked); `FUN_0037B9D8` and `Gfx_CreateLightNode` are camera code, not light (read) |
+  | Lighting | yes | `lighting Z`: a pack's file 4 | `light ambient R G B diffuse R G B` (`OrasSandbox.h`). **Read** and **checked live**: the terrain's light (light set 0, one directional light from above) takes its colours from the area pack's file 4, copied into a buffer at field setup (`Res_CopyToCachedBuffer`): planes of 12 floats (3 kinds x 4 times of day; `FUN_0013D908` reads them, `FUN_0012DDF4` blends two entries and sets the light, `FUN_00139124` ambient, `FUN_001391D4` diffuse): ambient red/green/blue at +0x00/+0x30/+0x60, diffuse at +0x90/+0xC0/+0xF0, two more colours at +0x120 and +0x1B0 (not tested). Run `lit_red2`: diffuse (1, 0, 0) and ambient (0, 0, 1) give the GPU (254, 0, 0) and (0, 0, 254) and a red and blue field; the player keeps its own light. Not read: how the kind and the time slots are chosen; the earlier `light5` and `lit_red` changed the wrong entries |
   | Texture | not checked | the area packs' textures | the piece builder adds a pack's textures to the zone's pack |
   | Animation | no | no | not studied |
   | 3D model | no | pieces cut from the game's (house, trees, fence, ledge) | a model of one's own not made |
@@ -290,14 +290,11 @@ another (51 characters passed the count check and stopped on the events buffer).
     +0x1C far (2000), +0x20 field of view in degrees (30), +0x24 distance (254.4); +0x28 is clamped to 1 and kept at +0xA8,
     +0x2C at +0xA4 (roles not read); +0x14 is read by neither. **Seen** (run `cam10`, a heap dump in Littleroot): N = 0, and
     the preset 0 copy at the camera. Where N comes from is not found; the sandbox writes preset 0, which its zones use.
-  - Lighting (8 October, continued): the materials of the 857 pieces are white in 93% of cases (12,820 materials read with
-    SPICA's H3DMaterialParams layout: ambient and diffuse FFFFFF, light set 0), so the GPU colours are the light's own: light
-    set 0 diffuse (1, 1, 0.5), ambient (1, 1, 0.8), a yellow sun (seen). Those exact floats are in the outdoor packs' file 4
-    (+0xA8, +0x2F8; other values in the interiors' and caves' variants) and in `a/0/5/9` member 0, at the same offsets. Neither
-    is where the field takes its light: the sandbox's file 4 set to red and blue (run `lit_red`) and `a/0/5/9` member 0 set
-    likewise (run `lit_a059`, Littleroot, the mod's load not confirmed) left the GPU's light unchanged (checked with `lights`).
-    Next: find the GPU command list words in a heap dump (the value 0x0FE3F87F next to a header for register 0x142, light 0
-    diffuse) and add to the core a watch that logs the PC writing them, then read that code.
+  - Lighting, how it was found (8 October): the GPU's light state captured at each draw (`lights on/off`, runs `lit1`,
+    `lit2`), the pieces' materials found white (so the GPU colours are the light's), the light's floats found in memory by
+    elimination (heap and linear heap, `lit3`), the runtime copies shown empty before the field loads (`poke` at the title,
+    `lit5`), their writer caught with `writers LO HI` under the interpreter (`lit6`: `FUN_00139124`, `FUN_001391D4`), then
+    the code read back to file 4's layout.
 
 ## 3. Map pieces
 

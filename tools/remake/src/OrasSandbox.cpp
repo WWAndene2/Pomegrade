@@ -26,6 +26,7 @@ struct SandboxZone
 {
     int Number = -1, Template = -1, Encounters = -1, Lighting = -1;
     std::map<uint32_t, float> Camera; // the camera settings given: byte offset in preset 0 of the area pack's file 6 -> value
+    std::map<uint32_t, float> Light;  // the light colours given: byte offset in the area pack's file 4 -> value
     float SpawnX = -1, SpawnZ = -1;
     std::string Name;
     std::vector<std::array<int, 8>> Characters; // model, x, z, facing, script, movement, kind, sight
@@ -75,6 +76,24 @@ static SandboxDescription ReadDescription(const std::string& text)
         if (what == "template") ok = (bool)(words >> z.Template);
         else if (what == "encounters") ok = (bool)(words >> z.Encounters);
         else if (what == "lighting") ok = (bool)(words >> z.Lighting);
+        else if (what == "light")
+        {
+            // "light NAME R G B..." (OrasSandbox.h): a colour of the area pack's file 4, in each of its 12 entries. The file holds
+            // its colours in planes of 12 floats (3 kinds x 4 times of day, FUN_0013D908 0x13D908 reads them, FUN_0012DDF4 blends
+            // two entries and sets the field light's ambient and diffuse colours, FUN_00139124 and FUN_001391D4): a colour's red
+            // at its group's offset, green 0x30 and blue 0x60 further (ORAS_ENGINE.md 2)
+            static const std::map<std::string, uint32_t> colours = {{"ambient", 0x00}, {"diffuse", 0x90}};
+            std::string name; float rgb[3];
+            ok = false;
+            while (words >> name >> rgb[0] >> rgb[1] >> rgb[2])
+            {
+                const auto at = colours.find(name);
+                if (at == colours.end()) fail("no light colour \"" + name + "\" (ambient, diffuse)");
+                for (uint32_t c = 0; c < 3; c++)
+                    for (uint32_t entry = 0; entry < 12; entry++) z.Light[at->second + c * 0x30 + entry * 4] = rgb[c];
+                ok = true;
+            }
+        }
         else if (what == "camera")
         {
             // "camera NAME VALUE..." (OrasSandbox.h): each name a float of a camera preset, by its offset (Field_CameraApplyParams
@@ -336,13 +355,13 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
     // `camera`: settings of preset 0 of the pack's file 6, a table of 0x44-byte presets from offset 0 (Zone_ApplyZonePackData
     // 0x102E22D0 copies preset N, N the low byte of a u16 at +0xE of the area pack's loader, 0 when past the file's end; it was
     // 0 in Littleroot, run cam10, and the sandbox's zones use preset 0, runs cam0 and cam3; where N comes from is not found)
-    std::map<std::pair<int, std::map<uint32_t, float>>, uint16_t> zonePacks;
+    std::map<std::tuple<int, std::map<uint32_t, float>, std::map<uint32_t, float>>, uint16_t> zonePacks;
     std::vector<uint16_t> packOf(d.Zones.size(), ownPack);
     for (size_t k = 0; k < d.Zones.size(); k++)
     {
         const SandboxZone& z = d.Zones[k];
-        if (z.Lighting < 0 && z.Camera.empty()) continue;
-        const auto key = std::make_pair(z.Lighting, z.Camera);
+        if (z.Lighting < 0 && z.Camera.empty() && z.Light.empty()) continue;
+        const auto key = std::make_tuple(z.Lighting, z.Camera, z.Light);
         if (const auto found = zonePacks.find(key); found != zonePacks.end()) { packOf[k] = found->second; continue; }
         BinLinker copy = BinLinker::Read(packData, "AD");
         std::string what = "zone " + std::to_string(z.Number) + "'s pack, a copy of the sandbox's with";
@@ -364,6 +383,17 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
                 for (int b = 0; b < 4; b++) presets[at + b] = (uint8_t)(bits >> (8 * b));
             }
             what += std::string(z.Lighting >= 0 ? " and" : "") + " its camera";
+        }
+        if (!z.Light.empty())
+        {
+            Bytes& light = copy.Files.at(4);
+            for (const auto& [at, value] : z.Light)
+            {
+                if (at + 4 > light.size()) throw FormatError("sandbox: the pack's file 4 is too short for the light");
+                uint32_t bits; std::memcpy(&bits, &value, 4);
+                for (int b = 0; b < 4; b++) light[at + b] = (uint8_t)(bits >> (8 * b));
+            }
+            what += " its light";
         }
         packOf[k] = zonePacks[key] = takeFree(copy.Write(), what);
     }
