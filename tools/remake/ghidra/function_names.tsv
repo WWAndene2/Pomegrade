@@ -3679,3 +3679,131 @@
 10843330	Field_ZoneEffect_Construct	Constructs a zone effect, picking its data table from the zone id and allocating its model resources.	guess
 10843F20	Field_ZoneEffect_SaveVisibilityFlags	Builds per-group visibility bitmasks and stores them into a 16-byte state block.	guess
 10844C88	Field_ZoneEffect_UpdateByDistance	Starts the zone effect when the player comes within range, or waits for its animations to finish.	guess
+# Trainer battle, the last 127 (8 October, run trainer3): 73 import stubs named by the target word after their ldr pc, [pc, #-4] (read in linked/modules.bin), 54 functions read with up to 3 callers each by two sub-agents; checked here: exactly the 127 left, no name or address reused, one read downgraded to guess (004E7F98), 10075BC0 re-read
+0019C818	Util_Thunk_0050DDA8	Relay jumping to main-program function 0x0050DDA8 (ldr pc, [pc, #-4] with the target word after it).	read
+10025290	Battle_Import_003A44A8	Import thunk jumping to main-program function 0x003A44A8.	read
+100252B8	Battle_Import_00362FC4	Import thunk jumping to main-program function 0x00362FC4.	read
+10025328	Battle_Import_0036236C	Import thunk jumping to main-program function 0x0036236C.	read
+10025438	Battle_Import_003B5CB0	Import thunk jumping to main-program function 0x003B5CB0.	read
+10025440	Battle_Import_003B5C1C	Import thunk jumping to main-program function 0x003B5C1C.	read
+10025840	Battle_Import_003B5A18	Import thunk jumping to main-program function 0x003B5A18.	read
+100259F0	Battle_Import_003A5CA4	Import thunk jumping to main-program function 0x003A5CA4.	read
+10025A40	Battle_Import_0044FB44	Import thunk jumping to main-program function 0x0044FB44.	read
+10026210	Battle_Import_00484B14	Import thunk jumping to main-program function 0x00484B14.	read
+10026230	Battle_Import_0044C614	Import thunk jumping to main-program function 0x0044C614.	read
+10026258	Battle_Import_004E79A4	Import thunk jumping to main-program function 0x004E79A4.	read
+10026398	Battle_Import_00453508	Import thunk jumping to main-program function 0x00453508.	read
+100263A0	Battle_Import_0034D3AC	Import thunk jumping to main-program function 0x0034D3AC.	read
+100263A8	Battle_Import_00486CFC	Import thunk jumping to main-program function 0x00486CFC.	read
+100263B8	Battle_Import_0048CE58	Import thunk jumping to main-program function 0x0048CE58.	read
+100263C8	Battle_Import_004917C8	Import thunk jumping to main-program function 0x004917C8 (Util_ClearByte).	read
+100263E8	Battle_Import_0046CC48	Import thunk jumping to main-program function 0x0046CC48.	read
+100263F8	Battle_Import_0049ECCC	Import thunk jumping to main-program function 0x0049ECCC (Sys_CheckGlobalTaskIdle).	read
+100266B0	Battle_Import_004C50F4	Import thunk jumping to main-program function 0x004C50F4.	read
+10026708	Battle_Import_003657B8	Import thunk jumping to main-program function 0x003657B8.	read
+100269E8	Battle_Import_003A7424	Import thunk jumping to main-program function 0x003A7424.	read
+10026BC0	Battle_Import_00362010	Import thunk jumping to main-program function 0x00362010.	read
+10026C10	Battle_Import_0044E6F0	Import thunk jumping to main-program function 0x0044E6F0.	read
+10026C18	Battle_Import_0044E478	Import thunk jumping to main-program function 0x0044E478.	read
+10026C20	Battle_Import_0044DCF0	Import thunk jumping to main-program function 0x0044DCF0.	read
+10026D30	Battle_Import_00102DB3	Import thunk jumping to main-program function 0x00102DB3.	read
+10026D38	Battle_Import_004CCF80	Import thunk jumping to main-program function 0x004CCF80 (Gfx_FindPaneIndexByName).	read
+10026D68	Battle_Import_004D2C38	Import thunk jumping to main-program function 0x004D2C38.	read
+10026E08	Battle_Import_0036EA38	Import thunk jumping to main-program function 0x0036EA38 (Res_AsyncLoaderPoll).	read
+10026E10	Battle_Import_003AAE3C	Import thunk jumping to main-program function 0x003AAE3C (Script_Load).	read
+10026E18	Battle_Import_00506190	Import thunk jumping to main-program function 0x00506190 (Sys_LinkImportsByNameHash).	read
+10026E20	Battle_Import_003AADFC	Import thunk jumping to main-program function 0x003AADFC (Script_FindPublicVariable).	read
+10026E28	Battle_Import_003AAFC8	Import thunk jumping to main-program function 0x003AAFC8 (Script_RunUntilYield).	read
+10026E58	Battle_Import_004C77FC	Import thunk jumping to main-program function 0x004C77FC.	read
+10026EC0	Battle_Import_00454058	Import thunk jumping to main-program function 0x00454058.	read
+10026EE8	Battle_Import_004F33E0	Import thunk jumping to main-program function 0x004F33E0.	read
+10242328	Field_Import_0044FA8C	Import thunk jumping to main-program function 0x0044FA8C.	read
+10242440	Field_Import_004C6514	Import thunk jumping to main-program function 0x004C6514.	read
+10242510	Field_Import_003611D8	Import thunk jumping to main-program function 0x003611D8.	read
+10242840	Field_Import_0033DAC4	Import thunk jumping to main-program function 0x0033DAC4.	read
+10243218	Field_Import_003A736C	Import thunk jumping to main-program function 0x003A736C.	read
+10243398	Field_Import_004E3D54	Import thunk jumping to main-program function 0x004E3D54 (Field_Actor_GetPosition).	read
+102433A0	Field_Import_004DC164	Import thunk jumping to main-program function 0x004DC164.	read
+102433A8	Field_Import_004E05E0	Import thunk jumping to main-program function 0x004E05E0.	read
+102433C8	Field_Import_004DC4CC	Import thunk jumping to main-program function 0x004DC4CC.	read
+102433F8	Field_Import_004DBF14	Import thunk jumping to main-program function 0x004DBF14.	read
+10243548	Field_Import_003B3614	Import thunk jumping to main-program function 0x003B3614.	read
+102439E8	Field_Import_004E7F98	Import thunk jumping to main-program function 0x004E7F98.	read
+10243C10	Field_Import_004EDC54	Import thunk jumping to main-program function 0x004EDC54.	read
+10243C18	Field_Import_00483EEC	Import thunk jumping to main-program function 0x00483EEC.	read
+10243C20	Field_Import_004EDB34	Import thunk jumping to main-program function 0x004EDB34.	read
+10243D30	Field_Import_003CC350	Import thunk jumping to main-program function 0x003CC350.	read
+10243D38	Field_Import_00483118	Import thunk jumping to main-program function 0x00483118.	read
+10243D68	Field_Import_003B6DF8	Import thunk jumping to main-program function 0x003B6DF8 (Util_FindIndexInTable67).	read
+10243EC0	Field_Import_003C194C	Import thunk jumping to main-program function 0x003C194C (Gfx_DisableJointControllers).	read
+10244160	Field_Import_004E11DC	Import thunk jumping to main-program function 0x004E11DC.	read
+10244428	Field_Import_00453E08	Import thunk jumping to main-program function 0x00453E08 (Trainer_ReadData).	read
+102446F8	Field_Import_003AADFC	Import thunk jumping to main-program function 0x003AADFC (Script_FindPublicVariable).	read
+10244788	Field_Import_00460C74	Import thunk jumping to main-program function 0x00460C74.	read
+10244910	Field_Import_003F8F60	Import thunk jumping to main-program function 0x003F8F60.	read
+10244B70	Field_Import_004E7A64	Import thunk jumping to main-program function 0x004E7A64.	read
+10244BB8	Field_Import_003FE0EC	Import thunk jumping to main-program function 0x003FE0EC.	read
+10245070	Field_Import_00450C68	Import thunk jumping to main-program function 0x00450C68.	read
+10246918	Field_Import_003B0940	Import thunk jumping to main-program function 0x003B0940.	read
+10246990	Field_Import_003697C0	Import thunk jumping to main-program function 0x003697C0.	read
+10842188	AreaFriendShip_Import_0010018D	Import thunk jumping to main-program function 0x0010018D.	read
+108421E0	AreaFriendShip_Import_003AA62C	Import thunk jumping to main-program function 0x003AA62C (Util_NopStub).	read
+108421E8	AreaFriendShip_Import_002FF8C0	Import thunk jumping to main-program function 0x002FF8C0.	read
+108421F0	AreaFriendShip_Import_002FF10C	Import thunk jumping to main-program function 0x002FF10C (Mem_HeapFreeBlock).	read
+108421F8	AreaFriendShip_Import_004E4700	Import thunk jumping to main-program function 0x004E4700.	read
+10842200	AreaFriendShip_Import_00452EE8	Import thunk jumping to main-program function 0x00452EE8.	read
+108422B8	AreaFriendShip_Import_102BE030	Import thunk jumping to DllField function 0x102BE030.	read
+003697C0	Res_ReleaseViaGlobalManager	Gets a global manager (0012b95c) and passes the object to its release call; Warp_TeardownCurrentZone calls it on zone pointers then zeroes them.	guess
+003A4DB0	Gfx_SceneSlot_SetWord50	Bounds-checks index against count byte +0x710 and stores a register value into entry+0x50 of 0x84-byte array at +0x708; called per slot alongside 0044E478/0044E6F0.	guess
+003B5A18	Res_MoveData_GetParam2	Returns FUN_00169184(id,2); battle move-info UI passes the move id and compares result to 2.	guess
+003B5C1C	Res_MoveData_GetParam0	Returns FUN_00169184(id,0); Battle_UI_RefreshMoveInfo/DrawMoveEntry draw the result for the move id.	guess
+003F8F60	Sys_CheckFlags9F9EBothSet	Gets an object (004e3d94) and returns 1 only if queries 0x9f and 0x9e both nonzero; gates Event_MoveCode_RandomTurn and MdlAcmdSet.	guess
+00419620	Sys_PollTrigger60000	Pointer-table callback: checks flag bytes +0xd8..+0xdc and condition on +0x98 object, then posts 0x60000 via 0044fa8c and returns 1.	guess
+0044DCF0	Gfx_SceneSlot_ApplyWord50Global	Passes the global scene object (+0x10->+4) and slot index to Gfx_SceneSlot_SetWord50; called per slot with 0044E478/0044E6F0.	guess
+0044E478	Gfx_SceneSlot_ApplyA4FC4Global	Calls 003a4fc4 on the global scene object with slot index; per-slot update in battle/field lighting loops.	guess
+0044E6F0	Gfx_SceneSlot_ApplyA4FE4Global	Calls 003a4fe4 on the global scene object with slot index; first of the three per-slot update calls.	guess
+00452EE8	Gfx_ModelGroupSet_ReleaseResources	Frees block +0x20, deletes objects +0x10/+0x14, releases +0x18/+0x1c and zeroes them; called by Gfx_ModelGroupSet_Destroy before freeing.	read
+0048DA34	Gfx_Model_ApplyColorParams	Sets model byte +0x14c and per-material colour vectors, copies 12 words into +0x100..+0x12c; called from a switch in 0048c488.	guess
+004CF1BC	Res_LoadState_Classify	Returns 0 unless state +0x2d==2 and +0x3f!=1, then 1 or 2 depending on +0x68/+0x22/+0x1e; battle loader 1004fd44 branches on 1 vs 2.	guess
+004DBEC8	Map_QueryAttributeAtPoint	Builds a query struct, runs 004dc948 on object and position, returns word +0xc; Event_FindTalkTargetInFront tests the result with 00403004.	guess
+004DBF14	Map_Actor_GetSightValueByType	By actor type (+0x14): 1 for types 2/0x14, half-word +0x4c for listed types, else 0; Field_TrainerSight_CheckLine returns 0 when it is 0.	guess
+004DC164	Map_Actor_IsType2Or20	Returns whether actor type half-word +0x14 is 2 or 0x14; used in trainer sight scan 10263014.	read
+004DC4CC	Map_Actor_GetType	Returns half-word +0x14 (the actor type tested by the sibling predicates); sight scan compares two actors' values.	read
+004E05E0	Map_Actor_IsType18Or19	Returns whether actor type +0x14 is 0x12 or 0x13; gates second direction check in trainer sight scan.	read
+004E4700	Gfx_SlotPairTable_Contains	Returns 1 if id appears in byte table +0xb5..+0xbc; Gfx_ModelGroup_Destroy calls it before 004026d0 removal.	read
+004E79A4	Trainer_Class_GetIndexedEntry	Computes word+8*3+index, falling back to index if >0x2ab; battle calls it on Trainer_ReadClass output.	guess
+004E79D8	Trainer_Class_GetByte7OrNone	Returns byte +7 of the record from Trainer_ReadClass, or -1 for ids 0x25/0x77, 0xff or >0xe.	guess
+004E7A64	Util_GetWord10	Pointer-table entry returning word +0x10 of its object.	guess
+004E7F98	Map_BerryPlot_CopyRecord	Copies 16-byte record index<100 from save block +0x19ddc and returns success; Script_Native__FieldNutsGetParam reads it.	guess
+10027B08	Battle_ReleaseHandles10And14	Pointer-table: stops and destroys object +0x10 via vtable, destroys +0x14, zeroes both.	guess
+10027B68	Battle_CreateSubObject14	Pointer-table: allocates a 12-byte vtable object on heap +0x20, links back to owner, stores in +0x14.	guess
+1002ADF4	Battle_PickUniqueSlotValue	Chooses a value via 1002f5fc avoiding ones already in +0x1d4 table, stores it at slot param_3 and outputs it; 100320c8 forwards result to 1009b528.	guess
+1003BAC8	Battle_ReleaseSlotObjects	Destroys five vtable objects (+0x838..+0x848) in each of 4 slots of stride 0x38; called by teardown 1003ed74.	read
+1003BB7C	Battle_FillStatsRecord	Fills record +0x138..+0x150 of context +0x10 from party data, counts and remainders, then writes 0x46 value via 00463b6c.	guess
+1003BFA0	Battle_InitStep_WaitSubObjectsReady	Init-sequence step (stored in the step table beside Battle_InitStep) that polls up to four sub-objects at +0x828 and the object at +0x820, returning 1 once all report done.	guess
+10044114	Battle_Action9_ProcessTargets	Case 9 of the action dispatcher FUN_10093040: loops over the target list, raising battle events (0xa5) per target.	guess
+100464A8	Battle_Cmd10_CheckTargetConditions	Case 10 of command dispatcher FUN_1003f350: walks listed positions and tests per-Pokemon condition slots.	guess
+1004942C	Battle_Move_RunPostHitTargetEvents	Called at the end of FUN_1008d9c4 with the target list: checks a type-based result per target and fires events 0x8d/0x8c/0x8e.	guess
+1005A918	Battle_Task_SpawnModelPositionTask	Allocates a task from the pool, queries a model position through its vtable and creates a 0x40 helper; called per model by FUN_100b4018.	guess
+1005AC90	Battle_Task_SpawnFloatDeltaTask	Allocates a task storing a target object and a float delta (end - start); called from FUN_101e8a14.	guess
+1005D1A8	Battle_Ctx_MapStateToResultCode	Maps state bytes 0xe3/0xe4/0xe6 of the object at +0x24 to a result code 0..14 switched on by FUN_100d0e24.	guess
+100744C0	Battle_Pokemon_GetFlagBit6At1B	Returns bit 6 of byte +0x1b; handlers test it before pushing work item 0x35.	guess
+10075BC0	Battle_Pokemon_GetMoveIdAt162	Returns the halfword at +0x162, which three handlers pass as a move id to Battle_Pokemon_FindMoveSlot.	read
+10076CAC	Battle_Pokemon_GetHalf14	Returns the low 16 bits of the word at +0x14; handlers compare it with a threshold or use it as a loop count.	guess
+1007821C	Battle_Text_SetTrainerNameRegister	Fills text register param_1 from the client slot (0x38-byte record) in an indexed table; called beside Text_BuildTrainerClassAndName.	guess
+100A616C	Battle_SeqCmd_ApplyToPositionPokemon	Sequence command (table at 0x101019b4): resolves a position, gets its Pokemon and passes its first word to a main-program routine.	guess
+100ACBEC	Battle_Obj_IsByte10Equal6	Returns whether byte +0x10 equals 6; used as a veto in Battle_Handler_PushTargetItemMessage.	guess
+100AF0D0	Battle_SeqVal_GetPositionPokemonHalf158	Sequence value (table at 0x10101944): resolves a position and returns the Pokemon's halfword +0x158.	guess
+100CB1A4	Battle_Text_SetTrainerClassRegister	Fills text register param_1 from the client slot class fields; called before the name register in FUN_100782c8.	guess
+100CE020	Battle_Seq_GetPositionParam11Randomized	Reads Pokemon param 0x11 of a resolved position, randomly substituted from up to three values in some modes; compared by Battle_SeqCond_PositionMatches.	guess
+102AB4EC	Field_PickRandomTableEntryByCategory	Counts flags, then picks a random entry from a category table, writing the entry and category (2 or 3) to outputs; called from FUN_103190d0 on random rolls.	guess
+102B154C	Field_CreateSceneObjectFromParams	Fills a parameter block from the context and creates an object via a main-program factory, optionally positioning it; returns 1.	guess
+102B4948	Field_ResetLayersAndReleaseActiveModel	Resets four display layers, clears the active slot entry at +0x134 and conditionally releases its model.	guess
+102B7948	Field_PlayCueForIdAndCount	Maps ids 0x3b..0x4e to cues 0x9c..0xa4, plays them and updates a repeat counter at +0x8c with a timer at +0x90.	guess
+102C0E58	Script_WazaOshie_CheckTutorMove	Called by Script_Native_WazaOshieCheck: per tutor kind checks the Pokemon and returns 2 if it knows the move, 1 if it can learn, 0 otherwise.	guess
+102C8DA8	Field_CallIfObj1ACSet	Calls a main-program routine only when the word at +0x1ac is nonzero.	guess
+102C9990	Field_Camera_ApplyModeStep	Per-mode camera adjustment taking a mode byte (+0x17 of a camera area record); called after FUN_102c9a80.	guess
+102C9A80	Field_Camera_ApplyAreaBounds	Computes camera targets from area bounds per area type (1..7) and applies them; called from FUN_102ce4b8 and FUN_1026fa98.	guess
+102C9BF8	Field_Camera_StoreParams	Copies camera parameter vectors and three record fields into an output block; called after Gfx_CameraParam_Lerp.	guess
+102CA7C4	Field_GetObj60Handle	Passes the word at +0x60 to a main-program import and returns the result; used by Script_Native_MsgLoad/MsgIsLoaded.	guess
+102CD5D4	Field_ConvertRailPosToVector	Converts a rail position (two words plus data) into a 4-word vector; used by Script_Native_MdlGetRailPosKey and Field_ResolveObjectBinding.	guess
