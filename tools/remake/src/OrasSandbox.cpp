@@ -1,4 +1,5 @@
 #include "OrasSandbox.h"
+#include "Amx.h"
 #include "BinLinker.h"
 #include "GameText.h"
 #include "Bps.h"
@@ -31,6 +32,7 @@ struct SandboxZone
     std::string Name;
     std::vector<std::array<int, 8>> Characters; // model, x, z, facing, script, movement, kind, sight
     std::vector<std::array<int, 3>> Doors;      // x, z, the game interior zone copied as the house's inside
+    std::string Script, InitScript;             // assembler source (Amx.h) of the zone's own scripts, empty: the template's
 };
 
 struct SandboxDescription
@@ -52,12 +54,22 @@ static SandboxDescription ReadDescription(const std::string& text)
     std::istringstream in(text);
     std::string line;
     enum { Statements, Blocks, Map } part = Statements;
+    std::string* source = nullptr; // inside a script or init-script block
     int number = 0;
     auto fail = [&](const std::string& what) { throw FormatError("sandbox description, line " + std::to_string(number) + ": " + what); };
     while (std::getline(in, line))
     {
         number++;
         if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (source)
+        {
+            // a script block's lines as they are ('#' is a hash in assembler source, ';' its comment), up to "end"
+            std::istringstream first(line);
+            std::string word;
+            if (first >> word && word == "end") { source = nullptr; continue; }
+            *source += line + "\n";
+            continue;
+        }
         const size_t hash = line.find('#');
         if (hash != std::string::npos) line.erase(hash);
         std::istringstream words(line);
@@ -73,6 +85,14 @@ static SandboxDescription ReadDescription(const std::string& text)
         if (what == "blocks") { part = Blocks; continue; }
         if (d.Zones.empty()) fail(what + " before any zone");
         SandboxZone& z = d.Zones.back();
+        if (what == "script" || what == "init-script")
+        {
+            std::string& block = what == "script" ? z.Script : z.InitScript;
+            if (!block.empty()) fail(what + " given twice");
+            block = "; " + what + " of zone " + std::to_string(z.Number) + "\n";
+            source = &block;
+            continue;
+        }
         if (what == "template") ok = (bool)(words >> z.Template);
         else if (what == "encounters") ok = (bool)(words >> z.Encounters);
         else if (what == "lighting") ok = (bool)(words >> z.Lighting);
@@ -196,6 +216,7 @@ static SandboxDescription ReadDescription(const std::string& text)
             if (door[2] < 0 || door[2] >= 536) throw FormatError(which + ": a house's inside is a game zone, 0-535");
         }
     }
+    if (source) fail("a script block without its \"end\"");
     return d;
 }
 
@@ -232,7 +253,8 @@ static TownLayout PieceLayout(const SandboxDescription& d, int px, int py)
     return l;
 }
 
-std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& description, const std::string& outDir)
+std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& description, const std::string& outDir,
+                                          const std::function<std::string(const std::string&)>& checkNative)
 {
     const SandboxDescription d = ReadDescription(description);
     std::vector<std::string> log;
@@ -457,6 +479,16 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
             if (nameLine[k] > 0x3FF) throw FormatError("sandbox: no place name number left (10 bits)");
             zone.Header[14] = (uint16_t)((zone.Header[14] & ~0x3FF) | nameLine[k]);
         }
+        // the zone's own scripts (SINNOH_BUILD.md R1), assembled with their natives checked against the game's tables and the
+        // native mask oras-engine gives zones 536 and up (0x243)
+        for (const auto& [source, script, what] : {std::tuple{&z.Script, &zone.Script, "script"}, std::tuple{&z.InitScript, &zone.InitScript, "init-script"}})
+        {
+            if (source->empty()) continue;
+            if (!checkNative) throw FormatError("sandbox: zone " + std::to_string(z.Number) + "'s " + what + ": no native tables to check it against");
+            *script = AmxAssemble(*source, checkNative);
+            snprintf(line, sizeof line, "zone %d: its own %s, %zu bytes (no script of the template's)", z.Number, what, script->size());
+            log.push_back(line);
+        }
         BinLinker zc = BinLinker::Read(zone.Write(templateData), "ZO");
         const Bytes encounter = z.Encounters >= 0 ? BinLinker::Read(Plain(zoneArchive.Sub((size_t)z.Encounters)), "ZO").Files.at(3) : Bytes{};
         zc.Files.at(3) = encounter;
@@ -475,8 +507,8 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
         table.insert(table.end(), header.begin(), header.end());
         while (en.Files.size() < zoneIndex) en.Files.push_back(Bytes{});
         en.Files.push_back(encounter);
-        snprintf(line, sizeof line, "zone %zu: template %d's header and scripts, area pack %u, %zu character(s), spawn (%.1f, %.1f), name %s, encounters %s", zoneIndex,
-                 z.Template, (unsigned)zone.Header[1], zone.Characters.size(), z.SpawnX, z.SpawnZ, nameLine[k] >= 0 ? ("\"" + z.Name + "\" (line " + std::to_string(nameLine[k]) + ")").c_str() : "the template's",
+        snprintf(line, sizeof line, "zone %zu: template %d's header%s, area pack %u, %zu character(s), spawn (%.1f, %.1f), name %s, encounters %s", zoneIndex,
+                 z.Template, z.Script.empty() && z.InitScript.empty() ? " and scripts" : z.Script.empty() ? " and script" : z.InitScript.empty() ? " and init script" : "", (unsigned)zone.Header[1], zone.Characters.size(), z.SpawnX, z.SpawnZ, nameLine[k] >= 0 ? ("\"" + z.Name + "\" (line " + std::to_string(nameLine[k]) + ")").c_str() : "the template's",
                  z.Encounters >= 0 ? ("of zone " + std::to_string(z.Encounters)).c_str() : "none");
         log.push_back(line);
     }

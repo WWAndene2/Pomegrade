@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cstdio>
 #include <map>
+#include <memory>
+#include <set>
 #include <sstream>
 
 namespace remake
@@ -463,6 +465,40 @@ Bytes AmxAssemble(const std::string& source, const std::function<std::string(con
     }
     if (s.Code.empty()) throw fail(lines.empty() ? Line{0, {}} : lines.back(), "no code");
     return s.Write();
+}
+
+// The check of the natives a script names (AmxAssemble): each must be in the game's tables (function_names.tsv, the
+// Script_Native_ rows, each naming its native in quotes, then its table and mask bit) and registered for a script of
+// `mask` (a zone's native mask, ORAS_ENGINE.md 6: oras-engine gives zones 536 and up 0x243 unless told otherwise). A row
+// naming no bit is a table every script gets (Script_Load's, the field's, float's).
+std::function<std::string(const std::string&)> AmxNativeCheck(const std::string& namesFile, uint32_t mask)
+{
+    auto always = std::make_shared<std::set<std::string>>();
+    auto bits = std::make_shared<std::map<std::string, uint32_t>>(); // the bits that register it
+    const Bytes text = ReadFile(namesFile);
+    std::istringstream rows(std::string(text.begin(), text.end()));
+    for (std::string row; std::getline(rows, row);)
+    {
+        if (row.find("\tScript_Native_") == std::string::npos) continue;
+        const size_t q = row.find("native"), open = row.find('"', q), close = row.find('"', open + 1);
+        if (q == std::string::npos || open == std::string::npos || close == std::string::npos) continue;
+        const std::string name = row.substr(open + 1, close - open - 1);
+        bool any = false;
+        for (size_t at = row.find("bit ", close); at != std::string::npos; at = row.find("bit ", at + 4))
+        {
+            try { (*bits)[name] |= (uint32_t)std::stoul(row.substr(at + 4), nullptr, 0); any = true; } catch (...) {}
+        }
+        if (!any) always->insert(name);
+    }
+    if (always->empty() && bits->empty()) throw FormatError(namesFile + " names no Script_Native_ function");
+    return [always, bits, mask](const std::string& name) -> std::string {
+        if (always->count(name)) return "";
+        if (!bits->count(name)) return "not in the game's tables";
+        if (bits->at(name) & mask) return "";
+        char why[96];
+        snprintf(why, sizeof why, "registered under bit 0x%X, not in the zone's native mask 0x%X", bits->at(name), mask);
+        return why;
+    };
 }
 
 }

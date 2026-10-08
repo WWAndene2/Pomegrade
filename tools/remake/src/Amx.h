@@ -89,6 +89,11 @@ std::string AmxSource(const Bytes& script);
 // does not register, fails here rather than in the game.
 Bytes AmxAssemble(const std::string& source, const std::function<std::string(const std::string&)>& checkNative = {});
 
+// The natives check for AmxAssemble from the game's tables: `namesFile` is tools/remake/ghidra/function_names.tsv, whose
+// Script_Native_ rows name each native and the mask bit registering it; a native passes when a script of `mask` (a zone's
+// native mask, ORAS_ENGINE.md 6: 0x243 for zones 536 and up unless oras-engine --script-mask) gets it
+std::function<std::string(const std::string&)> AmxNativeCheck(const std::string& namesFile, uint32_t mask);
+
 }
 
 #endif // REMAKE_AMX_H

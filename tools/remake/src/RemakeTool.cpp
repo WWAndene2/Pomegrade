@@ -241,40 +241,6 @@ static bool TownKitOption(const std::string& flag, int argc, char** argv, int& i
     return true;
 }
 
-// The check of the natives a script names (AmxAssemble): each must be in the game's tables (function_names.tsv, the
-// Script_Native_ rows, each naming its native in quotes, then its table and mask bit) and registered for a script of
-// `mask` (a zone's native mask, ORAS_ENGINE.md 6: oras-engine gives zones 536 and up 0x243 unless told otherwise). A row
-// naming no bit is a table every script gets (Script_Load's, the field's, float's).
-static std::function<std::string(const std::string&)> NativeCheck(const std::string& namesFile, uint32_t mask)
-{
-    auto always = std::make_shared<std::set<std::string>>();
-    auto bits = std::make_shared<std::map<std::string, uint32_t>>(); // the bits that register it
-    const Bytes text = ReadFile(namesFile);
-    std::istringstream rows(std::string(text.begin(), text.end()));
-    for (std::string row; std::getline(rows, row);)
-    {
-        if (row.find("\tScript_Native_") == std::string::npos) continue;
-        const size_t q = row.find("native"), open = row.find('"', q), close = row.find('"', open + 1);
-        if (q == std::string::npos || open == std::string::npos || close == std::string::npos) continue;
-        const std::string name = row.substr(open + 1, close - open - 1);
-        bool any = false;
-        for (size_t at = row.find("bit ", close); at != std::string::npos; at = row.find("bit ", at + 4))
-        {
-            try { (*bits)[name] |= (uint32_t)std::stoul(row.substr(at + 4), nullptr, 0); any = true; } catch (...) {}
-        }
-        if (!any) always->insert(name);
-    }
-    if (always->empty() && bits->empty()) throw FormatError(namesFile + " names no Script_Native_ function");
-    return [always, bits, mask](const std::string& name) -> std::string {
-        if (always->count(name)) return "";
-        if (!bits->count(name)) return "not in the game's tables";
-        if (bits->at(name) & mask) return "";
-        char why[96];
-        snprintf(why, sizeof why, "registered under bit 0x%X, not in the zone's native mask 0x%X", bits->at(name), mask);
-        return why;
-    };
-}
-
 int main(int argc, char** argv)
 {
     if (argc < 3) return Usage();
@@ -290,7 +256,7 @@ int main(int argc, char** argv)
             for (int i = 5; i + 1 < argc; i++) if (std::string(argv[i]) == "--mask") mask = (uint32_t)std::stoul(argv[i + 1], nullptr, 0);
             const Bytes source = ReadFile(argv[2]);
             const Bytes script = AmxAssemble(std::string(source.begin(), source.end()),
-                                             argc >= 5 ? NativeCheck(argv[4], mask) : std::function<std::string(const std::string&)>{});
+                                             argc >= 5 ? AmxNativeCheck(argv[4], mask) : std::function<std::string(const std::string&)>{});
             const std::string listing = AmxDisassemble(script);
             const std::string last = listing.substr(listing.rfind('\n', listing.size() - 2) + 1);
             size_t c, u, n, dc, co, ca, jo, ja;
@@ -1206,7 +1172,11 @@ int main(int argc, char** argv)
             // a new zone from a text description (OrasSandbox.h); the game reads it with oras-engine --zone-rows
             N3dsRom oras(argv[2]);
             const Bytes text = ReadFile(argv[4]);
-            for (const std::string& line : BuildOrasSandbox(oras, std::string(text.begin(), text.end()), argv[3])) printf("%s\n", line.c_str());
+            // the zones' own scripts are checked against the game's native tables, kept beside the sandbox folder
+            // (tools/remake/ghidra/function_names.tsv for tools/remake/sandbox/<file>)
+            const std::filesystem::path names = std::filesystem::path(argv[4]).parent_path() / ".." / "ghidra" / "function_names.tsv";
+            const auto check = std::filesystem::exists(names) ? AmxNativeCheck(names.string(), 0x243) : std::function<std::string(const std::string&)>{};
+            for (const std::string& line : BuildOrasSandbox(oras, std::string(text.begin(), text.end()), argv[3], check)) printf("%s\n", line.c_str());
             return 0;
         }
         if (cmd == "oras-save" && argc >= 3)

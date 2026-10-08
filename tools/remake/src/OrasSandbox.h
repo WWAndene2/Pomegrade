@@ -34,6 +34,12 @@
 //                     height (the point aimed at, above the player; 15.85), pitch (degrees, negative looks down; -40.74), yaw
 //                     (degrees; 0), distance (254.4); by their values and use: fov (degrees; 30), near, far (the clip
 //                     planes; 32, 2000). Example: camera pitch -60 distance 320
+//   script / init-script
+//                     optional: then the zone's own script (file 2) or initialisation script (in file 1) as amx-asm source
+//                     (Amx.h), up to a line "end", in place of the template's; natives checked against the game's tables
+//                     (tools/remake/ghidra/function_names.tsv, beside this folder) and native mask 0x243. The game runs `main`
+//                     with g_mode set: the initialisation script on entering the zone (2 seen), the zone script for an
+//                     event, its script number (SINNOH_BUILD.md R1). Example: tools/remake/sandbox/own_scripts.txt
 //   encounters Z      optional: game zone Z's encounter file (its file 3) copied; none without it
 //   character MODEL X Z [face F] [script S] [move M]
 //                     a person standing on tile X, Z of the map (model: a character model number, as oras-inspect zone prints
@@ -54,6 +60,7 @@
 
 #include "N3dsRom.h"
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -61,8 +68,10 @@ namespace remake
 {
 
 // writes <outDir>/load/mods/<program>/romfs_ext/{a/0/3/9,a/0/4/0,a/0/1/3,a/0/1/4}.bps and sandbox_layout.txt; returns what it
-// did, line by line. Throws FormatError on a description it cannot build
-std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& description, const std::string& outDir);
+// did, line by line. Throws FormatError on a description it cannot build. `checkNative` (AmxNativeCheck) checks the natives
+// of the zones' own scripts; without it a description holding scripts is refused
+std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& description, const std::string& outDir,
+                                          const std::function<std::string(const std::string&)>& checkNative = {});
 
 }
 
