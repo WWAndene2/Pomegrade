@@ -370,6 +370,24 @@ static int RunScript(void* core, const char* path)
                 else keys = Keys(word);
             Watch(core, strtoul(arg.c_str(), nullptr, 10), addresses, keys);
         }
+        else if (cmd == "writers")
+        {
+            // writers LO HI | writers off FILE: the game's writes into [LO, HI) in between, with their code (pomegrade_writers;
+            // with POMEGRADE_INTERPRETER=1, the JIT bypasses it)
+            std::string second; words >> second;
+            auto writers = reinterpret_cast<uint32_t (*)(uint32_t, uint32_t, const char*)>(dlsym(core, "pomegrade_writers"));
+            if (!writers) printf("(no pomegrade_writers in this core)\n");
+            else if (arg == "off") { const std::string path = workDir + "/" + second; printf("[frame %lu] writers off: %u writes in %s\n", frame, writers(0, 0, path.c_str()), path.c_str()); }
+            else { writers(strtoul(arg.c_str(), nullptr, 0), strtoul(second.c_str(), nullptr, 0), nullptr); printf("[frame %lu] writers %s %s\n", frame, arg.c_str(), second.c_str()); }
+        }
+        else if (cmd == "poke")
+        {
+            // poke ADDRESS VALUE: one word of the game's memory written (pomegrade_poke); a float is written as its bits (0x3F800000)
+            std::string value; words >> value;
+            auto poke = reinterpret_cast<bool (*)(uint32_t, uint32_t)>(dlsym(core, "pomegrade_poke"));
+            if (!poke) printf("(no pomegrade_poke in this core)\n");
+            else printf("[frame %lu] poke %s %s: %s\n", frame, arg.c_str(), value.c_str(), poke(strtoul(arg.c_str(), nullptr, 0), strtoul(value.c_str(), nullptr, 0)) ? "written" : "not mapped");
+        }
         else if (cmd == "dump")
         {
             // dump ADDRESS LENGTH FILE: the game's memory written raw to FILE in the work folder (pomegrade_dump)
@@ -388,6 +406,16 @@ static int RunScript(void* core, const char* path)
             if (!trace) printf("(no pomegrade_trace in this core)\n");
             else if (arg == "on") { trace(1, nullptr); printf("[frame %lu] trace on\n", frame); }
             else printf("[frame %lu] trace off: %u blocks in %s\n", frame, trace(0, path.c_str()), path.c_str());
+        }
+        else if (cmd == "lights")
+        {
+            // lights on | lights off FILE: the light state and shader uniforms of each draw in between (pomegrade_lights)
+            auto lights = reinterpret_cast<uint32_t (*)(int, const char*)>(dlsym(core, "pomegrade_lights"));
+            std::string file; words >> file;
+            const std::string path = workDir + "/" + file;
+            if (!lights) printf("(no pomegrade_lights in this core)\n");
+            else if (arg == "on") { lights(1, nullptr); printf("[frame %lu] lights on\n", frame); }
+            else printf("[frame %lu] lights off: %u draws in %s\n", frame, lights(0, path.c_str()), path.c_str());
         }
         else if (cmd == "gdb")
         {

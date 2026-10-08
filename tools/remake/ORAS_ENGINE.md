@@ -52,6 +52,8 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
    lists them): `sb: sandbox tools/remake/sandbox/demo.txt`, `eng: engine --zone-rows 541`, `sv: save 538 14.5 20.5`,
    `demo: merge sb eng sv`. Headless reruns: `headless/fast_run.sh` (about 3 minutes). Not built yet: east and west
    ledges, relief (hills, cliffs), warps between matrices, writing scripts, trainers and encounter tables of one's own.
+   Camera and light done (8 October, section 2): `camera ...` and `light ...`, read and checked headless; this closes
+   the sandbox's "reused from the game" column.
 7. **Zones past 536, the rest.** A new zone needs its own file 3 (encounters) beside its member 537 entry (section
    2), and a script mask word (`oras-engine --script-mask`, 0x243 by default; lifted 8 October, section 6).
    Then objectives 3 and 6: Sinnoh's zones from 538 up.
@@ -138,6 +140,15 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   FILE`. A script's state: `dump 0x08000000 0x6000000 heap.bin` while the thing is on screen, then
   `prototype/amx_dump.py heap.bin --script <size>` lists the loaded scripts, their contexts (native mask, wait) and the call
   frames left in their stack (how `TalkMdlMsg_Seq`'s first argument, 16, was read).
+- **Find where a value comes from** (8 October, the light; section 2): `lights on` / `lights off FILE` (the GPU's light
+  registers and shader uniforms at each draw, with counts: what the screen really gets); search both dumps, the heap
+  `dump 0x08000000 0x6000000` and the linear heap `dump 0x14000000 0x2B48000`, for every form of the value (float, byte,
+  GPU register) and eliminate the known copies; `poke ADDRESS VALUE` (a word written while the game runs; at the title,
+  after `load title`, to change what a zone load reads); `writers LO HI` / `writers off FILE` with
+  `POMEGRADE_INTERPRETER=1` (each write into the range with its instruction and return address), then read that code.
+  The full decompilation for grepping: `Export.java` with every address of `functions.tsv` (15 min, 47,750 functions).
+- **Area packs read so far** (section 2): file 4 the light's colours, file 6 the camera presets, file 3 read by
+  `Field_AreaTriggers_Init`, file 7 by `FUN_1025EF50`; `a/0/5/9` holds tables of file 4's layout for battles.
 - **Read code**: `ghidra/decompile.sh <work> <out> ADDRESS... [--callers ADDRESS] [--callees ADDRESS]` decompiles the
   functions holding those addresses, or calling or called by one (the call graph `edges.tsv`, which follows the import
   stubs: the script natives that reach a function show up), with their names, into `<out>/decomp.c` (about 15 s; it runs
@@ -273,8 +284,8 @@ another (51 characters passed the count check and stopped on the events buffer).
   | Dialogue box | no | the template zone's lines | place names are written (`name`); a dialogue needs a script |
   | Event, script | no | the template zone's scripts | scripts are read (disassembler), not written |
   | Cutscene | no | no | not studied |
-  | Camera | no | no | each area pack's file 6 is a table of camera presets (pitch, yaw, distance, near, far, field of view), the same in all 229 packs. Checked (runs cam0, cam3): changing preset 0's first float (15.85 to 45) in the sandbox's own pack changes the field's framing, so a sandbox camera needs no Hoenn pack (`camera-pitch`); which setting each float is, and how a zone picks a preset, are not found |
-  | Lighting | no | `lighting Z`: a pack's file 4 | file 4 (RGBA colours, 6 variants) changed nothing seen outdoors (`light5`): the scene's light is elsewhere, not found |
+  | Camera | yes | | `camera height H pitch P yaw Y distance D fov F near N far F` (`OrasSandbox.h`): preset 0 of the zone's own pack. **Read** (`Field_CameraApplyParams` 0x102CB460, `Field_CopyCameraParams` 0x102CB128, `Field_CameraComputePos` 0x1031C0AC) and **checked live** on 8 October: pitch -70 looks straight down (`w1`), distance 600 shows the whole sandbox (`w7`), fov 60 widens the view (`w6`), `height 14 pitch -8 distance 40 near 4` a view over the shoulder (`pov`); near and far read from their values only |
+  | Lighting | yes | `lighting Z`: a pack's file 4 | `light ambient R G B diffuse R G B` (`OrasSandbox.h`). **Read** and **checked live**: the terrain's light (light set 0, one directional light from above) takes its colours from the area pack's file 4, copied into a buffer at field setup (`Res_CopyToCachedBuffer`): planes of 12 floats (3 kinds x 4 times of day; `FUN_0013D908` reads them, `FUN_0012DDF4` blends two entries and sets the light, `FUN_00139124` ambient, `FUN_001391D4` diffuse): ambient red/green/blue at +0x00/+0x30/+0x60, diffuse at +0x90/+0xC0/+0xF0, two more colours at +0x120 and +0x1B0 (not tested). Run `lit_red2`: diffuse (1, 0, 0) and ambient (0, 0, 1) give the GPU (254, 0, 0) and (0, 0, 254) and a red and blue field; the player keeps its own light. Not read: how the kind and the time slots are chosen; the earlier `light5` and `lit_red` changed the wrong entries |
   | Texture | not checked | the area packs' textures | the piece builder adds a pack's textures to the zone's pack |
   | Animation | no | no | not studied |
   | 3D model | no | pieces cut from the game's (house, trees, fence, ledge) | a model of one's own not made |
@@ -282,21 +293,19 @@ another (51 characters passed the count check and stopped on the events buffer).
   | Area pack | yes | | the sandbox fills the game's 9 placeholder packs no zone uses (0, 1, 39-42, 88, 97, 195) and changes no Hoenn pack (`light5`); a pack appended past 229 is refused (fatal-error loop: a/1/3/7, one member per pack, is one cause, read under the debugger in `apk1`-`apk4`; another not found) |
   | Ground | yes | the game's grass, paths, water | checked: grass, tall grass (its ground since `fix1`), paths, pond (a bed in the water's colour, `fix2`: the surface still faint), trees, forest |
 
-- **Camera and lighting, where the search stands** (8 October, for whoever continues):
-  - Seen in a memory dump with the field up (run `mem1`, heap 0x08000000 and linear heap 0x14000000):
-    - The active camera is an `xy_system::CCameraULCD` (RTTI; vtable 0x5E0D14) at 0x08286A6C, holding 15.85 at +0xB0.
-    - The file-6 preset table has a copy at 0x082D48E8.
-    - Area pack file 4 sits in the loaded pack at 0x14269300 and has a copy at 0x08DBAC18, inside a heap block.
-  - False lead: the only reference to the vtable, 0x47A2EC, is a literal pool of `Gfx_Color4_InitDefault`.
-  - Seen, its role inferred: `FUN_0048cf44` takes files 0-7 of two containers (at +0x5C and +0x64 of its object) into
-    two tables at +0x74 and +0x7C. Those may be the zone and its area pack; not checked.
-  - The GDB stub drops after the first stop, so a watchpoint did not fire (run `cam2`): use code search and memory diffs
-    instead.
-  - Next, camera: change one of preset 0's 17 floats per run (`fast_run.sh`, `camera-pitch` as the model). Find the code
-    that copies a preset into the camera at +0xB0, which is how a zone picks one. Then replace `camera-pitch` with a
-    `camera` statement naming each setting, and drop `camera Z` (zone file 4, no change seen).
-  - Next, lighting: find the reader of the file-4 copy at 0x08DBAC18. Failing that, look at the shader colour uniforms
-    (`HslSCol`, `HslGCol`) and the zone header. Claim nothing until a run shows the change.
+- **Camera and lighting** (8 October):
+  - Camera, **read**: an area pack's file 6 is 16 presets of 0x44 bytes from offset 0 (the earlier reading from +8 was off by
+    two words). `Zone_ApplyZonePackData` (0x102E22D0) copies preset N, N the low byte of a u16 at +0xE of the area pack's
+    loader (0 past the file's end); `Map_RendererSetupSteps` hands it to `Field_CameraApplyParams`. Offsets: +0x08 the
+    height of the point aimed at above the player (15.85), +0x0C pitch in degrees (-40.74), +0x10 yaw (0), +0x18 near (32),
+    +0x1C far (2000), +0x20 field of view in degrees (30), +0x24 distance (254.4); +0x28 is clamped to 1 and kept at +0xA8,
+    +0x2C at +0xA4 (roles not read); +0x14 is read by neither. **Seen** (run `cam10`, a heap dump in Littleroot): N = 0, and
+    the preset 0 copy at the camera. Where N comes from is not found; the sandbox writes preset 0, which its zones use.
+  - Lighting, how it was found (8 October): the GPU's light state captured at each draw (`lights on/off`, runs `lit1`,
+    `lit2`), the pieces' materials found white (so the GPU colours are the light's), the light's floats found in memory by
+    elimination (heap and linear heap, `lit3`), the runtime copies shown empty before the field loads (`poke` at the title,
+    `lit5`), their writer caught with `writers LO HI` under the interpreter (`lit6`: `FUN_00139124`, `FUN_001391D4`), then
+    the code read back to file 4's layout.
 
 ## 3. Map pieces
 

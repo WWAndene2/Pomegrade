@@ -73,3 +73,27 @@ s = s.replace(check, """                  Common::g_scm_rev, revision);
         // Pomegrade headless: loaded anyway (patch_core.py)
     }""", 1)
 open(p, "w").write(s)
+
+# the light of each draw (pica_lights.inc; "lights on" / "lights off FILE" in retro_host, pomegrade_report.inc): recorded
+# when a draw is triggered, before it runs
+p = "azahar/src/video_core/pica/pica_core.cpp"
+s = open(p).read()
+inc = '#include "video_core/pica/vertex_loader.h"\n'
+assert s.count(inc) == 1, "pica_core.cpp's includes moved"
+s = s.replace(inc, inc + open("tools/remake/headless/pica_lights.inc").read(), 1)
+draw = "        DrawArrays(is_indexed);\n"
+assert s.count(draw) == 1, "the draw trigger moved"
+s = s.replace(draw, "        if (pomegrade_lights_on) PomegradeRecordLights(regs.internal, vs_setup.uniforms); // Pomegrade headless\n" + draw, 1)
+open(p, "w").write(s)
+
+# the writers of a memory range ("writers LO HI" / "writers off FILE" in retro_host, pomegrade_report.inc): with the
+# interpreter, each 32/64-bit write of the game into [LO, HI) is kept with the instruction's address and the return address
+# (Reg[15], Reg[14]), to find the code that fills a structure (ORAS_ENGINE.md 2, the light)
+p = "azahar/src/core/arm/skyeye_common/armstate.cpp"
+s = open(p).read()
+for size, call in (("32", "    memory.Write32(address, data);\n"), ("64", "    memory.Write64(address, data);\n")):
+    assert s.count(call) == 1, "WriteMemory" + size + " moved"
+    s = s.replace(call, "    if (address >= pomegrade_writers_lo && address < pomegrade_writers_hi) pomegrade_writer(address, (u32)data, Reg[15], Reg[14]); // Pomegrade headless\n" + call, 1)
+s = s.replace('#include "core/memory.h"\n', '#include "core/memory.h"\nextern u32 pomegrade_writers_lo, pomegrade_writers_hi;\nextern "C" void pomegrade_writer(u32 address, u32 value, u32 pc, u32 lr);\n', 1)
+assert "pomegrade_writers_lo, pomegrade_writers_hi;" in s, "armstate.cpp's includes moved"
+open(p, "w").write(s)

@@ -21,7 +21,10 @@ public class ArchiveUsers extends GhidraScript {
             if (f != null && !targets.contains(f.getEntryPoint())) callers.add(f);
         }
         DecompInterface d = new DecompInterface(); d.openProgram(currentProgram);
-        Pattern call = Pattern.compile("FUN_0011c94c\\(([^;]*)\\)");
+        // the open function by its current name: ApplyNames renames FUN_0011c94c (Res_OpenArchive), and its thunks keep theirs
+        Set<String> names = new HashSet<>();
+        for (Address t : targets) names.add(Pattern.quote(getFunctionAt(t).getName()));
+        Pattern call = Pattern.compile("(?:" + String.join("|", names) + ")\\(([^;]*)\\)");
         try (PrintWriter w = new PrintWriter(getScriptArgs()[0])) {
             for (Function f : callers) {
                 DecompileResults r = d.decompileFunction(f, 30, monitor);

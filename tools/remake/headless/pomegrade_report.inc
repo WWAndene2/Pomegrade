@@ -146,3 +146,63 @@ extern "C" RETRO_API u32 pomegrade_trace(int on, const char* path) {
     if (FILE* f = fopen(path, "w")) { for (u32 b : blocks) fprintf(f, "%08X\n", b); fclose(f); }
     return (u32)blocks.size();
 }
+
+// lights on | lights off FILE: the light state of each draw in between (pica_lights.inc), each distinct one with its count,
+// then the vertex shader's float uniforms, each register's distinct values (32 at most) with their counts
+#include <map>
+#include <string>
+extern bool pomegrade_lights_on;
+extern unsigned pomegrade_light_draws;
+extern std::map<std::string, unsigned> pomegrade_light_states;
+extern std::map<std::string, unsigned> pomegrade_uniform_values[96];
+extern "C" RETRO_API u32 pomegrade_lights(int on, const char* path) {
+    if (on) {
+        pomegrade_light_draws = 0;
+        pomegrade_light_states.clear();
+        for (auto& m : pomegrade_uniform_values) m.clear();
+        pomegrade_lights_on = true;
+        return 0;
+    }
+    pomegrade_lights_on = false;
+    if (FILE* f = fopen(path, "w")) {
+        fprintf(f, "draws %u\n", pomegrade_light_draws);
+        for (const auto& [state, count] : pomegrade_light_states) fprintf(f, "state %u: %s\n", count, state.c_str());
+        for (int i = 0; i < 96; i++)
+            for (const auto& [value, count] : pomegrade_uniform_values[i]) fprintf(f, "uniform %d %u: %s\n", i, count, value.c_str());
+        fclose(f);
+    }
+    return pomegrade_light_draws;
+}
+
+// poke ADDRESS VALUE: one word of the game's memory written, to see what a value does while the game runs (a value changed
+// in memory instead of in a file: ORAS_ENGINE.md 2, the light). Returns false when the address is not mapped.
+extern "C" RETRO_API bool pomegrade_poke(u32 address, u32 value) {
+    auto& system = Core::System::GetInstance();
+    if (!system.IsPoweredOn()) return false;
+    for (const auto& thread : system.Kernel().GetThreadManager(0).GetThreadList()) {
+        const auto process = thread->owner_process.lock();
+        if (!process || process->codeset == nullptr || process->codeset->program_id != 0x000400000011C400) continue;
+        auto& memory = system.Memory();
+        if (!memory.IsValidVirtualAddress(*process, address)) return false;
+        memory.WriteBlock(*process, address, &value, 4);
+        return true;
+    }
+    return false;
+}
+
+// writers LO HI | writers off FILE: every write of the game (interpreter only: POMEGRADE_INTERPRETER=1) into [LO, HI) in
+// between, with the instruction's address and the return address (patch_core.py, armstate.cpp): who fills a structure
+u32 pomegrade_writers_lo = 0, pomegrade_writers_hi = 0;
+static std::vector<std::array<u32, 4>> pomegrade_writes;
+extern "C" void pomegrade_writer(u32 address, u32 value, u32 pc, u32 lr) {
+    if (pomegrade_writes.size() < 100000) pomegrade_writes.push_back({address, value, pc, lr});
+}
+extern "C" RETRO_API u32 pomegrade_writers(u32 lo, u32 hi, const char* path) {
+    if (path == nullptr) { pomegrade_writes.clear(); pomegrade_writers_lo = lo; pomegrade_writers_hi = hi; return 0; }
+    pomegrade_writers_lo = pomegrade_writers_hi = 0;
+    if (FILE* f = fopen(path, "w")) {
+        for (const auto& w : pomegrade_writes) fprintf(f, "%08X %08X pc %08X lr %08X\n", w[0], w[1], w[2], w[3]);
+        fclose(f);
+    }
+    return (u32)pomegrade_writes.size();
+}
