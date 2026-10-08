@@ -77,6 +77,20 @@ void OrasSave::WriteChecksums()
 
 void OrasSave::MoveTo(int zone, float tileX, float tileZ)
 {
+    // into another zone: block 10 holds the characters of the zone the save was made in, 0x108 bytes each (u16 +4 the
+    // character's number, 0xFF the player; u16 +6 the zone; u16 +8 the model), and the game restores them on loading; kept,
+    // a move into another matrix stays black once DllField is loaded (runs matrix2, zA). The player's record stays in its
+    // place with the new zone and the others are emptied, so the game places the destination's characters itself: the owner's
+    // Littleroot save so moved to Petalburg (zone 13, matrix 2) loads (save_test.sh, run st_zC, 8 October). Emptying them all
+    // and moving the player's record to the first place made the save unreadable (run zB). The record layout is seen, not read.
+    if (zone != Zone())
+        for (const OrasSaveBlock& b : Blocks)
+            if (b.Id == 10)
+                for (size_t at = b.Offset; at + 0x108 <= b.Offset + b.Length; at += 0x108)
+                {
+                    if (U16(Data, at + 4) == 0xFF && U16(Data, at + 6) == Zone()) { Data[at + 6] = (uint8_t)zone; Data[at + 7] = (uint8_t)(zone >> 8); }
+                    else std::memset(&Data[at], 0, 0x108);
+                }
     // the zone is held twice too: +2 and +0xF4, each before its position (+0x10/+0x18 and +0x104/+0x10C). A save made by the game
     // on Route 102 (zone 24, matrix 2) holds 24 at both, the owner's Littleroot save 6 at both; writing only +2 kept the player in
     // place within matrix 1 but a move into matrix 2 never reached the field (run trainer1, 7 October); writing both is not
@@ -87,11 +101,7 @@ void OrasSave::MoveTo(int zone, float tileX, float tileZ)
     // the position is held twice in block 4 (+0x10/+0x18 and +0x104/+0x10C: two saves of the owner, a few steps apart, differ at both
     // with the same values); r5 on the phone kept the player in place when only the first was written
     for (size_t at : {(size_t)0x1410, (size_t)0x1504}) { std::memcpy(&Data[at], &x, 4); std::memcpy(&Data[at + 8], &z, 4); }
-    const OrasSaveBlock& b = Blocks[Situation];
-    const uint16_t crc = Crc16Ccitt(&Data[b.Offset], b.Length);
-    const size_t entry = TableAt + Situation * 8 + 6;
-    Data[entry] = (uint8_t)crc; Data[entry + 1] = (uint8_t)(crc >> 8);
-    Blocks[Situation].Checksum = crc;
+    WriteChecksums();
 }
 
 }
