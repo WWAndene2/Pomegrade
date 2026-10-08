@@ -84,7 +84,7 @@ int main()
             "done:\n    zero.pri\n    retn\n"
             "data\ncommand:\n    cell -1 0 0\n";
         std::vector<std::string> asked;
-        const Bytes script = AmxAssemble("header 10 10 0x1C main 4096\n" + source, [&](const std::string& n) { asked.push_back(n); return true; });
+        const Bytes script = AmxAssemble("header 10 10 0x1C main 4096\n" + source, [&](const std::string& n) { asked.push_back(n); return std::string(); });
         check(asked == std::vector<std::string>{"_FieldMapBlockIsLoading", "CommandNOP"}, "natives named are checked, in order of use");
         check(AmxNameHash("_Suspend") == 0x0B13A389 && AmxNameHash("Float") == 0xCA18AA2E, "names hashed as the game links them");
         const AmxScript s = AmxScript::Read(script);
@@ -101,7 +101,7 @@ int main()
         check(AmxAssemble(AmxSource(script)) == script, "its source assembles back to the same bytes");
         check(AmxScript::Read(script).Write() == script, "read and written back to the same bytes");
         bool refused = false;
-        try { AmxAssemble("code\n    sysreq.n NoSuchNative 0\n", [](const std::string&) { return false; }); } catch (const FormatError&) { refused = true; }
+        try { AmxAssemble("code\n    sysreq.n NoSuchNative 0\n", [](const std::string&) { return std::string("not in the game's tables"); }); } catch (const FormatError&) { refused = true; }
         check(refused, "an unknown native refused");
         refused = false;
         try { AmxAssemble("code\n    push.c\n"); } catch (const FormatError& e) { refused = std::string(e.what()).find("line 2") != std::string::npos; }

@@ -29,8 +29,11 @@
 //   remake_tool oras-text <oras.3ds> <archive> <member>   a game text file's lines
 //   remake_tool oras-script <oras.3ds> <zone>|all [init] [source]  a zone's script, unpacked and disassembled, or as amx-asm
 //                     source (all: every script, checked, and written and assembled back)
-//   remake_tool amx-asm <in.txt> <out.amx> [function_names.tsv]  a Pawn (AMX) script assembled (Amx.h: AmxAssemble), with
-//                     the natives named checked against the game's tables in tools/remake/ghidra/function_names.tsv
+//   remake_tool amx-asm <in.txt> <out.amx> [function_names.tsv [--mask M]]  a Pawn (AMX) script assembled (Amx.h:
+//                     AmxAssemble), the natives named checked against the game's tables in tools/remake/ghidra/function_names.tsv
+//                     and registered under the zone's native mask M (0x243 by default, oras-engine's for new zones)
+//   remake_tool oras-zone-script <oras.3ds> <out dir> <zone> <script.amx|-> [<init.amx|->]  a mod with a zone's script and
+//                     initialisation script replaced (- keeps one); the zone itself checked to write back unchanged first
 //   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>] | <dst>=<archive>:<member>:<file> | <dst>=motion:<archive>:<member>:<file>:<slot>[:<frames>] ...
 //   remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...
 //                     an Azahar mod: each file replaces that RomFS path, laid out as Azahar loads
@@ -238,6 +241,40 @@ static bool TownKitOption(const std::string& flag, int argc, char** argv, int& i
     return true;
 }
 
+// The check of the natives a script names (AmxAssemble): each must be in the game's tables (function_names.tsv, the
+// Script_Native_ rows, each naming its native in quotes, then its table and mask bit) and registered for a script of
+// `mask` (a zone's native mask, ORAS_ENGINE.md 6: oras-engine gives zones 536 and up 0x243 unless told otherwise). A row
+// naming no bit is a table every script gets (Script_Load's, the field's, float's).
+static std::function<std::string(const std::string&)> NativeCheck(const std::string& namesFile, uint32_t mask)
+{
+    auto always = std::make_shared<std::set<std::string>>();
+    auto bits = std::make_shared<std::map<std::string, uint32_t>>(); // the bits that register it
+    const Bytes text = ReadFile(namesFile);
+    std::istringstream rows(std::string(text.begin(), text.end()));
+    for (std::string row; std::getline(rows, row);)
+    {
+        if (row.find("\tScript_Native_") == std::string::npos) continue;
+        const size_t q = row.find("native"), open = row.find('"', q), close = row.find('"', open + 1);
+        if (q == std::string::npos || open == std::string::npos || close == std::string::npos) continue;
+        const std::string name = row.substr(open + 1, close - open - 1);
+        bool any = false;
+        for (size_t at = row.find("bit ", close); at != std::string::npos; at = row.find("bit ", at + 4))
+        {
+            try { (*bits)[name] |= (uint32_t)std::stoul(row.substr(at + 4), nullptr, 0); any = true; } catch (...) {}
+        }
+        if (!any) always->insert(name);
+    }
+    if (always->empty() && bits->empty()) throw FormatError(namesFile + " names no Script_Native_ function");
+    return [always, bits, mask](const std::string& name) -> std::string {
+        if (always->count(name)) return "";
+        if (!bits->count(name)) return "not in the game's tables";
+        if (bits->at(name) & mask) return "";
+        char why[96];
+        snprintf(why, sizeof why, "registered under bit 0x%X, not in the zone's native mask 0x%X", bits->at(name), mask);
+        return why;
+    };
+}
+
 int main(int argc, char** argv)
 {
     if (argc < 3) return Usage();
@@ -247,22 +284,13 @@ int main(int argc, char** argv)
         // loose files
         if (cmd == "amx-asm" && argc >= 4)
         {
-            // a script assembled from source (Amx.h), its natives checked by name against the game's tables when the names
-            // file is given; the result read back by the disassembler, whose own checks it must pass
-            std::set<std::string> natives;
-            if (argc >= 5)
-            {
-                std::istringstream names(Text(ReadFile(argv[4]), 0, ReadFile(argv[4]).size()));
-                for (std::string row; std::getline(names, row);)
-                {
-                    const size_t at = row.find("\tScript_Native_");
-                    if (at != std::string::npos) natives.insert(row.substr(at + 15, row.find('\t', at + 1) - at - 15));
-                }
-                if (natives.empty()) throw FormatError(std::string(argv[4]) + " names no Script_Native_ function");
-            }
+            // a script assembled from source (Amx.h), its natives checked against the game's tables and the zone's native
+            // mask when the names file is given; the result read back by the disassembler, whose own checks it must pass
+            uint32_t mask = 0x243;
+            for (int i = 5; i + 1 < argc; i++) if (std::string(argv[i]) == "--mask") mask = (uint32_t)std::stoul(argv[i + 1], nullptr, 0);
             const Bytes source = ReadFile(argv[2]);
             const Bytes script = AmxAssemble(std::string(source.begin(), source.end()),
-                                             natives.empty() ? std::function<bool(const std::string&)>{} : [&](const std::string& n) { return natives.count(n) > 0; });
+                                             argc >= 5 ? NativeCheck(argv[4], mask) : std::function<std::string(const std::string&)>{});
             const std::string listing = AmxDisassemble(script);
             const std::string last = listing.substr(listing.rfind('\n', listing.size() - 2) + 1);
             size_t c, u, n, dc, co, ca, jo, ja;
@@ -654,7 +682,7 @@ int main(int argc, char** argv)
             return 0;
         }
         // decrypted 3DS game images
-        if (cmd == "oras-list" || cmd == "oras-find" || cmd == "oras-members" || cmd == "oras-copy" || cmd == "oras-hex" || cmd == "oras-member" || cmd == "oras-layout" || cmd == "oras-text" || cmd == "oras-script" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch" || cmd == "oras-asset")
+        if (cmd == "oras-list" || cmd == "oras-find" || cmd == "oras-members" || cmd == "oras-copy" || cmd == "oras-hex" || cmd == "oras-member" || cmd == "oras-layout" || cmd == "oras-text" || cmd == "oras-script" || cmd == "oras-zone-script" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch" || cmd == "oras-asset")
         {
             N3dsRom game(argv[2]);
             char id[17];
@@ -941,6 +969,34 @@ int main(int argc, char** argv)
                 for (size_t i = 0; i < natives.size(); i++) printf("native %zu %s\n", i, natives[i].c_str());
                 printf("%s", AmxDisassemble(script).c_str());
                 return 0;
+            }
+            if (cmd == "oras-zone-script" && argc >= 6)
+            {
+                // a zone's script (file 2) and initialisation script (in file 1) replaced by assembled ones (amx-asm), as a mod;
+                // the zone must first write back to its own bytes, so nothing else of it changes
+                const std::string path = "a/0/1/3";
+                const Bytes original = game.Read(path);
+                const Garc source(original);
+                Garc g(original);
+                const size_t zone = (size_t)std::stoul(argv[4]);
+                const Bytes plain = Plain(source.Sub(zone));
+                OrasZone z = OrasZone::Read(plain);
+                if (z.Write(plain) != plain) throw FormatError("zone " + std::to_string(zone) + " does not write back to its own bytes");
+                const auto take = [&](int at, Bytes& script, const char* what) {
+                    if (argc <= at || std::string(argv[at]) == "-") return;
+                    script = ReadFile(argv[at]);
+                    AmxScript::Read(script); // refused unless a script laid out as the game's
+                    printf("zone %zu %s: %zu bytes from %s\n", zone, what, script.size(), argv[at]);
+                };
+                take(5, z.Script, "script");
+                take(6, z.InitScript, "initialisation script");
+                const Bytes written = z.Write(plain);
+                const OrasZone back = OrasZone::Read(written);
+                // file 2 comes back padded to a multiple of 4, as every zone's is (zone 6's 6438-byte script in 6440 bytes)
+                const Bytes ownScript(back.Script.begin(), back.Script.begin() + (ptrdiff_t)std::min(back.Script.size(), z.Script.size()));
+                if (ownScript != z.Script || back.InitScript != z.InitScript) throw FormatError("the zone does not read back with its new scripts");
+                ReplaceMember(g, source, zone, written, "ZO");
+                return WriteArchiveMod(g, original, zone, path, std::filesystem::path(argv[3]) / "load" / "mods" / id);
             }
             if (cmd == "oras-member" && argc >= 7)
             {

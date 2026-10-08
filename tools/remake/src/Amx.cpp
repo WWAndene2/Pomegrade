@@ -327,7 +327,7 @@ std::string AmxSource(const Bytes& b)
     return out;
 }
 
-Bytes AmxAssemble(const std::string& source, const std::function<bool(const std::string&)>& knownNative)
+Bytes AmxAssemble(const std::string& source, const std::function<std::string(const std::string&)>& checkNative)
 {
     struct Line { size_t Number; std::vector<std::string> Words; };
     std::vector<Line> lines;
@@ -371,9 +371,9 @@ Bytes AmxAssemble(const std::string& source, const std::function<bool(const std:
             else if (section == 2) { if (w != "cell") throw fail(l, "only cells in data"); dataAt += 4 * ((uint32_t)l.Words.size() - 1); }
         }
     }
-    const auto name = [&](const Line& l, const std::string& w) -> uint32_t {
+    const auto name = [&](const Line& l, const std::string& w, bool native) -> uint32_t {
         if (w[0] == '#') { long v; if (!number("0x" + w.substr(1), v)) throw fail(l, "hash " + w + " is not hexadecimal"); return (uint32_t)v; }
-        if (knownNative && !knownNative(w)) throw fail(l, "no native " + w + " in the game's tables");
+        if (native && checkNative) { const std::string why = checkNative(w); if (!why.empty()) throw fail(l, "native " + w + ": " + why); }
         return AmxNameHash(w);
     };
     const auto value = [&](const Line& l, const std::string& w, bool code) -> uint32_t {
@@ -404,11 +404,11 @@ Bytes AmxAssemble(const std::string& source, const std::function<bool(const std:
                 s.FileVersion = (uint8_t)fv; s.AmxVersion = (uint8_t)av; s.Flags = (uint16_t)fl; s.StackBytes = (uint32_t)st;
                 s.Cip = value(l, w[4], true);
             }
-            else if (w[0] == "public" && w.size() == 3) s.Publics.push_back({value(l, w[2], true), name(l, w[1])});
-            else if (w[0] == "native" && (w.size() == 2 || w.size() == 3)) s.Natives.push_back({w.size() == 3 ? value(l, w[2], false) : 0, name(l, w[1])});
-            else if (w[0] == "library" && w.size() == 3) { tables = true; s.Libraries.push_back({value(l, w[2], false), name(l, w[1])}); }
-            else if (w[0] == "pubvar" && w.size() == 3) s.PublicVars.push_back({value(l, w[2], false), name(l, w[1])});
-            else if (w[0] == "tag" && w.size() == 3) { tables = true; s.Tags.push_back({value(l, w[2], false), name(l, w[1])}); }
+            else if (w[0] == "public" && w.size() == 3) s.Publics.push_back({value(l, w[2], true), name(l, w[1], false)});
+            else if (w[0] == "native" && (w.size() == 2 || w.size() == 3)) s.Natives.push_back({w.size() == 3 ? value(l, w[2], false) : 0, name(l, w[1], true)});
+            else if (w[0] == "library" && w.size() == 3) { tables = true; s.Libraries.push_back({value(l, w[2], false), name(l, w[1], false)}); }
+            else if (w[0] == "pubvar" && w.size() == 3) s.PublicVars.push_back({value(l, w[2], false), name(l, w[1], false)});
+            else if (w[0] == "tag" && w.size() == 3) { tables = true; s.Tags.push_back({value(l, w[2], false), name(l, w[1], false)}); }
             else if (w[0] == "nametable" && w.size() == 2 && w[1].size() % 2 == 0)
             {
                 tables = true;
@@ -441,7 +441,7 @@ Bytes AmxAssemble(const std::string& source, const std::function<bool(const std:
             if (k == 1 && (op == 123 || op == 135) && !number(w[k], v))
             {
                 // a native by name or hash: its index, declared on first use
-                const uint32_t h = name(l, w[k]);
+                const uint32_t h = name(l, w[k], true);
                 size_t index = 0;
                 while (index < s.Natives.size() && s.Natives[index].Name != h) index++;
                 if (index == s.Natives.size()) s.Natives.push_back({0, h});

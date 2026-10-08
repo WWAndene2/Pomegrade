@@ -78,12 +78,6 @@ Bytes OrasZone::Write(const Bytes& original) const
     for (uint16_t v : Header) { h.push_back((uint8_t)v); h.push_back((uint8_t)(v >> 8)); }
     c.Files[0] = h;
 
-    // what followed the original's arrays and initialisation script, kept as it was
-    const Bytes& old = c.Files[1];
-    size_t end = (size_t)U32(old, 0) + 4;
-    if (old.size() >= end + 4 && old.size() > end) end += U32(old, end);
-    const Bytes tail(old.begin() + (ptrdiff_t)std::min(end, old.size()), old.end());
-
     Bytes e(12, 0);
     e[4] = (uint8_t)Furniture.size(); e[5] = (uint8_t)Characters.size(); e[6] = (uint8_t)Doors.size(); e[7] = (uint8_t)Triggers.size();
     for (int k = 0; k < 4; k++) e[8 + k] = (uint8_t)(Others.size() >> (8 * k));
@@ -95,10 +89,13 @@ Bytes OrasZone::Write(const Bytes& original) const
     const uint32_t field = (uint32_t)e.size() - 4;
     for (int k = 0; k < 4; k++) e[k] = (uint8_t)(field >> (8 * k));
     e.insert(e.end(), InitScript.begin(), InitScript.end());
-    e.insert(e.end(), tail.begin(), tail.end());
+    // zeros to a multiple of 4: all that follows the initialisation script in each of the 536 zones (checked 8 October), so
+    // an initialisation script of another size is padded as the game's are
+    while (e.size() % 4) e.push_back(0);
     if (e.size() >= EventsBudget)
         throw FormatError("zone: events file of " + std::to_string(e.size()) + " bytes, the game's buffer holds less than " + std::to_string(EventsBudget));
     c.Files[1] = e;
+    c.Files[2] = Script;
     return c.Write();
 }
 

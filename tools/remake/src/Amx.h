@@ -84,9 +84,10 @@ uint32_t AmxNameHash(const std::string& name);
 // library, tag and name table entries are the ones every zone script has ("Float" twice, 0x3F).
 std::string AmxSource(const Bytes& script);
 
-// Assembles AmxSource's format; throws FormatError naming the line. `knownNative`, when given, is asked for each native
-// named (not given as #hash): false refuses it, so a misspelled native fails here rather than in the game.
-Bytes AmxAssemble(const std::string& source, const std::function<bool(const std::string&)>& knownNative = {});
+// Assembles AmxSource's format; throws FormatError naming the line. `checkNative`, when given, is asked for each native
+// named (not given as #hash) and returns why it is refused, or "": a misspelled native, or one the zone's native mask
+// does not register, fails here rather than in the game.
+Bytes AmxAssemble(const std::string& source, const std::function<std::string(const std::string&)>& checkNative = {});
 
 }
 
