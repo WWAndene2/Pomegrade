@@ -105,18 +105,18 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   goes on: its speed, the last commands it reached and its screenshots so far as PNG. Saves made by the owner in the game
   are in `headless/saves/` (put there by the owner, 8 October): `main_Trainer_Battle` in front of trainer 7 on Route 102
   (zone 24, tile 174.5 146.5; run `trainer3`), `main_Startpoint` (zone 6 at tile 104.5 890.5, the position of the 6 October
-  Sinnoh tests, not the owner's Littleroot save at 104.5 170.5) and the save's `00000001.metadata`; a run starts from one
-  with `POMEGRADE_SAVE=<absolute path>`. **Moving the save into another zone** (8 October): `oras-save <main> <out> <zone>
-  <x> <z>` writes the zone (block 4, +2 and +0xF4), the position (both copies) and, on a zone change, block 10: the
-  characters of the zone the save was made in (records of 0x108 bytes: number, zone, model, tile; `prototype/oras_save.py
-  characters` decodes them), which the game restores on loading. The player's record stays in its place with the new zone,
-  the others are emptied, and the game places the destination's characters. **Checked**: the owner's Littleroot save so
-  moved loads in zone 8 (matrix 3, Dewford) and in Petalburg (matrix 2: one run of three, the two others stuck before the
-  field, a fault of the test, not of the save: `save_test.sh`); kept, the old characters leave the screen black once
-  DllField loads (runs `matrix2`-`matrix8`). `--template <save>` takes block 10 from a save the game made in the target
-  matrix instead. Seen, not read in code: the record layout. Test saves: `headless/save_test.sh <work> <save>...` (LOADED,
-  BLACK, or UNSURE when the run sticks). A JIT run boots at a varying speed: `wait 700` before `mash a 15` (`matrix1` stayed
-  on the title).
+  Sinnoh tests, not the owner's Littleroot save at 104.5 170.5) `main_Wild_Encounter` (made by the owner for wild
+  encounters, 8 October: zone 24 at tile (183.47, 134.85)) and the save's `00000001.metadata`; a run starts from one with
+  `POMEGRADE_SAVE=<absolute path>`. **Moving the save into another zone** (8 October): `oras-save <main> <out> <zone> <x>
+  <z>` writes the zone (block 4, +2 and +0xF4), the position (both copies) and, on a zone change, block 10: the characters
+  of the zone the save was made in (records of 0x108 bytes: number, zone, model, tile; `prototype/oras_save.py characters`
+  decodes them), which the game restores on loading. The player's record stays in its place with the new zone, the others
+  are emptied, and the game places the destination's characters. **Checked**: the owner's Littleroot save so moved loads in
+  zone 8 (matrix 3, Dewford) and in Petalburg (matrix 2: one run of three, the two others stuck before the field, a fault of
+  the test, not of the save: `save_test.sh`); kept, the old characters leave the screen black once DllField loads (runs
+  `matrix2`-`matrix8`). `--template <save>` takes block 10 from a save the game made in the target matrix instead. Seen, not
+  read in code: the record layout. Test saves: `headless/save_test.sh <work> <save>...` (LOADED, BLACK, or UNSURE when the
+  run sticks). A JIT run boots at a varying speed: `wait 700` before `mash a 15` (`matrix1` stayed on the title).
 - **Show that a function runs**: `trace on` / `trace off FILE` around the action (needs `POMEGRADE_INTERPRETER=1`), then
   look for the function's running address in the file (a DllField function at its linked address - 0x10242000 + 0x6F3000) or
   map the whole trace with `prototype/coverage_map.py` (`--minus <run>/<trace>` subtracts a trace of another run). Not GDB:
