@@ -230,6 +230,7 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
     OrasTownOptions to;
     to.CloseEdges = false;
     to.Ledges = true;
+    to.SnowClumps = false; // no snow in a sandbox, and its clumps take the snow-band mesh the ledges use
     to.AreaPack = (size_t)pack;
     const PieceBudget budget = GamePieceBudget(pieceArchive);
     std::string layouts;
