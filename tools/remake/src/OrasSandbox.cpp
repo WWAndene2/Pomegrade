@@ -24,7 +24,7 @@ static Bytes Plain(const Bytes& data) { return IsLzCompressed(data) ? LzDecompre
 
 struct SandboxZone
 {
-    int Number = -1, Template = -1, Encounters = -1, Lighting = -1;
+    int Number = -1, Template = -1, Encounters = -1, Lighting = -1, Camera = -1;
     float SpawnX = -1, SpawnZ = -1;
     std::string Name;
     std::vector<std::array<int, 8>> Characters; // model, x, z, facing, script, movement, kind, sight
@@ -74,6 +74,7 @@ static SandboxDescription ReadDescription(const std::string& text)
         if (what == "template") ok = (bool)(words >> z.Template);
         else if (what == "encounters") ok = (bool)(words >> z.Encounters);
         else if (what == "lighting") ok = (bool)(words >> z.Lighting);
+        else if (what == "camera") ok = (bool)(words >> z.Camera);
         else if (what == "spawn") ok = (bool)(words >> z.SpawnX >> z.SpawnZ);
         else if (what == "name") { std::getline(words >> std::ws, z.Name); ok = !z.Name.empty(); }
         else if (what == "character" || what == "trainer")
@@ -206,7 +207,7 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
     if ((size_t)d.Zones[0].Number != zoneArchive.Count())
         throw FormatError("sandbox: zone " + std::to_string(d.Zones[0].Number) + " is not the next free member of a/0/1/3 (" + std::to_string(zoneArchive.Count()) + ")");
     for (const SandboxZone& z : d.Zones)
-        if (z.Template >= 536 || z.Encounters >= 536 || z.Lighting >= 536) throw FormatError("sandbox: template, encounters and lighting are game zones, 0-535");
+        if (z.Template >= 536 || z.Encounters >= 536 || z.Lighting >= 536 || z.Camera >= 536) throw FormatError("sandbox: template, encounters and lighting are game zones, 0-535");
 
     // every zone draws its textures from the first template's area pack (header word 1), which the pieces are built into
     const int pack = OrasZone::Read(Plain(zoneArchive.Sub((size_t)d.Zones[0].Template))).AreaPack();
@@ -387,6 +388,9 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
         BinLinker zc = BinLinker::Read(zone.Write(templateData), "ZO");
         const Bytes encounter = z.Encounters >= 0 ? BinLinker::Read(Plain(zoneArchive.Sub((size_t)z.Encounters)), "ZO").Files.at(3) : Bytes{};
         zc.Files.at(3) = encounter;
+        // camera: a zone's file 4 (12 bytes) is zero in 511 of the game's 536 zones; in the others byte 0 is 1 and small signed
+        // u16 words follow (-6, -5, -2, 45, 90, 135...): read as the zone's camera turn (to check live). Copied from game zone `camera`
+        if (z.Camera >= 0) zc.Files.at(4) = BinLinker::Read(Plain(zoneArchive.Sub((size_t)z.Camera)), "ZO").Files.at(4);
         const Bytes zoneData = zc.Write();
         const OrasZone check = OrasZone::Read(zoneData);
         if (check.Number() != z.Number || check.Matrix() != (int)matrixIndex || check.Characters.size() != zone.Characters.size() || check.Doors.size() != zone.Doors.size())
