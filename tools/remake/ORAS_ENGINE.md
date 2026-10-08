@@ -249,7 +249,10 @@ another (51 characters passed the count check and stopped on the events buffer).
   101's south ledges (0x75000021, piece 5: its rows 15, 16 and 28; seen, its east and west ledges 0x72020021 and 0x73020021
   are vertical runs, which way each faces not checked) and a one-tile slice of Route 101's ledge mesh (`chip_jump_gake9`,
   texture `chip_jump_gake` in area pack 8) on each tile. **Checked live** (`ledge2`, `ledge3`): the ledge shows, the player
-  passes it going south and is stopped by it going north. Not built yet: east and west ledges, relief (hills, cliffs),
+  passes it going south and is stopped by it going north. Its foot showed a black band (the owner): the foot is translucent and the builder laid no
+  ground under `L` tiles; with grass under them (`ledge5`) it shows the soft green shadow of Route 101's own ledge (reference
+  shot `ref101`: the owner's save moved to zone 23 at 99.5, 146.5, above the ledge at row 148). Turning the texture over was
+  wrong (`ledge4`). Not built yet: east and west ledges, relief (hills, cliffs),
   warps between matrices; not yet tested on the phone.
 
 ## 3. Map pieces
