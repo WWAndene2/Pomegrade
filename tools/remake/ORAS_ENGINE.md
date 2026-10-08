@@ -18,7 +18,7 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 
 | Objective | State |
 |---|---|
-| 1 Decomposition | the whole code (`.code` + 145 modules) in one Ghidra program, checked against the game's own load; Ghidra's wrong no-return marks cleared (`FixNoReturn.java`: code was missing from 1,753 functions); **3,795 functions named** (`ghidra/function_names.tsv`, read or guess), from coverage traces (section 6: entering a zone, a door warp, a sign, the start menu) and from the game's own tables: **every script native** (799, all 16,321 native calls of the 1,072 zone scripts resolved), the script machine (load, run, wait, natives by mask), the message command `TalkMdlMsg_Seq` **checked live** with its first argument (section 6); the names **reviewed** on 7 October (99 changed: section 6), 1,384 still marked guess, to be read before they are relied on. talking to a character **traced and checked** (section 6: 307 functions beyond a sign, all but 10 named); the wild encounter selection **read and checked live** (section 6: the step check, the zone's encounter file, its tables, the slot and level pick; a wild Wurmple at level 2 in run `enc2`); the trainers **read and checked live** (section 6: a battle against trainer 7 in run `trainer3`); then saving; the region map (needs touch input in retro_host). Then objectives 3 and 6 |
+| 1 Decomposition | the whole code (`.code` + 145 modules) in one Ghidra program, checked against the game's own load; Ghidra's wrong no-return marks cleared (`FixNoReturn.java`: code was missing from 1,753 functions); **3,802 functions named** (`ghidra/function_names.tsv`, read or guess), from coverage traces (section 6: entering a zone, a door warp, a sign, the start menu) and from the game's own tables: **every script native** (799, all 16,321 native calls of the 1,072 zone scripts resolved), the script machine (load, run, wait, natives by mask), the message command `TalkMdlMsg_Seq` **checked live** with its first argument (section 6); the names **reviewed** on 7 October (99 changed: section 6), 1,384 still marked guess, to be read before they are relied on. talking to a character **traced and checked** (section 6: 307 functions beyond a sign, all but 10 named); the wild encounter selection **read and checked live** (section 6: the step check, the zone's encounter file, its tables, the slot and level pick; a wild Wurmple at level 2 in run `enc2`); the trainers **read and checked live** (section 6: a battle against trainer 7 in run `trainer3`); then saving; the region map (needs touch input in retro_host). Then objectives 3 and 6 |
 | 2 Tables and assets | zones (section 2), map pieces (3), the boot memory map (4.2), the 299 archives tied to their code where opened by a constant (5); not yet: the 210 archives opened by computed numbers, the asset formats beyond `tools/remake/src`'s readers |
 | 4 Limits | **done for building a world** (section 4.6): all 927 fatal checks listed, the field's and the `.code`'s classified; lifted and checked headless: zones 536 -> 1024 (2), application memory 64 -> 124 MB (New 3DS mode) and the linear heap 43.3 -> 88 MB, the normal heap and heap 4, heap 0xC 2 -> 8 MB, heap 0x17 28.4 -> 64 MB (4.4), characters past 26 (4.5); refused at build time where they cannot be raised: a zone's events file under 0xC84 bytes (4.5), a piece model's 51 textures (4.6), the 178 MB mode (4.4); **found, not lifted yet**: a zone script's native mask table holds 536 entries (section 6: zones from 536 read past it); left with their reason: the 8-deep load queue per object, collision objects per cell, the 174-entry Secret Base table (4.6) |
 | 5 Patches | `remake_tool oras-engine` writes them all (`exheader.bin`, `exefs/code.ips`); **checked on the phone (owner, 7 October): mod `all6`** (the whole of Sinnoh as r12, the title, the save in Twinleaf, and `engine --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 --characters 64`, Remake mod run 147) with the APK of `main` at PR #33: "everything works fine" |
@@ -37,10 +37,9 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
    --minus enc1/enc_grass.txt --minus enc1/enc_idle.txt --minus enc2/enc_battle.txt` (`decompile.sh`, then names). A
    save moved by `oras-save` into another matrix does not load (`trainer1`): walk through an edge warp instead
    (`trainer2`, Oldale 83.5 101.5 to Route 102), or use a save made in the game.
-2. **Encounters, the rest.** Not read: each table kind's own slot pick (the method table at `DAT_102dd028 + 0x3F0` in
-   `Field_WildEncounter_PickSlotAndLevel`), what kinds 1-7 are (fishing, rock smash, ...: find a zone and a tile kind
-   that uses each with `oras_tables.py encounters`), and what member 537, loaded whole at boot, is for
-   (`GameData_LoadBootTables` 0x10E89C: decompile its users of the object at +0xC).
+2. **Encounters, the rest.** The slot picks are read (section 6). Left: what kind 2 is, the kinds' names (inferred
+   from their weights) and what member 537, loaded whole at boot, is for (`GameData_LoadBootTables` 0x10E89C: decompile
+   its users of the object at +0xC). The owner has a save made for a wild encounter: ask for it to check a kind live.
 3. **Saving.** Trace the save from the menu (the menu row of section 6's traces table), minus the menu trace; name
    the set.
 4. **Region map.** Needs touch input: add a `touch X Y FRAMES` command to `headless/retro_host.cpp` (the libretro
@@ -106,18 +105,18 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   goes on: its speed, the last commands it reached and its screenshots so far as PNG. Saves made by the owner in the game
   are in `headless/saves/` (put there by the owner, 8 October): `main_Trainer_Battle` in front of trainer 7 on Route 102
   (zone 24, tile 174.5 146.5; run `trainer3`), `main_Startpoint` (zone 6 at tile 104.5 890.5, the position of the 6 October
-  Sinnoh tests, not the owner's Littleroot save at 104.5 170.5) and the save's `00000001.metadata`; a run starts from one
-  with `POMEGRADE_SAVE=<absolute path>`. **Moving the save into another zone** (8 October): `oras-save <main> <out> <zone>
-  <x> <z>` writes the zone (block 4, +2 and +0xF4), the position (both copies) and, on a zone change, block 10: the
-  characters of the zone the save was made in (records of 0x108 bytes: number, zone, model, tile; `prototype/oras_save.py
-  characters` decodes them), which the game restores on loading. The player's record stays in its place with the new zone,
-  the others are emptied, and the game places the destination's characters. **Checked**: the owner's Littleroot save so
-  moved loads in zone 8 (matrix 3, Dewford) and in Petalburg (matrix 2: one run of three, the two others stuck before the
-  field, a fault of the test, not of the save: `save_test.sh`); kept, the old characters leave the screen black once
-  DllField loads (runs `matrix2`-`matrix8`). `--template <save>` takes block 10 from a save the game made in the target
-  matrix instead. Seen, not read in code: the record layout. Test saves: `headless/save_test.sh <work> <save>...` (LOADED,
-  BLACK, or UNSURE when the run sticks). A JIT run boots at a varying speed: `wait 700` before `mash a 15` (`matrix1` stayed
-  on the title).
+  Sinnoh tests, not the owner's Littleroot save at 104.5 170.5) `main_Wild_Encounter` (made by the owner for wild
+  encounters, 8 October: zone 24 at tile (183.47, 134.85)) and the save's `00000001.metadata`; a run starts from one with
+  `POMEGRADE_SAVE=<absolute path>`. **Moving the save into another zone** (8 October): `oras-save <main> <out> <zone> <x>
+  <z>` writes the zone (block 4, +2 and +0xF4), the position (both copies) and, on a zone change, block 10: the characters
+  of the zone the save was made in (records of 0x108 bytes: number, zone, model, tile; `prototype/oras_save.py characters`
+  decodes them), which the game restores on loading. The player's record stays in its place with the new zone, the others
+  are emptied, and the game places the destination's characters. **Checked**: the owner's Littleroot save so moved loads in
+  zone 8 (matrix 3, Dewford) and in Petalburg (matrix 2: one run of three, the two others stuck before the field, a fault of
+  the test, not of the save: `save_test.sh`); kept, the old characters leave the screen black once DllField loads (runs
+  `matrix2`-`matrix8`). `--template <save>` takes block 10 from a save the game made in the target matrix instead. Seen, not
+  read in code: the record layout. Test saves: `headless/save_test.sh <work> <save>...` (LOADED, BLACK, or UNSURE when the
+  run sticks). A JIT run boots at a varying speed: `wait 700` before `mash a 15` (`matrix1` stayed on the title).
 - **Show that a function runs**: `trace on` / `trace off FILE` around the action (needs `POMEGRADE_INTERPRETER=1`), then
   look for the function's running address in the file (a DllField function at its linked address - 0x10242000 + 0x6F3000) or
   map the whole trace with `prototype/coverage_map.py` (`--minus <run>/<trace>` subtracts a trace of another run). Not GDB:
@@ -509,7 +508,14 @@ bits 11-15, form 31 an empty slot), the minimum level, the maximum level; the le
 own pick function chooses (not read); a horde rolls 20% for one different member. **Checked live** (run `enc2`, 7
 October: 32 walks of two tiles, a battle within the first 8): a wild Wurmple at level 2, one of the table's slots; the
 pick function ran in `enc2` and not in `enc1`. Not read: the per-kind pick functions, the meaning of tables 1-7 beyond
-their offsets, the battle side.
+their offsets, the battle side. **The slot picks, read on 8 October**: `PickSlotAndLevel` calls one of 7 functions by
+the mode `SelectTable` sets (`Field_WildEncounter_PickSlotMode0`-`6`, method table 0x103357F0), each a draw of
+`random(100)` against a weight table: kinds 0 and 1, 12 slots, 10 x 9, 5, 4, 1; kind 2, 3 slots, 60, 35, 5; kinds 3 and
+4, 5 slots, 50, 30, 15, 4, 1; kinds 5, 6, 7, 3 slots each, 60, 35, 5; kind 8, one of 3 groups of 5 (hordes), 60, 35, 5.
+The slot counts fit the tables' sizes in the file exactly. What the kinds are is inferred from these counts and weights
+(grass, a second grass, surfing for kind 3, which the step check picks on the water flag, rock smash, three rods,
+hordes), except kind 2 (3 slots; zone 23 holds species 506, 570, 540 there): not established. `oras_tables.py
+encounters` prints each kind's weights.
 
 **Trainers** (7 October; **checked on the data and live**: run `trainer3`, a battle against trainer 7 on Route 102, his
 Zigzagoon at level 4 on screen as `a/0/3/8` gives it). The natives `_CallTrainerBattleCore` (44 zone scripts) and

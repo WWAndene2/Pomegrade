@@ -3807,3 +3807,11 @@
 102C9BF8	Field_Camera_StoreParams	Copies camera parameter vectors and three record fields into an output block; called after Gfx_CameraParam_Lerp.	guess
 102CA7C4	Field_GetObj60Handle	Passes the word at +0x60 to a main-program import and returns the result; used by Script_Native_MsgLoad/MsgIsLoaded.	guess
 102CD5D4	Field_ConvertRailPosToVector	Converts a rail position (two words plus data) into a 4-word vector; used by Script_Native_MdlGetRailPosKey and Field_ResolveObjectBinding.	guess
+# Wild encounter slot picks (8 October, static: the method table at 0x103357F0 read by Field_WildEncounter_PickSlotAndLevel, mode = context +0x82 set by Field_WildEncounter_SelectTable)
+102DD13C	Field_WildEncounter_PickSlotMode0	Weighted pick of one of 12 slots: random(100) against the weights 10x9, 5, 4, 1 (table 0x10383F29); kind 0's table.	read
+102DCA30	Field_WildEncounter_PickSlotMode1	Weighted pick of one of 12 slots, weights 10x9, 5, 4, 1 (table 0x10383F35); kind 1's table.	read
+102DC9D8	Field_WildEncounter_PickSlotMode2	Weighted pick of one of 3 slots, weights 60, 35, 5 (table 0x10383678); kind 2's table.	read
+102DD0E4	Field_WildEncounter_PickSlotMode3	Weighted pick of one of 5 slots, weights 50, 30, 15, 4, 1 (table 0x10383694); kind 3's table (the water-flag kind).	read
+102DD08C	Field_WildEncounter_PickSlotMode4	Weighted pick of one of 5 slots, weights 50, 30, 15, 4, 1 (table 0x10383699); kind 4's table.	read
+102DD194	Field_WildEncounter_PickSlotMode5	Weighted pick of one of 3 slots, weights 60, 35, 5 (table 0x1038367B); kinds 5, 6 and 7.	read
+102DD034	Field_WildEncounter_PickSlotMode6	Weighted pick of one of 3 groups (15 weights, 60, 35, 5 then zeros, table 0x10383F41); kind 8, the horde table of 3 groups of 5.	read
