@@ -183,6 +183,7 @@ class PomegradeFolder(
         if (settingsRepository.getDsiBiosDirectory() == null) settingsRepository.setDsiBiosDirectory(bios)
 
         setUpThreeDs()
+        hideImagesFromGallery()
         return SetupResult.Success to organized
     }
 
@@ -249,6 +250,26 @@ class PomegradeFolder(
             .putBoolean(Settings.PREF_FIRST_APP_LAUNCH, false)
             .apply()
         return PermissionsHandler.hasWriteAccess(context)
+    }
+
+    /**
+     * Keeps the image files the emulators write out of the phone's gallery: a `.nomedia` file in the
+     * DS texture folder (Textures/<game code>/, its dumps in dump/), the save state previews and the 3DS
+     * core's dump folder (dump/textures/<title id>/), which Android's media scanner otherwise lists as
+     * photos (the owner, 8 October: the dumped textures filled the gallery). A `.nomedia` hides the
+     * folder's sub-folders too; files already listed leave the gallery when it next rescans. Each game's
+     * textures stay in a folder of their own, as both cores write them.
+     */
+    fun hideImagesFromGallery() {
+        val root = path() ?: return
+        if (!hasFileAccess(context)) return
+        val threeDs = runCatching { documentIdOf(context, PermissionsHandler.citraDirectory) }.getOrNull()?.let { pathOf(it) }
+        val folders = listOfNotNull(File(root, TEXTURES), File(root, SAVE_STATE_PREVIEWS), threeDs?.let { File(it, "dump") })
+        for (dir in folders) {
+            runCatching {
+                if (dir.isDirectory || dir.mkdirs()) File(dir, ".nomedia").createNewFile()
+            }
+        }
     }
 
     /** The games of [roms] not in Roms yet. */
