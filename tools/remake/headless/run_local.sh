@@ -29,6 +29,9 @@ save="$run/Azahar/sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000
 start=${POMEGRADE_SAVE:-dumps/save/main}
 mkdir -p "$save"; cp "$start" "$save/main"; cp dumps/save/00000001.metadata "$save.metadata"
 [ -n "$move" ] && ./build-remake/remake_tool oras-save "$start" "$save/main" $move > "$run/save.txt"
+# POMEGRADE_STATE: an emulator state file copied into the run as <name>.state, for the script's "load <name>" (save_test.sh:
+# the boot to the title played once, then each save tested from there)
+[ -n "${POMEGRADE_STATE:-}" ] && cp "$POMEGRADE_STATE" "$run/"
 printf '%s\n' "$script" | tr ';' '\n' > "$run/script.txt"
 host() { (ulimit -f 4000000; ./retro_host build-azahar/bin/Release/azahar_libretro.so dumps/oras.3ds "$run" "$secs" "$PWD/$run/script.txt" > "$run/log.txt" 2>&1); }
 if [ -z "$gdb" ]; then
