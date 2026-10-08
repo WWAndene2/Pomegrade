@@ -261,6 +261,26 @@ another (51 characters passed the count check and stopped on the events buffer).
   wrong (`ledge4`). Not built yet: east and west ledges, relief (hills, cliffs),
   warps between matrices; not yet tested on the phone.
 
+- **What the sandbox can do** (8 October; "checked" means seen in a headless run or on the owner's phone):
+
+  | Part | Made new | Reused from the game | State |
+  |---|---|---|---|
+  | Zone | yes | yes | checked: new zones 538+, names, several zones a matrix, phone test of the demo |
+  | Floor (insides, storeys) | no | a game interior copied behind a door | checked: in and out of a house (`house3`); stairs and storeys not tried |
+  | Relief | no | south ledges | checked: ledge jumped south, blocks north (`ledge3`, `ledge5`); east and west ledges, hills, cliffs not built |
+  | Battle | no | the game's trainers | checked: trainer 10 walks up and speaks (`sand7`); a trainer's own team not written (format known, section 6) |
+  | Wild encounters | no | a zone's table copied | the format is read and checked (section 6); a table of one's own not written |
+  | Dialogue box | no | the template zone's lines | place names are written (`name`); a dialogue needs a script |
+  | Event, script | no | the template zone's scripts | scripts are read (disassembler), not written |
+  | Cutscene | no | no | not studied |
+  | Camera | no | no | not studied (matrix file 1's rectangle: meaning not read) |
+  | Lighting | no | no | not studied |
+  | Texture | not checked | the area packs' textures | the piece builder adds a pack's textures to the zone's pack |
+  | Animation | no | no | not studied |
+  | 3D model | no | pieces cut from the game's (house, trees, fence, ledge) | a model of one's own not made |
+  | Music | no | no | nothing reads the sound yet |
+  | Ground | yes | the game's grass, paths, water | checked: grass, tall grass (its ground since `fix1`), paths, pond (a bed in the water's colour, `fix2`: the surface still faint), trees, forest |
+
 ## 3. Map pieces
 
 - The piece slot table: 4 slots, filed under the word opening each piece's file 4 (`row | column << 8`); full table = fatal
