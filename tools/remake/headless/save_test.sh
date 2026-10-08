@@ -6,7 +6,8 @@
 #
 #   tools/remake/headless/save_test.sh <work dir> [--good <save> --bad <save>] <save>...
 #
-# Prints one line per save: LOADED (screen brightness over 20 and DllField loaded) or BLACK, with the run name
+# Prints one line per save: LOADED (screen brightness over 20 and DllField loaded), BLACK (DllField loaded, the screen
+# black) or UNSURE (stuck before the field in 3 attempts), with the run name
 # (runs/st_<save file name>, its shot start.png). JIT runs (no trace); one heavy job at a time (ORAS_ENGINE.md 0, rule 2).
 set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
@@ -17,18 +18,25 @@ while [ $# -gt 0 ]; do
 done
 state=$work/title.state
 
-verdict() {  # verdict <run name>: LOADED or BLACK
+verdict() {  # verdict <run name>: LOADED, BLACK (the field loaded, the screen stayed black) or STUCK (no field at all)
     local log=$work/runs/$1/log.txt
     local b; b=$(grep -oE "screen brightness [0-9.]+" "$log" | tail -1 | awk '{print $3}')
-    if grep -q 'CRO "DllField" loaded' "$log" && python3 -c "import sys; sys.exit(0 if float('${b:-0}') > 20 else 1)"; then
-        echo LOADED; else echo BLACK; fi
+    if ! grep -q 'CRO "DllField" loaded' "$log"; then echo STUCK
+    elif python3 -c "import sys; sys.exit(0 if float('${b:-0}') > 20 else 1)"; then echo LOADED
+    else echo BLACK; fi
 }
 
-one() {  # one <save>: a run from the title state
-    local name=st_$(basename "$1")
-    POMEGRADE_SAVE=$(realpath "$1") POMEGRADE_STATE=$state "$here/run_local.sh" "$work" "$name" - "" \
-        "wait 120;load title;mash a 15;wait 600;shot start" 60 > /dev/null 2>&1
-    echo "$(verdict "$name") $1 (runs/$name)"
+one() {  # one <save>: a run from the title state, again when it got stuck before the field
+    # (8 October: the same save, four runs: two loaded, two froze at frame ~425 just after "load title", DllField never
+    # loaded; a save that does not load reaches DllField and stays black, so STUCK is the test, not the save)
+    local name=st_$(basename "$1") v= try
+    for try in 1 2 3; do
+        POMEGRADE_SAVE=$(realpath "$1") POMEGRADE_STATE=$state "$here/run_local.sh" "$work" "$name" - "" \
+            "wait 120;load title;mash a 15;wait 600;shot start" 60 > /dev/null 2>&1
+        v=$(verdict "$name"); [ "$v" != STUCK ] && break
+    done
+    [ "$v" = STUCK ] && v="UNSURE (stuck 3 times before the field)"
+    echo "$v $1 (runs/$name, attempt $try)"
 }
 
 if [ ! -f "$state" ]; then
