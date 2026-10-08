@@ -56,7 +56,7 @@ object RefreshRateUtil {
     /**
      * Pomegrade: the screen rate for the frame rate mode (IntSetting.FRAME_RATE_MODE, video_core/frame_generation.h) during
      * emulation: 60 Hz for 30, 60 and 60 smooth (as before), the mode at 120 Hz for 120, at 240 Hz (else 120) for 240 and
-     * adaptive, at exactly that rate (120 images on a 144 Hz screen would be shown unevenly). Then the rate the screen is
+     * adaptive (60 while hot), at exactly that rate (120 images on a 144 Hz screen would be shown unevenly). Then the rate the screen is
      * at goes to the emulator, which never generates more images than the screen shows.
      */
     fun applyFrameRateMode(activity: Activity, hot: Boolean) {
@@ -71,7 +71,9 @@ object RefreshRateUtil {
                     modes.filter { abs(it.refreshRate - rate) < 1f }.minByOrNull { abs(it.refreshRate - rate) }
                 val mode = when (IntSetting.FRAME_RATE_MODE.int) {
                     3 -> modeAt(120f)
-                    4, 5 -> modeAt(240f) ?: modeAt(120f)
+                    4 -> modeAt(240f) ?: modeAt(120f)
+                    // adaptive: 60 while hot, as the emulator then shows
+                    5 -> if (hot) modeAt(60f) else modeAt(240f) ?: modeAt(120f)
                     else -> modeAt(60f)
                 }
                 if (mode != null) {

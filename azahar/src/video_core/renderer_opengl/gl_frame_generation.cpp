@@ -107,7 +107,11 @@ bool FrameGeneratorGL::Present(Frontend::Frame* frame, u32 out_width, u32 out_he
     }
     const auto now = std::chrono::steady_clock::now();
     if (frame->width != width || frame->height != height) {
+        // Resize binds its own framebuffers: the screen's is put back for the caller
+        GLint screen_fbo = 0;
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &screen_fbo);
         Resize(frame->width, frame->height);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(screen_fbo));
     }
     if (newest < 0 || frame->serial != serial) {
         // a distinct frame: copied over A, which becomes B

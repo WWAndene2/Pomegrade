@@ -216,12 +216,15 @@ class EmulationActivity : AppCompatActivity() {
     private var thermalHot = false
     private val thermalListener = PowerManager.OnThermalStatusChangedListener { status ->
         thermalHot = status >= PowerManager.THERMAL_STATUS_MODERATE
-        RefreshRateUtil.reportDisplay(this, thermalHot)
+        // adaptive: the screen goes back to 60 Hz while hot, and up again after
+        RefreshRateUtil.applyFrameRateMode(this, thermalHot)
     }
 
     override fun onResume() {
+        // added here and removed in onPause: a pause without a stop (a dialog, the notification shade) would add it twice
         getSystemService(PowerManager::class.java)?.addThermalStatusListener(thermalListener)
-        RefreshRateUtil.reportDisplay(this, thermalHot)
+        // the frame rate mode may have changed in the settings meanwhile
+        RefreshRateUtil.applyFrameRateMode(this, thermalHot)
         enableFullscreenImmersive()
         if (isEmulationReady) {
             // If emulation is ready then unblock rotation
@@ -236,8 +239,12 @@ class EmulationActivity : AppCompatActivity() {
         super.onResume()
     }
 
-    override fun onStop() {
+    override fun onPause() {
         getSystemService(PowerManager::class.java)?.removeThermalStatusListener(thermalListener)
+        super.onPause()
+    }
+
+    override fun onStop() {
         secondaryDisplayManager.releasePresentation()
         super.onStop()
     }
