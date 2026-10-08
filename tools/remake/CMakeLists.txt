@@ -47,6 +47,7 @@ add_library(remake STATIC
     src/OrasEngine.cpp
     src/OrasMatrix.cpp
     src/OrasRegion.cpp
+    src/OrasSandbox.cpp
     src/OrasSave.cpp
     src/OrasZone.cpp
     src/OrasInspect.cpp
