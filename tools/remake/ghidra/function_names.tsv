@@ -3822,3 +3822,28 @@
 102D9DF8	Field_WildEncounter_TryKind	Tries an encounter of a given kind: rate = the zone encounter file's header byte [kind] - 1 (plus a bonus), scaled by ApplyRateModifiers, against random(100); then SelectTable and the encounter event. Called by the fishing module with kinds 5-7.	read
 102D9F04	Field_WildEncounter_StartRockSmash	Starts a kind-4 encounter with no rate roll (SelectTable, Field_StartEncounterEvent); called by the script native CallWildBattleRockCrash (Rock Smash).	read
 103997E0	Fishing_TryEncounter	DllFieldEventFishing: after a countdown, picks kind 5, 6 or 7 by the rod field +0xE0 (0, 1, 2) and calls Field_WildEncounter_TryKind; a message whether something bit or not.	read
+# Saving (8 October): read statically from the save's RTTI class names (savedata::*), the SaveData constructor and DllReport.
+00115DE0	Save_SaveData_Construct	Builds the save's 58 block objects in block order, each with its savedata:: class's vtable (RTTI names: block 0 Kawaigari ... 4 Situation, 10 MoveModelSave ... 57 PhotoSaveData; ORAS_ENGINE.md 6, Saving).	read
+004652D4	Save_SaveData_WriteBlockTable	SaveData vtable +0x1C: for each of the 58 blocks writes its size, index and CRC16 (0x173F84, seed 0xFFFF) into the footer's table (+0x1C, 8 bytes each), then the magic FEEB at +0x18.	read
+00173F84	Util_Crc16Ccitt	CRC16-CCITT (polynomial from a literal, table built on the stack) of n bytes from a seed; the save's block checksums use seed 0xFFFF.	read
+00465284	Save_SaveData_GetBlock	Returns block object n (0-57) of the SaveData, the footer for 0x3A; fatal past it.	read
+0045D4C0	Save_Thread_Start	Starts the save/load thread (savedata::SaveLoadControlThread) in a mode (byte +0x11, fatal when one is running): 1-2 create, 3 load, 4 full save, 5 first part, 6 commit.	read
+00461354	Save_Thread_Run	SaveLoadControlThread's run method: calls Save_Thread_DoMode with its owner, heap and block set.	read
+00124BEC	Save_Thread_DoMode	The thread's work by mode: 3 Save_ReadBlocks; 4 Save_WriteBlocks then Save_Commit; 5 Save_WriteBlocks only; 6 Save_Commit only; 1-2 through Save_CreateAndWrite.	read
+0045DACC	Save_ReadBlocks	Opens the save file for reading and reads every block of the set at its offset (each rounded up to the block alignment); 4 when a read is short.	read
+0045DC38	Save_WriteBlocks	Opens the save file for writing and writes every block of the set at its offset (each rounded up to the block alignment); fatal when a write is short.	read
+0045DDB4	Save_Commit	Calls the archive object's +0x18 (fatal unless 1), then a status check (fatal on failure): the commit of written data (inferred from the two-part save).	guess
+0045DE34	Save_PrepareBlockSet	Before a save: locks a field flag (+0x17A99), keeps the block set at +0x1C and calls its +0x24.	guess
+0045D138	Save_CreateAndWrite	Modes 1-2: creates the save file (0x36C30C) when absent, then writes all blocks without the commit.	guess
+0045DF08	Save_StartLoad	Starts the thread in mode 3 (read the save).	read
+0045DF28	Save_StartFullSave	Prepares the block set (its +0x1C is SaveData's block table and checksums) and starts the thread in mode 4 (write and commit).	read
+0045D76C	Save_StartFirstPart	As Save_StartFullSave in mode 5 (write without the commit).	read
+0045D70C	Save_StartCommit	When the first part is done (state 3), state 4 and the thread in mode 6 (the commit only).	read
+001E7BA4	GameData_SaveFull	A new save id (Save_Footer_NewSaveId), then Save_StartFullSave; state 1. Called by DllReport (the menu's save), DllGameClearSave and online modules.	read
+001E7554	GameData_SaveFirstPart	A new save id, then Save_StartFirstPart; state 2 (DllReport, DllGts).	read
+001E7B84	GameData_Load	Save_StartLoad; 6 when it could not start.	read
+00465374	Save_Footer_NewSaveId	Draws a new random non-zero 64-bit id for the save, different from the last two, keeping the previous one (footer +8 current, +0x10 previous).	read
+004EA9A0	Save_Footer_GetPreviousId	Returns the footer's 64-bit word at +0x10 (the previous save id, after Save_Footer_NewSaveId).	guess
+1069FD2C	Report_SaveFull	DllReport (the menu's "Save"): counts the save (Save_IncrementCounter 1), shows the saving message, refreshes the save's header data (0x46511C), then GameData_SaveFull.	read
+1069F350	Report_SaveFirstPart	DllReport: when +0x74 is set, the same header refresh and GameData_SaveFirstPart.	read
+1069EE60	Report_Step_AfterConfirm	DllReport step after the yes/no: Report_SaveFull, or a message and back when the save is refused.	guess

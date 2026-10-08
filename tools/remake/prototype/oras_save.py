@@ -2,7 +2,7 @@
 """An ORAS save file ("main", 0x76000 bytes) read block by block (ORAS_ENGINE.md 0, "Run the game"): what the moved-save
 tests of 8 October needed and did with throwaway scripts.
 
-  oras_save.py blocks <save>                      the block table: index, id, offset, size, checksum ok
+  oras_save.py blocks <save>                      the block table: index, id, offset, size, checksum ok, the game's class
   oras_save.py diff <save A> <save B>             the blocks that differ, how many bytes, and the first differing offsets
   oras_save.py characters <save>                  block 10, decoded: one line per saved character record
   oras_save.py take <save> <out> <template> <block>[,<block>...]
@@ -28,6 +28,15 @@ signal.signal(signal.SIGPIPE, signal.SIG_DFL)  # quiet when piped into head
 
 TABLE = 0x75E14
 RECORD = 0x108
+# each block's class in the game (RTTI names savedata::<class>; Save_SaveData_Construct 0x115DE0 builds them in block order,
+# sizes checked against the vtables' size getters, 8 October, but for 35, placed by the order alone); 19 has no named class
+CLASSES = ("Kawaigari MYITEM BAG GameTime Situation RandomGroup PlayTime Fashion MiniGame GimmickWork MoveModelSave Misc BOX "
+           "BattleBox PssPersonalSaveData PssPersonalSaveData PssPersonalSaveData MyStatus PokePartySave (unnamed) ZukanData "
+           "HologramMailData UnionPokemon Config KawaigariGoods AssistPowerData FieldRockData Promotion GtsData FieldMenu "
+           "ProfileEnqueteData Encount BossHistory CecHistory BattleMatch AccessPointSaveData Dendou BattleHouseData Sodateya "
+           "TrialHouse KinomiData WonderGiftSaveData SubEventSaveData PokeDiarySaveData Record FriendSafariSaveData "
+           "TrainingSaveData ReservedSaveData EShopSaveData ProfileHistory GameSync MyPhotoIconSaveData ValidationSaveData "
+           "Contest SecretBase SangoNetworkSavedata BoxPokemon PhotoSaveData").split()
 
 
 def crc16(data):
@@ -74,7 +83,8 @@ def cmd_blocks(path):
     data = read(path)
     for i, bid, offset, size, crc in blocks(data):
         ok = crc16(data[offset:offset + size]) == crc
-        print(f"block {i:2} id {bid:2} at 0x{offset:05X}, {size:6} bytes, checksum {'ok' if ok else 'WRONG'}")
+        name = CLASSES[i] if i < len(CLASSES) else "?"
+        print(f"block {i:2} id {bid:2} at 0x{offset:05X}, {size:6} bytes, checksum {'ok' if ok else 'WRONG'}, {name}")
 
 
 def cmd_diff(pa, pb):
