@@ -18,7 +18,7 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 
 | Objective | State |
 |---|---|
-| 1 Decomposition | the whole code (`.code` + 145 modules) in one Ghidra program, checked against the game's own load; Ghidra's wrong no-return marks cleared (`FixNoReturn.java`: code was missing from 1,753 functions); **3,448 functions named** (`ghidra/function_names.tsv`, read or guess), from coverage traces (section 6: entering a zone, a door warp, a sign, the start menu) and from the game's own tables: **every script native** (799, all 16,321 native calls of the 1,072 zone scripts resolved), the script machine (load, run, wait, natives by mask), the message command `TalkMdlMsg_Seq` **checked live** with its first argument (section 6); the names **reviewed** on 7 October (99 changed: section 6), 1,159 still marked guess, to be read before they are relied on. talking to a character **traced and checked** (section 6: 307 functions beyond a sign, all but 10 named); the wild encounter selection **read and checked live** (section 6: the step check, the zone's encounter file, its tables, the slot and level pick; a wild Wurmple at level 2 in run `enc2`); the trainers **read and checked live** (section 6: a battle against trainer 7 in run `trainer3`); then saving; the region map (needs touch input in retro_host). Then objectives 3 and 6 |
+| 1 Decomposition | the whole code (`.code` + 145 modules) in one Ghidra program, checked against the game's own load; Ghidra's wrong no-return marks cleared (`FixNoReturn.java`: code was missing from 1,753 functions); **3,668 functions named** (`ghidra/function_names.tsv`, read or guess), from coverage traces (section 6: entering a zone, a door warp, a sign, the start menu) and from the game's own tables: **every script native** (799, all 16,321 native calls of the 1,072 zone scripts resolved), the script machine (load, run, wait, natives by mask), the message command `TalkMdlMsg_Seq` **checked live** with its first argument (section 6); the names **reviewed** on 7 October (99 changed: section 6), 1,337 still marked guess, to be read before they are relied on. talking to a character **traced and checked** (section 6: 307 functions beyond a sign, all but 10 named); the wild encounter selection **read and checked live** (section 6: the step check, the zone's encounter file, its tables, the slot and level pick; a wild Wurmple at level 2 in run `enc2`); the trainers **read and checked live** (section 6: a battle against trainer 7 in run `trainer3`); then saving; the region map (needs touch input in retro_host). Then objectives 3 and 6 |
 | 2 Tables and assets | zones (section 2), map pieces (3), the boot memory map (4.2), the 299 archives tied to their code where opened by a constant (5); not yet: the 210 archives opened by computed numbers, the asset formats beyond `tools/remake/src`'s readers |
 | 4 Limits | **done for building a world** (section 4.6): all 927 fatal checks listed, the field's and the `.code`'s classified; lifted and checked headless: zones 536 -> 1024 (2), application memory 64 -> 124 MB (New 3DS mode) and the linear heap 43.3 -> 88 MB, the normal heap and heap 4, heap 0xC 2 -> 8 MB, heap 0x17 28.4 -> 64 MB (4.4), characters past 26 (4.5); refused at build time where they cannot be raised: a zone's events file under 0xC84 bytes (4.5), a piece model's 51 textures (4.6), the 178 MB mode (4.4); **found, not lifted yet**: a zone script's native mask table holds 536 entries (section 6: zones from 536 read past it); left with their reason: the 8-deep load queue per object, collision objects per cell, the 174-entry Secret Base table (4.6) |
 | 5 Patches | `remake_tool oras-engine` writes them all (`exheader.bin`, `exefs/code.ips`); **checked on the phone (owner, 7 October): mod `all6`** (the whole of Sinnoh as r12, the title, the save in Twinleaf, and `engine --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 --characters 64`, Remake mod run 147) with the APK of `main` at PR #33: "everything works fine" |
@@ -31,10 +31,10 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
    146.5, made in the game; ask the owner for it, it is not in the repository) with `POMEGRADE_SAVE=<that file>` and
    `POMEGRADE_INTERPRETER=1 run_local.sh <work> trainer3 - "" "mash a 15;wait 500;shot start;trace on;press a;wait
    150;shot talk;mash a 10;wait 400;shot battle;trace off trainer.txt;wait 200;shot battle2" 150`, launched with a Bash
-   `timeout` over 30 minutes. Left: the 347 unnamed (after the two named here) functions of `coverage_map.py <work>
-   trainer3 trainer.txt --minus enc1/enc_grass.txt --minus enc1/enc_idle.txt --minus enc2/enc_battle.txt`
-   (`decompile.sh`, then names). A save moved by `oras-save` into another matrix does not load (`trainer1`): walk
-   through an edge warp instead (`trainer2`, Oldale 83.5 101.5 to Route 102), or use a save made in the game.
+   `timeout` over 30 minutes. Left: 127 unnamed functions (220 named on 8 October) of `coverage_map.py <work> trainer3
+   trainer.txt --minus enc1/enc_grass.txt --minus enc1/enc_idle.txt --minus enc2/enc_battle.txt` (`decompile.sh`, then
+   names). A save moved by `oras-save` into another matrix does not load (`trainer1`): walk through an edge warp instead
+   (`trainer2`, Oldale 83.5 101.5 to Route 102), or use a save made in the game.
 2. **Encounters, the rest.** Not read: each table kind's own slot pick (the method table at `DAT_102dd028 + 0x3F0` in
    `Field_WildEncounter_PickSlotAndLevel`), what kinds 1-7 are (fishing, rock smash, ...: find a zone and a tile kind
    that uses each with `oras_tables.py encounters`), and what member 537, loaded whole at boot, is for
@@ -43,7 +43,7 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
    the set.
 4. **Region map.** Needs touch input: add a `touch X Y FRAMES` command to `headless/retro_host.cpp` (the libretro
    pointer device), then trace it.
-5. **Names to read.** 1,159 names are still guesses (`function_names.tsv`, last column `guess`) and 10 talk functions
+5. **Names to read.** 1,337 names are still guesses (`function_names.tsv`, last column `guess`) and 10 talk functions
    unnamed (section 6, **Talking to a character**): read before relying on them; `prototype/name_review.py suspects`
    flags the likeliest wrong ones and `summary` reads a decompilation fast.
 6. **Zones past 536, the rest.** A new zone needs its own file 3 (encounters) beside its member 537 entry (section
@@ -510,10 +510,12 @@ records `oras-inspect` prints show no trainer id). **Live** (run `trainer3`, fro
 front of the trainer, `POMEGRADE_SAVE`): the battle ran `Trainer_ReadData`, `Trainer_ReadClass`, the native
 `TrainerGetInfo`, `Trainer_BuildOneTeam` (0x454EA4, one trainer's record, class and team) and `Trainer_FillInfo`
 (0x455450); `Trainer_BuildTeams` did not run (used elsewhere: not read). The trace minus `enc1`'s walk and idle and
-`enc2`'s wild battle: 592 functions (209 `.code`, 177 `DllBattle?`, 193 `DllField?`, 13 DllUSAreaFriendShip), 347
-unnamed (after the two named here). Which character is which trainer: `oras-inspect zone` (script 3000 + id, inferred).
-A save made by the game holds 0 in block 4's second zone word (+0xAE) where the owner's first save held 6 (a lead for
-why `trainer1`'s moved save did not load).
+`enc2`'s wild battle: 592 functions (209 `.code`, 177 `DllBattle?`, 193 `DllField?`, 13 DllUSAreaFriendShip); 220 of its
+347 unnamed functions named on 8 October (42 read, 178 guess: the battle's action and argument blocks, type chart and
+effectiveness, sequence commands, its UI panels; in the field a line-of-sight test, `Field_TrainerSight_CheckLine`
+0x10263530, guess), 127 left (getters and import stubs whose role or target is not readable). Which character is which
+trainer: `oras-inspect zone` (script 3000 + id, inferred). A save made by the game holds 0 in block 4's second zone word
+(+0xAE) where the owner's first save held 6 (a lead for why `trainer1`'s moved save did not load).
 
 **Door, sign and menu** (the three traces above, 1,728 more functions named on 7 October by six sub-agents over the
 decompilation, two per part where a part was re-run; names that only said "role not determined" were left out; most of
