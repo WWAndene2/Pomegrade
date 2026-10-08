@@ -1,8 +1,9 @@
 // The remake tooling's reading of an ORAS zone (OrasZone) and of the Pawn script header (AmxInfo), on a zone built here to the layout
 // measured on the real file (536 zones, Littleroot's among them): header words, the four counted arrays and the fifth, the
-// size rule, and the scripts after the arrays.
+// size rule, and the scripts after the arrays; and a zone written from nothing (OrasNewZone) reading back as written.
 #include "Amx.h"
 #include "BinLinker.h"
+#include "OrasNewZone.h"
 #include "OrasZone.h"
 #include "synthetic_files.h"
 
@@ -62,7 +63,7 @@ static Bytes MakeZone(int furniture, int characters, int warps, int triggers, in
 int main()
 {
     const OrasZone z = OrasZone::Read(MakeZone(2, 3, 2, 1, 0));
-    check(z.AreaPack() == 8 && z.Matrix() == 1 && z.Number() == 6, "the header's area pack, matrix and number");
+    check(z.AreaPack() == 8 && z.Matrix() == 1 && z.OverworldZone() == 6, "the header's area pack, matrix and outdoor zone");
     check(std::abs(z.SpawnTileX() - 100.5f) < 0.01f && std::abs(z.SpawnTileZ() - 172.5f) < 0.01f, "the spawn position, in tiles (a pixel is 1/18)");
     check(z.Furniture.size() == 2 && z.Characters.size() == 3 && z.Doors.size() == 2 && z.Triggers.size() == 1 && z.Others.empty(), "the four counted arrays");
     check(z.Furniture[0].TileX() == 106 && z.Furniture[0].TileZ() == 179, "a furniture's tile");
@@ -84,6 +85,40 @@ int main()
     try { AmxInfo::Read(Bytes(64, 0)); } catch (const FormatError&) { notScript = true; }
     check(notScript, "bytes that are not a Pawn script are refused");
 
+
+    // a zone written from nothing (OrasNewZone.h): the header from its fields, an interior belonging to its town, entries
+    // from their fields, both scripts, and the container reading back
+    {
+        NewZoneFields f;
+        f.Number = 538; f.AreaPack = 8; f.Matrix = 431; f.Text = 637; f.NameLine = 356; f.SpawnX = 14.5f; f.SpawnZ = 20.5f;
+        const std::array<uint16_t, 28> h = NewZoneHeader(f);
+        check(h[0] == 0 && h[1] == 8 && h[2] == 431 && h[3] == 637 && h[4] == 5 && h[5] == 1 && h[13] == 538 && (h[14] & 0x3FF) == 356
+              && h[22] == 261 && h[24] == 369 && h[25] == 261 && h[27] == 369, "an outdoor header: its fields, music 5, its own zone in word 13");
+        NewZoneFields in = f;
+        in.Kind = NewZoneKind::Interior; in.Number = 540; in.Overworld = 539; in.Text = 639;
+        const std::array<uint16_t, 28> ih = NewZoneHeader(in);
+        check(ih[0] == 3 && ih[13] == 539 && ih[4] == 65 && (ih[14] >> 10) == 0, "an interior header: kind 3, belonging to its town");
+        bool refused = false;
+        in.Overworld = -1;
+        try { NewZoneHeader(in); } catch (const FormatError&) { refused = true; }
+        check(refused, "an interior belonging to no zone refused");
+
+        OrasZone z;
+        z.Header = h;
+        z.Characters.push_back(NewCharacter(0, 284, 24, 19, 2, 0, 0, 0, 0));
+        z.Doors.push_back(NewDoorWarp(540, 0, 28, 16));
+        z.Script = AmxAssemble(EmptyZoneScript);
+        z.InitScript = AmxAssemble(EmptyInitScript);
+        const Bytes data = WriteNewZone(z, Bytes{});
+        const OrasZone back = OrasZone::Read(data);
+        check(back.Header == h && back.Characters.size() == 1 && back.Characters[0].Raw[1] == 284 && back.Characters[0].Raw[20] == 24
+              && back.Characters[0].Raw[12] == 1 && back.Characters[0].Raw[14] == 0xFFFF, "a character from its fields");
+        check(back.Doors.size() == 1 && back.Doors[0].DestZone() == 540 && back.Doors[0].Kind() == 1 && back.Doors[0].Raw[4] == 28 * 18 + 9,
+              "a door warp from its fields, kind 1");
+        check(back.InitScript == z.InitScript && AmxInfo::Read(back.Script).Size == z.Script.size(), "both scripts in their files");
+        const BinLinker c = BinLinker::Read(data, "ZO");
+        check(c.Files.size() == 5 && c.Files[3].empty() && c.Files[4] == Bytes(12, 0), "five files, no encounters, file 4 twelve zeros");
+    }
     printf(ok ? "all passed\n" : "FAILED\n");
     return ok ? 0 : 1;
 }

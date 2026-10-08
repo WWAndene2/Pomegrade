@@ -4,7 +4,7 @@
 # one zone. For a run: oras-sandbox <oras.3ds> <out> tools/remake/sandbox/own_scripts.txt, oras-engine --zone-rows 539, the
 # save moved to 538 14.5 20.5.
 zone 538
-template 6
+pack 8
 spawn 14.5 20.5
 name Bac à Sable
 script

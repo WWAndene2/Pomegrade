@@ -67,17 +67,10 @@ static void WriteArray(Bytes& b, const std::vector<T>& items)
         for (uint16_t v : item.Raw) { b.push_back((uint8_t)v); b.push_back((uint8_t)(v >> 8)); }
 }
 
-Bytes OrasZone::Write(const Bytes& original) const
+Bytes OrasZone::EventsFile() const
 {
-    BinLinker c = BinLinker::Read(original, "ZO");
-    if (c.Files.size() < 3) throw FormatError("zone: fewer than three files");
     if (Furniture.size() > 255 || Characters.size() > 255 || Doors.size() > 255 || Triggers.size() > 255 || Others.size() > 4096)
         throw FormatError("zone: more entries than a count holds");
-
-    Bytes h;
-    for (uint16_t v : Header) { h.push_back((uint8_t)v); h.push_back((uint8_t)(v >> 8)); }
-    c.Files[0] = h;
-
     Bytes e(12, 0);
     e[4] = (uint8_t)Furniture.size(); e[5] = (uint8_t)Characters.size(); e[6] = (uint8_t)Doors.size(); e[7] = (uint8_t)Triggers.size();
     for (int k = 0; k < 4; k++) e[8 + k] = (uint8_t)(Others.size() >> (8 * k));
@@ -94,6 +87,18 @@ Bytes OrasZone::Write(const Bytes& original) const
     while (e.size() % 4) e.push_back(0);
     if (e.size() >= EventsBudget)
         throw FormatError("zone: events file of " + std::to_string(e.size()) + " bytes, the game's buffer holds less than " + std::to_string(EventsBudget));
+    return e;
+}
+
+Bytes OrasZone::Write(const Bytes& original) const
+{
+    BinLinker c = BinLinker::Read(original, "ZO");
+    if (c.Files.size() < 3) throw FormatError("zone: fewer than three files");
+    Bytes h;
+    for (uint16_t v : Header) { h.push_back((uint8_t)v); h.push_back((uint8_t)(v >> 8)); }
+    c.Files[0] = h;
+
+    const Bytes e = EventsFile();
     c.Files[1] = e;
     c.Files[2] = Script;
     return c.Write();

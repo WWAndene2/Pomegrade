@@ -1,17 +1,20 @@
 #ifndef REMAKE_ORASSANDBOX_H
 #define REMAKE_ORASSANDBOX_H
 
-// A new zone built from a text description, nothing taken from a Hoenn place but a template zone's header words and scripts
-// (ORAS_ENGINE.md 0, the sandbox): its ground is a grid of tile roles drawn by hand (TownLayout's letters), built into map
+// New zones built from a text description, written from nothing (OrasNewZone.h: header, entries, scripts, text file), the
+// game's assets aside (area packs, building pieces, an interior's map) (ORAS_ENGINE.md 0, the sandbox): its ground is a grid of tile roles drawn by hand (TownLayout's letters), built into map
 // pieces as oras-town builds Platinum's (BuildTownPiece), set on a new map matrix whose every block is the zone, and the
-// zone appended to a/0/1/3 as member 538 and up with no furniture, characters, warps or triggers. The game reads it with
+// zone appended to a/0/1/3 as member 538 and up. The game reads it with
 // `oras-engine --zone-rows` (the zone bound, the header table's size and the script masks: ORAS_ENGINE.md 2 and 6).
 //
 // The description, one statement a line ('#' starts a comment). Each zone opens with its number and is followed by its own
 // statements; then the map, shared by the zones:
 //   zone N            a zone: the next free member of a/0/1/3 (538 on the game's archive), the next ones one after the other
-//   template Z        the game zone whose header (music, weather... kept raw) and scripts the zone starts from; every zone draws
-//                     its textures from the first zone's template's area pack
+//   pack P            the first zone: the area pack (a/0/1/4 member) whose textures every zone's pieces draw from (8: Littleroot's).
+//                     The zones are written from nothing (OrasNewZone.h: every header word, entry and script), no game zone copied
+//   music N           optional: the track (header word 4; 5 Littleroot's, the default)
+//   line TEXT         optional, repeatable: a line of the zone's own text file (header word 3, a new member of a/0/7/9-a/0/8/6),
+//                     line 0 first, for its scripts' messages
 //   spawn X Z         the tile the zone's header names (where a new game and a save's warp land, inferred), on its own blocks
 //   name TEXT         optional: the place name (Navi-Map, the sign on entering), added to the eight languages' names
 //   lighting Z        optional: game zone Z's area pack's file 4 (the light's colours, below) in a copy of the sandbox's pack
@@ -36,18 +39,18 @@
 //                     planes; 32, 2000). Example: camera pitch -60 distance 320
 //   script / init-script
 //                     optional: then the zone's own script (file 2) or initialisation script (in file 1) as amx-asm source
-//                     (Amx.h), up to a line "end", in place of the template's; natives checked against the game's tables
+//                     (Amx.h), up to a line "end", in place of ones that do nothing; natives checked against the game's tables
 //                     (tools/remake/ghidra/function_names.tsv, beside this folder) and native mask 0x243. The game runs `main`
 //                     with g_mode set: the initialisation script on entering the zone (2 seen), the zone script for an
 //                     event, its script number (SINNOH_BUILD.md R1). Example: tools/remake/sandbox/own_scripts.txt
 //   encounters Z      optional: game zone Z's encounter file (its file 3) copied; none without it
 //   character MODEL X Z [face F] [script S] [move M]
 //                     a person standing on tile X, Z of the map (model: a character model number, as oras-inspect zone prints
-//                     them; face 0-3; script: a number of the template zone's script, 0 none; move: the movement, 0 standing)
+//                     them; face 0-3; script: the command its zone script is run with, g_mode, 0 none; move: the movement, 0 standing)
 //   trainer ID MODEL X Z [face F] [sight N] [move M]
 //                     a trainer of a/0/3/6 (script 3000 + ID, kind 1, sight 4 tiles unless given: inferred, OrasZone.h)
-//   door X Z house Z2 a door ('D' on the map) into a new zone after the described ones, a copy of game interior Z2 (no
-//                     characters or triggers; its warp 0 leads back out)
+//   door X Z house Z2 a door ('D' on the map) into a new zone after the described ones, written from nothing on game interior
+//                     Z2's map (its matrix, area pack and the tile of its way out); its one warp leads back out
 //   pieces W H        the size in map pieces (40 x 40 tiles each)
 //   blocks            with several zones: then 4 H rows of 4 W digits, the zone (0 the first given, 1 the next...) of each
 //                     10 x 10 block; one zone alone takes every block
