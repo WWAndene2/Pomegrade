@@ -494,7 +494,11 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     if (src.Ledges)
     {
         if (!src.SnowClumpTexture.empty()) throw FormatError("ledges and snow clumps both need the snow-band mesh");
-        const Part ledge = Cut(rm.Meshes.at(7), 19.0f, 20.0f, 27.5f, 29.5f, 19.5f, 28.5f);
+        Part ledge = Cut(rm.Meshes.at(7), 19.0f, 20.0f, 27.5f, 29.5f, 19.5f, 28.5f);
+        // in the snow-band mesh the texture showed upside down (the owner, run ledge2: its grass under the earth), with Route 101's
+        // own coordinates (grass at v 0.93 on the ledge's top, earth at 0.47 at its foot): the two materials map v the opposite
+        // way (their texture transforms are not read: inferred), so v is turned over
+        for (BchVertex& v : ledge.V) v.TexCoord[1] = 1.0f - v.TexCoord[1];
         if (ledge.I.empty()) throw FormatError("Route 101's ledge mesh has no triangle at tile 19 of row 28");
         for (int r = 0; r < N; r++) for (int c = 0; c < N; c++)
             if (vis[r][c] == 'L') { Place(geo[SnowBand], ledge, c + 0.5f, r + 0.5f); coll[r][c] = 'v'; nLedges++; }
