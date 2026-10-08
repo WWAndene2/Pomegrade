@@ -30,7 +30,7 @@ import sys
 KIND_OFFSETS = [0x0E, 0x3E, 0x6E, 0x7A, 0x8E, 0xA2, 0xAE, 0xBA, 0xC6]
 # slots and weights of each kind (Field_WildEncounter_PickSlotMode0-6, read 8 October); the names are inferred from the weights
 # and slot counts, which match the game's known methods, except the water kind (3), which the step check picks on a tile flag
-KIND_NAMES = ["grass", "grass 2", "kind 2", "surf (water)", "rock smash?", "rod 1?", "rod 2?", "rod 3?", "hordes (3 x 5)"]
+KIND_NAMES = ["grass", "grass 2", "kind 2", "surf (water)", "rock smash?", "rod 1", "rod 2", "rod 3", "hordes (3 x 5)"]  # rods: listed together (Encounter_ListSpeciesByCategory)
 KIND_WEIGHTS = [[10] * 9 + [5, 4, 1]] * 2 + [[60, 35, 5], [50, 30, 15, 4, 1], [50, 30, 15, 4, 1]] + [[60, 35, 5]] * 3 + [[60, 35, 5]]
 TEAM_ENTRY = {0: 8, 1: 16, 2: 10, 3: 18}
 
