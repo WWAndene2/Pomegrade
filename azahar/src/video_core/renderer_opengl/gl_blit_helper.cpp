@@ -15,6 +15,7 @@
 #include "video_core/host_shaders/format_reinterpreter/rgba4_to_rgb5a1_frag.h"
 #include "video_core/host_shaders/full_screen_triangle_vert.h"
 #include "video_core/host_shaders/texture_filtering/bicubic_frag.h"
+#include "video_core/host_shaders/texture_filtering/lanczos_frag.h"
 #include "video_core/host_shaders/texture_filtering/mmpx_frag.h"
 #include "video_core/host_shaders/texture_filtering/refine_frag.h"
 #include "video_core/host_shaders/texture_filtering/scale_force_frag.h"
@@ -62,6 +63,7 @@ BlitHelper::BlitHelper(const Driver& driver_)
       scale_force_program{CreateProgram(HostShaders::SCALE_FORCE_FRAG, "SCALE_FORCE_FRAG")},
       xbrz_program{CreateProgram(HostShaders::XBRZ_FREESCALE_FRAG, "XBRZ_FREESCALE_FRAG")},
       mmpx_program{CreateProgram(HostShaders::MMPX_FRAG, "MMPX_FRAG")},
+      lanczos_program{CreateProgram(HostShaders::LANCZOS_FRAG, "LANCZOS_FRAG")},
       gradient_x_program{CreateProgram(HostShaders::X_GRADIENT_FRAG, "X_GRADIENT_FRAG")},
       gradient_y_program{CreateProgram(HostShaders::Y_GRADIENT_FRAG, "Y_GRADIENT_FRAG")},
       refine_program{CreateProgram(HostShaders::REFINE_FRAG, "REFINE_FRAG")},
@@ -189,6 +191,9 @@ bool BlitHelper::Filter(Surface& surface, const VideoCore::TextureBlit& blit) {
     case TextureFilter::MMPX:
         FilterMMPX(surface, blit);
         break;
+    case TextureFilter::Lanczos:
+        FilterLanczos(surface, blit);
+        break;
     default:
         LOG_ERROR(Render_OpenGL, "Unknown texture filter {}", filter);
     }
@@ -291,6 +296,15 @@ void BlitHelper::FilterMMPX(Surface& surface, const VideoCore::TextureBlit& blit
     state.texture_units[0].target = GL_TEXTURE_2D;
     SetParams(mmpx_program, surface.RealExtent(false), blit.src_rect);
     Draw(mmpx_program, surface.Handle(), draw_fbo.handle, blit.dst_level, blit.dst_rect);
+}
+
+void BlitHelper::FilterLanczos(Surface& surface, const VideoCore::TextureBlit& blit) {
+    const OpenGLState prev_state = OpenGLState::GetCurState();
+    SCOPE_EXIT({ prev_state.Apply(); });
+    state.texture_units[0].texture_2d = surface.Handle(0);
+    state.texture_units[0].target = GL_TEXTURE_2D;
+    SetParams(lanczos_program, surface.RealExtent(false), blit.src_rect);
+    Draw(lanczos_program, surface.Handle(), draw_fbo.handle, blit.dst_level, blit.dst_rect);
 }
 
 void BlitHelper::SetParams(OGLProgram& program, const VideoCore::Extent& src_extent,

@@ -21,6 +21,7 @@
 
 // Texture filtering shader includes
 #include "video_core/host_shaders/texture_filtering/bicubic_frag.h"
+#include "video_core/host_shaders/texture_filtering/lanczos_frag.h"
 #include "video_core/host_shaders/texture_filtering/mmpx_frag.h"
 #include "video_core/host_shaders/texture_filtering/refine_frag.h"
 #include "video_core/host_shaders/texture_filtering/scale_force_frag.h"
@@ -259,6 +260,7 @@ BlitHelper::BlitHelper(const Instance& instance_, Scheduler& scheduler_,
       xbrz_frag{
           Compile(HostShaders::XBRZ_FREESCALE_FRAG, vk::ShaderStageFlagBits::eFragment, device)},
       mmpx_frag{Compile(HostShaders::MMPX_FRAG, vk::ShaderStageFlagBits::eFragment, device)},
+      lanczos_frag{Compile(HostShaders::LANCZOS_FRAG, vk::ShaderStageFlagBits::eFragment, device)},
       refine_frag{Compile(HostShaders::REFINE_FRAG, vk::ShaderStageFlagBits::eFragment, device)},
       d24s8_to_rgba8_pipeline{MakeComputePipeline(d24s8_to_rgba8_comp, compute_pipeline_layout)},
       depth_to_buffer_pipeline{
@@ -320,6 +322,7 @@ BlitHelper::~BlitHelper() {
     device.destroyShaderModule(scale_force_frag);
     device.destroyShaderModule(xbrz_frag);
     device.destroyShaderModule(mmpx_frag);
+    device.destroyShaderModule(lanczos_frag);
     device.destroyShaderModule(refine_frag);
     device.destroyPipeline(depth_to_buffer_pipeline);
     device.destroyPipeline(d24s8_to_rgba8_pipeline);
@@ -657,6 +660,9 @@ bool BlitHelper::Filter(Surface& surface, const VideoCore::TextureBlit& blit) {
     case TextureFilter::MMPX:
         FilterMMPX(surface, blit);
         break;
+    case TextureFilter::Lanczos:
+        FilterLanczos(surface, blit);
+        break;
     default:
         LOG_ERROR(Render_Vulkan, "Unknown texture filter {}", filter);
         return false;
@@ -691,6 +697,12 @@ void BlitHelper::FilterXbrz(Surface& surface, const VideoCore::TextureBlit& blit
 void BlitHelper::FilterMMPX(Surface& surface, const VideoCore::TextureBlit& blit) {
     auto pipeline =
         MakeFilterPipeline(mmpx_frag, single_texture_pipeline_layout, surface.pixel_format);
+    FilterPass(surface, pipeline, single_texture_pipeline_layout, blit);
+}
+
+void BlitHelper::FilterLanczos(Surface& surface, const VideoCore::TextureBlit& blit) {
+    auto pipeline =
+        MakeFilterPipeline(lanczos_frag, single_texture_pipeline_layout, surface.pixel_format);
     FilterPass(surface, pipeline, single_texture_pipeline_layout, blit);
 }
 
