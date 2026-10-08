@@ -24,8 +24,8 @@ static Bytes Plain(const Bytes& data) { return IsLzCompressed(data) ? LzDecompre
 
 struct SandboxZone
 {
-    int Number = -1, Template = -1, Encounters = -1, Lighting = -1, Camera = -1;
-    float Pitch = -1000; // the first float of the sandbox's pack's camera preset 0 (file 6), read as the pitch: OrasSandbox.h
+    int Number = -1, Template = -1, Encounters = -1, Lighting = -1;
+    std::map<uint32_t, float> Camera; // the camera settings given: byte offset in preset 0 of the area pack's file 6 -> value
     float SpawnX = -1, SpawnZ = -1;
     std::string Name;
     std::vector<std::array<int, 8>> Characters; // model, x, z, facing, script, movement, kind, sight
@@ -75,8 +75,21 @@ static SandboxDescription ReadDescription(const std::string& text)
         if (what == "template") ok = (bool)(words >> z.Template);
         else if (what == "encounters") ok = (bool)(words >> z.Encounters);
         else if (what == "lighting") ok = (bool)(words >> z.Lighting);
-        else if (what == "camera") ok = (bool)(words >> z.Camera);
-        else if (what == "camera-pitch") ok = (bool)(words >> z.Pitch);
+        else if (what == "camera")
+        {
+            // "camera NAME VALUE..." (OrasSandbox.h): each name a float of a camera preset, by its offset (Field_CameraApplyParams
+            // 0x102CB460 and Field_CopyCameraParams 0x102CB128 read them, ORAS_ENGINE.md 2)
+            static const std::map<std::string, uint32_t> settings = {{"height", 0x08}, {"pitch", 0x0C}, {"yaw", 0x10},
+                {"near", 0x18}, {"far", 0x1C}, {"fov", 0x20}, {"distance", 0x24}};
+            std::string name; float value;
+            ok = false;
+            while (words >> name >> value)
+            {
+                const auto at = settings.find(name);
+                if (at == settings.end()) fail("no camera setting \"" + name + "\" (height, pitch, yaw, near, far, fov, distance)");
+                z.Camera[at->second] = value; ok = true;
+            }
+        }
         else if (what == "spawn") ok = (bool)(words >> z.SpawnX >> z.SpawnZ);
         else if (what == "name") { std::getline(words >> std::ws, z.Name); ok = !z.Name.empty(); }
         else if (what == "character" || what == "trainer")
@@ -209,7 +222,7 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
     if ((size_t)d.Zones[0].Number != zoneArchive.Count())
         throw FormatError("sandbox: zone " + std::to_string(d.Zones[0].Number) + " is not the next free member of a/0/1/3 (" + std::to_string(zoneArchive.Count()) + ")");
     for (const SandboxZone& z : d.Zones)
-        if (z.Template >= 536 || z.Encounters >= 536 || z.Lighting >= 536 || z.Camera >= 536) throw FormatError("sandbox: template, encounters and lighting are game zones, 0-535");
+        if (z.Template >= 536 || z.Encounters >= 536 || z.Lighting >= 536) throw FormatError("sandbox: template, encounters and lighting are game zones, 0-535");
 
     // every zone draws its textures from the first template's area pack (header word 1), which the pieces are built into
     const int pack = OrasZone::Read(Plain(zoneArchive.Sub((size_t)d.Zones[0].Template))).AreaPack();
@@ -314,34 +327,45 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
         log.push_back(line);
         return slot;
     };
-    Bytes ownData = packData;
-    for (const SandboxZone& z : d.Zones)
-        if (z.Pitch > -1000)
-        {
-            // file 6: u32 1, u32 0, then presets of 17 floats (68 bytes) from offset 8, the first word of each its pitch (15.85
-            // in preset 0 of every pack): preset 0's first float set; the field's
-            // framing follows it (runs cam0, cam3), which setting it is not known
-            BinLinker c = BinLinker::Read(ownData, "AD");
-            Bytes& f6 = c.Files.at(6);
-            uint32_t bits; std::memcpy(&bits, &z.Pitch, 4);
-            for (int k = 0; k < 4; k++) f6.at(8 + k) = (uint8_t)(bits >> (8 * k));
-            ownData = c.Write();
-        }
-    const uint16_t ownPack = takeFree(ownData, "the sandbox's pack, a copy of pack " + std::to_string(pack) + " with the pieces' textures");
-    // `lighting`: an area pack's file 4 (2,944 bytes of RGBA colours, 6 different ones among the game's 229 packs: outdoors,
-    // interiors and a few places) taken from the pack of game zone `lighting`. Taken for the light and fog colours, but an
-    // interior's (zone 216's, run light5: zone 538 on the copy in pack 1) changed nothing seen outdoors, terrain or player:
-    // what file 4 does is not known; the scene's light is elsewhere
-    std::map<int, uint16_t> lightingPack; // game zone -> the sandbox pack carrying its light
-    for (const SandboxZone& z : d.Zones)
+    const uint16_t ownPack = takeFree(packData, "the sandbox's pack, a copy of pack " + std::to_string(pack) + " with the pieces' textures");
+    // a zone given `lighting` or `camera` gets a copy of that pack with them, one copy per different pair (free slots are few)
+    // `lighting`: the area pack's file 4 of game zone `lighting`. File 4 is 2,944 bytes of floats (0.1, 0.4, 1.0...; 6 different
+    // ones among the game's 229 packs), copied into a graphics object's buffer when the field is set up (Field_SceneSetup_AddModels
+    // 0x102DDC84, Res_CopyToCachedBuffer 0x48E390; battles fill it from a/0/5/9). What reads it is not found, and an interior's
+    // (zone 216's, run light5) changed nothing seen outdoors: it is not the scene's light (ORAS_ENGINE.md 2)
+    // `camera`: settings of preset 0 of the pack's file 6, a table of 0x44-byte presets from offset 0 (Zone_ApplyZonePackData
+    // 0x102E22D0 copies preset N, N the low byte of a u16 at +0xE of the area pack's loader, 0 when past the file's end; it was
+    // 0 in Littleroot, run cam10, and the sandbox's zones use preset 0, runs cam0 and cam3; where N comes from is not found)
+    std::map<std::pair<int, std::map<uint32_t, float>>, uint16_t> zonePacks;
+    std::vector<uint16_t> packOf(d.Zones.size(), ownPack);
+    for (size_t k = 0; k < d.Zones.size(); k++)
     {
-        if (z.Lighting < 0 || lightingPack.count(z.Lighting)) continue;
-        const int from = OrasZone::Read(Plain(zoneArchive.Sub((size_t)z.Lighting))).AreaPack();
+        const SandboxZone& z = d.Zones[k];
+        if (z.Lighting < 0 && z.Camera.empty()) continue;
+        const auto key = std::make_pair(z.Lighting, z.Camera);
+        if (const auto found = zonePacks.find(key); found != zonePacks.end()) { packOf[k] = found->second; continue; }
         BinLinker copy = BinLinker::Read(packData, "AD");
-        const Bytes light = BinLinker::Read(Plain(areaArchive.Sub((size_t)from)), "AD").Files.at(4);
-        if (copy.Files.size() < 5 || light.size() != copy.Files[4].size()) throw FormatError("sandbox: an area pack's file 4 is not the size of the shared pack's");
-        copy.Files[4] = light;
-        lightingPack[z.Lighting] = takeFree(copy.Write(), "the light of zone " + std::to_string(z.Lighting) + " (pack " + std::to_string(from) + "'s file 4)");
+        std::string what = "zone " + std::to_string(z.Number) + "'s pack, a copy of the sandbox's with";
+        if (z.Lighting >= 0)
+        {
+            const int from = OrasZone::Read(Plain(zoneArchive.Sub((size_t)z.Lighting))).AreaPack();
+            const Bytes light = BinLinker::Read(Plain(areaArchive.Sub((size_t)from)), "AD").Files.at(4);
+            if (copy.Files.size() < 5 || light.size() != copy.Files[4].size()) throw FormatError("sandbox: an area pack's file 4 is not the size of the shared pack's");
+            copy.Files[4] = light;
+            what += " the file 4 of zone " + std::to_string(z.Lighting) + " (pack " + std::to_string(from) + ")";
+        }
+        if (!z.Camera.empty())
+        {
+            Bytes& presets = copy.Files.at(6);
+            for (const auto& [at, value] : z.Camera)
+            {
+                if (at + 4 > presets.size()) throw FormatError("sandbox: the pack's camera presets (file 6) are too short");
+                uint32_t bits; std::memcpy(&bits, &value, 4);
+                for (int b = 0; b < 4; b++) presets[at + b] = (uint8_t)(bits >> (8 * b));
+            }
+            what += std::string(z.Lighting >= 0 ? " and" : "") + " its camera";
+        }
+        packOf[k] = zonePacks[key] = takeFree(copy.Write(), what);
     }
 
     // the zones: each its template's header and scripts, its events emptied but for its characters, its own number, the new
@@ -391,7 +415,7 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
             w.Raw[4] = (uint16_t)(door[0] * 18 + 9); w.Raw[6] = (uint16_t)(door[1] * 18 + 9);
             zone.Doors.push_back(w);
         }
-        zone.Header[1] = z.Lighting >= 0 ? lightingPack.at(z.Lighting) : ownPack;
+        zone.Header[1] = packOf[k];
         zone.Header[2] = (uint16_t)matrixIndex;
         zone.Header[13] = (uint16_t)z.Number;
         for (int at : {22, 25}) { zone.Header[at] = (uint16_t)(z.SpawnX * 18); zone.Header[at + 2] = (uint16_t)(z.SpawnZ * 18); }
@@ -403,9 +427,6 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
         BinLinker zc = BinLinker::Read(zone.Write(templateData), "ZO");
         const Bytes encounter = z.Encounters >= 0 ? BinLinker::Read(Plain(zoneArchive.Sub((size_t)z.Encounters)), "ZO").Files.at(3) : Bytes{};
         zc.Files.at(3) = encounter;
-        // camera: a zone's file 4 (12 bytes) is zero in 511 of the game's 536 zones; in the others byte 0 is 1 and small signed
-        // u16 words follow (-6, -5, -2, 45, 90, 135...): read as the zone's camera turn; copied from zone 47 no change was seen. Copied from game zone `camera`
-        if (z.Camera >= 0) zc.Files.at(4) = BinLinker::Read(Plain(zoneArchive.Sub((size_t)z.Camera)), "ZO").Files.at(4);
         const Bytes zoneData = zc.Write();
         const OrasZone check = OrasZone::Read(zoneData);
         if (check.Number() != z.Number || check.Matrix() != (int)matrixIndex || check.Characters.size() != zone.Characters.size() || check.Doors.size() != zone.Doors.size())

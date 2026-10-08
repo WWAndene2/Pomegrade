@@ -14,13 +14,14 @@
 //                     its textures from the first zone's template's area pack
 //   spawn X Z         the tile the zone's header names (where a new game and a save's warp land, inferred), on its own blocks
 //   name TEXT         optional: the place name (Navi-Map, the sign on entering), added to the eight languages' names
-//   lighting Z        optional: game zone Z's area pack's file 4 in a copy of the sandbox's pack (taken for the light;
-//                     no change seen outdoors: what it does is not known)
-//   camera Z          optional: game zone Z's file 4 copied (read as its camera settings; copied from zone 47, no change
-//                     seen: what it does is not known)
-//   camera-pitch P    optional: the first float of the camera preset 0 in the sandbox's pack (file 6; 15.85 in every pack,
-//                     read as the pitch). Checked (runs cam0, cam3): 45 frames the field differently (the pond smaller, the
-//                     player lower); which camera setting that float is, and how a zone picks a preset, are not known
+//   lighting Z        optional: game zone Z's area pack's file 4 in a copy of the sandbox's pack (2,944 bytes of floats the
+//                     field copies into a graphics buffer; no change seen outdoors: what it does is not known, not the light)
+//   camera NAME V...  optional: the zone's camera, one or more settings of preset 0 of its pack's file 6, in a copy of the
+//                     sandbox's pack (each zone with its own settings takes one of the game's 9 free packs). Read in the code
+//                     (Field_CameraComputePos: the camera stands at distance from the point aimed at, along pitch and yaw):
+//                     height (the point aimed at, above the player; 15.85), pitch (degrees, negative looks down; -40.74), yaw
+//                     (degrees; 0), distance (254.4); by their values and use: fov (degrees; 30), near, far (the clip
+//                     planes; 32, 2000). Example: camera pitch -60 distance 320
 //   encounters Z      optional: game zone Z's encounter file (its file 3) copied; none without it
 //   character MODEL X Z [face F] [script S] [move M]
 //                     a person standing on tile X, Z of the map (model: a character model number, as oras-inspect zone prints
