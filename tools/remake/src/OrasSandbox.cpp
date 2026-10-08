@@ -25,7 +25,7 @@ static Bytes Plain(const Bytes& data) { return IsLzCompressed(data) ? LzDecompre
 struct SandboxZone
 {
     int Number = -1, Template = -1, Encounters = -1, Lighting = -1, Camera = -1;
-    float Pitch = -1000; // a test of the area pack's camera table (file 6): preset 0's pitch, degrees
+    float Pitch = -1000; // the first float of the sandbox's pack's camera preset 0 (file 6), read as the pitch: OrasSandbox.h
     float SpawnX = -1, SpawnZ = -1;
     std::string Name;
     std::vector<std::array<int, 8>> Characters; // model, x, z, facing, script, movement, kind, sight
@@ -319,7 +319,8 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
         if (z.Pitch > -1000)
         {
             // file 6: u32 1, u32 0, then presets of 17 floats (68 bytes) from offset 8, the first word of each its pitch (15.85
-            // in preset 0 of every pack): preset 0's pitch set, to see whether the field's camera follows it
+            // in preset 0 of every pack): preset 0's first float set; the field's
+            // framing follows it (runs cam0, cam3), which setting it is not known
             BinLinker c = BinLinker::Read(ownData, "AD");
             Bytes& f6 = c.Files.at(6);
             uint32_t bits; std::memcpy(&bits, &z.Pitch, 4);
@@ -403,7 +404,7 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
         const Bytes encounter = z.Encounters >= 0 ? BinLinker::Read(Plain(zoneArchive.Sub((size_t)z.Encounters)), "ZO").Files.at(3) : Bytes{};
         zc.Files.at(3) = encounter;
         // camera: a zone's file 4 (12 bytes) is zero in 511 of the game's 536 zones; in the others byte 0 is 1 and small signed
-        // u16 words follow (-6, -5, -2, 45, 90, 135...): read as the zone's camera turn (to check live). Copied from game zone `camera`
+        // u16 words follow (-6, -5, -2, 45, 90, 135...): read as the zone's camera turn; copied from zone 47 no change was seen. Copied from game zone `camera`
         if (z.Camera >= 0) zc.Files.at(4) = BinLinker::Read(Plain(zoneArchive.Sub((size_t)z.Camera)), "ZO").Files.at(4);
         const Bytes zoneData = zc.Write();
         const OrasZone check = OrasZone::Read(zoneData);

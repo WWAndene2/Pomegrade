@@ -273,7 +273,7 @@ another (51 characters passed the count check and stopped on the events buffer).
   | Dialogue box | no | the template zone's lines | place names are written (`name`); a dialogue needs a script |
   | Event, script | no | the template zone's scripts | scripts are read (disassembler), not written |
   | Cutscene | no | no | not studied |
-  | Camera | no | no | each area pack's file 6 is a table of camera presets (pitch, yaw, distance, near, far, field of view), the same in all 229 packs; how a zone picks one is not found |
+  | Camera | no | no | each area pack's file 6 is a table of camera presets (pitch, yaw, distance, near, far, field of view), the same in all 229 packs. Checked (runs cam0, cam3): changing preset 0's first float (15.85 to 45) in the sandbox's own pack changes the field's framing, so a sandbox camera needs no Hoenn pack (`camera-pitch`); which setting each float is, and how a zone picks a preset, are not found |
   | Lighting | no | `lighting Z`: a pack's file 4 | file 4 (RGBA colours, 6 variants) changed nothing seen outdoors (`light5`): the scene's light is elsewhere, not found |
   | Texture | not checked | the area packs' textures | the piece builder adds a pack's textures to the zone's pack |
   | Animation | no | no | not studied |
