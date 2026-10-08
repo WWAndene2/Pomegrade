@@ -18,7 +18,7 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 
 | Objective | State |
 |---|---|
-| 1 Decomposition | the whole code (`.code` + 145 modules) in one Ghidra program, checked against the game's own load; Ghidra's wrong no-return marks cleared (`FixNoReturn.java`: code was missing from 1,753 functions); **3,804 functions named** (`ghidra/function_names.tsv`, read or guess), from coverage traces (section 6: entering a zone, a door warp, a sign, the start menu) and from the game's own tables: **every script native** (799, all 16,321 native calls of the 1,072 zone scripts resolved), the script machine (load, run, wait, natives by mask), the message command `TalkMdlMsg_Seq` **checked live** with its first argument (section 6); the names **reviewed** on 7 October (99 changed: section 6), 1,384 still marked guess, to be read before they are relied on. talking to a character **traced and checked** (section 6: 307 functions beyond a sign, all but 10 named); the wild encounter selection **read and checked live** (section 6: the step check, the zone's encounter file, its tables, the slot and level pick; a wild Wurmple at level 2 in run `enc2`); the trainers **read and checked live** (section 6: a battle against trainer 7 in run `trainer3`); then saving; the region map (needs touch input in retro_host). Then objectives 3 and 6 |
+| 1 Decomposition | the whole code (`.code` + 145 modules) in one Ghidra program, checked against the game's own load; Ghidra's wrong no-return marks cleared (`FixNoReturn.java`: code was missing from 1,753 functions); **3,807 functions named** (`ghidra/function_names.tsv`, read or guess), from coverage traces (section 6: entering a zone, a door warp, a sign, the start menu) and from the game's own tables: **every script native** (799, all 16,321 native calls of the 1,072 zone scripts resolved), the script machine (load, run, wait, natives by mask), the message command `TalkMdlMsg_Seq` **checked live** with its first argument (section 6); the names **reviewed** on 7 October (99 changed: section 6), 1,384 still marked guess, to be read before they are relied on. talking to a character **traced and checked** (section 6: 307 functions beyond a sign, all but 10 named); the wild encounter selection **read and checked live** (section 6: the step check, the zone's encounter file, its tables, the slot and level pick; a wild Wurmple at level 2 in run `enc2`); the trainers **read and checked live** (section 6: a battle against trainer 7 in run `trainer3`); then saving; the region map (needs touch input in retro_host). Then objectives 3 and 6 |
 | 2 Tables and assets | zones (section 2), map pieces (3), the boot memory map (4.2), the 299 archives tied to their code where opened by a constant (5); not yet: the 210 archives opened by computed numbers, the asset formats beyond `tools/remake/src`'s readers |
 | 4 Limits | **done for building a world** (section 4.6): all 927 fatal checks listed, the field's and the `.code`'s classified; lifted and checked headless: zones 536 -> 1024 (2), application memory 64 -> 124 MB (New 3DS mode) and the linear heap 43.3 -> 88 MB, the normal heap and heap 4, heap 0xC 2 -> 8 MB, heap 0x17 28.4 -> 64 MB (4.4), characters past 26 (4.5); refused at build time where they cannot be raised: a zone's events file under 0xC84 bytes (4.5), a piece model's 51 textures (4.6), the 178 MB mode (4.4); **found, not lifted yet**: a zone script's native mask table holds 536 entries (section 6: zones from 536 read past it); left with their reason: the 8-deep load queue per object, collision objects per cell, the 174-entry Secret Base table (4.6) |
 | 5 Patches | `remake_tool oras-engine` writes them all (`exheader.bin`, `exefs/code.ips`); **checked on the phone (owner, 7 October): mod `all6`** (the whole of Sinnoh as r12, the title, the save in Twinleaf, and `engine --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 --characters 64`, Remake mod run 147) with the APK of `main` at PR #33: "everything works fine" |
@@ -37,9 +37,8 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
    --minus enc1/enc_grass.txt --minus enc1/enc_idle.txt --minus enc2/enc_battle.txt` (`decompile.sh`, then names). A
    save moved by `oras-save` into another matrix does not load (`trainer1`): walk through an edge warp instead
    (`trainer2`, Oldale 83.5 101.5 to Route 102), or use a save made in the game.
-2. **Encounters, the rest.** The slot picks and member 537's reader are read (section 6). Left: what kind 2 is (one
-   3-slot table with two modes), which screen lists member 537's species, and a live check of one kind with the owner's
-   `saves/main_Wild_Encounter` (zone 24).
+2. **Encounters: done (8 October).** Section 6, **Wild encounter selection**. Open, not blocking: what kind 2 is (no
+   encounter starter found; the species list reads it) and which screen shows member 537's list.
 3. **Saving.** Trace the save from the menu (the menu row of section 6's traces table), minus the menu trace; name
    the set.
 4. **Region map.** Needs touch input: add a `touch X Y FRAMES` command to `headless/retro_host.cpp` (the libretro
@@ -520,7 +519,15 @@ encounters` prints each kind's weights. **Member 537's use, read 8 October**: it
 `Encounter_ListSpeciesByCategory` (0x401040): 0 kinds 0, 1 and 8, 1 kind 3, 2 kinds 5-7 together, 3 and 4 kind 2 by its
 mode. So the file's header bytes switch each kind on: byte k for kind k, byte 2 kind 2's mode (1 or 2; zone 23 has 1),
 byte 8 the hordes (also the horde chance in the step check). The rods' grouping and the water kind back the inferred
-names; which screen shows this list: not read (DexNav or the Pokedex's area page, a guess).
+names; which screen shows this list: not read (DexNav or the Pokedex's area page, a guess). **The kinds, read on 8
+October**: kind 4 is Rock Smash (`Field_WildEncounter_StartRockSmash`, called by the script native
+`CallWildBattleRockCrash`, no rate roll); kinds 5-7 are the fishing rods (`Fishing_TryEncounter` in the module
+DllFieldEventFishing picks 5, 6 or 7 by its rod field, then `Field_WildEncounter_TryKind`, whose rate is the header byte
+[kind] - 1); kind 3 is the water flag's (surfing: inferred, no Surf code read); kind 2 has no encounter starter among
+the three found (the step check, TryKind, Rock Smash): only the species list reads it. Zone 24's tables match the game's
+Route 102 (Zigzagoon, Wurmple, Poochyena, Seedot; Magikarp, Goldeen, Corphish by rod; Marill, Azumarill, Surskit on
+water). Run `wild1` (the owner's `main_Wild_Encounter`, 24 walks in Route 102's grass): no battle (chance; `enc2`
+already showed one).
 
 **Trainers** (7 October; **checked on the data and live**: run `trainer3`, a battle against trainer 7 on Route 102, his
 Zigzagoon at level 4 on screen as `a/0/3/8` gives it). The natives `_CallTrainerBattleCore` (44 zone scripts) and
