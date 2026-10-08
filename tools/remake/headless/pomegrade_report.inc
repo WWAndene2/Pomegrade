@@ -190,13 +190,16 @@ extern "C" RETRO_API bool pomegrade_poke(u32 address, u32 value) {
     return false;
 }
 
-// writers LO HI | writers off FILE: every write of the game (interpreter only: POMEGRADE_INTERPRETER=1) into [LO, HI) in
+// writers LO HI [PCLO PCHI] | writers off FILE: every write of the game (interpreter only: POMEGRADE_INTERPRETER=1) into [LO, HI) in
 // between, with the instruction's address and the return address (patch_core.py, armstate.cpp): who fills a structure
 u32 pomegrade_writers_lo = 0, pomegrade_writers_hi = 0;
+static u32 pomegrade_writers_pclo = 0, pomegrade_writers_pchi = 0xFFFFFFFF; // only the writes of this code (all by default)
 static std::vector<std::array<u32, 4>> pomegrade_writes;
 extern "C" void pomegrade_writer(u32 address, u32 value, u32 pc, u32 lr) {
+    if (pc < pomegrade_writers_pclo || pc >= pomegrade_writers_pchi) return;
     if (pomegrade_writes.size() < 100000) pomegrade_writes.push_back({address, value, pc, lr});
 }
+extern "C" RETRO_API void pomegrade_writers_code(u32 lo, u32 hi) { pomegrade_writers_pclo = lo; pomegrade_writers_pchi = hi; }
 extern "C" RETRO_API u32 pomegrade_writers(u32 lo, u32 hi, const char* path) {
     if (path == nullptr) { pomegrade_writes.clear(); pomegrade_writers_lo = lo; pomegrade_writers_hi = hi; return 0; }
     pomegrade_writers_lo = pomegrade_writers_hi = 0;

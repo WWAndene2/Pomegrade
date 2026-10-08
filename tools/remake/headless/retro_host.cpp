@@ -372,13 +372,21 @@ static int RunScript(void* core, const char* path)
         }
         else if (cmd == "writers")
         {
-            // writers LO HI | writers off FILE: the game's writes into [LO, HI) in between, with their code (pomegrade_writers;
+            // writers LO HI [PCLO PCHI] | writers off FILE: the game's writes into [LO, HI) in between, with their code (pomegrade_writers;
             // with POMEGRADE_INTERPRETER=1, the JIT bypasses it)
             std::string second; words >> second;
             auto writers = reinterpret_cast<uint32_t (*)(uint32_t, uint32_t, const char*)>(dlsym(core, "pomegrade_writers"));
             if (!writers) printf("(no pomegrade_writers in this core)\n");
             else if (arg == "off") { const std::string path = workDir + "/" + second; printf("[frame %lu] writers off: %u writes in %s\n", frame, writers(0, 0, path.c_str()), path.c_str()); }
-            else { writers(strtoul(arg.c_str(), nullptr, 0), strtoul(second.c_str(), nullptr, 0), nullptr); printf("[frame %lu] writers %s %s\n", frame, arg.c_str(), second.c_str()); }
+            else
+            {
+                // PCLO PCHI, optional: only the writes made by the code in [PCLO, PCHI) (pomegrade_writers_code)
+                std::string pclo, pchi; words >> pclo >> pchi;
+                auto code = reinterpret_cast<void (*)(uint32_t, uint32_t)>(dlsym(core, "pomegrade_writers_code"));
+                if (code) code(pclo.empty() ? 0 : strtoul(pclo.c_str(), nullptr, 0), pchi.empty() ? 0xFFFFFFFFu : strtoul(pchi.c_str(), nullptr, 0));
+                writers(strtoul(arg.c_str(), nullptr, 0), strtoul(second.c_str(), nullptr, 0), nullptr);
+                printf("[frame %lu] writers %s %s %s %s\n", frame, arg.c_str(), second.c_str(), pclo.c_str(), pchi.c_str());
+            }
         }
         else if (cmd == "poke")
         {

@@ -76,21 +76,24 @@ static SandboxDescription ReadDescription(const std::string& text)
         if (what == "template") ok = (bool)(words >> z.Template);
         else if (what == "encounters") ok = (bool)(words >> z.Encounters);
         else if (what == "lighting") ok = (bool)(words >> z.Lighting);
-        else if (what == "light")
+        else if (what == "light" || what == "character-light")
         {
             // "light NAME R G B..." (OrasSandbox.h): a colour of the area pack's file 4, in each of its 12 entries. The file holds
             // its colours in planes of 12 floats (3 kinds x 4 times of day, FUN_0013D908 0x13D908 reads them, FUN_0012DDF4 blends
             // two entries and sets the field light's ambient and diffuse colours, FUN_00139124 and FUN_001391D4): a colour's red
-            // at its group's offset, green 0x30 and blue 0x60 further (ORAS_ENGINE.md 2)
-            static const std::map<std::string, uint32_t> colours = {{"ambient", 0x00}, {"diffuse", 0x90}};
+            // at its group's offset, green 0x30 and blue 0x60 further; the direction the same way from 0x240, x y z, the way the light
+            // goes, normalised by the game (FUN_0013D540; (0, -1, 0) in Littleroot, from above) (ORAS_ENGINE.md 2)
+            static const std::map<std::string, uint32_t> colours = {{"ambient", 0x00}, {"diffuse", 0x90}, {"direction", 0x240}};
             std::string name; float rgb[3];
             ok = false;
             while (words >> name >> rgb[0] >> rgb[1] >> rgb[2])
             {
                 const auto at = colours.find(name);
-                if (at == colours.end()) fail("no light colour \"" + name + "\" (ambient, diffuse)");
+                if (at == colours.end()) fail("no light setting \"" + name + "\" (ambient, diffuse, direction)");
+                // character-light: the second light set, the characters' (the same layout 0x2D0 further, read by FUN_0013DC4C)
+                const uint32_t set = what == "light" ? 0 : 0x2D0;
                 for (uint32_t c = 0; c < 3; c++)
-                    for (uint32_t entry = 0; entry < 12; entry++) z.Light[at->second + c * 0x30 + entry * 4] = rgb[c];
+                    for (uint32_t entry = 0; entry < 12; entry++) z.Light[set + at->second + c * 0x30 + entry * 4] = rgb[c];
                 ok = true;
             }
         }
