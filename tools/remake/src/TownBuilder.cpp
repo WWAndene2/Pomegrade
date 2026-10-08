@@ -490,6 +490,16 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
 
     std::map<size_t, BchGeometry> geo;
     for (size_t m = 0; m < pm.Meshes.size(); m++) geo[m].Mesh = m;
+    int nLedges = 0;
+    if (src.Ledges)
+    {
+        if (!src.SnowClumpTexture.empty()) throw FormatError("ledges and snow clumps both need the snow-band mesh");
+        const Part ledge = Cut(rm.Meshes.at(7), 19.0f, 20.0f, 27.5f, 29.5f, 19.5f, 28.5f);
+        if (ledge.I.empty()) throw FormatError("Route 101's ledge mesh has no triangle at tile 19 of row 28");
+        for (int r = 0; r < N; r++) for (int c = 0; c < N; c++)
+            if (vis[r][c] == 'L') { Place(geo[SnowBand], ledge, c + 0.5f, r + 0.5f); coll[r][c] = 'v'; nLedges++; }
+        note("%d ledge tiles (%zu triangles each)\n", nLedges, ledge.I.size() / 3);
+    }
     // ground: Petalburg's grass colour, darker under the forest; paths and pale patches on their own meshes
     float grass[4] = {0, 0, 0, 0}, soil[4] = {0, 0, 0, 0}, waterColour[4];
     for (const BchVertex& v : pm.Meshes[Ground].Vertices) for (int k = 0; k < 4; k++) grass[k] += v.Colour[k] / pm.Meshes[Ground].Vertices.size();
@@ -768,7 +778,7 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         // water (173), a path (81, 95% of its tiles lie under a path mesh) and tall grass (59), plain ground otherwise
         int pathHalves = 0;
         for (int k = 0; k < 4; k++) pathHalves += layout.Path2[2 * r + (k >> 1)][2 * c + (k & 1)] == ':';
-        const uint32_t v = ch == '#' ? 0x01000021 : ch == '~' ? 0x3d1a0006 : ch == 'g' ? 0x20004004 : pathHalves >= 2 ? 0x020a8020 : 0x00000020;
+        const uint32_t v = ch == 'v' ? 0x75000021 : ch == '#' ? 0x01000021 : ch == '~' ? 0x3d1a0006 : ch == 'g' ? 0x20004004 : pathHalves >= 2 ? 0x020a8020 : 0x00000020;
         for (int k = 0; k < 4; k++) tiles[4 + (r * N + c) * 4 + k] = (uint8_t)(v >> (8 * k));
     }
     // door models: the target's own entries (its door types, scale, height, rotation and unknown words), each moved onto a
@@ -817,6 +827,7 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     // textures are shown whatever the grass too (with --grass -1 they kept the donor's rock and hedge, mapped for others)
     show(Bank, 0, src.BankTexture);
     show(Hedge, 0, src.FenceTexture);
+    if (nLedges) show(SnowBand, 0, "chip_jump_gake");
     gr.Files[1] = terrain;
     // file 4 opens with the piece's own matrix cell, row then column (Littleroot's 04 02 at world01_02_04; checked on Hoenn's
     // pieces). The game files its piece-slot table (4 slots, code 0x3C8A24) under that word and frees a slot only for the

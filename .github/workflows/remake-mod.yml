@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       variants:
-        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"; "... +cro <module> OFFSET=OLD:NEW" also patches a code module, "name: cro <module> OFFSET=OLD:NEW" patches one alone, "name: copy <archive> <dst>=<src>" copies archive members, "name: merge a b" joins mods built on earlier lines, "name: save Z X Y" a moved save to merge, "name: engine <oras-engine options>" the engine patches (memory, heaps, zones, characters) to merge'
+        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"; "... +cro <module> OFFSET=OLD:NEW" also patches a code module, "name: cro <module> OFFSET=OLD:NEW" patches one alone, "name: copy <archive> <dst>=<src>" copies archive members, "name: merge a b" joins mods built on earlier lines, "name: save Z X Y" a moved save to merge, "name: engine <oras-engine options>" the engine patches (memory, heaps, zones, characters) to merge, "name: sandbox <description file>" new zones from a text description (oras-sandbox) to merge'
         # no default mod: an empty input fell back to "v24:", and an inspect-only run shipped a v24 zip the owner took for r5
         default: ''
         required: false
@@ -157,6 +157,11 @@ jobs:
             elif [[ "$options" =~ ^[[:space:]]*copy[[:space:]] ]]; then
               # "name: copy <archive> <dst>[-<last>]=<src>[-<last>] ...": archive members copied over others (oras-copy)
               ./build-remake/remake_tool oras-copy dumps/oras.3ds "out/$name" ${options#*copy } | tee "mods/${name}_log.txt"
+            elif [[ "$options" =~ ^[[:space:]]*sandbox[[:space:]] ]]; then
+              # "name: sandbox <description file in the repository>": new zones from a text description (oras-sandbox,
+              # OrasSandbox.h); merge it with "engine --zone-rows <the rows it prints>" and a save moved into one of its zones
+              ./build-remake/remake_tool oras-sandbox dumps/oras.3ds "out/$name" "$GITHUB_WORKSPACE/$(echo ${options#*sandbox } | xargs)" | tee "mods/${name}_log.txt"
+              rm -f "out/$name/sandbox_layout.txt"
             elif [[ "$options" =~ ^[[:space:]]*engine([[:space:]]|$) ]]; then
               # "name: engine <oras-engine options>": the engine patches (exheader.bin, exefs/code.ips: ORAS_ENGINE.md 4), e.g.
               # --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --characters 64; merge it

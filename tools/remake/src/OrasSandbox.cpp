@@ -40,7 +40,7 @@ struct SandboxDescription
 
 static constexpr int BlockTiles = 10; // a zone block of the matrix (OrasMatrix.h)
 
-static bool Solid(char c) { return c == '~' || c == 't' || c == 'T' || c == 'H' || c == 'F'; }
+static bool Solid(char c) { return c == '~' || c == 't' || c == 'T' || c == 'H' || c == 'F' || c == 'L'; }
 
 static SandboxDescription ReadDescription(const std::string& text)
 {
@@ -114,8 +114,8 @@ static SandboxDescription ReadDescription(const std::string& text)
             throw FormatError("sandbox description: map row " + std::to_string(r) + " has " + std::to_string(d.Map[r].size()) + " letters, pieces asks for " +
                               std::to_string(d.Width * TownTiles));
         for (char c : d.Map[r])
-            if (std::string(".g:s*~tTHDF").find(c) == std::string::npos)
-                throw FormatError(std::string("sandbox description: map row ") + std::to_string(r) + ": letter '" + c + "' is not built yet (. g : s * ~ t T H D F)");
+            if (std::string(".g:s*~tTHDFL").find(c) == std::string::npos)
+                throw FormatError(std::string("sandbox description: map row ") + std::to_string(r) + ": letter '" + c + "' is not built yet (. g : s * ~ t T H D F L)");
     }
     const int bw = d.Width * OrasMatrix::BlocksPerPiece, bh = d.Height * OrasMatrix::BlocksPerPiece;
     if (d.Blocks.empty())
@@ -229,6 +229,8 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
 
     OrasTownOptions to;
     to.CloseEdges = false;
+    to.Ledges = true;
+    to.SnowClumps = false; // no snow in a sandbox, and its clumps take the snow-band mesh the ledges use
     to.AreaPack = (size_t)pack;
     const PieceBudget budget = GamePieceBudget(pieceArchive);
     std::string layouts;
