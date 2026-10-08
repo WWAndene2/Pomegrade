@@ -22,7 +22,7 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 | 2 Tables and assets | zones (section 2), map pieces (3), the boot memory map (4.2), the 299 archives tied to their code where opened by a constant (5); not yet: the 210 archives opened by computed numbers, the asset formats beyond `tools/remake/src`'s readers |
 | 4 Limits | **done for building a world** (section 4.6): all 927 fatal checks listed, the field's and the `.code`'s classified; lifted and checked headless: zones 536 -> 1024 (2), application memory 64 -> 124 MB (New 3DS mode) and the linear heap 43.3 -> 88 MB, the normal heap and heap 4, heap 0xC 2 -> 8 MB, heap 0x17 28.4 -> 64 MB (4.4), characters past 26 (4.5); refused at build time where they cannot be raised: a zone's events file under 0xC84 bytes (4.5), a piece model's 51 textures (4.6), the 178 MB mode (4.4); the zone scripts' native masks for zones 536-1023 (section 6, `--script-mask`); left with their reason: the 8-deep load queue per object, collision objects per cell, the 174-entry Secret Base table (4.6) |
 | 5 Patches | `remake_tool oras-engine` writes them all (`exheader.bin`, `exefs/code.ips`); **checked on the phone (owner, 7 October): mod `all6`** (the whole of Sinnoh as r12, the title, the save in Twinleaf, and `engine --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 --characters 64`, Remake mod run 147) with the APK of `main` at PR #33: "everything works fine" |
-| 3, 6, 7 | not started on this basis: Sinnoh's region tools (`oras-region`, `ORAS_LITTLEROOT.md`) still borrow Hoenn's zones; next is building Sinnoh's zones from 538 up with the tools above |
+| 3, 6, 7 | **3 started (8 October)**: `remake_tool oras-sandbox` builds a new zone 538+ from a text description (a hand-drawn grid of tile roles, no Hoenn events), **checked live** (run `sand1`, section 2). 6 and 7 not started on this basis: Sinnoh's region tools (`oras-region`, `ORAS_LITTLEROOT.md`) still borrow Hoenn's zones; next is building Sinnoh's zones from 538 up with the tools above |
 | After 6: Platinum's music | added by the owner (7 October), after building Sinnoh's map: a tool that moves Platinum's music into Omega Ruby. Not started; nothing in `tools/remake` reads either game's sound yet. Platinum keeps sequences played by the DS sound hardware (SDAT: SSEQ with SBNK/SWAR instruments), Omega Ruby recorded streams in its sound archive (BCSTM, inferred from the format's common use, not checked on this game): the tool must extract, render, encode and replace. First step: how Omega Ruby stores and picks its songs (`Snd_ChangeZoneBgm`, section 6) |
 
 **What remains, and how** (handover, 7 October; in this order, each with rule 4's budget):
@@ -215,6 +215,17 @@ another (51 characters passed the count check and stopped on the events buffer).
   at 0x3D9774 and the one in `FUN_003d99b8`); the encounter container (member 537) grown with them (the field reads the
   zone's own file 3 instead, section 2); the new zones' members appended from 538. Other per-zone tables (flags, names, the
   region map) still to find.
+
+- **A zone from a text description (the sandbox, 8 October)**: `remake_tool oras-sandbox <oras.3ds> <out> <description.txt>`
+  (`OrasSandbox.h` holds the format: `zone`, `template`, `spawn`, `encounters`, `pieces W H`, then `map` and 40 rows of 40
+  letters a piece: `.` grass, `g` tall grass, `:` path, `s` pale grass, `*` flowers, `~` water, `t` tree, `T` forest).
+  The grid is built into pieces as `oras-town` builds Platinum's (`BuildTownPiece`), on a new matrix whose every block is
+  the zone; the zone is appended with the template's header words and scripts and no furniture, characters, warps or
+  triggers; members 536 and 537 grow to match; then `oras-engine --zone-rows <rows it prints>` in the same out dir.
+  **Checked live** (run `sand1`: zone 538, one piece, forest border, a path cross, a pond, tall grass; template 6,
+  encounters of zone 24; the owner's save moved to 538 20.5 20.5): the field loads on the drawn ground and the player
+  walks the path. Seen: the Navi-Map still names the template's place (Bourg-en-Vol: a header word, not yet found). Not
+  built yet: houses, fences, ledges, doors, warps between zones, characters; not yet tested on the phone.
 
 ## 3. Map pieces
 
