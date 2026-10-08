@@ -6,7 +6,7 @@
 // (BuildTownPiece) and appended to a/0/3/9, a matrix appended to a/0/4/0 holding them with its zone grid filled from Platinum's
 // map headers, and the ORAS zones that stand for those headers moved onto it with their warps on Platinum's doors.
 //
-// Zones cannot be appended (ORAS_LITTLEROOT.md 11, a4), so each Platinum header used is given an existing ORAS zone number
+// Zones could not be appended at first (ORAS_LITTLEROOT.md 11, a4), so each Platinum header used is given an existing ORAS zone number
 // (Zones); that zone keeps its own area pack (rule 6), which receives the textures of the pieces it lies on. What else the
 // reused zone holds (characters, furniture, triggers, scripts: Hoenn's) is kept and reported, not rebuilt.
 //
@@ -55,6 +55,11 @@ struct OrasRegionOptions
     // test of the Route 201 freeze: every tile of one value in the built pieces set to another (--tile-replace FROM:TO)
     std::vector<std::pair<uint32_t, uint32_t>> TileReplace;
     bool OthersOut = false;     // a header Zones does not name is left out, as with -1 (a large matrix holding a few places)
+    // every zone the region uses (its zones and the doors' interiors) as a new zone appended to a/0/1/3 (538 and up), a copy of the
+    // zone Zones names with Hoenn's characters, triggers, encounters and (outside) furniture left out, the Hoenn zones themselves
+    // unchanged; the zone tables grow to them (oras-engine --zone-rows, printed). Zones has become possible to append since
+    // ORAS_ENGINE.md 2 (oras-sandbox), so Sinnoh no longer stands on Hoenn's zones (SINNOH_BUILD.md, stage 0)
+    bool NewZones = false;
     size_t MatrixTemplate = 1;  // the matrix whose file 1 (meaning unknown) the new matrix copies: Littleroot's
     int ModelMatrix = 15;       // the pieces' model names, world<NN>_<x>_<y> (the game's run from world01 to world14)
     bool PlanOnly = false;      // print the rectangle's map headers, block by block, and build nothing

@@ -163,6 +163,24 @@ static Bytes LinkInterior(const Bytes& plain, size_t zoneIndex, int town, int wa
     return out;
 }
 
+// --new-zones: a zone the region uses, as an appended zone of its own (number `number`, 538 and up on the game's archive): its
+// header, warps and area pack as the region set them, Hoenn's characters, triggers and other entries left out, its furniture too
+// unless it is an interior (a house's furniture is its own), and no encounters (file 3 empty), as oras-sandbox appends its zones
+static Bytes AsNewZone(const Bytes& plain, int number, bool interior)
+{
+    OrasZone zone = OrasZone::Read(plain);
+    zone.Characters.clear(); zone.Triggers.clear(); zone.Others.clear();
+    if (!interior) zone.Furniture.clear();
+    zone.Header[13] = (uint16_t)number;
+    BinLinker zc = BinLinker::Read(zone.Write(plain), "ZO");
+    zc.Files.at(3) = Bytes{};
+    const Bytes out = zc.Write();
+    const OrasZone check = OrasZone::Read(out);
+    if (check.Number() != number || check.Doors.size() != zone.Doors.size() || !check.Characters.empty())
+        throw FormatError(F("the new zone %d does not read back as written", number));
+    return out;
+}
+
 // the texture names the piece's drawn meshes show
 static std::set<std::string> ShownTextures(const Bytes& piece)
 {
@@ -426,6 +444,18 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
             WriteFile((out / F("region_piece_%d_%d.bin", x, y)).string(), piece);
         }
 
+    // --new-zones: every zone used (on the matrix, or a door's interior) gets the next member of a/0/1/3, in the order of the
+    // zones it copies; the matrix and the doors name the new numbers
+    std::map<int, int> renumber;
+    if (o.NewZones)
+    {
+        std::set<int> all(used.begin(), used.end());
+        for (const auto& [z, doors] : doorsOf)
+            for (const RegionDoor& d : doors) if (d.Interior >= 0) all.insert(d.Interior);
+        int next = (int)zoneArchive.Count();
+        for (int z : all) renumber[z] = next++;
+        for (uint16_t& z : matrix.Zones) if (z != OrasMatrix::None) z = (uint16_t)renumber.at(z);
+    }
     const Bytes matrixData = matrix.Write();
     if (OrasMatrix::Read(matrixData).Write() != matrixData) throw FormatError("the new matrix does not read back identical");
     const size_t matrixIndex = AppendMember(newMatrices, matrixArchive, o.MatrixTemplate, matrixData, "MM");
@@ -433,19 +463,26 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
     log.push_back(F("matrix: a/0/4/0 member %zu, %d x %d pieces, file 0's first words and file 1 copied from matrix %zu", matrixIndex, o.Width, o.Height, o.MatrixTemplate));
 
     std::map<int, std::pair<int, int>> interiors; // interior zone -> the zone and warp of the door leading in
+    std::map<int, std::pair<int, Bytes>> appended;  // --new-zones: new zone number -> the zone it copies, its data
+    const auto numberOf = [&](int z) { return o.NewZones ? renumber.at(z) : z; };
     for (int z : used)
     {
         // the doors north to south, west to east, as TownLayout orders them within a piece
         auto& doors = doorsOf[z];
         std::sort(doors.begin(), doors.end(), [](const RegionDoor& a, const RegionDoor& b) { return a.Y != b.Y ? a.Y < b.Y : a.X < b.X; });
-        ReplaceMember(newZones, zoneArchive, (size_t)z, MoveZone(Plain(zoneArchive.Sub((size_t)z)), (size_t)z, matrixIndex, doors, o.NoTriggers, o.NoCharacters, log), "ZO");
+        std::vector<RegionDoor> placed = doors; // their interiors by the numbers they get
+        for (RegionDoor& d : placed) if (d.Interior >= 0) d.Interior = numberOf(d.Interior);
+        const Bytes moved = MoveZone(Plain(zoneArchive.Sub((size_t)z)), (size_t)z, matrixIndex, placed, o.NoTriggers, o.NoCharacters, log);
+        if (o.NewZones) appended[renumber.at(z)] = {z, AsNewZone(moved, renumber.at(z), false)};
+        else ReplaceMember(newZones, zoneArchive, (size_t)z, moved, "ZO");
         for (size_t k = 0; k < doors.size(); k++)
         {
             if (doors[k].Interior < 0) continue;
             if (!interiors.emplace(doors[k].Interior, std::make_pair(z, (int)k)).second)
                 throw FormatError(F("ORAS zone %d is the interior of two doors: its warp 0 leads back to one only", doors[k].Interior));
-            ReplaceMember(newZones, zoneArchive, (size_t)doors[k].Interior,
-                          LinkInterior(Plain(zoneArchive.Sub((size_t)doors[k].Interior)), (size_t)doors[k].Interior, z, (int)k, log), "ZO");
+            const Bytes linked = LinkInterior(Plain(zoneArchive.Sub((size_t)doors[k].Interior)), (size_t)doors[k].Interior, numberOf(z), (int)k, log);
+            if (o.NewZones) appended[renumber.at(doors[k].Interior)] = {doors[k].Interior, AsNewZone(linked, renumber.at(doors[k].Interior), true)};
+            else ReplaceMember(newZones, zoneArchive, (size_t)doors[k].Interior, linked, "ZO");
         }
         // where the zone's spawn tile (Littleroot's: where a new game and a save's warp land, inferred) falls on the new matrix
         const OrasZone& zone = zoneOf.at(z);
@@ -520,6 +557,38 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
     }
     for (const auto& [pack, data] : packs)
         if (data != originalPacks.at(pack)) ReplaceMember(newAreas, areaArchive, (size_t)pack, data, "AD");
+
+    if (o.NewZones)
+    {
+        // the new zones appended in order, and the zone tables grown to them as oras-sandbox grows them (ORAS_ENGINE.md 2): the
+        // header table (member 536) one 56-byte row per zone number, the encounter container (member 537) one file per zone
+        // number (empty: no encounters yet); the rows of 536 and 537 (the tables themselves) take the first new zone's copied row
+        const size_t rowBytes = 56;
+        Bytes table = Plain(zoneArchive.Sub(536));
+        if (table.size() != 536 * rowBytes) throw FormatError("member 536 is not the 536-row zone header table");
+        BinLinker en = BinLinker::Read(Plain(zoneArchive.Sub(537)), "EN");
+        if (en.Files.size() != 536) throw FormatError("member 537 is not the 536-file encounter container");
+        for (const auto& [number, entry] : appended)
+        {
+            const auto& [copied, data] = entry;
+            const size_t index = AppendMember(newZones, zoneArchive, (size_t)copied, data, "ZO");
+            if ((int)index != number) throw FormatError(F("the new zone %d was appended as member %zu", number, index));
+            const Bytes filler(table.begin() + copied * rowBytes, table.begin() + (copied + 1) * rowBytes);
+            while (table.size() < index * rowBytes) table.insert(table.end(), filler.begin(), filler.end());
+            const Bytes header = BinLinker::Read(data, "ZO").Files.at(0);
+            table.insert(table.end(), header.begin(), header.end());
+            while (en.Files.size() < index) en.Files.push_back(Bytes{});
+            en.Files.push_back(Bytes{});
+            log.push_back(F("zone %d: a new zone, a copy of zone %d (header, area pack %d, warps) without Hoenn's characters, triggers%s or encounters",
+                            number, copied, OrasZone::Read(data).AreaPack(), interiors.count(copied) ? "" : ", furniture"));
+        }
+        ReplaceMember(newZones, zoneArchive, 536, table, "");
+        ReplaceMember(newZones, zoneArchive, 537, en.Write(), "EN");
+        std::string headers;
+        for (const auto& [h, z] : o.Zones) if (z >= 0 && renumber.count(z)) headers += F(" %d:%d", h, renumber.at(z));
+        log.push_back("map header -> new zone:" + headers);
+        log.push_back(F("zone tables: %zu header rows (oras-engine --zone-rows %zu), %zu encounter files", table.size() / rowBytes, table.size() / rowBytes, en.Files.size()));
+    }
 
     // the mod: BPS patches of the four archives, each checked by applying it back
     char id[17];
