@@ -30,7 +30,7 @@ zones, scripts or warps, and every borrowed piece is a constraint to undo later 
 
 | # | Tool | Why it blocks | State |
 |---|---|---|---|
-| R1 | ORAS script writer (AMX assembler), checked by reading its output back with `oras-script` | Every zone runs a script when it is entered; signs, people, story need them | **Written (8 October), not yet run in the game**: `amx-asm` (`Amx.h`: `AmxScript`, `AmxAssemble`, `AmxSource`). All 1,072 zone and init scripts written back and assembled back from their source to the same bytes (`oras-script all`); natives by name, checked against the 817 the game ships. Next: a script of ours run in a zone |
+| R1 | ORAS script writer (AMX assembler) | Every zone runs a script when it is entered; signs, people, story need them | **Done (8 October)**: `amx-asm`, `oras-script ... source`, `oras-zone-script`, sandbox `script` / `init-script` (`Amx.h`, `OrasSandbox.h`). All 1,072 game scripts come back byte for byte; natives checked by name and by the zone's mask. **Checked in the game** (headless runs, below) |
 | R2 | Zone writer from nothing: header words, events file, scripts, all from Platinum data, no template zone | A copied zone carries Hoenn's scripts, warps and texts | Header words partly known (pack, matrix, number, name, spawn); the others to read |
 | R3 | One zone-number allocator shared by every tool (region, sandbox) | Two tools appending from 538 clash in one mod | Each tool appends on its own |
 | R4 | Matrices for Platinum's interiors and caves (its 288 other matrices), built as the main map is | Hoenn's houses lead to Hoenn | Main map only |
@@ -41,12 +41,17 @@ zones, scripts or warps, and every borrowed piece is a constraint to undo later 
 
 R1 to R3 come first: without them no zone of Sinnoh is free of Hoenn.
 
-**How a zone script is called (read 8 October on the game's scripts, for R2):** the game runs `main` (the header's `cip`;
-418 of the 536 zone scripts have no public function) with a command in public variable `#D7477C97` (data cell 0 in the
-smallest script, zone 80); `main` switches on it to the handler and returns 0. Every zone script declares the same three
-public variables (`#865A53E1`, `#29654047`, `#D7477C97`, names unknown), the library and tag "Float" and a 4,096-byte
-stack. A zone script of our own is written that way (`amx-asm`'s defaults hold the rest); the commands' meanings are not
-read yet (zone 80 handles -1 and 1, and `CommandNOP` otherwise).
+**How a zone script is called (read and checked 8 October):** a script's `main` (the header's `cip`) runs with a command
+in its public variable `g_mode` (`#D7477C97`; the other two every zone script declares are `g_interactive_flag` and
+`g_ai_flag`, named by the game's own lookups, `Script_FindPublicVariable`). The initialisation script runs on entering
+the zone with `g_mode` 2 (its scripts handle -1, 0, 1, 2); the zone script runs for an event with the event's script
+number (zone 6's 2-19: its signs 16-19, triggers 10-12, people 9, 13-15; 2000 is none) and handles -1 and 1 as well. The
+public function `#63F02D54` (118 zone scripts) is optional: `Zone_LoadZoneScript` skips it when absent. **Checked in the
+game** with scripts of ours that record their calls (`sandbox/own_scripts.txt`): in Littleroot (runs `r1own`,
+`r1sign`), the initialisation script ran once with 2, and reading the sign ran the zone script 3 times, last with 18; in
+the new zone 538 (run `r1zone538`, the save moved there), the initialisation script ran once with 2 and the zone script
+was loaded under mask 0x243 (no event in that zone to call it). The field stayed up and the main thread idle in every run.
+What -1 and 1 mean is not read; empty handlers are enough (zone 80's are).
 
 ## 3. Building stages (after section 2)
 
