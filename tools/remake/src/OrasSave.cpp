@@ -43,12 +43,45 @@ int OrasSave::Zone() const { return U16(Data, 0x1402); }
 float OrasSave::X() const { float f; std::memcpy(&f, &Data[0x1410], 4); return f; }
 float OrasSave::Z() const { float f; std::memcpy(&f, &Data[0x1418], 4); return f; }
 
+void OrasSave::TakePlayerBlockFrom(const OrasSave& other)
+{
+    const OrasSaveBlock& b = Blocks[Situation];
+    if (other.Blocks[Situation].Offset != b.Offset || other.Blocks[Situation].Length != b.Length) throw FormatError("the template save's player block differs in place or size");
+    std::memcpy(&Data[b.Offset], &other.Data[b.Offset], b.Length);
+    // MoveTo writes the checksum again
+}
+
+void OrasSave::TakeBlockFrom(const OrasSave& other, uint16_t id)
+{
+    for (size_t i = 0; i < Blocks.size(); i++)
+        if (Blocks[i].Id == id)
+        {
+            if (i >= other.Blocks.size() || other.Blocks[i].Offset != Blocks[i].Offset || other.Blocks[i].Length != Blocks[i].Length)
+                throw FormatError("the template save's block " + std::to_string(id) + " differs in place or size");
+            std::memcpy(&Data[Blocks[i].Offset], &other.Data[Blocks[i].Offset], Blocks[i].Length);
+            return;
+        }
+    throw FormatError("the save has no block " + std::to_string(id));
+}
+
+void OrasSave::WriteChecksums()
+{
+    for (size_t i = 0; i < Blocks.size(); i++)
+    {
+        const uint16_t crc = Crc16Ccitt(&Data[Blocks[i].Offset], Blocks[i].Length);
+        const size_t entry = TableAt + i * 8 + 6;
+        Data[entry] = (uint8_t)crc; Data[entry + 1] = (uint8_t)(crc >> 8);
+        Blocks[i].Checksum = crc;
+    }
+}
+
 void OrasSave::MoveTo(int zone, float tileX, float tileZ)
 {
     // the zone is held twice too: +2 and +0xF4, each before its position (+0x10/+0x18 and +0x104/+0x10C). A save made by the game
     // on Route 102 (zone 24, matrix 2) holds 24 at both, the owner's Littleroot save 6 at both; writing only +2 kept the player in
     // place within matrix 1 but a move into matrix 2 never reached the field (run trainer1, 7 October); writing both is not
-    // enough for that move (run matrix2, 8 October: still black): other words of the block differ (ORAS_ENGINE.md 0, item 1)
+    // enough for that move (run matrix2, 8 October: still black): block 10 must come from a save made in the target matrix
+    // (oras-save --template, runs matrix3-8; ORAS_ENGINE.md 0)
     for (size_t at : {(size_t)0x1402, (size_t)0x14F4}) { Data[at] = (uint8_t)zone; Data[at + 1] = (uint8_t)(zone >> 8); }
     const float x = tileX * 18, z = tileZ * 18;
     // the position is held twice in block 4 (+0x10/+0x18 and +0x104/+0x10C: two saves of the owner, a few steps apart, differ at both
