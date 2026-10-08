@@ -39,6 +39,7 @@ struct SandboxDescription
     std::vector<std::string> Map;
 };
 
+static constexpr size_t rowBytesOf536 = 56; // a zone header row (member 536 of a/0/1/3)
 static constexpr int BlockTiles = 10; // a zone block of the matrix (OrasMatrix.h)
 
 static bool Solid(char c) { return c == '~' || c == 't' || c == 'T' || c == 'H' || c == 'F' || c == 'L'; }
@@ -210,7 +211,6 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
     // every zone draws its textures from the first template's area pack (header word 1), which the pieces are built into
     const int pack = OrasZone::Read(Plain(zoneArchive.Sub((size_t)d.Zones[0].Template))).AreaPack();
     Bytes packData = Plain(areaArchive.Sub((size_t)pack));
-    const Bytes originalPack = packData;
 
     // the matrix: one rectangle over the whole map (the player must stand in one of file 1's: OrasRegion), each block its zone
     const size_t matrixTemplate = 1;
@@ -286,18 +286,36 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
         texts.emplace_back(path, data, std::move(n));
     }
 
-    // lighting: an area pack's file 4 (2,944 bytes of RGBA colours, 6 different ones among the game's 229 packs: outdoors,
-    // interiors and a few places; read as the light and fog colours: inferred, not read in code) taken from the pack of game
-    // zone `lighting`, in an appended copy of the shared pack the zone then draws from, so Littleroot's own pack keeps its light
-    std::map<int, uint16_t> lightingPack; // game zone -> the appended pack carrying its light
-    // a/1/3/7 holds one member per area pack (228 in the game), read with the zone header's area pack as index when a zone
-    // loads its characters (Event_LoadZoneCharacterModels 0x3F73C4: its archive handle at +0x36B8 names "rom:/a/1/3/7");
-    // an index past its members sends the game into its fatal-error loop (Res_GetContainerEntryInfo 0x1287BC, its cached
-    // count at +0x34: checked under the debugger, runs apk1-apk4: area pack 229 asked, 228 members). An appended pack gets the
-    // copy of its source pack's member, and the members between are filled the same way
+    // the sandbox's own area packs: the game's 9 placeholder packs no zone uses (0, 1, 39-42, 88, 97, 195: twelve small files each)
+    // are filled, never a pack a game zone draws from, so no Hoenn place changes: the first with the shared pack the pieces were
+    // built for (the template's pack and the textures they show), the next ones with that pack's copy under another light.
+    // A pack appended past the game's 229 is refused: its zone sent the game into its fatal-error loop even with a/1/3/7 grown
+    // to match (runs light1-light4; a/1/3/7 is one cause, read under the debugger in runs apk1-apk4, another is not found)
     const Bytes perArea = oras.Read("a/1/3/7");
     const Garc perAreaArchive(perArea);
     Garc newPerArea(perArea);
+    std::vector<uint16_t> freePacks;
+    {
+        const Bytes headers = Plain(zoneArchive.Sub(536));
+        std::vector<bool> used(areaArchive.Count(), false);
+        for (size_t z = 0; z * rowBytesOf536 + 4 <= headers.size(); z++) { const uint16_t p = (uint16_t)(headers[z * rowBytesOf536 + 2] | headers[z * rowBytesOf536 + 3] << 8); if (p < used.size()) used[p] = true; }
+        for (size_t p = 0; p < areaArchive.Count() && p < perAreaArchive.Count(); p++) if (!used[p]) freePacks.push_back((uint16_t)p);
+    }
+    size_t nextFree = 0;
+    auto takeFree = [&](const Bytes& data, const std::string& what) {
+        if (nextFree >= freePacks.size()) throw FormatError("sandbox: no free area pack left for " + what + " (" + std::to_string(freePacks.size()) + " in the game)");
+        const uint16_t slot = freePacks[nextFree++];
+        ReplaceMember(newAreas, areaArchive, slot, data, "AD");
+        newPerArea.Set(slot, perAreaArchive.Sub((size_t)pack)); // its characters' list: the template pack's
+        snprintf(line, sizeof line, "area pack %u (unused by the game): %s", slot, what.c_str());
+        log.push_back(line);
+        return slot;
+    };
+    const uint16_t ownPack = takeFree(packData, "the sandbox's pack, a copy of pack " + std::to_string(pack) + " with the pieces' textures");
+    // lighting: an area pack's file 4 (2,944 bytes of RGBA colours, 6 different ones among the game's 229 packs: outdoors,
+    // interiors and a few places; read as the light and fog colours: inferred, not read in code) taken from the pack of game
+    // zone `lighting`
+    std::map<int, uint16_t> lightingPack; // game zone -> the sandbox pack carrying its light
     for (const SandboxZone& z : d.Zones)
     {
         if (z.Lighting < 0 || lightingPack.count(z.Lighting)) continue;
@@ -306,12 +324,7 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
         const Bytes light = BinLinker::Read(Plain(areaArchive.Sub((size_t)from)), "AD").Files.at(4);
         if (copy.Files.size() < 5 || light.size() != copy.Files[4].size()) throw FormatError("sandbox: an area pack's file 4 is not the size of the shared pack's");
         copy.Files[4] = light;
-        const size_t index = AppendMember(newAreas, areaArchive, (size_t)pack, copy.Write(), "AD");
-        lightingPack[z.Lighting] = (uint16_t)index;
-        if ((size_t)pack >= perAreaArchive.Count()) throw FormatError("sandbox: a/1/3/7 has no member for area pack " + std::to_string(pack));
-        while (newPerArea.Count() <= index) newPerArea.Set(newPerArea.Count(), perAreaArchive.Sub((size_t)pack));
-        snprintf(line, sizeof line, "lighting of zone %d (area pack %d's file 4): area pack %zu, a copy of pack %d", z.Lighting, from, index, pack);
-        log.push_back(line);
+        lightingPack[z.Lighting] = takeFree(copy.Write(), "the light of zone " + std::to_string(z.Lighting) + " (pack " + std::to_string(from) + "'s file 4)");
     }
 
     // the zones: each its template's header and scripts, its events emptied but for its characters, its own number, the new
@@ -361,7 +374,7 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
             w.Raw[4] = (uint16_t)(door[0] * 18 + 9); w.Raw[6] = (uint16_t)(door[1] * 18 + 9);
             zone.Doors.push_back(w);
         }
-        zone.Header[1] = z.Lighting >= 0 ? lightingPack.at(z.Lighting) : (uint16_t)pack;
+        zone.Header[1] = z.Lighting >= 0 ? lightingPack.at(z.Lighting) : ownPack;
         zone.Header[2] = (uint16_t)matrixIndex;
         zone.Header[13] = (uint16_t)z.Number;
         for (int at : {22, 25}) { zone.Header[at] = (uint16_t)(z.SpawnX * 18); zone.Header[at + 2] = (uint16_t)(z.SpawnZ * 18); }
@@ -425,7 +438,6 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
     ReplaceMember(newZones, zoneArchive, 537, en.Write(), "EN");
     snprintf(line, sizeof line, "zone tables: %zu header rows (oras-engine --zone-rows %zu), %zu encounter files", table.size() / rowBytes, table.size() / rowBytes, en.Files.size());
     log.push_back(line);
-    if (packData != originalPack) ReplaceMember(newAreas, areaArchive, (size_t)pack, packData, "AD");
 
     char id[17];
     snprintf(id, sizeof id, "%016llX", (unsigned long long)oras.ProgramId());
