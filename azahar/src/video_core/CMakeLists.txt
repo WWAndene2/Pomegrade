@@ -16,6 +16,19 @@ add_library(video_core STATIC EXCLUDE_FROM_ALL
     gpu_debugger.h
     gpu_impl.h
     pica_types.h
+    pomegrade_darp/darp.h
+    pomegrade_darp/darp_alpha.cpp
+    pomegrade_darp/darp_backprojection.cpp
+    pomegrade_darp/darp_bench.cpp
+    pomegrade_darp/darp_bench.h
+    pomegrade_darp/darp_classify.cpp
+    pomegrade_darp/darp_dequantize.cpp
+    pomegrade_darp/darp_image.cpp
+    pomegrade_darp/darp_image.h
+    pomegrade_darp/darp_kernel.cpp
+    pomegrade_darp/darp_palette.cpp
+    pomegrade_darp/darp_self_examples.cpp
+    pomegrade_darp/darp_upscale.cpp
     pomegrade_scene_black.cpp
     pomegrade_scene_black.h
     precompiled_headers.h
@@ -53,6 +66,8 @@ add_library(video_core STATIC EXCLUDE_FROM_ALL
     rasterizer_cache/framebuffer_base.h
     rasterizer_cache/pixel_format.cpp
     rasterizer_cache/pixel_format.h
+    rasterizer_cache/pomegrade_darp_manager.cpp
+    rasterizer_cache/pomegrade_darp_manager.h
     rasterizer_cache/pomegrade_texture_upscaling.h
     rasterizer_cache/rasterizer_cache.cpp
     rasterizer_cache/rasterizer_cache.h

@@ -14,6 +14,7 @@
 #include <tsl/robin_map.h>
 
 #include "video_core/rasterizer_cache/framebuffer_base.h"
+#include "video_core/rasterizer_cache/pomegrade_darp_manager.h"
 #include "video_core/rasterizer_cache/sampler_params.h"
 #include "video_core/rasterizer_cache/surface_params.h"
 #include "video_core/rasterizer_cache/texture_cube.h"
@@ -210,6 +211,15 @@ private:
     /// Increase/decrease the number of surface in pages touching the specified region
     void UpdatePagesCachedCount(PAddr addr, u32 size, int delta);
 
+    /// Pomegrade: queues the DARP reconstruction of a texture just uploaded (whole level 0)
+    void QueueDarp(SurfaceId surface_id, SurfaceInterval interval);
+
+    /// Pomegrade: swaps finished DARP reconstructions in (frame end, outside any validation)
+    void ApplyDarp();
+
+    /// Pomegrade: a reconstructed texture whose data changed becomes a regular surface again
+    void RevertDarp(SurfaceId surface_id);
+
 private:
     Memory::MemorySystem& memory;
     CustomTexManager& custom_tex_manager;
@@ -230,7 +240,16 @@ private:
     FramebufferParams fb_params;
     Settings::TextureFilter filter;
     u32 texture_upscale_factor; ///< Pomegrade: see pomegrade_texture_upscaling.h
-    u32 texture_anisotropy;     ///< Pomegrade: the Texture filtering setting's
+    // Pomegrade: DARP (pomegrade_darp_manager.h). The manager lives as long as the cache once
+    // created, since swapped-in surfaces point to its materials.
+    std::unique_ptr<DarpManager> darp;
+    std::unordered_map<SurfaceId, u64> darp_pending;  ///< surface -> reconstruction it waits for
+    std::unordered_map<SurfaceId, u64> darp_surfaces; ///< surface -> reconstruction it shows
+    std::vector<u64> darp_ready_now;                  ///< already reconstructed, swap at frame end
+    std::unordered_map<PAddr, u32> darp_reverts;      ///< data changes per texture address
+    Pomegrade::Darp::Wrap darp_wrap_s = Pomegrade::Darp::Wrap::Clamp; ///< of the texture looked up
+    Pomegrade::Darp::Wrap darp_wrap_t = Pomegrade::Darp::Wrap::Clamp;
+    u32 texture_anisotropy; ///< Pomegrade: the Texture filtering setting's
     bool dump_textures;
     bool use_custom_textures;
 };

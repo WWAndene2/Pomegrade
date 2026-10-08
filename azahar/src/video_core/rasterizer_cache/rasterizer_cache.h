@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <bit>
 #include <type_traits>
 #include <boost/container/small_vector.hpp>
 #include <boost/range/iterator_range.hpp>
@@ -115,6 +116,14 @@ void RasterizerCache<T>::TickFrame() {
         filter = new_filter;
         texture_upscale_factor = new_texture_upscale_factor;
         UnregisterAll();
+    }
+
+    // Pomegrade: DARP's manager is made the first time the DARP filter is chosen
+    if (filter == Settings::TextureFilter::DARP && !darp) [[unlikely]] {
+        darp = std::make_unique<DarpManager>(custom_tex_manager.GetImageInterface());
+    }
+    if (darp) {
+        ApplyDarp();
     }
 
     // Pomegrade: samplers are created with the Texture filtering's anisotropy, so new ones are
@@ -571,7 +580,24 @@ typename T::Surface& RasterizerCache<T>::GetTextureSurface(
     const Pica::TexturingRegs::FullTextureConfig& config) {
     const auto info = Pica::Texture::TextureInfo::FromPicaRegister(config.config, config.format);
     const u32 max_level = MipLevels(info.width, info.height, config.config.lod.max_level) - 1;
+    // Pomegrade: DARP reconstructs the texture with the wrap modes it is sampled with
+    const auto darp_wrap = [](Pica::TexturingRegs::TextureConfig::WrapMode mode) {
+        using Mode = Pica::TexturingRegs::TextureConfig::WrapMode;
+        switch (mode) {
+        case Mode::Repeat:
+        case Mode::Repeat2:
+        case Mode::Repeat3:
+            return Pomegrade::Darp::Wrap::Repeat;
+        case Mode::MirroredRepeat:
+            return Pomegrade::Darp::Wrap::Mirror;
+        default:
+            return Pomegrade::Darp::Wrap::Clamp;
+        }
+    };
+    darp_wrap_s = darp_wrap(config.config.wrap_s);
+    darp_wrap_t = darp_wrap(config.config.wrap_t);
     const SurfaceId surface_id = GetTextureSurface(info, max_level);
+    darp_wrap_s = darp_wrap_t = Pomegrade::Darp::Wrap::Clamp;
     return slot_surfaces[surface_id];
 }
 
@@ -983,6 +1009,13 @@ void RasterizerCache<T>::ValidateSurface(SurfaceId surface_id, PAddr addr, u32 s
         return;
     }
 
+    // Pomegrade: a DARP surface about to be reloaded goes back to a regular one first (before the
+    // reference below: the swap may move the slot storage)
+    if (darp_surfaces.contains(surface_id) &&
+        !slot_surfaces[surface_id].IsRegionValid(SurfaceInterval(addr, addr + size))) {
+        RevertDarp(surface_id);
+    }
+
     Surface& surface = slot_surfaces[surface_id];
     const SurfaceInterval validate_interval(addr, addr + size);
 
@@ -1041,6 +1074,7 @@ void RasterizerCache<T>::ValidateSurface(SurfaceId surface_id, PAddr addr, u32 s
         FlushRegion(params.addr, params.size);
         if (!use_custom_textures || !UploadCustomSurface(surface_id, interval)) {
             UploadSurface(surface, interval);
+            QueueDarp(surface_id, interval);
         }
         notify_validated(params.GetInterval());
     }
@@ -1050,6 +1084,128 @@ void RasterizerCache<T>::ValidateSurface(SurfaceId surface_id, PAddr addr, u32 s
     if (surface.res_scale != 1 && level != 0) {
         runtime.GenerateMipmaps(surface);
     }
+}
+
+template <class T>
+void RasterizerCache<T>::QueueDarp(SurfaceId surface_id, SurfaceInterval interval) {
+    // a texture whose data keeps changing (animated, video) is left to the GPU upscaler
+    constexpr u32 MaxReverts = 2;
+
+    if (!darp || filter != Settings::TextureFilter::DARP) {
+        return;
+    }
+    const Surface& surface = slot_surfaces[surface_id];
+    if ((surface.type != SurfaceType::Texture && surface.type != SurfaceType::Color) ||
+        True(surface.flags & (SurfaceFlagBits::RenderTarget | SurfaceFlagBits::ShadowSource |
+                              SurfaceFlagBits::Custom)) ||
+        surface.texture_type != TextureType::Texture2D || !surface.is_tiled ||
+        interval != surface.LevelInterval(0) || !std::has_single_bit(surface.width) ||
+        !std::has_single_bit(surface.height)) {
+        return; // data, render targets, cube maps and partial uploads keep the regular path
+    }
+    if (const auto it = darp_reverts.find(surface.addr);
+        it != darp_reverts.end() && it->second >= MaxReverts) {
+        return;
+    }
+    const u32 factor = std::bit_floor(std::min<u32>(surface.res_scale, 16));
+    const auto format = DarpManager::SourceFormat(surface.pixel_format);
+    if (factor < 2 || format == Pomegrade::Darp::SourceFormat::HILO8) {
+        return; // data (normal maps) is never reconstructed, nor decoded for it
+    }
+
+    const SurfaceParams load_info = surface.FromInterval(interval);
+    MemoryRef source_ptr = memory.GetPhysicalRef(load_info.addr);
+    if (!source_ptr) [[unlikely]] {
+        return;
+    }
+    const auto bytes = source_ptr.GetWriteBytes(load_info.end - load_info.addr);
+
+    DarpJob job;
+    job.params = load_info;
+    job.encoded.assign(bytes.begin(), bytes.end());
+    job.options = {
+        .factor = factor,
+        .format = format,
+        .wrap_s = darp_wrap_s,
+        .wrap_t = darp_wrap_t,
+    };
+    job.key = DarpManager::Key(load_info, job.encoded, job.options);
+    if (surface.levels > 1) {
+        // the game's own level 1, for the bench (thesis s.13)
+        const SurfaceParams mip1 = surface.FromInterval(surface.LevelInterval(1));
+        if (MemoryRef mip1_ptr = memory.GetPhysicalRef(mip1.addr)) {
+            const auto mip1_bytes = mip1_ptr.GetWriteBytes(mip1.end - mip1.addr);
+            job.mip1_params = mip1;
+            job.mip1_encoded.assign(mip1_bytes.begin(), mip1_bytes.end());
+        }
+    }
+
+    darp_pending[surface_id] = job.key;
+    if (darp->Ready(job.key)) {
+        darp_ready_now.push_back(job.key);
+    } else {
+        darp->Queue(std::move(job));
+    }
+}
+
+template <class T>
+void RasterizerCache<T>::ApplyDarp() {
+    std::vector<std::pair<u64, Material*>> finished = darp->TakeFinished();
+    for (const u64 key : darp_ready_now) {
+        finished.emplace_back(key, darp->Ready(key));
+    }
+    darp_ready_now.clear();
+
+    for (const auto& [key, material] : finished) {
+        for (auto it = darp_pending.begin(); it != darp_pending.end();) {
+            if (it->second != key) {
+                ++it;
+                continue;
+            }
+            const SurfaceId surface_id = it->first;
+            it = darp_pending.erase(it);
+            if (!material) {
+                continue; // DARP left this texture to the regular path
+            }
+            Surface& surface = slot_surfaces[surface_id];
+            if (False(surface.flags & SurfaceFlagBits::Registered) || surface.IsCustom() ||
+                !surface.IsRegionValid(surface.LevelInterval(0))) {
+                continue; // gone or changed since it was queued
+            }
+            // as UploadCustomSurface does for texture packs, at the material's own size
+            SurfaceBase base{surface};
+            base.res_scale = 1;
+            base.flags |= SurfaceFlagBits::Custom;
+            const SurfaceId old_id =
+                slot_surfaces.swap_and_insert(surface_id, runtime, base, material);
+            slot_surfaces[old_id].flags &= ~SurfaceFlagBits::Registered;
+            sentenced.emplace_back(old_id, runtime.GetResourceTick());
+            Surface& replaced = slot_surfaces[surface_id];
+            replaced.UploadCustom(material, 0);
+            if (replaced.levels > 1) {
+                runtime.GenerateMipmaps(replaced);
+            }
+            darp_surfaces[surface_id] = key;
+        }
+        if (material) {
+            darp->Release(key);
+        }
+    }
+}
+
+template <class T>
+void RasterizerCache<T>::RevertDarp(SurfaceId surface_id) {
+    const Surface& surface = slot_surfaces[surface_id];
+    SurfaceParams params = surface;
+    params.res_scale = TextureUpscalingScale(params.width, params.height, resolution_scale_factor);
+    params.custom_format = CustomPixelFormat::Invalid;
+    const SurfaceFlagBits flags = surface.flags & ~SurfaceFlagBits::Custom;
+    darp_reverts[params.addr]++;
+    darp_surfaces.erase(surface_id);
+
+    const SurfaceId old_id = slot_surfaces.swap_and_insert(surface_id, runtime, params, flags);
+    slot_surfaces[old_id].flags &= ~SurfaceFlagBits::Registered;
+    sentenced.emplace_back(old_id, runtime.GetResourceTick());
 }
 
 template <class T>
@@ -1429,6 +1585,8 @@ void RasterizerCache<T>::UnregisterSurface(SurfaceId surface_id) {
                "Trying to unregister an already unregistered surface");
 
     surface.flags &= ~SurfaceFlagBits::Registered;
+    darp_pending.erase(surface_id); // Pomegrade: DARP
+    darp_surfaces.erase(surface_id);
     UpdatePagesCachedCount(surface.addr, surface.size, -1);
     ForEachPage(surface.addr, surface.size, [this, surface_id](u64 page) {
         const auto page_it = page_table.find(page);

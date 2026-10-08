@@ -64,6 +64,11 @@ public:
         return skip_mipmap;
     }
 
+    /// Pomegrade: the image interface, for the materials DARP makes (pomegrade_darp_manager.h)
+    Frontend::ImageInterface& GetImageInterface() noexcept {
+        return image_interface;
+    }
+
     /// Returns true if the pack uses the new hashing method.
     bool UseNewHash() const noexcept {
         return use_new_hash;
