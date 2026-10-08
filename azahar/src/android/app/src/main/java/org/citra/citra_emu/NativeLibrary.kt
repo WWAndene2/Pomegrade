@@ -185,6 +185,9 @@ object NativeLibrary {
     external fun surfaceDestroyed()
     external fun doFrame()
 
+    /** Pomegrade: the screen's refresh rate (0 unknown) and whether the phone is hot, for frame generation */
+    external fun setDisplayRefresh(refreshRate: Float, hot: Boolean)
+
     // Second window
     external fun secondarySurfaceChanged(secondary_surface: Surface)
     external fun secondarySurfaceDestroyed()

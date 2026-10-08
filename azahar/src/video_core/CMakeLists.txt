@@ -9,6 +9,8 @@ add_library(video_core STATIC EXCLUDE_FROM_ALL
     custom_textures/material.h
     debug_utils/debug_utils.cpp
     debug_utils/debug_utils.h
+    frame_generation.cpp
+    frame_generation.h
     gpu.cpp
     gpu.h
     gpu_debugger.h
@@ -125,6 +127,8 @@ if (ENABLE_OPENGL)
         renderer_opengl/gl_blit_helper.cpp
         renderer_opengl/gl_blit_helper.h
         renderer_opengl/gl_driver.cpp
+        renderer_opengl/gl_frame_generation.cpp
+        renderer_opengl/gl_frame_generation.h
         renderer_opengl/gl_driver.h
         renderer_opengl/gl_rasterizer.cpp
         renderer_opengl/gl_rasterizer.h
@@ -179,6 +183,8 @@ if (ENABLE_VULKAN)
         renderer_vulkan/vk_scheduler.h
         renderer_vulkan/vk_resource_pool.cpp
         renderer_vulkan/vk_resource_pool.h
+        renderer_vulkan/vk_frame_generation.cpp
+        renderer_vulkan/vk_frame_generation.h
         renderer_vulkan/vk_instance.cpp
         renderer_vulkan/vk_instance.h
         renderer_vulkan/vk_pipeline_cache.cpp

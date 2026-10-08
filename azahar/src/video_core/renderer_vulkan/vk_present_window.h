@@ -7,6 +7,7 @@
 #include <mutex>
 #include <queue>
 #include "common/polyfill_thread.h"
+#include "video_core/renderer_vulkan/vk_frame_generation.h"
 #include "video_core/renderer_vulkan/vk_swapchain.h"
 
 VK_DEFINE_HANDLE(VmaAllocation)
@@ -32,6 +33,7 @@ struct Frame {
     vk::Semaphore render_ready;
     vk::Fence present_done;
     vk::CommandBuffer cmdbuf;
+    s64 time_us{}; ///< Pomegrade: when the renderer queued it (steady clock, microseconds), for frame generation
 };
 
 class PresentWindow final {
@@ -72,6 +74,9 @@ private:
 
     void CopyToSwapchain(Frame* frame);
 
+    /// Pomegrade: CopyToSwapchain, with the generated images before the frame when the frame rate mode makes them
+    void Show(Frame* frame);
+
     vk::RenderPass CreateRenderpass();
 
 private:
@@ -100,6 +105,7 @@ private:
     bool blit_supported;
     bool use_present_thread{true};
     void* last_render_surface{};
+    std::unique_ptr<FrameGeneratorVK> frame_generator; ///< Pomegrade: made when images are first generated
 };
 
 } // namespace Vulkan

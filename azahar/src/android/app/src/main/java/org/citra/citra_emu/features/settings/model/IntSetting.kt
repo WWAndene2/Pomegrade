@@ -19,6 +19,8 @@ enum class IntSetting(
     CAMERA_OUTER_RIGHT_FLIP(SettingKeys.camera_outer_right_flip(), Settings.SECTION_CAMERA, 0),
     GRAPHICS_API(SettingKeys.graphics_api(), Settings.SECTION_RENDERER, 2),
     RESOLUTION_FACTOR(SettingKeys.resolution_factor(), Settings.SECTION_RENDERER, 1),
+    // Pomegrade: images shown per second (0 30, 1 60, 2 60 with generated images, 3 120, 4 240, 5 adaptive)
+    FRAME_RATE_MODE(SettingKeys.frame_rate_mode(), Settings.SECTION_RENDERER, 1),
     STEREOSCOPIC_3D_MODE(SettingKeys.render_3d(), Settings.SECTION_RENDERER, 2),
     STEREOSCOPIC_3D_DEPTH(SettingKeys.factor_3d(), Settings.SECTION_RENDERER, 0),
     STEPS_PER_HOUR(SettingKeys.steps_per_hour(), Settings.SECTION_SYSTEM, 0),

@@ -9,11 +9,13 @@
 #include "core/frontend/emu_window.h"
 #include "core/frontend/framebuffer_layout.h"
 #include "core/memory.h"
+#include <chrono>
 #include "video_core/pica/pica_core.h"
 #include "video_core/renderer_opengl/gl_state.h"
 #include "video_core/renderer_opengl/gl_texture_mailbox.h"
 #include "video_core/renderer_opengl/post_processing_opengl.h"
 #include "video_core/renderer_opengl/renderer_opengl.h"
+#include "video_core/frame_generation.h"
 #include "video_core/shader/generator/glsl_shader_gen.h"
 
 #include "video_core/host_shaders/opengl_present_anaglyph_frag.h"
@@ -109,6 +111,14 @@ void RendererOpenGL::SwapBuffers() {
 #endif
 
     render_window.SetupFramebuffer();
+
+    // Pomegrade, 30 fps mode: one distinct frame in two goes to the screen (the other is skipped as a duplicate)
+    if (VideoCore::FrameGeneration::ShowsHalf() && Core::PerfStats::game_frames_updated) {
+        half_shown = !half_shown;
+        if (!half_shown) {
+            Core::PerfStats::game_frames_updated = false;
+        }
+    }
 
     PrepareRendertarget();
     RenderScreenshot();
@@ -257,6 +267,11 @@ void RendererOpenGL::RenderToMailbox(const Layout::FramebufferLayout& layout,
             // Create a fence for the frontend to wait on and swap this frame to OffTex
             frame->render_fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
             glFlush();
+            // Pomegrade: what frame generation needs to tell distinct frames and time them
+            frame->serial = ++frame_serial;
+            frame->time_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                                 std::chrono::steady_clock::now().time_since_epoch())
+                                 .count();
             mailbox->ReleaseRenderFrame(frame);
         }
 
@@ -901,9 +916,12 @@ void RendererOpenGL::TryPresent(int timeout_ms, bool is_secondary) {
     // glDeleteSync(frame.render_sync);
     // frame.render_sync = 0;
 
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, frame->present.handle);
-    glBlitFramebuffer(0, 0, frame->width, frame->height, 0, 0, layout.width, layout.height,
-                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    // Pomegrade: the image of this refresh between the last two distinct frames, when images are generated
+    if (!frame_generators[is_secondary ? 1 : 0].Present(frame, layout.width, layout.height)) {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, frame->present.handle);
+        glBlitFramebuffer(0, 0, frame->width, frame->height, 0, 0, layout.width, layout.height,
+                          GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    }
 
     // Delete the fence if we're re-presenting to avoid leaking fences
     if (frame->present_fence) {

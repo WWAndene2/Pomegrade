@@ -65,7 +65,17 @@ The open items of the unified list, HD textures, native enhancements and perform
 
 ## 3. New features
 
-- **120 fps** (DS, OpenGL renderer): done as "Frame generation", see the enhancement table. Not yet for the 3DS core.
+- **120 fps** (DS, OpenGL renderer): done as "Frame generation", see the enhancement table.
+- **3DS frame rate modes** (8 October; written, untested on a phone): Settings > 3DS > Graphics > Frame rate: 30 (one
+  distinct image in two shown), 60 (as before), 60 smooth (an image generated between the two of a 30 fps game: Omega
+  Ruby's field runs at 30, run `seq2`), 120, 240 (generated images, the screen asked for that rate) and adaptive (the most
+  the screen shows, 60 while Android reports the phone hot). Generated images are interpolated between the last two
+  distinct images (`video_core/frame_generation.cpp`: motion found on a 1/8 image with a sub-texel fit, A and B moved
+  along it and blended, the nearer image where they disagree), in Vulkan's presentation thread (`vk_frame_generation`,
+  paced by FIFO presentation) and in OpenGL's (`gl_frame_generation`, at each screen refresh). What it costs: about one
+  distinct image of delay (17 ms at 60, 33 at 30); artefacts possible at object edges. Needs "Skip presenting duplicate
+  frames" (on by default) and vsync (on by default). Verified: the shaders compile for Vulkan and GLSL ES 3.20 (glslc);
+  the APK build. Not verified: how it looks and what it costs on a phone.
 - **Analogue movement** (DS, per game): a game's D-pad movement code is patched to read the stick's exact direction (Pomegrade-only register, patch written only over the game's original instructions); the touch D-pad becomes a joystick and gamepad sticks are read as analogue (setting "Analogue movement"). Done for Dragon Quest Monsters: Joker (Europe, AJRP): direction only, normal walking speed; checked in the game on desktop, untested on a phone. Next: tilt for walking speed; other games (each needs that game's code reverse-engineered).
 - **Rewind and save states** shared by all consoles.
 - **Online play**: melonDS has early support; Azahar has none on Android.

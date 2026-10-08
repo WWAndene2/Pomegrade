@@ -22,6 +22,8 @@ struct Frame {
     OpenGL::OGLFramebuffer present{}; ///< FBO created on the present thread
     GLsync render_fence{};            ///< Fence created on the render thread
     GLsync present_fence{};           ///< Fence created on the presentation thread
+    u64 serial{};                     ///< Pomegrade: the distinct frame's number (frame generation)
+    s64 time_us{};                    ///< Pomegrade: when the render thread made it (steady clock, microseconds)
 };
 } // namespace Frontend
 

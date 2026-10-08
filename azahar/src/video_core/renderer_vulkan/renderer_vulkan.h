@@ -121,6 +121,7 @@ private:
 private:
     Memory::MemorySystem& memory;
     Pica::PicaCore& pica;
+    bool half_shown = false; ///< Pomegrade: 30 fps mode, whether the last distinct frame went to the screen
 
 #ifdef HAVE_LIBRETRO
     LibRetroVKInstance instance;

@@ -333,6 +333,23 @@
         <item>5</item>
     </integer-array>
 
+    <!-- Pomegrade: frame rate modes, values as Settings::values.frame_rate_mode -->
+    <string-array name="pomegradeFrameRateNames">
+        <item>@string/pomegrade_frame_rate_30</item>
+        <item>@string/pomegrade_frame_rate_60</item>
+        <item>@string/pomegrade_frame_rate_60_smooth</item>
+        <item>@string/pomegrade_frame_rate_120</item>
+        <item>@string/pomegrade_frame_rate_240</item>
+        <item>@string/pomegrade_frame_rate_adaptive</item>
+    </string-array>
+    <integer-array name="pomegradeFrameRateValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+    </integer-array>
     <string-array name="textureSamplingNames">
         <item>@string/game_controlled</item>
         <item>@string/nearest_neighbor</item>

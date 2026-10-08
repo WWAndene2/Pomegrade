@@ -12,6 +12,7 @@ import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.PowerManager
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -104,7 +105,8 @@ class EmulationActivity : AppCompatActivity() {
         CitraApplication.start()
         requestWindowFeature(Window.FEATURE_NO_TITLE)
 
-        RefreshRateUtil.enforceRefreshRate(this, sixtyHz = true)
+        // Pomegrade: the screen rate the frame rate mode needs (60 Hz unless images are generated at 120 or 240)
+        RefreshRateUtil.applyFrameRateMode(this, thermalHot)
 
         ThemeUtil.setTheme(this)
 
@@ -210,7 +212,19 @@ class EmulationActivity : AppCompatActivity() {
     // On some devices, the system bars will not disappear on first boot or after some
     // rotations. Here we set full screen immersive repeatedly in onResume and in
     // onWindowFocusChanged to prevent the unwanted status bar state.
+    // Pomegrade: the phone's heat for the adaptive frame rate mode (60 while Android reports it hot)
+    private var thermalHot = false
+    private val thermalListener = PowerManager.OnThermalStatusChangedListener { status ->
+        thermalHot = status >= PowerManager.THERMAL_STATUS_MODERATE
+        // adaptive: the screen goes back to 60 Hz while hot, and up again after
+        RefreshRateUtil.applyFrameRateMode(this, thermalHot)
+    }
+
     override fun onResume() {
+        // added here and removed in onPause: a pause without a stop (a dialog, the notification shade) would add it twice
+        getSystemService(PowerManager::class.java)?.addThermalStatusListener(thermalListener)
+        // the frame rate mode may have changed in the settings meanwhile
+        RefreshRateUtil.applyFrameRateMode(this, thermalHot)
         enableFullscreenImmersive()
         if (isEmulationReady) {
             // If emulation is ready then unblock rotation
@@ -225,12 +239,19 @@ class EmulationActivity : AppCompatActivity() {
         super.onResume()
     }
 
+    override fun onPause() {
+        getSystemService(PowerManager::class.java)?.removeThermalStatusListener(thermalListener)
+        super.onPause()
+    }
+
     override fun onStop() {
         secondaryDisplayManager.releasePresentation()
         super.onStop()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
+        // the screen mode asked for may have come in since: its rate to the emulator
+        RefreshRateUtil.reportDisplay(this, thermalHot)
         enableFullscreenImmersive()
         super.onWindowFocusChanged(hasFocus)
     }

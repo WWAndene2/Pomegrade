@@ -12,6 +12,7 @@
 #include "video_core/gpu.h"
 #include "video_core/pica/pica_core.h"
 #include "video_core/renderer_vulkan/renderer_vulkan.h"
+#include "video_core/frame_generation.h"
 #include "video_core/renderer_vulkan/vk_memory_util.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"
 
@@ -1142,6 +1143,14 @@ void RendererVulkan::SwapBuffers() {
         secondaryWindowEnabled = false;
     }
 #endif
+
+    // Pomegrade, 30 fps mode: one distinct frame in two goes to the screen (the other is skipped as a duplicate)
+    if (VideoCore::FrameGeneration::ShowsHalf() && Core::PerfStats::game_frames_updated) {
+        half_shown = !half_shown;
+        if (!half_shown) {
+            Core::PerfStats::game_frames_updated = false;
+        }
+    }
 
     const Layout::FramebufferLayout& layout = render_window.GetFramebufferLayout();
     PrepareRendertarget();

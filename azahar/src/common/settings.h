@@ -546,6 +546,9 @@ struct Values {
 #else
     SwitchableSetting<bool> use_vsync{true, Keys::use_vsync};
 #endif
+    // Pomegrade: images shown per second (video_core/frame_generation.h: 0 30 fps, 1 60, 2 60 with images generated
+    // for 30 fps games, 3 120, 4 240, 5 adaptive); the game always runs at its own speed
+    Setting<u32, true> frame_rate_mode{1, 0, 5, Keys::frame_rate_mode};
     SwitchableSetting<bool> use_display_refresh_rate_detection{
         true, Keys::use_display_refresh_rate_detection};
     Setting<bool> use_shader_jit{true, Keys::use_shader_jit};

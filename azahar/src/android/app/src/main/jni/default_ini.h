@@ -140,6 +140,10 @@ static const char* android_config_default_file_content = (BOOST_HANA_STRING(R"(
 # 0: Off, 1 (default): On
 )") DECLARE_KEY(use_skip_duplicate_frames) BOOST_HANA_STRING(R"(
 
+# Frame rate (Pomegrade): images shown per second; the game always runs at its own speed
+# 0: 30 fps, 1: 60 fps (default), 2: 60 fps with images generated for 30 fps games, 3: 120 fps, 4: 240 fps, 5: Adaptive
+)") DECLARE_KEY(frame_rate_mode) BOOST_HANA_STRING(R"(
+
 # Reduce stuttering by storing and loading generated shaders to disk
 # 0: Off, 1 (default. On)
 )") DECLARE_KEY(use_disk_shader_cache) BOOST_HANA_STRING(R"(

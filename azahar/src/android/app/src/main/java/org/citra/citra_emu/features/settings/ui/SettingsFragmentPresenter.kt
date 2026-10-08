@@ -1199,6 +1199,17 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                 )
             )
             add(
+                SingleChoiceSetting(
+                    IntSetting.FRAME_RATE_MODE,
+                    R.string.pomegrade_frame_rate,
+                    R.string.pomegrade_frame_rate_description,
+                    R.array.pomegradeFrameRateNames,
+                    R.array.pomegradeFrameRateValues,
+                    IntSetting.FRAME_RATE_MODE.key,
+                    IntSetting.FRAME_RATE_MODE.defaultValue
+                )
+            )
+            add(
                 SwitchSetting(
                     BooleanSetting.USE_SKIP_DUPLICATE_FRAMES,
                     R.string.use_skip_duplicate_frames,
