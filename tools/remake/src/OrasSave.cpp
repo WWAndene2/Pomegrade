@@ -45,7 +45,10 @@ float OrasSave::Z() const { float f; std::memcpy(&f, &Data[0x1418], 4); return f
 
 void OrasSave::MoveTo(int zone, float tileX, float tileZ)
 {
-    Data[0x1402] = (uint8_t)zone; Data[0x1403] = (uint8_t)(zone >> 8);
+    // the zone is held twice too: +2 and +0xF4, each before its position (+0x10/+0x18 and +0x104/+0x10C). A save made by the game
+    // on Route 102 (zone 24, matrix 2) holds 24 at both, the owner's Littleroot save 6 at both; writing only +2 kept the player in
+    // place within matrix 1 but a move into matrix 2 never reached the field (run trainer1, 7 October)
+    for (size_t at : {(size_t)0x1402, (size_t)0x14F4}) { Data[at] = (uint8_t)zone; Data[at + 1] = (uint8_t)(zone >> 8); }
     const float x = tileX * 18, z = tileZ * 18;
     // the position is held twice in block 4 (+0x10/+0x18 and +0x104/+0x10C: two saves of the owner, a few steps apart, differ at both
     // with the same values); r5 on the phone kept the player in place when only the first was written
