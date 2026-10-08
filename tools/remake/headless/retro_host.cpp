@@ -374,7 +374,14 @@ static int RunScript(void* core, const char* path)
             printf("gdb stub on port %s: %s\n", arg.c_str(), gdb && gdb((uint16_t)strtoul(arg.c_str(), nullptr, 10)) ? "open" : "not in this core");
         }
         else if (cmd == "mem") { std::string length; words >> length; MemoryDump(core, arg, length); }
-        else if (cmd == "save" || cmd == "load") StateFile(core, arg, cmd == "save");
+        else if (cmd == "save") StateFile(core, arg, true);
+        else if (cmd == "load")
+        {
+            // the core may refuse a state until it has run long enough (run cache2, 8 October: refused at frame 120): tried
+            // again every 60 frames, 20 times
+            for (int i = 0; i < 20 && !StateFile(core, arg, false); i++)
+                for (int f = 0; f < 60; f++) Step();
+        }
         else printf("unknown command %s\n", cmd.c_str());
         fflush(stdout);
     }
