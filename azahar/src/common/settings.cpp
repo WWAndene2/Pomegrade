@@ -55,6 +55,8 @@ std::string_view GetTextureFilterName(TextureFilter filter) {
         return "xBRZ";
     case TextureFilter::MMPX:
         return "MMPX";
+    case TextureFilter::Lanczos:
+        return "Lanczos";
     default:
         return "Invalid";
     }
@@ -111,6 +113,10 @@ void LogSettings() {
     log_setting("Renderer_TextureFilter", GetTextureFilterName(values.texture_filter.GetValue()));
     log_setting("Renderer_TextureSampling",
                 GetTextureSamplingName(values.texture_sampling.GetValue()));
+    log_setting("Renderer_TextureAnisotropy", values.texture_anisotropy.GetValue());
+    log_setting("Renderer_TextureUpscaleFactor", values.texture_upscale_factor.GetValue());
+    log_setting("Renderer_RichColours", values.rich_colours.GetValue());
+    log_setting("Renderer_DeepBlack", values.deep_black.GetValue());
     log_setting("Renderer_DelayGameRenderThreadUs", values.delay_game_render_thread_us.GetValue());
     log_setting("Renderer_Simulate3DSGPUTimings", values.simulate_3ds_gpu_timings.GetValue());
     log_setting("Renderer_DisableRightEyeRender", values.disable_right_eye_render.GetValue());
@@ -223,6 +229,10 @@ void RestoreGlobalState(bool is_powered_on) {
     values.frame_limit.SetGlobal(true);
     values.texture_filter.SetGlobal(true);
     values.texture_sampling.SetGlobal(true);
+    values.texture_anisotropy.SetGlobal(true);
+    values.texture_upscale_factor.SetGlobal(true);
+    values.rich_colours.SetGlobal(true);
+    values.deep_black.SetGlobal(true);
     values.delay_game_render_thread_us.SetGlobal(true);
     values.simulate_3ds_gpu_timings.SetGlobal(true);
     values.layout_option.SetGlobal(true);

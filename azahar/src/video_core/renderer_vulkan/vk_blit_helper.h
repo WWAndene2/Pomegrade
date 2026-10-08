@@ -51,6 +51,7 @@ private:
     void FilterScaleForce(Surface& surface, const VideoCore::TextureBlit& blit);
     void FilterXbrz(Surface& surface, const VideoCore::TextureBlit& blit);
     void FilterMMPX(Surface& surface, const VideoCore::TextureBlit& blit);
+    void FilterLanczos(Surface& surface, const VideoCore::TextureBlit& blit);
 
     void FilterPass(Surface& surface, vk::Pipeline pipeline, vk::PipelineLayout layout,
                     const VideoCore::TextureBlit& blit);
@@ -89,6 +90,7 @@ private:
     vk::ShaderModule scale_force_frag;
     vk::ShaderModule xbrz_frag;
     vk::ShaderModule mmpx_frag;
+    vk::ShaderModule lanczos_frag;
     vk::ShaderModule refine_frag;
 
     vk::Pipeline d24s8_to_rgba8_pipeline;

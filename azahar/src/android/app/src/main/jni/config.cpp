@@ -156,6 +156,11 @@ void Config::ReadValues() {
     ReadSetting("Renderer", Settings::values.frame_rate_mode);
     ReadSetting("Renderer", Settings::values.texture_filter);
     ReadSetting("Renderer", Settings::values.texture_sampling);
+    // Pomegrade picture options
+    ReadSetting("Renderer", Settings::values.texture_anisotropy);
+    ReadSetting("Renderer", Settings::values.texture_upscale_factor);
+    ReadSetting("Renderer", Settings::values.rich_colours);
+    ReadSetting("Renderer", Settings::values.deep_black);
     ReadSetting("Renderer", Settings::values.turbo_limit);
     // Workaround to map Android setting for enabling the frame limiter to the format Citra expects
     if (android_config->GetBoolean("Renderer", "use_frame_limit", true)) {

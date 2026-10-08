@@ -66,6 +66,15 @@ The open items of the unified list, HD textures, native enhancements and perform
 ## 3. New features
 
 - **120 fps** (DS, OpenGL renderer): done as "Frame generation", see the enhancement table.
+- **3DS picture options** (8 October, another session; untested on a phone): Settings > 3DS > Graphics, Picture: texture
+  filtering (anisotropic Off/2x/4x/8x/16x, OpenGL and Vulkan, default 16x); texture upscaling x2-x16 independent of the
+  internal resolution (the Texture Filter algorithm, xBRZ when None; each texture capped at 4096x4096); Lanczos-3 as a
+  Texture Filter algorithm (clamped to the 2x2 texels around each point: no ringing); Rich colours (present-shader
+  debanding, dithered to 8 bits); Deep black (scene-adaptive, the DS's OLED formula, read back asynchronously:
+  `video_core/pomegrade_scene_black`). Rich colours and Deep black apply to the built-in 2D present shader only.
+- **3DS red picture at boot fixed** (8 October; untested on a phone): with the stereo mode stored as Anaglyph and 3D off
+  (3D display "None"), OpenGL loaded the anaglyph shader at boot and showed only the red eye until the settings were
+  applied again; the first frame now reloads the shader for the mode drawn (`renderer_opengl.cpp`).
 - **3DS frame rate modes** (8 October; written, untested on a phone): Settings > 3DS > Graphics > Frame rate: 30 (one
   distinct image in two shown), 60 (as before), 60 smooth (an image generated between the two of a 30 fps game: Omega
   Ruby's field runs at 30, run `seq2`), 120, 240 (generated images, the screen asked for that rate) and adaptive (the most

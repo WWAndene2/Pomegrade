@@ -52,6 +52,11 @@ foreach(KEY IN ITEMS
     "turbo_limit"
     "texture_filter"
     "texture_sampling"
+    # Pomegrade: picture options (see the settings in common/settings.h)
+    "texture_anisotropy"
+    "texture_upscale_factor"
+    "rich_colours"
+    "deep_black"
     "delay_game_render_thread_us"
     "simulate_3ds_gpu_timings"
     "layout_option"

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <array>
+#include "video_core/pomegrade_scene_black.h"
 #include "video_core/renderer_base.h"
 #include "video_core/renderer_opengl/frame_dumper_opengl.h"
 #include "video_core/renderer_opengl/gl_driver.h"
@@ -60,6 +61,7 @@ private:
     void ReloadShader(Settings::StereoRenderOption render_3d);
     void PrepareRendertarget();
     void RenderScreenshot();
+    void MeasureSceneBlack();
     void RenderToMailbox(const Layout::FramebufferLayout& layout,
                          std::unique_ptr<Frontend::TextureMailbox>& mailbox, bool flipped);
     void ConfigureFramebufferTexture(TextureInfo& texture,
@@ -117,6 +119,16 @@ private:
     // Shader attribute input indices
     GLuint attrib_position;
     GLuint attrib_tex_coord;
+
+    // Pomegrade: Rich colours and Deep black (see video_core/pomegrade_scene_black.h)
+    GLint uniform_rich_colours = -1;
+    GLint uniform_deep_black_threshold = -1;
+    VideoCore::SceneBlack scene_black;
+    bool scene_black_measuring = false;
+    OGLFramebuffer scene_black_framebuffer;
+    GLuint scene_black_renderbuffer = 0;
+    OGLBuffer scene_black_pixels;
+    GLsync scene_black_fence = nullptr;
 
     FrameDumperOpenGL frame_dumper;
     bool isSecondaryWindow;

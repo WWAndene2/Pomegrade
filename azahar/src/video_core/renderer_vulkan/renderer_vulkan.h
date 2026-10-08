@@ -6,6 +6,7 @@
 
 #include "common/common_types.h"
 #include "common/math_util.h"
+#include "video_core/pomegrade_scene_black.h"
 #include "video_core/renderer_base.h"
 #ifdef HAVE_LIBRETRO
 #include "citra_libretro/libretro_vk.h"
@@ -62,8 +63,11 @@ struct PresentUniformData {
     int screen_id_r = 0;
     int layer = 0;
     int reverse_interlaced = 0;
+    // Pomegrade: Rich colours and Deep black (vulkan_present.frag)
+    int rich_colours = 0;
+    float deep_black_threshold = 0.f;
 };
-static_assert(sizeof(PresentUniformData) == 112,
+static_assert(sizeof(PresentUniformData) == 120,
               "PresentUniformData does not structure in shader!");
 
 class RendererVulkan : public VideoCore::RendererBase {
@@ -93,6 +97,7 @@ private:
     void ConfigureRenderPipeline();
     void PrepareRendertarget();
     void RenderScreenshot();
+    void MeasureSceneBlack();
     void RenderScreenshotWithStagingCopy();
     bool TryRenderScreenshotWithHostMemory();
     void PrepareDraw(Frame* frame, const Layout::FramebufferLayout& layout);
@@ -154,6 +159,15 @@ private:
     bool isSecondaryWindow;
     bool secondaryWindowEnabled;
     bool screenRendered;
+
+    // Pomegrade: Rich colours and Deep black (see video_core/pomegrade_scene_black.h)
+    VideoCore::SceneBlack scene_black;
+    bool scene_black_measuring = false;
+    Frame scene_black_frame{};
+    vk::Buffer scene_black_buffer{};
+    VmaAllocation scene_black_allocation{};
+    void* scene_black_pixels = nullptr;
+    u64 scene_black_tick = 0;
 };
 
 } // namespace Vulkan

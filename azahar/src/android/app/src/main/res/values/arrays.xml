@@ -322,6 +322,7 @@
         <item>@string/scaleforce</item>
         <item>@string/xbrz</item>
         <item>@string/mmpx</item>
+        <item>@string/three_ds_lanczos</item>
     </string-array>
 
     <integer-array name="textureFilterValues">
@@ -331,6 +332,7 @@
         <item>3</item>
         <item>4</item>
         <item>5</item>
+        <item>6</item>
     </integer-array>
 
     <!-- Pomegrade: frame rate modes, values as Settings::values.frame_rate_mode -->
@@ -724,4 +726,34 @@
         <item>1</item>
     </integer-array>
 
+
+    <!-- Pomegrade picture options -->
+    <string-array name="threeDsTextureFilteringNames">
+        <item>@string/three_ds_off</item>
+        <item>2x</item>
+        <item>4x</item>
+        <item>8x</item>
+        <item>16x</item>
+    </string-array>
+    <integer-array name="threeDsTextureFilteringValues">
+        <item>1</item>
+        <item>2</item>
+        <item>4</item>
+        <item>8</item>
+        <item>16</item>
+    </integer-array>
+    <string-array name="threeDsTextureUpscalingNames">
+        <item>@string/three_ds_off</item>
+        <item>x2</item>
+        <item>x4</item>
+        <item>x8</item>
+        <item>x16</item>
+    </string-array>
+    <integer-array name="threeDsTextureUpscalingValues">
+        <item>1</item>
+        <item>2</item>
+        <item>4</item>
+        <item>8</item>
+        <item>16</item>
+    </integer-array>
 </resources>

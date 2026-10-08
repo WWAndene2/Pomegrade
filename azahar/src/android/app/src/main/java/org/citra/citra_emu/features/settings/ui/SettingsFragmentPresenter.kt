@@ -1043,6 +1043,49 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     IntSetting.TEXTURE_FILTER.defaultValue
                 )
             )
+
+            // Pomegrade picture options
+            add(HeaderSetting(R.string.three_ds_picture))
+            add(
+                SingleChoiceSetting(
+                    IntSetting.TEXTURE_ANISOTROPY,
+                    R.string.three_ds_texture_filtering,
+                    R.string.three_ds_texture_filtering_description,
+                    R.array.threeDsTextureFilteringNames,
+                    R.array.threeDsTextureFilteringValues,
+                    IntSetting.TEXTURE_ANISOTROPY.key,
+                    IntSetting.TEXTURE_ANISOTROPY.defaultValue
+                )
+            )
+            add(
+                SingleChoiceSetting(
+                    IntSetting.TEXTURE_UPSCALE_FACTOR,
+                    R.string.three_ds_texture_upscaling,
+                    R.string.three_ds_texture_upscaling_description,
+                    R.array.threeDsTextureUpscalingNames,
+                    R.array.threeDsTextureUpscalingValues,
+                    IntSetting.TEXTURE_UPSCALE_FACTOR.key,
+                    IntSetting.TEXTURE_UPSCALE_FACTOR.defaultValue
+                )
+            )
+            add(
+                SwitchSetting(
+                    BooleanSetting.RICH_COLOURS,
+                    R.string.three_ds_rich_colours,
+                    R.string.three_ds_rich_colours_description,
+                    BooleanSetting.RICH_COLOURS.key,
+                    BooleanSetting.RICH_COLOURS.defaultValue
+                )
+            )
+            add(
+                SwitchSetting(
+                    BooleanSetting.DEEP_BLACK,
+                    R.string.three_ds_deep_black,
+                    R.string.three_ds_deep_black_description,
+                    BooleanSetting.DEEP_BLACK.key,
+                    BooleanSetting.DEEP_BLACK.defaultValue
+                )
+            )
             add(
                 SliderSetting(
                     IntSetting.DELAY_RENDER_THREAD_US,

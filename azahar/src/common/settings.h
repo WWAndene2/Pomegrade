@@ -121,6 +121,7 @@ enum class TextureFilter : u32 {
     ScaleForce = 3,
     xBRZ = 4,
     MMPX = 5,
+    Lanczos = 6, ///< Pomegrade: texture_filtering/lanczos.frag
 };
 
 enum class TextureSampling : u32 {
@@ -546,8 +547,9 @@ struct Values {
 #else
     SwitchableSetting<bool> use_vsync{true, Keys::use_vsync};
 #endif
-    // Pomegrade: images shown per second (video_core/frame_generation.h: 0 30 fps, 1 60, 2 60 with images generated
-    // for 30 fps games, 3 120, 4 240, 5 adaptive); the game always runs at its own speed
+    // Pomegrade: images shown per second (video_core/frame_generation.h: 0 30 fps, 1 60, 2 60 with
+    // images generated for 30 fps games, 3 120, 4 240, 5 adaptive); the game always runs at its own
+    // speed
     Setting<u32, true> frame_rate_mode{1, 0, 5, Keys::frame_rate_mode};
     SwitchableSetting<bool> use_display_refresh_rate_detection{
         true, Keys::use_display_refresh_rate_detection};
@@ -559,6 +561,18 @@ struct Values {
     SwitchableSetting<TextureFilter> texture_filter{TextureFilter::NoFilter, Keys::texture_filter};
     SwitchableSetting<TextureSampling> texture_sampling{TextureSampling::GameControlled,
                                                         Keys::texture_sampling};
+    // Pomegrade picture options.
+    // Anisotropic filtering of the games' textures: 1 (off), 2, 4, 8 or 16 samples,
+    // limited to what the GPU supports.
+    SwitchableSetting<u32, true> texture_anisotropy{16, 1, 16, Keys::texture_anisotropy};
+    // Texture upscaling, independent of the internal resolution: 1 (off), 2, 4, 8 or 16, with
+    // the algorithm of texture_filter (xBRZ when that is NoFilter), see
+    // VideoCore::TextureUpscaling.
+    SwitchableSetting<u32, true> texture_upscale_factor{1, 1, 16, Keys::texture_upscale_factor};
+    // Smooths the banding of 16-bit textures and buffers, then dithers to the screen.
+    SwitchableSetting<bool> rich_colours{false, Keys::rich_colours};
+    // Scene-adaptive deep black: the near-black shades of each scene become true black.
+    SwitchableSetting<bool> deep_black{false, Keys::deep_black};
     SwitchableSetting<u16, true> delay_game_render_thread_us{0, 0, 65000,
                                                              Keys::delay_game_render_thread_us};
     SwitchableSetting<bool> simulate_3ds_gpu_timings{false, Keys::simulate_3ds_gpu_timings};

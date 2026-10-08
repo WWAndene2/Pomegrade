@@ -12,7 +12,55 @@ layout(binding = 0) uniform sampler2D color_texture;
 uniform vec4 i_resolution;
 uniform vec4 o_resolution;
 uniform int layer;
+uniform int rich_colours;
+uniform float deep_black_threshold;
+
+#define POMEGRADE_SAMPLE(coord) texture(color_texture, coord).rgb
+
+// Pomegrade: Rich colours and Deep black (keep in sync with the other present shader,
+// opengl_present.frag / vulkan_present.frag)
+const vec3 POMEGRADE_LUMA = vec3(0.2126, 0.7152, 0.0722);
+
+// interleaved gradient noise (Jimenez 2014): stable in mediump, no sin() of large values
+float PomegradeNoise(vec2 position, float seed) {
+    position += seed * vec2(47.0, 17.0);
+    return fract(52.9829189 * fract(dot(position, vec2(0.06711056, 0.00583715))));
+}
+
+// Rich colours: smooths the steps that 16-bit textures and buffers leave in gradients. Four
+// samples at a random distance (1 to 6 native pixels) and angle around the pixel; when all of
+// them are within a band's height of it (the 5 and 6-bit steps of 16-bit colour, 1/32 and 1/64)
+// the pixel takes their average, so real edges and detail keep their sharpness. The result,
+// computed in floating point, is dithered to the screen's 8 bits so the smoothing shows.
+vec3 PomegradeDeband(vec3 centre, vec2 coord, vec2 texel, vec2 position) {
+    const float threshold = 1.25 / 32.0;
+    float angle = PomegradeNoise(position, 0.0) * 6.2831853;
+    float radius = mix(1.0, 6.0, PomegradeNoise(position, 1.7));
+    vec2 offset = vec2(cos(angle), sin(angle)) * radius * texel;
+    vec3 a = POMEGRADE_SAMPLE(coord + offset);
+    vec3 b = POMEGRADE_SAMPLE(coord - offset);
+    vec3 c = POMEGRADE_SAMPLE(coord + vec2(-offset.y, offset.x));
+    vec3 d = POMEGRADE_SAMPLE(coord + vec2(offset.y, -offset.x));
+    vec3 difference = max(max(abs(a - centre), abs(b - centre)), max(abs(c - centre), abs(d - centre)));
+    vec3 smoothed = mix((a + b + c + d) * 0.25, centre, step(vec3(threshold), difference));
+    // triangular dither of +-1 step of 8 bits
+    float dither = (PomegradeNoise(position, 3.1) + PomegradeNoise(position, 5.3) - 1.0) / 255.0;
+    return clamp(smoothed + dither, 0.0, 1.0);
+}
+
+// Deep black: shades under the scene's threshold fade to true black
+vec3 PomegradeDeepBlack(vec3 colour, float threshold) {
+    return colour * smoothstep(threshold * 0.5, threshold, dot(colour, POMEGRADE_LUMA));
+}
 
 void main() {
     color = texture(color_texture, frag_tex_coord);
+    if (rich_colours != 0) {
+        // one native 3DS pixel: the internal resolution's scale (screens are 240 texels wide)
+        vec2 texel = max(1.0, i_resolution.x / 240.0) / vec2(textureSize(color_texture, 0));
+        color.rgb = PomegradeDeband(color.rgb, frag_tex_coord, texel, gl_FragCoord.xy);
+    }
+    if (deep_black_threshold > 0.0) {
+        color.rgb = PomegradeDeepBlack(color.rgb, deep_black_threshold);
+    }
 }

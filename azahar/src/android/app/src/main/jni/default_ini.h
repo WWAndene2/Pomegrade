@@ -235,7 +235,20 @@ static const char* android_config_default_file_content = (BOOST_HANA_STRING(R"(
 # 3: ScaleForce
 # 4: xBRZ
 # 5: MMPX
+# 6: Lanczos (Pomegrade)
 )") DECLARE_KEY(texture_filter) BOOST_HANA_STRING(R"(
+
+# Pomegrade: anisotropic filtering of textures: 1 (off), 2, 4, 8, 16 (default)
+)") DECLARE_KEY(texture_anisotropy) BOOST_HANA_STRING(R"(
+
+# Pomegrade: texture upscaling, independent of the internal resolution: 1 (default, off), 2, 4, 8, 16
+)") DECLARE_KEY(texture_upscale_factor) BOOST_HANA_STRING(R"(
+
+# Pomegrade: smooths colour banding. 0 (default): off, 1: on
+)") DECLARE_KEY(rich_colours) BOOST_HANA_STRING(R"(
+
+# Pomegrade: scene-adaptive deep black. 0 (default): off, 1: on
+)") DECLARE_KEY(deep_black) BOOST_HANA_STRING(R"(
 
 [Layout]
 # Layout for the screen inside the render window, landscape mode

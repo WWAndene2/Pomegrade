@@ -10,6 +10,7 @@
 #include <boost/container/small_vector.hpp>
 #include <boost/container/static_vector.hpp>
 #include <vulkan/vulkan.hpp>
+#include "common/settings.h"
 #include "video_core/custom_textures/custom_tex_manager.h"
 #include "video_core/rasterizer_cache/pixel_format.h"
 #include "video_core/rasterizer_cache/surface_params.h"
@@ -1553,7 +1554,11 @@ Sampler::Sampler(TextureRuntime& runtime, const VideoCore::SamplerParams& params
     // are only recommended (not enforced) to follow the mag/min filter in such cases.
     // Adreno drivers are an example of this, as they force linear filtering when using
     // anisotropic filtering.
-    const bool use_anisotropy = instance.IsAnisotropicFilteringSupported() &&
+    // Pomegrade: the anisotropy is the Texture filtering setting's (upstream: always the maximum)
+    const float anisotropy =
+        std::min(static_cast<float>(Settings::values.texture_anisotropy.GetValue()),
+                 properties.limits.maxSamplerAnisotropy);
+    const bool use_anisotropy = instance.IsAnisotropicFilteringSupported() && anisotropy > 1.f &&
                                 mag_filter == vk::Filter::eLinear &&
                                 min_filter == vk::Filter::eLinear;
 
@@ -1566,7 +1571,7 @@ Sampler::Sampler(TextureRuntime& runtime, const VideoCore::SamplerParams& params
         .addressModeV = wrap_v,
         .mipLodBias = 0,
         .anisotropyEnable = use_anisotropy,
-        .maxAnisotropy = use_anisotropy ? properties.limits.maxSamplerAnisotropy : 1.0f,
+        .maxAnisotropy = use_anisotropy ? anisotropy : 1.0f,
         .compareEnable = false,
         .compareOp = vk::CompareOp::eAlways,
         .minLod = lod_min,
