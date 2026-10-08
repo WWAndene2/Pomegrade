@@ -90,7 +90,35 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         words.push_back({0x3D99F8, 0xE3560F86, 0xE3560B01, "FUN_003d99b8's zone bound"});
         words.push_back({0x112C0C, 0x00007540, *o.ZoneRows * 56, "the zone header table's size"});
         log.push_back("zones: bound 1024, header table " + std::to_string(*o.ZoneRows) + " rows");
+
+        // a zone script's native mask comes from a 536-word table (0x587D58, one word a zone) that Zone_LoadZoneScript reads
+        // with `ldr r0, [r0, r4, lsl #2]` (r4 the zone) at 0x3FF5AC; zones from 536 read the words after it (ORAS_ENGINE.md
+        // 6). That load becomes a call to a routine in the zeros closing the code segment (the exheader's text ends at
+        // 0x579604, its pages at 0x57A000: loaded and executable, unused): below 536 the old load, else a word of a table of
+        // 488 masks for zones 536-1023, the common 0x243 unless given. Only r0 and the flags change; lr is the caller's own
+        // (Zone_LoadZoneScript calls functions after it, so it has saved its lr)
+        const uint32_t cave = 0x579608, table = cave + 28;
+        words.push_back({0x3FF5AC, 0xE7900104, 0xEB000000 | (((cave - 0x3FF5AC - 8) >> 2) & 0xFFFFFF), "Zone_LoadZoneScript's mask load -> bl the mask routine"});
+        const uint32_t routine[] = {
+            0xE3540F86,  // cmp r4, #0x218
+            0x37900104,  // ldrlo r0, [r0, r4, lsl #2]   the game's table
+            0x312FFF1E,  // bxlo lr
+            0xE2440F86,  // sub r0, r4, #0x218
+            0xE08F0100,  // add r0, pc, r0, lsl #2       (pc = here + 8)
+            0xE5900004,  // ldr r0, [r0, #4]             the word at table + 4 x (zone - 536)
+            0xE12FFF1E,  // bx lr
+        };
+        for (uint32_t k = 0; k < 7; k++) words.push_back({cave + 4 * k, 0, routine[k], "the mask routine"});
+        for (const auto& [zone, mask] : o.ScriptMasks)
+            if (zone < 536 || zone > 1023) throw FormatError("script mask: zones 536 to 1023 (the game's own table holds 0-535)");
+        for (uint32_t zone = 536; zone < 1024; zone++)
+        {
+            const auto given = o.ScriptMasks.find(zone);
+            words.push_back({table + 4 * (zone - 536), 0, given != o.ScriptMasks.end() ? given->second : 0x243, "a zone's script mask"});
+        }
+        log.push_back("script masks: zones 536-1023 from a new table (0x243 but " + std::to_string(o.ScriptMasks.size()) + " given)");
     }
+    else if (!o.ScriptMasks.empty()) throw FormatError("--script-mask needs --zone-rows (zones past 536)");
     if (o.Characters)
     {
         // FUN_003f7ff4 stops the game when a zone lists more than 26 characters (cmpne r6, #0x1A; zones 0x10, 0x30 and 0x1C3

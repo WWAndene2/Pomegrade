@@ -134,7 +134,7 @@ static int Usage()
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone|zone-raised|crowd [N]\n"
                     "  remake_tool oras-zone-check <oras.3ds>\n"
-                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N] [--characters N] [--heap ID:BYTES]...\n"
+                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--heap ID:BYTES]...\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
                     "                    [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]\n"
                     "  remake_tool oras-code <oras.3ds> <out.bin>\n"
@@ -491,7 +491,7 @@ int main(int argc, char** argv)
         if (cmd == "oras-engine" && argc >= 4)
         {
             // the engine patches (OrasEngine.h, ORAS_ENGINE.md 4): --memory 64|72|80|96, --linear-heap BYTES, --zone-rows N,
-            // --heap ID:BYTES (repeatable)
+            // --script-mask ZONE:MASK (repeatable, with --zone-rows), --heap ID:BYTES (repeatable)
             OrasEngineOptions o;
             for (int i = 4; i < argc; i++)
             {
@@ -509,6 +509,12 @@ int main(int argc, char** argv)
                 else if (flag == "--normal-heap") o.NormalHeap = (uint32_t)OptionNumber(value.c_str(), flag);
                 else if (flag == "--zone-rows") o.ZoneRows = (uint32_t)OptionNumber(value.c_str(), flag);
                 else if (flag == "--characters") o.Characters = (uint32_t)OptionNumber(value.c_str(), flag);
+                else if (flag == "--script-mask")
+                {
+                    const size_t colon = value.find(':');
+                    if (colon == std::string::npos) throw FormatError("--script-mask ZONE:MASK");
+                    o.ScriptMasks[(uint32_t)OptionNumber(value.substr(0, colon).c_str(), flag)] = (uint32_t)OptionNumber(value.substr(colon + 1).c_str(), flag);
+                }
                 else if (flag == "--heap")
                 {
                     const size_t colon = value.find(':');
