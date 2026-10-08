@@ -18,7 +18,7 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 
 | Objective | State |
 |---|---|
-| 1 Decomposition | the whole code (`.code` + 145 modules) in one Ghidra program, checked against the game's own load; Ghidra's wrong no-return marks cleared (`FixNoReturn.java`: code was missing from 1,753 functions); **3,807 functions named** (`ghidra/function_names.tsv`, read or guess), from coverage traces (section 6: entering a zone, a door warp, a sign, the start menu) and from the game's own tables: **every script native** (799, all 16,321 native calls of the 1,072 zone scripts resolved), the script machine (load, run, wait, natives by mask), the message command `TalkMdlMsg_Seq` **checked live** with its first argument (section 6); the names **reviewed** on 7 October (99 changed: section 6), 1,384 still marked guess, to be read before they are relied on. talking to a character **traced and checked** (section 6: 307 functions beyond a sign, all but 10 named); the wild encounter selection **read and checked live** (section 6: the step check, the zone's encounter file, its tables, the slot and level pick; a wild Wurmple at level 2 in run `enc2`); the trainers **read and checked live** (section 6: a battle against trainer 7 in run `trainer3`); then saving; the region map (needs touch input in retro_host). Then objectives 3 and 6 |
+| 1 Decomposition | the whole code (`.code` + 145 modules) in one Ghidra program, checked against the game's own load; Ghidra's wrong no-return marks cleared (`FixNoReturn.java`: code was missing from 1,753 functions); **3,831 functions named** (`ghidra/function_names.tsv`, read or guess), from coverage traces (section 6: entering a zone, a door warp, a sign, the start menu) and from the game's own tables: **every script native** (799, all 16,321 native calls of the 1,072 zone scripts resolved), the script machine (load, run, wait, natives by mask), the message command `TalkMdlMsg_Seq` **checked live** with its first argument (section 6); the names **reviewed** on 7 October (99 changed: section 6), 1,384 still marked guess, to be read before they are relied on. talking to a character **traced and checked** (section 6: 307 functions beyond a sign, all but 10 named); the wild encounter selection **read and checked live** (section 6: the step check, the zone's encounter file, its tables, the slot and level pick; a wild Wurmple at level 2 in run `enc2`); the trainers **read and checked live** (section 6: a battle against trainer 7 in run `trainer3`); saving **read** (section 6: the blocks' classes, the save thread, the menu's save; not yet run live); the region map (needs touch input in retro_host). Then objectives 3 and 6 |
 | 2 Tables and assets | zones (section 2), map pieces (3), the boot memory map (4.2), the 299 archives tied to their code where opened by a constant (5); not yet: the 210 archives opened by computed numbers, the asset formats beyond `tools/remake/src`'s readers |
 | 4 Limits | **done for building a world** (section 4.6): all 927 fatal checks listed, the field's and the `.code`'s classified; lifted and checked headless: zones 536 -> 1024 (2), application memory 64 -> 124 MB (New 3DS mode) and the linear heap 43.3 -> 88 MB, the normal heap and heap 4, heap 0xC 2 -> 8 MB, heap 0x17 28.4 -> 64 MB (4.4), characters past 26 (4.5); refused at build time where they cannot be raised: a zone's events file under 0xC84 bytes (4.5), a piece model's 51 textures (4.6), the 178 MB mode (4.4); **found, not lifted yet**: a zone script's native mask table holds 536 entries (section 6: zones from 536 read past it); left with their reason: the 8-deep load queue per object, collision objects per cell, the 174-entry Secret Base table (4.6) |
 | 5 Patches | `remake_tool oras-engine` writes them all (`exheader.bin`, `exefs/code.ips`); **checked on the phone (owner, 7 October): mod `all6`** (the whole of Sinnoh as r12, the title, the save in Twinleaf, and `engine --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 --characters 64`, Remake mod run 147) with the APK of `main` at PR #33: "everything works fine" |
@@ -39,8 +39,9 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
    (`trainer2`, Oldale 83.5 101.5 to Route 102), or use a save made in the game.
 2. **Encounters: done (8 October).** Section 6, **Wild encounter selection**. Open, not blocking: what kind 2 is (no
    encounter starter found; the species list reads it) and which screen shows member 537's list.
-3. **Saving.** Trace the save from the menu (the menu row of section 6's traces table), minus the menu trace; name
-   the set.
+3. **Saving: read statically (8 October).** Section 6, **Saving**: the 58 blocks named by the game's own classes, the
+   save thread, the menu's save (DllReport). Not done: a live run of the menu's save to confirm (from any save: start
+   menu, "Sauvegarder", yes; then the save file written by the host should differ in blocks 3, 6 and the footer).
 4. **Region map.** Needs touch input: add a `touch X Y FRAMES` command to `headless/retro_host.cpp` (the libretro
    pointer device), then trace it.
 5. **Names to read.** 1,384 names are still guesses (`function_names.tsv`, last column `guess`) and 10 talk functions
@@ -552,6 +553,24 @@ pc,[pc,#-4]` (`<Module>_Import_<target>`, read), 54 functions read with up to th
 direct caller, the pointer table holding them), 33 of them guess; **every function of the battle's trace is named** (0
 left). Which character is which trainer: `oras-inspect zone` (script 3000 + id, inferred). (The "+0xAE" zone word noted
 here on 7 October was a misread: moving a save into another matrix: section 0, **Run the game**.)
+
+**Saving** (8 October, **read statically**, not yet run live). The game keeps its C++ class names (RTTI strings
+`N8savedata<n><Class>E`): 60 classes in `savedata::`. `Save_SaveData_Construct` (0x115DE0) builds the 58 block objects
+in block order; each class's vtable +0x10 returns its size, and the order and sizes match the save file's block table
+one for one (all 58 but 19, which has no named class, and 35, `AccessPointSaveData`, whose getter is not a constant:
+placed by the order). So block 4 is `Situation` (the player's zone and position), 10 `MoveModelSave` (the zone's
+characters), 1 `MYITEM`, 2 `BAG`, 12 `BOX`, 18 `PokePartySave`, 20 `ZukanData`, 56 `BoxPokemon`; the full list is
+`prototype/oras_save.py`'s `CLASSES` (`oras_save.py blocks` prints it). Writing: `Save_SaveData_WriteBlockTable`
+(0x4652D4, SaveData's vtable +0x1C) fills the footer's table, for each block its size, its index (the "id" of the file's
+table: checked equal to the index in the owner's saves) and its CRC16 (`Util_Crc16Ccitt` 0x173F84, seed 0xFFFF: the one
+`OrasSave.cpp` writes), then `FEEB`. The thread `savedata::SaveLoadControlThread` (`Save_Thread_Start` 0x45D4C0,
+`Save_Thread_DoMode` 0x124BEC) runs mode 3 load (`Save_ReadBlocks`), 4 full save (`Save_WriteBlocks` then
+`Save_Commit`), 5 the writes alone and 6 the commit alone (the two-part save). The menu's "Sauvegarder" is the module
+**DllReport** ("report", the Japanese games' word for saving): `Report_SaveFull` (0x1069FD2C) counts the save, shows
+the message, refreshes the header data and calls `GameData_SaveFull` (0x1E7BA4: a new random save id in the footer,
+then mode 4). The other callers of the full save: DllGameClearSave (the save after the credits), DllBattleMatch, DllGts,
+DllLiveCup, DllRandomTrade. Not read: block 19's class and contents, what the header refresh (0x46511C) writes, the
+archive calls under `Save_Commit` (guess).
 
 **Door, sign and menu** (the three traces above, 1,728 more functions named on 7 October by six sub-agents over the
 decompilation, two per part where a part was re-run; names that only said "role not determined" were left out; most of
