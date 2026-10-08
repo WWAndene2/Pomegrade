@@ -22,6 +22,9 @@ namespace remake
 // range \xXXXX, newlines \n; Write accepts the same notation back
 std::vector<std::string> ReadGameText(const Bytes& file);
 Bytes WriteGameText(const std::vector<std::string>& lines);
+// the file with one line added at its end, every existing line's bytes kept as they are (their offsets moved by the grown
+// table): for files that do not write back identical (a/0/7/1's zero padding)
+Bytes AppendGameTextLine(const Bytes& file, const std::string& line);
 
 }
 

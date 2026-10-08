@@ -132,4 +132,39 @@ Bytes WriteGameText(const std::vector<std::string>& lines)
     return out;
 }
 
+
+Bytes AppendGameTextLine(const Bytes& file, const std::string& line)
+{
+    if (file.size() < 0x14 || U16(file, 0) != 1 || U32(file, 0x0C) != 0x10) throw FormatError("game text: not a one-section file");
+    const size_t count = U16(file, 2), section = 0x10;
+    if (count >= 0xFFFF) throw FormatError("game text: no room for another line");
+    const size_t length = U32(file, section);
+    if (section + length > file.size() || 4 + 8 * count > length) throw FormatError("game text: the section does not fit the file");
+    std::vector<uint16_t> units = Unescape(line);
+    units.push_back(0);
+    Bytes table, text(file.begin() + section + 4 + 8 * count, file.begin() + section + length);
+    const size_t tableSize = 4 + 8 * (count + 1);
+    for (size_t i = 0; i < count; i++)
+    {
+        const uint32_t offset = U32(file, section + 4 + 8 * i) + 8;
+        for (int k = 0; k < 4; k++) table.push_back((uint8_t)(offset >> (8 * k)));
+        for (int k = 4; k < 8; k++) table.push_back(file[section + 4 + 8 * i + k]);
+    }
+    while (text.size() % 4) text.push_back(0);
+    const uint32_t offset = (uint32_t)(tableSize + text.size());
+    for (int k = 0; k < 4; k++) table.push_back((uint8_t)(offset >> (8 * k)));
+    table.push_back((uint8_t)units.size()); table.push_back((uint8_t)(units.size() >> 8));
+    table.push_back(0); table.push_back(0);
+    uint16_t key = (uint16_t)(KeyBase + KeyStep * count);
+    for (uint16_t c : units) { const uint16_t e = c ^ key; text.push_back((uint8_t)e); text.push_back((uint8_t)(e >> 8)); key = NextKey(key); }
+    while (text.size() % 4) text.push_back(0);
+    const uint32_t sectionLength = (uint32_t)(tableSize + text.size());
+    Bytes out = {1, 0, (uint8_t)(count + 1), (uint8_t)((count + 1) >> 8)};
+    for (uint32_t v : {sectionLength, 0u, 0x10u}) for (int k = 0; k < 4; k++) out.push_back((uint8_t)(v >> (8 * k)));
+    for (int k = 0; k < 4; k++) out.push_back((uint8_t)(sectionLength >> (8 * k)));
+    out.insert(out.end(), table.begin(), table.end());
+    out.insert(out.end(), text.begin(), text.end());
+    return out;
+}
+
 }

@@ -29,3 +29,47 @@ inc = '#include "core/memory.h"\n'
 assert s.count(inc) == 1, "the interpreter's includes moved"
 s = s.replace(inc, inc + "extern bool pomegrade_trace_on;\nextern \"C\" void pomegrade_trace_block(u32 pc);\n", 1)
 open(p, "w").write(s)
+
+# drawing skipped on demand and the software renderer's worker count set (retro_host's "draw off"; POMEGRADE_SW_THREADS):
+# the renderer queues each triangle's scanlines to its workers and waits for them before the next triangle
+# (RasterizerSoftware::ProcessTriangle, WaitForRequests), so a run spent most of its time synchronising (8 October: 60% of
+# the 4 cores idle, the main thread at 58%, each worker at 25%, 21% system time)
+p = "azahar/src/video_core/renderer_software/sw_rasterizer.cpp"
+s = open(p).read()
+ctor = "      num_sw_threads{std::max(std::thread::hardware_concurrency(), 2U)},\n"
+assert s.count(ctor) == 1, "the renderer's worker count moved"
+s = s.replace(ctor, "      num_sw_threads{PomegradeSwThreads()},\n", 1)
+anon = "} // Anonymous namespace\n"
+assert s.count(anon) == 1, "the renderer's anonymous namespace moved"
+s = s.replace(anon, """std::atomic<bool> pomegrade_skip_draw{false};
+
+std::size_t PomegradeSwThreads() {
+    const char* given = std::getenv("POMEGRADE_SW_THREADS");
+    return given ? std::max(std::atoi(given), 1) : std::max(std::thread::hardware_concurrency(), 2U);
+}
+
+} // Anonymous namespace
+
+extern "C" __attribute__((visibility("default"))) void pomegrade_set_skip_draw(bool skip) {
+    pomegrade_skip_draw.store(skip, std::memory_order_relaxed);
+}
+""", 1)
+add = "                                     const Pica::OutputVertex& v2) {\n"
+assert s.count(add) == 1, "AddTriangle's signature moved"
+s = s.replace(add, add + "    if (pomegrade_skip_draw.load(std::memory_order_relaxed)) {\n        return;\n    }\n", 1)
+s = s.replace("#include <boost/container/static_vector.hpp>", "#include <atomic>\n#include <cstdlib>\n#include <boost/container/static_vector.hpp>", 1)
+open(p, "w").write(s)
+
+# a state made by this very build is refused when the copy has no git information (8 October: the rebuilt core named its
+# revision "UNKNOWN" and refused the title state it had just saved): the revision check only warns here, the headless runs
+# making and loading their states with one build
+p = "azahar/src/core/savestate.cpp"
+s = open(p).read()
+check = """                  Common::g_scm_rev, revision);
+        return false;
+    }"""
+assert s.count(check) == 1, "the save state's revision check moved"
+s = s.replace(check, """                  Common::g_scm_rev, revision);
+        // Pomegrade headless: loaded anyway (patch_core.py)
+    }""", 1)
+open(p, "w").write(s)

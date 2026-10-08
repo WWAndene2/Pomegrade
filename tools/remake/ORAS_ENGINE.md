@@ -22,7 +22,7 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 | 2 Tables and assets | zones (section 2), map pieces (3), the boot memory map (4.2), the 299 archives tied to their code where opened by a constant (5); not yet: the 210 archives opened by computed numbers, the asset formats beyond `tools/remake/src`'s readers |
 | 4 Limits | **done for building a world** (section 4.6): all 927 fatal checks listed, the field's and the `.code`'s classified; lifted and checked headless: zones 536 -> 1024 (2), application memory 64 -> 124 MB (New 3DS mode) and the linear heap 43.3 -> 88 MB, the normal heap and heap 4, heap 0xC 2 -> 8 MB, heap 0x17 28.4 -> 64 MB (4.4), characters past 26 (4.5); refused at build time where they cannot be raised: a zone's events file under 0xC84 bytes (4.5), a piece model's 51 textures (4.6), the 178 MB mode (4.4); the zone scripts' native masks for zones 536-1023 (section 6, `--script-mask`); left with their reason: the 8-deep load queue per object, collision objects per cell, the 174-entry Secret Base table (4.6) |
 | 5 Patches | `remake_tool oras-engine` writes them all (`exheader.bin`, `exefs/code.ips`); **checked on the phone (owner, 7 October): mod `all6`** (the whole of Sinnoh as r12, the title, the save in Twinleaf, and `engine --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 --characters 64`, Remake mod run 147) with the APK of `main` at PR #33: "everything works fine" |
-| 3, 6, 7 | **3 started (8 October)**: `remake_tool oras-sandbox` builds a new zone 538+ from a text description (a hand-drawn grid of tile roles, no Hoenn events), **checked live** (run `sand1`, section 2). 6 and 7 not started on this basis: Sinnoh's region tools (`oras-region`, `ORAS_LITTLEROOT.md`) still borrow Hoenn's zones; next is building Sinnoh's zones from 538 up with the tools above |
+| 3, 6, 7 | **3 started (8 October)**: `remake_tool oras-sandbox` builds new zones 538+ from a text description (a hand-drawn grid of tile roles, names, characters, trainers; no Hoenn events), **checked live** (runs `sand1`-`sand8`, section 2). 6 and 7 not started on this basis: Sinnoh's region tools (`oras-region`, `ORAS_LITTLEROOT.md`) still borrow Hoenn's zones; next is building Sinnoh's zones from 538 up with the tools above |
 | After 6: Platinum's music | added by the owner (7 October), after building Sinnoh's map: a tool that moves Platinum's music into Omega Ruby. Not started; nothing in `tools/remake` reads either game's sound yet. Platinum keeps sequences played by the DS sound hardware (SDAT: SSEQ with SBNK/SWAR instruments), Omega Ruby recorded streams in its sound archive (BCSTM, inferred from the format's common use, not checked on this game): the tool must extract, render, encode and replace. First step: how Omega Ruby stores and picks its songs (`Snd_ChangeZoneBgm`, section 6) |
 
 **What remains, and how** (handover, 7 October; in this order, each with rule 4's budget):
@@ -115,7 +115,15 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   the test, not of the save: `save_test.sh`); kept, the old characters leave the screen black once DllField loads (runs
   `matrix2`-`matrix8`). `--template <save>` takes block 10 from a save the game made in the target matrix instead. Seen, not
   read in code: the record layout. Test saves: `headless/save_test.sh <work> <save>...` (LOADED, BLACK, or UNSURE when the
-  run sticks). A JIT run boots at a varying speed: `wait 700` before `mash a 15` (`matrix1` stayed on the title).
+  run sticks). A JIT run boots at a varying speed: `wait 700` before `mash a 15` (`matrix1` stayed on the title). **Fast runs** (8 October): the software renderer
+  waited on its 4 workers after every triangle (60% of the cores idle, 21% system time); `patch_core.py` lets the host skip
+  drawing (`draw off`; a shot draws 3 frames first) and set the worker count (`POMEGRADE_SW_THREADS`), and lets a state made
+  by the rebuilt core load (its revision reads "UNKNOWN"). With `POMEGRADE_STATE=<work>/title.state` and `wait 120;load
+  title;mash a 8;draw off;wait 900;...` a run reaches the field and walks in 2.5 minutes (run `fast6`) instead of 10-12. The
+  title needs drawing (with it off from the start, A was never taken: `fast1`); a title state made by an older core build
+  must be made again (`wait 700;save title`). A title state holds the save read at boot and the mod booted with (`sand5`: a state made without
+  the mod showed Littleroot with a save moved to zone 538): `headless/fast_run.sh` keeps one per mod, save and move and
+  reuses it (first run about 10 min, each rerun under 3: `fr3`).
 - **Show that a function runs**: `trace on` / `trace off FILE` around the action (needs `POMEGRADE_INTERPRETER=1`), then
   look for the function's running address in the file (a DllField function at its linked address - 0x10242000 + 0x6F3000) or
   map the whole trace with `prototype/coverage_map.py` (`--minus <run>/<trace>` subtracts a trace of another run). Not GDB:
@@ -224,8 +232,15 @@ another (51 characters passed the count check and stopped on the events buffer).
   triggers; members 536 and 537 grow to match; then `oras-engine --zone-rows <rows it prints>` in the same out dir.
   **Checked live** (run `sand1`: zone 538, one piece, forest border, a path cross, a pond, tall grass; template 6,
   encounters of zone 24; the owner's save moved to 538 20.5 20.5): the field loads on the drawn ground and the player
-  walks the path. Seen: the Navi-Map still names the template's place (Bourg-en-Vol: a header word, not yet found). Not
-  built yet: houses, fences, ledges, doors, warps between zones, characters; not yet tested on the phone.
+  walks the path. **Then (8 October)**: several zones on one matrix (`blocks`, one digit a 10 x 10 block), place names
+  (`name`: a new line of text file 90 in the eight languages; header word 14 & 0x3FF, read in `Zone_GetLocationNameId`),
+  characters and trainers (`character`, `trainer`: a game character's 24 words with the known ones set). **Checked live**
+  (fast runs `sand6`-`sand8`, `fr3`): walking from zone 538 into 539 shows "Bac à Sable Est" on the sign and the Navi-Map,
+  the zone's characters appear, and trainer 10 (face 2, sight 5, east of the player) walks up and says his line before
+  the battle, with zone 6's scripts as with Route 102's (a trainer's script is not the zone's: inferred). Face 2 looks
+  west (seen). A save moved into a zone shows none of its characters: a continued save restores them from its block 10,
+  which `oras-save` empties (`sand3`); walking in from another zone loads them. Not built yet: houses, fences, ledges,
+  doors, warps between matrices; not yet tested on the phone.
 
 ## 3. Map pieces
 

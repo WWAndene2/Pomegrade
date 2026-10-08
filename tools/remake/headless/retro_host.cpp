@@ -282,6 +282,22 @@ static void Step()
     }
 }
 
+// "draw off": the core's software renderer skips its triangles (pomegrade_set_skip_draw, sw_rasterizer.cpp), the game's
+// logic running on, much faster where no picture is wanted; a shot, a screen check and the final result draw a few frames
+// first, then drawing stops again. The screen does not change while off: no freeze can be told, and "field" (which waits
+// for the field's picture) needs drawing on
+static void (*setSkipDraw)(bool) = nullptr;
+static bool drawOff = false;
+
+static void DrawFrames()
+{
+    if (!drawOff) return;
+    setSkipDraw(false);
+    for (int k = 0; k < 3; k++) Step();
+}
+
+static void DrawStop() { if (drawOff) setSkipDraw(true); }
+
 static bool StateFile(void* core, const std::string& name, bool save)
 {
     const std::string path = workDir + "/" + name + ".state";
@@ -334,8 +350,14 @@ static int RunScript(void* core, const char* path)
             held = 0;
             printf("[frame %lu] field %s\n", frame, fieldUp ? "up" : "not up");
         }
-        else if (cmd == "screen") Screen();
-        else if (cmd == "shot") Shot(arg);
+        else if (cmd == "screen") { DrawFrames(); Screen(); DrawStop(); }
+        else if (cmd == "shot") { DrawFrames(); Shot(arg); DrawStop(); }
+        else if (cmd == "draw")
+        {
+            if (!setSkipDraw) setSkipDraw = reinterpret_cast<void (*)(bool)>(dlsym(core, "pomegrade_set_skip_draw"));
+            if (!setSkipDraw) printf("draw: the core has no pomegrade_set_skip_draw (an older build)\n");
+            else { drawOff = arg == "off"; setSkipDraw(drawOff); printf("[frame %lu] drawing %s\n", frame, drawOff ? "off" : "on"); }
+        }
         else if (cmd == "report") ThreadReport(core);
         else if (cmd == "watch")
         {
@@ -385,6 +407,7 @@ static int RunScript(void* core, const char* path)
         else printf("unknown command %s\n", cmd.c_str());
         fflush(stdout);
     }
+    DrawFrames();
     printf("RESULT: script done at %lu s of game time, field %s, screen brightness %.1f\n", frame / 60, fieldUp ? "up" : "not up", luminance);
     fflush(stdout);
     std::_Exit(0);
