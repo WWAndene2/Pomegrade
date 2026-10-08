@@ -1,0 +1,66 @@
+# The sandbox demo (oras-sandbox, OrasSandbox.h): two zones on one piece, a pond, tall grass with Route 102's
+# wild Pokemon, a south ledge, a house with its inside, a fence, a person and trainer 10. Checked piece by piece live
+# (ORAS_ENGINE.md 2: runs sand1-sand8, house3, ledge5). For the phone, Remake mod workflow variants:
+#   sb: sandbox tools/remake/sandbox/demo.txt
+#   eng: engine --zone-rows 541
+#   sv: save 538 14.5 20.5
+#   demo: merge sb eng sv
+zone 538
+template 6
+spawn 14.5 20.5
+name Bac à Sable
+encounters 24
+zone 539
+template 6
+spawn 30.5 20.5
+name Bac à Sable Est
+character 284 24 19 face 2
+trainer 10 219 33 20 face 2 sight 5
+door 28 16 house 223
+pieces 1 1
+blocks
+0011
+0011
+0011
+0011
+map
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::.........t......TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::............t...TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HHDHH.......TT
+TT..................::......:.........TT
+TT..................::......:.........TT
+TT..................::......:.........TT
+TT::::::::::::::::::::::::::::::::::::TT
+TT::::::::::::::::::::::::::::::::::::TT
+TT..................::................TT
+TT..................::................TT
+TT..................::..FFFFFFFFFFF...TT
+TT..................::................TT
+TT......LLLLLLLLLLL.::................TT
+TT..................::................TT
+TT..................::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::........t.......TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT

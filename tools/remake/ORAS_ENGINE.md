@@ -46,7 +46,13 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 5. **Names to read.** 1,384 names are still guesses (`function_names.tsv`, last column `guess`) and 10 talk functions
    unnamed (section 6, **Talking to a character**): read before relying on them; `prototype/name_review.py suspects`
    flags the likeliest wrong ones and `summary` reads a decompilation fast.
-6. **Zones past 536, the rest.** A new zone needs its own file 3 (encounters) beside its member 537 entry (section
+6. **The sandbox (8 October): built, checked live, phone test next.** `remake_tool oras-sandbox` (section 2) builds zones
+   538+ from a text description; the demo is `tools/remake/sandbox/demo.txt` (two zones, a pond, tall grass, a ledge, a
+   house and its inside, a fence, a person, trainer 10). For the phone, the Remake mod workflow's variants (its header
+   lists them): `sb: sandbox tools/remake/sandbox/demo.txt`, `eng: engine --zone-rows 541`, `sv: save 538 14.5 20.5`,
+   `demo: merge sb eng sv`. Headless reruns: `headless/fast_run.sh` (about 3 minutes). Not built yet: east and west
+   ledges, relief (hills, cliffs), warps between matrices, writing scripts, trainers and encounter tables of one's own.
+7. **Zones past 536, the rest.** A new zone needs its own file 3 (encounters) beside its member 537 entry (section
    2), and a script mask word (`oras-engine --script-mask`, 0x243 by default; lifted 8 October, section 6).
    Then objectives 3 and 6: Sinnoh's zones from 538 up.
 
