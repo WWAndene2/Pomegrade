@@ -25,6 +25,7 @@ struct OrasEngineOptions
     std::optional<uint32_t> ZoneRows;        // rows of the zone header table (a/0/1/3 member 536) the mod's archive holds
     std::optional<uint32_t> Characters;      // characters a zone may list and show (the game's 26; at most 32, its pool)
     std::map<uint32_t, uint32_t> HeapSizes;  // heap id -> size (bytes)
+    std::map<uint32_t, uint32_t> ScriptMasks; // zone 536-1023 -> its script's native mask (with ZoneRows; 0x243 otherwise)
 };
 
 // the ARM data-processing immediate encoding of value (an 8-bit value rotated right by an even amount), when there is one
