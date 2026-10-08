@@ -274,7 +274,7 @@ another (51 characters passed the count check and stopped on the events buffer).
   | Event, script | no | the template zone's scripts | scripts are read (disassembler), not written |
   | Cutscene | no | no | not studied |
   | Camera | yes | | `camera height H pitch P yaw Y distance D fov F near N far F` (`OrasSandbox.h`): preset 0 of the zone's own pack. **Read** (`Field_CameraApplyParams` 0x102CB460, `Field_CopyCameraParams` 0x102CB128, `Field_CameraComputePos` 0x1031C0AC) and **checked live** on 8 October: pitch -70 looks straight down (`w1`), distance 600 shows the whole sandbox (`w7`), fov 60 widens the view (`w6`), `height 14 pitch -8 distance 40 near 4` a view over the shoulder (`pov`); near and far read from their values only |
-  | Lighting | no | `lighting Z`: a pack's file 4 | not found. File 4 is 2,944 bytes of floats, not colours, copied into a graphics buffer (read; battles fill it from `a/0/5/9`) and changed nothing seen (`light5`). No light in the packs or in the 857 pieces (their BCH hold none, checked). The renderer builds its light structure from the scene's light nodes (`FUN_0037B9D8`: 8 lights of 0x70 bytes, hemisphere sky +0x3B0, ground +0x3C0, direction +0x3D0, count +0x3E0); which field code makes those nodes, and from what, is not found |
+  | Lighting | no | `lighting Z`: a pack's file 4 | **Seen** (runs `lit1` Littleroot, `lit2` Route 101; `lights on/off` in `headless/retro_host.cpp`, the GPU's state at each draw): the field is lit by the GPU's fragment lighting, **one directional light**, the same in both zones: direction (0, 0.757, 0.652) in view space, the vertical seen at the camera's -40.74 degrees (inferred: a light from straight above); the colours the game writes (light x material) vary only with the material: diffuse (254, 254, 127) or (254, 254, 254), ambient (215, 215, 172), (254, 254, 203) or (124, 141, 177). Where the game makes that light is not found: not file 4 (floats, no light value in it, `light5`), no light in the packs or the 857 pieces' BCH (checked); `FUN_0037B9D8` and `Gfx_CreateLightNode` are camera code, not light (read) |
   | Texture | not checked | the area packs' textures | the piece builder adds a pack's textures to the zone's pack |
   | Animation | no | no | not studied |
   | 3D model | no | pieces cut from the game's (house, trees, fence, ledge) | a model of one's own not made |
@@ -290,9 +290,11 @@ another (51 characters passed the count check and stopped on the events buffer).
     +0x1C far (2000), +0x20 field of view in degrees (30), +0x24 distance (254.4); +0x28 is clamped to 1 and kept at +0xA8,
     +0x2C at +0xA4 (roles not read); +0x14 is read by neither. **Seen** (run `cam10`, a heap dump in Littleroot): N = 0, and
     the preset 0 copy at the camera. Where N comes from is not found; the sandbox writes preset 0, which its zones use.
-  - Lighting: see the table above. Next, if wanted: record in the headless core the GPU's light registers and the shader's
-    `HslSCol`/`HslGCol` uniforms per draw of the field (a reading after the frame shows only its last draw), then search
-    the heap for those values to find the light nodes' source.
+  - Lighting: see the table above. Next: the GPU light's command writer (`FUN_004C9D24`, read: it writes the light
+    registers and the HslSCol/HslGCol/HslSDir uniforms from an entry of 0x3F4 bytes, 8 lights of 0x70 and the hemisphere at
+    +0x3B0) reads its entry from `param_3 + 0x7C`; find that entry in a heap dump by the light's direction and follow who
+    fills it. An interior (another matrix: reached by walking through a door, a moved save does not load) would show whether
+    the light ever changes.
 
 ## 3. Map pieces
 

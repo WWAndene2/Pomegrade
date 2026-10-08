@@ -389,6 +389,16 @@ static int RunScript(void* core, const char* path)
             else if (arg == "on") { trace(1, nullptr); printf("[frame %lu] trace on\n", frame); }
             else printf("[frame %lu] trace off: %u blocks in %s\n", frame, trace(0, path.c_str()), path.c_str());
         }
+        else if (cmd == "lights")
+        {
+            // lights on | lights off FILE: the light state and shader uniforms of each draw in between (pomegrade_lights)
+            auto lights = reinterpret_cast<uint32_t (*)(int, const char*)>(dlsym(core, "pomegrade_lights"));
+            std::string file; words >> file;
+            const std::string path = workDir + "/" + file;
+            if (!lights) printf("(no pomegrade_lights in this core)\n");
+            else if (arg == "on") { lights(1, nullptr); printf("[frame %lu] lights on\n", frame); }
+            else printf("[frame %lu] lights off: %u draws in %s\n", frame, lights(0, path.c_str()), path.c_str());
+        }
         else if (cmd == "gdb")
         {
             // gdb PORT: the core's GDB stub listens there; the game waits for gdb-multiarch to connect and continue

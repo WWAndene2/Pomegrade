@@ -146,3 +146,30 @@ extern "C" RETRO_API u32 pomegrade_trace(int on, const char* path) {
     if (FILE* f = fopen(path, "w")) { for (u32 b : blocks) fprintf(f, "%08X\n", b); fclose(f); }
     return (u32)blocks.size();
 }
+
+// lights on | lights off FILE: the light state of each draw in between (pica_lights.inc), each distinct one with its count,
+// then the vertex shader's float uniforms, each register's distinct values (32 at most) with their counts
+#include <map>
+#include <string>
+extern bool pomegrade_lights_on;
+extern unsigned pomegrade_light_draws;
+extern std::map<std::string, unsigned> pomegrade_light_states;
+extern std::map<std::string, unsigned> pomegrade_uniform_values[96];
+extern "C" RETRO_API u32 pomegrade_lights(int on, const char* path) {
+    if (on) {
+        pomegrade_light_draws = 0;
+        pomegrade_light_states.clear();
+        for (auto& m : pomegrade_uniform_values) m.clear();
+        pomegrade_lights_on = true;
+        return 0;
+    }
+    pomegrade_lights_on = false;
+    if (FILE* f = fopen(path, "w")) {
+        fprintf(f, "draws %u\n", pomegrade_light_draws);
+        for (const auto& [state, count] : pomegrade_light_states) fprintf(f, "state %u: %s\n", count, state.c_str());
+        for (int i = 0; i < 96; i++)
+            for (const auto& [value, count] : pomegrade_uniform_values[i]) fprintf(f, "uniform %d %u: %s\n", i, count, value.c_str());
+        fclose(f);
+    }
+    return pomegrade_light_draws;
+}

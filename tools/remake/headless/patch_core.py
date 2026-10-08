@@ -73,3 +73,15 @@ s = s.replace(check, """                  Common::g_scm_rev, revision);
         // Pomegrade headless: loaded anyway (patch_core.py)
     }""", 1)
 open(p, "w").write(s)
+
+# the light of each draw (pica_lights.inc; "lights on" / "lights off FILE" in retro_host, pomegrade_report.inc): recorded
+# when a draw is triggered, before it runs
+p = "azahar/src/video_core/pica/pica_core.cpp"
+s = open(p).read()
+inc = '#include "video_core/pica/vertex_loader.h"\n'
+assert s.count(inc) == 1, "pica_core.cpp's includes moved"
+s = s.replace(inc, inc + open("tools/remake/headless/pica_lights.inc").read(), 1)
+draw = "        DrawArrays(is_indexed);\n"
+assert s.count(draw) == 1, "the draw trigger moved"
+s = s.replace(draw, "        if (pomegrade_lights_on) PomegradeRecordLights(regs.internal, vs_setup.uniforms); // Pomegrade headless\n" + draw, 1)
+open(p, "w").write(s)
