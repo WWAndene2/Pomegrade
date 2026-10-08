@@ -164,7 +164,8 @@ static TownLayout PieceLayout(const SandboxDescription& d, int px, int py)
     TownLayout l;
     for (int r = 0; r < TownTiles; r++) l.Vis.push_back(d.Map[(size_t)py * TownTiles + r].substr((size_t)px * TownTiles, TownTiles));
     // a door: a house tile to the builder, which puts Petalburg's house on it, as wide as the solid tiles beside it on its row
-    // (BuildTown), and its door model; the player walks onto it (its collision free)
+    // (BuildTown), and its door model; solid, as Littleroot's door tiles are (0x01000021 in piece 6: the player
+    // enters by walking into it from the tile below, where the warp stands at the door tile)
     for (int r = 0; r < TownTiles; r++)
         for (int c = 0; c < TownTiles; c++)
             if (l.Vis[r][c] == 'D') { l.Vis[r][c] = 'H'; TownDoor door; door.Column = c; door.Row = r; l.Doors.push_back(door); }
@@ -184,10 +185,9 @@ static TownLayout PieceLayout(const SandboxDescription& d, int px, int py)
     for (const std::string& row : l.Vis)
     {
         std::string c;
-        for (char v : row) c += v == '~' ? '~' : v == 't' || v == 'T' || v == 'H' || v == 'F' ? '#' : v == 'g' ? 'g' : '.';
+        for (char v : row) c += v == '~' ? '~' : v == 't' || v == 'T' || v == 'H' || v == 'F' || v == 'D' ? '#' : v == 'g' ? 'g' : '.';
         l.Collision.push_back(c);
     }
-    for (const TownDoor& door : l.Doors) l.Collision[door.Row][door.Column] = '.';
     return l;
 }
 
