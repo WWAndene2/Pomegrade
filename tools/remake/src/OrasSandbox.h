@@ -16,6 +16,11 @@
 //   name TEXT         optional: the place name (Navi-Map, the sign on entering), added to the eight languages' names
 //   lighting Z        optional: game zone Z's area pack's file 4 in a copy of the sandbox's pack (taken for the light;
 //                     no change seen outdoors: what it does is not known)
+//   camera Z          optional: game zone Z's file 4 copied (read as its camera settings; copied from zone 47, no change
+//                     seen: what it does is not known)
+//   camera-pitch P    optional: the first float of the camera preset 0 in the sandbox's pack (file 6; 15.85 in every pack,
+//                     read as the pitch). Checked (runs cam0, cam3): 45 frames the field differently (the pond smaller, the
+//                     player lower); which camera setting that float is, and how a zone picks a preset, are not known
 //   encounters Z      optional: game zone Z's encounter file (its file 3) copied; none without it
 //   character MODEL X Z [face F] [script S] [move M]
 //                     a person standing on tile X, Z of the map (model: a character model number, as oras-inspect zone prints
