@@ -42,6 +42,11 @@ struct TownSources
     bool CloseEdges = true;
     // the terrain model's name, which tells its place (world<matrix>_<x>_<y>, 13 characters as the game's); empty: the target's
     std::string ModelName;
+    // ledges: the layout's 'L' tiles a ledge jumped down southward (oras-sandbox; a region keeps Platinum's ledges as their
+    // permissions give them): the tile value Route 101's south ledges have (0x75000021, piece 5, rows 15, 16, 28) and a one-tile
+    // slice of Route 101's ledge (mesh 7, chip_jump_gake9, tile 19 of row 28) on each, in Petalburg's snow-band mesh, which then
+    // shows chip_jump_gake (area pack 8)
+    bool Ledges = false;
 };
 
 // the new piece's bytes; log: what was placed

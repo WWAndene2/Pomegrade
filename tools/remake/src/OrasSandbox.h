@@ -26,12 +26,11 @@
 //   blocks            with several zones: then 4 H rows of 4 W digits, the zone (0 the first given, 1 the next...) of each
 //                     10 x 10 block; one zone alone takes every block
 //   map               then 40 H rows of 40 W letters: '.' grass, 'g' tall grass, ':' path, 's' pale grass, '*' flowers,
-//                     '~' water, 't' a tree, 'T' forest, 'H' a house's wall, 'D' its door, 'F' a fence; all but grass,
-//                     tall grass, paths and flowers are solid
+//                     '~' water, 't' a tree, 'T' forest, 'H' a house's wall, 'D' its door, 'F' a fence, 'L' a ledge
+//                     jumped down southward; all but grass, tall grass, paths and flowers are solid (a ledge from the north)
 //
 // A save moved into a zone (oras-save) shows none of its characters: a continued save restores them from its own block 10,
 // which oras-save empties on a zone change (ORAS_ENGINE.md 0); walking in from another zone loads them from the zone's file.
-// Ledges are not built yet.
 
 #include "N3dsRom.h"
 
