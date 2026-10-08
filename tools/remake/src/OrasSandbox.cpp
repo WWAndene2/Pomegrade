@@ -312,9 +312,10 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
         return slot;
     };
     const uint16_t ownPack = takeFree(packData, "the sandbox's pack, a copy of pack " + std::to_string(pack) + " with the pieces' textures");
-    // lighting: an area pack's file 4 (2,944 bytes of RGBA colours, 6 different ones among the game's 229 packs: outdoors,
-    // interiors and a few places; read as the light and fog colours: inferred, not read in code) taken from the pack of game
-    // zone `lighting`
+    // `lighting`: an area pack's file 4 (2,944 bytes of RGBA colours, 6 different ones among the game's 229 packs: outdoors,
+    // interiors and a few places) taken from the pack of game zone `lighting`. Taken for the light and fog colours, but an
+    // interior's (zone 216's, run light5: zone 538 on the copy in pack 1) changed nothing seen outdoors, terrain or player:
+    // what file 4 does is not known; the scene's light is elsewhere
     std::map<int, uint16_t> lightingPack; // game zone -> the sandbox pack carrying its light
     for (const SandboxZone& z : d.Zones)
     {
@@ -401,8 +402,8 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
         table.insert(table.end(), header.begin(), header.end());
         while (en.Files.size() < zoneIndex) en.Files.push_back(Bytes{});
         en.Files.push_back(encounter);
-        snprintf(line, sizeof line, "zone %zu: template %d's header and scripts, area pack %d, %zu character(s), spawn (%.1f, %.1f), name %s, encounters %s", zoneIndex,
-                 z.Template, pack, zone.Characters.size(), z.SpawnX, z.SpawnZ, nameLine[k] >= 0 ? ("\"" + z.Name + "\" (line " + std::to_string(nameLine[k]) + ")").c_str() : "the template's",
+        snprintf(line, sizeof line, "zone %zu: template %d's header and scripts, area pack %u, %zu character(s), spawn (%.1f, %.1f), name %s, encounters %s", zoneIndex,
+                 z.Template, (unsigned)zone.Header[1], zone.Characters.size(), z.SpawnX, z.SpawnZ, nameLine[k] >= 0 ? ("\"" + z.Name + "\" (line " + std::to_string(nameLine[k]) + ")").c_str() : "the template's",
                  z.Encounters >= 0 ? ("of zone " + std::to_string(z.Encounters)).c_str() : "none");
         log.push_back(line);
     }

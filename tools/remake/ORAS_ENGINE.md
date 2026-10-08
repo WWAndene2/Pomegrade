@@ -273,12 +273,13 @@ another (51 characters passed the count check and stopped on the events buffer).
   | Dialogue box | no | the template zone's lines | place names are written (`name`); a dialogue needs a script |
   | Event, script | no | the template zone's scripts | scripts are read (disassembler), not written |
   | Cutscene | no | no | not studied |
-  | Camera | no | no | not studied (matrix file 1's rectangle: meaning not read) |
-  | Lighting | no | no | not studied |
+  | Camera | no | no | each area pack's file 6 is a table of camera presets (pitch, yaw, distance, near, far, field of view), the same in all 229 packs; how a zone picks one is not found |
+  | Lighting | no | `lighting Z`: a pack's file 4 | file 4 (RGBA colours, 6 variants) changed nothing seen outdoors (`light5`): the scene's light is elsewhere, not found |
   | Texture | not checked | the area packs' textures | the piece builder adds a pack's textures to the zone's pack |
   | Animation | no | no | not studied |
   | 3D model | no | pieces cut from the game's (house, trees, fence, ledge) | a model of one's own not made |
   | Music | no | no | nothing reads the sound yet |
+  | Area pack | yes | | the sandbox fills the game's 9 placeholder packs no zone uses (0, 1, 39-42, 88, 97, 195) and changes no Hoenn pack (`light5`); a pack appended past 229 is refused (fatal-error loop: a/1/3/7, one member per pack, is one cause, read under the debugger in `apk1`-`apk4`; another not found) |
   | Ground | yes | the game's grass, paths, water | checked: grass, tall grass (its ground since `fix1`), paths, pond (a bed in the water's colour, `fix2`: the surface still faint), trees, forest |
 
 ## 3. Map pieces
