@@ -447,6 +447,11 @@ void RendererOpenGL::InitOpenGLObjects() {
     }
 
     ReloadShader(Settings::values.render_3d.GetValue());
+    // Pomegrade: the stereo setting as stored is not the mode drawn: on Android, render_3d_which_display "None" turns 3D
+    // off (EmuWindow::get3DMode), so an anaglyph setting with 3D off loaded the anaglyph shader with no right eye: a red
+    // picture until the settings were applied again (closing the settings screen). The first frame reloads the shader
+    // for the layout's mode, as applying the settings does
+    settings.shader_update_requested = true;
 
     // Generate VBO handle for drawing
     vertex_buffer.Create();
