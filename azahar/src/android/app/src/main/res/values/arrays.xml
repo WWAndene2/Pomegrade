@@ -323,6 +323,7 @@
         <item>@string/xbrz</item>
         <item>@string/mmpx</item>
         <item>@string/three_ds_lanczos</item>
+        <item>@string/three_ds_darp</item>
     </string-array>
 
     <integer-array name="textureFilterValues">
@@ -333,6 +334,7 @@
         <item>4</item>
         <item>5</item>
         <item>6</item>
+        <item>7</item>
     </integer-array>
 
     <!-- Pomegrade: frame rate modes, values as Settings::values.frame_rate_mode -->

@@ -18,10 +18,14 @@ namespace VideoCore {
 /// texture doesn't run a phone out of memory. Every GPU Azahar runs on supports 4096.
 constexpr u32 MaxUpscaledTextureSide = 4096;
 
-/// The algorithm that enlarges textures: the Texture Filter setting, xBRZ when that is NoFilter
-/// and Texture upscaling is on (so the setting always has a visible effect).
+/// The algorithm the GPU enlarges textures with: the Texture Filter setting, xBRZ when that is
+/// NoFilter and Texture upscaling is on (so the setting always has a visible effect), and xBRZ for
+/// DARP, which runs on the CPU and replaces the GPU's result once ready (pomegrade_darp_manager.h).
 inline Settings::TextureFilter TextureUpscalingFilter() {
     const auto filter = Settings::values.texture_filter.GetValue();
+    if (filter == Settings::TextureFilter::DARP) {
+        return Settings::TextureFilter::xBRZ;
+    }
     if (filter == Settings::TextureFilter::NoFilter &&
         Settings::values.texture_upscale_factor.GetValue() > 1) {
         return Settings::TextureFilter::xBRZ;

@@ -1,0 +1,73 @@
+# The tests of 8 October on the demo (the camera, the light and the characters' light, ORAS_ENGINE.md 2), for the phone
+# mod all7 (Remake mod: "sb7: sandbox tools/remake/sandbox/light_camera.txt"). Walk from zone 538 (west, the arrival:
+# a sunset light, the game's camera) to zone 539 (east: a camera higher and further back, an orange light on the
+# characters, the player included, with the game's light on the ground).
+# The sandbox demo (oras-sandbox, OrasSandbox.h): two zones on one piece, a pond, tall grass with Route 102's
+# wild Pokemon, a south ledge, a house with its inside, a fence, a person and trainer 10. Checked piece by piece live
+# (ORAS_ENGINE.md 2: runs sand1-sand8, house3, ledge5). For the phone, Remake mod workflow variants:
+#   sb: sandbox tools/remake/sandbox/demo.txt
+#   eng: engine --zone-rows 541
+#   sv: save 538 14.5 20.5
+#   demo: merge sb eng sv
+zone 538
+template 6
+light direction -0.9 -0.25 0.35 diffuse 1 0.55 0.25 ambient 0.45 0.3 0.45
+spawn 14.5 20.5
+name Bac à Sable
+encounters 24
+zone 539
+template 6
+camera pitch -60 distance 320
+character-light diffuse 1 0.6 0.2 ambient 0.6 0.4 0.3
+spawn 30.5 20.5
+name Bac à Sable Est
+character 284 24 19 face 2
+trainer 10 219 33 20 face 2 sight 5
+door 28 16 house 223
+pieces 1 1
+blocks
+0011
+0011
+0011
+0011
+map
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::.........t......TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::............t...TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HHDHH.......TT
+TT..................::......:.........TT
+TT..................::......:.........TT
+TT..................::......:.........TT
+TT::::::::::::::::::::::::::::::::::::TT
+TT::::::::::::::::::::::::::::::::::::TT
+TT..................::................TT
+TT..................::................TT
+TT..................::..FFFFFFFFFFF...TT
+TT..................::................TT
+TT......LLLLLLLLLLL.::................TT
+TT..................::................TT
+TT..................::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::........t.......TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT

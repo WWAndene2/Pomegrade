@@ -236,6 +236,7 @@ static const char* android_config_default_file_content = (BOOST_HANA_STRING(R"(
 # 4: xBRZ
 # 5: MMPX
 # 6: Lanczos (Pomegrade)
+# 7: DARP (Pomegrade)
 )") DECLARE_KEY(texture_filter) BOOST_HANA_STRING(R"(
 
 # Pomegrade: anisotropic filtering of textures: 1 (off), 2, 4, 8, 16 (default)

@@ -57,6 +57,8 @@ std::string_view GetTextureFilterName(TextureFilter filter) {
         return "MMPX";
     case TextureFilter::Lanczos:
         return "Lanczos";
+    case TextureFilter::DARP:
+        return "DARP";
     default:
         return "Invalid";
     }

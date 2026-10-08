@@ -122,6 +122,7 @@ enum class TextureFilter : u32 {
     xBRZ = 4,
     MMPX = 5,
     Lanczos = 6, ///< Pomegrade: texture_filtering/lanczos.frag
+    DARP = 7,    ///< Pomegrade: video_core/pomegrade_darp (CPU, asynchronous; xBRZ meanwhile)
 };
 
 enum class TextureSampling : u32 {
