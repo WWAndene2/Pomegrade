@@ -115,7 +115,13 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   the test, not of the save: `save_test.sh`); kept, the old characters leave the screen black once DllField loads (runs
   `matrix2`-`matrix8`). `--template <save>` takes block 10 from a save the game made in the target matrix instead. Seen, not
   read in code: the record layout. Test saves: `headless/save_test.sh <work> <save>...` (LOADED, BLACK, or UNSURE when the
-  run sticks). A JIT run boots at a varying speed: `wait 700` before `mash a 15` (`matrix1` stayed on the title).
+  run sticks). A JIT run boots at a varying speed: `wait 700` before `mash a 15` (`matrix1` stayed on the title). **Fast runs** (8 October): the software renderer
+  waited on its 4 workers after every triangle (60% of the cores idle, 21% system time); `patch_core.py` lets the host skip
+  drawing (`draw off`; a shot draws 3 frames first) and set the worker count (`POMEGRADE_SW_THREADS`), and lets a state made
+  by the rebuilt core load (its revision reads "UNKNOWN"). With `POMEGRADE_STATE=<work>/title.state` and `wait 120;load
+  title;mash a 8;draw off;wait 900;...` a run reaches the field and walks in 2.5 minutes (run `fast6`) instead of 10-12. The
+  title needs drawing (with it off from the start, A was never taken: `fast1`); a title state made by an older core build
+  must be made again (`wait 700;save title`).
 - **Show that a function runs**: `trace on` / `trace off FILE` around the action (needs `POMEGRADE_INTERPRETER=1`), then
   look for the function's running address in the file (a DllField function at its linked address - 0x10242000 + 0x6F3000) or
   map the whole trace with `prototype/coverage_map.py` (`--minus <run>/<trace>` subtracts a trace of another run). Not GDB:
