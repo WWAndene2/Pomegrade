@@ -28,13 +28,15 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 **What remains, and how** (handover, 7 October; in this order, each with rule 4's budget):
 1. **Trainers: name the battle's functions (next).** The battle is **checked live** (run `trainer3`, section 6,
    **Trainers**). To trace it again in about 25 minutes: the owner's save in front of trainer 7 (zone 24, tile 174.5
-   146.5, made in the game; ask the owner for it, it is not in the repository) with `POMEGRADE_SAVE=<that file>` and
-   `POMEGRADE_INTERPRETER=1 run_local.sh <work> trainer3 - "" "mash a 15;wait 500;shot start;trace on;press a;wait
-   150;shot talk;mash a 10;wait 400;shot battle;trace off trainer.txt;wait 200;shot battle2" 150`, launched with a Bash
-   `timeout` over 30 minutes. Left: 127 unnamed functions (220 named on 8 October) of `coverage_map.py <work> trainer3
-   trainer.txt --minus enc1/enc_grass.txt --minus enc1/enc_idle.txt --minus enc2/enc_battle.txt` (`decompile.sh`, then
-   names). A save moved by `oras-save` into another matrix does not load (`trainer1`): walk through an edge warp instead
-   (`trainer2`, Oldale 83.5 101.5 to Route 102), or use a save made in the game.
+   146.5, made in the game: `tools/remake/headless/saves/main_Trainer_Battle`, put in the repository by the owner on 8
+   October) with `POMEGRADE_SAVE=$PWD/tools/remake/headless/saves/main_Trainer_Battle` (an absolute path: `run_local.sh`
+   copies it from inside the work folder) and `POMEGRADE_INTERPRETER=1 run_local.sh <work> trainer3 - "" "mash a 15;wait
+   500;shot start;trace on;press a;wait 150;shot talk;mash a 10;wait 400;shot battle;trace off trainer.txt;wait 200;shot
+   battle2" 150`, launched with a Bash `timeout` over 30 minutes. Left: 127 unnamed functions (220 named on 8 October)
+   of `coverage_map.py <work> trainer3 trainer.txt --minus enc1/enc_grass.txt --minus enc1/enc_idle.txt --minus
+   enc2/enc_battle.txt` (`decompile.sh`, then names). A save moved by `oras-save` into another matrix does not load
+   (`trainer1`): walk through an edge warp instead (`trainer2`, Oldale 83.5 101.5 to Route 102), or use a save made in
+   the game.
 2. **Encounters, the rest.** Not read: each table kind's own slot pick (the method table at `DAT_102dd028 + 0x3F0` in
    `Field_WildEncounter_PickSlotAndLevel`), what kinds 1-7 are (fishing, rock smash, ...: find a zone and a tile kind
    that uses each with `oras_tables.py encounters`), and what member 537, loaded whole at boot, is for
@@ -101,7 +103,11 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   its registers and raw stack, from which the frames' saved registers give the object that failed. The host prints `speed:`
   once a minute of real time (frames/s over the last minute and since the start; the other `[frame N]` lines come only with
   an event, so the last of them is not where the game is: 7 October). `headless/peek.sh <work> <name>` looks at a run that
-  goes on: its speed, the last commands it reached and its screenshots so far as PNG.
+  goes on: its speed, the last commands it reached and its screenshots so far as PNG. Saves made by the owner in the game
+  are in `headless/saves/` (put there by the owner, 8 October): `main_Trainer_Battle` in front of trainer 7 on Route 102
+  (zone 24, tile 174.5 146.5; run `trainer3`), `main_Startpoint` (zone 6 at tile 104.5 890.5, the position of the 6 October
+  Sinnoh tests, not the owner's Littleroot save at 104.5 170.5) and the save's `00000001.metadata`; a run starts from one
+  with `POMEGRADE_SAVE=<absolute path>`.
 - **Show that a function runs**: `trace on` / `trace off FILE` around the action (needs `POMEGRADE_INTERPRETER=1`), then
   look for the function's running address in the file (a DllField function at its linked address - 0x10242000 + 0x6F3000) or
   map the whole trace with `prototype/coverage_map.py` (`--minus <run>/<trace>` subtracts a trace of another run). Not GDB:
