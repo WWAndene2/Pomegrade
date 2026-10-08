@@ -290,6 +290,14 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
     // interiors and a few places; read as the light and fog colours: inferred, not read in code) taken from the pack of game
     // zone `lighting`, in an appended copy of the shared pack the zone then draws from, so Littleroot's own pack keeps its light
     std::map<int, uint16_t> lightingPack; // game zone -> the appended pack carrying its light
+    // a/1/3/7 holds one member per area pack (228 in the game), read with the zone header's area pack as index when a zone
+    // loads its characters (Event_LoadZoneCharacterModels 0x3F73C4: its archive handle at +0x36B8 names "rom:/a/1/3/7");
+    // an index past its members sends the game into its fatal-error loop (Res_GetContainerEntryInfo 0x1287BC, its cached
+    // count at +0x34: checked under the debugger, runs apk1-apk4: area pack 229 asked, 228 members). An appended pack gets the
+    // copy of its source pack's member, and the members between are filled the same way
+    const Bytes perArea = oras.Read("a/1/3/7");
+    const Garc perAreaArchive(perArea);
+    Garc newPerArea(perArea);
     for (const SandboxZone& z : d.Zones)
     {
         if (z.Lighting < 0 || lightingPack.count(z.Lighting)) continue;
@@ -300,6 +308,8 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
         copy.Files[4] = light;
         const size_t index = AppendMember(newAreas, areaArchive, (size_t)pack, copy.Write(), "AD");
         lightingPack[z.Lighting] = (uint16_t)index;
+        if ((size_t)pack >= perAreaArchive.Count()) throw FormatError("sandbox: a/1/3/7 has no member for area pack " + std::to_string(pack));
+        while (newPerArea.Count() <= index) newPerArea.Set(newPerArea.Count(), perAreaArchive.Sub((size_t)pack));
         snprintf(line, sizeof line, "lighting of zone %d (area pack %d's file 4): area pack %zu, a copy of pack %d", z.Lighting, from, index, pack);
         log.push_back(line);
     }
@@ -421,7 +431,8 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
     snprintf(id, sizeof id, "%016llX", (unsigned long long)oras.ProgramId());
     const std::filesystem::path out(outDir), root = out / "load" / "mods" / id / "romfs_ext";
     for (const auto& [path, archive, original] : {std::tuple<const char*, Garc*, const Bytes*>{"a/0/3/9", &newPieces, &pieces}, {"a/0/4/0", &newMatrices, &matrices},
-                                                  {"a/0/1/3", &newZones, &zones}, {"a/0/1/4", &newAreas, &areas}})
+                                                  {"a/0/1/3", &newZones, &zones}, {"a/0/1/4", &newAreas, &areas},
+                                                  {"a/1/3/7", &newPerArea, &perArea}})
     {
         const Bytes data = archive->Write();
         if (data == *original) continue;
