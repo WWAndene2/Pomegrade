@@ -352,6 +352,18 @@ static int RunScript(void* core, const char* path)
         }
         else if (cmd == "screen") { DrawFrames(); Screen(); DrawStop(); }
         else if (cmd == "shot") { DrawFrames(); Shot(arg); DrawStop(); }
+        else if (cmd == "frames")
+        {
+            // frames N NAME [KEYS]: N consecutive frames saved, NAME_000.ppm..., KEYS held meanwhile (test sequences for frame
+            // generation: a 3DS game's real in-between frames to compare generated ones with)
+            std::string name, keys; words >> name >> keys;
+            held = keys.empty() ? 0 : Keys(keys);
+            DrawFrames();
+            const unsigned n = (unsigned)strtoul(arg.c_str(), nullptr, 10);
+            for (unsigned k = 0; k < n; k++) { char b[32]; snprintf(b, sizeof b, "_%03u", k); Step(); Shot(name + b); }
+            held = 0;
+            DrawStop();
+        }
         else if (cmd == "draw")
         {
             if (!setSkipDraw) setSkipDraw = reinterpret_cast<void (*)(bool)>(dlsym(core, "pomegrade_set_skip_draw"));
