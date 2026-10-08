@@ -589,7 +589,9 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         auto open = [&](int c, int r, const char* classes) { return path2[r][c] != ':' && water2[r][c] != '~' && std::string(classes).find(fineVis(c, r)) != std::string::npos; };
         auto lightGrass = [&](int c, int r) { return open(c, r, "s"); };
         auto path = [&](int c, int r) { return path2[r][c] == ':' && water2[r][c] != '~'; };
-        FlatFine(geo[Ground], 2, [&](int c, int r) { return water2[r][c] != '~' && (path(c, r) || open(c, r, ".*HtF:f~s")); }, 0, grass);
+        // a ledge's tile has grass under it too: its foot is translucent, and with no ground there it blended with nothing and
+        // showed black (run ledge2; the owner asked why it had a shadow)
+        FlatFine(geo[Ground], 2, [&](int c, int r) { return water2[r][c] != '~' && (path(c, r) || open(c, r, ".*HtF:f~sL")); }, 0, grass);
         // ORAS's zones follow the tile lattice (ORAS_LITTLEROOT.md 9d, 9e): the lighter grass is made of whole tiles (a tile is in it
         // when at least two of its four halves are, a tie going to the path); a path may step by half tiles, as 94 of the game's 286
         // path meshes do, which is Platinum's own precision
@@ -665,7 +667,7 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         note("grass edge: %zu outlines, %d decals\n", (snowy ? 0 : lightShape.Chains.size()) + pathShape.Chains.size(), decals);
     }
     else
-        FlatFine(geo[Pale], 2, [&](int c, int r) { return path2[r][c] != ':' && water2[r][c] != '~' && std::string(".*HstF:f~").find(fineVis(c, r)) != std::string::npos; }, 0, white);
+        FlatFine(geo[Pale], 2, [&](int c, int r) { return path2[r][c] != ':' && water2[r][c] != '~' && std::string(".*HstF:f~L").find(fineVis(c, r)) != std::string::npos; }, 0, white);
     if (!ownGrass) FlatFine(geo[Soil], 2, [&](int c, int r) { return path2[r][c] == ':' && water2[r][c] != '~'; }, 0, soil);
     Flat(geo[Ground], vis, "T", 0, forest, 12);
     // the pond from Platinum's colours (its blue edge, lakep, is water too)
