@@ -1097,8 +1097,9 @@ int main(int argc, char** argv)
             if (argc >= 7)
             {
                 // --template FILE: the player block taken from that save first (a save the game made in the target matrix)
-                // --blocks A,B,...: which blocks to take (default 4, the player block); 4 is block index 4, the others by id
-                std::string blocks = "4";
+                // --blocks A,B,...: which blocks to take by id; by default block 10, the one a move into another matrix needs (runs
+                // matrix3-8, 8 October: the player block 4 and blocks 3-6 are not enough, block 10 alone is; its content: not read)
+                std::string blocks = "10";
                 for (int i = 7; i + 1 < argc; i++)
                     if (std::string(argv[i]) == "--blocks") blocks = argv[i + 1];
                 for (int i = 7; i + 1 < argc; i++)

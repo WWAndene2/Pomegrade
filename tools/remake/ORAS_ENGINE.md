@@ -36,16 +36,7 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
    150`, launched with a Bash `timeout` over 30 minutes. What it ran: `coverage_map.py <work> trainer3 trainer.txt
    --minus enc1/enc_grass.txt --minus enc1/enc_idle.txt --minus enc2/enc_battle.txt` (`decompile.sh`, then names). A
    save moved by `oras-save` into another matrix does not load (`trainer1`): walk through an edge warp instead
-   (`trainer2`, Oldale 83.5 101.5 to Route 102), or use a save made in the game. **Moving a save into another matrix, 8
-   October:** block 4 holds the zone twice, +2 and +0xF4, each before its position (+0x10/+0x18, +0x104/+0x10C); the
-   game's own saves (Littleroot zone 6, Route 102 zone 24) hold the same zone at both, and `oras-save` now writes both.
-   **Not enough:** run `matrix2` (the save moved to Petalburg, zone 13) loaded DllField and stayed black from frame
-   1,145, as `trainer1`. Words that differ between the two game saves, the next candidates: +0x38-+0x54 (zone 7 and the
-   tile 81.5 101.5 of the Oldale edge warp the owner took: the last warp, inferred), +0xE4-+0xEE, +0x06 and +0xF6 (3 and
-   2), +0x08 (f32), +0x0E and +0x102 (2084 and 0), +0xF8 (12 and 0). Next: give `oras-save` a template, a save made by
-   the game in the target matrix (`saves/main_Trainer_Battle` for matrix 2), copy its differing words but the zone and
-   position, test, then narrow down to the words that matter. A JIT run boots at a varying speed: `wait 700` before
-   `mash a 15` (run `matrix1` stayed on the title with `mash a 15` first).
+   (`trainer2`, Oldale 83.5 101.5 to Route 102), or use a save made in the game.
 2. **Encounters, the rest.** Not read: each table kind's own slot pick (the method table at `DAT_102dd028 + 0x3F0` in
    `Field_WildEncounter_PickSlotAndLevel`), what kinds 1-7 are (fishing, rock smash, ...: find a zone and a tile kind
    that uses each with `oras_tables.py encounters`), and what member 537, loaded whole at boot, is for
@@ -116,7 +107,14 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   are in `headless/saves/` (put there by the owner, 8 October): `main_Trainer_Battle` in front of trainer 7 on Route 102
   (zone 24, tile 174.5 146.5; run `trainer3`), `main_Startpoint` (zone 6 at tile 104.5 890.5, the position of the 6 October
   Sinnoh tests, not the owner's Littleroot save at 104.5 170.5) and the save's `00000001.metadata`; a run starts from one
-  with `POMEGRADE_SAVE=<absolute path>`.
+  with `POMEGRADE_SAVE=<absolute path>`. **Moving the save into another matrix** (8 October, runs `matrix2`-`matrix8`):
+  `oras-save <main> <out> <zone> <x> <z> --template <save>` with a save the game made in the target matrix
+  (`saves/main_Trainer_Battle` for matrix 2): it takes block 10 from it, then writes the zone (both copies, +2 and +0xF4 of
+  block 4) and the position. **Checked**: the owner's Littleroot save moved so to Petalburg (zone 13, 115.5 136.5) loads and
+  walks into Route 102 (`matrix8`); without block 10 it stays black once DllField is loaded (`matrix2`; also with block 4
+  alone, `matrix3`, and blocks 3-6, `matrix5`). What in block 10 matters is not read (8,448 bytes, 124 runs of differences
+  between the two saves); within a matrix no template is needed. A JIT run boots at a varying speed: `wait 700` before `mash
+  a 15` (`matrix1` stayed on the title).
 - **Show that a function runs**: `trace on` / `trace off FILE` around the action (needs `POMEGRADE_INTERPRETER=1`), then
   look for the function's running address in the file (a DllField function at its linked address - 0x10242000 + 0x6F3000) or
   map the whole trace with `prototype/coverage_map.py` (`--minus <run>/<trace>` subtracts a trace of another run). Not GDB:
@@ -532,7 +530,7 @@ effectiveness, sequence commands, its UI panels; in the field a line-of-sight te
 pc,[pc,#-4]` (`<Module>_Import_<target>`, read), 54 functions read with up to three callers each (and, for the 7 with no
 direct caller, the pointer table holding them), 33 of them guess; **every function of the battle's trace is named** (0
 left). Which character is which trainer: `oras-inspect zone` (script 3000 + id, inferred). (The "+0xAE" zone word noted
-here on 7 October was a misread: the moved-save work of 8 October is in section 0, item 1.)
+here on 7 October was a misread: moving a save into another matrix: section 0, **Run the game**.)
 
 **Door, sign and menu** (the three traces above, 1,728 more functions named on 7 October by six sub-agents over the
 decompilation, two per part where a part was re-run; names that only said "role not determined" were left out; most of
