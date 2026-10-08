@@ -78,7 +78,10 @@ class PomegradeFolderSetupDelegate(private val activity: ComponentActivity) {
     // the folder is set up: its 3DS part too, which an earlier setup may not have reached
     private fun completeAndFinish() {
         activity.lifecycleScope.launch {
-            withContext(Dispatchers.IO) { runCatching { pomegradeFolder.setUpThreeDs() } }
+            withContext(Dispatchers.IO) {
+                runCatching { pomegradeFolder.setUpThreeDs() }
+                runCatching { pomegradeFolder.hideImagesFromGallery() }
+            }
             finish(true)
         }
     }

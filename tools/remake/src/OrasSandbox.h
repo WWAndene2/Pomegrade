@@ -14,6 +14,8 @@
 //                     its textures from the first zone's template's area pack
 //   spawn X Z         the tile the zone's header names (where a new game and a save's warp land, inferred), on its own blocks
 //   name TEXT         optional: the place name (Navi-Map, the sign on entering), added to the eight languages' names
+//   lighting Z        optional: game zone Z's area pack's file 4 in a copy of the sandbox's pack (taken for the light;
+//                     no change seen outdoors: what it does is not known)
 //   encounters Z      optional: game zone Z's encounter file (its file 3) copied; none without it
 //   character MODEL X Z [face F] [script S] [move M]
 //                     a person standing on tile X, Z of the map (model: a character model number, as oras-inspect zone prints

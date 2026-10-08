@@ -591,7 +591,7 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         auto path = [&](int c, int r) { return path2[r][c] == ':' && water2[r][c] != '~'; };
         // a ledge's tile has grass under it too: its foot is translucent, and with no ground there it blended with nothing and
         // showed black (run ledge2; the owner asked why it had a shadow)
-        FlatFine(geo[Ground], 2, [&](int c, int r) { return water2[r][c] != '~' && (path(c, r) || open(c, r, ".*HtF:f~sL")); }, 0, grass);
+        FlatFine(geo[Ground], 2, [&](int c, int r) { return water2[r][c] != '~' && (path(c, r) || open(c, r, ".*HtF:f~sLg")); }, 0, grass); // and tall grass's: it was laid none (a black patch on the phone, 8 October)
         // ORAS's zones follow the tile lattice (ORAS_LITTLEROOT.md 9d, 9e): the lighter grass is made of whole tiles (a tile is in it
         // when at least two of its four halves are, a tie going to the path); a path may step by half tiles, as 94 of the game's 286
         // path meshes do, which is Platinum's own precision
@@ -667,11 +667,15 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
         note("grass edge: %zu outlines, %d decals\n", (snowy ? 0 : lightShape.Chains.size()) + pathShape.Chains.size(), decals);
     }
     else
-        FlatFine(geo[Pale], 2, [&](int c, int r) { return path2[r][c] != ':' && water2[r][c] != '~' && std::string(".*HstF:f~L").find(fineVis(c, r)) != std::string::npos; }, 0, white);
+        FlatFine(geo[Pale], 2, [&](int c, int r) { return path2[r][c] != ':' && water2[r][c] != '~' && std::string(".*HstF:f~Lg").find(fineVis(c, r)) != std::string::npos; }, 0, white);
     if (!ownGrass) FlatFine(geo[Soil], 2, [&](int c, int r) { return path2[r][c] == ':' && water2[r][c] != '~'; }, 0, soil);
     Flat(geo[Ground], vis, "T", 0, forest, 12);
     // the pond from Platinum's colours (its blue edge, lakep, is water too)
     FlatFine(geo[Water], 2, [&](int c, int r) { return water2[r][c] == '~'; }, -4.2f, waterColour);
+    // a bed under the water: the water is translucent and with nothing under it the pond showed nearly black (the owner, on
+    // the phone, 8 October: the sandbox demo's pond); the soil, below the water's surface, in the water's colour (plain soil
+    // showed as a bare earth pit through the clear water: run fix1)
+    FlatFine(geo[Soil], 2, [&](int c, int r) { return water2[r][c] == '~'; }, -6.0f, waterColour);
     if (src.BankTexture.empty()) BanksFine(geo[Bank], water2);
     else BanksFine(geo[Bank], water2, src.BankV[0], src.BankV[1]);
     // no outline on the paths (the owner's choice): the outline mesh is left empty
