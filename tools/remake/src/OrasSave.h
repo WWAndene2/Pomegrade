@@ -35,6 +35,10 @@ struct OrasSave
     // copies the whole player block (block 4) from another save (one the game made in the target matrix), before MoveTo: the
     // block's other words (last warp, a second zone and position record, ...) then come from a place the game wrote itself
     void TakePlayerBlockFrom(const OrasSave& other);
+    // copies block <id> whole from another save (same place and size, else FormatError); MoveTo or WriteChecksums after
+    void TakeBlockFrom(const OrasSave& other, uint16_t id);
+    // writes every block's checksum again
+    void WriteChecksums();
 };
 
 uint16_t Crc16Ccitt(const uint8_t* data, size_t size);

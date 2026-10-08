@@ -51,6 +51,30 @@ void OrasSave::TakePlayerBlockFrom(const OrasSave& other)
     // MoveTo writes the checksum again
 }
 
+void OrasSave::TakeBlockFrom(const OrasSave& other, uint16_t id)
+{
+    for (size_t i = 0; i < Blocks.size(); i++)
+        if (Blocks[i].Id == id)
+        {
+            if (i >= other.Blocks.size() || other.Blocks[i].Offset != Blocks[i].Offset || other.Blocks[i].Length != Blocks[i].Length)
+                throw FormatError("the template save's block " + std::to_string(id) + " differs in place or size");
+            std::memcpy(&Data[Blocks[i].Offset], &other.Data[Blocks[i].Offset], Blocks[i].Length);
+            return;
+        }
+    throw FormatError("the save has no block " + std::to_string(id));
+}
+
+void OrasSave::WriteChecksums()
+{
+    for (size_t i = 0; i < Blocks.size(); i++)
+    {
+        const uint16_t crc = Crc16Ccitt(&Data[Blocks[i].Offset], Blocks[i].Length);
+        const size_t entry = TableAt + i * 8 + 6;
+        Data[entry] = (uint8_t)crc; Data[entry + 1] = (uint8_t)(crc >> 8);
+        Blocks[i].Checksum = crc;
+    }
+}
+
 void OrasSave::MoveTo(int zone, float tileX, float tileZ)
 {
     // the zone is held twice too: +2 and +0xF4, each before its position (+0x10/+0x18 and +0x104/+0x10C). A save made by the game
