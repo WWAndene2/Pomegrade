@@ -1,5 +1,6 @@
 #include "OrasSandbox.h"
 #include "BinLinker.h"
+#include "GameText.h"
 #include "Bps.h"
 #include "Garc.h"
 #include "NitroCompression.h"
@@ -8,6 +9,8 @@
 #include "OrasZone.h"
 #include "TownLayout.h"
 
+#include <algorithm>
+#include <array>
 #include <cstring>
 #include <filesystem>
 #include <sstream>
@@ -23,6 +26,8 @@ struct SandboxDescription
 {
     int Zone = -1, Template = -1, Encounters = -1, Width = 0, Height = 0;
     float SpawnX = -1, SpawnZ = -1;
+    std::string Name;
+    std::vector<std::array<int, 8>> Characters; // model, x, z, facing, script, movement, kind, sight
     std::vector<std::string> Map;
 };
 
@@ -49,6 +54,28 @@ static SandboxDescription ReadDescription(const std::string& text)
         else if (what == "encounters") ok = (bool)(words >> d.Encounters);
         else if (what == "spawn") ok = (bool)(words >> d.SpawnX >> d.SpawnZ);
         else if (what == "pieces") ok = (bool)(words >> d.Width >> d.Height);
+        else if (what == "name") { std::getline(words >> std::ws, d.Name); ok = !d.Name.empty(); }
+        else if (what == "character" || what == "trainer")
+        {
+            // character MODEL X Z [face F] [script S] [move M]; trainer ID MODEL X Z [face F] [sight N] [move M]
+            int id = 0;
+            std::array<int, 8> c{0, 0, 0, 0, 0, 0, 0, 0};
+            if (what == "trainer") { ok = (bool)(words >> id); c[4] = 3000 + id; c[6] = 1; c[7] = 4; }
+            ok = ok && (bool)(words >> c[0] >> c[1] >> c[2]);
+            std::string key;
+            while (ok && words >> key)
+            {
+                int v = 0;
+                ok = (bool)(words >> v);
+                if (key == "face") c[3] = v;
+                else if (key == "script" && what == "character") c[4] = v;
+                else if (key == "move") c[5] = v;
+                else if (key == "sight" && what == "trainer") c[7] = v;
+                else throw FormatError("sandbox description, line " + std::to_string(number) + ": " + what + " has no " + key);
+            }
+            if (what == "trainer" && (id < 1 || id > 949)) throw FormatError("sandbox description, line " + std::to_string(number) + ": trainer ids are 1-949 (a/0/3/6)");
+            d.Characters.push_back(c);
+        }
         else if (what == "map") map = true;
         else throw FormatError("sandbox description, line " + std::to_string(number) + ": unknown statement " + what);
         if (!ok) throw FormatError("sandbox description, line " + std::to_string(number) + ": " + what + " needs its numbers");
@@ -159,15 +186,62 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
     // the zone: the template's header and scripts, its events emptied, its own number, the new matrix and the spawn tile
     OrasZone zone = model;
     zone.Furniture.clear(); zone.Characters.clear(); zone.Doors.clear(); zone.Triggers.clear(); zone.Others.clear();
+    // characters: each a copy of a game character's 24 words (zone 24's: character 2 standing, kind 0; character 5 its trainer 10)
+    // with the known words set (OrasZone.h): 0 the id, 1 the model, 2 the movement, 3 the kind, 5 the script (3000 + id for a
+    // trainer, inferred), 6 the facing, 7 the sight, 20-21 the tile; the rest as the copied one
+    if (!d.Characters.empty())
+    {
+        const OrasZone route = OrasZone::Read(Plain(zoneArchive.Sub(24)));
+        for (const auto& c : d.Characters)
+        {
+            if (c[1] < 0 || c[2] < 0 || c[1] >= d.Width * TownTiles || c[2] >= d.Height * TownTiles) throw FormatError("sandbox: a character stands outside the map");
+            const char under = d.Map[(size_t)c[2]][(size_t)c[1]];
+            if (under == '~' || under == 't' || under == 'T') throw FormatError("sandbox: a character stands on a solid tile");
+            ZoneCharacter k = route.Characters.at(c[6] == 1 ? 5 : 2);
+            k.Raw[0] = (uint16_t)zone.Characters.size();
+            k.Raw[1] = (uint16_t)c[0]; k.Raw[2] = (uint16_t)c[5]; k.Raw[3] = (uint16_t)c[6]; k.Raw[5] = (uint16_t)c[4];
+            k.Raw[6] = (uint16_t)c[3]; k.Raw[7] = (uint16_t)(c[6] == 1 ? c[7] : 0); k.Raw[20] = (uint16_t)c[1]; k.Raw[21] = (uint16_t)c[2];
+            zone.Characters.push_back(k);
+        }
+        log.push_back("characters: " + std::to_string(zone.Characters.size()));
+    }
     zone.Header[2] = (uint16_t)matrixIndex;
     zone.Header[13] = (uint16_t)d.Zone;
     for (int at : {22, 25}) { zone.Header[at] = (uint16_t)(d.SpawnX * 18); zone.Header[at + 2] = (uint16_t)(d.SpawnZ * 18); }
+    // the place name (Navi-Map, the name shown on entering): header word 14 & 0x3FF is a line of text file 90 (Zone_GetLocationNameId
+    // 0x4D86EC; checked: zone 6 and its house 223 both 170, line 170 "Bourg-en-Vol" in a/0/7/4, "Littleroot Town" in a/0/7/3).
+    // The name is added as a new line in the eight languages' files (a/0/7/1-a/0/7/8), the same text in all
+    std::vector<std::tuple<std::string, Bytes, Garc>> texts; // archive, original, new
+    if (!d.Name.empty())
+    {
+        size_t line = 0;
+        for (int a = 1; a <= 8; a++)
+        {
+            const std::string path = "a/0/7/" + std::to_string(a);
+            const Bytes data = oras.Read(path);
+            const Garc g(data);
+            Garc n(data);
+            const Bytes file = Plain(g.Sub(90));
+            const std::vector<std::string> lines = ReadGameText(file);
+            if (a == 1) line = lines.size();
+            else if (line != lines.size()) throw FormatError(path + " member 90: not as many place names as a/0/7/1's");
+            const Bytes added = AppendGameTextLine(file, d.Name);
+            std::vector<std::string> back = ReadGameText(added);
+            if (back.size() != lines.size() + 1 || back.back() != d.Name || !std::equal(lines.begin(), lines.end(), back.begin()))
+                throw FormatError(path + " member 90: the added place name does not read back");
+            ReplaceMember(n, g, 90, added, "");
+            texts.emplace_back(path, data, std::move(n));
+        }
+        if (line > 0x3FF) throw FormatError("sandbox: no place name number left (10 bits)");
+        zone.Header[14] = (uint16_t)((zone.Header[14] & ~0x3FF) | line);
+        log.push_back("place name \"" + d.Name + "\": line " + std::to_string(line) + " of text file 90 in a/0/7/1-a/0/7/8");
+    }
     BinLinker zc = BinLinker::Read(zone.Write(templateData), "ZO");
     const Bytes encounter = d.Encounters >= 0 ? BinLinker::Read(Plain(zoneArchive.Sub((size_t)d.Encounters)), "ZO").Files.at(3) : Bytes{};
     zc.Files.at(3) = encounter;
     const Bytes zoneData = zc.Write();
     const OrasZone check = OrasZone::Read(zoneData);
-    if (check.Number() != d.Zone || check.Matrix() != (int)matrixIndex || !check.Characters.empty() || !check.Doors.empty())
+    if (check.Number() != d.Zone || check.Matrix() != (int)matrixIndex || check.Characters.size() != zone.Characters.size() || !check.Doors.empty())
         throw FormatError("the new zone does not read back as written");
     const size_t zoneIndex = AppendMember(newZones, zoneArchive, (size_t)d.Template, zoneData, "ZO");
     snprintf(line, sizeof line, "zone %zu: template %d's header and scripts, area pack %d, no events, spawn (%.1f, %.1f), encounters %s", zoneIndex, d.Template,
@@ -210,6 +284,15 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
         snprintf(line, sizeof line, "%s: %zu members, patch %zu bytes, checked", path, Garc(data).Count(), bps.size());
         log.push_back(line);
     }
+    for (auto& [path, original, archive] : texts)
+    {
+        const Bytes data = archive.Write();
+        const Bytes bps = BpsCreate(original, data);
+        if (BpsApply(original, bps) != data) throw FormatError(path + ": the patch does not rebuild the file");
+        std::filesystem::create_directories((root / path).parent_path());
+        WriteFile((root / (path + ".bps")).string(), bps);
+    }
+    if (!texts.empty()) log.push_back("a/0/7/1-a/0/7/8: place names patched, checked");
     std::filesystem::create_directories(out);
     WriteFile((out / "sandbox_layout.txt").string(), Bytes(layouts.begin(), layouts.end()));
     return log;
