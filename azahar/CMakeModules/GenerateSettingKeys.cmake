@@ -44,6 +44,7 @@ foreach(KEY IN ITEMS
     "shaders_accurate_mul"
     "use_vsync"
     "use_skip_duplicate_frames"
+    "frame_rate_mode"
     "use_display_refresh_rate_detection"
     "use_shader_jit"
     "resolution_factor"

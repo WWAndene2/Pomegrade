@@ -283,6 +283,15 @@
     <string name="advanced">Advanced</string>
     <string name="texture_sampling_name">Texture Sampling</string>
     <string name="texture_sampling_description">Overrides the sampling filter used by games. This can be useful in certain cases with poorly behaved games when upscaling. If unsure, set this to Game Controlled.</string>
+    <!-- Pomegrade: the 3DS frame rate modes (video_core/frame_generation.h); the game always runs at its own speed -->
+    <string name="pomegrade_frame_rate">Frame rate</string>
+    <string name="pomegrade_frame_rate_description">Images shown per second. Generated images are made between the last two real ones (about one frame of delay) and need \"Skip Presenting Duplicate Frames\" on</string>
+    <string name="pomegrade_frame_rate_30">30 fps: one image in two shown (saves battery)</string>
+    <string name="pomegrade_frame_rate_60">60 fps: the game as it is</string>
+    <string name="pomegrade_frame_rate_60_smooth">60 fps smooth: images generated for 30 fps games</string>
+    <string name="pomegrade_frame_rate_120">120 fps: images generated (120 Hz screen)</string>
+    <string name="pomegrade_frame_rate_240">240 fps: images generated (240 Hz screen; 120 on a 120 Hz screen)</string>
+    <string name="pomegrade_frame_rate_adaptive">Adaptive: the most your screen shows, 60 while the phone is hot</string>
     <string name="use_skip_duplicate_frames">Skip Presenting Duplicate Frames</string>
     <string name="use_skip_duplicate_frames_description">Skips the presentation of frames that are not unique. It also allows external frame generation tools to work correctly with 30fps games</string>
     <string name="shaders_accurate_mul">Accurate Multiplication</string>

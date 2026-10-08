@@ -6,6 +6,8 @@
 #include "common/settings.h"
 #include "common/thread.h"
 #include "core/frontend/emu_window.h"
+#include <chrono>
+#include "video_core/frame_generation.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_platform.h"
 #include "video_core/renderer_vulkan/vk_present_window.h"
@@ -283,9 +285,12 @@ Frame* PresentWindow::GetRenderFrame() {
 }
 
 void PresentWindow::Present(Frame* frame) {
+    frame->time_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                         std::chrono::steady_clock::now().time_since_epoch())
+                         .count();
     if (!use_present_thread) {
         scheduler.WaitWorker();
-        CopyToSwapchain(frame);
+        Show(frame);
         free_queue.push(frame);
         return;
     }
@@ -335,13 +340,28 @@ void PresentWindow::PresentThread(std::stop_token token) {
         // lock in WaitPresent is guaranteed to occur after here.
         std::exchange(lock, std::unique_lock{swapchain_mutex});
 
-        CopyToSwapchain(frame);
+        Show(frame);
 
         // Free the frame for reuse
         std::scoped_lock fl{free_mutex};
         free_queue.push(frame);
         free_cv.notify_one();
     }
+}
+
+void PresentWindow::Show(Frame* frame) {
+    if (!VideoCore::FrameGeneration::Generates()) {
+        if (frame_generator) {
+            frame_generator->Reset();
+        }
+        CopyToSwapchain(frame);
+        return;
+    }
+    if (!frame_generator) {
+        frame_generator = std::make_unique<FrameGeneratorVK>(instance, scheduler, present_renderpass,
+                                                             swapchain.GetSurfaceFormat().format);
+    }
+    frame_generator->Present(frame, [this](Frame* shown) { CopyToSwapchain(shown); });
 }
 
 void PresentWindow::NotifySurfaceChanged() {

@@ -8,6 +8,7 @@
 #include "video_core/renderer_base.h"
 #include "video_core/renderer_opengl/frame_dumper_opengl.h"
 #include "video_core/renderer_opengl/gl_driver.h"
+#include "video_core/renderer_opengl/gl_frame_generation.h"
 #include "video_core/renderer_opengl/gl_rasterizer.h"
 #include "video_core/renderer_opengl/gl_resource_manager.h"
 #include "video_core/renderer_opengl/gl_state.h"
@@ -93,6 +94,12 @@ private:
     OGLProgram shader;
     OGLFramebuffer screenshot_framebuffer;
     std::array<OGLSampler, 2> samplers;
+
+    // Pomegrade: frame rate modes (video_core/frame_generation.h): the distinct frames' numbers, one in two shown at 30
+    // fps, and the generated images of each window's presentation thread
+    u64 frame_serial = 0;
+    bool half_shown = false;
+    std::array<FrameGeneratorGL, 2> frame_generators;
 
     // Display information for top and bottom screens respectively
     std::array<ScreenInfo, 3> screen_infos;

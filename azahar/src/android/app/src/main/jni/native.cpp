@@ -71,6 +71,7 @@
 #include "jni/ndk_motion.h"
 #include "multiplayer.h"
 #include "video_core/debug_utils/debug_utils.h"
+#include "video_core/frame_generation.h"
 #include "video_core/gpu.h"
 #include "video_core/renderer_base.h"
 
@@ -526,6 +527,13 @@ void Java_org_citra_citra_1emu_NativeLibrary_doFrame([[maybe_unused]] JNIEnv* en
     if (secondary_window) {
         secondary_window->TryPresenting();
     }
+}
+
+// Pomegrade: the screen's rate and the phone's heat for the frame rate modes (video_core/frame_generation.h)
+void Java_org_citra_citra_1emu_NativeLibrary_setDisplayRefresh([[maybe_unused]] JNIEnv* env,
+                                                               [[maybe_unused]] jobject obj,
+                                                               jfloat refresh_rate, jboolean hot) {
+    VideoCore::FrameGeneration::SetDisplay(refresh_rate, hot != JNI_FALSE);
 }
 
 void JNICALL Java_org_citra_citra_1emu_NativeLibrary_initializeGpuDriver(
