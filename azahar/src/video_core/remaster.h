@@ -50,7 +50,7 @@ int SurfaceMode();
 
 /// The shaders (no #version: OpenGL's LoadShader adds it). STATS: the frame's luminance and its square (r, g), for the
 /// mean and spread read in its smallest mipmap; BRIGHT: the highlights, blurred by their mipmaps for the glow; MAIN: the
-/// remastered frame. Bindings: 0 the frame, 1 its depth, 2 the stats, 3 the highlights.
+/// remastered frame. Bindings: 0 the frame, 1 its depth, 2 the stats, 7 the highlights.
 extern const char* const STATS_FRAG;
 extern const char* const BRIGHT_FRAG;
 extern const char* const MAIN_FRAG;

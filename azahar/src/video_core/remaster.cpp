@@ -67,7 +67,7 @@ layout(location = 0) out vec4 color;
 layout(binding = 0) uniform sampler2D frame;
 layout(binding = 1) uniform sampler2D depth;
 layout(binding = 2) uniform sampler2D stats;
-layout(binding = 3) uniform sampler2D bright;
+layout(binding = 7) uniform sampler2D bright;
 // cr, dr: the frame's and the depth's rectangle in their textures (u from x to y, v from z to w) for this pass's
 // coordinates; texel: 1 / width, 1 / height of the pass, whether there is a depth, the stats' smallest mipmap
 uniform vec4 cr;

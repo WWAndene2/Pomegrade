@@ -26,7 +26,7 @@ private:
     OGLTexture stats, bright, result;
     OGLFramebuffer stats_fbo, bright_fbo, result_fbo;
     OGLProgram stats_program, bright_program, main_program;
-    OGLSampler linear, nearest;
+    OGLSampler linear, mipmapped, nearest;
     OGLVertexArray vao;
 };
 

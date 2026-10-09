@@ -84,12 +84,13 @@ static bool GlCreateContext()
 {
     egl = dlopen("libEGL.so.1", RTLD_NOW | RTLD_GLOBAL);
     if (!egl) return false;
-    const auto eglGetDisplay = Egl<EGLDisplay (*)(EGLNativeDisplayType)>("eglGetDisplay");
+    // Mesa's surfaceless platform: no X or Wayland in the container (EGL_DEFAULT_DISPLAY needs one)
+    const auto eglGetPlatformDisplay = Egl<EGLDisplay (*)(EGLenum, void*, const EGLAttrib*)>("eglGetPlatformDisplay");
     const auto eglInitialize = Egl<EGLBoolean (*)(EGLDisplay, EGLint*, EGLint*)>("eglInitialize");
     const auto eglBindAPI = Egl<EGLBoolean (*)(EGLenum)>("eglBindAPI");
     const auto eglCreateContext = Egl<EGLContext (*)(EGLDisplay, EGLConfig, EGLContext, const EGLint*)>("eglCreateContext");
     const auto eglMakeCurrent = Egl<EGLBoolean (*)(EGLDisplay, EGLSurface, EGLSurface, EGLContext)>("eglMakeCurrent");
-    EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    EGLDisplay display = eglGetPlatformDisplay(0x31DD, EGL_DEFAULT_DISPLAY, nullptr); // EGL_PLATFORM_SURFACELESS_MESA
     if (display == EGL_NO_DISPLAY || !eglInitialize(display, nullptr, nullptr) || !eglBindAPI(EGL_OPENGL_API)) return false;
     const EGLint attributes[] = {EGL_CONTEXT_MAJOR_VERSION, 4, EGL_CONTEXT_MINOR_VERSION, 3, EGL_CONTEXT_OPENGL_PROFILE_MASK,
                                  EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT, EGL_NONE};

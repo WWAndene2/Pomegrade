@@ -234,7 +234,7 @@ void FragmentModule::WritePomegradeSurface() {
     const u32 mode = user.pomegrade_surface_mode.Value();
     const float relief = mode == 0 ? 2.2f : mode == 1 ? 1.1f : 0.0f;
     const bool volume = mode >= 1;
-    out += "vec2 pg_uv0 = texcoord0;\nfloat pg_shade = 1.0;\n{\n";
+    out += "pg_uv0 = texcoord0;\npg_shade = 1.0;\n{\n";
     out += R"(
     vec2 dx = dFdx(texcoord0), dy = dFdy(texcoord0);
     float m11 = dx.x * dx.x + dy.x * dy.x, m22 = dx.y * dx.y + dy.y * dy.y, m12 = dx.x * dx.y + dy.x * dy.y;
@@ -1425,6 +1425,10 @@ void FragmentModule::DefineBindingsGL() {
     // Utility textures
     if (user.use_custom_normal || user.pomegrade_surface) {
         out += "layout(binding = 6) uniform sampler2D tex_normal;\n";
+    }
+    if (user.pomegrade_surface) {
+        // globals: sampleTexUnit0 reads the shifted coordinates
+        out += "vec2 pg_uv0;\nfloat pg_shade;\n";
     }
     if (use_blend_fallback) {
         out += "layout(binding = 7) uniform sampler2D tex_color;\n";
