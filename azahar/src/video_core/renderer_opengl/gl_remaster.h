@@ -23,9 +23,9 @@ private:
     void Resize(u32 width, u32 height);
     void Pass(const OGLProgram& program, GLuint fbo, u32 w, u32 h);
     u32 width = 0, height = 0;
-    OGLTexture stats, bright, result;
-    OGLFramebuffer stats_fbo, bright_fbo, result_fbo;
-    OGLProgram stats_program, bright_program, main_program;
+    OGLTexture stats, bright, light, result;
+    OGLFramebuffer stats_fbo, bright_fbo, light_fbo, result_fbo;
+    OGLProgram stats_program, bright_program, light_program, main_program;
     OGLSampler linear, mipmapped, nearest;
     OGLVertexArray vao;
 };

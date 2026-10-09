@@ -44,11 +44,13 @@ void RemasterGL::Resize(u32 w, u32 h) {
     MakeTarget(stats, stats_fbo, GL_RGBA8, StatsSize, StatsSize, Levels(StatsSize, StatsSize));
     const u32 bw = std::max<u32>(1, w / 4), bh = std::max<u32>(1, h / 4);
     MakeTarget(bright, bright_fbo, GL_RGBA8, bw, bh, Levels(bw, bh));
+    MakeTarget(light, light_fbo, GL_RGBA8, std::max<u32>(1, w / 2), std::max<u32>(1, h / 2), 1);
     MakeTarget(result, result_fbo, GL_RGBA8, w, h, 1);
     if (main_program.handle == 0) {
         const std::string vert = RM::Source(RM::FULLSCREEN_VERT);
         stats_program.Create(vert, RM::Source(RM::STATS_FRAG));
         bright_program.Create(vert, RM::Source(RM::BRIGHT_FRAG));
+        light_program.Create(vert, RM::Source(RM::LIGHT_FRAG));
         main_program.Create(vert, RM::Source(RM::MAIN_FRAG));
         vao.Create();
         // a depth texture is sampled with nearest filtering: OpenGL ES does not filter depth linearly.
@@ -123,9 +125,10 @@ void RemasterGL::Apply(ScreenInfo& screen_info) {
                             screen_info.depth_texture != 0 ? 1.0f : 0.0f, stats_level};
     const float p0[4] = {p.grading, p.ao, p.sky_fill, p.sky_light};
     const float p1[4] = {p.outline, p.glow, p.aerial, p.far_blur};
-    const float p2[4] = {p.vibrance, p.contrast, p.adaptive_contrast ? 1.0f : 0.0f, 0.0f};
+    const float p2[4] = {p.vibrance, p.contrast, p.adaptive_contrast ? 1.0f : 0.0f, p.rim};
+    const float p3[4] = {p.bounce, p.contact_shadow, 0.0f, 0.0f};
     // glProgramUniform: no glUseProgram behind the tracked state's back
-    for (const OGLProgram* program : {&stats_program, &bright_program, &main_program}) {
+    for (const OGLProgram* program : {&stats_program, &bright_program, &light_program, &main_program}) {
         const GLuint h = program->handle;
         glProgramUniform4fv(h, glGetUniformLocation(h, "cr"), 1, cr);
         glProgramUniform4fv(h, glGetUniformLocation(h, "dr"), 1, d.data());
@@ -133,6 +136,7 @@ void RemasterGL::Apply(ScreenInfo& screen_info) {
         glProgramUniform4fv(h, glGetUniformLocation(h, "p0"), 1, p0);
         glProgramUniform4fv(h, glGetUniformLocation(h, "p1"), 1, p1);
         glProgramUniform4fv(h, glGetUniformLocation(h, "p2"), 1, p2);
+        glProgramUniform4fv(h, glGetUniformLocation(h, "p3"), 1, p3);
     }
     Pass(stats_program, stats_fbo.handle, StatsSize, StatsSize);
     Pass(bright_program, bright_fbo.handle, std::max<u32>(1, width / 4), std::max<u32>(1, height / 4));
@@ -142,7 +146,15 @@ void RemasterGL::Apply(ScreenInfo& screen_info) {
         glGenerateMipmap(GL_TEXTURE_2D);
     }
     glActiveTexture(GL_TEXTURE0);
+    Pass(light_program, light_fbo.handle, std::max<u32>(1, width / 2), std::max<u32>(1, height / 2));
+    // the light on unit 8, which OpenGLState does not use (it tracks 0-7): bound for the main pass only
+    glActiveTexture(GL_TEXTURE8);
+    glBindTexture(GL_TEXTURE_2D, light.handle);
+    glBindSampler(8, linear.handle);
     Pass(main_program, result_fbo.handle, width, height);
+    glActiveTexture(GL_TEXTURE8);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindSampler(8, 0);
     glBindSampler(TextureUnits::TextureColorBuffer.id, 0);
     saved.Apply();
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(bound_framebuffer));

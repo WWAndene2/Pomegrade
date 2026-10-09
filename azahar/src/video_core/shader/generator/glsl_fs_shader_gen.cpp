@@ -188,7 +188,10 @@ vec4 secondary_fragment_color = vec4(0.0);
     } else {
         out += "gl_FragDepth = depth;\n";
         if (user.pomegrade_surface) {
-            out += "combiner_output.rgb *= pg_shade;\n"; // Pomegrade: relief, self-shadow, volume layers
+            // Pomegrade: relief, self-shadow, volume layers; the room behind a window's glass
+            out += "combiner_output.rgb = mix(combiner_output.rgb * pg_shade, pg_room.rgb * "
+                   "(0.35 + 0.65 * combiner_output.rgb / max(max(combiner_output.r, "
+                   "combiner_output.g), max(combiner_output.b, 0.2))), pg_room.a);\n";
         }
         // Round the final fragment color to maintain the PICA's 8 bits of precision
         out += "combiner_output = byteround(combiner_output);\n";
@@ -234,7 +237,7 @@ void FragmentModule::WritePomegradeSurface() {
     const u32 mode = user.pomegrade_surface_mode.Value();
     const float relief = mode == 0 ? 2.2f : mode == 1 ? 1.1f : 0.0f;
     const bool volume = mode >= 1;
-    out += "pg_uv0 = texcoord0;\npg_shade = 1.0;\n{\n";
+    out += "pg_uv0 = texcoord0;\npg_shade = 1.0;\npg_room = vec4(0.0);\n{\n";
     out += R"(
     vec2 dx = dFdx(texcoord0), dy = dFdy(texcoord0);
     float m11 = dx.x * dx.x + dy.x * dy.x, m22 = dx.y * dx.y + dy.y * dy.y, m12 = dx.x * dx.y + dy.x * dy.y;
@@ -249,6 +252,30 @@ void FragmentModule::WritePomegradeSurface() {
         float s = sqrt(max(1.0 - c * c, 0.0));
         vec3 v = vec3(-major * s, max(c, 0.35)); // toward the viewer, the shift limited at grazing angles
         vec3 l = normalize(vec3(major * 0.5, 0.85));
+        // a window (MaterialRecognition's glass, A = 255): interior mapping, a room one texture deep
+        // behind the glass seen along v, lit from inside: a warm lamp on the back wall, the ceiling
+        // brighter, the floor darker (interiors.js put the real rooms behind the windows offline)
+        if (texture(tex_normal, texcoord0).a > 0.995) {
+            vec2 room = fract(texcoord0);
+            vec3 dir = vec3(-v.xy, -v.z);
+            vec2 wall = vec2(dir.x > 0.0 ? 1.0 : 0.0, dir.y > 0.0 ? 1.0 : 0.0);
+            vec2 tw = (wall - room) / mix(vec2(1e-4), dir.xy, step(vec2(1e-4), abs(dir.xy)));
+            float tb = 1.0 / max(-dir.z, 1e-4);
+            float t = min(min(tw.x, tw.y), tb);
+            vec3 hit = vec3(room, 0.0) + dir * t;
+            vec3 warm = vec3(1.0, 0.78, 0.48);
+            vec3 col;
+            if (t == tb) {
+                float lamp = 1.0 - smoothstep(0.0, 0.6, length(hit.xy - vec2(0.5, 0.65)));
+                col = warm * (0.55 + 0.6 * lamp);
+            } else if (t == tw.y) {
+                col = warm * (dir.y > 0.0 ? 0.85 : 0.35); // ceiling, floor
+            } else {
+                col = warm * (0.5 + 0.2 * hit.y);         // side walls
+            }
+            col *= 1.0 - 0.45 * clamp(-hit.z, 0.0, 1.0) * 0.5; // farther, a little darker
+            pg_room = vec4(col, 0.55);
+        }
         const float depth = 0.022;
         const int steps = 16;
         vec2 shift = v.xy / v.z * depth;
@@ -1428,7 +1455,7 @@ void FragmentModule::DefineBindingsGL() {
     }
     if (user.pomegrade_surface) {
         // globals: sampleTexUnit0 reads the shifted coordinates
-        out += "vec2 pg_uv0;\nfloat pg_shade;\n";
+        out += "vec2 pg_uv0;\nfloat pg_shade;\nvec4 pg_room;\n";
     }
     if (use_blend_fallback) {
         out += "layout(binding = 7) uniform sampler2D tex_color;\n";

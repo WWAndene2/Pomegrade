@@ -2,6 +2,7 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#include <algorithm>
 #include <fmt/format.h>
 #include "common/file_util.h"
 #include "common/hash.h"
@@ -34,16 +35,62 @@ Darp::Texture Decode(const SurfaceParams& params, std::span<u8> encoded) {
     return texture;
 }
 
-/// MaterialRecognition's maps of an RGBA8 texture, packed as the shader reads them
-std::vector<u8> SurfaceMaps(const Darp::Texture& texture) {
-    const auto maps = VideoCore::MaterialRecognition::Recognise(
-        texture.rgba.data(), static_cast<int>(texture.width), static_cast<int>(texture.height));
+/// Box mean of a single-channel image, radius r, edges clamped (two passes of running sums)
+std::vector<float> BoxMean(const std::vector<float>& v, int w, int h, int r) {
+    std::vector<float> tmp(v.size()), out(v.size());
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            float sum = 0;
+            for (int k = -r; k <= r; k++) {
+                sum += v[static_cast<std::size_t>(y) * w + std::clamp(x + k, 0, w - 1)];
+            }
+            tmp[static_cast<std::size_t>(y) * w + x] = sum / (2 * r + 1);
+        }
+    }
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            float sum = 0;
+            for (int k = -r; k <= r; k++) {
+                sum += tmp[static_cast<std::size_t>(std::clamp(y + k, 0, h - 1)) * w + x];
+            }
+            out[static_cast<std::size_t>(y) * w + x] = sum / (2 * r + 1);
+        }
+    }
+    return out;
+}
+
+/// MaterialRecognition's maps of an RGBA8 texture, packed as the shader reads them (RG the normal,
+/// B the height, A the volume up to 254; 255 marks glass, for the windows' interior). Also lifts the
+/// texture's painted shadows (in place): the baked light replaced them in the offline renders, here
+/// the Remaster's live light does. A painted shadow is a smooth area darker than its surroundings,
+/// not a painted outline: the luminance blurred a little (r 2) against its wider surroundings (r 8),
+/// lifted up to 1.4x, 60 % of the way, off the outlines and the glass.
+std::vector<u8> SurfaceMaps(Darp::Texture& texture) {
+    const int w = static_cast<int>(texture.width), h = static_cast<int>(texture.height);
+    const auto maps = VideoCore::MaterialRecognition::Recognise(texture.rgba.data(), w, h);
+    const std::size_t n = maps.heights.size();
+    std::vector<float> luma(n);
+    for (std::size_t i = 0; i < n; i++) {
+        luma[i] = 0.299f * texture.rgba[i * 4] + 0.587f * texture.rgba[i * 4 + 1] +
+                  0.114f * texture.rgba[i * 4 + 2];
+    }
+    const std::vector<float> near_ = BoxMean(luma, w, h, 2), wide = BoxMean(luma, w, h, 8);
     std::vector<u8> packed(texture.rgba.size());
-    for (std::size_t i = 0; i < maps.heights.size(); i++) {
+    for (std::size_t i = 0; i < n; i++) {
+        const bool glass =
+            maps.classes[i] == static_cast<u8>(VideoCore::MaterialRecognition::Class::Glass);
         packed[i * 4 + 0] = maps.normal[i * 3 + 0];
         packed[i * 4 + 1] = maps.normal[i * 3 + 1];
         packed[i * 4 + 2] = maps.heights[i];
-        packed[i * 4 + 3] = maps.volume[i];
+        packed[i * 4 + 3] = glass ? 255 : std::min<u8>(maps.volume[i], 254);
+        if (glass || maps.outline[i] || near_[i] < 1.0f) {
+            continue;
+        }
+        const float lift = 1.0f + 0.6f * (std::clamp(wide[i] / near_[i], 1.0f, 1.4f) - 1.0f);
+        for (int c = 0; c < 3; c++) {
+            texture.rgba[i * 4 + c] =
+                static_cast<u8>(std::min(255.0f, texture.rgba[i * 4 + c] * lift + 0.5f));
+        }
     }
     return packed;
 }

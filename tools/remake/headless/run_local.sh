@@ -37,7 +37,10 @@ mkdir -p "$save"; cp "$start" "$save/main"; cp dumps/save/00000001.metadata "$sa
 # the boot to the title played once, then each save tested from there)
 [ -n "${POMEGRADE_STATE:-}" ] && cp "$POMEGRADE_STATE" "$run/"
 printf '%s\n' "$script" | tr ';' '\n' > "$run/script.txt"
-host() { (ulimit -f 4000000; ./retro_host build-azahar/bin/Release/azahar_libretro.so dumps/oras.3ds "$run" "$secs" "$PWD/$run/script.txt" > "$run/log.txt" 2>&1); }
+# POMEGRADE_GL=1: the OpenGL core and host of session_setup.sh's core-gl stage (POMEGRADE_REMASTER: its Remaster preset)
+if [ -n "${POMEGRADE_GL:-}" ]; then host_bin=./retro_host_gl; core=build-azahar-gl/bin/Release/azahar_libretro.so
+else host_bin=./retro_host; core=build-azahar/bin/Release/azahar_libretro.so; fi
+host() { (ulimit -f 4000000; $host_bin $core dumps/oras.3ds "$run" "$secs" "$PWD/$run/script.txt" > "$run/log.txt" 2>&1); }
 if [ -z "$gdb" ]; then
     host
 else
