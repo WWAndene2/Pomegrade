@@ -137,6 +137,8 @@ static bool Environment(unsigned cmd, void* data)
         var->value = nullptr;
         if (!strcmp(var->key, "citra_graphics_api")) var->value = glMode ? "OpenGL" : "Software";
         if (!strcmp(var->key, "citra_remaster_preset") && getenv("POMEGRADE_REMASTER")) var->value = getenv("POMEGRADE_REMASTER");
+        // POMEGRADE_SCALE: the internal resolution (1-10 times the 3DS's), with POMEGRADE_GL
+        if (!strcmp(var->key, "citra_resolution_factor") && getenv("POMEGRADE_SCALE")) var->value = getenv("POMEGRADE_SCALE");
         // the interpreter instead of the JIT, for code coverage ("trace on"): slower, but every block passes its dispatch
         // (and not the FastInterp interpreter, which bypasses it too: the classic one, DynCom)
         if ((!strcmp(var->key, "citra_use_cpu_jit") || !strcmp(var->key, "citra_use_fastinterp")) && getenv("POMEGRADE_INTERPRETER")) var->value = "disabled";
@@ -529,6 +531,13 @@ static int RunScript(void* core, const char* path)
             auto set = reinterpret_cast<void (*)(uint32_t)>(dlsym(core, "pomegrade_remaster"));
             if (set) set((uint32_t)strtoul(arg.c_str(), nullptr, 10));
             printf("[frame %lu] remaster preset %s: %s\n", frame, arg.c_str(), set ? "set" : "not in this core");
+        }
+        else if (cmd == "sun")
+        {
+            // sun HOUR: the path tracer's sun at that hour of its table (negative: the game's clock again)
+            auto set = reinterpret_cast<void (*)(float)>(dlsym(core, "pomegrade_sun_hour"));
+            if (set) set(strtof(arg.c_str(), nullptr));
+            printf("[frame %lu] sun at %s: %s\n", frame, arg.c_str(), set ? "set" : "not in this core");
         }
         else if (cmd == "gdb")
         {

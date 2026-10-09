@@ -10,7 +10,8 @@
 # script    retro_host commands separated by ';' (retro_host.cpp: wait N, hold KEYS N, press KEYS, mash KEYS N, field [N],
 #           screen, shot NAME, report, mem ADDRESS LENGTH, watch FRAMES [KEYS] ADDRESS..., dump ADDRESS LENGTH FILE,
 #           gdb PORT, trace on / trace off FILE (with POMEGRADE_INTERPRETER=1), save NAME / load NAME, draw off / draw on,
-#           remaster N: the Remaster preset from then on, 0-3, with POMEGRADE_GL=1). A save state can only be loaded after the core has booted ("wait 120" first)
+#           remaster N: the Remaster preset from then on, 0-3, with POMEGRADE_GL=1; sun HOUR: the path tracer's sun at
+#           that hour; POMEGRADE_SCALE=N: the internal resolution). A save state can only be loaded after the core has booted ("wait 120" first)
 #           and does not restore a pending asset load: to freeze again, replay from the start.
 #           The fast way (8 October, 2.5 min to a walk on the field instead of 10-12): POMEGRADE_STATE=<work>/title.state and
 #           "wait 120;load title;mash a 8;draw off;wait 900;..." : the title state skips the boot, and with drawing off the
