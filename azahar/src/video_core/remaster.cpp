@@ -221,7 +221,10 @@ void main() {
         // the shade's tone measured on the owner's reference render (9 October): its shade keeps 0.34, 0.43 and 0.50 of
         // the sun's red, green and blue, a deep blue-green; compose.py's (0.55, 0.57, 0.68) came out grey-blue and light
         // here (0.58, 0.43, 0.82 of the sun's)
-        vec3 tone = mix(vec3(0.36, 0.45, 0.52), vec3(1.04, 1.0, 0.94), step_);
+        // the tone applies in linear light but the reference was measured on the shown (sRGB) image: a linear factor k
+        // shows as k^(1/2.2). Without the blue lifts below, the tone (0.18, 0.45, 0.22) showed as 0.27, 0.45, 0.31 of the
+        // sun; scaled by (target / shown)^2.2 toward the reference's 0.34, 0.43, 0.50: (0.31, 0.43, 0.60)
+        vec3 tone = mix(vec3(0.31, 0.43, 0.60), vec3(1.04, 1.0, 0.94), step_);
         tone *= 0.8 + 0.2 * smoothstep(0.1, 0.45, l);                // deep corners a little darker, never black
         tone *= 1.0 - (1.0 - pow(traced.a, 1.3)) * (0.55 - 0.4 * step_); // traced occlusion
         // the bounce's colour, at 30 %: the traced light also holds the sky's blue, which compose.py's tint (from the
@@ -230,9 +233,10 @@ void main() {
         tone *= 1.0 + 0.3 * (tint - 1.0) * (1.0 - 0.5 * step_);
         vec3 base = pow(c, vec3(2.2));
         float bl = Luma(base);
-        // the lifts halved: they greyed the shade against the reference
-        vec3 lin = base * tone + (vec3(0.006, 0.01, 0.035) * (1.0 - step_) + vec3(0.03, 0.015, 0.0) * step_) * (0.4 + bl);
-        lin += vec3(0.010, 0.018, 0.045) * traced.a * (1.0 - step_) * (0.4 + bl); // sky fill
+        // only the sun's warm lift: the shade's blue lift and the sky fill (compose.py's) are left out, the traced light
+        // holding the sky already. Added in linear light to dark shade they showed large (0.016 shows as 0.13) and kept
+        // the shade blue whatever its tone (0.71-0.74 of the sun's blue against the reference's 0.50)
+        vec3 lin = base * tone + vec3(0.03, 0.015, 0.0) * step_ * (0.4 + bl);
         c = pow(max(lin, 0.0), vec3(1.0 / 2.2));
         ao = 1.0; // applied
     } else {

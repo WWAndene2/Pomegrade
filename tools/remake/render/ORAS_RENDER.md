@@ -143,3 +143,9 @@ tracer 0.472, 0.70, 23 %, 0.47 0.43 0.74. The shade's green matches; it stays bl
 reference's (cause not found: the bounce tint at 30 % and the sky light left out over the traced light changed nothing
 measurable). Sun presets (Settings remaster_sun_hour: game clock, or 00h ... 21h) choose the table's hour. The Android
 build of main with them succeeded (GitHub Actions, run 117).
+
+Shade matched (same day, after the measurements above): the bluer shade came from compose.py's shade lift and sky fill,
+added in linear light to dark shade (0.016 shows as 0.13), not from the tone; they are left out over the traced light
+(it holds the sky) and the shade tone is fitted in linear light ((target / shown)^2.2): (0.31, 0.43, 0.60). Measured on
+the same view: shade over sun 0.35, 0.42, 0.49 against the reference's 0.34, 0.43, 0.50; luminance 0.457 (reference
+0.367, its wide camera holding more forest shade), saturation 0.75 (0.59).
