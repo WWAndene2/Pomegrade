@@ -12,6 +12,11 @@ def to_lin(c): return np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) **
 def to_srgb(c): c = np.clip(c, 0, 1); return np.where(c <= 0.0031308, c * 12.92, 1.055 * c ** (1 / 2.4) - 0.055)
 def smoothstep(a, b, x): t = np.clip((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t)
 LUMA = np.array([0.2126, 0.7152, 0.0722], np.float32)
+def guided(I, p, r, eps):
+    # guided filter (He et al.): smooths p while keeping the edges of the guide I
+    m = lambda x: ndimage.uniform_filter(x, 2 * r + 1)
+    mI, mp = m(I), m(p); a = (m(I * p) - mI * mp) / (m(I * I) - mI * mI + eps); b = mp - a * mI
+    return m(a) * I + m(b)
 
 D = sys.argv[8] if len(sys.argv) > 8 else '.'
 base_srgb = load(f'{D}/pass_base.png'); base = to_lin(base_srgb)
@@ -22,6 +27,11 @@ relief = load(f'{D}/pass_relief.png').mean(-1); flat = load(f'{D}/pass_flat.png'
 # the light, from the path tracer's render of white surfaces: shadows, sky, occlusion
 light = ndimage.median_filter(to_lin(load(sys.argv[5])) / float(sys.argv[2]), size=(3, 3, 1))  # its grain
 l = (light * LUMA).sum(-1)
+# the path tracer's remaining grain, smoothed along the geometry (shadow edges and corners kept):
+# guided by the depth and the shading of the bare geometry
+_d = load(f'{D}/pass_depth.png'); zz = (_d[..., 0] * 255 + _d[..., 1]) / 255
+geo = 0.5 * zz / max(zz.max(), 1e-6) + 0.5 * load(f'{D}/pass_flat.png').mean(-1)
+l = guided(geo, l, 3, 2e-4)
 lit_level = np.percentile(l[~sky_mask], 92)                     # a sunlit surface = 1
 l /= lit_level
 # the bounce's colour, from the textured render: only its tint, blurred to its low frequencies
@@ -77,10 +87,24 @@ step = smoothstep(float(sys.argv[6]), float(sys.argv[7]), l)  # soft two-tone: l
 tone = SHADOW * (1 - step[..., None]) + SUN * step[..., None]
 # occlusion kept, softened: deep corners darken a little more, never to black
 tone *= (0.8 + 0.2 * smoothstep(0.1, 0.45, l))[..., None]
+# ray-traced ambient occlusion (ao.html, world space): the frames averaged, the residual grain and
+# the stripes of ORAS's cut-out sheets smoothed along the geometry; it shades the sky's light (strong
+# in the shade) far more than the sun's
+import glob
+frames = sorted(glob.glob(f'{D}/ao_*.png'))
+if frames:
+    ao = np.mean([load(f).mean(-1) for f in frames], 0)
+    ao = guided(geo, ndimage.median_filter(ao, 3), 4, 1e-3)
+    ao = np.clip(ao, 0, 1) ** 1.3
+    tone *= (1 - (1 - ao) * (0.55 - 0.4 * step))[..., None]
+    # sky fill: the blue sky's light, only where the sky is open
+    SKY_FILL = np.array([0.010, 0.018, 0.045], np.float32)
+else:
+    ao = None
 # coloured bounce: the light's own tint (the grass greening walls, warm ground), kept subtle
 tone *= 1 + 0.3 * (light_tint - 1) * (1 - 0.5 * step[..., None])  # stronger in the shade
 # relief of the textures under the sun, only where the sun shines
-relief_shade = np.clip(relief / np.maximum(flat, 0.05), 0.6, 1.4)
+relief_shade = np.ones_like(relief) if 'norelief' in EXTRAS else np.clip(relief / np.maximum(flat, 0.05), 0.6, 1.4)
 tone *= (1 + (relief_shade - 1) * 1.25 * (0.35 + 0.65 * step))[..., None]  # relief stronger, a little in the shade too
 
 # leaf translucency: foliage lit from behind (in shade or facing away from the sun) glows green-gold
@@ -90,6 +114,7 @@ if TREES is not None and 'translucency' in EXTRAS:
     back = TREES * np.clip(1 - step - 0.3 * np.clip(facing, 0, 1), 0, 1)
     tone = tone + (back * 0.5)[..., None] * np.array([0.55, 0.85, 0.2], np.float32)
 out = base * tone + (SHADOW_LIFT * (1 - step[..., None]) + SUN_LIFT * step[..., None]) * (0.4 + (base * LUMA).sum(-1, keepdims=True))
+if ao is not None: out = out + (SKY_FILL * ao[..., None] * (1 - step[..., None])) * (0.4 + (base * LUMA).sum(-1, keepdims=True))
 # vibrance: saturation up where colours are muted, highlights kept
 lum = (out * LUMA).sum(-1, keepdims=True)
 out = lum + (out - lum) * 1.28

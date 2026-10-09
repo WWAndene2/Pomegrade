@@ -49,19 +49,44 @@ Sun: azimuth 160°, elevation 32° (afternoon).
 | Layers (`layers.py`) | Sky light on up-facing surfaces, warm rim on sunlit silhouettes, fine contour on depth breaks, glow on highlights, aerial perspective, slight far blur, S-curve contrast 0.7 |
 | Interiors | Real interiors placed on their door warps, scaled to the façade footprint, overflowing vertices pressed onto the walls, black doorway panels removed (`interiors.js`); windows see through via `mat/<i>_opacity.png` |
 
-## After v7 (in progress, not validated)
+## v8 and v9 (current scripts; not validated by the owner yet)
 
-- **Texture relief halved:** `normalScale` 2.2 → **1.1** (owner's request). It is already applied in
-  `passes.html`; set it back to 2.2 to reproduce v7 exactly.
-- **Virtual Volumetric Layered Depth** (`vvld.js`, URL flag `vvld=1`, off by default). The protruding
-  texels of the classes that really protrude (stone 1.0, tile 0.8, wood 0.6, foliage 0.6; plaster,
-  metal, glass and unknown get 0) become 4 cut-out shells of real geometry, 0.5 units thick in all.
-  Being real geometry, they also exist for the path tracer.
-  - Each texture's relief is scaled to its own 95th percentile (grass rises about 50 times less than
-    stone). Anything under 40 % of that stays flat, so soft painted shading, such as the window sills,
-    gets no volume.
-  - Ground decals (`chip_grass_decolate`) are lifted above the shells.
-  - Raster passes: checked. A path-traced render with the shells takes well over 8 min (over 20 min
-    for the wide view, unfinished); its final result has not been seen yet.
-- **Known issue:** without the shells, the window sills and walls show bumps from the relief, because
-  painted shading is read as height. Halving the relief and the volume floor are the fixes in progress.
+**v8** = v7 + texture relief halved (`normalScale` 1.1) + Virtual Volumetric Layered Depth
+(`vvld.js`, flag `vvld=1`).
+- **What gets volume:** the protruding texels of the classes that really protrude become 4 cut-out
+  shells of real geometry, 0.5 units thick in all. Stone weighs 1.0, tile 0.8, wood and foliage 0.6;
+  plaster, metal, glass and unknown get 0.
+- **Threshold:** each texture's relief is scaled to its own 95th percentile, and anything under 40 %
+  of that stays flat. Without this, the window sills and walls turned bumpy.
+- **Shading:** the lower layers are darkened to 0.82 (occlusion inside the relief).
+- **Decals:** ground decals are lifted above the shells.
+- **Light:** v8 reuses v7's path-traced light. A full path trace with the shells was stopped: too slow,
+  over 20 min for one view.
+
+**v9** = v8 without the texture relief + ray-traced light work. Everything else is unchanged; how to
+run it is under "Commands" below.
+- **Texture relief:** off (`norelief` extra).
+- **Ambient occlusion, ray-traced in world space:** `ao.html` / `shoot_ao.mjs`, a custom three-mesh-bvh
+  shader. three-gpu-pathtracer 0.0.20's `AmbientOcclusionMaterial` does not compile.
+  - 4 frames × 16 cosine rays per pixel; radius 8 (close) or 12 (wide). About 3 min for the close view,
+    1 min for the wide one.
+  - The normal is oriented toward the camera, because some ORAS faces wind backwards.
+  - Hits under 1.5 units are ignored: ORAS layers cut-out sheets just in front of the walls, and the
+    BVH ignores alpha. Faint stripes remain.
+- **Compositing (`compose.py`):**
+  - The light's grain is smoothed by a guided filter (He et al.) guided by depth and the bare
+    geometry's shading.
+  - The AO frames are averaged, median- and guided-filtered, raised to the power 1.3, and applied as
+    `tone *= 1 - (1 - ao) * (0.55 - 0.4 * step)`, so it is strong in the shade and weak in the sun.
+  - A sky fill (0.010, 0.018, 0.045) is added in the shade where the AO is open.
+- **Adaptive contrast (`layers.py <dir> <cam> <sun elevation>`):**
+  `CONTRAST = clip(0.7 * 0.2 / std(lum), 0.4, 1.0) + 0.15 * smoothstep(35, 8, elevation)`.
+  It came out 1.0 on the afternoon setup; morning and evening are untested.
+
+Commands for v9:
+```
+node shoot_pass.mjs "interiors=1&pom=1&vvld=1&cam=<cam>&az=160&el=32&w=960&h=540" base,relief,flat,depth,normal,matid,pomshadow
+node shoot_ao.mjs <dir> "interiors=1&cam=<cam>&radius=8&frames=4"
+python compose.py - 0.35 sky_afternoon.png <dir>/stylised.png <dir>/pt_white.png 0.60 0.78 <dir> <cam> norelief
+python layers.py <dir> <cam> 32
+```

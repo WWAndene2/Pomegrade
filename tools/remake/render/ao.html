@@ -1,0 +1,80 @@
+<!doctype html><html><body style="margin:0;background:#000">
+<script type="importmap">{"imports":{
+ "three":"./node_modules/three/build/three.module.js",
+ "three/addons/":"./node_modules/three/examples/jsm/",
+ "three/examples/jsm/":"./node_modules/three/examples/jsm/",
+ "three-mesh-bvh":"./node_modules/three-mesh-bvh/src/index.js",
+ "three-gpu-pathtracer":"./node_modules/three-gpu-pathtracer/src/index.js"}}</script>
+<script type="module">
+// ray-traced ambient occlusion: from each visible point, rays into the whole scene (its BVH, in world
+// space, so nothing depends on the camera or the screen's edge). Several frames with new seeds; the
+// page hands each frame over and the compositing averages them.
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { loadInteriors, openDoorways } from './interiors.js';
+import { PathTracingSceneGenerator } from 'three-gpu-pathtracer';
+import { MeshBVHUniformStruct, shaderStructs, shaderIntersectFunction } from 'three-mesh-bvh';
+const q = new URLSearchParams(location.search);
+const W = Number(q.get('w') || 960), H = Number(q.get('h') || 540);
+const renderer = new THREE.WebGLRenderer({ preserveDrawingBuffer: true });
+renderer.setSize(W, H); renderer.setPixelRatio(1); renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xffffff);
+const camera = new THREE.PerspectiveCamera(40, W / H, 1, 5000);
+const [px, py, pz, tx, ty, tz] = q.get('cam').split(',').map(Number);
+camera.position.set(px, py, pz); camera.lookAt(tx, ty, tz);
+const gltf = await new Promise((res, rej) => new GLTFLoader().load('orig.gltf', res, undefined, rej));
+if (q.get('interiors')) {
+  for (const g of await loadInteriors()) gltf.scene.add(g);
+  gltf.scene.traverse((o) => { if (o.isMesh && o.material.name === 't01_01') openDoorways(o); });
+}
+// what casts no occlusion: the painted shadows and the blended decals
+const drop = []; gltf.scene.traverse((o) => { if (o.isMesh && (/shadow/.test(o.material.name) || o.material.transparent)) drop.push(o); });
+for (const o of drop) o.parent.remove(o);
+scene.add(gltf.scene); scene.updateMatrixWorld(true);
+const { bvh } = new PathTracingSceneGenerator().generate(scene);
+// (three-gpu-pathtracer 0.0.20's AmbientOcclusionMaterial does not compile: it calls a missing rand4)
+const bvhU = new MeshBVHUniformStruct(); bvhU.updateFrom(bvh);
+const mat = new THREE.ShaderMaterial({
+  side: THREE.DoubleSide,
+  uniforms: { bvh: { value: bvhU }, radius: { value: Number(q.get('radius') || 8) }, seed: { value: 0 } },
+  vertexShader: `varying vec3 vNorm; varying vec3 vPos;
+    void main() { vPos = (modelMatrix * vec4(position, 1.0)).xyz; vNorm = normalize(mat3(modelMatrix) * normal);
+      gl_Position = projectionMatrix * viewMatrix * vec4(vPos, 1.0); }`,
+  fragmentShader: `precision highp isampler2D; precision highp usampler2D;
+    ${shaderStructs}
+    ${shaderIntersectFunction}
+    uniform BVH bvh; uniform float radius; uniform int seed;
+    varying vec3 vNorm; varying vec3 vPos;
+    uint h; float rnd() { h = h * 747796405u + 2891336453u; uint w = ((h >> ((h >> 28u) + 4u)) ^ h) * 277803737u; return float((w >> 22u) ^ w) / 4294967295.0; }
+    void main() {
+      vec3 n = normalize(vNorm);
+      if (dot(n, cameraPosition - vPos) < 0.0) n = -n; // the side the camera sees (some ORAS faces wind backwards)
+      h = uint(gl_FragCoord.x) * 1973u + uint(gl_FragCoord.y) * 9277u + uint(seed) * 26699u;
+      vec3 t = normalize(abs(n.y) < 0.99 ? cross(n, vec3(0, 1, 0)) : cross(n, vec3(1, 0, 0))); vec3 b = cross(n, t);
+      float open = 0.0;
+      const int N = 16;
+      for (int i = 0; i < N; i++) {
+        // cosine-weighted direction over the hemisphere
+        float u = rnd(), v = rnd(); float r = sqrt(u), a = 6.2831853 * v;
+        vec3 d = normalize(t * r * cos(a) + b * r * sin(a) + n * sqrt(1.0 - u));
+        uvec4 fi; vec3 fn, bc; float side, dist;
+        bool hit = bvhIntersectFirstHit(bvh, vPos + n * 0.15, d, fi, fn, bc, side, dist);
+        // a near hit occludes fully, a far one less (soft falloff up to the radius)
+        // ORAS layers cut-out sheets (outlines, decorations) just in front of the walls; the BVH ignores
+        // their transparency, so a hit closer than 1.5 units is that sheet, not an occluder
+        open += (hit && dist > 1.5) ? smoothstep(1.5, radius, dist) : 1.0;
+      }
+      gl_FragColor = vec4(vec3(open / float(N)), 1.0);
+    }`,
+});
+gltf.scene.traverse((o) => { if (o.isMesh) o.material = mat; });
+const frames = Number(q.get('frames') || 8);
+window.images = [];
+for (let f = 0; f < frames; f++) {
+  mat.uniforms.seed.value = f; renderer.render(scene, camera);
+  window.images.push(renderer.domElement.toDataURL('image/png'));
+  await new Promise((r) => setTimeout(r, 0));
+}
+window.done = true;
+</script></body></html>

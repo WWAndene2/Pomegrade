@@ -98,7 +98,9 @@ if (q.get('vvld') && pass !== 'depth' && pass !== 'normal') {
   console.log('vvld shells: ' + await addVolumeLayers(gltf.scene, mats, async (k, o) => {
     const i = mats[o.userData.matName];
     const layer = await loadTex(`mat/${i}_layer${k}.png`);
-    if (pass === 'base') { layer.colorSpace = THREE.SRGBColorSpace; return new THREE.MeshBasicMaterial({ map: layer, vertexColors: !!o.geometry.attributes.color, alphaTest: 0.5, side: THREE.DoubleSide }); }
+    if (pass === 'base') { layer.colorSpace = THREE.SRGBColorSpace; // occlusion inside the relief: the lower layers sit deeper in the gaps, so darker (no path tracing needed)
+      const ao = 0.82 + 0.18 * k / 4;
+      return new THREE.MeshBasicMaterial({ map: layer, color: new THREE.Color(ao, ao, ao), vertexColors: !!o.geometry.attributes.color, alphaTest: 0.5, side: THREE.DoubleSide }); }
     if (pass === 'matid') return cut(new THREE.MeshBasicMaterial({ color: o.material.color.getHex(), map: layer, side: THREE.DoubleSide, alphaTest: 0.5 }));
     if (pass === 'pomshadow') return cut(new THREE.MeshBasicMaterial({ color: 0xffffff, map: layer, side: THREE.DoubleSide, alphaTest: 0.5 }));
     return cut(new THREE.MeshLambertMaterial({ color: 0xffffff, map: layer, side: THREE.DoubleSide, alphaTest: 0.5 }));

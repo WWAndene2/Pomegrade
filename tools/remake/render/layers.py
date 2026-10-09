@@ -21,7 +21,7 @@ cam = np.array([float(v) for v in sys.argv[2].split(',')]); pos, tgt = cam[:3], 
 zc = pos - tgt; zc /= np.linalg.norm(zc)
 xc = np.cross([0, 1, 0], zc); xc /= np.linalg.norm(xc); yc = np.cross(zc, xc)
 view = lambda v: np.array([v @ xc, v @ yc, v @ zc])
-az, el = np.radians(160), np.radians(32)
+az, el = np.radians(160), np.radians(float(sys.argv[3]) if len(sys.argv) > 3 else 32.0)
 UP = view(np.array([0.0, 1.0, 0.0])); SUN = view(np.array([np.cos(el) * np.cos(az), np.sin(el), np.cos(el) * np.sin(az)]))
 zs = np.where(sky, z[~sky].max() * 1.1, z)
 depth01 = np.clip((zs - z[~sky].min()) / (z[~sky].max() - z[~sky].min()), 0, 1)
@@ -58,7 +58,15 @@ img = img * (1 - dof) + blurred * dof
 # contrast: an S-curve on brightness, colours kept
 out = to_srgb(img)
 lum = (out * np.array([0.299, 0.587, 0.114])).sum(-1, keepdims=True)
-curved = lum + (smoothstep(0.0, 1.0, lum) - lum) * 0.7
+# adaptive to the environment's setup: a flat, low-contrast light (overcast, high sun, a scene mostly
+# in one tone) gets a stronger curve; an already contrasted one (low sun, long shadows) a gentler one,
+# so every setup lands near the same readable range. The sun's height adds a little drama when low.
+EL = float(sys.argv[3]) if len(sys.argv) > 3 else 32.0
+spread = float(np.std(lum[~sky]))                              # how contrasted the scene already is
+low_sun = smoothstep(35.0, 8.0, EL)                            # 0 above 35 degrees, 1 at 8
+CONTRAST = float(np.clip(0.7 * 0.2 / max(spread, 1e-3), 0.4, 1.0) + 0.15 * low_sun)
+curved = lum + (smoothstep(0.0, 1.0, lum) - lum) * CONTRAST
+print('contrast', round(CONTRAST, 3), 'spread', round(spread, 3), 'sun', EL)
 out = out * (curved / np.maximum(lum, 1e-4))
 out = np.where(sky[..., None], load(f'{D}/stylised.png'), out)
 Image.fromarray((np.clip(out, 0, 1) * 255 + 0.5).astype(np.uint8)).save(f'{D}/final.png')
