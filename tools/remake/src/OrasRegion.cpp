@@ -13,6 +13,7 @@
 #include "PlatinumWorld.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
@@ -325,8 +326,6 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, OrasWorkspace& 
             const int pack = zoneOf.at(owner).AreaPack();
             OrasTownOptions to = o.Town;
             to.CloseEdges = false; // pieces meet their neighbours
-            // an interior's floor: an ORAS house's wood floor (area pack 112, floor01) on every ground mesh, no snow or fence
-            if (inside && to.FloorPack < 0) { to.FloorPack = 112; to.SnowPack = -1; to.FencePack = -1; }
             to.AreaPack = (size_t)pack;
             TownLayout layout = TownLayout::Read(world, (o.Left + x) * TownTiles, (o.Top + y) * TownTiles);
             // a door of a header left out of the region (-1 or not given) gets no house, no door model and no warp: r2 built two
@@ -339,26 +338,56 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, OrasWorkspace& 
                         warpsOf[(int)d.Zone].push_back({x * TownTiles + d.Column, y * TownTiles + d.Row, (int)d.DestZone});
                 if (inside)
                 {
-                    // the room is what its warps reach: Platinum leaves the land around a room walkable (its walls are the room's
-                    // model), so every tile no warp's neighbours reach becomes solid
-                    std::vector<std::pair<int, int>> stack;
-                    std::vector<std::vector<bool>> seen(TownTiles, std::vector<bool>(TownTiles, false));
-                    for (const auto& d : layout.Doors)
-                        for (const auto& [dx, dz] : {std::pair{0, 0}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}}) stack.push_back({d.Column + dx, d.Row + dz});
-                    const auto open = [&](int c, int r) { return c >= 0 && r >= 0 && c < TownTiles && r < TownTiles && layout.Collision[r][c] != '#'; };
-                    while (!stack.empty())
-                    {
-                        const auto [c, r] = stack.back();
-                        stack.pop_back();
-                        if (!open(c, r) || seen[r][c]) continue;
-                        seen[r][c] = true;
-                        for (const auto& [dx, dz] : {std::pair{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) stack.push_back({c + dx, r + dz});
-                    }
+                    // the room is the tiles Platinum gives terrain (its walls are the room's model, and the land around it is walkable
+                    // in its permissions): every other tile becomes solid. Flooding from the warps instead leaked out of matrix 123's
+                    // room through its open bottom edge (houses 416 and 417: 790 walkable tiles, 9 October)
                     int closed = 0;
                     for (int r = 0; r < TownTiles; r++)
                         for (int c = 0; c < TownTiles; c++)
-                            if (!seen[r][c] && layout.Collision[r][c] != '#') { layout.Collision[r][c] = '#'; closed++; }
-                    log.push_back(F("piece (%d, %d): %d tiles outside the room made solid (no warp reaches them)", x, y, closed));
+                            if (layout.TileMaterials[r][c].empty() && layout.Collision[r][c] != '#') { layout.Collision[r][c] = '#'; closed++; }
+                    log.push_back(F("piece (%d, %d): %d tiles outside the room made solid (no terrain)", x, y, closed));
+                    // its look (RoomBuilder.h): an ORAS house's ground floor when a door leads outdoors, else its upstairs; the warp to
+                    // another floor carries the stairs
+                    bool ground = false;
+                    for (const auto& d : layout.Doors)
+                    {
+                        if (!o.Zones.count((int)d.Zone) || o.Zones.at((int)d.Zone) < 0 || d.DestZone >= world.Headers.size()) continue;
+                        if (world.Headers[d.DestZone].Matrix == 0) { ground = true; continue; }
+                        to.RoomStairsC = d.Column; to.RoomStairsR = d.Row;
+                        // stairs: ORAS's stairs warps lie on a solid tile the player walks into (OrasNewZone.h, NewStairsWarp), Platinum's
+                        // on a walkable mat beside its stairs (the player walked onto (2, 3) of house 412 and stayed there, run rm3):
+                        // the tile made solid, walked into toward Platinum's stairs tiles, from the open tile on the other side
+                        float sc = 0, sr = 0;
+                        int stairTiles = 0;
+                        for (int r = 0; r < TownTiles; r++)
+                            for (int c = 0; c < TownTiles; c++)
+                                for (const std::string& m : layout.TileMaterials[r][c])
+                                    if (m.rfind("stair", 0) == 0) { sc += c; sr += r; stairTiles++; break; }
+                        const int c = d.Column, r = d.Row;
+                        auto open = [&](int x, int y) { return x >= 0 && y >= 0 && x < TownTiles && y < TownTiles && layout.Collision[y][x] != '#'; };
+                        // the ways walked (NewStairsWarp: 0 south, 1 north, 2 east, 3 west) and the tile each is walked from
+                        const std::pair<int, std::pair<int, int>> ways[4] = {{1, {c, r + 1}}, {3, {c + 1, r}}, {2, {c - 1, r}}, {0, {c, r - 1}}};
+                        std::vector<int> order = {1, 3, 2, 0};
+                        if (stairTiles)
+                        {
+                            const float dx = sc / stairTiles - c, dz = sr / stairTiles - r;
+                            const int toward = std::fabs(dx) >= std::fabs(dz) ? (dx > 0 ? 2 : 3) : (dz > 0 ? 0 : 1);
+                            order.erase(std::find(order.begin(), order.end(), toward));
+                            order.insert(order.begin(), toward);
+                        }
+                        int walk = -1;
+                        for (int w : order)
+                            for (const auto& [way, from] : ways)
+                                if (walk < 0 && way == w && open(from.first, from.second)) walk = w;
+                        if (walk < 0) throw FormatError(F("stairs warp at (%d, %d) of header %u: no open tile beside it", c, r, d.Zone));
+                        layout.Collision[r][c] = '#';
+                        for (auto& w : warpsOf[(int)d.Zone])
+                            if (w.TileX == x * TownTiles + c && w.TileZ == y * TownTiles + r && w.DestHeader == (int)d.DestZone) w.Walk = walk;
+                        log.push_back(F("stairs warp at (%d, %d) to header %u: its tile solid, walked into going %s", c, r, d.DestZone,
+                                        walk == 0 ? "south" : walk == 1 ? "north" : walk == 2 ? "east" : "west"));
+                    }
+                    to.Room = ground ? &GroundFloorRoom : &UpstairsRoom;
+                    to.SnowPack = -1; to.FencePack = -1;
                 }
             }
             for (auto d = layout.Doors.begin(); d != layout.Doors.end();)
@@ -382,8 +411,16 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, OrasWorkspace& 
                                 y * TownTiles + d->Row, d->Zone, d->DestZone, z == o.Zones.end() || z->second < 0 ? "header left out" : "no interior given"));
                 d = layout.Doors.erase(d);
             }
+            // an interior's piece is named after the a/0/3/9 member it will be (AppendMember: the archive's next), under world16 and
+            // up so it meets no outdoor cell's name: every room sits at cell (0, 0), and Twinleaf's seven rooms all named
+            // world15_00_00 made the game draw a room's floor in place of Twinleaf's own pieces (run full, 9 October; one name
+            // per room, run bisn, drew Twinleaf; which lookup goes by the name is not read)
+            const size_t member = newPieces.Count();
             char name[32];
-            snprintf(name, sizeof name, "world%02d_%02d_%02d", o.ModelMatrix, x, y);
+            if (inside) snprintf(name, sizeof name, "world%02zu_%02zu_%02zu", 16 + member / 10000, member / 100 % 100, member % 100);
+            else snprintf(name, sizeof name, "world%02d_%02d_%02d", o.ModelMatrix, x, y);
+            // the room's own model is named as long as the game's interiors are (t101r0101_00_00), after the same member
+            if (inside) to.RoomName = F("room%05zu_00_00", member);
             if (strlen(name) != 13) throw FormatError("a piece's model name must be 13 characters as the game's (world<NN>_<x>_<y>)");
             log.push_back(F("piece (%d, %d), Sinnoh (%d, %d): zone %d, area pack %d, %zu doors", x, y, o.Left + x, o.Top + y, owner, pack, layout.Doors.size()));
             Bytes piece;

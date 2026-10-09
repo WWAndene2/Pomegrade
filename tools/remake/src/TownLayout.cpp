@@ -69,9 +69,11 @@ void TownLayout::Classify(const TerrainScan& whole, const TerrainScan& half)
 
     // each tile's role from the textures over its centre
     std::vector<std::string> grid(N, std::string(N, '.'));
+    out.TileMaterials.assign(N, std::vector<std::set<std::string>>(N));
     for (int r = 0; r < N; r++)
         for (int c = 0; c < N; c++)
         {
+            out.TileMaterials[r][c] = whole.At(c, r).Materials;
             std::set<char> roles;
             for (const std::string& m : whole.At(c, r).Materials)
             {

@@ -179,7 +179,7 @@ PieceBudget GamePieceBudget(const Garc& pieceArchive)
 Bytes BuildTownPiece(const TownLayout& layout, const OrasTownOptions& o, const Garc& pieceArchive, const Garc& areaArchive, const PieceBudget& budget,
                      int cellX, int cellY, const std::string& modelName, Bytes& areaPack, std::vector<std::string>& log)
 {
-    for (const auto& [name, count] : layout.UnknownTextures)
+    for (const auto& [name, count] : o.Room ? std::map<std::string, int>{} : layout.UnknownTextures) // a room's furniture: RoomBuilder
         log.push_back("texture without a role: " + name + " (" + std::to_string(count) + " tiles), treated as grass: add it to TownLayout.cpp");
 
     // the three ORAS pieces
@@ -196,13 +196,6 @@ Bytes BuildTownPiece(const TownLayout& layout, const OrasTownOptions& o, const G
         areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub((size_t)o.GrassPack)), (size_t)o.GrassPack, {"chip_kusa_a", "chip_kusa_b", "chip_grass_edge"}, finalName, log);
         sources.TargetGrass = !finalName["chip_kusa_a"].empty() && !finalName["chip_kusa_b"].empty() && !finalName["chip_grass_edge"].empty();
         sources.GroundTexture = finalName["chip_kusa_a"]; sources.LightTexture = finalName["chip_kusa_b"]; sources.EdgeTexture = finalName["chip_grass_edge"];
-    }
-    if (o.FloorPack >= 0)
-    {
-        std::map<std::string, std::string> finalName;
-        areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub((size_t)o.FloorPack)), (size_t)o.FloorPack, {o.FloorTexture}, finalName, log);
-        sources.FloorTexture = finalName[o.FloorTexture];
-        if (sources.FloorTexture.empty()) throw FormatError("area pack " + std::to_string(o.FloorPack) + " holds no texture " + o.FloorTexture);
     }
     if (o.SnowPack >= 0)
     {
@@ -273,10 +266,12 @@ Bytes BuildTownPiece(const TownLayout& layout, const OrasTownOptions& o, const G
         log.push_back("piece: " + std::to_string(o.PadPiece) + " zero bytes appended to its terrain model");
     }
     if (o.DonorAsIs) log.push_back("piece: the donor's, as it is in the game");
+    if (o.Room) town = BuildRoom(layout, town, piece(o.Room->Piece), *o.Room, o.RoomStairsC, o.RoomStairsR, o.RoomName, log);
 
     // the donor's textures the piece names and the area pack lacks, added to it when it is not the donor's own pack (a name the
-    // pack already holds keeps the pack's texture: Littleroot's chip_mado, shadow1, ... over Petalburg's)
-    if (o.AreaPack != o.DonorPack)
+    // pack already holds keeps the pack's texture: Littleroot's chip_mado, shadow1, ... over Petalburg's); a room's from its room's pack
+    const size_t texturesFrom = o.Room ? o.Room->Pack : o.DonorPack;
+    if (o.AreaPack != texturesFrom)
     {
         std::set<std::string> held, wanted;
         for (const Bytes& f : BinLinker::Read(areaPack, "AD").Files)
@@ -290,7 +285,7 @@ Bytes BuildTownPiece(const TownLayout& layout, const OrasTownOptions& o, const G
         }
         std::map<std::string, std::string> finalName;
         if (!wanted.empty())
-            areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub(o.DonorPack)), o.DonorPack, {wanted.begin(), wanted.end()}, finalName, log);
+            areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub(texturesFrom)), texturesFrom, {wanted.begin(), wanted.end()}, finalName, log);
     }
 
     // design rules (TownCheck.h): the textures the piece names must be in the area pack it will use; the size against the game's largest piece

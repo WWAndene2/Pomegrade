@@ -60,10 +60,11 @@ static ZoneDoor Warp(int toZone, int toWarp, uint16_t kind, int pixelX, int pixe
 
 ZoneDoor NewDoorWarp(int toZone, int toWarp, int tileX, int tileZ) { return Warp(toZone, toWarp, 0x0301, tileX * 18 + 9, tileZ * 18 + 9, 1, 1); }
 ZoneDoor NewExitWarp(int toZone, int toWarp, int pixelX, int pixelZ) { return Warp(toZone, toWarp, 0x0200, pixelX, pixelZ, 3, 1); }
-ZoneDoor NewStairsWarp(int toZone, int toWarp, int tileX, int tileZ)
+ZoneDoor NewStairsWarp(int toZone, int toWarp, int tileX, int tileZ, int walk, bool up)
 {
-    ZoneDoor w = Warp(toZone, toWarp, 0x0501, tileX * 18 + 9, tileZ * 18 + 9, 2, 1);
-    w.Raw[5] = 9;
+    if (walk < 0 || walk > 3) throw FormatError("stairs warp: the way walked into it is 0-3");
+    ZoneDoor w = Warp(toZone, toWarp, (uint16_t)(0x0500 + walk), tileX * 18 + 9, tileZ * 18 + 9, 1, 1);
+    w.Raw[5] = (uint16_t)(up ? 9 : -9);
     return w;
 }
 

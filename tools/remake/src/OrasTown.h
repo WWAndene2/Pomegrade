@@ -9,6 +9,7 @@
 #include "Garc.h"
 #include "N3dsRom.h"
 #include "NdsRom.h"
+#include "RoomBuilder.h"
 #include "TownCheck.h"
 #include "TownLayout.h"
 
@@ -41,10 +42,11 @@ struct OrasTownOptions
     // a/0/1/4 member holding ORAS's white picket fence texture (c103_saku, area pack 21), added to AreaPack; Platinum's fences
     // become that fence. -1: a hedge, as before
     int FencePack = 21;
-    // an interior's floor: texture FloorTexture of area pack FloorPack (an ORAS house's, 112: floor01) added to AreaPack and shown by
-    // every ground mesh (TownSources::FloorTexture). -1: the outdoor ground
-    int FloorPack = -1;
-    std::string FloorTexture = "floor01";
+    // an interior (oras-region on an interior's matrix): the ORAS room its look is taken from (RoomBuilder.h; null: a town), the
+    // tile of its warp to another floor (-1: none) and the room model's name (as long as the donor's)
+    const RoomDonor* Room = nullptr;
+    int RoomStairsC = -1, RoomStairsR = -1;
+    std::string RoomName;
     // the snow's edge laid with clumps: Littleroot's stone cluster (chip_alpha, area pack 8) filled with the snow
     bool SnowClumps = true;
     // the pond's inner walls: 0 the donor's cliff band (gake_01_touka, rock with a blue water line), 1 Littleroot's earth cliff

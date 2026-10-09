@@ -40,7 +40,7 @@
 //                     mods (<out dir>/load/mods/<program id>/romfs/<path>); copy <out dir>/load
 //                     into the 3DS folder (Pomegrade/3DS)
 //   remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]
-//                     [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--floor P TEXTURE] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]
+//                     [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]
 //                     a Platinum window of 40x40 tiles (default: Twinleaf Town) rebuilt as an ORAS map piece with
 //                     ORAS's own assets, as an Azahar mod (BPS patches), with town_preview.gltf, town_layout.txt and
 //                     town_piece.bin (the piece the mod writes, decompressed)
@@ -234,7 +234,6 @@ static bool TownKitOption(const std::string& flag, int argc, char** argv, int& i
     else if (flag == "--grass") options.GrassPack = number(++i);
     else if (flag == "--snow") options.SnowPack = number(++i);
     else if (flag == "--fence") options.FencePack = number(++i);
-    else if (flag == "--floor" && i + 2 < argc) { options.FloorPack = number(++i); options.FloorTexture = argv[++i]; }
     else if (flag == "--snow-clumps") options.SnowClumps = number(++i) != 0;
     else if (flag == "--pond-wall") options.PondWall = number(++i);
     else if (flag == "--door-type") options.DoorType = (uint32_t)number(++i);

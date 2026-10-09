@@ -67,9 +67,10 @@ ZoneCharacter NewCharacter(int id, int model, int tileX, int tileZ, int facing, 
 // door, 3 x 1 a house's mat)
 ZoneDoor NewDoorWarp(int toZone, int toWarp, int tileX, int tileZ);
 ZoneDoor NewExitWarp(int toZone, int toWarp, int pixelX, int pixelZ);
-// stairs between two interiors: kind 0x0501, 2 x 1 tiles, word 5 9, as Littleroot's first house's warp 1 up to its first floor
-// (zone 223 to 224)
-ZoneDoor NewStairsWarp(int toZone, int toWarp, int tileX, int tileZ);
+// stairs between two interiors, on a solid tile the player walks into (as every ORAS stairs warp: Littleroot's houses, pieces
+// 506, 507, 509): kind 0x0500 + the way walked into it (1 north: 223 to 224, up; 2 east: 224 to 223, down; 3 west: 226 to 225,
+// down; 0 south: inferred, the fourth value), 1 x 1 tiles, word 5 the warp's height, 9 up and -9 down as theirs
+ZoneDoor NewStairsWarp(int toZone, int toWarp, int tileX, int tileZ, int walk, bool up);
 
 // Scripts that do nothing, as the game's smallest (zone 80): main returns 0 for every command (SINNOH_BUILD.md R1), for a zone
 // given none of its own

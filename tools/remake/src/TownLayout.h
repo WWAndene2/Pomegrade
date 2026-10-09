@@ -13,6 +13,7 @@
 
 #include <array>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -33,6 +34,8 @@ struct TownLayout
     std::vector<std::string> Collision;  // TownTiles rows: '#' solid, '~' water, 'g' tall grass, '.' free
     std::vector<TownDoor> Doors;
     std::map<std::string, int> UnknownTextures; // textures with no role: counted, left as grass
+    // each tile's Platinum materials (TownTiles rows of TownTiles sets, row-major): an interior's furniture (RoomBuilder.h)
+    std::vector<std::vector<std::set<std::string>>> TileMaterials;
     int BedTiles = 0;                    // tiles a fence encloses, filled with flowers
 
     static TownLayout Read(const PlatinumWorld& world, int left, int top);

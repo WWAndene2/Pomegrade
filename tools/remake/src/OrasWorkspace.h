@@ -52,7 +52,8 @@ public:
     // its kind by what it joins (OrasNewZone.h: a house's door from outdoors, a mat back out, stairs between interiors), and an
     // interior's header word 13 the outdoor zone its warps lead out to. A warp whose header no step built leads nowhere yet: it
     // is left out and reported
-    struct HeaderWarp { int TileX = 0, TileZ = 0, DestHeader = -1; };
+    // Walk: for stairs, the way the player walks into the warp's tile (NewStairsWarp: 0 south, 1 north, 2 east, 3 west)
+    struct HeaderWarp { int TileX = 0, TileZ = 0, DestHeader = -1, Walk = 1; };
     void RegisterHeaderZone(int header, int zone, bool interior, const std::vector<HeaderWarp>& warps);
     std::vector<std::string> LinkWarps();
 
