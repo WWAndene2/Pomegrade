@@ -1,0 +1,20 @@
+import { chromium } from 'playwright-core';
+import http from 'http'; import fs from 'fs'; import path from 'path';
+const root = process.cwd();
+const port = 8770 + Math.floor(Math.random() * 100);
+const server = http.createServer((q, r) => {
+  const f = path.join(root, decodeURIComponent(q.url.split('?')[0]));
+  const types = { '.js': 'text/javascript', '.html': 'text/html', '.gltf': 'model/gltf+json', '.json': 'application/json' };
+  fs.readFile(f, (e, d) => { if (e) { r.statusCode = 404; r.end(); } else { r.setHeader('Content-Type', types[path.extname(f)] || 'application/octet-stream'); r.end(d); } });
+}).listen(port);
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const [out, query] = process.argv.slice(2);
+const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+page.on('console', (m) => console.log(new Date().toISOString().slice(11, 19), m.text()));
+page.on('pageerror', (e) => console.log('pageerror:', e.message));
+await page.goto(`http://localhost:${port}/pt.html?${query}`);
+await page.waitForFunction(() => window.done, null, { timeout: 0, polling: 2000 });
+console.log('done', await page.evaluate(() => window.done));
+const data = await page.evaluate(() => window.image);
+fs.writeFileSync(out, Buffer.from(data.split(',')[1], 'base64'));
+await browser.close(); server.close();
