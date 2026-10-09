@@ -346,14 +346,11 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, OrasWorkspace& 
                         for (int c = 0; c < TownTiles; c++)
                             if (layout.TileMaterials[r][c].empty() && layout.Collision[r][c] != '#') { layout.Collision[r][c] = '#'; closed++; }
                     log.push_back(F("piece (%d, %d): %d tiles outside the room made solid (no terrain)", x, y, closed));
-                    // its look (RoomBuilder.h): an ORAS house's ground floor when a door leads outdoors, else its upstairs; the warp to
-                    // another floor carries the stairs
-                    bool ground = false;
+                    // its shell (RoomBuilder.h), in the materials of an ORAS house's ground floor; the warp to another floor is stairs
                     for (const auto& d : layout.Doors)
                     {
                         if (!o.Zones.count((int)d.Zone) || o.Zones.at((int)d.Zone) < 0 || d.DestZone >= world.Headers.size()) continue;
-                        if (world.Headers[d.DestZone].Matrix == 0) { ground = true; continue; }
-                        to.RoomStairsC = d.Column; to.RoomStairsR = d.Row;
+                        if (world.Headers[d.DestZone].Matrix == 0) continue;
                         // stairs: ORAS's stairs warps lie on a solid tile the player walks into (OrasNewZone.h, NewStairsWarp), Platinum's
                         // on a walkable mat beside its stairs (the player walked onto (2, 3) of house 412 and stayed there, run rm3):
                         // the tile made solid, walked into toward Platinum's stairs tiles, from the open tile on the other side
@@ -386,7 +383,7 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, OrasWorkspace& 
                         log.push_back(F("stairs warp at (%d, %d) to header %u: its tile solid, walked into going %s", c, r, d.DestZone,
                                         walk == 0 ? "south" : walk == 1 ? "north" : walk == 2 ? "east" : "west"));
                     }
-                    to.Room = ground ? &GroundFloorRoom : &UpstairsRoom;
+                    to.Room = &GroundFloorRoom;
                     to.SnowPack = -1; to.FencePack = -1;
                 }
             }

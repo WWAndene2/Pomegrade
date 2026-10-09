@@ -24,6 +24,10 @@ constexpr int TownTiles = 40; // an ORAS map piece
 
 struct TownDoor { int Column = 0, Row = 0; uint16_t Zone = 0, Warp = 0, DestZone = 0, DestWarp = 0; };
 
+// a Platinum building model placed on the window (furniture, a window on a wall, stairs: a room's objects are these): its
+// model's name, its centre in tiles of the window and its height in tiles
+struct TownObject { std::string Name; float Column = 0, Row = 0, Height = 0; };
+
 struct TownLayout
 {
     int Left = 0, Top = 0;               // the window's first tile in the matrix's tile grid
@@ -33,6 +37,7 @@ struct TownLayout
     std::vector<std::string> Snow2;      // 2*TownTiles rows: '#' where a half tile is snow (white), specks and pinholes cleaned
     std::vector<std::string> Collision;  // TownTiles rows: '#' solid, '~' water, 'g' tall grass, '.' free
     std::vector<TownDoor> Doors;
+    std::vector<TownObject> Objects;
     std::map<std::string, int> UnknownTextures; // textures with no role: counted, left as grass
     // each tile's Platinum materials (TownTiles rows of TownTiles sets, row-major): an interior's furniture (RoomBuilder.h)
     std::vector<std::vector<std::set<std::string>>> TileMaterials;

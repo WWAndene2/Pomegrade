@@ -1,4 +1,5 @@
 #include "TownLayout.h"
+#include "Nsbmd.h"
 
 #include <algorithm>
 #include <set>
@@ -202,6 +203,20 @@ TownLayout TownLayout::Read(const PlatinumWorld& plat, int left, int top)
         const int c = (int)w.Warp.X - left, r = (int)w.Warp.Z - top;
         if (c < 0 || r < 0 || c >= N || r >= N) continue;
         out.Doors.push_back({c, r, w.Zone, w.Index, w.Warp.DestHeader, w.Warp.DestWarp});
+    }
+    // the building models of every cell in the window (a cell's buildings lie in tiles from its centre)
+    for (size_t i = 0; i < world.Cells.size(); i++)
+    {
+        if (!world.Cells[i]) continue;
+        const int cx = (int)(i % world.Matrix.Width) * (int)LandTiles, cz = (int)(i / world.Matrix.Width) * (int)LandTiles;
+        for (const LandBuilding& b : world.Cells[i]->Buildings)
+        {
+            const float c = cx + LandTiles / 2.0f + b.Position[0] - left, r = cz + LandTiles / 2.0f + b.Position[2] - top;
+            if (c < 0 || r < 0 || c >= N || r >= N) continue;
+            std::string name;
+            try { const Nsbmd m(plat.BuildingModels.Member(b.Model)); if (!m.Models().empty()) name = m.Models()[0].Name; } catch (const FormatError&) {}
+            out.Objects.push_back({name, c, r, b.Position[1]});
+        }
     }
     // north to south, west to east: the same layout whatever order the zones list their warps in
     std::sort(out.Doors.begin(), out.Doors.end(), [](const TownDoor& a, const TownDoor& b) { return a.Row != b.Row ? a.Row < b.Row : a.Column < b.Column; });
