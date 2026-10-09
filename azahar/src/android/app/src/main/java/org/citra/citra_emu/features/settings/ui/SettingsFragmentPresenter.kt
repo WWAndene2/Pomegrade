@@ -1097,7 +1097,6 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     IntSetting.REMASTER_PRESET.defaultValue
                 )
             )
-            )
             add(
                 SwitchSetting(
                     BooleanSetting.REMASTER_AO,

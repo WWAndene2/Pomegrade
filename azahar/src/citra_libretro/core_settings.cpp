@@ -444,8 +444,6 @@ static constexpr retro_core_option_v2_definition option_definitions[] = {
         },
         "0"
     },
-        "0"
-    },
     {
         config::graphics::texture_sampling,
         "Texture Sampling",
