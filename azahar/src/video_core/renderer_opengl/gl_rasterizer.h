@@ -32,6 +32,8 @@ struct ScreenInfo;
 class Driver;
 class ShaderProgramManager;
 
+class PathTracerGL;
+
 class RasterizerOpenGL : public VideoCore::RasterizerAccelerated {
 public:
     explicit RasterizerOpenGL(Memory::MemorySystem& memory, Pica::PicaCore& pica,
@@ -57,7 +59,15 @@ public:
                            u32 pixel_stride, ScreenInfo& screen_info);
     bool AccelerateDrawBatch(bool is_indexed) override;
 
+    /// Pomegrade: the path tracer the frame's lit draws are handed to (gl_pathtracer.h)
+    void SetPathTracer(PathTracerGL* tracer) {
+        path_tracer = tracer;
+    }
+
 private:
+    PathTracerGL* path_tracer = nullptr;
+    bool skip_shadow_decal = false; ///< the draw's texture 0 is a painted shadow (BindMaterial)
+
     /// Syncs pipeline state from PICA registers
     void SyncDrawState();
 

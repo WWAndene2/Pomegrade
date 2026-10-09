@@ -13,6 +13,8 @@
 # tool    remake_tool (tools/remake), and the game's code decompressed for disassembly -> dumps/code.bin
 # core    Azahar's libretro core with the headless patches (pomegrade_report.inc, patch_core.py: thread report, memory
 #         dump, GDB stub), built from a copy of azahar/ (about 30 min on 4 cores, once), and retro_host
+# core-gl the same core with its OpenGL renderer (runs with POMEGRADE_GL=1: Mesa's llvmpipe in an EGL context with no
+#         screen, apt package libegl1), in core-src-gl/ and build-azahar-gl/; not part of "all"
 # ghidra  Ghidra 11.4.2 and the whole game's code analysed in one program: the .code and the 145 code modules linked by
 #         prototype/cro_link.py, Ghidra's wrong no-return marks cleared (FixNoReturn.java), the names of
 #         ghidra/function_names.tsv applied (15 min) -> ghidra_proj/, linked/, functions.tsv, edges.tsv, noreturn.tsv
@@ -54,6 +56,16 @@ core)
     ninja -C build-azahar citra_libretro
     g++ -std=c++17 -O2 -I "$repo/azahar/externals/libretro-common/libretro-common/include" "$repo/tools/remake/headless/retro_host.cpp" -ldl -o retro_host
     ls -l build-azahar/bin/Release/azahar_libretro.so retro_host ;;
+core-gl)
+    # the same core with its OpenGL renderer, for runs with POMEGRADE_GL=1 (retro_host draws it in an EGL context with no
+    # screen: Mesa's llvmpipe, apt package libegl1); its own source copy and build, beside the software one
+    git -C "$repo" submodule update --init --recursive --depth 1 azahar > /dev/null
+    rm -rf core-src-gl && mkdir -p core-src-gl/tools/remake && cp -a "$repo/azahar" core-src-gl/ && cp -a "$repo/tools/remake/headless" core-src-gl/tools/remake/
+    (cd core-src-gl && cat tools/remake/headless/pomegrade_report.inc >> azahar/src/citra_libretro/citra_libretro.cpp && python3 tools/remake/headless/patch_core.py)
+    cmake -S core-src-gl/azahar -B build-azahar-gl -G Ninja -DCMAKE_BUILD_TYPE=Release -DENABLE_LIBRETRO=ON -DENABLE_OPENGL=ON \
+        -DENABLE_VULKAN=OFF -DENABLE_TESTS=OFF > /dev/null
+    ninja -C build-azahar-gl citra_libretro
+    ls -l build-azahar-gl/bin/Release/azahar_libretro.so ;;
 ghidra)
     if [ ! -d ghidra_11.4.2_PUBLIC ]; then
         curl -sSL -o ghidra.zip https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.4.2_build/ghidra_11.4.2_PUBLIC_20250826.zip

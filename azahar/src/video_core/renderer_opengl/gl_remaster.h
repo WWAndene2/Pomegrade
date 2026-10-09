@@ -9,6 +9,8 @@
 
 namespace OpenGL {
 
+class PathTracerGL;
+
 struct ScreenInfo;
 
 // Pomegrade: Remaster (VideoCore::Remaster) for OpenGL: the top screen's frame, once per emulated frame, through three
@@ -17,16 +19,17 @@ struct ScreenInfo;
 class RemasterGL {
 public:
     /// Remasters screen_info's frame when the preset is on; screen_info then names the remastered texture
-    void Apply(ScreenInfo& screen_info);
+    /// The light of the frame comes from `tracer` when it traces it (gl_pathtracer.h), else from the light pass
+    void Apply(ScreenInfo& screen_info, PathTracerGL& tracer);
 
 private:
     void Resize(u32 width, u32 height);
     void Pass(const OGLProgram& program, GLuint fbo, u32 w, u32 h);
     u32 width = 0, height = 0;
-    OGLTexture stats, bright, result;
-    OGLFramebuffer stats_fbo, bright_fbo, result_fbo;
-    OGLProgram stats_program, bright_program, main_program;
-    OGLSampler linear, nearest;
+    OGLTexture stats, bright, light, result;
+    OGLFramebuffer stats_fbo, bright_fbo, light_fbo, result_fbo;
+    OGLProgram stats_program, bright_program, light_program, main_program;
+    OGLSampler linear, mipmapped, nearest;
     OGLVertexArray vao;
 };
 

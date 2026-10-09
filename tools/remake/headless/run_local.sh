@@ -9,7 +9,8 @@
 # zone x z  the save moved there first (oras-save); empty to keep the owner's position (Littleroot, zone 6)
 # script    retro_host commands separated by ';' (retro_host.cpp: wait N, hold KEYS N, press KEYS, mash KEYS N, field [N],
 #           screen, shot NAME, report, mem ADDRESS LENGTH, watch FRAMES [KEYS] ADDRESS..., dump ADDRESS LENGTH FILE,
-#           gdb PORT, trace on / trace off FILE (with POMEGRADE_INTERPRETER=1), save NAME / load NAME, draw off / draw on). A save state can only be loaded after the core has booted ("wait 120" first)
+#           gdb PORT, trace on / trace off FILE (with POMEGRADE_INTERPRETER=1), save NAME / load NAME, draw off / draw on,
+#           remaster N: the Remaster preset from then on, 0-3, with POMEGRADE_GL=1). A save state can only be loaded after the core has booted ("wait 120" first)
 #           and does not restore a pending asset load: to freeze again, replay from the start.
 #           The fast way (8 October, 2.5 min to a walk on the field instead of 10-12): POMEGRADE_STATE=<work>/title.state and
 #           "wait 120;load title;mash a 8;draw off;wait 900;..." : the title state skips the boot, and with drawing off the
@@ -37,7 +38,10 @@ mkdir -p "$save"; cp "$start" "$save/main"; cp dumps/save/00000001.metadata "$sa
 # the boot to the title played once, then each save tested from there)
 [ -n "${POMEGRADE_STATE:-}" ] && cp "$POMEGRADE_STATE" "$run/"
 printf '%s\n' "$script" | tr ';' '\n' > "$run/script.txt"
-host() { (ulimit -f 4000000; ./retro_host build-azahar/bin/Release/azahar_libretro.so dumps/oras.3ds "$run" "$secs" "$PWD/$run/script.txt" > "$run/log.txt" 2>&1); }
+# POMEGRADE_GL=1: the OpenGL core and host of session_setup.sh's core-gl stage (POMEGRADE_REMASTER: its Remaster preset)
+if [ -n "${POMEGRADE_GL:-}" ]; then host_bin=./retro_host_gl; core=build-azahar-gl/bin/Release/azahar_libretro.so
+else host_bin=./retro_host; core=build-azahar/bin/Release/azahar_libretro.so; fi
+host() { (ulimit -f 4000000; $host_bin $core dumps/oras.3ds "$run" "$secs" "$PWD/$run/script.txt" > "$run/log.txt" 2>&1); }
 if [ -z "$gdb" ]; then
     host
 else

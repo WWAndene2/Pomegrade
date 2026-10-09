@@ -2,11 +2,14 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#include <algorithm>
+#include <cmath>
 #include <fmt/format.h>
 #include "common/file_util.h"
 #include "common/hash.h"
 #include "common/logging/log.h"
 #include "common/zstd_compression.h"
+#include "video_core/material_recognition.h"
 #include "video_core/rasterizer_cache/pomegrade_darp_manager.h"
 #include "video_core/rasterizer_cache/utils.h"
 
@@ -33,6 +36,93 @@ Darp::Texture Decode(const SurfaceParams& params, std::span<u8> encoded) {
     return texture;
 }
 
+/// Box mean of a single-channel image, radius r, edges clamped (two passes of running sums)
+std::vector<float> BoxMean(const std::vector<float>& v, int w, int h, int r) {
+    std::vector<float> tmp(v.size()), out(v.size());
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            float sum = 0;
+            for (int k = -r; k <= r; k++) {
+                sum += v[static_cast<std::size_t>(y) * w + std::clamp(x + k, 0, w - 1)];
+            }
+            tmp[static_cast<std::size_t>(y) * w + x] = sum / (2 * r + 1);
+        }
+    }
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            float sum = 0;
+            for (int k = -r; k <= r; k++) {
+                sum += tmp[static_cast<std::size_t>(std::clamp(y + k, 0, h - 1)) * w + x];
+            }
+            out[static_cast<std::size_t>(y) * w + x] = sum / (2 * r + 1);
+        }
+    }
+    return out;
+}
+
+/// MaterialRecognition's maps of an RGBA8 texture, packed as the shader reads them (RG the normal,
+/// B the height, A the volume up to 254; 255 marks glass, for the windows' interior). Also lifts the
+/// texture's painted shadows (in place): the path tracer's light replaces them. A painted shadow is a
+/// broad, smooth area darker than its surroundings, never a line: the luminance over r 4 against r 16,
+/// only where the texture is smooth (its r 2 mean within 6 % of the r 4 one, the texel within 12 % of
+/// its r 2 mean), lifted up to 1.3x, half way, off the outlines and the glass. The first rule (r 2
+/// against r 8, 9 October) lifted the grass's painted blades as well and flattened the textures.
+std::vector<u8> SurfaceMaps(Darp::Texture& texture) {
+    const int w = static_cast<int>(texture.width), h = static_cast<int>(texture.height);
+    const auto maps = VideoCore::MaterialRecognition::Recognise(texture.rgba.data(), w, h);
+    const std::size_t n = maps.heights.size();
+    std::vector<float> luma(n);
+    for (std::size_t i = 0; i < n; i++) {
+        luma[i] = 0.299f * texture.rgba[i * 4] + 0.587f * texture.rgba[i * 4 + 1] +
+                  0.114f * texture.rgba[i * 4 + 2];
+    }
+    const std::vector<float> fine = BoxMean(luma, w, h, 2), near_ = BoxMean(luma, w, h, 4),
+                             wide = BoxMean(luma, w, h, 16);
+    std::vector<u8> packed(texture.rgba.size());
+    for (std::size_t i = 0; i < n; i++) {
+        const bool glass =
+            maps.classes[i] == static_cast<u8>(VideoCore::MaterialRecognition::Class::Glass);
+        packed[i * 4 + 0] = maps.normal[i * 3 + 0];
+        packed[i * 4 + 1] = maps.normal[i * 3 + 1];
+        packed[i * 4 + 2] = maps.heights[i];
+        packed[i * 4 + 3] = glass ? 255 : std::min<u8>(maps.volume[i], 254);
+        if (glass || maps.outline[i] || near_[i] < 1.0f ||
+            std::abs(fine[i] - near_[i]) > 0.06f * near_[i] || std::abs(luma[i] - fine[i]) > 0.12f * fine[i]) {
+            continue;
+        }
+        const float lift = 1.0f + 0.5f * (std::clamp(wide[i] / near_[i], 1.0f, 1.3f) - 1.0f);
+        for (int c = 0; c < 3; c++) {
+            texture.rgba[i * 4 + c] =
+                static_cast<u8>(std::min(255.0f, texture.rgba[i * 4 + c] * lift + 0.5f));
+        }
+    }
+    return packed;
+}
+
+/// Whether a texture is a painted shadow: the texels it shows (alpha over 1/16) dark (mean luminance under 0.25) and of
+/// nearly one colour (spread under 0.06), the shape in a varying alpha (a quarter of them or more translucent). A
+/// texture with a painted outline or any drawing in colour fails the uniformity
+bool IsShadowDecal(const Darp::Texture& texture) {
+    double sum = 0, sum2 = 0, shown = 0, translucent = 0;
+    const std::size_t n = texture.rgba.size() / 4;
+    for (std::size_t i = 0; i < n; i++) {
+        const u8* t = &texture.rgba[i * 4];
+        if (t[3] < 16) {
+            continue;
+        }
+        const double l = (0.299 * t[0] + 0.587 * t[1] + 0.114 * t[2]) / 255.0;
+        sum += l;
+        sum2 += l * l;
+        shown++;
+        translucent += t[3] < 224 ? 1 : 0;
+    }
+    if (shown < n * 0.05) {
+        return false;
+    }
+    const double mean = sum / shown, spread = std::sqrt(std::max(0.0, sum2 / shown - mean * mean));
+    return mean < 0.25 && spread < 0.06 && translucent >= shown * 0.25;
+}
+
 } // Anonymous namespace
 
 DarpManager::DarpManager(Frontend::ImageInterface& image_interface_)
@@ -47,8 +137,8 @@ DarpManager::DarpManager(Frontend::ImageInterface& image_interface_)
 DarpManager::~DarpManager() = default;
 
 u64 DarpManager::Key(const SurfaceParams& params, std::span<const u8> encoded,
-                     const Darp::Options& options) {
-    const std::array<u32, 7> description = {
+                     const Darp::Options& options, bool surface_maps) {
+    const std::array<u32, 8> description = {
         params.width,
         params.height,
         static_cast<u32>(params.pixel_format),
@@ -56,6 +146,7 @@ u64 DarpManager::Key(const SurfaceParams& params, std::span<const u8> encoded,
         static_cast<u32>(options.wrap_s),
         static_cast<u32>(options.wrap_t),
         Darp::Version,
+        surface_maps ? 1u : 0u,
     };
     const u64 data = Common::ComputeHash64(encoded.data(), encoded.size());
     const u64 shape = Common::ComputeHash64(description.data(), sizeof(description));
@@ -119,6 +210,13 @@ void DarpManager::Queue(DarpJob&& job) {
             entry.material->textures[0] = entry.texture.get();
             entry.texture->format = CustomPixelFormat::RGBA8;
             entry.texture->type = MapType::Color;
+            if (job.surface_maps) {
+                entry.maps = std::make_unique<CustomTexture>(image_interface);
+                entry.maps->format = CustomPixelFormat::RGBA8;
+                entry.maps->type = MapType::Normal;
+                entry.material->textures[1] = entry.maps.get();
+                entry.material->pomegrade_surface = true;
+            }
         }
         entry.state = State::Queued;
     }
@@ -145,12 +243,19 @@ void DarpManager::Release(u64 key) {
     }
     it->second.state = State::Released;
     it->second.texture->data = {};
+    if (it->second.maps) {
+        it->second.maps->data = {};
+    }
 }
 
 void DarpManager::Run(DarpJob job) {
+    const bool reconstruct = job.options.factor >= 2;
     std::optional<Darp::Texture> result =
-        job.options.format == Darp::SourceFormat::HILO8 ? std::nullopt : LoadCached(job.key);
-    if (!result && job.options.format != Darp::SourceFormat::HILO8) {
+        job.options.format == Darp::SourceFormat::HILO8 || !reconstruct ? std::nullopt
+                                                                        : LoadCached(job.key);
+    if (!reconstruct && job.options.format != Darp::SourceFormat::HILO8) {
+        result = Decode(job.params, job.encoded);
+    } else if (!result && job.options.format != Darp::SourceFormat::HILO8) {
         const Darp::Texture level0 = Decode(job.params, job.encoded);
         result = Darp::Upscale(level0, job.options);
         if (result) {
@@ -161,15 +266,30 @@ void DarpManager::Run(DarpJob job) {
         }
     }
 
+    std::vector<u8> maps;
+    bool shadow_decal = false;
+    if (result && job.surface_maps) {
+        shadow_decal = IsShadowDecal(*result);
+        maps = SurfaceMaps(*result);
+    }
+
     std::scoped_lock lock{mutex};
     Entry& entry = entries.at(job.key);
     if (result) {
         entry.texture->data = std::move(result->rgba);
+        entry.material->pomegrade_shadow_decal = shadow_decal;
+        if (entry.maps) {
+            entry.maps->data = std::move(maps);
+        }
         // a reload (after Release) has the same size: surfaces read it without the lock, so it is
         // only written the first time
         if (entry.material->state != DecodeState::Decoded) {
             entry.texture->width = result->width;
             entry.texture->height = result->height;
+            if (entry.maps) {
+                entry.maps->width = result->width;
+                entry.maps->height = result->height;
+            }
             entry.material->width = result->width;
             entry.material->height = result->height;
             entry.material->size = entry.texture->data.size();

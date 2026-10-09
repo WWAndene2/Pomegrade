@@ -10,6 +10,10 @@
 // the rasterizer cache swaps it in through the custom texture path (an RGBA8 material), as it does
 // for texture packs. Results are cached in <cache>/darp/, keyed by a hash of the texture's stored
 // bytes, its format, the factor, its wrap modes and Pomegrade::Darp::Version.
+// It also gives a texture the Remaster's surface maps (VideoCore::MaterialRecognition, packed in the
+// material's normal map: RG the normal, B the height, A the volume), on the reconstruction or, with
+// factor 1, on the texture as the game stores it. Those are recomputed when the colour comes from
+// the disk cache.
 
 #include <array>
 #include <memory>
@@ -35,7 +39,8 @@ struct DarpJob {
     std::vector<u8> encoded;   ///< its bytes as the game stores them
     SurfaceParams mip1_params; ///< level 1, when the game provides it (thesis s.13 bench)
     std::vector<u8> mip1_encoded;
-    Pomegrade::Darp::Options options;
+    Pomegrade::Darp::Options options; ///< factor 1: no reconstruction, the surface maps only
+    bool surface_maps = false;
 };
 
 class DarpManager {
@@ -45,7 +50,7 @@ public:
 
     /// The cache key of a texture (thesis s.11).
     static u64 Key(const SurfaceParams& params, std::span<const u8> encoded,
-                   const Pomegrade::Darp::Options& options);
+                   const Pomegrade::Darp::Options& options, bool surface_maps);
 
     /// The DARP equivalent of a texture's format.
     static Pomegrade::Darp::SourceFormat SourceFormat(PixelFormat format);
@@ -70,6 +75,7 @@ private:
     struct Entry {
         State state = State::Queued;
         std::unique_ptr<CustomTexture> texture;
+        std::unique_ptr<CustomTexture> maps; ///< the surface maps, when asked
         std::unique_ptr<Material> material;
     };
 

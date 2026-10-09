@@ -128,6 +128,11 @@ public:
     /// rectangle of the frame in it (scaled, flipped as the display transfer flipped it); nullptr when unknown
     const Surface* DepthForDisplay(PAddr framebuffer_addr, Common::Rectangle<u32>& rect);
 
+    /// Pomegrade: the render target a display transfer last copied to framebuffer_addr (its colour buffer's address,
+    /// its scaled size) and the rectangle copied, scaled and turned as DepthForDisplay's; false when unknown
+    bool RemasterDisplay(PAddr framebuffer_addr, Common::Rectangle<u32>& rect, PAddr& target, u32& width,
+                         u32& height) const;
+
     /// Get a surface that matches a "texture copy" display transfer config
     SurfaceRect_Tuple GetTexCopySurface(const SurfaceParams& params);
 
@@ -247,18 +252,32 @@ private:
     // Pomegrade: DARP (pomegrade_darp_manager.h). The manager lives as long as the cache once
     // created, since swapped-in surfaces point to its materials.
     std::unique_ptr<DarpManager> darp;
-    /// Pomegrade (Remaster): the depth surface each render target (by its address) was last drawn with, and the render
-    /// target and rectangle each display transfer copied to an address; a surface leaves both when it is deleted
-    std::unordered_map<PAddr, SurfaceId> remaster_depth_of_color;
+    /// Pomegrade (Remaster): the depth surface each render target (by its colour surface) was last drawn with, and the
+    /// render target and rectangle each display transfer copied to an address; a surface leaves both when it is deleted.
+    /// By the render target's memory (its parameters kept, not its surface: the cache recreates surfaces), since a game may
+    /// copy out a rectangle from inside it (ORAS draws the top screen into a larger buffer at 0x18070800 and copies from
+    /// 0x1808C800 within it: seen headless, 9 October)
+    struct RemasterTarget {
+        SurfaceParams color;
+        SurfaceId depth;
+    };
+    std::unordered_map<PAddr, RemasterTarget> remaster_depth_of_color;
     /// (the depth is taken when the frame is copied, so a render target address reused later cannot lend another depth)
     struct RemasterDisplaySource {
         SurfaceId depth;
         Common::Rectangle<u32> rect;
+        PAddr target;       ///< the render target's colour buffer address (remaster_depth_of_color's key)
+        u32 width, height;  ///< its scaled size
     };
     std::unordered_map<PAddr, RemasterDisplaySource> remaster_display_source;
     void RemasterForget(SurfaceId id) {
-        std::erase_if(remaster_depth_of_color, [id](const auto& entry) { return entry.second == id; });
-        std::erase_if(remaster_display_source, [id](const auto& entry) { return entry.second.depth == id; });
+        std::erase_if(remaster_depth_of_color, [id](const auto& entry) { return entry.second.depth == id; });
+        // a copy keeps its render target and rectangle (the path tracer's) when only its depth goes
+        for (auto& [address, source] : remaster_display_source) {
+            if (source.depth == id) {
+                source.depth = SurfaceId{};
+            }
+        }
     }
     std::unordered_map<SurfaceId, u64> darp_pending;  ///< surface -> reconstruction it waits for
     std::unordered_map<SurfaceId, u64> darp_surfaces; ///< surface -> reconstruction it shows
@@ -266,6 +285,7 @@ private:
     std::unordered_map<PAddr, u32> darp_reverts;      ///< data changes per texture address
     Pomegrade::Darp::Wrap darp_wrap_s = Pomegrade::Darp::Wrap::Clamp; ///< of the texture looked up
     Pomegrade::Darp::Wrap darp_wrap_t = Pomegrade::Darp::Wrap::Clamp;
+    int surface_mode = -1; ///< Remaster::SurfaceMode() the textures were made with
     u32 texture_anisotropy; ///< Pomegrade: the Texture filtering setting's
     bool dump_textures;
     bool use_custom_textures;

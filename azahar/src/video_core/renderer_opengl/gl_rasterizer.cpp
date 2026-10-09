@@ -10,6 +10,8 @@
 #include "common/microprofile.h"
 #include "core/loader/loader.h"
 #include "video_core/pica/pica_core.h"
+#include "video_core/remaster.h"
+#include "video_core/renderer_opengl/gl_pathtracer.h"
 #include "video_core/renderer_opengl/gl_rasterizer.h"
 #include "video_core/renderer_opengl/pica_to_gl.h"
 #include "video_core/renderer_opengl/renderer_opengl.h"
@@ -467,6 +469,10 @@ bool RasterizerOpenGL::SetupGeometryShader() {
 }
 
 bool RasterizerOpenGL::AccelerateDrawBatch(bool is_indexed) {
+    // Pomegrade: the path tracer needs a lit draw's vertices on the CPU (their view position and normal)
+    if (path_tracer && !regs.lighting.disable && PathTracerGL::Enabled()) {
+        return false;
+    }
     if (regs.pipeline.use_gs != Pica::PipelineRegs::UseGS::No) {
         if (regs.pipeline.gs_config.mode != Pica::PipelineRegs::GSMode::Point) {
             return false;
@@ -622,7 +628,13 @@ bool RasterizerOpenGL::Draw(bool accelerate, bool is_indexed) {
     }
 
     // Sync and bind the texture surfaces
+    skip_shadow_decal = false;
     SyncTextureUnits(framebuffer);
+    // Pomegrade: a painted shadow is left out while the path tracer casts the real shadows
+    if (skip_shadow_decal) {
+        vertex_batch.clear();
+        return true;
+    }
     state.Apply();
 
     // Sync and bind the shader
@@ -640,6 +652,23 @@ bool RasterizerOpenGL::Draw(bool accelerate, bool is_indexed) {
     if (accelerate) {
         succeeded = AccelerateDrawBatchInternal(is_indexed);
     } else {
+        // Pomegrade: a lit draw that writes depth goes to the path tracer. The others are left out: ORAS lays its paths
+        // and ground details as sheets just above the ground, not writing depth, which would shadow it all (its opaque
+        // terrain is drawn with blending on, so blending does not tell them apart)
+        if (path_tracer && !regs.lighting.disable && !shadow_rendering && using_color_fb &&
+            state.depth.write_mask == GL_TRUE && PathTracerGL::Enabled()) {
+            std::vector<PathTracerGL::InputVertex> captured(vertex_batch.size());
+            for (std::size_t i = 0; i < vertex_batch.size(); i++) {
+                const HardwareVertex& v = vertex_batch[i];
+                captured[i] = {{v.position[0], v.position[1], v.position[2], v.position[3]},
+                               {v.view[0], v.view[1], v.view[2]},
+                               {v.normquat[0], v.normquat[1], v.normquat[2], v.normquat[3]}};
+            }
+            path_tracer->Capture(regs.framebuffer.framebuffer.GetColorBufferPhysicalAddress(),
+                                 {state.viewport.x, state.viewport.y, state.viewport.width,
+                                  state.viewport.height},
+                                 captured);
+        }
         state.draw.vertex_array = sw_vao.handle;
         state.draw.vertex_buffer = vertex_buffer.GetHandle();
         curr_shader_manager->UseTrivialVertexShader();
@@ -789,6 +818,25 @@ void RasterizerOpenGL::BindMaterial(u32 texture_index, Surface& surface) {
     }
 
     const GLuint sampler = state.texture_units[texture_index].sampler;
+    // Pomegrade: a texture's MaterialRecognition maps (pomegrade_darp_manager.h) shade texture 0's
+    // surface (the shader's parallax moves texture 0's coordinates); the Remaster's preset gives the
+    // shading
+    if (texture_index == 0 && surface.material && surface.material->pomegrade_shadow_decal &&
+        state.blend.enabled && PathTracerGL::Enabled()) {
+        skip_shadow_decal = true;
+    }
+    if (surface.material && surface.material->pomegrade_surface) {
+        const int mode = VideoCore::Remaster::SurfaceMode();
+        if (texture_index != 0 || mode < 0 || !surface.HasNormalMap()) {
+            return;
+        }
+        glActiveTexture(TextureUnits::TextureNormalMap.Enum());
+        glBindTexture(GL_TEXTURE_2D, surface.Handle(2));
+        glBindSampler(TextureUnits::TextureNormalMap.id, sampler);
+        user_config.pomegrade_surface.Assign(1);
+        user_config.pomegrade_surface_mode.Assign(static_cast<u32>(mode));
+        return;
+    }
     if (surface.HasNormalMap()) {
         if (regs.lighting.disable) {
             LOG_WARNING(Render_OpenGL, "Custom normal map used but scene has no light enabled");
@@ -846,7 +894,19 @@ void RasterizerOpenGL::ClearAll(bool flush) {
 }
 
 bool RasterizerOpenGL::AccelerateDisplayTransfer(const Pica::DisplayTransferConfig& config) {
-    return res_cache.AccelerateDisplayTransfer(config);
+    if (!res_cache.AccelerateDisplayTransfer(config)) {
+        return false;
+    }
+    // Pomegrade: a frame copied out for display: the path tracer keeps the draws it was made of
+    if (path_tracer && PathTracerGL::Enabled()) {
+        Common::Rectangle<u32> rect;
+        PAddr target;
+        u32 width, height;
+        if (res_cache.RemasterDisplay(config.GetPhysicalOutputAddress(), rect, target, width, height)) {
+            path_tracer->Complete(target, config.GetPhysicalOutputAddress());
+        }
+    }
+    return true;
 }
 
 bool RasterizerOpenGL::AccelerateTextureCopy(const Pica::DisplayTransferConfig& config) {
@@ -902,6 +962,20 @@ bool RasterizerOpenGL::AccelerateDisplay(const Pica::FramebufferConfig& config,
     screen_info.display_width = static_cast<u32>(std::abs(static_cast<int>(src_rect.right) - static_cast<int>(src_rect.left)));
     screen_info.display_height = static_cast<u32>(std::abs(static_cast<int>(src_rect.top) - static_cast<int>(src_rect.bottom)));
     screen_info.depth_texture = 0;
+    // Pomegrade (path tracer): the render target this frame was copied from, its size and the frame's rectangle in it
+    screen_info.display_address = framebuffer_addr;
+    screen_info.target_width = screen_info.target_height = 0;
+    {
+        Common::Rectangle<u32> rect;
+        PAddr target;
+        u32 tw, th;
+        if (res_cache.RemasterDisplay(framebuffer_addr, rect, target, tw, th) && tw != 0 && th != 0) {
+            screen_info.target_width = tw;
+            screen_info.target_height = th;
+            screen_info.target_rect = {static_cast<float>(rect.left) / tw, static_cast<float>(rect.right) / tw,
+                                       static_cast<float>(rect.bottom) / th, static_cast<float>(rect.top) / th};
+        }
+    }
     Common::Rectangle<u32> depth_rect;
     if (const Surface* depth = res_cache.DepthForDisplay(framebuffer_addr, depth_rect)) {
         const float dw = static_cast<float>(depth->GetScaledWidth());

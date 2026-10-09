@@ -22,6 +22,7 @@ private:
 
     /// Emits code to emulate the scissor rectangle
     void WriteScissor();
+    void WritePomegradeSurface();
 
     /// Writes the code to emulate fragment lighting
     void WriteLighting();

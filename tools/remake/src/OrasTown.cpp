@@ -197,6 +197,13 @@ Bytes BuildTownPiece(const TownLayout& layout, const OrasTownOptions& o, const G
         sources.TargetGrass = !finalName["chip_kusa_a"].empty() && !finalName["chip_kusa_b"].empty() && !finalName["chip_grass_edge"].empty();
         sources.GroundTexture = finalName["chip_kusa_a"]; sources.LightTexture = finalName["chip_kusa_b"]; sources.EdgeTexture = finalName["chip_grass_edge"];
     }
+    if (o.FloorPack >= 0)
+    {
+        std::map<std::string, std::string> finalName;
+        areaPack = ImportTextures(areaPack, Plain(areaArchive.Sub((size_t)o.FloorPack)), (size_t)o.FloorPack, {o.FloorTexture}, finalName, log);
+        sources.FloorTexture = finalName[o.FloorTexture];
+        if (sources.FloorTexture.empty()) throw FormatError("area pack " + std::to_string(o.FloorPack) + " holds no texture " + o.FloorTexture);
+    }
     if (o.SnowPack >= 0)
     {
         std::map<std::string, std::string> finalName;

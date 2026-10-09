@@ -325,6 +325,8 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, OrasWorkspace& 
             const int pack = zoneOf.at(owner).AreaPack();
             OrasTownOptions to = o.Town;
             to.CloseEdges = false; // pieces meet their neighbours
+            // an interior's floor: an ORAS house's wood floor (area pack 112, floor01) on every ground mesh, no snow or fence
+            if (inside && to.FloorPack < 0) { to.FloorPack = 112; to.SnowPack = -1; to.FencePack = -1; }
             to.AreaPack = (size_t)pack;
             TownLayout layout = TownLayout::Read(world, (o.Left + x) * TownTiles, (o.Top + y) * TownTiles);
             // a door of a header left out of the region (-1 or not given) gets no house, no door model and no warp: r2 built two

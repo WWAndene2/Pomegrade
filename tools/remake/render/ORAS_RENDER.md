@@ -102,3 +102,28 @@ perspective, far blur, vibrance 1.28, the S-curve (0.7 in v7, adaptive in v9 wit
 the path-traced light, the texture relief, parallax occlusion, volumetric layered depth, the material recognition and the
 interiors through the windows. Checked: the shaders compile for OpenGL ES 3.2 and desktop OpenGL (glslangValidator) and
 the C++ builds with warnings as errors; not yet run on a phone.
+
+## The modern engine: every technique live (owner's request, 9 October)
+
+Every technique of v7-v9 goes into the 3DS core, each where a modern game puts it: computed once what never changes
+(a texture's material, a map's light transport), every frame what depends on the camera, the clock or what moves.
+
+| Technique | In the engine | Each frame | State |
+|---|---|---|---|
+| Material recognition (`materials.py`) | `video_core/material_recognition`: the same steps in C++, once per texture when the game uploads it | no | **Done**: on Littleroot's 13 textures the classes agree on 99.96 % of the texels with `materials.py`, the outlines are the same, normals, heights and volumes within 2/255 (about 0.1 s a texture) |
+| Properties (roughness, metalness, transmission, glass opacity) | from the class, in the material maps | no | done with the recognition |
+| Texture relief (normal maps) | the material maps bound beside each texture (`pomegrade_darp_manager`, packed RG normal, B height, A volume), the relief lit in the generated fragment shader (`WritePomegradeSurface`) | yes | **Done** (v7 2.2; v9 1.1, kept at the 3DS's size where offline v9 had none) |
+| Parallax occlusion with soft self-shadow | the height map in the fragment shader, tangent-free (the tilt from the texture coordinates' screen footprint), the shift limited at grazing angles | yes | **Done**, same state |
+| Volumetric layered depth | 4 layers of the parallax on the classes that protrude, the lower ones darkened to 0.82 | yes | **Done** (v9), same state |
+| Path-traced sun and sky light (shadows, bounces) | live path tracer (`renderer_opengl/gl_pathtracer`): each frame's lit draws that write depth captured (software vertex shading), a BVH (`pathtrace_bvh`), a G-buffer in the render target's layout; per pixel a ray to a point of a 3-degree sun disc (penumbra growing with distance) and three hemisphere rays (sky, occlusion, bounce with a second shadow ray). Sun and moon by the game's clock and the owner's table (every 3 hours: azimuth, height, colour, power, sky colours; 15h is the offline renders' afternoon, azimuth 160, 32-36 degrees) | yes | **Done**; OpenGL only, cost on a phone unknown. Headless full render (9 October, Littleroot by day): traced cast shadows of houses, roofs and the player, the painted ones gone; the table itself not yet rendered |
+| Ray-traced ambient occlusion | the path tracer's hemisphere rays (hits within 40 units) | yes | **Done** |
+| Denoising (median, guided filter) | two a-trous passes guided by the G-buffer's positions and normals, then temporal accumulation (80 % history where the pixel shows the same point) | yes | **Done** |
+| The game's painted shadows removed | the shadow decals (shadow1, shadow_a) recognised by their texture (dark, one colour, shaped by alpha) and not drawn while the path tracer runs; inside textures, only broad smooth dark areas lifted (r 4 against r 16), never lines | no | **Done** |
+| Two-tone light, coloured bounce, sky fill, vibrance | Remaster (live post-process) | yes | **Done** (the bounce from the light pass) |
+| Layers: sky light, warm rim, contours, glow, aerial perspective, far blur, adaptive contrast | Remaster, on the path tracer's G-buffer depth; the rim on the traced sun's side; an unsharp mask keeps the textures' lines | yes | **Done** |
+| Interiors: fake interior light behind see-through windows | glass texels (A = 255 in the maps) show a room two texture-widths deep (interior mapping), lit by a ceiling lamp, furniture in silhouette, 80 % seen through, Fresnel sky reflection | yes | **Done**, not yet seen on screen |
+
+
+### Full render against the reference (9 October)
+
+Littleroot by day, headless (llvmpipe, 400 x 240), base game against v9 with the path tracer, before the hourly table: the painted shadows are replaced by traced ones (the houses' shadows on the ground, the roofs' overhangs on the walls, the player's own), the grass keeps its painted blades, the shade takes the sky's blue-green. Against the owner's reference (the offline v9 at 1920 x 1080): its shadows are longer and bolder (an afternoon sun, now the table's 15h), its facades brighter, its resolution higher; the windows' rooms did not show (their glass is probably not recognised as glass: unchecked).
