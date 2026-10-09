@@ -7,8 +7,8 @@
 #include <cstdint>
 #include <vector>
 
-// Pomegrade: the material and relief recognition of the remake's offline renders (tools/remake/render/materials.py, the
-// v7-v9 presets of ORAS_RENDER.md) for the engine: a texture's texels are classed from their own pixels (no names) as
+// Pomegrade: the material and relief recognition of the remake's offline renders (tools/remake/render/materials.py,
+// ORAS_RENDER.md) for the engine: a texture's texels are classed from their own pixels (no names) as
 // glass, foliage, wood, tile, stone, plaster, metal or matte, from the neighbourhood's colour, contrast and stripe direction
 // against profiles measured in ORAS, and the class gives the physical properties; the texture's own shading, high-passed,
 // gives its relief (painted outlines raised, joins between regions faded flat), its height for parallax, the volume of the

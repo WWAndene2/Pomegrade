@@ -34,7 +34,7 @@ zones, scripts or warps, and every borrowed piece is a constraint to undo later 
 | R2 | Zone writer from nothing: header words, events file, scripts, all from data, no template zone | A copied zone carries Hoenn's scripts, warps and texts | **Done (8 October)**: `OrasNewZone.h` (every header word documented from the game's accessors and a census of the 536 zones; the unread ones take Littleroot's and its house's values, written as numbers), used by `oras-sandbox` (`pack`, `music`, `line`; `template` removed). **Checked in the game** (run `r2house`: the demo's zone 539 shows its name and characters, the player walks into its house, zone 540, and back out) |
 | R3 | One zone-number allocator shared by every tool (region, sandbox) | Two tools appending from 538 clash in one mod | **Done (9 October)**: `OrasWorkspace.h`, `oras-build` (workflow `build <steps file>`). Every tool edits the same archives, each number the next free one as the build stands; one mod. A merge could never join a region and a sandbox (both patch `a/0/1/3`), whatever the numbers. **Checked in the game** (runs `r3sand`, `r3twin`, `sandbox/region_and_sandbox.txt`): the sandbox zone 538 and the region's Twinleaf both load from one mod. The region still places Sinnoh on Hoenn's zones: writing them from nothing as R2 does is stage 1's work |
 | R2b | The region's zones written from nothing (R2 applied to `oras-region`) | The region placed Sinnoh on Hoenn's zones (Twinleaf on Littleroot's zone 6) and added its textures to Hoenn's pack 8 | **Built (9 October)**: `oras-region --new-zones [--name H:TEXT]`: each header a new zone (538 up, shared numbering), its doors leading to new interiors on the named game interiors' maps (R4 replaces those maps), the pieces' textures in new area packs. Platinum's own place names wait for its text reader (R7): `--name` gives them meanwhile. **Checked in the game** (run `r2btwin`, the save moved to 538): Twinleaf loads as zone 538, named "Bonaugure", the field up; after 8 tiles east and 20 north the name shown is still Twinleaf's, so reaching Route 201 (539) and entering a house are not shown yet |
-| R4 | Matrices for Platinum's interiors and caves, built as the main map is | Hoenn's houses lead to Hoenn | **Built (9 October)**: `oras-region --matrix M --header H --new-zones`, the interior matrix written as the game's (no zone grid, first words 0 0), the tiles no warp reaches made solid, every warp linked by header across the build (`OrasWorkspace::LinkWarps`: doors, mats, stairs); `sandbox/twinleaf_interiors.txt`. **Checked in the game** (run `r4pack6`): the player walks from Twinleaf into its house 417 built from Platinum's matrix 123. Found on the way (runs `r4house`-`r4house3`, `r4old`, `r4diag`, `r4diag2`): a room built into a house's area pack (112) froze the game in the piece loader; built with Littleroot's (8) it enters. Open: an interior look (the rooms show the town builder's ground), the way back out and the stairs not run yet |
+| R4 | Matrices for Platinum's interiors and caves, built as the main map is | Hoenn's houses lead to Hoenn | **Built, partly checked (9 October)**: `oras-region --matrix M --header H --new-zones`, the interior matrix written as the game's (no zone grid, first words 0 0), the tiles no warp reaches made solid, every warp linked by header across the build (`OrasWorkspace::LinkWarps`: doors, mats, stairs); steps in `sandbox/twinleaf_interiors.txt`. **Checked in the game**: Twinleaf into its house 417 (run `r4pack6`) and back out to Twinleaf (run `r4exit`). Rooms must use Littleroot's area pack (8): a house's pack (112) froze the piece loader (runs `r4house`-`r4house3`, `r4old`, `r4diag`, `r4diag2`). **Left**: the stairs (run `r4stairs` did not show which floor), an interior look (floor texture: `--floor P TEXTURE`, built, not run; walls and furniture: to do). How to continue: section 4 |
 | R5 | Warps and events written only from Platinum's events | Retargeted Hoenn warps keep Hoenn destinations | Warps written on Hoenn zones only |
 | R6 | Relief: ledges in four directions, slopes, cliffs, bridges from Platinum's heights | Sinnoh cannot be walked as designed | South ledges only |
 | R7 | Writers for encounters, trainers, texts from Platinum's data; correspondence tables (Pokemon, sprites, items, classes) | Population, battles and dialogue | ORAS formats read; not converted |
@@ -68,3 +68,31 @@ What -1 and 1 mean is not read; empty handlers are enough (zone 80's are).
 7. **Dialogue**: bulk text import (French first).
 8. **Story**: scripts translated from Platinum's or authored; flags, progression, cutscenes.
 9. **Atmosphere**: light and camera per zone (tools ready), weather, music.
+
+
+## 4. Next agent: finishing R4 (quick start)
+
+**What is left of R4**: (1) confirm the stairs between Twinleaf's two-floor houses (412-413, 414-415) in a headless run;
+(2) give the rooms an interior look: run the built floor option (`--floor P TEXTURE` of `oras-region`, its texture taken
+from area pack P), then walls and furniture (Platinum's room models are not converted yet: say how before building).
+
+**Setup (one command, about 40 minutes the first time, all outside the repository):**
+
+    export POMEGRADE_ORAS_DRIVE_ID=... POMEGRADE_PLATINUM_DRIVE_ID=... POMEGRADE_SAVE_DRIVE_ID=...   # ask the owner
+    tools/remake/headless/session_setup.sh $WORK dumps tool core     # core-gl only for the Remaster's OpenGL path
+
+**Build the R4 mod and walk into a house** (`headless/run_local.sh`, its header lists every script command):
+
+    $WORK/build-remake/remake_tool oras-build $WORK/dumps/platinum.nds $WORK/dumps/oras.3ds $WORK/r4mod \
+        tools/remake/sandbox/twinleaf_interiors.txt                      # prints the zone rows for oras-engine
+    $WORK/build-remake/remake_tool oras-engine $WORK/dumps/oras.3ds $WORK/r4mod --zone-rows 546
+    tools/remake/headless/run_local.sh $WORK r4test $WORK/r4mod "538 106.5 887.5" \
+        "field;hold up 40;wait 200;shot in;hold up 30;wait 200;shot stairs;report" 120
+
+The save is moved two tiles south of house 417's door; `shot NAME` writes runs/r4test/NAME.png. A run takes 3-10
+minutes; read the log's `RESULT:` line and the shots. Run only to check a finished change.
+
+**Where things are**: the region and interior builder `src/OrasRegion.cpp` (`inside` = an interior matrix), warps
+`src/OrasWorkspace.cpp` (`LinkWarps`) and `src/OrasNewZone.cpp` (door, exit and stairs kinds), the steps
+`sandbox/twinleaf_interiors.txt`, the rules and facts `ORAS_LITTLEROOT.md` (section 0: the phone test protocol) and
+`ORAS_ENGINE.md` (zone rows, heaps). The graphics work (Remaster V1, path tracer) is separate: `render/ORAS_RENDER.md`.

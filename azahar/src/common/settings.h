@@ -575,8 +575,8 @@ struct Values {
     // Scene-adaptive deep black: the near-black shades of each scene become true black.
     SwitchableSetting<bool> deep_black{false, Keys::deep_black};
     // Pomegrade: Remaster, a post-process of the top screen after the offline ORAS renders' presets (VideoCore::Remaster,
-    // tools/remake/render/ORAS_RENDER.md): 0 off, 1 the v7 preset, 2 the v9 preset, 3 custom (the switches below)
-    Setting<u32, true> remaster_preset{0, 0, 3, Keys::remaster_preset};
+    // tools/remake/render/ORAS_RENDER.md): 0 off, 1 V1 (the remaster, path tracing included), 2 custom (V1 from the switches below)
+    Setting<u32, true> remaster_preset{0, 0, 2, Keys::remaster_preset};
     SwitchableSetting<bool> remaster_ao{true, Keys::remaster_ao};
     SwitchableSetting<bool> remaster_grading{true, Keys::remaster_grading};
     SwitchableSetting<bool> remaster_vibrance{true, Keys::remaster_vibrance};

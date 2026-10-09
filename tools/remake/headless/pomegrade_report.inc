@@ -101,7 +101,7 @@ extern "C" RETRO_API void pomegrade_peek(u32 address, u32 length, void (*out)(co
 
 // the emulator's GDB stub opened on a port (script command "gdb PORT"): breakpoints, watchpoints and memory on the running
 // game from gdb-multiarch (target remote :PORT), to read the engine's code at work. Only in a core built with ENABLE_GDBSTUB
-// the Remaster preset (0 off, 1 v7, 2 v9 with the path tracer, 3 custom) from now on: read each frame by the renderer, so
+// the Remaster preset (0 off, 1 V1 with the path tracer, 2 custom) from now on: read each frame by the renderer, so
 // no core option update (which resets the libretro frontend's layout: the screens came out black)
 extern "C" RETRO_API void pomegrade_remaster(u32 preset) {
     Settings::values.remaster_preset = preset;

@@ -437,9 +437,8 @@ static constexpr retro_core_option_v2_definition option_definitions[] = {
         config::category::graphics,
         {
             { "0", "Off" },
-            { "1", "v7 preset" },
-            { "2", "v9 preset" },
-            { "3", "Custom" },
+            { "1", "V1" },
+            { "2", "Custom" },
             { nullptr, nullptr }
         },
         "0"

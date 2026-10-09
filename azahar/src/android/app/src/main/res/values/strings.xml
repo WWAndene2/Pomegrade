@@ -1139,10 +1139,9 @@
     <string name="three_ds_texture_upscaling">Texture upscaling</string>
     <string name="three_ds_texture_upscaling_description">Enlarges the games\' textures with the Texture Filter algorithm (xBRZ when it is None), even at 1x internal resolution. Each texture stops at 4096×4096 to spare memory.</string>
     <string name="pomegrade_remaster">Remaster</string>
-    <string name="pomegrade_remaster_description">A modern light over the top screen, after the remake\'s offline renders, the games\' own look kept (OpenGL). v9: occlusion strong in the shade, adaptive contrast. Custom: the switches below</string>
+    <string name="pomegrade_remaster_description">A modern light over the top screen, path-traced live, the games\' own look kept (OpenGL). V1: the full remaster. Custom: V1 with the switches below</string>
     <string name="pomegrade_remaster_off">Off</string>
-    <string name="pomegrade_remaster_v7">v7 preset</string>
-    <string name="pomegrade_remaster_v9">v9 preset</string>
+    <string name="pomegrade_remaster_v1">V1</string>
     <string name="pomegrade_remaster_custom">Custom</string>
     <string name="pomegrade_remaster_ao">Remaster: ambient occlusion</string>
     <string name="pomegrade_remaster_ao_description">Shade in creases and corners, from the depth of the scene (strong in the shade, weak in the sun) (custom preset)</string>

@@ -14,10 +14,11 @@ Params Current() {
         return p;
     }
     p.enabled = true;
-    // v7 (ORAS_RENDER.md "v7 values"): the two-tone step, vibrance 1.28, the layers (sky light, contours, glow, aerial
-    // perspective, far blur, contrast 0.7); its occlusion came with the path-traced light, here a lighter screen-space one
+    // V1, the remaster's only version: the path tracer's light (gl_pathtracer.h) composed as the offline renders did,
+    // the screen effects of the offline layers, the textures' surface shading (SurfaceMode)
     p.grading = 1.0f;
-    p.ao = 0.5f;
+    p.ao = 1.0f;
+    p.sky_fill = 1.0f;
     p.sky_light = 1.0f;
     p.outline = 1.0f;
     p.glow = 1.0f;
@@ -25,20 +26,14 @@ Params Current() {
     p.far_blur = 1.0f;
     p.vibrance = 1.28f;
     p.contrast = 0.7f;
+    p.adaptive_contrast = true;
     p.bounce = 1.0f;
     p.contact_shadow = 1.0f;
     p.rim = 1.0f;
     if (preset == 1) {
         return p;
     }
-    // v9: the occlusion at full strength, the sky fill, the adaptive contrast (the texture relief, off in v9, is not done)
-    p.ao = 1.0f;
-    p.sky_fill = 1.0f;
-    p.adaptive_contrast = true;
-    if (preset == 2) {
-        return p;
-    }
-    // custom: v9 with each effect on its switch
+    // custom (2): V1 with each effect on its switch
     const auto& v = Settings::values;
     if (!v.remaster_grading.GetValue()) p.grading = 0;
     if (!v.remaster_ao.GetValue()) p.ao = p.bounce = p.contact_shadow = 0; // the light pass
@@ -58,7 +53,7 @@ int SurfaceMode() {
     if (Settings::values.graphics_api.GetValue() != Settings::GraphicsAPI::OpenGL) {
         return -1; // the shading is written for the OpenGL shader generator only
     }
-    return preset == 0 ? -1 : preset == 1 ? 0 : 2;
+    return preset == 0 ? -1 : 2; // V1 and custom: mode 2
 }
 
 static constexpr char COMMON[] = R"(
@@ -185,7 +180,7 @@ void main() {
     vec2 t = texel.xy;
     vec3 c = Frame(p);
     float lum = Luma(c);
-    float step_ = smoothstep(0.60, 0.78, lum); // the v7 two-tone step: 0 shade, 1 sun
+    float step_ = smoothstep(0.60, 0.78, lum); // the two-tone step: 0 shade, 1 sun
     bool has_depth = texel.z > 0.5;
 
     float ao = 1.0, f0 = 0.0, up = 0.0, edge = 0.0, rim = 0.0;
@@ -241,14 +236,14 @@ void main() {
         ao = 1.0; // applied
     } else {
         c = mix(c, c * mix(shade, sun, step_) + vec3(0.012, 0.016, 0.034) * (1.0 - step_), p0.x);
-        // the light pass (occlusion and contact shadows), v9's way: strong in the shade, weak in the sun
+        // the light pass (occlusion and contact shadows): strong in the shade, weak in the sun
         c *= 1.0 - (1.0 - pow(ao, 1.3)) * (0.55 - 0.4 * step_);
         // coloured bounce, stronger in the shade (compose.py: 1 + 0.3 (tint - 1)(1 - 0.5 step))
         c *= 1.0 + 0.3 * (tint - 1.0) * (1.0 - 0.5 * step_) * p3.x;
     }
     // warm rim on the silhouettes facing the sun (layers.py's colour and weight)
     c += rim * vec3(0.28, 0.2, 0.1) * (0.3 + Luma(c)) * p2.w;
-    // v9's sky fill in the open shade (the traced light's own above), and the sky's light on surfaces facing up
+    // the sky fill in the open shade (the traced light's own above), and the sky's light on surfaces facing up
     c += vec3(0.010, 0.018, 0.045) * (1.0 - step_) * ao * p0.z * (1.0 - p3.z);
     // (the traced light holds the sky already: added again, it turned the traced shade blue against the reference)
     c += vec3(0.03, 0.045, 0.07) * up * p0.w * (1.0 - p3.z);
