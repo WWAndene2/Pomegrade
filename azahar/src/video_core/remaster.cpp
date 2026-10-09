@@ -246,7 +246,8 @@ void main() {
     c += rim * vec3(0.28, 0.2, 0.1) * (0.3 + Luma(c)) * p2.w;
     // v9's sky fill in the open shade (the traced light's own above), and the sky's light on surfaces facing up
     c += vec3(0.010, 0.018, 0.045) * (1.0 - step_) * ao * p0.z * (1.0 - p3.z);
-    c += vec3(0.03, 0.045, 0.07) * up * p0.w;
+    // (the traced light holds the sky already: added again, it turned the traced shade blue against the reference)
+    c += vec3(0.03, 0.045, 0.07) * up * p0.w * (1.0 - p3.z);
     // contours on depth breaks
     c *= 1.0 - 0.35 * edge * p1.x;
     // glow: the highlights blurred by their mipmaps
