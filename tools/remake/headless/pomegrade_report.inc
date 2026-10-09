@@ -5,6 +5,9 @@
 // A thread in the game's fatal-error loop (code 0x11EF3C-0x11EF64, ORAS_LITTLEROOT.md 0) also gets its registers and its
 // raw stack, to rebuild the frames' saved registers and find the object whose check failed; pomegrade_peek dumps memory.
 #include "common/settings.h"
+#ifdef ENABLE_OPENGL
+#include "video_core/renderer_opengl/gl_pathtracer.h"
+#endif
 #include "core/hle/kernel/kernel.h"
 #include "core/hle/kernel/process.h"
 #include "core/hle/kernel/thread.h"
@@ -102,6 +105,13 @@ extern "C" RETRO_API void pomegrade_peek(u32 address, u32 length, void (*out)(co
 // no core option update (which resets the libretro frontend's layout: the screens came out black)
 extern "C" RETRO_API void pomegrade_remaster(u32 preset) {
     Settings::values.remaster_preset = preset;
+}
+
+// the path tracer's sun at that hour of the owner's table (negative: the game's clock again), to render a time of day
+extern "C" RETRO_API void pomegrade_sun_hour(float hour) {
+#ifdef ENABLE_OPENGL
+    OpenGL::PathTracerGL::SetTestHour(hour);
+#endif
 }
 
 extern "C" RETRO_API bool pomegrade_gdb(u16 port) {

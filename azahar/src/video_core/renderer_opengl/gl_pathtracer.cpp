@@ -341,6 +341,14 @@ bool FitProjection(const std::vector<std::array<float, 8>>& samples, float m[16]
 PathTracerGL::PathTracerGL() = default;
 PathTracerGL::~PathTracerGL() = default;
 
+namespace {
+float test_hour = -1.0f;
+}
+
+void PathTracerGL::SetTestHour(float hour) {
+    test_hour = hour;
+}
+
 bool PathTracerGL::Enabled() {
     return VideoCore::Remaster::SurfaceMode() == 2;
 }
@@ -507,7 +515,7 @@ void PathTracerGL::Upload(const Frame& frame) {
     // sky's colours at the zenith and the horizon, interpolated between them (the azimuth the short way round). The
     // azimuth as pt.html counts it: from east (+x) toward the camera (+z), north being the camera's forward direction
     const u64 seconds = Core::System::GetInstance().Kernel().GetSharedPageHandler().GetSystemTimeSince2000() / 1000;
-    const float hour = static_cast<float>(seconds % 86400) / 3600.0f;
+    const float hour = test_hour >= 0.0f ? std::fmod(test_hour, 24.0f) : static_cast<float>(seconds % 86400) / 3600.0f;
     struct Key {
         float azimuth, height;
         u32 colour;

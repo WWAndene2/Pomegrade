@@ -49,6 +49,10 @@ public:
     /// Whether the current Remaster preset traces the light (v9 and custom)
     static bool Enabled();
 
+    /// A test hook (the headless host's "sun HOUR"): the sun and moon placed at that hour of the table instead of the game
+    /// clock's, so a run renders a chosen time of day; negative goes back to the clock
+    static void SetTestHour(float hour);
+
     /// A vertex as the software vertex shader outputs it: clip position, the lighting's view vector and normal quaternion
     struct InputVertex {
         float clip[4];

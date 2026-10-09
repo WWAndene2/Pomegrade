@@ -179,7 +179,9 @@ vec4 Light(vec2 p, float f0, float scale) {
     return sum / wsum;
 }
 void main() {
-    vec2 p = frag_tex_coord;
+    // kept a texel inside the frame: the outermost row read past what was drawn (no depth there, so the aerial
+    // perspective lit a thin bright line along the top: full render, 9 October)
+    vec2 p = clamp(frag_tex_coord, texel.xy, 1.0 - texel.xy);
     vec2 t = texel.xy;
     vec3 c = Frame(p);
     float lum = Luma(c);
