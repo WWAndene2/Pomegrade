@@ -39,6 +39,8 @@ zones, scripts or warps, and every borrowed piece is a constraint to undo later 
 | R6 | Relief: ledges in four directions, slopes, cliffs, bridges from Platinum's heights | Sinnoh cannot be walked as designed | South ledges only |
 | R7 | Writers for encounters, trainers, texts from Platinum's data; correspondence tables (Pokemon, sprites, items, classes) | Population, battles and dialogue | ORAS formats read; not converted |
 | R8 | Headless regression check (save loads, field shows, a warp works) | Each phone mod must be known to start | Pieces exist (`run_local.sh`); no fixed check |
+| R9 | Seamless joins where the place allows it (owner's request, 9 October): a cave with an open mouth, a gorge, a tunnel built on the same matrix as the outside, joined by ground instead of a warp | Walking between zones of one matrix already has no transition (Twinleaf to Route 201); only a warp to another matrix fades | Not started. First a headless test: whether the camera and light of each zone (its area pack's files 6 and 4) change when crossing zones without a warp |
+| R10 | Faster transitions through the warps that stay (houses): a shorter fade, or none | Every house keeps its warp | Not started: where the warp's fade is set (its kind, or the game's code) is not read. Houses at real scale with no warp are left out: their rooms are 2-3 times larger than the houses outside, and ORAS cannot hide a roof around the player (owner's decision, not the house) |
 
 R1 to R3 (and R2b) come first: without them no zone of Sinnoh is free of Hoenn.
 
