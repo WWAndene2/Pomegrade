@@ -42,7 +42,7 @@ Sun: azimuth 160°, elevation 32° (afternoon).
 | Light | Path-traced white surfaces at exposure 0.35, divided into the base |
 | Two-tone step | smoothstep 0.60 → 0.78 |
 | Shade / sun | Cool lavender shadow tone plus a cool additive lift (so shade shows on saturated green); warm sun |
-| Texture relief (normal maps) | the material maps bound beside each texture (`pomegrade_darp_manager`, packed RG normal, B height, A volume), the relief lit in the generated fragment shader (`WritePomegradeSurface`) | yes | **Done** (v7: 2.2; v9: none, as offline); seen active headless on Littleroot (147 textures), not on a phone |
+| Texture relief (normal maps) | `passes.html` relief pass `normalScale` **2.2**; in `compose.py`, `tone *= 1 + (relief - 1) * 1.25 * (0.35 + 0.65 * step)` |
 | True relief (parallax occlusion) | `extras.js` `pomMaterial`: depth 0.022, 24 steps, view shift limited at grazing angles; soft self-shadow `1 - smoothstep(0, 0.25, block)` mapped to 0.7–1.0, multiplied as `0.75 + 0.25 * pomshadow` |
 | Degenerate tangents | Some roof triangles have collapsed UVs: their tangent is NaN, so the shift is dropped there (v6's dark wedges on the roofs) |
 | Vibrance | 1.28 |
@@ -115,10 +115,10 @@ Every technique of v7-v9 goes into the 3DS core, each where a modern game puts i
 | Texture relief (normal maps) | the material maps bound beside each texture (`pomegrade_darp_manager`, packed RG normal, B height, A volume), the relief lit in the generated fragment shader (`WritePomegradeSurface`) | yes | **Done** (v7: 2.2; v9: none, as offline); seen active headless on Littleroot (147 textures), not on a phone |
 | Parallax occlusion with soft self-shadow | the height map in the fragment shader, tangent-free (the tilt from the texture coordinates' screen footprint), the shift limited at grazing angles | yes | **Done**, same state |
 | Volumetric layered depth | 4 layers of the parallax on the classes that protrude, the lower ones darkened to 0.82 | yes | **Done** (v9), same state |
-| Path-traced sun and sky light (shadows, bounces) | live in screen space (Remaster's light pass): occlusion, contact shadows toward the sun, coloured bounce; the game's clock-driven light and shadows underneath. A world-space bake per map piece is not done | yes | **Done** live; the sun is taken up the screen (no light direction in the post-process) |
+| Path-traced sun and sky light (shadows, bounces) | not done: Remaster's screen-space light pass (occlusion, contact shadows, bounce) stands in for it and changes the frame by about 6/255 on average, far from the offline renders (owner, 9 October). To do: bake per map piece | the game's light: yes | **to do** |
 | Ray-traced ambient occlusion | baked with the light; screen-space live for what moves (Remaster) | live part: yes | live part done (Remaster) |
 | Denoising (median, guided filter) | the light pass filtered by a depth-guided bilateral filter | yes | **Done** |
 | The game's painted shadows removed | when a texture loads: smooth areas darker than their surroundings (r 2 against r 8) lifted up to 1.4x, 60 %, off outlines and glass | no | **Done**; a dark painted texture may be lifted where it should not (unchecked on many textures) |
 | Two-tone light, coloured bounce, sky fill, vibrance | Remaster (live post-process) | yes | **Done** (the bounce from the light pass) |
 | Layers: sky light, warm rim, contours, glow, aerial perspective, far blur, adaptive contrast | Remaster | yes | **Done**; the rim's sun is up the screen |
-| Interiors: fake interior light behind see-through windows | the glass class marked in the maps (A = 255); interior mapping in the fragment shader: a lit room one texture deep behind the glass | yes | **Done**; no glass texel was confirmed on screen headless |
+| Interiors: fake interior light behind see-through windows | the glass class marked in the maps (A = 255); interior mapping in the fragment shader (a lit room behind the glass). The real interiors are not needed: the transitions will be seamless (owner, 9 October) | yes | done, unconfirmed on screen |
