@@ -65,6 +65,7 @@ static constexpr const char* texture_filter = citra_setting(BaseKeys::texture_fi
 static constexpr const char* texture_sampling = citra_setting(BaseKeys::texture_sampling);
 static constexpr const char* custom_textures = citra_setting(BaseKeys::custom_textures);
 static constexpr const char* dump_textures = citra_setting(BaseKeys::dump_textures);
+static constexpr const char* remaster_preset = citra_setting(BaseKeys::remaster_preset); // Pomegrade
 } // namespace graphics
 
 namespace layout {
@@ -425,6 +426,23 @@ static constexpr retro_core_option_v2_definition option_definitions[] = {
             { nullptr, nullptr }
         },
         "none"
+    },
+    {
+        // Pomegrade: Remaster (video_core/remaster.h), OpenGL
+        config::graphics::remaster_preset,
+        "Remaster",
+        "Remaster",
+        "Pomegrade: the remake's offline render presets live on the top screen (OpenGL).",
+        nullptr,
+        config::category::graphics,
+        {
+            { "0", "Off" },
+            { "1", "v7 preset" },
+            { "2", "v9 preset" },
+            { "3", "Custom" },
+            { nullptr, nullptr }
+        },
+        "0"
     },
     {
         config::graphics::texture_sampling,
@@ -1003,6 +1021,9 @@ static void ParseGraphicsOptions(void) {
 
     Settings::values.texture_filter =
         GetTextureFilter(LibRetro::FetchVariable(config::graphics::texture_filter, "none"));
+
+    Settings::values.remaster_preset =
+        static_cast<u32>(std::stoi(LibRetro::FetchVariable(config::graphics::remaster_preset, "0")));
 
     Settings::values.texture_sampling = GetTextureSampling(
         LibRetro::FetchVariable(config::graphics::texture_sampling, "GameControlled"));

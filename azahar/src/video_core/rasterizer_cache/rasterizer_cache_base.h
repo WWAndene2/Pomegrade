@@ -266,6 +266,7 @@ private:
     std::unordered_map<PAddr, u32> darp_reverts;      ///< data changes per texture address
     Pomegrade::Darp::Wrap darp_wrap_s = Pomegrade::Darp::Wrap::Clamp; ///< of the texture looked up
     Pomegrade::Darp::Wrap darp_wrap_t = Pomegrade::Darp::Wrap::Clamp;
+    int surface_mode = -1; ///< Remaster::SurfaceMode() the textures were made with
     u32 texture_anisotropy; ///< Pomegrade: the Texture filtering setting's
     bool dump_textures;
     bool use_custom_textures;

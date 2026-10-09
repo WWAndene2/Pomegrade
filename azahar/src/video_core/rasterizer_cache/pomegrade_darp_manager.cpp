@@ -7,6 +7,7 @@
 #include "common/hash.h"
 #include "common/logging/log.h"
 #include "common/zstd_compression.h"
+#include "video_core/material_recognition.h"
 #include "video_core/rasterizer_cache/pomegrade_darp_manager.h"
 #include "video_core/rasterizer_cache/utils.h"
 
@@ -33,6 +34,20 @@ Darp::Texture Decode(const SurfaceParams& params, std::span<u8> encoded) {
     return texture;
 }
 
+/// MaterialRecognition's maps of an RGBA8 texture, packed as the shader reads them
+std::vector<u8> SurfaceMaps(const Darp::Texture& texture) {
+    const auto maps = VideoCore::MaterialRecognition::Recognise(
+        texture.rgba.data(), static_cast<int>(texture.width), static_cast<int>(texture.height));
+    std::vector<u8> packed(texture.rgba.size());
+    for (std::size_t i = 0; i < maps.heights.size(); i++) {
+        packed[i * 4 + 0] = maps.normal[i * 3 + 0];
+        packed[i * 4 + 1] = maps.normal[i * 3 + 1];
+        packed[i * 4 + 2] = maps.heights[i];
+        packed[i * 4 + 3] = maps.volume[i];
+    }
+    return packed;
+}
+
 } // Anonymous namespace
 
 DarpManager::DarpManager(Frontend::ImageInterface& image_interface_)
@@ -47,8 +62,8 @@ DarpManager::DarpManager(Frontend::ImageInterface& image_interface_)
 DarpManager::~DarpManager() = default;
 
 u64 DarpManager::Key(const SurfaceParams& params, std::span<const u8> encoded,
-                     const Darp::Options& options) {
-    const std::array<u32, 7> description = {
+                     const Darp::Options& options, bool surface_maps) {
+    const std::array<u32, 8> description = {
         params.width,
         params.height,
         static_cast<u32>(params.pixel_format),
@@ -56,6 +71,7 @@ u64 DarpManager::Key(const SurfaceParams& params, std::span<const u8> encoded,
         static_cast<u32>(options.wrap_s),
         static_cast<u32>(options.wrap_t),
         Darp::Version,
+        surface_maps ? 1u : 0u,
     };
     const u64 data = Common::ComputeHash64(encoded.data(), encoded.size());
     const u64 shape = Common::ComputeHash64(description.data(), sizeof(description));
@@ -119,6 +135,13 @@ void DarpManager::Queue(DarpJob&& job) {
             entry.material->textures[0] = entry.texture.get();
             entry.texture->format = CustomPixelFormat::RGBA8;
             entry.texture->type = MapType::Color;
+            if (job.surface_maps) {
+                entry.maps = std::make_unique<CustomTexture>(image_interface);
+                entry.maps->format = CustomPixelFormat::RGBA8;
+                entry.maps->type = MapType::Normal;
+                entry.material->textures[1] = entry.maps.get();
+                entry.material->pomegrade_surface = true;
+            }
         }
         entry.state = State::Queued;
     }
@@ -145,12 +168,19 @@ void DarpManager::Release(u64 key) {
     }
     it->second.state = State::Released;
     it->second.texture->data = {};
+    if (it->second.maps) {
+        it->second.maps->data = {};
+    }
 }
 
 void DarpManager::Run(DarpJob job) {
+    const bool reconstruct = job.options.factor >= 2;
     std::optional<Darp::Texture> result =
-        job.options.format == Darp::SourceFormat::HILO8 ? std::nullopt : LoadCached(job.key);
-    if (!result && job.options.format != Darp::SourceFormat::HILO8) {
+        job.options.format == Darp::SourceFormat::HILO8 || !reconstruct ? std::nullopt
+                                                                        : LoadCached(job.key);
+    if (!reconstruct && job.options.format != Darp::SourceFormat::HILO8) {
+        result = Decode(job.params, job.encoded);
+    } else if (!result && job.options.format != Darp::SourceFormat::HILO8) {
         const Darp::Texture level0 = Decode(job.params, job.encoded);
         result = Darp::Upscale(level0, job.options);
         if (result) {
@@ -161,15 +191,27 @@ void DarpManager::Run(DarpJob job) {
         }
     }
 
+    std::vector<u8> maps;
+    if (result && job.surface_maps) {
+        maps = SurfaceMaps(*result);
+    }
+
     std::scoped_lock lock{mutex};
     Entry& entry = entries.at(job.key);
     if (result) {
         entry.texture->data = std::move(result->rgba);
+        if (entry.maps) {
+            entry.maps->data = std::move(maps);
+        }
         // a reload (after Release) has the same size: surfaces read it without the lock, so it is
         // only written the first time
         if (entry.material->state != DecodeState::Decoded) {
             entry.texture->width = result->width;
             entry.texture->height = result->height;
+            if (entry.maps) {
+                entry.maps->width = result->width;
+                entry.maps->height = result->height;
+            }
             entry.material->width = result->width;
             entry.material->height = result->height;
             entry.material->size = entry.texture->data.size();

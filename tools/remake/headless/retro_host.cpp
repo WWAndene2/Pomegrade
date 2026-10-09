@@ -25,6 +25,8 @@
 #include "libretro.h"
 
 #include <dlfcn.h>
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
 
 #include <chrono>
 
@@ -57,6 +59,56 @@ static void Log(enum retro_log_level level, const char* format, ...)
     logLines++;
 }
 
+
+// POMEGRADE_GL=1: the core's OpenGL renderer instead of the software one, in an EGL context with no screen (Mesa's
+// llvmpipe on the runner): the core draws into a framebuffer of ours, read back for the screenshots and the checks.
+// POMEGRADE_REMASTER=<0-3> picks the Remaster preset (citra_remaster_preset)
+static const bool glMode = getenv("POMEGRADE_GL") != nullptr;
+static retro_hw_render_callback hwRender{};
+static unsigned glFbo = 0;
+static constexpr unsigned GlFboSize = 2048;
+typedef void (*GlGen)(int, unsigned*);
+typedef void (*GlBind)(unsigned, unsigned);
+typedef void (*GlStorage)(unsigned, unsigned, int, int);
+typedef void (*GlAttach)(unsigned, unsigned, unsigned, unsigned);
+typedef void (*GlRead)(int, int, int, int, unsigned, unsigned, void*);
+// EGL loaded only in this mode (libEGL.so.1), so the software runs need no EGL on the runner
+static void* egl = nullptr;
+template <typename F> static F Egl(const char* name) { return reinterpret_cast<F>(dlsym(egl, name)); }
+static uintptr_t GlCurrentFramebuffer() { return glFbo; }
+static retro_proc_address_t GlProc(const char* name)
+{
+    return reinterpret_cast<retro_proc_address_t>(Egl<void* (*)(const char*)>("eglGetProcAddress")(name));
+}
+static bool GlCreateContext()
+{
+    egl = dlopen("libEGL.so.1", RTLD_NOW | RTLD_GLOBAL);
+    if (!egl) return false;
+    const auto eglGetDisplay = Egl<EGLDisplay (*)(EGLNativeDisplayType)>("eglGetDisplay");
+    const auto eglInitialize = Egl<EGLBoolean (*)(EGLDisplay, EGLint*, EGLint*)>("eglInitialize");
+    const auto eglBindAPI = Egl<EGLBoolean (*)(EGLenum)>("eglBindAPI");
+    const auto eglCreateContext = Egl<EGLContext (*)(EGLDisplay, EGLConfig, EGLContext, const EGLint*)>("eglCreateContext");
+    const auto eglMakeCurrent = Egl<EGLBoolean (*)(EGLDisplay, EGLSurface, EGLSurface, EGLContext)>("eglMakeCurrent");
+    EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    if (display == EGL_NO_DISPLAY || !eglInitialize(display, nullptr, nullptr) || !eglBindAPI(EGL_OPENGL_API)) return false;
+    const EGLint attributes[] = {EGL_CONTEXT_MAJOR_VERSION, 4, EGL_CONTEXT_MINOR_VERSION, 3, EGL_CONTEXT_OPENGL_PROFILE_MASK,
+                                 EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT, EGL_NONE};
+    EGLContext context = eglCreateContext(display, EGL_NO_CONFIG_KHR, EGL_NO_CONTEXT, attributes);
+    if (context == EGL_NO_CONTEXT || !eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context)) return false;
+    unsigned colour = 0, depth = 0;
+    reinterpret_cast<GlGen>(GlProc("glGenFramebuffers"))(1, &glFbo);
+    reinterpret_cast<GlBind>(GlProc("glBindFramebuffer"))(0x8D40, glFbo); // GL_FRAMEBUFFER
+    reinterpret_cast<GlGen>(GlProc("glGenRenderbuffers"))(1, &colour);
+    reinterpret_cast<GlBind>(GlProc("glBindRenderbuffer"))(0x8D41, colour); // GL_RENDERBUFFER
+    reinterpret_cast<GlStorage>(GlProc("glRenderbufferStorage"))(0x8D41, 0x8058, GlFboSize, GlFboSize); // GL_RGBA8
+    reinterpret_cast<GlAttach>(GlProc("glFramebufferRenderbuffer"))(0x8D40, 0x8CE0, 0x8D41, colour); // COLOR_ATTACHMENT0
+    reinterpret_cast<GlGen>(GlProc("glGenRenderbuffers"))(1, &depth);
+    reinterpret_cast<GlBind>(GlProc("glBindRenderbuffer"))(0x8D41, depth);
+    reinterpret_cast<GlStorage>(GlProc("glRenderbufferStorage"))(0x8D41, 0x88F0, GlFboSize, GlFboSize); // DEPTH24_STENCIL8
+    reinterpret_cast<GlAttach>(GlProc("glFramebufferRenderbuffer"))(0x8D40, 0x821A, 0x8D41, depth); // DEPTH_STENCIL_ATTACHMENT
+    return true;
+}
+
 static bool Environment(unsigned cmd, void* data)
 {
     switch (cmd)
@@ -81,7 +133,8 @@ static bool Environment(unsigned cmd, void* data)
         // the core's defaults, but the software renderer (no GPU on the runner) and the JIT
         auto* var = static_cast<retro_variable*>(data);
         var->value = nullptr;
-        if (!strcmp(var->key, "citra_graphics_api")) var->value = "Software";
+        if (!strcmp(var->key, "citra_graphics_api")) var->value = glMode ? "OpenGL" : "Software";
+        if (!strcmp(var->key, "citra_remaster_preset") && getenv("POMEGRADE_REMASTER")) var->value = getenv("POMEGRADE_REMASTER");
         // the interpreter instead of the JIT, for code coverage ("trace on"): slower, but every block passes its dispatch
         // (and not the FastInterp interpreter, which bypasses it too: the classic one, DynCom)
         if ((!strcmp(var->key, "citra_use_cpu_jit") || !strcmp(var->key, "citra_use_fastinterp")) && getenv("POMEGRADE_INTERPRETER")) var->value = "disabled";
@@ -99,8 +152,25 @@ static bool Environment(unsigned cmd, void* data)
     case RETRO_ENVIRONMENT_SET_GEOMETRY:
     case RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO:
         return true;
+    case RETRO_ENVIRONMENT_SET_HW_RENDER:
+    {
+        // OpenGL only with POMEGRADE_GL
+        auto* cb = static_cast<retro_hw_render_callback*>(data);
+        if (!glMode || (cb->context_type != RETRO_HW_CONTEXT_OPENGL_CORE && cb->context_type != RETRO_HW_CONTEXT_OPENGL)) return false;
+        if (!GlCreateContext()) { fprintf(stderr, "no OpenGL context (EGL)\n"); return false; }
+        cb->get_current_framebuffer = GlCurrentFramebuffer;
+        cb->get_proc_address = GlProc;
+        hwRender = *cb;
+        return true;
+    }
+    case RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER:
+        if (!glMode) return false;
+        *static_cast<unsigned*>(data) = RETRO_HW_CONTEXT_OPENGL_CORE;
+        return true;
+    case RETRO_ENVIRONMENT_SET_HW_SHARED_CONTEXT:
+        return glMode;
     default:
-        return false; // no hardware rendering, rumble, microphone, ...
+        return false; // no rumble, microphone, ...
     }
 }
 
@@ -108,9 +178,21 @@ static std::vector<uint32_t> lastFrame;
 static unsigned lastWidth = 0, lastHeight = 0;
 static uint64_t frameHash = 0;
 
+static std::vector<uint32_t> glPixels;
 static void VideoRefresh(const void* data, unsigned width, unsigned height, size_t pitch)
 {
     if (!data || !width || !height) return;
+    if (data == RETRO_HW_FRAME_BUFFER_VALID)
+    {
+        // the frame the core drew into our framebuffer, bottom row first in OpenGL: read and turned upright, as XRGB
+        std::vector<uint32_t> rows((size_t)width * height);
+        reinterpret_cast<GlBind>(GlProc("glBindFramebuffer"))(0x8CA8, glFbo); // GL_READ_FRAMEBUFFER
+        reinterpret_cast<GlRead>(GlProc("glReadPixels"))(0, 0, (int)width, (int)height, 0x80E1, 0x1401, rows.data()); // BGRA, UNSIGNED_BYTE
+        glPixels.resize(rows.size());
+        for (unsigned y = 0; y < height; y++) std::memcpy(&glPixels[(size_t)y * width], &rows[(size_t)(height - 1 - y) * width], width * 4);
+        data = glPixels.data();
+        pitch = width * 4;
+    }
     lastWidth = width; lastHeight = height;
     lastFrame.resize((size_t)width * height);
     uint64_t hash = 1469598103934665603ull;
@@ -480,6 +562,7 @@ int main(int argc, char** argv)
     retro_game_info game{};
     game.path = argv[2];
     if (!Symbol<bool (*)(const retro_game_info*)>(core, "retro_load_game")(&game)) { fprintf(stderr, "the game did not load\n"); return 2; }
+    if (glMode && hwRender.context_reset) hwRender.context_reset(); // the frontend's part once the game is loaded
     auto run = Symbol<void (*)()>(core, "retro_run");
     runFrame = run;
     if (argc > 5) return RunScript(core, argv[5]);

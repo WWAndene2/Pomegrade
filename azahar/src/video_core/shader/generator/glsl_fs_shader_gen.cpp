@@ -133,6 +133,9 @@ vec4 rounded_primary_color = byteround(primary_color);
 vec4 primary_fragment_color = vec4(0.0);
 vec4 secondary_fragment_color = vec4(0.0);
 )";
+    if (user.pomegrade_surface) {
+        WritePomegradeSurface();
+    }
 
     // Do not do any sort of processing if it's obvious we're not going to pass the alpha test
     if (config.framebuffer.alpha_test_func == FramebufferRegs::CompareFunc::Never) {
@@ -184,6 +187,9 @@ vec4 secondary_fragment_color = vec4(0.0);
         WriteShadow();
     } else {
         out += "gl_FragDepth = depth;\n";
+        if (user.pomegrade_surface) {
+            out += "combiner_output.rgb *= pg_shade;\n"; // Pomegrade: relief, self-shadow, volume layers
+        }
         // Round the final fragment color to maintain the PICA's 8 bits of precision
         out += "combiner_output = byteround(combiner_output);\n";
         WriteBlending();
@@ -213,6 +219,82 @@ void FragmentModule::WriteDepth() {
     if (config.framebuffer.depthmap_enable == RasterizerRegs::DepthBuffering::WBuffering) {
         out += "depth /= gl_FragCoord.w;\n";
     }
+}
+
+// Pomegrade: the remake's surfaces (tools/remake/render, the v7-v9 presets) on texture 0, from its recognised material
+// maps (VideoCore::MaterialRecognition; tex_normal: RG the normal, B the height, 1 the top, A the volume). The 3DS gives
+// the fragment no tangent frame, so the surface's tilt to the view comes from texture 0's footprint on the screen: a
+// pixel's coordinate derivatives stretch along the way the surface recedes, by 1 / cos of the tilt (the tangent-free
+// parallax approach). The light comes from up the screen (the 3DS framebuffer is stored turned: up is +x), above the
+// surface. Parallax occlusion as extras.js does it (depth 0.022, its shift limited at grazing angles and dropped where the
+// coordinates degenerate), its soft self-shadow mapped to 0.75-1.0; the relief lit by the normal map (v7 2.2, v8 1.1, v9
+// none); v8 and v9 add the volume, 4 layers above the surface on the classes that protrude, the lower ones darkened to
+// 0.82, as vvld.js does with geometry.
+void FragmentModule::WritePomegradeSurface() {
+    const u32 mode = user.pomegrade_surface_mode.Value();
+    const float relief = mode == 0 ? 2.2f : mode == 1 ? 1.1f : 0.0f;
+    const bool volume = mode >= 1;
+    out += "vec2 pg_uv0 = texcoord0;\nfloat pg_shade = 1.0;\n{\n";
+    out += R"(
+    vec2 dx = dFdx(texcoord0), dy = dFdy(texcoord0);
+    float m11 = dx.x * dx.x + dy.x * dy.x, m22 = dx.y * dx.y + dy.y * dy.y, m12 = dx.x * dx.y + dy.x * dy.y;
+    float mean = 0.5 * (m11 + m22), dev = sqrt(max(0.25 * (m11 - m22) * (m11 - m22) + m12 * m12, 0.0));
+    float big = mean + dev, small = max(mean - dev, 0.0);
+    float det = dx.x * dy.y - dx.y * dy.x;
+    if (big > 1e-12 && abs(det) > 1e-12) {
+        vec2 major = abs(m12) > 1e-12 ? vec2(m12, big - m11) : (m11 >= m22 ? vec2(1.0, 0.0) : vec2(0.0, 1.0));
+        major = normalize(major);
+        if (dot(major, dx) < 0.0) major = -major; // receding: up the screen
+        float c = sqrt(small / big);
+        float s = sqrt(max(1.0 - c * c, 0.0));
+        vec3 v = vec3(-major * s, max(c, 0.35)); // toward the viewer, the shift limited at grazing angles
+        vec3 l = normalize(vec3(major * 0.5, 0.85));
+        const float depth = 0.022;
+        const int steps = 16;
+        vec2 shift = v.xy / v.z * depth;
+        float layer = 1.0 / float(steps);
+        vec2 uv = texcoord0;
+        float d = 0.0, h = 1.0 - texture(tex_normal, uv).b;
+        for (int i = 0; i < steps && d < h; i++) {
+            uv -= shift * layer;
+            d += layer;
+            h = 1.0 - texture(tex_normal, uv).b;
+        }
+        // between the last two steps
+        vec2 prev = uv + shift * layer;
+        float after = h - d, before = (1.0 - texture(tex_normal, prev).b) - (d - layer);
+        float t = after / max(after - before, 1e-5);
+        pg_uv0 = mix(uv, prev, clamp(t, 0.0, 1.0));
+        // soft self-shadow toward the light
+        float h0 = texture(tex_normal, pg_uv0).b, block = 0.0;
+        for (int i = 1; i <= 6; i++) {
+            float k = float(i) / 6.0;
+            block = max(block, texture(tex_normal, pg_uv0 + l.xy / l.z * depth * k).b - (h0 + k * (1.0 - h0)));
+        }
+        float lit = 0.7 + 0.3 * (1.0 - smoothstep(0.0, 0.25, block));
+        pg_shade *= 0.75 + 0.25 * lit;
+)";
+    if (volume) {
+        out += R"(
+        // layered volume: 4 layers above the surface, the top one first, the lower ones darkened
+        for (int k = 4; k >= 1; k--) {
+            vec2 at = pg_uv0 + v.xy / v.z * 0.5 * depth * (float(k) / 4.0);
+            if (texture(tex_normal, at).a >= float(k) / 5.0) {
+                pg_uv0 = at;
+                pg_shade *= k == 4 ? 1.0 : 0.82;
+                break;
+            }
+        }
+)";
+    }
+    if (relief > 0.0f) {
+        out += fmt::format(R"(
+        vec2 nxy = (texture(tex_normal, pg_uv0).rg * 2.0 - 1.0) * {:.2f};
+        vec3 n = normalize(vec3(nxy, 1.0));
+        pg_shade *= clamp(dot(n, l) / l.z, 0.6, 1.4);
+)", relief);
+    }
+    out += "    }\n}\n";
 }
 
 void FragmentModule::WriteScissor() {
@@ -1320,7 +1402,7 @@ void FragmentModule::DefineBindingsVK() {
     if (config.framebuffer.shadow_rendering) {
         out += "layout(set = 2, binding = 0, r32ui) uniform uimage2D shadow_buffer;\n\n";
     }
-    if (user.use_custom_normal) {
+    if (user.use_custom_normal || user.pomegrade_surface) {
         out += "layout(set = 2, binding = 1) uniform sampler2D tex_normal;\n";
     }
 }
@@ -1341,7 +1423,7 @@ void FragmentModule::DefineBindingsGL() {
     }
 
     // Utility textures
-    if (user.use_custom_normal) {
+    if (user.use_custom_normal || user.pomegrade_surface) {
         out += "layout(binding = 6) uniform sampler2D tex_normal;\n";
     }
     if (use_blend_fallback) {
@@ -1709,8 +1791,10 @@ void FragmentModule::DefineTexUnitSampler(u32 texture_unit) {
     case 0:
         switch (config.texture.texture0_type) {
         case TexturingRegs::TextureConfig::Texture2D:
-            out += "return textureLod(tex0, texcoord0, getLod(texcoord0 * "
-                   "vec2(textureSize(tex0, 0))) + tex_lod_bias[0]);";
+            // Pomegrade: the parallax-shifted coordinate (pg_uv0), the level of detail of the unshifted one
+            out += fmt::format("return textureLod(tex0, {}, getLod(texcoord0 * "
+                               "vec2(textureSize(tex0, 0))) + tex_lod_bias[0]);",
+                               user.pomegrade_surface ? "pg_uv0" : "texcoord0");
             break;
         case TexturingRegs::TextureConfig::Projection2D:
             // TODO (wwylele): find the exact LOD formula for projection texture

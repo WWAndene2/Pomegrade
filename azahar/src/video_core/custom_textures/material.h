@@ -73,6 +73,9 @@ struct Material {
     CustomPixelFormat format;
     std::array<CustomTexture*, MAX_MAPS> textures;
     std::atomic<DecodeState> state{};
+    /// Pomegrade: the normal map holds MaterialRecognition's maps (pomegrade_darp_manager.h) for the
+    /// Remaster's surface shading, not a texture pack's lighting normals
+    bool pomegrade_surface = false;
 
     void LoadFromDisk(bool flip_png) noexcept;
 

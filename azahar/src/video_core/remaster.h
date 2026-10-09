@@ -20,8 +20,8 @@
 // - contours on depth breaks, glow on highlights, aerial perspective, slight far blur (v7 layers);
 // - vibrance 1.28 (v7); contrast: an S-curve, 0.7 in v7, adaptive in v9: clip(0.7 x 0.2 / std(luminance), 0.4, 1.0) (the
 //   sun's elevation term is left out: a frame does not tell the sun's height).
-// Not done live: the texture relief, parallax occlusion and volumetric layered depth (they need each texture's material,
-// recognised offline), the path-traced light and the interiors seen through windows. Without a depth buffer for the frame
+// Each texture's material is recognised once, when the game uploads it (SurfaceMode); not done live: the path-traced light
+// and the interiors seen through windows. Without a depth buffer for the frame
 // (a frame copied by the CPU), only the colour effects apply. OpenGL only.
 namespace VideoCore::Remaster {
 
@@ -42,6 +42,11 @@ struct Params {
 
 /// The current preset's parameters (off, v7, v9, or custom from the switches)
 Params Current();
+
+/// The textures' surface shading of the current preset (glsl_fs_shader_gen's WritePomegradeSurface, from each texture's
+/// MaterialRecognition maps): -1 none, 0 v7 (parallax, relief 2.2), 2 v9 (parallax, layered volume, no relief); custom
+/// follows v9. Mode 1 (v8: volume and relief 1.1) has no preset.
+int SurfaceMode();
 
 /// The shaders (no #version: OpenGL's LoadShader adds it). STATS: the frame's luminance and its square (r, g), for the
 /// mean and spread read in its smallest mipmap; BRIGHT: the highlights, blurred by their mipmaps for the glow; MAIN: the

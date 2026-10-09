@@ -378,6 +378,11 @@ static_assert(std::has_unique_object_representations_v<ProcTexConfig>);
 union UserConfig {
     u32 raw{};
     BitField<0, 1, u32> use_custom_normal;
+    // Pomegrade: texture 0 carries recognised material maps (VideoCore::MaterialRecognition) in its normal map slot (RG
+    // the normal, B the height, A the volume); the mode is the Remaster preset's surfaces: 0 v7 (relief, parallax), 1 v8
+    // (half the relief, parallax, layered volume), 2 v9 (parallax and layered volume, no relief)
+    BitField<1, 1, u32> pomegrade_surface;
+    BitField<2, 2, u32> pomegrade_surface_mode;
 
     // Whether a FSConfig + UserConfig combination can be
     // cached to disk. Right now, this is true if the

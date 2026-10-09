@@ -14,6 +14,7 @@
 #include "common/scope_exit.h"
 #include "common/settings.h"
 #include "core/memory.h"
+#include "video_core/remaster.h"
 #include "video_core/custom_textures/custom_tex_manager.h"
 #include "video_core/pica/regs_external.h"
 #include "video_core/pica/regs_internal.h"
@@ -112,14 +113,19 @@ void RasterizerCache<T>::TickFrame() {
     const auto new_filter = Settings::values.texture_filter.GetValue();
     // Pomegrade: the textures are also recreated when the texture upscaling changes
     const u32 new_texture_upscale_factor = Settings::values.texture_upscale_factor.GetValue();
-    if (filter != new_filter || texture_upscale_factor != new_texture_upscale_factor) [[unlikely]] {
+    // and when the Remaster's surface shading does (the textures' maps are made at upload)
+    const int new_surface_mode = Remaster::SurfaceMode();
+    if (filter != new_filter || texture_upscale_factor != new_texture_upscale_factor ||
+        surface_mode != new_surface_mode) [[unlikely]] {
         filter = new_filter;
         texture_upscale_factor = new_texture_upscale_factor;
+        surface_mode = new_surface_mode;
         UnregisterAll();
     }
 
-    // Pomegrade: DARP's manager is made the first time the DARP filter is chosen
-    if (filter == Settings::TextureFilter::DARP && !darp) [[unlikely]] {
+    // Pomegrade: DARP's manager is made the first time the DARP filter or a surface shading is
+    // chosen
+    if ((filter == Settings::TextureFilter::DARP || surface_mode >= 0) && !darp) [[unlikely]] {
         darp = std::make_unique<DarpManager>(custom_tex_manager.GetImageInterface());
     }
     if (darp) {
@@ -1117,7 +1123,9 @@ void RasterizerCache<T>::QueueDarp(SurfaceId surface_id, SurfaceInterval interva
     // a texture whose data keeps changing (animated, video) is left to the GPU upscaler
     constexpr u32 MaxReverts = 2;
 
-    if (!darp || filter != Settings::TextureFilter::DARP) {
+    // DARP reconstructs the texture; the Remaster's surface shading only needs its maps
+    const bool reconstruct = filter == Settings::TextureFilter::DARP;
+    if (!darp || (!reconstruct && surface_mode < 0)) {
         return;
     }
     const Surface& surface = slot_surfaces[surface_id];
@@ -1133,9 +1141,9 @@ void RasterizerCache<T>::QueueDarp(SurfaceId surface_id, SurfaceInterval interva
         it != darp_reverts.end() && it->second >= MaxReverts) {
         return;
     }
-    const u32 factor = std::bit_floor(std::min<u32>(surface.res_scale, 16));
+    const u32 factor = reconstruct ? std::bit_floor(std::min<u32>(surface.res_scale, 16)) : 1;
     const auto format = DarpManager::SourceFormat(surface.pixel_format);
-    if (factor < 2 || format == Pomegrade::Darp::SourceFormat::HILO8) {
+    if ((reconstruct && factor < 2) || format == Pomegrade::Darp::SourceFormat::HILO8) {
         return; // data (normal maps) is never reconstructed, nor decoded for it
     }
 
@@ -1155,7 +1163,8 @@ void RasterizerCache<T>::QueueDarp(SurfaceId surface_id, SurfaceInterval interva
         .wrap_s = darp_wrap_s,
         .wrap_t = darp_wrap_t,
     };
-    job.key = DarpManager::Key(load_info, job.encoded, job.options);
+    job.surface_maps = surface_mode >= 0;
+    job.key = DarpManager::Key(load_info, job.encoded, job.options, job.surface_maps);
     if (surface.levels > 1) {
         // the game's own level 1, for the bench (thesis s.13)
         const SurfaceParams mip1 = surface.FromInterval(surface.LevelInterval(1));

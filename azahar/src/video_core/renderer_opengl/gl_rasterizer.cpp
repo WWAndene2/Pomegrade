@@ -10,6 +10,7 @@
 #include "common/microprofile.h"
 #include "core/loader/loader.h"
 #include "video_core/pica/pica_core.h"
+#include "video_core/remaster.h"
 #include "video_core/renderer_opengl/gl_rasterizer.h"
 #include "video_core/renderer_opengl/pica_to_gl.h"
 #include "video_core/renderer_opengl/renderer_opengl.h"
@@ -789,6 +790,21 @@ void RasterizerOpenGL::BindMaterial(u32 texture_index, Surface& surface) {
     }
 
     const GLuint sampler = state.texture_units[texture_index].sampler;
+    // Pomegrade: a texture's MaterialRecognition maps (pomegrade_darp_manager.h) shade texture 0's
+    // surface (the shader's parallax moves texture 0's coordinates); the Remaster's preset gives the
+    // shading
+    if (surface.material && surface.material->pomegrade_surface) {
+        const int mode = VideoCore::Remaster::SurfaceMode();
+        if (texture_index != 0 || mode < 0 || !surface.HasNormalMap()) {
+            return;
+        }
+        glActiveTexture(TextureUnits::TextureNormalMap.Enum());
+        glBindTexture(GL_TEXTURE_2D, surface.Handle(2));
+        glBindSampler(TextureUnits::TextureNormalMap.id, sampler);
+        user_config.pomegrade_surface.Assign(1);
+        user_config.pomegrade_surface_mode.Assign(static_cast<u32>(mode));
+        return;
+    }
     if (surface.HasNormalMap()) {
         if (regs.lighting.disable) {
             LOG_WARNING(Render_OpenGL, "Custom normal map used but scene has no light enabled");

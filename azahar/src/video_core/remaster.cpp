@@ -49,6 +49,14 @@ Params Current() {
     return p;
 }
 
+int SurfaceMode() {
+    const u32 preset = Settings::values.remaster_preset.GetValue();
+    if (Settings::values.graphics_api.GetValue() != Settings::GraphicsAPI::OpenGL) {
+        return -1; // the shading is written for the OpenGL shader generator only
+    }
+    return preset == 0 ? -1 : preset == 1 ? 0 : 2;
+}
+
 static constexpr char COMMON[] = R"(
 #ifdef GL_ES
 precision highp float;
