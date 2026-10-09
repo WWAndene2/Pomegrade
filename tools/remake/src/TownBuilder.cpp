@@ -833,6 +833,8 @@ Bytes BuildTown(const TownLayout& layout, const TownSources& src, std::vector<st
     // textures are shown whatever the grass too (with --grass -1 they kept the donor's rock and hedge, mapped for others)
     show(Bank, 0, src.BankTexture);
     show(Hedge, 0, src.FenceTexture);
+    if (!src.FloorTexture.empty())
+        for (size_t mesh : {(size_t)Ground, (size_t)Soil, (size_t)Pale}) show(mesh, 0, src.FloorTexture);
     if (nLedges) show(SnowBand, 0, "chip_jump_gake");
     gr.Files[1] = terrain;
     // file 4 opens with the piece's own matrix cell, row then column (Littleroot's 04 02 at world01_02_04; checked on Hoenn's

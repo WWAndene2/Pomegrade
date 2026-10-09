@@ -29,6 +29,9 @@ struct TownSources
     std::string SnowTexture, FenceTexture;
     // the snow's edge clumps (empty: none): chip_alpha's stone cluster filled with the snow, made by OrasTown
     std::string SnowClumpTexture;
+    // an interior's floor (empty: none): every ground mesh (grass, paths, the lighter grass) shows it, an ORAS house's floor in
+    // place of the outdoor ground (oras-region on an interior's matrix, SINNOH_BUILD.md R4); it must be in the area pack
+    std::string FloorTexture;
     // the pond's inner walls (empty: the donor's cliff band): their texture and its rows at the top and the foot of the wall
     std::string BankTexture;
     float BankV[2] = {0, 0};
