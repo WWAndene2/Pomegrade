@@ -56,7 +56,8 @@ struct OrasRegionOptions
     // test of the Route 201 freeze: every tile of one value in the built pieces set to another (--tile-replace FROM:TO)
     std::vector<std::pair<uint32_t, uint32_t>> TileReplace;
     bool OthersOut = false;     // a header Zones does not name is left out, as with -1 (a large matrix holding a few places)
-    size_t MatrixTemplate = 1;  // the matrix whose file 1 (meaning unknown) the new matrix copies: Littleroot's
+    size_t MatrixTemplate = 1;  // the matrix whose file 1 (meaning unknown) the new matrix copies: Littleroot's (164, a house's, on
+                                // an interior's or a cave's matrix)
     int ModelMatrix = 15;       // the pieces' model names, world<NN>_<x>_<y> (the game's run from world01 to world14)
     bool PlanOnly = false;      // print the rectangle's map headers, block by block, and build nothing
     // SINNOH_BUILD.md R2b and R4: every header given a zone gets a new zone written from nothing (OrasNewZone.h), numbered from

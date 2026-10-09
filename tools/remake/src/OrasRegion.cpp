@@ -187,6 +187,11 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, OrasWorkspace& 
     std::vector<std::string> log;
     if (o.Width <= 0 || o.Height <= 0) throw FormatError("the region needs a width and a height in pieces");
     PlatinumWorld world(platinum, o.Town.Matrix);
+    const bool inside = o.Town.Matrix != 0;
+    // an interior's or a cave's matrix takes its first words from a game interior's: 0 0 in matrices 164-166 (Littleroot's houses),
+    // 1 0 in the outdoor matrix 1; with matrix 1's, run r4house froze in the piece loader (0x3A032C, as the Route 201 freeze) on
+    // entering the house (seen; that the first word tells a 2 x 2 window of pieces from one piece is inferred)
+    if (inside && o.MatrixTemplate == 1) o.MatrixTemplate = 164;
     // --header: an interior's or a cave's matrix names no map header (Platinum's header names the matrix, not the reverse):
     // every map cell is that header's
     if (o.Header >= 0)
@@ -299,7 +304,6 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, OrasWorkspace& 
     // --new-zones: every Platinum warp of the region, by the header it stands in (matrix tiles, the header it leads to), linked
     // once every step is built (OrasWorkspace::LinkWarps); an interior's or a cave's matrix (Platinum matrix not 0) builds no house
     std::map<int, std::vector<OrasWorkspace::HeaderWarp>> warpsOf;
-    const bool inside = o.Town.Matrix != 0;
     std::vector<GltfPart> parts;
     std::vector<GltfMaterial> materials;
     const std::filesystem::path out(o.OutDir);
