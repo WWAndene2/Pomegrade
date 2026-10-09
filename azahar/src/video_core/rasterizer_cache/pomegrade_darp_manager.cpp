@@ -78,10 +78,16 @@ std::vector<u8> SurfaceMaps(Darp::Texture& texture) {
     }
     const std::vector<float> fine = BoxMean(luma, w, h, 2), near_ = BoxMean(luma, w, h, 4),
                              wide = BoxMean(luma, w, h, 16);
+    // glass only in coherent areas: 80 % of the texel's 5 x 5 neighbourhood glass. The recognition also classes scattered
+    // texels of grass and roofs as glass, which would have shown the window's room in specks (seen on screen, 9 October)
+    std::vector<float> glass_map(n);
+    for (std::size_t i = 0; i < n; i++) {
+        glass_map[i] = maps.classes[i] == static_cast<u8>(VideoCore::MaterialRecognition::Class::Glass) ? 1.0f : 0.0f;
+    }
+    const std::vector<float> glass_share = BoxMean(glass_map, w, h, 2);
     std::vector<u8> packed(texture.rgba.size());
     for (std::size_t i = 0; i < n; i++) {
-        const bool glass =
-            maps.classes[i] == static_cast<u8>(VideoCore::MaterialRecognition::Class::Glass);
+        const bool glass = glass_map[i] > 0.5f && glass_share[i] >= 0.8f;
         packed[i * 4 + 0] = maps.normal[i * 3 + 0];
         packed[i * 4 + 1] = maps.normal[i * 3 + 1];
         packed[i * 4 + 2] = maps.heights[i];
