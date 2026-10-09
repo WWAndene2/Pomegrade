@@ -213,25 +213,16 @@ void main() {
         vec4 traced = texture(light, vec2(mix(dr.x, dr.y, p.x), mix(dr.z, dr.w, p.y)));
         float l = Luma(traced.rgb);
         step_ = smoothstep(0.60, 0.78, l);
-        // the shade's tone measured on the owner's reference render (9 October): its shade keeps 0.34, 0.43 and 0.50 of
-        // the sun's red, green and blue, a deep blue-green; compose.py's (0.55, 0.57, 0.68) came out grey-blue and light
-        // here (0.58, 0.43, 0.82 of the sun's)
-        // the tone applies in linear light but the reference was measured on the shown (sRGB) image: a linear factor k
-        // shows as k^(1/2.2). Without the blue lifts below, the tone (0.18, 0.45, 0.22) showed as 0.27, 0.45, 0.31 of the
-        // sun; scaled by (target / shown)^2.2 toward the reference's 0.34, 0.43, 0.50: (0.31, 0.43, 0.60)
-        vec3 tone = mix(vec3(0.31, 0.43, 0.60), vec3(1.04, 1.0, 0.94), step_);
+        // the shade's tone as the offline renders' compose.py (the full render 'fin2', owner's choice, 9 October)
+        vec3 tone = mix(vec3(0.55, 0.57, 0.68), vec3(1.04, 1.0, 0.94), step_);
         tone *= 0.8 + 0.2 * smoothstep(0.1, 0.45, l);                // deep corners a little darker, never black
         tone *= 1.0 - (1.0 - pow(traced.a, 1.3)) * (0.55 - 0.4 * step_); // traced occlusion
-        // the bounce's colour, at 30 %: the traced light also holds the sky's blue, which compose.py's tint (from the
-        // bounce alone) did not; in full it turned the shade blue (0.76 of the sun's blue against the reference's 0.50)
-        vec3 tint = mix(vec3(1.0), clamp(traced.rgb / max(l, 0.03), 0.6, 1.6), 0.3);
+        vec3 tint = clamp(traced.rgb / max(l, 0.03), 0.6, 1.6);       // the bounce's colour
         tone *= 1.0 + 0.3 * (tint - 1.0) * (1.0 - 0.5 * step_);
         vec3 base = pow(c, vec3(2.2));
         float bl = Luma(base);
-        // only the sun's warm lift: the shade's blue lift and the sky fill (compose.py's) are left out, the traced light
-        // holding the sky already. Added in linear light to dark shade they showed large (0.016 shows as 0.13) and kept
-        // the shade blue whatever its tone (0.71-0.74 of the sun's blue against the reference's 0.50)
-        vec3 lin = base * tone + vec3(0.03, 0.015, 0.0) * step_ * (0.4 + bl);
+        vec3 lin = base * tone + (vec3(0.012, 0.02, 0.07) * (1.0 - step_) + vec3(0.03, 0.015, 0.0) * step_) * (0.4 + bl);
+        lin += vec3(0.010, 0.018, 0.045) * traced.a * (1.0 - step_) * (0.4 + bl); // sky fill
         c = pow(max(lin, 0.0), vec3(1.0 / 2.2));
         ao = 1.0; // applied
     } else {
@@ -245,8 +236,7 @@ void main() {
     c += rim * vec3(0.28, 0.2, 0.1) * (0.3 + Luma(c)) * p2.w;
     // the sky fill in the open shade (the traced light's own above), and the sky's light on surfaces facing up
     c += vec3(0.010, 0.018, 0.045) * (1.0 - step_) * ao * p0.z * (1.0 - p3.z);
-    // (the traced light holds the sky already: added again, it turned the traced shade blue against the reference)
-    c += vec3(0.03, 0.045, 0.07) * up * p0.w * (1.0 - p3.z);
+    c += vec3(0.03, 0.045, 0.07) * up * p0.w;
     // contours on depth breaks
     c *= 1.0 - 0.35 * edge * p1.x;
     // glow: the highlights blurred by their mipmaps

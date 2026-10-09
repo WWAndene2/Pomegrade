@@ -826,6 +826,9 @@ void RasterizerOpenGL::BindMaterial(u32 texture_index, Surface& surface) {
         skip_shadow_decal = true;
     }
     if (surface.material && surface.material->pomegrade_surface) {
+        // the surface shading (relief, parallax, volume, window rooms) is off: the owner keeps the render without it
+        // ('fin2', 9 October); the maps still serve the painted shadows' recognition. Remove this return to turn it on
+        return;
         const int mode = VideoCore::Remaster::SurfaceMode();
         if (texture_index != 0 || mode < 0 || !surface.HasNormalMap()) {
             return;
