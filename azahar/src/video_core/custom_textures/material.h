@@ -76,6 +76,9 @@ struct Material {
     /// Pomegrade: the normal map holds MaterialRecognition's maps (pomegrade_darp_manager.h) for the
     /// Remaster's surface shading, not a texture pack's lighting normals
     bool pomegrade_surface = false;
+    /// Pomegrade: the texture is a painted shadow (a dark, uniform colour shaped by its alpha: ORAS's shadow1 and
+    /// shadow_a decals), left undrawn while the path tracer casts the real shadows
+    std::atomic<bool> pomegrade_shadow_decal{false};
 
     void LoadFromDisk(bool flip_png) noexcept;
 

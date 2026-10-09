@@ -3,6 +3,7 @@
 // Refer to the license.txt file included.
 
 #include <algorithm>
+#include <cmath>
 #include <fmt/format.h>
 #include "common/file_util.h"
 #include "common/hash.h"
@@ -93,6 +94,30 @@ std::vector<u8> SurfaceMaps(Darp::Texture& texture) {
         }
     }
     return packed;
+}
+
+/// Whether a texture is a painted shadow: the texels it shows (alpha over 1/16) dark (mean luminance under 0.25) and of
+/// nearly one colour (spread under 0.06), the shape in a varying alpha (a quarter of them or more translucent). A
+/// texture with a painted outline or any drawing in colour fails the uniformity
+bool IsShadowDecal(const Darp::Texture& texture) {
+    double sum = 0, sum2 = 0, shown = 0, translucent = 0;
+    const std::size_t n = texture.rgba.size() / 4;
+    for (std::size_t i = 0; i < n; i++) {
+        const u8* t = &texture.rgba[i * 4];
+        if (t[3] < 16) {
+            continue;
+        }
+        const double l = (0.299 * t[0] + 0.587 * t[1] + 0.114 * t[2]) / 255.0;
+        sum += l;
+        sum2 += l * l;
+        shown++;
+        translucent += t[3] < 224 ? 1 : 0;
+    }
+    if (shown < n * 0.05) {
+        return false;
+    }
+    const double mean = sum / shown, spread = std::sqrt(std::max(0.0, sum2 / shown - mean * mean));
+    return mean < 0.25 && spread < 0.06 && translucent >= shown * 0.25;
 }
 
 } // Anonymous namespace
@@ -239,7 +264,9 @@ void DarpManager::Run(DarpJob job) {
     }
 
     std::vector<u8> maps;
+    bool shadow_decal = false;
     if (result && job.surface_maps) {
+        shadow_decal = IsShadowDecal(*result);
         maps = SurfaceMaps(*result);
     }
 
@@ -247,6 +274,7 @@ void DarpManager::Run(DarpJob job) {
     Entry& entry = entries.at(job.key);
     if (result) {
         entry.texture->data = std::move(result->rgba);
+        entry.material->pomegrade_shadow_decal = shadow_decal;
         if (entry.maps) {
             entry.maps->data = std::move(maps);
         }

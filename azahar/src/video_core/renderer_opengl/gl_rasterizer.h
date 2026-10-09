@@ -66,6 +66,7 @@ public:
 
 private:
     PathTracerGL* path_tracer = nullptr;
+    bool skip_shadow_decal = false; ///< the draw's texture 0 is a painted shadow (BindMaterial)
 
     /// Syncs pipeline state from PICA registers
     void SyncDrawState();

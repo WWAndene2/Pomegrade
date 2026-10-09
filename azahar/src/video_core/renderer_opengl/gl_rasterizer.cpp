@@ -628,7 +628,13 @@ bool RasterizerOpenGL::Draw(bool accelerate, bool is_indexed) {
     }
 
     // Sync and bind the texture surfaces
+    skip_shadow_decal = false;
     SyncTextureUnits(framebuffer);
+    // Pomegrade: a painted shadow is left out while the path tracer casts the real shadows
+    if (skip_shadow_decal) {
+        vertex_batch.clear();
+        return true;
+    }
     state.Apply();
 
     // Sync and bind the shader
@@ -815,6 +821,10 @@ void RasterizerOpenGL::BindMaterial(u32 texture_index, Surface& surface) {
     // Pomegrade: a texture's MaterialRecognition maps (pomegrade_darp_manager.h) shade texture 0's
     // surface (the shader's parallax moves texture 0's coordinates); the Remaster's preset gives the
     // shading
+    if (texture_index == 0 && surface.material && surface.material->pomegrade_shadow_decal &&
+        state.blend.enabled && PathTracerGL::Enabled()) {
+        skip_shadow_decal = true;
+    }
     if (surface.material && surface.material->pomegrade_surface) {
         const int mode = VideoCore::Remaster::SurfaceMode();
         if (texture_index != 0 || mode < 0 || !surface.HasNormalMap()) {
