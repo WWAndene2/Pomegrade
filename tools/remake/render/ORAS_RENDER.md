@@ -102,3 +102,23 @@ perspective, far blur, vibrance 1.28, the S-curve (0.7 in v7, adaptive in v9 wit
 the path-traced light, the texture relief, parallax occlusion, volumetric layered depth, the material recognition and the
 interiors through the windows. Checked: the shaders compile for OpenGL ES 3.2 and desktop OpenGL (glslangValidator) and
 the C++ builds with warnings as errors; not yet run on a phone.
+
+## The modern engine: every technique live (owner's request, 9 October)
+
+Every technique of v7-v9 goes into the 3DS core, each where a modern game puts it: computed once what never changes
+(a texture's material, a map's light transport), every frame what depends on the camera, the clock or what moves.
+
+| Technique | In the engine | Each frame | State |
+|---|---|---|---|
+| Material recognition (`materials.py`) | `video_core/material_recognition`: the same steps in C++, once per texture when the game uploads it | no | **Done**: on Littleroot's 13 textures the classes agree on 99.96 % of the texels with `materials.py`, the outlines are the same, normals, heights and volumes within 2/255 (about 0.1 s a texture) |
+| Properties (roughness, metalness, transmission, glass opacity) | from the class, in the material maps | no | done with the recognition |
+| Texture relief (normal maps) | the material maps bound beside each texture, the relief lit in the generated fragment shader | yes | next |
+| Parallax occlusion with soft self-shadow | the height map in the fragment shader, the shift limited at grazing angles and cut on degenerate texture coordinates | yes | to do |
+| Volumetric layered depth | 4 layers of the parallax on stone, tile, wood and foliage, the lower ones darkened | yes | to do |
+| Path-traced sun and sky light (shadows, bounces) | baked per map piece by the remake tools (light transport, independent of the hour), the game's live light by the clock on top; a bake per time slot where the shadows move | the game's light: yes | to do |
+| Ray-traced ambient occlusion | baked with the light; screen-space live for what moves (Remaster) | live part: yes | live part done (Remaster) |
+| Denoising (median, guided filter) | in the baker | no | to do |
+| The game's painted shadows removed | when the baked shadows replace them | no | to do |
+| Two-tone light, coloured bounce, sky fill, vibrance | Remaster (live post-process) | yes | done; the coloured bounce comes with the bake |
+| Layers: sky light, warm rim, contours, glow, aerial perspective, far blur, adaptive contrast | Remaster | yes | done but the warm rim (it needs the sun's direction: from the game's light registers) |
+| Interiors: fake interior light behind see-through windows | the glass class's transmission and an interior-mapping shader on windows | yes | to do |

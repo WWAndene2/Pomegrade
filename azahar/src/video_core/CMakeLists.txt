@@ -11,6 +11,8 @@ add_library(video_core STATIC EXCLUDE_FROM_ALL
     debug_utils/debug_utils.h
     frame_generation.cpp
     frame_generation.h
+    material_recognition.cpp
+    material_recognition.h
     remaster.cpp
     remaster.h
     gpu.cpp
