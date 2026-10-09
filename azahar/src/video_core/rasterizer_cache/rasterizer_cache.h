@@ -375,8 +375,12 @@ bool RasterizerCache<T>::AccelerateDisplayTransfer(const Pica::DisplayTransferCo
         .dst_rect = dst_rect,
     };
     runtime.BlitTextures(src_surface, dst_surface, texture_blit);
-    // Pomegrade (Remaster): where the frame at this address came from
-    remaster_display_source[dst_params.addr] = {src_params.addr, src_rect};
+    // Pomegrade (Remaster): the depth the frame at this address was drawn with, as it is now
+    if (const auto depth = remaster_depth_of_color.find(src_params.addr); depth != remaster_depth_of_color.end()) {
+        remaster_display_source[dst_params.addr] = {depth->second, src_rect};
+    } else {
+        remaster_display_source.erase(dst_params.addr);
+    }
 
     InvalidateRegion(dst_params.addr, dst_params.size, dst_surface_id);
     return true;
@@ -760,11 +764,7 @@ const typename T::Surface* RasterizerCache<T>::DepthForDisplay(PAddr framebuffer
     if (source == remaster_display_source.end()) {
         return nullptr;
     }
-    const auto depth = remaster_depth_of_color.find(source->second.color);
-    if (depth == remaster_depth_of_color.end()) {
-        return nullptr;
-    }
-    const Surface& surface = slot_surfaces[depth->second];
+    const Surface& surface = slot_surfaces[source->second.depth];
     if (surface.type != SurfaceType::Depth && surface.type != SurfaceType::DepthStencil) {
         return nullptr;
     }

@@ -1085,6 +1085,7 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     BooleanSetting.DEEP_BLACK.key,
                     BooleanSetting.DEEP_BLACK.defaultValue
                 )
+            )
             add(
                 SingleChoiceSetting(
                     IntSetting.REMASTER_PRESET,
@@ -1176,7 +1177,6 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     BooleanSetting.REMASTER_FAR_BLUR.key,
                     BooleanSetting.REMASTER_FAR_BLUR.defaultValue
                 )
-            )
             )
             add(
                 SliderSetting(

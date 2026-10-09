@@ -250,13 +250,15 @@ private:
     /// Pomegrade (Remaster): the depth surface each render target (by its address) was last drawn with, and the render
     /// target and rectangle each display transfer copied to an address; a surface leaves both when it is deleted
     std::unordered_map<PAddr, SurfaceId> remaster_depth_of_color;
+    /// (the depth is taken when the frame is copied, so a render target address reused later cannot lend another depth)
     struct RemasterDisplaySource {
-        PAddr color;
+        SurfaceId depth;
         Common::Rectangle<u32> rect;
     };
     std::unordered_map<PAddr, RemasterDisplaySource> remaster_display_source;
     void RemasterForget(SurfaceId id) {
         std::erase_if(remaster_depth_of_color, [id](const auto& entry) { return entry.second == id; });
+        std::erase_if(remaster_display_source, [id](const auto& entry) { return entry.second.depth == id; });
     }
     std::unordered_map<SurfaceId, u64> darp_pending;  ///< surface -> reconstruction it waits for
     std::unordered_map<SurfaceId, u64> darp_surfaces; ///< surface -> reconstruction it shows
