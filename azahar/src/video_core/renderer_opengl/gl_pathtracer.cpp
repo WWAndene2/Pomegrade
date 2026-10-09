@@ -506,7 +506,8 @@ void PathTracerGL::Upload(const Frame& frame) {
     // rises in the east at 6, crosses the north (behind the scene, as the camera looks) and sets in the west at 18, 55
     // degrees up at noon; between 18 and 6 the moon, 35 degrees up in the north, dim and blue (pt.html's colours). Over
     // the north so the shadows fall toward the camera, as the game's painted ones do (its art direction): over the south
-    // the full render's shadows fell behind the houses, out of sight (9 October)
+    // the full render's shadows fell behind the houses, out of sight; straight over the north the facades facing the
+    // camera were all in shade, darker than the reference. So its path leans 40 % to the north (9 October)
     const u64 seconds = Core::System::GetInstance().Kernel().GetSharedPageHandler().GetSystemTimeSince2000() / 1000;
     const float hour = static_cast<float>(seconds % 86400) / 3600.0f;
     const bool day = hour >= 6.0f && hour < 18.0f;
@@ -530,7 +531,7 @@ void PathTracerGL::Upload(const Frame& frame) {
         Srgb(sky_horizon, 0x2a3350, 1.0f);
     }
     for (int k = 0; k < 3; k++) {
-        const float horizontal = std::cos(pi * along) * east[k] + std::sin(pi * along) * north[k];
+        const float horizontal = std::cos(pi * along) * east[k] + 0.4f * std::sin(pi * along) * north[k];
         sun[k] = std::cos(elevation) * horizontal + std::sin(elevation) * up[k];
     }
     Normalise(sun);
