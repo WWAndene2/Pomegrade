@@ -251,6 +251,36 @@ static const char* android_config_default_file_content = (BOOST_HANA_STRING(R"(
 # Pomegrade: scene-adaptive deep black. 0 (default): off, 1: on
 )") DECLARE_KEY(deep_black) BOOST_HANA_STRING(R"(
 
+# Pomegrade: Remaster, a post-process of the top screen (OpenGL). 0 (default): off, 1: v7 preset, 2: v9 preset, 3: custom
+)") DECLARE_KEY(remaster_preset) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Remaster's ambient occlusion, used by the custom preset. 0: off, 1 (default): on
+)") DECLARE_KEY(remaster_ao) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Remaster's two-tone light, used by the custom preset. 0: off, 1 (default): on
+)") DECLARE_KEY(remaster_grading) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Remaster's vibrance, used by the custom preset. 0: off, 1 (default): on
+)") DECLARE_KEY(remaster_vibrance) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Remaster's adaptive contrast, used by the custom preset. 0: off, 1 (default): on
+)") DECLARE_KEY(remaster_contrast) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Remaster's contours, used by the custom preset. 0: off, 1 (default): on
+)") DECLARE_KEY(remaster_outline) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Remaster's aerial perspective, used by the custom preset. 0: off, 1 (default): on
+)") DECLARE_KEY(remaster_aerial) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Remaster's glow, used by the custom preset. 0: off, 1 (default): on
+)") DECLARE_KEY(remaster_glow) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Remaster's sky light, used by the custom preset. 0: off, 1 (default): on
+)") DECLARE_KEY(remaster_sky) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Remaster's far blur, used by the custom preset. 0: off, 1 (default): on
+)") DECLARE_KEY(remaster_far_blur) BOOST_HANA_STRING(R"(
+
 [Layout]
 # Layout for the screen inside the render window, landscape mode
 # 0: Original (screens vertically aligned)

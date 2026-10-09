@@ -42,6 +42,16 @@ object SettingKeys {
     external fun use_vsync(): String
     external fun use_skip_duplicate_frames(): String
     external fun frame_rate_mode(): String
+    external fun remaster_preset(): String
+    external fun remaster_ao(): String
+    external fun remaster_grading(): String
+    external fun remaster_vibrance(): String
+    external fun remaster_contrast(): String
+    external fun remaster_outline(): String
+    external fun remaster_aerial(): String
+    external fun remaster_glow(): String
+    external fun remaster_sky(): String
+    external fun remaster_far_blur(): String
     external fun use_shader_jit(): String
     external fun resolution_factor(): String
     external fun frame_limit(): String

@@ -90,3 +90,15 @@ node shoot_ao.mjs <dir> "interiors=1&cam=<cam>&radius=8&frames=4"
 python compose.py - 0.35 sky_afternoon.png <dir>/stylised.png <dir>/pt_white.png 0.60 0.78 <dir> <cam> norelief
 python layers.py <dir> <cam> 32
 ```
+
+## Live in the emulator: Remaster (9 October)
+
+The presets also run live on the 3DS core's top screen: Settings → Remaster (OpenGL), "v7 preset", "v9 preset" or
+"Custom" with one switch per effect (`azahar/src/video_core/remaster.h`, `renderer_opengl/gl_remaster.cpp`). A frame of
+the emulator has only its colours and its depth buffer, so each technique is done from those two, once per emulated
+frame: the two-tone step on the frame's luminance, screen-space ambient occlusion applied as v9 applies its ray-traced one,
+v9's sky fill, sky light on surfaces facing up (normals from the depth), contours on depth breaks, glow, aerial
+perspective, far blur, vibrance 1.28, the S-curve (0.7 in v7, adaptive in v9 without the sun-elevation term). Not live:
+the path-traced light, the texture relief, parallax occlusion, volumetric layered depth, the material recognition and the
+interiors through the windows. Checked: the shaders compile for OpenGL ES 3.2 and desktop OpenGL (glslangValidator) and
+the C++ builds with warnings as errors; not yet run on a phone.

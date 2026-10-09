@@ -127,6 +127,15 @@ enum class BooleanSetting(
     USE_INTEGER_SCALING(SettingKeys.use_integer_scaling(), Settings.SECTION_RENDERER, false),
     // Pomegrade picture options
     RICH_COLOURS(SettingKeys.rich_colours(), Settings.SECTION_RENDERER, false),
+    REMASTER_AO(SettingKeys.remaster_ao(), Settings.SECTION_RENDERER, true),
+    REMASTER_GRADING(SettingKeys.remaster_grading(), Settings.SECTION_RENDERER, true),
+    REMASTER_VIBRANCE(SettingKeys.remaster_vibrance(), Settings.SECTION_RENDERER, true),
+    REMASTER_CONTRAST(SettingKeys.remaster_contrast(), Settings.SECTION_RENDERER, true),
+    REMASTER_OUTLINE(SettingKeys.remaster_outline(), Settings.SECTION_RENDERER, true),
+    REMASTER_AERIAL(SettingKeys.remaster_aerial(), Settings.SECTION_RENDERER, true),
+    REMASTER_GLOW(SettingKeys.remaster_glow(), Settings.SECTION_RENDERER, true),
+    REMASTER_SKY(SettingKeys.remaster_sky(), Settings.SECTION_RENDERER, true),
+    REMASTER_FAR_BLUR(SettingKeys.remaster_far_blur(), Settings.SECTION_RENDERER, true),
     DEEP_BLACK(SettingKeys.deep_black(), Settings.SECTION_RENDERER, false),
     ENABLE_SECONDARY_DISPLAY(SettingKeys.enable_secondary_display(), Settings.SECTION_LAYOUT, true),
     SIMULATE_3DS_GPU_TIMINGS(

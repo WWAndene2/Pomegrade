@@ -124,6 +124,10 @@ public:
     /// Get the color and depth surfaces based on the framebuffer configuration
     FramebufferHelper<T> GetFramebufferSurfaces(bool using_color_fb, bool using_depth_fb);
 
+    /// Pomegrade (Remaster): the depth surface the frame shown at framebuffer_addr was drawn with, and the
+    /// rectangle of the frame in it (scaled, flipped as the display transfer flipped it); nullptr when unknown
+    const Surface* DepthForDisplay(PAddr framebuffer_addr, Common::Rectangle<u32>& rect);
+
     /// Get a surface that matches a "texture copy" display transfer config
     SurfaceRect_Tuple GetTexCopySurface(const SurfaceParams& params);
 
@@ -243,6 +247,17 @@ private:
     // Pomegrade: DARP (pomegrade_darp_manager.h). The manager lives as long as the cache once
     // created, since swapped-in surfaces point to its materials.
     std::unique_ptr<DarpManager> darp;
+    /// Pomegrade (Remaster): the depth surface each render target (by its address) was last drawn with, and the render
+    /// target and rectangle each display transfer copied to an address; a surface leaves both when it is deleted
+    std::unordered_map<PAddr, SurfaceId> remaster_depth_of_color;
+    struct RemasterDisplaySource {
+        PAddr color;
+        Common::Rectangle<u32> rect;
+    };
+    std::unordered_map<PAddr, RemasterDisplaySource> remaster_display_source;
+    void RemasterForget(SurfaceId id) {
+        std::erase_if(remaster_depth_of_color, [id](const auto& entry) { return entry.second == id; });
+    }
     std::unordered_map<SurfaceId, u64> darp_pending;  ///< surface -> reconstruction it waits for
     std::unordered_map<SurfaceId, u64> darp_surfaces; ///< surface -> reconstruction it shows
     std::vector<u64> darp_ready_now;                  ///< already reconstructed, swap at frame end

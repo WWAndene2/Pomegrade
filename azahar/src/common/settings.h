@@ -574,6 +574,18 @@ struct Values {
     SwitchableSetting<bool> rich_colours{false, Keys::rich_colours};
     // Scene-adaptive deep black: the near-black shades of each scene become true black.
     SwitchableSetting<bool> deep_black{false, Keys::deep_black};
+    // Pomegrade: Remaster, a post-process of the top screen after the offline ORAS renders' presets (VideoCore::Remaster,
+    // tools/remake/render/ORAS_RENDER.md): 0 off, 1 the v7 preset, 2 the v9 preset, 3 custom (the switches below)
+    Setting<u32, true> remaster_preset{0, 0, 3, Keys::remaster_preset};
+    SwitchableSetting<bool> remaster_ao{true, Keys::remaster_ao};
+    SwitchableSetting<bool> remaster_grading{true, Keys::remaster_grading};
+    SwitchableSetting<bool> remaster_vibrance{true, Keys::remaster_vibrance};
+    SwitchableSetting<bool> remaster_contrast{true, Keys::remaster_contrast};
+    SwitchableSetting<bool> remaster_outline{true, Keys::remaster_outline};
+    SwitchableSetting<bool> remaster_aerial{true, Keys::remaster_aerial};
+    SwitchableSetting<bool> remaster_glow{true, Keys::remaster_glow};
+    SwitchableSetting<bool> remaster_sky{true, Keys::remaster_sky};
+    SwitchableSetting<bool> remaster_far_blur{true, Keys::remaster_far_blur};
     SwitchableSetting<u16, true> delay_game_render_thread_us{0, 0, 65000,
                                                              Keys::delay_game_render_thread_us};
     SwitchableSetting<bool> simulate_3ds_gpu_timings{false, Keys::simulate_3ds_gpu_timings};
