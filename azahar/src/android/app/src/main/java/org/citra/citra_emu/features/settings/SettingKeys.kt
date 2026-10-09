@@ -43,6 +43,7 @@ object SettingKeys {
     external fun use_skip_duplicate_frames(): String
     external fun frame_rate_mode(): String
     external fun remaster_preset(): String
+    external fun remaster_sun_hour(): String
     external fun remaster_ao(): String
     external fun remaster_grading(): String
     external fun remaster_vibrance(): String

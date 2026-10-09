@@ -254,6 +254,9 @@ static const char* android_config_default_file_content = (BOOST_HANA_STRING(R"(
 # Pomegrade: Remaster, a post-process of the top screen (OpenGL). 0 (default): off, 1: v7 preset, 2: v9 preset, 3: custom
 )") DECLARE_KEY(remaster_preset) BOOST_HANA_STRING(R"(
 
+# Pomegrade: the path tracer's sun (v9). 0 (default): the game's clock, 1-8: fixed at 00h, 03h, 06h, 09h, 12h, 15h, 18h, 21h
+)") DECLARE_KEY(remaster_sun_hour) BOOST_HANA_STRING(R"(
+
 # Pomegrade: Remaster's ambient occlusion, used by the custom preset. 0: off, 1 (default): on
 )") DECLARE_KEY(remaster_ao) BOOST_HANA_STRING(R"(
 

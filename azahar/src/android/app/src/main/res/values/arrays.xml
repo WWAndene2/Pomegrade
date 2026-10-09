@@ -344,6 +344,29 @@
         <item>@string/pomegrade_remaster_v9</item>
         <item>@string/pomegrade_remaster_custom</item>
     </string-array>
+    <!-- Pomegrade: the path tracer's sun, values as Settings::values.remaster_sun_hour -->
+    <string-array name="pomegradeRemasterSunNames">
+        <item>@string/pomegrade_remaster_sun_auto</item>
+        <item>00h00</item>
+        <item>03h00</item>
+        <item>06h00</item>
+        <item>09h00</item>
+        <item>12h00</item>
+        <item>15h00</item>
+        <item>18h00</item>
+        <item>21h00</item>
+    </string-array>
+    <integer-array name="pomegradeRemasterSunValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>7</item>
+        <item>8</item>
+    </integer-array>
     <integer-array name="pomegradeRemasterValues">
         <item>0</item>
         <item>1</item>

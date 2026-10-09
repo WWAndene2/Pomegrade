@@ -119,6 +119,7 @@ void LogSettings() {
     log_setting("Renderer_TextureUpscaleFactor", values.texture_upscale_factor.GetValue());
     log_setting("Renderer_RichColours", values.rich_colours.GetValue());
     log_setting("Renderer_RemasterPreset", values.remaster_preset.GetValue());
+    log_setting("Renderer_RemasterSunHour", values.remaster_sun_hour.GetValue());
     log_setting("Renderer_DeepBlack", values.deep_black.GetValue());
     log_setting("Renderer_DelayGameRenderThreadUs", values.delay_game_render_thread_us.GetValue());
     log_setting("Renderer_Simulate3DSGPUTimings", values.simulate_3ds_gpu_timings.GetValue());
