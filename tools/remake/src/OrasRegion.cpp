@@ -490,7 +490,12 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, OrasWorkspace& 
         for (int z : used) renumber[z] = next++;
         for (uint16_t& z : matrix.Zones) if (z != OrasMatrix::None) z = (uint16_t)renumber.at(z);
     }
-    const Bytes matrixData = matrix.Write();
+    // an interior's or a cave's matrix is written as the game's are: the piece grid only, no zone grid (the whole matrix the
+    // zone a warp leads to; matrices 164-166, Littleroot's houses, hold 12 bytes in file 0). With a zone grid our interior froze
+    // in the piece loader on entering (runs r4house, r4house2), while the same zone on a game interior's matrix entered (r4diag)
+    OrasMatrix written = matrix;
+    if (inside) { written.Zones.clear(); written.Third.clear(); }
+    const Bytes matrixData = written.Write();
     if (OrasMatrix::Read(matrixData).Write() != matrixData) throw FormatError("the new matrix does not read back identical");
     const size_t matrixIndex = AppendMember(newMatrices, matrixArchive, o.MatrixTemplate, matrixData, "MM");
     if (skipped) log.push_back(F("%d piece(s) left out on errors (listed above)", skipped));
