@@ -116,22 +116,63 @@ les îles Mirage, l'Épisode Delta, les Bases Secrètes, les Méga-Évolutions (
 
 ---
 
-## 4. Ordre proposé (à valider)
+## 4. Ordre : du plus facile et rapide au plus long (décision du propriétaire, 9 octobre)
 
-Comme pour le remake de Sinnoh : d'abord des étapes d'outillage courtes, chacune vérifiée dans l'émulateur sans écran puis
-sur le téléphone du propriétaire.
+Classé par ce que demande chaque point, pas par importance. Les durées sont des ordres de grandeur estimés, pas mesurés ;
+elles supposent que la brique de base du palier (lire un format, un drapeau, un script) marche du premier coup, ce qui n'est
+pas garanti. Chaque point se termine par une vérification dans l'émulateur sans écran, puis sur le téléphone.
 
-1. **D1 — Revanches des champions** : équipes de revanche d'Émeraude pour les huit champions, déclenchées après la Ligue.
-   Valide d'un coup les briques de base : dresseurs, drapeaux de progression, scripts d'ORAS.
-2. **D2 — Juan et Marc** : Juan à Atalanopolis, Marc Maître de la Ligue, Pierre à la Cascade Météore.
-3. **D3 — Arènes d'Émeraude** : dispositions et équipes (2).
-4. **D4 — Lieux d'Émeraude** : Tour Mirage, Souterrain du désert, Parc Safari étendu, Colline des Dresseurs (1.3).
-5. **D5 — Zone de Combat, bâtiments** sur l'île Combat, règles de la Maison de Combat en première version (1.1).
-6. **D6 — Histoire à deux équipes et Rayquaza** (2) : le plus gros morceau de scénario.
-7. **D7 — Corrections** (3), au fur et à mesure que le code du jeu est lu (mode difficile, Multi Exp., CS, îles Mirage).
-8. **D8 — Règles propres des installations de la Zone** (1.1) et Pokémon qui suit (3.10) : gros chantiers, en dernier.
+**Palier 1 — données seules** (formats déjà lus ou presque ; quelques heures à un jour chacun)
+1. Équipes des dresseurs plus dures, façon Émeraude (3.1, équipes seulement)
+2. Statistiques des Méga-Évolutions rééquilibrées (3.6, statistiques seulement)
+3. Évolutions par échange remplacées par objet ou niveau (3.11)
+4. Tables de rencontres : tous les Pokémon capturables à Hoenn, Métamorph, Smeargle, Pokémon de Johto (3.11, 1.3)
+5. Maîtres des capacités étendus, ceux d'Émeraude (1.4)
+6. Électacle : vérifier sa présence dans ORAS (1.4)
 
----
+**Palier 2 — données + un script simple ou un drapeau** (la première fois, il faut lire les drapeaux d'ORAS ; ensuite
+rapide)
+7. Revanches des huit champions avec équipes d'Émeraude (1.2) — le premier à faire : il valide drapeaux et scripts
+8. Juan champion à Atalanopolis, Marc Maître de la Ligue (2)
+9. Pierre en défi caché à la Cascade Météore (1.2)
+10. Starter de Johto offert après le Pokédex national (1.4)
+
+**Palier 3 — maps avec l'outillage existant** (comme les maisons de Sinnoh ; quelques jours chacun)
+11. Arènes d'Émeraude : dispositions et dresseurs (2)
+12. Extension du Parc Safari (1.3)
+13. Souterrain du désert (1.3)
+14. Tour Mirage et ses deux fossiles (1.3, 2)
+15. Colline des Dresseurs, sans chronomètre (1.3)
+16. Grotte Tellurique et Grotte Marine pour Groudon et Kyogre (1.3)
+17. Îles des légendaires d'événement accessibles en jeu (1.3, 3.11)
+18. Pilier Céleste à deux états (2)
+19. Routes maritimes enrichies d'îlots et de dresseurs (3.3, maps seulement)
+20. Bâtiments de la Zone de Combat sur l'île Combat, avec les règles de la Maison de Combat (1.1, première version)
+21. Tentes de Combat, bâtiments seulement (1.3, 3.12)
+
+**Palier 4 — scénario** (scripts de l'histoire d'ORAS à comprendre d'abord ; semaines)
+22. Repaire Magma ajouté, les deux repaires (1.3)
+23. Histoire à deux équipes, Magma et Aqua (2)
+24. Groudon et Kyogre ensemble, Rayquaza appelé pendant l'histoire, en réutilisant les scènes de l'Épisode Delta (2)
+
+**Palier 5 — code du jeu à trouver puis patcher** (emplacement inconnu : de quelques jours à impossible)
+25. Combats doubles « libres » : d'abord vérifier si ORAS les a déjà (1.4)
+26. Multi Exp. désactivé au départ (3.1)
+27. Mode difficile optionnel (3.1)
+28. Méga-Évolutions limitées à l'après-jeu (3.6, conditions)
+29. Accès fixe aux îles Mirage (3.7)
+30. Se passer des CS (3.3)
+31. Match Call pour les revanches des dresseurs de route (1.2)
+32. Colline des Dresseurs : son chronomètre (1.3)
+33. Boutique de vêtements de X/Y (3.4)
+34. Concours plus fins (3.8)
+35. Bases Secrètes : partage par fichier, bases hors ligne (3.9)
+
+**Palier 6 — gros chantiers** (mois)
+36. Règles propres des installations de la Zone de Combat : Usine, Dôme, Palais, Arène, Reptile, Pyramide (1.1)
+37. Pokémon qui suit le joueur (3.10)
+
+**Côté Pomegrade, hors mod** : les performances (3.5) sont déjà dans `DEVELOPMENT_NOTE.md`.
 
 ## Sources
 
