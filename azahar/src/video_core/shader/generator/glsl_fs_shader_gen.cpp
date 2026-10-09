@@ -252,29 +252,40 @@ void FragmentModule::WritePomegradeSurface() {
         float s = sqrt(max(1.0 - c * c, 0.0));
         vec3 v = vec3(-major * s, max(c, 0.35)); // toward the viewer, the shift limited at grazing angles
         vec3 l = normalize(vec3(major * 0.5, 0.85));
-        // a window (MaterialRecognition's glass, A = 255): interior mapping, a room one texture deep
-        // behind the glass seen along v, lit from inside: a warm lamp on the back wall, the ceiling
-        // brighter, the floor darker (interiors.js put the real rooms behind the windows offline)
+        // a window (MaterialRecognition's glass, A = 255): see-through glass onto a room behind it (interior mapping,
+        // the fake depth: a box two texture-widths deep, walked along v from the glass), lit from inside by a warm
+        // ceiling lamp: its pool of light on the floor and the back wall, the walls fading from it, a band of furniture
+        // in silhouette along the back wall's foot. The glass reflects the sky more as it is seen grazing (Schlick's
+        // Fresnel, glass 0.04). interiors.js put the real rooms behind the windows offline; the transitions into
+        // houses being seamless later, this stands in for them
         if (texture(tex_normal, texcoord0).a > 0.995) {
+            const float room_depth = 2.0;
             vec2 room = fract(texcoord0);
             vec3 dir = vec3(-v.xy, -v.z);
             vec2 wall = vec2(dir.x > 0.0 ? 1.0 : 0.0, dir.y > 0.0 ? 1.0 : 0.0);
             vec2 tw = (wall - room) / mix(vec2(1e-4), dir.xy, step(vec2(1e-4), abs(dir.xy)));
-            float tb = 1.0 / max(-dir.z, 1e-4);
+            float tb = room_depth / max(-dir.z, 1e-4);
             float t = min(min(tw.x, tw.y), tb);
-            vec3 hit = vec3(room, 0.0) + dir * t;
-            vec3 warm = vec3(1.0, 0.78, 0.48);
+            vec3 hit = vec3(room, 0.0) + dir * t; // x across, y up the window, z into the room (negative)
+            vec3 lamp_at = vec3(0.5, 0.95, -0.6 * room_depth);
+            float to_lamp = length(hit - lamp_at);
+            vec3 warm = vec3(1.0, 0.8, 0.52);
+            float light_ = 0.35 + 0.9 / (1.0 + 2.5 * to_lamp * to_lamp); // the lamp's falloff, a little ambient
             vec3 col;
             if (t == tb) {
-                float lamp = 1.0 - smoothstep(0.0, 0.6, length(hit.xy - vec2(0.5, 0.65)));
-                col = warm * (0.55 + 0.6 * lamp);
+                col = vec3(0.92, 0.86, 0.78);                    // back wall
+                if (hit.y < 0.32 && abs(hit.x - 0.5) < 0.38) {
+                    col = vec3(0.32, 0.22, 0.16);                // furniture along it, in silhouette
+                }
             } else if (t == tw.y) {
-                col = warm * (dir.y > 0.0 ? 0.85 : 0.35); // ceiling, floor
+                col = dir.y > 0.0 ? vec3(0.95, 0.93, 0.9) : vec3(0.55, 0.42, 0.3); // ceiling, wooden floor
             } else {
-                col = warm * (0.5 + 0.2 * hit.y);         // side walls
+                col = vec3(0.85, 0.8, 0.72);                     // side walls
             }
-            col *= 1.0 - 0.45 * clamp(-hit.z, 0.0, 1.0) * 0.5; // farther, a little darker
-            pg_room = vec4(col, 0.55);
+            col *= warm * light_;
+            float fresnel = 0.04 + 0.96 * pow(1.0 - clamp(v.z, 0.0, 1.0), 5.0);
+            col = mix(col, vec3(0.62, 0.78, 0.95), clamp(fresnel * 1.6, 0.06, 0.6)); // the sky in the glass
+            pg_room = vec4(col, 0.8);                            // the glass lets 80 % through
         }
         const float depth = 0.022;
         const int steps = 16;
