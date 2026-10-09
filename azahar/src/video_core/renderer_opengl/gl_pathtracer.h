@@ -38,7 +38,7 @@ struct ScreenInfo;
 //   offline median and guided filters' part), then accumulated over frames where a pixel still shows the same point
 //   (temporal accumulation: 80 % of the history kept; a pixel whose point moved starts again), and handed to
 //   Remaster, which composes it as compose.py does (v9).
-// The sun follows the clock (the 3DS clock is the device's): it rises in the east at 6, crosses the south and sets in
+// The sun follows the game's clock (the emulated 3DS's): it rises in the east at 6, crosses the south and sets in
 // the west at 18; the moon lights the night. Up is the normal of the frame's largest flat area (the ground), north the
 // camera's forward direction along it. The game's own time-of-day colours stay in the frame underneath.
 class PathTracerGL {

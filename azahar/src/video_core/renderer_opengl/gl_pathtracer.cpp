@@ -7,6 +7,9 @@
 #include <cstddef>
 #include <ctime>
 #include "common/settings.h"
+#include "core/core.h"
+#include "core/hle/kernel/kernel.h"
+#include "core/hle/kernel/shared_page.h"
 #include "video_core/pathtrace_bvh.h"
 #include "video_core/pica/regs_lcd.h"
 #include "video_core/remaster.h"
@@ -498,16 +501,12 @@ void PathTracerGL::Upload(const Frame& frame) {
                      north[0] * up[1] - north[1] * up[0]};
     Normalise(east);
 
-    // the sun from the clock: rises in the east at 6, crosses the south (toward the camera) and sets in the west at 18,
-    // 55 degrees up at noon; between 18 and 6 the moon, 35 degrees up in the south, dim and blue (pt.html's colours)
-    const std::time_t now = std::time(nullptr);
-    std::tm local{};
-#ifdef _WIN32
-    localtime_s(&local, &now);
-#else
-    localtime_r(&now, &local);
-#endif
-    const float hour = static_cast<float>(local.tm_hour) + static_cast<float>(local.tm_min) / 60.0f;
+    // the sun from the game's clock (the emulated 3DS's, as the game reads it for its own day and night: the device's
+    // clock differs when the emulator's clock is set otherwise, and the game then lit its night under a day sun):
+    // rises in the east at 6, crosses the south (toward the camera) and sets in the west at 18, 55 degrees up at noon;
+    // between 18 and 6 the moon, 35 degrees up in the south, dim and blue (pt.html's colours)
+    const u64 seconds = Core::System::GetInstance().Kernel().GetSharedPageHandler().GetSystemTimeSince2000() / 1000;
+    const float hour = static_cast<float>(seconds % 86400) / 3600.0f;
     const bool day = hour >= 6.0f && hour < 18.0f;
     const float pi = 3.14159265f;
     float elevation, along;
