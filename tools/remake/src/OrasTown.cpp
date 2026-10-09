@@ -266,7 +266,7 @@ Bytes BuildTownPiece(const TownLayout& layout, const OrasTownOptions& o, const G
         log.push_back("piece: " + std::to_string(o.PadPiece) + " zero bytes appended to its terrain model");
     }
     if (o.DonorAsIs) log.push_back("piece: the donor's, as it is in the game");
-    if (o.Room) town = BuildRoom(layout, town, piece(o.Room->Piece), *o.Room, o.RoomName, log);
+    if (o.Room) town = BuildRoom(layout, town, piece(o.Room->Piece), *o.Room, o.RoomStairsC, o.RoomStairsR, o.RoomStairsUp, o.RoomName, log);
 
     // the donor's textures the piece names and the area pack lacks, added to it when it is not the donor's own pack (a name the
     // pack already holds keeps the pack's texture: Littleroot's chip_mado, shadow1, ... over Petalburg's); a room's from its room's pack

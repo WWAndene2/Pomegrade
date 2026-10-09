@@ -8,9 +8,9 @@
 // skirting, wallpaper and moulding bands, topped by ORAS's dark cap one tile deep; the floor is ORAS's wood, darkened along the
 // walls as ORAS's is; the south edge is a lip going down; the door is ORAS's way out (the floor one tile further out, its mat
 // and its light) on Platinum's exit mat; each Platinum window (building model window01) is ORAS's window (an opening in the
-// wall with its recess, sill, frame and glass) at the same place. No stairs model yet (the donor's, cut out of its room, came
-// out cut; the warp alone) and no furniture (the owner's order: walls first). The tiles a wall stands on are solid (outside
-// the room).
+// wall with its recess, sill, frame and glass) at the same place; the stairs are computed on Platinum's stairs tiles (steps in
+// ORAS's measures; going down, an opening in the floor). No furniture yet (the owner's order: walls first). The tiles a wall
+// stands on are solid (outside the room).
 
 #include "TownLayout.h"
 
@@ -27,9 +27,10 @@ struct RoomDonor
 // Littleroot's first house, its ground floor (t101r0101, zone 223, area pack 112)
 extern const RoomDonor GroundFloorRoom;
 
-// the piece townPiece with its terrain model replaced by the room (named modelName, as long as the donor's)
-Bytes BuildRoom(const TownLayout& layout, const Bytes& townPiece, const Bytes& donorPiece, const RoomDonor& donor, const std::string& modelName,
-                std::vector<std::string>& log);
+// the piece townPiece with its terrain model replaced by the room (named modelName, as long as the donor's); stairsC/R: the
+// tile of the warp to another floor (-1: none), stairsUp: whether it goes up
+Bytes BuildRoom(const TownLayout& layout, const Bytes& townPiece, const Bytes& donorPiece, const RoomDonor& donor, int stairsC, int stairsR,
+                bool stairsUp, const std::string& modelName, std::vector<std::string>& log);
 
 }
 

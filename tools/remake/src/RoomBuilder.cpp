@@ -144,8 +144,8 @@ std::array<float, 3> Mix(const std::array<float, 3>& a, const std::array<float, 
 
 }
 
-Bytes BuildRoom(const TownLayout& layout, const Bytes& townPiece, const Bytes& donorPiece, const RoomDonor& donor, const std::string& modelName,
-                std::vector<std::string>& log)
+Bytes BuildRoom(const TownLayout& layout, const Bytes& townPiece, const Bytes& donorPiece, const RoomDonor& donor, int stairsC, int stairsR,
+                bool stairsUp, const std::string& modelName, std::vector<std::string>& log)
 {
     char line[256];
     auto note = [&](const std::string& s) { log.push_back("room: " + s); };
@@ -177,11 +177,113 @@ Bytes BuildRoom(const TownLayout& layout, const Bytes& townPiece, const Bytes& d
     std::map<size_t, BchGeometry> geo;
     for (size_t m = 0; m < model.Meshes.size(); m++) geo[m].Mesh = m;
 
-    // the stairs: none drawn yet. The donor's stairs, cut out of its room, came with cut walls and caps (run wl2) and rise north,
-    // where Platinum's stairs (stair_u01, stair_d01) are side stairs: the warp alone, until the owner chooses the stairs' model
-    for (const TownObject& o : layout.Objects)
-        if (o.Name.rfind("stair", 0) == 0) note("stairs (" + o.Name + ") left without a model: the warp alone");
-    auto inStairs = [](float, float) { return false; };
+    // the stairs, computed (the owner's choice, 9 October; the donor's, cut out of its room, came out cut): on Platinum's stairs
+    // tiles, running away from the warp (the warp's tile lies beside them: walked into, it leads onto the stairs). Up: steps
+    // 6 high as ORAS's (t101r0101's at heights 6, 12, 18), up to the wall's top so they end under the dark cap as its stairs go
+    // into the ceiling, in its floor's wood, their side towards the camera closed. Down: an
+    // opening in the floor, the same steps going down, its sides in the wall's paper, a dark bottom and a low wood railing on
+    // its south edge (as t101r0102's, 18 high)
+    float hole[4] = {0, 0, 0, 0};
+    bool haveHole = false;
+    {
+        int c0 = N, c1 = -1, r0 = N, r1 = -1;
+        for (int r = 0; r < N; r++)
+            for (int c = 0; c < N; c++)
+                for (const std::string& m : layout.TileMaterials[r][c])
+                    if (m.rfind("stair", 0) == 0) { c0 = std::min(c0, c); c1 = std::max(c1, c); r0 = std::min(r0, r); r1 = std::max(r1, r); }
+        if (c1 >= 0 && stairsC >= 0)
+        {
+            const float x0 = (float)c0, x1 = c1 + 1.0f, z0 = (float)r0, z1 = r1 + 1.0f;
+            // the way they run: from the warp's side towards their far side, along the axis the warp lies on
+            const float dx = (x0 + x1) / 2 - (stairsC + 0.5f), dz = (z0 + z1) / 2 - (stairsR + 0.5f);
+            const bool alongX = std::fabs(dx) >= std::fabs(dz);
+            const float sign = alongX ? (dx > 0 ? 1.0f : -1.0f) : (dz > 0 ? 1.0f : -1.0f);
+            // up, as many 6-high steps as reach the wall's top (54: 9), so the stairs end under the dark cap as ORAS's do (a black
+            // block over the last step, run st6, read as a pillar); down, ORAS's pitch
+            const float length = alongX ? x1 - x0 : z1 - z0, rise = 6;
+            const int steps = stairsUp ? (int)(WallTop / rise) : std::max(1, (int)(length / 0.47f));
+            const float pitch = length / steps;
+            // a point at distance t along the run (from the warp's side) and position w across it, as (column, row)
+            auto at = [&](float t, float w) {
+                const float a = sign > 0 ? (alongX ? x0 : z0) + t : (alongX ? x1 : z1) - t;
+                return alongX ? std::pair<float, float>{a, w} : std::pair<float, float>{w, a};
+            };
+            const float w0 = alongX ? z0 : x0, w1 = alongX ? z1 : x1;
+            const std::array<float, 3> away = alongX ? std::array<float, 3>{sign, 0, 0} : std::array<float, 3>{0, 0, sign};
+            const std::array<float, 3> back = {-away[0], 0, -away[2]}, white = {1, 1, 1}, black = {0, 0, 0}, side = {0.70f, 0.61f, 0.52f};
+            auto wood = [&](float c, float y, float r, const std::array<float, 3>& k) { return Corner{c, y, r, 0.3036f * c - 3.646f, -0.4547f * r + 7.033f + y / 100, k}; };
+            auto paper = [&](float c, float y, float r, float u, const std::array<float, 3>& k) { return Corner{c, y, r, u, WallVAt(std::fabs(y)), k}; };
+            auto dark = [&](float c, float y, float r) { return Corner{c, y, r, 3.08f, 6.95f, black}; };
+            // a face across the run at distance t, between heights ya and yb
+            auto across = [&](size_t mesh, float t, float ya, float yb, const std::array<float, 3>& normal, bool woodFace, const std::array<float, 3>& k) {
+                const auto [ca, ra] = at(t, w0); const auto [cb, rb] = at(t, w1);
+                if (mesh == capMesh) { const Corner q[4] = {dark(ca, ya, ra), dark(cb, ya, rb), dark(cb, yb, rb), dark(ca, yb, ra)}; Quad(geo[mesh], q, normal, winding); return; }
+                if (woodFace) { const Corner q[4] = {wood(ca, ya, ra, k), wood(cb, ya, rb, k), wood(cb, yb, rb, k), wood(ca, yb, ra, k)}; Quad(geo[mesh], q, normal, winding); return; }
+                const Corner q[4] = {paper(ca, ya, ra, 0, k), paper(cb, ya, rb, 0.27f, k), paper(cb, yb, rb, 0.27f, k), paper(ca, yb, ra, 0, k)};
+                Quad(geo[mesh], q, normal, winding);
+            };
+            // a flat piece of the run between distances ta and tb at height y
+            auto flat = [&](size_t mesh, float ta, float tb, float y, bool isDark) {
+                const auto [c00, r00] = at(ta, w0); const auto [c01, r01] = at(ta, w1); const auto [c10, r10] = at(tb, w0); const auto [c11, r11] = at(tb, w1);
+                if (isDark) { const Corner q[4] = {dark(c00, y, r00), dark(c10, y, r10), dark(c11, y, r11), dark(c01, y, r01)}; Quad(geo[mesh], q, {0, 1, 0}, winding); return; }
+                const Corner q[4] = {wood(c00, y, r00, white), wood(c10, y, r10, white), wood(c11, y, r11, white), wood(c01, y, r01, white)};
+                Quad(geo[mesh], q, {0, 1, 0}, winding);
+            };
+            // a face along the run on the side `w` (its normal `n`), between distances ta and tb, from height ya to yb
+            auto along = [&](size_t mesh, float w, float ta, float tb, float ya, float yb, const std::array<float, 3>& n, const std::array<float, 3>& k) {
+                const auto [ca, ra] = at(ta, w); const auto [cb, rb] = at(tb, w);
+                if (mesh == capMesh) { const Corner q[4] = {dark(ca, ya, ra), dark(cb, ya, rb), dark(cb, yb, rb), dark(ca, yb, ra)}; Quad(geo[mesh], q, n, winding); return; }
+                const Corner q[4] = {paper(ca, ya, ra, 0.27f * ta, k), paper(cb, ya, rb, 0.27f * tb, k), paper(cb, yb, rb, 0.27f * tb, k), paper(ca, yb, ra, 0.27f * ta, k)};
+                Quad(geo[mesh], q, n, winding);
+            };
+            // the side the camera sees (south, or for stairs running north-south the east and west sides)
+            const std::array<float, 3> wSouth = alongX ? std::array<float, 3>{0, 0, 1} : std::array<float, 3>{1, 0, 0};
+            const std::array<float, 3> wNorth = {-wSouth[0], 0, -wSouth[2]};
+            if (stairsUp)
+            {
+                for (int k = 1; k <= steps; k++)
+                {
+                    const float ta = (k - 1) * pitch, tb = k == steps ? length : k * pitch, y = rise * k;
+                    across(floorMesh, ta, y - rise, y, back, true, white);
+                    flat(floorMesh, ta, tb, y, false);
+                    along(wallMesh, w1, ta, tb, 0, y, wSouth, side);
+                    if (!alongX) along(wallMesh, w0, ta, tb, 0, y, wNorth, side);
+                }
+                across(wallMesh, length, 0, rise * steps, away, false, side);
+            }
+            else
+            {
+                const float depth = rise * steps + 12;
+                for (int k = 1; k <= steps; k++)
+                {
+                    const float ta = (k - 1) * pitch, tb = k == steps ? length : k * pitch, y = -rise * k;
+                    across(floorMesh, ta, y, y + rise, away, true, white);
+                    flat(floorMesh, ta, tb, y, false);
+                }
+                // the opening's sides, its dark bottom, the far end
+                along(wallMesh, w0, 0, length, -depth, 0, wSouth, side);
+                along(wallMesh, w1, 0, length, -depth, 0, wNorth, side);
+                across(wallMesh, length, -depth, 0, back, false, side);
+                flat(capMesh, 0, length, -depth, true);
+                // the railing: a wood rail 18 high and 0.12 tile thick on the side towards the camera
+                const float rw = w1 + 0.06f;
+                along(wallMesh, rw, 0, length, 0, 18, wSouth, {0.80f, 0.70f, 0.55f});
+                {
+                    const auto [ca, ra] = at(0, w1 - 0.06f); const auto [cb, rb] = at(length, w1 - 0.06f);
+                    const auto [cc, rc] = at(length, rw); const auto [cd, rd] = at(0, rw);
+                    const Corner q[4] = {wood(ca, 18, ra, white), wood(cb, 18, rb, white), wood(cc, 18, rc, white), wood(cd, 18, rd, white)};
+                    Quad(geo[floorMesh], q, {0, 1, 0}, winding);
+                }
+                hole[0] = std::min(x0, x1); hole[1] = std::max(x0, x1); hole[2] = std::min(z0, z1); hole[3] = std::max(z0, z1);
+                haveHole = true;
+            }
+            snprintf(line, sizeof line, "stairs %s on tiles (%d-%d, %d-%d), running %s from the warp on (%d, %d): %d steps",
+                     stairsUp ? "up" : "down", c0, c1, r0, r1, alongX ? (sign > 0 ? "east" : "west") : (sign > 0 ? "south" : "north"), stairsC, stairsR, steps);
+            note(line);
+        }
+        else if (c1 >= 0) note("stairs tiles but no stairs warp: no stairs drawn");
+    }
+    auto inStairs = [&](float c, float r) { return haveHole && c > hole[0] && c < hole[1] && r > hole[2] && r < hole[3]; };
 
     // the windows: Platinum's window01 models, each on the back wall it stands on (its row just north of the wall's line)
     struct Window { float C; int Row; };
@@ -227,7 +329,7 @@ Bytes BuildRoom(const TownLayout& layout, const Bytes& townPiece, const Bytes& d
         for (int c = 0; c < N; c++)
         {
             if (!room[r][c]) continue;
-            if (!inRoom(c, r - 1) && !inStairs(c + 0.5f, r))
+            if (!inRoom(c, r - 1))
             {
                 const std::array<float, 3> n = {0, 0, 1};
                 const float u0 = 0.27f * c, u1 = 0.27f * (c + 1);
@@ -292,7 +394,6 @@ Bytes BuildRoom(const TownLayout& layout, const Bytes& townPiece, const Bytes& d
             const bool southRoom = inRoom(c, r + 1), westRoom = inRoom(c - 1, r), eastRoom = inRoom(c + 1, r);
             const bool corner = inRoom(c - 1, r + 1) || inRoom(c + 1, r + 1);
             if (!southRoom && !westRoom && !eastRoom && !corner) continue;
-            if (inStairs(c + 0.5f, r + 0.5f)) continue;
             capTiles++;
             // the tile cut at 0.36 from each side that runs along a wall
             std::vector<float> xs = {0, 1}, zs = {0, 1};

@@ -43,8 +43,10 @@ struct OrasTownOptions
     // become that fence. -1: a hedge, as before
     int FencePack = 21;
     // an interior (oras-region on an interior's matrix): the ORAS room its look is taken from (RoomBuilder.h; null: a town), the
-    // room model's name (as long as the donor's)
+    // tile of its warp to another floor (-1: none) and whether it goes up, and the room model's name (as long as the donor's)
     const RoomDonor* Room = nullptr;
+    int RoomStairsC = -1, RoomStairsR = -1;
+    bool RoomStairsUp = false;
     std::string RoomName;
     // the snow's edge laid with clumps: Littleroot's stone cluster (chip_alpha, area pack 8) filled with the snow
     bool SnowClumps = true;
