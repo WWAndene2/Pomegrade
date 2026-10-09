@@ -233,9 +233,10 @@ void main() {
         tone *= 1.0 + 0.3 * (tint - 1.0) * (1.0 - 0.5 * step_);
         vec3 base = pow(c, vec3(2.2));
         float bl = Luma(base);
-        // the lifts halved: they greyed the shade against the reference
-        vec3 lin = base * tone + (vec3(0.006, 0.01, 0.035) * (1.0 - step_) + vec3(0.03, 0.015, 0.0) * step_) * (0.4 + bl);
-        lin += vec3(0.010, 0.018, 0.045) * traced.a * (1.0 - step_) * (0.4 + bl); // sky fill
+        // only the sun's warm lift: the shade's blue lift and the sky fill (compose.py's) are left out, the traced light
+        // holding the sky already. Added in linear light to dark shade they showed large (0.016 shows as 0.13) and kept
+        // the shade blue whatever its tone (0.71-0.74 of the sun's blue against the reference's 0.50)
+        vec3 lin = base * tone + vec3(0.03, 0.015, 0.0) * step_ * (0.4 + bl);
         c = pow(max(lin, 0.0), vec3(1.0 / 2.2));
         ao = 1.0; // applied
     } else {
