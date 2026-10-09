@@ -4,6 +4,7 @@
 // context), and the words of its stack that look like code addresses (a call chain, read without frame pointers).
 // A thread in the game's fatal-error loop (code 0x11EF3C-0x11EF64, ORAS_LITTLEROOT.md 0) also gets its registers and its
 // raw stack, to rebuild the frames' saved registers and find the object whose check failed; pomegrade_peek dumps memory.
+#include "common/settings.h"
 #include "core/hle/kernel/kernel.h"
 #include "core/hle/kernel/process.h"
 #include "core/hle/kernel/thread.h"
@@ -97,6 +98,12 @@ extern "C" RETRO_API void pomegrade_peek(u32 address, u32 length, void (*out)(co
 
 // the emulator's GDB stub opened on a port (script command "gdb PORT"): breakpoints, watchpoints and memory on the running
 // game from gdb-multiarch (target remote :PORT), to read the engine's code at work. Only in a core built with ENABLE_GDBSTUB
+// the Remaster preset (0 off, 1 v7, 2 v9 with the path tracer, 3 custom) from now on: read each frame by the renderer, so
+// no core option update (which resets the libretro frontend's layout: the screens came out black)
+extern "C" RETRO_API void pomegrade_remaster(u32 preset) {
+    Settings::values.remaster_preset = preset;
+}
+
 extern "C" RETRO_API bool pomegrade_gdb(u16 port) {
 #ifdef ENABLE_GDBSTUB
     GDBStub::SetServerPort(port);
