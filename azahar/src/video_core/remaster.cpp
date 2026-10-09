@@ -221,7 +221,10 @@ void main() {
         // the shade's tone measured on the owner's reference render (9 October): its shade keeps 0.34, 0.43 and 0.50 of
         // the sun's red, green and blue, a deep blue-green; compose.py's (0.55, 0.57, 0.68) came out grey-blue and light
         // here (0.58, 0.43, 0.82 of the sun's)
-        vec3 tone = mix(vec3(0.36, 0.45, 0.52), vec3(1.04, 1.0, 0.94), step_);
+        // the tone applies in linear light but the reference was measured on the shown (sRGB) image: a linear factor k
+        // shows as k^(1/2.2) (0.52 showed as 0.74, the measured blue). Matching the reference's shown 0.34, 0.43, 0.50
+        // from the measured 0.47, 0.43, 0.74: red 0.36 (0.34 / 0.47)^2.2, green kept, blue 0.52 (0.50 / 0.74)^2.2
+        vec3 tone = mix(vec3(0.18, 0.45, 0.22), vec3(1.04, 1.0, 0.94), step_);
         tone *= 0.8 + 0.2 * smoothstep(0.1, 0.45, l);                // deep corners a little darker, never black
         tone *= 1.0 - (1.0 - pow(traced.a, 1.3)) * (0.55 - 0.4 * step_); // traced occlusion
         // the bounce's colour, at 30 %: the traced light also holds the sky's blue, which compose.py's tint (from the
