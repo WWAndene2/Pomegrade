@@ -161,7 +161,16 @@ public:
     template <typename... Args>
     std::tuple<u64, GLuint, std::optional<std::string>> Get(const KeyConfigType& config,
                                                             Args&&... args) {
-        auto [iter, new_shader] = shaders.emplace(config.Hash(), OGLShaderStage{separable});
+        return GetKeyed(config.Hash(), config, std::forward<Args>(args)...);
+    }
+
+    /// Pomegrade: Get under a key that also holds what the generator reads besides config (the fragment shaders'
+    /// UserConfig): keyed by config alone, the first shader made for a config served every draw of it, so a draw
+    /// with a material's maps could get one made without them (the surface shading never showed: 9 October)
+    template <typename... Args>
+    std::tuple<u64, GLuint, std::optional<std::string>> GetKeyed(u64 key, const KeyConfigType& config,
+                                                                 Args&&... args) {
+        auto [iter, new_shader] = shaders.emplace(key, OGLShaderStage{separable});
         OGLShaderStage& cached_shader = iter->second;
         std::optional<std::string> result{};
         if (new_shader) {
@@ -409,11 +418,17 @@ void ShaderProgramManager::UseTrivialGeometryShader() {
 void ShaderProgramManager::UseFragmentShader(const Pica::RegsInternal& regs,
                                              const Pica::Shader::UserConfig& user) {
     const FSConfig fs_config{regs};
-    auto [hash, handle, result] = impl->fragment_shaders.Get(fs_config, user, impl->profile);
+    // Pomegrade: the user config is part of the key (see ShaderCache::GetKeyed); the default one keeps the plain key, as
+    // the disk cache stores it
+    const u64 key = user.IsCacheable()
+                        ? fs_config.Hash()
+                        : fs_config.Hash() ^ (static_cast<u64>(user.raw) * 0x9E3779B97F4A7C15ULL);
+    auto [hash, handle, result] = impl->fragment_shaders.GetKeyed(key, fs_config, user, impl->profile);
     impl->current.fs = handle;
     impl->current.fs_hash = hash;
-    // Save FS to the disk cache if its a new shader
-    if (result) {
+    // Save FS to the disk cache if its a new shader (Pomegrade: only with the default user config, which the disk cache
+    // keys it by: one made with a user config saved under that key would come back for every draw)
+    if (result && user.IsCacheable()) {
         auto& disk_cache = impl->disk_cache;
         u64 unique_identifier = GetUniqueIdentifier(regs, {});
         ShaderDiskCacheRaw raw{unique_identifier, ProgramType::FS, regs, {}};
