@@ -10,13 +10,13 @@
 #   sv: save 538 14.5 20.5
 #   demo: merge sb eng sv
 zone 538
-template 6
+pack 8
 light direction -0.9 -0.25 0.35 diffuse 1 0.55 0.25 ambient 0.45 0.3 0.45
 spawn 14.5 20.5
 name Bac à Sable
 encounters 24
 zone 539
-template 6
+pack 8
 camera pitch -60 distance 320
 character-light diffuse 1 0.6 0.2 ambient 0.6 0.4 0.3
 spawn 30.5 20.5

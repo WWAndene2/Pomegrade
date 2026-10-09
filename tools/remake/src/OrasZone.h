@@ -4,9 +4,10 @@
 // One zone of Omega Ruby / Alpha Sapphire (a member of a/0/1/3, a "ZO" container), as far as it is understood. Layout
 // measured on the real file (538 zones) and checked on Littleroot's (zone 6): its warps lie in Littleroot's matrix cell.
 //
-//   file 0   56 bytes, 28 u16 words (the header): word 1 the area pack (a/0/1/4 member), word 2 the map matrix,
-//            word 13 the zone's own number, words 22-24 (and again 25-27) a position in pixels (x, y, z; a pixel is
-//            1/18 of a tile): Littleroot's is tile (100.5, 172.5), where the player appears. The other words are kept raw.
+//   file 0   56 bytes, 28 u16 words (the header, every word in OrasNewZone.h): word 1 the area pack (a/0/1/4 member),
+//            word 2 the map matrix, word 13 the outdoor zone the zone belongs to (its own number outdoors, its town's
+//            inside), words 22-24 (and again 25-27) a position in pixels (x, y, z; a pixel is 1/18 of a tile):
+//            Littleroot's is tile (100.5, 172.5), where the player appears. The other words are kept raw.
 //   file 1   u32 size (of everything after this field, up to the end of the arrays), four u8 counts (furniture,
 //            characters, warps, triggers), u32 count of a fifth kind of entry, then the arrays from offset 12 in that order:
 //              furniture 0x14 bytes, characters 0x30, warps 0x18, triggers 0x18, fifth kind 0x18 (kept raw);
@@ -76,7 +77,7 @@ struct OrasZone
 
     int AreaPack() const { return Header[1]; }
     int Matrix() const { return Header[2]; }
-    int Number() const { return Header[13]; }
+    int OverworldZone() const { return Header[13]; } // its own number for an outdoor zone, its town's for an interior
     float SpawnTileX() const { return Header[22] / 18.0f; }
     float SpawnTileZ() const { return Header[24] / 18.0f; }
 
@@ -89,6 +90,8 @@ struct OrasZone
     // when an array has more entries than its count byte holds (255; 4096 for the fifth kind), and when the events file
     // reaches EventsBudget bytes
     Bytes Write(const Bytes& original) const;
+    // file 1 from the arrays and the initialisation script, as Write lays it out
+    Bytes EventsFile() const;
 
     // the events file's room: the game copies it on entering the zone into a buffer of the save data, 0xC84 bytes, and stops
     // in its fatal-error loop when the file does not fit (FUN_003db6e4, `size >= 0xC84`; checked: zone 6 with 35 characters

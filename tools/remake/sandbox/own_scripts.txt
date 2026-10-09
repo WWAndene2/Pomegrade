@@ -1,0 +1,102 @@
+# R1 of SINNOH_BUILD.md: a new zone (538) running scripts of our own, none of its template's (oras-sandbox, OrasSandbox.h:
+# script / init-script). Each script writes a marker, the last command it was given (g_mode) and its call count into its
+# data, read from a memory dump (prototype/amx_dump.py --script 145, then the cells at data + 12, 16, 20). The demo's map,
+# one zone. For a run: oras-sandbox <oras.3ds> <out> tools/remake/sandbox/own_scripts.txt, oras-engine --zone-rows 539, the
+# save moved to 538 14.5 20.5.
+zone 538
+pack 8
+spawn 14.5 20.5
+name Bac à Sable
+script
+; the zone script: run for an event, g_mode its script number
+pubvar g_ai_flag ai
+pubvar g_interactive_flag interactive
+pubvar g_mode mode
+code
+    halt.p 0
+main:
+    proc
+    const.pri 0x50E6A001
+    stor.pri 12
+    load.pri 0
+    stor.pri 16
+    inc 20
+    sysreq.n CommandNOP 0
+    zero.pri
+    retn
+data
+mode:
+    cell -1
+interactive:
+    cell 0
+ai:
+    cell 0
+    cell 0 77777 0
+end
+init-script
+; the initialisation script: run on entering the zone
+pubvar g_ai_flag ai
+pubvar g_interactive_flag interactive
+pubvar g_mode mode
+code
+    halt.p 0
+main:
+    proc
+    const.pri 0x50E6A002
+    stor.pri 12
+    load.pri 0
+    stor.pri 16
+    inc 20
+    zero.pri
+    retn
+data
+mode:
+    cell -1
+interactive:
+    cell 0
+ai:
+    cell 0
+    cell 0 88888 0
+end
+pieces 1 1
+map
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::.........t......TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::............t...TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::......:.........TT
+TT..................::......:.........TT
+TT..................::......:.........TT
+TT::::::::::::::::::::::::::::::::::::TT
+TT::::::::::::::::::::::::::::::::::::TT
+TT..................::................TT
+TT..................::................TT
+TT..................::..FFFFFFFFFFF...TT
+TT..................::................TT
+TT......LLLLLLLLLLL.::................TT
+TT..................::................TT
+TT..................::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::........t.......TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT

@@ -1,0 +1,6 @@
+# oras-build steps (OrasWorkspace.h, SINNOH_BUILD.md R3): Sinnoh's region as all6 builds it (ORAS_LITTLEROOT.md) and the
+# light and camera sandbox in one mod, the sandbox's zones, matrix, piece and area packs numbered after the region's.
+# Remake mod workflow: "rs: build tools/remake/sandbox/region_and_sandbox.txt", "e: engine --zone-rows 541" (the rows the
+# build prints), a save (Twinleaf: "save 6 104.5 890.5"; the sandbox: "save 538 14.5 20.5"), then "merge rs e <save>"
+region --rect 0 0 24 24 --tree-reach 0 --allow-errors --others-out --no-triggers --no-characters --zone 411:6 --zone 342:23 --zone 412:223 --zone 414:225 --zone 416:227 --zone 417:230
+sandbox light_camera.txt

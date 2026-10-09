@@ -118,6 +118,7 @@ void LogSettings() {
     log_setting("Renderer_TextureAnisotropy", values.texture_anisotropy.GetValue());
     log_setting("Renderer_TextureUpscaleFactor", values.texture_upscale_factor.GetValue());
     log_setting("Renderer_RichColours", values.rich_colours.GetValue());
+    log_setting("Renderer_RemasterPreset", values.remaster_preset.GetValue());
     log_setting("Renderer_DeepBlack", values.deep_black.GetValue());
     log_setting("Renderer_DelayGameRenderThreadUs", values.delay_game_render_thread_us.GetValue());
     log_setting("Renderer_Simulate3DSGPUTimings", values.simulate_3ds_gpu_timings.GetValue());
@@ -234,6 +235,15 @@ void RestoreGlobalState(bool is_powered_on) {
     values.texture_anisotropy.SetGlobal(true);
     values.texture_upscale_factor.SetGlobal(true);
     values.rich_colours.SetGlobal(true);
+    values.remaster_ao.SetGlobal(true);
+    values.remaster_grading.SetGlobal(true);
+    values.remaster_vibrance.SetGlobal(true);
+    values.remaster_contrast.SetGlobal(true);
+    values.remaster_outline.SetGlobal(true);
+    values.remaster_aerial.SetGlobal(true);
+    values.remaster_glow.SetGlobal(true);
+    values.remaster_sky.SetGlobal(true);
+    values.remaster_far_blur.SetGlobal(true);
     values.deep_black.SetGlobal(true);
     values.delay_game_render_thread_us.SetGlobal(true);
     values.simulate_3ds_gpu_timings.SetGlobal(true);

@@ -60,7 +60,7 @@ std::string InspectZone(N3dsRom& game, size_t zone)
     if (!s.empty()) return s;
     const OrasZone z = OrasZone::Read(data);
     s += F("zone %zu (a/0/1/3 member %zu, %zu bytes decompressed)\n", zone, zone, data.size());
-    s += F("  area pack %d (a/0/1/4), map matrix %d, own number %d, spawn tile (%.1f, %.1f)\n", z.AreaPack(), z.Matrix(), z.Number(), z.SpawnTileX(), z.SpawnTileZ());
+    s += F("  area pack %d (a/0/1/4), map matrix %d, belongs to zone %d, spawn tile (%.1f, %.1f)\n", z.AreaPack(), z.Matrix(), z.OverworldZone(), z.SpawnTileX(), z.SpawnTileZ());
     s += "  header words:";
     for (size_t i = 0; i < z.Header.size(); i++) s += F(" %u", z.Header[i]);
     s += "\n";

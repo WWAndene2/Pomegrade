@@ -293,6 +293,10 @@ void RendererOpenGL::PrepareRendertarget() {
             ConfigureFramebufferTexture(texture, framebuffer, color_fill);
         }
         LoadFBToScreenInfo(framebuffer, screen_infos[i], i == 1, color_fill);
+        // Pomegrade: Remaster on the top screen's frames (VideoCore::Remaster)
+        if (i < 2) {
+            remasters[i].Apply(screen_infos[i]);
+        }
     }
 }
 
@@ -395,6 +399,10 @@ void RendererOpenGL::LoadFBToScreenInfo(const Pica::FramebufferConfig& framebuff
         // Reset the screen info's display texture to its own permanent texture
         screen_info.display_texture = screen_info.texture.resource.handle;
         screen_info.display_texcoords = Common::Rectangle<f32>(0.f, 0.f, 1.f, 1.f);
+        // Pomegrade (Remaster): a frame copied by the CPU has no depth: the colour effects only
+        screen_info.display_width = color_fill.is_enabled ? 0 : framebuffer.width.Value();
+        screen_info.display_height = color_fill.is_enabled ? 0 : framebuffer.height.Value();
+        screen_info.depth_texture = 0;
 
         rasterizer.FlushRegion(framebuffer_addr, framebuffer.stride * framebuffer.height);
 

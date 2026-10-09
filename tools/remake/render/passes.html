@@ -1,0 +1,123 @@
+<!doctype html><html><body style="margin:0;background:#000">
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// raster passes for the stylised mix: base (the game's own look), relief and flat (relief shading)
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { loadInteriors, openDoorways } from './interiors.js';
+import { INTERIORS } from './interiors.js';
+import { makeGrass, pomMaterial } from './extras.js';
+import { addVolumeLayers } from './vvld.js';
+const q = new URLSearchParams(location.search);
+const pass = q.get('pass');
+const W = Number(q.get('w') || 960), H = Number(q.get('h') || 540);
+const renderer = new THREE.WebGLRenderer({ antialias: !['depth','normal'].includes(new URLSearchParams(location.search).get('pass')), preserveDrawingBuffer: true });
+renderer.setSize(W, H); renderer.setPixelRatio(1);
+renderer.outputColorSpace = (pass === 'depth' || pass === 'normal' || pass === 'matid' || pass === 'pomshadow') ? THREE.LinearSRGBColorSpace : THREE.SRGBColorSpace;
+if (pass === 'depth') renderer.setPixelRatio(1);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(pass === 'base' || pass === 'depth' || pass === 'normal' ? 0x000000 : pass === 'matid' ? 0x0000ff : 0xffffff);
+const camera = new THREE.PerspectiveCamera(40, W / H, 1, 5000);
+const [px, py, pz, tx, ty, tz] = q.get('cam').split(',').map(Number);
+camera.position.set(px, py, pz); camera.lookAt(tx, ty, tz);
+const az = THREE.MathUtils.degToRad(Number(q.get('az'))), el = THREE.MathUtils.degToRad(Number(q.get('el')));
+const sun = new THREE.DirectionalLight(0xffffff, 1);
+sun.position.set(Math.cos(el) * Math.cos(az), Math.sin(el), Math.cos(el) * Math.sin(az)).multiplyScalar(100);
+scene.add(sun, new THREE.AmbientLight(0xffffff, 0.25));
+const mats = await (await fetch('mats.json')).json();
+const GLASSY = [6, 11]; // the textures with recognised glass (materials.py)
+const loadTex = (url) => new Promise((res) => new THREE.TextureLoader().load(url, (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.flipY = false; res(t); }));
+const gltf = await new Promise((res, rej) => new GLTFLoader().load('orig.gltf', res, undefined, rej));
+// the real interiors, inside the houses, and the doorways opened (see interiors.js)
+if (q.get('interiors')) {
+  for (const g of await loadInteriors()) gltf.scene.add(g.parent ? g : g);
+  gltf.scene.traverse((o) => { if (o.isMesh && o.material.name === 't01_01') console.log('doorway triangles removed: ' + openDoorways(o)); });
+}
+// the grass, generated from the game's own materials (before they are replaced below)
+const grass = q.get('grass') ? makeGrass(gltf.scene, { exclude: INTERIORS.map((it) => it.box) }) : null;
+const meshes = []; gltf.scene.traverse((o) => o.isMesh && meshes.push(o));
+for (const o of meshes) {
+  const m = o.material, name = m.name;
+  o.userData.matName = name; o.userData.transparent = m.transparent; // for the shells (vvld.js)
+  if (/shadow/.test(name)) { o.visible = false; continue; } // painted shadows: the real ones replace them
+  const known = mats[name] !== undefined; // recognised materials (the outdoor map's; interiors have none yet)
+  if (m.map) m.map.colorSpace = THREE.SRGBColorSpace;
+  if (pass === 'matid') {
+    // what is where in the image: trees red, grass green, the rest black (sky blue)
+    if (m.transparent) { o.visible = false; continue; }
+    const c = name === 'chip_wood_b' ? 0xff0000 : name === 'chip_kusa_' ? 0x00ff00 : 0x000000;
+    o.material = new THREE.MeshBasicMaterial({ color: c, map: m.map, side: THREE.DoubleSide, alphaTest: 0.5 });
+    o.material.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#ifdef USE_MAP\n if (texture2D(map, vMapUv).a < 0.5) discard;\n#endif'); };
+    continue;
+  }
+  if (pass === 'pomshadow') {
+    // the relief's own small shadows under the sun (true relief)
+    if (m.transparent) { o.visible = false; continue; }
+    if (known && q.get('pom')) {
+      o.geometry.computeTangents();
+      o.material = pomMaterial({ map: m.map, heightMap: await loadTex(`mat/${mats[name]}_height.png`), vertexColors: false, sunDir: sun.position.clone().normalize(), mode: 1 });
+    } else o.material = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+    continue;
+  }
+  if (pass === 'depth' || pass === 'normal') {
+    if (m.transparent) { o.visible = false; continue; }
+    // depth: view distance packed in the colour (r = coarse, g = fine); normal: view-space direction
+    o.material = pass === 'normal' ? new THREE.MeshNormalMaterial({ side: THREE.DoubleSide })
+      : new THREE.ShaderMaterial({ side: THREE.DoubleSide,
+          vertexShader: 'varying float vD; void main(){ vec4 p = modelViewMatrix * vec4(position,1.0); vD = -p.z; gl_Position = projectionMatrix * p; }',
+          fragmentShader: 'varying float vD; void main(){ float d = clamp(vD / 1500.0, 0.0, 1.0) * 255.0; gl_FragColor = vec4(floor(d) / 255.0, fract(d), 0.0, 1.0); }' });
+    continue;
+  }
+  if (pass === 'base') {
+    // windows let the interiors show: glass texels partly transparent
+    const glass = known && q.get('interiors') && GLASSY.includes(mats[name]) ? await loadTex(`mat/${mats[name]}_opacity.png`) : null;
+    if (known && !glass && !m.transparent && q.get('pom')) {
+      // true relief: the texture shifted by its own depth as seen from the camera
+      o.geometry.computeTangents();
+      o.material = pomMaterial({ map: m.map, heightMap: await loadTex(`mat/${mats[name]}_height.png`), vertexColors: !!o.geometry.attributes.color, sunDir: sun.position.clone().normalize(), mode: 0 });
+      continue;
+    }
+    o.material = new THREE.MeshBasicMaterial({ map: m.map, vertexColors: !!o.geometry.attributes.color, alphaMap: glass,
+      transparent: m.transparent || !!glass, alphaTest: m.transparent || glass ? 0 : 0.5, side: THREE.DoubleSide,
+      depthWrite: !m.transparent });
+    if (glass) o.renderOrder = 2;
+  } else {
+    // white surfaces lit by the sun alone: the relief's light and shade, without colour
+    const p = { color: 0xffffff, alphaMap: null, side: THREE.DoubleSide, map: m.map, alphaTest: 0.5 };
+    if (m.transparent) { o.visible = false; continue; }
+    if (pass === 'relief' && known) { p.normalMap = await loadTex(`mat/${mats[name]}_normal.png`); p.normalScale = new THREE.Vector2(1.1, -1.1); }
+    o.material = new THREE.MeshLambertMaterial(p);
+    o.material.onBeforeCompile = (sh) => { // the map only for its alpha cut-outs: surfaces stay white
+      sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#ifdef USE_MAP\n if (texture2D(map, vMapUv).a < 0.5) discard;\n#endif');
+    };
+  }
+}
+// Virtual Volumetric Layered Depth (vvld.js): the shells, coloured as their surface for this pass
+if (q.get('vvld') && pass !== 'depth' && pass !== 'normal') {
+  const cut = (mat) => { mat.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#ifdef USE_MAP\n if (texture2D(map, vMapUv).a < 0.5) discard;\n#endif'); }; return mat; };
+  console.log('vvld shells: ' + await addVolumeLayers(gltf.scene, mats, async (k, o) => {
+    const i = mats[o.userData.matName];
+    const layer = await loadTex(`mat/${i}_layer${k}.png`);
+    if (pass === 'base') { layer.colorSpace = THREE.SRGBColorSpace; // occlusion inside the relief: the lower layers sit deeper in the gaps, so darker (no path tracing needed)
+      const ao = 0.82 + 0.18 * k / 4;
+      return new THREE.MeshBasicMaterial({ map: layer, color: new THREE.Color(ao, ao, ao), vertexColors: !!o.geometry.attributes.color, alphaTest: 0.5, side: THREE.DoubleSide }); }
+    if (pass === 'matid') return cut(new THREE.MeshBasicMaterial({ color: o.material.color.getHex(), map: layer, side: THREE.DoubleSide, alphaTest: 0.5 }));
+    if (pass === 'pomshadow') return cut(new THREE.MeshBasicMaterial({ color: 0xffffff, map: layer, side: THREE.DoubleSide, alphaTest: 0.5 }));
+    return cut(new THREE.MeshLambertMaterial({ color: 0xffffff, map: layer, side: THREE.DoubleSide, alphaTest: 0.5 }));
+  }));
+}
+if (grass) {
+  const depthMat = meshes.find((o) => o.material.isShaderMaterial && pass === 'depth')?.material;
+  grass.material = pass === 'base' ? new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })
+    : pass === 'matid' ? new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide })
+    : pass === 'normal' ? new THREE.MeshNormalMaterial({ side: THREE.DoubleSide })
+    : pass === 'depth' ? depthMat
+    : pass === 'pomshadow' ? new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })
+    : new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+  gltf.scene.add(grass);
+}
+scene.add(gltf.scene);
+renderer.render(scene, camera);
+window.image = renderer.domElement.toDataURL('image/png');
+window.done = true;
+</script></body></html>

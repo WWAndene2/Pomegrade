@@ -898,6 +898,19 @@ bool RasterizerOpenGL::AccelerateDisplay(const Pica::FramebufferConfig& config,
 
     screen_info.display_texture = src_surface.Handle();
 
+    // Pomegrade (Remaster): the frame's size, and the depth it was drawn with, in the same orientation
+    screen_info.display_width = static_cast<u32>(std::abs(static_cast<int>(src_rect.right) - static_cast<int>(src_rect.left)));
+    screen_info.display_height = static_cast<u32>(std::abs(static_cast<int>(src_rect.top) - static_cast<int>(src_rect.bottom)));
+    screen_info.depth_texture = 0;
+    Common::Rectangle<u32> depth_rect;
+    if (const Surface* depth = res_cache.DepthForDisplay(framebuffer_addr, depth_rect)) {
+        const float dw = static_cast<float>(depth->GetScaledWidth());
+        const float dh = static_cast<float>(depth->GetScaledHeight());
+        screen_info.depth_texture = depth->Handle();
+        screen_info.depth_rect = {static_cast<float>(depth_rect.left) / dw, static_cast<float>(depth_rect.right) / dw,
+                                  static_cast<float>(depth_rect.bottom) / dh, static_cast<float>(depth_rect.top) / dh};
+    }
+
     return true;
 }
 

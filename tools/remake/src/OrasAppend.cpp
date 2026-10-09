@@ -72,7 +72,7 @@ std::vector<std::string> BuildAppendTest(N3dsRom& oras, AppendTest test, const s
     const size_t zoneIndex = gz.Count();
     Put16(zc.Files.at(0), 13 * 2, (uint16_t)zoneIndex);
     zone = zc.Write();
-    if (OrasZone::Read(zone).Number() != (int)zoneIndex) throw FormatError("the added zone does not read its own number");
+    if (OrasZone::Read(zone).OverworldZone() != (int)zoneIndex) throw FormatError("the added zone does not read its own number");
     Append(nz, IsLzCompressed(gz.Sub(6)) ? Lz11Compress(zone) : zone);
     log.push_back("appended: piece " + std::to_string(piece) + " (Littleroot's), matrix " + std::to_string(matrix) + " (matrix 1), zone " +
                   std::to_string(zoneIndex) + " (zone 6, own number " + std::to_string(zoneIndex) + ")");

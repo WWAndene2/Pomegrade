@@ -27,7 +27,13 @@
 //   remake_tool oras-asset <oras.3ds> <archive> <member> <file|-1> [list] | export <dir> | edit <out dir> recolour:<texture>:<hue>:<sat>:<bright>[:<around>:<range>]...
 //   remake_tool oras-layout <oras.3ds> <archive> <member> [file]  DARC/BCLYT/BCLAN/BCLIM described
 //   remake_tool oras-text <oras.3ds> <archive> <member>   a game text file's lines
-//   remake_tool oras-script <oras.3ds> <zone>|all [init]  a zone's script, unpacked and disassembled (all: every script, checked)
+//   remake_tool oras-script <oras.3ds> <zone>|all [init] [source]  a zone's script, unpacked and disassembled, or as amx-asm
+//                     source (all: every script, checked, and written and assembled back)
+//   remake_tool amx-asm <in.txt> <out.amx> [function_names.tsv [--mask M]]  a Pawn (AMX) script assembled (Amx.h:
+//                     AmxAssemble), the natives named checked against the game's tables in tools/remake/ghidra/function_names.tsv
+//                     and registered under the zone's native mask M (0x243 by default, oras-engine's for new zones)
+//   remake_tool oras-zone-script <oras.3ds> <out dir> <zone> <script.amx|-> [<init.amx|->]  a mod with a zone's script and
+//                     initialisation script replaced (- keeps one); the zone itself checked to write back unchanged first
 //   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>] | <dst>=<archive>:<member>:<file> | <dst>=motion:<archive>:<member>:<file>:<slot>[:<frames>] ...
 //   remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...
 //                     an Azahar mod: each file replaces that RomFS path, laid out as Azahar loads
@@ -39,13 +45,16 @@
 //                     ORAS's own assets, as an Azahar mod (BPS patches), with town_preview.gltf, town_layout.txt and
 //                     town_piece.bin (the piece the mod writes, decompressed)
 //   remake_tool oras-code <oras.3ds> <out.bin>   the game's ExeFS .code, decompressed (ARM, loaded at 0x100000)
-//   remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--auto-zones] [--others-out] [--no-triggers] [--no-characters] [--plan] [--matrix-template M]
+//   remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--auto-zones] [--others-out] [--no-triggers] [--no-characters] [--new-zones [--name H:TEXT]...] [--header H] [--plan] [--matrix-template M]
 //                     [--model-matrix NN] [oras-town's kit options]
 //                     a rectangle of Sinnoh's piece grid (as oras-world cuts it) rebuilt as a new ORAS map matrix: its pieces built
 //                     as oras-town builds one, the zone grid from Platinum's map headers, each header on the ORAS zone given
 //                     (-1: left out); --plan prints the rectangle's headers and builds nothing. Writes the mod, region_preview.gltf,
 //                     region_plan.txt and region_piece_<x>_<y>.bin
 //   remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt>
+//   remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>
+//                     several sandboxes and regions in one mod, each step's zones, matrices, pieces and area packs numbered after
+//                     the ones before it (OrasWorkspace.h): one line a step, "sandbox <description file>" or "region <options>"
 //   remake_tool oras-save <main> [<out> <zone> <tile x> <tile z> [--template <save> [--blocks A,B,...]]
 //                     where an ORAS save puts the player (OrasSave.h); with the rest, a copy with the player moved there
 //   remake_tool oras-sinnoh <platinum.nds> <oras.3ds> [strip width, default 5]
@@ -93,6 +102,7 @@
 #include "OrasMeasure.h"
 #include "TopView.h"
 #include "OrasAppend.h"
+#include "OrasWorkspace.h"
 #include "OrasEngine.h"
 #include "OrasRegion.h"
 #include "OrasSandbox.h"
@@ -111,6 +121,7 @@
 #include <map>
 #include <functional>
 #include <set>
+#include <sstream>
 #include <string>
 
 using namespace remake;
@@ -143,6 +154,7 @@ static int Usage()
                     "  remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--plan]\n"
                     "  remake_tool oras-sinnoh <platinum.nds> <oras.3ds> [strip width]\n"
                     "  remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt>\n"
+                    "  remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>\n"
                     "  remake_tool oras-save <main> [<out> <zone> <tile x> <tile z> [--template <save> [--blocks A,B,...]]\n"
                     "                    [--matrix-template M] [--model-matrix NN] [oras-town's --matrix, --target, --donor, --trees, --donor-pack, --grass, ... --allow-errors]\n");
     return 2;
@@ -234,6 +246,53 @@ static bool TownKitOption(const std::string& flag, int argc, char** argv, int& i
     return true;
 }
 
+// oras-region's options, from argv[first] on (oras-region's command line, or a "region" line of an oras-build steps file)
+static void ParseRegionOptions(int argc, char** argv, int first, OrasRegionOptions& options)
+{
+    for (int i = first; i < argc; i++)
+    {
+        const std::string flag = argv[i];
+        auto number = [&](int at) { if (at >= argc) throw FormatError("missing a number after " + flag); return OptionNumber(argv[at], flag); };
+        if (TownKitOption(flag, argc, argv, i, options.Town)) continue;
+        if (flag == "--rect") { options.Left = number(++i); options.Top = number(++i); options.Width = number(++i); options.Height = number(++i); }
+        else if (flag == "--zone")
+        {
+            if (++i >= argc) throw FormatError("missing <map header>:<ORAS zone> after --zone");
+            const std::string pair = argv[i];
+            const size_t colon = pair.find(':');
+            if (colon == std::string::npos) throw FormatError("--zone takes <map header>:<ORAS zone or -1>, not " + pair);
+            options.Zones[atoi(pair.substr(0, colon).c_str())] = atoi(pair.substr(colon + 1).c_str());
+        }
+        else if (flag == "--matrix-template") options.MatrixTemplate = (size_t)number(++i);
+        else if (flag == "--model-matrix") options.ModelMatrix = number(++i);
+        else if (flag == "--plan") options.PlanOnly = true;
+        else if (flag == "--others-out") options.OthersOut = true;
+        else if (flag == "--solid-piece-tiles") options.SolidPieceTiles = (uint32_t)number(++i);
+        else if (flag == "--skip-solid-pieces") options.SkipSolidPieces = true;
+        else if (flag == "--tile-replace" && i + 1 < argc)
+        {
+            const std::string pair = argv[++i];
+            const size_t colon = pair.find(':');
+            if (colon == std::string::npos) throw FormatError("--tile-replace FROM:TO, got " + pair);
+            options.TileReplace.push_back({(uint32_t)OptionNumber(pair.substr(0, colon).c_str(), flag), (uint32_t)OptionNumber(pair.substr(colon + 1).c_str(), flag)});
+        }
+        else if (flag == "--auto-zones") options.AutoZones = true;
+        else if (flag == "--no-triggers") options.NoTriggers = true;
+        else if (flag == "--no-characters") options.NoCharacters = true;
+        else if (flag == "--new-zones") options.NewZones = true;
+        else if (flag == "--header") options.Header = number(++i);
+        else if (flag == "--name")
+        {
+            if (++i >= argc) throw FormatError("missing <map header>:<name> after --name");
+            const std::string pair = argv[i];
+            const size_t colon = pair.find(':');
+            if (colon == std::string::npos) throw FormatError("--name takes <map header>:<name>, not " + pair);
+            options.Names[atoi(pair.substr(0, colon).c_str())] = pair.substr(colon + 1);
+        }
+        else throw FormatError("oras-region: unknown option " + flag);
+    }
+}
+
 int main(int argc, char** argv)
 {
     if (argc < 3) return Usage();
@@ -241,6 +300,25 @@ int main(int argc, char** argv)
     try
     {
         // loose files
+        if (cmd == "amx-asm" && argc >= 4)
+        {
+            // a script assembled from source (Amx.h), its natives checked against the game's tables and the zone's native
+            // mask when the names file is given; the result read back by the disassembler, whose own checks it must pass
+            uint32_t mask = 0x243;
+            for (int i = 5; i + 1 < argc; i++) if (std::string(argv[i]) == "--mask") mask = (uint32_t)std::stoul(argv[i + 1], nullptr, 0);
+            const Bytes source = ReadFile(argv[2]);
+            const Bytes script = AmxAssemble(std::string(source.begin(), source.end()),
+                                             argc >= 5 ? AmxNativeCheck(argv[4], mask) : std::function<std::string(const std::string&)>{});
+            const std::string listing = AmxDisassemble(script);
+            const std::string last = listing.substr(listing.rfind('\n', listing.size() - 2) + 1);
+            size_t c, u, n, dc, co, ca, jo, ja;
+            if (sscanf(last.c_str(), "%zu code cells, %zu not an opcode, %zu natives, %zu data cells; %zu of %zu calls land on a proc, %zu of %zu jumps",
+                       &c, &u, &n, &dc, &co, &ca, &jo, &ja) != 8 || u || co != ca || jo != ja)
+                throw FormatError("the script assembled fails the disassembler's checks: " + last);
+            WriteFile(argv[3], script);
+            printf("%s: %zu bytes; %s", argv[3], script.size(), last.c_str());
+            return 0;
+        }
         if (cmd == "garc" && argc >= 4)
         {
             const Garc garc(Plain(ReadFile(argv[2])));
@@ -583,46 +661,69 @@ int main(int argc, char** argv)
         {
             OrasRegionOptions options;
             options.OutDir = argv[4];
-            for (int i = 5; i < argc; i++)
-            {
-                const std::string flag = argv[i];
-                auto number = [&](int at) { if (at >= argc) throw FormatError("missing a number after " + flag); return OptionNumber(argv[at], flag); };
-                if (TownKitOption(flag, argc, argv, i, options.Town)) continue;
-                if (flag == "--rect") { options.Left = number(++i); options.Top = number(++i); options.Width = number(++i); options.Height = number(++i); }
-                else if (flag == "--zone")
-                {
-                    if (++i >= argc) throw FormatError("missing <map header>:<ORAS zone> after --zone");
-                    const std::string pair = argv[i];
-                    const size_t colon = pair.find(':');
-                    if (colon == std::string::npos) throw FormatError("--zone takes <map header>:<ORAS zone or -1>, not " + pair);
-                    options.Zones[atoi(pair.substr(0, colon).c_str())] = atoi(pair.substr(colon + 1).c_str());
-                }
-                else if (flag == "--matrix-template") options.MatrixTemplate = (size_t)number(++i);
-                else if (flag == "--model-matrix") options.ModelMatrix = number(++i);
-                else if (flag == "--plan") options.PlanOnly = true;
-                else if (flag == "--others-out") options.OthersOut = true;
-                else if (flag == "--solid-piece-tiles") options.SolidPieceTiles = (uint32_t)number(++i);
-                else if (flag == "--skip-solid-pieces") options.SkipSolidPieces = true;
-                else if (flag == "--tile-replace" && i + 1 < argc)
-                {
-                    const std::string pair = argv[++i];
-                    const size_t colon = pair.find(':');
-                    if (colon == std::string::npos) throw FormatError("--tile-replace FROM:TO, got " + pair);
-                    options.TileReplace.push_back({(uint32_t)OptionNumber(pair.substr(0, colon).c_str(), flag), (uint32_t)OptionNumber(pair.substr(colon + 1).c_str(), flag)});
-                }
-                else if (flag == "--auto-zones") options.AutoZones = true;
-                else if (flag == "--no-triggers") options.NoTriggers = true;
-                else if (flag == "--no-characters") options.NoCharacters = true;
-                else { fprintf(stderr, "unknown option %s\n", flag.c_str()); return 2; }
-            }
+            ParseRegionOptions(argc, argv, 5, options);
             const NdsRom platinum(ReadFile(argv[2]));
             N3dsRom oras(argv[3]);
-            for (const std::string& line : BuildOrasRegion(platinum, oras, options)) printf("%s%s", line.c_str(), !line.empty() && line.back() == '\n' ? "" : "\n");
-            if (!options.PlanOnly) printf("mod written under %s: copy its load folder into the 3DS folder (Pomegrade/3DS)\n", options.OutDir.c_str());
+            OrasWorkspace ws(oras);
+            for (const std::string& line : BuildOrasRegion(platinum, ws, options)) printf("%s%s", line.c_str(), !line.empty() && line.back() == '\n' ? "" : "\n");
+            if (options.PlanOnly) return 0;
+            for (const std::string& line : ws.LinkWarps()) printf("%s\n", line.c_str());
+            for (const std::string& line : ws.Write(options.OutDir)) printf("%s\n", line.c_str());
+            printf("mod written under %s: copy its load folder into the 3DS folder (Pomegrade/3DS)\n", options.OutDir.c_str());
+            return 0;
+        }
+        if (cmd == "oras-build" && argc == 6)
+        {
+            // several steps in one build (OrasWorkspace.h, SINNOH_BUILD.md R3), one a line of the steps file ('#' a comment):
+            // "sandbox <description file>" or "region <oras-region options>"; each step's numbers (zones, matrices, pieces, area
+            // packs, texts) follow the ones the steps before it took, and the whole is one mod
+            N3dsRom oras(argv[3]);
+            OrasWorkspace ws(oras);
+            std::unique_ptr<NdsRom> platinum;
+            const Bytes stepsText = ReadFile(argv[5]);
+            std::istringstream steps(std::string(stepsText.begin(), stepsText.end()));
+            int number = 0;
+            for (std::string row; std::getline(steps, row);)
+            {
+                number++;
+                row = row.substr(0, row.find('#'));
+                std::istringstream words(row);
+                std::vector<std::string> w;
+                for (std::string x; words >> x;) w.push_back(x);
+                if (w.empty()) continue;
+                printf("step %d: %s\n", number, row.c_str());
+                if (w[0] == "sandbox" && w.size() == 2)
+                {
+                    // a relative description path is the steps file's neighbour (tools/remake/sandbox/)
+                    std::filesystem::path file(w[1]);
+                    if (file.is_relative()) file = std::filesystem::path(argv[5]).parent_path() / file;
+                    w[1] = file.string();
+                    const Bytes text = ReadFile(w[1]);
+                    const std::filesystem::path names = std::filesystem::path(w[1]).parent_path() / ".." / "ghidra" / "function_names.tsv";
+                    const auto check = std::filesystem::exists(names) ? AmxNativeCheck(names.string(), 0x243) : std::function<std::string(const std::string&)>{};
+                    for (const std::string& line : BuildOrasSandbox(ws, std::string(text.begin(), text.end()), argv[4], check)) printf("  %s\n", line.c_str());
+                }
+                else if (w[0] == "region")
+                {
+                    if (std::string(argv[2]) == "-") throw FormatError("steps file line " + std::to_string(number) + ": a region needs Platinum");
+                    if (!platinum) platinum = std::make_unique<NdsRom>(ReadFile(argv[2]));
+                    std::vector<char*> args{argv[0]};
+                    for (std::string& x : w) args.push_back(x.data());
+                    OrasRegionOptions options;
+                    options.OutDir = argv[4];
+                    ParseRegionOptions((int)args.size(), args.data(), 2, options);
+                    if (options.PlanOnly) throw FormatError("steps file line " + std::to_string(number) + ": --plan builds nothing");
+                    for (const std::string& line : BuildOrasRegion(*platinum, ws, options)) printf("  %s%s", line.c_str(), !line.empty() && line.back() == '\n' ? "" : "\n");
+                }
+                else throw FormatError("steps file line " + std::to_string(number) + ": \"sandbox <file>\" or \"region <options>\"");
+            }
+            for (const std::string& line : ws.LinkWarps()) printf("%s\n", line.c_str());
+            for (const std::string& line : ws.Write(argv[4])) printf("%s\n", line.c_str());
+            printf("mod written under %s: copy its load folder into the 3DS folder (Pomegrade/3DS)\n", argv[4]);
             return 0;
         }
         // decrypted 3DS game images
-        if (cmd == "oras-list" || cmd == "oras-find" || cmd == "oras-members" || cmd == "oras-copy" || cmd == "oras-hex" || cmd == "oras-member" || cmd == "oras-layout" || cmd == "oras-text" || cmd == "oras-script" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch" || cmd == "oras-asset")
+        if (cmd == "oras-list" || cmd == "oras-find" || cmd == "oras-members" || cmd == "oras-copy" || cmd == "oras-hex" || cmd == "oras-member" || cmd == "oras-layout" || cmd == "oras-text" || cmd == "oras-script" || cmd == "oras-zone-script" || cmd == "oras-extract" || cmd == "oras-mod" || cmd == "oras-patch" || cmd == "oras-asset")
         {
             N3dsRom game(argv[2]);
             char id[17];
@@ -863,6 +964,7 @@ int main(int argc, char** argv)
                 {
                     // every zone's two scripts disassembled, the listings' own checks summed: the opcode table on the whole game
                     size_t scripts = 0, failed = 0, cells = 0, unknown = 0, callsOk = 0, calls = 0, jumpsOk = 0, jumps = 0;
+                    size_t rewritten = 0, reassembled = 0; // the writer's checks (AmxScript, AmxAssemble): the same bytes back
                     for (size_t i = 0; i < g.Count(); i++)
                     {
                         OrasZone z;
@@ -880,20 +982,62 @@ int main(int argc, char** argv)
                                            &c, &u, &n, &dc, &co, &ca, &jo, &ja) == 8)
                                 { cells += c; unknown += u; callsOk += co; calls += ca; jumpsOk += jo; jumps += ja; }
                                 if (u || co != ca || jo != ja) printf("zone %zu %s: %s", i, script == &z.Script ? "script" : "init", last.c_str());
+                                // the script's bytes up to its size (the init script is followed by the file's padding)
+                                const Bytes own(script->begin(), script->begin() + AmxInfo::Read(*script).Size);
+                                if (AmxScript::Read(own).Write() == own) rewritten++;
+                                else printf("zone %zu %s: written back differently\n", i, script == &z.Script ? "script" : "init");
+                                if (AmxAssemble(AmxSource(own)) == own) reassembled++;
+                                else printf("zone %zu %s: assembled back differently\n", i, script == &z.Script ? "script" : "init");
                             }
                             catch (const FormatError& e) { failed++; printf("zone %zu: %s\n", i, e.what()); }
                         }
                     }
                     printf("%zu scripts (%zu not read), %zu code cells, %zu not an opcode; %zu of %zu calls land on a proc, %zu of %zu jumps on an instruction\n",
                            scripts, failed, cells, unknown, callsOk, calls, jumpsOk, jumps);
+                    printf("%zu of %zu written back to the same bytes, %zu of %zu assembled back from their source to the same bytes\n",
+                           rewritten, scripts, reassembled, scripts);
                     return 0;
                 }
                 const OrasZone z = OrasZone::Read(Plain(g.Sub((size_t)atoi(argv[3]))));
                 const Bytes& script = argc >= 5 && std::string(argv[4]) == "init" ? z.InitScript : z.Script;
+                if (std::string(argv[argc - 1]) == "source")
+                {
+                    // as assembler source (amx-asm reads it back)
+                    printf("%s", AmxSource(Bytes(script.begin(), script.begin() + AmxInfo::Read(script).Size)).c_str());
+                    return 0;
+                }
                 const std::vector<std::string> natives = AmxNatives(script);
                 for (size_t i = 0; i < natives.size(); i++) printf("native %zu %s\n", i, natives[i].c_str());
                 printf("%s", AmxDisassemble(script).c_str());
                 return 0;
+            }
+            if (cmd == "oras-zone-script" && argc >= 6)
+            {
+                // a zone's script (file 2) and initialisation script (in file 1) replaced by assembled ones (amx-asm), as a mod;
+                // the zone must first write back to its own bytes, so nothing else of it changes
+                const std::string path = "a/0/1/3";
+                const Bytes original = game.Read(path);
+                const Garc source(original);
+                Garc g(original);
+                const size_t zone = (size_t)std::stoul(argv[4]);
+                const Bytes plain = Plain(source.Sub(zone));
+                OrasZone z = OrasZone::Read(plain);
+                if (z.Write(plain) != plain) throw FormatError("zone " + std::to_string(zone) + " does not write back to its own bytes");
+                const auto take = [&](int at, Bytes& script, const char* what) {
+                    if (argc <= at || std::string(argv[at]) == "-") return;
+                    script = ReadFile(argv[at]);
+                    AmxScript::Read(script); // refused unless a script laid out as the game's
+                    printf("zone %zu %s: %zu bytes from %s\n", zone, what, script.size(), argv[at]);
+                };
+                take(5, z.Script, "script");
+                take(6, z.InitScript, "initialisation script");
+                const Bytes written = z.Write(plain);
+                const OrasZone back = OrasZone::Read(written);
+                // file 2 comes back padded to a multiple of 4, as every zone's is (zone 6's 6438-byte script in 6440 bytes)
+                const Bytes ownScript(back.Script.begin(), back.Script.begin() + (ptrdiff_t)std::min(back.Script.size(), z.Script.size()));
+                if (ownScript != z.Script || back.InitScript != z.InitScript) throw FormatError("the zone does not read back with its new scripts");
+                ReplaceMember(g, source, zone, written, "ZO");
+                return WriteArchiveMod(g, original, zone, path, std::filesystem::path(argv[3]) / "load" / "mods" / id);
             }
             if (cmd == "oras-member" && argc >= 7)
             {
@@ -1103,7 +1247,13 @@ int main(int argc, char** argv)
             // a new zone from a text description (OrasSandbox.h); the game reads it with oras-engine --zone-rows
             N3dsRom oras(argv[2]);
             const Bytes text = ReadFile(argv[4]);
-            for (const std::string& line : BuildOrasSandbox(oras, std::string(text.begin(), text.end()), argv[3])) printf("%s\n", line.c_str());
+            // the zones' own scripts are checked against the game's native tables, kept beside the sandbox folder
+            // (tools/remake/ghidra/function_names.tsv for tools/remake/sandbox/<file>)
+            const std::filesystem::path names = std::filesystem::path(argv[4]).parent_path() / ".." / "ghidra" / "function_names.tsv";
+            const auto check = std::filesystem::exists(names) ? AmxNativeCheck(names.string(), 0x243) : std::function<std::string(const std::string&)>{};
+            OrasWorkspace ws(oras);
+            for (const std::string& line : BuildOrasSandbox(ws, std::string(text.begin(), text.end()), argv[3], check)) printf("%s\n", line.c_str());
+            for (const std::string& line : ws.Write(argv[3])) printf("%s\n", line.c_str());
             return 0;
         }
         if (cmd == "oras-save" && argc >= 3)

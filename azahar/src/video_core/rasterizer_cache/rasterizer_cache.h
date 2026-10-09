@@ -164,6 +164,7 @@ void RasterizerCache<T>::RunGarbageCollector() {
             continue;
         }
         RemoveFramebuffers(surface_id);
+        RemasterForget(surface_id);
         slot_surfaces.erase(surface_id);
         it = sentenced.erase(it);
     }
@@ -374,6 +375,12 @@ bool RasterizerCache<T>::AccelerateDisplayTransfer(const Pica::DisplayTransferCo
         .dst_rect = dst_rect,
     };
     runtime.BlitTextures(src_surface, dst_surface, texture_blit);
+    // Pomegrade (Remaster): the depth the frame at this address was drawn with, as it is now
+    if (const auto depth = remaster_depth_of_color.find(src_params.addr); depth != remaster_depth_of_color.end()) {
+        remaster_display_source[dst_params.addr] = {depth->second, src_rect};
+    } else {
+        remaster_display_source.erase(dst_params.addr);
+    }
 
     InvalidateRegion(dst_params.addr, dst_params.size, dst_surface_id);
     return true;
@@ -751,6 +758,21 @@ typename T::Surface& RasterizerCache<T>::GetTextureCube(const TextureCubeConfig&
 }
 
 template <class T>
+const typename T::Surface* RasterizerCache<T>::DepthForDisplay(PAddr framebuffer_addr,
+                                                               Common::Rectangle<u32>& rect) {
+    const auto source = remaster_display_source.find(framebuffer_addr);
+    if (source == remaster_display_source.end()) {
+        return nullptr;
+    }
+    const Surface& surface = slot_surfaces[source->second.depth];
+    if (surface.type != SurfaceType::Depth && surface.type != SurfaceType::DepthStencil) {
+        return nullptr;
+    }
+    rect = source->second.rect;
+    return &surface;
+}
+
+template <class T>
 FramebufferHelper<T> RasterizerCache<T>::GetFramebufferSurfaces(bool using_color_fb,
                                                                 bool using_depth_fb) {
     const auto& config = regs.framebuffer.framebuffer;
@@ -813,6 +835,10 @@ FramebufferHelper<T> RasterizerCache<T>::GetFramebufferSurfaces(bool using_color
 
     Surface* color_surface = color_id ? &slot_surfaces[color_id] : nullptr;
     Surface* depth_surface = depth_id ? &slot_surfaces[depth_id] : nullptr;
+    // Pomegrade (Remaster): the depth this render target is drawn with
+    if (color_id && depth_id) {
+        remaster_depth_of_color[color_params.addr] = depth_id;
+    }
 
     if (color_id) {
         color_level = color_surface->LevelOf(color_params.addr);
@@ -1610,6 +1636,7 @@ void RasterizerCache<T>::UnregisterSurface(SurfaceId surface_id) {
         return;
     }
 
+    RemasterForget(surface_id);
     slot_surfaces.erase(surface_id);
 }
 

@@ -1,0 +1,137 @@
+<!doctype html><html><body style="margin:0;background:#000">
+<script type="importmap">{"imports":{
+ "three":"./node_modules/three/build/three.module.js",
+ "three/addons/":"./node_modules/three/examples/jsm/",
+ "three/examples/jsm/":"./node_modules/three/examples/jsm/",
+ "three-mesh-bvh":"./node_modules/three-mesh-bvh/src/index.js",
+ "three-gpu-pathtracer":"./node_modules/three-gpu-pathtracer/src/index.js"}}</script>
+<script type="module">
+// Littleroot path traced: every light path physically simulated (sun, sky, bounces between
+// surfaces with their colours, reflections, glass), with the materials recognised from the
+// textures. Three times of day.
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { loadInteriors, openDoorways } from './interiors.js';
+import { INTERIORS } from './interiors.js';
+import { makeGrass } from './extras.js';
+import { addVolumeLayers } from './vvld.js';
+import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
+import { PathTracingRenderer, PhysicalPathTracingMaterial, PathTracingSceneGenerator, GradientEquirectTexture } from 'three-gpu-pathtracer';
+const q = new URLSearchParams(location.search);
+const W = Number(q.get('w') || 960), H = Number(q.get('h') || 540);
+const renderer = new THREE.WebGLRenderer({ preserveDrawingBuffer: true });
+renderer.setSize(W, H); renderer.setPixelRatio(1);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+// linear: no tone mapping, so the light can be divided out of the image (see compose.py)
+renderer.toneMapping = q.get('linear') ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = Number(q.get('exposure') || 1);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, W / H, 1, 5000);
+const [px, py, pz, tx, ty, tz] = q.get('cam').split(',').map(Number);
+camera.position.set(px, py, pz); camera.lookAt(tx, ty, tz); camera.updateMatrixWorld();
+
+// times of day: sun direction (azimuth from +x towards +z, elevation), sun colour and strength,
+// sky colours at the zenith and at the horizon
+const TIMES = {
+  morning: { az: 20, el: 16, sun: 0xffc890, power: 2.4, top: 0x7fb0e8, horizon: 0xf3d2a8 },
+  noon:    { az: 110, el: 68, sun: 0xfff5e6, power: 3.2, top: 0x5f9ee8, horizon: 0xcfe3f7 },
+  evening: { az: 200, el: 9, sun: 0xff8c48, power: 2.2, top: 0x4a5f9a, horizon: 0xf09a60 },
+  afternoon: { az: 160, el: 32, sun: 0xffd6a0, power: 2.8, top: 0x6aa6ec, horizon: 0xf2dcc0 },
+};
+const t = TIMES[q.get('time') || 'noon'];
+const az = THREE.MathUtils.degToRad(t.az), el = THREE.MathUtils.degToRad(t.el);
+const sunDir = new THREE.Vector3(Math.cos(el) * Math.cos(az), Math.sin(el), Math.cos(el) * Math.sin(az));
+const sun = new THREE.DirectionalLight(t.sun, t.power);
+sun.position.copy(sunDir).multiplyScalar(1000); sun.target.position.set(0, 0, 0);
+scene.add(sun, sun.target);
+
+const mats = await (await fetch('mats.json')).json();
+const useMaterials = q.get('materials') !== '0';
+const loadTex = (url) => new Promise((res) => new THREE.TextureLoader().load(url, (tx) => {
+  tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.flipY = false; res(tx); }));
+const gltf = await new Promise((res, rej) => new GLTFLoader().load('orig.gltf', res, undefined, rej));
+// the real interiors, inside the houses, and the doorways opened (see interiors.js)
+if (q.get('interiors')) {
+  for (const g of await loadInteriors()) gltf.scene.add(g.parent ? g : g);
+  gltf.scene.traverse((o) => { if (o.isMesh && o.material.name === 't01_01') console.log('doorway triangles removed: ' + openDoorways(o)); });
+}
+const meshes = []; gltf.scene.traverse((o) => o.isMesh && meshes.push(o));
+for (const o of meshes) {
+  const m = o.material; const name = m.name;
+  o.userData.matName = name; o.userData.transparent = m.transparent; // for the shells (vvld.js)
+  if (/shadow/.test(name)) { o.parent.remove(o); continue; } // painted shadows: the real ones replace them // painted shadows: the real ones replace them
+  if (m.map) m.map.colorSpace = THREE.SRGBColorSpace;
+  const p = { map: m.map, vertexColors: !!o.geometry.attributes.color, roughness: 0.85, metalness: 0,
+              transparent: m.transparent, side: THREE.DoubleSide, name };
+  if (useMaterials && !m.transparent && mats[name] !== undefined) {
+    const i = mats[name];
+    p.roughnessMap = p.metalnessMap = await loadTex(`mat/${i}_orm.png`); p.roughness = 1; p.metalness = 1;
+    if (!q.get('norelief')) { p.normalMap = await loadTex(`mat/${i}_normal.png`); p.normalScale = new THREE.Vector2(1, -1); }
+    p.transmissionMap = await loadTex(`mat/${i}_trans.png`); p.transmission = 1; p.ior = 1.5; p.thickness = 0.2;
+  }
+  if (!m.transparent) p.alphaTest = 0.5;
+  if (q.get('white')) {
+    // pure light: white surfaces (blended decals left out); the texture stays only where its alpha
+    // cuts a shape out (foliage), as white
+    if (m.transparent) { o.parent.remove(o); continue; }
+    const cutout = name === 'chip_wood_b' || name === 'chip_grass_decolate';
+    // glass stays glass, so sunlight enters the interiors through the windows
+    const glassy = mats[name] !== undefined && q.get('interiors');
+    Object.assign(p, { map: cutout ? m.map : null, vertexColors: false, color: 0xffffff, roughness: 0.9, metalness: 0,
+      roughnessMap: null, metalnessMap: null, normalMap: null,
+      transmissionMap: glassy ? p.transmissionMap : null, transmission: glassy ? 1 : 0 });
+  }
+  o.material = new THREE.MeshPhysicalMaterial(p);
+}
+// Virtual Volumetric Layered Depth (vvld.js): real shells, so the light paths hit them
+if (q.get('vvld')) console.log('vvld shells: ' + await addVolumeLayers(gltf.scene, mats, async (k, o) => {
+  const i = mats[o.userData.matName], white = !!q.get('white');
+  const layer = await loadTex(`mat/${i}_layer${white ? 'w' : ''}${k}.png`); layer.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.MeshPhysicalMaterial({ map: layer, color: 0xffffff, vertexColors: !white && !!o.geometry.attributes.color,
+    roughness: 0.9, metalness: 0, alphaTest: 0.5, side: THREE.DoubleSide });
+}));
+if (q.get('grass')) {
+  const grass = makeGrass(gltf.scene, { exclude: INTERIORS.map((it) => it.box) });
+  grass.material = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.9, side: THREE.DoubleSide });
+  gltf.scene.add(grass);
+}
+scene.add(gltf.scene);
+scene.updateMatrixWorld(true);
+
+const ptMaterial = new PhysicalPathTracingMaterial();
+const pt = new PathTracingRenderer(renderer);
+pt.setSize(W, H); pt.camera = camera; pt.material = ptMaterial; pt.tiles.set(1, 1);
+const { bvh, textures, materials, lights } = new PathTracingSceneGenerator().generate(scene);
+const geometry = bvh.geometry;
+ptMaterial.bvh.updateFrom(bvh);
+ptMaterial.attributesArray.updateFrom(geometry.attributes.normal, geometry.attributes.tangent, geometry.attributes.uv, geometry.attributes.color);
+ptMaterial.materialIndexAttribute.updateFrom(geometry.attributes.materialIndex);
+ptMaterial.textures.setTextures(renderer, 1024, 1024, textures);
+ptMaterial.materials.updateFrom(materials, textures);
+ptMaterial.lights.updateFrom(lights);
+const sky = new GradientEquirectTexture(256);
+sky.topColor.set(t.top); sky.bottomColor.set(t.horizon); sky.exponent = 1.6; sky.update();
+ptMaterial.envMapInfo.updateFrom(sky);
+ptMaterial.environmentIntensity = Number(q.get('sky') || 1.0);
+ptMaterial.bounces = Number(q.get('bounces') || 5);
+ptMaterial.filterGlossyFactor = 0.5;
+scene.background = sky; // what the camera sees beyond the map (the path tracer's own sky)
+
+const quad = new FullScreenQuad(new THREE.MeshBasicMaterial({ map: pt.target.texture }));
+const target = Number(q.get('samples') || 64);
+const t0 = performance.now();
+let reported = 0;
+const step = () => {
+  pt.update();
+  if (pt.samples >= reported + 8) { reported = Math.floor(pt.samples); console.log(`samples ${reported} after ${((performance.now() - t0) / 1000).toFixed(0)} s`); }
+  if (pt.samples >= target) {
+    quad.material.map = pt.target.texture; quad.render(renderer);
+    window.image = renderer.domElement.toDataURL('image/png');
+    window.done = `samples ${pt.samples} in ${((performance.now() - t0) / 1000).toFixed(0)} s`;
+    return;
+  }
+  setTimeout(step, 0);
+};
+step();
+</script></body></html>
