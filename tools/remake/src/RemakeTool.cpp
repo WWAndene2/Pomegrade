@@ -45,7 +45,7 @@
 //                     ORAS's own assets, as an Azahar mod (BPS patches), with town_preview.gltf, town_layout.txt and
 //                     town_piece.bin (the piece the mod writes, decompressed)
 //   remake_tool oras-code <oras.3ds> <out.bin>   the game's ExeFS .code, decompressed (ARM, loaded at 0x100000)
-//   remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--auto-zones] [--others-out] [--no-triggers] [--no-characters] [--plan] [--matrix-template M]
+//   remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--auto-zones] [--others-out] [--no-triggers] [--no-characters] [--new-zones [--name H:TEXT]...] [--plan] [--matrix-template M]
 //                     [--model-matrix NN] [oras-town's kit options]
 //                     a rectangle of Sinnoh's piece grid (as oras-world cuts it) rebuilt as a new ORAS map matrix: its pieces built
 //                     as oras-town builds one, the zone grid from Platinum's map headers, each header on the ORAS zone given
@@ -279,6 +279,15 @@ static void ParseRegionOptions(int argc, char** argv, int first, OrasRegionOptio
         else if (flag == "--auto-zones") options.AutoZones = true;
         else if (flag == "--no-triggers") options.NoTriggers = true;
         else if (flag == "--no-characters") options.NoCharacters = true;
+        else if (flag == "--new-zones") options.NewZones = true;
+        else if (flag == "--name")
+        {
+            if (++i >= argc) throw FormatError("missing <map header>:<name> after --name");
+            const std::string pair = argv[i];
+            const size_t colon = pair.find(':');
+            if (colon == std::string::npos) throw FormatError("--name takes <map header>:<name>, not " + pair);
+            options.Names[atoi(pair.substr(0, colon).c_str())] = pair.substr(colon + 1);
+        }
         else throw FormatError("oras-region: unknown option " + flag);
     }
 }

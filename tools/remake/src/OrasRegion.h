@@ -59,6 +59,13 @@ struct OrasRegionOptions
     size_t MatrixTemplate = 1;  // the matrix whose file 1 (meaning unknown) the new matrix copies: Littleroot's
     int ModelMatrix = 15;       // the pieces' model names, world<NN>_<x>_<y> (the game's run from world01 to world14)
     bool PlanOnly = false;      // print the rectangle's map headers, block by block, and build nothing
+    // SINNOH_BUILD.md R2b: every header given a zone gets a new zone written from nothing (OrasNewZone.h), numbered from the next
+    // free one, instead of moving that ORAS zone onto the matrix: --zone H:Z then only names the game zone whose area pack the
+    // header's pieces are built with (outdoors) or whose map the header stands on (an interior: its matrix, area pack and exit
+    // tile). The area packs the pieces add to are new packs (OrasWorkspace::AddAreaPack), so no Hoenn place changes. No game
+    // zone's header, events, scripts or text is copied; the spawn tile is the named zone's (where a save lands)
+    bool NewZones = false;
+    std::map<int, std::string> Names; // --name H:TEXT, with --new-zones: header H's place name
     std::string OutDir;
 };
 
