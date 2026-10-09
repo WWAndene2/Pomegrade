@@ -251,7 +251,7 @@ static const char* android_config_default_file_content = (BOOST_HANA_STRING(R"(
 # Pomegrade: scene-adaptive deep black. 0 (default): off, 1: on
 )") DECLARE_KEY(deep_black) BOOST_HANA_STRING(R"(
 
-# Pomegrade: Remaster, a post-process of the top screen (OpenGL). 0 (default): off, 1: v7 preset, 2: v9 preset, 3: custom
+# Pomegrade: Remaster, a post-process of the top screen (OpenGL). 0 (default): off, 1: V1 (path tracing included), 2: custom
 )") DECLARE_KEY(remaster_preset) BOOST_HANA_STRING(R"(
 
 # Pomegrade: Remaster's ambient occlusion, used by the custom preset. 0: off, 1 (default): on

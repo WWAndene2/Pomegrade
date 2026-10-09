@@ -37,7 +37,7 @@ struct ScreenInfo;
 //   is denoised by two passes of an edge-aware a-trous filter guided by the G-buffer's positions and normals (the
 //   offline median and guided filters' part), then accumulated over frames where a pixel still shows the same point
 //   (temporal accumulation: 80 % of the history kept; a pixel whose point moved starts again), and handed to
-//   Remaster, which composes it as compose.py does (v9).
+//   Remaster, which composes it as compose.py does (V1).
 // The sun and the moon follow the game's clock (the emulated 3DS's) by the owner's table: every 3 hours an azimuth,
 // a height, a light colour and power and the sky's colours, interpolated. Up is the normal of the frame's largest flat
 // area (the ground), north the camera's forward direction along it. The game's own time-of-day colours stay in the frame underneath.
@@ -46,7 +46,7 @@ public:
     PathTracerGL();
     ~PathTracerGL();
 
-    /// Whether the current Remaster preset traces the light (v9 and custom)
+    /// Whether the current Remaster preset traces the light (V1 and custom)
     static bool Enabled();
 
     /// A test hook (the headless host's "sun HOUR"): the sun and moon placed at that hour of the table instead of the game

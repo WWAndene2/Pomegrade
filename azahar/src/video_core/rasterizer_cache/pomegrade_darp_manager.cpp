@@ -82,7 +82,18 @@ std::vector<u8> SurfaceMaps(Darp::Texture& texture) {
     // texels of grass and roofs as glass, which would have shown the window's room in specks (seen on screen, 9 October)
     std::vector<float> glass_map(n);
     for (std::size_t i = 0; i < n; i++) {
-        glass_map[i] = maps.classes[i] == static_cast<u8>(VideoCore::MaterialRecognition::Class::Glass) ? 1.0f : 0.0f;
+        // the recognition's glass, or a window pane as ORAS paints its houses' windows: a clear sky blue (blue over 150,
+        // well over red, green over red), which the recognition classes otherwise and left the windows opaque
+        const u8* px = &texture.rgba[i * 4];
+        const bool pane = px[2] > 150 && px[2] > px[0] + 40 && px[1] > px[0] + 10 && px[3] > 200;
+        glass_map[i] =
+            pane || maps.classes[i] == static_cast<u8>(VideoCore::MaterialRecognition::Class::Glass) ? 1.0f : 0.0f;
+    }
+    // a texture blue over half its area is sea or sky, not a facade with windows: no glass in it
+    double glass_total = 0;
+    for (const float g : glass_map) glass_total += g;
+    if (glass_total > 0.5 * static_cast<double>(n)) {
+        std::fill(glass_map.begin(), glass_map.end(), 0.0f);
     }
     const std::vector<float> glass_share = BoxMean(glass_map, w, h, 2);
     std::vector<u8> packed(texture.rgba.size());
