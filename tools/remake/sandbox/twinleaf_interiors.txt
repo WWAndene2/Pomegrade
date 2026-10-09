@@ -1,0 +1,13 @@
+# oras-build steps (SINNOH_BUILD.md R4): Twinleaf and Route 201 written from nothing (R2b), and Twinleaf's six interiors built from
+# Platinum's own matrices (the player's house 412-413, the rival's 414-415, 416, 417), every warp linked by Platinum header
+# (OrasWorkspace::LinkWarps): Twinleaf 538, Route 201 539, the interiors 540-545, 546 zone rows. The rooms are laid out with the
+# town builder's ground (no interior look yet); the interiors' pieces take an ORAS house's area pack (zone 223's).
+# Remake mod workflow: "tw: build tools/remake/sandbox/twinleaf_interiors.txt", "e: engine --zone-rows 546",
+# "sv: save 538 106.5 887.5" (two tiles south of the door into 417), then "merge tw e sv"
+region --rect 0 0 24 24 --tree-reach 0 --allow-errors --others-out --no-triggers --no-characters --zone 411:6 --zone 342:23 --new-zones --name 411:Bonaugure --name 342:Route201
+region --matrix 126 --rect 0 0 1 1 --header 412 --zone 412:223 --new-zones --tree-reach 0 --allow-errors
+region --matrix 127 --rect 0 0 1 1 --header 413 --zone 413:223 --new-zones --tree-reach 0 --allow-errors
+region --matrix 128 --rect 0 0 1 1 --header 414 --zone 414:223 --new-zones --tree-reach 0 --allow-errors
+region --matrix 129 --rect 0 0 1 1 --header 415 --zone 415:223 --new-zones --tree-reach 0 --allow-errors
+region --matrix 123 --rect 0 0 1 1 --header 416 --zone 416:223 --new-zones --tree-reach 0 --allow-errors
+region --matrix 123 --rect 0 0 1 1 --header 417 --zone 417:223 --new-zones --tree-reach 0 --allow-errors

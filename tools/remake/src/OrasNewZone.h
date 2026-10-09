@@ -67,6 +67,9 @@ ZoneCharacter NewCharacter(int id, int model, int tileX, int tileZ, int facing, 
 // door, 3 x 1 a house's mat)
 ZoneDoor NewDoorWarp(int toZone, int toWarp, int tileX, int tileZ);
 ZoneDoor NewExitWarp(int toZone, int toWarp, int pixelX, int pixelZ);
+// stairs between two interiors: kind 0x0501, 2 x 1 tiles, word 5 9, as Littleroot's first house's warp 1 up to its first floor
+// (zone 223 to 224)
+ZoneDoor NewStairsWarp(int toZone, int toWarp, int tileX, int tileZ);
 
 // Scripts that do nothing, as the game's smallest (zone 80): main returns 0 for every command (SINNOH_BUILD.md R1), for a zone
 // given none of its own

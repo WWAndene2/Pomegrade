@@ -186,7 +186,12 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, OrasWorkspace& 
     OrasRegionOptions o = given; // AutoZones adds to Zones
     std::vector<std::string> log;
     if (o.Width <= 0 || o.Height <= 0) throw FormatError("the region needs a width and a height in pieces");
-    const PlatinumWorld world(platinum, o.Town.Matrix);
+    PlatinumWorld world(platinum, o.Town.Matrix);
+    // --header: an interior's or a cave's matrix names no map header (Platinum's header names the matrix, not the reverse):
+    // every map cell is that header's
+    if (o.Header >= 0)
+        for (size_t c = 0; c < world.World.Matrix.Headers.size(); c++)
+            if (world.World.Matrix.Headers[c] < 0 && world.World.Cells[c]) world.World.Matrix.Headers[c] = o.Header;
     const int bw = o.Width * OrasMatrix::BlocksPerPiece, bh = o.Height * OrasMatrix::BlocksPerPiece;
 
     // each zone block's Platinum header, read at the block's centre tile
@@ -291,6 +296,10 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, OrasWorkspace& 
 
     const PieceBudget budget = GamePieceBudget(pieceArchive);
     std::map<int, std::vector<RegionDoor>> doorsOf; // ORAS zone -> its doors, in matrix tiles
+    // --new-zones: every Platinum warp of the region, by the header it stands in (matrix tiles, the header it leads to), linked
+    // once every step is built (OrasWorkspace::LinkWarps); an interior's or a cave's matrix (Platinum matrix not 0) builds no house
+    std::map<int, std::vector<OrasWorkspace::HeaderWarp>> warpsOf;
+    const bool inside = o.Town.Matrix != 0;
     std::vector<GltfPart> parts;
     std::vector<GltfMaterial> materials;
     const std::filesystem::path out(o.OutDir);
@@ -317,9 +326,48 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, OrasWorkspace& 
             // a door of a header left out of the region (-1 or not given) gets no house, no door model and no warp: r2 built two
             // houses 39 tiles wide at Route 201's exit warps (header 334, each read twice), and they took the door-model slots,
             // so the last real door (the top-right house) got no door model on the phone
+            if (o.NewZones)
+            {
+                for (const auto& d : layout.Doors)
+                    if (o.Zones.count((int)d.Zone) && o.Zones.at((int)d.Zone) >= 0)
+                        warpsOf[(int)d.Zone].push_back({x * TownTiles + d.Column, y * TownTiles + d.Row, (int)d.DestZone});
+                if (inside)
+                {
+                    // the room is what its warps reach: Platinum leaves the land around a room walkable (its walls are the room's
+                    // model), so every tile no warp's neighbours reach becomes solid
+                    std::vector<std::pair<int, int>> stack;
+                    std::vector<std::vector<bool>> seen(TownTiles, std::vector<bool>(TownTiles, false));
+                    for (const auto& d : layout.Doors)
+                        for (const auto& [dx, dz] : {std::pair{0, 0}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}}) stack.push_back({d.Column + dx, d.Row + dz});
+                    const auto open = [&](int c, int r) { return c >= 0 && r >= 0 && c < TownTiles && r < TownTiles && layout.Collision[r][c] != '#'; };
+                    while (!stack.empty())
+                    {
+                        const auto [c, r] = stack.back();
+                        stack.pop_back();
+                        if (!open(c, r) || seen[r][c]) continue;
+                        seen[r][c] = true;
+                        for (const auto& [dx, dz] : {std::pair{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) stack.push_back({c + dx, r + dz});
+                    }
+                    int closed = 0;
+                    for (int r = 0; r < TownTiles; r++)
+                        for (int c = 0; c < TownTiles; c++)
+                            if (!seen[r][c] && layout.Collision[r][c] != '#') { layout.Collision[r][c] = '#'; closed++; }
+                    log.push_back(F("piece (%d, %d): %d tiles outside the room made solid (no warp reaches them)", x, y, closed));
+                }
+            }
             for (auto d = layout.Doors.begin(); d != layout.Doors.end();)
             {
                 const auto z = o.Zones.find(d->Zone);
+                if (o.NewZones)
+                {
+                    // a house only outdoors, at a warp into an interior (a header whose Platinum matrix is not 0): r2 built houses
+                    // at Route 201's exit warps (to header 334, outdoors)
+                    const bool house = !inside && z != o.Zones.end() && z->second >= 0 && d->DestZone < world.Headers.size()
+                                       && world.Headers[d->DestZone].Matrix != 0;
+                    if (house) { ++d; continue; }
+                    d = layout.Doors.erase(d);
+                    continue;
+                }
                 // a door is kept only when it leads into an interior of its own (its destination header given an ORAS zone
                 // that is not on the matrix): with --auto-zones every header has a zone, and s3's Twinleaf piece got 6 doors
                 // for Littleroot's 4 door-model entries, so the real doors lost their models on the phone (all4)
@@ -429,17 +477,13 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, OrasWorkspace& 
             WriteFile((out / F("region_piece_%d_%d.bin", x, y)).string(), piece);
         }
 
-    // --new-zones: the numbers the new zones will take, the next free ones as the build stands: the outdoor zones in the order of
-    // the zones they are named after, then the interiors behind their doors; the matrix names them
+    // --new-zones: the numbers the new zones will take, the next free ones as the build stands, in the order of the zones they are
+    // named after; the matrix names them
     std::map<int, int> renumber;
-    std::vector<int> insides; // the interiors' named zones, in that order
     if (o.NewZones)
     {
         int next = ws.NextZone();
         for (int z : used) renumber[z] = next++;
-        for (int z : used)
-            for (const RegionDoor& d : doorsOf[z])
-                if (d.Interior >= 0 && !renumber.count(d.Interior)) { renumber[d.Interior] = next++; insides.push_back(d.Interior); }
         for (uint16_t& z : matrix.Zones) if (z != OrasMatrix::None) z = (uint16_t)renumber.at(z);
     }
     const Bytes matrixData = matrix.Write();
@@ -549,58 +593,37 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, OrasWorkspace& 
         // the header each named zone stands for (its place name)
         std::map<int, int> headerOf;
         for (const auto& [h, z] : o.Zones) if (z >= 0) headerOf[z] = h;
-        std::map<int, std::pair<int, int>> doorTo; // interior's named zone -> its outdoor zone's new number and door warp
-        std::map<int, int> nameOf;                 // new outdoor zone -> its place name line, or -1
-        const auto add = [&](const OrasZone& zone, int number) {
-            const int added = ws.AddZone(WriteNewZone(zone, Bytes{}), Bytes{});
-            if (added != number) throw FormatError(F("the new zone %d was appended as member %d", number, added));
-        };
+        std::map<int, int> nameOf; // new zone -> its place name line, or -1
         const Bytes emptyScript = AmxAssemble(EmptyZoneScript), emptyInit = AmxAssemble(EmptyInitScript);
         for (int z : used)
         {
             const OrasZone& named = zoneOf.at(z);
             const int number = renumber.at(z);
+            const int header = headerOf.count(z) ? headerOf.at(z) : -1;
             OrasZone zone;
             NewZoneFields f;
+            f.Kind = inside ? NewZoneKind::Interior : NewZoneKind::Outdoor;
             f.Number = number; f.AreaPack = packSlot.at(named.AreaPack()); f.Matrix = (int)matrixIndex;
+            f.Overworld = number; // an interior's outdoor zone is set when the warps are linked (OrasWorkspace::LinkWarps)
             f.Text = ws.AddZoneText({""});
-            const auto name = headerOf.count(z) ? o.Names.find(headerOf.at(z)) : o.Names.end();
+            const auto name = o.Names.find(header);
             f.NameLine = name != o.Names.end() ? ws.AddPlaceName(name->second) : -1;
-            f.SpawnX = named.SpawnTileX(); f.SpawnZ = named.SpawnTileZ();
+            const auto& warps = warpsOf[header];
+            // where a save lands: the named zone's spawn tile outdoors, inside the room next to its first warp
+            if (inside && !warps.empty()) { f.SpawnX = warps[0].TileX + 0.5f; f.SpawnZ = warps[0].TileZ - 0.5f; }
+            else { f.SpawnX = named.SpawnTileX(); f.SpawnZ = named.SpawnTileZ(); }
             zone.Header = NewZoneHeader(f);
             nameOf[number] = f.NameLine;
-            // a door leads into its interior's new zone; a door with no interior given gets no warp (nothing happens there)
-            for (const RegionDoor& d : doorsOf[z])
-            {
-                if (d.Interior < 0) continue;
-                if (doorTo.count(d.Interior)) throw FormatError(F("ORAS zone %d is the interior of two doors: its way out leads back to one only", d.Interior));
-                doorTo[d.Interior] = {number, (int)zone.Doors.size()};
-                zone.Doors.push_back(NewDoorWarp(renumber.at(d.Interior), 0, d.X, d.Y));
-            }
             zone.Script = emptyScript; zone.InitScript = emptyInit;
-            add(zone, number);
-            log.push_back(F("zone %d: header %d, written from nothing (OrasNewZone.h), area pack %d (pieces built with zone %d's), text member %d, name %s, %zu door warp(s), spawn tile (%.1f, %.1f) (zone %d's)",
-                            number, headerOf.count(z) ? headerOf.at(z) : -1, f.AreaPack, z, f.Text, name != o.Names.end() ? ("\"" + name->second + "\"").c_str() : "none",
-                            zone.Doors.size(), f.SpawnX, f.SpawnZ, z));
-        }
-        for (int z : insides)
-        {
-            // the interior: game zone z's map (its matrix and area pack: the game's assets) and the tile of its way out (its warp 0,
-            // kind 0), nothing else of it
-            const OrasZone map = OrasZone::Read(Plain(zoneArchive.Sub((size_t)z)));
-            if (map.Doors.empty() || map.Doors[0].Kind() != 0) throw FormatError(F("zone %d is not a house's inside (its warp 0 is not a way out, kind 0)", z));
-            const auto [outside, warp] = doorTo.at(z);
-            OrasZone zone;
-            NewZoneFields f;
-            f.Kind = NewZoneKind::Interior; f.Number = renumber.at(z); f.AreaPack = map.AreaPack(); f.Matrix = map.Matrix();
-            f.Text = ws.AddZoneText({""}); f.Overworld = outside; f.NameLine = nameOf.at(outside);
-            f.SpawnX = map.Doors[0].Raw[4] / 18.0f; f.SpawnZ = map.Doors[0].Raw[6] / 18.0f;
-            zone.Header = NewZoneHeader(f);
-            zone.Doors.push_back(NewExitWarp(outside, warp, map.Doors[0].Raw[4], map.Doors[0].Raw[6]));
-            zone.Script = emptyScript; zone.InitScript = emptyInit;
-            add(zone, f.Number);
-            log.push_back(F("zone %d: header %d, an interior written from nothing on game zone %d's map (matrix %d, area pack %d), its way out to zone %d's door warp %d",
-                            f.Number, headerOf.count(z) ? headerOf.at(z) : -1, z, f.Matrix, f.AreaPack, outside, warp));
+            const int added = ws.AddZone(WriteNewZone(zone, Bytes{}), Bytes{});
+            if (added != number) throw FormatError(F("the new zone %d was appended as member %d", number, added));
+            ws.RegisterHeaderZone(header, number, inside, warps);
+            std::string tiles;
+            for (const auto& w : warps) tiles += F(" (%d, %d) to header %d;", w.TileX, w.TileZ, w.DestHeader);
+            if (!tiles.empty()) log.push_back(F("zone %d: warps at", number) + tiles);
+            log.push_back(F("zone %d: header %d, %s written from nothing (OrasNewZone.h), area pack %d (pieces built with zone %d's), text member %d, name %s, %zu warp(s) to link, spawn tile (%.1f, %.1f)",
+                            number, header, inside ? "an interior" : "outdoors,", f.AreaPack, z, f.Text, name != o.Names.end() ? ("\"" + name->second + "\"").c_str() : "none",
+                            warps.size(), f.SpawnX, f.SpawnZ));
         }
         std::string mapping;
         for (const auto& [z, n] : renumber) mapping += F(" %d:%d", headerOf.count(z) ? headerOf.at(z) : -1, n);

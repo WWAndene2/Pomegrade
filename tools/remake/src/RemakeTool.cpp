@@ -45,7 +45,7 @@
 //                     ORAS's own assets, as an Azahar mod (BPS patches), with town_preview.gltf, town_layout.txt and
 //                     town_piece.bin (the piece the mod writes, decompressed)
 //   remake_tool oras-code <oras.3ds> <out.bin>   the game's ExeFS .code, decompressed (ARM, loaded at 0x100000)
-//   remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--auto-zones] [--others-out] [--no-triggers] [--no-characters] [--new-zones [--name H:TEXT]...] [--plan] [--matrix-template M]
+//   remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--auto-zones] [--others-out] [--no-triggers] [--no-characters] [--new-zones [--name H:TEXT]...] [--header H] [--plan] [--matrix-template M]
 //                     [--model-matrix NN] [oras-town's kit options]
 //                     a rectangle of Sinnoh's piece grid (as oras-world cuts it) rebuilt as a new ORAS map matrix: its pieces built
 //                     as oras-town builds one, the zone grid from Platinum's map headers, each header on the ORAS zone given
@@ -280,6 +280,7 @@ static void ParseRegionOptions(int argc, char** argv, int first, OrasRegionOptio
         else if (flag == "--no-triggers") options.NoTriggers = true;
         else if (flag == "--no-characters") options.NoCharacters = true;
         else if (flag == "--new-zones") options.NewZones = true;
+        else if (flag == "--header") options.Header = number(++i);
         else if (flag == "--name")
         {
             if (++i >= argc) throw FormatError("missing <map header>:<name> after --name");
@@ -666,6 +667,7 @@ int main(int argc, char** argv)
             OrasWorkspace ws(oras);
             for (const std::string& line : BuildOrasRegion(platinum, ws, options)) printf("%s%s", line.c_str(), !line.empty() && line.back() == '\n' ? "" : "\n");
             if (options.PlanOnly) return 0;
+            for (const std::string& line : ws.LinkWarps()) printf("%s\n", line.c_str());
             for (const std::string& line : ws.Write(options.OutDir)) printf("%s\n", line.c_str());
             printf("mod written under %s: copy its load folder into the 3DS folder (Pomegrade/3DS)\n", options.OutDir.c_str());
             return 0;
@@ -715,6 +717,7 @@ int main(int argc, char** argv)
                 }
                 else throw FormatError("steps file line " + std::to_string(number) + ": \"sandbox <file>\" or \"region <options>\"");
             }
+            for (const std::string& line : ws.LinkWarps()) printf("%s\n", line.c_str());
             for (const std::string& line : ws.Write(argv[4])) printf("%s\n", line.c_str());
             printf("mod written under %s: copy its load folder into the 3DS folder (Pomegrade/3DS)\n", argv[4]);
             return 0;

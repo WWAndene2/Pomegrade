@@ -3,7 +3,9 @@
 #include "BinLinker.h"
 #include "GameText.h"
 #include "NitroCompression.h"
+#include "OrasNewZone.h"
 #include "OrasTown.h"
+#include "OrasZone.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -91,6 +93,9 @@ int OrasWorkspace::AddPlaceName(const std::string& name)
 
 int OrasWorkspace::AddAreaPack(const Bytes& pack, int like)
 {
+    // a pack the build has added already, byte for byte (the same game pack with the same textures added: every room of a kind)
+    // shares its slot: the game has 9 free ones
+    for (const auto& [slot, data] : PacksAdded) if (data == pack) return slot;
     const Garc& areas = Original("a/0/1/4");
     const Garc& perAreaGame = Original("a/1/3/7");
     const size_t slots = std::min(areas.Count(), perAreaGame.Count());
@@ -109,9 +114,80 @@ int OrasWorkspace::AddAreaPack(const Bytes& pack, int like)
             PacksTaken[p] = true;
             ReplaceMember(Edited("a/0/1/4"), areas, p, pack, "AD");
             Edited("a/1/3/7").Set(p, perAreaGame.Sub((size_t)like));
+            PacksAdded[(int)p] = pack;
             return (int)p;
         }
     throw FormatError("no free area pack left (the game has " + std::to_string(std::count(used.begin(), used.end(), false)) + " unused ones)");
+}
+
+void OrasWorkspace::RegisterHeaderZone(int header, int zone, bool interior, const std::vector<HeaderWarp>& warps)
+{
+    for (const HeaderZone& h : HeaderZones)
+        if (h.Header == header) throw FormatError("map header " + std::to_string(header) + " has a zone already (" + std::to_string(h.Zone) + ")");
+    HeaderZones.push_back({header, zone, interior, warps});
+}
+
+std::vector<std::string> OrasWorkspace::LinkWarps()
+{
+    std::vector<std::string> log;
+    char line[256];
+    std::map<int, const HeaderZone*> byHeader;
+    for (const HeaderZone& h : HeaderZones) byHeader[h.Header] = &h;
+    // the warps each zone keeps, in order: those whose header was built
+    std::map<int, std::vector<const HeaderWarp*>> kept;
+    for (const HeaderZone& h : HeaderZones)
+        for (const HeaderWarp& w : h.Warps)
+        {
+            if (byHeader.count(w.DestHeader)) { kept[h.Zone].push_back(&w); continue; }
+            snprintf(line, sizeof line, "zone %d (header %d): its warp at (%d, %d) to header %d leads nowhere yet (no step built that header): left out",
+                     h.Zone, h.Header, w.TileX, w.TileZ, w.DestHeader);
+            log.push_back(line);
+        }
+    // an interior belongs to the outdoor zone its warps lead out to, through other interiors if need be (a house's upstairs)
+    std::map<int, int> overworld;
+    for (const HeaderZone& h : HeaderZones) if (!h.Interior) overworld[h.Zone] = h.Zone;
+    for (bool grew = true; grew;)
+    {
+        grew = false;
+        for (const HeaderZone& h : HeaderZones)
+            if (!overworld.count(h.Zone))
+                for (const HeaderWarp* w : kept[h.Zone])
+                    if (overworld.count(byHeader.at(w->DestHeader)->Zone)) { overworld[h.Zone] = overworld.at(byHeader.at(w->DestHeader)->Zone); grew = true; break; }
+    }
+    Garc& zones = Edited("a/0/1/3");
+    Bytes table = Plain(zones.Sub(536));
+    for (const HeaderZone& h : HeaderZones)
+    {
+        const Bytes data = Plain(zones.Sub((size_t)h.Zone));
+        OrasZone zone = OrasZone::Read(data);
+        zone.Doors.clear();
+        for (const HeaderWarp* w : kept[h.Zone])
+        {
+            const HeaderZone& to = *byHeader.at(w->DestHeader);
+            // the arrival: the destination's first warp leading back to this header
+            int back = 0;
+            const auto& theirs = kept[to.Zone];
+            for (size_t k = 0; k < theirs.size(); k++) if (theirs[k]->DestHeader == h.Header) { back = (int)k; break; }
+            if (!h.Interior) zone.Doors.push_back(NewDoorWarp(to.Zone, back, w->TileX, w->TileZ));
+            else if (!to.Interior) zone.Doors.push_back(NewExitWarp(to.Zone, back, w->TileX * 18 + 9, w->TileZ * 18 + 9));
+            else zone.Doors.push_back(NewStairsWarp(to.Zone, back, w->TileX, w->TileZ));
+        }
+        if (h.Interior)
+        {
+            if (!overworld.count(h.Zone)) throw FormatError("interior zone " + std::to_string(h.Zone) + " (header " + std::to_string(h.Header) + ") leads out to no outdoor zone of the build");
+            zone.Header[13] = (uint16_t)overworld.at(h.Zone);
+        }
+        const Bytes written = zone.Write(data);
+        // a new zone has no member in the game's archive: compressed as the game's zones are (Littleroot's, member 6)
+        zones.Set((size_t)h.Zone, IsLzCompressed(Original("a/0/1/3").Sub(6)) ? Lz11Compress(written) : written);
+        for (size_t k = 0; k < 28; k++) { table[(size_t)h.Zone * RowBytes + 2 * k] = (uint8_t)zone.Header[k]; table[(size_t)h.Zone * RowBytes + 2 * k + 1] = (uint8_t)(zone.Header[k] >> 8); }
+        std::string list;
+        for (const ZoneDoor& d : zone.Doors) { snprintf(line, sizeof line, " %d.%d", d.DestZone(), d.DestWarp()); list += line; }
+        snprintf(line, sizeof line, "zone %d (header %d%s): %zu warp(s) to zone.warp%s", h.Zone, h.Header, h.Interior ? ", interior" : "", zone.Doors.size(), list.c_str());
+        log.push_back(line);
+    }
+    if (!HeaderZones.empty()) ReplaceMember(zones, Original("a/0/1/3"), 536, table, "");
+    return log;
 }
 
 std::vector<std::string> OrasWorkspace::Write(const std::string& outDir)

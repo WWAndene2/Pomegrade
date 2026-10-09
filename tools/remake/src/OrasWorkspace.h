@@ -42,8 +42,19 @@ public:
     int AddPlaceName(const std::string& name);
     // an area pack (a/0/1/4) holding `pack`, in one of the game's placeholder packs no zone uses (0, 1, 39-42, 88, 97, 195),
     // never a pack a game zone draws from, so no Hoenn place changes; its characters' list (a/1/3/7) the one of pack `like`.
+    // A pack identical to one the build added shares its slot.
     // A pack appended past the game's 229 is refused: its zone sent the game into its fatal-error loop (runs light1-light4)
     int AddAreaPack(const Bytes& pack, int like);
+
+    // Warps between the build's new zones, by Platinum map header (SINNOH_BUILD.md R4): a step that writes a header's zone
+    // registers it with its warps (a tile and the header each leads to); LinkWarps, once every step is done, writes each warp
+    // into its zone: its destination the zone of that header, its arrival the destination's warp leading back to this header,
+    // its kind by what it joins (OrasNewZone.h: a house's door from outdoors, a mat back out, stairs between interiors), and an
+    // interior's header word 13 the outdoor zone its warps lead out to. A warp whose header no step built leads nowhere yet: it
+    // is left out and reported
+    struct HeaderWarp { int TileX = 0, TileZ = 0, DestHeader = -1; };
+    void RegisterHeaderZone(int header, int zone, bool interior, const std::vector<HeaderWarp>& warps);
+    std::vector<std::string> LinkWarps();
 
     // the mod under <outDir>/load/mods/<program id>: each changed archive as a BPS patch (romfs_ext/<path>.bps), checked by
     // applying it back, or whole (romfs/<path>) when it came out shorter than the game's, since a shorter patched file would
@@ -56,6 +67,9 @@ private:
     Archive& Open(const std::string& path);
     N3dsRom& Oras;
     std::vector<bool> PacksTaken; // area packs filled by this build
+    std::map<int, Bytes> PacksAdded; // their contents, to share a slot between identical packs
+    struct HeaderZone { int Header, Zone; bool Interior; std::vector<HeaderWarp> Warps; };
+    std::vector<HeaderZone> HeaderZones;
     std::map<std::string, Archive> Archives;
 };
 
