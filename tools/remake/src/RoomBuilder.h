@@ -5,9 +5,9 @@
 // Platinum gives terrain (outside them a Platinum room map has none); its floor and walls are one-tile slices of the donor
 // room's own floor, back wall and side walls (triangles clipped to the tile, texture coordinates carried on), laid on every
 // room tile and along every edge the room ends on (north: the back wall; west and east: the side walls; the south edge stays
-// open, as the camera looks from there); each Platinum furniture group (tiles of one furniture material) gets the donor's
-// object of the same kind (table01_mat: table01), with what stands on it or under it (its shadow, a speaker), centred on the
-// group, against the back wall when the group touches it; the stairs are the donor's own stairs, placed on the stairs warp.
+// open, as the camera looks from there); the stairs are the donor's own stairs, placed on Platinum's stairs tiles. No
+// furniture: the owner's order (9 October) is correct, solid walls with their door and windows first; the furniture placed
+// from Platinum's material names came out misplaced, overlapping and cut (removed).
 
 #include "TownLayout.h"
 

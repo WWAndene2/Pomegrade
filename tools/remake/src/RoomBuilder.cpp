@@ -145,87 +145,6 @@ bool Has(const std::string& s, const char* part) { return s.find(part) != std::s
 // the meshes the room's shell is made of (floors, walls and their caps), by their material's name
 bool Shell(const std::string& name) { return Has(name, "floor") || Has(name, "wall") || Has(name, "pillar"); }
 
-// what hangs on the donor's walls (windows, curtains): never carried with the furniture beside it (t101r0102's window beside its
-// bed went with the bed and stood in the middle of house 413, run rm4)
-bool OnWall(const std::string& name) { return Has(name, "window") || Has(name, "curtain"); }
-
-// a mesh's connected parts (triangles sharing vertex positions), each with its box in tiles
-struct MeshPart { size_t Mesh; std::vector<uint32_t> Triangles; float C0 = 1e9, C1 = -1e9, R0 = 1e9, R1 = -1e9; };
-
-std::vector<MeshPart> Parts(const BchModel& model, size_t mesh)
-{
-    const BchMesh& m = model.Meshes[mesh];
-    std::map<std::tuple<long, long, long>, int> id;
-    std::vector<int> up;
-    std::function<int(int)> find = [&](int a) { return up[a] == a ? a : up[a] = find(up[a]); };
-    std::vector<int> first;
-    for (size_t t = 0; t + 2 < m.Triangles.size(); t += 3)
-    {
-        int f = -1;
-        for (int k = 0; k < 3; k++)
-        {
-            const auto& q = m.Vertices[m.Triangles[t + k]].Position;
-            const auto key = std::make_tuple(std::lround(q[0] * 10), std::lround(q[1] * 10), std::lround(q[2] * 10));
-            auto it = id.find(key);
-            if (it == id.end()) { it = id.emplace(key, (int)up.size()).first; up.push_back((int)up.size()); }
-            if (f < 0) f = it->second; else up[find(it->second)] = find(f);
-        }
-        first.push_back(f);
-    }
-    std::map<int, MeshPart> parts;
-    for (size_t k = 0; k < first.size(); k++)
-    {
-        MeshPart& p = parts[find(first[k])];
-        p.Mesh = mesh;
-        for (int j = 0; j < 3; j++)
-        {
-            const uint32_t i = m.Triangles[k * 3 + j];
-            p.Triangles.push_back(i);
-            p.C0 = std::min(p.C0, Column(m.Vertices[i].Position[0])); p.C1 = std::max(p.C1, Column(m.Vertices[i].Position[0]));
-            p.R0 = std::min(p.R0, Row(m.Vertices[i].Position[2])); p.R1 = std::max(p.R1, Row(m.Vertices[i].Position[2]));
-        }
-    }
-    std::vector<MeshPart> out;
-    for (auto& [k, p] : parts) out.push_back(std::move(p));
-    return out;
-}
-
-void AddPart(Kit& kit, const BchModel& model, const MeshPart& p)
-{
-    auto& [v, tri] = kit.Meshes[p.Mesh];
-    std::map<uint32_t, uint32_t> remap;
-    for (uint32_t i : p.Triangles)
-    {
-        auto it = remap.find(i);
-        if (it == remap.end()) { it = remap.emplace(i, (uint32_t)v.size()).first; v.push_back(model.Meshes[p.Mesh].Vertices[i]); }
-        tri.push_back(it->second);
-    }
-}
-
-// what each Platinum furniture material is in ORAS (the donor's material name it starts with, in order of preference), read
-// from the two games' material names: Platinum's room textures are named as ORAS's are (table01, ref01, sink01, tv01, ...)
-const std::vector<std::pair<std::string, std::vector<std::string>>>& Kinds()
-{
-    static const std::vector<std::pair<std::string, std::vector<std::string>>> kinds = {
-        {"table01", {"table01"}}, {"table_l01", {"desk01", "table01"}}, {"chair01", {"chair01", "cushion"}}, {"chair02", {"chair01", "cushion"}},
-        {"chair04", {"chair01", "cushion"}}, {"cushion01", {"cushion"}}, {"ref01", {"ref01"}}, {"sink01", {"sink01"}}, {"tv01", {"tv01"}},
-        {"game_h01", {"obj1"}}, {"counter_h01", {"shelf02"}}, {"wall01", {"bookshelf01", "shelf01"}}, {"shelf01", {"shelf01", "bookshelf01"}},
-        {"plant01", {"plant01"}}, {"bed_h01", {"bed01"}}, {"d_mat01", {"mat01"}}, {"d_mat04", {"mat01", "mat02"}},
-    };
-    return kinds;
-}
-
-// a Platinum material's furniture kind ("table01_mat" -> "table01", "carpet03_1mat" -> "carpet"); empty: the room's shell
-std::string KindOf(const std::string& material)
-{
-    if (material.rfind("carpet", 0) == 0) return "carpet";
-    if (material.rfind("stair", 0) == 0) return "stairs";
-    std::string stem = material;
-    if (stem.size() > 4 && stem.compare(stem.size() - 4, 4, "_mat") == 0) stem.resize(stem.size() - 4);
-    for (const auto& [kind, oras] : Kinds()) if (kind == stem) return kind;
-    return "";
-}
-
 }
 
 Bytes BuildRoom(const TownLayout& layout, const Bytes& townPiece, const Bytes& donorPiece, const RoomDonor& donor, int stairsC, int stairsR,
@@ -281,7 +200,7 @@ Bytes BuildRoom(const TownLayout& layout, const Bytes& townPiece, const Bytes& d
         for (int r = 0; r < N; r++)
             for (int c = 0; c < N; c++)
                 for (const std::string& m : layout.TileMaterials[r][c])
-                    if (KindOf(m) == "stairs") { c0 = std::min(c0, c); c1 = std::max(c1, c); r0 = std::min(r0, r); r1 = std::max(r1, r); }
+                    if (m.rfind("stair", 0) == 0) { c0 = std::min(c0, c); c1 = std::max(c1, c); r0 = std::min(r0, r); r1 = std::max(r1, r); }
         if (c1 >= 0 && stairsC >= 0)
         {
             const bool up = donor.StairsBox[3] - donor.StairsR > 0.5f && donor.StairsR > donor.StairsBox[2] + 1.5f; // the warp low in the box: going up
@@ -348,100 +267,7 @@ Bytes BuildRoom(const TownLayout& layout, const Bytes& townPiece, const Bytes& d
             if (!inRoom(c + 1, r)) { Place(geo, east, (c + 1 - donor.RightX) * T, (r - donor.RightR) * T, true); walls++; }
         }
 
-    // the furniture: each group of tiles of one kind gets the donor's object of that kind
-    std::vector<MeshPart> parts;
-    for (size_t m = 0; m < model.Meshes.size(); m++) for (MeshPart& p : Parts(model, m)) parts.push_back(std::move(p));
-    std::set<std::string> missing;
-    int placed = 0;
-    std::map<std::string, std::vector<std::vector<bool>>> tilesOf;
-    for (int r = 0; r < N; r++)
-        for (int c = 0; c < N; c++)
-            for (const std::string& m : layout.TileMaterials[r][c])
-            {
-                const std::string kind = KindOf(m);
-                if (kind.empty() || kind == "stairs") continue;
-                auto& t = tilesOf[kind];
-                if (t.empty()) t.assign(N, std::vector<bool>(N, false));
-                t[r][c] = true;
-            }
-    for (auto& [kind, mask] : tilesOf)
-    {
-        // the donor's object: the first mesh named as the kind, its parts gathered into objects (boxes within 0.15 tile), the largest
-        std::vector<std::string> oras = {"carpet01"};
-        for (const auto& [k, o] : Kinds()) if (k == kind) oras = o;
-        int mesh = -1;
-        for (const std::string& want : oras)
-        {
-            for (size_t m = 0; m < model.Meshes.size() && mesh < 0; m++) if (meshName(m).rfind(want, 0) == 0) mesh = (int)m;
-            if (mesh >= 0) break;
-        }
-        if (mesh < 0) { missing.insert(kind); continue; }
-        std::vector<const MeshPart*> own;
-        for (const MeshPart& p : parts) if ((int)p.Mesh == mesh) own.push_back(&p);
-        std::vector<std::vector<const MeshPart*>> objects;
-        for (const MeshPart* p : own)
-        {
-            std::vector<size_t> near;
-            for (size_t o = 0; o < objects.size(); o++)
-                for (const MeshPart* q : objects[o])
-                    if (p->C0 <= q->C1 + 0.15f && q->C0 <= p->C1 + 0.15f && p->R0 <= q->R1 + 0.15f && q->R0 <= p->R1 + 0.15f) { near.push_back(o); break; }
-            if (near.empty()) { objects.push_back({p}); continue; }
-            objects[near[0]].push_back(p);
-            for (size_t k = near.size(); k-- > 1;) { auto& into = objects[near[0]]; into.insert(into.end(), objects[near[k]].begin(), objects[near[k]].end()); objects.erase(objects.begin() + (long)near[k]); }
-        }
-        auto size = [](const std::vector<const MeshPart*>& o) { size_t n = 0; for (const MeshPart* p : o) n += p->Triangles.size(); return n; };
-        const auto& object = *std::max_element(objects.begin(), objects.end(), [&](const auto& a, const auto& b) { return size(a) < size(b); });
-        float oc0 = 1e9, oc1 = -1e9, or0 = 1e9, or1 = -1e9;
-        for (const MeshPart* p : object) { oc0 = std::min(oc0, p->C0); oc1 = std::max(oc1, p->C1); or0 = std::min(or0, p->R0); or1 = std::max(or1, p->R1); }
-        // what stands on it or lies under it: other meshes' parts inside its box (0.2 tile around), the shell's and other kinds' aside
-        Kit kit;
-        for (const MeshPart* p : object) AddPart(kit, model, *p);
-        for (const MeshPart& p : parts)
-        {
-            if ((int)p.Mesh == mesh || Shell(meshName(p.Mesh)) || OnWall(meshName(p.Mesh))) continue;
-            bool otherKind = false;
-            for (const auto& [k, o] : Kinds()) for (const std::string& w : o) if (meshName(p.Mesh).rfind(w, 0) == 0) otherKind = true;
-            if (meshName(p.Mesh).rfind("carpet", 0) == 0) otherKind = true;
-            if (otherKind) continue;
-            if (p.C0 >= oc0 - 0.2f && p.C1 <= oc1 + 0.2f && p.R0 >= or0 - 0.2f && p.R1 <= or1 + 0.2f) AddPart(kit, model, p);
-        }
-
-        // each group of the kind's tiles (4-connected)
-        std::vector<std::vector<bool>> seen(N, std::vector<bool>(N, false));
-        for (int r = 0; r < N; r++)
-            for (int c = 0; c < N; c++)
-            {
-                if (!mask[r][c] || seen[r][c]) continue;
-                int c0 = c, c1 = c, r0 = r, r1 = r;
-                std::vector<std::pair<int, int>> todo = {{c, r}};
-                while (!todo.empty())
-                {
-                    const auto [x, y] = todo.back();
-                    todo.pop_back();
-                    if (x < 0 || y < 0 || x >= N || y >= N || !mask[y][x] || seen[y][x]) continue;
-                    seen[y][x] = true;
-                    c0 = std::min(c0, x); c1 = std::max(c1, x); r0 = std::min(r0, y); r1 = std::max(r1, y);
-                    todo.insert(todo.end(), {{x + 1, y}, {x - 1, y}, {x, y + 1}, {x, y - 1}});
-                }
-                const float gw = (float)(c1 - c0 + 1), gh = (float)(r1 - r0 + 1), gc = c0 + gw / 2, gr = r0 + gh / 2;
-                const float ow = oc1 - oc0, oh = or1 - or0, ocx = (oc0 + oc1) / 2, ocz = (or0 + or1) / 2;
-                bool against = true; // the group's top row against the back wall
-                for (int x = c0; x <= c1; x++) if (inRoom(x, r0 - 1)) against = false;
-                const bool flat = kind == "carpet" || kind.rfind("d_mat", 0) == 0;
-                const bool turn = flat && kind != "carpet" && (gw < gh) != (ow < oh) && std::fabs(gw - gh) > 0.5f;
-                float sx = 1, sz = 1;
-                if (kind == "carpet") { sx = gw / std::max(ow, 0.1f); sz = gh / std::max(oh, 0.1f); }
-                const float depth = turn ? ow : oh;
-                const float tz = against && !flat ? r0 + depth / 2 : gr;
-                Place(geo, kit, X(gc) - X(ocx), Z(tz) - Z(ocz), false, X(ocx), Z(ocz), sx, sz, turn);
-                placed++;
-                snprintf(line, sizeof line, "%s on tiles (%d-%d, %d-%d): %s (donor columns %.2f-%.2f, rows %.2f-%.2f)%s%s", kind.c_str(), c0, c1, r0, r1,
-                         meshName((size_t)mesh).c_str(), oc0, oc1, or0, or1, against && !flat ? ", against the back wall" : "", turn ? ", turned" : "");
-                note(line);
-            }
-    }
-    for (const std::string& k : missing) note("no " + k + " in the donor room (" + model.Name + "): left as floor");
-    snprintf(line, sizeof line, "%d tiles, %d floor tiles, %d wall slices, %d objects, donor %s", tiles, floors, walls, placed, model.Name.c_str());
+    snprintf(line, sizeof line, "%d tiles, %d floor tiles, %d wall slices, no furniture (the owner: walls first), donor %s", tiles, floors, walls, model.Name.c_str());
     note(line);
 
     std::vector<BchGeometry> list;
