@@ -501,37 +501,47 @@ void PathTracerGL::Upload(const Frame& frame) {
                      north[0] * up[1] - north[1] * up[0]};
     Normalise(east);
 
-    // the sun from the game's clock (the emulated 3DS's, as the game reads it for its own day and night: the device's
-    // clock differs when the emulator's clock is set otherwise, and the game then lit its night under a day sun):
-    // rises in the east at 6, crosses the north (behind the scene, as the camera looks) and sets in the west at 18, 55
-    // degrees up at noon; between 18 and 6 the moon, 35 degrees up in the north, dim and blue (pt.html's colours). Over
-    // the north so the shadows fall toward the camera, as the game's painted ones do (its art direction): over the south
-    // the full render's shadows fell behind the houses, out of sight; straight over the north the facades facing the
-    // camera were all in shade, darker than the reference. So its path leans 40 % to the north (9 October)
+    // the sun and the moon from the game's clock (the emulated 3DS's, as the game reads it for its own day and night: the
+    // device's clock differs when the emulator's clock is set otherwise, and the game then lit its night under a day
+    // sun), by the owner's table of 9 October: every 3 hours an azimuth and height, a light colour and power and the
+    // sky's colours at the zenith and the horizon, interpolated between them (the azimuth the short way round). The
+    // azimuth as pt.html counts it: from east (+x) toward the camera (+z), north being the camera's forward direction
     const u64 seconds = Core::System::GetInstance().Kernel().GetSharedPageHandler().GetSystemTimeSince2000() / 1000;
     const float hour = static_cast<float>(seconds % 86400) / 3600.0f;
-    const bool day = hour >= 6.0f && hour < 18.0f;
+    struct Key {
+        float azimuth, height;
+        u32 colour;
+        float power;
+        u32 zenith, horizon;
+    };
+    static constexpr std::array<Key, 8> keys{{
+        {290, 55, 0x9fb4e8, 0.35f, 0x0b1530, 0x1f2d55}, // 00h, the moon high
+        {330, 24, 0x93a6d8, 0.28f, 0x0a1228, 0x24305a}, // 03h, the moon setting
+        {12, 6, 0xffa070, 1.6f, 0x5a78b8, 0xf5b48a},    // 06h, sunrise
+        {48, 36, 0xffe2c0, 2.7f, 0x6fa8ec, 0xe6dcc8},   // 09h, morning
+        {110, 68, 0xfff5e6, 3.2f, 0x5f9ee8, 0xcfe3f7},  // 12h, noon
+        {160, 36, 0xffdaa8, 2.9f, 0x67a3ec, 0xeedcc2},  // 15h, afternoon
+        {198, 10, 0xff9a58, 2.2f, 0x4f66a2, 0xf09c64},  // 18h, sunset
+        {70, 14, 0x8fa2d6, 0.3f, 0x101a3a, 0x3a3a6a},   // 21h, dusk, the moon rising
+    }};
     const float pi = 3.14159265f;
-    float elevation, along;
-    if (day) {
-        along = (hour - 6.0f) / 12.0f;
-        elevation = std::max(4.0f, 55.0f * std::sin(pi * along)) * pi / 180.0f;
-        const float warm = std::clamp(elevation / (30.0f * pi / 180.0f), 0.0f, 1.0f);
-        float low[3], high[3];
-        Srgb(low, 0xff8c48, 2.2f);
-        Srgb(high, 0xfff5e6, 3.0f);
-        for (int k = 0; k < 3; k++) sun_colour[k] = low[k] + (high[k] - low[k]) * warm;
-        Srgb(sky_top, warm > 0.5f ? 0x6aa6ec : 0x4a5f9a, 1.0f);
-        Srgb(sky_horizon, warm > 0.5f ? 0xf2dcc0 : 0xf09a60, 1.0f);
-    } else {
-        along = 0.5f;
-        elevation = 35.0f * pi / 180.0f;
-        Srgb(sun_colour, 0x9db4ff, 0.6f);
-        Srgb(sky_top, 0x1a2440, 1.0f);
-        Srgb(sky_horizon, 0x2a3350, 1.0f);
-    }
+    const std::size_t at = static_cast<std::size_t>(hour / 3.0f) % keys.size();
+    const Key &a = keys[at], &b = keys[(at + 1) % keys.size()];
+    const float f = std::clamp(hour / 3.0f - static_cast<float>(at), 0.0f, 1.0f);
+    float turn = std::fmod(b.azimuth - a.azimuth + 540.0f, 360.0f) - 180.0f; // the short way round
+    const float azimuth = (a.azimuth + turn * f) * pi / 180.0f;
+    const float elevation = (a.height + (b.height - a.height) * f) * pi / 180.0f;
+    const auto blend = [f](float out[3], u32 from, float from_power, u32 to, float to_power) {
+        float x[3], y[3];
+        Srgb(x, from, from_power);
+        Srgb(y, to, to_power);
+        for (int k = 0; k < 3; k++) out[k] = x[k] + (y[k] - x[k]) * f;
+    };
+    blend(sun_colour, a.colour, a.power, b.colour, b.power);
+    blend(sky_top, a.zenith, 1.0f, b.zenith, 1.0f);
+    blend(sky_horizon, a.horizon, 1.0f, b.horizon, 1.0f);
     for (int k = 0; k < 3; k++) {
-        const float horizontal = std::cos(pi * along) * east[k] + 0.4f * std::sin(pi * along) * north[k];
+        const float horizontal = std::cos(azimuth) * east[k] - std::sin(azimuth) * north[k];
         sun[k] = std::cos(elevation) * horizontal + std::sin(elevation) * up[k];
     }
     Normalise(sun);
