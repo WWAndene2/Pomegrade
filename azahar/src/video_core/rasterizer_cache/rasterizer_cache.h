@@ -382,10 +382,23 @@ bool RasterizerCache<T>::AccelerateDisplayTransfer(const Pica::DisplayTransferCo
     };
     runtime.BlitTextures(src_surface, dst_surface, texture_blit);
     // Pomegrade (Remaster): the depth the frame at this address was drawn with, as it is now
-    if (const auto depth = remaster_depth_of_color.find(src_params.addr); depth != remaster_depth_of_color.end()) {
-        remaster_display_source[dst_params.addr] = {depth->second, src_rect};
-    } else {
-        remaster_display_source.erase(dst_params.addr);
+    // (the copy's source may be its own surface lying inside the render target: its rectangle is then taken in the render
+    // target, turned as src_rect was)
+    remaster_display_source.erase(dst_params.addr);
+    for (const auto& [address, target] : remaster_depth_of_color) {
+        if (!target.color.CanSubRect(src_params)) {
+            continue;
+        }
+        Common::Rectangle<u32> rect = target.color.GetScaledSubRect(src_params);
+        if (src_surface.is_tiled != dst_surface.is_tiled) {
+            std::swap(rect.top, rect.bottom);
+        }
+        if (config.flip_vertically) {
+            std::swap(rect.top, rect.bottom);
+        }
+        remaster_display_source[dst_params.addr] = {target.depth, rect, address, target.color.GetScaledWidth(),
+                                                    target.color.GetScaledHeight()};
+        break;
     }
 
     InvalidateRegion(dst_params.addr, dst_params.size, dst_surface_id);
@@ -770,12 +783,29 @@ const typename T::Surface* RasterizerCache<T>::DepthForDisplay(PAddr framebuffer
     if (source == remaster_display_source.end()) {
         return nullptr;
     }
+    if (!source->second.depth) {
+        return nullptr;
+    }
     const Surface& surface = slot_surfaces[source->second.depth];
     if (surface.type != SurfaceType::Depth && surface.type != SurfaceType::DepthStencil) {
         return nullptr;
     }
     rect = source->second.rect;
     return &surface;
+}
+
+template <class T>
+bool RasterizerCache<T>::RemasterDisplay(PAddr framebuffer_addr, Common::Rectangle<u32>& rect, PAddr& target,
+                                         u32& width, u32& height) const {
+    const auto source = remaster_display_source.find(framebuffer_addr);
+    if (source == remaster_display_source.end()) {
+        return false;
+    }
+    rect = source->second.rect;
+    target = source->second.target;
+    width = source->second.width;
+    height = source->second.height;
+    return true;
 }
 
 template <class T>
@@ -843,7 +873,7 @@ FramebufferHelper<T> RasterizerCache<T>::GetFramebufferSurfaces(bool using_color
     Surface* depth_surface = depth_id ? &slot_surfaces[depth_id] : nullptr;
     // Pomegrade (Remaster): the depth this render target is drawn with
     if (color_id && depth_id) {
-        remaster_depth_of_color[color_params.addr] = depth_id;
+        remaster_depth_of_color[color_params.addr] = {slot_surfaces[color_id], depth_id};
     }
 
     if (color_id) {

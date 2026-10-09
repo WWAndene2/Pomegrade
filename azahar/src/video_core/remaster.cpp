@@ -81,7 +81,7 @@ uniform vec4 texel;
 uniform vec4 p0; // grading, ao, sky fill, sky light
 uniform vec4 p1; // outline, glow, aerial, far blur
 uniform vec4 p2; // vibrance, contrast, adaptive contrast, rim
-uniform vec4 p3; // bounce, contact shadow, 0, 0
+uniform vec4 p3; // bounce, contact shadow, traced light (gl_pathtracer.h), 0
 vec3 Frame(vec2 p) {
     return texture(frame, vec2(mix(cr.x, cr.y, p.x), mix(cr.z, cr.w, p.y))).rgb;
 }
@@ -207,15 +207,34 @@ void main() {
 
     // two-tone light: a cool lavender shade with a cool lift (shade shows on saturated green), a warm sun
     vec3 shade = vec3(0.86, 0.84, 1.0), sun = vec3(1.05, 1.0, 0.93);
-    c = mix(c, c * mix(shade, sun, step_) + vec3(0.012, 0.016, 0.034) * (1.0 - step_), p0.x);
-    // the light pass (occlusion and contact shadows), v9's way: strong in the shade, weak in the sun
-    c *= 1.0 - (1.0 - pow(ao, 1.3)) * (0.55 - 0.4 * step_);
-    // coloured bounce, stronger in the shade (compose.py: 1 + 0.3 (tint - 1)(1 - 0.5 step))
-    c *= 1.0 + 0.3 * (tint - 1.0) * (1.0 - 0.5 * step_) * p3.x;
+    if (p3.z > 0.5) {
+        // the path-traced light (gl_pathtracer.h): a white surface's light, open ground in the sun 1, laid out as the
+        // depth; composed as compose.py does, in linear light
+        vec4 traced = texture(light, vec2(mix(dr.x, dr.y, p.x), mix(dr.z, dr.w, p.y)));
+        float l = Luma(traced.rgb);
+        step_ = smoothstep(0.60, 0.78, l);
+        vec3 tone = mix(vec3(0.55, 0.57, 0.68), vec3(1.04, 1.0, 0.94), step_);
+        tone *= 0.8 + 0.2 * smoothstep(0.1, 0.45, l);                // deep corners a little darker, never black
+        tone *= 1.0 - (1.0 - pow(traced.a, 1.3)) * (0.55 - 0.4 * step_); // traced occlusion
+        vec3 tint = clamp(traced.rgb / max(l, 0.03), 0.6, 1.6);       // the bounce's colour
+        tone *= 1.0 + 0.3 * (tint - 1.0) * (1.0 - 0.5 * step_);
+        vec3 base = pow(c, vec3(2.2));
+        float bl = Luma(base);
+        vec3 lin = base * tone + (vec3(0.012, 0.02, 0.07) * (1.0 - step_) + vec3(0.03, 0.015, 0.0) * step_) * (0.4 + bl);
+        lin += vec3(0.010, 0.018, 0.045) * traced.a * (1.0 - step_) * (0.4 + bl); // sky fill
+        c = pow(max(lin, 0.0), vec3(1.0 / 2.2));
+        ao = 1.0; // applied
+    } else {
+        c = mix(c, c * mix(shade, sun, step_) + vec3(0.012, 0.016, 0.034) * (1.0 - step_), p0.x);
+        // the light pass (occlusion and contact shadows), v9's way: strong in the shade, weak in the sun
+        c *= 1.0 - (1.0 - pow(ao, 1.3)) * (0.55 - 0.4 * step_);
+        // coloured bounce, stronger in the shade (compose.py: 1 + 0.3 (tint - 1)(1 - 0.5 step))
+        c *= 1.0 + 0.3 * (tint - 1.0) * (1.0 - 0.5 * step_) * p3.x;
+    }
     // warm rim on the silhouettes facing the sun (layers.py's colour and weight)
     c += rim * vec3(0.28, 0.2, 0.1) * (0.3 + Luma(c)) * p2.w;
-    // v9's sky fill in the open shade, and the sky's light on surfaces facing up
-    c += vec3(0.010, 0.018, 0.045) * (1.0 - step_) * ao * p0.z;
+    // v9's sky fill in the open shade (the traced light's own above), and the sky's light on surfaces facing up
+    c += vec3(0.010, 0.018, 0.045) * (1.0 - step_) * ao * p0.z * (1.0 - p3.z);
     c += vec3(0.03, 0.045, 0.07) * up * p0.w;
     // contours on depth breaks
     c *= 1.0 - 0.35 * edge * p1.x;

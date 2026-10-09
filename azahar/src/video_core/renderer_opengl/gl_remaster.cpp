@@ -7,6 +7,7 @@
 #include <tuple>
 #include "video_core/pica/regs_lcd.h"
 #include "video_core/remaster.h"
+#include "video_core/renderer_opengl/gl_pathtracer.h"
 #include "video_core/renderer_opengl/gl_remaster.h"
 #include "video_core/renderer_opengl/gl_state.h"
 #include "video_core/renderer_opengl/renderer_opengl.h"
@@ -79,7 +80,7 @@ void RemasterGL::Pass(const OGLProgram& program, GLuint fbo, u32 w, u32 h) {
     glDrawArrays(GL_TRIANGLES, 0, 3);
 }
 
-void RemasterGL::Apply(ScreenInfo& screen_info) {
+void RemasterGL::Apply(ScreenInfo& screen_info, PathTracerGL& tracer) {
     const RM::Params p = RM::Current();
     if (!p.enabled || screen_info.display_width == 0 || screen_info.display_height == 0) {
         return;
@@ -94,6 +95,14 @@ void RemasterGL::Apply(ScreenInfo& screen_info) {
         Resize(screen_info.display_width, screen_info.display_height);
         saved.Apply();
     }
+    // the frame's light, path-traced when the preset asks it (before this pass's state is set: it keeps its own)
+    const PathTracerGL::Result traced_frame = PathTracerGL::Enabled()
+                                                  ? tracer.Trace(screen_info, screen_info.display_texture)
+                                                  : PathTracerGL::Result{};
+    const GLuint traced = traced_frame.light;
+    // a traced frame's depth is the path tracer's own G-buffer (the game's may be drawn over by then: ORAS draws both
+    // screens with one depth buffer)
+    const GLuint depth_texture = traced != 0 ? traced_frame.distance : screen_info.depth_texture;
     const OpenGLState saved = OpenGLState::GetCurState();
     OpenGLState state = saved;
     state.blend.enabled = false;
@@ -108,7 +117,7 @@ void RemasterGL::Apply(ScreenInfo& screen_info) {
             .texture_2d = texture, .target = GL_TEXTURE_2D, .sampler = sampler};
     };
     state.texture_units[0] = unit(screen_info.display_texture, linear.handle);
-    state.texture_units[1] = unit(screen_info.depth_texture, nearest.handle);
+    state.texture_units[1] = unit(depth_texture, nearest.handle);
     state.texture_units[2] = unit(stats.handle, mipmapped.handle);
     // OpenGLState tracks 3 texture units: the highlights go on the colour buffer's unit, 7, their
     // sampler bound there for these passes only
@@ -119,14 +128,14 @@ void RemasterGL::Apply(ScreenInfo& screen_info) {
     // the frame's rectangle as DrawSingleScreen reads it: u along display_texcoords' top -> bottom, v along left -> right
     const auto& tc = screen_info.display_texcoords;
     const float cr[4] = {tc.top, tc.bottom, tc.left, tc.right};
-    const auto& d = screen_info.depth_rect;
+    const auto& d = traced != 0 ? screen_info.target_rect : screen_info.depth_rect;
     const float stats_level = static_cast<float>(Levels(StatsSize, StatsSize) - 1);
     const float texel[4] = {1.0f / static_cast<float>(width), 1.0f / static_cast<float>(height),
-                            screen_info.depth_texture != 0 ? 1.0f : 0.0f, stats_level};
+                            depth_texture != 0 ? 1.0f : 0.0f, stats_level};
     const float p0[4] = {p.grading, p.ao, p.sky_fill, p.sky_light};
     const float p1[4] = {p.outline, p.glow, p.aerial, p.far_blur};
     const float p2[4] = {p.vibrance, p.contrast, p.adaptive_contrast ? 1.0f : 0.0f, p.rim};
-    const float p3[4] = {p.bounce, p.contact_shadow, 0.0f, 0.0f};
+    const float p3[4] = {p.bounce, p.contact_shadow, traced != 0 ? 1.0f : 0.0f, 0.0f};
     // glProgramUniform: no glUseProgram behind the tracked state's back
     for (const OGLProgram* program : {&stats_program, &bright_program, &light_program, &main_program}) {
         const GLuint h = program->handle;
@@ -146,10 +155,12 @@ void RemasterGL::Apply(ScreenInfo& screen_info) {
         glGenerateMipmap(GL_TEXTURE_2D);
     }
     glActiveTexture(GL_TEXTURE0);
-    Pass(light_program, light_fbo.handle, std::max<u32>(1, width / 2), std::max<u32>(1, height / 2));
+    if (traced == 0) {
+        Pass(light_program, light_fbo.handle, std::max<u32>(1, width / 2), std::max<u32>(1, height / 2));
+    }
     // the light on unit 8, which OpenGLState does not use (it tracks 0-7): bound for the main pass only
     glActiveTexture(GL_TEXTURE8);
-    glBindTexture(GL_TEXTURE_2D, light.handle);
+    glBindTexture(GL_TEXTURE_2D, traced != 0 ? traced : light.handle);
     glBindSampler(8, linear.handle);
     Pass(main_program, result_fbo.handle, width, height);
     glActiveTexture(GL_TEXTURE8);

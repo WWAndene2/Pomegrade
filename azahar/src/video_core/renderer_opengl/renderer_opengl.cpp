@@ -79,6 +79,7 @@ RendererOpenGL::RendererOpenGL(Core::System& system, Pica::PicaCore& pica_,
     : VideoCore::RendererBase{system, window, secondary_window}, pica{pica_},
       rasterizer{system.Memory(), pica, system.CustomTexManager(), *this, driver},
       frame_dumper{system, window} {
+    rasterizer.SetPathTracer(&path_tracer);
     const bool has_debug_tool = driver.HasDebugTool();
     window.mailbox = std::make_unique<OGLTextureMailbox>(has_debug_tool);
     if (secondary_window) {
@@ -295,7 +296,7 @@ void RendererOpenGL::PrepareRendertarget() {
         LoadFBToScreenInfo(framebuffer, screen_infos[i], i == 1, color_fill);
         // Pomegrade: Remaster on the top screen's frames (VideoCore::Remaster)
         if (i < 2) {
-            remasters[i].Apply(screen_infos[i]);
+            remasters[i].Apply(screen_infos[i], path_tracer);
         }
     }
 }

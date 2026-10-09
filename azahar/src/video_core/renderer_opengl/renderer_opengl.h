@@ -10,6 +10,7 @@
 #include "video_core/renderer_opengl/frame_dumper_opengl.h"
 #include "video_core/renderer_opengl/gl_driver.h"
 #include "video_core/renderer_opengl/gl_frame_generation.h"
+#include "video_core/renderer_opengl/gl_pathtracer.h"
 #include "video_core/renderer_opengl/gl_remaster.h"
 #include "video_core/renderer_opengl/gl_rasterizer.h"
 #include "video_core/renderer_opengl/gl_resource_manager.h"
@@ -45,6 +46,11 @@ struct ScreenInfo {
     u32 display_width = 0, display_height = 0;
     GLuint depth_texture = 0;
     std::array<float, 4> depth_rect{};
+    // Pomegrade (path tracer): the address shown, and the render target it was copied from (its scaled size, 0 when
+    // unknown) with the frame's rectangle in it, as depth_rect runs
+    PAddr display_address = 0;
+    u32 target_width = 0, target_height = 0;
+    std::array<float, 4> target_rect{};
 };
 
 class RendererOpenGL : public VideoCore::RendererBase {
@@ -108,6 +114,7 @@ private:
     u64 frame_serial = 0;
     bool half_shown = false;
     std::array<FrameGeneratorGL, 2> frame_generators;
+    PathTracerGL path_tracer;           ///< Pomegrade: the scene's light, traced (gl_pathtracer.h)
     std::array<RemasterGL, 2> remasters; ///< Pomegrade: the top screen's left and right eye
 
     // Display information for top and bottom screens respectively
