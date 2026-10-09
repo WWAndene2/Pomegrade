@@ -1097,16 +1097,6 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     IntSetting.REMASTER_PRESET.defaultValue
                 )
             )
-            add(
-                SingleChoiceSetting(
-                    IntSetting.REMASTER_SUN_HOUR,
-                    R.string.pomegrade_remaster_sun,
-                    R.string.pomegrade_remaster_sun_description,
-                    R.array.pomegradeRemasterSunNames,
-                    R.array.pomegradeRemasterSunValues,
-                    IntSetting.REMASTER_SUN_HOUR.key,
-                    IntSetting.REMASTER_SUN_HOUR.defaultValue
-                )
             )
             add(
                 SwitchSetting(

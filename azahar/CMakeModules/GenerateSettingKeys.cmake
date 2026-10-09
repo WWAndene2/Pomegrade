@@ -58,7 +58,6 @@ foreach(KEY IN ITEMS
     "rich_colours"
     "deep_black"
     "remaster_preset"
-    "remaster_sun_hour"
     "remaster_ao"
     "remaster_grading"
     "remaster_vibrance"

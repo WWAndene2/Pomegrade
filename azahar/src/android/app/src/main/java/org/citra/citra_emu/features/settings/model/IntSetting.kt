@@ -22,7 +22,6 @@ enum class IntSetting(
     // Pomegrade: images shown per second (0 30, 1 60, 2 60 with generated images, 3 120, 4 240, 5 adaptive)
     FRAME_RATE_MODE(SettingKeys.frame_rate_mode(), Settings.SECTION_RENDERER, 1),
     REMASTER_PRESET(SettingKeys.remaster_preset(), Settings.SECTION_RENDERER, 0),
-    REMASTER_SUN_HOUR(SettingKeys.remaster_sun_hour(), Settings.SECTION_RENDERER, 0),
     STEREOSCOPIC_3D_MODE(SettingKeys.render_3d(), Settings.SECTION_RENDERER, 2),
     STEREOSCOPIC_3D_DEPTH(SettingKeys.factor_3d(), Settings.SECTION_RENDERER, 0),
     STEPS_PER_HOUR(SettingKeys.steps_per_hour(), Settings.SECTION_SYSTEM, 0),

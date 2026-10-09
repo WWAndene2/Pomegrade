@@ -515,12 +515,7 @@ void PathTracerGL::Upload(const Frame& frame) {
     // sky's colours at the zenith and the horizon, interpolated between them (the azimuth the short way round). The
     // azimuth as pt.html counts it: from east (+x) toward the camera (+z), north being the camera's forward direction
     const u64 seconds = Core::System::GetInstance().Kernel().GetSharedPageHandler().GetSystemTimeSince2000() / 1000;
-    // a fixed hour of the table when the setting asks one (Settings::values.remaster_sun_hour 1-8: 00h ... 21h)
-    const u32 preset_hour = Settings::values.remaster_sun_hour.GetValue();
-    const float hour = test_hour >= 0.0f ? std::fmod(test_hour, 24.0f)
-                       : preset_hour >= 1 && preset_hour <= 8
-                           ? static_cast<float>((preset_hour - 1) * 3)
-                           : static_cast<float>(seconds % 86400) / 3600.0f;
+    const float hour = test_hour >= 0.0f ? std::fmod(test_hour, 24.0f) : static_cast<float>(seconds % 86400) / 3600.0f;
     struct Key {
         float azimuth, height;
         u32 colour;

@@ -1144,9 +1144,6 @@
     <string name="pomegrade_remaster_v7">v7 preset</string>
     <string name="pomegrade_remaster_v9">v9 preset</string>
     <string name="pomegrade_remaster_custom">Custom</string>
-    <string name="pomegrade_remaster_sun">Sun (path tracing)</string>
-    <string name="pomegrade_remaster_sun_description">Where the v9 path tracer puts the sun and the moon: following the game\'s clock, or fixed at an hour</string>
-    <string name="pomegrade_remaster_sun_auto">Game clock</string>
     <string name="pomegrade_remaster_ao">Remaster: ambient occlusion</string>
     <string name="pomegrade_remaster_ao_description">Shade in creases and corners, from the depth of the scene (strong in the shade, weak in the sun) (custom preset)</string>
     <string name="pomegrade_remaster_grading">Remaster: two-tone light</string>

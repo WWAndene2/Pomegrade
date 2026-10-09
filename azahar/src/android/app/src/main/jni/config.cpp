@@ -162,7 +162,6 @@ void Config::ReadValues() {
     ReadSetting("Renderer", Settings::values.rich_colours);
     ReadSetting("Renderer", Settings::values.deep_black);
     ReadSetting("Renderer", Settings::values.remaster_preset);
-    ReadSetting("Renderer", Settings::values.remaster_sun_hour);
     ReadSetting("Renderer", Settings::values.remaster_ao);
     ReadSetting("Renderer", Settings::values.remaster_grading);
     ReadSetting("Renderer", Settings::values.remaster_vibrance);
