@@ -136,3 +136,10 @@ blades. A thin bright line along the top was found and fixed (the main pass now 
 glass class is recognised on some textures (two 128 x 64 textures two-thirds glass), but these houses' windows are
 painted opaque blue and show no room, as in the reference. Still differing from the reference: its resolution (1920 x
 1080) and its wide camera; not tested on a phone.
+
+Measured against the reference (Littleroot 15h, same view; luminance, saturation, share of shade, shade over sun in R, G,
+B): reference 0.367, 0.59, 33 %, 0.34 0.43 0.50; base game 0.497, 0.66, 19 %, 0.48 0.54 0.57; v9 with the path
+tracer 0.472, 0.70, 23 %, 0.47 0.43 0.74. The shade's green matches; it stays bluer and its red lighter than the
+reference's (cause not found: the bounce tint at 30 % and the sky light left out over the traced light changed nothing
+measurable). Sun presets (Settings remaster_sun_hour: game clock, or 00h ... 21h) choose the table's hour. The Android
+build of main with them succeeded (GitHub Actions, run 117).
