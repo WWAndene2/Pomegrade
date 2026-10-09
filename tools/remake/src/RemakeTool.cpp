@@ -45,13 +45,16 @@
 //                     ORAS's own assets, as an Azahar mod (BPS patches), with town_preview.gltf, town_layout.txt and
 //                     town_piece.bin (the piece the mod writes, decompressed)
 //   remake_tool oras-code <oras.3ds> <out.bin>   the game's ExeFS .code, decompressed (ARM, loaded at 0x100000)
-//   remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--auto-zones] [--others-out] [--no-triggers] [--no-characters] [--plan] [--matrix-template M]
+//   remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--auto-zones] [--others-out] [--no-triggers] [--no-characters] [--new-zones [--name H:TEXT]...] [--header H] [--plan] [--matrix-template M]
 //                     [--model-matrix NN] [oras-town's kit options]
 //                     a rectangle of Sinnoh's piece grid (as oras-world cuts it) rebuilt as a new ORAS map matrix: its pieces built
 //                     as oras-town builds one, the zone grid from Platinum's map headers, each header on the ORAS zone given
 //                     (-1: left out); --plan prints the rectangle's headers and builds nothing. Writes the mod, region_preview.gltf,
 //                     region_plan.txt and region_piece_<x>_<y>.bin
 //   remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt>
+//   remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>
+//                     several sandboxes and regions in one mod, each step's zones, matrices, pieces and area packs numbered after
+//                     the ones before it (OrasWorkspace.h): one line a step, "sandbox <description file>" or "region <options>"
 //   remake_tool oras-save <main> [<out> <zone> <tile x> <tile z> [--template <save> [--blocks A,B,...]]
 //                     where an ORAS save puts the player (OrasSave.h); with the rest, a copy with the player moved there
 //   remake_tool oras-sinnoh <platinum.nds> <oras.3ds> [strip width, default 5]
@@ -99,6 +102,7 @@
 #include "OrasMeasure.h"
 #include "TopView.h"
 #include "OrasAppend.h"
+#include "OrasWorkspace.h"
 #include "OrasEngine.h"
 #include "OrasRegion.h"
 #include "OrasSandbox.h"
@@ -150,6 +154,7 @@ static int Usage()
                     "  remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--plan]\n"
                     "  remake_tool oras-sinnoh <platinum.nds> <oras.3ds> [strip width]\n"
                     "  remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt>\n"
+                    "  remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>\n"
                     "  remake_tool oras-save <main> [<out> <zone> <tile x> <tile z> [--template <save> [--blocks A,B,...]]\n"
                     "                    [--matrix-template M] [--model-matrix NN] [oras-town's --matrix, --target, --donor, --trees, --donor-pack, --grass, ... --allow-errors]\n");
     return 2;
@@ -239,6 +244,53 @@ static bool TownKitOption(const std::string& flag, int argc, char** argv, int& i
     else if (flag == "--allow-errors") options.AllowErrors = true;
     else return false;
     return true;
+}
+
+// oras-region's options, from argv[first] on (oras-region's command line, or a "region" line of an oras-build steps file)
+static void ParseRegionOptions(int argc, char** argv, int first, OrasRegionOptions& options)
+{
+    for (int i = first; i < argc; i++)
+    {
+        const std::string flag = argv[i];
+        auto number = [&](int at) { if (at >= argc) throw FormatError("missing a number after " + flag); return OptionNumber(argv[at], flag); };
+        if (TownKitOption(flag, argc, argv, i, options.Town)) continue;
+        if (flag == "--rect") { options.Left = number(++i); options.Top = number(++i); options.Width = number(++i); options.Height = number(++i); }
+        else if (flag == "--zone")
+        {
+            if (++i >= argc) throw FormatError("missing <map header>:<ORAS zone> after --zone");
+            const std::string pair = argv[i];
+            const size_t colon = pair.find(':');
+            if (colon == std::string::npos) throw FormatError("--zone takes <map header>:<ORAS zone or -1>, not " + pair);
+            options.Zones[atoi(pair.substr(0, colon).c_str())] = atoi(pair.substr(colon + 1).c_str());
+        }
+        else if (flag == "--matrix-template") options.MatrixTemplate = (size_t)number(++i);
+        else if (flag == "--model-matrix") options.ModelMatrix = number(++i);
+        else if (flag == "--plan") options.PlanOnly = true;
+        else if (flag == "--others-out") options.OthersOut = true;
+        else if (flag == "--solid-piece-tiles") options.SolidPieceTiles = (uint32_t)number(++i);
+        else if (flag == "--skip-solid-pieces") options.SkipSolidPieces = true;
+        else if (flag == "--tile-replace" && i + 1 < argc)
+        {
+            const std::string pair = argv[++i];
+            const size_t colon = pair.find(':');
+            if (colon == std::string::npos) throw FormatError("--tile-replace FROM:TO, got " + pair);
+            options.TileReplace.push_back({(uint32_t)OptionNumber(pair.substr(0, colon).c_str(), flag), (uint32_t)OptionNumber(pair.substr(colon + 1).c_str(), flag)});
+        }
+        else if (flag == "--auto-zones") options.AutoZones = true;
+        else if (flag == "--no-triggers") options.NoTriggers = true;
+        else if (flag == "--no-characters") options.NoCharacters = true;
+        else if (flag == "--new-zones") options.NewZones = true;
+        else if (flag == "--header") options.Header = number(++i);
+        else if (flag == "--name")
+        {
+            if (++i >= argc) throw FormatError("missing <map header>:<name> after --name");
+            const std::string pair = argv[i];
+            const size_t colon = pair.find(':');
+            if (colon == std::string::npos) throw FormatError("--name takes <map header>:<name>, not " + pair);
+            options.Names[atoi(pair.substr(0, colon).c_str())] = pair.substr(colon + 1);
+        }
+        else throw FormatError("oras-region: unknown option " + flag);
+    }
 }
 
 int main(int argc, char** argv)
@@ -609,42 +661,65 @@ int main(int argc, char** argv)
         {
             OrasRegionOptions options;
             options.OutDir = argv[4];
-            for (int i = 5; i < argc; i++)
-            {
-                const std::string flag = argv[i];
-                auto number = [&](int at) { if (at >= argc) throw FormatError("missing a number after " + flag); return OptionNumber(argv[at], flag); };
-                if (TownKitOption(flag, argc, argv, i, options.Town)) continue;
-                if (flag == "--rect") { options.Left = number(++i); options.Top = number(++i); options.Width = number(++i); options.Height = number(++i); }
-                else if (flag == "--zone")
-                {
-                    if (++i >= argc) throw FormatError("missing <map header>:<ORAS zone> after --zone");
-                    const std::string pair = argv[i];
-                    const size_t colon = pair.find(':');
-                    if (colon == std::string::npos) throw FormatError("--zone takes <map header>:<ORAS zone or -1>, not " + pair);
-                    options.Zones[atoi(pair.substr(0, colon).c_str())] = atoi(pair.substr(colon + 1).c_str());
-                }
-                else if (flag == "--matrix-template") options.MatrixTemplate = (size_t)number(++i);
-                else if (flag == "--model-matrix") options.ModelMatrix = number(++i);
-                else if (flag == "--plan") options.PlanOnly = true;
-                else if (flag == "--others-out") options.OthersOut = true;
-                else if (flag == "--solid-piece-tiles") options.SolidPieceTiles = (uint32_t)number(++i);
-                else if (flag == "--skip-solid-pieces") options.SkipSolidPieces = true;
-                else if (flag == "--tile-replace" && i + 1 < argc)
-                {
-                    const std::string pair = argv[++i];
-                    const size_t colon = pair.find(':');
-                    if (colon == std::string::npos) throw FormatError("--tile-replace FROM:TO, got " + pair);
-                    options.TileReplace.push_back({(uint32_t)OptionNumber(pair.substr(0, colon).c_str(), flag), (uint32_t)OptionNumber(pair.substr(colon + 1).c_str(), flag)});
-                }
-                else if (flag == "--auto-zones") options.AutoZones = true;
-                else if (flag == "--no-triggers") options.NoTriggers = true;
-                else if (flag == "--no-characters") options.NoCharacters = true;
-                else { fprintf(stderr, "unknown option %s\n", flag.c_str()); return 2; }
-            }
+            ParseRegionOptions(argc, argv, 5, options);
             const NdsRom platinum(ReadFile(argv[2]));
             N3dsRom oras(argv[3]);
-            for (const std::string& line : BuildOrasRegion(platinum, oras, options)) printf("%s%s", line.c_str(), !line.empty() && line.back() == '\n' ? "" : "\n");
-            if (!options.PlanOnly) printf("mod written under %s: copy its load folder into the 3DS folder (Pomegrade/3DS)\n", options.OutDir.c_str());
+            OrasWorkspace ws(oras);
+            for (const std::string& line : BuildOrasRegion(platinum, ws, options)) printf("%s%s", line.c_str(), !line.empty() && line.back() == '\n' ? "" : "\n");
+            if (options.PlanOnly) return 0;
+            for (const std::string& line : ws.LinkWarps()) printf("%s\n", line.c_str());
+            for (const std::string& line : ws.Write(options.OutDir)) printf("%s\n", line.c_str());
+            printf("mod written under %s: copy its load folder into the 3DS folder (Pomegrade/3DS)\n", options.OutDir.c_str());
+            return 0;
+        }
+        if (cmd == "oras-build" && argc == 6)
+        {
+            // several steps in one build (OrasWorkspace.h, SINNOH_BUILD.md R3), one a line of the steps file ('#' a comment):
+            // "sandbox <description file>" or "region <oras-region options>"; each step's numbers (zones, matrices, pieces, area
+            // packs, texts) follow the ones the steps before it took, and the whole is one mod
+            N3dsRom oras(argv[3]);
+            OrasWorkspace ws(oras);
+            std::unique_ptr<NdsRom> platinum;
+            const Bytes stepsText = ReadFile(argv[5]);
+            std::istringstream steps(std::string(stepsText.begin(), stepsText.end()));
+            int number = 0;
+            for (std::string row; std::getline(steps, row);)
+            {
+                number++;
+                row = row.substr(0, row.find('#'));
+                std::istringstream words(row);
+                std::vector<std::string> w;
+                for (std::string x; words >> x;) w.push_back(x);
+                if (w.empty()) continue;
+                printf("step %d: %s\n", number, row.c_str());
+                if (w[0] == "sandbox" && w.size() == 2)
+                {
+                    // a relative description path is the steps file's neighbour (tools/remake/sandbox/)
+                    std::filesystem::path file(w[1]);
+                    if (file.is_relative()) file = std::filesystem::path(argv[5]).parent_path() / file;
+                    w[1] = file.string();
+                    const Bytes text = ReadFile(w[1]);
+                    const std::filesystem::path names = std::filesystem::path(w[1]).parent_path() / ".." / "ghidra" / "function_names.tsv";
+                    const auto check = std::filesystem::exists(names) ? AmxNativeCheck(names.string(), 0x243) : std::function<std::string(const std::string&)>{};
+                    for (const std::string& line : BuildOrasSandbox(ws, std::string(text.begin(), text.end()), argv[4], check)) printf("  %s\n", line.c_str());
+                }
+                else if (w[0] == "region")
+                {
+                    if (std::string(argv[2]) == "-") throw FormatError("steps file line " + std::to_string(number) + ": a region needs Platinum");
+                    if (!platinum) platinum = std::make_unique<NdsRom>(ReadFile(argv[2]));
+                    std::vector<char*> args{argv[0]};
+                    for (std::string& x : w) args.push_back(x.data());
+                    OrasRegionOptions options;
+                    options.OutDir = argv[4];
+                    ParseRegionOptions((int)args.size(), args.data(), 2, options);
+                    if (options.PlanOnly) throw FormatError("steps file line " + std::to_string(number) + ": --plan builds nothing");
+                    for (const std::string& line : BuildOrasRegion(*platinum, ws, options)) printf("  %s%s", line.c_str(), !line.empty() && line.back() == '\n' ? "" : "\n");
+                }
+                else throw FormatError("steps file line " + std::to_string(number) + ": \"sandbox <file>\" or \"region <options>\"");
+            }
+            for (const std::string& line : ws.LinkWarps()) printf("%s\n", line.c_str());
+            for (const std::string& line : ws.Write(argv[4])) printf("%s\n", line.c_str());
+            printf("mod written under %s: copy its load folder into the 3DS folder (Pomegrade/3DS)\n", argv[4]);
             return 0;
         }
         // decrypted 3DS game images
@@ -1176,7 +1251,9 @@ int main(int argc, char** argv)
             // (tools/remake/ghidra/function_names.tsv for tools/remake/sandbox/<file>)
             const std::filesystem::path names = std::filesystem::path(argv[4]).parent_path() / ".." / "ghidra" / "function_names.tsv";
             const auto check = std::filesystem::exists(names) ? AmxNativeCheck(names.string(), 0x243) : std::function<std::string(const std::string&)>{};
-            for (const std::string& line : BuildOrasSandbox(oras, std::string(text.begin(), text.end()), argv[3], check)) printf("%s\n", line.c_str());
+            OrasWorkspace ws(oras);
+            for (const std::string& line : BuildOrasSandbox(ws, std::string(text.begin(), text.end()), argv[3], check)) printf("%s\n", line.c_str());
+            for (const std::string& line : ws.Write(argv[3])) printf("%s\n", line.c_str());
             return 0;
         }
         if (cmd == "oras-save" && argc >= 3)

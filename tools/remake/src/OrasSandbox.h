@@ -9,7 +9,8 @@
 //
 // The description, one statement a line ('#' starts a comment). Each zone opens with its number and is followed by its own
 // statements; then the map, shared by the zones:
-//   zone N            a zone: the next free member of a/0/1/3 (538 on the game's archive), the next ones one after the other
+//   zone [N]          a zone: the next free member of a/0/1/3 as the build stands (538 on the game's archive, after the zones of
+//                     earlier steps in an oras-build), the next ones one after the other; N, when given, must be that number
 //   pack P            the first zone: the area pack (a/0/1/4 member) whose textures every zone's pieces draw from (8: Littleroot's).
 //                     The zones are written from nothing (OrasNewZone.h: every header word, entry and script), no game zone copied
 //   music N           optional: the track (header word 4; 5 Littleroot's, the default)
@@ -61,7 +62,7 @@
 // A save moved into a zone (oras-save) shows none of its characters: a continued save restores them from its own block 10,
 // which oras-save empties on a zone change (ORAS_ENGINE.md 0); walking in from another zone loads them from the zone's file.
 
-#include "N3dsRom.h"
+#include "OrasWorkspace.h"
 
 #include <functional>
 #include <string>
@@ -70,10 +71,10 @@
 namespace remake
 {
 
-// writes <outDir>/load/mods/<program>/romfs_ext/{a/0/3/9,a/0/4/0,a/0/1/3,a/0/1/4}.bps and sandbox_layout.txt; returns what it
-// did, line by line. Throws FormatError on a description it cannot build. `checkNative` (AmxNativeCheck) checks the natives
-// of the zones' own scripts; without it a description holding scripts is refused
-std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& description, const std::string& outDir,
+// adds the described zones to the build's archives (OrasWorkspace.h: OrasWorkspace::Write then writes the mod) and writes
+// <outDir>/sandbox_layout.txt; returns what it did, line by line. Throws FormatError on a description it cannot build.
+// `checkNative` (AmxNativeCheck) checks the natives of the zones' scripts; without it nothing is built
+std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& description, const std::string& outDir,
                                           const std::function<std::string(const std::string&)>& checkNative = {});
 
 }

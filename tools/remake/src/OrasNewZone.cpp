@@ -60,6 +60,12 @@ static ZoneDoor Warp(int toZone, int toWarp, uint16_t kind, int pixelX, int pixe
 
 ZoneDoor NewDoorWarp(int toZone, int toWarp, int tileX, int tileZ) { return Warp(toZone, toWarp, 0x0301, tileX * 18 + 9, tileZ * 18 + 9, 1, 1); }
 ZoneDoor NewExitWarp(int toZone, int toWarp, int pixelX, int pixelZ) { return Warp(toZone, toWarp, 0x0200, pixelX, pixelZ, 3, 1); }
+ZoneDoor NewStairsWarp(int toZone, int toWarp, int tileX, int tileZ)
+{
+    ZoneDoor w = Warp(toZone, toWarp, 0x0501, tileX * 18 + 9, tileZ * 18 + 9, 2, 1);
+    w.Raw[5] = 9;
+    return w;
+}
 
 const char* const EmptyZoneScript =
     "; a zone script that does nothing (OrasNewZone.h)\n"
