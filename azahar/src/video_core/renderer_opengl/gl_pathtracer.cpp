@@ -511,7 +511,7 @@ void PathTracerGL::Upload(const Frame& frame) {
 
     // the sun and the moon from the game's clock (the emulated 3DS's, as the game reads it for its own day and night: the
     // device's clock differs when the emulator's clock is set otherwise, and the game then lit its night under a day
-    // sun), by the owner's table of 9 October: every 3 hours an azimuth and height, a light colour and power and the
+    // sun), by the owner's table of 9 October (azimuths and heights revised the same day): every 3 hours an azimuth and height, a light colour and power and the
     // sky's colours at the zenith and the horizon, interpolated between them (the azimuth the short way round). The
     // azimuth as pt.html counts it: from east (+x) toward the camera (+z), north being the camera's forward direction
     const u64 seconds = Core::System::GetInstance().Kernel().GetSharedPageHandler().GetSystemTimeSince2000() / 1000;
@@ -523,14 +523,14 @@ void PathTracerGL::Upload(const Frame& frame) {
         u32 zenith, horizon;
     };
     static constexpr std::array<Key, 8> keys{{
-        {290, 55, 0x9fb4e8, 0.35f, 0x0b1530, 0x1f2d55}, // 00h, the moon high
-        {330, 24, 0x93a6d8, 0.28f, 0x0a1228, 0x24305a}, // 03h, the moon setting
-        {12, 6, 0xffa070, 1.6f, 0x5a78b8, 0xf5b48a},    // 06h, sunrise
+        {90, 55, 0x9fb4e8, 0.35f, 0x0b1530, 0x1f2d55}, // 00h, the moon high
+        {150, 24, 0x93a6d8, 0.28f, 0x0a1228, 0x24305a}, // 03h, the moon setting
+        {12, 12, 0xffa070, 1.6f, 0x5a78b8, 0xf5b48a},    // 06h, sunrise
         {48, 36, 0xffe2c0, 2.7f, 0x6fa8ec, 0xe6dcc8},   // 09h, morning
         {110, 68, 0xfff5e6, 3.2f, 0x5f9ee8, 0xcfe3f7},  // 12h, noon
         {160, 36, 0xffdaa8, 2.9f, 0x67a3ec, 0xeedcc2},  // 15h, afternoon
-        {198, 10, 0xff9a58, 2.2f, 0x4f66a2, 0xf09c64},  // 18h, sunset
-        {70, 14, 0x8fa2d6, 0.3f, 0x101a3a, 0x3a3a6a},   // 21h, dusk, the moon rising
+        {198, 18, 0xff9a58, 2.2f, 0x4f66a2, 0xf09c64},  // 18h, sunset
+        {10, 14, 0x8fa2d6, 0.3f, 0x101a3a, 0x3a3a6a},   // 21h, dusk, the moon rising
     }};
     const float pi = 3.14159265f;
     const std::size_t at = static_cast<std::size_t>(hour / 3.0f) % keys.size();
