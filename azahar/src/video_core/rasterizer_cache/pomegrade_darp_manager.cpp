@@ -62,10 +62,11 @@ std::vector<float> BoxMean(const std::vector<float>& v, int w, int h, int r) {
 
 /// MaterialRecognition's maps of an RGBA8 texture, packed as the shader reads them (RG the normal,
 /// B the height, A the volume up to 254; 255 marks glass, for the windows' interior). Also lifts the
-/// texture's painted shadows (in place): the baked light replaced them in the offline renders, here
-/// the Remaster's live light does. A painted shadow is a smooth area darker than its surroundings,
-/// not a painted outline: the luminance blurred a little (r 2) against its wider surroundings (r 8),
-/// lifted up to 1.4x, 60 % of the way, off the outlines and the glass.
+/// texture's painted shadows (in place): the path tracer's light replaces them. A painted shadow is a
+/// broad, smooth area darker than its surroundings, never a line: the luminance over r 4 against r 16,
+/// only where the texture is smooth (its r 2 mean within 6 % of the r 4 one, the texel within 12 % of
+/// its r 2 mean), lifted up to 1.3x, half way, off the outlines and the glass. The first rule (r 2
+/// against r 8, 9 October) lifted the grass's painted blades as well and flattened the textures.
 std::vector<u8> SurfaceMaps(Darp::Texture& texture) {
     const int w = static_cast<int>(texture.width), h = static_cast<int>(texture.height);
     const auto maps = VideoCore::MaterialRecognition::Recognise(texture.rgba.data(), w, h);
@@ -75,7 +76,8 @@ std::vector<u8> SurfaceMaps(Darp::Texture& texture) {
         luma[i] = 0.299f * texture.rgba[i * 4] + 0.587f * texture.rgba[i * 4 + 1] +
                   0.114f * texture.rgba[i * 4 + 2];
     }
-    const std::vector<float> near_ = BoxMean(luma, w, h, 2), wide = BoxMean(luma, w, h, 8);
+    const std::vector<float> fine = BoxMean(luma, w, h, 2), near_ = BoxMean(luma, w, h, 4),
+                             wide = BoxMean(luma, w, h, 16);
     std::vector<u8> packed(texture.rgba.size());
     for (std::size_t i = 0; i < n; i++) {
         const bool glass =
@@ -84,10 +86,11 @@ std::vector<u8> SurfaceMaps(Darp::Texture& texture) {
         packed[i * 4 + 1] = maps.normal[i * 3 + 1];
         packed[i * 4 + 2] = maps.heights[i];
         packed[i * 4 + 3] = glass ? 255 : std::min<u8>(maps.volume[i], 254);
-        if (glass || maps.outline[i] || near_[i] < 1.0f) {
+        if (glass || maps.outline[i] || near_[i] < 1.0f ||
+            std::abs(fine[i] - near_[i]) > 0.06f * near_[i] || std::abs(luma[i] - fine[i]) > 0.12f * fine[i]) {
             continue;
         }
-        const float lift = 1.0f + 0.6f * (std::clamp(wide[i] / near_[i], 1.0f, 1.4f) - 1.0f);
+        const float lift = 1.0f + 0.5f * (std::clamp(wide[i] / near_[i], 1.0f, 1.3f) - 1.0f);
         for (int c = 0; c < 3; c++) {
             texture.rgba[i * 4 + c] =
                 static_cast<u8>(std::min(255.0f, texture.rgba[i * 4 + c] * lift + 0.5f));

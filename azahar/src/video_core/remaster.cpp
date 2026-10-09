@@ -249,6 +249,15 @@ void main() {
         c = mix(c, blur * mix(shade, sun, step_), far_ * 0.5 * p1.w);
         c = mix(c, vec3(0.78, 0.86, 1.0) * max(Luma(c), 0.6), far_ * 0.18 * p1.z);
     }
+    // the textures' lines and contrast: an unsharp mask on the luminance (the frame against its 1-pixel cross), so painted
+    // outlines and blades keep their weight after the light's grading; off the far, blurred scenery
+    {
+        vec3 cross_ = (Frame(p + vec2(t.x, 0.0)) + Frame(p - vec2(t.x, 0.0)) + Frame(p + vec2(0.0, t.y)) +
+                       Frame(p - vec2(0.0, t.y))) * 0.25;
+        float detail = Luma(Frame(p)) - Luma(cross_);
+        float keep = has_depth ? 1.0 - smoothstep(0.80, 1.0, f0) : 1.0;
+        c += detail * 0.6 * keep * p1.x;
+    }
     // vibrance: the dull colours raised more than the vivid ones
     float l2 = Luma(c), sat = max(max(c.r, c.g), c.b) - min(min(c.r, c.g), c.b);
     c = mix(vec3(l2), c, 1.0 + (p2.x - 1.0) * (1.0 - sat));
