@@ -66,6 +66,7 @@ static constexpr const char* texture_sampling = citra_setting(BaseKeys::texture_
 static constexpr const char* custom_textures = citra_setting(BaseKeys::custom_textures);
 static constexpr const char* dump_textures = citra_setting(BaseKeys::dump_textures);
 static constexpr const char* remaster_preset = citra_setting(BaseKeys::remaster_preset); // Pomegrade
+static constexpr const char* remaster_sun_hour = citra_setting(BaseKeys::remaster_sun_hour); // Pomegrade
 } // namespace graphics
 
 namespace layout {
@@ -440,6 +441,21 @@ static constexpr retro_core_option_v2_definition option_definitions[] = {
             { "1", "v7 preset" },
             { "2", "v9 preset" },
             { "3", "Custom" },
+            { nullptr, nullptr }
+        },
+        "0"
+    },
+    {
+        // Pomegrade: the path tracer's sun (gl_pathtracer.h)
+        config::graphics::remaster_sun_hour,
+        "Remaster sun",
+        "Remaster sun",
+        "Pomegrade: where the v9 path tracer puts the sun and the moon: the game's clock or a fixed hour.",
+        nullptr,
+        config::category::graphics,
+        {
+            { "0", "Game clock" }, { "1", "00h00" }, { "2", "03h00" }, { "3", "06h00" }, { "4", "09h00" },
+            { "5", "12h00" }, { "6", "15h00" }, { "7", "18h00" }, { "8", "21h00" },
             { nullptr, nullptr }
         },
         "0"
@@ -1024,6 +1040,8 @@ static void ParseGraphicsOptions(void) {
 
     Settings::values.remaster_preset =
         static_cast<u32>(std::stoi(LibRetro::FetchVariable(config::graphics::remaster_preset, "0")));
+    Settings::values.remaster_sun_hour =
+        static_cast<u32>(std::stoi(LibRetro::FetchVariable(config::graphics::remaster_sun_hour, "0")));
 
     Settings::values.texture_sampling = GetTextureSampling(
         LibRetro::FetchVariable(config::graphics::texture_sampling, "GameControlled"));

@@ -577,6 +577,8 @@ struct Values {
     // Pomegrade: Remaster, a post-process of the top screen after the offline ORAS renders' presets (VideoCore::Remaster,
     // tools/remake/render/ORAS_RENDER.md): 0 off, 1 the v7 preset, 2 the v9 preset, 3 custom (the switches below)
     Setting<u32, true> remaster_preset{0, 0, 3, Keys::remaster_preset};
+    /// Pomegrade: the path tracer's sun: 0 the game's clock, 1-8 fixed at 00h, 03h, ... 21h (the owner's table)
+    Setting<u32, true> remaster_sun_hour{0, 0, 8, Keys::remaster_sun_hour};
     SwitchableSetting<bool> remaster_ao{true, Keys::remaster_ao};
     SwitchableSetting<bool> remaster_grading{true, Keys::remaster_grading};
     SwitchableSetting<bool> remaster_vibrance{true, Keys::remaster_vibrance};
