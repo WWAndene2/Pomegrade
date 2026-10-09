@@ -65,7 +65,7 @@ void main() {
 }
 )";
 
-// Shared by the trace and denoise passes. The passes run in the G-buffer's own layout (half its size): their
+// Shared by the trace and denoise passes. The passes run in the G-buffer's own layout: their
 // coordinate is the G-buffer's texture coordinate.
 constexpr char COMMON[] = R"(
 #ifdef GL_ES
@@ -385,7 +385,7 @@ void PathTracerGL::Resize(u32 w, u32 h) {
     glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, gbuffer_depth.handle);
     const GLenum targets[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
     glDrawBuffers(3, targets);
-    const u32 hw = std::max<u32>(1, w / 2), hh = std::max<u32>(1, h / 2);
+    const u32 hw = w, hh = h; // full size: the sun's shadows stay sharp
     for (int i = 0; i < 2; i++) {
         make(light[i], GL_RGBA16F, hw, hh);
         light_fbo[i].Release();
@@ -571,8 +571,8 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
         glDrawArrays(GL_TRIANGLES, static_cast<GLint>(b.first), static_cast<GLsizei>(b.count));
     }
 
-    // the light, traced at half size, then denoised
-    const u32 hw = std::max<u32>(1, width / 2), hh = std::max<u32>(1, height / 2);
+    // the light, traced, then denoised
+    const u32 hw = width, hh = height;
     const auto bind = [](GLuint unit, GLuint texture, GLuint sampler) {
         glActiveTexture(GL_TEXTURE0 + unit);
         glBindTexture(GL_TEXTURE_2D, texture);
@@ -617,7 +617,7 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
                        1.0f / static_cast<float>(hh));
     state.draw.shader_program = dp;
     int from = 0;
-    for (const float step : {1.0f, 2.0f, 4.0f}) {
+    for (const float step : {1.0f, 2.0f}) {
         bind(13, light[from].handle, nearest.handle);
         state.draw.draw_framebuffer = light_fbo[1 - from].handle;
         state.Apply();

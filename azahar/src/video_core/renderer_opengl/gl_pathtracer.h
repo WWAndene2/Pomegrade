@@ -27,13 +27,13 @@ struct ScreenInfo;
 // the software vertex shader while this runs, so the vertices are on the CPU), and the frame's triangles become a BVH
 // (pathtrace_bvh.h). The same triangles, rasterised again from the game's own clip positions, give each pixel of the
 // frame its position and normal (a G-buffer laid out as the game's depth buffer, so it lines up with the displayed frame
-// as Remaster's depth does). Per pixel, at half the frame's size:
+// as Remaster's depth does). Per pixel:
 // - a ray toward the sun: real shadows, cast by whatever stands in the way, the characters included;
 // - two rays over the hemisphere: the sky's light where they escape, occlusion where they hit near, and the light
 //   bounced off the surface they hit (its colour read from the frame where it is on screen, lit by the sun if a
 //   second ray reaches it);
 // - the result, a white surface's light (as pt.html renders white surfaces), scaled so open ground in the sun is 1,
-//   is denoised by three passes of an edge-aware a-trous filter guided by the G-buffer's positions and normals (the
+//   is denoised by two passes of an edge-aware a-trous filter guided by the G-buffer's positions and normals (the
 //   offline median and guided filters' part), and handed to Remaster, which composes it as compose.py does (v9).
 // The sun follows the clock (the 3DS clock is the device's): it rises in the east at 6, crosses the south and sets in
 // the west at 18; the moon lights the night. Up is the normal of the frame's largest flat area (the ground), north the
@@ -58,7 +58,7 @@ public:
     void Capture(PAddr target, const std::array<GLint, 4>& viewport, std::span<const InputVertex> vertices);
 
     struct Result {
-        GLuint light = 0;    ///< the denoised light (rgb the light, a the occlusion), half the target's size; 0: none
+        GLuint light = 0;    ///< the denoised light (rgb the light, a the occlusion), the target's size; 0: none
         GLuint distance = 0; ///< the G-buffer's distance to the camera, 0 near to 1 far (1 where nothing was drawn)
     };
     /// Traces the frame shown on the screen, both textures laid out as its render target (screen_info.target_rect)
