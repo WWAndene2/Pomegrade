@@ -127,3 +127,12 @@ Every technique of v7-v9 goes into the 3DS core, each where a modern game puts i
 ### Full render against the reference (9 October)
 
 Littleroot by day, headless (llvmpipe, 400 x 240), base game against v9 with the path tracer, before the hourly table: the painted shadows are replaced by traced ones (the houses' shadows on the ground, the roofs' overhangs on the walls, the player's own), the grass keeps its painted blades, the shade takes the sky's blue-green. Against the owner's reference (the offline v9 at 1920 x 1080): its shadows are longer and bolder (an afternoon sun, now the table's 15h), its facades brighter, its resolution higher; the windows' rooms did not show (their glass is probably not recognised as glass: unchecked).
+
+Final full render (same day): Littleroot at 15h (the table's afternoon, the reference's sun), internal resolution x3
+(1200 x 720 a screen), base game against v9. The houses cast their shadows on the grass toward the lower right in the
+reference's deep blue-green, the poles, the sign and the player cast long shadows sharp at their foot, the roofs'
+overhangs shade the facades, the sunlit facades are warm, the painted shadows are gone and the grass keeps its painted
+blades. A thin bright line along the top was found and fixed (the main pass now reads a texel inside the frame). The
+glass class is recognised on some textures (two 128 x 64 textures two-thirds glass), but these houses' windows are
+painted opaque blue and show no room, as in the reference. Still differing from the reference: its resolution (1920 x
+1080) and its wide camera; not tested on a phone.
