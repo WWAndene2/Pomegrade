@@ -230,12 +230,14 @@ void FragmentModule::WriteDepth() {
 // pixel's coordinate derivatives stretch along the way the surface recedes, by 1 / cos of the tilt (the tangent-free
 // parallax approach). The light comes from up the screen (the 3DS framebuffer is stored turned: up is +x), above the
 // surface. Parallax occlusion as extras.js does it (depth 0.022, its shift limited at grazing angles and dropped where the
-// coordinates degenerate), its soft self-shadow mapped to 0.75-1.0; the relief lit by the normal map (v7 2.2, v8 1.1, v9
-// none); v8 and v9 add the volume, 4 layers above the surface on the classes that protrude, the lower ones darkened to
+// coordinates degenerate), its soft self-shadow mapped to 0.75-1.0; the relief lit by the normal map (v7 2.2, v8 and v9
+// 1.1); v8 and v9 add the volume, 4 layers above the surface on the classes that protrude, the lower ones darkened to
 // 0.82, as vvld.js does with geometry.
 void FragmentModule::WritePomegradeSurface() {
     const u32 mode = user.pomegrade_surface_mode.Value();
-    const float relief = mode == 0 ? 2.2f : mode == 1 ? 1.1f : 0.0f;
+    // v9 had no relief offline (at 1920 x 1080 the textures' detail showed without it); at the 3DS's size it is kept at
+    // v8's 1.1 so the textures keep their detail
+    const float relief = mode == 0 ? 2.2f : 1.1f;
     const bool volume = mode >= 1;
     out += "pg_uv0 = texcoord0;\npg_shade = 1.0;\npg_room = vec4(0.0);\n{\n";
     out += R"(
