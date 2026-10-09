@@ -218,14 +218,18 @@ void main() {
         vec4 traced = texture(light, vec2(mix(dr.x, dr.y, p.x), mix(dr.z, dr.w, p.y)));
         float l = Luma(traced.rgb);
         step_ = smoothstep(0.60, 0.78, l);
-        vec3 tone = mix(vec3(0.55, 0.57, 0.68), vec3(1.04, 1.0, 0.94), step_);
+        // the shade's tone measured on the owner's reference render (9 October): its shade keeps 0.34, 0.43 and 0.50 of
+        // the sun's red, green and blue, a deep blue-green; compose.py's (0.55, 0.57, 0.68) came out grey-blue and light
+        // here (0.58, 0.43, 0.82 of the sun's)
+        vec3 tone = mix(vec3(0.40, 0.45, 0.55), vec3(1.04, 1.0, 0.94), step_);
         tone *= 0.8 + 0.2 * smoothstep(0.1, 0.45, l);                // deep corners a little darker, never black
         tone *= 1.0 - (1.0 - pow(traced.a, 1.3)) * (0.55 - 0.4 * step_); // traced occlusion
         vec3 tint = clamp(traced.rgb / max(l, 0.03), 0.6, 1.6);       // the bounce's colour
         tone *= 1.0 + 0.3 * (tint - 1.0) * (1.0 - 0.5 * step_);
         vec3 base = pow(c, vec3(2.2));
         float bl = Luma(base);
-        vec3 lin = base * tone + (vec3(0.012, 0.02, 0.07) * (1.0 - step_) + vec3(0.03, 0.015, 0.0) * step_) * (0.4 + bl);
+        // the lifts halved: they greyed the shade against the reference
+        vec3 lin = base * tone + (vec3(0.006, 0.01, 0.035) * (1.0 - step_) + vec3(0.03, 0.015, 0.0) * step_) * (0.4 + bl);
         lin += vec3(0.010, 0.018, 0.045) * traced.a * (1.0 - step_) * (0.4 + bl); // sky fill
         c = pow(max(lin, 0.0), vec3(1.0 / 2.2));
         ao = 1.0; // applied
