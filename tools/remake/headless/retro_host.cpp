@@ -64,6 +64,10 @@ static void Log(enum retro_log_level level, const char* format, ...)
 // llvmpipe on the runner): the core draws into a framebuffer of ours, read back for the screenshots and the checks.
 // POMEGRADE_REMASTER=<0-3> picks the Remaster preset (citra_remaster_preset)
 static const bool glMode = getenv("POMEGRADE_GL") != nullptr;
+// "remaster N": the Remaster preset set during the run (the core reads it again when told its variables changed), so a
+// run reaches the field with it off and turns it on there (the path tracer is slow on a CPU renderer)
+static std::string remasterPreset = getenv("POMEGRADE_REMASTER") ? getenv("POMEGRADE_REMASTER") : "";
+static bool variablesChanged = false;
 static retro_hw_render_callback hwRender{};
 static unsigned glFbo = 0;
 static constexpr unsigned GlFboSize = 2048;
@@ -127,7 +131,8 @@ static bool Environment(unsigned cmd, void* data)
         *static_cast<bool*>(data) = true;
         return true;
     case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE:
-        *static_cast<bool*>(data) = false;
+        *static_cast<bool*>(data) = variablesChanged;
+        variablesChanged = false;
         return true;
     case RETRO_ENVIRONMENT_GET_VARIABLE:
     {
@@ -135,7 +140,7 @@ static bool Environment(unsigned cmd, void* data)
         auto* var = static_cast<retro_variable*>(data);
         var->value = nullptr;
         if (!strcmp(var->key, "citra_graphics_api")) var->value = glMode ? "OpenGL" : "Software";
-        if (!strcmp(var->key, "citra_remaster_preset") && getenv("POMEGRADE_REMASTER")) var->value = getenv("POMEGRADE_REMASTER");
+        if (!strcmp(var->key, "citra_remaster_preset") && !remasterPreset.empty()) var->value = remasterPreset.c_str();
         // the interpreter instead of the JIT, for code coverage ("trace on"): slower, but every block passes its dispatch
         // (and not the FastInterp interpreter, which bypasses it too: the classic one, DynCom)
         if ((!strcmp(var->key, "citra_use_cpu_jit") || !strcmp(var->key, "citra_use_fastinterp")) && getenv("POMEGRADE_INTERPRETER")) var->value = "disabled";
@@ -519,6 +524,12 @@ static int RunScript(void* core, const char* path)
             if (!lights) printf("(no pomegrade_lights in this core)\n");
             else if (arg == "on") { lights(1, nullptr); printf("[frame %lu] lights on\n", frame); }
             else printf("[frame %lu] lights off: %u draws in %s\n", frame, lights(0, path.c_str()), path.c_str());
+        }
+        else if (cmd == "remaster")
+        {
+            remasterPreset = arg;
+            variablesChanged = true;
+            printf("[frame %lu] remaster preset %s\n", frame, arg.c_str());
         }
         else if (cmd == "gdb")
         {
