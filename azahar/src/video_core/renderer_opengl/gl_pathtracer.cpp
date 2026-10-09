@@ -503,8 +503,10 @@ void PathTracerGL::Upload(const Frame& frame) {
 
     // the sun from the game's clock (the emulated 3DS's, as the game reads it for its own day and night: the device's
     // clock differs when the emulator's clock is set otherwise, and the game then lit its night under a day sun):
-    // rises in the east at 6, crosses the south (toward the camera) and sets in the west at 18, 55 degrees up at noon;
-    // between 18 and 6 the moon, 35 degrees up in the south, dim and blue (pt.html's colours)
+    // rises in the east at 6, crosses the north (behind the scene, as the camera looks) and sets in the west at 18, 55
+    // degrees up at noon; between 18 and 6 the moon, 35 degrees up in the north, dim and blue (pt.html's colours). Over
+    // the north so the shadows fall toward the camera, as the game's painted ones do (its art direction): over the south
+    // the full render's shadows fell behind the houses, out of sight (9 October)
     const u64 seconds = Core::System::GetInstance().Kernel().GetSharedPageHandler().GetSystemTimeSince2000() / 1000;
     const float hour = static_cast<float>(seconds % 86400) / 3600.0f;
     const bool day = hour >= 6.0f && hour < 18.0f;
@@ -528,7 +530,7 @@ void PathTracerGL::Upload(const Frame& frame) {
         Srgb(sky_horizon, 0x2a3350, 1.0f);
     }
     for (int k = 0; k < 3; k++) {
-        const float horizontal = std::cos(pi * along) * east[k] - std::sin(pi * along) * north[k];
+        const float horizontal = std::cos(pi * along) * east[k] + std::sin(pi * along) * north[k];
         sun[k] = std::cos(elevation) * horizontal + std::sin(elevation) * up[k];
     }
     Normalise(sun);
