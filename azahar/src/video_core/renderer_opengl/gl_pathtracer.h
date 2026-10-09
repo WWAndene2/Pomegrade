@@ -26,15 +26,18 @@ struct ScreenInfo;
 // fragment lighting's view vector and normal quaternion): the rasterizer hands every lit draw of a frame here (drawn with
 // the software vertex shader while this runs, so the vertices are on the CPU), and the frame's triangles become a BVH
 // (pathtrace_bvh.h). The same triangles, rasterised again from the game's own clip positions, give each pixel of the
-// frame its position and normal (a G-buffer laid out as the game's depth buffer, so it lines up with the displayed frame
-// as Remaster's depth does). Per pixel:
-// - a ray toward the sun: real shadows, cast by whatever stands in the way, the characters included;
-// - two rays over the hemisphere: the sky's light where they escape, occlusion where they hit near, and the light
+// frame its position and normal (a G-buffer laid out as the game's render target, so it lines up with the frame copied
+// out of it). Per pixel:
+// - a ray toward a point of the sun's disc: real shadows, cast by whatever stands in the way, the characters included,
+//   sharp at their foot and softening with the distance (a penumbra);
+// - three rays over the hemisphere: the sky's light where they escape, occlusion where they hit near, and the light
 //   bounced off the surface they hit (its colour read from the frame where it is on screen, lit by the sun if a
 //   second ray reaches it);
 // - the result, a white surface's light (as pt.html renders white surfaces), scaled so open ground in the sun is 1,
 //   is denoised by two passes of an edge-aware a-trous filter guided by the G-buffer's positions and normals (the
-//   offline median and guided filters' part), and handed to Remaster, which composes it as compose.py does (v9).
+//   offline median and guided filters' part), then accumulated over frames where a pixel still shows the same point
+//   (temporal accumulation: 80 % of the history kept; a pixel whose point moved starts again), and handed to
+//   Remaster, which composes it as compose.py does (v9).
 // The sun follows the clock (the 3DS clock is the device's): it rises in the east at 6, crosses the south and sets in
 // the west at 18; the moon lights the night. Up is the normal of the frame's largest flat area (the ground), north the
 // camera's forward direction along it. The game's own time-of-day colours stay in the frame underneath.
@@ -99,8 +102,13 @@ private:
     OGLRenderbuffer gbuffer_depth;
     OGLFramebuffer gbuffer_fbo;
     std::array<OGLTexture, 2> light;
+    std::array<OGLTexture, 2> history;           ///< the light accumulated over frames (temporal accumulation)
+    std::array<OGLFramebuffer, 2> history_fbo;
+    OGLTexture previous_position;                ///< the last traced frame's G-buffer positions
+    int history_index = 0;
+    bool have_history = false;
     std::array<OGLFramebuffer, 2> light_fbo;
-    OGLProgram gbuffer_program, trace_program, denoise_program;
+    OGLProgram gbuffer_program, trace_program, denoise_program, temporal_program;
     OGLVertexArray gbuffer_vao, fullscreen_vao;
     OGLBuffer gbuffer_vbo, nodes_buffer, triangles_buffer;
     OGLTexture nodes_texture, triangles_texture;

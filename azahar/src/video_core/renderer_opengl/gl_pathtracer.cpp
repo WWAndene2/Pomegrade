@@ -200,8 +200,8 @@ void main() {
     vec3 sun_ray = normalize(sun + (st * cos(sa) + sb * sin(sa)) * sr);
     float lit = Hit(o, sun_ray, 1e5, tri) < 1e5 ? 0.0 : 1.0;
     vec3 light = sun_colour * max(dot(n, sun), 0.0) * lit;
-    // the sky and the bounce: two rays over the hemisphere, cosine-weighted (a white surface sends back their mean)
-    const int Samples = 2;
+    // the sky and the bounce: three rays over the hemisphere, cosine-weighted (a white surface sends back their mean)
+    const int Samples = 3;
     const float Reach = 600.0, Occlusion = 40.0;
     vec3 gathered = vec3(0.0);
     float open_ = 0.0;
@@ -262,6 +262,22 @@ void main() {
         }
     }
     color = wsum > 0.0 ? sum / wsum : c0;
+}
+)";
+
+// temporal accumulation: the history kept where the pixel shows the same point as last frame (its view-space position
+// within 1 % of its distance), else the frame's own light
+constexpr char TEMPORAL_FRAG[] = R"(
+layout(binding = 13) uniform sampler2D current;
+layout(binding = 14) uniform sampler2D history_;
+layout(binding = 10) uniform sampler2D previous;
+uniform float first;
+void main() {
+    vec2 p = frag_tex_coord;
+    vec4 now = texture(current, p);
+    vec4 gp = texture(g_position, p), pp = texture(previous, p);
+    bool same = first < 0.5 && gp.w > 0.5 && pp.w > 0.5 && length(gp.xyz - pp.xyz) < 0.01 * length(gp.xyz) + 0.05;
+    color = same ? mix(now, texture(history_, p), 0.8) : now;
 }
 )";
 
@@ -377,6 +393,8 @@ void PathTracerGL::Resize(u32 w, u32 h) {
     make(gbuffer_position, GL_RGBA32F, w, h);
     make(gbuffer_normal, GL_RGBA16F, w, h);
     make(gbuffer_distance, GL_R32F, w, h);
+    make(previous_position, GL_RGBA32F, w, h);
+    have_history = false;
     gbuffer_depth.Release();
     gbuffer_depth.Create();
     glBindRenderbuffer(GL_RENDERBUFFER, gbuffer_depth.handle);
@@ -394,6 +412,11 @@ void PathTracerGL::Resize(u32 w, u32 h) {
     const u32 hw = w, hh = h; // full size: the sun's shadows stay sharp
     for (int i = 0; i < 2; i++) {
         make(light[i], GL_RGBA16F, hw, hh);
+        make(history[i], GL_RGBA16F, hw, hh);
+        history_fbo[i].Release();
+        history_fbo[i].Create();
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, history_fbo[i].handle);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, history[i].handle, 0);
         light_fbo[i].Release();
         light_fbo[i].Create();
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, light_fbo[i].handle);
@@ -403,6 +426,7 @@ void PathTracerGL::Resize(u32 w, u32 h) {
         gbuffer_program.Create(GBUFFER_VERT, GBUFFER_FRAG);
         trace_program.Create(FULLSCREEN_VERT, std::string(COMMON) + TRACE_FRAG);
         denoise_program.Create(FULLSCREEN_VERT, std::string(COMMON) + DENOISE_FRAG);
+        temporal_program.Create(FULLSCREEN_VERT, std::string(COMMON) + TEMPORAL_FRAG);
         gbuffer_vao.Create();
         fullscreen_vao.Create();
         gbuffer_vbo.Create();
@@ -631,10 +655,24 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
         glDrawArrays(GL_TRIANGLES, 0, 3);
         from = 1 - from;
     }
-    for (GLuint unit : {UnitPosition, UnitNormal, UnitFrame, GLuint{13}}) bind(unit, 0, 0);
+    // accumulated over frames
+    const GLuint tmp = temporal_program.handle;
+    bind(13, light[from].handle, nearest.handle);
+    bind(14, history[history_index].handle, nearest.handle);
+    bind(UnitFrame, previous_position.handle, nearest.handle);
+    state.draw.shader_program = tmp;
+    state.draw.draw_framebuffer = history_fbo[1 - history_index].handle;
+    state.Apply();
+    glProgramUniform1f(tmp, glGetUniformLocation(tmp, "first"), have_history ? 0.0f : 1.0f);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    history_index = 1 - history_index;
+    have_history = true;
+    glCopyImageSubData(gbuffer_position.handle, GL_TEXTURE_2D, 0, 0, 0, 0, previous_position.handle, GL_TEXTURE_2D, 0,
+                       0, 0, 0, static_cast<GLsizei>(width), static_cast<GLsizei>(height), 1);
+    for (GLuint unit : {UnitPosition, UnitNormal, UnitFrame, GLuint{13}, GLuint{14}}) bind(unit, 0, 0);
     glActiveTexture(GL_TEXTURE0);
     saved.Apply();
-    Result result{light[from].handle, gbuffer_distance.handle};
+    Result result{history[history_index].handle, gbuffer_distance.handle};
     // the sun's direction on screen: a point of the scene and the same point moved toward the sun, both projected
     {
         double centre[3] = {};
