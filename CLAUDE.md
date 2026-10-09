@@ -101,7 +101,7 @@ Pomegrade is three codebases in one Gradle build, rooted at `melonDS-android/` (
 | Android instrumented tests | `melonDS-android/app/src/androidTest/java/`, same mirroring |
 | Desktop tests of the DS core (CMake, no Android), one folder per feature | `tests/<feature>/` (`hd-textures/`, `polygon-multiplier/`) |
 | Golden/reference fixtures a test compares against | A `fixtures/` directory beside the tests that use them |
-| Project-wide documentation | Root: `README.md` (users), `CLAUDE.md` (rules), `DEVELOPMENT_NOTE.md` (roadmap), `DS_ENGINE_REMAKE.md` (design of the DS engine remake, owner's ideas) |
+| Project-wide documentation | Root: `README.md` (users), `CLAUDE.md` (rules), `DEVELOPMENT_NOTE.md` (roadmap), `DS_ENGINE_REMAKE.md` (design of the DS engine remake, owner's ideas), `Delta_Emerald_Development.md` (plan of the Delta Emerald mod of ORAS: what to add from Emerald, change and fix; owner's request) |
 
 **Decision procedure, in order:**
 1. Does an existing directory already match this artifact's purpose by the table above? Use it.
