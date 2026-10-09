@@ -60,6 +60,8 @@ public:
     struct Result {
         GLuint light = 0;    ///< the denoised light (rgb the light, a the occlusion), the target's size; 0: none
         GLuint distance = 0; ///< the G-buffer's distance to the camera, 0 near to 1 far (1 where nothing was drawn)
+        float sun_on_screen[2] = {0, 0}; ///< the sun's direction across the target (its texture coordinates), unit
+        float sun_up = 0;                ///< the sun's height over the horizon (sine), negative below
     };
     /// Traces the frame shown on the screen, both textures laid out as its render target (screen_info.target_rect)
     Result Trace(const ScreenInfo& screen_info, GLuint frame_texture);

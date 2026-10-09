@@ -82,6 +82,7 @@ uniform vec4 p0; // grading, ao, sky fill, sky light
 uniform vec4 p1; // outline, glow, aerial, far blur
 uniform vec4 p2; // vibrance, contrast, adaptive contrast, rim
 uniform vec4 p3; // bounce, contact shadow, traced light (gl_pathtracer.h), 0
+uniform vec4 p4; // the traced sun's direction across the screen (x, y), whether known, 0
 vec3 Frame(vec2 p) {
     return texture(frame, vec2(mix(cr.x, cr.y, p.x), mix(cr.z, cr.w, p.y))).rgb;
 }
@@ -200,9 +201,11 @@ void main() {
         float fr = Far(p + vec2(0.0, t.y)), fl = Far(p - vec2(0.0, t.y));
         up = clamp((fu - fd) * scale * 60.0, 0.0, 1.0);
         edge = smoothstep(0.02, 0.06, max(max(abs(fu - f0), abs(fd - f0)), max(abs(fr - f0), abs(fl - f0))) * scale);
-        // rim (layers.py): a silhouette, something farther just behind it, on the side turned to the sun (up the screen)
-        float behind = max(max(Far(p + vec2(2.0 * t.x, 0.0)), Far(p + vec2(0.0, 2.0 * t.y))), Far(p - vec2(0.0, 2.0 * t.y))) - f0;
-        rim = smoothstep(0.02, 0.1, behind * scale) * clamp((fu - f0) * scale * 20.0, 0.0, 1.0);
+        // rim (layers.py): a silhouette edge turned to the sun: something much farther just beyond it on the sun's side.
+        // The sun's side is the traced sun's direction on screen when the path tracer runs, else up the screen
+        vec2 toward = p4.z > 0.5 ? p4.xy : vec2(1.0, 0.0);
+        float beyond = max(Far(p + toward * 2.0 * t), Far(p + toward * 3.0 * t)) - f0;
+        rim = smoothstep(0.02, 0.1, beyond * scale);
     }
 
     // two-tone light: a cool lavender shade with a cool lift (shade shows on saturated green), a warm sun

@@ -136,6 +136,13 @@ void RemasterGL::Apply(ScreenInfo& screen_info, PathTracerGL& tracer) {
     const float p1[4] = {p.outline, p.glow, p.aerial, p.far_blur};
     const float p2[4] = {p.vibrance, p.contrast, p.adaptive_contrast ? 1.0f : 0.0f, p.rim};
     const float p3[4] = {p.bounce, p.contact_shadow, traced != 0 ? 1.0f : 0.0f, 0.0f};
+    // the traced sun's direction in this pass's coordinates (the target's texture coordinates through d), for the rim
+    float p4[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    if (traced != 0 && traced_frame.sun_up > 0.0f) {
+        const float sx = traced_frame.sun_on_screen[0] / (d[1] - d[0]), sy = traced_frame.sun_on_screen[1] / (d[3] - d[2]);
+        const float l = std::sqrt(sx * sx + sy * sy);
+        if (l > 1e-6f) p4[0] = sx / l, p4[1] = sy / l, p4[2] = 1.0f;
+    }
     // glProgramUniform: no glUseProgram behind the tracked state's back
     for (const OGLProgram* program : {&stats_program, &bright_program, &light_program, &main_program}) {
         const GLuint h = program->handle;
@@ -146,6 +153,7 @@ void RemasterGL::Apply(ScreenInfo& screen_info, PathTracerGL& tracer) {
         glProgramUniform4fv(h, glGetUniformLocation(h, "p1"), 1, p1);
         glProgramUniform4fv(h, glGetUniformLocation(h, "p2"), 1, p2);
         glProgramUniform4fv(h, glGetUniformLocation(h, "p3"), 1, p3);
+        glProgramUniform4fv(h, glGetUniformLocation(h, "p4"), 1, p4);
     }
     Pass(stats_program, stats_fbo.handle, StatsSize, StatsSize);
     Pass(bright_program, bright_fbo.handle, std::max<u32>(1, width / 4), std::max<u32>(1, height / 4));

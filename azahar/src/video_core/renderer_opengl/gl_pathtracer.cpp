@@ -634,7 +634,39 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
     for (GLuint unit : {UnitPosition, UnitNormal, UnitFrame, GLuint{13}}) bind(unit, 0, 0);
     glActiveTexture(GL_TEXTURE0);
     saved.Apply();
-    return {light[from].handle, gbuffer_distance.handle};
+    Result result{light[from].handle, gbuffer_distance.handle};
+    // the sun's direction on screen: a point of the scene and the same point moved toward the sun, both projected
+    {
+        double centre[3] = {};
+        const std::size_t step_ = std::max<std::size_t>(1, frame.vertices.size() / 512);
+        std::size_t count = 0;
+        for (std::size_t i = 0; i < frame.vertices.size(); i += step_, count++) {
+            for (int k = 0; k < 3; k++) centre[k] += frame.vertices[i].position[k];
+        }
+        const auto project = [&](const float q[3], float out[2]) {
+            float c[4];
+            for (int r = 0; r < 4; r++) {
+                c[r] = view_to_clip[r] * q[0] + view_to_clip[4 + r] * q[1] + view_to_clip[8 + r] * q[2] +
+                       view_to_clip[12 + r];
+            }
+            const float w = std::abs(c[3]) > 1e-6f ? c[3] : 1e-6f;
+            out[0] = vp[0] + (c[0] / w * 0.5f + 0.5f) * vp[2];
+            out[1] = vp[1] + (c[1] / w * 0.5f + 0.5f) * vp[3];
+        };
+        float a[3], b[3], pa[2], pb[2];
+        const float scale = 0.05f * static_cast<float>(std::sqrt(centre[0] * centre[0] + centre[1] * centre[1] +
+                                                                  centre[2] * centre[2]) / std::max<std::size_t>(count, 1));
+        for (int k = 0; k < 3; k++) {
+            a[k] = static_cast<float>(centre[k] / std::max<std::size_t>(count, 1));
+            b[k] = a[k] + sun[k] * std::max(scale, 1.0f);
+        }
+        project(a, pa);
+        project(b, pb);
+        const float dx = pb[0] - pa[0], dy = pb[1] - pa[1], l = std::sqrt(dx * dx + dy * dy);
+        if (l > 1e-6f) result.sun_on_screen[0] = dx / l, result.sun_on_screen[1] = dy / l;
+        result.sun_up = sun[0] * up[0] + sun[1] * up[1] + sun[2] * up[2];
+    }
+    return result;
 }
 
 } // namespace OpenGL
