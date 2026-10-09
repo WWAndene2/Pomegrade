@@ -5,8 +5,8 @@ Rayquaza, comme Ω pour Groudon et α pour Kyogre). C'est un mod d'ORAS (Layered
 outils de `tools/remake/` déjà écrits pour le remake de Sinnoh (zones, maps, warps, dresseurs, rencontres, scripts). Hoenn
 existe déjà dans ORAS : il s'agit surtout de **modifier** un jeu qui marche, pas de tout reconstruire.
 
-**Statut** : plan seulement, rien n'est commencé. L'ordre par rapport au remake de Sinnoh (`tools/remake/SINNOH_BUILD.md`)
-reste à décider par le propriétaire. Comme pour Sinnoh, les premières étapes sont de l'**outillage**, et la méthode de chaque
+**Statut** : projet actif (décision du propriétaire, 9 octobre : le remake de Sinnoh est en pause, seulement lui) ; plan
+seulement, rien n'est commencé. Comme pour Sinnoh, les premières étapes sont de l'**outillage**, et la méthode de chaque
 construction est présentée au propriétaire avant d'écrire le code.
 
 **Comment lire ce document** : chaque point dit ce qu'il faut faire et d'où il vient. La colonne « Faisabilité » suit la

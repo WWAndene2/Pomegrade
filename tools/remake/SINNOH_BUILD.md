@@ -1,5 +1,8 @@
 # Building Sinnoh in Omega Ruby — the progressive plan
 
+**On hold (owner's decision, 9 October)**: only this remake is paused; the tooling of `tools/remake/` goes on being used and
+extended for Delta Emerald (`Delta_Emerald_Development.md`). R4 stopped as section 4 says.
+
 The plan agreed with the owner (8 October) to rebuild all of Sinnoh in ORAS, stage by stage, once the tools of section 2 exist. Each building stage ends with a mod
 tested on the phone, one question per mod (protocol: `ORAS_LITTLEROOT.md` section 0). The formats are in `ORAS_ENGINE.md`
 and `ORAS_LITTLEROOT.md`; this file keeps the plan and where each stage stands. Figures are measured on the owner's
