@@ -191,8 +191,14 @@ void main() {
     float scale = length(p);
     vec3 o = p + n * (0.02 + scale * 0.002);
     int tri;
-    // the sun: a shadow ray
-    float lit = Hit(o, sun, 1e5, tri) < 1e5 ? 0.0 : 1.0;
+    // the sun: a shadow ray toward a point of the sun's disc (a different one each pixel and frame), so the shadow's
+    // edge is sharp where it touches what casts it and widens with the distance to it (a real penumbra), the
+    // denoiser averaging the points; the disc is drawn 3 degrees wide, wider than the real 0.5, as the offline
+    // renders' soft sun
+    vec3 st = normalize(cross(abs(sun.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0), sun)), sb = cross(sun, st);
+    float sr = sqrt(Random()) * 0.026, sa = 6.2831853 * Random();
+    vec3 sun_ray = normalize(sun + (st * cos(sa) + sb * sin(sa)) * sr);
+    float lit = Hit(o, sun_ray, 1e5, tri) < 1e5 ? 0.0 : 1.0;
     vec3 light = sun_colour * max(dot(n, sun), 0.0) * lit;
     // the sky and the bounce: two rays over the hemisphere, cosine-weighted (a white surface sends back their mean)
     const int Samples = 2;
