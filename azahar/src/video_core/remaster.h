@@ -52,7 +52,7 @@ struct Params {
 Params Current();
 
 /// The textures' surface shading of the current preset (glsl_fs_shader_gen's WritePomegradeSurface, from each texture's
-/// MaterialRecognition maps): -1 none, 0 v7 (parallax, relief 2.2), 2 v9 (parallax, layered volume, no relief); custom
+/// MaterialRecognition maps): -1 none, 0 v7 (parallax, relief 2.2), 2 v9 (parallax, layered volume, relief 1.1) and the path tracer; custom
 /// follows v9. Mode 1 (v8: volume and relief 1.1) has no preset.
 int SurfaceMode();
 
