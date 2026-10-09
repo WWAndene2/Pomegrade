@@ -8,6 +8,7 @@
 #include "OrasMatrix.h"
 #include "OrasTown.h"
 #include "OrasNewZone.h"
+#include "OrasWorkspace.h"
 #include "OrasZone.h"
 #include "TownLayout.h"
 
@@ -82,7 +83,14 @@ static SandboxDescription ReadDescription(const std::string& text)
         if (part == Blocks && what.find_first_not_of("0123456789") == std::string::npos) { d.Blocks.push_back(what); continue; }
         part = Statements;
         bool ok = true;
-        if (what == "zone") { d.Zones.emplace_back(); ok = (bool)(words >> d.Zones.back().Number); continue; }
+        if (what == "zone")
+        {
+            // "zone N", or "zone" alone: the next free number as the build stands (OrasWorkspace.h), given when it is built
+            d.Zones.emplace_back();
+            std::string n;
+            if (words >> n) { try { d.Zones.back().Number = std::stoi(n); } catch (...) { fail("zone takes a number or nothing"); } }
+            continue;
+        }
         if (what == "pieces") { ok = (bool)(words >> d.Width >> d.Height); if (!ok) fail("pieces needs its numbers"); continue; }
         if (what == "blocks") { part = Blocks; continue; }
         if (d.Zones.empty()) fail(what + " before any zone");
@@ -203,11 +211,12 @@ static SandboxDescription ReadDescription(const std::string& text)
     for (size_t k = 0; k < d.Zones.size(); k++)
     {
         const SandboxZone& z = d.Zones[k];
-        const std::string which = "sandbox description, zone " + std::to_string(z.Number);
-        if (z.Number < 0 || z.SpawnX < 0) throw FormatError(which + ": its number and spawn are required");
+        const std::string which = "sandbox description, zone " + (z.Number >= 0 ? std::to_string(z.Number) : "#" + std::to_string(k + 1) + " (numbered when built)");
+        if (z.SpawnX < 0) throw FormatError(which + ": its spawn is required");
+        if ((z.Number < 0) != (d.Zones[0].Number < 0)) throw FormatError(which + ": every zone numbered, or none");
         if (&z == &d.Zones[0] && z.Pack < 0) throw FormatError(which + ": the first zone gives the area pack (pack P)");
         if (!used[k]) throw FormatError(which + ": no block of the blocks grid");
-        if (k && z.Number != d.Zones[k - 1].Number + 1) throw FormatError(which + ": zones are numbered one after the other");
+        if (k && z.Number >= 0 && z.Number != d.Zones[k - 1].Number + 1) throw FormatError(which + ": zones are numbered one after the other");
         auto check = [&](float x, float zz, const std::string& what) {
             if (x < 0 || zz < 0 || x >= d.Width * TownTiles || zz >= d.Height * TownTiles) throw FormatError(which + ": " + what + " outside the map");
             if (Solid(d.Map[(size_t)zz][(size_t)x])) throw FormatError(which + ": " + what + " on a solid tile");
@@ -259,18 +268,20 @@ static TownLayout PieceLayout(const SandboxDescription& d, int px, int py)
     return l;
 }
 
-std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& description, const std::string& outDir,
+std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& description, const std::string& outDir,
                                           const std::function<std::string(const std::string&)>& checkNative)
 {
-    const SandboxDescription d = ReadDescription(description);
+    SandboxDescription d = ReadDescription(description);
     std::vector<std::string> log;
     char line[256];
 
-    const Bytes pieces = oras.Read("a/0/3/9"), matrices = oras.Read("a/0/4/0"), zones = oras.Read("a/0/1/3"), areas = oras.Read("a/0/1/4");
-    const Garc pieceArchive(pieces), matrixArchive(matrices), zoneArchive(zones), areaArchive(areas);
-    Garc newPieces(pieces), newMatrices(matrices), newZones(zones), newAreas(areas);
-    if ((size_t)d.Zones[0].Number != zoneArchive.Count())
-        throw FormatError("sandbox: zone " + std::to_string(d.Zones[0].Number) + " is not the next free member of a/0/1/3 (" + std::to_string(zoneArchive.Count()) + ")");
+    // the game's archives as the build has left them (OrasWorkspace.h): what earlier steps added is kept, numbers follow it
+    const Garc &pieceArchive = ws.Original("a/0/3/9"), &matrixArchive = ws.Original("a/0/4/0"), &zoneArchive = ws.Original("a/0/1/3"), &areaArchive = ws.Original("a/0/1/4");
+    Garc &newPieces = ws.Edited("a/0/3/9"), &newMatrices = ws.Edited("a/0/4/0"), &newZones = ws.Edited("a/0/1/3"), &newAreas = ws.Edited("a/0/1/4");
+    if (d.Zones[0].Number < 0)
+        for (size_t k = 0; k < d.Zones.size(); k++) d.Zones[k].Number = (int)(newZones.Count() + k);
+    if ((size_t)d.Zones[0].Number != newZones.Count())
+        throw FormatError("sandbox: zone " + std::to_string(d.Zones[0].Number) + " is not the next free member of a/0/1/3 (" + std::to_string(newZones.Count()) + " as the build stands)");
     for (const SandboxZone& z : d.Zones)
         if (z.Encounters >= 536 || z.Lighting >= 536) throw FormatError("sandbox: encounters and lighting are game zones, 0-535");
 
@@ -325,14 +336,12 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
     // the place names (Navi-Map, the name shown on entering): header word 14 & 0x3FF is a line of text file 90 (Zone_GetLocationNameId
     // 0x4D86EC; checked: zone 6 and its house 223 both 170, line 170 "Bourg-en-Vol" in a/0/7/4, "Littleroot Town" in a/0/7/3).
     // Each name is added as a new line in the eight languages' files (a/0/7/1-a/0/7/8), the same text in all
-    std::vector<std::tuple<std::string, Bytes, Garc>> texts; // archive, original, new
     std::vector<int> nameLine(d.Zones.size(), -1);
     for (int a = 1; a <= 8; a++)
     {
         const std::string path = "a/0/7/" + std::to_string(a);
-        const Bytes data = oras.Read(path);
-        const Garc g(data);
-        Bytes file = Plain(g.Sub(90));
+        Garc& n = ws.Edited(path);
+        Bytes file = Plain(n.Sub(90));
         const std::vector<std::string> lines = ReadGameText(file);
         size_t next = lines.size();
         std::vector<std::string> added;
@@ -349,9 +358,7 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
         const std::vector<std::string> back = ReadGameText(file);
         if (back.size() != lines.size() + added.size() || !std::equal(lines.begin(), lines.end(), back.begin()) || !std::equal(added.begin(), added.end(), back.begin() + lines.size()))
             throw FormatError(path + " member 90: the added place names do not read back");
-        Garc n(data);
-        ReplaceMember(n, g, 90, file, "");
-        texts.emplace_back(path, data, std::move(n));
+        ReplaceMember(n, ws.Original(path), 90, file, "");
     }
 
     // the sandbox's own area packs: the game's 9 placeholder packs no zone uses (0, 1, 39-42, 88, 97, 195: twelve small files each)
@@ -359,12 +366,11 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
     // built for (the first zone's pack and the textures they show), the next ones with that pack's copy under another light.
     // A pack appended past the game's 229 is refused: its zone sent the game into its fatal-error loop even with a/1/3/7 grown
     // to match (runs light1-light4; a/1/3/7 is one cause, read under the debugger in runs apk1-apk4, another is not found)
-    const Bytes perArea = oras.Read("a/1/3/7");
-    const Garc perAreaArchive(perArea);
-    Garc newPerArea(perArea);
+    const Garc& perAreaArchive = ws.Original("a/1/3/7");
+    Garc& newPerArea = ws.Edited("a/1/3/7");
     std::vector<uint16_t> freePacks;
     {
-        const Bytes headers = Plain(zoneArchive.Sub(536));
+        const Bytes headers = Plain(newZones.Sub(536)); // the zones as the build stands: earlier steps' packs are taken
         std::vector<bool> used(areaArchive.Count(), false);
         for (size_t z = 0; z * rowBytesOf536 + 4 <= headers.size(); z++) { const uint16_t p = (uint16_t)(headers[z * rowBytesOf536 + 2] | headers[z * rowBytesOf536 + 3] << 8); if (p < used.size()) used[p] = true; }
         for (size_t p = 0; p < areaArchive.Count() && p < perAreaArchive.Count(); p++) if (!used[p]) freePacks.push_back((uint16_t)p);
@@ -434,10 +440,11 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
     // the zones, each written from nothing (OrasNewZone.h): the new matrix, its area pack, its own text file, its characters
     // and doors, its scripts, the spawn tile and the name
     const size_t rowBytes = 56;
-    Bytes table = Plain(zoneArchive.Sub(536));
-    if (table.size() != 536 * rowBytes) throw FormatError("member 536 is not the 536-row zone header table");
-    BinLinker en = BinLinker::Read(Plain(zoneArchive.Sub(537)), "EN");
-    if (en.Files.size() != 536) throw FormatError("member 537 is not the 536-file encounter container");
+    // the zone tables as the build stands (536 rows in the game's, one more for each zone an earlier step added)
+    Bytes table = Plain(newZones.Sub(536));
+    if (table.size() < 536 * rowBytes || table.size() % rowBytes) throw FormatError("member 536 is not the zone header table (56-byte rows, 536 or more)");
+    BinLinker en = BinLinker::Read(Plain(newZones.Sub(537)), "EN");
+    if (en.Files.size() < 536) throw FormatError("member 537 is not the encounter container (536 files or more)");
     // every 'D' of the map is one zone's door; each door's house inside is a new zone after the described ones on a game
     // interior's map (its matrix and area pack: the game's assets), its one warp leading back out to the door
     size_t doorsGiven = 0, doorsDrawn = 0;
@@ -457,9 +464,8 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
     for (int a = 9; a <= 16; a++)
     {
         const std::string path = "a/0/" + std::to_string(7 + a / 10) + "/" + std::to_string(a % 10);
-        const Bytes data = oras.Read(path);
-        const Garc g(data);
-        Garc n(data);
+        const Garc& g = ws.Original(path);
+        Garc& n = ws.Edited(path);
         for (size_t k = 0; k < zoneCount; k++)
         {
             const std::vector<std::string> lines = k < d.Zones.size() && !d.Zones[k].Lines.empty() ? d.Zones[k].Lines : std::vector<std::string>{""};
@@ -470,7 +476,6 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
             if (a == 9) textOf[k] = (int)index;
             else if (textOf[k] != (int)index) throw FormatError(path + ": not as many members as a/0/7/9");
         }
-        texts.emplace_back(path, data, std::move(n));
     }
 
     // a zone's scripts, assembled: its own (script / init-script), or ones that do nothing (OrasNewZone.h)
@@ -539,35 +544,11 @@ std::vector<std::string> BuildOrasSandbox(N3dsRom& oras, const std::string& desc
     }
     ReplaceMember(newZones, zoneArchive, 536, table, "");
     ReplaceMember(newZones, zoneArchive, 537, en.Write(), "EN");
-    snprintf(line, sizeof line, "zone tables: %zu header rows (oras-engine --zone-rows %zu), %zu encounter files", table.size() / rowBytes, table.size() / rowBytes, en.Files.size());
+    snprintf(line, sizeof line, "zone tables: %zu header rows, %zu encounter files", table.size() / rowBytes, en.Files.size());
     log.push_back(line);
 
-    char id[17];
-    snprintf(id, sizeof id, "%016llX", (unsigned long long)oras.ProgramId());
-    const std::filesystem::path out(outDir), root = out / "load" / "mods" / id / "romfs_ext";
-    for (const auto& [path, archive, original] : {std::tuple<const char*, Garc*, const Bytes*>{"a/0/3/9", &newPieces, &pieces}, {"a/0/4/0", &newMatrices, &matrices},
-                                                  {"a/0/1/3", &newZones, &zones}, {"a/0/1/4", &newAreas, &areas},
-                                                  {"a/1/3/7", &newPerArea, &perArea}})
-    {
-        const Bytes data = archive->Write();
-        if (data == *original) continue;
-        if (data.size() < original->size()) throw FormatError(std::string(path) + ": shorter than the game's, a patch would keep the old tail (Bps.h)");
-        const Bytes bps = BpsCreate(*original, data);
-        if (BpsApply(*original, bps) != data) throw FormatError(std::string(path) + ": the patch does not rebuild the file");
-        std::filesystem::create_directories((root / path).parent_path());
-        WriteFile((root / (std::string(path) + ".bps")).string(), bps);
-        snprintf(line, sizeof line, "%s: %zu members, patch %zu bytes, checked", path, Garc(data).Count(), bps.size());
-        log.push_back(line);
-    }
-    for (auto& [path, original, archive] : texts)
-    {
-        const Bytes data = archive.Write();
-        const Bytes bps = BpsCreate(original, data);
-        if (BpsApply(original, bps) != data) throw FormatError(path + ": the patch does not rebuild the file");
-        std::filesystem::create_directories((root / path).parent_path());
-        WriteFile((root / (path + ".bps")).string(), bps);
-    }
-    if (!texts.empty()) log.push_back("a/0/7/1-a/0/8/6: place names and the zones' text files patched, checked");
+    // the mod itself is written once by the build (OrasWorkspace::Write)
+    const std::filesystem::path out(outDir);
     std::filesystem::create_directories(out);
     WriteFile((out / "sandbox_layout.txt").string(), Bytes(layouts.begin(), layouts.end()));
     return log;

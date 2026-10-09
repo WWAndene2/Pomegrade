@@ -14,6 +14,7 @@
 // re-cutting (the owner: long term, Sinnoh as Platinum lays it out).
 
 #include "N3dsRom.h"
+#include "OrasWorkspace.h"
 #include "NdsRom.h"
 #include "OrasTown.h"
 
@@ -61,9 +62,9 @@ struct OrasRegionOptions
     std::string OutDir;
 };
 
-// writes <OutDir>/load/mods/<program>/romfs_ext/{a/0/3/9,a/0/4/0,a/0/1/3,a/0/1/4}.bps, region_preview.gltf and region_plan.txt;
-// returns what it did, line by line
-std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, const OrasRegionOptions& options);
+// adds the region to the build's archives (OrasWorkspace.h: OrasWorkspace::Write then writes the mod) and writes
+// <OutDir>/region_preview.gltf and region_plan.txt; returns what it did, line by line
+std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, OrasWorkspace& ws, const OrasRegionOptions& options);
 
 // The plan for the whole of Sinnoh as oras-region builds it, nothing written: Sinnoh's piece grid cut into strips of `stripWidth`
 // columns (each a matrix, trimmed to its used rows), the oras-region rectangle and map headers of each, the edge warps between

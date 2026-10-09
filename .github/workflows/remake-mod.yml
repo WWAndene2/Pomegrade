@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       variants:
-        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"; "... +cro <module> OFFSET=OLD:NEW" also patches a code module, "name: cro <module> OFFSET=OLD:NEW" patches one alone, "name: copy <archive> <dst>=<src>" copies archive members, "name: merge a b" joins mods built on earlier lines, "name: save Z X Y" a moved save to merge, "name: engine <oras-engine options>" the engine patches (memory, heaps, zones, characters) to merge, "name: sandbox <description file>" new zones from a text description (oras-sandbox) to merge'
+        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"; "... +cro <module> OFFSET=OLD:NEW" also patches a code module, "name: cro <module> OFFSET=OLD:NEW" patches one alone, "name: copy <archive> <dst>=<src>" copies archive members, "name: merge a b" joins mods built on earlier lines, "name: save Z X Y" a moved save to merge, "name: engine <oras-engine options>" the engine patches (memory, heaps, zones, characters) to merge, "name: sandbox <description file>" new zones from a text description (oras-sandbox) to merge, "name: build <steps file>" regions and sandboxes in one mod (oras-build) to merge'
         # no default mod: an empty input fell back to "v24:", and an inspect-only run shipped a v24 zip the owner took for r5
         default: ''
         required: false
@@ -157,6 +157,12 @@ jobs:
             elif [[ "$options" =~ ^[[:space:]]*copy[[:space:]] ]]; then
               # "name: copy <archive> <dst>[-<last>]=<src>[-<last>] ...": archive members copied over others (oras-copy)
               ./build-remake/remake_tool oras-copy dumps/oras.3ds "out/$name" ${options#*copy } | tee "mods/${name}_log.txt"
+            elif [[ "$options" =~ ^[[:space:]]*build[[:space:]] ]]; then
+              # "name: build <steps file in the repository>": regions and sandboxes in one mod, their zones, matrices, pieces and
+              # area packs numbered one after the other (oras-build, OrasWorkspace.h); merge it with "engine --zone-rows <the
+              # rows it prints>" and a save
+              ./build-remake/remake_tool oras-build dumps/platinum.nds dumps/oras.3ds "out/$name" "$GITHUB_WORKSPACE/$(echo ${options#*build } | xargs)" | tee "mods/${name}_log.txt"
+              rm -f "out/$name/sandbox_layout.txt" "out/$name/region_preview.gltf" "out/$name/region_plan.txt" "out/$name"/region_piece_*.bin
             elif [[ "$options" =~ ^[[:space:]]*sandbox[[:space:]] ]]; then
               # "name: sandbox <description file in the repository>": new zones from a text description (oras-sandbox,
               # OrasSandbox.h); merge it with "engine --zone-rows <the rows it prints>" and a save moved into one of its zones

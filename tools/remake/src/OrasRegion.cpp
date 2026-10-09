@@ -1,4 +1,5 @@
 #include "OrasRegion.h"
+#include "OrasWorkspace.h"
 #include "Bch.h"
 #include "BinLinker.h"
 #include "Bps.h"
@@ -178,7 +179,7 @@ static std::set<std::string> ShownTextures(const Bytes& piece)
     return names;
 }
 
-std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, const OrasRegionOptions& given)
+std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, OrasWorkspace& ws, const OrasRegionOptions& given)
 {
     OrasRegionOptions o = given; // AutoZones adds to Zones
     std::vector<std::string> log;
@@ -223,7 +224,7 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
         // every header of the region not given a zone gets one: first the zones of Hoenn's overworld grids (outdoor area packs), then the
         // empty zones (oras-sinnoh counts 107 of them against Sinnoh's 66 overworld headers); header 0, Platinum's scenery with no
         // events (forest, sea), is left out as before. Zones already given (a save's zone, interiors) are not reused
-        const Garc zo(oras.Read("a/0/1/3")), mm(oras.Read("a/0/4/0"));
+        const Garc &zo = ws.Edited("a/0/1/3"), &mm = ws.Edited("a/0/4/0");
         std::set<int> taken;
         for (const auto& [h, z] : o.Zones) if (z >= 0) taken.insert(z);
         std::set<int> overworld;
@@ -256,9 +257,9 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
     std::set<int> used;
     for (const auto& [h, z] : o.Zones) if (z >= 0 && blocksOf.count(h)) { if (!used.insert(z).second) throw FormatError(F("ORAS zone %d is given to two map headers", z)); }
 
-    const Bytes pieces = oras.Read("a/0/3/9"), matrices = oras.Read("a/0/4/0"), zones = oras.Read("a/0/1/3"), areas = oras.Read("a/0/1/4");
-    const Garc pieceArchive(pieces), matrixArchive(matrices), zoneArchive(zones), areaArchive(areas);
-    Garc newPieces(pieces), newMatrices(matrices), newZones(zones), newAreas(areas);
+    // the game's archives as the build has left them (OrasWorkspace.h): what earlier steps added is kept, numbers follow it
+    const Garc &pieceArchive = ws.Original("a/0/3/9"), &matrixArchive = ws.Original("a/0/4/0"), &zoneArchive = ws.Original("a/0/1/3"), &areaArchive = ws.Original("a/0/1/4");
+    Garc &newPieces = ws.Edited("a/0/3/9"), &newMatrices = ws.Edited("a/0/4/0"), &newZones = ws.Edited("a/0/1/3"), &newAreas = ws.Edited("a/0/1/4");
     std::map<int, OrasZone> zoneOf;
     for (int z : used) zoneOf.emplace(z, OrasZone::Read(Plain(zoneArchive.Sub((size_t)z))));
     std::map<int, Bytes> packs; // area pack -> its plain bytes, as the pieces add to it
@@ -521,32 +522,7 @@ std::vector<std::string> BuildOrasRegion(const NdsRom& platinum, N3dsRom& oras, 
     for (const auto& [pack, data] : packs)
         if (data != originalPacks.at(pack)) ReplaceMember(newAreas, areaArchive, (size_t)pack, data, "AD");
 
-    // the mod: BPS patches of the four archives, each checked by applying it back
-    char id[17];
-    snprintf(id, sizeof id, "%016llX", (unsigned long long)oras.ProgramId());
-    const std::filesystem::path root = out / "load" / "mods" / id / "romfs_ext";
-    for (const auto& [path, archive, original] : {std::tuple<const char*, Garc*, const Bytes*>{"a/0/3/9", &newPieces, &pieces}, {"a/0/4/0", &newMatrices, &matrices},
-                                                  {"a/0/1/3", &newZones, &zones}, {"a/0/1/4", &newAreas, &areas}})
-    {
-        const Bytes data = archive->Write();
-        if (data == *original) continue;
-        if (data.size() < original->size())
-        {
-            // a recompressed member can come out shorter (s1's zones): a patched file shorter than the game's would keep the old
-            // file's tail (Bps.h), so the archive is shipped whole in romfs/, which Azahar serves as it is (oras-mod's way)
-            const std::filesystem::path whole = out / "load" / "mods" / id / "romfs" / path;
-            std::filesystem::create_directories(whole.parent_path());
-            Garc check(data);
-            WriteFile(whole.string(), data);
-            log.push_back(F("%s: %zu members, %zu bytes (shorter than the game's %zu): written whole under romfs/", path, check.Count(), data.size(), original->size()));
-            continue;
-        }
-        const Bytes bps = BpsCreate(*original, data);
-        if (BpsApply(*original, bps) != data) throw FormatError(std::string(path) + ": the patch does not rebuild the file");
-        std::filesystem::create_directories((root / path).parent_path());
-        WriteFile((root / (std::string(path) + ".bps")).string(), bps);
-        log.push_back(F("%s: %zu members, patch %zu bytes, checked", path, Garc(data).Count(), bps.size()));
-    }
+    // the mod itself is written once by the build (OrasWorkspace::Write)
     const std::string gltf = WriteGltf(parts, materials);
     WriteFile((out / "region_preview.gltf").string(), Bytes(gltf.begin(), gltf.end()));
     layouts = plan + layouts;
