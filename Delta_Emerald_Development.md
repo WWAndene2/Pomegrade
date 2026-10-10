@@ -240,6 +240,28 @@ Rhinoféros (Protecteur), Téraclope (Tissu Fauche), Coquiperl (Dent ou Écaille
 **Risque** : si le jeu refuse d'utiliser un objet autre qu'une pierre sur un Pokémon, « utiliser l'objet » passe au palier 5
 (code) ; repli : évolution par niveau en tenant l'objet, méthode qui existe déjà (celle de Scorplane).
 
+### Point 4 — Tous les Pokémon capturables à Hoenn
+
+**Problème** : beaucoup de Pokémon ne s'obtiennent que par échange, Banque Pokémon ou événement, services fermés ; Émeraude
+ajoute Métamorph (Souterrain du désert), Smeargle (Grotte de l'Artisan) et des Pokémon de Johto (Parc Safari).
+
+**Déjà connu** (`tools/remake/ORAS_ENGINE.md` section 6, vérifié en jeu, run `enc2`) : chaque zone a sa table (fichier 3 de la
+zone, identique à son entrée du membre 537) ; plusieurs listes par terrain (herbe 12 emplacements, herbe sombre, eau, pêche,
+hordes…) ; un emplacement = 4 octets (espèce bits 0-10, forme bits 11-15, niveau minimum, niveau maximum).
+
+1. **Outil** : une commande `remake_tool oras-encounters` qui exporte les rencontres de chaque zone en texte (lieu, terrain,
+   emplacement, espèce, niveaux) et réécrit les deux copies ensemble (fichier de la zone et membre 537).
+2. **Liste des manquants** : l'outil compare les 721 Pokémon aux rencontres, cadeaux et légendaires du jeu et sort ceux qu'on
+   ne peut pas attraper ; c'est elle qui fixe le travail.
+3. **Règle** : les ajouts d'Émeraude à leur place (quand les lieux existent, palier 3) ; les autres selon type et habitat, sur
+   des emplacements rares pour garder ceux d'origine ; les exclusifs de Saphir Alpha dans Rubis Oméga, plus rares ; niveaux
+   suivant la progression. Tableau des placements validé par le propriétaire avant écriture.
+4. **Vérification** : une rencontre déclenchée dans une zone modifiée en émulation sans écran (méthode du run `enc2`), puis
+   sur le téléphone.
+
+**Risques** : le DexNav et les îles Mirage ont peut-être leurs propres listes (les îles sont choisies par le code, point 29) ;
+le type de liste 2 n'est pas identifié (non bloquant).
+
 ## Sources
 
 - Wikipédia, *Pokémon Emerald* : https://en.wikipedia.org/wiki/Pok%C3%A9mon_Emerald (combats doubles, PokéNav, revanches,
