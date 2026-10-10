@@ -301,6 +301,31 @@ gardent cette règle de la pension dans le code, ORAS sans doute (de mémoire).
 **Risque** : les outils de sauvegarde déplacent le joueur mais n'ajoutent pas encore de Pokémon ni d'objet ; repli : la
 sauvegarde faite par le propriétaire.
 
+### Point 7 — Revanches des huit champions d'arène
+
+**Problème** : ORAS ne permet de réaffronter que la Ligue ; dans Émeraude, les champions se rappellent par le Match Call après
+la Ligue et reviennent avec des équipes renforcées sur plusieurs paliers (Serebii, Wikipédia).
+
+**Connu** : le combat contre un dresseur est tracé dans le code (`tools/remake/ORAS_ENGINE.md`) ; les scripts de zone se lisent
+et se réassemblent (`oras-script`, `oras-zone-script`, assembleur AMX). **Pas encore lus** : les drapeaux de progression (« la
+Ligue est battue ») et l'instruction de script qui lance un combat de dresseur.
+
+1. **Lire** : le drapeau de fin de Ligue (comparer une sauvegarde d'avant et d'après le Panthéon : les outils comparent déjà deux
+   sauvegardes bloc par bloc) ; l'instruction de combat (dans le script d'une arène d'ORAS, où le champion lance son combat).
+2. **Équipes** : huit nouveaux dresseurs par l'outil du point 1, l'équipe de la dernière revanche d'Émeraude (`pokeemerald`)
+   adaptée à l'après-jeu d'ORAS (niveaux, capacités, Pokémon plus récents de la même famille) ; tableau validé par le
+   propriétaire.
+3. **Script de chaque arène** : après la Ligue, le champion propose une revanche ; une par jour (l'idée d'Émeraude sans le
+   Match Call, qui relève du palier 5).
+4. **Textes** : une phrase de défi et une de défaite par champion, ajoutées aux textes de la zone.
+5. **Vérification** : une sauvegarde d'après la Ligue (celle du propriétaire, ou le drapeau posé dans la sienne une fois trouvé),
+   la revanche lancée en émulation sans écran (capture de l'équipe), puis sur le téléphone.
+
+Le **premier point à construire** : il teste dresseurs, drapeaux, scripts et textes, dont les points suivants se servent.
+
+**Risques** : un script d'arène trop gros pour les limites connues des fichiers de zone : la revanche passe par un personnage à
+part posé dans l'arène ; si l'heure ne se lit pas dans un script, la revanche est disponible à chaque visite.
+
 ## Sources
 
 - Wikipédia, *Pokémon Emerald* : https://en.wikipedia.org/wiki/Pok%C3%A9mon_Emerald (combats doubles, PokéNav, revanches,
