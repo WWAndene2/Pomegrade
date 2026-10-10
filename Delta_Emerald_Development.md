@@ -217,6 +217,29 @@ Méga-Kangourex et son talent Amour Filial, Méga-Drattak, Méga-Ectoplasma, Mé
 **Risques** : la table peut ne pas être où on le pense (à trouver d'abord avec les outils de recherche). Méga-Rayquaza se
 passe de Méga-Gemme par une règle du code, pas de la fiche : la limiter est du palier 5.
 
+### Point 3 — Évolutions par échange remplacées
+
+**Problème** : les échanges en ligne de la 3DS sont fermés ; les Pokémon qui n'évoluent qu'échangés ne peuvent plus évoluer
+seul. Concernés (de mémoire, à confirmer dans les données) : échange simple — Kadabra, Machopeur, Gravalanch, Spectrum,
+Géolithe, Ouvrifier ; échange en tenant un objet — Onix et Insécateur (Peau Métal), Têtarte et Ramoloss (Roche Royale),
+Hypocéan (Écaille Draco), Porygon (Améliorator), Porygon2 (CD Douteux), Élektek (Électriseur), Magmar (Magmariseur),
+Rhinoféros (Protecteur), Téraclope (Tissu Fauche), Coquiperl (Dent ou Écaille Océan), Barpau (Bel'Écaille), Fluvetin
+(Sachet Senteur), Sucroquin (Chantibonbon) ; échange entre deux Pokémon — Carabing et Escargaume.
+
+1. **Outil** : une commande `remake_tool oras-evolutions` qui exporte pour chaque Pokémon sa méthode d'évolution, son
+   paramètre et l'espèce obtenue, et réécrit la table dans le mod. À confirmer : l'emplacement de la table et les valeurs des
+   codes de méthode (échange, échange avec objet, utiliser un objet : codes distincts, valeurs *à vérifier*).
+2. **Règle** : échange simple → niveau (37 pour Kadabra, Machopeur, Gravalanch, Spectrum ; 40 pour Géolithe, Ouvrifier :
+   valeurs courantes de la communauté, à valider) ; échange avec objet → utiliser l'objet sur le Pokémon, comme une pierre ;
+   Coquiperl garde ses deux objets ; Carabing et Escargaume → niveau ou objet.
+3. **Objets** : chaque objet d'évolution trouvable à Hoenn (posé sur la carte, vendu ou offert) ; ceux qui manquent dans
+   ORAS ajoutés aux objets des maps ou aux magasins.
+4. **Vérification** : une évolution par niveau (combat) et une par objet (Sac) en émulation sans écran, puis sur le
+   téléphone.
+
+**Risque** : si le jeu refuse d'utiliser un objet autre qu'une pierre sur un Pokémon, « utiliser l'objet » passe au palier 5
+(code) ; repli : évolution par niveau en tenant l'objet, méthode qui existe déjà (celle de Scorplane).
+
 ## Sources
 
 - Wikipédia, *Pokémon Emerald* : https://en.wikipedia.org/wiki/Pok%C3%A9mon_Emerald (combats doubles, PokéNav, revanches,
