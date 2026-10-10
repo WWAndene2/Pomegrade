@@ -262,6 +262,28 @@ hordes…) ; un emplacement = 4 octets (espèce bits 0-10, forme bits 11-15, niv
 **Risques** : le DexNav et les îles Mirage ont peut-être leurs propres listes (les îles sont choisies par le code, point 29) ;
 le type de liste 2 n'est pas identifié (non bloquant).
 
+### Point 5 — Maîtres des capacités d'Émeraude
+
+**Problème** : Émeraude ajoute une trentaine de capacités enseignées (la plupart de celles de RF/VF et 15 anciennes CT de la
+2e génération ; celles de la Zone en PC et réutilisables, celles de Hoenn une seule fois). ORAS a ses propres maîtres (île
+Combat en PC, quelques-uns dans Hoenn), pas la même liste. Liste d'Émeraude (de mémoire, à confirmer) : Ultimapoing,
+Danse-Lames, Ultimawashi, Plaquage, Damoclès, Riposte, Frappe Atlas, Copie, Métronome, E-Coque, Dévorêve, Cage-Éclair,
+Explosion, Éboulement, Clonage, Dynamopoing, Roulade, Boost, Ronflement, Vent Glace, Ténacité, Coud'Boue, Poing-Glace,
+Vantardise, Blabla Dodo, Météores, Boul'Armure, Poing-Éclair, Poing de Feu, Taillade.
+
+1. **Trouver** : la liste des capacités de chaque maître d'ORAS (table du code ou script du personnage : *à trouver*) et les
+   cases « peut apprendre » de chaque Pokémon (dans sa fiche : lues par l'outil du point 2).
+2. **Comparer** : l'outil sort les capacités d'Émeraude absentes des maîtres d'ORAS (une partie y est déjà, les poings
+   élémentaires par exemple).
+3. **Ajouter** : à un maître existant ou à un nouveau personnage, aux places d'Émeraude (Zone de Combat en PC, villes de
+   Hoenn) ; qui peut les apprendre : la compatibilité d'Émeraude, et une règle de cohérence (type, famille) pour les Pokémon
+   plus récents, tableau validé par le propriétaire ; tous réutilisables (échanges fermés).
+4. **Vérification** : apprendre une capacité ajoutée auprès du maître en émulation sans écran, puis sur le téléphone.
+
+**Risques** : une liste de maîtres fixée dans le code sans place libre fait passer le point au palier 5 ; les cases « peut
+apprendre » sont en nombre fixe par Pokémon : sans case libre, repli en remplaçant des capacités moins utiles chez les maîtres
+existants.
+
 ## Sources
 
 - Wikipédia, *Pokémon Emerald* : https://en.wikipedia.org/wiki/Pok%C3%A9mon_Emerald (combats doubles, PokéNav, revanches,
