@@ -174,6 +174,29 @@ rapide)
 
 **Côté Pomegrade, hors mod** : les performances (3.5) sont déjà dans `DEVELOPMENT_NOTE.md`.
 
+## 5. Solutions, point par point (dans l'ordre de la section 4)
+
+Chaque solution est donnée au propriétaire une à la fois (sa demande, 9 octobre) et notée ici. Ce sont des méthodes, pas du
+travail fait : rien n'est construit tant que le propriétaire ne l'a pas validée.
+
+### Point 1 — Équipes de dresseurs plus dures, façon Émeraude
+
+**Problème** : équipes petites et niveaux bas dans ORAS ; le Multi Exp. met le joueur en sur-niveau.
+
+1. **Outil** : une commande `remake_tool oras-trainers` qui exporte tous les dresseurs d'ORAS dans un fichier texte lisible
+   (nom, classe, lieu, Pokémon, niveaux, capacités, objets) et réécrit le fichier modifié dans le mod. Connu : le format de
+   base d'un dresseur (classe, équipe ; `tools/remake/ORAS_ENGINE.md`). À lire d'abord : les formats 1 à 3 (probablement les
+   capacités et les objets : une supposition).
+2. **Référence** : les équipes d'Émeraude, publiques dans la décompilation communautaire `pokeemerald` (liste des dresseurs,
+   Pokémon, niveaux), chaque dresseur d'Émeraude mis en face de son équivalent d'ORAS par nom et lieu.
+3. **Règle par dresseur** : l'équipe d'Émeraude si elle est plus forte que celle d'ORAS, sinon celle d'ORAS ; niveaux +10 à
+   15 % pour compenser le Multi Exp. (à régler en jouant) ; champions, Ligue et rivaux avec capacités et objets choisis ; les
+   Pokémon absents d'Émeraude gardés quand ils vont mieux à la région.
+4. **Vérification** : un combat contre un dresseur modifié en émulation sans écran (capture de l'équipe adverse), puis un test
+   de difficulté sur le téléphone.
+
+**Risque** : si les formats 1 à 3 ne se lisent pas, la première version ne change que les espèces et les niveaux.
+
 ## Sources
 
 - Wikipédia, *Pokémon Emerald* : https://en.wikipedia.org/wiki/Pok%C3%A9mon_Emerald (combats doubles, PokéNav, revanches,
