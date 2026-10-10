@@ -197,6 +197,26 @@ travail fait : rien n'est construit tant que le propriétaire ne l'a pas validé
 
 **Risque** : si les formats 1 à 3 ne se lisent pas, la première version ne change que les espèces et les niveaux.
 
+### Point 2 — Statistiques des Méga-Évolutions rééquilibrées
+
+**Problème** : certaines Méga écrasent le jeu (souvent citées, de mémoire, à confirmer avec le propriétaire : Méga-Rayquaza,
+Méga-Kangourex et son talent Amour Filial, Méga-Drattak, Méga-Ectoplasma, Méga-Mysdibule), d'autres sont inutiles
+(Méga-Dardargnan, Méga-Nanméouïe, Méga-Steelix).
+
+1. **Outil** : une commande `remake_tool oras-personal` qui exporte la table des fiches des Pokémon (statistiques de base,
+   types, talents ; chaque Méga y est une forme à part) dans un fichier texte et la réécrit dans le mod. À confirmer :
+   l'emplacement de la table (archive `a/1/9/5` *à vérifier*, de mémoire).
+2. **Règle** : la règle officielle gardée (une Méga gagne exactement +100 points sur sa forme de base), seule la répartition
+   change ; trop fortes : moins dans la statistique écrasante, et leur talent remplacé par un autre talent existant quand c'est
+   lui le problème (Amour Filial, Pouvoir Pur ; le talent est une valeur de la fiche) ; faibles : les points vers ce qui leur
+   manque.
+3. **Liste** : un tableau avant/après des Méga concernées, validé par le propriétaire avant toute modification.
+4. **Vérification** : une Méga-Évolution en combat en émulation sans écran (capture des statistiques), puis un essai sur le
+   téléphone.
+
+**Risques** : la table peut ne pas être où on le pense (à trouver d'abord avec les outils de recherche). Méga-Rayquaza se
+passe de Méga-Gemme par une règle du code, pas de la fiche : la limiter est du palier 5.
+
 ## Sources
 
 - Wikipédia, *Pokémon Emerald* : https://en.wikipedia.org/wiki/Pok%C3%A9mon_Emerald (combats doubles, PokéNav, revanches,
