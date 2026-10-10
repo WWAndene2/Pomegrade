@@ -326,6 +326,28 @@ Le **premier point à construire** : il teste dresseurs, drapeaux, scripts et te
 **Risques** : un script d'arène trop gros pour les limites connues des fichiers de zone : la revanche passe par un personnage à
 part posé dans l'arène ; si l'heure ne se lit pas dans un script, la revanche est disponible à chaque visite.
 
+### Point 8 — Juan champion à Atalanopolis, Marc Maître de la Ligue
+
+**Vérifié (10 octobre)** : Juan n'est pas un dresseur d'ORAS ; son nom n'apparaît que dans un dialogue où Lisia le cite comme le
+maître de Marc (textes de zone, `a/0/8/4` membre 447). Pas d'entrée dans les noms de dresseurs ; pas de modèle 3D (probable, non
+vérifié). Marc a deux entrées dans les noms de dresseurs (`a/0/7/4` membre 22) : ligne 572 avec les champions, ligne 943 juste
+après Pierre (942), une autre version de lui à confirmer en lisant les fiches.
+
+1. **Modèle de Juan** (choix du propriétaire) : a) un modèle de personnage existant proche (gentleman, artiste) ; b) un modèle
+   existant recoloré avec les outils de textures (`oras-asset ... recolour`), recommandé pour commencer ; c) un vrai modèle
+   (gros chantier).
+2. **Dresseur** : Juan créé par l'outil du point 1 (classe Champion ; équipe d'Émeraude : Lovdisc, Barbicha, Phogleur,
+   Colhomard, Hyporoi, Serebii ; adaptée au niveau d'ORAS), son nom ajouté aux noms de dresseurs.
+3. **Arène d'Atalanopolis** : dans le script de la zone, le combat contre Marc devient le combat contre Juan (personnage, textes
+   de défi et de défaite) ; le badge ne change pas ; la disposition d'Émeraude relève du point 11.
+4. **Maître de la Ligue** : dans la salle du Maître, Pierre remplacé par Marc (équipe de Maître d'Émeraude adaptée, ou l'entrée
+   943 si elle est déjà forte ; personnage, textes, scène finale) ; Pierre va à la Cascade Météore (point 9).
+5. **Vérification** : les deux combats lancés en émulation sans écran (sauvegardes avant la 8e arène et devant la salle du
+   Maître ; captures de l'adversaire), puis sur le téléphone.
+
+**Risque** : Marc et Pierre apparaissent dans des scènes de l'histoire, dont les scripts relèvent du palier 4. Première version :
+seulement les combats et les personnages de l'arène et de la salle du Maître, les scènes d'histoire gardées.
+
 ## Sources
 
 - Wikipédia, *Pokémon Emerald* : https://en.wikipedia.org/wiki/Pok%C3%A9mon_Emerald (combats doubles, PokéNav, revanches,
