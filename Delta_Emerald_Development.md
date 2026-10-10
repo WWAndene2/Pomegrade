@@ -172,6 +172,9 @@ rapide)
 36. Règles propres des installations de la Zone de Combat : Usine, Dôme, Palais, Arène, Reptile, Pyramide (1.1)
 37. Pokémon qui suit le joueur (3.10)
 
+**Ajouté par le propriétaire (10 octobre), à faire en premier** : le vol en mode ciel à la place du Vol classique (point 38,
+palier 5) puis sur le Pokémon qui connaît Vol (point 39, palier 6 pour tous les Pokémon ; une liste choisie d'abord).
+
 **Côté Pomegrade, hors mod** : les performances (3.5) sont déjà dans `DEVELOPMENT_NOTE.md`.
 
 ## 5. Solutions, point par point (dans l'ordre de la section 4)
@@ -385,6 +388,31 @@ premier.
 
 **Risques** : l'instruction qui donne un Pokémon est à lire dans un script d'ORAS qui en donne déjà un (starter du début,
 pension) ; si « Pokédex complet » ne se lit pas dans un script, une autre condition (après la Ligue ou l'Épisode Delta).
+
+### Points 38 et 39 — Le vol en mode ciel à la place du Vol, sur le Pokémon qui connaît Vol
+
+**Demande du propriétaire (10 octobre)**, commencée en premier.
+
+**Vérifié dans le jeu (lecture seule)** :
+- le mode ciel est le module `DllSkyTrip.cro` (73 Ko) ; ses classes : `BuildModel` (la maquette), `BMLegendPoint` (points des
+  légendaires), `BMHikyo` (îles Mirage), `BMShip` (bateau), `BMEncount` (rencontres), `Camera` ; il nomme un os `Waist`, où le
+  joueur est sans doute attaché au modèle de Latios ou Latias (une supposition) ;
+- la maquette de Hoenn : `a/2/5/1` membre 3, un modèle `sky_trip_map` (36 maillages, 54 861 sommets, 50 749 triangles,
+  15 textures), séparé des vraies cartes ; les décors (bateau, îles Mirage, Goélise) au membre 0.
+
+**Pas encore trouvé** : la table des endroits où se poser ; le code qui choisit le modèle de Latios ou Latias ; le code qui
+lance le mode ciel (Flûte Éon) et celui qui ouvre la carte du Vol (`DllTownmap.cro`).
+
+**Point 38 — le Vol ouvre le mode ciel** (palier 5) : trouver où l'utilisation de Vol hors combat ouvre la carte et y lancer le
+mode ciel comme le fait la Flûte Éon ; le mode ciel pose déjà le joueur aux mêmes destinations. Probable, à confirmer dans le
+code.
+
+**Point 39 — voler sur le Pokémon qui connaît Vol, avec son modèle** (palier 6 pour tous ; par étapes) :
+1. le code charge le Pokémon de l'équipe qui connaît Vol au lieu de Latios ou Latias (patch plus gros que le 38) ;
+2. un point d'attache du joueur par Pokémon (les os diffèrent : `Waist` est celui de Latios), dans une table à créer (position,
+   échelle) ;
+3. une taille pendant le vol (Roucool est minuscule à côté de Latios) et une animation de vol existante du modèle.
+Première version : une liste de Pokémon choisie par le propriétaire, réglés à la main ; Latios ou Latias pour les autres.
 
 ## Sources
 
