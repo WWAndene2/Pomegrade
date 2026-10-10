@@ -348,6 +348,26 @@ après Pierre (942), une autre version de lui à confirmer en lisant les fiches.
 **Risque** : Marc et Pierre apparaissent dans des scènes de l'histoire, dont les scripts relèvent du palier 4. Première version :
 seulement les combats et les personnages de l'arène et de la salle du Maître, les scènes d'histoire gardées.
 
+### Point 9 — Pierre en défi caché à la Site Météore
+
+**Vérifié (10 octobre)** : la Cascade Météore s'appelle Site Météore dans ORAS (`a/0/7/4` membre 90 ligne 272), zones 71-74.
+La **zone 74** est une salle du fond, montée par un escalier depuis la zone 73 (warp kind 1281), avec un seul élément (modèle
+8193, type 4 : sans doute un objet, une supposition) : l'équivalent de la salle de Pierre dans Émeraude.
+
+1. **Lieu** : la zone 74, sans nouvelle map ; un personnage ajouté (l'outillage le fait : `NewCharacter`).
+2. **Personnage** : le modèle de Pierre, présent dans l'histoire d'ORAS (numéro à lire dans une zone où il apparaît), placé face
+   à l'escalier, devant l'objet actuel ou à sa place (choix du propriétaire).
+3. **Dresseur** : une équipe de défi par l'outil du point 1 ; dans Émeraude Airmure, Kaorine, Galeking, Vacilys, Armaldo,
+   Métalosse vers le niveau 76-78 (de mémoire, à confirmer dans `pokeemerald`), avec la Méga-Métalosse d'ORAS ; le dresseur
+   Pierre de la ligne 942 des noms peut servir de base (fiche à lire).
+4. **Script** : Pierre présent après la Ligue (drapeau du point 7) et seulement quand Marc est Maître (point 8) ; un texte puis
+   le combat ; ensuite disponible une fois par jour.
+5. **Vérification** : sauvegarde d'après la Ligue, Pierre affronté dans la zone 74 en émulation sans écran (capture), puis sur
+   le téléphone.
+
+**Risques** : dépend des points 7 et 8 (construit après eux). La Site Météore sert aussi à l'Épisode Delta (Zinnia, de
+mémoire) : Pierre n'y apparaît qu'après l'Épisode Delta si ses scènes le demandent.
+
 ## Sources
 
 - Wikipédia, *Pokémon Emerald* : https://en.wikipedia.org/wiki/Pok%C3%A9mon_Emerald (combats doubles, PokéNav, revanches,
