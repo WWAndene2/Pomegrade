@@ -128,7 +128,7 @@ pas garanti. Chaque point se termine par une vérification dans l'émulateur san
 3. Évolutions par échange remplacées par objet ou niveau (3.11)
 4. Tables de rencontres : tous les Pokémon capturables à Hoenn, Métamorph, Smeargle, Pokémon de Johto (3.11, 1.3)
 5. Maîtres des capacités étendus, ceux d'Émeraude (1.4)
-6. Électacle : vérifier sa présence dans ORAS (1.4)
+6. Électacle : présente dans ORAS (n° 344, vérifié) ; sa façon de l'apprendre reste à vérifier (1.4)
 
 **Palier 2 — données + un script simple ou un drapeau** (la première fois, il faut lire les drapeaux d'ORAS ; ensuite
 rapide)
@@ -283,6 +283,23 @@ Vantardise, Blabla Dodo, Météores, Boul'Armure, Poing-Éclair, Poing de Feu, T
 **Risques** : une liste de maîtres fixée dans le code sans place libre fait passer le point au palier 5 ; les cases « peut
 apprendre » sont en nombre fixe par Pokémon : sans case libre, repli en remplaçant des capacités moins utiles chez les maîtres
 existants.
+
+### Point 6 — Électacle (Volt Tackle)
+
+**Vérifié (10 octobre)** : la capacité existe dans ORAS, numéro 344 de la liste des capacités (« Électacle », `a/0/7/4`
+membre 14 ligne 344 ; « Volt Tackle » dans `a/0/7/3`), le même numéro que dans Émeraude. **À vérifier** : comment on
+l'apprend. Dans Émeraude, un Pikachu ou un Raichu tenant une Balle Lumière pond un Pichu qui la connaît ; les jeux suivants
+gardent cette règle de la pension dans le code, ORAS sans doute (de mémoire).
+
+1. **Vérifier en jeu** : en émulation sans écran, Pikachu tenant une Balle Lumière à la pension, l'œuf éclos, les capacités du
+   Pichu lues sur une capture (sauvegarde préparée par les outils ou faite par le propriétaire dans son jeu).
+2. **Si ça marche** : rien à changer, sauf vérifier qu'une Balle Lumière s'obtient à Hoenn (Pikachu sauvage ou posée) et
+   l'ajouter sinon (comme les objets du point 3).
+3. **Sinon** : sans toucher au code, par sa fiche d'apprentissage (données) ou par un maître des capacités (point 5, le plus
+   proche d'une méthode « spéciale » comme dans Émeraude ; recommandé).
+
+**Risque** : les outils de sauvegarde déplacent le joueur mais n'ajoutent pas encore de Pokémon ni d'objet ; repli : la
+sauvegarde faite par le propriétaire.
 
 ## Sources
 
