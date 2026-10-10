@@ -368,6 +368,24 @@ La **zone 74** est une salle du fond, montée par un escalier depuis la zone 73 
 **Risques** : dépend des points 7 et 8 (construit après eux). La Site Météore sert aussi à l'Épisode Delta (Zinnia, de
 mémoire) : Pierre n'y apparaît qu'après l'Épisode Delta si ses scènes le demandent.
 
+### Point 10 — Starter de Johto offert par le Prof. Seko
+
+**Émeraude** : le Pokédex de Hoenn complété, le Prof. Seko offre Germignon, Héricendre ou Kaiminus (de mémoire, à confirmer).
+**Inconnu** : si ORAS offre déjà des starters d'autres régions après l'histoire (vague souvenir, non vérifié) : à vérifier en
+premier.
+
+1. **Vérifier** : lire le script du laboratoire (sa zone à Bourg-en-Vol) et y chercher les dons de Pokémon (espèces 152, 155,
+   158) ; s'ils y sont, le point est réglé sans rien faire.
+2. **Sinon, ajouter** : dans le script de la zone, la condition « Pokédex de Hoenn complet » (compteur ou drapeau, à lire comme
+   au point 7) ; trois Poké Balls sur la table (trois objets de zone), le choix, le Pokémon donné au niveau 5 ; un drapeau
+   « déjà reçu ».
+3. **Textes** : les phrases du Prof. Seko ajoutées aux textes de la zone.
+4. **Vérification** : la condition abaissée le temps du test (« après la Ligue »), le don vérifié en émulation sans écran
+   (capture de l'équipe), la vraie condition remise ; puis sur le téléphone.
+
+**Risques** : l'instruction qui donne un Pokémon est à lire dans un script d'ORAS qui en donne déjà un (starter du début,
+pension) ; si « Pokédex complet » ne se lit pas dans un script, une autre condition (après la Ligue ou l'Épisode Delta).
+
 ## Sources
 
 - Wikipédia, *Pokémon Emerald* : https://en.wikipedia.org/wiki/Pok%C3%A9mon_Emerald (combats doubles, PokéNav, revanches,
