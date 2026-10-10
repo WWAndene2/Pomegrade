@@ -400,12 +400,30 @@ pension) ; si « Pokédex complet » ne se lit pas dans un script, une autre con
 - la maquette de Hoenn : `a/2/5/1` membre 3, un modèle `sky_trip_map` (36 maillages, 54 861 sommets, 50 749 triangles,
   15 textures), séparé des vraies cartes ; les décors (bateau, îles Mirage, Goélise) au membre 0.
 
-**Pas encore trouvé** : la table des endroits où se poser ; le code qui choisit le modèle de Latios ou Latias ; le code qui
-lance le mode ciel (Flûte Éon) et celui qui ouvre la carte du Vol (`DllTownmap.cro`).
+**Vérifié dans le code puis dans le jeu, sans écran (10 octobre)** — sur une copie de la sauvegarde du propriétaire, hors du
+dépôt, avec la Flûte Éon (objet 775, poche Objets rares), un Pokémon de l'équipe qui connaît Vol et les badges 1 à 6 ajoutés
+(sommes de contrôle refaites) :
+- la Flûte : la fonction de retour du Sac `0x3ef000` voit l'objet `0x307`, appelle le constructeur du mode ciel `0x3d19f8`
+  (événement de table virtuelle `0x5df0bc`, espèce `0x17D` Latios écrite en dur) et marque l'événement en cours (`+0x1d = 3`) ;
+  vu dans le jeu : Latios au-dessus de la maquette, « Voulez-vous atterrir ici ? » ;
+- le Vol : la fonction de retour du menu de l'équipe `0x3ef7b8`, quand le menu rend l'action 3 avec le code `0x13`, vérifie
+  `0x3dc534(…, 2)` (sans doute « peut-on voler ici », supposé) puis crée l'événement du Vol (0xC0 octets, table virtuelle
+  `0x5dee48`) avec la destination choisie et le Pokémon de l'équipe qui vole, et marque `+0x1d = 3` comme la Flûte. Trouvé par
+  une trace du code (interpréteur) du choix de la destination jusqu'à l'atterrissage, moins la trace de la carte au repos ;
+  vu dans le jeu : l'envol avec la silhouette du Pokémon, puis l'arrivée à Bourg-en-Vol ;
+- la sauvegarde : les badges sont l'octet `0x420C` (bloc 11, « Misc », +0xC ; un bit par badge ; sans le 6e : « Vous devez
+  obtenir un autre Badge ») ; l'équipe au bloc 18 (`0x14200`, 6 × 260 octets, le nombre à +0x618), chiffrée comme le
+  documente PKHeX (vérifié : déchiffrer puis rechiffrer redonne les mêmes octets).
+
+**Pas encore trouvé** : la table des endroits où se poser ; le chargement du modèle de Latios ou Latias et l'attache du
+joueur.
 
 **Point 38 — le Vol ouvre le mode ciel** (palier 5) : trouver où l'utilisation de Vol hors combat ouvre la carte et y lancer le
-mode ciel comme le fait la Flûte Éon ; le mode ciel pose déjà le joueur aux mêmes destinations. Probable, à confirmer dans le
-code.
+mode ciel comme le fait la Flûte Éon ; le mode ciel pose déjà le joueur aux mêmes destinations. Proposé, pas encore fait :
+dans `0x3ef7b8`, la branche du code `0x13` appelle `0x3d19f8` comme la Flûte au lieu de créer l'événement du Vol (la
+vérification `0x3dc534` gardée) ; puis, deuxième étape, le menu de l'équipe (`DllPokeList`) lance le vol sans ouvrir la carte.
+Inconnu : si le mode ciel accepte le contexte du menu de l'équipe au lieu de celui du Sac, et comment le patch de code est
+installé dans la chaîne des mods.
 
 **Point 39 — voler sur le Pokémon qui connaît Vol, avec son modèle** (palier 6 pour tous ; par étapes) :
 1. le code charge le Pokémon de l'équipe qui connaît Vol au lieu de Latios ou Latias (patch plus gros que le 38) ;
