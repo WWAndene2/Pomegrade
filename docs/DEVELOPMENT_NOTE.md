@@ -4,13 +4,14 @@ Roadmap of Pomegrade: what is left before a first usable version, what can be im
 
 ## Where things stand
 
-Pomegrade is currently **two apps side by side in one APK**: melonDS-android (DS/DSi, with Pomegrade's HD texture replacement) and Azahar (3DS), joined by a single game list.
+Pomegrade (shown as Punica) is currently **five emulators side by side in one APK**, joined by a single game list: melonDS-android (DS/DSi, with Pomegrade's HD texture replacement), Azahar (3DS), mGBA 0.10.5 (GBA, with Pomegrade's own emulation screen), Eden v0.2.1 (Switch) and Dolphin 2606a (GameCube and Wii). Each of the last three opens in its own screens; GBA uses the shared in-game menu.
 
 | Done | Verified by |
 |---|---|
 | HD texture replacement for the OpenGL renderer | Desktop tests (`tests/hd-textures/`) |
 | Azahar (3DS) merged as the `:azahar` module | Local build |
 | Unified game list: DS, DSi and 3DS games, each launched in its own core | Local build, `RomPlatformTest` |
+| GBA, Switch, GameCube and Wii added to the game list and launched in their cores; home-screen shortcuts for all consoles | `RomPlatformTest`, `ConsoleLauncherTest`, `GbaKeysTest`, `RomHeaderTextTest`. The first CI builds with these cores failed (Eden sources missing, fixed 11 October); no green build of them yet |
 | App renamed Pomegrade, own application ID (`io.github.wwandene2.pomegrade`) | APK inspection |
 | Pomegrade icon (adaptive, themed, legacy) | APK inspection |
 | CI: builds only on `main` and manual runs, ccache, only the needed 3DS target, optimized native code | Local clean build with the CI settings (27 min); no CI run yet |
@@ -92,7 +93,7 @@ The open items of the unified list, HD textures, native enhancements and perform
 - **Cheats**: Action Replay (DS) and Gateway (3DS) in one format and one screen.
 - **RetroAchievements** for 3DS (melonDS already supports it).
 - **Controllers**: one mapping for all consoles.
-- **GBA**: an mGBA core would complete the Nintendo handheld family.
+- **GBA**: done (mGBA core). Next for it: fast-forward and rewind, a movable on-screen layout, screen filters, a save state on exit.
 
 ## 3b. DS engine remake
 
@@ -160,7 +161,9 @@ Pomegrade
 └── Cores (plugins)
     ├── melonDS (DS / DSi)
     ├── Azahar (3DS)
-    └── later: mGBA (GBA), …
+    ├── mGBA (GBA)
+    ├── Eden (Switch)
+    └── Dolphin (GameCube / Wii)
 ```
 
 Steps, from least to most work:
