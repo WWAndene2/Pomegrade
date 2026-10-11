@@ -27,7 +27,8 @@ import java.io.File
  * ```
  * Pomegrade/
  * ├── Roms/<game>/   each game's ROM, with its DS saves and save states next to it
- * ├── BIOS/          DS/DSi BIOS and firmware (when none was set up elsewhere)
+ * ├── BIOS/          DS/DSi BIOS and firmware (when none was set up elsewhere), gba_bios.bin,
+ *                   Switch/ (the Switch keys and firmware, see SwitchSystemFiles)
  * └── 3DS/           the 3DS core's folder (Azahar: 3DS saves, save states, system files)
  * ```
  *

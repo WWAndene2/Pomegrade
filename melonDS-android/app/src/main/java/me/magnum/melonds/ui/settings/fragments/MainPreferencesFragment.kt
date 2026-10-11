@@ -14,6 +14,7 @@ import kotlinx.coroutines.withContext
 import me.magnum.melonds.R
 import me.magnum.melonds.impl.ModInstaller
 import me.magnum.melonds.impl.PomegradeFolder
+import me.magnum.melonds.impl.SwitchSystemFiles
 import me.magnum.melonds.ui.common.rom.N3dsLauncher
 import me.magnum.melonds.ui.common.rom.SwitchLauncher
 import me.magnum.melonds.ui.settings.preferences.ConsoleSelectorPreference
@@ -103,7 +104,11 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
             showConsoleSection(selector.selected)
         }
         findPreference<Preference>("switch_home")?.setOnPreferenceClickListener {
-            startActivity(SwitchLauncher.homeIntent(requireContext()))
+            // the keys and firmware of Pomegrade/BIOS/Switch first, so Eden's home screen shows them installed
+            viewLifecycleOwner.lifecycleScope.launch {
+                withContext(Dispatchers.IO) { SwitchSystemFiles.import(requireContext().applicationContext) }
+                startActivity(SwitchLauncher.homeIntent(requireContext()))
+            }
             true
         }
         // the code trace is written next to the 3DS core's folder: its path is kept with the
