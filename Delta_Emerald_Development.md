@@ -599,7 +599,11 @@ les scripts la fonction native de version et les noms de zones d'Alpha Saphir (`
 (nom de lieu 292, `a/0/7/3` membre 90) a 6 zones (92-97), peuplées comme les 6 du repaire Magma (169-174, nom 314) :
 personnages, warps et déclencheurs en miroir (`oras-inspect zone`). Les textes d'histoire des deux versions y sont aussi
 (`a/0/8/1`, par exemple Kyogre Primo et Groudon Primo, chacun à sa place). Le repaire Aqua se charge dans Rubis Oméga (vu sans écran, sauvegarde
-déplacée en zone 93, run `aqua93s` : décor, nom « Planque Aqua »). Reste à voir ses personnages et ses scripts en jeu.
+déplacée en zone 93, run `aqua93s` : décor, nom « Planque Aqua »). Ses scripts (zones 92-97, comme ceux du repaire Magma 169-174) n'appellent pas la native de version
+`RomGetVersion` (hash 0x4A3E2A96) : le test de version est ailleurs, dans 62 zones dont 91 et la Grotte du Fond-Marin et la
+Grotte Originelle (98-116), donc dans l'accès et l'histoire autour. Ses sbires n'apparaissent pas avec la sauvegarde de début de
+partie, ceux du repaire Magma non plus (runs `aquaT`, `magT`) : drapeaux d'histoire, à lire. Prochaine étape : les scripts de ces
+62 zones, pour forcer la branche Aqua.
 
 ### Point 22 — Les deux repaires, Magma et Aqua
 
