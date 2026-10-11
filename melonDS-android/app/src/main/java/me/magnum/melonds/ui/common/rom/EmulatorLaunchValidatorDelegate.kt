@@ -68,6 +68,17 @@ class EmulatorLaunchValidatorDelegate(
     fun validateRom(rom: Rom) {
         // 3DS games don't use the DS BIOS/firmware checks, they go straight to the 3DS core,
         // once its folder is set up
+        // GBA games likewise skip them: the GBA core needs only the folder's file access
+        if (rom.platform == RomPlatform.GBA) {
+            if (GbaLauncher.isReady(context)) {
+                GbaLauncher.launch(context, rom)
+            } else {
+                pomegradeFolderSetup.start { ready ->
+                    if (ready && GbaLauncher.isReady(context)) GbaLauncher.launch(context, rom) else callback.onValidationAborted()
+                }
+            }
+            return
+        }
         if (rom.platform == RomPlatform.N3DS) {
             when {
                 !N3dsLauncher.isSupported() -> N3dsLauncher.launch(context, rom) // explains why not

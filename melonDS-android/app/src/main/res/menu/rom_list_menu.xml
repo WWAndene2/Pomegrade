@@ -51,6 +51,9 @@
                 <item
                     android:id="@+id/action_platform_three_ds"
                     android:title="@string/platform_three_ds" />
+                <item
+                    android:id="@+id/action_platform_gba"
+                    android:title="@string/platform_gba" />
             </group>
         </menu>
     </item>

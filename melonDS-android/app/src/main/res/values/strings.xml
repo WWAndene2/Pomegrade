@@ -656,6 +656,8 @@
     <string name="multiplayer_error_permission_denied">Required permissions not granted</string>
     <string name="action_three_ds_games">3DS games</string>
     <string name="three_ds_unsupported">3DS games need a 64-bit device</string>
+    <string name="gba_no_shortcut">Home-screen shortcuts are not available for GBA games yet</string>
+    <string name="gba_not_a_file">This GBA game must be in the phone\'s storage (the Pomegrade folder)</string>
     <string name="pomegrade_folder_title">Pomegrade folder</string>
     <string name="pomegrade_folder_message">Pomegrade keeps your games and their files in one folder, Pomegrade, in your internal storage:\n\n• Roms: each game in its own folder, with its saves and save states\n• BIOS: DS and DSi system files\n• 3DS: 3DS saves and system files\n• Textures: HD texture packs\n\nThe games Pomegrade finds are moved there. It stays on your phone if you uninstall the app.\n\nAndroid asks you to allow \"All files access\" first: Pomegrade needs it to move games and to run 3DS games. Then tap \"Use this folder\" to confirm the Pomegrade folder.</string>
     <string name="pomegrade_folder_choose">Choose folder</string>
@@ -725,6 +727,7 @@
     <string name="platform_all">All consoles</string>
     <string name="platform_ds">DS</string>
     <string name="platform_three_ds">3DS</string>
+    <string name="platform_gba">GBA</string>
     <string name="three_ds_encrypted">Encrypted: can\'t be played (decrypt the game first)</string>
     <string name="three_ds_rom_label">3DS · %1$s</string>
     <string name="unlimited_polygons">Remove polygon limit</string>

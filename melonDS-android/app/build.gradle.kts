@@ -123,6 +123,8 @@ dependencies {
     implementation(projects.common)
     // 3DS core (Azahar)
     implementation(projects.azahar)
+    // GBA core (mGBA) and its emulation screen
+    implementation(projects.mgba)
     implementation(projects.emulatorUi)
 
     implementation(libs.androidx.activity)

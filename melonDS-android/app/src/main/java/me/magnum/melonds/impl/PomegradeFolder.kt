@@ -60,6 +60,8 @@ class PomegradeFolder(
         private const val STORAGE_PROVIDER = "com.android.externalstorage.documents"
         // DS save states: <ROM name>.ml0 (quick save) to .ml10
         private const val SAVE_STATE_SLOTS = FileSystemSaveStatesRepository.SAVE_STATE_SLOT_COUNT
+        // GBA save states: <ROM name>.ss0 (quick save) to .ss9
+        private const val GBA_STATE_SLOTS = 10
 
         /**
          * Moving games by path, and the 3DS core (Azahar's standard build, which reads its folder by
@@ -311,6 +313,14 @@ class PomegradeFolder(
             fileDirectory { settingsRepository.getSaveFileDirectory(rom) }?.let { companions.add(File(it, "$baseName.sav")) }
             fileDirectory { settingsRepository.getSaveStateDirectory(rom) }?.let { dir ->
                 for (slot in 0 until SAVE_STATE_SLOTS) companions.add(File(dir, "$baseName.ml$slot"))
+            }
+        } else if (rom.platform == RomPlatform.GBA) {
+            // the GBA screen keeps them next to the game (GbaEmulatorActivity): its save, its states and their previews
+            val dir = source.parentFile
+            companions.add(File(dir, "$baseName.sav"))
+            for (slot in 0 until GBA_STATE_SLOTS) {
+                companions.add(File(dir, "$baseName.ss$slot"))
+                companions.add(File(dir, "$baseName.ss$slot.png"))
             }
         }
 

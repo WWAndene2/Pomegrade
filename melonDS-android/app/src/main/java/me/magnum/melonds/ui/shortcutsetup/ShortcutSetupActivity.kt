@@ -8,6 +8,7 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.os.Bundle
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -90,6 +91,11 @@ class ShortcutSetupActivity : AppCompatActivity() {
     }
 
     private fun onRomSelected(rom: Rom) {
+        // the GBA screen is not exported, so the launcher can't open it: no home-screen shortcut for GBA games yet
+        if (rom.platform == RomPlatform.GBA) {
+            Toast.makeText(this, R.string.gba_no_shortcut, Toast.LENGTH_LONG).show()
+            return
+        }
         val intent = if (rom.platform == RomPlatform.N3DS) {
             N3dsLauncher.launchIntent(this, rom)
         } else {

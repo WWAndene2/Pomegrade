@@ -3,4 +3,6 @@ firmware.bin*
 dsifirmware.bin*
 *.ROM
 melonDS-android/azahar/build/
+melonDS-android/mgba/build/
+melonDS-android/mgba/.cxx/
 __pycache__/

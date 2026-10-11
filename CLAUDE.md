@@ -40,7 +40,7 @@ This project defines no skills of its own yet. The Claude Code skills below are 
 | Security review | `/security-review` | Any change to file access (SAF, `Android/data`), network code, signing or the CI workflow's secrets |
 | Broad app-wide audit | `anthropic-skills:app-audit` | Before a release, and as the ~50-commit maintenance pass (§4.9) |
 | Visual/aesthetic audit | `anthropic-skills:design-aesthetic-audit` | Any change to Pomegrade's own screens, theme or icon |
-| Scope/ambiguity resolution | `anthropic-skills:scope-context` | A request phrased as "all X" / "every Y" across the three codebases (app, melonDS core, Azahar) |
+| Scope/ambiguity resolution | `anthropic-skills:scope-context` | A request phrased as "all X" / "every Y" across the four codebases (app, melonDS core, Azahar, mGBA) |
 
 **How this interacts with the rest of this document:**
 - Any maintenance cadence defined elsewhere in this document (e.g. §4's "every ~50 commits") is a *floor*, not the only trigger — a listed skill should run sooner whenever its specific trigger condition is hit mid-task.
@@ -83,7 +83,7 @@ The rest of this section makes that mandate concrete: where a new file or folder
 
 Every codebase should be organized by **purpose**, not by file type. Before creating anything, classify what you're building against this table and place it in the matching existing directory — never guess, and never default to wherever feels adjacent to the thing you're already touching.
 
-Pomegrade is three codebases in one Gradle build, rooted at `melonDS-android/` (the Android app and build), with the 3DS core imported beside it:
+Pomegrade is four codebases in one Gradle build, rooted at `melonDS-android/` (the Android app and build), with the 3DS and GBA cores imported beside it:
 
 | Purpose | Location |
 |---|---|
@@ -92,6 +92,8 @@ Pomegrade is three codebases in one Gradle build, rooted at `melonDS-android/` (
 | DS/DSi emulator core, including HD texture replacement (C++) | `melonDS-android/melonDS-android-lib/src/` |
 | 3DS core sources (Azahar, C++ and its Android frontend) | `azahar/` — consumed by the `:azahar` Gradle module |
 | `:azahar` Gradle module definition (manifest, build script) | `melonDS-android/azahar/` |
+| GBA core sources (mGBA 0.10.5, C, upstream as released minus its `cinema/` test videos; no Android frontend of its own) | `mgba/` — built by the `:mgba` Gradle module |
+| `:mgba` Gradle module: its build, the JNI bridge (`src/main/cpp/GbaCore.cpp`) and Pomegrade's GBA emulation screen (Kotlin, package `io.github.wwandene2.pomegrade.gba`) | `melonDS-android/mgba/` |
 | Emulation screen UI shared by both cores: in-game menu, its theme, save state dialog (Kotlin, package `io.github.wwandene2.pomegrade.emulatorui`) | `melonDS-android/emulator-ui/` (`:emulator-ui`) |
 | Build configuration shared by modules (`AppConfig`) | `melonDS-android/buildSrc/src/main/kotlin/` |
 | CI workflows | `.github/workflows/` |
@@ -118,7 +120,7 @@ Naming is not a stylistic afterthought; a misleading or inconsistent name is a h
 - **Kotlin:** one top-level class per file, file named after it in PascalCase (`RomPlatform.kt`). Packages follow the existing `me.magnum.melonds` tree; the upstream package name is kept so melonDS updates still merge.
 - **Compose UI:** `@Composable` functions in PascalCase named after what they render (`RomHeaderUi`), as upstream does.
 - **C++ (DS core):** the existing melonDS style — `PascalCase` file names prefixed by subsystem (`GPU3D_TextureReplacement.cpp`).
-- **Console names in identifiers:** `Nds` for DS/DSi and `N3ds` for 3DS in Kotlin/C++ identifiers (an identifier cannot start with a digit); `three_ds` for 3DS in Android resource names, after the category prefix upstream uses when there is one (`three_ds_unsupported`, menu action `action_three_ds_games`); "3DS" in user-visible text. Never a second spelling.
+- **Console names in identifiers:** `Nds` for DS/DSi and `N3ds` for 3DS in Kotlin/C++ identifiers (an identifier cannot start with a digit); `three_ds` for 3DS in Android resource names, after the category prefix upstream uses when there is one (`three_ds_unsupported`, menu action `action_three_ds_games`); "3DS" in user-visible text; `Gba` / `GBA` for the Game Boy Advance in identifiers, `gba` in resource names (`gba_load_failed`, `platform_gba`), "GBA" or "Game Boy Advance" in user-visible text. Never a second spelling.
 - **Azahar resources that clash with app resources:** renamed with the `citra_` prefix, so neither module overrides the other's.
 - **`:emulator-ui` resources:** prefixed `emulator_menu_` / `emulator_save_state(s)_` (and `Theme.Pomegrade.EmulatorMenu`), so they clash with neither core.
 - **Build switches read from the environment:** `POMEGRADE_<WHAT>` (`POMEGRADE_CCACHE`, `POMEGRADE_NATIVE_BUILD_TYPE`).
@@ -150,6 +152,7 @@ azahar/externals/*, app/src/main/cpp/<submodules>  →  (third-party, depend on 
 melonDS-android-lib (DS core, C++)  →  its own externals only — never Android or app code
 :emulator-ui (shared emulation screen UI)  →  AndroidX and Material only — never a core or the app
 :azahar module (3DS core + its Android frontend)  →  azahar/ sources, :emulator-ui — never the app module
+:mgba module (GBA core + Pomegrade's GBA screen)  →  mgba/ sources, :emulator-ui — never the app module
 :masterswitch, :common, :rcheevos-api  →  as upstream melonDS-android defines them
 :app (me.magnum.melonds)  →  all of the above
 ```

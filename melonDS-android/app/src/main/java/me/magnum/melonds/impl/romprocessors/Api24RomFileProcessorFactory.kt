@@ -1,6 +1,7 @@
 package me.magnum.melonds.impl.romprocessors
 
 import android.content.Context
+import me.magnum.melonds.common.romprocessors.GbaRomFileProcessor
 import me.magnum.melonds.common.romprocessors.N3dsRomFileProcessor
 import me.magnum.melonds.common.romprocessors.NdsRomFileProcessor
 import me.magnum.melonds.common.romprocessors.RomFileProcessor
@@ -17,7 +18,9 @@ class Api24RomFileProcessorFactory(context: Context, uriHandler: UriHandler, nds
     init {
         val ndsRomFileProcessor = NdsRomFileProcessor(context, uriHandler)
         val n3dsRomFileProcessor = N3dsRomFileProcessor(context, uriHandler)
-        prefixProcessorMap = RomPlatform.n3dsExtensions.associateWith { n3dsRomFileProcessor } + mapOf(
+        val gbaRomFileProcessor = GbaRomFileProcessor(context, uriHandler)
+        prefixProcessorMap = RomPlatform.n3dsExtensions.associateWith { n3dsRomFileProcessor } +
+            RomPlatform.gbaExtensions.associateWith { gbaRomFileProcessor } + mapOf(
             "nds" to ndsRomFileProcessor,
             "dsi" to ndsRomFileProcessor,
             "ids" to ndsRomFileProcessor,

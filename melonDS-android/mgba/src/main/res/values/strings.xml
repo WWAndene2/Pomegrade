@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gba_console">Game Boy Advance</string>
+    <string name="gba_load_failed">This game could not be started</string>
+    <string name="gba_state_saved">State saved</string>
+    <string name="gba_state_save_failed">The state could not be saved</string>
+    <string name="gba_state_load_failed">The state could not be loaded</string>
+</resources>
