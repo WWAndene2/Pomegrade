@@ -15,6 +15,7 @@ import me.magnum.melonds.R
 import me.magnum.melonds.impl.ModInstaller
 import me.magnum.melonds.impl.PomegradeFolder
 import me.magnum.melonds.ui.common.rom.N3dsLauncher
+import me.magnum.melonds.ui.settings.preferences.ConsoleSelectorPreference
 import me.magnum.melonds.ui.settings.PreferenceFragmentTitleProvider
 import me.magnum.melonds.ui.settings.SettingsActivity
 import org.citra.citra_emu.activities.EmulationActivity
@@ -93,8 +94,12 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
             true
         }
 
-        // 3DS: Azahar's own settings, the section of each entry; 64-bit devices only
-        findPreference<Preference>("three_ds_settings")?.isVisible = N3dsLauncher.isSupported()
+        // one console's section at a time, picked by its logo; 3DS on 64-bit devices only
+        findPreference<ConsoleSelectorPreference>("settings_console")?.let { selector ->
+            selector.threeDsAvailable = N3dsLauncher.isSupported()
+            selector.onConsoleSelected = { showConsoleSection(it) }
+            showConsoleSection(selector.selected)
+        }
         // the code trace is written next to the 3DS core's folder: its path is kept with the
         // setting, for Azahar's emulation screen
         findPreference<androidx.preference.SwitchPreference>(EmulationActivity.CODE_TRACE)?.setOnPreferenceChangeListener { _, value ->
@@ -221,4 +226,9 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
     }
 
     private fun toast(text: Int) = Toast.makeText(requireContext(), text, Toast.LENGTH_SHORT).show()
+
+    private fun showConsoleSection(console: String) {
+        findPreference<Preference>("ds_settings")?.isVisible = console == ConsoleSelectorPreference.DS
+        findPreference<Preference>("three_ds_settings")?.isVisible = console == ConsoleSelectorPreference.THREE_DS && N3dsLauncher.isSupported()
+    }
 }

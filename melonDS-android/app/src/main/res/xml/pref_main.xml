@@ -29,7 +29,13 @@
                 android:fragment="me.magnum.melonds.ui.settings.fragments.GeneralPreferencesFragment" />
     </PreferenceCategory>
 
+    <!-- the console whose settings are shown below: one section at a time (MainPreferencesFragment) -->
+    <me.magnum.melonds.ui.settings.preferences.ConsoleSelectorPreference
+            android:key="settings_console"
+            android:defaultValue="ds" />
+
     <PreferenceCategory
+            android:key="ds_settings"
             android:title="@string/settings_section_ds"
             app:iconSpaceReserved="false">
 

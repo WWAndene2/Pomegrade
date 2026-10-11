@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The settings' console picker: one logo card per console; tapping one shows that console's settings -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:paddingStart="16dp"
+    android:paddingTop="12dp"
+    android:paddingEnd="16dp"
+    android:paddingBottom="12dp">
+
+    <ImageView
+        android:id="@+id/settings_console_ds"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_weight="1"
+        android:layout_marginEnd="8dp"
+        android:background="@drawable/settings_console_card"
+        android:contentDescription="@string/settings_section_ds"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/settings_console_logo_ds" />
+
+    <ImageView
+        android:id="@+id/settings_console_three_ds"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_weight="1"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/settings_console_card"
+        android:contentDescription="@string/settings_section_three_ds"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/settings_console_logo_three_ds" />
+</LinearLayout>
