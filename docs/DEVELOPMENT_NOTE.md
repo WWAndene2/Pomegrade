@@ -96,7 +96,7 @@ The open items of the unified list, HD textures, native enhancements and perform
 
 ## 3b. DS engine remake
 
-Design: `DS_ENGINE_REMAKE.md` (the owner's notes). Its step 1 (5.12, "logging and quick looks") is in progress:
+Design: `docs/DS_ENGINE_REMAKE.md` (the owner's notes). Its step 1 (5.12, "logging and quick looks") is in progress:
 
 - **Inspector** (DS, in-game menu > Inspector): done, desktop-tested (`tests/inspector/`: interpreter and x86-64 JIT, real ARM code), not compiled for Android nor tried on a phone. Records which ARM9 instruction (call site) or command DMA (display list: address, length, content hash) drew each polygon, the polygon IDs, the 3D command trace with matrix stack operations, and the cartridge files read (NitroFS names); colours the 3D by polygon ID, call site or display list (OpenGL renderer); saves a text report to `Pomegrade/Inspector/`. With the JIT on, ARM9 stores record their address (one extra write per store, only while the inspector is on); the ARM64 JIT change mirrors the tested x86-64 one but is untested.
 - Step 2 (texgen detection, decal ordering): done, desktop-tested, not tried on a phone.
@@ -113,7 +113,7 @@ Design: `DS_ENGINE_REMAKE.md` (the owner's notes). Its step 1 (5.12, "logging an
 
 ## 3c. Pokemon Platinum remake in Omega Ruby
 
-**On hold (owner's decision, 9 October)**: the Sinnoh remake is paused; the active remake project is Delta Emerald (`Delta_Emerald_Development.md`). Where R4 stopped: `tools/remake/SINNOH_BUILD.md` section 4.
+**On hold (owner's decision, 9 October)**: the Sinnoh remake is paused; the active remake project is Delta Emerald (`docs/Delta_Emerald_Development.md`). Where R4 stopped: `tools/remake/SINNOH_BUILD.md` section 4.
 
 **Code trace (3DS, debug; 6 October, not compiled for Android, untested on a phone)**: Settings > 3DS > Record a code trace. While a 3DS game runs, Azahar keeps the last 131,072 kernel calls and service requests (thread, PC, LR, first words), the files and archives opened, the code modules loaded, and every game thread 4 times a second (state, PC, LR, SP, code addresses on its stack); written to `Pomegrade/3DS/Traces/<program id>_<date>/` (calls.txt, files_and_modules.txt, threads.txt, summary.txt) when the game stops and every 30 seconds (`azahar/src/core/pomegrade_code_trace.h`). Made to see where a mod freezes the game (Route 201) on the phone.
 

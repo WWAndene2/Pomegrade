@@ -995,7 +995,7 @@ class EmulatorActivity : AppCompatActivity() {
         }
     }
 
-    // Pomegrade: the inspector (DS_ENGINE_REMAKE.md 5.12 step 1), opened from the in-game menu; the game stays paused while it is open
+    // Pomegrade: the inspector (docs/DS_ENGINE_REMAKE.md 5.12 step 1), opened from the in-game menu; the game stays paused while it is open
     private fun showInspectorDialog() {
         activeOverlays.addActiveOverlay(EmulatorOverlay.INSPECTOR_DIALOG)
         InspectorDialog.show(

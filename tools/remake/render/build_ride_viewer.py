@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The ride viewer (point 39 of Delta_Emerald_Development.md): Giratina flown by the player, one self-contained HTML
+"""The ride viewer (point 39 of docs/Delta_Emerald_Development.md): Giratina flown by the player, one self-contained HTML
 file built from ride_viewer.html and the game's data. The output holds the game's models, textures and animations: it
 stays in scratch space, never committed or published (CLAUDE.md section 8).
 

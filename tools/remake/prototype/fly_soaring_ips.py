@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fly opens the soaring mode (point 38 of Delta_Emerald_Development.md): a code.ips that Azahar applies from the mod folder
+"""Fly opens the soaring mode (point 38 of docs/Delta_Emerald_Development.md): a code.ips that Azahar applies from the mod folder
 (load/mods/000400000011C400/code.ips, ncch_container.cpp ApplyCodePatch).
 
   fly_soaring_ips.py <code.bin> <out code.ips>

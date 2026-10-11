@@ -170,7 +170,7 @@ All 1072 scripts (536 x 2) have a valid Pawn/AMX header (`AmxInfo`): magic 0xF1E
 | 5 | 128 | zeros, **unknown** (other pieces: tall-grass models `enc_grass_NNNN` per the earlier notes) |
 | 6 | 128 | `KAGE` ("shadow"), then 0x13122500, zeros, **unknown** |
 
-- **Tile grid (checked on this piece)**: only two values: `0x00000020` free (446 tiles) and `0x01000021` blocked (1154). Other values and their bits are in `DEVELOPMENT_NOTE.md` (phone tests on Route 101).
+- **Tile grid (checked on this piece)**: only two values: `0x00000020` free (446 tiles) and `0x01000021` blocked (1154). Other values and their bits are in `docs/DEVELOPMENT_NOTE.md` (phone tests on Route 101).
 - **Houses are in the terrain model** (meshes `t01_01` with texture `t101_01`, 4641 vertices; `t01_02` with `t101_02_fix`; windows `chip_mado`, `t01_a01`), not separate models.
 - **Ground**: `chip_kusa_a` (the main grass, 975 vertices, vertex colours painted dark under trees: the open ground's are about 0.7, 1.0, 0.8) over which `chip_kusa_b` (lighter, 148 vertices) draws the path.
 - **Soft edges are two meshes**, both measured on this piece and on all 857:

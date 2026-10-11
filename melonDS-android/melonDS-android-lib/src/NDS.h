@@ -327,7 +327,7 @@ public: // TODO: Encapsulate the rest of these members
     melonDS::GPU GPU;
     melonDS::AREngine AREngine;
     melonDS::AnalogueStick AnalogueStick; // Pomegrade: analogue movement in patched games
-    melonDS::Inspector Inspector {*this}; // Pomegrade: how the game draws (DS_ENGINE_REMAKE.md 5.12)
+    melonDS::Inspector Inspector {*this}; // Pomegrade: how the game draws (docs/DS_ENGINE_REMAKE.md 5.12)
 
     const u32 ARM7WRAMSize = 0x10000;
     u8* ARM7WRAM;

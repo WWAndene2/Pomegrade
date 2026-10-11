@@ -1,7 +1,7 @@
 #ifndef GPU3D_LIGHTRECOVERY_H
 #define GPU3D_LIGHTRECOVERY_H
 
-// Light recovery (Pomegrade, DS_ENGINE_REMAKE.md 5.12 step 11): the DS has
+// Light recovery (Pomegrade, docs/DS_ENGINE_REMAKE.md 5.12 step 11): the DS has
 // four directional lights, set by LIGHT_VECTOR (direction, transformed by the
 // vector matrix in effect) and LIGHT_COLOR. From one frame's command trace
 // this gives every setting each light had, in order, and how often it was

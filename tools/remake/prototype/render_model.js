@@ -1,5 +1,5 @@
 // One model seen from four sides, framed on its bounds: the previews shown to the owner before an asset customization is
-// built into a mod (DEVELOPMENT_NOTE.md 3c). Uses the editor's 3D view, as render_closeups.js does.
+// built into a mod (docs/DEVELOPMENT_NOTE.md 3c). Uses the editor's 3D view, as render_closeups.js does.
 // argv: gltf, prefix; writes <prefix>_front.png, _side.png, _back.png, _three_quarter.png in REMAKE_WORK
 const { chromium } = require(process.env.PLAYWRIGHT || 'playwright');
 const S = process.env.REMAKE_WORK || '.';

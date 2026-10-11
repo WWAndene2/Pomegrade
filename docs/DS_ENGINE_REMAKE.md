@@ -4,7 +4,7 @@ Custom engine based on melonDS, hardware limits removed, OpenGL backend, target 
 
 > This is a restructured version of the original notes. Content is kept; sections are regrouped into parts that follow the logical order of work, all cross-references were renumbered, and the three overlapping DS-limit sections (old 21, 21B and 24) are merged into section 5 with duplicate ideas combined. Appendix A maps old numbers to new ones.
 
-> **Status in Pomegrade** (updated 2026-10-04): ✅ done, 🟡 partly done, each with what was measured. Done means built and tested on the desktop (`tests/`, and a save state of Dragon Quest Monsters: Joker); nothing below has been tried on a phone yet. Details and history: `DEVELOPMENT_NOTE.md` and the git log.
+> **Status in Pomegrade** (updated 2026-10-04): ✅ done, 🟡 partly done, each with what was measured. Done means built and tested on the desktop (`tests/`, and a save state of Dragon Quest Monsters: Joker); nothing below has been tried on a phone yet. Details and history: `docs/DEVELOPMENT_NOTE.md` and the git log.
 
 ---
 
@@ -539,7 +539,7 @@ The DS design assumes things that no longer have to hold:
 2. ✅ Dump the matrix push/pop trace for one monster and check that a skeleton tree can be rebuilt. *(Yes: the SDK stores each joint in a stack slot after its parent's (MTX_STORE/RESTORE, not push/pop); Joker's two characters give one tree each, see step 10.)*
 3. 🟡 Color every draw by polygon ID and look at what the game uses it for. *(The view exists; Joker's harbour scene uses 6 IDs, what each means is not analysed yet.)*
 4. 🟡 Compare the palette index histograms of two textures from the same monster to see whether indices are consistent. *(Histograms are in the report. In Joker's scene the 256-colour textures use nearly every index, as colour ramps rather than materials; comparing one monster's textures is not done.)*
-5. ✅ Interpolate one scene using captured matrix motion and look for artifacts at turns and cuts. *(Frame generation: polygons paired from frame to frame, cuts detected; see the enhancement table in `DEVELOPMENT_NOTE.md`.)*
+5. ✅ Interpolate one scene using captured matrix motion and look for artifacts at turns and cuts. *(Frame generation: polygons paired from frame to frame, cuts detected; see the enhancement table in `docs/DEVELOPMENT_NOTE.md`.)*
 6. Fork a savestate, move the game's camera by patching its RAM struct, and see whether geometry for the new angle appears.
 7. Check whether DQMJ uses per-scanline affine changes or display capture at all, and where.
 

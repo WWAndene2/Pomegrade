@@ -144,7 +144,7 @@ added in linear light to dark shade (0.016 shows as 0.13), not from the tone; th
 the same view: shade over sun 0.35, 0.42, 0.49 against the reference's 0.34, 0.43, 0.50; luminance 0.457 (reference
 0.367, its wide camera holding more forest shade), saturation 0.75 (0.59).
 
-## Ride viewer (point 39 of Delta_Emerald_Development.md, 11 October)
+## Ride viewer (point 39 of docs/Delta_Emerald_Development.md, 11 October)
 
 `ride_viewer.html` is the template of a self-contained page where Giratina flies with the player on its back: the game's
 animations, a generated serpentine flight, eel-like turns, a boost, joystick and keyboard. `build_ride_viewer.py` fills in

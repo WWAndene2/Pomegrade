@@ -1,7 +1,7 @@
 #ifndef GPU2D_TILEMAPFLATTENING_H
 #define GPU2D_TILEMAPFLATTENING_H
 
-// Tilemap flattening (Pomegrade, DS_ENGINE_REMAKE.md 5.5, 5.12 step 12): a
+// Tilemap flattening (Pomegrade, docs/DS_ENGINE_REMAKE.md 5.5, 5.12 step 12): a
 // text background is a map of 8x8 tiles, so an upscaler working on what the
 // hardware draws sees each tile alone and leaves seams at tile borders. This
 // stitches a whole text layer (256 or 512 pixels each way, as its BGCNT says)

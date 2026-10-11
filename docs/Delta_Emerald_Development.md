@@ -106,7 +106,7 @@ les îles Mirage, l'Épisode Delta, les Bases Secrètes, les Méga-Évolutions (
 | 3.2 | Après-jeu court | 1.1, 1.2, 1.3 | voir plus haut |
 | 3.3 | Trop d'eau, dépendance aux CS | un objet ou un Pokémon de déplacement qui remplace Surf/Plongée/Cascade ; routes maritimes enrichies (îlots, dresseurs) | maps : outil ; sans CS : code |
 | 3.4 | Pas de personnalisation du héros (Shacknews) | réactiver la boutique de vêtements de X/Y si son code existe encore dans le moteur ; à défaut, tenues prédéfinies | inconnue |
-| 3.5 | Performances (chutes d'images en combat double/triple) | côté Pomegrade : rendu en haute résolution, 120 fps par génération d'images, réglages par appareil (déjà au plan, `DEVELOPMENT_NOTE.md`) | émulateur |
+| 3.5 | Performances (chutes d'images en combat double/triple) | côté Pomegrade : rendu en haute résolution, 120 fps par génération d'images, réglages par appareil (déjà au plan, `docs/DEVELOPMENT_NOTE.md`) | émulateur |
 | 3.6 | Méga-Évolutions déséquilibrées | option : réservées à l'après-jeu, ou rééquilibrées | statistiques : données ; conditions : code |
 | 3.7 | Îles Mirage au hasard (et StreetPass) | accès fixe : une île par jour selon un calendrier connu, ou un objet qui choisit l'île | code |
 | 3.8 | Concours simplifiés | appréciations plus fines, récompenses utiles | code (module des concours non lu) |
@@ -176,7 +176,7 @@ rapide)
 **Ajouté par le propriétaire (10 octobre), à faire en premier** : le vol en mode ciel à la place du Vol classique (point 38,
 palier 5) puis sur le Pokémon qui connaît Vol (point 39, palier 6 pour tous les Pokémon ; une liste choisie d'abord).
 
-**Côté Pomegrade, hors mod** : les performances (3.5) sont déjà dans `DEVELOPMENT_NOTE.md`.
+**Côté Pomegrade, hors mod** : les performances (3.5) sont déjà dans `docs/DEVELOPMENT_NOTE.md`.
 
 ## 5. Solutions, point par point (dans l'ordre de la section 4)
 
