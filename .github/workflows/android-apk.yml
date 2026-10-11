@@ -66,13 +66,13 @@ jobs:
           chmod +x ./gradlew
           ./gradlew --no-daemon \
             -Dorg.gradle.jvmargs=-Xmx6g -Pkotlin.daemon.jvmargs=-Xmx4g \
-            :app:assemblePlayStoreProdDebug
+            :app:assembleProdDebug
           ccache --show-stats
 
       # One file, downloaded as is: an exact path (with a wildcard, the folders after it are
       # kept inside the artifact, and build/intermediates holds a copy too) and no zip
       - name: Name the APK
-        run: cp app/build/outputs/apk/playStoreProd/debug/app-playStore-prod-debug.apk Pomegrade-debug-arm64.apk
+        run: cp app/build/outputs/apk/prod/debug/app-prod-debug.apk Pomegrade-debug-arm64.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v7

@@ -6,22 +6,22 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import me.magnum.melonds.domain.repositories.UpdatesRepository
 import me.magnum.melonds.domain.services.UpdateInstallManager
-import me.magnum.melonds.playstore.PlayStoreUpdatesRepository
-import me.magnum.melonds.services.PlayStoreUpdateInstallManager
+import me.magnum.melonds.impl.NoUpdateInstallManager
+import me.magnum.melonds.impl.NoUpdatesRepository
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-object PlayStoreModule {
+object UpdatesModule {
     @Provides
     @Singleton
     fun provideUpdatesRepository(): UpdatesRepository {
-        return PlayStoreUpdatesRepository()
+        return NoUpdatesRepository()
     }
 
     @Provides
     @Singleton
     fun provideUpdateInstallManager(): UpdateInstallManager {
-        return PlayStoreUpdateInstallManager()
+        return NoUpdateInstallManager()
     }
 }
