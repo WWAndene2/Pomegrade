@@ -26,8 +26,8 @@ class GbaRomFileProcessor(private val context: Context, private val uriHandler: 
     override fun getRomFromUri(romUri: Uri, parentUri: Uri?): Rom? {
         val romDocument = uriHandler.getUriDocument(romUri) ?: return null
         val header = readHeader(romUri)
-        val title = header?.let { ascii(it, TITLE_OFFSET, TITLE_LENGTH) }.orEmpty()
-        val maker = header?.let { ascii(it, MAKER_OFFSET, 2) }.orEmpty()
+        val title = header?.let { RomHeaderText.ascii(it, TITLE_OFFSET, TITLE_LENGTH) }.orEmpty()
+        val maker = header?.let { RomHeaderText.ascii(it, MAKER_OFFSET, 2) }.orEmpty()
         return Rom(
             name = title.ifEmpty { romDocument.nameWithoutExtension ?: "" },
             developerName = maker,
@@ -61,13 +61,4 @@ class GbaRomFileProcessor(private val context: Context, private val uriHandler: 
     } catch (e: Exception) {
         null
     }
-
-    // printable ASCII up to the first NUL, trimmed
-    private fun ascii(bytes: ByteArray, offset: Int, length: Int): String =
-        bytes.copyOfRange(offset, offset + length)
-            .takeWhile { it != 0.toByte() }
-            .filter { it in 0x20..0x7E }
-            .toByteArray()
-            .toString(Charsets.US_ASCII)
-            .trim()
 }

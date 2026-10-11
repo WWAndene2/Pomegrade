@@ -30,8 +30,9 @@ class GcWiiRomFileProcessor(private val context: Context, private val uriHandler
         val romDocument = uriHandler.getUriDocument(romUri) ?: return null
         val fileName = romDocument.name ?: ""
         val header = HEADER_POSITION[fileName.substringAfterLast('.', "").lowercase()]?.let { readHeader(romUri, it) }
-        val title = header?.let { ascii(it, TITLE_OFFSET, TITLE_LENGTH) }.orEmpty()
-        val maker = header?.let { ascii(it, MAKER_OFFSET, 2) }.orEmpty()
+        // titles of Japanese discs are Shift JIS: their non-ASCII bytes are dropped
+        val title = header?.let { RomHeaderText.ascii(it, TITLE_OFFSET, TITLE_LENGTH) }.orEmpty()
+        val maker = header?.let { RomHeaderText.ascii(it, MAKER_OFFSET, 2) }.orEmpty()
         return Rom(
             name = title.ifEmpty { romDocument.nameWithoutExtension ?: "" },
             developerName = maker,
@@ -71,13 +72,4 @@ class GcWiiRomFileProcessor(private val context: Context, private val uriHandler
     } catch (e: Exception) {
         null
     }
-
-    // printable ASCII up to the first NUL, trimmed (titles of Japanese discs are Shift JIS: dropped)
-    private fun ascii(bytes: ByteArray, offset: Int, length: Int): String =
-        bytes.copyOfRange(offset, offset + length)
-            .takeWhile { it != 0.toByte() }
-            .filter { it in 0x20..0x7E }
-            .toByteArray()
-            .toString(Charsets.US_ASCII)
-            .trim()
 }
