@@ -17,7 +17,8 @@ import java.io.File
  * ```
  *
  * Copied only when they changed, so it is cheap on every launch. Eden's own setup screen still works too;
- * a file found here replaces the one installed there. Runs on a background thread: a firmware is ~300 MB.
+ * a file found here replaces the one installed there. Needs Eden started (YuzuApplication.start); runs on a
+ * background thread: a firmware is ~300 MB.
  */
 object SwitchSystemFiles {
 
@@ -27,7 +28,6 @@ object SwitchSystemFiles {
 
     fun import(context: Context) {
         val source = PomegradeFolder.subFolder(context, "${PomegradeFolder.BIOS}/${PomegradeFolder.BIOS_SWITCH}")?.takeIf { it.isDirectory } ?: return
-        DirectoryInitialization.start()
         val userDirectory = File(DirectoryInitialization.userDirectory ?: return)
 
         val keysChanged = KEY_FILES.map { File(source, it) }.filter { it.isFile }.count { key ->

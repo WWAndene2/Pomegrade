@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.magnum.melonds.domain.model.rom.Rom
+import me.magnum.melonds.impl.SwitchFolder
 import me.magnum.melonds.impl.SwitchSystemFiles
 import org.yuzu.yuzu_emu.YuzuApplication
 import org.yuzu.yuzu_emu.activities.EmulationActivity
@@ -31,8 +32,21 @@ object SwitchLauncher : ConsoleLauncher {
             return
         }
         scope.launch {
-            withContext(Dispatchers.IO) { SwitchSystemFiles.import(activity) }
+            prepare(activity)
             activity.startActivity(launchIntent(activity, rom))
+        }
+    }
+
+    /**
+     * Before opening one of Eden's screens: its data in the Pomegrade folder's Switch ([SwitchFolder]), then the
+     * keys and firmware of BIOS/Switch ([SwitchSystemFiles]), so the NCAs go to that NAND.
+     */
+    suspend fun prepare(context: Context) {
+        YuzuApplication.start() // on the main thread, as Eden's own screens start it
+        val appContext = context.applicationContext
+        withContext(Dispatchers.IO) {
+            runCatching { SwitchFolder.setUp(appContext) }
+            runCatching { SwitchSystemFiles.import(appContext) }
         }
     }
 
