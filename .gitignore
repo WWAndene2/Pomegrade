@@ -6,7 +6,11 @@ melonDS-android/azahar/build/
 melonDS-android/mgba/build/
 melonDS-android/mgba/.cxx/
 melonDS-android/eden/build/
+melonDS-android/dolphin/build/
 melonDS-android/eden/.cxx/
 # CPM downloads of Eden's native dependencies (eden/CMakeModules/CPMUtil.cmake)
 eden/.cache/
 __pycache__/
+
+# Dolphin copies its Data/Sys into the Android assets at CMake configure time
+/dolphin/Source/Android/app/src/main/assets/Sys/

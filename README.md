@@ -10,6 +10,7 @@ Pomegrade est une version modifiée de [melonDS-android](https://github.com/rafa
 | `melonDS-android/melonDS-android-lib/` | Le cœur de l'émulateur (C++), intégré directement au dépôt et non plus comme sous-module |
 | `azahar/` | Le cœur 3DS (Azahar, GPLv2+), module Gradle `melonDS-android/azahar/` |
 | `mgba/` | Le cœur GBA ([mGBA](https://github.com/mgba-emu/mgba) 0.10.5, MPL 2.0), module Gradle `melonDS-android/mgba/` (pont JNI et écran de jeu GBA de Pomegrade) |
+| `dolphin/` | Le cœur GameCube et Wii ([Dolphin](https://dolphin-emu.org) 2606a, GPLv2+), module Gradle `melonDS-android/dolphin/` ; ses bibliothèques (`dolphin/Externals/`) sont des sous-modules git |
 | `eden/` | Le cœur Switch ([Eden](https://git.eden-emu.dev/eden-emu/eden) v0.2.1, GPLv3+), module Gradle `melonDS-android/eden/` ; ses dépendances C++ sont téléchargées à la première compilation (`eden/.cache/`, ignoré) |
 | `assets/` | Le logo de l'app (`branding/`) et des logos et modèles 3D de consoles (`consoles/`) |
 | `docs/` | Feuille de route et plans de développement |
@@ -20,6 +21,8 @@ Pomegrade est une version modifiée de [melonDS-android](https://github.com/rafa
 Les BIOS et firmwares Nintendo ont été retirés du dépôt pour des raisons de copyright. Gardez-les sur votre appareil et choisissez-les dans les paramètres de l'application.
 
 **Switch** : les jeux `.nsp`, `.xci`, `.nca` et `.nro` apparaissent dans la liste (sous leur nom de fichier) et se lancent dans le cœur Eden, sur téléphone ARM 64 bits avec Vulkan. Les clés (`prod.keys`, `title.keys`) et le firmware (ses `.nca`, dans `Firmware/`) de votre console se mettent dans `BIOS/Switch` du dossier Pomegrade : Punica les installe dans Eden au lancement (ou par Réglages → logo Switch). Les sauvegardes, mises à jour et DLC Switch sont dans `Switch/` du dossier Pomegrade (`nand/`, `sdmc/`), comme celles de la 3DS dans `3DS/` : elles restent si l'application est désinstallée ; ils ne sont jamais dans le dépôt.
+
+**GameCube et Wii** : les jeux (`.iso`, `.gcm`, `.rvz`, `.wia`, `.ciso`, `.gcz`, `.wbfs`, `.wad`, …) apparaissent dans la liste et se lancent dans le cœur Dolphin, sur téléphone ARM 64 bits. Ses données (cartes mémoire, sauvegardes Wii, réglages) sont dans `GC-Wii/` du dossier Pomegrade. Ses réglages : Réglages → logo GameCube / Wii.
 
 **GBA** : les jeux `.gba` apparaissent dans la liste avec les autres et se lancent dans le cœur mGBA. Sauvegarde et sauvegardes d'état sont rangées à côté du jeu (`<jeu>.sav`, `<jeu>.ss0` à `.ss9`). Le BIOS est facultatif : mGBA a le sien ; un BIOS de votre console, `gba_bios.bin` dans `BIOS/GBA` du dossier Pomegrade (les BIOS sont rangés par console : `BIOS/DS`, `BIOS/DSi`, `BIOS/GBA`, `BIOS/Switch` ; ceux d'une version précédente, à la racine de `BIOS`, y sont déplacés), est pris s'il est là.
 

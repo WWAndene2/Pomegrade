@@ -8,7 +8,7 @@ import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.domain.model.rom.RomPlatform
 
 /**
- * Starts a game in one of the cores Pomegrade imports (3DS, GBA, Switch). DS games are not here: they run
+ * Starts a game in one of the cores Pomegrade imports (3DS, GBA, Switch, GameCube and Wii). DS games are not here: they run
  * in melonDS's own EmulatorActivity, after melonDS's BIOS and firmware checks.
  */
 interface ConsoleLauncher {
@@ -51,6 +51,7 @@ interface ConsoleLauncher {
             RomPlatform.N3DS -> N3dsLauncher
             RomPlatform.GBA -> GbaLauncher
             RomPlatform.SWITCH -> SwitchLauncher
+            RomPlatform.GC_WII -> GcWiiLauncher
         }
     }
 }

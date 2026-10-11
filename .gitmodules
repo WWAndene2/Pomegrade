@@ -118,3 +118,78 @@
 [submodule "tools/remake/external/SPICA"]
 	path = tools/remake/external/SPICA
 	url = https://github.com/gdkchan/SPICA.git
+[submodule "dolphin/Externals/SFML/SFML"]
+	path = dolphin/Externals/SFML/SFML
+	url = https://github.com/SFML/SFML.git
+[submodule "dolphin/Externals/Vulkan-Headers"]
+	path = dolphin/Externals/Vulkan-Headers
+	url = https://github.com/KhronosGroup/Vulkan-Headers.git
+[submodule "dolphin/Externals/VulkanMemoryAllocator"]
+	path = dolphin/Externals/VulkanMemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+[submodule "dolphin/Externals/bzip2/bzip2"]
+	path = dolphin/Externals/bzip2/bzip2
+	url = https://gitlab.com/bzip2/bzip2.git
+[submodule "dolphin/Externals/cpp-optparse/cpp-optparse"]
+	path = dolphin/Externals/cpp-optparse/cpp-optparse
+	url = https://github.com/weisslj/cpp-optparse.git
+[submodule "dolphin/Externals/cubeb/cubeb"]
+	path = dolphin/Externals/cubeb/cubeb
+	url = https://github.com/mozilla/cubeb.git
+[submodule "dolphin/Externals/curl/curl"]
+	path = dolphin/Externals/curl/curl
+	url = https://github.com/curl/curl.git
+[submodule "dolphin/Externals/enet/enet"]
+	path = dolphin/Externals/enet/enet
+	url = https://github.com/lsalzman/enet.git
+[submodule "dolphin/Externals/fmt/fmt"]
+	path = dolphin/Externals/fmt/fmt
+	url = https://github.com/fmtlib/fmt.git
+[submodule "dolphin/Externals/glslang/glslang"]
+	path = dolphin/Externals/glslang/glslang
+	url = https://github.com/KhronosGroup/glslang.git
+[submodule "dolphin/Externals/imgui/imgui"]
+	path = dolphin/Externals/imgui/imgui
+	url = https://github.com/ocornut/imgui.git
+[submodule "dolphin/Externals/implot/implot"]
+	path = dolphin/Externals/implot/implot
+	url = https://github.com/epezent/implot.git
+[submodule "dolphin/Externals/libadrenotools"]
+	path = dolphin/Externals/libadrenotools
+	url = https://github.com/bylaws/libadrenotools.git
+[submodule "dolphin/Externals/libspng/libspng"]
+	path = dolphin/Externals/libspng/libspng
+	url = https://github.com/randy408/libspng.git
+[submodule "dolphin/Externals/lz4/lz4"]
+	path = dolphin/Externals/lz4/lz4
+	url = https://github.com/lz4/lz4.git
+[submodule "dolphin/Externals/miniupnpc/miniupnp"]
+	path = dolphin/Externals/miniupnpc/miniupnp
+	url = https://github.com/miniupnp/miniupnp.git
+[submodule "dolphin/Externals/minizip-ng/minizip-ng"]
+	path = dolphin/Externals/minizip-ng/minizip-ng
+	url = https://github.com/zlib-ng/minizip-ng.git
+[submodule "dolphin/Externals/pugixml/pugixml"]
+	path = dolphin/Externals/pugixml/pugixml
+	url = https://github.com/zeux/pugixml.git
+[submodule "dolphin/Externals/rcheevos/rcheevos"]
+	path = dolphin/Externals/rcheevos/rcheevos
+	url = https://github.com/RetroAchievements/rcheevos.git
+[submodule "dolphin/Externals/spirv_cross/SPIRV-Cross"]
+	path = dolphin/Externals/spirv_cross/SPIRV-Cross
+	url = https://github.com/KhronosGroup/SPIRV-Cross.git
+[submodule "dolphin/Externals/tinygltf/tinygltf"]
+	path = dolphin/Externals/tinygltf/tinygltf
+	url = https://github.com/syoyo/tinygltf.git
+[submodule "dolphin/Externals/watcher/watcher"]
+	path = dolphin/Externals/watcher/watcher
+	url = https://github.com/e-dant/watcher.git
+[submodule "dolphin/Externals/xxhash/xxHash"]
+	path = dolphin/Externals/xxhash/xxHash
+	url = https://github.com/Cyan4973/xxHash.git
+[submodule "dolphin/Externals/zlib-ng/zlib-ng"]
+	path = dolphin/Externals/zlib-ng/zlib-ng
+	url = https://github.com/zlib-ng/zlib-ng.git
+[submodule "dolphin/Externals/zstd/zstd"]
+	path = dolphin/Externals/zstd/zstd
+	url = https://github.com/facebook/zstd.git

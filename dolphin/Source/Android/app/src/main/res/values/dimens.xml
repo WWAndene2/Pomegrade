@@ -1,0 +1,12 @@
+<resources>
+    <dimen name="dolphin_spacing_small">4dp</dimen>
+    <dimen name="dolphin_spacing_medlarge">12dp</dimen>
+    <dimen name="dolphin_spacing_large">16dp</dimen>
+    <dimen name="dolphin_spacing_xtralarge">32dp</dimen>
+    <dimen name="dolphin_spacing_list">64dp</dimen>
+    <dimen name="dolphin_spacing_fab">72dp</dimen>
+    <dimen name="dolphin_menu_width">256dp</dimen>
+    <dimen name="dolphin_card_width">135dp</dimen>
+
+    <dimen name="dolphin_elevated_app_bar">3dp</dimen>
+</resources>
