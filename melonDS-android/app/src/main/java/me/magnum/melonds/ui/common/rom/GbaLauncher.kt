@@ -11,12 +11,10 @@ import java.io.File
 /**
  * Starts GBA games in the mGBA core. The core reads the game, and writes its save and save states
  * next to it, by file path, so it needs the Pomegrade folder's file access. A BIOS dumped from the
- * owner's console, `gba_bios.bin` in the Pomegrade folder's BIOS, is used when present; mGBA's own
+ * owner's console, `gba_bios.bin` in the Pomegrade folder's BIOS/GBA, is used when present; mGBA's own
  * otherwise.
  */
 object GbaLauncher : ConsoleLauncher {
-
-    const val BIOS_FILE = "gba_bios.bin"
 
     override fun isReady(context: Context): Boolean = PomegradeFolder.hasFileAccess(context)
 
@@ -32,7 +30,7 @@ object GbaLauncher : ConsoleLauncher {
         val documentId = PomegradeFolder.documentIdOf(context, rom.uri) ?: return null
         val path = PomegradeFolder.pathOf(documentId)
         if (!path.isFile) return null
-        val bios = PomegradeFolder.subFolder(context, PomegradeFolder.BIOS)?.let { File(it, BIOS_FILE) }?.takeIf { it.isFile }
+        val bios = PomegradeFolder.subFolder(context, "${PomegradeFolder.BIOS}/${PomegradeFolder.BIOS_GBA}")?.let { File(it, PomegradeFolder.GBA_BIOS_FILE) }?.takeIf { it.isFile }
         return GbaEmulatorActivity.intent(context, path.absolutePath, rom.config.customName ?: rom.name, bios?.absolutePath)
     }
 }

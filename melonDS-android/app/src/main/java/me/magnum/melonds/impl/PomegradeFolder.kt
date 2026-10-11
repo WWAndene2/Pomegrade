@@ -27,8 +27,11 @@ import java.io.File
  * ```
  * Pomegrade/
  * ├── Roms/<game>/   each game's ROM, with its DS saves and save states next to it
- * ├── BIOS/          DS/DSi BIOS and firmware (when none was set up elsewhere), gba_bios.bin,
- *                   Switch/ (the Switch keys and firmware, see SwitchSystemFiles)
+ * ├── BIOS/          one folder per console:
+ * │   ├── DS/        bios7.bin, bios9.bin, firmware.bin (when no other DS BIOS folder was set)
+ * │   ├── DSi/       bios7.bin, bios9.bin, firmware.bin, nand.bin (likewise)
+ * │   ├── GBA/       gba_bios.bin (optional, mGBA's own BIOS otherwise)
+ * │   └── Switch/    prod.keys, title.keys, Firmware/ (see SwitchSystemFiles)
  * └── 3DS/           the 3DS core's folder (Azahar: 3DS saves, save states, system files)
  * ```
  *
@@ -49,6 +52,20 @@ class PomegradeFolder(
     companion object {
         const val ROMS = "Roms"
         const val BIOS = "BIOS"
+        // BIOS has one folder per console: the DS and DSi files have the same names (bios7.bin, bios9.bin,
+        // firmware.bin), so they can't share one
+        const val BIOS_DS = "DS"
+        const val BIOS_DSI = "DSi"
+        const val BIOS_GBA = "GBA"
+        const val BIOS_SWITCH = "Switch"
+        /** The owner's GBA BIOS, in BIOS/GBA. */
+        const val GBA_BIOS_FILE = "gba_bios.bin"
+        private val BIOS_CONSOLES = listOf(BIOS_DS, BIOS_DSI, BIOS_GBA, BIOS_SWITCH)
+        private val DS_BIOS_FILES = listOf("bios7.bin", "bios9.bin", "firmware.bin")
+        private val DSI_BIOS_FILES = DS_BIOS_FILES + "nand.bin"
+        // what tells a DS bios7.bin from a DSi one, as the BIOS checks do
+        private const val DS_BIOS7_SIZE = 0x4000L
+        private const val DSI_BIOS7_SIZE = 0x10000L
         const val N3DS = "3DS"
         const val TEXTURES = "Textures"
         const val SAVE_STATE_PREVIEWS = "Save state previews"
@@ -181,13 +198,49 @@ class PomegradeFolder(
         val romsFolder = DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$ROMS")
         settingsRepository.includeRomSearchDirectory(romsFolder)
         settingsRepository.keepGameFilesNextToRom()
-        val bios = DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$BIOS")
-        if (settingsRepository.getDsBiosDirectory() == null) settingsRepository.setDsBiosDirectory(bios)
-        if (settingsRepository.getDsiBiosDirectory() == null) settingsRepository.setDsiBiosDirectory(bios)
+        organizeBios()
 
         setUpThreeDs()
         hideImagesFromGallery()
         return SetupResult.Success to organized
+    }
+
+    /**
+     * Creates BIOS's console folders and points the DS and DSi BIOS settings to BIOS/DS and BIOS/DSi, unless
+     * they point elsewhere. Earlier versions kept everything in BIOS itself: its DS or DSi files (told apart
+     * by bios7.bin's size) and gba_bios.bin move into their console's folder; a file already there is kept.
+     * Runs on a background thread, at setup and when the game list opens.
+     */
+    fun organizeBios() {
+        val folder = settingsRepository.getPomegradeFolder() ?: return
+        if (!hasFileAccess(context)) return
+        val treeId = DocumentsContract.getTreeDocumentId(folder)
+        val bios = pathOf("$treeId/$BIOS")
+        BIOS_CONSOLES.forEach { File(bios, it).mkdirs() }
+
+        val biosUri = DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$BIOS")
+        fun consoleUri(console: String) = DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$BIOS/$console")
+        val bios7Size = File(bios, "bios7.bin").takeIf { it.isFile }?.length()
+
+        val dsBios = settingsRepository.getDsBiosDirectory()
+        if (dsBios == null || dsBios == biosUri) {
+            if (bios7Size == DS_BIOS7_SIZE) moveInto(bios, BIOS_DS, DS_BIOS_FILES)
+            settingsRepository.setDsBiosDirectory(consoleUri(BIOS_DS))
+        }
+        val dsiBios = settingsRepository.getDsiBiosDirectory()
+        if (dsiBios == null || dsiBios == biosUri) {
+            if (bios7Size == DSI_BIOS7_SIZE) moveInto(bios, BIOS_DSI, DSI_BIOS_FILES)
+            settingsRepository.setDsiBiosDirectory(consoleUri(BIOS_DSI))
+        }
+        moveInto(bios, BIOS_GBA, listOf(GBA_BIOS_FILE))
+    }
+
+    private fun moveInto(bios: File, console: String, names: List<String>) {
+        for (name in names) {
+            val file = File(bios, name)
+            val target = File(File(bios, console), name)
+            if (file.isFile && !target.exists()) file.renameTo(target)
+        }
     }
 
     /** The folder path, or null if not set up. */

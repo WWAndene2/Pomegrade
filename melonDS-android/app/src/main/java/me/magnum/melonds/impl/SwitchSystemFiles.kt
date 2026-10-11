@@ -21,13 +21,12 @@ import java.io.File
  */
 object SwitchSystemFiles {
 
-    const val FOLDER = "Switch"
     private const val FIRMWARE = "Firmware"
     private val KEY_FILES = listOf("prod.keys", "title.keys")
     private const val FIRMWARE_MARKER = "pomegrade_firmware.txt"
 
     fun import(context: Context) {
-        val source = PomegradeFolder.subFolder(context, PomegradeFolder.BIOS)?.let { File(it, FOLDER) }?.takeIf { it.isDirectory } ?: return
+        val source = PomegradeFolder.subFolder(context, "${PomegradeFolder.BIOS}/${PomegradeFolder.BIOS_SWITCH}")?.takeIf { it.isDirectory } ?: return
         DirectoryInitialization.start()
         val userDirectory = File(DirectoryInitialization.userDirectory ?: return)
 

@@ -19,9 +19,9 @@ Pomegrade est une version modifiée de [melonDS-android](https://github.com/rafa
 
 Les BIOS et firmwares Nintendo ont été retirés du dépôt pour des raisons de copyright. Gardez-les sur votre appareil et choisissez-les dans les paramètres de l'application.
 
-**Switch** : les jeux `.nsp`, `.xci`, `.nca` et `.nro` apparaissent dans la liste (sous leur nom de fichier) et se lancent dans le cœur Eden, sur téléphone ARM 64 bits avec Vulkan. Les clés (`prod.keys`) et le firmware de votre console s'installent dans Réglages → logo Switch → « Switch setup and games » ; ils ne sont jamais dans le dépôt.
+**Switch** : les jeux `.nsp`, `.xci`, `.nca` et `.nro` apparaissent dans la liste (sous leur nom de fichier) et se lancent dans le cœur Eden, sur téléphone ARM 64 bits avec Vulkan. Les clés (`prod.keys`, `title.keys`) et le firmware (ses `.nca`, dans `Firmware/`) de votre console se mettent dans `BIOS/Switch` du dossier Pomegrade : Punica les installe dans Eden au lancement (ou par Réglages → logo Switch) ; ils ne sont jamais dans le dépôt.
 
-**GBA** : les jeux `.gba` apparaissent dans la liste avec les autres et se lancent dans le cœur mGBA. Sauvegarde et sauvegardes d'état sont rangées à côté du jeu (`<jeu>.sav`, `<jeu>.ss0` à `.ss9`). Le BIOS est facultatif : mGBA a le sien ; un BIOS de votre console, `gba_bios.bin` dans le dossier `BIOS` du dossier Pomegrade, est pris s'il est là.
+**GBA** : les jeux `.gba` apparaissent dans la liste avec les autres et se lancent dans le cœur mGBA. Sauvegarde et sauvegardes d'état sont rangées à côté du jeu (`<jeu>.sav`, `<jeu>.ss0` à `.ss9`). Le BIOS est facultatif : mGBA a le sien ; un BIOS de votre console, `gba_bios.bin` dans `BIOS/GBA` du dossier Pomegrade (les BIOS sont rangés par console : `BIOS/DS`, `BIOS/DSi`, `BIOS/GBA`, `BIOS/Switch` ; ceux d'une version précédente, à la racine de `BIOS`, y sont déplacés), est pris s'il est là.
 
 ## Textures HD
 
