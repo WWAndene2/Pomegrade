@@ -424,6 +424,12 @@ dans `0x3ef7b8`, la branche du code `0x13` appelle `0x3d19f8` comme la Flûte au
 vérification `0x3dc534` gardée) ; puis, deuxième étape, le menu de l'équipe (`DllPokeList`) lance le vol sans ouvrir la carte.
 Inconnu : si le mode ciel accepte le contexte du menu de l'équipe au lieu de celui du Sac, et comment le patch de code est
 installé dans la chaîne des mods.
+**Fait et vu sans écran (11 octobre)** : `tools/remake/prototype/fly_soaring_ips.py` écrit le `code.ips` (7 instructions à
+`0x3ef858`, ce que fait la Flûte : `0x3d19f8`, puis `+0x1d = 3`) ; Azahar l'applique depuis
+`load/mods/000400000011C400/code.ips` (journal : « code.ips patching code.bin »). Vol dans le menu de l'équipe → la carte →
+l'envol du mode ciel → le mode ciel (sur Giratina avec le mod du point 39). Le mode ciel accepte donc le contexte du menu de
+l'équipe. Reste : la carte s'ouvre encore avant (sa destination n'est pas utilisée ; la retirer demande `DllPokeList`) ;
+non testé sur le téléphone.
 
 **Point 39 — voler sur le Pokémon qui connaît Vol, avec son modèle** (palier 6 pour tous ; par étapes) :
 1. le code charge le Pokémon de l'équipe qui connaît Vol au lieu de Latios ou Latias (patch plus gros que le 38) ;
