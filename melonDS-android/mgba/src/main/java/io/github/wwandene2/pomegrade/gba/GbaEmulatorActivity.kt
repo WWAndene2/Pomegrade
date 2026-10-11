@@ -5,7 +5,9 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
+import android.view.InputDevice
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -54,6 +56,9 @@ class GbaEmulatorActivity : AppCompatActivity() {
     // keys held on a controller or keyboard, merged with the on-screen ones
     @Volatile
     private var padKeys = 0
+    // directions pressed by a controller's hat axes or left stick
+    @Volatile
+    private var axisKeys = 0
     private var pausedByUser = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -177,7 +182,7 @@ class GbaEmulatorActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (thread == null) {
-            thread = GbaEmulationThread(screen) { controls.keys or padKeys }.also { it.start() }
+            thread = GbaEmulationThread(screen) { controls.keys or padKeys or axisKeys }.also { it.start() }
         }
         updatePause()
     }
@@ -192,6 +197,17 @@ class GbaEmulatorActivity : AppCompatActivity() {
     override fun onDestroy() {
         if (isFinishing) GbaNative.unload()
         super.onDestroy()
+    }
+
+    override fun onGenericMotionEvent(event: MotionEvent): Boolean {
+        if (event.isFromSource(InputDevice.SOURCE_JOYSTICK) && event.actionMasked == MotionEvent.ACTION_MOVE) {
+            axisKeys = GbaKeys.fromAxes(
+                event.getAxisValue(MotionEvent.AXIS_HAT_X), event.getAxisValue(MotionEvent.AXIS_HAT_Y),
+                event.getAxisValue(MotionEvent.AXIS_X), event.getAxisValue(MotionEvent.AXIS_Y),
+            )
+            return true
+        }
+        return super.onGenericMotionEvent(event)
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
