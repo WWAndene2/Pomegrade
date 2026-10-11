@@ -1,9 +1,7 @@
 package me.magnum.melonds.ui.common.rom
 
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.widget.Toast
 import io.github.wwandene2.pomegrade.gba.GbaEmulatorActivity
 import me.magnum.melonds.R
 import me.magnum.melonds.domain.model.rom.Rom
@@ -16,23 +14,21 @@ import java.io.File
  * owner's console, `gba_bios.bin` in the Pomegrade folder's BIOS, is used when present; mGBA's own
  * otherwise.
  */
-object GbaLauncher {
+object GbaLauncher : ConsoleLauncher {
 
     const val BIOS_FILE = "gba_bios.bin"
 
-    fun isReady(context: Context): Boolean = PomegradeFolder.hasFileAccess(context)
+    override fun isReady(context: Context): Boolean = PomegradeFolder.hasFileAccess(context)
 
-    fun launch(activity: Activity, rom: Rom) {
-        val intent = launchIntent(activity, rom)
-        if (intent == null) {
-            Toast.makeText(activity, R.string.gba_not_a_file, Toast.LENGTH_LONG).show()
-            return
-        }
-        activity.startActivity(intent)
-    }
+    override val launchFailedMessage get() = R.string.gba_not_a_file
+
+    // the GBA screen is not exported, so the launcher can't open it: no home-screen shortcut for GBA games yet
+    override fun shortcutIntent(context: Context, rom: Rom): Intent? = null
+
+    override val noShortcutMessage get() = R.string.gba_no_shortcut
 
     /** The intent that runs [rom] in the GBA core, or null when the game isn't a file of the phone's storage. */
-    fun launchIntent(context: Context, rom: Rom): Intent? {
+    override fun launchIntent(context: Context, rom: Rom): Intent? {
         val documentId = PomegradeFolder.documentIdOf(context, rom.uri) ?: return null
         val path = PomegradeFolder.pathOf(documentId)
         if (!path.isFile) return null
