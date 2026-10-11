@@ -3,6 +3,8 @@ package me.magnum.melonds.ui.common.rom
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.util.Log
+import android.widget.Toast
 import me.magnum.melonds.R
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
@@ -42,16 +44,26 @@ object SwitchLauncher : ConsoleLauncher {
 
     /**
      * Before opening one of Eden's screens: its data in the Pomegrade folder's Switch ([SwitchFolder]), then the
-     * keys and firmware of BIOS/Switch ([SwitchSystemFiles]), so the NCAs go to that NAND.
+     * keys and firmware of BIOS/Switch ([SwitchSystemFiles]), so the NCAs go to that NAND. A step that fails is
+     * told to the owner (Eden opens anyway: what it already has may be enough), otherwise Eden's own error
+     * would be the only sign, and it doesn't name the file at fault.
      */
     suspend fun prepare(context: Context) {
         YuzuApplication.start() // on the main thread, as Eden's own screens start it
         val appContext = context.applicationContext
-        withContext(Dispatchers.IO) {
-            runCatching { SwitchFolder.setUp(appContext) }
-            runCatching { SwitchSystemFiles.import(appContext) }
+        val failure = withContext(Dispatchers.IO) {
+            // both steps run whatever the other does; the first failure is the one told
+            val folder = runCatching { SwitchFolder.setUp(appContext) }.exceptionOrNull()?.let { R.string.switch_folder_failed to it }
+            val systemFiles = runCatching { SwitchSystemFiles.import(appContext) }.exceptionOrNull()?.let { R.string.switch_system_files_failed to it }
+            folder ?: systemFiles
+        }
+        failure?.let { (message, error) ->
+            Log.w(TAG, "Switch core not prepared", error)
+            Toast.makeText(appContext, appContext.getString(message, error.localizedMessage ?: error.javaClass.simpleName), Toast.LENGTH_LONG).show()
         }
     }
+
+    private const val TAG = "SwitchLauncher"
 
     override val unsupportedMessage get() = R.string.switch_unsupported
 

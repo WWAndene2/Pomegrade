@@ -657,6 +657,8 @@
     <string name="action_three_ds_games">3DS games</string>
     <string name="three_ds_unsupported">3DS games need a 64-bit device</string>
     <string name="switch_unsupported">Switch games need a 64-bit ARM device</string>
+    <string name="switch_folder_failed">The Switch data could not be set up in the Pomegrade folder: %1$s</string>
+    <string name="switch_system_files_failed">The keys or firmware in BIOS/Switch could not be installed: %1$s</string>
     <string name="settings_section_switch">Switch</string>
     <string name="switch_home">Switch home</string>
     <string name="switch_home_summary">The Switch core\'s own game list, updates and DLC, keys and firmware (taken from Pomegrade/BIOS/Switch)</string>
