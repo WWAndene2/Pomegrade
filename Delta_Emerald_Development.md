@@ -5,9 +5,10 @@ Rayquaza, comme Ω pour Groudon et α pour Kyogre). C'est un mod d'ORAS (Layered
 outils de `tools/remake/` déjà écrits pour le remake de Sinnoh (zones, maps, warps, dresseurs, rencontres, scripts). Hoenn
 existe déjà dans ORAS : il s'agit surtout de **modifier** un jeu qui marche, pas de tout reconstruire.
 
-**Statut** : projet actif (décision du propriétaire, 9 octobre : le remake de Sinnoh est en pause, seulement lui) ; plan
-seulement, rien n'est commencé. Comme pour Sinnoh, les premières étapes sont de l'**outillage**, et la méthode de chaque
-construction est présentée au propriétaire avant d'écrire le code.
+**Statut** : projet actif (décision du propriétaire, 9 octobre : le remake de Sinnoh est en pause, seulement lui) ; solutions
+écrites pour les points 1 à 37 ; points 38 et 39 construits et vus dans l'émulateur sans écran (11 octobre), pas encore sur le
+téléphone. Comme pour Sinnoh, les premières étapes sont de l'**outillage**, et la méthode de chaque construction est
+présentée au propriétaire avant d'écrire le code.
 
 **Comment lire ce document** : chaque point dit ce qu'il faut faire et d'où il vient. La colonne « Faisabilité » suit la
 règle de `ORAS_LITTLEROOT.md` : **outil** (l'outillage actuel le fait ou presque), **données** (format lu, à écrire),
@@ -388,6 +389,360 @@ premier.
 
 **Risques** : l'instruction qui donne un Pokémon est à lire dans un script d'ORAS qui en donne déjà un (starter du début,
 pension) ; si « Pokédex complet » ne se lit pas dans un script, une autre condition (après la Ligue ou l'Épisode Delta).
+
+### Ce qui sert à plusieurs points (lu avant de commencer les paliers 2 à 6)
+
+- **Plafond des dresseurs** (vérifié, `tools/remake/ORAS_ENGINE.md`, `Trainer_ReadData` 0x453E08) : le jeu lit le dresseur 0 ou
+  un numéro au-delà de 949 comme le dresseur 1. Tout dresseur ajouté (points 7, 8, 9, 11, 15, 19, 20, 21) prend donc d'abord
+  un numéro existant inutilisé (liste à sortir avec l'outil du point 1 : fiches jamais citées par un script de zone ni par un
+  personnage), puis, quand ils manquent, un patch de code relève la borne (une constante dans `Trainer_ReadData`, la même
+  méthode que les zones 536 → 1024 : `oras-engine`).
+- **Drapeaux et compteurs** : la première lecture se fait au point 7 (sauvegarde avant / après le Panthéon, comparée bloc par
+  bloc) ; les points 9, 10, 12, 13, 14, 16, 18, 22 à 24 s'en servent.
+- **Nouvelles zones** : `remake_tool oras-sandbox` les construit à partir de 538 (vérifié sans écran) ; pas encore construits :
+  les warps entre une zone de Hoenn et une zone nouvelle dans les deux sens, les rebords est/ouest, le relief, les tables de
+  rencontres propres. Ces quatre briques précèdent les points 12 à 21 ; chacune se vérifie seule dans un bac à sable avant de
+  servir.
+- **Code** : un patch s'écrit en `code.ips` (le programme) ou par `cro_patch.py` (un module), appliqués par Azahar depuis le
+  dossier du mod (vérifié au point 38). Un module modifié ne passe que dans Azahar, qui ne vérifie pas les empreintes des
+  modules ; c'est le cas de Pomegrade.
+
+### Palier 3 — méthode commune
+
+Chaque lieu est un ensemble de zones nouvelles faites par `oras-sandbox`, reliées à Hoenn par un warp ajouté à une zone
+existante, avec ses personnages, objets, dresseurs et rencontres. Avant tout bâtiment ajouté sur une carte de Hoenn, une
+question se règle une fois pour toutes : peut-on ajouter une porte à un morceau de carte du jeu sans le reconstruire ? Le
+modèle 3D porte la façade : une porte « invisible » (un warp sur une case existante, par exemple au fond d'un bâtiment déjà
+là) est la voie sûre ; reconstruire le morceau (outillage du remake de Sinnoh) est la voie lourde. Chaque point dit laquelle
+il prend.
+
+### Point 11 — Arènes d'Émeraude : dispositions et dresseurs
+
+**Émeraude** (section 2, Serebii) : dispositions et équipes propres à chaque arène. Une partie des mécanismes existe déjà dans
+ORAS, remake de Rubis et Saphir qui les partagent en partie avec Émeraude (de mémoire, à vérifier arène par arène).
+
+1. **Inventaire** : pour chacune des huit arènes d'ORAS, sa zone, ses personnages, ses objets, son script et ses mécanismes
+   (`oras-inspect zone`, `oras-script`) ; un tableau « mécanisme d'Émeraude → existe dans ORAS / non » (dalles de glace,
+   interrupteurs, portes tournantes, téléporteurs, trous).
+2. **Référence** : les cartes et dresseurs d'Émeraude dans `pokeemerald` (`data/maps/*Gym*`), pour placer les dresseurs et lire
+   les énigmes.
+3. **Première version, sans nouvelle géométrie** : les dresseurs et leurs équipes d'Émeraude (outil du point 1) placés aux
+   positions d'Émeraude ramenées sur la salle d'ORAS ; les mécanismes qu'ORAS a déjà gardés ; les champions avec leurs
+   équipes d'Émeraude (section 2) ; Juan au point 8.
+4. **Deuxième version, la géométrie d'Émeraude** : seulement pour les arènes dont l'énigme n'existe pas dans ORAS, une salle
+   reconstruite par l'outillage des pièces (`RoomBuilder`, murs et portes calculés) sur la grille d'Émeraude ; présentée au
+   propriétaire avant d'être construite.
+5. **Vérification** : chaque arène traversée en émulation sans écran (script de touches, captures), le champion affronté ;
+   puis sur le téléphone.
+
+**Dépend de** : points 1, 7 (dresseurs, drapeaux), 8 (Juan). **Risque** : une énigme sans équivalent dans ORAS qui demande du
+code (par exemple un sol qui change d'état) : gardée dans sa version ORAS et signalée.
+
+### Point 12 — Extension du Parc Safari
+
+**Émeraude** (Giant Bomb) : une partie du Parc Safari ouvre après l'histoire, avec des Pokémon de Johto.
+
+1. **Lire** : les zones du Parc Safari d'ORAS et ce qui en fait une zone Safari (le combat Safari et ses Balls : un mot de l'en-tête
+   de zone ou un script ; à trouver en comparant une zone Safari et une zone normale).
+2. **Construire** : deux zones nouvelles (`oras-sandbox`), reliées au Parc par un warp ajouté au bout d'une zone existante, avec
+   l'en-tête Safari recopié.
+3. **Rencontres** : les Pokémon de Johto de l'extension d'Émeraude (`pokeemerald`, rencontres des zones `SafariZone_North*`/
+   `South*`), complétés par ceux que le point 4 classe « sans place ».
+4. **Accès** : un personnage qui ferme le passage tant que le drapeau d'après-Ligue (point 7) n'est pas posé.
+5. **Vérification** : entrer, rencontrer un Pokémon de Johto en combat Safari sans écran ; puis sur le téléphone.
+
+**Dépend de** : brique « tables de rencontres propres », point 7. **Risque** : si l'état Safari ne vient pas de la zone,
+l'extension se fait en ajoutant des cases aux zones Safari existantes (morceaux reconstruits) au lieu de zones nouvelles.
+
+### Point 13 — Souterrain du désert
+
+**Émeraude** (section 1.3) : une grotte ouverte après le Panthéon, le fossile non choisi et le seul Métamorph de Hoenn.
+
+1. **Construire** : une zone de grotte nouvelle (`oras-sandbox`), l'entrée par un warp ajouté sur la route où Émeraude la place
+   (Route 114 de mémoire, à vérifier dans `pokeemerald`).
+2. **Contenu** : le fossile non choisi à la Tour Mirage (point 14), en objet ramassable une seule fois ; rencontres : Métamorph et
+   ce qu'Émeraude y met.
+3. **Accès** : warp actif seulement après le Panthéon (drapeau du point 7).
+4. **Vérification** : sans écran, entrer, ramasser le fossile, rencontrer Métamorph ; puis sur le téléphone.
+
+**Dépend de** : points 7, 14 ; briques warps et rencontres.
+
+### Point 14 — Tour Mirage et ses deux fossiles
+
+**Émeraude** (Serebii) : une tour dans le désert de la Route 111, qui apparaît après avoir parlé au Fou des ruines ; on y choisit
+le fossile Racine ou Griffe, puis la tour s'enfonce.
+
+1. **Lire** : comment ORAS donne les fossiles aujourd'hui (script et objet dans le désert : à trouver), pour le retirer ou le
+   déplacer.
+2. **Construire** : les étages de la tour en zones nouvelles (`oras-sandbox`), l'entrée par un warp ajouté au désert ; les deux
+   fossiles posés au sommet.
+3. **Script** : la tour visible (warp actif) après le dialogue du Fou des ruines (drapeau posé par son script) ; prendre un
+   fossile pose le drapeau « tour enfoncée » : warp coupé, l'autre fossile retiré, et il passe au Souterrain (point 13).
+4. **Décor** : la tour visible depuis le désert demande un modèle dans le morceau de carte du désert (voie lourde) ; première
+   version : pas de tour visible, une entrée signalée (un personnage ou un panneau), présentée au propriétaire.
+5. **Vérification** : sans écran, parler au Fou, entrer, prendre un fossile, vérifier la tour fermée ; puis sur le téléphone.
+
+**Dépend de** : drapeaux (point 7), brique warps. **Risque** : les étages d'Émeraude se montent au Vélo Cross (sol qui
+s'effrite) : si ce comportement de case n'existe pas dans ORAS, étages simples sans ce piège.
+
+### Point 15 — Colline des Dresseurs, sans chronomètre
+
+**Émeraude** (section 1.3, PokeTools) : des étages de dresseurs à battre d'affilée, un propriétaire au sommet qui récompense.
+
+1. **Construire** : quatre étages et le toit en zones nouvelles (`oras-sandbox`, qui place déjà des dresseurs), l'entrée par un
+   warp ajouté à un bâtiment existant (emplacement d'Émeraude à vérifier dans `pokeemerald`).
+2. **Dresseurs** : par l'outil du point 1, sur des numéros libres (plafond, section commune).
+3. **Récompense** : le propriétaire donne un objet une fois les étages battus (drapeaux par dresseur, lus comme au point 7) ; la
+   boutique d'Émeraude (Potion Max, Guérison) par une boutique d'ORAS recopiée.
+4. **Vérification** : sans écran, monter, battre un dresseur par étage, recevoir la récompense ; puis sur le téléphone.
+
+**Dépend de** : point 1, plafond des dresseurs. Le chronomètre est le point 32.
+
+### Point 16 — Grotte Tellurique et Grotte Marine (Groudon et Kyogre)
+
+**Émeraude** (Wikipédia) : après l'histoire, l'Institut Météo indique où apparaît Groudon (Grotte Tellurique) ou Kyogre (Grotte
+Marine), sur des routes qui changent. **À vérifier d'abord** : Kyogre se capture-t-il dans Rubis Oméga ? (point 4 : liste des
+absents).
+
+1. **Construire** : deux grottes en zones nouvelles (`oras-sandbox`) ; Kyogre au fond de la Grotte Marine, Groudon au fond de la
+   Grotte Tellurique seulement si le point 4 le juge utile (Rubis Oméga le donne déjà dans l'histoire).
+2. **Combat de légendaire** : le script d'une rencontre fixe d'ORAS recopié (Regirock ou un légendaire de l'Épisode Delta : à
+   lire), l'espèce changée ; un drapeau « capturé ».
+3. **Accès** : un warp ajouté sur une route ; version simple : une route fixe ; version d'Émeraude (route qui change) seulement
+   si le script lit le jour (à vérifier au point 7) ; l'Institut Météo dit où (un texte ajouté).
+4. **Vérification** : sans écran, entrer, lancer le combat, capturer ; puis sur le téléphone.
+
+**Dépend de** : point 4, brique warps. **Risque** : la Grotte Marine d'Émeraude se trouve sous l'eau (Plongée) : une entrée de
+plongée sur une case de mer est à lire dans une zone de Plongée d'ORAS.
+
+### Point 17 — Îles des légendaires d'événement
+
+**Section 1.3** : Mew, Deoxys, Lugia et Ho-Oh venaient de billets d'événement ; ils doivent s'obtenir en jeu. **À vérifier
+d'abord** : lesquels ORAS donne déjà (Deoxys à l'Épisode Delta, Lugia ou Ho-Oh de mémoire) : seuls les absents (liste du
+point 4) reçoivent une île.
+
+1. **Accès** : deux voies, choisies avec le propriétaire : a) par le mode ciel, comme les îles Mirage : le module `DllSkyTrip`
+   a une table de points de légendaires (`BMLegendPoint`, vue au point 39 : les espèces 380, 381, 386 à `0xDB28`), à lire puis
+   étendre ; b) par un personnage au port de Nénucrique qui emmène sur l'île (warp de script, plus simple).
+2. **Îles** : une zone nouvelle par île (`oras-sandbox`), la rencontre fixe recopiée comme au point 16.
+3. **Condition** : après la Ligue (point 7), et pour Mew comme dans Émeraude, une petite poursuite dans l'herbe
+   remplacée par une rencontre directe en première version.
+4. **Vérification** : sans écran, atteindre l'île, capturer ; puis sur le téléphone.
+
+**Dépend de** : points 4, 7, et 38-39 pour la voie a.
+
+### Point 18 — Pilier Céleste à deux états
+
+**Émeraude** (Bulbapedia) : intact à la première visite, abîmé ensuite (sols fissurés).
+
+1. **Lire** : les zones du Pilier Céleste d'ORAS et le drapeau de l'histoire qui marque le passage de Rayquaza (point 7).
+2. **Construire** : une copie des étages en zones nouvelles, avec la grille des cases changée (fissures, trous) ; mêmes modèles.
+3. **Choix de l'état** : à l'entrée, deux warps, l'un vers les étages intacts, l'autre vers la copie abîmée, activés selon le
+   drapeau (un script d'entrée de zone).
+4. **Vérification** : sans écran, entrer avant et après le drapeau ; puis sur le téléphone.
+
+**Dépend de** : point 7, points 23-24 pour le moment où l'état change. **Risque** : une fissure qui fait tomber à l'étage du
+dessous est un comportement de case : à lire dans ORAS (la grotte où l'on tombe existe-t-elle ?) ; sinon, fissures en simples
+murs.
+
+### Point 19 — Routes maritimes enrichies d'îlots et de dresseurs
+
+**Section 3.3** : trop d'eau vide.
+
+1. **Îlots** : de petites îles ajoutées dans des cases de mer des routes existantes, en reconstruisant ces morceaux de carte
+   (outillage du remake de Sinnoh, qui garde la zone ; limites connues : taille de morceau, 51 textures par modèle).
+2. **Dresseurs** : des nageurs et des dresseurs sur les îlots, ajoutés aux zones par `NewCharacter`, sur des numéros libres
+   (plafond) ; équipes par l'outil du point 1.
+3. **Objets** : quelques objets cachés sur les îlots.
+4. **Vérification** : sans écran, naviguer jusqu'à un îlot, combattre ; puis sur le téléphone.
+
+**Limites** : le fichier des événements d'une zone reste sous 0xC84 octets (vérifié) : peu de personnages par zone.
+
+### Point 20 — Bâtiments de la Zone de Combat sur l'île Combat
+
+**Section 1.1** : sept installations ; première version avec les règles de la Maison de Combat d'ORAS.
+
+1. **Lire** : la Maison de Combat d'ORAS (zone, script, les fonctions natives qui lancent une série, comptent les victoires et les
+   PC) : c'est la base de chaque installation.
+2. **Construire** : les salles d'accueil en zones nouvelles (`oras-sandbox`), une par installation, reliées par des warps
+   ajoutés dans l'île Combat (voie sûre : portes au fond de bâtiments existants ou dans la Maison elle-même ; voie lourde :
+   façades ajoutées au morceau de l'île, présentée au propriétaire).
+3. **Règles** : chaque guichet lance une série de la Maison (simple, double, triple, rotation) ; le meneur (Frontier Brain) en
+   dresseur au 21e et au 49e combat (numéros libres), avec son Symbole en objet clé ou en drapeau.
+4. **PC et récompenses** : les PC de la Maison partagés ; les maîtres des capacités de la Zone au point 5.
+5. **Grotte de l'Artisan** : une grotte en zone nouvelle avec Smeargle (point 4).
+6. **Vérification** : sans écran, une série lancée et gagnée contre le meneur ; puis sur le téléphone.
+
+**Dépend de** : point 1, plafond des dresseurs. Les règles propres de chaque installation sont le point 36.
+
+### Point 21 — Tentes de Combat, bâtiments seulement
+
+**Section 1.3** : trois tentes (Poivressel, Vergazon, Vermilava de mémoire, à vérifier) avant la Ligue.
+
+1. **Construire** : une salle par tente (`oras-sandbox`), entrée par une porte au fond d'un bâtiment existant de la ville (voie
+   sûre) ou par une façade ajoutée (voie lourde, avec le propriétaire).
+2. **Règles** : une série courte de la Maison (3 combats), niveau 50 ; prix en objets au lieu de PC.
+3. **Vérification** : sans écran, une série gagnée ; puis sur le téléphone.
+
+**Dépend de** : point 20 (la série de la Maison lancée depuis une zone nouvelle).
+
+### Palier 4 — méthode commune
+
+L'histoire d'ORAS vit dans les scripts de zone (lisibles et réassemblables : `oras-script`, `amx-asm`) et dans des scènes. Une
+hypothèse décide de tout le palier, à vérifier avant le reste : **la cartouche de Rubis Oméga contient-elle les cartes et les
+scripts d'Alpha Saphir** (repaire Aqua, scènes de Kyogre), choisis par un test de version dans les scripts ? Si oui, Delta
+Emerald se construit en forçant, scène par scène, la branche Magma ou Aqua qu'Émeraude suit ; sinon, les scènes manquantes se
+recomposent avec celles d'Omega Ruby (personnages changés), beaucoup plus long. Le premier travail est donc de chercher dans
+les scripts la fonction native de version et les noms de zones d'Alpha Saphir (`a/0/7/4` membre 90).
+
+### Point 22 — Les deux repaires, Magma et Aqua
+
+1. **Vérifier** : quels repaires existent dans la cartouche (noms de zones, zones et scripts) ; Rubis Oméga a le repaire Magma.
+2. **Si le repaire Aqua est dans la cartouche** : rendre son entrée accessible (warp, personnage) et ses scripts actifs dans
+   Rubis Oméga en forçant leur test de version.
+3. **Sinon** : le repaire Aqua construit en zones nouvelles (`oras-sandbox`) sur le plan d'Émeraude (`pokeemerald`), avec les
+   modèles du repaire Magma recolorés (`oras-asset recolour`) et les sbires Aqua (dresseurs existants de la classe Aqua s'ils
+   sont dans la cartouche).
+4. **Vérification** : sans écran, traverser les deux repaires et y combattre ; puis sur le téléphone.
+
+**Dépend de** : la vérification du palier, points 7 (drapeaux) et 23 (à quel moment de l'histoire).
+
+### Point 23 — Histoire à deux équipes, Magma et Aqua
+
+**Émeraude** (section 2) : Magma et Aqua agissent tous les deux ; chacun a ses scènes.
+
+1. **Carte de l'histoire** : chaque scène d'Émeraude (de `pokeemerald`, scripts des cartes) mise en face de la scène d'ORAS au
+   même lieu, avec l'équipe qui y agit dans Émeraude ; validée par le propriétaire avant tout changement.
+2. **Construire** : scène par scène, la branche de l'autre équipe forcée (si la cartouche l'a) ou la scène recomposée ; les
+   drapeaux de progression gardés dans l'ordre d'ORAS pour ne pas casser la suite.
+3. **Vérification** : chaque scène modifiée jouée sans écran depuis une sauvegarde juste avant ; à la fin, une partie complète
+   sur le téléphone.
+
+**Risque** : le plus gros point du plan ; il se fait en plusieurs livraisons, une ville à la fois.
+
+### Point 24 — Groudon et Kyogre ensemble, Rayquaza appelé pendant l'histoire
+
+**Émeraude** (section 2) : Groudon et Kyogre réveillés s'affrontent à Atalanopolis ; le joueur réveille Rayquaza au Pilier
+Céleste pour les calmer. ORAS a déjà Rayquaza au Pilier Céleste dans l'Épisode Delta.
+
+1. **Lire** : les scènes de l'éveil de Groudon (Rubis Oméga), celles de Kyogre (si la cartouche les a), et celles de Rayquaza
+   au Pilier Céleste (Épisode Delta).
+2. **Construire** : l'ordre d'Émeraude : réveil des deux (scènes existantes ou recomposées), Atalanopolis sous le climat
+   extrême, montée au Pilier Céleste (scène de Rayquaza de l'Épisode Delta, déplacée dans l'histoire), retour à Atalanopolis ;
+   l'Épisode Delta adapté pour qu'il ne rejoue pas la rencontre.
+3. **Vérification** : la séquence jouée sans écran, sauvegarde par étape ; puis sur le téléphone.
+
+**Dépend de** : points 18, 22, 23. **Risque** : les scènes (caméras, animations) sont peut-être des fichiers à part des scripts :
+à lire avant de promettre un déplacement.
+
+### Palier 5 — méthode commune
+
+Comme pour le point 38 : 1) l'action déclenchée dans le jeu, la trace du code comparée à une trace de repos (interpréteur,
+`trace on/off`) pour isoler les fonctions en cause ; 2) décompilation et lecture ; 3) le plus petit patch possible, présenté avant
+d'être écrit, avec ses contrôles (refus si le code n'est pas celui attendu) ; 4) vérification sans écran puis sur le
+téléphone. Deux points du palier se règlent peut-être sans code ; ils sont signalés.
+
+### Point 25 — Combats doubles « libres »
+
+1. **Vérifier d'abord** : deux dresseurs qui voient le joueur en même temps le combattent-ils ensemble dans ORAS ? (sans écran,
+   deux dresseurs placés côte à côte dans un bac à sable ; la sixième génération le fait de mémoire, à vérifier).
+2. **Si oui** : seulement des données : des paires de dresseurs placées comme dans Émeraude.
+3. **Sinon** : lire le déclenchement par la vue (`_TrainerEyeBattleStart`, déjà nommé) et le combat à deux dresseurs
+   (`Trainer_BuildTeams`, qui construit plusieurs dresseurs : lu, pas encore vu en marche) ; patch du déclenchement.
+
+### Point 26 — Multi Exp. désactivé au départ
+
+ORAS laisse allumer et éteindre le Multi Exp. depuis les objets rares (de mémoire, à vérifier). **Sans code probablement** : son
+état est un octet ou un drapeau de la sauvegarde (à trouver en comparant deux sauvegardes, allumé et éteint) ; le script qui le
+donne le pose éteint. **Vérification** : recevoir l'objet sans écran, lire l'état ; puis sur le téléphone.
+
+### Point 27 — Mode difficile optionnel
+
+1. **Interrupteur** : un objet clé ou un personnage qui pose un drapeau « difficile » (choix du joueur, réversible).
+2. **Effet** : un patch dans la construction d'une équipe de dresseur (`Trainer_BuildOneTeam` 0x454EA4, déjà lue) : si le
+   drapeau est posé, niveaux relevés (pourcentage à régler) et meilleure IA (l'octet d'IA de la fiche, à lire au point 1).
+3. **Vérification** : un même dresseur combattu sans écran, mode normal puis difficile (captures des niveaux) ; puis sur le
+   téléphone.
+
+### Point 28 — Méga-Évolutions limitées à l'après-jeu
+
+**Probablement sans code** : la Méga-Gourmette (objet clé qui permet la Méga) est donnée par un script de l'histoire ; ce don
+est déplacé après la Ligue, et les Méga-Gemmes restent trouvables. **À vérifier** : aucune scène obligatoire ne demande au
+joueur de méga-évoluer avant la Ligue. **Vérification** : sans écran, un combat avant la Ligue sans option Méga, après avec.
+
+### Point 29 — Accès fixe aux îles Mirage
+
+1. **Lire** : le choix de l'île du jour (module `DllSkyTrip`, classe `BMHikyo` vue au point 39 ; la sauvegarde a un bloc
+   `RandomGroup`, bon candidat pour la graine du jour).
+2. **Patch** : le tirage remplacé par un calendrier fixe (une île selon le jour de la semaine) ou par un objet qui choisit
+   l'île ; choix du propriétaire.
+3. **Vérification** : sans écran, l'île visible le jour voulu (heure du système de l'émulateur réglée) ; puis sur le téléphone.
+
+### Point 30 — Se passer des CS
+
+1. **Lire** : la vérification « un Pokémon de l'équipe connaît la capacité et le badge est obtenu », sur un obstacle (arbre à
+   couper, rocher) et au menu de l'équipe (déjà vu au point 38 pour Vol).
+2. **Patch** : avec le badge, la vérification réussit sans Pokémon qui connaît la capacité (le premier de l'équipe sert pour
+   l'animation) ; Surf, Plongée et Cascade compris.
+3. **Vérification** : sans écran, un obstacle franchi avec une équipe sans la capacité ; puis sur le téléphone.
+
+### Point 31 — Revanches des dresseurs de route
+
+1. **Vérifier d'abord** : ORAS a-t-il un moyen de réaffronter les dresseurs de route (une fonction du PokéMultinav, de mémoire
+   pas sûr) ?
+2. **Version sans téléphone** : les drapeaux « battu » d'une liste de dresseurs remis à zéro chaque jour (si le script lit le
+   jour : point 7) ou après la Ligue, équipes renforcées sur des numéros libres.
+3. **Version Match Call** : un appel du PokéMultinav, code à trouver (la plus longue, après la version simple).
+
+### Point 32 — Colline des Dresseurs : son chronomètre
+
+1. **Chercher** : une fonction native de script qui lit l'heure ou un compteur d'images (parmi les 799 natives nommées).
+2. **Si elle existe** : le chronomètre en script (heure d'entrée gardée, temps calculé au sommet) et un affichage par message.
+3. **Sinon** : patch de code (un compteur dans la mise à jour de la zone), après le point 15.
+
+### Point 33 — Boutique de vêtements de X/Y
+
+1. **Vérifier** : la sauvegarde d'ORAS a un bloc `Fashion` (vérifié, nom de classe) ; reste à savoir s'il est encore lu, et si
+   les modules (liste des 145 modules) et les modèles de vêtements de X/Y sont dans la cartouche.
+2. **Si oui** : un personnage boutique qui ouvre le module, et le joueur habillé selon le bloc.
+3. **Sinon** : des tenues prédéfinies (textures du joueur recolorées par `oras-asset`) choisies par un personnage.
+
+### Point 34 — Concours plus fins
+
+1. **Récompenses** (données et scripts, sans code) : des objets utiles donnés par les scripts des salles de concours.
+2. **Jugement** (code) : le module des concours lu par trace (un concours joué sans écran), puis les barèmes ajustés.
+
+### Point 35 — Bases Secrètes : partage par fichier, bases hors ligne
+
+1. **Vérifier d'abord** : ORAS partage les bases par QR code (de mémoire, à vérifier) ; Azahar peut donner une image à la caméra
+   émulée : partager une base serait alors déjà possible avec un fichier image, sans rien changer au jeu.
+2. **Bases hors ligne** : des bases de dresseurs ajoutées aux données que le jeu lit pour les bases d'autres joueurs (format à
+   lire, bloc `SecretBase` de la sauvegarde).
+3. **Plus de meubles et d'emplacements** : tables des meubles et des emplacements, données à lire.
+
+### Palier 6 — méthode commune
+
+Deux gros chantiers qui s'appuient sur tout le reste. Ils se découpent en livraisons qui marchent chacune seule.
+
+### Point 36 — Règles propres des installations de la Zone de Combat
+
+Dans l'ordre du plus faisable au moins faisable :
+1. **Pyramide et Battle Pike** (maps et scripts, pas de règle de combat) : salles en zones nouvelles tirées au hasard par script,
+   soins et pièges en script, la visibilité réduite de la Pyramide par la lumière de zone (réglable dans l'outillage).
+2. **Usine** (Pokémon de location) : l'équipe du joueur mise de côté et remplacée par des Pokémon prêtés ; à lire : les fonctions
+   natives qui manipulent l'équipe (la Maison de Combat et la pension en ont, à vérifier).
+3. **Arène, Palais, Dôme** (règles de combat) : patches du module de combat (jugement après trois tours, choix des capacités
+   selon la nature, tableau de tournoi) : lus par trace d'un combat, les plus longs.
+
+### Point 37 — Pokémon qui suit le joueur
+
+1. **Modèle** : le premier Pokémon de l'équipe en modèle de terrain, fait comme Giratina au point 39 (modèle de combat, shader
+   de terrain, échelle, textures réduites) : la méthode est vérifiée pour un Pokémon ; reste à la faire pour tous, avec la
+   mémoire qu'ils prennent.
+2. **Personnage** : un personnage de zone qui suit les pas du joueur (le code de déplacement des personnages, à lire par trace ;
+   le nombre de personnages est déjà relevé).
+3. **Animations** : marche et attente tirées des animations de combat (comme au point 39).
+4. **Livraisons** : d'abord un seul Pokémon fixe qui suit, puis le premier de l'équipe, puis tous.
 
 ### Points 38 et 39 — Le vol en mode ciel à la place du Vol, sur le Pokémon qui connaît Vol
 
