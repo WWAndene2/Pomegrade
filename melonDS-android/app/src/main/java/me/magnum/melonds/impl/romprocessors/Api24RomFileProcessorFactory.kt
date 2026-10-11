@@ -2,6 +2,7 @@ package me.magnum.melonds.impl.romprocessors
 
 import android.content.Context
 import me.magnum.melonds.common.romprocessors.GbaRomFileProcessor
+import me.magnum.melonds.common.romprocessors.GcWiiRomFileProcessor
 import me.magnum.melonds.common.romprocessors.N3dsRomFileProcessor
 import me.magnum.melonds.common.romprocessors.NdsRomFileProcessor
 import me.magnum.melonds.common.romprocessors.RomFileProcessor
@@ -20,9 +21,11 @@ class Api24RomFileProcessorFactory(context: Context, uriHandler: UriHandler, nds
         val ndsRomFileProcessor = NdsRomFileProcessor(context, uriHandler)
         val n3dsRomFileProcessor = N3dsRomFileProcessor(context, uriHandler)
         val gbaRomFileProcessor = GbaRomFileProcessor(context, uriHandler)
+        val gcWiiRomFileProcessor = GcWiiRomFileProcessor(context, uriHandler)
         prefixProcessorMap = RomPlatform.n3dsExtensions.associateWith { n3dsRomFileProcessor } +
             RomPlatform.gbaExtensions.associateWith { gbaRomFileProcessor } +
-            RomPlatform.switchExtensions.associateWith { SwitchRomFileProcessor(uriHandler) } + mapOf(
+            RomPlatform.switchExtensions.associateWith { SwitchRomFileProcessor(uriHandler) } +
+            RomPlatform.gcWiiExtensions.associateWith { gcWiiRomFileProcessor } + mapOf(
             "nds" to ndsRomFileProcessor,
             "dsi" to ndsRomFileProcessor,
             "ids" to ndsRomFileProcessor,

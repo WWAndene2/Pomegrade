@@ -14,8 +14,10 @@ import kotlinx.coroutines.withContext
 import me.magnum.melonds.R
 import me.magnum.melonds.impl.ModInstaller
 import me.magnum.melonds.impl.PomegradeFolder
+import org.dolphinemu.dolphinemu.features.settings.ui.MenuTag as GcWiiSettingsMenu
 import org.yuzu.yuzu_emu.features.settings.model.Settings.MenuTag as SwitchSettingsMenu
 import me.magnum.melonds.ui.common.rom.N3dsLauncher
+import me.magnum.melonds.ui.common.rom.GcWiiLauncher
 import me.magnum.melonds.ui.common.rom.SwitchLauncher
 import me.magnum.melonds.ui.settings.preferences.ConsoleSelectorPreference
 import me.magnum.melonds.ui.settings.PreferenceFragmentTitleProvider
@@ -33,6 +35,7 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
         // keys of the 3DS entries: this prefix + the Azahar settings section they open
         private const val THREE_DS_PREFIX = "three_ds_settings_"
         private const val SWITCH_PREFIX = "switch_settings_"
+        private const val GC_WII_PREFIX = "gc_wii_settings_"
     }
 
     @Inject lateinit var pomegradeFolder: PomegradeFolder
@@ -101,6 +104,7 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
         findPreference<ConsoleSelectorPreference>("settings_console")?.let { selector ->
             selector.threeDsAvailable = N3dsLauncher.isSupported()
             selector.switchAvailable = SwitchLauncher.isSupported()
+            selector.gcWiiAvailable = GcWiiLauncher.isSupported()
             selector.onConsoleSelected = { showConsoleSection(it) }
             showConsoleSection(selector.selected)
         }
@@ -157,6 +161,22 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
                         SwitchLauncher.prepare(requireContext())
                         startActivity(SwitchLauncher.settingsIntent(requireContext(), section))
                     }
+                    true
+                }
+            }
+        }
+        findPreference<Preference>("gc_wii_home")?.setOnPreferenceClickListener {
+            startActivity(GcWiiLauncher.homeIntent(requireContext()))
+            true
+        }
+        preferenceScreen.findPreference<androidx.preference.PreferenceCategory>("gc_wii_settings")?.let { category ->
+            for (i in 0 until category.preferenceCount) {
+                val preference = category.getPreference(i)
+                val key = preference.key ?: continue
+                if (!key.startsWith(GC_WII_PREFIX)) continue
+                val section = GcWiiSettingsMenu.valueOf(key.removePrefix(GC_WII_PREFIX))
+                preference.setOnPreferenceClickListener {
+                    GcWiiLauncher.openSettings(requireContext(), section)
                     true
                 }
             }
@@ -259,5 +279,6 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
         findPreference<Preference>("ds_settings")?.isVisible = console == ConsoleSelectorPreference.DS
         findPreference<Preference>("three_ds_settings")?.isVisible = console == ConsoleSelectorPreference.THREE_DS && N3dsLauncher.isSupported()
         findPreference<Preference>("switch_settings")?.isVisible = console == ConsoleSelectorPreference.SWITCH && SwitchLauncher.isSupported()
+        findPreference<Preference>("gc_wii_settings")?.isVisible = console == ConsoleSelectorPreference.GC_WII && GcWiiLauncher.isSupported()
     }
 }

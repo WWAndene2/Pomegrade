@@ -116,6 +116,8 @@ dependencies {
     implementation(projects.mgba)
     // Switch core (Eden)
     implementation(projects.eden)
+    // GameCube and Wii core (Dolphin)
+    implementation(projects.dolphin)
     implementation(projects.emulatorUi)
 
     implementation(libs.androidx.activity)

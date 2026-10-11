@@ -159,4 +159,25 @@
         <Preference android:key="switch_settings_SECTION_APP_SETTINGS" android:title="@string/category_general" android:summary="@string/switch_settings_app_summary" app:icon="@drawable/ic_settings" />
         <Preference android:key="switch_settings_SECTION_DEBUG" android:title="@string/three_ds_settings_debug" android:summary="@string/switch_settings_debug_summary" app:icon="@drawable/ic_settings" />
     </PreferenceCategory>
+
+    <!-- GameCube and Wii: the Dolphin core's own settings, each section opened directly (key: its MenuTag),
+         and its home screen -->
+    <PreferenceCategory
+            android:key="gc_wii_settings"
+            android:title="@string/settings_section_gc_wii"
+            app:iconSpaceReserved="false">
+        <Preference
+                android:key="gc_wii_home"
+                android:title="@string/gc_wii_home"
+                android:summary="@string/gc_wii_home_summary"
+                app:icon="@drawable/ic_settings" />
+        <Preference android:key="gc_wii_settings_CONFIG_GENERAL" android:title="@string/category_general" android:summary="@string/gc_wii_settings_general_summary" app:icon="@drawable/ic_settings" />
+        <Preference android:key="gc_wii_settings_GRAPHICS" android:title="@string/category_video" android:summary="@string/gc_wii_settings_graphics_summary" app:icon="@drawable/ic_video" />
+        <Preference android:key="gc_wii_settings_CONFIG_AUDIO" android:title="@string/category_audio" android:summary="@string/gc_wii_settings_audio_summary" app:icon="@drawable/ic_audio" />
+        <Preference android:key="gc_wii_settings_CONFIG_GAME_CUBE" android:title="@string/gc_wii_settings_gamecube" android:summary="@string/gc_wii_settings_gamecube_summary" app:icon="@drawable/ic_firmware" />
+        <Preference android:key="gc_wii_settings_CONFIG_WII" android:title="@string/gc_wii_settings_wii" android:summary="@string/gc_wii_settings_wii_summary" app:icon="@drawable/ic_firmware" />
+        <Preference android:key="gc_wii_settings_GCPAD_TYPE" android:title="@string/gc_wii_settings_gc_controllers" android:summary="@string/gc_wii_settings_gc_controllers_summary" app:icon="@drawable/ic_input" />
+        <Preference android:key="gc_wii_settings_WIIMOTE" android:title="@string/gc_wii_settings_wii_remotes" android:summary="@string/gc_wii_settings_wii_remotes_summary" app:icon="@drawable/ic_input" />
+        <Preference android:key="gc_wii_settings_CONFIG_ADVANCED" android:title="@string/three_ds_settings_debug" android:summary="@string/gc_wii_settings_advanced_summary" app:icon="@drawable/ic_settings" />
+    </PreferenceCategory>
 </PreferenceScreen>

@@ -40,7 +40,7 @@ This project defines no skills of its own yet. The Claude Code skills below are 
 | Security review | `/security-review` | Any change to file access (SAF, `Android/data`), network code, signing or the CI workflow's secrets |
 | Broad app-wide audit | `anthropic-skills:app-audit` | Before a release, and as the ~50-commit maintenance pass (§4.9) |
 | Visual/aesthetic audit | `anthropic-skills:design-aesthetic-audit` | Any change to Pomegrade's own screens, theme or icon |
-| Scope/ambiguity resolution | `anthropic-skills:scope-context` | A request phrased as "all X" / "every Y" across the five codebases (app, melonDS core, Azahar, mGBA, Eden) |
+| Scope/ambiguity resolution | `anthropic-skills:scope-context` | A request phrased as "all X" / "every Y" across the six codebases (app, melonDS core, Azahar, mGBA, Eden, Dolphin) |
 
 **How this interacts with the rest of this document:**
 - Any maintenance cadence defined elsewhere in this document (e.g. §4's "every ~50 commits") is a *floor*, not the only trigger — a listed skill should run sooner whenever its specific trigger condition is hit mid-task.
@@ -83,7 +83,7 @@ The rest of this section makes that mandate concrete: where a new file or folder
 
 Every codebase should be organized by **purpose**, not by file type. Before creating anything, classify what you're building against this table and place it in the matching existing directory — never guess, and never default to wherever feels adjacent to the thing you're already touching.
 
-Pomegrade (shown to users as Punica) is five codebases in one Gradle build, rooted at `melonDS-android/` (the Android app and build), with the 3DS, GBA and Switch cores imported beside it:
+Pomegrade (shown to users as Punica) is six codebases in one Gradle build, rooted at `melonDS-android/` (the Android app and build), with the 3DS, GBA, Switch and GameCube/Wii cores imported beside it:
 
 | Purpose | Location |
 |---|---|
@@ -95,6 +95,8 @@ Pomegrade (shown to users as Punica) is five codebases in one Gradle build, root
 | GBA core sources (mGBA 0.10.5, C, upstream as released minus its `cinema/` test videos; no Android frontend of its own) | `mgba/` — built by the `:mgba` Gradle module |
 | Switch core sources (Eden v0.2.1, C++ and its Android frontend; its native dependencies are fetched by CMake (CPM) into the ignored `eden/.cache/`) | `eden/` — consumed by the `:eden` Gradle module |
 | `:eden` Gradle module definition (build script; manifest and sources are Eden's own, under `eden/src/android/app/src/main`) | `melonDS-android/eden/` |
+| GameCube and Wii core sources (Dolphin 2606a, C++ and its Android frontend; its `Externals/` third-party libraries are git submodules, minus the Windows, desktop and test ones) | `dolphin/` — consumed by the `:dolphin` Gradle module |
+| `:dolphin` Gradle module definition (build script; manifest and sources are Dolphin's own, under `dolphin/Source/Android/app/src/main`) | `melonDS-android/dolphin/` |
 | `:mgba` Gradle module: its build, the JNI bridge (`src/main/cpp/GbaCore.cpp`) and Pomegrade's GBA emulation screen (Kotlin, package `io.github.wwandene2.pomegrade.gba`) | `melonDS-android/mgba/` |
 | Emulation screen UI shared by both cores: in-game menu, its theme, save state dialog (Kotlin, package `io.github.wwandene2.pomegrade.emulatorui`) | `melonDS-android/emulator-ui/` (`:emulator-ui`) |
 | Build configuration shared by modules (`AppConfig`) | `melonDS-android/buildSrc/src/main/kotlin/` |
@@ -122,8 +124,8 @@ Naming is not a stylistic afterthought; a misleading or inconsistent name is a h
 - **Kotlin:** one top-level class per file, file named after it in PascalCase (`RomPlatform.kt`). Packages follow the existing `me.magnum.melonds` tree; the upstream package name is kept so melonDS updates still merge.
 - **Compose UI:** `@Composable` functions in PascalCase named after what they render (`RomHeaderUi`), as upstream does.
 - **C++ (DS core):** the existing melonDS style — `PascalCase` file names prefixed by subsystem (`GPU3D_TextureReplacement.cpp`).
-- **Console names in identifiers:** `Nds` for DS/DSi and `N3ds` for 3DS in Kotlin/C++ identifiers (an identifier cannot start with a digit); `three_ds` for 3DS in Android resource names, after the category prefix upstream uses when there is one (`three_ds_unsupported`, menu action `action_three_ds_games`); "3DS" in user-visible text; `Gba` / `GBA` for the Game Boy Advance in identifiers, `gba` in resource names (`gba_load_failed`, `platform_gba`), "GBA" or "Game Boy Advance" in user-visible text; `Switch` / `SWITCH` in identifiers, `switch` in resource names (`platform_switch`), "Switch" in user-visible text. Never a second spelling.
-- **Azahar and Eden resources that clash with app resources:** renamed with the `citra_` and `eden_` prefixes (Eden: 363 of them, with their XML, Kotlin and ViewBinding references), so no module overrides another's.
+- **Console names in identifiers:** `Nds` for DS/DSi and `N3ds` for 3DS in Kotlin/C++ identifiers (an identifier cannot start with a digit); `three_ds` for 3DS in Android resource names, after the category prefix upstream uses when there is one (`three_ds_unsupported`, menu action `action_three_ds_games`); "3DS" in user-visible text; `Gba` / `GBA` for the Game Boy Advance in identifiers, `gba` in resource names (`gba_load_failed`, `platform_gba`), "GBA" or "Game Boy Advance" in user-visible text; `Switch` / `SWITCH` in identifiers, `switch` in resource names (`platform_switch`), "Switch" in user-visible text; GameCube and Wii are one platform (one core, shared disc formats): `GcWii` / `GC_WII` in identifiers, `gc_wii` in resource names (`platform_gc_wii`), "GameCube / Wii" (or "GameCube and Wii") in user-visible text, `GC-Wii` for its Pomegrade folder. Never a second spelling.
+- **Azahar, Eden and Dolphin resources that clash with other modules' resources:** renamed with the `citra_`, `eden_` and `dolphin_` prefixes (Eden: 363 of them, Dolphin: 145, with their XML, Kotlin and ViewBinding references), so no module overrides another's.
 - **`:emulator-ui` resources:** prefixed `emulator_menu_` / `emulator_save_state(s)_` (and `Theme.Pomegrade.EmulatorMenu`), so they clash with neither core.
 - **Build switches read from the environment:** `POMEGRADE_<WHAT>` (`POMEGRADE_CCACHE`, `POMEGRADE_NATIVE_BUILD_TYPE`).
 - **Tests:** `<ClassUnderTest>Test.kt`; C++ tests `<subject>_test.cpp`.
@@ -156,6 +158,7 @@ melonDS-android-lib (DS core, C++)  →  its own externals only — never Androi
 :azahar module (3DS core + its Android frontend)  →  azahar/ sources, :emulator-ui — never the app module
 :mgba module (GBA core + Pomegrade's GBA screen)  →  mgba/ sources, :emulator-ui — never the app module
 :eden module (Switch core + its Android frontend)  →  eden/ sources — never the app module
+:dolphin module (GameCube/Wii core + its Android frontend)  →  dolphin/ sources — never the app module
 :masterswitch, :common, :rcheevos-api  →  as upstream melonDS-android defines them
 :app (me.magnum.melonds)  →  all of the above
 ```
@@ -213,9 +216,9 @@ Prose discipline alone is a weaker guarantee than a rule a tool can actually ver
 
 | Path | Scope | May be touched only when |
 |---|---|---|
-| Git submodules (`azahar/externals/*`, `azahar/dist/compatibility_list`, `melonDS-android/app/src/main/cpp/{oboe,faad2,enet}`, `tools/remake/external/SPICA`) | Pinned third-party code | Bumping the pinned commit as its own change |
+| Git submodules (`azahar/externals/*`, `dolphin/Externals/*`, `azahar/dist/compatibility_list`, `melonDS-android/app/src/main/cpp/{oboe,faad2,enet}`, `tools/remake/external/SPICA`) | Pinned third-party code | Bumping the pinned commit as its own change |
 | `reference/melonDS-master.zip`, `reference/melonDS.v.2.0.1.PS.apk` | Reference copies of upstream melonDS | Never modified; removed only on the owner's request |
-| Upstream melonDS-android, Azahar, mGBA and Eden code | Code Pomegrade did not write | Required by a Pomegrade feature or fix: keep the edit minimal so upstream updates still merge, and say why in the commit message. Upstream style and naming are kept rather than "corrected" to this document |
+| Upstream melonDS-android, Azahar, mGBA, Eden and Dolphin code | Code Pomegrade did not write | Required by a Pomegrade feature or fix: keep the edit minimal so upstream updates still merge, and say why in the commit message. Upstream style and naming are kept rather than "corrected" to this document |
 
 ---
 

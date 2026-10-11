@@ -34,6 +34,13 @@ class RomPlatformTest {
     }
 
     @Test
+    fun gameCubeAndWiiFilesAreRunByTheDolphinCore() {
+        listOf("game.iso", "game.gcm", "game.rvz", "game.wia", "game.ciso", "game.gcz", "game.wbfs", "channel.wad", "GAME.RVZ").forEach {
+            assertEquals(it, RomPlatform.GC_WII, RomPlatform.fromFileName(it))
+        }
+    }
+
+    @Test
     fun onlyTheLastExtensionCounts() {
         assertEquals(RomPlatform.NDS, RomPlatform.fromFileName("my.3ds.nds"))
         assertEquals(RomPlatform.N3DS, RomPlatform.fromFileName("my.nds.3ds"))

@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import me.magnum.melonds.common.UriFileHandler
 import me.magnum.melonds.common.uridelegates.UriHandler
 import me.magnum.melonds.domain.repositories.SettingsRepository
+import me.magnum.melonds.impl.GcWiiFolder
 import me.magnum.melonds.impl.SettingsBackupManager
 import me.magnum.melonds.migrations.Migrator
 import javax.inject.Inject
@@ -40,6 +41,9 @@ class MelonDSApplication : Application(), Configuration.Provider {
         org.citra.citra_emu.CitraApplication.attach(this)
         // Switch core: the same, its core starts with its first screen
         org.yuzu.yuzu_emu.YuzuApplication.attach(this)
+        // GameCube and Wii core: the same
+        org.dolphinemu.dolphinemu.DolphinApplication.attach(this)
+        org.dolphinemu.dolphinemu.utils.DirectoryInitialization.userDirectoryProvider = { GcWiiFolder.userDirectory(it) }
         createNotificationChannels()
         applyTheme()
         performMigrations()
