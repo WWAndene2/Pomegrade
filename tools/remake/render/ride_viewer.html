@@ -217,6 +217,20 @@ function physics(dt){ const vmax=+$('vmax').value, acc=+$('acc').value, inp=stic
   $('telem').textContent=`vitesse ${fly.speed.toFixed(0)} / ${vmax} · virage ${(fly.yawRate*180/Math.PI).toFixed(0)}°/s · roulis ${(fly.roll*180/Math.PI).toFixed(0)}°`;
   return fly.speed/vmax; }
 let spd01=0;
+// the generated flight's bone transforms over one loop, for a soaring mount's animations (Delta point 39): from the page's console or a
+// headless browser, captureFlight({speed01, yawRate, frames, warm}); a loop is 60 / (0.6 + 0.9 speed01) frames at the default wave duration
+window.captureFlight=(o)=>{ // o: {speed01, yawRate, frames, warm}: Giratina's local bone transforms over one loop of the generated flight
+  const vmax=+$('vmax').value; $('pilot').checked=true; $('sp').checked=true; flyW=1;
+  const [bi,bf]=$('sb').value.split(':').map(Number); const B0=D.mount[bi][1];
+  const step=()=>{ fly.speed=o.speed01*vmax; fly.yawRate=o.yawRate; fly.boostT=-1; fly.roll=0;
+    fly.yaw+=fly.yawRate/30; fly.pos.addScaledVector(fwdRest.clone().applyAxisAngle(up,fly.yaw),fly.speed/30); trailPush(); spd01=o.speed01; st+=0.6+0.9*spd01; };
+  for(let i=0;i<o.warm;i++) step();
+  const out=[];
+  for(let i=0;i<o.frames;i++){ step(); holder.quaternion.identity(); holder.position.set(0,0,0); apply(G,B0,bf); serpent();
+    const fr={}; G.traverse(b=>{ if(!b.isBone&&b.type!=='Bone'&&!(D.mount[0][1][0][b.name])) return; if(!D.mount[0][1][0][b.name]) return;
+      fr[b.name]=[b.position.x,b.position.y,b.position.z,b.quaternion.x,b.quaternion.y,b.quaternion.z,b.quaternion.w,b.scale.x,b.scale.y,b.scale.z]; });
+    out.push(fr); }
+  return out; };
 const PA={wait:11,turnL:7,turnR:9,brake:1,up:10,down:2,rocket:14};
 const pst={cur:PA.wait,prev:PA.wait,w:1,tc:0,tp:0};
 const pbones=Object.keys(D.player[PA.wait][1][0]).filter(n=>bone(P,n)).map(n=>bone(P,n));

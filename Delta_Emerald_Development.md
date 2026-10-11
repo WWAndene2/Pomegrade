@@ -458,8 +458,12 @@ Première version : une liste de Pokémon choisie par le propriétaire, réglés
   `Gfx_BindStandardUniforms` (→ `--material-from`, shader `FieldChar`) ; l'échelle d'un os racine est ignorée (→ échelle mise
   dans la géométrie) ; 5,7 Mo d'animations empêchent le chargement (écran noir, jeu non figé) (→ 1 Mo : courbes constantes
   écrites une fois, poses fixes) ;
-- pas encore : les mouvements de vol décidés dans la visionneuse (onde, virages, boost) ; le joueur garde les animations de
-  Latios ; non testé sur le téléphone.
+- mouvements de vol (même jour) : le vol généré de la visionneuse capturé sur un cycle d'onde (`captureFlight` dans
+  `ride_viewer.html`) puis écrit par `spica anim` : croisière → `pmwalk01`, virages → `pmturnL01`/`pmturnR01` (vitesse de
+  rotation ±1,1 rad/s), accélération → `speedup01` (2 × la vitesse max), attente → `pmwait01` (combat 0) ; les autres positions
+  sur une pose fixe ; conteneur de 1,08 Mo, chargé ; vu dans le jeu : la pose change dans les virages ;
+- pas encore : le boost (bosse, plongeon) n'est pas une animation du jeu ; le joueur garde les animations de Latios ; non testé
+  sur le téléphone.
 
  (`tools/remake/render/build_ride_viewer.py`, sans les
 données du jeu)** :
