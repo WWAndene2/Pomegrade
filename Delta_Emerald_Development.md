@@ -445,7 +445,23 @@ Première version : une liste de Pokémon choisie par le propriétaire, réglés
   à la place du test `0x17C`, l'octet utilisé tel quel comme numéro de membre dans `DllSkyTrip` ; deux autres lectures de cet
   octet dans le module restent à adapter.
 
-**Vol de Giratina, décidé avec le propriétaire dans la visionneuse (`tools/remake/render/build_ride_viewer.py`, sans les
+**Giratina monture dans le jeu, vu sans écran (11 octobre)** : mod de données seul, sans patch de code ; `a/2/5/4` membre 1
+(la monture « Latios ») remplacé par un conteneur TM fait ainsi, avec `tools/remake/spica` et `remake_tool oras-copy
+… a/2/5/4 1=file:<TM>` :
+- fichier 17 (le modèle) : `spica bch` du modèle de Giratina Originel (`a/0/0/8` 5435, fichier 0) et de ses textures (5437,
+  fichier 0), `--scale 0.2 --rename pm0381a_00_fi --texmax 64 --material-from` le modèle de Latios ;
+- fichiers 0-16 (sauf 5, 11 et 14, qui ne sont pas des animations de squelette, gardés) : `spica anim` sur chaque animation de
+  Latios avec la pose de combat 0 de Giratina (`spica pose`), `Waist` à y = -15 (le dos au niveau où le jeu assied le joueur) ;
+  0 et 1 (les attentes) en entier, les autres sur une seule image ;
+- vu dans le jeu (émulateur sans écran, Flûte Éon) : Giratina vole en mode ciel, à la bonne taille, le joueur assis sur lui ;
+- trois causes d'échec trouvées en route : le shader de combat (`PokePack`) n'est pas chargé en mode ciel, le jeu plante dans
+  `Gfx_BindStandardUniforms` (→ `--material-from`, shader `FieldChar`) ; l'échelle d'un os racine est ignorée (→ échelle mise
+  dans la géométrie) ; 5,7 Mo d'animations empêchent le chargement (écran noir, jeu non figé) (→ 1 Mo : courbes constantes
+  écrites une fois, poses fixes) ;
+- pas encore : les mouvements de vol décidés dans la visionneuse (onde, virages, boost) ; le joueur garde les animations de
+  Latios ; non testé sur le téléphone.
+
+ (`tools/remake/render/build_ride_viewer.py`, sans les
 données du jeu)** :
 - attente : son animation de combat 0 telle quelle ; vol : une onde verticale générée qui part de la tête et descend jusqu'à
   la queue sur toute la colonne remise en ligne (la tête dans l'axe du corps), amplitude menée par la tête, le torse à 120 %,
