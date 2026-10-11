@@ -8,6 +8,15 @@
 //                                                   animation (the bind pose, one frame, without --anim), as JSON:
 //                                                   [{bone: [tx,ty,tz, qx,qy,qz,qw, sx,sy,sz]}, ...] (ride viewer, render/)
 //   spica png <file> <out dir>                      the file's textures as PNG (H3DTexture.ToRGBA; no System.Drawing)
+//   spica bch <out.bch> <file>... [--scale S] [--rename NAME] [--texmax N] [--material-from <file>]   the files' scenes merged (a Pokemon's model BCH and its
+//                                                   textures' BCH) and written as one BCH; --scale scales the first model's
+//                                                   root bone, --rename renames that model, --texmax N shrinks RGB8 textures
+//                                                   to N pixels a side at most, --material-from rebuilds every material on
+//                                                   the first material of that file's model (its shader, combiners and
+//                                                   samplers; texture 0 and 2 its own, texture 1 the material's colour), and
+//                                                   adds that file's missing textures and LUTs: a battle model (shader PokePack,
+//                                                   not loaded in the field) drawn with the field shader FieldChar (a soaring
+//                                                   mount, Delta point 39)
 // <file>: a BCH, CGFX, GF package (PC Pokemon model, PB/PK animations, GR map piece, MM/CM characters, AD/PT textures,
 // BG, BS), or a bare GF model/motion. --skeleton: a model file (a PC pack) whose skeleton animations are read against.
 using SPICA.Formats.CtrGfx;
@@ -46,6 +55,7 @@ static class SpicaCli
         {
             string skeletonFile = Option("--skeleton");
             int model = int.Parse(Option("--model") ?? "0"), anim = int.Parse(Option("--anim") ?? "-1");
+            string scaleOpt = Option("--scale"), renameOpt = Option("--rename"), texmaxOpt = Option("--texmax"), materialOpt = Option("--material-from");
             H3DDict<H3DBone> skeleton = null;
             if (skeletonFile != null)
             {
@@ -62,6 +72,7 @@ static class SpicaCli
                 case "motions": Motions(rest[1]); return 0;
                 case "pose" when rest.Count >= 3: Pose(Recognised(rest[1], skeleton), skeleton, model, anim, rest[2]); return 0;
                 case "png" when rest.Count >= 3: Png(Recognised(rest[1], skeleton), rest[2]); return 0;
+                case "bch" when rest.Count >= 3: Bch(rest, scaleOpt, renameOpt, texmaxOpt, materialOpt, skeleton); return 0;
             }
             return Usage();
         }
@@ -75,7 +86,7 @@ static class SpicaCli
 
     static int Usage()
     {
-        Console.Error.WriteLine("usage: spica info|dae|smd|motions|pose|png <file> [out] [--model N] [--anim N] [--skeleton <file>]");
+        Console.Error.WriteLine("usage: spica info|dae|smd|motions|pose|png|bch <file> [out] [--model N] [--anim N] [--skeleton <file>] [--scale S] [--rename NAME]");
         return 2;
     }
 
@@ -129,7 +140,7 @@ static class SpicaCli
                 Console.WriteLine($"  bone {b} {bone.Name} parent {bone.ParentIndex} T {bone.Translation} R {bone.Rotation} S {bone.Scale}");
             }
             foreach (H3DMaterial mat in m.Materials)
-                Console.WriteLine($"  material {mat.Name}: textures {mat.Texture0Name} {mat.Texture1Name} {mat.Texture2Name}");
+                Console.WriteLine($"  material {mat.Name}: textures {mat.Texture0Name} {mat.Texture1Name} {mat.Texture2Name}, shader {mat.MaterialParams.ShaderReference}, model ref {mat.MaterialParams.ModelReference}");
             for (int k = 0; k < m.Meshes.Count; k++)
                 Console.WriteLine($"  mesh {k}: material {m.Meshes[k].MaterialIndex}, {m.Meshes[k].RawBuffer.Length / Math.Max(1, m.Meshes[k].VertexStride)} vertices, {m.Meshes[k].SubMeshes.Count} submeshes");
         }
@@ -233,4 +244,67 @@ static class SpicaCli
         var hd = new byte[13]; BE(w).CopyTo(hd, 0); BE(h).CopyTo(hd, 4); hd[8] = 8; hd[9] = 6;
         Chunk("IHDR", hd); Chunk("IDAT", z.ToArray()); Chunk("IEND", new byte[0]);
     }
+
+    static void Bch(List<string> rest, string scale, string rename, string texmax, string materialFrom, H3DDict<H3DBone> skeleton)
+    {
+        var scene = new H3D();
+        for (int i = 2; i < rest.Count; i++) scene.Merge(Recognised(rest[i], skeleton));
+        if (scene.Models.Count == 0) throw new InvalidDataException("no model to write");
+        var m = scene.Models[0];
+        if (scale != null)
+        {
+            float k = float.Parse(scale, System.Globalization.CultureInfo.InvariantCulture);
+            m.Skeleton[0].Scale *= k;
+        }
+        if (rename != null) m.Name = rename;
+        if (texmax != null) foreach (var t in scene.Textures) ShrinkRgb8(t, int.Parse(texmax));
+        if (materialFrom != null)
+        {
+            H3D from = Recognised(materialFrom, null);
+            var tm = from.Models[0].Materials[0];
+            var mats = new List<H3DMaterial>();
+            foreach (var old in m.Materials)
+            {
+                var nm = Clone(tm);
+                nm.Name = old.Name;
+                var mp = Clone(tm.MaterialParams);
+                mp.ModelReference = $"{old.Name}@{m.Name}";
+                typeof(H3DMaterial).GetField("MaterialParams").SetValue(nm, mp);
+                nm.Texture0Name = tm.Texture0Name; nm.Texture1Name = old.Texture0Name; nm.Texture2Name = tm.Texture2Name;
+                mats.Add(nm);
+                Console.WriteLine($"material {old.Name}: shader {old.MaterialParams.ShaderReference} -> {mp.ShaderReference}, textures {nm.Texture0Name} {nm.Texture1Name} {nm.Texture2Name}");
+            }
+            m.Materials.Clear(); foreach (var nm in mats) m.Materials.Add(nm);
+            foreach (var t in from.Textures) if (!scene.Textures.Contains(t.Name)) scene.Textures.Add(t);
+            foreach (var l in from.LUTs) if (!scene.LUTs.Contains(l.Name)) scene.LUTs.Add(l);
+        }
+        H3D.Save(rest[1], scene);
+        Console.WriteLine($"{rest[1]}: {scene.Models.Count} models, {scene.Textures.Count} textures, {scene.LUTs.Count} LUTs");
+    }
+
+    // an RGB8 texture averaged down by a power of 2 until no side passes max, re-encoded in PICA's 8 x 8 tiles (bytes B, G, R;
+    // rows bottom up), the inverse of SPICA's TextureConverter.DecodeBuffer
+    static readonly int[] Swizzle = { 0, 1, 8, 9, 2, 3, 10, 11, 16, 17, 24, 25, 18, 19, 26, 27, 4, 5, 12, 13, 6, 7, 14, 15, 20, 21, 28, 29, 22, 23, 30, 31,
+        32, 33, 40, 41, 34, 35, 42, 43, 48, 49, 56, 57, 50, 51, 58, 59, 36, 37, 44, 45, 38, 39, 46, 47, 52, 53, 60, 61, 54, 55, 62, 63 };
+    static void ShrinkRgb8(SPICA.Formats.CtrH3D.Texture.H3DTexture t, int max)
+    {
+        if (t.Format != SPICA.PICA.Commands.PICATextureFormat.RGB8 || (t.Width <= max && t.Height <= max)) return;
+        int f = 1; while (t.Width / f > max || t.Height / f > max) f *= 2;
+        int w = t.Width / f, h = t.Height / f; byte[] src = t.ToRGBA(); var dst = new byte[w * h * 4];
+        for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) for (int c = 0; c < 4; c++)
+        {
+            int sum = 0; for (int dy = 0; dy < f; dy++) for (int dx = 0; dx < f; dx++) sum += src[((y * f + dy) * t.Width + x * f + dx) * 4 + c];
+            dst[(y * w + x) * 4 + c] = (byte)(sum / (f * f));
+        }
+        var raw = new byte[w * h * 3]; int o = 0;
+        for (int ty = 0; ty < h; ty += 8) for (int tx = 0; tx < w; tx += 8) for (int px = 0; px < 64; px++)
+        {
+            int X = Swizzle[px] & 7, Y = (Swizzle[px] - X) >> 3, i = (tx + X + (h - 1 - (ty + Y)) * w) * 4;
+            raw[o++] = dst[i + 2]; raw[o++] = dst[i + 1]; raw[o++] = dst[i];
+        }
+        Console.WriteLine($"texture {t.Name}: {t.Width} x {t.Height} -> {w} x {h}");
+        t.Width = w; t.Height = h; t.RawBuffer = raw;
+    }
+
+    static T Clone<T>(T o) => (T)typeof(object).GetMethod("MemberwiseClone", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(o, null);
 }

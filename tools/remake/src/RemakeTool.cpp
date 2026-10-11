@@ -34,7 +34,7 @@
 //                     and registered under the zone's native mask M (0x243 by default, oras-engine's for new zones)
 //   remake_tool oras-zone-script <oras.3ds> <out dir> <zone> <script.amx|-> [<init.amx|->]  a mod with a zone's script and
 //                     initialisation script replaced (- keeps one); the zone itself checked to write back unchanged first
-//   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>] | <dst>=<archive>:<member>:<file> | <dst>=motion:<archive>:<member>:<file>:<slot>[:<frames>] ...
+//   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>] | <dst>=<archive>:<member>:<file> | <dst>=file:<path> | <dst>=motion:<archive>:<member>:<file>:<slot>[:<frames>] ...
 //   remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...
 //                     an Azahar mod: each file replaces that RomFS path, laid out as Azahar loads
 //                     mods (<out dir>/load/mods/<program id>/romfs/<path>); copy <out dir>/load
@@ -801,6 +801,19 @@ int main(int argc, char** argv)
                         const Bytes& old = source.Sub(dst);
                         g.Set(dst, IsLzCompressed(old) ? Lz11Compress(out) : out);
                         printf("%s member %zu <- %s: skeleton %zu bytes, motion %zu bytes\n", path.c_str(), dst, src.c_str(), skeleton.size(), motion.size());
+                        last = dst;
+                        continue;
+                    }
+                    if (src.rfind("file:", 0) == 0)
+                    {
+                        // <dst>=file:<path>: a member made outside (a 2-letter container such as a soaring mount's TM),
+                        // written through ReplaceMember: same container tag as the member it replaces, read back identical
+                        const Bytes file = ReadFile(src.substr(5));
+                        const size_t dst = (size_t)std::stoul(arg.substr(0, eq));
+                        const Bytes old = Plain(source.Sub(dst));
+                        if (file.size() < 2 || old.size() < 2 || file[0] != old[0] || file[1] != old[1]) { fprintf(stderr, "%s: not the same container as member %zu\n", src.c_str(), dst); return 1; }
+                        ReplaceMember(g, source, dst, file, std::string(old.begin(), old.begin() + 2));
+                        printf("%s member %zu <- %s (%zu bytes)\n", path.c_str(), dst, src.c_str(), file.size());
                         last = dst;
                         continue;
                     }
