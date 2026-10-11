@@ -595,6 +595,12 @@ Emerald se construit en forçant, scène par scène, la branche Magma ou Aqua qu
 recomposent avec celles d'Omega Ruby (personnages changés), beaucoup plus long. Le premier travail est donc de chercher dans
 les scripts la fonction native de version et les noms de zones d'Alpha Saphir (`a/0/7/4` membre 90).
 
+**Vu le 11 octobre** (Rubis Oméga du propriétaire) : le contenu d'Alpha Saphir est dans la cartouche. Le repaire Aqua
+(nom de lieu 292, `a/0/7/3` membre 90) a 6 zones (92-97), peuplées comme les 6 du repaire Magma (169-174, nom 314) :
+personnages, warps et déclencheurs en miroir (`oras-inspect zone`). Les textes d'histoire des deux versions y sont aussi
+(`a/0/8/1`, par exemple Kyogre Primo et Groudon Primo, chacun à sa place). Reste à vérifier : si les scripts Aqua tournent
+dans Rubis Oméga ou sont bloqués par un test de version.
+
 ### Point 22 — Les deux repaires, Magma et Aqua
 
 1. **Vérifier** : quels repaires existent dans la cartouche (noms de zones, zones et scripts) ; Rubis Oméga a le repaire Magma.
