@@ -2,9 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application>
+        <!-- Recreating the screen would reload the game and lose what wasn't saved in it: it handles these
+             changes itself (its views lay out again on a new size; nothing else depends on them). -->
         <activity
             android:name="io.github.wwandene2.pomegrade.gba.GbaEmulatorActivity"
-            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|navigation"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|keyboard|keyboardHidden|navigation|fontScale|locale|layoutDirection"
             android:exported="false"
             android:theme="@style/Theme.Pomegrade.EmulatorMenu" />
     </application>
