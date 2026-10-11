@@ -125,6 +125,8 @@ dependencies {
     implementation(projects.azahar)
     // GBA core (mGBA) and its emulation screen
     implementation(projects.mgba)
+    // Switch core (Eden)
+    implementation(projects.eden)
     implementation(projects.emulatorUi)
 
     implementation(libs.androidx.activity)

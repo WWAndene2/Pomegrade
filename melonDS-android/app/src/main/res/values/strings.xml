@@ -656,6 +656,10 @@
     <string name="multiplayer_error_permission_denied">Required permissions not granted</string>
     <string name="action_three_ds_games">3DS games</string>
     <string name="three_ds_unsupported">3DS games need a 64-bit device</string>
+    <string name="switch_unsupported">Switch games need a 64-bit ARM device</string>
+    <string name="settings_section_switch">Switch</string>
+    <string name="switch_home">Switch setup and games</string>
+    <string name="switch_home_summary">Keys and firmware from your console, the Switch core\'s settings, its own game list</string>
     <string name="gba_no_shortcut">Home-screen shortcuts are not available for GBA games yet</string>
     <string name="gba_not_a_file">This GBA game must be in the phone\'s storage (the Pomegrade folder)</string>
     <string name="pomegrade_folder_title">Pomegrade folder</string>
@@ -728,6 +732,7 @@
     <string name="platform_ds">DS</string>
     <string name="platform_three_ds">3DS</string>
     <string name="platform_gba">GBA</string>
+    <string name="platform_switch">Switch</string>
     <string name="three_ds_encrypted">Encrypted: can\'t be played (decrypt the game first)</string>
     <string name="three_ds_rom_label">3DS · %1$s</string>
     <string name="unlimited_polygons">Remove polygon limit</string>

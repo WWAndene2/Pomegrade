@@ -32,6 +32,7 @@ import me.magnum.melonds.domain.model.RomIconFiltering
 import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.domain.model.rom.RomPlatform
 import me.magnum.melonds.ui.common.rom.N3dsLauncher
+import me.magnum.melonds.ui.common.rom.SwitchLauncher
 import me.magnum.melonds.ui.emulator.EmulatorActivity
 import me.magnum.melonds.ui.romlist.RomIcon
 import me.magnum.melonds.ui.romlist.RomListFragment
@@ -98,6 +99,8 @@ class ShortcutSetupActivity : AppCompatActivity() {
         }
         val intent = if (rom.platform == RomPlatform.N3DS) {
             N3dsLauncher.launchIntent(this, rom)
+        } else if (rom.platform == RomPlatform.SWITCH) {
+            SwitchLauncher.launchIntent(this, rom)
         } else {
             Intent("${packageName}.LAUNCH_ROM").apply {
                 putExtra(EmulatorActivity.KEY_URI, rom.uri.toString())

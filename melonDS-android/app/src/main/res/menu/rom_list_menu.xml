@@ -54,6 +54,9 @@
                 <item
                     android:id="@+id/action_platform_gba"
                     android:title="@string/platform_gba" />
+                <item
+                    android:id="@+id/action_platform_switch"
+                    android:title="@string/platform_switch" />
             </group>
         </menu>
     </item>

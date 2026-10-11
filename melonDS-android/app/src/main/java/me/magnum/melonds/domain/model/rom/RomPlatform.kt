@@ -2,12 +2,13 @@ package me.magnum.melonds.domain.model.rom
 
 /**
  * Console a game file runs on, decided by its extension. DS and DSi games are run by melonDS,
- * 3DS games by the Azahar core, GBA games by the mGBA core.
+ * 3DS games by the Azahar core, GBA games by the mGBA core, Switch games by the Eden core.
  */
 enum class RomPlatform {
     NDS,
     N3DS,
-    GBA;
+    GBA,
+    SWITCH;
 
     companion object {
         // Formats the 3DS core loads directly (see Game.extensions in Azahar). CIA files are
@@ -16,11 +17,15 @@ enum class RomPlatform {
 
         val gbaExtensions = setOf("gba")
 
+        // what Eden loads (its Game.extensions): game dumps, homebrew
+        val switchExtensions = setOf("nsp", "xci", "nca", "nro")
+
         fun fromFileName(fileName: String): RomPlatform {
             val extension = fileName.substringAfterLast('.', "").lowercase()
             return when (extension) {
                 in n3dsExtensions -> N3DS
                 in gbaExtensions -> GBA
+                in switchExtensions -> SWITCH
                 else -> NDS
             }
         }

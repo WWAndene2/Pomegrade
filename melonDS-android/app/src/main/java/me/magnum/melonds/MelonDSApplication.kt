@@ -38,6 +38,8 @@ class MelonDSApplication : Application(), Configuration.Provider {
         super.onCreate()
         // 3DS core: only stores the context, the core itself starts with its first screen
         org.citra.citra_emu.CitraApplication.attach(this)
+        // Switch core: the same, its core starts with its first screen
+        org.yuzu.yuzu_emu.YuzuApplication.attach(this)
         createNotificationChannels()
         applyTheme()
         performMigrations()

@@ -6,6 +6,7 @@ import me.magnum.melonds.common.romprocessors.N3dsRomFileProcessor
 import me.magnum.melonds.common.romprocessors.NdsRomFileProcessor
 import me.magnum.melonds.common.romprocessors.RomFileProcessor
 import me.magnum.melonds.common.romprocessors.SevenZRomFileProcessor
+import me.magnum.melonds.common.romprocessors.SwitchRomFileProcessor
 import me.magnum.melonds.common.romprocessors.ZipRomFileProcessor
 import me.magnum.melonds.common.uridelegates.UriHandler
 import me.magnum.melonds.domain.model.rom.RomPlatform
@@ -20,7 +21,8 @@ class Api24RomFileProcessorFactory(context: Context, uriHandler: UriHandler, nds
         val n3dsRomFileProcessor = N3dsRomFileProcessor(context, uriHandler)
         val gbaRomFileProcessor = GbaRomFileProcessor(context, uriHandler)
         prefixProcessorMap = RomPlatform.n3dsExtensions.associateWith { n3dsRomFileProcessor } +
-            RomPlatform.gbaExtensions.associateWith { gbaRomFileProcessor } + mapOf(
+            RomPlatform.gbaExtensions.associateWith { gbaRomFileProcessor } +
+            RomPlatform.switchExtensions.associateWith { SwitchRomFileProcessor(uriHandler) } + mapOf(
             "nds" to ndsRomFileProcessor,
             "dsi" to ndsRomFileProcessor,
             "ids" to ndsRomFileProcessor,

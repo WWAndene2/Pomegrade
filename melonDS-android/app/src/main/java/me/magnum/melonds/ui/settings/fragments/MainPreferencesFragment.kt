@@ -15,6 +15,7 @@ import me.magnum.melonds.R
 import me.magnum.melonds.impl.ModInstaller
 import me.magnum.melonds.impl.PomegradeFolder
 import me.magnum.melonds.ui.common.rom.N3dsLauncher
+import me.magnum.melonds.ui.common.rom.SwitchLauncher
 import me.magnum.melonds.ui.settings.preferences.ConsoleSelectorPreference
 import me.magnum.melonds.ui.settings.PreferenceFragmentTitleProvider
 import me.magnum.melonds.ui.settings.SettingsActivity
@@ -97,8 +98,13 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
         // one console's section at a time, picked by its logo; 3DS on 64-bit devices only
         findPreference<ConsoleSelectorPreference>("settings_console")?.let { selector ->
             selector.threeDsAvailable = N3dsLauncher.isSupported()
+            selector.switchAvailable = SwitchLauncher.isSupported()
             selector.onConsoleSelected = { showConsoleSection(it) }
             showConsoleSection(selector.selected)
+        }
+        findPreference<Preference>("switch_home")?.setOnPreferenceClickListener {
+            startActivity(SwitchLauncher.homeIntent(requireContext()))
+            true
         }
         // the code trace is written next to the 3DS core's folder: its path is kept with the
         // setting, for Azahar's emulation screen
@@ -230,5 +236,6 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
     private fun showConsoleSection(console: String) {
         findPreference<Preference>("ds_settings")?.isVisible = console == ConsoleSelectorPreference.DS
         findPreference<Preference>("three_ds_settings")?.isVisible = console == ConsoleSelectorPreference.THREE_DS && N3dsLauncher.isSupported()
+        findPreference<Preference>("switch_settings")?.isVisible = console == ConsoleSelectorPreference.SWITCH && SwitchLauncher.isSupported()
     }
 }

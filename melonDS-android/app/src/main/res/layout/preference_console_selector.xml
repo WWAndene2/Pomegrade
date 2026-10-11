@@ -27,9 +27,22 @@
         android:layout_height="48dp"
         android:layout_weight="1"
         android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
         android:background="@drawable/settings_console_card"
         android:contentDescription="@string/settings_section_three_ds"
         android:padding="12dp"
         android:scaleType="fitCenter"
         android:src="@drawable/settings_console_logo_three_ds" />
+
+    <ImageView
+        android:id="@+id/settings_console_switch"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_weight="1"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/settings_console_card"
+        android:contentDescription="@string/settings_section_switch"
+        android:padding="4dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/settings_console_logo_switch" />
 </LinearLayout>

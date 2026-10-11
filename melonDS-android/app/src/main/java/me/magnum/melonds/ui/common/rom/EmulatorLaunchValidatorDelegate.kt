@@ -68,6 +68,11 @@ class EmulatorLaunchValidatorDelegate(
     fun validateRom(rom: Rom) {
         // 3DS games don't use the DS BIOS/firmware checks, they go straight to the 3DS core,
         // once its folder is set up
+        // Switch games go straight to the Switch core, which asks for its keys itself
+        if (rom.platform == RomPlatform.SWITCH) {
+            SwitchLauncher.launch(context, rom)
+            return
+        }
         // GBA games likewise skip them: the GBA core needs only the folder's file access
         if (rom.platform == RomPlatform.GBA) {
             if (GbaLauncher.isReady(context)) {

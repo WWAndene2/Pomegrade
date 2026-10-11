@@ -27,6 +27,13 @@ class RomPlatformTest {
     }
 
     @Test
+    fun switchFilesAreRunByTheSwitchCore() {
+        listOf("game.nsp", "game.xci", "game.nca", "homebrew.nro", "GAME.NSP").forEach {
+            assertEquals(it, RomPlatform.SWITCH, RomPlatform.fromFileName(it))
+        }
+    }
+
+    @Test
     fun onlyTheLastExtensionCounts() {
         assertEquals(RomPlatform.NDS, RomPlatform.fromFileName("my.3ds.nds"))
         assertEquals(RomPlatform.N3DS, RomPlatform.fromFileName("my.nds.3ds"))

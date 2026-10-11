@@ -120,4 +120,17 @@
                 app:icon="@drawable/ic_settings" />
         <Preference android:key="three_ds_settings_Debugging" android:title="@string/three_ds_settings_debug" android:summary="@string/three_ds_settings_debug_summary" app:icon="@drawable/ic_settings" />
     </PreferenceCategory>
+
+    <!-- Switch: Eden's own screens (keys, firmware, settings, its game list) -->
+    <PreferenceCategory
+            android:key="switch_settings"
+            android:title="@string/settings_section_switch"
+            app:iconSpaceReserved="false">
+
+        <Preference
+                android:key="switch_home"
+                android:title="@string/switch_home"
+                android:summary="@string/switch_home_summary"
+                app:icon="@drawable/ic_settings" />
+    </PreferenceCategory>
 </PreferenceScreen>

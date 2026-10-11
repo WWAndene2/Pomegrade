@@ -10,6 +10,7 @@ Pomegrade est une version modifiée de [melonDS-android](https://github.com/rafa
 | `melonDS-android/melonDS-android-lib/` | Le cœur de l'émulateur (C++), intégré directement au dépôt et non plus comme sous-module |
 | `azahar/` | Le cœur 3DS (Azahar, GPLv2+), module Gradle `melonDS-android/azahar/` |
 | `mgba/` | Le cœur GBA ([mGBA](https://github.com/mgba-emu/mgba) 0.10.5, MPL 2.0), module Gradle `melonDS-android/mgba/` (pont JNI et écran de jeu GBA de Pomegrade) |
+| `eden/` | Le cœur Switch ([Eden](https://git.eden-emu.dev/eden-emu/eden) v0.2.1, GPLv3+), module Gradle `melonDS-android/eden/` ; ses dépendances C++ sont téléchargées à la première compilation (`eden/.cache/`, ignoré) |
 | `assets/` | Le logo de l'app (`branding/`) et des logos et modèles 3D de consoles (`consoles/`) |
 | `docs/` | Feuille de route et plans de développement |
 | `tools/`, `tests/` | Outils du remake Pokémon, tests sur PC |
@@ -17,6 +18,8 @@ Pomegrade est une version modifiée de [melonDS-android](https://github.com/rafa
 | `reference/melonDS.v.2.0.1.PS.apk` | La version officielle de melonDS-android (référence) |
 
 Les BIOS et firmwares Nintendo ont été retirés du dépôt pour des raisons de copyright. Gardez-les sur votre appareil et choisissez-les dans les paramètres de l'application.
+
+**Switch** : les jeux `.nsp`, `.xci`, `.nca` et `.nro` apparaissent dans la liste (sous leur nom de fichier) et se lancent dans le cœur Eden, sur téléphone ARM 64 bits avec Vulkan. Les clés (`prod.keys`) et le firmware de votre console s'installent dans Réglages → logo Switch → « Switch setup and games » ; ils ne sont jamais dans le dépôt.
 
 **GBA** : les jeux `.gba` apparaissent dans la liste avec les autres et se lancent dans le cœur mGBA. Sauvegarde et sauvegardes d'état sont rangées à côté du jeu (`<jeu>.sav`, `<jeu>.ss0` à `.ss9`). Le BIOS est facultatif : mGBA a le sien ; un BIOS de votre console, `gba_bios.bin` dans le dossier `BIOS` du dossier Pomegrade, est pris s'il est là.
 
