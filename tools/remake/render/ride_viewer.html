@@ -1,0 +1,282 @@
+<!doctype html><html lang="fr"><head>
+<!-- Ride viewer (point 39 of Delta_Emerald_Development.md): Giratina flown by the player. This is the template only:
+     build_ride_viewer.py fills in three.js and the game data, and its output is never committed. --><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Giratina Ride Viewer</title>
+<style>
+:root{--bg:#9cc8e8;--panel:#ffffffee;--ink:#1d2430;--line:#c9d3de;--accent:#2f6fd6}
+@media (prefers-color-scheme:dark){:root{--bg:#1c2633;--panel:#111821ee;--ink:#e6edf5;--line:#334255;--accent:#7aa8ff}}
+body{margin:0;background:var(--bg);color:var(--ink);font:13px system-ui,sans-serif;overflow:hidden}
+#ui{position:fixed;top:8px;left:8px;width:300px;max-height:calc(100vh - 16px);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;box-sizing:border-box}
+#ui h2{font-size:13px;margin:12px 0 6px}#ui h2:first-child{margin-top:0}
+label{display:flex;justify-content:space-between;gap:8px;align-items:center;margin:4px 0}
+select,button{font:inherit;width:100%;padding:4px;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--ink)}
+select option{color:#000}
+input[type=range]{flex:1}.row{display:flex;gap:6px}.row button{flex:1}
+.v{min-width:44px;text-align:right;font-variant-numeric:tabular-nums}
+#load{position:fixed;inset:0;display:grid;place-items:center;font-size:16px}
+@media (max-width:600px){#ui{width:calc(100% - 16px);max-height:45vh;top:auto;bottom:8px}}
+</style>
+<!--THREE-->
+</head><body><div id="load">Chargement…</div>
+<div id="ui">
+<h2>Giratina</h2><select id="ma"></select>
+<label>Image <input type="range" id="mf" min="0" max="0" value="0"><span class="v" id="mfv">0</span></label>
+<label><input type="checkbox" id="lp" style="flex:none"> Boucle</label>
+<label>Début boucle <input type="range" id="la" min="0" max="99" value="40"><span class="v" id="lav">40</span></label>
+<label>Fin boucle <input type="range" id="lb" min="0" max="99" value="50"><span class="v" id="lbv">50</span></label>
+<label>Mode <select id="lm" style="width:auto"><option value="pose">Balancement entre les deux poses</option><option value="pp">Images aller-retour</option><option value="wrap">Images en boucle</option></select></label>
+<label>Onde (retard par os) <input type="range" id="wv" min="0" max="0.25" step="0.01" value="0.08"><span class="v" id="wvv">0.08</span></label>
+<label>Durée d'un balancement <input type="range" id="lper" min="10" max="120" value="40"><span class="v" id="lperv">40</span></label>
+<button id="fwd">Préréglage vol avant : Combat 1, 1 → 40 puis balancement 40 ↔ 60</button>
+<h2>Vol serpentin (généré)</h2>
+<label><input type="checkbox" id="sp" style="flex:none"> Vol (décocher : retour à l'attente)</label>
+<label>Durée de la transition <input type="range" id="tr" min="5" max="90" step="1" value="90"><span class="v" id="trv">90</span></label>
+<p style="opacity:.7;margin:2px 0 6px">L'attente est l'animation choisie en haut (Combat 0 par défaut) ; elle continue de jouer pendant la transition.</p>
+<label>Pose de base <select id="sb" style="width:auto"><option value="1:0">Combat 0, image 0</option><option value="2:45">Combat 1, image 45</option><option value="0:0">Pose de repos</option></select></label>
+<label>Amplitude de la tête (% du corps) <input type="range" id="sa" min="0" max="25" step="0.5" value="10"><span class="v" id="sav">10</span></label>
+<label>Longueur d'onde (% du corps) <input type="range" id="sl" min="40" max="250" step="5" value="95"><span class="v" id="slv">95</span></label>
+<label>Durée d'une onde <input type="range" id="sd" min="20" max="160" step="1" value="60"><span class="v" id="sdv">60</span></label>
+<label>Torse (% de la tête) <input type="range" id="sh" min="20" max="120" step="5" value="120"><span class="v" id="shv">120</span></label>
+<label>Fouet vers la queue <input type="range" id="sg" min="0" max="4" step="0.1" value="3.5"><span class="v" id="sgv">3.5</span></label>
+<label>Tentacules : ondulation (°) <input type="range" id="st" min="0" max="40" step="1" value="40"><span class="v" id="stv">40</span></label>
+<label>Tentacules : élévation (°) <input type="range" id="se" min="-30" max="60" step="1" value="10"><span class="v" id="sev">10</span></label>
+<label>Tentacules : écartement (°) <input type="range" id="sx" min="0" max="80" step="1" value="35"><span class="v" id="sxv">35</span></label>
+<label>Montée/descente du corps (×) <input type="range" id="sy" min="0" max="2" step="0.1" value="0.5"><span class="v" id="syv">0.5</span></label>
+<h2>Pilotage</h2>
+<label><input type="checkbox" id="pilot" checked style="flex:none"> Pilotage au joystick (pilote aussi la case Vol)</label>
+<label>Vitesse max <input type="range" id="vmax" min="20" max="300" step="5" value="300"><span class="v" id="vmaxv">300</span></label>
+<label>Accélération <input type="range" id="acc" min="0.2" max="3" step="0.1" value="3"><span class="v" id="accv">3</span></label>
+<label>Virage max (°/s) <input type="range" id="tmax" min="10" max="180" step="5" value="120"><span class="v" id="tmaxv">120</span></label>
+<label>Roulis max (°) <input type="range" id="bmax" min="0" max="45" step="1" value="45"><span class="v" id="bmaxv">45</span></label>
+<p style="opacity:.7;margin:2px 0 6px">Virage en anguille : la tête tourne, chaque partie du corps passe ensuite exactement par la trace de la tête.</p>
+<label><input type="checkbox" id="chase" checked style="flex:none"> Caméra derrière Giratina</label>
+<label>Boost : vitesse (× max) <input type="range" id="bx" min="1.2" max="4" step="0.1" value="4"><span class="v" id="bxv">4</span></label>
+<label>Boost : hauteur de la bosse <input type="range" id="bh" min="0" max="150" step="5" value="150"><span class="v" id="bhv">150</span></label>
+<label>Boost : longueur de la figure (× corps) <input type="range" id="bd" min="1" max="8" step="0.25" value="3"><span class="v" id="bdv">3</span></label>
+<p id="telem" style="font-variant-numeric:tabular-nums;margin:4px 0;opacity:.8">vitesse 0 · virage 0°/s</p>
+<p style="opacity:.7;margin:2px 0 6px">Joystick en bas à droite, ou clavier : flèches / ZQSD / WASD.</p>
+<h2>Joueur</h2><select id="pa"></select>
+<label>Image <input type="range" id="pf" min="0" max="0" value="0"><span class="v" id="pfv">0</span></label>
+<label><input type="checkbox" id="sync" checked style="flex:none"> Suivre l'image de Giratina</label>
+<h2>Lecture</h2>
+<div class="row"><button id="play">Pause</button><button id="step">Image +1</button></div>
+<label>Vitesse <input type="range" id="speed" min="0.1" max="2" step="0.1" value="1"><span class="v" id="speedv">1</span></label>
+<h2>Place du joueur</h2>
+<label><input type="checkbox" id="ride" checked style="flex:none"> Attaché à l'os Waist</label>
+<label><input type="checkbox" id="glue" checked style="flex:none"> Collé au corps (suit l'ondulation)</label>
+<label>Avant/arrière <input type="range" id="ox" min="-60" max="60" step="0.5" value="10"><span class="v" id="oxv">10</span></label>
+<label>Hauteur <input type="range" id="oy" min="-30" max="60" step="0.5" value="4.5"><span class="v" id="oyv">4.5</span></label>
+<label>Côté <input type="range" id="oz" min="-30" max="30" step="0.5" value="0"><span class="v" id="ozv">0</span></label>
+<label>Rotation <input type="range" id="ry" min="-180" max="180" step="1" value="0"><span class="v" id="ryv">0</span></label>
+<label>Taille Giratina <input type="range" id="ms" min="0.05" max="0.5" step="0.01" value="0.2"><span class="v" id="msv">0.2</span></label>
+<label><input type="checkbox" id="ground" style="flex:none"> Montrer le maillage « sol »</label>
+<p style="opacity:.7;margin:10px 0 0">Glisser : tourner · molette : zoom · clic droit : déplacer</p>
+</div>
+<button id="boost" style="position:fixed;right:168px;bottom:56px;width:auto;padding:12px 18px;border-radius:24px;background:var(--panel)">Boost</button>
+<div id="pad" style="position:fixed;right:24px;bottom:24px;width:128px;height:128px;border-radius:50%;border:2px solid var(--line);background:var(--panel);touch-action:none"><div id="knob" style="position:absolute;left:40px;top:40px;width:48px;height:48px;border-radius:50%;background:var(--accent);opacity:.8"></div></div>
+<!--DATAJSON-->
+<script>
+window.onerror=(m)=>{ const d=document.getElementById("load")||document.body.appendChild(document.createElement("div")); d.id="load"; d.textContent="Erreur : "+m; };
+addEventListener("DOMContentLoaded",()=>{
+const D=/*DATA*/null; const $=id=>document.getElementById(id);
+const r=new THREE.WebGLRenderer({antialias:true}); r.setPixelRatio(devicePixelRatio); r.outputColorSpace=THREE.SRGBColorSpace; document.body.appendChild(r.domElement);
+const sc=new THREE.Scene(); sc.background=new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#9cc8e8');
+const grid=new THREE.GridHelper(20000,200,0x5577aa,0x88aacc); grid.position.y=-80; sc.add(grid); sc.fog=new THREE.Fog(sc.background,600,2600);
+sc.add(new THREE.HemisphereLight(0xffffff,0x667788,2.2)); const dl=new THREE.DirectionalLight(0xffffff,1.6); dl.position.set(3,5,4); sc.add(dl);
+const cam=new THREE.PerspectiveCamera(35,1,1,20000); cam.position.set(-230,140,280); setTimeout(()=>{ const b=fwdRest.clone().multiplyScalar(-300); cam.position.set(b.x,130,b.z); },0); const oc=new OrbitControls(cam,r.domElement); oc.target.set(0,35,0);
+function resize(){ r.setSize(innerWidth,innerHeight); cam.aspect=innerWidth/innerHeight; cam.updateProjectionMatrix(); } addEventListener('resize',resize); resize();
+const mgr=new THREE.LoadingManager(); mgr.setURLModifier(u=>{ const n=u.split('/').pop(); return D.tex[n]||u; });
+const L=new ColladaLoader(mgr), TL=new THREE.TextureLoader();
+const G=L.parse(D.gdae,'./').scene, P=L.parse(D.pdae,'./').scene;
+const ground=[];
+function prep(root,isMount){ root.traverse(o=>{ if(!o.isMesh) return; o.frustumCulled=false;
+  if(isMount&&o.isSkinnedMesh){ const si=o.geometry.attributes.skinIndex, sw=o.geometry.attributes.skinWeight, names=o.skeleton.bones.map(b=>b.name); let g=0;
+    for(let i=0;i<si.count&&!g;i++) for(let k=0;k<4;k++){ const n=names[si.getComponent(i,k)]; if(sw.getComponent(i,k)>0&&(n==='Origin'||/^pm\d/.test(n))){ g=1; break; } }
+    if(g){ ground.push(o); o.visible=false; } }
+  (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{ m.side=THREE.DoubleSide; m.alphaTest=0.5; m.transparent=false; if(m.map) m.map.colorSpace=THREE.SRGBColorSpace;
+    const src=m.map&&m.map.image&&m.map.image.src||''; const n=m.name.replace(/_mat$/,'')+'.png';
+    if(D.tex[n]){ const t=TL.load(D.tex[n]); t.colorSpace=THREE.SRGBColorSpace; t.flipY=false; t.wrapS=t.wrapT=THREE.RepeatWrapping; m.map=t; m.needsUpdate=true; } }); }); }
+prep(G,true); prep(P,false);
+const bodyMeshes=[]; G.traverse(o=>{ if(!o.isSkinnedMesh||ground.includes(o)) return; const si=o.geometry.attributes.skinIndex, sw=o.geometry.attributes.skinWeight, names=o.skeleton.bones.map(b=>b.name); let fe=0,all=0;
+  for(let i=0;i<si.count;i++) for(let k=0;k<4;k++){ const w=sw.getComponent(i,k); all+=w; if(/Feeler/.test(names[si.getComponent(i,k)])) fe+=w; } if(fe<=all*0.5) bodyMeshes.push(o); });
+const bakeV=new THREE.Vector3(); const baked=bodyMeshes.map(m=>{ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(m.geometry.attributes.position.count*3),3)); if(m.geometry.index) g.setIndex(m.geometry.index); return new THREE.Mesh(g,new THREE.MeshBasicMaterial({side:THREE.DoubleSide})); });
+function bakeBody(){ bodyMeshes.forEach((m,j)=>{ const pos=m.geometry.attributes.position, out=baked[j].geometry.attributes.position; for(let i=0;i<pos.count;i++){ m.getVertexPosition(i,bakeV); bakeV.applyMatrix4(m.matrixWorld); out.setXYZ(i,bakeV.x,bakeV.y,bakeV.z); } out.needsUpdate=true; baked[j].geometry.computeBoundingSphere(); baked[j].geometry.boundingBox=null; }); }
+const seatRay=new THREE.Raycaster();
+function surfaceUnder(pos,upv){ bakeBody(); seatRay.set(pos.clone().addScaledVector(upv,500),upv.clone().negate()); const h=seatRay.intersectObjects(baked,false); return h.length?h[0].point:null; }
+const holder=new THREE.Group(); holder.add(G); sc.add(holder); sc.add(P);
+const bone=(root,n)=>{ let b=null; root.traverse(o=>{ if(o.name===n&&!b) b=o; }); return b; };
+const gw=bone(G,'Waist');
+const chainF=['Spine1','Spine2','Spine3','Spine4','Spine5','Neck','Head'].map(n=>bone(G,n)), chainT=['Hips','Tail1','Tail2','Tail3','Tail4','Tail5'].map(n=>bone(G,n));
+const feelers=[]; G.traverse(o=>{ const m=/^([LR])Feeler([ABC])(\d+)$/.exec(o.name); if(m) feelers.push([o,+m[3]]); });
+let st=0; const up=new THREE.Vector3(0,1,0);
+// forward = head direction in the rest pose (the body straight there); Combat 0 is coiled, its head-tail line is not forward
+apply(G,D.mount[0][1],0); G.updateWorldMatrix(true,true); const fwdRest=bone(G,'Head').getWorldPosition(new THREE.Vector3()).sub(bone(G,'Tail5').getWorldPosition(new THREE.Vector3())).setY(0).normalize();
+function bendWorld(b,axis,ang){ b.parent.updateWorldMatrix(true,false); b.updateWorldMatrix(false,false);
+  const pw=new THREE.Quaternion(); b.parent.getWorldQuaternion(pw); const bw=new THREE.Quaternion(); b.getWorldQuaternion(bw);
+  const R=new THREE.Quaternion().setFromAxisAngle(axis,ang); b.quaternion.copy(pw.invert().multiply(R).multiply(bw)); b.updateWorldMatrix(false,true); }
+const tchains={}; for(const [b,n] of feelers){ const key=b.name.replace(/\d+$/,''); (tchains[key]=tchains[key]||[])[n-1]=b; }
+for(const key in tchains){ const end=bone(G,'End'+key+'12'); if(end) tchains[key].push(end); }
+function tentacles(fwd,lat,ph){ const vs=$('pilot').checked?spd01:0.5, v1=Math.min(vs,1), vb=Math.max(0,vs-1); const TA=$('st').value*Math.PI/180*(0.7+0.6*v1)*Math.max(0.25,1-0.5*vb), el=$('se').value*Math.PI/180*(1.3-0.8*v1)*Math.max(0,1-0.8*vb), sp=$('sx').value*Math.PI/180*(1.2-0.5*v1)*Math.max(0.3,1-0.5*vb); let ti=0;
+  for(const key in tchains){ const ch=tchains[key].filter(Boolean); if(ch.length<2) continue; G.updateWorldMatrix(true,true);
+    const side=key[0]==='L'?-1:1, row={A:0,B:1,C:2}[key[key.length-1]]||0;
+    const pos=ch.map(b=>b.getWorldPosition(new THREE.Vector3())); const seg=[]; for(let i=1;i<pos.length;i++) seg.push(pos[i].distanceTo(pos[i-1]));
+    // each tendril trails behind (-fwd), raised by el, spread to its side; a wave runs base -> tip, delayed per tendril (like in water)
+    const yaw=side*sp*(0.6+0.4*row), off=ti*0.9; ti++;
+    const tgt=[pos[0].clone()];
+    for(let i=0;i<seg.length;i++){ const u=i/seg.length, a=ph-off-i*0.55;
+      const pitch=el+TA*(0.4+u)*Math.sin(a), swing=yaw+TA*0.5*(0.3+u)*Math.cos(a*0.8);
+      const d=fwd.clone().negate().applyAxisAngle(up,swing); const axis=new THREE.Vector3().crossVectors(d,up).normalize(); d.applyAxisAngle(axis,pitch);
+      tgt.push(tgt[i].clone().addScaledVector(d,seg[i])); }
+    for(let i=0;i<ch.length-1;i++){ const b=ch[i]; b.updateWorldMatrix(true,true);
+      const cur=ch[i+1].getWorldPosition(new THREE.Vector3()).sub(b.getWorldPosition(new THREE.Vector3())).normalize(), want=tgt[i+1].clone().sub(tgt[i]).normalize();
+      const R=new THREE.Quaternion().setFromUnitVectors(cur,want); const pw=new THREE.Quaternion(); b.parent.getWorldQuaternion(pw); const bw=new THREE.Quaternion(); b.getWorldQuaternion(bw);
+      b.quaternion.copy(pw.invert().multiply(R).multiply(bw)); b.updateWorldMatrix(false,true); } } }
+function serpent(){ G.updateWorldMatrix(true,true);
+  // the whole spine, tip of the head to tip of the tail, as one line of joints
+  const line=['EndHead','Head','Neck','Spine5','Spine4','Spine3','Spine2','Spine1','Waist','Hips','Tail1','Tail2','Tail3','Tail4','Tail5','EndTail5'].map(n=>bone(G,n));
+  const base=line.map(b=>b.getWorldPosition(new THREE.Vector3()));
+  const sv=[0]; for(let i=1;i<base.length;i++) sv.push(sv[i-1]+base[i].distanceTo(base[i-1])); const Lb=sv[sv.length-1]||1;
+  const fwd=fwdRest.clone(), lat=new THREE.Vector3().crossVectors(fwd,up).normalize();
+  const vs=$('pilot').checked?spd01:0.5, vb=Math.max(0,vs-1); const A=$('sa').value/100*Lb*(1.25-0.5*Math.min(vs,1))*Math.max(0.2,1-0.55*vb), k=2*Math.PI/($('sl').value/100*Lb), ph=2*Math.PI*st/$('sd').value;
+  const g=+$('sg').value, W0=sv[8]/Lb; // amplitude grows from the waist to the tail tip
+  const r=$('sh').value/100; // A is the head's amplitude; the torso keeps r of it, smoothly, then the tail grows again
+  const env=i=>{ const u=sv[i]/Lb; if(u<W0){ const v=u/W0; return 1+(r-1)*(1-Math.cos(v*Math.PI))/2; } return r*(1+g*((u-W0)/(1-W0))**1.5); };
+  let calm=1; if($('pilot').checked&&fly.boostT>=0){ const u=fly.boostT/($('bd').value*lastLb); calm=u<0.08?1-u/0.08:(u<0.8?0:(u-0.8)/0.2); }
+  const y=i=>A*calm*env(i)*Math.sin(ph-k*sv[i]);                       // one wave over the whole line, travelling head -> tail
+  // the spine laid on a straight line pointing forward (bone lengths kept, head in line with the body), then the wave on it
+  const W8=base[8]; lastSW=sv[8]; lastLb=Lb;
+  // follow the leader: joint i sits on the head's path, sv[i] behind the head, seen from the waist's point on that path
+  const ref=trailAt(sv[8]); const local=d=>{ const q=trailAt(d).p.sub(ref.p); const dy=q.y; q.y=0; q.applyAxisAngle(up,-ref.yaw); q.y=dy; return q; };
+  const usePath=$('pilot').checked;
+  const target=base.map((p,i)=>(usePath?W8.clone().add(local(sv[i])):W8.clone().addScaledVector(fwd,sv[8]-sv[i])).addScaledVector(up,y(i)));
+  // aim every bone at its next joint on the curve, from the root outward (the root first, then both directions)
+  const aim=(i,j)=>{ const b=line[i]; b.updateWorldMatrix(true,true);
+    const cur=line[j].getWorldPosition(new THREE.Vector3()).sub(b.getWorldPosition(new THREE.Vector3())).normalize();
+    const want=target[j].clone().sub(target[i]).normalize();
+    const R=new THREE.Quaternion().setFromUnitVectors(cur,want); const pw=new THREE.Quaternion(); b.parent.getWorldQuaternion(pw); const bw=new THREE.Quaternion(); b.getWorldQuaternion(bw);
+    b.quaternion.copy(pw.clone().invert().multiply(R).multiply(bw)); b.updateWorldMatrix(false,true); };
+  const W=8; holder.position.y+=y(W)*0; // the root's height is set below
+  aim(W,W-1); for(let i=W-1;i>=1;i--) aim(i,i-1);          // Waist -> Spine1 -> ... -> Head -> EndHead
+  aim(W+1,W+2); for(let i=W+2;i<line.length-1;i++) aim(i,i+1);  // Hips -> Tail1 -> ... -> Tail5 -> EndTail5
+  if(fly.boostT>=0&&$('pilot').checked){ const pt=boostPitch(Math.min(1,fly.boostT/($('bd').value*lastLb))); bendWorld(bone(G,'Neck'),lat,-pt*0.4); bendWorld(bone(G,'Head'),lat,-pt*0.6); }
+  tentacles(fwd,lat,ph);
+  holder.position.y=+$('sy').value*y(W); } const depth={}; (function walk(o,d){ depth[o.name]=d; for(const c of o.children) walk(c,d+1); })(gw,0);
+function apply(root,frames,f){ const j=frames[Math.min(Math.max(f,0),frames.length-1)]; if(!j) return; root.traverse(o=>{ const v=j[o.name]; if(v){ o.position.set(v[0],v[1],v[2]); o.quaternion.set(v[3],v[4],v[5],v[6]); o.scale.set(v[7],v[8],v[9]); } }); }
+D.mount.forEach((a,i)=>$('ma').add(new Option(`${a[0]} (${a[1].length} images)`,i))); D.player.forEach((a,i)=>$('pa').add(new Option(`${a[0]} (${a[1].length} im.)`,i)));
+$('ma').value=1; $('pa').value=11;
+let playing=true, tm=0, tp=0, dir=1, inLoop=false, phase=0;
+const ui=()=>{ for(const k of ['ox','oy','oz','ry','ms','speed','la','lb','lper','wv','sa','sl','sd','st','sy','sg','sh','se','sx','tr','vmax','acc','tmax','bmax','bx','bh','bd']) $(k+'v').textContent=$(k).value; };
+for(const k of ['ox','oy','oz','ry','ms','speed','la','lb','lper','wv','sa','sl','sd','st','sy','sg','sh','se','sx','tr','vmax','acc','tmax','bmax','bx','bh','bd']) $(k).oninput=ui; ui();
+$('ma').onchange=()=>{ tm=0; dir=1; inLoop=false; $('la').max=$('lb').max=D.mount[$('ma').value][1].length-1; $('mf').max=D.mount[$('ma').value][1].length-1; }; $('pa').onchange=()=>{ tp=0; $('pf').max=D.player[$('pa').value][1].length-1; };
+$('ma').onchange(); $('pa').onchange();
+$('play').onclick=()=>{ playing=!playing; $('play').textContent=playing?'Pause':'Lecture'; };
+$('step').onclick=()=>{ playing=false; $('play').textContent='Lecture'; stepReq=true; };
+$('mf').oninput=()=>{ tm=+$('mf').value; dir=1; inLoop=false; };
+$('lp').onchange=()=>{ dir=1; inLoop=false; };
+$('fwd').onclick=()=>{ $('ma').value=2; $('ma').onchange(); $('la').value=40; $('lb').value=60; $('lp').checked=true; $('lm').value='pose'; tm=1; ui(); }; $('pf').oninput=()=>{ tp=+$('pf').value; $('sync').checked=false; };
+$('ground').onchange=()=>ground.forEach(o=>o.visible=$('ground').checked);
+let stepReq=false, glue=null, flyW=0;
+const stick={x:0,y:0}, keys={}; const pad=$('pad'), knob=$('knob'); let padId=null;
+const padSet=e=>{ const r=pad.getBoundingClientRect(); let x=(e.clientX-r.left-64)/52, y=(e.clientY-r.top-64)/52; const l=Math.hypot(x,y); if(l>1){x/=l;y/=l;} stick.x=x; stick.y=-y; knob.style.left=(40+x*52)+'px'; knob.style.top=(40+y*52)+'px'; };
+pad.onpointerdown=e=>{ padId=e.pointerId; pad.setPointerCapture(padId); padSet(e); }; pad.onpointermove=e=>{ if(e.pointerId===padId) padSet(e); };
+pad.onpointerup=pad.onpointercancel=()=>{ padId=null; stick.x=stick.y=0; knob.style.left=knob.style.top='40px'; };
+addEventListener('keydown',e=>{ keys[e.key.toLowerCase()]=1; if(e.key==='Shift'||e.key===' ') startBoost(); }); addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=0; });
+const fly={speed:0, yaw:0, yawRate:0, pos:new THREE.Vector3(), roll:0, boostT:-1}; let lastSW=0, lastLb=150;
+function startBoost(){ if(fly.boostT<0) fly.boostT=0; }
+// the head's height during the figure: up, a quick plunge, back to neutral (roller coaster), u = 0..1 of the figure
+function boostAlt(u){ const H=+$('bh').value; if(u<0.3){ const t=u/0.3; return H*(1-Math.cos(t*Math.PI))/2*(1+0.25*Math.sin(t*Math.PI)); }
+  if(u<0.55){ const t=(u-0.3)/0.25; return H*(1-2.3*(1-Math.cos(t*Math.PI))/2); }
+  const t=(u-0.55)/0.45; return -1.3*H*(1-t*t*(3-2*t)); }
+// the head's own pitch during the figure (radians, + nose up), independent of the speed
+function boostPitch(u){ if(u<0.3) return 0.79*Math.sin(u/0.3*Math.PI); if(u<0.55){ const t=(u-0.3)/0.25; return -1.05*Math.sin(t*Math.PI/2); } const t=(u-0.55)/0.45; return -1.05*(1-t*t*(3-2*t)); }
+// the path the head has followed: newest first, each point with its heading
+const trail=[{p:new THREE.Vector3(),yaw:0}];
+function trailPush(){ if(trail[0].p.distanceTo(fly.pos)>0.5) trail.unshift({p:fly.pos.clone(),yaw:fly.yaw}); else { trail[0].p.copy(fly.pos); trail[0].yaw=fly.yaw; } if(trail.length>4000) trail.length=4000; }
+function trailAt(d){ // the point d behind the head along the path, extrapolated straight past the oldest point
+  let acc=0; for(let i=1;i<trail.length;i++){ const seg=trail[i].p.distanceTo(trail[i-1].p); if(acc+seg>=d){ const t=(d-acc)/(seg||1); return {p:trail[i-1].p.clone().lerp(trail[i].p,t), yaw:trail[i-1].yaw+(trail[i].yaw-trail[i-1].yaw)*t}; } acc+=seg; }
+  const last=trail[trail.length-1]; const back=fwdRest.clone().applyAxisAngle(up,last.yaw).negate(); return {p:last.p.clone().addScaledVector(back,d-acc), yaw:last.yaw}; }
+function stickInput(){ let x=stick.x, y=stick.y; if(keys['arrowleft']||keys['q']||keys['a']) x=-1; if(keys['arrowright']||keys['d']) x=1; if(keys['arrowup']||keys['z']||keys['w']) y=1; if(keys['arrowdown']||keys['s']) y=-1; return {x,y}; }
+function physics(dt){ const vmax=+$('vmax').value, acc=+$('acc').value, inp=stickInput();
+  // speed: throttle forward, brake backward, drag when released (inertia)
+  const thrust=Math.max(inp.y,0), brake=Math.max(-inp.y,0);
+  let cap=vmax;
+  if(fly.boostT>=0){ const T=+$('bd').value*lastLb; /* capped so the return to neutral stays visible after the missile */ fly.boostT+=Math.min(Math.max(fly.speed,vmax*0.3),vmax*1.2)*dt; const u=fly.boostT/T; // u = distance flown / length of the figure
+    if(u<0.3) fly.speed+=(vmax*0.6-fly.speed)*Math.min(1,dt*2.5);               // slowing on the way up
+    else if(u<0.4225) fly.speed+=(vmax*1.1-fly.speed)*Math.min(1,dt*2);          // gravity at the start of the plunge (rocket 12.25 % of the figure after the peak at 30 %)
+    else if(fly.speed<vmax*$('bx').value*0.98) fly.speed+=(vmax*$('bx').value-fly.speed)*Math.min(1,dt*8); // the rocket
+    fly.pos.y=boostAlt(Math.min(u,1)); if(u>=1){ fly.boostT=-1; fly.pos.y=0; } cap=vmax*$('bx').value; }
+  else if(fly.speed>vmax) { fly.speed+=(vmax-fly.speed)*Math.min(1,dt*0.3)-brake*acc*vmax*1.5*dt; cap=Math.max(fly.speed,0); } // the missile slows back down (about 3 s), no throttle on top
+  if(fly.boostT<0 && fly.speed<=vmax) fly.speed+= (thrust*acc*vmax*0.8 - brake*acc*vmax*1.5 - Math.min(fly.speed,vmax)*0.6*(1-thrust))*dt; /* during the figure the boost alone sets the speed */ fly.speed=Math.min(cap,Math.max(0,fly.speed));
+  const v=Math.min(1,fly.speed/vmax);
+  // direction: the stick sets a turn rate, harder at high speed; angular inertia
+  const want=-inp.x*$('tmax').value*Math.PI/180*(1-0.45*v)*(0.35+0.65*Math.min(1,v*4));
+  fly.yawRate+=(want-fly.yawRate)*Math.min(1,dt*3); fly.yaw+=fly.yawRate*dt;
+  const dir=fwdRest.clone().applyAxisAngle(up,fly.yaw); fly.pos.addScaledVector(dir,fly.speed*dt); trailPush();
+  // bank into the turn: steeper when faster and tighter
+  const bmax=$('bmax').value*Math.PI/180, bank=Math.max(-bmax,Math.min(bmax,-fly.yawRate*v*0.6)); fly.roll+=(bank-fly.roll)*Math.min(1,dt*3);
+  $('telem').textContent=`vitesse ${fly.speed.toFixed(0)} / ${vmax} · virage ${(fly.yawRate*180/Math.PI).toFixed(0)}°/s · roulis ${(fly.roll*180/Math.PI).toFixed(0)}°`;
+  return fly.speed/vmax; }
+let spd01=0;
+const PA={wait:11,turnL:7,turnR:9,brake:1,up:10,down:2,rocket:14};
+const pst={cur:PA.wait,prev:PA.wait,w:1,tc:0,tp:0};
+const pbones=Object.keys(D.player[PA.wait][1][0]).filter(n=>bone(P,n)).map(n=>bone(P,n));
+const psnap=()=>pbones.map(o=>[o.position.clone(),o.quaternion.clone()]);
+function playerWanted(){ if(fly.boostT>=0||fly.speed>+$('vmax').value*1.05) return PA.rocket; // the whole boost, until back to cruise speed
+  const inp=stickInput(); if(inp.y<-0.3&&fly.speed>1) return PA.brake; if(fly.yawRate>0.25) return PA.turnL; if(fly.yawRate<-0.25) return PA.turnR; return PA.wait; }
+function playerFrame(idx,t){ const F=D.player[idx][1]; const f=Math.floor(t); return idx===PA.wait?((f%F.length)+F.length)%F.length:Math.min(f,F.length-1); }
+function playerPose(dt){ const want=playerWanted(); if(want!==pst.cur){ pst.prev=pst.cur; pst.tp=pst.tc; pst.cur=want; pst.tc=0; pst.w=0; }
+  const d=dt*30*$('speed').value; pst.tc+=d; pst.tp+=d; pst.w=Math.min(1,pst.w+d/8);
+  apply(P,D.player[pst.prev][1],playerFrame(pst.prev,pst.tp)); const A=psnap(); apply(P,D.player[pst.cur][1],playerFrame(pst.cur,pst.tc)); const B=psnap();
+  const w=pst.w*pst.w*(3-2*pst.w); pbones.forEach((o,i)=>{ o.position.copy(A[i][0]).lerp(B[i][0],w); o.quaternion.copy(A[i][1]).slerp(B[i][1],w); });
+  // the seat stays where it was placed: the pelvis keeps its hover position (the game's moves were made for Latios's back)
+  const W0=D.player[PA.wait][1][playerFrame(PA.wait,pst.tc)]; for(const n of ['rstr0002_00_fi','Origin','Waist']){ const o=bone(P,n), v=W0[n]; if(o&&v) o.position.set(v[0],v[1],v[2]); }
+  $('pfv').textContent=D.player[pst.cur][0].split(' ')[0]; } setTimeout(()=>{ $('boost').onclick=startBoost; },0);
+function applyMotion(){ const w=trailAt(lastSW); const q=new THREE.Quaternion().setFromAxisAngle(up,w.yaw); const dir=fwdRest.clone().applyAxisAngle(up,w.yaw);
+  q.premultiply(new THREE.Quaternion().setFromAxisAngle(dir,fly.roll)); holder.quaternion.copy(q); holder.position.x=w.p.x; holder.position.z=w.p.z; holder.position.y+=w.p.y; }
+const pnames=Object.keys(D.mount[1][1][0]).filter(n=>bone(G,n)); const pobj=pnames.map(n=>bone(G,n));
+const snap=()=>pobj.map(o=>[o.position.clone(),o.quaternion.clone()]); let last=performance.now(); const tmp=new THREE.Vector3();
+function loop(now){ const dt=Math.min(Math.max((now-last)/1000,0),0.1); last=now;
+  const M=D.mount[$('ma').value][1], PP=D.player[$('pa').value][1];
+  const adv=d=>{ tp+=Math.abs(d); st+=d*($('pilot').checked?0.6+0.9*spd01:1); const a=+$('la').value, b=Math.max(+$('lb').value,a+1), mode=$('lm').value;
+    if($('lp').checked&&mode==='pose'){ if(!inLoop){ tm+=d; if(tm>=a){ inLoop=true; phase=0; tm=a; } } else phase+=d/(+$('lper').value); return; }
+    tm+=d*dir;
+    if($('lp').checked){ if(tm>=b){ inLoop=true; if(mode==='pp'){ tm=b-(tm-b); dir=-1; } else tm=a+(tm-b); }
+      else if(inLoop&&tm<=a&&dir<0){ tm=a+(a-tm); dir=1; } } };
+  const blendPose=(M,a,b,ph)=>{ const ja=M[a], jb=M[b], k=+$('wv').value; G.traverse(o=>{ const x=ja[o.name], y=jb[o.name]; if(!x||!y) return; const w=(1-Math.cos((ph-k*(depth[o.name]||0))*2*Math.PI))/2;
+    o.quaternion.set(x[3],x[4],x[5],x[6]).slerp(new THREE.Quaternion(y[3],y[4],y[5],y[6]),w); o.position.set(x[0]+(y[0]-x[0])*w,x[1]+(y[1]-x[1])*w,x[2]+(y[2]-x[2])*w); o.scale.set(x[7],x[8],x[9]); }); };
+  if(playing) adv(dt*30*$('speed').value); else if(stepReq){ adv(1); stepReq=false; }
+  const wrap=(x,n)=>((Math.floor(x)%n)+n)%n; const fm=wrap(tm,M.length), fp=$('sync').checked?wrap(tm,PP.length):wrap(tp,PP.length);
+  $('mf').value=fm; $('mfv').textContent=fm; $('pf').value=fp; $('pfv').textContent=fp;
+  G.scale.setScalar(+$('ms').value); holder.position.y=0;
+  if($('pilot').checked){ spd01=physics(Math.min(dt,0.1)); const on=fly.speed>+$('vmax').value*0.08, off=fly.speed<+$('vmax').value*0.03; if(on) $('sp').checked=true; else if(off) $('sp').checked=false; }
+  holder.quaternion.identity(); holder.position.set(0,0,0);
+  const target=$('sp').checked?1:0; const stepF=playing?dt*30*$('speed').value:0; if(flyW!==target){ flyW+=Math.sign(target-flyW)*Math.max(stepF,0)/+$('tr').value; flyW=Math.min(1,Math.max(0,flyW)); }
+  if(flyW>0){ const [bi,bf]=$('sb').value.split(':').map(Number); const B0=D.mount[bi][1];
+    apply(G,M,fm); const A=snap();                      // the hover (wait) animation, still playing
+    apply(G,B0,Math.min(bf,B0.length-1)); serpent(); const B=snap(); const hy=holder.position.y;   // the flight
+    const w=flyW*flyW*(3-2*flyW);                       // smoothstep
+    pobj.forEach((o,i)=>{ o.position.copy(A[i][0]).lerp(B[i][0],w); o.quaternion.copy(A[i][1]).slerp(B[i][1],w); });
+    holder.position.y=hy*w; $('mfv').textContent=flyW<1?'trans. '+Math.round(w*100)+'%':'vol'; } else if($('lp').checked&&$('lm').value==='pose'&&inLoop){ const a=Math.min(+$('la').value,M.length-1), b=Math.min(+$('lb').value,M.length-1); const w=(1-Math.cos(phase*2*Math.PI))/2; blendPose(M,a,b,phase); $('mfv').textContent=(a+(b-a)*w).toFixed(1); } else apply(G,M,fm); if($('pilot').checked) playerPose(playing?dt:0); else apply(P,PP,fp);
+  holder.updateMatrixWorld(true);
+  const base=$('ride').checked?gw.getWorldPosition(tmp):tmp.set(0,0,0);
+  P.position.set(base.x+ +$('oz').value, base.y+ +$('oy').value, base.z+ +$('ox').value); P.rotation.set(0,$('ry').value*Math.PI/180,0);
+  if($('glue').checked){ const key=[$('ox').value,$('oy').value,$('oz').value,$('ry').value,$('ms').value,$('sp').checked].join();
+    if(!glue||glue.key!==key){ // glue against the body at rest (no wave), on the spine bone nearest to the seat
+      const save=st; if($('sp').checked){ const [bi,bf]=$('sb').value.split(':').map(Number); apply(G,D.mount[bi][1],bf); const keepA=$('sa').value; $('sa').value=0; serpent(); $('sa').value=keepA; }
+      holder.updateMatrixWorld(true); const b0=gw.getWorldPosition(new THREE.Vector3());
+      P.position.set(b0.x+ +$('oz').value, b0.y+ +$('oy').value, b0.z+ +$('ox').value); P.updateMatrixWorld(true);
+      let best=null,bd=1e9; for(const n of ['Waist','Spine1','Spine2','Spine3','Hips','Tail1']){ const b=bone(G,n); const d=b.getWorldPosition(new THREE.Vector3()).distanceTo(P.position); if(d<bd){bd=d;best=b;} }
+      const up0=new THREE.Vector3(0,1,0).applyQuaternion(P.quaternion), hit0=surfaceUnder(P.position,up0);
+      glue={key,bone:best,local:new THREE.Matrix4().copy(best.matrixWorld).invert().multiply(P.matrixWorld),gap:hit0?hit0.clone().sub(P.position).dot(up0):null}; st=save;
+      if($('sp').checked){ const [bi,bf]=$('sb').value.split(':').map(Number); apply(G,D.mount[bi][1],bf); serpent(); holder.updateMatrixWorld(true); } }
+    applyMotion(); holder.updateMatrixWorld(true); const m=new THREE.Matrix4().multiplyMatrices(glue.bone.matrixWorld,glue.local); m.decompose(P.position,P.quaternion,P.scale);
+    // contact: keep the same distance to the back's surface as when glued (the body bends around the glued bone)
+    if(glue.gap!==null){ const u1=new THREE.Vector3(0,1,0).applyQuaternion(P.quaternion), h=surfaceUnder(P.position,u1); if(h) P.position.addScaledVector(u1,h.clone().sub(P.position).dot(u1)-glue.gap); } }
+  if(!$('glue').checked){ applyMotion(); holder.updateMatrixWorld(true); }
+  const wp=trailAt(lastSW).p; const ft=new THREE.Vector3(wp.x,35+wp.y*0.6,wp.z), dl2=ft.clone().sub(oc.target); oc.target.add(dl2); cam.position.add(dl2);
+  if($('chase').checked){ const off=cam.position.clone().sub(oc.target).applyAxisAngle(up,fly.yaw-(window._lastYaw??fly.yaw)); cam.position.copy(oc.target).add(off); }
+  window._lastYaw=fly.yaw;
+  oc.update(); r.render(sc,cam); requestAnimationFrame(loop); }
+$('load').remove(); requestAnimationFrame(loop);
+});
+</script></body></html>

@@ -432,6 +432,33 @@ installé dans la chaîne des mods.
 3. une taille pendant le vol (Roucool est minuscule à côté de Latios) et une animation de vol existante du modèle.
 Première version : une liste de Pokémon choisie par le propriétaire, réglés à la main ; Latios ou Latias pour les autres.
 
+**Vérifié pour le point 39 (11 octobre)** :
+- le modèle de la monture ne dépend pas de l'espèce : le constructeur `0x3d19f8` écrit l'espèce (`0x17D`), la mise à jour
+  `0x3e8fe0` n'en tire qu'un octet (`0x17C` → 0, sinon 1) passé au module `DllSkyTrip` ; le module ouvre quatre archives
+  (identifiants `0xFB`-`0xFE`, soit `a/2/5/1`, `a/2/5/2`, `a/2/5/4`, `a/2/5/3`) et charge de `a/2/5/4` les membres
+  {2 ou 3, l'octet} : membre 0 Latias, 1 Latios (conteneurs TM de 18 fichiers : `pm0380a_00_fi` / `pm0381a_00_fi`, le modèle et
+  15 animations de vol), 2 et 3 les joueurs (16 fichiers : le modèle `rstr000x_00_fi` et 15 animations `fi52_pm*`) ; vu dans le
+  jeu : l'espèce changée en mémoire en Giratina (487) laisse Latios ;
+- le joueur est placé à l'os `Waist` de la monture (fonction `0x107303bc` du module) ; Giratina Originel (`a/0/0/8` membres
+  5435-5441 : modèle, textures, animations de combat et de Poké Récré) a aussi un os `Waist`, mais aucune animation de vol ;
+- plusieurs montures sont possibles (supposé, non construit) : de nouveaux membres dans `a/2/5/4`, une table espèce → membre
+  à la place du test `0x17C`, l'octet utilisé tel quel comme numéro de membre dans `DllSkyTrip` ; deux autres lectures de cet
+  octet dans le module restent à adapter.
+
+**Vol de Giratina, décidé avec le propriétaire dans la visionneuse (`tools/remake/render/build_ride_viewer.py`, sans les
+données du jeu)** :
+- attente : son animation de combat 0 telle quelle ; vol : une onde verticale générée qui part de la tête et descend jusqu'à
+  la queue sur toute la colonne remise en ligne (la tête dans l'axe du corps), amplitude menée par la tête, le torse à 120 %,
+  la queue en fouet ; tentacules en chaînes souples qui traînent vers l'arrière ; transition attente ↔ vol par mélange ;
+- virages en anguille : le corps suit la trace de la tête, petit roulis seulement ; la vitesse change l'onde (plus rapide,
+  plus plate) et plaque les tentacules ;
+- boost : la tête monte (bosse courbée vers le haut), plonge, la roquette part 12,25 % de la figure après le pic, sans onde
+  pendant la montée et la descente, figure mesurée en longueurs de corps pour que la tête mène ;
+- le joueur : collé au dos (os de la colonne le plus proche, contact avec la surface gardé à chaque image), ses animations
+  du jeu selon la situation (attente, virage, freinage, accélération pendant tout le boost), bassin fixé ;
+- rien de cela n'est encore dans le jeu : il faudra jouer ces mouvements dans `DllSkyTrip` (ou en faire de vraies animations
+  de vol) et y remplacer le modèle (point 39, étapes 1-3).
+
 ## Sources
 
 - Wikipédia, *Pokémon Emerald* : https://en.wikipedia.org/wiki/Pok%C3%A9mon_Emerald (combats doubles, PokéNav, revanches,
