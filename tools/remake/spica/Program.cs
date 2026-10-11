@@ -8,9 +8,13 @@
 //                                                   animation (the bind pose, one frame, without --anim), as JSON:
 //                                                   [{bone: [tx,ty,tz, qx,qy,qz,qw, sx,sy,sz]}, ...] (ride viewer, render/)
 //   spica png <file> <out dir>                      the file's textures as PNG (H3DTexture.ToRGBA; no System.Drawing)
+//   spica anim <out.bch> <template.bch> <pose.json> [--scale S]   the template's skeletal animation (its name and flags,
+//                                                   which the game looks up) with its curves replaced by the poses of
+//                                                   pose.json (spica pose's output, any skeleton), translations scaled by S
+//                                                   (a soaring mount's own animations, Delta point 39)
 //   spica bch <out.bch> <file>... [--scale S] [--rename NAME] [--texmax N] [--material-from <file>]   the files' scenes merged (a Pokemon's model BCH and its
 //                                                   textures' BCH) and written as one BCH; --scale scales the first model's
-//                                                   root bone, --rename renames that model, --texmax N shrinks RGB8 textures
+//                                                   vertices and skeleton, --rename renames that model, --texmax N shrinks RGB8 textures
 //                                                   to N pixels a side at most, --material-from rebuilds every material on
 //                                                   the first material of that file's model (its shader, combiners and
 //                                                   samplers; texture 0 and 2 its own, texture 1 the material's colour), and
@@ -72,6 +76,7 @@ static class SpicaCli
                 case "motions": Motions(rest[1]); return 0;
                 case "pose" when rest.Count >= 3: Pose(Recognised(rest[1], skeleton), skeleton, model, anim, rest[2]); return 0;
                 case "png" when rest.Count >= 3: Png(Recognised(rest[1], skeleton), rest[2]); return 0;
+                case "anim" when rest.Count >= 4: Anim(rest[1], rest[2], rest[3], scaleOpt); return 0;
                 case "bch" when rest.Count >= 3: Bch(rest, scaleOpt, renameOpt, texmaxOpt, materialOpt, skeleton); return 0;
             }
             return Usage();
@@ -253,8 +258,17 @@ static class SpicaCli
         var m = scene.Models[0];
         if (scale != null)
         {
+            // baked into the geometry: the soaring mode ignores a root bone's scale (checked headless, 11 October)
             float k = float.Parse(scale, System.Globalization.CultureInfo.InvariantCulture);
-            m.Skeleton[0].Scale *= k;
+            foreach (var mesh in m.Meshes)
+            {
+                // a position is raw * the attribute's scale + the mesh's offset: both scaled, the raw buffer kept
+                for (int i = 0; i < mesh.Attributes.Count; i++)
+                    if (mesh.Attributes[i].Name == SPICA.PICA.Commands.PICAAttributeName.Position) { var a = mesh.Attributes[i]; a.Scale *= k; mesh.Attributes[i] = a; }
+                mesh.PositionOffset *= k;
+            }
+            foreach (var b in m.Skeleton) b.Translation *= k;
+            foreach (var b in m.Skeleton) b.CalculateTransform(m.Skeleton);
         }
         if (rename != null) m.Name = rename;
         if (texmax != null) foreach (var t in scene.Textures) ShrinkRgb8(t, int.Parse(texmax));
@@ -307,4 +321,33 @@ static class SpicaCli
     }
 
     static T Clone<T>(T o) => (T)typeof(object).GetMethod("MemberwiseClone", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(o, null);
+
+    static void Anim(string outPath, string templatePath, string posePath, string scale)
+    {
+        float k = scale == null ? 1 : float.Parse(scale, System.Globalization.CultureInfo.InvariantCulture);
+        H3D scene = Recognised(templatePath, null);
+        if (scene.SkeletalAnimations.Count == 0) throw new InvalidDataException(templatePath + " holds no skeletal animation");
+        var anim = scene.SkeletalAnimations[0];
+        using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(posePath));
+        var frames = doc.RootElement;
+        var bones = new Dictionary<string, H3DAnimQuatTransform>();
+        foreach (var frame in frames.EnumerateArray())
+            foreach (var bone in frame.EnumerateObject())
+            {
+                if (!bones.TryGetValue(bone.Name, out var qt)) bones[bone.Name] = qt = new H3DAnimQuatTransform();
+                float V(int i) => bone.Value[i].GetSingle();
+                qt.Translations.Add(new Vector3(V(0), V(1), V(2)) * k);
+                qt.Rotations.Add(new Quaternion(V(3), V(4), V(5), V(6)));
+                qt.Scales.Add(new Vector3(V(7), V(8), V(9)));
+            }
+        // a curve that never changes is written once (the serializer writes a one-value list as a constant)
+        static void Constant<T>(List<T> l) { if (l.Count > 1 && l.TrueForAll(x => x.Equals(l[0]))) l.RemoveRange(1, l.Count - 1); }
+        foreach (var qt in bones.Values) { Constant(qt.Translations); Constant(qt.Rotations); Constant(qt.Scales); }
+        anim.Elements.Clear();
+        foreach (var kv in bones)
+            anim.Elements.Add(new H3DAnimationElement { Name = kv.Key, TargetType = H3DTargetType.Bone, PrimitiveType = H3DPrimitiveType.QuatTransform, Content = kv.Value });
+        anim.FramesCount = frames.GetArrayLength();
+        H3D.Save(outPath, scene);
+        Console.WriteLine($"{outPath}: {anim.Name}, {anim.FramesCount} frames, {anim.Elements.Count} bones");
+    }
 }
