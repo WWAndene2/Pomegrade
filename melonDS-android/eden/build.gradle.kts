@@ -108,7 +108,9 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.17.2")
     implementation("androidx.window:window:1.3.0")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
-    implementation("org.commonmark:commonmark:0.22.0")
+    // the app's Markwon brings commonmark 0.13 (com.atlassian.commonmark): one copy of org.commonmark only;
+    // Eden uses only Parser and HtmlRenderer, unchanged since
+    implementation("com.atlassian.commonmark:commonmark:0.13.0")
     implementation("androidx.navigation:navigation-fragment-ktx:2.8.9")
     implementation("androidx.navigation:navigation-ui-ktx:2.8.9")
     implementation("info.debatty:java-string-similarity:2.0.0")
