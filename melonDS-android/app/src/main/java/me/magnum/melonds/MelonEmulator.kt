@@ -157,7 +157,7 @@ object MelonEmulator {
     external fun onAnalogueStick(x: Float, y: Float)
 
     /**
-     * Pomegrade: the inspector (DS_ENGINE_REMAKE.md 5.12 step 1). While enabled, the core records which ARM9 code and display list
+     * Pomegrade: the inspector (docs/DS_ENGINE_REMAKE.md 5.12 step 1). While enabled, the core records which ARM9 code and display list
      * drew each polygon and which cartridge files are read; [view] colours the 3D by polygon ID (1), call site (2) or display
      * list (3), 0 draws normally. Takes effect at the next frame. OpenGL renderer only for the colours.
      */

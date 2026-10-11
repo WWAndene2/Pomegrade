@@ -764,7 +764,7 @@ vec4 TextureLookup_Linear(vec2 texcoord)
 // relief and stylised code below is compiled in only while relief is on. A
 // Mali-G610 driver took 10 to 25 s per polygon shader with it, every start
 #if POMEGRADE_RELIEF
-// Pomegrade: relief textures (DS_ENGINE_REMAKE.md 14.1, 15.2). The texture's
+// Pomegrade: relief textures (docs/DS_ENGINE_REMAKE.md 14.1, 15.2). The texture's
 // brightness is a height (bright = raised); the view ray is marched through it
 // (steep parallax, 8 layers) and the surface relit from the height's slope with
 // the scene's main DS light. Texture space comes from screen derivatives of
@@ -801,7 +801,7 @@ vec2 BladeHash(vec2 cell)
     return fract(sin(q) * 43758.5453);
 }
 
-// Pomegrade: procedural surfaces (DS_ENGINE_REMAKE.md 16.1), fitted to the
+// Pomegrade: procedural surfaces (docs/DS_ENGINE_REMAKE.md 16.1), fitted to the
 // texture they replace: its colours, smoothed, and detail generated at any
 // resolution, as heights in [0, 1] over texel coordinates
 float ValueNoise(vec2 p)

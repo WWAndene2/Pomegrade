@@ -14,7 +14,10 @@ import kotlinx.coroutines.withContext
 import me.magnum.melonds.R
 import me.magnum.melonds.impl.ModInstaller
 import me.magnum.melonds.impl.PomegradeFolder
+import org.yuzu.yuzu_emu.features.settings.model.Settings.MenuTag as SwitchSettingsMenu
 import me.magnum.melonds.ui.common.rom.N3dsLauncher
+import me.magnum.melonds.ui.common.rom.SwitchLauncher
+import me.magnum.melonds.ui.settings.preferences.ConsoleSelectorPreference
 import me.magnum.melonds.ui.settings.PreferenceFragmentTitleProvider
 import me.magnum.melonds.ui.settings.SettingsActivity
 import org.citra.citra_emu.activities.EmulationActivity
@@ -29,6 +32,7 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
     companion object {
         // keys of the 3DS entries: this prefix + the Azahar settings section they open
         private const val THREE_DS_PREFIX = "three_ds_settings_"
+        private const val SWITCH_PREFIX = "switch_settings_"
     }
 
     @Inject lateinit var pomegradeFolder: PomegradeFolder
@@ -93,8 +97,21 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
             true
         }
 
-        // 3DS: Azahar's own settings, the section of each entry; 64-bit devices only
-        findPreference<Preference>("three_ds_settings")?.isVisible = N3dsLauncher.isSupported()
+        // one console's section at a time, picked by its logo; 3DS on 64-bit devices only
+        findPreference<ConsoleSelectorPreference>("settings_console")?.let { selector ->
+            selector.threeDsAvailable = N3dsLauncher.isSupported()
+            selector.switchAvailable = SwitchLauncher.isSupported()
+            selector.onConsoleSelected = { showConsoleSection(it) }
+            showConsoleSection(selector.selected)
+        }
+        findPreference<Preference>("switch_home")?.setOnPreferenceClickListener {
+            // its folder and the keys and firmware of Pomegrade/BIOS/Switch first, so Eden's home screen shows them
+            viewLifecycleOwner.lifecycleScope.launch {
+                SwitchLauncher.prepare(requireContext())
+                startActivity(SwitchLauncher.homeIntent(requireContext()))
+            }
+            true
+        }
         // the code trace is written next to the 3DS core's folder: its path is kept with the
         // setting, for Azahar's emulation screen
         findPreference<androidx.preference.SwitchPreference>(EmulationActivity.CODE_TRACE)?.setOnPreferenceChangeListener { _, value ->
@@ -125,6 +142,21 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
                 val section = key.removePrefix(THREE_DS_PREFIX)
                 preference.setOnPreferenceClickListener {
                     openThreeDsSettings(section)
+                    true
+                }
+            }
+        }
+        preferenceScreen.findPreference<androidx.preference.PreferenceCategory>("switch_settings")?.let { category ->
+            for (i in 0 until category.preferenceCount) {
+                val preference = category.getPreference(i)
+                val key = preference.key ?: continue
+                if (!key.startsWith(SWITCH_PREFIX)) continue
+                val section = SwitchSettingsMenu.valueOf(key.removePrefix(SWITCH_PREFIX))
+                preference.setOnPreferenceClickListener {
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        SwitchLauncher.prepare(requireContext())
+                        startActivity(SwitchLauncher.settingsIntent(requireContext(), section))
+                    }
                     true
                 }
             }
@@ -221,4 +253,11 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
     }
 
     private fun toast(text: Int) = Toast.makeText(requireContext(), text, Toast.LENGTH_SHORT).show()
+
+    private fun showConsoleSection(console: String) {
+        findPreference<Preference>("gba_settings")?.isVisible = console == ConsoleSelectorPreference.GBA
+        findPreference<Preference>("ds_settings")?.isVisible = console == ConsoleSelectorPreference.DS
+        findPreference<Preference>("three_ds_settings")?.isVisible = console == ConsoleSelectorPreference.THREE_DS && N3dsLauncher.isSupported()
+        findPreference<Preference>("switch_settings")?.isVisible = console == ConsoleSelectorPreference.SWITCH && SwitchLauncher.isSupported()
+    }
 }

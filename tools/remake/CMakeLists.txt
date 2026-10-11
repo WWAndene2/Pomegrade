@@ -40,6 +40,7 @@ add_library(remake STATIC
     src/TopView.cpp
     src/OrasMeasure.cpp
     src/TownBuilder.cpp
+    src/RoomBuilder.cpp
     src/OrasTown.cpp
     src/CodePatch.cpp
     src/OrasAppend.cpp

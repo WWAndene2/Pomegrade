@@ -8,6 +8,7 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.os.Bundle
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -29,7 +30,7 @@ import me.magnum.melonds.R
 import me.magnum.melonds.databinding.ActivityShortcutSetupBinding
 import me.magnum.melonds.domain.model.RomIconFiltering
 import me.magnum.melonds.domain.model.rom.Rom
-import me.magnum.melonds.domain.model.rom.RomPlatform
+import me.magnum.melonds.ui.common.rom.ConsoleLauncher
 import me.magnum.melonds.ui.common.rom.N3dsLauncher
 import me.magnum.melonds.ui.emulator.EmulatorActivity
 import me.magnum.melonds.ui.romlist.RomIcon
@@ -90,8 +91,12 @@ class ShortcutSetupActivity : AppCompatActivity() {
     }
 
     private fun onRomSelected(rom: Rom) {
-        val intent = if (rom.platform == RomPlatform.N3DS) {
-            N3dsLauncher.launchIntent(this, rom)
+        val launcher = ConsoleLauncher.of(rom.platform)
+        val intent = if (launcher != null) {
+            launcher.shortcutIntent(this, rom) ?: run {
+                launcher.noShortcutMessage?.let { Toast.makeText(this, it, Toast.LENGTH_LONG).show() }
+                return
+            }
         } else {
             Intent("${packageName}.LAUNCH_ROM").apply {
                 putExtra(EmulatorActivity.KEY_URI, rom.uri.toString())

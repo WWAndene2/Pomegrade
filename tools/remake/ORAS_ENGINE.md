@@ -104,7 +104,8 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   `field` command, which waits for the map, never saw it in two runs, `sign1` and `sign2`, which waited until stopped). The
   owner's save stands in Littleroot (zone 6, tile 104.5, 170.5); move it with the zone and tile. A zone's characters are
   placed when the player **enters** it: to test them, start next door (zone 23, 100.5 150.5) and walk south. `shot NAME`
-  saves the screen (the host's own "field up" detection is wrong under some mods: look at the picture). `report` lists every
+  saves the screen (with drawing off, never `draw on` just before it: that frame comes out black, `shot` alone draws its
+  own frames; runs `aqua93`, `dew8` black against `dew8s` drawn, 11 October) (the host's own "field up" detection is wrong under some mods: look at the picture). `report` lists every
   thread; one in the fatal-error loop shows pc 0x11EF50 / 0x11ABxx / 0x110Axx, `0011EF60` in its stack code addresses, and
   its registers and raw stack, from which the frames' saved registers give the object that failed. The host prints `speed:`
   once a minute of real time (frames/s over the last minute and since the start; the other `[frame N]` lines come only with

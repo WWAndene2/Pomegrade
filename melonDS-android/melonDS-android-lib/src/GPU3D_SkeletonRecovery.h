@@ -1,7 +1,7 @@
 #ifndef GPU3D_SKELETONRECOVERY_H
 #define GPU3D_SKELETONRECOVERY_H
 
-// Skeleton recovery (Pomegrade, DS_ENGINE_REMAKE.md 5.10 experiment 2, 5.12
+// Skeleton recovery (Pomegrade, docs/DS_ENGINE_REMAKE.md 5.10 experiment 2, 5.12
 // step 10): a skinned model is drawn joint by joint with the matrix stack.
 // Each joint's matrix is its parent's times its own transform, kept in a
 // stack slot: MTX_RESTORE parent, MTX_MULT/TRANS/SCALE..., MTX_STORE joint

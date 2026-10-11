@@ -15,7 +15,6 @@ import me.magnum.melonds.domain.model.ConsoleType
 import me.magnum.melonds.domain.model.emulator.validation.FirmwareLaunchPreconditionCheckResult
 import me.magnum.melonds.domain.model.emulator.validation.RomLaunchPreconditionCheckResult
 import me.magnum.melonds.domain.model.rom.Rom
-import me.magnum.melonds.domain.model.rom.RomPlatform
 import me.magnum.melonds.ui.common.PomegradeFolderSetupDelegate
 import me.magnum.melonds.ui.common.rom.model.LaunchValidationResult
 import me.magnum.melonds.ui.dsiwaremanager.DSiWareManagerActivity
@@ -34,7 +33,7 @@ class EmulatorLaunchValidatorDelegate(
     private val dsiWareManagerLauncher = context.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         viewModel.onReturnFromDsiWareManagerSetup()
     }
-    // 3DS games need the Pomegrade folder (their core's folder is its 3DS) and file access
+    // 3DS and GBA games need the Pomegrade folder and its file access
     private val pomegradeFolderSetup = PomegradeFolderSetupDelegate(context)
 
     init {
@@ -66,18 +65,14 @@ class EmulatorLaunchValidatorDelegate(
     }
 
     fun validateRom(rom: Rom) {
-        // 3DS games don't use the DS BIOS/firmware checks, they go straight to the 3DS core,
-        // once its folder is set up
-        if (rom.platform == RomPlatform.N3DS) {
+        // games of the imported cores (3DS, GBA, Switch) don't use the DS BIOS/firmware checks: they go
+        // straight to their core, once the Pomegrade folder is set up for the cores that need it
+        val launcher = ConsoleLauncher.of(rom.platform)
+        if (launcher != null) {
             when {
-                !N3dsLauncher.isSupported() -> N3dsLauncher.launch(context, rom) // explains why not
-                N3dsLauncher.isReady(context) -> N3dsLauncher.launch(context, rom)
+                !launcher.isSupported() || launcher.isReady(context) -> launcher.launch(context, rom) // explains why not when unsupported
                 else -> pomegradeFolderSetup.start { ready ->
-                    if (ready && N3dsLauncher.isReady(context)) {
-                        N3dsLauncher.launch(context, rom)
-                    } else {
-                        callback.onValidationAborted()
-                    }
+                    if (ready && launcher.isReady(context)) launcher.launch(context, rom) else callback.onValidationAborted()
                 }
             }
             return

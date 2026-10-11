@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+SPDX-FileCopyrightText: 2023 yuzu Emulator Project
+SPDX-License-Identifier: GPL-3.0-or-later
+
+SPDX-FileCopyrightText: 2025 Eden Emulator Project
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!--
+SPDX-FileCopyrightText: Eden Emulator Project
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.gamepad" android:required="false" />
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+    <!-- Pomegrade: optional, so the app installs everywhere; Switch games need Vulkan 1.1 -->
+    <uses-feature android:name="android.hardware.vulkan.version" android:version="0x401000" android:required="false" />
+
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.NFC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+
+    <!-- Pomegrade: Eden is a library module, the app owns the <application> attributes and
+         YuzuApplication.attach() is called from the app's Application class. -->
+    <application>
+
+        <!-- Pomegrade: the app-wide game metadata (game hubs, game mode) are the app's own -->
+
+        <activity
+            android:name="org.yuzu.yuzu_emu.ui.main.MainActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Yuzu.Splash.Main">
+        </activity>
+
+        <activity
+            android:name="org.yuzu.yuzu_emu.features.settings.ui.SettingsActivity"
+            android:theme="@style/Theme.Yuzu.Main"
+            android:label="@string/eden_preferences_settings"/>
+
+        <activity
+            android:name="org.yuzu.yuzu_emu.features.settings.ui.SettingsSubscreenActivity"
+            android:theme="@style/Theme.Yuzu.Main"
+            android:label="@string/eden_preferences_settings"/>
+
+        <activity
+            android:name="org.yuzu.yuzu_emu.activities.EmulationActivity"
+            android:theme="@style/Theme.Yuzu.Main"
+            android:launchMode="singleTop"
+            android:supportsPictureInPicture="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.nfc.action.TECH_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/octet-stream" android:scheme="content"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="dev.eden.eden_emulator.LAUNCH_WITH_CUSTOM_CONFIG" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data android:name="android.nfc.action.TECH_DISCOVERED" android:resource="@xml/nfc_tech_filter" />
+        </activity>
+
+        <service android:name="org.yuzu.yuzu_emu.utils.ForegroundService" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Keep emulation running in background"/>
+        </service>
+
+        <provider
+            android:name=".features.DocumentProvider"
+            android:authorities="${applicationId}.user"
+            android:grantUriPermissions="true"
+            android:exported="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    </application>
+</manifest>

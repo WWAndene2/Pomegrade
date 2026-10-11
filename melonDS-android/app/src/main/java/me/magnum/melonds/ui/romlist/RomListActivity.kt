@@ -43,6 +43,7 @@ import me.magnum.melonds.ui.about.AboutActivity
 import me.magnum.melonds.ui.common.PomegradeFolderSetupDelegate
 import me.magnum.melonds.ui.common.rom.EmulatorLaunchValidatorDelegate
 import me.magnum.melonds.ui.common.rom.N3dsLauncher
+import me.magnum.melonds.ui.common.rom.SwitchLauncher
 import me.magnum.melonds.ui.dsiwaremanager.DSiWareManagerActivity
 import me.magnum.melonds.ui.emulator.EmulatorActivity
 import me.magnum.melonds.ui.settings.SettingsActivity
@@ -173,12 +174,15 @@ class RomListActivity : AppCompatActivity() {
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.rom_list_menu, menu)
-        // the console shown; no filter without 3DS support (64-bit only)
-        menu.findItem(R.id.action_platform_filter)?.isVisible = N3dsLauncher.isSupported()
+        // the console shown (GBA games run on every device; 3DS games on 64-bit ones only)
+        menu.findItem(R.id.action_platform_three_ds)?.isVisible = N3dsLauncher.isSupported()
+        menu.findItem(R.id.action_platform_switch)?.isVisible = SwitchLauncher.isSupported()
         menu.findItem(
             when (viewModel.platformFilter.value) {
                 RomPlatform.NDS -> R.id.action_platform_ds
                 RomPlatform.N3DS -> R.id.action_platform_three_ds
+                RomPlatform.GBA -> R.id.action_platform_gba
+                RomPlatform.SWITCH -> R.id.action_platform_switch
                 null -> R.id.action_platform_all
             }
         )?.isChecked = true
@@ -227,11 +231,13 @@ class RomListActivity : AppCompatActivity() {
                 viewModel.setRomSorting(SortingMode.RECENTLY_PLAYED)
                 return true
             }
-            R.id.action_platform_all, R.id.action_platform_ds, R.id.action_platform_three_ds -> {
+            R.id.action_platform_all, R.id.action_platform_ds, R.id.action_platform_three_ds, R.id.action_platform_gba, R.id.action_platform_switch -> {
                 viewModel.setPlatformFilter(
                     when (item.itemId) {
                         R.id.action_platform_ds -> RomPlatform.NDS
                         R.id.action_platform_three_ds -> RomPlatform.N3DS
+                        R.id.action_platform_gba -> RomPlatform.GBA
+                        R.id.action_platform_switch -> RomPlatform.SWITCH
                         else -> null
                     }
                 )

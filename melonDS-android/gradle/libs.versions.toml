@@ -29,7 +29,6 @@ okHttp = "5.3.2"
 picasso = "2.71828"
 preference = "1.2.1"
 recyclerView = "1.4.0"
-retrofit = "3.0.0"
 room = "2.8.4"
 splashscreen = "1.2.0"
 startup = "1.2.0"
@@ -94,8 +93,6 @@ commons-compress = { module = "org.apache.commons:commons-compress", version.ref
 xz = { module = "org.tukaani:xz", version.ref = "xz" }
 
 # GitHub
-retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
-retrofit-converter-kotlinx = { module = "com.squareup.retrofit2:converter-kotlinx-serialization", version.ref = "retrofit" }
 
 # Ksp
 hilt-compiler = { module = "androidx.hilt:hilt-compiler", version.ref = "hiltX" }

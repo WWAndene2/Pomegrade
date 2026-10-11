@@ -1,7 +1,7 @@
 #ifndef GPU3D_PARITYORACLE_H
 #define GPU3D_PARITYORACLE_H
 
-// Parity oracle (Pomegrade, DS_ENGINE_REMAKE.md 5.6 and 5.12 step 6): the
+// Parity oracle (Pomegrade, docs/DS_ENGINE_REMAKE.md 5.6 and 5.12 step 6): the
 // frame a hardware renderer just drew is drawn again by the software
 // renderer, the reference for what the DS shows, and the two are compared
 // pixel by pixel at the DS resolution. Run by the inspector while it records;

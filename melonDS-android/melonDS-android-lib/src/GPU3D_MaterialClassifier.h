@@ -1,7 +1,7 @@
 #ifndef GPU3D_MATERIALCLASSIFIER_H
 #define GPU3D_MATERIALCLASSIFIER_H
 
-// Material classifier (Pomegrade, DS_ENGINE_REMAKE.md 7.1 and 5.12 step 7):
+// Material classifier (Pomegrade, docs/DS_ENGINE_REMAKE.md 7.1 and 5.12 step 7):
 // what a texture is (water, foliage, wood, stone...) from two of the
 // classifier's layers, with no learning:
 // - render state: translucent polygons, a scrolling texture matrix, a cut-out
@@ -92,7 +92,7 @@ public:
     static TextureStats ComputeStatistics(const u32* texels, u32 width, u32 height);
     static MaterialResult Vote(const TextureStats& stats, u32 texParam, const TextureEvidence& evidence);
 
-    // palette-index segmentation (DS_ENGINE_REMAKE.md 5.3): artists paint
+    // palette-index segmentation (docs/DS_ENGINE_REMAKE.md 5.3): artists paint
     // each material of a paletted texture with its own palette entries. The
     // entries the texture uses are grouped by colour (scaled to its brightest
     // channel: shading changes a material's lightness, not its colour), each

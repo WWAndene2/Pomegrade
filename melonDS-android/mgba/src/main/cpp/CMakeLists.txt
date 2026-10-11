@@ -1,0 +1,21 @@
+cmake_minimum_required(VERSION 3.22)
+project(pomegrade-gba C CXX)
+
+# mGBA's core alone (no frontend, no optional libraries): the GBA only, software rendering
+set(MGBA_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../../../../../mgba)
+set(LIBMGBA_ONLY ON CACHE BOOL "" FORCE)
+set(BUILD_STATIC ON CACHE BOOL "" FORCE)
+set(BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(M_CORE_GB OFF CACHE BOOL "" FORCE)
+set(M_CORE_GBA ON CACHE BOOL "" FORCE)
+set(ENABLE_SCRIPTING OFF CACHE BOOL "" FORCE)
+foreach(feature FFMPEG ZLIB PNG LIBZIP MINIZIP SQLITE3 ELF LZMA EDITLINE EPOXY LUA DISCORD_RPC)
+    set(USE_${feature} OFF CACHE BOOL "" FORCE)
+endforeach()
+add_subdirectory(${MGBA_ROOT} mgba EXCLUDE_FROM_ALL)
+
+add_library(pomegrade-gba SHARED GbaCore.cpp)
+target_link_libraries(pomegrade-gba mgba log)
+# mGBA's headers depend on the defines its library is built with (the cores, the features)
+get_target_property(MGBA_DEFINES mgba COMPILE_DEFINITIONS)
+target_compile_definitions(pomegrade-gba PRIVATE ${MGBA_DEFINES})

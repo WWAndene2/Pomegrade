@@ -1,7 +1,7 @@
 #ifndef GPU2D_SPRITELIMITINVERSION_H
 #define GPU2D_SPRITELIMITINVERSION_H
 
-// Sprite-limit inversion (Pomegrade, DS_ENGINE_REMAKE.md 5.5, 5.12 step 12):
+// Sprite-limit inversion (Pomegrade, docs/DS_ENGINE_REMAKE.md 5.5, 5.12 step 12):
 // the 2D engines draw at most 128 sprites and a limited number of sprite
 // pixels per scanline, so a game with more sprites than that shows a
 // different subset each frame (multiplexing), and they flicker. Fed one

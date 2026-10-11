@@ -1,7 +1,7 @@
 #ifndef GPU3D_OPENGL_MATERIALRELIEF_H
 #define GPU3D_OPENGL_MATERIALRELIEF_H
 
-// Relief by material (Pomegrade, DS_ENGINE_REMAKE.md 14.1 and 7.3): relief
+// Relief by material (Pomegrade, docs/DS_ENGINE_REMAKE.md 14.1 and 7.3): relief
 // textures read each texel's brightness as height, which suits stone and
 // wood but bumps painted skies, flat water and painted character shading.
 // Each texture the classic OpenGL renderer draws is classified once from its
@@ -32,7 +32,7 @@ public:
     // sceneryId: the frame's scenery polygon ID (MaterialClassifier::SceneryId)
     void BeginFrame(bool texturesChanged, int sceneryId);
     static constexpr u32 VolumetricGrass = 1 << 12, Fabric = 1 << 13;
-    // procedural surface (DS_ENGINE_REMAKE.md 16.1), bits 16-18 of Scale's
+    // procedural surface (docs/DS_ENGINE_REMAKE.md 16.1), bits 16-18 of Scale's
     // result, for the shader in the texture address attribute's bits 16-18:
     // the texture's smoothed colours with detail generated at any resolution
     // wood streaks only where the texture has a clear grain (Grain 0.3 or

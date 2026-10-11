@@ -143,16 +143,20 @@ std::vector<std::string> OrasWorkspace::LinkWarps()
                      h.Zone, h.Header, w.TileX, w.TileZ, w.DestHeader);
             log.push_back(line);
         }
-    // an interior belongs to the outdoor zone its warps lead out to, through other interiors if need be (a house's upstairs)
-    std::map<int, int> overworld;
-    for (const HeaderZone& h : HeaderZones) if (!h.Interior) overworld[h.Zone] = h.Zone;
+    // an interior belongs to the outdoor zone its warps lead out to, through other interiors if need be (a house's upstairs);
+    // its floor is how many interiors lie between: stairs to a higher one go up
+    std::map<int, int> overworld, floor;
+    for (const HeaderZone& h : HeaderZones) if (!h.Interior) { overworld[h.Zone] = h.Zone; floor[h.Zone] = -1; }
     for (bool grew = true; grew;)
     {
         grew = false;
         for (const HeaderZone& h : HeaderZones)
             if (!overworld.count(h.Zone))
                 for (const HeaderWarp* w : kept[h.Zone])
-                    if (overworld.count(byHeader.at(w->DestHeader)->Zone)) { overworld[h.Zone] = overworld.at(byHeader.at(w->DestHeader)->Zone); grew = true; break; }
+                {
+                    const int to = byHeader.at(w->DestHeader)->Zone;
+                    if (overworld.count(to)) { overworld[h.Zone] = overworld.at(to); floor[h.Zone] = floor.at(to) + 1; grew = true; break; }
+                }
     }
     Garc& zones = Edited("a/0/1/3");
     Bytes table = Plain(zones.Sub(536));
@@ -170,7 +174,11 @@ std::vector<std::string> OrasWorkspace::LinkWarps()
             for (size_t k = 0; k < theirs.size(); k++) if (theirs[k]->DestHeader == h.Header) { back = (int)k; break; }
             if (!h.Interior) zone.Doors.push_back(NewDoorWarp(to.Zone, back, w->TileX, w->TileZ));
             else if (!to.Interior) zone.Doors.push_back(NewExitWarp(to.Zone, back, w->TileX * 18 + 9, w->TileZ * 18 + 9));
-            else zone.Doors.push_back(NewStairsWarp(to.Zone, back, w->TileX, w->TileZ));
+            else
+            {
+                if (!floor.count(h.Zone) || !floor.count(to.Zone)) throw FormatError("stairs between interiors that lead out to no outdoor zone");
+                zone.Doors.push_back(NewStairsWarp(to.Zone, back, w->TileX, w->TileZ, w->Walk, floor.at(to.Zone) > floor.at(h.Zone)));
+            }
         }
         if (h.Interior)
         {

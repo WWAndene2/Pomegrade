@@ -2,7 +2,7 @@
 #define NDS_INSPECTOR_H
 
 // Inspector (Pomegrade): shows how a game draws, the first step of the DS
-// engine remake (DS_ENGINE_REMAKE.md, 5.2 and 5.12 step 1). While it is on:
+// engine remake (docs/DS_ENGINE_REMAKE.md, 5.2 and 5.12 step 1). While it is on:
 // - every 3D command carries its source through the geometry FIFO: the ARM9
 //   instruction that wrote it (call site), or, for a command DMA, the
 //   instruction that started the DMA and the display list it copies (address,
@@ -15,7 +15,7 @@
 // - per call site and texture: how texture coordinates are generated (none,
 //   from texcoords, normals: a fake reflection, positions: a projected
 //   texture) and whether the texture matrix moves from frame to frame (a
-//   scrolling texture: water, lava, conveyors) (DS_ENGINE_REMAKE.md 5.3);
+//   scrolling texture: water, lava, conveyors) (docs/DS_ENGINE_REMAKE.md 5.3);
 // - RAM-map discovery (5.2): the translations the game gives its matrices
 //   (MTX_TRANS, and the last row of loaded/multiplied matrices) are searched
 //   in main RAM as three consecutive words (x, y, z); the addresses found,

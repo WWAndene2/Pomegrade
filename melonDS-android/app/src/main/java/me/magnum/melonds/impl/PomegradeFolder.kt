@@ -27,8 +27,13 @@ import java.io.File
  * ```
  * Pomegrade/
  * ├── Roms/<game>/   each game's ROM, with its DS saves and save states next to it
- * ├── BIOS/          DS/DSi BIOS and firmware (when none was set up elsewhere)
- * └── 3DS/           the 3DS core's folder (Azahar: 3DS saves, save states, system files)
+ * ├── BIOS/          one folder per console:
+ * │   ├── DS/        bios7.bin, bios9.bin, firmware.bin (when no other DS BIOS folder was set)
+ * │   ├── DSi/       bios7.bin, bios9.bin, firmware.bin, nand.bin (likewise)
+ * │   ├── GBA/       gba_bios.bin (optional, mGBA's own BIOS otherwise)
+ * │   └── Switch/    prod.keys, title.keys, Firmware/ (see SwitchSystemFiles)
+ * ├── 3DS/           the 3DS core's folder (Azahar: 3DS saves, save states, system files)
+ * └── Switch/        the Switch core's NAND and SD card (Eden: Switch saves, updates, DLC; see SwitchFolder)
  * ```
  *
  * Games found in other ROM folders are moved into Roms, each into a folder named after its file.
@@ -48,7 +53,22 @@ class PomegradeFolder(
     companion object {
         const val ROMS = "Roms"
         const val BIOS = "BIOS"
+        // BIOS has one folder per console: the DS and DSi files have the same names (bios7.bin, bios9.bin,
+        // firmware.bin), so they can't share one
+        const val BIOS_DS = "DS"
+        const val BIOS_DSI = "DSi"
+        const val BIOS_GBA = "GBA"
+        const val BIOS_SWITCH = "Switch"
+        /** The owner's GBA BIOS, in BIOS/GBA. */
+        const val GBA_BIOS_FILE = "gba_bios.bin"
+        private val BIOS_CONSOLES = listOf(BIOS_DS, BIOS_DSI, BIOS_GBA, BIOS_SWITCH)
+        private val DS_BIOS_FILES = listOf("bios7.bin", "bios9.bin", "firmware.bin")
+        private val DSI_BIOS_FILES = DS_BIOS_FILES + "nand.bin"
+        // what tells a DS bios7.bin from a DSi one, as the BIOS checks do
+        private const val DS_BIOS7_SIZE = 0x4000L
+        private const val DSI_BIOS7_SIZE = 0x10000L
         const val N3DS = "3DS"
+        const val SWITCH = "Switch"
         const val TEXTURES = "Textures"
         const val SAVE_STATE_PREVIEWS = "Save state previews"
         // a copy of the settings, the game list (each game's settings, last played, play time),
@@ -60,6 +80,8 @@ class PomegradeFolder(
         private const val STORAGE_PROVIDER = "com.android.externalstorage.documents"
         // DS save states: <ROM name>.ml0 (quick save) to .ml10
         private const val SAVE_STATE_SLOTS = FileSystemSaveStatesRepository.SAVE_STATE_SLOT_COUNT
+        // GBA save states: <ROM name>.ss0 (quick save) to .ss9
+        private const val GBA_STATE_SLOTS = 10
 
         /**
          * Moving games by path, and the 3DS core (Azahar's standard build, which reads its folder by
@@ -178,13 +200,49 @@ class PomegradeFolder(
         val romsFolder = DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$ROMS")
         settingsRepository.includeRomSearchDirectory(romsFolder)
         settingsRepository.keepGameFilesNextToRom()
-        val bios = DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$BIOS")
-        if (settingsRepository.getDsBiosDirectory() == null) settingsRepository.setDsBiosDirectory(bios)
-        if (settingsRepository.getDsiBiosDirectory() == null) settingsRepository.setDsiBiosDirectory(bios)
+        organizeBios()
 
         setUpThreeDs()
         hideImagesFromGallery()
         return SetupResult.Success to organized
+    }
+
+    /**
+     * Creates BIOS's console folders and points the DS and DSi BIOS settings to BIOS/DS and BIOS/DSi, unless
+     * they point elsewhere. Earlier versions kept everything in BIOS itself: its DS or DSi files (told apart
+     * by bios7.bin's size) and gba_bios.bin move into their console's folder; a file already there is kept.
+     * Runs on a background thread, at setup and when the game list opens.
+     */
+    fun organizeBios() {
+        val folder = settingsRepository.getPomegradeFolder() ?: return
+        if (!hasFileAccess(context)) return
+        val treeId = DocumentsContract.getTreeDocumentId(folder)
+        val bios = pathOf("$treeId/$BIOS")
+        BIOS_CONSOLES.forEach { File(bios, it).mkdirs() }
+
+        val biosUri = DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$BIOS")
+        fun consoleUri(console: String) = DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$BIOS/$console")
+        val bios7Size = File(bios, "bios7.bin").takeIf { it.isFile }?.length()
+
+        val dsBios = settingsRepository.getDsBiosDirectory()
+        if (dsBios == null || dsBios == biosUri) {
+            if (bios7Size == DS_BIOS7_SIZE) moveInto(bios, BIOS_DS, DS_BIOS_FILES)
+            settingsRepository.setDsBiosDirectory(consoleUri(BIOS_DS))
+        }
+        val dsiBios = settingsRepository.getDsiBiosDirectory()
+        if (dsiBios == null || dsiBios == biosUri) {
+            if (bios7Size == DSI_BIOS7_SIZE) moveInto(bios, BIOS_DSI, DSI_BIOS_FILES)
+            settingsRepository.setDsiBiosDirectory(consoleUri(BIOS_DSI))
+        }
+        moveInto(bios, BIOS_GBA, listOf(GBA_BIOS_FILE))
+    }
+
+    private fun moveInto(bios: File, console: String, names: List<String>) {
+        for (name in names) {
+            val file = File(bios, name)
+            val target = File(File(bios, console), name)
+            if (file.isFile && !target.exists()) file.renameTo(target)
+        }
     }
 
     /** The folder path, or null if not set up. */
@@ -311,6 +369,14 @@ class PomegradeFolder(
             fileDirectory { settingsRepository.getSaveFileDirectory(rom) }?.let { companions.add(File(it, "$baseName.sav")) }
             fileDirectory { settingsRepository.getSaveStateDirectory(rom) }?.let { dir ->
                 for (slot in 0 until SAVE_STATE_SLOTS) companions.add(File(dir, "$baseName.ml$slot"))
+            }
+        } else if (rom.platform == RomPlatform.GBA) {
+            // the GBA screen keeps them next to the game (GbaEmulatorActivity): its save, its states and their previews
+            val dir = source.parentFile
+            companions.add(File(dir, "$baseName.sav"))
+            for (slot in 0 until GBA_STATE_SLOTS) {
+                companions.add(File(dir, "$baseName.ss$slot"))
+                companions.add(File(dir, "$baseName.ss$slot.png"))
             }
         }
 

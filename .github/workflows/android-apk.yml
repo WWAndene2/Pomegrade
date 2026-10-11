@@ -33,12 +33,13 @@ jobs:
       - name: Install NDK and CMake
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.0.13004108" "ndk;27.3.13750724" "cmake;3.22.1" "cmake;3.31.6" "platforms;android-36"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.0.13004108" "ndk;27.3.13750724" "ndk;28.2.13676358" "cmake;3.22.1" "cmake;3.31.6" "platforms;android-36"
 
       # Compilation cache: only the first build compiles all the C++ (~30 min on 4 cores),
       # later ones only recompile what changed
-      - name: Install ccache
-        run: sudo apt-get install -y -q ccache
+      # ccache; glslangValidator compiles the Switch core's shaders (eden/src/video_core/host_shaders)
+      - name: Install ccache and glslang
+        run: sudo apt-get install -y -q ccache glslang-tools
 
       - name: Restore ccache
         uses: actions/cache@v4
@@ -65,13 +66,13 @@ jobs:
           chmod +x ./gradlew
           ./gradlew --no-daemon \
             -Dorg.gradle.jvmargs=-Xmx6g -Pkotlin.daemon.jvmargs=-Xmx4g \
-            :app:assemblePlayStoreProdDebug
+            :app:assembleProdDebug
           ccache --show-stats
 
       # One file, downloaded as is: an exact path (with a wildcard, the folders after it are
       # kept inside the artifact, and build/intermediates holds a copy too) and no zip
       - name: Name the APK
-        run: cp app/build/outputs/apk/playStoreProd/debug/app-playStore-prod-debug.apk Pomegrade-debug-arm64.apk
+        run: cp app/build/outputs/apk/prod/debug/app-prod-debug.apk Pomegrade-debug-arm64.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v7

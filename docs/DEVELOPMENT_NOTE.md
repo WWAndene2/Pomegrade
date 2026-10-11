@@ -1,0 +1,196 @@
+# Development Note
+
+Roadmap of Pomegrade: what is left before a first usable version, what can be improved, what can be developed, and the plan for turning the merged apps into one product. Update it as items are done; the git history records when and how.
+
+## Where things stand
+
+Pomegrade is currently **two apps side by side in one APK**: melonDS-android (DS/DSi, with Pomegrade's HD texture replacement) and Azahar (3DS), joined by a single game list.
+
+| Done | Verified by |
+|---|---|
+| HD texture replacement for the OpenGL renderer | Desktop tests (`tests/hd-textures/`) |
+| Azahar (3DS) merged as the `:azahar` module | Local build |
+| Unified game list: DS, DSi and 3DS games, each launched in its own core | Local build, `RomPlatformTest` |
+| App renamed Pomegrade, own application ID (`io.github.wwandene2.pomegrade`) | APK inspection |
+| Pomegrade icon (adaptive, themed, legacy) | APK inspection |
+| CI: builds only on `main` and manual runs, ccache, only the needed 3DS target, optimized native code | Local clean build with the CI settings (27 min); no CI run yet |
+
+**Nothing has been run on a phone yet.** Every user-facing item above is untested on a device.
+
+## 1. Before a first usable version
+
+| # | Task | Why |
+|---|---|---|
+| 1 | Test on a real phone: DS, HD textures, 3DS | Only compilation and desktop tests are verified so far |
+| 2 | Release build: shrunk, signed | The CI debug APK (optimized native code) is 136.5 MB; release should be smaller, to be measured. Needs a signing key kept in GitHub Secrets, and R8 rules checked for Azahar's JNI classes |
+| 3 | Merge into `main` and run the GitHub build | CI only builds `main` |
+| 4 | README: 3DS section (formats, Android 10+, 64-bit only, encrypted games unsupported) | Documentation is out of date |
+| 5 | Licences: one notices screen (melonDS GPLv3, Azahar GPLv2+, stb, …) | Required by the GPL when distributing the APK. Partly done: the about screen names each project and licence and links the licence texts; the texts themselves are not bundled yet |
+| 6 | Nightly flavor: still has melonDS icons | Consistency (not used for now) |
+| 7 | Purge the git history of files that must not be public (the owner has the list) | The repository is public; planned once the APK works |
+
+## 2. Improvements to what exists
+
+The open items of the unified list, HD textures, native enhancements and performance are in the work list (below "Recommended order"); this section keeps what is done and how it was measured.
+
+**HD textures**
+- "DS engine on steroids": native enhancements done by the emulator itself (no AI, no hand-made assets, no post-processing of the final image). The game always sees the real DS behaviour; only what is drawn changes. All in Settings → Video, off by default, verified pixel-identical to the original engine when off. Desktop tests in `tests/polygon-multiplier/`. **None tried on real games or a phone yet.**
+
+  | Enhancement | Renderers | Status, measured on the desktop |
+  |---|---|---|
+  | Polygon multiplier (×4 to ×64): lit polygons subdivided on a curved surface and relit with the DS lighting | Software, OpenGL | Done. "PNhong" curves: per level, the measured best blend of Phong and circular PN (17% closer than either alone at ×9 and ×16, over six test models). No fixed cap (memory guard: 262144 extra polygons per frame) |
+  | Remove polygon limit: polygons the DS would drop are drawn | Software, OpenGL | Done. 3000-polygon scene: 1536 drawn → 3000 |
+  | High-precision geometry: sub-pixel vertex positions | OpenGL | Done. Frame-to-frame jitter of a rotating triangle 27.2 px → 3.0 px |
+  | High colour: 8-bit colour instead of the DS's 6 | OpenGL | Done. Lit sphere shading 50 → 184 colour levels |
+  | Better polygons (melonDS option, fewer seams at high resolution) | OpenGL | Exposed in the settings |
+  | OLED deep blacks: each scene's near-black shades become true black (threshold follows the scene's black level) | OpenGL | Done. Dark grey background → 000000, mid tones unchanged |
+  | Adaptive colours: levels and saturation adjusted to each scene, smoothed over ~0.5 s | OpenGL | Done. Washed-out scene: contrast ×1.25-1.5 depending on its black level; full-range scenes left alone |
+  | Texture upscaling ×2 to ×16: each texture magnified when loaded (MMPX pixel-art rules, same size on screen, no new colours) | OpenGL | Done. Diagonal line edge 7.5 px from the ideal → 3.5 (×2) → 1.5 (×4) → 0.67 (×8) → 0.28 (×16); identical to the MMPX reference code on 400 test images away from clamped texture edges, where the pattern is continued instead of repeated (the line's first texels used to stay blocky) |
+  | Texture filtering: colour filtered without mipmaps ("sharp bilinear" up close: texels keep their colour, only their edges are blended over one pixel; up to 4 samples along the footprint where a pixel spans several texels); the DS's nearest texel keeps deciding alpha | OpenGL | Done. Test texture: texel middles unchanged, each texel edge blended over one pixel (nearest: none), transparent texels cover the same pixels, 4 texels per pixel 9x closer to each pixel's texels than nearest (0.25 vs 2.25). Shimmer in motion not measured (stills only) |
+  | Pseudo ray tracing, step 1 - ambient occlusion: soft shadows in creases and under objects, from each opaque pixel's view-space position (screen-space, SAO estimator) | OpenGL | Done. Test scene: floor-wall crease 19% darker, contact shadow under a sphere 12-15% darker, open surfaces and 2D (orthographic) geometry unchanged, same at internal resolution ×2/×4 and with the multiplier. Display only: the game's display capture keeps the DS render |
+  | Pseudo ray tracing, step 2 - light bounce: lit surfaces light their surroundings with their colour (one diffuse bounce, from what is on screen) | OpenGL | Done. Grey floor in front of a lit red sphere 3-6% redder, floor-wall crease 3% brighter, open surfaces and 2D geometry unchanged. Screen-space: only surfaces the camera sees can send light |
+  | Pseudo ray tracing, step 3 - real-time shadows: opaque 3D geometry casts shadows from the scene's main light (shadow map from the light, fitted to the scene) | OpenGL | Done. Floor in a sphere's shadow x0.66, lit surfaces and 2D geometry unchanged. In the shadow, only the main light's share of the colour (its cosine on the surface, 60%) is taken away. Contact-hardening (PCSS): sharp where a shadow meets its caster, softer further away (light ~1 degree across, penumbra up to 12 shadow map texels); bar 0.1 above the floor: edge 0 pixels, 2.4 above: 3 (fixed 3x3 filter: 0 and 0) |
+  | Pseudo ray tracing, step 4 - reflections: surfaces reflect what is on screen (ray marched in view space, Fresnel; the game's specular colour makes a material shiny) | OpenGL | Done. Shiny floor in front of a red sphere: red/green x1.41; matte floor: x1.006; HUD untouched. Screen-space: what is off screen or hidden can't be reflected; reflections use facet normals (low-poly curved objects reflect in facets) |
+  | Frame generation (120 fps): an extra image between two DS frames, the 3D re-rendered with each polygon halfway between the frame shown and the next (which the DS has already rendered: no added latency); the display is asked for 120 Hz | OpenGL | Done (desktop tests; pacing untested on a phone). Moving sphere: generated frame within 0.35 px of halfway, 33x closer to a real halfway render than either frame. Limits: faces that turn towards or away from the camera between two frames shift silhouettes by about a pixel; 2D layers stay at 60; a game running at 30 fps gets no in-between images; scene cuts show the frame as is |
+
+  Geometry fidelity (local, per edge): curvature reduced where the normals don't match the geometry (e.g. spherical normals painted on a flat cel-shaded face: 28% less bulge), round shapes unchanged. Geometry fidelity from neighbours: an angular shape with smoothed normals (box, sharp chin) looks exactly like a rounded one from a single polygon, so the angle between the two faces of each edge decides (kept up to 55°, flat from 80°: a box's 90° edges stay sharp, a low-poly sphere's 36-45° keep their curve). Edges are recognised from frame to frame by their model positions; the angles found in a frame apply from the next one (a model's very first frame curves as before). Box with smoothed normals at ×16: bulge 67% → 0.1% of its half size, sphere unchanged, no cracks.
+
+  Lighting effects and how games draw: they light the opaque 3D only; translucent polygons (2D dialog boxes, water, smoke), fog and edge marking are drawn again over the lit image with the DS's own rules (dialog box within one 6-bit colour step of the scene lit behind it, full fog unchanged). Unlit polygons (painted-in lighting, skies) cast no shadow; reflections ignore surfaces facing away from the ray (no more floor reflecting itself in bands). The effects pause while a game captures its 3D every frame (3D on both screens, motion blur), which would otherwise flicker; they come back 30 frames after. Limits: cut-out sprites (A3I5/A5I3 textures) get no effects; a sprite very close in front of a flat backdrop gets a faint AO halo; a shiny floor can faintly reflect an object hidden in fog.
+
+  Known limits: the Compute renderer ignores all of these; where a multiplied polygon meets one that isn't (a faceted part, an unlit polygon, out of room), a crack can open on the first frame the two meet (from the second, the shared edge stays straight and unsubdivided: `tests/polygon-multiplier`, faceted ring between smooth ones, 153 background pixels through the sphere before, 0 after); extra polygons aren't kept in savestates (redrawn on the next frame).
+
+**Build**
+- Remove or fix the unused upstream workflows in `melonDS-android/.github/`.
+- Run the HD texture desktop tests in CI.
+
+## 3. New features
+
+- **120 fps** (DS, OpenGL renderer): done as "Frame generation", see the enhancement table.
+- **3DS picture options** (8 October, another session; untested on a phone): Settings > 3DS > Graphics, Picture: texture
+  filtering (anisotropic Off/2x/4x/8x/16x, OpenGL and Vulkan, default 16x); texture upscaling x2-x16 independent of the
+  internal resolution (the Texture Filter algorithm, xBRZ when None; each texture capped at 4096x4096); Lanczos-3 as a
+  Texture Filter algorithm (clamped to the 2x2 texels around each point: no ringing); Rich colours (present-shader
+  debanding, dithered to 8 bits); Deep black (scene-adaptive, the DS's OLED formula, read back asynchronously:
+  `video_core/pomegrade_scene_black`). Rich colours and Deep black apply to the built-in 2D present shader only.
+- **3DS red picture at boot fixed** (8 October; untested on a phone): with the stereo mode stored as Anaglyph and 3D off
+  (3D display "None"), OpenGL loaded the anaglyph shader at boot and showed only the red eye until the settings were
+  applied again; the first frame now reloads the shader for the mode drawn (`renderer_opengl.cpp`).
+- **3DS frame rate modes** (8 October; written, untested on a phone): Settings > 3DS > Graphics > Frame rate: 30 (one
+  distinct image in two shown), 60 (as before), 60 smooth (an image generated between the two of a 30 fps game: Omega
+  Ruby's field runs at 30, run `seq2`), 120, 240 (generated images, the screen asked for that rate) and adaptive (the most
+  the screen shows, 60 while Android reports the phone hot). Generated images are interpolated between the last two
+  distinct images (`video_core/frame_generation.cpp`: motion found on a 1/8 image with a sub-texel fit, A and B moved
+  along it and blended, the nearer image where they disagree), in Vulkan's presentation thread (`vk_frame_generation`,
+  paced by FIFO presentation) and in OpenGL's (`gl_frame_generation`, at each screen refresh). What it costs: about one
+  distinct image of delay (17 ms at 60, 33 at 30); artefacts possible at object edges. Needs "Skip presenting duplicate
+  frames" (on by default) and vsync (on by default). Verified: the shaders compile for Vulkan and GLSL ES 3.20 (glslc);
+  the APK build. Not verified: how it looks and what it costs on a phone.
+- **Analogue movement** (DS, per game): a game's D-pad movement code is patched to read the stick's exact direction (Pomegrade-only register, patch written only over the game's original instructions); the touch D-pad becomes a joystick and gamepad sticks are read as analogue (setting "Analogue movement"). Done for Dragon Quest Monsters: Joker (Europe, AJRP): direction only, normal walking speed; checked in the game on desktop, untested on a phone. Next: tilt for walking speed; other games (each needs that game's code reverse-engineered).
+- **Rewind and save states** shared by all consoles.
+- **Online play**: melonDS has early support; Azahar has none on Android.
+- **Cloud saves** (Google Drive) for all consoles.
+- **Cheats**: Action Replay (DS) and Gateway (3DS) in one format and one screen.
+- **RetroAchievements** for 3DS (melonDS already supports it).
+- **Controllers**: one mapping for all consoles.
+- **GBA**: an mGBA core would complete the Nintendo handheld family.
+
+## 3b. DS engine remake
+
+Design: `docs/DS_ENGINE_REMAKE.md` (the owner's notes). Its step 1 (5.12, "logging and quick looks") is in progress:
+
+- **Inspector** (DS, in-game menu > Inspector): done, desktop-tested (`tests/inspector/`: interpreter and x86-64 JIT, real ARM code), not compiled for Android nor tried on a phone. Records which ARM9 instruction (call site) or command DMA (display list: address, length, content hash) drew each polygon, the polygon IDs, the 3D command trace with matrix stack operations, and the cartridge files read (NitroFS names); colours the 3D by polygon ID, call site or display list (OpenGL renderer); saves a text report to `Pomegrade/Inspector/`. With the JIT on, ARM9 stores record their address (one extra write per store, only while the inspector is on); the ARM64 JIT change mirrors the tested x86-64 one but is untested.
+- Step 2 (texgen detection, decal ordering): done, desktop-tested, not tried on a phone.
+  - Decals ("depth test equal" polygons) in the OpenGL renderer. Measured on a floor in perspective (`tests/decals/`, against the software renderer): without high precision, OpenGL drew 0 of the 770 decal pixels the DS draws (Z-buffer) and 115 of 4418 (W-buffer). Two causes, both fixed: vertices rounded to whole output pixels kept their exact depth, so a floor and its decal got different depth planes on screen (now each vertex gets its polygon's depth at its rounded position, Z-buffer mode); and the DS margin (0x200 / 0xFF) was not applied (now the near half is, in the shaders). After: no reference pixel missing at x1 and x4, with and without high precision. Limit: a depth-equal polygon more than the margin in front of what is behind it still draws (as before).
+  - Texgen detection: the inspector report lists, per call site and texture, polygons by texgen mode (normal = fake reflection, position = projected texture) and textures whose matrix scrolls from frame to frame.
+- First look at Dragon Quest Monsters: Joker (EU), from a save state of a harbour scene rendered on the desktop (no ROM: a few frames run from RAM):
+  - 779 of 790 polygons are drawn through one routine in ITCM (01FF847C), the one that starts each display-list DMA: the call site alone names the library, not the game code. Display lists identify models (125 in the frame, up to 36 polygons each). Next for the inspector: the caller of that routine (return address), as section 7D anticipates.
+  - W-buffer; no depth-equal decals; shadows are DS shadow volumes (36 polygons); 45 translucent polygons; 6 polygon IDs in use; textures by texcoord only (no fake reflections, nothing scrolling in this scene).
+  - Software and OpenGL renders match apart from texel sampling noise and polygon edges (known upstream differences).
+  - Callers (the inspector now records LR at each store): the DMA routine (01FF847C) is called from 01FF8460, also ITCM. Joker queues display lists in a buffer that an SDK routine empties later, so no call stack names the game function that drew a model; the display list (and its RAM address, 0228xxxx-022Dxxxx: loaded model data) is the identity. The 11 directly written polygons (020095A4) are called from game code (02029338).
+  - "Better polygons" on phones: textures swirled into the centre of quads with negative texture coordinates (17 of 207 quads in the scene); fixed (float to unsigned conversion, wrapped on x86, clamped on ARM64).
+- Palette-index histograms (end of step 1): done; on Joker's scene the 256-colour textures are colour ramps (nearly every index used), so per-index material masks suit only small few-colour textures.
+- Next: tie display lists to the files they were loaded from (cartridge reads to RAM addresses, section 5.2), which needs the ROM in the session; then step 3 (RAM-map discovery), which a save state is enough to start.
+
+## 3c. Pokemon Platinum remake in Omega Ruby
+
+**On hold (owner's decision, 9 October)**: the Sinnoh remake is paused; the active remake project is Delta Emerald (`docs/Delta_Emerald_Development.md`). Where R4 stopped: `tools/remake/SINNOH_BUILD.md` section 4.
+
+**Code trace (3DS, debug; 6 October, not compiled for Android, untested on a phone)**: Settings > 3DS > Record a code trace. While a 3DS game runs, Azahar keeps the last 131,072 kernel calls and service requests (thread, PC, LR, first words), the files and archives opened, the code modules loaded, and every game thread 4 times a second (state, PC, LR, SP, code addresses on its stack); written to `Pomegrade/3DS/Traces/<program id>_<date>/` (calls.txt, files_and_modules.txt, threads.txt, summary.txt) when the game stops and every 30 seconds (`azahar/src/core/pomegrade_code_trace.h`). Made to see where a mod freezes the game (Route 201) on the phone.
+
+**Goal (owner's words): a remake, not a remaster.** Sinnoh rebuilt in Omega Ruby / Alpha Sapphire's engine with ORAS's own assets and models, played in Azahar with all of ORAS's features and gameplay, as an ORAS mod (LayeredFS). Kept from Platinum: the world's layout, story, trainers, wild Pokemon, texts. Not wanted: Platinum's own geometry or models re-textured. Tooling: `tools/remake/` (desktop C++, no dependencies), tests `tests/remake/`, editor `tools/remake/editor/world_editor.html`. The owner's dumps (French Platinum CPUF, Omega Ruby Europe decrypted) are never committed.
+
+Done (desktop-tested on the real files; in the game so far two phone tests: an area pack (a/0/1/4) rebuilt by these tools with Route 101's textures recoloured loads and shows in Pomegrade; a BPS patch of Route 101's tiles applies and changes its collision and encounters):
+- Platinum read: cartridge, NARC, LZ, textures, models to glTF, map matrix, land data, map headers (found in ARM9), zone events (warps), area data. Two layout errors fixed on the real ROM (dictionaries; buildings are in tiles).
+- Scale, measured: Platinum 32x32-tile pieces, a tile 16 units; ORAS 40x40-tile pieces, a tile 18 units (piece spans -360..360). `remake_tool oras-world` re-cuts Sinnoh into ORAS pieces (24x24) with its tiles, buildings and warps: `world_oras.json`, the editor's file.
+- ORAS read and written: decrypted .3ds RomFS (`oras-list`, `oras-extract`), GARC and its "mini" containers rewritten byte-identical, LZ11 compression, mod folders as Azahar loads them (`oras-mod`: `load/mods/000400000011C400/romfs/`, whole files; `oras-patch`: BPS patches in `romfs_ext/`, checked against Azahar's own applier: a changed map piece makes a 180 KB patch instead of the 108 MB archive). 3D models (BCH) with their textures (`remake_tool bch`); a model's meshes given new geometry in the game's own vertex formats (`BchWriter.h`: all 14,456 meshes of the 953 map-piece models rewritten and read back identical; not yet loaded in the game).
+- Where ORAS keeps things: a/0/3/9 map pieces (GR: tiles, terrain model, collision "coll", ...); a/0/4/0 map matrices (MM); a/0/1/4 area packs (AD: an area's textures: ground, Pokemon Center, houses; one area holds all of a piece's textures); a/0/2/3 building and prop models (BM); a/0/2/1 characters (MM); a/0/3/2 effects; a/2/6/7 tall grass. Texture names say what they are (chip_kusa grass, chip_sea, chip_wood trees, gake cliffs, pokecen01).
+- ORAS's tile grid (GR part 0: a 4-byte header, 40x40 32-bit values) drives collision and wild encounters, with the terrain model unchanged (phone test 1: Route 101, a/0/3/9 piece 5). Values seen working (phone tests 1-2, Route 101): walkable with no effect 0x00000020, 0x00000004, 0x24000024, 0x00000030, 0x00000060, 0x0a00b000; blocks movement 0x01000021, 0x3d1a0006 and 0x411a0006 (the sea's values: water without Surf), 0x951a0002, 0xd40e0001, 0x40180023 (crossed from the south only: maybe a ledge); encounters 0x20004004 (Route 101's own Pokemon), 0x27005004 (every time a shiny Bulbasaur holding a Mega Stone: likely an encounter table Route 101 lacks); 0x070aa020 walkable with a water splash under the feet (puddle). Tall grass seen on screen is not a tile: each piece's second model (GR part 5) has meshes enc_grass_NNNN.
+
+One command builds the Twinleaf test mod from the two game images (`remake_tool oras-town`, usage in `tools/remake/prototype/README.md`): `TerrainScan` (what Platinum shows over each half tile: materials and colour), `TownLayout` (roles by texture name, flower beds inside fences, paths by sand colour, collision from the permissions, doors from the zone's warps), `TownBuilder` (the ORAS piece from a donor piece's models and materials), `OrasTown` (zone warps, BPS patches checked by applying them back, glTF preview). It matched the prototype's piece byte for byte until the design rules changed it (door models at scale 1, trees within 2 tiles of open ground) and takes 17 s. Desktop tests: `tests/remake/remake_town_test.cpp` (classification). The ground is Littleroot's own grass (the first town's): its textures (`chip_kusa_a`, `chip_kusa_b`, `chip_grass_edge`) are added to the donor area pack's main texture file under their own names (`BchWriteTextureFile`, which reproduces all 439 texture files of the game byte for byte; no existing texture of the pack is touched, so the area's other pieces keep theirs), the ground's materials are pointed at them, and the ground takes Littleroot's vertex colours (the brighter half of its main grass's, the rest being shaded under trees). It also lays Littleroot's grass details, measured on its own piece: a blade outline (chip_alpha) on the border of the lighter patches and of the paths, centred on it (4.5 units into the zone, 4.5 out), its tips towards the zone as in the game's screenshot (jagged grass edge running onto the sand and the patches), on tile-stepped shapes as ORAS cuts them (`TownShapes`/`StairZone`, ORAS_LITTLEROOT.md 9d: whole tiles, square corners, a small fixed jitter; the same border gives the fill and the strip), a rim (chip_edge_tex, the grass-edge texture projected by the material) where walkable ground meets the solid forest, and a few loose decals (bare earth, flowers) on plain open grass; the rim is cut from the same lattice, with the forest's convex tips cut by one-tile arcs, and the preview cannot show the projected texture or the lighting. Limits: the donor's mesh numbers and tile boxes (Petalburg's piece) are measured values, another donor needs them measured again; the zone has 3 warps for 4 doors (the fourth has none, and all keep Littleroot's destinations); ponds are at tile precision; a texture with no role is reported and treated as grass (add it to `TownLayout.cpp`); the patches are checked by this tool's applier, not yet by Azahar's own (and `ReplaceMember` refuses a member that is not the container it should be: the first phone run of this tool crashed at the field's start because the zone member was compressed twice), and nothing of it has run on a phone since the move from the prototypes.
+
+Handover and start point for the next agent: **section 0 of `tools/remake/ORAS_ENGINE.md`** (the engine's decomposition: the owner's seven objectives and where each stands, setting up a session that runs and reads the game itself, how a limit is lifted, the pitfalls met); section 0 of `tools/remake/ORAS_LITTLEROOT.md` for the mods built on the Remake mod workflow and the phone test protocol. Reference for how ORAS holds a town, from Littleroot (zone, map piece, area pack, text, engine facts, what is still unknown): `tools/remake/ORAS_LITTLEROOT.md`; `remake_tool oras-inspect <oras.3ds> zone|piece|area <index>` prints any of them. `remake_tool oras-verify <oras.3ds>` replays the checks against the game (439 of 439 texture files rewritten identically, 536 of 536 zones, 857 of 857 pieces) and `oras-catalog` indexes every piece and area pack. Checked on the real files: all 536 zone containers read exactly, their 1072 scripts have valid Pawn headers; Littleroot's own meshes and area pack 8 hold every texture a town of its kind needs.
+
+Not known yet (needed to put anything in the game): ORAS's other tile values and the meaning of their bits, what its collision block ("coll") is for, its zone data (pk3DS: "not researched enough"), its scripts; whether the game has room for map pieces much larger than its own.
+
+Hoenn stays (owner's decision): at a new game the player picks one of two separate stories, Hoenn (ORAS as it is) or Sinnoh (the remake); a save holds one. Later goal: both regions in one world. So Sinnoh's maps, zones and scripts are added next to Hoenn's, not over them, and the new-game choice is a patch of the game's code: Azahar applies code.ips / code.bps from the mod folder (load/mods/<program id>/exefs/, ncch_container.cpp), beside the romfs/ replacements. Checked since (7 October, `ORAS_ENGINE.md` 2 and 4): the code bounds zones at 536, lifted to 1024 by `oras-engine` (new zones from archive member 538); the application memory, heaps and characters per zone are raised the same way; a zone's events stay under 0xC84 bytes (a save-data buffer).
+
+Whole regions: `remake_tool oras-region` rebuilds a rectangle of Sinnoh (cut on `oras-world`'s grid) as a new ORAS matrix of new pieces, each Platinum map header on a reused ORAS zone (written before the zone limit was lifted: new zones from 538 are next, `ORAS_ENGINE.md` 0); mod `r1` (Twinleaf and Route 201, no trees yet: tree-heavy pieces exceed the size seen to show) is built, not run on the phone. Target for entering Sinnoh (owner): a Hoenn / Sinnoh choice before a new game, a code patch not located yet.
+
+Next, agreed with the owner: a playable slice first (Twinleaf Town, Route 201, Sandgem Town in ORAS, reached by choosing Sinnoh at a new game), then the rest of Sinnoh:
+1. Decode ORAS's map data with small test mods run on the owner's phone (nothing here runs ORAS).
+2. Write BCH models.
+3. Generate ORAS-style terrain from Platinum's layout; place ORAS buildings, trees, characters; new models for Sinnoh landmarks ORAS lacks.
+4. Warps, interiors, people, the story's start (scripts), trainers, wild Pokemon.
+
+**Asset customization (owner's request, 6 October; not started)**: Pokemon, characters, buildings and props, map terrain from X/Y first, then Sun/Moon and Sword/Shield, brought into ORAS and modified on the owner's instructions. The owner cannot edit models on the phone: the tooling is commands that Claude runs on the Remake mod workflow, showing rendered previews before building a mod zip. Steps: read a game's models (textures, skeleton, animations); modify (recolour, replace textures, resize, swap or merge parts, retarget animations); check against ORAS's limits (polygons, bones per mesh, texture sizes and formats, materials) with a report before writing; preview; write through `BchWriter` and `ReplaceMember`. Compatibility as known: X/Y share ORAS's engine (GARC, BCH, GF motions) but an earlier BCH version (the writer takes version 0x21 only); Sun/Moon share the GPU with other containers and shaders (SPICA reads them); Sword/Shield (Switch) need polygon reduction, texture re-encoding and fewer bones. Needs: the owner's X or Y dump on the Drive (a secret like `ORAS_DRIVE_ID`).
+
+## 4. One coherent app
+
+Today each core keeps its own settings, screens, visual style and file storage. Target architecture:
+
+```
+Pomegrade
+├── Shared interface
+│   ├── Library: every game, one list, one style (Compose)
+│   ├── Settings: general + per console + per game
+│   ├── Emulation screen: shared on-screen controls, menu, save states
+│   └── Controls, cheats, achievements, saves: one module each
+├── Core interface: one contract
+│   └── load game / run a frame / video / audio / input / save state
+└── Cores (plugins)
+    ├── melonDS (DS / DSi)
+    ├── Azahar (3DS)
+    └── later: mGBA (GBA), …
+```
+
+Steps, from least to most work:
+
+1. **Unified storage**: done (untested on a phone). One folder picked once, `Pomegrade/{Roms/<game>/, BIOS, 3DS}`: each game moved into its own folder with its DS save and save states, DS/DSi BIOS (when none was set elsewhere), Azahar's folder. Asks for "All files access" (moving by path; Azahar's standard build needs it too). Not moved yet: HD textures (still in `Android/data/<app>/files/textures`), an Azahar folder set up before elsewhere.
+2. **Unified settings**: first part done (untested on a phone). One settings screen in three sections: Pomegrade (the Pomegrade folder, settings saved in it, General), DS (melonDS's categories), 3DS (each entry opens that section of Azahar's settings, which keep their own look and their config file in Pomegrade/3DS). Settings, controls, layouts and the game list (each game's settings, play time) are saved automatically in Pomegrade/Settings and offered back when a Pomegrade folder used before is set up again (after a reinstall). Next: Azahar's settings drawn as Pomegrade settings.
+3. **Core interface**: a common contract, with melonDS and Azahar adapted to it — the largest piece of work. Same idea as RetroArch's libretro, tailored to Android.
+4. **Single emulation screen**: first part done (not compiled, untested on a phone). Both screens use the `:emulator-ui` module: Azahar's in-game menu (a drawer, same entries, order, icons and Pomegrade colours on both consoles; DS opens it by pausing), one save state dialog (quick slot + slots 1-10 on both; DS shows screenshots), and the DS on-screen buttons drawn with Azahar's artwork. Each core still runs in its own activity. Next: the core interface (step 3), then one activity; DS on-screen control options in the menu; the menu's titles translated (English only, Azahar's were translated).
+5. **One visual identity**: done (not compiled, untested on a phone). Pomegranate palette from the icon on the app, the 3DS screens (Azahar's red theme, now its default) and the in-game menu; splash and notification icon; about screen crediting melonDS, melonDS-android, Azahar and the libraries, with their licences.
+
+Steps 1–2 take a few work sessions; steps 3–4 are a major rebuild measured in weeks, with full re-testing on a phone after each step.
+
+## Recommended order
+
+1. Section 1, for a stable, tested version.
+2. Steps 1–2 of section 4 (storage and settings), the most visible improvement day to day.
+3. Then decide on the core interface and single emulation screen, once the base has been tested on a phone.
+
+## Work list, step by step (owner's list, 6 October 2026)
+
+Done one step at a time, in this order; each step is ticked here when done, with how it was verified.
+
+1. **Done (6 October): LayeredFS mods, a BPS patch that makes a file shorter.** Azahar's applier grew the buffer for a longer target but never cut it for a shorter one: the file kept the original's size, zero-filled past the target's end. `ApplyBpsPatch` (`azahar/src/core/file_sys/patch.cpp`) now cuts it to the target's size. Verified with Azahar's own `patch.cpp` (`tools/remake/prototype/azahar_check/bps_check`): a 5000 to 3000-byte patch came out 5000 bytes before, 3000 and identical after; growing, same-size and corrupt patches unchanged. APK not rebuilt here (no Android SDK in the container), untested on a phone. The remake tools' workarounds (`oras-region` ships a shorter archive whole under `romfs/`, `oras-copy` pads) stay for older builds.
+2. **Software renderer: crashes reading some textures** (seen in the `Remake mod` workflow's headless runs: SIGSEGV in `LookupTexelInTile` from `TextureColor` at the title screen's exit; worked around on the runner only by reading no texel, `tools/remake/headless/patch_core.py`). To fix in Azahar itself, for phones without a good GPU.
+3. **Done, not compiled, untested on a phone (6 October): mods installed in one gesture.** Settings > 3DS > Install a mod: pick a zip; what it holds is shown first (the games it mods, and a warning when it brings a save, which replaces the current one); on Install, each game's previous mod (`load/mods/<program id>`) is deleted, then `load/mods` and `sdmc` are extracted into the 3DS core's folder (`impl/ModInstaller.kt`; a zip of the mod's folder works too; entries elsewhere, and names leaving the folder, are skipped). `ModInstallerTest` passes (run off Android, the JVM part only). Not done: a backup of the save it replaces; opening a zip from a file manager (Open with Pomegrade).
+4. **Game list**: already in the code, found on 6 October (untested on a phone): real title and icon of 3DS games, read with Azahar's GameInfo while the list is scanned and cached with the other icons (`N3dsRomFileProcessor`, `RomIconProvider`); filter by console (`action_platform_filter`, saved in the settings). Done 6 October, not compiled, untested on a phone: home-screen shortcuts for 3DS games (the picker lists them on 64-bit devices; the shortcut opens Azahar's EmulationActivity as Azahar's own shortcuts do). Left: `.cia` installation from the main list (today: Azahar's "3DS games" screen); installed titles live in the 3DS core's memory, not in a ROM folder, so the main list does not show them yet.
+5. **HD textures**: background loading done (6 October; desktop-tested, untested on a phone): a replacement file is decoded on a worker thread (`TextureReplacement`, `Background`, on in the app), the texture shows at native resolution until it is read, both renderers then look it up again (`tests/hd-textures`: first frame native, the next ones identical to the synchronous load; ThreadSanitizer clean). Already in the code, found on 6 October: filtering of HD textures (Settings > Video > Texture filtering, OpenGL renderer: the filter reads the HD atlas at its scale); packs read from `Pomegrade/Textures/<game code>/`, which any file manager reaches (no more `Android/data`; the README still says `Android/data`). Left: one pack format for DS and 3DS (Azahar already supports custom textures); DS 2D graphics replacement (menus, sprites: a separate engine in melonDS).
+6. **Native DS enhancements** ("DS engine on steroids", all done on the desktop, never tried on a phone): the multiplier's cracks where a multiplied polygon meets one that isn't: done 6 October from the second frame (desktop-tested). Left: try them on real games (the owner's phone); native texture smoothing (mipmaps); extend them to Azahar's 3DS engine.
+7. **120 fps for the 3DS** (done for the DS: frame generation).
+8. **Performance and size**: measure the APK library by library and drop what neither core needs (e.g. `libSPIRV-Tools-shared.so`, 5.7 MB); one copy of the libraries both cores ship (zstd, xxhash, fmt, …); device profiles (renderer and resolution chosen from the phone).
+9. **DS Inspector**: compile it for Android; tie display lists to the cartridge files they were loaded from (section 3b).
+10. **One coherent app** (major work, section 4): unified storage done, untested; unified settings, first part done; core interface, one contract for melonDS and Azahar (the largest piece, weeks of work); single emulation screen, first part done, not compiled; visual identity done, not compiled.
+11. **Remaster baked into a pack** (owner's request, 9 October): the Remaster (V1) is too heavy to path-trace live on a phone, so its light is pre-rendered once for the whole ORAS map and shared as a pack anyone can install, the way HD texture packs are (no map built first: the game's own map pieces are baked). Light stored per vertex of each map piece; sky light, occlusion and bounce baked once, the sun's shadows for each of the 8 slots of the 3-hour table and blended live; few rays, then denoised. Baked here in the cloud container (estimate, not measured: minutes for Littleroot, 1-3 hours for Hoenn on a CPU; a rented GPU if too slow). Pack: one zip (e.g. `ORAS_Remaster_V1.zip`) holding the light per piece, each piece matched to the game's by a hash, and an info file (game version, pack version); Pomegrade applies it when the game draws a piece, the cheap colour effects and the characters' light staying live. Holds light values and hashes only, no game models or textures. Order: Littleroot first (count its pieces, settle the format, test the look and speed on the phone), then all of Hoenn, published on GitHub Releases. To check: how many triangles Littleroot's pieces have (vertex light detail), which ORAS releases the hashes match, re-baking pieces a remake edit changes.

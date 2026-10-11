@@ -76,7 +76,6 @@ class GeneralPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentT
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         setPreferencesFromResource(R.xml.pref_general, rootKey)
-        addPreferencesFromResource(R.xml.pref_general_updates)
 
         rewindPreference = findPreference("enable_rewind")!!
         val sustainedPerformancePreference = findPreference<SwitchPreference>("enable_sustained_performance")!!

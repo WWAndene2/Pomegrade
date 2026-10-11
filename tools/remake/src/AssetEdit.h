@@ -1,7 +1,7 @@
 #ifndef REMAKE_ASSETEDIT_H
 #define REMAKE_ASSETEDIT_H
 
-// Asset customization: a model's textures changed on the owner's instructions (DEVELOPMENT_NOTE.md 3c,
+// Asset customization: a model's textures changed on the owner's instructions (docs/DEVELOPMENT_NOTE.md 3c,
 // "Asset customization"), the edits done by Claude through remake_tool oras-asset.
 //
 // A BCH model file keeps its textures' data unrelocated (BchTexture::DataOffset), so an edited texture

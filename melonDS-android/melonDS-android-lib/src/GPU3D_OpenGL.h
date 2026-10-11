@@ -47,7 +47,7 @@ public:
     // Pomegrade: smooth texture filtering, colour only (see TextureLookup_Filtered)
     void SetTextureFilter(bool enable) noexcept { ShaderConfig.uTextureFilter = enable ? 1 : 0; }
     // Relief textures (Pomegrade): 0 off, 1 subtle, 2 strong, 3 stylised (strong, and the
-    // scene redrawn in flat colours and soft painted light) (DS_ENGINE_REMAKE.md 14.1, 15.2)
+    // scene redrawn in flat colours and soft painted light) (docs/DS_ENGINE_REMAKE.md 14.1, 15.2)
     // The relief code is compiled into the polygon shaders only while relief is
     // on: turning it on or off rebuilds them (GL context current)
     void SetRelief(int level) noexcept;

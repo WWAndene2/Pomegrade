@@ -65,19 +65,10 @@ android {
         }
     }
 
-    flavorDimensions.add("version")
+    // melonDS's Play Store and GitHub versions are gone: Punica has one version, with no update check
+    // (owner's decision, 11 October: nothing tied to an app store)
     flavorDimensions.add("build")
     productFlavors {
-        create("playStore") {
-            dimension = "version"
-            versionNameSuffix = " PS"
-        }
-        create("gitHub") {
-            dimension = "version"
-            isDefault = true
-            versionNameSuffix = " GH"
-        }
-
         create("prod") {
             dimension = "build"
             isDefault = true
@@ -116,13 +107,15 @@ kotlin {
 }
 
 dependencies {
-    val gitHubImplementation by configurations
-
     implementation(projects.masterswitch)
     implementation(projects.rcheevosApi)
     implementation(projects.common)
     // 3DS core (Azahar)
     implementation(projects.azahar)
+    // GBA core (mGBA) and its emulation screen
+    implementation(projects.mgba)
+    // Switch core (Eden)
+    implementation(projects.eden)
     implementation(projects.emulatorUi)
 
     implementation(libs.androidx.activity)
@@ -172,9 +165,6 @@ dependencies {
     implementation(libs.markwon.linkify)
     implementation(libs.commons.compress)
     implementation(libs.xz)
-
-    gitHubImplementation(libs.retrofit)
-    gitHubImplementation(libs.retrofit.converter.kotlinx)
 
     ksp(libs.hilt.compiler)
     ksp(libs.hilt.compiler.android)

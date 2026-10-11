@@ -40,7 +40,7 @@ This project defines no skills of its own yet. The Claude Code skills below are 
 | Security review | `/security-review` | Any change to file access (SAF, `Android/data`), network code, signing or the CI workflow's secrets |
 | Broad app-wide audit | `anthropic-skills:app-audit` | Before a release, and as the ~50-commit maintenance pass (§4.9) |
 | Visual/aesthetic audit | `anthropic-skills:design-aesthetic-audit` | Any change to Pomegrade's own screens, theme or icon |
-| Scope/ambiguity resolution | `anthropic-skills:scope-context` | A request phrased as "all X" / "every Y" across the three codebases (app, melonDS core, Azahar) |
+| Scope/ambiguity resolution | `anthropic-skills:scope-context` | A request phrased as "all X" / "every Y" across the five codebases (app, melonDS core, Azahar, mGBA, Eden) |
 
 **How this interacts with the rest of this document:**
 - Any maintenance cadence defined elsewhere in this document (e.g. §4's "every ~50 commits") is a *floor*, not the only trigger — a listed skill should run sooner whenever its specific trigger condition is hit mid-task.
@@ -83,7 +83,7 @@ The rest of this section makes that mandate concrete: where a new file or folder
 
 Every codebase should be organized by **purpose**, not by file type. Before creating anything, classify what you're building against this table and place it in the matching existing directory — never guess, and never default to wherever feels adjacent to the thing you're already touching.
 
-Pomegrade is three codebases in one Gradle build, rooted at `melonDS-android/` (the Android app and build), with the 3DS core imported beside it:
+Pomegrade (shown to users as Punica) is five codebases in one Gradle build, rooted at `melonDS-android/` (the Android app and build), with the 3DS, GBA and Switch cores imported beside it:
 
 | Purpose | Location |
 |---|---|
@@ -92,6 +92,10 @@ Pomegrade is three codebases in one Gradle build, rooted at `melonDS-android/` (
 | DS/DSi emulator core, including HD texture replacement (C++) | `melonDS-android/melonDS-android-lib/src/` |
 | 3DS core sources (Azahar, C++ and its Android frontend) | `azahar/` — consumed by the `:azahar` Gradle module |
 | `:azahar` Gradle module definition (manifest, build script) | `melonDS-android/azahar/` |
+| GBA core sources (mGBA 0.10.5, C, upstream as released minus its `cinema/` test videos; no Android frontend of its own) | `mgba/` — built by the `:mgba` Gradle module |
+| Switch core sources (Eden v0.2.1, C++ and its Android frontend; its native dependencies are fetched by CMake (CPM) into the ignored `eden/.cache/`) | `eden/` — consumed by the `:eden` Gradle module |
+| `:eden` Gradle module definition (build script; manifest and sources are Eden's own, under `eden/src/android/app/src/main`) | `melonDS-android/eden/` |
+| `:mgba` Gradle module: its build, the JNI bridge (`src/main/cpp/GbaCore.cpp`) and Pomegrade's GBA emulation screen (Kotlin, package `io.github.wwandene2.pomegrade.gba`) | `melonDS-android/mgba/` |
 | Emulation screen UI shared by both cores: in-game menu, its theme, save state dialog (Kotlin, package `io.github.wwandene2.pomegrade.emulatorui`) | `melonDS-android/emulator-ui/` (`:emulator-ui`) |
 | Build configuration shared by modules (`AppConfig`) | `melonDS-android/buildSrc/src/main/kotlin/` |
 | CI workflows | `.github/workflows/` |
@@ -101,7 +105,10 @@ Pomegrade is three codebases in one Gradle build, rooted at `melonDS-android/` (
 | Android instrumented tests | `melonDS-android/app/src/androidTest/java/`, same mirroring |
 | Desktop tests of the DS core (CMake, no Android), one folder per feature | `tests/<feature>/` (`hd-textures/`, `polygon-multiplier/`) |
 | Golden/reference fixtures a test compares against | A `fixtures/` directory beside the tests that use them |
-| Project-wide documentation | Root: `README.md` (users), `CLAUDE.md` (rules), `DEVELOPMENT_NOTE.md` (roadmap), `DS_ENGINE_REMAKE.md` (design of the DS engine remake, owner's ideas) |
+| Project-wide documentation | Root: `README.md` (users) and `CLAUDE.md` (rules) only; the rest in `docs/`: `DEVELOPMENT_NOTE.md` (roadmap), `DS_ENGINE_REMAKE.md` (design of the DS engine remake, owner's ideas), `Delta_Emerald_Development.md` (plan of the Delta Emerald mod of ORAS: what to add from Emerald, change and fix; owner's request) |
+| The app's logo, source file (the launcher icons in `mipmap-*` are generated from it) | `assets/branding/` |
+| Console logos and 3D models (cartridges, cases) supplied by the owner for a later objective | `assets/consoles/logos/`, `assets/consoles/models/` |
+| Reference copies of upstream melonDS (never modified) | `reference/` |
 
 **Decision procedure, in order:**
 1. Does an existing directory already match this artifact's purpose by the table above? Use it.
@@ -115,8 +122,8 @@ Naming is not a stylistic afterthought; a misleading or inconsistent name is a h
 - **Kotlin:** one top-level class per file, file named after it in PascalCase (`RomPlatform.kt`). Packages follow the existing `me.magnum.melonds` tree; the upstream package name is kept so melonDS updates still merge.
 - **Compose UI:** `@Composable` functions in PascalCase named after what they render (`RomHeaderUi`), as upstream does.
 - **C++ (DS core):** the existing melonDS style — `PascalCase` file names prefixed by subsystem (`GPU3D_TextureReplacement.cpp`).
-- **Console names in identifiers:** `Nds` for DS/DSi and `N3ds` for 3DS in Kotlin/C++ identifiers (an identifier cannot start with a digit); `three_ds` for 3DS in Android resource names, after the category prefix upstream uses when there is one (`three_ds_unsupported`, menu action `action_three_ds_games`); "3DS" in user-visible text. Never a second spelling.
-- **Azahar resources that clash with app resources:** renamed with the `citra_` prefix, so neither module overrides the other's.
+- **Console names in identifiers:** `Nds` for DS/DSi and `N3ds` for 3DS in Kotlin/C++ identifiers (an identifier cannot start with a digit); `three_ds` for 3DS in Android resource names, after the category prefix upstream uses when there is one (`three_ds_unsupported`, menu action `action_three_ds_games`); "3DS" in user-visible text; `Gba` / `GBA` for the Game Boy Advance in identifiers, `gba` in resource names (`gba_load_failed`, `platform_gba`), "GBA" or "Game Boy Advance" in user-visible text; `Switch` / `SWITCH` in identifiers, `switch` in resource names (`platform_switch`), "Switch" in user-visible text. Never a second spelling.
+- **Azahar and Eden resources that clash with app resources:** renamed with the `citra_` and `eden_` prefixes (Eden: 363 of them, with their XML, Kotlin and ViewBinding references), so no module overrides another's.
 - **`:emulator-ui` resources:** prefixed `emulator_menu_` / `emulator_save_state(s)_` (and `Theme.Pomegrade.EmulatorMenu`), so they clash with neither core.
 - **Build switches read from the environment:** `POMEGRADE_<WHAT>` (`POMEGRADE_CCACHE`, `POMEGRADE_NATIVE_BUILD_TYPE`).
 - **Tests:** `<ClassUnderTest>Test.kt`; C++ tests `<subject>_test.cpp`.
@@ -147,6 +154,8 @@ azahar/externals/*, app/src/main/cpp/<submodules>  →  (third-party, depend on 
 melonDS-android-lib (DS core, C++)  →  its own externals only — never Android or app code
 :emulator-ui (shared emulation screen UI)  →  AndroidX and Material only — never a core or the app
 :azahar module (3DS core + its Android frontend)  →  azahar/ sources, :emulator-ui — never the app module
+:mgba module (GBA core + Pomegrade's GBA screen)  →  mgba/ sources, :emulator-ui — never the app module
+:eden module (Switch core + its Android frontend)  →  eden/ sources — never the app module
 :masterswitch, :common, :rcheevos-api  →  as upstream melonDS-android defines them
 :app (me.magnum.melonds)  →  all of the above
 ```
@@ -205,8 +214,8 @@ Prose discipline alone is a weaker guarantee than a rule a tool can actually ver
 | Path | Scope | May be touched only when |
 |---|---|---|
 | Git submodules (`azahar/externals/*`, `azahar/dist/compatibility_list`, `melonDS-android/app/src/main/cpp/{oboe,faad2,enet}`, `tools/remake/external/SPICA`) | Pinned third-party code | Bumping the pinned commit as its own change |
-| `melonDS-master.zip`, `melonDS.v.2.0.1.PS.apk` | Reference copies of upstream melonDS | Never modified; removed only on the owner's request |
-| Upstream melonDS-android and Azahar code | Code Pomegrade did not write | Required by a Pomegrade feature or fix: keep the edit minimal so upstream updates still merge, and say why in the commit message. Upstream style and naming are kept rather than "corrected" to this document |
+| `reference/melonDS-master.zip`, `reference/melonDS.v.2.0.1.PS.apk` | Reference copies of upstream melonDS | Never modified; removed only on the owner's request |
+| Upstream melonDS-android, Azahar, mGBA and Eden code | Code Pomegrade did not write | Required by a Pomegrade feature or fix: keep the edit minimal so upstream updates still merge, and say why in the commit message. Upstream style and naming are kept rather than "corrected" to this document |
 
 ---
 
@@ -335,8 +344,8 @@ Standardization · coherency · consistency · pixel-accurate precision · symme
 
 Use this section to record any reference proportions, component precedents, or exceptions unique to this project (e.g. header/navbar reference dimensions, known off-scale tokens not yet fixed, other standing exceptions). Keep such content isolated here so it stays easy to identify and to strip out when reusing this document as a template for a different project.
 
-- **Builds are expensive.** A clean build compiles two emulator cores (~2,500 C++ files). Verify locally (`POMEGRADE_ABIS=arm64-v8a ./gradlew :app:assemblePlayStoreProdDebug`) before pushing; GitHub Actions only builds `main` and manual runs, to spare the owner's Actions minutes.
+- **Builds are expensive.** A clean build compiles two emulator cores (~2,500 C++ files). Verify locally (`POMEGRADE_ABIS=arm64-v8a ./gradlew :app:assembleProdDebug`) before pushing; GitHub Actions only builds `main` and manual runs, to spare the owner's Actions minutes.
 - **Nothing in this container runs the app.** "Verified" for user-facing behaviour (§2.5) means tested on the owner's phone; until then, report it as untested.
 - **Remake mods (`tools/remake/`):** a mod is built by `remake_tool oras-town`, which runs the design rules in `tools/remake/ORAS_LITTLEROOT.md` §8 (textures present in the area pack, size against the game's largest piece, archive members replaced only through `ReplaceMember`). The owner's game dumps (Drive folder "Pokemon Project - Radiant Platinum") may be fetched into a session's temporary scratch space, outside the repository, to build, inspect and run the game headless there (owner's decision, 7 October); they are never committed, uploaded or put in an artifact. The `Remake mod` workflow remains the way to build the mods the owner tests (how, and the phone test protocol: `ORAS_LITTLEROOT.md` section 0). Never write an ORAS archive member by hand or override those checks without saying why; what a format does is recorded there as checked, seen, inferred or unknown, and is not stated as fact otherwise.
-- **Launcher icon:** pomegranate on a transparent adaptive-icon background; foreground 62dp tall inside the 66dp safe zone of the 108dp canvas; themed (monochrome) layer provided.
+- **Launcher icon:** pomegranate on a transparent adaptive-icon background, generated from `assets/branding/pomegrade_logo.png` (the owner's logo, 11 October); foreground 62dp tall inside the 66dp safe zone of the 108dp canvas; themed (monochrome) layer provided.
 - **Requirements:** Android 10+ (3DS core); 3DS games need a 64-bit device.

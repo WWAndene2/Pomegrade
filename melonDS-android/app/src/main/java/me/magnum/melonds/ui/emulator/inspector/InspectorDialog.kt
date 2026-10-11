@@ -12,7 +12,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Pomegrade: the in-game inspector dialog (DS_ENGINE_REMAKE.md 5.12 step 1). Turns the core's inspector on or off, picks what the 3D is
+ * Pomegrade: the in-game inspector dialog (docs/DS_ENGINE_REMAKE.md 5.12 step 1). Turns the core's inspector on or off, picks what the 3D is
  * coloured by, and saves its report to Pomegrade/Inspector, where it can be shared. The mode lasts until the game is closed.
  */
 object InspectorDialog {
