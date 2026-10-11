@@ -14,6 +14,7 @@ import kotlinx.coroutines.withContext
 import me.magnum.melonds.R
 import me.magnum.melonds.impl.ModInstaller
 import me.magnum.melonds.impl.PomegradeFolder
+import org.yuzu.yuzu_emu.features.settings.model.Settings.MenuTag as SwitchSettingsMenu
 import me.magnum.melonds.ui.common.rom.N3dsLauncher
 import me.magnum.melonds.ui.common.rom.SwitchLauncher
 import me.magnum.melonds.ui.settings.preferences.ConsoleSelectorPreference
@@ -31,6 +32,7 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
     companion object {
         // keys of the 3DS entries: this prefix + the Azahar settings section they open
         private const val THREE_DS_PREFIX = "three_ds_settings_"
+        private const val SWITCH_PREFIX = "switch_settings_"
     }
 
     @Inject lateinit var pomegradeFolder: PomegradeFolder
@@ -144,6 +146,21 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
                 }
             }
         }
+        preferenceScreen.findPreference<androidx.preference.PreferenceCategory>("switch_settings")?.let { category ->
+            for (i in 0 until category.preferenceCount) {
+                val preference = category.getPreference(i)
+                val key = preference.key ?: continue
+                if (!key.startsWith(SWITCH_PREFIX)) continue
+                val section = SwitchSettingsMenu.valueOf(key.removePrefix(SWITCH_PREFIX))
+                preference.setOnPreferenceClickListener {
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        SwitchLauncher.prepare(requireContext())
+                        startActivity(SwitchLauncher.settingsIntent(requireContext(), section))
+                    }
+                    true
+                }
+            }
+        }
         updateFolderSummary()
     }
 
@@ -238,6 +255,7 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
     private fun toast(text: Int) = Toast.makeText(requireContext(), text, Toast.LENGTH_SHORT).show()
 
     private fun showConsoleSection(console: String) {
+        findPreference<Preference>("gba_settings")?.isVisible = console == ConsoleSelectorPreference.GBA
         findPreference<Preference>("ds_settings")?.isVisible = console == ConsoleSelectorPreference.DS
         findPreference<Preference>("three_ds_settings")?.isVisible = console == ConsoleSelectorPreference.THREE_DS && N3dsLauncher.isSupported()
         findPreference<Preference>("switch_settings")?.isVisible = console == ConsoleSelectorPreference.SWITCH && SwitchLauncher.isSupported()

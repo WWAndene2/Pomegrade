@@ -34,14 +34,16 @@ class GbaEmulatorActivity : AppCompatActivity() {
         private const val EXTRA_ROM_PATH = "rom_path"
         private const val EXTRA_TITLE = "title"
         private const val EXTRA_BIOS_PATH = "bios_path"
+        private const val EXTRA_SMOOTH_SCREEN = "smooth_screen"
         private const val STATE_SLOTS = 10
 
         /** Plays the game at [romPath] (a file path); [biosPath] a GBA BIOS, or null for mGBA's own. */
-        fun intent(context: Context, romPath: String, title: String, biosPath: String?): Intent =
+        fun intent(context: Context, romPath: String, title: String, biosPath: String?, smoothScreen: Boolean): Intent =
             Intent(context, GbaEmulatorActivity::class.java)
                 .putExtra(EXTRA_ROM_PATH, romPath)
                 .putExtra(EXTRA_TITLE, title)
                 .putExtra(EXTRA_BIOS_PATH, biosPath)
+                .putExtra(EXTRA_SMOOTH_SCREEN, smoothScreen)
     }
 
     private lateinit var screen: GbaScreenView
@@ -65,6 +67,7 @@ class GbaEmulatorActivity : AppCompatActivity() {
         }
 
         screen = findViewById(R.id.gba_screen)
+        screen.smooth = intent.getBooleanExtra(EXTRA_SMOOTH_SCREEN, false)
         controls = findViewById(R.id.gba_controls)
         drawer = findViewById(R.id.gba_drawer)
         rom = File(intent.getStringExtra(EXTRA_ROM_PATH) ?: return finish())

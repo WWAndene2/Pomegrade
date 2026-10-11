@@ -14,6 +14,9 @@ import me.magnum.melonds.impl.SwitchFolder
 import me.magnum.melonds.impl.SwitchSystemFiles
 import org.yuzu.yuzu_emu.YuzuApplication
 import org.yuzu.yuzu_emu.activities.EmulationActivity
+import org.yuzu.yuzu_emu.features.settings.model.Settings
+import org.yuzu.yuzu_emu.features.settings.ui.SettingsActivity
+import org.yuzu.yuzu_emu.features.settings.ui.SettingsActivityArgs
 import org.yuzu.yuzu_emu.ui.main.MainActivity
 
 /**
@@ -57,6 +60,10 @@ object SwitchLauncher : ConsoleLauncher {
         data = rom.uri
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
+
+    /** One section of Eden's settings, as its home screen opens them. */
+    fun settingsIntent(context: Context, section: Settings.MenuTag): Intent =
+        Intent(context, SettingsActivity::class.java).putExtras(SettingsActivityArgs(game = null, menuTag = section).toBundle())
 
     /** Eden's home screen: its setup (keys, firmware), its game list and its settings. */
     fun homeIntent(context: Context): Intent = Intent(context, MainActivity::class.java)

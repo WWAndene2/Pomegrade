@@ -13,7 +13,7 @@ import java.nio.ByteOrder
 
 /**
  * The GBA screen: the core's frame, scaled to the largest size that keeps its 3:2 shape, centred on
- * black, without smoothing (sharp pixels).
+ * black, sharp pixels unless [smooth].
  */
 class GbaScreenView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
 
@@ -22,6 +22,14 @@ class GbaScreenView @JvmOverloads constructor(context: Context, attrs: Attribute
 
     private val bitmap = Bitmap.createBitmap(GbaNative.WIDTH, GbaNative.HEIGHT, Bitmap.Config.ARGB_8888)
     private val paint = Paint().apply { isFilterBitmap = false }
+
+    /** Blends the pixels when the frame is enlarged (Settings, GBA). */
+    var smooth: Boolean
+        get() = paint.isFilterBitmap
+        set(value) {
+            paint.isFilterBitmap = value
+            invalidate()
+        }
     private val target = Rect()
     private val lock = Any()
 
