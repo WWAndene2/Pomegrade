@@ -6,6 +6,7 @@ import android.content.Intent
 import android.widget.Toast
 import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.domain.model.rom.RomPlatform
+import me.magnum.melonds.ui.romlist.RomListActivity
 
 /**
  * Starts a game in one of the cores Pomegrade imports (3DS, GBA, Switch, GameCube and Wii). DS games are not here: they run
@@ -22,17 +23,14 @@ interface ConsoleLauncher {
     /** The intent that runs [rom] in the core, or null when it can't run it. */
     fun launchIntent(context: Context, rom: Rom): Intent?
 
-    /** The intent a home-screen shortcut opens, or null when the core's screen can't be opened from one. */
-    fun shortcutIntent(context: Context, rom: Rom): Intent? = launchIntent(context, rom)
+    /** The intent a home-screen shortcut opens: the core's screen, or the game list when there is no intent to it. */
+    fun shortcutIntent(context: Context, rom: Rom): Intent = launchIntent(context, rom) ?: gameListShortcutIntent(context, rom)
 
     /** Shown when the device can't run the core. */
     val unsupportedMessage: Int? get() = null
 
     /** Shown when [launchIntent] gives no intent. */
     val launchFailedMessage: Int? get() = null
-
-    /** Shown when [shortcutIntent] gives no intent. */
-    val noShortcutMessage: Int? get() = null
 
     fun launch(activity: Activity, rom: Rom) {
         val intent = if (isSupported()) launchIntent(activity, rom) else null
@@ -45,6 +43,15 @@ interface ConsoleLauncher {
     }
 
     companion object {
+        /**
+         * A shortcut that opens the game list, which starts [rom] as a tap in it would (the Pomegrade folder
+         * checks included): for the cores whose own emulation screen a home-screen shortcut can't open.
+         */
+        fun gameListShortcutIntent(context: Context, rom: Rom): Intent =
+            Intent(context, RomListActivity::class.java)
+                .setAction(RomListActivity.ACTION_LAUNCH_ROM)
+                .putExtra(RomListActivity.EXTRA_ROM_URI, rom.uri.toString())
+
         /** The launcher of [platform]'s core, or null for DS games. */
         fun of(platform: RomPlatform): ConsoleLauncher? = when (platform) {
             RomPlatform.NDS -> null
