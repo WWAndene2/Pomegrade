@@ -2,9 +2,9 @@
 <resources>
 
     <string name="app_disclaimer">Den här programvaran kör program för den bärbara spelkonsolen Nintendo 3DS. Inga spel ingår.\n\nInnan du kan börja emulera måste du välja en mapp där Azahars användardata ska lagras.\n\nVad är detta:\n<a href='https://github.com/azahar-emu/azahar/wiki/Android-User-Data-and-Storage'>Wiki – Citra Androids användardata och lagring</a></string>
-    <string name="app_notification_channel_description">Aviseringar för Azahar 3DS-emulator</string>
-    <string name="app_notification_running">Azahar är igång</string>
-    <string name="app_game_install_description">Näst måste du välja en applikationsmapp. Azahar kommer att visa alla 3DS ROM i den valda mappen i appen.\n\nCIA ROM, uppdateringar och DLC måste installeras separat genom att klicka på mappikonen och välja Installera CIA.</string>
+    <string name="app_notification_channel_description">Aviseringar för Punica 3DS-emulator</string>
+    <string name="app_notification_running">Punica är igång</string>
+    <string name="app_game_install_description">Näst måste du välja en applikationsmapp. Punica kommer att visa alla 3DS ROM i den valda mappen i appen.\n\nCIA ROM, uppdateringar och DLC måste installeras separat genom att klicka på mappikonen och välja Installera CIA.</string>
 
     <!-- Home Strings -->
     <string name="grid_menu_core_settings">Inställningar</string>
@@ -24,12 +24,12 @@
     <string name="custom_driver_not_supported_description">Inläsning av anpassade drivrutiner stöds för närvarande inte för den här enheten.\nKontrollera det här alternativet igen i framtiden för att se om stöd har lagts till!</string>
     <string name="share_log_not_found">Ingen loggfil hittad</string>
     <string name="select_games_folder">Välj applikationsmapp</string>
-    <string name="select_games_folder_description">Låter Azahar fylla i programlistan</string>
+    <string name="select_games_folder_description">Låter Punica fylla i programlistan</string>
     <string name="about">Om</string>
     <string name="citra_description">En 3DS-emulator med öppen källkod</string>
     <string name="about_description">Byggversion, krediter och mer</string>
     <string name="games_dir_selected">Applikationskatalog vald</string>
-    <string name="select_citra_user_folder_home_description">Ändrar de filer som Azahar använder för att ladda applikationer</string>
+    <string name="select_citra_user_folder_home_description">Ändrar de filer som Punica använder för att ladda applikationer</string>
     <string name="theme_and_color_description">Modifiera utseendet på appen</string>
     <string name="install_cia_title">Installera CIA</string>
 
@@ -62,7 +62,7 @@
     <string name="licenses">Licenser</string>
     <!-- Setup strings -->
     <string name="welcome">Välkommen!</string>
-    <string name="welcome_description">Lär dig hur du ställer in &lt;b>Azahar&lt;/b> och börjar med emulering.</string>
+    <string name="welcome_description">Lär dig hur du ställer in &lt;b>Punica&lt;/b> och börjar med emulering.</string>
     <string name="get_started">Gå igång</string>
     <string name="step_complete">Färdigt! </string>
     <string name="games">Applikationer</string>
@@ -74,15 +74,15 @@
     <string name="notifications_description">Ge tillstånd för aviseringar med knappen nedan.</string>
     <string name="give_permission">Ge tillstånd</string>
     <string name="notification_warning">Hoppa över att ge tillstånd för avisering? </string>
-    <string name="notification_warning_description">Azahar kommer inte att kunna meddela dig viktig information.</string>
+    <string name="notification_warning_description">Punica kommer inte att kunna meddela dig viktig information.</string>
     <string name="filesystem_permission_warning">Saknar behörigheter</string>
-    <string name="filesystem_permission_warning_description">Azahar behöver behörighet för att hantera filer på den här enheten för att kunna lagra och hantera sina data. \n\nGe behörighet för ”Filsystem” innan du fortsätter.</string>
+    <string name="filesystem_permission_warning_description">Punica behöver behörighet för att hantera filer på den här enheten för att kunna lagra och hantera sina data. \n\nGe behörighet för ”Filsystem” innan du fortsätter.</string>
     <string name="camera_permission">Kamera</string>
     <string name="camera_permission_description">Ge kameratillståndet nedan för att emulera 3DS-kameran.</string>
     <string name="microphone_permission">Mikrofon</string>
     <string name="microphone_permission_description">Ge mikrofonbehörighet nedan för att emulera 3DS-mikrofonen.</string>
     <string name="filesystem_permission">Filsystem</string>
-    <string name="filesystem_permission_description">Bevilja filsystemsbehörighet nedan för att tillåta Azahar att lagra filer.</string>
+    <string name="filesystem_permission_description">Bevilja filsystemsbehörighet nedan för att tillåta Punica att lagra filer.</string>
     <string name="permission_denied">Tillstånd nekat</string>
     <string name="add_games_warning">Hoppa över att välja applikationsmapp?</string>
     <string name="add_games_warning_description">Programvara visas inte i listan Program om en mapp inte är markerad.</string>
@@ -100,13 +100,13 @@
     <string name="use_prior_lime3ds_directory">Använd tidigare Lime3DS-katalog</string>
     <string name="select">Välj</string>
     <string name="cannot_skip">Du kan inte hoppa över konfiguration av användarmappen</string>
-    <string name="cannot_skip_directory_description">Detta steg krävs för att Azahar ska fungera. Välj en katalog och sedan kan du fortsätta.</string>
+    <string name="cannot_skip_directory_description">Detta steg krävs för att Punica ska fungera. Välj en katalog och sedan kan du fortsätta.</string>
     <string name="selecting_user_directory_without_write_permissions">Du har förlorat skrivbehörigheten till katalogen för dina <a href="https://github.com/azahar-emu/azahar/wiki/Android-User-Data-and-Storage">användardata</a>, där sparfiler och annan information lagras. Det kan hända efter vissa app- eller Android-uppdateringar. Välj katalogen igen för att återfå behörigheten så att du kan fortsätta.</string>
     <string name="invalid_selection">Ogiltigt val</string>
     <string name="invalid_user_directory">Valet av användarkatalog var ogiltigt. Välj användarkatalogen igen och se till att du navigerar till den från roten av enhetens lagring.</string>
-    <string name="filesystem_permission_lost">Azahar har förlorat behörigheten att hantera filer på den här enheten. Detta kan inträffa efter vissa app- eller Android-uppdateringar. Bevilja denna behörighet på nästa skärm för att fortsätta använda appen.</string>
+    <string name="filesystem_permission_lost">Punica har förlorat behörigheten att hantera filer på den här enheten. Detta kan inträffa efter vissa app- eller Android-uppdateringar. Bevilja denna behörighet på nästa skärm för att fortsätta använda appen.</string>
     <string name="set_up_theme_settings">Temainställningar</string>
-    <string name="setup_theme_settings_description">Konfigurera dina temapreferenser för Azahar.</string>
+    <string name="setup_theme_settings_description">Konfigurera dina temapreferenser för Punica.</string>
     <string name="setup_set_theme">Ställ in tema</string>
 
     <!-- Search Strings -->
@@ -163,10 +163,10 @@
     <string name="setup_system_files">Systemfiler</string>
     <string name="setup_system_files_description">Utför systemfilsoperationer som att installera systemfiler eller starta upp startmenyn</string>
     <string name="setup_tool_connect">Anslut till Artic Setup Tool</string>
-    <string name="setup_system_files_preamble"><![CDATA[Azahar behöver konsolens unika data och firmwarefiler från en riktig konsol för att kunna använda vissa av dess funktioner. Sådana filer och data kan konfigureras med <a href=https://github.com/azahar-emu/ArticSetupTool>Azahar Artic Setup Tool</a>.<br>Anmärkningar:<ul><li><b>Denna åtgärd installerar konsolens unika data på Azahar. Dela inte dina användar- eller nand-mappar efter att du har genomfört konfigurationsprocessen!</b></li><li>Under konfigurationsprocessen kommer Azahar att länka till konsolen som kör konfigurationsverktyget. Du kan koppla bort konsolen senare från fliken Systemfiler i emulatorns alternativmeny.</li><li>Gå inte online med både Azahar och din 3DS-konsol samtidigt efter att du har konfigurerat systemfilerna, eftersom detta kan orsaka problem.</li><li>Gammal 3DS-konfiguration krävs för att den nya 3DS-konfigurationen ska fungera (det rekommenderas att konfigurera båda). </li><li>Båda installationslägena fungerar oavsett vilken modell av konsol som kör installationsverktyget.</li></ul>]]></string>
+    <string name="setup_system_files_preamble"><![CDATA[Punica behöver konsolens unika data och firmwarefiler från en riktig konsol för att kunna använda vissa av dess funktioner. Sådana filer och data kan konfigureras med <a href=https://github.com/azahar-emu/ArticSetupTool>Punica Artic Setup Tool</a>.<br>Anmärkningar:<ul><li><b>Denna åtgärd installerar konsolens unika data på Punica. Dela inte dina användar- eller nand-mappar efter att du har genomfört konfigurationsprocessen!</b></li><li>Under konfigurationsprocessen kommer Punica att länka till konsolen som kör konfigurationsverktyget. Du kan koppla bort konsolen senare från fliken Systemfiler i emulatorns alternativmeny.</li><li>Gå inte online med både Punica och din 3DS-konsol samtidigt efter att du har konfigurerat systemfilerna, eftersom detta kan orsaka problem.</li><li>Gammal 3DS-konfiguration krävs för att den nya 3DS-konfigurationen ska fungera (det rekommenderas att konfigurera båda). </li><li>Båda installationslägena fungerar oavsett vilken modell av konsol som kör installationsverktyget.</li></ul>]]></string>
     <string name="setup_system_files_detect">Hämtar aktuell status för systemfiler, vänta...</string>
     <string name="delete_system_files">Avlänka konsolens unika data</string>
-    <string name="delete_system_files_description"><![CDATA[Denna åtgärd kommer att koppla bort din riktiga konsol från Azahar, med följande konsekvenser:<br><ul><li>Din OTP, SecureInfo och LocalFriendCodeSeed kommer att tas bort från Azahar.</li><li>Din vänlista kommer att återställas och du kommer att loggas ut från ditt NNID/PNID-konto.</li><li>Systemfiler och e-butikstitlar som erhållits via Azahar kommer att bli otillgängliga tills samma konsol kopplas ihop igen med hjälp av installationsverktyget (spardata kommer inte att gå förlorade).</li></ul><br>Fortsätt?]]></string>
+    <string name="delete_system_files_description"><![CDATA[Denna åtgärd kommer att koppla bort din riktiga konsol från Punica, med följande konsekvenser:<br><ul><li>Din OTP, SecureInfo och LocalFriendCodeSeed kommer att tas bort från Punica.</li><li>Din vänlista kommer att återställas och du kommer att loggas ut från ditt NNID/PNID-konto.</li><li>Systemfiler och e-butikstitlar som erhållits via Punica kommer att bli otillgängliga tills samma konsol kopplas ihop igen med hjälp av installationsverktyget (spardata kommer inte att gå förlorade).</li></ul><br>Fortsätt?]]></string>
     <string name="setup_system_files_o3ds">Gammal 3DS-konfiguration</string>
     <string name="setup_system_files_n3ds">Ny 3DS-konfiguration</string>
     <string name="setup_system_files_possible">Konfiguration är möjlig.</string>
@@ -357,7 +357,7 @@
     <string name="renderer_debug">Felsök renderingsprogrammet</string>
     <string name="renderer_debug_description">Loggar ytterligare grafikrelaterad felsökningsinformation. När den är aktiverad kommer spelets prestanda att minska avsevärt.</string>
     <string name="instant_debug_log">Spola loggutdata vid varje meddelande</string>
-    <string name="instant_debug_log_description">Överför omedelbart felsökningsloggen till fil. Använd detta om Azahar kraschar och loggutmatningen skärs av.</string>
+    <string name="instant_debug_log_description">Överför omedelbart felsökningsloggen till fil. Använd detta om Punica kraschar och loggutmatningen skärs av.</string>
     <string name="delay_start_lle_modules">Fördröjd start med LLE-moduler</string>
     <string name="delay_start_lle_modules_description">Fördröjer starten av appen när LLE-moduler är aktiverade.</string>
     <string name="deterministic_async_operations">Deterministiska asynkrona operationer</string>
@@ -413,7 +413,7 @@
     <string name="setting_not_editable">Du kan inte redigera detta nu</string>
     <string name="setting_disabled">Inställning inaktiverad</string>
     <string name="setting_disabled_description_incompatible_setting">Den här inställningen är för närvarande inaktiverad eftersom en annan inställning inte har rätt värde.</string>
-    <string name="setting_disabled_description_angle">Renderaren kan inte ändras eftersom enheten använder ANGLE för OpenGL, vilket för närvarande inte är kompatibelt med Azahar. Vulkan kommer att användas.</string>
+    <string name="setting_disabled_description_angle">Renderaren kan inte ändras eftersom enheten använder ANGLE för OpenGL, vilket för närvarande inte är kompatibelt med Punica. Vulkan kommer att användas.</string>
     <string name="setting_not_editable_description">Det här alternativet kan inte ändras medan ett spel pågår.</string>
     <string name="auto_select">Autovälj</string>
     <string name="start">Starta</string>
@@ -451,7 +451,7 @@
     <string name="loader_error_applying_patches_description">Ett allmänt fel inträffade när en patch tillämpades på programmet. Läs loggen för mer information.</string>
     <string name="loader_error_patch_wrong_application">Det gick inte att tillämpa en patch eftersom den är avsedd för ett annat program. Kontrollera att du använder patchar för rätt program, region och version.</string>
     <string name="loader_error_encrypted">Ditt ROM är krypterat</string>
-    <string name="loader_error_encrypted_description"><![CDATA[Azahar stöder inte krypterade program. Läs vårt <a href=\"https://azahar-emu.org/blog/game-loading-changes/\">blogginlägg</a> för mer information.]]></string>
+    <string name="loader_error_encrypted_description"><![CDATA[Punica stöder inte krypterade program. Läs vårt <a href=\"https://azahar-emu.org/blog/game-loading-changes/\">blogginlägg</a> för mer information.]]></string>
     <string name="loader_error_file_not_found">ROM-filen finns inte</string>
     <string name="no_game_present">Inget startbart spel närvarande!</string>
     <string name="invalid_rom">Ogiltig ROM</string>
@@ -504,7 +504,7 @@
     <string name="emulation_switch_screen_layout">Liggande skärmlayout</string>
     <string name="emulation_switch_portrait_layout">Stående skärmlayout</string>
     <string name="emulation_secondary_display_enable">Aktivera sekundär skärm</string>
-    <string name="emulation_secondary_display_enable_description">Om detta är inaktiverat låter Azahar Android hantera anslutna skärmar. Om det är aktiverat och flera skärmar är anslutna kan du välja vilken Azahar ska använda i emuleringens snabbmeny.</string>
+    <string name="emulation_secondary_display_enable_description">Om detta är inaktiverat låter Punica Android hantera anslutna skärmar. Om det är aktiverat och flera skärmar är anslutna kan du välja vilken Punica ska använda i emuleringens snabbmeny.</string>
     <string name="emulation_switch_secondary_layout">Layout för sekundär skärm</string>
     <string name="emulation_secondary_display_management">Sekundär skärm</string>
     <string name="emulation_select_secondary_display">Välj skärm</string>
@@ -573,7 +573,7 @@
     <string name="write_permission_needed">Du måste tillåta skrivåtkomst till extern lagring för att emulatorn ska fungera</string>
     <string name="load_settings">Läser in inställningar...</string>
 
-    <string name="external_storage_not_mounted">Den externa lagringen måste vara tillgänglig för att Azahar ska kunna användas</string>
+    <string name="external_storage_not_mounted">Den externa lagringen måste vara tillgänglig för att Punica ska kunna användas</string>
 
     <string name="select_dir">Välj den här katalogen</string>
     <string name="empty_gamelist">Inga filer hittades eller ingen spelkatalog har valts ännu.</string>
@@ -603,11 +603,11 @@
     <!-- Camera -->
     <string name="camera_select_image">Välj bild</string>
     <string name="camera">Kamera</string>
-    <string name="camera_permission_needed">Azahar behöver tillgång till din kamera för att emulera 3DS:s kameror.\n\nAlternativt kan du också ställa in \"Bildkälla\" till \"Stillbild\" i kamerainställningarna.</string>
+    <string name="camera_permission_needed">Punica behöver tillgång till din kamera för att emulera 3DS:s kameror.\n\nAlternativt kan du också ställa in \"Bildkälla\" till \"Stillbild\" i kamerainställningarna.</string>
 
     <!-- Microphone -->
     <string name="microphone">Mikrofon</string>
-    <string name="microphone_permission_needed">Azahar behöver tillgång till din mikrofon för att emulera 3DS:ens mikrofon.\n\nAlternativt kan du också ändra "Ljudinmatningsenhet" i Ljudinställningar.</string>
+    <string name="microphone_permission_needed">Punica behöver tillgång till din mikrofon för att emulera 3DS:ens mikrofon.\n\nAlternativt kan du också ändra "Ljudinmatningsenhet" i Ljudinställningar.</string>
 
     <!-- Core Errors -->
     <string name="abort_button">Avbryt</string>
@@ -622,7 +622,7 @@
     <string name="unsupported_encrypted">Krypterad applikation som inte stöds</string>
     <string name="invalid_system_mode">Ogiltigt systemläge</string>
     <string name="invalid_system_mode_message">Nya 3DS-exklusiva applikationer kan inte läsas in utan att aktivera Ny 3DS-läget.</string>
-    <string name="savestate_build_mismatch_message"><![CDATA[Det gick inte att läsa in det sparade tillståndet eftersom det skapades med en annan Azahar-version:<br/><b>Azahar %1$s</b>.<br/><br/>Läs vårt blogginlägg <a href=\"https://azahar-emu.org/blog/understanding-save-states/\">om att förstå sparade tillstånd</a> för mer information.<br/><br/>För att återställa dina framsteg, nedgradera till <b>Azahar %1$s</b>, läs in detta sparade tillstånd och använd programmets inbyggda sparfunktion.]]></string>
+    <string name="savestate_build_mismatch_message"><![CDATA[Det gick inte att läsa in det sparade tillståndet eftersom det skapades med en annan Punica-version:<br/><b>Punica %1$s</b>.<br/><br/>Läs vårt blogginlägg <a href=\"https://azahar-emu.org/blog/understanding-save-states/\">om att förstå sparade tillstånd</a> för mer information.<br/><br/>För att återställa dina framsteg, nedgradera till <b>Punica %1$s</b>, läs in detta sparade tillstånd och använd programmets inbyggda sparfunktion.]]></string>
 
     <!-- Disk Shader Cache -->
     <string name="preparing_shaders">Förbereder shaders</string>
@@ -705,7 +705,7 @@
         <item quantity="one">Installerar %d fil. Se meddelande för mer information.</item>
         <item quantity="other">Installerar %d filer. Se meddelande för mer information.</item>
     </plurals>
-    <string name="cia_install_notification_channel_description">Azahar-meddelanden under CIA-installation</string>
+    <string name="cia_install_notification_channel_description">Punica-meddelanden under CIA-installation</string>
     <string name="cia_install_notification_title">Installation av CIA</string>
     <string name="cia_install_notification_installing">Installerar %1$s (%2$d/%3$d)</string>
     <string name="cia_install_notification_success_title">Har installerat CIA</string>
@@ -713,7 +713,7 @@
     <string name="cia_install_success">\"%s\" har installerats framgångsrikt</string>
     <string name="cia_install_error_aborted">Installationen av \"%s\" avbröts.\n Se loggen för mer information</string>
     <string name="cia_install_error_invalid">\"%s\" är inte en giltig CIA</string>
-    <string name="cia_install_error_encrypted">\"%s\" måste dekrypteras innan det kan användas med Azahar.\n En riktig 3DS krävs</string>
+    <string name="cia_install_error_encrypted">\"%s\" måste dekrypteras innan det kan användas med Punica.\n En riktig 3DS krävs</string>
     <string name="cia_install_error_unknown">Ett okänt fel inträffade under installationen av \"%s\".\n Se loggen för mer information</string>
 
     <string name="memory_byte">Byte</string>
