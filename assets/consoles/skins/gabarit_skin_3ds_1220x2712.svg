@@ -13,37 +13,37 @@
   
 </g>
 <g id="boutons" inkscape:groupmode="layer" inkscape:label="5 Boutons (mesurés sur le plan New 3DS, une échelle commune)" fill="none" stroke="#F3F4F6" stroke-width="4">
-<rect x="110" y="1553.2" width="225.5" height="76.6" rx="38.3"/>
-<text x="222.7" y="1601.5" fill="#F3F4F6" stroke="none" font-size="28" text-anchor="middle">L</text>
-<rect x="418.8" y="1553.2" width="149.5" height="76.6" rx="38.3"/>
-<text x="493.6" y="1601.5" fill="#F3F4F6" stroke="none" font-size="26" text-anchor="middle">ZL</text>
-<rect x="884.5" y="1553.2" width="225.5" height="76.6" rx="38.3"/>
-<text x="997.3" y="1601.5" fill="#F3F4F6" stroke="none" font-size="28" text-anchor="middle">R</text>
-<rect x="651.7" y="1553.2" width="149.5" height="76.6" rx="38.3"/>
-<text x="726.4" y="1601.5" fill="#F3F4F6" stroke="none" font-size="26" text-anchor="middle">ZR</text>
-<circle cx="281.7" cy="1944.2" r="171.7"/>
-<circle cx="281.7" cy="1944.2" r="116.1"/>
-<path d="M223.7 2199.3a14.5 14.5 0 0 1 14.5 -14.5h87.1a14.5 14.5 0 0 1 14.5 14.5v76.2h76.2a14.5 14.5 0 0 1 14.5 14.5v87.1a14.5 14.5 0 0 1 -14.5 14.5h-76.2v76.2a14.5 14.5 0 0 1 -14.5 14.5h-87.1a14.5 14.5 0 0 1 -14.5 -14.5v-76.2h-76.2a14.5 14.5 0 0 1 -14.5 -14.5v-87.1a14.5 14.5 0 0 1 14.5 -14.5h76.2z"/>
-<circle cx="932.3" cy="1946.6" r="61.7"/>
-<text x="932.3" y="1957.6" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">X</text>
-<circle cx="816.2" cy="2067.6" r="61.7"/>
-<text x="816.2" y="2078.6" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">Y</text>
-<circle cx="1048.3" cy="2067.6" r="61.7"/>
-<text x="1048.3" y="2078.6" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">A</text>
-<circle cx="932.3" cy="2188.5" r="61.7"/>
-<text x="932.3" y="2199.5" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">B</text>
-<circle cx="796.8" cy="1811.2" r="58.0"/>
-<text x="870.9" y="1820.2" fill="#9EA3AC" stroke="none" font-size="24" text-anchor="start">C</text>
-<circle cx="792.0" cy="2437.6" r="37.5"/>
-<text x="845.5" y="2445.6" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="start">START</text>
-<circle cx="789.6" cy="2563.3" r="37.5"/>
-<text x="843.1" y="2571.3" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="start">SELECT</text>
-<rect x="530.2" y="2508.9" width="159.6" height="91.9" rx="45.9"/>
-<text x="610" y="2488.9" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="middle">HOME</text>
+<rect x="55" y="1497.0" width="249.7" height="84.9" rx="42.4"/>
+<text x="179.8" y="1549.4" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">L</text>
+<rect x="397.0" y="1497.0" width="165.6" height="84.9" rx="42.4"/>
+<text x="479.7" y="1549.4" fill="#F3F4F6" stroke="none" font-size="28" text-anchor="middle">ZL</text>
+<rect x="915.3" y="1497.0" width="249.7" height="84.9" rx="42.4"/>
+<text x="1040.2" y="1549.4" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">R</text>
+<rect x="657.5" y="1497.0" width="165.6" height="84.9" rx="42.4"/>
+<text x="740.3" y="1549.4" fill="#F3F4F6" stroke="none" font-size="28" text-anchor="middle">ZR</text>
+<circle cx="245.1" cy="1930.0" r="190.1"/>
+<circle cx="245.1" cy="1930.0" r="128.5"/>
+<path d="M180.9 2212.5a16.1 16.1 0 0 1 16.1 -16.1h96.3a16.1 16.1 0 0 1 16.1 16.1v84.3h84.3a16.1 16.1 0 0 1 16.1 16.1v96.3a16.1 16.1 0 0 1 -16.1 16.1h-84.3v84.3a16.1 16.1 0 0 1 -16.1 16.1h-96.3a16.1 16.1 0 0 1 -16.1 -16.1v-84.3h-84.3a16.1 16.1 0 0 1 -16.1 -16.1v-96.3a16.1 16.1 0 0 1 16.1 -16.1h84.3z"/>
+<circle cx="968.2" cy="1932.7" r="68.3"/>
+<text x="968.2" y="1943.7" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">X</text>
+<circle cx="839.6" cy="2066.5" r="68.3"/>
+<text x="839.6" y="2077.5" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">Y</text>
+<circle cx="1096.7" cy="2066.5" r="68.3"/>
+<text x="1096.7" y="2077.5" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">A</text>
+<circle cx="968.2" cy="2200.4" r="68.3"/>
+<text x="968.2" y="2211.4" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">B</text>
+<circle cx="818.2" cy="1782.7" r="64.3"/>
+<text x="898.5" y="1791.7" fill="#9EA3AC" stroke="none" font-size="24" text-anchor="start">C</text>
+<circle cx="812.9" cy="2476.2" r="41.5"/>
+<text x="870.4" y="2484.2" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="start">START</text>
+<circle cx="810.2" cy="2615.5" r="41.5"/>
+<text x="867.7" y="2623.5" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="start">SELECT</text>
+<rect x="521.6" y="2555.2" width="176.7" height="101.8" rx="50.9"/>
+<text x="610" y="2535.2" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="middle">HOME</text>
 </g>
 <g id="cotes" inkscape:groupmode="layer" inkscape:label="4 Cotes (à cacher pour exporter)" font-size="36" fill="#EC2B39" text-anchor="middle">
   <text x="610" y="388">Écran haut 1110 × 666 · x 55 y 55</text>
   <text x="610" y="1109">Écran bas 888 × 666 · x 166 y 776</text>
 </g>
-<g id="legende" inkscape:groupmode="layer" inkscape:label="6 Légende"><text x="610" y="2692" font-size="20" fill="#9EA3AC" text-anchor="middle">Zone des commandes 1110 × 1160 (x 55, y 1497) · boutons : plan New 3DS, 1 mm = 15.33 px</text></g>
+<g id="legende" inkscape:groupmode="layer" inkscape:label="6 Légende"><text x="610" y="2692" font-size="20" fill="#9EA3AC" text-anchor="middle">Zone des commandes 1110 × 1160 (x 55, y 1497) · boutons : plan New 3DS, 1 mm = 16.97 px</text></g>
 </svg>
