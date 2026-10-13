@@ -468,4 +468,5 @@
     <string name="punica_folder_rename_reverted">Le dossier garde son nom Pomegrade pour l\'instant</string>
     <string name="punica_folder_rename_done">Le dossier s\'appelle maintenant Punica. Punica redémarre.</string>
     <string name="punica_folder_rename_pending">Terminez d\'abord le renommage du dossier en Punica depuis la liste de jeux</string>
+    <string name="settings_advanced">Avancé</string>
 </resources>
