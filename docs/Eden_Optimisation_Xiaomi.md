@@ -1,132 +1,250 @@
-# Eden optimisation: Xiaomi 13T first, then low-end phones
+# Eden optimisation study: Xiaomi 13T first, then low-end phones
 
-Plan to make the Switch core (Eden v0.2.1, `eden/`) faster on the owner's Xiaomi 13T (MediaTek Dimensity 8200-Ultra,
-Mali-G610 class GPU), and then on weaker phones (the owner's goal: "Switch even on a potato"). Test game: Pokemon
-Sword/Shield.
+Study of how to make the Switch core (Eden v0.2.1, `eden/`) faster on the owner's Xiaomi 13T (MediaTek Dimensity
+8200-Ultra, Mali-G610 MC6) and then on weaker phones (the owner's goal: "Switch even on a potato"). Test game:
+Pokemon Sword/Shield (64-bit, so run by NCE, section 1).
 
-Status (13 October): **audit only, nothing measured, no code changed.** Everything below comes from reading the code.
-Each cause is marked **seen** (read in the code), **inferred** (likely, not checked) or **unknown**, and no gain is
-measured until the A/B tests of section 6 have run on the phone.
+**Status (13 October): code audit only. Nothing measured, no code changed.** Each statement is marked:
+- **seen**: read in the code, with its file and function;
+- **inferred**: follows from what was read, not checked by running anything;
+- **unknown**: needs the phone (a log, a trace, a measurement).
 
-Rules kept throughout: no game-specific hacks that hide rendering or simulation errors; correctness and
-synchronisation first; lower graphics settings stay the user's choice, not the fix. Eden is upstream code
-(CLAUDE.md §4.9): each edit is minimal and says why in its commit.
+No gain in this document is measured. Estimates are given as orders of magnitude and stay hypotheses until the A/B
+tests of section 7 have run.
+
+Rules kept throughout: correctness and synchronisation first; no game-specific hacks that hide rendering or
+simulation errors; lowering graphics settings stays the user's choice, never the fix. Eden is upstream code
+(CLAUDE.md §4.9): each edit is minimal, and its commit says why.
+
+All paths below are relative to `eden/src/`.
 
 ---
 
-## 1. What the code does today
+## 1. How Eden runs a Switch game, and where time can go
 
-Pomegrade does not modify Eden; it runs with Eden's Android defaults.
+```
+ guest code (ARM64)          HLE services            GPU emulation                  host GPU
+ ┌───────────────┐  SVC   ┌───────────────┐ nvdrv ┌──────────────────────┐  Vulkan  ┌─────────┐
+ │ NCE: runs on  ├───────►│ kernel, nvdrv,├──────►│ command processor     ├────────►│ Mali    │
+ │ the host CPU  │        │ vi/nvnflinger │       │ (Maxwell 3D methods)  │         │ driver  │
+ │ (4 CPUCore_N  │◄───────┤ audio, hid    │       │ buffer/texture caches │         └────┬────┘
+ │  threads)     │ faults └───────────────┘       │ shader recompiler     │              │
+ └──────┬────────┘                                │ (Maxwell → SPIR-V)    │         present
+        │ writes to GPU-cached pages → SIGSEGV    └──────────────────────┘         (swapchain)
+        └──────────── memory tracking ─────────────────────▲
+```
 
-| Area | State | Where | Mark |
-|---|---|---|---|
-| Native build | `CMAKE_BUILD_TYPE=Release` (CI); no CPU tuning (`YUZU_BUILD_PRESET` "custom": plain armv8-a) | `.github/workflows/android-apk.yml`, `eden/CMakeLists.txt` (build presets) | seen |
-| APK | Debug APK (`assembleProdDebug`, debuggable) | `android-apk.yml` | seen |
-| CPU backend | NCE (guest code run natively) by default, Dynarmic JIT as the fallback | `common/settings.h` `cpu_backend`, `eden/CMakeLists.txt` `HAS_NCE` | seen |
-| Emulated CPU threads | Each `CPUCore_N` thread pinned to host core N (0 to 3) | `core/cpu_manager.cpp` `CpuManager::RunThread` → `common/thread.cpp` `PinCurrentThreadToPerformanceCore` | seen |
-| Thread priority | "Critical" requested, but through `SCHED_OTHER` whose priority range is 0 to 0 on Linux: no effect. The level formula `max(prio + 1, 4)` also always gives the top level | `common/thread.cpp` `SetCurrentThreadPriority` | seen |
-| Android power hints (ADPF) | Not used | grep `APerformanceHint`: none | seen |
-| Shaders | Built synchronously (async off); disk shader cache and the Vulkan driver's pipeline cache on; 4 to 8 compile threads | `settings.h` `use_asynchronous_shaders`, `use_disk_shader_cache`, `use_vulkan_driver_pipeline_cache`; `vk_pipeline_cache.cpp` `GetTotalPipelineWorkers` | seen |
-| Extended dynamic state | Disabled on Android: one pipeline per state combination | `settings.h` `dyna_state` | seen |
-| GPU accuracy | Low on Android; reactive flushing off | `settings.h` `gpu_accuracy`, `use_reactive_flushing` | seen |
-| ASTC textures | Used natively when the GPU supports them (Mali does) | `vulkan_device.cpp` `ComputeIsOptimalAstcSupported`, `vk_texture_cache.cpp` | seen |
+| Stage | Cost when it goes wrong |
+|---|---|
+| Guest CPU (NCE) | Host core too slow (placement), signal round trips (SVCs, memory faults) |
+| HLE services | Host time spent in service code on the guest's core |
+| GPU command processing | Decoding methods, cache lookups, Vulkan recording; with async GPU off it runs on a guest core |
+| Shader recompiler | Maxwell to SPIR-V, then the driver's compile: stalls when a pipeline is new |
+| Synchronisation | CPU waiting for the GPU (`Scheduler::Finish`), GPU data read back for the CPU |
+| Host GPU | Fill rate, bandwidth (shared with the CPU on a phone), driver overhead |
+| Thermal | Clocks fall after minutes of load |
 
-### Drivers
+---
 
-| Point | Where | Mark |
+## 2. Findings by subsystem
+
+### 2.1 Build
+
+| Finding | Where | Mark |
 |---|---|---|
-| Mali paths: compute shared memory clamped, dynamic storage buffers limited, occlusion query sync and host conditional rendering skipped (the last two are correctness risks, not gains) | `vk_pipeline_cache.cpp` (`needs_shared_mem_clamp`), `vk_buffer_cache.cpp` (`limit_dynamic_storage_buffers`), `vk_query_cache.cpp` (`PresyncWrites`, conditional rendering) | seen |
-| No Mali driver-version checks: every feature the driver reports is trusted | `vulkan_device.cpp` | seen |
-| `has_broken_parallel_compiling` is never set: Mali always gets parallel shader compiling | `vulkan_device.h` | seen |
+| Native code `CMAKE_BUILD_TYPE=Release` in CI | `.github/workflows/android-apk.yml` (`POMEGRADE_NATIVE_BUILD_TYPE`) | seen |
+| No CPU tuning: `YUZU_BUILD_PRESET` "custom" sets no `-march`, so plain armv8-a | `eden/CMakeLists.txt` (build presets) | seen |
+| The APK is a debug build (`assembleProdDebug`, debuggable); Eden ships `release` with minify | `android-apk.yml`; `android/app/build.gradle.kts` (`buildTypes`) | seen |
+| Eden's `UseLTO` module is included; whether LTO is on in Pomegrade's configuration | `eden/CMakeLists.txt` | unknown |
+
+### 2.2 Guest CPU
+
+| Finding | Where | Mark |
+|---|---|---|
+| NCE is the default backend on Android arm64: guest code runs natively, patched at load (SVC, `MRS TPIDR*`, `CNTPCT`, `CNTFRQ` replaced by trampolines) | `common/settings.h` (`cpu_backend`), `core/arm/nce/patcher.cpp` | seen |
+| Dynarmic only runs 32-bit games or when NCE is turned off; its "Auto" accuracy already uses unsafe FMA unfusing and 64-bit fastmem checks | `core/arm/dynarmic/arm_dynarmic_64.cpp` (`MakeJit`) | seen |
+| Each `CPUCore_N` thread is pinned to host core N (0 to 3). The comment says it targets the Snapdragon 8 Elite | `core/cpu_manager.cpp` (`CpuManager::RunThread`) → `common/thread.cpp` (`PinCurrentThreadToPerformanceCore`) | seen |
+| On the Dimensity 8200, cores 0 to 3 are probably the Cortex-A55 small cores (cpu0-3 A55, cpu4-6 A78 3.0 GHz, cpu7 A78 3.1 GHz) | `/sys/devices/system/cpu/cpu*/cpu_capacity` | inferred |
+| Thread priority "Critical" is requested through `SCHED_OTHER`, whose priority range is 0 to 0 on Linux: no effect. The level formula `max(prio + 1, 4)` also always gives the top level | `common/thread.cpp` (`SetCurrentThreadPriority`) | seen |
+| No Android performance hints (ADPF `APerformanceHint`) | grep: none | seen |
+| A data abort NCE cannot handle is skipped (`pc += 4`) so the game continues: hides errors rather than fixing them | `core/arm/nce/arm_nce.cpp` (`HandleFailedGuestFault`) | seen |
+| Each SVC and each interrupt (`tkill` of `BreakFromRunCodeSignal`) is a signal or trampoline round trip; their rate in Sword/Shield | `arm_nce.cpp` (`SignalInterrupt`) | unknown |
+
+### 2.3 Memory and GPU-memory tracking
+
+| Finding | Where | Mark |
+|---|---|---|
+| Pages the GPU caches are write-protected in the fastmem arena; reactive flushing is off on Android, so cached pages stay readable but not writable | `core/memory.cpp` (`RasterizerMarkRegionCached`), `settings.h` (`use_reactive_flushing`) | seen |
+| The guest's first write to such a page faults (SIGSEGV) into `HandleGuestAccessFault` → `Memory::InvalidateNCE` → `InvalidateGPUMemory`: one signal round trip (several microseconds) per page per cache cycle | `arm_nce.cpp`, `core/memory.cpp` | seen (path), unknown (rate) |
+| Writes from the system core take a lock (`sys_core_guard`) in `HandleRasterizerWrite` | `core/memory.cpp` | seen |
+| The separate heap is mapped lazily on Android: first touches fault too | `core/memory.cpp` (`InvalidateNCE`, `DeferredMapSeparateHeap`) | seen |
+| Eden protects memory in 4 KiB pages; a phone whose kernel uses 16 KiB pages would protect 4 times more than asked (the module builds with flexible page sizes) | `YUZU_PAGESIZE`, `melonDS-android/eden/build.gradle.kts` | inferred; the 13T's kernel page size unknown |
+
+### 2.4 GPU emulation and synchronisation
+
+| Finding | Where | Mark |
+|---|---|---|
+| **Asynchronous GPU emulation is off by default on Android** (on elsewhere): GPU command processing then runs on the guest core thread that submits, so CPU emulation and GPU translation take turns instead of overlapping. Eden's Android text calls the option a hack "at the cost of graphical issues and increased crash rates" | `common/settings.h` (`use_asynchronous_gpu_emulation`), `core/core.cpp`, `video_core/gpu_thread.cpp`; string `renderer_asynchronous_gpu_emulation_description` | seen |
+| GPU accuracy Low on Android (Medium elsewhere) | `settings.h` (`gpu_accuracy`) | seen |
+| Full CPU-waits-for-GPU (`Scheduler::Finish`) in hot paths: texture download **once per image inside a loop**; buffer download; the texture garbage collector downloading an image; growing the quad index buffer | `video_core/texture_cache/texture_cache.h` (`DownloadMemory`, the `Cleanup` lambda of the garbage collector, `PopAsyncFlushes`), `video_core/buffer_cache/buffer_cache.h` (`DownloadBufferMemory`), `renderer_vulkan/vk_buffer_cache.cpp` (`QuadIndexBuffer::UpdateBuffer`) | seen |
+| ASTC decode on the GPU ends with `Finish` for each texture; not used on Mali (native ASTC), used on GPUs without ASTC | `renderer_vulkan/vk_compute_pass.cpp` (`ASTCDecoderPass::Assemble`) | seen |
+| Without async presentation (off by default), presenting waits for the worker thread (`WaitWorker`) and copies to the swapchain on the calling thread | `renderer_vulkan/vk_present_manager.cpp` (`PresentManager::Present`) | seen |
+| Timeline semaphores waited by a dedicated thread; core timing waits on a condition variable (no spinning on Android) | `vk_master_semaphore.cpp`, `core/core_timing.cpp` (`ThreadLoop`) | seen |
+
+### 2.5 Shaders and pipelines
+
+| Finding | Where | Mark |
+|---|---|---|
+| Pipelines built synchronously (async shaders off); disk cache and the driver's pipeline cache on | `settings.h`, `vk_pipeline_cache.cpp` | seen |
+| 4 to 8 compile threads (`pipeline_worker_count`, clamped); `has_broken_parallel_compiling` is never set | `vk_pipeline_cache.cpp` (`GetTotalPipelineWorkers`), `vulkan_device.h` | seen |
+| Extended dynamic state disabled on Android: each state combination is its own pipeline, so more compiles and a larger cache | `settings.h` (`dyna_state`) | seen |
+| Shaders that need more compute shared memory than Mali offers are clamped (a correctness risk if a shader really uses it) | `vk_pipeline_cache.cpp` (`CreateComputePipeline`) | seen |
+| Share of frame time lost to compiles once the cache is warm | | unknown |
+
+### 2.6 Presentation and frame pacing
+
+| Finding | Where | Mark |
+|---|---|---|
+| On Android 11+ (API 30), the "Frame pacing mode" setting is ignored: the swapchain always waits for the image's last use only. The 13T runs Android 13+, so the setting does nothing there | `renderer_vulkan/vk_swapchain.cpp` (`Swapchain::AcquireNextImage`) | seen |
+| The display's frame rate is requested through `ANativeWindow_setFrameRate` | `android/app/src/main/jni/emu_window/emu_window.cpp` | seen |
+
+### 2.7 GPU memory budget
+
+| Finding | Where | Mark |
+|---|---|---|
+| On integrated GPUs (all phones), the device memory Eden plans for is `max(min(available − 8 GiB, 4 GiB), min(local heap, 4 GiB))`: **4 GiB on any phone whose heap reports 4 GiB or more**, 6 GiB with "Aggressive" | `vulkan_common/vulkan_device.cpp` (memory heaps, `device_access_memory`) | seen |
+| From it the texture cache derives about 1.6 GiB before collecting and about 3.2 GiB before aggressive collection | `texture_cache/texture_cache.h` (constructor), `texture_cache_base.h` | seen (formula), inferred (values) |
+| On a 6 GiB phone, that budget plus the guest's memory can exceed the RAM: Android's low-memory killer, or heavy reclaim | | inferred |
+
+### 2.8 Drivers
+
+| Finding | Where | Mark |
+|---|---|---|
+| Mali paths: shared memory clamp, dynamic storage buffer limit, occlusion query sync and host conditional rendering skipped (the last two are correctness risks) | `vk_pipeline_cache.cpp`, `vk_buffer_cache.cpp`, `vk_query_cache.cpp` | seen |
+| No Mali driver-version checks; every feature reported is trusted | `vulkan_device.cpp` | seen |
 | The comment naming Mali for the depth/stencil blit fallback sits inside the `is_nvidia` block; the fallback itself is generic | `vulkan_device.cpp` | seen |
-| Custom drivers (`adrenotools`) are Adreno-only; a Mali phone always uses the HyperOS driver | `android/app/src/main/jni/native.cpp` | seen |
-| Driver version, reported extensions, whether the driver pipeline cache works | Eden's log at game start (`Render_Vulkan` lines) | unknown |
+| Custom drivers (`adrenotools`) are Adreno-only; a Mali phone uses the HyperOS driver | `android/app/src/main/jni/native.cpp` | seen |
+| Driver version, extensions, whether the driver pipeline cache survives a restart | Eden's log at game start (`Render_Vulkan`) | unknown |
 
 ---
 
-## 2. Main hypothesis: the emulated CPUs run on the small cores
+## 3. Bottleneck hypotheses, ranked
 
-The comment above the pinning says it targets the Snapdragon 8 Elite, whose cores are all large. On most MediaTek
-chips, cores 0 to 3 are the small Cortex-A55; the Dimensity 8200 is listed as cpu0-3 A55, cpu4-6 A78 at 3.0 GHz,
-cpu7 A78 at 3.1 GHz (**inferred**, check `/sys/devices/system/cpu/cpu*/cpu_capacity`). If so, Sword/Shield's four
-emulated CPUs are kept off all four large cores, which the GPU thread and shader compilers then share.
+| Rank | Hypothesis | Why | What confirms it |
+|---|---|---|---|
+| H1 | The emulated CPUs run on the small cores | 2.2: pinning to cores 0-3 | `CPUCore_*` threads on cpu0-3 at full load in a trace |
+| H2 | CPU emulation and GPU translation are serialised | 2.4: async GPU off | Guest core threads spending a large share of time in `video_core` (simpleperf); FPS gain with async on, same scenes |
+| H3 | CPU-to-GPU waits stall frames | 2.4: `Finish` in download and collection paths | Time in `MasterSemaphore::Wait` from guest or GPU threads; count of `Finish` per frame |
+| H4 | Pipeline compiles cause the stutters | 2.5: sync compiles, no dynamic state | Stutters matching new pipelines in `gpu_logging_enabled`; gone with a warm cache |
+| H5 | Memory-tracking faults cost CPU time | 2.3 | Count of `HandleGuestAccessFault` per second (temporary counter, removed after) |
+| H6 | Thermal throttling after a few minutes | Phone, sustained load | Clocks and FPS falling together over 10 minutes |
+| H7 | Mali bandwidth or fill rate | Phone GPU | GPU at 100 % while the CPU threads wait |
 
-This matters even more on cheap phones: most low-end chips (4 or 6 small cores numbered first, 2 to 4 large ones
-after) have the same layout, so the fix serves both goals.
+H1 and H2 can act together: with async off and the guest cores on small cores, GPU translation also runs on the
+small cores.
 
 ---
 
-## 3. Measurement plan (baseline)
+## 4. Measurement protocol
 
-1. **Conditions:** same build, same save, battery above 50 %, no case, room at about 25 °C, fixed brightness, flight
-   mode. Shader cache warmed by one pass first; one extra run with the cache cleared measures compile stalls.
+1. **Conditions:** same build, same save, battery above 50 %, no case, room at about 25 °C, fixed brightness,
+   flight mode. Shader cache warmed by one pass; one extra run with the cache cleared for compile stalls.
 2. **Scenes (10 minutes each, 3 runs):** Wedgehurst by day, Motostoke, Wild Area with weather, a gym battle, a Max
    Raid.
-3. **Metrics:**
-   - frame time: average, 1 % low, frames over 33 ms (Eden's `show_performance_overlay`);
-   - CPU load and frequency per core, per thread (`CPUCore_*`, GPU thread, `VkPipelineSerialization`, shader
-     workers);
-   - GPU load and frequency;
-   - stutters matched to pipeline builds (`gpu_logging_enabled`);
-   - memory (PSS) and temperature and clocks over the 10 minutes.
-4. **Access:** per-thread and per-core data needs Perfetto or simpleperf over ADB, a debug bridge: it needs the
-   owner's authorisation first (CLAUDE.md §3). Without it, only the overlay and logs.
+3. **Metrics and tools:**
 
-**Reading the result:**
-
-| Observation | Bottleneck |
-|---|---|
-| `CPUCore_*` on cores 0-3 at 100 %, GPU not busy | CPU placement (section 2) |
-| Stutters at new pipelines, smooth once cached | Shader compilation |
-| GPU near 100 %, CPU threads waiting | GPU translation or memory bandwidth |
-| Speed falls after 5 to 10 minutes as temperature rises | Thermal throttling |
-| GPU and CPU threads both waiting on each other | Synchronisation |
-
----
-
-## 4. Changes, Xiaomi 13T (in order, each only once measurements confirm it)
-
-| # | Change | Where | Expected gain (estimate) | Difficulty | Risk |
-|---|---|---|---|---|---|
-| 1 | Pin the emulated CPUs to the actual largest cores, ranked by `cpu_capacity`, or leave placement to the scheduler when the large cores are fewer than the emulated ones | `common/thread.cpp` `PinCurrentThreadToPerformanceCore`, `core/cpu_manager.cpp` `RunThread` | Large if section 2 holds: an A78 does roughly 2 to 3 times an A55's work per clock | Low | Low; Snapdragon 8 Elite keeps its behaviour (its largest cores come out the same) |
-| 2 | ADPF performance hint sessions for the CPU and GPU threads, with the frame time as target | Beside `core/cpu_manager.cpp` and `video_core/gpu_thread.cpp` | Steadier frame times, later throttling | Medium | Low (Android 12+, ignored before) |
-| 3 | A thread priority that works (`setpriority` nice values; fix the level formula) | `common/thread.cpp` `SetCurrentThreadPriority` | Small to medium | Low | Low |
-| 4 | Extended dynamic state level 1 for Mali drivers that report it correctly | `settings.h` `dyna_state` default, driver check in `vulkan_device.cpp` | Fewer pipelines, fewer stutters | Medium | Medium: known driver bugs; needs the driver log (section 1) |
-| 5 | Compile for armv8.2-a (the Cortex-A78/A55 generation) | `YUZU_BUILD_PRESET` in `eden/CMakeLists.txt` | Small | Low | Low on the 13T; drops armv8.0 phones, so an extra build, not a replacement, for the potato goal |
-| 6 | Release APK instead of debug | `android-apk.yml` | Small (hot path is native) | Low | Low |
-
-Not proposed as a fix: asynchronous shaders (they hide stutter by drawing frames with missing effects).
-
----
-
-## 5. Low-end phones ("potato")
-
-What a weak phone hits first, beyond the changes above (all **inferred** until measured on one):
-
-| Limit | What exists | Proposed |
+| Metric | Tool | Access |
 |---|---|---|
-| Few large cores (2 large + 6 small) | Pinning to cores 0-3 | Change 1: with fewer large cores than emulated ones, pin only the busiest core thread, leave the rest free |
-| RAM (4 to 6 GB) | `memory_layout_mode` (4 GB default), `vram_usage_mode` Conservative | Measure PSS in section 3; look for caches that grow without a limit (shader environments kept in memory, texture cache) before anything else |
-| Slow storage, cold start | Disk shader cache | Measure first-launch stalls; check the driver pipeline cache is reused across launches |
-| Old Vulkan drivers | Driver checks for Adreno and NVIDIA only | Driver-version checks for Mali and PowerVR, from logs of the phones tested |
-| GPU too weak for 1x | Resolution down to 1/4x (`resolution_setup`) | User's choice, not the fix; left as it is |
-| No NCE (32-bit or unsupported) | Dynarmic JIT | Out of scope: Pomegrade's Switch core is arm64 only |
+| FPS, frame time, 1 % low, frames over 33 ms | Eden's performance overlay (`show_performance_overlay`) | none |
+| Pipeline builds and their time | `gpu_logging_enabled`, Eden's log | none |
+| Driver and features | Eden's log at start | none |
+| Per-thread CPU time, core placement, frequencies | Perfetto (`sched`, `cpufreq`), `ps -T` | ADB |
+| Where CPU time goes in the guest threads | simpleperf on `CPUCore_*` | ADB |
+| GPU load and frequency | Perfetto (Mali counters if exposed) | ADB |
+| Memory (PSS), low-memory kills | `dumpsys meminfo`, logcat | ADB |
+| Temperature, throttling | Perfetto thermal, `dumpsys thermalservice` | ADB |
+
+ADB is a debug bridge: setting it up needs the owner's authorisation first (CLAUDE.md §3). Without it, only the
+first three rows are available, which is enough for the A/B of H1 and H2 but not to tell why.
+
+4. **Temporary counters** (H3, H5): a counter of `Finish` calls and of access faults per second, printed in the log,
+   in a diagnostic build only, deleted once read (CLAUDE.md §2.4).
 
 ---
 
-## 6. A/B tests
+## 5. Optimisation catalogue
 
-- One change per build against the same baseline build; runs alternate A, B, A, B on the same scenes, phone cooled
-  between runs.
+Gains are estimates; difficulty and risk are judgements from the code.
+
+### 5.1 Root-cause fixes, small
+
+| # | Change | Where | Expected gain | Difficulty | Risk |
+|---|---|---|---|---|---|
+| O1 | Pin the emulated CPUs to the largest cores, ranked by `cpu_capacity`; with fewer large cores than emulated ones, pin only the busiest and leave the rest to the scheduler | `common/thread.cpp` (`PinCurrentThreadToPerformanceCore`), `core/cpu_manager.cpp` (`RunThread`) | Large if H1 holds (an A78 does roughly 2 to 3 times an A55's work per clock) | Low | Low; the 8 Elite keeps its placement |
+| O2 | A thread priority that works: `setpriority` nice values for the guest cores and the GPU thread; fix the level formula | `common/thread.cpp` (`SetCurrentThreadPriority`) | Small to medium | Low | Low |
+| O3 | ADPF hint sessions for the guest cores and the GPU thread, target 16.6 ms (or 33.3 ms) | Beside `core/cpu_manager.cpp`, `video_core/gpu_thread.cpp` | Steadier frames, later throttling | Medium | Low (Android 12+, ignored before) |
+| O4 | Batch texture downloads: record every image's copy, then one `Finish`, then swizzle them all (as `PopAsyncFlushes` already does) | `texture_cache/texture_cache.h` (`DownloadMemory`) | Fewer stalls where the CPU reads GPU-written textures | Low | Low; same order of copies |
+| O5 | Make the frame pacing setting work on Android 11+ again, or hide it there | `renderer_vulkan/vk_swapchain.cpp` (`AcquireNextImage`) | Lets the user cap at 30 for steadier frames and heat | Low | Low |
+| O6 | Release APK; `-march=armv8.2-a` as an extra build for current phones | `android-apk.yml`; `YUZU_BUILD_PRESET` | Small | Low | Low; armv8.0 phones keep the generic build |
+
+### 5.2 Root-cause work, larger
+
+| # | Change | Where | Expected gain | Difficulty | Risk |
+|---|---|---|---|---|---|
+| O7 | Make async GPU emulation correct on Android, then on by default: find which syncs break (fences, flushes, `WaitForSyncOperation`) on Mali and fix them rather than turning it on blind | `video_core/gpu_thread.cpp`, `video_core/gpu.cpp`, `renderer_vulkan/vk_rasterizer.cpp` | Large if H2 holds: GPU translation leaves the guest cores | High | High: Eden reports glitches and crashes; each must be traced to a missing sync |
+| O8 | Extended dynamic state (level 1, then 2) for Mali drivers that report it correctly, with a driver-version list built from logs | `settings.h` (`dyna_state`), `vulkan_device.cpp` | Fewer pipelines and stutters | Medium | Medium: driver bugs |
+| O9 | GPU memory budget from the phone's RAM (e.g. a share of total RAM minus the guest's memory layout) instead of a fixed 4 GiB | `vulkan_device.cpp` (`device_access_memory`) | No kills on 6 GiB phones; fewer collections on 12 GiB phones | Low | Medium: too low a budget means more collection stalls (O4 then matters more) |
+| O10 | Fewer memory-tracking faults: track writes at a coarser granularity for regions the guest rewrites every frame (vertex streams, uniform buffers), or upload them without protection | `core/memory.cpp`, `buffer_cache/buffer_cache.h` | Depends on H5's count | High | High: missed writes show as stale geometry |
+| O11 | Async presentation on by default if the measurements show the present copy on the critical path | `settings.h` (`async_presentation`) | Small to medium | Low | Low to medium (one frame more latency) |
+
+### 5.3 Not proposed
+
+- **Asynchronous shaders**: they hide stutters by drawing frames with missing effects.
+- **Lower resolution, lower accuracy, "unsafe" CPU options**: user choices, not fixes.
+- **Skipping more GPU syncs on Mali**: the query skips in 2.8 are already a correctness risk.
+
+---
+
+## 6. Low-end phones ("potato")
+
+| Limit | What Eden does | Proposed |
+|---|---|---|
+| 2 large cores + 6 small | Pins 4 guest threads to cores 0-3 (small) | O1 (busiest guest core on a large core), O3 |
+| 4 to 6 GiB RAM | GPU budget 4 GiB whatever the RAM; guest layout 4 GiB minimum | O9; measure PSS and kills first |
+| Weak GPU | Resolution down to 1/4x | User's choice; not the fix |
+| No native ASTC (rare on phones) | GPU decode with one `Finish` per texture | Batch the decodes as O4 does for downloads |
+| Old drivers | Version checks for Adreno and NVIDIA only | Mali and PowerVR checks built from tested phones' logs |
+| Slow storage | Disk shader cache | Measure first-launch stalls; check the driver cache is reused |
+| armv8.0 CPUs | Generic build | Keep the generic build (O6 adds a second, never replaces) |
+| 32-bit only phones | Not supported (arm64 only) | Out of scope |
+
+---
+
+## 7. A/B tests
+
+- One change per build, against the same baseline build; runs alternate A, B, A, B on the same scenes, the phone
+  cooled between runs.
 - A gain counts when it exceeds the run-to-run spread and holds in at least 4 of the 5 scenes.
-- Correctness on every build: the same frames compared with the baseline, audio checked, one full battle played.
-- Change 1 re-tested on a Snapdragon phone if one is available, and on one low-end phone for section 5.
+- Correctness on every build: the same frames compared with the baseline, audio checked, one full battle played,
+  10 minutes without a crash. O7 and O10 also get a longer session (an hour) across scene changes.
+- O1 re-tested on a Snapdragon phone if one is available, and O1, O3, O9 on one low-end phone.
 
 ---
 
-## 7. Next steps
+## 8. Not inspected yet
 
-1. Owner sends Eden's start-of-game log (driver version and extensions) and the core layout (`cpu_capacity`).
-2. Baseline of section 3 on the 13T.
-3. Change 1 and its A/B; results written here, measured values marked as such.
-4. The rest of section 4, then section 5 on a low-end phone.
+- HLE service costs (vi/nvnflinger composition, audio renderer, hid) on the guest cores.
+- The shader recompiler's passes and SPIR-V output quality on Mali (instruction count, float16 use).
+- The command processor's per-draw cost (Maxwell 3D state tracking, descriptor updates).
+- Audio output (sink, buffer size) and its effect on frame pacing.
+- Whether LTO is active in Pomegrade's build.
+
+---
+
+## 9. Next steps
+
+1. Owner sends Eden's start-of-game log and the core layout (`cpu_capacity`), and decides on ADB access.
+2. Baseline (section 4) on the 13T with the overlay.
+3. A/B of async GPU on and off with the current build (a setting, no code change): measures H2 before any code.
+4. O1 and its A/B; results written here, marked as measured.
+5. Then by measured impact: O4, O2, O3, O8, O9; O7 only once H2 is confirmed.
