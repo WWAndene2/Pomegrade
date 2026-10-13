@@ -70,7 +70,9 @@ class ConsoleSelectorPreference @JvmOverloads constructor(context: Context, attr
             if (gcWiiAvailable) add(GC_WII to RomPlatform.GC_WII)
         }
         val chosen = selected
-        (holder.findViewById(R.id.settings_console_cards) as ComposeView).setContent {
+        // The layout's root itself: Preference.onBindViewHolder resets the item view's id (setId(mViewId)), so a
+        // lookup by id finds nothing once super has run
+        (holder.itemView as ComposeView).setContent {
             MelonTheme {
                 // the same cards, sizes and gaps as the home screen's quick access
                 LazyRow(
