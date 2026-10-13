@@ -29,7 +29,7 @@ class ClassicLayoutProvider(private val defaultLayoutProvider: DefaultLayoutProv
         val BOTTOM_SCREEN = Rect(56, 943, 1108, 831)
         val BUTTON_L = Rect(56, 1830, 348, 163)
         val BUTTON_R = Rect(816, 1830, 348, 163)
-        val DPAD = Rect(96, 2130, 326, 326)
+        val DPAD = Rect(56, 2130, 326, 326)
         val BUTTONS = Rect(758, 2090, 406, 406)
         val BUTTON_START = Rect(699, 2593, 63, 63)
         val BUTTON_SELECT = Rect(459, 2593, 63, 63)
