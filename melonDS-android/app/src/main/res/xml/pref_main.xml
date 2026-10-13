@@ -158,6 +158,11 @@
         <Preference android:key="switch_settings_SECTION_INPUT" android:title="@string/input" android:summary="@string/switch_settings_input_summary" app:icon="@drawable/ic_input" />
         <Preference android:key="switch_settings_SECTION_APP_SETTINGS" android:title="@string/category_general" android:summary="@string/switch_settings_app_summary" app:icon="@drawable/ic_settings" />
         <Preference android:key="switch_settings_SECTION_DEBUG" android:title="@string/three_ds_settings_debug" android:summary="@string/switch_settings_debug_summary" app:icon="@drawable/ic_settings" />
+        <Preference
+                android:key="switch_import_data"
+                android:title="@string/switch_import_data"
+                android:summary="@string/switch_import_data_summary"
+                app:icon="@drawable/ic_firmware" />
     </PreferenceCategory>
 
     <!-- GameCube and Wii: the Dolphin core's own settings, each section opened directly (key: its MenuTag),

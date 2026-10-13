@@ -50,8 +50,10 @@ object SwitchLauncher : ConsoleLauncher {
      * would be the only sign, and it doesn't name the file at fault.
      */
     suspend fun prepare(context: Context) {
-        YuzuApplication.start() // on the main thread, as Eden's own screens start it
         val appContext = context.applicationContext
+        // Eden's data into Pomegrade/Switch before Eden reads its folder; once started, at the next app start
+        if (!YuzuApplication.isStarted) withContext(Dispatchers.IO) { SwitchFolder.moveUserData(appContext) }
+        YuzuApplication.start() // on the main thread, as Eden's own screens start it
         val failure = withContext(Dispatchers.IO) {
             // both steps run whatever the other does; the first failure is the one told
             val folder = runCatching { SwitchFolder.setUp(appContext) }.exceptionOrNull()?.let { R.string.switch_folder_failed to it }

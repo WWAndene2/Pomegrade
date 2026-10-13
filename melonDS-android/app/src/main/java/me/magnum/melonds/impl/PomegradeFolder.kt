@@ -33,8 +33,9 @@ import java.io.File
  * │   ├── GBA/       gba_bios.bin (optional, mGBA's own BIOS otherwise)
  * │   └── Switch/    prod.keys, title.keys, Firmware/ (see SwitchSystemFiles)
  * ├── 3DS/           the 3DS core's folder (Azahar: 3DS saves, save states, system files)
- * ├── Switch/        the Switch core's NAND and SD card (Eden: Switch saves, updates, DLC; see SwitchFolder)
- * └── GC-Wii/        the GameCube and Wii core's folder (Dolphin: memory cards, Wii saves, settings; see GcWiiFolder)
+ * ├── Switch/        the Switch core's whole folder (Eden: saves, updates, DLC, settings, keys, shaders; see SwitchFolder)
+ * ├── GC-Wii/        the GameCube and Wii core's folder (Dolphin: memory cards, Wii saves, settings; see GcWiiFolder)
+ * └── Backups/       a console's folder saved before data is imported over it (see SwitchUserDataImport)
  * ```
  *
  * Games found in other ROM folders are moved into Roms, each into a folder named after its file.
@@ -71,6 +72,7 @@ class PomegradeFolder(
         const val N3DS = "3DS"
         const val SWITCH = "Switch"
         const val GC_WII = "GC-Wii"
+        const val BACKUPS = "Backups"
         const val TEXTURES = "Textures"
         const val SAVE_STATE_PREVIEWS = "Save state previews"
         // a copy of the settings, the game list (each game's settings, last played, play time),

@@ -445,4 +445,15 @@
         <item>Ajuster en bas</item>
         <item>Ajuster à droite</item>
     </string-array>
+    <string name="switch_import_data">Importer des données Switch</string>
+    <string name="switch_import_data_summary">Ajoute au dossier Switch les données Switch restées dans le dossier de l\'app, ou une sauvegarde exportée par Eden (zip)</string>
+    <string name="switch_import_old_data">Depuis l\'ancien dossier Switch de l\'app (les fichiers déjà présents sont gardés)</string>
+    <string name="switch_import_backup">Depuis une sauvegarde exportée par Eden (zip ; le dossier Switch est sauvegardé avant)</string>
+    <string name="switch_import_running">Import des données Switch…</string>
+    <string name="switch_import_done">Données Switch importées : %1$d fichiers</string>
+    <string name="switch_import_done_backup">Données Switch importées : %1$d fichiers. Le dossier Switch tel qu\'il était est sauvegardé dans %2$s</string>
+    <string name="switch_import_no_folder">Le dossier Pomegrade doit d\'abord être configuré, avec l\'accès aux fichiers</string>
+    <string name="switch_import_nothing">Il ne reste aucune donnée Switch dans le dossier de l\'app</string>
+    <string name="switch_import_not_backup">Ce fichier n\'est pas une sauvegarde exportée par Eden (il n\'a pas de config/config.ini)</string>
+    <string name="switch_import_failed">Les données Switch n\'ont pas pu être importées : %1$s</string>
 </resources>

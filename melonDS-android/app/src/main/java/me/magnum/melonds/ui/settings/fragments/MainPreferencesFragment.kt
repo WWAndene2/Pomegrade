@@ -14,6 +14,7 @@ import kotlinx.coroutines.withContext
 import me.magnum.melonds.R
 import me.magnum.melonds.impl.ModInstaller
 import me.magnum.melonds.impl.PomegradeFolder
+import me.magnum.melonds.impl.SwitchUserDataImport
 import org.dolphinemu.dolphinemu.features.settings.ui.MenuTag as GcWiiSettingsMenu
 import org.yuzu.yuzu_emu.features.settings.model.Settings.MenuTag as SwitchSettingsMenu
 import me.magnum.melonds.ui.common.rom.N3dsLauncher
@@ -45,6 +46,11 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
     // a 3DS mod's zip, picked with the system's file picker
     private val modZipLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { zip ->
         if (zip != null) readMod(zip)
+    }
+
+    // a backup exported by Eden, imported into the Switch folder
+    private val switchBackupLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { zip ->
+        if (zip != null) importSwitchData { SwitchUserDataImport.importBackup(it, zip) }
     }
 
     override fun getTitle() = getString(R.string.settings)
@@ -165,6 +171,26 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
                 }
             }
         }
+        findPreference<Preference>("switch_import_data")?.setOnPreferenceClickListener {
+            withFolder {
+                val oldData = withContext(Dispatchers.IO) { SwitchUserDataImport.oldDataEntries(requireContext()) }.isNotEmpty()
+                val choices = listOfNotNull(
+                    R.string.switch_import_old_data.takeIf { oldData },
+                    R.string.switch_import_backup,
+                )
+                AlertDialog.Builder(requireContext())
+                    .setTitle(R.string.switch_import_data)
+                    .setItems(choices.map { getString(it) }.toTypedArray()) { _, which ->
+                        when (choices[which]) {
+                            R.string.switch_import_old_data -> importSwitchData { SwitchUserDataImport.importOldData(it) }
+                            else -> switchBackupLauncher.launch(arrayOf("application/zip", "application/x-zip-compressed"))
+                        }
+                    }
+                    .setNegativeButton(R.string.cancel, null)
+                    .show()
+            }
+            true
+        }
         findPreference<Preference>("gc_wii_home")?.setOnPreferenceClickListener {
             startActivity(GcWiiLauncher.homeIntent(requireContext()))
             true
@@ -269,6 +295,28 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
                 updateFolderSummary()
                 if (ready) run()
             }
+        }
+    }
+
+    /** Runs a Switch data import off the main thread, then tells its result. */
+    private fun importSwitchData(import: (android.content.Context) -> SwitchUserDataImport.Result) {
+        val context = requireContext().applicationContext
+        viewLifecycleOwner.lifecycleScope.launch {
+            toast(R.string.switch_import_running)
+            val message = when (val result = withContext(Dispatchers.IO) { import(context) }) {
+                is SwitchUserDataImport.Result.Done -> result.backup
+                    ?.let { getString(R.string.switch_import_done_backup, result.files, it.absolutePath) }
+                    ?: getString(R.string.switch_import_done, result.files)
+                SwitchUserDataImport.Result.NoFolder -> getString(R.string.switch_import_no_folder)
+                SwitchUserDataImport.Result.NothingToImport -> getString(R.string.switch_import_nothing)
+                SwitchUserDataImport.Result.NotEdenBackup -> getString(R.string.switch_import_not_backup)
+                is SwitchUserDataImport.Result.Failed -> getString(R.string.switch_import_failed, result.error.localizedMessage ?: result.error.javaClass.simpleName)
+            }
+            AlertDialog.Builder(requireContext())
+                .setTitle(R.string.switch_import_data)
+                .setMessage(message)
+                .setPositiveButton(R.string.ok, null)
+                .show()
         }
     }
 
