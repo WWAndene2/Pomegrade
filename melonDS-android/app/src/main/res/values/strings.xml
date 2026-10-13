@@ -374,6 +374,7 @@
     <string name="layouts_summary">Manage custom layout configurations</string>
     <string name="action_layouts_new">New layout</string>
     <string name="default_layout_name">Default</string>
+    <string name="classic_layout_name">Classic</string>
     <string name="custom_layout_default_name">My Layout</string>
     <string name="use_global_layout">Use global layout</string>
     <string name="use_global_preference">Use global setting</string>

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="1220" height="2712" viewBox="0 0 1220 2712">
+<title>Gabarit skin DS, Punica, 1220 x 2712, marge = 1/20 de l'écran haut (55 px)</title>
+<style>text{font-family:Arial,Helvetica,sans-serif}</style>
+<g id="skin" inkscape:groupmode="layer" inkscape:label="1 Ton skin (les écrans restent vides)">
+  <path fill-rule="evenodd" fill="#2B2E35" d="M0 0h1220v2712h-1220z M166 55h888v666h-888z M166 776h888v666h-888z"/>
+</g>
+<g id="ecrans" inkscape:groupmode="layer" inkscape:label="2 Écrans (ne pas couvrir)" fill="none" stroke="#EC2B39" stroke-width="4">
+  <rect x="164" y="53" width="892" height="670"/>
+  <rect x="164" y="774" width="892" height="670"/>
+</g>
+<g id="zones" inkscape:groupmode="layer" inkscape:label="3 Zone des commandes">
+  <rect x="55" y="1497" width="1110" height="1160" fill="#2DB4E8" fill-opacity="0.10" stroke="#2DB4E8" stroke-width="3" stroke-dasharray="16 10"/>
+</g>
+<g id="boutons" inkscape:groupmode="layer" inkscape:label="5 Boutons (mesurés sur le plan DS Lite, une échelle commune)" fill="none" stroke="#F3F4F6" stroke-width="4">
+<path d="M138.7 1497h208.5v167.3h-208.5a83.7 83.7 0 0 1 0 -167.3z"/>
+<text x="201.1" y="1591.7" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">L</text>
+<path d="M1081.3 1497h-208.5v167.3h208.5a83.7 83.7 0 0 0 0 -167.3z"/>
+<text x="1018.9" y="1591.7" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">R</text>
+<path d="M161.4 1959.3a17.0 17.0 0 0 1 17.0 -17.0h76.6a17.0 17.0 0 0 1 17.0 17.0v89.3h89.3a17.0 17.0 0 0 1 17.0 17.0v76.6a17.0 17.0 0 0 1 -17.0 17.0h-89.3v89.3a17.0 17.0 0 0 1 -17.0 17.0h-76.6a17.0 17.0 0 0 1 -17.0 -17.0v-89.3h-89.3a17.0 17.0 0 0 1 -17.0 -17.0v-76.6a17.0 17.0 0 0 1 17.0 -17.0h89.3z"/>
+<circle cx="963.6" cy="1911.1" r="65.2"/>
+<text x="963.6" y="1922.1" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">X</text>
+<circle cx="827.5" cy="2047.2" r="65.2"/>
+<text x="827.5" y="2058.2" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">Y</text>
+<circle cx="1099.8" cy="2047.2" r="65.2"/>
+<text x="1099.8" y="2058.2" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">A</text>
+<circle cx="963.6" cy="2183.4" r="65.2"/>
+<text x="963.6" y="2194.4" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">B</text>
+<circle cx="793.5" cy="2489.7" r="31.2"/>
+<text x="840.7" y="2497.7" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="start">START</text>
+<circle cx="793.5" cy="2625.8" r="31.2"/>
+<text x="840.7" y="2633.8" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="start">SELECT</text>
+</g>
+<g id="cotes" inkscape:groupmode="layer" inkscape:label="4 Cotes (à cacher pour exporter)" font-size="36" fill="#EC2B39" text-anchor="middle">
+  <text x="610" y="388">Écran haut 888 × 666 · x 166 y 55</text>
+  <text x="610" y="1109">Écran bas 888 × 666 · x 166 y 776</text>
+</g>
+<g id="legende" inkscape:groupmode="layer" inkscape:label="6 Légende"><text x="610" y="2692" font-size="20" fill="#9EA3AC" text-anchor="middle">Zone des commandes 1110 × 1160 (x 55, y 1497) · boutons : plan DS Lite, 1 mm = 17.87 px</text></g>
+</svg>

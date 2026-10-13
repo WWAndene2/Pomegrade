@@ -14,6 +14,8 @@ data class LayoutConfiguration(
 
     companion object {
         val DEFAULT_ID = UUID(0, 0)
+        // Pomegrade: the built-in layout of the Punica DS skin template, selected by default
+        val CLASSIC_ID = UUID(0, 1)
 
         fun newCustom(): LayoutConfiguration {
             return LayoutConfiguration(
