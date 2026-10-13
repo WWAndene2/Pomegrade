@@ -29,6 +29,12 @@ internal object GbaNative {
 
     external fun loadState(path: String): Boolean
 
+    /**
+     * Goes one step back in the rewind buffer (mGBA's, filled as the game runs: about 40 seconds) and shows
+     * it; false when there is nothing left to go back to.
+     */
+    external fun rewindStep(): Boolean
+
     external fun reset()
 
     external fun unload()

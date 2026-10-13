@@ -118,6 +118,7 @@ class GbaEmulatorActivity : AppCompatActivity() {
         }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
+                if (stopRewind()) return
                 if (drawer.isDrawerOpen(GravityCompat.START)) drawer.closeDrawer(GravityCompat.START) else drawer.openDrawer(GravityCompat.START)
             }
         })
@@ -126,7 +127,7 @@ class GbaEmulatorActivity : AppCompatActivity() {
     private fun setUpMenu(menu: NavigationView, title: String) {
         EmulatorMenu.showOnly(
             menu.menu,
-            setOf(MenuR.id.emulator_menu_pause, MenuR.id.emulator_menu_save_state, MenuR.id.emulator_menu_load_state, MenuR.id.emulator_menu_screenshot, MenuR.id.emulator_menu_performance_overlay, MenuR.id.emulator_menu_reset, MenuR.id.emulator_menu_exit),
+            setOf(MenuR.id.emulator_menu_pause, MenuR.id.emulator_menu_save_state, MenuR.id.emulator_menu_load_state, MenuR.id.emulator_menu_rewind, MenuR.id.emulator_menu_screenshot, MenuR.id.emulator_menu_performance_overlay, MenuR.id.emulator_menu_reset, MenuR.id.emulator_menu_exit),
         )
         EmulatorMenu.setHeader(menu, title, getString(R.string.gba_console))
         menu.menu.findItem(MenuR.id.emulator_menu_performance_overlay)?.isChecked = showPerformance
@@ -142,6 +143,7 @@ class GbaEmulatorActivity : AppCompatActivity() {
                 }
                 MenuR.id.emulator_menu_save_state -> showStates(saving = true)
                 MenuR.id.emulator_menu_load_state -> showStates(saving = false)
+                MenuR.id.emulator_menu_rewind -> startRewind()
                 MenuR.id.emulator_menu_screenshot -> thread?.runBetweenFrames { ScreenshotGallery.save(this, frame(), "GBA", title) }
                 MenuR.id.emulator_menu_performance_overlay -> {
                     showPerformance = !showPerformance
@@ -244,7 +246,29 @@ class GbaEmulatorActivity : AppCompatActivity() {
         if (showPerformance) performanceHandler.post(performanceUpdater)
     }
 
+    // the game plays backwards until the screen is touched (or a button pressed), as far as mGBA's buffer goes
+    private fun startRewind() {
+        val running = thread ?: return
+        running.onRewindEnd = { runOnUiThread { Toast.makeText(this, R.string.gba_rewind_end, Toast.LENGTH_SHORT).show() } }
+        running.rewinding = true
+        Toast.makeText(this, R.string.gba_rewind_hint, Toast.LENGTH_SHORT).show()
+    }
+
+    // true when it stopped a rewind: the touch or key that did it goes no further
+    private fun stopRewind(): Boolean {
+        val running = thread ?: return false
+        if (!running.rewinding) return false
+        running.rewinding = false
+        return true
+    }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_DOWN && stopRewind()) return true
+        return super.dispatchTouchEvent(event)
+    }
+
     override fun onPause() {
+        thread?.rewinding = false
         performanceHandler.removeCallbacks(performanceUpdater)
         // the core's battery save is written as the game saves; stopping the thread ends the frame in progress
         thread?.finish()
@@ -271,6 +295,7 @@ class GbaEmulatorActivity : AppCompatActivity() {
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         val key = GbaKeys.fromKeyCode(keyCode)
         if (key == 0) return super.onKeyDown(keyCode, event)
+        if (stopRewind()) return true
         padKeys = padKeys or key
         return true
     }
