@@ -1,5 +1,6 @@
 package me.magnum.melonds.ui.emulator
 
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -384,6 +385,10 @@ class EmulatorViewModel @Inject constructor(
             emulatorManager.resumeEmulator()
         }
     }
+
+    /** Pomegrade: the core's screens as they are now, for the in-game menu's screenshot; null when it fails. */
+    suspend fun captureScreenshot(): Bitmap? =
+        if (emulatorManager.takeScreenshot()) screenshotFrameBufferProvider.getScreenshot() else null
 
     fun resetEmulator() {
         if (_emulatorState.value.isRunning()) {

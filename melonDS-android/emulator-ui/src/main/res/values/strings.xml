@@ -38,6 +38,8 @@
     <string name="emulator_menu_quick_settings">Quick settings</string>
     <string name="emulator_menu_game_settings">This game\'s settings</string>
     <string name="emulator_menu_screenshot">Take a screenshot</string>
+    <string name="emulator_screenshot_saved">Screenshot saved in Pictures/Punica</string>
+    <string name="emulator_screenshot_failed">The screenshot couldn\'t be saved</string>
     <string name="emulator_menu_quick_save">Quick save</string>
     <string name="emulator_menu_quick_load">Quick load</string>
     <string name="emulator_menu_refresh_wiimotes">Refresh Wii Remotes</string>

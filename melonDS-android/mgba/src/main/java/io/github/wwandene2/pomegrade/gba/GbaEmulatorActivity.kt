@@ -19,6 +19,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import com.google.android.material.navigation.NavigationView
 import io.github.wwandene2.pomegrade.emulatorui.EmulatorMenu
+import io.github.wwandene2.pomegrade.emulatorui.ScreenshotGallery
 import io.github.wwandene2.pomegrade.emulatorui.R as MenuR
 import io.github.wwandene2.pomegrade.emulatorui.SaveStateSlotUi
 import io.github.wwandene2.pomegrade.emulatorui.SaveStatesDialog
@@ -99,7 +100,7 @@ class GbaEmulatorActivity : AppCompatActivity() {
     private fun setUpMenu(menu: NavigationView, title: String) {
         EmulatorMenu.showOnly(
             menu.menu,
-            setOf(MenuR.id.emulator_menu_pause, MenuR.id.emulator_menu_save_state, MenuR.id.emulator_menu_load_state, MenuR.id.emulator_menu_reset, MenuR.id.emulator_menu_exit),
+            setOf(MenuR.id.emulator_menu_pause, MenuR.id.emulator_menu_save_state, MenuR.id.emulator_menu_load_state, MenuR.id.emulator_menu_screenshot, MenuR.id.emulator_menu_reset, MenuR.id.emulator_menu_exit),
         )
         EmulatorMenu.setHeader(menu, title, getString(R.string.gba_console))
         drawer.addDrawerListener(object : DrawerLayout.SimpleDrawerListener() {
@@ -114,6 +115,7 @@ class GbaEmulatorActivity : AppCompatActivity() {
                 }
                 MenuR.id.emulator_menu_save_state -> showStates(saving = true)
                 MenuR.id.emulator_menu_load_state -> showStates(saving = false)
+                MenuR.id.emulator_menu_screenshot -> thread?.runBetweenFrames { ScreenshotGallery.save(this, frame(), "GBA", title) }
                 MenuR.id.emulator_menu_reset -> thread?.runBetweenFrames { GbaNative.reset() }
                 MenuR.id.emulator_menu_exit -> finish()
             }
@@ -162,15 +164,18 @@ class GbaEmulatorActivity : AppCompatActivity() {
         thread?.runBetweenFrames {
             val saved = GbaNative.saveState(stateFile(slot).path)
             if (saved) {
-                screen.frameBuffer.rewind()
-                val shot = Bitmap.createBitmap(GbaNative.WIDTH, GbaNative.HEIGHT, Bitmap.Config.ARGB_8888)
-                shot.copyPixelsFromBuffer(screen.frameBuffer)
-                previewFile(slot).outputStream().use { shot.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                previewFile(slot).outputStream().use { frame().compress(Bitmap.CompressFormat.PNG, 100, it) }
             }
             runOnUiThread {
                 Toast.makeText(this, if (saved) R.string.gba_state_saved else R.string.gba_state_save_failed, Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    // the last frame the core drew; on the emulation thread, between two frames
+    private fun frame(): Bitmap {
+        screen.frameBuffer.rewind()
+        return Bitmap.createBitmap(GbaNative.WIDTH, GbaNative.HEIGHT, Bitmap.Config.ARGB_8888).apply { copyPixelsFromBuffer(screen.frameBuffer) }
     }
 
     private fun loadState(slot: Int) {

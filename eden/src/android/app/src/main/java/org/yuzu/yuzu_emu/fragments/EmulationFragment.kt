@@ -8,6 +8,8 @@ package org.yuzu.yuzu_emu.fragments
 
 import io.github.wwandene2.pomegrade.emulatorui.EmulatorMenu
 import io.github.wwandene2.pomegrade.emulatorui.R as EmulatorMenuR
+import io.github.wwandene2.pomegrade.emulatorui.ScreenshotGallery
+import io.github.wwandene2.pomegrade.emulatorui.SurfaceCapture
 import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.app.AlertDialog
@@ -746,6 +748,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 EmulatorMenuR.id.emulator_menu_settings,
                 EmulatorMenuR.id.emulator_menu_game_settings,
                 EmulatorMenuR.id.emulator_menu_multiplayer,
+                EmulatorMenuR.id.emulator_menu_screenshot,
                 EmulatorMenuR.id.emulator_menu_exit,
             )
         )
@@ -872,6 +875,14 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                     }
                     binding.inGameMenu.requestFocus()
                     NativeConfig.saveGlobalConfig()
+                    true
+                }
+
+                EmulatorMenuR.id.emulator_menu_screenshot -> {
+                    // Pomegrade: the screenshot every console's menu has, in the phone's gallery
+                    SurfaceCapture.capture(binding.surfaceEmulation) {
+                        ScreenshotGallery.save(requireContext(), it, "Switch", game?.title.orEmpty())
+                    }
                     true
                 }
 
