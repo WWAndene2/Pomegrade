@@ -97,7 +97,7 @@ class DocumentProvider : DocumentsProvider() {
             }
         }
         result.setNotificationUri(context!!.contentResolver, DocumentsContract.buildChildDocumentsUri(
-                "${context!!.packageName}.user", parentDocumentId))
+                "${context!!.packageName}.dolphin_user", parentDocumentId))
         return result
     }
 
@@ -162,7 +162,7 @@ class DocumentProvider : DocumentsProvider() {
     private fun refreshDocument(parentDocumentId: String) {
         val parentUri: Uri =
                 DocumentsContract.buildChildDocumentsUri(
-                        "${context!!.packageName}.user",
+                        "${context!!.packageName}.dolphin_user",
                         parentDocumentId
                 )
         context!!.contentResolver.notifyChange(parentUri, null)

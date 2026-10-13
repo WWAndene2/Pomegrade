@@ -214,7 +214,7 @@ class UserDataActivity : AppCompatActivity(), ThemeProvider {
     }
 
     private fun getFileManagerIntentOnDocumentProvider(action: String): Intent {
-        val authority = "$packageName.user"
+        val authority = "$packageName.dolphin_user"
         val intent = Intent(action)
         intent.addCategory(Intent.CATEGORY_DEFAULT)
         intent.data = DocumentsContract.buildRootUri(authority, DocumentProvider.ROOT_ID)
