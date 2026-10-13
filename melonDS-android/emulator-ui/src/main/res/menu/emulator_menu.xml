@@ -52,6 +52,12 @@
         android:title="@string/emulator_menu_overlay_visibility" />
 
     <item
+        android:id="@+id/emulator_menu_performance_overlay"
+        android:checkable="true"
+        android:icon="@drawable/emulator_menu_ic_tune"
+        android:title="@string/emulator_menu_performance_overlay" />
+
+    <item
         android:id="@+id/emulator_menu_overlay_options"
         android:icon="@drawable/emulator_menu_ic_touch"
         android:title="@string/emulator_menu_overlay_options" />

@@ -16,4 +16,14 @@
         <item name="colorOnSurfaceVariant">@color/emulator_menu_on_surface_variant</item>
         <item name="android:colorBackground">@color/emulator_menu_surface</item>
     </style>
+
+    <!-- The performance overlay's text, the same over every console's game (DS, GBA, 3DS, Switch; the
+         GameCube / Wii core draws its own in the game's image): white with a black shadow, readable on any
+         picture. Each core keeps what it shows and where -->
+    <style name="Widget.Pomegrade.EmulatorMenu.PerformanceText" parent="">
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:shadowColor">@android:color/black</item>
+        <item name="android:shadowRadius">3</item>
+    </style>
 </resources>

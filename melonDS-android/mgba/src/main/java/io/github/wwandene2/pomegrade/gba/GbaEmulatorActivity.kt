@@ -5,10 +5,15 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
@@ -40,6 +45,8 @@ class GbaEmulatorActivity : AppCompatActivity() {
         private const val EXTRA_BIOS_PATH = "bios_path"
         private const val EXTRA_SMOOTH_SCREEN = "smooth_screen"
         private const val EXTRA_SAVE_DIR = "save_dir"
+        private const val PREFERENCES = "gba"
+        private const val PREF_PERFORMANCE_OVERLAY = "performance_overlay"
         private const val STATE_SLOTS = 10
 
         /** Plays the game at [romPath] (a file path); [biosPath] a GBA BIOS, or null for mGBA's own. */
@@ -65,6 +72,24 @@ class GbaEmulatorActivity : AppCompatActivity() {
     @Volatile
     private var axisKeys = 0
     private var pausedByUser = false
+    private lateinit var performanceText: TextView
+    private val performanceHandler = Handler(Looper.getMainLooper())
+    private var performanceFrames = 0L
+    private var performanceAt = 0L
+    // the frame rate and speed, once a second, while the overlay is on
+    private val performanceUpdater = object : Runnable {
+        override fun run() {
+            val frames = thread?.frames ?: 0L
+            val now = SystemClock.elapsedRealtime()
+            if (performanceAt != 0L && now > performanceAt && frames >= performanceFrames) {
+                val fps = (frames - performanceFrames) * 1000.0 / (now - performanceAt)
+                performanceText.text = getString(R.string.gba_performance, fps, fps * 100 / GbaEmulationThread.FRAME_RATE)
+            }
+            performanceFrames = frames
+            performanceAt = now
+            performanceHandler.postDelayed(this, 1000)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,6 +104,7 @@ class GbaEmulatorActivity : AppCompatActivity() {
         screen = findViewById(R.id.gba_screen)
         screen.smooth = intent.getBooleanExtra(EXTRA_SMOOTH_SCREEN, false)
         controls = findViewById(R.id.gba_controls)
+        performanceText = findViewById(R.id.gba_performance)
         drawer = findViewById(R.id.gba_drawer)
         rom = File(intent.getStringExtra(EXTRA_ROM_PATH) ?: return finish())
         saveDir = intent.getStringExtra(EXTRA_SAVE_DIR)?.let { File(it) }?.takeIf { it.isDirectory || it.mkdirs() }
@@ -100,9 +126,10 @@ class GbaEmulatorActivity : AppCompatActivity() {
     private fun setUpMenu(menu: NavigationView, title: String) {
         EmulatorMenu.showOnly(
             menu.menu,
-            setOf(MenuR.id.emulator_menu_pause, MenuR.id.emulator_menu_save_state, MenuR.id.emulator_menu_load_state, MenuR.id.emulator_menu_screenshot, MenuR.id.emulator_menu_reset, MenuR.id.emulator_menu_exit),
+            setOf(MenuR.id.emulator_menu_pause, MenuR.id.emulator_menu_save_state, MenuR.id.emulator_menu_load_state, MenuR.id.emulator_menu_screenshot, MenuR.id.emulator_menu_performance_overlay, MenuR.id.emulator_menu_reset, MenuR.id.emulator_menu_exit),
         )
         EmulatorMenu.setHeader(menu, title, getString(R.string.gba_console))
+        menu.menu.findItem(MenuR.id.emulator_menu_performance_overlay)?.isChecked = showPerformance
         drawer.addDrawerListener(object : DrawerLayout.SimpleDrawerListener() {
             override fun onDrawerOpened(drawerView: android.view.View) = updatePause()
             override fun onDrawerClosed(drawerView: android.view.View) = updatePause()
@@ -116,6 +143,11 @@ class GbaEmulatorActivity : AppCompatActivity() {
                 MenuR.id.emulator_menu_save_state -> showStates(saving = true)
                 MenuR.id.emulator_menu_load_state -> showStates(saving = false)
                 MenuR.id.emulator_menu_screenshot -> thread?.runBetweenFrames { ScreenshotGallery.save(this, frame(), "GBA", title) }
+                MenuR.id.emulator_menu_performance_overlay -> {
+                    showPerformance = !showPerformance
+                    item.isChecked = showPerformance
+                    updatePerformanceOverlay()
+                }
                 MenuR.id.emulator_menu_reset -> thread?.runBetweenFrames { GbaNative.reset() }
                 MenuR.id.emulator_menu_exit -> finish()
             }
@@ -196,9 +228,24 @@ class GbaEmulatorActivity : AppCompatActivity() {
             thread = GbaEmulationThread(screen) { controls.keys or padKeys or axisKeys }.also { it.start() }
         }
         updatePause()
+        updatePerformanceOverlay()
+    }
+
+    // the overlay's choice, kept for every GBA game
+    private var showPerformance: Boolean
+        get() = getSharedPreferences(PREFERENCES, MODE_PRIVATE).getBoolean(PREF_PERFORMANCE_OVERLAY, false)
+        set(value) = getSharedPreferences(PREFERENCES, MODE_PRIVATE).edit().putBoolean(PREF_PERFORMANCE_OVERLAY, value).apply()
+
+    private fun updatePerformanceOverlay() {
+        performanceHandler.removeCallbacks(performanceUpdater)
+        performanceAt = 0L
+        performanceText.text = null
+        performanceText.visibility = if (showPerformance) View.VISIBLE else View.GONE
+        if (showPerformance) performanceHandler.post(performanceUpdater)
     }
 
     override fun onPause() {
+        performanceHandler.removeCallbacks(performanceUpdater)
         // the core's battery save is written as the game saves; stopping the thread ends the frame in progress
         thread?.finish()
         thread = null
