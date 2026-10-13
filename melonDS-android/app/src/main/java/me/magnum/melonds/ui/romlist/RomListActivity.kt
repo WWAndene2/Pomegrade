@@ -144,7 +144,8 @@ class RomListActivity : AppCompatActivity() {
             folderRename.start()
         } else if (savedInstanceState == null && !fromShortcut && !pomegradeFolderPrompted && !pomegradeFolderSetup.isSetUp()) {
             pomegradeFolderPrompted = true
-            pomegradeFolderSetup.start { }
+            // the folder chosen is an old one named Pomegrade: renamed to Punica right away, not at the next start
+            pomegradeFolderSetup.start { ready -> if (ready && folderRename.isNeeded()) folderRename.start() }
         }
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
