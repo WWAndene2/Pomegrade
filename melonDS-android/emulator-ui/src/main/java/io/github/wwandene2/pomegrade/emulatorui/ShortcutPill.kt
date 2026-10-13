@@ -222,14 +222,11 @@ class ShortcutPill private constructor(
         return true
     }
 
-    // the focused blade's circle is drawn larger, with a white ring (the circle, not the blade: the blade's
-    // own scale is still being animated as it swings out)
+    // the focused blade's circle gets a 3dp white ring; not enlarged, which would put it off the 48dp scale step
     private fun focus(index: Int) {
         blades.forEachIndexed { i, view ->
             val on = i == index
             val circle = view.findViewWithTag<View>(TAG_CIRCLE) ?: return@forEachIndexed
-            circle.scaleX = if (on) FOCUS_SCALE else 1f
-            circle.scaleY = if (on) FOCUS_SCALE else 1f
             circle.foreground = if (on) GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setStroke(dp(3), 0xFFFFFFFF.toInt())
@@ -504,7 +501,6 @@ class ShortcutPill private constructor(
 private const val PILL_COLOR = 0xA61D1617.toInt()
 private const val FAINT_ALPHA = 0.55f
 private const val AUTO_HIDE_DELAY_MS = 4000L
-private const val FOCUS_SCALE = 1.15f
 private const val TAG_CIRCLE = "circle"
 private const val STYLE_PLAIN = 0
 private const val STYLE_HOME = 1
