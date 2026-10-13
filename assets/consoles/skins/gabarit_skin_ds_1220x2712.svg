@@ -12,23 +12,23 @@
   <rect x="56" y="1830" width="1108" height="826" fill="#2DB4E8" fill-opacity="0.10" stroke="#2DB4E8" stroke-width="3" stroke-dasharray="16 10"/>
 </g>
 <g id="boutons" inkscape:groupmode="layer" inkscape:label="5 Boutons (mesurés sur le plan DS Lite, une échelle commune)" fill="none" stroke="#F3F4F6" stroke-width="4">
-<path d="M140.2 1830h209.9v168.5h-294.1v-84.2a84.2 84.2 0 0 1 84.2 -84.2z"/>
-<text x="203.1" y="1925.2" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">L</text>
-<path d="M1079.8 1830h-209.9v168.5h294.1v-84.2a84.2 84.2 0 0 0 -84.2 -84.2z"/>
-<text x="1016.9" y="1925.2" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">R</text>
-<path d="M163.1 2138.8a17.1 17.1 0 0 1 17.1 -17.1h77.1a17.1 17.1 0 0 1 17.1 17.1v90.0h90.0a17.1 17.1 0 0 1 17.1 17.1v77.1a17.1 17.1 0 0 1 -17.1 17.1h-90.0v90.0a17.1 17.1 0 0 1 -17.1 17.1h-77.1a17.1 17.1 0 0 1 -17.1 -17.1v-90.0h-90.0a17.1 17.1 0 0 1 -17.1 -17.1v-77.1a17.1 17.1 0 0 1 17.1 -17.1h90.0z"/>
-<circle cx="961.2" cy="2090.2" r="65.7"/>
-<text x="961.2" y="2101.2" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">X</text>
-<circle cx="824.2" cy="2227.3" r="65.7"/>
-<text x="824.2" y="2238.3" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">Y</text>
-<circle cx="1098.3" cy="2227.3" r="65.7"/>
-<text x="1098.3" y="2238.3" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">A</text>
-<circle cx="961.2" cy="2364.4" r="65.7"/>
-<text x="961.2" y="2375.4" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">B</text>
-<circle cx="789.9" cy="2487.5" r="31.4"/>
-<text x="837.3" y="2495.5" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="start">START</text>
-<circle cx="789.9" cy="2624.6" r="31.4"/>
-<text x="837.3" y="2632.6" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="start">SELECT</text>
+<path d="M98.5 1830h207.2v84.9h-249.7v-42.5a42.5 42.5 0 0 1 42.5 -42.5z"/>
+<text x="180.8" y="1883.5" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">L</text>
+<path d="M1121.5 1830h-207.2v84.9h249.7v-42.5a42.5 42.5 0 0 0 -42.5 -42.5z"/>
+<text x="1039.2" y="1883.5" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">R</text>
+<path d="M203.1 2108.4a17.1 17.1 0 0 1 17.1 -17.1h77.1a17.1 17.1 0 0 1 17.1 17.1v90.0h90.0a17.1 17.1 0 0 1 17.1 17.1v77.1a17.1 17.1 0 0 1 -17.1 17.1h-90.0v90.0a17.1 17.1 0 0 1 -17.1 17.1h-77.1a17.1 17.1 0 0 1 -17.1 -17.1v-90.0h-90.0a17.1 17.1 0 0 1 -17.1 -17.1v-77.1a17.1 17.1 0 0 1 17.1 -17.1h90.0z"/>
+<circle cx="961.2" cy="2117.0" r="65.7"/>
+<text x="961.2" y="2128.0" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">X</text>
+<circle cx="824.2" cy="2254.0" r="65.7"/>
+<text x="824.2" y="2265.0" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">Y</text>
+<circle cx="1098.3" cy="2254.0" r="65.7"/>
+<text x="1098.3" y="2265.0" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">A</text>
+<circle cx="961.2" cy="2391.1" r="65.7"/>
+<text x="961.2" y="2402.1" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">B</text>
+<circle cx="490" cy="2624.6" r="31.4"/>
+<text x="537.4" y="2632.6" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="start">SELECT</text>
+<circle cx="730" cy="2624.6" r="31.4"/>
+<text x="777.4" y="2632.6" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="start">START</text>
 </g>
 <g id="cotes" inkscape:groupmode="layer" inkscape:label="4 Cotes (à cacher pour exporter)" font-size="36" fill="#EC2B39" text-anchor="middle">
   <text x="610" y="484">Écran haut 1108 × 831 (4:3) · x 56 y 56</text>
