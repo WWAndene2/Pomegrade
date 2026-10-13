@@ -25,16 +25,21 @@ import java.io.File
  * for every console:
  *
  * ```
- * Pomegrade/
- * ├── Roms/<game>/   each game's ROM, with its DS saves and save states next to it
+ * Punica/
+ * ├── Roms/<game>/   each game's ROM
+ * ├── DS/            the DS and DSi saves and save states (ConsoleSavesMover moved those kept next to the games)
+ * ├── GBA/           the GBA saves, save states and their previews
  * ├── BIOS/          one folder per console:
  * │   ├── DS/        bios7.bin, bios9.bin, firmware.bin (when no other DS BIOS folder was set)
  * │   ├── DSi/       bios7.bin, bios9.bin, firmware.bin, nand.bin (likewise)
  * │   ├── GBA/       gba_bios.bin (optional, mGBA's own BIOS otherwise)
- * │   └── Switch/    prod.keys, title.keys, Firmware/ (see SwitchSystemFiles)
+ * │   ├── Switch/    prod.keys, title.keys, Firmware/ (see SwitchSystemFiles)
+ * │   ├── 3DS/       aes_keys.txt, boot9.bin... (optional; see ConsoleSystemFiles)
+ * │   └── GC-Wii/    USA/, EUR/, JAP/ with the GameCube's IPL.bin (optional; see ConsoleSystemFiles)
  * ├── 3DS/           the 3DS core's folder (Azahar: 3DS saves, save states, system files)
- * ├── Switch/        the Switch core's NAND and SD card (Eden: Switch saves, updates, DLC; see SwitchFolder)
- * └── GC-Wii/        the GameCube and Wii core's folder (Dolphin: memory cards, Wii saves, settings; see GcWiiFolder)
+ * ├── Switch/        the Switch core's whole folder (Eden: saves, updates, DLC, settings, keys, shaders; see SwitchFolder)
+ * ├── GC-Wii/        the GameCube and Wii core's folder (Dolphin: memory cards, Wii saves, settings; see GcWiiFolder)
+ * └── Backups/       a console's folder saved before data is imported over it (see SwitchUserDataImport)
  * ```
  *
  * Games found in other ROM folders are moved into Roms, each into a folder named after its file.
@@ -62,7 +67,7 @@ class PomegradeFolder(
         const val BIOS_SWITCH = "Switch"
         /** The owner's GBA BIOS, in BIOS/GBA. */
         const val GBA_BIOS_FILE = "gba_bios.bin"
-        private val BIOS_CONSOLES = listOf(BIOS_DS, BIOS_DSI, BIOS_GBA, BIOS_SWITCH)
+        private val BIOS_CONSOLES = listOf(BIOS_DS, BIOS_DSI, BIOS_GBA, BIOS_SWITCH, N3DS, GC_WII)
         private val DS_BIOS_FILES = listOf("bios7.bin", "bios9.bin", "firmware.bin")
         private val DSI_BIOS_FILES = DS_BIOS_FILES + "nand.bin"
         // what tells a DS bios7.bin from a DSi one, as the BIOS checks do
@@ -71,13 +76,18 @@ class PomegradeFolder(
         const val N3DS = "3DS"
         const val SWITCH = "Switch"
         const val GC_WII = "GC-Wii"
+        const val BACKUPS = "Backups"
+        // the DS (and DSi) and GBA saves and save states, as each console's are in its own folder
+        const val DS_SAVES = "DS"
+        const val GBA_SAVES = "GBA"
         const val TEXTURES = "Textures"
         const val SAVE_STATE_PREVIEWS = "Save state previews"
         // a copy of the settings, the game list (each game's settings, last played, play time),
         // the controller and layout configurations, read back after a reinstall
         const val SETTINGS = "Settings"
         /** Where Pomegrade creates its folder: /storage/emulated/0/Pomegrade. */
-        const val DEFAULT_NAME = "Pomegrade"
+        // the app's visible name; folders made before 13 October were named Pomegrade (see PunicaFolderRename)
+        const val DEFAULT_NAME = "Punica"
         const val PREFERENCE = "pomegrade_folder"
         private const val STORAGE_PROVIDER = "com.android.externalstorage.documents"
         // DS save states: <ROM name>.ml0 (quick save) to .ml10
@@ -113,7 +123,7 @@ class PomegradeFolder(
             return pathOf("$id/$name")
         }
 
-        /** The default Pomegrade folder (/storage/emulated/0/Pomegrade), created if needed, as the folder picker's starting point. */
+        /** The default folder (/storage/emulated/0/Punica), created if needed, as the folder picker's starting point. */
         fun createDefaultFolder(): Uri? {
             val dir = File(Environment.getExternalStorageDirectory(), DEFAULT_NAME)
             if (!dir.isDirectory && !dir.mkdirs()) return null
@@ -180,7 +190,7 @@ class PomegradeFolder(
             return SetupResult.Failed to null
         }
         val root = pathOf(DocumentsContract.getTreeDocumentId(folder))
-        for (name in listOf(ROMS, BIOS, N3DS, TEXTURES)) {
+        for (name in listOf(ROMS, BIOS, N3DS, TEXTURES, DS_SAVES, GBA_SAVES)) {
             val dir = File(root, name)
             if (!dir.isDirectory && !dir.mkdirs()) {
                 return SetupResult.Failed to null
@@ -201,7 +211,7 @@ class PomegradeFolder(
         val treeId = DocumentsContract.getTreeDocumentId(folder)
         val romsFolder = DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$ROMS")
         settingsRepository.includeRomSearchDirectory(romsFolder)
-        settingsRepository.keepGameFilesNextToRom()
+        organizeSaves()
         organizeBios()
 
         setUpThreeDs()
@@ -237,6 +247,25 @@ class PomegradeFolder(
             settingsRepository.setDsiBiosDirectory(consoleUri(BIOS_DSI))
         }
         moveInto(bios, BIOS_GBA, listOf(GBA_BIOS_FILE))
+        // the GameCube boot ROM's region folders, so where to put IPL.bin is plain
+        ConsoleSystemFiles.GC_REGIONS.forEach { File(File(bios, GC_WII), it).mkdirs() }
+        ConsoleSystemFiles.import(bios, pathOf(treeId))
+    }
+
+    /**
+     * Each console's saves in its own folder (owner's decision, 13 October): moves the DS and GBA saves kept
+     * next to their games into DS and GBA ([ConsoleSavesMover]), then points the DS saves setting to DS,
+     * unless the user set another folder in it. Runs on a background thread, at setup and when the game list
+     * opens.
+     */
+    fun organizeSaves() {
+        val folder = settingsRepository.getPomegradeFolder() ?: return
+        if (!hasFileAccess(context)) return
+        val treeId = DocumentsContract.getTreeDocumentId(folder)
+        ConsoleSavesMover.moveAll(pathOf("$treeId/$ROMS"), pathOf("$treeId/$DS_SAVES"), pathOf("$treeId/$GBA_SAVES"))
+        if (settingsRepository.saveNextToRomFile() || settingsRepository.getSaveFileDirectory() == null) {
+            settingsRepository.keepGameFilesInConsoleFolder(DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$DS_SAVES"))
+        }
     }
 
     private fun moveInto(bios: File, console: String, names: List<String>) {
@@ -342,8 +371,8 @@ class PomegradeFolder(
     }
 
     /**
-     * Moves each game of [roms] not in Roms yet into Roms/<file name>/, with its DS save and save
-     * states, and updates its entry (settings, last played and play time follow it). A game that
+     * Moves each game of [roms] not in Roms yet into Roms/<file name>/, its DS or GBA saves into DS or
+     * GBA, and updates its entry (settings, last played and play time follow it). A game that
      * can't be moved stays where it is. Runs on a background thread.
      */
     fun organize(roms: List<Rom>, onProgress: (String) -> Unit): OrganizeResult {
@@ -373,7 +402,7 @@ class PomegradeFolder(
                 for (slot in 0 until SAVE_STATE_SLOTS) companions.add(File(dir, "$baseName.ml$slot"))
             }
         } else if (rom.platform == RomPlatform.GBA) {
-            // the GBA screen keeps them next to the game (GbaEmulatorActivity): its save, its states and their previews
+            // kept next to the game before (GbaEmulatorActivity): its save, its states and their previews
             val dir = source.parentFile
             companions.add(File(dir, "$baseName.sav"))
             for (slot in 0 until GBA_STATE_SLOTS) {
@@ -382,7 +411,13 @@ class PomegradeFolder(
             }
         }
 
-        val gameDirName = GameFolderMover.move(source, companions, romsDir) ?: return false
+        val gameDirName = GameFolderMover.move(source, emptyList(), romsDir) ?: return false
+        // its saves into its console's folder (a file already there is left where it is)
+        val savesDir = pathOf("$treeId/" + if (rom.platform == RomPlatform.GBA) GBA_SAVES else DS_SAVES)
+        if (companions.isNotEmpty() && (savesDir.isDirectory || savesDir.mkdirs())) {
+            companions.filter { it.isFile && it.parentFile?.canonicalFile != savesDir.canonicalFile }
+                .forEach { GameFolderMover.moveFile(it, File(savesDir, it.name)) }
+        }
 
         val gameId = "$treeId/$ROMS/$gameDirName"
         val newUri = DocumentsContract.buildDocumentUriUsingTree(folder, "$gameId/${source.name}")

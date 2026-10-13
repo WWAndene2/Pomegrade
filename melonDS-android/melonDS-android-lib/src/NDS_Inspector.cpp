@@ -904,7 +904,7 @@ std::string Inspector::Report() const
 
     {
         add("\n== Materials (%zu textures) ==\n", Last.Materials.size());
-        add("From the manifest (%zu textures, Pomegrade/Materials/%s.txt: \"<hash> <class>\" a line), else render state and\n",
+        add("From the manifest (%zu textures, Punica/Materials/%s.txt: \"<hash> <class>\" a line), else render state and\n",
             Classifier.ManifestSize(), CartGameCode().empty() ? "<game code: no cartridge>" : Printable(CartGameCode()).c_str());
         add("texture statistics; unknown below %.2f confidence. Classes:", MaterialClassifier::MinConfidence);
         for (int k = 0; k < (int)MaterialClass::Count; k++) add(" %s", MaterialClassifier::Name((MaterialClass)k));

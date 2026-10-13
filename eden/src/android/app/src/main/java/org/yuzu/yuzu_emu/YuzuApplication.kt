@@ -101,6 +101,10 @@ class YuzuApplication private constructor(private val app: Application) {
             }
         }
 
+        /** Whether Eden has started in this process (its folders are then in use). */
+        val isStarted: Boolean
+            @Synchronized get() = started
+
         @Synchronized
         fun start() {
             if (!started) {

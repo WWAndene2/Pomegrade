@@ -8,6 +8,7 @@
 
 #include <mgba/core/blip_buf.h>
 #include <mgba/core/core.h>
+#include <mgba/core/rewind.h>
 #include <mgba/core/serialize.h>
 #include <mgba-util/vfs.h>
 
@@ -18,15 +19,27 @@ constexpr unsigned HEIGHT = 160;
 // mGBA's 32-bit colour is R, G, B, then a byte its renderer leaves unset: made opaque for the bitmap
 constexpr uint32_t OPAQUE = 0xFF000000;
 
+// Rewind (mGBA's own buffer: each entry a diff of the state before it): one entry every
+// REWIND_INTERVAL frames, REWIND_ENTRIES kept, about 40 seconds of play
+constexpr unsigned REWIND_INTERVAL = 2;
+constexpr size_t REWIND_ENTRIES = 1200;
+
 mCore* core = nullptr;
 color_t* frame = nullptr;
 int sampleRate = 0;
+mCoreRewindContext rewindBuffer;
+bool rewindReady = false;
+unsigned framesToRewindEntry = 0;
 
 void log(const char* message, const char* detail) {
     __android_log_print(ANDROID_LOG_WARN, "PomegradeGba", "%s: %s", message, detail);
 }
 
 void unload() {
+    if (rewindReady) {
+        mCoreRewindContextDeinit(&rewindBuffer);
+        rewindReady = false;
+    }
     if (!core) return;
     core->unloadROM(core);
     core->deinit(core);
@@ -92,6 +105,10 @@ Java_io_github_wwandene2_pomegrade_gba_GbaNative_load(JNIEnv* env, jobject, jstr
         core->loadSave(core, vf);
     }
     core->reset(core);
+    // no thread of mGBA's own: the entries are made on the emulation thread, after each frame
+    mCoreRewindContextInit(&rewindBuffer, REWIND_ENTRIES, false);
+    rewindReady = true;
+    framesToRewindEntry = 0;
     return JNI_TRUE;
 }
 
@@ -103,6 +120,10 @@ Java_io_github_wwandene2_pomegrade_gba_GbaNative_runFrame(JNIEnv* env, jobject, 
     core->setKeys(core, static_cast<uint32_t>(keys));
     core->runFrame(core);
     for (unsigned i = 0; i < WIDTH * HEIGHT; i++) frame[i] |= OPAQUE;
+    if (rewindReady && framesToRewindEntry-- == 0) {
+        mCoreRewindAppend(&rewindBuffer, core);
+        framesToRewindEntry = REWIND_INTERVAL - 1;
+    }
 
     blip_t* left = core->getAudioChannel(core, 0);
     blip_t* right = core->getAudioChannel(core, 1);
@@ -137,6 +158,21 @@ Java_io_github_wwandene2_pomegrade_gba_GbaNative_loadState(JNIEnv* env, jobject,
     const bool loaded = mCoreLoadStateNamed(core, vf, SAVESTATE_SAVEDATA | SAVESTATE_RTC);
     vf->close(vf);
     return loaded ? JNI_TRUE : JNI_FALSE;
+}
+
+// One step back in the rewind buffer: the state of the entry before, then one frame run from it (keys
+// released, its sound dropped) so the screen shows it. Returns false when the buffer is empty.
+JNIEXPORT jboolean JNICALL
+Java_io_github_wwandene2_pomegrade_gba_GbaNative_rewindStep(JNIEnv*, jobject) {
+    if (!core || !rewindReady || !mCoreRewindRestore(&rewindBuffer, core)) return JNI_FALSE;
+    core->setKeys(core, 0);
+    core->runFrame(core);
+    for (unsigned i = 0; i < WIDTH * HEIGHT; i++) frame[i] |= OPAQUE;
+    blip_clear(core->getAudioChannel(core, 0));
+    blip_clear(core->getAudioChannel(core, 1));
+    // the next entry once play resumes, from where the rewind stopped
+    framesToRewindEntry = REWIND_INTERVAL - 1;
+    return JNI_TRUE;
 }
 
 JNIEXPORT void JNICALL

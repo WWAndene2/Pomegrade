@@ -25,6 +25,7 @@ import org.yuzu.yuzu_emu.NativeLibrary
 import org.yuzu.yuzu_emu.utils.GpuDriverMetadata
 import org.yuzu.yuzu_emu.utils.NativeConfig
 import java.io.File
+import org.yuzu.yuzu_emu.utils.DirectoryInitialization
 
 class DriverViewModel : ViewModel() {
     private val _areDriversLoading = MutableStateFlow(false)
@@ -146,10 +147,9 @@ class DriverViewModel : ViewModel() {
     private fun wipeGameShaders(game: Game) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                val externalFilesDir = YuzuApplication.appContext.getExternalFilesDir(null)
-                    ?: return@withContext
+                // Pomegrade: Eden's user folder, which may not be the app's own folder
                 val shaderDir = File(
-                    externalFilesDir.absolutePath +
+                    DirectoryInitialization.userDirectoryFile(YuzuApplication.appContext).absolutePath +
                     "/shader/" + game.settingsName.lowercase()
                 )
                 if (shaderDir.exists()) {

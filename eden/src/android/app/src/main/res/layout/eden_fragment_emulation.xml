@@ -172,26 +172,20 @@
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/show_stats_overlay_text"
-                style="@style/TextAppearance.Material3.BodySmall"
+                style="@style/Widget.Pomegrade.EmulatorMenu.PerformanceText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:clickable="false"
                 android:focusable="false"
-                android:textColor="@android:color/white"
-                android:shadowColor="@android:color/black"
-                android:shadowRadius="3"
                 tools:ignore="RtlHardcoded" />
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/show_soc_overlay_text"
-                style="@style/TextAppearance.Material3.BodySmall"
+                style="@style/Widget.Pomegrade.EmulatorMenu.PerformanceText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:clickable="false"
                 android:focusable="false"
-                android:textColor="@android:color/white"
-                android:shadowColor="@android:color/black"
-                android:shadowRadius="3"
                 tools:ignore="RtlHardcoded" />
 
         </FrameLayout>
@@ -217,9 +211,9 @@
     android:layout_height="match_parent"
     android:layout_gravity="start"
     android:focusedByDefault="true"
-    app:headerLayout="@layout/header_in_game"
-    app:menu="@menu/menu_in_game"
-    android:background="?attr/colorSurface"
+    android:theme="@style/Theme.Pomegrade.EmulatorMenu"
+    app:headerLayout="@layout/emulator_menu_header"
+    app:menu="@menu/emulator_menu"
     tools:visibility="gone" />
 
 </androidx.drawerlayout.widget.DrawerLayout>

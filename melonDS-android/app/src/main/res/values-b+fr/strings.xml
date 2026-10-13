@@ -445,4 +445,97 @@
         <item>Ajuster en bas</item>
         <item>Ajuster à droite</item>
     </string-array>
+    <string name="switch_import_data">Importer des données Switch</string>
+    <string name="switch_import_data_summary">Ajoute au dossier Switch les données Switch restées dans le dossier de l\'app, ou une sauvegarde exportée par Eden (zip)</string>
+    <string name="switch_import_old_data">Depuis l\'ancien dossier Switch de l\'app (les fichiers déjà présents sont gardés)</string>
+    <string name="switch_import_backup">Depuis une sauvegarde exportée par Eden (zip ; le dossier Switch est sauvegardé avant)</string>
+    <string name="switch_import_running">Import des données Switch…</string>
+    <string name="switch_import_done">Données Switch importées : %1$d fichiers</string>
+    <string name="switch_import_done_backup">Données Switch importées : %1$d fichiers. Le dossier Switch tel qu\'il était est sauvegardé dans %2$s</string>
+    <string name="switch_import_no_folder">Le dossier Punica doit d\'abord être configuré, avec l\'accès aux fichiers</string>
+    <string name="switch_import_nothing">Il ne reste aucune donnée Switch dans le dossier de l\'app</string>
+    <string name="switch_import_not_backup">Ce fichier n\'est pas une sauvegarde exportée par Eden (il n\'a pas de config/config.ini)</string>
+    <string name="switch_import_failed">Les données Switch n\'ont pas pu être importées : %1$s</string>
+    <string name="punica_folder_rename_title">Votre dossier devient Punica</string>
+    <string name="punica_folder_rename_message">Vos jeux et leurs fichiers sont dans un dossier nommé Pomegrade, l\'ancien nom de l\'app. Il est renommé Punica : tout ce qu\'il contient reste, rien n\'est supprimé.\n\nAndroid vous demande ensuite de confirmer une fois le dossier renommé.</string>
+    <string name="punica_folder_rename_ok">Renommer</string>
+    <string name="punica_folder_rename_later">Plus tard</string>
+    <string name="punica_folder_rename_confirm">Le dossier s\'appelle maintenant Punica. Android a besoin que vous le confirmiez : sur l\'écran suivant, appuyez sur « Utiliser ce dossier », puis « Autoriser ».</string>
+    <string name="punica_folder_rename_confirm_ok">Confirmer le dossier</string>
+    <string name="punica_folder_rename_exists">Un dossier nommé Punica existe déjà à côté de Pomegrade et contient des fichiers : renommez-le ou déplacez-le, puis réessayez depuis la liste de jeux. Rien n\'a été modifié.</string>
+    <string name="punica_folder_rename_failed">Le dossier n\'a pas pu être renommé. Rien n\'a été modifié.</string>
+    <string name="punica_folder_rename_wrong">C\'est un autre dossier : choisissez le dossier Punica</string>
+    <string name="punica_folder_rename_reverted">Le dossier garde son nom Pomegrade pour l\'instant</string>
+    <string name="punica_folder_rename_done">Le dossier s\'appelle maintenant Punica. Punica redémarre.</string>
+    <string name="punica_folder_rename_pending">Terminez d\'abord le renommage du dossier en Punica depuis la liste de jeux</string>
+    <string name="settings_advanced">Avancé</string>
+    <string name="settings_interface">Interface</string>
+    <string name="settings_performance_overlay">Affichage des performances</string>
+    <string name="settings_system_overlay">Affichage du système</string>
+    <string name="settings_on_screen_controls">Commandes tactiles</string>
+    <string name="switch_settings_interface_summary">Langue, vérification des mises à jour, réglages rapides en jeu, boutons Confirmer et Retour de la manette, thème et mode clair ou sombre</string>
+    <string name="switch_settings_performance_summary">Images par seconde, temps par image, mémoire, température de la batterie et compilation des shaders affichés sur le jeu</string>
+    <string name="switch_settings_soc_summary">Modèle du téléphone, puce, GPU et pilote, et firmware de la Switch, affichés sur le jeu</string>
+    <string name="switch_settings_input_overlay_summary">Affichage des boutons à l\'écran, masquage après un délai ou avec une manette, alignement sur une grille</string>
+    <string name="switch_settings_applets">Applets</string>
+    <string name="switch_settings_applets_summary">Les applets système de la Switch : clavier, mode avion, superposition</string>
+    <string name="gc_wii_settings_interface_summary">Orientation de l\'écran, zone de l\'encoche, messages à l\'écran, temps de jeu, thème</string>
+    <string name="gc_wii_settings_achievements_summary">RetroAchievements pour les jeux GameCube et Wii : compte, mode hardcore</string>
+    <string name="gc_wii_settings_log">Journal</string>
+    <string name="gc_wii_settings_log_summary">Ce que le cœur GameCube / Wii écrit dans son journal</string>
+    <string name="gc_wii_settings_debug">Débogage</string>
+    <string name="gc_wii_settings_debug_summary">Les options de débogage du cœur GameCube / Wii</string>
+    <string name="texture_pack_install">Installer un pack de textures</string>
+    <string name="texture_pack_install_summary">Un zip, placé dans le dossier de textures de ce jeu</string>
+    <string name="texture_pack_installed">%1$d fichiers installés dans %2$s</string>
+    <string name="texture_pack_enable_hint">Active les textures personnalisées dans les réglages graphiques de cette console, si elles sont désactivées.</string>
+    <string name="texture_pack_no_game_id">L\'identifiant de ce jeu ne peut pas être lu dans son fichier, et le pack n\'est pas dans un dossier à son nom. Mets les fichiers du pack dans un dossier nommé d\'après l\'identifiant du jeu, puis compresse-le en zip.</string>
+    <string name="texture_pack_no_folder">Configure d\'abord le dossier Punica.</string>
+    <string name="texture_pack_empty">Le zip ne contient aucun fichier.</string>
+    <string name="texture_pack_failed">Le pack n\'a pas pu être installé : %1$s</string>
+    <string name="menu_access">Menu en jeu</string>
+    <string-array name="menu_access_options">
+        <item>Pastille de raccourcis</item>
+        <item>Tiroir latéral (glisser depuis le bord)</item>
+        <item>Les deux</item>
+    </string-array>
+    <string name="pill_opacity">Pastille au repos</string>
+    <string-array name="pill_opacity_options">
+        <item>Visible</item>
+        <item>Discrète</item>
+        <item>Cachée (toucher son coin)</item>
+    </string-array>
+    <string name="pill_auto_hide">Cacher la pastille pendant le jeu</string>
+    <string name="pill_auto_hide_summary">Après quelques secondes sans toucher l\'écran ; un toucher la fait réapparaître</string>
+    <!-- Punica's home screen (ui/romlist/home) -->
+    <string name="home_subtitle">Console virtuelle</string>
+    <string name="home_quick_access">Accès rapide</string>
+    <string name="home_all_consoles">Toutes</string>
+    <string name="home_recently_played">Repris récemment</string>
+    <string name="home_library">Ma bibliothèque</string>
+    <string name="home_play">Jouer</string>
+    <string name="home_game_menu">Options du jeu</string>
+    <string name="home_more">Plus</string>
+    <string name="home_search_close">Fermer la recherche</string>
+    <string name="home_favorite_add">Ajouter aux favoris</string>
+    <string name="home_favorite_remove">Retirer des favoris</string>
+    <string name="home_game_settings">Réglages de ce jeu</string>
+    <string name="home_last_played">Dernière partie : %1$s</string>
+    <string name="home_never_played">Jamais lancé</string>
+    <string name="home_featured_detail">%1$s de jeu · %2$s</string>
+    <string name="home_sort_recent">Récents</string>
+    <string name="home_sort_favorites">Favoris</string>
+    <string name="home_sort_play_time">Temps de jeu</string>
+    <string name="home_sort_alphabetical">A à Z</string>
+    <string name="home_no_favorites">Pas encore de favoris : touche l\'étoile d\'un jeu pour l\'ajouter</string>
+    <string name="home_boot_firmware_ds">Lancer le menu de la DS</string>
+    <string name="home_boot_firmware_dsi">Lancer le menu de la DSi</string>
+    <string name="home_console_ds">Nintendo DS</string>
+    <string name="home_console_three_ds">Nintendo 3DS</string>
+    <string name="home_console_gba">Game Boy Advance</string>
+    <string name="home_stat_play_time">de jeu</string>
+    <string name="home_stat_last_played">dernière partie</string>
+    <string name="home_stat_file">fichier</string>
+    <string name="home_shortcut">Raccourci sur l\'écran d\'accueil</string>
+    <string name="home_shortcut_unsupported">Ton lanceur ne permet pas d\'ajouter un raccourci depuis une app</string>
 </resources>

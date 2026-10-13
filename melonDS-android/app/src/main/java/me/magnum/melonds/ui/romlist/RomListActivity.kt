@@ -21,8 +21,8 @@ import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
-import androidx.core.view.updatePadding
 import androidx.fragment.app.commit
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -40,11 +40,13 @@ import me.magnum.melonds.domain.model.Version
 import me.magnum.melonds.domain.model.appupdate.AppUpdate
 import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.domain.model.rom.RomPlatform
+import me.magnum.melonds.impl.PunicaFolderRename
 import me.magnum.melonds.ui.about.AboutActivity
 import me.magnum.melonds.ui.common.PomegradeFolderSetupDelegate
+import me.magnum.melonds.ui.common.PunicaFolderRenameDelegate
 import me.magnum.melonds.ui.common.rom.EmulatorLaunchValidatorDelegate
-import me.magnum.melonds.ui.common.rom.N3dsLauncher
 import me.magnum.melonds.ui.common.rom.GcWiiLauncher
+import me.magnum.melonds.ui.common.rom.N3dsLauncher
 import me.magnum.melonds.ui.common.rom.SwitchLauncher
 import me.magnum.melonds.ui.dsiwaremanager.DSiWareManagerActivity
 import me.magnum.melonds.ui.emulator.EmulatorActivity
@@ -52,7 +54,7 @@ import me.magnum.melonds.ui.settings.SettingsActivity
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class RomListActivity : AppCompatActivity() {
+class RomListActivity : AppCompatActivity(), HomeFragment.Host {
     companion object {
         // once per app start (the process), not each time the screen is created
         private var pomegradeFolderPrompted = false
@@ -71,27 +73,22 @@ class RomListActivity : AppCompatActivity() {
     private lateinit var pomegradeFolderSetup: PomegradeFolderSetupDelegate
 
     private var downloadProgressDialog: AlertDialog? = null
+    private lateinit var binding: ActivityRomListBinding
+    // Punica's home screen draws its own header under the status bar: the toolbar is shown only without it
+    private var homeShown = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT))
         super.onCreate(savedInstanceState)
-        val binding = ActivityRomListBinding.inflate(layoutInflater)
+        binding = ActivityRomListBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
 
-        var defaultContentInsetLeft = -1
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            if (defaultContentInsetLeft == -1) {
-                defaultContentInsetLeft = binding.toolbar.contentInsetLeft
-            }
-
-            binding.toolbar.setContentInsetsAbsolute(defaultContentInsetLeft + insets.left, binding.toolbar.contentInsetRight)
-            binding.toolbar.updatePadding(
-                left = insets.left,
-                right = insets.right,
-            )
+            // Punica's header: its padding holds the side insets, its content insets stay as styled
+            binding.toolbar.applySideInsets(insets.left, insets.right)
             binding.viewStatusBarBackground.updateLayoutParams {
                 height = insets.top
             }
@@ -100,7 +97,7 @@ class RomListActivity : AppCompatActivity() {
                 rightMargin = insets.right
             }
 
-            windowInsets.inset(insets.left, insets.top, insets.right, 0)
+            windowInsets.inset(insets.left, if (homeShown) 0 else insets.top, insets.right, 0)
         }
 
         emulatorLauncherValidatorDelegate = EmulatorLaunchValidatorDelegate(this, object : EmulatorLaunchValidatorDelegate.Callback {
@@ -133,11 +130,17 @@ class RomListActivity : AppCompatActivity() {
 
         // the Pomegrade folder: asked for once per app start until it is set up
         pomegradeFolderSetup = PomegradeFolderSetupDelegate(this)
+        val folderRename = PunicaFolderRenameDelegate(this)
         // a shortcut's launch asks for it itself when the game needs it
         val fromShortcut = savedInstanceState == null && intent.action == ACTION_LAUNCH_ROM
-        if (savedInstanceState == null && !fromShortcut && !pomegradeFolderPrompted && !pomegradeFolderSetup.isSetUp()) {
+        if (savedInstanceState == null && !fromShortcut && !pomegradeFolderPrompted && folderRename.isNeeded()) {
+            // the folder named Pomegrade becomes Punica first; while it is renamed, it is not set up (no setup asked)
             pomegradeFolderPrompted = true
-            pomegradeFolderSetup.start { }
+            folderRename.start()
+        } else if (savedInstanceState == null && !fromShortcut && !pomegradeFolderPrompted && !pomegradeFolderSetup.isSetUp()) {
+            pomegradeFolderPrompted = true
+            // the folder chosen is an old one named Pomegrade: renamed to Punica right away, not at the next start
+            pomegradeFolderSetup.start { ready -> if (ready && folderRename.isNeeded()) folderRename.start() }
         }
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -191,7 +194,9 @@ class RomListActivity : AppCompatActivity() {
         if (intent.action != ACTION_LAUNCH_ROM) return
         val uri = intent.getStringExtra(EXTRA_ROM_URI)?.toUri() ?: return
         lifecycleScope.launch {
+            // a shortcut made before the folder became Punica names the game's old URI
             val rom = viewModel.getRomAtUri(uri)
+                ?: PunicaFolderRename.renamedUri(this@RomListActivity, uri)?.let { viewModel.getRomAtUri(it) }
             if (rom == null) {
                 Toast.makeText(this@RomListActivity, R.string.error_rom_not_found, Toast.LENGTH_LONG).show()
                 return@launch
@@ -258,16 +263,14 @@ class RomListActivity : AppCompatActivity() {
         return true
     }
 
+    override fun onHomeGameSelected(rom: Rom) = launchRom(rom)
+
+    override fun onHomeMenuAction(itemId: Int) {
+        runMenuAction(itemId)
+    }
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
-            R.id.action_sort_alphabetically -> {
-                viewModel.setRomSorting(SortingMode.ALPHABETICALLY)
-                return true
-            }
-            R.id.action_sort_recent -> {
-                viewModel.setRomSorting(SortingMode.RECENTLY_PLAYED)
-                return true
-            }
             R.id.action_platform_all, R.id.action_platform_ds, R.id.action_platform_three_ds, R.id.action_platform_gba, R.id.action_platform_switch, R.id.action_platform_gc_wii -> {
                 viewModel.setPlatformFilter(
                     when (item.itemId) {
@@ -280,6 +283,21 @@ class RomListActivity : AppCompatActivity() {
                     }
                 )
                 item.isChecked = true
+                return true
+            }
+        }
+        return runMenuAction(item.itemId)
+    }
+
+    // the menu's actions, from the toolbar or from the home screen's buttons and ⋮
+    private fun runMenuAction(itemId: Int): Boolean {
+        when (itemId) {
+            R.id.action_sort_alphabetically -> {
+                viewModel.setRomSorting(SortingMode.ALPHABETICALLY)
+                return true
+            }
+            R.id.action_sort_recent -> {
+                viewModel.setRomSorting(SortingMode.RECENTLY_PLAYED)
                 return true
             }
             R.id.action_boot_firmware_ds -> {
@@ -320,7 +338,15 @@ class RomListActivity : AppCompatActivity() {
         return false
     }
 
+    private fun showToolbar(show: Boolean) {
+        homeShown = !show
+        binding.toolbar.isVisible = show
+        binding.viewStatusBarBackground.isVisible = show
+        ViewCompat.requestApplyInsets(binding.root)
+    }
+
     private fun addNoSearchDirectoriesFragment() {
+        showToolbar(true)
         var noRomDirectoriesFragment = supportFragmentManager.findFragmentByTag(FRAGMENT_NO_ROM_DIRECTORIES) as NoRomSearchDirectoriesFragment?
         if (noRomDirectoriesFragment == null) {
             noRomDirectoriesFragment = NoRomSearchDirectoriesFragment.newInstance()
@@ -330,15 +356,14 @@ class RomListActivity : AppCompatActivity() {
         }
     }
 
+    // Punica's home screen (HomeFragment) in place of upstream's list; it starts games through HomeFragment.Host
     private fun addRomListFragment() {
-        var romListFragment = supportFragmentManager.findFragmentByTag(FRAGMENT_ROM_LIST) as RomListFragment?
-        if (romListFragment == null) {
-            romListFragment = RomListFragment.newInstance(true, RomListFragment.RomEnableCriteria.ENABLE_ALL)
+        showToolbar(false)
+        if (supportFragmentManager.findFragmentByTag(FRAGMENT_ROM_LIST) !is HomeFragment) {
             supportFragmentManager.commit {
-                replace(R.id.layout_main, romListFragment, FRAGMENT_ROM_LIST)
+                replace(R.id.layout_main, HomeFragment(), FRAGMENT_ROM_LIST)
             }
         }
-        romListFragment.setRomSelectedListener { rom -> launchRom(rom) }
     }
 
     private fun showProdUpdateAvailableDialog(update: AppUpdate) {

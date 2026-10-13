@@ -4,6 +4,8 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Divider
 import androidx.compose.material.MaterialTheme
@@ -26,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
@@ -40,6 +44,8 @@ import me.magnum.melonds.ui.common.MelonPreviewSet
 import me.magnum.melonds.ui.common.component.text.CaptionText
 import me.magnum.melonds.ui.settings.PreferenceFragmentTitleProvider
 import me.magnum.melonds.ui.theme.MelonTheme
+import me.magnum.melonds.ui.theme.PunicaDimens
+import me.magnum.melonds.ui.theme.PunicaTheme
 
 class SoftInputBehaviourPreferencesFragment : Fragment(), PreferenceFragmentTitleProvider {
 
@@ -79,15 +85,21 @@ private fun SoftInputBehaviourPreferencesScreen() {
         mutableStateOf(initialBehaviour)
     }
 
+    // Punica's settings card (as PunicaPreferenceCards draws for the other settings screens): 16 dp from the sides,
+    // 16 dp corners, the card colour and its outline, a line between the choices
     Column(
         modifier = Modifier.fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .selectableGroup()
-            .safeDrawingPadding(),
+            .safeDrawingPadding()
+            .padding(16.dp)
+            .clip(RoundedCornerShape(PunicaDimens.CARD_RADIUS.dp))
+            .background(PunicaTheme.card)
+            .border(1.dp, PunicaTheme.line, RoundedCornerShape(PunicaDimens.CARD_RADIUS.dp))
+            .selectableGroup(),
     ) {
         SoftInputBehaviour.entries.forEachIndexed { index, behaviour ->
             if (index > 0) {
-                Divider(modifier = Modifier.padding(start = 68.dp, end = 16.dp))
+                Divider(color = PunicaTheme.line)
             }
 
             SoftInputBehaviourEntry(

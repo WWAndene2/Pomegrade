@@ -22,6 +22,33 @@
                 android:summary="@string/pomegrade_settings_restore_summary"
                 app:icon="@drawable/ic_file" />
 
+        <!-- how the in-game menu opens on every console (ShortcutPill.KEY_ACCESS, read by :emulator-ui) -->
+        <ListPreference
+                android:key="punica_menu_access"
+                android:title="@string/menu_access"
+                android:summary="%s"
+                app:icon="@drawable/ic_menu"
+                android:entries="@array/menu_access_options"
+                android:entryValues="@array/menu_access_values"
+                android:defaultValue="pill" />
+
+        <!-- the shortcut pill at rest (ShortcutPill.KEY_OPACITY and KEY_AUTO_HIDE, read by :emulator-ui) -->
+        <ListPreference
+                android:key="punica_pill_opacity"
+                android:title="@string/pill_opacity"
+                android:summary="%s"
+                app:iconSpaceReserved="true"
+                android:entries="@array/pill_opacity_options"
+                android:entryValues="@array/pill_opacity_values"
+                android:defaultValue="faint" />
+
+        <SwitchPreference
+                android:key="punica_pill_auto_hide"
+                android:title="@string/pill_auto_hide"
+                android:summary="@string/pill_auto_hide_summary"
+                app:iconSpaceReserved="true"
+                android:defaultValue="false" />
+
         <Preference
                 android:title="@string/category_general"
                 android:summary="@string/category_general_summary"
@@ -119,11 +146,6 @@
             android:key="three_ds_settings"
             android:title="@string/settings_section_three_ds"
             app:iconSpaceReserved="false">
-        <Preference
-                android:key="three_ds_mod_install"
-                android:title="@string/three_ds_mod_install"
-                android:summary="@string/three_ds_mod_install_summary"
-                app:icon="@drawable/ic_add" />
         <Preference android:key="three_ds_settings_Core" android:title="@string/category_general" android:summary="@string/three_ds_settings_core_summary" app:icon="@drawable/ic_settings" />
         <Preference android:key="three_ds_settings_System" android:title="@string/category_system" android:summary="@string/three_ds_settings_system_summary" app:icon="@drawable/ic_firmware" />
         <Preference android:key="three_ds_settings_Renderer" android:title="@string/category_video" android:summary="@string/three_ds_settings_renderer_summary" app:icon="@drawable/ic_video" />
@@ -131,13 +153,18 @@
         <Preference android:key="three_ds_settings_Audio" android:title="@string/category_audio" android:summary="@string/three_ds_settings_audio_summary" app:icon="@drawable/ic_audio" />
         <Preference android:key="three_ds_settings_Controls" android:title="@string/input" android:summary="@string/three_ds_settings_controls_summary" app:icon="@drawable/ic_input" />
         <Preference android:key="three_ds_settings_Camera" android:title="@string/three_ds_settings_camera" android:summary="@string/three_ds_settings_camera_summary" app:icon="@drawable/ic_video" />
+        <Preference android:key="three_ds_settings_Debugging" android:title="@string/settings_advanced" android:summary="@string/three_ds_settings_debug_summary" app:icon="@drawable/ic_settings" />
         <SwitchPreference
                 android:key="three_ds_code_trace"
                 android:title="@string/three_ds_code_trace"
                 android:summary="@string/three_ds_code_trace_summary"
                 android:defaultValue="false"
                 app:icon="@drawable/ic_settings" />
-        <Preference android:key="three_ds_settings_Debugging" android:title="@string/three_ds_settings_debug" android:summary="@string/three_ds_settings_debug_summary" app:icon="@drawable/ic_settings" />
+        <Preference
+                android:key="three_ds_mod_install"
+                android:title="@string/three_ds_mod_install"
+                android:summary="@string/three_ds_mod_install_summary"
+                app:icon="@drawable/ic_add" />
     </PreferenceCategory>
 
     <!-- Switch: the Switch core's own settings (Eden), each section opened directly (key: its MenuTag),
@@ -146,18 +173,26 @@
             android:key="switch_settings"
             android:title="@string/settings_section_switch"
             app:iconSpaceReserved="false">
-
+        <Preference android:key="switch_settings_SECTION_APP_SETTINGS" android:title="@string/settings_interface" android:summary="@string/switch_settings_interface_summary" app:icon="@drawable/ic_settings" />
+        <Preference android:key="switch_settings_SECTION_SYSTEM" android:title="@string/category_system" android:summary="@string/switch_settings_system_summary" app:icon="@drawable/ic_firmware" />
+        <Preference android:key="switch_settings_SECTION_RENDERER" android:title="@string/category_video" android:summary="@string/switch_settings_renderer_summary" app:icon="@drawable/ic_video" />
+        <Preference android:key="switch_settings_SECTION_PERFORMANCE_STATS" android:title="@string/settings_performance_overlay" android:summary="@string/switch_settings_performance_summary" app:icon="@drawable/ic_video" />
+        <Preference android:key="switch_settings_SECTION_SOC_OVERLAY" android:title="@string/settings_system_overlay" android:summary="@string/switch_settings_soc_summary" app:icon="@drawable/ic_video" />
+        <Preference android:key="switch_settings_SECTION_AUDIO" android:title="@string/category_audio" android:summary="@string/switch_settings_audio_summary" app:icon="@drawable/ic_audio" />
+        <Preference android:key="switch_settings_SECTION_INPUT" android:title="@string/input" android:summary="@string/switch_settings_input_summary" app:icon="@drawable/ic_input" />
+        <Preference android:key="switch_settings_SECTION_INPUT_OVERLAY" android:title="@string/settings_on_screen_controls" android:summary="@string/switch_settings_input_overlay_summary" app:icon="@drawable/ic_input" />
+        <Preference android:key="switch_settings_SECTION_APPLETS" android:title="@string/switch_settings_applets" android:summary="@string/switch_settings_applets_summary" app:icon="@drawable/ic_firmware" />
+        <Preference android:key="switch_settings_SECTION_DEBUG" android:title="@string/settings_advanced" android:summary="@string/switch_settings_debug_summary" app:icon="@drawable/ic_settings" />
+        <Preference
+                android:key="switch_import_data"
+                android:title="@string/switch_import_data"
+                android:summary="@string/switch_import_data_summary"
+                app:icon="@drawable/ic_firmware" />
         <Preference
                 android:key="switch_home"
                 android:title="@string/switch_home"
                 android:summary="@string/switch_home_summary"
                 app:icon="@drawable/ic_settings" />
-        <Preference android:key="switch_settings_SECTION_SYSTEM" android:title="@string/category_system" android:summary="@string/switch_settings_system_summary" app:icon="@drawable/ic_firmware" />
-        <Preference android:key="switch_settings_SECTION_RENDERER" android:title="@string/category_video" android:summary="@string/switch_settings_renderer_summary" app:icon="@drawable/ic_video" />
-        <Preference android:key="switch_settings_SECTION_AUDIO" android:title="@string/category_audio" android:summary="@string/switch_settings_audio_summary" app:icon="@drawable/ic_audio" />
-        <Preference android:key="switch_settings_SECTION_INPUT" android:title="@string/input" android:summary="@string/switch_settings_input_summary" app:icon="@drawable/ic_input" />
-        <Preference android:key="switch_settings_SECTION_APP_SETTINGS" android:title="@string/category_general" android:summary="@string/switch_settings_app_summary" app:icon="@drawable/ic_settings" />
-        <Preference android:key="switch_settings_SECTION_DEBUG" android:title="@string/three_ds_settings_debug" android:summary="@string/switch_settings_debug_summary" app:icon="@drawable/ic_settings" />
     </PreferenceCategory>
 
     <!-- GameCube and Wii: the Dolphin core's own settings, each section opened directly (key: its MenuTag),
@@ -166,18 +201,22 @@
             android:key="gc_wii_settings"
             android:title="@string/settings_section_gc_wii"
             app:iconSpaceReserved="false">
+        <Preference android:key="gc_wii_settings_CONFIG_GENERAL" android:title="@string/category_general" android:summary="@string/gc_wii_settings_general_summary" app:icon="@drawable/ic_settings" />
+        <Preference android:key="gc_wii_settings_CONFIG_INTERFACE" android:title="@string/settings_interface" android:summary="@string/gc_wii_settings_interface_summary" app:icon="@drawable/ic_settings" />
+        <Preference android:key="gc_wii_settings_GRAPHICS" android:title="@string/category_video" android:summary="@string/gc_wii_settings_graphics_summary" app:icon="@drawable/ic_video" />
+        <Preference android:key="gc_wii_settings_CONFIG_AUDIO" android:title="@string/category_audio" android:summary="@string/gc_wii_settings_audio_summary" app:icon="@drawable/ic_audio" />
+        <Preference android:key="gc_wii_settings_GCPAD_TYPE" android:title="@string/gc_wii_settings_gc_controllers" android:summary="@string/gc_wii_settings_gc_controllers_summary" app:icon="@drawable/ic_input" />
+        <Preference android:key="gc_wii_settings_WIIMOTE" android:title="@string/gc_wii_settings_wii_remotes" android:summary="@string/gc_wii_settings_wii_remotes_summary" app:icon="@drawable/ic_input" />
+        <Preference android:key="gc_wii_settings_CONFIG_GAME_CUBE" android:title="@string/gc_wii_settings_gamecube" android:summary="@string/gc_wii_settings_gamecube_summary" app:icon="@drawable/ic_firmware" />
+        <Preference android:key="gc_wii_settings_CONFIG_WII" android:title="@string/gc_wii_settings_wii" android:summary="@string/gc_wii_settings_wii_summary" app:icon="@drawable/ic_firmware" />
+        <Preference android:key="gc_wii_settings_CONFIG_ACHIEVEMENTS" android:title="@string/retroachievements" android:summary="@string/gc_wii_settings_achievements_summary" app:icon="@drawable/ic_trophy" />
+        <Preference android:key="gc_wii_settings_CONFIG_ADVANCED" android:title="@string/settings_advanced" android:summary="@string/gc_wii_settings_advanced_summary" app:icon="@drawable/ic_settings" />
+        <Preference android:key="gc_wii_settings_CONFIG_LOG" android:title="@string/gc_wii_settings_log" android:summary="@string/gc_wii_settings_log_summary" app:icon="@drawable/ic_settings" />
+        <Preference android:key="gc_wii_settings_DEBUG" android:title="@string/gc_wii_settings_debug" android:summary="@string/gc_wii_settings_debug_summary" app:icon="@drawable/ic_settings" />
         <Preference
                 android:key="gc_wii_home"
                 android:title="@string/gc_wii_home"
                 android:summary="@string/gc_wii_home_summary"
                 app:icon="@drawable/ic_settings" />
-        <Preference android:key="gc_wii_settings_CONFIG_GENERAL" android:title="@string/category_general" android:summary="@string/gc_wii_settings_general_summary" app:icon="@drawable/ic_settings" />
-        <Preference android:key="gc_wii_settings_GRAPHICS" android:title="@string/category_video" android:summary="@string/gc_wii_settings_graphics_summary" app:icon="@drawable/ic_video" />
-        <Preference android:key="gc_wii_settings_CONFIG_AUDIO" android:title="@string/category_audio" android:summary="@string/gc_wii_settings_audio_summary" app:icon="@drawable/ic_audio" />
-        <Preference android:key="gc_wii_settings_CONFIG_GAME_CUBE" android:title="@string/gc_wii_settings_gamecube" android:summary="@string/gc_wii_settings_gamecube_summary" app:icon="@drawable/ic_firmware" />
-        <Preference android:key="gc_wii_settings_CONFIG_WII" android:title="@string/gc_wii_settings_wii" android:summary="@string/gc_wii_settings_wii_summary" app:icon="@drawable/ic_firmware" />
-        <Preference android:key="gc_wii_settings_GCPAD_TYPE" android:title="@string/gc_wii_settings_gc_controllers" android:summary="@string/gc_wii_settings_gc_controllers_summary" app:icon="@drawable/ic_input" />
-        <Preference android:key="gc_wii_settings_WIIMOTE" android:title="@string/gc_wii_settings_wii_remotes" android:summary="@string/gc_wii_settings_wii_remotes_summary" app:icon="@drawable/ic_input" />
-        <Preference android:key="gc_wii_settings_CONFIG_ADVANCED" android:title="@string/three_ds_settings_debug" android:summary="@string/gc_wii_settings_advanced_summary" app:icon="@drawable/ic_settings" />
     </PreferenceCategory>
 </PreferenceScreen>

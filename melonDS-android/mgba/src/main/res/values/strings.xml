@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="gba_console">Game Boy Advance</string>
+    <string name="gba_performance">FPS: %1$.0f · Speed: %2$.0f%%</string>
+    <string name="gba_rewind_hint">Rewinding: touch the screen to play from here</string>
+    <string name="gba_rewind_end">Nothing earlier to rewind to</string>
     <string name="gba_load_failed">This game could not be started</string>
     <string name="gba_state_saved">State saved</string>
     <string name="gba_state_save_failed">The state could not be saved</string>

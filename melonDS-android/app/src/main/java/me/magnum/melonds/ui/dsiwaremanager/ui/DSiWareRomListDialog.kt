@@ -2,30 +2,21 @@ package me.magnum.melonds.ui.dsiwaremanager.ui
 
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import android.net.Uri
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Divider
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
-import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.Text
-import androidx.compose.material.TopAppBar
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -34,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
@@ -47,8 +39,10 @@ import me.magnum.melonds.domain.model.RomIconFiltering
 import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.domain.model.rom.config.RomConfig
 import me.magnum.melonds.ui.common.FullScreen
+import me.magnum.melonds.ui.common.component.PunicaHeader
 import me.magnum.melonds.ui.common.component.dialog.BaseDialog
 import me.magnum.melonds.ui.common.component.dialog.DialogButton
+import me.magnum.melonds.ui.common.component.punicaBackground
 import me.magnum.melonds.ui.dsiwaremanager.DSiWareRomListViewModel
 import me.magnum.melonds.ui.dsiwaremanager.model.DSiWareMangerRomListUiState
 import me.magnum.melonds.ui.romlist.RomIcon
@@ -105,32 +99,11 @@ private fun FullScreenDialog(
 ) {
     FullScreen(onDismiss = onDismiss) {
         Scaffold(
+            modifier = Modifier.punicaBackground(),
             topBar = {
-                // Add spacing for status bar to have a different color
-                Box(Modifier.background(MaterialTheme.colors.primaryVariant).statusBarsPadding()) {
-                    TopAppBar(
-                        modifier = Modifier.fillMaxWidth(),
-                        title = {
-                            Text(
-                                text = stringResource(id = R.string.select_dsiware_title),
-                                color = MaterialTheme.colors.onPrimary,
-                            )
-                        },
-                        navigationIcon = {
-                            IconButton(onClick = onDismiss) {
-                                Icon(
-                                    imageVector = Icons.Filled.Close,
-                                    contentDescription = stringResource(id = R.string.close),
-                                    tint = MaterialTheme.colors.onPrimary,
-                                )
-                            }
-                        },
-                        backgroundColor = MaterialTheme.colors.primary,
-                        windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets(bottom = Int.MAX_VALUE)),
-                    )
-                }
+                PunicaHeader(subtitle = stringResource(id = R.string.select_dsiware_title), onBack = onDismiss)
             },
-            backgroundColor = MaterialTheme.colors.surface,
+            backgroundColor = Color.Transparent,
             contentWindowInsets = WindowInsets.safeDrawing,
         ) { padding ->
             when (romsUiState) {

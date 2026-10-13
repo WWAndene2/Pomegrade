@@ -156,7 +156,7 @@
 
     <!-- Setup strings -->
     <string name="eden_welcome">بەخێربێیت!</string>
-    <string name="eden_welcome_description">فێربە چۆن &lt;b>Eden&lt;/b> ڕێکبخەیت و بچییە ناو ئیمولەیشن.</string>
+    <string name="eden_welcome_description">فێربە چۆن &lt;b>Punica&lt;/b> ڕێکبخەیت و بچییە ناو ئیمولەیشن.</string>
     <string name="eden_get_started">دەست پێبکە</string>
     <string name="keys">کلیلەکان</string>
     <string name="keys_description">فایلی &lt;b>prod.keys&lt;/b> هەڵبژێرە بە دوگمەی خوارەوە.</string>

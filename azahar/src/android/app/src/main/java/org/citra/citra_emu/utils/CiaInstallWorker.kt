@@ -116,7 +116,8 @@ class CiaInstallWorker(val context: Context, params: WorkerParameters) : Worker(
     }
 
     override fun doWork(): Result {
-        val selectedFiles = inputData.getStringArray("CIA_FILES")!!
+        // Pomegrade: work 2.11 (the app's version) types the array as String?
+        val selectedFiles = inputData.getStringArray("CIA_FILES")!!.filterNotNull()
         val toastText: CharSequence = context.resources.getQuantityString(
             R.plurals.cia_install_toast,
             selectedFiles.size,

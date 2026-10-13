@@ -31,12 +31,14 @@ import me.magnum.melonds.R
 import me.magnum.melonds.common.Permission
 import me.magnum.melonds.common.contracts.FilePickerContract
 import me.magnum.melonds.domain.model.rom.Rom
+import me.magnum.melonds.domain.model.rom.RomPlatform
 import me.magnum.melonds.domain.model.rom.config.RomConfig
 import me.magnum.melonds.domain.model.rom.config.RuntimeConsoleType
 import me.magnum.melonds.domain.model.rom.config.RuntimeMicSource
 import me.magnum.melonds.ui.common.MelonPreviewSet
 import me.magnum.melonds.ui.common.component.dialog.TextInputDialog
 import me.magnum.melonds.ui.common.component.dialog.rememberTextInputDialogState
+import me.magnum.melonds.impl.TexturePackInstaller
 import me.magnum.melonds.ui.common.preference.ActionLauncherItem
 import me.magnum.melonds.ui.common.preference.SingleChoiceItem
 import me.magnum.melonds.ui.layouts.LayoutSelectorActivity
@@ -55,6 +57,7 @@ fun RomConfigUi(
     rom: Rom,
     romConfigUiState: RomConfigUiState,
     onConfigUpdate: (RomConfigUpdateEvent) -> Unit,
+    onInstallTexturePack: () -> Unit,
 ) {
     when (romConfigUiState) {
         is RomConfigUiState.Loading -> Loading(modifier.padding(contentPadding))
@@ -64,6 +67,7 @@ fun RomConfigUi(
             rom = rom,
             romConfig = romConfigUiState.romConfigUiModel,
             onConfigUpdate = onConfigUpdate,
+            onInstallTexturePack = onInstallTexturePack,
         )
     }
 }
@@ -85,6 +89,7 @@ private fun Content(
     rom: Rom,
     romConfig: RomConfigUiModel,
     onConfigUpdate: (RomConfigUpdateEvent) -> Unit,
+    onInstallTexturePack: () -> Unit,
 ) {
     Column(
         modifier = modifier.verticalScroll(rememberScrollState())
@@ -113,88 +118,101 @@ private fun Content(
             },
         )
 
-        val consoleOptions = stringArrayResource(id = R.array.game_runtime_console_type_options)
-        SingleChoiceItem(
-            name = stringResource(id = R.string.label_rom_config_console),
-            value = consoleOptions[romConfig.runtimeConsoleType.ordinal],
-            items = consoleOptions.toList(),
-            selectedItemIndex = romConfig.runtimeConsoleType.ordinal,
-            onItemSelected = {
-                onConfigUpdate(RomConfigUpdateEvent.RuntimeConsoleUpdate(RuntimeConsoleType.entries[it]))
-            },
-            enabled = !rom.isDsiWareTitle,
-        )
-
-        val micSourceOptions = stringArrayResource(id = R.array.game_runtime_mic_source_options)
-        SingleChoiceItem(
-            name = stringResource(id = R.string.microphone_source),
-            value = micSourceOptions[romConfig.runtimeMicSource.ordinal],
-            items = micSourceOptions.toList(),
-            selectedItemIndex = romConfig.runtimeMicSource.ordinal,
-            onItemSelected = {
-                onConfigUpdate(RomConfigUpdateEvent.RuntimeMicSourceUpdate(RuntimeMicSource.entries[it]))
-            }
-        )
-
-        val context = LocalContext.current
-        val layoutSelectorLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK) {
-                val layoutId = result.data?.getStringExtra(LayoutSelectorActivity.KEY_SELECTED_LAYOUT_ID)?.let { UUID.fromString(it) }
-                onConfigUpdate(RomConfigUpdateEvent.LayoutUpdate(layoutId))
-            }
+        // Pomegrade: a texture pack for this game, into its console's folder (TexturePackInstaller)
+        if (TexturePackInstaller.isSupported(rom.platform)) {
+            ActionLauncherItem(
+                name = stringResource(id = R.string.texture_pack_install),
+                value = stringResource(id = R.string.texture_pack_install_summary),
+                onLaunchAction = onInstallTexturePack,
+            )
         }
-        ActionLauncherItem(
-            name = stringResource(id = R.string.controller_layout),
-            value = romConfig.layoutName ?: stringResource(id = R.string.use_global_layout),
-            onLaunchAction = {
-                val intent = Intent(context, LayoutSelectorActivity::class.java).apply {
-                    putExtra(LayoutSelectorActivity.KEY_SELECTED_LAYOUT_ID, romConfig.layoutId?.toString())
+
+        // the DS core's settings (console, microphone, controls, GBA slot); the other consoles' are in their
+        // game's in-game menu (Game settings), as their cores keep them
+        if (rom.platform == RomPlatform.NDS) {
+            val consoleOptions = stringArrayResource(id = R.array.game_runtime_console_type_options)
+            SingleChoiceItem(
+                name = stringResource(id = R.string.label_rom_config_console),
+                value = consoleOptions[romConfig.runtimeConsoleType.ordinal],
+                items = consoleOptions.toList(),
+                selectedItemIndex = romConfig.runtimeConsoleType.ordinal,
+                onItemSelected = {
+                    onConfigUpdate(RomConfigUpdateEvent.RuntimeConsoleUpdate(RuntimeConsoleType.entries[it]))
+                },
+                enabled = !rom.isDsiWareTitle,
+            )
+
+            val micSourceOptions = stringArrayResource(id = R.array.game_runtime_mic_source_options)
+            SingleChoiceItem(
+                name = stringResource(id = R.string.microphone_source),
+                value = micSourceOptions[romConfig.runtimeMicSource.ordinal],
+                items = micSourceOptions.toList(),
+                selectedItemIndex = romConfig.runtimeMicSource.ordinal,
+                onItemSelected = {
+                    onConfigUpdate(RomConfigUpdateEvent.RuntimeMicSourceUpdate(RuntimeMicSource.entries[it]))
                 }
-                layoutSelectorLauncher.launch(intent)
-            }
-        )
+            )
 
-        val gbaSlotOptions = stringArrayResource(id = R.array.gba_slot_options)
-        SingleChoiceItem(
-            name = stringResource(id = R.string.label_rom_config_gba_slot),
-            value = gbaSlotOptions[romConfig.gbaSlotConfig.type.ordinal],
-            items = gbaSlotOptions.toList(),
-            selectedItemIndex = romConfig.gbaSlotConfig.type.ordinal,
-            onItemSelected = {
-                onConfigUpdate(RomConfigUpdateEvent.GbaSlotTypeUpdated(RomGbaSlotConfigUiModel.Type.entries[it]))
+            val context = LocalContext.current
+            val layoutSelectorLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+                if (result.resultCode == Activity.RESULT_OK) {
+                    val layoutId = result.data?.getStringExtra(LayoutSelectorActivity.KEY_SELECTED_LAYOUT_ID)?.let { UUID.fromString(it) }
+                    onConfigUpdate(RomConfigUpdateEvent.LayoutUpdate(layoutId))
+                }
             }
-        )
-
-        val gbaRomSelectorLauncher = rememberLauncherForActivityResult(FilePickerContract(Permission.READ)) { result ->
-            if (result != null) {
-                onConfigUpdate(RomConfigUpdateEvent.GbaRomPathUpdate(result))
-            }
-        }
-        val gbaSaveSelectorLauncher = rememberLauncherForActivityResult(FilePickerContract(Permission.READ_WRITE)) { result ->
-            if (result != null) {
-                onConfigUpdate(RomConfigUpdateEvent.GbaSavePathUpdate(result))
-            }
-        }
-
-        AnimatedVisibility(visible = romConfig.gbaSlotConfig.type == RomGbaSlotConfigUiModel.Type.GbaRom) {
-            Column {
-                ActionLauncherItem(
-                    name = stringResource(id = R.string.label_rom_config_gba_rom_path),
-                    value = romConfig.gbaSlotConfig.gbaRomPath ?: stringResource(id = R.string.not_set),
-                    enabled = true,
-                    onLaunchAction = {
-                        gbaRomSelectorLauncher.launch(Pair(null, null))
+            ActionLauncherItem(
+                name = stringResource(id = R.string.controller_layout),
+                value = romConfig.layoutName ?: stringResource(id = R.string.use_global_layout),
+                onLaunchAction = {
+                    val intent = Intent(context, LayoutSelectorActivity::class.java).apply {
+                        putExtra(LayoutSelectorActivity.KEY_SELECTED_LAYOUT_ID, romConfig.layoutId?.toString())
                     }
-                )
+                    layoutSelectorLauncher.launch(intent)
+                }
+            )
 
-                ActionLauncherItem(
-                    name = stringResource(id = R.string.label_rom_config_gba_save_path),
-                    value = romConfig.gbaSlotConfig.gbaSavePath ?: stringResource(id = R.string.not_set),
-                    enabled = true,
-                    onLaunchAction = {
-                        gbaSaveSelectorLauncher.launch(Pair(null, null))
-                    }
-                )
+            val gbaSlotOptions = stringArrayResource(id = R.array.gba_slot_options)
+            SingleChoiceItem(
+                name = stringResource(id = R.string.label_rom_config_gba_slot),
+                value = gbaSlotOptions[romConfig.gbaSlotConfig.type.ordinal],
+                items = gbaSlotOptions.toList(),
+                selectedItemIndex = romConfig.gbaSlotConfig.type.ordinal,
+                onItemSelected = {
+                    onConfigUpdate(RomConfigUpdateEvent.GbaSlotTypeUpdated(RomGbaSlotConfigUiModel.Type.entries[it]))
+                }
+            )
+
+            val gbaRomSelectorLauncher = rememberLauncherForActivityResult(FilePickerContract(Permission.READ)) { result ->
+                if (result != null) {
+                    onConfigUpdate(RomConfigUpdateEvent.GbaRomPathUpdate(result))
+                }
+            }
+            val gbaSaveSelectorLauncher = rememberLauncherForActivityResult(FilePickerContract(Permission.READ_WRITE)) { result ->
+                if (result != null) {
+                    onConfigUpdate(RomConfigUpdateEvent.GbaSavePathUpdate(result))
+                }
+            }
+
+            AnimatedVisibility(visible = romConfig.gbaSlotConfig.type == RomGbaSlotConfigUiModel.Type.GbaRom) {
+                Column {
+                    ActionLauncherItem(
+                        name = stringResource(id = R.string.label_rom_config_gba_rom_path),
+                        value = romConfig.gbaSlotConfig.gbaRomPath ?: stringResource(id = R.string.not_set),
+                        enabled = true,
+                        onLaunchAction = {
+                            gbaRomSelectorLauncher.launch(Pair(null, null))
+                        }
+                    )
+
+                    ActionLauncherItem(
+                        name = stringResource(id = R.string.label_rom_config_gba_save_path),
+                        value = romConfig.gbaSlotConfig.gbaSavePath ?: stringResource(id = R.string.not_set),
+                        enabled = true,
+                        onLaunchAction = {
+                            gbaSaveSelectorLauncher.launch(Pair(null, null))
+                        }
+                    )
+                }
             }
         }
 
@@ -227,6 +245,7 @@ private fun PreviewRomConfigUi() {
                 ),
             ),
             onConfigUpdate = { },
+            onInstallTexturePack = { },
         )
     }
 }

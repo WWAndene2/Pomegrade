@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Every Punica screen's background (owner's choice, 13 October): the dark ground and the red sweep in the top-left
+     corner, as on the home screen (ui/common/component/PunicaHeader.kt, punicaBackground) -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <color android:color="@color/punicaBackground" />
+    </item>
+    <item android:gravity="top|start" android:width="384dp" android:height="384dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="radial"
+                android:centerX="0"
+                android:centerY="0"
+                android:gradientRadius="100%"
+                android:startColor="@color/punicaSweep"
+                android:centerColor="#806A0B15"
+                android:endColor="#006A0B15" />
+        </shape>
+    </item>
+</layer-list>

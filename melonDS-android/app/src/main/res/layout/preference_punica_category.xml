@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Punica's settings section title: the home screen's section titles (Bricolage Grotesque 16, 16 dp above, 8 below),
+     outside the cards -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="@dimen/punica_margin"
+    android:paddingTop="@dimen/punica_margin"
+    android:paddingEnd="@dimen/punica_margin"
+    android:paddingBottom="@dimen/punica_gap">
+
+    <TextView
+        android:id="@android:id/title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/punica_bricolage_grotesque_bold"
+        android:includeFontPadding="false"
+        android:lineHeight="24sp"
+        android:textColor="@color/punicaText"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@android:id/summary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="@color/punicaTextMuted"
+        android:textSize="12sp"
+        android:visibility="gone" />
+</LinearLayout>

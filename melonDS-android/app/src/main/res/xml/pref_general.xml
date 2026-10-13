@@ -5,6 +5,7 @@
 
     <ListPreference
             android:key="theme"
+            app:isPreferenceVisible="false"
             android:title="@string/theme"
             android:summary="%s"
             app:iconSpaceReserved="false"

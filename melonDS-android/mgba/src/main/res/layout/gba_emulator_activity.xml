@@ -20,6 +20,15 @@
             android:id="@+id/gba_controls"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
+
+        <!-- the performance overlay, in the shared style, top left as the DS one -->
+        <TextView
+            android:id="@+id/gba_performance"
+            style="@style/Widget.Pomegrade.EmulatorMenu.PerformanceText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="12dp"
+            android:visibility="gone" />
     </FrameLayout>
 
     <com.google.android.material.navigation.NavigationView

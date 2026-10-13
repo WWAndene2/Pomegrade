@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The in-game menu's header: the game's icon, title and console -->
+<!-- The in-game menu's header, as Punica's game sheet: the game's icon (64, 12 dp corners), its console in italic
+     capitals above its name in Bricolage Grotesque 24 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -8,16 +10,18 @@
     android:gravity="center_vertical"
     android:paddingTop="24dp"
     android:paddingBottom="16dp"
-    android:paddingStart="24dp"
-    android:paddingEnd="24dp">
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp">
 
-    <ImageView
+    <com.google.android.material.imageview.ShapeableImageView
         android:id="@+id/emulator_menu_game_icon"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_marginEnd="16dp"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_marginEnd="12dp"
+        android:background="@color/emulator_menu_secondary_container"
         android:contentDescription="@null"
-        android:scaleType="fitCenter" />
+        android:scaleType="centerCrop"
+        app:shapeAppearanceOverlay="@style/ShapeAppearance.Pomegrade.EmulatorMenu.Tile" />
 
     <LinearLayout
         android:layout_width="0dp"
@@ -25,26 +29,30 @@
         android:layout_weight="1"
         android:orientation="vertical">
 
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/emulator_menu_game_title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:maxLines="2"
-            android:ellipsize="end"
-            android:textAppearance="?attr/textAppearanceTitleLarge"
-            android:textColor="?attr/colorOnSurface"
-            android:textAlignment="viewStart"
-            tools:text="Game title" />
-
-        <com.google.android.material.textview.MaterialTextView
+        <TextView
             android:id="@+id/emulator_menu_console"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textAppearance="?attr/textAppearanceLabelLarge"
-            android:textColor="?attr/colorPrimary"
+            android:fontFamily="@font/punica_bricolage_grotesque_extrabold"
+            android:lineHeight="16sp"
+            android:textAllCaps="true"
             android:textAlignment="viewStart"
+            android:textColor="@color/emulator_menu_on_surface_variant"
+            android:textSize="12sp"
+            android:textStyle="italic"
             tools:text="3DS" />
 
+        <TextView
+            android:id="@+id/emulator_menu_game_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:fontFamily="@font/punica_bricolage_grotesque_extrabold"
+            android:lineHeight="28sp"
+            android:maxLines="2"
+            android:textAlignment="viewStart"
+            android:textColor="@color/emulator_menu_on_surface"
+            android:textSize="24sp"
+            tools:text="Game title" />
     </LinearLayout>
-
 </LinearLayout>

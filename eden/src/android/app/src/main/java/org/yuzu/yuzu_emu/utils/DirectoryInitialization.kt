@@ -3,10 +3,13 @@
 
 package org.yuzu.yuzu_emu.utils
 
+import android.content.Context
 import androidx.preference.PreferenceManager
+import java.io.File
 import java.io.IOException
 import org.yuzu.yuzu_emu.NativeLibrary
 import org.yuzu.yuzu_emu.YuzuApplication
+import org.yuzu.yuzu_emu.getPublicFilesDir
 import org.yuzu.yuzu_emu.features.settings.model.BooleanSetting
 import org.yuzu.yuzu_emu.features.settings.model.IntSetting
 import org.yuzu.yuzu_emu.features.settings.model.Settings
@@ -31,6 +34,18 @@ object DirectoryInitialization {
         }
     }
 
+    /**
+     * Pomegrade: the folder Eden keeps its user data in (config, keys, NAND, SD card, shaders...) instead
+     * of the app's own folder (Android/data, deleted with the app), when it returns one. Set once by the
+     * app's Application, read when Eden starts and by its document provider.
+     */
+    @JvmStatic
+    var userDirectoryProvider: ((Context) -> File?)? = null
+
+    /** Pomegrade: [userDirectoryProvider]'s folder, or the app's own folder (Eden's default). */
+    fun userDirectoryFile(context: Context): File =
+        userDirectoryProvider?.invoke(context) ?: context.getPublicFilesDir()
+
     val userDirectory: String?
         get() {
             check(areDirectoriesReady) { "Directory initialization is not ready!" }
@@ -39,7 +54,7 @@ object DirectoryInitialization {
 
     private fun initializeInternalStorage() {
         try {
-            userPath = YuzuApplication.appContext.getExternalFilesDir(null)!!.canonicalPath
+            userPath = userDirectoryFile(YuzuApplication.appContext).canonicalPath
             NativeLibrary.setAppDirectory(userPath!!)
         } catch (e: IOException) {
             e.printStackTrace()

@@ -6,8 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,35 +15,19 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.Button
-import androidx.compose.material.ButtonDefaults
-import androidx.compose.material.ContentAlpha
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
-import androidx.compose.material.LocalContentAlpha
-import androidx.compose.material.LocalElevationOverlay
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Surface
-import androidx.compose.material.Tab
-import androidx.compose.material.TabRow
-import androidx.compose.material.TabRowDefaults
-import androidx.compose.material.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material.Text
-import androidx.compose.material.TopAppBar
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -51,9 +35,12 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.window.core.layout.WindowSizeClass
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
@@ -61,11 +48,20 @@ import me.magnum.melonds.R
 import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.domain.model.rom.config.RomConfig
 import me.magnum.melonds.ui.common.MelonPreviewSet
+import me.magnum.melonds.ui.common.component.PunicaHeader
+import me.magnum.melonds.ui.common.component.PunicaPill
+import me.magnum.melonds.ui.common.component.PunicaPlayButton
 import me.magnum.melonds.ui.romdetails.model.RomDetailsTab
 import me.magnum.melonds.ui.theme.MelonTheme
+import me.magnum.melonds.ui.theme.PunicaDimens
+import me.magnum.melonds.ui.theme.PunicaTheme
 import java.util.Date
 import kotlin.time.Duration
 
+/**
+ * The game's header, in Punica's style (owner's choice, 13 October): the shared header with the game's name, the
+ * game (icon 96, console, name, play time) and the red Play button, then the tabs as pills.
+ */
 @Composable
 fun RomHeaderUi(
     modifier: Modifier,
@@ -76,177 +72,80 @@ fun RomHeaderUi(
     onNavigateBack: () -> Unit,
     onTabClicked: (RomDetailsTab) -> Unit,
 ) {
-    CompositionLocalProvider(
-        LocalElevationOverlay provides null,
-        LocalContentAlpha provides ContentAlpha.high,
-    ) {
-        Surface(
-            modifier = modifier,
-            elevation = 4.dp,
+    Column(modifier) {
+        PunicaHeader(subtitle = stringResource(R.string.home_game_settings), onBack = onNavigateBack)
+        val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
+        val isLandscape = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                .padding(horizontal = PunicaDimens.MARGIN.dp, vertical = PunicaDimens.GAP.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top))) {
-                val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
-                val isLandscape = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
-                if (isLandscape) {
-                    LandscapeTopBar(
-                        rom = rom,
-                        initialFocusRequester = initialFocusRequester,
-                        onLaunchRom = onLaunchRom,
-                        onNavigateBack = onNavigateBack,
-                    )
-                } else {
-                    PortraitTopBar(
-                        rom = rom,
-                        initialFocusRequester = initialFocusRequester,
-                        onLaunchRom = onLaunchRom,
-                        onNavigateBack = onNavigateBack,
-                    )
-                }
-
-                TabRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    selectedTabIndex = pagerState.currentPage,
-                    backgroundColor = MaterialTheme.colors.surface,
-                    contentColor = MaterialTheme.colors.onSurface,
-                    indicator = { tabPositions ->
-                        TabRowDefaults.Indicator(
-                            modifier = Modifier.tabIndicatorOffset(tabPositions[pagerState.currentPage]),
-                            color = MaterialTheme.colors.secondary,
-                        )
-                    }
-                ) {
-                    Tab(
-                        selected = pagerState.currentPage == RomDetailsTab.CONFIG.tabIndex,
-                        onClick = { onTabClicked(RomDetailsTab.CONFIG) },
-                        text = {
-                            Text(
-                                text = stringResource(id = R.string.rom_details_configuration_tab).uppercase(),
-                                color = MaterialTheme.colors.onSurface,
-                            )
-                        }
-                    )
-                    Tab(
-                        selected = pagerState.currentPage == RomDetailsTab.RETRO_ACHIEVEMENTS.tabIndex,
-                        onClick = { onTabClicked(RomDetailsTab.RETRO_ACHIEVEMENTS) },
-                        text = {
-                            Text(
-                                text = stringResource(id = R.string.retro_achievements_tab).uppercase(),
-                                color = MaterialTheme.colors.onSurface
-                            )
-                        }
-                    )
-                }
+            RomIcon(rom, Modifier.size(96.dp).clip(RoundedCornerShape(PunicaDimens.TILE_RADIUS.dp)))
+            Spacer(Modifier.width(PunicaDimens.GAP_WIDE.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.home_console_ds).uppercase(),
+                    fontFamily = PunicaTheme.display, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic,
+                    fontSize = 12.sp, lineHeight = 16.sp, color = PunicaTheme.textMuted,
+                )
+                Text(
+                    text = rom.config.customName ?: rom.name,
+                    fontFamily = PunicaTheme.display, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, lineHeight = 32.sp,
+                    color = PunicaTheme.text, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                )
+                PlayTimeText(rom.totalPlayTime)
             }
+            if (isLandscape) {
+                Spacer(Modifier.width(PunicaDimens.MARGIN.dp))
+                PunicaPlayButton(stringResource(R.string.home_play), onClick = onLaunchRom, modifier = Modifier.width(192.dp).focusRequester(initialFocusRequester))
+            }
+        }
+        if (!isLandscape) {
+            PunicaPlayButton(
+                stringResource(R.string.home_play),
+                onClick = onLaunchRom,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                    .padding(horizontal = PunicaDimens.MARGIN.dp, vertical = PunicaDimens.GAP.dp)
+                    .focusRequester(initialFocusRequester),
+            )
+        }
+        Row(
+            Modifier
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                .padding(horizontal = PunicaDimens.MARGIN.dp, vertical = PunicaDimens.GAP.dp),
+            horizontalArrangement = Arrangement.spacedBy(PunicaDimens.GAP.dp),
+        ) {
+            PunicaPill(
+                text = stringResource(id = R.string.rom_details_configuration_tab),
+                selected = pagerState.currentPage == RomDetailsTab.CONFIG.tabIndex,
+                onClick = { onTabClicked(RomDetailsTab.CONFIG) },
+            )
+            PunicaPill(
+                text = stringResource(id = R.string.retro_achievements_tab),
+                selected = pagerState.currentPage == RomDetailsTab.RETRO_ACHIEVEMENTS.tabIndex,
+                onClick = { onTabClicked(RomDetailsTab.RETRO_ACHIEVEMENTS) },
+            )
         }
     }
 }
 
+// the game's icon, sharp (pixel art); a grey square in previews
 @Composable
-private fun PortraitTopBar(
-    rom: Rom,
-    initialFocusRequester: FocusRequester,
-    onLaunchRom: () -> Unit,
-    onNavigateBack: () -> Unit,
-) {
-    TopAppBar(
-        backgroundColor = MaterialTheme.colors.surface,
-        elevation = 0.dp,
-        title = {
-            if (LocalInspectionMode.current) {
-                Box(Modifier.size(42.dp).background(Color.Gray))
-            } else {
-                AsyncImage(
-                    modifier = Modifier.size(42.dp),
-                    model = rom,
-                    contentDescription = null,
-                    filterQuality = FilterQuality.None,
-                )
-            }
-
-            Text(
-                modifier = Modifier.padding(start = 16.dp),
-                text = rom.config.customName ?: rom.name,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        },
-        navigationIcon = {
-            IconButton(onClick = onNavigateBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
-            }
-        },
-    )
-
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        PlayButton(
-            modifier = Modifier.focusRequester(initialFocusRequester),
-            onClick = onLaunchRom,
+private fun RomIcon(rom: Rom, modifier: Modifier) {
+    if (LocalInspectionMode.current) {
+        Box(modifier.background(Color.Gray))
+    } else {
+        AsyncImage(
+            modifier = modifier.background(PunicaTheme.cardRaised),
+            model = rom,
+            contentDescription = null,
+            filterQuality = FilterQuality.None,
         )
-
-        PlayTimeText(rom.totalPlayTime)
-    }
-}
-
-@Composable
-private fun ColumnScope.LandscapeTopBar(
-    rom: Rom,
-    initialFocusRequester: FocusRequester,
-    onLaunchRom: () -> Unit,
-    onNavigateBack: () -> Unit,
-) {
-    TopAppBar(
-        backgroundColor = MaterialTheme.colors.surface,
-        elevation = 0.dp,
-        title = {
-            if (LocalInspectionMode.current) {
-                Box(Modifier.size(42.dp).background(Color.Gray))
-            } else {
-                AsyncImage(
-                    modifier = Modifier.size(42.dp),
-                    model = rom,
-                    contentDescription = null,
-                    filterQuality = FilterQuality.None,
-                )
-            }
-
-            Column(Modifier.padding(start = 16.dp).weight(1f)) {
-                Text(
-                    text = rom.config.customName ?: rom.name,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                PlayTimeText(rom.totalPlayTime)
-            }
-
-            PlayButton(
-                modifier = Modifier.padding(horizontal = 16.dp).focusRequester(initialFocusRequester),
-                onClick = onLaunchRom,
-            )
-        },
-        navigationIcon = {
-            IconButton(onClick = onNavigateBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
-            }
-        },
-    )
-}
-
-@Composable
-private fun PlayButton(
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    Button(
-        modifier = modifier.widthIn(min = 132.dp),
-        shape = RoundedCornerShape(50),
-        onClick = onClick,
-        colors = ButtonDefaults.buttonColors(backgroundColor = MaterialTheme.colors.secondary, contentColor = MaterialTheme.colors.onSecondary),
-    ) {
-        Text(text = stringResource(R.string.play).uppercase())
     }
 }
 
@@ -264,7 +163,9 @@ private fun PlayTimeText(playTime: Duration) {
     }
     Text(
         text = romPlayTime,
-        style = MaterialTheme.typography.body1,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        color = PunicaTheme.textMuted,
         maxLines = 1,
     )
 }

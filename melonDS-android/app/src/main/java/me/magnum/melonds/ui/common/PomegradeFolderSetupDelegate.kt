@@ -23,6 +23,7 @@ import kotlinx.coroutines.withContext
 import me.magnum.melonds.R
 import me.magnum.melonds.domain.repositories.RomsRepository
 import me.magnum.melonds.impl.PomegradeFolder
+import me.magnum.melonds.impl.PunicaFolderRename
 
 /**
  * Sets up the Pomegrade folder (see [PomegradeFolder]): explains it, gets "All files access" from
@@ -62,6 +63,11 @@ class PomegradeFolderSetupDelegate(private val activity: ComponentActivity) {
     fun start(onDone: (Boolean) -> Unit) {
         this.onDone = onDone
         when {
+            // renamed to Punica, its confirmation not done: finished from the game list, never replaced here
+            PunicaFolderRename.isPending(activity) -> {
+                Toast.makeText(activity, R.string.punica_folder_rename_pending, Toast.LENGTH_LONG).show()
+                finish(false)
+            }
             isSetUp() -> completeAndFinish()
             // set up before, the file access was withdrawn since
             pomegradeFolder.isSetUp() -> requestFileAccess()
@@ -81,6 +87,7 @@ class PomegradeFolderSetupDelegate(private val activity: ComponentActivity) {
             withContext(Dispatchers.IO) {
                 runCatching { pomegradeFolder.setUpThreeDs() }
                 runCatching { pomegradeFolder.hideImagesFromGallery() }
+                runCatching { pomegradeFolder.organizeSaves() }
                 runCatching { pomegradeFolder.organizeBios() }
             }
             finish(true)

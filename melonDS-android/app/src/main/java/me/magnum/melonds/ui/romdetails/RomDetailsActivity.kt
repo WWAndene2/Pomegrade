@@ -1,19 +1,27 @@
 package me.magnum.melonds.ui.romdetails
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.net.toUri
+import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.magnum.melonds.domain.model.ConsoleType
 import me.magnum.melonds.domain.model.rom.Rom
+import me.magnum.melonds.impl.TexturePackInstaller
 import me.magnum.melonds.ui.common.rom.EmulatorLaunchValidatorDelegate
+import me.magnum.melonds.ui.common.rom.TexturePackResultDialog
 import me.magnum.melonds.ui.emulator.EmulatorActivity
 import me.magnum.melonds.ui.romdetails.ui.RomDetailsScreen
 import me.magnum.melonds.ui.theme.MelonTheme
@@ -27,6 +35,11 @@ class RomDetailsActivity : AppCompatActivity() {
 
     private val romDetailsViewModel by viewModels<RomDetailsViewModel>()
     private val romRetroAchievementsViewModel by viewModels<RomDetailsRetroAchievementsViewModel>()
+
+    // Pomegrade: the texture pack picked for the game shown
+    private val texturePackPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { pack ->
+        if (pack != null) installTexturePack(romDetailsViewModel.rom.value, pack)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -70,6 +83,9 @@ class RomDetailsActivity : AppCompatActivity() {
                     onRomConfigUpdate = {
                         romDetailsViewModel.onRomConfigUpdateEvent(it)
                     },
+                    onInstallTexturePack = {
+                        texturePackPicker.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
+                    },
                     onRetroAchievementsLogin = { username, password ->
                         romRetroAchievementsViewModel.login(username, password)
                     },
@@ -81,6 +97,13 @@ class RomDetailsActivity : AppCompatActivity() {
                     }
                 )
             }
+        }
+    }
+
+    private fun installTexturePack(rom: Rom, pack: Uri) {
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) { TexturePackInstaller.install(this@RomDetailsActivity, rom, pack) }
+            TexturePackResultDialog.show(this@RomDetailsActivity, result)
         }
     }
 

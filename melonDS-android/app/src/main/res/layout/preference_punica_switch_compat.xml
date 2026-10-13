@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Punica's switch for SwitchPreferenceCompat: the same pill as preference_punica_switch -->
+<androidx.appcompat.widget.SwitchCompat xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/switchWidget"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@null"
+    android:clickable="false"
+    android:focusable="false"
+    android:thumb="@drawable/punica_switch_thumb"
+    app:showText="false"
+    app:switchMinWidth="48dp"
+    app:track="@drawable/punica_switch_track" />

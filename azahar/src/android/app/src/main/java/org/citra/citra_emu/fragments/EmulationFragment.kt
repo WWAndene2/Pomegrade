@@ -12,6 +12,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
@@ -54,6 +55,9 @@ import io.github.wwandene2.pomegrade.emulatorui.EmulatorMenu
 import io.github.wwandene2.pomegrade.emulatorui.R as EmulatorMenuR
 import io.github.wwandene2.pomegrade.emulatorui.SaveStateSlotUi
 import io.github.wwandene2.pomegrade.emulatorui.SaveStatesDialog
+import io.github.wwandene2.pomegrade.emulatorui.ScreenshotGallery
+import io.github.wwandene2.pomegrade.emulatorui.ShortcutPill
+import io.github.wwandene2.pomegrade.emulatorui.SurfaceCapture
 import java.io.File
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -100,6 +104,7 @@ class EmulationFragment :
     private val emulationActivity: EmulationActivity
         get() = (requireActivity() as EmulationActivity)
 
+    private var shortcutPill: ShortcutPill? = null
     private var _binding: FragmentEmulationBinding? = null
     private val binding get() = _binding!!
 
@@ -223,6 +228,8 @@ class EmulationFragment :
                 EmulatorMenuR.id.emulator_menu_rotate_upright,
                 EmulatorMenuR.id.emulator_menu_lock_drawer,
                 EmulatorMenuR.id.emulator_menu_multiplayer,
+                EmulatorMenuR.id.emulator_menu_screenshot,
+                EmulatorMenuR.id.emulator_menu_game_settings,
             )
         )
         binding.inGameMenu.menu.findItem(EmulatorMenuR.id.emulator_menu_secondary_layout).isVisible =
@@ -319,6 +326,14 @@ class EmulationFragment :
             GameIconUtils.loadGameIcon(requireActivity(), game, iconView)
         }
 
+        // Pomegrade: the shortcut pill, the menu's entries run as the menu runs them (this core keeps its own
+        // drawer lock setting for the edge swipe)
+        shortcutPill?.detach()
+        shortcutPill = ShortcutPill.attach(
+            requireActivity(),
+            { EmulatorMenu.visibleItems(binding.inGameMenu.menu) },
+            { id -> binding.inGameMenu.menu.performIdentifierAction(id, 0) }
+        )
         binding.inGameMenu.setNavigationItemSelectedListener {
             when (it.itemId) {
                 EmulatorMenuR.id.emulator_menu_pause -> {
@@ -349,6 +364,14 @@ class EmulationFragment :
 
                 EmulatorMenuR.id.emulator_menu_load_state -> {
                     showSaveStatesDialog(isSaving = false)
+                    true
+                }
+
+                EmulatorMenuR.id.emulator_menu_screenshot -> {
+                    // Pomegrade: the screenshot every console's menu has, in the phone's gallery
+                    SurfaceCapture.capture(binding.surfaceEmulation) {
+                        ScreenshotGallery.save(requireContext(), it, "3DS", game.title)
+                    }
                     true
                 }
 
@@ -427,6 +450,19 @@ class EmulationFragment :
                         ""
                     )
 
+                    true
+                }
+
+                EmulatorMenuR.id.emulator_menu_game_settings -> {
+                    // Pomegrade: this game's own settings (GameSettings/<title ID>.ini, read by jni/config.cpp)
+                    val titleId = NativeLibrary.getRunningTitleId()
+                    if (titleId != 0L) {
+                        SettingsActivity.launch(
+                            requireContext(),
+                            SettingsFile.FILE_NAME_CONFIG,
+                            "%016X".format(titleId)
+                        )
+                    }
                     true
                 }
 
@@ -592,6 +628,8 @@ class EmulationFragment :
     }
 
     override fun onDestroy() {
+        shortcutPill?.detach()
+        shortcutPill = null
         if (::emulationState.isInitialized && requireActivity().isFinishing) {
             emulationState.stop()
         }
@@ -626,15 +664,16 @@ class EmulationFragment :
         }
     }
 
-    // Pomegrade: the save state dialog shared with the DS screen (the 3DS core keeps no screenshots)
+    // Pomegrade: the save state dialog shared with the DS screen, with a preview of each slot
     private fun showSaveStatesDialog(isSaving: Boolean) {
         val savedAt = NativeLibrary.getSavestateInfo()?.associate { it.slot to it.time } ?: emptyMap()
         val slots = (0 until NativeLibrary.SAVESTATE_SLOT_COUNT).map { slot ->
+            val preview = statePreview(slot)
             SaveStateSlotUi(
                 slot = slot,
                 isQuickSlot = slot == NativeLibrary.QUICKSAVE_SLOT,
                 savedAt = savedAt[slot],
-                screenshot = null
+                screenshot = preview?.takeIf { savedAt[slot] != null && it.isFile }?.let { Uri.fromFile(it) }
             )
         }
 
@@ -644,6 +683,7 @@ class EmulationFragment :
             slots = slots,
             onSlotPicked = { picked ->
                 if (isSaving) {
+                    saveStatePreview(picked.slot)
                     NativeLibrary.saveState(picked.slot)
                     Toast.makeText(context, getString(R.string.saving), Toast.LENGTH_SHORT).show()
                 } else {
@@ -657,6 +697,28 @@ class EmulationFragment :
             onCancel = {},
             onDismiss = {}
         )
+    }
+
+    /**
+     * Pomegrade: the 3DS core keeps no image of its save states. The screen is copied when one is saved, as
+     * <title ID>.<slot>.png (the state's own name, states/<title ID>.<slot>.cst), in the app's files: the
+     * user folder may be a storage provider's, not a path. Lost when the app is uninstalled, the states not.
+     */
+    private fun statePreview(slot: Int): File? {
+        val titleId = NativeLibrary.getRunningTitleId().takeIf { it != 0L } ?: return null
+        return File(File(requireContext().filesDir, "state_previews"), "%016X.%02d.png".format(titleId, slot))
+    }
+
+    private fun saveStatePreview(slot: Int) {
+        val file = statePreview(slot) ?: return
+        file.delete()
+        SurfaceCapture.capture(binding.surfaceEmulation) { shot ->
+            shot ?: return@capture
+            Thread {
+                file.parentFile?.mkdirs()
+                runCatching { file.outputStream().use { shot.compress(Bitmap.CompressFormat.PNG, 100, it) } }
+            }.start()
+        }
     }
 
     private fun displaySavestateWarning() {

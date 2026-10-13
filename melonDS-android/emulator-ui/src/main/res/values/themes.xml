@@ -2,7 +2,7 @@
 <resources>
     <!-- The in-game menu and save state dialog of both consoles. A full Material 3 theme, applied with
          android:theme on the menu's view: the DS screen's own theme is AppCompat -->
-    <style name="Theme.Pomegrade.EmulatorMenu" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.Pomegrade.EmulatorMenu" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorPrimary">@color/emulator_menu_primary</item>
         <item name="colorOnPrimary">@color/emulator_menu_on_primary</item>
         <item name="colorPrimaryContainer">@color/emulator_menu_primary_container</item>
@@ -15,5 +15,102 @@
         <item name="colorOnSurface">@color/emulator_menu_on_surface</item>
         <item name="colorOnSurfaceVariant">@color/emulator_menu_on_surface_variant</item>
         <item name="android:colorBackground">@color/emulator_menu_surface</item>
+        <!-- Punica's look (owner's choice, 13 October), as the app's screens: rows 64 dp, the chosen one red-tinted
+             in 12 dp corners, titles in Bricolage Grotesque, dialogs in a 24 dp card -->
+        <item name="navigationViewStyle">@style/Widget.Pomegrade.EmulatorMenu.NavigationView</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Pomegrade.EmulatorMenu.Dialog</item>
+        <item name="textAppearanceTitleLarge">@style/TextAppearance.Pomegrade.EmulatorMenu.Title</item>
+        <item name="textAppearanceTitleMedium">@style/TextAppearance.Pomegrade.EmulatorMenu.TitleMedium</item>
+    </style>
+
+    <style name="Widget.Pomegrade.EmulatorMenu.NavigationView" parent="Widget.Material3.NavigationView">
+        <item name="android:background">@color/emulator_menu_surface</item>
+        <item name="drawerLayoutCornerSize">24dp</item>
+        <item name="itemShapeAppearance">@style/ShapeAppearance.Pomegrade.EmulatorMenu.Tile</item>
+        <item name="itemShapeFillColor">@color/emulator_menu_item_fill</item>
+        <item name="itemShapeInsetStart">8dp</item>
+        <item name="itemShapeInsetEnd">8dp</item>
+        <item name="itemHorizontalPadding">8dp</item>
+        <item name="itemVerticalPadding">20dp</item>
+        <item name="itemIconSize">24dp</item>
+        <item name="itemIconPadding">12dp</item>
+        <item name="itemIconTint">@color/emulator_menu_on_surface</item>
+        <item name="itemTextColor">@color/emulator_menu_on_surface</item>
+        <item name="itemTextAppearance">@style/TextAppearance.Pomegrade.EmulatorMenu.Item</item>
+        <item name="subheaderTextAppearance">@style/TextAppearance.Pomegrade.EmulatorMenu.Section</item>
+        <item name="subheaderColor">@color/emulator_menu_on_surface</item>
+        <item name="dividerInsetStart">16dp</item>
+        <item name="dividerInsetEnd">16dp</item>
+    </style>
+
+    <!-- 0.24 x a 48 dp tile = 12 -->
+    <style name="ShapeAppearance.Pomegrade.EmulatorMenu.Tile" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
+    </style>
+
+    <style name="ShapeAppearance.Pomegrade.EmulatorMenu.Dialog" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">24dp</item>
+    </style>
+
+    <style name="TextAppearance.Pomegrade.EmulatorMenu.Item" parent="TextAppearance.Material3.LabelLarge">
+        <item name="android:textSize">14sp</item>
+        <item name="fontFamily">sans-serif-medium</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="TextAppearance.Pomegrade.EmulatorMenu.Section" parent="TextAppearance.Material3.TitleSmall">
+        <item name="android:textSize">16sp</item>
+        <item name="fontFamily">@font/punica_bricolage_grotesque_bold</item>
+        <item name="android:fontFamily">@font/punica_bricolage_grotesque_bold</item>
+    </style>
+
+    <style name="TextAppearance.Pomegrade.EmulatorMenu.Title" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:textSize">24sp</item>
+        <item name="lineHeight">32sp</item>
+        <item name="fontFamily">@font/punica_bricolage_grotesque_extrabold</item>
+        <item name="android:fontFamily">@font/punica_bricolage_grotesque_extrabold</item>
+    </style>
+
+    <style name="TextAppearance.Pomegrade.EmulatorMenu.TitleMedium" parent="TextAppearance.Material3.TitleMedium">
+        <item name="android:textSize">16sp</item>
+        <item name="lineHeight">24sp</item>
+        <item name="fontFamily">@font/punica_bricolage_grotesque_bold</item>
+        <item name="android:fontFamily">@font/punica_bricolage_grotesque_bold</item>
+    </style>
+
+    <!-- the save state dialog: Punica's dialog card, buttons red in Bricolage -->
+    <style name="ThemeOverlay.Pomegrade.EmulatorMenu.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorSurface">@color/emulator_menu_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/emulator_menu_surface</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.Pomegrade.EmulatorMenu.Dialog</item>
+        <item name="materialAlertDialogTitleTextStyle">@style/Widget.Pomegrade.EmulatorMenu.DialogTitle</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.Pomegrade.EmulatorMenu.DialogButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.Pomegrade.EmulatorMenu.DialogButton</item>
+        <item name="buttonBarNeutralButtonStyle">@style/Widget.Pomegrade.EmulatorMenu.DialogButton</item>
+    </style>
+
+    <style name="Widget.Pomegrade.EmulatorMenu.DialogTitle" parent="MaterialAlertDialog.Material3.Title.Text">
+        <item name="android:textAppearance">@style/TextAppearance.Pomegrade.EmulatorMenu.Title</item>
+        <item name="android:textColor">@color/emulator_menu_on_surface</item>
+    </style>
+
+    <style name="Widget.Pomegrade.EmulatorMenu.DialogButton" parent="Widget.Material3.Button.TextButton.Dialog">
+        <item name="android:textSize">16sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:fontFamily">@font/punica_bricolage_grotesque_extrabold</item>
+        <item name="android:textColor">@color/emulator_menu_primary</item>
+        <item name="android:minHeight">48dp</item>
+    </style>
+
+    <!-- The performance overlay's text, the same over every console's game (DS, GBA, 3DS, Switch; the
+         GameCube / Wii core draws its own in the game's image): white with a black shadow, readable on any
+         picture. Each core keeps what it shows and where -->
+    <style name="Widget.Pomegrade.EmulatorMenu.PerformanceText" parent="">
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:shadowColor">@android:color/black</item>
+        <item name="android:shadowRadius">3</item>
     </style>
 </resources>

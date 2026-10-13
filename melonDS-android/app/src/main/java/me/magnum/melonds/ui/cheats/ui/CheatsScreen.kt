@@ -3,25 +3,17 @@ package me.magnum.melonds.ui.cheats.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.ContentAlpha
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.LocalContentAlpha
-import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.SnackbarHostState
 import androidx.compose.material.SnackbarResult
-import androidx.compose.material.Text
-import androidx.compose.material.TopAppBar
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.rememberScaffoldState
 import androidx.compose.runtime.Composable
@@ -32,10 +24,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -48,6 +40,8 @@ import me.magnum.melonds.R
 import me.magnum.melonds.ui.cheats.CheatsNavigation
 import me.magnum.melonds.ui.cheats.CheatsViewModel
 import me.magnum.melonds.ui.cheats.model.CheatsScreenUiState
+import me.magnum.melonds.ui.common.component.PunicaHeader
+import me.magnum.melonds.ui.common.component.punicaBackground
 
 @OptIn(ExperimentalSerializationApi::class)
 @Composable
@@ -114,44 +108,26 @@ fun CheatsScreen(
     }
 
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().punicaBackground(),
         scaffoldState = scaffoldState,
         topBar = {
-            Box(Modifier.background(MaterialTheme.colors.primaryVariant).statusBarsPadding()) {
-                TopAppBar(
-                    title = {
-                        Text(
-                            text = appBarTitle ?: stringResource(R.string.cheats),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    },
-                    backgroundColor = MaterialTheme.colors.primary,
-                    navigationIcon = {
-                        IconButton(onClick = { navigateBack() }) {
-                            Icon(
-                                painter = rememberVectorPainter(Icons.AutoMirrored.Filled.ArrowBack),
-                                contentDescription = null,
-                            )
-                        }
-                    },
-                    actions = {
-                        if (showEnabledCheatsButton) {
-                            CompositionLocalProvider(LocalContentAlpha provides ContentAlpha.high) {
-                                IconButton(onClick = { viewModel.openEnabledCheats() }) {
-                                    Icon(
-                                        painter = rememberVectorPainter(Icons.Outlined.CheckBox),
-                                        contentDescription = stringResource(R.string.enabled_cheats),
-                                    )
-                                }
+            PunicaHeader(subtitle = appBarTitle ?: stringResource(R.string.cheats), onBack = {
+                navigateBack() 
+            }) {
+                    if (showEnabledCheatsButton) {
+                        CompositionLocalProvider(LocalContentAlpha provides ContentAlpha.high) {
+                            IconButton(onClick = { viewModel.openEnabledCheats() }) {
+                                Icon(
+                                    painter = rememberVectorPainter(Icons.Outlined.CheckBox),
+                                    contentDescription = stringResource(R.string.enabled_cheats),
+                                )
                             }
                         }
-                    },
-                    windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets(bottom = Int.MAX_VALUE)),
-                )
+                    }
+                
             }
         },
-        backgroundColor = MaterialTheme.colors.surface,
+        backgroundColor = Color.Transparent,
         contentWindowInsets = WindowInsets.safeDrawing,
     ) { padding ->
         NavHost(

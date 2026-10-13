@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -17,6 +16,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -41,6 +41,7 @@ fun RomDetailsScreen(
     onNavigateBack: () -> Unit,
     onLaunchRom: (Rom) -> Unit,
     onRomConfigUpdate: (RomConfigUpdateEvent) -> Unit,
+    onInstallTexturePack: () -> Unit,
     onRetroAchievementsLogin: (username: String, password: String) -> Unit,
     onRetroAchievementsRetryLoad: () -> Unit,
     onViewAchievement: (RAAchievement) -> Unit,
@@ -63,7 +64,7 @@ fun RomDetailsScreen(
     }
 
     Scaffold(
-        modifier = Modifier.onPreviewKeyEvent {
+        modifier = Modifier.punicaBackground().onPreviewKeyEvent {
             if (it.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
                 when (it.key) {
                     Key.ButtonL1 -> {
@@ -94,7 +95,7 @@ fun RomDetailsScreen(
                 onTabClicked = navigateToTab,
             )
         },
-        backgroundColor = MaterialTheme.colors.surface,
+        backgroundColor = Color.Transparent,
         contentWindowInsets = WindowInsets.safeDrawing,
     ) { padding ->
         HorizontalPager(
@@ -110,6 +111,7 @@ fun RomDetailsScreen(
                         rom = rom,
                         romConfigUiState = romConfigUiState,
                         onConfigUpdate = onRomConfigUpdate,
+                        onInstallTexturePack = onInstallTexturePack,
                     )
                 }
                 RomDetailsTab.RETRO_ACHIEVEMENTS.tabIndex -> {
@@ -156,6 +158,7 @@ private fun PreviewRomScreen() {
             onNavigateBack = { },
             onLaunchRom = { },
             onRomConfigUpdate = { },
+            onInstallTexturePack = { },
             onRetroAchievementsLogin = { _, _ -> },
             onRetroAchievementsRetryLoad = { },
             onViewAchievement = { },

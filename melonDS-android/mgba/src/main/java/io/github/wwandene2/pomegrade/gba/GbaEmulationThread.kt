@@ -17,6 +17,7 @@ internal class GbaEmulationThread(
         const val SAMPLE_RATE = 48000
         // the GBA's frame rate: 16,777,216 Hz / 280,896 cycles per frame
         private const val FRAME_NANOS = 280_896L * 1_000_000_000L / 16_777_216L
+        const val FRAME_RATE = 16_777_216.0 / 280_896.0
     }
 
     @Volatile
@@ -24,6 +25,19 @@ internal class GbaEmulationThread(
 
     @Volatile
     var paused = false
+
+    /**
+     * Plays the game backwards ([GbaNative.rewindStep], one step per frame's time) until set back to false,
+     * or until nothing is left to go back to: then [onRewindEnd] runs, on this thread.
+     */
+    @Volatile
+    var rewinding = false
+    var onRewindEnd: () -> Unit = {}
+
+    /** Frames run since the start, for the performance overlay. */
+    @Volatile
+    var frames = 0L
+        private set
 
     /** Work run between two frames on this thread (save states), so the core is never used twice at once. */
     private val pending = java.util.concurrent.ConcurrentLinkedQueue<() -> Unit>()
@@ -50,6 +64,17 @@ internal class GbaEmulationThread(
         try {
             while (running) {
                 while (true) pending.poll()?.invoke() ?: break
+                if (rewinding) {
+                    if (GbaNative.rewindStep()) {
+                        screen.publishFrame()
+                    } else {
+                        rewinding = false
+                        onRewindEnd()
+                    }
+                    sleep(FRAME_NANOS / 1_000_000)
+                    next = System.nanoTime()
+                    continue
+                }
                 if (paused) {
                     sleep(16)
                     next = System.nanoTime()
@@ -57,6 +82,7 @@ internal class GbaEmulationThread(
                 }
                 val samples = GbaNative.runFrame(keys(), audio)
                 screen.publishFrame()
+                frames++
                 if (samples > 0 && track.playState == AudioTrack.PLAYSTATE_PLAYING) {
                     track.write(audio, 0, samples * 2, AudioTrack.WRITE_BLOCKING)
                     next = System.nanoTime()

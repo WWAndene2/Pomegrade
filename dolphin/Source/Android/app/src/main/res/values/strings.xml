@@ -2,7 +2,7 @@
 <resources>
 
     <!-- Title of the app -->
-    <string name="dolphin_app_name">Dolphin Emulator</string>
+    <string name="dolphin_app_name">Punica</string>
     <string name="host">app</string>
     <string name="scheme">dolphinemu</string>
 
@@ -50,7 +50,7 @@
     <string name="input_clear_description">Clear settings for this controller.</string>
     <string name="input_reset_warning">Are you sure? Your current controller settings will be deleted.</string>
     <string name="keyboard_controller_warning">"You are configuring a \"Keyboard Controller\". This device is exclusively for \"Phantasy Star Online Episode I &amp; II\". If you are unsure, turn back now and configure a \"Standard Controller\".</string>
-    <string name="old_controller_settings">Your controller settings are from an old version of Dolphin and won\'t work in this version. Press \"Default\" to start over with new settings.</string>
+    <string name="old_controller_settings">Your controller settings are from an old version of Punica and won\'t work in this version. Press \"Default\" to start over with new settings.</string>
 
     <string name="dolphin_input_binding">Input Binding</string>
     <string name="dolphin_input_binding_description">Press or move an input to bind it to %1$s.</string>
@@ -128,15 +128,15 @@
     <string name="auto_disc_change">Change Discs Automatically</string>
     <string name="fallback_region">Fallback Region</string>
     <string name="enable_save_states">Enable Savestates</string>
-    <string name="enable_save_states_description">WARNING: Savestates may not be compatible with future versions of Dolphin and can make it impossible to create normal saves in some cases. Never use savestates as the only way of saving your progress.</string>
+    <string name="enable_save_states_description">WARNING: Savestates may not be compatible with future versions of Punica and can make it impossible to create normal saves in some cases. Never use savestates as the only way of saving your progress.</string>
     <string name="analytics">Enable usage statistics reporting</string>
-    <string name="analytics_desc">If authorized, Dolphin can collect data on its performance, feature usage, and configuration, as well as data on your system\'s hardware and operating system.\n\nNo private data is ever collected. This data helps us understand how people and emulated games use Dolphin and prioritize our efforts. It also helps us identify rare configurations that are causing bugs, performance and stability issues. This authorization can be revoked at any time through Dolphin\'s settings.</string>
+    <string name="analytics_desc">If authorized, Punica can collect data on its performance, feature usage, and configuration, as well as data on your system\'s hardware and operating system.\n\nNo private data is ever collected. This data helps us understand how people and emulated games use Punica and prioritize our efforts. It also helps us identify rare configurations that are causing bugs, performance and stability issues. This authorization can be revoked at any time through Punica\'s settings.</string>
     <string name="analytics_new_id">Generate a New Statistics Identity</string>
     <string name="analytics_new_id_confirmation">Are you sure you want to generate a new statistics identity?</string>
 
     <!-- SerialPort1 Subsetting Fragment -->
     <string name="serialport1_submenu">Serial Port 1</string>
-    <string name="xlink_kai_guide_header">For setup instructions, <a href="https://www.teamxlink.co.uk/wiki/Dolphin">refer to this page.</a>
+    <string name="xlink_kai_guide_header">For setup instructions, <a href="https://www.teamxlink.co.uk/wiki/Punica">refer to this page.</a>
     </string>
     <string name="xlink_kai_bba_ip">XLink Kai IP Address/hostname</string>
     <string name="xlink_kai_bba_ip_description">IP address or hostname of device running the XLink Kai client</string>
@@ -324,7 +324,7 @@
     <string name="show_speed_colors">Show Speed Color</string>
     <string name="show_speed_colors_description">Changes the color of the FPS counter depending on emulation speed.</string>
     <string name="log_render_time_to_file">Log Render Time to File</string>
-    <string name="log_render_time_to_file_description">Logs the render time of every frame to User/Logs/render_time.txt. Use this feature to measure Dolphin\'s performance.</string>
+    <string name="log_render_time_to_file_description">Logs the render time of every frame to User/Logs/render_time.txt. Use this feature to measure Punica\'s performance.</string>
 
     <string name="advanced_graphics_submenu">Advanced</string>
     <string name="gfx_mods_and_custom_textures">Graphics Mods and Custom Textures</string>
@@ -461,22 +461,22 @@
     <string name="user_data_new_location">Your user data (settings, saves, etc.) is stored in a location which <b>will be deleted</b> when you uninstall the app:</string>
     <!-- Android 10 and up support android:hasFragileUserData -->
     <string name="user_data_new_location_android_10">Your user data (settings, saves, etc.) is stored in a location which by default <b>will be deleted</b> when you uninstall the app:</string>
-    <string name="user_data_new_location_android_11">Because you\'re using Android 11 or newer, file manager apps can\'t access this folder in the same way as regular folders. Instead, Dolphin acts as a file provider.</string>
+    <string name="user_data_new_location_android_11">Because you\'re using Android 11 or newer, file manager apps can\'t access this folder in the same way as regular folders. Instead, Punica acts as a file provider.</string>
     <string name="user_data_open_system_file_manager">Open System File Manager</string>
     <string name="user_data_open_user_folder">Open User Data Folder</string>
 
     <string name="user_data_import">Import User Data</string>
     <string name="user_data_export">Export User Data</string>
-    <string name="user_data_open_system_file_manager_failed">Sorry, Dolphin couldn\'t find the system file manager on your device.</string>
+    <string name="user_data_open_system_file_manager_failed">Sorry, Punica couldn\'t find the system file manager on your device.</string>
     <string name="user_data_import_warning">Are you sure you want to replace your user data with the data in this file? All existing user data will be deleted!</string>
-    <string name="user_data_import_invalid_file">This file doesn\'t seem to contain Dolphin user data.</string>
+    <string name="user_data_import_invalid_file">This file doesn\'t seem to contain Punica user data.</string>
     <string name="dolphin_user_data_import_success">The user data has been imported.</string>
     <string name="user_data_import_failure">Failed to import user data.</string>
     <string name="dolphin_user_data_export_success">Your user data has been exported.</string>
     <string name="user_data_export_failure">Failed to export user data.</string>
-    <string name="reset_dolphin_settings">Reset Dolphin Settings</string>
+    <string name="reset_dolphin_settings">Reset Punica Settings</string>
     <string name="dolphin_reset_all_settings">Reset All Settings</string>
-    <string name="reset_dolphin_settings_confirmation">Are you sure you want to restore all Dolphin settings to their default values? This action cannot be undone!\nAll customizations or changes you have made will be lost.\n\nDo you want to proceed?</string>
+    <string name="reset_dolphin_settings_confirmation">Are you sure you want to restore all Punica settings to their default values? This action cannot be undone!\nAll customizations or changes you have made will be lost.\n\nDo you want to proceed?</string>
 
     <!-- Miscellaneous -->
     <string name="dolphin_yes">Yes</string>
@@ -541,7 +541,7 @@
     <string name="preferences_game_properties">Game Properties</string>
     <string name="preferences_game_properties_with_game_id">Game Properties: %1$s</string>
     <string name="game_ini_junk_title">Junk Data Found</string>
-    <string name="game_ini_junk_question">The settings file for this game contains extraneous data added by an old version of Dolphin. This will likely prevent global settings from working as intended.\n\nWould you like to fix this by deleting the settings file for this game? All game-specific settings and cheats that you have added will be removed. This cannot be undone.</string>
+    <string name="game_ini_junk_question">The settings file for this game contains extraneous data added by an old version of Punica. This will likely prevent global settings from working as intended.\n\nWould you like to fix this by deleting the settings file for this game? All game-specific settings and cheats that you have added will be removed. This cannot be undone.</string>
 
     <!-- Game Details Screen -->
     <string name="game_details_time_played">Played for %1$dh %2$dm</string>
@@ -582,7 +582,7 @@
     <string name="cheats_download_failed">Failed to download codes.</string>
     <string name="cheats_download_empty">File contained no codes.</string>
     <string name="cheats_download_succeeded">Downloaded %1$d codes. (added %2$d)</string>
-    <string name="cheats_disabled_warning">Dolphin\'s cheat system is currently disabled.</string>
+    <string name="cheats_disabled_warning">Punica\'s cheat system is currently disabled.</string>
     <string name="gfx_mods_disabled_warning">Graphics mods are currently disabled.</string>
     <string name="cheats_open_settings">Settings</string>
 
@@ -596,18 +596,18 @@
     <string name="convert_converting">Converting</string>
     <string name="convert_warning_iso">Removing junk data does not save any space when converting to ISO (unless you package the ISO file in a compressed file format such as ZIP afterwards). Do you want to continue anyway?</string>
     <string name="convert_warning_gcz">Converting Wii disc images to GCZ without removing junk data does not save any noticeable amount of space compared to converting to ISO. Do you want to continue anyway?</string>
-    <string name="convert_warning_nkit">Dolphin can\'t convert NKit files to non-NKit files. Converting an NKit file in Dolphin will result in another NKit file.\n\nIf you want to convert an NKit file to a non-NKit file, you can use the same program as you originally used when converting the file to the NKit format.\n\nDo you want to continue anyway?</string>
+    <string name="convert_warning_nkit">Punica can\'t convert NKit files to non-NKit files. Converting an NKit file in Punica will result in another NKit file.\n\nIf you want to convert an NKit file to a non-NKit file, you can use the same program as you originally used when converting the file to the NKit format.\n\nDo you want to continue anyway?</string>
     <string name="convert_success_message">The disc image was successfully converted.</string>
-    <string name="convert_failure_message">Dolphin failed to complete the requested action.</string>
+    <string name="convert_failure_message">Punica failed to complete the requested action.</string>
     <string name="convert_format_info">
 ISO: A simple and robust format which is supported by many programs. It takes up more space
 than any other format.
-\n\nGCZ: A basic compressed format which is compatible with most versions of Dolphin and some
+\n\nGCZ: A basic compressed format which is compatible with most versions of Punica and some
 other programs. It can\'t efficiently compress junk data (unless removed) or encrypted Wii data.
-\n\nWIA: An advanced compressed format which is compatible with Dolphin 5.0-12188 and later,
+\n\nWIA: An advanced compressed format which is compatible with Punica 5.0-12188 and later,
 and a few other programs. It can efficiently compress encrypted Wii data, but not junk data
 (unless removed).
-\n\nRVZ: An advanced compressed format which is compatible with Dolphin 5.0-12188 and later.
+\n\nRVZ: An advanced compressed format which is compatible with Punica 5.0-12188 and later.
 It can efficiently compress both junk data and encrypted Wii data.
     </string>
 
@@ -664,7 +664,7 @@ It can efficiently compress both junk data and encrypted Wii data.
     <string name="setting_cleared">Setting cleared</string>
     <string name="emulation_change_disc">Change Disc</string>
 
-    <string name="dolphin_external_storage_not_mounted">The external storage needs to be available in order to use Dolphin</string>
+    <string name="dolphin_external_storage_not_mounted">The external storage needs to be available in order to use Punica</string>
 
     <!-- Extra Leanback Homescreen Channels-->
     <string name="homescreen_favorites">Favorites</string>
@@ -676,7 +676,7 @@ It can efficiently compress both junk data and encrypted Wii data.
     <string name="wrong_file_extension_single">The selected file has the file name extension \"%1$s\", but \"%2$s\" was expected.\n\nContinue anyway?</string>
     <string name="wrong_file_extension_multiple">The selected file has the file name extension \"%1$s\", but one of these extensions was expected: %2$s\n\nContinue anyway?</string>
     <string name="wrong_file_extension_in_directory">No compatible files were found in the selected location.\n\nThe supported formats are: %1$s</string>
-    <string name="unavailable_paths">Dolphin does not have permission to access one or more configured paths. Would you like to fix this before starting?</string>
+    <string name="unavailable_paths">Punica does not have permission to access one or more configured paths. Would you like to fix this before starting?</string>
 
     <!-- Misc -->
     <string name="enabled">Enabled</string>
@@ -925,7 +925,7 @@ It can efficiently compress both junk data and encrypted Wii data.
     <string name="system_driver_desc">The GPU driver that is part of the OS.</string>
 
     <!-- Custom GPU drivers -->
-    <string name="gpu_driver_dialog_title">Select the GPU driver for Dolphin</string>
+    <string name="gpu_driver_dialog_title">Select the GPU driver for Punica</string>
     <string name="gpu_driver_dialog_system">Default</string>
     <string name="gpu_driver_dialog_install">Install driver</string>
     <string name="gpu_driver_dialog_uninstall_done">Successfully switched to the system driver</string>

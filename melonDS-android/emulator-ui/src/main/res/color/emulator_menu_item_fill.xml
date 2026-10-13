@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The in-game menu's chosen entry: Punica's red at 14 % (the home's chosen pills); the others unfilled -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="@color/emulator_menu_primary" android:alpha="0.14" android:state_checked="true" />
+    <item android:color="@color/emulator_menu_primary" android:alpha="0.14" android:state_focused="true" />
+    <item android:color="@android:color/transparent" />
+</selector>

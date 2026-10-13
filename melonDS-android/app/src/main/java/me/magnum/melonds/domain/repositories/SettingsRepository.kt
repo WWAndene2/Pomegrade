@@ -92,8 +92,8 @@ interface SettingsRepository {
     fun setPomegradeFolder(folderUri: Uri)
     // adds a ROM folder, keeping the others (addRomSearchDirectory replaces them)
     fun includeRomSearchDirectory(directoryUri: Uri)
-    // DS saves and save states next to each ROM (in its game folder)
-    fun keepGameFilesNextToRom()
+    // DS saves and save states in [saves] (the folder's DS), not next to each ROM
+    fun keepGameFilesInConsoleFolder(saves: Uri)
     // the game list's console filter: null = every console
     fun getRomPlatformFilter(): RomPlatform?
     fun setRomPlatformFilter(platform: RomPlatform?)

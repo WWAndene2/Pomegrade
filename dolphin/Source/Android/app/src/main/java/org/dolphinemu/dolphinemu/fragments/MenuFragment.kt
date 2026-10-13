@@ -4,28 +4,25 @@ package org.dolphinemu.dolphinemu.fragments
 
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.util.SparseIntArray
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import androidx.annotation.ColorInt
+import io.github.wwandene2.pomegrade.emulatorui.EmulatorMenu
+import io.github.wwandene2.pomegrade.emulatorui.R as EmulatorMenuR
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
-import com.google.android.material.color.MaterialColors
-import com.google.android.material.elevation.ElevationOverlayProvider
 import org.dolphinemu.dolphinemu.NativeLibrary
-import org.dolphinemu.dolphinemu.R
 import org.dolphinemu.dolphinemu.activities.EmulationActivity
 import org.dolphinemu.dolphinemu.databinding.FragmentIngameMenuBinding
 import org.dolphinemu.dolphinemu.features.settings.model.AchievementModel
 import org.dolphinemu.dolphinemu.features.settings.model.BooleanSetting
-import org.dolphinemu.dolphinemu.features.settings.model.IntSetting
-import org.dolphinemu.dolphinemu.utils.InsetsHelper
-import org.dolphinemu.dolphinemu.utils.ThemeHelper
+import org.dolphinemu.dolphinemu.features.settings.ui.MenuTag
+import org.dolphinemu.dolphinemu.features.settings.ui.SettingsActivity
 
-class MenuFragment : Fragment(), View.OnClickListener {
+// Pomegrade: the in-game menu shared with the other consoles (:emulator-ui) in place of Dolphin's own buttons;
+// each entry runs the EmulationActivity menu action Dolphin's button ran
+class MenuFragment : Fragment() {
     private var cutInset = 0
 
     private var _binding: FragmentIngameMenuBinding? = null
@@ -41,74 +38,45 @@ class MenuFragment : Fragment(), View.OnClickListener {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        if (IntSetting.MAIN_INTERFACE_THEME.int != ThemeHelper.DEFAULT) {
-            @ColorInt val color = ElevationOverlayProvider(view.context).compositeOverlay(
-                MaterialColors.getColor(view, R.attr.colorSurface),
-                view.elevation
-            )
-            view.setBackgroundColor(color)
-        }
-
         setInsets()
-        updatePauseUnpauseVisibility()
 
-        if (!requireActivity().packageManager.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) {
-            binding.menuOverlayControls.visibility = View.GONE
+        val wii = requireArguments().getBoolean(KEY_WII, true)
+        val shown = mutableSetOf(
+            EmulatorMenuR.id.emulator_menu_pause,
+            EmulatorMenuR.id.emulator_menu_screenshot,
+            EmulatorMenuR.id.emulator_menu_quick_save,
+            EmulatorMenuR.id.emulator_menu_quick_load,
+            EmulatorMenuR.id.emulator_menu_save_state,
+            EmulatorMenuR.id.emulator_menu_load_state,
+            EmulatorMenuR.id.emulator_menu_change_disc,
+            EmulatorMenuR.id.emulator_menu_settings,
+            EmulatorMenuR.id.emulator_menu_exit,
+        )
+        // Pomegrade: this game's own settings, as Dolphin's game list opened them (GamePropertiesDialog)
+        if (NativeLibrary.IsGameMetadataValid()) shown += EmulatorMenuR.id.emulator_menu_game_settings
+        if (requireActivity().packageManager.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) {
+            shown += EmulatorMenuR.id.emulator_menu_overlay_options
         }
-
-        if (!requireArguments().getBoolean(KEY_WII, true)) {
-            binding.menuRefreshWiimotes.visibility = View.GONE
-            binding.menuSkylanders.visibility = View.GONE
-            binding.menuInfinityBase.visibility = View.GONE
+        if (wii) {
+            shown += EmulatorMenuR.id.emulator_menu_refresh_wiimotes
+            if (BooleanSetting.MAIN_EMULATE_SKYLANDER_PORTAL.boolean) shown += EmulatorMenuR.id.emulator_menu_skylanders
+            if (BooleanSetting.MAIN_EMULATE_INFINITY_BASE.boolean) shown += EmulatorMenuR.id.emulator_menu_infinity_base
         }
+        EmulatorMenu.showOnly(binding.inGameMenu.menu, shown)
 
-        if (!BooleanSetting.MAIN_EMULATE_SKYLANDER_PORTAL.boolean) {
-            binding.menuSkylanders.visibility = View.GONE
-        }
+        val title = requireArguments().getString(KEY_TITLE, null).orEmpty()
+        EmulatorMenu.setHeader(binding.inGameMenu, title, getString(EmulatorMenuR.string.emulator_menu_console_gc_wii))
+            ?.visibility = View.GONE // Dolphin's running game has no icon to show here
 
-        if (!BooleanSetting.MAIN_EMULATE_INFINITY_BASE.boolean) {
-            binding.menuInfinityBase.visibility = View.GONE
-        }
-
-        val options = binding.layoutOptions
-        for (childIndex in 0 until options.childCount) {
-            val button = options.getChildAt(childIndex) as Button
-            button.setOnClickListener(this)
-        }
-
-        binding.menuExit.setOnClickListener(this)
-
-        val title = requireArguments().getString(KEY_TITLE, null)
-        if (title != null) {
-            binding.textGameTitle.text = title
-        }
+        updatePauseTitle()
+        binding.inGameMenu.setNavigationItemSelectedListener { item -> onItemSelected(item.itemId); true }
     }
 
     private fun setInsets() =
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v: View, windowInsets: WindowInsetsCompat ->
             val cutInsets = windowInsets.getInsets(WindowInsetsCompat.Type.displayCutout())
             cutInset = cutInsets.left
-            var left = 0
-            var right = 0
-            if (ViewCompat.getLayoutDirection(v) == ViewCompat.LAYOUT_DIRECTION_LTR) {
-                left = cutInsets.left
-            } else {
-                right = cutInsets.right
-            }
             v.post { NativeLibrary.SetObscuredPixelsLeft(v.width) }
-
-            // Don't use padding if the navigation bar isn't in the way
-            if (InsetsHelper.getBottomPaddingRequired(requireActivity()) > 0) {
-                v.setPadding(
-                    left, cutInsets.top, right,
-                    cutInsets.bottom + InsetsHelper.getNavigationBarHeight(requireContext())
-                )
-            } else {
-                v.setPadding(
-                    left, cutInsets.top, right,
-                    cutInsets.bottom + resources.getDimensionPixelSize(R.dimen.dolphin_spacing_large)
-                )
-            }
             windowInsets
         }
 
@@ -116,15 +84,16 @@ class MenuFragment : Fragment(), View.OnClickListener {
         super.onResume()
         val savestatesEnabled = BooleanSetting.MAIN_ENABLE_SAVESTATES.boolean
         val hardcoreEnabled = AchievementModel.isHardcoreModeActive()
-        val savestateVisibility = if (savestatesEnabled) View.VISIBLE else View.GONE
-        binding.menuQuicksave.visibility = savestateVisibility
-        binding.menuQuickload.visibility = savestateVisibility
-        binding.menuEmulationSaveRoot.visibility = savestateVisibility
-        binding.menuEmulationLoadRoot.visibility = savestateVisibility
-        // While technically the option is still enabled, AchievementManager
-        // will block the load and send a message to the screen.
-        binding.menuQuickload.paint.isStrikeThruText = hardcoreEnabled
-        binding.menuEmulationLoadRoot.paint.isStrikeThruText = hardcoreEnabled
+        val menu = binding.inGameMenu.menu
+        listOf(
+            EmulatorMenuR.id.emulator_menu_quick_save,
+            EmulatorMenuR.id.emulator_menu_quick_load,
+            EmulatorMenuR.id.emulator_menu_save_state,
+            EmulatorMenuR.id.emulator_menu_load_state,
+        ).forEach { menu.findItem(it).isVisible = savestatesEnabled }
+        // in hardcore mode, AchievementManager blocks loading and says so on screen
+        menu.findItem(EmulatorMenuR.id.emulator_menu_quick_load).isEnabled = !hardcoreEnabled
+        menu.findItem(EmulatorMenuR.id.emulator_menu_load_state).isEnabled = !hardcoreEnabled
     }
 
     override fun onDestroyView() {
@@ -133,78 +102,74 @@ class MenuFragment : Fragment(), View.OnClickListener {
         _binding = null
     }
 
-    private fun updatePauseUnpauseVisibility() {
-        val paused = EmulationActivity.hasUserPausedEmulation
-        binding.menuUnpauseEmulation.visibility = if (paused) View.VISIBLE else View.GONE
-        binding.menuPauseEmulation.visibility = if (paused) View.GONE else View.VISIBLE
+    private fun updatePauseTitle() {
+        binding.inGameMenu.menu.findItem(EmulatorMenuR.id.emulator_menu_pause).title = getString(
+            if (EmulationActivity.hasUserPausedEmulation) EmulatorMenuR.string.emulator_menu_resume
+            else EmulatorMenuR.string.emulator_menu_pause
+        )
     }
 
-    override fun onClick(button: View) {
-        val action = buttonsActionsMap[button.id]
+    private fun onItemSelected(itemId: Int) {
         val activity = requireActivity() as EmulationActivity
-
-        if (action == EmulationActivity.MENU_ACTION_OVERLAY_CONTROLS) {
-            // We could use the button parameter as the anchor here, but this often results in a tiny menu
-            // (because the button often is in the middle of the screen), so let's use mTitleText instead
-            activity.showOverlayControlsMenu(binding.textGameTitle)
-        } else if (action >= 0) {
-            activity.handleMenuAction(action)
+        if (itemId == EmulatorMenuR.id.emulator_menu_overlay_options) {
+            // anchored to the menu's header, as Dolphin anchored it to its title (a button gives a tiny menu)
+            activity.showOverlayControlsMenu(binding.inGameMenu.getHeaderView(0))
+            return
         }
-
-        if (action == EmulationActivity.MENU_ACTION_PAUSE_EMULATION ||
-            action == EmulationActivity.MENU_ACTION_UNPAUSE_EMULATION
-        ) {
-            updatePauseUnpauseVisibility()
-        }
+        runItem(activity, itemId)
+        if (itemId == EmulatorMenuR.id.emulator_menu_pause) updatePauseTitle()
     }
 
     companion object {
         private const val KEY_TITLE = "title"
         private const val KEY_WII = "wii"
-        private val buttonsActionsMap = SparseIntArray()
+        private val actions = mapOf(
+            EmulatorMenuR.id.emulator_menu_screenshot to EmulationActivity.MENU_ACTION_TAKE_SCREENSHOT,
+            EmulatorMenuR.id.emulator_menu_quick_save to EmulationActivity.MENU_ACTION_QUICK_SAVE,
+            EmulatorMenuR.id.emulator_menu_quick_load to EmulationActivity.MENU_ACTION_QUICK_LOAD,
+            EmulatorMenuR.id.emulator_menu_save_state to EmulationActivity.MENU_ACTION_SAVE_ROOT,
+            EmulatorMenuR.id.emulator_menu_load_state to EmulationActivity.MENU_ACTION_LOAD_ROOT,
+            EmulatorMenuR.id.emulator_menu_refresh_wiimotes to EmulationActivity.MENU_ACTION_REFRESH_WIIMOTES,
+            EmulatorMenuR.id.emulator_menu_change_disc to EmulationActivity.MENU_ACTION_CHANGE_DISC,
+            EmulatorMenuR.id.emulator_menu_exit to EmulationActivity.MENU_ACTION_EXIT,
+            EmulatorMenuR.id.emulator_menu_settings to EmulationActivity.MENU_ACTION_SETTINGS,
+            EmulatorMenuR.id.emulator_menu_skylanders to EmulationActivity.MENU_ACTION_SKYLANDERS,
+            EmulatorMenuR.id.emulator_menu_infinity_base to EmulationActivity.MENU_ACTION_INFINITY_BASE,
+        )
 
-        init {
-            buttonsActionsMap.append(
-                R.id.menu_pause_emulation,
-                EmulationActivity.MENU_ACTION_PAUSE_EMULATION
+        /** Pomegrade: the entries the shortcut pill offers on this core (those that need no open menu). */
+        fun shortcutItems(): Set<Int> {
+            val items = mutableSetOf(
+                EmulatorMenuR.id.emulator_menu_pause,
+                EmulatorMenuR.id.emulator_menu_screenshot,
+                EmulatorMenuR.id.emulator_menu_quick_save,
+                EmulatorMenuR.id.emulator_menu_quick_load,
+                EmulatorMenuR.id.emulator_menu_save_state,
+                EmulatorMenuR.id.emulator_menu_load_state,
+                EmulatorMenuR.id.emulator_menu_change_disc,
+                EmulatorMenuR.id.emulator_menu_settings,
+                EmulatorMenuR.id.emulator_menu_exit,
             )
-            buttonsActionsMap.append(
-                R.id.menu_unpause_emulation,
-                EmulationActivity.MENU_ACTION_UNPAUSE_EMULATION
-            )
-            buttonsActionsMap.append(
-                R.id.menu_take_screenshot,
-                EmulationActivity.MENU_ACTION_TAKE_SCREENSHOT
-            )
-            buttonsActionsMap.append(R.id.menu_quicksave, EmulationActivity.MENU_ACTION_QUICK_SAVE)
-            buttonsActionsMap.append(R.id.menu_quickload, EmulationActivity.MENU_ACTION_QUICK_LOAD)
-            buttonsActionsMap.append(
-                R.id.menu_emulation_save_root,
-                EmulationActivity.MENU_ACTION_SAVE_ROOT
-            )
-            buttonsActionsMap.append(
-                R.id.menu_emulation_load_root,
-                EmulationActivity.MENU_ACTION_LOAD_ROOT
-            )
-            buttonsActionsMap.append(
-                R.id.menu_overlay_controls,
-                EmulationActivity.MENU_ACTION_OVERLAY_CONTROLS
-            )
-            buttonsActionsMap.append(
-                R.id.menu_refresh_wiimotes,
-                EmulationActivity.MENU_ACTION_REFRESH_WIIMOTES
-            )
-            buttonsActionsMap.append(
-                R.id.menu_change_disc,
-                EmulationActivity.MENU_ACTION_CHANGE_DISC
-            )
-            buttonsActionsMap.append(R.id.menu_exit, EmulationActivity.MENU_ACTION_EXIT)
-            buttonsActionsMap.append(R.id.menu_settings, EmulationActivity.MENU_ACTION_SETTINGS)
-            buttonsActionsMap.append(R.id.menu_skylanders, EmulationActivity.MENU_ACTION_SKYLANDERS)
-            buttonsActionsMap.append(
-                R.id.menu_infinity_base,
-                EmulationActivity.MENU_ACTION_INFINITY_BASE
-            )
+            if (NativeLibrary.IsGameMetadataValid()) {
+                items += EmulatorMenuR.id.emulator_menu_game_settings
+                if (NativeLibrary.IsEmulatingWii()) items += EmulatorMenuR.id.emulator_menu_refresh_wiimotes
+            }
+            return items
+        }
+
+        /** Runs one of the menu's entries, from the menu or the shortcut pill. */
+        fun runItem(activity: EmulationActivity, itemId: Int) {
+            when (itemId) {
+                // the disc's revision isn't exposed while running: 0, which only picks which of Dolphin's
+                // default game settings are shown; the game's own file is named by its ID alone
+                EmulatorMenuR.id.emulator_menu_game_settings ->
+                    SettingsActivity.launch(activity, MenuTag.SETTINGS, NativeLibrary.GetCurrentGameID(), 0, NativeLibrary.IsEmulatingWii())
+                EmulatorMenuR.id.emulator_menu_pause -> activity.handleMenuAction(
+                    if (EmulationActivity.hasUserPausedEmulation) EmulationActivity.MENU_ACTION_UNPAUSE_EMULATION
+                    else EmulationActivity.MENU_ACTION_PAUSE_EMULATION
+                )
+                else -> actions[itemId]?.let { activity.handleMenuAction(it) }
+            }
         }
 
         fun newInstance(): MenuFragment {

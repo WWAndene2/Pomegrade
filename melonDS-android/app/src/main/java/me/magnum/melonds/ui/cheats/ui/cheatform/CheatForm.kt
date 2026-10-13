@@ -6,13 +6,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.rememberScrollState
@@ -21,17 +19,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
 import androidx.compose.material.LocalTextStyle
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Scaffold
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
-import androidx.compose.material.TopAppBar
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -41,15 +34,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.window.core.layout.WindowSizeClass
 import me.magnum.melonds.R
@@ -57,11 +52,14 @@ import me.magnum.melonds.ui.cheats.model.CheatFormDialogState
 import me.magnum.melonds.ui.cheats.model.CheatSubmissionForm
 import me.magnum.melonds.ui.common.FullScreen
 import me.magnum.melonds.ui.common.MelonPreviewSet
+import me.magnum.melonds.ui.common.component.PunicaHeader
 import me.magnum.melonds.ui.common.component.dialog.BaseDialog
 import me.magnum.melonds.ui.common.component.dialog.DialogButton
+import me.magnum.melonds.ui.common.component.punicaBackground
 import me.magnum.melonds.ui.common.component.text.OutlinedTextFieldWithError
 import me.magnum.melonds.ui.common.melonOutlinedTextFieldColors
 import me.magnum.melonds.ui.theme.MelonTheme
+import me.magnum.melonds.ui.theme.PunicaTheme
 
 @Composable
 fun CheatFormDialog(
@@ -159,37 +157,24 @@ private fun CheatFormFullscreenDialog(
 
     FullScreen(onDismiss) {
         Scaffold(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().punicaBackground(),
             topBar = {
-                TopAppBar(
-                    title = {
-                        val title = if (cheatFormState.isNewCheat) stringResource(R.string.new_cheat) else stringResource(R.string.edit_cheat)
-                        Text(title)
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onDismiss) {
-                            Icon(
-                                painter = rememberVectorPainter(Icons.Default.Close),
-                                contentDescription = stringResource(R.string.cancel),
-                            )
-                        }
-                    },
-                    actions = {
-                        TextButton(
-                            onClick = validateAndSaveCheat,
-                        ) {
-                            Text(
-                                text = stringResource(R.string.save).uppercase(),
-                                color = MaterialTheme.colors.secondary,
-                            )
-                        }
-                    },
-                    backgroundColor = MaterialTheme.colors.surface,
-                    elevation = 0.dp,
-                    windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top),
-                )
+                PunicaHeader(
+                    subtitle = if (cheatFormState.isNewCheat) stringResource(R.string.new_cheat) else stringResource(R.string.edit_cheat),
+                    onBack = onDismiss,
+                ) {
+                    TextButton(onClick = validateAndSaveCheat) {
+                        Text(
+                            text = stringResource(R.string.save),
+                            fontFamily = PunicaTheme.display,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 16.sp,
+                            color = PunicaTheme.red,
+                        )
+                    }
+                }
             },
-            backgroundColor = MaterialTheme.colors.surface,
+            backgroundColor = Color.Transparent,
             contentWindowInsets = WindowInsets.safeDrawing,
         ) { padding ->
             CheatFormBody(

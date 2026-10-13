@@ -35,7 +35,7 @@ object GcWiiLauncher : ConsoleLauncher {
         EmulationActivity.launch(fragmentActivity, rom.uri.toString(), false)
     }
 
-    // no intent to its screen: a shortcut goes through the game list (ConsoleLauncher.shortcutIntent)
+    // no intent to its screen: Dolphin's EmulationActivity.launch starts it from an activity
     override fun launchIntent(context: Context, rom: Rom): Intent? = null
 
     /** One section of Dolphin's settings, as its home screen opens them. */

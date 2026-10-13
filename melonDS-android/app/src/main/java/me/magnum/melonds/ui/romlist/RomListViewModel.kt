@@ -165,6 +165,7 @@ class RomListViewModel @Inject constructor(
         if (_organizing.value || !pomegradeFolder.canOrganize()) {
             return
         }
+        withContext(Dispatchers.IO) { runCatching { pomegradeFolder.organizeSaves() } }
         withContext(Dispatchers.IO) { runCatching { pomegradeFolder.organizeBios() } }
         val roms = romsRepository.getRoms().first()
         if (pomegradeFolder.gamesToOrganize(roms).isEmpty()) {

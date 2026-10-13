@@ -16,11 +16,11 @@ import android.webkit.MimeTypeMap
 import java.io.*
 import org.yuzu.yuzu_emu.R
 import org.yuzu.yuzu_emu.YuzuApplication
-import org.yuzu.yuzu_emu.getPublicFilesDir
+import org.yuzu.yuzu_emu.utils.DirectoryInitialization
 
 class DocumentProvider : DocumentsProvider() {
     private val baseDirectory: File
-        get() = File(YuzuApplication.application.getPublicFilesDir().canonicalPath)
+        get() = File(DirectoryInitialization.userDirectoryFile(YuzuApplication.application).canonicalPath)
 
     companion object {
         private val DEFAULT_ROOT_PROJECTION: Array<String> = arrayOf(

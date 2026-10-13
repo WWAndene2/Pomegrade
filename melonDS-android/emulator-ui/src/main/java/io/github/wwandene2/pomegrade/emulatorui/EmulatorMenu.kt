@@ -30,6 +30,10 @@ object EmulatorMenu {
         }
     }
 
+    /** The entries shown now (the shortcut pill offers these). */
+    fun visibleItems(menu: Menu): Set<Int> =
+        (0 until menu.size()).map { menu.getItem(it) }.filter { it.isVisible }.map { it.itemId }.toSet()
+
     /**
      * Fills the header's title and console, and returns its icon view for the screen to load the
      * game's icon into (each core reads icons its own way).

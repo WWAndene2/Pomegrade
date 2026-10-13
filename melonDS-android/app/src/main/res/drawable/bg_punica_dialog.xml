@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Punica's dialog card (XML dialogs; the Compose BaseDialog has the same): 24 dp corners, the card colour, a 1 dp
+     outline, 24 dp from the screen's sides -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetLeft="24dp"
+    android:insetRight="24dp"
+    android:insetTop="24dp"
+    android:insetBottom="24dp">
+    <shape android:shape="rectangle">
+        <solid android:color="@color/punicaCard" />
+        <stroke android:width="1dp" android:color="@color/punicaLine" />
+        <corners android:radius="@dimen/punica_sheet_radius" />
+    </shape>
+</inset>
