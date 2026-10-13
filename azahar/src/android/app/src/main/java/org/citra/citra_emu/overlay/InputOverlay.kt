@@ -621,6 +621,22 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
         }
     }
 
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        // Pomegrade: the Classic layout's controls follow the overlay's size (the emulation surface the screens are
+        // scaled to); placed again when that size differs from the one they were placed for
+        ClassicOverlayLayout.areaWidth = w
+        ClassicOverlayLayout.areaHeight = h
+        val orientation = if (h > w) "-Portrait" else ""
+        if (w > 0 && h > 0 && ClassicOverlayLayout.isActive(orientation)) {
+            val area = "${w}x$h"
+            if (preferences.getString("ClassicOverlayArea", null) != area) {
+                defaultOverlayPortraitClassic()
+            }
+            refreshControls()
+        }
+    }
+
     fun refreshControls() {
         // Remove all the overlay buttons from the HashSet.
         overlayButtons.clear()
@@ -689,6 +705,9 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
 
     private fun defaultOverlayPortraitClassic() {
         val editor = preferences.edit()
+        if (ClassicOverlayLayout.areaWidth > 0 && ClassicOverlayLayout.areaHeight > 0) {
+            editor.putString("ClassicOverlayArea", "${ClassicOverlayLayout.areaWidth}x${ClassicOverlayLayout.areaHeight}")
+        }
         ClassicOverlayLayout.placedControls.forEach { id ->
             val (x, y) = ClassicOverlayLayout.position(context, id) ?: return@forEach
             editor.putFloat("$id-Portrait-X", x).putFloat("$id-Portrait-Y", y)

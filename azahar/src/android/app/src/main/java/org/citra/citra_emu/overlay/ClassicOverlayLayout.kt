@@ -57,11 +57,19 @@ object ClassicOverlayLayout {
     fun isActive(orientation: String): Boolean =
         orientation == "-Portrait" && IntSetting.PORTRAIT_SCREEN_LAYOUT.int == PortraitScreenLayout.CLASSIC.int
 
+    /**
+     * The overlay's size, set by InputOverlay when it is laid out. The overlay covers the emulation surface, which the
+     * native layout scales the screens to: on a phone whose status bar stays visible both are shorter than the
+     * screen, and scaling to the full screen put the controls below the screens' scale (cut at the bottom).
+     */
+    var areaWidth = 0
+    var areaHeight = 0
+
     /** Side of the control's square bitmap, as a fraction of the screen's smaller side (Azahar's scale unit). */
     fun bitmapScale(context: Context, id: Int): Float {
-        // Azahar sizes bitmaps from the resources' display metrics (resizeBitmap), not the real screen
+        // Azahar sizes bitmaps from the resources' display metrics (resizeBitmap), not the overlay
         val resourceMetrics = context.resources.displayMetrics
-        var side = shownSide(id, realMetrics(context))
+        var side = shownSide(id, area(context))
         if (id == ButtonType.STICK_C) {
             // The C stick's touch area is half its range image (InputOverlay's outerScale)
             side *= 2f
@@ -69,13 +77,13 @@ object ClassicOverlayLayout {
         return side / min(resourceMetrics.widthPixels, resourceMetrics.heightPixels)
     }
 
-    /** Top-left corner of the control as drawn, in pixels, or null for a control the template does not place. */
+    /** Top-left corner of the control as drawn, in the overlay's pixels, or null for a control the template does not place. */
     fun position(context: Context, id: Int): Pair<Float, Float>? {
         val box = boxes[id] ?: return null
-        val metrics = realMetrics(context)
-        val scale = templateScale(metrics)
-        val offsetX = (metrics.widthPixels - TEMPLATE_WIDTH * scale) / 2f
-        val side = shownSide(id, metrics)
+        val area = area(context)
+        val scale = templateScale(area)
+        val offsetX = (area.first - TEMPLATE_WIDTH * scale) / 2f
+        val side = shownSide(id, area)
         val centreX = offsetX + (box.x + box.width / 2f) * scale
         val centreY = (box.y + box.height / 2f) * scale
         return (centreX - side / 2f) to (centreY - side / 2f)
@@ -83,25 +91,28 @@ object ClassicOverlayLayout {
 
     val placedControls: Set<Int> get() = boxes.keys
 
-    private fun shownSide(id: Int, metrics: DisplayMetrics): Float {
+    private fun shownSide(id: Int, area: Pair<Float, Float>): Float {
         val box = boxes.getValue(id)
         val side = if (id in shoulders) {
             min(box.width, box.height / SHOULDER_CONTENT_HEIGHT)
         } else {
             min(box.width, box.height)
         }
-        return side * templateScale(metrics)
+        return side * templateScale(area)
     }
 
-    private fun templateScale(metrics: DisplayMetrics): Float =
-        min(metrics.widthPixels / TEMPLATE_WIDTH, metrics.heightPixels / TEMPLATE_HEIGHT)
+    private fun templateScale(area: Pair<Float, Float>): Float =
+        min(area.first / TEMPLATE_WIDTH, area.second / TEMPLATE_HEIGHT)
 
-    // The full screen, as the emulation surface the native layout scales the screens to
+    // Before the overlay is laid out: the full screen, the emulation surface's size when no system bar shows
     @Suppress("DEPRECATION")
-    private fun realMetrics(context: Context): DisplayMetrics {
+    private fun area(context: Context): Pair<Float, Float> {
+        if (areaWidth > 0 && areaHeight > 0) {
+            return areaWidth.toFloat() to areaHeight.toFloat()
+        }
         val metrics = DisplayMetrics()
         val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         windowManager.defaultDisplay.getRealMetrics(metrics)
-        return metrics
+        return metrics.widthPixels.toFloat() to metrics.heightPixels.toFloat()
     }
 }
