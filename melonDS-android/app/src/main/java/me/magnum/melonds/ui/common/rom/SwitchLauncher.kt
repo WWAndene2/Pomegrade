@@ -3,8 +3,10 @@ package me.magnum.melonds.ui.common.rom
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.provider.DocumentsContract
 import android.util.Log
 import android.widget.Toast
+import androidx.documentfile.provider.DocumentFile
 import androidx.preference.PreferenceManager
 import me.magnum.melonds.R
 import androidx.lifecycle.LifecycleOwner
@@ -17,10 +19,16 @@ import me.magnum.melonds.impl.SwitchFolder
 import me.magnum.melonds.impl.SwitchSystemFiles
 import org.yuzu.yuzu_emu.YuzuApplication
 import org.yuzu.yuzu_emu.activities.EmulationActivity
+import org.yuzu.yuzu_emu.features.DocumentProvider
 import org.yuzu.yuzu_emu.features.settings.model.Settings
 import org.yuzu.yuzu_emu.features.settings.ui.SettingsActivity
 import org.yuzu.yuzu_emu.features.settings.ui.SettingsActivityArgs
+import org.yuzu.yuzu_emu.features.settings.ui.SettingsSubscreen
+import org.yuzu.yuzu_emu.features.settings.ui.SettingsSubscreenActivity
+import org.yuzu.yuzu_emu.features.settings.ui.SettingsSubscreenActivityArgs
 import org.yuzu.yuzu_emu.ui.main.MainActivity
+import org.yuzu.yuzu_emu.utils.FileUtil
+import org.yuzu.yuzu_emu.utils.Log as EdenLog
 
 /**
  * Starts Switch games in the Eden core, as Eden's own "open with" does (the game's URI as the intent's data).
@@ -88,4 +96,33 @@ object SwitchLauncher : ConsoleLauncher {
 
     /** Eden's home screen: its setup (keys, firmware), its game list and its settings. */
     fun homeIntent(context: Context): Intent = Intent(context, MainActivity::class.java)
+
+    /** One of the tools of Eden's home screen (profiles, GPU drivers, applets, data), opened directly. */
+    fun toolIntent(context: Context, screen: SettingsSubscreen): Intent =
+        Intent(context, SettingsSubscreenActivity::class.java).putExtras(SettingsSubscreenActivityArgs(screen, null).toBundle())
+
+    /**
+     * Sharing Eden's log ([gpu]: its GPU log), as its home screen's "Share debug logs" does: the log of the game
+     * just played, or, when none was played since the app started, the previous run's (kept as .old.txt).
+     * Null when there is no log.
+     */
+    fun shareLogIntent(context: Context, gpu: Boolean): Intent? {
+        val name = if (gpu) "eden_gpu.log" else "eden_log.txt"
+        fun log(file: String) = DocumentFile.fromSingleUri(
+            context,
+            DocumentsContract.buildDocumentUri(DocumentProvider.AUTHORITY, "${DocumentProvider.ROOT_ID}/log/$file"),
+        )
+        val current = log(name)
+        val old = log("$name.old.txt")
+        val shared = when {
+            !EdenLog.gameLaunched && old?.exists() == true -> old
+            current?.exists() == true -> current
+            else -> return null
+        }
+        val send = Intent(Intent.ACTION_SEND)
+            .setDataAndType(shared.uri, FileUtil.TEXT_PLAIN)
+            .putExtra(Intent.EXTRA_STREAM, shared.uri)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        return Intent.createChooser(send, context.getString(if (gpu) org.yuzu.yuzu_emu.R.string.share_gpu_log else org.yuzu.yuzu_emu.R.string.eden_share_log))
+    }
 }

@@ -10,6 +10,7 @@ import androidx.preference.Preference
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.yuzu.yuzu_emu.features.settings.ui.SettingsSubscreen
 import kotlinx.coroutines.withContext
 import me.magnum.melonds.R
 import me.magnum.melonds.impl.ModInstaller
@@ -36,6 +37,7 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
         // keys of the 3DS entries: this prefix + the Azahar settings section they open
         private const val THREE_DS_PREFIX = "three_ds_settings_"
         private const val SWITCH_PREFIX = "switch_settings_"
+        private const val SWITCH_TOOL_PREFIX = "switch_tool_"
         private const val GC_WII_PREFIX = "gc_wii_settings_"
     }
 
@@ -169,6 +171,33 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
                     }
                     true
                 }
+            }
+        }
+        // Eden's home screen tools, opened directly
+        preferenceScreen.findPreference<androidx.preference.PreferenceCategory>("switch_settings")?.let { category ->
+            for (i in 0 until category.preferenceCount) {
+                val preference = category.getPreference(i)
+                val key = preference.key ?: continue
+                if (!key.startsWith(SWITCH_TOOL_PREFIX)) continue
+                val screen = SettingsSubscreen.valueOf(key.removePrefix(SWITCH_TOOL_PREFIX))
+                preference.setOnPreferenceClickListener {
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        SwitchLauncher.prepare(requireContext())
+                        startActivity(SwitchLauncher.toolIntent(requireContext(), screen))
+                    }
+                    true
+                }
+            }
+        }
+        listOf("switch_share_log" to false, "switch_share_gpu_log" to true).forEach { (key, gpu) ->
+            findPreference<Preference>(key)?.setOnPreferenceClickListener {
+                val share = SwitchLauncher.shareLogIntent(requireContext(), gpu)
+                if (share != null) {
+                    startActivity(share)
+                } else {
+                    Toast.makeText(requireContext(), if (gpu) org.yuzu.yuzu_emu.R.string.share_gpu_log_missing else org.yuzu.yuzu_emu.R.string.share_log_missing, Toast.LENGTH_SHORT).show()
+                }
+                true
             }
         }
         findPreference<Preference>("switch_import_data")?.setOnPreferenceClickListener {
