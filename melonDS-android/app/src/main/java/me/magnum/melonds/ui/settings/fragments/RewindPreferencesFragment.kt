@@ -2,16 +2,25 @@ package me.magnum.melonds.ui.settings.fragments
 
 import android.app.ActivityManager
 import android.os.Bundle
+import android.view.View
 import androidx.core.content.getSystemService
 import androidx.preference.Preference
 import androidx.preference.SeekBarPreference
 import com.smp.masterswitchpreference.MasterSwitchPreferenceFragment
 import me.magnum.melonds.R
 import me.magnum.melonds.domain.model.SizeUnit
+import me.magnum.melonds.ui.common.preference.PunicaPreferenceCards
 import me.magnum.melonds.ui.settings.PreferenceFragmentTitleProvider
 import me.magnum.melonds.utils.SizeUtils
 
 class RewindPreferencesFragment : MasterSwitchPreferenceFragment(), PreferenceFragmentTitleProvider {
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        // Punica's settings cards, as BasePreferenceFragment's (this one comes from the master switch library)
+        setDivider(null)
+        listView.addItemDecoration(PunicaPreferenceCards(requireContext()))
+    }
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         super.onCreatePreferences(savedInstanceState, rootKey)

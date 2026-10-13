@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The home screen's logo for the XML screens' toolbar (PunicaToolbar): "Punica." in its outline, the screen's name
+     in italics under it. Same sizes as the Compose PunicaLogo -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="32dp"
+        android:background="@drawable/bg_punica_logo"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <View
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:background="@drawable/bg_punica_logo_fruit" />
+
+        <TextView
+            android:id="@+id/text_punica_logo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:fontFamily="@font/bricolage_grotesque_extrabold"
+            android:includeFontPadding="false"
+            android:textColor="@color/punicaText"
+            android:textSize="24sp"
+            tools:text="Punica." />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/text_punica_subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="20dp"
+        android:ellipsize="end"
+        android:fontFamily="@font/bricolage_grotesque_extrabold"
+        android:gravity="center_vertical"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:textColor="@color/punicaText"
+        android:textSize="16sp"
+        android:textStyle="italic"
+        tools:text="Réglages" />
+</LinearLayout>

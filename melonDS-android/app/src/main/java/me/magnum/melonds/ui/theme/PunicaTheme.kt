@@ -1,4 +1,4 @@
-package me.magnum.melonds.ui.romlist.home
+package me.magnum.melonds.ui.theme
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.Font
@@ -7,11 +7,11 @@ import androidx.compose.ui.text.font.FontWeight
 import me.magnum.melonds.R
 
 /**
- * The home screen's look (owner's choice, 13 October: the dark "virtual console" mock-up), always dark whatever
- * the app's theme. Sizes are in the composables, on the PerfectSuite scale; the few taken as-is from the
- * owner's reference (hero 167, quick-access card 88 x 96) are noted where they are used.
+ * Punica's look, the validated home screen's (owner's choice, 13 October), for every Punica screen: always dark.
+ * The XML side has the same values (values-night/colors.xml, drawable/bg_punica_*). Sizes are on the
+ * PerfectSuite scale (CLAUDE.md section 7) and live in [PunicaDimens].
  */
-internal object HomeTheme {
+object PunicaTheme {
     val background = Color(0xFF111215)
     val card = Color(0xFF191B20)
     val cardRaised = Color(0xFF1F2228)
@@ -31,4 +31,19 @@ internal object HomeTheme {
         Font(R.font.bricolage_grotesque_bold, FontWeight.Bold),
         Font(R.font.bricolage_grotesque_extrabold, FontWeight.ExtraBold),
     )
+}
+
+/** The shared sizes, in dp (sp for text), all on the PerfectSuite scale. */
+object PunicaDimens {
+    const val HEADER = 64
+    const val TOUCH = 48
+    const val MARGIN = 16
+    const val GAP = 8
+    const val GAP_WIDE = 12
+    const val CARD_RADIUS = 16
+    const val TILE_RADIUS = 12
+    const val SHEET_RADIUS = 24
+    const val ROW_MIN = 64
+    const val ICON = 24
+    const val ROW_ICON = 32
 }

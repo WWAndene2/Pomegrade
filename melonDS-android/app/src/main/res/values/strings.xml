@@ -977,4 +977,9 @@
     <string name="home_console_ds">Nintendo DS</string>
     <string name="home_console_three_ds">Nintendo 3DS</string>
     <string name="home_console_gba">Game Boy Advance</string>
+    <string name="home_stat_play_time">played</string>
+    <string name="home_stat_last_played">last played</string>
+    <string name="home_stat_file">file</string>
+    <string name="home_shortcut">Home-screen shortcut</string>
+    <string name="home_shortcut_unsupported">Your launcher can\'t add shortcuts from an app</string>
 </resources>

@@ -5,6 +5,8 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -13,21 +15,30 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.magnum.melonds.R
 import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.domain.model.rom.RomPlatform
 import me.magnum.melonds.impl.FavoriteGames
+import me.magnum.melonds.impl.TexturePackInstaller
 import me.magnum.melonds.parcelables.RomParcelable
+import me.magnum.melonds.ui.common.rom.GameShortcut
 import me.magnum.melonds.ui.common.rom.GcWiiLauncher
 import me.magnum.melonds.ui.common.rom.N3dsLauncher
 import me.magnum.melonds.ui.common.rom.SwitchLauncher
+import me.magnum.melonds.ui.common.rom.TexturePackResultDialog
 import me.magnum.melonds.ui.romdetails.RomDetailsActivity
 import me.magnum.melonds.ui.romlist.home.GameActions
 import me.magnum.melonds.ui.romlist.home.HomeMenuEntry
 import me.magnum.melonds.ui.romlist.home.HomeScreen
+import me.magnum.melonds.ui.theme.MelonTheme
 
 /**
  * The game list's home screen ([HomeScreen]), in place of [RomListFragment] in [RomListActivity] (which other
@@ -44,6 +55,18 @@ class HomeFragment : Fragment() {
     }
 
     private val viewModel: RomListViewModel by activityViewModels()
+
+    // the game whose texture pack is being picked from its sheet
+    private var texturePackRom: Rom? = null
+    private val texturePackPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { pack ->
+        val rom = texturePackRom ?: return@registerForActivityResult
+        texturePackRom = null
+        if (pack == null) return@registerForActivityResult
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) { TexturePackInstaller.install(requireContext(), rom, pack) }
+            TexturePackResultDialog.show(requireContext(), result)
+        }
+    }
 
     // the old toolbar menu's actions with no button of their own on the home screen
     private val menuActions = listOf(
@@ -83,22 +106,41 @@ class HomeFragment : Fragment() {
                         onGameSettings = { rom ->
                             startActivity(Intent(requireContext(), RomDetailsActivity::class.java).putExtra(RomDetailsActivity.KEY_ROM, RomParcelable(rom)))
                         },
+                        onInstallTexturePack = { rom ->
+                            texturePackRom = rom
+                            texturePackPicker.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
+                        },
+                        onAddShortcut = { rom -> addShortcut(rom) },
+                        // the home screen opens its own sheet (HomeScreen)
+                        onOpenSheet = { },
                         loadIcon = { rom -> viewModel.getRomIcon(rom) },
                     )
                 }
-                HomeScreen(
-                    roms = roms.orEmpty(),
-                    platforms = platforms,
-                    platformFilter = platformFilter,
-                    favorites = favorites,
-                    searchQuery = query,
-                    actions = actions,
-                    menuEntries = menuActions.map { (id, title) -> HomeMenuEntry(getString(title)) { host.onHomeMenuAction(id) } },
-                    onSearchQueryChange = { query = it; viewModel.setRomSearchQuery(it) },
-                    onPlatformSelected = { viewModel.setPlatformFilter(it) },
-                    onSettings = { host.onHomeMenuAction(R.id.action_settings) },
-                )
+                MelonTheme {
+                    HomeScreen(
+                        roms = roms.orEmpty(),
+                        platforms = platforms,
+                        platformFilter = platformFilter,
+                        favorites = favorites,
+                        searchQuery = query,
+                        actions = actions,
+                        menuEntries = menuActions.map { (id, title) -> HomeMenuEntry(getString(title)) { host.onHomeMenuAction(id) } },
+                        onSearchQueryChange = { query = it; viewModel.setRomSearchQuery(it) },
+                        onPlatformSelected = { viewModel.setPlatformFilter(it) },
+                        onSettings = { host.onHomeMenuAction(R.id.action_settings) },
+                    )
+                }
             }
+        }
+    }
+
+    // the launcher asks the user to place it; without pinning support, says so
+    private fun addShortcut(rom: Rom) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val context = requireContext()
+            val pinned = ShortcutManagerCompat.isRequestPinShortcutSupported(context) &&
+                ShortcutManagerCompat.requestPinShortcut(context, GameShortcut.build(context, rom, viewModel.getRomIcon(rom)), null)
+            if (!pinned) Toast.makeText(context, R.string.home_shortcut_unsupported, Toast.LENGTH_LONG).show()
         }
     }
 }

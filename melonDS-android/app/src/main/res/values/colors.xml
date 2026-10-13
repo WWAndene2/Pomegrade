@@ -41,4 +41,15 @@
     <color name="statusError">#D51F12</color>
 
     <color name="white">#FFF</color>
+
+    <!-- Punica's palette (always dark, so no night variant; ui/theme/PunicaTheme.kt has the same values) -->
+    <color name="punicaBackground">#111215</color>
+    <color name="punicaCard">#191B20</color>
+    <color name="punicaCardRaised">#1F2228</color>
+    <color name="punicaLine">#2B2E35</color>
+    <color name="punicaText">#F3F4F6</color>
+    <color name="punicaTextMuted">#9EA3AC</color>
+    <color name="punicaRed">#EC2B39</color>
+    <color name="punicaRedLight">#FF4553</color>
+    <color name="punicaSweep">#6A0B15</color>
 </resources>

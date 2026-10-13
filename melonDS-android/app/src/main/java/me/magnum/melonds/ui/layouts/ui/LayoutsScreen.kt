@@ -3,20 +3,16 @@ package me.magnum.melonds.ui.layouts.ui
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.ContentAlpha
@@ -32,9 +28,7 @@ import androidx.compose.material.Scaffold
 import androidx.compose.material.SnackbarHostState
 import androidx.compose.material.SnackbarResult
 import androidx.compose.material.Text
-import androidx.compose.material.TopAppBar
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.rememberScaffoldState
@@ -52,6 +46,7 @@ import androidx.compose.ui.focus.FocusRequester.Companion.FocusRequesterFactory.
 import androidx.compose.ui.focus.FocusRequester.Companion.FocusRequesterFactory.component2
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -69,6 +64,8 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import me.magnum.melonds.R
 import me.magnum.melonds.domain.model.layout.LayoutConfiguration
 import me.magnum.melonds.ui.common.MelonPreviewSet
+import me.magnum.melonds.ui.common.component.PunicaHeader
+import me.magnum.melonds.ui.common.component.punicaBackground
 import me.magnum.melonds.ui.layouteditor.LayoutEditorActivity
 import me.magnum.melonds.ui.layouts.viewmodel.BaseLayoutsViewModel
 import me.magnum.melonds.ui.theme.MelonTheme
@@ -127,36 +124,21 @@ private fun LayoutsScreenContent(
     }
 
     Scaffold(
+        modifier = Modifier.punicaBackground(),
         scaffoldState = scaffoldState,
         topBar = {
-            Box(Modifier.background(MaterialTheme.colors.primaryVariant).statusBarsPadding()) {
-                TopAppBar(
-                    navigationIcon = {
-                        IconButton(onClick = onBackClick) {
-                            Icon(
-                                painter = rememberVectorPainter(Icons.AutoMirrored.Filled.ArrowBack),
-                                contentDescription = stringResource(R.string.navigate_back),
-                            )
-                        }
-                    },
-                    title = { Text(stringResource(R.string.layouts)) },
-                    backgroundColor = MaterialTheme.colors.primary,
-                    contentColor = MaterialTheme.colors.onPrimary,
-                    windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top),
-                    actions = {
-                        CompositionLocalProvider(LocalContentAlpha provides ContentAlpha.high) {
-                            IconButton(onClick = onCreateLayout) {
-                                Icon(
-                                    painter = rememberVectorPainter(Icons.Default.Add),
-                                    contentDescription = stringResource(R.string.action_layouts_new),
-                                )
-                            }
-                        }
-                    },
-                )
+            PunicaHeader(subtitle = stringResource(R.string.layouts), onBack = onBackClick) {
+                CompositionLocalProvider(LocalContentAlpha provides ContentAlpha.high) {
+                    IconButton(onClick = onCreateLayout) {
+                        Icon(
+                            painter = rememberVectorPainter(Icons.Default.Add),
+                            contentDescription = stringResource(R.string.action_layouts_new),
+                        )
+                    }
+                }
             }
         },
-        backgroundColor = MaterialTheme.colors.surface,
+        backgroundColor = Color.Transparent,
         contentWindowInsets = WindowInsets.safeDrawing,
     ) { padding ->
         LazyColumn(

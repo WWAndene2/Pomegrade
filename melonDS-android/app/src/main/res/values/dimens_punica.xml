@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Punica's shared sizes for the XML screens, the same as ui/theme/PunicaTheme.kt's PunicaDimens (PerfectSuite scale) -->
+    <dimen name="punica_header_height">64dp</dimen>
+    <dimen name="punica_header_edge">4dp</dimen>
+    <dimen name="punica_touch">48dp</dimen>
+    <dimen name="punica_margin">16dp</dimen>
+    <dimen name="punica_gap">8dp</dimen>
+    <dimen name="punica_gap_wide">12dp</dimen>
+    <dimen name="punica_card_radius">16dp</dimen>
+    <dimen name="punica_tile_radius">12dp</dimen>
+    <dimen name="punica_sheet_radius">24dp</dimen>
+    <dimen name="punica_row_min_height">64dp</dimen>
+    <dimen name="punica_row_icon">32dp</dimen>
+</resources>

@@ -533,4 +533,9 @@
     <string name="home_console_ds">Nintendo DS</string>
     <string name="home_console_three_ds">Nintendo 3DS</string>
     <string name="home_console_gba">Game Boy Advance</string>
+    <string name="home_stat_play_time">de jeu</string>
+    <string name="home_stat_last_played">dernière partie</string>
+    <string name="home_stat_file">fichier</string>
+    <string name="home_shortcut">Raccourci sur l\'écran d\'accueil</string>
+    <string name="home_shortcut_unsupported">Ton lanceur ne permet pas d\'ajouter un raccourci depuis une app</string>
 </resources>

@@ -5,6 +5,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,8 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.DropdownMenu
-import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.Icon
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
@@ -27,8 +26,6 @@ import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +40,7 @@ import me.magnum.melonds.R
 import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.domain.model.rom.RomPlatform
 import me.magnum.melonds.ui.romlist.RomIcon
+import me.magnum.melonds.ui.theme.PunicaTheme
 import kotlin.time.Duration
 
 /** What a game card's ⋮ and the hero's ⋮ offer. */
@@ -52,6 +50,10 @@ internal class GameActions(
     val isFavorite: (Rom) -> Boolean,
     /** Null when the game has no per-game settings screen reachable from here (only DS games have one). */
     val onGameSettings: ((Rom) -> Unit)?,
+    val onInstallTexturePack: (Rom) -> Unit,
+    val onAddShortcut: (Rom) -> Unit,
+    /** Opens the game sheet ([HomeGameSheet]): the ⋮ and the long press. */
+    val onOpenSheet: (Rom) -> Unit,
     val loadIcon: suspend (Rom) -> RomIcon,
 )
 
@@ -73,35 +75,18 @@ internal fun PlatformTag(platform: RomPlatform, outlined: Boolean, modifier: Mod
     Box(
         modifier
             .height(16.dp)
-            .then(if (outlined) Modifier.border(1.dp, HomeTheme.red, shape) else Modifier.background(HomeTheme.red, shape))
+            .then(if (outlined) Modifier.border(1.dp, PunicaTheme.red, shape) else Modifier.background(PunicaTheme.red, shape))
             .padding(horizontal = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(platformShortName(platform), fontSize = 12.sp, lineHeight = 14.sp, fontWeight = if (outlined) FontWeight.Medium else FontWeight.Bold, color = if (outlined) HomeTheme.redTagText else HomeTheme.text)
+        Text(platformShortName(platform), fontSize = 12.sp, lineHeight = 14.sp, fontWeight = if (outlined) FontWeight.Medium else FontWeight.Bold, color = if (outlined) PunicaTheme.redTagText else PunicaTheme.text)
     }
 }
 
 @Composable
 internal fun GameMenuButton(rom: Rom, actions: GameActions, modifier: Modifier = Modifier) {
-    var open by remember { mutableStateOf(false) }
-    Box(modifier) {
-        Box(Modifier.size(24.dp).clip(RoundedCornerShape(12.dp)).clickable { open = true }, contentAlignment = Alignment.Center) {
-            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.home_game_menu), tint = HomeTheme.text, modifier = Modifier.size(16.dp))
-        }
-        GameMenu(rom, actions, open) { open = false }
-    }
-}
-
-@Composable
-internal fun GameMenu(rom: Rom, actions: GameActions, expanded: Boolean, onDismiss: () -> Unit) {
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-        DropdownMenuItem(onClick = { onDismiss(); actions.onPlay(rom) }) { Text(stringResource(R.string.home_play)) }
-        DropdownMenuItem(onClick = { onDismiss(); actions.onToggleFavorite(rom) }) {
-            Text(stringResource(if (actions.isFavorite(rom)) R.string.home_favorite_remove else R.string.home_favorite_add))
-        }
-        actions.onGameSettings?.takeIf { rom.platform == RomPlatform.NDS }?.let { open ->
-            DropdownMenuItem(onClick = { onDismiss(); open(rom) }) { Text(stringResource(R.string.home_game_settings)) }
-        }
+    Box(modifier.size(24.dp).clip(RoundedCornerShape(12.dp)).clickable { actions.onOpenSheet(rom) }, contentAlignment = Alignment.Center) {
+        Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.home_game_menu), tint = PunicaTheme.text, modifier = Modifier.size(16.dp))
     }
 }
 
@@ -131,11 +116,11 @@ internal fun RecentGameCard(rom: Rom, selected: Boolean, actions: GameActions) {
     Column(
         Modifier
             .width(144.dp)
-            .then(if (selected) Modifier.shadow(16.dp, shape, ambientColor = HomeTheme.red, spotColor = HomeTheme.red) else Modifier)
+            .then(if (selected) Modifier.shadow(16.dp, shape, ambientColor = PunicaTheme.red, spotColor = PunicaTheme.red) else Modifier)
             .clip(shape)
-            .background(HomeTheme.card)
-            .border(if (selected) BorderStroke(2.dp, HomeTheme.red) else BorderStroke(1.dp, HomeTheme.line), shape)
-            .clickable { actions.onPlay(rom) }
+            .background(PunicaTheme.card)
+            .border(if (selected) BorderStroke(2.dp, PunicaTheme.red) else BorderStroke(1.dp, PunicaTheme.line), shape)
+            .combinedClickable(onLongClick = { actions.onOpenSheet(rom) }) { actions.onPlay(rom) }
             .padding(8.dp),
     ) {
         Box {
@@ -143,13 +128,13 @@ internal fun RecentGameCard(rom: Rom, selected: Boolean, actions: GameActions) {
             PlatformTag(rom.platform, outlined = false, modifier = Modifier.padding(4.dp))
         }
         Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.Top) {
-            Text(rom.config.customName ?: rom.name, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, color = HomeTheme.text, modifier = Modifier.weight(1f))
+            Text(rom.config.customName ?: rom.name, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, color = PunicaTheme.text, modifier = Modifier.weight(1f))
             GameMenuButton(rom, actions)
         }
         Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.Top) {
-            Icon(Icons.Outlined.AccessTime, contentDescription = null, tint = HomeTheme.textMuted, modifier = Modifier.padding(top = 2.dp).size(12.dp))
+            Icon(Icons.Outlined.AccessTime, contentDescription = null, tint = PunicaTheme.textMuted, modifier = Modifier.padding(top = 2.dp).size(12.dp))
             Spacer(Modifier.width(4.dp))
-            Text(lastPlayedText(rom), fontSize = 12.sp, lineHeight = 16.sp, color = HomeTheme.textMuted)
+            Text(lastPlayedText(rom), fontSize = 12.sp, lineHeight = 16.sp, color = PunicaTheme.textMuted)
         }
     }
 }
@@ -158,23 +143,22 @@ internal fun RecentGameCard(rom: Rom, selected: Boolean, actions: GameActions) {
 @Composable
 internal fun LibraryGameCard(rom: Rom, actions: GameActions, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(12.dp)
-    var menu by remember { mutableStateOf(false) }
     Box(modifier) {
         Row(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 64.dp)
                 .clip(shape)
-                .background(HomeTheme.card)
-                .border(1.dp, HomeTheme.line, shape)
-                .clickable { actions.onPlay(rom) }
+                .background(PunicaTheme.card)
+                .border(1.dp, PunicaTheme.line, shape)
+                .combinedClickable(onLongClick = { actions.onOpenSheet(rom) }) { actions.onPlay(rom) }
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             GameCover(rom, actions.loadIcon, Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)))
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
-                Text(rom.config.customName ?: rom.name, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, color = HomeTheme.text)
+                Text(rom.config.customName ?: rom.name, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, color = PunicaTheme.text)
                 Spacer(Modifier.height(4.dp))
                 PlatformTag(rom.platform, outlined = true)
             }
@@ -184,15 +168,12 @@ internal fun LibraryGameCard(rom: Rom, actions: GameActions, modifier: Modifier 
                     Icon(
                         if (favorite) Icons.Filled.Star else Icons.Outlined.StarOutline,
                         contentDescription = stringResource(if (favorite) R.string.home_favorite_remove else R.string.home_favorite_add),
-                        tint = if (favorite) HomeTheme.star else HomeTheme.text,
+                        tint = if (favorite) PunicaTheme.star else PunicaTheme.text,
                         modifier = Modifier.size(16.dp),
                     )
                 }
-                Box(Modifier.size(24.dp).clip(RoundedCornerShape(12.dp)).clickable { menu = true }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.home_game_menu), tint = HomeTheme.textMuted, modifier = Modifier.size(16.dp))
-                }
+                GameMenuButton(rom, actions)
             }
         }
-        GameMenu(rom, actions, menu) { menu = false }
     }
 }

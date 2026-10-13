@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Punica's menus (overflow, pop-up, drop-down lists): 16 dp corners, the card colour, a 1 dp outline -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/punicaCard" />
+    <stroke android:width="1dp" android:color="@color/punicaLine" />
+    <corners android:radius="@dimen/punica_card_radius" />
+    <padding android:top="8dp" android:bottom="8dp" />
+</shape>

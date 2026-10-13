@@ -6,9 +6,17 @@
         <item name="colorOnPrimary">@color/colorOnPrimary</item>
         <item name="colorOnSecondary">@color/colorOnSecondary</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@drawable/bg_punica_window</item>
         <item name="android:windowLightNavigationBar">@bool/lightNavigationBar</item>
         <item name="toolbarNavigationButtonStyle">@style/Toolbar.Button.Navigation</item>
         <item name="actionOverflowMenuStyle">@style/Menu.OverflowUnder</item>
+        <item name="popupMenuStyle">@style/Menu.Punica</item>
+        <item name="listPopupWindowStyle">@style/Menu.Punica.List</item>
+        <item name="android:popupMenuStyle">@style/Menu.Punica</item>
+        <item name="textAppearanceLargePopupMenu">@style/TextAppearance.Punica.Menu</item>
+        <item name="textAppearanceSmallPopupMenu">@style/TextAppearance.Punica.Menu</item>
+        <item name="alertDialogTheme">@style/PunicaAlertDialog</item>
+        <item name="android:alertDialogTheme">@style/PunicaAlertDialog</item>
         <item name="preferenceTheme">@style/Preference</item>
     </style>
 
@@ -32,22 +40,33 @@
     </style>
 
     <style name="MaterialDialog" parent="Theme.MaterialComponents.DayNight.Dialog">
-        <item name="colorPrimary">@color/colorAccent</item>
-        <item name="colorAccent">@color/colorAccent</item>
-        <item name="android:colorBackground">@color/colorBackground</item>
-        <item name="colorSurface">@color/colorSurface</item>
+        <item name="colorPrimary">@color/punicaRed</item>
+        <item name="colorAccent">@color/punicaRed</item>
+        <item name="android:colorBackground">@color/punicaCard</item>
+        <item name="colorSurface">@color/punicaCard</item>
+        <item name="android:windowBackground">@drawable/bg_punica_dialog</item>
+        <item name="android:windowTitleStyle">@style/PunicaAlertDialog.Title</item>
     </style>
 
+    <!-- Punica's header (PunicaToolbar): transparent over the window's sweep, 64 dp, the back button 48 dp at 4 dp
+         from the edge and the logo right after it (16 dp from the edge without back), as the Compose PunicaHeader -->
     <style name="Toolbar">
-        <item name="android:background">@color/colorPrimary</item>
-        <item name="android:elevation">4dp</item>
+        <item name="android:background">@android:color/transparent</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:minHeight">@dimen/punica_header_height</item>
+        <item name="android:paddingStart">4dp</item>
+        <item name="android:paddingEnd">4dp</item>
+        <item name="contentInsetStart">12dp</item>
+        <item name="contentInsetStartWithNavigation">0dp</item>
         <item name="android:theme">@style/ThemeOverlay.AppCompat.Dark.ActionBar</item>
         <item name="popupTheme">@style/ThemeOverlay.AppCompat.DayNight</item>
         <item name="titleTextAppearance">@style/Toolbar.TitleText</item>
     </style>
 
     <style name="Toolbar.Button.Navigation" parent="Widget.AppCompat.Toolbar.Button.Navigation">
-        <item name="tint">@color/colorOnPrimary</item>
+        <item name="tint">@color/punicaText</item>
+        <item name="android:minWidth">@dimen/punica_touch</item>
+        <item name="android:minHeight">@dimen/punica_touch</item>
     </style>
 
     <style name="Toolbar.TitleText" parent="TextAppearance.Widget.AppCompat.Toolbar.Title">
@@ -65,8 +84,62 @@
         <item name="android:windowEnterAnimation">@null</item>
     </style>
 
+    <!-- Punica's settings (owner's choice, 13 October): rows in cards (PunicaPreferenceCards), section titles in
+         Bricolage Grotesque, the switches as red pills; every kind of preference gets the same row -->
     <style name="Preference" parent="@style/PreferenceThemeOverlay">
         <item name="android:tint">@color/buttonContrasted</item>
+        <item name="preferenceStyle">@style/Preference.Punica</item>
+        <item name="preferenceCategoryStyle">@style/Preference.Punica.Category</item>
+        <item name="preferenceScreenStyle">@style/Preference.Punica.Screen</item>
+        <item name="dialogPreferenceStyle">@style/Preference.Punica.Dialog</item>
+        <item name="editTextPreferenceStyle">@style/Preference.Punica.EditText</item>
+        <item name="dropdownPreferenceStyle">@style/Preference.Punica.DropDown</item>
+        <item name="switchPreferenceStyle">@style/Preference.Punica.Switch</item>
+        <item name="switchPreferenceCompatStyle">@style/Preference.Punica.SwitchCompat</item>
+        <item name="checkBoxPreferenceStyle">@style/Preference.Punica.CheckBox</item>
+        <item name="seekBarPreferenceStyle">@style/Preference.Punica.SeekBar</item>
+    </style>
+
+    <style name="Preference.Punica" parent="Preference.Material">
+        <item name="android:layout">@layout/preference_punica</item>
+    </style>
+
+    <style name="Preference.Punica.Category" parent="Preference.Category.Material">
+        <item name="android:layout">@layout/preference_punica_category</item>
+    </style>
+
+    <style name="Preference.Punica.Screen" parent="Preference.PreferenceScreen.Material">
+        <item name="android:layout">@layout/preference_punica</item>
+    </style>
+
+    <style name="Preference.Punica.Dialog" parent="Preference.DialogPreference.Material">
+        <item name="android:layout">@layout/preference_punica</item>
+    </style>
+
+    <style name="Preference.Punica.EditText" parent="Preference.DialogPreference.EditTextPreference.Material">
+        <item name="android:layout">@layout/preference_punica</item>
+    </style>
+
+    <style name="Preference.Punica.DropDown" parent="Preference.DropDown.Material">
+        <item name="android:layout">@layout/preference_punica</item>
+    </style>
+
+    <style name="Preference.Punica.Switch" parent="Preference.SwitchPreference.Material">
+        <item name="android:layout">@layout/preference_punica</item>
+        <item name="android:widgetLayout">@layout/preference_punica_switch</item>
+    </style>
+
+    <style name="Preference.Punica.SwitchCompat" parent="Preference.SwitchPreferenceCompat.Material">
+        <item name="android:layout">@layout/preference_punica</item>
+        <item name="android:widgetLayout">@layout/preference_punica_switch_compat</item>
+    </style>
+
+    <style name="Preference.Punica.CheckBox" parent="Preference.CheckBoxPreference.Material">
+        <item name="android:layout">@layout/preference_punica</item>
+    </style>
+
+    <style name="Preference.Punica.SeekBar" parent="Preference.SeekBarPreference.Material">
+        <item name="android:layout">@layout/preference_punica_seekbar</item>
     </style>
 
     <style name="Button.Ripple" parent="android:Widget.ImageButton">
@@ -84,6 +157,8 @@
     </style>
 
     <style name="Menu.OverflowUnder" parent="Widget.AppCompat.PopupMenu.Overflow">
+        <item name="android:popupBackground">@drawable/bg_punica_menu</item>
+        <item name="android:popupElevation">8dp</item>
         <item name="overlapAnchor">false</item>
         <item name="android:overlapAnchor">false</item>
     </style>
@@ -96,5 +171,53 @@
         <item name="android:layout_weight">1</item>
         <item name="android:clickable">true</item>
         <item name="android:focusable">true</item>
+    </style>
+
+    <!-- Punica's menus and dialogs (owner's choice, 13 October): the same card as the Compose ones (BaseDialog,
+         MelonTheme's shapes), the title in Bricolage Grotesque 24, the buttons red in the same face, 48 dp high -->
+    <style name="Menu.Punica" parent="Widget.AppCompat.PopupMenu">
+        <item name="android:popupBackground">@drawable/bg_punica_menu</item>
+        <item name="android:popupElevation">8dp</item>
+        <item name="overlapAnchor">false</item>
+        <item name="android:overlapAnchor">false</item>
+    </style>
+
+    <style name="Menu.Punica.List" parent="Widget.AppCompat.ListPopupWindow">
+        <item name="android:popupBackground">@drawable/bg_punica_menu</item>
+        <item name="android:popupElevation">8dp</item>
+    </style>
+
+    <style name="TextAppearance.Punica.Menu" parent="TextAppearance.AppCompat.Widget.PopupMenu.Large">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/punicaText</item>
+    </style>
+
+    <style name="PunicaAlertDialog" parent="ThemeOverlay.AppCompat.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/bg_punica_dialog</item>
+        <item name="colorAccent">@color/punicaRed</item>
+        <item name="android:textColorPrimary">@color/punicaText</item>
+        <item name="android:textColorSecondary">@color/punicaTextMuted</item>
+        <item name="android:windowTitleStyle">@style/PunicaAlertDialog.Title</item>
+        <item name="buttonBarPositiveButtonStyle">@style/PunicaAlertDialog.Button</item>
+        <item name="buttonBarNegativeButtonStyle">@style/PunicaAlertDialog.Button</item>
+        <item name="buttonBarNeutralButtonStyle">@style/PunicaAlertDialog.Button</item>
+    </style>
+
+    <style name="PunicaAlertDialog.Title" parent="Base.DialogWindowTitle.AppCompat">
+        <item name="android:textAppearance">@style/TextAppearance.Punica.DialogTitle</item>
+    </style>
+
+    <style name="TextAppearance.Punica.DialogTitle" parent="TextAppearance.AppCompat.Title">
+        <item name="android:textSize">24sp</item>
+        <item name="android:fontFamily">@font/bricolage_grotesque_extrabold</item>
+        <item name="android:textColor">@color/punicaText</item>
+    </style>
+
+    <style name="PunicaAlertDialog.Button" parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
+        <item name="android:textSize">16sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:fontFamily">@font/bricolage_grotesque_extrabold</item>
+        <item name="android:textColor">@color/punicaRed</item>
+        <item name="android:minHeight">@dimen/punica_touch</item>
     </style>
 </resources>

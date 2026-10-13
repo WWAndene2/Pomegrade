@@ -3,7 +3,6 @@ package me.magnum.melonds.ui.settings
 import android.graphics.Color
 import android.os.Bundle
 import android.view.MenuItem
-import android.view.View
 import android.view.ViewGroup
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
@@ -11,7 +10,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updateLayoutParams
-import androidx.core.view.updatePadding
 import androidx.fragment.app.commit
 import androidx.fragment.app.commitNow
 import androidx.preference.Preference
@@ -47,19 +45,10 @@ class SettingsActivity : AppCompatActivity(), PreferenceFragmentCompat.OnPrefere
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        var defaultContentInsetStartWithNavigation = -1
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            if (defaultContentInsetStartWithNavigation == -1) {
-                defaultContentInsetStartWithNavigation = binding.toolbar.contentInsetStartWithNavigation
-            }
-
-            val startInset = if (binding.toolbar.layoutDirection == View.LAYOUT_DIRECTION_LTR) insets.left else insets.right
-            binding.toolbar.contentInsetStartWithNavigation = defaultContentInsetStartWithNavigation + startInset
-            binding.toolbar.updatePadding(
-                left = insets.left,
-                right = insets.right,
-            )
+            // Punica's header: its padding holds the side insets, its content insets stay as styled
+            binding.toolbar.applySideInsets(insets.left, insets.right)
             binding.viewStatusBarBackground.updateLayoutParams {
                 height = insets.top
             }

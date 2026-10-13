@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -30,22 +29,17 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.FloatingActionButton
 import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.SnackbarDuration
 import androidx.compose.material.SnackbarResult
-import androidx.compose.material.Text
-import androidx.compose.material.TopAppBar
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.rememberScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
@@ -60,8 +54,10 @@ import me.magnum.melonds.common.contracts.FilePickerContract
 import me.magnum.melonds.domain.model.Background
 import me.magnum.melonds.extensions.nameWithoutExtension
 import me.magnum.melonds.ui.backgrounds.BackgroundsViewModel
+import me.magnum.melonds.ui.common.component.PunicaHeader
 import me.magnum.melonds.ui.common.component.dialog.TextInputDialog
 import me.magnum.melonds.ui.common.component.dialog.rememberTextInputDialogState
+import me.magnum.melonds.ui.common.component.punicaBackground
 import me.magnum.melonds.utils.BitmapRegionDecoderCompat
 import java.util.UUID
 
@@ -104,23 +100,10 @@ fun BackgroundListScreen(
     val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
+        modifier = Modifier.punicaBackground(),
         scaffoldState = scaffoldState,
         topBar = {
-            Box(Modifier.background(MaterialTheme.colors.primaryVariant).statusBarsPadding()) {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.backgrounds)) },
-                    backgroundColor = MaterialTheme.colors.primary,
-                    navigationIcon = {
-                        IconButton(onClick = onBackClick) {
-                            Icon(
-                                painter = rememberVectorPainter(Icons.AutoMirrored.Filled.ArrowBack),
-                                contentDescription = null,
-                            )
-                        }
-                    },
-                    windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top),
-                )
-            }
+            PunicaHeader(subtitle = stringResource(R.string.backgrounds), onBack = onBackClick)
         },
         floatingActionButton = {
             // Manually apply navigation bar insets due to a bug in Scaffold. Scaffold does not apply horizontal insets to FABs
@@ -136,7 +119,7 @@ fun BackgroundListScreen(
                 )
             }
         },
-        backgroundColor = MaterialTheme.colors.surface,
+        backgroundColor = Color.Transparent,
         contentWindowInsets = WindowInsets.safeDrawing,
     ) { padding ->
         if (backgrounds == null) {

@@ -15,6 +15,7 @@ import androidx.compose.ui.layout.ContentScale
 import me.magnum.melonds.domain.model.RomIconFiltering
 import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.ui.romlist.RomIcon
+import me.magnum.melonds.ui.theme.PunicaTheme
 
 /** A game's icon filling [modifier]'s box (clip it there), read with [loadIcon]; the card colour until it is read, or without one. */
 @Composable
@@ -23,7 +24,7 @@ internal fun GameCover(rom: Rom, loadIcon: suspend (Rom) -> RomIcon, modifier: M
         val romIcon = loadIcon(rom)
         value = romIcon.bitmap?.let { it.asImageBitmap() to (romIcon.filtering == RomIconFiltering.LINEAR) }
     }
-    Box(modifier.background(HomeTheme.cardRaised), contentAlignment = Alignment.Center) {
+    Box(modifier.background(PunicaTheme.cardRaised), contentAlignment = Alignment.Center) {
         icon?.let { (bitmap, linear) ->
             Image(
                 bitmap = bitmap,

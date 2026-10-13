@@ -1,5 +1,6 @@
 package me.magnum.melonds.ui.common.component.dialog
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,9 +11,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Card
-import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
@@ -21,8 +22,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import me.magnum.melonds.ui.common.DetachedDialog
 import me.magnum.melonds.ui.common.melonTextButtonColors
+import me.magnum.melonds.ui.theme.PunicaDimens
+import me.magnum.melonds.ui.theme.PunicaTheme
 
 @Composable
 fun BaseDialog(
@@ -36,7 +40,14 @@ fun BaseDialog(
         onDismissRequest = onDismiss,
         //properties = DialogProperties(decorFitsSystemWindows = false),
     ) {
-        Card(Modifier.fillMaxWidth().safeDrawingPadding()) {
+        // Punica's dialog card: 24 dp corners, the card colour and its 1 dp outline
+        Card(
+            modifier = Modifier.fillMaxWidth().safeDrawingPadding(),
+            shape = RoundedCornerShape(PunicaDimens.SHEET_RADIUS.dp),
+            backgroundColor = PunicaTheme.card,
+            border = BorderStroke(1.dp, PunicaTheme.line),
+            elevation = 0.dp,
+        ) {
             Column(Modifier.fillMaxWidth()) {
                 Box(
                     modifier = Modifier
@@ -46,8 +57,11 @@ fun BaseDialog(
                 ) {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.h6,
-                        fontWeight = FontWeight.Bold,
+                        fontFamily = PunicaTheme.display,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 24.sp,
+                        lineHeight = 32.sp,
+                        color = PunicaTheme.text,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -83,11 +97,13 @@ fun DialogButton(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
+    // Punica's dialog buttons: the red text in the title face, 48 dp high, as the XML dialogs' (PunicaAlertDialog)
     TextButton(
+        modifier = Modifier.heightIn(min = PunicaDimens.TOUCH.dp),
         onClick = onClick,
         enabled = enabled,
         colors = melonTextButtonColors(),
     ) {
-        Text(text.uppercase())
+        Text(text, fontFamily = PunicaTheme.display, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = if (enabled) PunicaTheme.red else PunicaTheme.textMuted)
     }
 }

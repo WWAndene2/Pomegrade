@@ -1,4 +1,4 @@
-package me.magnum.melonds.ui.romlist.home
+package me.magnum.melonds.ui.common.component
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
@@ -14,7 +14,7 @@ import me.magnum.melonds.domain.model.rom.RomPlatform
 
 /** A small drawing of [platform]'s console, 40 x 28 dp, for the quick-access cards. No console maker's artwork. */
 @Composable
-internal fun ConsoleGlyph(platform: RomPlatform, modifier: Modifier = Modifier) {
+fun ConsoleGlyph(platform: RomPlatform, modifier: Modifier = Modifier) {
     Canvas(modifier.size(40.dp, 28.dp)) {
         val u = size.width / 40f
         when (platform) {

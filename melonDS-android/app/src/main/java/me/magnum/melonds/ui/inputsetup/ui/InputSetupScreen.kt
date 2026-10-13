@@ -8,15 +8,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
-import androidx.compose.foundation.layout.exclude
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.Icon
@@ -24,15 +22,14 @@ import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.Text
-import androidx.compose.material.TopAppBar
 import androidx.compose.material.TextButton
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
@@ -40,8 +37,7 @@ import androidx.compose.ui.focus.FocusRequester.Companion.FocusRequesterFactory.
 import androidx.compose.ui.focus.FocusRequester.Companion.FocusRequesterFactory.component2
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
-import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -52,6 +48,8 @@ import me.magnum.melonds.R
 import me.magnum.melonds.domain.model.Input
 import me.magnum.melonds.domain.model.InputConfig
 import me.magnum.melonds.ui.common.MelonPreviewSet
+import me.magnum.melonds.ui.common.component.PunicaHeader
+import me.magnum.melonds.ui.common.component.punicaBackground
 import me.magnum.melonds.ui.inputsetup.InputSetupViewModel
 import me.magnum.melonds.ui.theme.MelonTheme
 
@@ -97,24 +95,11 @@ private fun InputSetupScreenContent(
     }
 
     Scaffold(
+        modifier = Modifier.punicaBackground(),
         topBar = {
-            Box(Modifier.background(MaterialTheme.colors.primaryVariant).statusBarsPadding()) {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.key_mapping)) },
-                    backgroundColor = MaterialTheme.colors.primary,
-                    navigationIcon = {
-                        IconButton(onClick = onBackClick) {
-                            Icon(
-                                painter = rememberVectorPainter(Icons.AutoMirrored.Filled.ArrowBack),
-                                contentDescription = stringResource(R.string.clear),
-                            )
-                        }
-                    },
-                    windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets(bottom = Int.MAX_VALUE)),
-                )
-            }
+            PunicaHeader(subtitle = stringResource(R.string.key_mapping), onBack = onBackClick)
         },
-        backgroundColor = MaterialTheme.colors.surface,
+        backgroundColor = Color.Transparent,
         contentWindowInsets = WindowInsets.safeDrawing,
     ) { padding ->
         Box(Modifier.fillMaxSize().consumeWindowInsets(padding)) {

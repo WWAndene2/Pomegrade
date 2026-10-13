@@ -24,4 +24,5 @@
     <!-- the red pomegranate needs a light (dark theme: dark) backdrop, not the red primary -->
     <color name="splashBackground">@color/colorBackground</color>
     <color name="splashToolbar">@color/colorPrimaryDark</color>
+
 </resources>

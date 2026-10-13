@@ -23,7 +23,6 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
-import androidx.core.view.updatePadding
 import androidx.fragment.app.commit
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -41,13 +40,13 @@ import me.magnum.melonds.domain.model.Version
 import me.magnum.melonds.domain.model.appupdate.AppUpdate
 import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.domain.model.rom.RomPlatform
+import me.magnum.melonds.impl.PunicaFolderRename
 import me.magnum.melonds.ui.about.AboutActivity
 import me.magnum.melonds.ui.common.PomegradeFolderSetupDelegate
 import me.magnum.melonds.ui.common.PunicaFolderRenameDelegate
-import me.magnum.melonds.impl.PunicaFolderRename
 import me.magnum.melonds.ui.common.rom.EmulatorLaunchValidatorDelegate
-import me.magnum.melonds.ui.common.rom.N3dsLauncher
 import me.magnum.melonds.ui.common.rom.GcWiiLauncher
+import me.magnum.melonds.ui.common.rom.N3dsLauncher
 import me.magnum.melonds.ui.common.rom.SwitchLauncher
 import me.magnum.melonds.ui.dsiwaremanager.DSiWareManagerActivity
 import me.magnum.melonds.ui.emulator.EmulatorActivity
@@ -86,18 +85,10 @@ class RomListActivity : AppCompatActivity(), HomeFragment.Host {
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
 
-        var defaultContentInsetLeft = -1
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            if (defaultContentInsetLeft == -1) {
-                defaultContentInsetLeft = binding.toolbar.contentInsetLeft
-            }
-
-            binding.toolbar.setContentInsetsAbsolute(defaultContentInsetLeft + insets.left, binding.toolbar.contentInsetRight)
-            binding.toolbar.updatePadding(
-                left = insets.left,
-                right = insets.right,
-            )
+            // Punica's header: its padding holds the side insets, its content insets stay as styled
+            binding.toolbar.applySideInsets(insets.left, insets.right)
             binding.viewStatusBarBackground.updateLayoutParams {
                 height = insets.top
             }

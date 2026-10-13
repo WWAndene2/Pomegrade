@@ -2,15 +2,23 @@ package me.magnum.melonds.ui.settings.preferences
 
 import android.content.Context
 import android.util.AttributeSet
-import android.view.View
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.unit.dp
 import androidx.preference.Preference
 import androidx.preference.PreferenceViewHolder
 import me.magnum.melonds.R
+import me.magnum.melonds.domain.model.rom.RomPlatform
+import me.magnum.melonds.ui.common.component.ConsoleCard
+import me.magnum.melonds.ui.theme.MelonTheme
 
 /**
- * The console logos at the top of the settings (preference_console_selector). Tapping one picks that
+ * The console cards at the top of the settings (preference_console_selector, the home screen's ConsoleCard). Tapping one picks that
  * console, kept as this preference's value ([GBA], [DS], [THREE_DS], [SWITCH] or [GC_WII]); the settings screen then shows
- * only that console's section. The 3DS, Switch and GameCube / Wii logos are hidden on devices that can't run them.
+ * only that console's section. The 3DS, Switch and GameCube / Wii cards are hidden on devices that can't run them.
  */
 class ConsoleSelectorPreference @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : Preference(context, attrs) {
 
@@ -53,24 +61,28 @@ class ConsoleSelectorPreference @JvmOverloads constructor(context: Context, attr
 
     override fun onBindViewHolder(holder: PreferenceViewHolder) {
         super.onBindViewHolder(holder)
-        val gba = holder.findViewById(R.id.settings_console_gba)
-        val ds = holder.findViewById(R.id.settings_console_ds)
-        val threeDs = holder.findViewById(R.id.settings_console_three_ds)
-        val switch = holder.findViewById(R.id.settings_console_switch)
-        val gcWii = holder.findViewById(R.id.settings_console_gc_wii)
-        threeDs.visibility = if (threeDsAvailable) View.VISIBLE else View.GONE
-        switch.visibility = if (switchAvailable) View.VISIBLE else View.GONE
-        gcWii.visibility = if (gcWiiAvailable) View.VISIBLE else View.GONE
-        gba.isSelected = selected == GBA
-        ds.isSelected = selected == DS
-        threeDs.isSelected = selected == THREE_DS
-        switch.isSelected = selected == SWITCH
-        gcWii.isSelected = selected == GC_WII
-        gba.setOnClickListener { select(GBA) }
-        ds.setOnClickListener { select(DS) }
-        threeDs.setOnClickListener { select(THREE_DS) }
-        switch.setOnClickListener { select(SWITCH) }
-        gcWii.setOnClickListener { select(GC_WII) }
+        holder.itemView.isClickable = false
+        val consoles = buildList {
+            add(DS to RomPlatform.NDS)
+            if (threeDsAvailable) add(THREE_DS to RomPlatform.N3DS)
+            add(GBA to RomPlatform.GBA)
+            if (switchAvailable) add(SWITCH to RomPlatform.SWITCH)
+            if (gcWiiAvailable) add(GC_WII to RomPlatform.GC_WII)
+        }
+        val chosen = selected
+        (holder.findViewById(R.id.settings_console_cards) as ComposeView).setContent {
+            MelonTheme {
+                // the same cards, sizes and gaps as the home screen's quick access
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(consoles) { (key, platform) ->
+                        ConsoleCard(platform, selected = key == chosen) { select(key) }
+                    }
+                }
+            }
+        }
     }
 
     private fun select(console: String) {
