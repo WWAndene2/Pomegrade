@@ -357,6 +357,13 @@ class EmulatorViewModel @Inject constructor(
         }
     }
 
+    /** Pomegrade: the pause menu's options for what runs now, as the pause menu lists them (the shortcut pill's). */
+    fun currentPauseMenuOptions(): List<PauseMenuOption> = when (_emulatorState.value) {
+        is EmulatorState.RunningRom -> RomPauseMenuOption.entries.filter { filterRomPauseMenuOption(it) }
+        is EmulatorState.RunningFirmware -> FirmwarePauseMenuOption.entries
+        else -> emptyList()
+    }
+
     fun pauseEmulator(showPauseMenu: Boolean) {
         sessionCoroutineScope.launch {
             emulatorManager.pauseEmulator()

@@ -56,6 +56,7 @@ import io.github.wwandene2.pomegrade.emulatorui.R as EmulatorMenuR
 import io.github.wwandene2.pomegrade.emulatorui.SaveStateSlotUi
 import io.github.wwandene2.pomegrade.emulatorui.SaveStatesDialog
 import io.github.wwandene2.pomegrade.emulatorui.ScreenshotGallery
+import io.github.wwandene2.pomegrade.emulatorui.ShortcutPill
 import io.github.wwandene2.pomegrade.emulatorui.SurfaceCapture
 import java.io.File
 import kotlinx.coroutines.flow.collectLatest
@@ -103,6 +104,7 @@ class EmulationFragment :
     private val emulationActivity: EmulationActivity
         get() = (requireActivity() as EmulationActivity)
 
+    private var shortcutPill: ShortcutPill? = null
     private var _binding: FragmentEmulationBinding? = null
     private val binding get() = _binding!!
 
@@ -324,6 +326,14 @@ class EmulationFragment :
             GameIconUtils.loadGameIcon(requireActivity(), game, iconView)
         }
 
+        // Pomegrade: the shortcut pill, the menu's entries run as the menu runs them (this core keeps its own
+        // drawer lock setting for the edge swipe)
+        shortcutPill?.detach()
+        shortcutPill = ShortcutPill.attach(
+            requireActivity(),
+            { EmulatorMenu.visibleItems(binding.inGameMenu.menu) },
+            { id -> binding.inGameMenu.menu.performIdentifierAction(id, 0) }
+        )
         binding.inGameMenu.setNavigationItemSelectedListener {
             when (it.itemId) {
                 EmulatorMenuR.id.emulator_menu_pause -> {
@@ -618,6 +628,8 @@ class EmulationFragment :
     }
 
     override fun onDestroy() {
+        shortcutPill?.detach()
+        shortcutPill = null
         if (::emulationState.isInitialized && requireActivity().isFinishing) {
             emulationState.stop()
         }

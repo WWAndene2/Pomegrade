@@ -927,4 +927,15 @@
     <string name="texture_pack_no_folder">Set up the Punica folder first.</string>
     <string name="texture_pack_empty">The zip holds no file.</string>
     <string name="texture_pack_failed">The pack couldn\'t be installed: %1$s</string>
+    <string name="menu_access">In-game menu</string>
+    <string-array name="menu_access_options">
+        <item>Shortcut pill</item>
+        <item>Side drawer (edge swipe)</item>
+        <item>Both</item>
+    </string-array>
+    <string-array name="menu_access_values">
+        <item>pill</item>
+        <item>drawer</item>
+        <item>both</item>
+    </string-array>
 </resources>

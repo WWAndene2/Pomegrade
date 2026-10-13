@@ -22,6 +22,16 @@
                 android:summary="@string/pomegrade_settings_restore_summary"
                 app:icon="@drawable/ic_file" />
 
+        <!-- how the in-game menu opens on every console (ShortcutPill.KEY_ACCESS, read by :emulator-ui) -->
+        <ListPreference
+                android:key="punica_menu_access"
+                android:title="@string/menu_access"
+                android:summary="%s"
+                app:icon="@drawable/ic_menu"
+                android:entries="@array/menu_access_options"
+                android:entryValues="@array/menu_access_values"
+                android:defaultValue="pill" />
+
         <Preference
                 android:title="@string/category_general"
                 android:summary="@string/category_general_summary"

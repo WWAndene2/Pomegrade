@@ -116,22 +116,8 @@ class MenuFragment : Fragment() {
             activity.showOverlayControlsMenu(binding.inGameMenu.getHeaderView(0))
             return
         }
-        if (itemId == EmulatorMenuR.id.emulator_menu_game_settings) {
-            // the disc's revision isn't exposed while running: 0, which only picks which of Dolphin's
-            // default game settings are shown; the game's own file is named by its ID alone
-            SettingsActivity.launch(activity, MenuTag.SETTINGS, NativeLibrary.GetCurrentGameID(), 0, NativeLibrary.IsEmulatingWii())
-            return
-        }
-        if (itemId == EmulatorMenuR.id.emulator_menu_pause) {
-            activity.handleMenuAction(
-                if (EmulationActivity.hasUserPausedEmulation) EmulationActivity.MENU_ACTION_UNPAUSE_EMULATION
-                else EmulationActivity.MENU_ACTION_PAUSE_EMULATION
-            )
-            updatePauseTitle()
-            return
-        }
-        val action = actions[itemId] ?: return
-        activity.handleMenuAction(action)
+        runItem(activity, itemId)
+        if (itemId == EmulatorMenuR.id.emulator_menu_pause) updatePauseTitle()
     }
 
     companion object {
@@ -150,6 +136,41 @@ class MenuFragment : Fragment() {
             EmulatorMenuR.id.emulator_menu_skylanders to EmulationActivity.MENU_ACTION_SKYLANDERS,
             EmulatorMenuR.id.emulator_menu_infinity_base to EmulationActivity.MENU_ACTION_INFINITY_BASE,
         )
+
+        /** Pomegrade: the entries the shortcut pill offers on this core (those that need no open menu). */
+        fun shortcutItems(): Set<Int> {
+            val items = mutableSetOf(
+                EmulatorMenuR.id.emulator_menu_pause,
+                EmulatorMenuR.id.emulator_menu_screenshot,
+                EmulatorMenuR.id.emulator_menu_quick_save,
+                EmulatorMenuR.id.emulator_menu_quick_load,
+                EmulatorMenuR.id.emulator_menu_save_state,
+                EmulatorMenuR.id.emulator_menu_load_state,
+                EmulatorMenuR.id.emulator_menu_change_disc,
+                EmulatorMenuR.id.emulator_menu_settings,
+                EmulatorMenuR.id.emulator_menu_exit,
+            )
+            if (NativeLibrary.IsGameMetadataValid()) {
+                items += EmulatorMenuR.id.emulator_menu_game_settings
+                if (NativeLibrary.IsEmulatingWii()) items += EmulatorMenuR.id.emulator_menu_refresh_wiimotes
+            }
+            return items
+        }
+
+        /** Runs one of the menu's entries, from the menu or the shortcut pill. */
+        fun runItem(activity: EmulationActivity, itemId: Int) {
+            when (itemId) {
+                // the disc's revision isn't exposed while running: 0, which only picks which of Dolphin's
+                // default game settings are shown; the game's own file is named by its ID alone
+                EmulatorMenuR.id.emulator_menu_game_settings ->
+                    SettingsActivity.launch(activity, MenuTag.SETTINGS, NativeLibrary.GetCurrentGameID(), 0, NativeLibrary.IsEmulatingWii())
+                EmulatorMenuR.id.emulator_menu_pause -> activity.handleMenuAction(
+                    if (EmulationActivity.hasUserPausedEmulation) EmulationActivity.MENU_ACTION_UNPAUSE_EMULATION
+                    else EmulationActivity.MENU_ACTION_PAUSE_EMULATION
+                )
+                else -> actions[itemId]?.let { activity.handleMenuAction(it) }
+            }
+        }
 
         fun newInstance(): MenuFragment {
             val fragment = MenuFragment()

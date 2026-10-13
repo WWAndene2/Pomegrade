@@ -9,6 +9,7 @@ package org.yuzu.yuzu_emu.fragments
 import io.github.wwandene2.pomegrade.emulatorui.EmulatorMenu
 import io.github.wwandene2.pomegrade.emulatorui.R as EmulatorMenuR
 import io.github.wwandene2.pomegrade.emulatorui.ScreenshotGallery
+import io.github.wwandene2.pomegrade.emulatorui.ShortcutPill
 import io.github.wwandene2.pomegrade.emulatorui.SurfaceCapture
 import android.annotation.SuppressLint
 import android.app.ActivityManager
@@ -122,6 +123,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
     private var hasPhysicalControllerConnected = false
     private var overlayHiddenByPhysicalController = false
 
+    private var shortcutPill: ShortcutPill? = null
     private var _binding: EdenFragmentEmulationBinding? = null
 
     private val binding get() = _binding!!
@@ -782,6 +784,14 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
             )
         }
 
+        // Pomegrade: the shortcut pill, the menu's entries run as the menu runs them (this core keeps its own
+        // drawer lock setting for the edge swipe)
+        shortcutPill?.detach()
+        shortcutPill = ShortcutPill.attach(
+            requireActivity(),
+            { EmulatorMenu.visibleItems(binding.inGameMenu.menu) },
+            { id -> binding.inGameMenu.menu.performIdentifierAction(id, 0) }
+        )
         binding.inGameMenu.setNavigationItemSelectedListener {
             when (it.itemId) {
                 EmulatorMenuR.id.emulator_menu_pause -> {
@@ -1448,6 +1458,8 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
     }
 
     override fun onDestroyView() {
+        shortcutPill?.detach()
+        shortcutPill = null
         super.onDestroyView()
         amiiboLoadJob?.cancel()
         amiiboLoadJob = null

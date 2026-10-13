@@ -2,6 +2,7 @@
 
 package org.dolphinemu.dolphinemu.activities
 
+import io.github.wwandene2.pomegrade.emulatorui.ShortcutPill
 import android.content.DialogInterface
 import android.content.Intent
 import android.graphics.Rect
@@ -212,6 +213,9 @@ class EmulationActivity : AppCompatActivity(), ThemeProvider {
         setContentView(binding.root)
 
         setInsets()
+
+        // Pomegrade: the shortcut pill, running the in-game menu's entries as the menu does
+        ShortcutPill.attach(this, { MenuFragment.shortcutItems() }, { MenuFragment.runItem(this, it) })
 
         // Find or create the EmulationFragment
         emulationFragment = supportFragmentManager

@@ -493,4 +493,10 @@
     <string name="texture_pack_no_folder">Configure d\'abord le dossier Punica.</string>
     <string name="texture_pack_empty">Le zip ne contient aucun fichier.</string>
     <string name="texture_pack_failed">Le pack n\'a pas pu être installé : %1$s</string>
+    <string name="menu_access">Menu en jeu</string>
+    <string-array name="menu_access_options">
+        <item>Pastille de raccourcis</item>
+        <item>Tiroir latéral (glisser depuis le bord)</item>
+        <item>Les deux</item>
+    </string-array>
 </resources>

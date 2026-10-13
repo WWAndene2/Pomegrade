@@ -25,6 +25,7 @@ import androidx.drawerlayout.widget.DrawerLayout
 import com.google.android.material.navigation.NavigationView
 import io.github.wwandene2.pomegrade.emulatorui.EmulatorMenu
 import io.github.wwandene2.pomegrade.emulatorui.ScreenshotGallery
+import io.github.wwandene2.pomegrade.emulatorui.ShortcutPill
 import io.github.wwandene2.pomegrade.emulatorui.R as MenuR
 import io.github.wwandene2.pomegrade.emulatorui.SaveStateSlotUi
 import io.github.wwandene2.pomegrade.emulatorui.SaveStatesDialog
@@ -108,7 +109,11 @@ class GbaEmulatorActivity : AppCompatActivity() {
         drawer = findViewById(R.id.gba_drawer)
         rom = File(intent.getStringExtra(EXTRA_ROM_PATH) ?: return finish())
         saveDir = intent.getStringExtra(EXTRA_SAVE_DIR)?.let { File(it) }?.takeIf { it.isDirectory || it.mkdirs() }
-        setUpMenu(findViewById(R.id.gba_menu), intent.getStringExtra(EXTRA_TITLE) ?: rom.nameWithoutExtension)
+        val menu = findViewById<NavigationView>(R.id.gba_menu)
+        setUpMenu(menu, intent.getStringExtra(EXTRA_TITLE) ?: rom.nameWithoutExtension)
+        // the shortcut pill: the menu's entries, run as the menu runs them
+        ShortcutPill.attach(this, { EmulatorMenu.visibleItems(menu.menu) }, { id -> menu.menu.performIdentifierAction(id, 0) })
+        if (!ShortcutPill.edgeSwipeAllowed(this)) drawer.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, GravityCompat.START)
 
         val loaded = GbaNative.load(rom.path, sibling(".sav").path, intent.getStringExtra(EXTRA_BIOS_PATH), screen.frameBuffer, GbaEmulationThread.SAMPLE_RATE)
         if (!loaded) {

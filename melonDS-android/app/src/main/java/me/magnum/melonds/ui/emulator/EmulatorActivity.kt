@@ -46,6 +46,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import io.github.wwandene2.pomegrade.emulatorui.EmulatorMenu
 import io.github.wwandene2.pomegrade.emulatorui.R as EmulatorMenuR
 import io.github.wwandene2.pomegrade.emulatorui.ScreenshotGallery
+import io.github.wwandene2.pomegrade.emulatorui.ShortcutPill
 import io.github.wwandene2.pomegrade.emulatorui.SaveStateSlotUi
 import io.github.wwandene2.pomegrade.emulatorui.SaveStatesDialog
 import kotlin.math.abs
@@ -939,6 +940,20 @@ class EmulatorActivity : AppCompatActivity() {
                 }
             }
         })
+        // Pomegrade: the shortcut pill, the pause menu's options run as the menu runs them: the game pauses,
+        // then the entry goes through the menu's listener (which resumes it or opens the entry's screen)
+        ShortcutPill.attach(
+            this,
+            {
+                viewModel.currentPauseMenuOptions().mapNotNull { inGameMenuItemId(it) }.toSet() +
+                    EmulatorMenuR.id.emulator_menu_swap_screens + EmulatorMenuR.id.emulator_menu_screenshot
+            },
+            { id ->
+                pauseMenuOptions = viewModel.currentPauseMenuOptions()
+                viewModel.pauseEmulator(false)
+                binding.inGameMenu.menu.performIdentifierAction(id, 0)
+            }
+        )
         binding.inGameMenu.setNavigationItemSelectedListener { item ->
             pauseMenuOptionPicked = true
             binding.drawerLayout.close()
