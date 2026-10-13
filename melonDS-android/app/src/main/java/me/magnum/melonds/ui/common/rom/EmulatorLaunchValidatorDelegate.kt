@@ -15,6 +15,7 @@ import me.magnum.melonds.domain.model.ConsoleType
 import me.magnum.melonds.domain.model.emulator.validation.FirmwareLaunchPreconditionCheckResult
 import me.magnum.melonds.domain.model.emulator.validation.RomLaunchPreconditionCheckResult
 import me.magnum.melonds.domain.model.rom.Rom
+import me.magnum.melonds.impl.PlayTimeTracker
 import me.magnum.melonds.ui.common.PomegradeFolderSetupDelegate
 import me.magnum.melonds.ui.common.rom.model.LaunchValidationResult
 import me.magnum.melonds.ui.dsiwaremanager.DSiWareManagerActivity
@@ -70,14 +71,20 @@ class EmulatorLaunchValidatorDelegate(
         val launcher = ConsoleLauncher.of(rom.platform)
         if (launcher != null) {
             when {
-                !launcher.isSupported() || launcher.isReady(context) -> launcher.launch(context, rom) // explains why not when unsupported
+                !launcher.isSupported() || launcher.isReady(context) -> launch(launcher, rom) // explains why not when unsupported
                 else -> pomegradeFolderSetup.start { ready ->
-                    if (ready && launcher.isReady(context)) launcher.launch(context, rom) else callback.onValidationAborted()
+                    if (ready && launcher.isReady(context)) launch(launcher, rom) else callback.onValidationAborted()
                 }
             }
             return
         }
         viewModel.validateRomForLaunch(rom)
+    }
+
+    // the play time is counted from the core's screen, for this game (PlayTimeTracker)
+    private fun launch(launcher: ConsoleLauncher, rom: Rom) {
+        PlayTimeTracker.instance?.gameLaunched(rom)
+        launcher.launch(context, rom)
     }
 
     fun validateFirmware(consoleType: ConsoleType) {

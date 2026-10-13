@@ -17,6 +17,8 @@ import me.magnum.melonds.domain.repositories.SettingsRepository
 import me.magnum.melonds.impl.GcWiiFolder
 import me.magnum.melonds.impl.SettingsBackupManager
 import me.magnum.melonds.impl.SwitchFolder
+import me.magnum.melonds.impl.PlayTimeTracker
+import me.magnum.melonds.domain.repositories.RomsRepository
 import me.magnum.melonds.migrations.Migrator
 import javax.inject.Inject
 
@@ -35,6 +37,7 @@ class MelonDSApplication : Application(), Configuration.Provider {
     @Inject lateinit var migrator: Migrator
     @Inject lateinit var uriHandler: UriHandler
     @Inject lateinit var settingsBackupManager: SettingsBackupManager
+    @Inject lateinit var romsRepository: RomsRepository
 
     override fun onCreate() {
         super.onCreate()
@@ -43,6 +46,8 @@ class MelonDSApplication : Application(), Configuration.Provider {
         // Switch core: the same, its core starts with its first screen
         org.yuzu.yuzu_emu.YuzuApplication.attach(this)
         org.yuzu.yuzu_emu.utils.DirectoryInitialization.userDirectoryProvider = { SwitchFolder.userDirectory(it) }
+        // the other cores' play time, counted as the DS core's
+        PlayTimeTracker.register(this, romsRepository)
         // GameCube and Wii core: the same
         org.dolphinemu.dolphinemu.DolphinApplication.attach(this)
         org.dolphinemu.dolphinemu.utils.DirectoryInitialization.userDirectoryProvider = { GcWiiFolder.userDirectory(it) }
