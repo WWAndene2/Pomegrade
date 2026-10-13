@@ -31,7 +31,6 @@ import me.magnum.melonds.domain.model.RomIconFiltering
 import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.ui.common.rom.ConsoleLauncher
 import me.magnum.melonds.ui.common.rom.N3dsLauncher
-import me.magnum.melonds.ui.emulator.EmulatorActivity
 import me.magnum.melonds.ui.romlist.RomIcon
 import me.magnum.melonds.ui.romlist.RomListFragment
 import me.magnum.melonds.ui.romlist.RomListViewModel
@@ -90,14 +89,9 @@ class ShortcutSetupActivity : AppCompatActivity() {
     }
 
     private fun onRomSelected(rom: Rom) {
-        val launcher = ConsoleLauncher.of(rom.platform)
-        val intent = if (launcher != null) {
-            launcher.shortcutIntent(this, rom)
-        } else {
-            Intent("${packageName}.LAUNCH_ROM").apply {
-                putExtra(EmulatorActivity.KEY_URI, rom.uri.toString())
-            }
-        }
+        // every console's shortcut opens the game list, which starts the game as a tap in it does: the same
+        // checks (the folder, its access) and preparation (the Switch core's keys, firmware and folder) for all
+        val intent = ConsoleLauncher.gameListShortcutIntent(this, rom)
 
         lifecycleScope.launch {
             val romIcon = viewModel.getRomIcon(rom)

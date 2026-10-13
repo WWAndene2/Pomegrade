@@ -123,6 +123,17 @@ object PunicaFolderRename {
         return true
     }
 
+    /**
+     * [uri] with the old folder's location replaced by the renamed folder's, for a URI kept outside the app
+     * (a home-screen shortcut's); null when the folder isn't one renamed from Pomegrade.
+     */
+    fun renamedUri(context: Context, uri: Uri): Uri? {
+        if (isPending(context)) return null
+        val newId = currentId(context)?.takeIf { it.endsWith(NEW_NAME) } ?: return null
+        val oldId = newId.dropLast(NEW_NAME.length) + OLD_NAME
+        return Uri.parse(rewriter(oldId, newId)(uri.toString())).takeIf { it != uri }
+    }
+
     private fun rewriter(oldId: String, newId: String): (String) -> String = rewriter(
         listOf(
             Uri.encode(oldId) to Uri.encode(newId),

@@ -43,6 +43,7 @@ import me.magnum.melonds.domain.model.rom.RomPlatform
 import me.magnum.melonds.ui.about.AboutActivity
 import me.magnum.melonds.ui.common.PomegradeFolderSetupDelegate
 import me.magnum.melonds.ui.common.PunicaFolderRenameDelegate
+import me.magnum.melonds.impl.PunicaFolderRename
 import me.magnum.melonds.ui.common.rom.EmulatorLaunchValidatorDelegate
 import me.magnum.melonds.ui.common.rom.N3dsLauncher
 import me.magnum.melonds.ui.common.rom.GcWiiLauncher
@@ -197,7 +198,9 @@ class RomListActivity : AppCompatActivity() {
         if (intent.action != ACTION_LAUNCH_ROM) return
         val uri = intent.getStringExtra(EXTRA_ROM_URI)?.toUri() ?: return
         lifecycleScope.launch {
+            // a shortcut made before the folder became Punica names the game's old URI
             val rom = viewModel.getRomAtUri(uri)
+                ?: PunicaFolderRename.renamedUri(this@RomListActivity, uri)?.let { viewModel.getRomAtUri(it) }
             if (rom == null) {
                 Toast.makeText(this@RomListActivity, R.string.error_rom_not_found, Toast.LENGTH_LONG).show()
                 return@launch

@@ -21,9 +21,6 @@ object GbaLauncher : ConsoleLauncher {
 
     override val launchFailedMessage get() = R.string.gba_not_a_file
 
-    // the GBA screen is not exported, so the launcher can't open it: the shortcut goes through the game list
-    override fun shortcutIntent(context: Context, rom: Rom): Intent = ConsoleLauncher.gameListShortcutIntent(context, rom)
-
     /** The intent that runs [rom] in the GBA core, or null when the game isn't a file of the phone's storage. */
     override fun launchIntent(context: Context, rom: Rom): Intent? {
         val documentId = PomegradeFolder.documentIdOf(context, rom.uri) ?: return null

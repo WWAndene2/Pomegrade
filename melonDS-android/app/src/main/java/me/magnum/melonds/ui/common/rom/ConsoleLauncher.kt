@@ -23,9 +23,6 @@ interface ConsoleLauncher {
     /** The intent that runs [rom] in the core, or null when it can't run it. */
     fun launchIntent(context: Context, rom: Rom): Intent?
 
-    /** The intent a home-screen shortcut opens: the core's screen, or the game list when there is no intent to it. */
-    fun shortcutIntent(context: Context, rom: Rom): Intent = launchIntent(context, rom) ?: gameListShortcutIntent(context, rom)
-
     /** Shown when the device can't run the core. */
     val unsupportedMessage: Int? get() = null
 
@@ -44,8 +41,8 @@ interface ConsoleLauncher {
 
     companion object {
         /**
-         * A shortcut that opens the game list, which starts [rom] as a tap in it would (the Pomegrade folder
-         * checks included): for the cores whose own emulation screen a home-screen shortcut can't open.
+         * The intent of a home-screen shortcut to [rom], for every console: it opens the game list, which
+         * starts [rom] as a tap in it would (the folder checks and each core's preparation included).
          */
         fun gameListShortcutIntent(context: Context, rom: Rom): Intent =
             Intent(context, RomListActivity::class.java)
