@@ -196,6 +196,14 @@ Steps, in order:
 
 Not planned: replacing the cores' screens with Pomegrade's wholesale, or merging native libraries.
 
+**UI design direction (owner, 13 October).** The app's whole look (menus, popups, cards, buttons, game icon format, lists, dialogs) takes Eden's Android design as its base, customised and improved into one coherent app: every dimension on the PerfectSuite scale (CLAUDE.md section 7: spacing, sizes, type sizes, corner radius = 0.24 x height), the Punica palette (coral #DC4249), and the UI/UX criteria of CLAUDE.md section 6 (each component complete: open, confirm, cancel, current value, wired effect). Eden's references, read in eden/src/android/app/src/main/res/layout: game cards in grid, compact grid, list and carousel modes (card_game_*.xml: 16dp corners, 150dp square icon, 4dp margins, 14sp title), home options as cards (eden_card_home_option.xml), Material 3 dialogs and bottom sheets. Off-scale values found there are corrected to the scale when taken (e.g. 150dp -> 144dp per section 7.2, 2dp paddings kept, 16dp corners on a 64dp card -> 0.24 x 64 = 15.4 -> 16). Steps:
+1. Design tokens: one set of dimension, type and shape tokens (XML dimens and the Compose theme) on the PerfectSuite scale, shared by the app and :emulator-ui.
+2. Game list: Eden's card modes (grid, compact, list, carousel), its square icon format with the console logo badge, one game card for every console.
+3. Menus and popups: the game's long-press menu (properties, updates and DLC, cheats, shortcuts) as Eden's bottom sheet; dialogs in one style.
+4. Settings: Eden's settings list look (sections, items, switches, sliders) for Punica's settings, each console's own settings names kept (owner's earlier direction).
+5. The cores' own screens left: their colours already follow the palette; their dimensions only where a Punica change redesigns them (CLAUDE.md section 4.9 exceptions).
+Each step is previewed (rendered mock-ups) for the owner's choice before it is applied, as the icon and colours were.
+
 ## Recommended order
 
 1. Section 1, for a stable, tested version.
