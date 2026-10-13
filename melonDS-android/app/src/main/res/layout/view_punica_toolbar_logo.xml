@@ -16,10 +16,11 @@
         android:paddingStart="12dp"
         android:paddingEnd="12dp">
 
-        <View
-            android:layout_width="16dp"
-            android:layout_height="16dp"
-            android:background="@drawable/bg_punica_logo_fruit" />
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/punica_logo_fruit" />
 
         <TextView
             android:id="@+id/text_punica_logo"
