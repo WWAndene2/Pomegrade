@@ -51,8 +51,9 @@
     </style>
 
     <style name="Toolbar.TitleText" parent="TextAppearance.Widget.AppCompat.Toolbar.Title">
-        <item name="android:textSize">20sp</item>
-        <item name="lineHeight">24sp</item>
+        <item name="android:textSize">24sp</item>
+        <item name="lineHeight">32sp</item>
+        <item name="android:fontFamily">@font/bricolage_grotesque_extrabold</item>
     </style>
 
     <style name="FullscreenDialog">

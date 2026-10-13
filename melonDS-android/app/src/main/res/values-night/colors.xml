@@ -1,24 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#261E1D</color>
-    <color name="colorPrimaryDark">#191211</color>
-    <color name="colorAccent">#FF7071</color>
-    <color name="colorSurface">#1D1615</color>
-    <color name="colorBackground">#1D1615</color>
+    <!-- Punica's palette, the home screen's (ui/romlist/home/HomeTheme.kt) -->
+    <color name="colorPrimary">#16171B</color>
+    <color name="colorPrimaryDark">#111215</color>
+    <color name="colorAccent">#EC2B39</color>
+    <color name="colorSurface">#191B20</color>
+    <color name="colorBackground">#111215</color>
 
-    <color name="textColorPrimary">#FFFFFF</color>
-    <color name="textColorSecondary">#B3FFFFFF</color>
+    <color name="textColorPrimary">#F3F4F6</color>
+    <color name="textColorSecondary">#9EA3AC</color>
 
-    <color name="toolbarBackground">#261E1D</color>
+    <color name="toolbarBackground">#16171B</color>
     <color name="switchThumbUnselected">#b9b9b9</color>
 
     <color name="romConfigButtonDefault">#AAA</color>
 
-    <color name="navigationBarBackground">#261E1D</color>
-    <color name="prefSwitchRailColor">#80FF7071</color>
+    <color name="navigationBarBackground">#111215</color>
+    <color name="prefSwitchRailColor">#80EC2B39</color>
 
     <color name="buttonContrasted">#DFFF</color>
-    <color name="divider">#423030</color>
+    <color name="divider">#2B2E35</color>
 
     <!-- the red pomegranate needs a light (dark theme: dark) backdrop, not the red primary -->
     <color name="splashBackground">@color/colorBackground</color>

@@ -2,7 +2,7 @@
 <resources>
     <!-- The in-game menu and save state dialog of both consoles. A full Material 3 theme, applied with
          android:theme on the menu's view: the DS screen's own theme is AppCompat -->
-    <style name="Theme.Pomegrade.EmulatorMenu" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.Pomegrade.EmulatorMenu" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorPrimary">@color/emulator_menu_primary</item>
         <item name="colorOnPrimary">@color/emulator_menu_on_primary</item>
         <item name="colorPrimaryContainer">@color/emulator_menu_primary_container</item>

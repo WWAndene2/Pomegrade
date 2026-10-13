@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Pomegrade palette (as the app's res/values/colors.xml), fixed so the in-game menu looks the same
-         on both consoles whatever theme colour each core's own screens use -->
-    <color name="emulator_menu_primary">#DC4249</color>
+    <!-- Punica's palette (always dark, owner's decision, 13 October; the home screen's, ui/romlist/home/HomeTheme.kt),
+         fixed here so the in-game menu looks the same over every core whatever theme its own screens use -->
+    <color name="emulator_menu_primary">#EC2B39</color>
     <color name="emulator_menu_on_primary">#FFFFFF</color>
-    <color name="emulator_menu_primary_container">#FFDAD8</color>
-    <color name="emulator_menu_on_primary_container">#410007</color>
-    <color name="emulator_menu_secondary_container">#FFDAD8</color>
-    <color name="emulator_menu_on_secondary_container">#2C1514</color>
-    <color name="emulator_menu_surface">#FFFBFF</color>
-    <color name="emulator_menu_on_surface">#211A19</color>
-    <color name="emulator_menu_on_surface_variant">#554241</color>
+    <color name="emulator_menu_primary_container">#4A0A12</color>
+    <color name="emulator_menu_on_primary_container">#FFD9DC</color>
+    <color name="emulator_menu_secondary_container">#2B2E35</color>
+    <color name="emulator_menu_on_secondary_container">#F3F4F6</color>
+    <color name="emulator_menu_surface">#191B20</color>
+    <color name="emulator_menu_on_surface">#F3F4F6</color>
+    <color name="emulator_menu_on_surface_variant">#9EA3AC</color>
 </resources>

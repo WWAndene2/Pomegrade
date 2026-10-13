@@ -7,10 +7,6 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 import me.magnum.melonds.common.UriFileHandler
 import me.magnum.melonds.common.uridelegates.UriHandler
 import me.magnum.melonds.domain.repositories.SettingsRepository
@@ -68,13 +64,9 @@ class MelonDSApplication : Application(), Configuration.Provider {
         notificationManager.createNotificationChannel(defaultChannel)
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
+    // Punica is always dark (owner's decision, 13 October): the upstream theme setting is hidden and not applied
     private fun applyTheme() {
-        GlobalScope.launch(Dispatchers.Main) {
-            settingsRepository.observeTheme().collect {
-                AppCompatDelegate.setDefaultNightMode(it.nightMode)
-            }
-        }
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
     }
 
     private fun performMigrations() {

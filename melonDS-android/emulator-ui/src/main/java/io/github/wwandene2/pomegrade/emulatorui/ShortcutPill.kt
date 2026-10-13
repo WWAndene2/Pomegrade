@@ -120,7 +120,7 @@ class ShortcutPill private constructor(
         val dots = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
         repeat(3) {
             dots.addView(View(activity).apply {
-                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0xFFC7B3B4.toInt()) }
+                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0xFF9EA3AC.toInt()) }
             }, LinearLayout.LayoutParams(dp(4), dp(4)).apply { marginStart = dp(3) })
         }
         addView(dots, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(4) })
@@ -381,7 +381,7 @@ class ShortcutPill private constructor(
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(fill)
-                setStroke(dp(1), if (blade.style == STYLE_EDIT) 0xFFC7B3B4.toInt() else 0x33FFFFFF)
+                setStroke(dp(1), if (blade.style == STYLE_EDIT) 0xFF9EA3AC.toInt() else 0x33FFFFFF)
             }
             if (blade.style != STYLE_HOME) {
                 imageTintList = ColorStateList.valueOf(
@@ -498,7 +498,7 @@ class ShortcutPill private constructor(
     )
 }
 
-private const val PILL_COLOR = 0xA61D1617.toInt()
+private const val PILL_COLOR = 0xA6111215.toInt()
 private const val FAINT_ALPHA = 0.55f
 private const val AUTO_HIDE_DELAY_MS = 4000L
 private const val TAG_CIRCLE = "circle"
