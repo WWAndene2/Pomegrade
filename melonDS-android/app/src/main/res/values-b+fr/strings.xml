@@ -469,4 +469,20 @@
     <string name="punica_folder_rename_done">Le dossier s\'appelle maintenant Punica. Punica redémarre.</string>
     <string name="punica_folder_rename_pending">Terminez d\'abord le renommage du dossier en Punica depuis la liste de jeux</string>
     <string name="settings_advanced">Avancé</string>
+    <string name="settings_interface">Interface</string>
+    <string name="settings_performance_overlay">Affichage des performances</string>
+    <string name="settings_system_overlay">Affichage du système</string>
+    <string name="settings_on_screen_controls">Commandes tactiles</string>
+    <string name="switch_settings_interface_summary">Langue, vérification des mises à jour, réglages rapides en jeu, boutons Confirmer et Retour de la manette, thème et mode clair ou sombre</string>
+    <string name="switch_settings_performance_summary">Images par seconde, temps par image, mémoire, température de la batterie et compilation des shaders affichés sur le jeu</string>
+    <string name="switch_settings_soc_summary">Modèle du téléphone, puce, GPU et pilote, et firmware de la Switch, affichés sur le jeu</string>
+    <string name="switch_settings_input_overlay_summary">Affichage des boutons à l\'écran, masquage après un délai ou avec une manette, alignement sur une grille</string>
+    <string name="switch_settings_applets">Applets</string>
+    <string name="switch_settings_applets_summary">Les applets système de la Switch : clavier, mode avion, superposition</string>
+    <string name="gc_wii_settings_interface_summary">Orientation de l\'écran, zone de l\'encoche, messages à l\'écran, temps de jeu, thème</string>
+    <string name="gc_wii_settings_achievements_summary">RetroAchievements pour les jeux GameCube et Wii : compte, mode hardcore</string>
+    <string name="gc_wii_settings_log">Journal</string>
+    <string name="gc_wii_settings_log_summary">Ce que le cœur GameCube / Wii écrit dans son journal</string>
+    <string name="gc_wii_settings_debug">Débogage</string>
+    <string name="gc_wii_settings_debug_summary">Les options de débogage du cœur GameCube / Wii</string>
 </resources>

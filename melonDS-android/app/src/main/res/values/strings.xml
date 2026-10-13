@@ -903,4 +903,20 @@
     <string name="punica_folder_rename_reverted">The folder keeps its name Pomegrade for now</string>
     <string name="punica_folder_rename_done">The folder is now Punica. Punica restarts.</string>
     <string name="punica_folder_rename_pending">Finish renaming the folder to Punica from the game list first</string>
+    <string name="settings_interface">Interface</string>
+    <string name="settings_performance_overlay">Performance overlay</string>
+    <string name="settings_system_overlay">System overlay</string>
+    <string name="settings_on_screen_controls">On-screen controls</string>
+    <string name="switch_settings_interface_summary">Language, update checks, quick settings in game, controller confirm and back buttons, theme and light or dark mode</string>
+    <string name="switch_settings_performance_summary">Frame rate, frame time, memory, battery temperature and shader builds shown over the game</string>
+    <string name="switch_settings_soc_summary">The phone\'s model, chip, GPU and driver, and the Switch firmware, shown over the game</string>
+    <string name="switch_settings_input_overlay_summary">Showing the on-screen buttons, hiding them after a while or when a controller is used, grid snapping</string>
+    <string name="switch_settings_applets">Applets</string>
+    <string name="switch_settings_applets_summary">The Switch\'s system applets: software keyboard, airplane mode, overlay</string>
+    <string name="gc_wii_settings_interface_summary">Screen orientation, the camera notch area, messages on screen, play time, theme</string>
+    <string name="gc_wii_settings_achievements_summary">RetroAchievements for GameCube and Wii games: account, hardcore mode</string>
+    <string name="gc_wii_settings_log">Log</string>
+    <string name="gc_wii_settings_log_summary">What the GameCube / Wii core writes to its log</string>
+    <string name="gc_wii_settings_debug">Debugging</string>
+    <string name="gc_wii_settings_debug_summary">The GameCube / Wii core\'s debugging options</string>
 </resources>
