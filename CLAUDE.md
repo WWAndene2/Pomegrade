@@ -110,6 +110,7 @@ Pomegrade (shown to users as Punica) is six codebases in one Gradle build, roote
 | Project-wide documentation | Root: `README.md` (users) and `CLAUDE.md` (rules) only; the rest in `docs/`: `DEVELOPMENT_NOTE.md` (roadmap), `DS_ENGINE_REMAKE.md` (design of the DS engine remake, owner's ideas), `Delta_Emerald_Development.md` (plan of the Delta Emerald mod of ORAS: what to add from Emerald, change and fix; owner's request), `Eden_Optimisation_Xiaomi.md` (study of the Switch core's performance on the Xiaomi 13T, then low-end phones: audit, hypotheses, measurement protocol, optimisations; owner's request) |
 | The app's logo, source file (the launcher icons in `mipmap-*` are generated from it) | `assets/branding/` |
 | Console logos and 3D models (cartridges, cases) supplied by the owner for a later objective | `assets/consoles/logos/`, `assets/consoles/models/` |
+| Skin templates for the emulation screens (screens and buttons at the consoles' proportions, per phone resolution; SVG with layers and its PNG) | `assets/consoles/skins/` (`gabarit_skin_<console>_<width>x<height>.svg`) |
 | Reference copies of upstream melonDS (never modified) | `reference/` |
 
 **Decision procedure, in order:**
