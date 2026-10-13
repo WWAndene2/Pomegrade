@@ -219,6 +219,11 @@ Each step is previewed (rendered mock-ups) for the owner's choice before it is a
 
 Order, each previewed or tested on the phone before the next: 4 (play time, data only) -> 5 and 10 (one capture serves both) -> 1 (overlay) -> 6 (GBA rewind) -> 8 (texture pack install) -> 2 and 3 (they need the shared panel and the long-press panel of the UI design).
 
+**Shortcut pill (owner, 13 October).** Each core opened its in-game menu its own way (button, edge-swiped drawer, fragment), which fought Android's Back gesture; the shortcut pill (`ShortcutPill`, :emulator-ui) is now the default way on every console, the drawer or both left as a choice (Settings > Punica > In-game menu). Done: corner pill, pocket-knife blades, Settings (System / Game) and the Punica logo by default, up to 6 user shortcuts, drag to a corner. Left to do:
+1. Controller: a button (Select + Start, or Home where the controller has one) opens the pill, and the D-pad moves between its blades, A picks one, B closes it.
+2. Opacity setting: the pill at rest hidden, faint or visible (today half transparent at rest, opaque when touched), with an option to hide it fully after a few seconds of play and show it again on a touch.
+3. French translations of the pill's texts (Punica, Back, Edit, System, Game, the edit dialog's title, Default, the 6-shortcut limit), which :emulator-ui has in English only; the module gets its `values-b+fr` strings.
+
 ## Recommended order
 
 1. Section 1, for a stable, tested version.
