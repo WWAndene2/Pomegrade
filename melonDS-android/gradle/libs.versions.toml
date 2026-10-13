@@ -30,6 +30,8 @@ picasso = "2.71828"
 preference = "1.2.1"
 recyclerView = "1.4.0"
 room = "2.8.4"
+slidingPaneLayout = "1.2.0"
+stringSimilarity = "2.0.0"
 splashscreen = "1.2.0"
 startup = "1.2.0"
 swipeRefreshLayout = "1.2.0"
@@ -105,6 +107,16 @@ androidx-room-testing = { module = "androidx.room:room-testing", version.ref = "
 androidx-test-core = { module = "androidx.test:core-ktx", version.ref = "androidxTest" }
 androidx-test-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestJunit" }
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidxTest" }
+# libraries of the cores' Android frontends (:azahar, :eden, :dolphin): one version for every module
+androidx-lifecycle-runtime = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycleViewModel" }
+androidx-navigation-fragment = { module = "androidx.navigation:navigation-fragment-ktx", version.ref = "navigation" }
+androidx-navigation-ui = { module = "androidx.navigation:navigation-ui-ktx", version.ref = "navigation" }
+androidx-slidingpanelayout = { module = "androidx.slidingpanelayout:slidingpanelayout", version.ref = "slidingPaneLayout" }
+coil-view = { module = "io.coil-kt:coil", version.ref = "coil" }
+compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
+compose-ui-text = { module = "androidx.compose.ui:ui-text" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
+string-similarity = { module = "info.debatty:java-string-similarity", version.ref = "stringSimilarity" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "gradle" }
