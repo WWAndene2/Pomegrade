@@ -176,6 +176,26 @@ Steps, from least to most work:
 
 Steps 1–2 take a few work sessions; steps 3–4 are a major rebuild measured in weeks, with full re-testing on a phone after each step.
 
+**Unification plan (audit of 13 October, not applied).** Owner's direction: cleaner and homogeneous without merging by force. Kept per console: its trademark logo and the names of its own settings (each core's nomenclature). Unified: the menus (structure, order, look). Findings, read in the code (untested on a phone):
+- Colours: Pomegrade, the in-game menu and Azahar use the pomegranate palette (`#A20F27`); Eden keeps its pink (`#FF0080`), Dolphin its blue (`#2196F3`, Material You colours as an option). Pomegrade's own screens use AppCompat themes, its dialogs MaterialComponents; the three cores use Material 3.
+- In-game menu: DS, GBA and 3DS share `:emulator-ui`; Switch and GameCube/Wii keep their own.
+- Settings: DS inline, GBA two settings, 3DS / Switch / GameCube-Wii open their core's screens; section order differs per console (3DS General, System, Video...; Switch System, Video, ..., General; GameCube/Wii General, Video, Audio...); Switch "General" opens Eden's appearance settings; "home" entries for Switch and GameCube/Wii, none for 3DS; three consoles reuse the string `three_ds_settings_debug`.
+- Shortcuts: direct for DS, 3DS, Switch; through the game list for GBA and GameCube/Wii.
+- Names: the app shows "Punica", 25 visible strings say "Pomegrade". Translations of Pomegrade's strings: French 306/623, Spanish 327, Italian 339, Portuguese 257, Indonesian / Russian / Chinese 430.
+- Libraries: each core compiles against its own AndroidX versions (Navigation 2.8.0 and 2.8.9 against the app's 2.9.8, kotlinx-serialization 1.6.3 to 1.10.0 against 1.11.0, Material 1.9.0 in Azahar...), and runs with the app's newer ones: the cause of Eden's colorPrimary crash.
+- Code: Azahar, Eden and Dolphin bring 154, 217 and 220 Kotlin/Java files of their own frontends; 117 class names exist in two or more (settings framework, game list, emulation screen, on-screen controls, setup, GPU driver manager, cheats). Native libraries are duplicated per core (two dynarmic versions, three libadrenotools, fmt, zstd, SDL, cubeb...; APK 149 MB): left as is, each copy is private to its library.
+
+Steps, in order:
+0. **Aligned versions**: the three cores compile against the app's version catalogue (`libs.versions.toml`), so a mismatch fails the build, not the phone. Low effort; the build may reveal incompatibilities to fix.
+1. **Names and texts**: one visible name (owner's choice: Punica or Pomegrade); missing translations; shared strings named after what they say (no 3DS string in Switch settings). Low.
+2. **One settings menu**: the same sections in the same order for every console (General, System, Video, Audio, Controls, Advanced), each section's entries keeping the console's own setting names; one way to reach a console's own screens (game list, tools) for all consoles or none. Low.
+3. **One look for the cores' screens**: Pomegrade's screens on Material 3; Eden and Dolphin themed with the pomegranate palette (colours only, their layouts kept); console logos kept where each core shows them. Medium; upstream theme files touched, checked screen by screen.
+4. **Same launch behaviour**: shortcuts direct for every console, or through the list for every console. Low.
+5. **One in-game menu**: Switch and GameCube/Wii on `:emulator-ui` (save states, quit, settings), their own entries (Wii Remote, docked mode) kept as console-specific items. High; touches two upstream emulation screens.
+6. **System files**: every console's system files under `BIOS/<console>/` (3DS keys, GameCube IPL), one rule for saves with a tested migration and a backup first. Medium to high: moving saves can lose them.
+
+Not planned: replacing the cores' screens with Pomegrade's wholesale, or merging native libraries.
+
 ## Recommended order
 
 1. Section 1, for a stable, tested version.
