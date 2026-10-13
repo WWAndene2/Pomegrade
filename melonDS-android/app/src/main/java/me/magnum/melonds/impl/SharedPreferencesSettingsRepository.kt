@@ -624,9 +624,10 @@ class SharedPreferencesSettingsRepository(
         }
     }
 
-    override fun keepGameFilesNextToRom() {
+    override fun keepGameFilesInConsoleFolder(saves: Uri) {
         preferences.edit(commit = true) {
-            putBoolean("use_rom_dir", true)
+            putBoolean("use_rom_dir", false)
+            putStringSet("sram_dir", setOf(saves.toString()))
             putString("save_state_location", "save_dir")
         }
     }

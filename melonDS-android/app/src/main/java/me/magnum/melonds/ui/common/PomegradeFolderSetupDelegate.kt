@@ -87,6 +87,7 @@ class PomegradeFolderSetupDelegate(private val activity: ComponentActivity) {
             withContext(Dispatchers.IO) {
                 runCatching { pomegradeFolder.setUpThreeDs() }
                 runCatching { pomegradeFolder.hideImagesFromGallery() }
+                runCatching { pomegradeFolder.organizeSaves() }
                 runCatching { pomegradeFolder.organizeBios() }
             }
             finish(true)

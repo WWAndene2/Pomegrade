@@ -10,8 +10,8 @@ import me.magnum.melonds.impl.PomegradeFolder
 import java.io.File
 
 /**
- * Starts GBA games in the mGBA core. The core reads the game, and writes its save and save states
- * next to it, by file path, so it needs the Pomegrade folder's file access. A BIOS dumped from the
+ * Starts GBA games in the mGBA core. The core reads the game, and writes its save and save states in the
+ * folder's GBA, by file path, so it needs the folder's file access. A BIOS dumped from the
  * owner's console, `gba_bios.bin` in the Pomegrade folder's BIOS/GBA, is used when present and the
  * setting allows it; mGBA's own otherwise. Its settings (Settings, GBA) are passed to the GBA screen here.
  */
@@ -31,6 +31,7 @@ object GbaLauncher : ConsoleLauncher {
         return GbaEmulatorActivity.intent(
             context, path.absolutePath, rom.config.customName ?: rom.name, bios?.absolutePath,
             smoothScreen = preferences.getBoolean("gba_screen_smoothing", false),
+            saveDir = PomegradeFolder.subFolder(context, PomegradeFolder.GBA_SAVES)?.absolutePath,
         )
     }
 }

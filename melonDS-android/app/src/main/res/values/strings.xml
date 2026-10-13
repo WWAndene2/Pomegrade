@@ -675,7 +675,7 @@
     <string name="switch_import_failed">The Switch data could not be imported: %1$s</string>
     <string name="gba_not_a_file">This GBA game must be in the phone\'s storage (the Punica folder)</string>
     <string name="pomegrade_folder_title">Punica folder</string>
-    <string name="pomegrade_folder_message">Punica keeps your games and their files in one folder, Punica, in your internal storage:\n\n• Roms: each game in its own folder, with its saves and save states\n• BIOS: each console\'s system files (DS, DSi, GBA, Switch)\n• 3DS and Switch: their saves and system files\n• Textures: HD texture packs\n\nThe games Punica finds are moved there. It stays on your phone if you uninstall the app.\n\nAndroid asks you to allow \"All files access\" first: Punica needs it to move games and to run 3DS games. Then tap \"Use this folder\" to confirm the Punica folder.</string>
+    <string name="pomegrade_folder_message">Punica keeps your games and their files in one folder, Punica, in your internal storage:\n\n• Roms: each game in its own folder\n• BIOS: each console\'s system files (DS, DSi, GBA, 3DS, Switch, GameCube / Wii)\n• DS, GBA, 3DS, Switch, GC-Wii: each console\'s saves and save states\n• Textures: HD texture packs\n\nThe games Punica finds are moved there. It stays on your phone if you uninstall the app.\n\nAndroid asks you to allow \"All files access\" first: Punica needs it to move games and to run 3DS games. Then tap \"Use this folder\" to confirm the Punica folder.</string>
     <string name="pomegrade_folder_choose">Choose folder</string>
     <string name="pomegrade_folder_later">Later</string>
     <string name="pomegrade_folder_file_access_hint">Turn on \"All files access\" for Punica, then come back</string>

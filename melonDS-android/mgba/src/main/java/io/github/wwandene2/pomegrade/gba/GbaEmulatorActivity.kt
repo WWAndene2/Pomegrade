@@ -26,8 +26,9 @@ import java.io.File
 import java.util.Date
 
 /**
- * Plays a GBA game. The game's battery save and save states sit next to its file, as the DS games'
- * do: `<game>.sav`, `<game>.ss0` (quick slot) to `.ss9`, each state with a `.png` of its screen.
+ * Plays a GBA game. The game's battery save and save states are in the saves folder the intent gives
+ * (Punica's GBA, as each console's saves are in its own folder), or next to its file without one:
+ * `<game>.sav`, `<game>.ss0` (quick slot) to `.ss9`, each state with a `.png` of its screen.
  * Back opens the shared in-game menu, which pauses the game while it is open.
  */
 class GbaEmulatorActivity : AppCompatActivity() {
@@ -37,21 +38,24 @@ class GbaEmulatorActivity : AppCompatActivity() {
         private const val EXTRA_TITLE = "title"
         private const val EXTRA_BIOS_PATH = "bios_path"
         private const val EXTRA_SMOOTH_SCREEN = "smooth_screen"
+        private const val EXTRA_SAVE_DIR = "save_dir"
         private const val STATE_SLOTS = 10
 
         /** Plays the game at [romPath] (a file path); [biosPath] a GBA BIOS, or null for mGBA's own. */
-        fun intent(context: Context, romPath: String, title: String, biosPath: String?, smoothScreen: Boolean): Intent =
+        fun intent(context: Context, romPath: String, title: String, biosPath: String?, smoothScreen: Boolean, saveDir: String?): Intent =
             Intent(context, GbaEmulatorActivity::class.java)
                 .putExtra(EXTRA_ROM_PATH, romPath)
                 .putExtra(EXTRA_TITLE, title)
                 .putExtra(EXTRA_BIOS_PATH, biosPath)
                 .putExtra(EXTRA_SMOOTH_SCREEN, smoothScreen)
+                .putExtra(EXTRA_SAVE_DIR, saveDir)
     }
 
     private lateinit var screen: GbaScreenView
     private lateinit var controls: GbaControlsView
     private lateinit var drawer: DrawerLayout
     private lateinit var rom: File
+    private var saveDir: File? = null
     private var thread: GbaEmulationThread? = null
     // keys held on a controller or keyboard, merged with the on-screen ones
     @Volatile
@@ -76,6 +80,7 @@ class GbaEmulatorActivity : AppCompatActivity() {
         controls = findViewById(R.id.gba_controls)
         drawer = findViewById(R.id.gba_drawer)
         rom = File(intent.getStringExtra(EXTRA_ROM_PATH) ?: return finish())
+        saveDir = intent.getStringExtra(EXTRA_SAVE_DIR)?.let { File(it) }?.takeIf { it.isDirectory || it.mkdirs() }
         setUpMenu(findViewById(R.id.gba_menu), intent.getStringExtra(EXTRA_TITLE) ?: rom.nameWithoutExtension)
 
         val loaded = GbaNative.load(rom.path, sibling(".sav").path, intent.getStringExtra(EXTRA_BIOS_PATH), screen.frameBuffer, GbaEmulationThread.SAMPLE_RATE)
@@ -119,7 +124,8 @@ class GbaEmulatorActivity : AppCompatActivity() {
         }
     }
 
-    private fun sibling(extension: String) = File(rom.parentFile, rom.nameWithoutExtension + extension)
+    // the game's save, states and their previews: in the saves folder given (Punica's GBA), else next to the game
+    private fun sibling(extension: String) = File(saveDir ?: rom.parentFile, rom.nameWithoutExtension + extension)
 
     private fun stateFile(slot: Int) = sibling(".ss$slot")
 
