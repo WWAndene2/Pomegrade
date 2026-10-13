@@ -37,6 +37,7 @@ import me.magnum.melonds.domain.model.rom.config.RuntimeMicSource
 import me.magnum.melonds.ui.common.MelonPreviewSet
 import me.magnum.melonds.ui.common.component.dialog.TextInputDialog
 import me.magnum.melonds.ui.common.component.dialog.rememberTextInputDialogState
+import me.magnum.melonds.impl.TexturePackInstaller
 import me.magnum.melonds.ui.common.preference.ActionLauncherItem
 import me.magnum.melonds.ui.common.preference.SingleChoiceItem
 import me.magnum.melonds.ui.layouts.LayoutSelectorActivity
@@ -55,6 +56,7 @@ fun RomConfigUi(
     rom: Rom,
     romConfigUiState: RomConfigUiState,
     onConfigUpdate: (RomConfigUpdateEvent) -> Unit,
+    onInstallTexturePack: () -> Unit,
 ) {
     when (romConfigUiState) {
         is RomConfigUiState.Loading -> Loading(modifier.padding(contentPadding))
@@ -64,6 +66,7 @@ fun RomConfigUi(
             rom = rom,
             romConfig = romConfigUiState.romConfigUiModel,
             onConfigUpdate = onConfigUpdate,
+            onInstallTexturePack = onInstallTexturePack,
         )
     }
 }
@@ -85,6 +88,7 @@ private fun Content(
     rom: Rom,
     romConfig: RomConfigUiModel,
     onConfigUpdate: (RomConfigUpdateEvent) -> Unit,
+    onInstallTexturePack: () -> Unit,
 ) {
     Column(
         modifier = modifier.verticalScroll(rememberScrollState())
@@ -112,6 +116,15 @@ private fun Content(
                 onConfigUpdate(RomConfigUpdateEvent.CustomNameUpdate(null))
             },
         )
+
+        // Pomegrade: a texture pack for this game, into its console's folder (TexturePackInstaller)
+        if (TexturePackInstaller.isSupported(rom.platform)) {
+            ActionLauncherItem(
+                name = stringResource(id = R.string.texture_pack_install),
+                value = stringResource(id = R.string.texture_pack_install_summary),
+                onLaunchAction = onInstallTexturePack,
+            )
+        }
 
         val consoleOptions = stringArrayResource(id = R.array.game_runtime_console_type_options)
         SingleChoiceItem(
@@ -227,6 +240,7 @@ private fun PreviewRomConfigUi() {
                 ),
             ),
             onConfigUpdate = { },
+            onInstallTexturePack = { },
         )
     }
 }

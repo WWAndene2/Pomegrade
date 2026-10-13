@@ -485,4 +485,12 @@
     <string name="gc_wii_settings_log_summary">Ce que le cœur GameCube / Wii écrit dans son journal</string>
     <string name="gc_wii_settings_debug">Débogage</string>
     <string name="gc_wii_settings_debug_summary">Les options de débogage du cœur GameCube / Wii</string>
+    <string name="texture_pack_install">Installer un pack de textures</string>
+    <string name="texture_pack_install_summary">Un zip, placé dans le dossier de textures de ce jeu</string>
+    <string name="texture_pack_installed">%1$d fichiers installés dans %2$s</string>
+    <string name="texture_pack_enable_hint">Active les textures personnalisées dans les réglages graphiques de cette console, si elles sont désactivées.</string>
+    <string name="texture_pack_no_game_id">L\'identifiant de ce jeu ne peut pas être lu dans son fichier, et le pack n\'est pas dans un dossier à son nom. Mets les fichiers du pack dans un dossier nommé d\'après l\'identifiant du jeu, puis compresse-le en zip.</string>
+    <string name="texture_pack_no_folder">Configure d\'abord le dossier Punica.</string>
+    <string name="texture_pack_empty">Le zip ne contient aucun fichier.</string>
+    <string name="texture_pack_failed">Le pack n\'a pas pu être installé : %1$s</string>
 </resources>

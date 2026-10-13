@@ -41,6 +41,7 @@ fun RomDetailsScreen(
     onNavigateBack: () -> Unit,
     onLaunchRom: (Rom) -> Unit,
     onRomConfigUpdate: (RomConfigUpdateEvent) -> Unit,
+    onInstallTexturePack: () -> Unit,
     onRetroAchievementsLogin: (username: String, password: String) -> Unit,
     onRetroAchievementsRetryLoad: () -> Unit,
     onViewAchievement: (RAAchievement) -> Unit,
@@ -110,6 +111,7 @@ fun RomDetailsScreen(
                         rom = rom,
                         romConfigUiState = romConfigUiState,
                         onConfigUpdate = onRomConfigUpdate,
+                        onInstallTexturePack = onInstallTexturePack,
                     )
                 }
                 RomDetailsTab.RETRO_ACHIEVEMENTS.tabIndex -> {
@@ -156,6 +158,7 @@ private fun PreviewRomScreen() {
             onNavigateBack = { },
             onLaunchRom = { },
             onRomConfigUpdate = { },
+            onInstallTexturePack = { },
             onRetroAchievementsLogin = { _, _ -> },
             onRetroAchievementsRetryLoad = { },
             onViewAchievement = { },

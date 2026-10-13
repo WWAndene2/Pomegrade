@@ -919,4 +919,12 @@
     <string name="gc_wii_settings_log_summary">What the GameCube / Wii core writes to its log</string>
     <string name="gc_wii_settings_debug">Debugging</string>
     <string name="gc_wii_settings_debug_summary">The GameCube / Wii core\'s debugging options</string>
+    <string name="texture_pack_install">Install a texture pack</string>
+    <string name="texture_pack_install_summary">A zip, put in this game\'s textures folder</string>
+    <string name="texture_pack_installed">%1$d files installed in %2$s</string>
+    <string name="texture_pack_enable_hint">Turn on custom textures in this console\'s graphics settings, if they are off.</string>
+    <string name="texture_pack_no_game_id">This game\'s ID can\'t be read from its file, and the pack isn\'t in a folder named after it. Put the pack\'s files in a folder named after the game\'s ID, then zip it.</string>
+    <string name="texture_pack_no_folder">Set up the Punica folder first.</string>
+    <string name="texture_pack_empty">The zip holds no file.</string>
+    <string name="texture_pack_failed">The pack couldn\'t be installed: %1$s</string>
 </resources>
