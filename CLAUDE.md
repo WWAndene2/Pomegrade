@@ -107,7 +107,7 @@ Pomegrade (shown to users as Punica) is six codebases in one Gradle build, roote
 | Android instrumented tests | `melonDS-android/app/src/androidTest/java/`, same mirroring |
 | Desktop tests of the DS core (CMake, no Android), one folder per feature | `tests/<feature>/` (`hd-textures/`, `polygon-multiplier/`) |
 | Golden/reference fixtures a test compares against | A `fixtures/` directory beside the tests that use them |
-| Project-wide documentation | Root: `README.md` (users) and `CLAUDE.md` (rules) only; the rest in `docs/`: `DEVELOPMENT_NOTE.md` (roadmap), `DS_ENGINE_REMAKE.md` (design of the DS engine remake, owner's ideas), `Delta_Emerald_Development.md` (plan of the Delta Emerald mod of ORAS: what to add from Emerald, change and fix; owner's request) |
+| Project-wide documentation | Root: `README.md` (users) and `CLAUDE.md` (rules) only; the rest in `docs/`: `DEVELOPMENT_NOTE.md` (roadmap), `DS_ENGINE_REMAKE.md` (design of the DS engine remake, owner's ideas), `Delta_Emerald_Development.md` (plan of the Delta Emerald mod of ORAS: what to add from Emerald, change and fix; owner's request), `Eden_Optimisation_Xiaomi.md` (plan to speed up the Switch core on the Xiaomi 13T, then low-end phones; owner's request) |
 | The app's logo, source file (the launcher icons in `mipmap-*` are generated from it) | `assets/branding/` |
 | Console logos and 3D models (cartridges, cases) supplied by the owner for a later objective | `assets/consoles/logos/`, `assets/consoles/models/` |
 | Reference copies of upstream melonDS (never modified) | `reference/` |
