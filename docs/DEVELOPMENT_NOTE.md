@@ -11,23 +11,23 @@ Pomegrade (shown as Punica) is currently **five emulators side by side in one AP
 | HD texture replacement for the OpenGL renderer | Desktop tests (`tests/hd-textures/`) |
 | Azahar (3DS) merged as the `:azahar` module | Local build |
 | Unified game list: DS, DSi and 3DS games, each launched in its own core | Local build, `RomPlatformTest` |
-| GBA, Switch, GameCube and Wii added to the game list and launched in their cores; home-screen shortcuts for all consoles | `RomPlatformTest`, `ConsoleLauncherTest`, `GbaKeysTest`, `RomHeaderTextTest`. The first CI builds with these cores failed (Eden sources missing, fixed 11 October); no green build of them yet |
+| GBA, Switch, GameCube and Wii added to the game list and launched in their cores; home-screen shortcuts for all consoles | `RomPlatformTest`, `ConsoleLauncherTest`, `GbaKeysTest`, `RomHeaderTextTest`; green CI builds of the five cores (runs 134-137 and 141, 13 October) |
 | App renamed Pomegrade, own application ID (`io.github.wwandene2.pomegrade`) | APK inspection |
 | Pomegrade icon (adaptive, themed, legacy) | APK inspection |
-| CI: builds only on `main` and manual runs, ccache, only the needed 3DS target, optimized native code | Local clean build with the CI settings (27 min); no CI run yet |
+| CI: builds only on `main` and manual runs, ccache, only the needed 3DS target, optimized native code | Green CI runs (about 20 min with ccache); `main`'s last run (140) is red, fixed on `claude/admiring-goodall-xadvmb` (a missing import), not merged yet |
 
-**Nothing has been run on a phone yet.** Every user-facing item above is untested on a device.
+**First phone test (13 October, owner's Xiaomi 13T):** the app runs; a 3DS game (Omega Ruby) boots and plays in the Classic layout. Found and fixed the same day, not re-tested yet: the 3DS controls cut off at the bottom (scaled to the full screen instead of the game area), the settings crashing on open (console cards). Every other user-facing item is still untested on a device.
 
 ## 1. Before a first usable version
 
 | # | Task | Why |
 |---|---|---|
-| 1 | Test on a real phone: DS, HD textures, 3DS | Only compilation and desktop tests are verified so far |
+| 1 | Test on a real phone: DS, HD textures, 3DS, GBA, Switch, GameCube / Wii | Started 13 October: 3DS boots and plays (Xiaomi 13T); the rest untested |
 | 2 | Release build: shrunk, signed | The CI debug APK (optimized native code) is 136.5 MB; release should be smaller, to be measured. Needs a signing key kept in GitHub Secrets, and R8 rules checked for Azahar's JNI classes |
-| 3 | Merge into `main` and run the GitHub build | CI only builds `main` |
-| 4 | README: 3DS section (formats, Android 10+, 64-bit only, encrypted games unsupported) | Documentation is out of date |
+| 3 | Merge into `main` and run the GitHub build | Green builds exist (manual runs on branches); `main` is red until the import fix (`claude/admiring-goodall-xadvmb`) is merged |
+| 4 | README: 3DS section (formats, Android 10+, 64-bit only, encrypted games unsupported) | Still missing (checked 13 October): the README has a paragraph for Switch, GameCube / Wii and GBA, none for the 3DS |
 | 5 | Licences: one notices screen (melonDS GPLv3, Azahar GPLv2+, stb, …) | Required by the GPL when distributing the APK. Partly done: the about screen names each project and licence and links the licence texts; the texts themselves are not bundled yet |
-| 6 | Nightly flavor: still has melonDS icons | Consistency (not used for now) |
+| 6 | Nightly flavor: still has melonDS icons | Consistency (not used for now); still the case on 13 October (`app/src/nightly/res/mipmap-*`) |
 | 7 | Purge the git history of files that must not be public (the owner has the list) | The repository is public; planned once the APK works |
 
 ## 2. Improvements to what exists
@@ -61,8 +61,10 @@ The open items of the unified list, HD textures, native enhancements and perform
   Known limits: the Compute renderer ignores all of these; where a multiplied polygon meets one that isn't (a faceted part, an unlit polygon, out of room), a crack can open on the first frame the two meet (from the second, the shared edge stays straight and unsubdivided: `tests/polygon-multiplier`, faceted ring between smooth ones, 153 background pixels through the sphere before, 0 after); extra polygons aren't kept in savestates (redrawn on the next frame).
 
 **Build**
-- Remove or fix the unused upstream workflows in `melonDS-android/.github/`.
+- Remove or fix the unused upstream workflows in `melonDS-android/.github/` (still there on 13 October: `main.yaml`, `release.yaml`, `release-playstore.yaml`).
 - Run the HD texture desktop tests in CI.
+- Run the app's unit tests in CI (`:app:testProdDebugUnitTest`, 61 tests, all passing on 13 October): the APK workflow only builds.
+- Building in a cloud session: Maven Central answers 429 there; a Gradle init script putting Google's mirror first (`maven-central.storage-download.googleapis.com/maven2`) and the plugin portal last makes the build work. The native code needs the submodules, not checked out in those sessions: the CI builds it.
 
 ## 3. New features
 
@@ -94,6 +96,20 @@ The open items of the unified list, HD textures, native enhancements and perform
 - **RetroAchievements** for 3DS (melonDS already supports it).
 - **Controllers**: one mapping for all consoles.
 - **GBA**: done (mGBA core). Next for it: fast-forward and rewind, a movable on-screen layout, screen filters, a save state on exit.
+
+- **"Classic" emulation layouts** (13 October; built by CI, 3DS tried on the owner's phone): skin templates in
+  `assets/consoles/skins/` (`gabarit_skin_<console>_1220x2712.svg` and PNG: screens, controls zone, buttons at one
+  scale from the consoles' plans) and a built-in "Classic" portrait layout that follows them, the default for both
+  consoles; the other layouts stay.
+  - DS: 4:3 screens 1108 x 831 with one 56 px margin everywhere, buttons at their real size against the screens (DS
+    Lite plan), L / R from the plan's width; `ClassicLayoutProvider`, the "Classic" entry of the layouts list.
+  - 3DS: the screens (native `PortraitClassicLayout`, layout option 3) and the touch controls
+    (`ClassicOverlayLayout`) on the template, scaled to the game area; choosing a portrait layout resets the controls
+    to it.
+  - Left: the button images are square (Azahar's and melonDS's), so L / R and HOME don't take the templates'
+    shapes until skins are drawn for them; the 3DS template's buttons are 25-57 % larger than real against the
+    screens (measured on the New 3DS plan); the owner had only the bumpers resized to match the other buttons; landscape has no Classic layout (the
+    default one is used).
 
 ## 3b. DS engine remake
 
