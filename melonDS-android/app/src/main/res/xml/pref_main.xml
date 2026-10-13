@@ -126,7 +126,7 @@
         <Preference android:key="three_ds_settings_Audio" android:title="@string/category_audio" android:summary="@string/three_ds_settings_audio_summary" app:icon="@drawable/ic_audio" />
         <Preference android:key="three_ds_settings_Controls" android:title="@string/input" android:summary="@string/three_ds_settings_controls_summary" app:icon="@drawable/ic_input" />
         <Preference android:key="three_ds_settings_Camera" android:title="@string/three_ds_settings_camera" android:summary="@string/three_ds_settings_camera_summary" app:icon="@drawable/ic_video" />
-        <Preference android:key="three_ds_settings_Debugging" android:title="@string/settings_advanced" android:summary="@string/settings_advanced_summary" app:icon="@drawable/ic_settings" />
+        <Preference android:key="three_ds_settings_Debugging" android:title="@string/settings_advanced" android:summary="@string/three_ds_settings_debug_summary" app:icon="@drawable/ic_settings" />
         <SwitchPreference
                 android:key="three_ds_code_trace"
                 android:title="@string/three_ds_code_trace"
