@@ -12,19 +12,19 @@
   <rect x="56" y="1830" width="1108" height="826" fill="#2DB4E8" fill-opacity="0.10" stroke="#2DB4E8" stroke-width="3" stroke-dasharray="16 10"/>
 </g>
 <g id="boutons" inkscape:groupmode="layer" inkscape:label="5 Boutons (mesurés sur le plan DS Lite, une échelle commune)" fill="none" stroke="#F3F4F6" stroke-width="4">
-<path d="M137.4 1830h267.0v162.8h-348.4v-81.4a81.4 81.4 0 0 1 81.4 -81.4z"/>
-<text x="230.2" y="1922.4" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">L</text>
-<path d="M1082.6 1830h-267.0v162.8h348.4v-81.4a81.4 81.4 0 0 0 -81.4 -81.4z"/>
-<text x="989.8" y="1922.4" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">R</text>
-<path d="M163.1 2147.3a17.1 17.1 0 0 1 17.1 -17.1h77.1a17.1 17.1 0 0 1 17.1 17.1v90.0h90.0a17.1 17.1 0 0 1 17.1 17.1v77.1a17.1 17.1 0 0 1 -17.1 17.1h-90.0v90.0a17.1 17.1 0 0 1 -17.1 17.1h-77.1a17.1 17.1 0 0 1 -17.1 -17.1v-90.0h-90.0a17.1 17.1 0 0 1 -17.1 -17.1v-77.1a17.1 17.1 0 0 1 17.1 -17.1h90.0z"/>
-<circle cx="961.2" cy="2155.9" r="65.7"/>
-<text x="961.2" y="2166.9" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">X</text>
-<circle cx="824.2" cy="2293.0" r="65.7"/>
-<text x="824.2" y="2304.0" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">Y</text>
-<circle cx="1098.3" cy="2293.0" r="65.7"/>
-<text x="1098.3" y="2304.0" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">A</text>
-<circle cx="961.2" cy="2430.0" r="65.7"/>
-<text x="961.2" y="2441.0" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">B</text>
+<path d="M106.0 1830h244.1v100.0h-294.1v-50.0a50.0 50.0 0 0 1 50.0 -50.0z"/>
+<text x="203.1" y="1891.0" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">L</text>
+<path d="M1114.0 1830h-244.1v100.0h294.1v-50.0a50.0 50.0 0 0 0 -50.0 -50.0z"/>
+<text x="1016.9" y="1891.0" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">R</text>
+<path d="M163.1 2116.0a17.1 17.1 0 0 1 17.1 -17.1h77.1a17.1 17.1 0 0 1 17.1 17.1v90.0h90.0a17.1 17.1 0 0 1 17.1 17.1v77.1a17.1 17.1 0 0 1 -17.1 17.1h-90.0v90.0a17.1 17.1 0 0 1 -17.1 17.1h-77.1a17.1 17.1 0 0 1 -17.1 -17.1v-90.0h-90.0a17.1 17.1 0 0 1 -17.1 -17.1v-77.1a17.1 17.1 0 0 1 17.1 -17.1h90.0z"/>
+<circle cx="961.2" cy="2124.5" r="65.7"/>
+<text x="961.2" y="2135.5" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">X</text>
+<circle cx="824.2" cy="2261.6" r="65.7"/>
+<text x="824.2" y="2272.6" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">Y</text>
+<circle cx="1098.3" cy="2261.6" r="65.7"/>
+<text x="1098.3" y="2272.6" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">A</text>
+<circle cx="961.2" cy="2398.7" r="65.7"/>
+<text x="961.2" y="2409.7" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">B</text>
 <circle cx="490" cy="2624.6" r="31.4"/>
 <text x="537.4" y="2632.6" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="start">SELECT</text>
 <circle cx="730" cy="2624.6" r="31.4"/>

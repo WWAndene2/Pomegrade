@@ -27,17 +27,17 @@ class ClassicLayoutProvider(private val defaultLayoutProvider: DefaultLayoutProv
         // Template rectangles (x, y, width, height), in template pixels
         val TOP_SCREEN = Rect(56, 56, 1108, 831)
         val BOTTOM_SCREEN = Rect(56, 943, 1108, 831)
-        val BUTTON_L = Rect(56, 1830, 348, 163)
-        val BUTTON_R = Rect(816, 1830, 348, 163)
-        val DPAD = Rect(56, 2130, 326, 326)
-        val BUTTONS = Rect(758, 2090, 406, 406)
+        val BUTTON_L = Rect(56, 1830, 294, 100)
+        val BUTTON_R = Rect(870, 1830, 294, 100)
+        val DPAD = Rect(56, 2099, 326, 326)
+        val BUTTONS = Rect(758, 2059, 406, 406)
         val BUTTON_START = Rect(699, 2593, 63, 63)
         val BUTTON_SELECT = Rect(459, 2593, 63, 63)
 
         // Not on the DS: a row of four between L and R, so every input stays reachable
         const val UTILITY_SIZE = 96
-        const val UTILITY_SPACING = 8
-        const val UTILITY_TOP = 1830 + (163 - UTILITY_SIZE) / 2
+        const val UTILITY_SPACING = 24
+        const val UTILITY_TOP = 1830 + (100 - UTILITY_SIZE) / 2
         val UTILITY_COMPONENTS = listOf(
             LayoutComponent.BUTTON_HINGE,
             LayoutComponent.BUTTON_TOGGLE_SOFT_INPUT,
