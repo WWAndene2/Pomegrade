@@ -28,8 +28,8 @@ object PunicaTheme {
 
     // Bricolage Grotesque (SIL Open Font License, its notice is inside the font files): titles, buttons, the logo
     val display = FontFamily(
-        Font(R.font.bricolage_grotesque_bold, FontWeight.Bold),
-        Font(R.font.bricolage_grotesque_extrabold, FontWeight.ExtraBold),
+        Font(R.font.punica_bricolage_grotesque_bold, FontWeight.Bold),
+        Font(R.font.punica_bricolage_grotesque_extrabold, FontWeight.ExtraBold),
     )
 }
 

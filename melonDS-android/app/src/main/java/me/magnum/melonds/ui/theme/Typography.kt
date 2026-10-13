@@ -3,17 +3,11 @@ package me.magnum.melonds.ui.theme
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Typography
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import me.magnum.melonds.R
 import androidx.compose.ui.unit.sp
 
-// titles in Punica's display face, as the home screen's (HomeTheme.display)
-private val PunicaDisplay = FontFamily(
-    Font(R.font.bricolage_grotesque_bold, FontWeight.Bold),
-    Font(R.font.bricolage_grotesque_extrabold, FontWeight.ExtraBold),
-)
+// titles in Punica's display face, as the home screen's
+private val PunicaDisplay get() = PunicaTheme.display
 
 val MelonTypography @Composable get() = Typography(
     h5 = MaterialTheme.typography.h5.copy(fontFamily = PunicaDisplay, fontWeight = FontWeight.ExtraBold),

@@ -28,6 +28,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import kotlin.math.cos
@@ -399,6 +400,8 @@ class ShortcutPill private constructor(
         column.addView(TextView(activity).apply {
             text = blade.label
             textSize = 12f
+            // Punica's title face, as every label of the app's design
+            typeface = ResourcesCompat.getFont(activity, R.font.punica_bricolage_grotesque_bold)
             setTextColor(0xFFFFFFFF.toInt())
             setShadowLayer(4f, 0f, 0f, 0xFF000000.toInt())
             gravity = Gravity.CENTER_HORIZONTAL

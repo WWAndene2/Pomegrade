@@ -14,7 +14,7 @@
         android:id="@android:id/title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:fontFamily="@font/bricolage_grotesque_bold"
+        android:fontFamily="@font/punica_bricolage_grotesque_bold"
         android:includeFontPadding="false"
         android:lineHeight="24sp"
         android:textColor="@color/punicaText"
