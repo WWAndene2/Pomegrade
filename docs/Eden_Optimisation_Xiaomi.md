@@ -87,7 +87,7 @@ behaviour, so it is a translation layer, not a game-specific hack.
 | NCE is the default backend on Android arm64: guest code runs natively, patched at load (SVC, `MRS TPIDR*`, `CNTPCT`, `CNTFRQ` replaced by trampolines) | `common/settings.h` (`cpu_backend`), `core/arm/nce/patcher.cpp` | seen |
 | Dynarmic only runs 32-bit games or when NCE is turned off; its "Auto" accuracy already uses unsafe FMA unfusing and 64-bit fastmem checks | `core/arm/dynarmic/arm_dynarmic_64.cpp` (`MakeJit`) | seen |
 | Each `CPUCore_N` thread is pinned to host core N (0 to 3). The comment says it targets the Snapdragon 8 Elite | `core/cpu_manager.cpp` (`CpuManager::RunThread`) → `common/thread.cpp` (`PinCurrentThreadToPerformanceCore`) | seen |
-| On the Dimensity 8200, cores 0 to 3 are probably the Cortex-A55 small cores (cpu0-3 A55, cpu4-6 A78 3.0 GHz, cpu7 A78 3.1 GHz) | `/sys/devices/system/cpu/cpu*/cpu_capacity` | inferred |
+| On the owner's 13T, cores 0 to 3 are the Cortex-A55 small cores (2.0 GHz); cpu4-6 are A78 at 3.0 GHz, cpu7 an A78 at 3.1 GHz. So the four `CPUCore_N` threads are pinned to the four small cores | CPU-Z on the phone (13 October): topology 3x A78 3.0 + 4x A55 2.0 + 1x A78 3.1, cpu0-3 idling at 450 MHz | seen (topology); which core each thread runs on is still to measure |
 | Thread priority "Critical" is requested through `SCHED_OTHER`, whose priority range is 0 to 0 on Linux: no effect. The level formula `max(prio + 1, 4)` also always gives the top level | `common/thread.cpp` (`SetCurrentThreadPriority`) | seen |
 | No Android performance hints (ADPF `APerformanceHint`) | grep: none | seen |
 | A data abort NCE cannot handle is skipped (`pc += 4`) so the game continues: hides errors rather than fixing them | `core/arm/nce/arm_nce.cpp` (`HandleFailedGuestFault`) | seen |
@@ -101,7 +101,7 @@ behaviour, so it is a translation layer, not a game-specific hack.
 | The guest's first write to such a page faults (SIGSEGV) into `HandleGuestAccessFault` → `Memory::InvalidateNCE` → `InvalidateGPUMemory`: one signal round trip (several microseconds) per page per cache cycle | `arm_nce.cpp`, `core/memory.cpp` | seen (path), unknown (rate) |
 | Writes from the system core take a lock (`sys_core_guard`) in `HandleRasterizerWrite` | `core/memory.cpp` | seen |
 | The separate heap is mapped lazily on Android: first touches fault too | `core/memory.cpp` (`InvalidateNCE`, `DeferredMapSeparateHeap`) | seen |
-| Eden protects memory in 4 KiB pages; a phone whose kernel uses 16 KiB pages would protect 4 times more than asked (the module builds with flexible page sizes) | `YUZU_PAGESIZE`, `melonDS-android/eden/build.gradle.kts` | inferred; the 13T's kernel page size unknown |
+| Eden protects memory in 4 KiB pages; a phone whose kernel uses 16 KiB pages would protect 4 times more than asked (the module builds with flexible page sizes) | `YUZU_PAGESIZE`, `melonDS-android/eden/build.gradle.kts` | inferred; the 13T's kernel uses 4 KiB pages (`6.12.38-android16-...-4k`, CPU-Z), so not a concern there |
 
 ### 2.4 GPU emulation and synchronisation
 
@@ -137,7 +137,7 @@ behaviour, so it is a translation layer, not a game-specific hack.
 |---|---|---|
 | On integrated GPUs (all phones), the device memory Eden plans for is `max(min(available − 8 GiB, 4 GiB), min(local heap, 4 GiB))`: **4 GiB on any phone whose heap reports 4 GiB or more**, 6 GiB with "Aggressive" | `vulkan_common/vulkan_device.cpp` (memory heaps, `device_access_memory`) | seen |
 | From it the texture cache derives about 1.6 GiB before collecting and about 3.2 GiB before aggressive collection | `texture_cache/texture_cache.h` (constructor), `texture_cache_base.h` | seen (formula), inferred (values) |
-| On a 6 GiB phone, that budget plus the guest's memory can exceed the RAM: Android's low-memory killer, or heavy reclaim | | inferred |
+| On a 6 GiB phone, that budget plus the guest's memory can exceed the RAM: Android's low-memory killer, or heavy reclaim. The owner's 13T has 8 GB (7347 MB total, 1.7 GB free at idle, CPU-Z): 4 GiB of GPU budget plus Sword/Shield's guest memory is already tight there | CPU-Z on the phone | inferred (seen: RAM) |
 
 ### 2.8 Drivers
 
