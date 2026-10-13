@@ -657,10 +657,11 @@
     <string name="action_three_ds_games">3DS games</string>
     <string name="three_ds_unsupported">3DS games need a 64-bit device</string>
     <string name="switch_unsupported">Switch games need a 64-bit ARM device</string>
+    <string name="switch_folder_failed">The Switch data could not be set up in the Pomegrade folder: %1$s</string>
+    <string name="switch_system_files_failed">The keys or firmware in BIOS/Switch could not be installed: %1$s</string>
     <string name="settings_section_switch">Switch</string>
     <string name="switch_home">Switch home</string>
     <string name="switch_home_summary">The Switch core\'s own game list, updates and DLC, keys and firmware (taken from Pomegrade/BIOS/Switch)</string>
-    <string name="gba_no_shortcut">Home-screen shortcuts are not available for GBA games yet</string>
     <string name="gba_not_a_file">This GBA game must be in the phone\'s storage (the Pomegrade folder)</string>
     <string name="pomegrade_folder_title">Pomegrade folder</string>
     <string name="pomegrade_folder_message">Punica keeps your games and their files in one folder, Pomegrade, in your internal storage:\n\n• Roms: each game in its own folder, with its saves and save states\n• BIOS: each console\'s system files (DS, DSi, GBA, Switch)\n• 3DS and Switch: their saves and system files\n• Textures: HD texture packs\n\nThe games Punica finds are moved there. It stays on your phone if you uninstall the app.\n\nAndroid asks you to allow \"All files access\" first: Punica needs it to move games and to run 3DS games. Then tap \"Use this folder\" to confirm the Pomegrade folder.</string>
@@ -685,7 +686,6 @@
     <string name="settings_section_gba">GBA</string>
     <string name="settings_section_gc_wii">GameCube / Wii</string>
     <string name="gc_wii_unsupported">GameCube and Wii games need a 64-bit ARM device</string>
-    <string name="gc_wii_no_shortcut">Home-screen shortcuts are not available for GameCube and Wii games</string>
     <string name="gc_wii_home">GameCube / Wii home</string>
     <string name="gc_wii_home_summary">The GameCube and Wii core\'s own game list (covers, each game\'s settings, cheats), the Wii menu and its tools</string>
     <string name="gc_wii_settings_general_summary">Dual core, speed, language</string>

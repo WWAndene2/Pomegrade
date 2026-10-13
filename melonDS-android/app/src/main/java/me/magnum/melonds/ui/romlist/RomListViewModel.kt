@@ -128,6 +128,8 @@ class RomListViewModel @Inject constructor(
         romsRepository.rescanRoms()
     }
 
+    suspend fun getRomAtUri(uri: Uri): Rom? = romsRepository.getRomAtUri(uri)
+
     fun setRomLastPlayedNow(rom: Rom) {
         romsRepository.setRomLastPlayed(rom, Calendar.getInstance().time)
     }

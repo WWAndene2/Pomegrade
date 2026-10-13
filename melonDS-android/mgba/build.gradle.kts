@@ -50,4 +50,5 @@ dependencies {
     // the in-game menu and save state dialog shared with the DS and 3DS screens
     implementation(projects.emulatorUi)
     implementation(libs.androidx.appcompat)
+    testImplementation(libs.junit)
 }

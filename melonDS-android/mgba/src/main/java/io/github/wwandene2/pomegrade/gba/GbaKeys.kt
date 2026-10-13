@@ -30,4 +30,21 @@ internal object GbaKeys {
         KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_A -> L
         else -> 0
     }
+
+    // how far a stick must lean before it presses a direction
+    private const val STICK_DEAD_ZONE = 0.5f
+
+    /**
+     * The directions a controller's axes press: its D-pad when it reports one as the hat axes (many
+     * Bluetooth controllers do, instead of key presses), and its left stick. Axes go from -1 to 1,
+     * negative left and up.
+     */
+    fun fromAxes(hatX: Float, hatY: Float, stickX: Float, stickY: Float): Int {
+        var keys = 0
+        if (hatX > STICK_DEAD_ZONE || stickX > STICK_DEAD_ZONE) keys = keys or RIGHT
+        if (hatX < -STICK_DEAD_ZONE || stickX < -STICK_DEAD_ZONE) keys = keys or LEFT
+        if (hatY > STICK_DEAD_ZONE || stickY > STICK_DEAD_ZONE) keys = keys or DOWN
+        if (hatY < -STICK_DEAD_ZONE || stickY < -STICK_DEAD_ZONE) keys = keys or UP
+        return keys
+    }
 }

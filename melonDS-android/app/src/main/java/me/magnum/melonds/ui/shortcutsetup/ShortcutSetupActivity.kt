@@ -8,7 +8,6 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.os.Bundle
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -93,10 +92,7 @@ class ShortcutSetupActivity : AppCompatActivity() {
     private fun onRomSelected(rom: Rom) {
         val launcher = ConsoleLauncher.of(rom.platform)
         val intent = if (launcher != null) {
-            launcher.shortcutIntent(this, rom) ?: run {
-                launcher.noShortcutMessage?.let { Toast.makeText(this, it, Toast.LENGTH_LONG).show() }
-                return
-            }
+            launcher.shortcutIntent(this, rom)
         } else {
             Intent("${packageName}.LAUNCH_ROM").apply {
                 putExtra(EmulatorActivity.KEY_URI, rom.uri.toString())

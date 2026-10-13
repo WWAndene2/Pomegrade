@@ -17,6 +17,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
 import androidx.core.content.getSystemService
+import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -57,6 +58,10 @@ class RomListActivity : AppCompatActivity() {
         private var pomegradeFolderPrompted = false
         private const val FRAGMENT_ROM_LIST = "ROM_LIST"
         private const val FRAGMENT_NO_ROM_DIRECTORIES = "NO_ROM_DIRECTORY"
+
+        /** Starts the game at [EXTRA_ROM_URI]: home-screen shortcuts of the cores whose screen they can't open (ConsoleLauncher). */
+        const val ACTION_LAUNCH_ROM = "io.github.wwandene2.pomegrade.action.LAUNCH_ROM"
+        const val EXTRA_ROM_URI = "rom_uri"
     }
 
     @Inject lateinit var markwon: Markwon
@@ -128,7 +133,9 @@ class RomListActivity : AppCompatActivity() {
 
         // the Pomegrade folder: asked for once per app start until it is set up
         pomegradeFolderSetup = PomegradeFolderSetupDelegate(this)
-        if (savedInstanceState == null && !pomegradeFolderPrompted && !pomegradeFolderSetup.isSetUp()) {
+        // a shortcut's launch asks for it itself when the game needs it
+        val fromShortcut = savedInstanceState == null && intent.action == ACTION_LAUNCH_ROM
+        if (savedInstanceState == null && !fromShortcut && !pomegradeFolderPrompted && !pomegradeFolderSetup.isSetUp()) {
             pomegradeFolderPrompted = true
             pomegradeFolderSetup.start { }
         }
@@ -164,6 +171,33 @@ class RomListActivity : AppCompatActivity() {
                     onDownloadProgressUpdated(it)
                 }
             }
+        }
+    }
+
+    override fun onPostCreate(savedInstanceState: Bundle?) {
+        super.onPostCreate(savedInstanceState)
+        // once: not again when the screen is recreated
+        if (savedInstanceState == null) launchFromShortcut(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        launchFromShortcut(intent)
+    }
+
+    // a home-screen shortcut's game, started as a tap in the list starts it
+    private fun launchFromShortcut(intent: Intent) {
+        if (intent.action != ACTION_LAUNCH_ROM) return
+        val uri = intent.getStringExtra(EXTRA_ROM_URI)?.toUri() ?: return
+        lifecycleScope.launch {
+            val rom = viewModel.getRomAtUri(uri)
+            if (rom == null) {
+                Toast.makeText(this@RomListActivity, R.string.error_rom_not_found, Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            viewModel.setRomLastPlayedNow(rom)
+            launchRom(rom)
         }
     }
 

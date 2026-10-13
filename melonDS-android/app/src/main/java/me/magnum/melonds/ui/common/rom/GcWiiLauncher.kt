@@ -16,7 +16,8 @@ import org.dolphinemu.dolphinemu.ui.main.MainActivity
 /**
  * Starts GameCube and Wii games in the Dolphin core, as Dolphin's own game list does (the game's URI as its
  * path: Dolphin reads content URIs). Dolphin's data is in the Pomegrade folder's GC-Wii (see GcWiiFolder).
- * Its emulation screen is not exported, and Dolphin starts it after its own checks: no home-screen shortcut.
+ * Its emulation screen is not exported, and Dolphin starts it after its own checks: the home-screen shortcut
+ * goes through the game list.
  */
 object GcWiiLauncher : ConsoleLauncher {
 
@@ -34,9 +35,8 @@ object GcWiiLauncher : ConsoleLauncher {
         EmulationActivity.launch(fragmentActivity, rom.uri.toString(), false)
     }
 
+    // no intent to its screen: a shortcut goes through the game list (ConsoleLauncher.shortcutIntent)
     override fun launchIntent(context: Context, rom: Rom): Intent? = null
-
-    override val noShortcutMessage get() = R.string.gc_wii_no_shortcut
 
     /** One section of Dolphin's settings, as its home screen opens them. */
     fun openSettings(context: Context, section: MenuTag) {
