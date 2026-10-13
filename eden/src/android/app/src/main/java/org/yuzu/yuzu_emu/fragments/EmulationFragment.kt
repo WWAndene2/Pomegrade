@@ -6,6 +6,8 @@
 
 package org.yuzu.yuzu_emu.fragments
 
+import io.github.wwandene2.pomegrade.emulatorui.EmulatorMenu
+import io.github.wwandene2.pomegrade.emulatorui.R as EmulatorMenuR
 import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.app.AlertDialog
@@ -730,7 +732,24 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
         updateGameTitle()
 
-        binding.inGameMenu.menu.findItem(R.id.menu_quick_settings)?.isVisible =
+        // Pomegrade: the shared in-game menu with the Switch's entries (no save states: Eden has none)
+        EmulatorMenu.showOnly(
+            binding.inGameMenu.menu,
+            setOf(
+                EmulatorMenuR.id.emulator_menu_pause,
+                EmulatorMenuR.id.emulator_menu_controls,
+                EmulatorMenuR.id.emulator_menu_overlay_visibility,
+                EmulatorMenuR.id.emulator_menu_overlay_options,
+                EmulatorMenuR.id.emulator_menu_amiibo,
+                EmulatorMenuR.id.emulator_menu_lock_drawer,
+                EmulatorMenuR.id.emulator_menu_quick_settings,
+                EmulatorMenuR.id.emulator_menu_settings,
+                EmulatorMenuR.id.emulator_menu_game_settings,
+                EmulatorMenuR.id.emulator_menu_multiplayer,
+                EmulatorMenuR.id.emulator_menu_exit,
+            )
+        )
+        binding.inGameMenu.menu.findItem(EmulatorMenuR.id.emulator_menu_quick_settings)?.isVisible =
             BooleanSetting.ENABLE_QUICK_SETTINGS.getBoolean()
 
         binding.pausedIcon.setOnClickListener {
@@ -739,12 +758,12 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
             }
         }
 
-        binding.inGameMenu.menu.findItem(R.id.menu_lock_drawer).apply {
+        binding.inGameMenu.menu.findItem(EmulatorMenuR.id.emulator_menu_lock_drawer).apply {
             val lockMode = IntSetting.LOCK_DRAWER.getInt()
             val titleId = if (lockMode == DrawerLayout.LOCK_MODE_LOCKED_CLOSED) {
-                R.string.eden_unlock_drawer
+                EmulatorMenuR.string.emulator_menu_unlock_drawer
             } else {
-                R.string.eden_lock_drawer
+                EmulatorMenuR.string.emulator_menu_lock_drawer
             }
             val iconId = if (lockMode == DrawerLayout.LOCK_MODE_UNLOCKED) {
                 R.drawable.ic_unlock
@@ -762,7 +781,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
         binding.inGameMenu.setNavigationItemSelectedListener {
             when (it.itemId) {
-                R.id.menu_pause_emulation -> {
+                EmulatorMenuR.id.emulator_menu_pause -> {
                     if (emulationState.isPaused) {
                         resumeEmulationFromUi()
                     } else {
@@ -772,7 +791,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                     true
                 }
 
-                R.id.menu_quick_overlay -> {
+                EmulatorMenuR.id.emulator_menu_overlay_visibility -> {
                     val newState = !BooleanSetting.SHOW_INPUT_OVERLAY.getBoolean()
                     toggleOverlay(newState)
                     updateQuickOverlayMenuEntry(BooleanSetting.SHOW_INPUT_OVERLAY.getBoolean())
@@ -780,7 +799,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                     true
                 }
 
-                R.id.menu_settings -> {
+                EmulatorMenuR.id.emulator_menu_settings -> {
                     val action = HomeNavigationDirections.actionGlobalSettingsActivity(
                         null,
                         Settings.MenuTag.SECTION_ROOT
@@ -792,12 +811,12 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 }
 
             if (BooleanSetting.ENABLE_QUICK_SETTINGS.getBoolean())
-                R.id.menu_quick_settings else 0 -> {
+                EmulatorMenuR.id.emulator_menu_quick_settings else 0 -> {
                 openQuickSettingsMenu()
                 true
             }
 
-                R.id.menu_settings_per_game -> {
+                EmulatorMenuR.id.emulator_menu_game_settings -> {
                     val action = HomeNavigationDirections.actionGlobalSettingsActivity(
                         args.game,
                         Settings.MenuTag.SECTION_ROOT
@@ -808,14 +827,14 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                     true
                 }
 
-                R.id.menu_multiplayer -> {
+                EmulatorMenuR.id.emulator_menu_multiplayer -> {
                     emulationActivity?.displayMultiplayerDialog()
                     true
                 }
 
-                R.id.menu_load_amiibo -> handleLoadAmiiboSelection()
+                EmulatorMenuR.id.emulator_menu_amiibo -> handleLoadAmiiboSelection()
 
-                R.id.menu_controls -> {
+                EmulatorMenuR.id.emulator_menu_controls -> {
                     val action = HomeNavigationDirections.actionGlobalSettingsActivity(
                         null,
                         Settings.MenuTag.SECTION_INPUT
@@ -824,16 +843,16 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                     true
                 }
 
-                R.id.menu_overlay_controls -> {
+                EmulatorMenuR.id.emulator_menu_overlay_options -> {
                     showOverlayOptions()
                     true
                 }
 
-                R.id.menu_lock_drawer -> {
+                EmulatorMenuR.id.emulator_menu_lock_drawer -> {
                     when (IntSetting.LOCK_DRAWER.getInt()) {
                         DrawerLayout.LOCK_MODE_UNLOCKED -> {
                             IntSetting.LOCK_DRAWER.setInt(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
-                            it.title = resources.getString(R.string.eden_unlock_drawer)
+                            it.title = resources.getString(EmulatorMenuR.string.emulator_menu_unlock_drawer)
                             it.icon = ResourcesCompat.getDrawable(
                                 resources,
                                 R.drawable.eden_ic_lock,
@@ -843,7 +862,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
                         DrawerLayout.LOCK_MODE_LOCKED_CLOSED -> {
                             IntSetting.LOCK_DRAWER.setInt(DrawerLayout.LOCK_MODE_UNLOCKED)
-                            it.title = resources.getString(R.string.eden_lock_drawer)
+                            it.title = resources.getString(EmulatorMenuR.string.emulator_menu_lock_drawer)
                             it.icon = ResourcesCompat.getDrawable(
                                 resources,
                                 R.drawable.ic_unlock,
@@ -856,7 +875,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                     true
                 }
 
-                R.id.menu_exit -> {
+                EmulatorMenuR.id.emulator_menu_exit -> {
                     clearPausedFrame()
                     emulationState.stop()
                     NativeConfig.reloadGlobalConfig()
@@ -964,15 +983,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 initializeOverlayAutoHide()
 
                 // Re update binding when the specs values get initialized properly
-                binding.inGameMenu.getHeaderView(0).apply {
-                    val titleView = findViewById<TextView>(R.id.text_game_title)
-                    val cpuBackendLabel = findViewById<TextView>(R.id.cpu_backend)
-                    val vendorLabel = findViewById<TextView>(R.id.gpu_vendor)
-
-                    titleView.text = game?.title ?: ""
-                    cpuBackendLabel.text = NativeLibrary.getCpuBackend()
-                    vendorLabel.text = NativeLibrary.getGpuDriver()
-                }
+                updateGameTitle()
 
                 val position = IntSetting.PERF_OVERLAY_POSITION.getInt()
                 updateStatsPosition(position)
@@ -1078,11 +1089,14 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
         }
     }
 
+    // Pomegrade: the shared in-game menu's header (the game's icon and title, the console; the CPU backend and
+    // GPU driver beside it, which Eden's own header showed)
     private fun updateGameTitle() {
         game?.let {
-            binding.inGameMenu.getHeaderView(0).apply {
-                val titleView = findViewById<TextView>(R.id.text_game_title)
-                titleView.text = it.title
+            val console = getString(EmulatorMenuR.string.emulator_menu_console_switch) +
+                " · " + NativeLibrary.getCpuBackend() + " · " + NativeLibrary.getGpuDriver()
+            EmulatorMenu.setHeader(binding.inGameMenu, it.title, console)?.let { icon ->
+                GameIconUtils.loadGameIcon(it, icon)
             }
         }
     }
@@ -1217,7 +1231,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
     private fun updateQuickOverlayMenuEntry(isVisible: Boolean) {
         val b = _binding ?: return
-        val item = b.inGameMenu.menu.findItem(R.id.menu_quick_overlay) ?: return
+        val item = b.inGameMenu.menu.findItem(EmulatorMenuR.id.emulator_menu_overlay_visibility) ?: return
 
         if (isVisible) {
             item.title = getString(R.string.emulation_hide_overlay)
@@ -1238,16 +1252,16 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
     private fun updatePauseMenuEntry(isPaused: Boolean) {
         val b = _binding ?: return
-        val pauseItem = b.inGameMenu.menu.findItem(R.id.menu_pause_emulation) ?: return
+        val pauseItem = b.inGameMenu.menu.findItem(EmulatorMenuR.id.emulator_menu_pause) ?: return
         if (isPaused) {
-            pauseItem.title = getString(R.string.emulation_unpause)
+            pauseItem.title = getString(EmulatorMenuR.string.emulator_menu_resume)
             pauseItem.icon = ResourcesCompat.getDrawable(
                 resources,
                 R.drawable.eden_ic_play,
                 requireContext().theme
             )
         } else {
-            pauseItem.title = getString(R.string.emulation_pause)
+            pauseItem.title = getString(EmulatorMenuR.string.emulator_menu_pause)
             pauseItem.icon = ResourcesCompat.getDrawable(
                 resources,
                 R.drawable.eden_ic_pause,
@@ -1965,7 +1979,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
     }
 
     private fun showOverlayOptions() {
-        val anchor = binding.inGameMenu.findViewById<View>(R.id.menu_overlay_controls)
+        val anchor = binding.inGameMenu.findViewById<View>(EmulatorMenuR.id.emulator_menu_overlay_options)
         val popup = PopupMenu(requireContext(), anchor)
 
         popup.menuInflater.inflate(R.menu.eden_menu_overlay_options, popup.menu)

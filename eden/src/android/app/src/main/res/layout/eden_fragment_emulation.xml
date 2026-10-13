@@ -217,9 +217,9 @@
     android:layout_height="match_parent"
     android:layout_gravity="start"
     android:focusedByDefault="true"
-    app:headerLayout="@layout/header_in_game"
-    app:menu="@menu/menu_in_game"
-    android:background="?attr/colorSurface"
+    android:theme="@style/Theme.Pomegrade.EmulatorMenu"
+    app:headerLayout="@layout/emulator_menu_header"
+    app:menu="@menu/emulator_menu"
     tools:visibility="gone" />
 
 </androidx.drawerlayout.widget.DrawerLayout>

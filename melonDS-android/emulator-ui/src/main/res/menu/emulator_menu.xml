@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The in-game menu of both consoles, in this order. Each screen hides what its core does not have
      (EmulatorMenu.showOnly): rewind, reset, achievements and the inspector are DS only; on-screen control options,
-     amiibo, layouts, rotation, menu lock and multiplayer are 3DS only -->
+     amiibo, layouts, rotation, menu lock and multiplayer are 3DS only; quick settings, the game's own settings and
+     the on-screen controls' visibility are Switch only (on-screen control options and amiibo too) -->
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
     <item
@@ -28,6 +29,16 @@
         android:id="@+id/emulator_menu_controls"
         android:icon="@drawable/emulator_menu_ic_controller"
         android:title="@string/emulator_menu_controls" />
+
+    <item
+        android:id="@+id/emulator_menu_overlay_visibility"
+        android:icon="@drawable/emulator_menu_ic_touch"
+        android:title="@string/emulator_menu_overlay_visibility" />
+
+    <item
+        android:id="@+id/emulator_menu_overlay_options"
+        android:icon="@drawable/emulator_menu_ic_touch"
+        android:title="@string/emulator_menu_overlay_options" />
 
     <item
         android:id="@+id/emulator_menu_amiibo"
@@ -75,9 +86,19 @@
         android:title="@string/emulator_menu_achievements" />
 
     <item
+        android:id="@+id/emulator_menu_quick_settings"
+        android:icon="@drawable/emulator_menu_ic_tune"
+        android:title="@string/emulator_menu_quick_settings" />
+
+    <item
         android:id="@+id/emulator_menu_settings"
         android:icon="@drawable/emulator_menu_ic_settings"
         android:title="@string/emulator_menu_settings" />
+
+    <item
+        android:id="@+id/emulator_menu_game_settings"
+        android:icon="@drawable/emulator_menu_ic_game_settings"
+        android:title="@string/emulator_menu_game_settings" />
 
     <item
         android:id="@+id/emulator_menu_multiplayer"

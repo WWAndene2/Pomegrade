@@ -92,6 +92,8 @@ kotlin {
 }
 
 dependencies {
+    // Pomegrade: the in-game menu shared with the other consoles
+    implementation(projects.emulatorUi)
     // Eden's own dependencies (src/android/app/build.gradle.kts). Those other modules also use come from
     // the version catalogue (gradle/libs.versions.toml): the APK holds one version of each, and a module
     // compiled against an older one crashed at run time (material 1.12.0: NoSuchFieldError colorPrimary)
