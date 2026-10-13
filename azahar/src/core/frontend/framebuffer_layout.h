@@ -100,6 +100,17 @@ FramebufferLayout PortraitOriginalLayout(u32 width, u32 height, bool is_swapped,
                                          bool upright = false);
 
 /**
+ * Factory method for constructing the mobile Classic layout (Pomegrade): the screens of the
+ * Punica 3DS skin template (assets/consoles/skins/gabarit_skin_3ds_1220x2712.svg), scaled to
+ * the window width and anchored to its top, leaving the lower part to the controls
+ * @param width Window framebuffer width in pixels
+ * @param height Window framebuffer height in pixels
+ * @param is_swapped if true, the bottom screen takes the first (upper) slot
+ * @return Newly created FramebufferLayout object with mobile portrait screen regions initialized
+ */
+FramebufferLayout PortraitClassicLayout(u32 width, u32 height, bool is_swapped);
+
+/**
  * Factory method for constructing a FramebufferLayout with only the top or bottom screen
  * @param width Window framebuffer width in pixels
  * @param height Window framebuffer height in pixels

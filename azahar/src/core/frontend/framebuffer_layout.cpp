@@ -121,6 +121,30 @@ FramebufferLayout PortraitOriginalLayout(u32 width, u32 height, bool swapped, bo
     return res;
 }
 
+FramebufferLayout PortraitClassicLayout(u32 width, u32 height, bool swapped) {
+    ASSERT(width > 0);
+    ASSERT(height > 0);
+    // Template of 1220 x 2712: a 55 px margin (1/20 of the top screen's width), the top screen
+    // 1110 x 666 at y 55, the bottom screen 888 x 666 at y 776, both centred horizontally.
+    // Scaled to the width; the min() only keeps the screens inside a window shorter than the
+    // template's proportions (the controls zone then shrinks instead).
+    constexpr float template_width = 1220.0f;
+    constexpr float template_height = 2712.0f;
+    const float scale = std::min(width / template_width, height / template_height);
+    const auto slot = [&](float y, bool is_top) {
+        const float w = (is_top ? 1110.0f : 888.0f) * scale;
+        const float h = 666.0f * scale;
+        const u32 left = static_cast<u32>(std::round((width - w) / 2.0f));
+        const u32 top = static_cast<u32>(std::round(y * scale));
+        return Common::Rectangle<u32>{left, top, left + static_cast<u32>(std::round(w)),
+                                      top + static_cast<u32>(std::round(h))};
+    };
+    FramebufferLayout res{width, height, true, true, {}, {}, true};
+    res.top_screen = slot(swapped ? 776.0f : 55.0f, true);
+    res.bottom_screen = slot(swapped ? 55.0f : 776.0f, false);
+    return res;
+}
+
 FramebufferLayout SingleFrameLayout(u32 width, u32 height, bool swapped, bool upright) {
     ASSERT(width > 0);
     ASSERT(height > 0);
@@ -461,6 +485,11 @@ FramebufferLayout FrameLayoutFromResolutionScale(u32 res_scale, bool is_secondar
             height = (Core::kScreenTopHeight + Core::kScreenBottomHeight) * res_scale;
             layout = PortraitOriginalLayout(width, height, Settings::values.swap_screen.GetValue());
             break;
+        case Settings::PortraitLayoutOption::PortraitClassic:
+            width = Core::kScreenTopWidth * res_scale;
+            height = static_cast<u32>(width * (2712.0f / 1220.0f));
+            layout = PortraitClassicLayout(width, height, Settings::values.swap_screen.GetValue());
+            break;
         }
     } else {
         auto layout_option = Settings::values.layout_option.GetValue();
@@ -596,6 +625,7 @@ FramebufferLayout GetCardboardSettings(const FramebufferLayout& layout) {
         switch (Settings::values.portrait_layout_option.GetValue()) {
         case Settings::PortraitLayoutOption::PortraitTopFullWidth:
         case Settings::PortraitLayoutOption::PortraitOriginal:
+        case Settings::PortraitLayoutOption::PortraitClassic:
             cardboard_screen_width = top_screen_width;
             cardboard_screen_height = top_screen_height + bottom_screen_height;
             bottom_screen_left += (top_screen_width - bottom_screen_width) / 2;

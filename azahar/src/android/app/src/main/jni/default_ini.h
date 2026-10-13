@@ -388,8 +388,10 @@ static const char* android_config_default_file_content = (BOOST_HANA_STRING(R"(
 )") DECLARE_KEY(screen_orientation) BOOST_HANA_STRING(R"(
 
 # Layout for the portrait mode
-# 0 (default): Top and bottom screens at top, full width
+# 0: Top and bottom screens at top, full width
 # 1: Custom Layout
+# 2: Original
+# 3 (default): Classic, the screens of the Punica 3DS skin template
 )") DECLARE_KEY(portrait_layout_option) BOOST_HANA_STRING(R"(
 
 # Screen placement when using Portrait Custom layout option

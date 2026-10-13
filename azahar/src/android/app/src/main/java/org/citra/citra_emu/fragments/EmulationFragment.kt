@@ -1061,7 +1061,7 @@ class EmulationFragment :
                 R.id.menu_portrait_layout_custom
 
             else ->
-                R.id.menu_portrait_layout_top_full
+                R.id.menu_portrait_layout_classic
         }
 
         popupMenu.menu.findItem(layoutOptionMenuItem).setChecked(true)
@@ -1071,6 +1071,13 @@ class EmulationFragment :
                 R.id.menu_portrait_layout_top_full -> {
                     screenAdjustmentUtil.changePortraitOrientation(
                         PortraitScreenLayout.TOP_FULL_WIDTH.int
+                    )
+                    true
+                }
+
+                R.id.menu_portrait_layout_classic -> {
+                    screenAdjustmentUtil.changePortraitOrientation(
+                        PortraitScreenLayout.CLASSIC.int
                     )
                     true
                 }

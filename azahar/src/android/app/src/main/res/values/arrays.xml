@@ -30,6 +30,7 @@
     </integer-array>
 
     <string-array name="portraitLayouts">
+        <item>@string/emulation_portrait_layout_classic</item>
         <item>@string/emulation_portrait_layout_top_full</item>
         <item>@string/emulation_screen_layout_original</item>
         <item>@string/emulation_screen_layout_custom</item>
@@ -47,6 +48,7 @@
     </string-array>
 
     <integer-array name="portraitLayoutValues">
+        <item>3</item>
         <item>0</item>
         <item>2</item>
         <item>1</item>
@@ -712,6 +714,7 @@
         <item>5</item>
     </integer-array>
     <integer-array name="portraitValues">
+        <item>3</item>
         <item>0</item>
         <item>1</item>
     </integer-array>
