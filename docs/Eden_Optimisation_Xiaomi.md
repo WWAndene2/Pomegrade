@@ -23,7 +23,23 @@ All paths below are relative to `eden/src/`.
 The goal is to **raise the ceiling**, not to lower quality or flip settings. Work goes deep into the emulator's
 code paths, and into binaries (the game's and the Switch firmware's) when that is what it takes. Setting changes
 (async presentation, frame pacing, build flags) are kept only as measurement aids or side items; the catalogue's
-weight is on sections 5.2 and 5.4.
+weight is on sections 5.2 and 5.4. Working on binary code to make a Switch game run close to an Android-native one is in scope (owner,
+13 October): patching the game's code at load, recompiling it, replacing its graphics driver.
+
+**How far from native a Switch game is today, stage by stage** (from section 2):
+
+| Stage | Today | Native already? | Binary-level route to native |
+|---|---|---|---|
+| Game CPU code | NCE runs it on the phone's CPU, patched at load (`patcher.cpp`) | **Yes**, apart from exits (SVCs, faults) | Fewer exits (D4); patch the hottest SVC call sites into direct calls |
+| Operating system | Eden's kernel and services in C++ (HLE) | Close: host code, but reached through SVC round trips | Fast paths answered in the trampoline (D4), checked against the firmware's modules |
+| Graphics driver (NVN, linked into the game) | Runs as guest code, builds Maxwell command streams | Native CPU code, but its output must then be decoded | Replace it (D7): calls go straight to a Vulkan layer, no command stream |
+| GPU commands | Decoded and translated by Eden's command processor and caches | **No**: the largest remaining layer | Removed by D7; until then D3, D6 |
+| Shaders | Maxwell code translated to SPIR-V on first use | **No** at first use, yes once cached | Translated ahead of time from the game's files (D1, D2) |
+| Memory tracking | Write-protected pages and faults | **No**: a cost a native game never pays | Disappears for buffers D7 hands straight to Vulkan; coarser tracking (D4, O10) otherwise |
+
+Patches apply to the owner's own dumps, at load or in the session's scratch space; game and firmware code is never
+committed, uploaded or put in an artifact (CLAUDE.md §8). A patch targets a library version (NVN, SDK), not a game's
+behaviour, so it is a translation layer, not a game-specific hack.
 
 ---
 
