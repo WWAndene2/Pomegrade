@@ -687,6 +687,15 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
         refreshControls()
     }
 
+    private fun defaultOverlayPortraitClassic() {
+        val editor = preferences.edit()
+        ClassicOverlayLayout.placedControls.forEach { id ->
+            val (x, y) = ClassicOverlayLayout.position(context, id) ?: return@forEach
+            editor.putFloat("$id-Portrait-X", x).putFloat("$id-Portrait-Y", y)
+        }
+        editor.apply()
+    }
+
     private fun defaultOverlayLandscape() {
         // Get screen size
         val display = (context as Activity).windowManager.defaultDisplay
@@ -847,6 +856,10 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
     }
 
     private fun defaultOverlayPortrait() {
+        if (ClassicOverlayLayout.isActive("-Portrait")) {
+            defaultOverlayPortraitClassic()
+            return
+        }
         // Get screen size
         val display = (context as Activity).windowManager.defaultDisplay
         val outMetrics = DisplayMetrics()
@@ -1125,6 +1138,9 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
 
                 else -> 0.11f
             }
+            if (ClassicOverlayLayout.isActive(orientation)) {
+                scale = ClassicOverlayLayout.bitmapScale(context, buttonId)
+            }
             scale *= (preferences.getInt("controlScale", 50) + 50).toFloat()
             scale /= 100f
 
@@ -1192,6 +1208,9 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
 
             // Decide scale based on button ID and user preference
             var scale = 0.22f
+            if (ClassicOverlayLayout.isActive(orientation)) {
+                scale = ClassicOverlayLayout.bitmapScale(context, buttonUp)
+            }
             scale *= (preferences.getInt("controlScale", 50) + 50).toFloat()
             scale /= 100f
 
@@ -1262,6 +1281,9 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
 
             // Decide scale based on user preference
             var scale = 0.275f
+            if (ClassicOverlayLayout.isActive(orientation)) {
+                scale = ClassicOverlayLayout.bitmapScale(context, joystick)
+            }
             scale *= (preferences.getInt("controlScale", 50) + 50).toFloat()
             scale /= 100f
 

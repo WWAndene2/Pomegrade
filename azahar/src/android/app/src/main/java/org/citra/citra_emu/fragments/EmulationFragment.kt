@@ -1072,6 +1072,8 @@ class EmulationFragment :
                     screenAdjustmentUtil.changePortraitOrientation(
                         PortraitScreenLayout.TOP_FULL_WIDTH.int
                     )
+                    // Pomegrade: Classic places the controls on its template, the others use Azahar's defaults
+                    binding.surfaceInputOverlay.resetButtonPlacement()
                     true
                 }
 
@@ -1079,6 +1081,8 @@ class EmulationFragment :
                     screenAdjustmentUtil.changePortraitOrientation(
                         PortraitScreenLayout.CLASSIC.int
                     )
+                    // Pomegrade: Classic places the controls on its template, the others use Azahar's defaults
+                    binding.surfaceInputOverlay.resetButtonPlacement()
                     true
                 }
 
@@ -1086,6 +1090,8 @@ class EmulationFragment :
                     screenAdjustmentUtil.changePortraitOrientation(
                         PortraitScreenLayout.ORIGINAL.int
                     )
+                    // Pomegrade: Classic places the controls on its template, the others use Azahar's defaults
+                    binding.surfaceInputOverlay.resetButtonPlacement()
                     true
                 }
 
@@ -1098,6 +1104,8 @@ class EmulationFragment :
                     screenAdjustmentUtil.changePortraitOrientation(
                         PortraitScreenLayout.CUSTOM_PORTRAIT_LAYOUT.int
                     )
+                    // Pomegrade: Classic places the controls on its template, the others use Azahar's defaults
+                    binding.surfaceInputOverlay.resetButtonPlacement()
                     true
                 }
 
