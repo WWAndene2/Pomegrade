@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import android.widget.Toast
+import androidx.preference.PreferenceManager
 import me.magnum.melonds.R
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
@@ -57,6 +58,12 @@ object SwitchLauncher : ConsoleLauncher {
             val systemFiles = runCatching { SwitchSystemFiles.import(appContext) }.exceptionOrNull()?.let { R.string.switch_system_files_failed to it }
             folder ?: systemFiles
         }
+        // Eden's first-time setup (keys, firmware, games folder) is Punica's: the keys and firmware come from
+        // BIOS/Switch, the games from Punica's list. Its key is the same as Azahar's (FirstApplicationLaunch,
+        // both in the app's default preferences), which the 3DS folder setup already sets
+        PreferenceManager.getDefaultSharedPreferences(appContext).edit()
+            .putBoolean(Settings.PREF_FIRST_APP_LAUNCH, false)
+            .apply()
         failure?.let { (message, error) ->
             Log.w(TAG, "Switch core not prepared", error)
             Toast.makeText(appContext, appContext.getString(message, error.localizedMessage ?: error.javaClass.simpleName), Toast.LENGTH_LONG).show()
