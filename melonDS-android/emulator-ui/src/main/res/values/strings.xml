@@ -37,4 +37,11 @@
     <string name="emulator_menu_overlay_options">On-screen controls options</string>
     <string name="emulator_menu_quick_settings">Quick settings</string>
     <string name="emulator_menu_game_settings">This game\'s settings</string>
+    <string name="emulator_menu_screenshot">Take a screenshot</string>
+    <string name="emulator_menu_quick_save">Quick save</string>
+    <string name="emulator_menu_quick_load">Quick load</string>
+    <string name="emulator_menu_refresh_wiimotes">Refresh Wii Remotes</string>
+    <string name="emulator_menu_skylanders">Skylanders portal</string>
+    <string name="emulator_menu_infinity_base">Infinity Base</string>
+    <string name="emulator_menu_change_disc">Change disc</string>
 </resources>

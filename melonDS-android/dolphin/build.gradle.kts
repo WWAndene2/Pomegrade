@@ -89,6 +89,8 @@ kotlin {
 }
 
 dependencies {
+    // Pomegrade: the in-game menu shared with the other consoles
+    implementation(projects.emulatorUi)
     // Dolphin's own dependencies (Source/Android/gradle/libs.versions.toml), without the baseline profile.
     // Those other modules also use come from the version catalogue (gradle/libs.versions.toml): the APK
     // holds one version of each, so each module compiles against the one it runs with

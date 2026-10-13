@@ -2,13 +2,29 @@
 <!-- The in-game menu of both consoles, in this order. Each screen hides what its core does not have
      (EmulatorMenu.showOnly): rewind, reset, achievements and the inspector are DS only; on-screen control options,
      amiibo, layouts, rotation, menu lock and multiplayer are 3DS only; quick settings, the game's own settings and
-     the on-screen controls' visibility are Switch only (on-screen control options and amiibo too) -->
+     the on-screen controls' visibility are Switch only (on-screen control options and amiibo too); the screenshot,
+     quick save and load, Wii Remotes, Skylanders portal, Infinity Base and disc change are GameCube / Wii only -->
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
     <item
         android:id="@+id/emulator_menu_pause"
         android:icon="@drawable/emulator_menu_ic_pause"
         android:title="@string/emulator_menu_pause" />
+
+    <item
+        android:id="@+id/emulator_menu_screenshot"
+        android:icon="@drawable/emulator_menu_ic_screenshot"
+        android:title="@string/emulator_menu_screenshot" />
+
+    <item
+        android:id="@+id/emulator_menu_quick_save"
+        android:icon="@drawable/emulator_menu_ic_save"
+        android:title="@string/emulator_menu_quick_save" />
+
+    <item
+        android:id="@+id/emulator_menu_quick_load"
+        android:icon="@drawable/emulator_menu_ic_restore"
+        android:title="@string/emulator_menu_quick_load" />
 
     <item
         android:id="@+id/emulator_menu_save_state"
@@ -39,6 +55,21 @@
         android:id="@+id/emulator_menu_overlay_options"
         android:icon="@drawable/emulator_menu_ic_touch"
         android:title="@string/emulator_menu_overlay_options" />
+
+    <item
+        android:id="@+id/emulator_menu_refresh_wiimotes"
+        android:icon="@drawable/emulator_menu_ic_refresh"
+        android:title="@string/emulator_menu_refresh_wiimotes" />
+
+    <item
+        android:id="@+id/emulator_menu_skylanders"
+        android:icon="@drawable/emulator_menu_ic_accessory"
+        android:title="@string/emulator_menu_skylanders" />
+
+    <item
+        android:id="@+id/emulator_menu_infinity_base"
+        android:icon="@drawable/emulator_menu_ic_accessory"
+        android:title="@string/emulator_menu_infinity_base" />
 
     <item
         android:id="@+id/emulator_menu_amiibo"
@@ -74,6 +105,11 @@
         android:id="@+id/emulator_menu_lock_drawer"
         android:icon="@drawable/emulator_menu_ic_unlocked"
         android:title="@string/emulator_menu_lock_drawer" />
+
+    <item
+        android:id="@+id/emulator_menu_change_disc"
+        android:icon="@drawable/emulator_menu_ic_disc"
+        android:title="@string/emulator_menu_change_disc" />
 
     <item
         android:id="@+id/emulator_menu_cheats"

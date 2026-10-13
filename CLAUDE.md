@@ -98,7 +98,7 @@ Pomegrade (shown to users as Punica) is six codebases in one Gradle build, roote
 | GameCube and Wii core sources (Dolphin 2606a, C++ and its Android frontend; its `Externals/` third-party libraries are git submodules, minus the Windows, desktop and test ones) | `dolphin/` — consumed by the `:dolphin` Gradle module |
 | `:dolphin` Gradle module definition (build script; manifest and sources are Dolphin's own, under `dolphin/Source/Android/app/src/main`) | `melonDS-android/dolphin/` |
 | `:mgba` Gradle module: its build, the JNI bridge (`src/main/cpp/GbaCore.cpp`) and Pomegrade's GBA emulation screen (Kotlin, package `io.github.wwandene2.pomegrade.gba`) | `melonDS-android/mgba/` |
-| Emulation screen UI shared by the cores (DS, GBA, 3DS, Switch): in-game menu, its theme, save state dialog (Kotlin, package `io.github.wwandene2.pomegrade.emulatorui`) | `melonDS-android/emulator-ui/` (`:emulator-ui`) |
+| Emulation screen UI shared by the cores (DS, GBA, 3DS, Switch, GameCube / Wii): in-game menu, its theme, save state dialog (Kotlin, package `io.github.wwandene2.pomegrade.emulatorui`) | `melonDS-android/emulator-ui/` (`:emulator-ui`) |
 | Build configuration shared by modules (`AppConfig`) | `melonDS-android/buildSrc/src/main/kotlin/` |
 | CI workflows | `.github/workflows/` |
 | Pokemon remake tooling (DS/3DS game data readers, converters, editor; desktop C++, no app code) | `tools/remake/` (`src/`), tests in `tests/remake/` |
@@ -158,7 +158,7 @@ melonDS-android-lib (DS core, C++)  →  its own externals only — never Androi
 :azahar module (3DS core + its Android frontend)  →  azahar/ sources, :emulator-ui — never the app module
 :mgba module (GBA core + Pomegrade's GBA screen)  →  mgba/ sources, :emulator-ui — never the app module
 :eden module (Switch core + its Android frontend)  →  eden/ sources, :emulator-ui — never the app module
-:dolphin module (GameCube/Wii core + its Android frontend)  →  dolphin/ sources — never the app module
+:dolphin module (GameCube/Wii core + its Android frontend)  →  dolphin/ sources, :emulator-ui — never the app module
 :masterswitch, :common, :rcheevos-api  →  as upstream melonDS-android defines them
 :app (me.magnum.melonds)  →  all of the above
 ```
