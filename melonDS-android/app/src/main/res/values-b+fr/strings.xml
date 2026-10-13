@@ -507,4 +507,30 @@
     </string-array>
     <string name="pill_auto_hide">Cacher la pastille pendant le jeu</string>
     <string name="pill_auto_hide_summary">Après quelques secondes sans toucher l\'écran ; un toucher la fait réapparaître</string>
+    <!-- Punica's home screen (ui/romlist/home) -->
+    <string name="home_subtitle">Console virtuelle</string>
+    <string name="home_quick_access">Accès rapide</string>
+    <string name="home_all_consoles">Toutes</string>
+    <string name="home_recently_played">Repris récemment</string>
+    <string name="home_library">Ma bibliothèque</string>
+    <string name="home_play">Jouer</string>
+    <string name="home_game_menu">Options du jeu</string>
+    <string name="home_more">Plus</string>
+    <string name="home_search_close">Fermer la recherche</string>
+    <string name="home_favorite_add">Ajouter aux favoris</string>
+    <string name="home_favorite_remove">Retirer des favoris</string>
+    <string name="home_game_settings">Réglages de ce jeu</string>
+    <string name="home_last_played">Dernière partie : %1$s</string>
+    <string name="home_never_played">Jamais lancé</string>
+    <string name="home_featured_detail">%1$s de jeu · %2$s</string>
+    <string name="home_sort_recent">Récents</string>
+    <string name="home_sort_favorites">Favoris</string>
+    <string name="home_sort_play_time">Temps de jeu</string>
+    <string name="home_sort_alphabetical">A à Z</string>
+    <string name="home_no_favorites">Pas encore de favoris : touche l\'étoile d\'un jeu pour l\'ajouter</string>
+    <string name="home_boot_firmware_ds">Lancer le menu de la DS</string>
+    <string name="home_boot_firmware_dsi">Lancer le menu de la DSi</string>
+    <string name="home_console_ds">Nintendo DS</string>
+    <string name="home_console_three_ds">Nintendo 3DS</string>
+    <string name="home_console_gba">Game Boy Advance</string>
 </resources>

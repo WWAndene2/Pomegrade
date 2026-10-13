@@ -951,4 +951,30 @@
     </string-array>
     <string name="pill_auto_hide">Hide the pill while playing</string>
     <string name="pill_auto_hide_summary">After a few seconds without a touch; a touch on the screen shows it again</string>
+    <!-- Punica's home screen (ui/romlist/home) -->
+    <string name="home_subtitle">Virtual console</string>
+    <string name="home_quick_access">Quick access</string>
+    <string name="home_all_consoles">All</string>
+    <string name="home_recently_played">Recently played</string>
+    <string name="home_library">My library</string>
+    <string name="home_play">Play</string>
+    <string name="home_game_menu">Game options</string>
+    <string name="home_more">More</string>
+    <string name="home_search_close">Close search</string>
+    <string name="home_favorite_add">Add to favorites</string>
+    <string name="home_favorite_remove">Remove from favorites</string>
+    <string name="home_game_settings">This game\'s settings</string>
+    <string name="home_last_played">Last played: %1$s</string>
+    <string name="home_never_played">Never played</string>
+    <string name="home_featured_detail">%1$s played · %2$s</string>
+    <string name="home_sort_recent">Recent</string>
+    <string name="home_sort_favorites">Favorites</string>
+    <string name="home_sort_play_time">Play time</string>
+    <string name="home_sort_alphabetical">A to Z</string>
+    <string name="home_no_favorites">No favorites yet: tap a game\'s star to add it</string>
+    <string name="home_boot_firmware_ds">Start the DS menu</string>
+    <string name="home_boot_firmware_dsi">Start the DSi menu</string>
+    <string name="home_console_ds">Nintendo DS</string>
+    <string name="home_console_three_ds">Nintendo 3DS</string>
+    <string name="home_console_gba">Game Boy Advance</string>
 </resources>
