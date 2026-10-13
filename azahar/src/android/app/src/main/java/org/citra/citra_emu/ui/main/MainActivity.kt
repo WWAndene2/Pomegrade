@@ -451,7 +451,8 @@ class MainActivity :
             ExistingWorkPolicy.APPEND_OR_REPLACE,
             OneTimeWorkRequest.Builder(CiaInstallWorker::class.java)
                 .setInputData(
-                    Data.Builder().putStringArray("CIA_FILES", selectedFiles)
+                    // Pomegrade: work 2.11 (the app's version) types the array as String?
+                    Data.Builder().putStringArray("CIA_FILES", arrayOf<String?>(*selectedFiles))
                         .build()
                 )
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
