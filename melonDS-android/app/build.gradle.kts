@@ -53,6 +53,15 @@ android {
         // loader (libadrenotools) loads its hook libraries from the app's native library folder,
         // and fails without them (3DS games abort with "Failed to load Vulkan driver library")
         jniLibs.useLegacyPackaging = true
+        // Azahar and Dolphin both build libadrenotools' hook libraries, from the same pinned commit
+        // (8fae8ce in azahar/externals/ and dolphin/Externals/): one copy of each is packaged, and both
+        // cores load it from the native library folder
+        jniLibs.pickFirsts += listOf(
+            "**/libhook_impl.so",
+            "**/libmain_hook.so",
+            "**/libfile_redirect_hook.so",
+            "**/libgsl_alloc_hook.so",
+        )
     }
     buildTypes {
         getByName("release") {
