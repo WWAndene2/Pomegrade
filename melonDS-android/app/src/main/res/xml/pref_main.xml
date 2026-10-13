@@ -32,6 +32,23 @@
                 android:entryValues="@array/menu_access_values"
                 android:defaultValue="pill" />
 
+        <!-- the shortcut pill at rest (ShortcutPill.KEY_OPACITY and KEY_AUTO_HIDE, read by :emulator-ui) -->
+        <ListPreference
+                android:key="punica_pill_opacity"
+                android:title="@string/pill_opacity"
+                android:summary="%s"
+                app:iconSpaceReserved="true"
+                android:entries="@array/pill_opacity_options"
+                android:entryValues="@array/pill_opacity_values"
+                android:defaultValue="faint" />
+
+        <SwitchPreference
+                android:key="punica_pill_auto_hide"
+                android:title="@string/pill_auto_hide"
+                android:summary="@string/pill_auto_hide_summary"
+                app:iconSpaceReserved="true"
+                android:defaultValue="false" />
+
         <Preference
                 android:title="@string/category_general"
                 android:summary="@string/category_general_summary"

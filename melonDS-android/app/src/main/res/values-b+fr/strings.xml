@@ -499,4 +499,12 @@
         <item>Tiroir latéral (glisser depuis le bord)</item>
         <item>Les deux</item>
     </string-array>
+    <string name="pill_opacity">Pastille au repos</string>
+    <string-array name="pill_opacity_options">
+        <item>Visible</item>
+        <item>Discrète</item>
+        <item>Cachée (toucher son coin)</item>
+    </string-array>
+    <string name="pill_auto_hide">Cacher la pastille pendant le jeu</string>
+    <string name="pill_auto_hide_summary">Après quelques secondes sans toucher l\'écran ; un toucher la fait réapparaître</string>
 </resources>

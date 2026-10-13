@@ -10,12 +10,15 @@ import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
+import android.view.KeyEvent
+import android.view.KeyboardShortcutGroup
 import android.view.Menu
 import android.view.MenuInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
+import android.view.Window
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -44,6 +47,13 @@ import kotlin.math.sin
  * ([KEY_ACCESS], Punica's settings): with the pill alone, the core locks its drawer's edge swipe
  * ([edgeSwipeAllowed]), which also leaves the screen's edge to Android's Back gesture. The drawer stays
  * reachable from Back and from the controller, as each core opens it.
+ *
+ * At rest the pill is visible, faint or hidden ([KEY_OPACITY]; hidden, a touch on its corner still opens it),
+ * and can hide itself after a few seconds without a touch on the screen ([KEY_AUTO_HIDE]); any touch shows it
+ * again. A controller opens it with Select + Start pressed together, or its Home button; then the D-pad moves
+ * between the blades (right / down to the next, left / up to the previous), A picks one and B closes (or goes
+ * back from System / Game). It sees the keys before the core does by wrapping the window's callback, so no core
+ * has to forward them; while it is open the core gets no key press from the controller, only the releases.
  */
 @SuppressLint("ViewConstructor", "ClickableViewAccessibility")
 class ShortcutPill private constructor(
@@ -57,6 +67,10 @@ class ShortcutPill private constructor(
         const val KEY_ACCESS = "punica_menu_access"
         private const val KEY_SHORTCUTS = "punica_pill_shortcuts"
         private const val KEY_CORNER = "punica_pill_corner"
+        /** "visible", "faint" (default) or "hidden": the pill at rest. */
+        const val KEY_OPACITY = "punica_pill_opacity"
+        /** True: the pill hides after a few seconds without a touch on the screen. */
+        const val KEY_AUTO_HIDE = "punica_pill_auto_hide"
         private const val MAX_SHORTCUTS = 6
         private val FIXED = listOf(R.id.emulator_menu_settings, R.id.emulator_menu_exit)
 
@@ -110,7 +124,6 @@ class ShortcutPill private constructor(
             }, LinearLayout.LayoutParams(dp(4), dp(4)).apply { marginStart = dp(3) })
         }
         addView(dots, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(4) })
-        alpha = IDLE_ALPHA
     }
     private val blades = ArrayList<View>()
     private var bladesOpen = false
@@ -122,6 +135,26 @@ class ShortcutPill private constructor(
     private var insetRight = 0
     private var insetBottom = 0
     private val pressHandler = Handler(Looper.getMainLooper())
+    private val restAlpha = when (preferences(activity).getString(KEY_OPACITY, "faint")) {
+        "visible" -> 1f
+        "hidden" -> 0f
+        else -> FAINT_ALPHA
+    }
+    private val autoHide = preferences(activity).getBoolean(KEY_AUTO_HIDE, false)
+    private var autoHidden = false
+    private val hideLater = Runnable { autoHidden = true; rest() }
+    // the controller's focused blade, -1 when none
+    private var focused = -1
+    private var selectDown = false
+    private var startDown = false
+    private val originalCallback: Window.Callback = activity.window.callback
+    private val keyCallback = object : Window.Callback by originalCallback {
+        override fun dispatchKeyEvent(event: KeyEvent): Boolean = onKey(event) || originalCallback.dispatchKeyEvent(event)
+        // Java default methods, which delegation may not forward
+        override fun onPointerCaptureChanged(hasCapture: Boolean) = originalCallback.onPointerCaptureChanged(hasCapture)
+        override fun onProvideKeyboardShortcuts(data: MutableList<KeyboardShortcutGroup>?, menu: Menu?, deviceId: Int) =
+            originalCallback.onProvideKeyboardShortcuts(data, menu, deviceId)
+    }
 
     init {
         clipChildren = false
@@ -136,6 +169,73 @@ class ShortcutPill private constructor(
             insets
         }
         setUpPillTouch()
+        activity.window.callback = keyCallback
+        pill.alpha = restAlpha
+        if (autoHide) pressHandler.postDelayed(hideLater, AUTO_HIDE_DELAY_MS)
+    }
+
+    // the pill at rest: its chosen opacity, or none once hidden for play
+    private fun rest() {
+        if (bladesOpen) return
+        pill.animate().alpha(if (autoHidden) 0f else restAlpha).setDuration(200).start()
+    }
+
+    // any touch on the screen (passed on to the game below) shows the hidden pill again
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_DOWN && autoHide) {
+            pressHandler.removeCallbacks(hideLater)
+            if (autoHidden) { autoHidden = false; rest() }
+            pressHandler.postDelayed(hideLater, AUTO_HIDE_DELAY_MS)
+        }
+        return super.dispatchTouchEvent(event)
+    }
+
+    // the controller: true when the key is the pill's, and the core must not get it
+    private fun onKey(event: KeyEvent): Boolean {
+        val code = event.keyCode
+        val down = event.action == KeyEvent.ACTION_DOWN
+        if (code == KeyEvent.KEYCODE_BUTTON_SELECT) selectDown = down
+        if (code == KeyEvent.KEYCODE_BUTTON_START) startDown = down
+        if (!bladesOpen) {
+            if (!down || event.repeatCount > 0) return false
+            val chord = (code == KeyEvent.KEYCODE_BUTTON_SELECT && startDown) || (code == KeyEvent.KEYCODE_BUTTON_START && selectDown)
+            if (!chord && code != KeyEvent.KEYCODE_BUTTON_MODE) return false
+            autoHidden = false
+            openBlades(main = true)
+            focus(0)
+            return true
+        }
+        // open: the releases still reach the core, so no game key stays held
+        if (!down) return false
+        when (code) {
+            KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_DOWN -> focus(if (focused < 0) 0 else (focused + 1) % blades.size)
+            KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_UP -> focus(if (focused <= 0) blades.size - 1 else focused - 1)
+            KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER ->
+                if (event.repeatCount == 0 && focused in blades.indices) {
+                    blades[focused].findViewWithTag<View>(TAG_CIRCLE)?.performClick()
+                    // Settings swapped the blades for System / Game: focus the first
+                    if (bladesOpen && focused < 0) focus(0)
+                }
+            KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_BUTTON_MODE ->
+                if (event.repeatCount == 0) { if (settingsShown) { openBlades(main = true); focus(0) } else close() }
+        }
+        return true
+    }
+
+    // the focused blade's circle is drawn larger, with a white ring (the circle, not the blade: the blade's
+    // own scale is still being animated as it swings out)
+    private fun focus(index: Int) {
+        blades.forEachIndexed { i, view ->
+            val on = i == index
+            val circle = view.findViewWithTag<View>(TAG_CIRCLE) ?: return@forEachIndexed
+            circle.scaleX = if (on) FOCUS_SCALE else 1f
+            circle.scaleY = if (on) FOCUS_SCALE else 1f
+            circle.foreground = if (on) GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setStroke(dp(3), 0xFFFFFFFF.toInt())
+            } else null
+        }
+        focused = index
     }
 
     private fun placePill() {
@@ -167,6 +267,7 @@ class ShortcutPill private constructor(
                 MotionEvent.ACTION_DOWN -> {
                     downX = event.rawX; downY = event.rawY
                     dragging = false; longPressed = false
+                    pill.animate().cancel()
                     pill.alpha = 1f
                     pressHandler.postDelayed(longPress, ViewConfiguration.getLongPressTimeout().toLong())
                 }
@@ -195,12 +296,12 @@ class ShortcutPill private constructor(
                         }
                         !longPressed -> if (bladesOpen) close() else openBlades(main = true)
                     }
-                    if (!bladesOpen) pill.alpha = IDLE_ALPHA
+                    rest()
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     pressHandler.removeCallbacks(longPress)
                     if (dragging) placePill()
-                    if (!bladesOpen) pill.alpha = IDLE_ALPHA
+                    rest()
                 }
             }
             true
@@ -230,6 +331,8 @@ class ShortcutPill private constructor(
         clearBlades()
         bladesOpen = true
         settingsShown = !main
+        focused = -1
+        pill.animate().cancel()
         pill.alpha = 1f
         pill.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
         scrim.visibility = VISIBLE
@@ -291,6 +394,7 @@ class ShortcutPill private constructor(
                 setPadding(dp(8), dp(8), dp(8), dp(8))
             }
             contentDescription = blade.label
+            tag = TAG_CIRCLE
             isFocusable = true
             setOnClickListener { onBlade(blade.id) }
         }
@@ -321,15 +425,19 @@ class ShortcutPill private constructor(
 
     /** Removes the pill (its screen's view is destroyed). */
     fun detach() {
+        pressHandler.removeCallbacksAndMessages(null)
+        // given back unless something wrapped it after the pill
+        if (activity.window.callback === keyCallback) activity.window.callback = originalCallback
         (parent as? ViewGroup)?.removeView(this)
     }
 
     fun close() {
         if (!bladesOpen) return
         bladesOpen = false
+        focused = -1
         clearBlades()
         scrim.animate().alpha(0f).setDuration(120).withEndAction { scrim.visibility = GONE }.start()
-        pill.alpha = IDLE_ALPHA
+        rest()
     }
 
     private fun clearBlades() {
@@ -394,7 +502,10 @@ class ShortcutPill private constructor(
 }
 
 private const val PILL_COLOR = 0xA61D1617.toInt()
-private const val IDLE_ALPHA = 0.55f
+private const val FAINT_ALPHA = 0.55f
+private const val AUTO_HIDE_DELAY_MS = 4000L
+private const val FOCUS_SCALE = 1.15f
+private const val TAG_CIRCLE = "circle"
 private const val STYLE_PLAIN = 0
 private const val STYLE_HOME = 1
 private const val STYLE_SUB = 2
