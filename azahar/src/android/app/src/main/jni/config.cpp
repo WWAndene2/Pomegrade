@@ -25,13 +25,29 @@
 #include "jni/default_ini.h"
 #include "jni/input_manager.h"
 
-Config::Config() {
+Config::Config(u64 program_id) {
     // TODO: Don't hardcode the path; let the frontend decide where to put the config files.
     android_config_loc = FileUtil::GetUserPath(FileUtil::UserPath::ConfigDir) + "config.ini";
     std::string ini_buffer;
     FileUtil::ReadFileToString(true, android_config_loc, ini_buffer);
     if (!ini_buffer.empty()) {
         android_config = std::make_unique<INIReader>(ini_buffer.c_str(), ini_buffer.size());
+    }
+    // Pomegrade: per-game settings, written by the settings screen opened for a game (only the values
+    // that differ from config.ini)
+    if (program_id != 0) {
+        const std::string game_loc = FileUtil::GetUserPath(FileUtil::UserPath::UserDir) +
+                                     fmt::format("GameSettings/{:016X}.ini", program_id);
+        std::string game_buffer;
+        FileUtil::ReadFileToString(true, game_loc, game_buffer);
+        if (!game_buffer.empty()) {
+            game_config = std::make_unique<INIReader>(game_buffer.c_str(), game_buffer.size());
+            if (game_config->ParseError() < 0) {
+                game_config.reset();
+            } else {
+                LOG_INFO(Config, "Game settings loaded from {}", game_loc);
+            }
+        }
     }
 
     Reload();
@@ -77,10 +93,19 @@ static const std::array<int, Settings::NativeAnalog::NumAnalogs> default_analogs
     InputManager::N3DS_STICK_C,
 }};
 
+const INIReader& Config::ReaderFor(const std::string& group, const std::string& key) const {
+    // a value no settings file holds: Get returns it when the game's file lacks the key
+    static const std::string missing{"\x01"};
+    if (game_config && game_config->Get(group, key, missing) != missing) {
+        return *game_config;
+    }
+    return *android_config;
+}
+
 template <>
 void Config::ReadSetting(const std::string& group, Settings::Setting<std::string>& setting) {
     std::string setting_value =
-        android_config->Get(group, setting.GetLabel(), setting.GetDefault());
+        ReaderFor(group, setting.GetLabel()).Get(group, setting.GetLabel(), setting.GetDefault());
     if (setting_value.empty()) {
         setting_value = setting.GetDefault();
     }
@@ -89,15 +114,17 @@ void Config::ReadSetting(const std::string& group, Settings::Setting<std::string
 
 template <>
 void Config::ReadSetting(const std::string& group, Settings::Setting<bool>& setting) {
-    setting = android_config->GetBoolean(group, setting.GetLabel(), setting.GetDefault());
+    setting = ReaderFor(group, setting.GetLabel())
+                  .GetBoolean(group, setting.GetLabel(), setting.GetDefault());
 }
 
 template <typename Type, bool ranged>
 void Config::ReadSetting(const std::string& group, Settings::Setting<Type, ranged>& setting) {
     if constexpr (std::is_floating_point_v<Type>) {
-        setting = android_config->GetReal(group, setting.GetLabel(), setting.GetDefault());
+        setting = ReaderFor(group, setting.GetLabel())
+                      .GetReal(group, setting.GetLabel(), setting.GetDefault());
     } else {
-        setting = static_cast<Type>(android_config->GetInteger(
+        setting = static_cast<Type>(ReaderFor(group, setting.GetLabel()).GetInteger(
             group, setting.GetLabel(), static_cast<long>(setting.GetDefault())));
     }
 }

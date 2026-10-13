@@ -227,6 +227,7 @@ class EmulationFragment :
                 EmulatorMenuR.id.emulator_menu_lock_drawer,
                 EmulatorMenuR.id.emulator_menu_multiplayer,
                 EmulatorMenuR.id.emulator_menu_screenshot,
+                EmulatorMenuR.id.emulator_menu_game_settings,
             )
         )
         binding.inGameMenu.menu.findItem(EmulatorMenuR.id.emulator_menu_secondary_layout).isVisible =
@@ -439,6 +440,19 @@ class EmulationFragment :
                         ""
                     )
 
+                    true
+                }
+
+                EmulatorMenuR.id.emulator_menu_game_settings -> {
+                    // Pomegrade: this game's own settings (GameSettings/<title ID>.ini, read by jni/config.cpp)
+                    val titleId = NativeLibrary.getRunningTitleId()
+                    if (titleId != 0L) {
+                        SettingsActivity.launch(
+                            requireContext(),
+                            SettingsFile.FILE_NAME_CONFIG,
+                            "%016X".format(titleId)
+                        )
+                    }
                     true
                 }
 

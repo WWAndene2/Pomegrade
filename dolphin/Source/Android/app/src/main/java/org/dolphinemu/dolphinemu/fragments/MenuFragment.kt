@@ -17,6 +17,8 @@ import org.dolphinemu.dolphinemu.activities.EmulationActivity
 import org.dolphinemu.dolphinemu.databinding.FragmentIngameMenuBinding
 import org.dolphinemu.dolphinemu.features.settings.model.AchievementModel
 import org.dolphinemu.dolphinemu.features.settings.model.BooleanSetting
+import org.dolphinemu.dolphinemu.features.settings.ui.MenuTag
+import org.dolphinemu.dolphinemu.features.settings.ui.SettingsActivity
 
 // Pomegrade: the in-game menu shared with the other consoles (:emulator-ui) in place of Dolphin's own buttons;
 // each entry runs the EmulationActivity menu action Dolphin's button ran
@@ -50,6 +52,8 @@ class MenuFragment : Fragment() {
             EmulatorMenuR.id.emulator_menu_settings,
             EmulatorMenuR.id.emulator_menu_exit,
         )
+        // Pomegrade: this game's own settings, as Dolphin's game list opened them (GamePropertiesDialog)
+        if (NativeLibrary.IsGameMetadataValid()) shown += EmulatorMenuR.id.emulator_menu_game_settings
         if (requireActivity().packageManager.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) {
             shown += EmulatorMenuR.id.emulator_menu_overlay_options
         }
@@ -110,6 +114,12 @@ class MenuFragment : Fragment() {
         if (itemId == EmulatorMenuR.id.emulator_menu_overlay_options) {
             // anchored to the menu's header, as Dolphin anchored it to its title (a button gives a tiny menu)
             activity.showOverlayControlsMenu(binding.inGameMenu.getHeaderView(0))
+            return
+        }
+        if (itemId == EmulatorMenuR.id.emulator_menu_game_settings) {
+            // the disc's revision isn't exposed while running: 0, which only picks which of Dolphin's
+            // default game settings are shown; the game's own file is named by its ID alone
+            SettingsActivity.launch(activity, MenuTag.SETTINGS, NativeLibrary.GetCurrentGameID(), 0, NativeLibrary.IsEmulatingWii())
             return
         }
         if (itemId == EmulatorMenuR.id.emulator_menu_pause) {

@@ -297,6 +297,10 @@ static Core::System::ResultStatus RunCitra(const std::string& filepath) {
         app_loader->ReadProgramId(program_id);
         system.RegisterAppLoaderEarly(app_loader);
     }
+    // Pomegrade: the game's own settings over config.ini (the renderer, chosen above, stays global)
+    if (program_id != 0) {
+        Config{program_id};
+    }
     system.ApplySettings();
     Settings::LogSettings();
 
@@ -1023,14 +1027,14 @@ void Java_org_citra_citra_1emu_NativeLibrary_logUserDirectory(JNIEnv* env,
 
 void Java_org_citra_citra_1emu_NativeLibrary_reloadSettings([[maybe_unused]] JNIEnv* env,
                                                             [[maybe_unused]] jobject obj) {
-    Config{};
     Core::System& system{Core::System::GetInstance()};
 
-    // Replace with game-specific settings
+    // Replace with game-specific settings (Pomegrade: applied, over config.ini)
+    u64 program_id{};
     if (system.IsPoweredOn()) {
-        u64 program_id{};
         system.GetAppLoader().ReadProgramId(program_id);
     }
+    Config{program_id};
 
     if (multiplayer) {
         multiplayer->UpdateCredentials();

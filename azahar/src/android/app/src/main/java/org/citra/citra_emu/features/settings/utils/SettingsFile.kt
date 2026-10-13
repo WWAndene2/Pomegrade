@@ -105,7 +105,66 @@ object SettingsFile {
     fun readCustomGameSettings(
         gameId: String,
         view: SettingsActivityView?
-    ): HashMap<String, SettingSection?> = readFile(getCustomGameSettingsFile(gameId), true, view)
+    ): HashMap<String, SettingSection?> =
+        // Pomegrade: a game without settings of its own has no file yet
+        getCustomGameSettingsFile(gameId)?.let { readFile(it, true, view) } ?: SettingsSectionMap()
+
+    /**
+     * Pomegrade: saves a game's settings, read by the core when that game starts (jni/config.cpp): only the
+     * values that differ from config.ini, so a later change of the global settings still applies to every
+     * setting the game doesn't set. A game whose values are all the global ones has its file deleted.
+     */
+    fun saveCustomGameSettings(
+        gameId: String,
+        sections: Map<String, SettingSection?>,
+        view: SettingsActivityView
+    ) {
+        try {
+            val context: Context = CitraApplication.appContext
+            val global = HashMap<String, String>()
+            context.contentResolver.openInputStream(getSettingsFile(FILE_NAME_CONFIG).uri)?.bufferedReader()?.useLines { lines ->
+                var section = ""
+                lines.map { it.trim() }.forEach { line ->
+                    if (line.startsWith("[") && line.endsWith("]")) {
+                        section = line.substring(1, line.length - 1)
+                    } else if ('=' in line && !line.startsWith("#") && !line.startsWith(";")) {
+                        global["$section/${line.substringBefore('=').trim()}"] = line.substringAfter('=').trim()
+                    }
+                }
+            }
+            val overrides = Wini()
+            var count = 0
+            for ((name, section) in sections) {
+                section ?: continue
+                for (setting in section.settings.values) {
+                    val value = setting.valueAsString
+                    val globalValue = global["$name/${setting.key}"]
+                    // the same number written another way ("1" and "1.0") is the same value
+                    val same = globalValue == value ||
+                        (value.toDoubleOrNull() != null && value.toDoubleOrNull() == globalValue?.toDoubleOrNull())
+                    if (!same) {
+                        overrides.put(mapSectionNameToIni(name), setting.key, value)
+                        count++
+                    }
+                }
+            }
+            val root = DocumentFile.fromTreeUri(context, Uri.parse(userDirectory))!!
+            val directory = root.findFile("GameSettings") ?: root.createDirectory("GameSettings")!!
+            val existing = directory.findFile("$gameId.ini")
+            if (count == 0) {
+                existing?.delete()
+                return
+            }
+            val file = existing ?: directory.createFile("application/octet-stream", "$gameId.ini")!!
+            context.contentResolver.openOutputStream(file.uri, "wt")!!.use { overrides.store(it) }
+        } catch (e: Exception) {
+            Log.error("[SettingsFile] Game settings not saved: $gameId.ini: ${e.message}")
+            view.showToastMessage(
+                CitraApplication.appContext.getString(R.string.error_saving, gameId, e.message),
+                false
+            )
+        }
+    }
 
     /**
      * Saves a Settings HashMap to a given .ini file on disk. If unsuccessful, outputs an error
@@ -182,10 +241,10 @@ object SettingsFile {
         return configDirectory!!.findFile("$fileName.ini")!!
     }
 
-    private fun getCustomGameSettingsFile(gameId: String): DocumentFile {
+    private fun getCustomGameSettingsFile(gameId: String): DocumentFile? {
         val root = DocumentFile.fromTreeUri(CitraApplication.appContext, Uri.parse(userDirectory))
-        val configDirectory = root!!.findFile("GameSettings")
-        return configDirectory!!.findFile("$gameId.ini")!!
+        val configDirectory = root?.findFile("GameSettings")
+        return configDirectory?.findFile("$gameId.ini")
     }
 
     private fun sectionFromLine(line: String, isCustomGame: Boolean): SettingSection {

@@ -88,7 +88,12 @@ class Settings {
                 SettingsFile.saveFile(fileName, iniSections, view)
             }
         } else {
-            // TODO: Implement per game settings
+            // Pomegrade: the game's own file, with what differs from the global settings
+            view.showToastMessage(
+                CitraApplication.appContext.getString(R.string.ini_saved),
+                false
+            )
+            SettingsFile.saveCustomGameSettings(gameId!!, sections, view)
         }
     }
 
