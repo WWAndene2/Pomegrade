@@ -657,11 +657,11 @@
     <string name="action_three_ds_games">3DS games</string>
     <string name="three_ds_unsupported">3DS games need a 64-bit device</string>
     <string name="switch_unsupported">Switch games need a 64-bit ARM device</string>
-    <string name="switch_folder_failed">The Switch data could not be set up in the Pomegrade folder: %1$s</string>
+    <string name="switch_folder_failed">The Switch data could not be set up in the Punica folder: %1$s</string>
     <string name="switch_system_files_failed">The keys or firmware in BIOS/Switch could not be installed: %1$s</string>
     <string name="settings_section_switch">Switch</string>
     <string name="switch_home">Switch home</string>
-    <string name="switch_home_summary">The Switch core\'s own game list, updates and DLC, keys and firmware (taken from Pomegrade/BIOS/Switch)</string>
+    <string name="switch_home_summary">The Switch core\'s own game list, updates and DLC, keys and firmware (taken from Punica/BIOS/Switch)</string>
     <string name="switch_import_data">Import Switch data</string>
     <string name="switch_import_data_summary">Adds the Switch data left in the app\'s own folder, or a backup exported by Eden (zip), to the Switch folder</string>
     <string name="switch_import_old_data">From the app\'s old Switch folder (files already there are kept)</string>
@@ -669,27 +669,27 @@
     <string name="switch_import_running">Importing the Switch data…</string>
     <string name="switch_import_done">Switch data imported: %1$d files</string>
     <string name="switch_import_done_backup">Switch data imported: %1$d files. The Switch folder as it was is saved in %2$s</string>
-    <string name="switch_import_no_folder">The Pomegrade folder must be set up, with file access, first</string>
+    <string name="switch_import_no_folder">The Punica folder must be set up, with file access, first</string>
     <string name="switch_import_nothing">No Switch data is left in the app\'s own folder</string>
     <string name="switch_import_not_backup">This file isn\'t a backup exported by Eden (it has no config/config.ini)</string>
     <string name="switch_import_failed">The Switch data could not be imported: %1$s</string>
-    <string name="gba_not_a_file">This GBA game must be in the phone\'s storage (the Pomegrade folder)</string>
-    <string name="pomegrade_folder_title">Pomegrade folder</string>
-    <string name="pomegrade_folder_message">Punica keeps your games and their files in one folder, Pomegrade, in your internal storage:\n\n• Roms: each game in its own folder, with its saves and save states\n• BIOS: each console\'s system files (DS, DSi, GBA, Switch)\n• 3DS and Switch: their saves and system files\n• Textures: HD texture packs\n\nThe games Punica finds are moved there. It stays on your phone if you uninstall the app.\n\nAndroid asks you to allow \"All files access\" first: Punica needs it to move games and to run 3DS games. Then tap \"Use this folder\" to confirm the Pomegrade folder.</string>
+    <string name="gba_not_a_file">This GBA game must be in the phone\'s storage (the Punica folder)</string>
+    <string name="pomegrade_folder_title">Punica folder</string>
+    <string name="pomegrade_folder_message">Punica keeps your games and their files in one folder, Punica, in your internal storage:\n\n• Roms: each game in its own folder, with its saves and save states\n• BIOS: each console\'s system files (DS, DSi, GBA, Switch)\n• 3DS and Switch: their saves and system files\n• Textures: HD texture packs\n\nThe games Punica finds are moved there. It stays on your phone if you uninstall the app.\n\nAndroid asks you to allow \"All files access\" first: Punica needs it to move games and to run 3DS games. Then tap \"Use this folder\" to confirm the Punica folder.</string>
     <string name="pomegrade_folder_choose">Choose folder</string>
     <string name="pomegrade_folder_later">Later</string>
     <string name="pomegrade_folder_file_access_hint">Turn on \"All files access\" for Punica, then come back</string>
     <string name="pomegrade_folder_file_access_denied">Without file access, Punica can\'t organize your games or run 3DS games</string>
-    <string name="pomegrade_folder_setting_up">Setting up the Pomegrade folder…</string>
+    <string name="pomegrade_folder_setting_up">Setting up the Punica folder…</string>
     <string name="pomegrade_folder_moving">Moving %1$s…</string>
     <string name="pomegrade_folder_invalid">This folder can\'t be used. Choose or create one in your phone\'s internal storage or SD card, not in a cloud service or another app.</string>
-    <string name="pomegrade_folder_failed">The Pomegrade folder couldn\'t be set up</string>
+    <string name="pomegrade_folder_failed">The Punica folder couldn\'t be set up</string>
     <string name="pomegrade_folder_not_moved_title">Some games stayed where they were</string>
-    <string name="pomegrade_folder_not_moved">These games couldn\'t be moved into the Pomegrade folder (a file with the same name may already be there, or the storage is full). They still work from where they are.\n\n%1$s</string>
+    <string name="pomegrade_folder_not_moved">These games couldn\'t be moved into the Punica folder (a file with the same name may already be there, or the storage is full). They still work from where they are.\n\n%1$s</string>
     <string name="pomegrade_folder_organizing">Organizing games, wait a moment</string>
     <plurals name="pomegrade_folder_moved">
-        <item quantity="one">%d game moved into the Pomegrade folder</item>
-        <item quantity="other">%d games moved into the Pomegrade folder</item>
+        <item quantity="one">%d game moved into the Punica folder</item>
+        <item quantity="other">%d games moved into the Punica folder</item>
     </plurals>
     <string name="settings_section_pomegrade">Punica</string>
     <string name="settings_section_ds">DS</string>
@@ -712,7 +712,7 @@
     <string name="gc_wii_settings_wii_remotes_summary">Emulated or real Wii Remotes, their mapping</string>
     <string name="gc_wii_settings_advanced_summary">CPU emulation, clock override</string>
     <string name="gba_console_bios">Use your console\'s BIOS</string>
-    <string name="gba_console_bios_summary">gba_bios.bin from Pomegrade/BIOS/GBA when it is there; mGBA\'s own BIOS otherwise</string>
+    <string name="gba_console_bios_summary">gba_bios.bin from Punica/BIOS/GBA when it is there; mGBA\'s own BIOS otherwise</string>
     <string name="gba_screen_smoothing">Smooth the screen</string>
     <string name="gba_screen_smoothing_summary">Blends the pixels when the picture is enlarged; off keeps them sharp</string>
     <string name="switch_settings_system_summary">Language, region, console mode (docked or handheld)</string>
@@ -724,15 +724,15 @@
     <string name="pomegrade_folder_not_set">Not set up yet: tap to set it up</string>
     <string name="pomegrade_folder_location">%1$s\n\nIt holds your games (Roms), their saves and save states, each console\'s BIOS, 3DS and Switch data, texture packs and a copy of your settings. It stays on your phone if you uninstall Punica.</string>
     <string name="pomegrade_settings_save">Save settings now</string>
-    <string name="pomegrade_settings_save_summary">Into Pomegrade/Settings (also done automatically): settings, controls, layouts, and each game\'s settings and play time</string>
+    <string name="pomegrade_settings_save_summary">Into Punica/Settings (also done automatically): settings, controls, layouts, and each game\'s settings and play time</string>
     <string name="pomegrade_settings_restore">Restore saved settings</string>
-    <string name="pomegrade_settings_restore_summary">From Pomegrade/Settings, for example after reinstalling Punica</string>
-    <string name="pomegrade_settings_saved">Settings saved in the Pomegrade folder</string>
+    <string name="pomegrade_settings_restore_summary">From Punica/Settings, for example after reinstalling Punica</string>
+    <string name="pomegrade_settings_saved">Settings saved in the Punica folder</string>
     <string name="pomegrade_settings_restored">Settings restored</string>
-    <string name="pomegrade_settings_none">No saved settings in the Pomegrade folder</string>
+    <string name="pomegrade_settings_none">No saved settings in the Punica folder</string>
     <string name="pomegrade_settings_failed">The settings couldn\'t be saved or read</string>
     <string name="pomegrade_settings_found_title">Saved settings found</string>
-    <string name="pomegrade_settings_found">The Pomegrade folder has settings saved by a previous installation (settings, controls, layouts, each game\'s settings and play time). Restore them?</string>
+    <string name="pomegrade_settings_found">The Punica folder has settings saved by a previous installation (settings, controls, layouts, each game\'s settings and play time). Restore them?</string>
     <string name="pomegrade_settings_restore_action">Restore</string>
     <string name="pomegrade_settings_keep_new">Start fresh</string>
     <string name="three_ds_settings_core_summary">CPU, speed, region and language</string>
@@ -747,12 +747,12 @@
     <string name="three_ds_settings_debug">Debug</string>
     <string name="three_ds_settings_debug_summary">Logs and options for troubleshooting</string>
     <string name="three_ds_code_trace">Record a code trace (debug)</string>
-    <string name="three_ds_code_trace_summary">While a 3DS game runs, records what its code does (kernel calls, system requests, files opened, modules loaded, every thread several times a second). Written to Pomegrade/3DS/Traces when you quit the game, and every 30 seconds. Slows the game a little</string>
+    <string name="three_ds_code_trace_summary">While a 3DS game runs, records what its code does (kernel calls, system requests, files opened, modules loaded, every thread several times a second). Written to Punica/3DS/Traces when you quit the game, and every 30 seconds. Slows the game a little</string>
     <string name="ds_debug_trace">Record a debug trace (debug)</string>
-    <string name="ds_debug_trace_summary">While a DS game starts and runs, records what the emulator does: the emulator\'s messages (OpenGL errors, each shader compiled and how long it took), each stage of the start (ROM, OpenGL, renderer, first frames) and, every second, where it is. Written to Pomegrade/DS/Traces as it happens: if a game freezes, close the app and the file shows where it stopped</string>
-    <string name="ds_debug_trace_no_folder">The Pomegrade folder could not be found, or Punica can\'t write to it: set it up first</string>
+    <string name="ds_debug_trace_summary">While a DS game starts and runs, records what the emulator does: the emulator\'s messages (OpenGL errors, each shader compiled and how long it took), each stage of the start (ROM, OpenGL, renderer, first frames) and, every second, where it is. Written to Punica/DS/Traces as it happens: if a game freezes, close the app and the file shows where it stopped</string>
+    <string name="ds_debug_trace_no_folder">The Punica folder could not be found, or Punica can\'t write to it: set it up first</string>
     <string name="ds_debug_trace_on">Debug trace on: each game you start writes a trace to %1$s</string>
-    <string name="three_ds_code_trace_no_folder">The 3DS folder could not be found: set up the Pomegrade folder first</string>
+    <string name="three_ds_code_trace_no_folder">The 3DS folder could not be found: set up the Punica folder first</string>
     <string name="three_ds_code_trace_on">Code trace on: quit the game to write it to %1$s</string>
     <string name="three_ds_mod_install">Install a mod</string>
     <string name="three_ds_mod_install_summary">From a zip holding load/mods and, optionally, the save that goes with it (sdmc)</string>
@@ -860,9 +860,9 @@
         <item>8</item>
     </string-array>
     <string name="hd_textures">HD textures</string>
-    <string name="hd_textures_summary">Replace 3D textures with HD versions from Pomegrade/Textures/&lt;game code&gt;/</string>
+    <string name="hd_textures_summary">Replace 3D textures with HD versions from Punica/Textures/&lt;game code&gt;/</string>
     <string name="dump_textures">Dump textures</string>
-    <string name="dump_textures_summary">Save every 3D texture the game uses to Pomegrade/Textures/&lt;game code&gt;/dump/ (slower, for creating texture packs)</string>
+    <string name="dump_textures_summary">Save every 3D texture the game uses to Punica/Textures/&lt;game code&gt;/dump/ (slower, for creating texture packs)</string>
 
     <!-- Pomegrade: about screen -->
     <string name="pomegrade_about">About</string>
@@ -892,4 +892,16 @@
     <string name="inspector_save_needs_recording">Pick a mode other than Off, play a moment, then save the report</string>
     <string name="inspector_saved">Report saved: %1$s</string>
     <string name="inspector_save_failed">The report could not be saved</string>
+    <string name="punica_folder_rename_title">Your folder becomes Punica</string>
+    <string name="punica_folder_rename_message">Your games and their files are in a folder named Pomegrade, the app\'s former name. It is renamed Punica: everything in it stays, nothing is deleted.\n\nAndroid then asks you to confirm the renamed folder once.</string>
+    <string name="punica_folder_rename_ok">Rename</string>
+    <string name="punica_folder_rename_later">Later</string>
+    <string name="punica_folder_rename_confirm">The folder is now named Punica. Android needs you to confirm it: on the next screen, tap \"Use this folder\", then \"Allow\".</string>
+    <string name="punica_folder_rename_confirm_ok">Confirm the folder</string>
+    <string name="punica_folder_rename_exists">A folder named Punica is already next to Pomegrade, with files in it: rename or move it, then try again from the game list. Nothing was changed.</string>
+    <string name="punica_folder_rename_failed">The folder couldn\'t be renamed. Nothing was changed.</string>
+    <string name="punica_folder_rename_wrong">That is another folder: pick the Punica folder</string>
+    <string name="punica_folder_rename_reverted">The folder keeps its name Pomegrade for now</string>
+    <string name="punica_folder_rename_done">The folder is now Punica. Punica restarts.</string>
+    <string name="punica_folder_rename_pending">Finish renaming the folder to Punica from the game list first</string>
 </resources>

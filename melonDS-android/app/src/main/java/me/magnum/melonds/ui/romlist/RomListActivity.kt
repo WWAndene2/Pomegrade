@@ -42,6 +42,7 @@ import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.domain.model.rom.RomPlatform
 import me.magnum.melonds.ui.about.AboutActivity
 import me.magnum.melonds.ui.common.PomegradeFolderSetupDelegate
+import me.magnum.melonds.ui.common.PunicaFolderRenameDelegate
 import me.magnum.melonds.ui.common.rom.EmulatorLaunchValidatorDelegate
 import me.magnum.melonds.ui.common.rom.N3dsLauncher
 import me.magnum.melonds.ui.common.rom.GcWiiLauncher
@@ -133,9 +134,14 @@ class RomListActivity : AppCompatActivity() {
 
         // the Pomegrade folder: asked for once per app start until it is set up
         pomegradeFolderSetup = PomegradeFolderSetupDelegate(this)
+        val folderRename = PunicaFolderRenameDelegate(this)
         // a shortcut's launch asks for it itself when the game needs it
         val fromShortcut = savedInstanceState == null && intent.action == ACTION_LAUNCH_ROM
-        if (savedInstanceState == null && !fromShortcut && !pomegradeFolderPrompted && !pomegradeFolderSetup.isSetUp()) {
+        if (savedInstanceState == null && !fromShortcut && !pomegradeFolderPrompted && folderRename.isNeeded()) {
+            // the folder named Pomegrade becomes Punica first; while it is renamed, it is not set up (no setup asked)
+            pomegradeFolderPrompted = true
+            folderRename.start()
+        } else if (savedInstanceState == null && !fromShortcut && !pomegradeFolderPrompted && !pomegradeFolderSetup.isSetUp()) {
             pomegradeFolderPrompted = true
             pomegradeFolderSetup.start { }
         }

@@ -79,7 +79,8 @@ class PomegradeFolder(
         // the controller and layout configurations, read back after a reinstall
         const val SETTINGS = "Settings"
         /** Where Pomegrade creates its folder: /storage/emulated/0/Pomegrade. */
-        const val DEFAULT_NAME = "Pomegrade"
+        // the app's visible name; folders made before 13 October were named Pomegrade (see PunicaFolderRename)
+        const val DEFAULT_NAME = "Punica"
         const val PREFERENCE = "pomegrade_folder"
         private const val STORAGE_PROVIDER = "com.android.externalstorage.documents"
         // DS save states: <ROM name>.ml0 (quick save) to .ml10
@@ -115,7 +116,7 @@ class PomegradeFolder(
             return pathOf("$id/$name")
         }
 
-        /** The default Pomegrade folder (/storage/emulated/0/Pomegrade), created if needed, as the folder picker's starting point. */
+        /** The default folder (/storage/emulated/0/Punica), created if needed, as the folder picker's starting point. */
         fun createDefaultFolder(): Uri? {
             val dir = File(Environment.getExternalStorageDirectory(), DEFAULT_NAME)
             if (!dir.isDirectory && !dir.mkdirs()) return null
