@@ -18,6 +18,13 @@ simulation errors; lowering graphics settings stays the user's choice, never the
 
 All paths below are relative to `eden/src/`.
 
+### Direction (owner, 13 October)
+
+The goal is to **raise the ceiling**, not to lower quality or flip settings. Work goes deep into the emulator's
+code paths, and into binaries (the game's and the Switch firmware's) when that is what it takes. Setting changes
+(async presentation, frame pacing, build flags) are kept only as measurement aids or side items; the catalogue's
+weight is on sections 5.2 and 5.4.
+
 ---
 
 ## 1. How Eden runs a Switch game, and where time can go
@@ -197,6 +204,28 @@ Gains are estimates; difficulty and risk are judgements from the code.
 | O10 | Fewer memory-tracking faults: track writes at a coarser granularity for regions the guest rewrites every frame (vertex streams, uniform buffers), or upload them without protection | `core/memory.cpp`, `buffer_cache/buffer_cache.h` | Depends on H5's count | High | High: missed writes show as stale geometry |
 | O11 | Async presentation on by default if the measurements show the present copy on the critical path | `settings.h` (`async_presentation`) | Small to medium | Low | Low to medium (one frame more latency) |
 
+### 5.4 Raising the ceiling: deep projects
+
+Each removes work the emulator does today rather than doing it faster. Ordered by expected ceiling gain against
+cost; all are hypotheses until the measurements of section 4 say which stage dominates.
+
+| # | Project | What it removes | Where it starts | Mark | Cost |
+|---|---|---|---|---|---|
+| D1 | **Ahead-of-time shader translation from the game's binaries.** NVN shaders are Maxwell machine code stored in the game's files; scan them, translate each to SPIR-V offline with Eden's own recompiler, and ship the result as a pre-filled cache, so no shader is first seen in play | Translation stalls (H4) at the first meeting of each shader | `video_core/shader_environment.h` (`FileEnvironment` already replays a shader from a file with its texture and constant buffer reads), `shader_recompiler/` | inferred: the per-shader environment (texture types, constant buffer values read at translation) is only partly known offline, so some shaders still need the runtime pass | High |
+| D2 | **Pipeline pre-building from recorded state.** Record the pipeline keys a full play-through meets (the disk cache already stores them), and build them all at load on the compile threads | Driver compile stalls (H4), including the ones extended dynamic state cannot remove | `vk_pipeline_cache.cpp` (`LoadDiskResources`) | seen: the cache is replayed at load; inferred: a shared, complete key set covers more than one player's cache | Medium |
+| D3 | **Async GPU made correct** (O7): the guest cores stop doing GPU translation | Serialisation of CPU and GPU work (H2) | `video_core/gpu_thread.cpp`, `gpu.cpp`, the syncs in `vk_rasterizer.cpp` | seen: off on Android | High |
+| D4 | **Fewer NCE exits**: SVCs whose result does not need the kernel (e.g. `GetSystemTick`, some `GetInfo`) answered in the trampoline; memory-tracking faults replaced by coarser tracking for streamed buffers (O10) | Signal and context round trips (H5) | `core/arm/nce/patcher.cpp` (`WriteSvcTrampoline`), `core/memory.cpp` | seen: every SVC goes through the trampoline to the kernel | High |
+| D5 | **GPU unswizzle and decode on the GPU by default**, with its correctness checked: the code exists (`gpu_unswizzle_enabled`, `BlockLinearUnswizzle3DPass`) but is off | CPU time spent unswizzling textures | `renderer_vulkan/vk_texture_cache.cpp` | seen: off by default | Medium |
+| D6 | **Command processor fast paths**: profile the Maxwell 3D method decoding (`video_core/engines/maxwell_3d.cpp`, `dma_pusher.cpp`) on the guest's real command streams; batch the methods games send in bulk | Per-method interpretation cost | `video_core/engines/`, `video_core/dma_pusher.cpp` | unknown: needs simpleperf (section 4) | Medium to high |
+| D7 | **High-level emulation of NVN** (research): each game links Nintendo's NVN driver into its own binary; recognising its functions and translating NVN calls straight to Vulkan would skip building and decoding Maxwell command streams | The guest's driver code and the whole command processor | Signature scanning of the game's main NSO | inferred: NVN versions differ between games and the binary has no symbols; very large project, high correctness risk | Very high |
+
+**The firmware's place.** The firmware (installed by `SwitchSystemFiles.kt` from `Pomegrade/BIOS/Switch/Firmware`)
+holds the system modules (sysmodules) that Eden replaces with its own C++ (HLE) and the system archives it reads
+(fonts, applets). Running those modules from the firmware (LLE) would be slower, not faster. Its use here is as a
+**reference**: checking that a faster HLE path (D4) returns what the real module returns, and reading the system
+NVN and nvservices binaries to understand the GPU syscalls D3 and D7 depend on. The owner's firmware and keys are
+never committed or uploaded (same rule as the game dumps, CLAUDE.md §8).
+
 ### 5.3 Not proposed
 
 - **Asynchronous shaders**: they hide stutters by drawing frames with missing effects.
@@ -247,4 +276,5 @@ Gains are estimates; difficulty and risk are judgements from the code.
 2. Baseline (section 4) on the 13T with the overlay.
 3. A/B of async GPU on and off with the current build (a setting, no code change): measures H2 before any code.
 4. O1 and its A/B; results written here, marked as measured.
-5. Then by measured impact: O4, O2, O3, O8, O9; O7 only once H2 is confirmed.
+5. Then by measured impact, deep projects first: D2 and D1 if compiles dominate, D3 if H2 is confirmed, D4 if
+   exits dominate, D6 if the command processor does; O2, O3, O4, O8, O9 alongside.
