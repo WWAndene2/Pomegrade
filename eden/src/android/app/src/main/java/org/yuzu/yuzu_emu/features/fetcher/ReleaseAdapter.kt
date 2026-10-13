@@ -171,7 +171,7 @@ class ReleaseAdapter(
                     iconTint = ColorStateList.valueOf(
                         MaterialColors.getColor(
                             this,
-                            com.google.android.material.R.attr.colorPrimary
+                            androidx.appcompat.R.attr.colorPrimary
                         )
                     )
 

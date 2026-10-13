@@ -99,7 +99,9 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.2.1")
     implementation("androidx.fragment:fragment-ktx:1.8.6")
     implementation("androidx.documentfile:documentfile:1.0.1")
-    implementation("com.google.android.material:material:1.12.0")
+    // the version the app ships (gradle/libs.versions.toml): compiled against 1.12.0, Eden crashed with
+    // material 1.13.0 at run time (NoSuchFieldError R$attr.colorPrimary)
+    implementation(libs.android.material)
     implementation("androidx.preference:preference-ktx:1.2.1")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

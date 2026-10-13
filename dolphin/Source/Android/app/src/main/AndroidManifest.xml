@@ -129,7 +129,7 @@
 
         <provider
             android:name=".features.DocumentProvider"
-            android:authorities="${applicationId}.user"
+            android:authorities="${applicationId}.dolphin_user"
             android:grantUriPermissions="true"
             android:exported="true"
             android:permission="android.permission.MANAGE_DOCUMENTS"
