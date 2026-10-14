@@ -274,6 +274,14 @@ now splits the waits by the waiting thread (GPU, present, worker, guest CPU, oth
 the presenter waiting for a frame is expected; the GPU thread points to staging or resource pools running dry; a
 guest CPU thread to the game reading GPU results back.
 
+Fifth log (`main-32560c62`, waits by thread, 14 October, 919 samples, still at 0.5x): every counted wait is put on
+"GPU", 26-43 a second, 0.65-1.4 s a second at the start of play. Corrected, not a finding: those waits come from
+InnerFence::Wait, which the fencing thread ("GPUFencingThread", 15 characters "GPUFencingThrea") calls by design
+to release fences in the background; the classifier took every name starting with "GPU" for the GPU thread. The
+fencing thread waiting is expected. What would stall the GPU thread is ReleaseFences (a guest semaphore or syncpoint
+wait), where it blocks on a condition variable until the fencing thread has released every pending fence; that was
+not counted. The diagnostic now puts the fencing thread apart and times the GPU thread in ReleaseFences.
+
 16 FPS standing still in the first town is the floor to raise: the game targets 30. The disk cache works, so H4
 explains first-run stutters, not this floor.
 

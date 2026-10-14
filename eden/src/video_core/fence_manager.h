@@ -6,7 +6,10 @@
 
 #pragma once
 
+#include "common/pomegrade_diagnostics.h" // Pomegrade: TEMPORARY
+
 #include <algorithm>
+#include <chrono>
 #include <condition_variable>
 #include <cstring>
 #include <deque>
@@ -123,9 +126,16 @@ public:
                 wait_cv.notify_all();
             });
             SignalFence(std::move(func));
+            const auto pomegrade_start = std::chrono::steady_clock::now(); // Pomegrade: TEMPORARY
             std::unique_lock lk(wait_mutex);
             wait_cv.wait(
                 lk, [&wait_finished] { return wait_finished.load(std::memory_order_relaxed); });
+            // Pomegrade: TEMPORARY, the GPU thread's block counted (common/pomegrade_diagnostics.h)
+            PomegradeDiagnostics::release_waits.fetch_add(1, std::memory_order_relaxed);
+            PomegradeDiagnostics::release_wait_ns.fetch_add(
+                static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    std::chrono::steady_clock::now() - pomegrade_start).count()),
+                std::memory_order_relaxed);
         }
     }
 

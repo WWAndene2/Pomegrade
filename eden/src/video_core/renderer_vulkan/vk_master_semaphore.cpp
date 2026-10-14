@@ -90,7 +90,9 @@ static void CountPomegradeWait(std::chrono::steady_clock::time_point start) {
         char name[32] = {};
         pthread_getname_np(pthread_self(), name, sizeof(name));
         const std::string_view n{name};
-        if (n.starts_with("GPU")) return int{PomegradeDiagnostics::WaitGpu};
+        // "GPU" is the GPU thread; "GPUFencingThread" (cut to 15 characters by the kernel) waits on fences by design
+        if (n.starts_with("GPUFencing")) return int{PomegradeDiagnostics::WaitFencing};
+        if (n == "GPU") return int{PomegradeDiagnostics::WaitGpu};
         if (n.starts_with("VulkanPresent")) return int{PomegradeDiagnostics::WaitPresent};
         if (n.starts_with("VulkanWorker")) return int{PomegradeDiagnostics::WaitWorker};
         if (n.starts_with("CPUCore")) return int{PomegradeDiagnostics::WaitGuest};

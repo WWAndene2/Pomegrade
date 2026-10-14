@@ -21,8 +21,12 @@ inline std::atomic<std::uint64_t> gpu_wait_ns{0};
 inline std::atomic<std::uint64_t> nce_access_faults{0};
 
 // the same waits split by the waiting thread (its name): which part of the emulator stops for the GPU
-enum WaitThread : int { WaitGpu, WaitPresent, WaitWorker, WaitGuest, WaitOther, WaitThreadCount };
-inline constexpr const char* wait_thread_names[WaitThreadCount] = {"GPU", "present", "worker", "guest CPU", "other"};
+enum WaitThread : int { WaitGpu, WaitFencing, WaitPresent, WaitWorker, WaitGuest, WaitOther, WaitThreadCount };
+inline constexpr const char* wait_thread_names[WaitThreadCount] = {"GPU", "fencing", "present", "worker", "guest CPU", "other"};
+// the GPU thread blocked in ReleaseFences (a guest semaphore or syncpoint wait): until the fencing thread has
+// released every pending fence, i.e. until the GPU has run everything submitted
+inline std::atomic<std::uint64_t> release_waits{0};
+inline std::atomic<std::uint64_t> release_wait_ns{0};
 inline std::atomic<std::uint64_t> waits_by_thread[WaitThreadCount]{};
 inline std::atomic<std::uint64_t> wait_ns_by_thread[WaitThreadCount]{};
 
