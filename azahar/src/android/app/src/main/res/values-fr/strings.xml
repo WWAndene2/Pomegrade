@@ -1106,8 +1106,8 @@
     <string name="pomegrade_remaster_rt_indirect_description">Force de la lumière du ciel et de celle renvoyée entre les surfaces</string>
     <string name="pomegrade_remaster_rt_shadow">Ray tracing : ombres du soleil</string>
     <string name="pomegrade_remaster_rt_shadow_description">Intensité des ombres du soleil</string>
-    <string name="pomegrade_remaster_rt_softness">Ray tracing : douceur des ombres</string>
-    <string name="pomegrade_remaster_rt_softness_description">Rayon du filtre des bords d\'ombre, en texels de la carte d\'ombre (plus : plus doux, plus lourd)</string>
+    <string name="pomegrade_remaster_rt_softness">Ray tracing : taille du soleil</string>
+    <string name="pomegrade_remaster_rt_softness_description">0 : ombres dures. Sinon nettes à leur pied et plus douces en s\'en éloignant, d\'autant plus que le soleil est grand (2 : comme l\'Ultra)</string>
     <string name="pomegrade_remaster_rt_denoise">Ray tracing : passes de lissage</string>
     <string name="pomegrade_remaster_rt_denoise_description">Passes de lissage de la lumière tracée, qui respectent les bords (plus : moins de grain, plus lourd)</string>
     <string name="pomegrade_remaster_rt_history">Ray tracing : cumul des images</string>

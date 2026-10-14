@@ -598,7 +598,7 @@ struct Values {
     SwitchableSetting<u32, true> remaster_rt_thickness{5, 1, 20, Keys::remaster_rt_thickness};
     SwitchableSetting<u32, true> remaster_rt_indirect{100, 0, 200, Keys::remaster_rt_indirect};
     SwitchableSetting<u32, true> remaster_rt_shadow{100, 0, 100, Keys::remaster_rt_shadow};
-    SwitchableSetting<u32, true> remaster_rt_softness{1, 0, 3, Keys::remaster_rt_softness};
+    SwitchableSetting<u32, true> remaster_rt_softness{2, 0, 3, Keys::remaster_rt_softness};
     SwitchableSetting<u32, true> remaster_rt_denoise{3, 0, 4, Keys::remaster_rt_denoise};
     SwitchableSetting<u32, true> remaster_rt_history{90, 0, 95, Keys::remaster_rt_history};
     SwitchableSetting<u32, true> remaster_rt_shadow_size{2048, 512, 4096, Keys::remaster_rt_shadow_size};

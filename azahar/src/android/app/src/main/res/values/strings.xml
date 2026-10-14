@@ -1175,8 +1175,8 @@
     <string name="pomegrade_remaster_rt_indirect_description">Strength of the sky\'s light and of the light bounced between surfaces</string>
     <string name="pomegrade_remaster_rt_shadow">Ray tracing: sun shadows</string>
     <string name="pomegrade_remaster_rt_shadow_description">How dark the sun\'s shadows are</string>
-    <string name="pomegrade_remaster_rt_softness">Ray tracing: shadow softness</string>
-    <string name="pomegrade_remaster_rt_softness_description">Radius of the shadows\' edge filter, in shadow map texels (more: softer, heavier)</string>
+    <string name="pomegrade_remaster_rt_softness">Ray tracing: sun size</string>
+    <string name="pomegrade_remaster_rt_softness_description">0: hard shadows. Else sharp at their foot and softer away from it, more so with a larger sun (2: as Ultra)</string>
     <string name="pomegrade_remaster_rt_denoise">Ray tracing: denoising passes</string>
     <string name="pomegrade_remaster_rt_denoise_description">Edge-aware smoothing passes of the traced light (more: less grain, heavier)</string>
     <string name="pomegrade_remaster_rt_history">Ray tracing: frame accumulation</string>

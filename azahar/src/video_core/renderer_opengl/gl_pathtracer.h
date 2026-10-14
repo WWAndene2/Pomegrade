@@ -45,7 +45,8 @@ class OpenGLState;
 // off screen or hidden); the sky and the bounce from one ray each per pixel marched through the G-buffer itself
 // (screen space: what the camera does not see neither occludes nor bounces), at half size, a ray that leaves below the
 // horizon counted as ground, not sky; three a-trous passes, then the temporal accumulation (90 % kept) at full size,
-// upsampled where the distance matches; the sun's light added after it, from the shadow map at full size (3x3 filter).
+// upsampled where the distance matches; the sun's light added after it, from the shadow map at full size, its
+// penumbra widening with the distance to what casts (the sun a disc 3 degrees wide, as Ultra's).
 // The sun and the moon follow the game's clock (the emulated 3DS's) by the owner's table: every 3 hours an azimuth,
 // a height, a light colour and power and the sky's colours, interpolated. Up is the normal of the frame's largest flat
 // area (the ground), north the camera's forward direction along it. The game's own time-of-day colours stay in the frame underneath.
@@ -144,7 +145,7 @@ private:
     std::array<OGLTexture, 2> fast_result;   ///< the history plus the sun's light, handed to Remaster
     std::array<OGLFramebuffer, 2> fast_fbo;  ///< history and fast_result together
     float view_to_sun[16] = {}; ///< view space to the shadow map's clip space (column-major)
-    float shadow_bias = 0, depth_scale = 0;
+    float shadow_bias = 0, depth_scale = 0, shadow_texel = 0;
 
     // the scene's frame of reference in view space, and the sun from the clock
     float up[3] = {0, 1, 0}, sun[3] = {0, 1, 0}, sun_colour[3] = {1, 1, 1};

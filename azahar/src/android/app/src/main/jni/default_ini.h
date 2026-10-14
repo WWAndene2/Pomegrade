@@ -302,7 +302,7 @@ static const char* android_config_default_file_content = (BOOST_HANA_STRING(R"(
 # Pomegrade: Ray tracing: sun shadows (0-100%, default 100): How dark the sun's shadows are
 )") DECLARE_KEY(remaster_rt_shadow) BOOST_HANA_STRING(R"(
 
-# Pomegrade: Ray tracing: shadow softness (0-3, default 1): Radius of the shadows' edge filter, in shadow map texels (more: softer, heavier)
+# Pomegrade: Ray tracing: sun size (0-3, default 2): 0 hard shadows; else sharp at their foot and softer away from it, the sun a disc 1.5, 3 or 4.5 degrees wide
 )") DECLARE_KEY(remaster_rt_softness) BOOST_HANA_STRING(R"(
 
 # Pomegrade: Ray tracing: denoising passes (0-4, default 3): Edge-aware smoothing passes of the traced light (more: less grain, heavier)

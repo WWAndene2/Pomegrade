@@ -28,7 +28,7 @@ enum class IntSetting(
     REMASTER_RT_THICKNESS(SettingKeys.remaster_rt_thickness(), Settings.SECTION_RENDERER, 5),
     REMASTER_RT_INDIRECT(SettingKeys.remaster_rt_indirect(), Settings.SECTION_RENDERER, 100),
     REMASTER_RT_SHADOW(SettingKeys.remaster_rt_shadow(), Settings.SECTION_RENDERER, 100),
-    REMASTER_RT_SOFTNESS(SettingKeys.remaster_rt_softness(), Settings.SECTION_RENDERER, 1),
+    REMASTER_RT_SOFTNESS(SettingKeys.remaster_rt_softness(), Settings.SECTION_RENDERER, 2),
     REMASTER_RT_DENOISE(SettingKeys.remaster_rt_denoise(), Settings.SECTION_RENDERER, 3),
     REMASTER_RT_HISTORY(SettingKeys.remaster_rt_history(), Settings.SECTION_RENDERER, 90),
     REMASTER_RT_SHADOW_SIZE(SettingKeys.remaster_rt_shadow_size(), Settings.SECTION_RENDERER, 2048),

@@ -422,8 +422,8 @@ void main() {
 // temporal accumulation at full size from the half-size indirect light: each of the four nearest half-size texels
 // weighted by how close its point's distance is to this pixel's (no light across an edge), then 90 % of the history kept
 // where the pixel shows the same point as last frame (location 0, the history). Location 1, the light handed on: that
-// plus the sun's, from the shadow map here at full size, filtered over 3x3 of its texels (no noise, so neither
-// denoised nor accumulated: sharp, and a moving object's shadow follows it)
+// plus the sun's, from the shadow map here at full size, with contact-hardening penumbrae (a fixed pattern, no
+// noise, so neither denoised nor accumulated: sharp, and a moving object's shadow follows it)
 constexpr char FAST_TEMPORAL_FRAG[] = R"(
 layout(binding = 13) uniform sampler2D current;
 layout(binding = 14) uniform sampler2D history_;
@@ -440,20 +440,37 @@ uniform float depth_scale;
 uniform float reference;
 uniform float history_weight;  // the share of the history kept (remaster_rt_history)
 uniform float shadow_strength; // how dark the sun's shadows are, 0-1 (remaster_rt_shadow)
-uniform int softness;          // the shadow filter's radius in texels, 0-3 (remaster_rt_softness)
+uniform int softness;          // the sun's size, 0-3 (remaster_rt_softness): 0 hard, 2 a disc 3 degrees wide (Ultra's)
+uniform float texel_size;      // a shadow map texel, in view units
+// Contact-hardening shadows (PCSS): the sun as a disc, as Ultra traces it, so a shadow is sharp where it meets what
+// casts it and widens with the distance from it. Six taps look for what is between the point and the sun: most
+// pixels are lit and stop there (cheaper than the 3x3 filter it replaces); the others filter their penumbra over 9
+vec2 Disc(int i, int n) {
+    float r = sqrt((float(i) + 0.5) / float(n)), a = float(i) * 2.39996323;
+    return r * vec2(cos(a), sin(a));
+}
 float SunFiltered(vec3 p) {
     vec4 l = view_to_sun * vec4(p, 1.0);
     vec3 c = l.xyz / l.w * 0.5 + 0.5;
     if (any(lessThan(c.xy, vec2(0.0))) || any(greaterThan(c.xy, vec2(1.0)))) return 1.0;
     vec2 texel = 1.0 / vec2(textureSize(shadow_map, 0));
-    float z = c.z - shadow_bias - length(p) * 0.002 * depth_scale, s = 0.0, n = 0.0;
-    for (int y = -softness; y <= softness; y++) { // bounded by the setting: 3x3 texels by default, as before
-        for (int x = -softness; x <= softness; x++) {
-            s += z < texture(shadow_map, c.xy + vec2(float(x), float(y)) * texel).r ? 1.0 : 0.0;
-            n += 1.0;
-        }
+    float z = c.z - shadow_bias - length(p) * 0.002 * depth_scale;
+    if (softness == 0) return z < texture(shadow_map, c.xy).r ? 1.0 : 0.0;
+    float slope = tan(radians(0.75 * float(softness))); // the disc's angular radius
+    const float Search = 12.0;                           // texels
+    float blockers = 0.0, count = 0.0;
+    for (int i = 0; i < 6; i++) {
+        float d = texture(shadow_map, c.xy + Disc(i, 6) * Search * texel).r;
+        if (d < z) { blockers += d; count += 1.0; }
     }
-    return s / n;
+    if (count == 0.0) return 1.0;
+    float distance = (z - blockers / count) / depth_scale; // view units from what casts
+    float radius = clamp(distance * slope / texel_size, 1.0, Search);
+    float s = 0.0;
+    for (int i = 0; i < 9; i++) {
+        s += z < texture(shadow_map, c.xy + Disc(i, 9) * radius * texel).r ? 1.0 : 0.0;
+    }
+    return s / 9.0;
 }
 void main() {
     vec2 p = frag_tex_coord;
@@ -883,6 +900,7 @@ void PathTracerGL::DrawShadowMap(const Frame& frame, OpenGLState& state) {
     glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(frame.vertices.size()));
     // the shader's bias: two texels' width along the depth, and a view-space unit, in depth units
     shadow_bias = 2.0f * (2.0f * radius / static_cast<float>(shadow_size)) / range;
+    shadow_texel = 2.0f * radius / static_cast<float>(shadow_size);
     depth_scale = 1.0f / range;
 }
 
@@ -1042,6 +1060,7 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
         glProgramUniform1f(tmp, glGetUniformLocation(tmp, "history_weight"), v.remaster_rt_history.GetValue() / 100.0f);
         glProgramUniform1f(tmp, glGetUniformLocation(tmp, "shadow_strength"), v.remaster_rt_shadow.GetValue() / 100.0f);
         glProgramUniform1i(tmp, glGetUniformLocation(tmp, "softness"), static_cast<GLint>(v.remaster_rt_softness.GetValue()));
+        glProgramUniform1f(tmp, glGetUniformLocation(tmp, "texel_size"), shadow_texel);
     }
     glDrawArrays(GL_TRIANGLES, 0, 3);
     history_index = 1 - history_index;
