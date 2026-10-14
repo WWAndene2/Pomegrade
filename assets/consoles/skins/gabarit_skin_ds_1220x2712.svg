@@ -12,9 +12,9 @@
   <rect x="56" y="1830" width="1108" height="826" fill="#2DB4E8" fill-opacity="0.10" stroke="#2DB4E8" stroke-width="3" stroke-dasharray="16 10"/>
 </g>
 <g id="boutons" inkscape:groupmode="layer" inkscape:label="5 Boutons (mesurés sur le plan DS Lite, une échelle commune)" fill="none" stroke="#F3F4F6" stroke-width="4">
-<path d="M80 1830h270.1v98.0h-294.1v-74.0a24 24 0 0 1 24 -24z"/>
+<path d="M104 1830h246.1v98.0h-294.1v-50.0a48 48 0 0 1 48 -48z"/>
 <text x="203.1" y="1890.0" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">L</text>
-<path d="M1140 1830h-270.1v98.0h294.1v-74.0a24 24 0 0 0 -24 -24z"/>
+<path d="M1116 1830h-246.1v98.0h294.1v-50.0a48 48 0 0 0 -48 -48z"/>
 <text x="1016.9" y="1890.0" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">R</text>
 <path d="M203.1 2099.0a17.1 17.1 0 0 1 17.1 -17.1h77.1a17.1 17.1 0 0 1 17.1 17.1v90.0h90.0a17.1 17.1 0 0 1 17.1 17.1v77.1a17.1 17.1 0 0 1 -17.1 17.1h-90.0v90.0a17.1 17.1 0 0 1 -17.1 17.1h-77.1a17.1 17.1 0 0 1 -17.1 -17.1v-90.0h-90.0a17.1 17.1 0 0 1 -17.1 -17.1v-77.1a17.1 17.1 0 0 1 17.1 -17.1h90.0z"/>
 <circle cx="961.2" cy="2107.5" r="65.7"/>
