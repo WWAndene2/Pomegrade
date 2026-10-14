@@ -723,6 +723,10 @@
     <string name="switch_settings_debug_summary">For finding problems; leave as is otherwise</string>
     <string name="pomegrade_folder_not_set">Not set up yet: tap to set it up</string>
     <string name="pomegrade_folder_location">%1$s\n\nIt holds your games (Roms), their saves and save states, each console\'s BIOS, 3DS and Switch data, texture packs and a copy of your settings. It stays on your phone if you uninstall Punica.</string>
+    <string name="system_files_check">Check the system files</string>
+    <string name="system_files_check_summary">Puts the keys, BIOS and the Switch firmware where Punica reads them (moved, never deleted), and extracts the firmware\'s zip</string>
+    <string name="system_files_check_done">System files: %1$d moved, %2$d extracted, %3$d left where they were</string>
+    <string name="system_files_check_failed">The system files could not be checked</string>
     <string name="pomegrade_settings_save">Save settings now</string>
     <string name="pomegrade_settings_save_summary">Into Punica/Settings (also done automatically): settings, controls, layouts, and each game\'s settings and play time</string>
     <string name="pomegrade_settings_restore">Restore saved settings</string>

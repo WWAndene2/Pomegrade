@@ -68,11 +68,11 @@ class PomegradeFolder(
         /** The owner's GBA BIOS, in BIOS/GBA. */
         const val GBA_BIOS_FILE = "gba_bios.bin"
         private val BIOS_CONSOLES = listOf(BIOS_DS, BIOS_DSI, BIOS_GBA, BIOS_SWITCH, N3DS, GC_WII)
-        private val DS_BIOS_FILES = listOf("bios7.bin", "bios9.bin", "firmware.bin")
-        private val DSI_BIOS_FILES = DS_BIOS_FILES + "nand.bin"
+        internal val DS_BIOS_FILES = listOf("bios7.bin", "bios9.bin", "firmware.bin")
+        internal val DSI_BIOS_FILES = DS_BIOS_FILES + "nand.bin"
         // what tells a DS bios7.bin from a DSi one, as the BIOS checks do
-        private const val DS_BIOS7_SIZE = 0x4000L
-        private const val DSI_BIOS7_SIZE = 0x10000L
+        internal const val DS_BIOS7_SIZE = 0x4000L
+        internal const val DSI_BIOS7_SIZE = 0x10000L
         const val N3DS = "3DS"
         const val SWITCH = "Switch"
         const val GC_WII = "GC-Wii"
@@ -266,6 +266,9 @@ class PomegradeFolder(
         ConsoleSystemFiles.GC_REGIONS.forEach { File(File(bios, GC_WII), it).mkdirs() }
         ConsoleSystemFiles.import(bios, pathOf(treeId))
     }
+
+    /** The system files checked and put in place ([SystemFilesCheck]): moved, never deleted. Background thread. */
+    fun checkSystemFiles(): SystemFilesCheck.Report = SystemFilesCheck.run(context, settingsRepository)
 
     /**
      * Each console's saves in its own folder (owner's decision, 13 October): moves the DS and GBA saves kept

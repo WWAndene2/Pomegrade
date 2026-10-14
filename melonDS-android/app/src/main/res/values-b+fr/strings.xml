@@ -751,6 +751,10 @@
     <string name="settings_section_three_ds">3DS</string>
     <string name="pomegrade_folder_not_set">Pas encore configuré : touche pour le configurer</string>
     <string name="pomegrade_folder_location">%1$s\n\nIl contient tes jeux (Roms), leurs sauvegardes et sauvegardes d\'état, le BIOS de chaque console, les données 3DS et Switch, les packs de textures et une copie de tes réglages. Il reste sur ton téléphone si tu désinstalles Punica.</string>
+    <string name="system_files_check">Vérifier les fichiers système</string>
+    <string name="system_files_check_summary">Range les clés, les BIOS et le firmware Switch là où Punica les lit (déplacés, jamais supprimés), et extrait le zip du firmware</string>
+    <string name="system_files_check_done">Fichiers système : %1$d déplacés, %2$d extraits, %3$d laissés en place</string>
+    <string name="system_files_check_failed">Les fichiers système n\'ont pas pu être vérifiés</string>
     <string name="pomegrade_settings_save">Sauvegarder les réglages maintenant</string>
     <string name="pomegrade_settings_save_summary">Dans Punica/Settings (fait aussi automatiquement) : réglages, touches, dispositions, réglages et temps de jeu de chaque jeu</string>
     <string name="pomegrade_settings_restore">Restaurer les réglages sauvegardés</string>

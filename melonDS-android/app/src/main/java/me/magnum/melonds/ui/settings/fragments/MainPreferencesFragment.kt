@@ -79,6 +79,17 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
             }
             true
         }
+        findPreference<Preference>("pomegrade_check_system_files")?.setOnPreferenceClickListener {
+            withFolder {
+                val report = withContext(Dispatchers.IO) { runCatching { pomegradeFolder.checkSystemFiles() }.getOrNull() }
+                if (report == null) {
+                    toast(R.string.system_files_check_failed)
+                } else {
+                    Toast.makeText(requireContext(), getString(R.string.system_files_check_done, report.moved.size, report.extracted, report.left.size), Toast.LENGTH_LONG).show()
+                }
+            }
+            true
+        }
         findPreference<Preference>("pomegrade_settings_restore")?.setOnPreferenceClickListener {
             withFolder {
                 if (!pomegradeFolder.hasSavedSettings()) {

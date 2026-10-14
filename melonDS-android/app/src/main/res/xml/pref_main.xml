@@ -17,6 +17,12 @@
                 app:icon="@drawable/ic_file" />
 
         <Preference
+                android:key="pomegrade_check_system_files"
+                android:title="@string/system_files_check"
+                android:summary="@string/system_files_check_summary"
+                app:icon="@drawable/ic_folder" />
+
+        <Preference
                 android:key="pomegrade_settings_restore"
                 android:title="@string/pomegrade_settings_restore"
                 android:summary="@string/pomegrade_settings_restore_summary"
