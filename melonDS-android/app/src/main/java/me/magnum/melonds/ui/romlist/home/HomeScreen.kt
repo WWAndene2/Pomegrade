@@ -111,7 +111,8 @@ internal fun HomeScreen(
 
     Box(Modifier.fillMaxSize().punicaBackground()) {
         // the header stays on top, transparent, and the list scrolls under it as on every other screen
-        LazyColumn(contentPadding = PaddingValues(top = insets.calculateTopPadding() + PunicaDimens.HEADER.dp, bottom = insets.calculateBottomPadding() + 32.dp)) {
+        // 16 dp between the header (its title's mask reaches below the 64 dp row) and the featured card (owner, 14 October)
+        LazyColumn(contentPadding = PaddingValues(top = insets.calculateTopPadding() + PunicaDimens.HEADER.dp + 16.dp, bottom = insets.calculateBottomPadding() + 32.dp)) {
             item { HomeFeatured(featured, sheetActions) }
             item { SectionTitle(stringResource(R.string.home_quick_access), action = stringResource(R.string.home_all_consoles)) { onPlatformSelected(null) } }
             item {
