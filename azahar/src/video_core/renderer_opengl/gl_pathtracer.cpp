@@ -382,7 +382,8 @@ void main() {
     vec3 p = gp.xyz, n = texture(g_normal, frag_tex_coord).xyz;
     float dist = length(p);
     vec3 o = p + n * (0.02 + dist * 0.002);
-    vec3 light = sun_colour * max(dot(n, sun), 0.0) * Sun(o);
+    // the sun's own light is added at full size after the accumulation (FAST_TEMPORAL_FRAG): denoised and accumulated
+    // here it blurred the shadows and left a moving object's shadow trailing on still ground
     // one ray: a surface it reaches on screen sends back its light (the bounce), else the sky above the horizon; below
     // it, the ground beyond the reach (its glow, not sky: counting it open lit the walls far too much)
     const int Steps = 16;
@@ -408,19 +409,42 @@ void main() {
             break;
         }
     }
-    color = vec4((light + gathered) / reference, open_);
+    color = vec4(gathered / reference, open_);
 }
 )";
 
-// temporal accumulation at full size from the half-size light: each of the four nearest half-size texels weighted by
-// how close its point's distance is to this pixel's (no light across an edge), then 90 % of the history kept where
-// the pixel shows the same point as last frame
+// temporal accumulation at full size from the half-size indirect light: each of the four nearest half-size texels
+// weighted by how close its point's distance is to this pixel's (no light across an edge), then 90 % of the history kept
+// where the pixel shows the same point as last frame (location 0, the history). Location 1, the light handed on: that
+// plus the sun's, from the shadow map here at full size, filtered over 3x3 of its texels (no noise, so neither
+// denoised nor accumulated: sharp, and a moving object's shadow follows it)
 constexpr char FAST_TEMPORAL_FRAG[] = R"(
 layout(binding = 13) uniform sampler2D current;
 layout(binding = 14) uniform sampler2D history_;
 layout(binding = 10) uniform sampler2D previous;
+layout(binding = 11) uniform sampler2D shadow_map;
+layout(location = 1) out vec4 lit;
 uniform float first;
 uniform vec2 half_size;
+uniform vec3 sun;
+uniform vec3 sun_colour;
+uniform mat4 view_to_sun;
+uniform float shadow_bias;
+uniform float depth_scale;
+uniform float reference;
+float SunFiltered(vec3 p) {
+    vec4 l = view_to_sun * vec4(p, 1.0);
+    vec3 c = l.xyz / l.w * 0.5 + 0.5;
+    if (any(lessThan(c.xy, vec2(0.0))) || any(greaterThan(c.xy, vec2(1.0)))) return 1.0;
+    vec2 texel = 1.0 / vec2(textureSize(shadow_map, 0));
+    float z = c.z - shadow_bias - length(p) * 0.002 * depth_scale, s = 0.0;
+    for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+            s += z < texture(shadow_map, c.xy + vec2(float(x), float(y)) * texel).r ? 1.0 : 0.0;
+        }
+    }
+    return s / 9.0;
+}
 void main() {
     vec2 p = frag_tex_coord;
     vec4 gp = texture(g_position, p), pp = texture(previous, p);
@@ -445,6 +469,15 @@ void main() {
     }
     bool same = first < 0.5 && gp.w > 0.5 && pp.w > 0.5 && length(gp.xyz - pp.xyz) < 0.01 * length(gp.xyz) + 0.05;
     color = same ? mix(now, texture(history_, p), 0.9) : now;
+    lit = color;
+    if (gp.w > 0.5) {
+        vec3 n = texture(g_normal, p).xyz;
+        float facing = max(dot(n, sun), 0.0);
+        if (facing > 0.0) {
+            facing *= SunFiltered(gp.xyz + n * (0.02 + length(gp.xyz) * 0.002));
+        }
+        lit.rgb += sun_colour * facing / reference;
+    }
 }
 )";
 
@@ -600,6 +633,17 @@ void PathTracerGL::Resize(u32 w, u32 h) {
         light_fbo[i].Create();
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, light_fbo[i].handle);
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, light[i].handle, 0);
+    }
+    // the fast tracer's history and handed-on light, written together
+    for (int i = 0; i < 2; i++) {
+        make(fast_result[i], GL_RGBA16F, w, h);
+        fast_fbo[i].Release();
+        fast_fbo[i].Create();
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fast_fbo[i].handle);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, history[i].handle, 0);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, fast_result[i].handle, 0);
+        const GLenum both[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+        glDrawBuffers(2, both);
     }
     // the fast tracer's half-size light and its shadow map
     const u32 qw = std::max<u32>(1, w / 2), qh = std::max<u32>(1, h / 2);
@@ -943,14 +987,23 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
     bind(13, traced_texture[from].handle, nearest.handle);
     bind(14, history[history_index].handle, nearest.handle);
     bind(UnitFrame, previous_position.handle, nearest.handle);
+    if (!ultra) {
+        bind(UnitShadow, shadow_map.handle, nearest.handle);
+    }
     state.draw.shader_program = tmp;
-    state.draw.draw_framebuffer = history_fbo[1 - history_index].handle;
+    state.draw.draw_framebuffer = ultra ? history_fbo[1 - history_index].handle : fast_fbo[1 - history_index].handle;
     state.viewport = {0, 0, static_cast<GLsizei>(width), static_cast<GLsizei>(height)};
     state.Apply();
     glProgramUniform1f(tmp, glGetUniformLocation(tmp, "first"), have_history ? 0.0f : 1.0f);
     if (!ultra) {
         glProgramUniform2f(tmp, glGetUniformLocation(tmp, "half_size"), static_cast<float>(hw),
                            static_cast<float>(hh));
+        glProgramUniform3fv(tmp, glGetUniformLocation(tmp, "sun"), 1, sun);
+        glProgramUniform3fv(tmp, glGetUniformLocation(tmp, "sun_colour"), 1, sun_colour);
+        glProgramUniformMatrix4fv(tmp, glGetUniformLocation(tmp, "view_to_sun"), 1, GL_FALSE, view_to_sun);
+        glProgramUniform1f(tmp, glGetUniformLocation(tmp, "shadow_bias"), shadow_bias);
+        glProgramUniform1f(tmp, glGetUniformLocation(tmp, "depth_scale"), depth_scale);
+        glProgramUniform1f(tmp, glGetUniformLocation(tmp, "reference"), std::max(reference, 1e-3f));
     }
     glDrawArrays(GL_TRIANGLES, 0, 3);
     history_index = 1 - history_index;
@@ -960,7 +1013,7 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
     for (GLuint unit : {UnitPosition, UnitNormal, UnitFrame, UnitShadow, GLuint{13}, GLuint{14}}) bind(unit, 0, 0);
     glActiveTexture(GL_TEXTURE0);
     saved.Apply();
-    Result result{history[history_index].handle, gbuffer_distance.handle};
+    Result result{ultra ? history[history_index].handle : fast_result[history_index].handle, gbuffer_distance.handle};
     // the sun's direction on screen: a point of the scene and the same point moved toward the sun, both projected
     {
         double centre[3] = {};
