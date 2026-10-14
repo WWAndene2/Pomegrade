@@ -343,6 +343,7 @@ private:
     // the camera: the shadows' light is held fixed in the scene while the game's direction stays the same in view
     // space, and follows the game when that changes (a light of the scene, a light the game moves)
     std::vector<float> SceneryPoints;
+    std::vector<float> BackdropDistances; // squared view distances of the frame's opaque vertices (BuildPolygons' backdrop)
     WorldFrame SceneFrame;
     float SceneLight[3] {};
     float GameLight[3] {}; // the game's direction last frame, view space

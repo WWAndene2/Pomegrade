@@ -903,6 +903,32 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
     memset(LightUse, 0, sizeof(LightUse));
     memset(SceneryLightUse, 0, sizeof(SceneryLightUse));
     SceneryPoints.clear();
+    // the backdrop (a skybox, a sky dome, painted distant scenery) is left out of the lighting effects: its pixels
+    // neither receive them nor count for their neighbours, so a skybox's edges are not taken for real corners. A
+    // polygon is backdrop when the game does not light it and it lies wholly over twice the median distance of what
+    // the frame draws, or when any of it lies over 8 times that distance (as RenderShadowMap's casters)
+    float backdropNear = 1e30f, backdropFar = 1e30f;
+    if (viewdata)
+    {
+        std::vector<float>& d = BackdropDistances;
+        d.clear();
+        for (int i = 0; i < npolys; i++)
+        {
+            const Polygon* p = polygons[i].PolyData;
+            if (p->Translucent) continue;
+            for (u32 j = 0; j < p->NumVertices; j++)
+            {
+                const float* v = p->Vertices[j]->ViewPosition;
+                if (!p->Vertices[j]->Orthographic) d.push_back(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+            }
+        }
+        if (!d.empty())
+        {
+            std::nth_element(d.begin(), d.begin() + d.size() / 2, d.end());
+            backdropNear = d[d.size() / 2] * 4.0f; // squared distances
+            backdropFar = d[d.size() / 2] * 64.0f;
+        }
+    }
 
     u32 iidx = 0;
     u32 eidx = EdgeIndicesOffset;
@@ -932,6 +958,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
         rp->NumIndices = 0;
 
         u32 vidx_first = vidx;
+        float* gptr_first = gptr;
 
         u32 polyattr = poly->Attr;
 
@@ -1144,6 +1171,20 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 IndexBuffer[iidx++] = vidx_first + 1;
                 rp->NumIndices += 3;
             }
+        }
+
+        if (viewdata && !poly->Translucent)
+        {
+            bool unlit = (poly->Attr & 0xF) == 0, allBeyond = true, anyFar = false;
+            for (u32 j = 0; j < poly->NumVertices; j++)
+            {
+                const float* v = poly->Vertices[j]->ViewPosition;
+                const float d = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
+                allBeyond = allBeyond && d > backdropNear;
+                anyFar = anyFar || d > backdropFar;
+            }
+            if ((unlit && allBeyond) || anyFar)
+                for (float* g = gptr_first; g < gptr; g += ViewVertexSize) g[3] = 0.f; // not valid for the effects
         }
 
         if (ViewInspector)

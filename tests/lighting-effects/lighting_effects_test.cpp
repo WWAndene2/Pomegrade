@@ -119,6 +119,9 @@ static bool OffscreenBox = false, CulledPanel = false, Ceiling = false;
 // vertical through its middle). LightWithScene: the light is set after the camera (it turns with the scene, a light of
 // the scene); else before it, in view space (it turns with the camera, as many games set theirs)
 static double CameraYaw = 0;
+// a skybox: an unlit box far behind the room (the back wall left out): its back (z -15) and right side (x 5, z -15
+// to -10) meet in an inner corner that is not a real corner for the ambient occlusion
+static bool Skybox = false;
 static bool LightWithScene = false;
 static int CulledPanelWinding = 0;
 static const double LowBarX = -2.0, LowBarHeight = 0.1, HighBarX = 0.6, HighBarHeight = 2.4, BarHalf = 0.1;
@@ -196,15 +199,38 @@ static void SubmitScene()
         Normal(0, 1, 0); Vertex16(-4, FloorY, z1);
     }
     // back wall, facing the camera, standing on the floor
-    Normal(0, 0, 1); Vertex16(-4, FloorY, -6);
-    Normal(0, 0, 1); Vertex16(4, FloorY, -6);
-    Normal(0, 0, 1); Vertex16(4, 3, -6);
-    Normal(0, 0, 1); Vertex16(-4, 3, -6);
+    if (!Skybox)
+    {
+        Normal(0, 0, 1); Vertex16(-4, FloorY, -6);
+        Normal(0, 0, 1); Vertex16(4, FloorY, -6);
+        Normal(0, 0, 1); Vertex16(4, 3, -6);
+        Normal(0, 0, 1); Vertex16(-4, 3, -6);
+    }
     Cmd(0x41);
 
     if (RedSphere) Cmd(0x30, {(0x001F) | (0x0008u << 16)}); // diffuse red, ambient dark red
     Cmd(0x31, {0}); // the sphere isn't shiny
     DrawSphere();
+
+    if (Skybox)
+    {
+        Cmd(0x29, {(31 << 16) | (5 << 24) | 0xC0}); // no lights, both sides
+        // drawn at half size under a scale of 2: VTX_16 holds -8 to 8
+        Cmd(0x11); // push
+        Cmd(0x1B, {Fx(2), Fx(2), Fx(2)});
+        Cmd(0x40, {1});
+        const double L = 2.5, B = -7.5, T = 6;
+        auto quad = [](const double* a, const double* b, const double* c, const double* d) {
+            for (const double* p : {a, b, c, d}) { Cmd(0x20, {0x5294}); Vertex16(p[0], p[1], p[2]); }
+        };
+        const double p0[3] = {-L, FloorY / 2, B}, p1[3] = {L, FloorY / 2, B}, p2[3] = {L, T, B}, p3[3] = {-L, T, B};
+        const double q1[3] = {L, FloorY / 2, -5}, q2[3] = {L, T, -5};
+        quad(p0, p1, p2, p3); // back
+        quad(p1, q1, q2, p2); // right side
+        Cmd(0x41);
+        Cmd(0x12, {1}); // pop
+        Cmd(0x29, {(FullFog ? 1u << 15 : 0) | (31 << 16) | (1 << 24) | 0x80 | 0x01});
+    }
 
     if (UnlitCanopy)
     {
@@ -1018,6 +1044,26 @@ int main()
             printf("DS shadow volume beside a caster, outside its real shadow (%d,%d), real-time shadows on: x%.2f\n", vx, vy, beside);
             check(beside < 0.9, "DS shadow volume outside the real shadow: the game's shadow stays");
             DSShadowVolumeX = 1.1; DSShadowVolumeZ = -3.8;
+        }
+
+        // a skybox's inner corner, seen over the back wall: the ambient occlusion leaves it as the game draws it
+        {
+            Skybox = true;
+            int kx, ky;
+            Project(5, 1, -15, kx, ky);
+            auto skyOff = withEffects(false);
+            r->SetAmbientOcclusion(true);
+            Frame(*r, gpu);
+            auto skyAO = Frame(*r, gpu);
+            r->SetAmbientOcclusion(false);
+            Skybox = false;
+            SavePng("skybox_ao.png", skyAO);
+            double worst = 0;
+            for (int y = std::max(ky - 4, 0); y <= ky + 4; y++)
+                for (int x = kx - 4; x <= kx + 4; x++)
+                    worst = std::max(worst, 1.0 - Brightness(skyAO, x, y, 0) / Brightness(skyOff, x, y, 0));
+            printf("skybox corner (%d,%d): darkened by the ambient occlusion up to %.0f%%\n", kx, ky, worst * 100);
+            check(worst < 0.02, "skybox: its corner is not taken for a real one (under 2% darker)");
         }
 
         // the camera orbits the sphere in steps of 3 degrees with the light set in view space (it turns with the
