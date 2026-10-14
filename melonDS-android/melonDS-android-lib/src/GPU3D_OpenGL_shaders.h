@@ -1393,6 +1393,20 @@ void main()
 // Pomegrade lighting effects, after the frame is rendered (see GLRenderer::RenderLighting).
 // Inputs: the view-space position and normal of the opaque pixels.
 
+// Pomegrade: what glows - a light source drawn in a texture rather than given to the DS as a light (fire, a lamp,
+// lava, a monster's eyes): a bright, saturated colour, 0 to 1. Such a pixel lights what is around it whichever way
+// it faces (the light bounce, with its own gain), and is not darkened by the effects itself. Limits: a white lamp is
+// not told from a white wall, so whites do not glow; a bright saturated surface in full light glows a little too;
+// glowing sprites drawn translucent are not in the view data, so they light nothing
+#define kLightingGlow R"(
+float Glow(vec3 c)
+{
+    float hi = max(c.r, max(c.g, c.b)), lo = min(c.r, min(c.g, c.b));
+    float saturation = hi > 0.0 ? (hi - lo) / hi : 0.0;
+    return smoothstep(0.7, 0.9, hi) * smoothstep(0.45, 0.7, saturation);
+}
+)"
+
 // Ambient occlusion, screen-space (McGuire, Mara, Luebke, "Scalable Ambient
 // Obscurance", HPG 2012): around each pixel, the neighbours that rise above
 // its surface hide part of the sky, the near ones more.
@@ -1405,6 +1419,7 @@ const char* kLightingAOFS = kShaderHeader R"(
 
 precision highp float;
 precision highp int;
+)" kLightingGlow R"(
 
 uniform highp sampler2D GPosition;
 uniform sampler2D GNormal;
@@ -1422,6 +1437,8 @@ const int NumSamples = 12;
 // shadow 15% darker, open surfaces unchanged
 const float Intensity = 2.0;
 const float AngleBias = 0.26; // sin(15 degrees)
+// a glowing pixel's light, over a lit surface's bounce (tests/lighting-effects: the floor by a glowing panel)
+const float EmitterGain = 2.0;
 
 void main()
 {
@@ -1500,11 +1517,16 @@ void main()
         float d = sqrt(vv);
         float cosHere = dot(v, N) / d, cosThere = -dot(v, nq) / d;
         float f = max(1.0 - vv / (bounceRadius * bounceRadius), 0.0);
+        vec3 c = texelFetch(Color, sp, 0).rgb;
         if (cosHere > 0.0 && cosThere > 0.0)
-            bounce += texelFetch(Color, sp, 0).rgb * (cosHere * cosThere * f * f);
+            bounce += c * (cosHere * cosThere * f * f);
+        // a glowing neighbour lights this surface whichever way it faces
+        if (cosHere > 0.0)
+            bounce += c * (Glow(c) * EmitterGain * cosHere * f * f);
     }
 
     float visibility = clamp(1.0 - Intensity * occlusion / float(NumSamples), 0.0, 1.0);
+    visibility = mix(visibility, 1.0, Glow(texelFetch(Color, p, 0).rgb)); // what glows is not shaded
     oAO = vec4(visibility, pixel, 0.0, 1.0);
     oBounce = vec4(bounce / float(NumSamples), 1.0);
 }
@@ -1549,6 +1571,7 @@ void main()
 
 precision highp float;
 precision highp int;
+)" kLightingGlow R"(
 
 uniform sampler2D Color;
 uniform highp sampler2D GPosition;
@@ -1749,6 +1772,7 @@ void main()
         float cosLight = max(dot(N, uLightDir), 0.0);
         float shadowLit = ShadowLit(P, N);
         if (character) shadowLit = mix(1.0, shadowLit, CharacterShade);
+        shadowLit = mix(shadowLit, 1.0, Glow(col.rgb)); // what glows casts its light, it is not in shadow
         lit *= 1.0 - uShadowStrength * cosLight * (1.0 - shadowLit);
     }
     lit += col.rgb * bounce * uBounceIntensity;
@@ -1892,6 +1916,7 @@ const char* kLightingUpsampleFS = kShaderHeader R"(
 
 precision highp float;
 precision highp int;
+)" kLightingGlow R"(
 
 uniform sampler2D Color;
 uniform highp sampler2D GPosition;
@@ -1998,6 +2023,9 @@ void main()
     bounce /= weight;
 
     if (IsCharacter(p)) { visibility = mix(1.0, visibility, CharacterShade); lit = mix(1.0, lit, CharacterShade); }
+    float glow = Glow(col.rgb); // what glows is neither shaded nor in shadow
+    visibility = mix(visibility, 1.0, glow);
+    lit = mix(lit, 1.0, glow);
     vec3 result = col.rgb * (uAmbientOcclusion ? visibility : 1.0);
     if (uShadowStrength > 0.0)
     {

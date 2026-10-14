@@ -122,6 +122,9 @@ static double CameraYaw = 0;
 // a skybox: an unlit box far behind the room (the back wall left out): its back (z -15) and right side (x 5, z -15
 // to -10) meet in an inner corner that is not a real corner for the ambient occlusion
 static bool Skybox = false;
+// a light source drawn rather than given to the DS: an unlit panel standing on the floor left of the sphere (x -2.2,
+// z -3 to -4, facing right), bright orange when GlowColour, else a dull orange of the same hue
+static bool Panel = false, GlowColour = false;
 static bool LightWithScene = false;
 static int CulledPanelWinding = 0;
 static const double LowBarX = -2.0, LowBarHeight = 0.1, HighBarX = 0.6, HighBarHeight = 2.4, BarHalf = 0.1;
@@ -229,6 +232,19 @@ static void SubmitScene()
         quad(p1, q1, q2, p2); // right side
         Cmd(0x41);
         Cmd(0x12, {1}); // pop
+        Cmd(0x29, {(FullFog ? 1u << 15 : 0) | (31 << 16) | (1 << 24) | 0x80 | 0x01});
+    }
+
+    if (Panel)
+    {
+        Cmd(0x29, {(31 << 16) | (6 << 24) | 0xC0}); // no lights, both sides
+        Cmd(0x40, {1});
+        const u32 c = GlowColour ? 0x01FFu : 0x00EFu; // (31, 15, 0) or (15, 7, 0)
+        Cmd(0x20, {c}); Vertex16(-2.2, FloorY, -3);
+        Cmd(0x20, {c}); Vertex16(-2.2, FloorY, -4);
+        Cmd(0x20, {c}); Vertex16(-2.2, 0, -4);
+        Cmd(0x20, {c}); Vertex16(-2.2, 0, -3);
+        Cmd(0x41);
         Cmd(0x29, {(FullFog ? 1u << 15 : 0) | (31 << 16) | (1 << 24) | 0x80 | 0x01});
     }
 
@@ -1044,6 +1060,34 @@ int main()
             printf("DS shadow volume beside a caster, outside its real shadow (%d,%d), real-time shadows on: x%.2f\n", vx, vy, beside);
             check(beside < 0.9, "DS shadow volume outside the real shadow: the game's shadow stays");
             DSShadowVolumeX = 1.1; DSShadowVolumeZ = -3.8;
+        }
+
+        // a glowing panel lights the floor beside it far more than a dull one of the same hue, and is not shaded
+        {
+            int gx, gy;
+            Project(-1.8, FloorY, -3.5, gx, gy);
+            auto orange = [&](const std::vector<u32>& img) {
+                double rs = 0, bs = 0;
+                for (int y = gy - 2; y <= gy + 2; y++)
+                    for (int x = gx - 2; x <= gx + 2; x++) { rs += (img[y * 256 + x] >> 16) & 0xFF; bs += img[y * 256 + x] & 0xFF; }
+                return rs / std::max(bs, 1.0);
+            };
+            auto floorWith = [&](bool glow, bool bounce) {
+                Panel = true; GlowColour = glow;
+                r->SetLightBounce(bounce);
+                Frame(*r, gpu);
+                auto img = Frame(*r, gpu);
+                r->SetLightBounce(false);
+                Panel = false;
+                return img;
+            };
+            auto glowOff = floorWith(true, false), glowOn = floorWith(true, true);
+            auto dullOff = floorWith(false, false), dullOn = floorWith(false, true);
+            SavePng("glow_panel.png", glowOn);
+            const double glowGain = orange(glowOn) / orange(glowOff), dullGain = orange(dullOn) / orange(dullOff);
+            printf("floor beside a panel (%d,%d): red/blue x%.3f with a glowing panel, x%.3f with a dull one\n", gx, gy, glowGain, dullGain);
+            // without its light of its own the glowing panel's bounce alone gave x1.056; with it x1.232 (dull: x1.022)
+            check(glowGain > 1.15 && glowGain - 1 > 2 * (dullGain - 1), "a glowing panel lights the floor (15% or more, twice a dull panel's bounce)");
         }
 
         // a skybox's inner corner, seen over the back wall: the ambient occlusion leaves it as the game draws it
