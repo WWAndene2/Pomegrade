@@ -22,11 +22,12 @@ import kotlin.math.max
  * Pomegrade: the Classic layout's control images, drawn as the Punica 3DS skin template draws them
  * (assets/consoles/skins/gabarit_skin_3ds_1220x2712.svg), so each control fills its template rectangle
  * (ClassicOverlayLayout), in the style chosen in Punica's settings ("punica_classic_button_style", shared with the
- * DS Classic layout), painted by ClassicControlPainter: filled in relief (dark letters) or outlined (white outlines
- * 4 template pixels wide, as on the template). Every size is a share of the control's template size: L / R 271 x 92 with a 46 corner,
- * ZL / ZR 165.6 x 84.9 pills, A / B / X / Y 136.6, START / SELECT / Punica 83, the D-pad 329.3 with 128.5 arms
- * and 16.1 corners, the circle pad's 380.2 range and 257 knob, the C stick 128.6. A pressed image is the same,
- * sunk (no relief) and darkened (on the D-pad, the pressed arms darkened).
+ * DS Classic layout), painted by ClassicControlPainter: filled in relief (engraved letters) or outlined (white
+ * outlines 4 template pixels wide, as on the template). Every size is a share of the control's template size:
+ * L / R 271 x 92 with a 46 corner, ZL / ZR 165.6 x 84.9 pills, A / B / X / Y 136.6, START / SELECT / Punica 83,
+ * the D-pad 329.3 in the DS Lite's shape with its grooves, the circle pad's 380.2 range and 257 knob, the C stick
+ * 128.6. A pressed image is sunk (no relief) and darkened; InputOverlay fades between the two (the press
+ * animation).
  */
 object ClassicOverlayBitmaps {
     private const val PRESSED_SHADE = 0x59000000
@@ -107,13 +108,13 @@ object ClassicOverlayBitmaps {
             else -> path.addCircle(w / 2f, h / 2f, w / 2f - inset, Path.Direction.CW)
         }
         // the Punica button's face white, as the pill's Punica blade
-        val face = if (id == ButtonType.BUTTON_PUNICA) 0xFFFFFFFF.toInt() to 0xFFE6E7EA.toInt() else null
-        val raised = ClassicControlPainter.paint(canvas, path, style.outlined, stroke, pressed, face)
+        val face = if (id == ButtonType.BUTTON_PUNICA) ClassicControlPainter.WHITE_FACE else null
+        val raised = ClassicControlPainter.paint(canvas, path, style.outlined, stroke, if (pressed) 1f else 0f, face)
         if (id == ButtonType.BUTTON_PUNICA) {
             BitmapFactory.decodeResource(context.resources, EmulatorMenuR.drawable.emulator_menu_ic_punica)?.let {
                 val logo = w * 0.64f
                 val offset = (w - logo) / 2f
-                val top = (h - logo) / 2f - raised / 2f
+                val top = (h - logo) / 2f - raised
                 canvas.drawBitmap(it, null, RectF(offset, top, offset + logo, top + logo), Paint(Paint.FILTER_BITMAP_FLAG))
             }
         } else {
@@ -128,15 +129,16 @@ object ClassicOverlayBitmaps {
             val room = w * 0.8f
             val measured = text.measureText(label)
             if (measured > room) text.textSize *= room / measured
-            drawCentred(canvas, text, label, w / 2f, h / 2f - raised / 2f)
-        }
-        if (pressed) {
-            canvas.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = PRESSED_SHADE })
+            ClassicControlPainter.drawLabel(canvas, text, label, w / 2f, h / 2f - raised, style.outlined)
         }
         return bitmap
     }
 
-    /** The D-pad's default, one direction (up) and two directions (up and left) images, [side] pixels. */
+    /**
+     * The D-pad's default, one direction (up) and two directions (up and left) images, [side] pixels: the DS Lite's
+     * shape with its four grooves (ClassicControlPainter, owner's choice), sunk and its pressed arms darkened when
+     * pressed.
+     */
     fun dpad(context: Context, side: Int): Triple<Bitmap, Bitmap, Bitmap> {
         val style = style(context)
         return Triple(dpadImage(style, side, false, false), dpadImage(style, side, true, false), dpadImage(style, side, true, true))
@@ -146,18 +148,14 @@ object ClassicOverlayBitmaps {
         val s = side.coerceAtLeast(1).toFloat()
         val bitmap = Bitmap.createBitmap(s.toInt(), s.toInt(), Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-        val scale = s / 329.3f
-        val stroke = 4f * scale
-        val inset = if (style.outlined) stroke / 2f else 0f
-        val arm = 128.5f * scale
-        val corner = 16.1f * scale
-        val from = (s - arm) / 2f
-        val to = from + arm
-        // the two arms' union: one outline, no inner edges where they cross
-        val cross = Path().apply { addRoundRect(RectF(from, inset, to, s - inset), corner, corner, Path.Direction.CW) }
-        cross.op(Path().apply { addRoundRect(RectF(inset, from, s - inset, to), corner, corner, Path.Direction.CW) }, Path.Op.UNION)
-        ClassicControlPainter.paint(canvas, cross, style.outlined, stroke)
-        if (up || left) {
+        val stroke = 4f * s / 329.3f
+        val cross = ClassicControlPainter.dpadPath(s, if (style.outlined) stroke / 2f else 0f)
+        val pressed = up || left
+        val raised = ClassicControlPainter.paint(canvas, cross, style.outlined, stroke, if (pressed) 1f else 0f)
+        ClassicControlPainter.drawDpadGrooves(canvas, s, raised, style.outlined)
+        val from = (s - s * 128f / 375f) / 2f
+        val to = s - from
+        if (pressed) {
             canvas.save()
             canvas.clipPath(cross)
             val shade = Paint().apply { color = PRESSED_SHADE }
@@ -190,8 +188,7 @@ object ClassicOverlayBitmaps {
         }
         fun knobImage(pressed: Boolean) = image { canvas, half ->
             val radius = half * knob - if (style.outlined) stroke / 2f else 0f
-            ClassicControlPainter.paint(canvas, Path().apply { addCircle(half, half, radius, Path.Direction.CW) }, style.outlined, stroke, pressed)
-            if (pressed) canvas.drawCircle(half, half, half * knob, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = PRESSED_SHADE })
+            ClassicControlPainter.paint(canvas, Path().apply { addCircle(half, half, radius, Path.Direction.CW) }, style.outlined, stroke, if (pressed) 1f else 0f)
         }
         return Triple(range, knobImage(false), knobImage(true))
     }
@@ -200,10 +197,5 @@ object ClassicOverlayBitmaps {
         color = ClassicControlPainter.labelColor(style.outlined)
         textAlign = Paint.Align.CENTER
         typeface = style.typeface
-    }
-
-    private fun drawCentred(canvas: Canvas, paint: Paint, text: String, cx: Float, cy: Float) {
-        val metrics = paint.fontMetrics
-        canvas.drawText(text, cx, cy - (metrics.ascent + metrics.descent) / 2f, paint)
     }
 }

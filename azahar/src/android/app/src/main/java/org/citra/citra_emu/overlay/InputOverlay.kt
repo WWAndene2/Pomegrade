@@ -15,6 +15,7 @@ import android.graphics.Rect
 import android.graphics.drawable.VectorDrawable
 import android.util.AttributeSet
 import android.util.DisplayMetrics
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.SurfaceView
 import android.view.View
@@ -32,6 +33,7 @@ import org.citra.citra_emu.features.settings.model.BooleanSetting
 import org.citra.citra_emu.utils.ComboHelper
 import org.citra.citra_emu.utils.EmulationMenuSettings
 import org.citra.citra_emu.utils.TurboHelper
+import io.github.wwandene2.pomegrade.emulatorui.ClassicHaptics
 
 /**
  * Draws the interactive input overlay on top of the
@@ -81,6 +83,10 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
         overlayButtons.forEach { it.draw(canvas) }
         overlayDpads.forEach { it.draw(canvas) }
         overlayJoysticks.forEach { it.draw(canvas) }
+        // Pomegrade: the Classic layout's press animations, one frame after another until they end
+        if (overlayButtons.any { it.isAnimating } || overlayDpads.any { it.isAnimating }) {
+            postInvalidateOnAnimation()
+        }
     }
 
     private fun swapScreen() {
@@ -93,6 +99,12 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
     }
 
     fun hapticFeedback(type: Int) {
+        // Pomegrade: the Classic layout's feedback, a hard short click on a press (a new D-pad direction too),
+        // nothing on release
+        if (EmulationMenuSettings.hapticFeedback && isClassicLayout()) {
+            if (type == HapticFeedbackConstants.VIRTUAL_KEY) ClassicHaptics.click(context)
+            return
+        }
         if (EmulationMenuSettings.hapticFeedback) {
             performHapticFeedback(type)
         }
@@ -681,6 +693,9 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
     /** Pomegrade: the Punica button is pressed. */
     var onPunicaButton: (() -> Unit)? = null
 
+    private fun isClassicLayout() =
+        ClassicOverlayLayout.isActive(if (resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) "-Portrait" else "")
+
     /** Pomegrade: the Punica button's area in this view, or null. */
     fun punicaButtonArea(): Rect? =
         overlayButtons.firstOrNull { it.id == NativeLibrary.ButtonType.BUTTON_PUNICA }?.bounds?.let { Rect(it) }
@@ -1222,7 +1237,7 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
                     pressedStateBitmap,
                     buttonId,
                     opacity
-                )
+                ).apply { animatePress = drawn != null }
 
             // The X and Y coordinates of the InputOverlayDrawableButton on the InputOverlay.
             // These were set in the input overlay configuration menu.
@@ -1305,7 +1320,7 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
                 buttonLeft,
                 buttonRight,
                 opacity
-            )
+            ).apply { animatePress = drawn != null }
 
             // The X and Y coordinates of the InputOverlayDrawableDpad on the InputOverlay.
             // These were set in the input overlay configuration menu.

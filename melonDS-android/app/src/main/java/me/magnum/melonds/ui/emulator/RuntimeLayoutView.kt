@@ -17,6 +17,8 @@ import me.magnum.melonds.domain.model.layout.LayoutComponent
 import me.magnum.melonds.ui.common.LayoutView
 import me.magnum.melonds.ui.emulator.input.ButtonsInputHandler
 import me.magnum.melonds.ui.emulator.input.ClassicButtonDrawable
+import me.magnum.melonds.ui.emulator.input.ClassicPressListener
+import me.magnum.melonds.ui.emulator.input.FeedbackInputHandler
 import me.magnum.melonds.ui.emulator.input.DpadInputHandler
 import me.magnum.melonds.ui.emulator.input.FrontendInputHandler
 import me.magnum.melonds.ui.emulator.input.IInputListener
@@ -100,24 +102,47 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
         val inputAlpha = currentRuntimeLayout.softInputOpacity / 100f
 
         val enableHapticFeedback = currentRuntimeLayout.isHapticFeedbackEnabled
-        systemInputHandler?.let {
+        // Pomegrade: the Classic layout's buttons drawn as its template (sunk while pressed, a hard click as haptic
+        // feedback), else upstream's images
+        val classicDrawables = HashMap<LayoutComponent, ClassicButtonDrawable>()
+        listOf(
+            LayoutComponent.BUTTONS to (ClassicButtonDrawable.Kind.BUTTONS to R.drawable.buttons),
+            LayoutComponent.BUTTON_L to (ClassicButtonDrawable.Kind.L to R.drawable.button_l),
+            LayoutComponent.BUTTON_R to (ClassicButtonDrawable.Kind.R to R.drawable.button_r),
+            LayoutComponent.BUTTON_START to (ClassicButtonDrawable.Kind.START to R.drawable.button_start),
+            LayoutComponent.BUTTON_SELECT to (ClassicButtonDrawable.Kind.SELECT to R.drawable.button_select),
+            LayoutComponent.BUTTON_PUNICA_MENU to (ClassicButtonDrawable.Kind.PUNICA to EmulatorMenuR.drawable.emulator_menu_ic_punica),
+            LayoutComponent.DPAD to (ClassicButtonDrawable.Kind.DPAD to R.drawable.keypad),
+        ).forEach { (component, images) ->
+            // the joystick takes the D-pad's place when analogue movement is on (below)
+            if (component == LayoutComponent.DPAD && currentRuntimeLayout.isAnalogueMovementEnabled) return@forEach
+            val image = getLayoutComponentView(component)?.view as? ImageView ?: return@forEach
+            val classic = classicImage(currentRuntimeLayout, images.first)
+            if (classic != null) classicDrawables[component] = classic
+            image.setImageDrawable(classic ?: getDrawableCompat(images.second))
+        }
+        val isClassic = currentRuntimeLayout.classicButtonStyle != null
+        fun <T : FeedbackInputHandler> T.classic(): T = apply { clickHaptic = isClassic }
+        fun pressing(listener: IInputListener) = if (isClassic) ClassicPressListener(listener, classicDrawables) else listener
+
+        systemInputHandler?.let { system ->
+            val listener = pressing(system)
             getLayoutComponentView(LayoutComponent.DPAD)?.view?.let { dpad ->
                 if (currentRuntimeLayout.isAnalogueMovementEnabled) {
                     // Pomegrade: the D-pad's place holds a joystick
                     val joystick = JoystickDrawable()
                     (dpad as? ImageView)?.setImageDrawable(joystick)
-                    dpad.setOnTouchListener(JoystickInputHandler(it, joystick, enableHapticFeedback, touchVibrator))
+                    dpad.setOnTouchListener(JoystickInputHandler(listener, joystick, enableHapticFeedback, touchVibrator))
                 } else {
-                    (dpad as? ImageView)?.setImageDrawable(classicImage(currentRuntimeLayout, ClassicButtonDrawable.Kind.DPAD) ?: getDrawableCompat(R.drawable.keypad))
-                    dpad.setOnTouchListener(DpadInputHandler(it, enableHapticFeedback, touchVibrator))
+                    dpad.setOnTouchListener(DpadInputHandler(listener, enableHapticFeedback, touchVibrator).classic())
                 }
             }
-            getLayoutComponentView(LayoutComponent.BUTTONS)?.view?.setOnTouchListener(ButtonsInputHandler(it, enableHapticFeedback, touchVibrator))
-            getLayoutComponentView(LayoutComponent.BUTTON_L)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.L, enableHapticFeedback, touchVibrator))
-            getLayoutComponentView(LayoutComponent.BUTTON_R)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.R, enableHapticFeedback, touchVibrator))
-            getLayoutComponentView(LayoutComponent.BUTTON_SELECT)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.SELECT, enableHapticFeedback, touchVibrator))
-            getLayoutComponentView(LayoutComponent.BUTTON_START)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.START, enableHapticFeedback, touchVibrator))
-            getLayoutComponentView(LayoutComponent.BUTTON_HINGE)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.HINGE, enableHapticFeedback, touchVibrator))
+            getLayoutComponentView(LayoutComponent.BUTTONS)?.view?.setOnTouchListener(ButtonsInputHandler(listener, enableHapticFeedback, touchVibrator).classic())
+            getLayoutComponentView(LayoutComponent.BUTTON_L)?.view?.setOnTouchListener(SingleButtonInputHandler(listener, Input.L, enableHapticFeedback, touchVibrator).classic())
+            getLayoutComponentView(LayoutComponent.BUTTON_R)?.view?.setOnTouchListener(SingleButtonInputHandler(listener, Input.R, enableHapticFeedback, touchVibrator).classic())
+            getLayoutComponentView(LayoutComponent.BUTTON_SELECT)?.view?.setOnTouchListener(SingleButtonInputHandler(listener, Input.SELECT, enableHapticFeedback, touchVibrator).classic())
+            getLayoutComponentView(LayoutComponent.BUTTON_START)?.view?.setOnTouchListener(SingleButtonInputHandler(listener, Input.START, enableHapticFeedback, touchVibrator).classic())
+            getLayoutComponentView(LayoutComponent.BUTTON_HINGE)?.view?.setOnTouchListener(SingleButtonInputHandler(listener, Input.HINGE, enableHapticFeedback, touchVibrator))
         }
         frontendInputHandler?.let {
             getLayoutComponentView(LayoutComponent.BUTTON_RESET)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.RESET, enableHapticFeedback, touchVibrator))
@@ -129,20 +154,7 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
             getLayoutComponentView(LayoutComponent.BUTTON_QUICK_SAVE)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.QUICK_SAVE, enableHapticFeedback, touchVibrator))
             getLayoutComponentView(LayoutComponent.BUTTON_QUICK_LOAD)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.QUICK_LOAD, enableHapticFeedback, touchVibrator))
             getLayoutComponentView(LayoutComponent.BUTTON_REWIND)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.REWIND, enableHapticFeedback, touchVibrator))
-            getLayoutComponentView(LayoutComponent.BUTTON_PUNICA_MENU)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.PUNICA_MENU, enableHapticFeedback, touchVibrator))
-        }
-
-        // Pomegrade: the Classic layout's buttons drawn as its template, else upstream's images
-        listOf(
-            LayoutComponent.BUTTONS to (ClassicButtonDrawable.Kind.BUTTONS to R.drawable.buttons),
-            LayoutComponent.BUTTON_L to (ClassicButtonDrawable.Kind.L to R.drawable.button_l),
-            LayoutComponent.BUTTON_R to (ClassicButtonDrawable.Kind.R to R.drawable.button_r),
-            LayoutComponent.BUTTON_START to (ClassicButtonDrawable.Kind.START to R.drawable.button_start),
-            LayoutComponent.BUTTON_SELECT to (ClassicButtonDrawable.Kind.SELECT to R.drawable.button_select),
-            LayoutComponent.BUTTON_PUNICA_MENU to (ClassicButtonDrawable.Kind.PUNICA to EmulatorMenuR.drawable.emulator_menu_ic_punica),
-        ).forEach { (component, images) ->
-            val image = getLayoutComponentView(component)?.view as? ImageView ?: return@forEach
-            image.setImageDrawable(classicImage(currentRuntimeLayout, images.first) ?: getDrawableCompat(images.second))
+            getLayoutComponentView(LayoutComponent.BUTTON_PUNICA_MENU)?.view?.setOnTouchListener(SingleButtonInputHandler(pressing(it), Input.PUNICA_MENU, enableHapticFeedback, touchVibrator).classic())
         }
 
         getLayoutComponentViews().forEach {
