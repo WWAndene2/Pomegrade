@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 import me.magnum.melonds.common.romprocessors.RomFileProcessorFactory
 import me.magnum.melonds.domain.model.RomScanningStatus
 import me.magnum.melonds.domain.model.rom.Rom
+import me.magnum.melonds.domain.model.rom.RomPlatform
 import me.magnum.melonds.domain.model.rom.config.RomConfig
 import me.magnum.melonds.domain.repositories.RomsRepository
 import me.magnum.melonds.domain.repositories.SettingsRepository
@@ -274,7 +275,8 @@ class FileSystemRomsRepository(
         val cachedRoms = getCachedRoms().filter { rom ->
             val documentId = PomegradeFolder.documentIdOf(context, rom.uri)
             val inSystemFolder = documentId != null && systemFolders.any { documentId.startsWith("$it/") }
-            !inSystemFolder && DocumentFile.fromSingleUri(context, rom.uri)?.exists() == true
+            val content = RomPlatform.isSwitchContentFile(rom.fileName)
+            !inSystemFolder && !content && DocumentFile.fromSingleUri(context, rom.uri)?.exists() == true
         }
 
         roms.addAll(cachedRoms)
@@ -313,6 +315,10 @@ class FileSystemRomsRepository(
                 continue
             }
 
+            // Pomegrade: a Switch firmware's (or an installed title's) content files are not games
+            if (RomPlatform.isSwitchContentFile(file.name.orEmpty())) {
+                continue
+            }
             romFileProcessorFactory.getFileRomProcessorForDocument(file)?.let { fileRomProcessor ->
                 fileRomProcessor.getRomFromUri(file.uri, directory.uri)?.let { collector.emit(it) }
             }

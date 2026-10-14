@@ -25,6 +25,12 @@ enum class RomPlatform {
         // what Dolphin loads (its GameFileCache extensions), but .bin (too common) and .json (Riivolution)
         val gcWiiExtensions = setOf("gcm", "tgc", "iso", "ciso", "gcz", "wbfs", "wia", "rvz", "nfs", "wad", "dol", "elf")
 
+        // a Switch content file named by its hash ("<32 hex>.nca", "<32 hex>.cnmt.nca"): a piece of a firmware or of
+        // an installed title, never a game to list (a firmware's hundreds of them filled the game list)
+        private val switchContentName = Regex("^[0-9a-f]{32}(\\.cnmt)?\\.nca$", RegexOption.IGNORE_CASE)
+
+        fun isSwitchContentFile(fileName: String): Boolean = switchContentName.matches(fileName)
+
         fun fromFileName(fileName: String): RomPlatform {
             val extension = fileName.substringAfterLast('.', "").lowercase()
             return when (extension) {
