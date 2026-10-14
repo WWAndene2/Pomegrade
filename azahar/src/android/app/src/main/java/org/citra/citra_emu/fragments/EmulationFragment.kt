@@ -230,6 +230,7 @@ class EmulationFragment :
                 EmulatorMenuR.id.emulator_menu_multiplayer,
                 EmulatorMenuR.id.emulator_menu_screenshot,
                 EmulatorMenuR.id.emulator_menu_game_settings,
+                EmulatorMenuR.id.emulator_menu_home,
             )
         )
         binding.inGameMenu.menu.findItem(EmulatorMenuR.id.emulator_menu_secondary_layout).isVisible =
@@ -334,6 +335,14 @@ class EmulationFragment :
             { EmulatorMenu.visibleItems(binding.inGameMenu.menu) },
             { id -> binding.inGameMenu.menu.performIdentifierAction(id, 0) }
         )
+        // Pomegrade: the Classic layout's Punica button takes the pill's place, its fan's bubbles the size of A
+        binding.surfaceInputOverlay.onPunicaButtonChanged = { area ->
+            shortcutPill?.useAnchor(area?.let { binding.surfaceInputOverlay }, binding.surfaceInputOverlay.faceButtonSize(), area)
+        }
+        binding.surfaceInputOverlay.onPunicaButton = { shortcutPill?.toggle() ?: binding.drawerLayout.open() }
+        binding.surfaceInputOverlay.punicaButtonArea()?.let { area ->
+            shortcutPill?.useAnchor(binding.surfaceInputOverlay, binding.surfaceInputOverlay.faceButtonSize(), area)
+        }
         binding.inGameMenu.setNavigationItemSelectedListener {
             when (it.itemId) {
                 EmulatorMenuR.id.emulator_menu_pause -> {
@@ -463,6 +472,24 @@ class EmulationFragment :
                             "%016X".format(titleId)
                         )
                     }
+                    true
+                }
+
+                EmulatorMenuR.id.emulator_menu_home -> {
+                    // Pomegrade: HOME, which the Classic layout's Punica button replaces: a short press
+                    binding.drawerLayout.close()
+                    NativeLibrary.onGamePadEvent(
+                        NativeLibrary.TOUCHSCREEN_DEVICE,
+                        NativeLibrary.ButtonType.BUTTON_HOME,
+                        NativeLibrary.ButtonState.PRESSED
+                    )
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        NativeLibrary.onGamePadEvent(
+                            NativeLibrary.TOUCHSCREEN_DEVICE,
+                            NativeLibrary.ButtonType.BUTTON_HOME,
+                            NativeLibrary.ButtonState.RELEASED
+                        )
+                    }, 100)
                     true
                 }
 

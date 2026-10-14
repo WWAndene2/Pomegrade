@@ -37,6 +37,7 @@
     <string name="emulator_menu_overlay_options">Options des commandes à l\'écran</string>
     <string name="emulator_menu_quick_settings">Réglages rapides</string>
     <string name="emulator_menu_game_settings">Réglages de ce jeu</string>
+    <string name="emulator_menu_home">Menu HOME</string>
     <string name="emulator_menu_screenshot">Capture d\'écran</string>
     <string name="emulator_menu_performance_overlay">Affichage des performances</string>
     <string name="emulator_screenshot_saved">Capture enregistrée dans Pictures/Punica</string>

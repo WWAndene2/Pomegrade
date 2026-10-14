@@ -22,7 +22,7 @@ import kotlin.math.min
  * bitmaps; the shoulder ones (L, R, ZL, ZR) draw their button over the middle 48.8 % of their height, so they
  * fit by height where the template's button is flatter than the image. The user's control scale still applies
  * on top. Swap screens, turbo and combo are not on the template: they sit in the free column between the circle
- * pad and ABXY.
+ * pad and ABXY. HOME's place holds the Punica button, which opens the shortcut pill's fan (HOME among its entries).
  */
 object ClassicOverlayLayout {
     private const val TEMPLATE_WIDTH = 1220f
@@ -46,7 +46,8 @@ object ClassicOverlayLayout {
         ButtonType.BUTTON_B to Box(899.9f, 2132.1f, 136.6f, 136.6f),
         ButtonType.BUTTON_START to Box(771.4f, 2434.7f, 83f, 83f),
         ButtonType.BUTTON_SELECT to Box(768.7f, 2574f, 83f, 83f),
-        ButtonType.BUTTON_HOME to Box(521.6f, 2555.2f, 176.7f, 101.8f),
+        // HOME's place: the Punica button, the size of START / SELECT; HOME is in its fan (owner's choice)
+        ButtonType.BUTTON_PUNICA to Box(568.5f, 2564.6f, 83f, 83f),
         ButtonType.BUTTON_SWAP to Box(568.5f, 1700f, 83f, 83f),
         ButtonType.BUTTON_TURBO to Box(568.5f, 1823f, 83f, 83f),
         Hotkey.COMBO_BUTTON.button to Box(568.5f, 1946f, 83f, 83f),

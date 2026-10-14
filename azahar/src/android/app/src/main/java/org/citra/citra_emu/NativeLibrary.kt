@@ -1096,6 +1096,8 @@ object NativeLibrary {
         const val BUTTON_GPIO14 = 782
         const val BUTTON_SWAP = 800
         const val BUTTON_TURBO = 801
+        // Pomegrade: the Classic layout's Punica button (the shortcut pill's fan), never sent to the core
+        const val BUTTON_PUNICA = 802
     }
 
     /**

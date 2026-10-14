@@ -38,8 +38,8 @@
 <text x="870.4" y="2484.2" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="start">START</text>
 <circle cx="810.2" cy="2615.5" r="41.5"/>
 <text x="867.7" y="2623.5" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="start">SELECT</text>
-<rect x="521.6" y="2555.2" width="176.7" height="101.8" rx="50.9"/>
-<text x="610" y="2535.2" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="middle">HOME</text>
+<circle cx="610" cy="2606.1" r="41.5"/>
+<text x="610" y="2550.6" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="middle">PUNICA (HOME dans l'éventail)</text>
 </g>
 <g id="cotes" inkscape:groupmode="layer" inkscape:label="4 Cotes (à cacher pour exporter)" font-size="36" fill="#EC2B39" text-anchor="middle">
   <text x="610" y="388">Écran haut 1110 × 666 · x 55 y 55</text>

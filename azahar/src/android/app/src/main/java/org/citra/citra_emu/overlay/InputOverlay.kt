@@ -198,13 +198,19 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
                         TurboHelper.toggleTurbo(true)
                     } else if (button.id == Hotkey.COMBO_BUTTON.button) {
                         ComboHelper.comboActivate(button.status)
+                    } else if (button.id == NativeLibrary.ButtonType.BUTTON_PUNICA &&
+                        button.status == NativeLibrary.ButtonState.PRESSED
+                    ) {
+                        onPunicaButton?.invoke()
                     }
 
-                    NativeLibrary.onGamePadEvent(
-                        NativeLibrary.TOUCHSCREEN_DEVICE,
-                        button.id,
-                        button.status
-                    )
+                    if (button.id != NativeLibrary.ButtonType.BUTTON_PUNICA) {
+                        NativeLibrary.onGamePadEvent(
+                            NativeLibrary.TOUCHSCREEN_DEVICE,
+                            button.id,
+                            button.status
+                        )
+                    }
 
                     shouldUpdateView = true
                 }
@@ -572,7 +578,18 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
                 )
             )
         }
-        if (preferences.getBoolean("buttonToggle13", false)) {
+        // Pomegrade: the Classic layout has the Punica button in HOME's place, HOME in its fan
+        if (ClassicOverlayLayout.isActive(orientation)) {
+            overlayButtons.add(
+                initializeOverlayButton(
+                    context,
+                    0,
+                    0,
+                    NativeLibrary.ButtonType.BUTTON_PUNICA,
+                    orientation
+                ) { side -> ClassicOverlayBitmaps.punica(context, side, false) to ClassicOverlayBitmaps.punica(context, side, true) }
+            )
+        } else if (preferences.getBoolean("buttonToggle13", false)) {
             overlayButtons.add(
                 initializeOverlayButton(
                     context,
@@ -654,7 +671,21 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
             addOverlayControls(orientation)
         }
         invalidate()
+        onPunicaButtonChanged?.invoke(punicaButtonArea())
     }
+
+    /** Pomegrade: told the Punica button's area each time the controls are built again, null when none is shown. */
+    var onPunicaButtonChanged: ((Rect?) -> Unit)? = null
+
+    /** Pomegrade: the Punica button is pressed. */
+    var onPunicaButton: (() -> Unit)? = null
+
+    /** Pomegrade: the Punica button's area in this view, or null. */
+    fun punicaButtonArea(): Rect? =
+        overlayButtons.firstOrNull { it.id == NativeLibrary.ButtonType.BUTTON_PUNICA }?.bounds?.let { Rect(it) }
+
+    /** Pomegrade: the A button's width in pixels (the fan's bubbles), 0 when hidden. */
+    fun faceButtonSize(): Int = overlayButtons.firstOrNull { it.id == NativeLibrary.ButtonType.BUTTON_A }?.bounds?.width() ?: 0
 
     private fun saveControlPosition(sharedPrefsId: Int, x: Int, y: Int, orientation: String) {
         preferences.edit()
@@ -1136,7 +1167,9 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
             defaultResId: Int,
             pressedResId: Int,
             buttonId: Int,
-            orientation: String
+            orientation: String,
+            // Pomegrade: the default and pressed images drawn for a side in pixels, instead of the resources
+            images: ((Int) -> Pair<Bitmap, Bitmap>)? = null
         ): InputOverlayDrawableButton {
             // Resources handle for fetching the initial Drawable resource.
             val res = context.resources
@@ -1169,8 +1202,11 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
             val opacity: Int = preferences.getInt("controlOpacity", 50) * 255 / 100
 
             // Initialize the InputOverlayDrawableButton.
-            val defaultStateBitmap = getBitmap(context, defaultResId, scale)
-            val pressedStateBitmap = getBitmap(context, pressedResId, scale)
+            val drawn = images?.invoke(
+                (scale * min(context.resources.displayMetrics.widthPixels, context.resources.displayMetrics.heightPixels)).toInt()
+            )
+            val defaultStateBitmap = drawn?.first ?: getBitmap(context, defaultResId, scale)
+            val pressedStateBitmap = drawn?.second ?: getBitmap(context, pressedResId, scale)
             val overlayDrawable =
                 InputOverlayDrawableButton(
                     res,

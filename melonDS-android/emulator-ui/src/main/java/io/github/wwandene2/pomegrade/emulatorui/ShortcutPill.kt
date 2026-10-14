@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.res.ColorStateList
+import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
@@ -153,6 +154,7 @@ class ShortcutPill private constructor(
     // the layout's Punica button when the screen shows one: the blades open from it, the pill is hidden
     private var anchor: View? = null
     private var anchorBubble = dp(48)
+    private var anchorArea: Rect? = null
     // the controller's focused blade, -1 when none
     private var focused = -1
     private var selectDown = false
@@ -186,10 +188,12 @@ class ShortcutPill private constructor(
 
     /**
      * The layout's Punica button the blades open from, the pill hidden; null shows the pill again. [bubbleSize]:
-     * the blades' circles in pixels there (the layout's A button), 48dp when 0.
+     * the blades' circles in pixels there (the layout's A button), 48dp when 0. [area]: the button's part of
+     * [anchor] when the view draws more than the button (a core's overlay drawing every control), else null.
      */
-    fun useAnchor(anchor: View?, bubbleSize: Int = 0) {
+    fun useAnchor(anchor: View?, bubbleSize: Int = 0, area: Rect? = null) {
         anchorBubble = if (bubbleSize > 0) bubbleSize else dp(48)
+        anchorArea = area
         if (this.anchor === anchor) return
         close()
         this.anchor = anchor
@@ -368,8 +372,9 @@ class ShortcutPill private constructor(
         if (anchor != null) {
             val here = IntArray(2).also { getLocationInWindow(it) }
             val there = IntArray(2).also { anchor.getLocationInWindow(it) }
-            cx = there[0] - here[0] + anchor.width / 2f
-            cy = there[1] - here[1] + anchor.height / 2f
+            val area = anchorArea
+            cx = there[0] - here[0] + (area?.exactCenterX() ?: (anchor.width / 2f))
+            cy = there[1] - here[1] + (area?.exactCenterY() ?: (anchor.height / 2f))
         } else {
             cx = pill.x + pill.width / 2f
             cy = pill.y + pill.height / 2f
@@ -566,6 +571,7 @@ class ShortcutPill private constructor(
         R.id.emulator_menu_achievements to R.drawable.emulator_menu_ic_trophy,
         R.id.emulator_menu_amiibo to R.drawable.emulator_menu_ic_nfc,
         R.id.emulator_menu_change_disc to R.drawable.emulator_menu_ic_disc,
+        R.id.emulator_menu_home to R.drawable.emulator_menu_ic_home,
         R.id.emulator_menu_performance_overlay to R.drawable.emulator_menu_ic_tune,
     )
 }

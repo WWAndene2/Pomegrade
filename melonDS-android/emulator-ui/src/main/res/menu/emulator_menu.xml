@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The in-game menu of both consoles, in this order. Each screen hides what its core does not have
      (EmulatorMenu.showOnly): rewind, reset, achievements and the inspector are DS only; on-screen control options,
-     amiibo, layouts, rotation, menu lock and multiplayer are 3DS only; quick settings, the game's own settings and
+     amiibo, layouts, rotation, menu lock, multiplayer and HOME are 3DS only; quick settings, the game's own settings and
      the on-screen controls' visibility are Switch only (on-screen control options and amiibo too); the screenshot,
      quick save and load, Wii Remotes, Skylanders portal, Infinity Base and disc change are GameCube / Wii only -->
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
@@ -10,6 +10,11 @@
         android:id="@+id/emulator_menu_pause"
         android:icon="@drawable/emulator_menu_ic_pause"
         android:title="@string/emulator_menu_pause" />
+
+    <item
+        android:id="@+id/emulator_menu_home"
+        android:icon="@drawable/emulator_menu_ic_home"
+        android:title="@string/emulator_menu_home" />
 
     <item
         android:id="@+id/emulator_menu_screenshot"
