@@ -7,6 +7,8 @@
 #include <thread>
 
 #include <ranges>
+#include <chrono>
+#include "common/pomegrade_diagnostics.h"
 #include "common/settings.h"
 #include "video_core/renderer_vulkan/vk_master_semaphore.h"
 #include "video_core/vulkan_common/vulkan_device.h"
@@ -76,6 +78,13 @@ void MasterSemaphore::Refresh() {
                                              std::memory_order_relaxed));
 }
 
+// Pomegrade: TEMPORARY, a wait for the GPU counted for the study's diagnostic (common/pomegrade_diagnostics.h)
+static void CountPomegradeWait(std::chrono::steady_clock::time_point start) {
+    const auto waited = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start);
+    PomegradeDiagnostics::gpu_waits.fetch_add(1, std::memory_order_relaxed);
+    PomegradeDiagnostics::gpu_wait_ns.fetch_add(static_cast<u64>(waited.count()), std::memory_order_relaxed);
+}
+
 void MasterSemaphore::Wait(u64 tick) {
     if (!semaphore) {
         // Fast check: already reached the requested tick?
@@ -83,11 +92,13 @@ void MasterSemaphore::Wait(u64 tick) {
             return;
         }
 
+        const auto pomegrade_start = std::chrono::steady_clock::now(); // Pomegrade: TEMPORARY
         u64 last_tick = gpu_tick.load(std::memory_order_relaxed);
         while (gpu_tick.load(std::memory_order_acquire) < tick) {
             gpu_tick.wait(last_tick, std::memory_order_acquire);
             last_tick = gpu_tick.load(std::memory_order_relaxed);
         }
+        CountPomegradeWait(pomegrade_start);
         return;
     }
 
@@ -104,8 +115,10 @@ void MasterSemaphore::Wait(u64 tick) {
     }
 
     // If none of the above is hit, fallback to a regular wait
+    const auto pomegrade_start = std::chrono::steady_clock::now(); // Pomegrade: TEMPORARY
     while (!semaphore.Wait(tick)) {
     }
+    CountPomegradeWait(pomegrade_start);
 
     Refresh();
 }

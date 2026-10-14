@@ -1,0 +1,23 @@
+// SPDX-FileCopyrightText: Copyright Pomegrade Project
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+// Pomegrade: TEMPORARY diagnostic counters for the optimisation study (docs/Eden_Optimisation_Xiaomi.md, section 4,
+// no ADB). Read once a second by the sampler in android/app/src/main/jni/native.cpp, which writes them to Eden's
+// log. To be deleted with every use of it once the owner's log is read (CLAUDE.md §2.4).
+
+#pragma once
+
+#include <atomic>
+#include <cstdint>
+
+namespace PomegradeDiagnostics {
+
+// Scheduler::Finish calls (a CPU thread waiting for the GPU to have run everything submitted)
+inline std::atomic<std::uint64_t> finish_calls{0};
+// MasterSemaphore::Wait calls that had to wait, and the time spent waiting, in nanoseconds
+inline std::atomic<std::uint64_t> gpu_waits{0};
+inline std::atomic<std::uint64_t> gpu_wait_ns{0};
+// guest memory accesses caught by NCE's fault handler (memory tracking)
+inline std::atomic<std::uint64_t> nce_access_faults{0};
+
+} // namespace PomegradeDiagnostics

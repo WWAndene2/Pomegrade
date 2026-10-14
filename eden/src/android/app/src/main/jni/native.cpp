@@ -19,6 +19,10 @@
 #include <string_view>
 #include <thread>
 #include <vector>
+#include <algorithm>
+#include <chrono>
+#include <dirent.h>
+#include <tuple>
 #include <dlfcn.h>
 #include <unistd.h>
 
@@ -43,6 +47,7 @@
 #include "common/dynamic_library.h"
 #include "common/fs/path_util.h"
 #include "common/logging.h"
+#include "common/pomegrade_diagnostics.h" // Pomegrade: TEMPORARY
 #include "common/scm_rev.h"
 #include "common/scope_exit.h"
 #include "common/settings.h"
@@ -381,6 +386,140 @@ void EmulationSession::HaltEmulation() {
     m_cv.notify_one();
 }
 
+// Pomegrade: TEMPORARY diagnostic for the optimisation study (docs/Eden_Optimisation_Xiaomi.md, section 4: no ADB).
+// Once a second while a game runs, writes to Eden's log each busy thread's CPU share and last core (the app's own
+// /proc/self/task entries), the cores' clocks, and the counters of common/pomegrade_diagnostics.h. Deleted with
+// those counters once the owner's log is read (CLAUDE.md §2.4).
+namespace {
+class PomegradeSampler {
+public:
+    void Sample() {
+        const auto now = std::chrono::steady_clock::now();
+        if (m_started && now - m_last < std::chrono::milliseconds(1000)) {
+            return;
+        }
+        const double seconds = m_started ? std::chrono::duration<double>(now - m_last).count() : 0.0;
+        if (!m_started) {
+            LogCores();
+        }
+        const long ticks_per_second = sysconf(_SC_CLK_TCK);
+        std::vector<std::tuple<double, std::string, int>> busy;
+        std::map<int, unsigned long long> ticks;
+        if (DIR* dir = opendir("/proc/self/task")) {
+            while (dirent* entry = readdir(dir)) {
+                if (entry->d_name[0] == '.') {
+                    continue;
+                }
+                const int tid = std::atoi(entry->d_name);
+                std::string name;
+                unsigned long long used = 0;
+                int core = -1;
+                if (!ReadThread(tid, name, used, core)) {
+                    continue;
+                }
+                ticks[tid] = used;
+                if (m_started && seconds > 0.0) {
+                    const auto previous = m_ticks.find(tid);
+                    const unsigned long long before = previous == m_ticks.end() ? used : previous->second;
+                    const double share = 100.0 * static_cast<double>(used - before) / ticks_per_second / seconds;
+                    if (share >= 2.0) {
+                        busy.emplace_back(share, name, core);
+                    }
+                }
+            }
+            closedir(dir);
+        }
+        m_ticks = std::move(ticks);
+        const u64 finishes = PomegradeDiagnostics::finish_calls.exchange(0, std::memory_order_relaxed);
+        const u64 waits = PomegradeDiagnostics::gpu_waits.exchange(0, std::memory_order_relaxed);
+        const u64 wait_ns = PomegradeDiagnostics::gpu_wait_ns.exchange(0, std::memory_order_relaxed);
+        const u64 faults = PomegradeDiagnostics::nce_access_faults.exchange(0, std::memory_order_relaxed);
+        if (m_started && seconds > 0.0) {
+            std::sort(busy.begin(), busy.end(), [](const auto& a, const auto& b) { return std::get<0>(a) > std::get<0>(b); });
+            std::string threads;
+            for (const auto& [share, name, core] : busy) {
+                threads += fmt::format(" [{} {:.0f}% cpu{}]", name, share, core);
+            }
+            LOG_INFO(Frontend, "[Pomegrade diag] per s: Finish {:.0f}, GPU waits {:.0f} ({:.1f} ms), NCE faults {:.0f} | clocks MHz {} | threads{}",
+                     finishes / seconds, waits / seconds, wait_ns / 1e6 / seconds, faults / seconds, Clocks(), threads);
+        }
+        m_last = now;
+        m_started = true;
+    }
+
+private:
+    static bool ReadThread(int tid, std::string& name, unsigned long long& used, int& core) {
+        std::FILE* file = std::fopen(fmt::format("/proc/self/task/{}/stat", tid).c_str(), "r");
+        if (file == nullptr) {
+            return false;
+        }
+        char buffer[1024];
+        const size_t length = std::fread(buffer, 1, sizeof(buffer) - 1, file);
+        std::fclose(file);
+        buffer[length] = '\0';
+        const std::string line(buffer);
+        const size_t open = line.find('(');
+        const size_t close = line.rfind(')');
+        if (open == std::string::npos || close == std::string::npos) {
+            return false;
+        }
+        name = line.substr(open + 1, close - open - 1);
+        // the fields after the name, from field 3 (state): utime is field 14, stime 15, the last core 39
+        std::istringstream rest(line.substr(close + 2));
+        std::vector<std::string> fields;
+        std::string field;
+        while (rest >> field) {
+            fields.push_back(field);
+        }
+        if (fields.size() < 37) {
+            return false;
+        }
+        used = std::stoull(fields[11]) + std::stoull(fields[12]);
+        core = std::stoi(fields[36]);
+        return true;
+    }
+
+    static std::string ReadFirstLine(const std::string& path) {
+        std::FILE* file = std::fopen(path.c_str(), "r");
+        if (file == nullptr) {
+            return "?";
+        }
+        char buffer[64] = {};
+        const bool read = std::fgets(buffer, sizeof(buffer), file) != nullptr;
+        std::fclose(file);
+        std::string text = read ? buffer : "?";
+        while (!text.empty() && (text.back() == '\n' || text.back() == '\r')) {
+            text.pop_back();
+        }
+        return text;
+    }
+
+    static std::string Clocks() {
+        std::string clocks;
+        for (int cpu = 0; cpu < 8; ++cpu) {
+            const std::string khz = ReadFirstLine(fmt::format("/sys/devices/system/cpu/cpu{}/cpufreq/scaling_cur_freq", cpu));
+            clocks += (cpu ? "," : "") + (khz == "?" ? khz : std::to_string(std::atoll(khz.c_str()) / 1000));
+        }
+        return clocks;
+    }
+
+    static void LogCores() {
+        std::string capacities;
+        std::string maxima;
+        for (int cpu = 0; cpu < 8; ++cpu) {
+            capacities += (cpu ? "," : "") + ReadFirstLine(fmt::format("/sys/devices/system/cpu/cpu{}/cpu_capacity", cpu));
+            const std::string khz = ReadFirstLine(fmt::format("/sys/devices/system/cpu/cpu{}/cpufreq/cpuinfo_max_freq", cpu));
+            maxima += (cpu ? "," : "") + (khz == "?" ? khz : std::to_string(std::atoll(khz.c_str()) / 1000));
+        }
+        LOG_INFO(Frontend, "[Pomegrade diag] cores: capacity {} | max MHz {}", capacities, maxima);
+    }
+
+    bool m_started = false;
+    std::chrono::steady_clock::time_point m_last{};
+    std::map<int, unsigned long long> m_ticks;
+};
+} // namespace
+
 void EmulationSession::RunEmulation() {
     {
         std::scoped_lock lock(m_mutex);
@@ -401,6 +540,7 @@ void EmulationSession::RunEmulation() {
         m_system.InitializeDebugger();
     }
 
+    PomegradeSampler pomegrade_sampler; // Pomegrade: TEMPORARY
     while (true) {
         {
             [[maybe_unused]] std::unique_lock lock(m_mutex);
@@ -410,6 +550,7 @@ void EmulationSession::RunEmulation() {
                 break;
             }
         }
+        pomegrade_sampler.Sample();
     }
 
     // Reset current applet ID.
