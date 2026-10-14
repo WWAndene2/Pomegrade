@@ -245,6 +245,17 @@ void RestoreGlobalState(bool is_powered_on) {
     values.remaster_sky.SetGlobal(true);
     values.remaster_far_blur.SetGlobal(true);
     values.remaster_ultra.SetGlobal(true);
+    values.remaster_rt_resolution.SetGlobal(true);
+    values.remaster_rt_steps.SetGlobal(true);
+    values.remaster_rt_reach.SetGlobal(true);
+    values.remaster_rt_thickness.SetGlobal(true);
+    values.remaster_rt_indirect.SetGlobal(true);
+    values.remaster_rt_shadow.SetGlobal(true);
+    values.remaster_rt_softness.SetGlobal(true);
+    values.remaster_rt_denoise.SetGlobal(true);
+    values.remaster_rt_history.SetGlobal(true);
+    values.remaster_rt_shadow_size.SetGlobal(true);
+    values.remaster_rt_shadow_range.SetGlobal(true);
     values.deep_black.SetGlobal(true);
     values.delay_game_render_thread_us.SetGlobal(true);
     values.simulate_3ds_gpu_timings.SetGlobal(true);

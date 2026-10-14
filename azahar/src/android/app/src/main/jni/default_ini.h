@@ -284,6 +284,39 @@ static const char* android_config_default_file_content = (BOOST_HANA_STRING(R"(
 # Pomegrade: Remaster's light (V1 and custom). 0 (default): fast, 1: Ultra, the full path tracer
 )") DECLARE_KEY(remaster_ultra) BOOST_HANA_STRING(R"(
 
+# Pomegrade: Ray tracing: resolution (25-100%, default 50): Share of the screen's resolution the rays are traced at (more: sharper light, heavier)
+)") DECLARE_KEY(remaster_rt_resolution) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Ray tracing: steps per ray (4-32, default 16): Points tested along each ray (more: fewer missed contacts, heavier)
+)") DECLARE_KEY(remaster_rt_steps) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Ray tracing: ray reach (5-100%, default 30): How far rays go, as a share of the distance to the camera (more: wider occlusion and bounce)
+)") DECLARE_KEY(remaster_rt_reach) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Ray tracing: object thickness (1-20%, default 5): Thickness assumed behind what the camera sees (more: fewer leaks, more false contacts)
+)") DECLARE_KEY(remaster_rt_thickness) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Ray tracing: indirect light (0-200%, default 100): Strength of the sky's light and of the light bounced between surfaces
+)") DECLARE_KEY(remaster_rt_indirect) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Ray tracing: sun shadows (0-100%, default 100): How dark the sun's shadows are
+)") DECLARE_KEY(remaster_rt_shadow) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Ray tracing: shadow softness (0-3, default 1): Radius of the shadows' edge filter, in shadow map texels (more: softer, heavier)
+)") DECLARE_KEY(remaster_rt_softness) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Ray tracing: denoising passes (0-4, default 3): Edge-aware smoothing passes of the traced light (more: less grain, heavier)
+)") DECLARE_KEY(remaster_rt_denoise) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Ray tracing: frame accumulation (0-95%, default 90): Share of the previous frames' light kept (more: less grain, slower to react)
+)") DECLARE_KEY(remaster_rt_history) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Ray tracing: shadow map size (512-4096, default 2048): Width of the sun's shadow map in texels (more: sharper shadows, heavier, more memory)
+)") DECLARE_KEY(remaster_rt_shadow_size) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Ray tracing: shadow range (25-100%, default 75): Share of the scene the shadow map covers, nearest first (more: shadows further away, less sharp)
+)") DECLARE_KEY(remaster_rt_shadow_range) BOOST_HANA_STRING(R"(
+
 [Layout]
 # Layout for the screen inside the render window, landscape mode
 # 0: Original (screens vertically aligned)

@@ -132,8 +132,10 @@ private:
     OGLSampler nearest, linear;
     std::size_t node_count = 0;
 
-    // the fast tracer: the shadow map, the half-size light
-    static constexpr u32 ShadowSize = 2048;
+    // the fast tracer: the shadow map, the light at a share of the target's size (Settings::values.remaster_rt_*:
+    // both sizes follow their settings, rebuilt when one changes)
+    void ResizeFast(u32 light_percent, u32 shadow_size);
+    u32 fast_percent = 0, shadow_size = 0;
     OGLTexture shadow_map;
     OGLFramebuffer shadow_fbo;
     OGLProgram shadow_program, fast_trace_program, fast_temporal_program;

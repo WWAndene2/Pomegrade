@@ -53,6 +53,17 @@ object SettingKeys {
     external fun remaster_sky(): String
     external fun remaster_far_blur(): String
     external fun remaster_ultra(): String
+    external fun remaster_rt_resolution(): String
+    external fun remaster_rt_steps(): String
+    external fun remaster_rt_reach(): String
+    external fun remaster_rt_thickness(): String
+    external fun remaster_rt_indirect(): String
+    external fun remaster_rt_shadow(): String
+    external fun remaster_rt_softness(): String
+    external fun remaster_rt_denoise(): String
+    external fun remaster_rt_history(): String
+    external fun remaster_rt_shadow_size(): String
+    external fun remaster_rt_shadow_range(): String
     external fun use_shader_jit(): String
     external fun resolution_factor(): String
     external fun frame_limit(): String
