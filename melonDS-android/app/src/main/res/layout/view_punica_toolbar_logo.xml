@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The home screen's logo for the XML screens' toolbar (PunicaToolbar): "Punica." in its outline, the screen's name
-     in italics under it, lined up with the pill's content. Same sizes as the Compose PunicaLogo -->
+     in italics under it, lined up with the pill's left edge, 4 dp under it. Same sizes as the Compose PunicaLogo -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -39,7 +39,6 @@
         android:layout_width="match_parent"
         android:layout_height="20dp"
         android:layout_marginTop="4dp"
-        android:paddingStart="@dimen/punica_gap_wide"
         android:ellipsize="end"
         android:fontFamily="@font/punica_bricolage_grotesque_extrabold"
         android:gravity="center_vertical"

@@ -79,8 +79,9 @@ fun PunicaLogo(subtitle: String, modifier: Modifier = Modifier) {
             subtitle,
             fontFamily = PunicaTheme.display, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 16.sp, lineHeight = 20.sp,
             color = PunicaTheme.text, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            // lined up with the pill's content (its 12 dp inner padding), 4 dp under its outline
-            modifier = Modifier.padding(start = PunicaDimens.GAP_WIDE.dp, top = 4.dp),
+            // lined up with the pill's left edge (owner's choice), 4 dp under its outline: 4 dp above the pill and
+            // below this line too, the 56 dp block centred in the 64 dp header
+            modifier = Modifier.padding(top = 4.dp),
         )
     }
 }
