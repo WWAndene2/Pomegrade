@@ -279,11 +279,15 @@ void QueryCacheBase<Traits>::CounterReport(GPUVAddr addr, QueryType counter_type
         }
         query_base->value += streamer->GetAmendValue();
         streamer->SetAccumulationValue(query_base->value);
+        // Pomegrade: an address the guest no longer maps gives no pointer: nothing to write (the owner's crash,
+        // a null write here after "Unmapped Device ReadBlock", 14 October)
         if (True(query_base->flags & QueryFlagBits::HasTimestamp)) {
-            u64 timestamp = impl->gpu.GetTicks();
-            std::memcpy(pointer_timestamp, &timestamp, sizeof(timestamp));
-            std::memcpy(pointer, &query_base->value, sizeof(query_base->value));
-        } else {
+            if (pointer != nullptr && pointer_timestamp != nullptr) [[likely]] {
+                u64 timestamp = impl->gpu.GetTicks();
+                std::memcpy(pointer_timestamp, &timestamp, sizeof(timestamp));
+                std::memcpy(pointer, &query_base->value, sizeof(query_base->value));
+            }
+        } else if (pointer != nullptr) [[likely]] {
             u32 value = static_cast<u32>(query_base->value);
             std::memcpy(pointer, &value, sizeof(value));
         }
@@ -295,12 +299,15 @@ void QueryCacheBase<Traits>::CounterReport(GPUVAddr addr, QueryType counter_type
         impl->rasterizer.SignalFence(std::move(operation));
     } else {
         if (!Settings::IsGPULevelHigh() && counter_type == QueryType::Payload) {
+            // Pomegrade: unmapped addresses give no pointer, nothing to write (as in the fence's operation above)
             if (has_timestamp) {
-                u64 timestamp = impl->gpu.GetTicks();
-                u64 value = static_cast<u64>(payload);
-                std::memcpy(pointer_timestamp, &timestamp, sizeof(timestamp));
-                std::memcpy(pointer, &value, sizeof(value));
-            } else {
+                if (pointer != nullptr && pointer_timestamp != nullptr) [[likely]] {
+                    u64 timestamp = impl->gpu.GetTicks();
+                    u64 value = static_cast<u64>(payload);
+                    std::memcpy(pointer_timestamp, &timestamp, sizeof(timestamp));
+                    std::memcpy(pointer, &value, sizeof(value));
+                }
+            } else if (pointer != nullptr) [[likely]] {
                 std::memcpy(pointer, &payload, sizeof(payload));
             }
             streamer->Free(new_query_id);
