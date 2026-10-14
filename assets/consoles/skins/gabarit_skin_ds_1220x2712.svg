@@ -12,9 +12,9 @@
   <rect x="56" y="1830" width="1108" height="826" fill="#2DB4E8" fill-opacity="0.10" stroke="#2DB4E8" stroke-width="3" stroke-dasharray="16 10"/>
 </g>
 <g id="boutons" inkscape:groupmode="layer" inkscape:label="5 Boutons (plan DS Lite agrandi × 1,15 ; L / R : hauteur = diamètre de A B X Y)" fill="none" stroke="#F3F4F6" stroke-width="4">
-<path d="M120 1830h264v151h-328v-87a64 64 0 0 1 64 -64z"/>
+<path d="M120 1830h258a6 6 0 0 1 6 6v138.9a6 6 0 0 1 -6 6h-315.9a6 6 0 0 1 -6 -6v-81a64 64 0 0 1 64 -64z"/>
 <text x="220.0" y="1916.0" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">L</text>
-<path d="M1100 1830h-264v151h328v-87a64 64 0 0 0 -64 -64z"/>
+<path d="M1100 1830h-258a6 6 0 0 0 -6 6v138.9a6 6 0 0 0 6 6h315.9a6 6 0 0 0 6 -6v-81a64 64 0 0 0 -64 -64z"/>
 <text x="1000.0" y="1916.0" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">R</text>
 <path d="M179.5 2101.7a19.7 19.7 0 0 1 19.7 -19.7h88.6a19.7 19.7 0 0 1 19.7 19.7v103.8h103.8a19.7 19.7 0 0 1 19.7 19.7v88.6a19.7 19.7 0 0 1 -19.7 19.7h-103.8v103.8a19.7 19.7 0 0 1 -19.7 19.7h-88.6a19.7 19.7 0 0 1 -19.7 -19.7v-103.8h-103.8a19.7 19.7 0 0 1 -19.7 -19.7v-88.6a19.7 19.7 0 0 1 19.7 -19.7h103.8z"/>
 <path stroke-width="7.9" stroke-linecap="round" d="M243.5 2127.0L243.5 2198.2M243.5 2412.0L243.5 2340.8M101.0 2269.5L172.2 2269.5M386.0 2269.5L314.8 2269.5"/>

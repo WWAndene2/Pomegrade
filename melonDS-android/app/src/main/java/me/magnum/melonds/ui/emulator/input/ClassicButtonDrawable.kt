@@ -102,7 +102,7 @@ class ClassicButtonDrawable(context: Context, private val kind: Kind, private va
         canvas.restoreToCount(layer)
     }
 
-    // 328 x 151: flat on three sides, the outer top corner rounded over 64 / 151 of the height
+    // 328 x 151: the outer top corner rounded over 64 / 151 of the height, the others very slightly
     private fun drawBumper(canvas: Canvas, w: Float, h: Float) {
         // fitted at the template's 328:151, centred, whatever the rectangle the layout gives
         val scale = min(w / 328f, h / 151f)
@@ -112,27 +112,7 @@ class ClassicButtonDrawable(context: Context, private val kind: Kind, private va
         val top = (h - bh) / 2f
         val stroke = 4f * scale
         val inset = if (outlined) stroke / 2f else 0f
-        val l = left + inset
-        val t = top + inset
-        val r = left + bw - inset
-        val bt = top + bh - inset
-        val c = 64f * scale
-        val path = Path()
-        if (kind == Kind.L) {
-            path.moveTo(l + c, t)
-            path.lineTo(r, t)
-            path.lineTo(r, bt)
-            path.lineTo(l, bt)
-            path.lineTo(l, t + c)
-            path.arcTo(l, t, l + 2 * c, t + 2 * c, 180f, 90f, false)
-        } else {
-            path.moveTo(l, t)
-            path.lineTo(r - c, t)
-            path.arcTo(r - 2 * c, t, r, t + 2 * c, 270f, 90f, false)
-            path.lineTo(r, bt)
-            path.lineTo(l, bt)
-        }
-        path.close()
+        val path = ClassicControlPainter.bumperPath(left + inset, top + inset, left + bw - inset, top + bh - inset, 64f * scale, kind == Kind.L)
         val raised = ClassicControlPainter.paint(canvas, path, outlined, stroke, depths[null] ?: 0f)
         textPaint.textSize = 34f * scale
         ClassicControlPainter.drawLabel(canvas, textPaint, if (kind == Kind.L) "L" else "R", left + bw / 2f, top + bh / 2f - raised, outlined)

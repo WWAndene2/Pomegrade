@@ -93,6 +93,20 @@ object ClassicControlPainter {
 
     fun labelColor(outlined: Boolean) = if (outlined) LINE else INK
 
+    /**
+     * A shoulder button (L / R) between [left], [top], [right], [bottom]: its outer top corner rounded over [corner],
+     * its three other corners very slightly, 4 % of its height (owner's choice); [isLeft] for L, whose outer side is
+     * on the left.
+     */
+    fun bumperPath(left: Float, top: Float, right: Float, bottom: Float, corner: Float, isLeft: Boolean): Path {
+        val small = (bottom - top) * 0.04f
+        // radii from the top left, clockwise
+        val radii = if (isLeft) listOf(corner, small, small, small) else listOf(small, corner, small, small)
+        return Path().apply {
+            addRoundRect(RectF(left, top, right, bottom), radii.flatMap { listOf(it, it) }.toFloatArray(), Path.Direction.CW)
+        }
+    }
+
     /** The D-pad's outline in a square of [side] pixels, both arms as one shape, [inset] in from the square. */
     fun dpadPath(side: Float, inset: Float): Path {
         val arm = side * 128f / 375f

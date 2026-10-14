@@ -80,29 +80,9 @@ object ClassicOverlayBitmaps {
         val inset = if (style.outlined) stroke / 2f else 0f
         val path = Path()
         when (id) {
-            ButtonType.TRIGGER_L, ButtonType.TRIGGER_R -> {
-                // flat on three sides, the outer top corner rounded over 46 of the 92
-                val c = 46f * scale
-                val l = inset
-                val t = inset
-                val r = w - inset
-                val b = h - inset
-                if (id == ButtonType.TRIGGER_L) {
-                    path.moveTo(l + c, t)
-                    path.lineTo(r, t)
-                    path.lineTo(r, b)
-                    path.lineTo(l, b)
-                    path.lineTo(l, t + c)
-                    path.arcTo(l, t, l + 2 * c, t + 2 * c, 180f, 90f, false)
-                } else {
-                    path.moveTo(l, t)
-                    path.lineTo(r - c, t)
-                    path.arcTo(r - 2 * c, t, r, t + 2 * c, 270f, 90f, false)
-                    path.lineTo(r, b)
-                    path.lineTo(l, b)
-                }
-                path.close()
-            }
+            // the outer top corner rounded over 46 of the 92, the others very slightly
+            ButtonType.TRIGGER_L, ButtonType.TRIGGER_R ->
+                path.addPath(ClassicControlPainter.bumperPath(inset, inset, w - inset, h - inset, 46f * scale, id == ButtonType.TRIGGER_L))
             ButtonType.BUTTON_ZL, ButtonType.BUTTON_ZR ->
                 path.addRoundRect(RectF(inset, inset, w - inset, h - inset), h / 2f, h / 2f, Path.Direction.CW)
             else -> path.addCircle(w / 2f, h / 2f, w / 2f - inset, Path.Direction.CW)
