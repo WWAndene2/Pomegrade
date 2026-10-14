@@ -241,6 +241,26 @@ in Eden's scan (GameHelper skips such files) and in Punica's game list. The uplo
 logs, mid-line; the GPU log likewise), before the game started: no `[Pomegrade diag]` line arrived. The full logs
 are needed, zipped or through the Drive folder.
 
+Third log (build `main-7dc7d185`, the diagnostic, 14 October, whole: 361 samples over 290 s of Pokemon Sword), measured.
+The owner had changed settings since 4.1: asynchronous GPU emulation **on**, async presentation on, custom CPU ticks
+21000, fast CPU time Boost; GPU accuracy Low, resolution 1x, ASTC uncompressed as before. The firmware scan is gone.
+Means per 30 s window (the sampler's "per s" counters cover its 0.8 s interval):
+
+| Window | Busiest threads (share of a core) | GPU waits per s (time) | NCE faults per s | Big cores' clock |
+|---|---|---|---|---|
+| 0-60 s | CPUCore_0 27-29 %, GPU 10-14 % | 1 (12-14 ms) | 160-370 | 2.3 then 1.1 GHz |
+| 60-180 s | CPUCore_0 34-38 %, GPU 27-31 %, CPUCore_1 and _2 25-30 %, VulkanWorker 14 % | 6-12 (60-150 ms) | 680-800 | 1.3-1.5 GHz |
+| 180-270 s | GPU 30-40 %, CPUCore_0 33 %, CPUCore_1 and _2 20-24 % | 2-3 (22-32 ms) | 990-1560 | 1.2-1.4 GHz |
+| 270-300 s | GPU 46-60 %, CPUCore_0 27 %, VulkanWorker 18-23 % | 35-41 (1.1-1.3 s) | 2470-3190 | 1.8-2.0 GHz |
+
+Read from it: no thread is saturated in any window (the busiest under 60 %), and the big cores stay near half their
+3 GHz: the CPU is not the limit (H1 ruled out for this run). At 270-300 s the threads spend over a second per second
+waiting on the GPU's fences (several at once): the Mali is the limit there (GPU-bound). NCE faults follow the GPU load
+and cost little alone (some thousand a second). What was on screen in each window, and its FPS, is the owner's to
+say: needed to tie the windows to the cutscene and to Postwick. Next: an A/B at the heavy spot, resolution 1x against
+0.5x (a setting): a large FPS gain confirms GPU-bound and points to GPU work (render passes, texture formats,
+bandwidth) rather than the CPU.
+
 16 FPS standing still in the first town is the floor to raise: the game targets 30. The disk cache works, so H4
 explains first-run stutters, not this floor.
 
