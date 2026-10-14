@@ -13,7 +13,8 @@ import kotlin.math.roundToInt
 /**
  * Builds Pomegrade's "Classic" layout: the screens and buttons of the Punica DS skin template
  * (assets/consoles/skins/gabarit_skin_ds_1220x2712.svg), whose buttons are measured on the DS Lite plan at one
- * common scale. The template is scaled to fit the safe area, centred horizontally and anchored to its top.
+ * common scale, then enlarged 1.15 times (owner's choice) keeping their proportions and the clusters' mirror. The
+ * template is scaled to fit the safe area, centred horizontally and anchored to its top.
  *
  * Only a plain portrait window has a template; landscape, folding and dual-display variants fall back to the default
  * layout.
@@ -27,18 +28,18 @@ class ClassicLayoutProvider(private val defaultLayoutProvider: DefaultLayoutProv
         // Template rectangles (x, y, width, height), in template pixels
         val TOP_SCREEN = Rect(56, 56, 1108, 831)
         val BOTTOM_SCREEN = Rect(56, 943, 1108, 831)
-        val BUTTON_L = Rect(56, 1830, 350, 153)
-        val BUTTON_R = Rect(814, 1830, 350, 153)
-        val DPAD = Rect(96, 2110, 326, 326)
-        val BUTTONS = Rect(758, 2070, 406, 406)
-        val BUTTON_START = Rect(707, 2561, 63, 63)
-        val BUTTON_SELECT = Rect(451, 2561, 63, 63)
+        val BUTTON_L = Rect(56, 1830, 403, 176)
+        val BUTTON_R = Rect(761, 1830, 403, 176)
+        val DPAD = Rect(102, 2094, 375, 375)
+        val BUTTONS = Rect(697, 2048, 467, 467)
+        val BUTTON_START = Rect(702, 2557, 72, 72)
+        val BUTTON_SELECT = Rect(446, 2557, 72, 72)
 
-        // Not on the DS: a row of four between L and R, so every input stays reachable. 80 px with 16 between them,
-        // so the row (368 px) fits the 408 px between the DS Lite-sized bumpers
-        const val UTILITY_SIZE = 80
-        const val UTILITY_SPACING = 16
-        const val UTILITY_TOP = 1830 + (153 - UTILITY_SIZE) / 2
+        // Not on the DS: a row of four between L and R, so every input stays reachable. 64 px with 8 between them,
+        // so the row (280 px) fits the 302 px between the enlarged bumpers
+        const val UTILITY_SIZE = 64
+        const val UTILITY_SPACING = 8
+        const val UTILITY_TOP = 1830 + (176 - UTILITY_SIZE) / 2
         val UTILITY_COMPONENTS = listOf(
             LayoutComponent.BUTTON_HINGE,
             LayoutComponent.BUTTON_TOGGLE_SOFT_INPUT,
