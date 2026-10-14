@@ -78,6 +78,8 @@ uniform vec4 p1; // outline, glow, aerial, far blur
 uniform vec4 p2; // vibrance, contrast, adaptive contrast, rim
 uniform vec4 p3; // bounce, contact shadow, traced light (gl_pathtracer.h), 0
 uniform vec4 p4; // the traced sun's direction across the screen (x, y), whether known, 0
+uniform vec4 p5; // strengths (1 = V1): occlusion, coloured bounce, shade/sun contrast; adaptive exposure 0-1
+uniform vec4 p6; // strengths (1 = V1): adaptive contrast, colours; 0, 0
 vec3 Frame(vec2 p) {
     return texture(frame, vec2(mix(cr.x, cr.y, p.x), mix(cr.z, cr.w, p.y))).rgb;
 }
@@ -214,11 +216,12 @@ void main() {
         float l = Luma(traced.rgb);
         step_ = smoothstep(0.60, 0.78, l);
         // the shade's tone as the offline renders' compose.py (the full render 'fin2', owner's choice, 9 October)
-        vec3 tone = mix(vec3(0.55, 0.57, 0.68), vec3(1.04, 1.0, 0.94), step_);
+        vec3 tone = mix(mix(vec3(1.0), vec3(0.55, 0.57, 0.68), min(p5.z, 2.0)), vec3(1.04, 1.0, 0.94), step_);
+        tone = max(tone, vec3(0.05));
         tone *= 0.8 + 0.2 * smoothstep(0.1, 0.45, l);                // deep corners a little darker, never black
-        tone *= 1.0 - (1.0 - pow(traced.a, 1.3)) * (0.55 - 0.4 * step_); // traced occlusion
+        tone *= max(1.0 - (1.0 - pow(traced.a, 1.3)) * (0.55 - 0.4 * step_) * p5.x, 0.0); // traced occlusion
         vec3 tint = clamp(traced.rgb / max(l, 0.03), 0.6, 1.6);       // the bounce's colour
-        tone *= 1.0 + 0.3 * (tint - 1.0) * (1.0 - 0.5 * step_);
+        tone *= max(1.0 + 0.3 * p5.y * (tint - 1.0) * (1.0 - 0.5 * step_), 0.0);
         vec3 base = pow(c, vec3(2.2));
         float bl = Luma(base);
         vec3 lin = base * tone + (vec3(0.012, 0.02, 0.07) * (1.0 - step_) + vec3(0.03, 0.015, 0.0) * step_) * (0.4 + bl);
@@ -226,11 +229,11 @@ void main() {
         c = pow(max(lin, 0.0), vec3(1.0 / 2.2));
         ao = 1.0; // applied
     } else {
-        c = mix(c, c * mix(shade, sun, step_) + vec3(0.012, 0.016, 0.034) * (1.0 - step_), p0.x);
+        c = mix(c, c * mix(max(mix(vec3(1.0), shade, p5.z), vec3(0.05)), sun, step_) + vec3(0.012, 0.016, 0.034) * (1.0 - step_), p0.x);
         // the light pass (occlusion and contact shadows): strong in the shade, weak in the sun
-        c *= 1.0 - (1.0 - pow(ao, 1.3)) * (0.55 - 0.4 * step_);
+        c *= max(1.0 - (1.0 - pow(ao, 1.3)) * (0.55 - 0.4 * step_) * p5.x, 0.0);
         // coloured bounce, stronger in the shade (compose.py: 1 + 0.3 (tint - 1)(1 - 0.5 step))
-        c *= 1.0 + 0.3 * (tint - 1.0) * (1.0 - 0.5 * step_) * p3.x;
+        c *= max(1.0 + 0.3 * p5.y * (tint - 1.0) * (1.0 - 0.5 * step_) * p3.x, 0.0);
     }
     // warm rim on the silhouettes facing the sun (layers.py's colour and weight)
     c += rim * vec3(0.28, 0.2, 0.1) * (0.3 + Luma(c)) * p2.w;
@@ -261,14 +264,19 @@ void main() {
     }
     // vibrance: the dull colours raised more than the vivid ones
     float l2 = Luma(c), sat = max(max(c.r, c.g), c.b) - min(min(c.r, c.g), c.b);
-    c = mix(vec3(l2), c, 1.0 + (p2.x - 1.0) * (1.0 - sat));
+    c = mix(vec3(l2), c, 1.0 + (p2.x - 1.0) * p6.y * (1.0 - sat));
+    vec2 m = textureLod(stats, vec2(0.5), texel.w).rg; // the frame's mean luminance and its square
+    // adaptive exposure: a gamma bringing the scene's mean luminance toward mid grey (0.45), within 0.6-1.6, as much
+    // as asked: dark scenes lifted, washed-out ones deepened (0: off, the game's exposure)
+    float exposure = clamp(log(0.45) / log(clamp(m.x, 0.02, 0.98)), 0.6, 1.6);
+    c = pow(clamp(c, 0.0, 1.0), vec3(mix(1.0, exposure, p5.w)));
     // contrast: an S-curve, fixed or following the scene's luminance spread (its stats' smallest mipmap)
     float k = p2.y;
     if (p2.z > 0.5) {
-        vec2 m = textureLod(stats, vec2(0.5), texel.w).rg;
         float spread = sqrt(max(m.y - m.x * m.x, 1e-6));
         k = clamp(0.7 * 0.2 / spread, 0.4, 1.0);
     }
+    k *= p6.x;
     c = clamp(c, 0.0, 1.0);
     c = mix(c, c * c * (3.0 - 2.0 * c), k * 0.4);
     color = vec4(c, 1.0);

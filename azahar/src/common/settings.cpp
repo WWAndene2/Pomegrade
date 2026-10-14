@@ -256,6 +256,12 @@ void RestoreGlobalState(bool is_powered_on) {
     values.remaster_rt_history.SetGlobal(true);
     values.remaster_rt_shadow_size.SetGlobal(true);
     values.remaster_rt_shadow_range.SetGlobal(true);
+    values.remaster_ao_strength.SetGlobal(true);
+    values.remaster_bounce_strength.SetGlobal(true);
+    values.remaster_shade_contrast.SetGlobal(true);
+    values.remaster_exposure.SetGlobal(true);
+    values.remaster_contrast_strength.SetGlobal(true);
+    values.remaster_colour_strength.SetGlobal(true);
     values.deep_black.SetGlobal(true);
     values.delay_game_render_thread_us.SetGlobal(true);
     values.simulate_3ds_gpu_timings.SetGlobal(true);

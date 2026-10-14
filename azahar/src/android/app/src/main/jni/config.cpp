@@ -210,6 +210,12 @@ void Config::ReadValues() {
     ReadSetting("Renderer", Settings::values.remaster_rt_history);
     ReadSetting("Renderer", Settings::values.remaster_rt_shadow_size);
     ReadSetting("Renderer", Settings::values.remaster_rt_shadow_range);
+    ReadSetting("Renderer", Settings::values.remaster_ao_strength);
+    ReadSetting("Renderer", Settings::values.remaster_bounce_strength);
+    ReadSetting("Renderer", Settings::values.remaster_shade_contrast);
+    ReadSetting("Renderer", Settings::values.remaster_exposure);
+    ReadSetting("Renderer", Settings::values.remaster_contrast_strength);
+    ReadSetting("Renderer", Settings::values.remaster_colour_strength);
     ReadSetting("Renderer", Settings::values.turbo_limit);
     // Workaround to map Android setting for enabling the frame limiter to the format Citra expects
     if (android_config->GetBoolean("Renderer", "use_frame_limit", true)) {

@@ -317,6 +317,24 @@ static const char* android_config_default_file_content = (BOOST_HANA_STRING(R"(
 # Pomegrade: Ray tracing: shadow range (25-100%, default 75): Share of the scene the shadow map covers, nearest first (more: shadows further away, less sharp)
 )") DECLARE_KEY(remaster_rt_shadow_range) BOOST_HANA_STRING(R"(
 
+# Pomegrade: Remaster: ambient occlusion strength (0-200%, default 100): How dark creases, corners and the ground under objects get
+)") DECLARE_KEY(remaster_ao_strength) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Remaster: colour bleeding (0-300%, default 100): How much surfaces take the colour of what is around them (light bounced between them)
+)") DECLARE_KEY(remaster_bounce_strength) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Remaster: shade contrast (0-200%, default 100): How much darker and cooler the shade is than the sunlit areas
+)") DECLARE_KEY(remaster_shade_contrast) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Remaster: adaptive exposure (0-100%, default 0): Brings each scene's brightness toward mid grey: dark scenes lifted, washed-out ones deepened (0: the game's own)
+)") DECLARE_KEY(remaster_exposure) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Remaster: adaptive contrast strength (0-200%, default 100): Strength of the contrast curve, which follows each scene's spread of brightness
+)") DECLARE_KEY(remaster_contrast_strength) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Remaster: colour strength (0-200%, default 100): How much the dull colours are raised (vibrance)
+)") DECLARE_KEY(remaster_colour_strength) BOOST_HANA_STRING(R"(
+
 [Layout]
 # Layout for the screen inside the render window, landscape mode
 # 0: Original (screens vertically aligned)

@@ -603,6 +603,13 @@ struct Values {
     SwitchableSetting<u32, true> remaster_rt_history{90, 0, 95, Keys::remaster_rt_history};
     SwitchableSetting<u32, true> remaster_rt_shadow_size{2048, 512, 4096, Keys::remaster_rt_shadow_size};
     SwitchableSetting<u32, true> remaster_rt_shadow_range{75, 25, 100, Keys::remaster_rt_shadow_range};
+    // Pomegrade: Remaster's composition (remaster.cpp MAIN_FRAG, p5 and p6): 100 is V1; exposure 0 is off
+    SwitchableSetting<u32, true> remaster_ao_strength{100, 0, 200, Keys::remaster_ao_strength};
+    SwitchableSetting<u32, true> remaster_bounce_strength{100, 0, 300, Keys::remaster_bounce_strength};
+    SwitchableSetting<u32, true> remaster_shade_contrast{100, 0, 200, Keys::remaster_shade_contrast};
+    SwitchableSetting<u32, true> remaster_exposure{0, 0, 100, Keys::remaster_exposure};
+    SwitchableSetting<u32, true> remaster_contrast_strength{100, 0, 200, Keys::remaster_contrast_strength};
+    SwitchableSetting<u32, true> remaster_colour_strength{100, 0, 200, Keys::remaster_colour_strength};
     SwitchableSetting<u16, true> delay_game_render_thread_us{0, 0, 65000,
                                                              Keys::delay_game_render_thread_us};
     SwitchableSetting<bool> simulate_3ds_gpu_timings{false, Keys::simulate_3ds_gpu_timings};

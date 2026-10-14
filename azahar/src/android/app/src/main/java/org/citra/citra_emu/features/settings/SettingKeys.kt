@@ -64,6 +64,12 @@ object SettingKeys {
     external fun remaster_rt_history(): String
     external fun remaster_rt_shadow_size(): String
     external fun remaster_rt_shadow_range(): String
+    external fun remaster_ao_strength(): String
+    external fun remaster_bounce_strength(): String
+    external fun remaster_shade_contrast(): String
+    external fun remaster_exposure(): String
+    external fun remaster_contrast_strength(): String
+    external fun remaster_colour_strength(): String
     external fun use_shader_jit(): String
     external fun resolution_factor(): String
     external fun frame_limit(): String

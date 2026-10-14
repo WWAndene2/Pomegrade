@@ -6,6 +6,7 @@
 #include <cmath>
 #include <tuple>
 #include "video_core/pica/regs_lcd.h"
+#include "common/settings.h"
 #include "video_core/remaster.h"
 #include "video_core/renderer_opengl/gl_pathtracer.h"
 #include "video_core/renderer_opengl/gl_remaster.h"
@@ -154,6 +155,13 @@ void RemasterGL::Apply(ScreenInfo& screen_info, PathTracerGL& tracer) {
         glProgramUniform4fv(h, glGetUniformLocation(h, "p2"), 1, p2);
         glProgramUniform4fv(h, glGetUniformLocation(h, "p3"), 1, p3);
         glProgramUniform4fv(h, glGetUniformLocation(h, "p4"), 1, p4);
+        const auto& v = Settings::values;
+        const float p5[4] = {v.remaster_ao_strength.GetValue() / 100.0f, v.remaster_bounce_strength.GetValue() / 100.0f,
+                             v.remaster_shade_contrast.GetValue() / 100.0f, v.remaster_exposure.GetValue() / 100.0f};
+        const float p6[4] = {v.remaster_contrast_strength.GetValue() / 100.0f,
+                             v.remaster_colour_strength.GetValue() / 100.0f, 0.0f, 0.0f};
+        glProgramUniform4fv(h, glGetUniformLocation(h, "p5"), 1, p5);
+        glProgramUniform4fv(h, glGetUniformLocation(h, "p6"), 1, p6);
     }
     Pass(stats_program, stats_fbo.handle, StatsSize, StatsSize);
     Pass(bright_program, bright_fbo.handle, std::max<u32>(1, width / 4), std::max<u32>(1, height / 4));
