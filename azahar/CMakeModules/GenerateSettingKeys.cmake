@@ -67,6 +67,7 @@ foreach(KEY IN ITEMS
     "remaster_glow"
     "remaster_sky"
     "remaster_far_blur"
+    "remaster_ultra"
     "delay_game_render_thread_us"
     "simulate_3ds_gpu_timings"
     "layout_option"

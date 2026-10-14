@@ -136,6 +136,7 @@ enum class BooleanSetting(
     REMASTER_GLOW(SettingKeys.remaster_glow(), Settings.SECTION_RENDERER, true),
     REMASTER_SKY(SettingKeys.remaster_sky(), Settings.SECTION_RENDERER, true),
     REMASTER_FAR_BLUR(SettingKeys.remaster_far_blur(), Settings.SECTION_RENDERER, true),
+    REMASTER_ULTRA(SettingKeys.remaster_ultra(), Settings.SECTION_RENDERER, false),
     DEEP_BLACK(SettingKeys.deep_black(), Settings.SECTION_RENDERER, false),
     ENABLE_SECONDARY_DISPLAY(SettingKeys.enable_secondary_display(), Settings.SECTION_LAYOUT, true),
     SIMULATE_3DS_GPU_TIMINGS(

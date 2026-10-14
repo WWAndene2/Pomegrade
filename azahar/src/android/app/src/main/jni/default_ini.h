@@ -281,6 +281,9 @@ static const char* android_config_default_file_content = (BOOST_HANA_STRING(R"(
 # Pomegrade: Remaster's far blur, used by the custom preset. 0: off, 1 (default): on
 )") DECLARE_KEY(remaster_far_blur) BOOST_HANA_STRING(R"(
 
+# Pomegrade: Remaster's light (V1 and custom). 0 (default): fast, 1: Ultra, the full path tracer
+)") DECLARE_KEY(remaster_ultra) BOOST_HANA_STRING(R"(
+
 [Layout]
 # Layout for the screen inside the render window, landscape mode
 # 0: Original (screens vertically aligned)

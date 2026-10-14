@@ -1162,6 +1162,8 @@
     <string name="pomegrade_remaster_sky_description">Surfaces facing up take a little of the sky\'s cool light; the open shade too (custom preset)</string>
     <string name="pomegrade_remaster_far_blur">Remaster: far blur</string>
     <string name="pomegrade_remaster_far_blur_description">The farthest scenery softens slightly (custom preset)</string>
+    <string name="pomegrade_remaster_ultra">Remaster: Ultra ray tracing</string>
+    <string name="pomegrade_remaster_ultra_description">Traces the light through the whole scene: exact, but much heavier. Off: a fast version from the image and a shadow map</string>
     <string name="three_ds_rich_colours">Rich colours</string>
     <string name="three_ds_rich_colours_description">Smooths the steps in gradients left by the games\' 16-bit textures (sky, shadows, lighting), then dithers to the screen: smoother colours, no banding</string>
     <string name="three_ds_deep_black">Deep black</string>

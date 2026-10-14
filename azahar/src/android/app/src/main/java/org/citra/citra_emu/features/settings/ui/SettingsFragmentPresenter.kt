@@ -1179,6 +1179,15 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                 )
             )
             add(
+                SwitchSetting(
+                    BooleanSetting.REMASTER_ULTRA,
+                    R.string.pomegrade_remaster_ultra,
+                    R.string.pomegrade_remaster_ultra_description,
+                    BooleanSetting.REMASTER_ULTRA.key,
+                    BooleanSetting.REMASTER_ULTRA.defaultValue
+                )
+            )
+            add(
                 SliderSetting(
                     IntSetting.DELAY_RENDER_THREAD_US,
                     R.string.delay_render_thread,

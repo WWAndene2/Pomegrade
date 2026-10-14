@@ -244,6 +244,7 @@ void RestoreGlobalState(bool is_powered_on) {
     values.remaster_glow.SetGlobal(true);
     values.remaster_sky.SetGlobal(true);
     values.remaster_far_blur.SetGlobal(true);
+    values.remaster_ultra.SetGlobal(true);
     values.deep_black.SetGlobal(true);
     values.delay_game_render_thread_us.SetGlobal(true);
     values.simulate_3ds_gpu_timings.SetGlobal(true);

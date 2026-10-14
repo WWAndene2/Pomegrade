@@ -19,6 +19,7 @@ struct LightingRegs;
 namespace OpenGL {
 
 struct ScreenInfo;
+class OpenGLState;
 
 // Pomegrade: a path tracer for the 3D scene, every frame, as the offline renders of tools/remake/render did it
 // (three-gpu-pathtracer: rays through a BVH of the scene, the sun's shadows, the sky, light bounced between surfaces,
@@ -38,6 +39,13 @@ struct ScreenInfo;
 //   offline median and guided filters' part), then accumulated over frames where a pixel still shows the same point
 //   (temporal accumulation: 80 % of the history kept; a pixel whose point moved starts again), and handed to
 //   Remaster, which composes it as compose.py does (V1).
+// That is Ultra (Settings::values.remaster_ultra). By default the light is traced fast instead, the same light from far
+// fewer rays, as measured against three-gpu-pathtracer on a test scene (sun, sky, 3 bounces): the sun's shadows from a
+// shadow map (the frame's triangles drawn again from the sun, a depth image: no BVH built on the CPU, exact for what is
+// off screen or hidden); the sky and the bounce from one ray each per pixel marched through the G-buffer itself
+// (screen space: what the camera does not see neither occludes nor bounces), at half size, a ray that leaves below the
+// horizon counted as ground, not sky; three a-trous passes, then the temporal accumulation (90 % kept) at full size,
+// upsampled where the distance matches.
 // The sun and the moon follow the game's clock (the emulated 3DS's) by the owner's table: every 3 hours an azimuth,
 // a height, a light colour and power and the sky's colours, interpolated. Up is the normal of the frame's largest flat
 // area (the ground), north the camera's forward direction along it. The game's own time-of-day colours stay in the frame underneath.
@@ -48,6 +56,9 @@ public:
 
     /// Whether the current Remaster preset traces the light (V1 and custom)
     static bool Enabled();
+
+    /// Whether the light is traced through the whole scene's BVH (Ultra) rather than the fast way
+    static bool Ultra();
 
     /// A test hook (the headless host's "sun HOUR"): the sun and moon placed at that hour of the table instead of the game
     /// clock's, so a run renders a chosen time of day; negative goes back to the clock
@@ -95,6 +106,8 @@ private:
 
     void Resize(u32 width, u32 height);
     void Upload(const Frame& frame);
+    /// The sun's shadow map: the frame's triangles drawn again from the sun (orthographic, around the camera)
+    void DrawShadowMap(const Frame& frame, OpenGLState& state);
 
     std::unordered_map<PAddr, std::shared_ptr<Frame>> frames;    ///< being drawn, by render target
     std::unordered_map<PAddr, bool> copied;                       ///< a target's frame was copied out: next draw starts anew
@@ -118,6 +131,16 @@ private:
     OGLTexture nodes_texture, triangles_texture;
     OGLSampler nearest, linear;
     std::size_t node_count = 0;
+
+    // the fast tracer: the shadow map, the half-size light
+    static constexpr u32 ShadowSize = 2048;
+    OGLTexture shadow_map;
+    OGLFramebuffer shadow_fbo;
+    OGLProgram shadow_program, fast_trace_program, fast_temporal_program;
+    std::array<OGLTexture, 2> half_light;
+    std::array<OGLFramebuffer, 2> half_light_fbo;
+    float view_to_sun[16] = {}; ///< view space to the shadow map's clip space (column-major)
+    float shadow_bias = 0, depth_scale = 0;
 
     // the scene's frame of reference in view space, and the sun from the clock
     float up[3] = {0, 1, 0}, sun[3] = {0, 1, 0}, sun_colour[3] = {1, 1, 1};

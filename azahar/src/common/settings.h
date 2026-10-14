@@ -588,6 +588,9 @@ struct Values {
     SwitchableSetting<bool> remaster_glow{true, Keys::remaster_glow};
     SwitchableSetting<bool> remaster_sky{true, Keys::remaster_sky};
     SwitchableSetting<bool> remaster_far_blur{true, Keys::remaster_far_blur};
+    // Pomegrade: the light of V1 and custom: false (default) the fast tracer (shadow map and screen-space rays, half size),
+    // true Ultra, the path tracer through the whole scene's BVH (gl_pathtracer.h)
+    SwitchableSetting<bool> remaster_ultra{false, Keys::remaster_ultra};
     SwitchableSetting<u16, true> delay_game_render_thread_us{0, 0, 65000,
                                                              Keys::delay_game_render_thread_us};
     SwitchableSetting<bool> simulate_3ds_gpu_timings{false, Keys::simulate_3ds_gpu_timings};

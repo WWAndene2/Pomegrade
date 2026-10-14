@@ -52,6 +52,7 @@ object SettingKeys {
     external fun remaster_glow(): String
     external fun remaster_sky(): String
     external fun remaster_far_blur(): String
+    external fun remaster_ultra(): String
     external fun use_shader_jit(): String
     external fun resolution_factor(): String
     external fun frame_limit(): String

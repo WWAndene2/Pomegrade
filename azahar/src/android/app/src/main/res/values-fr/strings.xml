@@ -1093,6 +1093,8 @@
     <string name="pomegrade_remaster_description">Une lumière moderne sur l\'écran du haut, en path tracing en direct, l\'aspect des jeux gardé (OpenGL). V1 : le remaster complet. Personnalisé : V1 avec les interrupteurs ci-dessous</string>
     <string name="pomegrade_remaster_far_blur">Remaster : flou lointain</string>
     <string name="pomegrade_remaster_far_blur_description">Le décor le plus lointain s\'adoucit légèrement (préréglage personnalisé)</string>
+    <string name="pomegrade_remaster_ultra">Remaster : ray tracing Ultra</string>
+    <string name="pomegrade_remaster_ultra_description">Trace la lumière dans toute la scène : exact, mais bien plus lourd. Désactivé : une version rapide, calculée sur l\'image et une carte d\'ombre</string>
     <string name="pomegrade_remaster_glow">Remaster : halo</string>
     <string name="pomegrade_remaster_glow_description">Les reflets lumineux rayonnent doucement (préréglage personnalisé)</string>
     <string name="pomegrade_remaster_grading">Remaster : lumière bicolore</string>
