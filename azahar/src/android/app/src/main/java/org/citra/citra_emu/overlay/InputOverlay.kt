@@ -587,7 +587,7 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
                     0,
                     NativeLibrary.ButtonType.BUTTON_PUNICA,
                     orientation
-                ) { side -> ClassicOverlayBitmaps.punica(context, side, false) to ClassicOverlayBitmaps.punica(context, side, true) }
+                )
             )
         } else if (preferences.getBoolean("buttonToggle13", false)) {
             overlayButtons.add(
@@ -646,7 +646,8 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
         ClassicOverlayLayout.areaHeight = h
         val orientation = if (h > w) "-Portrait" else ""
         if (w > 0 && h > 0 && ClassicOverlayLayout.isActive(orientation)) {
-            val area = "${w}x$h"
+            // with the layout's version: controls placed by an older one are placed again
+            val area = "${w}x$h-v${ClassicOverlayLayout.VERSION}"
             if (preferences.getString("ClassicOverlayArea", null) != area) {
                 defaultOverlayPortraitClassic()
             }
@@ -737,7 +738,7 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
     private fun defaultOverlayPortraitClassic() {
         val editor = preferences.edit()
         if (ClassicOverlayLayout.areaWidth > 0 && ClassicOverlayLayout.areaHeight > 0) {
-            editor.putString("ClassicOverlayArea", "${ClassicOverlayLayout.areaWidth}x${ClassicOverlayLayout.areaHeight}")
+            editor.putString("ClassicOverlayArea", "${ClassicOverlayLayout.areaWidth}x${ClassicOverlayLayout.areaHeight}-v${ClassicOverlayLayout.VERSION}")
         }
         ClassicOverlayLayout.placedControls.forEach { id ->
             val (x, y) = ClassicOverlayLayout.position(context, id) ?: return@forEach
@@ -1115,6 +1116,12 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
          * @param scale   The scale factor for the bitmap.
          * @return The scaled [Bitmap]
          */
+        // Pomegrade: a scale's side in pixels, as resizeBitmap sizes a bitmap
+        private fun scaledSide(context: Context, scale: Float): Int {
+            val dm = context.resources.displayMetrics
+            return (min(dm.widthPixels, dm.heightPixels) * scale).toInt()
+        }
+
         private fun resizeBitmap(context: Context, bitmap: Bitmap, scale: Float): Bitmap {
             // Determine the button size based on the smaller screen dimension.
             // This makes sure the buttons are the same size in both portrait and landscape.
@@ -1167,9 +1174,7 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
             defaultResId: Int,
             pressedResId: Int,
             buttonId: Int,
-            orientation: String,
-            // Pomegrade: the default and pressed images drawn for a side in pixels, instead of the resources
-            images: ((Int) -> Pair<Bitmap, Bitmap>)? = null
+            orientation: String
         ): InputOverlayDrawableButton {
             // Resources handle for fetching the initial Drawable resource.
             val res = context.resources
@@ -1202,9 +1207,12 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
             val opacity: Int = preferences.getInt("controlOpacity", 50) * 255 / 100
 
             // Initialize the InputOverlayDrawableButton.
-            val drawn = images?.invoke(
-                (scale * min(context.resources.displayMetrics.widthPixels, context.resources.displayMetrics.heightPixels)).toInt()
-            )
+            // Pomegrade: the Classic layout's controls drawn as its template, scale giving their width
+            val drawn = if (ClassicOverlayLayout.isActive(orientation)) {
+                ClassicOverlayBitmaps.button(context, buttonId, scaledSide(context, scale))
+            } else {
+                null
+            }
             val defaultStateBitmap = drawn?.first ?: getBitmap(context, defaultResId, scale)
             val pressedStateBitmap = drawn?.second ?: getBitmap(context, pressedResId, scale)
             val overlayDrawable =
@@ -1281,10 +1289,12 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
             val opacity: Int = preferences.getInt("controlOpacity", 50) * 255 / 100
 
             // Initialize the InputOverlayDrawableDpad.
-            val defaultStateBitmap = getBitmap(context, defaultResId, scale)
-            val pressedOneDirectionStateBitmap = getBitmap(context, pressedOneDirectionResId, scale)
+            // Pomegrade: the Classic layout's D-pad drawn as its template
+            val drawn = if (ClassicOverlayLayout.isActive(orientation)) ClassicOverlayBitmaps.dpad(context, scaledSide(context, scale)) else null
+            val defaultStateBitmap = drawn?.first ?: getBitmap(context, defaultResId, scale)
+            val pressedOneDirectionStateBitmap = drawn?.second ?: getBitmap(context, pressedOneDirectionResId, scale)
             val pressedTwoDirectionsStateBitmap =
-                getBitmap(context, pressedTwoDirectionsResId, scale)
+                drawn?.third ?: getBitmap(context, pressedTwoDirectionsResId, scale)
             val overlayDrawable = InputOverlayDrawableDpad(
                 res,
                 defaultStateBitmap,
@@ -1348,9 +1358,11 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
             val opacity: Int = preferences.getInt("controlOpacity", 50) * 255 / 100
 
             // Initialize the InputOverlayDrawableJoystick.
-            val bitmapOuter = getBitmap(context, resOuter, scale)
-            val bitmapInnerDefault = getBitmap(context, defaultResInner, scale)
-            val bitmapInnerPressed = getBitmap(context, pressedResInner, scale)
+            // Pomegrade: the Classic layout's sticks drawn as its template
+            val drawn = if (ClassicOverlayLayout.isActive(orientation)) ClassicOverlayBitmaps.stick(context, joystick, scaledSide(context, scale)) else null
+            val bitmapOuter = drawn?.first ?: getBitmap(context, resOuter, scale)
+            val bitmapInnerDefault = drawn?.second ?: getBitmap(context, defaultResInner, scale)
+            val bitmapInnerPressed = drawn?.third ?: getBitmap(context, pressedResInner, scale)
 
             // The X and Y coordinates of the InputOverlayDrawableButton on the InputOverlay.
             // These were set in the input overlay configuration menu.

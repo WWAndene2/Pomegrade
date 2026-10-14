@@ -18,16 +18,16 @@ import kotlin.math.min
  * the native PortraitClassicLayout scales the screens (to the window width, shrunk only for a window shorter than
  * its proportions, centred horizontally, anchored to the top), so screens and controls stay together.
  *
- * Each control's image is fitted inside its template rectangle and centred in it. Azahar's images are square
- * bitmaps; the shoulder ones (L, R, ZL, ZR) draw their button over the middle 48.8 % of their height, so they
- * fit by height where the template's button is flatter than the image. The user's control scale still applies
- * on top. Swap screens, turbo and combo are not on the template: they sit in the free column between the circle
+ * Each control is drawn by ClassicOverlayBitmaps to fill its template rectangle (L, R, ZL and ZR as wide and as
+ * tall as theirs, no longer square images) and centred in it; swap, turbo and combo keep Azahar's square images.
+ * The user's control scale still applies on top. Swap screens, turbo and combo are not on the template: they sit in the free column between the circle
  * pad and ABXY. HOME's place holds the Punica button, which opens the shortcut pill's fan (HOME among its entries).
  */
 object ClassicOverlayLayout {
+    /** Raised when the controls' rectangles or drawn sizes change, so placements saved before are redone. */
+    const val VERSION = 2
     private const val TEMPLATE_WIDTH = 1220f
     private const val TEMPLATE_HEIGHT = 2712f
-    private const val SHOULDER_CONTENT_HEIGHT = 250f / 512f
 
     private class Box(val x: Float, val y: Float, val width: Float, val height: Float)
 
@@ -52,8 +52,6 @@ object ClassicOverlayLayout {
         ButtonType.BUTTON_TURBO to Box(568.5f, 1823f, 83f, 83f),
         Hotkey.COMBO_BUTTON.button to Box(568.5f, 1946f, 83f, 83f),
     )
-
-    private val shoulders = setOf(ButtonType.TRIGGER_L, ButtonType.TRIGGER_R, ButtonType.BUTTON_ZL, ButtonType.BUTTON_ZR)
 
     fun isActive(orientation: String): Boolean =
         orientation == "-Portrait" && IntSetting.PORTRAIT_SCREEN_LAYOUT.int == PortraitScreenLayout.CLASSIC.int
@@ -84,22 +82,20 @@ object ClassicOverlayLayout {
         val area = area(context)
         val scale = templateScale(area)
         val offsetX = (area.first - TEMPLATE_WIDTH * scale) / 2f
-        val side = shownSide(id, area)
         val centreX = offsetX + (box.x + box.width / 2f) * scale
         val centreY = (box.y + box.height / 2f) * scale
-        return (centreX - side / 2f) to (centreY - side / 2f)
+        val (width, height) = if (id in drawnWide) box.width * scale to box.height * scale else shownSide(id, area).let { it to it }
+        return (centreX - width / 2f) to (centreY - height / 2f)
     }
 
     val placedControls: Set<Int> get() = boxes.keys
 
+    // drawn as wide as their rectangle, which is flatter than it is wide: the scale gives their width
+    private val drawnWide = setOf(ButtonType.TRIGGER_L, ButtonType.TRIGGER_R, ButtonType.BUTTON_ZL, ButtonType.BUTTON_ZR)
+
     private fun shownSide(id: Int, area: Pair<Float, Float>): Float {
         val box = boxes.getValue(id)
-        val side = if (id in shoulders) {
-            min(box.width, box.height / SHOULDER_CONTENT_HEIGHT)
-        } else {
-            min(box.width, box.height)
-        }
-        return side * templateScale(area)
+        return (if (id in drawnWide) box.width else min(box.width, box.height)) * templateScale(area)
     }
 
     private fun templateScale(area: Pair<Float, Float>): Float =
