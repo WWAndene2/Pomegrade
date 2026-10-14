@@ -35,6 +35,11 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutView(context, attrs) {
 
+    init {
+        // Pomegrade: the Classic layout's key caps draw their thickness a little past their bounds
+        clipChildren = false
+    }
+
     @Inject
     lateinit var touchVibrator: TouchVibrator
 
@@ -159,8 +164,15 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
 
         getLayoutComponentViews().forEach {
             if (!it.component.isScreen()) {
-                it.view.apply {
-                    alpha = inputAlpha
+                val classic = classicDrawables[it.component]
+                if (classic != null) {
+                    // Pomegrade: the opacity on the drawn cap, not the view, whose layer would clip the cap's sides
+                    it.view.alpha = 1f
+                    classic.alpha = (inputAlpha * 255).toInt()
+                } else {
+                    it.view.apply {
+                        alpha = inputAlpha
+                    }
                 }
             }
         }

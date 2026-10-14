@@ -7,7 +7,6 @@ package org.citra.citra_emu.overlay
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.os.SystemClock
 import android.graphics.Rect
 import android.graphics.drawable.BitmapDrawable
 import android.view.HapticFeedbackConstants
@@ -63,15 +62,6 @@ class InputOverlayDrawableDpad(
         height = this.defaultStateBitmap.intrinsicHeight
         trackId = -1
     }
-
-    // Pomegrade: the Classic layout's press animation, from the first direction pressed
-    var animatePress = false
-    private var pressedAt = 0L
-
-    /** Pomegrade: true while the press animation runs (the overlay draws again on the next frame). */
-    val isAnimating: Boolean
-        get() = animatePress && (upButtonState || downButtonState || leftButtonState || rightButtonState) &&
-            SystemClock.uptimeMillis() - pressedAt < PRESS_ANIMATION_MS
 
     fun updateStatus(
         event: MotionEvent,
@@ -147,7 +137,6 @@ class InputOverlayDrawableDpad(
                     rightState != rightButtonState
 
             if (stateChanged) {
-                if (!upState && !downState && !leftState && !rightState) pressedAt = SystemClock.uptimeMillis()
                 overlay.hapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
             } else if (isDown) {
                 overlay.hapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
@@ -158,21 +147,29 @@ class InputOverlayDrawableDpad(
         return false
     }
 
+    /**
+     * Pomegrade: draws the D-pad itself (the Classic layout's rocking cap) in its bounds, given its pressed directions
+     * (up, down, left, right), instead of the bitmaps, which then only give its size.
+     */
+    var classicPainter: ((Canvas, Rect, Boolean, Boolean, Boolean, Boolean) -> Unit)? = null
+
     fun draw(canvas: Canvas) {
-        // Pomegrade: the Classic layout's press animation, the raised D-pad fading out under the sunk one
-        var pressedAlpha = opacity
-        if (isAnimating) {
-            val progress = (SystemClock.uptimeMillis() - pressedAt).toFloat() / PRESS_ANIMATION_MS
-            defaultStateBitmap.alpha = (opacity * (1f - progress)).toInt()
-            defaultStateBitmap.draw(canvas)
-            pressedAlpha = (opacity * progress).toInt()
+        classicPainter?.let { paint ->
+            val b = bounds
+            val layer = canvas.saveLayerAlpha(
+                (b.left - b.width()).toFloat(), (b.top - b.height()).toFloat(),
+                (b.right + b.width()).toFloat(), (b.bottom + b.height()).toFloat(), opacity
+            )
+            paint(canvas, b, upButtonState, downButtonState, leftButtonState, rightButtonState)
+            canvas.restoreToCount(layer)
+            return
         }
         val px = controlPositionX + width / 2
         val py = controlPositionY + height / 2
 
         // Pressed up
         if (upButtonState && !leftButtonState && !rightButtonState) {
-            pressedOneDirectionStateBitmap.alpha = pressedAlpha
+            pressedOneDirectionStateBitmap.alpha = opacity
             pressedOneDirectionStateBitmap.draw(canvas)
             return
         }
@@ -181,7 +178,7 @@ class InputOverlayDrawableDpad(
         if (downButtonState && !leftButtonState && !rightButtonState) {
             canvas.save()
             canvas.rotate(180f, px.toFloat(), py.toFloat())
-            pressedOneDirectionStateBitmap.alpha = pressedAlpha
+            pressedOneDirectionStateBitmap.alpha = opacity
             pressedOneDirectionStateBitmap.draw(canvas)
             canvas.restore()
             return
@@ -191,7 +188,7 @@ class InputOverlayDrawableDpad(
         if (leftButtonState && !upButtonState && !downButtonState) {
             canvas.save()
             canvas.rotate(270f, px.toFloat(), py.toFloat())
-            pressedOneDirectionStateBitmap.alpha = pressedAlpha
+            pressedOneDirectionStateBitmap.alpha = opacity
             pressedOneDirectionStateBitmap.draw(canvas)
             canvas.restore()
             return
@@ -201,7 +198,7 @@ class InputOverlayDrawableDpad(
         if (rightButtonState && !upButtonState && !downButtonState) {
             canvas.save()
             canvas.rotate(90f, px.toFloat(), py.toFloat())
-            pressedOneDirectionStateBitmap.alpha = pressedAlpha
+            pressedOneDirectionStateBitmap.alpha = opacity
             pressedOneDirectionStateBitmap.draw(canvas)
             canvas.restore()
             return
@@ -209,7 +206,7 @@ class InputOverlayDrawableDpad(
 
         // Pressed up left
         if (upButtonState && leftButtonState && !rightButtonState) {
-            pressedTwoDirectionsStateBitmap.alpha = pressedAlpha
+            pressedTwoDirectionsStateBitmap.alpha = opacity
             pressedTwoDirectionsStateBitmap.draw(canvas)
             return
         }
@@ -218,7 +215,7 @@ class InputOverlayDrawableDpad(
         if (upButtonState && !leftButtonState && rightButtonState) {
             canvas.save()
             canvas.rotate(90f, px.toFloat(), py.toFloat())
-            pressedTwoDirectionsStateBitmap.alpha = pressedAlpha
+            pressedTwoDirectionsStateBitmap.alpha = opacity
             pressedTwoDirectionsStateBitmap.draw(canvas)
             canvas.restore()
             return
@@ -228,7 +225,7 @@ class InputOverlayDrawableDpad(
         if (downButtonState && leftButtonState && !rightButtonState) {
             canvas.save()
             canvas.rotate(270f, px.toFloat(), py.toFloat())
-            pressedTwoDirectionsStateBitmap.alpha = pressedAlpha
+            pressedTwoDirectionsStateBitmap.alpha = opacity
             pressedTwoDirectionsStateBitmap.draw(canvas)
             canvas.restore()
             return
@@ -238,7 +235,7 @@ class InputOverlayDrawableDpad(
         if (downButtonState && !leftButtonState && rightButtonState) {
             canvas.save()
             canvas.rotate(180f, px.toFloat(), py.toFloat())
-            pressedTwoDirectionsStateBitmap.alpha = pressedAlpha
+            pressedTwoDirectionsStateBitmap.alpha = opacity
             pressedTwoDirectionsStateBitmap.draw(canvas)
             canvas.restore()
             return

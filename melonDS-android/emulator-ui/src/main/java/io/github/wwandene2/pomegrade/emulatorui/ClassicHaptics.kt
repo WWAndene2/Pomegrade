@@ -7,9 +7,9 @@ import android.os.Vibrator
 import android.os.VibratorManager
 
 /**
- * Pomegrade: the Classic layouts' (DS, 3DS) haptic feedback when a control is pressed: a very hard and short
- * "click" (owner's request), Android's predefined heavy click, nothing on release. Each core calls it only when its
- * own haptic feedback setting is on.
+ * Pomegrade: the Classic layouts' (DS, 3DS) haptic feedback: a very hard and short "click" (owner's request),
+ * Android's predefined heavy click, when a control goes down and again when it comes back up ("click click", as a
+ * real key). Each core calls it only when its own haptic feedback setting is on.
  */
 object ClassicHaptics {
     fun click(context: Context) {

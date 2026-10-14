@@ -12,12 +12,12 @@ abstract class FeedbackInputHandler(inputListener: IInputListener, private val e
         KEY_RELEASE
     }
 
-    /** Pomegrade: the Classic layout's feedback, a hard short click on press and nothing on release */
+    /** Pomegrade: the Classic layout's feedback, a hard short click on press and another on release ("click click") */
     var clickHaptic = false
 
     protected fun performHapticFeedback(view: View, type: HapticFeedbackType) {
         if (enableHapticFeedback && clickHaptic) {
-            if (type == HapticFeedbackType.KEY_PRESS) ClassicHaptics.click(view.context)
+            ClassicHaptics.click(view.context)
             return
         }
         if (enableHapticFeedback) {

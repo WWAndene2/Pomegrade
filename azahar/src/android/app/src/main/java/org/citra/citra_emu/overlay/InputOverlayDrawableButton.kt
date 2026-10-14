@@ -7,7 +7,6 @@ package org.citra.citra_emu.overlay
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.os.SystemClock
 import android.graphics.Rect
 import android.graphics.drawable.BitmapDrawable
 import android.view.HapticFeedbackConstants
@@ -59,15 +58,11 @@ class InputOverlayDrawableButton(
     private val pressedStateBitmap: BitmapDrawable
     private var pressedState = false
 
-    // Pomegrade: the Classic layout's press animation, a fade between the raised and the sunk images
-    var animatePress = false
-    private var stateChangedAt = 0L
-
-    /** Pomegrade: true while the press animation runs (the overlay draws again on the next frame). */
-    val isAnimating: Boolean
-        get() = animatePress && SystemClock.uptimeMillis() - stateChangedAt < animationMs()
-
-    private fun animationMs() = if (pressedState) PRESS_ANIMATION_MS else RELEASE_ANIMATION_MS
+    /**
+     * Pomegrade: draws the control itself (the Classic layout's key caps) in its bounds, given whether it is pressed,
+     * instead of the bitmaps, which then only give its size.
+     */
+    var classicPainter: ((Canvas, Rect, Boolean) -> Unit)? = null
 
     init {
         this.defaultStateBitmap = BitmapDrawable(res, defaultStateBitmap)
@@ -146,7 +141,6 @@ class InputOverlayDrawableButton(
 
     private fun buttonDown(firstBtn: Boolean, pointerId: Int, overlay: InputOverlay) {
         pressedState = true
-        stateChangedAt = SystemClock.uptimeMillis()
         isMotionFirstButton = firstBtn
         trackId = pointerId
         overlay.hapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
@@ -154,7 +148,6 @@ class InputOverlayDrawableButton(
 
     private fun buttonUp(overlay: InputOverlay, preserveTrackId: Boolean) {
         pressedState = false
-        stateChangedAt = SystemClock.uptimeMillis()
         isMotionFirstButton = false
         if (!preserveTrackId) {
             trackId = -1
@@ -194,17 +187,18 @@ class InputOverlayDrawableButton(
     }
 
     fun draw(canvas: Canvas) {
-        val bitmapDrawable: BitmapDrawable = currentStateBitmapDrawable
-        if (isAnimating) {
-            // Pomegrade: the previous state fading out under the new one
-            val progress = (SystemClock.uptimeMillis() - stateChangedAt).toFloat() / animationMs()
-            val previous = if (pressedState) defaultStateBitmap else pressedStateBitmap
-            previous.alpha = (opacity * (1f - progress)).toInt()
-            previous.draw(canvas)
-            bitmapDrawable.alpha = (opacity * progress).toInt()
-            bitmapDrawable.draw(canvas)
+        classicPainter?.let { paint ->
+            // its opacity on the whole cap, which draws a little past its bounds
+            val b = bounds
+            val layer = canvas.saveLayerAlpha(
+                (b.left - b.width()).toFloat(), (b.top - b.height()).toFloat(),
+                (b.right + b.width()).toFloat(), (b.bottom + b.height()).toFloat(), opacity
+            )
+            paint(canvas, b, pressedState)
+            canvas.restoreToCount(layer)
             return
         }
+        val bitmapDrawable: BitmapDrawable = currentStateBitmapDrawable
         bitmapDrawable.alpha = opacity
         bitmapDrawable.draw(canvas)
     }
@@ -226,7 +220,3 @@ class InputOverlayDrawableButton(
     val bounds: Rect
         get() = defaultStateBitmap.bounds
 }
-
-// Pomegrade: the Classic layout's press animation (sinking 40 ms, rising 80 ms)
-internal const val PRESS_ANIMATION_MS = 40L
-internal const val RELEASE_ANIMATION_MS = 80L

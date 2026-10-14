@@ -18,7 +18,7 @@ import kotlin.math.min
  * the native PortraitClassicLayout scales the screens (to the window width, shrunk only for a window shorter than
  * its proportions, centred horizontally, anchored to the top), so screens and controls stay together.
  *
- * Each control is drawn by ClassicOverlayBitmaps to fill its template rectangle (L, R, ZL and ZR as wide and as
+ * Each control is drawn by ClassicOverlayControls to fill its template rectangle (L, R, ZL and ZR as wide and as
  * tall as theirs, no longer square images) and centred in it; swap, turbo and combo keep Azahar's square images.
  * The user's control scale still applies on top. Swap screens, turbo and combo are not on the template: they sit in the free column between the circle
  * pad and ABXY. HOME's place holds the Punica button, which opens the shortcut pill's fan (HOME among its entries).

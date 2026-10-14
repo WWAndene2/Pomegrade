@@ -83,10 +83,6 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
         overlayButtons.forEach { it.draw(canvas) }
         overlayDpads.forEach { it.draw(canvas) }
         overlayJoysticks.forEach { it.draw(canvas) }
-        // Pomegrade: the Classic layout's press animations, one frame after another until they end
-        if (overlayButtons.any { it.isAnimating } || overlayDpads.any { it.isAnimating }) {
-            postInvalidateOnAnimation()
-        }
     }
 
     private fun swapScreen() {
@@ -99,10 +95,12 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
     }
 
     fun hapticFeedback(type: Int) {
-        // Pomegrade: the Classic layout's feedback, a hard short click on a press (a new D-pad direction too),
-        // nothing on release
+        // Pomegrade: the Classic layout's feedback, a hard short click when a control goes down (a new D-pad
+        // direction too) and another when it comes back up ("click click")
         if (EmulationMenuSettings.hapticFeedback && isClassicLayout()) {
-            if (type == HapticFeedbackConstants.VIRTUAL_KEY) ClassicHaptics.click(context)
+            if (type == HapticFeedbackConstants.VIRTUAL_KEY || type == HapticFeedbackConstants.VIRTUAL_KEY_RELEASE) {
+                ClassicHaptics.click(context)
+            }
             return
         }
         if (EmulationMenuSettings.hapticFeedback) {
@@ -1224,12 +1222,12 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
             // Initialize the InputOverlayDrawableButton.
             // Pomegrade: the Classic layout's controls drawn as its template, scale giving their width
             val drawn = if (ClassicOverlayLayout.isActive(orientation)) {
-                ClassicOverlayBitmaps.button(context, buttonId, scaledSide(context, scale))
+                ClassicOverlayControls.button(context, buttonId, scaledSide(context, scale))
             } else {
                 null
             }
-            val defaultStateBitmap = drawn?.first ?: getBitmap(context, defaultResId, scale)
-            val pressedStateBitmap = drawn?.second ?: getBitmap(context, pressedResId, scale)
+            val defaultStateBitmap = drawn?.bitmap ?: getBitmap(context, defaultResId, scale)
+            val pressedStateBitmap = drawn?.bitmap ?: getBitmap(context, pressedResId, scale)
             val overlayDrawable =
                 InputOverlayDrawableButton(
                     res,
@@ -1237,7 +1235,7 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
                     pressedStateBitmap,
                     buttonId,
                     opacity
-                ).apply { animatePress = drawn != null }
+                ).apply { classicPainter = drawn?.painter }
 
             // The X and Y coordinates of the InputOverlayDrawableButton on the InputOverlay.
             // These were set in the input overlay configuration menu.
@@ -1305,11 +1303,11 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
 
             // Initialize the InputOverlayDrawableDpad.
             // Pomegrade: the Classic layout's D-pad drawn as its template
-            val drawn = if (ClassicOverlayLayout.isActive(orientation)) ClassicOverlayBitmaps.dpad(context, scaledSide(context, scale)) else null
-            val defaultStateBitmap = drawn?.first ?: getBitmap(context, defaultResId, scale)
-            val pressedOneDirectionStateBitmap = drawn?.second ?: getBitmap(context, pressedOneDirectionResId, scale)
+            val drawn = if (ClassicOverlayLayout.isActive(orientation)) ClassicOverlayControls.dpad(context, scaledSide(context, scale)) else null
+            val defaultStateBitmap = drawn?.bitmap ?: getBitmap(context, defaultResId, scale)
+            val pressedOneDirectionStateBitmap = drawn?.bitmap ?: getBitmap(context, pressedOneDirectionResId, scale)
             val pressedTwoDirectionsStateBitmap =
-                drawn?.third ?: getBitmap(context, pressedTwoDirectionsResId, scale)
+                drawn?.bitmap ?: getBitmap(context, pressedTwoDirectionsResId, scale)
             val overlayDrawable = InputOverlayDrawableDpad(
                 res,
                 defaultStateBitmap,
@@ -1320,7 +1318,7 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
                 buttonLeft,
                 buttonRight,
                 opacity
-            ).apply { animatePress = drawn != null }
+            ).apply { classicPainter = drawn?.painter }
 
             // The X and Y coordinates of the InputOverlayDrawableDpad on the InputOverlay.
             // These were set in the input overlay configuration menu.
@@ -1374,7 +1372,7 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
 
             // Initialize the InputOverlayDrawableJoystick.
             // Pomegrade: the Classic layout's sticks drawn as its template
-            val drawn = if (ClassicOverlayLayout.isActive(orientation)) ClassicOverlayBitmaps.stick(context, joystick, scaledSide(context, scale)) else null
+            val drawn = if (ClassicOverlayLayout.isActive(orientation)) ClassicOverlayControls.stick(context, joystick, scaledSide(context, scale)) else null
             val bitmapOuter = drawn?.first ?: getBitmap(context, resOuter, scale)
             val bitmapInnerDefault = drawn?.second ?: getBitmap(context, defaultResInner, scale)
             val bitmapInnerPressed = drawn?.third ?: getBitmap(context, pressedResInner, scale)
