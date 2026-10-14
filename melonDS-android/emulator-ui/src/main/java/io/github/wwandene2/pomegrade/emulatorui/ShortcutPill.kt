@@ -34,6 +34,8 @@ import androidx.core.view.WindowInsetsCompat
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sin
 
 /**
@@ -46,7 +48,7 @@ import kotlin.math.sin
  * the Edit blade), among the entries the core shows ([available]); the choice is kept for every console.
  *
  * A screen's layout can show a button of its own for it (the DS Classic layout, between SELECT and START):
- * given by [useAnchor], the pill hides and the blades swing out upward from that button, which [toggle]s them.
+ * given by [useAnchor], the pill hides and the blades swing out on an arc above that button, which [toggle]s them.
  *
  * Whether the screen shows the pill, the drawer's edge swipe or both is the user's choice too
  * ([KEY_ACCESS], Punica's settings): with the pill alone, the core locks its drawer's edge swipe
@@ -372,6 +374,17 @@ class ShortcutPill private constructor(
         val v = if (corner >= 2) -1 else 1
         val span = Math.toRadians(if (height > width) 80.0 else 50.0)
         val radius = dp(if (items.size > 4) 128 else 104)
+        // from the button: an arc above it, its middle straight up (160° past 4 blades, else 120°), its centre
+        // lifted 48dp so the end blades and their labels stay off the button's row; the radius keeps two
+        // neighbours' 96dp labels apart, but no blade past the screen's edge
+        val arcSpan = Math.toRadians(if (items.size > 4) 160.0 else 120.0)
+        val arcStep = if (items.size == 1) 0.0 else arcSpan / (items.size - 1)
+        val arcLift = dp(48)
+        val arcRadius = if (anchor == null) 0.0 else {
+            val apart = if (arcStep == 0.0) 0.0 else dp(96) / (2 * sin(arcStep / 2))
+            val onScreen = (min(cx, width - cx) - dp(48)) / sin(arcSpan / 2)
+            min(max(dp(104).toDouble(), apart), onScreen.toDouble())
+        }
         items.forEachIndexed { i, blade ->
             val view = bladeView(blade)
             // placed with its icon's centre on the pill's, then swung out by its translation
@@ -380,13 +393,13 @@ class ShortcutPill private constructor(
                 leftMargin = (cx - dp(48)).toInt()
                 topMargin = (cy - dp(24)).toInt()
             })
-            // from the button: a half circle above it, left to right; from the pill: toward the screen's middle
+            // from the button: left to right on its arc; from the pill: toward the screen's middle
             val dx: Double
             val dy: Double
             if (anchor != null) {
-                val angle = if (items.size == 1) PI / 2 else PI * (1 - i.toDouble() / (items.size - 1))
-                dx = cos(angle) * radius
-                dy = -sin(angle) * radius
+                val angle = if (items.size == 1) PI / 2 else PI / 2 + arcSpan / 2 - arcStep * i
+                dx = cos(angle) * arcRadius
+                dy = -sin(angle) * arcRadius - arcLift
             } else {
                 val angle = if (items.size == 1) 0.0 else span * i / (items.size - 1)
                 dx = h * cos(angle) * radius
