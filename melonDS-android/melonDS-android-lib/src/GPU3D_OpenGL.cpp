@@ -901,6 +901,8 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
     float* gptr = &ViewVertexBuffer[0];
     const bool viewdata = ViewDataActive;
     memset(LightUse, 0, sizeof(LightUse));
+    memset(SceneryLightUse, 0, sizeof(SceneryLightUse));
+    SceneryPoints.clear();
 
     u32 iidx = 0;
     u32 eidx = EdgeIndicesOffset;
@@ -911,8 +913,20 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
         Polygon* poly = rp->PolyData;
 
         if (viewdata && !poly->Translucent)
+        {
             for (int l = 0; l < 4; l++)
                 if (poly->Attr & (1 << l)) LightUse[l]++;
+            // the scenery's (all opaque polygons when the frame has no scenery ID: untextured scenes)
+            if (FrameSceneryId < 0 || (int)((poly->Attr >> 24) & 0x3F) == FrameSceneryId)
+            {
+                if (FrameSceneryId >= 0)
+                    for (int l = 0; l < 4; l++)
+                        if (poly->Attr & (1 << l)) SceneryLightUse[l]++;
+                for (u32 j = 0; j < poly->NumVertices; j++)
+                    if (!poly->Vertices[j]->Orthographic) // a 2D panel stays put on screen
+                        SceneryPoints.insert(SceneryPoints.end(), poly->Vertices[j]->ViewPosition, poly->Vertices[j]->ViewPosition + 3);
+            }
+        }
 
         rp->IndicesOffset = iidx;
         rp->NumIndices = 0;
@@ -1699,11 +1713,16 @@ void GLRenderer::SetupLightingTargets()
 
 bool GLRenderer::RenderShadowMap(const GPU3D& gpu3d)
 {
-    // the main light: the one the most opaque polygons use
+    // the main light: the one the most opaque polygons of the scenery use (a character's own light followed it),
+    // else of all
+    const u32* use = SceneryLightUse;
+    if (!(use[0] | use[1] | use[2] | use[3])) use = LightUse;
     int light = 0;
     for (int l = 1; l < 4; l++)
-        if (LightUse[l] > LightUse[light]) light = l;
-    if (!LightUse[light])
+        if (use[l] > use[light]) light = l;
+    // the scene's frame of reference, followed every frame there are shadows
+    const bool restarted = SceneFrame.Update(SceneryPoints);
+    if (!use[light])
         return false;
 
     float dir[3];
@@ -1712,7 +1731,17 @@ bool GLRenderer::RenderShadowMap(const GPU3D& gpu3d)
     if (len <= 0)
         return false;
     auto& sp = ShadowParams;
-    for (int i = 0; i < 3; i++) sp.Dir[i] = dir[i] / len;
+    for (int i = 0; i < 3; i++) dir[i] /= len;
+    // the game's direction unchanged in view space: a light that turns with the camera, held fixed in the scene (it
+    // turns the other way in view space as the camera turns, as a light of the scene does). Changed: the game moved
+    // it, or it is a light of the scene already (it turns as the camera does): followed. A new scene takes the game's
+    const float moved = (dir[0] - GameLight[0]) * (dir[0] - GameLight[0]) + (dir[1] - GameLight[1]) * (dir[1] - GameLight[1]) +
+                        (dir[2] - GameLight[2]) * (dir[2] - GameLight[2]);
+    if (restarted || !HaveSceneLight || moved > 1e-6f)
+        SceneFrame.ViewToWorld(dir, SceneLight);
+    HaveSceneLight = true;
+    std::copy(dir, dir + 3, GameLight);
+    SceneFrame.WorldToView(SceneLight, sp.Dir);
 
     // light space: any two axes across the light's direction
     float hint[3] = {0, 1, 0};

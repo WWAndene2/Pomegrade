@@ -115,6 +115,11 @@ static double DSShadowVolumeX = 1.1, DSShadowVolumeZ = -3.8;
 // view, a one-sided panel turned away from the camera (the DS culls it), a
 // lit ceiling over everything, facing down (as a room's)
 static bool OffscreenBox = false, CulledPanel = false, Ceiling = false;
+// shadows stay with the scene while the camera turns: the camera orbits the sphere by CameraYaw degrees (about the
+// vertical through its middle). LightWithScene: the light is set after the camera (it turns with the scene, a light of
+// the scene); else before it, in view space (it turns with the camera, as many games set theirs)
+static double CameraYaw = 0;
+static bool LightWithScene = false;
 static int CulledPanelWinding = 0;
 static const double LowBarX = -2.0, LowBarHeight = 0.1, HighBarX = 0.6, HighBarHeight = 2.4, BarHalf = 0.1;
 
@@ -161,6 +166,11 @@ static void SubmitScene()
     Cmd(0x10, {0}); LoadMatrix(proj);
 
     Cmd(0x10, {2}); Cmd(0x15); // position & vector: identity (view space = model space)
+    // the camera's orbit, as a row-vector DS matrix: v' = (v - c) R + c
+    const double ya = CameraYaw * M_PI / 180, cs = std::cos(ya), sn = std::sin(ya);
+    const double orbit[16] = {cs, 0, -sn, 0,  0, 1, 0, 0,  sn, 0, cs, 0,
+                              SphereCenter[0] - SphereCenter[2] * sn, 0, SphereCenter[2] - SphereCenter[2] * cs, 1};
+    if (CameraYaw != 0 && LightWithScene) LoadMatrix(orbit);
     if (Bars)
         Cmd(0x32, {N10(0.6) | (N10(-0.8) << 10) | (N10(0) << 20)});
     else if (FrontLight)
@@ -170,6 +180,7 @@ static void SubmitScene()
     else
         Cmd(0x32, {N10(-0.3) | (N10(-0.8) << 10) | (N10(-0.5) << 20)}); // light 0, from above
     Cmd(0x33, {0x7FFF});                                          // light 0 white
+    if (CameraYaw != 0 && !LightWithScene) LoadMatrix(orbit);
     Cmd(0x30, {(0x5AD6) | (0x2108u << 16)});                        // diffuse light grey, ambient dark grey
     Cmd(0x31, {ShinyFloor ? 0x7FFFu : 0u}); // specular
     Cmd(0x29, {(FullFog ? 1u << 15 : 0) | (31 << 16) | (1 << 24) | 0x80 | 0x01}); // light 0, front faces, opaque, fog
@@ -1007,6 +1018,40 @@ int main()
             printf("DS shadow volume beside a caster, outside its real shadow (%d,%d), real-time shadows on: x%.2f\n", vx, vy, beside);
             check(beside < 0.9, "DS shadow volume outside the real shadow: the game's shadow stays");
             DSShadowVolumeX = 1.1; DSShadowVolumeZ = -3.8;
+        }
+
+        // the camera orbits the sphere in steps of 3 degrees with the light set in view space (it turns with the
+        // camera, as many games set theirs): the shadows' light stays with the scene, turning the other way in view
+        // space. Before, it was the game's direction as given, fixed on screen. With the light set in the scene it
+        // follows the game. The DS shades the sphere with the game's light either way: the direction is compared
+        {
+            r->SetShadows(true);
+            SideLight = true;
+            const double d0[3] = {0.69, -0.69, -0.23}; // light 0 travelling right and down: towards it, its opposite
+            auto angleTo = [&](double yaw) {
+                const double ya = yaw * M_PI / 180, cs = std::cos(ya), sn = std::sin(ya);
+                double l = std::sqrt(d0[0] * d0[0] + d0[1] * d0[1] + d0[2] * d0[2]);
+                // a direction of the scene seen after the orbit: v' = v R (row vector), towards the light
+                const double e[3] = {-(d0[0] * cs + d0[2] * sn) / l, -d0[1] / l, -(-d0[0] * sn + d0[2] * cs) / l};
+                const float* got = r->ShadowLightDirection();
+                double dot = e[0] * got[0] + e[1] * got[1] + e[2] * got[2];
+                return std::acos(std::max(-1.0, std::min(1.0, dot))) * 180 / M_PI;
+            };
+            CameraYaw = 0; LightWithScene = false;
+            Frame(*r, gpu); Frame(*r, gpu);
+            for (CameraYaw = 3; CameraYaw <= 24; CameraYaw += 3) Frame(*r, gpu);
+            CameraYaw = 24;
+            const double held = angleTo(24);
+            printf("camera orbit 24 degrees, light set in view space: the shadows' light %.1f degrees off a light of the scene\n", held);
+            check(held < 3, "camera orbit: the shadows' light stays with the scene (light set in view space)");
+            LightWithScene = true;
+            for (CameraYaw = 24; CameraYaw >= 0; CameraYaw -= 3) Frame(*r, gpu);
+            CameraYaw = 0;
+            const double scene = angleTo(0);
+            printf("camera orbit back, light set in the scene: %.1f degrees off\n", scene);
+            check(scene < 3, "camera orbit: a light of the scene is followed");
+            CameraYaw = 0; LightWithScene = false; SideLight = false;
+            r->SetShadows(false);
         }
 
         // fog at full density hides the lit scene entirely

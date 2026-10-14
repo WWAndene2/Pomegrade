@@ -23,6 +23,7 @@
 #include "GPU_OpenGL.h"
 #include "GPU3D_OpenGL_HDTextures.h"
 #include "GPU3D_OpenGL_MaterialRelief.h"
+#include "GPU3D_WorldFrame.h"
 #include "OpenGLSupport.h"
 
 namespace melonDS
@@ -61,6 +62,8 @@ public:
     void SetLightBounce(bool enable) noexcept { LightBounce = enable; }
     void SetShadows(bool enable) noexcept { Shadows = enable; }
     void SetReflections(bool enable) noexcept { Reflections = enable; }
+    // the shadows' light last frame, view space, towards the light (tests)
+    const float* ShadowLightDirection() const noexcept { return ShadowParams.Dir; }
     // Frame generation (Pomegrade): see RenderIntermediateFrame
     void SetFrameGeneration(bool enable) noexcept;
     // Pomegrade: the next frame won't be shown (30 fps mode): the display-only
@@ -333,6 +336,17 @@ private:
     GLuint ShadowCasterBufferID {}, ShadowCasterArrayID {}; // GPU3D::RenderShadowCasters
     std::vector<float> ShadowCasterVertices; // those facing the light, drawn this frame
     u32 LightUse[4] {}; // opaque polygons lit by each light, this frame
+    // the same, the scenery's polygons only (FrameSceneryId): the shadows' light is the scenery's, not a character's
+    u32 SceneryLightUse[4] {};
+    // the scenery's vertices this frame (view space), and the frame of reference that stays with the scene while the
+    // camera turns. Games set their lights in view space or on the character, so the game's own direction turned with
+    // the camera: the shadows' light is held fixed in the scene while the game's direction stays the same in view
+    // space, and follows the game when that changes (a light of the scene, a light the game moves)
+    std::vector<float> SceneryPoints;
+    WorldFrame SceneFrame;
+    float SceneLight[3] {};
+    float GameLight[3] {}; // the game's direction last frame, view space
+    bool HaveSceneLight = false;
     struct
     {
         float Right[3], Up[3], Dir[3]; // light space, Dir towards the light
