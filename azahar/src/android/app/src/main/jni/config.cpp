@@ -261,7 +261,7 @@ void Config::ReadValues() {
     Settings::values.portrait_layout_option =
         static_cast<Settings::PortraitLayoutOption>(android_config->GetInteger(
             "Layout", "portrait_layout_option",
-            static_cast<int>(Settings::PortraitLayoutOption::PortraitTopFullWidth)));
+            static_cast<int>(Settings::PortraitLayoutOption::PortraitClassic)));
     Settings::values.secondary_display_layout = static_cast<Settings::SecondaryDisplayLayout>(
         android_config->GetInteger("Layout", Settings::HKeys::secondary_display_layout.c_str(),
                                    static_cast<int>(Settings::SecondaryDisplayLayout::None)));

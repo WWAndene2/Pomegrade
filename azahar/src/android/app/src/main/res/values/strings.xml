@@ -548,6 +548,7 @@
     <string name="emulation_screen_layout_hybrid">Hybrid Screens</string>
     <string name="emulation_screen_layout_original">Original</string>
     <string name="emulation_portrait_layout_top_full">Default</string>
+    <string name="emulation_portrait_layout_classic">Classic</string>
     <string name="emulation_secondary_display_opposite">Opposite Screen</string>
     <string name="emulation_screen_layout_custom">Custom Layout</string>
     <string name="bg_color">Background Color</string>

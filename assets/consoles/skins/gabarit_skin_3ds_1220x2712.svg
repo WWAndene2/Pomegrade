@@ -13,12 +13,12 @@
   
 </g>
 <g id="boutons" inkscape:groupmode="layer" inkscape:label="5 Boutons (mesurés sur le plan New 3DS, une échelle commune)" fill="none" stroke="#F3F4F6" stroke-width="4">
-<rect x="55" y="1497.0" width="249.7" height="84.9" rx="42.4"/>
-<text x="179.8" y="1549.4" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">L</text>
+<path d="M101 1497h225v92h-271v-46a46 46 0 0 1 46 -46z"/>
+<text x="190.5" y="1553" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">L</text>
 <rect x="397.0" y="1497.0" width="165.6" height="84.9" rx="42.4"/>
 <text x="479.7" y="1549.4" fill="#F3F4F6" stroke="none" font-size="28" text-anchor="middle">ZL</text>
-<rect x="915.3" y="1497.0" width="249.7" height="84.9" rx="42.4"/>
-<text x="1040.2" y="1549.4" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">R</text>
+<path d="M1119 1497h-225v92h271v-46a46 46 0 0 0 -46 -46z"/>
+<text x="1029.5" y="1553" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">R</text>
 <rect x="657.5" y="1497.0" width="165.6" height="84.9" rx="42.4"/>
 <text x="740.3" y="1549.4" fill="#F3F4F6" stroke="none" font-size="28" text-anchor="middle">ZR</text>
 <circle cx="245.1" cy="1930.0" r="190.1"/>

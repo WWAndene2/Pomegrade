@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The settings' console picker: the home screen's console cards in a row that scrolls sideways (ConsoleCard, drawn
-     by ConsoleSelectorPreference); tapping one shows that console's settings -->
+<!-- The settings' console picker: the consoles' logos on light cards, two by two (drawn by ConsoleSelectorPreference);
+     tapping one shows that console's settings -->
 <androidx.compose.ui.platform.ComposeView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/settings_console_cards"
     android:layout_width="match_parent"
     android:layout_height="wrap_content" />

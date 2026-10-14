@@ -56,7 +56,9 @@ enum class PortraitLayoutOption : u32 {
     // formerly mobile portrait
     PortraitTopFullWidth,
     PortraitCustomLayout,
-    PortraitOriginal
+    PortraitOriginal,
+    // Pomegrade: the Punica 3DS skin template (assets/consoles/skins)
+    PortraitClassic
 };
 
 enum class SecondaryDisplayLayout : u32 {
@@ -626,7 +628,7 @@ struct Values {
     Setting<u16> screen_bottom_topbottom_padding{0, Keys::screen_bottom_topbottom_padding};
 
     SwitchableSetting<PortraitLayoutOption> portrait_layout_option{
-        PortraitLayoutOption::PortraitTopFullWidth, Keys::portrait_layout_option};
+        PortraitLayoutOption::PortraitClassic, Keys::portrait_layout_option};
     Setting<u16> custom_portrait_top_x{0, Keys::custom_portrait_top_x};
     Setting<u16> custom_portrait_top_y{0, Keys::custom_portrait_top_y};
     Setting<u16> custom_portrait_top_width{800, Keys::custom_portrait_top_width};

@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import me.magnum.melonds.ui.common.component.text.CaptionText
+import me.magnum.melonds.ui.theme.PunicaDimens
 
 @Composable
 fun ActionLauncherItem(
@@ -25,7 +26,7 @@ fun ActionLauncherItem(
     value: String,
     enabled: Boolean = true,
     onLaunchAction: () -> Unit,
-    horizontalPadding: Dp = 16.dp,
+    horizontalPadding: Dp = PunicaDimens.MARGIN.dp,
 ) {
     Column(
         modifier = Modifier
@@ -37,8 +38,8 @@ fun ActionLauncherItem(
                     this
                 }
             }
-            .heightIn(min = 64.dp)
-            .padding(start = horizontalPadding, end = horizontalPadding, top = 8.dp, bottom = 8.dp),
+            .heightIn(min = PunicaDimens.ROW_MIN.dp)
+            .padding(start = horizontalPadding, end = horizontalPadding, top = PunicaDimens.GAP_WIDE.dp, bottom = PunicaDimens.GAP_WIDE.dp),
         verticalArrangement = Arrangement.Center,
     ) {
         CompositionLocalProvider(LocalContentAlpha provides if (enabled) ContentAlpha.high else ContentAlpha.disabled) {

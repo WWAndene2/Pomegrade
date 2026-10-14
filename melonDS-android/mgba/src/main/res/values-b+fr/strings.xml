@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gba_console">Game Boy Advance</string>
+    <string name="gba_performance">FPS : %1$.0f · Vitesse : %2$.0f %%</string>
+    <string name="gba_rewind_hint">Retour en arrière : touche l\'écran pour reprendre d\'ici</string>
+    <string name="gba_rewind_end">Rien de plus ancien où revenir</string>
+    <string name="gba_load_failed">Ce jeu n\'a pas pu démarrer</string>
+    <string name="gba_state_saved">État sauvegardé</string>
+    <string name="gba_state_save_failed">L\'état n\'a pas pu être sauvegardé</string>
+    <string name="gba_state_load_failed">L\'état n\'a pas pu être chargé</string>
+</resources>

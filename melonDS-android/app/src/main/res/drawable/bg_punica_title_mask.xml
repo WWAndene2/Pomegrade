@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The see-through mask behind the header's title (pill and screen name): the background colour at 30 %, the card
+     radius. Same as the Compose PunicaLogo's -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#4D111215" />
+    <corners android:radius="@dimen/punica_card_radius" />
+</shape>

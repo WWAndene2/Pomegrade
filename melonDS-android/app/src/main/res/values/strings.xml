@@ -374,6 +374,7 @@
     <string name="layouts_summary">Manage custom layout configurations</string>
     <string name="action_layouts_new">New layout</string>
     <string name="default_layout_name">Default</string>
+    <string name="classic_layout_name">Classic</string>
     <string name="custom_layout_default_name">My Layout</string>
     <string name="use_global_layout">Use global layout</string>
     <string name="use_global_preference">Use global setting</string>
@@ -778,7 +779,7 @@
     <string name="unlimited_polygons_summary">Draw the polygons a DS would drop when a scene has too many (missing or flickering objects)</string>
     <string name="high_precision_geometry">High-precision geometry</string>
     <string name="high_precision_geometry_summary">Place vertices between pixels instead of snapping them: less shaking of moving 3D models</string>
-    <string name="oled_blacks">OLED deep blacks</string>
+    <string name="oled_blacks">Deep black</string>
     <string name="oled_blacks_summary">Near-black shades of each scene become true black (pixels off on OLED screens)</string>
     <string name="adaptive_colours">Adaptive colours</string>
     <string name="adaptive_colours_summary">Contrast and colour adjusted to each scene: dull, washed-out scenes are brought to life</string>
@@ -836,7 +837,7 @@
         <item>8</item>
         <item>16</item>
     </string-array>
-    <string name="high_color">High colour</string>
+    <string name="high_color">Rich colours</string>
     <string name="high_color_summary">8 bits per colour instead of the DS\'s 6: smoother gradients and lighting, less banding</string>
     <string name="better_polygons">Better polygons</string>
     <string name="better_polygons_summary">Fewer seams and distortions on large polygons at high resolution</string>

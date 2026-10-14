@@ -13,21 +13,22 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import me.magnum.melonds.ui.common.melonSwitchColors
+import me.magnum.melonds.ui.theme.PunicaDimens
 
 @Composable
 fun SwitchItem(
     name: String,
     isOn: Boolean,
     onToggle: (Boolean) -> Unit,
-    horizontalPadding: Dp = 16.dp,
+    horizontalPadding: Dp = PunicaDimens.MARGIN.dp,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onToggle(!isOn) }
             .focusable()
-            .heightIn(min = 48.dp)
-            .padding(start = horizontalPadding, end = horizontalPadding, top = 8.dp, bottom = 8.dp),
+            .heightIn(min = PunicaDimens.ROW_MIN.dp)
+            .padding(start = horizontalPadding, end = horizontalPadding, top = PunicaDimens.GAP_WIDE.dp, bottom = PunicaDimens.GAP_WIDE.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(

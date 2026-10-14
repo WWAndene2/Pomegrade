@@ -538,4 +538,383 @@
     <string name="home_stat_file">fichier</string>
     <string name="home_shortcut">Raccourci sur l\'écran d\'accueil</string>
     <string name="home_shortcut_unsupported">Ton lanceur ne permet pas d\'ajouter un raccourci depuis une app</string>
+    <!-- Pomegrade: GBA, Switch, GameCube / Wii settings and the Classic layout -->
+    <string name="classic_layout_name">Classic</string>
+    <string name="switch_unsupported">Les jeux Switch demandent un appareil ARM 64 bits</string>
+    <string name="switch_folder_failed">Les données Switch n\'ont pas pu être préparées dans le dossier Punica : %1$s</string>
+    <string name="switch_system_files_failed">Les clés ou le firmware de BIOS/Switch n\'ont pas pu être installés : %1$s</string>
+    <string name="settings_section_switch">Switch</string>
+    <string name="switch_home">Accueil Switch</string>
+    <string name="switch_home_summary">La liste de jeux du cœur Switch, mises à jour et DLC, clés et firmware (pris dans Punica/BIOS/Switch)</string>
+    <string name="gba_not_a_file">Ce jeu GBA doit être dans le stockage du téléphone (le dossier Punica)</string>
+    <string name="settings_section_gba">GBA</string>
+    <string name="settings_section_gc_wii">GameCube / Wii</string>
+    <string name="gc_wii_unsupported">Les jeux GameCube et Wii demandent un appareil ARM 64 bits</string>
+    <string name="gc_wii_home">Accueil GameCube / Wii</string>
+    <string name="gc_wii_home_summary">La liste de jeux du cœur GameCube et Wii (jaquettes, réglages de chaque jeu, codes de triche), le menu Wii et ses outils</string>
+    <string name="gc_wii_settings_general_summary">Double cœur, vitesse, langue</string>
+    <string name="gc_wii_settings_graphics_summary">API graphique, résolution, améliorations</string>
+    <string name="gc_wii_settings_audio_summary">Volume, sortie audio, étirement</string>
+    <string name="gc_wii_settings_gamecube">GameCube</string>
+    <string name="gc_wii_settings_gamecube_summary">Langue, cartes mémoire, BIOS (IPL)</string>
+    <string name="gc_wii_settings_wii">Wii</string>
+    <string name="gc_wii_settings_wii_summary">Format d\'image, langue, carte SD, haut-parleur de la Wiimote</string>
+    <string name="gc_wii_settings_gc_controllers">Manettes GameCube</string>
+    <string name="gc_wii_settings_gc_controllers_summary">Quelles manettes sont branchées, leurs touches</string>
+    <string name="gc_wii_settings_wii_remotes">Wiimotes</string>
+    <string name="gc_wii_settings_wii_remotes_summary">Wiimotes émulées ou réelles, leurs touches</string>
+    <string name="gc_wii_settings_advanced_summary">Émulation du processeur, fréquence forcée</string>
+    <string name="gba_console_bios">Utiliser le BIOS de ta console</string>
+    <string name="gba_console_bios_summary">gba_bios.bin dans Punica/BIOS/GBA s\'il y est ; sinon le BIOS intégré de mGBA</string>
+    <string name="gba_screen_smoothing">Lisser l\'écran</string>
+    <string name="gba_screen_smoothing_summary">Fond les pixels quand l\'image est agrandie ; désactivé, ils restent nets</string>
+    <string name="switch_settings_system_summary">Langue, région, mode de la console (station d\'accueil ou portable)</string>
+    <string name="switch_settings_renderer_summary">Résolution, pilote graphique, filtres, fréquence d\'images</string>
+    <string name="switch_settings_audio_summary">Volume, sortie audio</string>
+    <string name="switch_settings_input_summary">Manettes et leurs touches</string>
+    <string name="switch_settings_debug_summary">Pour chercher un problème ; sinon, ne rien changer</string>
+    <string name="platform_gba">GBA</string>
+    <string name="platform_switch">Switch</string>
+    <string name="platform_gc_wii">GameCube / Wii</string>
+    <!-- Texts that had no French yet (13 October audit) -->
+    <string name="clear">Effacer</string>
+    <string name="save">Enregistrer</string>
+    <string name="navigate_back">Retour</string>
+    <string name="version_nightly">Nightly</string>
+    <string name="nightly_update_available">Mise à jour nightly disponible</string>
+    <string name="nightly_update_available_message">La télécharger maintenant ?</string>
+    <string name="remind_later_update">Plus tard</string>
+    <string name="dsiware_manager_import_data">Importer des données…</string>
+    <string name="dsiware_manager_export_data">Exporter des données…</string>
+    <string name="dsiware_manager_import_file_success">%1$s importé</string>
+    <string name="dsiware_manager_import_file_error">L\'import du fichier a échoué</string>
+    <string name="dsiware_manager_export_file_success">%1$s exporté</string>
+    <string name="dsiware_manager_export_file_error">L\'export du fichier a échoué</string>
+    <string name="info_fps_shown">FPS : %1$d · %2$d affichées</string>
+    <string name="info_performance_cpu">CPU : %1$.1f ms (multiplicateur %2$.1f, textures %3$.1f)</string>
+    <string name="info_performance_gpu">GPU : %1$.1f ms</string>
+    <string name="info_performance_gpu_passes">3D %1$.1f · ombres %2$.1f · éclairage %3$.1f</string>
+    <string name="info_performance_gpu_more">génération d\'images %1$.1f · écrans %2$.1f</string>
+    <string name="info_performance_gpu_unavailable">GPU : non mesuré (rendu logiciel, ou pas de minuteur GPU sur cet appareil)</string>
+    <string name="info_play_time_hours_minutes">Temps de jeu : %1$d h %2$d min</string>
+    <string name="info_play_time_minutes">Temps de jeu : %1$d min</string>
+    <string name="emulator_stop_gba_mode_unsupported">Le mode GBA n\'est pas pris en charge</string>
+    <string name="emulator_stop_internal_error">Une erreur est survenue pendant l\'exécution du jeu</string>
+    <string name="system_file_picker_not_found">Ton appareil n\'a pas de sélecteur de fichiers. Sans lui, l\'émulateur ne peut pas fonctionner</string>
+    <string name="system_file_picker_not_enabled">Le sélecteur de fichiers de ton appareil est désactivé. Active-le</string>
+    <string name="file_picker_settings">Réglages du sélecteur de fichiers</string>
+    <string name="rom_launch_failed">Le jeu n\'a pas pu démarrer</string>
+    <string name="rom_launch_custom_bios_firmware_bad_setup">Ce jeu doit démarrer avec un BIOS et un firmware personnalisés, mais ils ne sont pas bien configurés.</string>
+    <string name="firmware_launch_failed">Le firmware n\'a pas pu démarrer</string>
+    <string name="firmware_launch_bad_setup">Pour démarrer ce firmware, il faut un BIOS et un firmware personnalisés, mais ils ne sont pas bien configurés.</string>
+    <string name="failed_launch_dsiware_title">Le titre DSiWare n\'a pas pu démarrer</string>
+    <string name="failed_launch_dsiware_title_check_failed">Impossible de vérifier si le titre DSiWare est installé. Plus d\'informations dans le gestionnaire DSiWare.</string>
+    <string name="failed_launch_dsiware_title_rom_failed">Le fichier du jeu n\'a pas pu être lu. Vérifie qu\'il est valide et pas endommagé.</string>
+    <string name="failed_launch_dsiware_title_not_installed">Pour démarrer un titre DSiWare, il faut d\'abord l\'installer dans la NAND, depuis le gestionnaire DSiWare.</string>
+    <string name="waiting_for_input">En attente d\'une touche…</string>
+    <string name="check_for_updates">Rechercher les mises à jour</string>
+    <string name="check_for_updates_summary">L\'app vérifie régulièrement si une mise à jour est disponible</string>
+    <string name="backup_settings">Sauvegarder les réglages</string>
+    <string name="restore_settings">Restaurer les réglages</string>
+    <string name="settings_backup_error">La sauvegarde des réglages a échoué</string>
+    <string name="settings_restore_error">La restauration des réglages a échoué</string>
+    <string name="backup_internal_layout">Sauvegarder la disposition interne</string>
+    <string name="backup_external_layout">Sauvegarder la disposition externe</string>
+    <string name="restore_internal_layout">Restaurer la disposition interne</string>
+    <string name="restore_external_layout">Restaurer la disposition externe</string>
+    <string name="internal_layout_backup_success">Disposition interne sauvegardée.</string>
+    <string name="internal_layout_backup_error">La sauvegarde de la disposition interne a échoué</string>
+    <string name="external_layout_backup_success">Disposition externe sauvegardée.</string>
+    <string name="external_layout_backup_error">La sauvegarde de la disposition externe a échoué</string>
+    <string name="internal_layout_restore_success">Disposition interne restaurée.</string>
+    <string name="internal_layout_restore_error">La restauration de la disposition interne a échoué</string>
+    <string name="external_layout_restore_success">Disposition externe restaurée.</string>
+    <string name="external_layout_restore_error">La restauration de la disposition externe a échoué</string>
+    <string name="performance_details">Détails de performance</string>
+    <string name="internal_resolution">Résolution interne</string>
+    <string name="renderer">Moteur de rendu</string>
+    <string name="external_screen_layout">Disposition de l\'écran externe</string>
+    <string name="external_display_screen">Écran affiché sur l\'écran externe</string>
+    <string name="external_display_rotate_left">Tourner l\'image de l\'écran externe vers la gauche</string>
+    <string name="refresh_external_screen">Rafraîchir l\'écran externe</string>
+    <string name="internal_screen_layout">Disposition de l\'écran interne</string>
+    <string name="input_refresh_external_screen">Rafraîchir l\'écran externe</string>
+    <string name="quick_settings">Réglages rapides</string>
+    <string name="soft_input_behaviour">Comportement des boutons à l\'écran</string>
+    <string name="analogue_movement">Déplacement analogique</string>
+    <string name="show_active_challenge_indicators">Afficher les défis en cours</string>
+    <string name="show_active_challenge_indicators_summary">Affiche à l\'écran quand certains succès peuvent être obtenus</string>
+    <string name="show_progress_indicators">Afficher la progression</string>
+    <string name="show_progress_indicators_summary">Affiche à l\'écran quand tu progresses vers un succès</string>
+    <string name="show_leaderboard_indicators">Afficher les classements</string>
+    <string name="show_leaderboard_indicators_summary">Affiche à l\'écran quand une tentative de classement est en cours</string>
+    <string name="folder_is_empty">Ce dossier est vide. Ajoute ton propre code de triche</string>
+    <string name="add_cheat_folder">Ajouter un dossier de codes</string>
+    <string name="new_cheat">Nouveau code</string>
+    <string name="edit_cheat">Modifier le code</string>
+    <string name="cheat_name">Nom du code</string>
+    <string name="description">Description</string>
+    <string name="cheat_code">Code</string>
+    <string name="error_name_cannot_be_empty">Le nom du code ne peut pas être vide</string>
+    <string name="error_code_cannot_be_empty">Le code ne peut pas être vide</string>
+    <string name="error_code_invalid_format">Le format du code n\'est pas valide</string>
+    <string name="cheat_deleted">Code « %1$s » supprimé</string>
+    <string name="cheat_folder_default_name">Mes codes</string>
+    <string name="label_rom_config_custom_name">Nom affiché du jeu</string>
+    <string name="label_rom_config_gba_slot">Emplacement GBA</string>
+    <string name="custom_layout">Disposition personnalisée</string>
+    <string name="input_left_joy">Joystick gauche</string>
+    <string name="input_right_joy">Joystick droite</string>
+    <string name="input_up_joy">Joystick haut</string>
+    <string name="input_down_joy">Joystick bas</string>
+    <string name="input_microphone">Activer / couper le micro</string>
+    <string name="custom_layout_default_name">Ma disposition</string>
+    <string name="use_global_preference">Réglage global</string>
+    <string name="named_layout_deleted">Disposition « %1$s » supprimée</string>
+    <string name="label_width">Largeur</string>
+    <string name="label_height">Hauteur</string>
+    <string name="label_alpha">Opacité</string>
+    <string name="label_aspect_ratio">Format d\'image :</string>
+    <string name="aspect_ratio_4_3">4:3 (original)</string>
+    <string name="aspect_ratio_16_9">16:9 (écran large)</string>
+    <string name="aspect_ratio_unrestricted">Libre</string>
+    <string name="keep_ds_ratio">Garder le format de la DS</string>
+    <string name="above_other_screen">Au-dessus de l\'autre écran</string>
+    <string name="center_horizontal">Centrer horizontalement</string>
+    <string name="center_vertical">Centrer verticalement</string>
+    <string name="editing_internal_layout">Modification de la disposition interne</string>
+    <string name="editing_external_layout">Modification de la disposition externe</string>
+    <string name="layout_background_title">Fond de la disposition</string>
+    <string name="background">Fond</string>
+    <string name="background_mode">Mode du fond</string>
+    <string name="retroachievements_login_expired_status">Ta connexion RetroAchievements a expiré. Touche pour te reconnecter</string>
+    <string name="retro_achievements_pending_unlocks">Déblocages en attente</string>
+    <string name="retro_achievements_active_challenges">Défis en cours</string>
+    <string name="retro_achievements_recently_unlokced">Débloqués récemment</string>
+    <string name="retro_achievements_almost_there">Presque obtenus</string>
+    <string name="retro_achievements_locked">Verrouillés</string>
+    <string name="retro_achievements_unlocked">Débloqués</string>
+    <string name="ra_base_set">Jeu de base</string>
+    <string name="game_has_no_achievements">Ce jeu n\'a pas de succès</string>
+    <string name="achievements_login_expired">Connexion RetroAchievements expirée !</string>
+    <string name="achievements_login_expired_tip">Reconnecte-toi pour activer RetroAchievements</string>
+    <string name="achievement_progress">%1$d/%2$d</string>
+    <string name="challenge_started">Défi commencé</string>
+    <string name="leaderboard_attempt_started">Tentative de classement commencée !</string>
+    <string name="leaderboard_submission_info">%1$s • Rang %2$d sur %3$d</string>
+    <string name="game_completed">%1$s terminé</string>
+    <string name="game_mastered">%1$s maîtrisé</string>
+    <string name="retroachievements_unsynchronized_data">Données RetroAchievements non synchronisées</string>
+    <string name="retroachievements_unsynchronized_data_info">Des données RetroAchievements ne sont pas synchronisées. Ces opérations sont en attente :</string>
+    <string name="retroachievements_unsynchronized_data_connect_internet">Connecte-toi à Internet pour synchroniser les données.</string>
+    <string name="retroachievements_unsynchronized_data_loss_info">Si tu quittes maintenant, ces données seront perdues !</string>
+    <string name="retroachievements_unsynchronized_data_synchronized">Toutes les données sont synchronisées !</string>
+    <string name="retroachievements_unsynchronized_data_exiting">L\'émulateur va maintenant se fermer.</string>
+    <string name="connection_wifi_aware">Wi-Fi Aware</string>
+    <string name="connection_wifi_direct">Wi-Fi Direct</string>
+    <string name="no_connection_methods_available">Aucun mode de connexion disponible sur cet appareil</string>
+    <string name="settings_backup_success">Réglages sauvegardés.\n\nNon inclus :\n&#8226; session RetroAchievements\n&#8226; dossiers des jeux et des sauvegardes\n&#8226; dossier du BIOS DS\n&#8226; dossier du BIOS DSi</string>
+    <string name="settings_restore_success">Réglages restaurés.\n\nInchangés :\n&#8226; session RetroAchievements\n&#8226; dossiers des jeux et des sauvegardes\n&#8226; dossier du BIOS DS\n&#8226; dossier du BIOS DSi</string>
+    <string name="performance_details_summary">Sous le compteur de FPS, en millisecondes par image DS : le temps CPU de l\'émulation (multiplicateur de polygones et textures compris) et le temps GPU de chaque passe (3D, ombres, effets de lumière, génération d\'images, écrans). Active les effets un par un pour voir ce que chacun coûte. Affiché seulement avec le compteur de FPS</string>
+    <string name="analogue_movement_summary">La croix tactile devient un joystick et les sticks de la manette sont lus en analogique. Les jeux pris en charge avancent dans la direction exacte du stick : Dragon Quest Monsters: Joker (Europe). Les autres prennent la plus proche des 8 directions</string>
+    <string name="multiplayer_role_title">Multijoueur</string>
+    <string name="multiplayer_role_host">Héberger</string>
+    <string name="multiplayer_role_join">Rejoindre</string>
+    <string name="multiplayer_connection_method_title">Mode de connexion</string>
+    <string name="multiplayer_discovered_peers_title">Parties disponibles</string>
+    <string name="multiplayer_searching">Recherche…</string>
+    <string name="multiplayer_connecting">Connexion…</string>
+    <string name="multiplayer_starting">Lancement de la partie…</string>
+    <string name="multiplayer_discovering">Recherche des joueurs…</string>
+    <string name="multiplayer_connected">Connecté</string>
+    <string name="multiplayer_error_connection_failed">La connexion a échoué</string>
+    <string name="multiplayer_error_discovery_failed">La recherche a échoué</string>
+    <string name="multiplayer_error_lan_init_failed">La partie en réseau local n\'a pas pu démarrer</string>
+    <string name="multiplayer_error_permission_denied">Les autorisations nécessaires n\'ont pas été accordées</string>
+    <string name="action_three_ds_games">Jeux 3DS</string>
+    <string name="three_ds_unsupported">Les jeux 3DS demandent un appareil 64 bits</string>
+    <string name="pomegrade_folder_title">Dossier Punica</string>
+    <string name="pomegrade_folder_message">Punica range tes jeux et leurs fichiers dans un seul dossier, Punica, dans le stockage interne :\n\n• Roms : chaque jeu dans son dossier\n• BIOS : les fichiers système de chaque console (DS, DSi, GBA, 3DS, Switch, GameCube / Wii)\n• DS, GBA, 3DS, Switch, GC-Wii : les sauvegardes et sauvegardes d\'état de chaque console\n• Textures : les packs de textures HD\n\nLes jeux que Punica trouve y sont déplacés. Le dossier reste sur ton téléphone si tu désinstalles l\'app.\n\nAndroid demande d\'abord d\'autoriser « Accès à tous les fichiers » : Punica en a besoin pour déplacer les jeux et lancer les jeux 3DS. Touche ensuite « Utiliser ce dossier » pour confirmer le dossier Punica.</string>
+    <string name="pomegrade_folder_choose">Choisir le dossier</string>
+    <string name="pomegrade_folder_later">Plus tard</string>
+    <string name="pomegrade_folder_file_access_hint">Active « Accès à tous les fichiers » pour Punica, puis reviens</string>
+    <string name="pomegrade_folder_file_access_denied">Sans accès aux fichiers, Punica ne peut ni ranger tes jeux ni lancer les jeux 3DS</string>
+    <string name="pomegrade_folder_setting_up">Préparation du dossier Punica…</string>
+    <string name="pomegrade_folder_moving">Déplacement de %1$s…</string>
+    <string name="pomegrade_folder_invalid">Ce dossier ne peut pas être utilisé. Choisis-en un ou crée-le dans le stockage interne du téléphone ou sur une carte SD, pas dans un service cloud ni une autre app.</string>
+    <string name="pomegrade_folder_failed">Le dossier Punica n\'a pas pu être préparé</string>
+    <string name="pomegrade_folder_not_moved_title">Certains jeux sont restés à leur place</string>
+    <string name="pomegrade_folder_not_moved">Ces jeux n\'ont pas pu être déplacés dans le dossier Punica (un fichier du même nom y est peut-être déjà, ou le stockage est plein). Ils fonctionnent toujours là où ils sont.\n\n%1$s</string>
+    <string name="pomegrade_folder_organizing">Rangement des jeux, un instant</string>
+    <string name="settings_section_pomegrade">Punica</string>
+    <string name="settings_section_ds">DS</string>
+    <string name="settings_section_three_ds">3DS</string>
+    <string name="pomegrade_folder_not_set">Pas encore configuré : touche pour le configurer</string>
+    <string name="pomegrade_folder_location">%1$s\n\nIl contient tes jeux (Roms), leurs sauvegardes et sauvegardes d\'état, le BIOS de chaque console, les données 3DS et Switch, les packs de textures et une copie de tes réglages. Il reste sur ton téléphone si tu désinstalles Punica.</string>
+    <string name="pomegrade_settings_save">Sauvegarder les réglages maintenant</string>
+    <string name="pomegrade_settings_save_summary">Dans Punica/Settings (fait aussi automatiquement) : réglages, touches, dispositions, réglages et temps de jeu de chaque jeu</string>
+    <string name="pomegrade_settings_restore">Restaurer les réglages sauvegardés</string>
+    <string name="pomegrade_settings_restore_summary">Depuis Punica/Settings, par exemple après avoir réinstallé Punica</string>
+    <string name="pomegrade_settings_saved">Réglages sauvegardés dans le dossier Punica</string>
+    <string name="pomegrade_settings_restored">Réglages restaurés</string>
+    <string name="pomegrade_settings_none">Aucun réglage sauvegardé dans le dossier Punica</string>
+    <string name="pomegrade_settings_failed">Les réglages n\'ont pas pu être sauvegardés ou lus</string>
+    <string name="pomegrade_settings_found_title">Réglages sauvegardés trouvés</string>
+    <string name="pomegrade_settings_found">Le dossier Punica contient des réglages sauvegardés par une installation précédente (réglages, touches, dispositions, réglages et temps de jeu de chaque jeu). Les restaurer ?</string>
+    <string name="pomegrade_settings_restore_action">Restaurer</string>
+    <string name="pomegrade_settings_keep_new">Repartir de zéro</string>
+    <string name="three_ds_settings_core_summary">Processeur, vitesse, région et langue</string>
+    <string name="three_ds_settings_system_summary">Modèle de console, profil, horloge, fichiers système</string>
+    <string name="three_ds_settings_renderer_summary">Résolution, API graphique, shaders, filtres</string>
+    <string name="three_ds_settings_layout">Disposition des écrans</string>
+    <string name="three_ds_settings_layout_summary">Comment les deux écrans sont disposés</string>
+    <string name="three_ds_settings_audio_summary">Volume, sortie audio, étirement</string>
+    <string name="three_ds_settings_controls_summary">Touches de la manette, raccourcis</string>
+    <string name="three_ds_settings_camera">Caméra</string>
+    <string name="three_ds_settings_camera_summary">Quelle caméra du téléphone les jeux voient</string>
+    <string name="three_ds_settings_debug_summary">Journaux et options de dépannage</string>
+    <string name="three_ds_code_trace">Enregistrer une trace du code (débogage)</string>
+    <string name="three_ds_code_trace_summary">Pendant qu\'un jeu 3DS tourne, enregistre ce que fait son code (appels au noyau, requêtes système, fichiers ouverts, modules chargés, chaque thread plusieurs fois par seconde). Écrite dans Punica/3DS/Traces quand tu quittes le jeu, et toutes les 30 secondes. Ralentit un peu le jeu</string>
+    <string name="ds_debug_trace">Enregistrer une trace de débogage (débogage)</string>
+    <string name="ds_debug_trace_summary">Pendant qu\'un jeu DS démarre et tourne, enregistre ce que fait l\'émulateur : ses messages (erreurs OpenGL, chaque shader compilé et sa durée), chaque étape du démarrage (jeu, OpenGL, moteur de rendu, premières images) et, chaque seconde, où il en est. Écrite dans Punica/DS/Traces au fur et à mesure : si un jeu se bloque, ferme l\'app et le fichier montre où il s\'est arrêté</string>
+    <string name="ds_debug_trace_no_folder">Le dossier Punica est introuvable, ou Punica ne peut pas y écrire : configure-le d\'abord</string>
+    <string name="ds_debug_trace_on">Trace de débogage activée : chaque jeu lancé écrit une trace dans %1$s</string>
+    <string name="three_ds_code_trace_no_folder">Le dossier 3DS est introuvable : configure d\'abord le dossier Punica</string>
+    <string name="three_ds_code_trace_on">Trace du code activée : quitte le jeu pour l\'écrire dans %1$s</string>
+    <string name="three_ds_mod_install">Installer un mod</string>
+    <string name="three_ds_mod_install_summary">Depuis un zip contenant load/mods et, si besoin, la sauvegarde qui va avec (sdmc)</string>
+    <string name="three_ds_mod_reading">Lecture du mod…</string>
+    <string name="three_ds_mod_installing">Installation du mod…</string>
+    <string name="three_ds_mod_confirm_title">Installer ce mod ?</string>
+    <string name="three_ds_mod_confirm">Jeux modifiés : %1$s\n\nLe mod actuel de ces jeux est d\'abord supprimé.</string>
+    <string name="three_ds_mod_confirm_save">\n\nCe zip contient aussi une sauvegarde (%1$d fichiers) : elle remplace ta sauvegarde actuelle de ces jeux.</string>
+    <string name="three_ds_mod_none">aucun (seulement une sauvegarde)</string>
+    <string name="three_ds_mod_install_action">Installer</string>
+    <string name="three_ds_mod_installed">Mod installé (%1$d fichiers)</string>
+    <string name="three_ds_mod_not_a_mod">Ce zip ne contient aucun mod 3DS : pas de dossier load/mods/&lt;ID du jeu&gt; ni sdmc</string>
+    <string name="three_ds_mod_failed">Le mod n\'a pas pu être installé (le zip est peut-être endommagé, ou le stockage plein)</string>
+    <string name="action_platform_filter">Console</string>
+    <string name="platform_all">Toutes les consoles</string>
+    <string name="platform_ds">DS</string>
+    <string name="platform_three_ds">3DS</string>
+    <string name="three_ds_encrypted">Chiffré : impossible à jouer (déchiffre d\'abord le jeu)</string>
+    <string name="three_ds_rom_label">3DS · %1$s</string>
+    <string name="unlimited_polygons">Supprimer la limite de polygones</string>
+    <string name="unlimited_polygons_summary">Dessine les polygones qu\'une DS abandonne quand une scène en a trop (objets manquants ou qui clignotent)</string>
+    <string name="high_precision_geometry">Géométrie haute précision</string>
+    <string name="high_precision_geometry_summary">Place les sommets entre les pixels au lieu de les aligner dessus : les modèles 3D en mouvement tremblent moins</string>
+    <string name="oled_blacks">Noir profond</string>
+    <string name="oled_blacks_summary">Les teintes presque noires de chaque scène deviennent du vrai noir (pixels éteints sur les écrans OLED)</string>
+    <string name="adaptive_colours">Couleurs adaptatives</string>
+    <string name="adaptive_colours_summary">Contraste et couleurs ajustés à chaque scène : les scènes ternes et délavées reprennent vie</string>
+    <string name="ambient_occlusion">Occlusion ambiante</string>
+    <string name="ambient_occlusion_summary">Des ombres douces là où les surfaces se rejoignent et où les objets touchent le sol, calculées depuis la scène 3D</string>
+    <string name="light_bounce">Rebond de lumière</string>
+    <string name="light_bounce_summary">Les surfaces éclairées éclairent leur entourage de leur propre couleur (un rebond, d\'après ce qui est à l\'écran)</string>
+    <string name="shadows">Ombres en temps réel</string>
+    <string name="shadows_summary">Les objets 3D projettent des ombres depuis la lumière principale de la scène : nettes contre l\'objet, plus douces plus loin</string>
+    <string name="reflections">Reflets</string>
+    <string name="reflections_summary">Les surfaces reflètent ce qui est à l\'écran : nettement pour les matières brillantes, les autres seulement en angle rasant</string>
+    <string name="relief_textures">Textures en relief</string>
+    <string name="renderer_unavailable">Moteur de rendu indisponible</string>
+    <string name="renderer_unavailable_message">Le moteur de rendu choisi dans les réglages n\'a pas pu démarrer sur cet appareil, le jeu tourne donc avec le rendu logiciel. Le pilote graphique a répondu :\n\n%1$s</string>
+    <string name="frame_rate">Images par seconde</string>
+    <string name="texture_upscale">Agrandissement des textures</string>
+    <string name="texture_filter">Filtrage des textures</string>
+    <string name="texture_filter_summary">Lisse les bords des texels de près sans flou, et moins de scintillement au loin. Demande plus de lectures de textures</string>
+    <string name="high_color">Couleurs riches</string>
+    <string name="high_color_summary">8 bits par couleur au lieu des 6 de la DS : dégradés et éclairage plus doux, moins de bandes</string>
+    <string name="better_polygons">Polygones améliorés</string>
+    <string name="better_polygons_summary">Moins de jointures et de déformations sur les grands polygones en haute résolution</string>
+    <string name="polygon_multiplier">Multiplicateur de polygones</string>
+    <string name="hd_textures">Textures HD</string>
+    <string name="hd_textures_summary">Remplace les textures 3D par leur version HD depuis Punica/Textures/&lt;code du jeu&gt;/</string>
+    <string name="dump_textures">Extraire les textures</string>
+    <string name="dump_textures_summary">Enregistre chaque texture 3D du jeu dans Punica/Textures/&lt;code du jeu&gt;/dump/ (plus lent, pour créer des packs de textures)</string>
+    <string name="pomegrade_about">À propos</string>
+    <string name="pomegrade_about_version">Version %1$s</string>
+    <string name="pomegrade_about_description">Les jeux DS, DSi et 3DS dans une seule app, avec des textures HD et des améliorations graphiques pour la DS.</string>
+    <string name="pomegrade_about_source_code">Code source</string>
+    <string name="pomegrade_about_built_on">Basé sur</string>
+    <string name="pomegrade_about_role_melonds">Cœur d\'émulation DS et DSi</string>
+    <string name="pomegrade_about_role_melonds_android">App Android sur laquelle Punica est basée</string>
+    <string name="pomegrade_about_role_azahar">Cœur d\'émulation 3DS et son interface Android</string>
+    <string name="pomegrade_about_role_stb">Lecture et écriture des PNG pour les textures HD</string>
+    <string name="pomegrade_about_role_oboe">Sortie audio (DS)</string>
+    <string name="pomegrade_about_role_faad2">Décodage audio AAC (DSi)</string>
+    <string name="pomegrade_about_role_enet">Jeu sans fil local (DS)</string>
+    <string name="pomegrade_about_credit_authors_licence">%1$s · %2$s</string>
+    <string name="pomegrade_about_licences_notice">Punica est un logiciel libre sous la licence publique générale GNU, version 3. Touche pour lire les licences GNU. Les autres bibliothèques du cœur 3DS sont listées dans son propre écran À propos (Jeux 3DS → Réglages → À propos).</string>
+    <string name="inspector_title">Inspecteur</string>
+    <string name="inspector_mode_off">Désactivé</string>
+    <string name="inspector_mode_record">Enregistrement seul (image normale)</string>
+    <string name="inspector_mode_polygon_id">Couleur par ID de polygone</string>
+    <string name="inspector_mode_call_site">Couleur par fonction du jeu</string>
+    <string name="inspector_mode_display_list">Couleur par display list</string>
+    <string name="inspector_save_report">Enregistrer le rapport</string>
+    <string name="inspector_close">Fermer</string>
+    <string name="inspector_save_needs_recording">Choisis un mode autre que Désactivé, joue un moment, puis enregistre le rapport</string>
+    <string name="inspector_saved">Rapport enregistré : %1$s</string>
+    <string name="inspector_save_failed">Le rapport n\'a pas pu être enregistré</string>
+    <!-- Choice lists shown in the settings (13 October audit) -->
+    <string-array name="gba_slot_options">
+        <item>Aucun</item>
+        <item>ROM GBA</item>
+        <item>Rumble Pak</item>
+        <item>Extension mémoire</item>
+    </string-array>
+    <string-array name="video_renderer_options">
+        <item>Logiciel</item>
+        <item>OpenGL</item>
+        <item>Compute</item>
+    </string-array>
+    <string-array name="video_internal_resolution_options">
+        <item>1x natif (256x192)</item>
+        <item>2x natif (512x384)</item>
+        <item>3x natif (768x576)</item>
+        <item>4x natif (1024x768)</item>
+        <item>5x natif (1280x960)</item>
+        <item>6x natif (1536x1152)</item>
+        <item>7x natif (1792x1344)</item>
+        <item>8x natif (2048x1536)</item>
+    </string-array>
+    <string-array name="soft_input_behaviour_options">
+        <item>Toujours visibles</item>
+        <item>Masquer les boutons de la console quand une manette est connectée</item>
+        <item>Masquer les touches associées quand une manette est connectée</item>
+        <item>Toujours masqués</item>
+    </string-array>
+    <string-array name="soft_input_behaviour_descriptions">
+        <item>Les boutons à l\'écran sont toujours visibles, comme dans la disposition actuelle.</item>
+        <item>Quand une manette est connectée, les boutons de la console (A B X Y, croix, L, R, Start et Select) sont masqués. Les autres boutons de la disposition restent visibles.</item>
+        <item>Quand une manette est connectée, toutes les touches associées à cette manette sont masquées. Les autres touches de la disposition, non associées aux manettes connectées, restent visibles.</item>
+        <item>Les boutons à l\'écran sont toujours masqués, quels que soient les boutons de la disposition actuelle.</item>
+    </string-array>
+    <string-array name="relief_textures_options">
+        <item>Désactivé</item>
+        <item>Léger</item>
+        <item>Fort</item>
+    </string-array>
+    <string-array name="frame_rate_options">
+        <item>30 FPS : une image sur deux affichée (économise la batterie, rendu d\'animation)</item>
+        <item>60 FPS : le jeu tel quel</item>
+        <item>120 FPS : 1 image générée entre deux images (rendu OpenGL, écran 120 Hz)</item>
+        <item>240 FPS : 3 images générées entre deux images (rendu OpenGL, écran 240 Hz ; 120 sur un écran 120 Hz)</item>
+        <item>Adaptatif : le maximum que ton écran et ton téléphone suivent (moins quand le téléphone chauffe)</item>
+    </string-array>
+    <string-array name="texture_upscale_options">
+        <item>Désactivé</item>
+        <item>×2 (détail des textures, style pixel art)</item>
+        <item>×4</item>
+        <item>×8 (plus de mémoire vidéo)</item>
+        <item>×16 (plus de mémoire vidéo)</item>
+    </string-array>
+    <string-array name="polygon_multiplier_options">
+        <item>Désactivé</item>
+        <item>×4 polygones</item>
+        <item>×9 polygones</item>
+        <item>×16 polygones</item>
+        <item>×36 polygones</item>
+        <item>×64 polygones (le plus lourd)</item>
+    </string-array>
 </resources>

@@ -1114,8 +1114,11 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
     // GPU driver beside it, which Eden's own header showed)
     private fun updateGameTitle() {
         game?.let {
+            // The GPU driver is only known once emulation has started (the renderer does not exist before:
+            // getGpuDriver dereferences it); the emulationStarted collector calls this again then, as upstream did
+            val gpuDriver = if (emulationViewModel.emulationStarted.value) " · " + NativeLibrary.getGpuDriver() else ""
             val console = getString(EmulatorMenuR.string.emulator_menu_console_switch) +
-                " · " + NativeLibrary.getCpuBackend() + " · " + NativeLibrary.getGpuDriver()
+                " · " + NativeLibrary.getCpuBackend() + gpuDriver
             EmulatorMenu.setHeader(binding.inGameMenu, it.title, console)?.let { icon ->
                 GameIconUtils.loadGameIcon(it, icon)
             }

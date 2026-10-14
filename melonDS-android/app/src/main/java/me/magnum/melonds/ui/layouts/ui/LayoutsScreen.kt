@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
@@ -70,6 +71,7 @@ import me.magnum.melonds.ui.layouteditor.LayoutEditorActivity
 import me.magnum.melonds.ui.layouts.viewmodel.BaseLayoutsViewModel
 import me.magnum.melonds.ui.theme.MelonTheme
 import java.util.UUID
+import me.magnum.melonds.ui.theme.PunicaDimens
 
 @Composable
 fun LayoutsScreen(
@@ -208,7 +210,10 @@ private fun LayoutItem(
                     false
                 }
             }
-            .padding(start = 16.dp, end = 8.dp),
+            // the settings rows' metrics (preference_punica): 64 dp high at least, 16 dp from the edge; 8 dp at the
+            // end, where the menu button's 48 dp touch area puts its icon at the margin
+            .heightIn(min = PunicaDimens.ROW_MIN.dp)
+            .padding(start = PunicaDimens.MARGIN.dp, end = PunicaDimens.GAP.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RadioButton(
@@ -219,7 +224,8 @@ private fun LayoutItem(
         Text(
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 32.dp),
+                // 12 dp from the radio button to the text, as in the settings rows
+                .padding(start = PunicaDimens.GAP_WIDE.dp),
             text = layout.name.orEmpty(),
             style = MaterialTheme.typography.body1,
             maxLines = 1,

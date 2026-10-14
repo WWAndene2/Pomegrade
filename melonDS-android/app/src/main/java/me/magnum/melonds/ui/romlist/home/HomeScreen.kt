@@ -56,6 +56,7 @@ import me.magnum.melonds.ui.common.component.PunicaHeaderButton
 import me.magnum.melonds.ui.common.component.PunicaLogo
 import me.magnum.melonds.ui.common.component.PunicaPill
 import me.magnum.melonds.ui.common.component.punicaBackground
+import me.magnum.melonds.ui.theme.PunicaDimens
 import me.magnum.melonds.ui.theme.PunicaTheme
 
 /** How the library is ordered; [FAVORITES] also keeps only the starred games. */
@@ -109,8 +110,8 @@ internal fun HomeScreen(
     }
 
     Box(Modifier.fillMaxSize().punicaBackground()) {
-        LazyColumn(contentPadding = PaddingValues(top = insets.calculateTopPadding(), bottom = insets.calculateBottomPadding() + 32.dp)) {
-            item { HomeHeader(searchQuery, menuEntries, onSearchQueryChange, onSettings) }
+        // the header stays on top, transparent, and the list scrolls under it as on every other screen
+        LazyColumn(contentPadding = PaddingValues(top = insets.calculateTopPadding() + PunicaDimens.HEADER.dp, bottom = insets.calculateBottomPadding() + 32.dp)) {
             item { HomeFeatured(featured, sheetActions) }
             item { SectionTitle(stringResource(R.string.home_quick_access), action = stringResource(R.string.home_all_consoles)) { onPlatformSelected(null) } }
             item {
@@ -140,7 +141,7 @@ internal fun HomeScreen(
                     Text(
                         stringResource(if (sort == LibrarySort.FAVORITES) R.string.home_no_favorites else R.string.no_roms_found),
                         fontSize = 14.sp, color = PunicaTheme.textMuted, textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        modifier = Modifier.fillMaxWidth().padding(24.dp), // 24 dp around an empty list's message, as on every other screen
                     )
                 }
             }
@@ -151,6 +152,9 @@ internal fun HomeScreen(
                     if (pair.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
+        }
+        Box(Modifier.padding(top = insets.calculateTopPadding())) {
+            HomeHeader(searchQuery, menuEntries, onSearchQueryChange, onSettings)
         }
         HomeGameSheet(sheetRom, sheetActions) { sheetRom = null }
     }

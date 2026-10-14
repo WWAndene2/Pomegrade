@@ -18,7 +18,10 @@ import me.magnum.melonds.domain.model.ui.Orientation
 import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(FlowPreview::class)
-class UILayoutProvider(private val defaultLayoutProvider: DefaultLayoutProvider) {
+class UILayoutProvider(
+    private val defaultLayoutProvider: DefaultLayoutProvider,
+    private val classicLayoutProvider: ClassicLayoutProvider,
+) {
 
     private val currentUiSize = MutableStateFlow<Point?>(null)
     private val currentUiInsets = MutableStateFlow<Insets?>(null)
@@ -69,6 +72,10 @@ class UILayoutProvider(private val defaultLayoutProvider: DefaultLayoutProvider)
     }
 
     private fun getOptimalLayoutForVariant(layoutConfiguration: LayoutConfiguration, variant: UILayoutVariant): UILayout {
+        if (layoutConfiguration.id == LayoutConfiguration.CLASSIC_ID) {
+            return classicLayoutProvider.buildClassicLayout(variant)
+        }
+
         val exactLayoutMatch = layoutConfiguration.layoutVariants[variant]
         if (exactLayoutMatch != null) {
             return populateLayoutIfRequired(exactLayoutMatch, variant)

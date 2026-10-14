@@ -83,7 +83,10 @@ class RomListFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         ViewCompat.setOnApplyWindowInsetsListener(binding.listRoms) { view, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            view.updatePadding(bottom = insets.bottom)
+            // top: the status bar and the transparent header where the screen draws the list under them
+            // (ShortcutSetupActivity); 0 where the list starts below its header
+            view.updatePadding(top = insets.top, bottom = insets.bottom)
+            (view as ViewGroup).clipToPadding = false
 
             WindowInsetsCompat.CONSUMED
         }

@@ -479,8 +479,8 @@
     <string name="renderer_accuracy_description">Controls the GPU emulation mode. Most games render fine with Fast or Balanced modes, but Accurate is still required for some. Particles tend to only render correctly with Accurate mode.</string>
     <string name="dma_accuracy">DMA Accuracy</string>
     <string name="dma_accuracy_description">Controls the DMA precision accuracy. Safe precision can fix issues in some games, but it can also impact performance in some cases. If unsure, leave this on Default.</string>
-    <string name="anisotropic_filtering">Anisotropic filtering</string>
-    <string name="anisotropic_filtering_description">Improves the quality of textures when viewed at oblique angles</string>
+    <string name="anisotropic_filtering">Texture filtering</string>
+    <string name="anisotropic_filtering_description">Sharper textures on surfaces seen at an angle (anisotropic filtering)</string>
     <string name="vram_usage_mode">VRAM Usage Mode</string>
     <string name="vram_usage_mode_description">Control how aggressively the emulator allocates and frees GPU memory.</string>
     <string name="accelerate_astc">ASTC Decoding Method</string>
@@ -1789,4 +1789,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="add_folders">Add Folder</string>
     <string name="percent">%1$d%%</string>
 
+    <string name="pomegrade_rich_colours">Rich colours</string>
+    <string name="pomegrade_rich_colours_description">Smoother gradients: smooths the banding steps in skies, shadows and fades</string>
+    <string name="pomegrade_deep_black">Deep black</string>
+    <string name="pomegrade_deep_black_description">Near-black shades become true black (pixels off on OLED screens)</string>
 </resources>

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
@@ -52,6 +53,7 @@ import me.magnum.melonds.ui.common.component.PunicaHeader
 import me.magnum.melonds.ui.common.component.punicaBackground
 import me.magnum.melonds.ui.inputsetup.InputSetupViewModel
 import me.magnum.melonds.ui.theme.MelonTheme
+import me.magnum.melonds.ui.theme.PunicaDimens
 
 @Composable
 fun InputSetupScreen(
@@ -140,7 +142,10 @@ private fun Input(
         modifier = Modifier.focusRequester(main)
             .focusProperties { end = if (config.hasKeyAssigned()) clear else FocusRequester.Default }
             .clickable(onClick = onClick)
-            .padding(start = 16.dp, top = 16.dp, end = 8.dp, bottom = 16.dp),
+            // the settings rows' metrics (preference_punica): 64 dp high at least, 16 dp from the edge, 12 dp above and
+            // below; 8 dp at the end, where the clear button's 48 dp touch area puts its icon at the margin
+            .heightIn(min = PunicaDimens.ROW_MIN.dp)
+            .padding(start = PunicaDimens.MARGIN.dp, top = PunicaDimens.GAP_WIDE.dp, end = PunicaDimens.GAP.dp, bottom = PunicaDimens.GAP_WIDE.dp),
     ) {
         Column(Modifier.weight(1f)) {
             val inputString = if (isBeingConfigured) {

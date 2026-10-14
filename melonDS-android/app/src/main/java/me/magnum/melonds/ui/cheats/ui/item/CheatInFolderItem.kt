@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.Checkbox
@@ -23,6 +24,7 @@ import me.magnum.melonds.domain.model.CheatInFolder
 import me.magnum.melonds.ui.common.MelonPreviewSet
 import me.magnum.melonds.ui.common.component.text.CaptionText
 import me.magnum.melonds.ui.theme.MelonTheme
+import me.magnum.melonds.ui.theme.PunicaDimens
 
 @Composable
 fun CheatInFolderItem(
@@ -33,8 +35,10 @@ fun CheatInFolderItem(
     Row(
         modifier = modifier
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(32.dp),
+            // the settings rows' metrics (preference_punica): 16 dp sides, 12 dp above, below and to the text
+            .heightIn(min = PunicaDimens.ROW_MIN.dp)
+            .padding(horizontal = PunicaDimens.MARGIN.dp, vertical = PunicaDimens.GAP_WIDE.dp),
+        horizontalArrangement = Arrangement.spacedBy(PunicaDimens.GAP_WIDE.dp),
     ) {
         Checkbox(
             modifier = Modifier.padding(top = 4.dp),

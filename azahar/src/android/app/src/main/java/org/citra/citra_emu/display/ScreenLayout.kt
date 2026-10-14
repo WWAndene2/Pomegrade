@@ -37,11 +37,13 @@ enum class PortraitScreenLayout(val int: Int) {
     // These must match what is defined in src/common/settings.h
     TOP_FULL_WIDTH(0),
     CUSTOM_PORTRAIT_LAYOUT(1),
-    ORIGINAL(2);
+    ORIGINAL(2),
+    // Pomegrade: the Punica 3DS skin template
+    CLASSIC(3);
 
     companion object {
         fun from(int: Int): PortraitScreenLayout =
-            entries.firstOrNull { it.int == int } ?: TOP_FULL_WIDTH
+            entries.firstOrNull { it.int == int } ?: CLASSIC
     }
 }
 

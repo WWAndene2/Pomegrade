@@ -120,6 +120,7 @@ class InternalLayoutsRepository(private val context: Context, private val gson: 
             } else {
                 val deletableLayouts = loadLayouts().map { Deletable(it, false) }
                 layouts.value = buildList {
+                    add(Deletable(buildClassicLayout(), false))
                     add(Deletable(buildDefaultLayout(), false))
                     addAll(deletableLayouts)
                 }
@@ -164,6 +165,18 @@ class InternalLayoutsRepository(private val context: Context, private val gson: 
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    private fun buildClassicLayout(): LayoutConfiguration {
+        return LayoutConfiguration(
+            id = LayoutConfiguration.CLASSIC_ID,
+            name = context.getString(R.string.classic_layout_name),
+            type = LayoutConfiguration.LayoutType.DEFAULT,
+            orientation = LayoutConfiguration.LayoutOrientation.FOLLOW_SYSTEM,
+            useCustomOpacity = false,
+            opacity = 50,
+            layoutVariants = emptyMap(),
+        )
     }
 
     private fun buildDefaultLayout(): LayoutConfiguration {

@@ -1061,7 +1061,7 @@ class EmulationFragment :
                 R.id.menu_portrait_layout_custom
 
             else ->
-                R.id.menu_portrait_layout_top_full
+                R.id.menu_portrait_layout_classic
         }
 
         popupMenu.menu.findItem(layoutOptionMenuItem).setChecked(true)
@@ -1072,6 +1072,17 @@ class EmulationFragment :
                     screenAdjustmentUtil.changePortraitOrientation(
                         PortraitScreenLayout.TOP_FULL_WIDTH.int
                     )
+                    // Pomegrade: Classic places the controls on its template, the others use Azahar's defaults
+                    binding.surfaceInputOverlay.resetButtonPlacement()
+                    true
+                }
+
+                R.id.menu_portrait_layout_classic -> {
+                    screenAdjustmentUtil.changePortraitOrientation(
+                        PortraitScreenLayout.CLASSIC.int
+                    )
+                    // Pomegrade: Classic places the controls on its template, the others use Azahar's defaults
+                    binding.surfaceInputOverlay.resetButtonPlacement()
                     true
                 }
 
@@ -1079,6 +1090,8 @@ class EmulationFragment :
                     screenAdjustmentUtil.changePortraitOrientation(
                         PortraitScreenLayout.ORIGINAL.int
                     )
+                    // Pomegrade: Classic places the controls on its template, the others use Azahar's defaults
+                    binding.surfaceInputOverlay.resetButtonPlacement()
                     true
                 }
 
@@ -1091,6 +1104,8 @@ class EmulationFragment :
                     screenAdjustmentUtil.changePortraitOrientation(
                         PortraitScreenLayout.CUSTOM_PORTRAIT_LAYOUT.int
                     )
+                    // Pomegrade: Classic places the controls on its template, the others use Azahar's defaults
+                    binding.surfaceInputOverlay.resetButtonPlacement()
                     true
                 }
 

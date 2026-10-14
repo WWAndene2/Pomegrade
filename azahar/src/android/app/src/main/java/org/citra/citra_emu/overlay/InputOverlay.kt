@@ -621,6 +621,22 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
         }
     }
 
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        // Pomegrade: the Classic layout's controls follow the overlay's size (the emulation surface the screens are
+        // scaled to); placed again when that size differs from the one they were placed for
+        ClassicOverlayLayout.areaWidth = w
+        ClassicOverlayLayout.areaHeight = h
+        val orientation = if (h > w) "-Portrait" else ""
+        if (w > 0 && h > 0 && ClassicOverlayLayout.isActive(orientation)) {
+            val area = "${w}x$h"
+            if (preferences.getString("ClassicOverlayArea", null) != area) {
+                defaultOverlayPortraitClassic()
+            }
+            refreshControls()
+        }
+    }
+
     fun refreshControls() {
         // Remove all the overlay buttons from the HashSet.
         overlayButtons.clear()
@@ -685,6 +701,18 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
             defaultOverlayPortrait()
         }
         refreshControls()
+    }
+
+    private fun defaultOverlayPortraitClassic() {
+        val editor = preferences.edit()
+        if (ClassicOverlayLayout.areaWidth > 0 && ClassicOverlayLayout.areaHeight > 0) {
+            editor.putString("ClassicOverlayArea", "${ClassicOverlayLayout.areaWidth}x${ClassicOverlayLayout.areaHeight}")
+        }
+        ClassicOverlayLayout.placedControls.forEach { id ->
+            val (x, y) = ClassicOverlayLayout.position(context, id) ?: return@forEach
+            editor.putFloat("$id-Portrait-X", x).putFloat("$id-Portrait-Y", y)
+        }
+        editor.apply()
     }
 
     private fun defaultOverlayLandscape() {
@@ -847,6 +875,10 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
     }
 
     private fun defaultOverlayPortrait() {
+        if (ClassicOverlayLayout.isActive("-Portrait")) {
+            defaultOverlayPortraitClassic()
+            return
+        }
         // Get screen size
         val display = (context as Activity).windowManager.defaultDisplay
         val outMetrics = DisplayMetrics()
@@ -1125,6 +1157,9 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
 
                 else -> 0.11f
             }
+            if (ClassicOverlayLayout.isActive(orientation)) {
+                scale = ClassicOverlayLayout.bitmapScale(context, buttonId)
+            }
             scale *= (preferences.getInt("controlScale", 50) + 50).toFloat()
             scale /= 100f
 
@@ -1192,6 +1227,9 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
 
             // Decide scale based on button ID and user preference
             var scale = 0.22f
+            if (ClassicOverlayLayout.isActive(orientation)) {
+                scale = ClassicOverlayLayout.bitmapScale(context, buttonUp)
+            }
             scale *= (preferences.getInt("controlScale", 50) + 50).toFloat()
             scale /= 100f
 
@@ -1262,6 +1300,9 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
 
             // Decide scale based on user preference
             var scale = 0.275f
+            if (ClassicOverlayLayout.isActive(orientation)) {
+                scale = ClassicOverlayLayout.bitmapScale(context, joystick)
+            }
             scale *= (preferences.getInt("controlScale", 50) + 50).toFloat()
             scale /= 100f
 

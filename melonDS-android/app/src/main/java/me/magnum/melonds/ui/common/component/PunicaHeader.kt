@@ -1,6 +1,7 @@
 package me.magnum.melonds.ui.common.component
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -34,6 +36,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -59,24 +62,38 @@ fun Modifier.punicaBackground(): Modifier = this
         )
     }
 
-/** The logo: the pomegranate and "Punica." in a 32 dp rounded outline, [subtitle] in italics under it. */
+/** The logo: the pomegranate (the app's logo) and "Punica." in a 32 dp rounded outline, [subtitle] in italics under it. */
 @Composable
 fun PunicaLogo(subtitle: String, modifier: Modifier = Modifier) {
-    Column(modifier) {
-        Row(
-            Modifier.height(32.dp).border(BorderStroke(3.dp, PunicaTheme.text), RoundedCornerShape(16.dp)).padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+    // A see-through mask behind the title only (owner's choice, 14 October): the header itself is transparent and
+    // the lists scroll under it; the background colour at 30 %, 8 dp beyond the title on the sides and 4 dp above
+    // and below (the block is then the header's 64 dp), shifted 8 dp left so the pill stays where it was
+    Box(modifier) {
+        Column(
+            Modifier
+                .offset(x = (-8).dp)
+                .background(PunicaTheme.background.copy(alpha = 0.3f), RoundedCornerShape(PunicaDimens.CARD_RADIUS.dp))
+                .padding(horizontal = 8.dp, vertical = 4.dp),
         ) {
-            Box(Modifier.size(16.dp).clip(CircleShape).background(Brush.radialGradient(listOf(Color(0xFFFF8A8F), Color(0xFFDC4249), Color(0xFF8E1622)))))
-            Spacer(Modifier.width(6.dp))
-            Text("Punica", fontFamily = PunicaTheme.display, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, lineHeight = 24.sp, color = PunicaTheme.text)
-            Text(".", fontFamily = PunicaTheme.display, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, lineHeight = 24.sp, color = PunicaTheme.red)
+            Row(
+                Modifier.height(32.dp).border(BorderStroke(3.dp, PunicaTheme.text), RoundedCornerShape(16.dp)).padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // the app's logo, the pomegranate (owner's request, 13 October; was a red dot)
+                Image(painterResource(R.drawable.punica_logo_fruit), contentDescription = null, modifier = Modifier.size(24.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Punica", fontFamily = PunicaTheme.display, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, lineHeight = 24.sp, color = PunicaTheme.text)
+                Text(".", fontFamily = PunicaTheme.display, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, lineHeight = 24.sp, color = PunicaTheme.red)
+            }
+            Text(
+                subtitle,
+                fontFamily = PunicaTheme.display, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 16.sp, lineHeight = 20.sp,
+                color = PunicaTheme.text, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                // lined up with the pill's left edge (owner's choice), 4 dp under its outline: 4 dp above the pill and
+                // below this line too, the 56 dp block centred in the 64 dp header
+                modifier = Modifier.padding(top = 4.dp),
+            )
         }
-        Text(
-            subtitle,
-            fontFamily = PunicaTheme.display, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 16.sp, lineHeight = 20.sp,
-            color = PunicaTheme.text, maxLines = 1, overflow = TextOverflow.Ellipsis,
-        )
     }
 }
 

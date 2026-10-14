@@ -462,8 +462,8 @@
     <string name="renderer_accuracy">Mode GPU</string>
     <string name="dma_accuracy">Précision DMA</string>
     <string name="dma_accuracy_description">Contrôle la précision du DMA. Une précision sûre peut résoudre les problèmes dans certains jeux, mais peut aussi affecter les performances dans certains cas. Si vous n\'êtes pas sûr, laissez ce paramètre sur Par défaut.</string>
-    <string name="anisotropic_filtering">Filtrage anisotropique</string>
-    <string name="anisotropic_filtering_description">Améliore la qualité des textures lorsqu\'elles sont visualisées sous des angles obliques</string>
+    <string name="anisotropic_filtering">Filtrage des textures</string>
+    <string name="anisotropic_filtering_description">Textures plus nettes sur les surfaces vues de biais (filtrage anisotrope)</string>
     <string name="vram_usage_mode">Mode VRAM</string>
     <string name="vram_usage_mode_description">Gestion de la mémoire GPU</string>
     <string name="accelerate_astc">Méthode ASTC</string>
@@ -1108,4 +1108,63 @@
     <string name="add_folders">Ajouter un dossier</string>
     <string name="percent">%1$d%%</string>
 
+    <!-- Pomegrade: texts that had no French yet -->
+    <string name="pipeline_worker_cores">Threads de compilation des pipelines</string>
+    <string name="pipeline_worker_cores_description">Nombre de cœurs utilisés pour compiler les pipelines Vulkan. Une valeur plus haute accélère la compilation, mais fait aussi monter la température.</string>
+    <string name="fsr_sharpness">Netteté FSR</string>
+    <string name="fsr_sharpness_description">Règle la netteté de l\'image avec le contraste dynamique de FSR</string>
+    <string name="renderer_accuracy_description">Mode d\'émulation du GPU. La plupart des jeux s\'affichent bien en mode Rapide ou Équilibré, mais certains demandent encore Précis. Les particules ne s\'affichent souvent correctement qu\'en mode Précis.</string>
+    <string name="renderer_async_presentation">Présentation asynchrone</string>
+    <string name="renderer_async_presentation_description">Cette astuce peut améliorer les performances en déplaçant la présentation sur un thread CPU séparé, au prix de défauts graphiques.</string>
+    <string name="enable_buffer_history_description">Donne accès aux états précédents des tampons. Peut améliorer la qualité du rendu et la régularité des performances dans certains jeux.</string>
+    <string name="use_optimized_vertex_buffers">Tampons de sommets optimisés</string>
+    <string name="use_optimized_vertex_buffers_description">Active une liaison optimisée des tampons de sommets pour de meilleures performances. Demande les pilotes Turnip Mesa 26.0+ ou les pilotes QCOM. Plante avec les pilotes Turnip plus anciens (25.3 et avant).</string>
+    <string name="fast_gpu_time_description">Force la plupart des jeux à tourner à leur résolution native la plus haute. 256 pour les meilleures performances, 512 pour la meilleure qualité graphique.</string>
+    <string name="fix_bloom_effects">Corriger les effets de bloom</string>
+    <string name="fix_bloom_effects_description">Réduit le flou du bloom dans LA/EOW (Adreno A6XX - A7XX / Turnip), supprime le bloom dans Burnout. Attention : peut causer des défauts graphiques dans d\'autres jeux.</string>
+    <string name="emulate_bgr565_description">Corrige les couleurs inversées, ou les artefacts et ombres étranges dans certains jeux.</string>
+    <string name="rescale_hack">Ancienne passe de mise à l\'échelle</string>
+    <string name="rescale_hack_description">Utilise l\'ancienne gestion de la passe de mise à l\'échelle, par un chemin rapide</string>
+    <string name="gpu_unswizzle_settings">Désentrelacement des textures par le GPU</string>
+    <string name="gpu_unswizzle_settings_description">Règle le désentrelacement des textures par le GPU, ou le désactive. Ajustez ces réglages pour équilibrer performances et qualité du chargement des textures.</string>
+    <string name="gpu_unswizzle_enable">Désentrelacement par le GPU</string>
+    <string name="gpu_unswizzle_texture_size">Taille maximale des textures (désentrelacement GPU)</string>
+    <string name="gpu_unswizzle_texture_size_description">Taille maximale (Mo) des textures désentrelacées par le GPU. Le GPU est plus rapide pour les textures moyennes et grandes, le CPU peut l\'être pour les très petites. Ajustez pour trouver l\'équilibre entre l\'accélération GPU et la charge CPU.</string>
+    <string name="gpu_unswizzle_stream_size">Volume par image (désentrelacement GPU)</string>
+    <string name="gpu_unswizzle_stream_size_description">Limite de données par image pour désentrelacer les grandes textures. Plus haut : textures chargées plus vite, mais plus de latence par image. Plus bas : moins de charge GPU, mais des textures peuvent apparaître en retard.</string>
+    <string name="gpu_unswizzle_chunk_size">Taille des lots (désentrelacement GPU)</string>
+    <string name="gpu_unswizzle_chunk_size_description">Nombre de tranches de profondeur traitées par lot pour les textures 3D. Plus haut : meilleur débit sur les GPU puissants, mais risque de saccades ou de délais du pilote sur les plus faibles.</string>
+    <string name="dyna_state_description">Nombre de fonctions utilisables de l\'état dynamique étendu (EDS). Une valeur plus haute réduit le nombre de compilations de pipelines, selon l\'état dynamique que le pilote prend en charge.</string>
+    <string name="vertex_input_dynamic_state_description">Rend la gestion des entrées de sommets plus souple, ce qui peut réduire le temps de compilation des pipelines.</string>
+    <string name="sample_shading_fraction_description">Exécute le fragment shader par échantillon dans un fragment multi-échantillonné, au lieu d\'une fois par fragment. Meilleure qualité graphique, au prix d\'un peu de performances.</string>
+    <string name="patch_old_qcom_drivers">Correctif des textures BCn</string>
+    <string name="patch_old_qcom_drivers_description">Force la détection du format des textures BCn sur les GPU Adreno. Normalement automatique selon la version d\'Android (activé à partir de l\'API 28).</string>
+    <string name="gpu_logging_enabled_description">Enregistre les opérations du GPU dans eden_gpu.log pour déboguer les pilotes Adreno</string>
+    <string name="gpu_log_level_description">Niveau de détail des journaux GPU (plus haut = plus de détails, plus de charge)</string>
+    <string name="gpu_log_vulkan_calls_description">Suit tous les appels à l\'API Vulkan dans un tampon circulaire</string>
+    <string name="gpu_log_driver_debug_description">Capture les informations de débogage propres au pilote (breadcrumbs Turnip, etc.)</string>
+    <string name="gpu_log_ring_buffer_size">Taille du tampon circulaire</string>
+    <string name="migrate_save_data_question">Voulez-vous déplacer les sauvegardes existantes vers le nouvel emplacement ?</string>
+    <string name="save_directory_set">Dossier des sauvegardes défini</string>
+    <string name="all_files_permission_required">L\'autorisation « Accès à tous les fichiers » est nécessaire pour les chemins personnalisés</string>
+    <string name="driver_shader_wipe_dialog_title">Shaders effacés</string>
+    <string name="driver_shader_wipe_dialog_message">Punica a effacé tous les caches de shaders pour garder les pipelines Vulkan valides. C\'est nécessaire quand on change de pilote GPU, pour éviter les plantages et les défauts graphiques. Le jeu peut saccader le temps que les shaders soient recompilés.</string>
+    <string name="freedreno_var_name">Nom de la variable (ex. TU_DEBUG)</string>
+    <string name="freedreno_info_description">Règle les options du pilote GPU Freedreno/Turnip pour le débogage, le profilage et l\'optimisation. Les modifications sont enregistrées automatiquement. Documentation détaillée : https://docs.mesa3d.org/drivers/freedreno.html</string>
+    <string name="fullscreen_mode_description">Masque les barres système d\'Android sur les écrans de l\'app. Balayez depuis un bord pour les afficher un instant.</string>
+    <string name="enable_overlay_description">Active l\'applet de superposition d\'Horizon. Maintenez le bouton Home 1 seconde pour l\'afficher.</string>
+    <string name="profile_delete_confirm_message">Voulez-vous vraiment supprimer %1$s ? Toutes les sauvegardes de cet utilisateur seront supprimées.</string>
+    <string name="profile_delete_current_user_message">Voulez-vous vraiment supprimer %1$s ? C\'est l\'utilisateur sélectionné : le premier utilisateur disponible sera sélectionné à la place.</string>
+    <!-- Pomegrade: choice list that had no French -->
+    <string-array name="gpuLogLevelEntries">
+        <item>Désactivé</item>
+        <item>Erreurs seulement</item>
+        <item>Standard</item>
+        <item>Détaillé</item>
+        <item>Tout</item>
+    </string-array>
+    <string name="pomegrade_rich_colours">Couleurs riches</string>
+    <string name="pomegrade_rich_colours_description">Dégradés plus doux : lisse les paliers dans les ciels, ombres et fondus</string>
+    <string name="pomegrade_deep_black">Noir profond</string>
+    <string name="pomegrade_deep_black_description">Les teintes presque noires deviennent noir pur (pixels éteints sur écran OLED)</string>
 </resources>

@@ -31,6 +31,7 @@ import me.magnum.melonds.impl.*
 import me.magnum.melonds.impl.input.ControllerConfigurationFactory
 import me.magnum.melonds.impl.input.DefaultControllerConfigurationFactory
 import me.magnum.melonds.impl.layout.DeviceLayoutDisplayMapper
+import me.magnum.melonds.impl.layout.ClassicLayoutProvider
 import me.magnum.melonds.impl.layout.DefaultLayoutProvider
 import me.magnum.melonds.impl.layout.UILayoutProvider
 import me.magnum.melonds.impl.layout.devicemapper.AynThorLayoutDisplayMapper
@@ -194,7 +195,7 @@ object MelonModule {
 
     @Provides
     fun provideUILayoutProvider(defaultLayoutProvider: DefaultLayoutProvider): UILayoutProvider {
-        return UILayoutProvider(defaultLayoutProvider)
+        return UILayoutProvider(defaultLayoutProvider, ClassicLayoutProvider(defaultLayoutProvider))
     }
 
     @Provides

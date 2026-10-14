@@ -786,7 +786,7 @@ class EmulatorViewModel @Inject constructor(
             .flatMapLatest {
                 layoutsRepository.observeLayout(it)
                     .onCompletion {
-                        emitAll(layoutsRepository.observeLayout(LayoutConfiguration.DEFAULT_ID))
+                        emitAll(layoutsRepository.observeLayout(LayoutConfiguration.CLASSIC_ID))
                     }
             }
     }

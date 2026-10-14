@@ -18,6 +18,7 @@ import me.magnum.melonds.R
 import me.magnum.melonds.ui.common.DetachedDialog
 import me.magnum.melonds.ui.common.component.text.CaptionText
 import me.magnum.melonds.ui.common.melonTextButtonColors
+import me.magnum.melonds.ui.theme.PunicaDimens
 
 @Composable
 fun SingleChoiceItem(
@@ -27,7 +28,7 @@ fun SingleChoiceItem(
     selectedItemIndex: Int,
     onItemSelected: (Int) -> Unit,
     enabled: Boolean = true,
-    horizontalPadding: Dp = 16.dp,
+    horizontalPadding: Dp = PunicaDimens.MARGIN.dp,
 ) {
     var isDialogShown by remember {
         mutableStateOf(false)
@@ -39,8 +40,8 @@ fun SingleChoiceItem(
                 .fillMaxWidth()
                 .clickable(enabled = enabled) { isDialogShown = true }
                 .focusable(enabled = enabled)
-                .heightIn(min = 64.dp)
-                .padding(start = horizontalPadding, end = horizontalPadding, top = 8.dp, bottom = 8.dp),
+                .heightIn(min = PunicaDimens.ROW_MIN.dp)
+                .padding(start = horizontalPadding, end = horizontalPadding, top = PunicaDimens.GAP_WIDE.dp, bottom = PunicaDimens.GAP_WIDE.dp),
             verticalArrangement = Arrangement.Center
         ) {
             Text(

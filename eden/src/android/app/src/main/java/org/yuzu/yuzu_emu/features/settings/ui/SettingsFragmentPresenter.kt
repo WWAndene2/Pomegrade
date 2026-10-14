@@ -271,12 +271,15 @@ class SettingsFragmentPresenter(
                 add(IntSetting.FSR_SHARPENING_SLIDER.key)
             }
             add(IntSetting.RENDERER_ANTI_ALIASING.key)
+            // Pomegrade: the picture options under the names the other consoles use
+            add(IntSetting.MAX_ANISOTROPY.key)
+            add(BooleanSetting.POMEGRADE_RICH_COLOURS.key)
+            add(BooleanSetting.POMEGRADE_DEEP_BLACK.key)
 
             add(HeaderSetting(R.string.eden_advanced))
 
             add(IntSetting.RENDERER_ACCURACY.key)
             add(IntSetting.DMA_ACCURACY.key)
-            add(IntSetting.MAX_ANISOTROPY.key)
             add(IntSetting.RENDERER_VRAM_USAGE_MODE.key)
             add(IntSetting.RENDERER_ASTC_DECODE_METHOD.key)
 

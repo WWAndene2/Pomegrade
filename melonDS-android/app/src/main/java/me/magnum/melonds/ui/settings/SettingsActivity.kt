@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updateLayoutParams
@@ -57,8 +58,14 @@ class SettingsActivity : AppCompatActivity(), PreferenceFragmentCompat.OnPrefere
                 rightMargin = insets.right
             }
 
-            // Leave bottom insets to be consumed by the content fragments
-            windowInsets.inset(insets.left, insets.top, insets.right, 0)
+            // The pages are drawn under the status bar and the transparent header: their top inset is both, so
+            // their lists start below the header and scroll under it. Bottom insets are left to the pages
+            val header = resources.getDimensionPixelSize(R.dimen.punica_header_height)
+            val pageInsets = Insets.of(0, insets.top + header, 0, insets.bottom)
+            WindowInsetsCompat.Builder(windowInsets)
+                .setInsets(WindowInsetsCompat.Type.systemBars(), pageInsets)
+                .setInsets(WindowInsetsCompat.Type.displayCutout(), Insets.NONE)
+                .build()
         }
 
         supportFragmentManager.addOnBackStackChangedListener {

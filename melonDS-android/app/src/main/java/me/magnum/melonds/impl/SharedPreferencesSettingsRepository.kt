@@ -486,7 +486,7 @@ class SharedPreferencesSettingsRepository(
 
     override fun getSelectedLayoutId(): UUID {
         val id = preferences.getString("input_layout_id", null)
-        return id?.let { UUID.fromString(it) } ?: LayoutConfiguration.DEFAULT_ID
+        return id?.let { UUID.fromString(it) } ?: LayoutConfiguration.CLASSIC_ID
     }
 
     override fun getSoftInputBehaviour(): Flow<SoftInputBehaviour> {

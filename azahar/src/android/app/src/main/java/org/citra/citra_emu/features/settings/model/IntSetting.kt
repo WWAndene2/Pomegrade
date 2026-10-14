@@ -26,7 +26,7 @@ enum class IntSetting(
     STEREOSCOPIC_3D_DEPTH(SettingKeys.factor_3d(), Settings.SECTION_RENDERER, 0),
     STEPS_PER_HOUR(SettingKeys.steps_per_hour(), Settings.SECTION_SYSTEM, 0),
     CARDBOARD_SCREEN_SIZE(SettingKeys.cardboard_screen_size(), Settings.SECTION_LAYOUT, 85),
-    CARDBOARD_X_SHIFT(SettingKeys.cardboard_x_shift(), Settings.SECTION_LAYOUT, 0),
+    CARDBOARD_X_SHIFT(SettingKeys.cardboard_x_shift(), Settings.SECTION_LAYOUT, 3),
     CARDBOARD_Y_SHIFT(SettingKeys.cardboard_y_shift(), Settings.SECTION_LAYOUT, 0),
     SCREEN_LAYOUT(SettingKeys.layout_option(), Settings.SECTION_LAYOUT, 0),
     SMALL_SCREEN_POSITION(SettingKeys.small_screen_position(), Settings.SECTION_LAYOUT, 0),

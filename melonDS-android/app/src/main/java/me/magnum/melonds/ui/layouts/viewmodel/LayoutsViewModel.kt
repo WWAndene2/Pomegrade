@@ -43,7 +43,7 @@ class LayoutsViewModel @Inject constructor(
     }
 
     override fun applyFallbackLayout() {
-        setSelectedLayout(LayoutConfiguration.DEFAULT_ID, SelectedLayout.SelectionReason.SELECTED_BY_FALLBACK)
+        setSelectedLayout(LayoutConfiguration.CLASSIC_ID, SelectedLayout.SelectionReason.SELECTED_BY_FALLBACK)
     }
 
     private fun setSelectedLayout(id: UUID, reason: SelectedLayout.SelectionReason) {
