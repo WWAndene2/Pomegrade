@@ -60,7 +60,9 @@ object SystemFilesCheck {
         } + File(root, PomegradeFolder.ROMS)
         val visited = mutableSetOf<String>()
         fun search(dir: File, depth: Int) {
-            if (depth > MAX_DEPTH || dir.absolutePath in skip || !visited.add(dir.canonicalPath)) return
+            // an unreadable folder is skipped, not the rest of the check
+            val canonical = runCatching { dir.canonicalPath }.getOrNull() ?: return
+            if (depth > MAX_DEPTH || dir.absolutePath in skip || !visited.add(canonical)) return
             val files = dir.listFiles() ?: return
             files.filter { it.isDirectory }.forEach { search(it, depth + 1) }
             val plain = files.filter { it.isFile }
@@ -90,10 +92,14 @@ object SystemFilesCheck {
                     archive.entries().asSequence().filter { !it.isDirectory && it.name.endsWith(".nca", true) }.forEach { entry ->
                         val target = File(firmware, entry.name.substringAfterLast('/'))
                         if (!target.exists()) {
-                            // written aside, then renamed: a cut extraction is not taken for a whole file next time
+                            // written aside, then renamed: a cut extraction is not taken for a whole file next time.
+                            // One entry failing (storage full, a damaged entry) leaves no part behind and the others go on
                             val part = File(firmware, "${target.name}.part")
-                            archive.getInputStream(entry).use { input -> part.outputStream().use { input.copyTo(it) } }
-                            if (part.renameTo(target)) extracted++ else part.delete()
+                            val done = runCatching {
+                                archive.getInputStream(entry).use { input -> part.outputStream().use { input.copyTo(it) } }
+                                part.renameTo(target)
+                            }.getOrDefault(false)
+                            if (done) extracted++ else { part.delete(); left += "${zip.path}: ${entry.name}" }
                         }
                     }
                 }
