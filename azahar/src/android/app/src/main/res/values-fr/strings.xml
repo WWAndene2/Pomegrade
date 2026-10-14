@@ -1117,4 +1117,19 @@
     <string name="three_ds_texture_filtering_description">Garde nets les sols, routes et murs vus en biais. Limité à ce que le GPU permet.</string>
     <string name="three_ds_texture_upscaling">Agrandissement des textures</string>
     <string name="three_ds_texture_upscaling_description">Agrandit les textures des jeux avec l\'algorithme de « Filtrage des textures » (xBRZ s\'il est sur Aucun), même en résolution interne 1x. Chaque texture s\'arrête à 4096×4096 pour épargner la mémoire.</string>
+    <!-- Pomegrade: texts that had no French yet -->
+    <string name="use_fastinterp">Interpréteur rapide</string>
+    <string name="use_fastinterp_description">Quand le JIT du CPU est désactivé, utilise l\'interpréteur rapide au lieu de l\'ancien. Redémarrage nécessaire.</string>
+    <!-- Pomegrade: choice list that had no French -->
+    <string-array name="staticThemeNames">
+        <item>Bleu (par défaut)</item>
+        <item>Cyan</item>
+        <item>Rouge</item>
+        <item>Vert</item>
+        <item>Jaune</item>
+        <item>Orange</item>
+        <item>Violet</item>
+        <item>Rose</item>
+        <item>Gris</item>
+    </string-array>
 </resources>
