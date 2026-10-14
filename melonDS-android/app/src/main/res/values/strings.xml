@@ -928,6 +928,15 @@
     <string name="texture_pack_no_folder">Set up the Punica folder first.</string>
     <string name="texture_pack_empty">The zip holds no file.</string>
     <string name="texture_pack_failed">The pack couldn\'t be installed: %1$s</string>
+    <string name="classic_button_style">Classic layout buttons</string>
+    <string-array name="classic_button_style_options">
+        <item>Filled</item>
+        <item>Outlined</item>
+    </string-array>
+    <string-array name="classic_button_style_values" translatable="false">
+        <item>filled</item>
+        <item>outline</item>
+    </string-array>
     <string name="menu_access">In-game menu</string>
     <string-array name="menu_access_options">
         <item>Shortcut pill</item>

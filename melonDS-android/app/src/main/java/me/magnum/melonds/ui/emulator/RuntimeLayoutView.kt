@@ -6,7 +6,9 @@ import android.view.View
 import android.widget.ImageView
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
+import androidx.core.content.ContextCompat
 import dagger.hilt.android.AndroidEntryPoint
+import io.github.wwandene2.pomegrade.emulatorui.R as EmulatorMenuR
 import me.magnum.melonds.R
 import me.magnum.melonds.common.vibration.TouchVibrator
 import me.magnum.melonds.domain.model.Input
@@ -14,6 +16,7 @@ import me.magnum.melonds.domain.model.input.SoftInputBehaviour
 import me.magnum.melonds.domain.model.layout.LayoutComponent
 import me.magnum.melonds.ui.common.LayoutView
 import me.magnum.melonds.ui.emulator.input.ButtonsInputHandler
+import me.magnum.melonds.ui.emulator.input.ClassicButtonDrawable
 import me.magnum.melonds.ui.emulator.input.DpadInputHandler
 import me.magnum.melonds.ui.emulator.input.FrontendInputHandler
 import me.magnum.melonds.ui.emulator.input.IInputListener
@@ -105,7 +108,7 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
                     (dpad as? ImageView)?.setImageDrawable(joystick)
                     dpad.setOnTouchListener(JoystickInputHandler(it, joystick, enableHapticFeedback, touchVibrator))
                 } else {
-                    (dpad as? ImageView)?.setImageResource(R.drawable.keypad)
+                    (dpad as? ImageView)?.setImageDrawable(classicImage(currentRuntimeLayout, ClassicButtonDrawable.Kind.DPAD) ?: getDrawableCompat(R.drawable.keypad))
                     dpad.setOnTouchListener(DpadInputHandler(it, enableHapticFeedback, touchVibrator))
                 }
             }
@@ -127,6 +130,19 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
             getLayoutComponentView(LayoutComponent.BUTTON_QUICK_LOAD)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.QUICK_LOAD, enableHapticFeedback, touchVibrator))
             getLayoutComponentView(LayoutComponent.BUTTON_REWIND)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.REWIND, enableHapticFeedback, touchVibrator))
             getLayoutComponentView(LayoutComponent.BUTTON_PUNICA_MENU)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.PUNICA_MENU, enableHapticFeedback, touchVibrator))
+        }
+
+        // Pomegrade: the Classic layout's buttons drawn as its template, else upstream's images
+        listOf(
+            LayoutComponent.BUTTONS to (ClassicButtonDrawable.Kind.BUTTONS to R.drawable.buttons),
+            LayoutComponent.BUTTON_L to (ClassicButtonDrawable.Kind.L to R.drawable.button_l),
+            LayoutComponent.BUTTON_R to (ClassicButtonDrawable.Kind.R to R.drawable.button_r),
+            LayoutComponent.BUTTON_START to (ClassicButtonDrawable.Kind.START to R.drawable.button_start),
+            LayoutComponent.BUTTON_SELECT to (ClassicButtonDrawable.Kind.SELECT to R.drawable.button_select),
+            LayoutComponent.BUTTON_PUNICA_MENU to (ClassicButtonDrawable.Kind.PUNICA to EmulatorMenuR.drawable.emulator_menu_ic_punica),
+        ).forEach { (component, images) ->
+            val image = getLayoutComponentView(component)?.view as? ImageView ?: return@forEach
+            image.setImageDrawable(classicImage(currentRuntimeLayout, images.first) ?: getDrawableCompat(images.second))
         }
 
         getLayoutComponentViews().forEach {
@@ -211,12 +227,18 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
     fun punicaMenuButton(): View? = getLayoutComponentView(LayoutComponent.BUTTON_PUNICA_MENU)?.view?.takeIf { it.isVisible }
 
     /**
-     * Pomegrade: an A / B / X / Y button's diameter in this layout, in pixels (0 without them): the ABXY image
-     * (R.drawable.buttons, 512 px) draws each one 160 px wide. Taken from the size the layout gives the view, so
-     * it is known before the view is measured.
+     * Pomegrade: an A / B / X / Y button's diameter in this layout, in pixels (0 without them): the Classic
+     * layout's image draws each one 151.2 / 467 of the cluster, upstream's (R.drawable.buttons, 512 px) 160 px.
+     * Taken from the size the layout gives the view, so it is known before the view is measured.
      */
     fun faceButtonSize(): Int {
         val width = getLayoutComponentView(LayoutComponent.BUTTONS)?.view?.layoutParams?.width ?: return 0
-        return if (width > 0) width * 160 / 512 else 0
+        if (width <= 0) return 0
+        return if (currentRuntimeLayout?.classicButtonStyle != null) (width * 151.2f / 467f).toInt() else width * 160 / 512
     }
+
+    private fun classicImage(layout: RuntimeInputLayoutConfiguration, kind: ClassicButtonDrawable.Kind): ClassicButtonDrawable? =
+        layout.classicButtonStyle?.let { ClassicButtonDrawable(context, kind, it) }
+
+    private fun getDrawableCompat(resource: Int) = ContextCompat.getDrawable(context, resource)
 }

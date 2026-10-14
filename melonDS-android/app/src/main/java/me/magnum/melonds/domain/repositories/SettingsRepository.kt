@@ -1,5 +1,6 @@
 package me.magnum.melonds.domain.repositories
 
+import me.magnum.melonds.domain.model.input.ClassicButtonStyle
 import android.net.Uri
 import me.magnum.melonds.domain.model.rom.RomPlatform
 import kotlinx.coroutines.flow.Flow
@@ -67,6 +68,9 @@ interface SettingsRepository {
 
     /** Pomegrade: the touch D-pad becomes a joystick, gamepad sticks are read as analogue */
     fun isAnalogueMovementEnabled(): Flow<Boolean>
+
+    /** Pomegrade: how the Classic layout draws its buttons */
+    fun getClassicButtonStyle(): Flow<ClassicButtonStyle>
 
     fun isRetroAchievementsRichPresenceEnabled(): Boolean
     fun isRetroAchievementsHardcoreEnabled(): Boolean

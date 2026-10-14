@@ -50,6 +50,16 @@
             app:iconSpaceReserved="false"
             android:defaultValue="false" />
 
+    <!-- Pomegrade: the Classic layout's button images (SettingsRepository.getClassicButtonStyle) -->
+    <ListPreference
+            android:key="punica_classic_button_style"
+            android:title="@string/classic_button_style"
+            android:summary="%s"
+            app:iconSpaceReserved="false"
+            android:entries="@array/classic_button_style_options"
+            android:entryValues="@array/classic_button_style_values"
+            android:defaultValue="filled" />
+
     <SeekBarPreference
             android:key="input_opacity"
             android:title="@string/soft_input_opacity"

@@ -917,4 +917,9 @@
         <item>×36 polygones</item>
         <item>×64 polygones (le plus lourd)</item>
     </string-array>
+    <string name="classic_button_style">Boutons du layout Classic</string>
+    <string-array name="classic_button_style_options">
+        <item>Pleins</item>
+        <item>Contours</item>
+    </string-array>
 </resources>

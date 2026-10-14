@@ -1,5 +1,6 @@
 package me.magnum.melonds.impl
 
+import me.magnum.melonds.domain.model.input.ClassicButtonStyle
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener
@@ -517,6 +518,12 @@ class SharedPreferencesSettingsRepository(
     override fun isAnalogueMovementEnabled(): Flow<Boolean> {
         return getOrCreatePreferenceSharedFlow("analogue_movement") {
             preferences.getBoolean("analogue_movement", false)
+        }
+    }
+
+    override fun getClassicButtonStyle(): Flow<ClassicButtonStyle> {
+        return getOrCreatePreferenceSharedFlow("punica_classic_button_style") {
+            if (preferences.getString("punica_classic_button_style", "filled") == "outline") ClassicButtonStyle.OUTLINE else ClassicButtonStyle.FILLED
         }
     }
 
