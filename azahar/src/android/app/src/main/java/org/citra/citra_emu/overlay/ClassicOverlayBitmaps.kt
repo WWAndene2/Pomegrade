@@ -13,6 +13,7 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import androidx.core.content.res.ResourcesCompat
 import androidx.preference.PreferenceManager
+import io.github.wwandene2.pomegrade.emulatorui.ClassicControlPainter
 import io.github.wwandene2.pomegrade.emulatorui.R as EmulatorMenuR
 import org.citra.citra_emu.NativeLibrary.ButtonType
 import kotlin.math.max
@@ -21,16 +22,13 @@ import kotlin.math.max
  * Pomegrade: the Classic layout's control images, drawn as the Punica 3DS skin template draws them
  * (assets/consoles/skins/gabarit_skin_3ds_1220x2712.svg), so each control fills its template rectangle
  * (ClassicOverlayLayout), in the style chosen in Punica's settings ("punica_classic_button_style", shared with the
- * DS Classic layout): filled (light grey shapes, dark letters) or outlined (white outlines 4 template pixels wide,
- * as on the template). Every size is a share of the control's template size: L / R 271 x 92 with a 46 corner,
+ * DS Classic layout), painted by ClassicControlPainter: filled in relief (dark letters) or outlined (white outlines
+ * 4 template pixels wide, as on the template). Every size is a share of the control's template size: L / R 271 x 92 with a 46 corner,
  * ZL / ZR 165.6 x 84.9 pills, A / B / X / Y 136.6, START / SELECT / Punica 83, the D-pad 329.3 with 128.5 arms
  * and 16.1 corners, the circle pad's 380.2 range and 257 knob, the C stick 128.6. A pressed image is the same,
- * darkened (on the D-pad, the pressed arms).
+ * sunk (no relief) and darkened (on the D-pad, the pressed arms darkened).
  */
 object ClassicOverlayBitmaps {
-    private const val FILL = 0xFFDCDEE2.toInt()
-    private const val INK = 0xFF2B2E35.toInt()
-    private const val LINE = 0xFFF3F4F6.toInt()
     private const val PRESSED_SHADE = 0x59000000
     // the circle pad's range, filled style: a faint disc, the knob solid
     private const val RANGE_FILL = 0x59DCDEE2
@@ -79,7 +77,6 @@ object ClassicOverlayBitmaps {
         val canvas = Canvas(bitmap)
         val stroke = 4f * scale
         val inset = if (style.outlined) stroke / 2f else 0f
-        val shape = shapePaint(style, stroke)
         val path = Path()
         when (id) {
             ButtonType.TRIGGER_L, ButtonType.TRIGGER_R -> {
@@ -109,16 +106,15 @@ object ClassicOverlayBitmaps {
                 path.addRoundRect(RectF(inset, inset, w - inset, h - inset), h / 2f, h / 2f, Path.Direction.CW)
             else -> path.addCircle(w / 2f, h / 2f, w / 2f - inset, Path.Direction.CW)
         }
-        if (id == ButtonType.BUTTON_PUNICA && !style.outlined) {
-            // the logo on white, as the pill's Punica blade
-            shape.color = 0xFFFFFFFF.toInt()
-        }
-        canvas.drawPath(path, shape)
+        // the Punica button's face white, as the pill's Punica blade
+        val face = if (id == ButtonType.BUTTON_PUNICA) 0xFFFFFFFF.toInt() to 0xFFE6E7EA.toInt() else null
+        val raised = ClassicControlPainter.paint(canvas, path, style.outlined, stroke, pressed, face)
         if (id == ButtonType.BUTTON_PUNICA) {
             BitmapFactory.decodeResource(context.resources, EmulatorMenuR.drawable.emulator_menu_ic_punica)?.let {
                 val logo = w * 0.64f
                 val offset = (w - logo) / 2f
-                canvas.drawBitmap(it, null, RectF(offset, offset, offset + logo, offset + logo), Paint(Paint.FILTER_BITMAP_FLAG))
+                val top = (h - logo) / 2f - raised / 2f
+                canvas.drawBitmap(it, null, RectF(offset, top, offset + logo, top + logo), Paint(Paint.FILTER_BITMAP_FLAG))
             }
         } else {
             val text = textPaint(style)
@@ -132,7 +128,7 @@ object ClassicOverlayBitmaps {
             val room = w * 0.8f
             val measured = text.measureText(label)
             if (measured > room) text.textSize *= room / measured
-            drawCentred(canvas, text, label, w / 2f, h / 2f)
+            drawCentred(canvas, text, label, w / 2f, h / 2f - raised / 2f)
         }
         if (pressed) {
             canvas.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = PRESSED_SHADE })
@@ -160,7 +156,7 @@ object ClassicOverlayBitmaps {
         // the two arms' union: one outline, no inner edges where they cross
         val cross = Path().apply { addRoundRect(RectF(from, inset, to, s - inset), corner, corner, Path.Direction.CW) }
         cross.op(Path().apply { addRoundRect(RectF(inset, from, s - inset, to), corner, corner, Path.Direction.CW) }, Path.Op.UNION)
-        canvas.drawPath(cross, shapePaint(style, stroke))
+        ClassicControlPainter.paint(canvas, cross, style.outlined, stroke)
         if (up || left) {
             canvas.save()
             canvas.clipPath(cross)
@@ -185,30 +181,23 @@ object ClassicOverlayBitmaps {
         fun image(draw: (Canvas, Float) -> Unit): Bitmap =
             Bitmap.createBitmap(s.toInt(), s.toInt(), Bitmap.Config.ARGB_8888).also { draw(Canvas(it), s / 2f) }
         val range = image { canvas, half ->
-            val paint = if (style.outlined) shapePaint(style, stroke) else Paint(Paint.ANTI_ALIAS_FLAG).apply { color = RANGE_FILL }
-            canvas.drawCircle(half, half, half - if (style.outlined) stroke / 2f else 0f, paint)
+            if (style.outlined) {
+                ClassicControlPainter.paint(canvas, Path().apply { addCircle(half, half, half - stroke / 2f, Path.Direction.CW) }, true, stroke)
+            } else {
+                // a faint disc, under the knob in relief
+                canvas.drawCircle(half, half, half, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = RANGE_FILL })
+            }
         }
         fun knobImage(pressed: Boolean) = image { canvas, half ->
             val radius = half * knob - if (style.outlined) stroke / 2f else 0f
-            canvas.drawCircle(half, half, radius, shapePaint(style, stroke))
+            ClassicControlPainter.paint(canvas, Path().apply { addCircle(half, half, radius, Path.Direction.CW) }, style.outlined, stroke, pressed)
             if (pressed) canvas.drawCircle(half, half, half * knob, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = PRESSED_SHADE })
         }
         return Triple(range, knobImage(false), knobImage(true))
     }
 
-    private fun shapePaint(style: Style, stroke: Float) = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        if (style.outlined) {
-            this.style = Paint.Style.STROKE
-            strokeWidth = stroke
-            color = LINE
-        } else {
-            this.style = Paint.Style.FILL
-            color = FILL
-        }
-    }
-
     private fun textPaint(style: Style) = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = if (style.outlined) LINE else INK
+        color = ClassicControlPainter.labelColor(style.outlined)
         textAlign = Paint.Align.CENTER
         typeface = style.typeface
     }

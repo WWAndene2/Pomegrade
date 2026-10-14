@@ -25,7 +25,7 @@ import kotlin.math.min
  */
 object ClassicOverlayLayout {
     /** Raised when the controls' rectangles or drawn sizes change, so placements saved before are redone. */
-    const val VERSION = 2
+    const val VERSION = 3
     private const val TEMPLATE_WIDTH = 1220f
     private const val TEMPLATE_HEIGHT = 2712f
 
@@ -44,8 +44,9 @@ object ClassicOverlayLayout {
         ButtonType.BUTTON_Y to Box(771.3f, 1998.2f, 136.6f, 136.6f),
         ButtonType.BUTTON_A to Box(1028.4f, 1998.2f, 136.6f, 136.6f),
         ButtonType.BUTTON_B to Box(899.9f, 2132.1f, 136.6f, 136.6f),
-        ButtonType.BUTTON_START to Box(771.4f, 2434.7f, 83f, 83f),
-        ButtonType.BUTTON_SELECT to Box(768.7f, 2574f, 83f, 83f),
+        // SELECT, Punica and START in one row centred on the screens' axis, 128 apart (owner's choice), as on the DS
+        ButtonType.BUTTON_START to Box(696.5f, 2564.6f, 83f, 83f),
+        ButtonType.BUTTON_SELECT to Box(440.5f, 2564.6f, 83f, 83f),
         // HOME's place: the Punica button, the size of START / SELECT; HOME is in its fan (owner's choice)
         ButtonType.BUTTON_PUNICA to Box(568.5f, 2564.6f, 83f, 83f),
         ButtonType.BUTTON_SWAP to Box(568.5f, 1700f, 83f, 83f),

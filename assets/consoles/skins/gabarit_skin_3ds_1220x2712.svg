@@ -34,12 +34,12 @@
 <text x="968.2" y="2211.4" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">B</text>
 <circle cx="818.2" cy="1782.7" r="64.3"/>
 <text x="898.5" y="1791.7" fill="#9EA3AC" stroke="none" font-size="24" text-anchor="start">C</text>
-<circle cx="812.9" cy="2476.2" r="41.5"/>
-<text x="870.4" y="2484.2" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="start">START</text>
-<circle cx="810.2" cy="2615.5" r="41.5"/>
-<text x="867.7" y="2623.5" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="start">SELECT</text>
+<circle cx="738" cy="2606.1" r="41.5"/>
+<text x="738" y="2550.6" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="middle">START</text>
+<circle cx="482" cy="2606.1" r="41.5"/>
+<text x="482" y="2550.6" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="middle">SELECT</text>
 <circle cx="610" cy="2606.1" r="41.5"/>
-<text x="610" y="2550.6" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="middle">PUNICA (HOME dans l'éventail)</text>
+<text x="610" y="2550.6" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="middle">PUNICA</text>
 </g>
 <g id="cotes" inkscape:groupmode="layer" inkscape:label="4 Cotes (à cacher pour exporter)" font-size="36" fill="#EC2B39" text-anchor="middle">
   <text x="610" y="388">Écran haut 1110 × 666 · x 55 y 55</text>
