@@ -11,20 +11,20 @@
 <g id="zones" inkscape:groupmode="layer" inkscape:label="3 Zone des commandes">
   <rect x="56" y="1830" width="1108" height="826" fill="#2DB4E8" fill-opacity="0.10" stroke="#2DB4E8" stroke-width="3" stroke-dasharray="16 10"/>
 </g>
-<g id="boutons" inkscape:groupmode="layer" inkscape:label="5 Boutons (mesurés sur le plan DS Lite, une échelle commune, agrandis × 1,15)" fill="none" stroke="#F3F4F6" stroke-width="4">
-<path d="M130 1830h329v176h-403v-102a74 74 0 0 1 74 -74z"/>
-<text x="257.5" y="1929.0" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">L</text>
-<path d="M1090 1830h-329v176h403v-102a74 74 0 0 0 -74 -74z"/>
-<text x="962.5" y="1929.0" fill="#F3F4F6" stroke="none" font-size="34" text-anchor="middle">R</text>
-<path d="M225.5 2113.7a19.7 19.7 0 0 1 19.7 -19.7h88.7a19.7 19.7 0 0 1 19.7 19.7v103.8h103.8a19.7 19.7 0 0 1 19.7 19.7v88.7a19.7 19.7 0 0 1 -19.7 19.7h-103.8v103.8a19.7 19.7 0 0 1 -19.7 19.7h-88.7a19.7 19.7 0 0 1 -19.7 -19.7v-103.8h-103.8a19.7 19.7 0 0 1 -19.7 -19.7v-88.7a19.7 19.7 0 0 1 19.7 -19.7h103.8z"/>
-<circle cx="930.7" cy="2123.0" r="75.6"/>
-<text x="930.7" y="2135.5" fill="#F3F4F6" stroke="none" font-size="39" text-anchor="middle">X</text>
-<circle cx="773.1" cy="2280.6" r="75.6"/>
-<text x="773.1" y="2293.1" fill="#F3F4F6" stroke="none" font-size="39" text-anchor="middle">Y</text>
-<circle cx="1088.3" cy="2280.6" r="75.6"/>
-<text x="1088.3" y="2293.1" fill="#F3F4F6" stroke="none" font-size="39" text-anchor="middle">A</text>
-<circle cx="930.7" cy="2438.3" r="75.6"/>
-<text x="930.7" y="2450.8" fill="#F3F4F6" stroke="none" font-size="39" text-anchor="middle">B</text>
+<g id="boutons" inkscape:groupmode="layer" inkscape:label="5 Boutons (plan DS Lite agrandi × 1,15 ; L / R : hauteur = diamètre de A B X Y)" fill="none" stroke="#F3F4F6" stroke-width="4">
+<path d="M120 1830h264v151h-328v-87a64 64 0 0 1 64 -64z"/>
+<text x="220.0" y="1916.0" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">L</text>
+<path d="M1100 1830h-264v151h328v-87a64 64 0 0 0 -64 -64z"/>
+<text x="1000.0" y="1916.0" fill="#F3F4F6" stroke="none" font-size="30" text-anchor="middle">R</text>
+<path d="M225.5 2101.7a19.7 19.7 0 0 1 19.7 -19.7h88.7a19.7 19.7 0 0 1 19.7 19.7v103.8h103.8a19.7 19.7 0 0 1 19.7 19.7v88.7a19.7 19.7 0 0 1 -19.7 19.7h-103.8v103.8a19.7 19.7 0 0 1 -19.7 19.7h-88.7a19.7 19.7 0 0 1 -19.7 -19.7v-103.8h-103.8a19.7 19.7 0 0 1 -19.7 -19.7v-88.7a19.7 19.7 0 0 1 19.7 -19.7h103.8z"/>
+<circle cx="930.7" cy="2111.0" r="75.6"/>
+<text x="930.7" y="2123.5" fill="#F3F4F6" stroke="none" font-size="39" text-anchor="middle">X</text>
+<circle cx="773.1" cy="2268.6" r="75.6"/>
+<text x="773.1" y="2281.1" fill="#F3F4F6" stroke="none" font-size="39" text-anchor="middle">Y</text>
+<circle cx="1088.3" cy="2268.6" r="75.6"/>
+<text x="1088.3" y="2281.1" fill="#F3F4F6" stroke="none" font-size="39" text-anchor="middle">A</text>
+<circle cx="930.7" cy="2426.3" r="75.6"/>
+<text x="930.7" y="2438.8" fill="#F3F4F6" stroke="none" font-size="39" text-anchor="middle">B</text>
 <circle cx="482" cy="2593" r="36"/>
 <text x="482" y="2652" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="middle">SELECT</text>
 <circle cx="738" cy="2593" r="36"/>
@@ -34,5 +34,5 @@
   <text x="610" y="484">Écran haut 1108 × 831 (4:3) · x 56 y 56</text>
   <text x="610" y="1371">Écran bas 1108 × 831 (4:3) · x 56 y 943</text>
 </g>
-<g id="legende" inkscape:groupmode="layer" inkscape:label="6 Légende"><text x="610" y="2692" font-size="20" fill="#9EA3AC" text-anchor="middle">Zone des commandes 1108 × 826 (x 56, y 1830) · boutons : plan DS Lite, 1 mm = 17.99 px, agrandis × 1,15</text></g>
+<g id="legende" inkscape:groupmode="layer" inkscape:label="6 Légende"><text x="610" y="2692" font-size="20" fill="#9EA3AC" text-anchor="middle">Zone des commandes 1108 × 826 (x 56, y 1830) · boutons : plan DS Lite × 1,15 ; L / R hauteur = Ø A B X Y</text></g>
 </svg>
