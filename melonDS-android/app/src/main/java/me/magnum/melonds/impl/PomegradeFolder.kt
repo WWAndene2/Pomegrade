@@ -152,7 +152,7 @@ class PomegradeFolder(
             } catch (e: IllegalArgumentException) {
                 return emptySet()
             }
-            return listOf(BIOS, DS_SAVES, GBA_SAVES, N3DS, SWITCH, GC_WII, BACKUPS, TEXTURES, SETTINGS).map { "$root/$it" }.toSet()
+            return listOf(BIOS, DS_SAVES, GBA_SAVES, N3DS, SWITCH, GC_WII, BACKUPS, TEXTURES, SAVE_STATE_PREVIEWS, SETTINGS).map { "$root/$it" }.toSet()
         }
 
         /** The document ID of a tree or document URI of the storage provider, or null. */

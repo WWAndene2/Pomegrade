@@ -93,12 +93,16 @@ void MasterSemaphore::Wait(u64 tick) {
         }
 
         const auto pomegrade_start = std::chrono::steady_clock::now(); // Pomegrade: TEMPORARY
+        bool pomegrade_waited = false;
         u64 last_tick = gpu_tick.load(std::memory_order_relaxed);
         while (gpu_tick.load(std::memory_order_acquire) < tick) {
+            pomegrade_waited = true;
             gpu_tick.wait(last_tick, std::memory_order_acquire);
             last_tick = gpu_tick.load(std::memory_order_relaxed);
         }
-        CountPomegradeWait(pomegrade_start);
+        if (pomegrade_waited) {
+            CountPomegradeWait(pomegrade_start);
+        }
         return;
     }
 

@@ -404,7 +404,8 @@ class ShortcutPill private constructor(
         val arcRadius = if (anchor == null) 0.0 else {
             val apart = if (arcStep == 0.0) 0.0 else column / (2 * sin(arcStep / 2))
             val onScreen = if (arcSpan == 0.0) Double.MAX_VALUE else (min(cx, width - cx) - column / 2f) / sin(arcSpan / 2)
-            min(max(dp(104).toDouble(), apart), onScreen)
+            // a button near the screen's edge leaves no room: the arc keeps its smallest radius rather than flipping
+            min(max(dp(104).toDouble(), apart), max(onScreen, dp(104).toDouble()))
         }
         items.forEachIndexed { i, blade ->
             val view = bladeView(blade, bubble)

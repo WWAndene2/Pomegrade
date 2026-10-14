@@ -387,7 +387,7 @@ void EmulationSession::HaltEmulation() {
 }
 
 // Pomegrade: TEMPORARY diagnostic for the optimisation study (docs/Eden_Optimisation_Xiaomi.md, section 4: no ADB).
-// Once a second while a game runs, writes to Eden's log each busy thread's CPU share and last core (the app's own
+// About once a second (every 800 ms wake of the emulation loop) while a game runs, writes to Eden's log each busy thread's CPU share and last core (the app's own
 // /proc/self/task entries), the cores' clocks, and the counters of common/pomegrade_diagnostics.h. Deleted with
 // those counters once the owner's log is read (CLAUDE.md §2.4).
 namespace {
@@ -395,7 +395,8 @@ class PomegradeSampler {
 public:
     void Sample() {
         const auto now = std::chrono::steady_clock::now();
-        if (m_started && now - m_last < std::chrono::milliseconds(1000)) {
+        // the loop calling it wakes every 800 ms: each wake is a sample, rates use the real time between two
+        if (m_started && now - m_last < std::chrono::milliseconds(500)) {
             return;
         }
         const double seconds = m_started ? std::chrono::duration<double>(now - m_last).count() : 0.0;
@@ -420,7 +421,9 @@ public:
                 ticks[tid] = used;
                 if (m_started && seconds > 0.0) {
                     const auto previous = m_ticks.find(tid);
-                    const unsigned long long before = previous == m_ticks.end() ? used : previous->second;
+                    // a thread ID reused by a newer thread can have fewer ticks: counted from zero
+                    const unsigned long long before =
+                        previous == m_ticks.end() || previous->second > used ? used : previous->second;
                     const double share = 100.0 * static_cast<double>(used - before) / ticks_per_second / seconds;
                     if (share >= 2.0) {
                         busy.emplace_back(share, name, core);
