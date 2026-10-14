@@ -156,10 +156,11 @@ void RemasterGL::Apply(ScreenInfo& screen_info, PathTracerGL& tracer) {
         glProgramUniform4fv(h, glGetUniformLocation(h, "p3"), 1, p3);
         glProgramUniform4fv(h, glGetUniformLocation(h, "p4"), 1, p4);
         const auto& v = Settings::values;
-        const float p5[4] = {v.remaster_ao_strength.GetValue() / 100.0f, v.remaster_bounce_strength.GetValue() / 100.0f,
-                             v.remaster_shade_contrast.GetValue() / 100.0f, v.remaster_exposure.GetValue() / 100.0f};
-        const float p6[4] = {v.remaster_contrast_strength.GetValue() / 100.0f,
-                             v.remaster_colour_strength.GetValue() / 100.0f, 0.0f, 0.0f};
+        // the settings, 0-100 %: the strengths 50 % for V1 (twice V1 at 100 %), the exposure as is
+        const float p5[4] = {v.remaster_ao_strength.GetValue() / 50.0f, v.remaster_bounce_strength.GetValue() / 50.0f,
+                             v.remaster_shade_contrast.GetValue() / 50.0f, v.remaster_exposure.GetValue() / 100.0f};
+        const float p6[4] = {v.remaster_contrast_strength.GetValue() / 50.0f,
+                             v.remaster_colour_strength.GetValue() / 50.0f, 0.0f, 0.0f};
         glProgramUniform4fv(h, glGetUniformLocation(h, "p5"), 1, p5);
         glProgramUniform4fv(h, glGetUniformLocation(h, "p6"), 1, p6);
     }

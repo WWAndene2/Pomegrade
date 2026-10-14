@@ -284,55 +284,55 @@ static const char* android_config_default_file_content = (BOOST_HANA_STRING(R"(
 # Pomegrade: Remaster's light (V1 and custom). 0 (default): fast, 1: Ultra, the full path tracer
 )") DECLARE_KEY(remaster_ultra) BOOST_HANA_STRING(R"(
 
-# Pomegrade: Ray tracing: resolution (25-100%, default 50): Share of the screen's resolution the rays are traced at (more: sharper light, heavier)
+# Pomegrade: Ray tracing: resolution (0-100%, default 33): Share of the screen's resolution the rays are traced at (more: sharper light, heavier)
 )") DECLARE_KEY(remaster_rt_resolution) BOOST_HANA_STRING(R"(
 
-# Pomegrade: Ray tracing: steps per ray (4-32, default 16): Points tested along each ray (more: fewer missed contacts, heavier)
+# Pomegrade: Ray tracing: steps per ray (0-100%, default 43): Points tested along each ray (more: fewer missed contacts, heavier)
 )") DECLARE_KEY(remaster_rt_steps) BOOST_HANA_STRING(R"(
 
-# Pomegrade: Ray tracing: ray reach (5-100%, default 30): How far rays go, as a share of the distance to the camera (more: wider occlusion and bounce)
+# Pomegrade: Ray tracing: ray reach (0-100%, default 26): How far rays go, as a share of the distance to the camera (more: wider occlusion and bounce)
 )") DECLARE_KEY(remaster_rt_reach) BOOST_HANA_STRING(R"(
 
-# Pomegrade: Ray tracing: object thickness (1-20%, default 5): Thickness assumed behind what the camera sees (more: fewer leaks, more false contacts)
+# Pomegrade: Ray tracing: object thickness (0-100%, default 21): Thickness assumed behind what the camera sees (more: fewer leaks, more false contacts)
 )") DECLARE_KEY(remaster_rt_thickness) BOOST_HANA_STRING(R"(
 
-# Pomegrade: Ray tracing: indirect light (0-200%, default 100): Strength of the sky's light and of the light bounced between surfaces
+# Pomegrade: Ray tracing: indirect light (0-100%, default 50): Strength of the sky's light and of the light bounced between surfaces
 )") DECLARE_KEY(remaster_rt_indirect) BOOST_HANA_STRING(R"(
 
 # Pomegrade: Ray tracing: sun shadows (0-100%, default 100): How dark the sun's shadows are
 )") DECLARE_KEY(remaster_rt_shadow) BOOST_HANA_STRING(R"(
 
-# Pomegrade: Ray tracing: sun size (0-3, default 2): 0 hard shadows; else sharp at their foot and softer away from it, the sun a disc 1.5, 3 or 4.5 degrees wide
+# Pomegrade: Ray tracing: sun size (0-100%, default 67): 0 hard shadows; else sharp at their foot and softer away from it, the sun a disc 1.5, 3 or 4.5 degrees wide
 )") DECLARE_KEY(remaster_rt_softness) BOOST_HANA_STRING(R"(
 
-# Pomegrade: Ray tracing: denoising passes (0-4, default 3): Edge-aware smoothing passes of the traced light (more: less grain, heavier)
+# Pomegrade: Ray tracing: denoising passes (0-100%, default 75): Edge-aware smoothing passes of the traced light (more: less grain, heavier)
 )") DECLARE_KEY(remaster_rt_denoise) BOOST_HANA_STRING(R"(
 
-# Pomegrade: Ray tracing: frame accumulation (0-95%, default 90): Share of the previous frames' light kept (more: less grain, slower to react)
+# Pomegrade: Ray tracing: frame accumulation (0-100%, default 95): Share of the previous frames' light kept (more: less grain, slower to react)
 )") DECLARE_KEY(remaster_rt_history) BOOST_HANA_STRING(R"(
 
-# Pomegrade: Ray tracing: shadow map size (512-4096, default 2048): Width of the sun's shadow map in texels (more: sharper shadows, heavier, more memory)
+# Pomegrade: Ray tracing: shadow map size (0-100%, default 43): Width of the sun's shadow map in texels (more: sharper shadows, heavier, more memory)
 )") DECLARE_KEY(remaster_rt_shadow_size) BOOST_HANA_STRING(R"(
 
-# Pomegrade: Ray tracing: shadow range (25-100%, default 75): Share of the scene the shadow map covers, nearest first (more: shadows further away, less sharp)
+# Pomegrade: Ray tracing: shadow range (0-100%, default 67): Share of the scene the shadow map covers, nearest first (more: shadows further away, less sharp)
 )") DECLARE_KEY(remaster_rt_shadow_range) BOOST_HANA_STRING(R"(
 
-# Pomegrade: Remaster: ambient occlusion strength (0-200%, default 100): How dark creases, corners and the ground under objects get
+# Pomegrade: Remaster: ambient occlusion strength (0-100%, default 50): How dark creases, corners and the ground under objects get
 )") DECLARE_KEY(remaster_ao_strength) BOOST_HANA_STRING(R"(
 
-# Pomegrade: Remaster: colour bleeding (0-300%, default 100): How much surfaces take the colour of what is around them (light bounced between them)
+# Pomegrade: Remaster: colour bleeding (0-100%, default 50): How much surfaces take the colour of what is around them (light bounced between them)
 )") DECLARE_KEY(remaster_bounce_strength) BOOST_HANA_STRING(R"(
 
-# Pomegrade: Remaster: shade contrast (0-200%, default 100): How much darker and cooler the shade is than the sunlit areas
+# Pomegrade: Remaster: shade contrast (0-100%, default 50): How much darker and cooler the shade is than the sunlit areas
 )") DECLARE_KEY(remaster_shade_contrast) BOOST_HANA_STRING(R"(
 
 # Pomegrade: Remaster: adaptive exposure (0-100%, default 0): Brings each scene's brightness toward mid grey: dark scenes lifted, washed-out ones deepened (0: the game's own)
 )") DECLARE_KEY(remaster_exposure) BOOST_HANA_STRING(R"(
 
-# Pomegrade: Remaster: adaptive contrast strength (0-200%, default 100): Strength of the contrast curve, which follows each scene's spread of brightness
+# Pomegrade: Remaster: adaptive contrast strength (0-100%, default 50): Strength of the contrast curve, which follows each scene's spread of brightness
 )") DECLARE_KEY(remaster_contrast_strength) BOOST_HANA_STRING(R"(
 
-# Pomegrade: Remaster: colour strength (0-200%, default 100): How much the dull colours are raised (vibrance)
+# Pomegrade: Remaster: colour strength (0-100%, default 50): How much the dull colours are raised (vibrance)
 )") DECLARE_KEY(remaster_colour_strength) BOOST_HANA_STRING(R"(
 
 [Layout]

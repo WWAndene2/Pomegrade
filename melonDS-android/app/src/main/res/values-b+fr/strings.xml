@@ -896,11 +896,11 @@
         <item>Fort</item>
     </string-array>
     <string-array name="frame_rate_options">
-        <item>30 FPS : une image sur deux affichée (économise la batterie, rendu d\'animation)</item>
-        <item>60 FPS : le jeu tel quel</item>
-        <item>120 FPS : 1 image générée entre deux images (rendu OpenGL, écran 120 Hz)</item>
-        <item>240 FPS : 3 images générées entre deux images (rendu OpenGL, écran 240 Hz ; 120 sur un écran 120 Hz)</item>
-        <item>Adaptatif : le maximum que ton écran et ton téléphone suivent (moins quand le téléphone chauffe)</item>
+        <item>30 FPS (économie de batterie)</item>
+        <item>60 FPS (natif)</item>
+        <item>120 FPS (images générées)</item>
+        <item>240 FPS (images générées)</item>
+        <item>Adaptatif</item>
     </string-array>
     <string-array name="texture_upscale_options">
         <item>Désactivé</item>

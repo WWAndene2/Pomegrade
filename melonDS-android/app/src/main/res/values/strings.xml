@@ -807,11 +807,11 @@
     <string name="frame_rate">Frame rate</string>
     <!-- the game always runs at its own speed; generated images need the OpenGL renderer and a screen that refreshes as often -->
     <string-array name="frame_rate_options">
-        <item>30 fps: one frame in two shown (saves battery, animation look)</item>
-        <item>60 fps: the game as it is</item>
-        <item>120 fps: 1 image generated between two frames (OpenGL renderer, 120 Hz screen)</item>
-        <item>240 fps: 3 images generated between two frames (OpenGL renderer, 240 Hz screen; 120 on a 120 Hz screen)</item>
-        <item>Adaptive: the most your screen and phone keep up with (lower while the phone is hot)</item>
+        <item>30 fps (saves battery)</item>
+        <item>60 fps (native)</item>
+        <item>120 fps (generated images)</item>
+        <item>240 fps (generated images)</item>
+        <item>Adaptive</item>
     </string-array>
     <string-array name="frame_rate_values" translatable="false">
         <item>30</item>

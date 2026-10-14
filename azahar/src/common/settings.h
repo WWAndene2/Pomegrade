@@ -591,25 +591,27 @@ struct Values {
     // Pomegrade: the light of V1 and custom: false (default) the fast tracer (shadow map and screen-space rays, half size),
     // true Ultra, the path tracer through the whole scene's BVH (gl_pathtracer.h)
     SwitchableSetting<bool> remaster_ultra{false, Keys::remaster_ultra};
-    // Pomegrade: the fast tracer's tuning (gl_pathtracer.h); the defaults are its measured look
-    SwitchableSetting<u32, true> remaster_rt_resolution{50, 25, 100, Keys::remaster_rt_resolution};
-    SwitchableSetting<u32, true> remaster_rt_steps{16, 4, 32, Keys::remaster_rt_steps};
-    SwitchableSetting<u32, true> remaster_rt_reach{30, 5, 100, Keys::remaster_rt_reach};
-    SwitchableSetting<u32, true> remaster_rt_thickness{5, 1, 20, Keys::remaster_rt_thickness};
-    SwitchableSetting<u32, true> remaster_rt_indirect{100, 0, 200, Keys::remaster_rt_indirect};
+    // Pomegrade: the fast tracer's tuning (gl_pathtracer.h), each 0-100 %, mapped to its own range there; the defaults
+    // are its measured look
+    SwitchableSetting<u32, true> remaster_rt_resolution{33, 0, 100, Keys::remaster_rt_resolution};
+    SwitchableSetting<u32, true> remaster_rt_steps{43, 0, 100, Keys::remaster_rt_steps};
+    SwitchableSetting<u32, true> remaster_rt_reach{26, 0, 100, Keys::remaster_rt_reach};
+    SwitchableSetting<u32, true> remaster_rt_thickness{21, 0, 100, Keys::remaster_rt_thickness};
+    SwitchableSetting<u32, true> remaster_rt_indirect{50, 0, 100, Keys::remaster_rt_indirect};
     SwitchableSetting<u32, true> remaster_rt_shadow{100, 0, 100, Keys::remaster_rt_shadow};
-    SwitchableSetting<u32, true> remaster_rt_softness{2, 0, 3, Keys::remaster_rt_softness};
-    SwitchableSetting<u32, true> remaster_rt_denoise{3, 0, 4, Keys::remaster_rt_denoise};
-    SwitchableSetting<u32, true> remaster_rt_history{90, 0, 95, Keys::remaster_rt_history};
-    SwitchableSetting<u32, true> remaster_rt_shadow_size{2048, 512, 4096, Keys::remaster_rt_shadow_size};
-    SwitchableSetting<u32, true> remaster_rt_shadow_range{75, 25, 100, Keys::remaster_rt_shadow_range};
-    // Pomegrade: Remaster's composition (remaster.cpp MAIN_FRAG, p5 and p6): 100 is V1; exposure 0 is off
-    SwitchableSetting<u32, true> remaster_ao_strength{100, 0, 200, Keys::remaster_ao_strength};
-    SwitchableSetting<u32, true> remaster_bounce_strength{100, 0, 300, Keys::remaster_bounce_strength};
-    SwitchableSetting<u32, true> remaster_shade_contrast{100, 0, 200, Keys::remaster_shade_contrast};
+    SwitchableSetting<u32, true> remaster_rt_softness{67, 0, 100, Keys::remaster_rt_softness};
+    SwitchableSetting<u32, true> remaster_rt_denoise{75, 0, 100, Keys::remaster_rt_denoise};
+    SwitchableSetting<u32, true> remaster_rt_history{95, 0, 100, Keys::remaster_rt_history};
+    SwitchableSetting<u32, true> remaster_rt_shadow_size{43, 0, 100, Keys::remaster_rt_shadow_size};
+    SwitchableSetting<u32, true> remaster_rt_shadow_range{67, 0, 100, Keys::remaster_rt_shadow_range};
+    // Pomegrade: Remaster's composition (remaster.cpp MAIN_FRAG, p5 and p6), 0-100 %: 50 is V1 (twice V1 at 100); exposure
+    // 0 is off
+    SwitchableSetting<u32, true> remaster_ao_strength{50, 0, 100, Keys::remaster_ao_strength};
+    SwitchableSetting<u32, true> remaster_bounce_strength{50, 0, 100, Keys::remaster_bounce_strength};
+    SwitchableSetting<u32, true> remaster_shade_contrast{50, 0, 100, Keys::remaster_shade_contrast};
     SwitchableSetting<u32, true> remaster_exposure{0, 0, 100, Keys::remaster_exposure};
-    SwitchableSetting<u32, true> remaster_contrast_strength{100, 0, 200, Keys::remaster_contrast_strength};
-    SwitchableSetting<u32, true> remaster_colour_strength{100, 0, 200, Keys::remaster_colour_strength};
+    SwitchableSetting<u32, true> remaster_contrast_strength{50, 0, 100, Keys::remaster_contrast_strength};
+    SwitchableSetting<u32, true> remaster_colour_strength{50, 0, 100, Keys::remaster_colour_strength};
     SwitchableSetting<u16, true> delay_game_render_thread_us{0, 0, 65000,
                                                              Keys::delay_game_render_thread_us};
     SwitchableSetting<bool> simulate_3ds_gpu_timings{false, Keys::simulate_3ds_gpu_timings};

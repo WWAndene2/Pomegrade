@@ -1192,7 +1192,7 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     IntSetting.REMASTER_RT_RESOLUTION,
                     R.string.pomegrade_remaster_rt_resolution,
                     R.string.pomegrade_remaster_rt_resolution_description,
-                    25,
+                    0,
                     100,
                     "%",
                     IntSetting.REMASTER_RT_RESOLUTION.key,
@@ -1204,9 +1204,9 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     IntSetting.REMASTER_RT_STEPS,
                     R.string.pomegrade_remaster_rt_steps,
                     R.string.pomegrade_remaster_rt_steps_description,
-                    4,
-                    32,
-                    "",
+                    0,
+                    100,
+                    "%",
                     IntSetting.REMASTER_RT_STEPS.key,
                     IntSetting.REMASTER_RT_STEPS.defaultValue.toFloat()
                 )
@@ -1216,7 +1216,7 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     IntSetting.REMASTER_RT_REACH,
                     R.string.pomegrade_remaster_rt_reach,
                     R.string.pomegrade_remaster_rt_reach_description,
-                    5,
+                    0,
                     100,
                     "%",
                     IntSetting.REMASTER_RT_REACH.key,
@@ -1228,8 +1228,8 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     IntSetting.REMASTER_RT_THICKNESS,
                     R.string.pomegrade_remaster_rt_thickness,
                     R.string.pomegrade_remaster_rt_thickness_description,
-                    1,
-                    20,
+                    0,
+                    100,
                     "%",
                     IntSetting.REMASTER_RT_THICKNESS.key,
                     IntSetting.REMASTER_RT_THICKNESS.defaultValue.toFloat()
@@ -1241,7 +1241,7 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     R.string.pomegrade_remaster_rt_indirect,
                     R.string.pomegrade_remaster_rt_indirect_description,
                     0,
-                    200,
+                    100,
                     "%",
                     IntSetting.REMASTER_RT_INDIRECT.key,
                     IntSetting.REMASTER_RT_INDIRECT.defaultValue.toFloat()
@@ -1265,8 +1265,8 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     R.string.pomegrade_remaster_rt_softness,
                     R.string.pomegrade_remaster_rt_softness_description,
                     0,
-                    3,
-                    "",
+                    100,
+                    "%",
                     IntSetting.REMASTER_RT_SOFTNESS.key,
                     IntSetting.REMASTER_RT_SOFTNESS.defaultValue.toFloat()
                 )
@@ -1277,8 +1277,8 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     R.string.pomegrade_remaster_rt_denoise,
                     R.string.pomegrade_remaster_rt_denoise_description,
                     0,
-                    4,
-                    "",
+                    100,
+                    "%",
                     IntSetting.REMASTER_RT_DENOISE.key,
                     IntSetting.REMASTER_RT_DENOISE.defaultValue.toFloat()
                 )
@@ -1289,7 +1289,7 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     R.string.pomegrade_remaster_rt_history,
                     R.string.pomegrade_remaster_rt_history_description,
                     0,
-                    95,
+                    100,
                     "%",
                     IntSetting.REMASTER_RT_HISTORY.key,
                     IntSetting.REMASTER_RT_HISTORY.defaultValue.toFloat()
@@ -1300,9 +1300,9 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     IntSetting.REMASTER_RT_SHADOW_SIZE,
                     R.string.pomegrade_remaster_rt_shadow_size,
                     R.string.pomegrade_remaster_rt_shadow_size_description,
-                    512,
-                    4096,
-                    "",
+                    0,
+                    100,
+                    "%",
                     IntSetting.REMASTER_RT_SHADOW_SIZE.key,
                     IntSetting.REMASTER_RT_SHADOW_SIZE.defaultValue.toFloat()
                 )
@@ -1312,7 +1312,7 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     IntSetting.REMASTER_RT_SHADOW_RANGE,
                     R.string.pomegrade_remaster_rt_shadow_range,
                     R.string.pomegrade_remaster_rt_shadow_range_description,
-                    25,
+                    0,
                     100,
                     "%",
                     IntSetting.REMASTER_RT_SHADOW_RANGE.key,
@@ -1325,7 +1325,7 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     R.string.pomegrade_remaster_ao_strength,
                     R.string.pomegrade_remaster_ao_strength_description,
                     0,
-                    200,
+                    100,
                     "%",
                     IntSetting.REMASTER_AO_STRENGTH.key,
                     IntSetting.REMASTER_AO_STRENGTH.defaultValue.toFloat()
@@ -1337,7 +1337,7 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     R.string.pomegrade_remaster_bounce_strength,
                     R.string.pomegrade_remaster_bounce_strength_description,
                     0,
-                    300,
+                    100,
                     "%",
                     IntSetting.REMASTER_BOUNCE_STRENGTH.key,
                     IntSetting.REMASTER_BOUNCE_STRENGTH.defaultValue.toFloat()
@@ -1349,7 +1349,7 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     R.string.pomegrade_remaster_shade_contrast,
                     R.string.pomegrade_remaster_shade_contrast_description,
                     0,
-                    200,
+                    100,
                     "%",
                     IntSetting.REMASTER_SHADE_CONTRAST.key,
                     IntSetting.REMASTER_SHADE_CONTRAST.defaultValue.toFloat()
@@ -1373,7 +1373,7 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     R.string.pomegrade_remaster_contrast_strength,
                     R.string.pomegrade_remaster_contrast_strength_description,
                     0,
-                    200,
+                    100,
                     "%",
                     IntSetting.REMASTER_CONTRAST_STRENGTH.key,
                     IntSetting.REMASTER_CONTRAST_STRENGTH.defaultValue.toFloat()
@@ -1385,7 +1385,7 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     R.string.pomegrade_remaster_colour_strength,
                     R.string.pomegrade_remaster_colour_strength_description,
                     0,
-                    200,
+                    100,
                     "%",
                     IntSetting.REMASTER_COLOUR_STRENGTH.key,
                     IntSetting.REMASTER_COLOUR_STRENGTH.defaultValue.toFloat()

@@ -508,6 +508,40 @@ void main() {
 }
 )";
 
+// The fast tracer's settings (remaster_rt_*), each 0-100 %, in their own units: a share p of the way from the least
+// to the most each allows (the defaults land on the values the tracer was measured with)
+struct Tuning {
+    u32 resolution;   ///< percent of the target's size, 25-100
+    int steps;        ///< 4-32
+    float reach;      ///< share of the distance, 0.05-1
+    float thickness;  ///< share of the distance, 0.01-0.2
+    float indirect;   ///< 0-2
+    float shadow;     ///< 0-1
+    int softness;     ///< the sun's size, 0-3
+    u32 denoise;      ///< passes, 0-4
+    float history;    ///< 0-0.95
+    u32 shadow_size;  ///< texels, 512-4096 in steps of 256
+    u32 shadow_range; ///< percent of the vertices covered, 25-100
+};
+Tuning ReadTuning() {
+    const auto& v = Settings::values;
+    const auto at = [](u32 p, float lo, float hi) { return lo + (hi - lo) * static_cast<float>(std::min<u32>(p, 100)) / 100.0f; };
+    const auto whole = [&](u32 p, float lo, float hi) { return static_cast<int>(std::lround(at(p, lo, hi))); };
+    Tuning t;
+    t.resolution = static_cast<u32>(whole(v.remaster_rt_resolution.GetValue(), 25, 100));
+    t.steps = whole(v.remaster_rt_steps.GetValue(), 4, 32);
+    t.reach = at(v.remaster_rt_reach.GetValue(), 0.05f, 1.0f);
+    t.thickness = at(v.remaster_rt_thickness.GetValue(), 0.01f, 0.2f);
+    t.indirect = at(v.remaster_rt_indirect.GetValue(), 0.0f, 2.0f);
+    t.shadow = at(v.remaster_rt_shadow.GetValue(), 0.0f, 1.0f);
+    t.softness = whole(v.remaster_rt_softness.GetValue(), 0, 3);
+    t.denoise = static_cast<u32>(whole(v.remaster_rt_denoise.GetValue(), 0, 4));
+    t.history = at(v.remaster_rt_history.GetValue(), 0.0f, 0.95f);
+    t.shadow_size = static_cast<u32>(whole(v.remaster_rt_shadow_size.GetValue(), 2, 16)) * 256;
+    t.shadow_range = static_cast<u32>(whole(v.remaster_rt_shadow_range.GetValue(), 25, 100));
+    return t;
+}
+
 void Normalise(float v[3]) {
     const float l = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
     if (l > 0) {
@@ -861,7 +895,7 @@ void PathTracerGL::DrawShadowMap(const Frame& frame, OpenGLState& state) {
         distances.push_back(std::sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]));
     }
     // as wide as that share of the vertices are far (remaster_rt_shadow_range, 75 % by default)
-    const std::size_t at = std::min(distances.size() - 1, distances.size() * Settings::values.remaster_rt_shadow_range.GetValue() / 100);
+    const std::size_t at = std::min(distances.size() - 1, distances.size() * ReadTuning().shadow_range / 100);
     std::nth_element(distances.begin(), distances.begin() + at, distances.end());
     const float radius = std::max(distances[at], 1.0f);
     // its depth: from the vertex nearest the sun to the farthest, within four radii
@@ -962,9 +996,9 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
         glBindSampler(unit, sampler);
     };
     const bool ultra = Ultra();
-    const auto& v = Settings::values;
+    const Tuning tune = ReadTuning();
     if (!ultra) {
-        ResizeFast(v.remaster_rt_resolution.GetValue(), v.remaster_rt_shadow_size.GetValue());
+        ResizeFast(tune.resolution, tune.shadow_size);
         DrawShadowMap(frame, state);
     }
 
@@ -1012,10 +1046,10 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
         glProgramUniformMatrix4fv(tp, glGetUniformLocation(tp, "view_to_sun"), 1, GL_FALSE, view_to_sun);
         glProgramUniform1f(tp, glGetUniformLocation(tp, "shadow_bias"), shadow_bias);
         glProgramUniform1f(tp, glGetUniformLocation(tp, "depth_scale"), depth_scale);
-        glProgramUniform1i(tp, glGetUniformLocation(tp, "steps"), static_cast<GLint>(v.remaster_rt_steps.GetValue()));
-        glProgramUniform1f(tp, glGetUniformLocation(tp, "reach_share"), v.remaster_rt_reach.GetValue() / 100.0f);
-        glProgramUniform1f(tp, glGetUniformLocation(tp, "thickness_share"), v.remaster_rt_thickness.GetValue() / 100.0f);
-        glProgramUniform1f(tp, glGetUniformLocation(tp, "indirect"), v.remaster_rt_indirect.GetValue() / 100.0f);
+        glProgramUniform1i(tp, glGetUniformLocation(tp, "steps"), tune.steps);
+        glProgramUniform1f(tp, glGetUniformLocation(tp, "reach_share"), tune.reach);
+        glProgramUniform1f(tp, glGetUniformLocation(tp, "thickness_share"), tune.thickness);
+        glProgramUniform1f(tp, glGetUniformLocation(tp, "indirect"), tune.indirect);
     }
     glDrawArrays(GL_TRIANGLES, 0, 3);
 
@@ -1025,7 +1059,7 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
                        1.0f / static_cast<float>(hh));
     state.draw.shader_program = dp;
     int from = 0;
-    const u32 passes = ultra ? 2 : v.remaster_rt_denoise.GetValue();
+    const u32 passes = ultra ? 2 : tune.denoise;
     for (u32 pass = 0; pass < passes; pass++) {
         const float step = static_cast<float>(1u << pass);
         bind(13, traced_texture[from].handle, nearest.handle);
@@ -1057,9 +1091,9 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
         glProgramUniform1f(tmp, glGetUniformLocation(tmp, "shadow_bias"), shadow_bias);
         glProgramUniform1f(tmp, glGetUniformLocation(tmp, "depth_scale"), depth_scale);
         glProgramUniform1f(tmp, glGetUniformLocation(tmp, "reference"), std::max(reference, 1e-3f));
-        glProgramUniform1f(tmp, glGetUniformLocation(tmp, "history_weight"), v.remaster_rt_history.GetValue() / 100.0f);
-        glProgramUniform1f(tmp, glGetUniformLocation(tmp, "shadow_strength"), v.remaster_rt_shadow.GetValue() / 100.0f);
-        glProgramUniform1i(tmp, glGetUniformLocation(tmp, "softness"), static_cast<GLint>(v.remaster_rt_softness.GetValue()));
+        glProgramUniform1f(tmp, glGetUniformLocation(tmp, "history_weight"), tune.history);
+        glProgramUniform1f(tmp, glGetUniformLocation(tmp, "shadow_strength"), tune.shadow);
+        glProgramUniform1i(tmp, glGetUniformLocation(tmp, "softness"), tune.softness);
         glProgramUniform1f(tmp, glGetUniformLocation(tmp, "texel_size"), shadow_texel);
     }
     glDrawArrays(GL_TRIANGLES, 0, 3);
