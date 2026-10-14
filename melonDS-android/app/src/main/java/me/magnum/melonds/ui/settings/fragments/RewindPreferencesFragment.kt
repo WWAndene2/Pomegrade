@@ -4,6 +4,9 @@ import android.app.ActivityManager
 import android.os.Bundle
 import android.view.View
 import androidx.core.content.getSystemService
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.preference.Preference
 import androidx.preference.SeekBarPreference
 import com.smp.masterswitchpreference.MasterSwitchPreferenceFragment
@@ -20,6 +23,13 @@ class RewindPreferencesFragment : MasterSwitchPreferenceFragment(), PreferenceFr
         // Punica's settings cards, as BasePreferenceFragment's (this one comes from the master switch library)
         setDivider(null)
         listView.addItemDecoration(PunicaPreferenceCards(requireContext()))
+        // as BasePreferenceFragment: the list starts below the transparent header and scrolls under it
+        listView.clipToPadding = false
+        ViewCompat.setOnApplyWindowInsetsListener(listView) { list, windowInsets ->
+            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            list.updatePadding(top = insets.top, bottom = insets.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
     }
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {

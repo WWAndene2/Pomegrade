@@ -28,7 +28,8 @@ abstract class BasePreferenceFragment : PreferenceFragmentCompat() {
 
             ViewCompat.setOnApplyWindowInsetsListener(this) { view, windowInsets ->
                 val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-                view.updatePadding(bottom = insets.bottom)
+                // top: the status bar and the transparent header (SettingsActivity), which the list scrolls under
+                view.updatePadding(top = insets.top, bottom = insets.bottom)
 
                 WindowInsetsCompat.CONSUMED
             }

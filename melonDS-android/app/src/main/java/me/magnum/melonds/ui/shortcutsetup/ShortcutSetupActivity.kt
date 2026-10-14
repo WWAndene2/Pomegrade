@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.pm.ShortcutManagerCompat
+import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updateLayoutParams
@@ -15,6 +16,7 @@ import androidx.fragment.app.commit
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import me.magnum.melonds.R
 import me.magnum.melonds.databinding.ActivityShortcutSetupBinding
 import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.ui.common.rom.GameShortcut
@@ -49,7 +51,12 @@ class ShortcutSetupActivity : AppCompatActivity() {
                 rightMargin = insets.right
             }
 
-            windowInsets.inset(insets.left, insets.top, insets.right, 0)
+            // the list is drawn under the status bar and the transparent header: its top inset is both
+            val header = resources.getDimensionPixelSize(R.dimen.punica_header_height)
+            WindowInsetsCompat.Builder(windowInsets)
+                .setInsets(WindowInsetsCompat.Type.systemBars(), Insets.of(0, insets.top + header, 0, insets.bottom))
+                .setInsets(WindowInsetsCompat.Type.displayCutout(), Insets.NONE)
+                .build()
         }
 
         val fragment = if (savedInstanceState == null) {

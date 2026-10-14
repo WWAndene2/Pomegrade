@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -20,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -60,9 +63,16 @@ fun AboutScreen(
         },
         backgroundColor = Color.Transparent,
     ) { padding ->
+        // the list scrolls under the transparent header: the header's height is padding inside the list, not around it
+        val direction = LocalLayoutDirection.current
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(16.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = padding.calculateStartPadding(direction) + 16.dp,
+                top = padding.calculateTopPadding() + 16.dp,
+                end = padding.calculateEndPadding(direction) + 16.dp,
+                bottom = padding.calculateBottomPadding() + 16.dp,
+            ),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item {
