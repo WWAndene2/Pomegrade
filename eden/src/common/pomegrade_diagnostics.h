@@ -20,4 +20,10 @@ inline std::atomic<std::uint64_t> gpu_wait_ns{0};
 // guest memory accesses caught by NCE's fault handler (memory tracking)
 inline std::atomic<std::uint64_t> nce_access_faults{0};
 
+// the same waits split by the waiting thread (its name): which part of the emulator stops for the GPU
+enum WaitThread : int { WaitGpu, WaitPresent, WaitWorker, WaitGuest, WaitOther, WaitThreadCount };
+inline constexpr const char* wait_thread_names[WaitThreadCount] = {"GPU", "present", "worker", "guest CPU", "other"};
+inline std::atomic<std::uint64_t> waits_by_thread[WaitThreadCount]{};
+inline std::atomic<std::uint64_t> wait_ns_by_thread[WaitThreadCount]{};
+
 } // namespace PomegradeDiagnostics

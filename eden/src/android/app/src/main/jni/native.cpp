@@ -437,14 +437,22 @@ public:
         const u64 waits = PomegradeDiagnostics::gpu_waits.exchange(0, std::memory_order_relaxed);
         const u64 wait_ns = PomegradeDiagnostics::gpu_wait_ns.exchange(0, std::memory_order_relaxed);
         const u64 faults = PomegradeDiagnostics::nce_access_faults.exchange(0, std::memory_order_relaxed);
+        std::string by_thread;
+        for (int i = 0; i < PomegradeDiagnostics::WaitThreadCount; i++) {
+            const u64 n = PomegradeDiagnostics::waits_by_thread[i].exchange(0, std::memory_order_relaxed);
+            const u64 ns = PomegradeDiagnostics::wait_ns_by_thread[i].exchange(0, std::memory_order_relaxed);
+            if (n > 0 && seconds > 0.0) {
+                by_thread += fmt::format(" [{} {:.0f} ({:.1f} ms)]", PomegradeDiagnostics::wait_thread_names[i], n / seconds, ns / 1e6 / seconds);
+            }
+        }
         if (m_started && seconds > 0.0) {
             std::sort(busy.begin(), busy.end(), [](const auto& a, const auto& b) { return std::get<0>(a) > std::get<0>(b); });
             std::string threads;
             for (const auto& [share, name, core] : busy) {
                 threads += fmt::format(" [{} {:.0f}% cpu{}]", name, share, core);
             }
-            LOG_INFO(Frontend, "[Pomegrade diag] per s: Finish {:.0f}, GPU waits {:.0f} ({:.1f} ms), NCE faults {:.0f} | clocks MHz {} | threads{}",
-                     finishes / seconds, waits / seconds, wait_ns / 1e6 / seconds, faults / seconds, Clocks(), threads);
+            LOG_INFO(Frontend, "[Pomegrade diag] per s: Finish {:.0f}, GPU waits {:.0f} ({:.1f} ms), NCE faults {:.0f} | waits by thread{} | clocks MHz {} | threads{}",
+                     finishes / seconds, waits / seconds, wait_ns / 1e6 / seconds, faults / seconds, by_thread, Clocks(), threads);
         }
         m_last = now;
         m_started = true;

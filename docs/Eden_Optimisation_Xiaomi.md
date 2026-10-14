@@ -265,6 +265,15 @@ small, not a second a second, but in the A/B too. Next: an A/B at the heavy spot
 0.5x (a setting): a large FPS gain confirms GPU-bound and points to GPU work (render passes, texture formats,
 bandwidth) rather than the CPU.
 
+A/B at the start of play (owner, 14 October; fourth log, `main-7dc7d185`): resolution 0.5x with the picture passes
+off is about 5 FPS smoother than 1x. A quarter of the pixels for 5 FPS: the Mali's pixel work is not what limits.
+Measured in that log at 0.5x: the waits on the GPU are unchanged (41-46 a second, 1.1-1.4 s a second, as at 1x),
+while NCE faults climb from about 700 to 2 900 a second at the start of play. Reactive flushing is already off,
+ASTC is native on the Mali. So something waits on the GPU about once a frame whatever the resolution. The diagnostic
+now splits the waits by the waiting thread (GPU, present, worker, guest CPU, other) to tell which part stops:
+the presenter waiting for a frame is expected; the GPU thread points to staging or resource pools running dry; a
+guest CPU thread to the game reading GPU results back.
+
 16 FPS standing still in the first town is the floor to raise: the game targets 30. The disk cache works, so H4
 explains first-run stutters, not this floor.
 

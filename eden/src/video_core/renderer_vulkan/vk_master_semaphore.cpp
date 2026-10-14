@@ -8,6 +8,8 @@
 
 #include <ranges>
 #include <chrono>
+#include <pthread.h>
+#include <string_view>
 #include "common/pomegrade_diagnostics.h"
 #include "common/settings.h"
 #include "video_core/renderer_vulkan/vk_master_semaphore.h"
@@ -83,6 +85,19 @@ static void CountPomegradeWait(std::chrono::steady_clock::time_point start) {
     const auto waited = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start);
     PomegradeDiagnostics::gpu_waits.fetch_add(1, std::memory_order_relaxed);
     PomegradeDiagnostics::gpu_wait_ns.fetch_add(static_cast<u64>(waited.count()), std::memory_order_relaxed);
+    // which thread waited, from its name (named once per thread by Eden: GPU, VulkanPresent, VulkanWorker, CPUCore_n)
+    static thread_local int bucket = [] {
+        char name[32] = {};
+        pthread_getname_np(pthread_self(), name, sizeof(name));
+        const std::string_view n{name};
+        if (n.starts_with("GPU")) return int{PomegradeDiagnostics::WaitGpu};
+        if (n.starts_with("VulkanPresent")) return int{PomegradeDiagnostics::WaitPresent};
+        if (n.starts_with("VulkanWorker")) return int{PomegradeDiagnostics::WaitWorker};
+        if (n.starts_with("CPUCore")) return int{PomegradeDiagnostics::WaitGuest};
+        return int{PomegradeDiagnostics::WaitOther};
+    }();
+    PomegradeDiagnostics::waits_by_thread[bucket].fetch_add(1, std::memory_order_relaxed);
+    PomegradeDiagnostics::wait_ns_by_thread[bucket].fetch_add(static_cast<u64>(waited.count()), std::memory_order_relaxed);
 }
 
 void MasterSemaphore::Wait(u64 tick) {
