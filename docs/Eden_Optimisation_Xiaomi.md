@@ -256,8 +256,12 @@ Means per 30 s window (the sampler's "per s" counters cover its 0.8 s interval):
 Read from it: no thread is saturated in any window (the busiest under 60 %), and the big cores stay near half their
 3 GHz: the CPU is not the limit (H1 ruled out for this run). At 270-300 s the threads spend over a second per second
 waiting on the GPU's fences (several at once): the Mali is the limit there (GPU-bound). NCE faults follow the GPU load
-and cost little alone (some thousand a second). What was on screen in each window, and its FPS, is the owner's to
-say: needed to tie the windows to the cutscene and to Postwick. Next: an A/B at the heavy spot, resolution 1x against
+and cost little alone (some thousand a second). The owner (14 October): up to 270 s a cutscene; 270-300 s the start of
+play, a light scene (no large area). So the light start of play is where the threads wait most: 35-41 waits a second,
+about one a frame, some 30 ms each. Either the Mali is slow on those frames (GPU-bound: a lower resolution helps), or
+the game reads GPU results back each frame and the waits serialise CPU and GPU (a lower resolution does not help;
+fixable in Eden). Pomegrade's two picture passes (rich colours, deep black) are two full-screen passes at the end:
+small, not a second a second, but in the A/B too. Next: an A/B at the heavy spot, resolution 1x against
 0.5x (a setting): a large FPS gain confirms GPU-bound and points to GPU work (render passes, texture formats,
 bandwidth) rather than the CPU.
 
