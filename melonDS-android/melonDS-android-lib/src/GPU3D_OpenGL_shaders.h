@@ -1622,7 +1622,12 @@ vec4 Reflection(vec3 P, vec3 N, float pixel, ivec2 size)
                 t += step;
                 continue;
             }
-            if (gh.w < 0.5 || length(b) - length(gh.xyz) > max(step, pixel * 4.0)) return vec4(0.0);
+            // passed behind the surface by more than an object's likely thickness: nothing there. The
+            // thickness is a share of the distance as well as a few pixels: near an object's contact with a
+            // shiny floor the ray meets its underside, which the camera does not see, behind its front by up
+            // to the object's size; a few pixels alone left a gap under it fringed with a comb of streaks
+            // (tests/lighting-effects: grain under the sphere 3.7 -> 1.6, 1.0 without reflections)
+            if (gh.w < 0.5 || length(b) - length(gh.xyz) > max(max(step, pixel * 4.0), 0.1 * length(b))) return vec4(0.0);
             // fade near the screen's edges and towards the end of the march
             vec2 edge = min(hit, vec2(size) - hit) / (vec2(size) * 0.1);
             float sure = clamp(min(edge.x, edge.y), 0.0, 1.0) * (1.0 - float(i) / float(Steps));

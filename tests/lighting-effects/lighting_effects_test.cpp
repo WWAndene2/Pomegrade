@@ -760,7 +760,14 @@ int main()
         printf("floor mirroring the red sphere (%d,%d): red/green %.3f -> %.3f\n", mx, my, before, after);
         printf("open floor: red/green %.3f -> %.3f\n", redness(reflOff, fx, fy), redness(reflOn, fx, fy));
         check(after > before * 1.1, "red sphere reflected in the shiny floor (10% redder or more)");
-
+        // close to the contact the floor mirrors the sphere's underside, which the camera does not see: the ray
+        // passes behind the sphere's front. With a thickness of a few pixels it found nothing there (red/green
+        // 1.07, a gap under the sphere fringed with a comb of streaks); with a share of the distance, 1.42
+        int cx, cy;
+        Project(0, FloorY, SphereCenter[2] + SphereRadius * 0.4, cx, cy);
+        const double contact = redness(reflOn, cx, cy);
+        printf("floor by the contact (%d,%d): red/green %.3f -> %.3f\n", cx, cy, redness(reflOff, cx, cy), contact);
+        check(contact > redness(reflOff, cx, cy) * 1.1, "the reflection reaches the sphere's contact (10% redder or more)");
         // a small perspective 3D icon drawn last: the reflections keep the scene's projection
         PerspectiveIcon = true;
         Frame(*r, gpu);
