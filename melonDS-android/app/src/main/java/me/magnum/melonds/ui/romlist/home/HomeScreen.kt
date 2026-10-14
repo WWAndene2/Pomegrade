@@ -140,7 +140,7 @@ internal fun HomeScreen(
                     Text(
                         stringResource(if (sort == LibrarySort.FAVORITES) R.string.home_no_favorites else R.string.no_roms_found),
                         fontSize = 14.sp, color = PunicaTheme.textMuted, textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        modifier = Modifier.fillMaxWidth().padding(24.dp), // 24 dp around an empty list's message, as on every other screen
                     )
                 }
             }

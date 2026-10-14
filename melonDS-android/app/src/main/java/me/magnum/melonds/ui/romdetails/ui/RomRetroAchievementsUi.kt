@@ -112,7 +112,7 @@ private fun LoggedOut(
     }
 
     Box(
-        modifier = modifier.padding(32.dp),
+        modifier = modifier.padding(24.dp), // 24 dp around an empty state, as on every other screen
         contentAlignment = Alignment.Center,
     ) {
         Column(

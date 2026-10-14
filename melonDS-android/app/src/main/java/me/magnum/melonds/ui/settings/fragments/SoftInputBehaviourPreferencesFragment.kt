@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
@@ -127,8 +128,9 @@ private fun SoftInputBehaviourEntry(
     onClick: () -> Unit,
 ) {
     Row(
-        modifier = modifier.clickable(onClick = onClick).padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(32.dp),
+        // the settings rows' metrics (preference_punica): 64 dp high at least, 16 dp sides, 12 dp above, below and to the text
+        modifier = modifier.clickable(onClick = onClick).heightIn(min = PunicaDimens.ROW_MIN.dp).padding(horizontal = PunicaDimens.MARGIN.dp, vertical = PunicaDimens.GAP_WIDE.dp),
+        horizontalArrangement = Arrangement.spacedBy(PunicaDimens.GAP_WIDE.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RadioButton(

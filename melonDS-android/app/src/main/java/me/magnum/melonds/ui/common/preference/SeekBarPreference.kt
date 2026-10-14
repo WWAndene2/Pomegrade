@@ -27,6 +27,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import me.magnum.melonds.ui.theme.PunicaDimens
 
 @Composable
 fun SeekBarItem(
@@ -35,7 +36,7 @@ fun SeekBarItem(
     range: ClosedFloatingPointRange<Float>,
     enabled: Boolean = true,
     onValueChange: (Float) -> Unit,
-    horizontalPadding: Dp = 16.dp,
+    horizontalPadding: Dp = PunicaDimens.MARGIN.dp,
 ) {
     var currentValue by remember(value) { mutableFloatStateOf(value) }
     val jumpStep = remember(range) {
@@ -63,8 +64,8 @@ fun SeekBarItem(
                     false
                 }
             }
-            .heightIn(min = 64.dp)
-            .padding(start = horizontalPadding, end = horizontalPadding, top = 8.dp, bottom = 8.dp),
+            .heightIn(min = PunicaDimens.ROW_MIN.dp)
+            .padding(start = horizontalPadding, end = horizontalPadding, top = PunicaDimens.GAP_WIDE.dp, bottom = PunicaDimens.GAP_WIDE.dp),
     ) {
         CompositionLocalProvider(LocalContentAlpha provides if (enabled) ContentAlpha.high else ContentAlpha.disabled) {
             Text(

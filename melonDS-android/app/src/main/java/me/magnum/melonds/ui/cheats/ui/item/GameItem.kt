@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.Icon
@@ -18,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import me.magnum.melonds.domain.model.Game
 import me.magnum.melonds.ui.common.MelonPreviewSet
 import me.magnum.melonds.ui.theme.MelonTheme
+import me.magnum.melonds.ui.theme.PunicaDimens
 
 @Composable
 fun GameItem(
@@ -28,8 +30,10 @@ fun GameItem(
     Row(
         modifier = modifier
             .clickable { onClick() }
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(32.dp),
+            // the settings rows' metrics (preference_punica): 64 dp high at least, 16 dp sides, 12 dp to the text
+            .heightIn(min = PunicaDimens.ROW_MIN.dp)
+            .padding(horizontal = PunicaDimens.MARGIN.dp),
+        horizontalArrangement = Arrangement.spacedBy(PunicaDimens.GAP_WIDE.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
