@@ -140,6 +140,21 @@ class PomegradeFolder(
             }
         }
 
+        /**
+         * The document IDs of the Pomegrade folder's console and system folders (BIOS, saves, the cores' own
+         * folders, backups, settings): never game folders, so the game list never looks in them. The Switch
+         * firmware's NCAs, in BIOS/Switch/Firmware and the Switch core's NAND, have a Switch game's extension.
+         */
+        fun systemFolderDocumentIds(folder: Uri?): Set<String> {
+            folder ?: return emptySet()
+            val root = try {
+                DocumentsContract.getTreeDocumentId(folder)
+            } catch (e: IllegalArgumentException) {
+                return emptySet()
+            }
+            return listOf(BIOS, DS_SAVES, GBA_SAVES, N3DS, SWITCH, GC_WII, BACKUPS, TEXTURES, SETTINGS).map { "$root/$it" }.toSet()
+        }
+
         /** The document ID of a tree or document URI of the storage provider, or null. */
         fun documentIdOf(context: Context, uri: Uri): String? {
             if (uri.authority != STORAGE_PROVIDER) return null

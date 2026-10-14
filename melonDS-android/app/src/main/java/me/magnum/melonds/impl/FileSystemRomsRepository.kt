@@ -269,8 +269,12 @@ class FileSystemRomsRepository(
     private suspend fun loadCachedRoms() {
         scanningStatusSubject.emit(RomScanningStatus.SCANNING)
 
-        val cachedRoms = getCachedRoms().filter {
-            DocumentFile.fromSingleUri(context, it.uri)?.exists() == true
+        // Pomegrade: files listed before the system folders were skipped (the Switch firmware's NCAs) are dropped
+        val systemFolders = PomegradeFolder.systemFolderDocumentIds(settingsRepository.getPomegradeFolder())
+        val cachedRoms = getCachedRoms().filter { rom ->
+            val documentId = PomegradeFolder.documentIdOf(context, rom.uri)
+            val inSystemFolder = documentId != null && systemFolders.any { documentId.startsWith("$it/") }
+            !inSystemFolder && DocumentFile.fromSingleUri(context, rom.uri)?.exists() == true
         }
 
         roms.addAll(cachedRoms)
@@ -284,25 +288,28 @@ class FileSystemRomsRepository(
 
     private fun scanForNewRoms(): Flow<Rom> = flow {
         // Pomegrade: the Pomegrade folder's Roms is scanned as its own ROM folder; reached from
-        // another one (containing it), it is skipped, or its ROMs would be listed twice
-        val pomegradeRoms = PomegradeFolder.romsDocumentId(settingsRepository.getPomegradeFolder())
+        // another one (containing it), it is skipped, or its ROMs would be listed twice. Its system folders
+        // (BIOS, saves, the cores' folders) are never scanned
+        val pomegradeFolder = settingsRepository.getPomegradeFolder()
+        val pomegradeRoms = PomegradeFolder.romsDocumentId(pomegradeFolder)
+        val systemFolders = PomegradeFolder.systemFolderDocumentIds(pomegradeFolder)
         for (directory in settingsRepository.getRomSearchDirectories()) {
             val documentFile = DocumentFile.fromTreeUri(context, directory)
             if (documentFile != null) {
-                val skip = pomegradeRoms?.takeIf { it != PomegradeFolder.documentIdOf(context, documentFile.uri) }
+                val skip = systemFolders + listOfNotNull(pomegradeRoms?.takeIf { it != PomegradeFolder.documentIdOf(context, documentFile.uri) })
                 findCachedRomFiles(documentFile, this, skip)
             }
         }
     }
 
-    private suspend fun findCachedRomFiles(directory: DocumentFile, collector: FlowCollector<Rom>, skipDocumentId: String? = null) {
+    private suspend fun findCachedRomFiles(directory: DocumentFile, collector: FlowCollector<Rom>, skipDocumentIds: Set<String> = emptySet()) {
         val files = directory.listFiles()
         for (file in files) {
             if (file.isDirectory) {
-                if (skipDocumentId != null && PomegradeFolder.documentIdOf(context, file.uri) == skipDocumentId) {
+                if (PomegradeFolder.documentIdOf(context, file.uri)?.let { it in skipDocumentIds } == true) {
                     continue
                 }
-                findCachedRomFiles(file, collector, skipDocumentId)
+                findCachedRomFiles(file, collector, skipDocumentIds)
                 continue
             }
 
