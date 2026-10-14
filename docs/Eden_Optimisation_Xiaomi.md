@@ -214,7 +214,8 @@ Build `claude/admiring-goodall-xadvmb` (eden_log.txt, two runs), Pokemon Sword, 
 | Postwick, outside the starting house, standing still | about 16 FPS (overlay) |
 | Noise in the log | 73 `Service.LDN` "Couldn't bind callback!" errors; 12 `getSetting` with an empty name; `eden_gpu.log` holds its header only (no call recorded) |
 
-Core frequencies standing still in Postwick, read by the owner with a monitoring app (14 October; on the
+Core frequencies across three moments (menu, cutscene, standing still in Postwick), read by the owner with a
+monitoring app (14 October; ranges and averages over the three together; on the
 Dimensity 8200, cpu0-3 are the Cortex-A55, cpu4-6 Cortex-A78, cpu7 the fastest A78):
 
 | Cores | Min | Max | Average | Owner's note |
@@ -228,7 +229,9 @@ Inferred, not measured: a frequency is the governor's choice, not a load. The bi
 maximum, and the fastest one the least, suggest threads that wait (on each other or on the GPU) more than threads
 that compute without pause, so H2 and H3 come before raw CPU power; H1 is neither confirmed nor ruled out (the A55 are
 busy but not at their top clock). The GPU's 0 % is most likely a reading the app is not allowed to make (Android
-keeps the Mali load file from apps), not an idle GPU: unknown. The diagnostic build's per-thread times decide.
+keeps the Mali load file from apps), not an idle GPU: unknown. The diagnostic build's per-thread times decide. The owner reads the
+unused clock as room to double the speed: it is room only once the wait that keeps the cores from it is removed,
+so the gain is unknown until that wait is found.
 
 16 FPS standing still in the first town is the floor to raise: the game targets 30. The disk cache works, so H4
 explains first-run stutters, not this floor.
