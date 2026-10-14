@@ -152,6 +152,7 @@ class ShortcutPill private constructor(
     private val hideLater = Runnable { autoHidden = true; rest() }
     // the layout's Punica button when the screen shows one: the blades open from it, the pill is hidden
     private var anchor: View? = null
+    private var anchorBubble = dp(48)
     // the controller's focused blade, -1 when none
     private var focused = -1
     private var selectDown = false
@@ -183,8 +184,12 @@ class ShortcutPill private constructor(
         if (autoHide) pressHandler.postDelayed(hideLater, AUTO_HIDE_DELAY_MS)
     }
 
-    /** The layout's Punica button the blades open from, the pill hidden; null shows the pill again. */
-    fun useAnchor(anchor: View?) {
+    /**
+     * The layout's Punica button the blades open from, the pill hidden; null shows the pill again. [bubbleSize]:
+     * the blades' circles in pixels there (the layout's A button), 48dp when 0.
+     */
+    fun useAnchor(anchor: View?, bubbleSize: Int = 0) {
+        anchorBubble = if (bubbleSize > 0) bubbleSize else dp(48)
         if (this.anchor === anchor) return
         close()
         this.anchor = anchor
@@ -374,24 +379,35 @@ class ShortcutPill private constructor(
         val v = if (corner >= 2) -1 else 1
         val span = Math.toRadians(if (height > width) 80.0 else 50.0)
         val radius = dp(if (items.size > 4) 128 else 104)
-        // from the button: an arc above it, its middle straight up (160° past 4 blades, else 120°), its centre
-        // lifted 48dp so the end blades and their labels stay off the button's row; the radius keeps two
-        // neighbours' 96dp labels apart, but no blade past the screen's edge
-        val arcSpan = Math.toRadians(if (items.size > 4) 160.0 else 120.0)
+        // from the button: an arc above it, its middle straight up, flatter the more blades it holds (120° up to
+        // 4, 130° for 5, 140° past), its centre lifted 32dp so the end blades and their labels stay off the
+        // button's row; labels 96dp wide, 80dp past 4 blades; the radius keeps two neighbours' labels apart, but
+        // no blade past the screen's edge (owner's choices, from mockups)
+        val arcSpan = Math.toRadians(
+            when (items.size) {
+                1 -> 0.0
+                2 -> 60.0
+                3, 4 -> 120.0
+                5 -> 130.0
+                else -> 140.0
+            }
+        )
         val arcStep = if (items.size == 1) 0.0 else arcSpan / (items.size - 1)
-        val arcLift = dp(48)
+        val arcLift = dp(32)
+        val column = dp(if (anchor != null && items.size > 4) 80 else 96)
+        val bubble = if (anchor != null) anchorBubble else dp(48)
         val arcRadius = if (anchor == null) 0.0 else {
-            val apart = if (arcStep == 0.0) 0.0 else dp(96) / (2 * sin(arcStep / 2))
-            val onScreen = (min(cx, width - cx) - dp(48)) / sin(arcSpan / 2)
-            min(max(dp(104).toDouble(), apart), onScreen.toDouble())
+            val apart = if (arcStep == 0.0) 0.0 else column / (2 * sin(arcStep / 2))
+            val onScreen = if (arcSpan == 0.0) Double.MAX_VALUE else (min(cx, width - cx) - column / 2f) / sin(arcSpan / 2)
+            min(max(dp(104).toDouble(), apart), onScreen)
         }
         items.forEachIndexed { i, blade ->
-            val view = bladeView(blade)
+            val view = bladeView(blade, bubble)
             // placed with its icon's centre on the pill's, then swung out by its translation
-            addView(view, LayoutParams(dp(96), LayoutParams.WRAP_CONTENT).apply {
+            addView(view, LayoutParams(column, LayoutParams.WRAP_CONTENT).apply {
                 gravity = Gravity.TOP or Gravity.START
-                leftMargin = (cx - dp(48)).toInt()
-                topMargin = (cy - dp(24)).toInt()
+                leftMargin = (cx - column / 2f).toInt()
+                topMargin = (cy - bubble / 2f).toInt()
             })
             // from the button: left to right on its arc; from the pill: toward the screen's middle
             val dx: Double
@@ -417,7 +433,7 @@ class ShortcutPill private constructor(
         pill.bringToFront()
     }
 
-    private fun bladeView(blade: Blade): View {
+    private fun bladeView(blade: Blade, size: Int): View {
         val column = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -425,7 +441,7 @@ class ShortcutPill private constructor(
         val circle = ImageView(activity).apply {
             setImageResource(blade.icon)
             scaleType = ImageView.ScaleType.CENTER_INSIDE
-            setPadding(dp(12), dp(12), dp(12), dp(12))
+            setPadding(size / 4, size / 4, size / 4, size / 4)
             val fill = when (blade.style) {
                 STYLE_HOME -> 0xFFFFFFFF.toInt()
                 STYLE_SUB -> ContextCompat.getColor(activity, R.color.emulator_menu_primary_container)
@@ -442,14 +458,14 @@ class ShortcutPill private constructor(
                     ContextCompat.getColor(activity, if (blade.style == STYLE_SUB) R.color.emulator_menu_on_primary_container else R.color.emulator_menu_on_surface)
                 )
             } else {
-                setPadding(dp(8), dp(8), dp(8), dp(8))
+                setPadding(size / 6, size / 6, size / 6, size / 6)
             }
             contentDescription = blade.label
             tag = TAG_CIRCLE
             isFocusable = true
             setOnClickListener { onBlade(blade.id) }
         }
-        column.addView(circle, LinearLayout.LayoutParams(dp(48), dp(48)))
+        column.addView(circle, LinearLayout.LayoutParams(size, size))
         column.addView(TextView(activity).apply {
             text = blade.label
             textSize = 12f

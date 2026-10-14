@@ -13,9 +13,9 @@ import kotlin.math.roundToInt
 /**
  * Builds Pomegrade's "Classic" layout: the screens and buttons of the Punica DS skin template
  * (assets/consoles/skins/gabarit_skin_ds_1220x2712.svg), whose buttons are measured on the DS Lite plan at one
- * common scale, then enlarged 1.15 times (owner's choice) keeping their proportions and the clusters' mirror. L and
- * R are as tall as an A / B / X / Y button (151 px) at the DS Lite's 2.17:1. The template is scaled to fit the
- * safe area, centred horizontally and anchored to its top.
+ * common scale, then enlarged 1.15 times (owner's choice) keeping their proportions; D-pad and ABXY on the zone's
+ * edges. L and R are as tall as an A / B / X / Y button (151 px) at the DS Lite's 2.17:1. The template is scaled
+ * to fit the safe area, centred horizontally and anchored to its top.
  *
  * Only a plain portrait window has a template; landscape, folding and dual-display variants fall back to the default
  * layout.
@@ -31,7 +31,7 @@ class ClassicLayoutProvider(private val defaultLayoutProvider: DefaultLayoutProv
         val BOTTOM_SCREEN = Rect(56, 943, 1108, 831)
         val BUTTON_L = Rect(56, 1830, 328, 151)
         val BUTTON_R = Rect(836, 1830, 328, 151)
-        val DPAD = Rect(102, 2082, 375, 375)
+        val DPAD = Rect(56, 2082, 375, 375)
         val BUTTONS = Rect(697, 2036, 467, 467)
         val BUTTON_START = Rect(702, 2557, 72, 72)
         val BUTTON_SELECT = Rect(446, 2557, 72, 72)

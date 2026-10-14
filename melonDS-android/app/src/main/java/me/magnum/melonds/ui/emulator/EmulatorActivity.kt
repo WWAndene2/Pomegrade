@@ -370,8 +370,8 @@ class EmulatorActivity : AppCompatActivity() {
         binding.viewLayoutControls.apply {
             setFrontendInputHandler(frontendInputHandler)
             setSystemInputHandler(melonTouchHandler)
-            // Pomegrade: a layout showing the Punica button takes the pill's place
-            onPunicaMenuButtonChanged = { shortcutPill?.useAnchor(it) }
+            // Pomegrade: a layout showing the Punica button takes the pill's place, its blades the size of A
+            onPunicaMenuButtonChanged = { shortcutPill?.useAnchor(it, faceButtonSize()) }
         }
 
         val layoutChangeListener = View.OnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
@@ -964,7 +964,7 @@ class EmulatorActivity : AppCompatActivity() {
             }
         )
         // the layout may already show its Punica button
-        shortcutPill?.useAnchor(binding.viewLayoutControls.punicaMenuButton())
+        shortcutPill?.useAnchor(binding.viewLayoutControls.punicaMenuButton(), binding.viewLayoutControls.faceButtonSize())
         binding.inGameMenu.setNavigationItemSelectedListener { item ->
             pauseMenuOptionPicked = true
             binding.drawerLayout.close()
