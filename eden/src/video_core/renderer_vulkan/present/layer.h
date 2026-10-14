@@ -13,6 +13,7 @@
 #include "video_core/host1x/gpu_device_memory_manager.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
 #include "video_core/renderer_vulkan/present/fsr.h"
+#include "video_core/renderer_vulkan/present/pomegrade_picture_pass.h"
 #include "video_core/renderer_vulkan/present/fxaa.h"
 #include "video_core/renderer_vulkan/present/smaa.h"
 
@@ -65,6 +66,7 @@ private:
 
     void RefreshResources(const Tegra::FramebufferConfig& framebuffer);
     void SetAntiAliasPass();
+    void SetPicturePasses();
     void ReleaseRawImages();
 
     u64 CalculateBufferSize(const Tegra::FramebufferConfig& framebuffer) const;
@@ -96,6 +98,9 @@ private:
     Settings::AntiAliasing anti_alias_setting{};
     std::variant<std::monostate, FXAA, SMAA> anti_alias{};
     std::optional<FSR> fsr{};
+    // Pomegrade: Rich colours and Deep black, sized as the anti-alias pass
+    std::optional<PomegradePicturePass> rich_colours{};
+    std::optional<PomegradePicturePass> deep_black{};
     std::vector<u64> resource_ticks{};
 };
 

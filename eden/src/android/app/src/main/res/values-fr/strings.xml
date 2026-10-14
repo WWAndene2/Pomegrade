@@ -462,8 +462,8 @@
     <string name="renderer_accuracy">Mode GPU</string>
     <string name="dma_accuracy">Précision DMA</string>
     <string name="dma_accuracy_description">Contrôle la précision du DMA. Une précision sûre peut résoudre les problèmes dans certains jeux, mais peut aussi affecter les performances dans certains cas. Si vous n\'êtes pas sûr, laissez ce paramètre sur Par défaut.</string>
-    <string name="anisotropic_filtering">Filtrage anisotropique</string>
-    <string name="anisotropic_filtering_description">Améliore la qualité des textures lorsqu\'elles sont visualisées sous des angles obliques</string>
+    <string name="anisotropic_filtering">Filtrage des textures</string>
+    <string name="anisotropic_filtering_description">Textures plus nettes sur les surfaces vues de biais (filtrage anisotrope)</string>
     <string name="vram_usage_mode">Mode VRAM</string>
     <string name="vram_usage_mode_description">Gestion de la mémoire GPU</string>
     <string name="accelerate_astc">Méthode ASTC</string>
@@ -1163,4 +1163,8 @@
         <item>Détaillé</item>
         <item>Tout</item>
     </string-array>
+    <string name="pomegrade_rich_colours">Couleurs riches</string>
+    <string name="pomegrade_rich_colours_description">Dégradés plus doux : lisse les paliers dans les ciels, ombres et fondus</string>
+    <string name="pomegrade_deep_black">Noir profond</string>
+    <string name="pomegrade_deep_black_description">Les teintes presque noires deviennent noir pur (pixels éteints sur écran OLED)</string>
 </resources>

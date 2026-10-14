@@ -664,6 +664,20 @@ abstract class SettingsItem(
             )
             put(
                 SwitchSetting(
+                    BooleanSetting.POMEGRADE_RICH_COLOURS,
+                    titleId = R.string.pomegrade_rich_colours,
+                    descriptionId = R.string.pomegrade_rich_colours_description
+                )
+            )
+            put(
+                SwitchSetting(
+                    BooleanSetting.POMEGRADE_DEEP_BLACK,
+                    titleId = R.string.pomegrade_deep_black,
+                    descriptionId = R.string.pomegrade_deep_black_description
+                )
+            )
+            put(
+                SwitchSetting(
                     BooleanSetting.RENDERER_ASYNCHRONOUS_SHADERS,
                     titleId = R.string.renderer_asynchronous_shaders,
                     descriptionId = R.string.renderer_asynchronous_shaders_description

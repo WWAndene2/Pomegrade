@@ -15,6 +15,8 @@
 #include "common/settings.h"
 #include "video_core/framebuffer_config.h"
 #include "video_core/renderer_vulkan/present/fsr.h"
+#include "video_core/host_shaders/pomegrade_deep_black_frag_spv.h"
+#include "video_core/host_shaders/pomegrade_rich_colours_frag_spv.h"
 #include "video_core/renderer_vulkan/present/fxaa.h"
 #include "video_core/renderer_vulkan/present/layer.h"
 #include "video_core/renderer_vulkan/present/present_push_constants.h"
@@ -86,6 +88,7 @@ void Layer::ConfigureDraw(PresentPushConstants* out_push_constants,
 
     RefreshResources(framebuffer);
     SetAntiAliasPass();
+    SetPicturePasses();
 
     // Finish any pending renderpass
     scheduler.RequestOutsideRenderPassOperationContext();
@@ -106,6 +109,12 @@ void Layer::ConfigureDraw(PresentPushConstants* out_push_constants,
         fxaa->Draw(scheduler, image_index, &source_image, &source_image_view);
     } else if (auto* smaa = std::get_if<SMAA>(&anti_alias)) {
         smaa->Draw(scheduler, image_index, &source_image, &source_image_view);
+    }
+    if (rich_colours) {
+        rich_colours->Draw(scheduler, image_index, &source_image, &source_image_view);
+    }
+    if (deep_black) {
+        deep_black->Draw(scheduler, image_index, &source_image, &source_image_view);
     }
 
     auto crop_rect = Tegra::NormalizeCrop(framebuffer, texture_width, texture_height);
@@ -174,6 +183,8 @@ void Layer::RefreshResources(const Tegra::FramebufferConfig& framebuffer) {
     raw_height = framebuffer.height;
     pixel_format = framebuffer.pixel_format;
     anti_alias.emplace<std::monostate>();
+    rich_colours.reset();
+    deep_black.reset();
 
     ReleaseRawImages();
     CreateStagingBuffer(framebuffer);
@@ -201,6 +212,39 @@ void Layer::SetAntiAliasPass() {
     default:
         anti_alias.emplace<std::monostate>();
         break;
+    }
+}
+
+void Layer::SetPicturePasses() {
+    const bool want_rich_colours =
+        filters.picture_settings && Settings::values.pomegrade_rich_colours.GetValue();
+    const bool want_deep_black =
+        filters.picture_settings && Settings::values.pomegrade_deep_black.GetValue();
+    if (want_rich_colours == rich_colours.has_value() && want_deep_black == deep_black.has_value()) {
+        return;
+    }
+
+    // The passes are recorded into the frames in flight: let them finish before replacing them
+    for (const u64 tick : resource_ticks) {
+        scheduler.Wait(tick);
+    }
+    const VkExtent2D render_area{
+        .width = Settings::values.resolution_info.ScaleUp(raw_width),
+        .height = Settings::values.resolution_info.ScaleUp(raw_height),
+    };
+    if (want_rich_colours != rich_colours.has_value()) {
+        rich_colours.reset();
+        if (want_rich_colours) {
+            rich_colours.emplace(device, memory_allocator, image_count, render_area,
+                                 POMEGRADE_RICH_COLOURS_FRAG_SPV);
+        }
+    }
+    if (want_deep_black != deep_black.has_value()) {
+        deep_black.reset();
+        if (want_deep_black) {
+            deep_black.emplace(device, memory_allocator, image_count, render_area,
+                               POMEGRADE_DEEP_BLACK_FRAG_SPV);
+        }
     }
 }
 

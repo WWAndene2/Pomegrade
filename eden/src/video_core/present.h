@@ -24,14 +24,18 @@ static inline Settings::AntiAliasing GetAntiAliasingForAppletCapture() {
 struct PresentFilters {
     Settings::ScalingFilter (*get_scaling_filter)();
     Settings::AntiAliasing (*get_anti_aliasing)();
+    // Pomegrade: Rich colours and Deep black apply to the picture shown, not to applet captures
+    bool picture_settings;
 };
 
 constexpr PresentFilters PresentFiltersForDisplay{
     .get_scaling_filter = &GetScalingFilter,
     .get_anti_aliasing = &GetAntiAliasing,
+    .picture_settings = true,
 };
 
 constexpr PresentFilters PresentFiltersForAppletCapture{
     .get_scaling_filter = &GetScalingFilterForAppletCapture,
     .get_anti_aliasing = &GetAntiAliasingForAppletCapture,
+    .picture_settings = false,
 };

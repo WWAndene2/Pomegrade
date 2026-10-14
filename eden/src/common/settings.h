@@ -388,6 +388,14 @@ struct Values {
                                                   true,
                                                   true};
 
+    // Pomegrade: picture passes run after anti-aliasing (video_core/renderer_vulkan/present/layer.cpp)
+    SwitchableSetting<bool> pomegrade_rich_colours{linkage, false, "pomegrade_rich_colours",
+                                                   Category::Renderer, Specialization::Default,
+                                                   true, true};
+    SwitchableSetting<bool> pomegrade_deep_black{linkage, false, "pomegrade_deep_black",
+                                                 Category::Renderer, Specialization::Default,
+                                                 true, true};
+
     SwitchableSetting<bool> use_asynchronous_gpu_emulation{linkage,
 #ifdef __ANDROID__
         false,
