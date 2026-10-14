@@ -24,7 +24,7 @@ class Api24RomFileProcessorFactory(context: Context, uriHandler: UriHandler, nds
         val gcWiiRomFileProcessor = GcWiiRomFileProcessor(context, uriHandler)
         prefixProcessorMap = RomPlatform.n3dsExtensions.associateWith { n3dsRomFileProcessor } +
             RomPlatform.gbaExtensions.associateWith { gbaRomFileProcessor } +
-            RomPlatform.switchExtensions.associateWith { SwitchRomFileProcessor(uriHandler) } +
+            RomPlatform.switchExtensions.associateWith { SwitchRomFileProcessor(context, uriHandler) } +
             RomPlatform.gcWiiExtensions.associateWith { gcWiiRomFileProcessor } + mapOf(
             "nds" to ndsRomFileProcessor,
             "dsi" to ndsRomFileProcessor,
