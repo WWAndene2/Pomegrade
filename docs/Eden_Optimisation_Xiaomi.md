@@ -4,10 +4,12 @@ Study of how to make the Switch core (Eden v0.2.1, `eden/`) faster on the owner'
 8200-Ultra, Mali-G610 MC6) and then on weaker phones (the owner's goal: "Switch even on a potato"). Test game:
 Pokemon Sword/Shield (64-bit, so run by NCE, section 1).
 
-**Status (13 October): code audit only. Nothing measured, no code changed.** Each statement is marked:
+**Status (14 October): code audit, the owner's start-of-game logs read, a first baseline measured by the owner
+(section 4.1). No code changed.** Each statement is marked:
 - **seen**: read in the code, with its file and function;
 - **inferred**: follows from what was read, not checked by running anything;
-- **unknown**: needs the phone (a log, a trace, a measurement).
+- **unknown**: needs the phone (a log, a trace, a measurement);
+- **measured**: read by the owner on the phone (overlay) or in the logs he sent.
 
 No gain in this document is measured. Estimates are given as orders of magnitude and stay hypotheses until the A/B
 tests of section 7 have run.
@@ -187,11 +189,33 @@ small cores.
 | Memory (PSS), low-memory kills | `dumpsys meminfo`, logcat | ADB |
 | Temperature, throttling | Perfetto thermal, `dumpsys thermalservice` | ADB |
 
-ADB is a debug bridge: setting it up needs the owner's authorisation first (CLAUDE.md §3). Without it, only the
-first three rows are available, which is enough for the A/B of H1 and H2 but not to tell why.
+**No ADB (owner's decision, 14 October: debug access strictly forbidden, CLAUDE.md §3).** The rows marked ADB are
+out. What they would tell is read from inside the app instead, in a diagnostic build whose output goes to Eden's
+log (which the owner shares): each Eden thread's CPU time and last core from `/proc/self/task/*/stat` (the app's
+own threads, no permission), the cores' capacities from `/sys/devices/system/cpu/cpu*/cpu_capacity`, and the
+counters of item 4. Removed once read (CLAUDE.md §2.4).
 
 4. **Temporary counters** (H3, H5): a counter of `Finish` calls and of access faults per second, printed in the log,
    in a diagnostic build only, deleted once read (CLAUDE.md §2.4).
+
+### 4.1 Baseline (measured, 14 October)
+
+Build `claude/admiring-goodall-xadvmb` (eden_log.txt, two runs), Pokemon Sword, the owner's Xiaomi 13T:
+
+| | Measured |
+|---|---|
+| Phone | Xiaomi 2306EPN60G (13T), MediaTek MT6896 (Dimensity 8200), 4x Cortex-A78 + 4x Cortex-A55, 8 GB, Android API 36 |
+| GPU, driver | Mali-G610 MC6, Mali driver 54.1.0 (r54p1), Vulkan 1.3.305 |
+| Missing on this GPU (Eden works around them) | `VK_EXT_vertex_attribute_divisor`; features `fillModeNonSolid`, `multiViewport`, `shaderClipDistance`, `shaderCullDistance`, `vertexPipelineStoresAndAtomics`; `maxViewports` 1, `maxClipDistances` 0 |
+| Settings | CPU backend NCE, CPU accuracy Auto, multicore on; Vulkan, resolution 1x, vsync Fifo, GPU accuracy Low, asynchronous GPU emulation **off**, asynchronous shaders off, async presentation off, ASTC decoded on the GPU, disk and driver pipeline caches on, handheld |
+| Pipelines, first run (cache empty) | 1083 graphics pipelines built over 290 s of play, in bursts (up to 189 in 10 s) |
+| Pipelines, second run | the disk cache gives 1085 at start; rebuilt in the first 20 s |
+| Cutscene | about 28 to 32 FPS (overlay) |
+| Postwick, outside the starting house, standing still | about 16 FPS (overlay) |
+| Noise in the log | 73 `Service.LDN` "Couldn't bind callback!" errors; 12 `getSetting` with an empty name; `eden_gpu.log` holds its header only (no call recorded) |
+
+16 FPS standing still in the first town is the floor to raise: the game targets 30. The disk cache works, so H4
+explains first-run stutters, not this floor.
 
 ---
 
@@ -288,8 +312,9 @@ never committed or uploaded (same rule as the game dumps, CLAUDE.md §8).
 
 ## 9. Next steps
 
-1. Owner sends Eden's start-of-game log and the core layout (`cpu_capacity`), and decides on ADB access.
-2. Baseline (section 4) on the 13T with the overlay.
+1. Done (14 October): the logs, the first baseline (4.1); ADB refused for good.
+2. Diagnostic build (section 4, no ADB): per-thread CPU time and core, core capacities, `Finish` and fault counts
+   per second, in Eden's log, standing still in Postwick; tells H1, H2, H3, H5 apart.
 3. A/B of async GPU on and off with the current build (a setting, no code change): measures H2 before any code.
 4. O1 and its A/B; results written here, marked as measured.
 5. Then by measured impact, deep projects first: D2 and D1 if compiles dominate, D3 if H2 is confirmed, D4 if
