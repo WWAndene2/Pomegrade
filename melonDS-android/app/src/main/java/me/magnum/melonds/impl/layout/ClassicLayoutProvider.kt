@@ -35,6 +35,8 @@ class ClassicLayoutProvider(private val defaultLayoutProvider: DefaultLayoutProv
         val BUTTONS = Rect(697, 2036, 467, 467)
         val BUTTON_START = Rect(702, 2557, 72, 72)
         val BUTTON_SELECT = Rect(446, 2557, 72, 72)
+        // Not on the DS: the shortcut pill's button (Punica), on the axis between SELECT and START, at their size
+        val BUTTON_PUNICA_MENU = Rect(574, 2557, 72, 72)
 
         // Not on the DS: a row of four between L and R, so every input stays reachable. 80 px with 16 between them,
         // so the row (368 px) fits the 452 px between the bumpers
@@ -86,6 +88,7 @@ class ClassicLayoutProvider(private val defaultLayoutProvider: DefaultLayoutProv
                 place(BUTTON_R, LayoutComponent.BUTTON_R),
                 place(BUTTON_START, LayoutComponent.BUTTON_START),
                 place(BUTTON_SELECT, LayoutComponent.BUTTON_SELECT),
+                place(BUTTON_PUNICA_MENU, LayoutComponent.BUTTON_PUNICA_MENU),
                 *utilityButtons.toTypedArray(),
             )
         )

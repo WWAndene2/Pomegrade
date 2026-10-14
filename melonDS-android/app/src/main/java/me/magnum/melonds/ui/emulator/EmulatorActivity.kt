@@ -254,7 +254,14 @@ class EmulatorActivity : AppCompatActivity() {
         override fun onRewind() {
             viewModel.onOpenRewind()
         }
+
+        // Pomegrade: the layout's Punica button; with no pill (the drawer alone, user's choice) it opens the drawer
+        override fun onPunicaMenuPressed() {
+            shortcutPill?.toggle() ?: viewModel.pauseEmulator(true)
+        }
     }
+    // Pomegrade: the shortcut pill, null when the user chose the drawer alone
+    private var shortcutPill: ShortcutPill? = null
     private val settingsLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         viewModel.onSettingsChanged()
         setupSustainedPerformanceMode()
@@ -363,6 +370,8 @@ class EmulatorActivity : AppCompatActivity() {
         binding.viewLayoutControls.apply {
             setFrontendInputHandler(frontendInputHandler)
             setSystemInputHandler(melonTouchHandler)
+            // Pomegrade: a layout showing the Punica button takes the pill's place
+            onPunicaMenuButtonChanged = { shortcutPill?.useAnchor(it) }
         }
 
         val layoutChangeListener = View.OnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
@@ -942,7 +951,7 @@ class EmulatorActivity : AppCompatActivity() {
         })
         // Pomegrade: the shortcut pill, the pause menu's options run as the menu runs them: the game pauses,
         // then the entry goes through the menu's listener (which resumes it or opens the entry's screen)
-        ShortcutPill.attach(
+        shortcutPill = ShortcutPill.attach(
             this,
             {
                 viewModel.currentPauseMenuOptions().mapNotNull { inGameMenuItemId(it) }.toSet() +
@@ -954,6 +963,8 @@ class EmulatorActivity : AppCompatActivity() {
                 binding.inGameMenu.menu.performIdentifierAction(id, 0)
             }
         )
+        // the layout may already show its Punica button
+        shortcutPill?.useAnchor(binding.viewLayoutControls.punicaMenuButton())
         binding.inGameMenu.setNavigationItemSelectedListener { item ->
             pauseMenuOptionPicked = true
             binding.drawerLayout.close()

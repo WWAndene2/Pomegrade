@@ -2,6 +2,7 @@ package me.magnum.melonds.ui.emulator
 
 import android.content.Context
 import android.util.AttributeSet
+import android.view.View
 import android.widget.ImageView
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
@@ -38,6 +39,9 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
     private var isSoftInputVisible = true
     private var areScreensSwapped = false
     private var connectedControllersState: ConnectedControllersState = ConnectedControllersState.NoControllers
+
+    /** Pomegrade: told the layout's Punica button each time the components' visibility changes, null when none is shown. */
+    var onPunicaMenuButtonChanged: ((View?) -> Unit)? = null
 
     fun setFrontendInputHandler(frontendInputHandler: FrontendInputHandler) {
         this.frontendInputHandler = frontendInputHandler
@@ -122,6 +126,7 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
             getLayoutComponentView(LayoutComponent.BUTTON_QUICK_SAVE)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.QUICK_SAVE, enableHapticFeedback, touchVibrator))
             getLayoutComponentView(LayoutComponent.BUTTON_QUICK_LOAD)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.QUICK_LOAD, enableHapticFeedback, touchVibrator))
             getLayoutComponentView(LayoutComponent.BUTTON_REWIND)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.REWIND, enableHapticFeedback, touchVibrator))
+            getLayoutComponentView(LayoutComponent.BUTTON_PUNICA_MENU)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.PUNICA_MENU, enableHapticFeedback, touchVibrator))
         }
 
         getLayoutComponentViews().forEach {
@@ -199,5 +204,9 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
                 getLayoutComponentView(component)?.view?.isVisible = true
             }
         }
+        onPunicaMenuButtonChanged?.invoke(punicaMenuButton())
     }
+
+    /** Pomegrade: the layout's Punica button when it is shown, else null. */
+    fun punicaMenuButton(): View? = getLayoutComponentView(LayoutComponent.BUTTON_PUNICA_MENU)?.view?.takeIf { it.isVisible }
 }

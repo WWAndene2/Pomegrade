@@ -1,5 +1,6 @@
 package me.magnum.melonds.utils
 
+import io.github.wwandene2.pomegrade.emulatorui.R as EmulatorMenuR
 import me.magnum.melonds.R
 import me.magnum.melonds.domain.model.layout.LayoutComponent
 
@@ -23,5 +24,6 @@ fun getLayoutComponentName(layoutComponent: LayoutComponent): Int {
         LayoutComponent.BUTTON_QUICK_SAVE -> R.string.input_quick_save
         LayoutComponent.BUTTON_QUICK_LOAD -> R.string.input_quick_load
         LayoutComponent.BUTTON_REWIND -> R.string.rewind
+        LayoutComponent.BUTTON_PUNICA_MENU -> EmulatorMenuR.string.emulator_pill
     }
 }

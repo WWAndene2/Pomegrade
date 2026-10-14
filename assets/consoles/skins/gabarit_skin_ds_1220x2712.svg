@@ -27,6 +27,8 @@
 <text x="930.7" y="2438.8" fill="#F3F4F6" stroke="none" font-size="39" text-anchor="middle">B</text>
 <circle cx="482" cy="2593" r="36"/>
 <text x="482" y="2652" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="middle">SELECT</text>
+<circle cx="610" cy="2593" r="36"/>
+<text x="610" y="2652" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="middle">PUNICA</text>
 <circle cx="738" cy="2593" r="36"/>
 <text x="738" y="2652" fill="#9EA3AC" stroke="none" font-size="22" text-anchor="middle">START</text>
 </g>

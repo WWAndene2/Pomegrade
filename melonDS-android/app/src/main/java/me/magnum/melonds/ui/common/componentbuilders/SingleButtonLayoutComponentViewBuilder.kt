@@ -3,6 +3,7 @@ package me.magnum.melonds.ui.common.componentbuilders
 import android.content.Context
 import android.view.View
 import android.widget.ImageView
+import io.github.wwandene2.pomegrade.emulatorui.R as EmulatorMenuR
 import me.magnum.melonds.R
 import me.magnum.melonds.domain.model.layout.LayoutComponent
 import me.magnum.melonds.ui.common.LayoutComponentViewBuilder
@@ -32,6 +33,8 @@ class SingleButtonLayoutComponentViewBuilder(private val layoutComponent: Layout
             LayoutComponent.BUTTON_QUICK_LOAD -> R.drawable.button_quick_load
             LayoutComponent.BUTTON_REWIND -> R.drawable.button_rewind
             LayoutComponent.BUTTON_MICROPHONE_TOGGLE -> R.drawable.button_microphone
+            // Pomegrade: the shortcut pill's logo
+            LayoutComponent.BUTTON_PUNICA_MENU -> EmulatorMenuR.drawable.emulator_menu_ic_punica
             else -> -1
         }
     }

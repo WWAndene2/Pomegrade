@@ -31,6 +31,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
@@ -43,6 +44,9 @@ import kotlin.math.sin
  * entry's id. Two are always there: Settings (System, and Game when the core has per-game settings) and the
  * Punica logo, the menu's Exit, back to Punica's game list. The others are the user's choice (a long press, or
  * the Edit blade), among the entries the core shows ([available]); the choice is kept for every console.
+ *
+ * A screen's layout can show a button of its own for it (the DS Classic layout, between SELECT and START):
+ * given by [useAnchor], the pill hides and the blades swing out upward from that button, which [toggle]s them.
  *
  * Whether the screen shows the pill, the drawer's edge swipe or both is the user's choice too
  * ([KEY_ACCESS], Punica's settings): with the pill alone, the core locks its drawer's edge swipe
@@ -144,6 +148,8 @@ class ShortcutPill private constructor(
     private val autoHide = preferences(activity).getBoolean(KEY_AUTO_HIDE, false)
     private var autoHidden = false
     private val hideLater = Runnable { autoHidden = true; rest() }
+    // the layout's Punica button when the screen shows one: the blades open from it, the pill is hidden
+    private var anchor: View? = null
     // the controller's focused blade, -1 when none
     private var focused = -1
     private var selectDown = false
@@ -173,6 +179,19 @@ class ShortcutPill private constructor(
         activity.window.callback = keyCallback
         pill.alpha = restAlpha
         if (autoHide) pressHandler.postDelayed(hideLater, AUTO_HIDE_DELAY_MS)
+    }
+
+    /** The layout's Punica button the blades open from, the pill hidden; null shows the pill again. */
+    fun useAnchor(anchor: View?) {
+        if (this.anchor === anchor) return
+        close()
+        this.anchor = anchor
+        pill.visibility = if (anchor == null) VISIBLE else GONE
+    }
+
+    /** Opens the blades, or closes them when open (the layout's Punica button). */
+    fun toggle() {
+        if (bladesOpen) close() else openBlades(main = true)
     }
 
     // the pill at rest: its chosen opacity, or none once hidden for play
@@ -336,8 +355,18 @@ class ShortcutPill private constructor(
         scrim.visibility = VISIBLE
         scrim.animate().alpha(1f).setDuration(160).start()
         val items = if (main) mainBlades() else settingsBlades()
-        val cx = pill.x + pill.width / 2f
-        val cy = pill.y + pill.height / 2f
+        val anchor = anchor
+        val cx: Float
+        val cy: Float
+        if (anchor != null) {
+            val here = IntArray(2).also { getLocationInWindow(it) }
+            val there = IntArray(2).also { anchor.getLocationInWindow(it) }
+            cx = there[0] - here[0] + anchor.width / 2f
+            cy = there[1] - here[1] + anchor.height / 2f
+        } else {
+            cx = pill.x + pill.width / 2f
+            cy = pill.y + pill.height / 2f
+        }
         // toward the screen's middle: from the horizontal to near the vertical, wider in portrait
         val h = if (corner == 0 || corner == 2) -1 else 1
         val v = if (corner >= 2) -1 else 1
@@ -351,12 +380,23 @@ class ShortcutPill private constructor(
                 leftMargin = (cx - dp(48)).toInt()
                 topMargin = (cy - dp(24)).toInt()
             })
-            val angle = if (items.size == 1) 0.0 else span * i / (items.size - 1)
+            // from the button: a half circle above it, left to right; from the pill: toward the screen's middle
+            val dx: Double
+            val dy: Double
+            if (anchor != null) {
+                val angle = if (items.size == 1) PI / 2 else PI * (1 - i.toDouble() / (items.size - 1))
+                dx = cos(angle) * radius
+                dy = -sin(angle) * radius
+            } else {
+                val angle = if (items.size == 1) 0.0 else span * i / (items.size - 1)
+                dx = h * cos(angle) * radius
+                dy = v * sin(angle) * radius
+            }
             view.alpha = 0f
             view.scaleX = 0.4f; view.scaleY = 0.4f
             view.animate()
-                .translationX((h * cos(angle) * radius).toFloat())
-                .translationY((v * sin(angle) * radius).toFloat())
+                .translationX(dx.toFloat())
+                .translationY(dy.toFloat())
                 .alpha(1f).scaleX(1f).scaleY(1f)
                 .setStartDelay(i * 30L).setDuration(240).start()
             blades += view
