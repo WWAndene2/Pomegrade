@@ -233,6 +233,14 @@ keeps the Mali load file from apps), not an idle GPU: unknown. The diagnostic bu
 unused clock as room to double the speed: it is room only once the wait that keeps the cores from it is removed,
 so the gain is unknown until that wait is found.
 
+Second set of logs (build `main-7446e64c`, with the diagnostic, 14 October), measured: at every start Eden's own
+game list opened the Switch firmware's content files one by one (`<32 hex>.nca`, `<32 hex>.cnmt.nca`, some two or three
+times), each rejected as "a different type (unknown) than its extension", for 29 s and 36 s in the two runs. The
+firmware lies in a game folder. That is CPU and storage work at the start of a session, not the 16 FPS floor: fixed
+in Eden's scan (GameHelper skips such files) and in Punica's game list. The uploads were cut at 28 672 bytes (both
+logs, mid-line; the GPU log likewise), before the game started: no `[Pomegrade diag]` line arrived. The full logs
+are needed, zipped or through the Drive folder.
+
 16 FPS standing still in the first town is the floor to raise: the game targets 30. The disk cache works, so H4
 explains first-run stutters, not this floor.
 
@@ -332,7 +340,8 @@ never committed or uploaded (same rule as the game dumps, CLAUDE.md §8).
 ## 9. Next steps
 
 1. Done (14 October): the logs, the first baseline (4.1); ADB refused for good.
-2. Diagnostic build (section 4, no ADB): per-thread CPU time and core, core capacities, `Finish` and fault counts
+2. The diagnostic's lines: the logs sent on 14 October were cut by the upload before the game started (4.1); to
+   send again whole (zipped, or in the Drive folder). Diagnostic build (section 4, no ADB): per-thread CPU time and core, core capacities, `Finish` and fault counts
    per second, in Eden's log, standing still in Postwick; tells H1, H2, H3, H5 apart.
 3. A/B of async GPU on and off with the current build (a setting, no code change): measures H2 before any code.
 4. O1 and its A/B; results written here, marked as measured.

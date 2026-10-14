@@ -161,7 +161,10 @@ object GameHelper {
                     NativeLibrary.addGameFolderFileToFilesystemProvider(filePath)
                 }
 
-                if (Game.extensions.contains(extension)) {
+                // Pomegrade: a content file named by its hash ("<32 hex>.nca", "<32 hex>.cnmt.nca") is a piece of a
+                // firmware or of an installed title, not a game: opening each of a firmware's took 30 s at every start
+                val contentFile = extension == "nca" && it.filename.matches(Regex("^[0-9a-f]{32}(\\.cnmt)?\\.nca$", RegexOption.IGNORE_CASE))
+                if (Game.extensions.contains(extension) && !contentFile) {
                     val game = getGame(it.uri, true, false)
                     if (game != null) {
                         games.add(game)
