@@ -43,12 +43,14 @@ object SystemFilesCheck {
             val target = File(into, file.name)
             if (target.exists()) { left += file.path; return }
             into.mkdirs()
-            // renamed on the same storage; else copied, the original removed only once the copy is whole
-            val done = file.renameTo(target) || runCatching {
-                file.copyTo(target)
-                if (target.length() == file.length()) file.delete() else { target.delete(); false }
-            }.getOrDefault(false)
-            if (done) moved += "${file.path} -> ${target.path}" else left += file.path
+            // renamed on the same storage; else copied aside (a cut copy is never taken for the file), renamed in once
+            // whole, and only then the original removed. An original that cannot be removed counts as left (the copy
+            // stays: both exist), never as moved
+            if (file.renameTo(target)) { moved += "${file.path} -> ${target.path}"; return }
+            val part = File(into, "${file.name}.part")
+            val copied = runCatching { file.copyTo(part, overwrite = true); part.length() == file.length() && part.renameTo(target) }.getOrDefault(false)
+            if (!copied) { part.delete(); left += file.path; return }
+            if (file.delete()) moved += "${file.path} -> ${target.path}" else left += file.path
         }
 
         // the ROM folders, not Punica's console and system folders
