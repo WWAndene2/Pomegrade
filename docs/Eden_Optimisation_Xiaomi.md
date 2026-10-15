@@ -338,7 +338,21 @@ per frame begin with a clear of their whole area, whose load is wasted (it could
 later in a pass. (3) The owner had Eden's GPU logging on with every Vulkan call logged (`gpu_logging_enabled`,
 `gpu_log_vulkan_calls`): 1.25 million calls written, a 267 MB log, CPU and storage work on every render pass begin.
 Next: that logging off for every measurement; then the CLEAR load for the passes that begin with a full clear (16 of
-the 140 per frame), then why a frame splits into so many passes. The disk cache works, so H4
+the 140 per frame), then why a frame splits into so many passes.
+
+Ninth log (owner, 15 October, PR #108, 1x, compressed render targets on in both sessions; Eden's Vulkan call logging
+still on, a 567 MB GPU log), measured:
+
+| Session | Samples | FPS mean (median) | FPS where the GPU thread waits | Render passes per frame | Screens per frame | Clears made a pass's load, per frame |
+|---|---|---|---|---|---|---|
+| Clear on load off | 113 | 25.8 (24.9) | 23.3 | 134 | 33.7 | 0 |
+| Clear on load on | 126 | 26.2 (24.9) | 24.3 | 139 | 34.7 | 23.1 |
+
+Read from it: clear on load works (23 attachment clears a frame become their pass's load, color and depth counted
+apart, against 16 full clears first in their pass); no error, the owner to say whether anything looks wrong. Its gain
+is small, about 4 % where the GPU limits (23.3 to 24.3), as was compression's (21.7 to 22.4, eighth log): together about
+12 % on the GPU-bound frames against the eighth log's first session, still short of 30. The loads they remove are not
+the bulk of the Mali's work; the 135-140 passes a frame are the next thing to understand. The disk cache works, so H4
 explains first-run stutters, not this floor.
 
 ---
