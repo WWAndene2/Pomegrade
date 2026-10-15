@@ -86,6 +86,10 @@
                 android:value="me.magnum.melonds.ui.romlist.RomListActivity"/>
         </activity>
         <activity
+            android:name=".ui.settings.SwitchToolDialogActivity"
+            android:theme="@style/PunicaSwitchToolDialog"
+            android:exported="false" />
+        <activity
             android:name=".ui.about.AboutActivity"
             android:label="@string/pomegrade_about"
             android:parentActivityName=".ui.romlist.RomListActivity"

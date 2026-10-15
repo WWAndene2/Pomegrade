@@ -544,8 +544,6 @@
     <string name="switch_folder_failed">Les données Switch n\'ont pas pu être préparées dans le dossier Punica : %1$s</string>
     <string name="switch_system_files_failed">Les clés ou le firmware de BIOS/Switch n\'ont pas pu être installés : %1$s</string>
     <string name="settings_section_switch">Switch</string>
-    <string name="switch_home">Accueil Switch</string>
-    <string name="switch_home_summary">La liste de jeux du cœur Switch, mises à jour et DLC, clés et firmware (pris dans Punica/BIOS/Switch)</string>
     <string name="gba_not_a_file">Ce jeu GBA doit être dans le stockage du téléphone (le dossier Punica)</string>
     <string name="settings_section_gba">GBA</string>
     <string name="settings_section_gc_wii">GameCube / Wii</string>

@@ -661,8 +661,6 @@
     <string name="switch_folder_failed">The Switch data could not be set up in the Punica folder: %1$s</string>
     <string name="switch_system_files_failed">The keys or firmware in BIOS/Switch could not be installed: %1$s</string>
     <string name="settings_section_switch">Switch</string>
-    <string name="switch_home">Switch home</string>
-    <string name="switch_home_summary">The Switch core\'s own game list, updates and DLC, keys and firmware (taken from Punica/BIOS/Switch)</string>
     <string name="switch_import_data">Import Switch data</string>
     <string name="switch_import_data_summary">Adds the Switch data left in the app\'s own folder, or a backup exported by Eden (zip), to the Switch folder</string>
     <string name="switch_import_old_data">From the app\'s old Switch folder (files already there are kept)</string>
