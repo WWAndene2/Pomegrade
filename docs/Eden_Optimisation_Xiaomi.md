@@ -317,7 +317,28 @@ thread barely waits (237 samples, 0.1 s a second), 28.3 where it still waits (33
 bound by the Mali's pixel work (a quarter of the pixels removes the wait), which before O1-O3 was hidden behind the CPU
 side (the 0.5x A/B then gave only 5 FPS). Thermal status 0, headroom 0.28-0.36. Next: the resolution between the two
 (0.75x) with a sharpening upscaler, and in Eden the per-pixel cost on Mali (render pass loads and stores, attachment
-formats, the picture passes). The disk cache works, so H4
+formats, the picture passes).
+
+Eighth log (owner, 15 October, PR #107: the per-pixel counters and the compressed render target option; three
+sessions in one process), measured:
+
+| Session | Samples | FPS mean (median) | GPU thread waiting | Render passes per frame | Screens of pixels per frame (1280x720 = 1) | Full clears first in their pass, per frame |
+|---|---|---|---|---|---|---|
+| 0.5x, option off | 13 | 28.5 (29.9) | 0.01 s/s | 67 | 9.3 | 18.7 |
+| 1x, option off | 199 | 24.7 (22.4) | 0.49 s/s | 142 (169 in the waiting samples) | 36.1 | 16.1 |
+| 1x, option on | 233 | 25.4 (24.8) | 0.45 s/s | 139 (168) | 36.2 | 16.2 |
+
+Read from it: (1) the option works and is safe in Pokemon Sword: the 444 renderable images of its session were all made
+without STORAGE usage, and the game never bound a renderable image as storage (0 storage views on one in every
+session), so nothing was dropped; its gain is small, 22.4 against 21.7 FPS in the samples where the GPU thread waits
+(about 3 %, near the noise of two short runs). Either AFBC was not what held the Mali back, or the Mali's driver did not
+compress these images for another reason (format, MUTABLE_FORMAT): unknown. (2) The size of the work: 140 to 170 render
+passes per frame, covering 36 screens of pixels, each loaded from memory and stored back; about 16 of those passes
+per frame begin with a clear of their whole area, whose load is wasted (it could be LOAD_OP_CLEAR); no full clear comes
+later in a pass. (3) The owner had Eden's GPU logging on with every Vulkan call logged (`gpu_logging_enabled`,
+`gpu_log_vulkan_calls`): 1.25 million calls written, a 267 MB log, CPU and storage work on every render pass begin.
+Next: that logging off for every measurement; then the CLEAR load for the passes that begin with a full clear (16 of
+the 140 per frame), then why a frame splits into so many passes. The disk cache works, so H4
 explains first-run stutters, not this floor.
 
 ---
