@@ -748,6 +748,16 @@ void BufferCache<P>::BindHostIndexBuffer() {
             auto upload_staging = runtime.UploadStagingBuffer(size);
             std::array<BufferCopy, 1> copies{{BufferCopy{.src_offset = upload_staging.offset, .dst_offset = 0, .size = size}}};
             std::memcpy(upload_staging.mapped_span.data(), draw_state.inline_index_draw_indexes.data(), size);
+            if constexpr (!HAS_FULL_INDEX_AND_PRIMITIVE_SUPPORT) {
+                // Pomegrade: the indices are read where they were written (the staging buffer is made with index
+                // buffer usage, its offsets aligned to 256 bytes) instead of copied into the inline index buffer:
+                // a copy is a transfer, which ends the render pass, and the game draws with inline indices inside
+                // its passes (docs/Eden_Optimisation_Xiaomi.md, thirteenth log). Same indices, same draw.
+                runtime.BindIndexBuffer(draw_state.topology, draw_state.index_buffer.format,
+                                        draw_state.index_buffer.first, draw_state.index_buffer.count,
+                                        upload_staging.buffer, static_cast<u32>(upload_staging.offset), size);
+                return;
+            }
             runtime.CopyBuffer(buffer, upload_staging.buffer, copies, true);
         } else {
             buffer.ImmediateUpload(0, draw_state.inline_index_draw_indexes);

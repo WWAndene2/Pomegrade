@@ -414,6 +414,15 @@ history (commits 7629a4b5 to c9374467). Kept: O1-O3, the large cores, compressed
 load (on), defer wait for idle (opt-in, no measured gain alone), the crash fixes. The disk cache works, so H4
 explains first-run stutters, not this floor.
 
+Follow-up without a new log (owner, 15 October: no more test rounds, the fixes in one build). Of the callers of
+`CopyBuffer` that can end a pass, the one fixable without changing what is drawn was done: inline index draws
+(`BindHostIndexBuffer`) bind their indices from the staging memory they were written to, as uniform buffers already
+are (`BindMappedUniformBuffer`), instead of copying them into the inline index buffer. Left as they are, with the
+reason: the guest's own GPU copies (`DMACopy`) must stay ordered with the draws around them; the uploads
+(`MappedUploadMemory`, `InlineMemory`) are already moved out of the pass when the region is unused; `JoinOverlap`
+and the downloads are rare or required. Which share of the 108-118 copies a frame were inline index draws is
+unknown (not measured), so the gain is unknown until the owner plays the build.
+
 ---
 
 ## 5. Optimisation catalogue
