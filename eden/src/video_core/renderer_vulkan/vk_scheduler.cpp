@@ -191,6 +191,11 @@ bool Scheduler::UpdateRescaling(bool is_rescaling) {
 
 void Scheduler::WorkerThread(std::stop_token stop_token) {
     Common::SetCurrentThreadName("VulkanWorker");
+#ifdef __ANDROID__
+    // Pomegrade: it records and submits each frame's GPU work, on the critical path (14-23 % of a core in the
+    // owner's logs): the guest cores' and GPU thread's priority, and with them in Android's performance hints
+    Common::SetCurrentThreadPriority(Common::ThreadPriority::Critical);
+#endif
 
     const auto TryPopQueue{[this](auto& work) -> bool {
         if (work_queue.empty()) {
