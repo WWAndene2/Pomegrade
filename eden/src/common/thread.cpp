@@ -4,7 +4,10 @@
 // SPDX-FileCopyrightText: 2014 Citra Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
+#include <cstdio>
 #include <string>
+#include <vector>
 #include <thread>
 
 #include "common/error.h"
@@ -126,10 +129,39 @@ void PinCurrentThreadToPerformanceCore(size_t core_id) {
     auto const total_cores = std::thread::hardware_concurrency();
     if (core_id < total_cores) {
 #if defined(__ANDROID__)
-        cpu_set_t set;
-        CPU_ZERO(&set);
-        CPU_SET(core_id, &set);
-        sched_setaffinity(pthread_self(), sizeof(set), &set);
+        // Pomegrade: sched_setaffinity takes a thread id; pthread_self() is an address on Android, so the call
+        // failed (ignored) and no guest core was ever pinned. Core N is not a large core either on most phones
+        // (on the Dimensity 8200, cpu0-3 are the Cortex-A55). Each guest core thread may run on any of the large
+        // cores instead: those whose cpu_capacity (the kernel's per-core compute, 1024 for the fastest) is at least
+        // half the largest. A phone of large cores only keeps them all; unreadable capacities leave the scheduler's
+        // choice as it was
+        (void)core_id;
+        static const cpu_set_t large_cores = [total_cores] {
+            cpu_set_t large;
+            CPU_ZERO(&large);
+            std::vector<long> capacity(total_cores, 0);
+            long largest = 0;
+            for (unsigned cpu = 0; cpu < total_cores; cpu++) {
+                const std::string path =
+                    "/sys/devices/system/cpu/cpu" + std::to_string(cpu) + "/cpu_capacity";
+                if (FILE* file = std::fopen(path.c_str(), "r")) {
+                    if (std::fscanf(file, "%ld", &capacity[cpu]) != 1) {
+                        capacity[cpu] = 0;
+                    }
+                    std::fclose(file);
+                }
+                largest = std::max(largest, capacity[cpu]);
+            }
+            for (unsigned cpu = 0; cpu < total_cores && largest > 0; cpu++) {
+                if (capacity[cpu] * 2 >= largest) {
+                    CPU_SET(cpu, &large);
+                }
+            }
+            return large;
+        }();
+        if (CPU_COUNT(&large_cores) > 0) {
+            sched_setaffinity(gettid(), sizeof(large_cores), &large_cores);
+        }
 #elif defined(__linux__) || defined(__FreeBSD__)
         cpu_set_t set;
         CPU_ZERO(&set);
