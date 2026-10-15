@@ -523,6 +523,10 @@ void GPU::NotifyShutdown() {
     impl->NotifyShutdown();
 }
 
+bool GPU::IsShuttingDown() const {
+    return impl->shutting_down.load(std::memory_order::relaxed);
+}
+
 void GPU::ObtainContext() {
     impl->ObtainContext();
 }
