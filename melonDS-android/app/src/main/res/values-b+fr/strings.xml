@@ -930,4 +930,16 @@
         <item>Pleins</item>
         <item>Contours</item>
     </string-array>
+    <plurals name="retroachievements_pending_achievement_unlocks">
+        <item quantity="one">%d succès débloqué</item>
+        <item quantity="other">%d succès débloqués</item>
+    </plurals>
+    <plurals name="retroachievements_pending_leaderboard_entries">
+        <item quantity="one">%d entrée de classement</item>
+        <item quantity="other">%d entrées de classement</item>
+    </plurals>
+    <plurals name="pomegrade_folder_moved">
+        <item quantity="one">%d jeu déplacé dans le dossier Punica</item>
+        <item quantity="other">%d jeux déplacés dans le dossier Punica</item>
+    </plurals>
 </resources>
