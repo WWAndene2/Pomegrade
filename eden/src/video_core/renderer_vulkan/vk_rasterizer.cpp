@@ -254,7 +254,6 @@ void RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_func) {
 }
 
 void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
-    PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed); // Pomegrade: TEMPORARY
     PrepareDraw(is_indexed, [this, is_indexed, instance_count] {
         const auto& draw_state = maxwell3d->draw_manager.draw_state;
         const u32 num_instances{instance_count};
@@ -285,10 +284,10 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
                 is_indexed ? "vkCmdDrawIndexed" : "vkCmdDraw", params, VK_SUCCESS);
         }
     });
+    PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed); // Pomegrade: TEMPORARY, after the draw: its pass has begun
 }
 
 void RasterizerVulkan::DrawIndirect() {
-    PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed); // Pomegrade: TEMPORARY
     const auto& params = maxwell3d->draw_manager.indirect_state;
     buffer_cache.SetDrawIndirect(&params);
     PrepareDraw(params.is_indexed, [this, &params] {
@@ -344,10 +343,10 @@ void RasterizerVulkan::DrawIndirect() {
         }
     });
     buffer_cache.SetDrawIndirect(nullptr);
+    PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed); // Pomegrade: TEMPORARY, after the draw: its pass has begun
 }
 
 void RasterizerVulkan::DrawTexture() {
-    PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed); // Pomegrade: TEMPORARY
 
     SCOPE_EXIT {
         gpu.TickWork();
@@ -392,6 +391,7 @@ void RasterizerVulkan::DrawTexture() {
                          static_cast<u32>(ScaleSrc(texture.size.height)), texture.size.depth};
     blit_image.BlitColor(framebuffer, texture.RenderTarget(), texture.ImageHandle(),
                          sampler->Handle(), dst_region, src_region, src_size);
+    PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed); // Pomegrade: TEMPORARY, after the draw: its pass has begun
 }
 
 void RasterizerVulkan::Clear(u32 layer_count) {
