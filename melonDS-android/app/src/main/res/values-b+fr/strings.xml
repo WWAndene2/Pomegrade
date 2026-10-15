@@ -520,6 +520,7 @@
     <string name="home_favorite_add">Ajouter aux favoris</string>
     <string name="home_favorite_remove">Retirer des favoris</string>
     <string name="home_game_settings">Réglages de ce jeu</string>
+    <string name="home_game_settings_unreadable">Le cœur n\'a pas pu lire ce jeu</string>
     <string name="home_last_played">Dernière partie : %1$s</string>
     <string name="home_never_played">Jamais lancé</string>
     <string name="home_featured_detail">%1$s de jeu · %2$s</string>
@@ -548,8 +549,13 @@
     <string name="settings_section_gba">GBA</string>
     <string name="settings_section_gc_wii">GameCube / Wii</string>
     <string name="gc_wii_unsupported">Les jeux GameCube et Wii demandent un appareil ARM 64 bits</string>
-    <string name="gc_wii_home">Accueil GameCube / Wii</string>
-    <string name="gc_wii_home_summary">La liste de jeux du cœur GameCube et Wii (jaquettes, réglages de chaque jeu, codes de triche), le menu Wii et ses outils</string>
+    <string name="gc_wii_tool_system_menu_summary">Lance le menu Wii installé dans le système Wii du cœur (NAND)</string>
+    <string name="gc_wii_tool_install_wad_summary">Installe une chaîne ou un titre Wii (.wad) dans le système Wii</string>
+    <string name="gc_wii_tool_import_wii_save_summary">Importe la sauvegarde d\'un jeu Wii (data.bin)</string>
+    <string name="gc_wii_tool_import_nand_summary">Remplace le système Wii par une sauvegarde NAND BootMii (nand.bin)</string>
+    <string name="gc_wii_tool_online_update_summary">Télécharge le système Wii depuis les serveurs de mise à jour de Nintendo</string>
+    <string name="gc_wii_tool_about">À propos de Dolphin</string>
+    <string name="gc_wii_tool_about_summary">La version, la licence et les auteurs du cœur GameCube et Wii</string>
     <string name="gc_wii_settings_general_summary">Double cœur, vitesse, langue</string>
     <string name="gc_wii_settings_graphics_summary">API graphique, résolution, améliorations</string>
     <string name="gc_wii_settings_audio_summary">Volume, sortie audio, étirement</string>

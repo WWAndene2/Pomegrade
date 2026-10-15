@@ -68,6 +68,10 @@ import me.magnum.melonds.ui.theme.PunicaTheme
  * console tag), its figures, Play and the star, then what can be done with it from the list. Slides up from the
  * bottom over a dimmed screen; a tap outside or Back closes it.
  */
+// the consoles whose games have their own settings: DS (Punica's page), Switch and GameCube / Wii (their core's
+// options page, which their own game lists opened)
+private val GAME_SETTINGS_PLATFORMS = setOf(RomPlatform.NDS, RomPlatform.SWITCH, RomPlatform.GC_WII)
+
 @Composable
 internal fun HomeGameSheet(rom: Rom?, actions: GameActions, onDismiss: () -> Unit) {
     if (rom != null) BackHandler(onBack = onDismiss)
@@ -164,7 +168,7 @@ private fun SheetContent(rom: Rom, actions: GameActions, onDismiss: () -> Unit) 
                 .border(1.dp, PunicaTheme.line, cardShape),
         ) {
             val rows = buildList<Triple<ImageVector, Int, () -> Unit>> {
-                actions.onGameSettings?.takeIf { rom.platform == RomPlatform.NDS }?.let { open -> add(Triple(Icons.Outlined.Settings, R.string.home_game_settings) { onDismiss(); open(rom) }) }
+                actions.onGameSettings?.takeIf { rom.platform in GAME_SETTINGS_PLATFORMS }?.let { open -> add(Triple(Icons.Outlined.Settings, R.string.home_game_settings) { onDismiss(); open(rom) }) }
                 add(Triple(Icons.Outlined.Image, R.string.texture_pack_install) { onDismiss(); actions.onInstallTexturePack(rom) })
                 add(Triple(Icons.Outlined.AddToHomeScreen, R.string.home_shortcut) { onDismiss(); actions.onAddShortcut(rom) })
             }

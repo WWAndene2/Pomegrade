@@ -27,10 +27,8 @@ class PunicaToolbar @JvmOverloads constructor(
 
     init {
         val logo = LayoutInflater.from(context).inflate(R.layout.view_punica_toolbar_logo, this, false)
-        // the title's mask reaches 8 dp beyond the pill: shifted 8 dp left, the pill stays where it was
-        addView(logo, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.CENTER_VERTICAL).apply {
-            marginStart = -resources.getDimensionPixelSize(R.dimen.punica_gap)
-        })
+        // the title mask's edge, not the pill's, starts where the logo is placed, as in the Compose PunicaLogo
+        addView(logo, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.CENTER_VERTICAL))
         val red = ContextCompat.getColor(context, R.color.punicaRed)
         logo.findViewById<TextView>(R.id.text_punica_logo).text = SpannableStringBuilder("Punica").inSpans(ForegroundColorSpan(red)) { append(".") }
         subtitleView = logo.findViewById(R.id.text_punica_subtitle)

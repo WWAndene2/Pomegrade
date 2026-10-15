@@ -211,7 +211,7 @@
     </PreferenceCategory>
 
     <!-- GameCube and Wii: the Dolphin core's own settings, each section opened directly (key: its MenuTag),
-         and its home screen -->
+         and the tools of its home screen, which Punica's menu replaces (owner's request, 15 October) -->
     <PreferenceCategory
             android:key="gc_wii_settings"
             android:title="@string/settings_section_gc_wii"
@@ -228,10 +228,12 @@
         <Preference android:key="gc_wii_settings_CONFIG_ADVANCED" android:title="@string/settings_advanced" android:summary="@string/gc_wii_settings_advanced_summary" app:icon="@drawable/ic_settings" />
         <Preference android:key="gc_wii_settings_CONFIG_LOG" android:title="@string/gc_wii_settings_log" android:summary="@string/gc_wii_settings_log_summary" app:icon="@drawable/ic_settings" />
         <Preference android:key="gc_wii_settings_DEBUG" android:title="@string/gc_wii_settings_debug" android:summary="@string/gc_wii_settings_debug_summary" app:icon="@drawable/ic_settings" />
-        <Preference
-                android:key="gc_wii_home"
-                android:title="@string/gc_wii_home"
-                android:summary="@string/gc_wii_home_summary"
-                app:icon="@drawable/ic_settings" />
+        <!-- Dolphin's home screen tools, shown by GcWiiToolDialogActivity (key: its Tool) -->
+        <Preference android:key="gc_wii_tool_WII_SYSTEM_MENU" android:title="@string/grid_menu_load_wii_system_menu" android:summary="@string/gc_wii_tool_system_menu_summary" app:icon="@drawable/ic_firmware" />
+        <Preference android:key="gc_wii_tool_INSTALL_WAD" android:title="@string/grid_menu_install_wad" android:summary="@string/gc_wii_tool_install_wad_summary" app:icon="@drawable/ic_firmware" />
+        <Preference android:key="gc_wii_tool_IMPORT_WII_SAVE" android:title="@string/grid_menu_import_wii_save" android:summary="@string/gc_wii_tool_import_wii_save_summary" app:icon="@drawable/ic_firmware" />
+        <Preference android:key="gc_wii_tool_IMPORT_NAND_BACKUP" android:title="@string/grid_menu_import_nand_backup" android:summary="@string/gc_wii_tool_import_nand_summary" app:icon="@drawable/ic_firmware" />
+        <Preference android:key="gc_wii_tool_ONLINE_SYSTEM_UPDATE" android:title="@string/grid_menu_online_system_update" android:summary="@string/gc_wii_tool_online_update_summary" app:icon="@drawable/ic_firmware" />
+        <Preference android:key="gc_wii_tool_ABOUT" android:title="@string/gc_wii_tool_about" android:summary="@string/gc_wii_tool_about_summary" app:icon="@drawable/ic_settings" />
     </PreferenceCategory>
 </PreferenceScreen>

@@ -35,6 +35,7 @@ import me.magnum.melonds.ui.common.rom.N3dsLauncher
 import me.magnum.melonds.ui.common.rom.SwitchLauncher
 import me.magnum.melonds.ui.common.rom.TexturePackResultDialog
 import me.magnum.melonds.ui.romdetails.RomDetailsActivity
+import me.magnum.melonds.ui.settings.GcWiiToolDialogActivity
 import me.magnum.melonds.ui.romlist.home.GameActions
 import me.magnum.melonds.ui.romlist.home.HomeMenuEntry
 import me.magnum.melonds.ui.romlist.home.HomeScreen
@@ -103,9 +104,7 @@ class HomeFragment : Fragment() {
                         },
                         onToggleFavorite = { rom -> favoriteGames.toggle(rom.uri) },
                         isFavorite = { rom -> rom.uri.toString() in favorites },
-                        onGameSettings = { rom ->
-                            startActivity(Intent(requireContext(), RomDetailsActivity::class.java).putExtra(RomDetailsActivity.KEY_ROM, RomParcelable(rom)))
-                        },
+                        onGameSettings = { rom -> openGameSettings(rom) },
                         onInstallTexturePack = { rom ->
                             texturePackRom = rom
                             texturePackPicker.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
@@ -135,6 +134,20 @@ class HomeFragment : Fragment() {
     }
 
     // the launcher asks the user to place it; without pinning support, says so
+    // a game's own settings: Punica's page for DS games, the core's options page for Switch and GameCube / Wii
+    private fun openGameSettings(rom: Rom) {
+        when (rom.platform) {
+            RomPlatform.SWITCH -> viewLifecycleOwner.lifecycleScope.launch {
+                val context = requireContext()
+                SwitchLauncher.prepare(context)
+                val intent = withContext(Dispatchers.IO) { SwitchLauncher.gamePropertiesIntent(context, rom) }
+                if (intent != null) startActivity(intent) else Toast.makeText(context, R.string.home_game_settings_unreadable, Toast.LENGTH_LONG).show()
+            }
+            RomPlatform.GC_WII -> startActivity(GcWiiToolDialogActivity.gamePropertiesIntent(requireContext(), rom.uri.toString()))
+            else -> startActivity(Intent(requireContext(), RomDetailsActivity::class.java).putExtra(RomDetailsActivity.KEY_ROM, RomParcelable(rom)))
+        }
+    }
+
     private fun addShortcut(rom: Rom) {
         viewLifecycleOwner.lifecycleScope.launch {
             val context = requireContext()
