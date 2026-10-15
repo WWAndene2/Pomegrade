@@ -397,6 +397,10 @@ bool BufferCacheRuntime::CanReorderUpload(const Buffer& buffer,
     if (Settings::values.disable_buffer_reorder) {
         return false;
     }
+    // Pomegrade: TEMPORARY ceiling test, unsafe: draws already recorded may read the new data
+    if (Settings::values.pomegrade_test_reorder_all_uploads.GetValue()) {
+        return true;
+    }
     const bool can_use_upload_cmdbuf =
         std::ranges::all_of(copies, [&](const VideoCommon::BufferCopy& copy) {
             return !buffer.IsRegionUsed(copy.dst_offset, copy.size);

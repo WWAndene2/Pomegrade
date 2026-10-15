@@ -407,6 +407,16 @@ struct Values {
     SwitchableSetting<bool> pomegrade_defer_wait_for_idle{linkage, false, "pomegrade_defer_wait_for_idle",
                                                           Category::Renderer, Specialization::Default,
                                                           true, true};
+    // Pomegrade: TEMPORARY ceiling tests for the optimisation study (docs/Eden_Optimisation_Xiaomi.md): unsafe,
+    // they draw wrong pictures; only the frame rate they give counts. Every buffer upload made at the start of the
+    // command buffer (what buffer renaming could give at best), and the guest's fragment barriers ignored inside a
+    // render pass
+    SwitchableSetting<bool> pomegrade_test_reorder_all_uploads{
+        linkage, false, "pomegrade_test_reorder_all_uploads", Category::Renderer,
+        Specialization::Default, true, true};
+    SwitchableSetting<bool> pomegrade_test_skip_fragment_barriers{
+        linkage, false, "pomegrade_test_skip_fragment_barriers", Category::Renderer,
+        Specialization::Default, true, true};
     SwitchableSetting<bool> pomegrade_compressed_render_targets{
         linkage, false, "pomegrade_compressed_render_targets", Category::Renderer,
         Specialization::Default, true, true};

@@ -33,6 +33,8 @@ enum class BooleanSetting(override val key: String) : AbstractBooleanSetting {
     POMEGRADE_COMPRESSED_RENDER_TARGETS("pomegrade_compressed_render_targets"),
     POMEGRADE_CLEAR_ON_LOAD("pomegrade_clear_on_load"),
     POMEGRADE_DEFER_WAIT_FOR_IDLE("pomegrade_defer_wait_for_idle"),
+    POMEGRADE_TEST_REORDER_ALL_UPLOADS("pomegrade_test_reorder_all_uploads"),
+    POMEGRADE_TEST_SKIP_FRAGMENT_BARRIERS("pomegrade_test_skip_fragment_barriers"),
     ENABLE_BUFFER_HISTORY("enable_buffer_history"),
     USE_OPTIMIZED_VERTEX_BUFFERS("use_optimized_vertex_buffers"),
     SYNC_MEMORY_OPERATIONS("sync_memory_operations"),

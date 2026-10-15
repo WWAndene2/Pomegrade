@@ -884,6 +884,10 @@ void RasterizerVulkan::WaitForIdle() {
 }
 
 void RasterizerVulkan::FragmentBarrier() {
+    // Pomegrade: TEMPORARY ceiling test, unsafe: a render target read back while drawn may show stale pixels
+    if (Settings::values.pomegrade_test_skip_fragment_barriers.GetValue()) {
+        return;
+    }
     // We already put barriers when a render pass finishes
     scheduler.RequestOutsideRenderPassOperationContext();
 }

@@ -405,6 +405,7 @@ public:
         const double seconds = m_started ? std::chrono::duration<double>(now - m_last).count() : 0.0;
         if (!m_started) {
             LogCores();
+            LogStudySettings();
         }
         const long ticks_per_second = sysconf(_SC_CLK_TCK);
         std::vector<std::tuple<double, std::string, int>> busy;
@@ -603,6 +604,16 @@ private:
         };
         return fmt::format("memory: app {} MiB, available {} MiB", field("/proc/self/status", "VmRSS:") / 1024,
                            field("/proc/meminfo", "MemAvailable:") / 1024);
+    }
+
+    // the settings the study compares, on one line at the start of each session
+    static void LogStudySettings() {
+        const auto& v = Settings::values;
+        LOG_INFO(Frontend, "[Pomegrade diag] settings: resolution {} | async GPU {} | compressed RT {} | clear on load {} | defer wait for idle {} | TEST reorder all uploads {} | TEST skip fragment barriers {} | GPU logging {}",
+                 static_cast<int>(v.resolution_setup.GetValue()), v.use_asynchronous_gpu_emulation.GetValue(),
+                 v.pomegrade_compressed_render_targets.GetValue(), v.pomegrade_clear_on_load.GetValue(),
+                 v.pomegrade_defer_wait_for_idle.GetValue(), v.pomegrade_test_reorder_all_uploads.GetValue(),
+                 v.pomegrade_test_skip_fragment_barriers.GetValue(), v.gpu_logging_enabled.GetValue());
     }
 
     static void LogCores() {
