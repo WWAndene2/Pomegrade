@@ -171,6 +171,8 @@ if(ANDROID)
         android/id_cache.h
         android/multiplayer/multiplayer.cpp
         android/multiplayer/multiplayer.h
+        android/performance_hint.cpp
+        android/performance_hint.h
         android/applets/software_keyboard.cpp
         android/applets/software_keyboard.h
         android/applets/web_browser.cpp

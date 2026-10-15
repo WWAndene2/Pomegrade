@@ -14,6 +14,9 @@
 #include "common/logging.h"
 #include "common/assert.h"
 #include "common/thread.h"
+#ifdef __ANDROID__
+#include "common/android/performance_hint.h"
+#endif
 #ifdef __APPLE__
 #include <mach/mach.h>
 #elif defined(__HAIKU__)
@@ -85,6 +88,11 @@ void SetCurrentThreadPriority(ThreadPriority new_priority) {
         }
     }();
     setpriority(PRIO_PROCESS, gettid(), nice);
+    // the guest cores and the GPU thread make the frames: Android's performance hints raise their clocks when a
+    // frame runs late
+    if (new_priority == ThreadPriority::Critical) {
+        Common::Android::PerformanceHint::AddCurrentThread();
+    }
 #else
     pthread_t this_thread = pthread_self();
     const auto scheduling_type = SCHED_OTHER;
