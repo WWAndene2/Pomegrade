@@ -29,5 +29,9 @@ inline std::atomic<std::uint64_t> release_waits{0};
 inline std::atomic<std::uint64_t> release_wait_ns{0};
 inline std::atomic<std::uint64_t> waits_by_thread[WaitThreadCount]{};
 inline std::atomic<std::uint64_t> wait_ns_by_thread[WaitThreadCount]{};
+// frames the game finished (PerfStats::EndGameFrame), and the longest gap between two of them, in nanoseconds
+inline std::atomic<std::uint64_t> game_frames{0};
+inline std::atomic<std::uint64_t> longest_frame_ns{0};
+inline std::atomic<std::int64_t> last_frame_ns{0};
 
 } // namespace PomegradeDiagnostics

@@ -218,9 +218,11 @@ object GpuDriverHelper {
         hookLibPath: String
     ): String?
 
+    // Pomegrade: custom drivers are no longer Adreno-only (Mali too, see SupportsCustomDriver in native.cpp), so
+    // the Adreno-only (Freedreno) settings check for Qualcomm's kernel device itself
     fun isAdrenoGpu(): Boolean {
         return try {
-            supportsCustomDriverLoading()
+            supportsCustomDriverLoading() && File("/dev/kgsl-3d0").exists()
         } catch (e: Exception) {
             false
         }

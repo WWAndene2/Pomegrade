@@ -148,7 +148,7 @@ behaviour, so it is a translation layer, not a game-specific hack.
 | Mali paths: shared memory clamp, dynamic storage buffer limit, occlusion query sync and host conditional rendering skipped (the last two are correctness risks) | `vk_pipeline_cache.cpp`, `vk_buffer_cache.cpp`, `vk_query_cache.cpp` | seen |
 | No Mali driver-version checks; every feature reported is trusted | `vulkan_device.cpp` | seen |
 | The comment naming Mali for the depth/stencil blit fallback sits inside the `is_nvidia` block; the fallback itself is generic | `vulkan_device.cpp` | seen |
-| Custom drivers (`adrenotools`) are Adreno-only; a Mali phone uses the HyperOS driver | `android/app/src/main/jni/native.cpp` | seen |
+| Custom drivers (`adrenotools`) were Adreno-only (only Qualcomm's `/dev/kgsl-3d0` was checked; the loading itself does not depend on the GPU). Since 15 October, Mali's `/dev/mali0` also allows them, for Mesa PanVK built for `mali_kbase` (e.g. `zenithblue-oss/panvk-kbase-android`, G610 tested on one phone by its authors) | `android/app/src/main/jni/native.cpp` (`SupportsCustomDriver`) | seen; PanVK on the 13T with Eden: unknown |
 | Driver version, extensions, whether the driver pipeline cache survives a restart | Eden's log at game start (`Render_Vulkan`) | unknown |
 
 ---
@@ -193,7 +193,7 @@ small cores.
 out. What they would tell is read from inside the app instead, in a diagnostic build whose output goes to Eden's
 log (which the owner shares): each Eden thread's CPU time and last core from `/proc/self/task/*/stat` (the app's
 own threads, no permission), the cores' capacities from `/sys/devices/system/cpu/cpu*/cpu_capacity`, and the
-counters of item 4. Removed once read (CLAUDE.md §2.4).
+counters of item 4. Since 15 October it also logs the frame rate and slowest frame, Android's thermal status and headroom, the battery's temperature (when readable) and memory (the app's, the system's available). Removed once read (CLAUDE.md §2.4).
 
 4. **Temporary counters** (H3, H5): a counter of `Finish` calls and of access faults per second, printed in the log,
    in a diagnostic build only, deleted once read (CLAUDE.md §2.4).
@@ -298,7 +298,7 @@ Gains are estimates; difficulty and risk are judgements from the code.
 | O1 | Pin the emulated CPUs to the largest cores, ranked by `cpu_capacity`; with fewer large cores than emulated ones, pin only the busiest and leave the rest to the scheduler | `common/thread.cpp` (`PinCurrentThreadToPerformanceCore`), `core/cpu_manager.cpp` (`RunThread`) | Large if H1 holds (an A78 does roughly 2 to 3 times an A55's work per clock) | Low | Low; the 8 Elite keeps its placement |
 | O2 | A thread priority that works: `setpriority` nice values for the guest cores and the GPU thread; fix the level formula | `common/thread.cpp` (`SetCurrentThreadPriority`) | Small to medium | Low | Low |
 | O3 | ADPF hint sessions for the guest cores and the GPU thread, target 16.6 ms (or 33.3 ms) | Beside `core/cpu_manager.cpp`, `video_core/gpu_thread.cpp` | Steadier frames, later throttling | Medium | Low (Android 12+, ignored before) |
-| O4 | Batch texture downloads: record every image's copy, then one `Finish`, then swizzle them all (as `PopAsyncFlushes` already does) | `texture_cache/texture_cache.h` (`DownloadMemory`) | Fewer stalls where the CPU reads GPU-written textures | Low | Low; same order of copies |
+| O4 | Batch texture downloads: record every image's copy, then one `Finish`, then swizzle them all (as `PopAsyncFlushes` already does) | `texture_cache/texture_cache.h` (`DownloadMemory`) | Fewer stalls where the CPU reads GPU-written textures | Low | Low; same order of copies. **Done (15 October), untested on the phone** |
 | O5 | Make the frame pacing setting work on Android 11+ again, or hide it there | `renderer_vulkan/vk_swapchain.cpp` (`AcquireNextImage`) | Lets the user cap at 30 for steadier frames and heat | Low | Low |
 | O6 | Release APK; `-march=armv8.2-a` as an extra build for current phones | `android-apk.yml`; `YUZU_BUILD_PRESET` | Small | Low | Low; armv8.0 phones keep the generic build |
 
