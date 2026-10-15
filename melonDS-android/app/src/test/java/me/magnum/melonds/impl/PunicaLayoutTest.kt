@@ -134,4 +134,19 @@ class PunicaLayoutTest {
         assertTrue(again.left.isEmpty())
         assertFalse(File(root, "Roms").exists())
     }
+
+    @Test
+    fun findsWhereAGameOfTheEarlierRomsWent() {
+        val root = earlierLayout()
+        PunicaLayout.migrate(root)
+        // a game alone in its folder, a loose one, a game of several files that kept its folder
+        assertEquals(File(root, "DS/Games/Pokemon - Version Platine.nds"),
+            PunicaLayout.movedGame(root, File(root, "Roms/Pokemon - Version Platine/Pokemon - Version Platine.nds")))
+        assertEquals(File(root, "Switch/Games/Pokemon Sword [0100ABF008968000].xci"),
+            PunicaLayout.movedGame(root, File(root, "Roms/Pokemon Sword [0100ABF008968000].xci")))
+        assertEquals(File(root, "GC-Wii/Games/Zelda/disc2.rvz"), PunicaLayout.movedGame(root, File(root, "Roms/Zelda/disc2.rvz")))
+        // not a game of Roms, or a game that is not there
+        assertEquals(null, PunicaLayout.movedGame(root, File(root, "Elsewhere/Game.nds")))
+        assertEquals(null, PunicaLayout.movedGame(root, File(root, "Roms/Missing/Missing.nds")))
+    }
 }

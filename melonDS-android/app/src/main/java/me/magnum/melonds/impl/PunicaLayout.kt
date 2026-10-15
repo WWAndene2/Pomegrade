@@ -95,6 +95,24 @@ object PunicaLayout {
         }
     }
 
+    /**
+     * Where [migrate] put a game file that was at [old] in the earlier Roms ([root]/Roms/<file> or
+     * [root]/Roms/<folder>/<file>), or null when it is not there (or [old] was not in Roms). For entries of the game
+     * list saved before the move (settings restored after a reinstall).
+     */
+    fun movedGame(root: File, old: File): File? {
+        val relative = old.relativeToOrNull(File(root, "Roms"))?.invariantSeparatorsPath ?: return null
+        if (relative.startsWith("..")) return null
+        val console = consoleOfFile(old.name) ?: return null
+        val games = part(root, console, GAMES)
+        val parts = relative.split('/')
+        return listOfNotNull(
+            File(games, old.name),
+            // a game of several files kept its folder
+            if (parts.size > 1) File(games, relative) else null,
+        ).firstOrNull { it.isFile }
+    }
+
     fun part(root: File, console: String, part: String): File = File(File(root, console), part)
 
     fun isMigrated(root: File): Boolean = File(root, MARKER).isFile

@@ -23,6 +23,7 @@ import org.citra.citra_emu.activities.EmulationActivity
 import org.citra.citra_emu.features.settings.model.Settings
 import org.citra.citra_emu.utils.CitraDirectoryHelper
 import org.citra.citra_emu.utils.PermissionsHandler
+import org.json.JSONArray
 import java.io.File
 
 /**
@@ -352,8 +353,45 @@ class PomegradeFolder(
     fun restoreSettings(): Boolean {
         val source = settingsFolder() ?: return false
         val restored = runCatching { settingsBackupManager.restore(source) }.isSuccess
-        if (restored) romsRepository.reloadRoms()
+        if (restored) {
+            runCatching { relocateRestoredGames() }
+            romsRepository.reloadRoms()
+        }
         return restored
+    }
+
+    /**
+     * The game list just restored (saved before the folder had the layout of [PunicaLayout]) names games in the
+     * earlier Roms: each one the layout moved is pointed to its new place ([PunicaLayout.movedGame]), with its state
+     * screenshots, before the list is read (a game whose file is missing is dropped from it); so are the debug trace
+     * folders the restored settings name.
+     */
+    private fun relocateRestoredGames() {
+        val folder = settingsRepository.getPomegradeFolder() ?: return
+        val treeId = DocumentsContract.getTreeDocumentId(folder)
+        val root = pathOf(treeId)
+        if (!PunicaLayout.isMigrated(root) || !hasFileAccess(context)) return
+        val file = File(context.filesDir, "rom_data.json").takeIf { it.isFile } ?: return
+        val games = JSONArray(file.readText())
+        val rootPath = root.canonicalPath
+        fun uriOf(path: File) = DocumentsContract.buildDocumentUriUsingTree(folder, treeId + path.canonicalPath.removePrefix(rootPath))
+        var changed = false
+        for (i in 0 until games.length()) {
+            val game = games.getJSONObject(i)
+            val oldUri = Uri.parse(game.optString("uri"))
+            val old = documentIdOf(context, oldUri)?.let { pathOf(it) } ?: continue
+            if (old.exists()) continue
+            val moved = PunicaLayout.movedGame(root, old) ?: continue
+            val newUri = uriOf(moved)
+            game.put("uri", newUri.toString())
+            game.put("parentTreeUri", uriOf(moved.parentFile!!).toString())
+            screenshotProvider.relocateRomScreenshots(oldUri, newUri)
+            changed = true
+        }
+        if (changed) file.writeText(games.toString())
+        // the restored settings' trace folders, as applyLayout moved them
+        moveTraceFolder("ds_debug_trace_folder", "${PunicaLayout.DS}/Traces", "${PunicaLayout.DS}/${PunicaLayout.CORE}/Traces", root)
+        moveTraceFolder(EmulationActivity.CODE_TRACE_FOLDER, "${PunicaLayout.N3DS}/Traces", "${PunicaLayout.N3DS}/${PunicaLayout.CORE}/Traces", root)
     }
 
     /** Set up, with the file access moving games needs. */
