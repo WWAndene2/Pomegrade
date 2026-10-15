@@ -223,6 +223,11 @@ Dimensity 8200, cpu0-3 are the Cortex-A55, cpu4-6 Cortex-A78, cpu7 the fastest A
 | cpu0-3 (A55) | 1050 MHz | 1850 MHz | 1400 MHz | the steadiest |
 | cpu4-6 (A78) | 700 MHz | 3200 MHz | 1800 MHz | the busiest |
 | cpu7 (A78, fastest) | 700 MHz | 3200 MHz | 1200 MHz | steady, follows cpu4-6 under heavy load |
+
+Owner's restatement of the same readings (15 October): cpu0-3 1200 to 1800 MHz, about 1400 steady; cpu4-6 700 to
+2300 MHz, about 1800 on average; cpu7 between the two groups. The maxima seen differ from the table above (2300
+against 3200 for cpu4-6): both are the owner's app readings, the later one is kept as the reference for an
+app-to-app comparison.
 | GPU load | 0 % | 0 % | 0 % | never moved |
 
 Inferred, not measured: a frequency is the governor's choice, not a load. The big cores averaging well under their
@@ -296,7 +301,7 @@ on), measured:
 |---|---|---|
 | FPS | 19-25, mostly 21-22 | 28-31 |
 | GPU thread waiting on the GPU | about 22 times a second, 0.75 s a second (some 34 ms a frame) | 0.1 s a second |
-| Large cores' clock (mean of cpu4-7) | 2.1 GHz (before: 1.2-1.5) | 1.6 GHz |
+| Large cores' clock (mean of cpu4-7, the sampler's reading) | 2.1 GHz (before, same sampler, third log: 1.2-1.5; the owner's app before: about 1.8 on average, 2.3 at most) | 1.6 GHz |
 | Busiest threads | GPU 20-22 %, CPUCore_0 15-20 % | CPUCore_0 29-37 %, GPU 21-31 % |
 
 Read from it: the guest cores now run on cpu4-7 (O1 works) and the large cores' clocks rose (O3 works). No thread is
