@@ -9,6 +9,9 @@
 
 #include <atomic>
 #include <cstdint>
+#include <map>
+#include <mutex>
+#include <string>
 
 namespace PomegradeDiagnostics {
 
@@ -50,5 +53,22 @@ inline std::atomic<std::uint64_t> clears_on_load{0};
 inline std::atomic<std::uint64_t> attachment_images{0};
 inline std::atomic<std::uint64_t> storage_attachment_images{0};
 inline std::atomic<std::uint64_t> attachment_storage_views{0};
+
+// why render passes end: the code that closed each one (file:line, or "new render target" when the next pass needs
+// other attachments, "submit" when the command buffer is sent), counted
+inline std::mutex pass_end_mutex;
+inline std::map<std::string, std::uint64_t> pass_ends;
+inline void CountPassEnd(const char* file, int line) {
+    std::string where = file;
+    const auto slash = where.rfind('/');
+    if (slash != std::string::npos) {
+        where = where.substr(slash + 1);
+    }
+    if (line > 0) {
+        where += ":" + std::to_string(line);
+    }
+    std::scoped_lock lock{pass_end_mutex};
+    ++pass_ends[where];
+}
 
 } // namespace PomegradeDiagnostics

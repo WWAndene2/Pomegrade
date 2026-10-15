@@ -75,7 +75,9 @@ public:
 
     /// Requests the current execution context to be able to execute operations only allowed outside
     /// of a renderpass.
-    void RequestOutsideRenderPassOperationContext();
+    /// Pomegrade: the caller's file and line are counted when it ends a render pass (TEMPORARY diagnostic)
+    void RequestOutsideRenderPassOperationContext(const char* file = __builtin_FILE(),
+                                                  int line = __builtin_LINE());
 
     /// Returns true when a render pass is currently active in the scheduler state.
     bool IsRenderPassActive() const {

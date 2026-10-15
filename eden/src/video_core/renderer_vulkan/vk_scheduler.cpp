@@ -116,6 +116,9 @@ void Scheduler::RequestRenderpass(const Framebuffer* framebuffer) {
         render_area.height == state.render_area.height) {
         return;
     }
+    if (state.renderpass) {
+        PomegradeDiagnostics::CountPassEnd("new render target", 0); // Pomegrade: TEMPORARY
+    }
     EndRenderPass();
     state.renderpass = renderpass;
     state.framebuffer = framebuffer_handle;
@@ -194,7 +197,10 @@ bool Scheduler::ClearOnLoad(const Framebuffer* framebuffer, u16 clear_bits, u32 
     return true;
 }
 
-void Scheduler::RequestOutsideRenderPassOperationContext() {
+void Scheduler::RequestOutsideRenderPassOperationContext(const char* file, int line) {
+    if (state.renderpass) {
+        PomegradeDiagnostics::CountPassEnd(file, line); // Pomegrade: TEMPORARY
+    }
     EndRenderPass();
 }
 
@@ -366,6 +372,9 @@ void Scheduler::InvalidateState() {
 
 void Scheduler::EndPendingOperations() {
     query_cache->CounterReset(VideoCommon::QueryType::ZPassPixelCount64);
+    if (state.renderpass) {
+        PomegradeDiagnostics::CountPassEnd("submit", 0); // Pomegrade: TEMPORARY
+    }
     EndRenderPass();
 }
 

@@ -476,6 +476,21 @@ public:
                      clears_later * per_frame, on_load * per_frame, PomegradeDiagnostics::attachment_images.load(std::memory_order_relaxed),
                      PomegradeDiagnostics::storage_attachment_images.load(std::memory_order_relaxed),
                      PomegradeDiagnostics::attachment_storage_views.load(std::memory_order_relaxed));
+            // why the passes ended, the eight most frequent, per frame
+            std::vector<std::pair<std::uint64_t, std::string>> ends;
+            {
+                std::scoped_lock lock{PomegradeDiagnostics::pass_end_mutex};
+                for (const auto& [where, count] : PomegradeDiagnostics::pass_ends) {
+                    ends.emplace_back(count, where);
+                }
+                PomegradeDiagnostics::pass_ends.clear();
+            }
+            std::sort(ends.begin(), ends.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+            std::string ended;
+            for (size_t i = 0; i < ends.size() && i < 8; i++) {
+                ended += fmt::format(" [{} {:.1f}]", ends[i].second, ends[i].first * per_frame);
+            }
+            LOG_INFO(Frontend, "[Pomegrade diag] passes ended per frame by{}", ended);
         }
         m_last = now;
         m_started = true;
