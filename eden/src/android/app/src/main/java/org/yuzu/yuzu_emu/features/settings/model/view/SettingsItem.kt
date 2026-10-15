@@ -692,6 +692,13 @@ abstract class SettingsItem(
             )
             put(
                 SwitchSetting(
+                    BooleanSetting.POMEGRADE_DEFER_WAIT_FOR_IDLE,
+                    titleId = R.string.pomegrade_defer_wait_for_idle,
+                    descriptionId = R.string.pomegrade_defer_wait_for_idle_description
+                )
+            )
+            put(
+                SwitchSetting(
                     BooleanSetting.RENDERER_ASYNCHRONOUS_SHADERS,
                     titleId = R.string.renderer_asynchronous_shaders,
                     descriptionId = R.string.renderer_asynchronous_shaders_description

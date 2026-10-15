@@ -1797,4 +1797,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="pomegrade_compressed_render_targets_description">Lets Mali GPUs compress the images the game draws, for less memory traffic every frame. Experimental: an effect a game draws into one of them through a shader may go missing. Takes effect at the next game start</string>
     <string name="pomegrade_clear_on_load">Clear on load (Mali)</string>
     <string name="pomegrade_clear_on_load_description">A render pass that starts by clearing the whole screen clears it as it begins, instead of first reading the old image from memory: less memory traffic every frame on phone GPUs</string>
+    <string name="pomegrade_defer_wait_for_idle">Fewer render pass splits (Mali)</string>
+    <string name="pomegrade_defer_wait_for_idle_description">When the game asks the GPU to wait in the middle of drawing, waits at the end of the drawing step instead of cutting it in two: far less memory traffic on phone GPUs. Experimental: an effect may show a frame late or flicker</string>
 </resources>

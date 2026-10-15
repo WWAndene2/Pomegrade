@@ -61,6 +61,17 @@ public:
     /// Requests to begin a renderpass.
     void RequestRenderpass(const Framebuffer* framebuffer);
 
+    /// Pomegrade: true while a render pass is open
+    [[nodiscard]] bool IsInsideRenderPass() const noexcept {
+        return state.renderpass != VkRenderPass{};
+    }
+
+    /// Pomegrade: a "wait for idle" made at the end of the current render pass (a full memory barrier after it)
+    /// instead of ending it now (setting pomegrade_defer_wait_for_idle)
+    void DeferWaitForIdle() noexcept {
+        deferred_wait_for_idle = true;
+    }
+
     /// Pomegrade: true while nothing has been recorded in the current render pass since it began
     [[nodiscard]] bool IsRenderPassUntouched() const noexcept {
         return state.renderpass && record_count == record_count_at_begin;
@@ -309,6 +320,7 @@ private:
     };
     std::shared_ptr<PendingBegin> pending_begin;
     u64 record_count = 0;
+    bool deferred_wait_for_idle = false;
     u64 record_count_at_begin = 0;
 
     u32 num_renderpass_images = 0;

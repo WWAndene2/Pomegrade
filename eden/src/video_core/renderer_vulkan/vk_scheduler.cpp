@@ -396,9 +396,12 @@ void Scheduler::EndRenderPass()
         query_cache->CounterEnable(VideoCommon::QueryType::ZPassPixelCount64, false);
         query_cache->NotifySegment(false);
 
+        // Pomegrade: a "wait for idle" deferred to the end of this pass (DeferWaitForIdle) waits here
+        const bool wait_for_idle = deferred_wait_for_idle;
+        deferred_wait_for_idle = false;
         Record([num_images = num_renderpass_images,
                        images = renderpass_images,
-                       ranges = renderpass_image_ranges](vk::CommandBuffer cmdbuf) {
+                       ranges = renderpass_image_ranges, wait_for_idle](vk::CommandBuffer cmdbuf) {
             std::array<VkImageMemoryBarrier, 9> barriers;
             for (size_t i = 0; i < num_images; ++i) {
                 const VkImageSubresourceRange& range = ranges[i];
@@ -438,6 +441,17 @@ void Scheduler::EndRenderPass()
             cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT |
                                    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
                                    0, nullptr, nullptr, vk::Span(barriers.data(), num_images));
+            if (wait_for_idle) {
+                // everything recorded before waits for everything before it, as the guest asked
+                static constexpr VkMemoryBarrier WAIT_FOR_IDLE{
+                    .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                    .pNext = nullptr,
+                    .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+                    .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+                };
+                cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                       VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, WAIT_FOR_IDLE);
+            }
         });
 
         state.renderpass = VkRenderPass{};

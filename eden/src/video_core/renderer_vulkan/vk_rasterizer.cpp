@@ -863,6 +863,18 @@ void RasterizerVulkan::WaitForIdle() {
 
     query_cache.NotifyWFI();
 
+    // Pomegrade: inside a render pass, the wait is made at the pass's end rather than by ending the pass now: on a
+    // tile-based GPU each end stores the attachments and the next pass loads them again, and the guest's waits
+    // ended about 104 of the 140 passes of a frame in Pokemon Sword (docs/Eden_Optimisation_Xiaomi.md, tenth log).
+    // The draws after it in the same pass are not ordered after the ones before: a game whose draw reads what an
+    // earlier draw of the pass wrote through a storage buffer or image may show it stale, hence the setting
+    if (Settings::values.pomegrade_defer_wait_for_idle.GetValue() && scheduler.IsInsideRenderPass()) {
+        scheduler.DeferWaitForIdle();
+        fence_manager.SignalOrdering();
+        PomegradeDiagnostics::deferred_waits.fetch_add(1, std::memory_order_relaxed); // Pomegrade: TEMPORARY
+        return;
+    }
+
     scheduler.RequestOutsideRenderPassOperationContext();
     scheduler.Record([event = *wfi_event, flags](vk::CommandBuffer cmdbuf) {
         cmdbuf.SetEvent(event, flags);
