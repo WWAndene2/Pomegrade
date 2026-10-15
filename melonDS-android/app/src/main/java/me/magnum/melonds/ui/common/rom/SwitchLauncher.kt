@@ -26,14 +26,13 @@ import org.yuzu.yuzu_emu.features.settings.ui.SettingsActivityArgs
 import org.yuzu.yuzu_emu.features.settings.ui.SettingsSubscreen
 import org.yuzu.yuzu_emu.features.settings.ui.SettingsSubscreenActivity
 import org.yuzu.yuzu_emu.features.settings.ui.SettingsSubscreenActivityArgs
-import org.yuzu.yuzu_emu.ui.main.MainActivity
 import org.yuzu.yuzu_emu.utils.FileUtil
 import org.yuzu.yuzu_emu.utils.Log as EdenLog
 
 /**
  * Starts Switch games in the Eden core, as Eden's own "open with" does (the game's URI as the intent's data).
  * The owner's keys and firmware are taken from the Pomegrade folder's BIOS/Switch first ([SwitchSystemFiles]);
- * Eden's home screen ([homeIntent]), reached from the settings, can still install them too.
+ * Eden's data manager, reached from the settings ([toolIntent]), can still install them too.
  */
 object SwitchLauncher : ConsoleLauncher {
 
@@ -94,8 +93,11 @@ object SwitchLauncher : ConsoleLauncher {
     fun settingsIntent(context: Context, section: Settings.MenuTag): Intent =
         Intent(context, SettingsActivity::class.java).putExtras(SettingsActivityArgs(game = null, menuTag = section).toBundle())
 
-    /** Eden's home screen: its setup (keys, firmware), its game list and its settings. */
-    fun homeIntent(context: Context): Intent = Intent(context, MainActivity::class.java)
+    /**
+     * Whether the GPU is an Adreno (Qualcomm's kernel device): Eden's Turnip/Freedreno settings apply to it only.
+     * Read here rather than through Eden's GpuDriverHelper, whose check needs its native library loaded.
+     */
+    fun isAdrenoGpu(): Boolean = java.io.File("/dev/kgsl-3d0").exists()
 
     /** One of the tools of Eden's home screen (profiles, GPU drivers, applets, data), opened directly. */
     fun toolIntent(context: Context, screen: SettingsSubscreen): Intent =

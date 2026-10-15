@@ -24,6 +24,7 @@ import me.magnum.melonds.ui.common.rom.SwitchLauncher
 import me.magnum.melonds.ui.settings.preferences.ConsoleSelectorPreference
 import me.magnum.melonds.ui.settings.PreferenceFragmentTitleProvider
 import me.magnum.melonds.ui.settings.SettingsActivity
+import me.magnum.melonds.ui.settings.SwitchToolDialogActivity
 import org.citra.citra_emu.activities.EmulationActivity
 import org.citra.citra_emu.utils.PermissionsHandler
 import java.io.IOException
@@ -38,6 +39,7 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
         private const val THREE_DS_PREFIX = "three_ds_settings_"
         private const val SWITCH_PREFIX = "switch_settings_"
         private const val SWITCH_TOOL_PREFIX = "switch_tool_"
+        private const val SWITCH_DIALOG_PREFIX = "switch_dialog_"
         private const val GC_WII_PREFIX = "gc_wii_settings_"
     }
 
@@ -127,14 +129,6 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
             selector.onConsoleSelected = { showConsoleSection(it) }
             showConsoleSection(selector.selected)
         }
-        findPreference<Preference>("switch_home")?.setOnPreferenceClickListener {
-            // its folder and the keys and firmware of Pomegrade/BIOS/Switch first, so Eden's home screen shows them
-            viewLifecycleOwner.lifecycleScope.launch {
-                SwitchLauncher.prepare(requireContext())
-                startActivity(SwitchLauncher.homeIntent(requireContext()))
-            }
-            true
-        }
         // the code trace is written next to the 3DS core's folder: its path is kept with the
         // setting, for Azahar's emulation screen
         findPreference<androidx.preference.SwitchPreference>(EmulationActivity.CODE_TRACE)?.setOnPreferenceChangeListener { _, value ->
@@ -189,8 +183,24 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
             for (i in 0 until category.preferenceCount) {
                 val preference = category.getPreference(i)
                 val key = preference.key ?: continue
+                if (key.startsWith(SWITCH_DIALOG_PREFIX)) {
+                    val tool = SwitchToolDialogActivity.Tool.valueOf(key.removePrefix(SWITCH_DIALOG_PREFIX))
+                    preference.setOnPreferenceClickListener {
+                        viewLifecycleOwner.lifecycleScope.launch {
+                            SwitchLauncher.prepare(requireContext())
+                            startActivity(SwitchToolDialogActivity.intent(requireContext(), tool))
+                        }
+                        true
+                    }
+                    continue
+                }
                 if (!key.startsWith(SWITCH_TOOL_PREFIX)) continue
                 val screen = SettingsSubscreen.valueOf(key.removePrefix(SWITCH_TOOL_PREFIX))
+                // the Turnip/Freedreno settings only apply to Adreno GPUs, as on Eden's home screen
+                if (screen == SettingsSubscreen.FREEDRENO_SETTINGS && !SwitchLauncher.isAdrenoGpu()) {
+                    preference.isVisible = false
+                    continue
+                }
                 preference.setOnPreferenceClickListener {
                     viewLifecycleOwner.lifecycleScope.launch {
                         SwitchLauncher.prepare(requireContext())

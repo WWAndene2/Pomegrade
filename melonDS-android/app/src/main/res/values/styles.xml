@@ -220,4 +220,11 @@
         <item name="android:textColor">@color/punicaRed</item>
         <item name="android:minHeight">@dimen/punica_touch</item>
     </style>
+    <!-- SwitchToolDialogActivity: see-through, with Eden's theme, which its dialogs need -->
+    <style name="PunicaSwitchToolDialog" parent="@style/Theme.Yuzu.Main">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
 </resources>
