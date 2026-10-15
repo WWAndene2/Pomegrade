@@ -109,7 +109,7 @@ internal fun playTimeText(duration: Duration): String {
     }
 }
 
-/** A "Recently played" card: 144 wide, image 3:2-ish (56 high), console tag on it, name on as many lines as it needs. */
+/** A "Recently played" card: 144 wide, image 2:1 (128 x 64), console tag on it, name on as many lines as it needs. */
 @Composable
 internal fun RecentGameCard(rom: Rom, selected: Boolean, actions: GameActions) {
     val shape = RoundedCornerShape(12.dp)
@@ -124,11 +124,12 @@ internal fun RecentGameCard(rom: Rom, selected: Boolean, actions: GameActions) {
             .padding(8.dp),
     ) {
         Box {
-            GameCover(rom, actions.loadIcon, Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(8.dp)))
+            GameCover(rom, actions.loadIcon, Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(8.dp)))
             PlatformTag(rom.platform, outlined = false, modifier = Modifier.padding(4.dp))
         }
         Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.Top) {
-            Text(rom.config.customName ?: rom.name, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, color = PunicaTheme.text, modifier = Modifier.weight(1f))
+            // 4 dp down: its first line centred on the 24 dp menu button, as the clock on the line below
+            Text(rom.config.customName ?: rom.name, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, color = PunicaTheme.text, modifier = Modifier.weight(1f).padding(top = 4.dp))
             GameMenuButton(rom, actions)
         }
         Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.Top) {
