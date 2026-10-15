@@ -112,7 +112,8 @@ internal fun playTimeText(duration: Duration): String {
 /** A "Recently played" card: 144 wide, image 2:1 (128 x 64), console tag on it, name on as many lines as it needs. */
 @Composable
 internal fun RecentGameCard(rom: Rom, selected: Boolean, actions: GameActions) {
-    val shape = RoundedCornerShape(12.dp)
+    // its cover's 16 dp corners + the 8 dp padding: the two outlines stay parallel
+    val shape = RoundedCornerShape(24.dp)
     Column(
         Modifier
             .width(144.dp)
@@ -124,7 +125,7 @@ internal fun RecentGameCard(rom: Rom, selected: Boolean, actions: GameActions) {
             .padding(8.dp),
     ) {
         Box {
-            GameCover(rom, actions.loadIcon, Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(8.dp)))
+            GameCover(rom, actions.loadIcon, Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(16.dp)))
             PlatformTag(rom.platform, outlined = false, modifier = Modifier.padding(4.dp))
         }
         Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.Top) {
@@ -143,7 +144,8 @@ internal fun RecentGameCard(rom: Rom, selected: Boolean, actions: GameActions) {
 /** A library card: icon 48, name in full, console tag, star. */
 @Composable
 internal fun LibraryGameCard(rom: Rom, actions: GameActions, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(12.dp)
+    // 0.24 x its 64 dp height (CLAUDE.md 7.3)
+    val shape = RoundedCornerShape(16.dp)
     Box(modifier) {
         Row(
             Modifier
@@ -156,7 +158,7 @@ internal fun LibraryGameCard(rom: Rom, actions: GameActions, modifier: Modifier 
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            GameCover(rom, actions.loadIcon, Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)))
+            GameCover(rom, actions.loadIcon, Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)))
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
                 Text(rom.config.customName ?: rom.name, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, color = PunicaTheme.text)

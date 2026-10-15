@@ -91,10 +91,10 @@ class ConsoleSelectorPreference @JvmOverloads constructor(context: Context, attr
                 // last one takes the whole row
                 Column(
                     Modifier.padding(horizontal = PunicaDimens.MARGIN.dp, vertical = PunicaDimens.GAP_WIDE.dp),
-                    verticalArrangement = Arrangement.spacedBy(PunicaDimens.MARGIN.dp),
+                    verticalArrangement = Arrangement.spacedBy(PunicaDimens.GAP.dp),
                 ) {
                     consoles.chunked(2).forEach { row ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(PunicaDimens.MARGIN.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(PunicaDimens.GAP.dp)) {
                             row.forEach { (key, logo) ->
                                 ConsoleLogoCard(logo, key, selected = key == chosen, Modifier.weight(1f)) { select(key) }
                             }

@@ -26,13 +26,13 @@ import me.magnum.melonds.R
 import me.magnum.melonds.domain.model.rom.RomPlatform
 import me.magnum.melonds.ui.theme.PunicaTheme
 
-/** A console card (88 x 96, the validated home mock-up's size; home quick access and the settings' console picker): the console's drawing and its full name; the chosen one ringed in red. */
+/** A console card (96 x 96: the mock-up's 88 wide put on the scale, square; home quick access and the settings' console picker): the console's drawing and its full name; the chosen one ringed in red. */
 @Composable
 fun ConsoleCard(platform: RomPlatform, selected: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     Column(
         Modifier
-            .size(88.dp, 96.dp)
+            .size(96.dp)
             .then(if (selected) Modifier.shadow(12.dp, shape, ambientColor = PunicaTheme.red, spotColor = PunicaTheme.red) else Modifier)
             .clip(shape)
             .background(PunicaTheme.card)

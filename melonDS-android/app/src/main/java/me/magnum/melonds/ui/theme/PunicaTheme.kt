@@ -46,4 +46,6 @@ object PunicaDimens {
     const val ROW_MIN = 64
     const val ICON = 24
     const val ROW_ICON = 32
+    // a 96 dp game cover's corners: 0.24 x 96 = 23, on the scale 24 (CLAUDE.md 7.3)
+    const val COVER_RADIUS_96 = 24
 }
