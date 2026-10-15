@@ -79,7 +79,7 @@ private fun FeaturedCard(rom: Rom, actions: GameActions) {
             .border(1.dp, PunicaTheme.line, shape),
     ) {
         Box(Modifier.width(176.dp).fillMaxHeight().clip(SlantedPanel).background(Brush.linearGradient(listOf(PunicaTheme.heroRed, PunicaTheme.heroRedDark)))) {
-            GameCover(rom, actions.loadIcon, Modifier.padding(start = 16.dp, top = 16.dp).size(128.dp).clip(RoundedCornerShape(12.dp)))
+            GameCover(rom, actions.loadIcon, Modifier.padding(start = 16.dp, top = 16.dp).size(128.dp).clip(RoundedCornerShape(30.dp)))
         }
         Column(Modifier.weight(1f).fillMaxHeight().padding(start = 4.dp, top = 16.dp, end = 16.dp, bottom = 16.dp)) {
             Text(platformLongName(rom.platform).uppercase(), fontFamily = PunicaTheme.display, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 12.sp, lineHeight = 16.sp, color = PunicaTheme.text)

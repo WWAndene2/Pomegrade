@@ -83,7 +83,7 @@ fun RomHeaderUi(
                 .padding(horizontal = PunicaDimens.MARGIN.dp, vertical = PunicaDimens.GAP.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            RomIcon(rom, Modifier.size(96.dp).clip(RoundedCornerShape(PunicaDimens.TILE_RADIUS.dp)))
+            RomIcon(rom, Modifier.size(96.dp).clip(RoundedCornerShape(PunicaDimens.COVER_RADIUS_96.dp)))
             Spacer(Modifier.width(PunicaDimens.GAP_WIDE.dp))
             Column(Modifier.weight(1f)) {
                 Text(

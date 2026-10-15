@@ -31,7 +31,7 @@ import me.magnum.melonds.ui.theme.PunicaTheme
 
 /**
  * A choice pill (sorts, tabs, render modes): 32 dp high, outlined; the chosen one red-ringed with a faint red
- * fill and wider padding, as on the home screen.
+ * fill; the same 12 dp padding either way, so choosing one does not move its neighbours (UI audit, 15 October).
  */
 @Composable
 fun PunicaPill(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -43,7 +43,7 @@ fun PunicaPill(text: String, selected: Boolean, onClick: () -> Unit, modifier: M
             .background(if (selected) PunicaTheme.red.copy(alpha = 0.14f) else PunicaTheme.card)
             .border(if (selected) BorderStroke(2.dp, PunicaTheme.red) else BorderStroke(1.dp, PunicaTheme.line), shape)
             .clickable(onClick = onClick)
-            .padding(horizontal = if (selected) 16.dp else 12.dp),
+            .padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(text, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, color = PunicaTheme.text)

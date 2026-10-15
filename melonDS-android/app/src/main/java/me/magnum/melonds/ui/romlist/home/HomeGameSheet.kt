@@ -112,7 +112,7 @@ private fun SheetContent(rom: Rom, actions: GameActions, onDismiss: () -> Unit) 
 
         // the game
         Row(Modifier.padding(horizontal = PunicaDimens.MARGIN.dp, vertical = PunicaDimens.GAP.dp), verticalAlignment = Alignment.CenterVertically) {
-            GameCover(rom, actions.loadIcon, Modifier.size(96.dp).clip(RoundedCornerShape(PunicaDimens.TILE_RADIUS.dp)))
+            GameCover(rom, actions.loadIcon, Modifier.size(96.dp).clip(RoundedCornerShape(PunicaDimens.COVER_RADIUS_96.dp)))
             Spacer(Modifier.width(PunicaDimens.GAP_WIDE.dp))
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(platformLongName(rom.platform).uppercase(), fontFamily = PunicaTheme.display, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 12.sp, lineHeight = 16.sp, color = PunicaTheme.textMuted)
