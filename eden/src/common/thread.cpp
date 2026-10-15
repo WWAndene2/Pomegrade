@@ -31,6 +31,7 @@
 #endif
 #include <pthread.h>
 #include <sched.h>
+#include <sys/resource.h>
 #endif
 #ifndef _WIN32
 #include <unistd.h>
@@ -68,6 +69,22 @@ void SetCurrentThreadPriority(ThreadPriority new_priority) {
         }
     }();
     set_thread_priority(find_thread(NULL), priority);
+#elif defined(__ANDROID__)
+    // Pomegrade: the priority of SCHED_OTHER (below) has the range 0 to 0 on Linux, so no level changed anything.
+    // What the kernel weighs for a normal thread is its nice value, which an app may set on its own threads: the
+    // levels take Android's own steps (THREAD_PRIORITY_BACKGROUND, DISPLAY, URGENT_DISPLAY; -10 for the guest
+    // cores and the GPU thread, as games give their render thread). A refusal leaves the thread as it was
+    const int nice = [&]() {
+        switch (new_priority) {
+        case ThreadPriority::Low: return 10;
+        case ThreadPriority::Normal: return 0;
+        case ThreadPriority::High: return -4;
+        case ThreadPriority::VeryHigh: return -8;
+        case ThreadPriority::Critical: return -10;
+        default: return 0;
+        }
+    }();
+    setpriority(PRIO_PROCESS, gettid(), nice);
 #else
     pthread_t this_thread = pthread_self();
     const auto scheduling_type = SCHED_OTHER;
