@@ -340,8 +340,9 @@ later in a pass. (3) The owner had Eden's GPU logging on with every Vulkan call 
 Next: that logging off for every measurement; then the CLEAR load for the passes that begin with a full clear (16 of
 the 140 per frame), then why a frame splits into so many passes.
 
-Ninth log (owner, 15 October, PR #108, 1x, compressed render targets on in both sessions; Eden's Vulkan call logging
-still on, a 567 MB GPU log), measured:
+Ninth log (owner, 15 October, PR #108, 1x, compressed render targets on in both sessions; Eden's GPU logging off in
+both: the 567 MB GPU log sent with it is the eighth log's, from its third session, the app not having rewritten it),
+measured:
 
 | Session | Samples | FPS mean (median) | FPS where the GPU thread waits | Render passes per frame | Screens per frame | Clears made a pass's load, per frame |
 |---|---|---|---|---|---|---|
@@ -350,9 +351,11 @@ still on, a 567 MB GPU log), measured:
 
 Read from it: clear on load works (23 attachment clears a frame become their pass's load, color and depth counted
 apart, against 16 full clears first in their pass); no error, the owner to say whether anything looks wrong. Its gain
-is small, about 4 % where the GPU limits (23.3 to 24.3), as was compression's (21.7 to 22.4, eighth log): together about
-12 % on the GPU-bound frames against the eighth log's first session, still short of 30. The loads they remove are not
-the bulk of the Mali's work; the 135-140 passes a frame are the next thing to understand. The disk cache works, so H4
+is small, about 4 % where the GPU limits (23.3 to 24.3), as was compression's (21.7 to 22.4, eighth log). The two logs
+are not compared with each other: the eighth ran with Eden's GPU logging on, the ninth without. No visible defect with
+either option (owner); clear on load is made the default, since it changes no pixel; compression stays an opt-in, a
+game that writes a render target from a shader losing that write. The loads they remove are not the bulk of the
+Mali's work; the 135-140 passes a frame are the next thing to understand. The disk cache works, so H4
 explains first-run stutters, not this floor.
 
 ---

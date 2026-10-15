@@ -399,7 +399,7 @@ struct Values {
     // (video_core/renderer_vulkan/vk_texture_cache.cpp, ImageUsageFlags)
     // Pomegrade: a render pass that begins with a full clear loads its attachments by a clear (LOAD_OP_CLEAR) rather
     // than from memory (video_core/renderer_vulkan/vk_rasterizer.cpp, Clear)
-    SwitchableSetting<bool> pomegrade_clear_on_load{linkage, false, "pomegrade_clear_on_load",
+    SwitchableSetting<bool> pomegrade_clear_on_load{linkage, true, "pomegrade_clear_on_load",
                                                     Category::Renderer, Specialization::Default,
                                                     true, true};
     SwitchableSetting<bool> pomegrade_compressed_render_targets{
