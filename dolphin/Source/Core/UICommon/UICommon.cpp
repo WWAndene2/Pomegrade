@@ -99,8 +99,41 @@ static void CreateWFSPath(const std::string& path)
     File::SetUserPath(D_WFSROOT_IDX, path + '/');
 }
 
+// Pomegrade: in the Punica folder's layout (melonDS-android's PunicaLayout), Dolphin's user folder is
+// Punica/GC-Wii/Core and the console's other folders are its siblings: the Wii NAND in System/Wii, the GameCube
+// memory cards in Saves/GameCube, the states in States, Load (texture packs, mods) in Mods. Told by the user folder
+// being named Core beside a System folder; a path the user set in Dolphin's settings is kept.
+static void UsePunicaLayout()
+{
+#ifdef ANDROID
+  const std::string user = File::GetUserPath(D_USER_IDX);  // ends with '/'
+  constexpr std::string_view core = "/Core/";
+  if (!user.ends_with(core))
+    return;
+  const std::string console = user.substr(0, user.size() - core.size() + 1);
+  if (!File::IsDirectory(console + "System"))
+    return;
+  if (Config::Get(Config::MAIN_FS_PATH).empty())
+    Config::SetBase(Config::MAIN_FS_PATH, console + "System/Wii");
+  if (Config::Get(Config::MAIN_LOAD_PATH).empty())
+    Config::SetBase(Config::MAIN_LOAD_PATH, console + "Mods");
+  const std::string memory_cards = console + "Saves/" "GameCube/";
+  if (Config::Get(Config::MAIN_MEMCARD_A_PATH).empty())
+    Config::SetBase(Config::MAIN_MEMCARD_A_PATH, memory_cards + GC_MEMCARDA "." USA_DIR ".raw");
+  if (Config::Get(Config::MAIN_MEMCARD_B_PATH).empty())
+    Config::SetBase(Config::MAIN_MEMCARD_B_PATH, memory_cards + GC_MEMCARDB "." USA_DIR ".raw");
+  if (Config::Get(Config::MAIN_GCI_FOLDER_A_PATH).empty())
+    Config::SetBase(Config::MAIN_GCI_FOLDER_A_PATH, memory_cards + "Card A/" USA_DIR);
+  if (Config::Get(Config::MAIN_GCI_FOLDER_B_PATH).empty())
+    Config::SetBase(Config::MAIN_GCI_FOLDER_B_PATH, memory_cards + "Card B/" USA_DIR);
+  File::SetUserPath(D_STATESAVES_IDX, console + "States");
+  File::CreateFullPath(memory_cards);
+#endif
+}
+
 static void InitCustomPaths()
 {
+  UsePunicaLayout();
   File::SetUserPath(D_WIIROOT_IDX, Config::Get(Config::MAIN_FS_PATH));
   CreateLoadPath(Config::Get(Config::MAIN_LOAD_PATH));
   CreateDumpPath(Config::Get(Config::MAIN_DUMP_PATH));
