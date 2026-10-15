@@ -33,6 +33,7 @@ import java.io.FileReader
 import java.io.OutputStreamWriter
 import java.lang.reflect.Type
 import java.util.Date
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration
 
@@ -53,7 +54,11 @@ class FileSystemRomsRepository(
     private val romListType: Type = object : TypeToken<List<RomDto>>(){}.type
     private val romsChannel = SubjectSharedFlow<List<Rom>>()
     private val scanningStatusSubject = MutableStateFlow(RomScanningStatus.NOT_SCANNING)
-    private val roms: ArrayList<Rom> = ArrayList()
+    // Pomegrade: read and changed from several threads (the first load, a rescan when the ROM folders change, the
+    // game's play time...) and handed as is to the list's observers: a list that can be read while it changes, with
+    // its read-then-write changes made one at a time (synchronized on it). An ArrayList crashed the app with a
+    // ConcurrentModificationException when two scans overlapped
+    private val roms = CopyOnWriteArrayList<Rom>()
     private var areRomsLoaded = AtomicBoolean(false)
 
     init {
@@ -86,7 +91,7 @@ class FileSystemRomsRepository(
                 found.add(it.uri)
                 addRom(it)
             }
-            if (roms.removeAll { it.uri !in found }) {
+            if (roms.removeIf { it.uri !in found }) {
                 onRomsChanged()
             }
             scanningStatusSubject.emit(RomScanningStatus.NOT_SCANNING)
@@ -156,44 +161,52 @@ class FileSystemRomsRepository(
     }
 
     override fun updateRomConfig(rom: Rom, romConfig: RomConfig) {
-        val romIndex = roms.indexOfFirst { it.hasSameFileAsRom(rom) }
-        if (romIndex < 0)
-            return
+        synchronized(roms) {
+            val romIndex = roms.indexOfFirst { it.hasSameFileAsRom(rom) }
+            if (romIndex < 0)
+                return
 
-        roms[romIndex].config = romConfig
-        onRomsChanged()
+            roms[romIndex].config = romConfig
+            onRomsChanged()
+        }
     }
 
     override fun setRomLastPlayed(rom: Rom, lastPlayed: Date) {
-        val romIndex = roms.indexOfFirst { it.hasSameFileAsRom(rom) }
-        if (romIndex < 0)
-            return
+        synchronized(roms) {
+            val romIndex = roms.indexOfFirst { it.hasSameFileAsRom(rom) }
+            if (romIndex < 0)
+                return
 
-        rom.lastPlayed = lastPlayed
-        roms[romIndex] = rom
-        onRomsChanged()
+            rom.lastPlayed = lastPlayed
+            roms[romIndex] = rom
+            onRomsChanged()
+        }
     }
 
     override fun addRomPlayTime(rom: Rom, playTime: Duration) {
-        val romIndex = roms.indexOfFirst { it.hasSameFileAsRom(rom) }
-        if (romIndex < 0)
-            return
+        synchronized(roms) {
+            val romIndex = roms.indexOfFirst { it.hasSameFileAsRom(rom) }
+            if (romIndex < 0)
+                return
 
-        val romInList = roms[romIndex]
-        val updatedRom = romInList.copy(totalPlayTime = romInList.totalPlayTime + playTime)
-        roms[romIndex] = updatedRom
-        onRomsChanged()
+            val romInList = roms[romIndex]
+            val updatedRom = romInList.copy(totalPlayTime = romInList.totalPlayTime + playTime)
+            roms[romIndex] = updatedRom
+            onRomsChanged()
+        }
     }
 
     override fun relocateRom(rom: Rom, uri: Uri, parentTreeUri: Uri) {
-        val romIndex = roms.indexOfFirst { it.hasSameFileAsRom(rom) }
-        if (romIndex < 0)
-            return
+        synchronized(roms) {
+            val romIndex = roms.indexOfFirst { it.hasSameFileAsRom(rom) }
+            if (romIndex < 0)
+                return
 
-        roms[romIndex] = roms[romIndex].copy(uri = uri, parentTreeUri = parentTreeUri)
-        // written at once: the file has already moved, its entry must not wait (lost if the app stops)
-        saveRomData(roms.toList())
-        onRomsChanged()
+            roms[romIndex] = roms[romIndex].copy(uri = uri, parentTreeUri = parentTreeUri)
+            // written at once: the file has already moved, its entry must not wait (lost if the app stops)
+            saveRomData(roms.toList())
+            onRomsChanged()
+        }
     }
 
     override fun reloadRoms() {
@@ -230,30 +243,32 @@ class FileSystemRomsRepository(
     }
 
     private fun addRom(rom: Rom) {
-        val existingRom = roms.find { it.hasSameFileAsRom(rom) }
-        if (existingRom == rom) {
-            return
-        }
+        synchronized(roms) {
+            val existingRom = roms.find { it.hasSameFileAsRom(rom) }
+            if (existingRom == rom) {
+                return
+            }
 
-        if (existingRom != null) {
-            // ROM has different metadata. Update it
-            val updatedRom = existingRom.copy(
-                name = rom.name,
-                developerName = rom.developerName,
-                isDsiWareTitle = rom.isDsiWareTitle,
-                retroAchievementsHash = rom.retroAchievementsHash,
-            )
-            roms.remove(existingRom)
-            roms.add(updatedRom)
-        } else {
-            roms.add(rom)
-        }
+            if (existingRom != null) {
+                // ROM has different metadata. Update it
+                val updatedRom = existingRom.copy(
+                    name = rom.name,
+                    developerName = rom.developerName,
+                    isDsiWareTitle = rom.isDsiWareTitle,
+                    retroAchievementsHash = rom.retroAchievementsHash,
+                )
+                roms.remove(existingRom)
+                roms.add(updatedRom)
+            } else {
+                roms.add(rom)
+            }
 
-        onRomsChanged()
+            onRomsChanged()
+        }
     }
 
     private fun removeRom(rom: Rom, notifyChanged: Boolean = true) {
-        if (roms.removeAll { it.hasSameFileAsRom(rom) } && notifyChanged) {
+        if (roms.removeIf { it.hasSameFileAsRom(rom) } && notifyChanged) {
             onRomsChanged()
         }
     }
