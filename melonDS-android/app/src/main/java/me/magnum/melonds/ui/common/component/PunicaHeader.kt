@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -67,11 +66,11 @@ fun Modifier.punicaBackground(): Modifier = this
 fun PunicaLogo(subtitle: String, modifier: Modifier = Modifier) {
     // A see-through mask behind the title only (owner's choice, 14 October): the header itself is transparent and
     // the lists scroll under it; the background colour at 30 %, 8 dp beyond the title on the sides and 4 dp above
-    // and below (the block is then the header's 64 dp), shifted 8 dp left so the pill stays where it was
+    // and below (the block is then the header's 64 dp). The mask's edge, not the pill's, is on the page's 16 dp
+    // margin (owner's request, 15 October), lined up with the cards under it; the pill sits 8 dp inside it
     Box(modifier) {
         Column(
             Modifier
-                .offset(x = (-8).dp)
                 .background(PunicaTheme.background.copy(alpha = 0.3f), RoundedCornerShape(PunicaDimens.CARD_RADIUS.dp))
                 .padding(horizontal = 8.dp, vertical = 4.dp),
         ) {
