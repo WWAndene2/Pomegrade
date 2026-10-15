@@ -280,6 +280,7 @@ class SettingsFragmentPresenter(
 
             add(IntSetting.RENDERER_ACCURACY.key)
             add(IntSetting.DMA_ACCURACY.key)
+            add(BooleanSetting.POMEGRADE_COMPRESSED_RENDER_TARGETS.key)
             add(IntSetting.RENDERER_VRAM_USAGE_MODE.key)
             add(IntSetting.RENDERER_ASTC_DECODE_METHOD.key)
 

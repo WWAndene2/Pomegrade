@@ -678,6 +678,13 @@ abstract class SettingsItem(
             )
             put(
                 SwitchSetting(
+                    BooleanSetting.POMEGRADE_COMPRESSED_RENDER_TARGETS,
+                    titleId = R.string.pomegrade_compressed_render_targets,
+                    descriptionId = R.string.pomegrade_compressed_render_targets_description
+                )
+            )
+            put(
+                SwitchSetting(
                     BooleanSetting.RENDERER_ASYNCHRONOUS_SHADERS,
                     titleId = R.string.renderer_asynchronous_shaders,
                     descriptionId = R.string.renderer_asynchronous_shaders_description

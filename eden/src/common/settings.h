@@ -395,6 +395,11 @@ struct Values {
     SwitchableSetting<bool> pomegrade_deep_black{linkage, false, "pomegrade_deep_black",
                                                  Category::Renderer, Specialization::Default,
                                                  true, true};
+    // Pomegrade: renderable images without STORAGE usage, so a Mali GPU may compress them (AFBC)
+    // (video_core/renderer_vulkan/vk_texture_cache.cpp, ImageUsageFlags)
+    SwitchableSetting<bool> pomegrade_compressed_render_targets{
+        linkage, false, "pomegrade_compressed_render_targets", Category::Renderer,
+        Specialization::Default, true, true};
 
     SwitchableSetting<bool> use_asynchronous_gpu_emulation{linkage,
 #ifdef __ANDROID__

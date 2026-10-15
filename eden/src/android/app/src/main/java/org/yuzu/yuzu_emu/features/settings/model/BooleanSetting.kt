@@ -30,6 +30,7 @@ enum class BooleanSetting(override val key: String) : AbstractBooleanSetting {
     RENDERER_REACTIVE_FLUSHING("use_reactive_flushing"),
     POMEGRADE_RICH_COLOURS("pomegrade_rich_colours"),
     POMEGRADE_DEEP_BLACK("pomegrade_deep_black"),
+    POMEGRADE_COMPRESSED_RENDER_TARGETS("pomegrade_compressed_render_targets"),
     ENABLE_BUFFER_HISTORY("enable_buffer_history"),
     USE_OPTIMIZED_VERTEX_BUFFERS("use_optimized_vertex_buffers"),
     SYNC_MEMORY_OPERATIONS("sync_memory_operations"),
