@@ -2,7 +2,13 @@
 
 package org.dolphinemu.dolphinemu.activities
 
+import io.github.wwandene2.pomegrade.emulatorui.SaveStateSlotUi
+import io.github.wwandene2.pomegrade.emulatorui.SaveStatesDialog
 import io.github.wwandene2.pomegrade.emulatorui.ShortcutPill
+import io.github.wwandene2.pomegrade.emulatorui.SurfaceCapture
+import android.graphics.Bitmap
+import java.io.File
+import java.util.Date
 import android.content.DialogInterface
 import android.content.Intent
 import android.graphics.Rect
@@ -500,8 +506,9 @@ class EmulationActivity : AppCompatActivity(), ThemeProvider {
             MENU_ACTION_TAKE_SCREENSHOT -> NativeLibrary.SaveScreenShot()
             MENU_ACTION_QUICK_SAVE -> NativeLibrary.SaveState(9)
             MENU_ACTION_QUICK_LOAD -> NativeLibrary.LoadState(9)
-            MENU_ACTION_SAVE_ROOT -> showSubMenu(SaveOrLoad.SAVE)
-            MENU_ACTION_LOAD_ROOT -> showSubMenu(SaveOrLoad.LOAD)
+            // Pomegrade: every console's save state dialog (:emulator-ui), with a screenshot per state
+            MENU_ACTION_SAVE_ROOT -> showSaveStatesDialog(saving = true)
+            MENU_ACTION_LOAD_ROOT -> showSaveStatesDialog(saving = false)
             MENU_ACTION_SAVE_SLOT1 -> NativeLibrary.SaveState(0)
             MENU_ACTION_SAVE_SLOT2 -> NativeLibrary.SaveState(1)
             MENU_ACTION_SAVE_SLOT3 -> NativeLibrary.SaveState(2)
@@ -991,6 +998,63 @@ class EmulationActivity : AppCompatActivity(), ThemeProvider {
         return super.dispatchGenericMotionEvent(event)
     }
 
+    /**
+     * Pomegrade: the shared save state dialog (as on DS, GBA and 3DS) in place of Dolphin's slot list: slots 1 to 6
+     * (0 to 5) and the quick slot (9, MENU_ACTION_QUICK_SAVE's). Dolphin keeps no image of its states and cannot
+     * delete one: the screen is copied when a state is saved, and the dialog shows no delete button.
+     */
+    private fun showSaveStatesDialog(saving: Boolean) {
+        // shown as slots 1 to 6, as on the other consoles and in Dolphin's own list; Dolphin's are 0 to 5
+        fun shown(slot: Int) = if (slot == QUICK_SAVE_SLOT) slot else slot + 1
+        fun dolphin(shownSlot: Int) = if (shownSlot == QUICK_SAVE_SLOT) shownSlot else shownSlot - 1
+        val slots = (listOf(QUICK_SAVE_SLOT) + (0 until SAVE_STATE_SLOT_COUNT)).map { slot ->
+            val time = NativeLibrary.GetUnixTimeOfStateSlot(slot)
+            val preview = statePreview(slot)
+            SaveStateSlotUi(
+                slot = shown(slot),
+                isQuickSlot = slot == QUICK_SAVE_SLOT,
+                savedAt = if (time != 0L) Date(time) else null,
+                screenshot = preview?.takeIf { time != 0L && it.isFile }?.let { Uri.fromFile(it) }
+            )
+        }
+        SaveStatesDialog.show(
+            context = this,
+            saving = saving,
+            slots = slots,
+            onSlotPicked = { picked ->
+                val slot = dolphin(picked.slot)
+                if (saving) {
+                    saveStatePreview(slot)
+                    NativeLibrary.SaveState(slot)
+                } else {
+                    NativeLibrary.LoadState(slot)
+                }
+            },
+            onSlotDeleted = null,
+            onCancel = {},
+            onDismiss = {}
+        )
+    }
+
+    // Pomegrade: <game ID>.<slot>.png in the app's files, as the 3DS core's previews
+    private fun statePreview(slot: Int): File? {
+        val gameId = NativeLibrary.GetCurrentGameID().takeIf { it.isNotEmpty() } ?: return null
+        return File(File(filesDir, "gc_wii_state_previews"), "%s.%02d.png".format(gameId, slot))
+    }
+
+    private fun saveStatePreview(slot: Int) {
+        val file = statePreview(slot) ?: return
+        val surface = emulationFragment?.surfaceView() ?: return
+        file.delete()
+        SurfaceCapture.capture(surface) { shot ->
+            shot ?: return@capture
+            Thread {
+                file.parentFile?.mkdirs()
+                runCatching { file.outputStream().use { shot.compress(Bitmap.CompressFormat.PNG, 100, it) } }
+            }.start()
+        }
+    }
+
     private fun showSubMenu(saveOrLoad: SaveOrLoad) {
         // Get rid of any visible submenu
         supportFragmentManager.popBackStack(
@@ -1067,6 +1131,10 @@ class EmulationActivity : AppCompatActivity(), ThemeProvider {
         const val MENU_ACTION_LOAD_SLOT4 = 19
         const val MENU_ACTION_LOAD_SLOT5 = 20
         const val MENU_ACTION_LOAD_SLOT6 = 21
+
+        // Pomegrade: the save state dialog's slots (Dolphin's slot list had 6, and quick save uses 9)
+        private const val QUICK_SAVE_SLOT = 9
+        private const val SAVE_STATE_SLOT_COUNT = 6
         const val MENU_ACTION_EXIT = 22
         const val MENU_ACTION_CHANGE_DISC = 23
         const val MENU_ACTION_JOYSTICK_REL_CENTER = 24

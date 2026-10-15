@@ -7,6 +7,7 @@ import android.graphics.Rect
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.SurfaceHolder
+import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
@@ -62,6 +63,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
         _binding = DolphinFragmentEmulationBinding.inflate(inflater, container, false)
         return binding.root
     }
+
+    /** Pomegrade: the game's surface, for the save state previews; null without a view. */
+    fun surfaceView(): SurfaceView? = _binding?.surfaceEmulation
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         // The new Surface created here will get passed to the native code via onSurfaceChanged.
