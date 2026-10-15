@@ -336,6 +336,9 @@ struct System::Impl {
         SystemResultStatus init_result{SetupForApplicationProcess(system, emu_window)};
         if (init_result != SystemResultStatus::Success) {
             LOG_CRITICAL(Core, "Failed to initialize system (Error {})!", int(init_result));
+            // Pomegrade: the process unregisters itself from the kernel when destroyed, so it goes before the
+            // kernel is shut down (destroyed after, it locked a destroyed mutex and aborted the app)
+            process.reset();
             ShutdownMainProcess();
             return init_result;
         }
