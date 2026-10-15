@@ -645,14 +645,30 @@ void TextureCache<P>::DownloadMemory(DAddr cpu_addr, size_t size) {
     std::ranges::sort(images, [this](ImageId lhs, ImageId rhs) {
         return slot_images[lhs].modification_tick < slot_images[rhs].modification_tick;
     });
+    // Pomegrade: record every image's copy into one staging buffer, then wait for the GPU once,
+    // as PopAsyncFlushes does, instead of a full CPU-GPU sync per image. Swizzles still run in
+    // modification order, so the guest memory ends the same.
+    size_t total_size_bytes = 0;
+    for (const ImageId image_id : images) {
+        total_size_bytes += slot_images[image_id].unswizzled_size_bytes;
+    }
+    auto map = runtime.DownloadStagingBuffer(total_size_bytes);
+    const size_t original_offset = map.offset;
     for (const ImageId image_id : images) {
         Image& image = slot_images[image_id];
-        auto map = runtime.DownloadStagingBuffer(image.unswizzled_size_bytes);
         const auto copies = FixSmallVectorADL(FullDownloadCopies(image.info));
         image.DownloadMemory(map, copies);
-        runtime.Finish();
-        SwizzleImage(*gpu_memory, image.gpu_addr, image.info, copies, map.mapped_span,
+        map.offset += image.unswizzled_size_bytes;
+    }
+    runtime.Finish();
+    map.offset = original_offset;
+    std::span<u8> download_span = map.mapped_span;
+    for (const ImageId image_id : images) {
+        const ImageBase& image = slot_images[image_id];
+        const auto copies = FixSmallVectorADL(FullDownloadCopies(image.info));
+        SwizzleImage(*gpu_memory, image.gpu_addr, image.info, copies, download_span,
                      swizzle_data_buffer);
+        download_span = download_span.subspan(image.unswizzled_size_bytes);
     }
 }
 
