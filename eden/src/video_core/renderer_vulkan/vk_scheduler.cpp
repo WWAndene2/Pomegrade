@@ -119,6 +119,11 @@ void Scheduler::RequestRenderpass(const Framebuffer* framebuffer) {
     state.renderpass = renderpass;
     state.framebuffer = framebuffer_handle;
     state.render_area = render_area;
+    // Pomegrade: TEMPORARY, render passes counted (common/pomegrade_diagnostics.h)
+    PomegradeDiagnostics::render_passes.fetch_add(1, std::memory_order_relaxed);
+    PomegradeDiagnostics::render_pass_pixels.fetch_add(u64(render_area.width) * render_area.height,
+                                                       std::memory_order_relaxed);
+    PomegradeDiagnostics::pass_untouched.store(true, std::memory_order_relaxed);
 
     // Log render pass begin
     if (Settings::values.gpu_logging_enabled.GetValue() &&
