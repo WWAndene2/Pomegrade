@@ -411,6 +411,10 @@ struct Values {
     // they draw wrong pictures; only the frame rate they give counts. Every buffer upload made at the start of the
     // command buffer (what buffer renaming could give at best), and the guest's fragment barriers ignored inside a
     // render pass
+    // Pomegrade: TEMPORARY, the sampler switches the study's options every 45 s through five phases and logs them
+    // (android/app/src/main/jni/native.cpp, PomegradeSampler::Cycle): one session answers every comparison
+    SwitchableSetting<bool> pomegrade_test_cycle{linkage, false, "pomegrade_test_cycle", Category::Renderer,
+                                                 Specialization::Default, true, true};
     SwitchableSetting<bool> pomegrade_test_reorder_all_uploads{
         linkage, false, "pomegrade_test_reorder_all_uploads", Category::Renderer,
         Specialization::Default, true, true};

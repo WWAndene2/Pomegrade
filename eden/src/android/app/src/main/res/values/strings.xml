@@ -1802,4 +1802,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="pomegrade_test_reorder_all_uploads">Test: all uploads at frame start</string>
     <string name="pomegrade_test_skip_fragment_barriers">Test: ignore fragment barriers</string>
     <string name="pomegrade_test_description">Measurement only, draws wrong pictures: shows how much faster the game could run. Turn it off to play</string>
+    <string name="pomegrade_test_cycle">Test cycle (4 min)</string>
+    <string name="pomegrade_test_cycle_description">Measurement only: during a game, changes the test options by itself every 45 seconds for about 4 minutes and writes each step to the log; some steps draw wrong pictures. Play in the field until the log says it is done, then turn it off</string>
 </resources>

@@ -699,6 +699,13 @@ abstract class SettingsItem(
             )
             put(
                 SwitchSetting(
+                    BooleanSetting.POMEGRADE_TEST_CYCLE,
+                    titleId = R.string.pomegrade_test_cycle,
+                    descriptionId = R.string.pomegrade_test_cycle_description
+                )
+            )
+            put(
+                SwitchSetting(
                     BooleanSetting.POMEGRADE_TEST_REORDER_ALL_UPLOADS,
                     titleId = R.string.pomegrade_test_reorder_all_uploads,
                     descriptionId = R.string.pomegrade_test_description

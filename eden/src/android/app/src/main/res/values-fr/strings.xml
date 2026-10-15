@@ -1176,4 +1176,6 @@
     <string name="pomegrade_test_reorder_all_uploads">Test : envois en début d\'image</string>
     <string name="pomegrade_test_skip_fragment_barriers">Test : ignorer les barrières de fragment</string>
     <string name="pomegrade_test_description">Pour mesurer seulement, dessine des images fausses : montre de combien le jeu pourrait aller plus vite. À désactiver pour jouer</string>
+    <string name="pomegrade_test_cycle">Cycle de test (4 min)</string>
+    <string name="pomegrade_test_cycle_description">Pour mesurer seulement : pendant une partie, change tout seul les options de test toutes les 45 secondes pendant environ 4 minutes et note chaque étape dans le log ; certaines étapes dessinent des images fausses. Jouez en exploration jusqu\'à la fin, puis désactivez-le</string>
 </resources>
