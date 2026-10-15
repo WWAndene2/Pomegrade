@@ -20,6 +20,12 @@ struct RenderPassKey {
     std::array<VideoCore::Surface::PixelFormat, 8> color_formats;
     VideoCore::Surface::PixelFormat depth_format;
     VkSampleCountFlagBits samples;
+    // Pomegrade: attachments loaded with LOAD_OP_CLEAR instead of LOAD_OP_LOAD (the pass begins with a full clear
+    // of them): bit N the color attachment of render target N, ClearDepthBit the depth, ClearStencilBit the stencil.
+    // Render passes differing only in it are compatible: they share a framebuffer
+    u16 clear_mask{};
+    static constexpr u16 ClearDepthBit = 1 << 8;
+    static constexpr u16 ClearStencilBit = 1 << 9;
 };
 
 } // namespace Vulkan
@@ -29,6 +35,7 @@ template <>
 struct hash<Vulkan::RenderPassKey> {
     [[nodiscard]] size_t operator()(const Vulkan::RenderPassKey& key) const noexcept {
         size_t value = static_cast<size_t>(key.depth_format) << 48;
+        value ^= static_cast<size_t>(key.clear_mask) << 36;
         value ^= static_cast<size_t>(key.samples) << 52;
         for (size_t i = 0; i < key.color_formats.size(); ++i) {
             value ^= static_cast<size_t>(key.color_formats[i]) << (i * 6);

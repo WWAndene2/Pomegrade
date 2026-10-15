@@ -1795,4 +1795,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="pomegrade_deep_black_description">Near-black shades become true black (pixels off on OLED screens)</string>
     <string name="pomegrade_compressed_render_targets">Compressed render targets (Mali)</string>
     <string name="pomegrade_compressed_render_targets_description">Lets Mali GPUs compress the images the game draws, for less memory traffic every frame. Experimental: an effect a game draws into one of them through a shader may go missing. Takes effect at the next game start</string>
+    <string name="pomegrade_clear_on_load">Clear on load (Mali)</string>
+    <string name="pomegrade_clear_on_load_description">A render pass that starts by clearing the whole screen clears it as it begins, instead of first reading the old image from memory: less memory traffic every frame on phone GPUs. Experimental</string>
 </resources>

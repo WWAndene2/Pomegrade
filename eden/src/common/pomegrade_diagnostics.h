@@ -43,6 +43,8 @@ inline std::atomic<bool> pass_untouched{false};
 // clears covering the whole render area: as the pass's first command (its load could be a CLEAR, not a LOAD) or later
 inline std::atomic<std::uint64_t> full_clears_first{0};
 inline std::atomic<std::uint64_t> full_clears_later{0};
+// full clears turned into their pass's load (LOAD_OP_CLEAR, setting pomegrade_clear_on_load), per attachment
+inline std::atomic<std::uint64_t> clears_on_load{0};
 // images made: renderable ones, renderable ones also given STORAGE usage (no AFBC compression on Mali), and storage
 // views made on renderable images (the game really using one as storage)
 inline std::atomic<std::uint64_t> attachment_images{0};

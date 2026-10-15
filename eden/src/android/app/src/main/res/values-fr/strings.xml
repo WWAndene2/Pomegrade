@@ -1169,4 +1169,6 @@
     <string name="pomegrade_deep_black_description">Les teintes presque noires deviennent noir pur (pixels éteints sur écran OLED)</string>
     <string name="pomegrade_compressed_render_targets">Images de rendu compressées (Mali)</string>
     <string name="pomegrade_compressed_render_targets_description">Laisse les GPU Mali compresser les images que le jeu dessine, pour moins de trafic mémoire à chaque image. Expérimental : un effet qu\'un jeu dessine dans l\'une d\'elles par un shader peut disparaître. Prend effet au prochain lancement d\'un jeu</string>
+    <string name="pomegrade_clear_on_load">Effacement au chargement (Mali)</string>
+    <string name="pomegrade_clear_on_load_description">Une passe de rendu qui commence par effacer tout l\'écran l\'efface dès son début, au lieu de relire d\'abord l\'ancienne image en mémoire : moins de trafic mémoire à chaque image sur les GPU de téléphone. Expérimental</string>
 </resources>
