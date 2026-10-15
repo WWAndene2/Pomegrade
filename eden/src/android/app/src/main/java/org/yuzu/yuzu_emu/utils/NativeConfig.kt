@@ -200,6 +200,11 @@ object NativeConfig {
     external fun getNandDir(): String
     @Synchronized
     external fun setNandDir(path: String)
+    // Pomegrade: the mods folder (Punica/Switch/Mods)
+    @Synchronized
+    external fun getLoadDir(): String
+    @Synchronized
+    external fun setLoadDir(path: String)
     @Synchronized
     external fun getSdmcDir(): String
     @Synchronized
