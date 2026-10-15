@@ -376,7 +376,11 @@ class DocumentsTree {
         val kotlinDirectoryAccessWhitelist = arrayOf(
             "/config/",
             "/log/",
-            "/gpu_drivers/"
+            "/gpu_drivers/",
+            // Pomegrade: the same folders in Core, in the Punica folder's layout (DirectoryInitialization.punicaCore)
+            "/Core/config/",
+            "/Core/log/",
+            "/Core/gpu_drivers/"
         )
     }
 }

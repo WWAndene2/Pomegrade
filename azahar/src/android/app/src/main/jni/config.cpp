@@ -36,8 +36,10 @@ Config::Config(u64 program_id) {
     // Pomegrade: per-game settings, written by the settings screen opened for a game (only the values
     // that differ from config.ini)
     if (program_id != 0) {
-        const std::string game_loc = FileUtil::GetUserPath(FileUtil::UserPath::UserDir) +
-                                     fmt::format("GameSettings/{:016X}.ini", program_id);
+        // in Core beside config/ with the Punica folder's layout (FileUtil::SetUserPath), else in the user folder
+        const std::string user = FileUtil::GetUserPath(FileUtil::UserPath::UserDir);
+        const std::string base = FileUtil::IsDirectory(user + "Core") ? user + "Core/" : user;
+        const std::string game_loc = base + fmt::format("GameSettings/{:016X}.ini", program_id);
         std::string game_buffer;
         FileUtil::ReadFileToString(true, game_loc, game_buffer);
         if (!game_buffer.empty()) {

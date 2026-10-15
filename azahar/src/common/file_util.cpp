@@ -1032,6 +1032,28 @@ void SetUserPath(const std::string& path) {
     g_paths.emplace(UserPath::LoadDir, user_path + LOAD_DIR DIR_SEP);
     g_paths.emplace(UserPath::StatesDir, user_path + STATES_DIR DIR_SEP);
     g_paths.emplace(UserPath::IconsDir, user_path + ICONS_DIR DIR_SEP);
+#if defined(ANDROID) && !defined(HAVE_LIBRETRO_VFS)
+    // Pomegrade: in the Punica folder's layout (melonDS-android's PunicaLayout), this folder is Punica/3DS, with the
+    // same six folders as every console's: the NAND, SD card and keys in System, states in States, load (mods,
+    // texture packs) in Mods, the emulator's own files in Core. Told by its Core and System folders.
+    if (IsDirectory(user_path + "Core") && IsDirectory(user_path + "System")) {
+        const std::string core = user_path + "Core" DIR_SEP;
+        const std::string system = user_path + "System" DIR_SEP;
+        g_paths[UserPath::ConfigDir] = core + CONFIG_DIR DIR_SEP;
+        g_paths[UserPath::CacheDir] = core + CACHE_DIR DIR_SEP;
+        g_paths[UserPath::LogDir] = core + LOG_DIR DIR_SEP;
+        g_paths[UserPath::CheatsDir] = core + CHEATS_DIR DIR_SEP;
+        g_paths[UserPath::DLLDir] = core + DLL_DIR DIR_SEP;
+        g_paths[UserPath::ShaderDir] = core + SHADER_DIR DIR_SEP;
+        g_paths[UserPath::DumpDir] = core + DUMP_DIR DIR_SEP;
+        g_paths[UserPath::IconsDir] = core + ICONS_DIR DIR_SEP;
+        g_paths[UserPath::NANDDir] = system + NAND_DIR DIR_SEP;
+        g_paths[UserPath::SDMCDir] = system + SDMC_DIR DIR_SEP;
+        g_paths[UserPath::SysDataDir] = system;
+        g_paths[UserPath::StatesDir] = user_path + "States" DIR_SEP;
+        g_paths[UserPath::LoadDir] = user_path + "Mods" DIR_SEP;
+    }
+#endif
     g_default_paths = g_paths;
 }
 

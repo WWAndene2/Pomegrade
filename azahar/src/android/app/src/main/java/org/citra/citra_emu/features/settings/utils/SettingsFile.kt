@@ -25,6 +25,7 @@ import org.citra.citra_emu.features.settings.model.Settings.SettingsSectionMap
 import org.citra.citra_emu.features.settings.model.StringSetting
 import org.citra.citra_emu.features.settings.ui.SettingsActivityView
 import org.citra.citra_emu.utils.BiMap
+import org.citra.citra_emu.utils.DirectoryInitialization
 import org.citra.citra_emu.utils.DirectoryInitialization.userDirectory
 import org.citra.citra_emu.utils.Log
 import org.ini4j.Wini
@@ -148,7 +149,7 @@ object SettingsFile {
                     }
                 }
             }
-            val root = DocumentFile.fromTreeUri(context, Uri.parse(userDirectory))!!
+            val root = DirectoryInitialization.punicaCore(DocumentFile.fromTreeUri(context, Uri.parse(userDirectory))!!)
             val directory = root.findFile("GameSettings") ?: root.createDirectory("GameSettings")!!
             val existing = directory.findFile("$gameId.ini")
             if (count == 0) {
@@ -236,13 +237,13 @@ object SettingsFile {
         }
 
     fun getSettingsFile(fileName: String): DocumentFile {
-        val root = DocumentFile.fromTreeUri(CitraApplication.appContext, Uri.parse(userDirectory))
-        val configDirectory = root!!.findFile("config")
+        val root = DirectoryInitialization.punicaCore(DocumentFile.fromTreeUri(CitraApplication.appContext, Uri.parse(userDirectory))!!)
+        val configDirectory = root.findFile("config")
         return configDirectory!!.findFile("$fileName.ini")!!
     }
 
     private fun getCustomGameSettingsFile(gameId: String): DocumentFile? {
-        val root = DocumentFile.fromTreeUri(CitraApplication.appContext, Uri.parse(userDirectory))
+        val root = DocumentFile.fromTreeUri(CitraApplication.appContext, Uri.parse(userDirectory))?.let { DirectoryInitialization.punicaCore(it) }
         val configDirectory = root?.findFile("GameSettings")
         return configDirectory?.findFile("$gameId.ini")
     }

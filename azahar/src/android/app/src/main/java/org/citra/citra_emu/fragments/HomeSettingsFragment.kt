@@ -39,6 +39,7 @@ import org.citra.citra_emu.features.settings.utils.SettingsFile
 import org.citra.citra_emu.model.Game
 import org.citra.citra_emu.model.HomeSetting
 import org.citra.citra_emu.ui.main.MainActivity
+import org.citra.citra_emu.utils.DirectoryInitialization
 import org.citra.citra_emu.utils.GameHelper
 import org.citra.citra_emu.utils.GpuDriverHelper
 import org.citra.citra_emu.utils.Log
@@ -257,7 +258,7 @@ class HomeSettingsFragment : Fragment() {
         val logDirectory = DocumentFile.fromTreeUri(
             requireContext(),
             PermissionsHandler.citraDirectory
-        )?.findFile("log")
+        )?.let { DirectoryInitialization.punicaCore(it) }?.findFile("log")
         val currentLog = logDirectory?.findFile("azahar_log.txt")
         val oldLog = logDirectory?.findFile("azahar_log.old.txt")
 
