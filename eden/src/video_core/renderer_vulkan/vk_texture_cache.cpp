@@ -12,6 +12,7 @@
 #include <boost/container/small_vector.hpp>
 #include <bit>
 #include <numeric>
+#include "common/pomegrade_diagnostics.h" // Pomegrade: TEMPORARY
 #include "common/bit_util.h"
 #include "common/settings.h"
 
