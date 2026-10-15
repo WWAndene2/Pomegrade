@@ -287,7 +287,24 @@ not counted. The diagnostic now puts the fencing thread apart and times the GPU 
 After O1, O2 and O3 (PR #106: large cores, nice values, ADPF hints for the guest cores and the GPU, Vulkan worker and
 fencing threads), owner's reading (15 October, overlay, resolution 1x): about 21 FPS on average in the field, 29 FPS
 in battle, against 16 FPS standing still in Postwick before. Measured by the owner, not by a log: which of the three
-changes gave what, the clocks and the heat are not known yet (the diagnostic's log decides). The disk cache works, so H4
+changes gave what, the clocks and the heat are not known yet (the diagnostic's log decides).
+
+Sixth log (after PR #106, owner, 15 October, short: 297 samples, Pokemon Sword at 1x, asynchronous GPU emulation
+on), measured:
+
+| | Field (173 samples) | Battles and light scenes (124 samples) |
+|---|---|---|
+| FPS | 19-25, mostly 21-22 | 28-31 |
+| GPU thread waiting on the GPU | about 22 times a second, 0.75 s a second (some 34 ms a frame) | 0.1 s a second |
+| Large cores' clock (mean of cpu4-7) | 2.1 GHz (before: 1.2-1.5) | 1.6 GHz |
+| Busiest threads | GPU 20-22 %, CPUCore_0 15-20 % | CPUCore_0 29-37 %, GPU 21-31 % |
+
+Read from it: the guest cores now run on cpu4-7 (O1 works) and the large cores' clocks rose (O3 works). No thread is
+saturated, and in the field the GPU thread spends three quarters of each second waiting for the Mali to finish
+the previous frame: **the field is now GPU-bound**, the CPU side no longer limits there. Thermal status stayed 0, headroom
+0.20-0.30 (a short run: sustained heat untested). Memory: the app at 1.8-3.5 GiB, 0.5-1.5 GiB left to the system.
+Next: an A/B at 0.5x in the field (before O1-O3 it gave about 5 FPS, when the CPU side still limited); a large gain
+now confirms the Mali's pixel work, a small one points to its per-frame work (passes, formats, synchronisation). The disk cache works, so H4
 explains first-run stutters, not this floor.
 
 ---
