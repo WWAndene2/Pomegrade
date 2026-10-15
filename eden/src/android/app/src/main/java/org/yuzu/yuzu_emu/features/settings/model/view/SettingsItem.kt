@@ -699,6 +699,27 @@ abstract class SettingsItem(
             )
             put(
                 SwitchSetting(
+                    BooleanSetting.POMEGRADE_TEST_CYCLE,
+                    titleId = R.string.pomegrade_test_cycle,
+                    descriptionId = R.string.pomegrade_test_cycle_description
+                )
+            )
+            put(
+                SwitchSetting(
+                    BooleanSetting.POMEGRADE_TEST_REORDER_ALL_UPLOADS,
+                    titleId = R.string.pomegrade_test_reorder_all_uploads,
+                    descriptionId = R.string.pomegrade_test_description
+                )
+            )
+            put(
+                SwitchSetting(
+                    BooleanSetting.POMEGRADE_TEST_SKIP_FRAGMENT_BARRIERS,
+                    titleId = R.string.pomegrade_test_skip_fragment_barriers,
+                    descriptionId = R.string.pomegrade_test_description
+                )
+            )
+            put(
+                SwitchSetting(
                     BooleanSetting.RENDERER_ASYNCHRONOUS_SHADERS,
                     titleId = R.string.renderer_asynchronous_shaders,
                     descriptionId = R.string.renderer_asynchronous_shaders_description

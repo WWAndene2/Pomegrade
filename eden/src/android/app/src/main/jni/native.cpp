@@ -19,6 +19,7 @@
 #include <string_view>
 #include <thread>
 #include <vector>
+#include <iterator>
 #include <algorithm>
 #include <chrono>
 #include <dirent.h>
@@ -405,7 +406,9 @@ public:
         const double seconds = m_started ? std::chrono::duration<double>(now - m_last).count() : 0.0;
         if (!m_started) {
             LogCores();
+            LogStudySettings();
         }
+        Cycle(now);
         const long ticks_per_second = sysconf(_SC_CLK_TCK);
         std::vector<std::tuple<double, std::string, int>> busy;
         std::map<int, unsigned long long> ticks;
@@ -605,6 +608,64 @@ private:
                            field("/proc/meminfo", "MemAvailable:") / 1024);
     }
 
+    // the test cycle (setting pomegrade_test_cycle): five phases of 45 s, each switching the options read at every
+    // frame, logged as they start; the settings are put back after the last
+    void Cycle(std::chrono::steady_clock::time_point now) {
+        auto& v = Settings::values;
+        if (!v.pomegrade_test_cycle.GetValue() || m_cycle_done) {
+            return;
+        }
+        if (m_cycle_phase < 0) {
+            m_saved_defer = v.pomegrade_defer_wait_for_idle.GetValue();
+            m_saved_clear = v.pomegrade_clear_on_load.GetValue();
+            m_saved_reorder = v.pomegrade_test_reorder_all_uploads.GetValue();
+            m_saved_skip = v.pomegrade_test_skip_fragment_barriers.GetValue();
+            m_cycle_start = now;
+        }
+        const int phase = static_cast<int>((now - m_cycle_start) / std::chrono::seconds(45));
+        if (phase == m_cycle_phase) {
+            return;
+        }
+        m_cycle_phase = phase;
+        struct Phase {
+            const char* name;
+            bool defer, clear, reorder, skip;
+        };
+        static constexpr Phase phases[] = {
+            {"1 reference (defer, clear on load)", true, true, false, false},
+            {"2 + all uploads at frame start", true, true, true, false},
+            {"3 + fragment barriers ignored", true, true, true, true},
+            {"4 defer wait for idle off", false, true, false, false},
+            {"5 clear on load off", true, false, false, false},
+        };
+        if (phase >= static_cast<int>(std::size(phases))) {
+            v.pomegrade_defer_wait_for_idle.SetValue(m_saved_defer);
+            v.pomegrade_clear_on_load.SetValue(m_saved_clear);
+            v.pomegrade_test_reorder_all_uploads.SetValue(m_saved_reorder);
+            v.pomegrade_test_skip_fragment_barriers.SetValue(m_saved_skip);
+            m_cycle_done = true;
+            LOG_INFO(Frontend, "[Pomegrade diag] test cycle done, settings restored");
+            return;
+        }
+        const Phase& p = phases[phase];
+        v.pomegrade_defer_wait_for_idle.SetValue(p.defer);
+        v.pomegrade_clear_on_load.SetValue(p.clear);
+        v.pomegrade_test_reorder_all_uploads.SetValue(p.reorder);
+        v.pomegrade_test_skip_fragment_barriers.SetValue(p.skip);
+        LOG_INFO(Frontend, "[Pomegrade diag] test cycle phase {}", p.name);
+    }
+
+    // the settings the study compares, on one line at the start of each session
+    static void LogStudySettings() {
+        const auto& v = Settings::values;
+        LOG_INFO(Frontend, "[Pomegrade diag] settings: resolution {} | async GPU {} | compressed RT {} | clear on load {} | defer wait for idle {} | TEST reorder all uploads {} | TEST skip fragment barriers {} | test cycle {} | GPU logging {}",
+                 static_cast<int>(v.resolution_setup.GetValue()), v.use_asynchronous_gpu_emulation.GetValue(),
+                 v.pomegrade_compressed_render_targets.GetValue(), v.pomegrade_clear_on_load.GetValue(),
+                 v.pomegrade_defer_wait_for_idle.GetValue(), v.pomegrade_test_reorder_all_uploads.GetValue(),
+                 v.pomegrade_test_skip_fragment_barriers.GetValue(), v.pomegrade_test_cycle.GetValue(),
+                 v.gpu_logging_enabled.GetValue());
+    }
+
     static void LogCores() {
         std::string capacities;
         std::string maxima;
@@ -617,6 +678,10 @@ private:
     }
 
     bool m_started = false;
+    int m_cycle_phase = -1;
+    bool m_cycle_done = false;
+    std::chrono::steady_clock::time_point m_cycle_start{};
+    bool m_saved_defer = false, m_saved_clear = false, m_saved_reorder = false, m_saved_skip = false;
     std::chrono::steady_clock::time_point m_last{};
     std::map<int, unsigned long long> m_ticks;
 };
