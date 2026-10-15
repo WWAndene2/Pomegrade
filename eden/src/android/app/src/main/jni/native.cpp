@@ -319,6 +319,8 @@ Core::SystemResultStatus EmulationSession::InitializeEmulation(const std::string
 
     m_load_result = m_system.Load(EmulationSession::GetInstance().Window(), filepath, params);
     if (m_load_result != Core::SystemResultStatus::Success) {
+        // Pomegrade: the keyboard belongs to the applet set, which a failed load can free
+        m_software_keyboard = nullptr;
         return m_load_result;
     }
 
@@ -346,6 +348,7 @@ void EmulationSession::ShutdownEmulation() {
     }
 
     m_is_running = false;
+    m_software_keyboard = nullptr;
 
     // Unload user input.
     m_system.HIDCore().UnloadInputDevices();
@@ -1448,12 +1451,18 @@ void Java_org_yuzu_yuzu_1emu_NativeLibrary_logDeviceInfo(JNIEnv* env, jclass cla
 void Java_org_yuzu_yuzu_1emu_NativeLibrary_submitInlineKeyboardText(JNIEnv* env, jclass clazz,
                                                                     jstring j_text) {
     const std::u16string input = Common::UTF8ToUTF16(Common::Android::GetJString(env, j_text));
-    EmulationSession::GetInstance().SoftwareKeyboard()->SubmitInlineKeyboardText(input);
+    // Pomegrade: a key pressed with no game running (a start that failed) has no keyboard to go to
+    if (auto* keyboard = EmulationSession::GetInstance().SoftwareKeyboard()) {
+        keyboard->SubmitInlineKeyboardText(input);
+    }
 }
 
 void Java_org_yuzu_yuzu_1emu_NativeLibrary_submitInlineKeyboardInput(JNIEnv* env, jclass clazz,
                                                                      jint j_key_code) {
-    EmulationSession::GetInstance().SoftwareKeyboard()->SubmitInlineKeyboardInput(j_key_code);
+    // Pomegrade: a key pressed with no game running (a start that failed) has no keyboard to go to
+    if (auto* keyboard = EmulationSession::GetInstance().SoftwareKeyboard()) {
+        keyboard->SubmitInlineKeyboardInput(j_key_code);
+    }
 }
 
 void Java_org_yuzu_yuzu_1emu_NativeLibrary_initializeEmptyUserDirectory(JNIEnv* env,
