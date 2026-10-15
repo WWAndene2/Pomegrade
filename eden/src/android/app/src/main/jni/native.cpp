@@ -48,7 +48,6 @@
 #include "common/fs/path_util.h"
 #include "common/logging.h"
 #include "common/pomegrade_diagnostics.h" // Pomegrade: TEMPORARY
-#include <android/thermal.h> // Pomegrade: TEMPORARY, the study's sampler
 #include "common/scm_rev.h"
 #include "common/scope_exit.h"
 #include "common/settings.h"
@@ -525,18 +524,24 @@ private:
     // Android's thermal status (0 none to 6 shutdown) and headroom (1.0 = throttling starts), and the battery's
     // temperature when the system lets an app read it
     static std::string Heat() {
+        // looked up at run time: the NDK declares them from API 30 and 31 only, the module's minimum is 29
+        using AcquireManager = void* (*)();
+        using GetStatus = int (*)(void*);
+        using GetHeadroom = float (*)(void*, int);
+        static void* const library = dlopen("libandroid.so", RTLD_NOW);
+        static const auto acquire = library ? reinterpret_cast<AcquireManager>(dlsym(library, "AThermal_acquireManager")) : nullptr;
+        static const auto get_status = library ? reinterpret_cast<GetStatus>(dlsym(library, "AThermal_getCurrentThermalStatus")) : nullptr;
+        static const auto get_headroom = library ? reinterpret_cast<GetHeadroom>(dlsym(library, "AThermal_getThermalHeadroom")) : nullptr;
+        static void* const manager = acquire ? acquire() : nullptr;
         std::string status = "?";
         std::string headroom = "?";
-        if (__builtin_available(android 30, *)) {
-            static AThermalManager* manager = AThermal_acquireManager();
-            if (manager != nullptr) {
-                status = std::to_string(static_cast<int>(AThermal_getCurrentThermalStatus(manager)));
-                if (__builtin_available(android 31, *)) {
-                    const float value = AThermal_getThermalHeadroom(manager, 0);
-                    if (value == value) { // NaN when called too often or not supported
-                        headroom = fmt::format("{:.2f}", value);
-                    }
-                }
+        if (manager != nullptr && get_status != nullptr) {
+            status = std::to_string(get_status(manager));
+        }
+        if (manager != nullptr && get_headroom != nullptr) {
+            const float value = get_headroom(manager, 0);
+            if (value == value) { // NaN when called too often or not supported
+                headroom = fmt::format("{:.2f}", value);
             }
         }
         const std::string battery = ReadFirstLine("/sys/class/power_supply/battery/temp");
