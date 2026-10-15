@@ -282,7 +282,12 @@ fencing thread waiting is expected. What would stall the GPU thread is ReleaseFe
 wait), where it blocks on a condition variable until the fencing thread has released every pending fence; that was
 not counted. The diagnostic now puts the fencing thread apart and times the GPU thread in ReleaseFences.
 
-16 FPS standing still in the first town is the floor to raise: the game targets 30. The disk cache works, so H4
+16 FPS standing still in the first town is the floor to raise: the game targets 30.
+
+After O1, O2 and O3 (PR #106: large cores, nice values, ADPF hints for the guest cores and the GPU, Vulkan worker and
+fencing threads), owner's reading (15 October, overlay, resolution 1x): about 21 FPS on average in the field, 29 FPS
+in battle, against 16 FPS standing still in Postwick before. Measured by the owner, not by a log: which of the three
+changes gave what, the clocks and the heat are not known yet (the diagnostic's log decides). The disk cache works, so H4
 explains first-run stutters, not this floor.
 
 ---
