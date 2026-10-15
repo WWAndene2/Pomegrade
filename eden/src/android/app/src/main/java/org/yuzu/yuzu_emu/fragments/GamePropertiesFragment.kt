@@ -89,7 +89,8 @@ class GamePropertiesFragment : Fragment() {
         homeViewModel.setStatusBarShadeVisibility(true)
 
         binding.buttonBack.setOnClickListener {
-            view.findNavController().popBackStack()
+            // Pomegrade: opened on its own (from Punica's game list), nothing is under it: close its screen
+            if (!view.findNavController().popBackStack()) requireActivity().finish()
         }
 
         val shortcutManager = requireActivity().getSystemService(ShortcutManager::class.java)

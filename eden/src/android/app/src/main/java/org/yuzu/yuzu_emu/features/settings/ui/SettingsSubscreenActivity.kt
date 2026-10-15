@@ -36,6 +36,7 @@ enum class SettingsSubscreen {
     LICENSES,
     GAME_INFO,
     ADDONS,
+    GAME_PROPERTIES, // Pomegrade: a game's options opened from Punica's game list
 }
 
 class SettingsSubscreenActivity : AppCompatActivity() {
@@ -133,6 +134,7 @@ class SettingsSubscreenActivity : AppCompatActivity() {
             SettingsSubscreen.LICENSES -> R.id.licensesFragment
             SettingsSubscreen.GAME_INFO -> R.id.gameInfoFragment
             SettingsSubscreen.ADDONS -> R.id.addonsFragment
+            SettingsSubscreen.GAME_PROPERTIES -> R.id.perGamePropertiesFragment
         }
 
     private fun createStartDestinationArgs(): Bundle =
@@ -141,7 +143,8 @@ class SettingsSubscreenActivity : AppCompatActivity() {
             SettingsSubscreen.FREEDRENO_SETTINGS -> bundleOf("game" to args.game)
 
             SettingsSubscreen.GAME_INFO,
-            SettingsSubscreen.ADDONS -> bundleOf(
+            SettingsSubscreen.ADDONS,
+            SettingsSubscreen.GAME_PROPERTIES -> bundleOf(
                 "game" to requireNotNull(args.game) {
                     "Game is required for ${args.destination}"
                 }

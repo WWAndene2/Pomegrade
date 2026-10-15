@@ -11,7 +11,6 @@ import org.dolphinemu.dolphinemu.DolphinApplication
 import org.dolphinemu.dolphinemu.activities.EmulationActivity
 import org.dolphinemu.dolphinemu.features.settings.ui.MenuTag
 import org.dolphinemu.dolphinemu.features.settings.ui.SettingsActivity
-import org.dolphinemu.dolphinemu.ui.main.MainActivity
 
 /**
  * Starts GameCube and Wii games in the Dolphin core, as Dolphin's own game list does (the game's URI as its
@@ -42,11 +41,5 @@ object GcWiiLauncher : ConsoleLauncher {
     fun openSettings(context: Context, section: MenuTag) {
         DolphinApplication.start()
         SettingsActivity.launch(context, section)
-    }
-
-    /** Dolphin's home screen: its game list (covers, game settings, cheats), Wii system menu, tools. */
-    fun homeIntent(context: Context): Intent {
-        DolphinApplication.start()
-        return Intent(context, MainActivity::class.java)
     }
 }

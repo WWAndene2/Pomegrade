@@ -27,6 +27,7 @@ import org.yuzu.yuzu_emu.features.settings.ui.SettingsSubscreen
 import org.yuzu.yuzu_emu.features.settings.ui.SettingsSubscreenActivity
 import org.yuzu.yuzu_emu.features.settings.ui.SettingsSubscreenActivityArgs
 import org.yuzu.yuzu_emu.utils.FileUtil
+import org.yuzu.yuzu_emu.utils.GameHelper
 import org.yuzu.yuzu_emu.utils.Log as EdenLog
 
 /**
@@ -98,6 +99,17 @@ object SwitchLauncher : ConsoleLauncher {
      * Read here rather than through Eden's GpuDriverHelper, whose check needs its native library loaded.
      */
     fun isAdrenoGpu(): Boolean = java.io.File("/dev/kgsl-3d0").exists()
+
+    /**
+     * A game's options page (Eden's GamePropertiesFragment: per-game settings, add-ons, cheats, saves, driver), as
+     * its game list opens it; null when Eden cannot read the game. Reads the game's metadata: call after [prepare],
+     * off the main thread.
+     */
+    fun gamePropertiesIntent(context: Context, rom: Rom): Intent? {
+        val game = GameHelper.getGame(rom.uri, addedToLibrary = false) ?: return null
+        return Intent(context, SettingsSubscreenActivity::class.java)
+            .putExtras(SettingsSubscreenActivityArgs(SettingsSubscreen.GAME_PROPERTIES, game).toBundle())
+    }
 
     /** One of the tools of Eden's home screen (profiles, GPU drivers, applets, data), opened directly. */
     fun toolIntent(context: Context, screen: SettingsSubscreen): Intent =

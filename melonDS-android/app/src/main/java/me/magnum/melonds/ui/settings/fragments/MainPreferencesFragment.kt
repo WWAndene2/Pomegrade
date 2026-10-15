@@ -23,6 +23,7 @@ import me.magnum.melonds.ui.common.rom.GcWiiLauncher
 import me.magnum.melonds.ui.common.rom.SwitchLauncher
 import me.magnum.melonds.ui.settings.preferences.ConsoleSelectorPreference
 import me.magnum.melonds.ui.settings.PreferenceFragmentTitleProvider
+import me.magnum.melonds.ui.settings.GcWiiToolDialogActivity
 import me.magnum.melonds.ui.settings.SettingsActivity
 import me.magnum.melonds.ui.settings.SwitchToolDialogActivity
 import org.citra.citra_emu.activities.EmulationActivity
@@ -41,6 +42,7 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
         private const val SWITCH_TOOL_PREFIX = "switch_tool_"
         private const val SWITCH_DIALOG_PREFIX = "switch_dialog_"
         private const val GC_WII_PREFIX = "gc_wii_settings_"
+        private const val GC_WII_TOOL_PREFIX = "gc_wii_tool_"
     }
 
     @Inject lateinit var pomegradeFolder: PomegradeFolder
@@ -241,14 +243,18 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
             }
             true
         }
-        findPreference<Preference>("gc_wii_home")?.setOnPreferenceClickListener {
-            startActivity(GcWiiLauncher.homeIntent(requireContext()))
-            true
-        }
         preferenceScreen.findPreference<androidx.preference.PreferenceCategory>("gc_wii_settings")?.let { category ->
             for (i in 0 until category.preferenceCount) {
                 val preference = category.getPreference(i)
                 val key = preference.key ?: continue
+                if (key.startsWith(GC_WII_TOOL_PREFIX)) {
+                    val tool = GcWiiToolDialogActivity.Tool.valueOf(key.removePrefix(GC_WII_TOOL_PREFIX))
+                    preference.setOnPreferenceClickListener {
+                        startActivity(GcWiiToolDialogActivity.intent(requireContext(), tool))
+                        true
+                    }
+                    continue
+                }
                 if (!key.startsWith(GC_WII_PREFIX)) continue
                 val section = GcWiiSettingsMenu.valueOf(key.removePrefix(GC_WII_PREFIX))
                 preference.setOnPreferenceClickListener {

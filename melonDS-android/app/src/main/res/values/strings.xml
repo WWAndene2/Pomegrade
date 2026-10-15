@@ -696,8 +696,13 @@
     <string name="settings_section_gba">GBA</string>
     <string name="settings_section_gc_wii">GameCube / Wii</string>
     <string name="gc_wii_unsupported">GameCube and Wii games need a 64-bit ARM device</string>
-    <string name="gc_wii_home">GameCube / Wii home</string>
-    <string name="gc_wii_home_summary">The GameCube and Wii core\'s own game list (covers, each game\'s settings, cheats), the Wii menu and its tools</string>
+    <string name="gc_wii_tool_system_menu_summary">Starts the Wii Menu installed in the core\'s Wii system (NAND)</string>
+    <string name="gc_wii_tool_install_wad_summary">Installs a Wii channel or title (.wad) into the Wii system</string>
+    <string name="gc_wii_tool_import_wii_save_summary">Imports a Wii game\'s save (data.bin)</string>
+    <string name="gc_wii_tool_import_nand_summary">Replaces the Wii system with a BootMii NAND backup (nand.bin)</string>
+    <string name="gc_wii_tool_online_update_summary">Downloads the Wii system from Nintendo\'s update servers</string>
+    <string name="gc_wii_tool_about">About Dolphin</string>
+    <string name="gc_wii_tool_about_summary">The GameCube and Wii core\'s version, licence and authors</string>
     <string name="gc_wii_settings_general_summary">Dual core, speed, language</string>
     <string name="gc_wii_settings_graphics_summary">Graphics API, resolution, enhancements</string>
     <string name="gc_wii_settings_audio_summary">Volume, audio backend, stretching</string>
@@ -976,6 +981,7 @@
     <string name="home_favorite_add">Add to favorites</string>
     <string name="home_favorite_remove">Remove from favorites</string>
     <string name="home_game_settings">This game\'s settings</string>
+    <string name="home_game_settings_unreadable">The core could not read this game</string>
     <string name="home_last_played">Last played: %1$s</string>
     <string name="home_never_played">Never played</string>
     <string name="home_featured_detail">%1$s played · %2$s</string>

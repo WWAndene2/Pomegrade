@@ -227,4 +227,11 @@
         <item name="android:windowNoTitle">true</item>
         <item name="android:backgroundDimEnabled">false</item>
     </style>
+    <!-- GcWiiToolDialogActivity: see-through, with Dolphin's theme, which its dialogs need -->
+    <style name="PunicaGcWiiToolDialog" parent="@style/Theme.Dolphin.Main">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
 </resources>
