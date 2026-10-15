@@ -110,9 +110,10 @@ public:
 
     void PreCopyBarrier();
 
+    /// Pomegrade: the caller's line is counted when the copy ends a render pass (TEMPORARY diagnostic)
     void CopyBuffer(VkBuffer src_buffer, VkBuffer dst_buffer,
                     std::span<const VideoCommon::BufferCopy> copies, bool barrier,
-                    bool can_reorder_upload = false);
+                    bool can_reorder_upload = false, int caller_line = __builtin_LINE());
 
     void PostCopyBarrier();
 

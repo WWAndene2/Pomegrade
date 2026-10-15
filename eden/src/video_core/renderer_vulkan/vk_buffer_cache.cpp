@@ -6,10 +6,14 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
+#include <map>
+#include <mutex>
 #include <cstring>
 #include <span>
 #include <vector>
 
+#include "common/logging.h" // Pomegrade: TEMPORARY
 #include "video_core/buffer_cache/buffer_cache_base.h"
 #include "video_core/renderer_vulkan/vk_buffer_cache.h"
 
@@ -406,9 +410,34 @@ bool BufferCacheRuntime::CanReorderUpload(const Buffer& buffer,
 
 void BufferCacheRuntime::CopyBuffer(VkBuffer dst_buffer, VkBuffer src_buffer,
                                     std::span<const VideoCommon::BufferCopy> copies, bool barrier,
-                                    bool can_reorder_upload) {
+                                    bool can_reorder_upload, int caller_line) {
     if (dst_buffer == VK_NULL_HANDLE || src_buffer == VK_NULL_HANDLE) {
         return;
+    }
+    // Pomegrade: TEMPORARY diagnostic (docs/Eden_Optimisation_Xiaomi.md, after the thirteenth log): which caller in
+    // buffer_cache/buffer_cache.h makes the copies that end a render pass, logged every 5 s. Locked: which threads reach
+    // CopyBuffer was not checked. To be deleted once the owner's log is read (CLAUDE.md 2.4).
+    {
+        static std::map<int, std::array<u64, 3>> by_line; // calls, calls that ended a pass, calls reordered
+        static auto window_start = std::chrono::steady_clock::now();
+        static std::mutex mutex;
+        std::scoped_lock lock{mutex};
+        auto& count = by_line[caller_line];
+        ++count[0];
+        if (src_buffer == staging_pool.StreamBuf() && can_reorder_upload) {
+            ++count[2];
+        } else if (scheduler.IsRenderPassActive()) {
+            ++count[1];
+        }
+        const auto now = std::chrono::steady_clock::now();
+        if (now - window_start >= std::chrono::seconds(5)) {
+            for (const auto& [line, c] : by_line) {
+                LOG_INFO(Render_Vulkan, "Pomegrade CopyBuffer 5s: buffer_cache.h:{} calls {} ended_pass {} reordered {}",
+                         line, c[0], c[1], c[2]);
+            }
+            by_line.clear();
+            window_start = now;
+        }
     }
     static constexpr VkMemoryBarrier READ_BARRIER{
         .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
