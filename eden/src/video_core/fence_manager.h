@@ -6,6 +6,9 @@
 
 #pragma once
 
+#ifdef __ANDROID__
+#include "common/android/performance_hint.h"
+#endif
 #include "common/pomegrade_diagnostics.h" // Pomegrade: TEMPORARY
 
 #include <algorithm>
@@ -205,6 +208,11 @@ private:
     void ReleaseThreadFunc(std::stop_token stop_token) {
         Common::SetCurrentThreadName("GPUFencingThread");
         Common::SetCurrentThreadPriority(Common::ThreadPriority::High);
+#ifdef __ANDROID__
+        // Pomegrade: the GPU thread waits for it to release the fences (ReleaseFences): in Android's performance
+        // hints with the threads that make a frame, so its clock rises with theirs
+        Common::Android::PerformanceHint::AddCurrentThread();
+#endif
 
         TFence current_fence;
         std::deque<std::function<void()>> current_operations;

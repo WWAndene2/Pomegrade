@@ -11,6 +11,7 @@
 #include <thread>
 #include <fmt/chrono.h>
 #include <fmt/format.h>
+#include "common/android_performance_hint.h"
 #include "common/file_util.h"
 #include "common/settings.h"
 #include "core/core_timing.h"
@@ -99,6 +100,14 @@ void PerfStats::EndSystemFrame() {
     }
     accumulated_frametime += frame_time;
     system_frames += 1;
+
+    // Pomegrade: each frame's duration to Android's performance hints; a gap of a second or more is a pause, not a
+    // slow frame
+    const auto frame_gap_ns =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(frame_end - previous_frame_end).count();
+    if (frame_gap_ns > 0 && frame_gap_ns < 1'000'000'000) {
+        AndroidPerformanceHint::ReportFrame(frame_gap_ns);
+    }
 
     // TODO: Track previous frame times in a less stupid way. -OS
     previous_previous_frame_length = previous_frame_length;
