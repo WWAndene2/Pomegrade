@@ -48,6 +48,7 @@
 #include "common/fs/path_util.h"
 #include "common/logging.h"
 #include "common/pomegrade_diagnostics.h" // Pomegrade: TEMPORARY
+#include <android/thermal.h> // Pomegrade: TEMPORARY, the study's sampler
 #include "common/scm_rev.h"
 #include "common/scope_exit.h"
 #include "common/settings.h"
@@ -453,6 +454,10 @@ public:
             for (const auto& [share, name, core] : busy) {
                 threads += fmt::format(" [{} {:.0f}% cpu{}]", name, share, core);
             }
+            const u64 frames = PomegradeDiagnostics::game_frames.exchange(0, std::memory_order_relaxed);
+            const u64 longest = PomegradeDiagnostics::longest_frame_ns.exchange(0, std::memory_order_relaxed);
+            LOG_INFO(Frontend, "[Pomegrade diag] FPS {:.1f}, slowest frame {:.1f} ms | {} | {}",
+                     frames / seconds, longest / 1e6, Heat(), Memory());
             LOG_INFO(Frontend, "[Pomegrade diag] per s: Finish {:.0f}, GPU waits {:.0f} ({:.1f} ms), NCE faults {:.0f} | waits by thread{} | GPU thread in ReleaseFences {:.0f} ({:.1f} ms) | clocks MHz {} | threads{}",
                      finishes / seconds, waits / seconds, wait_ns / 1e6 / seconds, faults / seconds, by_thread,
                      releases / seconds, release_ns / 1e6 / seconds, Clocks(), threads);
@@ -515,6 +520,51 @@ private:
             clocks += (cpu ? "," : "") + (khz == "?" ? khz : std::to_string(std::atoll(khz.c_str()) / 1000));
         }
         return clocks;
+    }
+
+    // Android's thermal status (0 none to 6 shutdown) and headroom (1.0 = throttling starts), and the battery's
+    // temperature when the system lets an app read it
+    static std::string Heat() {
+        std::string status = "?";
+        std::string headroom = "?";
+        if (__builtin_available(android 30, *)) {
+            static AThermalManager* manager = AThermal_acquireManager();
+            if (manager != nullptr) {
+                status = std::to_string(static_cast<int>(AThermal_getCurrentThermalStatus(manager)));
+                if (__builtin_available(android 31, *)) {
+                    const float value = AThermal_getThermalHeadroom(manager, 0);
+                    if (value == value) { // NaN when called too often or not supported
+                        headroom = fmt::format("{:.2f}", value);
+                    }
+                }
+            }
+        }
+        const std::string battery = ReadFirstLine("/sys/class/power_supply/battery/temp");
+        return fmt::format("thermal status {}, headroom {}, battery {} C", status, headroom,
+                           battery == "?" ? battery : fmt::format("{:.1f}", std::atoi(battery.c_str()) / 10.0));
+    }
+
+    // the app's resident memory and the memory the system has left, in MiB
+    static std::string Memory() {
+        const auto field = [](const char* path, const char* key) -> long long {
+            std::FILE* file = std::fopen(path, "r");
+            if (file == nullptr) {
+                return -1;
+            }
+            char line[256];
+            long long kib = -1;
+            const size_t length = std::strlen(key);
+            while (std::fgets(line, sizeof(line), file) != nullptr) {
+                if (std::strncmp(line, key, length) == 0) {
+                    kib = std::atoll(line + length);
+                    break;
+                }
+            }
+            std::fclose(file);
+            return kib;
+        };
+        return fmt::format("memory: app {} MiB, available {} MiB", field("/proc/self/status", "VmRSS:") / 1024,
+                           field("/proc/meminfo", "MemAvailable:") / 1024);
     }
 
     static void LogCores() {

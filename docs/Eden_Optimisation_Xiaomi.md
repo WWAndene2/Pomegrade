@@ -193,7 +193,7 @@ small cores.
 out. What they would tell is read from inside the app instead, in a diagnostic build whose output goes to Eden's
 log (which the owner shares): each Eden thread's CPU time and last core from `/proc/self/task/*/stat` (the app's
 own threads, no permission), the cores' capacities from `/sys/devices/system/cpu/cpu*/cpu_capacity`, and the
-counters of item 4. Removed once read (CLAUDE.md §2.4).
+counters of item 4. Since 15 October it also logs the frame rate and slowest frame, Android's thermal status and headroom, the battery's temperature (when readable) and memory (the app's, the system's available). Removed once read (CLAUDE.md §2.4).
 
 4. **Temporary counters** (H3, H5): a counter of `Finish` calls and of access faults per second, printed in the log,
    in a diagnostic build only, deleted once read (CLAUDE.md §2.4).
