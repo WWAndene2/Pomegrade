@@ -685,6 +685,13 @@ abstract class SettingsItem(
             )
             put(
                 SwitchSetting(
+                    BooleanSetting.POMEGRADE_CLEAR_ON_LOAD,
+                    titleId = R.string.pomegrade_clear_on_load,
+                    descriptionId = R.string.pomegrade_clear_on_load_description
+                )
+            )
+            put(
+                SwitchSetting(
                     BooleanSetting.RENDERER_ASYNCHRONOUS_SHADERS,
                     titleId = R.string.renderer_asynchronous_shaders,
                     descriptionId = R.string.renderer_asynchronous_shaders_description

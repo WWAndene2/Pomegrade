@@ -11,6 +11,7 @@
 
 #include <fmt/format.h>
 
+#include "video_core/renderer_vulkan/vk_render_pass_cache.h"
 #include "video_core/renderer_vulkan/renderer_vulkan.h"
 
 #include "common/pomegrade_diagnostics.h" // Pomegrade: TEMPORARY
@@ -412,6 +413,8 @@ void RasterizerVulkan::Clear(u32 layer_count) {
     const Framebuffer* const framebuffer = texture_cache.GetFramebuffer();
     const VkExtent2D render_area = framebuffer->RenderArea();
     scheduler.RequestRenderpass(framebuffer);
+    // Pomegrade: nothing drawn in the pass yet: a clear of the whole of it can be its load (ClearOnLoad below)
+    const bool pass_untouched = scheduler.IsRenderPassUntouched();
 
     query_cache.NotifySegment(true);
     query_cache.CounterEnable(VideoCommon::QueryType::ZPassPixelCount64, maxwell3d->regs.zpass_pixel_count_enable);
@@ -477,6 +480,13 @@ void RasterizerVulkan::Clear(u32 layer_count) {
     if (!clamp_rect_to_render_area(clear_rect.rect)) {
         return;
     }
+    // Pomegrade: the clear covers the whole pass (every pixel, every layer) and comes before anything else in it:
+    // the attachments it clears are loaded by a clear rather than from memory, when the setting allows it
+    const bool clear_on_load = pass_untouched &&
+        Settings::values.pomegrade_clear_on_load.GetValue() && clear_rect.rect.offset.x == 0 &&
+        clear_rect.rect.offset.y == 0 && clear_rect.rect.extent.width == render_area.width &&
+        clear_rect.rect.extent.height == render_area.height && clear_rect.baseArrayLayer == 0 &&
+        clear_rect.layerCount == framebuffer->Layers();
     // Pomegrade: TEMPORARY, clears of the whole render area counted, first in their pass or not
     if (clear_rect.rect.offset.x == 0 && clear_rect.rect.offset.y == 0 &&
         clear_rect.rect.extent.width == render_area.width &&
@@ -506,7 +516,12 @@ void RasterizerVulkan::Clear(u32 layer_count) {
                 clear_value.color.int32[i] = s32(f32(s64(int_size - 1) << 1) * (regs.clear_color[i] - 0.5f));
         }
 
-        if (regs.clear_surface.R && regs.clear_surface.G && regs.clear_surface.B && regs.clear_surface.A) {
+        if (regs.clear_surface.R && regs.clear_surface.G && regs.clear_surface.B && regs.clear_surface.A &&
+            clear_on_load &&
+            scheduler.ClearOnLoad(framebuffer, static_cast<u16>(1u << color_attachment),
+                                  framebuffer->ColorAttachmentIndex(color_attachment), clear_value)) {
+            PomegradeDiagnostics::clears_on_load.fetch_add(1, std::memory_order_relaxed); // Pomegrade: TEMPORARY
+        } else if (regs.clear_surface.R && regs.clear_surface.G && regs.clear_surface.B && regs.clear_surface.A) {
             scheduler.Record([color_attachment, clear_value, clear_rect](vk::CommandBuffer cmdbuf) {
                 const VkClearAttachment attachment{
                     .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -549,6 +564,26 @@ void RasterizerVulkan::Clear(u32 layer_count) {
                                      u8(regs.stencil_front_mask), regs.clear_stencil,
                                      regs.stencil_front_func_mask, dst_region);
     } else {
+        // Pomegrade: depth and stencil cleared as the pass's load when the clear allows it (see clear_on_load)
+        if (clear_on_load) {
+            VkClearValue value{};
+            value.depthStencil.depth = regs.clear_depth;
+            value.depthStencil.stencil = static_cast<u32>(regs.clear_stencil);
+            const u32 depth_attachment = framebuffer->DepthAttachmentIndex();
+            if ((aspect_flags & VK_IMAGE_ASPECT_DEPTH_BIT) &&
+                scheduler.ClearOnLoad(framebuffer, RenderPassKey::ClearDepthBit, depth_attachment, value)) {
+                aspect_flags &= ~VK_IMAGE_ASPECT_DEPTH_BIT;
+                PomegradeDiagnostics::clears_on_load.fetch_add(1, std::memory_order_relaxed); // TEMPORARY
+            }
+            if ((aspect_flags & VK_IMAGE_ASPECT_STENCIL_BIT) &&
+                scheduler.ClearOnLoad(framebuffer, RenderPassKey::ClearStencilBit, depth_attachment, value)) {
+                aspect_flags &= ~VK_IMAGE_ASPECT_STENCIL_BIT;
+                PomegradeDiagnostics::clears_on_load.fetch_add(1, std::memory_order_relaxed); // TEMPORARY
+            }
+            if (aspect_flags == 0) {
+                return;
+            }
+        }
         scheduler.Record([clear_depth = regs.clear_depth, clear_stencil = regs.clear_stencil,
                           clear_rect, aspect_flags](vk::CommandBuffer cmdbuf) {
             VkClearAttachment attachment;

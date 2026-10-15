@@ -44,7 +44,8 @@ using VideoCore::Surface::SurfaceType;
         }
 
         VkAttachmentDescription AttachmentDescription(const Device& device, PixelFormat format,
-                                                      VkSampleCountFlagBits samples) {
+                                                      VkSampleCountFlagBits samples,
+                                                      bool clear = false, bool clear_stencil = false) {
             using MaxwellToVK::SurfaceFormat;
 
             const SurfaceType surface_type = GetSurfaceType(format);
@@ -55,10 +56,12 @@ using VideoCore::Surface::SurfaceType;
                 .flags = {},
                 .format = SurfaceFormat(device, FormatType::Optimal, true, format).format,
                 .samples = samples,
-                .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+                // Pomegrade: a pass that begins with a full clear loads cleared values, not memory
+                .loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD,
                 .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-                .stencilLoadOp = has_stencil ? VK_ATTACHMENT_LOAD_OP_LOAD
-                                                 : VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                .stencilLoadOp = !has_stencil   ? VK_ATTACHMENT_LOAD_OP_DONT_CARE
+                                 : clear_stencil ? VK_ATTACHMENT_LOAD_OP_CLEAR
+                                                 : VK_ATTACHMENT_LOAD_OP_LOAD,
                 .stencilStoreOp = has_stencil ? VK_ATTACHMENT_STORE_OP_STORE
                                                   : VK_ATTACHMENT_STORE_OP_DONT_CARE,
                 .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
@@ -87,7 +90,8 @@ VkRenderPass RenderPassCache::Get(const RenderPassKey& key) {
             .layout = VK_IMAGE_LAYOUT_GENERAL,
         };
         if (is_valid) {
-            descriptions.push_back(AttachmentDescription(*device, format, key.samples));
+            descriptions.push_back(AttachmentDescription(*device, format, key.samples,
+                                                         ((key.clear_mask >> index) & 1) != 0));
             num_attachments = static_cast<u32>(index + 1);
             ++num_colors;
         }
@@ -99,7 +103,9 @@ VkRenderPass RenderPassCache::Get(const RenderPassKey& key) {
             .attachment = num_colors,
             .layout = VK_IMAGE_LAYOUT_GENERAL,
         };
-        descriptions.push_back(AttachmentDescription(*device, key.depth_format, key.samples));
+        descriptions.push_back(AttachmentDescription(
+            *device, key.depth_format, key.samples, (key.clear_mask & RenderPassKey::ClearDepthBit) != 0,
+            (key.clear_mask & RenderPassKey::ClearStencilBit) != 0));
     }
     const VkSubpassDescription subpass{
         .flags = 0,

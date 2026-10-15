@@ -2498,6 +2498,8 @@ void Framebuffer::CreateFramebuffer(TextureCacheRuntime& runtime,
     renderpass_key.samples = samples;
 
     renderpass = runtime.render_pass_cache.Get(renderpass_key);
+    this->renderpass_key = renderpass_key;
+    render_pass_cache = &runtime.render_pass_cache;
     render_area.width = (std::min)(render_area.width, width);
     render_area.height = (std::min)(render_area.height, height);
 
@@ -2513,6 +2515,13 @@ void Framebuffer::CreateFramebuffer(TextureCacheRuntime& runtime,
         .height = render_area.height,
         .layers = static_cast<u32>((std::max)(num_layers, 1)),
     });
+    this->num_layers = static_cast<u32>((std::max)(num_layers, 1));
+}
+
+VkRenderPass Framebuffer::RenderPassWithClears(u16 clear_mask) const {
+    RenderPassKey key = renderpass_key;
+    key.clear_mask = clear_mask;
+    return render_pass_cache->Get(key);
 }
 
 void TextureCacheRuntime::AccelerateImageUpload(

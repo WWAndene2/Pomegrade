@@ -8,6 +8,7 @@
 
 #include <span>
 
+#include "video_core/renderer_vulkan/vk_render_pass_cache.h"
 #include "video_core/texture_cache/texture_cache_base.h"
 
 #include "shader_recompiler/shader_info.h"
@@ -209,9 +210,31 @@ public:
         return is_rescaled;
     }
 
+    /// Pomegrade: the attachment index of render target `index` (its place in the render pass)
+    [[nodiscard]] u32 ColorAttachmentIndex(size_t index) const noexcept {
+        return static_cast<u32>(rt_map[index]);
+    }
+
+    /// Pomegrade: the framebuffer's layer count
+    [[nodiscard]] u32 Layers() const noexcept {
+        return num_layers;
+    }
+
+    /// Pomegrade: the depth attachment's index, after the color ones
+    [[nodiscard]] u32 DepthAttachmentIndex() const noexcept {
+        return num_color_buffers;
+    }
+
+    /// Pomegrade: this framebuffer's render pass with the attachments of `clear_mask` loaded by a clear
+    /// (RenderPassKey::clear_mask), compatible with the framebuffer
+    [[nodiscard]] VkRenderPass RenderPassWithClears(u16 clear_mask) const;
+
 private:
     vk::Framebuffer framebuffer;
     VkRenderPass renderpass{};
+    RenderPassKey renderpass_key{};
+    RenderPassCache* render_pass_cache{};
+    u32 num_layers = 1;
     VkExtent2D render_area{};
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
     u32 num_color_buffers = 0;

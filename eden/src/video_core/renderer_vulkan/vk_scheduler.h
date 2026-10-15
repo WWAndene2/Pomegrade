@@ -6,10 +6,12 @@
 
 #pragma once
 
+#include <array>
 #include <condition_variable>
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <thread>
 #include <utility>
 #include <queue>
@@ -59,6 +61,18 @@ public:
     /// Requests to begin a renderpass.
     void RequestRenderpass(const Framebuffer* framebuffer);
 
+    /// Pomegrade: true while nothing has been recorded in the current render pass since it began
+    [[nodiscard]] bool IsRenderPassUntouched() const noexcept {
+        return state.renderpass && record_count == record_count_at_begin;
+    }
+
+    /// Pomegrade: has the current render pass load `attachment` with a clear (LOAD_OP_CLEAR) instead of loading it
+    /// from memory, when the pass begins with a full clear of it; `clear_bits` are its RenderPassKey::clear_mask
+    /// bits. The caller checks IsRenderPassUntouched first. False when the pass has already begun on the GPU's
+    /// command buffer: the caller then clears as before
+    bool ClearOnLoad(const Framebuffer* framebuffer, u16 clear_bits, u32 attachment,
+                     const VkClearValue& value);
+
     /// Requests the current execution context to be able to execute operations only allowed outside
     /// of a renderpass.
     void RequestOutsideRenderPassOperationContext();
@@ -91,6 +105,7 @@ public:
     template <typename T>
         requires std::is_invocable_v<T, vk::CommandBuffer, vk::CommandBuffer>
     void RecordWithUploadBuffer(T&& command) {
+        ++record_count; // Pomegrade: commands recorded, for IsRenderPassUntouched
         if (chunk->Record(command)) {
             return;
         }
@@ -280,6 +295,19 @@ private:
     std::function<void()> on_submit;
 
     State state;
+
+    // Pomegrade: the current render pass's begin, which a full clear made before anything else in the pass turns
+    // into a clear on load; sealed once the worker has recorded the begin into the command buffer
+    struct PendingBegin {
+        std::mutex mutex;
+        bool sealed = false;
+        u16 clear_mask = 0;
+        VkRenderPass clear_renderpass{};
+        std::array<VkClearValue, 9> clear_values{};
+    };
+    std::shared_ptr<PendingBegin> pending_begin;
+    u64 record_count = 0;
+    u64 record_count_at_begin = 0;
 
     u32 num_renderpass_images = 0;
     std::array<VkImage, 9> renderpass_images{};

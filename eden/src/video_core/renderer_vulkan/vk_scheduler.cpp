@@ -20,6 +20,7 @@
 #include "video_core/renderer_vulkan/vk_graphics_pipeline.h"
 #include "video_core/renderer_vulkan/vk_master_semaphore.h"
 #include "common/pomegrade_diagnostics.h"
+#include "video_core/renderer_vulkan/vk_render_pass_cache.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_state_tracker.h"
 #include "video_core/renderer_vulkan/vk_texture_cache.h"
@@ -134,25 +135,63 @@ void Scheduler::RequestRenderpass(const Framebuffer* framebuffer) {
         GPU::Logging::GPULogger::GetInstance().LogRenderPassBegin(render_pass_info);
     }
 
-    Record([renderpass, framebuffer_handle, render_area](vk::CommandBuffer cmdbuf) {
+    // Pomegrade: a full clear recorded before anything else in the pass may still turn its load into a clear
+    // (ClearOnLoad), until the worker seals the begin here
+    pending_begin = std::make_shared<PendingBegin>();
+    Record([renderpass, framebuffer_handle, render_area,
+            pending = pending_begin](vk::CommandBuffer cmdbuf) {
+        std::scoped_lock lock{pending->mutex};
+        pending->sealed = true;
+        const bool clears = pending->clear_renderpass != VK_NULL_HANDLE;
         const VkRenderPassBeginInfo renderpass_bi{
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .pNext = nullptr,
-            .renderPass = renderpass,
+            .renderPass = clears ? pending->clear_renderpass : renderpass,
             .framebuffer = framebuffer_handle,
             .renderArea =
                 {
                     .offset = {.x = 0, .y = 0},
                     .extent = render_area,
                 },
-            .clearValueCount = 0,
-            .pClearValues = nullptr,
+            .clearValueCount = clears ? static_cast<u32>(pending->clear_values.size()) : 0,
+            .pClearValues = clears ? pending->clear_values.data() : nullptr,
         };
         cmdbuf.BeginRenderPass(renderpass_bi, VK_SUBPASS_CONTENTS_INLINE);
     });
+    record_count_at_begin = record_count;
     num_renderpass_images = framebuffer->NumImages();
     renderpass_images = framebuffer->Images();
     renderpass_image_ranges = framebuffer->ImageRanges();
+}
+
+bool Scheduler::ClearOnLoad(const Framebuffer* framebuffer, u16 clear_bits, u32 attachment,
+                            const VkClearValue& value) {
+    // the caller checked IsRenderPassUntouched when the clear began: what it recorded since (viewports, queries)
+    // draws nothing, so the clear may still be the pass's load
+    if (!pending_begin || attachment >= 9) {
+        return false;
+    }
+    std::scoped_lock lock{pending_begin->mutex};
+    if (pending_begin->sealed) {
+        return false;
+    }
+    const u16 mask = static_cast<u16>(pending_begin->clear_mask | clear_bits);
+    const VkRenderPass clear_renderpass = framebuffer->RenderPassWithClears(mask);
+    if (clear_renderpass == VK_NULL_HANDLE) {
+        return false;
+    }
+    pending_begin->clear_mask = mask;
+    pending_begin->clear_renderpass = clear_renderpass;
+    // depth and stencil share their attachment's value: the second keeps what the first set
+    VkClearValue& slot = pending_begin->clear_values[attachment];
+    if (clear_bits == RenderPassKey::ClearStencilBit) {
+        slot.depthStencil.stencil = value.depthStencil.stencil;
+    } else if (clear_bits == RenderPassKey::ClearDepthBit) {
+        slot.depthStencil.depth = value.depthStencil.depth;
+    } else {
+        slot = value;
+    }
+    return true;
 }
 
 void Scheduler::RequestOutsideRenderPassOperationContext() {
@@ -335,6 +374,7 @@ void Scheduler::EndRenderPass()
         if (!state.renderpass) {
             return;
         }
+        pending_begin.reset(); // Pomegrade: the pass is closed, its begin can no longer change
 
         query_cache->CounterClose(VideoCommon::QueryType::StreamingByteCount);
 

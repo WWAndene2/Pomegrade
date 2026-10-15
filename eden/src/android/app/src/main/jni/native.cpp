@@ -469,10 +469,11 @@ public:
             const u64 pixels = PomegradeDiagnostics::render_pass_pixels.exchange(0, std::memory_order_relaxed);
             const u64 clears_first = PomegradeDiagnostics::full_clears_first.exchange(0, std::memory_order_relaxed);
             const u64 clears_later = PomegradeDiagnostics::full_clears_later.exchange(0, std::memory_order_relaxed);
+            const u64 on_load = PomegradeDiagnostics::clears_on_load.exchange(0, std::memory_order_relaxed);
             const double per_frame = frames > 0 ? 1.0 / static_cast<double>(frames) : 0.0;
-            LOG_INFO(Frontend, "[Pomegrade diag] render passes per frame {:.1f}, screens of pixels per frame {:.1f} (1280x720 = 1) | full clears per frame: first in their pass {:.1f}, later {:.1f} | images so far: renderable {}, renderable with STORAGE {}, storage views on renderable {}",
+            LOG_INFO(Frontend, "[Pomegrade diag] render passes per frame {:.1f}, screens of pixels per frame {:.1f} (1280x720 = 1) | full clears per frame: first in their pass {:.1f}, later {:.1f}, made the pass's load {:.1f} | images so far: renderable {}, renderable with STORAGE {}, storage views on renderable {}",
                      passes * per_frame, pixels / (1280.0 * 720.0) * per_frame, clears_first * per_frame,
-                     clears_later * per_frame, PomegradeDiagnostics::attachment_images.load(std::memory_order_relaxed),
+                     clears_later * per_frame, on_load * per_frame, PomegradeDiagnostics::attachment_images.load(std::memory_order_relaxed),
                      PomegradeDiagnostics::storage_attachment_images.load(std::memory_order_relaxed),
                      PomegradeDiagnostics::attachment_storage_views.load(std::memory_order_relaxed));
         }
