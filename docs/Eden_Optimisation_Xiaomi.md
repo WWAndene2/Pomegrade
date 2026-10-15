@@ -396,7 +396,16 @@ removed their 23-30 passes without a clear effect on the frame rate. The owner e
 (the twelfth log was announced as the last). State reached: 1x in the field went from 16 FPS (before O1-O3) to 22-25
 on average, 28-30 in battles and light scenes; the remaining limit is the Mali's work on 80-170 render passes a frame,
 most of them ended by the guest's buffer copies. Next, if the work resumes: record the caller of each `CopyBuffer`
-that ends a pass, then keep those copies inside the frame's flow (renaming or moving them before the pass), or D7. The disk cache works, so H4
+that ends a pass, then keep those copies inside the frame's flow (renaming or moving them before the pass), or D7.
+
+Thirteenth log (owner, 15 October, the same test cycle standing still in the field, as asked after the twelfth;
+first three samples of each phase left out as transitions): phase 1 is unusable (the scene changed, 14.9 to 29.9
+FPS); phase 2 (every upload at frame start) 25.0 FPS, 170 passes; phase 3 (+ fragment barriers ignored) 24.7, 170;
+phase 4 (defer wait for idle off) 24.1, 178; phase 5 (clear on load off) 22.5, 177; the restored settings 23.1, 177.
+Read from it: clear on load is worth 1 to 2.5 FPS; the other options and both tests move the rate by about 1 FPS,
+within the noise and a slow drift over the run; even phase 3 keeps 170 passes, the copies through `CopyBuffer`
+(108-118 a frame) taking over from what was removed. The changes to Eden's render passes are spent, about 5 %
+together; what remains is the guest's own buffer copies, as written above. The disk cache works, so H4
 explains first-run stutters, not this floor.
 
 ---
