@@ -67,6 +67,9 @@ object PunicaLayout {
     /** Dolphin's GameCube memory cards, in GC-Wii/Saves. */
     const val GAMECUBE = "GameCube"
 
+    // a firmware has a few hundred NCAs, an unpacked game a handful (SystemFilesCheck's threshold too)
+    private const val FIRMWARE_MIN_NCAS = 50
+
     // written once the folder has this layout; its content is the layout's version
     private const val MARKER = ".punica-layout"
     private const val VERSION = "1"
@@ -230,14 +233,32 @@ object PunicaLayout {
             }
         }
 
-        /** A Switch firmware's NCAs the old folder organizer had put one by one in Roms/<hash>/ (14 October). */
+        /**
+         * A Switch firmware's NCAs in Roms: put one by one in Roms/<hash>/ by the old folder organizer (14 October), loose
+         * in Roms, or a whole firmware (50 or more) in a folder of its own: into Switch/System/Firmware. Hidden files beside them
+         * (.nomedia) do not count.
+         */
         fun firmwareFromRoms() {
-            File(root, "Roms").listFiles { f -> f.isDirectory }?.forEach { dir ->
-                val nca = dir.listFiles()?.singleOrNull()?.takeIf { it.isFile && RomPlatform.isSwitchContentFile(it.name) } ?: return@forEach
-                val target = to(SWITCH, SYSTEM, FIRMWARE, nca.name)
-                // named after its content's hash: the same name and size is the same file
-                if (target.isFile && target.length() == nca.length()) { if (nca.delete()) dir.delete() } else { move(nca, target); dir.delete() }
+            val roms = File(root, "Roms")
+            roms.listFiles { f -> f.isFile && RomPlatform.isSwitchContentFile(f.name) }?.forEach { moveFirmwareFile(it) }
+            roms.listFiles { f -> f.isDirectory }?.forEach { dir ->
+                // a folder holding only firmware files: one the organizer made per NCA, or a whole firmware unzipped there
+                val visible = dir.listFiles()?.filterNot { it.name.startsWith(".") }.orEmpty()
+                if (visible.isEmpty() || !visible.all { it.isFile && RomPlatform.isSwitchContentFile(it.name) }) return@forEach
+                // a few NCAs together are an unpacked game, kept as one (a firmware has a few hundred), as SystemFilesCheck
+                if (visible.size in 2 until FIRMWARE_MIN_NCAS) return@forEach
+                visible.forEach { moveFirmwareFile(it) }
+                if (visible.none { it.exists() }) {
+                    dir.listFiles()?.forEach { it.delete() }
+                    dir.delete()
+                }
             }
+        }
+
+        // named after its content's hash: one already in Firmware with the same name and size is the same file
+        private fun moveFirmwareFile(nca: File) {
+            val target = to(SWITCH, SYSTEM, FIRMWARE, nca.name)
+            if (target.isFile && target.length() == nca.length()) { if (nca.delete()) moved++ else left += nca.path } else move(nca, target)
         }
 
         /** Roms/ into each console's Games: one game file each; a game folder with several files kept as a folder. */

@@ -149,4 +149,26 @@ class PunicaLayoutTest {
         assertEquals(null, PunicaLayout.movedGame(root, File(root, "Elsewhere/Game.nds")))
         assertEquals(null, PunicaLayout.movedGame(root, File(root, "Roms/Missing/Missing.nds")))
     }
+
+    @Test
+    fun firmwareLeavesRomsWhereverItWas() {
+        val root = earlierLayout()
+        val loose = "%032x".format(10)
+        val hidden = "%032x".format(11)
+        file(root, "Roms/$loose.nca", "loose nca")
+        file(root, "Roms/$hidden/$hidden.nca", "nca beside a hidden file")
+        file(root, "Roms/$hidden/.nomedia", "")
+        for (i in 90 until 93) file(root, "Roms/Unpacked/${"%032x".format(i)}.nca", "game part $i")
+        for (i in 20 until 80) file(root, "Roms/Firmware 19.0.1/${"%032x".format(i)}.nca", "unzipped $i")
+        PunicaLayout.migrate(root)
+        for (i in 20 until 80) assertEquals("unzipped $i", File(root, "Switch/System/Firmware/${"%032x".format(i)}.nca").readText())
+        val firmware = File(root, "Switch/System/Firmware")
+        assertEquals("loose nca", File(firmware, "$loose.nca").readText())
+        assertEquals("nca beside a hidden file", File(firmware, "$hidden.nca").readText())
+        // an unpacked game (a few NCAs together) stays a game
+        assertEquals(3, File(root, "Switch/Games/Unpacked").listFiles()!!.size)
+        // no firmware file taken for a game
+        assertTrue(File(root, "Switch/Games").walkTopDown().none { it.isFile && it.name.endsWith(".nca") && !it.path.contains("Unpacked") })
+        assertFalse(File(root, "Roms").exists())
+    }
 }
