@@ -64,8 +64,8 @@ class SaveStateScreenshotProvider(
     }
 
     private fun getScreenshotsDir(): File {
-        // Pomegrade: in the Pomegrade folder, which stays when the app is uninstalled
-        return PomegradeFolder.subFolder(context, PomegradeFolder.SAVE_STATE_PREVIEWS)?.takeIf { it.isDirectory || it.mkdirs() }
+        // Pomegrade: in the Pomegrade folder's DS/States, which stays when the app is uninstalled
+        return PomegradeFolder.consoleFolder(context, PunicaLayout.DS, "${PunicaLayout.STATES}/${PunicaLayout.PREVIEWS}")?.takeIf { it.isDirectory || it.mkdirs() }
             ?: File(context.filesDir, SAVE_STATE_SCREENSHOTS_DIR)
     }
 

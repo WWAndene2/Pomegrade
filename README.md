@@ -20,11 +20,30 @@ Pomegrade est une version modifiée de [melonDS-android](https://github.com/rafa
 
 Les BIOS et firmwares Nintendo ont été retirés du dépôt pour des raisons de copyright. Gardez-les sur votre appareil et choisissez-les dans les paramètres de l'application.
 
-**Switch** : les jeux `.nsp`, `.xci`, `.nca` et `.nro` apparaissent dans la liste (sous leur nom de fichier) et se lancent dans le cœur Eden, sur téléphone ARM 64 bits avec Vulkan. Les clés (`prod.keys`, `title.keys`) et le firmware (ses `.nca`, dans `Firmware/`) de votre console se mettent dans `BIOS/Switch` du dossier Pomegrade : Punica les installe dans Eden au lancement (ou par Réglages → logo Switch). Les sauvegardes, mises à jour et DLC Switch sont dans `Switch/` du dossier Pomegrade (`nand/`, `sdmc/`), comme celles de la 3DS dans `3DS/` : elles restent si l'application est désinstallée ; ils ne sont jamais dans le dépôt.
+## Le dossier Punica
 
-**GameCube et Wii** : les jeux (`.iso`, `.gcm`, `.rvz`, `.wia`, `.ciso`, `.gcz`, `.wbfs`, `.wad`, …) apparaissent dans la liste et se lancent dans le cœur Dolphin, sur téléphone ARM 64 bits. Ses données (cartes mémoire, sauvegardes Wii, réglages) sont dans `GC-Wii/` du dossier Pomegrade. Ses réglages : Réglages → logo GameCube / Wii.
+Punica range tout dans un seul dossier, `Punica`, choisi au premier lancement (par défaut dans le stockage interne) : un dossier par console, avec les mêmes six dossiers dans chacun.
 
-**GBA** : les jeux `.gba` apparaissent dans la liste avec les autres et se lancent dans le cœur mGBA. Sauvegarde et sauvegardes d'état sont rangées à côté du jeu (`<jeu>.sav`, `<jeu>.ss0` à `.ss9`). Le BIOS est facultatif : mGBA a le sien ; un BIOS de votre console, `gba_bios.bin` dans `BIOS/GBA` du dossier Pomegrade (les BIOS sont rangés par console : `BIOS/DS`, `BIOS/DSi`, `BIOS/GBA`, `BIOS/Switch` ; ceux d'une version précédente, à la racine de `BIOS`, y sont déplacés), est pris s'il est là.
+```
+Punica/
+├── DS/  GBA/  3DS/  Switch/  GC-Wii/
+│   ├── Games/     les jeux
+│   ├── Saves/     les sauvegardes
+│   ├── States/    les états de sauvegarde
+│   ├── System/    BIOS, clés, firmware, mémoire système de la console
+│   ├── Mods/      packs de textures et mods
+│   └── Core/      les fichiers propres à l'émulateur (réglages, caches, journaux)
+├── Settings/      une copie des réglages de Punica
+└── Backups/       les copies faites avant un déplacement ou un import
+```
+
+Deux exceptions, imposées par les consoles : les sauvegardes 3DS sont sur la carte SD de la console (`3DS/System/sdmc`) et les sauvegardes Wii dans sa mémoire interne (`GC-Wii/System/Wii`), avec les jeux et chaînes installés ; un fichier dans leur `Saves/` le rappelle. Un dossier rangé autrement par une version précédente (`Roms/`, `BIOS/`, `Textures/`…) est réorganisé une fois, à l'ouverture de la liste de jeux, après une copie des sauvegardes dans `Backups/`.
+
+**Switch** : les jeux `.nsp`, `.xci`, `.nca` et `.nro` apparaissent dans la liste (sous leur nom de fichier) et se lancent dans le cœur Eden, sur téléphone ARM 64 bits avec Vulkan. Les clés (`prod.keys`, `title.keys`) et le firmware (ses `.nca`, dans `Firmware/`) de votre console se mettent dans `Switch/System` du dossier Punica : Punica les installe dans Eden au lancement (ou par Réglages → logo Switch). Les sauvegardes Switch sont dans `Switch/Saves`, les mises à jour et DLC dans `Switch/System` (`nand/`, `sdmc/`) : elles restent si l'application est désinstallée ; elles ne sont jamais dans le dépôt.
+
+**GameCube et Wii** : les jeux (`.iso`, `.gcm`, `.rvz`, `.wia`, `.ciso`, `.gcz`, `.wbfs`, `.wad`, …) apparaissent dans la liste et se lancent dans le cœur Dolphin, sur téléphone ARM 64 bits. Ses cartes mémoire sont dans `GC-Wii/Saves/GameCube`, la mémoire interne de la Wii (et ses sauvegardes) dans `GC-Wii/System/Wii`, le BIOS GameCube facultatif (`IPL.bin`) dans `GC-Wii/System/<USA, EUR ou JAP>`. Ses réglages : Réglages → logo GameCube / Wii.
+
+**GBA** : les jeux `.gba` apparaissent dans la liste avec les autres et se lancent dans le cœur mGBA. La sauvegarde est dans `GBA/Saves` (`<jeu>.sav`), les sauvegardes d'état dans `GBA/States` (`<jeu>.ss0` à `.ss9`). Le BIOS est facultatif : mGBA a le sien ; un BIOS de votre console, `gba_bios.bin` dans `GBA/System` du dossier Punica, est pris s'il est là.
 
 ## Textures HD
 
@@ -37,14 +56,14 @@ Les BIOS et firmwares Nintendo ont été retirés du dépôt pour des raisons de
 ### Dossiers
 
 ```
-Pomegrade/Textures/<CODE DU JEU>/
+Punica/DS/Mods/<CODE DU JEU>/
 ├── dump/                       ← textures exportées depuis le jeu (taille d'origine)
 │   └── tex_64x32_1a2b3c4d5e6f7a8b.png
 └── (n'importe quel sous-dossier, sauf dump/)
     └── tex_64x32_1a2b3c4d5e6f7a8b.png   ← votre version HD
 ```
 
-`Pomegrade` est le dossier Pomegrade choisi au premier lancement (par défaut dans le stockage interne) : n'importe quel gestionnaire de fichiers y a accès. Sans dossier Pomegrade, les textures sont dans `Android/data/<paquet de l'appli>/files/textures/`, et elles sont déplacées dans `Pomegrade/Textures` quand le dossier est choisi.
+`Punica` est le dossier choisi au premier lancement (voir « Le dossier Punica ») : n'importe quel gestionnaire de fichiers y a accès. Sans lui, les textures sont dans `Android/data/<paquet de l'appli>/files/textures/`, et elles sont déplacées dans `Punica/DS/Mods` quand le dossier est choisi.
 
 `<CODE DU JEU>` est le code à 4 caractères inscrit dans la ROM (par exemple `AMCE`). Le dossier `dump/` est créé automatiquement, ce qui permet de retrouver le code du jeu.
 
@@ -55,7 +74,7 @@ Pomegrade/Textures/<CODE DU JEU>/
    - **Gardez le même nom de fichier.**
    - La taille doit valoir **exactement 1×, 2×, 4×, 8× ou 16×** l'originale, avec le même facteur en largeur et en hauteur. Une texture de 64×32 en 4× fait donc 256×128.
    - Au maximum 4096 pixels de côté, et pas plus que ce que le GPU accepte.
-3. Placez les images HD dans `Textures/<CODE DU JEU>/`, dans le dossier lui-même ou un sous-dossier, mais **pas dans `dump/`**.
+3. Placez les images HD dans `DS/Mods/<CODE DU JEU>/`, dans le dossier lui-même ou un sous-dossier, mais **pas dans `dump/`**.
 4. Désactivez « Dump textures », activez **« HD textures »**, puis relancez le jeu.
 
 Les fichiers invalides (mauvaise taille, image illisible) sont ignorés et signalés dans le journal (logcat).

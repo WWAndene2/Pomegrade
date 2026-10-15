@@ -7,12 +7,13 @@ import io.github.wwandene2.pomegrade.gba.GbaEmulatorActivity
 import me.magnum.melonds.R
 import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.impl.PomegradeFolder
+import me.magnum.melonds.impl.PunicaLayout
 import java.io.File
 
 /**
  * Starts GBA games in the mGBA core. The core reads the game, and writes its save and save states in the
- * folder's GBA, by file path, so it needs the folder's file access. A BIOS dumped from the
- * owner's console, `gba_bios.bin` in the Pomegrade folder's BIOS/GBA, is used when present and the
+ * folder's GBA/Saves and GBA/States, by file path, so it needs the folder's file access. A BIOS dumped from the
+ * owner's console, `gba_bios.bin` in the Pomegrade folder's GBA/System, is used when present and the
  * setting allows it; mGBA's own otherwise. Its settings (Settings, GBA) are passed to the GBA screen here.
  */
 object GbaLauncher : ConsoleLauncher {
@@ -27,11 +28,12 @@ object GbaLauncher : ConsoleLauncher {
         val path = PomegradeFolder.pathOf(documentId)
         if (!path.isFile) return null
         val preferences = PreferenceManager.getDefaultSharedPreferences(context)
-        val bios = if (!preferences.getBoolean("gba_console_bios", true)) null else PomegradeFolder.subFolder(context, "${PomegradeFolder.BIOS}/${PomegradeFolder.BIOS_GBA}")?.let { File(it, PomegradeFolder.GBA_BIOS_FILE) }?.takeIf { it.isFile }
+        val bios = if (!preferences.getBoolean("gba_console_bios", true)) null else PomegradeFolder.consoleFolder(context, PunicaLayout.GBA, PunicaLayout.SYSTEM)?.let { File(it, PomegradeFolder.GBA_BIOS_FILE) }?.takeIf { it.isFile }
         return GbaEmulatorActivity.intent(
             context, path.absolutePath, rom.config.customName ?: rom.name, bios?.absolutePath,
             smoothScreen = preferences.getBoolean("gba_screen_smoothing", false),
-            saveDir = PomegradeFolder.subFolder(context, PomegradeFolder.GBA_SAVES)?.absolutePath,
+            saveDir = PomegradeFolder.consoleFolder(context, PunicaLayout.GBA, PunicaLayout.SAVES)?.absolutePath,
+            statesDir = PomegradeFolder.consoleFolder(context, PunicaLayout.GBA, PunicaLayout.STATES)?.absolutePath,
         )
     }
 }

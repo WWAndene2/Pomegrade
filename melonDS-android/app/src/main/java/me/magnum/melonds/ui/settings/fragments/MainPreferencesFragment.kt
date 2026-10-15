@@ -15,6 +15,7 @@ import kotlinx.coroutines.withContext
 import me.magnum.melonds.R
 import me.magnum.melonds.impl.ModInstaller
 import me.magnum.melonds.impl.PomegradeFolder
+import me.magnum.melonds.impl.PunicaLayout
 import me.magnum.melonds.impl.SwitchUserDataImport
 import org.dolphinemu.dolphinemu.features.settings.ui.MenuTag as GcWiiSettingsMenu
 import org.yuzu.yuzu_emu.features.settings.model.Settings.MenuTag as SwitchSettingsMenu
@@ -111,7 +112,7 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
         // DS debug trace: written by path into the Pomegrade folder, the path kept with the setting
         findPreference<androidx.preference.SwitchPreference>("ds_debug_trace")?.setOnPreferenceChangeListener { _, value ->
             if (value != true) return@setOnPreferenceChangeListener true
-            val traces = PomegradeFolder.subFolder(requireContext(), "DS/Traces")
+            val traces = PomegradeFolder.consoleFolder(requireContext(), PunicaLayout.DS, "${PunicaLayout.CORE}/Traces")
             if (traces == null) {
                 toast(R.string.ds_debug_trace_no_folder)
                 return@setOnPreferenceChangeListener false
@@ -136,7 +137,7 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
         findPreference<androidx.preference.SwitchPreference>(EmulationActivity.CODE_TRACE)?.setOnPreferenceChangeListener { _, value ->
             if (value != true) return@setOnPreferenceChangeListener true
             withThreeDsFolder {
-                val traces = threeDsFolder()?.let { java.io.File(it, "Traces") }
+                val traces = threeDsFolder()?.let { java.io.File(it, "${PunicaLayout.CORE}/Traces") }
                 if (traces == null) {
                     toast(R.string.three_ds_code_trace_no_folder)
                     findPreference<androidx.preference.SwitchPreference>(EmulationActivity.CODE_TRACE)?.isChecked = false

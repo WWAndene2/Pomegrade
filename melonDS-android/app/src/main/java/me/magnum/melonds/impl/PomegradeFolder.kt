@@ -8,45 +8,33 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.DocumentsContract
+import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import androidx.preference.PreferenceManager
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import me.magnum.melonds.R
 import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.domain.model.rom.RomPlatform
 import me.magnum.melonds.domain.repositories.RomsRepository
 import me.magnum.melonds.domain.repositories.SettingsRepository
 import org.citra.citra_emu.CitraApplication
+import org.citra.citra_emu.activities.EmulationActivity
 import org.citra.citra_emu.features.settings.model.Settings
 import org.citra.citra_emu.utils.CitraDirectoryHelper
 import org.citra.citra_emu.utils.PermissionsHandler
 import java.io.File
 
 /**
- * The Pomegrade folder: one folder, picked once, where Pomegrade keeps the games and their files
- * for every console:
+ * The Pomegrade folder (named Punica on the phone): one folder, picked once, where Punica keeps every console's
+ * games and files, in the layout of [PunicaLayout] (one folder per console, the same six folders in each:
+ * Games, Saves, States, System, Mods, Core). A folder in the earlier layout (Roms, BIOS, the cores' folders as
+ * they were) is moved into it once ([applyLayout]).
  *
- * ```
- * Punica/
- * ├── Roms/<game>/   each game's ROM
- * ├── DS/            the DS and DSi saves and save states (ConsoleSavesMover moved those kept next to the games)
- * ├── GBA/           the GBA saves, save states and their previews
- * ├── BIOS/          one folder per console:
- * │   ├── DS/        bios7.bin, bios9.bin, firmware.bin (when no other DS BIOS folder was set)
- * │   ├── DSi/       bios7.bin, bios9.bin, firmware.bin, nand.bin (likewise)
- * │   ├── GBA/       gba_bios.bin (optional, mGBA's own BIOS otherwise)
- * │   ├── Switch/    prod.keys, title.keys, Firmware/ (see SwitchSystemFiles)
- * │   ├── 3DS/       aes_keys.txt, boot9.bin... (optional; see ConsoleSystemFiles)
- * │   └── GC-Wii/    USA/, EUR/, JAP/ with the GameCube's IPL.bin (optional; see ConsoleSystemFiles)
- * ├── 3DS/           the 3DS core's folder (Azahar: 3DS saves, save states, system files)
- * ├── Switch/        the Switch core's whole folder (Eden: saves, updates, DLC, settings, keys, shaders; see SwitchFolder)
- * ├── GC-Wii/        the GameCube and Wii core's folder (Dolphin: memory cards, Wii saves, settings; see GcWiiFolder)
- * └── Backups/       a console's folder saved before data is imported over it (see SwitchUserDataImport)
- * ```
- *
- * Games found in other ROM folders are moved into Roms, each into a folder named after its file.
- * Moving uses file paths (java.io): Android's document API can't move between two folders picked
- * separately, and "All files access" is needed anyway by the 3DS core, which reads its folder by
- * path. Only the phone's storage provider (internal storage, SD cards) is supported, as for the
- * 3DS core.
+ * Games found in other ROM folders are moved into their console's Games. Moving uses file paths (java.io):
+ * Android's document API can't move between two folders picked separately, and "All files access" is needed
+ * anyway by the 3DS core, which reads its folder by path. Only the phone's storage provider (internal storage,
+ * SD cards) is supported, as for the 3DS core.
  */
 class PomegradeFolder(
     private val context: Context,
@@ -57,38 +45,37 @@ class PomegradeFolder(
 ) {
 
     companion object {
+        // the earlier layout's top-level folders, moved by PunicaLayout.migrate; read until then
         const val ROMS = "Roms"
         const val BIOS = "BIOS"
-        // BIOS has one folder per console: the DS and DSi files have the same names (bios7.bin, bios9.bin,
-        // firmware.bin), so they can't share one
-        const val BIOS_DS = "DS"
-        const val BIOS_DSI = "DSi"
-        const val BIOS_GBA = "GBA"
-        const val BIOS_SWITCH = "Switch"
-        /** The owner's GBA BIOS, in BIOS/GBA. */
+        /** The owner's GBA BIOS, in GBA/System. */
         const val GBA_BIOS_FILE = "gba_bios.bin"
-        private val BIOS_CONSOLES = listOf(BIOS_DS, BIOS_DSI, BIOS_GBA, BIOS_SWITCH, N3DS, GC_WII)
         internal val DS_BIOS_FILES = listOf("bios7.bin", "bios9.bin", "firmware.bin")
         internal val DSI_BIOS_FILES = DS_BIOS_FILES + "nand.bin"
         // what tells a DS bios7.bin from a DSi one, as the BIOS checks do
         internal const val DS_BIOS7_SIZE = 0x4000L
         internal const val DSI_BIOS7_SIZE = 0x10000L
-        const val N3DS = "3DS"
-        const val SWITCH = "Switch"
-        const val GC_WII = "GC-Wii"
-        const val BACKUPS = "Backups"
-        // the DS (and DSi) and GBA saves and save states, as each console's are in its own folder
-        const val DS_SAVES = "DS"
-        const val GBA_SAVES = "GBA"
-        const val TEXTURES = "Textures"
-        const val SAVE_STATE_PREVIEWS = "Save state previews"
+        const val N3DS = PunicaLayout.N3DS
+        const val SWITCH = PunicaLayout.SWITCH
+        const val GC_WII = PunicaLayout.GC_WII
+        const val BACKUPS = PunicaLayout.BACKUPS
         // a copy of the settings, the game list (each game's settings, last played, play time),
         // the controller and layout configurations, read back after a reinstall
-        const val SETTINGS = "Settings"
+        const val SETTINGS = PunicaLayout.SETTINGS
+
+        /**
+         * The Pomegrade folder's path once it is in the layout of [PunicaLayout], or null (not set up, no file access,
+         * or still in the earlier layout: the cores then keep their earlier folders until the game list moves them).
+         */
+        fun layoutRoot(context: Context): File? = subFolder(context, "")?.takeIf { PunicaLayout.isMigrated(it) }
+
+        /** One of a console's six folders ([PunicaLayout]), as a path in the Pomegrade folder, or null. */
+        fun consoleFolder(context: Context, console: String, part: String): File? = subFolder(context, "$console/$part")
         /** Where Pomegrade creates its folder: /storage/emulated/0/Pomegrade. */
         // the app's visible name; folders made before 13 October were named Pomegrade (see PunicaFolderRename)
         const val DEFAULT_NAME = "Punica"
         const val PREFERENCE = "pomegrade_folder"
+        private const val TAG = "PomegradeFolder"
         private const val STORAGE_PROVIDER = "com.android.externalstorage.documents"
         // DS save states: <ROM name>.ml0 (quick save) to .ml10
         private const val SAVE_STATE_SLOTS = FileSystemSaveStatesRepository.SAVE_STATE_SLOT_COUNT
@@ -141,18 +128,30 @@ class PomegradeFolder(
         }
 
         /**
-         * The document IDs of the Pomegrade folder's console and system folders (BIOS, saves, the cores' own
-         * folders, backups, settings): never game folders, so the game list never looks in them. The Switch
-         * firmware's NCAs, in BIOS/Switch/Firmware and the Switch core's NAND, have a Switch game's extension.
+         * The document IDs of the Pomegrade folder's folders that hold no game: every console's Saves, States,
+         * System, Mods and Core, Settings and Backups (and the earlier layout's BIOS, Textures and previews), so
+         * the game list never looks in them. The Switch firmware's NCAs, in Switch/System, have a Switch game's
+         * extension.
          */
         fun systemFolderDocumentIds(folder: Uri?): Set<String> {
-            folder ?: return emptySet()
-            val root = try {
+            val root = treeIdOf(folder) ?: return emptySet()
+            val parts = PunicaLayout.CONSOLES.flatMap { console -> (PunicaLayout.PARTS - PunicaLayout.GAMES).map { "$console/$it" } }
+            return (parts + listOf(SETTINGS, BACKUPS, BIOS, "Textures", "Save state previews")).map { "$root/$it" }.toSet()
+        }
+
+        /** The document IDs of every console's Games ("primary:Punica/DS/Games"...), or none. */
+        fun gamesDocumentIds(folder: Uri?): Set<String> {
+            val root = treeIdOf(folder) ?: return emptySet()
+            return PunicaLayout.CONSOLES.map { "$root/$it/${PunicaLayout.GAMES}" }.toSet()
+        }
+
+        private fun treeIdOf(folder: Uri?): String? {
+            folder ?: return null
+            return try {
                 DocumentsContract.getTreeDocumentId(folder)
             } catch (e: IllegalArgumentException) {
-                return emptySet()
+                null
             }
-            return listOf(BIOS, DS_SAVES, GBA_SAVES, N3DS, SWITCH, GC_WII, BACKUPS, TEXTURES, SAVE_STATE_PREVIEWS, SETTINGS).map { "$root/$it" }.toSet()
         }
 
         /** The document ID of a tree or document URI of the storage provider, or null. */
@@ -190,9 +189,10 @@ class PomegradeFolder(
     }
 
     /**
-     * Makes [folder] (a tree picked with the system's folder picker) the Pomegrade folder: creates
-     * its sub-folders, points the DS and 3DS settings to them, and moves the games found so far
-     * into Roms (with their saves, from wherever they are kept now). Runs on a background thread.
+     * Makes [folder] (a tree picked with the system's folder picker) the Pomegrade folder: puts it in the layout of
+     * [PunicaLayout] (moving an earlier layout found there), moves the games found so far into their console's Games
+     * (with their saves, from wherever they are kept now), and points the DS, 3DS, Switch and GameCube / Wii
+     * settings to it. Runs on a background thread.
      */
     fun setUp(folder: Uri, roms: List<Rom>, onProgress: (String) -> Unit): Pair<SetupResult, OrganizeResult?> {
         if (folder.authority != STORAGE_PROVIDER || documentIdOf(context, folder) == null) {
@@ -205,92 +205,116 @@ class PomegradeFolder(
             return SetupResult.Failed to null
         }
         val root = pathOf(DocumentsContract.getTreeDocumentId(folder))
-        for (name in listOf(ROMS, BIOS, N3DS, TEXTURES, DS_SAVES, GBA_SAVES)) {
-            val dir = File(root, name)
-            if (!dir.isDirectory && !dir.mkdirs()) {
-                return SetupResult.Failed to null
-            }
-        }
+        if (!root.isDirectory && !root.mkdirs()) return SetupResult.Failed to null
         settingsRepository.setPomegradeFolder(folder)
+        applyLayout(roms)
 
         // games first, while the settings still say where their saves are now
-        val organized = organize(roms, onProgress)
+        // the list as it is once applyLayout has moved the games of an earlier layout
+        val organized = organize(runBlocking { romsRepository.getRoms().first() }, onProgress)
 
         // texture packs (and dumps) from the app's own folder, which Android deletes with the app
         context.getExternalFilesDir("textures")?.listFiles()?.forEach { game ->
-            val target = File(File(root, TEXTURES), game.name)
+            val target = File(PunicaLayout.part(root, PunicaLayout.DS, PunicaLayout.MODS), game.name)
             if (!target.exists()) game.renameTo(target) || game.copyRecursively(target) && game.deleteRecursively()
         }
-        screenshotProvider.moveTo(File(root, SAVE_STATE_PREVIEWS))
+        screenshotProvider.moveTo(File(PunicaLayout.part(root, PunicaLayout.DS, PunicaLayout.STATES), PunicaLayout.PREVIEWS))
 
-        val treeId = DocumentsContract.getTreeDocumentId(folder)
-        val romsFolder = DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$ROMS")
-        settingsRepository.includeRomSearchDirectory(romsFolder)
         organizeSaves()
         organizeBios()
-
         setUpThreeDs()
         hideImagesFromGallery()
         return SetupResult.Success to organized
     }
 
     /**
-     * Creates BIOS's console folders and points the DS and DSi BIOS settings to BIOS/DS and BIOS/DSi, unless
-     * they point elsewhere. Earlier versions kept everything in BIOS itself: its DS or DSi files (told apart
-     * by bios7.bin's size) and gba_bios.bin move into their console's folder; a file already there is kept.
-     * Runs on a background thread, at setup and when the game list opens.
+     * Puts the Pomegrade folder in the layout of [PunicaLayout], once (owner's request, 15 October): moves the earlier
+     * one ([PunicaLayout.migrate]), then follows the moved games in the game list (their settings, play time and state
+     * screenshots go with them), scans every console's Games instead of Roms, and moves the debug trace folders kept
+     * in the settings. Background thread, before the game list scans.
+     */
+    fun applyLayout(roms: List<Rom>) {
+        val folder = settingsRepository.getPomegradeFolder() ?: return
+        if (!hasFileAccess(context)) return
+        val treeId = DocumentsContract.getTreeDocumentId(folder)
+        val root = pathOf(treeId)
+        if (!PunicaLayout.isMigrated(root)) {
+            val notes = mapOf(
+                PunicaLayout.N3DS to (context.getString(R.string.punica_layout_saves_note_file) to context.getString(R.string.punica_layout_saves_note_three_ds)),
+                PunicaLayout.GC_WII to (context.getString(R.string.punica_layout_saves_note_file) to context.getString(R.string.punica_layout_saves_note_gc_wii)),
+            )
+            val report = PunicaLayout.migrate(root, notes)
+            report.left.forEach { Log.w(TAG, "Punica layout: left $it") }
+            val rootPath = root.canonicalPath
+            fun idOf(file: File) = treeId + file.canonicalPath.removePrefix(rootPath)
+            roms.forEach { rom ->
+                val old = documentIdOf(context, rom.uri)?.let { pathOf(it) } ?: return@forEach
+                val new = report.games[old] ?: return@forEach
+                val newUri = DocumentsContract.buildDocumentUriUsingTree(folder, idOf(new))
+                val parentUri = DocumentsContract.buildDocumentUriUsingTree(folder, idOf(new.parentFile!!))
+                screenshotProvider.relocateRomScreenshots(rom, newUri)
+                romsRepository.relocateRom(rom, newUri, parentUri)
+            }
+            moveTraceFolder("ds_debug_trace_folder", "${PunicaLayout.DS}/Traces", "${PunicaLayout.DS}/${PunicaLayout.CORE}/Traces", root)
+            moveTraceFolder(EmulationActivity.CODE_TRACE_FOLDER, "${PunicaLayout.N3DS}/Traces", "${PunicaLayout.N3DS}/${PunicaLayout.CORE}/Traces", root)
+        }
+        // every console's Games scanned, the earlier Roms no more
+        settingsRepository.excludeRomSearchDirectory(DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$ROMS"))
+        gamesDocumentIds(folder).forEach { settingsRepository.includeRomSearchDirectory(DocumentsContract.buildDocumentUriUsingTree(folder, it)) }
+    }
+
+    // a trace folder kept as a path in the settings, moved with the layout
+    private fun moveTraceFolder(key: String, before: String, after: String, root: File) {
+        val preferences = PreferenceManager.getDefaultSharedPreferences(context)
+        val path = preferences.getString(key, null) ?: return
+        if (File(path).canonicalPath == File(root, before).canonicalPath) preferences.edit().putString(key, File(root, after).absolutePath).apply()
+    }
+
+    /**
+     * Points the DS and DSi BIOS settings to DS/System and DS/System/DSi, unless they point elsewhere (the owner's
+     * own folder), and copies the system files a core reads from its own folder ([ConsoleSystemFiles]). Runs on a
+     * background thread, at setup and when the game list opens.
      */
     fun organizeBios() {
         val folder = settingsRepository.getPomegradeFolder() ?: return
         if (!hasFileAccess(context)) return
         val treeId = DocumentsContract.getTreeDocumentId(folder)
-        val bios = pathOf("$treeId/$BIOS")
-        BIOS_CONSOLES.forEach { File(bios, it).mkdirs() }
-
-        val biosUri = DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$BIOS")
-        fun consoleUri(console: String) = DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$BIOS/$console")
-        val bios7Size = File(bios, "bios7.bin").takeIf { it.isFile }?.length()
-
+        val root = pathOf(treeId)
+        // the settings follow the files: not before applyLayout has moved them
+        if (!PunicaLayout.isMigrated(root)) return
+        val system = "${PunicaLayout.DS}/${PunicaLayout.SYSTEM}"
+        File(root, "$system/${PunicaLayout.DSI}").mkdirs()
+        fun uri(path: String) = DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$path")
+        // the Punica folder's own BIOS folders, before and after the layout: replaced; any other is the owner's choice
+        val earlier = setOf(uri(BIOS), uri("$BIOS/DS"), uri("$BIOS/DSi"))
         val dsBios = settingsRepository.getDsBiosDirectory()
-        if (dsBios == null || dsBios == biosUri) {
-            if (bios7Size == DS_BIOS7_SIZE) moveInto(bios, BIOS_DS, DS_BIOS_FILES)
-            settingsRepository.setDsBiosDirectory(consoleUri(BIOS_DS))
-        }
+        if (dsBios == null || dsBios in earlier) settingsRepository.setDsBiosDirectory(uri(system))
         val dsiBios = settingsRepository.getDsiBiosDirectory()
-        if (dsiBios == null || dsiBios == biosUri) {
-            if (bios7Size == DSI_BIOS7_SIZE) moveInto(bios, BIOS_DSI, DSI_BIOS_FILES)
-            settingsRepository.setDsiBiosDirectory(consoleUri(BIOS_DSI))
-        }
-        moveInto(bios, BIOS_GBA, listOf(GBA_BIOS_FILE))
+        if (dsiBios == null || dsiBios in earlier) settingsRepository.setDsiBiosDirectory(uri("$system/${PunicaLayout.DSI}"))
         // the GameCube boot ROM's region folders, so where to put IPL.bin is plain
-        ConsoleSystemFiles.GC_REGIONS.forEach { File(File(bios, GC_WII), it).mkdirs() }
-        ConsoleSystemFiles.import(bios, pathOf(treeId))
+        ConsoleSystemFiles.GC_REGIONS.forEach { File(PunicaLayout.part(root, PunicaLayout.GC_WII, PunicaLayout.SYSTEM), it).mkdirs() }
+        ConsoleSystemFiles.import(root)
     }
 
     /** The system files checked and put in place ([SystemFilesCheck]): moved, never deleted. Background thread. */
     fun checkSystemFiles(): SystemFilesCheck.Report = SystemFilesCheck.run(context, settingsRepository)
 
     /**
-     * Each console's saves in its own folder (owner's decision, 13 October): moves the DS and GBA saves kept
-     * next to their games into DS and GBA ([ConsoleSavesMover]), then points the DS saves setting to DS,
-     * unless the user set another folder in it. Runs on a background thread, at setup and when the game list
+     * Points the DS saves setting to DS/Saves and the DS states to DS/States, unless the user set another folder
+     * (the earlier layout's DS folder is replaced). Runs on a background thread, at setup and when the game list
      * opens.
      */
     fun organizeSaves() {
         val folder = settingsRepository.getPomegradeFolder() ?: return
         if (!hasFileAccess(context)) return
         val treeId = DocumentsContract.getTreeDocumentId(folder)
-        ConsoleSavesMover.moveAll(pathOf("$treeId/$ROMS"), pathOf("$treeId/$DS_SAVES"), pathOf("$treeId/$GBA_SAVES"))
-        if (settingsRepository.saveNextToRomFile() || settingsRepository.getSaveFileDirectory() == null) {
-            settingsRepository.keepGameFilesInConsoleFolder(DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$DS_SAVES"))
-        }
-    }
-
-    private fun moveInto(bios: File, console: String, names: List<String>) {
-        for (name in names) {
-            val file = File(bios, name)
-            val target = File(File(bios, console), name)
-            if (file.isFile && !target.exists()) file.renameTo(target)
+        // the settings follow the files: not before applyLayout has moved them
+        if (!PunicaLayout.isMigrated(pathOf(treeId))) return
+        fun uri(path: String) = DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$path")
+        val saves = uri("${PunicaLayout.DS}/${PunicaLayout.SAVES}")
+        val current = runCatching { settingsRepository.getSaveFileDirectory() }.getOrNull()
+        if (settingsRepository.saveNextToRomFile() || current == null || current == uri(PunicaLayout.DS) || current == saves) {
+            settingsRepository.keepGameFilesInConsoleFolder(saves, uri("${PunicaLayout.DS}/${PunicaLayout.STATES}"))
         }
     }
 
@@ -360,18 +384,20 @@ class PomegradeFolder(
     }
 
     /**
-     * Keeps the image files the emulators write out of the phone's gallery: a `.nomedia` file in the
-     * DS texture folder (Textures/<game code>/, its dumps in dump/), the save state previews and the 3DS
-     * core's dump folder (dump/textures/<title id>/), which Android's media scanner otherwise lists as
-     * photos (the owner, 8 October: the dumped textures filled the gallery). A `.nomedia` hides the
-     * folder's sub-folders too; files already listed leave the gallery when it next rescans. Each game's
-     * textures stay in a folder of their own, as both cores write them.
+     * Keeps the image files the emulators write out of the phone's gallery: a `.nomedia` file in DS/Mods (the DS
+     * texture packs, <game code>/, their dumps in dump/), DS/States/Previews (the state screenshots) and the 3DS
+     * core's dumps (3DS/Core/dump/textures/<title id>/), which Android's media scanner otherwise lists as photos
+     * (the owner, 8 October: the dumped textures filled the gallery). A `.nomedia` hides the folder's sub-folders
+     * too; files already listed leave the gallery when it next rescans.
      */
     fun hideImagesFromGallery() {
         val root = path() ?: return
         if (!hasFileAccess(context)) return
-        val threeDs = runCatching { documentIdOf(context, PermissionsHandler.citraDirectory) }.getOrNull()?.let { pathOf(it) }
-        val folders = listOfNotNull(File(root, TEXTURES), File(root, SAVE_STATE_PREVIEWS), threeDs?.let { File(it, "dump") })
+        val folders = listOf(
+            PunicaLayout.part(root, PunicaLayout.DS, PunicaLayout.MODS),
+            File(PunicaLayout.part(root, PunicaLayout.DS, PunicaLayout.STATES), PunicaLayout.PREVIEWS),
+            File(PunicaLayout.part(root, PunicaLayout.N3DS, PunicaLayout.CORE), "dump"),
+        )
         for (dir in folders) {
             runCatching {
                 if (dir.isDirectory || dir.mkdirs()) File(dir, ".nomedia").createNewFile()
@@ -379,67 +405,73 @@ class PomegradeFolder(
         }
     }
 
-    /** The games of [roms] not in Roms yet. */
+    /** The games of [roms] not in their console's Games yet. */
     fun gamesToOrganize(roms: List<Rom>): List<Rom> {
-        val romsId = romsDocumentId(settingsRepository.getPomegradeFolder()) ?: return emptyList()
+        val games = gamesDocumentIds(settingsRepository.getPomegradeFolder()).takeIf { it.isNotEmpty() } ?: return emptyList()
         return roms.filter { rom ->
             val id = documentIdOf(context, rom.uri)
-            id != null && !id.startsWith("$romsId/")
+            id != null && games.none { id.startsWith("$it/") }
         }
     }
 
     /**
-     * Moves each game of [roms] not in Roms yet into Roms/<file name>/, its DS or GBA saves into DS or
-     * GBA, and updates its entry (settings, last played and play time follow it). A game that
-     * can't be moved stays where it is. Runs on a background thread.
+     * Moves each game of [roms] not in its console's Games yet into it, its DS or GBA saves and states into that
+     * console's Saves and States, and updates its entry (settings, last played and play time follow it). A game that
+     * can't be moved (a file of the same name already there) stays where it is. Runs on a background thread.
      */
     fun organize(roms: List<Rom>, onProgress: (String) -> Unit): OrganizeResult {
         val folder = settingsRepository.getPomegradeFolder() ?: return OrganizeResult(0, emptyList())
         val treeId = DocumentsContract.getTreeDocumentId(folder)
-        val romsDir = pathOf("$treeId/$ROMS")
         var moved = 0
         val failed = ArrayList<String>()
         for (rom in gamesToOrganize(roms)) {
             onProgress(rom.name.ifEmpty { rom.fileName })
-            if (moveGame(rom, folder, treeId, romsDir)) moved++ else failed.add(rom.fileName)
+            if (moveGame(rom, folder, treeId)) moved++ else failed.add(rom.fileName)
         }
         return OrganizeResult(moved, failed)
     }
 
-    private fun moveGame(rom: Rom, folder: Uri, treeId: String, romsDir: File): Boolean {
+    private fun moveGame(rom: Rom, folder: Uri, treeId: String): Boolean {
         val romId = documentIdOf(context, rom.uri) ?: return false
         val source = pathOf(romId)
         if (!source.isFile) return false
+        val console = PunicaLayout.console(rom.platform)
+        val root = pathOf(treeId)
 
         // the files that go with it, found where the settings keep them now
         val baseName = source.nameWithoutExtension
-        val companions = ArrayList<File>()
+        val saves = ArrayList<File>()
+        val states = ArrayList<File>()
         if (rom.platform == RomPlatform.NDS) {
-            fileDirectory { settingsRepository.getSaveFileDirectory(rom) }?.let { companions.add(File(it, "$baseName.sav")) }
+            fileDirectory { settingsRepository.getSaveFileDirectory(rom) }?.let { saves.add(File(it, "$baseName.sav")) }
             fileDirectory { settingsRepository.getSaveStateDirectory(rom) }?.let { dir ->
-                for (slot in 0 until SAVE_STATE_SLOTS) companions.add(File(dir, "$baseName.ml$slot"))
+                for (slot in 0 until SAVE_STATE_SLOTS) states.add(File(dir, "$baseName.ml$slot"))
             }
         } else if (rom.platform == RomPlatform.GBA) {
             // kept next to the game before (GbaEmulatorActivity): its save, its states and their previews
             val dir = source.parentFile
-            companions.add(File(dir, "$baseName.sav"))
+            saves.add(File(dir, "$baseName.sav"))
             for (slot in 0 until GBA_STATE_SLOTS) {
-                companions.add(File(dir, "$baseName.ss$slot"))
-                companions.add(File(dir, "$baseName.ss$slot.png"))
+                states.add(File(dir, "$baseName.ss$slot"))
+                states.add(File(dir, "$baseName.ss$slot.png"))
             }
         }
 
-        val gameDirName = GameFolderMover.move(source, emptyList(), romsDir) ?: return false
-        // its saves into its console's folder (a file already there is left where it is)
-        val savesDir = pathOf("$treeId/" + if (rom.platform == RomPlatform.GBA) GBA_SAVES else DS_SAVES)
-        if (companions.isNotEmpty() && (savesDir.isDirectory || savesDir.mkdirs())) {
-            companions.filter { it.isFile && it.parentFile?.canonicalFile != savesDir.canonicalFile }
-                .forEach { GameFolderMover.moveFile(it, File(savesDir, it.name)) }
+        val target = File(PunicaLayout.part(root, console, PunicaLayout.GAMES), source.name)
+        target.parentFile?.mkdirs()
+        if (target.exists() || !GameFolderMover.moveFile(source, target)) return false
+        // its saves and states into its console's folders (a file already there is left where it is)
+        listOf(saves to PunicaLayout.SAVES, states to PunicaLayout.STATES).forEach { (files, part) ->
+            val dir = PunicaLayout.part(root, console, part)
+            if (files.isNotEmpty() && (dir.isDirectory || dir.mkdirs())) {
+                files.filter { it.isFile && it.parentFile?.canonicalFile != dir.canonicalFile }
+                    .forEach { GameFolderMover.moveFile(it, File(dir, it.name)) }
+            }
         }
 
-        val gameId = "$treeId/$ROMS/$gameDirName"
-        val newUri = DocumentsContract.buildDocumentUriUsingTree(folder, "$gameId/${source.name}")
-        val parentUri = DocumentsContract.buildDocumentUriUsingTree(folder, gameId)
+        val gamesId = "$treeId/$console/${PunicaLayout.GAMES}"
+        val newUri = DocumentsContract.buildDocumentUriUsingTree(folder, "$gamesId/${source.name}")
+        val parentUri = DocumentsContract.buildDocumentUriUsingTree(folder, gamesId)
         screenshotProvider.relocateRomScreenshots(rom, newUri)
         romsRepository.relocateRom(rom, newUri, parentUri)
         return true

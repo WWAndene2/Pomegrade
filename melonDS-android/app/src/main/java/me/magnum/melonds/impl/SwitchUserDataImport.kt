@@ -14,8 +14,9 @@ import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 /**
- * "Import Switch data" (Settings > Switch): brings Switch data into Pomegrade/Switch, Eden's user folder
- * ([SwitchFolder]), from two places:
+ * "Import Switch data" (Settings > Switch): brings Switch data into the Punica folder's Switch, each part of Eden's
+ * user folder where [SwitchFolder.placeOf] puts it (saves in Saves, NAND and SD card in System, mods in Mods, the
+ * rest in Core), from two places:
  * - the app's own folder (Android/data), where Eden's data stays when Pomegrade/Switch already had the same
  *   entry ([SwitchFolder.moveUserData] never overwrites): its files are added, the files already in
  *   Pomegrade/Switch are kept;
@@ -57,7 +58,7 @@ object SwitchUserDataImport {
             var written = 0
             entries.forEach { entry ->
                 entry.walkTopDown().filter { it.isFile }.forEach { file ->
-                    val to = File(File(target, entry.name), file.relativeTo(entry).path)
+                    val to = SwitchFolder.placeOf(target, "${entry.name}/${file.relativeTo(entry).invariantSeparatorsPath}", layout(context))
                     if (!to.exists()) {
                         file.copyTo(to)
                         written++
@@ -83,9 +84,10 @@ object SwitchUserDataImport {
             val backup = backup(context, target)
             var written = 0
             val root = target.canonicalFile
+            val layout = layout(context)
             ZipInputStream(context.contentResolver.openInputStream(zip)!!.buffered()).use { stream ->
                 generateSequence { stream.nextEntry }.forEach { entry ->
-                    val to = File(root, entry.name.trimStart('/')).canonicalFile
+                    val to = SwitchFolder.placeOf(root, entry.name.trimStart('/').trimEnd('/'), layout).canonicalFile
                     // a zip entry may not write outside the folder ("../")
                     if (!to.path.startsWith(root.path + File.separator)) return@forEach
                     if (entry.isDirectory) {
@@ -104,9 +106,13 @@ object SwitchUserDataImport {
     private fun target(context: Context): File? =
         PomegradeFolder.subFolder(context, PomegradeFolder.SWITCH)?.takeIf { it.isDirectory || it.mkdirs() }
 
+    private fun layout(context: Context) = PomegradeFolder.layoutRoot(context) != null
+
     /** Pomegrade/Switch as it is, in Pomegrade/Backups/Switch-<date>.zip, or null when it holds no file. */
     private fun backup(context: Context, folder: File): File? {
-        val files = folder.walkTopDown().filter { it.isFile }.toList()
+        // the games are not Switch data, and too large for a backup
+        val games = File(folder, PunicaLayout.GAMES)
+        val files = folder.walkTopDown().onEnter { it != games }.filter { it.isFile }.toList()
         if (files.isEmpty()) return null
         val backups = PomegradeFolder.subFolder(context, PomegradeFolder.BACKUPS)?.takeIf { it.isDirectory || it.mkdirs() }
             ?: throw IllegalStateException("no Backups folder")

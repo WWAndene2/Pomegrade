@@ -78,9 +78,11 @@ object TexturePackInstaller {
     }
 
     private fun texturesRoot(context: Context, platform: RomPlatform): File? = when (platform) {
-        RomPlatform.NDS -> PomegradeFolder.subFolder(context, PomegradeFolder.TEXTURES)
-        RomPlatform.N3DS -> PomegradeFolder.subFolder(context, PomegradeFolder.N3DS)?.let { File(it, "load/textures") }
-        RomPlatform.GC_WII -> GcWiiFolder.userDirectory(context)?.let { File(it, "Load/Textures") }
+        // each console's Mods (PunicaLayout), in the form its core reads: DS <game code>/, 3DS (Azahar's load folder)
+        // textures/<title id>/, GameCube / Wii (Dolphin's Load folder) Textures/<game id>/
+        RomPlatform.NDS -> PomegradeFolder.consoleFolder(context, PunicaLayout.DS, PunicaLayout.MODS)
+        RomPlatform.N3DS -> PomegradeFolder.consoleFolder(context, PunicaLayout.N3DS, PunicaLayout.MODS)?.let { File(it, "textures") }
+        RomPlatform.GC_WII -> PomegradeFolder.consoleFolder(context, PunicaLayout.GC_WII, PunicaLayout.MODS)?.let { File(it, "Textures") }
         else -> null
     }?.takeIf { it.isDirectory || it.mkdirs() }
 

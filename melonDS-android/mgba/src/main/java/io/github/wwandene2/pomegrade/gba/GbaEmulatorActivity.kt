@@ -33,9 +33,9 @@ import java.io.File
 import java.util.Date
 
 /**
- * Plays a GBA game. The game's battery save and save states are in the saves folder the intent gives
- * (Punica's GBA, as each console's saves are in its own folder), or next to its file without one:
- * `<game>.sav`, `<game>.ss0` (quick slot) to `.ss9`, each state with a `.png` of its screen.
+ * Plays a GBA game. The game's battery save is in the saves folder the intent gives and its save states in the
+ * states folder (Punica's GBA/Saves and GBA/States), or next to its file without them: `<game>.sav`, `<game>.ss0`
+ * (quick slot) to `.ss9`, each state with a `.png` of its screen.
  * Back opens the shared in-game menu, which pauses the game while it is open.
  */
 class GbaEmulatorActivity : AppCompatActivity() {
@@ -46,18 +46,20 @@ class GbaEmulatorActivity : AppCompatActivity() {
         private const val EXTRA_BIOS_PATH = "bios_path"
         private const val EXTRA_SMOOTH_SCREEN = "smooth_screen"
         private const val EXTRA_SAVE_DIR = "save_dir"
+        private const val EXTRA_STATES_DIR = "states_dir"
         private const val PREFERENCES = "gba"
         private const val PREF_PERFORMANCE_OVERLAY = "performance_overlay"
         private const val STATE_SLOTS = 10
 
         /** Plays the game at [romPath] (a file path); [biosPath] a GBA BIOS, or null for mGBA's own. */
-        fun intent(context: Context, romPath: String, title: String, biosPath: String?, smoothScreen: Boolean, saveDir: String?): Intent =
+        fun intent(context: Context, romPath: String, title: String, biosPath: String?, smoothScreen: Boolean, saveDir: String?, statesDir: String?): Intent =
             Intent(context, GbaEmulatorActivity::class.java)
                 .putExtra(EXTRA_ROM_PATH, romPath)
                 .putExtra(EXTRA_TITLE, title)
                 .putExtra(EXTRA_BIOS_PATH, biosPath)
                 .putExtra(EXTRA_SMOOTH_SCREEN, smoothScreen)
                 .putExtra(EXTRA_SAVE_DIR, saveDir)
+                .putExtra(EXTRA_STATES_DIR, statesDir)
     }
 
     private lateinit var screen: GbaScreenView
@@ -65,6 +67,7 @@ class GbaEmulatorActivity : AppCompatActivity() {
     private lateinit var drawer: DrawerLayout
     private lateinit var rom: File
     private var saveDir: File? = null
+    private var statesDir: File? = null
     private var thread: GbaEmulationThread? = null
     // keys held on a controller or keyboard, merged with the on-screen ones
     @Volatile
@@ -109,6 +112,7 @@ class GbaEmulatorActivity : AppCompatActivity() {
         drawer = findViewById(R.id.gba_drawer)
         rom = File(intent.getStringExtra(EXTRA_ROM_PATH) ?: return finish())
         saveDir = intent.getStringExtra(EXTRA_SAVE_DIR)?.let { File(it) }?.takeIf { it.isDirectory || it.mkdirs() }
+        statesDir = intent.getStringExtra(EXTRA_STATES_DIR)?.let { File(it) }?.takeIf { it.isDirectory || it.mkdirs() }
         val menu = findViewById<NavigationView>(R.id.gba_menu)
         setUpMenu(menu, intent.getStringExtra(EXTRA_TITLE) ?: rom.nameWithoutExtension)
         // the shortcut pill: the menu's entries, run as the menu runs them
@@ -165,12 +169,15 @@ class GbaEmulatorActivity : AppCompatActivity() {
         }
     }
 
-    // the game's save, states and their previews: in the saves folder given (Punica's GBA), else next to the game
+    // the game's save in the saves folder given, its states and their previews in the states folder (Punica's GBA/Saves
+    // and GBA/States), else next to the game
     private fun sibling(extension: String) = File(saveDir ?: rom.parentFile, rom.nameWithoutExtension + extension)
 
-    private fun stateFile(slot: Int) = sibling(".ss$slot")
+    private fun stateSibling(extension: String) = File(statesDir ?: saveDir ?: rom.parentFile, rom.nameWithoutExtension + extension)
 
-    private fun previewFile(slot: Int) = sibling(".ss$slot.png")
+    private fun stateFile(slot: Int) = stateSibling(".ss$slot")
+
+    private fun previewFile(slot: Int) = stateSibling(".ss$slot.png")
 
     private fun slots() = (0 until STATE_SLOTS).map { slot ->
         val state = stateFile(slot)

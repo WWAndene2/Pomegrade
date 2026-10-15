@@ -289,17 +289,17 @@ class FileSystemRomsRepository(
     }
 
     private fun scanForNewRoms(): Flow<Rom> = flow {
-        // Pomegrade: the Pomegrade folder's Roms is scanned as its own ROM folder; reached from
-        // another one (containing it), it is skipped, or its ROMs would be listed twice. Its system folders
-        // (BIOS, saves, the cores' folders) are never scanned
+        // Pomegrade: each console's Games of the Pomegrade folder (and the earlier layout's Roms) is scanned as its
+        // own ROM folder; reached from another one (containing it), it is skipped, or its ROMs would be listed twice.
+        // Its folders that hold no game (saves, system files, the cores' folders) are never scanned
         val pomegradeFolder = settingsRepository.getPomegradeFolder()
-        val pomegradeRoms = PomegradeFolder.romsDocumentId(pomegradeFolder)
+        val gameFolders = PomegradeFolder.gamesDocumentIds(pomegradeFolder) + listOfNotNull(PomegradeFolder.romsDocumentId(pomegradeFolder))
         val systemFolders = PomegradeFolder.systemFolderDocumentIds(pomegradeFolder)
         for (directory in settingsRepository.getRomSearchDirectories()) {
             val documentFile = DocumentFile.fromTreeUri(context, directory)
             if (documentFile != null) {
-                val skip = systemFolders + listOfNotNull(pomegradeRoms?.takeIf { it != PomegradeFolder.documentIdOf(context, documentFile.uri) })
-                findCachedRomFiles(documentFile, this, skip)
+                val scanned = PomegradeFolder.documentIdOf(context, documentFile.uri)
+                findCachedRomFiles(documentFile, this, systemFolders + gameFolders.filter { it != scanned })
             }
         }
     }

@@ -71,6 +71,9 @@ class SharedPreferencesSettingsRepository(
 ) : SettingsRepository, OnSharedPreferenceChangeListener {
 
     companion object {
+        // Pomegrade: the Punica folder's DS/Saves and DS/States, as keepGameFilesInConsoleFolder set them
+        private const val PUNICA_SAVES_DIR = "punica_saves_dir"
+        private const val PUNICA_STATES_DIR = "punica_states_dir"
         private const val TAG = "SPSettingsRepository"
         private const val CONTROLLER_CONFIG_FILE = "controller_config.json"
     }
@@ -172,7 +175,7 @@ class SharedPreferencesSettingsRepository(
             firmwareConfiguration = getFirmwareConfiguration(),
             rendererConfiguration = renderConfigurationFlow.first(),
             // Pomegrade: in the Pomegrade folder, which stays when the app is uninstalled
-            texturesDirectory = (PomegradeFolder.subFolder(context, PomegradeFolder.TEXTURES) ?: context.getExternalFilesDir("textures"))?.absolutePath,
+            texturesDirectory = (PomegradeFolder.consoleFolder(context, PunicaLayout.DS, PunicaLayout.MODS) ?: context.getExternalFilesDir("textures"))?.absolutePath,
             hdTexturesEnabled = preferences.getBoolean("enable_hd_textures", false),
             dumpTexturesEnabled = preferences.getBoolean("dump_textures", false),
             polygonMultiplier = preferences.getString("polygon_multiplier", "1")?.toIntOrNull() ?: 1,
@@ -459,7 +462,11 @@ class SharedPreferencesSettingsRepository(
         val saveStateLocation = getSaveStateLocation(rom)
 
         return when (saveStateLocation) {
-            SaveStateLocation.SAVE_DIR -> getSaveFileDirectory(rom)
+            // Pomegrade: with the saves in the Punica folder's DS/Saves, the states are in DS/States beside it
+            SaveStateLocation.SAVE_DIR -> getSaveFileDirectory(rom).let { saves ->
+                val states = preferences.getString(PUNICA_STATES_DIR, null)
+                if (states != null && saves.toString() == preferences.getString(PUNICA_SAVES_DIR, null)) states.toUri() else saves
+            }
             SaveStateLocation.ROM_DIR -> getRomParentDirectory(rom)
             SaveStateLocation.INTERNAL_DIR -> {
                 val saveStateDir = File(context.getExternalFilesDir(null), "savestates")
@@ -611,6 +618,16 @@ class SharedPreferencesSettingsRepository(
         }
     }
 
+    override fun excludeRomSearchDirectory(directoryUri: Uri) {
+        val directories = preferences.getStringSet("rom_search_dirs", emptySet()).orEmpty()
+        if (directoryUri.toString() !in directories) {
+            return
+        }
+        preferences.edit(commit = true) {
+            putStringSet("rom_search_dirs", directories - directoryUri.toString())
+        }
+    }
+
     override fun includeRomSearchDirectory(directoryUri: Uri) {
         val directories = preferences.getStringSet("rom_search_dirs", emptySet()).orEmpty()
         if (directoryUri.toString() in directories) {
@@ -631,11 +648,13 @@ class SharedPreferencesSettingsRepository(
         }
     }
 
-    override fun keepGameFilesInConsoleFolder(saves: Uri) {
+    override fun keepGameFilesInConsoleFolder(saves: Uri, states: Uri) {
         preferences.edit(commit = true) {
             putBoolean("use_rom_dir", false)
             putStringSet("sram_dir", setOf(saves.toString()))
             putString("save_state_location", "save_dir")
+            putString(PUNICA_SAVES_DIR, saves.toString())
+            putString(PUNICA_STATES_DIR, states.toString())
         }
     }
 
