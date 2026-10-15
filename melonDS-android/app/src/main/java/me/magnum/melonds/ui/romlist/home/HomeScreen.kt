@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -135,7 +136,8 @@ internal fun HomeScreen(
                 LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(LibrarySort.entries) { option -> SortPill(option, option == sort) { sort = option } }
                 }
-                Spacer(Modifier.height(8.dp))
+                // 4 + the library rows' own 4 above: 8, as between every section title and its content
+                Spacer(Modifier.height(4.dp))
             }
             if (library.isEmpty()) {
                 item {
@@ -165,7 +167,7 @@ internal fun HomeScreen(
 private fun HomeHeader(searchQuery: String, menuEntries: List<HomeMenuEntry>, onSearchQueryChange: (String) -> Unit, onSettings: () -> Unit) {
     var searching by rememberSaveable { mutableStateOf(searchQuery.isNotEmpty()) }
     var menu by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().height(64.dp).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().height(PunicaDimens.HEADER.dp).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         if (searching) {
             BasicTextField(
                 value = searchQuery,
@@ -173,10 +175,13 @@ private fun HomeHeader(searchQuery: String, menuEntries: List<HomeMenuEntry>, on
                 singleLine = true,
                 textStyle = TextStyle(color = PunicaTheme.text, fontSize = 16.sp),
                 cursorBrush = SolidColor(PunicaTheme.red),
-                modifier = Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(24.dp)).background(PunicaTheme.card).border(1.dp, PunicaTheme.line, RoundedCornerShape(24.dp)).padding(horizontal = 16.dp, vertical = 14.dp),
+                modifier = Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(24.dp)).background(PunicaTheme.card).border(1.dp, PunicaTheme.line, RoundedCornerShape(24.dp)).padding(horizontal = 16.dp),
                 decorationBox = { field ->
-                    if (searchQuery.isEmpty()) Text(stringResource(R.string.hint_search_roms), fontSize = 16.sp, color = PunicaTheme.textMuted)
-                    field()
+                    // the text centred in the field's 48 dp, whatever the font's line height
+                    Box(Modifier.fillMaxHeight(), contentAlignment = Alignment.CenterStart) {
+                        if (searchQuery.isEmpty()) Text(stringResource(R.string.hint_search_roms), fontSize = 16.sp, color = PunicaTheme.textMuted)
+                        field()
+                    }
                 },
             )
             PunicaHeaderButton(Icons.Filled.Close, stringResource(R.string.home_search_close)) { onSearchQueryChange(""); searching = false }
@@ -198,14 +203,17 @@ private fun HomeHeader(searchQuery: String, menuEntries: List<HomeMenuEntry>, on
 
 @Composable
 private fun SectionTitle(title: String, icon: Boolean = false, action: String? = null, onAction: (() -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    // the action's text ends on the 16 dp margin (its 8 dp touch padding inside the row's), and its 24 dp touch
+    // height is the title's line: a title with an action is as tall as one without
+    val withAction = action != null && onAction != null
+    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = if (withAction) 8.dp else 16.dp, top = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         if (icon) {
             Icon(Icons.Outlined.Folder, contentDescription = null, tint = PunicaTheme.text, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(8.dp))
         }
         Text(title, fontFamily = PunicaTheme.display, fontWeight = FontWeight.Bold, fontSize = 16.sp, lineHeight = 24.sp, color = PunicaTheme.text, modifier = Modifier.weight(1f))
-        if (action != null && onAction != null) {
-            Text(action, fontSize = 12.sp, color = PunicaTheme.textMuted, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onAction).padding(8.dp))
+        if (withAction) {
+            Text(action, fontSize = 12.sp, lineHeight = 16.sp, color = PunicaTheme.textMuted, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onAction).padding(horizontal = 8.dp, vertical = 4.dp))
         }
     }
 }

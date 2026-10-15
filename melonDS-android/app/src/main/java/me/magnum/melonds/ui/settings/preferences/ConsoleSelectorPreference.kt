@@ -117,7 +117,7 @@ class ConsoleSelectorPreference @JvmOverloads constructor(context: Context, attr
                 .height(PunicaDimens.TOUCH.dp)
                 .clip(shape)
                 .background(if (selected) Color.White else Color.White.copy(alpha = 0.7f))
-                .then(if (selected) Modifier.border(3.dp, PunicaTheme.red, shape) else Modifier)
+                .then(if (selected) Modifier.border(2.dp, PunicaTheme.red, shape) else Modifier)
                 .clickable(onClick = onClick)
                 .padding(if (key == SWITCH) 4.dp else PunicaDimens.GAP_WIDE.dp),
         )

@@ -55,7 +55,8 @@ private val SlantedPanel = GenericShape { size, _ ->
 internal fun HomeFeatured(games: List<Rom>, actions: GameActions) {
     if (games.isEmpty()) return
     val pager = rememberPagerState { games.size }
-    // the card's size is the reference's (360 x 167 on a 393 dp wide phone), kept as validated by the owner
+    // the card's width is the reference's (360 on a 393 dp wide phone); its height is the cover's 128 plus 16 above and
+    // below (was 167: 12 above the cover, 27 below; symmetry audit, 15 October)
     HorizontalPager(pager, pageSpacing = 16.dp, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp)) { page ->
         FeaturedCard(games[page], actions)
     }
@@ -72,15 +73,15 @@ private fun FeaturedCard(rom: Rom, actions: GameActions) {
     Row(
         Modifier
             .fillMaxWidth()
-            .height(167.dp)
+            .height(160.dp)
             .clip(shape)
             .background(PunicaTheme.card)
             .border(1.dp, PunicaTheme.line, shape),
     ) {
         Box(Modifier.width(176.dp).fillMaxHeight().clip(SlantedPanel).background(Brush.linearGradient(listOf(PunicaTheme.heroRed, PunicaTheme.heroRedDark)))) {
-            GameCover(rom, actions.loadIcon, Modifier.padding(start = 12.dp, top = 12.dp).size(128.dp).clip(RoundedCornerShape(12.dp)))
+            GameCover(rom, actions.loadIcon, Modifier.padding(start = 16.dp, top = 16.dp).size(128.dp).clip(RoundedCornerShape(12.dp)))
         }
-        Column(Modifier.weight(1f).fillMaxHeight().padding(start = 4.dp, top = 12.dp, end = 12.dp, bottom = 12.dp)) {
+        Column(Modifier.weight(1f).fillMaxHeight().padding(start = 4.dp, top = 16.dp, end = 16.dp, bottom = 16.dp)) {
             Text(platformLongName(rom.platform).uppercase(), fontFamily = PunicaTheme.display, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 12.sp, lineHeight = 16.sp, color = PunicaTheme.text)
             Text(rom.config.customName ?: rom.name, fontFamily = PunicaTheme.display, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, lineHeight = 20.sp, color = PunicaTheme.text, maxLines = 3, modifier = Modifier.padding(top = 2.dp))
             val playTime = playTimeText(rom.totalPlayTime)

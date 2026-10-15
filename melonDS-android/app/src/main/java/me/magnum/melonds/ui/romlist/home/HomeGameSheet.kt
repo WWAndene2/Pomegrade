@@ -116,7 +116,7 @@ private fun SheetContent(rom: Rom, actions: GameActions, onDismiss: () -> Unit) 
             Spacer(Modifier.width(PunicaDimens.GAP_WIDE.dp))
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(platformLongName(rom.platform).uppercase(), fontFamily = PunicaTheme.display, fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 12.sp, lineHeight = 16.sp, color = PunicaTheme.textMuted)
-                Text(rom.config.customName ?: rom.name, fontFamily = PunicaTheme.display, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, lineHeight = 28.sp, color = PunicaTheme.text)
+                Text(rom.config.customName ?: rom.name, fontFamily = PunicaTheme.display, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, lineHeight = 32.sp, color = PunicaTheme.text)
                 PlatformTag(rom.platform, outlined = false)
             }
         }
