@@ -228,6 +228,8 @@ endif()
 
 if(ANDROID)
   target_sources(common PRIVATE
+    AndroidPerformanceHint.cpp
+    AndroidPerformanceHint.h
     Logging/ConsoleListenerDroid.cpp
     MemArenaAndroid.cpp
   )

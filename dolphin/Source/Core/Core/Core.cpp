@@ -22,6 +22,9 @@
 
 #include "AudioCommon/AudioCommon.h"
 
+#ifdef ANDROID
+#include "Common/AndroidPerformanceHint.h"
+#endif
 #include "Common/Assert.h"
 #include "Common/CPUDetect.h"
 #include "Common/CommonPaths.h"
@@ -327,6 +330,10 @@ static void CpuThread(Core::System& system, const std::optional<std::string>& sa
     Common::SetCurrentThreadName("CPU thread");
   else
     Common::SetCurrentThreadName("CPU-GPU thread");
+#ifdef ANDROID
+  // Pomegrade: this thread makes the frames: Android's performance hints raise its clocks when one runs late
+  Common::AndroidPerformanceHint::AddCurrentThread();
+#endif
 
   // This needs to be delayed until after the video backend is ready.
   DolphinAnalytics::Instance().ReportGameStart();
@@ -471,6 +478,9 @@ static void FifoPlayerThread(Core::System& system, const std::optional<std::stri
     // Spawn the GPU thread.
     std::thread gpu_thread{[&] {
       Common::SetCurrentThreadName("Video thread");
+#ifdef ANDROID
+      Common::AndroidPerformanceHint::AddCurrentThread();
+#endif
 
       const bool is_init = init_video();
       init_from_thread.set_value(is_init);
@@ -858,6 +868,22 @@ void Callback_FramePresented(const PresentInfo& present_info)
 {
   auto& perf_metrics = Core::System::GetInstance().GetPerfMetrics();
   perf_metrics.CountFrame();
+#ifdef ANDROID
+  // Pomegrade: each presented frame's duration to Android's performance hints; a gap of a second or more is a
+  // pause, not a slow frame
+  {
+    static std::optional<decltype(present_info.actual_present_time)> previous_present;
+    if (previous_present)
+    {
+      const auto gap = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                           present_info.actual_present_time - *previous_present)
+                           .count();
+      if (gap > 0 && gap < 1'000'000'000)
+        Common::AndroidPerformanceHint::ReportFrame(gap);
+    }
+    previous_present = present_info.actual_present_time;
+  }
+#endif
 
   const auto presentation_offset =
       present_info.actual_present_time - present_info.intended_present_time;
