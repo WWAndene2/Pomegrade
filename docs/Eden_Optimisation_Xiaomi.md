@@ -148,7 +148,7 @@ behaviour, so it is a translation layer, not a game-specific hack.
 | Mali paths: shared memory clamp, dynamic storage buffer limit, occlusion query sync and host conditional rendering skipped (the last two are correctness risks) | `vk_pipeline_cache.cpp`, `vk_buffer_cache.cpp`, `vk_query_cache.cpp` | seen |
 | No Mali driver-version checks; every feature reported is trusted | `vulkan_device.cpp` | seen |
 | The comment naming Mali for the depth/stencil blit fallback sits inside the `is_nvidia` block; the fallback itself is generic | `vulkan_device.cpp` | seen |
-| Custom drivers (`adrenotools`) are Adreno-only; a Mali phone uses the HyperOS driver | `android/app/src/main/jni/native.cpp` | seen |
+| Custom drivers (`adrenotools`) were Adreno-only (only Qualcomm's `/dev/kgsl-3d0` was checked; the loading itself does not depend on the GPU). Since 15 October, Mali's `/dev/mali0` also allows them, for Mesa PanVK built for `mali_kbase` (e.g. `zenithblue-oss/panvk-kbase-android`, G610 tested on one phone by its authors) | `android/app/src/main/jni/native.cpp` (`SupportsCustomDriver`) | seen; PanVK on the 13T with Eden: unknown |
 | Driver version, extensions, whether the driver pipeline cache survives a restart | Eden's log at game start (`Render_Vulkan`) | unknown |
 
 ---

@@ -979,8 +979,14 @@ void JNICALL Java_org_yuzu_yuzu_1emu_NativeLibrary_initializeGpuDriver(JNIEnv* e
     return access(KgslPath, F_OK) == 0;
 }
 
+// Pomegrade: Mali's kernel driver (mali_kbase). adrenotools' loading of a custom libvulkan does not depend on the
+// GPU, so a Mali phone can load an open driver built for mali_kbase (Mesa PanVK). Owner's request, 15 October.
+[[maybe_unused]] static bool CheckMaliPresent() {
+    return access("/dev/mali0", F_OK) == 0;
+}
+
 [[maybe_unused]] bool SupportsCustomDriver() {
-    return android_get_device_api_level() >= 28 && CheckKgslPresent();
+    return android_get_device_api_level() >= 28 && (CheckKgslPresent() || CheckMaliPresent());
 }
 
 jboolean JNICALL Java_org_yuzu_yuzu_1emu_utils_GpuDriverHelper_supportsCustomDriverLoading(
