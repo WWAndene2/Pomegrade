@@ -383,8 +383,6 @@ object NativeLibrary {
         var descriptionId: Int
         when (resultCode) {
             ErrorVideoCore -> {
-                // Pomegrade: TEMPORARY, why the driver failed, into Eden's log (PomegradeDriverDiagnostic)
-                org.yuzu.yuzu_emu.utils.PomegradeDriverDiagnostic.log()
                 captionId = R.string.loader_error_video_core
                 descriptionId = R.string.loader_error_video_core_description
             }

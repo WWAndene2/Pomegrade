@@ -14,7 +14,6 @@
 #include "video_core/renderer_vulkan/vk_render_pass_cache.h"
 #include "video_core/renderer_vulkan/renderer_vulkan.h"
 
-#include "common/pomegrade_diagnostics.h" // Pomegrade: TEMPORARY
 #include "common/assert.h"
 #include "common/logging.h"
 #include "common/scope_exit.h"
@@ -285,7 +284,6 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
                 is_indexed ? "vkCmdDrawIndexed" : "vkCmdDraw", params, VK_SUCCESS);
         }
     });
-    PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed); // Pomegrade: TEMPORARY, after the draw: its pass has begun
 }
 
 void RasterizerVulkan::DrawIndirect() {
@@ -344,7 +342,6 @@ void RasterizerVulkan::DrawIndirect() {
         }
     });
     buffer_cache.SetDrawIndirect(nullptr);
-    PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed); // Pomegrade: TEMPORARY, after the draw: its pass has begun
 }
 
 void RasterizerVulkan::DrawTexture() {
@@ -392,7 +389,6 @@ void RasterizerVulkan::DrawTexture() {
                          static_cast<u32>(ScaleSrc(texture.size.height)), texture.size.depth};
     blit_image.BlitColor(framebuffer, texture.RenderTarget(), texture.ImageHandle(),
                          sampler->Handle(), dst_region, src_region, src_size);
-    PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed); // Pomegrade: TEMPORARY, after the draw: its pass has begun
 }
 
 void RasterizerVulkan::Clear(u32 layer_count) {
@@ -487,17 +483,6 @@ void RasterizerVulkan::Clear(u32 layer_count) {
         clear_rect.rect.offset.y == 0 && clear_rect.rect.extent.width == render_area.width &&
         clear_rect.rect.extent.height == render_area.height && clear_rect.baseArrayLayer == 0 &&
         clear_rect.layerCount == framebuffer->Layers();
-    // Pomegrade: TEMPORARY, clears of the whole render area counted, first in their pass or not
-    if (clear_rect.rect.offset.x == 0 && clear_rect.rect.offset.y == 0 &&
-        clear_rect.rect.extent.width == render_area.width &&
-        clear_rect.rect.extent.height == render_area.height) {
-        (PomegradeDiagnostics::pass_untouched.exchange(false, std::memory_order_relaxed)
-             ? PomegradeDiagnostics::full_clears_first
-             : PomegradeDiagnostics::full_clears_later)
-            .fetch_add(1, std::memory_order_relaxed);
-    } else {
-        PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed);
-    }
 
     const u32 color_attachment = regs.clear_surface.RT;
     if (use_color && framebuffer->HasAspectColorBit(color_attachment)) {
@@ -520,7 +505,7 @@ void RasterizerVulkan::Clear(u32 layer_count) {
             clear_on_load &&
             scheduler.ClearOnLoad(framebuffer, static_cast<u16>(1u << color_attachment),
                                   framebuffer->ColorAttachmentIndex(color_attachment), clear_value)) {
-            PomegradeDiagnostics::clears_on_load.fetch_add(1, std::memory_order_relaxed); // Pomegrade: TEMPORARY
+            // cleared as the pass's load
         } else if (regs.clear_surface.R && regs.clear_surface.G && regs.clear_surface.B && regs.clear_surface.A) {
             scheduler.Record([color_attachment, clear_value, clear_rect](vk::CommandBuffer cmdbuf) {
                 const VkClearAttachment attachment{
@@ -573,12 +558,10 @@ void RasterizerVulkan::Clear(u32 layer_count) {
             if ((aspect_flags & VK_IMAGE_ASPECT_DEPTH_BIT) &&
                 scheduler.ClearOnLoad(framebuffer, RenderPassKey::ClearDepthBit, depth_attachment, value)) {
                 aspect_flags &= ~VK_IMAGE_ASPECT_DEPTH_BIT;
-                PomegradeDiagnostics::clears_on_load.fetch_add(1, std::memory_order_relaxed); // TEMPORARY
             }
             if ((aspect_flags & VK_IMAGE_ASPECT_STENCIL_BIT) &&
                 scheduler.ClearOnLoad(framebuffer, RenderPassKey::ClearStencilBit, depth_attachment, value)) {
                 aspect_flags &= ~VK_IMAGE_ASPECT_STENCIL_BIT;
-                PomegradeDiagnostics::clears_on_load.fetch_add(1, std::memory_order_relaxed); // TEMPORARY
             }
             if (aspect_flags == 0) {
                 return;
@@ -871,7 +854,6 @@ void RasterizerVulkan::WaitForIdle() {
     if (Settings::values.pomegrade_defer_wait_for_idle.GetValue() && scheduler.IsInsideRenderPass()) {
         scheduler.DeferWaitForIdle();
         fence_manager.SignalOrdering();
-        PomegradeDiagnostics::deferred_waits.fetch_add(1, std::memory_order_relaxed); // Pomegrade: TEMPORARY
         return;
     }
 
@@ -884,10 +866,6 @@ void RasterizerVulkan::WaitForIdle() {
 }
 
 void RasterizerVulkan::FragmentBarrier() {
-    // Pomegrade: TEMPORARY ceiling test, unsafe: a render target read back while drawn may show stale pixels
-    if (Settings::values.pomegrade_test_skip_fragment_barriers.GetValue()) {
-        return;
-    }
     // We already put barriers when a render pass finishes
     scheduler.RequestOutsideRenderPassOperationContext();
 }
