@@ -366,7 +366,37 @@ that the Switch's GPU makes for almost nothing, and that Eden makes by ending th
 attachments and the next pass loads them back. Change: an option (`pomegrade_defer_wait_for_idle`, off by default)
 that, inside a render pass, makes the wait at the pass's end (a full memory barrier after it) instead of ending it.
 Its risk: draws of the same pass after the wait are not ordered after those before, which matters only where a draw
-reads what an earlier one wrote through a storage buffer or image. The disk cache works, so H4
+reads what an earlier one wrote through a storage buffer or image.
+
+Eleventh log (owner, 15 October, PR #110, defer wait for idle on): no gain, 22.6 FPS where the GPU limits and still
+139 passes a frame. The waits were deferred (122 a frame) but each was followed by a buffer copy that also ends the
+pass (`BufferCacheRuntime::CopyBuffer`, 83 a frame): the guest's pattern is wait, write data, draw.
+
+Twelfth log (owner, 15 October, PR #111, the test cycle, 1x, compression, clear on load, defer on; 45 s a phase,
+playing in the field), measured:
+
+| Phase | Samples | FPS mean (median) | GPU thread waiting | Passes per frame | Ended by buffer copies | Ended by fragment barriers |
+|---|---|---|---|---|---|---|
+| 1 reference | 47 | 28.3 (29.7) | 0.10 s/s | 79 | 11 | 30 |
+| 2 + every upload at frame start | 56 | 25.5 (25.5) | 0.78 s/s | 163 | 108 | 25 |
+| 3 + fragment barriers ignored | 56 | 28.4 (28.6) | 0.24 s/s | 117 | 63 | 0 |
+| 4 defer wait for idle off | 55 | 27.1 (28.4) | 0.43 s/s | 135 | 7 (waits end 91) | 23 |
+| 5 clear on load off | 56 | 22.8 (23.0) | 0.75 s/s | 167 | 112 | 25 |
+| after (settings restored) | 230 | 25.5 (23.6) | 0.47 s/s | 140 | 87 | 23 |
+
+Read from it, with a caveat that dominates: the phases ran one after another while the owner moved through the field,
+and the passes a frame vary with the scene (79 to 167 in phases whose options barely differ), so the phases are not
+a controlled comparison. Two things hold anyway. (1) Phase 2 did not test what it was meant to: forcing every upload
+to the upload command buffer left the buffer copies that end passes (108 a frame), so they do not come from the
+reorderable uploads (`MappedUploadMemory`, `InlineMemory`) but from the other callers of `CopyBuffer`, which never
+reorder: the guest's own GPU buffer copies (`BufferCache::DMACopy`), inline index draws (`UpdateIndexBuffer`) or
+buffers merged when they overlap (`JoinOverlap`); which one is unknown (the diagnostic records the line in
+`CopyBuffer`, not its caller). Buffer renaming of uploads would not remove them. (2) Ignoring fragment barriers
+removed their 23-30 passes without a clear effect on the frame rate. The owner ended the measurements here
+(the twelfth log was announced as the last). State reached: 1x in the field went from 16 FPS (before O1-O3) to 22-25
+on average, 28-30 in battles and light scenes; the remaining limit is the Mali's work on 80-170 render passes a frame,
+most of them ended by the guest's buffer copies. Next, if the work resumes: record the caller of each `CopyBuffer`
+that ends a pass, then keep those copies inside the frame's flow (renaming or moving them before the pass), or D7. The disk cache works, so H4
 explains first-run stutters, not this floor.
 
 ---
