@@ -490,7 +490,9 @@ public:
             for (size_t i = 0; i < ends.size() && i < 8; i++) {
                 ended += fmt::format(" [{} {:.1f}]", ends[i].second, ends[i].first * per_frame);
             }
-            LOG_INFO(Frontend, "[Pomegrade diag] passes ended per frame by{}", ended);
+            const u64 deferred = PomegradeDiagnostics::deferred_waits.exchange(0, std::memory_order_relaxed);
+            LOG_INFO(Frontend, "[Pomegrade diag] passes ended per frame by{} | waits for idle deferred to the pass's end {:.1f}",
+                     ended, deferred * per_frame);
         }
         m_last = now;
         m_started = true;

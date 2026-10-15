@@ -402,6 +402,11 @@ struct Values {
     SwitchableSetting<bool> pomegrade_clear_on_load{linkage, true, "pomegrade_clear_on_load",
                                                     Category::Renderer, Specialization::Default,
                                                     true, true};
+    // Pomegrade: the guest's "wait for idle" inside a render pass waits at the pass's end instead of ending it
+    // (video_core/renderer_vulkan/vk_rasterizer.cpp, WaitForIdle)
+    SwitchableSetting<bool> pomegrade_defer_wait_for_idle{linkage, false, "pomegrade_defer_wait_for_idle",
+                                                          Category::Renderer, Specialization::Default,
+                                                          true, true};
     SwitchableSetting<bool> pomegrade_compressed_render_targets{
         linkage, false, "pomegrade_compressed_render_targets", Category::Renderer,
         Specialization::Default, true, true};

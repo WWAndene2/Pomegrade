@@ -1171,4 +1171,6 @@
     <string name="pomegrade_compressed_render_targets_description">Laisse les GPU Mali compresser les images que le jeu dessine, pour moins de trafic mémoire à chaque image. Expérimental : un effet qu\'un jeu dessine dans l\'une d\'elles par un shader peut disparaître. Prend effet au prochain lancement d\'un jeu</string>
     <string name="pomegrade_clear_on_load">Effacement au chargement (Mali)</string>
     <string name="pomegrade_clear_on_load_description">Une passe de rendu qui commence par effacer tout l\'écran l\'efface dès son début, au lieu de relire d\'abord l\'ancienne image en mémoire : moins de trafic mémoire à chaque image sur les GPU de téléphone</string>
+    <string name="pomegrade_defer_wait_for_idle">Moins de coupures de rendu (Mali)</string>
+    <string name="pomegrade_defer_wait_for_idle_description">Quand le jeu demande au GPU d\'attendre en plein dessin, attend à la fin de l\'étape de dessin au lieu de la couper en deux : beaucoup moins de trafic mémoire sur les GPU de téléphone. Expérimental : un effet peut s\'afficher avec une image de retard ou scintiller</string>
 </resources>

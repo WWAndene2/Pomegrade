@@ -355,7 +355,18 @@ is small, about 4 % where the GPU limits (23.3 to 24.3), as was compression's (2
 are not compared with each other: the eighth ran with Eden's GPU logging on, the ninth without. No visible defect with
 either option (owner); clear on load is made the default, since it changes no pixel; compression stays an opt-in, a
 game that writes a render target from a shader losing that write. The loads they remove are not the bulk of the
-Mali's work; the 135-140 passes a frame are the next thing to understand. The disk cache works, so H4
+Mali's work; the 135-140 passes a frame are the next thing to understand.
+
+Tenth log (owner, 15 October, PR #109: what ends each render pass; 1x, clear on load and compression on, 212
+samples, 25.3 FPS mean), measured, per frame: the guest's "wait for idle" (`RasterizerVulkan::WaitForIdle`, from the
+Maxwell `wait_for_idle` and `invalidate_texture_data_cache` methods and the puller's) ends **104** passes; the guest's
+fragment barrier (`FragmentBarrier`, a render target read back while drawn) 23; a draw needing other attachments 11;
+buffer uploads 4.5, texture copies 1.6, queries 1, the rest under 0.2. So three quarters of the passes are cut by a wait
+that the Switch's GPU makes for almost nothing, and that Eden makes by ending the pass: on the Mali each end stores the
+attachments and the next pass loads them back. Change: an option (`pomegrade_defer_wait_for_idle`, off by default)
+that, inside a render pass, makes the wait at the pass's end (a full memory barrier after it) instead of ending it.
+Its risk: draws of the same pass after the wait are not ordered after those before, which matters only where a draw
+reads what an earlier one wrote through a storage buffer or image. The disk cache works, so H4
 explains first-run stutters, not this floor.
 
 ---

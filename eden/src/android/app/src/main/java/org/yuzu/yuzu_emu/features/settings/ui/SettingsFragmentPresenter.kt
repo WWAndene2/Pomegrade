@@ -282,6 +282,7 @@ class SettingsFragmentPresenter(
             add(IntSetting.DMA_ACCURACY.key)
             add(BooleanSetting.POMEGRADE_COMPRESSED_RENDER_TARGETS.key)
             add(BooleanSetting.POMEGRADE_CLEAR_ON_LOAD.key)
+            add(BooleanSetting.POMEGRADE_DEFER_WAIT_FOR_IDLE.key)
             add(IntSetting.RENDERER_VRAM_USAGE_MODE.key)
             add(IntSetting.RENDERER_ASTC_DECODE_METHOD.key)
 
