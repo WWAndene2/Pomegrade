@@ -13,6 +13,7 @@
 
 #include "video_core/renderer_vulkan/renderer_vulkan.h"
 
+#include "common/pomegrade_diagnostics.h" // Pomegrade: TEMPORARY
 #include "common/assert.h"
 #include "common/logging.h"
 #include "common/scope_exit.h"
@@ -283,6 +284,7 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
                 is_indexed ? "vkCmdDrawIndexed" : "vkCmdDraw", params, VK_SUCCESS);
         }
     });
+    PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed); // Pomegrade: TEMPORARY, after the draw: its pass has begun
 }
 
 void RasterizerVulkan::DrawIndirect() {
@@ -341,6 +343,7 @@ void RasterizerVulkan::DrawIndirect() {
         }
     });
     buffer_cache.SetDrawIndirect(nullptr);
+    PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed); // Pomegrade: TEMPORARY, after the draw: its pass has begun
 }
 
 void RasterizerVulkan::DrawTexture() {
@@ -388,6 +391,7 @@ void RasterizerVulkan::DrawTexture() {
                          static_cast<u32>(ScaleSrc(texture.size.height)), texture.size.depth};
     blit_image.BlitColor(framebuffer, texture.RenderTarget(), texture.ImageHandle(),
                          sampler->Handle(), dst_region, src_region, src_size);
+    PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed); // Pomegrade: TEMPORARY, after the draw: its pass has begun
 }
 
 void RasterizerVulkan::Clear(u32 layer_count) {
@@ -472,6 +476,17 @@ void RasterizerVulkan::Clear(u32 layer_count) {
     };
     if (!clamp_rect_to_render_area(clear_rect.rect)) {
         return;
+    }
+    // Pomegrade: TEMPORARY, clears of the whole render area counted, first in their pass or not
+    if (clear_rect.rect.offset.x == 0 && clear_rect.rect.offset.y == 0 &&
+        clear_rect.rect.extent.width == render_area.width &&
+        clear_rect.rect.extent.height == render_area.height) {
+        (PomegradeDiagnostics::pass_untouched.exchange(false, std::memory_order_relaxed)
+             ? PomegradeDiagnostics::full_clears_first
+             : PomegradeDiagnostics::full_clears_later)
+            .fetch_add(1, std::memory_order_relaxed);
+    } else {
+        PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed);
     }
 
     const u32 color_attachment = regs.clear_surface.RT;

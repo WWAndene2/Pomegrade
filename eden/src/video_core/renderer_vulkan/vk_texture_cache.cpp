@@ -12,6 +12,7 @@
 #include <boost/container/small_vector.hpp>
 #include <bit>
 #include <numeric>
+#include "common/pomegrade_diagnostics.h" // Pomegrade: TEMPORARY
 #include "common/bit_util.h"
 #include "common/settings.h"
 
@@ -103,6 +104,15 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
     }
 }
 
+// Pomegrade: a renderable image made without STORAGE usage when the setting asks for it. On Mali GPUs STORAGE
+// usage keeps an image from being compressed (AFBC), which costs memory bandwidth on every render pass that loads
+// and stores it; the owner's Xiaomi 13T is bound by the Mali's pixel work at 1x (docs/Eden_Optimisation_Xiaomi.md).
+// A game binding such an image as storage gets a null descriptor (ImageView::StorageView): its writes there are
+// lost, a visible defect where it happens, which is why the setting is off by default
+[[nodiscard]] bool CompressedRenderTarget(const MaxwellToVK::FormatInfo& info) {
+    return info.attachable && Settings::values.pomegrade_compressed_render_targets.GetValue();
+}
+
 [[nodiscard]] VkImageUsageFlags ImageUsageFlags(const MaxwellToVK::FormatInfo& info,
                                                 PixelFormat format) {
     VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
@@ -122,7 +132,7 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
             break;
         }
     }
-    if (info.storage) {
+    if (info.storage && !CompressedRenderTarget(info)) {
         usage |= VK_IMAGE_USAGE_STORAGE_BIT;
     }
     return usage;
@@ -184,7 +194,9 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
                 return device.IsFormatSupported(view_format, VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT,
                                                 FormatType::Optimal);
             });
-        if (has_storage_compatible_view) {
+        if (has_storage_compatible_view &&
+            !CompressedRenderTarget(
+                MaxwellToVK::SurfaceFormat(device, FormatType::Optimal, false, info.format))) {
             image_ci.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
         }
 
@@ -1562,6 +1574,12 @@ void TextureCacheRuntime::CopyImage(Image& dst, Image& src,
 void TextureCacheRuntime::CopyImageMSAA(Image& dst, Image& src,
                                         std::span<const VideoCommon::ImageCopy> copies) {
     const bool msaa_to_non_msaa = src.info.num_samples > 1 && dst.info.num_samples == 1;
+    // Pomegrade: the copy pass writes through storage views, which images made without STORAGE usage
+    // (pomegrade_compressed_render_targets) do not have: skipped, as when there is no copy pass
+    if (!(dst.UsageFlags() & VK_IMAGE_USAGE_STORAGE_BIT) || !(src.UsageFlags() & VK_IMAGE_USAGE_STORAGE_BIT)) {
+        LOG_WARNING(Render_Vulkan, "MSAA copy skipped: an image has no storage usage");
+        return;
+    }
     if (msaa_copy_pass) {
         return msaa_copy_pass->CopyImage(dst, src, copies, msaa_to_non_msaa);
     }
@@ -1592,6 +1610,17 @@ Image::Image(TextureCacheRuntime& runtime_, const ImageInfo& info_, GPUVAddr gpu
       runtime{&runtime_}, original_image(MakeImage(runtime_.device, runtime_.memory_allocator, info,
                                                    runtime->ViewFormats(info.format))),
       aspect_mask(ImageAspectMask(info.format)) {
+    // Pomegrade: TEMPORARY, renderable images counted, and those also made for storage (common/pomegrade_diagnostics.h)
+    {
+        const auto usage = ImageUsageFlags(
+            MaxwellToVK::SurfaceFormat(runtime->device, FormatType::Optimal, false, info.format), info.format);
+        if (usage & (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) {
+            PomegradeDiagnostics::attachment_images.fetch_add(1, std::memory_order_relaxed);
+            if (usage & VK_IMAGE_USAGE_STORAGE_BIT) {
+                PomegradeDiagnostics::storage_attachment_images.fetch_add(1, std::memory_order_relaxed);
+            }
+        }
+    }
     if (IsPixelFormatASTC(info.format) && !runtime->device.IsOptimalAstcSupported()) {
         switch (Settings::values.accelerate_astc.GetValue()) {
         case Settings::AstcDecodeMode::Gpu:
@@ -2275,6 +2304,14 @@ VkImageView ImageView::ColorView() {
 VkImageView ImageView::StorageView(Shader::TextureType texture_type,
                                    Shader::ImageFormat image_format) {
     if (image_handle) {
+        // Pomegrade: a renderable image made without STORAGE usage (pomegrade_compressed_render_targets) takes a
+        // null descriptor: the shader's accesses to it are dropped rather than made through an invalid view
+        if (!((*slot_images)[image_id].UsageFlags() & VK_IMAGE_USAGE_STORAGE_BIT) &&
+            device->HasNullDescriptor()) {
+            // Pomegrade: TEMPORARY, a renderable image the game uses as storage (common/pomegrade_diagnostics.h)
+            PomegradeDiagnostics::attachment_storage_views.fetch_add(1, std::memory_order_relaxed);
+            return VK_NULL_HANDLE;
+        }
         if (image_format == Shader::ImageFormat::Typeless) {
             return Handle(texture_type);
         }
@@ -2284,8 +2321,13 @@ VkImageView ImageView::StorageView(Shader::TextureType texture_type,
             storage_views.emplace();
         auto& views{is_signed ? storage_views->signeds : storage_views->unsigneds};
         auto& view{views[size_t(texture_type)]};
-        if (!view)
+        if (!view) {
             view = MakeView(Format(image_format), VK_IMAGE_ASPECT_COLOR_BIT);
+            // Pomegrade: TEMPORARY, a renderable image really used as storage
+            if ((*slot_images)[image_id].UsageFlags() & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
+                PomegradeDiagnostics::attachment_storage_views.fetch_add(1, std::memory_order_relaxed);
+            }
+        }
         return *view;
     }
     return VK_NULL_HANDLE;

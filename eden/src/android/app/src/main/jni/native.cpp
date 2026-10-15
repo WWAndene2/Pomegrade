@@ -463,6 +463,18 @@ public:
             LOG_INFO(Frontend, "[Pomegrade diag] per s: Finish {:.0f}, GPU waits {:.0f} ({:.1f} ms), NCE faults {:.0f} | waits by thread{} | GPU thread in ReleaseFences {:.0f} ({:.1f} ms) | clocks MHz {} | threads{}",
                      finishes / seconds, waits / seconds, wait_ns / 1e6 / seconds, faults / seconds, by_thread,
                      releases / seconds, release_ns / 1e6 / seconds, Clocks(), threads);
+            // the Mali's per-pixel cost: passes per frame and the screens of pixels each frame loads and stores,
+            // clears that could be a pass's CLEAR load, renderable images without compression (STORAGE usage)
+            const u64 passes = PomegradeDiagnostics::render_passes.exchange(0, std::memory_order_relaxed);
+            const u64 pixels = PomegradeDiagnostics::render_pass_pixels.exchange(0, std::memory_order_relaxed);
+            const u64 clears_first = PomegradeDiagnostics::full_clears_first.exchange(0, std::memory_order_relaxed);
+            const u64 clears_later = PomegradeDiagnostics::full_clears_later.exchange(0, std::memory_order_relaxed);
+            const double per_frame = frames > 0 ? 1.0 / static_cast<double>(frames) : 0.0;
+            LOG_INFO(Frontend, "[Pomegrade diag] render passes per frame {:.1f}, screens of pixels per frame {:.1f} (1280x720 = 1) | full clears per frame: first in their pass {:.1f}, later {:.1f} | images so far: renderable {}, renderable with STORAGE {}, storage views on renderable {}",
+                     passes * per_frame, pixels / (1280.0 * 720.0) * per_frame, clears_first * per_frame,
+                     clears_later * per_frame, PomegradeDiagnostics::attachment_images.load(std::memory_order_relaxed),
+                     PomegradeDiagnostics::storage_attachment_images.load(std::memory_order_relaxed),
+                     PomegradeDiagnostics::attachment_storage_views.load(std::memory_order_relaxed));
         }
         m_last = now;
         m_started = true;
