@@ -15,7 +15,11 @@ import java.util.zip.ZipFile
  * - in the ROM folders, system files left among the games move into their BIOS folder: prod.keys and title.keys
  *   into BIOS/Switch, gba_bios.bin into BIOS/GBA, a DS or DSi BIOS set (told apart by bios7.bin's size) into BIOS/DS
  *   or BIOS/DSi, a whole firmware's NCAs (50 or more named by their hash in one folder) into BIOS/Switch/Firmware
- *   when no firmware is there yet. A file whose name is already taken there stays where it is, and is reported.
+ *   when no firmware is there yet. A file whose name is already taken there stays where it is, and is reported;
+ * - in Roms, a firmware's NCAs that the game list moved one by one into folders of their own (Roms/<hash>/, before it
+ *   knew them, 14 October) go back to BIOS/Switch/Firmware, and their emptied folders are removed. An NCA is named
+ *   after its content's hash: one already in Firmware under the same name and size is the same file, so that copy
+ *   in Roms is deleted (the one exception to "never deletes"); a same name with another size stays, reported.
  * Punica's own console folders are never searched: the Switch core's NAND (Switch/nand) is where an installed
  * firmware belongs. Files by path (java.io), as [PomegradeFolder]. Background thread.
  */
@@ -83,6 +87,7 @@ object SystemFilesCheck {
             }
         }
         searched.forEach { search(it, 0) }
+        moved += gatherScatteredFirmware(File(root, PomegradeFolder.ROMS), firmware, left)
 
         // a firmware's zip in BIOS/Switch/Firmware: its NCAs extracted next to it, the zip kept
         var extracted = 0
@@ -106,5 +111,32 @@ object SystemFilesCheck {
             }.onFailure { left += zip.path }
         }
         return Report(moved, left, extracted)
+    }
+
+    // Roms/<hash>/<hash>.nca, one firmware NCA alone in its folder: back into Firmware, the folder removed once empty
+    private fun gatherScatteredFirmware(roms: File, firmware: File, left: MutableList<String>): List<String> {
+        val moved = mutableListOf<String>()
+        roms.listFiles { f -> f.isDirectory }?.forEach { dir ->
+            val content = dir.listFiles() ?: return@forEach
+            val nca = content.singleOrNull()?.takeIf { it.isFile && RomPlatform.isSwitchContentFile(it.name) } ?: return@forEach
+            val target = File(firmware, nca.name)
+            val done = when {
+                !target.exists() -> nca.renameTo(target) || runCatching {
+                    // another storage: copied aside, renamed in whole, then the original removed
+                    val part = File(firmware, "${nca.name}.part")
+                    nca.copyTo(part, overwrite = true)
+                    (part.length() == nca.length() && part.renameTo(target) && nca.delete()).also { if (!it) part.delete() }
+                }.getOrDefault(false)
+                target.length() == nca.length() -> nca.delete()
+                else -> false
+            }
+            if (done) {
+                dir.delete()
+                moved += "${nca.path} -> ${target.path}"
+            } else {
+                left += nca.path
+            }
+        }
+        return moved
     }
 }
