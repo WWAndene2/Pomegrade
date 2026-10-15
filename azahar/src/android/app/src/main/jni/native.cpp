@@ -15,6 +15,7 @@
 
 #include <core/hle/service/cfg/cfg.h>
 #include "audio_core/dsp_interface.h"
+#include "common/android_performance_hint.h"
 #include "common/arch.h"
 
 #if CITRA_ARCH(arm64)
@@ -355,6 +356,8 @@ static Core::System::ResultStatus RunCitra(const std::string& filepath) {
     SCOPE_EXIT({ TryShutdown(); });
 
     system.RegisterCoreLoopThreadId();
+    // Pomegrade: the emulation thread makes the frames: Android's performance hints raise its clocks when one runs late
+    AndroidPerformanceHint::AddCurrentThread();
 
     // Start running emulation
     while (!stop_run) {

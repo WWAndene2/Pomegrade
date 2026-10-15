@@ -4,6 +4,7 @@
 
 #include <mutex>
 #include <utility>
+#include "common/android_performance_hint.h"
 #include "common/microprofile.h"
 #include "common/thread.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
@@ -116,6 +117,8 @@ void Scheduler::DispatchWork() {
 
 void Scheduler::WorkerThread(std::stop_token stop_token) {
     Common::SetCurrentThreadName("VulkanWorker");
+    // Pomegrade: it records and submits the frames: Android's performance hints raise its clocks when one runs late
+    AndroidPerformanceHint::AddCurrentThread();
 
     const auto TryPopQueue{[this](auto& work) -> bool {
         if (work_queue.empty()) {
