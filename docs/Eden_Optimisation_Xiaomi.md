@@ -405,7 +405,13 @@ phase 4 (defer wait for idle off) 24.1, 178; phase 5 (clear on load off) 22.5, 1
 Read from it: clear on load is worth 1 to 2.5 FPS; the other options and both tests move the rate by about 1 FPS,
 within the noise and a slow drift over the run; even phase 3 keeps 170 passes, the copies through `CopyBuffer`
 (108-118 a frame) taking over from what was removed. The changes to Eden's render passes are spent, about 5 %
-together; what remains is the guest's own buffer copies, as written above. The disk cache works, so H4
+together; what remains is the guest's own buffer copies, as written above.
+
+The measurements ended there (owner, 15 October). The TEMPORARY diagnostic was then deleted (CLAUDE.md 2.4): the
+sampler and its counters (`common/pomegrade_diagnostics.h`), the driver diagnostic
+(`PomegradeDriverDiagnostic.kt`), the two ceiling tests and the test cycle. To measure again, they are in the
+history (commits 7629a4b5 to c9374467). Kept: O1-O3, the large cores, compressed render targets (opt-in), clear on
+load (on), defer wait for idle (opt-in, no measured gain alone), the crash fixes. The disk cache works, so H4
 explains first-run stutters, not this floor.
 
 ---

@@ -283,9 +283,6 @@ class SettingsFragmentPresenter(
             add(BooleanSetting.POMEGRADE_COMPRESSED_RENDER_TARGETS.key)
             add(BooleanSetting.POMEGRADE_CLEAR_ON_LOAD.key)
             add(BooleanSetting.POMEGRADE_DEFER_WAIT_FOR_IDLE.key)
-            add(BooleanSetting.POMEGRADE_TEST_CYCLE.key)
-            add(BooleanSetting.POMEGRADE_TEST_REORDER_ALL_UPLOADS.key)
-            add(BooleanSetting.POMEGRADE_TEST_SKIP_FRAGMENT_BARRIERS.key)
             add(IntSetting.RENDERER_VRAM_USAGE_MODE.key)
             add(IntSetting.RENDERER_ASTC_DECODE_METHOD.key)
 

@@ -19,11 +19,6 @@
 #include <string_view>
 #include <thread>
 #include <vector>
-#include <iterator>
-#include <algorithm>
-#include <chrono>
-#include <dirent.h>
-#include <tuple>
 #include <dlfcn.h>
 #include <unistd.h>
 
@@ -48,7 +43,6 @@
 #include "common/dynamic_library.h"
 #include "common/fs/path_util.h"
 #include "common/logging.h"
-#include "common/pomegrade_diagnostics.h" // Pomegrade: TEMPORARY
 #include "common/scm_rev.h"
 #include "common/scope_exit.h"
 #include "common/settings.h"
@@ -390,303 +384,6 @@ void EmulationSession::HaltEmulation() {
     m_cv.notify_one();
 }
 
-// Pomegrade: TEMPORARY diagnostic for the optimisation study (docs/Eden_Optimisation_Xiaomi.md, section 4: no ADB).
-// About once a second (every 800 ms wake of the emulation loop) while a game runs, writes to Eden's log each busy thread's CPU share and last core (the app's own
-// /proc/self/task entries), the cores' clocks, and the counters of common/pomegrade_diagnostics.h. Deleted with
-// those counters once the owner's log is read (CLAUDE.md §2.4).
-namespace {
-class PomegradeSampler {
-public:
-    void Sample() {
-        const auto now = std::chrono::steady_clock::now();
-        // the loop calling it wakes every 800 ms: each wake is a sample, rates use the real time between two
-        if (m_started && now - m_last < std::chrono::milliseconds(500)) {
-            return;
-        }
-        const double seconds = m_started ? std::chrono::duration<double>(now - m_last).count() : 0.0;
-        if (!m_started) {
-            LogCores();
-            LogStudySettings();
-        }
-        Cycle(now);
-        const long ticks_per_second = sysconf(_SC_CLK_TCK);
-        std::vector<std::tuple<double, std::string, int>> busy;
-        std::map<int, unsigned long long> ticks;
-        if (DIR* dir = opendir("/proc/self/task")) {
-            while (dirent* entry = readdir(dir)) {
-                if (entry->d_name[0] == '.') {
-                    continue;
-                }
-                const int tid = std::atoi(entry->d_name);
-                std::string name;
-                unsigned long long used = 0;
-                int core = -1;
-                if (!ReadThread(tid, name, used, core)) {
-                    continue;
-                }
-                ticks[tid] = used;
-                if (m_started && seconds > 0.0) {
-                    const auto previous = m_ticks.find(tid);
-                    // a thread ID reused by a newer thread can have fewer ticks: counted from zero
-                    const unsigned long long before =
-                        previous == m_ticks.end() || previous->second > used ? used : previous->second;
-                    const double share = 100.0 * static_cast<double>(used - before) / ticks_per_second / seconds;
-                    if (share >= 2.0) {
-                        busy.emplace_back(share, name, core);
-                    }
-                }
-            }
-            closedir(dir);
-        }
-        m_ticks = std::move(ticks);
-        const u64 finishes = PomegradeDiagnostics::finish_calls.exchange(0, std::memory_order_relaxed);
-        const u64 waits = PomegradeDiagnostics::gpu_waits.exchange(0, std::memory_order_relaxed);
-        const u64 wait_ns = PomegradeDiagnostics::gpu_wait_ns.exchange(0, std::memory_order_relaxed);
-        const u64 faults = PomegradeDiagnostics::nce_access_faults.exchange(0, std::memory_order_relaxed);
-        const u64 releases = PomegradeDiagnostics::release_waits.exchange(0, std::memory_order_relaxed);
-        const u64 release_ns = PomegradeDiagnostics::release_wait_ns.exchange(0, std::memory_order_relaxed);
-        std::string by_thread;
-        for (int i = 0; i < PomegradeDiagnostics::WaitThreadCount; i++) {
-            const u64 n = PomegradeDiagnostics::waits_by_thread[i].exchange(0, std::memory_order_relaxed);
-            const u64 ns = PomegradeDiagnostics::wait_ns_by_thread[i].exchange(0, std::memory_order_relaxed);
-            if (n > 0 && seconds > 0.0) {
-                by_thread += fmt::format(" [{} {:.0f} ({:.1f} ms)]", PomegradeDiagnostics::wait_thread_names[i], n / seconds, ns / 1e6 / seconds);
-            }
-        }
-        if (m_started && seconds > 0.0) {
-            std::sort(busy.begin(), busy.end(), [](const auto& a, const auto& b) { return std::get<0>(a) > std::get<0>(b); });
-            std::string threads;
-            for (const auto& [share, name, core] : busy) {
-                threads += fmt::format(" [{} {:.0f}% cpu{}]", name, share, core);
-            }
-            const u64 frames = PomegradeDiagnostics::game_frames.exchange(0, std::memory_order_relaxed);
-            const u64 longest = PomegradeDiagnostics::longest_frame_ns.exchange(0, std::memory_order_relaxed);
-            LOG_INFO(Frontend, "[Pomegrade diag] FPS {:.1f}, slowest frame {:.1f} ms | {} | {}",
-                     frames / seconds, longest / 1e6, Heat(), Memory());
-            LOG_INFO(Frontend, "[Pomegrade diag] per s: Finish {:.0f}, GPU waits {:.0f} ({:.1f} ms), NCE faults {:.0f} | waits by thread{} | GPU thread in ReleaseFences {:.0f} ({:.1f} ms) | clocks MHz {} | threads{}",
-                     finishes / seconds, waits / seconds, wait_ns / 1e6 / seconds, faults / seconds, by_thread,
-                     releases / seconds, release_ns / 1e6 / seconds, Clocks(), threads);
-            // the Mali's per-pixel cost: passes per frame and the screens of pixels each frame loads and stores,
-            // clears that could be a pass's CLEAR load, renderable images without compression (STORAGE usage)
-            const u64 passes = PomegradeDiagnostics::render_passes.exchange(0, std::memory_order_relaxed);
-            const u64 pixels = PomegradeDiagnostics::render_pass_pixels.exchange(0, std::memory_order_relaxed);
-            const u64 clears_first = PomegradeDiagnostics::full_clears_first.exchange(0, std::memory_order_relaxed);
-            const u64 clears_later = PomegradeDiagnostics::full_clears_later.exchange(0, std::memory_order_relaxed);
-            const u64 on_load = PomegradeDiagnostics::clears_on_load.exchange(0, std::memory_order_relaxed);
-            const double per_frame = frames > 0 ? 1.0 / static_cast<double>(frames) : 0.0;
-            LOG_INFO(Frontend, "[Pomegrade diag] render passes per frame {:.1f}, screens of pixels per frame {:.1f} (1280x720 = 1) | full clears per frame: first in their pass {:.1f}, later {:.1f}, made the pass's load {:.1f} | images so far: renderable {}, renderable with STORAGE {}, storage views on renderable {}",
-                     passes * per_frame, pixels / (1280.0 * 720.0) * per_frame, clears_first * per_frame,
-                     clears_later * per_frame, on_load * per_frame, PomegradeDiagnostics::attachment_images.load(std::memory_order_relaxed),
-                     PomegradeDiagnostics::storage_attachment_images.load(std::memory_order_relaxed),
-                     PomegradeDiagnostics::attachment_storage_views.load(std::memory_order_relaxed));
-            // why the passes ended, the eight most frequent, per frame
-            std::vector<std::pair<std::uint64_t, std::string>> ends;
-            {
-                std::scoped_lock lock{PomegradeDiagnostics::pass_end_mutex};
-                for (const auto& [where, count] : PomegradeDiagnostics::pass_ends) {
-                    ends.emplace_back(count, where);
-                }
-                PomegradeDiagnostics::pass_ends.clear();
-            }
-            std::sort(ends.begin(), ends.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
-            std::string ended;
-            for (size_t i = 0; i < ends.size() && i < 8; i++) {
-                ended += fmt::format(" [{} {:.1f}]", ends[i].second, ends[i].first * per_frame);
-            }
-            const u64 deferred = PomegradeDiagnostics::deferred_waits.exchange(0, std::memory_order_relaxed);
-            LOG_INFO(Frontend, "[Pomegrade diag] passes ended per frame by{} | waits for idle deferred to the pass's end {:.1f}",
-                     ended, deferred * per_frame);
-        }
-        m_last = now;
-        m_started = true;
-    }
-
-private:
-    static bool ReadThread(int tid, std::string& name, unsigned long long& used, int& core) {
-        std::FILE* file = std::fopen(fmt::format("/proc/self/task/{}/stat", tid).c_str(), "r");
-        if (file == nullptr) {
-            return false;
-        }
-        char buffer[1024];
-        const size_t length = std::fread(buffer, 1, sizeof(buffer) - 1, file);
-        std::fclose(file);
-        buffer[length] = '\0';
-        const std::string line(buffer);
-        const size_t open = line.find('(');
-        const size_t close = line.rfind(')');
-        if (open == std::string::npos || close == std::string::npos) {
-            return false;
-        }
-        name = line.substr(open + 1, close - open - 1);
-        // the fields after the name, from field 3 (state): utime is field 14, stime 15, the last core 39
-        std::istringstream rest(line.substr(close + 2));
-        std::vector<std::string> fields;
-        std::string field;
-        while (rest >> field) {
-            fields.push_back(field);
-        }
-        if (fields.size() < 37) {
-            return false;
-        }
-        used = std::stoull(fields[11]) + std::stoull(fields[12]);
-        core = std::stoi(fields[36]);
-        return true;
-    }
-
-    static std::string ReadFirstLine(const std::string& path) {
-        std::FILE* file = std::fopen(path.c_str(), "r");
-        if (file == nullptr) {
-            return "?";
-        }
-        char buffer[64] = {};
-        const bool read = std::fgets(buffer, sizeof(buffer), file) != nullptr;
-        std::fclose(file);
-        std::string text = read ? buffer : "?";
-        while (!text.empty() && (text.back() == '\n' || text.back() == '\r')) {
-            text.pop_back();
-        }
-        return text;
-    }
-
-    static std::string Clocks() {
-        std::string clocks;
-        for (int cpu = 0; cpu < 8; ++cpu) {
-            const std::string khz = ReadFirstLine(fmt::format("/sys/devices/system/cpu/cpu{}/cpufreq/scaling_cur_freq", cpu));
-            clocks += (cpu ? "," : "") + (khz == "?" ? khz : std::to_string(std::atoll(khz.c_str()) / 1000));
-        }
-        return clocks;
-    }
-
-    // Android's thermal status (0 none to 6 shutdown) and headroom (1.0 = throttling starts), and the battery's
-    // temperature when the system lets an app read it
-    static std::string Heat() {
-        // looked up at run time: the NDK declares them from API 30 and 31 only, the module's minimum is 29
-        using AcquireManager = void* (*)();
-        using GetStatus = int (*)(void*);
-        using GetHeadroom = float (*)(void*, int);
-        static void* const library = dlopen("libandroid.so", RTLD_NOW);
-        static const auto acquire = library ? reinterpret_cast<AcquireManager>(dlsym(library, "AThermal_acquireManager")) : nullptr;
-        static const auto get_status = library ? reinterpret_cast<GetStatus>(dlsym(library, "AThermal_getCurrentThermalStatus")) : nullptr;
-        static const auto get_headroom = library ? reinterpret_cast<GetHeadroom>(dlsym(library, "AThermal_getThermalHeadroom")) : nullptr;
-        static void* const manager = acquire ? acquire() : nullptr;
-        std::string status = "?";
-        std::string headroom = "?";
-        if (manager != nullptr && get_status != nullptr) {
-            status = std::to_string(get_status(manager));
-        }
-        if (manager != nullptr && get_headroom != nullptr) {
-            const float value = get_headroom(manager, 0);
-            if (value == value) { // NaN when called too often or not supported
-                headroom = fmt::format("{:.2f}", value);
-            }
-        }
-        const std::string battery = ReadFirstLine("/sys/class/power_supply/battery/temp");
-        return fmt::format("thermal status {}, headroom {}, battery {} C", status, headroom,
-                           battery == "?" ? battery : fmt::format("{:.1f}", std::atoi(battery.c_str()) / 10.0));
-    }
-
-    // the app's resident memory and the memory the system has left, in MiB
-    static std::string Memory() {
-        const auto field = [](const char* path, const char* key) -> long long {
-            std::FILE* file = std::fopen(path, "r");
-            if (file == nullptr) {
-                return -1;
-            }
-            char line[256];
-            long long kib = -1;
-            const size_t length = std::strlen(key);
-            while (std::fgets(line, sizeof(line), file) != nullptr) {
-                if (std::strncmp(line, key, length) == 0) {
-                    kib = std::atoll(line + length);
-                    break;
-                }
-            }
-            std::fclose(file);
-            return kib;
-        };
-        return fmt::format("memory: app {} MiB, available {} MiB", field("/proc/self/status", "VmRSS:") / 1024,
-                           field("/proc/meminfo", "MemAvailable:") / 1024);
-    }
-
-    // the test cycle (setting pomegrade_test_cycle): five phases of 45 s, each switching the options read at every
-    // frame, logged as they start; the settings are put back after the last
-    void Cycle(std::chrono::steady_clock::time_point now) {
-        auto& v = Settings::values;
-        if (!v.pomegrade_test_cycle.GetValue() || m_cycle_done) {
-            return;
-        }
-        if (m_cycle_phase < 0) {
-            m_saved_defer = v.pomegrade_defer_wait_for_idle.GetValue();
-            m_saved_clear = v.pomegrade_clear_on_load.GetValue();
-            m_saved_reorder = v.pomegrade_test_reorder_all_uploads.GetValue();
-            m_saved_skip = v.pomegrade_test_skip_fragment_barriers.GetValue();
-            m_cycle_start = now;
-        }
-        const int phase = static_cast<int>((now - m_cycle_start) / std::chrono::seconds(45));
-        if (phase == m_cycle_phase) {
-            return;
-        }
-        m_cycle_phase = phase;
-        struct Phase {
-            const char* name;
-            bool defer, clear, reorder, skip;
-        };
-        static constexpr Phase phases[] = {
-            {"1 reference (defer, clear on load)", true, true, false, false},
-            {"2 + all uploads at frame start", true, true, true, false},
-            {"3 + fragment barriers ignored", true, true, true, true},
-            {"4 defer wait for idle off", false, true, false, false},
-            {"5 clear on load off", true, false, false, false},
-        };
-        if (phase >= static_cast<int>(std::size(phases))) {
-            v.pomegrade_defer_wait_for_idle.SetValue(m_saved_defer);
-            v.pomegrade_clear_on_load.SetValue(m_saved_clear);
-            v.pomegrade_test_reorder_all_uploads.SetValue(m_saved_reorder);
-            v.pomegrade_test_skip_fragment_barriers.SetValue(m_saved_skip);
-            m_cycle_done = true;
-            LOG_INFO(Frontend, "[Pomegrade diag] test cycle done, settings restored");
-            return;
-        }
-        const Phase& p = phases[phase];
-        v.pomegrade_defer_wait_for_idle.SetValue(p.defer);
-        v.pomegrade_clear_on_load.SetValue(p.clear);
-        v.pomegrade_test_reorder_all_uploads.SetValue(p.reorder);
-        v.pomegrade_test_skip_fragment_barriers.SetValue(p.skip);
-        LOG_INFO(Frontend, "[Pomegrade diag] test cycle phase {}", p.name);
-    }
-
-    // the settings the study compares, on one line at the start of each session
-    static void LogStudySettings() {
-        const auto& v = Settings::values;
-        LOG_INFO(Frontend, "[Pomegrade diag] settings: resolution {} | async GPU {} | compressed RT {} | clear on load {} | defer wait for idle {} | TEST reorder all uploads {} | TEST skip fragment barriers {} | test cycle {} | GPU logging {}",
-                 static_cast<int>(v.resolution_setup.GetValue()), v.use_asynchronous_gpu_emulation.GetValue(),
-                 v.pomegrade_compressed_render_targets.GetValue(), v.pomegrade_clear_on_load.GetValue(),
-                 v.pomegrade_defer_wait_for_idle.GetValue(), v.pomegrade_test_reorder_all_uploads.GetValue(),
-                 v.pomegrade_test_skip_fragment_barriers.GetValue(), v.pomegrade_test_cycle.GetValue(),
-                 v.gpu_logging_enabled.GetValue());
-    }
-
-    static void LogCores() {
-        std::string capacities;
-        std::string maxima;
-        for (int cpu = 0; cpu < 8; ++cpu) {
-            capacities += (cpu ? "," : "") + ReadFirstLine(fmt::format("/sys/devices/system/cpu/cpu{}/cpu_capacity", cpu));
-            const std::string khz = ReadFirstLine(fmt::format("/sys/devices/system/cpu/cpu{}/cpufreq/cpuinfo_max_freq", cpu));
-            maxima += (cpu ? "," : "") + (khz == "?" ? khz : std::to_string(std::atoll(khz.c_str()) / 1000));
-        }
-        LOG_INFO(Frontend, "[Pomegrade diag] cores: capacity {} | max MHz {}", capacities, maxima);
-    }
-
-    bool m_started = false;
-    int m_cycle_phase = -1;
-    bool m_cycle_done = false;
-    std::chrono::steady_clock::time_point m_cycle_start{};
-    bool m_saved_defer = false, m_saved_clear = false, m_saved_reorder = false, m_saved_skip = false;
-    std::chrono::steady_clock::time_point m_last{};
-    std::map<int, unsigned long long> m_ticks;
-};
-} // namespace
-
 void EmulationSession::RunEmulation() {
     {
         std::scoped_lock lock(m_mutex);
@@ -707,7 +404,6 @@ void EmulationSession::RunEmulation() {
         m_system.InitializeDebugger();
     }
 
-    PomegradeSampler pomegrade_sampler; // Pomegrade: TEMPORARY
     while (true) {
         {
             [[maybe_unused]] std::unique_lock lock(m_mutex);
@@ -717,7 +413,6 @@ void EmulationSession::RunEmulation() {
                 break;
             }
         }
-        pomegrade_sampler.Sample();
     }
 
     // Reset current applet ID.
