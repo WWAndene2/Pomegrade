@@ -228,6 +228,9 @@ public:
     /// Performs any additional necessary steps to shutdown GPU emulation.
     void NotifyShutdown();
 
+    /// Pomegrade: true once the emulated system has begun shutting down (NotifyShutdown)
+    [[nodiscard]] bool IsShuttingDown() const;
+
     /// Obtain the CPU Context
     void ObtainContext();
 

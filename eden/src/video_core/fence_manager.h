@@ -231,6 +231,15 @@ private:
             if (!current_fence->IsStubbed()) {
                 WaitFence(current_fence);
             }
+            // Pomegrade: once the system shuts down, the guest's memory and services are freed before the GPU
+            // (System::ShutdownMainProcess): writing the flushed data back or running the fence's operations then
+            // wrote into freed memory (owner's crash on closing a game, 15 October, PopAsyncFlushes ->
+            // MemoryManager::WriteBlockUnsafe). Nothing of the guest is left to receive them
+            if (gpu.IsShuttingDown()) {
+                std::unique_lock lock(ring_guard);
+                delayed_destruction_ring.Push(std::move(current_fence));
+                continue;
+            }
             PopAsyncFlushes();
             for (auto& operation : current_operations) {
                 operation();
