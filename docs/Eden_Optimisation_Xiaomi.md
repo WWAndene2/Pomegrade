@@ -309,7 +309,15 @@ saturated, and in the field the GPU thread spends three quarters of each second 
 the previous frame: **the field is now GPU-bound**, the CPU side no longer limits there. Thermal status stayed 0, headroom
 0.20-0.30 (a short run: sustained heat untested). Memory: the app at 1.8-3.5 GiB, 0.5-1.5 GiB left to the system.
 Next: an A/B at 0.5x in the field (before O1-O3 it gave about 5 FPS, when the CPU side still limited); a large gain
-now confirms the Mali's pixel work, a small one points to its per-frame work (passes, formats, synchronisation). The disk cache works, so H4
+now confirms the Mali's pixel work, a small one points to its per-frame work (passes, formats, synchronisation).
+
+Seventh log (owner, 15 October, the same build at 0.5x, 270 samples), measured: 29.3 FPS on average where the GPU
+thread barely waits (237 samples, 0.1 s a second), 28.3 where it still waits (33 samples, 0.6 s a second); the game's
+30 is held nearly throughout. At 1x the field gave 21-22 FPS with 0.75 s a second of waiting. So at 1x the field is
+bound by the Mali's pixel work (a quarter of the pixels removes the wait), which before O1-O3 was hidden behind the CPU
+side (the 0.5x A/B then gave only 5 FPS). Thermal status 0, headroom 0.28-0.36. Next: the resolution between the two
+(0.75x) with a sharpening upscaler, and in Eden the per-pixel cost on Mali (render pass loads and stores, attachment
+formats, the picture passes). The disk cache works, so H4
 explains first-run stutters, not this floor.
 
 ---
