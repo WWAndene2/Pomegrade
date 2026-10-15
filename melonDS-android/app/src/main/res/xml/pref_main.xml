@@ -173,7 +173,9 @@
                 app:icon="@drawable/ic_add" />
     </PreferenceCategory>
 
-    <!-- Switch: the Switch core's own settings (Eden), each section opened directly (key: its MenuTag),
+    <!-- Every console's section in one order (owner, 15 October): general, interface, system, video, audio, controls,
+         the console's own, advanced, then tools and About.
+         Switch: the Switch core's own settings (Eden), each section opened directly (key: its MenuTag),
          and the tools of its home screen, which Punica's menu replaces (owner's request, 15 October) -->
     <PreferenceCategory
             android:key="switch_settings"
@@ -191,6 +193,11 @@
         <Preference android:key="switch_settings_SECTION_DEBUG" android:title="@string/settings_advanced" android:summary="@string/switch_settings_debug_summary" app:icon="@drawable/ic_settings" />
         <!-- Eden's home screen tools, opened directly (owner's request, 13 October) -->
         <Preference android:key="switch_tool_INSTALLABLE" android:title="@string/manage_yuzu_data" android:summary="@string/manage_yuzu_data_description" app:icon="@drawable/ic_firmware" />
+        <Preference
+                android:key="switch_import_data"
+                android:title="@string/switch_import_data"
+                android:summary="@string/switch_import_data_summary"
+                app:icon="@drawable/ic_firmware" />
         <Preference android:key="switch_tool_DRIVER_MANAGER" android:title="@string/eden_gpu_driver_manager" android:summary="@string/eden_install_gpu_driver_description" app:icon="@drawable/ic_video" />
         <Preference android:key="switch_tool_PROFILE_MANAGER" android:title="@string/profile_manager" android:summary="@string/profile_manager_description" app:icon="@drawable/ic_settings" />
         <Preference android:key="switch_tool_APPLET_LAUNCHER" android:title="@string/applets" android:summary="@string/applets_description" app:icon="@drawable/ic_firmware" />
@@ -202,11 +209,6 @@
         <Preference android:key="switch_dialog_SYSTEM_INFO" android:title="@string/system_information" android:summary="@string/system_information_description" app:icon="@drawable/ic_settings" />
         <Preference android:key="switch_share_log" android:title="@string/eden_share_log" android:summary="@string/eden_share_log_description" app:icon="@drawable/ic_settings" />
         <Preference android:key="switch_share_gpu_log" android:title="@string/share_gpu_log" android:summary="@string/share_gpu_log_description" app:icon="@drawable/ic_settings" />
-        <Preference
-                android:key="switch_import_data"
-                android:title="@string/switch_import_data"
-                android:summary="@string/switch_import_data_summary"
-                app:icon="@drawable/ic_firmware" />
         <Preference android:key="switch_tool_ABOUT" android:title="@string/eden_about" android:summary="@string/eden_about_description" app:icon="@drawable/ic_settings" />
     </PreferenceCategory>
 
@@ -218,12 +220,12 @@
             app:iconSpaceReserved="false">
         <Preference android:key="gc_wii_settings_CONFIG_GENERAL" android:title="@string/category_general" android:summary="@string/gc_wii_settings_general_summary" app:icon="@drawable/ic_settings" />
         <Preference android:key="gc_wii_settings_CONFIG_INTERFACE" android:title="@string/settings_interface" android:summary="@string/gc_wii_settings_interface_summary" app:icon="@drawable/ic_settings" />
+        <Preference android:key="gc_wii_settings_CONFIG_GAME_CUBE" android:title="@string/gc_wii_settings_gamecube" android:summary="@string/gc_wii_settings_gamecube_summary" app:icon="@drawable/ic_firmware" />
+        <Preference android:key="gc_wii_settings_CONFIG_WII" android:title="@string/gc_wii_settings_wii" android:summary="@string/gc_wii_settings_wii_summary" app:icon="@drawable/ic_firmware" />
         <Preference android:key="gc_wii_settings_GRAPHICS" android:title="@string/category_video" android:summary="@string/gc_wii_settings_graphics_summary" app:icon="@drawable/ic_video" />
         <Preference android:key="gc_wii_settings_CONFIG_AUDIO" android:title="@string/category_audio" android:summary="@string/gc_wii_settings_audio_summary" app:icon="@drawable/ic_audio" />
         <Preference android:key="gc_wii_settings_GCPAD_TYPE" android:title="@string/gc_wii_settings_gc_controllers" android:summary="@string/gc_wii_settings_gc_controllers_summary" app:icon="@drawable/ic_input" />
         <Preference android:key="gc_wii_settings_WIIMOTE" android:title="@string/gc_wii_settings_wii_remotes" android:summary="@string/gc_wii_settings_wii_remotes_summary" app:icon="@drawable/ic_input" />
-        <Preference android:key="gc_wii_settings_CONFIG_GAME_CUBE" android:title="@string/gc_wii_settings_gamecube" android:summary="@string/gc_wii_settings_gamecube_summary" app:icon="@drawable/ic_firmware" />
-        <Preference android:key="gc_wii_settings_CONFIG_WII" android:title="@string/gc_wii_settings_wii" android:summary="@string/gc_wii_settings_wii_summary" app:icon="@drawable/ic_firmware" />
         <Preference android:key="gc_wii_settings_CONFIG_ACHIEVEMENTS" android:title="@string/retroachievements" android:summary="@string/gc_wii_settings_achievements_summary" app:icon="@drawable/ic_trophy" />
         <Preference android:key="gc_wii_settings_CONFIG_ADVANCED" android:title="@string/settings_advanced" android:summary="@string/gc_wii_settings_advanced_summary" app:icon="@drawable/ic_settings" />
         <Preference android:key="gc_wii_settings_CONFIG_LOG" android:title="@string/gc_wii_settings_log" android:summary="@string/gc_wii_settings_log_summary" app:icon="@drawable/ic_settings" />

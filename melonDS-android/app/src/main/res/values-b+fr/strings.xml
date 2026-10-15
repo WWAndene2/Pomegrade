@@ -543,7 +543,7 @@
     <string name="classic_layout_name">Classic</string>
     <string name="switch_unsupported">Les jeux Switch demandent un appareil ARM 64 bits</string>
     <string name="switch_folder_failed">Les données Switch n\'ont pas pu être préparées dans le dossier Punica : %1$s</string>
-    <string name="switch_system_files_failed">Les clés ou le firmware de BIOS/Switch n\'ont pas pu être installés : %1$s</string>
+    <string name="switch_system_files_failed">Les clés ou le firmware de Punica/Switch/System n\'ont pas pu être installés : %1$s</string>
     <string name="settings_section_switch">Switch</string>
     <string name="gba_not_a_file">Ce jeu GBA doit être dans le stockage du téléphone (le dossier Punica)</string>
     <string name="settings_section_gba">GBA</string>
@@ -569,7 +569,7 @@
     <string name="gc_wii_settings_wii_remotes_summary">Wiimotes émulées ou réelles, leurs touches</string>
     <string name="gc_wii_settings_advanced_summary">Émulation du processeur, fréquence forcée</string>
     <string name="gba_console_bios">Utiliser le BIOS de ta console</string>
-    <string name="gba_console_bios_summary">gba_bios.bin dans Punica/BIOS/GBA s\'il y est ; sinon le BIOS intégré de mGBA</string>
+    <string name="gba_console_bios_summary">gba_bios.bin dans Punica/GBA/System s\'il y est ; sinon le BIOS intégré de mGBA</string>
     <string name="gba_screen_smoothing">Lisser l\'écran</string>
     <string name="gba_screen_smoothing_summary">Fond les pixels quand l\'image est agrandie ; désactivé, ils restent nets</string>
     <string name="switch_settings_system_summary">Langue, région, mode de la console (station d\'accueil ou portable)</string>
@@ -738,7 +738,7 @@
     <string name="action_three_ds_games">Jeux 3DS</string>
     <string name="three_ds_unsupported">Les jeux 3DS demandent un appareil 64 bits</string>
     <string name="pomegrade_folder_title">Dossier Punica</string>
-    <string name="pomegrade_folder_message">Punica range tes jeux et leurs fichiers dans un seul dossier, Punica, dans le stockage interne :\n\n• Roms : chaque jeu dans son dossier\n• BIOS : les fichiers système de chaque console (DS, DSi, GBA, 3DS, Switch, GameCube / Wii)\n• DS, GBA, 3DS, Switch, GC-Wii : les sauvegardes et sauvegardes d\'état de chaque console\n• Textures : les packs de textures HD\n\nLes jeux que Punica trouve y sont déplacés. Le dossier reste sur ton téléphone si tu désinstalles l\'app.\n\nAndroid demande d\'abord d\'autoriser « Accès à tous les fichiers » : Punica en a besoin pour déplacer les jeux et lancer les jeux 3DS. Touche ensuite « Utiliser ce dossier » pour confirmer le dossier Punica.</string>
+    <string name="pomegrade_folder_message">Punica range tes jeux et leurs fichiers dans un seul dossier, Punica, dans le stockage interne. Il a un dossier par console (DS, GBA, 3DS, Switch, GC-Wii), avec les mêmes dossiers dans chacun :\n\n• Games : les jeux\n• Saves : les sauvegardes\n• States : les états de sauvegarde\n• System : BIOS, clés, firmware\n• Mods : packs de textures et mods\n• Core : les fichiers propres à l\'émulateur\n\nLes jeux que Punica trouve y sont déplacés. Le dossier reste sur ton téléphone si tu désinstalles l\'app.\n\nAndroid demande d\'abord d\'autoriser « Accès à tous les fichiers » : Punica en a besoin pour déplacer les jeux et lancer les jeux 3DS. Touche ensuite « Utiliser ce dossier » pour confirmer le dossier Punica.</string>
     <string name="pomegrade_folder_choose">Choisir le dossier</string>
     <string name="pomegrade_folder_later">Plus tard</string>
     <string name="pomegrade_folder_file_access_hint">Active « Accès à tous les fichiers » pour Punica, puis reviens</string>
@@ -754,7 +754,7 @@
     <string name="settings_section_ds">DS</string>
     <string name="settings_section_three_ds">3DS</string>
     <string name="pomegrade_folder_not_set">Pas encore configuré : touche pour le configurer</string>
-    <string name="pomegrade_folder_location">%1$s\n\nIl contient tes jeux (Roms), leurs sauvegardes et sauvegardes d\'état, le BIOS de chaque console, les données 3DS et Switch, les packs de textures et une copie de tes réglages. Il reste sur ton téléphone si tu désinstalles Punica.</string>
+    <string name="pomegrade_folder_location">%1$s\n\nUn dossier par console (DS, GBA, 3DS, Switch, GC-Wii), avec les mêmes dossiers dans chacun : Games, Saves, States, System, Mods, Core ; et une copie de tes réglages. Il reste sur ton téléphone si tu désinstalles Punica.</string>
     <string name="system_files_check">Vérifier les fichiers système</string>
     <string name="system_files_check_summary">Range les clés, les BIOS et le firmware Switch là où Punica les lit (déplacés, jamais supprimés), et extrait le zip du firmware</string>
     <string name="system_files_check_done">Fichiers système : %1$d déplacés, %2$d extraits, %3$d laissés en place</string>
@@ -782,9 +782,9 @@
     <string name="three_ds_settings_camera_summary">Quelle caméra du téléphone les jeux voient</string>
     <string name="three_ds_settings_debug_summary">Journaux et options de dépannage</string>
     <string name="three_ds_code_trace">Enregistrer une trace du code (débogage)</string>
-    <string name="three_ds_code_trace_summary">Pendant qu\'un jeu 3DS tourne, enregistre ce que fait son code (appels au noyau, requêtes système, fichiers ouverts, modules chargés, chaque thread plusieurs fois par seconde). Écrite dans Punica/3DS/Traces quand tu quittes le jeu, et toutes les 30 secondes. Ralentit un peu le jeu</string>
+    <string name="three_ds_code_trace_summary">Pendant qu\'un jeu 3DS tourne, enregistre ce que fait son code (appels au noyau, requêtes système, fichiers ouverts, modules chargés, chaque thread plusieurs fois par seconde). Écrite dans Punica/3DS/Core/Traces quand tu quittes le jeu, et toutes les 30 secondes. Ralentit un peu le jeu</string>
     <string name="ds_debug_trace">Enregistrer une trace de débogage (débogage)</string>
-    <string name="ds_debug_trace_summary">Pendant qu\'un jeu DS démarre et tourne, enregistre ce que fait l\'émulateur : ses messages (erreurs OpenGL, chaque shader compilé et sa durée), chaque étape du démarrage (jeu, OpenGL, moteur de rendu, premières images) et, chaque seconde, où il en est. Écrite dans Punica/DS/Traces au fur et à mesure : si un jeu se bloque, ferme l\'app et le fichier montre où il s\'est arrêté</string>
+    <string name="ds_debug_trace_summary">Pendant qu\'un jeu DS démarre et tourne, enregistre ce que fait l\'émulateur : ses messages (erreurs OpenGL, chaque shader compilé et sa durée), chaque étape du démarrage (jeu, OpenGL, moteur de rendu, premières images) et, chaque seconde, où il en est. Écrite dans Punica/DS/Core/Traces au fur et à mesure : si un jeu se bloque, ferme l\'app et le fichier montre où il s\'est arrêté</string>
     <string name="ds_debug_trace_no_folder">Le dossier Punica est introuvable, ou Punica ne peut pas y écrire : configure-le d\'abord</string>
     <string name="ds_debug_trace_on">Trace de débogage activée : chaque jeu lancé écrit une trace dans %1$s</string>
     <string name="three_ds_code_trace_no_folder">Le dossier 3DS est introuvable : configure d\'abord le dossier Punica</string>
@@ -836,9 +836,9 @@
     <string name="better_polygons_summary">Moins de jointures et de déformations sur les grands polygones en haute résolution</string>
     <string name="polygon_multiplier">Multiplicateur de polygones</string>
     <string name="hd_textures">Textures HD</string>
-    <string name="hd_textures_summary">Remplace les textures 3D par leur version HD depuis Punica/Textures/&lt;code du jeu&gt;/</string>
+    <string name="hd_textures_summary">Remplace les textures 3D par leur version HD depuis Punica/DS/Mods/&lt;code du jeu&gt;/</string>
     <string name="dump_textures">Extraire les textures</string>
-    <string name="dump_textures_summary">Enregistre chaque texture 3D du jeu dans Punica/Textures/&lt;code du jeu&gt;/dump/ (plus lent, pour créer des packs de textures)</string>
+    <string name="dump_textures_summary">Enregistre chaque texture 3D du jeu dans Punica/DS/Mods/&lt;code du jeu&gt;/dump/ (plus lent, pour créer des packs de textures)</string>
     <string name="pomegrade_about">À propos</string>
     <string name="pomegrade_about_version">Version %1$s</string>
     <string name="pomegrade_about_description">Les jeux DS, DSi et 3DS dans une seule app, avec des textures HD et des améliorations graphiques pour la DS.</string>
@@ -930,4 +930,20 @@
         <item>Pleins</item>
         <item>Contours</item>
     </string-array>
+    <plurals name="retroachievements_pending_achievement_unlocks">
+        <item quantity="one">%d succès débloqué</item>
+        <item quantity="other">%d succès débloqués</item>
+    </plurals>
+    <plurals name="retroachievements_pending_leaderboard_entries">
+        <item quantity="one">%d entrée de classement</item>
+        <item quantity="other">%d entrées de classement</item>
+    </plurals>
+    <plurals name="pomegrade_folder_moved">
+        <item quantity="one">%d jeu déplacé dans le dossier Punica</item>
+        <item quantity="other">%d jeux déplacés dans le dossier Punica</item>
+    </plurals>
+    <!-- Punica folder layout (PunicaLayout): the note in a console's Saves when its saves cannot be apart -->
+    <string name="punica_layout_saves_note_file">Où sont les sauvegardes.txt</string>
+    <string name="punica_layout_saves_note_three_ds">Les sauvegardes d\'un jeu 3DS sont sur la carte SD de la console, avec les jeux qui y sont installés : dans System/sdmc (Nintendo 3DS/…/title/…/data). On ne peut pas les en séparer.\n\nLes états de sauvegarde sont dans States.</string>
+    <string name="punica_layout_saves_note_gc_wii">Les sauvegardes GameCube (cartes mémoire) sont ici, dans GameCube.\n\nLes sauvegardes d\'un jeu Wii sont dans la mémoire interne de la Wii, avec son menu et ses chaînes : dans System/Wii (title/…/data). On ne peut pas les en séparer.\n\nLes états de sauvegarde sont dans States.</string>
 </resources>

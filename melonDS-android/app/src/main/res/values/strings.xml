@@ -659,7 +659,7 @@
     <string name="three_ds_unsupported">3DS games need a 64-bit device</string>
     <string name="switch_unsupported">Switch games need a 64-bit ARM device</string>
     <string name="switch_folder_failed">The Switch data could not be set up in the Punica folder: %1$s</string>
-    <string name="switch_system_files_failed">The keys or firmware in BIOS/Switch could not be installed: %1$s</string>
+    <string name="switch_system_files_failed">The keys or firmware in Punica/Switch/System could not be installed: %1$s</string>
     <string name="settings_section_switch">Switch</string>
     <string name="switch_import_data">Import Switch data</string>
     <string name="switch_import_data_summary">Adds the Switch data left in the app\'s own folder, or a backup exported by Eden (zip), to the Switch folder</string>
@@ -674,7 +674,7 @@
     <string name="switch_import_failed">The Switch data could not be imported: %1$s</string>
     <string name="gba_not_a_file">This GBA game must be in the phone\'s storage (the Punica folder)</string>
     <string name="pomegrade_folder_title">Punica folder</string>
-    <string name="pomegrade_folder_message">Punica keeps your games and their files in one folder, Punica, in your internal storage:\n\n• Roms: each game in its own folder\n• BIOS: each console\'s system files (DS, DSi, GBA, 3DS, Switch, GameCube / Wii)\n• DS, GBA, 3DS, Switch, GC-Wii: each console\'s saves and save states\n• Textures: HD texture packs\n\nThe games Punica finds are moved there. It stays on your phone if you uninstall the app.\n\nAndroid asks you to allow \"All files access\" first: Punica needs it to move games and to run 3DS games. Then tap \"Use this folder\" to confirm the Punica folder.</string>
+    <string name="pomegrade_folder_message">Punica keeps your games and their files in one folder, Punica, in your internal storage. It has one folder per console (DS, GBA, 3DS, Switch, GC-Wii), with the same folders in each:\n\n• Games: the games\n• Saves: the saves\n• States: the save states\n• System: BIOS, keys, firmware\n• Mods: texture packs and mods\n• Core: the emulator\'s own files\n\nThe games Punica finds are moved there. It stays on your phone if you uninstall the app.\n\nAndroid asks you to allow \"All files access\" first: Punica needs it to move games and to run 3DS games. Then tap \"Use this folder\" to confirm the Punica folder.</string>
     <string name="pomegrade_folder_choose">Choose folder</string>
     <string name="pomegrade_folder_later">Later</string>
     <string name="pomegrade_folder_file_access_hint">Turn on \"All files access\" for Punica, then come back</string>
@@ -716,7 +716,7 @@
     <string name="gc_wii_settings_wii_remotes_summary">Emulated or real Wii Remotes, their mapping</string>
     <string name="gc_wii_settings_advanced_summary">CPU emulation, clock override</string>
     <string name="gba_console_bios">Use your console\'s BIOS</string>
-    <string name="gba_console_bios_summary">gba_bios.bin from Punica/BIOS/GBA when it is there; mGBA\'s own BIOS otherwise</string>
+    <string name="gba_console_bios_summary">gba_bios.bin from Punica/GBA/System when it is there; mGBA\'s own BIOS otherwise</string>
     <string name="gba_screen_smoothing">Smooth the screen</string>
     <string name="gba_screen_smoothing_summary">Blends the pixels when the picture is enlarged; off keeps them sharp</string>
     <string name="switch_settings_system_summary">Language, region, console mode (docked or handheld)</string>
@@ -725,7 +725,7 @@
     <string name="switch_settings_input_summary">Controllers and their mapping</string>
     <string name="switch_settings_debug_summary">For finding problems; leave as is otherwise</string>
     <string name="pomegrade_folder_not_set">Not set up yet: tap to set it up</string>
-    <string name="pomegrade_folder_location">%1$s\n\nIt holds your games (Roms), their saves and save states, each console\'s BIOS, 3DS and Switch data, texture packs and a copy of your settings. It stays on your phone if you uninstall Punica.</string>
+    <string name="pomegrade_folder_location">%1$s\n\nOne folder per console (DS, GBA, 3DS, Switch, GC-Wii), each with the same folders: Games, Saves, States, System, Mods, Core; and a copy of your settings. It stays on your phone if you uninstall Punica.</string>
     <string name="system_files_check">Check the system files</string>
     <string name="system_files_check_summary">Puts the keys, BIOS and the Switch firmware where Punica reads them (moved, never deleted), and extracts the firmware\'s zip</string>
     <string name="system_files_check_done">System files: %1$d moved, %2$d extracted, %3$d left where they were</string>
@@ -754,9 +754,9 @@
     <string name="settings_advanced">Advanced</string>
     <string name="three_ds_settings_debug_summary">Logs and options for troubleshooting</string>
     <string name="three_ds_code_trace">Record a code trace (debug)</string>
-    <string name="three_ds_code_trace_summary">While a 3DS game runs, records what its code does (kernel calls, system requests, files opened, modules loaded, every thread several times a second). Written to Punica/3DS/Traces when you quit the game, and every 30 seconds. Slows the game a little</string>
+    <string name="three_ds_code_trace_summary">While a 3DS game runs, records what its code does (kernel calls, system requests, files opened, modules loaded, every thread several times a second). Written to Punica/3DS/Core/Traces when you quit the game, and every 30 seconds. Slows the game a little</string>
     <string name="ds_debug_trace">Record a debug trace (debug)</string>
-    <string name="ds_debug_trace_summary">While a DS game starts and runs, records what the emulator does: the emulator\'s messages (OpenGL errors, each shader compiled and how long it took), each stage of the start (ROM, OpenGL, renderer, first frames) and, every second, where it is. Written to Punica/DS/Traces as it happens: if a game freezes, close the app and the file shows where it stopped</string>
+    <string name="ds_debug_trace_summary">While a DS game starts and runs, records what the emulator does: the emulator\'s messages (OpenGL errors, each shader compiled and how long it took), each stage of the start (ROM, OpenGL, renderer, first frames) and, every second, where it is. Written to Punica/DS/Core/Traces as it happens: if a game freezes, close the app and the file shows where it stopped</string>
     <string name="ds_debug_trace_no_folder">The Punica folder could not be found, or Punica can\'t write to it: set it up first</string>
     <string name="ds_debug_trace_on">Debug trace on: each game you start writes a trace to %1$s</string>
     <string name="three_ds_code_trace_no_folder">The 3DS folder could not be found: set up the Punica folder first</string>
@@ -867,9 +867,9 @@
         <item>8</item>
     </string-array>
     <string name="hd_textures">HD textures</string>
-    <string name="hd_textures_summary">Replace 3D textures with HD versions from Punica/Textures/&lt;game code&gt;/</string>
+    <string name="hd_textures_summary">Replace 3D textures with HD versions from Punica/DS/Mods/&lt;game code&gt;/</string>
     <string name="dump_textures">Dump textures</string>
-    <string name="dump_textures_summary">Save every 3D texture the game uses to Punica/Textures/&lt;game code&gt;/dump/ (slower, for creating texture packs)</string>
+    <string name="dump_textures_summary">Save every 3D texture the game uses to Punica/DS/Mods/&lt;game code&gt;/dump/ (slower, for creating texture packs)</string>
 
     <!-- Pomegrade: about screen -->
     <string name="pomegrade_about">About</string>
@@ -1000,4 +1000,8 @@
     <string name="home_stat_file">file</string>
     <string name="home_shortcut">Home-screen shortcut</string>
     <string name="home_shortcut_unsupported">Your launcher can\'t add shortcuts from an app</string>
+    <!-- Punica folder layout (PunicaLayout): the note in a console's Saves when its saves cannot be apart -->
+    <string name="punica_layout_saves_note_file">Where are the saves.txt</string>
+    <string name="punica_layout_saves_note_three_ds">A 3DS game\'s saves are on the console\'s SD card, with the games installed on it: in System/sdmc (Nintendo 3DS/…/title/…/data). They cannot be kept apart from it.\n\nThe save states are in States.</string>
+    <string name="punica_layout_saves_note_gc_wii">GameCube saves (memory cards) are here, in GameCube.\n\nA Wii game\'s saves are in the Wii\'s internal memory, with its system menu and channels: in System/Wii (title/…/data). They cannot be kept apart from it.\n\nThe save states are in States.</string>
 </resources>

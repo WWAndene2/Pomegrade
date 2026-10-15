@@ -37,18 +37,18 @@ class ModInstallerTest {
         val folder = temp.newFolder("3DS")
         val result = install(zip("load/mods/$oras/romfs_ext/a/0/3/9.bps" to "patch", save to "save"), folder)
         assertEquals(ModInstaller.Result.Installed(setOf(oras), 2, 1), result)
-        assertEquals("patch", File(folder, "load/mods/$oras/romfs_ext/a/0/3/9.bps").readText())
-        assertEquals("save", File(folder, save).readText())
+        assertEquals("patch", File(folder, "Mods/mods/$oras/romfs_ext/a/0/3/9.bps").readText())
+        assertEquals("save", File(folder, "System/$save").readText())
     }
 
     @Test
     fun theGamesPreviousModIsDeletedOtherGamesModsStay() {
         val folder = temp.newFolder("3DS")
-        val stale = File(folder, "load/mods/$oras/romfs/a/0/1/3").apply { parentFile!!.mkdirs(); writeText("old") }
-        val other = File(folder, "load/mods/0004000000055D00/romfs/x").apply { parentFile!!.mkdirs(); writeText("other") }
+        val stale = File(folder, "Mods/mods/$oras/romfs/a/0/1/3").apply { parentFile!!.mkdirs(); writeText("old") }
+        val other = File(folder, "Mods/mods/0004000000055D00/romfs/x").apply { parentFile!!.mkdirs(); writeText("other") }
         install(zip("load/mods/$oras/romfs_ext/a/0/1/3.bps" to "new"), folder)
         assertFalse(stale.exists())
-        assertTrue(File(folder, "load/mods/$oras/romfs_ext/a/0/1/3.bps").exists())
+        assertTrue(File(folder, "Mods/mods/$oras/romfs_ext/a/0/1/3.bps").exists())
         assertEquals("other", other.readText())
     }
 
@@ -57,8 +57,8 @@ class ModInstallerTest {
         val folder = temp.newFolder("3DS")
         val result = install(zip("Pomegrade_Sinnoh_r9/load/mods/$oras/romfs/a" to "a", "Pomegrade_Sinnoh_r9/$save" to "s"), folder)
         assertEquals(ModInstaller.Result.Installed(setOf(oras), 2, 1), result)
-        assertTrue(File(folder, "load/mods/$oras/romfs/a").exists())
-        assertTrue(File(folder, save).exists())
+        assertTrue(File(folder, "Mods/mods/$oras/romfs/a").exists())
+        assertTrue(File(folder, "System/$save").exists())
     }
 
     @Test
@@ -82,7 +82,7 @@ class ModInstallerTest {
     @Test
     fun aZipWithNoModIsRefusedAndNothingIsTouched() {
         val folder = temp.newFolder("3DS")
-        val kept = File(folder, "load/mods/$oras/romfs/a").apply { parentFile!!.mkdirs(); writeText("kept") }
+        val kept = File(folder, "Mods/mods/$oras/romfs/a").apply { parentFile!!.mkdirs(); writeText("kept") }
         assertEquals(ModInstaller.Result.NotAMod, install(zip("photo.png" to "x", "romfs/a/0/1/3" to "x"), folder))
         assertEquals("kept", kept.readText())
     }

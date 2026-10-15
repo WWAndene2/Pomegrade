@@ -44,8 +44,11 @@ class SaveStateScreenshotProvider(
     }
 
     // the ROM's file moved to newUri: its screenshots are kept under its address's hash
-    fun relocateRomScreenshots(rom: Rom, newUri: Uri) {
-        val from = File(getScreenshotsDir(), rom.uri.hashCode().toString())
+    fun relocateRomScreenshots(rom: Rom, newUri: Uri) = relocateRomScreenshots(rom.uri, newUri)
+
+    /** The screenshots of the game whose file was at [oldUri], now at [newUri]. */
+    fun relocateRomScreenshots(oldUri: Uri, newUri: Uri) {
+        val from = File(getScreenshotsDir(), oldUri.hashCode().toString())
         val to = File(getScreenshotsDir(), newUri.hashCode().toString())
         if (from.isDirectory && !to.exists()) {
             from.renameTo(to)
@@ -64,8 +67,8 @@ class SaveStateScreenshotProvider(
     }
 
     private fun getScreenshotsDir(): File {
-        // Pomegrade: in the Pomegrade folder, which stays when the app is uninstalled
-        return PomegradeFolder.subFolder(context, PomegradeFolder.SAVE_STATE_PREVIEWS)?.takeIf { it.isDirectory || it.mkdirs() }
+        // Pomegrade: in the Pomegrade folder's DS/States, which stays when the app is uninstalled
+        return PomegradeFolder.consoleFolder(context, PunicaLayout.DS, "${PunicaLayout.STATES}/${PunicaLayout.PREVIEWS}")?.takeIf { it.isDirectory || it.mkdirs() }
             ?: File(context.filesDir, SAVE_STATE_SCREENSHOTS_DIR)
     }
 

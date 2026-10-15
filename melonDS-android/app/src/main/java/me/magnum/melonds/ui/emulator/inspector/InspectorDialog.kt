@@ -28,8 +28,9 @@ object InspectorDialog {
         val enabled: Boolean get() = this != OFF
     }
 
-    private const val FOLDER = "Inspector"
-    private const val MATERIALS_FOLDER = "Materials"
+    // in the Punica folder's DS/Core (PunicaLayout): the DS emulator's own files
+    private const val FOLDER = "DS/Core/Inspector"
+    private const val MATERIALS_FOLDER = "DS/Core/Materials"
 
     /**
      * @param onModeChanged the mode picked, already applied to the emulator
@@ -59,7 +60,7 @@ object InspectorDialog {
     }
 
     /**
-     * The game's material manifest, Pomegrade/Materials/<game code>.txt, read when recording starts: textures named by hash there
+     * The game's material manifest, Punica/DS/Core/Materials/<game code>.txt, read when recording starts: textures named by hash there
      * take its class over the classifier's. Missing: none.
      */
     private fun loadMaterialManifest(context: Context) {
@@ -72,7 +73,7 @@ object InspectorDialog {
     private fun saveReport(context: Context, gameName: String) {
         val report = MelonEmulator.getInspectorReport()
         // the Pomegrade folder when it is set up, else the app's own folder
-        val folder = PomegradeFolder.subFolder(context, FOLDER) ?: context.getExternalFilesDir(FOLDER)
+        val folder = PomegradeFolder.subFolder(context, FOLDER) ?: context.getExternalFilesDir("Inspector")
         val safeName = gameName.replace(Regex("[^A-Za-z0-9 ._-]"), "_").take(64).ifBlank { "game" }
         val stamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())
         val file = folder?.let { File(it, "$safeName $stamp.txt") }

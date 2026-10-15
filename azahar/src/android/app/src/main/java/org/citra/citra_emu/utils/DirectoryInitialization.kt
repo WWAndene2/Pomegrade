@@ -6,6 +6,7 @@ package org.citra.citra_emu.utils
 
 import android.content.Context
 import android.net.Uri
+import androidx.documentfile.provider.DocumentFile
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -21,6 +22,16 @@ import org.citra.citra_emu.utils.PermissionsHandler.hasWriteAccess
  * from the Citra APK to the external file system.
  */
 object DirectoryInitialization {
+    /**
+     * Pomegrade: where the emulator's own files are (config, log, gpu_drivers, GameSettings) in the user folder [root]:
+     * its Core folder in the Punica folder's layout (melonDS-android's PunicaLayout, told by Core and System folders,
+     * as FileUtil::SetUserPath does), else [root] itself.
+     */
+    fun punicaCore(root: DocumentFile): DocumentFile {
+        val core = root.findFile("Core")
+        return if (core != null && core.isDirectory && root.findFile("System")?.isDirectory == true) core else root
+    }
+
     private const val SYS_DIR_VERSION = "sysDirectoryVersion"
 
     @Volatile

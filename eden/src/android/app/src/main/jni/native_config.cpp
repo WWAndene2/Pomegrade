@@ -563,6 +563,17 @@ void Java_org_yuzu_yuzu_1emu_utils_NativeConfig_setSaveDir(JNIEnv* env, jobject 
     Common::FS::SetEdenPath(Common::FS::EdenPath::SaveDir, path);
 }
 
+// Pomegrade: the mods folder, set to Punica/Switch/Mods (melonDS-android's SwitchFolder), as the NAND one is
+jstring Java_org_yuzu_yuzu_1emu_utils_NativeConfig_getLoadDir(JNIEnv* env, jobject obj) {
+    return Common::Android::ToJString(env,
+        Common::FS::GetEdenPathString(Common::FS::EdenPath::LoadDir));
+}
+
+void Java_org_yuzu_yuzu_1emu_utils_NativeConfig_setLoadDir(JNIEnv* env, jobject obj, jstring jpath) {
+    auto path = Common::Android::GetJString(env, jpath);
+    Common::FS::SetEdenPath(Common::FS::EdenPath::LoadDir, path);
+}
+
 jstring Java_org_yuzu_yuzu_1emu_utils_NativeConfig_getNandDir(JNIEnv* env, jobject obj) {
     return Common::Android::ToJString(env,
         Common::FS::GetEdenPathString(Common::FS::EdenPath::NANDDir));

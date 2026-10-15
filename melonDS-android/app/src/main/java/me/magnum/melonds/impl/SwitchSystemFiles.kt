@@ -12,8 +12,8 @@ import java.io.File
  * place with the other consoles' BIOS:
  *
  * ```
- * Pomegrade/BIOS/Switch/
- * ├── prod.keys, title.keys   copied into Eden's keys folder, as Eden's "Install keys" does
+ * Punica/Switch/System/
+ * ├── prod.keys, title.keys   copied into Eden's keys folder (Switch/Core/keys), as Eden's "Install keys" does
  * └── Firmware/ (its .nca)    copied into Eden's NAND, as Eden's "Install firmware" does with a zip's NCAs
  * ```
  *
@@ -31,7 +31,7 @@ object SwitchSystemFiles {
     private const val OLD_FIRMWARE_MARKER = "pomegrade_firmware.txt"
 
     fun import(context: Context) {
-        val source = PomegradeFolder.subFolder(context, "${PomegradeFolder.BIOS}/${PomegradeFolder.BIOS_SWITCH}")?.takeIf { it.isDirectory } ?: return
+        val source = PomegradeFolder.consoleFolder(context, PunicaLayout.SWITCH, PunicaLayout.SYSTEM)?.takeIf { it.isDirectory } ?: return
         val userDirectory = File(DirectoryInitialization.userDirectory ?: return)
 
         val keysChanged = KEY_FILES.map { File(source, it) }.filter { it.isFile }.count { key ->

@@ -165,6 +165,10 @@ class RomListViewModel @Inject constructor(
         if (_organizing.value || !pomegradeFolder.canOrganize()) {
             return
         }
+        // the folder in the layout of PunicaLayout first (once): the games, saves and system files below are then in place
+        val listed = romsRepository.getRoms().first()
+        // a failure leaves the layout unmarked: the move, which never overwrites, runs again at the next opening
+        withContext(Dispatchers.IO) { runCatching { pomegradeFolder.applyLayout(listed) } }
         withContext(Dispatchers.IO) { runCatching { pomegradeFolder.organizeSaves() } }
         withContext(Dispatchers.IO) { runCatching { pomegradeFolder.organizeBios() } }
         withContext(Dispatchers.IO) { runCatching { pomegradeFolder.checkSystemFiles() } }

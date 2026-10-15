@@ -4,10 +4,12 @@ import android.content.Context
 import java.io.File
 
 /**
- * Where the Dolphin core keeps its data (GameCube memory cards, Wii NAND and saves, settings, textures):
- * the Pomegrade folder's GC-Wii, as the 3DS and Switch cores' data are in its 3DS and Switch, so it stays
- * when the app is uninstalled. Without the Pomegrade folder's file access, the app's own folder's dolphin:
- * Dolphin's default, the app's own folder itself, is the Switch core's folder too.
+ * Where the Dolphin core keeps its data: the Punica folder's GC-Wii/Core, Dolphin's user folder (settings, caches,
+ * logs, the GameCube boot ROMs it reads), with the console's other folders beside it in the layout of
+ * [PunicaLayout]: Dolphin itself points the Wii NAND to GC-Wii/System/Wii, the memory cards to GC-Wii/Saves/GameCube,
+ * the states to GC-Wii/States and Load to GC-Wii/Mods (UsePunicaLayout, dolphin/Source/Core/UICommon/UICommon.cpp).
+ * Before the Punica folder has the layout, GC-Wii itself, as it was. Without the folder's file access, the app's own
+ * folder's dolphin: Dolphin's default, the app's own folder itself, is the Switch core's folder too.
  */
 object GcWiiFolder {
 
@@ -15,7 +17,9 @@ object GcWiiFolder {
 
     /** Given to Dolphin (DirectoryInitialization.userDirectoryProvider), read when it starts. */
     fun userDirectory(context: Context): File? {
-        val folder = PomegradeFolder.subFolder(context, PomegradeFolder.GC_WII) ?: return context.getExternalFilesDir(APP_FOLDER)
+        val folder = PomegradeFolder.layoutRoot(context)?.let { PunicaLayout.part(it, PunicaLayout.GC_WII, PunicaLayout.CORE) }
+            ?: PomegradeFolder.subFolder(context, PomegradeFolder.GC_WII)
+            ?: return context.getExternalFilesDir(APP_FOLDER)
         return folder.takeIf { it.isDirectory || it.mkdirs() } ?: context.getExternalFilesDir(APP_FOLDER)
     }
 }

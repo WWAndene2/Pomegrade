@@ -6,16 +6,16 @@ import java.io.InputStream
 import java.util.zip.ZipInputStream
 
 /**
- * Installs a 3DS mod from a zip into the 3DS core's folder (Azahar's user folder, Pomegrade/3DS),
- * as the Remake mod workflow ships them:
+ * Installs a 3DS mod from a zip into the 3DS folder (Punica/3DS, PunicaLayout), as the Remake mod workflow ships
+ * them, each part where Azahar reads it there:
  *
  * ```
- * load/mods/<program id>/romfs/…, romfs_ext/….bps, exefs/…   the mod, read by Azahar's LayeredFS
- * sdmc/Nintendo 3DS/…/title/…/data/…                        a save that goes with it (optional)
+ * load/mods/<program id>/romfs/…, romfs_ext/….bps, exefs/…   the mod (Azahar's LayeredFS) -> 3DS/Mods/mods/…
+ * sdmc/Nintendo 3DS/…/title/…/data/…                        a save that goes with it      -> 3DS/System/sdmc/…
  * ```
  *
  * A zip holding those two folders inside one top folder (a zip of the folder rather than of its
- * content) is read the same way. Each game's previous mod (load/mods/<program id>) is deleted
+ * content) is read the same way. Each game's previous mod (Mods/mods/<program id>) is deleted
  * first: a file of an older mod left in place would still be loaded. Files of a save replace the
  * ones there. Entries outside load/mods and sdmc are skipped. Plain java.io, so it runs (and is
  * tested) off Android; call it on a background thread.
@@ -63,7 +63,7 @@ class ModInstaller {
         return try {
             val root = threeDsFolder.canonicalFile
             for (id in contents.programIds) {
-                val previous = File(root, "load/mods/$id")
+                val previous = File(root, placed("$LOAD/mods/$id"))
                 if (previous.exists() && !previous.deleteRecursively()) return Result.Failed
             }
             var files = 0
@@ -73,7 +73,7 @@ class ModInstaller {
                     val entry = zip.nextEntry ?: break
                     if (entry.isDirectory) continue
                     val path = relativePath(entry.name, prefix) ?: continue
-                    val target = File(root, path).canonicalFile
+                    val target = File(root, placed(path)).canonicalFile
                     // a name with ".." or a link out of the folder ("zip slip") is never written
                     if (!target.path.startsWith(root.path + File.separator)) continue
                     target.parentFile?.let { if (!it.isDirectory && !it.mkdirs()) throw IOException("can't create $it") }
@@ -125,6 +125,13 @@ class ModInstaller {
             parts[0] == LOAD && parts.size > 3 && parts[1] == "mods" && PROGRAM_ID.matches(parts[2]) -> path
             else -> null
         }
+    }
+
+    // a zip path (load/…, sdmc/…) to its place in the 3DS folder: Azahar's load folder is Mods, its SD card System/sdmc
+    private fun placed(path: String): String = when {
+        path.startsWith("$LOAD/") -> "${PunicaLayout.MODS}/" + path.removePrefix("$LOAD/")
+        path.startsWith("$SDMC/") -> "${PunicaLayout.SYSTEM}/" + path
+        else -> path
     }
 
     private companion object {
