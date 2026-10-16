@@ -378,7 +378,7 @@ another (51 characters passed the count check and stopped on the events buffer).
   | Animation | no | no | not studied |
   | 3D model | no | pieces cut from the game's (house, trees, fence, ledge) | a model of one's own not made |
   | Music | no | no | nothing reads the sound yet |
-  | Area pack | yes | | the sandbox fills the game's 9 placeholder packs no zone uses (0, 1, 39-42, 88, 97, 195) and changes no Hoenn pack (`light5`); a pack appended past 229 is refused (fatal-error loop: a/1/3/7, one member per pack, is one cause, read under the debugger in `apk1`-`apk4`; another not found) |
+  | Area pack | yes | | the sandbox fills the game's 9 placeholder packs no zone uses (0, 1, 39-42, 88, 97, 195) and changes no Hoenn pack (`light5`), then appends past the game's (`OrasWorkspace::AddAreaPack`). **Checked live** (run `apkA`, 16 October): zone 538 on appended pack 230 loads as on a free slot (same screen as the control `apkok`). a/0/1/4 holds 228 packs, then a table of 44 bytes a pack (member 228, 228 entries, not read further); an appended pack needs an entry there (extended, the table kept at member 228) and an a/1/3/7 member (one a pack). Fatal-error loop without the entry (`apk5`) and with the table moved last (`apk8`) |
   | Ground | yes | the game's grass, paths, water | checked: grass, tall grass (its ground since `fix1`), paths, pond (a bed in the water's colour, `fix2`: the surface still faint), trees, forest |
 
 - **Camera and lighting** (8 October):
@@ -1209,12 +1209,12 @@ phone. Zones, scripts and X's code were not compared.
 | Zone container | 5 files | 4 files | | | same first four (56-byte header, events, script, encounters); ORAS adds a 12-byte fifth, not read |
 | Map pieces (`GR`) | 857 (`a/0/3/9`) | 1,030 (`a/0/4/1`) | 1,887 | a matrix holds them as u16 (0xFFFF none: `OrasMatrix.h`) | fits the numbering; the archive's own reader not read |
 | Matrices (`MM`) | 431 (`a/0/4/0`) | 227 (`a/0/4/2`) | 658 | u16: the zone header's word 2, `Map_StartMatrixLoad` (0x4074C4) stores it as a u16 (read 16 October) | fits |
-| Area packs (`AD`) | 228 (`a/0/1/4`) | 170 (`a/0/1/3`) | 398 | **a pack appended past the game's 229 sends the game into its fatal-error loop** (section 2's table: `a/1/3/7`, a member per pack, is one cause; another not found); 9 placeholder packs are free | **the blocker**: X's 170 packs need the second cause found and lifted, or X's zones sharing packs |
+| Area packs (`AD`) | 228 (`a/0/1/4`) | 170 (`a/0/1/3`) | 398 | none found: appended packs load once a/0/1/4's per-pack table (its member 228) and a/1/3/7 have their entries (section 2's table, run `apkA`); the zone table holds a pack number in a u16 (as the tools read it; the game's reader not read) | fits (checked with 2 appended packs, not 170) |
 | Script natives | 384 called | 473 called | | | 137 of X's are not registered by ORAS; 159 of X's 360 zones call at least one (the most called, `0xE3B5A658`, in 118) |
 
 So X's ground, zones and matrices are ORAS's formats; X's scripts cannot run as they are, and a
 mod that brings X's places writes its own (as `docs/Equilibrium_Scenario.md` does anyway). Not yet known: the
-area packs' second fatal cause, the BCH 0x07 conversion, and a run of an X town in ORAS.
+the BCH 0x07 conversion, and a run of an X town in ORAS.
 
 **Order of work**: a BCH 0x07 reader; its conversion to 0x21; one X character placed in an Omega Ruby town, run on the
 phone; the tile table; one X piece in Omega Ruby.

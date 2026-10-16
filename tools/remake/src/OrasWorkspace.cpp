@@ -96,23 +96,31 @@ int OrasWorkspace::AddPlaceName(const std::string& name)
 int OrasWorkspace::AddAreaPack(const Bytes& pack, int like)
 {
     // a pack the build has added already, byte for byte (the same game pack with the same textures added: every room of a kind)
-    // shares its slot: the game has 9 free ones
+    // shares its slot; a new one takes one of the game's 9 free slots, then goes past the game's packs
     for (const auto& [slot, data] : PacksAdded) if (data == pack) return slot;
     const Garc& areas = Original("a/0/1/4");
     const Garc& perAreaGame = Original("a/1/3/7");
-    // POMEGRADE_APPEND_AREA_PACKS=1: the pack appended past the game's, with its a/1/3/7 member, instead of a free slot,
-    // to find what else the game holds per pack (ORAS_ENGINE.md 7: an appended pack is fatal, a/1/3/7 one cause)
-    if (const char* append = std::getenv("POMEGRADE_APPEND_AREA_PACKS"); append && std::string(append) == "1")
+    // the pack appended past the game's (ORAS_ENGINE.md 7, run apkA, 16 October: a zone on appended pack 230 loads): a/0/1/4's
+    // last member is not a pack but a table of 44 bytes a pack (228 entries), which stays where it is, extended up to the new
+    // pack with entries like `like`'s; a/1/3/7 (one member a pack) filled up to it likewise. The table moved last instead
+    // (the new pack in its place) is fatal (run apk8), and so is an appended pack with no entry in it (run apk5)
+    const auto append = [&]()
     {
         Garc& packs = Edited("a/0/1/4");
         Garc& perArea = Edited("a/1/3/7");
-        const size_t p = std::max(packs.Count(), perArea.Count());
+        const size_t tableAt = areas.Count() - 1, p = packs.Count(), entry = 44;
+        const Bytes gameTable = areas.Sub(tableAt);
+        Bytes table = Plain(packs.Sub(tableAt));
+        if (table.size() < ((size_t)like + 1) * entry) throw FormatError("the area pack table has no entry for pack " + std::to_string(like));
+        while (table.size() < (p + 1) * entry) table.insert(table.end(), table.begin() + like * entry, table.begin() + (like + 1) * entry);
         packs.Set(p, IsLzCompressed(areas.Sub(8)) ? Lz11Compress(pack) : pack);
-        // a/1/3/7 holds 228 members to a/0/1/4's 229 (its last is not a pack): filled up to the new one, each like `like`
+        packs.Set(tableAt, IsLzCompressed(gameTable) ? Lz11Compress(table) : table);
         while (perArea.Count() <= p) perArea.Set(perArea.Count(), perAreaGame.Sub((size_t)like));
         PacksAdded[(int)p] = pack;
         return (int)p;
-    }
+    };
+    // POMEGRADE_APPEND_AREA_PACKS=1: appended even while a free slot is left, to test appending
+    if (const char* force = std::getenv("POMEGRADE_APPEND_AREA_PACKS"); force && std::string(force) == "1") return append();
     const size_t slots = std::min(areas.Count(), perAreaGame.Count());
     if (PacksTaken.empty()) PacksTaken.assign(slots, false);
     // the packs every zone of the build draws from (the header table's word 1, game zones and new ones alike)
@@ -132,7 +140,7 @@ int OrasWorkspace::AddAreaPack(const Bytes& pack, int like)
             PacksAdded[(int)p] = pack;
             return (int)p;
         }
-    throw FormatError("no free area pack left (the game has " + std::to_string(std::count(used.begin(), used.end(), false)) + " unused ones)");
+    return append();
 }
 
 void OrasWorkspace::RegisterHeaderZone(int header, int zone, bool interior, const std::vector<HeaderWarp>& warps)

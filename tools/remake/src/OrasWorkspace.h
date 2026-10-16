@@ -43,7 +43,8 @@ public:
     // an area pack (a/0/1/4) holding `pack`, in one of the game's placeholder packs no zone uses (0, 1, 39-42, 88, 97, 195),
     // never a pack a game zone draws from, so no Hoenn place changes; its characters' list (a/1/3/7) the one of pack `like`.
     // A pack identical to one the build added shares its slot.
-    // A pack appended past the game's 229 is refused: its zone sent the game into its fatal-error loop (runs light1-light4)
+    // Once those are taken, appended past the game's packs (228 of them, then a/0/1/4's per-pack table, extended; run apkA):
+    // no limit but the archive's
     int AddAreaPack(const Bytes& pack, int like);
 
     // Warps between the build's new zones, by Platinum map header (SINNOH_BUILD.md R4): a step that writes a header's zone
