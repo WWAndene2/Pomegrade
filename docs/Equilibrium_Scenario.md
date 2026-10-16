@@ -44,6 +44,27 @@ The corrupted orbs cross the pairs:
 
 Neither arbiter can undo a crossed pair alone, which is why Rayquaza falls and Zygarde has to act.
 
+Rayquaza keeps the balance by **separation**: land and sea held apart. Zygarde keeps it by the **cycle**: life and death
+bound, each feeding the other. The crossed orbs mix the pairs, and separating no longer works: the story moves the world
+from the wall to the cycle. Rayquaza stands between the two men like a wall; Zygarde holds both like a cycle.
+
+## 3.1 The visions
+
+Each one refuses a part of the cycle. The characters' ages come from the story's new chronology (Archie older, Maxie
+younger than in ORAS; how it is placed is still to settle) and from the themes: the old man fears his end, the young
+man has not yet learnt that things are lost.
+
+| Character | Vision | Refuses |
+|---|---|---|
+| **Archie** (old), Kyogre and the Azure Orb (Xerneas) | A life that never ends: the sea where nothing dies | Death |
+| **Maxie** (young), Groudon and the Crimson Orb (Yveltal) | A perfect world fixed in stone, where nothing decays | Change, wear |
+| **Lysandre** | Owning life and death, for himself, in the name of all; he is dying | Losing anything; he takes the fear of one and the dream of the other |
+| **The hero** | Consent: the strength that is given, never taken (the Key Stone given in act II, Rayquaza let go in act V); Zygarde's human counterpart | Nothing; their trial is path A, becoming Lysandre |
+| **Zinnia** | Faithfulness to what was lost: Aster, her people's prophecy | Letting go; AZ shows her where refusing leads |
+| **Wally** | The hero's mirror, the same journey with another temptation: forcing strength, Lysandre's taking at a small scale | Being weak again |
+
+Lysandre's mirror is AZ, who did the same 3,000 years ago and still pays for it.
+
 ## 4. The acts
 
 ### Act I, Hoenn: the warning
@@ -51,6 +72,8 @@ Neither arbiter can undo a crossed pair alone, which is why Rayquaza falls and Z
 - The Draconids, through Zinnia, the Lorekeeper, announce a meteor within months.
 - Steven works out that Mega Evolution comes from the same energy as the meteor.
 - Maxie and Archie, haunted by the Primal disaster they caused, are visited by a man from Kalos thought dead: Lysandre.
+  He needs them themselves: the orbs answer only those who once woke a Primal form. He speaks to what each one fears:
+  to old Archie, a life that never ends; to young Maxie, a world that no longer wears away (section 3.1).
 - End: Zinnia steals Key Stones, Steven's among them, to summon Rayquaza, as her people's prophecy demands.
 
 ### Act II, the sky: what we give
@@ -63,25 +86,28 @@ Neither arbiter can undo a crossed pair alone, which is why Rayquaza falls and Z
 - The prophecy is fulfilled, and Zinnia's life has lost its purpose. She disappears, still grieving Aster.
 
 ### Act III, Kalos: what we take
-- The trail of the shards leads to Kalos: Lumiose, Sycamore, Korrina, Diantha.
+- The trail of the shards leads to Kalos: Lumiose, Sycamore, Korrina, Diantha. The player goes because Steven asks them
+  to: a shard was sold to a Lumiose collector, and Steven, who knows Lysandre, will not say why he fears it.
 - AZ tells his story: the war, Floette, the weapon, the stolen lives. Korrina learns that her family's Mega Stones were
   born from the Pokémon sacrificed on Route 10.
 - Lysandre survived the weapon's collapse, kept alive by its energy as AZ was. He no longer wants to destroy the world;
   he wants to end death, because he is dying slowly and only the weapon's energy keeps him alive.
 - Xerosic gathers the shards and drains Yveltal's and Xerneas's essences, asleep as a cocoon and a tree, to make the
   Crimson and Azure Orbs.
-- Malva, of the Elite Four, is The Dawn's mole inside the League.
+- Malva, of the Elite Four, is The Dawn's mole inside the League. Her clue: she knows of the player's Kalos visit before
+  anyone was told.
 - Steven confesses that he gave Lysandre his research on Mega Evolution years ago.
 - Zinnia reappears at Lysandre's side: he has promised her Aster back.
 
 ### Act IV, Hoenn: the fall
 - Maxie uses the Crimson Orb on Groudon, sure he is repairing his mistake. The land dries and turns to stone.
-- Lysandre offers the Azure Orb as the cure; Zinnia uses it on Kyogre. Life overflows and nothing can die.
-- Archie sees he has been used and changes sides.
+- Lysandre offers the Azure Orb as the cure; Archie, afraid of his own end, uses it on Kyogre. Life overflows and
+  nothing can die.
 - Rayquaza comes down from the sky to part them, as the legend says, still drained by the meteor. Groudon takes its
   life, Kyogre keeps it from dying: it falls, neither dead nor alive.
 - Wally wants to force things; his Gallade refuses to Mega Evolve. His crisis, then his growth.
-- Zinnia brings Aster back with what is left of the azure energy. The Whismur looks at her and does not know her.
+- Zinnia finds Aster again in Archie's flood, where nothing dies: its body comes back, not Aster. The Whismur looks at
+  her and does not know her.
 
 ### Act V: equilibrium
 - Zygarde wakes. With Rayquaza fallen, land and sea have no arbiter, life and death are tangled; it means to remove the
@@ -97,6 +123,7 @@ Neither arbiter can undo a crossed pair alone, which is why Rayquaza falls and Z
   essences and gives them back; Groudon and Kyogre go back to sleep.
 - Lysandre lives only by the weapon's energy; the player can cut it, and he dies at peace. Xerosic is arrested, Malva
   unmasked.
+- Archie accepts that he will die; Maxie accepts that what he builds will wear away. Both orbs go dark.
 
 ### Epilogue
 - AZ gives up his long life; Floette comes back to him for his last hours.
@@ -113,7 +140,8 @@ Neither arbiter can undo a crossed pair alone, which is why Rayquaza falls and Z
 | Wally | ORAS | Afraid of weakness | Winning without forcing anything |
 | Zinnia | ORAS | Defined by a prophecy, then by grief | Letting go, by choice |
 | Steven | ORAS | Knowledge held as neutral | Owning his share of the harm |
-| Maxie / Archie | ORAS | Haunted by the first disaster | One repeats it, the other refuses |
+| Maxie | ORAS | Young, haunted by the first disaster, wanting a world that does not wear away | Accepting that what he builds will be lost |
+| Archie | ORAS | Old, haunted by the first disaster, afraid of his end | Accepting that he will die |
 | AZ | X/Y | 3,000 years of guilt | Giving up his long life |
 | Lysandre | X/Y | Wanting to end death | Accepting his own |
 | Xerosic | X/Y | The cold mind who makes the orbs | Arrested |
@@ -159,4 +187,6 @@ Yveltal turning living things to stone in the film *Diancie and the Cocoon of De
 
 Invented for this story: Lysandre surviving and wanting to end death, the meteor's shards as the orbs' material, Deoxys
 born from the meteor's energy, the Crimson and Azure Orbs, Rayquaza's death, Zygarde's core and Rayquaza of
-Equilibrium, The Dawn, Malva as its mole, Steven's share of the blame.
+Equilibrium, The Dawn, Malva as its mole, Steven's share of the blame, Archie older and Maxie younger (their recoloured
+models, 16 October), the orbs answering only those who woke a Primal form, Archie using the Azure Orb, the shard sold in
+Lumiose.
