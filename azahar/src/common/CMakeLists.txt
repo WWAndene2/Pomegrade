@@ -131,11 +131,16 @@ if (APPLE AND NOT ENABLE_LIBRETRO)
   )
 endif()
 
+# Pomegrade: the performance hints are called from the core on every platform (perf_stats.cpp, vk_scheduler.cpp); outside
+# Android their functions do nothing
+target_sources(citra_common PRIVATE
+  android_performance_hint.cpp
+  android_performance_hint.h
+)
+
 # Android storage is only used for non-libretro Android builds
 if (ANDROID AND NOT ENABLE_LIBRETRO)
   target_sources(citra_common PRIVATE
-    android_performance_hint.cpp
-    android_performance_hint.h
     android_utils.cpp
     android_utils.h
   )
