@@ -166,6 +166,16 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   before each, land on an instruction. **Run in the game** (runs `r1own`, `r1sign`, `r1zone538`: `SINNOH_BUILD.md` R1):
   scripts of ours in Littleroot and in a new zone 538 run on entering the zone and for a sign. A zone's scripts are replaced
   by `oras-zone-script` (game zones) or a sandbox description's `script` / `init-script` blocks (new zones).
+  **A person of ours saying a line of ours, checked live** (run `sceneB2`, 16 October): a sandbox of two zones (538, 539),
+  in 539 `line Archie: La mer se souvient de tout. Moi aussi.` and `character 284 24 19 face 2 script 9`, its `script`
+  Littleroot's (`oras-script ... 6 source`) with talking (g_mode 9, `L001A28`) sent straight to its talk routine
+  (`L000348`, arguments line, 1, -1: -1 the person talked to, from `WorkGet(32785)`) with line 0. Walking from 538 into
+  539 and pressing A shows the line in the person's balloon, accents included; A closes it and the field goes on. The
+  routine chain under it (`L000348` -> `L000130` -> `L000AC8`, the 19 arguments of `TalkMdlMsg_Seq`, then
+  `CheckWinAllSuspend` until the window closes) is the game's; a script written from nothing needs it rewritten. The
+  sandbox finds the native names at `<description's folder>/../ghidra/function_names.tsv`: a description kept outside
+  `tools/remake/sandbox` needs a `ghidra` link beside its folder. The run needs the save's `00000001.metadata` in
+  `<work>/dumps/save` (without it the emulator stopped on loading the title state).
 - **Read a script**: `remake_tool oras-script <oras.3ds> <zone> [init]` disassembles it; `prototype/amx_natives.py tables
   <code.bin> <linked/modules.bin> natives.tsv`, then `... | amx_natives.py names natives.tsv` puts each native's name beside
   its hash, and `amx_natives.py check` proves every zone script's natives are registered (section 6). A zone's text:
@@ -1119,6 +1129,23 @@ X's models need a BCH 0x07 reader and a conversion to 0x21 before `BchWriter` ca
 Omega Ruby also uses (walkable 0x00000020 and 0x00000004, wall 0x01000021). Omega Ruby's tall grass 0x20004004 and sea
 0x3D1A0006 never occur in X: grass, water and the other special tiles need a value-by-value table, each checked on the
 phone. Zones, scripts and X's code were not compared.
+
+**The whole of X's map against ORAS's limits** (16 October, `prototype/game_census.py <remake_tool> <oras.3ds> <x.3ds>
+[archives.tsv]`, 8 s; X's archives found by their members' magics):
+
+| | ORAS | X | Together | ORAS's limit | |
+|---|---|---|---|---|---|
+| Zones (`ZO`) | 536 (`a/0/1/3`) | 360 (`a/0/1/2`) | 896 | 1,024 once raised (section 2) | fits |
+| Largest zone file | 17,416 bytes | 18,588 bytes | | 19,032 (the zone buffer, section 2) | fits, by 444 bytes |
+| Zone container | 5 files | 4 files | | | same first four (56-byte header, events, script, encounters); ORAS adds a 12-byte fifth, not read |
+| Map pieces (`GR`) | 857 (`a/0/3/9`) | 1,030 (`a/0/4/1`) | 1,887 | not read | |
+| Matrices (`MM`) | 431 (`a/0/4/0`) | 227 (`a/0/4/2`) | 658 | not read | |
+| Area packs (`AD`) | 228 (`a/0/1/4`) | 170 (`a/0/1/3`) | 398 | not read: a pack number held in a byte would stop at 256 | to read first |
+| Script natives | 384 called | 473 called | | | 137 of X's are not registered by ORAS; 159 of X's 360 zones call at least one (the most called, `0xE3B5A658`, in 118) |
+
+So X's ground, zones and matrices are ORAS's formats; X's scripts cannot run as they are, and a
+mod that brings X's places writes its own (as `docs/Equilibrium_Scenario.md` does anyway). Not yet known: the three
+limits marked "not read", the BCH 0x07 conversion, and a run of an X town in ORAS.
 
 **Order of work**: a BCH 0x07 reader; its conversion to 0x21; one X character placed in an Omega Ruby town, run on the
 phone; the tile table; one X piece in Omega Ruby.

@@ -8,8 +8,10 @@
 # dumps   the owner's files from Google Drive, by the ids given in the environment (each is in the Drive folder "Pokemon
 #         Project - Radiant Platinum"; ask the owner for a share link when one is missing):
 #           POMEGRADE_ORAS_DRIVE_ID      the Omega Ruby cartridge (.3ds, decrypted), 1.9 GB  -> dumps/oras.3ds
-#           POMEGRADE_PLATINUM_DRIVE_ID  Platinum (.nds)                                     -> dumps/platinum.nds
-#           POMEGRADE_SAVE_DRIVE_ID      the owner's save (main.zip: main, 00000001.metadata) -> dumps/save/
+#           POMEGRADE_PLATINUM_DRIVE_ID  Platinum (.nds), optional                           -> dumps/platinum.nds
+#           POMEGRADE_X_DRIVE_ID         Pokemon X (.3ds, decrypted), optional, 1.8 GB       -> dumps/x.3ds
+#           POMEGRADE_SAVE_DRIVE_ID      the owner's save (main.zip: main, 00000001.metadata), optional: without it the
+#                                        repository's headless/saves/main_Startpoint     -> dumps/save/
 # tool    remake_tool (tools/remake), and the game's code decompressed for disassembly -> dumps/code.bin
 # core    Azahar's libretro core with the headless patches (pomegrade_report.inc, patch_core.py: thread report, memory
 #         dump, GDB stub), built from a copy of azahar/ (about 30 min on 4 cores, once), and retro_host
@@ -35,13 +37,21 @@ case $step in
 dumps)
     mkdir -p dumps
     : "${POMEGRADE_ORAS_DRIVE_ID:?set POMEGRADE_ORAS_DRIVE_ID (the .3ds in the Drive folder)}"
-    : "${POMEGRADE_PLATINUM_DRIVE_ID:?set POMEGRADE_PLATINUM_DRIVE_ID}"
-    : "${POMEGRADE_SAVE_DRIVE_ID:?set POMEGRADE_SAVE_DRIVE_ID (main.zip)}"
     [ -s dumps/oras.3ds ] || drive "$POMEGRADE_ORAS_DRIVE_ID" dumps/oras.3ds
-    [ -s dumps/platinum.nds ] || drive "$POMEGRADE_PLATINUM_DRIVE_ID" dumps/platinum.nds
-    drive "$POMEGRADE_SAVE_DRIVE_ID" dumps/save.zip && rm -rf dumps/save && mkdir -p dumps/save && unzip -q -o dumps/save.zip -d dumps/save
-    # the zip may hold the folder 00000001 or its content: keep main and its metadata side by side
-    main=$(find dumps/save -type f -name main | head -n 1); [ -n "$main" ] && [ "$(dirname "$main")" != dumps/save ] && mv "$(dirname "$main")"/* dumps/save/
+    # Platinum and X only for the work that reads them (the Sinnoh tools; Equilibrium, ORAS_ENGINE.md 7): each one optional
+    [ -n "${POMEGRADE_PLATINUM_DRIVE_ID:-}" ] && { [ -s dumps/platinum.nds ] || drive "$POMEGRADE_PLATINUM_DRIVE_ID" dumps/platinum.nds; }
+    [ -n "${POMEGRADE_X_DRIVE_ID:-}" ] && { [ -s dumps/x.3ds ] || drive "$POMEGRADE_X_DRIVE_ID" dumps/x.3ds; }
+    if [ -n "${POMEGRADE_SAVE_DRIVE_ID:-}" ]; then
+        drive "$POMEGRADE_SAVE_DRIVE_ID" dumps/save.zip && rm -rf dumps/save && mkdir -p dumps/save && unzip -q -o dumps/save.zip -d dumps/save
+        # the zip may hold the folder 00000001 or its content: keep main and its metadata side by side
+        main=$(find dumps/save -type f -name main | head -n 1); [ -n "$main" ] && [ "$(dirname "$main")" != dumps/save ] && mv "$(dirname "$main")"/* dumps/save/
+    else
+        # no save on Drive: the owner's saves kept in the repository (headless/saves), Startpoint as main; run_local.sh needs
+        # the metadata beside it (a run without it stopped before the field, 16 October)
+        mkdir -p dumps/save
+        cp "$repo/tools/remake/headless/saves/main_Startpoint" dumps/save/main
+        cp "$repo/tools/remake/headless/saves/00000001.metadata" dumps/save/
+    fi
     ls -l dumps dumps/save ;;
 tool)
     cmake -S "$repo/tools/remake" -B build-remake -G Ninja -DCMAKE_BUILD_TYPE=Release > /dev/null
@@ -54,6 +64,8 @@ core)
     cmake -S core-src/azahar -B build-azahar -G Ninja -DCMAKE_BUILD_TYPE=Release -DENABLE_LIBRETRO=ON -DENABLE_OPENGL=OFF \
         -DENABLE_VULKAN=OFF -DENABLE_TESTS=OFF > /dev/null
     ninja -C build-azahar citra_libretro
+    # retro_host includes EGL's headers (its OpenGL path): missing in a fresh container (16 October)
+    [ -f /usr/include/EGL/egl.h ] || { apt-get install -y -q libegl-dev > /dev/null 2>&1 || { apt-get update -q > /dev/null && apt-get install -y -q libegl-dev > /dev/null; }; }
     g++ -std=c++17 -O2 -I "$repo/azahar/externals/libretro-common/libretro-common/include" "$repo/tools/remake/headless/retro_host.cpp" -ldl -o retro_host
     ls -l build-azahar/bin/Release/azahar_libretro.so retro_host ;;
 core-gl)
