@@ -40,8 +40,9 @@
 //                     19-20 Cosplay Pikachu, 21 Beldum 1, 22 Camerupt 40, 23 Sharpedo 40, 24 Latios 30, 25 Latias 30,
 //                     26-27 Wynaut's and Togepi's eggs, 28-36 the other regions' starters 5); nothing when the party is full
 //   heal              the party restored (PokePartyRecoverAll)
-//   if flag N | if not flag N | if item I | if not item I   then statements (item: at least one in the bag,
-//                     ItemGetNum), an optional "else" and its statements, up to "endif"; nests
+//   if [not] flag N | if [not] item I | if [not] party N   then statements (item: at least one in the bag,
+//                     ItemGetNum; party: at least N Pokemon, PokePartyGetCount 0), an optional "else" and its statements,
+//                     up to "endif"; nests
 // Story flags: 1 to 0xCFF are saved; 0xD00 to 0x2FFF are fatal; no game script names 0xC09-0xCFF as a constant
 // (ORAS_ENGINE.md 6: 2,056 constant uses of 699 flags in the 1,072 zone scripts, 16 October), so a mod's story takes
 // them from the top (0xCE0-0xCFF). Not read in the game's code beyond the scripts: a flag there may yet have a use.

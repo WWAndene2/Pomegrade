@@ -342,9 +342,18 @@ std::string CompileScene(const std::string& scene, const std::string& librarySou
         {
             const bool negated = w.size() == 4 && w[1] == "not";
             const std::string what = w.size() >= 3 ? w[negated ? 2 : 1] : "";
-            if (!(w.size() == 3 || negated) || (what != "flag" && what != "item"))
-                throw FormatError("scene line " + std::to_string(lineNo) + ": \"if [not] flag N\" or \"if [not] item I\"");
+            if (!(w.size() == 3 || negated) || (what != "flag" && what != "item" && what != "party"))
+                throw FormatError("scene line " + std::to_string(lineNo) + ": \"if [not] flag N\", \"if [not] item I\" or \"if [not] party N\"");
             const std::string otherwise = label();
+            if (what == "party")
+            {
+                // at least N Pokemon in the party (PokePartyGetCount 0, as the game's 54 calls give it)
+                code.insert(code.end(), {"    push.p.c 0", "    sysreq.n " + std::to_string(lib.Native("PokePartyGetCount")) + " 4",
+                                         "    const.alt " + std::to_string(Number(w.back(), lineNo)),
+                                         negated ? "    jsgeq " + otherwise : "    jsless " + otherwise});
+                ifs.push_back({otherwise, false});
+                continue;
+            }
             // a flag set, or at least one of item I in the bag (ItemGetNum)
             code.insert(code.end(), {"    push.c " + std::to_string(Number(w.back(), lineNo)),
                                      "    sysreq.n " + std::to_string(lib.Native(what == "flag" ? "FlagGet" : "ItemGetNum")) + " 4",
