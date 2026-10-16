@@ -209,6 +209,16 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   takes tiles (x 18) and heights in tiles. **Checked live** (run `sceneF1`: `camera 27.5 25.5 4 24.5 19.5 1 30 60`
   then a line, `camera back 30`): the camera swings to a low view from the south-east framed on the person and the
   player, then back; the sandbox's map stands at the world's origin and its ground at height 0.
+  **Battles and items** (16 October): `battle T` is `_CallTrainerBattleCore(0, T, 0, 0, 0, 0, 0)` as the 44 scripts
+  that start a trainer's battle call it (through a 6-argument routine), a frame's wait, then `_BattleGetResult`'s first
+  cell, 0 a loss handed to `CallTrainerLose` (32 scripts; 26 others use `_CallWildLose`). `give item I [N]` is
+  `ItemAdd(I, N)` with no message; `if [not] item I` reads `ItemGetNum(I)`. **Checked live** (runs `sceneG1`, `sceneG2`:
+  a scene of camera shots, two lines, then `battle 10`): the battle starts from the scene ("Dixie la Fillette veut se
+  battre !", trainer 10 is a Lass with a Zigzagoon, not the Youngster the sandbox's notes guessed), the turns run, and
+  a loss (A pressed blindly, the save's Torchic beaten) is the game's own: the player sent home to their mother. Not
+  seen yet: a win going on with the scene, and `give item` / `if item`. A camera's framing is the scene's to get right:
+  the person faces the player (west of them), so a shot from the south-east shows the back of their head (`sceneG1`).
+  The battle draws its Pokemon yellow under the headless software renderer; the field draws normally.
 - **Read a script**: `remake_tool oras-script <oras.3ds> <zone> [init]` disassembles it; `prototype/amx_natives.py tables
   <code.bin> <linked/modules.bin> natives.tsv`, then `... | amx_natives.py names natives.tsv` puts each native's name beside
   its hash, and `amx_natives.py check` proves every zone script's natives are registered (section 6). A zone's text:

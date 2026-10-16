@@ -284,6 +284,31 @@ std::string CompileScene(const std::string& scene, const std::string& librarySou
             code.insert(code.end(), {again + ":", "    push.p.c 1", "    push.p.c 4", "    call " + wait,
                                      "    sysreq.n " + std::to_string(lib.Native("EVCameraIsEndFrame")) + " 0", "    jzer " + again});
         }
+        else if (w[0] == "battle")
+        {
+            // battle T: trainer T of a/0/3/6 (_CallTrainerBattleCore 0, T, 0, 0, 0, 0, 0, as the scripts that start a
+            // trainer's battle do), a frame's wait, then the result (_BattleGetResult's first cell): 0 is a loss, which
+            // the game's handler takes over (CallTrainerLose) and the event ends there
+            need(2);
+            const std::string won = label();
+            code.insert(code.end(), {"    push.p.c 0", "    push.p.c 0", "    push.p.c 0", "    push.p.c 0", "    push.p.c 0",
+                                     "    push.c " + std::to_string(Number(w[1], lineNo)), "    push.p.c 0",
+                                     "    sysreq.n " + std::to_string(lib.Native("_CallTrainerBattleCore")) + " 28",
+                                     "    push.p.c 1", "    push.p.c 4", "    call " + wait,
+                                     "    stack.p -32", "    zero.pri", "    addr.alt -32", "    fill 32", "    push.p.adr -32",
+                                     "    sysreq.n " + std::to_string(lib.Native("_BattleGetResult")) + " 4",
+                                     "    addr.p.pri -32", "    load.i", "    stack.p 32", "    jnz " + won,
+                                     "    sysreq.n " + std::to_string(lib.Native("CallTrainerLose")) + " 0", "    jump scene_end",
+                                     won + ":"});
+        }
+        else if (w[0] == "give")
+        {
+            // give item I [N]: N of item I (1 by default) into the bag, with no message (ItemAdd I N); a "say" tells it
+            if ((w.size() != 3 && w.size() != 4) || w[1] != "item") throw FormatError("scene line " + std::to_string(lineNo) + ": \"give item I [N]\"");
+            code.insert(code.end(), {"    push.c " + std::to_string(w.size() == 4 ? Number(w[3], lineNo) : 1),
+                                     "    push.c " + std::to_string(Number(w[2], lineNo)),
+                                     "    sysreq.n " + std::to_string(lib.Native("ItemAdd")) + " 8"});
+        }
         else if (w[0] == "flag")
         {
             need(3);
@@ -297,11 +322,13 @@ std::string CompileScene(const std::string& scene, const std::string& librarySou
         else if (w[0] == "if")
         {
             const bool negated = w.size() == 4 && w[1] == "not";
-            if (!(w.size() == 3 || negated) || w[negated ? 2 : 1] != "flag")
-                throw FormatError("scene line " + std::to_string(lineNo) + ": \"if flag N\" or \"if not flag N\"");
+            const std::string what = w.size() >= 3 ? w[negated ? 2 : 1] : "";
+            if (!(w.size() == 3 || negated) || (what != "flag" && what != "item"))
+                throw FormatError("scene line " + std::to_string(lineNo) + ": \"if [not] flag N\" or \"if [not] item I\"");
             const std::string otherwise = label();
+            // a flag set, or at least one of item I in the bag (ItemGetNum)
             code.insert(code.end(), {"    push.c " + std::to_string(Number(w.back(), lineNo)),
-                                     "    sysreq.n " + std::to_string(lib.Native("FlagGet")) + " 4",
+                                     "    sysreq.n " + std::to_string(lib.Native(what == "flag" ? "FlagGet" : "ItemGetNum")) + " 4",
                                      negated ? "    jnz " + otherwise : "    jzer " + otherwise});
             ifs.push_back({otherwise, false});
         }

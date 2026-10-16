@@ -30,7 +30,12 @@
 //                     units (Littleroot's camera tables, read 16 October: position, target, fov, roll)
 //   camera back [F]   the field's camera again (EVCameraEnd F)
 //   flag N on|off     sets or clears story flag N (FlagSet / FlagReset)
-//   if flag N | if not flag N   then statements, an optional "else" and its statements, up to "endif"; nests
+//   battle T          a battle against trainer T (a/0/3/6), as the scripts that start one do (_CallTrainerBattleCore 0 T
+//                     0 0 0 0 0); lost (_BattleGetResult's first cell 0), the game's handler takes over (CallTrainerLose)
+//                     and the event ends; won, the scene goes on
+//   give item I [N]   N of item I (1 by default) into the bag (ItemAdd), with no message: a "say" tells it
+//   if flag N | if not flag N | if item I | if not item I   then statements (item: at least one in the bag,
+//                     ItemGetNum), an optional "else" and its statements, up to "endif"; nests
 // Story flags: 1 to 0xCFF are saved; 0xD00 to 0x2FFF are fatal; no game script names 0xC09-0xCFF as a constant
 // (ORAS_ENGINE.md 6: 2,056 constant uses of 699 flags in the 1,072 zone scripts, 16 October), so a mod's story takes
 // them from the top (0xCE0-0xCFF). Not read in the game's code beyond the scripts: a flag there may yet have a use.
