@@ -186,6 +186,15 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   are fatal (`FUN_0014ea64`), 0x3000-0x303F a separate area of 64. The 1,072 zone scripts name 699 flags as constants
   (2,056 uses, 10 to 3,080) and compute 76 more, 35 of them `1740 + n`; none names 0xC09-0xCFF, the range a mod's story
   takes from the top. Not read: a use of that range by the game's own code.
+  **Movement** (16 October): `act WHO CODE DIR [N]` sends the game's movement commands (`MdlAcmdInit`, `MdlAcmdSet`
+  CODE DIR 1 0 per step, `MdlAcmdSetEnd`, then `MdlAcmdUpdate` each frame until done, as the library's command-list
+  routine does: a list is triples, code, direction, 1). Run `sceneD1` (18 commands, a line between each): directions 0
+  north, 1 south, 2 west, 3 east; codes 19, 13, 12, 17 move one tile (19 seen in all four, on the person and the player;
+  speeds not compared), 6 turns (the player, north: its back to the camera); 3, 5, 232, 233 moved nothing, 7 not
+  understood; a `say` turns the person back to the player, so turning was not seen on them. WHO -1 is the person
+  talked to, 255 the player. Named: `walk WHO DIR [N]` (19), `face WHO DIR` (6), WHO `player`/`person`. **Checked
+  live** (run `sceneC2`, `sandbox/scene_demo.txt`): the person walks two tiles north and back, the player turns south,
+  then the lines and flag as before.
 - **Read a script**: `remake_tool oras-script <oras.3ds> <zone> [init]` disassembles it; `prototype/amx_natives.py tables
   <code.bin> <linked/modules.bin> natives.tsv`, then `... | amx_natives.py names natives.tsv` puts each native's name beside
   its hash, and `amx_natives.py check` proves every zone script's natives are registered (section 6). A zone's text:

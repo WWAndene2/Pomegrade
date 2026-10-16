@@ -11,6 +11,16 @@
 //   say L             the person talked to says line L of the zone's text (its `line` statements, 0 first), in their
 //                     balloon; the game turns them to face the player, waits for A, then closes the window
 //   wait F            waits F frames
+//   act WHO CODE DIR [N]   a person's movement command, N times (1 by default), then waits for its end: WHO -1 the
+//                     person talked to, 255 the player (as the game's scripts give them), else a character's number;
+//                     CODE and DIR as the game's command lists hold them (MdlAcmdInit, MdlAcmdSet CODE DIR 1 0,
+//                     MdlAcmdSetEnd, then MdlAcmdUpdate each frame until done). WHO may be "player" or "person", DIR
+//                     "north" (0), "south" (1), "west" (2), "east" (3). Seen in the game (run sceneD1, 16 October): codes
+//                     19, 13, 12 and 17 move one tile (19 in all four directions, the person and the player; their speeds
+//                     not compared), 6 turns (the player, north); 3, 5, 232, 233 moved nothing (a "say" turns the person
+//                     back to the player, so turning was not seen on them); 7 not understood
+//   walk WHO DIR [N]  act WHO 19 DIR N: walks N tiles
+//   face WHO DIR      act WHO 6 DIR: turns
 //   flag N on|off     sets or clears story flag N (FlagSet / FlagReset)
 //   if flag N | if not flag N   then statements, an optional "else" and its statements, up to "endif"; nests
 // Story flags: 1 to 0xCFF are saved; 0xD00 to 0x2FFF are fatal; no game script names 0xC09-0xCFF as a constant

@@ -128,6 +128,9 @@ std::string CompileScene(const std::string& scene, const std::string& librarySou
                                         "talking (say)");
     const std::string wait = lib.Routine({"proc", "push.p.s 12", "sysreq.n N:_Suspend 4", "zero.pri", "zero.alt", "halt 12"},
                                          "waiting (wait)");
+    // waiting for a person's commands to end: MdlAcmdUpdate each frame until it reports them done
+    const std::string actWait = lib.Routine({"proc", "jump *", "*", "push.p.s 12", "sysreq.n N:MdlAcmdUpdate 4", "jzer *"},
+                                            "waiting for a person's commands (act)");
     // g_mode, the event's number: the public variable every zone script declares (#D7477C97)
     std::string mode;
     for (const auto& l : lib.Lines)
@@ -178,6 +181,34 @@ std::string CompileScene(const std::string& scene, const std::string& librarySou
         {
             need(2);
             code.insert(code.end(), {"    push.c " + std::to_string(Number(w[1], lineNo)), "    push.p.c 4", "    call " + wait});
+        }
+        else if (w[0] == "act" || w[0] == "walk" || w[0] == "face")
+        {
+            // act WHO CODE DIR [N]: N times the movement command CODE towards DIR (MdlAcmdSet), then waits for its end;
+            // walk WHO DIR [N] is code 19, face WHO DIR code 6 (run sceneD1); WHO and DIR may be named
+            std::vector<std::string> a = w;
+            if (w[0] == "walk" || w[0] == "face")
+            {
+                if (w.size() != 3 && !(w[0] == "walk" && w.size() == 4))
+                    throw FormatError("scene line " + std::to_string(lineNo) + ": \"walk WHO DIR [N]\" or \"face WHO DIR\"");
+                a = {"act", w[1], w[0] == "walk" ? "19" : "6", w[2]};
+                if (w.size() == 4) a.push_back(w[3]);
+            }
+            if (a.size() != 4 && a.size() != 5) throw FormatError("scene line " + std::to_string(lineNo) + ": \"act WHO CODE DIR [N]\"");
+            static const std::map<std::string, std::string> names = {{"player", "255"}, {"person", "-1"}, {"north", "0"},
+                                                                     {"south", "1"}, {"west", "2"}, {"east", "3"}};
+            for (size_t k : {size_t(1), size_t(3)})
+                if (names.count(a[k])) a[k] = names.at(a[k]);
+            const auto& w = a;
+            const int who = Number(w[1], lineNo), times = w.size() == 5 ? Number(w[4], lineNo) : 1;
+            if (times < 1 || times > 64) throw FormatError("scene line " + std::to_string(lineNo) + ": act repeats 1 to 64 times");
+            code.insert(code.end(), {"    push.c " + std::to_string(who), "    sysreq.n " + std::to_string(lib.Native("MdlAcmdInit")) + " 4"});
+            for (int t = 0; t < times; t++)
+                code.insert(code.end(), {"    push.p.c 0", "    push.p.c 1", "    push.c " + std::to_string(Number(w[3], lineNo)),
+                                         "    push.c " + std::to_string(Number(w[2], lineNo)),
+                                         "    sysreq.n " + std::to_string(lib.Native("MdlAcmdSet")) + " 16"});
+            code.insert(code.end(), {"    sysreq.n " + std::to_string(lib.Native("MdlAcmdSetEnd")) + " 0",
+                                     "    push.c " + std::to_string(who), "    push.p.c 4", "    call " + actWait});
         }
         else if (w[0] == "flag")
         {
