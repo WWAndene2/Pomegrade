@@ -49,6 +49,7 @@ struct SandboxDescription
     std::vector<std::string> Blocks; // 4 Height rows of 4 Width digits: the zone (its place in Zones) of each 10 x 10 block
     std::vector<std::string> Map;
     std::vector<std::pair<int, std::string>> Teams; // a trainer of a/0/3/6 and its team block's lines
+    std::map<int, std::pair<int, std::string>> TeamNames; // a team's trainer -> its new class (-1: kept) and name ("": kept)
     std::vector<SandboxZone> Edits;                 // game zones added to (edit Z): their lines, characters, triggers, scene
 };
 
@@ -110,8 +111,18 @@ static SandboxDescription ReadDescription(const std::string& text)
         if (what == "team")
         {
             // team ID: then the trainer's new team, a "pokemon" line each, up to "end" (read when the mod is built)
+            // team ID [class C] [name TEXT]: the class (a/0/3/7 record, the battle's portrait) and the name may change too
             int id = 0;
             if (!(words >> id) || id < 1 || id > 949) fail("team takes a trainer id, 1-949 (a/0/3/6)");
+            int cls = -1;
+            std::string name, key;
+            while (words >> key)
+            {
+                if (key == "class") { if (!(words >> cls) || cls < 0 || cls > 279) fail("class takes 0-279 (a/0/3/7)"); }
+                else if (key == "name") { std::getline(words >> std::ws, name); if (name.empty()) fail("name takes a text"); }
+                else fail("team has no " + key);
+            }
+            d.TeamNames[id] = {cls, name};
             d.Teams.push_back({id, ""});
             source = &d.Teams.back().second;
             continue;
@@ -383,9 +394,30 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         if (record.size() != 24) throw FormatError("sandbox: trainer " + std::to_string(id) + "'s record is not 24 bytes");
         record[0] = (uint8_t)format;
         record[7] = (uint8_t)mons.size();
+        const auto& [cls, name] = d.TeamNames.at(id);
+        if (cls >= 0) { record[2] = (uint8_t)cls; record[3] = (uint8_t)(cls >> 8); }
+        if (!name.empty())
+            // the trainer's name: line ID of a/0/7/1-a/0/7/8 member 22, one archive per language (the 950 trainers' names,
+            // found by "Dixie", trainer 10's, on line 10 of the French one, a/0/7/4; member 21 is the 280 classes'),
+            // the same name in all eight
+            for (int a = 1; a <= 8; a++)
+            {
+                const std::string path = "a/0/7/" + std::to_string(a);
+                Garc& texts = ws.Edited(path);
+                const Bytes was = texts.Sub(22);
+                const Bytes plain = Plain(was);
+                std::vector<std::string> names = ReadGameText(plain);
+                if (WriteGameText(names) != plain) throw FormatError(path + " member 22 does not write back as it reads: its names left as they are");
+                if ((size_t)id >= names.size()) throw FormatError(path + " member 22 has no line " + std::to_string(id));
+                names[(size_t)id] = name;
+                const Bytes file = WriteGameText(names);
+                if (ReadGameText(file) != names) throw FormatError(path + " member 22: the new name does not read back");
+                texts.Set(22, IsLzCompressed(was) ? Lz11Compress(file) : file);
+            }
         ws.Edited("a/0/3/6").Set((size_t)id, record);
         ws.Edited("a/0/3/8").Set((size_t)id, team);
-        snprintf(line, sizeof line, "trainer %d: a new team of %zu (format %d)", id, mons.size(), format);
+        snprintf(line, sizeof line, "trainer %d: a new team of %zu (format %d)%s%s", id, mons.size(), format,
+                 cls >= 0 ? (", class " + std::to_string(cls)).c_str() : "", name.empty() ? "" : (", named " + name).c_str());
         log.push_back(line);
     }
 
