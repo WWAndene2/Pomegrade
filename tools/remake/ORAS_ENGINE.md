@@ -232,6 +232,11 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   trainer 10 given Wurmple 2 with Tackle and String Shot, Magikarp 3 with Splash): "Dixie la Fillette envoie un
   Chenipotte" at level 2, "Le Chenipotte ennemi utilise Charge !", then "envoie un Magicarpe" at level 3, knocked out;
   the scene went on after the battle.
+  **A trainer's class and name** (16 October): `team ID class C name TEXT`. The names are a/0/7/1-8 member 22 (950
+  lines, a trainer each; written with `ReplaceGameTextLine`, the other names' bytes kept), the classes member 21 (280:
+  178 Team Magma's leader, 174 Team Aqua's; the record's u16 +2). **Checked live** (run `sceneJ3`, trainer 10 as
+  class 178 "Max le Jeune" with a Numel): the battle opens with Team Magma's own transition and Maxie's portrait, "Max
+  le Jeune le Leader Team Magma veut se battre !", then "envoie un Chamallot !".
   **Scenes in the game's own zones** (16 October): a sandbox's `edit Z` block (OrasSandbox.h). **Checked live** (run
   `sceneK1`, `edit 6`: 2 lines after Littleroot's 39, character 11, a 5 x 1 trigger at row 167; the save moved to Route
   101, zone 23, 100.5 150.5, walking south): crossing the trigger, the camera moves, character 11 speaks, steps north
