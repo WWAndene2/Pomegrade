@@ -1207,14 +1207,14 @@ phone. Zones, scripts and X's code were not compared.
 | Zones (`ZO`) | 536 (`a/0/1/3`) | 360 (`a/0/1/2`) | 896 | 1,024 once raised (section 2) | fits |
 | Largest zone file | 17,416 bytes | 18,588 bytes | | 19,032 (the zone buffer, section 2) | fits, by 444 bytes |
 | Zone container | 5 files | 4 files | | | same first four (56-byte header, events, script, encounters); ORAS adds a 12-byte fifth, not read |
-| Map pieces (`GR`) | 857 (`a/0/3/9`) | 1,030 (`a/0/4/1`) | 1,887 | not read | |
-| Matrices (`MM`) | 431 (`a/0/4/0`) | 227 (`a/0/4/2`) | 658 | not read | |
-| Area packs (`AD`) | 228 (`a/0/1/4`) | 170 (`a/0/1/3`) | 398 | not read: a pack number held in a byte would stop at 256 | to read first |
+| Map pieces (`GR`) | 857 (`a/0/3/9`) | 1,030 (`a/0/4/1`) | 1,887 | a matrix holds them as u16 (0xFFFF none: `OrasMatrix.h`) | fits the numbering; the archive's own reader not read |
+| Matrices (`MM`) | 431 (`a/0/4/0`) | 227 (`a/0/4/2`) | 658 | u16: the zone header's word 2, `Map_StartMatrixLoad` (0x4074C4) stores it as a u16 (read 16 October) | fits |
+| Area packs (`AD`) | 228 (`a/0/1/4`) | 170 (`a/0/1/3`) | 398 | **a pack appended past the game's 229 sends the game into its fatal-error loop** (section 2's table: `a/1/3/7`, a member per pack, is one cause; another not found); 9 placeholder packs are free | **the blocker**: X's 170 packs need the second cause found and lifted, or X's zones sharing packs |
 | Script natives | 384 called | 473 called | | | 137 of X's are not registered by ORAS; 159 of X's 360 zones call at least one (the most called, `0xE3B5A658`, in 118) |
 
 So X's ground, zones and matrices are ORAS's formats; X's scripts cannot run as they are, and a
 mod that brings X's places writes its own (as `docs/Equilibrium_Scenario.md` does anyway). Not yet known: the three
-limits marked "not read", the BCH 0x07 conversion, and a run of an X town in ORAS.
+area packs' second fatal cause, the BCH 0x07 conversion, and a run of an X town in ORAS.
 
 **Order of work**: a BCH 0x07 reader; its conversion to 0x21; one X character placed in an Omega Ruby town, run on the
 phone; the tile table; one X piece in Omega Ruby.
