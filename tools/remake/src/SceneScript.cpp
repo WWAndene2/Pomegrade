@@ -139,7 +139,7 @@ int Number(const std::string& word, int line)
 
 }
 
-std::string CompileScene(const std::string& scene, const std::string& librarySource)
+std::string CompileScene(const std::string& scene, const std::string& librarySource, int lineBase, bool chain)
 {
     Library lib(librarySource);
 
@@ -205,7 +205,7 @@ std::string CompileScene(const std::string& scene, const std::string& librarySou
             // has no one talked to)
             if (w.size() != 2 && !(w.size() == 4 && w[2] == "by")) throw FormatError("scene line " + std::to_string(lineNo) + ": \"say L [by N]\"");
             const int by = w.size() == 4 ? Number(w[3], lineNo) : -1;
-            code.insert(code.end(), {"    push.c " + std::to_string(by), "    push.p.c 1", "    push.c " + std::to_string(Number(w[1], lineNo)),
+            code.insert(code.end(), {"    push.c " + std::to_string(by), "    push.p.c 1", "    push.c " + std::to_string(lineBase + Number(w[1], lineNo)),
                                      "    push.p.c 12", "    call " + say});
         }
         else if (w[0] == "wait")
@@ -380,13 +380,25 @@ std::string CompileScene(const std::string& scene, const std::string& librarySou
     close();
     if (events.empty()) throw FormatError("scene: no event (\"on N\")");
 
-    // main: g_mode's event, nothing for -1, CommandNOP for any other (as the game's mains)
-    std::string table = "    casetbl " + std::to_string(events.size() + 1) + " scene_other -1 scene_end";
+    // main: g_mode's event; chained, any other goes to the library's own main (the zone's events kept), else nothing for
+    // -1 and CommandNOP for any other (as the game's mains)
+    std::string libraryMain;
+    for (const auto& l : lib.Lines)
+    {
+        const auto w = Words(l);
+        if (w.size() == 6 && w[0] == "header") libraryMain = w[4];
+    }
+    if (chain && (libraryMain.empty() || libraryMain[0] != 'L')) throw FormatError("scene: the library's main is not a code label");
+    std::string table = "    casetbl " + std::to_string(events.size() + (chain ? 0 : 1)) + " scene_other" + (chain ? "" : " -1 scene_end");
     for (const auto& e : events) table += " " + std::to_string(e.first) + " " + e.second;
     std::vector<std::string> main = {"scene_main:", "    proc", "    load.pri " + mode, "    switch scene_cases"};
     main.insert(main.end(), code.begin(), code.end());
-    main.insert(main.end(), {"scene_other:", "    sysreq.n " + std::to_string(lib.Native("CommandNOP")) + " 0", "    jump scene_end",
-                             "scene_cases:", table, "scene_end:", "    zero.pri", "    retn"});
+    if (chain)
+        // the library's main is a proc of its own: called as the game calls main (no argument), its result returned
+        main.insert(main.end(), {"scene_other:", "    push.p.c 0", "    call " + libraryMain, "    retn"});
+    else
+        main.insert(main.end(), {"scene_other:", "    sysreq.n " + std::to_string(lib.Native("CommandNOP")) + " 0", "    jump scene_end"});
+    main.insert(main.end(), {"scene_cases:", table, "scene_end:", "    zero.pri", "    retn"});
 
     // into the library: before its data, and the header's cip moved to it
     std::ostringstream out;

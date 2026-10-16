@@ -59,7 +59,9 @@ namespace remake
 {
 
 // the scene compiled into amx-asm source; throws FormatError naming the scene's line, or the library routine not found
-std::string CompileScene(const std::string& scene, const std::string& librarySource);
+// lineBase: added to every "say" line (a game zone's own lines come first, ours after them); chain: an event the scene
+// does not give goes to the library's own main, so a game zone's people, signs and triggers keep working
+std::string CompileScene(const std::string& scene, const std::string& librarySource, int lineBase = 0, bool chain = false);
 
 }
 
