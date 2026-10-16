@@ -34,6 +34,11 @@
 //                     0 0 0 0 0); lost (_BattleGetResult's first cell 0), the game's handler takes over (CallTrainerLose)
 //                     and the event ends; won, the scene goes on
 //   give item I [N]   N of item I (1 by default) into the bag (ItemAdd), with no message: a "say" tells it
+//   give pokemon N    entry N of the game's 37 gift Pokemon (PokePartyAdd N 0; DllField 0x1033B06C, read 16 October: 0-2
+//                     Hoenn's starters level 5, 3-5 Kanto's 10, 6-14 and 17-18 fossils 20, 15 Castform 30, 16 Lucario 32,
+//                     19-20 Cosplay Pikachu, 21 Beldum 1, 22 Camerupt 40, 23 Sharpedo 40, 24 Latios 30, 25 Latias 30,
+//                     26-27 Wynaut's and Togepi's eggs, 28-36 the other regions' starters 5); nothing when the party is full
+//   heal              the party restored (PokePartyRecoverAll)
 //   if flag N | if not flag N | if item I | if not item I   then statements (item: at least one in the bag,
 //                     ItemGetNum), an optional "else" and its statements, up to "endif"; nests
 // Story flags: 1 to 0xCFF are saved; 0xD00 to 0x2FFF are fatal; no game script names 0xC09-0xCFF as a constant

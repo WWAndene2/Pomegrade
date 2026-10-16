@@ -303,11 +303,27 @@ std::string CompileScene(const std::string& scene, const std::string& librarySou
         }
         else if (w[0] == "give")
         {
+            // give pokemon N: entry N (0-36) of the game's gift table (PokePartyAdd N 0, as the scripts give Beldum: 21 0;
+            // the table, DllField 0x1033B06C: 37 records of 0x24 bytes, species then level): nothing when the party is full
+            if (w.size() == 3 && w[1] == "pokemon")
+            {
+                const int n = Number(w[2], lineNo);
+                if (n < 0 || n > 36) throw FormatError("scene line " + std::to_string(lineNo) + ": the gift table has entries 0 to 36");
+                code.insert(code.end(), {"    push.p.c 0", "    push.c " + std::to_string(n),
+                                         "    sysreq.n " + std::to_string(lib.Native("PokePartyAdd")) + " 8"});
+                continue;
+            }
             // give item I [N]: N of item I (1 by default) into the bag, with no message (ItemAdd I N); a "say" tells it
-            if ((w.size() != 3 && w.size() != 4) || w[1] != "item") throw FormatError("scene line " + std::to_string(lineNo) + ": \"give item I [N]\"");
+            if ((w.size() != 3 && w.size() != 4) || w[1] != "item") throw FormatError("scene line " + std::to_string(lineNo) + ": \"give item I [N]\" or \"give pokemon N\"");
             code.insert(code.end(), {"    push.c " + std::to_string(w.size() == 4 ? Number(w[3], lineNo) : 1),
                                      "    push.c " + std::to_string(Number(w[2], lineNo)),
                                      "    sysreq.n " + std::to_string(lib.Native("ItemAdd")) + " 8"});
+        }
+        else if (w[0] == "heal")
+        {
+            // heal: the party's HP, status and PP restored (PokePartyRecoverAll)
+            need(1);
+            code.push_back("    sysreq.n " + std::to_string(lib.Native("PokePartyRecoverAll")) + " 0");
         }
         else if (w[0] == "flag")
         {
