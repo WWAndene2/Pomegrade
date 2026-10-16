@@ -33,7 +33,7 @@ public class Listing extends GhidraScript {
                         String name = nameAt(to);
                         if (r.getReferenceType().isFlow()) {
                             if (name != null) line.append(" ; -> ").append(name);
-                        } else if (r.getReferenceType().isRead() && currentProgram.getMemory().contains(to)) {
+                        } else if (currentProgram.getMemory().contains(to)) {   // a data reference: what it loads (Ghidra marks some "data", not "read")
                             try {
                                 int word = currentProgram.getMemory().getInt(to);
                                 line.append(String.format(" ; =0x%08x (%s)", word, Float.intBitsToFloat(word)));
@@ -45,6 +45,23 @@ public class Listing extends GhidraScript {
                             }
                         }
                     }
+                    // an address written as an operand with no reference made for it (ldr rN,[0x...] in a module): read it too
+                    if (ins.getReferencesFrom().length == 0)
+                        for (int op = 0; op < ins.getNumOperands(); op++)
+                            for (Object o : ins.getOpObjects(op)) {
+                                // Ghidra shows the literal's address but gives it as a Scalar
+                                Address at = o instanceof Address ? (Address) o
+                                           : o instanceof ghidra.program.model.scalar.Scalar && ins.getMnemonicString().startsWith("ldr")
+                                             ? toAddr(((ghidra.program.model.scalar.Scalar) o).getUnsignedValue()) : null;
+                                if (at != null && currentProgram.getMemory().contains(at)) {
+                                    try {
+                                        int word = currentProgram.getMemory().getInt(at);
+                                        line.append(String.format(" ; =0x%08x (%s)", word, Float.intBitsToFloat(word)));
+                                    } catch (MemoryAccessException e) {
+                                        line.append(" ; [").append(o).append("]");
+                                    }
+                                }
+                            }
                     w.println(line);
                 }
             }
