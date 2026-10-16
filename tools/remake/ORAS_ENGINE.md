@@ -215,8 +215,10 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   `ItemAdd(I, N)` with no message; `if [not] item I` reads `ItemGetNum(I)`. **Checked live** (runs `sceneG1`, `sceneG2`:
   a scene of camera shots, two lines, then `battle 10`): the battle starts from the scene ("Dixie la Fillette veut se
   battre !", trainer 10 is a Lass with a Zigzagoon, not the Youngster the sandbox's notes guessed), the turns run, and
-  a loss (A pressed blindly, the save's Torchic beaten) is the game's own: the player sent home to their mother. Not
-  seen yet: a win going on with the scene, and `give item` / `if item`. A camera's framing is the scene's to get right:
+  a loss (A pressed blindly, the save's Torchic beaten) is the game's own: the player sent home to their mother. **A win
+  goes on with the scene** (run `sceneG4`: "Vous avez battu Dixie", then flag 0xCE1 set after `battle`; talking again
+  says the after-battle line and "Master Ball presente dans le sac", so `give item 1` and `if item 1` work).
+  `give pokemon 24` and `heal` ran before the battle; Latios in the party was not seen. A camera's framing is the scene's to get right:
   the person faces the player (west of them), so a shot from the south-east shows the back of their head (`sceneG1`).
   The battle draws its Pokemon yellow under the headless software renderer; the field draws normally.
 - **Read a script**: `remake_tool oras-script <oras.3ds> <zone> [init]` disassembles it; `prototype/amx_natives.py tables
