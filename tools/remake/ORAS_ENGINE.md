@@ -225,7 +225,13 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   0 the event, 6-7 the tile, 8-9 the size; words 1-2 a work variable condition, left 0 as 134 of the game's), and a
   scene's `say L by N` makes character N speak when no one was talked to. **Checked live** (run `sceneH1`): walking east
   over a 1 x 3 trigger, the camera moves, the person walks two tiles south to the player, turns west and says two lines,
-  then the camera comes back and the player walks on. A camera's framing is the scene's to get right:
+  then the camera comes back and the player walks on.
+  **Teams of our own** (16 October): a sandbox's `team ID` block rewrites trainer ID's team (`a/0/3/6` record +0 the
+  format, +7 the count; `a/0/3/8` entries: u8 difficulty, u8, u16 level, u16 species, u16 form, then u16 item for
+  formats 2-3, then 4 u16 moves for formats 1 and 3; read on the game's 949 teams). **Checked live** (run `sceneJ1`,
+  trainer 10 given Wurmple 2 with Tackle and String Shot, Magikarp 3 with Splash): "Dixie la Fillette envoie un
+  Chenipotte" at level 2, "Le Chenipotte ennemi utilise Charge !", then "envoie un Magicarpe" at level 3, knocked out;
+  the scene went on after the battle. A camera's framing is the scene's to get right:
   the person faces the player (west of them), so a shot from the south-east shows the back of their head (`sceneG1`).
   The battle draws its Pokemon yellow under the headless software renderer; the field draws normally.
 - **Read a script**: `remake_tool oras-script <oras.3ds> <zone> [init]` disassembles it; `prototype/amx_natives.py tables
