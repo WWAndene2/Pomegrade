@@ -200,10 +200,15 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   most 60 frames) then calls `_FadeRequestIn(kind, F)`; both end with the routine waiting for `FadeIsEnd`. Run `sceneE1`
   (a scene saying a line, fading out and in with kind 2, then 0): the top screen's mean brightness 138 -> 31 faded out and
   back; the bottom screen's 77 -> 18 with kind 2, unchanged (77) with kind 0. Fading in took longer than the 30 frames
-  given (the map wait). **Camera** (`EVCamera*`, read 16 October, not written yet): `SetInitParam` copies the field
-  camera as the move's start, `SetDstParam` takes the end (9 floats: their meaning is in VFP code Ghidra does not
-  decompile), `SetFrameParam` the length (frames, then 1, 0 in the scripts), `Begin` starts it, `IsEndFrame` is polled,
-  `End` gives the camera back.
+  given (the map wait). **Camera** (16 October): `camera X Z H TX TZ TH [FOV [F]]` and `camera back [F]`.
+  `SetInitParam` copies the field camera as the move's start; `SetDstParam` takes an int (0 in the scripts) and 8 floats
+  (`ghidra/Listing.java`: `vldmia s16-s23` stored where SetInitParam keeps the field camera's position, target, fov
+  and a last value), read on Littleroot's calls as position x, y, z, target x, y, z, fov (30-35) and 0, in world units
+  of 18 a tile (its camera tables stand near x 1,880, z 3,100: the save's tiles 104, 170); `SetFrameParam(0, F, 1, 0)`
+  the length; `Begin` starts it; `IsEndFrame` is polled each frame; `End(F)` gives the field camera back. The scene
+  takes tiles (x 18) and heights in tiles. **Checked live** (run `sceneF1`: `camera 27.5 25.5 4 24.5 19.5 1 30 60`
+  then a line, `camera back 30`): the camera swings to a low view from the south-east framed on the person and the
+  player, then back; the sandbox's map stands at the world's origin and its ground at height 0.
 - **Read a script**: `remake_tool oras-script <oras.3ds> <zone> [init]` disassembles it; `prototype/amx_natives.py tables
   <code.bin> <linked/modules.bin> natives.tsv`, then `... | amx_natives.py names natives.tsv` puts each native's name beside
   its hash, and `amx_natives.py check` proves every zone script's natives are registered (section 6). A zone's text:

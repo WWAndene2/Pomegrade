@@ -3,6 +3,7 @@
 #include "Amx.h"
 #include "Bytes.h"
 
+#include <cstring>
 #include <map>
 #include <sstream>
 #include <vector>
@@ -102,6 +103,27 @@ struct Library
         return found[0];
     }
 };
+
+// a float as the cell the game reads it from (the camera natives take floats)
+std::string FloatCell(double v)
+{
+    const float f = (float)v;
+    int32_t bits;
+    std::memcpy(&bits, &f, sizeof bits);
+    return std::to_string(bits);
+}
+
+double Real(const std::string& word, int line)
+{
+    try
+    {
+        size_t used = 0;
+        const double v = std::stod(word, &used);
+        if (used == word.size()) return v;
+    }
+    catch (const std::exception&) {}
+    throw FormatError("scene line " + std::to_string(line) + ": \"" + word + "\" is not a number");
+}
 
 int Number(const std::string& word, int line)
 {
@@ -231,6 +253,36 @@ std::string CompileScene(const std::string& scene, const std::string& librarySou
                 code.insert(code.end(), {"    push.c " + std::to_string(frames), "    push.c " + std::to_string(kind), "    push.p.c 8",
                                          "    call " + fadeIn});
             code.insert(code.end(), {"    push.p.c 0", "    call " + fadeWait});
+        }
+        else if (w[0] == "camera")
+        {
+            // camera X Z H TX TZ TH [FOV [F]]: the camera moves, over F frames (60 by default), to stand at tile X, Z,
+            // H tiles up, looking at tile TX, TZ, TH tiles up (a tile is 18 world units; a tile's centre at +0.5), with a
+            // field of view of FOV degrees (30, the field's, by default): EVCameraSetInitParam (the field camera as the
+            // start), EVCameraSetDstParam (0, position, target, fov, 0), EVCameraSetFrameParam (0, F, 1, 0),
+            // EVCameraBegin, then EVCameraIsEndFrame each frame. "camera back [F]": EVCameraEnd(F), the field's camera
+            if (w.size() >= 2 && w[1] == "back")
+            {
+                if (w.size() > 3) throw FormatError("scene line " + std::to_string(lineNo) + ": \"camera back [F]\"");
+                code.insert(code.end(), {"    push.c " + std::to_string(w.size() == 3 ? Number(w[2], lineNo) : 0),
+                                         "    sysreq.n " + std::to_string(lib.Native("EVCameraEnd")) + " 4"});
+                continue;
+            }
+            if (w.size() < 7 || w.size() > 9) throw FormatError("scene line " + std::to_string(lineNo) + ": \"camera X Z H TX TZ TH [FOV [F]]\"");
+            const double unit = 18;
+            // pushed last to first: the native reads 0, then x, y, z of the position, x, y, z of the target, fov, roll
+            const double params[] = {Real(w[1], lineNo) * unit, Real(w[3], lineNo) * unit, Real(w[2], lineNo) * unit,
+                                     Real(w[4], lineNo) * unit, Real(w[6], lineNo) * unit, Real(w[5], lineNo) * unit,
+                                     w.size() >= 8 ? Real(w[7], lineNo) : 30.0, 0.0};
+            code.push_back("    sysreq.n " + std::to_string(lib.Native("EVCameraSetInitParam")) + " 0");
+            for (int k = 7; k >= 0; k--) code.push_back("    push.c " + FloatCell(params[k]));
+            code.insert(code.end(), {"    push.p.c 0", "    sysreq.n " + std::to_string(lib.Native("EVCameraSetDstParam")) + " 36",
+                                     "    push.p.c 0", "    push.p.c 1", "    push.c " + std::to_string(w.size() == 9 ? Number(w[8], lineNo) : 60),
+                                     "    push.p.c 0", "    sysreq.n " + std::to_string(lib.Native("EVCameraSetFrameParam")) + " 16",
+                                     "    sysreq.n " + std::to_string(lib.Native("EVCameraBegin")) + " 0"});
+            const std::string again = label();
+            code.insert(code.end(), {again + ":", "    push.p.c 1", "    push.p.c 4", "    call " + wait,
+                                     "    sysreq.n " + std::to_string(lib.Native("EVCameraIsEndFrame")) + " 0", "    jzer " + again});
         }
         else if (w[0] == "flag")
         {

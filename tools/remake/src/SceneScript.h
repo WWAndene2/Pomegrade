@@ -25,6 +25,10 @@
 //                     routine: waits for the map's blocks, then _FadeRequestIn KIND F) over F frames, 30 by default, and
 //                     the scene waits for its end (FadeIsEnd); KIND "both" (2: both screens darken) or "top" (0: the
 //                     top screen only), seen in run sceneE1; fading in waits for the map, so it takes up to 60 frames more
+//   camera X Z H TX TZ TH [FOV [F]]   the camera moves over F frames (60 by default) to stand at tile X, Z, H tiles
+//                     up, looking at tile TX, TZ, TH tiles up, field of view FOV degrees (30 by default); a tile is 18 world
+//                     units (Littleroot's camera tables, read 16 October: position, target, fov, roll)
+//   camera back [F]   the field's camera again (EVCameraEnd F)
 //   flag N on|off     sets or clears story flag N (FlagSet / FlagReset)
 //   if flag N | if not flag N   then statements, an optional "else" and its statements, up to "endif"; nests
 // Story flags: 1 to 0xCFF are saved; 0xD00 to 0x2FFF are fatal; no game script names 0xC09-0xCFF as a constant
