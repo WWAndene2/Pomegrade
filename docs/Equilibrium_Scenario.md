@@ -5,6 +5,11 @@ Deep, original, coherent, with large themes and characters who change. Two const
 characters**, only those of ORAS and X/Y (their models are the game's; Pomegrade cannot make new ones), and **no
 Sinnoh**. The meteor of ORAS's Delta Episode is placed in the middle of the game, not after it.
 
+**A new story, not a sequel** (owner's choice, 16 October): the events of ORAS and X/Y never happened. What is kept is
+the world's deep past: AZ's war 3,000 years ago, Floette, the weapon buried under Geosenge, Route 10's graves.
+Everything else starts here, which leaves the characters' ages free (Archie older, Maxie younger than in the games) and
+Lysandre alive.
+
 What the technical side allows is in `tools/remake/ORAS_ENGINE.md` section 7 (X's assets beside Omega Ruby's). What
 is canon and what is invented is marked in section 8.
 
@@ -53,8 +58,8 @@ from the wall to the cycle. Rayquaza stands between the two men like a wall; Zyg
 
 ## 3.1 The visions
 
-Each one refuses a part of the cycle. The characters' ages come from the story's new chronology (Archie older, Maxie
-younger than in ORAS; how it is placed is still to settle) and from the themes: the old man fears his end, the young
+Each one refuses a part of the cycle. The characters' ages are the new story's (section 1's opening) and follow the
+themes: the old man fears his end, the young
 man has not yet learnt that things are lost.
 
 | Character | Vision | Refuses |
@@ -70,15 +75,15 @@ Lysandre's mirror is AZ, who did the same 3,000 years ago and still pays for it.
 
 ## 3.2 Lysandre's plan
 
-**Why he is dying.** Caught in the weapon's collapse at the end of X/Y, he survived on its energy: the stolen life of
-Pokémon, the energy that made AZ immortal. But stolen life does not stay, it leaks away ("what is taken comes back an
-empty shell"). To live, and to keep his face as beautiful as he worships beauty, he has fed the weapon's remains in
-secret ever since with Pokémon caught by what is left of Team Flare: new victims beside Route 10's old ones. His beauty
-is paid for with other lives, a perfect front over a hollow body; he is already the empty shell of path A.
+**Why he is dying.** He found AZ's weapon buried under Geosenge and drew its remaining energy into himself: the stolen
+life of Pokémon, the energy that made AZ immortal. But stolen life does not stay, it leaks away ("what is taken comes
+back an empty shell"). To live, and to keep his face as beautiful as he worships beauty, he has fed the weapon's remains
+in secret ever since with Pokémon caught by what is left of Team Flare: new victims beside Route 10's old ones. His
+beauty is paid for with other lives, a perfect front over a hollow body; he is already the empty shell of path A.
 
-**What he wants.** An immortality above AZ's, one that no longer leaks: Yveltal's essence (the Crimson Orb) to take life,
-Xerneas's (the Azure Orb) to keep it. So he needs both orbs, so both men; he needs Groudon and Kyogre corrupted and at
-each other's throats, to gather both energies from their clash; and he needs Rayquaza, the arbiter who would part
+**What he wants.** An immortality above AZ's, one that no longer leaks: Yveltal's essence (the Crimson Orb) to take
+life, Xerneas's (the Azure Orb) to keep it. So he needs both orbs, so both men; he needs Groudon and Kyogre corrupted
+and at each other's throats, to gather both energies from their clash; and he needs Rayquaza, the arbiter who would part
 them, out of the way: worn out by the meteor, then finished by the Primal forms.
 
 **How.** He promises each one what they lack:
@@ -99,10 +104,10 @@ feed the call without her knowing.
 their Mega Evolution to Rayquaza (act II) and Zygarde giving its core (act V) are the two acts he did not foresee, and
 they undo him.
 
-**AZ's weapon.** In X/Y, AZ built a machine to give life back, brought Floette back with other Pokémon's lives, then
-turned it into the weapon that ended the war; Floette left him. Here, he built it around a fragment of the ancient
-meteor: the machine concentrates its Mega energy to move life from one being to another, which is why its blast gave
-birth to the Mega Stones, and why the same energy links Kalos and Hoenn.
+**AZ's weapon.** In X/Y's history, AZ built a machine to give life back, brought Floette back with other Pokémon's
+lives, then turned it into the weapon that ended the war; Floette left him. Here, he built it around a fragment of the
+ancient meteor: the machine concentrates its Mega energy to move life from one being to another, which is why its blast
+gave birth to the Mega Stones, and why the same energy links Kalos and Hoenn.
 
 ## 4. The acts
 
@@ -130,8 +135,7 @@ birth to the Mega Stones, and why the same energy links Kalos and Hoenn.
 - AZ understands that the weapon he rebuilt called the meteor: he has done his crime again, worse. The player meets him
   then, and he tells his story: the war, Floette, the weapon, the stolen lives. Korrina learns that her family's Mega
   Stones were born from the Pokémon sacrificed on Route 10, and finds the new victims buried beside them.
-- Lysandre survived the weapon's collapse, kept alive by its energy as AZ was. He no longer wants to destroy the world;
-  he wants an immortality that does not leak (section 3.2).
+- Lysandre, kept alive by the buried weapon's energy as AZ was, wants an immortality that does not leak (section 3.2).
 - Xerosic gathers the shards and drains Yveltal's and Xerneas's essences, asleep as a cocoon and a tree, to make the
   Crimson and Azure Orbs.
 - Malva, of the Elite Four, is The Dawn's mole inside the League. Her clue: she knows of the player's Kalos visit before
@@ -145,8 +149,9 @@ birth to the Mega Stones, and why the same energy links Kalos and Hoenn.
   nothing can die.
 - Rayquaza comes down from the sky to part them, as the legend says, still drained by the meteor. Groudon takes its
   life, Kyogre keeps it from dying: it falls, neither dead nor alive.
-- Groudon and Kyogre tear at each other while Lysandre gathers what their clash releases. Archie and Maxie watch, and
-  learn together that they were used (how far their fall goes is still to settle).
+- Groudon and Kyogre tear at each other while Lysandre gathers what their clash releases. Archie and Maxie learn
+  together that they were used, and pay for it in their bodies: Archie loses a leg, Maxie his sight (from then on he
+  wears glasses).
 - Wally wants to force things; his Gallade refuses to Mega Evolve. His crisis, then his growth.
 - Zinnia finds Aster again in Archie's flood, where nothing dies: its body comes back, not Aster. The Whismur looks at
   her and does not know her.
@@ -164,10 +169,11 @@ birth to the Mega Stones, and why the same energy links Kalos and Hoenn.
     regions.
 - Final battle: Rayquaza of Equilibrium against the corrupted Primal forms. It draws out Xerneas's and Yveltal's
   essences and gives them back; Groudon and Kyogre go back to sleep.
-- Lysandre lives only by the weapon's energy. AZ knows how to cut it, and that cutting it ends his own immortality,
-  which comes from the same machine; he asks the player to do it. Lysandre loses what he had taken and dies at peace; AZ
-  gives back what he had received, the death Lysandre promised him, obtained by giving. Xerosic is arrested, Malva
-  unmasked.
+- Lysandre's immortality is being made when AZ stops the process halfway, with the player; stopping it ends AZ's own
+  immortality, which comes from the same machine. Lysandre becomes immortal but stays old, weak and ugly for ever: he
+  worshipped beauty and loses it for good, and he gets the endless life Archie wanted, without the cycle, to show what
+  it is worth. AZ gives back what he had received and gets the death Lysandre promised him, by giving. Xerosic is
+  arrested, Malva unmasked.
 - Archie accepts that he will die; Maxie accepts that what he builds will wear away. Both orbs go dark.
 
 ### Epilogue
@@ -175,7 +181,8 @@ birth to the Mega Stones, and why the same energy links Kalos and Hoenn.
 - Zinnia buries Aster a second time, by choice.
 - Korrina and Steven raise a memorial on Route 10 to the sacrificed Pokémon.
 - Wally wins the League without Mega Evolution.
-- After the story: finding Zygarde's cells in both regions to make it whole again; meeting Deoxys, unseen since its fall.
+- After the story: finding Zygarde's cells in both regions to make it whole again; meeting Deoxys, unseen since its
+  fall.
 
 ## 5. The characters' arcs
 
@@ -185,10 +192,10 @@ birth to the Mega Stones, and why the same energy links Kalos and Hoenn.
 | Wally | ORAS | Afraid of weakness | Winning without forcing anything |
 | Zinnia | ORAS | Defined by a prophecy, then by grief | Letting go, by choice |
 | Steven | ORAS | Knowledge held as neutral | Owning his share of the harm |
-| Maxie | ORAS | Young, haunted by the first disaster, wanting a world that does not wear away | Accepting that what he builds will be lost |
-| Archie | ORAS | Old, haunted by the first disaster, afraid of his end | Accepting that he will die |
+| Maxie | ORAS | Young, haunted by the first disaster, wanting a world that does not wear away | Blind, accepting that what he builds will be lost |
+| Archie | ORAS | Old, haunted by the first disaster, afraid of his end | One-legged, accepting that he will die |
 | AZ | X/Y | 3,000 years of guilt, deceived into rebuilding the weapon | Giving up his long life, by choice |
-| Lysandre | X/Y | Dying, beautiful by stolen lives, wanting an immortality above AZ's | Losing what he took, dying at peace |
+| Lysandre | X/Y | Dying, beautiful by stolen lives, wanting an immortality above AZ's | Immortal, old, weak and ugly for ever |
 | Xerosic | X/Y | The cold mind who makes the orbs | Arrested |
 | Malva | X/Y | Elite Four member and The Dawn's mole | Unmasked |
 | Korrina | X/Y | A tradition she thought pure | Honouring its dark origin |
@@ -203,11 +210,16 @@ birth to the Mega Stones, and why the same energy links Kalos and Hoenn.
   Primal Groudon and Primal Kyogre models (BCH 0x21, the version the tools read and write); no new shapes. A lying pose
   needs an existing animation (fainting is a candidate, not checked).
 - **Zygarde**: X/Y and Omega Ruby have only its 50% Forme; it stays in that form.
+- **Archie and Maxie, two models each**: old Archie (recoloured) with both legs, then with one leg hidden (its triangles
+  removed; his animations still walk on two legs, so how it looks in game is to be seen, owner's choice); young Maxie
+  (recoloured, wrinkles removed) without glasses, then with them. Removing triangles from a character needs `BchWriter`
+  to rewrite a mesh's triangles only, keeping its skinned vertices: not built yet. Which glasses after the fall (his
+  own, or darkened) is still to settle.
 - **The new orbs, forms and their battle data**: editing the game's item and Pokémon tables, which `tools/remake` cannot
   do yet.
 - **Kalos's places** (Lumiose, Route 10, Geosenge): X's map pieces brought into Omega Ruby (section 7's order of work).
-- **The choice between paths A and B, every scene**: scripts of the mod's own, not built yet (`ORAS_ENGINE.md` section 0,
-  the sandbox).
+- **The choice between paths A and B, every scene**: scripts of the mod's own, not built yet (`ORAS_ENGINE.md` section
+  0, the sandbox).
 
 ## 7. Order of work
 
@@ -229,11 +241,12 @@ From the games, checked on Bulbapedia (16 October):
 
 Recalled, not checked against a source: Zinnia's Whismur named Aster; Yveltal's Pokédex entry about absorbing life;
 Yveltal turning living things to stone in the film *Diancie and the Cocoon of Destruction*; Mega energy coming from an
-ancient meteor in ORAS; whether Lysandre's death at the end of X/Y is confirmed.
+ancient meteor in ORAS.
 
 Invented for this story: Lysandre surviving and wanting to end death, the meteor's shards as the orbs' material, Deoxys
-born from the meteor's energy, the Crimson and Azure Orbs, Rayquaza's death, Zygarde's core and Rayquaza of
-Equilibrium, The Dawn, Malva as its mole, Steven's share of the blame, Archie older and Maxie younger (their recoloured
-models, 16 October), the orbs answering only those who woke a Primal form, Archie using the Azure Orb, the shard sold in
-Lumiose, Lysandre's plan (section 3.2: the rebuilt weapon calling the meteor, AZ deceived, the new victims, his leaking
-life), the weapon built around an ancient meteor fragment, the prophecy read as a warning.
+born from the meteor's energy, the Crimson and Azure Orbs, Rayquaza's death, Zygarde's core and Rayquaza of Equilibrium,
+The Dawn, Malva as its mole, Steven's share of the blame, Archie older and Maxie younger (their recoloured models, 16
+October), the orbs answering only those who woke a Primal form, Archie using the Azure Orb, the shard sold in Lumiose,
+Archie's leg and Maxie's sight lost in act IV, Lysandre's fate (immortal, old and ugly), Lysandre's plan (section 3.2:
+the rebuilt weapon calling the meteor, AZ deceived, the new victims, his leaking life), the weapon built around an
+ancient meteor fragment, the prophecy read as a warning.
