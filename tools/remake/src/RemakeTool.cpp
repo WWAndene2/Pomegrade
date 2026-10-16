@@ -18,6 +18,10 @@
 //   remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]
 //                     a 3DS model (ORAS map pieces: their terrain) as glTF; textures: BCH files or
 //                     ORAS area packs (a/0/1/4 entries: "AD") whose textures the model uses
+//   remake_tool bch-upgrade <in> <out>
+//                     a Pokemon X/Y model (BCH 0x07) as Omega Ruby's (0x21, BchUpgrade.h): a BCH file, or a 2-letter
+//                     container (an a/0/2/1 character member) with each BCH 0x07 inside it converted (one with animations
+//                     kept as it is, said), its other files kept
 //   remake_tool oras-list <oras.3ds>                  a decrypted 3DS game's RomFS files, with sizes
 //   remake_tool oras-extract <oras.3ds> <path> <out>  one RomFS file
 //   remake_tool oras-find <oras.3ds> <text>...
@@ -78,6 +82,7 @@
 #include "NitroCompression.h"
 #include "FormatSniffer.h"
 #include "Garc.h"
+#include "BchUpgrade.h"
 #include "Nsbmd.h"
 #include "Png.h"
 #include "PicaTexture.h"
@@ -136,7 +141,7 @@ static int Usage()
                     "  remake_tool world <map_matrix.narc> <matrix index> <land_data.narc> <out dir>\n"
                     "                    [map textures.nsbtx|-] [buildings.narc|-] [building textures.nsbtx|-]\n"
                     "  remake_tool oras-world <rom.nds> <matrix index> <out dir>\n  remake_tool platinum-zones <rom.nds>\n"
-                    "  remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]\n  remake_tool oras-list <oras.3ds>\n  remake_tool oras-extract <oras.3ds> <path> <out>\n"
+                    "  remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]\n  remake_tool bch-upgrade <in> <out>\n  remake_tool oras-list <oras.3ds>\n  remake_tool oras-extract <oras.3ds> <path> <out>\n"
                     "  remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-inspect <oras.3ds> zone|piece|area|matrix|piece-names|zones|matrices|archives|piece-budget|coll-sizes|zone-reach <index>\n"
                     "  remake_tool oras-measure <oras.3ds> <out dir>\n"
@@ -333,6 +338,23 @@ int main(int argc, char** argv)
                     written++;
                 }
             printf("%zu entries, %zu files\n", garc.Count(), written);
+            return 0;
+        }
+        if (cmd == "bch-upgrade" && argc >= 4)
+        {
+            const Bytes file = Plain(ReadFile(argv[2]));
+            if (Bch::Is(file)) { WriteFile(argv[3], BchUpgradeTo21(file)); printf("BCH 0x%02X -> 0x21\n", file[4]); return 0; }
+            if (file.size() < 4 || !std::isalpha(file[0]) || !std::isalpha(file[1])) { fprintf(stderr, "%s: neither a BCH nor a 2-letter container\n", argv[2]); return 1; }
+            BinLinker pack = BinLinker::Read(file, Text(file, 0, 2));
+            int converted = 0;
+            for (Bytes& f : pack.Files)
+                if (Bch::Is(f) && f[4] == 0x07)
+                {
+                    try { f = BchUpgradeTo21(f); converted++; }
+                    catch (const FormatError& e) { printf("file %zu kept as it is: %s\n", (size_t)(&f - pack.Files.data()), e.what()); }
+                }
+            WriteFile(argv[3], pack.Write());
+            printf("%s container: %d of %zu files converted to BCH 0x21\n", Text(file, 0, 2).c_str(), converted, pack.Files.size());
             return 0;
         }
         if (cmd == "bch" && argc >= 4)

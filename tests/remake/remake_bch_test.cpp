@@ -6,6 +6,7 @@
 // area texture packs (see Bch.h). Writing (BchWriter.h): the mesh's geometry
 // replaced and read back.
 #include "Bch.h"
+#include "BchUpgrade.h"
 #include "BchWriter.h"
 #include "Gltf.h"
 #include "PicaCommands.h"
@@ -370,6 +371,68 @@ int main()
         const float origin[3] = {0, 0, 0};
         AppendBchModel(model, {holes}, origin, parts, mats);
         check(mats.size() == 2 && !mats[0].AlphaBlend && mats[1].AlphaBlend, "a material blends in the preview by its mesh's layer, not by its texture's holes");
+    }
+
+    // a Pokemon X/Y BCH (0x07: header without RawExt, a material's texture mappers inline, a texture's address in
+    // section 4) made Omega Ruby's (0x21, BchUpgrade.h)
+    {
+        BchBuilder x;
+        x.Contents.assign(15 * 12, 0);
+        const uint32_t models = (uint32_t)x.Contents.size(); x.Contents.resize(models + 4, 0);
+        const uint32_t textures = (uint32_t)x.Contents.size(); x.Contents.resize(textures + 4, 0);
+        const uint32_t xm = (uint32_t)x.Contents.size(); x.Contents.resize(xm + 0x98, 0);
+        const uint32_t xmat = (uint32_t)x.Contents.size(); x.Contents.resize(xmat + 0x58, 0);
+        const uint32_t xtex = (uint32_t)x.Contents.size(); x.Contents.resize(xtex + 0x20, 0);
+        x.Pointer(x.Contents, 0, 0, 0, models); Put32(x.Contents, 4, 1);
+        x.Pointer(x.Contents, 0, 36, 0, textures); Put32(x.Contents, 40, 1);
+        x.Pointer(x.Contents, 0, models, 0, xm);
+        x.Pointer(x.Contents, 0, textures, 0, xtex);
+        x.Pointer(x.Contents, 0, xm + 0x34, 0, xmat); Put32(x.Contents, xm + 0x38, 1);
+        x.Pointer(x.Contents, 0, xm + 0x84, 1, x.String("xm"));
+        for (int k = 0; k < 3; k++) Put32(x.Contents, xmat + 0x18 + 16 * k, 0x11223300u + (uint32_t)k); // the mappers' first words
+        x.Pointer(x.Contents, 0, xmat + 0x48, 1, x.String("xtex"));
+        x.Pointer(x.Contents, 0, xmat + 0x54, 1, x.String("xmat"));
+        std::vector<uint32_t> xc;
+        Cmd(xc, 0x82, {8u << 16 | 8u});
+        const size_t xw = xc.size(); Cmd(xc, 0x85, {0});
+        Push32(x.Raw, 0); x.Raw.resize(0x80, 0);       // something before the texels: their offset is not 0
+        const uint32_t texelsAt = (uint32_t)x.Raw.size();
+        x.Raw.insert(x.Raw.end(), rgb565.begin(), rgb565.end());
+        const uint32_t cmdAt = (uint32_t)x.Commands.size();
+        for (uint32_t v : xc) Push32(x.Commands, v);
+        x.Pointer(x.Commands, 2, cmdAt + xw * 4, 4, texelsAt);
+        x.Pointer(x.Contents, 0, xtex, 2, cmdAt); Put32(x.Contents, xtex + 4, (uint32_t)xc.size());
+        x.Contents[xtex + 0x18] = 3;
+        x.Pointer(x.Contents, 0, xtex + 0x1C, 1, x.String("xtex"));
+        // the 0x07 layout: a 0x38 header, 5 sections (no RawExt); raw data 0x80-aligned as in X's files
+        Bytes relocs;
+        for (uint32_t v : x.Relocs) Push32(relocs, v);
+        Bytes old(0x38, 0);
+        memcpy(old.data(), "BCH", 3); old[4] = old[5] = 0x07;
+        const std::vector<const Bytes*> secs = {&x.Contents, &x.Strings, &x.Commands, &x.Raw, &relocs};
+        for (size_t i = 0; i < secs.size(); i++)
+        {
+            if (i == 3) while (old.size() % 0x80) old.push_back(0);
+            Put32(old, 8 + i * 4, (uint32_t)old.size()); Put32(old, 0x1C + i * 4, (uint32_t)secs[i]->size());
+            old.insert(old.end(), secs[i]->begin(), secs[i]->end());
+        }
+        const Bch before = Bch::Read(old);
+        check(before.Version == 7 && before.Models.at(0).Materials.at(0).Name == "xmat" && before.Models[0].Materials[0].Mappers[2] == 0x11223302u,
+              "BCH 0x07: a material's inline texture mappers and names read");
+        const Bytes up = BchUpgradeTo21(old);
+        const Bch after = Bch::Read(up);
+        const BchMaterial& um = after.Models.at(0).Materials.at(0);
+        check(after.Version == 0x21 && after.Models[0].Name == "xm" && um.Name == "xmat" && um.Texture[0] == "xtex", "BCH upgrade: version 0x21, the model's and material's names");
+        check(um.Mappers[0] == 0x11223300u && um.Mappers[1] == 0x11223301u && um.Mappers[2] == 0x11223302u, "BCH upgrade: the texture mappers moved behind a pointer");
+        check(after.Textures.size() == 1 && after.Textures[0].Data == rgb565 && up.size() % 4 == 0 && after.Textures[0].DataOffset % 0x80 == 0,
+              "BCH upgrade: the texture's data where its command points, 0x80-aligned");
+        const BchSections us = BchSections::Read(up);
+        int textureRelocs = 0;
+        for (const BchPointer& p : BchPointers(up, us)) if (p.Target == 5) textureRelocs++;
+        check(textureRelocs == 1 && up[0x42] == 1 && U32(up, 0x38) == 4, "BCH upgrade: the texture address in section 5, one raw-data pointer counted");
+        bool refusedAgain = false;
+        try { BchUpgradeTo21(up); } catch (const FormatError&) { refusedAgain = true; }
+        check(refusedAgain, "BCH upgrade: a file already 0x21 refused");
     }
 
     printf(ok ? "ALL OK\n" : "FAILURES\n");

@@ -64,6 +64,7 @@ add_library(remake STATIC
     src/PicaCommands.cpp
     src/PicaTexture.cpp
     src/Bch.cpp
+    src/BchUpgrade.cpp
     src/BchWriter.cpp
     src/BchTextureFile.cpp
     src/Bps.cpp
