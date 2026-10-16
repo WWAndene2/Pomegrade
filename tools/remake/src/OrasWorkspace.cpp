@@ -1,4 +1,5 @@
 #include "OrasWorkspace.h"
+
 #include "Bps.h"
 #include "BinLinker.h"
 #include "GameText.h"
@@ -9,6 +10,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 
 namespace remake
@@ -98,6 +100,19 @@ int OrasWorkspace::AddAreaPack(const Bytes& pack, int like)
     for (const auto& [slot, data] : PacksAdded) if (data == pack) return slot;
     const Garc& areas = Original("a/0/1/4");
     const Garc& perAreaGame = Original("a/1/3/7");
+    // POMEGRADE_APPEND_AREA_PACKS=1: the pack appended past the game's, with its a/1/3/7 member, instead of a free slot,
+    // to find what else the game holds per pack (ORAS_ENGINE.md 7: an appended pack is fatal, a/1/3/7 one cause)
+    if (const char* append = std::getenv("POMEGRADE_APPEND_AREA_PACKS"); append && std::string(append) == "1")
+    {
+        Garc& packs = Edited("a/0/1/4");
+        Garc& perArea = Edited("a/1/3/7");
+        const size_t p = std::max(packs.Count(), perArea.Count());
+        packs.Set(p, IsLzCompressed(areas.Sub(8)) ? Lz11Compress(pack) : pack);
+        // a/1/3/7 holds 228 members to a/0/1/4's 229 (its last is not a pack): filled up to the new one, each like `like`
+        while (perArea.Count() <= p) perArea.Set(perArea.Count(), perAreaGame.Sub((size_t)like));
+        PacksAdded[(int)p] = pack;
+        return (int)p;
+    }
     const size_t slots = std::min(areas.Count(), perAreaGame.Count());
     if (PacksTaken.empty()) PacksTaken.assign(slots, false);
     // the packs every zone of the build draws from (the header table's word 1, game zones and new ones alike)
