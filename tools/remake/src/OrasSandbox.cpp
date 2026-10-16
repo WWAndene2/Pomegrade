@@ -406,12 +406,12 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
                 Garc& texts = ws.Edited(path);
                 const Bytes was = texts.Sub(22);
                 const Bytes plain = Plain(was);
+                // the other names' bytes kept as they are (a/0/7/1's do not write back identical: their zero padding)
                 std::vector<std::string> names = ReadGameText(plain);
-                if (WriteGameText(names) != plain) throw FormatError(path + " member 22 does not write back as it reads: its names left as they are");
                 if ((size_t)id >= names.size()) throw FormatError(path + " member 22 has no line " + std::to_string(id));
+                const Bytes file = ReplaceGameTextLine(plain, (size_t)id, name);
                 names[(size_t)id] = name;
-                const Bytes file = WriteGameText(names);
-                if (ReadGameText(file) != names) throw FormatError(path + " member 22: the new name does not read back");
+                if (ReadGameText(file) != names) throw FormatError(path + " member 22: the names do not read back with the new one");
                 texts.Set(22, IsLzCompressed(was) ? Lz11Compress(file) : file);
             }
         ws.Edited("a/0/3/6").Set((size_t)id, record);

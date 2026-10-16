@@ -133,6 +133,51 @@ Bytes WriteGameText(const std::vector<std::string>& lines)
 }
 
 
+Bytes ReplaceGameTextLine(const Bytes& file, size_t index, const std::string& line)
+{
+    if (file.size() < 0x14 || U16(file, 0) != 1 || U32(file, 0x0C) != 0x10) throw FormatError("game text: not a one-section file");
+    const size_t count = U16(file, 2), section = 0x10;
+    const size_t length = U32(file, section);
+    if (section + length > file.size() || 4 + 8 * count > length) throw FormatError("game text: the section does not fit the file");
+    if (index >= count) throw FormatError("game text: no line " + std::to_string(index));
+    std::vector<uint16_t> units = Unescape(line);
+    units.push_back(0);
+    const size_t tableSize = 4 + 8 * count;
+    Bytes table, text;
+    for (size_t i = 0; i < count; i++)
+    {
+        // each other line's bytes as they are (its units, any zero padding they hold included), each line's start aligned
+        // to 4 as the game's files are; the replaced line encrypted with its own key
+        while (text.size() % 4) text.push_back(0);
+        const uint32_t offset = (uint32_t)(tableSize + text.size());
+        size_t n;
+        if (i == index)
+        {
+            n = units.size();
+            uint16_t key = (uint16_t)(KeyBase + KeyStep * i);
+            for (uint16_t c : units) { const uint16_t e = c ^ key; text.push_back((uint8_t)e); text.push_back((uint8_t)(e >> 8)); key = NextKey(key); }
+        }
+        else
+        {
+            const size_t at = section + U32(file, section + 4 + 8 * i);
+            n = U16(file, section + 4 + 8 * i + 4);
+            if (at + 2 * n > section + length) throw FormatError("game text: line " + std::to_string(i) + " runs past its section");
+            text.insert(text.end(), file.begin() + (long)at, file.begin() + (long)(at + 2 * n));
+        }
+        for (int k = 0; k < 4; k++) table.push_back((uint8_t)(offset >> (8 * k)));
+        table.push_back((uint8_t)n); table.push_back((uint8_t)(n >> 8));
+        table.push_back(0); table.push_back(0);
+    }
+    while (text.size() % 4) text.push_back(0);
+    const uint32_t sectionLength = (uint32_t)(tableSize + text.size());
+    Bytes out = {1, 0, (uint8_t)count, (uint8_t)(count >> 8)};
+    for (uint32_t v : {sectionLength, 0u, 0x10u}) for (int k = 0; k < 4; k++) out.push_back((uint8_t)(v >> (8 * k)));
+    for (int k = 0; k < 4; k++) out.push_back((uint8_t)(sectionLength >> (8 * k)));
+    out.insert(out.end(), table.begin(), table.end());
+    out.insert(out.end(), text.begin(), text.end());
+    return out;
+}
+
 Bytes AppendGameTextLine(const Bytes& file, const std::string& line)
 {
     if (file.size() < 0x14 || U16(file, 0) != 1 || U32(file, 0x0C) != 0x10) throw FormatError("game text: not a one-section file");
