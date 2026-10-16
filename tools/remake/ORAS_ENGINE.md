@@ -218,7 +218,12 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   a loss (A pressed blindly, the save's Torchic beaten) is the game's own: the player sent home to their mother. **A win
   goes on with the scene** (run `sceneG4`: "Vous avez battu Dixie", then flag 0xCE1 set after `battle`; talking again
   says the after-battle line and "Master Ball presente dans le sac", so `give item 1` and `if item 1` work).
-  `give pokemon 24` and `heal` ran before the battle; Latios in the party was not seen. A camera's framing is the scene's to get right:
+  `give pokemon 24` and `heal` ran before the battle; Latios in the party was not seen.
+  **Triggers** (16 October): a sandbox's `trigger X Z [W H] script N` writes a zone trigger as the game's 361 are (word
+  0 the event, 6-7 the tile, 8-9 the size; words 1-2 a work variable condition, left 0 as 134 of the game's), and a
+  scene's `say L by N` makes character N speak when no one was talked to. **Checked live** (run `sceneH1`): walking east
+  over a 1 x 3 trigger, the camera moves, the person walks two tiles south to the player, turns west and says two lines,
+  then the camera comes back and the player walks on. A camera's framing is the scene's to get right:
   the person faces the player (west of them), so a shot from the south-east shows the back of their head (`sceneG1`).
   The battle draws its Pokemon yellow under the headless software renderer; the field draws normally.
 - **Read a script**: `remake_tool oras-script <oras.3ds> <zone> [init]` disassembles it; `prototype/amx_natives.py tables
