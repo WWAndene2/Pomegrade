@@ -231,7 +231,13 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   formats 2-3, then 4 u16 moves for formats 1 and 3; read on the game's 949 teams). **Checked live** (run `sceneJ1`,
   trainer 10 given Wurmple 2 with Tackle and String Shot, Magikarp 3 with Splash): "Dixie la Fillette envoie un
   Chenipotte" at level 2, "Le Chenipotte ennemi utilise Charge !", then "envoie un Magicarpe" at level 3, knocked out;
-  the scene went on after the battle. A camera's framing is the scene's to get right:
+  the scene went on after the battle.
+  **Scenes in the game's own zones** (16 October): a sandbox's `edit Z` block (OrasSandbox.h). **Checked live** (run
+  `sceneK1`, `edit 6`: 2 lines after Littleroot's 39, character 11, a 5 x 1 trigger at row 167; the save moved to Route
+  101, zone 23, 100.5 150.5, walking south): crossing the trigger, the camera moves, character 11 speaks, steps north
+  and speaks again, the camera returns and the player walks on in Littleroot. Not checked yet: that Littleroot's own
+  people still answer through the chained main (the player stopped short of character 6, at 100, 175, and did not reach
+  them: not a failure seen, a test not done). A camera's framing is the scene's to get right:
   the person faces the player (west of them), so a shot from the south-east shows the back of their head (`sceneG1`).
   The battle draws its Pokemon yellow under the headless software renderer; the field draws normally.
 - **Read a script**: `remake_tool oras-script <oras.3ds> <zone> [init]` disassembles it; `prototype/amx_natives.py tables
