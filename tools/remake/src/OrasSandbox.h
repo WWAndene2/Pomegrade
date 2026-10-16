@@ -53,6 +53,10 @@
 //                     them; face 0-3; script: the command its zone script is run with, g_mode, 0 none; move: the movement, 0 standing)
 //   trainer ID MODEL X Z [face F] [sight N] [move M]
 //                     a trainer of a/0/3/6 (script 3000 + ID, kind 1, sight 4 tiles unless given: inferred, OrasZone.h)
+//   team ID           then trainer ID's new team (a/0/3/6, a/0/3/8), up to "end": a line each, "pokemon SPECIES LEVEL
+//                     [form F] [item I] [moves A B C D] [difficulty D]" (1 to 6; national dex numbers, the game's item and
+//                     move numbers; difficulty 0-255 as the game's teams hold it, 0 by default); the format follows the
+//                     items and moves given, the trainer's class and the rest of its record are kept
 //   trigger X Z [W H] script N
 //                     stepping on the W x H tiles (1 x 1 by default) from tile X, Z runs the zone script with g_mode N (a
 //                     scene's "on N"): words 0, 6-9 of the game's trigger records, no condition

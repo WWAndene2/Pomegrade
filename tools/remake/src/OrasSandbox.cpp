@@ -48,6 +48,7 @@ struct SandboxDescription
     int Width = 0, Height = 0;
     std::vector<std::string> Blocks; // 4 Height rows of 4 Width digits: the zone (its place in Zones) of each 10 x 10 block
     std::vector<std::string> Map;
+    std::vector<std::pair<int, std::string>> Teams; // a trainer of a/0/3/6 and its team block's lines
 };
 
 static constexpr size_t rowBytesOf536 = 56; // a zone header row (member 536 of a/0/1/3)
@@ -93,6 +94,15 @@ static SandboxDescription ReadDescription(const std::string& text)
             d.Zones.emplace_back();
             std::string n;
             if (words >> n) { try { d.Zones.back().Number = std::stoi(n); } catch (...) { fail("zone takes a number or nothing"); } }
+            continue;
+        }
+        if (what == "team")
+        {
+            // team ID: then the trainer's new team, a "pokemon" line each, up to "end" (read when the mod is built)
+            int id = 0;
+            if (!(words >> id) || id < 1 || id > 949) fail("team takes a trainer id, 1-949 (a/0/3/6)");
+            d.Teams.push_back({id, ""});
+            source = &d.Teams.back().second;
             continue;
         }
         if (what == "pieces") { ok = (bool)(words >> d.Width >> d.Height); if (!ok) fail("pieces needs its numbers"); continue; }
@@ -442,6 +452,65 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
     int nextZone = d.Zones.back().Number + 1;
     for (size_t k = 0; k < d.Zones.size(); k++)
         for (size_t w = 0; w < d.Zones[k].Doors.size(); w++) insides.push_back({nextZone++, d.Zones[k].Doors[w][2], d.Zones[k].Number, (int)w, k});
+
+    // the trainers' new teams (a/0/3/6 and a/0/3/8, ORAS_ENGINE.md 6: Trainer_ReadData, Trainer_BuildTeams; formats read
+    // on the game's 949 teams, 16 October): a team entry is u8 difficulty (the game's 0-255), u8 0, u16 level, u16 species,
+    // u16 form, then u16 item for formats 2 and 3, then 4 u16 moves for formats 1 and 3; the record's byte +0 is the format,
+    // +7 the count, the rest (class, AI) kept
+    for (const auto& [id, block] : d.Teams)
+    {
+        struct Mon { int Species = 0, Level = 0, Form = 0, Item = 0, Difficulty = 0; std::vector<int> Moves; };
+        std::vector<Mon> mons;
+        std::istringstream lines(block);
+        int number = 0;
+        for (std::string line; std::getline(lines, line);)
+        {
+            number++;
+            const size_t hash = line.find('#');
+            if (hash != std::string::npos) line.erase(hash);
+            std::istringstream w(line);
+            std::string what;
+            if (!(w >> what)) continue;
+            Mon m;
+            m.Difficulty = 0;
+            if (what != "pokemon" || !(w >> m.Species >> m.Level))
+                throw FormatError("sandbox: team " + std::to_string(id) + ", line " + std::to_string(number) + ": \"pokemon SPECIES LEVEL [form F] [item I] [moves A B C D] [difficulty D]\"");
+            for (std::string key; w >> key;)
+            {
+                bool ok = true;
+                if (key == "form") ok = (bool)(w >> m.Form);
+                else if (key == "item") ok = (bool)(w >> m.Item);
+                else if (key == "difficulty") ok = (bool)(w >> m.Difficulty);
+                else if (key == "moves") { m.Moves.assign(4, 0); ok = (bool)(w >> m.Moves[0] >> m.Moves[1] >> m.Moves[2] >> m.Moves[3]); }
+                else ok = false;
+                if (!ok) throw FormatError("sandbox: team " + std::to_string(id) + ", line " + std::to_string(number) + ": \"" + key + "\" and its value(s)");
+            }
+            if (m.Species < 1 || m.Species > 721 || m.Level < 1 || m.Level > 100 || m.Difficulty < 0 || m.Difficulty > 255)
+                throw FormatError("sandbox: team " + std::to_string(id) + ", line " + std::to_string(number) + ": species 1-721, level 1-100, difficulty 0-255");
+            mons.push_back(m);
+        }
+        if (mons.empty() || mons.size() > 6) throw FormatError("sandbox: team " + std::to_string(id) + " has 1 to 6 Pokemon");
+        bool items = false, moves = false;
+        for (const Mon& m : mons) { items |= m.Item != 0; moves |= !m.Moves.empty(); }
+        const int format = (moves ? 1 : 0) | (items ? 2 : 0);
+        Bytes team;
+        for (const Mon& m : mons)
+        {
+            const auto u16 = [&](int v) { team.push_back((uint8_t)v); team.push_back((uint8_t)(v >> 8)); };
+            team.push_back((uint8_t)m.Difficulty); team.push_back(0);
+            u16(m.Level); u16(m.Species); u16(m.Form);
+            if (items) u16(m.Item);
+            if (moves) for (int k = 0; k < 4; k++) u16(m.Moves.empty() ? 0 : m.Moves[k]);
+        }
+        Bytes record = ws.Original("a/0/3/6").Sub((size_t)id);
+        if (record.size() != 24) throw FormatError("sandbox: trainer " + std::to_string(id) + "'s record is not 24 bytes");
+        record[0] = (uint8_t)format;
+        record[7] = (uint8_t)mons.size();
+        ws.Edited("a/0/3/6").Set((size_t)id, record);
+        ws.Edited("a/0/3/8").Set((size_t)id, team);
+        snprintf(line, sizeof line, "trainer %d: a new team of %zu (format %d)", id, mons.size(), format);
+        log.push_back(line);
+    }
 
     // each new zone's text file (header word 3): a new member of the eight story text archives (a/0/7/9-a/0/8/6, one per
     // language; ORAS_ENGINE.md 6), the zone's lines in all eight, one empty line when it gives none
