@@ -1092,3 +1092,33 @@ reader in `tools/remake/src` or `ORAS_LITTLEROOT.md` shows it.
 | `a/2/9/6` | 1 | 27,808 | (a computed number) |
 | `a/2/9/7` | 1 | 254,412 | (a computed number) |
 | `a/2/9/8` | 1 | 21,372 | (a computed number) |
+
+## 7. Pokémon X beside ORAS: can their assets be merged (16 October)
+
+Read on the owner's dumps of Pokémon X (Europe, decrypted, program 0004000000055D00, 653 RomFS files) and Omega Ruby in
+a session's scratch space (CLAUDE.md §8: never committed), with `remake_tool oras-list`, `oras-extract`, `garc` and a
+throwaway script over the members; the scenario that wants it is `docs/Equilibrium_Scenario.md`. `oras-list` and
+`oras-extract` open X's RomFS as they do Omega Ruby's.
+
+| | Omega Ruby | X | Checked |
+|---|---|---|---|
+| Map pieces (`GR` containers) | `a/0/3/9`, 857 | `a/0/4/1`, 1,030 | seen: same container |
+| Tile grid (GR file 0) | 6,528 bytes in all 857 | 6,528 bytes in all 1,030 | seen: same size, 40 x 40 |
+| Piece files | grid, BCH, `coll`, three of 128-256 bytes, `KAGE` (7) | the same without `KAGE` (6) | seen on one piece each; counts 7/9/11 against 6/8/10 over all |
+| Area packs (`AD`) | `a/0/1/4` | `a/0/1/3`, 170 | seen: same container |
+| Characters | `a/0/2/1`, 544 members | `a/0/2/1`, 286 members | seen: same archive and container |
+| Character skeleton | 129 of 328 field models have the 25 standard bones (Origin ... RToe) | 125 of 177 | names only; bone positions and hierarchy not compared |
+| BCH | compatibility 0x21, revision 42607, every character and piece model | compatibility 0x07, revision 38669, every character (286) and piece model (1,115) | read in the headers |
+
+**What blocks**: `remake_tool bch` refuses all 286 of X's characters ("materials before version 0x21 are not read"), so
+X's models need a BCH 0x07 reader and a conversion to 0x21 before `BchWriter` can write them for Omega Ruby. SPICA
+(`tools/remake/external/SPICA`) reads both versions and is the reference to follow. X's texture formats are not read yet
+(the same reader stops before them).
+
+**Tile values**: X uses 173 distinct values, Omega Ruby 208, 40 of them shared; by count, 93.3 % of X's tiles hold a value
+Omega Ruby also uses (walkable 0x00000020 and 0x00000004, wall 0x01000021). Omega Ruby's tall grass 0x20004004 and sea
+0x3D1A0006 never occur in X: grass, water and the other special tiles need a value-by-value table, each checked on the
+phone. Zones, scripts and X's code were not compared.
+
+**Order of work**: a BCH 0x07 reader; its conversion to 0x21; one X character placed in an Omega Ruby town, run on the
+phone; the tile table; one X piece in Omega Ruby.
