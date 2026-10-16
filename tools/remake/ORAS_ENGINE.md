@@ -195,6 +195,15 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   talked to, 255 the player. Named: `walk WHO DIR [N]` (19), `face WHO DIR` (6), WHO `player`/`person`. **Checked
   live** (run `sceneC2`, `sandbox/scene_demo.txt`): the person walks two tiles north and back, the player turns south,
   then the lines and flag as before.
+  **Fades** (16 October): `fade out|in both|top [F]`. Out is `FadeRequestOut(0, kind, F)`, called by the scripts
+  themselves (284 calls: kinds 2 and 0, 15 to 45 frames); in is the library's routine that waits for the map's blocks (at
+  most 60 frames) then calls `_FadeRequestIn(kind, F)`; both end with the routine waiting for `FadeIsEnd`. Run `sceneE1`
+  (a scene saying a line, fading out and in with kind 2, then 0): the top screen's mean brightness 138 -> 31 faded out and
+  back; the bottom screen's 77 -> 18 with kind 2, unchanged (77) with kind 0. Fading in took longer than the 30 frames
+  given (the map wait). **Camera** (`EVCamera*`, read 16 October, not written yet): `SetInitParam` copies the field
+  camera as the move's start, `SetDstParam` takes the end (9 floats: their meaning is in VFP code Ghidra does not
+  decompile), `SetFrameParam` the length (frames, then 1, 0 in the scripts), `Begin` starts it, `IsEndFrame` is polled,
+  `End` gives the camera back.
 - **Read a script**: `remake_tool oras-script <oras.3ds> <zone> [init]` disassembles it; `prototype/amx_natives.py tables
   <code.bin> <linked/modules.bin> natives.tsv`, then `... | amx_natives.py names natives.tsv` puts each native's name beside
   its hash, and `amx_natives.py check` proves every zone script's natives are registered (section 6). A zone's text:

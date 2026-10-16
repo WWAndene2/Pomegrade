@@ -131,6 +131,12 @@ std::string CompileScene(const std::string& scene, const std::string& librarySou
     // waiting for a person's commands to end: MdlAcmdUpdate each frame until it reports them done
     const std::string actWait = lib.Routine({"proc", "jump *", "*", "push.p.s 12", "sysreq.n N:MdlAcmdUpdate 4", "jzer *"},
                                             "waiting for a person's commands (act)");
+    // fading: the screen from the field (FadeRequestOut, called by the scripts themselves), back to it (the routine that
+    // waits for the map's blocks, at most 60 frames, then _FadeRequestIn), and the wait for either's end (FadeIsEnd)
+    const std::string fadeIn = lib.Routine({"proc", "push.p.c 0", "zero.p.s -4", "jump *", "*", "inc.p.s -4", "*",
+                                            "load.p.s.pri -4", "const.p.alt 60", "jsgeq *", "sysreq.n N:_FieldMapBlockIsLoading 0"},
+                                           "fading in (fade in)");
+    const std::string fadeWait = lib.Routine({"proc", "jump *", "*", "sysreq.n N:FadeIsEnd 0", "jzer *"}, "waiting for a fade (fade)");
     // g_mode, the event's number: the public variable every zone script declares (#D7477C97)
     std::string mode;
     for (const auto& l : lib.Lines)
@@ -209,6 +215,22 @@ std::string CompileScene(const std::string& scene, const std::string& librarySou
                                          "    sysreq.n " + std::to_string(lib.Native("MdlAcmdSet")) + " 16"});
             code.insert(code.end(), {"    sysreq.n " + std::to_string(lib.Native("MdlAcmdSetEnd")) + " 0",
                                      "    push.c " + std::to_string(who), "    push.p.c 4", "    call " + actWait});
+        }
+        else if (w[0] == "fade")
+        {
+            // fade out|in KIND [F]: the screen fades from the field, or back to it, over F frames (30 by default), and
+            // the scene waits for its end; KIND both (2), top (0), or a number as the game's scripts give it
+            if ((w.size() != 3 && w.size() != 4) || (w[1] != "out" && w[1] != "in"))
+                throw FormatError("scene line " + std::to_string(lineNo) + ": \"fade out|in both|top [F]\"");
+            // kind 2 fades both screens, 0 the top one only (run sceneE1: the bottom screen's brightness 77 -> 18 and 77)
+            const int kind = w[2] == "both" ? 2 : w[2] == "top" ? 0 : Number(w[2], lineNo), frames = w.size() == 4 ? Number(w[3], lineNo) : 30;
+            if (w[1] == "out")
+                code.insert(code.end(), {"    push.c " + std::to_string(frames), "    push.c " + std::to_string(kind), "    push.p.c 0",
+                                         "    sysreq.n " + std::to_string(lib.Native("FadeRequestOut")) + " 12"});
+            else
+                code.insert(code.end(), {"    push.c " + std::to_string(frames), "    push.c " + std::to_string(kind), "    push.p.c 8",
+                                         "    call " + fadeIn});
+            code.insert(code.end(), {"    push.p.c 0", "    call " + fadeWait});
         }
         else if (w[0] == "flag")
         {

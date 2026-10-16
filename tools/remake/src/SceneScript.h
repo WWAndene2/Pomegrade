@@ -21,6 +21,10 @@
 //                     back to the player, so turning was not seen on them); 7 not understood
 //   walk WHO DIR [N]  act WHO 19 DIR N: walks N tiles
 //   face WHO DIR      act WHO 6 DIR: turns
+//   fade out|in KIND [F]   the screen fades from the field (FadeRequestOut 0 KIND F) or back to it (the library's
+//                     routine: waits for the map's blocks, then _FadeRequestIn KIND F) over F frames, 30 by default, and
+//                     the scene waits for its end (FadeIsEnd); KIND "both" (2: both screens darken) or "top" (0: the
+//                     top screen only), seen in run sceneE1; fading in waits for the map, so it takes up to 60 frames more
 //   flag N on|off     sets or clears story flag N (FlagSet / FlagReset)
 //   if flag N | if not flag N   then statements, an optional "else" and its statements, up to "endif"; nests
 // Story flags: 1 to 0xCFF are saved; 0xD00 to 0x2FFF are fatal; no game script names 0xC09-0xCFF as a constant
