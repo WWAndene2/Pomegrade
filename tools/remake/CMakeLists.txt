@@ -50,6 +50,7 @@ add_library(remake STATIC
     src/OrasRegion.cpp
     src/OrasNewZone.cpp
     src/OrasSandbox.cpp
+    src/SceneScript.cpp
     src/OrasWorkspace.cpp
     src/OrasSave.cpp
     src/OrasZone.cpp

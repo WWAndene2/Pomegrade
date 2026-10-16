@@ -176,6 +176,16 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   sandbox finds the native names at `<description's folder>/../ghidra/function_names.tsv`: a description kept outside
   `tools/remake/sandbox` needs a `ghidra` link beside its folder. The run needs the save's `00000001.metadata` in
   `<work>/dumps/save` (without it the emulator stopped on loading the title state).
+- **Write a scene** (16 October): a sandbox description's `scene` block (`SceneScript.h`: `on N`, `say L`, `wait F`,
+  `flag N on|off`, `if [not] flag N` ... `else` ... `endif`) compiles to a zone script on Littleroot's, taken from the
+  game when the mod is built: the scene's own `main` (the header's cip moved to it) and the library's talking and waiting
+  routines, found by their code (`say` is the routine 243 zone scripts have, arguments line, 1, -1). **Checked live**
+  (run `sceneC1`, `sandbox/scene_demo.txt`): talking to the person shows lines 0 then 1 and sets flag 0xCE0; talking
+  again shows line 2, the flag read back. **Story flags, read** (`FlagGet`/`FlagSet` 0x10293330/0x10293344, then
+  0x12FD48 and `Save_ClearEventFlag_0011F9E8`): 1-0xCFF are bits of the save (save + 0x13434 for writing), 0xD00-0x2FFF
+  are fatal (`FUN_0014ea64`), 0x3000-0x303F a separate area of 64. The 1,072 zone scripts name 699 flags as constants
+  (2,056 uses, 10 to 3,080) and compute 76 more, 35 of them `1740 + n`; none names 0xC09-0xCFF, the range a mod's story
+  takes from the top. Not read: a use of that range by the game's own code.
 - **Read a script**: `remake_tool oras-script <oras.3ds> <zone> [init]` disassembles it; `prototype/amx_natives.py tables
   <code.bin> <linked/modules.bin> natives.tsv`, then `... | amx_natives.py names natives.tsv` puts each native's name beside
   its hash, and `amx_natives.py check` proves every zone script's natives are registered (section 6). A zone's text:

@@ -44,6 +44,9 @@
 //                     (tools/remake/ghidra/function_names.tsv, beside this folder) and native mask 0x243. The game runs `main`
 //                     with g_mode set: the initialisation script on entering the zone (2 seen), the zone script for an
 //                     event, its script number (SINNOH_BUILD.md R1). Example: tools/remake/sandbox/own_scripts.txt
+//   scene             optional, instead of script: then the zone script as a scene (SceneScript.h: "on N", "say L", "wait F",
+//                     "flag N on|off", "if [not] flag N" ... "else" ... "endif"), up to a line "end"; compiled on Littleroot's
+//                     zone script, whose talking and waiting routines it calls. Example: tools/remake/sandbox/scene_demo.txt
 //   encounters Z      optional: game zone Z's encounter file (its file 3) copied; none without it
 //   character MODEL X Z [face F] [script S] [move M]
 //                     a person standing on tile X, Z of the map (model: a character model number, as oras-inspect zone prints

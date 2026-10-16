@@ -1,4 +1,5 @@
 #include "OrasSandbox.h"
+
 #include "Amx.h"
 #include "BinLinker.h"
 #include "GameText.h"
@@ -7,6 +8,7 @@
 #include "NitroCompression.h"
 #include "OrasMatrix.h"
 #include "OrasTown.h"
+#include "SceneScript.h"
 #include "OrasNewZone.h"
 #include "OrasWorkspace.h"
 #include "OrasZone.h"
@@ -36,6 +38,7 @@ struct SandboxZone
     std::vector<std::array<int, 8>> Characters; // model, x, z, facing, script, movement, kind, sight
     std::vector<std::array<int, 3>> Doors;      // x, z, the game interior zone copied as the house's inside
     std::string Script, InitScript;             // assembler source (Amx.h) of the zone's own scripts, empty: ones that do nothing
+    std::string Scene;                          // the zone script as a scene (SceneScript.h), instead of Script
 };
 
 struct SandboxDescription
@@ -57,7 +60,7 @@ static SandboxDescription ReadDescription(const std::string& text)
     std::istringstream in(text);
     std::string line;
     enum { Statements, Blocks, Map } part = Statements;
-    std::string* source = nullptr; // inside a script or init-script block
+    std::string* source = nullptr; // inside a script, init-script or scene block
     int number = 0;
     auto fail = [&](const std::string& what) { throw FormatError("sandbox description, line " + std::to_string(number) + ": " + what); };
     while (std::getline(in, line))
@@ -95,11 +98,13 @@ static SandboxDescription ReadDescription(const std::string& text)
         if (what == "blocks") { part = Blocks; continue; }
         if (d.Zones.empty()) fail(what + " before any zone");
         SandboxZone& z = d.Zones.back();
-        if (what == "script" || what == "init-script")
+        if (what == "script" || what == "init-script" || what == "scene")
         {
-            std::string& block = what == "script" ? z.Script : z.InitScript;
+            std::string& block = what == "script" ? z.Script : what == "scene" ? z.Scene : z.InitScript;
             if (!block.empty()) fail(what + " given twice");
-            block = "; " + what + " of zone " + std::to_string(z.Number) + "\n";
+            if (what != "init-script" && !(what == "script" ? z.Scene : z.Script).empty()) fail("a zone takes a script or a scene, not both");
+            // a scene's lines are counted from its block's first (SceneScript.h names them in its errors)
+            block = what == "scene" ? "" : "; " + what + " of zone " + std::to_string(z.Number) + "\n";
             source = &block;
             continue;
         }
@@ -446,12 +451,20 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         for (const auto& c : z.Characters)
             zone.Characters.push_back(NewCharacter((int)zone.Characters.size(), c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[6] == 1 ? c[7] : 0));
         for (const auto& door : z.Doors) zone.Doors.push_back(NewDoorWarp(insides.at(insideAt++).Zone, 0, door[0], door[1]));
-        zone.Script = assemble(z.Script.empty() ? EmptyZoneScript : z.Script, z.Number, "script");
+        if (!z.Scene.empty())
+        {
+            // the scene on Littleroot's zone script (zone 6), whose routines it calls (SceneScript.h)
+            std::string scene;
+            try { scene = CompileScene(z.Scene, AmxSource(OrasZone::Read(Plain(zoneArchive.Sub(6))).Script)); }
+            catch (const FormatError& e) { throw FormatError("sandbox: zone " + std::to_string(z.Number) + "'s " + e.what()); }
+            zone.Script = assemble(scene, z.Number, "scene");
+        }
+        else zone.Script = assemble(z.Script.empty() ? EmptyZoneScript : z.Script, z.Number, "script");
         zone.InitScript = assemble(z.InitScript.empty() ? EmptyInitScript : z.InitScript, z.Number, "init-script");
         const Bytes encounter = z.Encounters >= 0 ? BinLinker::Read(Plain(zoneArchive.Sub((size_t)z.Encounters)), "ZO").Files.at(3) : Bytes{};
         appendZone(zone, encounter, z.Number);
         snprintf(line, sizeof line, "zone %d: written from nothing (OrasNewZone.h), area pack %d, text member %d, %zu character(s), %s scripts, spawn (%.1f, %.1f), name %s, encounters %s",
-                 z.Number, f.AreaPack, f.Text, zone.Characters.size(), z.Script.empty() && z.InitScript.empty() ? "empty" : "its own", z.SpawnX, z.SpawnZ,
+                 z.Number, f.AreaPack, f.Text, zone.Characters.size(), !z.Scene.empty() ? "a scene's" : z.Script.empty() && z.InitScript.empty() ? "empty" : "its own", z.SpawnX, z.SpawnZ,
                  nameLine[k] >= 0 ? ("\"" + z.Name + "\" (line " + std::to_string(nameLine[k]) + ")").c_str() : "none",
                  z.Encounters >= 0 ? ("of zone " + std::to_string(z.Encounters)).c_str() : "none");
         log.push_back(line);
