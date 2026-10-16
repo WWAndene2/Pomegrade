@@ -1213,7 +1213,7 @@ phone. Zones, scripts and X's code were not compared.
 | Script natives | 384 called | 473 called | | | 137 of X's are not registered by ORAS; 159 of X's 360 zones call at least one (the most called, `0xE3B5A658`, in 118) |
 
 So X's ground, zones and matrices are ORAS's formats; X's scripts cannot run as they are, and a
-mod that brings X's places writes its own (as `docs/Equilibrium_Scenario.md` does anyway). Not yet known: the three
+mod that brings X's places writes its own (as `docs/Equilibrium_Scenario.md` does anyway). Not yet known: the
 area packs' second fatal cause, the BCH 0x07 conversion, and a run of an X town in ORAS.
 
 **Order of work**: a BCH 0x07 reader; its conversion to 0x21; one X character placed in an Omega Ruby town, run on the
