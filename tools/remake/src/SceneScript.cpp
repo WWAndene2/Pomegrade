@@ -201,8 +201,11 @@ std::string CompileScene(const std::string& scene, const std::string& librarySou
         if (events.empty()) throw FormatError("scene line " + std::to_string(lineNo) + ": \"" + line + "\" before any \"on\"");
         if (w[0] == "say")
         {
-            need(2);
-            code.insert(code.end(), {"    push.p.c -1", "    push.p.c 1", "    push.c " + std::to_string(Number(w[1], lineNo)),
+            // say L [by N]: the speaker the person talked to (-1), or character N of the zone (a scene started by a trigger
+            // has no one talked to)
+            if (w.size() != 2 && !(w.size() == 4 && w[2] == "by")) throw FormatError("scene line " + std::to_string(lineNo) + ": \"say L [by N]\"");
+            const int by = w.size() == 4 ? Number(w[3], lineNo) : -1;
+            code.insert(code.end(), {"    push.c " + std::to_string(by), "    push.p.c 1", "    push.c " + std::to_string(Number(w[1], lineNo)),
                                      "    push.p.c 12", "    call " + say});
         }
         else if (w[0] == "wait")

@@ -37,6 +37,7 @@ struct SandboxZone
     std::string Name;
     std::vector<std::array<int, 8>> Characters; // model, x, z, facing, script, movement, kind, sight
     std::vector<std::array<int, 3>> Doors;      // x, z, the game interior zone copied as the house's inside
+    std::vector<std::array<int, 5>> Triggers;   // x, z, width, height, the zone script's event number
     std::string Script, InitScript;             // assembler source (Amx.h) of the zone's own scripts, empty: ones that do nothing
     std::string Scene;                          // the zone script as a scene (SceneScript.h), instead of Script
 };
@@ -172,6 +173,26 @@ static SandboxDescription ReadDescription(const std::string& text)
             }
             if (what == "trainer" && (id < 1 || id > 949)) fail("trainer ids are 1-949 (a/0/3/6)");
             z.Characters.push_back(c);
+        }
+        else if (what == "trigger")
+        {
+            // trigger X Z [W H] script N: stepping on the W x H tiles from X, Z runs the zone script with g_mode N
+            std::array<int, 5> t{0, 0, 1, 1, 0};
+            std::vector<std::string> rest;
+            for (std::string v; words >> v;) rest.push_back(v);
+            ok = (rest.size() == 4 || rest.size() == 6) && rest[rest.size() - 2] == "script";
+            if (ok)
+            {
+                try
+                {
+                    t[0] = std::stoi(rest[0]); t[1] = std::stoi(rest[1]);
+                    if (rest.size() == 6) { t[2] = std::stoi(rest[2]); t[3] = std::stoi(rest[3]); }
+                    t[4] = std::stoi(rest.back());
+                }
+                catch (...) { ok = false; }
+            }
+            if (ok && (t[2] < 1 || t[3] < 1 || t[4] < 1)) fail("a trigger's size and script are 1 or more");
+            z.Triggers.push_back(t);
         }
         else if (what == "door")
         {
@@ -451,6 +472,16 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         for (const auto& c : z.Characters)
             zone.Characters.push_back(NewCharacter((int)zone.Characters.size(), c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[6] == 1 ? c[7] : 0));
         for (const auto& door : z.Doors) zone.Doors.push_back(NewDoorWarp(insides.at(insideAt++).Zone, 0, door[0], door[1]));
+        for (const auto& t : z.Triggers)
+        {
+            // a trigger's 12 words, as the game's 361 hold them: 0 the event number, 1-2 a condition (work variable word 2
+            // equal to word 1; 0 in word 2, as 134 of the game's have it, is none: inferred), 6-7 the tile, 8-9 its size
+            // (width, height); the rest 0 (word 3 is 0, 5, 6, 7 or 8 in the game's, word 10 0 or a multiple of 9: not read)
+            ZoneTrigger tr;
+            tr.Raw[0] = (uint16_t)t[4]; tr.Raw[6] = (uint16_t)t[0]; tr.Raw[7] = (uint16_t)t[1];
+            tr.Raw[8] = (uint16_t)t[2]; tr.Raw[9] = (uint16_t)t[3];
+            zone.Triggers.push_back(tr);
+        }
         if (!z.Scene.empty())
         {
             // the scene on Littleroot's zone script (zone 6), whose routines it calls (SceneScript.h)

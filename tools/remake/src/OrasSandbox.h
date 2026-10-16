@@ -53,6 +53,9 @@
 //                     them; face 0-3; script: the command its zone script is run with, g_mode, 0 none; move: the movement, 0 standing)
 //   trainer ID MODEL X Z [face F] [sight N] [move M]
 //                     a trainer of a/0/3/6 (script 3000 + ID, kind 1, sight 4 tiles unless given: inferred, OrasZone.h)
+//   trigger X Z [W H] script N
+//                     stepping on the W x H tiles (1 x 1 by default) from tile X, Z runs the zone script with g_mode N (a
+//                     scene's "on N"): words 0, 6-9 of the game's trigger records, no condition
 //   door X Z house Z2 a door ('D' on the map) into a new zone after the described ones, written from nothing on game interior
 //                     Z2's map (its matrix, area pack and the tile of its way out); its one warp leads back out
 //   pieces W H        the size in map pieces (40 x 40 tiles each)

@@ -9,7 +9,8 @@
 //   on N              the event N's statements follow, up to the next "on" (N: the script number a character or sign
 //                     runs, its g_mode, SINNOH_BUILD.md R1; a sandbox `character ... script N`)
 //   say L             the person talked to says line L of the zone's text (its `line` statements, 0 first), in their
-//                     balloon; the game turns them to face the player, waits for A, then closes the window
+//                     balloon; the game turns them to face the player, waits for A, then closes the window; "say L by N": character N of
+//                     the zone says it (its number in the zone, 0 first), for a scene a trigger starts
 //   wait F            waits F frames
 //   act WHO CODE DIR [N]   a person's movement command, N times (1 by default), then waits for its end: WHO -1 the
 //                     person talked to, 255 the player (as the game's scripts give them), else a character's number;
