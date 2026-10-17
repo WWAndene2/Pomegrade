@@ -386,22 +386,6 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         snprintf(line, sizeof line, "character model objects: %u (the game's 32), their heap 0x62 0x%X bytes (the game's 0x10000)", objects, heap);
         log.push_back(line);
     }
-    if (o.LargeEvents)
-    {
-        // A zone's events file is copied on entering it into one of two 0xC8C-byte slots of the events object (0x1958 bytes,
-        // FUN_00108dd4), slot 0 at +0x34 (+0x194C points to it), its size at +0xC84 and its zone at +0xC88; past 0xC84
-        // bytes the game stops (Event_LoadZoneEventsFile 0x3DB6E4). Slot 1 (+0xCC0, +0x1950) has no user found (every
-        // caller passes slot 0). Not saved: Continue rereads the zone's file (EventGameStart::EventFirst ->
-        // Zone_ChangeLoadStep), characters' positions come from save block 10 (read 17 October). So slot 0 takes both
-        // slots' room, the size and zone moved in front of it: 0x1910 bytes. That slot 1 is unused is inferred
-        words.push_back({0x112D24, 0xE2842034, 0xE284203C, "the events slot 0 starts 8 bytes later (FUN_00112d0c)"});
-        words.push_back({0x3DB770, 0x00000C84, 0x00001910, "Event_LoadZoneEventsFile's bound on the file's size"});
-        words.push_back({0x3DB754, 0xE5806C84, 0xE5006004, "the file's size stored before the slot (str r6, [r0, #-4])"});
-        words.push_back({0x3DB75C, 0xE2800B03, 0xE2400090, "the zone stored 8 bytes before the slot (sub r0, r0, #0x90; strh [r0, #0x88])"});
-        words.push_back({0x3DB8B8, 0xE5950C84, 0xE5150004, "the binder reads the size before the slot (ldr r0, [r5, #-4])"});
-        words.push_back({0x3DB988, 0x00000C88, 0xFFFFFFF8, "the binder reads the zone 8 bytes before the slot"});
-        log.push_back("events: a zone's file up to 0x1910 bytes (the game's 0xC84), slot 0 over both slots");
-    }
     std::vector<CroWord> croWords;
     if (fieldObjectHeap) croWords.push_back({0x10283954, 0xE3A02801, 0xE3A02000 | *ArmImmediate(*fieldObjectHeap), "heap 0x62 of the field objects (Field_SubsystemInit)"});
     Bytes dllField;

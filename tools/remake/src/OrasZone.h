@@ -97,8 +97,6 @@ struct OrasZone
     // in its fatal-error loop when the file does not fit (FUN_003db6e4, `size >= 0xC84`; checked: zone 6 with 35 characters
     // enters, 36 stops: ORAS_ENGINE.md 4.5)
     static constexpr size_t EventsBudget = 0xC84;
-    // the room a build allows: EventsBudget, or 0x1910 with oras-engine --large-events (OrasEngineOptions::LargeEvents)
-    static inline size_t EventsLimit = EventsBudget;
 };
 
 }
