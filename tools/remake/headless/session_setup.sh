@@ -10,6 +10,7 @@
 #           POMEGRADE_ORAS_DRIVE_ID      the Omega Ruby cartridge (.3ds, decrypted), 1.9 GB  -> dumps/oras.3ds
 #           POMEGRADE_PLATINUM_DRIVE_ID  Platinum (.nds), optional                           -> dumps/platinum.nds
 #           POMEGRADE_X_DRIVE_ID         Pokemon X (.3ds, decrypted), optional, 1.8 GB       -> dumps/x.3ds
+#           POMEGRADE_UM_DRIVE_ID        Ultra Moon (.3ds, decrypted), optional, 3.7 GB      -> dumps/um.3ds
 #           POMEGRADE_SAVE_DRIVE_ID      the owner's save (main.zip: main, 00000001.metadata), optional: without it the
 #                                        repository's headless/saves/main_Startpoint     -> dumps/save/
 # tool    remake_tool (tools/remake), and the game's code decompressed for disassembly -> dumps/code.bin
@@ -17,6 +18,8 @@
 #         dump, GDB stub), built from a copy of azahar/ (about 30 min on 4 cores, once), and retro_host
 # core-gl the same core with its OpenGL renderer (runs with POMEGRADE_GL=1: Mesa's llvmpipe in an EGL context with no
 #         screen, apt package libegl1), in core-src-gl/ and build-azahar-gl/; not part of "all"
+# spica   .NET 8 (into <work>/dotnet; DOTNET_ROOT=<work>/dotnet to run it) and tools/remake/spica -> spica/spica; not part
+#         of "all" (prototype/usum_character.py)
 # ghidra  Ghidra 11.4.2 and the whole game's code analysed in one program: the .code and the 145 code modules linked by
 #         prototype/cro_link.py, Ghidra's wrong no-return marks cleared (FixNoReturn.java), the names of
 #         ghidra/function_names.tsv applied (15 min) -> ghidra_proj/, linked/, functions.tsv, edges.tsv, noreturn.tsv
@@ -41,6 +44,7 @@ dumps)
     # Platinum and X only for the work that reads them (the Sinnoh tools; Equilibrium, ORAS_ENGINE.md 7): each one optional
     [ -n "${POMEGRADE_PLATINUM_DRIVE_ID:-}" ] && { [ -s dumps/platinum.nds ] || drive "$POMEGRADE_PLATINUM_DRIVE_ID" dumps/platinum.nds; }
     [ -n "${POMEGRADE_X_DRIVE_ID:-}" ] && { [ -s dumps/x.3ds ] || drive "$POMEGRADE_X_DRIVE_ID" dumps/x.3ds; }
+    [ -n "${POMEGRADE_UM_DRIVE_ID:-}" ] && { [ -s dumps/um.3ds ] || drive "$POMEGRADE_UM_DRIVE_ID" dumps/um.3ds; }
     if [ -n "${POMEGRADE_SAVE_DRIVE_ID:-}" ]; then
         drive "$POMEGRADE_SAVE_DRIVE_ID" dumps/save.zip && rm -rf dumps/save && mkdir -p dumps/save && unzip -q -o dumps/save.zip -d dumps/save
         # the zip may hold the folder 00000001 or its content: keep main and its metadata side by side
@@ -78,6 +82,11 @@ core-gl)
         -DENABLE_VULKAN=OFF -DENABLE_TESTS=OFF > /dev/null
     ninja -C build-azahar-gl citra_libretro
     ls -l build-azahar-gl/bin/Release/azahar_libretro.so ;;
+spica)
+    [ -x dotnet/dotnet ] || { curl -sSL https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh && bash dotnet-install.sh --channel 8.0 --install-dir dotnet > /dev/null; }
+    git -C "$repo" submodule update --init tools/remake/external/SPICA > /dev/null
+    ./dotnet/dotnet build -c Release -o spica "$repo/tools/remake/spica/SpicaCli.csproj" > spica_build.txt || { cat spica_build.txt; exit 1; }
+    ls -l spica/spica ;;
 ghidra)
     if [ ! -d ghidra_11.4.2_PUBLIC ]; then
         curl -sSL -o ghidra.zip https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.4.2_build/ghidra_11.4.2_PUBLIC_20250826.zip
@@ -107,6 +116,6 @@ ghidra)
         -scriptPath "$repo/tools/remake/ghidra" -postScript Export.java "$work" -postScript CallGraph.java "$work" \
         >> ghidra_setup.log 2>&1
     grep -E "REPORT|FixNoReturn.java>|ApplyNames.java>|CallGraph.java>" ghidra_setup.log | tail -6 ;;
-*) echo "unknown step $step (dumps, tool, core, ghidra, all)"; exit 2 ;;
+*) echo "unknown step $step (dumps, tool, core, core-gl, spica, ghidra, all)"; exit 2 ;;
 esac
 done

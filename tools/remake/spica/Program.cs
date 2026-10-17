@@ -1,7 +1,9 @@
 // spica: what SPICA (external/SPICA) reads of a 3DS file, from the command line (SpicaCli.csproj).
 //   spica info <file> [--skeleton <file>]          the scene: models (meshes, bones, materials), textures, animations
 //   spica dae <file> <out.dae> [--model N] [--anim N] [--skeleton <file>]   COLLADA export (a model, an animation on it)
-//   spica smd <file> <out.smd> [--model N] [--anim N] [--skeleton <file>]   StudioMdl export
+//   spica smd <file> <out.smd> [--model N] [--anim N] [--skeleton <file>]   StudioMdl export (each triangle named after its
+//                                                   material's texture; ORAS field characters' placeholder texture 0,
+//                                                   projection_dummy, replaced by their texture 1, the real one)
 //   spica motions <file>                            a GF motion pack (a Pokemon PB pack's file 0, a title pack): each
 //                                                   motion's frames and animated bones (GF1Motion)
 //   spica pose <file> <out.json> [--anim N] [--skeleton <file>]   every bone's local transform at every frame of an
@@ -72,7 +74,7 @@ static class SpicaCli
             {
                 case "info": Info(Recognised(rest[1], skeleton)); return 0;
                 case "dae" when rest.Count >= 3: new DAE(Recognised(rest[1], skeleton), model, anim).Save(rest[2]); return 0;
-                case "smd" when rest.Count >= 3: new SMD(Recognised(rest[1], skeleton), model, anim).Save(rest[2]); return 0;
+                case "smd" when rest.Count >= 3: new SMD(RealTextures(Recognised(rest[1], skeleton)), model, anim).Save(rest[2]); return 0;
                 case "motions": Motions(rest[1]); return 0;
                 case "pose" when rest.Count >= 3: Pose(Recognised(rest[1], skeleton), skeleton, model, anim, rest[2]); return 0;
                 case "png" when rest.Count >= 3: Png(Recognised(rest[1], skeleton), rest[2]); return 0;
@@ -130,6 +132,16 @@ static class SpicaCli
             case 0x00010000: return new GFModelPack(reader).ToH3D();
         }
         return null;
+    }
+
+    // ORAS field characters (shader FieldChar) put a placeholder in texture 0 and their image in texture 1: SMD names each
+    // triangle after texture 0, which would give every material of the character the same name (usum_character.py)
+    static H3D RealTextures(H3D scene)
+    {
+        foreach (var m in scene.Models)
+            foreach (var mat in m.Materials)
+                if (mat.Texture0Name == "projection_dummy" && !string.IsNullOrEmpty(mat.Texture1Name)) mat.Texture0Name = mat.Texture1Name;
+        return scene;
     }
 
     static void Info(H3D scene)
