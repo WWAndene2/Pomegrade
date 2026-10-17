@@ -49,7 +49,7 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 6. **The sandbox (8 October): built, checked live, phone test next.** `remake_tool oras-sandbox` (section 2) builds zones
    538+ from a text description; the demo is `tools/remake/sandbox/demo.txt` (two zones, a pond, tall grass, a ledge, a
    house and its inside, a fence, a person, trainer 10). For the phone, the Remake mod workflow's variants (its header
-   lists them): `sb: sandbox tools/remake/sandbox/demo.txt`, `eng: engine --zone-rows 541`, `sv: save 538 14.5 20.5`,
+   lists them): `sb: sandbox tools/remake/sandbox/demo.txt`, `eng: engine --zone-rows 541 --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 --characters 64` (the memory options are needed on the phone: `--zone-rows` alone froze the owner's phone at boot on 17 October, mod `test2` with them started; headless runs start either way, so a headless start does not prove a phone start), `sv: save 538 14.5 20.5`,
    `demo: merge sb eng sv`. Headless reruns: `headless/fast_run.sh` (about 3 minutes). Not built yet: east and west
    ledges, relief (hills, cliffs), warps between matrices, writing scripts, trainers and encounter tables of one's own.
    Camera and light done (8 October, section 2): `camera ...` and `light ...`, read and checked headless; this closes

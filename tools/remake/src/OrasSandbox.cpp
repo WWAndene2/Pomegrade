@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <array>
 #include <map>
+#include <set>
 #include <cstring>
 #include <filesystem>
 #include <sstream>
@@ -55,6 +56,37 @@ struct SandboxDescription
 
 static constexpr size_t rowBytesOf536 = 56; // a zone header row (member 536 of a/0/1/3)
 static constexpr int BlockTiles = 10; // a zone block of the matrix (OrasMatrix.h)
+
+// A character with no script (script 0), talked to, sends the game into a wait it never leaves (run tk_o, 17 October:
+// Omega Ruby's own character 284 in the demo, its zone's script the empty one, the screen black after A): its event must
+// end the talk. Each such character (not a trainer: they have 3000 + id) gets an event of its own that does nothing, an
+// "on N" with no statement in the zone's scene (a scene written for it when the zone has none: run tk_ee, talking then
+// leaves the player free, the person turned to them), N the smallest number from 1 up no event, character or trigger of
+// the description uses (9999 sent the game into its fatal-error loop, run tk_fix0: the numbers a talk accepts are bounded,
+// where is not read; 9 works). A game zone's own characters' numbers are not checked (edit Z): a clash runs its event.
+// A zone written in assembler (script) is left as written.
+static SandboxZone WithSilentCharacters(SandboxZone z)
+{
+    if (!z.Script.empty()) return z;
+    std::set<int> used;
+    for (const auto& c : z.Characters) used.insert(c[4]);
+    for (const auto& t : z.Triggers) used.insert(t[4]);
+    std::istringstream scene(z.Scene);
+    for (std::string l; std::getline(scene, l);)
+    {
+        std::istringstream words(l);
+        std::string first;
+        int n = 0;
+        if (words >> first && first == "on" && words >> n) used.insert(n);
+    }
+    int silent = 1;
+    while (used.count(silent)) silent++;
+    bool any = false;
+    for (auto& c : z.Characters)
+        if (c[4] == 0 && c[6] != 1) { c[4] = silent; any = true; }
+    if (any) z.Scene += (z.Scene.empty() || z.Scene.back() == '\n' ? "" : "\n") + std::string("on ") + std::to_string(silent) + "\n";
+    return z;
+}
 
 static bool Solid(char c) { return c == '~' || c == 't' || c == 'T' || c == 'H' || c == 'F' || c == 'L'; }
 
@@ -426,8 +458,9 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
     // from its highest + 1 (a scene's "say L by N" and "walk N" name a character by that number, as the log prints it);
     // their triggers after its own; the scene compiled on the zone's own script, chained (every event it does not give goes
     // to the zone's own main, so its people, signs and triggers keep working)
-    for (const SandboxZone& z : d.Edits)
+    for (const SandboxZone& edit : d.Edits)
     {
+        const SandboxZone z = WithSilentCharacters(edit);
         const Bytes raw = ws.Original("a/0/1/3").Sub((size_t)z.Number);
         OrasZone zone = OrasZone::Read(Plain(raw));
         const int text = zone.Header[3];
@@ -639,7 +672,7 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
     size_t insideAt = 0;
     for (size_t k = 0; k < d.Zones.size(); k++)
     {
-        const SandboxZone& z = d.Zones[k];
+        const SandboxZone z = WithSilentCharacters(d.Zones[k]);
         OrasZone zone;
         NewZoneFields f;
         f.Number = z.Number; f.AreaPack = packOf[k]; f.Matrix = (int)matrixIndex; f.Text = textOf[k];
