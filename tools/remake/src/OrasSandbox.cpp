@@ -701,7 +701,7 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
     size_t insideAt = 0;
     // shared characters: each listed in both its zones' files, with the two zones at record +0x1C/+0x1E and one id at +0x22,
     // so Event_ReleaseCharactersNotInZone (0x3F6DF0) keeps it across the border and Event_CharacterPool_Acquire (0x3F54E8)
-    // rebinds it to the other zone's record instead of placing a second one (read, not yet run)
+    // rebinds it to the other zone's record instead of placing a second one (read; checked headless, runs hSh and hFar2)
     std::vector<SandboxZone> zones = d.Zones;
     int sharedId = 0x200;
     for (size_t k = 0; k < d.Zones.size(); k++)
@@ -733,6 +733,10 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
             {
                 ZoneCharacter& s = zone.Characters.back();
                 s.Raw[14] = (uint16_t)z.Shared[i][0]; s.Raw[15] = (uint16_t)z.Shared[i][1]; s.Raw[17] = (uint16_t)z.Shared[i][2];
+                // +0x20 names the zone whose file lists this record: Acquire compares the loaded character's +0x52 (record
+                // +0x1C) with the zone entered when +0x1C == +0x20, else its +0x54 (+0x1E). Left 0, re-entering the owner
+                // zone found no match and loaded every shared character again until the pool's fatal (run hFar, 17 October)
+                s.Raw[16] = (uint16_t)z.Number;
             }
             // a swimmer has no standing motion and the map's water is solid, so it always stands on land here
             if (ws.Swims(c[0]))

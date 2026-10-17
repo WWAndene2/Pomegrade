@@ -633,6 +633,15 @@ Read in the code (Ghidra, headless) and checked headless; the owner checked on t
   for 73). A save of the old layout reads short (Save_ReadBlocks returns 4): `oras-save <main> <out> --save-records N + 1`
   converts one (`OrasSave::ResizeMoveModels`; back to 32 gives the game's bytes again). Not read: the heap the SaveData comes
   from (r7 of FUN_00108dd4; up to 0x10800 more bytes), and the archive under Save_Commit.
+- **Shared characters across a border** (`share Z`, 17 October, read and checked headless): a 0x30-byte record holds
+  two zones at +0x1C/+0x1E, a selector at +0x20 and an id at +0x22; `Field_InitCharacterFromEventEntry` (0x3F9464)
+  copies them to the loaded character's +0x52/+0x54/+0x56. `Event_ReleaseCharactersNotInZone` (0x3F6DF0) keeps a
+  character whose +0x52 or +0x54 is the zone entered. `Event_CharacterPool_Acquire` (0x3F54E8) rebinds a loaded
+  character instead of taking a new entry when its id matches and, if the record's +0x1C equals its +0x20, its +0x52
+  is the zone entered, else its +0x54. So +0x20 must name the zone whose file lists the record: left 0, entering zone
+  538 rebound, but going back into 539 loaded the 61 shared people a second time and Acquire's fatal stopped the game
+  (pool of 72 full; run hFar, black screen, stack 0x3F80B8 under the fatal). With +0x20 set, the same walk 539, 538,
+  539 shows the crowd (run hFar3).
 - **Still bound**: a zone's events file (0xC84 bytes, about 60 people with a short script, 4.5); the extra heaps come out
   of the field manager's parent heap, not identified.
 

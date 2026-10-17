@@ -1,6 +1,7 @@
 # Test of character ... share Z (17 October): crowd_events.txt with every person of the crowd (rows 25-29) shared with
 # zone 538, so crossing from 539 into 538 keeps them on screen (Event_ReleaseCharactersNotInZone keeps a character
-# naming the new zone; ORAS_ENGINE.md 4.5b). Checked headless (run hSh, 4 shared people at the border). For the phone:
+# naming the new zone; ORAS_ENGINE.md 4.5b). Checked headless (run hSh, 4 shared people at the border;
+# run hFar3, back into 539 after 538 without the freeze, ORAS_ENGINE.md 4.5b). For the phone:
 #   sb: sandbox tools/remake/sandbox/crowd_share.txt --character-models 127 --characters 72 --events large
 #   x: copy a/0/2/1 284=xy:dumps-x/x.3ds:10
 #   eng: engine --zone-rows 541 --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 --characters 72 --character-models 127 --events large
@@ -10,7 +11,6 @@ zone 538
 pack 8
 spawn 14.5 20.5
 name Bac à Sable
-encounters 24
 zone 539
 pack 8
 spawn 30.5 20.5
@@ -121,12 +121,12 @@ TT..................::................TT
 TT......LLLLLLLLLLL.::................TT
 TT..................::................TT
 TT..................::................TT
-TT....ggggggggg.....::................TT
-TT....ggggggggg.....::................TT
-TT....ggggggggg.....::........t.......TT
-TT....ggggggggg.....::................TT
-TT....ggggggggg.....::................TT
-TT....ggggggggg.....::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::........t.......TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
 TT..................::................TT
 TT..................::................TT
 TT..................::................TT
