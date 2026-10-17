@@ -364,17 +364,7 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         words.push_back({0x3F8038, 0x1356001A, 0x13560000 | *o.Characters, "characters a zone may list"});
         words.push_back({0x3F808C, 0xE350001A, 0xE3500000 | *o.Characters, "characters shown at once"});
         if (*o.Characters > 32) words.push_back({0x109048, 0xE3A03020, 0xE3A03000 | *o.Characters, "the field manager's character pool"});
-        // Each shown character's model is a field object of DllField's model resource manager (Event_SpawnCharacterModel ->
-        // Event_AllocFieldObject, 0x2F0 bytes each, allocated on use) listed in a heap array at +0x2E90 whose length
-        // Event_CharacterManager_Init passes as 32 (`mov r1, #0x20` at 0x3F525C, Field_SubsystemInit's fifth argument,
-        // stored at +0x2E94). When it is full the game does not stop (its check, FUN_0014ea64, is an empty function):
-        // it hands back the last object again, so every character past it shares that one object, initialised once more
-        // over the previous model (read 17 October). Every user of the array bounds it by +0x2E94, so the length grows
-        // with the characters, keeping the game's 6 to spare over its 26 (next ARM immediate up)
-        uint32_t objects = *o.Characters + 6;
-        while (!ArmImmediate(objects)) objects++;
-        if (objects > 32) words.push_back({0x3F525C, 0xE3A01020, 0xE3A01000 | *ArmImmediate(objects), "the field objects of the character models (Event_CharacterManager_Init)"});
-        log.push_back("characters: " + std::to_string(*o.Characters) + " per zone (the game's 26)" + (*o.Characters > 32 ? ", pool " + std::to_string(*o.Characters) : "") + (objects > 32 ? ", model objects " + std::to_string(objects) : ""));
+        log.push_back("characters: " + std::to_string(*o.Characters) + " per zone (the game's 26)" + (*o.Characters > 32 ? ", pool " + std::to_string(*o.Characters) : ""));
     }
     Bytes dllField;
     if (o.CharacterModels)
