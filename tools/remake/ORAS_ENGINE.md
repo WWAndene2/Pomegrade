@@ -1189,16 +1189,25 @@ throwaway script over the members; the scenario that wants it is `docs/Equilibri
 | Character skeleton | 129 of 328 field models have the 25 standard bones (Origin ... RToe) | 125 of 177 | names only; bone positions and hierarchy not compared |
 | BCH | compatibility 0x21, revision 42607, every character and piece model | compatibility 0x07, revision 38669, every character (286) and piece model (1,115) | read in the headers |
 
-**X's models in Omega Ruby** (16 October): `remake_tool bch` reads X's BCH 0x07 (a material's 3 texture mappers inline,
-0x58 bytes, SPICA's `TextureMappersCompat`): all 286 characters, their materials named (`tr0010_00_body`, ...) and textures
-decoded. `remake_tool bch-upgrade` (`BchUpgrade.h`) rewrites one as 0x21: all 286 read back identical (same glTF). **Checked
-live** (headless, runs `xchar`, `xchar2`): ORAS's character member 284 (the sandbox's person; model numbers lead to
-`a/0/2/1` members through an area pack's character list, `a/1/3/7`, 24 bytes an entry, the member at word 10: Littleroot's
-model 4153 is member 503) replaced by X's member 10 left as 0x07 loads but draws only the shadow; converted, the X
-trainer is drawn, standing and facing as the person did, paler than ORAS's characters (why: not known; the material
-colours or lights of X's models are a guess, not checked). Not converted: a BCH with animations (X's character members
-hold a third file, a 1,024-byte BCH of material animations, key frame groups changed at 0x20: kept as 0x07); X's motion
-packs (the second file) not compared with ORAS's; X's map pieces (1,115) not tried.
+**X's characters in Omega Ruby** (16-17 October): `remake_tool bch` reads X's BCH 0x07 (a material's 3 texture mappers
+inline, 0x58 bytes, SPICA's `TextureMappersCompat`). A whole X character (its `a/0/2/1` member) is made Omega Ruby's by
+`oras-copy ... <dst>=xy:<x.3ds>:<member>` (or `bch-upgrade` on the member; `XyCharacter.h`):
+- its model and its blinking animation (a BCH of material animations, 52 of the 286) rewritten as 0x21 (`BchUpgrade.h`:
+  header, materials, texture relocations, key frame groups). All 286 characters convert whole; the 286 models read back
+  identical to X's (same glTF);
+- its motion pack moved from X's 173 slots to ORAS's 239 (`GfMotionPack.h`): same motion format; slots 0-3, X 72-89 ->
+  ORAS 86-103, X 114-138 -> ORAS 124-148, **inferred** from runs of equal frame counts over every character of both games;
+  X's other slots dropped.
+
+How a character's model number finds its member: through the area pack's character list (`a/1/3/7`, 24 bytes an entry,
+the member at word 10: Littleroot's model 4153 is member 503, 284 is 284).
+
+**Checked live** (headless, character 284 of the sandbox replaced): X's member 10 left as 0x07 loads but only its shadow
+shows (run `xchar`); converted it is drawn (`xchar2`: a white-coated trainer, its texture white and grey); X's member 31,
+coloured, is lit as the player is (`xchar3`), turns on its own (`xmove`, movement 47), turns to the player and talks, then
+walks two tiles north and back with its walking motion (`xwalk2`, the scene of `sandbox/scene_demo.txt`). Not seen: the
+blinking, and the motions of X's slots dropped (ORAS's 157-158, 8 frames, have no X counterpart; what the game plays when a
+slot is empty was not looked at). X's map pieces (1,115) not tried.
 
 **Tile values**: X uses 173 distinct values, Omega Ruby 208, 40 of them shared; by count, 93.3 % of X's tiles hold a value
 Omega Ruby also uses (walkable 0x00000020 and 0x00000004, wall 0x01000021). Omega Ruby's tall grass 0x20004004 and sea
@@ -1220,7 +1229,7 @@ phone. Zones, scripts and X's code were not compared.
 
 So X's ground, zones and matrices are ORAS's formats; X's scripts cannot run as they are, and a
 mod that brings X's places writes its own (as `docs/Equilibrium_Scenario.md` does anyway). Not yet known: the
-why X's characters show paler, X's map pieces converted, and a run of an X town in ORAS.
+X's map pieces converted, and a run of an X town in ORAS.
 
 **Order of work**: a BCH 0x07 reader and its conversion to 0x21 (done, 16 October); one X character in an Omega Ruby
-town, run on the phone (headless done: drawn, paler); the tile table; one X piece in Omega Ruby.
+town, run on the phone (headless done: drawn, lit, walking); the tile table; one X piece in Omega Ruby.

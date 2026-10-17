@@ -3,6 +3,7 @@
 #include "Bch.h"
 
 #include <algorithm>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -32,8 +33,8 @@ Bytes BchUpgradeTo21(const Bytes& bch)
     const uint32_t contentsLength = U32(bch, 0x1C), stringsLength = U32(bch, 0x20), commandsLength = U32(bch, 0x24);
     const uint32_t rawLength = U32(bch, 0x28);
     // 15 dictionaries of 12 bytes (SPICA's H3D: models, material parameters, shaders, textures, LUTs, lights, cameras,
-    // fogs, then 6 kinds of animations, scenes): any animation is not converted
-    for (int k : {8, 9, 10, 11, 12, 13})
+    // fogs, then 6 kinds of animations, scenes): material animations are converted (below), the other kinds refused
+    for (int k : {8, 10, 11, 12, 13})
         if (U32(bch, s.Contents + 12 * k + 4)) throw FormatError("BCH upgrade: dictionary " + std::to_string(k) + " is not empty (not converted)");
 
     // the materials (their file offsets, from the reader's texture name words: names at +0x48 before 0x21)
@@ -89,6 +90,51 @@ Bytes BchUpgradeTo21(const Bytes& bch)
     newContents.insert(newContents.end(), mappers.begin(), mappers.end());
     for (size_t i = 0; i < mapperWords.size(); i++) Put32(newContents, mapperWords[i], mappersAt + (uint32_t)(i * 16 * 3));
 
+    // material animations (dictionary 9): their key frame groups rewritten. Before 0x20 a group is its curve (start and
+    // end frames, repeats, curve index: 12 bytes), a pointer to a block (X's files: 8 bytes on, a word 1 in between; read
+    // from the pointer), the block (start, end, u8 interpolation, u8 quantisation, u16 key count, 1 / duration, value
+    // scale, value offset, frame scale) and after it the keys' pointer; from 0x20 the curve, the interpolation,
+    // quantisation and count, value scale, offset, frame scale, 1 / duration, the keys' pointer (36 bytes: SPICA, and
+    // seen in ORAS's character 28's eye animation). Each new group goes after the contents' end, its element's slot
+    // repointed to it; the keys stay where they are. An element's content: flags, then a slot a component (float and
+    // texture 1, vector 2 or 3, RGBA 4), a group's pointer when it has a relocation, else a constant
+    std::set<uint32_t> toContents;
+    for (const Entry& e : entries) if (e.Source == 0 && e.Target == 0) toContents.insert(e.At);
+    auto pointer = [&](uint32_t at) {
+        if (!toContents.count(at)) throw FormatError("BCH upgrade: no pointer where a material animation has one");
+        return U32(contents, at);
+    };
+    std::vector<std::pair<uint32_t, uint32_t>> groupSlots; // an old slot's offset, its group's new offset
+    std::vector<uint32_t> keyWords;                         // new offsets of the new groups' key pointers
+    for (uint32_t i = 0, list = U32(contents, 12 * 9 + 4) ? pointer(12 * 9) : 0; i < U32(contents, 12 * 9 + 4); i++)
+    {
+        const uint32_t anim = pointer(list + 4 * i), elements = U32(contents, anim + 16);
+        for (uint32_t j = 0; j < elements; j++)
+        {
+            const uint32_t el = pointer(pointer(anim + 12) + 4 * j);
+            const uint16_t prim = (uint16_t)(contents.at(el + 6) | contents.at(el + 7) << 8);
+            const int slots = prim == 0 || prim == 6 ? 1 : prim == 2 ? 2 : prim == 3 ? 3 : prim == 5 ? 4 : 0;
+            if (!slots) throw FormatError("BCH upgrade: a material animation of primitive type " + std::to_string(prim) + " (not converted)");
+            for (int k = 0; k < slots; k++)
+            {
+                const uint32_t slot = el + 12 + 4 * (uint32_t)k;
+                if (!toContents.count(slot)) continue;
+                const uint32_t group = pointer(slot), block = pointer(group + 12);
+                Pad(newContents, 4);
+                const uint32_t at = (uint32_t)newContents.size();
+                auto copy = [&](uint32_t from, uint32_t n) { newContents.insert(newContents.end(), contents.begin() + from, contents.begin() + from + n); };
+                copy(group, 12);                                   // the curve
+                copy(block + 8, 4);                                // interpolation, quantisation, count
+                copy(block + 16, 12);                              // value scale, value offset, frame scale
+                copy(block + 12, 4);                               // 1 / duration
+                newContents.resize(newContents.size() + 4, 0);
+                Put32(newContents, at + 32, moved(pointer(block + 28)));
+                keyWords.push_back(at + 32);
+                groupSlots.push_back({slot, at});
+            }
+        }
+    }
+
     // the pointers follow their data: a pointer word in the contents moves; a value into the contents is mapped
     Bytes strings(bch.begin() + s.Strings, bch.begin() + s.Strings + stringsLength);
     Bytes commands(bch.begin() + s.Commands, bch.begin() + s.Commands + commandsLength);
@@ -106,6 +152,8 @@ Bytes BchUpgradeTo21(const Bytes& bch)
         }
     }
     for (uint32_t w : mapperWords) entries.push_back({0, 0, w});
+    for (uint32_t w : keyWords) entries.push_back({0, 0, w});
+    for (const auto& [slot, group] : groupSlots) Put32(newContents, moved(slot), group);
     std::sort(entries.begin(), entries.end(), [](const Entry& a, const Entry& b) {
         return a.Source != b.Source ? a.Source < b.Source : a.At < b.At; });
 

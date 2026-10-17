@@ -20,8 +20,8 @@
 //                     ORAS area packs (a/0/1/4 entries: "AD") whose textures the model uses
 //   remake_tool bch-upgrade <in> <out>
 //                     a Pokemon X/Y model (BCH 0x07) as Omega Ruby's (0x21, BchUpgrade.h): a BCH file, or a 2-letter
-//                     container (an a/0/2/1 character member) with each BCH 0x07 inside it converted (one with animations
-//                     kept as it is, said), its other files kept
+//                     container (an a/0/2/1 character member) converted (XyCharacter.h); oras-copy's xy: source does the
+//                     same from the X/Y game itself
 //   remake_tool oras-list <oras.3ds>                  a decrypted 3DS game's RomFS files, with sizes
 //   remake_tool oras-extract <oras.3ds> <path> <out>  one RomFS file
 //   remake_tool oras-find <oras.3ds> <text>...
@@ -38,7 +38,7 @@
 //                     and registered under the zone's native mask M (0x243 by default, oras-engine's for new zones)
 //   remake_tool oras-zone-script <oras.3ds> <out dir> <zone> <script.amx|-> [<init.amx|->]  a mod with a zone's script and
 //                     initialisation script replaced (- keeps one); the zone itself checked to write back unchanged first
-//   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>] | <dst>=<archive>:<member>:<file> | <dst>=file:<path> | <dst>=motion:<archive>:<member>:<file>:<slot>[:<frames>] ...
+//   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>] | <dst>=<archive>:<member>:<file> | <dst>=file:<path> | <dst>=xy:<x.3ds>:<member> | <dst>=motion:<archive>:<member>:<file>:<slot>[:<frames>] ...
 //   remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...
 //                     an Azahar mod: each file replaces that RomFS path, laid out as Azahar loads
 //                     mods (<out dir>/load/mods/<program id>/romfs/<path>); copy <out dir>/load
@@ -83,6 +83,7 @@
 #include "FormatSniffer.h"
 #include "Garc.h"
 #include "BchUpgrade.h"
+#include "XyCharacter.h"
 #include "Nsbmd.h"
 #include "Png.h"
 #include "PicaTexture.h"
@@ -344,17 +345,9 @@ int main(int argc, char** argv)
         {
             const Bytes file = Plain(ReadFile(argv[2]));
             if (Bch::Is(file)) { WriteFile(argv[3], BchUpgradeTo21(file)); printf("BCH 0x%02X -> 0x21\n", file[4]); return 0; }
-            if (file.size() < 4 || !std::isalpha(file[0]) || !std::isalpha(file[1])) { fprintf(stderr, "%s: neither a BCH nor a 2-letter container\n", argv[2]); return 1; }
-            BinLinker pack = BinLinker::Read(file, Text(file, 0, 2));
-            int converted = 0;
-            for (Bytes& f : pack.Files)
-                if (Bch::Is(f) && f[4] == 0x07)
-                {
-                    try { f = BchUpgradeTo21(f); converted++; }
-                    catch (const FormatError& e) { printf("file %zu kept as it is: %s\n", (size_t)(&f - pack.Files.data()), e.what()); }
-                }
-            WriteFile(argv[3], pack.Write());
-            printf("%s container: %d of %zu files converted to BCH 0x21\n", Text(file, 0, 2).c_str(), converted, pack.Files.size());
+            std::vector<std::string> report;
+            WriteFile(argv[3], XyCharacterToOras(file, report));
+            for (const std::string& line : report) printf("%s\n", line.c_str());
             return 0;
         }
         if (cmd == "bch" && argc >= 4)
@@ -823,6 +816,27 @@ int main(int argc, char** argv)
                         const Bytes& old = source.Sub(dst);
                         g.Set(dst, IsLzCompressed(old) ? Lz11Compress(out) : out);
                         printf("%s member %zu <- %s: skeleton %zu bytes, motion %zu bytes\n", path.c_str(), dst, src.c_str(), skeleton.size(), motion.size());
+                        last = dst;
+                        continue;
+                    }
+                    if (src.rfind("xy:", 0) == 0)
+                    {
+                        // <dst>=xy:<x.3ds>:<member>: a Pokemon X/Y character (its a/0/2/1 member) made Omega Ruby's
+                        // (XyCharacter.h), written over the ORAS member as file: does
+                        const size_t colon = src.rfind(':');
+                        if (colon <= 3) { fprintf(stderr, "expected xy:<x.3ds>:<member>: %s\n", src.c_str()); return 2; }
+                        if (path != "a/0/2/1") { fprintf(stderr, "xy: characters go into a/0/2/1, not %s\n", path.c_str()); return 2; }
+                        N3dsRom xy(src.substr(3, colon - 3));
+                        const Garc xyCharacters(xy.Read("a/0/2/1"));
+                        const size_t from = (size_t)std::stoul(src.substr(colon + 1));
+                        std::vector<std::string> report;
+                        const Bytes file = XyCharacterToOras(Plain(xyCharacters.Sub(from)), report);
+                        const size_t dst = (size_t)std::stoul(arg.substr(0, eq));
+                        const Bytes old = Plain(source.Sub(dst));
+                        if (old.size() < 2 || file[0] != old[0] || file[1] != old[1]) { fprintf(stderr, "X/Y character %zu: not the same container as member %zu\n", from, dst); return 1; }
+                        ReplaceMember(g, source, dst, file, std::string(old.begin(), old.begin() + 2));
+                        printf("%s member %zu <- X/Y character %zu (%zu bytes)\n", path.c_str(), dst, from, file.size());
+                        for (const std::string& line : report) printf("  %s\n", line.c_str());
                         last = dst;
                         continue;
                     }

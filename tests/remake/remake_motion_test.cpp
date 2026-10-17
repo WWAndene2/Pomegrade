@@ -1,11 +1,15 @@
 // The compact skeleton motions (GfMotion.h), looped for the title's Primal slot: a motion written here to the layout
 // SPICA reads (GF1Motion) is repeated, with u8 key frames (30 frames) and u16 ones past 255 frames (the title's own
-// motions, 3080 and 3500 frames), and the result read back to the same layout.
+// motions, 3080 and 3500 frames), and the result read back to the same layout. An X/Y motion pack (GfMotionPack.h) moved
+// to Omega Ruby's slots.
 #include "GfMotion.h"
+#include "GfMotionPack.h"
 
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <utility>
+#include <vector>
 
 using namespace remake;
 
@@ -63,6 +67,43 @@ int main()
     bool threw = false;
     try { LoopGfMotion(m, 7000); } catch (const FormatError&) { threw = true; }
     check(threw, "over 65535 frames refused");
+
+    // an X/Y pack of 173 slots: skeleton 0, motions in slots 1, 3, 5 (not carried), 80 and 120, of 1 to 9 bytes
+    {
+        std::vector<std::pair<uint32_t, Bytes>> in = {{0, {0xA0}}, {1, {1, 2, 3}}, {3, {4, 5, 6, 7, 8}}, {5, {9}}, {80, {10, 11}}, {120, {12, 13, 14, 15, 16, 17, 18, 19, 20}}};
+        Bytes pack(4 + 4 * 174, 0);
+        auto put = [&](size_t at, uint32_t v) { for (int i = 0; i < 4; i++) pack[at + i] = (uint8_t)(v >> (8 * i)); };
+        put(0, 173);
+        for (const auto& [k, b] : in)
+        {
+            while (pack.size() % 4) pack.push_back(0);
+            put(4 + 4 * k, (uint32_t)pack.size());
+            pack.insert(pack.end(), b.begin(), b.end());
+        }
+        put(4 + 4 * 173, (uint32_t)pack.size());
+        check(IsGfMotionPack(pack, 173) && !IsGfMotionPack(pack, 239), "an X/Y motion pack recognised by its slot count");
+        const Bytes out = XyMotionPackToOras(pack);
+        auto slot = [&](uint32_t k) {
+            const uint32_t from = U32(out, 4 + 4 * k);
+            if (!from) return Bytes();
+            uint32_t to = U32(out, 4 + 4 * 239);
+            for (uint32_t j = k + 1; j < 239; j++) if (U32(out, 4 + 4 * j)) { to = U32(out, 4 + 4 * j); break; }
+            Bytes b(out.begin() + from, out.begin() + to);
+            while (!b.empty() && b.back() == 0) b.pop_back();
+            return b;
+        };
+        check(IsGfMotionPack(out, 239), "the pack has Omega Ruby's 239 slots");
+        check(slot(0) == Bytes{0xA0} && slot(1) == Bytes{1, 2, 3} && slot(3) == Bytes{4, 5, 6, 7, 8}, "slots 0-3 kept in place");
+        check(slot(94) == Bytes{10, 11} && slot(130) == Bytes({12, 13, 14, 15, 16, 17, 18, 19, 20}), "X 80 -> ORAS 94, X 120 -> ORAS 130");
+        bool others = true;
+        for (uint32_t k = 0; k < 239; k++) if (k != 0 && k != 1 && k != 3 && k != 94 && k != 130 && U32(out, 4 + 4 * k)) others = false;
+        bool aligned = true;
+        for (uint32_t k = 0; k < 239; k++) if (U32(out, 4 + 4 * k) % 4) aligned = false;
+        check(others && aligned, "a slot with no ORAS counterpart (X 5) dropped, every slot 4-aligned");
+        bool refused = false;
+        try { XyMotionPackToOras(out); } catch (const FormatError&) { refused = true; }
+        check(refused, "a pack of 239 slots refused");
+    }
 
     printf(ok ? "all passed\n" : "FAILED\n");
     return ok ? 0 : 1;
