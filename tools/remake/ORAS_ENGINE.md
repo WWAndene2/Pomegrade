@@ -1196,8 +1196,10 @@ inline, 0x58 bytes, SPICA's `TextureMappersCompat`). A whole X character (its `a
   header, materials, texture relocations, key frame groups). All 286 characters convert whole; the 286 models read back
   identical to X's (same glTF);
 - its motion pack moved from X's 173 slots to ORAS's 239 (`GfMotionPack.h`): same motion format; slots 0-3, X 72-89 ->
-  ORAS 86-103, X 114-138 -> ORAS 124-148, **inferred** from runs of equal frame counts over every character of both games;
-  X's other slots dropped.
+  ORAS 86-103, X 114-138 -> ORAS 124-148, X 26 -> 40, 97 -> 178, 140 -> 156, **inferred** from runs of equal frame
+  counts, the characters both games share and the slot sets of whole characters (X {1, 3, 80}, 90 of them, is ORAS's
+  {1, 3, 94}, 70); X's other slots (a few special characters) dropped. ORAS's 157, 158 and 170 have no X motion; 70 ORAS
+  characters lack them too.
 
 How a character's model number finds its member: through the area pack's character list (`a/1/3/7`, 24 bytes an entry,
 the member at word 10: Littleroot's model 4153 is member 503, 284 is 284).

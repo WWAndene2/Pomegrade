@@ -14,11 +14,16 @@
 //   X 114-138  -> ORAS 124-148  (20 equal in a row)
 //   X 26       -> ORAS 40       (50 frames: X 270 and ORAS 511, the same skeleton byte for byte)
 //   X 97       -> ORAS 178      (1 frame, the motion byte for byte the same in both games)
+//   X 140      -> ORAS 156      (40 frames: the slot sets of whole characters, below)
 // Checked against the characters both games share (5 pairs, the same skeleton byte for byte, 17 October): their
 // motions sit in slots 1, 3, 26/40, 80/94, 97/178, as above; slots 0, 1, 3 and 80/94 also byte for byte.
-// X's other slots (4-71 but 26, 90-113 but 97, 139-172: too few characters, no run to align them on and no shared
-// character holding them) are not carried; ORAS's
-// 157 and 158 (8 frames, half its characters) have no X counterpart.
+// The slots whole characters fill (17 October), the commonest kinds the same in both games once moved: X {1, 3, 80}
+// (90 characters) / ORAS {1, 3, 94} (70); X {1, 3, 72, 80} (17) / ORAS {1, 3, 86, 94} (14); X {1, 3, 80, 140} (3) /
+// ORAS {1, 3, 94, 156} (3). ORAS's 157 and 158 (8 frames) and 170 (1 frame) are motions X's characters do not have:
+// ORAS's 70 characters of {1, 3, 94} have none of them either, so a character without them is one ORAS has too.
+// X's other slots (4-71 but 26, 90-113 but 97, 139-172 but 140: a few special characters each, no run to align them
+// on and no shared character holding them) are not carried. The slot numbers the game asks for were not read in its
+// code: the movement steps play "animations" 0x9D-0xA0 (ghidra/function_names.tsv), not slot numbers.
 
 #include "Bytes.h"
 

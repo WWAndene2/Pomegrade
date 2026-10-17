@@ -27,6 +27,7 @@ int OrasSlot(uint32_t xy)
     if (xy >= 114 && xy <= 138) return (int)xy + 10;
     if (xy == 26) return 40;
     if (xy == 97) return 178;
+    if (xy == 140) return 156;
     return -1;
 }
 
