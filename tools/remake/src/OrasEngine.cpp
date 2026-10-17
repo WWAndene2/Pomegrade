@@ -463,8 +463,7 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         // and 0xB0000 for the field's entry; 0x100000 and 0x400000 for the other) by `ldr r2, [r1, r8, lsl #2]` at
         // 0x10283970 and 0x10283994. 59 shown characters ran one out: thread 1 spun in the allocator's out-of-memory loop
         // (FUN_0012b9a0, pc 0x12BAEC, called from Gfx_Skeleton_Build; run hK, headless, read 17 October). Both grow with
-        // the objects (size / 32 x objects), in a cave as the table is data: the parent heap (the caller's, Event_Character
-        // Manager_Init's param_3) must hold the extra, which is not read
+        // the objects (size / 32 x objects), in a cave as the table is data; their parent, heap 0x5D, grows below
         const CroLayout layout(oras.Read("DllField.cro"));
         uint32_t cave = DllFieldBase + layout.CodeEnd();
         for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
@@ -483,6 +482,14 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
             cave += 20;
         }
         log.push_back("character model instances: heaps 0x159 and 0x15A x " + std::to_string(*fieldObjects) + " / 32");
+        // Their parent is the field's heap 0x5D (Event_CharacterManager_Init's param_4, the handle at field +0x2C), made by
+        // FUN_00404600 from heap 0x17 with the size word 0x404768 (0x1350000), and the character models are decompressed
+        // into it as they load (FUN_003f4d8c). Grown by what the two heaps grow for the field's entry (0x100000 + 0xB0000):
+        // 127 characters without it ran out at boot (run h127c: the allocator's out-of-memory loop, r5 heap 0x5D, r7 0x17800)
+        const uint32_t grown = ((0x1B0000u / 32 * *fieldObjects - 0x1B0000u) + 0xFFFFu) & ~0xFFFFu;
+        words.push_back({0x404768, 0x01350000, 0x01350000 + grown, "heap 0x5D of the field (FUN_00404600), the parent of heaps 0x159 and 0x15A"});
+        snprintf(line, sizeof line, "field heap 0x5D: 0x1350000 -> 0x%X", 0x01350000 + grown);
+        log.push_back(line);
     }
     if (!croWords.empty()) dllField = PatchCro(oras.Read("DllField.cro"), DllFieldBase, croWords);
     for (const auto& [id, size] : o.HeapSizes)

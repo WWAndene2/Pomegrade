@@ -642,8 +642,19 @@ Read in the code (Ghidra, headless) and checked headless; the owner checked on t
   538 rebound, but going back into 539 loaded the 61 shared people a second time and Acquire's fatal stopped the game
   (pool of 72 full; run hFar, black screen, stack 0x3F80B8 under the fatal). With +0x20 set, the same walk 539, 538,
   539 shows the crowd (run hFar3).
+- **The parent of the instance heaps, and the largest pool** (17 October, read and checked headless): heaps 0x159 and
+  0x15A (Field_SubsystemInit) are carved from the field's **heap 0x5D**, which FUN_00404600 makes from heap 0x17 with the
+  size word at 0x404768 (0x1350000, 19.3 MB; called by Field_ReloadZoneResources with heaps 0x16 and 0x17); the character
+  models are decompressed into it as they load (FUN_003f4d8c). With `--characters 127` the boot ran it out (run h127c: the
+  allocator's out-of-memory loop at 0x12BAEC, r5 = heap 0x5D, r7 = 0x17800; the headless report now prints registers in
+  that loop too). `--characters N` grows 0x5D by what 0x159 and 0x15A grow (0x1B0000 / 32 x (N + 6) - 0x1B0000): 127
+  enters the field (run h127e), 72 still walks 539, 538, 539 (run h72h). Doubling heap 0x16 instead stopped the boot in
+  0x16's own creation (run h127b). **Next bound**: a zone of 120 characters (scratch description, run hMax) stops in
+  `Field_RegisterObjectModelsInScene` (DllField 0x102C23D4): `Gfx_SceneGroupAddModel` (0x38B374) finds no free entry in
+  the scene group's pool (0x18-byte entries, a bitmap, its capacity at `[group + 0x28]`); where that pool is sized is not
+  read yet.
 - **Still bound**: a zone's events file (0xC84 bytes, about 60 people with a short script, 4.5); the extra heaps come out
-  of the field manager's parent heap, not identified.
+  of the field's heap 0x5D (grown with them, above).
 
 ### 4.6 What is left of the limits, and why (7 October)
 
