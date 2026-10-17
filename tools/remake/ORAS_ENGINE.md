@@ -1240,3 +1240,48 @@ X's map pieces converted, and a run of an X town in ORAS.
 
 **Order of work**: a BCH 0x07 reader and its conversion to 0x21 (done, 16 October); one X character in an Omega Ruby
 town, run on the phone (headless done: drawn, lit, walking); the tile table; one X piece in Omega Ruby.
+
+## 8. Ultra Sun/Moon characters on Omega Ruby (17 October)
+
+The owner's Ultra Moon dump (Europe, `3DS1772`, 3.7 GB, Drive folder "Pokemon Project - Radiant Platinum") is read by the
+same tools as Omega Ruby's: `remake_tool oras-list`/`oras-extract` open its RomFS (program 00040000001B5100, 747 files) and
+`spica` reads its models (GFL2). Its player models, made Omega Ruby field characters for a preview, by
+`prototype/usum_character.py` (its header gives the commands; prototype/README.md how to run it in a session).
+
+**The USUM player** (seen, Ultra Moon):
+- built from parts, one GARC per kind, every member a `CM` package (model pack, motion pack, mask texture): Elio
+  `a/1/7/6` face, `a/1/7/7` hair, `a/1/8/1` bottoms, `a/1/8/2` hat, `a/1/8/3` legs, `a/1/8/4` shoes, `a/1/8/6` tops
+  (also `a/1/7/8` eyewear, `a/1/7/9` bag, `a/1/8/0` bangle, `a/1/8/5` riding poses); Selene `a/1/8/8`... `a/1/9/9` in the
+  same order; a second copy of the same sets from `a/2/0/3` (not compared). Member 0 of each is the starting outfit
+  (`p1_tops_stripe`, `p1_bottoms_dpan`, `p1_hat_cap`...); the members of one model differ only in colour (same size).
+  Found by the model names inside (`p1_hair_...`); `a/1/7/4` (316 members) holds the characters' bases with their
+  skeleton motions (member 0, `p1_base`: 4 motions, the first the idle).
+- every part's model has the 79-bone skeleton `pc0001_00` (Selene `pc0002_00`): realistic proportions (waist at 76
+  units, about 150 tall), against ORAS's chibi field characters (Brendan: waist at 12.9, 33 tall, the head a third).
+  A part rooted at `Neck_attach` or `Head_attach` (Elio's hair; Selene's hair and hat) is modelled in that bone's space.
+- skin and hair colours are not in the textures: an item's `_m0N` texture (alpha) marks where the runtime colour goes
+  (`_m03` hair, `_m01`/`_m02` skin: the arms on a top, the legs, the face); the clothes' colours are drawn in. The
+  colours themselves (the player's choice) were not found; 58,46,40 for the hair and the ORAS character's skin are chosen
+  by eye.
+- the face: a sheet of eye cells (`p1_face01_on`, its material animations move v by +0.5 to blink, read in its motion
+  pack) and a mouth part whose UVs at v > 0 are the inside of the mouth (teeth, tongue), shown only when the jaw opens.
+- spica's PNG export is bottom-up against the SMD's UVs: a texel's row is v, not 1 - v (the face sheet shows it: with
+  1 - v the eyes are upside down and a blink lands on an empty cell).
+
+**On an ORAS body** (`usum_character.py build`; previews approved by the owner on 17 October: Elio on Brendan):
+re-proportioning the USUM model itself (bone lengths scaled, head enlarged) was tried first and dropped: the face sheet,
+the inside of the mouth and the hair all needed fixes, and its skeleton would have no ORAS motion. Kept instead: ORAS
+character 172 (Brendan, `rstr0002_00_fi`; 171 is May, `rstr0001_00_fi`) whole (body, skeleton, face sheet, proportions:
+its motions fit), without its hat and hair (texture `_head`), its bag (bones `Bag*`) and its switchable parts
+(`sw_parts`: bike, surf); its body texture repainted texel by texel through the triangles that use it, each triangle's
+region from its dominant bone (torso and upper arms: shirt; hips and thighs: shorts; feet: shoes; skin kept), with the
+outfit's colours read from its textures, the base's shading kept; its irises made grey; the USUM hair and cap fitted on
+its Head bone (scaled on the face's width, 0.398 for Elio; the hair below the head joint shortened by half), the cap
+grown x1.1 around the head so the hair stays inside it (pushing the hair under the cap instead crushed the bangs under
+the visor). `spica smd` now names an ORAS field character's triangles after their real texture (their texture 0 is a
+placeholder, `projection_dummy`).
+
+**Not done**: the in-game model. `build` writes what it needs (the repainted textures, the hair and cap on the base's
+skeleton as `<out>_head.smd`); the BCH holding them (a copy of member 172 with the head mesh replaced and the textures
+swapped) is not written by any tool yet, nor tried headless or on the phone. Selene's result (on May) was generated, not
+reviewed by the owner.

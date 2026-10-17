@@ -82,3 +82,18 @@ A=azahar; g++ -std=c++20 -O1 -Itools/remake/prototype/azahar_check/stub -I$A/src
 
 - Paths and the Twinleaf/Petalburg choices are hard-coded in the C++ prototypes.
 - No texture can be added to an area pack yet: that needs BCH dictionary editing, which also blocks snow (`c109_pur_yaneyuki`) and the white fence.
+
+## Ultra Moon players on ORAS bodies (`usum_character.py`)
+
+Elio or Selene, in a chosen outfit, built on an ORAS field character (Brendan by default) for a preview. What the data is
+and what was decided: `../ORAS_ENGINE.md` section 8. In a session (the dumps by their Drive ids, `../headless/session_setup.sh`):
+
+```
+POMEGRADE_ORAS_DRIVE_ID=<id> POMEGRADE_UM_DRIVE_ID=<id> tools/remake/headless/session_setup.sh <work> dumps tool spica
+export DOTNET_ROOT=<work>/dotnet REMAKE_TOOL=<work>/build-remake/remake_tool SPICA=<work>/spica/spica
+python3 -I tools/remake/prototype/usum_character.py extract <work>/dumps/um.3ds <work>/dumps/oras.3ds <work>/elio
+python3 -I tools/remake/prototype/usum_character.py build <work>/elio <work>/elio/out --shirt stripes
+```
+
+`out.png` shows four views; `--outfit hat=3,tops=12` picks other items (their index in the part's GARC), `--player 2`
+Selene (on May). The work directory holds game data: keep it outside the repository.
