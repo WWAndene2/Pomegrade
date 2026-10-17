@@ -487,11 +487,19 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
             log.push_back(line);
             nextId++;
         }
+        if (!z.Characters.empty())
         {
-            // the models it is given added to its pack's list, which a model must be in (OrasWorkspace::CharacterList)
+            // a model must be in its pack's list (OrasWorkspace::CharacterList), which holds 31. The zone gets a pack of its own,
+            // a copy of its game pack (never changed: the game's other zones on it keep theirs) listing only the models its
+            // characters show, the game's and the added ones, so 31 distinct models fit in any game zone
             std::vector<int> models;
-            for (const auto& c : z.Characters) models.push_back(c[0]);
-            ws.ListCharacters(zone.AreaPack(), models);
+            for (const ZoneCharacter& c : zone.Characters)
+                if (std::find(models.begin(), models.end(), (int)c.Raw[1]) == models.end()) models.push_back(c.Raw[1]);
+            const int gamePack = zone.AreaPack();
+            const Bytes packData = Plain(ws.Original("a/0/1/4").Sub((size_t)gamePack));
+            zone.Header[1] = (uint16_t)ws.AddAreaPack(packData, gamePack, models);
+            snprintf(line, sizeof line, "zone %d: area pack %d, a copy of its pack %d listing its %zu model(s)", z.Number, zone.AreaPack(), gamePack, models.size());
+            log.push_back(line);
         }
         for (const auto& t : z.Triggers)
         {

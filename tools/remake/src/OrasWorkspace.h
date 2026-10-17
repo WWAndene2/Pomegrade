@@ -50,8 +50,6 @@ public:
     // pack `like`'s characters' list (a/1/3/7) with an entry for each of `models` it lacks
     Bytes CharacterList(int like, const std::vector<int>& models);
     Bytes CharacterList(Bytes list, const std::vector<int>& models);
-    // game pack `pack`'s list (a/1/3/7) with `models` it lacks appended in place (a game zone given characters)
-    void ListCharacters(int pack, const std::vector<int>& models);
 
     // Warps between the build's new zones, by Platinum map header (SINNOH_BUILD.md R4): a step that writes a header's zone
     // registers it with its warps (a tile and the header each leads to); LinkWarps, once every step is done, writes each warp
