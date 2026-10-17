@@ -44,8 +44,11 @@ public:
     // never a pack a game zone draws from, so no Hoenn place changes; its characters' list (a/1/3/7) the one of pack `like`.
     // A pack identical to one the build added shares its slot.
     // Once those are taken, appended past the game's packs (228 of them, then a/0/1/4's per-pack table, extended; run apkA):
-    // no limit but the archive's
-    int AddAreaPack(const Bytes& pack, int like);
+    // no limit but the archive's. `models`: character models its zones show, added to its list when `like`'s lacks them
+    // (CharacterList)
+    int AddAreaPack(const Bytes& pack, int like, const std::vector<int>& models = {});
+    // pack `like`'s characters' list (a/1/3/7) with an entry for each of `models` it lacks
+    Bytes CharacterList(int like, const std::vector<int>& models);
 
     // Warps between the build's new zones, by Platinum map header (SINNOH_BUILD.md R4): a step that writes a header's zone
     // registers it with its warps (a tile and the header each leads to); LinkWarps, once every step is done, writes each warp
@@ -70,6 +73,7 @@ private:
     N3dsRom& Oras;
     std::vector<bool> PacksTaken; // area packs filled by this build
     std::map<int, Bytes> PacksAdded; // their contents, to share a slot between identical packs
+    std::map<int, Bytes> PackCharacters; // their characters' lists (a/1/3/7), likewise
     struct HeaderZone { int Header, Zone; bool Interior; std::vector<HeaderWarp> Warps; };
     std::vector<HeaderZone> HeaderZones;
     std::map<std::string, Archive> Archives;

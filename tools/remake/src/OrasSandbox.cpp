@@ -580,8 +580,12 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
     // built for (the first zone's pack and the textures they show), the next ones with that pack's copy under another light.
     // A pack appended past the game's 229 is refused: its zone sent the game into its fatal-error loop even with a/1/3/7 grown
     // to match (runs light1-light4; a/1/3/7 is one cause, read under the debugger in runs apk1-apk4, another is not found)
+    // its characters' list: the shared pack's, with every model the new zones show added (OrasWorkspace::CharacterList)
+    std::vector<int> models;
+    for (const SandboxZone& z : d.Zones)
+        for (const auto& c : z.Characters) if (std::find(models.begin(), models.end(), c[0]) == models.end()) models.push_back(c[0]);
     auto takeFree = [&](const Bytes& data, const std::string& what) {
-        const uint16_t slot = (uint16_t)ws.AddAreaPack(data, pack); // its characters' list: the shared pack's
+        const uint16_t slot = (uint16_t)ws.AddAreaPack(data, pack, models);
         snprintf(line, sizeof line, "area pack %u (unused by the game): %s", slot, what.c_str());
         log.push_back(line);
         return slot;
