@@ -1,8 +1,10 @@
 package me.magnum.melonds.impl
 
 import android.content.Context
+import android.util.Log
 import androidx.preference.PreferenceManager
 import org.yuzu.yuzu_emu.NativeLibrary
+import org.yuzu.yuzu_emu.YuzuApplication
 import org.yuzu.yuzu_emu.utils.DirectoryInitialization
 import org.yuzu.yuzu_emu.utils.NativeConfig
 import java.io.File
@@ -24,6 +26,10 @@ import java.io.File
  * folders are set at every Switch launch ([setUp]), since Eden ignores a folder its settings name that does not
  * exist. Before the Punica folder has the layout, Punica/Switch itself is Eden's user folder, as it was. Needs
  * Eden started (YuzuApplication.start, on the main thread); runs on a background thread.
+ *
+ * Eden reads its user folder once per process; when the app's folder changes (a migration, the Punica rename, a
+ * new folder), [onUserFolderChanged] points Eden to the new one, and [setUp] does it again at each launch for a
+ * change it could not apply then (a game running).
  */
 object SwitchFolder {
 
@@ -31,8 +37,12 @@ object SwitchFolder {
     private const val SDMC = "sdmc"
     private const val LOAD = "load"
     // Eden's user folder entries other than nand, sdmc and load (common/fs/fs_paths.h)
-    private val USER_DATA = listOf("config", "keys", "log", "shader", "dump", "screenshots", "amiibo", "play_time", "icons", "crash_dumps", "tas", "cache")
+    private val USER_DATA = listOf("config", "keys", "log", "shader", "dump", "screenshots", "amiibo", "play_time", "icons", "crash_dumps", "tas", "cache", "gpu_drivers")
     private const val USER_DATA_MOVED = "switch_user_data_moved"
+    // the Punica folder's Switch that [setUp] last pointed Eden to: Eden's settings may still name folders in it
+    // after the owner picks another folder, they are then adopted rather than kept as the owner's choice
+    private const val LAST_SWITCH_FOLDER = "switch_last_folder"
+    private const val TAG = "SwitchFolder"
 
     /**
      * Given to Eden (DirectoryInitialization.userDirectoryProvider): Punica/Switch/Core once the Punica folder has
@@ -73,6 +83,22 @@ object SwitchFolder {
      * there first; a folder the owner picked in Eden's own settings, elsewhere, is left alone.
      */
     fun setUp(context: Context) {
+        val preferences = PreferenceManager.getDefaultSharedPreferences(context)
+        val wanted = userDirectory(context)?.canonicalFile
+        if (wanted == null && preferences.getBoolean(USER_DATA_MOVED, false)) {
+            // Eden runs in the app's own folder (DirectoryInitialization.userDirectoryFile's fallback), a fresh one:
+            // told to the owner by SwitchLauncher.prepare; what is written there is merged back when access returns
+            Log.w(TAG, "No access to the Punica folder: the Switch core uses the app's own folder")
+            throw IllegalStateException("no access to the Punica folder, the Switch core uses the app's own folder until it returns")
+        }
+        val former = mutableSetOf<File>()
+        preferences.getString(LAST_SWITCH_FOLDER, null)?.let { former += File(it) }
+        realign(context, wanted)?.let { previous ->
+            former += previous
+            if (previous.name == PunicaLayout.CORE) previous.parentFile?.let { former += it }
+        }
+        mergeFallbackData(context)
+
         val root = PomegradeFolder.layoutRoot(context) ?: return
         val userDirectory = File(DirectoryInitialization.userDirectory ?: return).canonicalFile
         val nand = File(PunicaLayout.part(root, PunicaLayout.SWITCH, PunicaLayout.SYSTEM), NAND)
@@ -81,15 +107,24 @@ object SwitchFolder {
         val mods = PunicaLayout.part(root, PunicaLayout.SWITCH, PunicaLayout.MODS)
         val ours = listOf(nand, sdmc, saves, mods).map { it.canonicalFile }
 
-        // a folder Eden uses now: its default (in its user folder) moves to ours; one of ours is fine; any other is the
-        // owner's choice, kept
+        val switch = File(root, PunicaLayout.SWITCH).canonicalFile
+        val formerFolders = (former.map { it.canonicalFile } - switch).toList()
+        val fallback = context.getExternalFilesDir(null)?.canonicalFile
+
+        // a folder Eden uses now: its default (in its user folder), or one in the former Punica folder or the app's
+        // own folder, moves to ours; one of ours is fine; one Eden cannot use (missing, unreadable, another app's
+        // Android/data, as a config.ini from Eden's own app names) is replaced by ours; any other is the owner's
+        // choice, kept
         fun adopt(current: String, target: File): Boolean {
             val currentDir = File(current).canonicalFile
             if (currentDir == target.canonicalFile) return true
             if (currentDir in ours) return true
-            if (!currentDir.path.startsWith(userDirectory.path + File.separator)) return false
-            moveIfAbsent(currentDir, target)
-            return true
+            val movable = listOfNotNull(userDirectory, fallback).plus(formerFolders).any { isInside(currentDir, it) }
+            if (movable) {
+                moveIfAbsent(currentDir, target)
+                return true
+            }
+            return !isOwnersChoice(currentDir, fallback)
         }
 
         val currentNand = File(NativeConfig.getNandDir()).canonicalFile
@@ -107,6 +142,95 @@ object SwitchFolder {
         if (adopt(NativeConfig.getLoadDir(), mods)) { mods.mkdirs(); NativeConfig.setLoadDir(mods.absolutePath) }
         NativeConfig.saveGlobalConfig()
         NativeLibrary.initializeSystem(true)
+        preferences.edit().putString(LAST_SWITCH_FOLDER, switch.path).apply()
+    }
+
+    /**
+     * After the app's folder changed (a migration, the Punica folder's rename, another folder picked): Eden is
+     * pointed to its user folder there ([userDirectory]), its NAND, SD card, saves and mods folders set to the new
+     * layout's (the ones in the former folder adopted, see [setUp]), and the keys and firmware checked against the
+     * new NAND ([SwitchSystemFiles]). Before Eden starts in this process there is nothing to do: it reads the folder
+     * when it starts. While a game runs, Eden's open files stay in the former folder: its user folder is changed at
+     * the next launch, when [setUp] runs again (SwitchLauncher.prepare); the game's saves are written to the former
+     * folder until then, and moved with it only where the new folder has none (otherwise they stay there, never
+     * overwriting); nothing is moved under a running game.
+     * Throws as [setUp] does (no access to the new folder). Background thread.
+     */
+    fun onUserFolderChanged(context: Context) {
+        if (!YuzuApplication.isStarted) return
+        if (NativeLibrary.isRunning()) {
+            Log.i(TAG, "Punica folder changed while a Switch game runs: the Switch core follows at the next launch")
+            return
+        }
+        setUp(context)
+        SwitchSystemFiles.import(context)
+    }
+
+    /**
+     * Points Eden to [wanted] when it started in another user folder in this process (DirectoryInitialization reads
+     * it once), unless a game runs. Returns the folder it used before, or null when unchanged.
+     */
+    private fun realign(context: Context, wanted: File?): File? {
+        if (wanted == null) return null
+        val current = DirectoryInitialization.userDirectory?.let { File(it).canonicalFile } ?: return null
+        if (current == wanted) return null
+        if (NativeLibrary.isRunning()) {
+            Log.i(TAG, "Switch user folder changed to $wanted while a game runs: applied at the next launch")
+            return null
+        }
+        if (!DirectoryInitialization.reinitialize(context)) return null
+        Log.i(TAG, "Switch user folder changed from $current to $wanted")
+        return current
+    }
+
+    /**
+     * Brings into Eden's user folder what Eden wrote in the app's own folder (Android/data, deleted with the app)
+     * while it had no access to the Punica folder (its fallback), once its data had moved: files the Punica folder
+     * lacks move there, a file it already has is kept on both sides (never overwritten) and logged. Not while Eden
+     * uses that folder.
+     */
+    private fun mergeFallbackData(context: Context) {
+        if (!PreferenceManager.getDefaultSharedPreferences(context).getBoolean(USER_DATA_MOVED, false)) return
+        val fallback = context.getExternalFilesDir(null)?.canonicalFile ?: return
+        val live = DirectoryInitialization.userDirectory?.let { File(it).canonicalFile } ?: return
+        if (isInside(live, fallback) || isInside(fallback, live)) return
+        val switch = (PomegradeFolder.layoutRoot(context)?.let { File(it, PunicaLayout.SWITCH) }
+            ?: PomegradeFolder.subFolder(context, PomegradeFolder.SWITCH)) ?: return
+        val layout = PomegradeFolder.layoutRoot(context) != null
+        var moved = 0
+        var kept = 0
+        (USER_DATA + listOf(NAND, SDMC, LOAD)).map { File(fallback, it) }.filter { it.exists() }.forEach { entry ->
+            entry.walkTopDown().filter { it.isFile }.forEach { file ->
+                val to = placeOf(switch, "${entry.name}/${file.relativeTo(entry).invariantSeparatorsPath}", layout)
+                if (to.exists()) {
+                    kept++
+                } else {
+                    to.parentFile?.mkdirs()
+                    if (file.renameTo(to) || (runCatching { file.copyTo(to) }.isSuccess && file.delete())) moved++ else kept++
+                }
+            }
+            if (entry.walkTopDown().none { it.isFile }) entry.deleteRecursively()
+        }
+        if (moved + kept > 0) {
+            Log.i(TAG, "Switch data written in the app's own folder without folder access: $moved files moved to $switch, $kept kept in $fallback")
+        }
+    }
+
+    /** Whether [dir] is [folder] or inside it. */
+    internal fun isInside(dir: File, folder: File): Boolean =
+        dir == folder || dir.path.startsWith(folder.path + File.separator)
+
+    /**
+     * Whether a folder Eden's settings name, outside the Punica folder and Eden's user folder, can be the owner's
+     * choice: one that exists and can be read, not in another app's Android/data (Eden's own app, from an imported
+     * config.ini), which Eden cannot use anyway. [ownFolder]: the app's own Android/data folder.
+     */
+    internal fun isOwnersChoice(dir: File, ownFolder: File?): Boolean {
+        if (!dir.isDirectory || !dir.canRead()) return false
+        val androidData = "${File.separator}Android${File.separator}data${File.separator}"
+        if (!dir.path.contains(androidData)) return true
+        val ownPackage = ownFolder?.path?.substringAfter(androidData, "")?.substringBefore(File.separator)
+        return !ownPackage.isNullOrEmpty() && dir.path.substringAfter(androidData).substringBefore(File.separator) == ownPackage
     }
 
     /**
