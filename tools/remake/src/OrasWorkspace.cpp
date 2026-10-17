@@ -149,8 +149,9 @@ Bytes OrasWorkspace::CharacterList(Bytes list, const std::vector<int>& models)
         }
         list.insert(list.end(), entry.begin(), entry.end());
     }
-    // the list's length: 31 entries load (run hfix: pack 8's 29 and 2 added), 33 hang the game on entering the zone as a model
-    // missing does (run hC, the same place: pc 0x110A5C); the game's longest list is 31. 32 not tried, so refused
+    // the list's length: the game caches it after the player's own entry in 32 slots of 24 bytes (field character manager
+    // +0x36CC) and stops in its fatal error when entries + 1 > 32 (cmp #0x21 at 0x3F7308, Event_LoadCharacterArchiveMember;
+    // read 17 October), so 31. Checked: 31 load (run hfix), 33 hang entering the zone (run hC)
     if (list.size() / 24 > 31)
         throw FormatError("an area pack's character list would hold " + std::to_string(list.size() / 24) + " models, the game loads 31 (spread them over zones of other packs)");
     return list;
