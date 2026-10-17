@@ -242,6 +242,22 @@ object SettingsFile {
         return configDirectory!!.findFile("$fileName.ini")!!
     }
 
+    /** Pomegrade: how many values a game's own settings file sets (0 without a file) */
+    fun countCustomGameSettings(gameId: String): Int = try {
+        getCustomGameSettingsFile(gameId)?.let { file ->
+            CitraApplication.appContext.contentResolver.openInputStream(file.uri)?.bufferedReader()?.useLines { lines ->
+                lines.map { it.trim() }.count { '=' in it && !it.startsWith("#") && !it.startsWith(";") && !it.startsWith("[") }
+            }
+        } ?: 0
+    } catch (e: Exception) {
+        Log.error("[SettingsFile] Game settings not read: $gameId.ini: ${e.message}")
+        0
+    }
+
+    /** Pomegrade: deletes a game's own settings, so it uses the general ones. True if none remain. */
+    fun deleteCustomGameSettings(gameId: String): Boolean =
+        getCustomGameSettingsFile(gameId)?.delete() ?: true
+
     private fun getCustomGameSettingsFile(gameId: String): DocumentFile? {
         val root = DocumentFile.fromTreeUri(CitraApplication.appContext, Uri.parse(userDirectory))?.let { DirectoryInitialization.punicaCore(it) }
         val configDirectory = root?.findFile("GameSettings")

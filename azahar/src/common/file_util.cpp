@@ -1098,6 +1098,17 @@ void ResetUserPaths() {
     g_default_paths.clear();
 }
 
+std::string GetPunicaCoreDir() {
+    const std::string& user_path = GetUserPath(UserPath::UserDir);
+#if defined(ANDROID) && !defined(HAVE_LIBRETRO_VFS)
+    // the same test as SetUserPath's Punica block
+    if (IsDirectory(user_path + "Core") && IsDirectory(user_path + "System")) {
+        return user_path + "Core" DIR_SEP;
+    }
+#endif
+    return user_path;
+}
+
 const std::string& GetDefaultUserPath(UserPath path) {
     // Set up all paths and files on the first run
     if (g_default_paths.empty())

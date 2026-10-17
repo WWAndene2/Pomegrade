@@ -38,6 +38,7 @@ import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.documentfile.provider.DocumentFile
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.drawerlayout.widget.DrawerLayout.DrawerListener
 import androidx.fragment.app.Fragment
@@ -694,13 +695,17 @@ class EmulationFragment :
     // Pomegrade: the save state dialog shared with the DS screen, with a preview of each slot
     private fun showSaveStatesDialog(isSaving: Boolean) {
         val savedAt = NativeLibrary.getSavestateInfo()?.associate { it.slot to it.time } ?: emptyMap()
+        val previews = runCatching {
+            statesDirectory(create = false)?.listFiles()?.associate { it.name to it.uri }
+        }.getOrNull() ?: emptyMap()
         val slots = (0 until NativeLibrary.SAVESTATE_SLOT_COUNT).map { slot ->
-            val preview = statePreview(slot)
+            val name = statePreviewName(slot)
             SaveStateSlotUi(
                 slot = slot,
                 isQuickSlot = slot == NativeLibrary.QUICKSAVE_SLOT,
                 savedAt = savedAt[slot],
-                screenshot = preview?.takeIf { savedAt[slot] != null && it.isFile }?.let { Uri.fromFile(it) }
+                screenshot = name?.takeIf { savedAt[slot] != null }?.let { previews[it] }
+                    ?: legacyStatePreview(slot)?.takeIf { savedAt[slot] != null && it.isFile }?.let { Uri.fromFile(it) }
             )
         }
 
@@ -728,22 +733,49 @@ class EmulationFragment :
 
     /**
      * Pomegrade: the 3DS core keeps no image of its save states. The screen is copied when one is saved, as
-     * <title ID>.<slot>.png (the state's own name, states/<title ID>.<slot>.cst), in the app's files: the
-     * user folder may be a storage provider's, not a path. Lost when the app is uninstalled, the states not.
+     * <title ID>.<slot>.png beside the state itself (<title ID>.<slot>.cst) in the user folder's states folder,
+     * FileUtil's StatesDir: States in the Punica folder's layout (told by its Core and System folders, as
+     * DirectoryInitialization.punicaCore and FileUtil::SetUserPath), else states. Through the storage access
+     * framework: the user folder may be a storage provider's, not a path.
      */
-    private fun statePreview(slot: Int): File? {
+    private fun statePreviewName(slot: Int): String? {
         val titleId = NativeLibrary.getRunningTitleId().takeIf { it != 0L } ?: return null
-        return File(File(requireContext().filesDir, "state_previews"), "%016X.%02d.png".format(titleId, slot))
+        return "%016X.%02d.png".format(titleId, slot)
+    }
+
+    private fun statesDirectory(create: Boolean): DocumentFile? {
+        val userPath = DirectoryInitialization.userPath ?: return null
+        val root = DocumentFile.fromTreeUri(CitraApplication.appContext, Uri.parse(userPath)) ?: return null
+        val name = if (DirectoryInitialization.punicaCore(root) !== root) "States" else "states"
+        return root.findFile(name)?.takeIf { it.isDirectory } ?: if (create) root.createDirectory(name) else null
+    }
+
+    /** Pomegrade: where previews were kept before (the app's files), still shown until the slot is saved again */
+    private fun legacyStatePreview(slot: Int): File? {
+        val name = statePreviewName(slot) ?: return null
+        return File(File(CitraApplication.appContext.filesDir, "state_previews"), name)
     }
 
     private fun saveStatePreview(slot: Int) {
-        val file = statePreview(slot) ?: return
-        file.delete()
+        val name = statePreviewName(slot) ?: return
+        val legacy = legacyStatePreview(slot)
         SurfaceCapture.capture(binding.surfaceEmulation) { shot ->
-            shot ?: return@capture
             Thread {
-                file.parentFile?.mkdirs()
-                runCatching { file.outputStream().use { shot.compress(Bitmap.CompressFormat.PNG, 100, it) } }
+                runCatching {
+                    legacy?.delete()
+                    val directory = statesDirectory(create = shot != null) ?: return@runCatching
+                    val existing = directory.findFile(name)
+                    if (shot == null) {
+                        // no stale image beside the new state
+                        existing?.delete()
+                        return@runCatching
+                    }
+                    val file = existing ?: directory.createFile("application/octet-stream", name)
+                        ?: return@runCatching
+                    CitraApplication.appContext.contentResolver.openOutputStream(file.uri, "wt")?.use {
+                        shot.compress(Bitmap.CompressFormat.PNG, 100, it)
+                    }
+                }
             }.start()
         }
     }

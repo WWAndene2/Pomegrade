@@ -152,6 +152,26 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
     private fun addConfigSettings(sl: ArrayList<SettingsItem>) {
         settingsActivity.setToolbarTitle(settingsActivity.getString(R.string.preferences_settings))
         sl.apply {
+            // Pomegrade: a game's own settings override the general ones; said here, and undone
+            if (!TextUtils.isEmpty(gameId)) {
+                add(
+                    RunnableSetting(
+                        R.string.pomegrade_game_settings_use_general,
+                        R.string.pomegrade_game_settings_use_general_description,
+                        false,
+                        R.drawable.ic_restore,
+                        { settingsActivity.onGameSettingsCleared(gameId) },
+                        {
+                            val count = SettingsFile.countCustomGameSettings(gameId)
+                            if (count == 0) {
+                                settingsActivity.getString(R.string.pomegrade_game_settings_none)
+                            } else {
+                                settingsActivity.getString(R.string.pomegrade_game_settings_own, count)
+                            }
+                        }
+                    )
+                )
+            }
             add(
                 SubmenuSetting(
                     R.string.preferences_general,

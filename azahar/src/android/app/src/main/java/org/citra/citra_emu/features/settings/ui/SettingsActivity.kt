@@ -202,6 +202,27 @@ class SettingsActivity :
         presenter.onSettingChanged()
     }
 
+    /**
+     * Pomegrade: "Use general settings" in a game's settings: its own file deleted, nothing saved over it on
+     * leaving (the values in memory are the game's), the core's settings reloaded, the screen closed.
+     */
+    fun onGameSettingsCleared(gameId: String) {
+        presenter.onSettingsReset()
+        if (!SettingsFile.deleteCustomGameSettings(gameId)) {
+            showToastMessage(getString(R.string.pomegrade_game_settings_not_cleared), true)
+            return
+        }
+        BooleanSetting.clear()
+        FloatSetting.clear()
+        ScaledFloatSetting.clear()
+        IntSetting.clear()
+        StringSetting.clear()
+        settings.isLoaded = false
+        NativeLibrary.reloadSettings()
+        showToastMessage(getString(R.string.pomegrade_game_settings_cleared), true)
+        finish()
+    }
+
     fun onSettingsReset() {
         // Prevents saving to a non-existent settings file
         presenter.onSettingsReset()

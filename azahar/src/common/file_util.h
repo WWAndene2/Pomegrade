@@ -219,6 +219,10 @@ void SetUserPath(const std::string& path = "");
 // Core and System folders and fell back to the flat one (the first start after the app's data was cleared)
 void ResetUserPaths();
 
+// Pomegrade: the emulator's own folder (play time, GameSettings): Core/ in the Punica folder's layout (told by its
+// Core and System folders, as SetUserPath does), else the user folder itself. Ends with a separator.
+std::string GetPunicaCoreDir();
+
 void SetCurrentRomPath(const std::string& path);
 
 // Returns a pointer to a string with a Citra data dir in the user's home

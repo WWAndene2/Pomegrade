@@ -22,6 +22,10 @@ void LibRetroStart(retro_log_printf_t callback);
 
 void Start();
 
+/// Pomegrade: reopens the log file at the current LogDir (the user folder changed). False if logging
+/// is not initialised yet (Initialize then opens it there).
+bool ReopenLogFile(std::string_view log_file = "");
+
 /// Explictily stops the logger thread and flushes the buffers
 void Stop();
 

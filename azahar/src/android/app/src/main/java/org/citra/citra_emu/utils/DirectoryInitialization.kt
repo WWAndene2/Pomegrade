@@ -43,10 +43,46 @@ object DirectoryInitialization {
 
     val context: Context get() = CitraApplication.appContext
 
+    /** Pomegrade: a user folder change that came while a game ran, applied by the next [start] */
+    @Volatile
+    private var userFolderChangePending = false
+
+    /**
+     * Pomegrade: the user folder changed under the core (the Punica app moved it to its layout, renamed it or
+     * picked another one): its paths, the SAF tree, the log, the settings and the play times follow the current
+     * folder. Callable from any thread, before the core started (nothing to do then: [start] reads the current
+     * folder). While a game runs, nothing is pulled from under it (its saves, states and log stay where they
+     * are): the change is kept and applied by the next [start], which every game launch calls.
+     */
     @JvmStatic
+    @Synchronized
+    fun onUserFolderChanged() {
+        if (!CitraApplication.isStarted) {
+            return
+        }
+        if (NativeLibrary.isRunning()) {
+            userFolderChangePending = true
+            return
+        }
+        userFolderChangePending = false
+        directoryState = null
+        if (start() == DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED) {
+            NativeLibrary.playTimeManagerReload()
+        }
+    }
+
+    @JvmStatic
+    @Synchronized
     fun start(): DirectoryInitializationState? {
         if (!isCitraDirectoryInitializationRunning.compareAndSet(false, true)) {
             return null
+        }
+        // Pomegrade: a user folder change kept while a game ran (onUserFolderChanged)
+        var reloadPlayTimes = false
+        if (userFolderChangePending && !NativeLibrary.isRunning()) {
+            userFolderChangePending = false
+            directoryState = null
+            reloadPlayTimes = true
         }
 
         if (directoryState != DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED) {
@@ -54,6 +90,7 @@ object DirectoryInitialization {
                 if (setCitraUserDirectory()) {
                     CitraApplication.documentsTree.setRoot(Uri.parse(userPath))
                     NativeLibrary.resetUserPaths()
+                    // Pomegrade: reopens the log at the current LogDir when logging already runs
                     NativeLibrary.createLogFile()
                     NativeLibrary.logUserDirectory(userPath.toString())
                     NativeLibrary.createConfigFile()
@@ -67,6 +104,9 @@ object DirectoryInitialization {
             }
         }
         isCitraDirectoryInitializationRunning.set(false)
+        if (reloadPlayTimes && directoryState == DirectoryInitializationState.CITRA_DIRECTORIES_INITIALIZED) {
+            NativeLibrary.playTimeManagerReload()
+        }
         return directoryState
     }
 
