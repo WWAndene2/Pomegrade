@@ -93,6 +93,16 @@ int OrasWorkspace::AddPlaceName(const std::string& name)
     return line;
 }
 
+void OrasWorkspace::ListCharacters(int pack, const std::vector<int>& models)
+{
+    // a game pack's own list, for a game zone given characters (edit Z): the missing models appended, its entries kept, so
+    // its zones show what they showed
+    Garc& perArea = Edited("a/1/3/7");
+    const Bytes was = perArea.Sub((size_t)pack);
+    const Bytes list = CharacterList(Plain(was), models);
+    if (list.size() != Plain(was).size()) perArea.Set((size_t)pack, IsLzCompressed(was) ? Lz11Compress(list) : list);
+}
+
 Bytes OrasWorkspace::CharacterList(int like, const std::vector<int>& models)
 {
     // a new pack's list holds only the models its zones show (pack `like`'s whole list when none is given), so the 31 a list
