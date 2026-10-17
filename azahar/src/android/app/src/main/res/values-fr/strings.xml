@@ -1168,4 +1168,11 @@
         <item>Rose</item>
         <item>Gris</item>
     </string-array>
+    <!-- Pomegrade: a game's own settings (Core/GameSettings/<title ID>.ini) -->
+    <string name="pomegrade_game_settings_use_general">Utiliser les paramètres généraux</string>
+    <string name="pomegrade_game_settings_use_general_description">Supprime les paramètres propres à ce jeu</string>
+    <string name="pomegrade_game_settings_own">Ce jeu a ses propres paramètres : %1$d valeurs</string>
+    <string name="pomegrade_game_settings_none">Ce jeu utilise les paramètres généraux</string>
+    <string name="pomegrade_game_settings_cleared">Ce jeu utilise maintenant les paramètres généraux</string>
+    <string name="pomegrade_game_settings_not_cleared">Les paramètres de ce jeu n\'ont pas pu être supprimés</string>
 </resources>

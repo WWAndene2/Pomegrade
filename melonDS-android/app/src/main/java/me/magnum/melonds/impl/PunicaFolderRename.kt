@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.preference.PreferenceManager
+import org.json.JSONArray
 import java.io.File
 
 /**
@@ -15,8 +16,11 @@ import java.io.File
  * - the app's preferences (the folder, the ROM folders, the DS and DSi BIOS folders, the 3DS core's folder,
  *   the trace folders; the cores' preferences are in the same file);
  * - the game list (rom_data.json: each game's URI);
- * - the cores' settings in the folder (Switch/config, GC-Wii/Config, 3DS/config) and the saved settings
- *   (Settings), which name paths or URIs in it.
+ * - the cores' settings in the folder (Switch/config, GC-Wii/Config, 3DS/config, and their places in the
+ *   layout of PunicaLayout: <console>/Core/...) and the saved settings (Settings), which name paths or URIs in it;
+ * - the DS state screenshots, kept under each game's URI (SaveStateScreenshotProvider).
+ * Never while the folder's files are moved into the layout (PunicaLayout.FOLDER_LOCK); the cores recompute
+ * their paths afterwards.
  * Both forms are rewritten: the path (/storage/emulated/0/Pomegrade) and the storage provider's document
  * ID as it appears in URIs (primary%3APomegrade). The app restarts afterwards, so nothing keeps an old one.
  * Until [complete], the step done is kept ([isPending]): an interrupted rename resumes, or is undone
@@ -51,7 +55,7 @@ object PunicaFolderRename {
     fun newFolderUri(context: Context): Uri? = pendingIds(context)?.let { (_, new) -> DocumentsContract.buildDocumentUri(STORAGE_PROVIDER, new) }
 
     /** Renames the folder on the phone; the new one is then confirmed with [complete]. Background thread. */
-    fun rename(context: Context): RenameResult {
+    fun rename(context: Context): RenameResult = synchronized(PunicaLayout.FOLDER_LOCK) {
         val oldId = currentId(context) ?: return RenameResult.Failed
         val newId = oldId.dropLast(OLD_NAME.length) + NEW_NAME
         val from = PomegradeFolder.pathOf(oldId)
@@ -70,7 +74,7 @@ object PunicaFolderRename {
     }
 
     /** Puts the folder's old name back (the user didn't confirm the new folder). Background thread. */
-    fun revert(context: Context): Boolean {
+    fun revert(context: Context): Boolean = synchronized(PunicaLayout.FOLDER_LOCK) {
         val (oldId, newId) = pendingIds(context) ?: return false
         val from = PomegradeFolder.pathOf(newId)
         val to = PomegradeFolder.pathOf(oldId)
@@ -83,7 +87,7 @@ object PunicaFolderRename {
      * Makes [picked] (the tree the user confirmed in the picker) the folder and rewrites the old location
      * everywhere. Returns false when [picked] isn't the renamed folder. Background thread.
      */
-    fun complete(context: Context, picked: Uri): Boolean {
+    fun complete(context: Context, picked: Uri): Boolean = synchronized(PunicaLayout.FOLDER_LOCK) {
         val (oldId, newId) = pendingIds(context) ?: return false
         val pickedId = runCatching { DocumentsContract.getTreeDocumentId(picked) }.getOrNull()
         if (picked.authority != STORAGE_PROVIDER || pickedId != newId) return false
@@ -108,8 +112,20 @@ object PunicaFolderRename {
         editor.remove(PENDING)
 
         val folder = PomegradeFolder.pathOf(newId)
-        val files = listOf(File(context.filesDir, "rom_data.json")) +
-            listOf("Switch/config", "GC-Wii/Config", "3DS/config", PomegradeFolder.SETTINGS)
+        val romData = File(context.filesDir, "rom_data.json")
+        // each game's URI before and after, for its state screenshots
+        val renamedRoms = runCatching {
+            val games = JSONArray(romData.readText())
+            (0 until games.length()).mapNotNull { i ->
+                val uri = games.getJSONObject(i).optString("uri").takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+                rewrite(uri).takeIf { it != uri }?.let { Uri.parse(uri) to Uri.parse(it) }
+            }
+        }.getOrDefault(emptyList())
+        val files = listOf(romData) +
+            listOf(
+                "Switch/config", "GC-Wii/Config", "3DS/config",
+                "Switch/Core/config", "GC-Wii/Core/Config", "3DS/Core/config", PomegradeFolder.SETTINGS,
+            )
                 .flatMap { dir -> File(folder, dir).walkTopDown().filter { it.isFile && (it.extension == "ini" || it.extension == "json") }.toList() }
         files.filter { it.isFile }.forEach { file ->
             val text = file.readText()
@@ -117,6 +133,9 @@ object PunicaFolderRename {
             if (rewritten != text) file.writeText(rewritten)
         }
         editor.commit()
+        // after the commit: the screenshots' folder is then found in the renamed folder
+        renamedRoms.forEach { (old, new) -> SaveStateScreenshotProvider.relocateRomScreenshots(context, old, new) }
+        PomegradeFolder.onUserFolderChanged(context)
 
         // the old folder's access, no longer of any use
         oldFolder?.let { runCatching { context.contentResolver.releasePersistableUriPermission(it, flags) } }

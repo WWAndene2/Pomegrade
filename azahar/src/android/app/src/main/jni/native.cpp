@@ -1021,6 +1021,12 @@ void Java_org_citra_citra_1emu_NativeLibrary_resetUserPaths([[maybe_unused]] JNI
 
 void Java_org_citra_citra_1emu_NativeLibrary_createLogFile([[maybe_unused]] JNIEnv* env,
                                                            [[maybe_unused]] jobject obj) {
+    // Pomegrade: called again when the user folder changed (DirectoryInitialization.onUserFolderChanged):
+    // the log reopened at the new LogDir, which Initialize alone would not do once logging runs
+    if (Common::Log::ReopenLogFile()) {
+        LOG_INFO(Frontend, "Log file reopened in the user folder");
+        return;
+    }
     Common::Log::Initialize();
     Common::Log::Start();
     LOG_INFO(Frontend, "Logging backend initialised");
@@ -1295,6 +1301,14 @@ void Java_org_citra_citra_1emu_NativeLibrary_disableTemporaryFrameLimit(JNIEnv* 
 
 void Java_org_citra_citra_1emu_NativeLibrary_playTimeManagerInit(JNIEnv* env, jobject obj) {
     play_time_manager = std::make_unique<PlayTime::PlayTimeManager>();
+}
+
+// Pomegrade: the play times of the user folder now in use (DirectoryInitialization.onUserFolderChanged)
+void Java_org_citra_citra_1emu_NativeLibrary_playTimeManagerReload([[maybe_unused]] JNIEnv* env,
+                                                                   [[maybe_unused]] jobject obj) {
+    if (play_time_manager) {
+        play_time_manager->Reload();
+    }
 }
 
 void Java_org_citra_citra_1emu_NativeLibrary_playTimeManagerStart(JNIEnv* env, jobject obj,

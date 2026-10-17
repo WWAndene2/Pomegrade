@@ -14,6 +14,9 @@ import java.util.zip.ZipInputStream
  * sdmc/Nintendo 3DS/…/title/…/data/…                        a save that goes with it      -> 3DS/System/sdmc/…
  * ```
  *
+ * A 3DS folder not in that layout yet (no Core and System folders, the test FileUtil::SetUserPath makes in
+ * azahar/src/common/file_util.cpp) gets them as Azahar reads them there: 3DS/load/… and 3DS/sdmc/….
+ *
  * A zip holding those two folders inside one top folder (a zip of the folder rather than of its
  * content) is read the same way. Each game's previous mod (Mods/mods/<program id>) is deleted
  * first: a file of an older mod left in place would still be loaded. Files of a save replace the
@@ -62,8 +65,9 @@ class ModInstaller {
         if (!contents.isMod) return Result.NotAMod
         return try {
             val root = threeDsFolder.canonicalFile
+            val layout = File(root, PunicaLayout.CORE).isDirectory && File(root, PunicaLayout.SYSTEM).isDirectory
             for (id in contents.programIds) {
-                val previous = File(root, placed("$LOAD/mods/$id"))
+                val previous = File(root, placed("$LOAD/mods/$id", layout))
                 if (previous.exists() && !previous.deleteRecursively()) return Result.Failed
             }
             var files = 0
@@ -73,7 +77,7 @@ class ModInstaller {
                     val entry = zip.nextEntry ?: break
                     if (entry.isDirectory) continue
                     val path = relativePath(entry.name, prefix) ?: continue
-                    val target = File(root, placed(path)).canonicalFile
+                    val target = File(root, placed(path, layout)).canonicalFile
                     // a name with ".." or a link out of the folder ("zip slip") is never written
                     if (!target.path.startsWith(root.path + File.separator)) continue
                     target.parentFile?.let { if (!it.isDirectory && !it.mkdirs()) throw IOException("can't create $it") }
@@ -127,8 +131,10 @@ class ModInstaller {
         }
     }
 
-    // a zip path (load/…, sdmc/…) to its place in the 3DS folder: Azahar's load folder is Mods, its SD card System/sdmc
-    private fun placed(path: String): String = when {
+    // a zip path (load/…, sdmc/…) to its place in the 3DS folder: in the layout ([layout]) Azahar's load folder is
+    // Mods, its SD card System/sdmc; otherwise both are where the zip has them
+    private fun placed(path: String, layout: Boolean): String = when {
+        !layout -> path
         path.startsWith("$LOAD/") -> "${PunicaLayout.MODS}/" + path.removePrefix("$LOAD/")
         path.startsWith("$SDMC/") -> "${PunicaLayout.SYSTEM}/" + path
         else -> path

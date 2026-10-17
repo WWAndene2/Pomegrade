@@ -26,6 +26,10 @@ public:
 
     u64 GetPlayTime(u64 program_id) const;
     void ResetProgramPlayTime(u64 program_id);
+
+    // Pomegrade: read again from the current user folder (it changed), what is in memory dropped
+    // (saved every 30 seconds while a game runs); never while one runs
+    void Reload();
     void SetProgramId(u64 program_id);
     void Start();
     void Stop();

@@ -92,6 +92,10 @@ class CitraApplication private constructor(private val app: Application) {
             }
         }
 
+        /** Pomegrade: whether the 3DS core's side of the app was started (start) */
+        val isStarted: Boolean
+            @Synchronized get() = started
+
         @Synchronized
         fun start() {
             if (!started) {

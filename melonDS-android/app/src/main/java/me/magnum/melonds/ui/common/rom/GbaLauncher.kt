@@ -28,12 +28,20 @@ object GbaLauncher : ConsoleLauncher {
         val path = PomegradeFolder.pathOf(documentId)
         if (!path.isFile) return null
         val preferences = PreferenceManager.getDefaultSharedPreferences(context)
+        // GBA/Saves and GBA/States once the folder is in the layout of PunicaLayout; until it is moved, GBA/ itself,
+        // where the earlier layout kept the saves and states (the migration sorts them from there)
+        val (saveDir, statesDir) = if (PomegradeFolder.layoutRoot(context) != null) {
+            PomegradeFolder.consoleFolder(context, PunicaLayout.GBA, PunicaLayout.SAVES) to PomegradeFolder.consoleFolder(context, PunicaLayout.GBA, PunicaLayout.STATES)
+        } else {
+            PomegradeFolder.subFolder(context, PunicaLayout.GBA) to null
+        }
+        listOfNotNull(saveDir, statesDir).forEach { it.mkdirs() }
         val bios = if (!preferences.getBoolean("gba_console_bios", true)) null else PomegradeFolder.consoleFolder(context, PunicaLayout.GBA, PunicaLayout.SYSTEM)?.let { File(it, PomegradeFolder.GBA_BIOS_FILE) }?.takeIf { it.isFile }
         return GbaEmulatorActivity.intent(
             context, path.absolutePath, rom.config.customName ?: rom.name, bios?.absolutePath,
             smoothScreen = preferences.getBoolean("gba_screen_smoothing", false),
-            saveDir = PomegradeFolder.consoleFolder(context, PunicaLayout.GBA, PunicaLayout.SAVES)?.absolutePath,
-            statesDir = PomegradeFolder.consoleFolder(context, PunicaLayout.GBA, PunicaLayout.STATES)?.absolutePath,
+            saveDir = saveDir?.absolutePath,
+            statesDir = statesDir?.absolutePath,
         )
     }
 }

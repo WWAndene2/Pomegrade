@@ -261,6 +261,9 @@ object NativeLibrary {
     external fun disableTemporaryFrameLimit()
 
     external fun playTimeManagerInit()
+
+    /** Pomegrade: play times read again from the current user folder (DirectoryInitialization.onUserFolderChanged) */
+    external fun playTimeManagerReload()
     external fun playTimeManagerStart(titleId: Long)
     external fun playTimeManagerStop()
     external fun playTimeManagerGetPlayTime(titleId: Long): Long

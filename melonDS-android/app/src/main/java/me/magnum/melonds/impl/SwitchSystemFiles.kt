@@ -17,7 +17,8 @@ import java.io.File
  * └── Firmware/ (its .nca)    copied into Eden's NAND, as Eden's "Install firmware" does with a zip's NCAs
  * ```
  *
- * Copied only when they changed, so it is cheap on every launch. Eden's own setup screen still works too;
+ * Copied only when the installed ones differ (the keys' bytes, the NCAs' names and sizes in the NAND Eden uses now),
+ * so it is cheap on every launch. Eden's own setup screen still works too;
  * a file found here replaces the one installed there. Needs Eden started (YuzuApplication.start); runs on a
  * background thread: a firmware is ~300 MB.
  */
@@ -25,9 +26,10 @@ object SwitchSystemFiles {
 
     private const val FIRMWARE = "Firmware"
     private val KEY_FILES = listOf("prod.keys", "title.keys")
-    // the firmware last copied (its NCAs' names and sizes), kept in the app's preferences. It was a file in
-    // Eden's user folder, which is now Punica/Switch, where it had no place: removed when found
-    private const val FIRMWARE_SIGNATURE = "switch_firmware_signature"
+    // the firmware last copied, as it was told before: its NCAs' names and sizes in the app's preferences, and
+    // earlier a file in Eden's user folder. Neither named the NAND that received them, so a new NAND (another
+    // Punica folder) got no firmware: the NAND itself is now checked, these are removed when found
+    private const val OLD_FIRMWARE_SIGNATURE = "switch_firmware_signature"
     private const val OLD_FIRMWARE_MARKER = "pomegrade_firmware.txt"
 
     fun import(context: Context) {
@@ -50,24 +52,23 @@ object SwitchSystemFiles {
         }
     }
 
-    /** Copies the firmware's NCAs when they differ from the last ones copied, told by their names and sizes. */
+    /** Copies the firmware's NCAs into Eden's current NAND when it does not hold them all (same names and sizes). */
     private fun importFirmware(context: Context, source: File, userDirectory: File): Boolean {
+        File(userDirectory, OLD_FIRMWARE_MARKER).delete()
         val preferences = PreferenceManager.getDefaultSharedPreferences(context)
-        val oldMarker = File(userDirectory, OLD_FIRMWARE_MARKER)
-        if (oldMarker.isFile) {
-            preferences.edit().putString(FIRMWARE_SIGNATURE, oldMarker.readText()).apply()
-            oldMarker.delete()
-        }
+        if (preferences.contains(OLD_FIRMWARE_SIGNATURE)) preferences.edit().remove(OLD_FIRMWARE_SIGNATURE).apply()
         val ncas = source.listFiles { file -> file.isFile && file.name.endsWith(".nca") }?.sortedBy { it.name }.orEmpty()
         if (ncas.isEmpty()) return false
-        val signature = ncas.joinToString("\n") { "${it.name} ${it.length()}" }
-        if (preferences.getString(FIRMWARE_SIGNATURE, null) == signature) return false
-
         val registered = File(NativeConfig.getNandDir(), "system/Contents/registered")
+        if (holdsFirmware(registered, ncas)) return false
+
         registered.deleteRecursively()
         registered.mkdirs()
         ncas.forEach { it.copyTo(File(registered, it.name), overwrite = true) }
-        preferences.edit().putString(FIRMWARE_SIGNATURE, signature).apply()
         return true
     }
+
+    /** Whether [registered] (a NAND's system/Contents/registered) holds each of [ncas], told by name and size. */
+    internal fun holdsFirmware(registered: File, ncas: List<File>): Boolean =
+        ncas.all { nca -> File(registered, nca.name).let { it.isFile && it.length() == nca.length() } }
 }

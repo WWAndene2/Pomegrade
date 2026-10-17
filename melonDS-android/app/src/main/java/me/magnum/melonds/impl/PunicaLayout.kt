@@ -37,7 +37,8 @@ import java.util.Locale
  *
  * [migrate] moves an earlier layout (Roms/, BIOS/, Textures/, the cores' folders as they were) into this one.
  * Moves are renames on one storage; a name already taken at the target is never overwritten (the file goes to
- * Backups/Conflicts/). Plain java.io, background thread.
+ * Backups/Conflicts/, except a game: it stays in Roms, which the game list keeps scanning while it is there, and
+ * [moveLeftGames] tries again). Plain java.io, background thread.
  */
 object PunicaLayout {
 
@@ -66,6 +67,14 @@ object PunicaLayout {
     const val FIRMWARE = "Firmware"
     /** Dolphin's GameCube memory cards, in GC-Wii/Saves. */
     const val GAMECUBE = "GameCube"
+    /** Dolphin's GameCube folder (the boot ROMs, GC/<region>/IPL.bin), in GC-Wii/System. */
+    const val GC = "GC"
+
+    /**
+     * Held while the folder's files move ([migrate] through PomegradeFolder.applyLayout) or the folder itself is
+     * renamed (PunicaFolderRename): one never runs while the other is halfway.
+     */
+    val FOLDER_LOCK = Any()
 
     // a firmware has a few hundred NCAs, an unpacked game a handful (SystemFilesCheck's threshold too)
     private const val FIRMWARE_MIN_NCAS = 50
@@ -126,10 +135,16 @@ object PunicaLayout {
     /**
      * Moves [root]'s earlier layout into this one, then creates every console's six folders. [savesNotes] gives,
      * for the consoles whose saves cannot be apart (3DS, GC-Wii), the text of the note put in their Saves (file
-     * name to text). Safe to run again: what is already in place is left.
+     * name to text). [onGame] is told of each game file as soon as it has moved (old place, new place), so the game
+     * list follows the games already moved even if the migration stops partway. Safe to run again: what is already
+     * in place is left. The layout is marked as done even when some games were left in Roms ([Report.left]).
      */
-    fun migrate(root: File, savesNotes: Map<String, Pair<String, String>> = emptyMap()): Report {
-        val run = Run(root)
+    fun migrate(
+        root: File,
+        savesNotes: Map<String, Pair<String, String>> = emptyMap(),
+        onGame: (File, File) -> Unit = { _, _ -> },
+    ): Report {
+        val run = Run(root, onGame)
         run.backupSaves()
         // BIOS first: a firmware already in BIOS/Switch/Firmware is then found by the scattered NCAs' check
         run.bios()
@@ -144,7 +159,21 @@ object PunicaLayout {
         return Report(run.games, run.moved, run.left)
     }
 
-    private class Run(val root: File) {
+    /**
+     * The games a migration left in Roms (a name already taken in their console's Games), tried again; Roms is
+     * removed once nothing is left in it. Called at each game list opening while Roms is there.
+     */
+    fun moveLeftGames(root: File, onGame: (File, File) -> Unit = { _, _ -> }): Report {
+        val run = Run(root, onGame)
+        if (File(root, "Roms").isDirectory) {
+            run.backupRomsSaves()
+            run.firmwareFromRoms()
+            run.games()
+        }
+        return Report(run.games, run.moved, run.left)
+    }
+
+    private class Run(val root: File, val onGame: (File, File) -> Unit) {
         val games = LinkedHashMap<File, File>()
         var moved = 0
         val left = mutableListOf<String>()
@@ -154,6 +183,14 @@ object PunicaLayout {
         val unsorted = File(File(root, BACKUPS), "Unsorted-$stamp")
         val saveFile = Regex(".*\\.sav$", RegexOption.IGNORE_CASE)
         val stateFile = Regex(".*\\.(ml\\d+|ss\\d+|ss\\d+\\.png)$", RegexOption.IGNORE_CASE)
+        // a save's or state's game name: Emerald for Emerald.sav, Emerald.ss1, Emerald.ss1.png
+        val saveOrStateGame = Regex("(.*)\\.(sav|ml\\d+|ss\\d+(\\.png)?)$", RegexOption.IGNORE_CASE)
+        val backup = File(File(root, BACKUPS), "Saves-$stamp")
+
+        fun mapGame(old: File, new: File) {
+            games[old] = new
+            onGame(old, new)
+        }
 
         fun to(console: String, part: String, vararg names: String): File =
             names.fold(part(root, console, part)) { dir, name -> File(dir, name) }
@@ -221,15 +258,24 @@ object PunicaLayout {
          */
         fun backupSaves() {
             if (isMigrated(root)) return
-            val backup = File(File(root, BACKUPS), "Saves-$stamp")
-            val backedUp = Regex(".*\\.(sav|ml\\d+|ss\\d+|ss\\d+\\.png)$", RegexOption.IGNORE_CASE)
+            backupRomsSaves()
             listOf(DS, GBA).forEach { console ->
-                File(root, console).listFiles { f -> f.isFile && backedUp.matches(f.name) }?.forEach { f ->
+                File(root, console).listFiles { f -> f.isFile && saveOrStateGame.matches(f.name) }?.forEach { f ->
                     runCatching { f.copyTo(File(File(backup, console), f.name)) }.onFailure { left += "backup: ${f.path}" }
                 }
             }
             listOf(File(root, "$SWITCH/nand/user/save") to "$SWITCH/save", File(root, "$GC_WII/GC") to "$GC_WII/GC").forEach { (dir, name) ->
                 if (dir.isDirectory) runCatching { dir.copyRecursively(File(backup, name)) }.onFailure { left += "backup: ${dir.path}" }
+            }
+        }
+
+        /** The saves and states kept in Roms, loose or in a game's folder, copied into Backups/Saves-<date>/Roms/. */
+        fun backupRomsSaves() {
+            val roms = File(root, "Roms")
+            (listOf(roms) + roms.listFiles { f -> f.isDirectory }.orEmpty()).forEach { dir ->
+                dir.listFiles { f -> f.isFile && saveOrStateGame.matches(f.name) }?.forEach { f ->
+                    runCatching { f.copyTo(File(File(backup, "Roms"), f.relativeTo(roms).path)) }.onFailure { left += "backup: ${f.path}" }
+                }
             }
         }
 
@@ -264,9 +310,11 @@ object PunicaLayout {
         /** Roms/ into each console's Games: one game file each; a game folder with several files kept as a folder. */
         fun games() {
             val roms = File(root, "Roms")
+            // saves and states loose in Roms beside their game (Roms/Emerald.gba, Roms/Emerald.sav)
+            sortSavesBesideGame(roms, folderOfOneGame = false)
             roms.listFiles()?.forEach { entry ->
                 if (entry.name.startsWith(".")) return@forEach
-                if (entry.isDirectory) sortSavesBesideGame(entry)
+                if (entry.isDirectory) sortSavesBesideGame(entry, folderOfOneGame = true)
                 if (entry.isFile) {
                     val console = consoleOfFile(entry.name) ?: run { move(entry, File(unsorted, entry.name)); return@forEach }
                     moveGame(entry, to(console, GAMES, entry.name))
@@ -279,8 +327,11 @@ object PunicaLayout {
                         val file = content[0]
                         val console = consoleOfFile(file.name) ?: run { move(entry, File(unsorted, entry.name)); return@forEach }
                         moveGame(file, to(console, GAMES, file.name))
-                        entry.listFiles()?.forEach { if (it.name.startsWith(".")) it.delete() }
-                        entry.delete()
+                        // a game left (moveGame) keeps its folder as it was
+                        if (!file.exists()) {
+                            entry.listFiles()?.forEach { if (it.name.startsWith(".")) it.delete() }
+                            entry.delete()
+                        }
                     }
                     else -> {
                         // the console of its first game file; its files keep their places inside it
@@ -290,7 +341,7 @@ object PunicaLayout {
                         val files = entry.walkTopDown().filter { it.isFile }.toList()
                         if (target.exists()) { left += entry.path; return@forEach }
                         move(entry, target)
-                        if (target.isDirectory) files.forEach { games[it] = File(target, it.relativeTo(entry).path) }
+                        if (target.isDirectory) files.forEach { mapGame(it, File(target, it.relativeTo(entry).path)) }
                     }
                 }
             }
@@ -298,24 +349,43 @@ object PunicaLayout {
             if (!roms.delete() && roms.exists()) left += roms.path
         }
 
-        // a save or state kept next to its game (GBA did, before 13 October): into its console's Saves or States
-        private fun sortSavesBesideGame(dir: File) {
-            val console = dir.listFiles()?.firstNotNullOfOrNull { if (it.isFile) consoleOfFile(it.name) else null } ?: return
-            dir.listFiles()?.filter { it.isFile }?.forEach { file ->
-                when {
-                    saveFile.matches(file.name) -> move(file, to(console, SAVES, file.name))
-                    stateFile.matches(file.name) -> move(file, to(console, STATES, file.name))
+        /**
+         * A save or state kept next to its game (GBA did, before 13 October): into its console's Saves or States. Its
+         * console is that of the game of the same name beside it; in a game's own folder ([folderOfOneGame]), that of
+         * the folder's first game otherwise. One with no game beside it stays (Roms' loose ones then go to Unsorted).
+         */
+        private fun sortSavesBesideGame(dir: File, folderOfOneGame: Boolean) {
+            val files = dir.listFiles()?.filter { it.isFile }.orEmpty()
+            val consoleOfGame = files.mapNotNull { f -> consoleOfFile(f.name)?.let { f.nameWithoutExtension to it } }.toMap()
+            val folderConsole = if (folderOfOneGame) files.firstNotNullOfOrNull { consoleOfFile(it.name) } else null
+            files.forEach { file ->
+                val part = when {
+                    saveFile.matches(file.name) -> SAVES
+                    stateFile.matches(file.name) -> STATES
+                    else -> return@forEach
                 }
+                val game = saveOrStateGame.matchEntire(file.name)?.groupValues?.get(1)
+                val console = consoleOfGame[game] ?: folderConsole ?: return@forEach
+                move(file, to(console, part, file.name))
             }
         }
 
+        /**
+         * A game into [target]. A name already taken there by another file: the game stays where it is, in Roms, and
+         * is reported in [left] (in Conflicts the game list would no longer find it; Roms stays scanned while it is
+         * there). Its entry follows it ([mapGame]) only once it is really at [target].
+         */
         private fun moveGame(file: File, target: File) {
+            if (target.exists() && !(target.isFile && file.isFile && sameContent(file, target))) {
+                left += file.path
+                return
+            }
             val before = moved
             move(file, target)
-            if (moved > before && target.isFile) games[file] = target
+            if (moved > before && target.isFile && !file.exists()) mapGame(file, target)
         }
 
-        /** BIOS/<console>/ into each console's System. */
+        /** BIOS/<console>/ into each console's System; BIOS/GC-Wii/<region>/IPL.bin into System/GC/<region>/, as Dolphin's GC folder holds it. */
         fun bios() {
             val bios = File(root, "BIOS")
             moveContent(File(bios, "DS"), to(DS, SYSTEM))
@@ -323,7 +393,8 @@ object PunicaLayout {
             moveContent(File(bios, "GBA"), to(GBA, SYSTEM))
             moveContent(File(bios, "3DS"), to(N3DS, SYSTEM))
             moveContent(File(bios, "Switch"), to(SWITCH, SYSTEM))
-            moveContent(File(bios, "GC-Wii"), to(GC_WII, SYSTEM))
+            // the earlier BIOS/GC-Wii held USA/, EUR/, JAP/ with IPL.bin (ConsoleSystemFiles before 15 October)
+            moveContent(File(bios, "GC-Wii"), to(GC_WII, SYSTEM, GC))
             if (!bios.delete() && bios.exists()) left += bios.path
         }
 
