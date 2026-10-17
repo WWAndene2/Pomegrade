@@ -579,6 +579,32 @@ capacities that bound a larger world:
   zones** (`remake_tool oras-zone-check`).
 
 
+### 4.5b Character models and shown characters past 31 / 32 (17 October)
+
+Read in the code (Ghidra, headless) and checked headless; the owner checked on the phone where said.
+- **A pack's model list (a/1/3/7)**: a model a zone shows must be in its area pack's list, else entering the zone hangs
+  (runs h5, h64). The sandbox adds the models it places (its own packs list only their zones' models; `edit Z` grows the
+  game pack's list in place: the zones of one matrix are crossed without a load and share one list, so a list cut to one
+  zone's characters hung Littleroot, run hE). Checked: models 174 and 64 beside X's gym leader (run hfix, phone test6),
+  four new models in Littleroot (run hea).
+- **31 models a list**: the field character manager caches the list after the player in 33 slots of 0x18 (+0x36CC) and
+  stops past 32 (cmp #0x21 at 0x3F7300); DllField's model resource manager holds 33 slots of 0xA0 inline (+0x40).
+  `oras-engine --character-models N` (up to 127) moves both to new tails (40 .code words; 104 DllField words, caves in the
+  padding at DllField file 0xF03F0; Azahar only, a console's static.crr check would refuse the module). Checked: 40 models
+  in one zone (run hG; phone, crowd mod).
+- **32 shown characters**: DllField's field object array (one 0x2F0 object a shown character; `mov r1,#0x20` at
+  0x3F525C) shares its last object past 32 (its assert is an empty `bx lr`): the phone showed an invisible but solid
+  row, people sunk in the ground and one stretched across the screen. `--characters N` now grows it to N + 6, its heap
+  0x62 (`mov r2,#0x10000` at DllField 0x10283954) and the two model instance heaps 0x159 / 0x15A (sizes loaded at
+  0x10283970 / 0x10283994, through caves) by objects / 32. The array alone, or with heap 0x62 only, hung in the allocator's
+  out-of-memory loop (0x12BAEC, FUN_0012b9a0) while a skeleton was built (runs hK, hL, hP); all three grown, the 59-people
+  crowd of 40 models enters and draws (run hQ). Not yet checked on the phone.
+- **Method** (bisection, one headless run at a time): the same mod with one change each (models 299 vs 174; 31 vs 33
+  entries; 34 vs 40 models; 34 vs 70 objects; demo zone vs crowd), the frozen threads' pc and stack code addresses
+  (`report`) named against the Ghidra program; agents read the code without running the emulator.
+- **Still bound**: a zone's events file (0xC84 bytes, about 60 people with a short script, 4.5); the extra heaps come out
+  of the field manager's parent heap, not identified.
+
 ### 4.6 What is left of the limits, and why (7 October)
 
 - **Texture slots per model, 51** (`FUN_0048883c`, read; that it governs map pieces is inferred): Hoenn's 857 pieces use at

@@ -366,6 +366,28 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         if (*o.Characters > 32) words.push_back({0x109048, 0xE3A03020, 0xE3A03000 | *o.Characters, "the field manager's character pool"});
         log.push_back("characters: " + std::to_string(*o.Characters) + " per zone (the game's 26)" + (*o.Characters > 32 ? ", pool " + std::to_string(*o.Characters) : ""));
     }
+    // Each shown character's model is a field object (Event_SpawnCharacterModel -> Event_AllocFieldObject, 0x2F0 bytes,
+    // allocated on use from the manager's heap 0x62 at +0x10) listed in a heap array at +0x2E90, whose length
+    // Event_CharacterManager_Init passes as 32 (`mov r1, #0x20` at 0x3F525C, stored at +0x2E94). Full, the game does not
+    // stop (its check, FUN_0014ea64, is an empty function): it hands back the last object, so the characters past it share
+    // one object (read 17 October). Growing the length alone hung the game on entering the field (run hK, headless): heap
+    // 0x62 is 0x10000 bytes (`mov r2, #0x10000` at DllField 0x10283954, Field_SubsystemInit), sized for 32 objects, so it
+    // grows in proportion (taken from the manager's parent heap; that this was the hang is inferred, not yet run)
+    std::optional<uint32_t> fieldObjects, fieldObjectHeap;
+    if (o.Characters && *o.Characters + 6 > 32)
+    {
+        uint32_t objects = *o.Characters + 6, heap = 0;
+        while (!ArmImmediate(objects)) objects++;
+        heap = (0x10000 * objects / 32 + 0xFFF) & ~0xFFFu;
+        while (!ArmImmediate(heap)) heap += 0x1000;
+        fieldObjects = objects;
+        fieldObjectHeap = heap;
+        words.push_back({0x3F525C, 0xE3A01020, 0xE3A01000 | *ArmImmediate(objects), "the field objects of the character models (Event_CharacterManager_Init)"});
+        snprintf(line, sizeof line, "character model objects: %u (the game's 32), their heap 0x62 0x%X bytes (the game's 0x10000)", objects, heap);
+        log.push_back(line);
+    }
+    std::vector<CroWord> croWords;
+    if (fieldObjectHeap) croWords.push_back({0x10283954, 0xE3A02801, 0xE3A02000 | *ArmImmediate(*fieldObjectHeap), "heap 0x62 of the field objects (Field_SubsystemInit)"});
     Bytes dllField;
     if (o.CharacterModels)
     {
@@ -378,10 +400,39 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         words.push_back({0x3F54CC, 0x2EC8, 0x2F40 + 0xA0 * slots, "the model resource manager's size (Event_CharacterManager_Init)"});
         const Bytes cro = oras.Read("DllField.cro");
         const std::vector<CroWord> slotWords = ModelSlotWords(slots, DllFieldBase + CroLayout(cro).CodeEnd());
-        dllField = PatchCro(cro, DllFieldBase, slotWords);
+        croWords.insert(croWords.end(), slotWords.begin(), slotWords.end());
         snprintf(line, sizeof line, "character models: %u per area pack (the game's 31); model slots %u (manager 0x%X bytes), %zu DllField words", models, slots, 0x2F40 + 0xA0 * slots, slotWords.size());
         log.push_back(line);
     }
+    if (fieldObjects)
+    {
+        // The models' instances (skeletons, Gfx_Skeleton_Build) come from the manager's heaps 0x159 (+0x14) and 0x15A
+        // (+0x18), which Field_SubsystemInit makes with sizes read from DllField's table at 0x103369C0 / 0x103369C8 (0x100000
+        // and 0xB0000 for the field's entry; 0x100000 and 0x400000 for the other) by `ldr r2, [r1, r8, lsl #2]` at
+        // 0x10283970 and 0x10283994. 59 shown characters ran one out: thread 1 spun in the allocator's out-of-memory loop
+        // (FUN_0012b9a0, pc 0x12BAEC, called from Gfx_Skeleton_Build; run hK, headless, read 17 October). Both grow with
+        // the objects (size / 32 x objects), in a cave as the table is data: the parent heap (the caller's, Event_Character
+        // Manager_Init's param_3) must hold the extra, which is not read
+        const CroLayout layout(oras.Read("DllField.cro"));
+        uint32_t cave = DllFieldBase + layout.CodeEnd();
+        for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
+        for (const uint32_t at : {0x10283970u, 0x10283994u})
+        {
+            const char* why = at == 0x10283970 ? "heap 0x159 of the model instances (Field_SubsystemInit)" : "heap 0x15A of the model instances (Field_SubsystemInit)";
+            croWords.push_back({at, 0xE7912108, Branch(at, cave, false), std::string(why) + ": to its cave"});
+            const uint32_t routine[] = {
+                0xE7912108,                                    // ldr r2, [r1, r8, lsl #2]   the game's size
+                0xE1A022A2,                                    // lsr r2, r2, #5             / 32
+                0xE3A0C000 | *ArmImmediate(*fieldObjects),     // mov r12, #objects
+                0xE002029C,                                    // mul r2, r12, r2
+                Branch(cave + 16, at + 4, false),              // back
+            };
+            for (uint32_t k = 0; k < 5; k++) croWords.push_back({cave + 4 * k, 0, routine[k], std::string(why) + " (cave)"});
+            cave += 20;
+        }
+        log.push_back("character model instances: heaps 0x159 and 0x15A x " + std::to_string(*fieldObjects) + " / 32");
+    }
+    if (!croWords.empty()) dllField = PatchCro(oras.Read("DllField.cro"), DllFieldBase, croWords);
     for (const auto& [id, size] : o.HeapSizes)
     {
         const HeapSize* h = nullptr;
