@@ -109,6 +109,10 @@ Bytes BchUpgradeTo21(const Bytes& bch)
     for (uint32_t i = 0, list = U32(contents, 12 * 9 + 4) ? pointer(12 * 9) : 0; i < U32(contents, 12 * 9 + 4); i++)
     {
         const uint32_t anim = pointer(list + 4 * i), elements = U32(contents, anim + 16);
+        // the animation's type and flags bytes (after its name) are in the other order before 0x20: X's 52 material
+        // animations all read 1, 0 and ORAS's 87 all 0, 1 (flags 0, type 1 = material, SPICA); left as X has them, ORAS
+        // reads a looping skeletal animation and never plays the blink (runs bl_x2 against bl_o, 17 October)
+        std::swap(newContents.at(moved(anim) + 4), newContents.at(moved(anim) + 5));
         for (uint32_t j = 0; j < elements; j++)
         {
             const uint32_t el = pointer(pointer(anim + 12) + 4 * j);
