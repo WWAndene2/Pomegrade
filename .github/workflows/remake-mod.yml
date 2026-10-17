@@ -193,7 +193,8 @@ jobs:
             elif [[ "$options" =~ ^[[:space:]]*sandbox[[:space:]] ]]; then
               # "name: sandbox <description file in the repository>": new zones from a text description (oras-sandbox,
               # OrasSandbox.h); merge it with "engine --zone-rows <the rows it prints>" and a save moved into one of its zones
-              ./build-remake/remake_tool oras-sandbox dumps/oras.3ds "out/$name" "$GITHUB_WORKSPACE/$(echo ${options#*sandbox } | xargs)" | tee "mods/${name}_log.txt"
+              set -- ${options#*sandbox }  # the file, then oras-sandbox options (--character-models N)
+              ./build-remake/remake_tool oras-sandbox dumps/oras.3ds "out/$name" "$GITHUB_WORKSPACE/$1" "${@:2}" | tee "mods/${name}_log.txt"
               rm -f "out/$name/sandbox_layout.txt"
             elif [[ "$options" =~ ^[[:space:]]*engine([[:space:]]|$) ]]; then
               # "name: engine <oras-engine options>": the engine patches (exheader.bin, exefs/code.ips: ORAS_ENGINE.md 4), e.g.
