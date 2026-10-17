@@ -85,8 +85,8 @@ Bytes OrasZone::EventsFile() const
     // zeros to a multiple of 4: all that follows the initialisation script in each of the 536 zones (checked 8 October), so
     // an initialisation script of another size is padded as the game's are
     while (e.size() % 4) e.push_back(0);
-    if (e.size() >= EventsBudget)
-        throw FormatError("zone: events file of " + std::to_string(e.size()) + " bytes, the game's buffer holds less than " + std::to_string(EventsBudget));
+    if (e.size() >= EventsLimit)
+        throw FormatError("zone: events file of " + std::to_string(e.size()) + " bytes, the game's buffer holds less than " + std::to_string(EventsLimit) + (EventsLimit == EventsBudget ? " (oras-engine --large-events: 0x1910)" : ""));
     return e;
 }
 

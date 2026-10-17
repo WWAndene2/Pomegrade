@@ -26,6 +26,7 @@ struct OrasEngineOptions
     std::optional<uint32_t> ZoneRows;        // rows of the zone header table (a/0/1/3 member 536) the mod's archive holds
     std::optional<uint32_t> Characters;      // characters a zone may list and show (the game's 26; at most 32, its pool)
     std::optional<uint32_t> CharacterModels; // models an area pack's character list (a/1/3/7) may hold (the game's 31; 32-127)
+    bool LargeEvents = false;                // a zone's events file up to 0x1910 bytes (the game's 0xC84)
     std::map<uint32_t, uint32_t> HeapSizes;  // heap id -> size (bytes)
     std::map<uint32_t, uint32_t> ScriptMasks; // zone 536-1023 -> its script's native mask (with ZoneRows; 0x243 otherwise)
 };
