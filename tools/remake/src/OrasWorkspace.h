@@ -55,6 +55,12 @@ public:
     Bytes CharacterList(Bytes list, const std::vector<int>& models);
     // game pack `pack`'s list (a/1/3/7) with `models` it lacks appended in place (a game zone given characters)
     void ListCharacters(int pack, const std::vector<int>& models);
+    // whether character model `model` swims: its a/1/3/7 entry (the same in every pack listing it) has bytes 2-3 01 06 and byte
+    // 6 0. Inferred, not read in the code: the 9 models so listed (259, 273, 274, 278, 279, 345-348) are the only ones every
+    // game zone places on water tiles only (sea 0x3D1A0006 and its kin, 81 characters), and their motion pack's idle (slot 1)
+    // is a swimming loop of 30-45 frames where a walker's is 1 frame; none of their 5 motions is a standing pose (17
+    // October). A model no pack lists does not swim (CharacterList gives it model 284's entry)
+    bool Swims(int model);
 
     // Warps between the build's new zones, by Platinum map header (SINNOH_BUILD.md R4): a step that writes a header's zone
     // registers it with its warps (a tile and the header each leads to); LinkWarps, once every step is done, writes each warp

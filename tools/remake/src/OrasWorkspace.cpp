@@ -103,6 +103,19 @@ void OrasWorkspace::ListCharacters(int pack, const std::vector<int>& models)
     if (list.size() != Plain(was).size()) perArea.Set((size_t)pack, IsLzCompressed(was) ? Lz11Compress(list) : list);
 }
 
+bool OrasWorkspace::Swims(int model)
+{
+    const Garc& perArea = Original("a/1/3/7");
+    for (size_t p = 0; p < perArea.Count(); p++)
+    {
+        const Bytes list = Plain(perArea.Sub(p));
+        if (list.size() % 24) continue;
+        for (size_t at = 0; at + 24 <= list.size(); at += 24)
+            if ((list[at] | list[at + 1] << 8) == model) return list[at + 2] == 0x01 && list[at + 3] == 0x06 && list[at + 6] == 0;
+    }
+    return false;
+}
+
 Bytes OrasWorkspace::CharacterList(int like, const std::vector<int>& models)
 {
     // a new pack's list holds only the models its zones show (pack `like`'s whole list when none is given), so the 31 a list

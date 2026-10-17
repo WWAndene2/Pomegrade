@@ -485,6 +485,7 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
             zone.Characters.push_back(NewCharacter(nextId, c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[6] == 1 ? c[7] : 0));
             snprintf(line, sizeof line, "zone %d: character %d (model %d) at tile (%d, %d)", z.Number, nextId, c[0], c[1], c[2]);
             log.push_back(line);
+            if (ws.Swims(c[0])) log.push_back("warning: zone " + std::to_string(z.Number) + ": model " + std::to_string(c[0]) + " is a swimmer, drawn swimming half in the ground off water (OrasWorkspace::Swims)");
             nextId++;
         }
         {
@@ -689,7 +690,15 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         f.NameLine = nameLine[k]; f.Music = z.Music; f.SpawnX = z.SpawnX; f.SpawnZ = z.SpawnZ;
         zone.Header = NewZoneHeader(f);
         for (const auto& c : z.Characters)
+        {
             zone.Characters.push_back(NewCharacter((int)zone.Characters.size(), c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[6] == 1 ? c[7] : 0));
+            // a swimmer has no standing motion and the map's water is solid, so it always stands on land here
+            if (ws.Swims(c[0]))
+            {
+                snprintf(line, sizeof line, "warning: zone %d: model %d at tile (%d, %d) is a swimmer, drawn swimming half in the ground on land (OrasWorkspace::Swims)", z.Number, c[0], c[1], c[2]);
+                log.push_back(line);
+            }
+        }
         for (const auto& door : z.Doors) zone.Doors.push_back(NewDoorWarp(insides.at(insideAt++).Zone, 0, door[0], door[1]));
         for (const auto& t : z.Triggers)
         {
