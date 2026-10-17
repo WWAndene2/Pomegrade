@@ -105,7 +105,9 @@ void OrasWorkspace::ListCharacters(int pack, const std::vector<int>& models)
 
 Bytes OrasWorkspace::CharacterList(int like, const std::vector<int>& models)
 {
-    return CharacterList(Plain(Original("a/1/3/7").Sub((size_t)like)), models);
+    // a new pack's list holds only the models its zones show (pack `like`'s whole list when none is given), so the 31 a list
+    // may hold go to them
+    return CharacterList(models.empty() ? Plain(Original("a/1/3/7").Sub((size_t)like)) : Bytes{}, models);
 }
 
 Bytes OrasWorkspace::CharacterList(Bytes list, const std::vector<int>& models)
@@ -147,6 +149,10 @@ Bytes OrasWorkspace::CharacterList(Bytes list, const std::vector<int>& models)
         }
         list.insert(list.end(), entry.begin(), entry.end());
     }
+    // the list's length: 31 entries load (run hfix: pack 8's 29 and 2 added), 33 hang the game on entering the zone as a model
+    // missing does (run hC, the same place: pc 0x110A5C); the game's longest list is 31. 32 not tried, so refused
+    if (list.size() / 24 > 31)
+        throw FormatError("an area pack's character list would hold " + std::to_string(list.size() / 24) + " models, the game loads 31 (spread them over zones of other packs)");
     return list;
 }
 
