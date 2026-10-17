@@ -28,6 +28,13 @@ Bytes BchEditTexture(const Bytes& bch, const std::string& name, const TextureEdi
 // (a colour of the model, its other colours kept: "the red parts blue")
 void Recolour(Bytes& rgba, double hue, double saturation, double brightness, double around = 0, double range = 180);
 
+// a binary PGM (P5, 8 bits) read: one byte a pixel, rows top to bottom; throws FormatError for another file
+Bytes ReadPgm(const std::string& path, uint32_t& width, uint32_t& height);
+
+// `edited` kept only where `mask` (one byte a pixel, 0-255) is set, `original` elsewhere, blended in between: an edit
+// limited to exactly the pixels chosen (a part of the model, the lines a variant colours), nothing spilling over
+void KeepMasked(Bytes& edited, const Bytes& original, const Bytes& mask);
+
 // an image resized to width x height (bilinear), to replace a texture with a picture of another size
 Bytes Resample(const Bytes& rgba, uint32_t fromWidth, uint32_t fromHeight, uint32_t width, uint32_t height);
 

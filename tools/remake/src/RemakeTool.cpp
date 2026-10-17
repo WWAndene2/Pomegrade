@@ -29,7 +29,7 @@
 //   remake_tool oras-members <oras.3ds> <archive> <first> <last>
 //   remake_tool oras-hex <oras.3ds> <archive> <member> <file|-1> <offset> <length>
 //   remake_tool oras-member <oras.3ds> <archive> <member> <file|-1> <out>
-//   remake_tool oras-asset <oras.3ds> <archive> <member> <file|-1> [list] | export <dir> | edit <out dir> recolour:<texture>:<hue>:<sat>:<bright>[:<around>:<range>]...
+//   remake_tool oras-asset <oras.3ds> <archive> <member> <file|-1> [list] | export <dir> | edit <out dir> recolour:<texture>:<hue>:<sat>:<bright>[:<around>:<range> | :mask:<file.pgm>]...
 //   remake_tool oras-layout <oras.3ds> <archive> <member> [file]  DARC/BCLYT/BCLAN/BCLIM described
 //   remake_tool oras-text <oras.3ds> <archive> <member>   a game text file's lines
 //   remake_tool oras-script <oras.3ds> <zone>|all [init] [source]  a zone's script, unpacked and disassembled, or as amx-asm
@@ -954,7 +954,23 @@ int main(int argc, char** argv)
                             if (next == std::string::npos) next = op.size();
                             f.push_back(op.substr(at, next - at));
                         }
-                        if (f[0] == "recolour" && (f.size() == 5 || f.size() == 7))
+                        if (f[0] == "recolour" && f.size() == 7 && f[5] == "mask")
+                        {
+                            // recolour:<texture>:<hue>:<sat>:<bright>:mask:<file.pgm>: only the mask's pixels change (AssetEdit.h)
+                            const double hue = std::stod(f[2]), sat = std::stod(f[3]), bright = std::stod(f[4]);
+                            uint32_t mw = 0, mh = 0;
+                            const Bytes mask = ReadPgm(f[6], mw, mh);
+                            edited = BchEditTexture(edited, f[1], [&](Bytes& rgba, uint32_t w, uint32_t h) {
+                                if (w != mw || h != mh) throw FormatError(f[6] + ": the mask is " + std::to_string(mw) + "x" + std::to_string(mh) + ", the texture " + std::to_string(w) + "x" + std::to_string(h));
+                                const Bytes original = rgba;
+                                Recolour(rgba, hue, sat, bright);
+                                KeepMasked(rgba, original, mask);
+                            });
+                            size_t set = 0;
+                            for (uint8_t m : mask) set += m != 0;
+                            printf("texture %s: hue %+g degrees, saturation x%g, brightness x%g on the %zu pixels of mask %s\n", f[1].c_str(), hue, sat, bright, set, f[6].c_str());
+                        }
+                        else if (f[0] == "recolour" && (f.size() == 5 || f.size() == 7))
                         {
                             const double hue = std::stod(f[2]), sat = std::stod(f[3]), bright = std::stod(f[4]);
                             const double around = f.size() == 7 ? std::stod(f[5]) : 0, range = f.size() == 7 ? std::stod(f[6]) : 180;
@@ -962,7 +978,7 @@ int main(int argc, char** argv)
                             printf("texture %s: hue %+g degrees, saturation x%g, brightness x%g%s\n", f[1].c_str(), hue, sat, bright,
                                    range < 180 ? (" (colours within " + f[6] + " degrees of hue " + f[5] + ")").c_str() : "");
                         }
-                        else { fprintf(stderr, "unknown edit %s (recolour:<texture>:<hue>:<saturation>:<brightness>[:<around>:<range>])\n", op.c_str()); return 2; }
+                        else { fprintf(stderr, "unknown edit %s (recolour:<texture>:<hue>:<saturation>:<brightness>[:<around>:<range> | :mask:<file.pgm>])\n", op.c_str()); return 2; }
                     }
                     Bytes newPlain = edited;
                     std::string newTag = "BCH";
