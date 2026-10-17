@@ -16,6 +16,27 @@ class SaveStateScreenshotProvider(
 
     companion object {
         private const val SAVE_STATE_SCREENSHOTS_DIR = "ss_screenshots"
+
+        /** The screenshots of the game whose file was at [oldUri], now at [newUri] (kept under its URI's hash). */
+        fun relocateRomScreenshots(context: Context, oldUri: Uri, newUri: Uri) {
+            val dir = getScreenshotsDir(context)
+            val from = File(dir, oldUri.hashCode().toString())
+            val to = File(dir, newUri.hashCode().toString())
+            if (from.isDirectory && !to.exists()) {
+                from.renameTo(to)
+            }
+        }
+
+        private fun getScreenshotsDir(context: Context): File {
+            // Pomegrade: in the Pomegrade folder, which stays when the app is uninstalled: DS/States/Previews once it
+            // is in the layout of PunicaLayout, the earlier "Save state previews" until it is moved
+            val folder = if (PomegradeFolder.layoutRoot(context) != null) {
+                PomegradeFolder.consoleFolder(context, PunicaLayout.DS, "${PunicaLayout.STATES}/${PunicaLayout.PREVIEWS}")
+            } else {
+                PomegradeFolder.subFolder(context, "Save state previews")
+            }
+            return folder?.takeIf { it.isDirectory || it.mkdirs() } ?: File(context.filesDir, SAVE_STATE_SCREENSHOTS_DIR)
+        }
     }
 
     fun saveRomSaveStateScreenshot(rom: Rom, saveState: SaveStateSlot, screenshot: Bitmap) {
@@ -47,13 +68,7 @@ class SaveStateScreenshotProvider(
     fun relocateRomScreenshots(rom: Rom, newUri: Uri) = relocateRomScreenshots(rom.uri, newUri)
 
     /** The screenshots of the game whose file was at [oldUri], now at [newUri]. */
-    fun relocateRomScreenshots(oldUri: Uri, newUri: Uri) {
-        val from = File(getScreenshotsDir(), oldUri.hashCode().toString())
-        val to = File(getScreenshotsDir(), newUri.hashCode().toString())
-        if (from.isDirectory && !to.exists()) {
-            from.renameTo(to)
-        }
-    }
+    fun relocateRomScreenshots(oldUri: Uri, newUri: Uri) = relocateRomScreenshots(context, oldUri, newUri)
 
     private fun getRomSaveStateScreenshotFile(rom: Rom, saveState: SaveStateSlot, createDirectoriesIfNeeded: Boolean = false): File? {
         val romDirectoryName = rom.uri.hashCode().toString()
@@ -66,11 +81,7 @@ class SaveStateScreenshotProvider(
         return File(romDirectory, "${saveState.slot}.png")
     }
 
-    private fun getScreenshotsDir(): File {
-        // Pomegrade: in the Pomegrade folder's DS/States, which stays when the app is uninstalled
-        return PomegradeFolder.consoleFolder(context, PunicaLayout.DS, "${PunicaLayout.STATES}/${PunicaLayout.PREVIEWS}")?.takeIf { it.isDirectory || it.mkdirs() }
-            ?: File(context.filesDir, SAVE_STATE_SCREENSHOTS_DIR)
-    }
+    private fun getScreenshotsDir(): File = getScreenshotsDir(context)
 
     /** Moves the screenshots kept in the app's own folder to [directory] (the Pomegrade folder's). */
     fun moveTo(directory: File) {

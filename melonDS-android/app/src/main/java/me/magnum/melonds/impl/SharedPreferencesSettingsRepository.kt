@@ -174,8 +174,12 @@ class SharedPreferencesSettingsRepository(
             micSource = getMicSource(),
             firmwareConfiguration = getFirmwareConfiguration(),
             rendererConfiguration = renderConfigurationFlow.first(),
-            // Pomegrade: in the Pomegrade folder, which stays when the app is uninstalled
-            texturesDirectory = (PomegradeFolder.consoleFolder(context, PunicaLayout.DS, PunicaLayout.MODS) ?: context.getExternalFilesDir("textures"))?.absolutePath,
+            // Pomegrade: in the Pomegrade folder, which stays when the app is uninstalled: DS/Mods once it is in the layout
+            // of PunicaLayout, the earlier Textures until it is moved there
+            texturesDirectory = (
+                (if (PomegradeFolder.layoutRoot(context) != null) PomegradeFolder.consoleFolder(context, PunicaLayout.DS, PunicaLayout.MODS) else PomegradeFolder.subFolder(context, "Textures"))
+                    ?: context.getExternalFilesDir("textures")
+                )?.absolutePath,
             hdTexturesEnabled = preferences.getBoolean("enable_hd_textures", false),
             dumpTexturesEnabled = preferences.getBoolean("dump_textures", false),
             polygonMultiplier = preferences.getString("polygon_multiplier", "1")?.toIntOrNull() ?: 1,
