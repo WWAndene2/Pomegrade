@@ -14,7 +14,8 @@ marked **checked** (seen in memory or under the debugger), **read** (from the de
 patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothing tied to Hoenn; (7) a story mod.
 **(6) dropped by the owner (17 October)**: Sinnoh is no longer in the project, new assets cannot be made from nothing.
 The project is Equilibrium (`docs/Equilibrium_Scenario.md`), Omega Ruby joined with X: X's characters and maps brought
-into Omega Ruby. The Sinnoh tools and notes below stay as history. Step
+into Omega Ruby. The tools stay in use (sandbox, regions, engine patches, map pieces work on any map, X's included);
+only the Sinnoh-specific goals and notes below are history. Step
 1-5 are under way here; 6 and 7 wait on them. The owner tests mods on their phone (Pomegrade, `ORAS_LITTLEROOT.md` 0).
 
 **Where each stands**:
