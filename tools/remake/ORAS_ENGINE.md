@@ -623,6 +623,16 @@ Read in the code (Ghidra, headless) and checked headless; the owner checked on t
 - **Method** (bisection, one headless run at a time): the same mod with one change each (models 299 vs 174; 31 vs 33
   entries; 34 vs 40 models; 34 vs 70 objects; demo zone vs crowd), the frozen threads' pc and stack code addresses
   (`report`) named against the Ghidra program; agents read the code without running the emulator.
+- **Saved characters past 32** (17 October, read, not yet run): MoveModelSave (block 10) holds 32 records of 0x108 inline
+  in the SaveData object (`operator new(0x723B8)`, literal 0x1091F0 in FUN_00108dd4; vtable 0x5E064C at +0x1314, records
+  +0x1318, Misc right after at +0x3418), so it cannot grow in place. The save file has no layout table: each block's offset
+  is the sum of the 0x200-aligned sizes before it, taken from the size getters (Save_ReadBlocks / Save_WriteBlocks), the
+  footer (ids, FEEB, the table) its last 0x200 bytes, the file's size that sum (FUN_00115a84 at boot; no 0x76000 in the
+  code). `--characters N` (N > 31) moves the records to a tail at SaveData + 0x73314, N + 1 of them (the block rounded up
+  to an ARM immediate: 0x4C00 for 73), 15 words (OrasEngine.cpp); the blocks after 10 then move and the file grows (0x78A00
+  for 73). A save of the old layout reads short (Save_ReadBlocks returns 4): `oras-save <main> <out> --save-records N + 1`
+  converts one (`OrasSave::ResizeMoveModels`; back to 32 gives the game's bytes again). Not read: the heap the SaveData comes
+  from (r7 of FUN_00108dd4; up to 0x10800 more bytes), and the archive under Save_Commit.
 - **Still bound**: a zone's events file (0xC84 bytes, about 60 people with a short script, 4.5); the extra heaps come out
   of the field manager's parent heap, not identified.
 

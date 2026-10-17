@@ -60,8 +60,9 @@
 //   remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>
 //                     several sandboxes and regions in one mod, each step's zones, matrices, pieces and area packs numbered after
 //                     the ones before it (OrasWorkspace.h): one line a step, "sandbox <description file>" or "region <options>"
-//   remake_tool oras-save <main> [<out> <zone> <tile x> <tile z> [--template <save> [--blocks A,B,...]]
-//                     where an ORAS save puts the player (OrasSave.h); with the rest, a copy with the player moved there
+//   remake_tool oras-save <main> [<out> [<zone> <tile x> <tile z>] [--template <save> [--blocks A,B,...]] [--save-records N]]
+//                     where an ORAS save puts the player (OrasSave.h); with the rest, a copy with the player moved there;
+//                     --save-records N: the copy in the layout of oras-engine --characters N - 1 (block 10 of N records)
 //   remake_tool oras-sinnoh <platinum.nds> <oras.3ds> [strip width, default 5]
 //                     the plan for all of Sinnoh, nothing written: strips of whole piece columns (one matrix each), their
 //                     oras-region rectangles and map headers, the edge warps between strips, the ORAS zones needed and available
@@ -163,7 +164,7 @@ static int Usage()
                     "  remake_tool oras-sinnoh <platinum.nds> <oras.3ds> [strip width]\n"
                     "  remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt> [--character-models N] [--characters N] [--events large]\n"
                     "  remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>\n"
-                    "  remake_tool oras-save <main> [<out> <zone> <tile x> <tile z> [--template <save> [--blocks A,B,...]]\n"
+                    "  remake_tool oras-save <main> [<out> [<zone> <tile x> <tile z>] [--template <save> [--blocks A,B,...]] [--save-records N]]\n"
                     "                    [--matrix-template M] [--model-matrix NN] [oras-town's --matrix, --target, --donor, --trees, --donor-pack, --grass, ... --allow-errors]\n");
     return 2;
 }
@@ -1370,15 +1371,20 @@ int main(int argc, char** argv)
             // print where an ORAS save puts the player; with <out> <zone> <tile x> <tile z>, write a copy moved there
             OrasSave save = OrasSave::Read(ReadFile(argv[2]));
             printf("%zu blocks, checksums match; player in zone %d at tile (%.2f, %.2f)\n", save.Blocks.size(), save.Zone(), save.X() / 18, save.Z() / 18);
-            if (argc >= 7)
+            // the copy's options after <out> (and after the move's three numbers when given)
+            const bool move = argc >= 7 && argv[4][0] != '-';
+            std::optional<size_t> records;
+            for (int i = 4; i + 1 < argc; i++)
+                if (std::string(argv[i]) == "--save-records") records = (size_t)OptionNumber(argv[i + 1], "--save-records");
+            if (argc >= 4 && (move || records))
             {
                 // --template FILE: the player block taken from that save first (a save the game made in the target matrix)
                 // --blocks A,B,...: which blocks to take by id; by default block 10, the one a move into another matrix needs (runs
                 // matrix3-8, 8 October: the player block 4 and blocks 3-6 are not enough, block 10 alone is; its content: not read)
                 std::string blocks = "10";
-                for (int i = 7; i + 1 < argc; i++)
+                for (int i = 4; i + 1 < argc; i++)
                     if (std::string(argv[i]) == "--blocks") blocks = argv[i + 1];
-                for (int i = 7; i + 1 < argc; i++)
+                for (int i = 4; i + 1 < argc; i++)
                     if (std::string(argv[i]) == "--template")
                     {
                         const OrasSave other = OrasSave::Read(ReadFile(argv[i + 1]));
@@ -1387,7 +1393,13 @@ int main(int argc, char** argv)
                         save.WriteChecksums();
                         printf("blocks %s taken from %s\n", blocks.c_str(), argv[i + 1]);
                     }
-                save.MoveTo(atoi(argv[4]), (float)atof(argv[5]), (float)atof(argv[6]));
+                // taken from an old-layout template first, then grown: the conversion path to a save for a patched game
+                if (records)
+                {
+                    save.ResizeMoveModels(*records);
+                    printf("block 10 holds %zu records (0x%zX bytes), the file 0x%zX bytes\n", *records, OrasMoveModelBytes(*records), save.Data.size());
+                }
+                if (move) save.MoveTo(atoi(argv[4]), (float)atof(argv[5]), (float)atof(argv[6]));
                 const OrasSave check = OrasSave::Read(save.Data);
                 WriteFile(argv[3], save.Data);
                 printf("written %s: zone %d at tile (%.2f, %.2f)\n", argv[3], check.Zone(), check.X() / 18, check.Z() / 18);

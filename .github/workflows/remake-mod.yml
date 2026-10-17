@@ -154,7 +154,8 @@ jobs:
               mkdir -p "$data" && cp -r "$(dirname "$main")" "$data/00000001"
               set -- ${options#*save}
               # "name: save" alone: the save as it is (the player where the owner left them)
-              if [ $# -ge 3 ]; then ./build-remake/remake_tool oras-save "$main" "$data/00000001/main" "$1" "$2" "$3" | tee "mods/${name}_log.txt"
+              # words after the tile go to oras-save (--save-records N: the layout of a mod built with oras-engine --characters)
+              if [ $# -ge 3 ]; then ./build-remake/remake_tool oras-save "$main" "$data/00000001/main" "$1" "$2" "$3" "${@:4}" | tee "mods/${name}_log.txt"
               else ./build-remake/remake_tool oras-save "$main" | tee "mods/${name}_log.txt"; fi
               if [ -n "$meta" ]; then cp "$meta" "$data/"; else echo "::warning::the Drive save has no 00000001.metadata"; fi
               mkdir -p "out/$name/load"

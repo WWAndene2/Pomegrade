@@ -1,6 +1,7 @@
 #include "OrasEngine.h"
 #include "Bps.h"
 #include "CodePatch.h"
+#include "OrasSave.h"
 
 #include <filesystem>
 #include <set>
@@ -365,6 +366,41 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         words.push_back({0x3F808C, 0xE350001A, 0xE3500000 | *o.Characters, "characters shown at once"});
         if (*o.Characters > 32) words.push_back({0x109048, 0xE3A03020, 0xE3A03000 | *o.Characters, "the field manager's character pool"});
         log.push_back("characters: " + std::to_string(*o.Characters) + " per zone (the game's 26)" + (*o.Characters > 32 ? ", pool " + std::to_string(*o.Characters) : ""));
+    }
+    if (o.Characters && *o.Characters > 31)
+    {
+        // Saving writes one MoveModelSave record (save block 10, 0x108 bytes) per live entry of the character pool
+        // (FUN_004e3c64 -> FUN_0045c4c4) and Continue restores them (FUN_001e7698 -> FUN_0045c1e0 -> FUN_0045c2d4), both
+        // bounded by 32 records inline in the SaveData object (operator new(0x723B8) in FUN_00108dd4, MoveModelSave's vtable
+        // 0x5E064C at +0x1314, its records at +0x1318, Misc's object right after them at +0x3418), so the block cannot grow in
+        // place. The records move to a new tail of the SaveData, at +0x73314 (+0x1314 + 0x72000, one ARM immediate), N + 1
+        // of them; the 32 inline ones are left unused. The file follows by itself: each block's offset is the sum of the
+        // aligned sizes before it, and the file's size their sum, both taken from the size getters (Save_ReadBlocks,
+        // Save_WriteBlocks, FUN_00115a84 at boot; no size constant in the code), so the blocks after 10 move and the file
+        // grows (OrasSave::ResizeMoveModels writes that layout). A save of the old layout is then too short: Save_ReadBlocks
+        // returns 4 on its short read (owner's decision, 17 October: old saves do not matter). Read 17 October, not yet run
+        const uint32_t records = *o.Characters + 1, bytes = (uint32_t)OrasMoveModelBytes(records);
+        const uint32_t tail = 0x72000, size = 0x73314 + bytes; // the records at SaveData + 0x1314 + tail
+        const auto imm = [](uint32_t v) { const auto e = ArmImmediate(v); if (!e) throw FormatError("not an ARM immediate"); return *e; };
+        const uint32_t count = imm(records);
+        words.push_back({0x1091F0, 0x000723B8, size, "the SaveData's size (FUN_00108dd4's operator new), the records' tail after it"});
+        words.push_back({0x45C6A8, 0xE2800004, 0xE2800000 | imm(tail), "MoveModelSave's data getter (vtable +0xC): the tail"});
+        words.push_back({0x45C2CC, 0xE3A00C21, 0xE3A00000 | imm(bytes), "MoveModelSave's size getter (vtable +0x10): the block's size"});
+        words.push_back({0x45C6B0, 0xE3A02C21, 0xE3A02000 | imm(bytes), "MoveModelSave's clear (vtable +0x8): its size"});
+        words.push_back({0x45C6B4, 0xE2800004, 0xE2800000 | imm(tail), "MoveModelSave's clear (vtable +0x8): the tail"});
+        words.push_back({0x45C690, 0xE2800004, 0xE2800000 | imm(tail), "FUN_0045c678's clear loop (vtable +0x14): the tail"});
+        words.push_back({0x45C69C, 0xE3540020, 0xE3540000 | count, "FUN_0045c678's clear loop: the records"});
+        // the save and Continue pass SaveData + 0x1314 to the record functions, which add 4 + 0x108 x index: they pass the tail - 4
+        words.push_back({0x4E3C74, 0xE2808A01, 0xE2808000 | imm(0x73000), "FUN_004e3c64 (save): the records' base, high part"});
+        words.push_back({0x4E3C78, 0xE2888FC5, 0xE2888FC4, "FUN_004e3c64 (save): the records' base, + 0x310"});
+        words.push_back({0x45C200, 0xE280AA01, 0xE280A000 | imm(0x73000), "FUN_0045c1e0 (Continue): the records' base, high part"});
+        words.push_back({0x45C208, 0xE28AAFC5, 0xE28AAFC4, "FUN_0045c1e0 (Continue): the records' base, + 0x310"});
+        words.push_back({0x45C2C0, 0xE3540020, 0xE3540000 | count, "FUN_0045c29c's clear loop (save, and Continue's end): the records"});
+        words.push_back({0x4E8804, 0xE3510020, 0xE3510000 | count, "FUN_004e8800 (a record in use): the records"});
+        words.push_back({0x45C4C8, 0xE3510020, 0xE3510000 | count, "FUN_0045c4c4 (a record written): the records"});
+        words.push_back({0x45C2D8, 0xE3510020, 0xE3510000 | count, "FUN_0045c2d4 (a record restored): the records"});
+        snprintf(line, sizeof line, "save: block 10 holds %u characters (the game's 32), 0x%X bytes; the SaveData 0x%X bytes; saves need oras-save --save-records %u", records, bytes, size, records);
+        log.push_back(line);
     }
     // Each shown character's model is a field object (Event_SpawnCharacterModel -> Event_AllocFieldObject, 0x2F0 bytes,
     // allocated on use from the manager's heap 0x62 at +0x10) listed in a heap array at +0x2E90, whose length

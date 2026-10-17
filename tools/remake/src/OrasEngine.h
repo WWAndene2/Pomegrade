@@ -24,7 +24,7 @@ struct OrasEngineOptions
     std::optional<uint32_t> LinearHeap;      // the linear heap FUN_00106448 asks for (bytes)
     std::optional<uint32_t> NormalHeap;      // the normal heap it asks for (bytes); heap 4, carved from its top, grows with it
     std::optional<uint32_t> ZoneRows;        // rows of the zone header table (a/0/1/3 member 536) the mod's archive holds
-    std::optional<uint32_t> Characters;      // characters a zone may list and show (the game's 26; at most 32, its pool)
+    std::optional<uint32_t> Characters;      // characters a zone may list and show (the game's 26; up to 255; above 31 save block 10 holds N + 1)
     std::optional<uint32_t> CharacterModels; // models an area pack's character list (a/1/3/7) may hold (the game's 31; 32-127)
     bool LargeEvents = false;                // a zone's events file up to 0x1910 bytes (the game's 0xC84)
     std::map<uint32_t, uint32_t> HeapSizes;  // heap id -> size (bytes)

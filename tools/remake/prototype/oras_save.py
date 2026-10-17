@@ -13,7 +13,7 @@ tests of 8 October needed and did with throwaway scripts.
 What is read and what is only seen:
   - the block table (checked on the owner's saves, OrasSave.cpp): at 0x75E14, one 8-byte entry per block, u32 size, u16 id,
     u16 CRC16-CCITT (initial 0xFFFF) of the block; blocks follow each other from offset 0, each on a 0x200 boundary.
-  - block 10 (0x2000, 8,448 bytes), not read in code: 32 records of 0x108 bytes, one per character of the zone the save was
+  - block 10 (0x2000, 8,448 bytes; N + 1 records with oras-engine --characters N > 31, ORAS_ENGINE.md 6), not read in code: 32 records of 0x108 bytes, one per character of the zone the save was
     made in (0 bytes when unused); u16 +4 the character's number in its zone, u16 +6 its zone, u16 +8 its model, f32 +0x40
     and +0x44 its tile x and z (checked on the owner's two game saves against the zone files: zone 6's characters 0, 2, 7
     with models 289, 281, 221, character 0 at tile 104, 179; zone 24's character 0 with model 284); number 0xFF with model
@@ -26,7 +26,12 @@ import sys
 
 signal.signal(signal.SIGPIPE, signal.SIG_DFL)  # quiet when piped into head
 
-TABLE = 0x75E14
+# the block table is at the footer's +0x14, the footer the file's last 0x200 bytes: 0x75E14 in the game's 0x76000-byte file; a
+# save for oras-engine --characters N > 31 is longer (block 10 grown, OrasSave::ResizeMoveModels)
+def table_at(data):
+    return len(data) - 0x200 + 0x14
+
+
 RECORD = 0x108
 # each block's class in the game (RTTI names savedata::<class>; Save_SaveData_Construct 0x115DE0 builds them in block order,
 # sizes checked against the vtables' size getters, 8 October, but for 35, placed by the order alone); 19 has no named class
@@ -51,9 +56,9 @@ def crc16(data):
 def blocks(data):
     """[(index, id, offset, size, stored crc)] from the table"""
     out, offset = [], 0
-    for i, at in enumerate(range(TABLE, len(data) - 7, 8)):
+    for i, at in enumerate(range(table_at(data), len(data) - 7, 8)):
         size, bid, crc = struct.unpack_from("<IHH", data, at)
-        if size == 0 or offset + size > TABLE:
+        if size == 0 or offset + size > table_at(data):
             break
         out.append((i, bid, offset, size, crc))
         offset = (offset + size + 0x1FF) & ~0x1FF
@@ -62,14 +67,14 @@ def blocks(data):
 
 def read(path):
     data = bytearray(open(path, "rb").read())
-    if len(data) != 0x76000 or data[TABLE - 4:TABLE] != b"FEEB":
-        sys.exit(f"{path}: not an ORAS save (0x76000 bytes, FEEB before the table)")
+    if len(data) < 0x76000 or len(data) % 0x200 or data[table_at(data) - 4:table_at(data)] != b"FEEB":
+        sys.exit(f"{path}: not an ORAS save (0x76000 bytes or a grown one, FEEB before the table)")
     return data
 
 
 def write_checksums(data):
     for i, _, offset, size, _ in blocks(data):
-        struct.pack_into("<H", data, TABLE + i * 8 + 6, crc16(data[offset:offset + size]))
+        struct.pack_into("<H", data, table_at(data) + i * 8 + 6, crc16(data[offset:offset + size]))
 
 
 def block_at(data, index):
