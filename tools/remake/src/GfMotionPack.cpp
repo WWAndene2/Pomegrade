@@ -23,10 +23,14 @@ Bytes SlotBytes(const Bytes& pack, uint32_t count, uint32_t k)
 int OrasSlot(uint32_t xy)
 {
     if (xy <= 3) return (int)xy;
-    if (xy >= 72 && xy <= 89) return (int)xy + 14;
-    if (xy >= 114 && xy <= 138) return (int)xy + 10;
+    if (xy >= 4 && xy <= 6) return (int)xy + 1;
+    if (xy >= 7 && xy <= 9) return (int)xy + 5;
+    if (xy == 10) return 16;
+    if ((xy >= 11 && xy <= 13) || xy == 15 || xy == 16) return (int)xy + 14;
     if (xy == 26) return 40;
+    if (xy >= 72 && xy <= 89) return (int)xy + 14;
     if (xy == 97) return 178;
+    if (xy >= 100 && xy <= 138) return (int)xy + 10;
     if (xy == 140) return 156;
     return -1;
 }

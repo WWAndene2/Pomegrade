@@ -68,9 +68,9 @@ int main()
     try { LoopGfMotion(m, 7000); } catch (const FormatError&) { threw = true; }
     check(threw, "over 65535 frames refused");
 
-    // an X/Y pack of 173 slots: skeleton 0, motions in slots 1, 3, 5 (not carried), 80 and 120, of 1 to 9 bytes
+    // an X/Y pack of 173 slots: skeleton 0, motions in slots 1, 3, 50 (not carried), 80 and 120, of 1 to 9 bytes
     {
-        std::vector<std::pair<uint32_t, Bytes>> in = {{0, {0xA0}}, {1, {1, 2, 3}}, {3, {4, 5, 6, 7, 8}}, {5, {9}}, {80, {10, 11}}, {120, {12, 13, 14, 15, 16, 17, 18, 19, 20}}};
+        std::vector<std::pair<uint32_t, Bytes>> in = {{0, {0xA0}}, {1, {1, 2, 3}}, {3, {4, 5, 6, 7, 8}}, {50, {9}}, {80, {10, 11}}, {120, {12, 13, 14, 15, 16, 17, 18, 19, 20}}};
         Bytes pack(4 + 4 * 174, 0);
         auto put = [&](size_t at, uint32_t v) { for (int i = 0; i < 4; i++) pack[at + i] = (uint8_t)(v >> (8 * i)); };
         put(0, 173);
@@ -99,7 +99,7 @@ int main()
         for (uint32_t k = 0; k < 239; k++) if (k != 0 && k != 1 && k != 3 && k != 94 && k != 130 && U32(out, 4 + 4 * k)) others = false;
         bool aligned = true;
         for (uint32_t k = 0; k < 239; k++) if (U32(out, 4 + 4 * k) % 4) aligned = false;
-        check(others && aligned, "a slot with no ORAS counterpart (X 5) dropped, every slot 4-aligned");
+        check(others && aligned, "a slot with no ORAS counterpart (X 50) dropped, every slot 4-aligned");
         bool refused = false;
         try { XyMotionPackToOras(out); } catch (const FormatError&) { refused = true; }
         check(refused, "a pack of 239 slots refused");
