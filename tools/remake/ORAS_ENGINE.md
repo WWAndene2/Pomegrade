@@ -11,7 +11,10 @@ marked **checked** (seen in memory or under the debugger), **read** (from the de
 
 **The owner's objectives, in order** (their words, 7 October): (1) take the game apart to the binary and learn every part;
 (2) reference every table and asset; (3) a limitless sandbox; (4) remove the memory, cache, zone and asset limits; (5)
-patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothing tied to Hoenn; (7) a story mod. Step
+patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothing tied to Hoenn; (7) a story mod.
+**(6) dropped by the owner (17 October)**: Sinnoh is no longer in the project, new assets cannot be made from nothing.
+The project is Equilibrium (`docs/Equilibrium_Scenario.md`), Omega Ruby joined with X: X's characters and maps brought
+into Omega Ruby. The Sinnoh tools and notes below stay as history. Step
 1-5 are under way here; 6 and 7 wait on them. The owner tests mods on their phone (Pomegrade, `ORAS_LITTLEROOT.md` 0).
 
 **Where each stands**:
