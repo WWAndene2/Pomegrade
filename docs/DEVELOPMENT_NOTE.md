@@ -171,6 +171,9 @@ Done (checked on the owner's phone unless said):
 - Sandbox: any model in any zone (pack lists filled in), characters without a script no longer block the game, a person's dialogue.
 - Limits lifted: `oras-engine --character-models N` (31 -> up to 127 models a pack's list) and `--characters N` (the shown characters' objects and their heaps): 59 people of 40 models drawn (mod crowd2). Azahar only (the changed DllField module would fail a console's static.crr check).
 - `oras-asset` recolours through a mask (exactly the chosen pixels); first use, shiny Mega Rayquaza's red lines green (not checked in the game).
+- Events file doubled: `--events large` (0xC84 -> 0x1910 bytes): 64 people in one zone (mod events).
+- Saved characters past 32: `--characters N` grows the save's character records, `oras-save ... --save-records N+1` converts a save: Continue shows them all.
+- Characters kept across a zone border (`share Z` in a sandbox description): the crowd stays on screen; the freeze on coming back after going far (shared people loaded twice, pool full) fixed and checked headless (run hFar3), not yet on the phone.
 - The sandbox warns when it places a swimmer model (259, 273, 274, 278, 279, 345-348: no standing pose, they swim half in the ground on land).
 
 To do, in this order:
@@ -179,8 +182,8 @@ To do, in this order:
 3. Better asset tools (owner's request): colour by part (the pixels a mesh's triangles cover, from its UVs), with a before/after render; parts of a model: list, hide/remove, move/rotate/scale, swap between models (skeletons permitting).
 4. X's maps: its 1,115 map pieces converted, and a tile value table X -> ORAS checked case by case on the phone (grass, water and the special tiles differ).
 5. X's zones as new zones (538 up): characters, doors, scripts.
-6. Remaining limits, refused at build time: a zone's events file (0xC84 bytes: characters 48 each, doors and triggers 24, furniture 20, plus its initialisation script; about 60 people with a short script); the extra heaps of `--characters` come out of the field manager's parent heap, not identified.
-7. Owner's open choices from the audit (Switch): firmware installed through Eden replaced by Pomegrade's, an import stopping when space is short.
+6. Remaining limits, refused at build time: a zone's events file (0x1910 bytes with `--events large`, 0xC84 without: characters 48 each, doors and triggers 24, furniture 20, plus its initialisation script); the pool of `--characters` (72 checked, 127 hangs at boot: the largest working value not measured); the extra heaps of `--characters` come out of the field manager's parent heap, not identified.
+7. Owner's open choices from the audit (Switch): firmware installed through Eden is now replaced by Pomegrade's at the next launch (commit 0029b5a3: to confirm or revert); an import stopping when space is short (not decided).
 
 ## 4. One coherent app
 
