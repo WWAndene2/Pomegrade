@@ -50,7 +50,9 @@
 //   encounters Z      optional: game zone Z's encounter file (its file 3) copied; none without it
 //   character MODEL X Z [face F] [script S] [move M]
 //                     a person standing on tile X, Z of the map (model: a character model number, as oras-inspect zone prints
-//                     them; face 0-3; script: the command its zone script is run with, g_mode, 0 none; move: the movement, 0 standing)
+//                     them; face 0-3; script: the command its zone script is run with, g_mode, 0 none; move: the movement, 0 standing).
+//                     A swimmer model (OrasWorkspace::Swims: 259, 273, 274, 278, 279, 345-348) has no standing motion, its idle
+//                     swims, and water is solid here: it is drawn half in the ground, and the build warns
 //   trainer ID MODEL X Z [face F] [sight N] [move M]
 //                     a trainer of a/0/3/6 (script 3000 + ID, kind 1, sight 4 tiles unless given: inferred, OrasZone.h)
 //   team ID [class C] [name TEXT]

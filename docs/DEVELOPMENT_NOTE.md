@@ -162,6 +162,26 @@ Next, agreed with the owner: a playable slice first (Twinleaf Town, Route 201, S
 
 **Asset customization (owner's request, 6 October; not started)**: Pokemon, characters, buildings and props, map terrain from X/Y first, then Sun/Moon and Sword/Shield, brought into ORAS and modified on the owner's instructions. The owner cannot edit models on the phone: the tooling is commands that Claude runs on the Remake mod workflow, showing rendered previews before building a mod zip. Steps: read a game's models (textures, skeleton, animations); modify (recolour, replace textures, resize, swap or merge parts, retarget animations); check against ORAS's limits (polygons, bones per mesh, texture sizes and formats, materials) with a report before writing; preview; write through `BchWriter` and `ReplaceMember`. Compatibility as known: X/Y share ORAS's engine (GARC, BCH, GF motions) but an earlier BCH version (the writer takes version 0x21 only); Sun/Moon share the GPU with other containers and shaders (SPICA reads them); Sword/Shield (Switch) need polygon reduction, texture re-encoding and fewer bones. Needs: the owner's X or Y dump on the Drive (a secret like `ORAS_DRIVE_ID`).
 
+## 3d. Equilibrium: Omega Ruby joined with X (state on 17 October)
+
+The active remake project (owner, 17 October): X's characters and maps brought into Omega Ruby (`docs/Equilibrium_Scenario.md`); Sinnoh is dropped (new assets cannot be made from nothing), its tools stay in use. Engine facts and evidence: `tools/remake/ORAS_ENGINE.md` (4.5, 4.5b, 7).
+
+Done (checked on the owner's phone unless said):
+- X characters in Omega Ruby: model and blink animation converted (BCH 0x07 -> 0x21, the material animations' type and flags bytes swapped back), motion packs moved to ORAS's slots with every X motion kept (`oras-copy ... =xy:<x.3ds>:<member>`): the gym leader shows, blinks, speaks, turns.
+- Sandbox: any model in any zone (pack lists filled in), characters without a script no longer block the game, a person's dialogue.
+- Limits lifted: `oras-engine --character-models N` (31 -> up to 127 models a pack's list) and `--characters N` (the shown characters' objects and their heaps): 59 people of 40 models drawn (mod crowd2). Azahar only (the changed DllField module would fail a console's static.crr check).
+- `oras-asset` recolours through a mask (exactly the chosen pixels); first use, shiny Mega Rayquaza's red lines green (not checked in the game).
+- The sandbox warns when it places a swimmer model (259, 273, 274, 278, 279, 345-348: no standing pose, they swim half in the ground on land).
+
+To do, in this order:
+1. **Standing swimmers**: 345-348 have a standing twin of the same skeleton byte for byte (230, 229, 227, 228: idle motion of 1 frame, a walk of 14); the sandbox will put the twin on land (`pose stand`, default) and the swimmer on water (`pose swim`), and water a swimmer can stand in (the sandbox's `~` is solid today).
+2. **New models beside the game's** (no replacement): X characters as new a/0/2/1 members with new model numbers and their a/1/3/7 entries, so a converted X character no longer replaces an ORAS one everywhere; also standing copies of the five other swimmers (259, 273, 274, 278, 279: no twin; a walker's motions on their skeleton, if one matches).
+3. Better asset tools (owner's request): colour by part (the pixels a mesh's triangles cover, from its UVs), with a before/after render; parts of a model: list, hide/remove, move/rotate/scale, swap between models (skeletons permitting).
+4. X's maps: its 1,115 map pieces converted, and a tile value table X -> ORAS checked case by case on the phone (grass, water and the special tiles differ).
+5. X's zones as new zones (538 up): characters, doors, scripts.
+6. Remaining limits, refused at build time: a zone's events file (0xC84 bytes: characters 48 each, doors and triggers 24, furniture 20, plus its initialisation script; about 60 people with a short script); the extra heaps of `--characters` come out of the field manager's parent heap, not identified.
+7. Owner's open choices from the audit (Switch): firmware installed through Eden replaced by Pomegrade's, an import stopping when space is short.
+
 ## 4. One coherent app
 
 Today each core keeps its own settings, screens, visual style and file storage. Target architecture:

@@ -601,6 +601,11 @@ Read in the code (Ghidra, headless) and checked headless; the owner checked on t
   crowd of 40 models enters and draws (run hQ). **Checked on the phone** (owner, 17 October, mod crowd2): every
   row drawn, no invisible wall, no stretched character; the people half in the ground are swimmer models, whose idle
   motion swims (not a bug).
+- **Swimmers** (17 October, read): models 259, 273, 274, 278, 279, 345-348 are placed only on water tiles; their idle
+  motion (slot 1) is a 30-45 frame swim, a walker's is 1 frame, so none can stand. 345-348 share their skeleton byte for
+  byte with 230, 229, 227, 228, which stand (slot 1 of 1 frame, a walk of 14): their land twins. The other five have no
+  twin. The sandbox warns when it places a swimmer (`OrasWorkspace::Swims`: their a/1/3/7 entries alone read 01 06 at
+  bytes 2-3 and 00 at byte 6; that the game reads those bytes is inferred). Next: `docs/DEVELOPMENT_NOTE.md` 3d.
 - **Method** (bisection, one headless run at a time): the same mod with one change each (models 299 vs 174; 31 vs 33
   entries; 34 vs 40 models; 34 vs 70 objects; demo zone vs crowd), the frozen threads' pc and stack code addresses
   (`report`) named against the Ghidra program; agents read the code without running the emulator.
