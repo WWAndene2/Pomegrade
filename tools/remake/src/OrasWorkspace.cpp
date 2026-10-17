@@ -1,4 +1,5 @@
 #include "OrasWorkspace.h"
+
 #include "Bps.h"
 #include "BinLinker.h"
 #include "GameText.h"
@@ -9,6 +10,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 
 namespace remake
@@ -91,13 +93,104 @@ int OrasWorkspace::AddPlaceName(const std::string& name)
     return line;
 }
 
-int OrasWorkspace::AddAreaPack(const Bytes& pack, int like)
+void OrasWorkspace::ListCharacters(int pack, const std::vector<int>& models)
 {
+    // a game pack's own list, for a game zone given characters (edit Z): the missing models appended, its entries kept, so
+    // its zones show what they showed
+    Garc& perArea = Edited("a/1/3/7");
+    const Bytes was = perArea.Sub((size_t)pack);
+    const Bytes list = CharacterList(Plain(was), models);
+    if (list.size() != Plain(was).size()) perArea.Set((size_t)pack, IsLzCompressed(was) ? Lz11Compress(list) : list);
+}
+
+Bytes OrasWorkspace::CharacterList(int like, const std::vector<int>& models)
+{
+    // a new pack's list holds only the models its zones show (pack `like`'s whole list when none is given), so the 31 a list
+    // may hold go to them
+    return CharacterList(models.empty() ? Plain(Original("a/1/3/7").Sub((size_t)like)) : Bytes{}, models);
+}
+
+Bytes OrasWorkspace::CharacterList(Bytes list, const std::vector<int>& models)
+{
+    // a/1/3/7 member <pack>: 24 bytes a character model the pack's zones may show (u16 model, ..., u16 a/0/2/1 member at byte
+    // 20); a zone showing a model not in its pack's list hangs the game on entering it (runs h5, h64: models 174 and 64 on
+    // pack 8's copy, 17 October). Each model missing is added with the entry a game pack lists it with (the 235 models listed
+    // somewhere have one entry each, the same in every pack); a model no pack lists gets model 284's entry with its own
+    // number as model and member (member = model holds for every listed model under 4096; the other bytes inferred, not read)
+    const Garc& perArea = Original("a/1/3/7");
+    if (list.size() % 24) throw FormatError("an a/1/3/7 member is not 24-byte entries");
+    const auto listed = [](const Bytes& l, int model) {
+        for (size_t at = 0; at + 24 <= l.size(); at += 24) if ((l[at] | l[at + 1] << 8) == model) return (long)at;
+        return -1L;
+    };
+    for (int model : models)
+    {
+        if (model < 0 || model > 0xFFFF) throw FormatError("character model " + std::to_string(model) + " out of range");
+        if (listed(list, model) >= 0) continue;
+        Bytes entry;
+        for (size_t p = 0; p < perArea.Count() && entry.empty(); p++)
+        {
+            const Bytes other = Plain(perArea.Sub(p));
+            if (other.size() % 24) continue;
+            if (const long at = listed(other, model); at >= 0) entry.assign(other.begin() + at, other.begin() + at + 24);
+        }
+        if (entry.empty())
+        {
+            for (size_t p = 0; p < perArea.Count() && entry.empty(); p++)
+            {
+                const Bytes other = Plain(perArea.Sub(p));
+                if (other.size() % 24) continue;
+                if (const long at = listed(other, 284); at >= 0) entry.assign(other.begin() + at, other.begin() + at + 24);
+            }
+            if (entry.empty()) throw FormatError("no a/1/3/7 entry for model 284 to copy");
+            if (model >= 4096) throw FormatError("character model " + std::to_string(model) + " is listed in no area pack (its member is not its number)");
+            entry[0] = entry[20] = (uint8_t)model;
+            entry[1] = entry[21] = (uint8_t)(model >> 8);
+        }
+        list.insert(list.end(), entry.begin(), entry.end());
+    }
+    // the list's length: the game caches it after the player's own entry in 32 slots of 24 bytes (field character manager
+    // +0x36CC) and stops in its fatal error when entries + 1 > 32 (cmp #0x21 at 0x3F7308, Event_LoadCharacterArchiveMember;
+    // read 17 October), so 31. Checked: 31 load (run hfix), 33 hang entering the zone (run hC). oras-engine
+    // --character-models N raises it to N (OrasEngine.cpp), CharacterModels then N
+    if (list.size() / 24 > CharacterModels)
+        throw FormatError("an area pack's character list would hold " + std::to_string(list.size() / 24) + " models, the game loads " +
+                          std::to_string(CharacterModels) + (CharacterModels == 31 ? " (spread them over zones of other packs, or raise it with oras-engine --character-models)" : ""));
+    return list;
+}
+
+int OrasWorkspace::AddAreaPack(const Bytes& pack, int like, const std::vector<int>& models)
+{
+    const Bytes characters = CharacterList(like, models);
+    const Bytes charactersStored = IsLzCompressed(Original("a/1/3/7").Sub((size_t)like)) ? Lz11Compress(characters) : characters;
     // a pack the build has added already, byte for byte (the same game pack with the same textures added: every room of a kind)
-    // shares its slot: the game has 9 free ones
-    for (const auto& [slot, data] : PacksAdded) if (data == pack) return slot;
+    // shares its slot; a new one takes one of the game's 9 free slots, then goes past the game's packs
+    for (const auto& [slot, data] : PacksAdded) if (data == pack && PackCharacters.at(slot) == characters) return slot;
     const Garc& areas = Original("a/0/1/4");
     const Garc& perAreaGame = Original("a/1/3/7");
+    // the pack appended past the game's (ORAS_ENGINE.md 7, run apkA, 16 October: a zone on appended pack 230 loads): a/0/1/4's
+    // last member is not a pack but a table of 44 bytes a pack (228 entries), which stays where it is, extended up to the new
+    // pack with entries like `like`'s; a/1/3/7 (one member a pack) filled up to it likewise. The table moved last instead
+    // (the new pack in its place) is fatal (run apk8), and so is an appended pack with no entry in it (run apk5)
+    const auto append = [&]()
+    {
+        Garc& packs = Edited("a/0/1/4");
+        Garc& perArea = Edited("a/1/3/7");
+        const size_t tableAt = areas.Count() - 1, p = packs.Count(), entry = 44;
+        const Bytes gameTable = areas.Sub(tableAt);
+        Bytes table = Plain(packs.Sub(tableAt));
+        if (table.size() < ((size_t)like + 1) * entry) throw FormatError("the area pack table has no entry for pack " + std::to_string(like));
+        while (table.size() < (p + 1) * entry) table.insert(table.end(), table.begin() + like * entry, table.begin() + (like + 1) * entry);
+        packs.Set(p, IsLzCompressed(areas.Sub(8)) ? Lz11Compress(pack) : pack);
+        packs.Set(tableAt, IsLzCompressed(gameTable) ? Lz11Compress(table) : table);
+        while (perArea.Count() < p) perArea.Set(perArea.Count(), perAreaGame.Sub((size_t)like));
+        perArea.Set(p, charactersStored);
+        PacksAdded[(int)p] = pack;
+        PackCharacters[(int)p] = characters;
+        return (int)p;
+    };
+    // POMEGRADE_APPEND_AREA_PACKS=1: appended even while a free slot is left, to test appending
+    if (const char* force = std::getenv("POMEGRADE_APPEND_AREA_PACKS"); force && std::string(force) == "1") return append();
     const size_t slots = std::min(areas.Count(), perAreaGame.Count());
     if (PacksTaken.empty()) PacksTaken.assign(slots, false);
     // the packs every zone of the build draws from (the header table's word 1, game zones and new ones alike)
@@ -113,11 +206,12 @@ int OrasWorkspace::AddAreaPack(const Bytes& pack, int like)
         {
             PacksTaken[p] = true;
             ReplaceMember(Edited("a/0/1/4"), areas, p, pack, "AD");
-            Edited("a/1/3/7").Set(p, perAreaGame.Sub((size_t)like));
+            Edited("a/1/3/7").Set(p, charactersStored);
             PacksAdded[(int)p] = pack;
+            PackCharacters[(int)p] = characters;
             return (int)p;
         }
-    throw FormatError("no free area pack left (the game has " + std::to_string(std::count(used.begin(), used.end(), false)) + " unused ones)");
+    return append();
 }
 
 void OrasWorkspace::RegisterHeaderZone(int header, int zone, bool interior, const std::vector<HeaderWarp>& warps)

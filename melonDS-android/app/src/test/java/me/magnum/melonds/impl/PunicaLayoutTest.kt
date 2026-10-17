@@ -83,7 +83,7 @@ class PunicaLayoutTest {
             "Switch/System/Firmware/${"%032x".format(1)}.cnmt.nca", "Switch/Mods/0100ABF008968000/mod/a",
             "Switch/Core/config/config.ini",
             "GC-Wii/Games/Zelda/disc1.rvz", "GC-Wii/System/Wii/title/00010000/game/data/banner.bin",
-            "GC-Wii/System/USA/IPL.bin", "GC-Wii/Saves/GameCube/MemoryCardA.USA.raw",
+            "GC-Wii/System/GC/USA/IPL.bin", "GC-Wii/Saves/GameCube/MemoryCardA.USA.raw",
             "GC-Wii/Saves/GameCube/Card A/USA/01-GAME.gci", "GC-Wii/States/GAME.s01", "GC-Wii/Mods/Textures/GAME/t.png",
             "GC-Wii/Core/GC/USA/IPL.bin", "Settings/settings.json",
         ).forEach { assertTrue("missing $it", it in after) }
@@ -170,5 +170,74 @@ class PunicaLayoutTest {
         // no firmware file taken for a game
         assertTrue(File(root, "Switch/Games").walkTopDown().none { it.isFile && it.name.endsWith(".nca") && !it.path.contains("Unpacked") })
         assertFalse(File(root, "Roms").exists())
+    }
+
+    @Test
+    fun aGameWhoseNameIsTakenStaysInRomsUnmappedThenMovesOnceFree() {
+        val root = earlierLayout()
+        file(root, "Roms/Ruby.gba", "my ruby")
+        file(root, "GBA/Games/Ruby.gba", "another ruby")
+        file(root, "Roms/Kept/Kept.nds", "my kept")
+        file(root, "DS/Games/Kept.nds", "another kept")
+        val report = PunicaLayout.migrate(root)
+        // still in Roms, still listed there; no entry mapped onto the other file
+        assertEquals("my ruby", File(root, "Roms/Ruby.gba").readText())
+        assertEquals("my kept", File(root, "Roms/Kept/Kept.nds").readText())
+        assertEquals("another ruby", File(root, "GBA/Games/Ruby.gba").readText())
+        assertFalse(File(root, "Roms/Ruby.gba") in report.games)
+        assertFalse(File(root, "Roms/Kept/Kept.nds") in report.games)
+        assertTrue(File(root, "Roms/Ruby.gba").path in report.left)
+
+        // the owner frees the name: the next game list opening moves it
+        File(root, "GBA/Games/Ruby.gba").delete()
+        File(root, "DS/Games/Kept.nds").delete()
+        val moved = mutableMapOf<File, File>()
+        val again = PunicaLayout.moveLeftGames(root) { old, new -> moved[old] = new }
+        assertEquals(File(root, "GBA/Games/Ruby.gba"), moved[File(root, "Roms/Ruby.gba")])
+        assertEquals(File(root, "DS/Games/Kept.nds"), moved[File(root, "Roms/Kept/Kept.nds")])
+        assertTrue(again.left.isEmpty())
+        assertFalse(File(root, "Roms").exists())
+    }
+
+    @Test
+    fun looseSavesBesideALooseGameGoToItsConsoleAndAreBackedUp() {
+        val root = earlierLayout()
+        file(root, "Roms/Ruby.gba", "ruby")
+        file(root, "Roms/Ruby.sav", "ruby save")
+        file(root, "Roms/Ruby.ss1", "ruby state")
+        file(root, "Roms/Ruby.ss1.png", "ruby preview")
+        file(root, "Roms/Diamond.nds", "diamond")
+        file(root, "Roms/Diamond.ml0", "diamond state")
+        file(root, "Roms/Orphan.sav", "no game")
+        PunicaLayout.migrate(root)
+        assertEquals("ruby save", File(root, "GBA/Saves/Ruby.sav").readText())
+        assertEquals("ruby state", File(root, "GBA/States/Ruby.ss1").readText())
+        assertEquals("ruby preview", File(root, "GBA/States/Ruby.ss1.png").readText())
+        assertEquals("diamond state", File(root, "DS/States/Diamond.ml0").readText())
+        assertTrue(File(root, "Backups").walkTopDown().any { it.name == "Orphan.sav" && it.path.contains("Unsorted-") })
+        val backup = File(root, "Backups").listFiles { f -> f.name.startsWith("Saves-") }!!.single()
+        assertEquals("ruby save", File(backup, "Roms/Ruby.sav").readText())
+        assertEquals("emerald save", File(backup, "Roms/Emerald/Emerald.sav").readText())
+    }
+
+    @Test
+    fun eachMovedGameIsToldAtOnceSoAStopPartwayLosesNone() {
+        val root = earlierLayout()
+        val told = mutableListOf<File>()
+        // the game list fails while following the second game: the first is already followed
+        runCatching {
+            PunicaLayout.migrate(root) { old, _ ->
+                told += old
+                if (told.size == 2) throw IllegalStateException("stopped")
+            }
+        }
+        assertEquals(2, told.size)
+        assertFalse(PunicaLayout.isMigrated(root))
+        assertFalse(told[0].exists())
+        // run again: the rest moves, the games already moved are not told twice
+        val again = PunicaLayout.migrate(root) { old, _ -> assertFalse(old in told); told += old }
+        // a second run in the same second finds its saves' backup already made: only that is reported
+        assertTrue(again.left.all { it.startsWith("backup: ") })
+        assertTrue(PunicaLayout.isMigrated(root))
     }
 }

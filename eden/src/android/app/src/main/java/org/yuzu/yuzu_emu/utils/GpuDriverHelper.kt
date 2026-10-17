@@ -35,6 +35,8 @@ object GpuDriverHelper {
 
     fun initializeDriverParameters() {
         try {
+            // Pomegrade: these two stay in the app's own storage, unlike the user folder (Punica/Switch/Core):
+            // caches rebuilt from the drivers kept in driverStoragePath (Core/gpu_drivers), lost with the app
             // Initialize the file redirection directory.
             fileRedirectionPath = YuzuApplication.appContext
                 .getExternalFilesDir(null)!!.canonicalPath + "/gpu/vk_file_redirect/"

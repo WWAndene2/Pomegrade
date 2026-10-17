@@ -44,12 +44,25 @@
 //                     (tools/remake/ghidra/function_names.tsv, beside this folder) and native mask 0x243. The game runs `main`
 //                     with g_mode set: the initialisation script on entering the zone (2 seen), the zone script for an
 //                     event, its script number (SINNOH_BUILD.md R1). Example: tools/remake/sandbox/own_scripts.txt
+//   scene             optional, instead of script: then the zone script as a scene (SceneScript.h: "on N", "say L", "wait F",
+//                     "flag N on|off", "if [not] flag N" ... "else" ... "endif"), up to a line "end"; compiled on Littleroot's
+//                     zone script, whose talking and waiting routines it calls. Example: tools/remake/sandbox/scene_demo.txt
 //   encounters Z      optional: game zone Z's encounter file (its file 3) copied; none without it
 //   character MODEL X Z [face F] [script S] [move M]
 //                     a person standing on tile X, Z of the map (model: a character model number, as oras-inspect zone prints
 //                     them; face 0-3; script: the command its zone script is run with, g_mode, 0 none; move: the movement, 0 standing)
 //   trainer ID MODEL X Z [face F] [sight N] [move M]
 //                     a trainer of a/0/3/6 (script 3000 + ID, kind 1, sight 4 tiles unless given: inferred, OrasZone.h)
+//   team ID [class C] [name TEXT]
+//                     then trainer ID's new team (a/0/3/6, a/0/3/8), up to "end": a line each, "pokemon SPECIES LEVEL
+//                     [form F] [item I] [moves A B C D] [difficulty D]" (1 to 6; national dex numbers, the game's item and
+//                     move numbers; difficulty 0-255 as the game's teams hold it, 0 by default); the format follows the
+//                     items and moves given; class C (a/0/3/7: the battle's portrait and title, 178 Team Magma's leader,
+//                     174 Team Aqua's) and name TEXT (line ID of a/0/7/1-8 member 22, all eight languages) when given;
+//                     the rest of the record kept
+//   trigger X Z [W H] script N
+//                     stepping on the W x H tiles (1 x 1 by default) from tile X, Z runs the zone script with g_mode N (a
+//                     scene's "on N"): words 0, 6-9 of the game's trigger records, no condition
 //   door X Z house Z2 a door ('D' on the map) into a new zone after the described ones, written from nothing on game interior
 //                     Z2's map (its matrix, area pack and the tile of its way out); its one warp leads back out
 //   pieces W H        the size in map pieces (40 x 40 tiles each)

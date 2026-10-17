@@ -3,6 +3,7 @@
 // Refer to the license.txt file included.
 
 #include <chrono>
+#include <mutex>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/regex.hpp>
 
@@ -151,6 +152,45 @@ private:
 class FileBackend final : public Backend {
 public:
     explicit FileBackend(const std::string& filename) {
+        Open(filename);
+    }
+
+    ~FileBackend() override = default;
+
+    // Pomegrade: the log moved to the user folder's current LogDir (Common::Log::ReopenLogFile)
+    void Reopen(const std::string& filename) {
+        std::scoped_lock lock{file_mutex};
+        if (file) {
+            file->Close();
+        }
+        Open(filename);
+        enabled = true;
+        bytes_written = 0;
+    }
+
+    void Write(const Entry& entry) override {
+        std::scoped_lock lock{file_mutex};
+        WriteLocked(entry);
+    }
+
+    void Flush() override {
+        std::scoped_lock lock{file_mutex};
+        file->Flush();
+    }
+
+    void Close() override {
+        std::scoped_lock lock{file_mutex};
+        file->Close();
+        enabled = false;
+    }
+
+    void EnableForStacktrace() override {
+        enabled = true;
+        bytes_written = 0;
+    }
+
+private:
+    void Open(const std::string& filename) {
         auto old_filename = filename;
         boost::replace_all(old_filename, ".txt", ".old.txt");
 
@@ -164,9 +204,7 @@ public:
         file = std::make_unique<FileUtil::IOFile>(filename, "w", _SH_DENYWR);
     }
 
-    ~FileBackend() override = default;
-
-    void Write(const Entry& entry) override {
+    void WriteLocked(const Entry& entry) {
         if (!enabled) {
             return;
         }
@@ -187,21 +225,8 @@ public:
         }
     }
 
-    void Flush() override {
-        file->Flush();
-    }
-
-    void Close() override {
-        file->Close();
-        enabled = false;
-    }
-
-    void EnableForStacktrace() override {
-        enabled = true;
-        bytes_written = 0;
-    }
-
-private:
+    // Pomegrade: Reopen may run on another thread than the log thread
+    std::mutex file_mutex;
     std::unique_ptr<FileUtil::IOFile> file;
     bool enabled = true;
     std::size_t bytes_written = 0;
@@ -301,6 +326,21 @@ public:
             new Impl(fmt::format("{}{}", log_dir, log_file), filter), Deleter);
         initialization_in_progress_suppress_logging = false;
         logging_initialized = true;
+    }
+
+    // Pomegrade: the file sink reopened at the current LogDir, e.g. once the user folder changed
+    static bool ReopenFile(std::string_view log_file) {
+#ifdef HAVE_LIBRETRO
+        return false;
+#else
+        if (!instance) {
+            return false;
+        }
+        const auto& log_dir = FileUtil::GetUserPath(FileUtil::UserPath::LogDir);
+        void(FileUtil::CreateFullPath(log_dir));
+        instance->file_backend.Reopen(fmt::format("{}{}", log_dir, log_file));
+        return true;
+#endif
     }
 
     static void Start() {
@@ -571,6 +611,10 @@ void Initialize(std::string_view log_file) {
 
 void Start() {
     Impl::Start();
+}
+
+bool ReopenLogFile(std::string_view log_file) {
+    return Impl::ReopenFile(log_file.empty() ? LOG_FILE : log_file);
 }
 
 void Stop() {

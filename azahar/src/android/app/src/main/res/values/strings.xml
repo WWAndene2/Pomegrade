@@ -1205,4 +1205,11 @@
     <string name="three_ds_off">Off</string>
     <string name="three_ds_lanczos" translatable="false">Lanczos</string>
     <string name="three_ds_darp">DARP (reconstruction, slower to appear)</string>
+    <!-- Pomegrade: a game's own settings (Core/GameSettings/<title ID>.ini) -->
+    <string name="pomegrade_game_settings_use_general">Use general settings</string>
+    <string name="pomegrade_game_settings_use_general_description">Deletes this game\'s own settings</string>
+    <string name="pomegrade_game_settings_own">This game has its own settings: %1$d values</string>
+    <string name="pomegrade_game_settings_none">This game uses the general settings</string>
+    <string name="pomegrade_game_settings_cleared">This game now uses the general settings</string>
+    <string name="pomegrade_game_settings_not_cleared">This game\'s settings could not be deleted</string>
 </resources>

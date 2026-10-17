@@ -52,6 +52,29 @@ object DirectoryInitialization {
             return userPath
         }
 
+    /**
+     * Pomegrade: reads the user folder again ([userDirectoryProvider]) after the app moved or renamed it, since
+     * [start] reads it once per process, and reloads the settings, the system and the profiles from it. Not while
+     * a game runs (the caller checks NativeLibrary.isRunning()): its open files would stay in the former folder.
+     * Returns whether the folder changed.
+     */
+    @Synchronized
+    fun reinitialize(context: Context): Boolean {
+        if (!areDirectoriesReady) return false
+        val path = try {
+            userDirectoryFile(context).canonicalPath
+        } catch (e: IOException) {
+            return false
+        }
+        if (path == userPath) return false
+        userPath = path
+        NativeLibrary.setAppDirectory(path)
+        NativeConfig.initializeGlobalConfig()
+        NativeLibrary.initializeSystem(true)
+        NativeLibrary.reloadProfiles()
+        return true
+    }
+
     private fun initializeInternalStorage() {
         try {
             userPath = userDirectoryFile(YuzuApplication.appContext).canonicalPath

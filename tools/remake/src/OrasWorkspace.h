@@ -23,6 +23,9 @@ class OrasWorkspace
 {
 public:
     explicit OrasWorkspace(N3dsRom& oras) : Oras(oras) {}
+    // the models an area pack's character list may hold: the game's 31, or the N of oras-engine --character-models that the
+    // mod is run with (CharacterList refuses a longer list)
+    size_t CharacterModels = 31;
 
     N3dsRom& Rom() { return Oras; }
     // an archive as the game ships it, and as the build has left it so far (each read from the game once, on first use)
@@ -43,8 +46,15 @@ public:
     // an area pack (a/0/1/4) holding `pack`, in one of the game's placeholder packs no zone uses (0, 1, 39-42, 88, 97, 195),
     // never a pack a game zone draws from, so no Hoenn place changes; its characters' list (a/1/3/7) the one of pack `like`.
     // A pack identical to one the build added shares its slot.
-    // A pack appended past the game's 229 is refused: its zone sent the game into its fatal-error loop (runs light1-light4)
-    int AddAreaPack(const Bytes& pack, int like);
+    // Once those are taken, appended past the game's packs (228 of them, then a/0/1/4's per-pack table, extended; run apkA):
+    // no limit but the archive's. `models`: character models its zones show, added to its list when `like`'s lacks them
+    // (CharacterList)
+    int AddAreaPack(const Bytes& pack, int like, const std::vector<int>& models = {});
+    // pack `like`'s characters' list (a/1/3/7) with an entry for each of `models` it lacks
+    Bytes CharacterList(int like, const std::vector<int>& models);
+    Bytes CharacterList(Bytes list, const std::vector<int>& models);
+    // game pack `pack`'s list (a/1/3/7) with `models` it lacks appended in place (a game zone given characters)
+    void ListCharacters(int pack, const std::vector<int>& models);
 
     // Warps between the build's new zones, by Platinum map header (SINNOH_BUILD.md R4): a step that writes a header's zone
     // registers it with its warps (a tile and the header each leads to); LinkWarps, once every step is done, writes each warp
@@ -69,6 +79,7 @@ private:
     N3dsRom& Oras;
     std::vector<bool> PacksTaken; // area packs filled by this build
     std::map<int, Bytes> PacksAdded; // their contents, to share a slot between identical packs
+    std::map<int, Bytes> PackCharacters; // their characters' lists (a/1/3/7), likewise
     struct HeaderZone { int Header, Zone; bool Interior; std::vector<HeaderWarp> Warps; };
     std::vector<HeaderZone> HeaderZones;
     std::map<std::string, Archive> Archives;

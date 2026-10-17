@@ -5,6 +5,7 @@
 // mod can carry (Azahar reads a single code.ips per game): the application memory and linear heap (OrasMemory.h), the zone
 // count's code side (section 2: the header loaders' bound and the zone header table's size word) and the size of any
 // sub-heap made at boot by FUN_00107c0c (section 4.2). Every word is checked against the game's own before it is written.
+// The character-model limit also changes the field module DllField.cro (a BPS patch of it: Azahar only, see OrasEngine.cpp).
 
 #include "N3dsRom.h"
 #include "OrasMemory.h"
@@ -24,6 +25,7 @@ struct OrasEngineOptions
     std::optional<uint32_t> NormalHeap;      // the normal heap it asks for (bytes); heap 4, carved from its top, grows with it
     std::optional<uint32_t> ZoneRows;        // rows of the zone header table (a/0/1/3 member 536) the mod's archive holds
     std::optional<uint32_t> Characters;      // characters a zone may list and show (the game's 26; at most 32, its pool)
+    std::optional<uint32_t> CharacterModels; // models an area pack's character list (a/1/3/7) may hold (the game's 31; 32-127)
     std::map<uint32_t, uint32_t> HeapSizes;  // heap id -> size (bytes)
     std::map<uint32_t, uint32_t> ScriptMasks; // zone 536-1023 -> its script's native mask (with ZoneRows; 0x243 otherwise)
 };
@@ -31,7 +33,8 @@ struct OrasEngineOptions
 // the ARM data-processing immediate encoding of value (an 8-bit value rotated right by an even amount), when there is one
 std::optional<uint32_t> ArmImmediate(uint32_t value);
 
-// writes load/mods/<program id>/exheader.bin (when Memory is given) and exefs/code.ips under outDir; returns what it did
+// writes load/mods/<program id>/exheader.bin (when Memory is given), exefs/code.ips and, with CharacterModels, the patch of
+// the field module romfs_ext/DllField.cro.bps under outDir; returns what it did
 std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& options, const std::string& outDir);
 
 }

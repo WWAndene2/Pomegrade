@@ -18,13 +18,18 @@
 //   remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]
 //                     a 3DS model (ORAS map pieces: their terrain) as glTF; textures: BCH files or
 //                     ORAS area packs (a/0/1/4 entries: "AD") whose textures the model uses
+//   remake_tool xy-motion-slots                    where each X/Y motion slot goes in an Omega Ruby pack
+//   remake_tool bch-upgrade <in> <out>
+//                     a Pokemon X/Y model (BCH 0x07) as Omega Ruby's (0x21, BchUpgrade.h): a BCH file, or a 2-letter
+//                     container (an a/0/2/1 character member) converted (XyCharacter.h); oras-copy's xy: source does the
+//                     same from the X/Y game itself
 //   remake_tool oras-list <oras.3ds>                  a decrypted 3DS game's RomFS files, with sizes
 //   remake_tool oras-extract <oras.3ds> <path> <out>  one RomFS file
 //   remake_tool oras-find <oras.3ds> <text>...
 //   remake_tool oras-members <oras.3ds> <archive> <first> <last>
 //   remake_tool oras-hex <oras.3ds> <archive> <member> <file|-1> <offset> <length>
 //   remake_tool oras-member <oras.3ds> <archive> <member> <file|-1> <out>
-//   remake_tool oras-asset <oras.3ds> <archive> <member> <file|-1> [list] | export <dir> | edit <out dir> recolour:<texture>:<hue>:<sat>:<bright>[:<around>:<range>]...
+//   remake_tool oras-asset <oras.3ds> <archive> <member> <file|-1> [list] | export <dir> | edit <out dir> recolour:<texture>:<hue>:<sat>:<bright>[:<around>:<range> | :mask:<file.pgm>]...
 //   remake_tool oras-layout <oras.3ds> <archive> <member> [file]  DARC/BCLYT/BCLAN/BCLIM described
 //   remake_tool oras-text <oras.3ds> <archive> <member>   a game text file's lines
 //   remake_tool oras-script <oras.3ds> <zone>|all [init] [source]  a zone's script, unpacked and disassembled, or as amx-asm
@@ -34,7 +39,7 @@
 //                     and registered under the zone's native mask M (0x243 by default, oras-engine's for new zones)
 //   remake_tool oras-zone-script <oras.3ds> <out dir> <zone> <script.amx|-> [<init.amx|->]  a mod with a zone's script and
 //                     initialisation script replaced (- keeps one); the zone itself checked to write back unchanged first
-//   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>] | <dst>=<archive>:<member>:<file> | <dst>=file:<path> | <dst>=motion:<archive>:<member>:<file>:<slot>[:<frames>] ...
+//   remake_tool oras-copy <oras.3ds> <out dir> <archive> <dst>[-<dst last>]=<src>[-<src last>] | <dst>=<archive>:<member>:<file> | <dst>=file:<path> | <dst>=xy:<x.3ds>:<member> | <dst>=motion:<archive>:<member>:<file>:<slot>[:<frames>] ...
 //   remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...
 //                     an Azahar mod: each file replaces that RomFS path, laid out as Azahar loads
 //                     mods (<out dir>/load/mods/<program id>/romfs/<path>); copy <out dir>/load
@@ -51,7 +56,7 @@
 //                     as oras-town builds one, the zone grid from Platinum's map headers, each header on the ORAS zone given
 //                     (-1: left out); --plan prints the rectangle's headers and builds nothing. Writes the mod, region_preview.gltf,
 //                     region_plan.txt and region_piece_<x>_<y>.bin
-//   remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt>
+//   remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt> [--character-models N]
 //   remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>
 //                     several sandboxes and regions in one mod, each step's zones, matrices, pieces and area packs numbered after
 //                     the ones before it (OrasWorkspace.h): one line a step, "sandbox <description file>" or "region <options>"
@@ -78,6 +83,9 @@
 #include "NitroCompression.h"
 #include "FormatSniffer.h"
 #include "Garc.h"
+#include "BchUpgrade.h"
+#include "GfMotionPack.h"
+#include "XyCharacter.h"
 #include "Nsbmd.h"
 #include "Png.h"
 #include "PicaTexture.h"
@@ -136,7 +144,7 @@ static int Usage()
                     "  remake_tool world <map_matrix.narc> <matrix index> <land_data.narc> <out dir>\n"
                     "                    [map textures.nsbtx|-] [buildings.narc|-] [building textures.nsbtx|-]\n"
                     "  remake_tool oras-world <rom.nds> <matrix index> <out dir>\n  remake_tool platinum-zones <rom.nds>\n"
-                    "  remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]\n  remake_tool oras-list <oras.3ds>\n  remake_tool oras-extract <oras.3ds> <path> <out>\n"
+                    "  remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]\n  remake_tool bch-upgrade <in> <out>\n  remake_tool xy-motion-slots\n  remake_tool oras-list <oras.3ds>\n  remake_tool oras-extract <oras.3ds> <path> <out>\n"
                     "  remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-inspect <oras.3ds> zone|piece|area|matrix|piece-names|zones|matrices|archives|piece-budget|coll-sizes|zone-reach <index>\n"
                     "  remake_tool oras-measure <oras.3ds> <out dir>\n"
@@ -147,13 +155,13 @@ static int Usage()
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone|zone-raised|crowd [N]\n"
                     "  remake_tool oras-zone-check <oras.3ds>\n"
-                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--heap ID:BYTES]...\n"
+                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--character-models N] [--heap ID:BYTES]...\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
                     "                    [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]\n"
                     "  remake_tool oras-code <oras.3ds> <out.bin>\n"
                     "  remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--plan]\n"
                     "  remake_tool oras-sinnoh <platinum.nds> <oras.3ds> [strip width]\n"
-                    "  remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt>\n"
+                    "  remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt> [--character-models N]\n"
                     "  remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>\n"
                     "  remake_tool oras-save <main> [<out> <zone> <tile x> <tile z> [--template <save> [--blocks A,B,...]]\n"
                     "                    [--matrix-template M] [--model-matrix NN] [oras-town's --matrix, --target, --donor, --trees, --donor-pack, --grass, ... --allow-errors]\n");
@@ -295,7 +303,7 @@ static void ParseRegionOptions(int argc, char** argv, int first, OrasRegionOptio
 
 int main(int argc, char** argv)
 {
-    if (argc < 3) return Usage();
+    if (argc < 3 && !(argc == 2 && std::string(argv[1]) == "xy-motion-slots")) return Usage(); // the one command without arguments
     const std::string cmd = argv[1];
     try
     {
@@ -333,6 +341,26 @@ int main(int argc, char** argv)
                     written++;
                 }
             printf("%zu entries, %zu files\n", garc.Count(), written);
+            return 0;
+        }
+        if (cmd == "xy-motion-slots")
+        {
+            // where each X/Y motion slot goes in an Omega Ruby pack (GfMotionPack.h)
+            for (uint32_t k = 0; k < 173; k++)
+            {
+                bool own = false;
+                const int to = XyMotionSlotInOras(k, &own);
+                printf("X %3u -> %s%s\n", k, to < 0 ? "none" : ("ORAS " + std::to_string(to)).c_str(), own ? " (X's own, a slot ORAS leaves free)" : "");
+            }
+            return 0;
+        }
+        if (cmd == "bch-upgrade" && argc >= 4)
+        {
+            const Bytes file = Plain(ReadFile(argv[2]));
+            if (Bch::Is(file)) { WriteFile(argv[3], BchUpgradeTo21(file)); printf("BCH 0x%02X -> 0x21\n", file[4]); return 0; }
+            std::vector<std::string> report;
+            WriteFile(argv[3], XyCharacterToOras(file, report));
+            for (const std::string& line : report) printf("%s\n", line.c_str());
             return 0;
         }
         if (cmd == "bch" && argc >= 4)
@@ -590,6 +618,7 @@ int main(int argc, char** argv)
                 else if (flag == "--normal-heap") o.NormalHeap = (uint32_t)OptionNumber(value.c_str(), flag);
                 else if (flag == "--zone-rows") o.ZoneRows = (uint32_t)OptionNumber(value.c_str(), flag);
                 else if (flag == "--characters") o.Characters = (uint32_t)OptionNumber(value.c_str(), flag);
+                else if (flag == "--character-models") o.CharacterModels = (uint32_t)OptionNumber(value.c_str(), flag);
                 else if (flag == "--script-mask")
                 {
                     const size_t colon = value.find(':');
@@ -804,6 +833,27 @@ int main(int argc, char** argv)
                         last = dst;
                         continue;
                     }
+                    if (src.rfind("xy:", 0) == 0)
+                    {
+                        // <dst>=xy:<x.3ds>:<member>: a Pokemon X/Y character (its a/0/2/1 member) made Omega Ruby's
+                        // (XyCharacter.h), written over the ORAS member as file: does
+                        const size_t colon = src.rfind(':');
+                        if (colon <= 3) { fprintf(stderr, "expected xy:<x.3ds>:<member>: %s\n", src.c_str()); return 2; }
+                        if (path != "a/0/2/1") { fprintf(stderr, "xy: characters go into a/0/2/1, not %s\n", path.c_str()); return 2; }
+                        N3dsRom xy(src.substr(3, colon - 3));
+                        const Garc xyCharacters(xy.Read("a/0/2/1"));
+                        const size_t from = (size_t)std::stoul(src.substr(colon + 1));
+                        std::vector<std::string> report;
+                        const Bytes file = XyCharacterToOras(Plain(xyCharacters.Sub(from)), report);
+                        const size_t dst = (size_t)std::stoul(arg.substr(0, eq));
+                        const Bytes old = Plain(source.Sub(dst));
+                        if (old.size() < 2 || file[0] != old[0] || file[1] != old[1]) { fprintf(stderr, "X/Y character %zu: not the same container as member %zu\n", from, dst); return 1; }
+                        ReplaceMember(g, source, dst, file, std::string(old.begin(), old.begin() + 2));
+                        printf("%s member %zu <- X/Y character %zu (%zu bytes)\n", path.c_str(), dst, from, file.size());
+                        for (const std::string& line : report) printf("  %s\n", line.c_str());
+                        last = dst;
+                        continue;
+                    }
                     if (src.rfind("file:", 0) == 0)
                     {
                         // <dst>=file:<path>: a member made outside (a 2-letter container such as a soaring mount's TM),
@@ -905,7 +955,23 @@ int main(int argc, char** argv)
                             if (next == std::string::npos) next = op.size();
                             f.push_back(op.substr(at, next - at));
                         }
-                        if (f[0] == "recolour" && (f.size() == 5 || f.size() == 7))
+                        if (f[0] == "recolour" && f.size() == 7 && f[5] == "mask")
+                        {
+                            // recolour:<texture>:<hue>:<sat>:<bright>:mask:<file.pgm>: only the mask's pixels change (AssetEdit.h)
+                            const double hue = std::stod(f[2]), sat = std::stod(f[3]), bright = std::stod(f[4]);
+                            uint32_t mw = 0, mh = 0;
+                            const Bytes mask = ReadPgm(f[6], mw, mh);
+                            edited = BchEditTexture(edited, f[1], [&](Bytes& rgba, uint32_t w, uint32_t h) {
+                                if (w != mw || h != mh) throw FormatError(f[6] + ": the mask is " + std::to_string(mw) + "x" + std::to_string(mh) + ", the texture " + std::to_string(w) + "x" + std::to_string(h));
+                                const Bytes original = rgba;
+                                Recolour(rgba, hue, sat, bright);
+                                KeepMasked(rgba, original, mask);
+                            });
+                            size_t set = 0;
+                            for (uint8_t m : mask) set += m != 0;
+                            printf("texture %s: hue %+g degrees, saturation x%g, brightness x%g on the %zu pixels of mask %s\n", f[1].c_str(), hue, sat, bright, set, f[6].c_str());
+                        }
+                        else if (f[0] == "recolour" && (f.size() == 5 || f.size() == 7))
                         {
                             const double hue = std::stod(f[2]), sat = std::stod(f[3]), bright = std::stod(f[4]);
                             const double around = f.size() == 7 ? std::stod(f[5]) : 0, range = f.size() == 7 ? std::stod(f[6]) : 180;
@@ -913,7 +979,7 @@ int main(int argc, char** argv)
                             printf("texture %s: hue %+g degrees, saturation x%g, brightness x%g%s\n", f[1].c_str(), hue, sat, bright,
                                    range < 180 ? (" (colours within " + f[6] + " degrees of hue " + f[5] + ")").c_str() : "");
                         }
-                        else { fprintf(stderr, "unknown edit %s (recolour:<texture>:<hue>:<saturation>:<brightness>[:<around>:<range>])\n", op.c_str()); return 2; }
+                        else { fprintf(stderr, "unknown edit %s (recolour:<texture>:<hue>:<saturation>:<brightness>[:<around>:<range> | :mask:<file.pgm>])\n", op.c_str()); return 2; }
                     }
                     Bytes newPlain = edited;
                     std::string newTag = "BCH";
@@ -1255,9 +1321,10 @@ int main(int argc, char** argv)
             return 0;
         }
 
-        if (cmd == "oras-sandbox" && argc == 5)
+        if (cmd == "oras-sandbox" && (argc == 5 || (argc == 7 && std::string(argv[5]) == "--character-models")))
         {
-            // a new zone from a text description (OrasSandbox.h); the game reads it with oras-engine --zone-rows
+            // a new zone from a text description (OrasSandbox.h); the game reads it with oras-engine --zone-rows.
+            // --character-models N: the models an area pack's list may hold, the N given to oras-engine (31 without it)
             N3dsRom oras(argv[2]);
             const Bytes text = ReadFile(argv[4]);
             // the zones' own scripts are checked against the game's native tables, kept beside the sandbox folder
@@ -1265,6 +1332,7 @@ int main(int argc, char** argv)
             const std::filesystem::path names = std::filesystem::path(argv[4]).parent_path() / ".." / "ghidra" / "function_names.tsv";
             const auto check = std::filesystem::exists(names) ? AmxNativeCheck(names.string(), 0x243) : std::function<std::string(const std::string&)>{};
             OrasWorkspace ws(oras);
+            if (argc == 7) ws.CharacterModels = (size_t)OptionNumber(argv[6], "--character-models");
             for (const std::string& line : BuildOrasSandbox(ws, std::string(text.begin(), text.end()), argv[3], check)) printf("%s\n", line.c_str());
             for (const std::string& line : ws.Write(argv[3])) printf("%s\n", line.c_str());
             return 0;

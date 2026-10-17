@@ -50,6 +50,7 @@ add_library(remake STATIC
     src/OrasRegion.cpp
     src/OrasNewZone.cpp
     src/OrasSandbox.cpp
+    src/SceneScript.cpp
     src/OrasWorkspace.cpp
     src/OrasSave.cpp
     src/OrasZone.cpp
@@ -63,11 +64,14 @@ add_library(remake STATIC
     src/PicaCommands.cpp
     src/PicaTexture.cpp
     src/Bch.cpp
+    src/BchUpgrade.cpp
     src/BchWriter.cpp
     src/BchTextureFile.cpp
     src/Bps.cpp
     src/Blz.cpp
     src/GfMotion.cpp
+    src/GfMotionPack.cpp
+    src/XyCharacter.cpp
     src/GameText.cpp
     src/Bclim.cpp
     src/Darc.cpp

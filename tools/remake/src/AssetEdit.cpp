@@ -1,6 +1,7 @@
 #include "AssetEdit.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include "Bch.h"
 #include "PicaTexture.h"
@@ -66,6 +67,39 @@ void Recolour(Bytes& rgba, double hue, double saturation, double brightness, dou
         rgba[i + 1] = (uint8_t)std::lround(g * 255);
         rgba[i + 2] = (uint8_t)std::lround(b * 255);
     }
+}
+
+Bytes ReadPgm(const std::string& path, uint32_t& width, uint32_t& height)
+{
+    const Bytes f = ReadFile(path);
+    size_t at = 0;
+    auto token = [&]() {
+        std::string t;
+        while (at < f.size())
+        {
+            const char c = (char)f[at];
+            if (c == '#') { while (at < f.size() && f[at] != '\n') at++; continue; }
+            if (std::isspace((unsigned char)c)) { at++; if (!t.empty()) break; continue; }
+            t += c; at++;
+        }
+        return t;
+    };
+    if (token() != "P5") throw FormatError(path + ": not a binary PGM (P5)");
+    width = (uint32_t)std::stoul(token()); height = (uint32_t)std::stoul(token());
+    if (std::stoul(token()) != 255) throw FormatError(path + ": a PGM mask is 8 bits (maximum 255)");
+    if (f.size() - at < (size_t)width * height) throw FormatError(path + ": shorter than " + std::to_string(width) + " x " + std::to_string(height));
+    return Bytes(f.begin() + (long)at, f.begin() + (long)at + (long)width * height);
+}
+
+void KeepMasked(Bytes& edited, const Bytes& original, const Bytes& mask)
+{
+    if (edited.size() != original.size() || mask.size() * 4 != edited.size()) throw FormatError("mask: not the texture's size");
+    for (size_t p = 0; p < mask.size(); p++)
+        for (int c = 0; c < 4; c++)
+        {
+            uint8_t& e = edited[p * 4 + c];
+            e = (uint8_t)((e * mask[p] + original[p * 4 + c] * (255 - mask[p]) + 127) / 255);
+        }
 }
 
 Bytes Resample(const Bytes& rgba, uint32_t fw, uint32_t fh, uint32_t w, uint32_t h)

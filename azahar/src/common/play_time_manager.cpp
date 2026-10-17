@@ -23,7 +23,9 @@ struct PlayTimeElement {
 #define PLAY_TIME_FILENAME "play_time.bin"
 
 std::string GetCurrentUserPlayTimePath() {
-    return FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + DIR_SEP + PLAY_TIME_FILENAME;
+    // Pomegrade: in the emulator's own folder (Core in the Punica folder's layout, else the user
+    // folder), not in sysdata (System there, the console's files). SysDataDir ends with a separator.
+    return FileUtil::GetPunicaCoreDir() + PLAY_TIME_FILENAME;
 }
 
 [[nodiscard]] bool ReadPlayTimeFile(PlayTimeDatabase& out_play_time_db) {
@@ -34,13 +36,21 @@ std::string GetCurrentUserPlayTimePath() {
     if (FileUtil::Exists(old_filepath) && !FileUtil::Exists(filepath)) {
         static_cast<void>(FileUtil::Rename(old_filepath, filepath));
     }
+    // Pomegrade: moved once from where upstream (and Pomegrade before) wrote it, so no play time is lost
+    const auto sysdata_filepath =
+        FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + PLAY_TIME_FILENAME;
+    if (FileUtil::Exists(sysdata_filepath) && !FileUtil::Exists(filepath)) {
+        static_cast<void>(FileUtil::Rename(sysdata_filepath, filepath));
+    }
+    // if the move failed, read it where it is: the next write puts its times in the new place
+    const auto read_filepath = FileUtil::Exists(filepath) ? filepath : sysdata_filepath;
 
     out_play_time_db.clear();
 
-    if (FileUtil::Exists(filepath)) {
-        FileUtil::IOFile file{filepath, "rb"};
+    if (FileUtil::Exists(read_filepath)) {
+        FileUtil::IOFile file{read_filepath, "rb"};
         if (!file.IsOpen()) {
-            LOG_ERROR(Frontend, "Failed to open play time file: {}", filepath);
+            LOG_ERROR(Frontend, "Failed to open play time file: {}", read_filepath);
             return false;
         }
 
@@ -126,6 +136,12 @@ void PlayTimeManager::AutoTimestamp(std::stop_token stop_token) {
 
         database[running_program_id] += GetDuration();
         Save();
+    }
+}
+
+void PlayTimeManager::Reload() {
+    if (!ReadPlayTimeFile(database)) {
+        LOG_ERROR(Frontend, "Failed to read play time database! Resetting to default.");
     }
 }
 

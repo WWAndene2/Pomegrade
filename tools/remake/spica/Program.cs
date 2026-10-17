@@ -1,13 +1,19 @@
 // spica: what SPICA (external/SPICA) reads of a 3DS file, from the command line (SpicaCli.csproj).
 //   spica info <file> [--skeleton <file>]          the scene: models (meshes, bones, materials), textures, animations
 //   spica dae <file> <out.dae> [--model N] [--anim N] [--skeleton <file>]   COLLADA export (a model, an animation on it)
-//   spica smd <file> <out.smd> [--model N] [--anim N] [--skeleton <file>]   StudioMdl export
+//   spica smd <file> <out.smd> [--model N] [--anim N] [--skeleton <file>]   StudioMdl export (each triangle named after its
+//                                                   material's texture; ORAS field characters' placeholder texture 0,
+//                                                   projection_dummy, replaced by their texture 1, the real one)
 //   spica motions <file>                            a GF motion pack (a Pokemon PB pack's file 0, a title pack): each
 //                                                   motion's frames and animated bones (GF1Motion)
 //   spica pose <file> <out.json> [--anim N] [--skeleton <file>]   every bone's local transform at every frame of an
 //                                                   animation (the bind pose, one frame, without --anim), as JSON:
 //                                                   [{bone: [tx,ty,tz, qx,qy,qz,qw, sx,sy,sz]}, ...] (ride viewer, render/)
 //   spica png <file> <out dir>                      the file's textures as PNG (H3DTexture.ToRGBA; no System.Drawing)
+//   spica bg <file> <out prefix> <tex dir>         an Ultra Sun/Moon field package (a/0/8/3 member, "BG", nested BG
+//                                                   packages inside): every bare GF model as <out prefix>_<n>.smd, every
+//                                                   bare GF texture as PNG; a zone's models and textures sit in different
+//                                                   members (usum_character.py's ORAS_ENGINE.md section 8)
 //   spica anim <out.bch> <template.bch> <pose.json> [--scale S]   the template's skeletal animation (its name and flags,
 //                                                   which the game looks up) with its curves replaced by the poses of
 //                                                   pose.json (spica pose's output, any skeleton), translations scaled by S
@@ -72,10 +78,11 @@ static class SpicaCli
             {
                 case "info": Info(Recognised(rest[1], skeleton)); return 0;
                 case "dae" when rest.Count >= 3: new DAE(Recognised(rest[1], skeleton), model, anim).Save(rest[2]); return 0;
-                case "smd" when rest.Count >= 3: new SMD(Recognised(rest[1], skeleton), model, anim).Save(rest[2]); return 0;
+                case "smd" when rest.Count >= 3: new SMD(RealTextures(Recognised(rest[1], skeleton)), model, anim).Save(rest[2]); return 0;
                 case "motions": Motions(rest[1]); return 0;
                 case "pose" when rest.Count >= 3: Pose(Recognised(rest[1], skeleton), skeleton, model, anim, rest[2]); return 0;
                 case "png" when rest.Count >= 3: Png(Recognised(rest[1], skeleton), rest[2]); return 0;
+                case "bg" when rest.Count >= 4: FieldPackage(rest[1], rest[2], rest[3]); return 0;
                 case "anim" when rest.Count >= 4: Anim(rest[1], rest[2], rest[3], scaleOpt); return 0;
                 case "bch" when rest.Count >= 3: Bch(rest, scaleOpt, renameOpt, texmaxOpt, materialOpt, skeleton); return 0;
             }
@@ -91,7 +98,7 @@ static class SpicaCli
 
     static int Usage()
     {
-        Console.Error.WriteLine("usage: spica info|dae|smd|motions|pose|png|bch <file> [out] [--model N] [--anim N] [--skeleton <file>] [--scale S] [--rename NAME]");
+        Console.Error.WriteLine("usage: spica info|dae|smd|motions|pose|png|bg|bch <file> [out] [--model N] [--anim N] [--skeleton <file>] [--scale S] [--rename NAME]");
         return 2;
     }
 
@@ -130,6 +137,16 @@ static class SpicaCli
             case 0x00010000: return new GFModelPack(reader).ToH3D();
         }
         return null;
+    }
+
+    // ORAS field characters (shader FieldChar) put a placeholder in texture 0 and their image in texture 1: SMD names each
+    // triangle after texture 0, which would give every material of the character the same name (usum_character.py)
+    static H3D RealTextures(H3D scene)
+    {
+        foreach (var m in scene.Models)
+            foreach (var mat in m.Materials)
+                if (mat.Texture0Name == "projection_dummy" && !string.IsNullOrEmpty(mat.Texture1Name)) mat.Texture0Name = mat.Texture1Name;
+        return scene;
     }
 
     static void Info(H3D scene)
@@ -221,6 +238,52 @@ static class SpicaCli
             all.Append(sb.ToString().TrimEnd(',')).Append("},");
         }
         File.WriteAllText(outPath, all.ToString().TrimEnd(',') + "]");
+    }
+
+    // USUM's field packages are not what SPICA's GFL2OverWorld reads (it finds no model in them): a "BG" package holds
+    // further BG packages, bare GF models (0x15122117) and bare GF textures (0x15041213), walked here. A texture whose
+    // format SPICA can't convert, or a model it can't read, is skipped and counted.
+    static void FieldPackage(string file, string prefix, string texDir)
+    {
+        byte[] data = File.ReadAllBytes(file);
+        var scene = new H3D();
+        int skipped = 0;
+        void Walk(int start, int length)
+        {
+            if (length < 8) return;
+            uint magic = BitConverter.ToUInt32(data, start);
+            bool package = data[start] >= 'A' && data[start] <= 'Z' && data[start + 1] >= 'A' && data[start + 1] <= 'Z' &&
+                           BitConverter.ToUInt16(data, start + 2) < 64;
+            if (package)
+            {
+                int count = BitConverter.ToUInt16(data, start + 2);
+                for (int i = 0; i < count; i++)
+                {
+                    int a = (int)BitConverter.ToUInt32(data, start + 4 + i * 4), b = (int)BitConverter.ToUInt32(data, start + 8 + i * 4);
+                    if (a < 0 || b > length || b < a) return;
+                    Walk(start + a, b - a);
+                }
+            }
+            else if (magic == 0x15122117)
+            {
+                try { scene.Models.Add(new GFModel(new BinaryReader(new MemoryStream(data, start, length)), "Model" + scene.Models.Count).ToH3DModel()); }
+                catch (Exception) { skipped++; }
+            }
+            else if (magic == 0x15041213)
+            {
+                try
+                {
+                    var texture = new SPICA.Formats.GFL2.Texture.GFTexture(new BinaryReader(new MemoryStream(data, start, length))).ToH3DTexture();
+                    if (!scene.Textures.Contains(texture.Name)) scene.Textures.Add(texture);
+                }
+                catch (ArgumentException) { skipped++; }
+            }
+        }
+        Walk(0, data.Length);
+        Console.WriteLine($"{scene.Models.Count} models, {scene.Textures.Count} textures, {skipped} skipped");
+        Png(scene, texDir);
+        for (int i = 0; i < scene.Models.Count; i++)
+            if (scene.Models[i].Meshes.Count > 0) new SMD(scene, i).Save($"{prefix}_{i}.smd");
     }
 
     static void Png(H3D scene, string dir)

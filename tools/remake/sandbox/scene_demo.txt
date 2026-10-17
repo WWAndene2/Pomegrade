@@ -1,0 +1,77 @@
+# A scene (oras-sandbox, OrasSandbox.h: "scene" block; SceneScript.h): a person in zone 539, the first time they are talked
+# to, says a line, walks two tiles north and back, the player turns south, then a second line and story flag 0xCE0 set;
+# after that, a third line. The demo's ground (demo.txt) without its house.
+# For a run: oras-sandbox <oras.3ds> <out> tools/remake/sandbox/scene_demo.txt, oras-engine --zone-rows 540, the save moved
+# to 538 14.5 20.5, then walk up 1 tile and right 9 to face the person and press A (ORAS_ENGINE.md 6, run sceneC).
+zone 538
+pack 8
+spawn 14.5 20.5
+name Bac à Sable
+zone 539
+pack 8
+spawn 30.5 20.5
+name Bac à Sable Est
+line Archie: La mer se souvient de tout. Moi aussi.
+line Archie: Reviens me voir quand tu auras compris.
+line Archie: Tu es revenu. La mer, elle, ne revient jamais.
+character 284 24 19 face 2 script 9
+scene
+on 9
+    if not flag 0xCE0
+        say 0
+        walk person north 2
+        walk person south 2
+        face player south
+        say 1
+        flag 0xCE0 on
+    else
+        say 2
+    endif
+end
+pieces 1 1
+blocks
+0011
+0011
+0011
+0011
+map
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::.........t......TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::............t...TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::......:.........TT
+TT..................::......:.........TT
+TT..................::......:.........TT
+TT::::::::::::::::::::::::::::::::::::TT
+TT::::::::::::::::::::::::::::::::::::TT
+TT..................::................TT
+TT..................::................TT
+TT..................::..FFFFFFFFFFF...TT
+TT..................::................TT
+TT......LLLLLLLLLLL.::................TT
+TT..................::................TT
+TT..................::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::........t.......TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT

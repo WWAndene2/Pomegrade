@@ -82,3 +82,32 @@ A=azahar; g++ -std=c++20 -O1 -Itools/remake/prototype/azahar_check/stub -I$A/src
 
 - Paths and the Twinleaf/Petalburg choices are hard-coded in the C++ prototypes.
 - No texture can be added to an area pack yet: that needs BCH dictionary editing, which also blocks snow (`c109_pur_yaneyuki`) and the white fence.
+
+## Ultra Moon players on ORAS bodies (`usum_character.py`)
+
+Elio or Selene, in a chosen outfit, built on an ORAS field character (Brendan by default) for a preview. What the data is
+and what was decided: `../ORAS_ENGINE.md` section 8. In a session (the dumps by their Drive ids, `../headless/session_setup.sh`):
+
+```
+POMEGRADE_ORAS_DRIVE_ID=<id> POMEGRADE_UM_DRIVE_ID=<id> tools/remake/headless/session_setup.sh <work> dumps tool spica
+export DOTNET_ROOT=<work>/dotnet REMAKE_TOOL=<work>/build-remake/remake_tool SPICA=<work>/spica/spica
+python3 -I tools/remake/prototype/usum_character.py extract <work>/dumps/um.3ds <work>/dumps/oras.3ds <work>/elio
+python3 -I tools/remake/prototype/usum_character.py build <work>/elio <work>/elio/out --shirt stripes
+```
+
+`out.png` shows four views; `--outfit hat=3,tops=12` picks other items (their index in the part's GARC), `--player 2`
+Selene (on May). The work directory holds game data: keep it outside the repository.
+
+## Polygon multiplier on a 3DS character (`oras_tessellate.py`)
+
+The DS core's polygon multiplier (`GPU3D_PolygonMultiplier.cpp`, its PNhong method) applied ahead of time to a character
+model, for a preview: `python3 -I oras_tessellate.py <model.smd> <tex dir> <out prefix> 1,3` (a character from `spica smd`
+and `spica png`). Its header gives what was checked and what was not (whether the game accepts the larger models).
+
+## Platinum's trainer sprites (`nitro_sprites.py`)
+
+NCGR images with their NCLR palette, and Platinum's encrypted trainer sprites:
+`remake_tool unpack <platinum.nds> poketool/trgra/trfgra.narc trf`, then
+`python3 -I nitro_sprites.py trainer trf 0 lucas.png --zoom 3` (trainer 0 is Lucas; `trbgra.narc` for the back sprites).
+The field sprites are NSBTX textures: `remake_tool textures <member.nsbtx> <dir>` on `data/mmodel/mmodel.narc` (Lucas in
+Platinum's outfit: member 157, `pl_whelo`; member 417, `hero`, is his Diamond/Pearl outfit).

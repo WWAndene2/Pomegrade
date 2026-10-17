@@ -167,6 +167,9 @@ object NativeLibrary {
     // Create the config.ini file.
     external fun createConfigFile()
     external fun createLogFile()
+
+    // Pomegrade: the native user paths worked out again, after the user folder (DocumentsTree's root) is set
+    external fun resetUserPaths()
     external fun logUserDirectory(directory: String)
 
     /**
@@ -258,6 +261,9 @@ object NativeLibrary {
     external fun disableTemporaryFrameLimit()
 
     external fun playTimeManagerInit()
+
+    /** Pomegrade: play times read again from the current user folder (DirectoryInitialization.onUserFolderChanged) */
+    external fun playTimeManagerReload()
     external fun playTimeManagerStart(titleId: Long)
     external fun playTimeManagerStop()
     external fun playTimeManagerGetPlayTime(titleId: Long): Long

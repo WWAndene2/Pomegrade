@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       variants:
-        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"; "... +cro <module> OFFSET=OLD:NEW" also patches a code module, "name: cro <module> OFFSET=OLD:NEW" patches one alone, "name: copy <archive> <dst>=<src>" copies archive members, "name: merge a b" joins mods built on earlier lines, "name: save Z X Y" a moved save to merge, "name: engine <oras-engine options>" the engine patches (memory, heaps, zones, characters) to merge, "name: sandbox <description file>" new zones from a text description (oras-sandbox) to merge, "name: build <steps file>" regions and sandboxes in one mod (oras-build) to merge'
+        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"; "... +cro <module> OFFSET=OLD:NEW" also patches a code module, "name: cro <module> OFFSET=OLD:NEW" patches one alone, "name: copy <archive> <dst>=<src>" copies archive members (<src> xy:dumps-x/x.3ds:<member> an X/Y character, with the secret X_DRIVE_ID), "name: merge a b" joins mods built on earlier lines, "name: save Z X Y" a moved save to merge, "name: engine <oras-engine options>" the engine patches (memory, heaps, zones, characters) to merge, "name: sandbox <description file>" new zones from a text description (oras-sandbox) to merge, "name: build <steps file>" regions and sandboxes in one mod (oras-build) to merge'
         # no default mod: an empty input fell back to "v24:", and an inspect-only run shipped a v24 zip the owner took for r5
         default: ''
         required: false
@@ -46,6 +46,9 @@ permissions:
 jobs:
   mods:
     runs-on: ubuntu-latest
+    env:
+      # optional: Pokemon X (decrypted .3ds) on Drive, for "copy a/0/2/1 <dst>=xy:dumps-x/x.3ds:<member>"
+      X_DRIVE_ID: ${{ secrets.X_DRIVE_ID }}
     steps:
       - uses: actions/checkout@v4
 
@@ -87,6 +90,30 @@ jobs:
           fetch "$ORAS_DRIVE_ID" dumps/oras.3ds
           fetch "$PLATINUM_DRIVE_ID" dumps/platinum.nds
           ls -l dumps
+
+      # Pokemon X, for the "xy:" sources of "copy" (X/Y characters made Omega Ruby's: tools/remake/src/XyCharacter.h), when
+      # the secret X_DRIVE_ID is set: a cache of its own, so the ORAS and Platinum cache stays as it is
+      - name: Pokemon X from the cache
+        id: xdump
+        if: env.X_DRIVE_ID != ''
+        uses: actions/cache@v4
+        with:
+          path: dumps-x
+          key: remake-dumps-x-v1
+
+      - name: Pokemon X from Google Drive
+        if: env.X_DRIVE_ID != '' && steps.xdump.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p dumps-x
+          id=$(printf '%s' "$X_DRIVE_ID" | tr -d '[:space:]' | sed -E 's#.*/d/([^/?]+).*#\1#; s#.*[?&]id=([^&]+).*#\1#')
+          if ! printf '%s' "$id" | grep -qE '^[A-Za-z0-9_-]{25,}$'; then echo "::error::X_DRIVE_ID is not a Drive file id"; exit 1; fi
+          for url in "https://drive.usercontent.google.com/download?id=$id&export=download&confirm=t" \
+                     "https://drive.google.com/uc?id=$id&export=download&confirm=t"; do
+            code=$(curl --location --silent --show-error --output dumps-x/x.3ds --write-out '%{http_code}' "$url" || true)
+            echo "x.3ds: ${url%%\?*} answered $code, $(stat -c %s dumps-x/x.3ds 2>/dev/null || echo 0) bytes"
+            if [ "$code" = 200 ] && ! head -c 512 dumps-x/x.3ds | grep -qi '<html'; then exit 0; fi
+          done
+          echo "::error::Drive did not serve x.3ds"; exit 1
 
       - name: Build remake_tool
         run: |
@@ -166,7 +193,8 @@ jobs:
             elif [[ "$options" =~ ^[[:space:]]*sandbox[[:space:]] ]]; then
               # "name: sandbox <description file in the repository>": new zones from a text description (oras-sandbox,
               # OrasSandbox.h); merge it with "engine --zone-rows <the rows it prints>" and a save moved into one of its zones
-              ./build-remake/remake_tool oras-sandbox dumps/oras.3ds "out/$name" "$GITHUB_WORKSPACE/$(echo ${options#*sandbox } | xargs)" | tee "mods/${name}_log.txt"
+              set -- ${options#*sandbox }  # the file, then oras-sandbox options (--character-models N)
+              ./build-remake/remake_tool oras-sandbox dumps/oras.3ds "out/$name" "$GITHUB_WORKSPACE/$1" "${@:2}" | tee "mods/${name}_log.txt"
               rm -f "out/$name/sandbox_layout.txt"
             elif [[ "$options" =~ ^[[:space:]]*engine([[:space:]]|$) ]]; then
               # "name: engine <oras-engine options>": the engine patches (exheader.bin, exefs/code.ips: ORAS_ENGINE.md 4), e.g.

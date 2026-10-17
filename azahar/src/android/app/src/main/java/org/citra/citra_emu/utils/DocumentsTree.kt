@@ -380,7 +380,13 @@ class DocumentsTree {
             // Pomegrade: the same folders in Core, in the Punica folder's layout (DirectoryInitialization.punicaCore)
             "/Core/config/",
             "/Core/log/",
-            "/Core/gpu_drivers/"
+            "/Core/gpu_drivers/",
+            // Pomegrade: the games' own settings (SettingsFile) and the states folder with its previews
+            // (EmulationFragment), flat and in the Punica folder's layout (States beside Core)
+            "/GameSettings/",
+            "/Core/GameSettings/",
+            "/states/",
+            "/States/"
         )
     }
 }

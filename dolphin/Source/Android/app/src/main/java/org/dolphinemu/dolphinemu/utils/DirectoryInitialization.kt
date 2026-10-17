@@ -140,6 +140,32 @@ object DirectoryInitialization {
         return true
     }
 
+    /**
+     * Pomegrade: resolves the user folder again ([userDirectoryProvider]) and re-applies it, for when the app has
+     * moved, renamed or changed its Pomegrade folder (the folder is otherwise resolved once per process). Before
+     * Dolphin has started nothing is to do: [start] reads the provider then. Once started: the user and cache folders
+     * are set again and Dolphin.ini is reloaded from the new folder, which re-runs Dolphin's custom paths (the Punica
+     * layout's, UICommon's UsePunicaLayout). While a game runs nothing is changed and false is returned: the running
+     * game keeps the folders it started with (its NAND, memory cards, states) and the change applies at the next
+     * call or the next process start; the caller may call again once the game has ended.
+     */
+    @JvmStatic
+    fun reapplyUserDirectory(context: Context): Boolean {
+        if (directoryState.value != DirectoryInitializationState.DOLPHIN_DIRECTORIES_INITIALIZED) {
+            // not started (start() will read the provider), or starting (its thread has read it or is about to)
+            return true
+        }
+        if (NativeLibrary.IsRunning()) {
+            return false
+        }
+        if (!setDolphinUserDirectory(context)) {
+            return false
+        }
+        // reloads the config from the new user folder; its change callback re-runs UICommon's InitCustomPaths
+        NativeLibrary.ReloadConfig()
+        return true
+    }
+
     private fun extractSysDirectory(context: Context) {
         val sysDirectory = File(context.filesDir, "Sys")
 

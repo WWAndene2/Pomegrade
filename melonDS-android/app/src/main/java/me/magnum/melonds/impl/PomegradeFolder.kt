@@ -22,6 +22,7 @@ import org.citra.citra_emu.CitraApplication
 import org.citra.citra_emu.activities.EmulationActivity
 import org.citra.citra_emu.features.settings.model.Settings
 import org.citra.citra_emu.utils.CitraDirectoryHelper
+import org.citra.citra_emu.utils.DirectoryInitialization
 import org.citra.citra_emu.utils.PermissionsHandler
 import org.json.JSONArray
 import java.io.File
@@ -109,6 +110,16 @@ class PomegradeFolder(
                 return null
             }
             return pathOf("$id/$name")
+        }
+
+        /**
+         * Tells the 3DS, GameCube / Wii and Switch cores that the folder's files moved (folder picked, renamed, put in
+         * the layout of [PunicaLayout]): each recomputes its paths. One failing does not keep the others from it.
+         */
+        fun onUserFolderChanged(context: Context) {
+            if (CitraApplication.isSupported) runCatching { DirectoryInitialization.onUserFolderChanged() }.onFailure { Log.w(TAG, "3DS core paths", it) }
+            runCatching { GcWiiFolder.onUserFolderChanged(context) }.onFailure { Log.w(TAG, "GameCube / Wii core paths", it) }
+            runCatching { SwitchFolder.onUserFolderChanged(context) }.onFailure { Log.w(TAG, "Switch core paths", it) }
         }
 
         /** The default folder (/storage/emulated/0/Punica), created if needed, as the folder picker's starting point. */
@@ -208,7 +219,7 @@ class PomegradeFolder(
         val root = pathOf(DocumentsContract.getTreeDocumentId(folder))
         if (!root.isDirectory && !root.mkdirs()) return SetupResult.Failed to null
         settingsRepository.setPomegradeFolder(folder)
-        applyLayout(roms)
+        moveIntoLayout(roms)
 
         // games first, while the settings still say where their saves are now
         // the list as it is once applyLayout has moved the games of an earlier layout
@@ -225,6 +236,7 @@ class PomegradeFolder(
         organizeBios()
         setUpThreeDs()
         hideImagesFromGallery()
+        onUserFolderChanged(context)
         return SetupResult.Success to organized
     }
 
@@ -232,36 +244,58 @@ class PomegradeFolder(
      * Puts the Pomegrade folder in the layout of [PunicaLayout], once (owner's request, 15 October): moves the earlier
      * one ([PunicaLayout.migrate]), then follows the moved games in the game list (their settings, play time and state
      * screenshots go with them), scans every console's Games instead of Roms, and moves the debug trace folders kept
-     * in the settings. Background thread, before the game list scans.
+     * in the settings. Games a name conflict left in Roms are tried again at each call, and Roms is scanned as long
+     * as it is there, so none drops from the list. The cores recompute their paths after a move. Background thread,
+     * before the game list scans.
      */
     fun applyLayout(roms: List<Rom>) {
-        val folder = settingsRepository.getPomegradeFolder() ?: return
-        if (!hasFileAccess(context)) return
+        if (moveIntoLayout(roms)) onUserFolderChanged(context)
+    }
+
+    // applyLayout's moves; returns whether anything moved. Never while the folder is being renamed (FOLDER_LOCK).
+    private fun moveIntoLayout(roms: List<Rom>): Boolean = synchronized(PunicaLayout.FOLDER_LOCK) {
+        val folder = settingsRepository.getPomegradeFolder() ?: return false
+        if (!hasFileAccess(context) || PunicaFolderRename.isPending(context)) return false
         val treeId = DocumentsContract.getTreeDocumentId(folder)
         val root = pathOf(treeId)
-        if (!PunicaLayout.isMigrated(root)) {
-            val notes = mapOf(
-                PunicaLayout.N3DS to (context.getString(R.string.punica_layout_saves_note_file) to context.getString(R.string.punica_layout_saves_note_three_ds)),
-                PunicaLayout.GC_WII to (context.getString(R.string.punica_layout_saves_note_file) to context.getString(R.string.punica_layout_saves_note_gc_wii)),
-            )
-            val report = PunicaLayout.migrate(root, notes)
-            report.left.forEach { Log.w(TAG, "Punica layout: left $it") }
-            val rootPath = root.canonicalPath
-            fun idOf(file: File) = treeId + file.canonicalPath.removePrefix(rootPath)
-            roms.forEach { rom ->
-                val old = documentIdOf(context, rom.uri)?.let { pathOf(it) } ?: return@forEach
-                val new = report.games[old] ?: return@forEach
+        // renamed or removed meanwhile: nothing is created at the old place
+        if (!root.isDirectory) return false
+        val rootPath = root.canonicalPath
+        fun idOf(file: File) = treeId + file.canonicalPath.removePrefix(rootPath)
+        val romsByFile = roms.mapNotNull { rom -> documentIdOf(context, rom.uri)?.let { pathOf(it) to rom } }.toMap()
+        // each game's entry follows it as soon as it has moved: a failure partway leaves no entry behind
+        val onGame = { old: File, new: File ->
+            romsByFile[old]?.let { rom ->
                 val newUri = DocumentsContract.buildDocumentUriUsingTree(folder, idOf(new))
                 val parentUri = DocumentsContract.buildDocumentUriUsingTree(folder, idOf(new.parentFile!!))
                 screenshotProvider.relocateRomScreenshots(rom, newUri)
                 romsRepository.relocateRom(rom, newUri, parentUri)
             }
+            Unit
+        }
+        var moved = false
+        if (!PunicaLayout.isMigrated(root)) {
+            val notes = mapOf(
+                PunicaLayout.N3DS to (context.getString(R.string.punica_layout_saves_note_file) to context.getString(R.string.punica_layout_saves_note_three_ds)),
+                PunicaLayout.GC_WII to (context.getString(R.string.punica_layout_saves_note_file) to context.getString(R.string.punica_layout_saves_note_gc_wii)),
+            )
+            val report = PunicaLayout.migrate(root, notes, onGame)
+            // no screen shows these yet: logged; the games among them stay listed in Roms and are tried again
+            report.left.forEach { Log.w(TAG, "Punica layout: left $it") }
+            moved = true
             moveTraceFolder("ds_debug_trace_folder", "${PunicaLayout.DS}/Traces", "${PunicaLayout.DS}/${PunicaLayout.CORE}/Traces", root)
             moveTraceFolder(EmulationActivity.CODE_TRACE_FOLDER, "${PunicaLayout.N3DS}/Traces", "${PunicaLayout.N3DS}/${PunicaLayout.CORE}/Traces", root)
+        } else if (File(root, ROMS).isDirectory) {
+            val report = PunicaLayout.moveLeftGames(root, onGame)
+            report.left.forEach { Log.w(TAG, "Punica layout: still left $it") }
+            moved = report.moved > 0
         }
-        // every console's Games scanned, the earlier Roms no more
-        settingsRepository.excludeRomSearchDirectory(DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$ROMS"))
+        // every console's Games scanned; the earlier Roms too while it holds what could not move (included again if
+        // an earlier version excluded it with games left in it)
+        val romsUri = DocumentsContract.buildDocumentUriUsingTree(folder, "$treeId/$ROMS")
+        if (File(root, ROMS).isDirectory) settingsRepository.includeRomSearchDirectory(romsUri) else settingsRepository.excludeRomSearchDirectory(romsUri)
         gamesDocumentIds(folder).forEach { settingsRepository.includeRomSearchDirectory(DocumentsContract.buildDocumentUriUsingTree(folder, it)) }
+        moved
     }
 
     // a trace folder kept as a path in the settings, moved with the layout
@@ -293,7 +327,7 @@ class PomegradeFolder(
         val dsiBios = settingsRepository.getDsiBiosDirectory()
         if (dsiBios == null || dsiBios in earlier) settingsRepository.setDsiBiosDirectory(uri("$system/${PunicaLayout.DSI}"))
         // the GameCube boot ROM's region folders, so where to put IPL.bin is plain
-        ConsoleSystemFiles.GC_REGIONS.forEach { File(PunicaLayout.part(root, PunicaLayout.GC_WII, PunicaLayout.SYSTEM), it).mkdirs() }
+        ConsoleSystemFiles.GC_REGIONS.forEach { File(PunicaLayout.part(root, PunicaLayout.GC_WII, "${PunicaLayout.SYSTEM}/${PunicaLayout.GC}"), it).mkdirs() }
         ConsoleSystemFiles.import(root)
     }
 

@@ -11,7 +11,11 @@ marked **checked** (seen in memory or under the debugger), **read** (from the de
 
 **The owner's objectives, in order** (their words, 7 October): (1) take the game apart to the binary and learn every part;
 (2) reference every table and asset; (3) a limitless sandbox; (4) remove the memory, cache, zone and asset limits; (5)
-patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothing tied to Hoenn; (7) a story mod. Step
+patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothing tied to Hoenn; (7) a story mod.
+**(6) dropped by the owner (17 October)**: Sinnoh is no longer in the project, new assets cannot be made from nothing.
+The project is Equilibrium (`docs/Equilibrium_Scenario.md`), Omega Ruby joined with X: X's characters and maps brought
+into Omega Ruby. The tools stay in use (sandbox, regions, engine patches, map pieces work on any map, X's included);
+only the Sinnoh-specific goals and notes below are history. Step
 1-5 are under way here; 6 and 7 wait on them. The owner tests mods on their phone (Pomegrade, `ORAS_LITTLEROOT.md` 0).
 
 **Where each stands**:
@@ -49,7 +53,7 @@ patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothin
 6. **The sandbox (8 October): built, checked live, phone test next.** `remake_tool oras-sandbox` (section 2) builds zones
    538+ from a text description; the demo is `tools/remake/sandbox/demo.txt` (two zones, a pond, tall grass, a ledge, a
    house and its inside, a fence, a person, trainer 10). For the phone, the Remake mod workflow's variants (its header
-   lists them): `sb: sandbox tools/remake/sandbox/demo.txt`, `eng: engine --zone-rows 541`, `sv: save 538 14.5 20.5`,
+   lists them): `sb: sandbox tools/remake/sandbox/demo.txt`, `eng: engine --zone-rows 541 --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 --characters 64` (the memory options are needed on the phone: `--zone-rows` alone froze the owner's phone at boot on 17 October, mod `test2` with them started; headless runs start either way, so a headless start does not prove a phone start), `sv: save 538 14.5 20.5`,
    `demo: merge sb eng sv`. Headless reruns: `headless/fast_run.sh` (about 3 minutes). Not built yet: east and west
    ledges, relief (hills, cliffs), warps between matrices, writing scripts, trainers and encounter tables of one's own.
    Camera and light done (8 October, section 2): `camera ...` and `light ...`, read and checked headless; this closes
@@ -166,6 +170,91 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   before each, land on an instruction. **Run in the game** (runs `r1own`, `r1sign`, `r1zone538`: `SINNOH_BUILD.md` R1):
   scripts of ours in Littleroot and in a new zone 538 run on entering the zone and for a sign. A zone's scripts are replaced
   by `oras-zone-script` (game zones) or a sandbox description's `script` / `init-script` blocks (new zones).
+  **A person of ours saying a line of ours, checked live** (run `sceneB2`, 16 October): a sandbox of two zones (538, 539),
+  in 539 `line Archie: La mer se souvient de tout. Moi aussi.` and `character 284 24 19 face 2 script 9`, its `script`
+  Littleroot's (`oras-script ... 6 source`) with talking (g_mode 9, `L001A28`) sent straight to its talk routine
+  (`L000348`, arguments line, 1, -1: -1 the person talked to, from `WorkGet(32785)`) with line 0. Walking from 538 into
+  539 and pressing A shows the line in the person's balloon, accents included; A closes it and the field goes on. The
+  routine chain under it (`L000348` -> `L000130` -> `L000AC8`, the 19 arguments of `TalkMdlMsg_Seq`, then
+  `CheckWinAllSuspend` until the window closes) is the game's; a script written from nothing needs it rewritten. The
+  sandbox finds the native names at `<description's folder>/../ghidra/function_names.tsv`: a description kept outside
+  `tools/remake/sandbox` needs a `ghidra` link beside its folder. The run needs the save's `00000001.metadata` in
+  `<work>/dumps/save` (without it the emulator stopped on loading the title state).
+- **Write a scene** (16 October): a sandbox description's `scene` block (`SceneScript.h`: `on N`, `say L`, `wait F`,
+  `flag N on|off`, `if [not] flag N` ... `else` ... `endif`) compiles to a zone script on Littleroot's, taken from the
+  game when the mod is built: the scene's own `main` (the header's cip moved to it) and the library's talking and waiting
+  routines, found by their code (`say` is the routine 243 zone scripts have, arguments line, 1, -1). **Checked live**
+  (run `sceneC1`, `sandbox/scene_demo.txt`): talking to the person shows lines 0 then 1 and sets flag 0xCE0; talking
+  again shows line 2, the flag read back. **Story flags, read** (`FlagGet`/`FlagSet` 0x10293330/0x10293344, then
+  0x12FD48 and `Save_ClearEventFlag_0011F9E8`): 1-0xCFF are bits of the save (save + 0x13434 for writing), 0xD00-0x2FFF
+  are fatal (`FUN_0014ea64`), 0x3000-0x303F a separate area of 64. The 1,072 zone scripts name 699 flags as constants
+  (2,056 uses, 10 to 3,080) and compute 76 more, 35 of them `1740 + n`; none names 0xC09-0xCFF, the range a mod's story
+  takes from the top. Not read: a use of that range by the game's own code.
+  **Movement** (16 October): `act WHO CODE DIR [N]` sends the game's movement commands (`MdlAcmdInit`, `MdlAcmdSet`
+  CODE DIR 1 0 per step, `MdlAcmdSetEnd`, then `MdlAcmdUpdate` each frame until done, as the library's command-list
+  routine does: a list is triples, code, direction, 1). Run `sceneD1` (18 commands, a line between each): directions 0
+  north, 1 south, 2 west, 3 east; codes 19, 13, 12, 17 move one tile (19 seen in all four, on the person and the player;
+  speeds not compared), 6 turns (the player, north: its back to the camera); 3, 5, 232, 233 moved nothing, 7 not
+  understood; a `say` turns the person back to the player, so turning was not seen on them. WHO -1 is the person
+  talked to, 255 the player. Named: `walk WHO DIR [N]` (19), `face WHO DIR` (6), WHO `player`/`person`. **Checked
+  live** (run `sceneC2`, `sandbox/scene_demo.txt`): the person walks two tiles north and back, the player turns south,
+  then the lines and flag as before.
+  **Fades** (16 October): `fade out|in both|top [F]`. Out is `FadeRequestOut(0, kind, F)`, called by the scripts
+  themselves (284 calls: kinds 2 and 0, 15 to 45 frames); in is the library's routine that waits for the map's blocks (at
+  most 60 frames) then calls `_FadeRequestIn(kind, F)`; both end with the routine waiting for `FadeIsEnd`. Run `sceneE1`
+  (a scene saying a line, fading out and in with kind 2, then 0): the top screen's mean brightness 138 -> 31 faded out and
+  back; the bottom screen's 77 -> 18 with kind 2, unchanged (77) with kind 0. Fading in took longer than the 30 frames
+  given (the map wait). **Camera** (16 October): `camera X Z H TX TZ TH [FOV [F]]` and `camera back [F]`.
+  `SetInitParam` copies the field camera as the move's start; `SetDstParam` takes an int (0 in the scripts) and 8 floats
+  (`ghidra/Listing.java`: `vldmia s16-s23` stored where SetInitParam keeps the field camera's position, target, fov
+  and a last value), read on Littleroot's calls as position x, y, z, target x, y, z, fov (30-35) and 0, in world units
+  of 18 a tile (its camera tables stand near x 1,880, z 3,100: the save's tiles 104, 170); `SetFrameParam(0, F, 1, 0)`
+  the length; `Begin` starts it; `IsEndFrame` is polled each frame; `End(F)` gives the field camera back. The scene
+  takes tiles (x 18) and heights in tiles. **Checked live** (run `sceneF1`: `camera 27.5 25.5 4 24.5 19.5 1 30 60`
+  then a line, `camera back 30`): the camera swings to a low view from the south-east framed on the person and the
+  player, then back; the sandbox's map stands at the world's origin and its ground at height 0.
+  **Battles and items** (16 October): `battle T` is `_CallTrainerBattleCore(0, T, 0, 0, 0, 0, 0)` as the 44 scripts
+  that start a trainer's battle call it (through a 6-argument routine), a frame's wait, then `_BattleGetResult`'s first
+  cell, 0 a loss handed to `CallTrainerLose` (32 scripts; 26 others use `_CallWildLose`). `give item I [N]` is
+  `ItemAdd(I, N)` with no message; `if [not] item I` reads `ItemGetNum(I)`. **Checked live** (runs `sceneG1`, `sceneG2`:
+  a scene of camera shots, two lines, then `battle 10`): the battle starts from the scene ("Dixie la Fillette veut se
+  battre !", trainer 10 is a Lass with a Zigzagoon, not the Youngster the sandbox's notes guessed), the turns run, and
+  a loss (A pressed blindly, the save's Torchic beaten) is the game's own: the player sent home to their mother. **A win
+  goes on with the scene** (run `sceneG4`: "Vous avez battu Dixie", then flag 0xCE1 set after `battle`; talking again
+  says the after-battle line and "Master Ball presente dans le sac", so `give item 1` and `if item 1` work).
+  **`give pokemon` checked live** (run `sceneI1`, with `if [not] party N`, `PokePartyGetCount(0)`): the scene says "one
+  Pokemon" before `give pokemon 24` and "at least two" after it. `heal` ran (run `sceneG3`) but its effect was not
+  measured.
+  **Triggers** (16 October): a sandbox's `trigger X Z [W H] script N` writes a zone trigger as the game's 361 are (word
+  0 the event, 6-7 the tile, 8-9 the size; words 1-2 a work variable condition, left 0 as 134 of the game's), and a
+  scene's `say L by N` makes character N speak when no one was talked to. **Checked live** (run `sceneH1`): walking east
+  over a 1 x 3 trigger, the camera moves, the person walks two tiles south to the player, turns west and says two lines,
+  then the camera comes back and the player walks on.
+  **Teams of our own** (16 October): a sandbox's `team ID` block rewrites trainer ID's team (`a/0/3/6` record +0 the
+  format, +7 the count; `a/0/3/8` entries: u8 difficulty, u8, u16 level, u16 species, u16 form, then u16 item for
+  formats 2-3, then 4 u16 moves for formats 1 and 3; read on the game's 949 teams). **Checked live** (run `sceneJ1`,
+  trainer 10 given Wurmple 2 with Tackle and String Shot, Magikarp 3 with Splash): "Dixie la Fillette envoie un
+  Chenipotte" at level 2, "Le Chenipotte ennemi utilise Charge !", then "envoie un Magicarpe" at level 3, knocked out;
+  the scene went on after the battle.
+  **A trainer's class and name** (16 October): `team ID class C name TEXT`. The names are a/0/7/1-8 member 22 (950
+  lines, a trainer each; written with `ReplaceGameTextLine`, the other names' bytes kept), the classes member 21 (280:
+  178 Team Magma's leader, 174 Team Aqua's; the record's u16 +2). **Checked live** (run `sceneJ3`, trainer 10 as
+  class 178 "Max le Jeune" with a Numel): the battle opens with Team Magma's own transition and Maxie's portrait, "Max
+  le Jeune le Leader Team Magma veut se battre !", then "envoie un Chamallot !".
+  **Scenes in the game's own zones** (16 October): a sandbox's `edit Z` block (OrasSandbox.h). **Checked live** (run
+  `sceneK1`, `edit 6`: 2 lines after Littleroot's 39, character 11, a 5 x 1 trigger at row 167; the save moved to Route
+  101, zone 23, 100.5 150.5, walking south): crossing the trigger, the camera moves, character 11 speaks, steps north
+  and speaks again, the camera returns and the player walks on in Littleroot. **The chained main checked** (run
+  `sceneK2`, the same mod, the save at 103.5 172.5 facing the sign): Littleroot's own sign still shows "Maison d'Andene",
+  its event handled by the zone's own main through the scene's. A camera's framing is the scene's to get right:
+  the person faces the player (west of them), so a shot from the south-east shows the back of their head (`sceneG1`).
+  The battle draws its Pokemon yellow under the headless software renderer; the field draws normally.
+  **Any model** (17 October): a model must be in its zone's area pack character list (`a/1/3/7`, `OrasWorkspace::CharacterList`),
+  else entering the zone hangs the game (runs `h5`, `h64`). The sandbox adds each model it places: to its own packs' lists,
+  and in place to a game pack's list for `edit Z`. **Checked live**: models 174 (the hero, presumably) and 64 beside X's
+  gym leader in zone 539 (run `hfix`, and on the owner's phone, mod test6, blinking included); 299, 284, 174 and 64 in
+  Littleroot, entered from Route 101 (run `hea`). A save made inside the edited zone showed none of them, the game's own
+  299 and 284 included (runs `hed`, `hec`): enter the zone to see them.
 - **Read a script**: `remake_tool oras-script <oras.3ds> <zone> [init]` disassembles it; `prototype/amx_natives.py tables
   <code.bin> <linked/modules.bin> natives.tsv`, then `... | amx_natives.py names natives.tsv` puts each native's name beside
   its hash, and `amx_natives.py check` proves every zone script's natives are registered (section 6). A zone's text:
@@ -299,7 +388,7 @@ another (51 characters passed the count check and stopped on the events buffer).
   | Animation | no | no | not studied |
   | 3D model | no | pieces cut from the game's (house, trees, fence, ledge) | a model of one's own not made |
   | Music | no | no | nothing reads the sound yet |
-  | Area pack | yes | | the sandbox fills the game's 9 placeholder packs no zone uses (0, 1, 39-42, 88, 97, 195) and changes no Hoenn pack (`light5`); a pack appended past 229 is refused (fatal-error loop: a/1/3/7, one member per pack, is one cause, read under the debugger in `apk1`-`apk4`; another not found) |
+  | Area pack | yes | | the sandbox fills the game's 9 placeholder packs no zone uses (0, 1, 39-42, 88, 97, 195) and changes no Hoenn pack (`light5`), then appends past the game's (`OrasWorkspace::AddAreaPack`). **Checked live** (run `apkA`, 16 October): zone 538 on appended pack 230 loads as on a free slot (same screen as the control `apkok`). a/0/1/4 holds 228 packs, then a table of 44 bytes a pack (member 228, 228 entries, not read further); an appended pack needs an entry there (extended, the table kept at member 228) and an a/1/3/7 member (one a pack). Fatal-error loop without the entry (`apk5`) and with the table moved last (`apk8`) |
   | Ground | yes | the game's grass, paths, water | checked: grass, tall grass (its ground since `fix1`), paths, pond (a bed in the water's colour, `fix2`: the surface still faint), trees, forest |
 
 - **Camera and lighting** (8 October):
@@ -489,6 +578,32 @@ capacities that bound a larger world:
 - **`OrasZone::Write`** writes a zone back over its container (header, events, the rest kept): **checked identical on all 536
   zones** (`remake_tool oras-zone-check`).
 
+
+### 4.5b Character models and shown characters past 31 / 32 (17 October)
+
+Read in the code (Ghidra, headless) and checked headless; the owner checked on the phone where said.
+- **A pack's model list (a/1/3/7)**: a model a zone shows must be in its area pack's list, else entering the zone hangs
+  (runs h5, h64). The sandbox adds the models it places (its own packs list only their zones' models; `edit Z` grows the
+  game pack's list in place: the zones of one matrix are crossed without a load and share one list, so a list cut to one
+  zone's characters hung Littleroot, run hE). Checked: models 174 and 64 beside X's gym leader (run hfix, phone test6),
+  four new models in Littleroot (run hea).
+- **31 models a list**: the field character manager caches the list after the player in 33 slots of 0x18 (+0x36CC) and
+  stops past 32 (cmp #0x21 at 0x3F7300); DllField's model resource manager holds 33 slots of 0xA0 inline (+0x40).
+  `oras-engine --character-models N` (up to 127) moves both to new tails (40 .code words; 104 DllField words, caves in the
+  padding at DllField file 0xF03F0; Azahar only, a console's static.crr check would refuse the module). Checked: 40 models
+  in one zone (run hG; phone, crowd mod).
+- **32 shown characters**: DllField's field object array (one 0x2F0 object a shown character; `mov r1,#0x20` at
+  0x3F525C) shares its last object past 32 (its assert is an empty `bx lr`): the phone showed an invisible but solid
+  row, people sunk in the ground and one stretched across the screen. `--characters N` now grows it to N + 6, its heap
+  0x62 (`mov r2,#0x10000` at DllField 0x10283954) and the two model instance heaps 0x159 / 0x15A (sizes loaded at
+  0x10283970 / 0x10283994, through caves) by objects / 32. The array alone, or with heap 0x62 only, hung in the allocator's
+  out-of-memory loop (0x12BAEC, FUN_0012b9a0) while a skeleton was built (runs hK, hL, hP); all three grown, the 59-people
+  crowd of 40 models enters and draws (run hQ). Not yet checked on the phone.
+- **Method** (bisection, one headless run at a time): the same mod with one change each (models 299 vs 174; 31 vs 33
+  entries; 34 vs 40 models; 34 vs 70 objects; demo zone vs crowd), the frozen threads' pc and stack code addresses
+  (`report`) named against the Ghidra program; agents read the code without running the emulator.
+- **Still bound**: a zone's events file (0xC84 bytes, about 60 people with a short script, 4.5); the extra heaps come out
+  of the field manager's parent heap, not identified.
 
 ### 4.6 What is left of the limits, and why (7 October)
 
@@ -1092,3 +1207,124 @@ reader in `tools/remake/src` or `ORAS_LITTLEROOT.md` shows it.
 | `a/2/9/6` | 1 | 27,808 | (a computed number) |
 | `a/2/9/7` | 1 | 254,412 | (a computed number) |
 | `a/2/9/8` | 1 | 21,372 | (a computed number) |
+
+## 7. Pokémon X beside ORAS: can their assets be merged (16 October)
+
+Read on the owner's dumps of Pokémon X (Europe, decrypted, program 0004000000055D00, 653 RomFS files) and Omega Ruby in
+a session's scratch space (CLAUDE.md §8: never committed), with `remake_tool oras-list`, `oras-extract`, `garc` and a
+throwaway script over the members; the scenario that wants it is `docs/Equilibrium_Scenario.md`. `oras-list` and
+`oras-extract` open X's RomFS as they do Omega Ruby's.
+
+| | Omega Ruby | X | Checked |
+|---|---|---|---|
+| Map pieces (`GR` containers) | `a/0/3/9`, 857 | `a/0/4/1`, 1,030 | seen: same container |
+| Tile grid (GR file 0) | 6,528 bytes in all 857 | 6,528 bytes in all 1,030 | seen: same size, 40 x 40 |
+| Piece files | grid, BCH, `coll`, three of 128-256 bytes, `KAGE` (7) | the same without `KAGE` (6) | seen on one piece each; counts 7/9/11 against 6/8/10 over all |
+| Area packs (`AD`) | `a/0/1/4` | `a/0/1/3`, 170 | seen: same container |
+| Characters | `a/0/2/1`, 544 members | `a/0/2/1`, 286 members | seen: same archive and container |
+| Character skeleton | 129 of 328 field models have the 25 standard bones (Origin ... RToe) | 125 of 177 | names only; bone positions and hierarchy not compared |
+| BCH | compatibility 0x21, revision 42607, every character and piece model | compatibility 0x07, revision 38669, every character (286) and piece model (1,115) | read in the headers |
+
+**X's characters in Omega Ruby** (16-17 October): `remake_tool bch` reads X's BCH 0x07 (a material's 3 texture mappers
+inline, 0x58 bytes, SPICA's `TextureMappersCompat`). A whole X character (its `a/0/2/1` member) is made Omega Ruby's by
+`oras-copy ... <dst>=xy:<x.3ds>:<member>` (or `bch-upgrade` on the member; `XyCharacter.h`):
+- its model and its blinking animation (a BCH of material animations, 52 of the 286) rewritten as 0x21 (`BchUpgrade.h`:
+  header, materials, texture relocations, key frame groups). All 286 characters convert whole; the 286 models read back
+  identical to X's (same glTF);
+- its motion pack moved from X's 173 slots to ORAS's 239 (`GfMotionPack.h`, which gives each move and its evidence):
+  same motion format; the slots **inferred** from runs of equal frame counts, the characters both games share, the
+  characters of the same name in both, the two games' players, and the slot sets of whole characters (X {1, 3, 80},
+  90 of them, is ORAS's {1, 3, 94}, 70). X's 75 motions with no ORAS one (its players', the features ORAS lacks) go to
+  slots no ORAS character fills, always the same slot (`remake_tool xy-motion-slots` prints the table), for a later
+  feature to play: **every X character keeps every motion** (all 159 packs, checked motion by motion). X's players
+  (members 1 and 2) as NPCs walk with their converted pack (run `xplayer`) but show only the shadow: their model file is
+  a placeholder (one 12-triangle cube, no texture; X's customisable player is presumably built from parts kept
+  elsewhere, not looked for), unlike ORAS's player (member 171, a 277 KB model). ORAS's 157, 158
+  and 170 have no X motion; 70 ORAS characters lack them too.
+
+How a character's model number finds its member: through the area pack's character list (`a/1/3/7`, 24 bytes an entry,
+the member at word 10: Littleroot's model 4153 is member 503, 284 is 284).
+
+**Checked live** (headless, character 284 of the sandbox replaced): X's member 10 left as 0x07 loads but only its shadow
+shows (run `xchar`); converted it is drawn (`xchar2`: a white-coated trainer, its texture white and grey); X's member 31,
+coloured, is lit as the player is (`xchar3`), turns on its own (`xmove`, movement 47), turns to the player and talks, then
+walks two tiles north and back with its walking motion (`xwalk2`, the scene of `sandbox/scene_demo.txt`). Not seen: the
+blinking, and the motions of X's slots dropped (ORAS's 157-158, 8 frames, have no X counterpart; what the game plays when a
+slot is empty was not looked at). X's map pieces (1,115) not tried.
+
+**Tile values**: X uses 173 distinct values, Omega Ruby 208, 40 of them shared; by count, 93.3 % of X's tiles hold a value
+Omega Ruby also uses (walkable 0x00000020 and 0x00000004, wall 0x01000021). Omega Ruby's tall grass 0x20004004 and sea
+0x3D1A0006 never occur in X: grass, water and the other special tiles need a value-by-value table, each checked on the
+phone. Zones, scripts and X's code were not compared.
+
+**The whole of X's map against ORAS's limits** (16 October, `prototype/game_census.py <remake_tool> <oras.3ds> <x.3ds>
+[archives.tsv]`, 8 s; X's archives found by their members' magics):
+
+| | ORAS | X | Together | ORAS's limit | |
+|---|---|---|---|---|---|
+| Zones (`ZO`) | 536 (`a/0/1/3`) | 360 (`a/0/1/2`) | 896 | 1,024 once raised (section 2) | fits |
+| Largest zone file | 17,416 bytes | 18,588 bytes | | 19,032 (the zone buffer, section 2) | fits, by 444 bytes |
+| Zone container | 5 files | 4 files | | | same first four (56-byte header, events, script, encounters); ORAS adds a 12-byte fifth, not read |
+| Map pieces (`GR`) | 857 (`a/0/3/9`) | 1,030 (`a/0/4/1`) | 1,887 | a matrix holds them as u16 (0xFFFF none: `OrasMatrix.h`) | fits the numbering; the archive's own reader not read |
+| Matrices (`MM`) | 431 (`a/0/4/0`) | 227 (`a/0/4/2`) | 658 | u16: the zone header's word 2, `Map_StartMatrixLoad` (0x4074C4) stores it as a u16 (read 16 October) | fits |
+| Area packs (`AD`) | 228 (`a/0/1/4`) | 170 (`a/0/1/3`) | 398 | none found: appended packs load once a/0/1/4's per-pack table (its member 228) and a/1/3/7 have their entries (section 2's table, run `apkA`); the zone table holds a pack number in a u16 (as the tools read it; the game's reader not read) | fits (checked with 2 appended packs, not 170) |
+| Script natives | 384 called | 473 called | | | 137 of X's are not registered by ORAS; 159 of X's 360 zones call at least one (the most called, `0xE3B5A658`, in 118) |
+
+So X's ground, zones and matrices are ORAS's formats; X's scripts cannot run as they are, and a
+mod that brings X's places writes its own (as `docs/Equilibrium_Scenario.md` does anyway). Not yet known: the
+X's map pieces converted, and a run of an X town in ORAS.
+
+**Order of work**: a BCH 0x07 reader and its conversion to 0x21 (done, 16 October); one X character in an Omega Ruby
+town, run on the phone (headless done: drawn, lit, walking); the tile table; one X piece in Omega Ruby.
+
+## 8. Ultra Sun/Moon characters on Omega Ruby (17 October)
+
+The owner's Ultra Moon dump (Europe, `3DS1772`, 3.7 GB, Drive folder "Pokemon Project - Radiant Platinum") is read by the
+same tools as Omega Ruby's: `remake_tool oras-list`/`oras-extract` open its RomFS (program 00040000001B5100, 747 files) and
+`spica` reads its models (GFL2). Its player models, made Omega Ruby field characters for a preview, by
+`prototype/usum_character.py` (its header gives the commands; prototype/README.md how to run it in a session).
+
+**The USUM player** (seen, Ultra Moon):
+- built from parts, one GARC per kind, every member a `CM` package (model pack, motion pack, mask texture): Elio
+  `a/1/7/6` face, `a/1/7/7` hair, `a/1/8/1` bottoms, `a/1/8/2` hat, `a/1/8/3` legs, `a/1/8/4` shoes, `a/1/8/6` tops
+  (also `a/1/7/8` eyewear, `a/1/7/9` bag, `a/1/8/0` bangle, `a/1/8/5` riding poses); Selene `a/1/8/8`... `a/1/9/9` in the
+  same order; a second copy of the same sets from `a/2/0/3` (not compared). Member 0 of each is the starting outfit
+  (`p1_tops_stripe`, `p1_bottoms_dpan`, `p1_hat_cap`...); the members of one model differ only in colour (same size).
+  Found by the model names inside (`p1_hair_...`); `a/1/7/4` (316 members) holds the characters' bases with their
+  skeleton motions (member 0, `p1_base`: 4 motions, the first the idle).
+- every part's model has the 79-bone skeleton `pc0001_00` (Selene `pc0002_00`): realistic proportions (waist at 76
+  units, about 150 tall), against ORAS's chibi field characters (Brendan: waist at 12.9, 33 tall, the head a third).
+  A part rooted at `Neck_attach` or `Head_attach` (Elio's hair; Selene's hair and hat) is modelled in that bone's space.
+- skin and hair colours are not in the textures: an item's `_m0N` texture (alpha) marks where the runtime colour goes
+  (`_m03` hair, `_m01`/`_m02` skin: the arms on a top, the legs, the face); the clothes' colours are drawn in. The
+  colours themselves (the player's choice) were not found; 58,46,40 for the hair and the ORAS character's skin are chosen
+  by eye.
+- the face: a sheet of eye cells (`p1_face01_on`, its material animations move v by +0.5 to blink, read in its motion
+  pack) and a mouth part whose UVs at v > 0 are the inside of the mouth (teeth, tongue), shown only when the jaw opens.
+- spica's PNG export is bottom-up against the SMD's UVs: a texel's row is v, not 1 - v (the face sheet shows it: with
+  1 - v the eyes are upside down and a blink lands on an empty cell).
+
+**On an ORAS body** (`usum_character.py build`; previews approved by the owner on 17 October: Elio on Brendan):
+re-proportioning the USUM model itself (bone lengths scaled, head enlarged) was tried first and dropped: the face sheet,
+the inside of the mouth and the hair all needed fixes, and its skeleton would have no ORAS motion. Kept instead: ORAS
+character 172 (Brendan, `rstr0002_00_fi`; 171 is May, `rstr0001_00_fi`) whole (body, skeleton, face sheet, proportions:
+its motions fit), without its hat and hair (texture `_head`), its bag (bones `Bag*`) and its switchable parts
+(`sw_parts`: bike, surf); its body texture repainted texel by texel through the triangles that use it, each triangle's
+region from its dominant bone (torso and upper arms: shirt; hips and thighs: shorts; feet: shoes; skin kept), with the
+outfit's colours read from its textures, the base's shading kept; its irises made grey; the USUM hair and cap fitted on
+its Head bone (scaled on the face's width, 0.398 for Elio; the hair below the head joint shortened by half), the cap
+grown x1.1 around the head so the hair stays inside it (pushing the hair under the cap instead crushed the bangs under
+the visor). `spica smd` now names an ORAS field character's triangles after their real texture (their texture 0 is a
+placeholder, `projection_dummy`).
+
+**USUM's field** (seen, Ultra Moon, 17 October): `a/0/8/3` holds 336 zones of 11 files each (3,696 members; their
+2-letter containers `BG` x2, `ED`, `ZS`, `ZI`, `aa`, `AS`, `TR`, `AE`, `AC`, `EA`, roles not read). A `BG` package nests
+further `BG` packages around bare GF models and textures, which SPICA's own BG reader does not find: `spica bg <member>
+<out prefix> <tex dir>` walks them (99 members hold models, 172 in all; a zone's models and textures sit in different
+members). It skips what SPICA cannot convert and counts it (36 in member 1: their format not identified). `a/0/8/1` (168
+members) holds the battle backgrounds (`btl_G_city`...).
+
+**Not done**: the in-game model. `build` writes what it needs (the repainted textures, the hair and cap on the base's
+skeleton as `<out>_head.smd`); the BCH holding them (a copy of member 172 with the head mesh replaced and the textures
+swapped) is not written by any tool yet, nor tried headless or on the phone. Selene's result (on May) was generated, not
+reviewed by the owner.

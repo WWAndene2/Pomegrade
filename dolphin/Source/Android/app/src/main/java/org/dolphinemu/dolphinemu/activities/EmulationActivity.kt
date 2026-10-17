@@ -1036,14 +1036,30 @@ class EmulationActivity : AppCompatActivity(), ThemeProvider {
         )
     }
 
-    // Pomegrade: <game ID>.<slot>.png in the app's files, as the 3DS core's previews
-    private fun statePreview(slot: Int): File? {
+    // Pomegrade: <game ID>.<slot>.png beside the states, in the Punica layout's GC-Wii/States (where UICommon's
+    // UsePunicaLayout puts them: the user folder Core beside System, the Punica marker above); outside the layout,
+    // in the app's files, as the 3DS core's previews. A preview saved there before the layout is still read there.
+    // [saving]: where a new preview goes (the old one in the app's files is then removed)
+    private fun statePreview(slot: Int, saving: Boolean = false): File? {
         val gameId = NativeLibrary.GetCurrentGameID().takeIf { it.isNotEmpty() } ?: return null
-        return File(File(filesDir, "gc_wii_state_previews"), "%s.%02d.png".format(gameId, slot))
+        val name = "%s.%02d.png".format(gameId, slot)
+        val appPrivate = File(File(filesDir, "gc_wii_state_previews"), name)
+        val states = punicaStatesFolder() ?: return appPrivate
+        val beside = File(states, name)
+        if (saving) appPrivate.delete()
+        return if (saving || beside.isFile || !appPrivate.isFile) beside else appPrivate
+    }
+
+    private fun punicaStatesFolder(): File? {
+        val core = File(DirectoryInitialization.getUserDirectory())
+        val console = core.parentFile ?: return null
+        val isLayout = core.name == "Core" && File(console, "System").isDirectory &&
+            File(console.parentFile, ".punica-layout").isFile
+        return if (isLayout) File(console, "States") else null
     }
 
     private fun saveStatePreview(slot: Int) {
-        val file = statePreview(slot) ?: return
+        val file = statePreview(slot, saving = true) ?: return
         val surface = emulationFragment?.surfaceView() ?: return
         file.delete()
         SurfaceCapture.capture(surface) { shot ->

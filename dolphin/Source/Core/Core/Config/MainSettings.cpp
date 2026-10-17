@@ -758,8 +758,46 @@ const char* GetDirectoryForRegion(DiscIO::Region region, RegionDirectoryStyle st
   }
 }
 
+// Pomegrade: the layout is told by the user folder being named Core, beside a System folder, in a console folder
+// whose parent holds the Punica marker (PunicaLayout's MARKER, written once the folder is migrated: the app only
+// gives Dolphin GC-Wii/Core then, see GcWiiFolder). A user folder that merely happens to be named Core is not taken
+// for the layout.
+std::string GetPunicaConsoleDirectory()
+{
+#ifdef ANDROID
+  const std::string user = File::GetUserPath(D_USER_IDX);  // ends with '/'
+  constexpr std::string_view core = "/Core/";
+  if (!user.ends_with(core))
+    return {};
+  std::string console = user.substr(0, user.size() - core.size() + 1);
+  if (!File::IsDirectory(console + "System"))
+    return {};
+  // console ends with "/<console>/": its parent is the Punica folder
+  const size_t parent_end = console.find_last_of('/', console.size() - 2);
+  if (parent_end == std::string::npos ||
+      !File::IsFile(console.substr(0, parent_end + 1) + ".punica-layout"))
+  {
+    return {};
+  }
+  return console;
+#else
+  return {};
+#endif
+}
+
 std::string GetBootROMPath(const std::string& region_directory)
 {
+  // Pomegrade: in the Punica layout the boot ROMs are console storage, in GC-Wii/System (where the app's migration
+  // moves BIOS/GC-Wii's content: System/GC/<region>/IPL.bin or System/<region>/IPL.bin), looked for before Core/GC
+  if (const std::string console = GetPunicaConsoleDirectory(); !console.empty())
+  {
+    for (const std::string& system : {console + "System/" GC_USER_DIR DIR_SEP, console + "System/"})
+    {
+      const std::string punica_path = system + region_directory + DIR_SEP GC_IPL;
+      if (File::Exists(punica_path))
+        return punica_path;
+    }
+  }
   const std::string path =
       File::GetUserPath(D_GCUSER_IDX) + DIR_SEP + region_directory + DIR_SEP GC_IPL;
   if (!File::Exists(path))
