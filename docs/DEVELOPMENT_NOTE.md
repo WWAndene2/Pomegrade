@@ -175,7 +175,7 @@ Done (checked on the owner's phone unless said):
 
 To do, in this order:
 1. **Standing swimmers**: 345-348 have a standing twin of the same skeleton byte for byte (230, 229, 227, 228: idle motion of 1 frame, a walk of 14); the sandbox will put the twin on land (`pose stand`, default) and the swimmer on water (`pose swim`), and water a swimmer can stand in (the sandbox's `~` is solid today).
-2. **New models beside the game's** (no replacement): X characters as new a/0/2/1 members with new model numbers and their a/1/3/7 entries, so a converted X character no longer replaces an ORAS one everywhere; also standing copies of the five other swimmers (259, 273, 274, 278, 279: no twin; a walker's motions on their skeleton, if one matches).
+2. **New models beside the game's** (no replacement): X characters as new a/0/2/1 members done (`oras-copy a/0/2/1 544=xy:...`, model 544, checked headless in run hX, not yet on the phone; ORAS_ENGINE.md 4.5b); left: standing copies of the five other swimmers (259, 273, 274, 278, 279: no twin; a walker's motions on their skeleton, if one matches).
 3. Better asset tools (owner's request): colour by part (the pixels a mesh's triangles cover, from its UVs), with a before/after render; parts of a model: list, hide/remove, move/rotate/scale, swap between models (skeletons permitting).
 4. X's maps: its 1,115 map pieces converted, and a tile value table X -> ORAS checked case by case on the phone (grass, water and the special tiles differ).
 5. X's zones as new zones (538 up): characters, doors, scripts.
