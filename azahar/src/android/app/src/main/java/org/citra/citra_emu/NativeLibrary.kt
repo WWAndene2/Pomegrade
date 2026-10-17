@@ -167,6 +167,9 @@ object NativeLibrary {
     // Create the config.ini file.
     external fun createConfigFile()
     external fun createLogFile()
+
+    // Pomegrade: the native user paths worked out again, after the user folder (DocumentsTree's root) is set
+    external fun resetUserPaths()
     external fun logUserDirectory(directory: String)
 
     /**

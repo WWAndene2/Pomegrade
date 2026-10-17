@@ -1013,6 +1013,12 @@ void Java_org_citra_citra_1emu_NativeLibrary_createConfigFile([[maybe_unused]] J
     Config{};
 }
 
+// Pomegrade: the user paths worked out again once the user folder is known (FileUtil::ResetUserPaths)
+void Java_org_citra_citra_1emu_NativeLibrary_resetUserPaths([[maybe_unused]] JNIEnv* env,
+                                                            [[maybe_unused]] jobject obj) {
+    FileUtil::ResetUserPaths();
+}
+
 void Java_org_citra_citra_1emu_NativeLibrary_createLogFile([[maybe_unused]] JNIEnv* env,
                                                            [[maybe_unused]] jobject obj) {
     Common::Log::Initialize();

@@ -1093,6 +1093,11 @@ const std::string& GetUserPath(UserPath path) {
     return g_paths[path];
 }
 
+void ResetUserPaths() {
+    g_paths.clear();
+    g_default_paths.clear();
+}
+
 const std::string& GetDefaultUserPath(UserPath path) {
     // Set up all paths and files on the first run
     if (g_default_paths.empty())

@@ -214,6 +214,11 @@ bool SetCurrentDir(const std::string& directory);
 
 void SetUserPath(const std::string& path = "");
 
+// Pomegrade: forgets the user paths, so the next GetUserPath works them out again: on Android, once the user folder
+// is known (DocumentsTree's root set), for paths first asked before it was, which could not see the Punica layout's
+// Core and System folders and fell back to the flat one (the first start after the app's data was cleared)
+void ResetUserPaths();
+
 void SetCurrentRomPath(const std::string& path);
 
 // Returns a pointer to a string with a Citra data dir in the user's home

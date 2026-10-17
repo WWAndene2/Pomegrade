@@ -53,6 +53,7 @@ object DirectoryInitialization {
             directoryState = if (hasWriteAccess(context)) {
                 if (setCitraUserDirectory()) {
                     CitraApplication.documentsTree.setRoot(Uri.parse(userPath))
+                    NativeLibrary.resetUserPaths()
                     NativeLibrary.createLogFile()
                     NativeLibrary.logUserDirectory(userPath.toString())
                     NativeLibrary.createConfigFile()

@@ -230,6 +230,7 @@ class SettingsActivity :
         // will fail when creating the file.
         if (DirectoryInitialization.setCitraUserDirectory()) {
             CitraApplication.documentsTree.setRoot(Uri.parse(DirectoryInitialization.userPath))
+            NativeLibrary.resetUserPaths()
             NativeLibrary.createConfigFile()
         } else {
             throw IllegalStateException("Azahar directory unavailable when accessing config file!")
