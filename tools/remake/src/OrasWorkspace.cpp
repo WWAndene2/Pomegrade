@@ -151,9 +151,11 @@ Bytes OrasWorkspace::CharacterList(Bytes list, const std::vector<int>& models)
     }
     // the list's length: the game caches it after the player's own entry in 32 slots of 24 bytes (field character manager
     // +0x36CC) and stops in its fatal error when entries + 1 > 32 (cmp #0x21 at 0x3F7308, Event_LoadCharacterArchiveMember;
-    // read 17 October), so 31. Checked: 31 load (run hfix), 33 hang entering the zone (run hC)
-    if (list.size() / 24 > 31)
-        throw FormatError("an area pack's character list would hold " + std::to_string(list.size() / 24) + " models, the game loads 31 (spread them over zones of other packs)");
+    // read 17 October), so 31. Checked: 31 load (run hfix), 33 hang entering the zone (run hC). oras-engine
+    // --character-models N raises it to N (OrasEngine.cpp), CharacterModels then N
+    if (list.size() / 24 > CharacterModels)
+        throw FormatError("an area pack's character list would hold " + std::to_string(list.size() / 24) + " models, the game loads " +
+                          std::to_string(CharacterModels) + (CharacterModels == 31 ? " (spread them over zones of other packs, or raise it with oras-engine --character-models)" : ""));
     return list;
 }
 

@@ -23,6 +23,9 @@ class OrasWorkspace
 {
 public:
     explicit OrasWorkspace(N3dsRom& oras) : Oras(oras) {}
+    // the models an area pack's character list may hold: the game's 31, or the N of oras-engine --character-models that the
+    // mod is run with (CharacterList refuses a longer list)
+    size_t CharacterModels = 31;
 
     N3dsRom& Rom() { return Oras; }
     // an archive as the game ships it, and as the build has left it so far (each read from the game once, on first use)

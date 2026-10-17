@@ -1,7 +1,9 @@
 #include "OrasEngine.h"
+#include "Bps.h"
 #include "CodePatch.h"
 
 #include <filesystem>
+#include <set>
 
 namespace remake
 {
@@ -44,6 +46,237 @@ static std::pair<uint32_t, uint32_t> TwoImmediates(uint32_t value)
         if (high && ArmImmediate(high) && ArmImmediate(value - high)) return {*ArmImmediate(high), *ArmImmediate(value - high)};
     }
     throw FormatError("the value is not the sum of two ARM immediates");
+}
+
+// The area pack's character-model list (a/1/3/7), past 31 models. Two tables hold one entry a model and stop the game when
+// full; both are moved to the tail of a grown object, every access rewritten (read 17 October; not yet run in the game).
+//
+// Table A, the .code's: the field character manager (heap 4, `operator new(0x3C24)` in FUN_00108dd4) caches the list in
+// 33 entries of 0x18 bytes at +0x36CC (entry 0 the player's, entry 1 the target of the async load), and
+// Event_LoadCharacterArchiveMember stops when entries + 1 reach 33 (cmp #0x21 at 0x3F7300). The entries move to a new tail
+// at +0x3C28, 161 of them (the manager 0x4B40 bytes): the list's own entries plus 32, since FUN_003f60fc appends models
+// asked for at run time with no bound. Each word: the address, the game's word, the patched one.
+struct ModelCacheWord { uint32_t Address, Expected, Value; const char* Why; };
+static const ModelCacheWord ModelCacheWords[] = {
+    {0x10921C, 0x00003C24, 0x00004B40, "the field character manager's size (FUN_00108dd4)"},
+    {0x112F68, 0xE2840B0D, 0xE2840B0F, "its constructor's clear of the cache: base"},
+    {0x112F6C, 0xE3A01C03, 0xE3A01C0F, "its constructor's clear of the cache: size"},
+    {0x112F70, 0xE2800FB9, 0xE2800040, "its constructor's clear of the cache: entry 1"},
+    {0x1E3830, 0xE2833C36, 0xE2833B0F, "FUN_001e37d8's cache base"},
+    {0x1E3834, 0xE1D33CBC, 0xE1D332B8, "FUN_001e37d8's model of an entry"},
+    {0x3F6128, 0xE2844C36, 0xE2844B0F, "FUN_003f60fc's search base"},
+    {0x3F612C, 0xE1D44CBC, 0xE1D442B8, "FUN_003f60fc's model of an entry"},
+    {0x3F6160, 0xE2800B0D, 0xE2800B0F, "FUN_003f60fc's appended entry: base"},
+    {0x3F6170, 0xE5A032CC, 0xE5A03028, "FUN_003f60fc's appended entry: word 0"},
+    {0x3F6308, 0xE2822C36, 0xE2822B0F, "Field_GetCharacterModelInfo's search base"},
+    {0x3F630C, 0xE1D22CBC, 0xE1D222B8, "Field_GetCharacterModelInfo's model of an entry"},
+    {0x3F6324, 0xE2800B0D, 0xE2800B0F, "Field_GetCharacterModelInfo's entry: base"},
+    {0x3F6328, 0xE2801FB3, 0xE2801028, "Field_GetCharacterModelInfo's entry"},
+    {0x3F632C, 0xE59042DC, 0xE5904038, "Field_GetCharacterModelInfo's entry + 0x10"},
+    {0x3F6330, 0xE59002E0, 0xE590003C, "Field_GetCharacterModelInfo's entry + 0x14"},
+    {0x3F6990, 0xE2800B0D, 0xE2800B0F, "Event_ClearAreaAndReleaseHandles's clear: base"},
+    {0x3F6994, 0xE3A01C03, 0xE3A01C0F, "Event_ClearAreaAndReleaseHandles's clear: size"},
+    {0x3F6998, 0xE2800FB9, 0xE2800040, "Event_ClearAreaAndReleaseHandles's clear: entry 1"},
+    {0x3F6D1C, 0xE2833C36, 0xE2833B0F, "Event_RequestCharacterModel's base (odd count)"},
+    {0x3F6D20, 0xE1D33CBC, 0xE1D332B8, "Event_RequestCharacterModel's entry i (odd count)"},
+    {0x3F6D48, 0xE2811C36, 0xE2811B0F, "Event_RequestCharacterModel's base (pairs)"},
+    {0x3F6D4C, 0xE1D13CBC, 0xE1D132B8, "Event_RequestCharacterModel's entry i (pairs)"},
+    {0x3F6D54, 0x11D11EB4, 0x11D114B0, "Event_RequestCharacterModel's entry i + 1 (pairs)"},
+    {0x3F7258, 0xE2878C36, 0xE2878B0F, "Event_LoadCharacterGraphicsVariants's base"},
+    {0x3F725C, 0xE1D85CBC, 0xE1D852B8, "Event_LoadCharacterGraphicsVariants's model of an entry"},
+    {0x3F728C, 0xE287BB0D, 0xE287BB0F, "Event_LoadCharacterGraphicsVariants's destination: base"},
+    {0x3F7290, 0xE28BBFB3, 0xE28BB028, "Event_LoadCharacterGraphicsVariants's destination"},
+    {0x3F72C4, 0xE1C85CBC, 0xE1C852B8, "Event_LoadCharacterGraphicsVariants's model stored"},
+    {0x3F732C, 0xE2847B0D, 0xE2847B0F, "Event_LoadCharacterArchiveMember's entry 0: base"},
+    {0x3F7338, 0xE2877FB3, 0xE2877028, "Event_LoadCharacterArchiveMember's entry 0"},
+    {0x3F74EC, 0xE2883B0D, 0xE2883B0F, "Event_LoadZoneCharacterModels's async destination: base"},
+    {0x3F7500, 0xE2833FB9, 0xE2833040, "Event_LoadZoneCharacterModels's async destination: entry 1"},
+    {0x3F7574, 0xE2811B0D, 0xE2811B0F, "Event_RegisterCharacterModels's entry: base"},
+    {0x3F7578, 0xE2811FB3, 0xE2811028, "Event_RegisterCharacterModels's entry"},
+    {0x3F7828, 0x000036CC, 0x00003C28, "Event_RefreshMatchingCharacterModels's cache (literal of ldr r2 at 0x3F7628)"},
+    {0x3F7644, 0xE2800C36, 0xE2800B0F, "Event_RefreshMatchingCharacterModels's base"},
+    {0x3F7648, 0xE28000DB, 0xE2800037, "Event_RefreshMatchingCharacterModels's entry byte 0xF"},
+    {0x4E3BE4, 0xE2800C36, 0xE2800B0F, "Event_AreAllModelsLoaded's base"},
+    {0x4E3BE8, 0xE1D01CBC, 0xE1D012B8, "Event_AreAllModelsLoaded's model of an entry"},
+};
+
+// Table B, DllField's: the model resource manager ([character manager + 0x36BC], made by Event_CharacterManager_Init with
+// operator new(literal 0x3F54CC = 0x2EC8)) holds one slot of 0xA0 bytes a model loaded (word 0 the model cache entry, byte 4
+// a second binding, byte 5 which cache, bindings at +8 and +0x54) at +0x40 + 0xA0 i, i < 33, read only by the 10 functions
+// patched below (every `i * 0xA0` of DllField and the .code, read 17 October). What follows the slots is not indexed by
+// them: 34 entries of 0xB8 at +0x14E0 (resources of fixed kinds, 0x1A and 0x1B named), 20 of 0x10 at +0x2D50 (load
+// handles), the object lists at +0x2E90 / +0x2E98 (heap arrays of 0x20 and 2) and fields to +0x2EC8. So the slots move to
+// a tail at +0x2F40, the object growing to 0x2F40 + 0xA0 x slots: each `this + 0xA0 i` gains 0x2F00 (in a cave, as the
+// pair of instructions computing it has no room for a third), so the offsets the game adds to it (0x40, 0xE0, 0x44 ...)
+// stay. The slots: the list's models, the player's and one more, as the game's 33 for 31 (odd: Event_CharacterModelSlotAcquire
+// tests slots two at a time). Its .code model cache (Event_ResourceSlots_Init's count at 0x10283928) grows with them.
+//
+// The caves: the bytes between the end of DllField's code segment (0xF03F0 in the file) and the next page, where the
+// rodata segment starts (0xF1000). Zeros, in no segment, the target of no relocation, and executable, since the loader
+// makes the code segment's pages executable (azahar/src/core/hle/service/ldr_ro/cro_helper.cpp, GetExecutablePages).
+// Azahar only: a console's loader checks the module against the hashes of static.crr (prototype/cro_patch.py).
+constexpr uint32_t DllFieldBase = 0x10242000; // where prototype/cro_link.py and the Ghidra program place DllField
+constexpr uint32_t SlotsMoved = 0x2F00;       // what `this + 0xA0 i` gains: slot i at this + 0x2F40 + 0xA0 i
+
+struct CroWord { uint32_t Address, Expected, Value; std::string Why; };
+
+static uint32_t Branch(uint32_t from, uint32_t to, bool link)
+{
+    return (link ? 0xEB000000u : 0xEA000000u) | (((to - from - 8) >> 2) & 0xFFFFFF);
+}
+
+static uint32_t BranchTarget(uint32_t at, uint32_t word)
+{
+    const int32_t offset = (int32_t)(word << 8) >> 6; // the 24-bit word offset, sign-extended, times 4
+    return at + 8 + offset;
+}
+
+// a data-processing instruction with its immediate replaced (cond, opcode and registers kept)
+static uint32_t WithImmediate(uint32_t word, uint32_t value)
+{
+    const auto encoded = ArmImmediate(value);
+    if (!encoded || (word & 0x0E000000) != 0x02000000) throw FormatError("not an immediate data-processing instruction, or the value is no ARM immediate");
+    return (word & ~0xFFFu) | *encoded;
+}
+
+// `add rd, rn, #value` (or sub), always executed
+static uint32_t AddImmediate(uint32_t rd, uint32_t rn, uint32_t value, bool subtract = false)
+{
+    return WithImmediate((subtract ? 0xE2400000u : 0xE2800000u) | rn << 16 | rd << 12, value);
+}
+
+static std::vector<CroWord> ModelSlotWords(uint32_t slots, uint32_t cave)
+{
+    std::vector<CroWord> w;
+    const auto bound = [&](uint32_t at, uint32_t expected, const char* why) { w.push_back({at, expected, WithImmediate(expected, slots), why}); };
+    // a pair (or triple) of instructions computing this + 0xA0 i: the first becomes a branch to a cave holding them, then
+    // the 0x2F00 added to the last one's destination, then a branch back after them
+    const auto moved = [&](uint32_t at, std::vector<uint32_t> expected, const char* why) {
+        const uint32_t rd = expected.back() >> 12 & 0xF;
+        w.push_back({at, expected[0], Branch(at, cave, false), std::string(why) + ": to its cave"});
+        for (size_t k = 0; k < expected.size(); k++)
+        {
+            if (k) w.push_back({at + 4 * (uint32_t)k, expected[k], expected[k], std::string(why) + ": left in place, never reached"});
+            w.push_back({cave, 0, expected[k], std::string(why) + " (cave)"});
+            cave += 4;
+        }
+        w.push_back({cave, 0, AddImmediate(rd, rd, SlotsMoved), std::string(why) + " (cave): the slots moved"});
+        w.push_back({cave + 4, 0, Branch(cave + 4, at + 4 * (uint32_t)expected.size(), false), std::string(why) + " (cave): back"});
+        cave += 8;
+    };
+
+    // the constructor (0x10285934): __cxa_vec_ctor on this + 0x40 (33 x 0xA0) returns the array, from which it reaches the
+    // 0xB8 entries (+ 0x14A0) and the rest; the array is now at + 0x2F40, so 0x1A60 back
+    bound(0x1028593C, 0xE3A03021, "the constructor's slot count");
+    w.push_back({0x1028594C, 0xEBFEF2D3, Branch(0x1028594C, cave, true), "the constructor's __cxa_vec_ctor call: to its cave"});
+    w.push_back({cave, 0, AddImmediate(0, 0, SlotsMoved), "the constructor (cave): the slots moved"});
+    w.push_back({cave + 4, 0, Branch(cave + 4, BranchTarget(0x1028594C, 0xEBFEF2D3), false), "the constructor (cave): __cxa_vec_ctor"});
+    cave += 8;
+    w.push_back({0x10285950, 0xE2800A01, AddImmediate(0, 0, 0x1A00, true), "the constructor: from the slots to the 0xB8 entries (1/2)"});
+    w.push_back({0x10285960, 0xE2800E4A, AddImmediate(0, 0, 0x60, true), "the constructor: from the slots to the 0xB8 entries (2/2)"});
+    // the destructors' __cxa_vec_dtor (Field_ManagerDestroy, FUN_10285a98)
+    bound(0x10285A70, 0xE3A03021, "Field_ManagerDestroy's slot count");
+    w.push_back({0x10285A78, 0xE2840040, AddImmediate(0, 4, SlotsMoved + 0x40), "Field_ManagerDestroy's slots"});
+    bound(0x10285AE0, 0xE3A03021, "FUN_10285a98's slot count");
+    w.push_back({0x10285AE8, 0xE2840040, AddImmediate(0, 4, SlotsMoved + 0x40), "FUN_10285a98's slots"});
+    // Event_CharacterModelSlotAcquire: slot 0, then slots i and i + 1 for odd i
+    w.push_back({0x10284084, 0xE5940040, Branch(0x10284084, cave, false), "Event_CharacterModelSlotAcquire's slot 0: to its cave"});
+    w.push_back({cave, 0, AddImmediate(0, 4, SlotsMoved), "Event_CharacterModelSlotAcquire's slot 0 (cave)"});
+    w.push_back({cave + 4, 0, 0xE5900040, "Event_CharacterModelSlotAcquire's slot 0 (cave): ldr r0, [r0, #0x40]"});
+    w.push_back({cave + 8, 0, Branch(cave + 8, 0x10284088, false), "Event_CharacterModelSlotAcquire's slot 0 (cave): back"});
+    cave += 12;
+    w.push_back({0x10284090, 0x02845040, WithImmediate(0x02845040, SlotsMoved + 0x40), "Event_CharacterModelSlotAcquire's slot 0 taken"});
+    moved(0x1028409C, {0xE0802100, 0xE0841282}, "Event_CharacterModelSlotAcquire's search");
+    bound(0x102840C0, 0xE3500021, "Event_CharacterModelSlotAcquire's bound");
+    w.push_back({0x102840D8, 0xE2845040, WithImmediate(0xE2845040, SlotsMoved + 0x40), "Event_CharacterModelSlotAcquire's slot 0 when all are taken"});
+    moved(0x1028411C, {0xE0801100, 0xE0840281}, "Event_CharacterModelSlotAcquire's slot i taken");
+    moved(0x1028412C, {0xE0801100, 0xE0840281}, "Event_CharacterModelSlotAcquire's slot i + 1 taken");
+    // Event_ReleaseCharacterGraphics, and two functions Ghidra left unnamed (0x10284ACC: a model's slot released;
+    // 0x10284B70: a model's slot passed on to 0x102C27FC)
+    moved(0x10284848, {0xE0841104, 0xE0860281}, "Event_ReleaseCharacterGraphics's slot i");
+    bound(0x1028488C, 0xE3540021, "Event_ReleaseCharacterGraphics's bound");
+    moved(0x10284AD4, {0xE0823102, 0xE0803283}, "0x10284ACC's search");
+    moved(0x10284AE8, {0xE0821102, 0xE0800281}, "0x10284ACC's slot found");
+    bound(0x10284B2C, 0xE3520021, "0x10284ACC's bound");
+    moved(0x10284B74, {0xE0823102, 0xE0803283}, "0x10284B70's search");
+    moved(0x10284B88, {0xE0821102, 0xE0801281}, "0x10284B70's slot found");
+    bound(0x10284B9C, 0xE3520021, "0x10284B70's bound");
+    // Field_SubsystemReset: the clear loop (count down in r1; its `subs` sets the flags the loop's bne reads, and is carried
+    // into the cave unchanged, the add after it setting none)
+    bound(0x102C24F8, 0xE3A01021, "Field_SubsystemReset's slot count");
+    moved(0x102C2500, {0xE0803100, 0xE2511001, 0xE0852283}, "Field_SubsystemReset's slot i");
+    // Event_FindActiveEntryById, and the slot state query Ghidra calls Snd_IsTrackPlaying
+    moved(0x102C2F9C, {0xE0823102, 0xE0803283}, "Event_FindActiveEntryById's search");
+    moved(0x102C2FD0, {0xE0821102, 0xE0800281}, "Event_FindActiveEntryById's slot found");
+    bound(0x102C2FE4, 0xE3520021, "Event_FindActiveEntryById's bound");
+    moved(0x102C30B4, {0xE0823102, 0xE0803283}, "Snd_IsTrackPlaying's search");
+    moved(0x102C30E8, {0xE0821102, 0xE0800281}, "Snd_IsTrackPlaying's slot found");
+    bound(0x102C3110, 0xE3520021, "Snd_IsTrackPlaying's bound");
+    // the .code model cache Field_SubsystemInit makes for the slots (Event_ResourceSlots_Init, 0x28 bytes an entry, sized
+    // by this count; Event_CharacterModelCache_Acquire stops the game when it is full)
+    bound(0x10283928, 0xE3A03021, "Field_SubsystemInit's model cache count");
+    return w;
+}
+
+// the module with those words written, each checked: the game's word where one is expected, never a word the loader
+// relocates (it would be overwritten), a cave word inside the executable pages past the code segment and zero before
+// a CRO's layout as Azahar's loader reads it (azahar/src/core/hle/service/ldr_ro/cro_helper.h): a 0x80-byte hash, then u32
+// header fields (18 and 19 the segment table and its count, 30/31, 42/43 and 44/45 the external, internal and static
+// relocation tables), a segment entry {file offset, size, type}, a relocation entry 12 bytes from its target's tag (segment
+// index in the low 4 bits, offset in the rest)
+struct CroLayout
+{
+    const Bytes& Data;
+    explicit CroLayout(const Bytes& data) : Data(data)
+    {
+        if (U32(0x80) != 0x304F5243) throw FormatError("not a CRO module (no CRO0)");
+        for (uint32_t i = 0; i < Field(19); i++) Segments.push_back({U32(Field(18) + 12 * i), U32(Field(18) + 12 * i + 4)});
+        if (Segments.empty() || U32(Field(18) + 8) != 0) throw FormatError("the module's first segment is not its code");
+    }
+    uint32_t U32(size_t at) const
+    {
+        if (at + 4 > Data.size()) throw FormatError("the module is cut short");
+        return (uint32_t)(Data[at] | Data[at + 1] << 8 | Data[at + 2] << 16 | (uint32_t)Data[at + 3] << 24);
+    }
+    uint32_t Field(int index) const { return U32(0x80 + 4 * (size_t)index); }
+    uint32_t CodeEnd() const { return Segments[0].first + Segments[0].second; }
+    std::vector<std::pair<uint32_t, uint32_t>> Segments; // file offset, size
+};
+
+static Bytes PatchCro(const Bytes& cro, uint32_t base, const std::vector<CroWord>& words)
+{
+    const CroLayout layout(cro);
+    const auto u32 = [&](size_t at) { return layout.U32(at); };
+    const auto field = [&](int index) { return layout.Field(index); };
+    const auto& segments = layout.Segments;
+    const uint32_t codeEnd = layout.CodeEnd(), pagesEnd = (codeEnd + 0xFFF) & ~0xFFFu;
+    for (const auto& [offset, size] : segments)
+        if (size && offset < pagesEnd && offset + size > codeEnd) throw FormatError("a segment lies in the code's last page");
+    std::set<uint32_t> relocated;
+    for (const auto& [table, count] : {std::pair{field(30), field(31)}, std::pair{field(42), field(43)}, std::pair{field(44), field(45)}})
+        for (uint32_t i = 0; i < count; i++)
+        {
+            const uint32_t tag = u32(table + 12 * i);
+            if ((tag & 0xF) < segments.size()) relocated.insert(segments[tag & 0xF].first + (tag >> 4));
+        }
+    Bytes out = cro;
+    for (const CroWord& w : words)
+    {
+        const uint32_t at = w.Address - base;
+        char where[96];
+        snprintf(where, sizeof where, "DllField 0x%08X (file 0x%X): ", w.Address, at);
+        if (at < segments[0].first || at + 4 > pagesEnd) throw FormatError(std::string(where) + "outside the code's pages (" + w.Why + ")");
+        if (at >= codeEnd && w.Expected != 0) throw FormatError(std::string(where) + "a cave word must be expected zero (" + w.Why + ")");
+        if (relocated.count(at)) throw FormatError(std::string(where) + "the loader relocates this word (" + w.Why + ")");
+        if (u32(at) != w.Expected)
+        {
+            char text[64];
+            snprintf(text, sizeof text, "holds 0x%08X, not 0x%08X (", u32(at), w.Expected);
+            throw FormatError(std::string(where) + text + w.Why + "): another version of the game?");
+        }
+        for (int k = 0; k < 4; k++) out[at + k] = (uint8_t)(w.Value >> (8 * k));
+    }
+    return out;
 }
 
 std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& o, const std::string& outDir)
@@ -133,6 +366,22 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         if (*o.Characters > 32) words.push_back({0x109048, 0xE3A03020, 0xE3A03000 | *o.Characters, "the field manager's character pool"});
         log.push_back("characters: " + std::to_string(*o.Characters) + " per zone (the game's 26)" + (*o.Characters > 32 ? ", pool " + std::to_string(*o.Characters) : ""));
     }
+    Bytes dllField;
+    if (o.CharacterModels)
+    {
+        // Table A and Table B above. The bound: list entries + 1 (the player's) below N + 2, as the game's 33 for 31
+        const uint32_t models = *o.CharacterModels;
+        if (models < 31 || models > 127) throw FormatError("character models: 31 to 127 (the moved cache holds 161 entries, 32 kept for models asked for at run time)");
+        for (const ModelCacheWord& m : ModelCacheWords) words.push_back({m.Address, m.Expected, m.Value, m.Why});
+        words.push_back({0x3F7300, 0xE3500021, 0xE3500000 | (models + 2), "Event_LoadCharacterArchiveMember's bound on the cached entries"});
+        const uint32_t slots = (models + 2) | 1;
+        words.push_back({0x3F54CC, 0x2EC8, 0x2F40 + 0xA0 * slots, "the model resource manager's size (Event_CharacterManager_Init)"});
+        const Bytes cro = oras.Read("DllField.cro");
+        const std::vector<CroWord> slotWords = ModelSlotWords(slots, DllFieldBase + CroLayout(cro).CodeEnd());
+        dllField = PatchCro(cro, DllFieldBase, slotWords);
+        snprintf(line, sizeof line, "character models: %u per area pack (the game's 31); model slots %u (manager 0x%X bytes), %zu DllField words", models, slots, 0x2F40 + 0xA0 * slots, slotWords.size());
+        log.push_back(line);
+    }
     for (const auto& [id, size] : o.HeapSizes)
     {
         const HeapSize* h = nullptr;
@@ -166,6 +415,15 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         std::filesystem::create_directories(root / "exefs");
         WriteFile((root / "exefs" / "code.ips").string(), ips);
         log.push_back("code.ips: " + std::to_string(words.size()) + " words");
+    }
+    if (!dllField.empty())
+    {
+        // a BPS patch of the module (romfs_ext, Bps.h): the game's own file is not copied into the mod
+        const Bytes original = oras.Read("DllField.cro"), bps = BpsCreate(original, dllField);
+        if (BpsApply(original, bps) != dllField) throw FormatError("DllField.cro: the patch does not rebuild the module");
+        std::filesystem::create_directories(root / "romfs_ext");
+        WriteFile((root / "romfs_ext" / "DllField.cro.bps").string(), bps);
+        log.push_back("romfs_ext/DllField.cro.bps: " + std::to_string(bps.size()) + " bytes, checked");
     }
     return log;
 }
