@@ -18,6 +18,7 @@
 //   remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]
 //                     a 3DS model (ORAS map pieces: their terrain) as glTF; textures: BCH files or
 //                     ORAS area packs (a/0/1/4 entries: "AD") whose textures the model uses
+//   remake_tool xy-motion-slots                    where each X/Y motion slot goes in an Omega Ruby pack
 //   remake_tool bch-upgrade <in> <out>
 //                     a Pokemon X/Y model (BCH 0x07) as Omega Ruby's (0x21, BchUpgrade.h): a BCH file, or a 2-letter
 //                     container (an a/0/2/1 character member) converted (XyCharacter.h); oras-copy's xy: source does the
@@ -83,6 +84,7 @@
 #include "FormatSniffer.h"
 #include "Garc.h"
 #include "BchUpgrade.h"
+#include "GfMotionPack.h"
 #include "XyCharacter.h"
 #include "Nsbmd.h"
 #include "Png.h"
@@ -142,7 +144,7 @@ static int Usage()
                     "  remake_tool world <map_matrix.narc> <matrix index> <land_data.narc> <out dir>\n"
                     "                    [map textures.nsbtx|-] [buildings.narc|-] [building textures.nsbtx|-]\n"
                     "  remake_tool oras-world <rom.nds> <matrix index> <out dir>\n  remake_tool platinum-zones <rom.nds>\n"
-                    "  remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]\n  remake_tool bch-upgrade <in> <out>\n  remake_tool oras-list <oras.3ds>\n  remake_tool oras-extract <oras.3ds> <path> <out>\n"
+                    "  remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]\n  remake_tool bch-upgrade <in> <out>\n  remake_tool xy-motion-slots\n  remake_tool oras-list <oras.3ds>\n  remake_tool oras-extract <oras.3ds> <path> <out>\n"
                     "  remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-inspect <oras.3ds> zone|piece|area|matrix|piece-names|zones|matrices|archives|piece-budget|coll-sizes|zone-reach <index>\n"
                     "  remake_tool oras-measure <oras.3ds> <out dir>\n"
@@ -301,7 +303,7 @@ static void ParseRegionOptions(int argc, char** argv, int first, OrasRegionOptio
 
 int main(int argc, char** argv)
 {
-    if (argc < 3) return Usage();
+    if (argc < 3 && !(argc == 2 && std::string(argv[1]) == "xy-motion-slots")) return Usage(); // the one command without arguments
     const std::string cmd = argv[1];
     try
     {
@@ -339,6 +341,17 @@ int main(int argc, char** argv)
                     written++;
                 }
             printf("%zu entries, %zu files\n", garc.Count(), written);
+            return 0;
+        }
+        if (cmd == "xy-motion-slots")
+        {
+            // where each X/Y motion slot goes in an Omega Ruby pack (GfMotionPack.h)
+            for (uint32_t k = 0; k < 173; k++)
+            {
+                bool own = false;
+                const int to = XyMotionSlotInOras(k, &own);
+                printf("X %3u -> %s%s\n", k, to < 0 ? "none" : ("ORAS " + std::to_string(to)).c_str(), own ? " (X's own, a slot ORAS leaves free)" : "");
+            }
             return 0;
         }
         if (cmd == "bch-upgrade" && argc >= 4)

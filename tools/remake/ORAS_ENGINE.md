@@ -1197,9 +1197,14 @@ inline, 0x58 bytes, SPICA's `TextureMappersCompat`). A whole X character (its `a
   identical to X's (same glTF);
 - its motion pack moved from X's 173 slots to ORAS's 239 (`GfMotionPack.h`, which gives each move and its evidence):
   same motion format; the slots **inferred** from runs of equal frame counts, the characters both games share, the
-  characters of the same name in both, and the slot sets of whole characters (X {1, 3, 80}, 90 of them, is ORAS's
-  {1, 3, 94}, 70). Every X character keeps all its motions but X's two players (77 slots each, the player's own
-  motions). ORAS's 157, 158 and 170 have no X motion; 70 ORAS characters lack them too.
+  characters of the same name in both, the two games' players, and the slot sets of whole characters (X {1, 3, 80},
+  90 of them, is ORAS's {1, 3, 94}, 70). X's 75 motions with no ORAS one (its players', the features ORAS lacks) go to
+  slots no ORAS character fills, always the same slot (`remake_tool xy-motion-slots` prints the table), for a later
+  feature to play: **every X character keeps every motion** (all 159 packs, checked motion by motion). X's players
+  (members 1 and 2) as NPCs walk with their converted pack (run `xplayer`) but show only the shadow: their model file is
+  a placeholder (one 12-triangle cube, no texture; X's customisable player is presumably built from parts kept
+  elsewhere, not looked for), unlike ORAS's player (member 171, a 277 KB model). ORAS's 157, 158
+  and 170 have no X motion; 70 ORAS characters lack them too.
 
 How a character's model number finds its member: through the area pack's character list (`a/1/3/7`, 24 bytes an entry,
 the member at word 10: Littleroot's model 4153 is member 503, 284 is 284).

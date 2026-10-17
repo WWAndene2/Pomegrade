@@ -68,7 +68,7 @@ int main()
     try { LoopGfMotion(m, 7000); } catch (const FormatError&) { threw = true; }
     check(threw, "over 65535 frames refused");
 
-    // an X/Y pack of 173 slots: skeleton 0, motions in slots 1, 3, 50 (not carried), 80 and 120, of 1 to 9 bytes
+    // an X/Y pack of 173 slots: skeleton 0, motions in slots 1, 3, 50 (X's own: to a free ORAS slot), 80 and 120, of 1 to 9 bytes
     {
         std::vector<std::pair<uint32_t, Bytes>> in = {{0, {0xA0}}, {1, {1, 2, 3}}, {3, {4, 5, 6, 7, 8}}, {50, {9}}, {80, {10, 11}}, {120, {12, 13, 14, 15, 16, 17, 18, 19, 20}}};
         Bytes pack(4 + 4 * 174, 0);
@@ -95,14 +95,37 @@ int main()
         check(IsGfMotionPack(out, 239), "the pack has Omega Ruby's 239 slots");
         check(slot(0) == Bytes{0xA0} && slot(1) == Bytes{1, 2, 3} && slot(3) == Bytes{4, 5, 6, 7, 8}, "slots 0-3 kept in place");
         check(slot(94) == Bytes{10, 11} && slot(130) == Bytes({12, 13, 14, 15, 16, 17, 18, 19, 20}), "X 80 -> ORAS 94, X 120 -> ORAS 130");
+        bool own = false;
+        const int free50 = XyMotionSlotInOras(50, &own);
+        check(own && free50 > 0 && slot((uint32_t)free50) == Bytes{9}, "X's own motion (X 50) in a slot ORAS leaves free");
+        check(XyMotionSlotInOras(80) == 94 && XyMotionSlotInOras(172) == 159 && XyMotionSlotInOras(160) == -1, "the slot table: matched, a player's, none");
+        std::vector<int> taken(239, -1);
+        bool unique = true;
+        for (uint32_t k = 0; k < 173; k++)
+        {
+            const int to = XyMotionSlotInOras(k);
+            if (to < 0) continue;
+            if (to >= 239 || taken[(size_t)to] >= 0) { unique = false; printf("  X %u and X %d both go to ORAS %d\n", k, taken[(size_t)to < 239 ? (size_t)to : 0], to); }
+            else taken[(size_t)to] = (int)k;
+        }
+        check(unique, "no two X/Y slots go to the same ORAS slot");
         bool others = true;
-        for (uint32_t k = 0; k < 239; k++) if (k != 0 && k != 1 && k != 3 && k != 94 && k != 130 && U32(out, 4 + 4 * k)) others = false;
+        for (uint32_t k = 0; k < 239; k++) if (k != 0 && k != 1 && k != 3 && k != 94 && k != 130 && (int)k != free50 && U32(out, 4 + 4 * k)) others = false;
         bool aligned = true;
         for (uint32_t k = 0; k < 239; k++) if (U32(out, 4 + 4 * k) % 4) aligned = false;
-        check(others && aligned, "a slot with no ORAS counterpart (X 50) dropped, every slot 4-aligned");
+        check(others && aligned, "no other slot filled, every slot 4-aligned");
         bool refused = false;
         try { XyMotionPackToOras(out); } catch (const FormatError&) { refused = true; }
         check(refused, "a pack of 239 slots refused");
+        // a pack with a motion in slot 160, which no X/Y character fills: refused rather than dropped
+        Bytes stray(4 + 4 * 174, 0);
+        auto put2 = [&](size_t at, uint32_t v) { for (int i = 0; i < 4; i++) stray[at + i] = (uint8_t)(v >> (8 * i)); };
+        put2(0, 173);
+        put2(4 + 4 * 160, (uint32_t)stray.size()); stray.insert(stray.end(), {1, 2, 3, 4});
+        put2(4 + 4 * 173, (uint32_t)stray.size());
+        bool strayRefused = false;
+        try { XyMotionPackToOras(stray); } catch (const FormatError&) { strayRefused = true; }
+        check(strayRefused, "a motion in a slot with no place refused, not dropped");
     }
 
     printf(ok ? "all passed\n" : "FAILED\n");

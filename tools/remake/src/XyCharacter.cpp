@@ -25,8 +25,16 @@ Bytes XyCharacterToOras(const Bytes& member, std::vector<std::string>& report)
         }
         else if (IsGfMotionPack(f, 173))
         {
+            std::string own;
+            for (uint32_t k = 0; k < 173; k++)
+            {
+                bool isOwn = false;
+                const int to = U32(f, 4 + 4 * k) ? XyMotionSlotInOras(k, &isOwn) : -1;
+                if (isOwn) own += (own.empty() ? "" : ", ") + std::to_string(k) + " -> " + std::to_string(to);
+            }
             f = XyMotionPackToOras(f);
-            report.push_back("file " + std::to_string(i) + ": motion pack, 173 slots -> 239");
+            report.push_back("file " + std::to_string(i) + ": motion pack, 173 slots -> 239" +
+                             (own.empty() ? std::string() : "; X's own motions in free ORAS slots: " + own));
         }
     }
     return pack.Write();
