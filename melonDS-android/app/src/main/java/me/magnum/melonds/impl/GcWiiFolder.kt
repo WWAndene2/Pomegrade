@@ -22,4 +22,13 @@ object GcWiiFolder {
             ?: return context.getExternalFilesDir(APP_FOLDER)
         return folder.takeIf { it.isDirectory || it.mkdirs() } ?: context.getExternalFilesDir(APP_FOLDER)
     }
+
+    /**
+     * To call after the Pomegrade folder was migrated to the layout, renamed or changed: Dolphin resolves its user
+     * folder once per process, this makes it resolve [userDirectory] again and re-apply its paths. Does nothing
+     * before Dolphin has started (it reads the folder when it starts). While a GameCube / Wii game runs, nothing
+     * changes and false is returned: the game keeps its folders, the new ones apply at the next call or app start.
+     */
+    fun onUserFolderChanged(context: Context): Boolean =
+        org.dolphinemu.dolphinemu.utils.DirectoryInitialization.reapplyUserDirectory(context.applicationContext)
 }

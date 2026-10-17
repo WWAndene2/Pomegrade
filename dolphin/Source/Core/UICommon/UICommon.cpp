@@ -101,44 +101,67 @@ static void CreateWFSPath(const std::string& path)
 
 // Pomegrade: in the Punica folder's layout (melonDS-android's PunicaLayout), Dolphin's user folder is
 // Punica/GC-Wii/Core and the console's other folders are its siblings: the Wii NAND in System/Wii, the GameCube
-// memory cards in Saves/GameCube, the states in States, Load (texture packs, mods) in Mods. Told by the user folder
-// being named Core beside a System folder; a path the user set in Dolphin's settings is kept.
-static void UsePunicaLayout()
+// memory cards in Saves/GameCube, the states in States, Load (texture packs, mods) in Mods, the shader cache in
+// Core/Cache (not the app's cache: clearing the app's data keeps it). Told by Config::GetPunicaConsoleDirectory.
+//
+// The configured paths are written to the Base layer (Dolphin.ini), so they outlive the folder they were computed
+// from: they are recomputed at every start (and every config change), and a stored value is replaced when it is
+// empty or is an earlier layout path (it ends with the layout's relative part, e.g. "/GC-Wii/System/Wii", under
+// another Punica folder: the folder was moved or renamed). A path the user chose elsewhere is kept. A layer that is
+// never saved was not used: it would sit above Base and hide the paths the user sets in Dolphin's settings.
+// Returns the console folder, or an empty string outside the layout.
+static std::string UsePunicaLayout()
 {
 #ifdef ANDROID
-  const std::string user = File::GetUserPath(D_USER_IDX);  // ends with '/'
-  constexpr std::string_view core = "/Core/";
-  if (!user.ends_with(core))
-    return;
-  const std::string console = user.substr(0, user.size() - core.size() + 1);
-  if (!File::IsDirectory(console + "System"))
-    return;
-  if (Config::Get(Config::MAIN_FS_PATH).empty())
-    Config::SetBase(Config::MAIN_FS_PATH, console + "System/Wii");
-  if (Config::Get(Config::MAIN_LOAD_PATH).empty())
-    Config::SetBase(Config::MAIN_LOAD_PATH, console + "Mods");
-  const std::string memory_cards = console + "Saves/" "GameCube/";
-  if (Config::Get(Config::MAIN_MEMCARD_A_PATH).empty())
-    Config::SetBase(Config::MAIN_MEMCARD_A_PATH, memory_cards + GC_MEMCARDA "." USA_DIR ".raw");
-  if (Config::Get(Config::MAIN_MEMCARD_B_PATH).empty())
-    Config::SetBase(Config::MAIN_MEMCARD_B_PATH, memory_cards + GC_MEMCARDB "." USA_DIR ".raw");
-  if (Config::Get(Config::MAIN_GCI_FOLDER_A_PATH).empty())
-    Config::SetBase(Config::MAIN_GCI_FOLDER_A_PATH, memory_cards + "Card A/" USA_DIR);
-  if (Config::Get(Config::MAIN_GCI_FOLDER_B_PATH).empty())
-    Config::SetBase(Config::MAIN_GCI_FOLDER_B_PATH, memory_cards + "Card B/" USA_DIR);
+  const std::string console = Config::GetPunicaConsoleDirectory();
+  if (console.empty())
+    return {};
+  // "/GC-Wii/": the console folder's own name, the start of every layout path's relative part
+  const std::string console_name =
+      console.substr(console.find_last_of('/', console.size() - 2));
+  const auto use = [&](const Config::Info<std::string>& info, const std::string& relative) {
+    const std::string current = Config::Get(info);
+    const std::string path = console + relative;
+    if (current != path && (current.empty() || current.ends_with(console_name + relative)))
+      Config::SetBase(info, path);
+  };
+  use(Config::MAIN_FS_PATH, "System/Wii");
+  use(Config::MAIN_LOAD_PATH, "Mods");
+  const std::string memory_cards = "Saves/" "GameCube/";
+  use(Config::MAIN_MEMCARD_A_PATH, memory_cards + GC_MEMCARDA "." USA_DIR ".raw");
+  use(Config::MAIN_MEMCARD_B_PATH, memory_cards + GC_MEMCARDB "." USA_DIR ".raw");
+  use(Config::MAIN_GCI_FOLDER_A_PATH, memory_cards + "Card A/" USA_DIR);
+  use(Config::MAIN_GCI_FOLDER_B_PATH, memory_cards + "Card B/" USA_DIR);
   File::SetUserPath(D_STATESAVES_IDX, console + "States");
-  File::CreateFullPath(memory_cards);
+  File::SetUserPath(D_SHADERCACHE_IDX, File::GetUserPath(D_USER_IDX) + CACHE_DIR DIR_SEP SHADERCACHE_DIR);
+  File::CreateFullPath(console + memory_cards);
+  return console;
+#else
+  return {};
 #endif
 }
 
 static void InitCustomPaths()
 {
-  UsePunicaLayout();
+  const std::string punica_console = UsePunicaLayout();
   File::SetUserPath(D_WIIROOT_IDX, Config::Get(Config::MAIN_FS_PATH));
   CreateLoadPath(Config::Get(Config::MAIN_LOAD_PATH));
   CreateDumpPath(Config::Get(Config::MAIN_DUMP_PATH));
   CreateResourcePackPath(Config::Get(Config::MAIN_RESOURCEPACK_PATH));
   CreateWFSPath(Config::Get(Config::MAIN_WFS_PATH));
+  // Pomegrade: in the layout the Wii SD card (image and sync folder) is console storage, in System/Wii SD rather than
+  // Load (Mods); set as user paths only, not in the config, so a path the user sets in the settings (applied below)
+  // still wins and nothing tied to this folder is saved. A card the app's migration moved from Dolphin's Load into
+  // Mods (D_LOAD_IDX now) is used where it is, so its content is not traded for a new, empty card.
+  if (!punica_console.empty())
+  {
+    const std::string sd = punica_console + "System/Wii SD/";
+    const std::string load = File::GetUserPath(D_LOAD_IDX);
+    const bool image_in_load = File::Exists(load + WII_SD_CARD_IMAGE);
+    File::SetUserPath(F_WIISDCARDIMAGE_IDX, (image_in_load ? load : sd) + WII_SD_CARD_IMAGE);
+    const bool sync_in_load = File::IsDirectory(load + WIISDSYNC_DIR);
+    File::SetUserPath(D_WIISDCARDSYNCFOLDER_IDX, (sync_in_load ? load : sd) + WIISDSYNC_DIR);
+  }
   File::SetUserPath(F_WIISDCARDIMAGE_IDX, Config::Get(Config::MAIN_WII_SD_CARD_IMAGE_PATH));
   File::SetUserPath(D_WIISDCARDSYNCFOLDER_IDX,
                     Config::Get(Config::MAIN_WII_SD_CARD_SYNC_FOLDER_PATH));

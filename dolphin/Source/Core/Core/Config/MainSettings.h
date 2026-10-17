@@ -420,6 +420,9 @@ const char* GetDirectoryForRegion(DiscIO::Region region,
                                   RegionDirectoryStyle style = RegionDirectoryStyle::Legacy);
 
 std::string GetBootROMPath(const std::string& region_directory);
+// Pomegrade: the console folder (Punica/GC-Wii/, ending with '/') when Dolphin's user folder is the Core folder of
+// the Punica folder's layout (melonDS-android's PunicaLayout), or an empty string.
+std::string GetPunicaConsoleDirectory();
 // Builds the memory card according to the configuration with the given region and size. If the
 // given region is std::nullopt, the region in the configured path is used if there is one, or the
 // fallback region otherwise.
