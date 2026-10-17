@@ -26,6 +26,10 @@ public:
     // the models an area pack's character list may hold: the game's 31, or the N of oras-engine --character-models that the
     // mod is run with (CharacterList refuses a longer list)
     size_t CharacterModels = 31;
+    // characters a zone may place, the --characters N given to oras-engine: the pool holds N with the player, so a zone
+    // takes N - 1 (run hEv: 64 people in a pool of 64 stopped in Event_PlaceZoneCharacters, 0x3F80B8); the game's 26
+    // without it (ORAS_ENGINE.md 4.5)
+    size_t CharacterPool = 0;
 
     N3dsRom& Rom() { return Oras; }
     // an archive as the game ships it, and as the build has left it so far (each read from the game once, on first use)

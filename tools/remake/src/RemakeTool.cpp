@@ -56,7 +56,7 @@
 //                     as oras-town builds one, the zone grid from Platinum's map headers, each header on the ORAS zone given
 //                     (-1: left out); --plan prints the rectangle's headers and builds nothing. Writes the mod, region_preview.gltf,
 //                     region_plan.txt and region_piece_<x>_<y>.bin
-//   remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt> [--character-models N] [--events large]
+//   remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt> [--character-models N] [--characters N] [--events large]
 //   remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>
 //                     several sandboxes and regions in one mod, each step's zones, matrices, pieces and area packs numbered after
 //                     the ones before it (OrasWorkspace.h): one line a step, "sandbox <description file>" or "region <options>"
@@ -161,7 +161,7 @@ static int Usage()
                     "  remake_tool oras-code <oras.3ds> <out.bin>\n"
                     "  remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--plan]\n"
                     "  remake_tool oras-sinnoh <platinum.nds> <oras.3ds> [strip width]\n"
-                    "  remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt> [--character-models N] [--events large]\n"
+                    "  remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt> [--character-models N] [--characters N] [--events large]\n"
                     "  remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>\n"
                     "  remake_tool oras-save <main> [<out> <zone> <tile x> <tile z> [--template <save> [--blocks A,B,...]]\n"
                     "                    [--matrix-template M] [--model-matrix NN] [oras-town's --matrix, --target, --donor, --trees, --donor-pack, --grass, ... --allow-errors]\n");
@@ -1344,6 +1344,7 @@ int main(int argc, char** argv)
         {
             // a new zone from a text description (OrasSandbox.h); the game reads it with oras-engine --zone-rows.
             // --character-models N: the models an area pack's list may hold, the N given to oras-engine (31 without it);
+            // --characters N: the pool oras-engine --characters gives (a zone takes N - 1; 26 without it);
             // --events large: a zone's events file up to 0x1910 bytes, with oras-engine --events large
             N3dsRom oras(argv[2]);
             const Bytes text = ReadFile(argv[4]);
@@ -1356,6 +1357,7 @@ int main(int argc, char** argv)
             {
                 const std::string flag = argv[i], value = argv[i + 1];
                 if (flag == "--character-models") ws.CharacterModels = (size_t)OptionNumber(value.c_str(), flag);
+                else if (flag == "--characters") ws.CharacterPool = (size_t)OptionNumber(value.c_str(), flag);
                 else if (flag == "--events" && value == "large") OrasZone::EventsLimit = 0x1910;
                 else throw FormatError("oras-sandbox: unknown option " + flag + " " + value);
             }
