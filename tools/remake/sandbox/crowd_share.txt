@@ -1,0 +1,134 @@
+# Test of character ... share Z (17 October): crowd_events.txt with every person of the crowd (rows 25-29) shared with
+# zone 538, so crossing from 539 into 538 keeps them on screen (Event_ReleaseCharactersNotInZone keeps a character
+# naming the new zone; ORAS_ENGINE.md 4.5b). Checked headless (run hSh, 4 shared people at the border). For the phone:
+#   sb: sandbox tools/remake/sandbox/crowd_share.txt --character-models 127 --characters 72 --events large
+#   x: copy a/0/2/1 284=xy:dumps-x/x.3ds:10
+#   eng: engine --zone-rows 541 --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 --characters 72 --character-models 127 --events large
+#   sv: save 538 14.5 20.5 --save-records 73
+#   share: merge sb x eng sv
+zone 538
+pack 8
+spawn 14.5 20.5
+name Bac à Sable
+encounters 24
+zone 539
+pack 8
+spawn 30.5 20.5
+name Bac à Sable Est
+line Championne: Bienvenue dans le bac à sable !
+character 284 24 19 face 1 script 1
+character 174 25 19 face 1
+character 221 22 25 face 1 share 538
+character 236 23 25 face 1 share 538
+character 239 24 25 face 1 share 538
+character 283 25 25 face 1 share 538
+character 312 26 25 face 1 share 538
+character 285 27 25 face 1 share 538
+character 305 28 25 face 1 share 538
+character 271 29 25 face 1 share 538
+character 225 30 25 face 1 share 538
+character 218 31 25 face 1 share 538
+character 322 32 25 face 1 share 538
+character 259 33 25 face 1 share 538
+character 242 34 25 face 1 share 538
+character 346 35 25 face 1 share 538
+character 345 36 25 face 1 share 538
+character 275 37 25 face 1 share 538
+character 344 22 26 face 1 share 538
+character 252 23 26 face 1 share 538
+character 289 24 26 face 1 share 538
+character 241 25 26 face 1 share 538
+character 238 26 26 face 1 share 538
+character 248 27 26 face 1 share 538
+character 260 28 26 face 1 share 538
+character 240 29 26 face 1 share 538
+character 226 30 26 face 1 share 538
+character 300 31 26 face 1 share 538
+character 123 32 26 face 1 share 538
+character 124 33 26 face 1 share 538
+character 125 34 26 face 1 share 538
+character 181 35 26 face 1 share 538
+character 182 36 26 face 1 share 538
+character 232 37 26 face 1 share 538
+character 127 22 27 face 1 share 538
+character 128 23 27 face 1 share 538
+character 186 24 27 face 1 share 538
+character 255 25 27 face 1 share 538
+character 64 26 27 face 1 share 538
+character 221 27 27 face 1 share 538
+character 236 28 27 face 1 share 538
+character 239 29 27 face 1 share 538
+character 283 30 27 face 1 share 538
+character 312 31 27 face 1 share 538
+character 285 32 27 face 1 share 538
+character 305 33 27 face 1 share 538
+character 271 34 27 face 1 share 538
+character 225 35 27 face 1 share 538
+character 218 36 27 face 1 share 538
+character 322 37 27 face 1 share 538
+character 259 22 28 face 1 share 538
+character 242 23 28 face 1 share 538
+character 346 24 28 face 1 share 538
+character 345 25 28 face 1 share 538
+character 275 26 28 face 1 share 538
+character 344 27 28 face 1 share 538
+character 252 28 28 face 1 share 538
+character 289 29 28 face 1 share 538
+character 299 22 29 face 1 share 538
+character 299 23 29 face 1 share 538
+character 299 24 29 face 1 share 538
+character 299 25 29 face 1 share 538
+character 299 26 29 face 1 share 538
+trainer 10 219 33 20 face 2 sight 5
+door 28 16 house 223
+scene
+on 1
+    say 0
+end
+pieces 1 1
+blocks
+0011
+0011
+0011
+0011
+map
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::.........t......TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::............t...TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HHDHH.......TT
+TT..................::......:.........TT
+TT..................::......:.........TT
+TT..................::......:.........TT
+TT::::::::::::::::::::::::::::::::::::TT
+TT::::::::::::::::::::::::::::::::::::TT
+TT..................::................TT
+TT..................::................TT
+TT..................::..FFFFFFFFFFF...TT
+TT..................::................TT
+TT......LLLLLLLLLLL.::................TT
+TT..................::................TT
+TT..................::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::........t.......TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
