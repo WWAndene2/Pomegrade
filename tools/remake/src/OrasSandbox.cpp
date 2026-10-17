@@ -57,6 +57,17 @@ struct SandboxDescription
 static constexpr size_t rowBytesOf536 = 56; // a zone header row (member 536 of a/0/1/3)
 static constexpr int BlockTiles = 10; // a zone block of the matrix (OrasMatrix.h)
 
+// a zone's characters against the pool oras-engine --characters gives (OrasWorkspace::CharacterPool)
+// (a game zone already over 26, as zone 451's 27, is not refused for the people it had: `had`)
+static void CheckCharacterCount(const OrasWorkspace& ws, int zone, size_t count, size_t had = 0)
+{
+    const size_t most = std::max(ws.CharacterPool ? ws.CharacterPool - 1 : 26, had);
+    if (count > most)
+        throw FormatError("sandbox: zone " + std::to_string(zone) + " places " + std::to_string(count) + " characters, the pool takes " +
+                          std::to_string(most) + (ws.CharacterPool ? " (--characters " + std::to_string(ws.CharacterPool) + ", one for the player)" : " (the game's; give the --characters N of oras-engine)"));
+}
+
+
 // A character with no script (script 0), talked to, sends the game into a wait it never leaves (run tk_o, 17 October:
 // Omega Ruby's own character 284 in the demo, its zone's script the empty one, the screen black after A): its event must
 // end the talk. Each such character (not a trainer: they have 3000 + id) gets an event of its own that does nothing, an
@@ -509,6 +520,7 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
             catch (const FormatError& e) { throw FormatError("sandbox: zone " + std::to_string(z.Number) + "'s " + e.what()); }
             zone.Script = AmxAssemble(scene, checkNative);
         }
+        CheckCharacterCount(ws, z.Number, zone.Characters.size(), zone.Characters.size() - z.Characters.size());
         const Bytes written = zone.Write(Plain(raw));
         ws.Edited("a/0/1/3").Set((size_t)z.Number, IsLzCompressed(raw) ? Lz11Compress(written) : written);
         snprintf(line, sizeof line, "zone %d edited: %zu line(s) from line %d of text member %d, %zu character(s), %zu trigger(s), %s",
@@ -721,6 +733,7 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         else zone.Script = assemble(z.Script.empty() ? EmptyZoneScript : z.Script, z.Number, "script");
         zone.InitScript = assemble(z.InitScript.empty() ? EmptyInitScript : z.InitScript, z.Number, "init-script");
         const Bytes encounter = z.Encounters >= 0 ? BinLinker::Read(Plain(zoneArchive.Sub((size_t)z.Encounters)), "ZO").Files.at(3) : Bytes{};
+        CheckCharacterCount(ws, z.Number, zone.Characters.size());
         appendZone(zone, encounter, z.Number);
         snprintf(line, sizeof line, "zone %d: written from nothing (OrasNewZone.h), area pack %d, text member %d, %zu character(s), %s scripts, spawn (%.1f, %.1f), name %s, encounters %s",
                  z.Number, f.AreaPack, f.Text, zone.Characters.size(), !z.Scene.empty() ? "a scene's" : z.Script.empty() && z.InitScript.empty() ? "empty" : "its own", z.SpawnX, z.SpawnZ,

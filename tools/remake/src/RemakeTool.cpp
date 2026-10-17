@@ -56,7 +56,7 @@
 //                     as oras-town builds one, the zone grid from Platinum's map headers, each header on the ORAS zone given
 //                     (-1: left out); --plan prints the rectangle's headers and builds nothing. Writes the mod, region_preview.gltf,
 //                     region_plan.txt and region_piece_<x>_<y>.bin
-//   remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt> [--character-models N]
+//   remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt> [--character-models N] [--characters N] [--events large]
 //   remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>
 //                     several sandboxes and regions in one mod, each step's zones, matrices, pieces and area packs numbered after
 //                     the ones before it (OrasWorkspace.h): one line a step, "sandbox <description file>" or "region <options>"
@@ -155,13 +155,13 @@ static int Usage()
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone|zone-raised|crowd [N]\n"
                     "  remake_tool oras-zone-check <oras.3ds>\n"
-                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--character-models N] [--heap ID:BYTES]...\n"
+                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--character-models N] [--events large] [--heap ID:BYTES]...\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
                     "                    [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]\n"
                     "  remake_tool oras-code <oras.3ds> <out.bin>\n"
                     "  remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--plan]\n"
                     "  remake_tool oras-sinnoh <platinum.nds> <oras.3ds> [strip width]\n"
-                    "  remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt> [--character-models N]\n"
+                    "  remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt> [--character-models N] [--characters N] [--events large]\n"
                     "  remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>\n"
                     "  remake_tool oras-save <main> [<out> <zone> <tile x> <tile z> [--template <save> [--blocks A,B,...]]\n"
                     "                    [--matrix-template M] [--model-matrix NN] [oras-town's --matrix, --target, --donor, --trees, --donor-pack, --grass, ... --allow-errors]\n");
@@ -619,6 +619,11 @@ int main(int argc, char** argv)
                 else if (flag == "--zone-rows") o.ZoneRows = (uint32_t)OptionNumber(value.c_str(), flag);
                 else if (flag == "--characters") o.Characters = (uint32_t)OptionNumber(value.c_str(), flag);
                 else if (flag == "--character-models") o.CharacterModels = (uint32_t)OptionNumber(value.c_str(), flag);
+                else if (flag == "--events")
+                {
+                    if (value != "large") throw FormatError("--events large (a zone's events file up to 0x1910 bytes)");
+                    o.LargeEvents = true;
+                }
                 else if (flag == "--script-mask")
                 {
                     const size_t colon = value.find(':');
@@ -846,6 +851,20 @@ int main(int argc, char** argv)
                         std::vector<std::string> report;
                         const Bytes file = XyCharacterToOras(Plain(xyCharacters.Sub(from)), report);
                         const size_t dst = (size_t)std::stoul(arg.substr(0, eq));
+                        if (dst >= g.Count())
+                        {
+                            // past the game's characters: added beside them, no ORAS character replaced (owner, 17
+                            // October). Its model number is its member number (member = model, as for the game's
+                            // characters under 4096), which a pack's list gets from OrasWorkspace::CharacterList
+                            if (dst != g.Count()) { fprintf(stderr, "a/0/2/1 has %zu members: a new character goes at %zu\n", g.Count(), g.Count()); return 2; }
+                            const Bytes like = source.Sub(284);
+                            if (file.size() < 2 || Plain(like)[0] != file[0] || Plain(like)[1] != file[1]) { fprintf(stderr, "X/Y character %zu: not a character container\n", from); return 1; }
+                            g.Set(dst, IsLzCompressed(like) ? Lz11Compress(file) : file);
+                            printf("%s member %zu (new) <- X/Y character %zu (%zu bytes)\n", path.c_str(), dst, from, file.size());
+                            for (const std::string& line : report) printf("  %s\n", line.c_str());
+                            last = dst;
+                            continue;
+                        }
                         const Bytes old = Plain(source.Sub(dst));
                         if (old.size() < 2 || file[0] != old[0] || file[1] != old[1]) { fprintf(stderr, "X/Y character %zu: not the same container as member %zu\n", from, dst); return 1; }
                         ReplaceMember(g, source, dst, file, std::string(old.begin(), old.begin() + 2));
@@ -1321,10 +1340,12 @@ int main(int argc, char** argv)
             return 0;
         }
 
-        if (cmd == "oras-sandbox" && (argc == 5 || (argc == 7 && std::string(argv[5]) == "--character-models")))
+        if (cmd == "oras-sandbox" && argc >= 5 && argc % 2 == 1)
         {
             // a new zone from a text description (OrasSandbox.h); the game reads it with oras-engine --zone-rows.
-            // --character-models N: the models an area pack's list may hold, the N given to oras-engine (31 without it)
+            // --character-models N: the models an area pack's list may hold, the N given to oras-engine (31 without it);
+            // --characters N: the pool oras-engine --characters gives (a zone takes N - 1; 26 without it);
+            // --events large: a zone's events file up to 0x1910 bytes, with oras-engine --events large
             N3dsRom oras(argv[2]);
             const Bytes text = ReadFile(argv[4]);
             // the zones' own scripts are checked against the game's native tables, kept beside the sandbox folder
@@ -1332,7 +1353,14 @@ int main(int argc, char** argv)
             const std::filesystem::path names = std::filesystem::path(argv[4]).parent_path() / ".." / "ghidra" / "function_names.tsv";
             const auto check = std::filesystem::exists(names) ? AmxNativeCheck(names.string(), 0x243) : std::function<std::string(const std::string&)>{};
             OrasWorkspace ws(oras);
-            if (argc == 7) ws.CharacterModels = (size_t)OptionNumber(argv[6], "--character-models");
+            for (int i = 5; i + 1 < argc; i += 2)
+            {
+                const std::string flag = argv[i], value = argv[i + 1];
+                if (flag == "--character-models") ws.CharacterModels = (size_t)OptionNumber(value.c_str(), flag);
+                else if (flag == "--characters") ws.CharacterPool = (size_t)OptionNumber(value.c_str(), flag);
+                else if (flag == "--events" && value == "large") OrasZone::EventsLimit = 0x1910;
+                else throw FormatError("oras-sandbox: unknown option " + flag + " " + value);
+            }
             for (const std::string& line : BuildOrasSandbox(ws, std::string(text.begin(), text.end()), argv[3], check)) printf("%s\n", line.c_str());
             for (const std::string& line : ws.Write(argv[3])) printf("%s\n", line.c_str());
             return 0;

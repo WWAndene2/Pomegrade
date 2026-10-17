@@ -1,7 +1,7 @@
 # Stress test of the character-model limit (17 October): the demo with 56 more people of 37 more models below the
 # crossroad, 40 distinct models in zone 539 (the game loads 31 without oras-engine --character-models; run hst hung,
 # run hG with --character-models 127 entered). For the phone, Remake mod workflow variants:
-#   sb: sandbox tools/remake/sandbox/crowd.txt --character-models 127
+#   sb: sandbox tools/remake/sandbox/crowd.txt --character-models 127 --characters 64
 #   x: copy a/0/2/1 284=xy:dumps-x/x.3ds:10
 #   eng: engine --zone-rows 541 --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 --characters 64 --character-models 127
 #   sv: save 538 14.5 20.5
