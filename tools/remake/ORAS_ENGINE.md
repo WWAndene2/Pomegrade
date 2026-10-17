@@ -611,6 +611,10 @@ Read in the code (Ghidra, headless) and checked headless; the owner checked on t
   64-character zone (3,224 bytes) entered from the next zone shows all its people. The zone's characters need a pool above
   their number plus the player: with `--characters 64` the same zone stopped in `Event_PlaceZoneCharacters`'s overflow
   (0x3F80B8, run hEv); `--characters 72` passes.
+  **Slot 1 unused, checked** (run slot1, the unmodified game, save on Route 101): the events object found in memory at
+  0x08D193C4 (its +0x194C and +0x1950 pointing at +0x34 and +0xCC0); before and after walking into Littleroot and back,
+  slot 1's 803 words are all zero while slot 0 changed (the two zones' files written in it). `oras-sandbox --characters N`
+  refuses a zone placing more than N - 1 people (26 without it).
 - **Swimmers** (17 October, read): models 259, 273, 274, 278, 279, 345-348 are placed only on water tiles; their idle
   motion (slot 1) is a 30-45 frame swim, a walker's is 1 frame, so none can stand. 345-348 share their skeleton byte for
   byte with 230, 229, 227, 228, which stand (slot 1 of 1 frame, a walk of 14): their land twins. The other five have no
