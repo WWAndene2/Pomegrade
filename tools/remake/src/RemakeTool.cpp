@@ -846,6 +846,20 @@ int main(int argc, char** argv)
                         std::vector<std::string> report;
                         const Bytes file = XyCharacterToOras(Plain(xyCharacters.Sub(from)), report);
                         const size_t dst = (size_t)std::stoul(arg.substr(0, eq));
+                        if (dst >= g.Count())
+                        {
+                            // past the game's characters: added beside them, no ORAS character replaced (owner, 17
+                            // October). Its model number is its member number (member = model, as for the game's
+                            // characters under 4096), which a pack's list gets from OrasWorkspace::CharacterList
+                            if (dst != g.Count()) { fprintf(stderr, "a/0/2/1 has %zu members: a new character goes at %zu\n", g.Count(), g.Count()); return 2; }
+                            const Bytes like = source.Sub(284);
+                            if (file.size() < 2 || Plain(like)[0] != file[0] || Plain(like)[1] != file[1]) { fprintf(stderr, "X/Y character %zu: not a character container\n", from); return 1; }
+                            g.Set(dst, IsLzCompressed(like) ? Lz11Compress(file) : file);
+                            printf("%s member %zu (new) <- X/Y character %zu (%zu bytes)\n", path.c_str(), dst, from, file.size());
+                            for (const std::string& line : report) printf("  %s\n", line.c_str());
+                            last = dst;
+                            continue;
+                        }
                         const Bytes old = Plain(source.Sub(dst));
                         if (old.size() < 2 || file[0] != old[0] || file[1] != old[1]) { fprintf(stderr, "X/Y character %zu: not the same container as member %zu\n", from, dst); return 1; }
                         ReplaceMember(g, source, dst, file, std::string(old.begin(), old.begin() + 2));
