@@ -598,7 +598,9 @@ Read in the code (Ghidra, headless) and checked headless; the owner checked on t
   0x62 (`mov r2,#0x10000` at DllField 0x10283954) and the two model instance heaps 0x159 / 0x15A (sizes loaded at
   0x10283970 / 0x10283994, through caves) by objects / 32. The array alone, or with heap 0x62 only, hung in the allocator's
   out-of-memory loop (0x12BAEC, FUN_0012b9a0) while a skeleton was built (runs hK, hL, hP); all three grown, the 59-people
-  crowd of 40 models enters and draws (run hQ). Not yet checked on the phone.
+  crowd of 40 models enters and draws (run hQ). **Checked on the phone** (owner, 17 October, mod crowd2): every
+  row drawn, no invisible wall, no stretched character; the people half in the ground are swimmer models, whose idle
+  motion swims (not a bug).
 - **Method** (bisection, one headless run at a time): the same mod with one change each (models 299 vs 174; 31 vs 33
   entries; 34 vs 40 models; 34 vs 70 objects; demo zone vs crowd), the frozen threads' pc and stack code addresses
   (`report`) named against the Ghidra program; agents read the code without running the emulator.
