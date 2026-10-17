@@ -97,3 +97,17 @@ python3 -I tools/remake/prototype/usum_character.py build <work>/elio <work>/eli
 
 `out.png` shows four views; `--outfit hat=3,tops=12` picks other items (their index in the part's GARC), `--player 2`
 Selene (on May). The work directory holds game data: keep it outside the repository.
+
+## Polygon multiplier on a 3DS character (`oras_tessellate.py`)
+
+The DS core's polygon multiplier (`GPU3D_PolygonMultiplier.cpp`, its PNhong method) applied ahead of time to a character
+model, for a preview: `python3 -I oras_tessellate.py <model.smd> <tex dir> <out prefix> 1,3` (a character from `spica smd`
+and `spica png`). Its header gives what was checked and what was not (whether the game accepts the larger models).
+
+## Platinum's trainer sprites (`nitro_sprites.py`)
+
+NCGR images with their NCLR palette, and Platinum's encrypted trainer sprites:
+`remake_tool unpack <platinum.nds> poketool/trgra/trfgra.narc trf`, then
+`python3 -I nitro_sprites.py trainer trf 0 lucas.png --zoom 3` (trainer 0 is Lucas; `trbgra.narc` for the back sprites).
+The field sprites are NSBTX textures: `remake_tool textures <member.nsbtx> <dir>` on `data/mmodel/mmodel.narc` (Lucas in
+Platinum's outfit: member 157, `pl_whelo`; member 417, `hero`, is his Diamond/Pearl outfit).

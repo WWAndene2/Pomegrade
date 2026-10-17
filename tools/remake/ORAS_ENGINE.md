@@ -1281,6 +1281,13 @@ grown x1.1 around the head so the hair stays inside it (pushing the hair under t
 the visor). `spica smd` now names an ORAS field character's triangles after their real texture (their texture 0 is a
 placeholder, `projection_dummy`).
 
+**USUM's field** (seen, Ultra Moon, 17 October): `a/0/8/3` holds 336 zones of 11 files each (3,696 members; their
+2-letter containers `BG` x2, `ED`, `ZS`, `ZI`, `aa`, `AS`, `TR`, `AE`, `AC`, `EA`, roles not read). A `BG` package nests
+further `BG` packages around bare GF models and textures, which SPICA's own BG reader does not find: `spica bg <member>
+<out prefix> <tex dir>` walks them (99 members hold models, 172 in all; a zone's models and textures sit in different
+members). It skips what SPICA cannot convert and counts it (36 in member 1: their format not identified). `a/0/8/1` (168
+members) holds the battle backgrounds (`btl_G_city`...).
+
 **Not done**: the in-game model. `build` writes what it needs (the repainted textures, the hair and cap on the base's
 skeleton as `<out>_head.smd`); the BCH holding them (a copy of member 172 with the head mesh replaced and the textures
 swapped) is not written by any tool yet, nor tried headless or on the phone. Selene's result (on May) was generated, not
