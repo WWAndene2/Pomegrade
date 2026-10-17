@@ -245,6 +245,12 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   its event handled by the zone's own main through the scene's. A camera's framing is the scene's to get right:
   the person faces the player (west of them), so a shot from the south-east shows the back of their head (`sceneG1`).
   The battle draws its Pokemon yellow under the headless software renderer; the field draws normally.
+  **Any model** (17 October): a model must be in its zone's area pack character list (`a/1/3/7`, `OrasWorkspace::CharacterList`),
+  else entering the zone hangs the game (runs `h5`, `h64`). The sandbox adds each model it places: to its own packs' lists,
+  and in place to a game pack's list for `edit Z`. **Checked live**: models 174 (the hero, presumably) and 64 beside X's
+  gym leader in zone 539 (run `hfix`, and on the owner's phone, mod test6, blinking included); 299, 284, 174 and 64 in
+  Littleroot, entered from Route 101 (run `hea`). A save made inside the edited zone showed none of them, the game's own
+  299 and 284 included (runs `hed`, `hec`): enter the zone to see them.
 - **Read a script**: `remake_tool oras-script <oras.3ds> <zone> [init]` disassembles it; `prototype/amx_natives.py tables
   <code.bin> <linked/modules.bin> natives.tsv`, then `... | amx_natives.py names natives.tsv` puts each native's name beside
   its hash, and `amx_natives.py check` proves every zone script's natives are registered (section 6). A zone's text:
