@@ -3,7 +3,7 @@
 # naming the new zone; ORAS_ENGINE.md 4.5b). Checked headless (run hSh, 4 shared people at the border;
 # run hFar3, back into 539 after 538 without the freeze, ORAS_ENGINE.md 4.5b). For the phone:
 #   sb: sandbox tools/remake/sandbox/crowd_share.txt --character-models 127 --characters 72 --events large
-#   x: copy a/0/2/1 284=xy:dumps-x/x.3ds:10
+#   x: copy a/0/2/1 544=xy:dumps-x/x.3ds:10
 #   eng: engine --zone-rows 541 --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 --characters 72 --character-models 127 --events large
 #   sv: save 538 14.5 20.5 --save-records 73
 #   share: merge sb x eng sv
@@ -16,7 +16,7 @@ pack 8
 spawn 30.5 20.5
 name Bac à Sable Est
 line Championne: Bienvenue dans le bac à sable !
-character 284 24 19 face 1 script 1
+character 544 24 19 face 1 script 1
 character 174 25 19 face 1
 character 221 22 25 face 1 share 538
 character 236 23 25 face 1 share 538
