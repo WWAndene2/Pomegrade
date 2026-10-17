@@ -601,6 +601,9 @@ Read in the code (Ghidra, headless) and checked headless; the owner checked on t
   crowd of 40 models enters and draws (run hQ). **Checked on the phone** (owner, 17 October, mod crowd2): every
   row drawn, no invisible wall, no stretched character; the people half in the ground are swimmer models, whose idle
   motion swims (not a bug).
+- **X characters beside the game's** (17 October): `oras-copy a/0/2/1 544=xy:<x.3ds>:<member>` appends the converted
+  character as member 544 (the game has 544), model 544. **Checked headless** (run hX): X's character 31 as 544 stands
+  beside ORAS's own 284, which keeps its model. Not yet on the phone.
 - **Swimmers** (17 October, read): models 259, 273, 274, 278, 279, 345-348 are placed only on water tiles; their idle
   motion (slot 1) is a 30-45 frame swim, a walker's is 1 frame, so none can stand. 345-348 share their skeleton byte for
   byte with 230, 229, 227, 228, which stand (slot 1 of 1 frame, a walk of 14): their land twins. The other five have no
