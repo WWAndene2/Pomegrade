@@ -18,7 +18,7 @@ spawn 30.5 20.5
 name Bac à Sable Est
 line Championne: Bienvenue dans le bac à sable !
 character 284 24 19 face 1 script 1
-character 174 25 19 face 1
+character 64 25 19 face 1
 trainer 10 219 33 20 face 2 sight 5
 door 28 16 house 223
 scene
