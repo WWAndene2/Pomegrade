@@ -16,9 +16,14 @@ zone 539
 pack 8
 spawn 30.5 20.5
 name Bac à Sable Est
-character 284 24 19 face 2
+line Championne: Bienvenue dans le bac à sable !
+character 284 24 19 face 2 script 1
 trainer 10 219 33 20 face 2 sight 5
 door 28 16 house 223
+scene
+on 1
+    say 0
+end
 pieces 1 1
 blocks
 0011
