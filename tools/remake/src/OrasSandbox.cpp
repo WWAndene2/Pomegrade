@@ -487,6 +487,12 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
             log.push_back(line);
             nextId++;
         }
+        {
+            // the models it is given added to its pack's list, which a model must be in (OrasWorkspace::CharacterList)
+            std::vector<int> models;
+            for (const auto& c : z.Characters) models.push_back(c[0]);
+            ws.ListCharacters(zone.AreaPack(), models);
+        }
         for (const auto& t : z.Triggers)
         {
             ZoneTrigger tr;

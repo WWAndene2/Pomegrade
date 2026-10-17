@@ -93,7 +93,22 @@ int OrasWorkspace::AddPlaceName(const std::string& name)
     return line;
 }
 
+void OrasWorkspace::ListCharacters(int pack, const std::vector<int>& models)
+{
+    // a game pack's own list, for a game zone given characters (edit Z): the missing models appended, its entries kept, so
+    // its zones show what they showed
+    Garc& perArea = Edited("a/1/3/7");
+    const Bytes was = perArea.Sub((size_t)pack);
+    const Bytes list = CharacterList(Plain(was), models);
+    if (list.size() != Plain(was).size()) perArea.Set((size_t)pack, IsLzCompressed(was) ? Lz11Compress(list) : list);
+}
+
 Bytes OrasWorkspace::CharacterList(int like, const std::vector<int>& models)
+{
+    return CharacterList(Plain(Original("a/1/3/7").Sub((size_t)like)), models);
+}
+
+Bytes OrasWorkspace::CharacterList(Bytes list, const std::vector<int>& models)
 {
     // a/1/3/7 member <pack>: 24 bytes a character model the pack's zones may show (u16 model, ..., u16 a/0/2/1 member at byte
     // 20); a zone showing a model not in its pack's list hangs the game on entering it (runs h5, h64: models 174 and 64 on
@@ -101,8 +116,7 @@ Bytes OrasWorkspace::CharacterList(int like, const std::vector<int>& models)
     // somewhere have one entry each, the same in every pack); a model no pack lists gets model 284's entry with its own
     // number as model and member (member = model holds for every listed model under 4096; the other bytes inferred, not read)
     const Garc& perArea = Original("a/1/3/7");
-    Bytes list = Plain(perArea.Sub((size_t)like));
-    if (list.size() % 24) throw FormatError("a/1/3/7 member " + std::to_string(like) + " is not 24-byte entries");
+    if (list.size() % 24) throw FormatError("an a/1/3/7 member is not 24-byte entries");
     const auto listed = [](const Bytes& l, int model) {
         for (size_t at = 0; at + 24 <= l.size(); at += 24) if ((l[at] | l[at + 1] << 8) == model) return (long)at;
         return -1L;
