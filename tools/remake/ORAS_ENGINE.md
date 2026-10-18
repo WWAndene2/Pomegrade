@@ -1371,8 +1371,11 @@ a `Transform` element's 9 slots get the key frame group rewrite of the material 
 `MtxTransform` element (X's door `t01_door`: 59 frames, its two leaves) is kept, SPICA showing no version-dependent field in
 them. Checked: SPICA reads every bone's pose of every frame identical before and after (the door, the lamp's `gaitoh_in`);
 the props load with their animations bound and the doors still enter (runs hOp2, hOp3). Not checked: that the leaves are
-seen to swing (the headless frames are too small and the camera moves). Not done: X's zone 3 (house 1's upper floor, no
-warp to it), the people.
+seen to swing (the headless frames are too small and the camera moves). **Checked on the phone (owner, 18 October, mod
+vaniville)**: the three houses enter and exit; the stairs work in the houses at x 12 and 35 (X's zones 6 and 4), not in the
+one at x 27 (zone 2: no stairs warp, as expected); the windows' lighting works. **Seen wrong on the phone, not fixed yet
+(owner's choice)**: no door is drawn in the doorways (entering works); the street lamps are not seen, or do not light.
+Not done: X's zone 3 (house 1's upper floor, no warp to it), the people.
 
 ## 8. Ultra Sun/Moon characters on Omega Ruby (17 October)
 
