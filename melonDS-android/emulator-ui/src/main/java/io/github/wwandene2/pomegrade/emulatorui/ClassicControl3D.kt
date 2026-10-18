@@ -64,10 +64,10 @@ object ClassicControl3D {
         cap(canvas, shape, rect, rect.height() * 0.12f, 0f, outlined, stroke, press, null, decorate)
     }
 
-    /** ZL or ZR, a pill in [rect]. */
-    fun pill(canvas: Canvas, rect: RectF, outlined: Boolean, stroke: Float, press: Press, decorate: (Canvas) -> Unit) {
+    /** ZL or ZR, a rectangle in [rect] with its corners rounded over [corner]. */
+    fun zButton(canvas: Canvas, rect: RectF, corner: Float, outlined: Boolean, stroke: Float, press: Press, decorate: (Canvas) -> Unit) {
         val inset = if (outlined) stroke / 2f else 0f
-        val r = rect.height() / 2f
+        val r = corner
         val shape = Path().apply { addRoundRect(RectF(rect.left + inset, rect.top + inset, rect.right - inset, rect.bottom - inset), r, r, Path.Direction.CW) }
         cap(canvas, shape, rect, rect.height() * 0.12f, 0f, outlined, stroke, press, null, decorate)
     }
