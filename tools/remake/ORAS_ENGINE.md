@@ -1357,7 +1357,25 @@ fatal (run hVan3) was these props unknown to the pack, not a missing warp. **Doo
 made of X's zone (`XyInsideToOras`: its piece and props, X's matrix copied with the piece renumbered, a copy of house 223's
 pack 112 with X's textures, the way out at X's warp 0). A warp must stand at the ground's height (word 5): X's Vaniville
 is at 144, and a warp at 0 did not fire (run hDoor2); at 144 the player enters X's house (zone 2's ground floor) and walks
-back out (runs hDoor4, hDoor5). Not done: the doors' opening, the upper floors (stairs), the people.
+back out (runs hDoor4, hDoor5). **Stairs**: X's two-floor houses link their floors by warps of kinds 0x501/0x503 (height
++-9: zones 4-5, 6-7); an X/Y inside now brings the zones its other warps lead to, X's warps kept with their destinations
+renumbered (not checked: see below). **Houses 2 and 3** (zones 4 and 6) first stopped the game on entering: the block trace of the entry (run hTr, `trace
+on`/`off`, the one traced block calling the fatal) named `Gfx_SetupCharacterModelInstance` (DllField 0x102E2F30), its first
+check (the piece's model object's byte 6 == 1) failing. Their terrain materials name `projection_dummy` (house 1's do not),
+which their pack, a copy of house 223's, holds in no file; with it copied to the pack's file 11 they load (runs hSt6, hD3).
+On the way: my first try read the materials through a destroyed temporary (`Bch::Read(...).Models.at(0)` in a range-for),
+fixed. Ruled out before: the pack slot, the piece's files, the matrix's areas (file 1 made whole: no change, reverted).
+**Stairs** (checked, run hSt10): the upstairs of house 2 is reached by walking up into the stairs warp from the tile below
+(the stairs' tiles are solid, like a door's). **The doors' and lamps' animations** (18 October): the BCH upgrade now converts skeletal animations too (dictionary 8):
+a `Transform` element's 9 slots get the key frame group rewrite of the material animations, a `QuatTransform` or
+`MtxTransform` element (X's door `t01_door`: 59 frames, its two leaves) is kept, SPICA showing no version-dependent field in
+them. Checked: SPICA reads every bone's pose of every frame identical before and after (the door, the lamp's `gaitoh_in`);
+the props load with their animations bound and the doors still enter (runs hOp2, hOp3). Not checked: that the leaves are
+seen to swing (the headless frames are too small and the camera moves). **Checked on the phone (owner, 18 October, mod
+vaniville)**: the three houses enter and exit; the stairs work in the houses at x 12 and 35 (X's zones 6 and 4), not in the
+one at x 27 (zone 2: no stairs warp, as expected); the windows' lighting works. **Seen wrong on the phone, not fixed yet
+(owner's choice)**: no door is drawn in the doorways (entering works); the street lamps are not seen, or do not light.
+Not done: X's zone 3 (house 1's upper floor, no warp to it), the people.
 
 ## 8. Ultra Sun/Moon characters on Omega Ruby (17 October)
 

@@ -13,9 +13,9 @@
 // - a texture's address in the command lists: relocated into section 4 (raw data) in X's files, 5 (raw data,
 //   textures) in ORAS's (seen in both games' character files: three words a texture, the commands of texture units
 //   0-2, registers 0x85, 0x95, 0x9D); so moved into section 5.
-// - a material animation's key frame groups (changed at 0x20, SPICA; BchUpgrade.cpp says how), rewritten.
+// - a material or skeletal animation's key frame groups (changed at 0x20, SPICA; BchUpgrade.cpp says how), rewritten.
 // The raw data (vertices, indices, textures) is kept byte for byte, at a 0x80-aligned address as before.
-// Not converted: the other kinds of animations inside a BCH (skeletal, visibility, light, camera, fog), refused; X's
+// Not converted: the other kinds of animations inside a BCH (visibility, light, camera, fog), refused; X's
 // motion packs (a character member's second file) are another format, not checked.
 
 #include "Bytes.h"
