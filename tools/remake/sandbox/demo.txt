@@ -1,7 +1,6 @@
-# The sandbox demo (oras-sandbox, OrasSandbox.h): two zones on one piece, a pond, a south ledge, a house with its
-# inside, a fence, a person and trainer 10. Its tall grass (Route 102's wild Pokemon) was removed on 17 October: the
-# sandbox then wrote encounter tiles but no grass model, so it was invisible (drawn since: `g` tiles get Route 101's
-# tufts). Checked piece by piece live
+# The sandbox demo (oras-sandbox, OrasSandbox.h): two zones on one piece, a pond, tall grass with Route 102's wild
+# Pokemon (drawn with Route 101's tufts since 18 October; invisible before, the sandbox writing no grass model), a
+# south ledge, a house with its inside, a fence, a person and trainer 10. Checked piece by piece live
 # (ORAS_ENGINE.md 2: runs sand1-sand8, house3, ledge5). For the phone, Remake mod workflow variants:
 #   sb: sandbox tools/remake/sandbox/demo.txt
 #   eng: engine --zone-rows 541 --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 --characters 64
@@ -13,6 +12,7 @@ zone 538
 pack 8
 spawn 14.5 20.5
 name Bac à Sable
+encounters 24
 zone 539
 pack 8
 spawn 30.5 20.5
@@ -62,12 +62,12 @@ TT..................::................TT
 TT......LLLLLLLLLLL.::................TT
 TT..................::................TT
 TT..................::................TT
-TT..................::................TT
-TT..................::................TT
-TT..................::........t.......TT
-TT..................::................TT
-TT..................::................TT
-TT..................::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::........t.......TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
 TT..................::................TT
 TT..................::................TT
 TT..................::................TT
