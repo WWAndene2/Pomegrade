@@ -64,11 +64,14 @@ static Bytes Renamed(Bytes bch, const std::map<std::string, std::string>& finalN
 // slot) and in Omega Ruby does not (pack 8: only its file 11): without it X's door did not bind (Map_BuildAreaModels' fatal on
 // its entry, run hVan7). The pack's own (pack 8: in its file 11) is added to file 1 under its name; X's, for a pack with none
 // (zone 223's, a house's inside)
-static Bytes WithProjectionDummyInFile1(const Bytes& packData, const Bytes& xAreaPack, std::vector<std::string>& log)
+// The terrain binds its own from file 11: X's houses 2-3 (pieces 164, 166) name it in every material's first slot, and on a copy
+// of house 223's pack (none in any file) their piece's model did not set up (Gfx_SetupCharacterModelInstance's fatal, DllField
+// 0x102E2F30, run hTr; house 1's piece 163 names none)
+static Bytes WithProjectionDummy(const Bytes& packData, size_t slot, const Bytes& xAreaPack, std::vector<std::string>& log)
 {
     BinLinker pack = BinLinker::Read(packData, "AD");
     std::vector<BchTextureSource> file1;
-    for (const BchTexture& t : Bch::Read(pack.Files.at(1)).Textures)
+    for (const BchTexture& t : Bch::Read(pack.Files.at(slot)).Textures)
     {
         if (t.Name == "projection_dummy") return packData;
         file1.push_back({t.Name, t.Width, t.Height, t.Format, t.Data});
@@ -84,8 +87,8 @@ static Bytes WithProjectionDummyInFile1(const Bytes& packData, const Bytes& xAre
             if (t.Name == "projection_dummy")
             {
                 file1.push_back({t.Name, t.Width, t.Height, t.Format, t.Data});
-                pack.Files.at(1) = BchWriteTextureFile(file1);
-                log.push_back(std::string("projection_dummy copied to the area pack's file 1 (X's props name it), from ") + (k ? "X's pack" : "its own files"));
+                pack.Files.at(slot) = BchWriteTextureFile(file1);
+                log.push_back("projection_dummy copied to the area pack's file " + std::to_string(slot) + " (X's models name it), from " + (k ? "X's pack" : "its own files"));
                 return pack.Write();
             }
     throw FormatError("X props: neither the area pack nor X's has a projection_dummy");
@@ -96,7 +99,7 @@ std::map<uint32_t, uint32_t> XyPropsToOras(const std::set<uint32_t>& types, cons
 {
     std::map<uint32_t, uint32_t> to;
     if (types.empty()) return to;
-    orasAreaPack = WithProjectionDummyInFile1(orasAreaPack, xAreaPack, log);
+    orasAreaPack = WithProjectionDummy(orasAreaPack, 1, xAreaPack, log);
     const Bytes xTable = BinLinker::Read(xAreaPack, "AD").Files.at(0);
     BinLinker pack = BinLinker::Read(orasAreaPack, "AD");
     Bytes table = pack.Files.at(0);
@@ -190,6 +193,13 @@ Bytes XyPieceToOras(const Bytes& xPiece, const Bytes& xAreaPack, size_t xPackInd
         const BchModel m = Bch::Read(model).Models.at(0);
         for (const BchMaterial& mat : m.Materials)
             for (const std::string& t : mat.Texture) if (!t.empty() && t != "projection_dummy") wanted.insert(t);
+    }
+    {
+        bool dummy = false;
+        const Bch read = Bch::Read(model); // kept alive while its materials are walked (.at() would end a temporary's life)
+        for (const BchMaterial& mat : read.Models.at(0).Materials)
+            for (const std::string& t : mat.Texture) dummy = dummy || t == "projection_dummy";
+        if (dummy) orasAreaPack = WithProjectionDummy(orasAreaPack, 11, xAreaPack, log);
     }
     std::map<std::string, std::string> finalName;
     orasAreaPack = ImportTextures(orasAreaPack, xAreaPack, xPackIndex, {wanted.begin(), wanted.end()}, finalName, log, "_x" + std::to_string(xPackIndex));

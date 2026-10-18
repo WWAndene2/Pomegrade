@@ -1359,13 +1359,15 @@ pack 112 with X's textures, the way out at X's warp 0). A warp must stand at the
 is at 144, and a warp at 0 did not fire (run hDoor2); at 144 the player enters X's house (zone 2's ground floor) and walks
 back out (runs hDoor4, hDoor5). **Stairs**: X's two-floor houses link their floors by warps of kinds 0x501/0x503 (height
 +-9: zones 4-5, 6-7); an X/Y inside now brings the zones its other warps lead to, X's warps kept with their destinations
-renumbered (not checked: see below). **Open**: X's houses 2 and 3 (zones 4 and 6) stop the game on entering, in
-`Map_LoadPieceModelFromContainer` (DllField 0x102609FC) under `Res_AsyncLoadMember`, whose `Res_AsyncLoad_Create` (0x36E694)
-returns 0 when the archive's reader is still busy (runs hSt, hSt2, hSt3). Ruled out: the area pack slot (house 2 on slot 1,
-run hSt2), the piece (7 files, model 0x21, read back from the mod's patch), a 12-entry prop table (one type left out, run
-hSt3). Their pieces' collision files are larger than any of Omega Ruby's (20,480 to 34,816 bytes; its largest 20,224, piece
-502; house 1's 7,296): a lead, not checked. Only house 1's door is in `vaniville.txt` until then. Not done: the doors'
-opening, the people.
+renumbered (not checked: see below). **Houses 2 and 3** (zones 4 and 6) first stopped the game on entering: the block trace of the entry (run hTr, `trace
+on`/`off`, the one traced block calling the fatal) named `Gfx_SetupCharacterModelInstance` (DllField 0x102E2F30), its first
+check (the piece's model object's byte 6 == 1) failing. Their terrain materials name `projection_dummy` (house 1's do not),
+which their pack, a copy of house 223's, holds in no file; with it copied to the pack's file 11 they load (runs hSt6, hD3).
+On the way: my first try read the materials through a destroyed temporary (`Bch::Read(...).Models.at(0)` in a range-for),
+fixed. Ruled out before: the pack slot, the piece's files, the matrix's areas (file 1 made whole: no change, reverted).
+**Stairs** (checked, run hSt10): the upstairs of house 2 is reached by walking up into the stairs warp from the tile below
+(the stairs' tiles are solid, like a door's). Not done: the doors' opening, X's zone 3 (house 1's upper floor, no warp to
+it), the people.
 
 ## 8. Ultra Sun/Moon characters on Omega Ruby (17 October)
 
