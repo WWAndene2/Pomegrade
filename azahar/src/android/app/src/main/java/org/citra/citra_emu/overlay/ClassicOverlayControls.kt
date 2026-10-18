@@ -31,11 +31,9 @@ import kotlin.math.max
  * Buttons and the D-pad are drawn by the overlay itself each frame (their painters, ClassicControl3D): filled, solid
  * key caps that sink while pressed, the D-pad rocking toward its pressed directions, with no in-between (owner's
  * choice); outlined, flat outlines 4 template pixels wide. Their bitmaps are blank and only give their size. The
- * circle pad and the C stick keep images (ClassicControlPainter): their range, and a knob in relief.
+ * circle pad and the C stick keep images: outlined, ClassicControlPainter's; filled, ClassicStickPainter's New 3DS sticks.
  */
 object ClassicOverlayControls {
-    // the circle pad's range, filled style: a faint disc, the knob solid
-    private const val RANGE_FILL = 0x59DCDEE2
 
     private class Style(val outlined: Boolean, val typeface: Typeface)
 
@@ -131,28 +129,35 @@ object ClassicOverlayControls {
 
     /**
      * A stick's range, knob and pressed knob images, [side] pixels. The circle pad's knob is 257 of its 380.2
-     * range; the C stick's image is drawn at twice its 128.6 (InputOverlay's outerScale), its knob 0.6 of it.
+     * range; the C stick's image is drawn at twice its 128.6 (InputOverlay's outerScale), its nub 0.3 of it (0.6 of
+     * its template circle, as on the owner's approved mock-up).
+     *
+     * Filled, after the New 3DS (owner's mock-up, 18 October): the circle pad a shallow round recess with a soft
+     * rim, its knob a low, flat grey disc with a slightly dished top; the C stick a small grey nub in a fine seam.
+     * Both are seen with the caps' forward tilt (ClassicControl3D), so their side shows below their top.
      */
     fun stick(context: Context, id: Int, side: Int): Triple<Bitmap, Bitmap, Bitmap> {
         val style = style(context)
         val s = side.coerceAtLeast(1).toFloat()
         val templateSide = if (id == ButtonType.STICK_C) 128.6f else 380.2f
         val stroke = 4f * s / (if (id == ButtonType.STICK_C) 2f * templateSide else templateSide)
-        val knob = if (id == ButtonType.STICK_C) 0.6f else 257f / 380.2f
         fun image(draw: (Canvas, Float) -> Unit): Bitmap =
             Bitmap.createBitmap(s.toInt(), s.toInt(), Bitmap.Config.ARGB_8888).also { draw(Canvas(it), s / 2f) }
-        val range = image { canvas, half ->
-            if (style.outlined) {
-                ClassicControlPainter.paint(canvas, Path().apply { addCircle(half, half, half - stroke / 2f, Path.Direction.CW) }, true, stroke)
-            } else {
-                // a faint disc, under the knob in relief
-                canvas.drawCircle(half, half, half, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = RANGE_FILL })
+        if (style.outlined) {
+            val knob = if (id == ButtonType.STICK_C) 0.6f else 257f / 380.2f
+            val range = image { canvas, half ->
+                ClassicControlPainter.outline(canvas, Path().apply { addCircle(half, half, half - stroke / 2f, Path.Direction.CW) }, stroke)
             }
+            fun knobImage(pressed: Boolean) = image { canvas, half ->
+                ClassicControlPainter.outline(canvas, Path().apply { addCircle(half, half, half * knob - stroke / 2f, Path.Direction.CW) }, stroke, if (pressed) 1f else 0f)
+            }
+            return Triple(range, knobImage(false), knobImage(true))
         }
-        fun knobImage(pressed: Boolean) = image { canvas, half ->
-            val radius = half * knob - if (style.outlined) stroke / 2f else 0f
-            ClassicControlPainter.paint(canvas, Path().apply { addCircle(half, half, radius, Path.Direction.CW) }, style.outlined, stroke, if (pressed) 1f else 0f)
-        }
-        return Triple(range, knobImage(false), knobImage(true))
+        val nub = id == ButtonType.STICK_C
+        val knob = if (nub) 0.3f else 257f / 380.2f
+        val range = image { canvas, half -> if (nub) ClassicStickPainter.nubSeam(canvas, half, half * knob) else ClassicStickPainter.recess(canvas, half, half) }
+        // the knob does not sink while held: one image for both
+        val knobImage = image { canvas, half -> ClassicStickPainter.knob(canvas, half, half * knob, if (nub) 0.17f else 0.12f) }
+        return Triple(range, knobImage, knobImage)
     }
 }
