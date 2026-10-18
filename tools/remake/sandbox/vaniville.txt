@@ -3,17 +3,20 @@
 # Ruby's by xy-piece (OrasXyPiece.h); its three houses (door ... xy) and two upper floors; no people yet (X's scripts can't run in Omega Ruby). The map's rows
 # are not used (every piece is X's). For the phone, Remake mod workflow variants:
 #   sb: sandbox tools/remake/sandbox/vaniville.txt --xy dumps-x/x.3ds
-#   eng: engine --zone-rows 544 --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000
+#   eng: engine --zone-rows 545 --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000
 #   sv: save 538 20.5 48.5
 #   vaniville: merge sb eng sv
 zone 538
 pack 8
 spawn 20.5 48.5
 name Bourg Croquis
-# the three doors, at X's own warps of zone 0 (its warps 0-2, kind 0x301), each into its X house: zone 2 (one floor here; its
-# upper floor, X's zone 3, has no warp), zones 4 and 6 with their upper floors (5, 7) by their stairs, walked into from the tile
+# the three doors, at X's own warps of zone 0 (its warps 0-2, kind 0x301), each into its X house: zone 2 (its upper floor, X's
+# zone 3, by xy-stairs below), zones 4 and 6 with their upper floors (5, 7) by their stairs, walked into from the tile
 # below (the stairs' own tiles are solid)
 door 27 36 xy 2 height 144
+# zone 2's stairs to its upper floor (X's zone 3) are triggers running X's scripts, which Omega Ruby can't run: made warps, on
+# the solid stair tiles beside the triggers' tiles, walked into as X's own stairs warps are (zones 4-5)
+xy-stairs 2 31 34 2 1 3 10 15 1 2
 door 35 36 xy 4 height 144
 door 12 36 xy 6 height 144
 pieces 2 2
