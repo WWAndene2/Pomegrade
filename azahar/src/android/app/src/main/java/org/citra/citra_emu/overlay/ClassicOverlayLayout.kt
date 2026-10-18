@@ -24,8 +24,8 @@ import kotlin.math.min
  * pad and ABXY. HOME's place holds the Punica button, which opens the shortcut pill's fan (HOME among its entries).
  */
 object ClassicOverlayLayout {
-    /** Raised when the controls' rectangles or drawn sizes change, so placements saved before are redone. */
-    const val VERSION = 3
+    /** Raised when the controls' rectangles, drawn sizes or shown controls change, so placements saved before are redone (4: ZL, ZR, C shown; 5: the corrected template). */
+    const val VERSION = 5
     private const val TEMPLATE_WIDTH = 1220f
     private const val TEMPLATE_HEIGHT = 2712f
 
@@ -33,22 +33,22 @@ object ClassicOverlayLayout {
 
     // Template rectangles, in template pixels. The D-pad is keyed by DPAD_UP, its preference key
     private val boxes = mapOf(
-        ButtonType.TRIGGER_L to Box(55f, 1497f, 271f, 92f),
-        ButtonType.TRIGGER_R to Box(894f, 1497f, 271f, 92f),
-        ButtonType.BUTTON_ZL to Box(397f, 1497f, 165.6f, 84.9f),
-        ButtonType.BUTTON_ZR to Box(657.5f, 1497f, 165.6f, 84.9f),
+        ButtonType.TRIGGER_L to Box(55f, 1497f, 271f, 112.4f),
+        ButtonType.TRIGGER_R to Box(894f, 1497f, 271f, 112.4f),
+        ButtonType.BUTTON_ZL to Box(399.2f, 1497f, 165.6f, 112.4f),
+        ButtonType.BUTTON_ZR to Box(655.2f, 1497f, 165.6f, 112.4f),
         ButtonType.STICK_LEFT to Box(55f, 1739.9f, 380.2f, 380.2f),
         ButtonType.STICK_C to Box(753.9f, 1718.4f, 128.6f, 128.6f),
         ButtonType.DPAD_UP to Box(80.5f, 2196.4f, 329.3f, 329.3f),
-        ButtonType.BUTTON_X to Box(899.9f, 1864.4f, 136.6f, 136.6f),
-        ButtonType.BUTTON_Y to Box(771.3f, 1998.2f, 136.6f, 136.6f),
-        ButtonType.BUTTON_A to Box(1028.4f, 1998.2f, 136.6f, 136.6f),
-        ButtonType.BUTTON_B to Box(899.9f, 2132.1f, 136.6f, 136.6f),
+        ButtonType.BUTTON_X to Box(899.9f, 1861.7f, 136.6f, 136.6f),
+        ButtonType.BUTTON_Y to Box(771.4f, 1990.2f, 136.6f, 136.6f),
+        ButtonType.BUTTON_A to Box(1028.4f, 1990.2f, 136.6f, 136.6f),
+        ButtonType.BUTTON_B to Box(899.9f, 2118.7f, 136.6f, 136.6f),
         // SELECT, Punica and START in one row centred on the screens' axis, 128 apart (owner's choice), as on the DS
-        ButtonType.BUTTON_START to Box(696.5f, 2564.6f, 83f, 83f),
-        ButtonType.BUTTON_SELECT to Box(440.5f, 2564.6f, 83f, 83f),
+        ButtonType.BUTTON_START to Box(696.5f, 2574f, 83f, 83f),
+        ButtonType.BUTTON_SELECT to Box(440.5f, 2574f, 83f, 83f),
         // HOME's place: the Punica button, the size of START / SELECT; HOME is in its fan (owner's choice)
-        ButtonType.BUTTON_PUNICA to Box(568.5f, 2564.6f, 83f, 83f),
+        ButtonType.BUTTON_PUNICA to Box(568.5f, 2574f, 83f, 83f),
         ButtonType.BUTTON_SWAP to Box(568.5f, 1700f, 83f, 83f),
         ButtonType.BUTTON_TURBO to Box(568.5f, 1823f, 83f, 83f),
         Hotkey.COMBO_BUTTON.button to Box(568.5f, 1946f, 83f, 83f),
@@ -90,6 +90,9 @@ object ClassicOverlayLayout {
     }
 
     val placedControls: Set<Int> get() = boxes.keys
+
+    /** The visibility toggles (InputOverlay's buttonToggleN) of the template's controls Azahar hides by default: ZL, ZR, the C stick. */
+    val shownToggles = listOf(6, 7, 12)
 
     // drawn as wide as their rectangle, which is flatter than it is wide: the scale gives their width
     private val drawnWide = setOf(ButtonType.TRIGGER_L, ButtonType.TRIGGER_R, ButtonType.BUTTON_ZL, ButtonType.BUTTON_ZR)
