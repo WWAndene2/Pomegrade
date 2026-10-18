@@ -1344,6 +1344,21 @@ models (file 3: types 1, 2, 5, 10) in a zone without warps stopped the field in 
 are converted. Not done: the doors and the houses' interiors, Vaniville's people, X's model names (`map01_11_14` kept, a
 length unlike the sandbox's `world16_00_00`; whether the game reads it is not known).
 
+**Vaniville's doors and props** (18 October, checked headless): a piece's file 3 holds its doors **and props** (Vaniville:
+X's types 1 street lamps, 2 a door, 5 house doors, 10 the town map). A type is a member of the prop archive (X `a/0/2/4`,
+Omega Ruby `a/0/2/3`, BM containers: model, then its animations) listed in the area pack's file 0 (u32 count, 0x50-byte
+entries: the type twice, 8 flag bytes, 16 u16 file references; read in `Event_SpawnFieldModelInstance`, DllField
+0x102691A8). X's props are appended to `a/0/2/3` (380 up), their entries copied into the pack under the new numbers and the
+pieces' types renumbered (`XyPropsToOras`). Found on the way, each a fatal in `Map_BuildAreaModels` (DllField 0x10269594):
+X's skeletal animations (a door's opening) are not converted by the BCH upgrade (dictionary 8), so their references are
+cleared and the doors do not swing (run hVan5); props bind their textures from the pack's file 1, where Omega Ruby keeps no
+`projection_dummy` (runs hVan6, hVan7: the first X entry failed, r7 = 7), copied there. Earlier `Map_PlacePropsFromContainer`
+fatal (run hVan3) was these props unknown to the pack, not a missing warp. **Doors** (`door X Z xy ZX height H`): the inside
+made of X's zone (`XyInsideToOras`: its piece and props, X's matrix copied with the piece renumbered, a copy of house 223's
+pack 112 with X's textures, the way out at X's warp 0). A warp must stand at the ground's height (word 5): X's Vaniville
+is at 144, and a warp at 0 did not fire (run hDoor2); at 144 the player enters X's house (zone 2's ground floor) and walks
+back out (runs hDoor4, hDoor5). Not done: the doors' opening, the upper floors (stairs), the people.
+
 ## 8. Ultra Sun/Moon characters on Omega Ruby (17 October)
 
 The owner's Ultra Moon dump (Europe, `3DS1772`, 3.7 GB, Drive folder "Pokemon Project - Radiant Platinum") is read by the
