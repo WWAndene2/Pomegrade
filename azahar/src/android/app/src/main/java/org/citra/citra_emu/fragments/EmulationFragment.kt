@@ -1119,8 +1119,13 @@ class EmulationFragment :
             PortraitScreenLayout.CUSTOM_PORTRAIT_LAYOUT.int ->
                 R.id.menu_portrait_layout_custom
 
+            // Pomegrade: Classic's two entries, by the button style
             else ->
-                R.id.menu_portrait_layout_classic
+                if (preferences.getString(CLASSIC_BUTTON_STYLE, "filled") == "outline") {
+                    R.id.menu_portrait_layout_classic_transparent
+                } else {
+                    R.id.menu_portrait_layout_classic
+                }
         }
 
         popupMenu.menu.findItem(layoutOptionMenuItem).setChecked(true)
@@ -1136,7 +1141,12 @@ class EmulationFragment :
                     true
                 }
 
-                R.id.menu_portrait_layout_classic -> {
+                R.id.menu_portrait_layout_classic, R.id.menu_portrait_layout_classic_transparent -> {
+                    // Pomegrade: the entry's button style, shared with the DS Classic layout
+                    preferences.edit().putString(
+                        CLASSIC_BUTTON_STYLE,
+                        if (it.itemId == R.id.menu_portrait_layout_classic) "filled" else "outline"
+                    ).apply()
                     screenAdjustmentUtil.changePortraitOrientation(
                         PortraitScreenLayout.CLASSIC.int
                     )
@@ -1900,5 +1910,7 @@ class EmulationFragment :
 
     companion object {
         private val perfStatsUpdateHandler = Handler(Looper.myLooper()!!)
+        // Pomegrade: the Classic layouts' button style, "filled" or "outline" (Punica's setting, ClassicOverlayControls)
+        private const val CLASSIC_BUTTON_STYLE = "punica_classic_button_style"
     }
 }

@@ -3,9 +3,14 @@
 
     <group android:checkableBehavior="single">
 
+        <!-- Pomegrade: Classic in its two button styles -->
         <item
             android:id="@+id/menu_portrait_layout_classic"
-            android:title="@string/emulation_portrait_layout_classic" />
+            android:title="@string/emulation_portrait_layout_classic_solid" />
+
+        <item
+            android:id="@+id/menu_portrait_layout_classic_transparent"
+            android:title="@string/emulation_portrait_layout_classic_transparent" />
 
         <item
             android:id="@+id/menu_portrait_layout_top_full"

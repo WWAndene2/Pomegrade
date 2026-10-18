@@ -1074,6 +1074,8 @@
 
     <!-- Pomegrade: frame rate, picture, Remaster and the Classic portrait layout -->
     <string name="emulation_portrait_layout_classic">Classic</string>
+    <string name="emulation_portrait_layout_classic_solid">Classic plein</string>
+    <string name="emulation_portrait_layout_classic_transparent">Classic transparent</string>
     <string name="pomegrade_frame_rate">Images par seconde</string>
     <string name="pomegrade_frame_rate_120">120 FPS (images générées)</string>
     <string name="pomegrade_frame_rate_240">240 FPS (images générées)</string>
