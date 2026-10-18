@@ -30,6 +30,8 @@ public:
     // takes N - 1 (run hEv: 64 people in a pool of 64 stopped in Event_PlaceZoneCharacters, 0x3F80B8); the game's 26
     // without it (ORAS_ENGINE.md 4.5)
     size_t CharacterPool = 0;
+    // oras-sandbox --xy: Pokemon X/Y's decrypted .3ds, read for a description's xy-piece lines (OrasXyPiece.h)
+    std::string XyRom;
 
     N3dsRom& Rom() { return Oras; }
     // an archive as the game ships it, and as the build has left it so far (each read from the game once, on first use)

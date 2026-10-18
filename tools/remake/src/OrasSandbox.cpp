@@ -11,6 +11,8 @@
 #include "SceneScript.h"
 #include "OrasNewZone.h"
 #include "OrasWorkspace.h"
+#include "OrasXyPiece.h"
+#include "N3dsRom.h"
 #include "OrasZone.h"
 #include "TownLayout.h"
 
@@ -38,7 +40,7 @@ struct SandboxZone
     std::string Name;
     std::vector<std::array<int, 8>> Characters; // model, x, z, facing, script, movement, kind, sight
     std::vector<std::array<int, 3>> Shared;     // per character: its two zones and its shared id ({-1, -1, -1}: its zone only)
-    std::vector<std::array<int, 3>> Doors;      // x, z, the game interior zone copied as the house's inside
+    std::vector<std::array<int, 5>> Doors;      // x, z, the zone its house's inside is made of, 1 for an X/Y zone (door ... xy), height
     std::vector<std::array<int, 5>> Triggers;   // x, z, width, height, the zone script's event number
     std::string Script, InitScript;             // assembler source (Amx.h) of the zone's own scripts, empty: ones that do nothing
     std::string Scene;                          // the zone script as a scene (SceneScript.h), instead of Script
@@ -53,6 +55,7 @@ struct SandboxDescription
     std::vector<std::pair<int, std::string>> Teams; // a trainer of a/0/3/6 and its team block's lines
     std::map<int, std::pair<int, std::string>> TeamNames; // a team's trainer -> its new class (-1: kept) and name ("": kept)
     std::vector<SandboxZone> Edits;                 // game zones added to (edit Z): their lines, characters, triggers, scene
+    std::vector<std::array<int, 4>> XyPieces;       // piece x, y, X/Y's a/0/4/1 member, the a/0/1/3 area pack it draws from
 };
 
 static constexpr size_t rowBytesOf536 = 56; // a zone header row (member 536 of a/0/1/3)
@@ -172,6 +175,14 @@ static SandboxDescription ReadDescription(const std::string& text)
             continue;
         }
         if (what == "pieces") { ok = (bool)(words >> d.Width >> d.Height); if (!ok) fail("pieces needs its numbers"); continue; }
+        if (what == "xy-piece")
+        {
+            std::array<int, 4> x{};
+            ok = (bool)(words >> x[0] >> x[1] >> x[2] >> x[3]);
+            if (!ok) fail("xy-piece needs X Y MEMBER PACK");
+            d.XyPieces.push_back(x);
+            continue;
+        }
         if (what == "blocks") { part = Blocks; continue; }
         if (editing ? d.Edits.empty() : d.Zones.empty()) fail(what + " before any zone");
         SandboxZone& z = editing ? d.Edits.back() : d.Zones.back();
@@ -279,10 +290,15 @@ static SandboxDescription ReadDescription(const std::string& text)
         }
         else if (what == "door")
         {
-            // door X Z house Z2: the door tile ('D' on the map) and the game interior its house's inside is copied from
-            std::array<int, 3> door{0, 0, 0};
-            std::string house;
-            ok = (bool)(words >> door[0] >> door[1] >> house >> door[2]) && house == "house";
+            // door X Z house Z2: the door tile ('D' on the map) and the game interior its house's inside is copied from;
+            // door X Z xy ZX: on an xy-piece (no 'D': X's door model is the piece's), the inside made of X/Y's zone ZX
+            // either may end with "height H": the warp's height in pixels (word 5; 0 by default, Littleroot's ground). X's
+            // Vaniville stands at 144 (its warps' own): a warp at 0 there did not fire (run hDoor2)
+            std::array<int, 5> door{0, 0, 0, 0, 0};
+            std::string house, key;
+            ok = (bool)(words >> door[0] >> door[1] >> house >> door[2]) && (house == "house" || house == "xy");
+            door[3] = house == "xy";
+            if (ok && words >> key) ok = key == "height" && (bool)(words >> door[4]);
             z.Doors.push_back(door);
         }
         else fail("unknown statement " + what);
@@ -342,6 +358,7 @@ static SandboxDescription ReadDescription(const std::string& text)
         for (const auto& door : z.Doors)
         {
             check((float)door[0], (float)door[1], "a door");
+            if (door[3]) { if (door[2] < 0) throw FormatError(which + ": an X/Y inside is an X/Y zone number"); continue; }
             if (d.Map[(size_t)door[1]][(size_t)door[0]] != 'D') throw FormatError(which + ": a door is not on a 'D' of the map");
             if (door[2] < 0 || door[2] >= 536) throw FormatError(which + ": a house's inside is a game zone, 0-535");
         }
@@ -381,6 +398,47 @@ static TownLayout PieceLayout(const SandboxDescription& d, int px, int py)
         l.Collision.push_back(c);
     }
     return l;
+}
+
+// An X/Y interior made Omega Ruby's for a door's inside (door X Z xy ZX): X's zone ZX (a/0/1/2: header word 1 its area pack,
+// word 2 its matrix, as Omega Ruby's; its events' warp 0 its way out, as a sandbox inside's), its one piece converted
+// (XyPieceToOras, its props as xy-piece's) on a copy of X's matrix with the piece renumbered (X's matrices are Omega Ruby's
+// format: ORAS_ENGINE.md 7), on a new area pack: a copy of game zone 223's (a house's inside: its camera and light) with X's
+// textures and props added
+struct XyInside { int Matrix = -1, AreaPack = -1; uint16_t ExitX = 0, ExitZ = 0; };
+static XyInside XyInsideToOras(OrasWorkspace& ws, int xZone, const std::vector<int>& models, const Garc& pieceArchive, const Garc& zoneArchive,
+                               std::vector<std::string>& log)
+{
+    if (ws.XyRom.empty()) throw FormatError("sandbox: door ... xy needs oras-sandbox --xy <x.3ds>");
+    N3dsRom xRom(ws.XyRom);
+    const Garc xZones(xRom.Read("a/0/1/2")), xMatrices(xRom.Read("a/0/4/2")), xPieces(xRom.Read("a/0/4/1")), xPacks(xRom.Read("a/0/1/3")),
+        xProps(xRom.Read("a/0/2/4"));
+    if (xZone >= (int)xZones.Count()) throw FormatError("sandbox: no X/Y zone " + std::to_string(xZone));
+    const BinLinker zone = BinLinker::Read(Plain(xZones.Sub((size_t)xZone)), "ZO");
+    const Bytes& header = zone.Files.at(0);
+    const Bytes& events = zone.Files.at(1);
+    const size_t pack = U16(header, 2), matrixIndex = U16(header, 4);
+    // the events file: u32 size, four u8 counts (furniture, characters, warps, triggers), u32 a fifth count, the arrays (OrasZone.h)
+    if (events.size() < 12 || events[6] == 0) throw FormatError("sandbox: X/Y zone " + std::to_string(xZone) + " has no warp (no way out)");
+    const size_t warp0 = 12 + 0x14 * (size_t)events[4] + 0x30 * (size_t)events[5];
+    XyInside in;
+    in.ExitX = U16(events, warp0 + 8); in.ExitZ = U16(events, warp0 + 12);
+    OrasMatrix matrix = OrasMatrix::Read(Plain(xMatrices.Sub(matrixIndex)));
+    if (matrix.Width != 1 || matrix.Height != 1) throw FormatError("sandbox: X/Y zone " + std::to_string(xZone) + "'s matrix is not one piece");
+    const uint16_t xPieceIndex = matrix.Pieces.at(0);
+    const Bytes xPiece = Plain(xPieces.Sub(xPieceIndex)), xPack = Plain(xPacks.Sub(pack));
+    const int housePack = OrasZone::Read(Plain(zoneArchive.Sub(223))).AreaPack();
+    Bytes packData = Plain(ws.Original("a/0/1/4").Sub((size_t)housePack));
+    const std::map<uint32_t, uint32_t> props = XyPropsToOras(XyPieceProps(xPiece), xProps, xPack, pack, ws.Edited("a/0/2/3"), ws.Original("a/0/2/3"), packData, log);
+    const Bytes kage = BinLinker::Read(Plain(pieceArchive.Sub(6)), "GR").Files.at(6);
+    const Bytes piece = XyPieceToOras(xPiece, xPack, pack, kage, "", 0, 0, props, packData, log);
+    matrix.Pieces.at(0) = (uint16_t)AppendMember(ws.Edited("a/0/3/9"), pieceArchive, 6, piece, "GR");
+    const Bytes matrixData = matrix.Write();
+    in.Matrix = (int)AppendMember(ws.Edited("a/0/4/0"), ws.Original("a/0/4/0"), 1, matrixData, "MM");
+    in.AreaPack = ws.AddAreaPack(packData, housePack, models);
+    log.push_back("X/Y zone " + std::to_string(xZone) + ": its piece " + std::to_string(matrix.Pieces.at(0)) + " (X's " + std::to_string(xPieceIndex) +
+                  "), matrix " + std::to_string(in.Matrix) + ", area pack " + std::to_string(in.AreaPack) + " (a copy of pack " + std::to_string(housePack) + ")");
+    return in;
 }
 
 std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& description, const std::string& outDir,
@@ -575,12 +633,32 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
     to.AreaPack = (size_t)pack;
     const PieceBudget budget = GamePieceBudget(pieceArchive);
     std::string layouts;
+    std::map<uint32_t, uint32_t> xyPropTypes; // X/Y prop types -> the a/0/2/3 members made of them (xy-piece)
     for (int y = 0; y < d.Height; y++)
         for (int x = 0; x < d.Width; x++)
         {
             const TownLayout layout = PieceLayout(d, x, y);
             snprintf(line, sizeof line, "world16_%02d_%02d", x, y);
-            const Bytes piece = BuildTownPiece(layout, to, pieceArchive, areaArchive, budget, x, y, line, packData, log);
+            const auto xy = std::find_if(d.XyPieces.begin(), d.XyPieces.end(), [&](const std::array<int, 4>& p) { return p[0] == x && p[1] == y; });
+            Bytes piece;
+            if (xy != d.XyPieces.end())
+            {
+                // an X/Y piece in place of the built one (OrasXyPiece.h): its own ground, collision and door models; the map's rows
+                // for it are not used. Omega Ruby's shadow file is Littleroot's (piece 6)
+                if (ws.XyRom.empty()) throw FormatError("sandbox: xy-piece needs oras-sandbox --xy <x.3ds>");
+                N3dsRom xRom(ws.XyRom);
+                const Garc xPieces(xRom.Read("a/0/4/1")), xPacks(xRom.Read("a/0/1/3")), xProps(xRom.Read("a/0/2/4"));
+                const Bytes kage = BinLinker::Read(Plain(pieceArchive.Sub(6)), "GR").Files.at(6);
+                const Bytes xPiece = Plain(xPieces.Sub((size_t)(*xy)[2])), xPack = Plain(xPacks.Sub((size_t)(*xy)[3]));
+                // its doors and props: X's models appended to a/0/2/3 once for all the X pieces (their pack assumed X's same one)
+                std::set<uint32_t> fresh;
+                for (const uint32_t t : XyPieceProps(xPiece)) if (!xyPropTypes.count(t)) fresh.insert(t);
+                for (const auto& [from, to2] : XyPropsToOras(fresh, xProps, xPack, (size_t)(*xy)[3], ws.Edited("a/0/2/3"), ws.Original("a/0/2/3"), packData, log))
+                    xyPropTypes[from] = to2;
+                piece = XyPieceToOras(xPiece, xPack, (size_t)(*xy)[3], kage, line, x, y, xyPropTypes, packData, log);
+                log.push_back("piece (" + std::to_string(x) + ", " + std::to_string(y) + "): X/Y's a/0/4/1 member " + std::to_string((*xy)[2]));
+            }
+            else piece = BuildTownPiece(layout, to, pieceArchive, areaArchive, budget, x, y, line, packData, log);
             const size_t index = AppendMember(newPieces, pieceArchive, to.TargetPiece, piece, "GR");
             matrix.Piece(x, y) = (uint16_t)index;
             snprintf(line, sizeof line, "piece (%d, %d): a/0/3/9 member %zu, %zu bytes", x, y, index, piece.size());
@@ -672,14 +750,15 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
     // every 'D' of the map is one zone's door; each door's house inside is a new zone after the described ones on a game
     // interior's map (its matrix and area pack: the game's assets), its one warp leading back out to the door
     size_t doorsGiven = 0, doorsDrawn = 0;
-    for (const SandboxZone& z : d.Zones) doorsGiven += z.Doors.size();
+    for (const SandboxZone& z : d.Zones) for (const auto& door : z.Doors) doorsGiven += door[3] ? 0 : 1; // an X/Y door is X's model, no 'D'
     for (const std::string& row : d.Map) doorsDrawn += (size_t)std::count(row.begin(), row.end(), 'D');
     if (doorsGiven != doorsDrawn) throw FormatError("sandbox: the map has " + std::to_string(doorsDrawn) + " doors ('D'), the zones give " + std::to_string(doorsGiven));
-    struct Inside { int Zone, Map, Outside, Warp; size_t OutsideAt; };
+    struct Inside { int Zone, Map, Outside, Warp; size_t OutsideAt; bool Xy; };
     std::vector<Inside> insides;
     int nextZone = d.Zones.back().Number + 1;
     for (size_t k = 0; k < d.Zones.size(); k++)
-        for (size_t w = 0; w < d.Zones[k].Doors.size(); w++) insides.push_back({nextZone++, d.Zones[k].Doors[w][2], d.Zones[k].Number, (int)w, k});
+        for (size_t w = 0; w < d.Zones[k].Doors.size(); w++)
+            insides.push_back({nextZone++, d.Zones[k].Doors[w][2], d.Zones[k].Number, (int)w, k, d.Zones[k].Doors[w][3] != 0});
 
     // each new zone's text file (header word 3): a new member of the eight story text archives (a/0/7/9-a/0/8/6, one per
     // language; ORAS_ENGINE.md 6), the zone's lines in all eight, one empty line when it gives none
@@ -745,7 +824,11 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
                 log.push_back(line);
             }
         }
-        for (const auto& door : z.Doors) zone.Doors.push_back(NewDoorWarp(insides.at(insideAt++).Zone, 0, door[0], door[1]));
+        for (const auto& door : z.Doors)
+        {
+            zone.Doors.push_back(NewDoorWarp(insides.at(insideAt++).Zone, 0, door[0], door[1]));
+            zone.Doors.back().Raw[5] = (uint16_t)door[4];
+        }
         for (const auto& t : z.Triggers)
         {
             // a trigger's 12 words, as the game's 361 hold them: 0 the event number, 1-2 a condition (work variable word 2
@@ -780,6 +863,24 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         // the inside: the game interior's map (its matrix and area pack) and the tile of its way out (its warp 0, a mat of kind 0:
         // where this map's exit is), read from the game zone on that map; nothing else of it
         const Inside& in = insides[i];
+        if (in.Xy)
+        {
+            const XyInside x = XyInsideToOras(ws, in.Map, models, pieceArchive, zoneArchive, log);
+            OrasZone zone;
+            NewZoneFields f;
+            f.Kind = NewZoneKind::Interior; f.Number = in.Zone; f.AreaPack = x.AreaPack; f.Matrix = x.Matrix;
+            f.Text = textOf[d.Zones.size() + i]; f.Overworld = in.Outside; f.NameLine = nameLine[in.OutsideAt];
+            f.SpawnX = x.ExitX / 18.0f; f.SpawnZ = x.ExitZ / 18.0f;
+            zone.Header = NewZoneHeader(f);
+            zone.Doors.push_back(NewExitWarp(in.Outside, in.Warp, x.ExitX, x.ExitZ));
+            zone.Script = assemble(EmptyZoneScript, in.Zone, "script");
+            zone.InitScript = assemble(EmptyInitScript, in.Zone, "init-script");
+            appendZone(zone, Bytes{}, in.Zone);
+            snprintf(line, sizeof line, "zone %d: the inside of zone %d's door %d, made of X/Y's zone %d (matrix %d, area pack %d), warp 0 back out",
+                     in.Zone, in.Outside, in.Warp, in.Map, f.Matrix, f.AreaPack);
+            log.push_back(line);
+            continue;
+        }
         const OrasZone map = OrasZone::Read(Plain(zoneArchive.Sub((size_t)in.Map)));
         if (map.Doors.empty() || map.Doors[0].Kind() != 0)
             throw FormatError("sandbox: zone " + std::to_string(in.Map) + " is not a house's inside (its warp 0 is not a way out, kind 0)");

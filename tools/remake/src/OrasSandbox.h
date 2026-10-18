@@ -67,7 +67,13 @@
 //                     scene's "on N"): words 0, 6-9 of the game's trigger records, no condition
 //   door X Z house Z2 a door ('D' on the map) into a new zone after the described ones, written from nothing on game interior
 //                     Z2's map (its matrix, area pack and the tile of its way out); its one warp leads back out
+//   door X Z xy ZX    on an xy-piece: the inside made of X/Y's zone ZX (its piece, props, textures and way out: XyInsideToOras),
+//                     X's own door model being the piece's (no 'D' on the map). Either form may end with "height H", the warp's
+//                     height in pixels (0 by default; X's Vaniville stands at 144)
 //   pieces W H        the size in map pieces (40 x 40 tiles each)
+//   xy-piece X Y M P  piece X, Y is Pokemon X/Y's map piece M (a/0/4/1 member) made Omega Ruby's, its textures from X/Y's area
+//                     pack P (a/0/1/3 member, the pack its zone draws from), instead of one built from the map's rows (which are
+//                     then not used for it): OrasXyPiece.h. Needs oras-sandbox --xy <x.3ds>
 //   blocks            with several zones: then 4 H rows of 4 W digits, the zone (0 the first given, 1 the next...) of each
 //                     10 x 10 block; one zone alone takes every block
 //   map               then 40 H rows of 40 W letters: '.' grass, 'g' tall grass, ':' path, 's' pale grass, '*' flowers,

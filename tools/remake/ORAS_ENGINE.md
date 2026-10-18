@@ -1331,6 +1331,34 @@ X's map pieces converted, and a run of an X town in ORAS.
 **Order of work**: a BCH 0x07 reader and its conversion to 0x21 (done, 16 October); one X character in an Omega Ruby
 town, run on the phone (headless done: drawn, lit, walking); the tile table; one X piece in Omega Ruby.
 
+**Vaniville Town in Omega Ruby** (18 October, checked headless, run hVan4): X's zone 0 (outdoors, interiors 1-7) lies on
+matrix 0's cells (11, 14)-(12, 15), map pieces 12-15 of `a/0/4/1`, textures in X's area pack 2. `oras-sandbox --xy <x.3ds>`
+with `xy-piece X Y M P` lines (`sandbox/vaniville.txt`, `OrasXyPiece.h`) puts them on a new 2 x 2 matrix as zone 538: each
+model upgraded to BCH 0x21, its 31 + 9 + 2 textures added to the sandbox's pack (renamed `_x2` where pack 8 holds another
+of the same name), the cell rewritten in file 4, Littleroot's `KAGE` added as file 7. The player stands and walks on X's
+paving, the Navi-Map names the zone. Vaniville uses four tile values: 0x20, 0x01000021 and 0x28 occur in Omega Ruby's pieces
+(0x28 on 203 tiles), 0x31000020 (one tile) in none and is made 0x20 (inferred). Found on the way: the engine's
+`--zone-rows` must equal the zone table's rows (FUN_00112b50 stopped the boot with 541 given for 539, run hVan2); X's door
+models (file 3: types 1, 2, 5, 10) in a zone without warps stopped the field in `Map_PlacePropsFromContainer`
+(DllField 0x102608AC: the door-model manager, `[field + 0xAC] + 0x170`, null; run hVan3), so they are left out until doors
+are converted. Not done: the doors and the houses' interiors, Vaniville's people, X's model names (`map01_11_14` kept, a
+length unlike the sandbox's `world16_00_00`; whether the game reads it is not known).
+
+**Vaniville's doors and props** (18 October, checked headless): a piece's file 3 holds its doors **and props** (Vaniville:
+X's types 1 street lamps, 2 a door, 5 house doors, 10 the town map). A type is a member of the prop archive (X `a/0/2/4`,
+Omega Ruby `a/0/2/3`, BM containers: model, then its animations) listed in the area pack's file 0 (u32 count, 0x50-byte
+entries: the type twice, 8 flag bytes, 16 u16 file references; read in `Event_SpawnFieldModelInstance`, DllField
+0x102691A8). X's props are appended to `a/0/2/3` (380 up), their entries copied into the pack under the new numbers and the
+pieces' types renumbered (`XyPropsToOras`). Found on the way, each a fatal in `Map_BuildAreaModels` (DllField 0x10269594):
+X's skeletal animations (a door's opening) are not converted by the BCH upgrade (dictionary 8), so their references are
+cleared and the doors do not swing (run hVan5); props bind their textures from the pack's file 1, where Omega Ruby keeps no
+`projection_dummy` (runs hVan6, hVan7: the first X entry failed, r7 = 7), copied there. Earlier `Map_PlacePropsFromContainer`
+fatal (run hVan3) was these props unknown to the pack, not a missing warp. **Doors** (`door X Z xy ZX height H`): the inside
+made of X's zone (`XyInsideToOras`: its piece and props, X's matrix copied with the piece renumbered, a copy of house 223's
+pack 112 with X's textures, the way out at X's warp 0). A warp must stand at the ground's height (word 5): X's Vaniville
+is at 144, and a warp at 0 did not fire (run hDoor2); at 144 the player enters X's house (zone 2's ground floor) and walks
+back out (runs hDoor4, hDoor5). Not done: the doors' opening, the upper floors (stairs), the people.
+
 ## 8. Ultra Sun/Moon characters on Omega Ruby (17 October)
 
 The owner's Ultra Moon dump (Europe, `3DS1772`, 3.7 GB, Drive folder "Pokemon Project - Radiant Platinum") is read by the

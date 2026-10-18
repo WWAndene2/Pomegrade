@@ -72,6 +72,7 @@ add_library(remake STATIC
     src/GfMotion.cpp
     src/GfMotionPack.cpp
     src/XyCharacter.cpp
+    src/OrasXyPiece.cpp
     src/GameText.cpp
     src/Bclim.cpp
     src/Darc.cpp

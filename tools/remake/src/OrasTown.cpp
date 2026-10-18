@@ -93,7 +93,7 @@ static Bytes MoveZoneWarps(const Bytes& zoneData, const OrasTownOptions& o, cons
 // area keep theirs). A wanted name the pack already holds with other content gets a suffix. The pack's main texture file (slot 11) is
 // rewritten with BchWriteTextureFile; the result says each wanted name's final name, empty when the other pack has no such texture.
 Bytes ImportTextures(const Bytes& packData, const Bytes& fromData, size_t fromIndex, const std::vector<std::string>& wanted,
-                     std::map<std::string, std::string>& finalName, std::vector<std::string>& log)
+                     std::map<std::string, std::string>& finalName, std::vector<std::string>& log, const std::string& suffix, size_t slot)
 {
     BinLinker pack = BinLinker::Read(packData, "AD");
     if (pack.Write() != packData) throw FormatError("the area pack does not rewrite identical");
@@ -107,7 +107,7 @@ Bytes ImportTextures(const Bytes& packData, const Bytes& fromData, size_t fromIn
         return list;
     };
     for (size_t slot : {(size_t)1, (size_t)11}) read(pack.Files.at(slot), true);
-    for (BchTexture& t : read(pack.Files.at(11), false)) all.push_back({t.Name, t.Width, t.Height, t.Format, t.Data});
+    for (BchTexture& t : read(pack.Files.at(slot), false)) all.push_back({t.Name, t.Width, t.Height, t.Format, t.Data});
     size_t added = 0;
     for (const std::string& name : wanted)
     {
@@ -117,7 +117,7 @@ Bytes ImportTextures(const Bytes& packData, const Bytes& fromData, size_t fromIn
         if (!src) { finalName[name] = ""; log.push_back("texture " + name + " is not in area pack " + std::to_string(fromIndex)); continue; }
         // the texture may be there already, under its own name or, imported by an earlier piece of the same pack (oras-region: s1 refused
         // chip_kusa_b_8 twice), under its suffixed name
-        const std::string suffixed = name + "_" + std::to_string(fromIndex);
+        const std::string suffixed = name + (suffix.empty() ? "_" + std::to_string(fromIndex) : suffix);
         auto holds = [&](const std::string& n) {
             const auto t = std::find_if(all.begin(), all.end(), [&](const BchTextureSource& a) { return a.Name == n; });
             return t != all.end() && t->Width == src->Width && t->Height == src->Height && t->Format == src->Format && t->Data == src->Data;
@@ -133,8 +133,8 @@ Bytes ImportTextures(const Bytes& packData, const Bytes& fromData, size_t fromIn
         added++;
     }
     if (!added) return packData;
-    pack.Files.at(11) = BchWriteTextureFile(all);
-    log.push_back(std::to_string(added) + " texture(s) added to the area pack's main texture file (" + std::to_string(all.size()) + " in all)");
+    pack.Files.at(slot) = BchWriteTextureFile(all);
+    log.push_back(std::to_string(added) + " texture(s) added to the area pack's texture file " + std::to_string(slot) + " (" + std::to_string(all.size()) + " in all)");
     return pack.Write();
 }
 

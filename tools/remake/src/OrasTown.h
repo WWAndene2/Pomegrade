@@ -100,10 +100,12 @@ void ReplaceMember(Garc& archive, const Garc& original, size_t index, const Byte
 size_t AppendMember(Garc& archive, const Garc& original, size_t like, const Bytes& plain, const std::string& tag);
 
 // Textures of area pack `fromData` (a/0/1/4 member `fromIndex`, plain) added to `packData` under their own names (the pack's own
-// textures untouched; a name the pack holds with other content gets the suffix _<fromIndex>). finalName: each wanted name's name in
-// the pack, empty when `fromData` has no such texture
+// textures untouched; a name the pack holds with other content gets the suffix _<fromIndex>, or `suffix` when given). finalName:
+// each wanted name's name in the pack, empty when `fromData` has no such texture. slot: the pack's texture file added to (11, the
+// main one; 1 holds the doors' and props' textures)
 Bytes ImportTextures(const Bytes& packData, const Bytes& fromData, size_t fromIndex, const std::vector<std::string>& wanted,
-                     std::map<std::string, std::string>& finalName, std::vector<std::string>& log);
+                     std::map<std::string, std::string>& finalName, std::vector<std::string>& log, const std::string& suffix = "",
+                     size_t slot = 11);
 
 // the largest of the game's own pieces (a/0/3/9), the bound of CheckBudget
 PieceBudget GamePieceBudget(const Garc& pieceArchive);

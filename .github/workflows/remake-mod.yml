@@ -91,7 +91,8 @@ jobs:
           fetch "$PLATINUM_DRIVE_ID" dumps/platinum.nds
           ls -l dumps
 
-      # Pokemon X, for the "xy:" sources of "copy" (X/Y characters made Omega Ruby's: tools/remake/src/XyCharacter.h), when
+      # Pokemon X, for the "xy:" sources of "copy" (X/Y characters made Omega Ruby's: tools/remake/src/XyCharacter.h) and a
+      # sandbox's "--xy dumps-x/x.3ds" (its xy-piece lines: X/Y map pieces, tools/remake/src/OrasXyPiece.h), when
       # the secret X_DRIVE_ID is set: a cache of its own, so the ORAS and Platinum cache stays as it is
       - name: Pokemon X from the cache
         id: xdump
@@ -164,6 +165,7 @@ jobs:
               # change different files: a file two of them change is refused)
               mkdir -p "out/$name"
               for part in ${options#*merge }; do
+                echo "$part" >> out/merged_parts.txt   # a part of a merge: its zip goes to mods/parts/ below
                 (cd "out/$part" && find . -type f) | while read -r f; do
                   if [ -e "out/$name/$f" ]; then echo "::error::$f is in two of the merged mods"; exit 1; fi
                 done
@@ -221,10 +223,19 @@ jobs:
               python3 tools/remake/prototype/cro_patch.py "out/$name.cro/$(basename "$module")" "out/$name.patched" "$@" | tee -a "mods/${name}_log.txt"
               ./build-remake/remake_tool oras-patch dumps/oras.3ds "out/$name" "$module=out/$name.patched/$(basename "$module")" | tee -a "mods/${name}_log.txt"
             fi
-            (cd "out/$name" && zip -q -r "../../mods/Pomegrade_Sinnoh_$name.zip" load $( [ -d sdmc ] && echo sdmc ))
+            (cd "out/$name" && zip -q -r "../../mods/Pomegrade_Remake_$name.zip" load $( [ -d sdmc ] && echo sdmc ))
             echo "::endgroup::"
           done <<< "$VARIANTS"
-          ls -l mods
+          # the variants a merge joined are parts, not mods to install on their own (a sandbox without its engine patch stops
+          # the game at boot): their zips and logs in mods/parts/, so the artifact's top level holds only the mods to install
+          if [ -f out/merged_parts.txt ]; then
+            mkdir -p mods/parts
+            sort -u out/merged_parts.txt | while read -r part; do
+              mv "mods/Pomegrade_Remake_$part.zip" mods/parts/ 2>/dev/null || true
+              mv "mods/${part}_log.txt" mods/parts/ 2>/dev/null || true
+            done
+          fi
+          ls -lR mods
 
       - name: Inspect the game
         if: inputs.inspect != ''
