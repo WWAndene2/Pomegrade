@@ -171,16 +171,20 @@ Done (checked on the owner's phone unless said):
 - Sandbox: any model in any zone (pack lists filled in), characters without a script no longer block the game, a person's dialogue.
 - Limits lifted: `oras-engine --character-models N` (31 -> up to 127 models a pack's list) and `--characters N` (the shown characters' objects and their heaps): 59 people of 40 models drawn (mod crowd2). Azahar only (the changed DllField module would fail a console's static.crr check).
 - `oras-asset` recolours through a mask (exactly the chosen pixels); first use, shiny Mega Rayquaza's red lines green (not checked in the game).
+- Events file doubled: `--events large` (0xC84 -> 0x1910 bytes): 64 people in one zone (mod events).
+- Saved characters past 32: `--characters N` grows the save's character records, `oras-save ... --save-records N+1` converts a save: Continue shows them all.
+- Characters kept across a zone border (`share Z` in a sandbox description): the crowd stays on screen; the freeze on coming back after going far (shared people loaded twice, pool full) fixed (run hFar3; phone, owner, 18 October: works).
+- Tall grass drawn on built pieces (Route 101's tufts in GR file 5); the field's heap 0x5D and scene groups grow with `--characters` (120 in a zone headless). Phone (owner, 18 October, mod grass): grass, return walk and model 544 work.
 - The sandbox warns when it places a swimmer model (259, 273, 274, 278, 279, 345-348: no standing pose, they swim half in the ground on land).
 
 To do, in this order:
 1. **Standing swimmers**: 345-348 have a standing twin of the same skeleton byte for byte (230, 229, 227, 228: idle motion of 1 frame, a walk of 14); the sandbox will put the twin on land (`pose stand`, default) and the swimmer on water (`pose swim`), and water a swimmer can stand in (the sandbox's `~` is solid today).
-2. **New models beside the game's** (no replacement): X characters as new a/0/2/1 members with new model numbers and their a/1/3/7 entries, so a converted X character no longer replaces an ORAS one everywhere; also standing copies of the five other swimmers (259, 273, 274, 278, 279: no twin; a walker's motions on their skeleton, if one matches).
+2. **New models beside the game's** (no replacement): X characters as new a/0/2/1 members done (`oras-copy a/0/2/1 544=xy:...`, model 544, checked headless in run hX and on the phone (owner, 18 October); ORAS_ENGINE.md 4.5b); left: standing copies of the five other swimmers (259, 273, 274, 278, 279: no twin; a walker's motions on their skeleton, if one matches).
 3. Better asset tools (owner's request): colour by part (the pixels a mesh's triangles cover, from its UVs), with a before/after render; parts of a model: list, hide/remove, move/rotate/scale, swap between models (skeletons permitting).
 4. X's maps: its 1,115 map pieces converted, and a tile value table X -> ORAS checked case by case on the phone (grass, water and the special tiles differ).
 5. X's zones as new zones (538 up): characters, doors, scripts.
-6. Remaining limits, refused at build time: a zone's events file (0xC84 bytes: characters 48 each, doors and triggers 24, furniture 20, plus its initialisation script; about 60 people with a short script); the extra heaps of `--characters` come out of the field manager's parent heap, not identified.
-7. Owner's open choices from the audit (Switch): firmware installed through Eden replaced by Pomegrade's, an import stopping when space is short.
+6. Remaining limits, refused at build time: a zone's events file (0x1910 bytes with `--events large`, 0xC84 without: characters 48 each, doors and triggers 24, furniture 20, plus its initialisation script); the pool of `--characters` (127 checked: a zone of 120 characters shows, heap 0x5D and the scene's character groups growing with it); the extra heaps of `--characters` come out of the field's heap 0x5D (grown with it, from heap 0x17).
+7. Owner's open choices from the audit (Switch): firmware installed through Eden is now replaced by Pomegrade's at the next launch (commit 0029b5a3: to confirm or revert); an import stopping when space is short (not decided).
 
 ## 4. One coherent app
 

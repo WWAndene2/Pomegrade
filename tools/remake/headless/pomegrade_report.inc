@@ -56,7 +56,8 @@ extern "C" RETRO_API void pomegrade_report(void (*out)(const char* line)) {
                 }
             }
             out(chain.c_str());
-            if (chain.find("0011EF60") == std::string::npos && (pc < 0x11EF3C || pc > 0x11EF64)) continue;
+            // the fatal-error loop, or the allocator's out-of-memory loop (FUN_0012b9a0: r5 the heap, r7 the size asked)
+            if (chain.find("0011EF60") == std::string::npos && (pc < 0x11EF3C || pc > 0x11EF64) && (pc < 0x12BAE0 || pc > 0x12BB04)) continue;
             std::string regs = "  registers:";
             for (int r = 0; r < 16; r++) {
                 char item[24];

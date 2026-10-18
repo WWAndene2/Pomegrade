@@ -603,7 +603,7 @@ Read in the code (Ghidra, headless) and checked headless; the owner checked on t
   motion swims (not a bug).
 - **X characters beside the game's** (17 October): `oras-copy a/0/2/1 544=xy:<x.3ds>:<member>` appends the converted
   character as member 544 (the game has 544), model 544. **Checked headless** (run hX): X's character 31 as 544 stands
-  beside ORAS's own 284, which keeps its model. Not yet on the phone.
+  beside ORAS's own 284, which keeps its model. Checked on the phone (owner, 18 October, mod grass).
 - **Events file past 0xC84** (17 October): the buffer is not in the save (the save block of 0xC84 bytes is
   MyPhotoIconSaveData; the sentence above saying so was wrong): `Event_LoadZoneEventsFile` copies a zone's file into slot
   0 of the events object (0x1958 bytes; slot 1 unused), and Continue rereads the zone's file. `oras-engine --events
@@ -623,8 +623,41 @@ Read in the code (Ghidra, headless) and checked headless; the owner checked on t
 - **Method** (bisection, one headless run at a time): the same mod with one change each (models 299 vs 174; 31 vs 33
   entries; 34 vs 40 models; 34 vs 70 objects; demo zone vs crowd), the frozen threads' pc and stack code addresses
   (`report`) named against the Ghidra program; agents read the code without running the emulator.
+- **Saved characters past 32** (17 October, read, not yet run): MoveModelSave (block 10) holds 32 records of 0x108 inline
+  in the SaveData object (`operator new(0x723B8)`, literal 0x1091F0 in FUN_00108dd4; vtable 0x5E064C at +0x1314, records
+  +0x1318, Misc right after at +0x3418), so it cannot grow in place. The save file has no layout table: each block's offset
+  is the sum of the 0x200-aligned sizes before it, taken from the size getters (Save_ReadBlocks / Save_WriteBlocks), the
+  footer (ids, FEEB, the table) its last 0x200 bytes, the file's size that sum (FUN_00115a84 at boot; no 0x76000 in the
+  code). `--characters N` (N > 31) moves the records to a tail at SaveData + 0x73314, N + 1 of them (the block rounded up
+  to an ARM immediate: 0x4C00 for 73), 15 words (OrasEngine.cpp); the blocks after 10 then move and the file grows (0x78A00
+  for 73). A save of the old layout reads short (Save_ReadBlocks returns 4): `oras-save <main> <out> --save-records N + 1`
+  converts one (`OrasSave::ResizeMoveModels`; back to 32 gives the game's bytes again). Not read: the heap the SaveData comes
+  from (r7 of FUN_00108dd4; up to 0x10800 more bytes), and the archive under Save_Commit.
+- **Shared characters across a border** (`share Z`, 17 October, read and checked headless): a 0x30-byte record holds
+  two zones at +0x1C/+0x1E, a selector at +0x20 and an id at +0x22; `Field_InitCharacterFromEventEntry` (0x3F9464)
+  copies them to the loaded character's +0x52/+0x54/+0x56. `Event_ReleaseCharactersNotInZone` (0x3F6DF0) keeps a
+  character whose +0x52 or +0x54 is the zone entered. `Event_CharacterPool_Acquire` (0x3F54E8) rebinds a loaded
+  character instead of taking a new entry when its id matches and, if the record's +0x1C equals its +0x20, its +0x52
+  is the zone entered, else its +0x54. So +0x20 must name the zone whose file lists the record: left 0, entering zone
+  538 rebound, but going back into 539 loaded the 61 shared people a second time and Acquire's fatal stopped the game
+  (pool of 72 full; run hFar, black screen, stack 0x3F80B8 under the fatal). With +0x20 set, the same walk 539, 538,
+  539 shows the crowd (run hFar3).
+- **The parent of the instance heaps, and the largest pool** (17 October, read and checked headless): heaps 0x159 and
+  0x15A (Field_SubsystemInit) are carved from the field's **heap 0x5D**, which FUN_00404600 makes from heap 0x17 with the
+  size word at 0x404768 (0x1350000, 19.3 MB; called by Field_ReloadZoneResources with heaps 0x16 and 0x17); the character
+  models are decompressed into it as they load (FUN_003f4d8c). With `--characters 127` the boot ran it out (run h127c: the
+  allocator's out-of-memory loop at 0x12BAEC, r5 = heap 0x5D, r7 = 0x17800; the headless report now prints registers in
+  that loop too). `--characters N` grows 0x5D by what 0x159 and 0x15A grow (0x1B0000 / 32 x (N + 6) - 0x1B0000): 127
+  enters the field (run h127e), 72 still walks 539, 538, 539 (run h72h). Doubling heap 0x16 instead stopped the boot in
+  0x16's own creation (run h127b). **The scene's model groups** (18 October, read and checked headless): a zone of 120
+  characters (scratch description, run hMax) stopped in `Field_RegisterObjectModelsInScene` (DllField 0x102C23D4):
+  `Gfx_SceneGroupAddModel` (0x38B374) found no free entry. The field's scene (FUN_00404c80, through FUN_00392ab4) has 8
+  model groups, each one's capacity in word 0x18 of a 100-byte entry: 256, 32, 32, 32, 32, 64, 64, 32 (read in memory,
+  run hMax3: groups 5 and 6 at 64 of 64). `--characters N` (N + 6 > 64) makes the two stores of 0x40 (0x404E30,
+  0x404E3C) take r9, 0x80 there: 128 each, and the 120 characters show (runs hMax4, hMax6). A zone's characters are
+  then bound by the events file (`--events large`: 0x1910 bytes) and the pool (`--characters`, up to 127 checked).
 - **Still bound**: a zone's events file (0xC84 bytes, about 60 people with a short script, 4.5); the extra heaps come out
-  of the field manager's parent heap, not identified.
+  of the field's heap 0x5D (grown with them, above).
 
 ### 4.6 What is left of the limits, and why (7 October)
 

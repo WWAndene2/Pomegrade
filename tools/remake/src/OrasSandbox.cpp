@@ -37,6 +37,7 @@ struct SandboxZone
     float SpawnX = -1, SpawnZ = -1;
     std::string Name;
     std::vector<std::array<int, 8>> Characters; // model, x, z, facing, script, movement, kind, sight
+    std::vector<std::array<int, 3>> Shared;     // per character: its two zones and its shared id ({-1, -1, -1}: its zone only)
     std::vector<std::array<int, 3>> Doors;      // x, z, the game interior zone copied as the house's inside
     std::vector<std::array<int, 5>> Triggers;   // x, z, width, height, the zone script's event number
     std::string Script, InitScript;             // assembler source (Amx.h) of the zone's own scripts, empty: ones that do nothing
@@ -232,17 +233,21 @@ static SandboxDescription ReadDescription(const std::string& text)
         else if (what == "name") { std::getline(words >> std::ws, z.Name); ok = !z.Name.empty(); }
         else if (what == "character" || what == "trainer")
         {
-            // character MODEL X Z [face F] [script S] [move M]; trainer ID MODEL X Z [face F] [sight N] [move M]
+            // character MODEL X Z [face F] [script S] [move M] [share Z]; trainer ID MODEL X Z [face F] [sight N] [move M]
+            // share Z: the character also belongs to the description's zone Z (one map, crossed without a load): the game keeps
+            // it on screen across the border instead of swapping zones' people (ORAS_ENGINE.md 4.5b, read 17 October)
             int id = 0;
             std::array<int, 8> c{0, 0, 0, 0, 0, 0, 0, 0};
             if (what == "trainer") { ok = (bool)(words >> id); c[4] = 3000 + id; c[6] = 1; c[7] = 4; }
             ok = ok && (bool)(words >> c[0] >> c[1] >> c[2]);
             std::string key;
+            int share = -1;
             while (ok && words >> key)
             {
                 int v = 0;
                 ok = (bool)(words >> v);
                 if (key == "face") c[3] = v;
+                else if (key == "share" && what == "character") share = v;
                 else if (key == "script" && what == "character") c[4] = v;
                 else if (key == "move") c[5] = v;
                 else if (key == "sight" && what == "trainer") c[7] = v;
@@ -250,6 +255,7 @@ static SandboxDescription ReadDescription(const std::string& text)
             }
             if (what == "trainer" && (id < 1 || id > 949)) fail("trainer ids are 1-949 (a/0/3/6)");
             z.Characters.push_back(c);
+            z.Shared.push_back({share < 0 ? -1 : z.Number, share, share < 0 ? -1 : 0});
         }
         else if (what == "trigger")
         {
@@ -693,17 +699,45 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
     };
 
     size_t insideAt = 0;
+    // shared characters: each listed in both its zones' files, with the two zones at record +0x1C/+0x1E and one id at +0x22,
+    // so Event_ReleaseCharactersNotInZone (0x3F6DF0) keeps it across the border and Event_CharacterPool_Acquire (0x3F54E8)
+    // rebinds it to the other zone's record instead of placing a second one (read; checked headless, runs hSh and hFar2)
+    std::vector<SandboxZone> zones = d.Zones;
+    int sharedId = 0x200;
+    for (size_t k = 0; k < d.Zones.size(); k++)
+        for (size_t i = 0; i < d.Zones[k].Characters.size(); i++)
+        {
+            if (d.Zones[k].Shared[i][1] < 0) continue;
+            const int other = d.Zones[k].Shared[i][1];
+            auto to = std::find_if(zones.begin(), zones.end(), [&](const SandboxZone& o) { return o.Number == other; });
+            if (to == zones.end() || other == d.Zones[k].Number)
+                throw FormatError("sandbox: zone " + std::to_string(d.Zones[k].Number) + ": share " + std::to_string(other) + " is not another zone of the description");
+            zones[k].Shared[i] = {d.Zones[k].Number, other, sharedId};
+            to->Characters.push_back(d.Zones[k].Characters[i]);
+            to->Shared.push_back({d.Zones[k].Number, other, sharedId});
+            sharedId++;
+        }
     for (size_t k = 0; k < d.Zones.size(); k++)
     {
-        const SandboxZone z = WithSilentCharacters(d.Zones[k]);
+        const SandboxZone z = WithSilentCharacters(zones[k]);
         OrasZone zone;
         NewZoneFields f;
         f.Number = z.Number; f.AreaPack = packOf[k]; f.Matrix = (int)matrixIndex; f.Text = textOf[k];
         f.NameLine = nameLine[k]; f.Music = z.Music; f.SpawnX = z.SpawnX; f.SpawnZ = z.SpawnZ;
         zone.Header = NewZoneHeader(f);
-        for (const auto& c : z.Characters)
+        for (size_t i = 0; i < z.Characters.size(); i++)
         {
+            const auto& c = z.Characters[i];
             zone.Characters.push_back(NewCharacter((int)zone.Characters.size(), c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[6] == 1 ? c[7] : 0));
+            if (z.Shared[i][1] >= 0)
+            {
+                ZoneCharacter& s = zone.Characters.back();
+                s.Raw[14] = (uint16_t)z.Shared[i][0]; s.Raw[15] = (uint16_t)z.Shared[i][1]; s.Raw[17] = (uint16_t)z.Shared[i][2];
+                // +0x20 names the zone whose file lists this record: Acquire compares the loaded character's +0x52 (record
+                // +0x1C) with the zone entered when +0x1C == +0x20, else its +0x54 (+0x1E). Left 0, re-entering the owner
+                // zone found no match and loaded every shared character again until the pool's fatal (run hFar, 17 October)
+                s.Raw[16] = (uint16_t)z.Number;
+            }
             // a swimmer has no standing motion and the map's water is solid, so it always stands on land here
             if (ws.Swims(c[0]))
             {

@@ -1,5 +1,6 @@
-# The sandbox demo (oras-sandbox, OrasSandbox.h): two zones on one piece, a pond, tall grass with Route 102's
-# wild Pokemon, a south ledge, a house with its inside, a fence, a person and trainer 10. Checked piece by piece live
+# The sandbox demo (oras-sandbox, OrasSandbox.h): two zones on one piece, a pond, tall grass with Route 102's wild
+# Pokemon (drawn with Route 101's tufts since 18 October; invisible before, the sandbox writing no grass model), a
+# south ledge, a house with its inside, a fence, a person and trainer 10. Checked piece by piece live
 # (ORAS_ENGINE.md 2: runs sand1-sand8, house3, ledge5). For the phone, Remake mod workflow variants:
 #   sb: sandbox tools/remake/sandbox/demo.txt
 #   eng: engine --zone-rows 541 --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 --characters 64

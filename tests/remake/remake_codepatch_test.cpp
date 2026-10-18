@@ -1,9 +1,13 @@
 // Patches to the game's code (CodePatch.h): the IPS Azahar applies to the decompressed code, written only over the words
-// the game ships, applied back as Azahar does; and the extended header's memory mode (OrasMemory.h)
+// the game ships, applied back as Azahar does; the extended header's memory mode (OrasMemory.h); and the save layout
+// oras-engine --characters N > 31 gives the game (OrasSave::ResizeMoveModels), on a save built here
 #include "CodePatch.h"
 #include "OrasEngine.h"
 #include "OrasMemory.h"
+#include "OrasSave.h"
+#include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <string>
 
 using namespace remake;
@@ -72,6 +76,51 @@ int main()
         roundTrip = roundTrip && ArmImmediate(v) && decode(*ArmImmediate(v)) == v;
     check(roundTrip, "every encoding decodes back to its value");
     check(!ArmImmediate(0x21B) && !ArmImmediate(0x13F0000), "values no 8-bit rotation holds are refused");
+
+    // a save of the game's layout: blocks 0-10 of the game's sizes, an 11th filling up to the footer at 0x75E00, the table at
+    // 0x75E14 after FEEB; each block's bytes its index, and block 10's records numbered
+    const size_t sizes[] = {712, 2960, 44, 56, 336, 4, 8, 448, 190, 36, 0x2100, 0x71C00};
+    Bytes main(0x76000, 0);
+    size_t offset = 0;
+    for (size_t i = 0; i < 12; i++)
+    {
+        std::fill(main.begin() + offset, main.begin() + offset + sizes[i], (uint8_t)(i + 1));
+        for (int k = 0; k < 4; k++) main[0x75E14 + 8 * i + k] = (uint8_t)(sizes[i] >> (8 * k));
+        main[0x75E14 + 8 * i + 4] = (uint8_t)i;
+        offset = (offset + sizes[i] + 0x1FF) & ~(size_t)0x1FF;
+    }
+    for (size_t r = 0; r < 32; r++) main[0x2000 + r * OrasMoveModelRecord] = (uint8_t)(0x80 + r);
+    std::memcpy(&main[0x75E10], "FEEB", 4);
+    main[0x75E00] = 0x5A; // the footer's save id
+    OrasSave save;
+    save.Data = main;
+    for (size_t i = 0, at = 0; i < 12; at = (at + sizes[i] + 0x1FF) & ~(size_t)0x1FF, i++) save.Blocks.push_back({at, sizes[i], (uint16_t)i, 0});
+    save.WriteChecksums();
+    bool read = true;
+    try { save = OrasSave::Read(save.Data); } catch (const FormatError&) { read = false; }
+    check(read && save.Blocks.size() == 12 && save.TableAt() == 0x75E14, "the built save is read: 12 blocks, the table at 0x75E14");
+    check(OrasMoveModelBytes(32) == 0x2100 && OrasMoveModelBytes(73) == 0x4C00 && OrasMoveModelBytes(65) == 0x4400 && ArmImmediate(0x4C00),
+          "block 10's size: 0x2100 for the game's 32 records, 73 records 0x4B48 bytes rounded up to the immediate 0x4C00");
+    OrasSave grown = save;
+    grown.ResizeMoveModels(73);
+    bool reread = true;
+    try { grown = OrasSave::Read(grown.Data); } catch (const FormatError&) { reread = false; }
+    const OrasSaveBlock& b10 = grown.Blocks[10], &b11 = grown.Blocks[11];
+    check(reread && grown.Data.size() == 0x76000 + 0x2A00 && b10.Offset == 0x2000 && b10.Length == 0x4C00 && b11.Offset == 0x6C00,
+          "grown to 73 records: block 10 0x4C00 bytes, block 11 moved to 0x6C00, the file 0x2A00 bytes longer, checksums right");
+    bool kept = std::equal(main.begin(), main.begin() + 0x4100, grown.Data.begin()) &&
+                std::equal(main.begin() + 0x4200, main.begin() + 0x4200 + 0x71C00, grown.Data.begin() + 0x6C00) &&
+                std::all_of(grown.Data.begin() + 0x4100, grown.Data.begin() + 0x6C00, [](uint8_t v) { return v == 0; }) &&
+                grown.Data[grown.Data.size() - 0x200] == 0x5A;
+    check(kept, "blocks 0-10 and the 32 records kept, the new records zero, block 11 and the footer moved whole");
+    OrasSave back = grown;
+    back.ResizeMoveModels(32);
+    check(back.Data == save.Data, "back to 32 records: the very bytes of the game's save");
+    bool cutRefused = false;
+    Bytes cut = grown.Data;
+    cut.resize(0x76000);
+    try { OrasSave::Read(cut); } catch (const FormatError&) { cutRefused = true; }
+    check(cutRefused, "a grown save cut to the game's size is refused");
 
     printf(ok ? "ALL OK\n" : "FAILED\n");
     return ok ? 0 : 1;

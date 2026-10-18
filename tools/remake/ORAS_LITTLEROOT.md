@@ -167,7 +167,7 @@ All 1072 scripts (536 x 2) have a valid Pawn/AMX header (`AmxInfo`): magic 0xF1E
 | 2 | 2432 | collision geometry, magic `coll`, then `u32` 0x910, `u32` 0x5D8, small counts, then floats (-363.8, ...): polygons in world units; meaning of the fields **unknown** |
 | 3 | 256 | door models: `u32` count (5), then 44 bytes each: type (2), scale x y z, rotation, position x y z in pixels; Littleroot's first positions repeat its warps' (1701, ., 3087) |
 | 4 | 128 | starts 04 02 00 00, then 18.0f, **unknown** |
-| 5 | 128 | zeros, **unknown** (other pieces: tall-grass models `enc_grass_NNNN` per the earlier notes) |
+| 5 | 128 | zeros: no tall grass. Elsewhere the **tall grass model** (read 17 October, Route 101's piece 5: a BCH `<piece>_enc`, texture `enc_grass` from the area pack, shader ShapeOffShader, 8 meshes `blc00`-`blc70`, one 30-vertex tuft per tall-grass tile; `BuildTownPiece` copies them onto a layout's `g` tiles, run hGr) |
 | 6 | 128 | `KAGE` ("shadow"), then 0x13122500, zeros, **unknown** |
 
 - **Tile grid (checked on this piece)**: only two values: `0x00000020` free (446 tiles) and `0x01000021` blocked (1154). Other values and their bits are in `docs/DEVELOPMENT_NOTE.md` (phone tests on Route 101).

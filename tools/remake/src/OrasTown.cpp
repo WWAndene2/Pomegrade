@@ -3,6 +3,7 @@
 #include "BinLinker.h"
 #include "Bps.h"
 #include "BchTextureFile.h"
+#include "BchWriter.h"
 #include "Garc.h"
 #include "Gltf.h"
 #include "NitroCompression.h"
@@ -12,6 +13,7 @@
 #include "TownCheck.h"
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <map>
 #include <set>
@@ -176,6 +178,76 @@ PieceBudget GamePieceBudget(const Garc& pieceArchive)
     return original;
 }
 
+// The tall grass drawn: a piece's GR file 5 is a model of its own (`<piece>_enc`, texture enc_grass, shader ShapeOffShader),
+// one tuft of blades on each tall-grass tile (Route 101, piece 5: 201 tiles, 6,030 vertices in 8 meshes blc00-blc70, 30
+// vertices and 15 triangles a tile; read 17 October). Littleroot's file 5 is 128 zero bytes, so the pieces built on it drew
+// none: the grass worked (encounters) but was invisible. The donor's tufts, each found by the tile its triangles' centres
+// fall on, are copied in turn onto the layout's 'g' tiles, each in its own mesh (the meshes' role, 8 groups, is not read)
+static Bytes WithTallGrass(const Bytes& town, const TownLayout& layout, const Bytes& donorPiece, std::vector<std::string>& log)
+{
+    std::vector<std::pair<int, int>> tiles;
+    for (int r = 0; r < TownTiles && r < (int)layout.Collision.size(); r++)
+        for (int c = 0; c < TownTiles && c < (int)layout.Collision[r].size(); c++)
+            if (layout.Collision[r][c] == 'g') tiles.push_back({c, r});
+    if (tiles.empty()) return town;
+    const Bytes grassFile = BinLinker::Read(donorPiece, "GR").Files.at(5);
+    const BchModel donor = Bch::Read(grassFile).Models.at(0);
+    struct Tuft { size_t Mesh; int C, R; std::vector<uint32_t> Triangles; };
+    std::vector<Tuft> tufts;
+    auto tileOf = [](float v) { return (int)std::floor((v + 360.0f) / 18.0f); };
+    for (size_t m = 0; m < donor.Meshes.size(); m++)
+    {
+        // a tuft is 30 consecutive vertices (every mesh of Route 101's holds a multiple of 30), on the tile under its centre
+        const BchMesh& mesh = donor.Meshes[m];
+        if (mesh.Vertices.size() % 30) throw FormatError("tall grass: the donor's mesh " + std::to_string(m) + " is not made of 30-vertex tufts");
+        const size_t first = tufts.size();
+        for (size_t v = 0; v < mesh.Vertices.size(); v += 30)
+        {
+            float x = 0, z = 0;
+            for (size_t k = v; k < v + 30; k++) { x += mesh.Vertices[k].Position[0] / 30; z += mesh.Vertices[k].Position[2] / 30; }
+            tufts.push_back({m, tileOf(x), tileOf(z), {}});
+        }
+        for (size_t t = 0; t + 2 < mesh.Triangles.size(); t += 3)
+            for (int k = 0; k < 3; k++) tufts.at(first + mesh.Triangles[t] / 30).Triangles.push_back(mesh.Triangles[t + k]);
+    }
+    if (tufts.empty()) throw FormatError("tall grass: the donor piece's file 5 holds no tuft");
+    // taken from the meshes in turn (mesh 0's first tuft, mesh 1's first, ...), so a few tiles use every mesh
+    {
+        std::map<size_t, size_t> seen;
+        std::vector<std::pair<size_t, Tuft>> ranked;
+        for (const Tuft& t : tufts) ranked.push_back({seen[t.Mesh]++, t});
+        std::stable_sort(ranked.begin(), ranked.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+        for (size_t i = 0; i < ranked.size(); i++) tufts[i] = ranked[i].second;
+    }
+    std::vector<BchGeometry> meshes(donor.Meshes.size());
+    for (size_t m = 0; m < meshes.size(); m++) meshes[m].Mesh = m;
+    for (size_t i = 0; i < tiles.size(); i++)
+    {
+        const Tuft& t = tufts[i % tufts.size()];
+        BchGeometry& g = meshes[t.Mesh];
+        std::map<uint32_t, uint32_t> index;
+        for (uint32_t v : t.Triangles)
+        {
+            if (!index.count(v))
+            {
+                BchVertex moved = donor.Meshes[t.Mesh].Vertices.at(v);
+                moved.Position[0] += 18.0f * (tiles[i].first - t.C);
+                moved.Position[2] += 18.0f * (tiles[i].second - t.R);
+                index[v] = (uint32_t)g.Vertices.size();
+                g.Vertices.push_back(moved);
+            }
+            g.Triangles.push_back(index[v]);
+        }
+    }
+    // a mesh no tile uses keeps one vertex and no triangle: it draws nothing (the writer wants 1 to 65,536 vertices)
+    for (size_t m = 0; m < meshes.size(); m++)
+        if (meshes[m].Vertices.empty()) meshes[m].Vertices.push_back(donor.Meshes[m].Vertices.at(0));
+    BinLinker gr = BinLinker::Read(town, "GR");
+    gr.Files.at(5) = BchReplaceGeometry(grassFile, 0, meshes);
+    log.push_back("tall grass: " + std::to_string(tiles.size()) + " tile(s) drawn, tufts of Route 101 (piece 5's file 5, " + std::to_string(tufts.size()) + " tufts)");
+    return gr.Write();
+}
+
 Bytes BuildTownPiece(const TownLayout& layout, const OrasTownOptions& o, const Garc& pieceArchive, const Garc& areaArchive, const PieceBudget& budget,
                      int cellX, int cellY, const std::string& modelName, Bytes& areaPack, std::vector<std::string>& log)
 {
@@ -265,6 +337,7 @@ Bytes BuildTownPiece(const TownLayout& layout, const OrasTownOptions& o, const G
         town = gr.Write();
         log.push_back("piece: " + std::to_string(o.PadPiece) + " zero bytes appended to its terrain model");
     }
+    if (!o.DonorAsIs && !o.Room) town = WithTallGrass(town, layout, piece(5), log);
     if (o.DonorAsIs) log.push_back("piece: the donor's, as it is in the game");
     if (o.Room) town = BuildRoom(layout, town, piece(o.Room->Piece), *o.Room, o.RoomStairsC, o.RoomStairsR, o.RoomStairsUp, o.RoomName, log);
 
