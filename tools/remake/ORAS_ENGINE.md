@@ -603,7 +603,7 @@ Read in the code (Ghidra, headless) and checked headless; the owner checked on t
   motion swims (not a bug).
 - **X characters beside the game's** (17 October): `oras-copy a/0/2/1 544=xy:<x.3ds>:<member>` appends the converted
   character as member 544 (the game has 544), model 544. **Checked headless** (run hX): X's character 31 as 544 stands
-  beside ORAS's own 284, which keeps its model. Not yet on the phone.
+  beside ORAS's own 284, which keeps its model. Checked on the phone (owner, 18 October, mod grass).
 - **Events file past 0xC84** (17 October): the buffer is not in the save (the save block of 0xC84 bytes is
   MyPhotoIconSaveData; the sentence above saying so was wrong): `Event_LoadZoneEventsFile` copies a zone's file into slot
   0 of the events object (0x1958 bytes; slot 1 unused), and Continue rereads the zone's file. `oras-engine --events
