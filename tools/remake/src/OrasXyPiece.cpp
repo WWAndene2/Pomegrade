@@ -1,4 +1,5 @@
 #include "OrasXyPiece.h"
+
 #include "Bch.h"
 #include "BchTextureFile.h"
 #include "BchUpgrade.h"
@@ -8,6 +9,7 @@
 #include "NitroCompression.h"
 #include "XyCharacter.h"
 
+#include <cstring>
 #include <map>
 #include <set>
 
@@ -218,23 +220,39 @@ Bytes XyPieceToOras(const Bytes& xPiece, const Bytes& xAreaPack, size_t xPackInd
                   std::to_string(xPackIndex));
     gr.Files[1] = model;
 
-    // file 3: the door and prop models (u32 count, then 44 bytes each: type, scale, rotation, position): each type renumbered
-    // through propTypes, the members the caller added to a/0/2/3 for X's (XyPieceProps); a type it has none for is an error
+    // file 3: the door and prop models (u32 count, then 44 bytes each: type, scale x y z, rotation x y z, position x y z in
+    // pixels, a word): each type renumbered through propTypes, the members the caller added to a/0/2/3 for X's (XyPieceProps);
+    // a type it has none for is an error. Their positions are in the whole matrix, as Omega Ruby's (X's Vaniville piece 12, in
+    // cell (11, 14), places its first prop at x 8145 = 11 x 720 + 225, z 10755 = 14 x 720 + 675: read 18 October), so they are
+    // moved by the cells between X's (file 4) and the new one: kept, they sat about 8000 pixels off the sandbox's 2 x 2 matrix
+    // and no door or street lamp showed (owner's phone, 18 October)
+    if (gr.Files[4].size() < 2) throw FormatError("X piece: file 4 too short");
     if (gr.Files[3].size() >= 4)
     {
+        constexpr float CellPixels = 40 * 18; // 40 tiles of 18 pixels
+        const float dx = (float)(cellX - gr.Files[4][1]) * CellPixels, dz = (float)(cellY - gr.Files[4][0]) * CellPixels;
         const uint32_t count = U32(gr.Files[3], 0);
+        if (gr.Files[3].size() < 4 + 44 * (size_t)count) throw FormatError("X piece: file 3 shorter than its " + std::to_string(count) + " entries");
         for (uint32_t k = 0; k < count; k++)
         {
             const size_t at = 4 + 44 * (size_t)k;
             const auto to = propTypes.find(U32(gr.Files[3], at));
             if (to == propTypes.end()) throw FormatError("X piece: prop type " + std::to_string(U32(gr.Files[3], at)) + " has no Omega Ruby member");
             Put32(gr.Files[3], at, to->second);
+            float x, z;
+            std::memcpy(&x, &gr.Files[3][at + 28], 4);
+            std::memcpy(&z, &gr.Files[3][at + 36], 4);
+            x += dx;
+            z += dz;
+            std::memcpy(&gr.Files[3][at + 28], &x, 4);
+            std::memcpy(&gr.Files[3][at + 36], &z, 4);
         }
-        if (count) log.push_back("X piece: " + std::to_string(count) + " door and prop model(s), renumbered");
+        if (count)
+            log.push_back("X piece: " + std::to_string(count) + " door and prop model(s), renumbered, moved by (" + std::to_string((int)dx) + ", " +
+                          std::to_string((int)dz) + ") pixels");
     }
 
     // file 4: the cell
-    if (gr.Files[4].size() < 2) throw FormatError("X piece: file 4 too short");
     gr.Files[4][0] = (uint8_t)cellY;
     gr.Files[4][1] = (uint8_t)cellX;
 

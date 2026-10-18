@@ -56,6 +56,8 @@ struct SandboxDescription
     std::map<int, std::pair<int, std::string>> TeamNames; // a team's trainer -> its new class (-1: kept) and name ("": kept)
     std::vector<SandboxZone> Edits;                 // game zones added to (edit Z): their lines, characters, triggers, scene
     std::vector<std::array<int, 4>> XyPieces;       // piece x, y, X/Y's a/0/4/1 member, the a/0/1/3 area pack it draws from
+    // stairs X/Y runs by script (xy-stairs): X/Y zone A, its tiles x z w h going up; X/Y zone B, its tiles going down
+    std::vector<std::array<int, 10>> XyStairs;
 };
 
 static constexpr size_t rowBytesOf536 = 56; // a zone header row (member 536 of a/0/1/3)
@@ -181,6 +183,15 @@ static SandboxDescription ReadDescription(const std::string& text)
             ok = (bool)(words >> x[0] >> x[1] >> x[2] >> x[3]);
             if (!ok) fail("xy-piece needs X Y MEMBER PACK");
             d.XyPieces.push_back(x);
+            continue;
+        }
+        if (what == "xy-stairs")
+        {
+            std::array<int, 10> x{};
+            ok = true;
+            for (int& v : x) ok = ok && (bool)(words >> v);
+            if (!ok) fail("xy-stairs needs ZA X Z W H ZB X Z W H");
+            d.XyStairs.push_back(x);
             continue;
         }
         if (what == "blocks") { part = Blocks; continue; }
@@ -406,8 +417,9 @@ static TownLayout PieceLayout(const SandboxDescription& d, int px, int py)
 // format: ORAS_ENGINE.md 7), on a new area pack: a copy of game zone 223's (a house's inside: its camera and light) with X's
 // textures and props added
 struct XyInside { int Matrix = -1, AreaPack = -1; uint16_t ExitX = 0, ExitZ = 0; std::vector<std::array<uint16_t, 12>> Warps; };
+// a zone with no warp (a floor X/Y reaches by script, xy-stairs) is taken when floorAt gives the tile pixels it is entered at
 static XyInside XyInsideToOras(OrasWorkspace& ws, int xZone, const std::vector<int>& models, const Garc& pieceArchive, const Garc& zoneArchive,
-                               std::vector<std::string>& log)
+                               std::vector<std::string>& log, const std::array<uint16_t, 2>* floorAt = nullptr)
 {
     if (ws.XyRom.empty()) throw FormatError("sandbox: door ... xy needs oras-sandbox --xy <x.3ds>");
     N3dsRom xRom(ws.XyRom);
@@ -419,10 +431,11 @@ static XyInside XyInsideToOras(OrasWorkspace& ws, int xZone, const std::vector<i
     const Bytes& events = zone.Files.at(1);
     const size_t pack = U16(header, 2), matrixIndex = U16(header, 4);
     // the events file: u32 size, four u8 counts (furniture, characters, warps, triggers), u32 a fifth count, the arrays (OrasZone.h)
-    if (events.size() < 12 || events[6] == 0) throw FormatError("sandbox: X/Y zone " + std::to_string(xZone) + " has no warp (no way out)");
+    if (events.size() < 12 || (events[6] == 0 && !floorAt)) throw FormatError("sandbox: X/Y zone " + std::to_string(xZone) + " has no warp (no way out)");
     const size_t warp0 = 12 + 0x14 * (size_t)events[4] + 0x30 * (size_t)events[5];
     XyInside in;
-    in.ExitX = U16(events, warp0 + 8); in.ExitZ = U16(events, warp0 + 12);
+    if (events[6]) { in.ExitX = U16(events, warp0 + 8); in.ExitZ = U16(events, warp0 + 12); }
+    else { in.ExitX = (*floorAt)[0]; in.ExitZ = (*floorAt)[1]; }
     for (size_t k = 0; k < events[6]; k++)
     {
         std::array<uint16_t, 12> w{};
@@ -768,6 +781,7 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
     // an X/Y inside brings the X/Y zones its other warps lead to (a house's upper floor, by its stairs: X's zones 4-5, 6-7), each a
     // zone of its own whose warps keep X's, their destinations renumbered (xyZoneOf: X/Y zone -> its new zone)
     std::map<int, int> xyZoneOf;
+    std::map<int, size_t> xyWarpCount; // X/Y zone -> its warps in X/Y (an xy-stairs warp comes after them)
     for (const Inside& in : insides) if (in.Xy) xyZoneOf[in.Map] = in.Zone;
     for (size_t i = 0; i < insides.size(); i++)
     {
@@ -787,7 +801,20 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
             extra.Zone = nextZone++; extra.Map = dest; extra.Warp = -1; extra.Extra = true;
             insides.push_back(extra);
         }
+        xyWarpCount[insides[i].Map] = events.at(6);
+        // the floor of stairs X/Y runs by script (xy-stairs), a zone of its own as a floor its warps reach
+        for (const std::array<int, 10>& st : d.XyStairs)
+        {
+            if (st[0] != insides[i].Map || xyZoneOf.count(st[5])) continue;
+            xyZoneOf[st[5]] = nextZone;
+            Inside extra = insides[i];
+            extra.Zone = nextZone++; extra.Map = st[5]; extra.Warp = -1; extra.Extra = true;
+            insides.push_back(extra);
+        }
     }
+    for (const std::array<int, 10>& st : d.XyStairs)
+        if (!xyZoneOf.count(st[0]) || !xyZoneOf.count(st[5]))
+            throw FormatError("sandbox: xy-stairs from X/Y zone " + std::to_string(st[0]) + ", which no door ... xy leads into");
 
     // each new zone's text file (header word 3): a new member of the eight story text archives (a/0/7/9-a/0/8/6, one per
     // language; ORAS_ENGINE.md 6), the zone's lines in all eight, one empty line when it gives none
@@ -894,7 +921,27 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         const Inside& in = insides[i];
         if (in.Xy)
         {
-            const XyInside x = XyInsideToOras(ws, in.Map, models, pieceArchive, zoneArchive, log);
+            // a stairs' warp, as X/Y's own between floors (houses 2 and 3 of Vaniville, X's zones 4-5: kind 0x501 up, height 9,
+            // 0x503 down, height -9; pixels at the first tile's centre, span in tiles): the stairs' tiles, its destination
+            // and the destination's warp (X/Y's warps there, then this one: so none of them may be left out)
+            const auto stairsWarp = [&](const int* rect, int toXy, bool up) {
+                ZoneDoor w;
+                w.Raw = {};
+                w.Raw[0] = (uint16_t)xyZoneOf.at(toXy);
+                w.Raw[1] = (uint16_t)xyWarpCount[toXy];
+                w.Raw[2] = up ? 0x0501 : 0x0503;
+                w.Raw[4] = (uint16_t)(rect[0] * 18 + 9);
+                w.Raw[5] = (uint16_t)(int16_t)(up ? 9 : -9);
+                w.Raw[6] = (uint16_t)(rect[1] * 18 + 9);
+                w.Raw[7] = (uint16_t)rect[2];
+                w.Raw[8] = (uint16_t)rect[3];
+                return w;
+            };
+            std::array<uint16_t, 2> floorAt{};
+            bool scriptFloor = false;
+            for (const std::array<int, 10>& st : d.XyStairs)
+                if (st[5] == in.Map) { floorAt = {(uint16_t)(st[6] * 18 + 9), (uint16_t)(st[7] * 18 + 9)}; scriptFloor = true; }
+            const XyInside x = XyInsideToOras(ws, in.Map, models, pieceArchive, zoneArchive, log, scriptFloor ? &floorAt : nullptr);
             OrasZone zone;
             NewZoneFields f;
             f.Kind = NewZoneKind::Interior; f.Number = in.Zone; f.AreaPack = x.AreaPack; f.Matrix = x.Matrix;
@@ -907,11 +954,22 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
                 // X's warp as it is (kind, position, height, span), into the zone made of its destination; the arrival warp index
                 // is X's (each zone keeps its warps in X's order). A warp out of town (to the outdoor zone) from a floor: not kept
                 const auto to = xyZoneOf.find(x.Warps[k][0]);
+                const bool stairsZone = std::any_of(d.XyStairs.begin(), d.XyStairs.end(), [&](const std::array<int, 10>& st) { return st[0] == in.Map || st[5] == in.Map; });
+                if (to == xyZoneOf.end() && stairsZone)
+                    throw FormatError("sandbox: X/Y zone " + std::to_string(in.Map) + " of an xy-stairs has a warp left out: its stairs warp's index would be wrong");
                 if (to == xyZoneOf.end()) { log.push_back("zone " + std::to_string(in.Zone) + ": X's warp " + std::to_string(k) + " to X zone " + std::to_string(x.Warps[k][0]) + " left out"); continue; }
                 ZoneDoor w;
                 w.Raw = x.Warps[k];
                 w.Raw[0] = (uint16_t)to->second;
                 zone.Doors.push_back(w);
+            }
+            for (const std::array<int, 10>& st : d.XyStairs)
+            {
+                if (st[0] == in.Map) zone.Doors.push_back(stairsWarp(&st[1], st[5], true));
+                if (st[5] == in.Map) zone.Doors.push_back(stairsWarp(&st[6], st[0], false));
+                if (st[0] == in.Map || st[5] == in.Map)
+                    log.push_back("zone " + std::to_string(in.Zone) + ": stairs " + (st[0] == in.Map ? "up" : "down") + " to zone " +
+                                  std::to_string(xyZoneOf.at(st[0] == in.Map ? st[5] : st[0])) + " (xy-stairs)");
             }
             zone.Script = assemble(EmptyZoneScript, in.Zone, "script");
             zone.InitScript = assemble(EmptyInitScript, in.Zone, "init-script");
