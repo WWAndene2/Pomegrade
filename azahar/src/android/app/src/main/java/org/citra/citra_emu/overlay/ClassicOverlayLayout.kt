@@ -24,8 +24,8 @@ import kotlin.math.min
  * pad and ABXY. HOME's place holds the Punica button, which opens the shortcut pill's fan (HOME among its entries).
  */
 object ClassicOverlayLayout {
-    /** Raised when the controls' rectangles or drawn sizes change, so placements saved before are redone. */
-    const val VERSION = 3
+    /** Raised when the controls' rectangles, drawn sizes or shown controls change, so placements saved before are redone (4: ZL, ZR, C shown). */
+    const val VERSION = 4
     private const val TEMPLATE_WIDTH = 1220f
     private const val TEMPLATE_HEIGHT = 2712f
 
@@ -90,6 +90,9 @@ object ClassicOverlayLayout {
     }
 
     val placedControls: Set<Int> get() = boxes.keys
+
+    /** The visibility toggles (InputOverlay's buttonToggleN) of the template's controls Azahar hides by default: ZL, ZR, the C stick. */
+    val shownToggles = listOf(6, 7, 12)
 
     // drawn as wide as their rectangle, which is flatter than it is wide: the scale gives their width
     private val drawnWide = setOf(ButtonType.TRIGGER_L, ButtonType.TRIGGER_R, ButtonType.BUTTON_ZL, ButtonType.BUTTON_ZR)

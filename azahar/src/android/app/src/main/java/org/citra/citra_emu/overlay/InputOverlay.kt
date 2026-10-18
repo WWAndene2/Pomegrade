@@ -757,6 +757,10 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
             val (x, y) = ClassicOverlayLayout.position(context, id) ?: return@forEach
             editor.putFloat("$id-Portrait-X", x).putFloat("$id-Portrait-Y", y)
         }
+        // the template draws ZL, ZR and the C stick, which Azahar hides by default (buttonToggle6, 7 and 12): shown, in
+        // both button styles. A control hidden by hand is shown again the next time the layout places them (a new
+        // overlay size or layout version)
+        ClassicOverlayLayout.shownToggles.forEach { editor.putBoolean("buttonToggle$it", true) }
         editor.apply()
     }
 
