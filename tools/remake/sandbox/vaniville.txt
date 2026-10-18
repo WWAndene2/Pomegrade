@@ -1,6 +1,6 @@
 # Vaniville Town from Pokemon X in Omega Ruby (18 October, owner's request: in place of the drawn sandbox): X's zone 0, its
 # matrix 0 cells (11, 14)-(12, 15), map pieces 12, 13, 14, 15 (a/0/4/1) with textures from X's area pack 2, made Omega
-# Ruby's by xy-piece (OrasXyPiece.h); its three houses (door ... xy) and two upper floors; no people yet (X's scripts can't run in Omega Ruby). The map's rows
+# Ruby's by xy-piece (OrasXyPiece.h); its three houses (door ... xy) and their three upper floors; no people yet (X's scripts can't run in Omega Ruby). The map's rows
 # are not used (every piece is X's). For the phone, Remake mod workflow variants:
 #   sb: sandbox tools/remake/sandbox/vaniville.txt --xy dumps-x/x.3ds
 #   eng: engine --zone-rows 545 --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000
