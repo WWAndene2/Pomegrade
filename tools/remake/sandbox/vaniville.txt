@@ -1,19 +1,19 @@
 # Vaniville Town from Pokemon X in Omega Ruby (18 October, owner's request: in place of the drawn sandbox): X's zone 0, its
 # matrix 0 cells (11, 14)-(12, 15), map pieces 12, 13, 14, 15 (a/0/4/1) with textures from X's area pack 2, made Omega
-# Ruby's by xy-piece (OrasXyPiece.h); its three houses' ground floors (door ... xy); no people yet (X's scripts can't run in Omega Ruby). The map's rows
+# Ruby's by xy-piece (OrasXyPiece.h); one house's ground floor (door ... xy); no people yet (X's scripts can't run in Omega Ruby). The map's rows
 # are not used (every piece is X's). For the phone, Remake mod workflow variants:
 #   sb: sandbox tools/remake/sandbox/vaniville.txt --xy dumps-x/x.3ds
-#   eng: engine --zone-rows 542 --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000
+#   eng: engine --zone-rows 540 --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000
 #   sv: save 538 20.5 48.5
 #   vaniville: merge sb eng sv
 zone 538
 pack 8
 spawn 20.5 48.5
 name Bourg Croquis
-# the three doors, at X's own warps of zone 0 (its warps 0-2, kind 0x301), each into its X house's ground floor
+# the door at X's own warp 0 of zone 0 (kind 0x301), into its X house's ground floor (X's zone 2). X's two other doors, warps 1
+# and 2 (35 36 into X's zone 4, 12 36 into zone 6, both with an upper floor), stop the game on entering: the field's piece loader
+# fatal (run hSt; the cause not found yet), so they are not given
 door 27 36 xy 2 height 144
-door 35 36 xy 4 height 144
-door 12 36 xy 6 height 144
 pieces 2 2
 xy-piece 0 0 12 2
 xy-piece 1 0 13 2

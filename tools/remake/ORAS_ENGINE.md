@@ -1357,7 +1357,15 @@ fatal (run hVan3) was these props unknown to the pack, not a missing warp. **Doo
 made of X's zone (`XyInsideToOras`: its piece and props, X's matrix copied with the piece renumbered, a copy of house 223's
 pack 112 with X's textures, the way out at X's warp 0). A warp must stand at the ground's height (word 5): X's Vaniville
 is at 144, and a warp at 0 did not fire (run hDoor2); at 144 the player enters X's house (zone 2's ground floor) and walks
-back out (runs hDoor4, hDoor5). Not done: the doors' opening, the upper floors (stairs), the people.
+back out (runs hDoor4, hDoor5). **Stairs**: X's two-floor houses link their floors by warps of kinds 0x501/0x503 (height
++-9: zones 4-5, 6-7); an X/Y inside now brings the zones its other warps lead to, X's warps kept with their destinations
+renumbered (not checked: see below). **Open**: X's houses 2 and 3 (zones 4 and 6) stop the game on entering, in
+`Map_LoadPieceModelFromContainer` (DllField 0x102609FC) under `Res_AsyncLoadMember`, whose `Res_AsyncLoad_Create` (0x36E694)
+returns 0 when the archive's reader is still busy (runs hSt, hSt2, hSt3). Ruled out: the area pack slot (house 2 on slot 1,
+run hSt2), the piece (7 files, model 0x21, read back from the mod's patch), a 12-entry prop table (one type left out, run
+hSt3). Their pieces' collision files are larger than any of Omega Ruby's (20,480 to 34,816 bytes; its largest 20,224, piece
+502; house 1's 7,296): a lead, not checked. Only house 1's door is in `vaniville.txt` until then. Not done: the doors'
+opening, the people.
 
 ## 8. Ultra Sun/Moon characters on Omega Ruby (17 October)
 
