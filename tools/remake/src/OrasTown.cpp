@@ -93,7 +93,7 @@ static Bytes MoveZoneWarps(const Bytes& zoneData, const OrasTownOptions& o, cons
 // area keep theirs). A wanted name the pack already holds with other content gets a suffix. The pack's main texture file (slot 11) is
 // rewritten with BchWriteTextureFile; the result says each wanted name's final name, empty when the other pack has no such texture.
 Bytes ImportTextures(const Bytes& packData, const Bytes& fromData, size_t fromIndex, const std::vector<std::string>& wanted,
-                     std::map<std::string, std::string>& finalName, std::vector<std::string>& log)
+                     std::map<std::string, std::string>& finalName, std::vector<std::string>& log, const std::string& suffix)
 {
     BinLinker pack = BinLinker::Read(packData, "AD");
     if (pack.Write() != packData) throw FormatError("the area pack does not rewrite identical");
@@ -117,7 +117,7 @@ Bytes ImportTextures(const Bytes& packData, const Bytes& fromData, size_t fromIn
         if (!src) { finalName[name] = ""; log.push_back("texture " + name + " is not in area pack " + std::to_string(fromIndex)); continue; }
         // the texture may be there already, under its own name or, imported by an earlier piece of the same pack (oras-region: s1 refused
         // chip_kusa_b_8 twice), under its suffixed name
-        const std::string suffixed = name + "_" + std::to_string(fromIndex);
+        const std::string suffixed = name + (suffix.empty() ? "_" + std::to_string(fromIndex) : suffix);
         auto holds = [&](const std::string& n) {
             const auto t = std::find_if(all.begin(), all.end(), [&](const BchTextureSource& a) { return a.Name == n; });
             return t != all.end() && t->Width == src->Width && t->Height == src->Height && t->Format == src->Format && t->Data == src->Data;

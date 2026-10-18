@@ -91,7 +91,8 @@ jobs:
           fetch "$PLATINUM_DRIVE_ID" dumps/platinum.nds
           ls -l dumps
 
-      # Pokemon X, for the "xy:" sources of "copy" (X/Y characters made Omega Ruby's: tools/remake/src/XyCharacter.h), when
+      # Pokemon X, for the "xy:" sources of "copy" (X/Y characters made Omega Ruby's: tools/remake/src/XyCharacter.h) and a
+      # sandbox's "--xy dumps-x/x.3ds" (its xy-piece lines: X/Y map pieces, tools/remake/src/OrasXyPiece.h), when
       # the secret X_DRIVE_ID is set: a cache of its own, so the ORAS and Platinum cache stays as it is
       - name: Pokemon X from the cache
         id: xdump

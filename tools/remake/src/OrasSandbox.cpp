@@ -11,6 +11,8 @@
 #include "SceneScript.h"
 #include "OrasNewZone.h"
 #include "OrasWorkspace.h"
+#include "OrasXyPiece.h"
+#include "N3dsRom.h"
 #include "OrasZone.h"
 #include "TownLayout.h"
 
@@ -53,6 +55,7 @@ struct SandboxDescription
     std::vector<std::pair<int, std::string>> Teams; // a trainer of a/0/3/6 and its team block's lines
     std::map<int, std::pair<int, std::string>> TeamNames; // a team's trainer -> its new class (-1: kept) and name ("": kept)
     std::vector<SandboxZone> Edits;                 // game zones added to (edit Z): their lines, characters, triggers, scene
+    std::vector<std::array<int, 4>> XyPieces;       // piece x, y, X/Y's a/0/4/1 member, the a/0/1/3 area pack it draws from
 };
 
 static constexpr size_t rowBytesOf536 = 56; // a zone header row (member 536 of a/0/1/3)
@@ -172,6 +175,14 @@ static SandboxDescription ReadDescription(const std::string& text)
             continue;
         }
         if (what == "pieces") { ok = (bool)(words >> d.Width >> d.Height); if (!ok) fail("pieces needs its numbers"); continue; }
+        if (what == "xy-piece")
+        {
+            std::array<int, 4> x{};
+            ok = (bool)(words >> x[0] >> x[1] >> x[2] >> x[3]);
+            if (!ok) fail("xy-piece needs X Y MEMBER PACK");
+            d.XyPieces.push_back(x);
+            continue;
+        }
         if (what == "blocks") { part = Blocks; continue; }
         if (editing ? d.Edits.empty() : d.Zones.empty()) fail(what + " before any zone");
         SandboxZone& z = editing ? d.Edits.back() : d.Zones.back();
@@ -580,7 +591,20 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         {
             const TownLayout layout = PieceLayout(d, x, y);
             snprintf(line, sizeof line, "world16_%02d_%02d", x, y);
-            const Bytes piece = BuildTownPiece(layout, to, pieceArchive, areaArchive, budget, x, y, line, packData, log);
+            const auto xy = std::find_if(d.XyPieces.begin(), d.XyPieces.end(), [&](const std::array<int, 4>& p) { return p[0] == x && p[1] == y; });
+            Bytes piece;
+            if (xy != d.XyPieces.end())
+            {
+                // an X/Y piece in place of the built one (OrasXyPiece.h): its own ground, collision and door models; the map's rows
+                // for it are not used. Omega Ruby's shadow file is Littleroot's (piece 6)
+                if (ws.XyRom.empty()) throw FormatError("sandbox: xy-piece needs oras-sandbox --xy <x.3ds>");
+                N3dsRom xRom(ws.XyRom);
+                const Garc xPieces(xRom.Read("a/0/4/1")), xPacks(xRom.Read("a/0/1/3"));
+                const Bytes kage = BinLinker::Read(Plain(pieceArchive.Sub(6)), "GR").Files.at(6);
+                piece = XyPieceToOras(Plain(xPieces.Sub((size_t)(*xy)[2])), Plain(xPacks.Sub((size_t)(*xy)[3])), (size_t)(*xy)[3], kage, line, x, y, packData, log);
+                log.push_back("piece (" + std::to_string(x) + ", " + std::to_string(y) + "): X/Y's a/0/4/1 member " + std::to_string((*xy)[2]));
+            }
+            else piece = BuildTownPiece(layout, to, pieceArchive, areaArchive, budget, x, y, line, packData, log);
             const size_t index = AppendMember(newPieces, pieceArchive, to.TargetPiece, piece, "GR");
             matrix.Piece(x, y) = (uint16_t)index;
             snprintf(line, sizeof line, "piece (%d, %d): a/0/3/9 member %zu, %zu bytes", x, y, index, piece.size());
