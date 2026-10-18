@@ -118,10 +118,9 @@ std::map<uint32_t, uint32_t> XyPropsToOras(const std::set<uint32_t>& types, cons
         const Bytes raw = xProps.Sub(type);
         const Bytes plainMember = IsLzCompressed(raw) ? LzDecompress(raw) : raw;
         BinLinker bm = BinLinker::Read(XyCharacterToOras(plainMember, report), "BM");
-        // files the upgrade could not carry stay BCH 0x07: X's skeletal animations (a door's opening: "dictionary 8 is not
-        // empty"), which the game cannot bind (Map_BuildAreaModels' fatal, DllField 0x10269594, run hVan5). The entry's
-        // references to them are cleared below: the prop shows, unanimated. Converting them (or rebuilding them on an Omega
-        // Ruby template, spica anim) is left to do
+        // files the upgrade cannot carry stay BCH 0x07, which the game cannot bind (Map_BuildAreaModels' fatal, DllField
+        // 0x10269594: X's skeletal animations before the upgrade converted them, run hVan5). The entry's references to any
+        // such file are cleared below: the prop shows, unanimated (none in Vaniville since skeletal animations convert)
         std::set<uint16_t> unconverted;
         for (size_t f = 1; f < bm.Files.size(); f++)
             if (Bch::Is(bm.Files[f]) && bm.Files[f].size() > 4 && bm.Files[f][4] == 0x07) unconverted.insert((uint16_t)f);

@@ -33,8 +33,9 @@ Bytes BchUpgradeTo21(const Bytes& bch)
     const uint32_t contentsLength = U32(bch, 0x1C), stringsLength = U32(bch, 0x20), commandsLength = U32(bch, 0x24);
     const uint32_t rawLength = U32(bch, 0x28);
     // 15 dictionaries of 12 bytes (SPICA's H3D: models, material parameters, shaders, textures, LUTs, lights, cameras,
-    // fogs, then 6 kinds of animations, scenes): material animations are converted (below), the other kinds refused
-    for (int k : {8, 10, 11, 12, 13})
+    // fogs, then 6 kinds of animations, scenes): skeletal (8) and material (9) animations are converted (below), the other kinds
+    // refused
+    for (int k : {10, 11, 12, 13})
         if (U32(bch, s.Contents + 12 * k + 4)) throw FormatError("BCH upgrade: dictionary " + std::to_string(k) + " is not empty (not converted)");
 
     // the materials (their file offsets, from the reader's texture name words: names at +0x48 before 0x21)
@@ -106,7 +107,12 @@ Bytes BchUpgradeTo21(const Bytes& bch)
     };
     std::vector<std::pair<uint32_t, uint32_t>> groupSlots; // an old slot's offset, its group's new offset
     std::vector<uint32_t> keyWords;                         // new offsets of the new groups' key pointers
-    for (uint32_t i = 0, list = U32(contents, 12 * 9 + 4) ? pointer(12 * 9) : 0; i < U32(contents, 12 * 9 + 4); i++)
+    // skeletal animations (dictionary 8) the same way: a Transform element (primitive 4) holds 9 slots, scale, rotation and
+    // translation x, y, z, each a constant or a key frame group as a material animation's (SPICA H3DAnimTransform); a
+    // QuatTransform (7: X's doors' opening, t01_door) or MtxTransform (9) element holds its own lists, the same in both
+    // versions (SPICA: no field depends on it), kept
+    for (const uint32_t dictionary : {8u, 9u})
+    for (uint32_t i = 0, list = U32(contents, 12 * dictionary + 4) ? pointer(12 * dictionary) : 0; i < U32(contents, 12 * dictionary + 4); i++)
     {
         const uint32_t anim = pointer(list + 4 * i), elements = U32(contents, anim + 16);
         // the animation's type and flags bytes (after its name) are in the other order before 0x20: X's 52 material
@@ -117,8 +123,10 @@ Bytes BchUpgradeTo21(const Bytes& bch)
         {
             const uint32_t el = pointer(pointer(anim + 12) + 4 * j);
             const uint16_t prim = (uint16_t)(contents.at(el + 6) | contents.at(el + 7) << 8);
-            const int slots = prim == 0 || prim == 6 ? 1 : prim == 2 ? 2 : prim == 3 ? 3 : prim == 5 ? 4 : 0;
-            if (!slots) throw FormatError("BCH upgrade: a material animation of primitive type " + std::to_string(prim) + " (not converted)");
+            int slots = prim == 0 || prim == 6 ? 1 : prim == 2 ? 2 : prim == 3 ? 3 : prim == 5 ? 4 : 0;
+            if (dictionary == 8) slots = prim == 4 ? 9 : prim == 7 || prim == 9 ? -1 : 0;
+            if (slots < 0) continue;
+            if (!slots) throw FormatError("BCH upgrade: an animation (dictionary " + std::to_string(dictionary) + ") of primitive type " + std::to_string(prim) + " (not converted)");
             for (int k = 0; k < slots; k++)
             {
                 const uint32_t slot = el + 12 + 4 * (uint32_t)k;

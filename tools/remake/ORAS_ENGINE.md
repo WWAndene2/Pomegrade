@@ -1366,8 +1366,13 @@ which their pack, a copy of house 223's, holds in no file; with it copied to the
 On the way: my first try read the materials through a destroyed temporary (`Bch::Read(...).Models.at(0)` in a range-for),
 fixed. Ruled out before: the pack slot, the piece's files, the matrix's areas (file 1 made whole: no change, reverted).
 **Stairs** (checked, run hSt10): the upstairs of house 2 is reached by walking up into the stairs warp from the tile below
-(the stairs' tiles are solid, like a door's). Not done: the doors' opening, X's zone 3 (house 1's upper floor, no warp to
-it), the people.
+(the stairs' tiles are solid, like a door's). **The doors' and lamps' animations** (18 October): the BCH upgrade now converts skeletal animations too (dictionary 8):
+a `Transform` element's 9 slots get the key frame group rewrite of the material animations, a `QuatTransform` or
+`MtxTransform` element (X's door `t01_door`: 59 frames, its two leaves) is kept, SPICA showing no version-dependent field in
+them. Checked: SPICA reads every bone's pose of every frame identical before and after (the door, the lamp's `gaitoh_in`);
+the props load with their animations bound and the doors still enter (runs hOp2, hOp3). Not checked: that the leaves are
+seen to swing (the headless frames are too small and the camera moves). Not done: X's zone 3 (house 1's upper floor, no
+warp to it), the people.
 
 ## 8. Ultra Sun/Moon characters on Omega Ruby (17 October)
 
