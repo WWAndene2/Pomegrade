@@ -490,6 +490,16 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         words.push_back({0x404768, 0x01350000, 0x01350000 + grown, "heap 0x5D of the field (FUN_00404600), the parent of heaps 0x159 and 0x15A"});
         snprintf(line, sizeof line, "field heap 0x5D: 0x1350000 -> 0x%X", 0x01350000 + grown);
         log.push_back(line);
+        // The field's 3D scene (FUN_00404c80, through FUN_00392ab4) has 8 model groups, their capacity in word 0x18 of
+        // each 100-byte entry: 256, 32, 32, 32, 32, 64, 64, 32 (read in memory, run hMax3). Characters fill groups 5 and 6:
+        // a zone of 120 stopped in Field_RegisterObjectModelsInScene's fatal with both at 64 of 64. Their 0x40 is r0, which
+        // the next table reuses, so the two stores take r9 instead, which holds 0x80 there (stored as entry 5's word 0)
+        if (*o.Characters + 6 > 64)
+        {
+            words.push_back({0x404E30, 0xE58702B8, 0xE58792B8, "scene group 6's model capacity 0x80 (str r9 for r0, FUN_00404c80)"});
+            words.push_back({0x404E3C, 0xE5870254, 0xE5879254, "scene group 5's model capacity 0x80 (str r9 for r0, FUN_00404c80)"});
+            log.push_back("field scene: groups 5 and 6 hold 128 models each (the game's 64)");
+        }
     }
     if (!croWords.empty()) dllField = PatchCro(oras.Read("DllField.cro"), DllFieldBase, croWords);
     for (const auto& [id, size] : o.HeapSizes)

@@ -649,10 +649,13 @@ Read in the code (Ghidra, headless) and checked headless; the owner checked on t
   allocator's out-of-memory loop at 0x12BAEC, r5 = heap 0x5D, r7 = 0x17800; the headless report now prints registers in
   that loop too). `--characters N` grows 0x5D by what 0x159 and 0x15A grow (0x1B0000 / 32 x (N + 6) - 0x1B0000): 127
   enters the field (run h127e), 72 still walks 539, 538, 539 (run h72h). Doubling heap 0x16 instead stopped the boot in
-  0x16's own creation (run h127b). **Next bound**: a zone of 120 characters (scratch description, run hMax) stops in
-  `Field_RegisterObjectModelsInScene` (DllField 0x102C23D4): `Gfx_SceneGroupAddModel` (0x38B374) finds no free entry in
-  the scene group's pool (0x18-byte entries, a bitmap, its capacity at `[group + 0x28]`); where that pool is sized is not
-  read yet.
+  0x16's own creation (run h127b). **The scene's model groups** (18 October, read and checked headless): a zone of 120
+  characters (scratch description, run hMax) stopped in `Field_RegisterObjectModelsInScene` (DllField 0x102C23D4):
+  `Gfx_SceneGroupAddModel` (0x38B374) found no free entry. The field's scene (FUN_00404c80, through FUN_00392ab4) has 8
+  model groups, each one's capacity in word 0x18 of a 100-byte entry: 256, 32, 32, 32, 32, 64, 64, 32 (read in memory,
+  run hMax3: groups 5 and 6 at 64 of 64). `--characters N` (N + 6 > 64) makes the two stores of 0x40 (0x404E30,
+  0x404E3C) take r9, 0x80 there: 128 each, and the 120 characters show (runs hMax4, hMax6). A zone's characters are
+  then bound by the events file (`--events large`: 0x1910 bytes) and the pool (`--characters`, up to 127 checked).
 - **Still bound**: a zone's events file (0xC84 bytes, about 60 people with a short script, 4.5); the extra heaps come out
   of the field's heap 0x5D (grown with them, above).
 

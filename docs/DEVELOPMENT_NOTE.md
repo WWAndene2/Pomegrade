@@ -182,7 +182,7 @@ To do, in this order:
 3. Better asset tools (owner's request): colour by part (the pixels a mesh's triangles cover, from its UVs), with a before/after render; parts of a model: list, hide/remove, move/rotate/scale, swap between models (skeletons permitting).
 4. X's maps: its 1,115 map pieces converted, and a tile value table X -> ORAS checked case by case on the phone (grass, water and the special tiles differ).
 5. X's zones as new zones (538 up): characters, doors, scripts.
-6. Remaining limits, refused at build time: a zone's events file (0x1910 bytes with `--events large`, 0xC84 without: characters 48 each, doors and triggers 24, furniture 20, plus its initialisation script); the pool of `--characters` (127 enters the field since heap 0x5D grows with it; a zone of 120 characters stops when the scene group's model pool is full, its size not found yet); the extra heaps of `--characters` come out of the field's heap 0x5D (grown with it, from heap 0x17).
+6. Remaining limits, refused at build time: a zone's events file (0x1910 bytes with `--events large`, 0xC84 without: characters 48 each, doors and triggers 24, furniture 20, plus its initialisation script); the pool of `--characters` (127 checked: a zone of 120 characters shows, heap 0x5D and the scene's character groups growing with it); the extra heaps of `--characters` come out of the field's heap 0x5D (grown with it, from heap 0x17).
 7. Owner's open choices from the audit (Switch): firmware installed through Eden is now replaced by Pomegrade's at the next launch (commit 0029b5a3: to confirm or revert); an import stopping when space is short (not decided).
 
 ## 4. One coherent app
