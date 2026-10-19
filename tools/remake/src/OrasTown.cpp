@@ -339,7 +339,47 @@ Bytes BuildTownPiece(const TownLayout& layout, const OrasTownOptions& o, const G
     }
     if (!o.DonorAsIs && !o.Room) town = WithTallGrass(town, layout, piece(5), log);
     if (o.DonorAsIs) log.push_back("piece: the donor's, as it is in the game");
-    if (o.Room) town = BuildRoom(layout, town, piece(o.Room->Piece), *o.Room, o.RoomStairsC, o.RoomStairsR, o.RoomStairsUp, o.RoomName, log);
+    if (o.Room) town = BuildRoom(layout, town, piece(o.Room->Piece), piece(o.Room->Bedroom), *o.Room, o.RoomStairsC, o.RoomStairsR, o.RoomStairsUp, o.RoomName, log);
+
+    // a room's props (its TV set): the area pack must list each type the piece places (file 0, the room pack's 0x50-byte entry, as
+    // XyPropsToOras adds X's) and hold its textures in file 1, where props bind theirs (ORAS_ENGINE.md, Vaniville's props): the room
+    // pack's file 1 is taken whole (pack 112's: the TV's and the PC's com_bm_* and shadow_a; a name the pack holds is kept)
+    if (o.Room && o.AreaPack != o.Room->Pack)
+    {
+        const Bytes placed = BinLinker::Read(town, "GR").Files.at(3);
+        const Bytes roomPack = Plain(areaArchive.Sub(o.Room->Pack));
+        const Bytes roomTable = BinLinker::Read(roomPack, "AD").Files.at(0);
+        BinLinker pack = BinLinker::Read(areaPack, "AD");
+        Bytes table = pack.Files.at(0);
+        uint32_t count = U32(table, 0);
+        table.resize(4 + 0x50 * (size_t)count);
+        bool added = false;
+        for (uint32_t k = 0; k < U32(placed, 0); k++)
+        {
+            const uint32_t type = U32(placed, 4 + 44 * (size_t)k);
+            bool listed = false;
+            for (uint32_t i = 0; i < count; i++) listed |= U16(table, 4 + 0x50 * (size_t)i) == type;
+            if (listed) continue;
+            size_t entry = SIZE_MAX;
+            for (uint32_t i = 0; i < U32(roomTable, 0); i++) if (U16(roomTable, 4 + 0x50 * (size_t)i) == type) entry = 4 + 0x50 * (size_t)i;
+            if (entry == SIZE_MAX) throw FormatError("room: prop type " + std::to_string(type) + " has no entry in area pack " + std::to_string(o.Room->Pack));
+            table.insert(table.end(), roomTable.begin() + (long)entry, roomTable.begin() + (long)entry + 0x50);
+            count++;
+            added = true;
+            log.push_back("room: prop type " + std::to_string(type) + " listed in the area pack (pack " + std::to_string(o.Room->Pack) + "'s entry)");
+        }
+        if (added)
+        {
+            Put32(table, 0, count);
+            table.resize((table.size() + 0x7F) & ~(size_t)0x7F, 0);
+            pack.Files.at(0) = table;
+            areaPack = pack.Write();
+            std::vector<std::string> names;
+            for (const BchTexture& t : Bch::Read(BinLinker::Read(roomPack, "AD").Files.at(1)).Textures) names.push_back(t.Name);
+            std::map<std::string, std::string> finalName;
+            areaPack = ImportTextures(areaPack, roomPack, o.Room->Pack, names, finalName, log, "", 1);
+        }
+    }
 
     // the donor's textures the piece names and the area pack lacks, added to it when it is not the donor's own pack (a name the
     // pack already holds keeps the pack's texture: Littleroot's chip_mado, shadow1, ... over Petalburg's); a room's from its room's pack

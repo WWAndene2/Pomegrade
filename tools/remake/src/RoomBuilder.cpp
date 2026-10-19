@@ -8,19 +8,21 @@
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <map>
 
 namespace remake
 {
 
-// t101r0101 (a/0/3/9 member 506), its textures in area pack 112
-const RoomDonor GroundFloorRoom = {506, 112};
+// t101r0101 (a/0/3/9 member 506), its textures in area pack 112, with its bedroom t101r0102 (member 507, same pack)
+const RoomDonor GroundFloorRoom = {506, 112, 507};
 
 namespace
 {
 
 constexpr int N = TownTiles;
 constexpr float T = 18; // units a tile
+void Put32(Bytes& b, size_t at, uint32_t v) { for (int k = 0; k < 4; k++) b.at(at + k) = (uint8_t)(v >> (8 * k)); }
 float X(float column) { return (column - 20) * T; }
 float Z(float row) { return (row - 20) * T; }
 float Column(float x) { return x / T + 20; }
@@ -142,10 +144,48 @@ std::array<float, 3> Mix(const std::array<float, 3>& a, const std::array<float, 
     return {a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t};
 }
 
+// The furniture: a Platinum building model (by its name's start) and ORAS's equivalent in Littleroot's house, as a box of the
+// donor room (columns, rows) holding it, read on the two rooms' meshes (scratch scan of each mesh's connected parts, 19 October:
+// t101r0101's fridge c6-7 r6-7, counter c7-10 r5.5-7 with its dish rack, TV c7.1-9.9 r12.1-12.9, table c9-11 r15-17, chairs
+// c7.9-8.9, plant c18-19 r10-11; t101r0102's bed c6-7.9 r12-15, desk c6-9 r6.4-8, console c13.9-14.8 r9.4-11, stool c7.2-7.9
+// r8.1-8.9). Each listed mesh's triangles whose centre lies in the box are moved, the shadow under them (shadow_a) with them.
+// A bedroom mesh goes into a mesh of the ground floor's model the room does not otherwise use (the model is t101r0101's), its
+// material made to name the bedroom mesh's texture (both rooms take theirs from pack 112). BackWall: ORAS's stands against the
+// back wall (its row in the donor: t101r0101's on row 6, t101r0102's on row 6.5), so that line goes onto the room's back wall
+// above Platinum's place; Turn: quarter turns from the donor's facing (the west chairs face east in the donor, 1: north; a chair
+// facing west is the donor's east one). The footprint is the box's tiles, a quarter tile in from each side; its tiles take the
+// donor's values there (the table's 0xD40E0001, a chair's 0xEA0E0021 or 0xE90E0021, the sink's 0xDA000001: what they do is
+// not read, inferred to be what the player can use) or, turned, a solid tile's. The donor's props standing in the box (its
+// piece's file 3: t101r0101's TV set, prop type 0x5A, on its stand) come along. Platinum's clock (clock01, on a wall) has none.
+struct FurnitureMesh { const char* Donor; const char* Host; }; // the donor room's material, the ground floor's material it goes into
+struct Furniture
+{
+    const char* Platinum;
+    bool Bedroom;
+    std::vector<FurnitureMesh> Meshes;
+    float C0, C1, R0, R1;
+    float BackWall; // the donor's back wall row when ORAS's stands against it, else 0
+    int Turn;
+};
+const Furniture FurnitureKits[] = {
+    {"ref01", false, {{"ref01", "ref01"}, {"shadow_a", "shadow_a"}}, 5.9f, 7.05f, 5.4f, 7.05f, 6, 0},
+    {"sink01", false, {{"sink01", "sink01"}, {"sink02", "sink02"}, {"berries01", "berries01"}, {"bottle_a", "bottle_a"}, {"water_a", "water_a"},
+                       {"shelf03", "shelf03"}, {"shadow_a", "shadow_a"}}, 7.0f, 10.05f, 5.4f, 7.05f, 6, 0},
+    {"tv01", false, {{"tv01_02", "tv01_02"}, {"speaker01", "speaker01"}, {"shadow_a", "shadow_a"}}, 7.0f, 10.0f, 11.95f, 13.2f, 0, 0},
+    {"table02", false, {{"table01", "table01"}, {"shadow_a", "shadow_a"}}, 8.95f, 11.05f, 14.95f, 17.05f, 0, 0},
+    {"chair01", false, {{"chair01", "chair01"}, {"shadow_a", "shadow_a"}}, 11.05f, 12.15f, 15.05f, 15.95f, 0, 0},
+    {"cushion01", false, {{"chair01", "chair01"}, {"shadow_a", "shadow_a"}}, 7.85f, 8.95f, 15.05f, 15.95f, 0, 1},
+    {"plant01", false, {{"plant01_a", "plant01_a"}, {"shadow_a", "shadow_a"}}, 17.95f, 19.05f, 9.95f, 11.05f, 0, 0},
+    {"bed_h01", true, {{"bed01", "bookshelf01"}, {"shadow_a", "shadow_a"}}, 5.9f, 8.0f, 11.9f, 15.25f, 0, 0},
+    {"table_l01", true, {{"desk01", "shelf02"}, {"obj01", "books01"}, {"books01", "books02"}, {"shadow_a", "shadow_a"}}, 5.95f, 9.05f, 6.3f, 8.05f, 6.5f, 0},
+    {"game_h01", true, {{"obj1", "carpet01_r"}, {"shadow_a", "shadow_a"}}, 13.85f, 14.9f, 9.3f, 11.05f, 0, 0},
+    {"chair02", true, {{"cushion", "pictureframe01"}, {"shadow_a", "shadow_a"}}, 7.05f, 8.0f, 8.0f, 8.95f, 0, 0},
+};
+
 }
 
-Bytes BuildRoom(const TownLayout& layout, const Bytes& townPiece, const Bytes& donorPiece, const RoomDonor& donor, int stairsC, int stairsR,
-                bool stairsUp, const std::string& modelName, std::vector<std::string>& log)
+Bytes BuildRoom(const TownLayout& layout, const Bytes& townPiece, const Bytes& donorPiece, const Bytes& bedroomPiece, const RoomDonor& donor,
+                int stairsC, int stairsR, bool stairsUp, const std::string& modelName, std::vector<std::string>& log)
 {
     char line[256];
     auto note = [&](const std::string& s) { log.push_back("room: " + s); };
@@ -525,8 +565,127 @@ Bytes BuildRoom(const TownLayout& layout, const Bytes& townPiece, const Bytes& d
         Place(geo, kit, w.C - WindowCentre, w.Row - DonorBackWall);
     }
 
-    snprintf(line, sizeof line, "%d tiles: %d floor tiles, %d wall edges, %d cap tiles, %zu window(s), %zu way(s) out; no furniture (the owner: walls first)",
-             tiles, floorTiles, wallEdges, capTiles, windows.size(), doors.size());
+
+    // the furniture (Furniture above): each Platinum model with an equivalent, its footprint centred on Platinum's place, on whole
+    // tiles, inside the room
+    const BchModel bedroom = Bch::Read(BinLinker::Read(bedroomPiece, "GR").Files.at(1)).Models.at(0);
+    auto meshIn = [&](const BchModel& m, const std::string& name) {
+        for (size_t k = 0; k < m.Meshes.size(); k++) if (m.Materials[m.Meshes[k].Material].Name == name) return k;
+        throw FormatError("room: " + m.Name + " has no mesh of material " + name);
+    };
+    std::map<size_t, std::string> retexture; // a host mesh of the room's model: the bedroom texture its material now names
+    std::map<std::pair<int, int>, uint32_t> tileValue; // the furniture's tiles: the donor's value
+    std::vector<Bytes> props;                // the donor's prop entries moved into the room (file 3, 44 bytes each)
+    const Bytes roomCell = BinLinker::Read(townPiece, "GR").Files.at(4); // row, column of the room's cell
+    const float propDx = roomCell.at(1) * (float)N * T, propDz = roomCell.at(0) * (float)N * T;
+    std::vector<std::array<int, 4>> solid;   // the furniture's tiles: c0, c1, r0, r1 (exclusive ends)
+    // tiles furniture never takes: the stairs, a warp and the one walked from onto it, the way out's, and furniture placed already
+    auto taken = [&](int c, int r) {
+        for (const std::string& m : layout.TileMaterials[r][c]) if (m.rfind("stair", 0) == 0) return true;
+        for (const TownDoor& d : layout.Doors) if (std::abs(d.Column - c) + std::abs(d.Row - r) <= 1) return true;
+        for (const auto& [dc, dr] : doors) if (r == dr && std::fabs(c + 0.5f - dc) < 1.5f) return true;
+        for (const auto& b : solid) if (c >= b[0] && c < b[1] && r >= b[2] && r < b[3]) return true;
+        return false;
+    };
+    int furnished = 0;
+    for (const TownObject& o : layout.Objects)
+    {
+        const Furniture* kit = nullptr;
+        for (const Furniture& f : FurnitureKits) if (o.Name.rfind(f.Platinum, 0) == 0) kit = &f;
+        if (!kit) continue;
+        // the donor's footprint, whole tiles, and turned
+        const float back = kit->BackWall;
+        const int fc0 = (int)std::lround(kit->C0 + 0.25f), fc1 = (int)std::lround(kit->C1 - 0.25f);
+        const int fr0 = back ? 0 : (int)std::lround(kit->R0 + 0.25f), fr1 = back ? (int)std::ceil(kit->R1 - back - 0.25f) : (int)std::lround(kit->R1 - 0.25f);
+        const bool across = kit->Turn % 2;
+        const int w = across ? fr1 - fr0 : fc1 - fc0, h = across ? fc1 - fc0 : fr1 - fr0;
+        int c0 = (int)std::lround(o.Column - w / 2.0f), r0 = (int)std::lround(o.Row - h / 2.0f);
+        auto inside = [&](int a, int b) {
+            for (int r = b; r < b + h; r++)
+                for (int c = a; c < a + w; c++)
+                    if (!inRoom(c, r) || taken(c, r)) return false;
+            return true;
+        };
+        if (kit->BackWall)
+        {
+            // up to the back wall: the first row where a tile north of the footprint leaves the room
+            while (r0 > 0 && [&] { for (int c = c0; c < c0 + w; c++) if (!inRoom(c, r0 - 1)) return false; return true; }()) r0--;
+        }
+        // shifted along the wall (or anywhere, for the rest) by the least that fits it in the room
+        bool fits = false;
+        for (int d = 0; d <= 3 && !fits; d++)
+            for (int sc : {d, -d})
+                for (int sr : kit->BackWall ? std::vector<int>{0, 1} : std::vector<int>{0, d, -d})
+                    if (!fits && inside(c0 + sc, r0 + sr)) { c0 += sc; r0 += sr; fits = true; }
+        if (!fits)
+        {
+            snprintf(line, sizeof line, "%s at (%.1f, %.1f): ORAS's (%d x %d tiles) does not fit there, left out", o.Name.c_str(), o.Column, o.Row, w, h);
+            note(line);
+            continue;
+        }
+        // its meshes, turned about the donor footprint's centre and moved onto the room's
+        const BchModel& from = kit->Bedroom ? bedroom : model;
+        // (against the back wall, the donor's wall line onto the room's: the footprint counted from it)
+        const float dcx = X((fc0 + fc1) / 2.0f), dcz = Z(back ? back + h / 2.0f : (fr0 + fr1) / 2.0f), ncx = X(c0 + w / 2.0f), ncz = Z(r0 + h / 2.0f);
+        for (const FurnitureMesh& fm : kit->Meshes)
+        {
+            const size_t src = meshIn(from, fm.Donor), host = meshNamed(fm.Host);
+            if (kit->Bedroom && std::string(fm.Donor) != fm.Host)
+            {
+                const std::string tex = bedroom.Materials[bedroom.Meshes[src].Material].Texture[0];
+                const auto [it, added] = retexture.emplace(host, tex);
+                if (!added && it->second != tex) throw FormatError("room: the mesh " + std::string(fm.Host) + " hosts two textures");
+            }
+            Polygon vertices;
+            std::vector<uint32_t> triangles;
+            Cut(from.Meshes[src], kit->C0, kit->C1, kit->R0, kit->R1, -1e9f, 1e9f, vertices, triangles);
+            BchGeometry& out = geo[host];
+            const uint32_t base = (uint32_t)out.Vertices.size();
+            for (BchVertex v : vertices)
+            {
+                // a quarter turn takes (x, z) to (z, -x) about the centre: east to north
+                float x = v.Position[0] - dcx, z = v.Position[2] - dcz, nx = v.Normal[0], nz = v.Normal[2];
+                for (int t = 0; t < kit->Turn; t++) { std::swap(x, z); z = -z; std::swap(nx, nz); nz = -nz; }
+                v.Position[0] = ncx + x; v.Position[2] = ncz + z; v.Normal[0] = nx; v.Normal[2] = nz;
+                out.Vertices.push_back(v);
+            }
+            for (uint32_t i : triangles) out.Triangles.push_back(base + i);
+        }
+        // its tiles: the donor's values where they are not walkable (a turned piece: solid)
+        const Bytes donorTiles = BinLinker::Read(kit->Bedroom ? bedroomPiece : donorPiece, "GR").Files.at(0);
+        const int dr0 = back ? (int)std::lround(back + 0.25f) : fr0; // the donor's first row (t101r0102's half-tile wall: the row past it)
+        for (int r = 0; r < h; r++)
+            for (int c = 0; c < w; c++)
+            {
+                // a tile the donor lets the player walk on (t101r0102's desk overhangs its front row by half a tile) is solid here
+                const uint32_t v = kit->Turn ? 0x01000021u : U32(donorTiles, 4 + ((dr0 + r) * N + fc0 + c) * 4);
+                tileValue[{c0 + c, r0 + r}] = (v & 0xFF) == 0x20 ? 0x01000021u : v;
+            }
+        // its props
+        const Bytes donorProps = BinLinker::Read(kit->Bedroom ? bedroomPiece : donorPiece, "GR").Files.at(3);
+        for (uint32_t k = 0; k < U32(donorProps, 0); k++)
+        {
+            Bytes e(donorProps.begin() + 4 + k * 44, donorProps.begin() + 4 + (k + 1) * 44);
+            float x, z;
+            memcpy(&x, &e[28], 4); memcpy(&z, &e[36], 4);
+            const float pc = x / T, pr = z / T; // the donors are cell (0, 0) of their matrix
+            if (pc < kit->C0 || pc > kit->C1 || pr < kit->R0 || pr > kit->R1) continue;
+            if (kit->Turn) { note(o.Name + ": a prop of a turned piece left out"); continue; }
+            x = X(pc) - dcx + ncx + 20 * T + propDx; z = Z(pr) - dcz + ncz + 20 * T + propDz;
+            memcpy(&e[28], &x, 4); memcpy(&e[36], &z, 4);
+            props.push_back(e);
+            snprintf(line, sizeof line, "%s: the donor's prop type %u at (%.2f, %.2f)", o.Name.c_str(), U32(e, 0), x / T - roomCell.at(1) * N, z / T - roomCell.at(0) * N);
+            note(line);
+        }
+        solid.push_back({c0, c0 + w, r0, r0 + h});
+        furnished++;
+        snprintf(line, sizeof line, "%s at (%.1f, %.1f): ORAS's %s%s on tiles (%d-%d, %d-%d)%s", o.Name.c_str(), o.Column, o.Row, kit->Bedroom ? "bedroom " : "",
+                 kit->Meshes[0].Donor, c0, c0 + w - 1, r0, r0 + h - 1, kit->Turn ? (kit->Turn == 1 ? ", turned to face north" : ", turned to face west") : "");
+        note(line);
+    }
+
+    snprintf(line, sizeof line, "%d tiles: %d floor tiles, %d wall edges, %d cap tiles, %zu window(s), %zu way(s) out, %d piece(s) of furniture",
+             tiles, floorTiles, wallEdges, capTiles, windows.size(), doors.size(), furnished);
     note(line);
 
     std::vector<BchGeometry> list;
@@ -538,8 +697,24 @@ Bytes BuildRoom(const TownLayout& layout, const Bytes& townPiece, const Bytes& d
         if (g.Vertices.empty()) g.Vertices.resize(1); // a mesh that draws nothing keeps one vertex, as BuildTown's
         list.push_back(std::move(g));
     }
+    Bytes terrain = BchReplaceGeometry(donorTerrain, 0, list);
+    for (const auto& [host, tex] : retexture) terrain = BchSetTextureName(terrain, 0, model.Meshes[host].Material, 0, tex);
     BinLinker gr = BinLinker::Read(townPiece, "GR");
-    gr.Files.at(1) = BchReplaceString(BchReplaceGeometry(donorTerrain, 0, list), model.Name, modelName);
+    gr.Files.at(1) = BchReplaceString(terrain, model.Name, modelName);
+    // the furniture's tiles
+    Bytes& tileBlock = gr.Files.at(0);
+    for (const auto& [at, v] : tileValue)
+        for (int k = 0; k < 4; k++) tileBlock.at(4 + (at.second * N + at.first) * 4 + k) = (uint8_t)(v >> (8 * k));
+    // the props (the area pack must list their types: OrasTown adds the room pack's entries)
+    if (!props.empty())
+    {
+        Bytes& list = gr.Files.at(3);
+        Bytes out(4, 0);
+        Put32(out, 0, (uint32_t)props.size());
+        for (const Bytes& e : props) out.insert(out.end(), e.begin(), e.end());
+        out.resize(std::max(list.size(), (out.size() + 0x7F) & ~(size_t)0x7F), 0);
+        list = out;
+    }
     return gr.Write();
 }
 

@@ -9,8 +9,10 @@
 // walls as ORAS's is; the south edge is a lip going down; the door is ORAS's way out (the floor one tile further out, its mat
 // and its light) on Platinum's exit mat; each Platinum window (building model window01) is ORAS's window (an opening in the
 // wall with its recess, sill, frame and glass) at the same place; the stairs are computed on Platinum's stairs tiles (steps in
-// ORAS's measures; going down, an opening in the floor). No furniture yet (the owner's order: walls first). The tiles a wall
-// stands on are solid (outside the room).
+// ORAS's measures; going down, an opening in the floor). The tiles a wall stands on are solid (outside the room).
+// Furniture: each Platinum piece of furniture with an ORAS equivalent gets ORAS's own, cut out of Littleroot's house (its ground
+// floor's kitchen, table, chairs, TV and plant; its bedroom's bed, desk, console and stool) at Platinum's place, its tiles solid
+// (RoomBuilder.cpp, Furniture).
 
 #include "TownLayout.h"
 
@@ -22,15 +24,16 @@ namespace remake
 struct RoomDonor
 {
     size_t Piece = 0, Pack = 0;
+    size_t Bedroom = 0; // the same house's bedroom (a/0/3/9), its textures in the same pack: the furniture the ground floor lacks
 };
 
-// Littleroot's first house, its ground floor (t101r0101, zone 223, area pack 112)
+// Littleroot's first house, its ground floor (t101r0101, zone 223, area pack 112) and its bedroom (t101r0102)
 extern const RoomDonor GroundFloorRoom;
 
 // the piece townPiece with its terrain model replaced by the room (named modelName, as long as the donor's); stairsC/R: the
 // tile of the warp to another floor (-1: none), stairsUp: whether it goes up
-Bytes BuildRoom(const TownLayout& layout, const Bytes& townPiece, const Bytes& donorPiece, const RoomDonor& donor, int stairsC, int stairsR,
-                bool stairsUp, const std::string& modelName, std::vector<std::string>& log);
+Bytes BuildRoom(const TownLayout& layout, const Bytes& townPiece, const Bytes& donorPiece, const Bytes& bedroomPiece, const RoomDonor& donor,
+                int stairsC, int stairsR, bool stairsUp, const std::string& modelName, std::vector<std::string>& log);
 
 }
 
