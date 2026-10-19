@@ -197,7 +197,8 @@ XyNumbers XyNumbersFor(const std::vector<Bytes>& scripts, const std::set<int>& e
         for (const Argument& a : NumberArguments(lines, name, nullptr))
         {
             const int v = (int)std::stol(lines[a.Line].Words.back(), nullptr, 0);
-            if (a.Flag) flags.insert(v);
+            // flag 0 is no flag (a character's word 4 0: always shown); numbered, it gave such people flag 0xD00 (19 October)
+            if (a.Flag) { if (v != 0) flags.insert(v); }
             else if (v >= 0x4000 && v < 0x8000) works.insert(v);
         }
     }
