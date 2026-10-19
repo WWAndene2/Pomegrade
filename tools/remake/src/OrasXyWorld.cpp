@@ -193,6 +193,7 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
 
     // what the engine must be given (oras-engine)
     std::string engine = "oras-engine options: --zone-rows " + std::to_string(ws.NextZone()) + " --story large";
+    if (std::any_of(packOf.begin(), packOf.end(), [](const auto& p) { return p.second > 255; })) engine += " --area-packs large";
     for (const auto& [zone, mask] : masks)
     {
         snprintf(line, sizeof line, " --script-mask %d:0x%X", zone, mask);

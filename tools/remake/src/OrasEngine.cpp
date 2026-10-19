@@ -422,6 +422,18 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         snprintf(line, sizeof line, "character model objects: %u (the game's 32), their heap 0x62 0x%X bytes (the game's 0x10000)", objects, heap);
         log.push_back(line);
     }
+    if (o.LargePacks)
+    {
+        // Zone_ChangeLoadStep (0x3D5698) passes the zone's area pack (Zone_HeaderGetAreaId, a u16) cut to a byte to the loader
+        // of the zone's character models (Event_LoadZoneCharacterModels, its a/1/3/7 member) and to Event_LoadAnimSetIfChanged
+        // (its 0x2C-byte entry of archive 0xE4, at pack x 0x2C), so pack 258 loaded pack 2's: the house of X/Y's zone 2 on pack
+        // 258 stopped the game in Event_CharacterPool_Acquire, on 255 it entered (runs h_wK37, h_wK34, 19 October). The three
+        // `and r1, r0, #0xff` pass it whole: both read it as a u16 (Res_ArchiveMemberSize, a short index); the second keeps a
+        // byte of it as its cache, which then never matches a pack past 255 and reloads its entry, as on a change of pack
+        for (const uint32_t at : {0x3D5728u, 0x3D5960u, 0x3D59A4u})
+            words.push_back({at, 0xE20010FF, 0xE1A01000, "Zone_ChangeLoadStep: the area pack whole (mov r1, r0)"});
+        log.push_back("area packs: past 255 (the zone change passes the pack whole)");
+    }
     if (o.LargeStory)
     {
         // Story flags and event works past the game's (ORAS_ENGINE.md 6, Story flags; read 19 October). Flags 1-0xCFF are
