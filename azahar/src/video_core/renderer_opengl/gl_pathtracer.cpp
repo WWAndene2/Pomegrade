@@ -796,6 +796,42 @@ void PathTracerGL::ResizeFast(u32 percent, u32 size) {
     }
 }
 
+// A vertex's position comes from the lighting's view vector, which the game sets for lighting, not for us: most
+// models give the surface's own view position, but some (reflective or specially lit materials) give something else,
+// and their triangles landed anywhere in the G-buffer, the shadow map and the bounces: the "shards". Each triangle is
+// checked against where the game drew it: its positions through the frame's projection (fitted on all the vertices,
+// then again on those that agreed) must land within 1.5 % of the screen of its own clip positions, else it is made
+// empty (no area: drawn nowhere, cast nowhere)
+void PathTracerGL::RejectStrays(Frame& frame) {
+    auto& v = frame.vertices;
+    if (v.size() < 3) return;
+    std::vector<bool> keep(v.size() / 3, true);
+    for (int round = 0; round < 2; round++) {
+        std::vector<std::array<float, 8>> samples;
+        const std::size_t stride = std::max<std::size_t>(1, v.size() / 4096);
+        for (std::size_t i = 0; i < v.size(); i += stride) {
+            if (!keep[i / 3]) continue;
+            samples.push_back({v[i].clip[0], v[i].clip[1], v[i].clip[2], v[i].clip[3], v[i].position[0], v[i].position[1], v[i].position[2], 0});
+        }
+        float m[16];
+        if (samples.size() < 16 || !FitProjection(samples, m)) return;
+        const auto off = [&m](const Vertex& x) {
+            float c[4];
+            for (int r = 0; r < 4; r++) {
+                c[r] = m[r] * x.position[0] + m[4 + r] * x.position[1] + m[8 + r] * x.position[2] + m[12 + r];
+            }
+            if (c[3] <= 1e-6f || x.clip[3] <= 1e-6f) return 1e9f;
+            return std::max(std::abs(c[0] / c[3] - x.clip[0] / x.clip[3]), std::abs(c[1] / c[3] - x.clip[1] / x.clip[3]));
+        };
+        for (std::size_t t = 0; t + 2 < v.size(); t += 3) {
+            keep[t / 3] = off(v[t]) < 0.03f && off(v[t + 1]) < 0.03f && off(v[t + 2]) < 0.03f; // NDC spans 2: 1.5 %
+        }
+    }
+    for (std::size_t t = 0; t + 2 < v.size(); t += 3) {
+        if (!keep[t / 3]) v[t + 1] = v[t + 2] = v[t];
+    }
+}
+
 void PathTracerGL::Upload(const Frame& frame) {
     // the triangles in view space, their BVH
     std::vector<PT::Vec3> corners;
@@ -976,7 +1012,8 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
     if (it == completed.end() || !it->second || it->second->vertices.empty() || screen_info.target_width == 0) {
         return {};
     }
-    const Frame& frame = *it->second;
+    Frame& frame = *it->second;
+    RejectStrays(frame);
     const OpenGLState saved = OpenGLState::GetCurState();
     if (screen_info.target_width != width || screen_info.target_height != height) {
         Resize(screen_info.target_width, screen_info.target_height);

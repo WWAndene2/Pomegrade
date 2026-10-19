@@ -655,7 +655,11 @@ bool RasterizerOpenGL::Draw(bool accelerate, bool is_indexed) {
         // Pomegrade: a lit draw that writes depth goes to the path tracer. The others are left out: ORAS lays its paths
         // and ground details as sheets just above the ground, not writing depth, which would shadow it all (its opaque
         // terrain is drawn with blending on, so blending does not tell them apart)
-        if (path_tracer && !regs.lighting.disable && !shadow_rendering && using_color_fb &&
+        // Nor a draw that writes no colour: games draw collision volumes and occluders that way (depth only), and they
+        // cast shadows and occlusion as if they were there
+        const bool writes_colour = state.color_mask.red_enabled || state.color_mask.green_enabled ||
+                                   state.color_mask.blue_enabled;
+        if (path_tracer && !regs.lighting.disable && !shadow_rendering && using_color_fb && writes_colour &&
             state.depth.write_mask == GL_TRUE && PathTracerGL::Enabled()) {
             std::vector<PathTracerGL::InputVertex> captured(vertex_batch.size());
             for (std::size_t i = 0; i < vertex_batch.size(); i++) {

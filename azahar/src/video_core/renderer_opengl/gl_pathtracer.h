@@ -109,6 +109,8 @@ private:
     void Upload(const Frame& frame);
     /// The sun's shadow map: the frame's triangles drawn again from the sun (orthographic, around the camera)
     void DrawShadowMap(const Frame& frame, OpenGLState& state);
+    /// Pomegrade: the triangles whose lighting position disagrees with where the game drew them, made empty
+    static void RejectStrays(Frame& frame);
 
     std::unordered_map<PAddr, std::shared_ptr<Frame>> frames;    ///< being drawn, by render target
     std::unordered_map<PAddr, bool> copied;                       ///< a target's frame was copied out: next draw starts anew
