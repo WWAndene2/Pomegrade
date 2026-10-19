@@ -432,6 +432,17 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         // byte of it as its cache, which then never matches a pack past 255 and reloads its entry, as on a change of pack
         for (const uint32_t at : {0x3D5728u, 0x3D5960u, 0x3D59A4u})
             words.push_back({at, 0xE20010FF, 0xE1A01000, "Zone_ChangeLoadStep: the area pack whole (mov r1, r0)"});
+        // Event_LoadAnimSetIfChanged keeps the pack as a byte at +0x30 of the area object (EventWork's field context + 0x2C;
+        // its archive-14 handle at +0x34), and the area loader takes the pack's a/0/1/4 member from it (0x40483C, `ldrb sb,
+        // [r5, #0x30]`, then its size and Res_AsyncLoadMember): pack 258 loaded member 2, the house then ran out of memory
+        // loading its piece (run h_wK37b; found by the memory dumps hMd34/hMd37 and the code around the area handle). Kept
+        // as a u16 at +0x30 and read so by its three readers; the byte at +0x31 (the variant the cache compares) is no longer
+        // written, so with a variant other than 0 the 44-byte entry is reloaded on a zone change, as on a change of pack
+        words.push_back({0x402CF4, 0xE5C45030, 0xE1C453B0, "Event_LoadAnimSetIfChanged: the pack kept whole (strh r5, [r4, #0x30])"});
+        words.push_back({0x402CFC, 0xE5C46031, 0xE320F000, "Event_LoadAnimSetIfChanged: the variant byte, now the pack's high byte, not written"});
+        words.push_back({0x402C90, 0xE5D40030, 0xE1D403B0, "Event_LoadAnimSetIfChanged: its cache compares the pack whole (ldrh)"});
+        words.push_back({0x3D592C, 0xE5D71030, 0xE1D713B0, "Zone_ChangeLoadStep: a change of pack seen whole (ldrh)"});
+        words.push_back({0x40483C, 0xE5D59030, 0xE1D593B0, "the area loader: the pack's a/0/1/4 member whole (ldrh sb, [r5, #0x30])"});
         log.push_back("area packs: past 255 (the zone change passes the pack whole)");
     }
     if (o.LargeStory)
