@@ -29,6 +29,7 @@ import org.citra.citra_emu.features.settings.model.BooleanSetting
 import org.citra.citra_emu.features.settings.model.FloatSetting
 import org.citra.citra_emu.features.settings.model.IntListSetting
 import org.citra.citra_emu.features.settings.model.IntSetting
+import org.citra.citra_emu.features.settings.model.RemasterQuality
 import org.citra.citra_emu.features.settings.model.ScaledFloatSetting
 import org.citra.citra_emu.features.settings.model.Settings
 import org.citra.citra_emu.features.settings.model.StringSetting
@@ -122,6 +123,8 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
             Settings.SECTION_CUSTOM_PORTRAIT -> addCustomPortraitSettings(sl)
 
             Settings.SECTION_PERFORMANCE_OVERLAY -> addPerformanceOverlaySettings(sl)
+
+            Settings.SECTION_REMASTER -> addRemasterSettings(sl)
 
             else -> {
                 fragmentView.showToastMessage("Unimplemented menu", false)
@@ -961,162 +964,10 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
             override val defaultValue = ""
         }
 
-    private fun addGraphicsSettings(sl: ArrayList<SettingsItem>) {
-        settingsActivity.setToolbarTitle(settingsActivity.getString(R.string.preferences_graphics))
+    // Pomegrade: every option of the Remaster, one by one (the Video page's quality slider sets most of them at once)
+    private fun addRemasterSettings(sl: ArrayList<SettingsItem>) {
+        settingsActivity.setToolbarTitle(settingsActivity.getString(R.string.pomegrade_remaster_options))
         sl.apply {
-            add(HeaderSetting(R.string.citra_renderer))
-            add(
-                SingleChoiceSetting(
-                    IntSetting.GRAPHICS_API,
-                    R.string.graphics_api,
-                    0,
-                    R.array.graphicsApiNames,
-                    R.array.graphicsApiValues,
-                    IntSetting.GRAPHICS_API.key,
-                    IntSetting.GRAPHICS_API.defaultValue,
-                    isEnabled = !GraphicsUtil.isUsingAngleForOpenGL(),
-                    disabledMessage = R.string.setting_disabled_description_angle
-                )
-            )
-            add(
-                SwitchSetting(
-                    BooleanSetting.SPIRV_SHADER_GEN,
-                    R.string.spirv_shader_gen,
-                    R.string.spirv_shader_gen_description,
-                    BooleanSetting.SPIRV_SHADER_GEN.key,
-                    BooleanSetting.SPIRV_SHADER_GEN.defaultValue
-                )
-            )
-            add(
-                SwitchSetting(
-                    BooleanSetting.DISABLE_SPIRV_OPTIMIZER,
-                    R.string.disable_spirv_optimizer,
-                    R.string.disable_spirv_optimizer_description,
-                    BooleanSetting.DISABLE_SPIRV_OPTIMIZER.key,
-                    BooleanSetting.DISABLE_SPIRV_OPTIMIZER.defaultValue
-                )
-            )
-            add(
-                SwitchSetting(
-                    BooleanSetting.ASYNC_SHADERS,
-                    R.string.async_shaders,
-                    R.string.async_shaders_description,
-                    BooleanSetting.ASYNC_SHADERS.key,
-                    BooleanSetting.ASYNC_SHADERS.defaultValue
-                )
-            )
-            add(
-                SingleChoiceSetting(
-                    IntSetting.RESOLUTION_FACTOR,
-                    R.string.citra_internal_resolution,
-                    R.string.internal_resolution_description,
-                    R.array.resolutionFactorNames,
-                    R.array.resolutionFactorValues,
-                    IntSetting.RESOLUTION_FACTOR.key,
-                    IntSetting.RESOLUTION_FACTOR.defaultValue
-                )
-            )
-            add(
-                SwitchSetting(
-                    BooleanSetting.USE_INTEGER_SCALING,
-                    R.string.use_integer_scaling,
-                    R.string.use_integer_scaling_description,
-                    BooleanSetting.USE_INTEGER_SCALING.key,
-                    BooleanSetting.USE_INTEGER_SCALING.defaultValue
-                )
-            )
-            add(
-                SwitchSetting(
-                    BooleanSetting.LINEAR_FILTERING,
-                    R.string.linear_filtering,
-                    R.string.linear_filtering_description,
-                    BooleanSetting.LINEAR_FILTERING.key,
-                    BooleanSetting.LINEAR_FILTERING.defaultValue
-                )
-            )
-            add(
-                SwitchSetting(
-                    BooleanSetting.SHADERS_ACCURATE_MUL,
-                    R.string.shaders_accurate_mul,
-                    R.string.shaders_accurate_mul_description,
-                    BooleanSetting.SHADERS_ACCURATE_MUL.key,
-                    BooleanSetting.SHADERS_ACCURATE_MUL.defaultValue
-                )
-            )
-            add(
-                SwitchSetting(
-                    BooleanSetting.DISK_SHADER_CACHE,
-                    R.string.use_disk_shader_cache,
-                    R.string.use_disk_shader_cache_description,
-                    BooleanSetting.DISK_SHADER_CACHE.key,
-                    BooleanSetting.DISK_SHADER_CACHE.defaultValue
-                )
-            )
-            add(
-                SingleChoiceSetting(
-                    IntSetting.TEXTURE_FILTER,
-                    R.string.texture_filter_name,
-                    R.string.texture_filter_description,
-                    R.array.textureFilterNames,
-                    R.array.textureFilterValues,
-                    IntSetting.TEXTURE_FILTER.key,
-                    IntSetting.TEXTURE_FILTER.defaultValue
-                )
-            )
-
-            // Pomegrade picture options
-            add(HeaderSetting(R.string.three_ds_picture))
-            add(
-                SingleChoiceSetting(
-                    IntSetting.TEXTURE_ANISOTROPY,
-                    R.string.three_ds_texture_filtering,
-                    R.string.three_ds_texture_filtering_description,
-                    R.array.threeDsTextureFilteringNames,
-                    R.array.threeDsTextureFilteringValues,
-                    IntSetting.TEXTURE_ANISOTROPY.key,
-                    IntSetting.TEXTURE_ANISOTROPY.defaultValue
-                )
-            )
-            add(
-                SingleChoiceSetting(
-                    IntSetting.TEXTURE_UPSCALE_FACTOR,
-                    R.string.three_ds_texture_upscaling,
-                    R.string.three_ds_texture_upscaling_description,
-                    R.array.threeDsTextureUpscalingNames,
-                    R.array.threeDsTextureUpscalingValues,
-                    IntSetting.TEXTURE_UPSCALE_FACTOR.key,
-                    IntSetting.TEXTURE_UPSCALE_FACTOR.defaultValue
-                )
-            )
-            add(
-                SwitchSetting(
-                    BooleanSetting.RICH_COLOURS,
-                    R.string.three_ds_rich_colours,
-                    R.string.three_ds_rich_colours_description,
-                    BooleanSetting.RICH_COLOURS.key,
-                    BooleanSetting.RICH_COLOURS.defaultValue
-                )
-            )
-            add(
-                SwitchSetting(
-                    BooleanSetting.DEEP_BLACK,
-                    R.string.three_ds_deep_black,
-                    R.string.three_ds_deep_black_description,
-                    BooleanSetting.DEEP_BLACK.key,
-                    BooleanSetting.DEEP_BLACK.defaultValue
-                )
-            )
-            add(
-                SingleChoiceSetting(
-                    IntSetting.REMASTER_PRESET,
-                    R.string.pomegrade_remaster,
-                    R.string.pomegrade_remaster_description,
-                    R.array.pomegradeRemasterNames,
-                    R.array.pomegradeRemasterValues,
-                    IntSetting.REMASTER_PRESET.key,
-                    IntSetting.REMASTER_PRESET.defaultValue
-                )
-            )
             add(
                 SwitchSetting(
                     BooleanSetting.REMASTER_AO,
@@ -1409,6 +1260,198 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
                     "%",
                     IntSetting.REMASTER_COLOUR_STRENGTH.key,
                     IntSetting.REMASTER_COLOUR_STRENGTH.defaultValue.toFloat()
+                )
+            )
+        }
+    }
+
+    private fun addGraphicsSettings(sl: ArrayList<SettingsItem>) {
+        settingsActivity.setToolbarTitle(settingsActivity.getString(R.string.preferences_graphics))
+        sl.apply {
+            add(HeaderSetting(R.string.citra_renderer))
+            add(
+                SingleChoiceSetting(
+                    IntSetting.GRAPHICS_API,
+                    R.string.graphics_api,
+                    0,
+                    R.array.graphicsApiNames,
+                    R.array.graphicsApiValues,
+                    IntSetting.GRAPHICS_API.key,
+                    IntSetting.GRAPHICS_API.defaultValue,
+                    isEnabled = !GraphicsUtil.isUsingAngleForOpenGL(),
+                    disabledMessage = R.string.setting_disabled_description_angle
+                )
+            )
+            add(
+                SwitchSetting(
+                    BooleanSetting.SPIRV_SHADER_GEN,
+                    R.string.spirv_shader_gen,
+                    R.string.spirv_shader_gen_description,
+                    BooleanSetting.SPIRV_SHADER_GEN.key,
+                    BooleanSetting.SPIRV_SHADER_GEN.defaultValue
+                )
+            )
+            add(
+                SwitchSetting(
+                    BooleanSetting.DISABLE_SPIRV_OPTIMIZER,
+                    R.string.disable_spirv_optimizer,
+                    R.string.disable_spirv_optimizer_description,
+                    BooleanSetting.DISABLE_SPIRV_OPTIMIZER.key,
+                    BooleanSetting.DISABLE_SPIRV_OPTIMIZER.defaultValue
+                )
+            )
+            add(
+                SwitchSetting(
+                    BooleanSetting.ASYNC_SHADERS,
+                    R.string.async_shaders,
+                    R.string.async_shaders_description,
+                    BooleanSetting.ASYNC_SHADERS.key,
+                    BooleanSetting.ASYNC_SHADERS.defaultValue
+                )
+            )
+            add(
+                SingleChoiceSetting(
+                    IntSetting.RESOLUTION_FACTOR,
+                    R.string.citra_internal_resolution,
+                    R.string.internal_resolution_description,
+                    R.array.resolutionFactorNames,
+                    R.array.resolutionFactorValues,
+                    IntSetting.RESOLUTION_FACTOR.key,
+                    IntSetting.RESOLUTION_FACTOR.defaultValue
+                )
+            )
+            add(
+                SwitchSetting(
+                    BooleanSetting.USE_INTEGER_SCALING,
+                    R.string.use_integer_scaling,
+                    R.string.use_integer_scaling_description,
+                    BooleanSetting.USE_INTEGER_SCALING.key,
+                    BooleanSetting.USE_INTEGER_SCALING.defaultValue
+                )
+            )
+            add(
+                SwitchSetting(
+                    BooleanSetting.LINEAR_FILTERING,
+                    R.string.linear_filtering,
+                    R.string.linear_filtering_description,
+                    BooleanSetting.LINEAR_FILTERING.key,
+                    BooleanSetting.LINEAR_FILTERING.defaultValue
+                )
+            )
+            add(
+                SwitchSetting(
+                    BooleanSetting.SHADERS_ACCURATE_MUL,
+                    R.string.shaders_accurate_mul,
+                    R.string.shaders_accurate_mul_description,
+                    BooleanSetting.SHADERS_ACCURATE_MUL.key,
+                    BooleanSetting.SHADERS_ACCURATE_MUL.defaultValue
+                )
+            )
+            add(
+                SwitchSetting(
+                    BooleanSetting.DISK_SHADER_CACHE,
+                    R.string.use_disk_shader_cache,
+                    R.string.use_disk_shader_cache_description,
+                    BooleanSetting.DISK_SHADER_CACHE.key,
+                    BooleanSetting.DISK_SHADER_CACHE.defaultValue
+                )
+            )
+            add(
+                SingleChoiceSetting(
+                    IntSetting.TEXTURE_FILTER,
+                    R.string.texture_filter_name,
+                    R.string.texture_filter_description,
+                    R.array.textureFilterNames,
+                    R.array.textureFilterValues,
+                    IntSetting.TEXTURE_FILTER.key,
+                    IntSetting.TEXTURE_FILTER.defaultValue
+                )
+            )
+
+            // Pomegrade picture options
+            add(HeaderSetting(R.string.three_ds_picture))
+            add(
+                SingleChoiceSetting(
+                    IntSetting.TEXTURE_ANISOTROPY,
+                    R.string.three_ds_texture_filtering,
+                    R.string.three_ds_texture_filtering_description,
+                    R.array.threeDsTextureFilteringNames,
+                    R.array.threeDsTextureFilteringValues,
+                    IntSetting.TEXTURE_ANISOTROPY.key,
+                    IntSetting.TEXTURE_ANISOTROPY.defaultValue
+                )
+            )
+            add(
+                SingleChoiceSetting(
+                    IntSetting.TEXTURE_UPSCALE_FACTOR,
+                    R.string.three_ds_texture_upscaling,
+                    R.string.three_ds_texture_upscaling_description,
+                    R.array.threeDsTextureUpscalingNames,
+                    R.array.threeDsTextureUpscalingValues,
+                    IntSetting.TEXTURE_UPSCALE_FACTOR.key,
+                    IntSetting.TEXTURE_UPSCALE_FACTOR.defaultValue
+                )
+            )
+            add(
+                SwitchSetting(
+                    BooleanSetting.RICH_COLOURS,
+                    R.string.three_ds_rich_colours,
+                    R.string.three_ds_rich_colours_description,
+                    BooleanSetting.RICH_COLOURS.key,
+                    BooleanSetting.RICH_COLOURS.defaultValue
+                )
+            )
+            add(
+                SwitchSetting(
+                    BooleanSetting.DEEP_BLACK,
+                    R.string.three_ds_deep_black,
+                    R.string.three_ds_deep_black_description,
+                    BooleanSetting.DEEP_BLACK.key,
+                    BooleanSetting.DEEP_BLACK.defaultValue
+                )
+            )
+            add(
+                SingleChoiceSetting(
+                    IntSetting.REMASTER_PRESET,
+                    R.string.pomegrade_remaster,
+                    R.string.pomegrade_remaster_description,
+                    R.array.pomegradeRemasterNames,
+                    R.array.pomegradeRemasterValues,
+                    IntSetting.REMASTER_PRESET.key,
+                    IntSetting.REMASTER_PRESET.defaultValue
+                )
+            )
+            // Pomegrade: the Remaster's quality on one slider (RemasterQuality), its options on their own page
+            val remasterQuality = object : AbstractIntSetting {
+                override var int: Int
+                    get() = RemasterQuality.current()
+                    set(value) {
+                        RemasterQuality.apply(value).forEach { putSetting(it) }
+                    }
+                override val key: String? = null
+                override val section: String? = null
+                override val isRuntimeEditable: Boolean = true
+                override val valueAsString: String get() = int.toString()
+                override val defaultValue: Any = 50
+            }
+            add(
+                SliderSetting(
+                    remasterQuality,
+                    R.string.pomegrade_remaster_quality,
+                    R.string.pomegrade_remaster_quality_description,
+                    0,
+                    100,
+                    "%",
+                    null,
+                    50f
+                )
+            )
+            add(
+                SubmenuSetting(
+                    R.string.pomegrade_remaster_options,
+                    R.string.pomegrade_remaster_options_description,
+                    R.drawable.ic_graphics,
+                    Settings.SECTION_REMASTER
                 )
             )
             add(

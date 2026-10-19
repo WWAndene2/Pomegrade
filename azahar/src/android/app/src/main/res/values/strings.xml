@@ -1143,7 +1143,11 @@
     <string name="three_ds_texture_upscaling">Texture upscaling</string>
     <string name="three_ds_texture_upscaling_description">Enlarges the games\' textures with the Texture Filter algorithm (xBRZ when it is None), even at 1x internal resolution. Each texture stops at 4096×4096 to spare memory.</string>
     <string name="pomegrade_remaster">Remaster</string>
-    <string name="pomegrade_remaster_description">A modern light over the top screen, path-traced live, the games\' own look kept (OpenGL). V1: the full remaster. Custom: V1 with the switches below</string>
+    <string name="pomegrade_remaster_description">A modern light over the top screen, path-traced live, the games\' own look kept (OpenGL). V1: the full remaster. Custom: V1 with the Remaster options page's switches</string>
+    <string name="pomegrade_remaster_quality">Remaster quality</string>
+    <string name="pomegrade_remaster_quality_description">Every option that costs speed or makes the light noisy, on one slider: 0 % off, 50 % the defaults, 100 % the best (Ultra included). Exposure, contrast, colour and the light\'s strength stay as set</string>
+    <string name="pomegrade_remaster_options">Remaster options</string>
+    <string name="pomegrade_remaster_options_description">Each of the Remaster\'s options, one by one</string>
     <string name="pomegrade_remaster_off">Off</string>
     <string name="pomegrade_remaster_v1">V1</string>
     <string name="pomegrade_remaster_custom">Custom</string>

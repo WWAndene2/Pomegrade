@@ -1092,7 +1092,11 @@
     <string name="pomegrade_remaster_contrast">Remaster : contraste adaptatif</string>
     <string name="pomegrade_remaster_contrast_description">Une courbe en S douce, plus ou moins forte selon le contraste qu\'a déjà la scène (préréglage personnalisé)</string>
     <string name="pomegrade_remaster_custom">Personnalisé</string>
-    <string name="pomegrade_remaster_description">Une lumière moderne sur l\'écran du haut, en path tracing en direct, l\'aspect des jeux gardé (OpenGL). V1 : le remaster complet. Personnalisé : V1 avec les interrupteurs ci-dessous</string>
+    <string name="pomegrade_remaster_description">Une lumière moderne sur l\'écran du haut, en path tracing en direct, l\'aspect des jeux gardé (OpenGL). V1 : le remaster complet. Personnalisé : V1 avec les interrupteurs de la page Options du Remaster</string>
+    <string name="pomegrade_remaster_quality">Qualité du Remaster</string>
+    <string name="pomegrade_remaster_quality_description">Toutes les options qui coûtent en vitesse ou rendent la lumière bruitée, sur un seul curseur : 0 % désactivé, 50 % les valeurs par défaut, 100 % le meilleur (Ultra compris). L\'exposition, le contraste, la couleur et la force de la lumière restent comme réglés</string>
+    <string name="pomegrade_remaster_options">Options du Remaster</string>
+    <string name="pomegrade_remaster_options_description">Chacune des options du Remaster, une par une</string>
     <string name="pomegrade_remaster_far_blur">Remaster : flou lointain</string>
     <string name="pomegrade_remaster_far_blur_description">Le décor le plus lointain s\'adoucit légèrement (préréglage personnalisé)</string>
     <string name="pomegrade_remaster_ultra">Remaster : ray tracing Ultra</string>
