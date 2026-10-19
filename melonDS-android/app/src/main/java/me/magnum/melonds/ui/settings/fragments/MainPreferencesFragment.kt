@@ -2,6 +2,7 @@ package me.magnum.melonds.ui.settings.fragments
 
 import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -31,6 +32,8 @@ import org.citra.citra_emu.activities.EmulationActivity
 import org.citra.citra_emu.utils.PermissionsHandler
 import java.io.IOException
 import java.io.InputStream
+import java.text.DateFormat
+import java.util.Date
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -291,25 +294,44 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
     // the 3DS core's folder as a path (Pomegrade/3DS, or where it was set up before), or null
     private fun threeDsFolder() = PomegradeFolder.documentIdOf(requireContext(), PermissionsHandler.citraDirectory)?.let { PomegradeFolder.pathOf(it) }
 
-    // what the zip holds is shown first: the games it mods, and whether it replaces a save
+    // what the zip holds is shown first: each game it mods, recognised against the mods installed (new, the same zip
+    // again, or an update of another mod, and the copies of a mod found for it), and whether it replaces a save
     private fun readMod(zip: Uri) {
         val resolver = requireContext().contentResolver
         val open = { resolver.openInputStream(zip) ?: throw IOException("can't open $zip") }
+        val name = runCatching {
+            resolver.query(zip, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null }
+        }.getOrNull()?.removeSuffix(".zip") ?: ""
+        val folder = threeDsFolder()
         val progress = progressDialog(R.string.three_ds_mod_reading)
         viewLifecycleOwner.lifecycleScope.launch {
-            val contents = withContext(Dispatchers.IO) { runCatching { ModInstaller().inspect(open) }.getOrNull() }
+            val read = withContext(Dispatchers.IO) {
+                runCatching {
+                    val contents = ModInstaller().inspect(open)
+                    contents to (folder?.let { ModInstaller().recognise(contents, it) } ?: emptyList())
+                }.getOrNull()
+            }
             progress.dismiss()
+            val contents = read?.first
             when {
                 contents == null -> toast(R.string.three_ds_mod_failed)
                 !contents.isMod -> toast(R.string.three_ds_mod_not_a_mod)
                 else -> {
-                    val games = contents.programIds.sorted().joinToString().ifEmpty { getString(R.string.three_ds_mod_none) }
+                    val dates = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+                    val games = read.second.joinToString("\n") { r ->
+                        val line = when {
+                            r.previous == null -> getString(R.string.three_ds_mod_new, r.programId)
+                            r.sameZip -> getString(R.string.three_ds_mod_same, r.programId, r.previous.name, dates.format(Date(r.previous.installedAt)))
+                            else -> getString(R.string.three_ds_mod_update, r.programId, r.previous.name, dates.format(Date(r.previous.installedAt)))
+                        }
+                        if (r.copies.isEmpty()) line else line + getString(R.string.three_ds_mod_copies, r.copies.joinToString())
+                    }.ifEmpty { getString(R.string.three_ds_mod_none) }
                     var message = getString(R.string.three_ds_mod_confirm, games)
                     if (contents.saveFiles > 0) message += getString(R.string.three_ds_mod_confirm_save, contents.saveFiles)
                     AlertDialog.Builder(requireContext())
                         .setTitle(R.string.three_ds_mod_confirm_title)
                         .setMessage(message)
-                        .setPositiveButton(R.string.three_ds_mod_install_action) { _, _ -> installMod(open) }
+                        .setPositiveButton(R.string.three_ds_mod_install_action) { _, _ -> installMod(open, name) }
                         .setNegativeButton(R.string.cancel, null)
                         .show()
                 }
@@ -317,7 +339,7 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
         }
     }
 
-    private fun installMod(open: () -> InputStream) {
+    private fun installMod(open: () -> InputStream, name: String) {
         val folder = threeDsFolder()
         if (folder == null) {
             toast(R.string.three_ds_mod_failed)
@@ -326,11 +348,15 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
         val progress = progressDialog(R.string.three_ds_mod_installing)
         viewLifecycleOwner.lifecycleScope.launch {
             // a zip the picker's app no longer gives (SecurityException) is a failure, not a crash
-            val result = withContext(Dispatchers.IO) { runCatching { ModInstaller().install(open, folder) }.getOrElse { ModInstaller.Result.Failed } }
+            val result = withContext(Dispatchers.IO) { runCatching { ModInstaller().install(open, folder, name) }.getOrElse { ModInstaller.Result.Failed } }
             progress.dismiss()
             when (result) {
-                is ModInstaller.Result.Installed ->
+                is ModInstaller.Result.Installed -> {
+                    // the 3DS core picks its mods folder when it starts: it reads its folders again (now, or before the
+                    // next game when one runs), so the mod just installed is the one it loads, not a copy elsewhere
+                    PomegradeFolder.onUserFolderChanged(requireContext().applicationContext)
                     Toast.makeText(requireContext(), getString(R.string.three_ds_mod_installed, result.files), Toast.LENGTH_LONG).show()
+                }
                 ModInstaller.Result.NotAMod -> toast(R.string.three_ds_mod_not_a_mod)
                 ModInstaller.Result.Failed -> toast(R.string.three_ds_mod_failed)
             }
