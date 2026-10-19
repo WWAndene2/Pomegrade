@@ -17,6 +17,7 @@
 //   did not move the player on the phone.
 
 #include "Bytes.h"
+#include "OrasZone.h"
 
 #include <vector>
 
@@ -48,6 +49,13 @@ struct OrasSave
     // others zero; the blocks after it moved to their new offsets, the footer to the file's new end, the table and checksums
     // rewritten: the layout oras-engine --characters (records - 1) gives the game. 32 records is the game's own layout
     void ResizeMoveModels(size_t records);
+    // block 10 given a record for each of the zone's characters, in the records MoveTo emptied (after MoveTo into `zone`): on
+    // Continue the game rebuilds a zone's people from these records, not from the zone file (owner's phone, 19 October: a save
+    // moved into Vaniville showed nobody until a zone change; one the game made there showed them). The layout below is seen
+    // in a save the game made in Vaniville (memory after an in-game save, run hSave2: its 7 people, all standing or walking
+    // in place, and the player's), not read in code. Vanish flags are not checked: a character whose flag the save has set
+    // is placed all the same. Throws FormatError when the block has too few free records
+    void PlaceCharacters(int zone, const std::vector<ZoneCharacter>& characters);
     // the block table's offset in the file: the footer is its last 0x200 bytes, the table at its +0x14
     size_t TableAt() const { return Data.size() - 0x200 + 0x14; }
 };

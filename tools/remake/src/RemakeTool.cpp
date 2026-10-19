@@ -69,6 +69,8 @@
 //   remake_tool oras-save <main> [<out> [<zone> <tile x> <tile z>] [--template <save> [--blocks A,B,...]] [--save-records N]]
 //                     where an ORAS save puts the player (OrasSave.h); with the rest, a copy with the player moved there;
 //                     --save-records N: the copy in the layout of oras-engine --characters N - 1 (block 10 of N records)
+//                     --characters-from <oras.3ds> [<mod dir>]: the destination zone's people written into the save (Continue
+//                     restores a zone's people from the save, not from the zone: OrasSave::PlaceCharacters)
 //   remake_tool oras-sinnoh <platinum.nds> <oras.3ds> [strip width, default 5]
 //                     the plan for all of Sinnoh, nothing written: strips of whole piece columns (one matrix each), their
 //                     oras-region rectangles and map headers, the edge warps between strips, the ORAS zones needed and available
@@ -171,7 +173,7 @@ static int Usage()
                     "  remake_tool oras-sinnoh <platinum.nds> <oras.3ds> [strip width]\n"
                     "  remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt> [--character-models N] [--characters N] [--events large] [--xy <x.3ds>]\n"
                     "  remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>\n"
-                    "  remake_tool oras-save <main> [<out> [<zone> <tile x> <tile z>] [--template <save> [--blocks A,B,...]] [--save-records N]]\n"
+                    "  remake_tool oras-save <main> [<out> [<zone> <tile x> <tile z>] [--template <save> [--blocks A,B,...]] [--save-records N] [--characters-from <oras.3ds> [<mod dir>]]]\n"
                     "                    [--matrix-template M] [--model-matrix NN] [oras-town's --matrix, --target, --donor, --trees, --donor-pack, --grass, ... --allow-errors]\n");
     return 2;
 }
@@ -1485,6 +1487,29 @@ int main(int argc, char** argv)
                     printf("block 10 holds %zu records (0x%zX bytes), the file 0x%zX bytes\n", *records, OrasMoveModelBytes(*records), save.Data.size());
                 }
                 if (move) save.MoveTo(atoi(argv[4]), (float)atof(argv[5]), (float)atof(argv[6]));
+                // --characters-from <oras.3ds> [<mod dir>]: the destination zone's people written into the moved save
+                // (OrasSave::PlaceCharacters), read from the game's a/0/1/3, with the mod's patch of it applied when given
+                for (int i = 4; move && i + 1 < argc; i++)
+                    if (std::string(argv[i]) == "--characters-from")
+                    {
+                        N3dsRom game(argv[i + 1]);
+                        Bytes zones = game.Read("a/0/1/3");
+                        if (i + 2 < argc && argv[i + 2][0] != '-')
+                        {
+                            std::string patch;
+                            if (std::filesystem::exists(std::filesystem::path(argv[i + 2]) / "load" / "mods"))
+                                for (const auto& p : std::filesystem::directory_iterator(std::filesystem::path(argv[i + 2]) / "load" / "mods"))
+                                    if (std::filesystem::exists(p.path() / "romfs_ext/a/0/1/3.bps")) patch = (p.path() / "romfs_ext/a/0/1/3.bps").string();
+                            if (patch.empty()) throw FormatError(std::string(argv[i + 2]) + " has no load/mods/<program>/romfs_ext/a/0/1/3.bps");
+                            zones = BpsApply(zones, ReadFile(patch));
+                        }
+                        const int zone = atoi(argv[4]);
+                        const Garc archive(zones);
+                        if (zone < 0 || (size_t)zone >= archive.Count()) throw FormatError("--characters-from: no zone " + std::to_string(zone));
+                        const OrasZone z = OrasZone::Read(Plain(archive.Sub((size_t)zone)));
+                        save.PlaceCharacters(zone, z.Characters);
+                        printf("zone %d's %zu character(s) written into block 10\n", zone, z.Characters.size());
+                    }
                 const OrasSave check = OrasSave::Read(save.Data);
                 WriteFile(argv[3], save.Data);
                 printf("written %s: zone %d at tile (%.2f, %.2f)\n", argv[3], check.Zone(), check.X() / 18, check.Z() / 18);

@@ -144,4 +144,50 @@ void OrasSave::MoveTo(int zone, float tileX, float tileZ)
     WriteChecksums();
 }
 
+// A MoveModelSave record, as the game wrote Vaniville's (run hSave2; "seen" where a field matched in all 7, "?" not
+// understood, written as the game had it):
+//   u16 +0 3, +2 0x801 (the player's: 0x443, 1); u16 +4 the zone record's word 0 (number), +6 the zone, +8..+0x13 its
+//   words 1-6 (model, movement, kind, vanish flag, script, facing); f32 +0x14 and +0x20 the facing as a direction (x, 0, z;
+//   (0, 0, 1) facing 1, (0.7071, 0, -0.7071) facing 5, (-0.7071, 0, -0.7071) facing 4: the eight are taken as 0 north,
+//   1 south, 2 west, 3 east, 4-7 north-west, north-east, south-west, south-east, of which 1, 4, 5 seen); +0x2C-0x33 0 (?, the
+//   zone record's words 7-9 were 0 too); s16 +0x34-0x3B the zone record's words 10-13 (seen: -1 where X had -1, the
+//   ranges); f32 +0x40 the position in tiles (x, the height in pixels / 18, z), again at +0x6C; +0x4C and +0x78 a word the
+//   game left (an address in its heap, 0 in the player's: 0 here); +0x54 and +0x80 the floats 0 1 0 1 0; +0x94 0x20, +0x98
+//   01 00 01 00 ff ff ff 00 ff ff ff ff (?, the same in all). The walking ones also held a timer (+0x68) and a step state
+//   (+0xE8, 3 bytes), not written: they start standing
+void OrasSave::PlaceCharacters(int zone, const std::vector<ZoneCharacter>& characters)
+{
+    const OrasSaveBlock* block = nullptr;
+    for (const OrasSaveBlock& b : Blocks) if (b.Id == MoveModels) block = &b;
+    if (!block) throw FormatError("the save has no block 10");
+    std::vector<size_t> free;
+    for (size_t at = block->Offset; at + OrasMoveModelRecord <= block->Offset + block->Length; at += OrasMoveModelRecord)
+        if (std::all_of(&Data[at], &Data[at + OrasMoveModelRecord], [](uint8_t b) { return b == 0; })) free.push_back(at);
+    if (free.size() < characters.size())
+        throw FormatError("save block 10 has " + std::to_string(free.size()) + " free records for " + std::to_string(characters.size()) + " characters");
+    const auto put16 = [&](size_t at, uint16_t v) { Data[at] = (uint8_t)v; Data[at + 1] = (uint8_t)(v >> 8); };
+    const auto putf = [&](size_t at, float v) { std::memcpy(&Data[at], &v, 4); };
+    for (size_t i = 0; i < characters.size(); i++)
+    {
+        const ZoneCharacter& c = characters[i];
+        const size_t at = free[i];
+        put16(at, 3); put16(at + 2, 0x801); put16(at + 4, c.Raw[0]); put16(at + 6, (uint16_t)zone);
+        for (size_t w = 1; w <= 6; w++) put16(at + 6 + 2 * w, c.Raw[w]);
+        // 0x3F3504F7, the game's (0.70710677f is one bit lower)
+        static const float h = [] { const uint32_t bits = 0x3F3504F7; float f; std::memcpy(&f, &bits, 4); return f; }();
+        static const float direction[8][2] = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}, {-h, -h}, {h, -h}, {-h, h}, {h, h}};
+        const float* d = direction[c.Raw[6] & 7];
+        for (size_t v : {(size_t)0x14, (size_t)0x20}) { putf(at + v, d[0]); putf(at + v + 8, d[1]); }
+        for (size_t w = 10; w <= 13; w++) put16(at + 0x34 + 2 * (w - 10), c.Raw[w]);
+        float height;
+        std::memcpy(&height, &c.Raw[22], 4);
+        for (size_t p : {(size_t)0x40, (size_t)0x6C}) { putf(at + p, (float)c.TileX()); putf(at + p + 4, height / 18); putf(at + p + 8, (float)c.TileZ()); }
+        for (size_t p : {(size_t)0x54, (size_t)0x80}) { putf(at + p + 4, 1); putf(at + p + 12, 1); }
+        Data[at + 0x94] = 0x20;
+        static const uint8_t tail[12] = {0x00, 0x01, 0x01, 0x00, 0xFF, 0xFF, 0xFF, 0x00, 0xFF, 0xFF, 0xFF, 0xFF};
+        std::memcpy(&Data[at + 0x98], tail, sizeof tail);
+    }
+    WriteChecksums();
+}
+
 }
