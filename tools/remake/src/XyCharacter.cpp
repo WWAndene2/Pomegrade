@@ -40,4 +40,23 @@ Bytes XyCharacterToOras(const Bytes& member, std::vector<std::string>& report)
     return pack.Write();
 }
 
+std::map<int, int> XyModelMembers(const Bytes& dllField)
+{
+    for (size_t at = 0; at + 16 <= dllField.size(); at += 4)
+    {
+        if (U32(dllField, at) != 0 || U32(dllField, at + 4) != 0 || U32(dllField, at + 8) != 1 || U32(dllField, at + 12) != 1) continue;
+        std::map<int, int> members;
+        size_t i = 0;
+        for (; at + 8 * i + 8 <= dllField.size() && U32(dllField, at + 8 * i + 4) == i; i++)
+        {
+            const uint32_t number = U32(dllField, at + 8 * i);
+            if (number >= 0x3000 || (i > 0 && number == 0)) break;
+            members[(int)number] = (int)i;
+        }
+        if (members.count(0x2000) && members.count(0x1000)) return members;
+    }
+    throw FormatError("X/Y's DllField.cro has no table of model numbers");
 }
+
+}
+

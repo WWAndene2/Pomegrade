@@ -479,8 +479,8 @@ static XyInside XyInsideToOras(OrasWorkspace& ws, int xZone, const std::vector<i
 }
 
 // An X/Y zone's people, objects, triggers, text and scripts made Omega Ruby's (xy-events, and the insides of door ... xy):
-// characters' plain models (under 0x1000) converted (XyCharacter.h) and appended to a/0/2/1 once each (modelOf), characters
-// of class models (0x1000+, 0x2000+: the two games' numbering, not compared) left out; flags (characters' word 4) and works (triggers'
+// characters' models (X/Y's a/0/2/1 member of their number, XyModelMembers: class models 0x1000 and up through X/Y's table)
+// converted (XyCharacter.h) and appended to a/0/2/1 once each (modelOf, by X/Y member); flags (characters' word 4) and works (triggers'
 // word 2) moved by `numbers`; tiles shifted by (dx, dz) from X/Y's matrix to the new one; the text, X/Y's a/0/8/0-7 member
 // of the zone's header word 3, added as it is in each language; the scripts read from <scriptDir>/x<zone>.amx and
 // x<zone>.init.amx when there, else translated (XyScriptToOras, XyScriptSource), and assembled against the native mask they
@@ -511,16 +511,18 @@ static XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, con
     }
     for (ZoneCharacter c : x.Characters)
     {
-        const int model = c.Raw[1];
-        // X/Y's class models (0x1000+, 0x2000+: the rivals and the player's mother in zone 2) are numbered by X/Y's own tables;
-        // kept as they were, the game stopped entering the zone (run hDoorA, 19 October). Left out until mapped
-        if (model >= 0x1000)
+        // X/Y's model number -> its a/0/2/1 member (XyModelMembers: the class models 0x1000 and up, the rivals and the player's
+        // mother in zone 2, through X/Y's table; kept as they were, the game stopped entering the zone, run hDoorA, 19 October)
+        static std::map<int, int> xyMembers; // one X/Y game per run of the tool
+        if (xyMembers.empty()) xyMembers = XyModelMembers(xRom.Read("DllField.cro"));
+        const auto numbered = xyMembers.find(c.Raw[1]);
+        if (c.Raw[1] >= 0x1000 && numbered == xyMembers.end())
         {
-            char m[128];
-            snprintf(m, sizeof m, "X/Y zone %d: its character %d left out (class model 0x%X, not mapped to Omega Ruby's)", xZone, (int)c.Raw[0], model);
-            log.push_back(m);
-            continue;
+            char m[96];
+            snprintf(m, sizeof m, "X/Y zone %d: model 0x%X is in none of X/Y's model numbers", xZone, (int)c.Raw[1]);
+            throw FormatError(m);
         }
+        const int model = numbered == xyMembers.end() ? c.Raw[1] : numbered->second;
         if (!modelOf.count(model))
         {
             const Garc xCharacters(xRom.Read("a/0/2/1"));
