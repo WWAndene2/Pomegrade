@@ -1,0 +1,479 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#15161a;color:#ddd;font:13px sans-serif}</style></head>
+<body><canvas id="out"></canvas>
+<script type="importmap">{"imports":{
+ "three":"./node_modules/three/build/three.module.js",
+ "three/addons/":"./node_modules/three/examples/jsm/",
+ "three-mesh-bvh":"./node_modules/three-mesh-bvh/src/index.js"}}</script>
+<script type="module">
+// Probe-based light for the Remaster, measured against a path-traced reference (ORAS_RENDER.md, "Probe light"):
+// global illumination on Littleroot's map piece (a/0/3/9 member 6, pack 8), traced on the CPU (three-mesh-bvh):
+// sun (one shadow ray), sky and one bounce of sun light. Three ways to get the indirect light:
+//   reference: many cosine rays per pixel; noisy: 1 ray per pixel (what a fast tracer gets in one frame);
+//   probes: a world-space grid of light probes (DDGI-like, L1 spherical harmonics), each traced once, read by every pixel
+// Units: the piece's (a tile 18). Albedo: the texture alone (the game's vertex colours hold painted light).
+// The model: remake_tool bch <a/0/3/9 member 6> littleroot.gltf <a/0/1/4 member 8> (?model= for another). Run with
+// shoot_gi.mjs; the query picks the reference (spp), the probe setup and a sweep (configs, see the sweep below)
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshBVH } from 'three-mesh-bvh';
+
+const q = new URLSearchParams(location.search);
+const W = +(q.get('w') || 480), H = +(q.get('h') || 300), REF_SPP = +(q.get('spp') || 48);
+let PROBE_STEP = +(q.get('step') || 36), PROBE_RAYS = +(q.get('rays') || 256), VIS = q.get('vis') || 'rays', USED = q.get('used') === '1';
+let SH_BANDS = 2, CLUSTERS = 32, RELOCATE = 0, SONAR_VIS = 0, POLY = 0, OPEN = 0;
+let openCount = 0; // L1 (4 coefficients) or L2 (9) spherical harmonics; the sonar's clusters per side
+// configurations to compare against one reference: step:rays:bands:clusters, comma separated
+const CONFIGS = (q.get('configs') || '').split(',').filter(Boolean).map(c => c.split(':').map(Number));
+// real spherical harmonics up to band 2
+const shY = d => [0.282095, 0.488603 * d.y, 0.488603 * d.z, 0.488603 * d.x, 1.092548 * d.x * d.y, 1.092548 * d.y * d.z, 0.315392 * (3 * d.z * d.z - 1), 1.092548 * d.x * d.z, 0.546274 * (d.x * d.x - d.y * d.y)];
+const shA = [1, 2 / 3, 2 / 3, 2 / 3, 1 / 4, 1 / 4, 1 / 4, 1 / 4, 1 / 4]; // the cosine lobe's convolution, divided by pi
+// a probe's depth map: its rays' distances by direction, 8 x 8 octahedral bins (DDGI)
+const OCT = 8;
+function octBin(d) {
+  const l = Math.abs(d.x) + Math.abs(d.y) + Math.abs(d.z); let x = d.x / l, z = d.z / l;
+  if (d.y < 0) { const ox = x; x = (1 - Math.abs(z)) * Math.sign(ox || 1); z = (1 - Math.abs(ox)) * Math.sign(z || 1); }
+  const i = Math.min(OCT - 1, Math.floor((x * 0.5 + 0.5) * OCT)), j = Math.min(OCT - 1, Math.floor((z * 0.5 + 0.5) * OCT));
+  return j * OCT + i;
+}
+const log = (...a) => console.log(...a);
+
+const lin = c => Math.pow(c / 255, 2.2);
+const sun = new THREE.Vector3(-0.55, 0.72, 0.42).normalize(); // from the south-west, ~46 degrees up
+const SUN = [3.0, 2.85, 2.55];
+const skyAt = d => { const t = Math.max(0, d.y); return [0.75 - 0.35 * t, 0.85 - 0.25 * t, 0.95 - 0.05 * t]; };
+let rays = 0;
+
+// a seeded random, so runs repeat
+let seed = 1234567;
+const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+function cosineDir(n, r1, r2, out) {
+  const phi = 2 * Math.PI * r1, s = Math.sqrt(r2);
+  const a = Math.abs(n.x) < 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+  const t = new THREE.Vector3().crossVectors(a, n).normalize(), b = new THREE.Vector3().crossVectors(n, t);
+  return out.copy(t).multiplyScalar(Math.cos(phi) * s).addScaledVector(b, Math.sin(phi) * s).addScaledVector(n, Math.sqrt(1 - r2)).normalize();
+}
+
+new GLTFLoader().load(q.get('model') || 'littleroot.gltf', async gltf => {
+  // every opaque or cut-out mesh into one geometry; the blended ones (painted shadows, edges, blades) left out
+  const pos = [], uv = [], triMat = [], mats = [];
+  gltf.scene.updateMatrixWorld(true);
+  gltf.scene.traverse(o => {
+    if (!o.isMesh || o.material.transparent) return;
+    const g = o.geometry.toNonIndexed(); g.applyMatrix4(o.matrixWorld);
+    const p = g.attributes.position, t = g.attributes.uv;
+    const mi = mats.length; mats.push(o.material);
+    for (let i = 0; i < p.count; i++) { pos.push(p.getX(i), p.getY(i), p.getZ(i)); uv.push(t.getX(i), t.getY(i)); if (i % 3 === 0) triMat.push(mi); }
+  });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  const bvh = new MeshBVH(geo, { maxLeafTris: 4 });
+  geo.boundsTree = bvh;
+  const index = geo.index ? geo.index.array : null; // MeshBVH reorders an index it makes
+  // textures as pixels
+  const tex = await Promise.all(mats.map(async m => {
+    const img = m.map.image, c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+    const g = c.getContext('2d'); g.drawImage(img, 0, 0); return { w: img.width, h: img.height, d: g.getImageData(0, 0, img.width, img.height).data, cut: m.alphaTest > 0 };
+  }));
+  const tri = new THREE.Triangle(), bary = new THREE.Vector3();
+  const vA = new THREE.Vector3(), vB = new THREE.Vector3(), vC = new THREE.Vector3();
+  function hitInfo(h) {
+    const f = h.faceIndex, i0 = index ? index[3 * f] : 3 * f, i1 = index ? index[3 * f + 1] : 3 * f + 1, i2 = index ? index[3 * f + 2] : 3 * f + 2;
+    vA.fromArray(pos, 3 * i0); vB.fromArray(pos, 3 * i1); vC.fromArray(pos, 3 * i2);
+    tri.set(vA, vB, vC); tri.getBarycoord(h.point, bary);
+    const u = uv[2 * i0] * bary.x + uv[2 * i1] * bary.y + uv[2 * i2] * bary.z, v = uv[2 * i0 + 1] * bary.x + uv[2 * i1 + 1] * bary.y + uv[2 * i2 + 1] * bary.z;
+    const t = tex[triMat[Math.floor(i0 / 3)]];
+    const x = ((Math.floor(u * t.w) % t.w) + t.w) % t.w, y = ((Math.floor(v * t.h) % t.h) + t.h) % t.h, o = 4 * (y * t.w + x);
+    const n = new THREE.Vector3(); tri.getNormal(n);
+    return { albedo: [lin(t.d[o]), lin(t.d[o + 1]), lin(t.d[o + 2])], alpha: t.cut ? t.d[o + 3] / 255 : 1, n };
+  }
+  const ray = new THREE.Ray();
+  // nearest surface along a ray, cut-out texels (leaves' holes) passed through
+  function trace(o, d, far = 1e9) {
+    ray.origin.copy(o); ray.direction.copy(d);
+    for (let k = 0; k < 4; k++) {
+      rays++;
+      const h = bvh.raycastFirst(ray, THREE.DoubleSide);
+      if (!h || h.distance > far) return null;
+      const info = hitInfo(h);
+      if (info.alpha >= 0.5) { if (info.n.dot(d) > 0) info.n.negate(), info.back = true; info.point = h.point.clone(); info.distance = h.distance; return info; }
+      ray.origin.copy(h.point).addScaledVector(d, 0.05);
+    }
+    return null;
+  }
+  const lit = (p, n) => { // the sun at a point: cosine times one shadow ray
+    const c = n.dot(sun); if (c <= 0) return 0;
+    return trace(p.clone().addScaledVector(n, 0.3), sun) ? 0 : c;
+  };
+  // the light arriving along a ray: the sky, or a surface lit by the sun (one bounce) and a share of the sky
+  function radiance(p, d) {
+    const h = trace(p, d);
+    if (!h) return skyAt(d);
+    if (h.back) return [0, 0, 0];
+    const s = lit(h.point, h.n), a = h.albedo;
+    return [a[0] * (SUN[0] * s + 0.25), a[1] * (SUN[1] * s + 0.27), a[2] * (SUN[2] * s + 0.3)];
+  }
+
+  // the G-buffer: primary rays from the camera of the earlier renders
+  const camera = new THREE.PerspectiveCamera(34, W / H, 1, 5000);
+  camera.position.set(0, 330, 300); camera.lookAt(10, 0, -40); camera.updateMatrixWorld();
+  const G = new Array(W * H);
+  const dir = new THREE.Vector3();
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    dir.set((x + 0.5) / W * 2 - 1, 1 - (y + 0.5) / H * 2, 0.5).unproject(camera).sub(camera.position).normalize();
+    G[y * W + x] = trace(camera.position, dir.clone());
+  }
+  const primary = rays;
+  // direct light per pixel: one shadow ray each (all methods)
+  rays = 0;
+  const direct = G.map(g => g && !g.back ? lit(g.point, g.n) : 0);
+  const directRays = rays;
+
+  // indirect by many rays (reference) or few (noisy)
+  function perPixel(spp) {
+    rays = 0; const t0 = performance.now(), out = new Array(W * H), d = new THREE.Vector3();
+    for (let i = 0; i < W * H; i++) {
+      const g = G[i]; if (!g || g.back) { out[i] = null; continue; }
+      const o = g.point.clone().addScaledVector(g.n, 0.3), e = [0, 0, 0];
+      for (let s = 0; s < spp; s++) { const L = radiance(o, cosineDir(g.n, rnd(), rnd(), d)); e[0] += L[0]; e[1] += L[1]; e[2] += L[2]; }
+      out[i] = [e[0] / spp, e[1] / spp, e[2] / spp];
+    }
+    return { out, rays, ms: performance.now() - t0 };
+  }
+
+  // probes: a grid over the area the camera sees, each with L1 spherical harmonics of the light around it
+  function probes(skyOnly = false) {
+    rays = 0; const t0 = performance.now();
+    const lo = new THREE.Vector3(1e9, 1e9, 1e9), hi = new THREE.Vector3(-1e9, -1e9, -1e9);
+    for (const g of G) if (g && !g.back) { lo.min(g.point); hi.max(g.point); }
+    lo.subScalar(PROBE_STEP); hi.addScalar(PROBE_STEP); lo.y = Math.max(lo.y, -10);
+    const nx = Math.ceil((hi.x - lo.x) / PROBE_STEP) + 1, nz = Math.ceil((hi.z - lo.z) / PROBE_STEP) + 1;
+    const STEP_Y = PROBE_STEP / 2, ny = Math.min(8, Math.ceil((hi.y - lo.y) / STEP_Y) + 1);
+    const grid = [], d = new THREE.Vector3();
+    // the probes a visible pixel reads (its cell's 8 corners): with USED, only those are traced
+    const used = new Set();
+    for (const g of G) {
+      if (!g || g.back) continue;
+      const sp = g.point.clone().addScaledVector(g.n, 3);
+      const ix = Math.max(0, Math.min(nx - 2, Math.floor((sp.x - lo.x) / PROBE_STEP))), iy = Math.max(0, Math.min(ny - 2, Math.floor((sp.y - lo.y - 4) / STEP_Y))), iz = Math.max(0, Math.min(nz - 2, Math.floor((sp.z - lo.z) / PROBE_STEP)));
+      for (let c = 0; c < 8; c++) used.add(((iy + ((c >> 1) & 1)) * nz + (iz + ((c >> 2) & 1))) * nx + (ix + (c & 1)));
+    }
+    // a fixed spread of directions (Fibonacci sphere), the same for every probe
+    const dirs = [];
+    for (let i = 0; i < PROBE_RAYS; i++) { const z = 1 - 2 * (i + 0.5) / PROBE_RAYS, r = Math.sqrt(1 - z * z), a = i * 2.39996323; dirs.push(new THREE.Vector3(r * Math.cos(a), z, r * Math.sin(a))); }
+    for (let k = 0; k < ny; k++) for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+      const p = new THREE.Vector3(lo.x + i * PROBE_STEP, lo.y + 4 + k * STEP_Y, lo.z + j * PROBE_STEP);
+      if (USED && !used.has(grid.length)) { grid.push(null); continue; }
+      // relocation (DDGI): 16 rays first; a probe inside geometry (a quarter of them on backs) is moved just past the
+      // nearest back it saw, one too close to a surface (under a fifth of the spacing) is moved away from it, by at most
+      // half the spacing
+      if (RELOCATE) for (let pass = 0; pass < 2; pass++) {
+        let nearBack = null, nearFront = null, backs = 0;
+        const seen = [];
+        for (let r = 0; r < 16; r++) {
+          const dd = dirs[Math.floor((r + 0.5) * dirs.length / 16)], h = trace(p, dd);
+          seen.push(h);
+          if (!h) continue;
+          if (h.back) { backs++; if (!nearBack || h.distance < nearBack.t) nearBack = { t: h.distance, d: dd }; }
+          else if (!nearFront || h.distance < nearFront.t) nearFront = { t: h.distance, d: dd };
+        }
+        const home = new THREE.Vector3(lo.x + i * PROBE_STEP, lo.y + 4 + k * STEP_Y, lo.z + j * PROBE_STEP);
+        if (backs >= 4 && nearBack) p.addScaledVector(nearBack.d, nearBack.t + 1.5);
+        else if (nearFront && nearFront.t < PROBE_STEP / 5) p.addScaledVector(nearFront.d, -(PROBE_STEP / 5 - nearFront.t));
+        else {
+          // open: every one of the 16 saw sky or flat ground (the subtraction: full sky above, the ground's light below,
+          // written down instead of traced)
+          if (OPEN && seen.every(h => !h || (!h.back && h.n.y > 0.95 && h.point.y < p.y - 2))) {
+            const hits = seen.filter(h => h);
+            if (hits.length) p.open = { y: hits.reduce((a, h) => a + h.point.y, 0) / hits.length, albedo: [0, 1, 2].map(c => hits.reduce((a, h) => a + h.albedo[c], 0) / hits.length) };
+          }
+          break;
+        }
+        const off = p.clone().sub(home); if (off.length() > PROBE_STEP / 2) p.copy(home).addScaledVector(off.normalize(), PROBE_STEP / 2);
+      }
+      const sh = Array.from({ length: 9 }, () => [0, 0, 0]); let back = 0;
+      const dm = new Float32Array(OCT * OCT), dm2 = new Float32Array(OCT * OCT), dn = new Float32Array(OCT * OCT);
+      if (p.open) openCount++;
+      for (const dd of dirs) {
+        if (p.open) { // no ray: the ground plane below, the sky above
+          const t = dd.y < -1e-3 ? Math.min((p.y - p.open.y) / -dd.y, 4 * PROBE_STEP) : 4 * PROBE_STEP, bi = octBin(dd);
+          dm[bi] += t; dm2[bi] += t * t; dn[bi]++;
+          const al = p.open.albedo, L = dd.y < -1e-3 && t < 4 * PROBE_STEP ? [al[0] * 0.25, al[1] * 0.27, al[2] * 0.3] : skyAt(dd);
+          const y = shY(dd); for (let m = 0; m < 9; m++) for (let c = 0; c < 3; c++) sh[m][c] += L[c] * y[m] * 4 * Math.PI / PROBE_RAYS;
+          continue;
+        }
+        const h = trace(p, dd);
+        { const t = h ? Math.min(h.distance, 4 * PROBE_STEP) : 4 * PROBE_STEP, bi = octBin(dd); dm[bi] += t; dm2[bi] += t * t; dn[bi]++; }
+        let L;
+        if (!h) L = skyAt(dd); else if (h.back) { back++; L = [0, 0, 0]; } else { const s = skyOnly ? 0 : lit(h.point, h.n), al = h.albedo; L = [al[0] * (SUN[0] * s + 0.25), al[1] * (SUN[1] * s + 0.27), al[2] * (SUN[2] * s + 0.3)]; }
+        const y = shY(dd); for (let m = 0; m < 9; m++) for (let c = 0; c < 3; c++) sh[m][c] += L[c] * y[m] * 4 * Math.PI / PROBE_RAYS;
+      }
+      for (let bi = 0; bi < OCT * OCT; bi++) if (dn[bi]) { dm[bi] /= dn[bi]; dm2[bi] /= dn[bi]; } else { dm[bi] = 4 * PROBE_STEP; dm2[bi] = dm[bi] * dm[bi]; }
+      grid.push({ p, sh, dm, dm2, valid: back < 0.25 * PROBE_RAYS }); // a probe inside a wall or the ground sees backs: left out
+    }
+    const probeRays = rays; rays = 0;
+    // shading: the 8 probes around the point, trilinear, weighted by facing and by whether the probe is in view of
+    // the point (one visibility ray each: DDGI keeps a depth map per probe instead)
+    const out = new Array(W * H), toP = new THREE.Vector3();
+    for (let i = 0; i < W * H; i++) {
+      const g = G[i]; if (!g || g.back) { out[i] = null; continue; }
+      const sp = g.point.clone().addScaledVector(g.n, 3);
+      const fx = (sp.x - lo.x) / PROBE_STEP, fy = (sp.y - lo.y - 4) / STEP_Y, fz = (sp.z - lo.z) / PROBE_STEP;
+      const ix = Math.max(0, Math.min(nx - 2, Math.floor(fx))), iy = Math.max(0, Math.min(ny - 2, Math.floor(fy))), iz = Math.max(0, Math.min(nz - 2, Math.floor(fz)));
+      const e = [0, 0, 0]; let wsum = 0;
+      for (let c = 0; c < 8; c++) {
+        const dx = c & 1, dy = (c >> 1) & 1, dz = (c >> 2) & 1;
+        const pr = grid[((iy + dy) * nz + (iz + dz)) * nx + (ix + dx)]; if (!pr || !pr.valid) continue;
+        const tw = (dx ? fx - ix : 1 - (fx - ix)) * (dy ? fy - iy : 1 - (fy - iy)) * (dz ? fz - iz : 1 - (fz - iz));
+        toP.copy(pr.p).sub(sp); const dist = toP.length(); toP.divideScalar(dist);
+        let w = Math.max(0.01, Math.min(1, Math.max(0, tw))) * (0.25 + 0.75 * Math.max(0, (toP.dot(g.n) + 1) / 2) ** 2);
+        if (VIS === 'rays') { if (trace(sp, toP, dist)) w *= 0.02; }
+        else { // the probe's memory: how far it saw toward the point (Chebyshev, as DDGI)
+          const bi = octBin(toP.clone().negate()), mean = pr.dm[bi], v = Math.max(pr.dm2[bi] - mean * mean, 4);
+          if (dist > mean) w *= Math.max(0.02, v / (v + (dist - mean) * (dist - mean)));
+        }
+        const y = shY(g.n), terms = SH_BANDS === 1 ? 4 : 9;
+        for (let ch = 0; ch < 3; ch++) { let v = 0; for (let m = 0; m < terms; m++) v += shA[m] * pr.sh[m][ch] * y[m]; e[ch] += w * Math.max(0, v); }
+        wsum += w;
+      }
+      out[i] = wsum > 0 ? e.map(v => v / wsum) : [0.3, 0.3, 0.3];
+    }
+    window.lastGrid = { grid, lo, nx, ny, nz, STEP_Y, step: PROBE_STEP };
+    return { out, rays: probeRays + rays, probeRays, shadeRays: rays, count: grid.filter(p => p).length, valid: grid.filter(p => p && p.valid).length, ms: performance.now() - t0 };
+  }
+
+  // the sun sonar (a reflective shadow map): rays straight from the sun over the area the camera sees, as the game's
+  // shadow map already sees it (on the GPU: rasterised, no rays). Every sunlit surface it finds re-emits the sun's light
+  // it received (its albedo); they are grouped into 32 x 32 clusters, each a small light at its flux-weighted place
+  function sonar(N = 256, C = CLUSTERS) {
+    rays = 0; const t0 = performance.now();
+    const lo = new THREE.Vector3(1e9, 1e9, 1e9), hi = new THREE.Vector3(-1e9, -1e9, -1e9);
+    for (const g of G) if (g && !g.back) { lo.min(g.point); hi.max(g.point); }
+    lo.subScalar(80); hi.addScalar(80);
+    const centre = lo.clone().add(hi).multiplyScalar(0.5), radius = hi.clone().sub(lo).length() / 2;
+    const r = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), sun).normalize(), u = new THREE.Vector3().crossVectors(sun, r);
+    const texel = 2 * radius / N, A = texel * texel, back = sun.clone().negate();
+    const cl = Array.from({ length: C * C }, () => ({ f: [0, 0, 0], p: new THREE.Vector3(), n: new THREE.Vector3(), w: 0, area: 0 }));
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const o = centre.clone().addScaledVector(sun, 2000).addScaledVector(r, (i + 0.5) * texel - radius).addScaledVector(u, (j + 0.5) * texel - radius);
+      const h = trace(o, back); if (!h || h.back || h.n.dot(sun) <= 0) continue;
+      const c = cl[Math.floor(j * C / N) * C + Math.floor(i * C / N)], f = h.albedo.map((a, k) => a * SUN[k] * A), w = f[0] + f[1] + f[2];
+      for (let k = 0; k < 3; k++) c.f[k] += f[k];
+      c.area += A / Math.max(0.2, h.n.dot(sun)); // the surface's own area under the texel
+      c.p.addScaledVector(h.point, w); c.n.addScaledVector(h.n, w); c.w += w;
+    }
+    const lights = cl.filter(c => c.w > 0).map(c => {
+      const n = c.n.normalize(), half = Math.sqrt(c.area) / 2;
+      // its patch: a square of its area on its own plane, its corners for the polygon form factor
+      const a = Math.abs(n.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+      const t = new THREE.Vector3().crossVectors(a, n).normalize(), b = new THREE.Vector3().crossVectors(n, t), p = c.p.divideScalar(c.w);
+      const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([x, y]) => p.clone().addScaledVector(t, x * half).addScaledVector(b, y * half));
+      return { f: c.f, p, n, area: c.area, corners };
+    });
+    const sonarRays = rays;
+    const probe = window.probeCache || probes(true); // the sky (and the faint ambient bounce) from the probes, half their rays
+    const out = new Array(W * H), d = new THREE.Vector3();
+    for (let i = 0; i < W * H; i++) {
+      const g = G[i]; if (!g || g.back) { out[i] = null; continue; }
+      const e = probe.out[i].slice();
+      // the probe nearest the pixel (in open air): its depth map says how far it saw toward each light
+      let near = null;
+      if (SONAR_VIS) {
+        const L = window.lastGrid, sp = g.point.clone().addScaledVector(g.n, 3);
+        const ix = Math.round((sp.x - L.lo.x) / L.step), iy = Math.round((sp.y - L.lo.y - 4) / L.STEP_Y), iz = Math.round((sp.z - L.lo.z) / L.step);
+        let best = 1e9;
+        for (let c = 0; c < 27; c++) {
+          const x = ix + (c % 3) - 1, y = iy + Math.floor(c / 3) % 3 - 1, z = iz + Math.floor(c / 9) - 1;
+          if (x < 0 || y < 0 || z < 0 || x >= L.nx || y >= L.ny || z >= L.nz) continue;
+          const pr = L.grid[(y * L.nz + z) * L.nx + x]; if (!pr || !pr.valid) continue;
+          const dd = pr.p.distanceToSquared(sp); if (dd < best) { best = dd; near = pr; }
+        }
+      }
+      const toL = new THREE.Vector3();
+      for (const l of lights) {
+        d.copy(g.point).sub(l.p); const d2 = Math.max(d.lengthSq(), 18 * 18); const dl = Math.sqrt(d2);
+        const cv = Math.max(0, l.n.dot(d)) / dl, cx = Math.max(0, -g.n.dot(d)) / dl;
+        if (cv <= 0 || cx <= 0) continue;
+        let k = cv * cx / (Math.PI * Math.PI * d2);
+        if (POLY) {
+          // Lambert's formula: the exact share of a polygon's light reaching a point, from its corners' angles
+          // (E = L/2 sum beta_i n.gamma_i; the patch's radiance L = flux / (pi area); mean radiance = E / pi)
+          const v = l.corners.map(c => c.clone().sub(g.point));
+          if (v.every(x => x.dot(g.n) > 0.01)) {
+            let sum = 0;
+            for (let m = 0; m < 4; m++) {
+              const a = v[m].clone().normalize(), b = v[(m + 1) % 4].clone().normalize();
+              const beta = Math.acos(Math.max(-1, Math.min(1, a.dot(b)))), gam = new THREE.Vector3().crossVectors(a, b);
+              const gl = gam.length(); if (gl > 1e-6) sum += beta * g.n.dot(gam.divideScalar(gl));
+            }
+            k = Math.max(0, Math.abs(sum) / 2) / (Math.PI * Math.PI * l.area) * (cv > 0 ? 1 : 0);
+          }
+        }
+        if (near) { // a light farther from the probe than what the probe saw that way is behind something
+          toL.copy(l.p).sub(near.p); const t = toL.length(); toL.divideScalar(t);
+          const bi = octBin(toL), mean = near.dm[bi], v = Math.max(near.dm2[bi] - mean * mean, 4);
+          if (t > mean + 2) k *= Math.max(0.05, v / (v + (t - mean) * (t - mean)));
+        }
+        for (let ch = 0; ch < 3; ch++) e[ch] += l.f[ch] * k;
+      }
+      out[i] = e;
+    }
+    return { out, rays: probe.rays + sonarRays, sonarRays, probeRays: probe.probeRays, shadeRays: probe.shadeRays, lights: lights.length, ms: performance.now() - t0 };
+  }
+
+  const ref = perPixel(REF_SPP); log('reference', REF_SPP, 'spp', ref.rays, 'rays', Math.round(ref.ms), 'ms');
+  const noisy = perPixel(1); log('noisy 1 spp', noisy.rays, 'rays');
+  const pr = probes(); const so = sonar(); log('sonar', so.lights, 'lights', so.sonarRays, 'sonar rays (the shadow map)', so.probeRays, 'probe rays', so.shadeRays, 'shading rays', Math.round(so.ms), 'ms'); log('probes', pr.count, 'probes', pr.valid, 'valid', pr.probeRays, 'probe rays', pr.shadeRays, 'shading rays', Math.round(pr.ms), 'ms');
+
+  // compose: albedo times (sun + indirect), tone mapped
+  const cv = document.getElementById('out'); cv.width = W * 4 + 30; cv.height = H + 60;
+  const g2 = cv.getContext('2d'); g2.fillStyle = '#15161a'; g2.fillRect(0, 0, cv.width, cv.height);
+  const errOf = r => { let s = 0, n = 0; for (let i = 0; i < W * H; i++) if (r.out[i] && ref.out[i]) { for (let c = 0; c < 3; c++) s += Math.abs(r.out[i][c] - ref.out[i][c]); n += 3; } return s / n; };
+  [[ref, 'reference: ' + REF_SPP + ' rays/pixel'], [noisy, '1 ray/pixel (one frame of a fast tracer)'], [pr, 'probe grid: ' + pr.count + ' probes x ' + PROBE_RAYS + ' rays'], [so, 'sky probes + sun sonar (' + so.lights + ' bounce lights)']].forEach(([r, name], k) => {
+    const img = g2.createImageData(W, H);
+    for (let i = 0; i < W * H; i++) {
+      const g = G[i], o = 4 * i;
+      let c = [0.62, 0.76, 0.9];
+      if (g) { const e = r.out[i] || [0, 0, 0]; c = [0, 1, 2].map(ch => g.albedo[ch] * (SUN[ch] * direct[i] + e[ch])); }
+      for (let ch = 0; ch < 3; ch++) { const v = c[ch] / (1 + c[ch]) * 1.6; img.data[o + ch] = Math.pow(Math.min(1, v), 1 / 2.2) * 255; }
+      img.data[o + 3] = 255;
+    }
+    g2.putImageData(img, k * (W + 10), 40);
+    g2.fillStyle = '#ddd'; g2.fillText(name, k * (W + 10) + 4, 16);
+    const extra = r === ref ? '' : '  error vs reference ' + errOf(r).toFixed(3);
+    const n = r === so ? so.probeRays + so.shadeRays : r.rays;
+    g2.fillText(Math.round(n / 1000) + 'k indirect rays' + (r === so ? ' (+ the shadow map)' : '') + extra, k * (W + 10) + 4, 32);
+  });
+  // the sweep: each configuration, sky probes + sun sonar, against the same reference
+  const sweep = [];
+  // contact occlusion: what the probes, 2 tiles apart, cannot see (creases, a wall's foot, under eaves): one short ray
+  // (a tile long) per `every` pixels, along a fixed spread of directions, blurred over 5 x 5 pixels of the same surface,
+  // then the probes' light darkened by `strength` times the share it found blocked
+  function contact(every, strength, reach = 18) {
+    rays = 0; const raw = new Float32Array(W * H).fill(-1), d = new THREE.Vector3();
+    let k = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x, g = G[i]; if (!g || g.back) continue;
+      if (((x + 2 * y) % every) !== 0) continue; // a fixed pattern of pixels
+      const o = g.point.clone().addScaledVector(g.n, 0.3);
+      const r1 = ((k * 0.7548776662) % 1), r2 = ((k * 0.5698402910) % 1); k++;
+      raw[i] = trace(o, cosineDir(g.n, r1, r2, d), reach) ? 1 : 0;
+    }
+    const ao = new Float32Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x, g = G[i]; if (!g || g.back) continue;
+      let s = 0, n = 0;
+      for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
+        const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx; if (raw[j] < 0) continue; const h = G[j];
+        if (h.n.dot(g.n) < 0.9 || h.point.distanceTo(g.point) > 9) continue;
+        s += raw[j]; n++;
+      }
+      ao[i] = n ? s / n : 0;
+    }
+    return { ao, rays };
+  }
+  // horizon-based sky occlusion (GTAO, Jimenez 2016): per pixel, in 4 screen directions, the highest the depth image
+  // rises toward the camera within `radius` units on either side; the cosine-weighted share of sky left open has an
+  // exact formula from those two angles and the normal. No rays: reads of the depth image only
+  const view = camera.matrixWorldInverse;
+  const VP = G.map(g => g ? g.point.clone().applyMatrix4(view) : null), VN = G.map(g => g ? g.n.clone().transformDirection(view) : null);
+  function gtao(radius = 18, steps = 8) {
+    const out = new Float32Array(W * H).fill(1), f = H / 2 / Math.tan(THREE.MathUtils.degToRad(34 / 2));
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x, p = VP[i]; if (!p || G[i].back) continue;
+      const n = VN[i], v = p.clone().negate().normalize(), rpx = Math.max(2, radius * f / -p.z);
+      let vis = 0;
+      const rot = ((x & 3) * 4 + (y & 3)) / 16 * Math.PI / 4; // a 4 x 4 pattern of turns, smoothed below
+      for (let sl = 0; sl < 4; sl++) {
+        const phi = sl * Math.PI / 4 + rot, d = new THREE.Vector3(Math.cos(phi), Math.sin(phi), 0);
+        const ortho = d.clone().addScaledVector(v, -d.dot(v)), axis = new THREE.Vector3().crossVectors(d, v).normalize();
+        const pn = n.clone().addScaledVector(axis, -n.dot(axis)), plen = pn.length();
+        const cosN = Math.max(-1, Math.min(1, pn.dot(v) / plen)), nAng = Math.sign(pn.dot(ortho)) * Math.acos(cosN);
+        const hor = [-1, -1];
+        for (let side = 0; side < 2; side++) {
+          const sg = side ? 1 : -1;
+          for (let s = 1; s <= steps; s++) {
+            const t = s / steps * rpx, sx = Math.round(x + sg * d.x * t), sy = Math.round(y - sg * d.y * t);
+            if (sx < 0 || sy < 0 || sx >= W || sy >= H) break;
+            const q = VP[sy * W + sx]; if (!q) continue;
+            const w = q.clone().sub(p), len = w.length(); if (len > radius || len < 1e-3) continue;
+            hor[side] = Math.max(hor[side], w.dot(v) / len);
+          }
+        }
+        let h0 = -Math.acos(hor[0]), h1 = Math.acos(hor[1]);
+        h0 = nAng + Math.max(h0 - nAng, -Math.PI / 2); h1 = nAng + Math.min(h1 - nAng, Math.PI / 2);
+        const sn = Math.sin(nAng);
+        vis += plen * 0.25 * ((-Math.cos(2 * h0 - nAng) + cosN + 2 * h0 * sn) + (-Math.cos(2 * h1 - nAng) + cosN + 2 * h1 * sn));
+      }
+      out[i] = Math.max(0, Math.min(1, vis / 4));
+    }
+    // the 4 x 4 pattern averaged over the same surface
+    const sm = new Float32Array(W * H).fill(1);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x; if (!VP[i]) continue; let s = 0, m = 0;
+      for (let dy = -2; dy <= 1; dy++) for (let dx = -2; dx <= 1; dx++) {
+        const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx; if (!VP[j] || VN[j].dot(VN[i]) < 0.9 || VP[j].distanceTo(VP[i]) > 6) continue; s += out[j]; m++;
+      }
+      sm[i] = m ? s / m : out[i];
+    }
+    return sm;
+  }
+  const AO = q.get('gtao') ? gtao(+(q.get('radius') || 18)) : null;
+  if (AO) { let s = 0, n = 0, lo = 0; for (let i = 0; i < W * H; i++) if (VP[i]) { s += AO[i]; n++; if (AO[i] < 0.5) lo++; } log('AO mean', (s / n).toFixed(3), 'share under 0.5', (lo / n).toFixed(3)); }
+  for (const [st, ry, bands, cl, every = 0, strength = 0, reloc = 0, svis = 0, ao = 0, poly = 0, open = 0] of CONFIGS) {
+    POLY = poly; OPEN = open; openCount = 0;
+    PROBE_STEP = st; PROBE_RAYS = ry; SH_BANDS = bands; CLUSTERS = cl; VIS = 'depth'; RELOCATE = reloc; SONAR_VIS = svis;
+    const r = sonar();
+    let extra = 0;
+    if (ao && AO) for (let i = 0; i < W * H; i++) if (r.out[i]) r.out[i] = r.out[i].map(v => v * (1 - ao * (1 - AO[i])));
+    if (every) { const c = contact(every, strength); extra = c.rays; for (let i = 0; i < W * H; i++) if (r.out[i]) r.out[i] = r.out[i].map(v => v * (1 - strength * c.ao[i])); }
+    sweep.push({ step: st, rays: ry, bands, clusters: cl, every, strength, reloc, svis, ao, poly, open, openProbes: openCount, probeRays: r.probeRays, contactRays: extra, total: r.probeRays + extra, lights: r.lights, err: errOf(r) });
+    (window.sweepOut = window.sweepOut || []).push({ r, label: 'step ' + st + (reloc ? ' moved' : '') + (svis ? ' +wall check' : '') + (ao ? ' +horizon AO ' + ao : '') + (poly ? ' +polygons' : '') + ', ' + ry + ' rays/probe: ' + Math.round((r.probeRays + extra) / 1000) + 'k rays, error ' + errOf(r).toFixed(4) });
+    log(JSON.stringify(sweep[sweep.length - 1]));
+  }
+  window.sweep = sweep;
+  // the sun turning round the town (best setup): the sky probes are the sun's no matter where it is, so traced once;
+  // each frame the sun's shadows and its bounce (the sonar) again
+  const GIF = +(q.get('gif') || 0);
+  if (GIF) {
+    PROBE_STEP = 36; PROBE_RAYS = 96; SH_BANDS = 2; CLUSTERS = 64; VIS = 'depth'; RELOCATE = 1; POLY = 1; OPEN = 0;
+    window.probeCache = probes(true);
+    for (let i = 0; i < W * H; i++) if (window.probeCache.out[i] && AO) window.probeCache.out[i] = window.probeCache.out[i].map(v => v * (1 - 0.4 * (1 - AO[i])));
+    window.gifFrames = [];
+    for (let f = 0; f < GIF; f++) {
+      const az = 2 * Math.PI * f / GIF, el = THREE.MathUtils.degToRad(40);
+      sun.set(Math.cos(el) * Math.cos(az), Math.sin(el), Math.cos(el) * Math.sin(az)).normalize();
+      const dir = G.map(g => g && !g.back ? lit(g.point, g.n) : 0), r = sonar();
+      const c2 = document.createElement('canvas'); c2.width = W; c2.height = H; const gg = c2.getContext('2d'), img = gg.createImageData(W, H);
+      for (let i = 0; i < W * H; i++) {
+        const g = G[i], o = 4 * i; let c = [0.62, 0.76, 0.9];
+        if (g) { const e = r.out[i] || [0, 0, 0]; c = [0, 1, 2].map(ch => g.albedo[ch] * (SUN[ch] * dir[i] + e[ch])); }
+        for (let ch = 0; ch < 3; ch++) { const v = c[ch] / (1 + c[ch]) * 1.6; img.data[o + ch] = Math.pow(Math.min(1, v), 1 / 2.2) * 255; }
+        img.data[o + 3] = 255;
+      }
+      gg.putImageData(img, 0, 0); window.gifFrames.push(c2.toDataURL('image/png')); log('frame', f);
+    }
+  }
+  // the sweep's renders beside the reference and one frame of 1 ray per pixel
+  if (window.sweepOut) {
+    const panels = [[ref, 'reference: ' + REF_SPP + ' rays/pixel (' + Math.round(ref.rays / 1e6) + 'M rays)'], [noisy, '1 ray/pixel: ' + Math.round(noisy.rays / 1000) + 'k rays, error ' + errOf(noisy).toFixed(3)], ...window.sweepOut.map(o => [o.r, o.label])];
+    cv.width = (W + 10) * panels.length; cv.height = H + 40;
+    g2.fillStyle = '#15161a'; g2.fillRect(0, 0, cv.width, cv.height);
+    panels.forEach(([r, name], k) => {
+      const img = g2.createImageData(W, H);
+      for (let i = 0; i < W * H; i++) {
+        const g = G[i], o = 4 * i; let c = [0.62, 0.76, 0.9];
+        if (g) { const e = r.out[i] || [0, 0, 0]; c = [0, 1, 2].map(ch => g.albedo[ch] * (SUN[ch] * direct[i] + e[ch])); }
+        for (let ch = 0; ch < 3; ch++) { const v = c[ch] / (1 + c[ch]) * 1.6; img.data[o + ch] = Math.pow(Math.min(1, v), 1 / 2.2) * 255; }
+        img.data[o + 3] = 255;
+      }
+      g2.putImageData(img, k * (W + 10), 30); g2.fillStyle = '#ddd'; g2.fillText(name, k * (W + 10) + 4, 18);
+    });
+  }
+  window.result = { primary, directRays, ref: ref.rays, noisy: noisy.rays, probeRays: pr.probeRays, probeShadeRays: pr.shadeRays, probes: pr.count, valid: pr.valid, errNoisy: errOf(noisy), errProbes: errOf(pr), sonarProbeRays: so.probeRays, sonarShadeRays: so.shadeRays, sonarLights: so.lights, errSonar: errOf(so), pixels: W * H };
+  window.done = true;
+}, undefined, e => { console.log('load error', e); window.done = true; });
+</script>
+</body></html>

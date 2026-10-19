@@ -144,6 +144,30 @@ added in linear light to dark shade (0.016 shows as 0.13), not from the tone; th
 the same view: shade over sun 0.35, 0.42, 0.49 against the reference's 0.34, 0.43, 0.50; luminance 0.457 (reference
 0.367, its wide camera holding more forest shade), saturation 0.75 (0.59).
 
+## Probe light: true ray tracing's look for a fraction of its rays (19 October, prototype)
+
+The live tracer's fast mode (gl_pathtracer) takes about one ray per pixel each frame and keeps its history per screen
+pixel, which the field camera breaks while walking: the "snow". Measured instead on a still render of Littleroot
+(`probe_gi.html`, `shoot_gi.mjs`: map piece a/0/3/9 6 with pack 8 as glTF, 480 x 300, CPU ray tracing with three-mesh-bvh;
+sun, sky and one bounce of sun light; albedo from the textures alone), each method's indirect light against a 192-ray
+per pixel reference (32 M rays), mean absolute error. Not the game: no characters, one view, the CPU, the bare
+textures' colours (the comparison between methods is what holds).
+
+| Indirect light from | Rays | Error |
+|---|---|---|
+| 1 ray per pixel (one frame of the fast tracer) | 169 k | 0.183 (the snow) |
+| Probe grid, 2 tiles apart, 256 rays each, visibility by rays | 1.6 M | 0.049 |
+| Sky-only probes + the sun's bounce from the shadow map ("sun sonar", reflective shadow map: 1,718 clustered lights, no rays) + probe depth maps (DDGI, Chebyshev) instead of visibility rays + only the probes a visible pixel reads (790 of 2,856) + L2 harmonics + probes moved out of walls (16 rays each first), 96 rays a probe | 97 k | 0.0435 |
+| The same + horizon-angle sky occlusion (GTAO, 1 tile, 40 %, no rays) + the bounce lights as polygons (Lambert's formula) | 97 k | **0.0418** |
+| The same, 64 rays a probe | 71 k | 0.045 |
+
+Tried and left out: denser probes (every tile: 0.09; more of them inside geometry), short contact rays (0.047-0.056:
+the probes hold that occlusion already), a wall check of the bounce lights from the nearest probe's depth map (0.0485:
+the probe's view is not the pixel's), the horizon search over 2 tiles (0.045-0.049), probes in open space written down
+instead of traced (21 of 790 in Littleroot: 2 % fewer rays, 0.0424). The sky probes do not depend on the sun, so a sun
+turning round needs only its shadows and its bounce again each frame (`gif=N`). Not written into the emulator: the probes
+need the camera's place in the world to be cached, which the 3DS does not hand over (to read from the game's memory).
+
 ## Ride viewer (point 39 of docs/Delta_Emerald_Development.md, 11 October)
 
 `ride_viewer.html` is the template of a self-contained page where Giratina flies with the player on its back: the game's
