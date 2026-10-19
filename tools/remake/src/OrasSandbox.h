@@ -101,9 +101,13 @@ namespace remake
 
 // adds the described zones to the build's archives (OrasWorkspace.h: OrasWorkspace::Write then writes the mod) and writes
 // <outDir>/sandbox_layout.txt; returns what it did, line by line. Throws FormatError on a description it cannot build.
-// `checkNative` (AmxNativeCheck) checks the natives of the zones' scripts; without it nothing is built
+// `checkNative` (AmxNativeCheck) checks the natives of the zones' scripts; without it nothing is built. `descriptionPath`,
+// the description's file: X/Y zones' scripts (xy-events, door ... xy) are read from x<zone>.amx and x<zone>.init.amx in the
+// folder of its name beside it when there (tools/remake/sandbox/vaniville/ for vaniville.txt: remake_tool xy-script-export
+// writes them), else translated (OrasXyScript.h); the natives are named from ../ghidra/function_names.tsv beside it
 std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& description, const std::string& outDir,
-                                          const std::function<std::string(const std::string&)>& checkNative = {});
+                                          const std::function<std::string(const std::string&)>& checkNative = {},
+                                          const std::string& descriptionPath = "");
 
 }
 

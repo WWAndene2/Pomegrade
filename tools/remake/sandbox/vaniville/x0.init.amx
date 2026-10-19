@@ -1,0 +1,141 @@
+header 10 10 0x1C L000078 4096
+native WorkGet
+native WorkSet
+native CommandNOP
+native BuildMdlGetHandleByGPos
+native BuildMdlEventAnimeSetEnd
+native CommandNOP   ; X/Y's #95ACB23D, none in Omega Ruby
+native IECreate
+native MdlSetDirDisp
+library #CA18AA2E 0
+pubvar #D7477C97 0
+tag #CA18AA2E 0x40000002
+nametable 3f000000
+code
+    halt.p 0
+L000004:
+    proc
+    stack.p -4
+    push.p.c 16643   ; X/Y's work 16498
+    sysreq.n 0 4   ; WorkGet
+    stor.p.s.pri -4
+    load.p.s.pri -4
+    const.p.alt 2
+    jsleq L00004C
+    push.p.c 4116
+    push.p.c 16640   ; X/Y's work 16417
+    sysreq.n 1 8   ; WorkSet
+    jump L000060
+L00004C:
+    push.p.c 4102
+    push.p.c 16640   ; X/Y's work 16417
+    sysreq.n 1 8   ; WorkSet
+L000060:
+    sysreq.n 2 0   ; CommandNOP
+    stack.p 4
+    zero.pri
+    retn
+L000078:
+    proc
+    load.p.pri 0
+    switch L0000EC
+L000088:
+    push.p.c 0
+    call L0001A4
+    jump L000118
+L00009C:
+    push.p.c 0
+    call L000244
+    jump L000118
+L0000B0:
+    push.p.c 0
+    call L00029C
+    jump L000118
+L0000C4:
+    push.p.c 0
+    call L000120
+    jump L000118
+L0000D8:
+    sysreq.n 2 0   ; CommandNOP
+    jump L000118
+L0000EC:
+    casetbl 4 L0000D8 -1 L0000C4 0 L000088 1 L00009C 2 L0000B0
+L000118:
+    zero.pri
+    retn
+L000120:
+    proc
+    zero.pri
+    retn
+L00012C:
+    proc
+    sysreq.n 2 0   ; CommandNOP
+    push.p.c 16642   ; X/Y's work 16496
+    sysreq.n 0 4   ; WorkGet
+    jzer L00019C
+    push.p.c 460
+    push.p.c 595
+    stack.p -4
+    push.p.s -8
+    push.p.s -4
+    sysreq.n 3 8   ; BuildMdlGetHandleByGPos
+    stor.p.s.pri -12
+    push.p.c 0
+    push.p.s -12
+    sysreq.n 4 8   ; BuildMdlEventAnimeSetEnd
+    sysreq.n 2 0   ; CommandNOP
+    stack.p 12
+L00019C:
+    zero.pri
+    retn
+L0001A4:
+    proc
+    sysreq.n 5 0   ; CommandNOP
+    jzer L0001F0
+    sysreq.n 2 0   ; CommandNOP
+    push.p.c 1
+    push.p.c 16642   ; X/Y's work 16496
+    sysreq.n 1 8   ; WorkSet
+    push.p.c 0
+    call L00012C
+    jump L000210
+L0001F0:
+    sysreq.n 2 0   ; CommandNOP
+    push.p.c 0
+    push.p.c 16642   ; X/Y's work 16496
+    sysreq.n 1 8   ; WorkSet
+L000210:
+    push.p.c 0
+    call L000004
+    push.p.c 13
+    push.p.c 240
+    sysreq.n 6 8   ; IECreate
+    sysreq.n 2 0   ; CommandNOP
+    zero.pri
+    retn
+L000244:
+    proc
+    sysreq.n 2 0   ; CommandNOP
+    stack.p -4
+    push.p.c 16643   ; X/Y's work 16498
+    sysreq.n 0 4   ; WorkGet
+    stor.p.s.pri -4
+    load.p.s.pri -4
+    const.p.alt 5
+    jsleq L000290
+    push.p.c 1
+    push.p.c 3
+    sysreq.n 7 8   ; MdlSetDirDisp
+L000290:
+    stack.p 4
+    zero.pri
+    retn
+L00029C:
+    proc
+    sysreq.n 2 0   ; CommandNOP
+    push.p.c 0
+    call L00012C
+    zero.pri
+    retn
+data
+    cell -1

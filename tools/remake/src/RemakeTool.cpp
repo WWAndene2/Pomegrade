@@ -819,7 +819,7 @@ int main(int argc, char** argv)
                     const Bytes text = ReadFile(w[1]);
                     const std::filesystem::path names = std::filesystem::path(w[1]).parent_path() / ".." / "ghidra" / "function_names.tsv";
                     const auto check = std::filesystem::exists(names) ? AmxNativeCheck(names.string(), 0x243) : std::function<std::string(const std::string&)>{};
-                    for (const std::string& line : BuildOrasSandbox(ws, std::string(text.begin(), text.end()), argv[4], check)) printf("  %s\n", line.c_str());
+                    for (const std::string& line : BuildOrasSandbox(ws, std::string(text.begin(), text.end()), argv[4], check, w[1])) printf("  %s\n", line.c_str());
                 }
                 else if (w[0] == "region")
                 {
@@ -1447,7 +1447,7 @@ int main(int argc, char** argv)
                 else if (flag == "--xy") ws.XyRom = value;
                 else throw FormatError("oras-sandbox: unknown option " + flag + " " + value);
             }
-            for (const std::string& line : BuildOrasSandbox(ws, std::string(text.begin(), text.end()), argv[3], check)) printf("%s\n", line.c_str());
+            for (const std::string& line : BuildOrasSandbox(ws, std::string(text.begin(), text.end()), argv[3], check, argv[4])) printf("%s\n", line.c_str());
             for (const std::string& line : ws.Write(argv[3])) printf("%s\n", line.c_str());
             return 0;
         }

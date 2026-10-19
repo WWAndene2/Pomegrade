@@ -47,6 +47,9 @@ public:
     // its own text file (header word 3): a new member of each of the eight story text archives (a/0/7/9-a/0/8/6, one per
     // language), the same lines in all; returns the member
     int AddZoneText(const std::vector<std::string>& lines);
+    // a zone's text from files already written, one per language in the story text archives' order (a/0/7/9 to a/0/8/6:
+    // Japanese kana, kanji, English, French, Italian, German, Spanish, Korean, as X/Y's a/0/8/0-7 are); the member added
+    int AddZoneTextFiles(const std::vector<Bytes>& files);
     // a place name (header word 14 & 0x3FF): a new line of a/0/7/1-a/0/7/8 member 90 (the eight languages' names); returns it
     int AddPlaceName(const std::string& name);
     // an area pack (a/0/1/4) holding `pack`, in one of the game's placeholder packs no zone uses (0, 1, 39-42, 88, 97, 195),

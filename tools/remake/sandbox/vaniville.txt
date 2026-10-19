@@ -1,15 +1,18 @@
 # Vaniville Town from Pokemon X in Omega Ruby (18 October, owner's request: in place of the drawn sandbox): X's zone 0, its
 # matrix 0 cells (11, 14)-(12, 15), map pieces 12, 13, 14, 15 (a/0/4/1) with textures from X's area pack 2, made Omega
-# Ruby's by xy-piece (OrasXyPiece.h); its three houses (door ... xy) and their three upper floors; no people yet (X's scripts can't run in Omega Ruby). The map's rows
+# Ruby's by xy-piece (OrasXyPiece.h); its three houses (door ... xy) and their three upper floors; X's people, text and scripts (xy-events, OrasXyScript.h), not yet seen in the game. The map's rows
 # are not used (every piece is X's). For the phone, Remake mod workflow variants:
-#   sb: sandbox tools/remake/sandbox/vaniville.txt --xy dumps-x/x.3ds
-#   eng: engine --zone-rows 545 --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000
+#   sb: sandbox tools/remake/sandbox/vaniville.txt --xy dumps-x/x.3ds --character-models 64
+#   eng: engine --zone-rows 545 --script-mask 538:0x247 --character-models 64 --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000
 #   sv: save 538 20.5 48.5
 #   vaniville: merge sb eng sv
 zone 538
 pack 8
 spawn 20.5 48.5
 name Bourg Croquis
+# X's zone 0's people, objects, triggers, text and scripts (OrasXyScript.h): the scripts from vaniville/x0.amx and
+# x0.init.amx, editable (remake_tool xy-script-export writes them again from X), the houses' from vaniville/x2-x7
+xy-events 0
 # the three doors, at X's own warps of zone 0 (its warps 0-2, kind 0x301), each into its X house: zone 2 (its upper floor, X's
 # zone 3, by xy-stairs below), zones 4 and 6 with their upper floors (5, 7) by their stairs, walked into from the tile
 # below (the stairs' own tiles are solid)

@@ -1,0 +1,2917 @@
+header 10 10 0x1C L0012DC 4096
+public #63F02D54 L001664
+native _Suspend
+native PokePartyGetParam
+native PokePartyGetWazaCount
+native _WordSetRegister
+native EVCameraIsEndFrame
+native SetKeyWaitMark
+native _ABKeyWait
+native VanishKeyWaitMark
+native SEPlay
+native MsgWinCloseNo
+native MEPlay
+native MEIsFinished
+native MEReturnBGM
+native FadeIsEnd
+native YesNoWin_Seq
+native WorkGet
+native _TalkMdlStartInit
+native PlayerGetReturnDir
+native TalkMdlSetEyeToEye
+native MdlIsHalfSitSkelPreset
+native TalkMdlSetTalkMotion
+native _TalkMdlEndInit
+native TalkMdlClearEyeToEye
+native TalkMdlMsg_Seq
+native CheckWinAllSuspend
+native LastKeyWait
+native VoicePlay
+native MdlAcmdInit
+native MdlAcmdSet
+native MdlAcmdSetEnd
+native MdlAcmdUpdate
+native BuildMdlEventAnimeIsEnd
+native MdlAcmdMakeMoveEx
+native MdlSetWaitAnimeReq
+native SEIsPlaying
+native VoiceIsEnd
+native MsgIsLoaded
+native _MapChangeAndDemoCall
+native MsgSwap
+native MsgLoad
+native ItemAddCheck
+native MsgRelease
+native ItemIsMegaStone
+native PocketGetID
+native WordSetItemName
+native WordSetItemWazaName
+native WordSetItemPocketName
+native ItemAdd
+native CommandNOP
+native ResetMirror
+native CommandNOP   ; X/Y's #C0DC5EA5, none in Omega Ruby
+native CommandNOP   ; X/Y's #F5C84EF0, none in Omega Ruby
+native CommandNOP   ; X/Y's #FCD28E80, none in Omega Ruby
+native SetMirror
+native PokePartyGetCount
+native FadeRequestOut
+native PokePartyRecoverAll
+native _FadeRequestIn
+native RecordAdd
+native Random
+native CallCommendation
+native WorkSet
+native MdlGetDirDisp
+native MdlGetGPosX
+native GetDirAddValueGridX
+native MdlGetGPosZ
+native GetDirAddValueGridZ
+native BuildMdlGetHandleByGPos
+native BuildMdlEventAnimeStart
+native BuildMdlEventAnimeStop
+native BuildMdlEventAnimeInvStart
+native MdlSetGPos
+native EVCameraSetInitParam
+native EVCameraSetDstParam
+native EVCameraSetFrameParam
+native EVCameraBegin
+native EVCameraSetGameCameraParam
+native EVCameraEnd
+native FlagGet
+native EVCameraSetSlideParam
+native FlagSet
+native MapChangeFake
+native CommandNOP   ; X/Y's #9AB8B7EE, none in Omega Ruby
+native PlayerGetFrontGridPosX
+native PlayerGetFrontGridPosZ
+native TalkMdlSetEye
+native MdlSetVisible
+native ItemSub
+native PlayerGetSex
+native BGMEndEvent
+native TalkMdlClearEye
+native FlagReset
+native MdlSetDirDisp
+library #CA18AA2E 0
+pubvar #865A53E1 272
+pubvar #29654047 268
+pubvar #D7477C97 264
+tag #CA18AA2E 0x40000002
+nametable 3f000000
+code
+    halt.p 0
+L000004:
+    proc
+    push.p.s 12
+    sysreq.n 0 4   ; _Suspend
+    zero.pri
+    zero.alt
+    halt 12
+    zero.pri
+    retn
+L000030:
+    proc
+    stack.p -4
+    push.p.c 0
+    push.p.c 2
+    push.p.s 12
+    sysreq.n 1 12   ; PokePartyGetParam
+    stor.p.s.pri -4
+    stack.p -4
+    push.p.c 0
+    push.p.c 3
+    push.p.s 12
+    sysreq.n 1 12   ; PokePartyGetParam
+    stor.p.s.pri -8
+    load.s.both -8 -4
+    jeq L000094
+    const.p.pri 1
+    stack.p 8
+    retn
+L000094:
+    push.p.c 0
+    push.p.c 39
+    push.p.s 12
+    sysreq.n 1 12   ; PokePartyGetParam
+    jzer L0000C0
+    const.p.pri 1
+    stack.p 8
+    retn
+L0000C0:
+    stack.p -4
+    push.p.s 12
+    sysreq.n 2 4   ; PokePartyGetWazaCount
+    stor.p.s.pri -12
+    push.p.c 0
+    jump L0000E8
+L0000E4:
+    inc.p.s -16
+L0000E8:
+    load.s.both -16 -12
+    jsgeq L000168
+    stack.p -4
+    push.p.s -16
+    push.p.c 4
+    push.p.s 12
+    sysreq.n 1 12   ; PokePartyGetParam
+    stor.p.s.pri -20
+    stack.p -4
+    push.p.s -16
+    push.p.c 5
+    push.p.s 12
+    sysreq.n 1 12   ; PokePartyGetParam
+    stor.p.s.pri -24
+    load.s.both -24 -20
+    jeq L00015C
+    const.p.pri 1
+    stack.p 24
+    retn
+L00015C:
+    stack.p 8
+    jump L0000E4
+L000168:
+    stack.p 4
+    stack.p 4
+    zero.pri
+    stack.p 8
+    retn
+L00017C:
+    proc
+    push.p.c 0
+    push.p.s 12
+    push.p.c 1
+    sysreq.n 3 12   ; _WordSetRegister
+    retn
+L00019C:
+    proc
+    push.p.s 16
+    push.p.s 12
+    push.p.c 5
+    sysreq.n 3 12   ; _WordSetRegister
+    retn
+L0001BC:
+    proc
+    push.p.c 1
+L0001C4:
+    load.p.s.pri -4
+    eq.p.c.pri 1
+    jzer L000208
+    push.p.c 1
+    push.p.c 4
+    call L000004
+    sysreq.n 4 0   ; EVCameraIsEndFrame
+    eq.p.c.pri 1
+    jzer L000200
+    zero.p.s -4
+L000200:
+    jump L0001C4
+L000208:
+    stack.p 4
+    zero.pri
+    retn
+L000214:
+    proc
+    push.p.s 24
+    push.p.c 0
+    push.p.c -1
+    push.p.c 1
+    push.p.c 0
+    push.p.c 0
+    push.p.c 1
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.s 20
+    push.p.s 16
+    push.p.c 0
+    push.p.s 12
+    push.p.c 76
+    call L000878
+    zero.pri
+    retn
+L000278:
+    proc
+    push.p.s 20
+    push.p.c 0
+    push.p.c -1
+    push.p.c 1
+    push.p.c 0
+    push.p.c 0
+    push.p.c 1
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.s 16
+    push.p.c -1
+    push.p.c 0
+    push.p.s 12
+    push.p.c 76
+    call L000878
+    zero.pri
+    retn
+L0002DC:
+    proc
+    load.s.both 24 20
+    or
+    const.p.alt 512
+    or
+    push.pri
+    push.p.c 0
+    push.p.c -1
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.s 16
+    push.p.c -1
+    push.p.c 0
+    push.p.s 12
+    push.p.c 76
+    call L000878
+    zero.pri
+    retn
+L000358:
+    proc
+    push.p.s 24
+    push.p.s 20
+    push.p.c -1
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.s 16
+    push.p.c 20
+    push.p.c 11
+    push.p.c -1
+    push.p.c 0
+    push.p.s 12
+    push.p.c 76
+    call L000878
+    zero.pri
+    retn
+L0003BC:
+    proc
+    push.p.s 28
+    push.p.s 24
+    push.p.c -1
+    push.p.c 1
+    push.p.c 0
+    push.p.c 0
+    push.p.c 1
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.s 20
+    push.p.s 16
+    push.p.c 0
+    push.p.s 12
+    push.p.c 76
+    call L000878
+    zero.pri
+    retn
+L000420:
+    proc
+    sysreq.n 5 0   ; SetKeyWaitMark
+    sysreq.n 6 0   ; _ABKeyWait
+    sysreq.n 7 0   ; VanishKeyWaitMark
+    push.c 393216
+    sysreq.n 8 4   ; SEPlay
+    zero.pri
+    retn
+L000464:
+    proc
+    push.p.s 12
+    sysreq.n 9 4   ; MsgWinCloseNo
+    zero.pri
+    retn
+L000480:
+    proc
+    push.p.s 12
+    sysreq.n 10 4   ; MEPlay
+    push.p.s 12
+    push.p.c 4
+    call L0004AC
+    zero.pri
+    retn
+L0004AC:
+    proc
+    jump L0004B8
+L0004B8:
+    push.p.s 12
+    sysreq.n 11 4   ; MEIsFinished
+    jzer L0004EC
+    sysreq.n 12 0   ; MEReturnBGM
+    jump L000504
+    jump L0004FC
+L0004EC:
+    push.p.c 1
+    push.p.c 4
+    call L000004
+L0004FC:
+    jump L0004B8
+L000504:
+    zero.pri
+    retn
+L00050C:
+    proc
+    jump L000518
+L000518:
+    sysreq.n 13 0   ; FadeIsEnd
+    jzer L00053C
+    jump L000554
+    jump L00054C
+L00053C:
+    push.p.c 1
+    push.p.c 4
+    call L000004
+L00054C:
+    jump L000518
+L000554:
+    zero.pri
+    retn
+L00055C:
+    proc
+    jump L000568
+L000568:
+    push.p.s 12
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    sysreq.n 14 16   ; YesNoWin_Seq
+    jzer L0005A4
+    push.c 32784
+    sysreq.n 15 4   ; WorkGet
+    retn
+L0005A4:
+    push.p.c 1
+    push.p.c 4
+    call L000004
+    jump L000568
+    zero.pri
+    retn
+L0005C4:
+    proc
+    push.c 393216
+    sysreq.n 8 4   ; SEPlay
+    zero.pri
+    retn
+L0005E4:
+    proc
+    push.p.c 16
+    push.p.s 12
+    push.p.c 8
+    call L000604
+    zero.pri
+    retn
+L000604:
+    proc
+    push.p.s 16
+    push.p.s 12
+    sysreq.n 16 8   ; _TalkMdlStartInit
+    stor.p.s.pri 16
+    load.p.s.pri 16
+    const.p.alt 32
+    and
+    jnz L000640
+    push.p.c 0
+    call L0005C4
+L000640:
+    load.p.s.pri 16
+    const.p.alt 8
+    and
+    jnz L0006A8
+    stack.p -4
+    sysreq.n 17 0   ; PlayerGetReturnDir
+    stor.p.s.pri -4
+    const.p.pri 204
+    add.p.c 4
+    move.alt
+    load.p.s.pri -4
+    stor.i
+    push.p.c 3
+    push.p.c 204
+    push.p.s 12
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    stack.p 4
+L0006A8:
+    load.p.s.pri 16
+    const.p.alt 4
+    and
+    jnz L0006F4
+    load.p.s.pri 12
+    const.p.alt -1
+    jeq L0006E4
+    push.p.s 12
+    sysreq.n 18 4   ; TalkMdlSetEyeToEye
+    jump L0006F4
+L0006E4:
+    push.p.c -1
+    sysreq.n 18 4   ; TalkMdlSetEyeToEye
+L0006F4:
+    load.p.s.pri 16
+    const.p.alt 2
+    and
+    jnz L00074C
+    push.p.s 12
+    sysreq.n 19 4   ; MdlIsHalfSitSkelPreset
+    eq.p.c.pri 1
+    jzer L00074C
+    push.p.c 6
+    push.p.c 216
+    push.p.c 255
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+L00074C:
+    load.p.s.pri 16
+    const.p.alt 16
+    and
+    jzer L000770
+    push.p.s 12
+    sysreq.n 20 4   ; TalkMdlSetTalkMotion
+L000770:
+    zero.pri
+    retn
+L000778:
+    proc
+    stack.p -4
+    push.c 32787
+    sysreq.n 15 4   ; WorkGet
+    stor.p.s.pri -4
+    stack.p -4
+    push.c 32786
+    sysreq.n 15 4   ; WorkGet
+    stor.p.s.pri -8
+    push.p.s -4
+    push.p.s -8
+    sysreq.n 21 8   ; _TalkMdlEndInit
+    stor.p.s.pri -4
+    load.p.s.pri -4
+    const.p.alt 4
+    and
+    jnz L0007F0
+    push.p.s -8
+    sysreq.n 22 4   ; TalkMdlClearEyeToEye
+L0007F0:
+    load.p.s.pri -4
+    const.p.alt 2
+    and
+    jnz L000848
+    push.p.s -8
+    sysreq.n 19 4   ; MdlIsHalfSitSkelPreset
+    eq.p.c.pri 1
+    jzer L000848
+    push.p.c 6
+    push.p.c 240
+    push.p.c 255
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+L000848:
+    load.p.s.pri -4
+    const.p.alt 16
+    and
+    jzer L00086C
+    push.p.s -8
+    push.p.c 4
+    call L000C50
+L00086C:
+    stack.p 8
+    zero.pri
+    retn
+L000878:
+    proc
+    push.p.s 84
+    push.p.s 80
+    push.p.s 76
+    push.p.s 72
+    push.p.s 68
+    push.p.s 64
+    push.p.s 60
+    push.p.s 56
+    push.p.s 52
+    push.p.s 48
+    push.p.s 44
+    push.p.s 40
+    push.p.s 36
+    push.p.s 32
+    push.p.s 28
+    push.p.s 24
+    push.p.s 20
+    push.p.s 16
+    push.p.s 12
+    sysreq.n 23 76   ; TalkMdlMsg_Seq
+    load.p.s.pri 84
+    const.alt 65536
+    and
+    jnz L0008F8
+    push.p.c 0
+    call L000900
+L0008F8:
+    zero.pri
+    retn
+L000900:
+    proc
+    jump L00090C
+L00090C:
+    sysreq.n 24 0   ; CheckWinAllSuspend
+    jzer L000930
+    jump L000948
+    jump L000940
+L000930:
+    push.p.c 1
+    push.p.c 4
+    call L000004
+L000940:
+    jump L00090C
+L000948:
+    zero.pri
+    retn
+L000950:
+    proc
+    load.p.s.pri 20
+    eq.p.c.pri -1
+    jzer L00097C
+    push.c 32785
+    sysreq.n 15 4   ; WorkGet
+    stor.p.s.pri 20
+L00097C:
+    push.p.s 20
+    push.p.c 4
+    call L0005E4
+    push.p.c 0
+    push.p.s 16
+    push.p.s 20
+    push.p.s 12
+    push.p.c 16
+    call L000214
+    sysreq.n 25 0   ; LastKeyWait
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c 0
+    call L000778
+    zero.pri
+    retn
+L0009D8:
+    proc
+    stack.p -4
+    push.c 32785
+    sysreq.n 15 4   ; WorkGet
+    stor.p.s.pri -4
+    push.p.s -4
+    push.p.c 4
+    call L0005E4
+    push.p.c 0
+    push.p.s 12
+    sysreq.n 26 8   ; VoicePlay
+    push.p.c 0
+    push.p.s 20
+    push.p.s -4
+    push.p.s 16
+    push.p.c 16
+    call L000214
+    push.p.c 0
+    call L000D38
+    sysreq.n 25 0   ; LastKeyWait
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c 0
+    call L000778
+    stack.p 4
+    zero.pri
+    retn
+L000A78:
+    proc
+    push.p.s 12
+    sysreq.n 27 4   ; MdlAcmdInit
+    push.p.c 0
+    jump L000AA4
+L000A98:
+    load.p.s.pri -4
+    add.p.c 3
+    stor.p.s.pri -4
+L000AA4:
+    load.s.both -4 20
+    jsgeq L000B58
+    load.p.s.pri 16
+    push.pri
+    load.p.s.pri -4
+    pop.alt
+    idxaddr.p.b 2
+    load.i
+    eq.c.pri 65535
+    jzer L000AE8
+    jump L000B58
+L000AE8:
+    load.p.s.pri 16
+    push.pri
+    load.p.s.pri -4
+    add.p.c 2
+    pop.alt
+    idxaddr.p.b 2
+    load.i
+    push.pri
+    load.p.s.pri 16
+    push.pri
+    load.p.s.pri -4
+    add.p.c 1
+    pop.alt
+    idxaddr.p.b 2
+    load.i
+    push.pri
+    load.p.s.pri 16
+    push.pri
+    load.p.s.pri -4
+    pop.alt
+    idxaddr.p.b 2
+    load.i
+    push.pri
+    sysreq.n 28 12   ; MdlAcmdSet
+    jump L000A98
+L000B58:
+    stack.p 4
+    sysreq.n 29 0   ; MdlAcmdSetEnd
+    zero.pri
+    retn
+L000B70:
+    proc
+    jump L000B7C
+L000B7C:
+    push.p.s 12
+    sysreq.n 30 4   ; MdlAcmdUpdate
+    jzer L000BA4
+    jump L000BBC
+    jump L000BB4
+L000BA4:
+    push.p.c 1
+    push.p.c 4
+    call L000004
+L000BB4:
+    jump L000B7C
+L000BBC:
+    zero.pri
+    retn
+L000BC4:
+    proc
+    jump L000BD0
+L000BD0:
+    push.p.s 16
+    push.p.s 12
+    sysreq.n 31 8   ; BuildMdlEventAnimeIsEnd
+    jzer L000BFC
+    jump L000C14
+    jump L000C0C
+L000BFC:
+    push.p.c 1
+    push.p.c 4
+    call L000004
+L000C0C:
+    jump L000BD0
+L000C14:
+    zero.pri
+    retn
+L000C1C:
+    proc
+    push.p.c 1
+    push.p.c 1
+    push.p.c 0
+    push.p.s 24
+    push.p.s 20
+    push.p.s 16
+    push.p.s 12
+    sysreq.n 32 28   ; MdlAcmdMakeMoveEx
+    zero.pri
+    retn
+L000C50:
+    proc
+    push.p.s 12
+    sysreq.n 33 4   ; MdlSetWaitAnimeReq
+    push.p.c 1
+    push.p.c 4
+    call L000004
+    zero.pri
+    retn
+L000C7C:
+    proc
+    load.p.s.pri 12
+    move.alt
+    zero.pri
+    jsless L000C9C
+    zero.pri
+    retn
+L000C9C:
+    push.p.c 0
+    jump L000CAC
+L000CA8:
+    inc.p.s -4
+L000CAC:
+    load.s.both -4 12
+    jsgeq L000CD8
+    push.p.c 1
+    push.p.c 4
+    call L000004
+    jump L000CA8
+L000CD8:
+    stack.p 4
+    zero.pri
+    retn
+L000CE4:
+    proc
+    jump L000CF0
+L000CF0:
+    push.p.s 12
+    sysreq.n 34 4   ; SEIsPlaying
+    jnz L000D18
+    jump L000D30
+    jump L000D28
+L000D18:
+    push.p.c 1
+    push.p.c 4
+    call L000004
+L000D28:
+    jump L000CF0
+L000D30:
+    zero.pri
+    retn
+L000D38:
+    proc
+    jump L000D44
+L000D44:
+    sysreq.n 35 0   ; VoiceIsEnd
+    jzer L000D68
+    jump L000D80
+    jump L000D78
+L000D68:
+    push.p.c 1
+    push.p.c 4
+    call L000004
+L000D78:
+    jump L000D44
+L000D80:
+    zero.pri
+    retn
+L000D88:
+    proc
+    jump L000D94
+L000D94:
+    stack.p -4
+    push.p.s 12
+    sysreq.n 36 4   ; MsgIsLoaded
+    stor.p.s.pri -4
+    load.p.s.pri -4
+    jzer L000DC4
+    load.p.s.pri -4
+    stack.p 4
+    retn
+L000DC4:
+    push.p.c 1
+    push.p.c 4
+    call L000004
+    stack.p 4
+    jump L000D94
+    zero.pri
+    retn
+L000DE8:
+    proc
+    push.p.c 0
+    push.p.c 24
+    push.p.c 1
+    push.p.c 596
+    push.p.c 145
+    push.p.c 467
+    push.p.c 0
+    sysreq.n 37 28   ; _MapChangeAndDemoCall
+    zero.pri
+    retn
+L000E1C:
+    proc
+    sysreq.n 38 0   ; MsgSwap
+    push.p.c 0
+    push.p.c 1
+    sysreq.n 39 8   ; MsgLoad
+    stack.p -4
+    push.p.c 1
+    push.p.c 4
+    call L000D88
+    stor.p.s.pri -4
+    push.p.c 1
+    push.p.s 12
+    sysreq.n 40 8   ; ItemAddCheck
+    jzer L000E98
+    push.p.s -4
+    push.p.s 20
+    push.p.s 16
+    push.p.s 12
+    push.p.c 16
+    call L0011C0
+    jump L000EB4
+L000E98:
+    push.p.s -4
+    push.p.s 20
+    push.p.s 16
+    push.p.s 12
+    push.p.c 16
+    call L00125C
+L000EB4:
+    sysreq.n 41 0   ; MsgRelease
+    sysreq.n 38 0   ; MsgSwap
+    stack.p 4
+    zero.pri
+    retn
+L000ED8:
+    proc
+    push.p.c 0
+    stack.p -4
+    push.p.s 12
+    sysreq.n 42 4   ; ItemIsMegaStone
+    stor.p.s.pri -8
+    load.p.s.pri -8
+    jzer L000F14
+    const.pri 327721
+    stack.p 8
+    retn
+L000F14:
+    stack.p -4
+    push.p.s 12
+    sysreq.n 43 4   ; PocketGetID
+    stor.p.s.pri -12
+    load.p.s.pri -12
+    switch L000F88
+L000F38:
+    const.s -4 327683
+    jump L000FAC
+L000F4C:
+    const.s -4 327687
+    jump L000FAC
+L000F60:
+    const.s -4 327689
+    jump L000FAC
+L000F74:
+    const.s -4 327682
+    jump L000FAC
+L000F88:
+    casetbl 3 L000F74 2 L000F4C 3 L000F60 4 L000F38
+L000FAC:
+    load.p.s.pri -4
+    stack.p 12
+    retn
+L000FB8:
+    proc
+    stack.p -4
+    push.p.s 12
+    sysreq.n 43 4   ; PocketGetID
+    stor.p.s.pri -4
+    load.p.s.pri -4
+    switch L0010D8
+L000FE0:
+    push.p.c 0
+    push.p.c 4
+    call L00017C
+    push.p.s 20
+    push.p.s 12
+    push.p.c 1
+    sysreq.n 44 12   ; WordSetItemName
+    push.p.s 12
+    push.p.c 2
+    sysreq.n 45 8   ; WordSetItemWazaName
+    push.p.c 0
+    push.p.s 16
+    push.p.c 170
+    push.p.c 3
+    push.p.c 16
+    call L000358
+    jump L0010F4
+L001040:
+    push.p.c 0
+    push.p.c 4
+    call L00017C
+    push.p.s 20
+    push.p.s 12
+    push.p.c 1
+    sysreq.n 44 12   ; WordSetItemName
+    push.p.c 0
+    push.p.s 16
+    push.p.c 170
+    push.p.c 1
+    push.p.c 16
+    call L000358
+    jump L0010F4
+L00108C:
+    push.p.c 0
+    push.p.c 4
+    call L00017C
+    push.p.s 20
+    push.p.s 12
+    push.p.c 1
+    sysreq.n 44 12   ; WordSetItemName
+    push.p.c 0
+    push.p.s 16
+    push.p.c 170
+    push.p.c 0
+    push.p.c 16
+    call L000358
+    jump L0010F4
+L0010D8:
+    casetbl 2 L00108C 2 L000FE0 4 L001040
+L0010F4:
+    stack.p 4
+    zero.pri
+    retn
+L001100:
+    proc
+    push.p.c 0
+    push.p.c 4
+    call L00017C
+    push.p.s 20
+    push.p.s 12
+    push.p.c 1
+    sysreq.n 44 12   ; WordSetItemName
+    stack.p -4
+    push.p.s 12
+    sysreq.n 43 4   ; PocketGetID
+    stor.p.s.pri -4
+    push.p.s -4
+    push.p.c 2
+    sysreq.n 46 8   ; WordSetItemPocketName
+    push.p.c 0
+    push.p.s 24
+    push.p.c 170
+    push.p.c 9
+    push.p.c 16
+    call L000358
+    load.p.s.pri 16
+    eq.p.c.pri 1
+    jzer L001198
+    push.p.c 0
+    call L000420
+    jump L0011A4
+L001198:
+    sysreq.n 25 0   ; LastKeyWait
+L0011A4:
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    stack.p 4
+    zero.pri
+    retn
+L0011C0:
+    proc
+    push.p.s 16
+    push.p.s 12
+    sysreq.n 47 8   ; ItemAdd
+    stack.p -4
+    push.p.s 12
+    push.p.c 4
+    call L000ED8
+    stor.p.s.pri -4
+    push.p.s -4
+    sysreq.n 10 4   ; MEPlay
+    push.p.s 16
+    push.p.s 24
+    push.p.s 12
+    push.p.c 12
+    call L000FB8
+    push.p.s -4
+    push.p.c 4
+    call L0004AC
+    push.p.c 0
+    call L000420
+    push.p.s 24
+    push.p.s 16
+    push.p.s 20
+    push.p.s 12
+    push.p.c 16
+    call L001100
+    stack.p 4
+    zero.pri
+    retn
+L00125C:
+    proc
+    push.p.s 16
+    push.p.s 12
+    push.p.c 0
+    sysreq.n 44 12   ; WordSetItemName
+    push.p.c 0
+    push.p.s 24
+    push.p.c 170
+    push.p.c 7
+    push.p.c 16
+    call L000358
+    load.p.s.pri 20
+    eq.p.c.pri 1
+    jzer L0012B8
+    push.p.c 0
+    call L000420
+    jump L0012C4
+L0012B8:
+    sysreq.n 25 0   ; LastKeyWait
+L0012C4:
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    zero.pri
+    retn
+L0012DC:
+    proc
+    load.p.pri 264
+    switch L0014CC
+L0012EC:
+    push.p.c 0
+    call L001CA4
+    jump L001590
+L001300:
+    push.p.c 0
+    call L001E18
+    jump L001590
+L001314:
+    push.p.c 0
+    call L001E74
+    jump L001590
+L001328:
+    push.p.c 0
+    call L001EE0
+    jump L001590
+L00133C:
+    push.p.c 0
+    call L002230
+    jump L001590
+L001350:
+    push.p.c 0
+    call L0022C4
+    jump L001590
+L001364:
+    push.p.c 0
+    call L002448
+    jump L001590
+L001378:
+    push.p.c 0
+    call L002770
+    jump L001590
+L00138C:
+    push.p.c 0
+    call L00286C
+    jump L001590
+L0013A0:
+    push.p.c 0
+    call L0029AC
+    jump L001590
+L0013B4:
+    push.p.c 0
+    call L00328C
+    jump L001590
+L0013C8:
+    push.p.c 0
+    call L003420
+    jump L001590
+L0013DC:
+    push.p.c 0
+    call L003444
+    jump L001590
+L0013F0:
+    push.p.c 0
+    call L003464
+    jump L001590
+L001404:
+    push.p.c 0
+    call L003484
+    jump L001590
+L001418:
+    push.p.c 0
+    call L0034A4
+    jump L001590
+L00142C:
+    push.p.c 0
+    call L0034C4
+    jump L001590
+L001440:
+    push.p.c 0
+    call L0034E4
+    jump L001590
+L001454:
+    push.p.c 0
+    call L00355C
+    jump L001590
+L001468:
+    push.p.c 0
+    call L0035D0
+    jump L001590
+L00147C:
+    push.p.c 0
+    call L003644
+    jump L001590
+L001490:
+    push.p.c 0
+    call L0039C8
+    jump L001590
+L0014A4:
+    push.p.c 0
+    call L001598
+    jump L001590
+L0014B8:
+    sysreq.n 48 0   ; CommandNOP
+    jump L001590
+L0014CC:
+    casetbl 23 L0014B8 -1 L0014A4 1 L0012EC 2 L001300 3 L001314 4 L001328 5 L00133C 6 L001350 7 L001364 8 L001378 9 L00138C 10 L0013A0 11 L0013B4 12 L0013C8 13 L0013DC 14 L0013F0 15 L001404 16 L001418 17 L00142C 18 L001440 19 L001454 20 L001468 21 L00147C 22 L001490
+L001590:
+    zero.pri
+    retn
+L001598:
+    proc
+    zero.pri
+    retn
+L0015A4:
+    proc
+    sysreq.n 49 0   ; ResetMirror
+    push.p.c 1
+    push.p.c 4
+    call L000004
+    stack.p -4
+    sysreq.n 50 0   ; CommandNOP
+    stor.p.s.pri -4
+    push.p.c 1
+    push.p.c 4
+    call L000004
+    push.p.s -4
+    sysreq.n 51 4   ; CommandNOP
+    push.p.c 1
+    push.p.c 4
+    call L000004
+L001608:
+    push.p.s -4
+    sysreq.n 52 4   ; CommandNOP
+    jnz L001638
+    push.p.c 1
+    push.p.c 4
+    call L000004
+    jump L001608
+L001638:
+    push.p.c 0
+    sysreq.n 53 4   ; SetMirror
+    push.p.c 1
+    push.p.c 4
+    call L000004
+    stack.p 4
+    zero.pri
+    retn
+L001664:
+    proc
+    const.p.alt 276
+    load.p.s.pri 12
+    lidx.p.b 2
+    retn
+L001678:
+    proc
+    push.p.c -1
+    push.p.c 4
+    call L0005E4
+    stack.p -4
+    push.p.c 0
+    sysreq.n 54 4   ; PokePartyGetCount
+    stor.p.s.pri -4
+    push.p.c 0
+    push.p.c 0
+L0016AC:
+    load.s.both -8 -4
+    jsgeq L0017CC
+    sysreq.n 48 0   ; CommandNOP
+    push.p.s -8
+    push.p.c 4
+    call L000030
+    stor.p.s.pri -12
+    load.p.s.pri -8
+    add.p.c 1
+    stor.p.s.pri -8
+    load.p.s.pri -12
+    eq.p.c.pri 1
+    jzer L0017C4
+    push.p.c 0
+    push.p.c 1
+    push.p.c 29
+    push.p.c 12
+    call L000278
+    push.p.c 0
+    call L000420
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c 15
+    push.p.c 2
+    push.p.c 0
+    sysreq.n 55 12   ; FadeRequestOut
+    push.p.c 0
+    call L00050C
+    push.c 327680
+    sysreq.n 10 4   ; MEPlay
+    push.c 327680
+    push.p.c 4
+    call L0004AC
+    sysreq.n 56 0   ; PokePartyRecoverAll
+    push.p.c 15
+    push.p.c 2
+    sysreq.n 57 8   ; _FadeRequestIn
+    push.p.c 0
+    call L00050C
+    push.p.c 1
+    push.p.c 101
+    sysreq.n 58 8   ; RecordAdd
+    jump L0017CC
+L0017C4:
+    jump L0016AC
+L0017CC:
+    stack.p -4
+    push.p.c 4
+    sysreq.n 59 4   ; Random
+    stor.p.s.pri -16
+    load.p.s.pri -16
+    switch L001870
+L0017F0:
+    push.p.c 0
+    push.p.c 1
+    push.p.c 30
+    push.p.c 12
+    call L000278
+    jump L001894
+L001810:
+    push.p.c 0
+    push.p.c 1
+    push.p.c 31
+    push.p.c 12
+    call L000278
+    jump L001894
+L001830:
+    push.p.c 0
+    push.p.c 1
+    push.p.c 32
+    push.p.c 12
+    call L000278
+    jump L001894
+L001850:
+    push.p.c 0
+    push.p.c 1
+    push.p.c 33
+    push.p.c 12
+    call L000278
+    jump L001894
+L001870:
+    casetbl 3 L001850 0 L0017F0 1 L001810 2 L001830
+L001894:
+    sysreq.n 25 0   ; LastKeyWait
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c 0
+    call L000778
+    stack.p 16
+    zero.pri
+    retn
+L0018C8:
+    proc
+    push.p.c 0
+    call L0005C4
+    push.p.c 0
+    push.p.c 256
+    push.p.c 0
+    push.p.s 12
+    push.p.c 16
+    call L0002DC
+    push.p.c 0
+    call L000420
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c 15
+    push.p.c 2
+    push.p.c 0
+    sysreq.n 55 12   ; FadeRequestOut
+    push.p.c 0
+    call L00050C
+    push.p.c 0
+    push.p.s 16
+    sysreq.n 60 8   ; CallCommendation
+    push.p.c 15
+    push.p.c 2
+    sysreq.n 57 8   ; _FadeRequestIn
+    push.p.c 0
+    call L00050C
+    push.p.c 0
+    call L000778
+    zero.pri
+    retn
+L00197C:
+    proc
+    push.p.c 0
+    push.p.c 0
+    push.p.c 6
+    push.p.c 13
+    push.p.c 16
+    call L000214
+    push.p.c 0
+    call L000420
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c 3
+    push.p.c 168
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 6
+    sysreq.n 27 4   ; MdlAcmdInit
+    push.p.c 35
+    push.p.c 2
+    push.p.c 23
+    push.p.c 18
+    push.p.c 16
+    call L000C1C
+    sysreq.n 29 0   ; MdlAcmdSetEnd
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 3
+    push.p.c 72
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 4
+    push.p.c 16646   ; X/Y's work 16508
+    sysreq.n 61 8   ; WorkSet
+    push.p.c 1
+    push.p.c 16643   ; X/Y's work 16498
+    sysreq.n 61 8   ; WorkSet
+    zero.pri
+    retn
+L001A80:
+    proc
+    stack.p -4
+    push.p.c 255
+    sysreq.n 62 4   ; MdlGetDirDisp
+    stor.p.s.pri -4
+    stack.p -4
+    push.p.c 255
+    sysreq.n 63 4   ; MdlGetGPosX
+    push.pri
+    push.p.c 1
+    push.p.s -4
+    sysreq.n 64 8   ; GetDirAddValueGridX
+    pop.alt
+    add
+    stor.p.s.pri -8
+    stack.p -4
+    push.p.c 255
+    sysreq.n 65 4   ; MdlGetGPosZ
+    push.pri
+    push.p.c 1
+    push.p.s -4
+    sysreq.n 66 8   ; GetDirAddValueGridZ
+    pop.alt
+    add
+    stor.p.s.pri -12
+    stack.p -4
+    push.p.s -12
+    push.p.s -8
+    sysreq.n 67 8   ; BuildMdlGetHandleByGPos
+    stor.p.s.pri -16
+    push.c 1065353216
+    push.p.c 1
+    push.p.s -16
+    sysreq.n 68 12   ; BuildMdlEventAnimeStart
+    push.p.c 1
+    push.p.s -16
+    push.p.c 8
+    call L000BC4
+    push.p.c 1
+    push.p.s -16
+    sysreq.n 69 8   ; BuildMdlEventAnimeStop
+    push.c 1065353216
+    push.p.c 0
+    push.p.s -16
+    sysreq.n 68 12   ; BuildMdlEventAnimeStart
+    stack.p 16
+    zero.pri
+    retn
+L001B94:
+    proc
+    stack.p -4
+    push.p.c 255
+    sysreq.n 62 4   ; MdlGetDirDisp
+    stor.p.s.pri -4
+    stack.p -4
+    push.p.c 255
+    sysreq.n 63 4   ; MdlGetGPosX
+    push.pri
+    push.p.c 1
+    push.p.s -4
+    sysreq.n 64 8   ; GetDirAddValueGridX
+    pop.alt
+    add
+    stor.p.s.pri -8
+    stack.p -4
+    push.p.c 255
+    sysreq.n 65 4   ; MdlGetGPosZ
+    push.pri
+    push.p.c 1
+    push.p.s -4
+    sysreq.n 66 8   ; GetDirAddValueGridZ
+    pop.alt
+    add
+    stor.p.s.pri -12
+    stack.p -4
+    push.p.s -12
+    push.p.s -8
+    sysreq.n 67 8   ; BuildMdlGetHandleByGPos
+    stor.p.s.pri -16
+    push.p.c 0
+    push.p.s -16
+    sysreq.n 69 8   ; BuildMdlEventAnimeStop
+    push.c 1065353216
+    push.p.c 1
+    push.p.c 1
+    push.p.s -16
+    sysreq.n 70 16   ; BuildMdlEventAnimeInvStart
+    push.p.c 1
+    push.p.s -16
+    push.p.c 8
+    call L000BC4
+    push.p.c 1
+    push.p.s -16
+    sysreq.n 69 8   ; BuildMdlEventAnimeStop
+    stack.p 16
+    zero.pri
+    retn
+L001CA4:
+    proc
+    push.p.c 255
+    push.p.c 12
+    push.p.c 2
+    push.p.c 3
+    sysreq.n 71 16   ; MdlSetGPos
+    push.p.c 6
+    push.p.c 340
+    push.p.c 255
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    sysreq.n 72 0   ; EVCameraSetInitParam
+    push.p.c 0
+    push5.c 1109620622 1130113801 1098940643 1109105073 1132684642
+    push2.c 1113884046 1118405378
+    push.p.c 0
+    sysreq.n 73 36   ; EVCameraSetDstParam
+    push.p.c 0
+    push.p.c 1
+    push.p.c 0
+    push.p.c 0
+    sysreq.n 74 16   ; EVCameraSetFrameParam
+    sysreq.n 75 0   ; EVCameraBegin
+    push.p.c 0
+    call L0001BC
+    push.p.c 45
+    push.p.c 2
+    sysreq.n 57 8   ; _FadeRequestIn
+    push.p.c 6
+    push.p.c 364
+    push.p.c 255
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 0
+    call L00050C
+    sysreq.n 76 0   ; EVCameraSetGameCameraParam
+    push.p.c 0
+    push.p.c 1
+    push.p.c 60
+    push.p.c 0
+    sysreq.n 74 16   ; EVCameraSetFrameParam
+    sysreq.n 75 0   ; EVCameraBegin
+    push.p.c 0
+    call L0001BC
+    push.p.c 0
+    sysreq.n 77 4   ; EVCameraEnd
+    push.p.c 1
+    push.p.c 16647   ; X/Y's work 16514
+    sysreq.n 61 8   ; WorkSet
+    zero.pri
+    retn
+L001E18:
+    proc
+    push.p.c 0
+    call L0005C4
+    push.p.c 0
+    push.p.c 256
+    push.p.c 0
+    push.p.c 0
+    push.p.c 16
+    call L0002DC
+    sysreq.n 25 0   ; LastKeyWait
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c 0
+    call L000778
+    zero.pri
+    retn
+L001E74:
+    proc
+    push.p.c 0
+    call L0005C4
+    push.p.c 0
+    push.p.c 4
+    call L00017C
+    push.p.c 0
+    push.p.c 256
+    push.p.c 0
+    push.p.c 1
+    push.p.c 16
+    call L0002DC
+    sysreq.n 25 0   ; LastKeyWait
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c 0
+    call L000778
+    zero.pri
+    retn
+L001EE0:
+    proc
+    push.p.c 0
+    call L0005C4
+    push.p.c 0
+    push.p.c 4
+    call L00017C
+    push.p.c 0
+    push.p.c 256
+    push.p.c 0
+    push.p.c 2
+    push.p.c 16
+    call L0002DC
+    stack.p -4
+    push.p.c 3082   ; X/Y's flag 398
+    sysreq.n 78 4   ; FlagGet
+    stor.p.s.pri -4
+    load.p.s.pri -4
+    jnz L0021FC
+    push.p.c 0
+    call L000420
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c 15
+    push.p.c 2
+    push.p.c 0
+    sysreq.n 55 12   ; FadeRequestOut
+    push.p.c 0
+    call L00050C
+    push.p.c 0
+    call L0015A4
+    sysreq.n 72 0   ; EVCameraSetInitParam
+    push.p.c 0
+    push5.c 1106247680 1128301950 1088386775 1125668268 1131858052
+    push2.c 1100475716 1125642863
+    push.p.c 0
+    sysreq.n 73 36   ; EVCameraSetDstParam
+    push.p.c 0
+    push.p.c 1
+    push.p.c 0
+    push.p.c 0
+    sysreq.n 74 16   ; EVCameraSetFrameParam
+    sysreq.n 75 0   ; EVCameraBegin
+    push.p.c 0
+    call L0001BC
+    push.c 655524
+    sysreq.n 8 4   ; SEPlay
+    push.c 655524
+    push.p.c 4
+    call L000CE4
+    push.p.c 15
+    push.p.c 2
+    sysreq.n 57 8   ; _FadeRequestIn
+    push.p.c 0
+    call L00050C
+    push5.c -1215390919 1106247680 1127844648 1103916676 1125723527
+    push3.c 1131565722 1107892484 1125565786
+    push.p.c 0
+    sysreq.n 79 36   ; EVCameraSetSlideParam
+    push.p.c 0
+    push.p.c 1
+    push.p.c 60
+    push.p.c 0
+    sysreq.n 74 16   ; EVCameraSetFrameParam
+    sysreq.n 75 0   ; EVCameraBegin
+    push.p.c 0
+    call L0001BC
+    push5.c 936490775 1106247680 1127733202 1104015495 1125570125
+    push3.c 1132658923 1108662974 1119144152
+    push.p.c 0
+    sysreq.n 79 36   ; EVCameraSetSlideParam
+    push.p.c 0
+    push.p.c 1
+    push.p.c 30
+    push.p.c 0
+    sysreq.n 74 16   ; EVCameraSetFrameParam
+    sysreq.n 75 0   ; EVCameraBegin
+    push.p.c 0
+    call L0001BC
+    push.c 655525
+    sysreq.n 8 4   ; SEPlay
+    push.p.c 0
+    push.p.c 256
+    push.p.c 0
+    push.p.c 3
+    push.p.c 16
+    call L0002DC
+    push.c 655525
+    push.p.c 4
+    call L000CE4
+    push.p.c 0
+    call L000420
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    sysreq.n 76 0   ; EVCameraSetGameCameraParam
+    push.p.c 0
+    push.p.c 1
+    push.p.c 30
+    push.p.c 0
+    sysreq.n 74 16   ; EVCameraSetFrameParam
+    sysreq.n 75 0   ; EVCameraBegin
+    push.p.c 0
+    call L0001BC
+    push.p.c 0
+    sysreq.n 77 4   ; EVCameraEnd
+    push.p.c 3082   ; X/Y's flag 398
+    sysreq.n 80 4   ; FlagSet
+    push.p.c 3094   ; X/Y's flag 2745
+    sysreq.n 80 4   ; FlagSet
+    jump L002218
+L0021FC:
+    sysreq.n 25 0   ; LastKeyWait
+    push.p.c 0
+    push.p.c 4
+    call L000464
+L002218:
+    push.p.c 0
+    call L000778
+    stack.p 4
+    zero.pri
+    retn
+L002230:
+    proc
+    sysreq.n 48 0   ; CommandNOP
+    stack.p -4
+    push.p.c 255
+    sysreq.n 63 4   ; MdlGetGPosX
+    stor.p.s.pri -4
+    load.p.s.pri -4
+    eq.p.c.pri 32
+    jzer L002294
+    push.p.c 2
+    push.p.c 15
+    push.p.c 0
+    push.p.c 9
+    push.p.c 5
+    push.p.c 5
+    sysreq.n 81 24   ; MapChangeFake
+    jump L0022B8
+L002294:
+    push.p.c 2
+    push.p.c 16
+    push.p.c 0
+    push.p.c 9
+    push.p.c 5
+    push.p.c 5
+    sysreq.n 81 24   ; MapChangeFake
+L0022B8:
+    stack.p 4
+    zero.pri
+    retn
+L0022C4:
+    proc
+    sysreq.n 48 0   ; CommandNOP
+    stack.p -4
+    push.p.c 255
+    sysreq.n 65 4   ; MdlGetGPosZ
+    stor.p.s.pri -4
+    load.p.s.pri -4
+    eq.p.c.pri 15
+    jzer L002328
+    push.p.c 1
+    push.p.c 34
+    push.p.c 11
+    push.p.c 32
+    push.p.c 5
+    push.p.c 5
+    sysreq.n 81 24   ; MapChangeFake
+    jump L00234C
+L002328:
+    push.p.c 1
+    push.p.c 34
+    push.p.c 11
+    push.p.c 31
+    push.p.c 5
+    push.p.c 5
+    sysreq.n 81 24   ; MapChangeFake
+L00234C:
+    stack.p -4
+    push.p.c 16646   ; X/Y's work 16508
+    sysreq.n 15 4   ; WorkGet
+    stor.p.s.pri -8
+    load.p.s.pri -8
+    switch L0023D4
+L002370:
+    push.p.c 1
+    push.p.c 16646   ; X/Y's work 16508
+    sysreq.n 61 8   ; WorkSet
+    jump L0023F0
+L00238C:
+    stack.p -4
+    push.p.c 3082   ; X/Y's flag 398
+    sysreq.n 78 4   ; FlagGet
+    stor.p.s.pri -12
+    load.p.s.pri -12
+    eq.p.c.pri 1
+    jzer L0023C8
+    push.p.c 3
+    push.p.c 16646   ; X/Y's work 16508
+    sysreq.n 61 8   ; WorkSet
+L0023C8:
+    stack.p 4
+    jump L0023F0
+L0023D4:
+    casetbl 2 L0023F0 0 L002370 2 L00238C
+L0023F0:
+    stack.p -4
+    push.p.c 3093   ; X/Y's flag 2640
+    sysreq.n 78 4   ; FlagGet
+    stor.p.s.pri -12
+    load.p.s.pri -12
+    eq.p.c.pri 1
+    jzer L00243C
+    load.p.s.pri -8
+    eq.p.c.pri 8
+    jzer L00243C
+    push.p.c 9
+    push.p.c 16646   ; X/Y's work 16508
+    sysreq.n 61 8   ; WorkSet
+L00243C:
+    stack.p 12
+    zero.pri
+    retn
+L002448:
+    proc
+    sysreq.n 48 0   ; CommandNOP
+    push.p.c 0
+    push.p.c 4
+    call L00017C
+    push.p.c 3
+    push.p.c 12
+    push.p.c 255
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    sysreq.n 72 0   ; EVCameraSetInitParam
+    push.p.c 0
+    push5.c 1106247680 1142800174 1100576724 1137934338 1145289346
+    push2.c 1119096447 1137934338
+    push.p.c 0
+    sysreq.n 73 36   ; EVCameraSetDstParam
+    push.p.c 0
+    push.p.c 1
+    push.p.c 60
+    push.p.c 0
+    sysreq.n 74 16   ; EVCameraSetFrameParam
+    sysreq.n 75 0   ; EVCameraBegin
+    push.p.c 0
+    call L0001BC
+    push.p.c 6
+    push.p.c 24
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 3
+    push.p.c 156
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 6
+    sysreq.n 27 4   ; MdlAcmdInit
+    push.p.c 35
+    push.p.c 2
+    push.p.c 28
+    push.p.c 18
+    push.p.c 16
+    call L000C1C
+    sysreq.n 29 0   ; MdlAcmdSetEnd
+    push.p.c 6
+    push.p.c 4
+    call L000C7C
+    push5.c 975238360 1106247680 1143179338 1108882593 1141464879
+    push3.c 1144463362 1114659116 1142368284
+    push.p.c 0
+    sysreq.n 79 36   ; EVCameraSetSlideParam
+    push.p.c 0
+    push.p.c 1
+    push.p.c 40
+    push.p.c 0
+    sysreq.n 74 16   ; EVCameraSetFrameParam
+    sysreq.n 75 0   ; EVCameraBegin
+    push.p.c 0
+    call L0001BC
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 6
+    push.p.c 180
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c 0
+    push.p.c 0
+    push.p.c 6
+    push.p.c 10
+    push.p.c 16
+    call L000214
+    push.p.c 0
+    call L000420
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 20
+    push.p.c 4
+    call L000C7C
+    stack.p -4
+    push.p.c 3082   ; X/Y's flag 398
+    sysreq.n 78 4   ; FlagGet
+    stor.p.s.pri -4
+    load.p.s.pri -4
+    eq.p.c.pri 1
+    jzer L0026C8
+    push.p.c 0
+    call L00197C
+    jump L002714
+L0026C8:
+    push.p.c 0
+    push.p.c 0
+    push.p.c 6
+    push.p.c 11
+    push.p.c 16
+    call L000214
+    push.p.c 0
+    call L000420
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c 2
+    push.p.c 16646   ; X/Y's work 16508
+    sysreq.n 61 8   ; WorkSet
+L002714:
+    sysreq.n 76 0   ; EVCameraSetGameCameraParam
+    push.p.c 0
+    push.p.c 1
+    push.p.c 40
+    push.p.c 0
+    sysreq.n 74 16   ; EVCameraSetFrameParam
+    sysreq.n 75 0   ; EVCameraBegin
+    push.p.c 0
+    call L0001BC
+    push.p.c 0
+    sysreq.n 77 4   ; EVCameraEnd
+    stack.p 4
+    zero.pri
+    retn
+L002770:
+    proc
+    push.p.c 6
+    push.p.c 24
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 3
+    push.p.c 144
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c 3
+    push.p.c 132
+    push.p.c 255
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 0
+    push.p.c 0
+    push.p.c 6
+    push.p.c 12
+    push.p.c 16
+    call L000214
+    push.p.c 0
+    call L000420
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c 3
+    push.p.c 0
+    push.p.c 255
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 3
+    push.p.c 156
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    zero.pri
+    retn
+L00286C:
+    proc
+    push.p.c 3
+    push.p.c 84
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 3
+    push.p.c 120
+    push.p.c 255
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    sysreq.n 72 0   ; EVCameraSetInitParam
+    push5.c 975238360 1106247680 1143179338 1108882593 1141464879
+    push3.c 1144463362 1114659116 1142368284
+    push.p.c 0
+    sysreq.n 73 36   ; EVCameraSetDstParam
+    push.p.c 0
+    push.p.c 1
+    push.p.c 40
+    push.p.c 0
+    sysreq.n 74 16   ; EVCameraSetFrameParam
+    sysreq.n 75 0   ; EVCameraBegin
+    push.p.c 0
+    call L0001BC
+    push.p.c 0
+    call L00197C
+    push.p.c 6
+    push.p.c 4
+    call L000C7C
+    sysreq.n 76 0   ; EVCameraSetGameCameraParam
+    push.p.c 0
+    push.p.c 1
+    push.p.c 40
+    push.p.c 0
+    sysreq.n 74 16   ; EVCameraSetFrameParam
+    sysreq.n 75 0   ; EVCameraBegin
+    push.p.c 0
+    call L0001BC
+    push.p.c 0
+    sysreq.n 77 4   ; EVCameraEnd
+    zero.pri
+    retn
+L0029AC:
+    proc
+    push.p.c 0
+    push.p.c 4
+    call L00017C
+    stack.p -4
+    push.p.c 16641   ; X/Y's work 16432
+    sysreq.n 15 4   ; WorkGet
+    stor.p.s.pri -4
+    load.p.s.pri -4
+    switch L002A38
+L0029E4:
+    push.p.c 650
+    push.p.c 1
+    push.p.c 8
+    call L00019C
+    jump L002A54
+L002A00:
+    push.p.c 653
+    push.p.c 1
+    push.p.c 8
+    call L00019C
+    jump L002A54
+L002A1C:
+    push.p.c 656
+    push.p.c 1
+    push.p.c 8
+    call L00019C
+    jump L002A54
+L002A38:
+    casetbl 2 L002A1C 0 L0029E4 1 L002A00
+L002A54:
+    push.p.c 6
+    push.p.c 24
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 10
+    push.c 65566
+    sysreq.n 82 8   ; CommandNOP
+    push.p.c 3
+    push.p.c 156
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    stack.p -4
+    sysreq.n 83 0   ; PlayerGetFrontGridPosX
+    stor.p.s.pri -8
+    stack.p -4
+    sysreq.n 84 0   ; PlayerGetFrontGridPosZ
+    stor.p.s.pri -12
+    load.p.s.pri -12
+    add.p.c -1
+    stor.p.s.pri -12
+    push.p.c 6
+    sysreq.n 27 4   ; MdlAcmdInit
+    push.p.s -12
+    push.p.c 0
+    push.p.s -8
+    push.p.c 18
+    push.p.c 16
+    call L000C1C
+    sysreq.n 29 0   ; MdlAcmdSetEnd
+    push.p.c 6
+    push.p.c 4
+    call L000C7C
+    sysreq.n 72 0   ; EVCameraSetInitParam
+    push.p.c 0
+    push5.c 1106247680 1143283793 1108707499 1140312612 1145128610
+    push2.c 1118417732 1140311826
+    push.p.c 0
+    sysreq.n 73 36   ; EVCameraSetDstParam
+    push.p.c 0
+    push.p.c 1
+    push.p.c 30
+    push.p.c 0
+    sysreq.n 74 16   ; EVCameraSetFrameParam
+    sysreq.n 75 0   ; EVCameraBegin
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 3
+    push.p.c 144
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 0
+    call L0001BC
+    push.p.c 0
+    push.p.c 6
+    push.p.c 255
+    sysreq.n 85 12   ; TalkMdlSetEye
+    push.p.c 6
+    push.p.c 180
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c 0
+    push.p.c 0
+    push.p.c 6
+    push.p.c 17
+    push.p.c 16
+    call L000214
+    push.p.c 0
+    call L000420
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 6
+    push.p.c 24
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 0
+    push.p.c 0
+    push.p.c 6
+    push.p.c 18
+    push.p.c 16
+    call L000214
+    push.p.c 0
+    call L000420
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c 6
+    push.p.c 48
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 0
+    push.p.c 0
+    push.p.c 6
+    push.p.c 19
+    push.p.c 16
+    call L000214
+    push.p.c 0
+    call L000420
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c 3
+    push.p.c 168
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 0
+    push.p.c 32
+    push.p.c 1
+    push.p.c 20
+    push.p.c 16
+    call L0002DC
+    push.p.c 45
+    push.p.c 4
+    call L000C7C
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c 0
+    push.p.c 0
+    push.p.c 6
+    push.p.c 21
+    push.p.c 16
+    call L000214
+    push.p.c 0
+    call L000420
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c 3
+    push.p.c 144
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 0
+    push.p.c 0
+    push.p.c 6
+    push.p.c 22
+    push.p.c 16
+    call L000214
+    push.p.c 0
+    call L000420
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c 3
+    push.p.c 156
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 6
+    sysreq.n 27 4   ; MdlAcmdInit
+    push.p.c 35
+    push.p.c 0
+    push.p.c 31
+    push.p.c 18
+    push.p.c 16
+    call L000C1C
+    sysreq.n 29 0   ; MdlAcmdSetEnd
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 3
+    push.p.c 96
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 0
+    push.p.c 6
+    sysreq.n 86 8   ; MdlSetVisible
+    push.c 655389
+    sysreq.n 8 4   ; SEPlay
+    push.c 655389
+    push.p.c 4
+    call L000CE4
+    push.p.c 60
+    push.p.c 4
+    call L000C7C
+    push.c 655389
+    sysreq.n 8 4   ; SEPlay
+    push.p.c 1
+    push.p.c 6
+    sysreq.n 86 8   ; MdlSetVisible
+    push.p.c 3
+    push.p.c 168
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 6
+    sysreq.n 27 4   ; MdlAcmdInit
+    push.p.s -12
+    push.p.c 0
+    push.p.s -8
+    push.p.c 18
+    push.p.c 16
+    call L000C1C
+    sysreq.n 29 0   ; MdlAcmdSetEnd
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 3
+    push.p.c 108
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.c 655389
+    push.p.c 4
+    call L000CE4
+    push.p.c 0
+    push.p.c 0
+    push.p.c 6
+    push.p.c 23
+    push.p.c 16
+    call L000214
+    push.p.c 0
+    call L000420
+    push.p.c 6
+    push.p.c 180
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c 0
+    push.p.c 0
+    push.p.c 6
+    push.p.c 24
+    push.p.c 16
+    call L000214
+    push.p.c 0
+    call L000420
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 1
+    push.p.c 1
+    push.p.c 442
+    push.p.c 12
+    call L000E1C
+    push.p.c 1
+    push.p.c 17
+    sysreq.n 47 8   ; ItemAdd
+    push.p.c 1
+    push.p.c 642
+    sysreq.n 87 8   ; ItemSub
+    stack.p -4
+    sysreq.n 88 0   ; PlayerGetSex
+    stor.p.s.pri -16
+    load.p.s.pri -16
+    switch L0030F4
+L0030BC:
+    push.p.c 1
+    push.p.c 641
+    sysreq.n 47 8   ; ItemAdd
+    jump L003110
+L0030D8:
+    push.p.c 1
+    push.p.c 714
+    sysreq.n 47 8   ; ItemAdd
+    jump L003110
+L0030F4:
+    casetbl 2 L003110 0 L0030BC 1 L0030D8
+L003110:
+    push.p.c 0
+    push.p.c 0
+    push.p.c 6
+    push.p.c 25
+    push.p.c 16
+    call L000214
+    push.p.c 0
+    call L000420
+    stack.p -4
+    push.p.c 1
+    push.p.c 4
+    call L00055C
+    stor.p.s.pri -20
+    load.p.s.pri -20
+    eq.p.c.pri 1
+    jzer L003184
+    push.p.c 0
+    push.p.c 0
+    push.p.c 6
+    push.p.c 26
+    push.p.c 16
+    call L000214
+    jump L0031A0
+L003184:
+    push.p.c 0
+    push.p.c 0
+    push.p.c 6
+    push.p.c 27
+    push.p.c 16
+    call L000214
+L0031A0:
+    push.p.c 0
+    call L000420
+    push.p.c 0
+    push.p.c 0
+    push.p.c 6
+    push.p.c 28
+    push.p.c 16
+    call L000214
+    sysreq.n 25 0   ; LastKeyWait
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c 60
+    push.p.c 90
+    sysreq.n 89 8   ; BGMEndEvent
+    push.p.c 255
+    sysreq.n 90 4   ; TalkMdlClearEye
+    sysreq.n 76 0   ; EVCameraSetGameCameraParam
+    push.p.c 0
+    push.p.c 1
+    push.p.c 30
+    push.p.c 0
+    sysreq.n 74 16   ; EVCameraSetFrameParam
+    sysreq.n 75 0   ; EVCameraBegin
+    push.p.c 0
+    call L0001BC
+    push.p.c 0
+    sysreq.n 77 4   ; EVCameraEnd
+    push.p.c 7
+    push.p.c 16646   ; X/Y's work 16508
+    sysreq.n 61 8   ; WorkSet
+    push.p.c 3
+    push.p.c 16643   ; X/Y's work 16498
+    sysreq.n 61 8   ; WorkSet
+    stack.p 20
+    zero.pri
+    retn
+L00328C:
+    proc
+    stack.p -4
+    push.p.c 16646   ; X/Y's work 16508
+    sysreq.n 15 4   ; WorkGet
+    stor.p.s.pri -4
+    stack.p -4
+    push.p.c 16643   ; X/Y's work 16498
+    sysreq.n 15 4   ; WorkGet
+    stor.p.s.pri -8
+    stack.p -4
+    push.p.c 16648   ; X/Y's work 16604
+    sysreq.n 15 4   ; WorkGet
+    stor.p.s.pri -12
+    stack.p -4
+    push.p.c 3093   ; X/Y's flag 2640
+    sysreq.n 78 4   ; FlagGet
+    stor.p.s.pri -16
+    load.p.s.pri -4
+    eq.p.c.pri 2
+    jzer L003320
+    push.p.c -1
+    push.p.c 1
+    push.p.c 12
+    push.p.c 12
+    call L000950
+    jump L003414
+L003320:
+    load.p.s.pri -4
+    eq.p.c.pri 4
+    jzer L003350
+    push.p.c -1
+    push.p.c 1
+    push.p.c 14
+    push.p.c 12
+    call L000950
+    jump L003414
+L003350:
+    load.p.s.pri -8
+    eq.p.c.pri 2
+    jzer L003380
+    push.p.c -1
+    push.p.c 1
+    push.p.c 15
+    push.p.c 12
+    call L000950
+    jump L003414
+L003380:
+    load.p.s.pri -8
+    eq.p.c.pri 3
+    jzer L0033B0
+    push.p.c -1
+    push.p.c 1
+    push.p.c 28
+    push.p.c 12
+    call L000950
+    jump L003414
+L0033B0:
+    load.p.s.pri -16
+    eq.p.c.pri 1
+    jzer L0033DC
+    load.p.s.pri -12
+    eq.p.c.pri 1
+    jzer L0033DC
+    const.p.pri 1
+    jump L0033E0
+L0033DC:
+    zero.pri
+L0033E0:
+    jzer L003408
+    push.p.c -1
+    push.p.c 1
+    push.p.c 35
+    push.p.c 12
+    call L000950
+    jump L003414
+L003408:
+    push.p.c 0
+    call L001678
+L003414:
+    stack.p 16
+    zero.pri
+    retn
+L003420:
+    proc
+    push.p.c 1
+    push.p.c 16
+    push.p.c 661
+    push.p.c 12
+    call L0009D8
+    zero.pri
+    retn
+L003444:
+    proc
+    push.p.c 0
+    push.p.c 4
+    push.p.c 8
+    call L0018C8
+    zero.pri
+    retn
+L003464:
+    proc
+    push.p.c 1
+    push.p.c 5
+    push.p.c 8
+    call L0018C8
+    zero.pri
+    retn
+L003484:
+    proc
+    push.p.c 2
+    push.p.c 6
+    push.p.c 8
+    call L0018C8
+    zero.pri
+    retn
+L0034A4:
+    proc
+    push.p.c 3
+    push.p.c 7
+    push.p.c 8
+    call L0018C8
+    zero.pri
+    retn
+L0034C4:
+    proc
+    push.p.c 4
+    push.p.c 8
+    push.p.c 8
+    call L0018C8
+    zero.pri
+    retn
+L0034E4:
+    proc
+    push.p.c 15
+    push.p.c 2
+    push.p.c 0
+    sysreq.n 55 12   ; FadeRequestOut
+    push.c 655389
+    sysreq.n 8 4   ; SEPlay
+    push.c 655389
+    push.p.c 4
+    call L000CE4
+    push.p.c 0
+    call L00050C
+    push.p.c 5
+    push.p.c 16646   ; X/Y's work 16508
+    sysreq.n 61 8   ; WorkSet
+    push.p.c 0
+    call L000DE8
+    zero.pri
+    retn
+L00355C:
+    proc
+    push.p.c 0
+    call L0005C4
+    push.p.c 0
+    call L001A80
+    push.p.c 0
+    push.p.c 256
+    push.p.c 0
+    push.p.c 38
+    push.p.c 16
+    call L0002DC
+    sysreq.n 25 0   ; LastKeyWait
+    push.p.c 0
+    call L001B94
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c 0
+    call L000778
+    zero.pri
+    retn
+L0035D0:
+    proc
+    push.p.c 0
+    call L0005C4
+    push.p.c 0
+    call L001A80
+    push.p.c 0
+    push.p.c 256
+    push.p.c 0
+    push.p.c 39
+    push.p.c 16
+    call L0002DC
+    sysreq.n 25 0   ; LastKeyWait
+    push.p.c 0
+    call L001B94
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c 0
+    call L000778
+    zero.pri
+    retn
+L003644:
+    proc
+    sysreq.n 48 0   ; CommandNOP
+    push.p.c 0
+    push.p.c 4
+    call L00017C
+    push.p.c 3
+    push.p.c 12
+    push.p.c 255
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    sysreq.n 72 0   ; EVCameraSetInitParam
+    push.p.c 0
+    push5.c 1106247680 1142800174 1100576724 1137934338 1145289346
+    push2.c 1119096447 1137934338
+    push.p.c 0
+    sysreq.n 73 36   ; EVCameraSetDstParam
+    push.p.c 0
+    push.p.c 1
+    push.p.c 60
+    push.p.c 0
+    sysreq.n 74 16   ; EVCameraSetFrameParam
+    sysreq.n 75 0   ; EVCameraBegin
+    push.p.c 0
+    call L0001BC
+    push.p.c 6
+    push.p.c 24
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 3
+    push.p.c 156
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 6
+    sysreq.n 27 4   ; MdlAcmdInit
+    push.p.c 35
+    push.p.c 2
+    push.p.c 28
+    push.p.c 18
+    push.p.c 16
+    call L000C1C
+    sysreq.n 29 0   ; MdlAcmdSetEnd
+    push.p.c 6
+    push.p.c 4
+    call L000C7C
+    push5.c 975238360 1106247680 1143179338 1108882593 1141464879
+    push3.c 1144463362 1114659116 1142368284
+    push.p.c 0
+    sysreq.n 79 36   ; EVCameraSetSlideParam
+    push.p.c 0
+    push.p.c 1
+    push.p.c 40
+    push.p.c 0
+    sysreq.n 74 16   ; EVCameraSetFrameParam
+    sysreq.n 75 0   ; EVCameraBegin
+    push.p.c 0
+    call L0001BC
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 6
+    push.p.c 180
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c 0
+    push.p.c 0
+    push.p.c 6
+    push.p.c 34
+    push.p.c 16
+    call L000214
+    push.p.c 0
+    call L000420
+    push.p.c 0
+    push.p.c 0
+    push.p.c 6
+    push.p.c 35
+    push.p.c 16
+    call L000214
+    push.p.c 0
+    call L000420
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 3
+    push.p.c 168
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 6
+    sysreq.n 27 4   ; MdlAcmdInit
+    push.p.c 35
+    push.p.c 2
+    push.p.c 23
+    push.p.c 18
+    push.p.c 16
+    call L000C1C
+    sysreq.n 29 0   ; MdlAcmdSetEnd
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    push.p.c 3
+    push.p.c 96
+    push.p.c 6
+    push.p.c 12
+    call L000A78
+    push.p.c -1
+    push.p.c 4
+    call L000B70
+    sysreq.n 76 0   ; EVCameraSetGameCameraParam
+    push.p.c 0
+    push.p.c 1
+    push.p.c 40
+    push.p.c 0
+    sysreq.n 74 16   ; EVCameraSetFrameParam
+    sysreq.n 75 0   ; EVCameraBegin
+    push.p.c 0
+    call L0001BC
+    push.p.c 0
+    sysreq.n 77 4   ; EVCameraEnd
+    push.p.c 10
+    push.p.c 16646   ; X/Y's work 16508
+    sysreq.n 61 8   ; WorkSet
+    push.p.c 5
+    push.p.c 16643   ; X/Y's work 16498
+    sysreq.n 61 8   ; WorkSet
+    push.p.c 3086   ; X/Y's flag 615
+    sysreq.n 91 4   ; FlagReset
+    zero.pri
+    retn
+L0039C8:
+    proc
+    push.p.c 3
+    push.p.c 6
+    sysreq.n 92 8   ; MdlSetDirDisp
+    push.p.c 2
+    push.p.c 255
+    sysreq.n 92 8   ; MdlSetDirDisp
+    push.p.c 4
+    push.p.c 2
+    sysreq.n 57 8   ; _FadeRequestIn
+    push.p.c 0
+    call L00050C
+    push.p.c 6
+    push.p.c 4
+    call L0005E4
+    push.p.c 3
+    push.p.c 1
+    sysreq.n 39 8   ; MsgLoad
+    stack.p -4
+    push.p.c 1
+    push.p.c 4
+    call L000D88
+    stor.p.s.pri -4
+    push.p.c 0
+    push.p.c 4
+    call L00017C
+    push.p.c 0
+    push.p.s -4
+    push.p.c 0
+    push.p.c 6
+    push.p.c 11
+    push.p.c 20
+    call L0003BC
+    push.p.c 0
+    call L000420
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    push.p.c 4
+    push.p.c 2
+    push.p.c 0
+    sysreq.n 55 12   ; FadeRequestOut
+    push.p.c 0
+    call L00050C
+    sysreq.n 56 0   ; PokePartyRecoverAll
+    push.c 327680
+    push.p.c 4
+    call L000480
+    push.p.c 4
+    push.p.c 2
+    sysreq.n 57 8   ; _FadeRequestIn
+    push.p.c 0
+    call L00050C
+    push.p.c 0
+    push.p.s -4
+    push.p.c 0
+    push.p.c 6
+    push.p.c 12
+    push.p.c 20
+    call L0003BC
+    sysreq.n 25 0   ; LastKeyWait
+    push.p.c 0
+    push.p.c 4
+    call L000464
+    sysreq.n 41 0   ; MsgRelease
+    push.p.c 0
+    call L000778
+    stack.p 4
+    zero.pri
+    retn
+data
+    cell 18 3 1 7 2 1 1 9
+    cell 1 53 9 1 1 9 1 192
+    cell 9 1 7 0 1 7 3 1
+    cell 194 0 1 194 1 1 194 2
+    cell 1 195 0 1 195 1 1 195
+    cell 3 1 195 2 1 122 9 1
+    cell 1 9 1 7 0 1 130 9
+    cell 1 131 9 1 132 9 1 1
+    cell 9 1 -1 0 0 1 16514 0
+    cell 7 16508 1 9 16508 3 10 16508
+    cell 6 21 16508 9 -1 7 1 1
+    cell 134 1 1 133 1 1 1 3
+    cell 1

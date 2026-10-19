@@ -1,0 +1,40 @@
+header 10 10 0x1C L000004 4096
+native CommandNOP
+library #CA18AA2E 0
+pubvar #865A53E1 8
+pubvar #29654047 4
+pubvar #D7477C97 0
+tag #CA18AA2E 0x40000002
+nametable 3f000000
+code
+    halt.p 0
+L000004:
+    proc
+    load.p.pri 0
+    switch L000050
+L000014:
+    push.p.c 0
+    call L000080
+    jump L00006C
+L000028:
+    push.p.c 0
+    call L000074
+    jump L00006C
+L00003C:
+    sysreq.n 0 0   ; CommandNOP
+    jump L00006C
+L000050:
+    casetbl 2 L00003C -1 L000028 1 L000014
+L00006C:
+    zero.pri
+    retn
+L000074:
+    proc
+    zero.pri
+    retn
+L000080:
+    proc
+    zero.pri
+    retn
+data
+    cell -1 0 0
