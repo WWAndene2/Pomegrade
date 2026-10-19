@@ -31,6 +31,8 @@ class RomDetailsActivity : AppCompatActivity() {
 
     companion object {
         const val KEY_ROM = "rom"
+        /** Opened from the running game's in-game menu: Play goes back to it instead of starting the game again. */
+        const val KEY_FROM_GAME = "from_game"
     }
 
     private val romDetailsViewModel by viewModels<RomDetailsViewModel>()
@@ -78,7 +80,7 @@ class RomDetailsActivity : AppCompatActivity() {
                     retroAchievementsUiState = retroAchievementsUiState,
                     onNavigateBack = { onNavigateUp() },
                     onLaunchRom = {
-                        emulatorLauncherValidatorDelegate.validateRom(it)
+                        if (intent.getBooleanExtra(KEY_FROM_GAME, false)) finish() else emulatorLauncherValidatorDelegate.validateRom(it)
                     },
                     onRomConfigUpdate = {
                         romDetailsViewModel.onRomConfigUpdateEvent(it)

@@ -43,6 +43,8 @@ interface SettingsRepository {
     fun isThreadedRenderingEnabled(): Flow<Boolean>
     fun getFpsCounterPosition(): FpsCounterPosition
     fun isPerformanceDetailsEnabled(): Boolean
+    /** The in-game menu's "Performance overlay": the FPS counter (top left when it was hidden) and its performance details, or neither. */
+    fun setPerformanceOverlayShown(shown: Boolean)
     fun getDSiCameraSource(): DSiCameraSourceType
     fun getDSiCameraStaticImage(): Uri?
 

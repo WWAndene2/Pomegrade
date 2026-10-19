@@ -11,7 +11,6 @@ import android.graphics.*
 import android.util.AttributeSet
 import com.google.android.material.card.MaterialCardView
 import org.yuzu.yuzu_emu.R
-import org.yuzu.yuzu_emu.features.settings.model.IntSetting
 
 class GradientBorderCardView @JvmOverloads constructor(
     context: Context,
@@ -43,8 +42,7 @@ class GradientBorderCardView @JvmOverloads constructor(
     }
 
     private fun updateThemeState() {
-        val themeIndex = IntSetting.STATIC_THEME_COLOR.getInt(false)
-        isEdenTheme = themeIndex == 0
+        isEdenTheme = true // Pomegrade: Eden's own theme is always the one applied (ThemeHelper.setTheme)
         invalidate()
     }
 

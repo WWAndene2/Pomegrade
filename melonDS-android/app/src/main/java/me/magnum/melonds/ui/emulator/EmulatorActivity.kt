@@ -111,6 +111,7 @@ import me.magnum.melonds.ui.emulator.ui.AchievementListDialog
 import me.magnum.melonds.ui.emulator.ui.AchievementUpdatesUi
 import me.magnum.melonds.ui.emulator.ui.PendingSubmissionsDialog
 import me.magnum.melonds.ui.layouteditor.model.LayoutTarget
+import me.magnum.melonds.ui.romdetails.RomDetailsActivity
 import me.magnum.melonds.ui.settings.SettingsActivity
 import me.magnum.melonds.ui.theme.MelonTheme
 import javax.inject.Inject
@@ -267,6 +268,9 @@ class EmulatorActivity : AppCompatActivity() {
         setupSustainedPerformanceMode()
         setupDisplayRefreshRate()
         setupFpsCounter()
+        viewModel.resumeEmulator()
+    }
+    private val gameSettingsLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         viewModel.resumeEmulator()
     }
     private val cheatsLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -973,6 +977,21 @@ class EmulatorActivity : AppCompatActivity() {
                 viewModel.resumeEmulator()
             } else if (item.itemId == EmulatorMenuR.id.emulator_menu_inspector) {
                 showInspectorDialog()
+            } else if (item.itemId == EmulatorMenuR.id.emulator_menu_performance_overlay) {
+                // Pomegrade: every console's menu has it; the DS's is its FPS counter with the performance details
+                viewModel.togglePerformanceOverlay()
+                setupFpsCounter()
+                viewModel.resumeEmulator()
+            } else if (item.itemId == EmulatorMenuR.id.emulator_menu_game_settings) {
+                // Pomegrade: this game's settings, the page the game sheet opens (RomDetailsActivity); they apply
+                // from the game's next start, as when changed from the game list
+                (viewModel.emulatorState.value as? EmulatorState.RunningRom)?.let {
+                    gameSettingsLauncher.launch(
+                        Intent(this, RomDetailsActivity::class.java)
+                            .putExtra(RomDetailsActivity.KEY_ROM, RomParcelable(it.rom))
+                            .putExtra(RomDetailsActivity.KEY_FROM_GAME, true)
+                    )
+                }
             } else if (item.itemId == EmulatorMenuR.id.emulator_menu_screenshot) {
                 // Pomegrade: the screenshot every console's menu has, in the phone's gallery
                 val title = (viewModel.emulatorState.value as? EmulatorState.RunningRom)?.rom?.name ?: getString(R.string.action_boot_firmware)
@@ -1048,8 +1067,12 @@ class EmulatorActivity : AppCompatActivity() {
         pauseMenuOptions = pauseMenu.options
         pauseMenuOptionPicked = false
         val shownItems = pauseMenu.options.mapNotNull { inGameMenuItemId(it) }.toSet() +
-                EmulatorMenuR.id.emulator_menu_swap_screens + EmulatorMenuR.id.emulator_menu_inspector + EmulatorMenuR.id.emulator_menu_screenshot
+                EmulatorMenuR.id.emulator_menu_swap_screens + EmulatorMenuR.id.emulator_menu_inspector + EmulatorMenuR.id.emulator_menu_screenshot +
+                EmulatorMenuR.id.emulator_menu_performance_overlay +
+                // this game's own DS settings, as every console's menu has them (not for the firmware)
+                (if (viewModel.emulatorState.value is EmulatorState.RunningRom) setOf(EmulatorMenuR.id.emulator_menu_game_settings) else emptySet())
         EmulatorMenu.showOnly(binding.inGameMenu.menu, shownItems)
+        binding.inGameMenu.menu.findItem(EmulatorMenuR.id.emulator_menu_performance_overlay)?.isChecked = viewModel.isPerformanceOverlayShown()
 
         activeOverlays.addActiveOverlay(EmulatorOverlay.PAUSE_MENU)
         binding.drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED)

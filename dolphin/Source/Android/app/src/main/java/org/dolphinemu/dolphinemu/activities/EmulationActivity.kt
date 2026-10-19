@@ -528,8 +528,17 @@ class EmulationActivity : AppCompatActivity(), ThemeProvider {
             MENU_ACTION_SETTINGS -> SettingsActivity.launch(this, MenuTag.SETTINGS)
             MENU_ACTION_SKYLANDERS -> showSkylanderPortalSettings()
             MENU_ACTION_INFINITY_BASE -> showInfinityBaseSettings()
+            MENU_ACTION_PERFORMANCE_OVERLAY -> togglePerformanceOverlay()
             MENU_ACTION_EXIT -> emulationFragment!!.stopEmulation()
         }
+    }
+
+    // Pomegrade: the in-game menu's "Performance overlay", as every console's menu has it: Dolphin's own
+    // overlay, its frame rate and speed (the Graphics settings' Show FPS and Show Speed)
+    private fun togglePerformanceOverlay() {
+        val show = !isPerformanceOverlayShown()
+        BooleanSetting.GFX_SHOW_FPS.setBoolean(settings, show)
+        BooleanSetting.GFX_SHOW_SPEED.setBoolean(settings, show)
     }
 
     private fun toggleJoystickRelCenter(state: Boolean) {
@@ -1165,6 +1174,9 @@ class EmulationActivity : AppCompatActivity(), ThemeProvider {
         const val MENU_ACTION_SKYLANDERS = 36
         const val MENU_ACTION_INFINITY_BASE = 37
         const val MENU_ACTION_LATCHING_CONTROLS = 38
+        const val MENU_ACTION_PERFORMANCE_OVERLAY = 39
+
+        fun isPerformanceOverlayShown(): Boolean = BooleanSetting.GFX_SHOW_FPS.boolean
 
         init {
             buttonsActionsMap.apply {

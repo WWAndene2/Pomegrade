@@ -32,24 +32,16 @@ object ThemeHelper {
     fun setTheme(activity: AppCompatActivity) {
         // We have to use shared preferences in addition to Dolphin's settings to guarantee that the
         // requested theme id is ready before the onCreate method of any given Activity.
-        val preferences = PreferenceManager.getDefaultSharedPreferences(activity.applicationContext)
+        // Pomegrade: Punica is always dark and coral (owner's decision, 13 October), so Dolphin's own
+        // theme, theme mode and black backgrounds are not applied, whatever was stored before (their
+        // settings are hidden, SettingsFragmentPresenter.addInterfaceSettings)
         setThemeMode(activity)
-        when (preferences.getInt(CURRENT_THEME, DEFAULT)) {
-            DEFAULT -> activity.setTheme(R.style.Theme_Dolphin_Main)
-            MONET -> activity.setTheme(R.style.Theme_Dolphin_Main_MaterialYou)
-            MATERIAL_DEFAULT -> activity.setTheme(R.style.Theme_Dolphin_Main_Material)
-            GREEN -> activity.setTheme(R.style.Theme_Dolphin_Main_Green)
-            PINK -> activity.setTheme(R.style.Theme_Dolphin_Main_Pink)
-        }
-        if (preferences.getBoolean(USE_BLACK_BACKGROUNDS, false)) {
-            activity.setTheme(R.style.ThemeOverlay_Dolphin_Dark)
-        }
+        activity.setTheme(R.style.Theme_Dolphin_Main)
 
     }
 
     private fun setThemeMode(activity: AppCompatActivity) {
-        val themeMode = PreferenceManager.getDefaultSharedPreferences(activity.applicationContext)
-            .getInt(CURRENT_THEME_MODE, AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        val themeMode = AppCompatDelegate.MODE_NIGHT_YES // Pomegrade: always dark
         activity.delegate.localNightMode = themeMode
         val windowController = WindowCompat.getInsetsController(
             activity.window,

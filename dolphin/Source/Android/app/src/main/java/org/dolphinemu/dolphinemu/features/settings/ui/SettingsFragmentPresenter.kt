@@ -8,7 +8,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.text.TextUtils
-import androidx.appcompat.app.AppCompatActivity
 import androidx.collection.ArraySet
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -350,121 +349,8 @@ class SettingsFragmentPresenter(
             )
         )
 
-        val appTheme: AbstractIntSetting = object : AbstractIntSetting {
-            override val isOverridden: Boolean
-                get() = IntSetting.MAIN_INTERFACE_THEME.isOverridden
-
-            // This only affects app UI
-            override val isRuntimeEditable: Boolean = true
-
-            override fun delete(settings: Settings): Boolean {
-                ThemeHelper.deleteThemeKey((fragmentView.fragmentActivity as AppCompatActivity))
-                return IntSetting.MAIN_INTERFACE_THEME.delete(settings)
-            }
-
-            override val int: Int
-                get() = IntSetting.MAIN_INTERFACE_THEME.int
-
-            override fun setInt(settings: Settings, newValue: Int) {
-                IntSetting.MAIN_INTERFACE_THEME.setInt(settings, newValue)
-                ThemeHelper.saveTheme(
-                    (fragmentView.fragmentActivity as AppCompatActivity),
-                    newValue
-                )
-            }
-        }
-
-        // If a Monet theme is run on a device below API 31, the app will crash
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            sl.add(
-                SingleChoiceSetting(
-                    context,
-                    appTheme,
-                    R.string.change_theme,
-                    0,
-                    R.array.dolphin_themeEntriesA12,
-                    R.array.dolphin_themeValuesA12
-                )
-            )
-        } else {
-            sl.add(
-                SingleChoiceSetting(
-                    context,
-                    appTheme,
-                    R.string.change_theme,
-                    0,
-                    R.array.dolphin_themeEntries,
-                    R.array.dolphin_themeValues
-                )
-            )
-        }
-
-        val themeMode: AbstractIntSetting = object : AbstractIntSetting {
-            override val isOverridden: Boolean
-                get() = IntSetting.MAIN_INTERFACE_THEME_MODE.isOverridden
-
-            // This only affects app UI
-            override val isRuntimeEditable: Boolean = true
-
-            override fun delete(settings: Settings): Boolean {
-                ThemeHelper.deleteThemeModeKey((fragmentView.fragmentActivity as AppCompatActivity))
-                return IntSetting.MAIN_INTERFACE_THEME_MODE.delete(settings)
-            }
-
-            override val int: Int
-                get() = IntSetting.MAIN_INTERFACE_THEME_MODE.int
-
-            override fun setInt(settings: Settings, newValue: Int) {
-                IntSetting.MAIN_INTERFACE_THEME_MODE.setInt(settings, newValue)
-                ThemeHelper.saveThemeMode(
-                    (fragmentView.fragmentActivity as AppCompatActivity),
-                    newValue
-                )
-            }
-        }
-
-        sl.add(
-            SingleChoiceSetting(
-                context,
-                themeMode,
-                R.string.dolphin_change_theme_mode,
-                0,
-                R.array.dolphin_themeModeEntries,
-                R.array.dolphin_themeModeValues
-            )
-        )
-
-        val blackBackgrounds: AbstractBooleanSetting = object : AbstractBooleanSetting {
-            override val isOverridden: Boolean
-                get() = BooleanSetting.MAIN_USE_BLACK_BACKGROUNDS.isOverridden
-
-            override val isRuntimeEditable: Boolean = true
-
-            override fun delete(settings: Settings): Boolean {
-                ThemeHelper.deleteBackgroundSetting((fragmentView.fragmentActivity as AppCompatActivity))
-                return BooleanSetting.MAIN_USE_BLACK_BACKGROUNDS.delete(settings)
-            }
-
-            override val boolean: Boolean
-                get() = BooleanSetting.MAIN_USE_BLACK_BACKGROUNDS.boolean
-
-            override fun setBoolean(settings: Settings, newValue: Boolean) {
-                BooleanSetting.MAIN_USE_BLACK_BACKGROUNDS.setBoolean(settings, newValue)
-                ThemeHelper.saveBackgroundSetting(
-                    (fragmentView.fragmentActivity as AppCompatActivity),
-                    newValue
-                )
-            }
-        }
-
-        sl.add(
-            SwitchSetting(
-                context,
-                blackBackgrounds,
-                R.string.dolphin_use_black_backgrounds,
-                R.string.dolphin_use_black_backgrounds_description
-            )
-        )
+        // Pomegrade: no theme, theme mode or black backgrounds: Punica is always dark and coral
+        // (ThemeHelper.setTheme)
     }
 
     private fun addAudioSettings(sl: ArrayList<SettingsItem>) {
