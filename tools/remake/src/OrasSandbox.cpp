@@ -56,8 +56,9 @@ struct SandboxDescription
     std::map<int, std::pair<int, std::string>> TeamNames; // a team's trainer -> its new class (-1: kept) and name ("": kept)
     std::vector<SandboxZone> Edits;                 // game zones added to (edit Z): their lines, characters, triggers, scene
     std::vector<std::array<int, 4>> XyPieces;       // piece x, y, X/Y's a/0/4/1 member, the a/0/1/3 area pack it draws from
-    // stairs X/Y runs by script (xy-stairs): X/Y zone A, its tiles x z w h going up; X/Y zone B, its tiles going down
-    std::vector<std::array<int, 10>> XyStairs;
+    // stairs X/Y runs by script (xy-stairs): X/Y zone A, its tiles x z w h going up and the way they are walked into; X/Y
+    // zone B, its tiles going down and their way (0 down, 1 up, 2 right, 3 left: a warp kind's low byte)
+    std::vector<std::array<int, 12>> XyStairs;
 };
 
 static constexpr size_t rowBytesOf536 = 56; // a zone header row (member 536 of a/0/1/3)
@@ -187,10 +188,23 @@ static SandboxDescription ReadDescription(const std::string& text)
         }
         if (what == "xy-stairs")
         {
-            std::array<int, 10> x{};
+            // ZA X Z W H WAY ZB X Z W H WAY, a way being down, up, right or left
+            std::array<int, 12> x{};
             ok = true;
-            for (int& v : x) ok = ok && (bool)(words >> v);
-            if (!ok) fail("xy-stairs needs ZA X Z W H ZB X Z W H");
+            for (int k = 0; k < 12 && ok; k++)
+            {
+                if (k == 5 || k == 11)
+                {
+                    std::string way;
+                    ok = (bool)(words >> way);
+                    const char* ways[] = {"down", "up", "right", "left"};
+                    x[k] = -1;
+                    for (int w = 0; w < 4; w++) if (way == ways[w]) x[k] = w;
+                    ok = ok && x[k] >= 0;
+                }
+                else ok = (bool)(words >> x[k]);
+            }
+            if (!ok) fail("xy-stairs needs ZA X Z W H WAY ZB X Z W H WAY (WAY: down, up, right or left)");
             d.XyStairs.push_back(x);
             continue;
         }
@@ -803,17 +817,17 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         }
         xyWarpCount[insides[i].Map] = events.at(6);
         // the floor of stairs X/Y runs by script (xy-stairs), a zone of its own as a floor its warps reach
-        for (const std::array<int, 10>& st : d.XyStairs)
+        for (const std::array<int, 12>& st : d.XyStairs)
         {
-            if (st[0] != insides[i].Map || xyZoneOf.count(st[5])) continue;
-            xyZoneOf[st[5]] = nextZone;
+            if (st[0] != insides[i].Map || xyZoneOf.count(st[6])) continue;
+            xyZoneOf[st[6]] = nextZone;
             Inside extra = insides[i];
-            extra.Zone = nextZone++; extra.Map = st[5]; extra.Warp = -1; extra.Extra = true;
+            extra.Zone = nextZone++; extra.Map = st[6]; extra.Warp = -1; extra.Extra = true;
             insides.push_back(extra);
         }
     }
-    for (const std::array<int, 10>& st : d.XyStairs)
-        if (!xyZoneOf.count(st[0]) || !xyZoneOf.count(st[5]))
+    for (const std::array<int, 12>& st : d.XyStairs)
+        if (!xyZoneOf.count(st[0]) || !xyZoneOf.count(st[6]))
             throw FormatError("sandbox: xy-stairs from X/Y zone " + std::to_string(st[0]) + ", which no door ... xy leads into");
 
     // each new zone's text file (header word 3): a new member of the eight story text archives (a/0/7/9-a/0/8/6, one per
@@ -921,15 +935,18 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         const Inside& in = insides[i];
         if (in.Xy)
         {
-            // a stairs' warp, as X/Y's own between floors (houses 2 and 3 of Vaniville, X's zones 4-5: kind 0x501 up, height 9,
-            // 0x503 down, height -9; pixels at the first tile's centre, span in tiles): the stairs' tiles, its destination
-            // and the destination's warp (X/Y's warps there, then this one: so none of them may be left out)
-            const auto stairsWarp = [&](const int* rect, int toXy, bool up) {
+            // a stairs' warp, as X/Y's own between floors (houses 2 and 3 of Vaniville, X's zones 4-5: kind 0x5WW, WW the way it
+            // is walked into, 0 down, 1 up, 2 right, 3 left, read from X's mats, zone 77: 0x902 on its right edge, 0x903 on its
+            // left, 0x901 on its top; height 9 going up, -9 down; pixels at the first tile's centre, span in tiles): the stairs'
+            // tiles and way, its destination and the destination's warp (X/Y's warps there, then this one: so none of them may
+            // be left out). With the way wrong the game set the player out on the wrong side (owner's phone, 18 October: the
+            // middle house's upper floor, its stairs walked into rightward, had 0x503)
+            const auto stairsWarp = [&](const int* rect, int way, int toXy, bool up) {
                 ZoneDoor w;
                 w.Raw = {};
                 w.Raw[0] = (uint16_t)xyZoneOf.at(toXy);
                 w.Raw[1] = (uint16_t)xyWarpCount[toXy];
-                w.Raw[2] = up ? 0x0501 : 0x0503;
+                w.Raw[2] = (uint16_t)(0x0500 | way);
                 w.Raw[4] = (uint16_t)(rect[0] * 18 + 9);
                 w.Raw[5] = (uint16_t)(int16_t)(up ? 9 : -9);
                 w.Raw[6] = (uint16_t)(rect[1] * 18 + 9);
@@ -939,8 +956,8 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
             };
             std::array<uint16_t, 2> floorAt{};
             bool scriptFloor = false;
-            for (const std::array<int, 10>& st : d.XyStairs)
-                if (st[5] == in.Map) { floorAt = {(uint16_t)(st[6] * 18 + 9), (uint16_t)(st[7] * 18 + 9)}; scriptFloor = true; }
+            for (const std::array<int, 12>& st : d.XyStairs)
+                if (st[6] == in.Map) { floorAt = {(uint16_t)(st[7] * 18 + 9), (uint16_t)(st[8] * 18 + 9)}; scriptFloor = true; }
             const XyInside x = XyInsideToOras(ws, in.Map, models, pieceArchive, zoneArchive, log, scriptFloor ? &floorAt : nullptr);
             OrasZone zone;
             NewZoneFields f;
@@ -954,7 +971,7 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
                 // X's warp as it is (kind, position, height, span), into the zone made of its destination; the arrival warp index
                 // is X's (each zone keeps its warps in X's order). A warp out of town (to the outdoor zone) from a floor: not kept
                 const auto to = xyZoneOf.find(x.Warps[k][0]);
-                const bool stairsZone = std::any_of(d.XyStairs.begin(), d.XyStairs.end(), [&](const std::array<int, 10>& st) { return st[0] == in.Map || st[5] == in.Map; });
+                const bool stairsZone = std::any_of(d.XyStairs.begin(), d.XyStairs.end(), [&](const std::array<int, 12>& st) { return st[0] == in.Map || st[6] == in.Map; });
                 if (to == xyZoneOf.end() && stairsZone)
                     throw FormatError("sandbox: X/Y zone " + std::to_string(in.Map) + " of an xy-stairs has a warp left out: its stairs warp's index would be wrong");
                 if (to == xyZoneOf.end()) { log.push_back("zone " + std::to_string(in.Zone) + ": X's warp " + std::to_string(k) + " to X zone " + std::to_string(x.Warps[k][0]) + " left out"); continue; }
@@ -963,13 +980,13 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
                 w.Raw[0] = (uint16_t)to->second;
                 zone.Doors.push_back(w);
             }
-            for (const std::array<int, 10>& st : d.XyStairs)
+            for (const std::array<int, 12>& st : d.XyStairs)
             {
-                if (st[0] == in.Map) zone.Doors.push_back(stairsWarp(&st[1], st[5], true));
-                if (st[5] == in.Map) zone.Doors.push_back(stairsWarp(&st[6], st[0], false));
-                if (st[0] == in.Map || st[5] == in.Map)
+                if (st[0] == in.Map) zone.Doors.push_back(stairsWarp(&st[1], st[5], st[6], true));
+                if (st[6] == in.Map) zone.Doors.push_back(stairsWarp(&st[7], st[11], st[0], false));
+                if (st[0] == in.Map || st[6] == in.Map)
                     log.push_back("zone " + std::to_string(in.Zone) + ": stairs " + (st[0] == in.Map ? "up" : "down") + " to zone " +
-                                  std::to_string(xyZoneOf.at(st[0] == in.Map ? st[5] : st[0])) + " (xy-stairs)");
+                                  std::to_string(xyZoneOf.at(st[0] == in.Map ? st[6] : st[0])) + " (xy-stairs)");
             }
             zone.Script = assemble(EmptyZoneScript, in.Zone, "script");
             zone.InitScript = assemble(EmptyInitScript, in.Zone, "init-script");

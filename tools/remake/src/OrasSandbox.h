@@ -74,10 +74,11 @@
 //   xy-piece X Y M P  piece X, Y is Pokemon X/Y's map piece M (a/0/4/1 member) made Omega Ruby's, its textures from X/Y's area
 //                     pack P (a/0/1/3 member, the pack its zone draws from), instead of one built from the map's rows (which are
 //                     then not used for it): OrasXyPiece.h. Needs oras-sandbox --xy <x.3ds>
-//   xy-stairs ZA X Z W H ZB X Z W H
+//   xy-stairs ZA X Z W H WAY ZB X Z W H WAY
 //                     stairs X/Y runs by script (no warp of its own: X's zone 2, the player's house, to its upper floor 3):
 //                     X/Y zone ZA's W x H tiles from X, Z go up to zone ZB, whose tiles go back down, written as X/Y's own
-//                     stairs warps (kind 0x501 up, 0x503 down). ZA is a door ... xy's inside; ZB becomes a floor of its own.
+//                     stairs warps (kind 0x500 + the way). WAY: how the tiles are walked into, down, up, right or left (the
+//                     game sets the player out the other way). ZA is a door ... xy's inside; ZB becomes a floor of its own.
 //                     The tiles are the solid stair tiles, walked into, as X/Y's own stairs warps sit (zones 4-5): beside the
 //                     tiles of X's stairs triggers (zone 2's trigger records 1 and 2, at 31 35 and 9 15: run hSt1, 18 October)
 //   blocks            with several zones: then 4 H rows of 4 W digits, the zone (0 the first given, 1 the next...) of each
