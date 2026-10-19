@@ -326,13 +326,6 @@ uniform float reach_share;
 uniform float thickness_share;
 uniform float indirect;
 
-uint state_;
-float Random() {
-    state_ = state_ * 747796405u + 2891336453u;
-    uint w = ((state_ >> ((state_ >> 28u) + 4u)) ^ state_) * 277803737u;
-    return float((w >> 22u) ^ w) * (1.0 / 4294967296.0);
-}
-
 vec3 Sky(vec3 d) {
     float h = dot(d, up);
     return h >= 0.0 ? mix(sky_horizon, sky_top, pow(h, 1.0 / 1.6)) : sky_horizon * 0.35;
@@ -365,28 +358,8 @@ float Sun(vec3 p) {
     vec4 l = view_to_sun * vec4(p, 1.0);
     vec3 c = l.xyz / l.w * 0.5 + 0.5;
     if (any(lessThan(c.xy, vec2(0.0))) || any(greaterThan(c.xy, vec2(1.0)))) return 1.0;
-    vec2 jitter = (vec2(Random(), Random()) - 0.5) / vec2(textureSize(shadow_map, 0));
-    return c.z - shadow_bias - length(p) * 0.002 * depth_scale < texture(shadow_map, c.xy + jitter).r ? 1.0 : 0.0;
-}
-
-// Pomegrade: the fast tracer's samples are not white noise (the hash above, clumpy and different every frame: the
-// "snow"), but interleaved gradient noise (Jimenez 2014), each pixel a little apart from its neighbours, stepped each
-// frame along the R2 sequence (Roberts 2018): the error is spread evenly over the screen and over the frames, which the
-// a-trous passes and the accumulation then average away far better than clumps
-vec3 Structured() {
-    vec2 px = gl_FragCoord.xy;
-    float f = mod(seed, 64.0);
-    float a = fract(52.9829189 * fract(dot(px + 5.588238 * f, vec2(0.06711056, 0.00583715))));
-    float b = fract(52.9829189 * fract(dot(px.yx + vec2(17.0, 59.0) + 5.588238 * f, vec2(0.06711056, 0.00583715))));
-    return fract(vec3(a, b, a + 0.5) + f * vec3(0.7548776662, 0.5698402910, 0.6180339887));
-}
-
-vec3 Cosine(vec3 n, vec2 r) {
-    float r1 = r.x, r2 = r.y;
-    float phi = 6.2831853 * r1, s = sqrt(r2);
-    vec3 a = abs(n.x) < 0.9 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
-    vec3 t = normalize(cross(a, n)), b = cross(n, t);
-    return normalize(t * cos(phi) * s + b * sin(phi) * s + n * sqrt(1.0 - r2));
+    // Pomegrade: no random jitter (it was noise in the bounce, which the horizon search now gathers without any)
+    return c.z - shadow_bias - length(p) * 0.002 * depth_scale < texture(shadow_map, c.xy).r ? 1.0 : 0.0;
 }
 
 void main() {
@@ -396,38 +369,71 @@ void main() {
         return;
     }
     ivec2 px = ivec2(gl_FragCoord.xy);
-    state_ = uint(px.x) * 1973u + uint(px.y) * 9277u + uint(seed) * 26699u;
     vec3 p = gp.xyz, n = texture(g_normal, frag_tex_coord).xyz;
     float dist = length(p);
     vec3 o = p + n * (0.02 + dist * 0.002);
     // the sun's own light is added at full size after the accumulation (FAST_TEMPORAL_FRAG): denoised and accumulated
     // here it blurred the shadows and left a moving object's shadow trailing on still ground
-    // one ray: a surface it reaches on screen sends back its light (the bounce), else the sky above the horizon; below
-    // it, the ground beyond the reach (its glow, not sky: counting it open lit the walls far too much)
+    // Pomegrade: the sky and the bounce from the horizon, not from one random ray (a random direction each pixel and
+    // frame was the "snow"). In 4 screen directions, on both sides, the highest the G-buffer rises toward the camera
+    // within the reach (GTAO, Jimenez 2016): the share of sky the surface sees has an exact formula from those angles and
+    // its normal; what forms the horizon sends its light back (the bounce, lit by the sun as the ray's hit was). No
+    // randomness: the same pixel gives the same light every frame (a fixed 4 x 4 turn of the directions, which the
+    // a-trous passes smooth). Measured on Littleroot (tools/remake/render/ORAS_RENDER.md, "Probe light")
     float reach = reach_share * dist, thickness = thickness_share * dist;
-    vec3 r = Structured();
-    vec3 d = Cosine(n, r.xy);
-    float jitter = r.z;
-    vec3 gathered = dot(d, up) >= 0.0 ? Sky(d) : sky_horizon * 0.35;
-    float open_ = dot(d, up) >= 0.0 ? 1.0 : 0.0;
-    for (int i = 0; i < 32; i++) {
-        if (i >= steps) break;
-        float t = reach * (float(i) + jitter) / float(steps);
-        vec3 s = o + d * t;
-        vec2 st;
-        if (!ToGbuffer(s, st)) break; // off screen: nothing known, taken as open
-        vec4 q = texture(g_position, st);
-        if (q.w < 0.5) continue;
-        float ls = length(s), lq = length(q.xyz);
-        if (lq < ls - 0.002 * ls - 0.01 && ls - lq < thickness) {
-            vec3 hn = texture(g_normal, st).xyz;
-            float sun_at = max(dot(hn, sun), 0.0);
-            if (sun_at > 0.0) sun_at *= Sun(q.xyz + hn * (0.02 + lq * 0.002));
-            gathered = Albedo(st) * (sun_colour * sun_at + 0.5 * (sky_top + sky_horizon));
-            open_ = smoothstep(0.0, 1.0, t / reach);
-            break;
+    int per_side = clamp(steps / 4, 2, 8);
+    vec3 v = normalize(-p);
+    float turn = float((px.x & 3) * 4 + (px.y & 3)) / 16.0 * 0.7853982;
+    float vis = 0.0;
+    vec3 bounce = vec3(0.0);
+    float bounce_w = 0.0;
+    for (int sl = 0; sl < 4; sl++) {
+        float phi = float(sl) * 0.7853982 + turn;
+        vec3 dir = vec3(cos(phi), sin(phi), 0.0);
+        vec3 ortho = dir - dot(dir, v) * v;
+        vec3 axis = normalize(cross(dir, v));
+        vec3 pn = n - axis * dot(n, axis);
+        float plen = max(length(pn), 1e-4);
+        float cos_n = clamp(dot(pn, v) / plen, -1.0, 1.0);
+        float n_ang = sign(dot(pn, ortho)) * acos(cos_n);
+        float hor[2] = float[2](-1.0, -1.0);
+        for (int side = 0; side < 2; side++) {
+            float sg = side == 0 ? -1.0 : 1.0;
+            for (int i = 1; i <= 8; i++) {
+                if (i > per_side) break;
+                vec3 s = o + ortho * (sg * reach * float(i) / float(per_side));
+                vec2 st;
+                if (!ToGbuffer(s, st)) break; // off screen: nothing known, taken as open
+                vec4 q = texture(g_position, st);
+                if (q.w < 0.5) continue;
+                vec3 w = q.xyz - p;
+                float len = length(w);
+                if (len > reach || len < 1e-3 || length(s) - length(q.xyz) > thickness + reach) continue;
+                float c = dot(w, v) / len;
+                if (c > hor[side]) {
+                    hor[side] = c;
+                    // what rises above the surface sends its light back: its colour, lit by the sun where it reaches it
+                    vec3 hn = texture(g_normal, st).xyz;
+                    float lq = length(q.xyz);
+                    float sun_at = max(dot(hn, sun), 0.0);
+                    if (sun_at > 0.0) sun_at *= Sun(q.xyz + hn * (0.02 + lq * 0.002));
+                    float wt = max(dot(n, w / len), 0.0);
+                    bounce += Albedo(st) * (sun_colour * sun_at + 0.5 * (sky_top + sky_horizon)) * wt;
+                    bounce_w += wt;
+                }
+            }
         }
+        float h0 = n_ang + max(-acos(hor[0]) - n_ang, -1.5707963);
+        float h1 = n_ang + min(acos(hor[1]) - n_ang, 1.5707963);
+        float sn = sin(n_ang);
+        vis += plen * 0.25 * ((-cos(2.0 * h0 - n_ang) + cos_n + 2.0 * h0 * sn) + (-cos(2.0 * h1 - n_ang) + cos_n + 2.0 * h1 * sn));
     }
+    float open_ = clamp(vis / 4.0, 0.0, 1.0);
+    // the sky over the open share (around the normal, bent toward up), the bounce over the rest; with nothing found
+    // rising (a surface facing down), the ground's glow, as the ray took below the horizon
+    vec3 sky = dot(n, up) > -0.2 ? Sky(normalize(n + up)) : sky_horizon * 0.35;
+    vec3 back_light = bounce_w > 0.0 ? bounce / bounce_w : sky_horizon * 0.35;
+    vec3 gathered = sky * open_ + back_light * (1.0 - open_);
     vec3 light = gathered * indirect / reference;
     float peak = max(max(light.r, light.g), light.b);
     if (peak > 1.5) light *= 1.5 / peak; // a lone bright ray capped (it was left as a sparkle)
