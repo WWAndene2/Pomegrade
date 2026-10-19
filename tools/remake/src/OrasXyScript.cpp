@@ -3,7 +3,10 @@
 #include "Amx.h"
 
 #include <cstdio>
+#include <functional>
 #include <map>
+#include <sstream>
+#include <tuple>
 
 namespace remake
 {
@@ -23,22 +26,12 @@ const std::vector<std::pair<std::string, std::string>>& XyNativeRenames()
     return renames;
 }
 
+static std::map<uint32_t, std::string> OrasNatives(const std::string& namesFile);
+
 XyScriptNatives XyScriptToOras(const Bytes& xScript, const std::string& namesFile, uint32_t mask)
 {
     const auto check = AmxNativeCheck(namesFile, mask);
-    // Omega Ruby's native names by hash, from the same file (the names AmxNativeCheck knows)
-    std::map<uint32_t, std::string> oras;
-    {
-        const Bytes text = ReadFile(namesFile);
-        const std::string all(text.begin(), text.end());
-        for (size_t at = all.find("\tScript_Native_"); at != std::string::npos; at = all.find("\tScript_Native_", at + 1))
-        {
-            const size_t q = all.find("native", at), open = all.find('"', q), close = all.find('"', open + 1);
-            if (q == std::string::npos || open == std::string::npos || close == std::string::npos) break;
-            const std::string name = all.substr(open + 1, close - open - 1);
-            oras[AmxNameHash(name)] = name;
-        }
-    }
+    const std::map<uint32_t, std::string> oras = OrasNatives(namesFile);
     std::map<uint32_t, std::pair<std::string, std::string>> renamed;
     for (const auto& [x, o] : XyNativeRenames()) renamed[AmxNameHash(x)] = {x, o};
 
@@ -64,6 +57,219 @@ XyScriptNatives XyScriptToOras(const Bytes& xScript, const std::string& namesFil
         }
     }
     out.Script = s.Write();
+    return out;
+}
+
+// Omega Ruby's native names by hash (function_names.tsv's Script_Native_ rows)
+static std::map<uint32_t, std::string> OrasNatives(const std::string& namesFile)
+{
+    std::map<uint32_t, std::string> oras;
+    const Bytes text = ReadFile(namesFile);
+    const std::string all(text.begin(), text.end());
+    for (size_t at = all.find("\tScript_Native_"); at != std::string::npos; at = all.find("\tScript_Native_", at + 1))
+    {
+        const size_t q = all.find("native", at), open = all.find('"', q), close = all.find('"', open + 1);
+        if (q == std::string::npos || open == std::string::npos || close == std::string::npos) break;
+        const std::string name = all.substr(open + 1, close - open - 1);
+        oras[AmxNameHash(name)] = name;
+    }
+    return oras;
+}
+
+namespace
+{
+// one pass over a script's source lines: each sysreq.n's native, and the instruction before it giving its first argument
+struct Line { std::string Op; std::vector<std::string> Words; };
+const std::set<std::string> FlagNatives = {"FlagSet", "FlagReset", "FlagGet", "FlagSetReq"};
+const std::set<std::string> WorkNatives = {"WorkGet", "WorkSet", "WorkAdd", "WorkSub"};
+const std::set<std::string> Constants = {"push.c", "push.p.c", "const.pri", "const.p.pri", "const.alt", "const.p.alt"};
+
+std::vector<Line> Split(const std::string& source)
+{
+    std::vector<Line> lines;
+    std::istringstream in(source);
+    for (std::string l; std::getline(in, l);)
+    {
+        Line line;
+        std::istringstream w(l.substr(0, l.find(';')));
+        for (std::string word; w >> word;) line.Words.push_back(word);
+        if (!line.Words.empty()) line.Op = line.Words[0];
+        lines.push_back(line);
+    }
+    return lines;
+}
+
+// the instructions holding a flag's or work's number given to a flag or work native (its first argument): the push (or
+// the constant a push.pri pushes) before the sysreq.n, or, when that is a procedure's parameter (push.s / push.p.s at 12 +
+// 4 n), the constant each call of the procedure pushes for it, followed through up to four procedures. `name` gives a
+// native index's name. A number computed otherwise is added to `notes` (when given), not moved.
+struct Argument { size_t Line; bool Flag; };
+std::vector<Argument> NumberArguments(const std::vector<Line>& lines, const std::function<std::string(size_t)>& name, std::vector<std::string>* notes)
+{
+    // the procedure each line is in (its label), and each procedure's calls
+    std::vector<std::string> procOf(lines.size());
+    std::map<std::string, std::vector<size_t>> calls;
+    std::string label, proc;
+    for (size_t i = 0; i < lines.size(); i++)
+    {
+        const Line& l = lines[i];
+        if (!l.Op.empty() && l.Op.back() == ':') label = l.Op.substr(0, l.Op.size() - 1);
+        if (l.Op == "proc") proc = label;
+        procOf[i] = proc;
+        if (l.Op == "call" && l.Words.size() >= 2) calls[l.Words[1]].push_back(i);
+    }
+    // the instruction giving the first argument before line `at` (a sysreq.n) or the n-th argument before a call
+    const auto pushed = [&](size_t at, size_t n) -> int {
+        size_t seen = 0;
+        for (size_t k = at; k-- > 0 && at - k <= 24;)
+        {
+            const std::string& op = lines[k].Op;
+            if (op.empty() || op.back() == ':') return -1;
+            if (op.rfind("push", 0) != 0) continue;
+            if (seen++ < n) continue;
+            if (op == "push.pri")
+            {
+                for (size_t j = k; j-- > 0 && k - j <= 3;)
+                    if (lines[j].Op == "const.pri" || lines[j].Op == "const.p.pri") return (int)j;
+                return -1;
+            }
+            return (int)k;
+        }
+        return -1;
+    };
+    std::vector<Argument> out;
+    std::set<std::pair<size_t, bool>> done;
+    // (line of an argument's instruction, flag, depth)
+    std::vector<std::tuple<size_t, bool, int>> todo;
+    for (size_t i = 0; i < lines.size(); i++)
+    {
+        if (lines[i].Op != "sysreq.n" || lines[i].Words.size() < 2) continue;
+        const std::string n = name(std::stoul(lines[i].Words[1]));
+        const bool flag = FlagNatives.count(n), work = WorkNatives.count(n);
+        if (!flag && !work) continue;
+        const int at = pushed(i, 0);
+        if (at < 0) { if (notes) notes->push_back(n + " at source line " + std::to_string(i + 1) + ": its number is computed, not moved"); continue; }
+        todo.emplace_back((size_t)at, flag, 0);
+    }
+    while (!todo.empty())
+    {
+        const auto [at, flag, depth] = todo.back();
+        todo.pop_back();
+        const Line& l = lines[at];
+        if (Constants.count(l.Op))
+        {
+            if (done.insert({at, flag}).second) out.push_back({at, flag});
+            continue;
+        }
+        const bool param = (l.Op == "push.s" || l.Op == "push.p.s") && l.Words.size() == 2 && std::stol(l.Words[1], nullptr, 0) >= 12;
+        if (!param || depth >= 4 || procOf[at].empty())
+        {
+            if (notes) notes->push_back(std::string(flag ? "a flag" : "a work") + " at source line " + std::to_string(at + 1) + " is computed, not moved");
+            continue;
+        }
+        const size_t n = (size_t)(std::stol(l.Words[1], nullptr, 0) - 12) / 4;
+        for (const size_t call : calls[procOf[at]])
+        {
+            // the call's argument bytes are pushed last (push.c / push.p.c), the arguments before them
+            const int arg = pushed(call, n + 1);
+            if (arg < 0) { if (notes) notes->push_back(std::string(flag ? "a flag" : "a work") + " passed at source line " + std::to_string(call + 1) + " is computed, not moved"); continue; }
+            todo.emplace_back((size_t)arg, flag, depth + 1);
+        }
+    }
+    return out;
+}
+}
+
+XyNumbers XyNumbersFor(const std::vector<Bytes>& scripts, const std::set<int>& extraFlags, const std::set<int>& extraWorks)
+{
+    std::set<int> flags = extraFlags, works;
+    for (int w : extraWorks) if (w >= 0x4000 && w < 0x8000) works.insert(w);
+    for (const Bytes& script : scripts)
+    {
+        const AmxScript s = AmxScript::Read(script);
+        const std::vector<Line> lines = Split(AmxSource(script));
+        const auto name = [&](size_t index) -> std::string {
+            if (index >= s.Natives.size()) return "";
+            for (const std::string& n : FlagNatives) if (AmxNameHash(n) == s.Natives[index].Name) return n;
+            for (const std::string& n : WorkNatives) if (AmxNameHash(n) == s.Natives[index].Name) return n;
+            return "";
+        };
+        for (const Argument& a : NumberArguments(lines, name, nullptr))
+        {
+            const int v = (int)std::stol(lines[a.Line].Words.back(), nullptr, 0);
+            if (a.Flag) flags.insert(v);
+            else if (v >= 0x4000 && v < 0x8000) works.insert(v);
+        }
+    }
+    XyNumbers n;
+    int next = XyFirstFlag;
+    for (int f : flags) { if (next > XyLastFlag) throw FormatError("X/Y scripts: more flags than 0xC09-0xCFF holds"); n.Flags[f] = next++; }
+    next = XyFirstWork;
+    for (int w : works) { if (next > XyLastWork) throw FormatError("X/Y scripts: more event works than 0x4100-0x4137 holds"); n.Works[w] = next++; }
+    return n;
+}
+
+std::string XyScriptSource(const Bytes& script, const std::string& namesFile, const XyNumbers& numbers, std::vector<std::string>& notes)
+{
+    const std::map<uint32_t, std::string> oras = OrasNatives(namesFile);
+    const AmxScript s = AmxScript::Read(script);
+    std::vector<std::string> names; // by native index, as written in the source
+    for (const AmxScript::Entry& e : s.Natives)
+    {
+        const auto o = oras.find(e.Name);
+        if (o != oras.end() || e.Name == AmxNameHash("_Suspend")) { names.push_back(o != oras.end() ? o->second : "_Suspend"); continue; }
+        char hash[16];
+        snprintf(hash, sizeof hash, "#%08X", e.Name);
+        names.push_back("CommandNOP");
+        notes.push_back(std::string("native ") + hash + ": none in Omega Ruby, CommandNOP in its place (it does nothing; a wait on its result may not end)");
+    }
+    const std::string source = AmxSource(script);
+    std::vector<Line> lines = Split(source);
+    std::vector<std::string> text;
+    {
+        std::istringstream in(source);
+        for (std::string l; std::getline(in, l);) text.push_back(l);
+    }
+    std::map<size_t, std::string> rewrite; // line -> new text
+    size_t native = 0;
+    for (size_t i = 0; i < lines.size(); i++)
+    {
+        const Line& l = lines[i];
+        if (l.Op == "native" && native < names.size())
+        {
+            const uint32_t h = s.Natives[native].Name;
+            char hash[16];
+            snprintf(hash, sizeof hash, "#%08X", h);
+            rewrite[i] = "native " + names[native] + (names[native] == "CommandNOP" && h != AmxNameHash("CommandNOP") ? std::string("   ; X/Y's ") + hash + ", none in Omega Ruby" : "");
+            native++;
+            continue;
+        }
+        if (l.Op == "sysreq.n" && l.Words.size() >= 2)
+        {
+            const size_t index = std::stoul(l.Words[1]);
+            const std::string name = index < names.size() ? names[index] : "?";
+            rewrite[i] = text[i] + "   ; " + name;
+        }
+    }
+    const auto nameOf = [&](size_t index) { return index < names.size() ? names[index] : std::string(); };
+    for (const Argument& a : NumberArguments(lines, nameOf, &notes))
+    {
+        const int v = (int)std::stol(lines[a.Line].Words.back(), nullptr, 0);
+        const std::map<int, int>& table = a.Flag ? numbers.Flags : numbers.Works;
+        const auto to = table.find(v);
+        if (to == table.end()) continue;
+        rewrite[a.Line] = "    " + lines[a.Line].Op + " " + std::to_string(to->second) + "   ; X/Y's " + (a.Flag ? "flag " : "work ") + std::to_string(v);
+    }
+    // a work given to another native (any constant equal to a moved work)
+    for (size_t i = 0; i < lines.size(); i++)
+    {
+        if (rewrite.count(i) || !Constants.count(lines[i].Op) || lines[i].Words.size() != 2) continue;
+        const int v = (int)std::stol(lines[i].Words[1], nullptr, 0);
+        const auto to = numbers.Works.find(v);
+        if (to != numbers.Works.end()) rewrite[i] = "    " + lines[i].Op + " " + std::to_string(to->second) + "   ; X/Y's work " + std::to_string(v);
+    }
+    std::string out;
+    for (size_t i = 0; i < text.size(); i++) out += (rewrite.count(i) ? rewrite[i] : text[i]) + "\n";
     return out;
 }
 

@@ -37,6 +37,9 @@
 //   remake_tool xy-script <x.3ds> <function_names.tsv> <zone>|all [init] [--mask M]  an X/Y zone's script made Omega Ruby's,
 //                     its natives step (OrasXyScript.h): the natives renamed, and those the native mask M (0x243) leaves
 //                     unregistered in Omega Ruby; all: every zone, a count per native
+//   remake_tool xy-script-export <x.3ds> <function_names.tsv> <out dir> <zone>...  X/Y zones' scripts as editable amx-asm
+//                     source (OrasXyScript.h: XyScriptSource), x<zone>.amx and x<zone>.init.amx, the flags and works of the
+//                     zones given numbered together; each file checked to assemble
 //   remake_tool amx-asm <in.txt> <out.amx> [function_names.tsv [--mask M]]  a Pawn (AMX) script assembled (Amx.h:
 //                     AmxAssemble), the natives named checked against the game's tables in tools/remake/ghidra/function_names.tsv
 //                     and registered under the zone's native mask M (0x243 by default, oras-engine's for new zones)
@@ -340,6 +343,53 @@ int main(int argc, char** argv)
                 for (const std::string& m : t.Missing) printf("  missing %s\n", m.c_str());
             }
             for (const auto& [m, n] : missingZones) printf("%4zu zone(s): %s\n", n, m.c_str());
+            return 0;
+        }
+        if (cmd == "xy-script-export" && argc >= 6)
+        {
+            const Garc zones(N3dsRom(argv[2]).Read("a/0/1/2"));
+            std::vector<int> wanted;
+            for (int i = 5; i < argc; i++) wanted.push_back(std::stoi(argv[i]));
+            std::vector<OrasZone> read;
+            std::vector<Bytes> scripts;
+            std::set<int> vanish, conditions;
+            for (int z : wanted)
+            {
+                OrasZone o = OrasZone::Read(Plain(zones.Sub((size_t)z)));
+                for (const ZoneCharacter& c : o.Characters) if (c.Raw[4]) vanish.insert(c.Raw[4]);
+                for (const ZoneTrigger& t : o.Triggers) conditions.insert(t.Raw[2]);
+                for (Bytes* s : {&o.Script, &o.InitScript})
+                    if (s->size() >= 16) { *s = XyScriptToOras(*s, argv[3], 0x243).Script; scripts.push_back(*s); }
+                read.push_back(o);
+            }
+            const XyNumbers numbers = XyNumbersFor(scripts, vanish, conditions);
+            for (const auto& [x, o] : numbers.Flags) printf("flag %d -> %d\n", x, o);
+            for (const auto& [x, o] : numbers.Works) printf("work %d -> %d\n", x, o);
+            for (size_t k = 0; k < wanted.size(); k++)
+                for (const bool init : {false, true})
+                {
+                    const Bytes& s = init ? read[k].InitScript : read[k].Script;
+                    if (s.size() < 16) continue;
+                    std::vector<std::string> notes;
+                    const std::string source = XyScriptSource(s, argv[3], numbers, notes);
+                    const std::string path = std::string(argv[4]) + "/x" + std::to_string(wanted[k]) + (init ? ".init" : "") + ".amx";
+                    // the native mask the script needs: 0x243 (a new zone's) and each bit a native it calls is registered under
+                    uint32_t mask = 0x243;
+                    for (int tries = 0;; tries++)
+                    {
+                        try { AmxAssemble(source, AmxNativeCheck(argv[3], mask)); break; }
+                        catch (const FormatError& e)
+                        {
+                            const std::string why = e.what();
+                            const size_t bit = why.find("registered under bit ");
+                            if (bit == std::string::npos || tries > 16) throw;
+                            mask |= (uint32_t)std::stoul(why.substr(bit + 21), nullptr, 0);
+                        }
+                    }
+                    WriteFile(path, Bytes(source.begin(), source.end()));
+                    printf("%s: written, native mask 0x%X%s\n", path.c_str(), mask, mask != 0x243 ? " (oras-engine --script-mask)" : "");
+                    for (const std::string& n : notes) printf("  %s\n", n.c_str());
+                }
             return 0;
         }
         if (cmd == "amx-asm" && argc >= 4)
