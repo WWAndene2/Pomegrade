@@ -85,7 +85,14 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         const int pack = all.at(z).AreaPack();
         if (packData.count(pack)) continue;
         packDonor[pack] = all.at(z).Header[0] == 3 ? interiorDonor : outdoorDonor;
-        packData[pack] = Plain(ws.Original("a/0/1/4").Sub((size_t)packDonor[pack]));
+        // the donor's light (file 4), camera (6) and the rest, but not its textures (1, 11) nor its material animations (2):
+        // Littleroot's, beside X/Y's of the same names, left some of Santalune's meshes black (OpenGL) or noisy (software
+        // renderer) and renamed X/Y's textures (run hZ12gl); on placeholder pack 0's files instead (its few textures, no
+        // animation) they drew right (run hD0, 19 October). Which of the two did it is not separated
+        BinLinker donor = BinLinker::Read(Plain(ws.Original("a/0/1/4").Sub((size_t)packDonor[pack])), "AD");
+        const BinLinker blank = BinLinker::Read(Plain(ws.Original("a/0/1/4").Sub(0)), "AD");
+        for (const size_t f : {(size_t)1, (size_t)2, (size_t)11}) donor.Files.at(f) = blank.Files.at(f);
+        packData[pack] = donor.Write();
     }
 
     // one matrix per (X/Y matrix, X/Y pack) its zones pair, its pieces converted for that pack at their own cells

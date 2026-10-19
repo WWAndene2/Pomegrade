@@ -11,7 +11,8 @@
 // For each matrix and pack a zone pairs (a group): a new a/0/4/0 member, X/Y's with its pieces converted (XyPieceToOras, at
 // their own cells, their props through XyPropsToOras) and its zone grid renumbered; a piece's prop types depend on the pack,
 // hence a matrix per pair. For each X/Y pack, a new area pack (AddAreaPack): a copy of Omega Ruby's pack 8 (Littleroot's)
-// for one an outdoor zone uses first, else of pack 112 (Littleroot's houses'), with the textures and props of its groups'
+// for one an outdoor zone uses first, else of pack 112 (Littleroot's houses'), its textures and material animations those of
+// placeholder pack 0 (Littleroot's clashed with X/Y's), with the textures and props of its groups'
 // pieces and the models its zones' characters wear. For each zone, a new zone (NewZoneHeader): interior when X/Y's header word
 // 0 is 3 (270 of the 360), else outdoor, with Omega Ruby's camera and location type for that kind (X/Y's 24 camera modes and
 // 6 location types are not Omega Ruby's 5 and 3: not kept); its area pack, matrix, place name (X/Y's a/0/7/2-9 member 72 line
