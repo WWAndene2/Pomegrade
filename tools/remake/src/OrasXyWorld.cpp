@@ -7,6 +7,7 @@
 #include "OrasMatrix.h"
 #include "OrasNewZone.h"
 #include "OrasTown.h"
+#include "OrasXyEncounters.h"
 #include "OrasXyEvents.h"
 #include "OrasXyPiece.h"
 #include "OrasXyScript.h"
@@ -194,7 +195,9 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         }
         zone.Script = e.Script;
         zone.InitScript = e.InitScript;
-        const int added = ws.AddZone(WriteNewZone(zone, Bytes{}), Bytes{});
+        const Bytes encounters = XyEncountersToOras(BinLinker::Read(Plain(xZones.Sub((size_t)z)), "ZO").Files.at(3),
+                                                    XyLandTiles(z, OrasMatrix::Read(Plain(xMatrices.Sub((size_t)x.Matrix()))), xPieces), z, log);
+        const int added = ws.AddZone(WriteNewZone(zone, encounters), encounters);
         if (added != number) throw FormatError("oras-xy-world: X/Y zone " + std::to_string(z) + " took zone " + std::to_string(added) + ", not " + std::to_string(number));
         if (e.Mask != 0x243) masks[number] = e.Mask;
     }

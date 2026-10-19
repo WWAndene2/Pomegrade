@@ -19,8 +19,8 @@
 // of word 14 & 0x3FF, added in the eight languages), the outdoor zone it belongs to (word 13, renumbered), its spawn (X/Y's
 // words 22 and 26: x and z in pixels, each the low half of a u32); X/Y's warps with their destination renumbered (a warp to a
 // zone not taken is left out, logged); its people, objects, triggers, text and scripts (XyEventsToOras, no shift). X/Y's
-// story flags and works are numbered over all 360 zones, so a flag keeps its number whatever part a build takes. Music: the
-// header's default (Littleroot's outdoors, its house's inside): X/Y's tracks are not Omega Ruby's.
+// story flags and works are numbered over all 360 zones, so a flag keeps its number whatever part a build takes. Wild Pokemon: X/Y's
+// tables (XyEncountersToOras). Music: the header's default (Littleroot's outdoors, its house's inside): X/Y's tracks are not Omega Ruby's.
 
 #include "OrasWorkspace.h"
 

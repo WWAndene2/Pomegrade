@@ -72,6 +72,7 @@ add_library(remake STATIC
     src/GfMotion.cpp
     src/GfMotionPack.cpp
     src/XyCharacter.cpp
+    src/OrasXyEncounters.cpp
     src/OrasXyEvents.cpp
     src/OrasXyPiece.cpp
     src/OrasXyWorld.cpp
