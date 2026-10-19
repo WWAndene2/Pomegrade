@@ -18,7 +18,7 @@ namespace remake
 static Bytes Plain(const Bytes& data) { return IsLzCompressed(data) ? LzDecompress(data) : data; }
 
 XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNumbers& numbers, std::map<int, int>& modelOf,
-                               const std::string& namesFile, const std::string& scriptDir, int orasZone, std::vector<std::string>& log)
+                               const std::string& namesFile, const std::string& scriptDir, int orasZone, std::vector<std::string>& log, bool story)
 {
     N3dsRom xRom(ws.XyRom);
     const Garc xZones(xRom.Read("a/0/1/2"));
@@ -30,8 +30,11 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
         f.Raw[4] = (uint16_t)(f.Raw[4] + dx); f.Raw[5] = (uint16_t)(f.Raw[5] + dz);
         e.Furniture.push_back(f);
     }
+    size_t storyPeople = 0;
     for (ZoneCharacter c : x.Characters)
     {
+        // without the story: a character with a vanish flag is one the story shows or hides (zone 2's rivals, 838-842)
+        if (!story && c.Raw[4] != 0) { storyPeople++; continue; }
         // X/Y's model number -> its a/0/2/1 member (XyModelMembers: the class models 0x1000 and up, the rivals and the player's
         // mother in zone 2, through X/Y's table; kept as they were, the game stopped entering the zone, run hDoorA, 19 October)
         static std::map<int, int> xyMembers; // one X/Y game per run of the tool
@@ -60,8 +63,12 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
         c.Raw[20] = (uint16_t)(c.Raw[20] + dx); c.Raw[21] = (uint16_t)(c.Raw[21] + dz);
         e.Characters.push_back(c);
     }
+    if (!story && (!x.Triggers.empty() || storyPeople))
+        log.push_back("X/Y zone " + std::to_string(xZone) + ": without its story, " + std::to_string(storyPeople) + " character(s) of a vanish flag and " +
+                      std::to_string(x.Triggers.size()) + " trigger(s) left out, its init script empty");
     for (ZoneTrigger t : x.Triggers)
     {
+        if (!story) break;
         t.Raw[2] = (uint16_t)moved(numbers.Works, t.Raw[2]);
         t.Raw[6] = (uint16_t)(t.Raw[6] + dx); t.Raw[7] = (uint16_t)(t.Raw[7] + dz);
         e.Triggers.push_back(t);
@@ -78,7 +85,8 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
         const std::filesystem::path file = std::filesystem::path(scriptDir) / ("x" + std::to_string(xZone) + (init ? ".init" : "") + ".amx");
         std::string source, from;
         std::vector<std::string> notes;
-        if (!scriptDir.empty() && std::filesystem::exists(file))
+        if (init && !story) source = EmptyInitScript; // the story's scenes on entering a zone
+        else if (!scriptDir.empty() && std::filesystem::exists(file))
         {
             const Bytes text = ReadFile(file.string());
             source.assign(text.begin(), text.end());

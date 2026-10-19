@@ -36,6 +36,7 @@ struct XyWorldOptions
     std::set<int> Matrices;  // X/Y's matrices whose zones are taken (empty: all)
     std::string NamesFile;   // tools/remake/ghidra/function_names.tsv (Omega Ruby's natives)
     std::string ScriptDir;   // a folder of edited scripts x<zone>.amx / x<zone>.init.amx, read in place of the translation
+    bool Story = true;       // X/Y's story (XyEventsToOras: without it, triggers, story characters and init scripts left out)
 };
 
 // builds into the workspace (ws.XyRom: X/Y's .3ds) and returns the log, ending with the oras-engine options the mod needs

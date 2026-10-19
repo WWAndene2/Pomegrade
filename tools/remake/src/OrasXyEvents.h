@@ -21,7 +21,9 @@ class OrasWorkspace;
 // of the zone's header word 3, added as it is in each language; the scripts read from <scriptDir>/x<zone>.amx and
 // x<zone>.init.amx when there, else translated (XyScriptToOras, XyScriptSource), and assembled against the native mask they
 // need (0x243 and the bits their natives are registered under: `mask`, which oras-engine --script-mask must give the zone
-// when it is not 0x243). X/Y's fifth kind of event (zone 0 has 2) is left out (logged).
+// when it is not 0x243). X/Y's fifth kind of event (zone 0 has 2) is left out (logged). Without `story`: its triggers, the
+// characters with a vanish flag (the story's, shown or hidden by it) and its init script (the scenes on entering) are left out;
+// its zone script (people's talk, signs, objects) is kept, a talk's story branches taking their default course.
 struct XyEvents
 {
     std::vector<ZoneFurniture> Furniture;
@@ -34,7 +36,8 @@ struct XyEvents
 };
 
 XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNumbers& numbers, std::map<int, int>& modelOf,
-                       const std::string& namesFile, const std::string& scriptDir, int orasZone, std::vector<std::string>& log);
+                       const std::string& namesFile, const std::string& scriptDir, int orasZone, std::vector<std::string>& log,
+                       bool story = true);
 
 }
 
