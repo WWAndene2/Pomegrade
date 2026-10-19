@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       variants:
-        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"; "... +cro <module> OFFSET=OLD:NEW" also patches a code module, "name: cro <module> OFFSET=OLD:NEW" patches one alone, "name: copy <archive> <dst>=<src>" copies archive members (<src> xy:dumps-x/x.3ds:<member> an X/Y character, with the secret X_DRIVE_ID), "name: merge a b" joins mods built on earlier lines, "name: save Z X Y" a moved save to merge, "name: engine <oras-engine options>" the engine patches (memory, heaps, zones, characters) to merge, "name: sandbox <description file>" new zones from a text description (oras-sandbox) to merge, "name: build <steps file>" regions and sandboxes in one mod (oras-build) to merge'
+        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"; "... +cro <module> OFFSET=OLD:NEW" also patches a code module, "name: cro <module> OFFSET=OLD:NEW" patches one alone, "name: copy <archive> <dst>=<src>" copies archive members (<src> xy:dumps-x/x.3ds:<member> an X/Y character, with the secret X_DRIVE_ID), "name: merge a b" joins mods built on earlier lines, "name: save Z X Y" a moved save to merge, "name: engine <oras-engine options>" the engine patches (memory, heaps, zones, characters) to merge, "name: sandbox <description file>" new zones from a text description (oras-sandbox) to merge, "name: build <steps file>" regions and sandboxes in one mod (oras-build) to merge, "name: xy-world [options] [-- engine options]" Pokemon X/Y world (oras-xy-world, with its engine patches) to merge'
         # no default mod: an empty input fell back to "v24:", and an inspect-only run shipped a v24 zip the owner took for r5
         default: ''
         required: false
@@ -199,6 +199,19 @@ jobs:
               set -- ${options#*sandbox }  # the file, then oras-sandbox options (--character-models N)
               ./build-remake/remake_tool oras-sandbox dumps/oras.3ds "out/$name" "$GITHUB_WORKSPACE/$1" "${@:2}" | tee "mods/${name}_log.txt"
               rm -f "out/$name/sandbox_layout.txt"
+            elif [[ "$options" =~ ^[[:space:]]*xy-world([[:space:]]|$) ]]; then
+              # "name: xy-world [oras-xy-world options] [-- oras-engine options]": Pokemon X/Y's world made Omega Ruby's
+              # (OrasXyWorld.h: --matrices A,B,... for part of it, --character-models N), from dumps-x/x.3ds (secret X_DRIVE_ID),
+              # with in the same mod the engine patches it prints (zone rows, --story large, --area-packs large, the zones'
+              # script masks) and the ones given after "--" (memory, heaps); --character-models is given to both. Merge it
+              # with a save moved into one of its zones ("save 538 467.5 597.5 --characters-from dumps/oras.3ds out/<name>")
+              if [ ! -f dumps-x/x.3ds ]; then echo "::error::xy-world needs Pokemon X (secret X_DRIVE_ID)"; exit 1; fi
+              rest="${options#*xy-world}"; world="${rest%% -- *}"; engine=""
+              [[ "$rest" == *" -- "* ]] && engine="${rest#* -- }"
+              models=$(echo "$world" | grep -oE -- '--character-models [0-9]+' || true)
+              ./build-remake/remake_tool oras-xy-world dumps/oras.3ds dumps-x/x.3ds "out/$name" tools/remake/ghidra/function_names.tsv $world | tee "mods/${name}_log.txt"
+              printed=$(grep '^oras-engine options:' "mods/${name}_log.txt" | sed 's/^oras-engine options: //')
+              ./build-remake/remake_tool oras-engine dumps/oras.3ds "out/$name" $printed $models $engine | tee -a "mods/${name}_log.txt"
             elif [[ "$options" =~ ^[[:space:]]*engine([[:space:]]|$) ]]; then
               # "name: engine <oras-engine options>": the engine patches (exheader.bin, exefs/code.ips: ORAS_ENGINE.md 4), e.g.
               # --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --characters 64; merge it
