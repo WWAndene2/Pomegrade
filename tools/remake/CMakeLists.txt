@@ -74,6 +74,7 @@ add_library(remake STATIC
     src/XyCharacter.cpp
     src/OrasXyEvents.cpp
     src/OrasXyPiece.cpp
+    src/OrasXyWorld.cpp
     src/OrasXyScript.cpp
     src/GameText.cpp
     src/Bclim.cpp

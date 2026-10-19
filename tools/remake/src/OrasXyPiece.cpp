@@ -164,17 +164,26 @@ Bytes XyPieceToOras(const Bytes& xPiece, const Bytes& xAreaPack, size_t xPackInd
                     int cellX, int cellY, const std::map<uint32_t, uint32_t>& propTypes, Bytes& orasAreaPack, std::vector<std::string>& log)
 {
     BinLinker gr = BinLinker::Read(xPiece, "GR");
-    if (gr.Files.size() != 6) throw FormatError("X piece: " + std::to_string(gr.Files.size()) + " files, 6 expected");
+    // 6 files, or 8 or 10: one or two more layers (35 of X's 1,030 pieces), their tile grids then their collisions, as
+    // Omega Ruby's 9- and 11-file pieces hold them after its file 6 (pieces 153, 436: seen 19 October)
+    if (gr.Files.size() != 6 && gr.Files.size() != 8 && gr.Files.size() != 10)
+        throw FormatError("X piece: " + std::to_string(gr.Files.size()) + " files, 6, 8 or 10 expected");
+    std::vector<Bytes> layers(gr.Files.begin() + 6, gr.Files.end());
+    gr.Files.resize(6);
+    const size_t extraGrids = layers.size() / 2;
 
-    // file 0: the tile grid (two u16 40, then 40 x 40 u32)
-    Bytes& tiles = gr.Files[0];
-    if (tiles.size() < 4 + 1600 * 4) throw FormatError("X piece: a tile grid of " + std::to_string(tiles.size()) + " bytes");
+    // file 0 (and each layer's grid): the tile grid (two u16 40, then 40 x 40 u32)
     std::map<uint32_t, size_t> mapped;
-    for (size_t at = 4; at < 4 + 1600 * 4; at += 4)
-    {
-        const uint32_t v = U32(tiles, at), o = XyTileValue(v);
-        if (o != v) { Put32(tiles, at, o); mapped[v]++; }
-    }
+    const auto mapTiles = [&](Bytes& tiles) {
+        if (tiles.size() < 4 + 1600 * 4) throw FormatError("X piece: a tile grid of " + std::to_string(tiles.size()) + " bytes");
+        for (size_t at = 4; at < 4 + 1600 * 4; at += 4)
+        {
+            const uint32_t v = U32(tiles, at), o = XyTileValue(v);
+            if (o != v) { Put32(tiles, at, o); mapped[v]++; }
+        }
+    };
+    mapTiles(gr.Files[0]);
+    for (size_t k = 0; k < extraGrids; k++) mapTiles(layers[k]);
     for (const auto& [v, n] : mapped)
     {
         char line[96];
@@ -260,6 +269,7 @@ Bytes XyPieceToOras(const Bytes& xPiece, const Bytes& xAreaPack, size_t xPackInd
     if (Bch::Is(gr.Files[5])) gr.Files[5] = BchUpgradeTo21(gr.Files[5]);
 
     gr.Files.push_back(kage);
+    for (Bytes& layer : layers) gr.Files.push_back(std::move(layer));
     return gr.Write();
 }
 

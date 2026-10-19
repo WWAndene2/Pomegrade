@@ -2,7 +2,8 @@
 #define REMAKE_ORASXYPIECE_H
 
 // A Pokemon X/Y map piece (an a/0/4/1 member, a GR container like Omega Ruby's a/0/3/9: ORAS_ENGINE.md 7) made Omega Ruby's,
-// for a cell of a new matrix (oras-sandbox's `xy-piece`). X's piece has six files, Omega Ruby's seven:
+// for a cell of a new matrix (oras-sandbox's `xy-piece`). X's piece has six files, Omega Ruby's seven (and with one or two
+// more layers, X's 8 or 10 and Omega Ruby's 9 or 11, their grids and collisions after the files below, grids mapped as file 0):
 //   file 0  the 40 x 40 tile grid: X's values kept, but those Omega Ruby never uses, mapped (XyTileValue)
 //   file 1  the terrain model: BCH 0x07 made 0x21 (BchUpgrade.h), named for its new cell, its textures taken from X's area
 //           pack into Omega Ruby's (renamed with the suffix _x<pack> where the pack holds another texture of the same name)

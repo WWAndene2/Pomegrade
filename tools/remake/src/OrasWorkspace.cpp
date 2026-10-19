@@ -92,9 +92,16 @@ int OrasWorkspace::AddZoneTextFiles(const std::vector<Bytes>& files)
 
 int OrasWorkspace::AddPlaceName(const std::string& name)
 {
+    return AddPlaceNames(std::vector<std::string>(8, name));
+}
+
+int OrasWorkspace::AddPlaceNames(const std::vector<std::string>& perLanguage)
+{
+    if (perLanguage.size() != 8) throw FormatError("a place name needs its 8 languages");
     int line = -1;
     for (int a = 1; a <= 8; a++)
     {
+        const std::string& name = perLanguage[(size_t)a - 1];
         const std::string path = "a/0/7/" + std::to_string(a);
         Garc& names = Edited(path);
         const Bytes file = Plain(names.Sub(90));

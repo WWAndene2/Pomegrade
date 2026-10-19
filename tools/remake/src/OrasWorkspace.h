@@ -52,6 +52,9 @@ public:
     int AddZoneTextFiles(const std::vector<Bytes>& files);
     // a place name (header word 14 & 0x3FF): a new line of a/0/7/1-a/0/7/8 member 90 (the eight languages' names); returns it
     int AddPlaceName(const std::string& name);
+    // the same with each language's name, in the archives' order (a/0/7/1 to a/0/7/8: Japanese kana, kanji, English, French,
+    // Italian, German, Spanish, Korean; X/Y's a/0/7/2-a/0/7/9 member 72 in that order)
+    int AddPlaceNames(const std::vector<std::string>& perLanguage);
     // an area pack (a/0/1/4) holding `pack`, in one of the game's placeholder packs no zone uses (0, 1, 39-42, 88, 97, 195),
     // never a pack a game zone draws from, so no Hoenn place changes; its characters' list (a/1/3/7) the one of pack `like`.
     // A pack identical to one the build added shares its slot.

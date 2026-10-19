@@ -66,6 +66,8 @@
 //   remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>
 //                     several sandboxes and regions in one mod, each step's zones, matrices, pieces and area packs numbered after
 //                     the ones before it (OrasWorkspace.h): one line a step, "sandbox <description file>" or "region <options>"
+//   remake_tool oras-xy-world <oras.3ds> <x.3ds> <out dir> <function_names.tsv> [--matrices A,B,...] [--character-models N] [--scripts DIR]
+//                     Pokemon X/Y's world as Omega Ruby zones, matrices, pieces and packs (OrasXyWorld.h), X/Y's coordinates kept
 //   remake_tool oras-save <main> [<out> [<zone> <tile x> <tile z>] [--template <save> [--blocks A,B,...]] [--save-records N]]
 //                     where an ORAS save puts the player (OrasSave.h); with the rest, a copy with the player moved there;
 //                     --save-records N: the copy in the layout of oras-engine --characters N - 1 (block 10 of N records)
@@ -110,6 +112,7 @@
 #include "Darc.h"
 #include "Bclim.h"
 #include "OrasZone.h"
+#include "OrasXyWorld.h"
 #include "GameText.h"
 #include "Amx.h"
 #include "N3dsRom.h"
@@ -173,6 +176,7 @@ static int Usage()
                     "  remake_tool oras-sinnoh <platinum.nds> <oras.3ds> [strip width]\n"
                     "  remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt> [--character-models N] [--characters N] [--events large] [--xy <x.3ds>]\n"
                     "  remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>\n"
+                    "  remake_tool oras-xy-world <oras.3ds> <x.3ds> <out dir> <function_names.tsv> [--matrices A,B,...] [--character-models N] [--scripts DIR]\n"
                     "  remake_tool oras-save <main> [<out> [<zone> <tile x> <tile z>] [--template <save> [--blocks A,B,...]] [--save-records N] [--characters-from <oras.3ds> [<mod dir>]]]\n"
                     "                    [--matrix-template M] [--model-matrix NN] [oras-town's --matrix, --target, --donor, --trees, --donor-pack, --grass, ... --allow-errors]\n");
     return 2;
@@ -1456,6 +1460,32 @@ int main(int argc, char** argv)
             }
             for (const std::string& line : BuildOrasSandbox(ws, std::string(text.begin(), text.end()), argv[3], check, argv[4])) printf("%s\n", line.c_str());
             for (const std::string& line : ws.Write(argv[3])) printf("%s\n", line.c_str());
+            return 0;
+        }
+        if (cmd == "oras-xy-world" && argc >= 6 && argc % 2 == 0)
+        {
+            // Pokemon X/Y's zones, matrices, pieces and packs made Omega Ruby's (OrasXyWorld.h); the game reads them with the
+            // oras-engine options the log ends with. --matrices A,B,...: only the zones on those X/Y matrices (all without it);
+            // --character-models N: as oras-sandbox's; --scripts DIR: edited scripts x<zone>.amx read in place of the translation
+            N3dsRom oras(argv[2]);
+            OrasWorkspace ws(oras);
+            ws.XyRom = argv[3];
+            XyWorldOptions wo;
+            wo.NamesFile = argv[5];
+            for (int i = 6; i + 1 < argc; i += 2)
+            {
+                const std::string flag = argv[i], value = argv[i + 1];
+                if (flag == "--matrices")
+                {
+                    std::stringstream list(value);
+                    for (std::string m; std::getline(list, m, ',');) wo.Matrices.insert((int)OptionNumber(m.c_str(), flag));
+                }
+                else if (flag == "--character-models") ws.CharacterModels = (size_t)OptionNumber(value.c_str(), flag);
+                else if (flag == "--scripts") wo.ScriptDir = value;
+                else throw FormatError("oras-xy-world: unknown option " + flag + " " + value);
+            }
+            for (const std::string& line : BuildXyWorld(ws, wo)) printf("%s\n", line.c_str());
+            for (const std::string& line : ws.Write(argv[4])) printf("%s\n", line.c_str());
             return 0;
         }
         if (cmd == "oras-save" && argc >= 3)
