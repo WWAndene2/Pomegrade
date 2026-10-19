@@ -1,8 +1,10 @@
 // Zone scripts (Amx.h): a compact AMX script written here with Pawn's encoding is unpacked to its cells, its natives
 // named and its code disassembled with Pawn 3 opcodes. No game data.
 #include "Amx.h"
+#include "OrasXyScript.h"
 
 #include <cstdio>
+#include <filesystem>
 #include <string>
 
 using namespace remake;
@@ -106,6 +108,24 @@ int main()
         refused = false;
         try { AmxAssemble("code\n    push.c\n"); } catch (const FormatError& e) { refused = std::string(e.what()).find("line 2") != std::string::npos; }
         check(refused, "a wrong operand count refused, naming the line");
+    }
+    {
+        // an X/Y script's natives made Omega Ruby's (OrasXyScript.h): one renamed, one kept, one missing, against a names
+        // file written as function_names.tsv's Script_Native_ rows
+        const std::string names = (std::filesystem::temp_directory_path() / "remake_script_test_names.tsv").string();
+        const std::string rows =
+            "003BD480\tScript_Native__FadeRequestIn\tPawn (AMX) native, named by the game's own native table; \"_FadeRequestIn\" (hash 0x7B2FEC69, table 0x0057A860): x.\tread\n"
+            "10293344\tScript_Native_FlagSet\tPawn (AMX) native, named by the game's own native table; \"FlagSet\" (hash 0x13413496, table 0x1033A234, bit 1): x.\tread\n";
+        WriteFile(names, Bytes(rows.begin(), rows.end()));
+        const Bytes x = AmxAssemble("code\n    sysreq.n FadeRequestIn 0\n    sysreq.n FlagSet 0\n    sysreq.n ChangeFashionBefore 0\n    halt 0\n");
+        const XyScriptNatives t = XyScriptToOras(x, names, 0x243);
+        const AmxScript s = AmxScript::Read(t.Script);
+        check(t.Renamed.size() == 1 && t.Renamed[0] == "FadeRequestIn -> _FadeRequestIn", "an X native renamed to Omega Ruby's");
+        check(s.Natives.size() == 3 && s.Natives[0].Name == AmxNameHash("_FadeRequestIn") && s.Natives[1].Name == AmxNameHash("FlagSet"),
+              "the native table rewritten, the shared native kept");
+        check(t.Missing.size() == 1 && t.Missing[0].find("not in Omega Ruby's tables") != std::string::npos, "a native Omega Ruby lacks reported");
+        check(AmxCells(t.Script) == AmxCells(x), "the code left as it was");
+        std::filesystem::remove(names);
     }
     Bytes truncated = b;
     truncated.push_back(0); Put32(truncated, 0, (uint32_t)truncated.size());

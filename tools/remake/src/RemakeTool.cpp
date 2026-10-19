@@ -34,6 +34,9 @@
 //   remake_tool oras-text <oras.3ds> <archive> <member>   a game text file's lines
 //   remake_tool oras-script <oras.3ds> <zone>|all [init] [source]  a zone's script, unpacked and disassembled, or as amx-asm
 //                     source (all: every script, checked, and written and assembled back)
+//   remake_tool xy-script <x.3ds> <function_names.tsv> <zone>|all [init] [--mask M]  an X/Y zone's script made Omega Ruby's,
+//                     its natives step (OrasXyScript.h): the natives renamed, and those the native mask M (0x243) leaves
+//                     unregistered in Omega Ruby; all: every zone, a count per native
 //   remake_tool amx-asm <in.txt> <out.amx> [function_names.tsv [--mask M]]  a Pawn (AMX) script assembled (Amx.h:
 //                     AmxAssemble), the natives named checked against the game's tables in tools/remake/ghidra/function_names.tsv
 //                     and registered under the zone's native mask M (0x243 by default, oras-engine's for new zones)
@@ -117,6 +120,7 @@
 #include "OrasSandbox.h"
 #include "OrasSave.h"
 #include "OrasTown.h"
+#include "OrasXyScript.h"
 #include "PlatinumWorld.h"
 #include "ZoneEvents.h"
 #include "WorldMap.h"
@@ -309,6 +313,35 @@ int main(int argc, char** argv)
     try
     {
         // loose files
+        if (cmd == "xy-script" && argc >= 5)
+        {
+            uint32_t mask = 0x243;
+            bool init = false;
+            for (int i = 5; i < argc; i++)
+            {
+                if (std::string(argv[i]) == "init") init = true;
+                if (std::string(argv[i]) == "--mask" && i + 1 < argc) mask = (uint32_t)std::stoul(argv[i + 1], nullptr, 0);
+            }
+            const Garc zones(N3dsRom(argv[2]).Read("a/0/1/2"));
+            const bool all = std::string(argv[4]) == "all";
+            const size_t first = all ? 0 : (size_t)std::stoul(argv[4]), last = all ? zones.Count() : first + 1;
+            std::map<std::string, size_t> missingZones; // across zones: each missing native, the zones calling it
+            for (size_t z = first; z < last; z++)
+            {
+                const Bytes plain = Plain(zones.Sub(z));
+                if (all && (plain.size() < 2 || plain[0] != 'Z' || plain[1] != 'O')) continue; // X's archive holds other members too
+                const BinLinker zone = BinLinker::Read(plain, "ZO");
+                const Bytes& script = zone.Files.at(init ? 3 : 2);
+                if (script.size() < 16) continue;
+                const XyScriptNatives t = XyScriptToOras(script, argv[3], mask);
+                if (all) { for (const std::string& m : t.Missing) missingZones[m]++; continue; }
+                printf("X/Y zone %zu %s: %zu native(s) renamed, %zu not registered\n", z, init ? "init" : "script", t.Renamed.size(), t.Missing.size());
+                for (const std::string& r : t.Renamed) printf("  renamed %s\n", r.c_str());
+                for (const std::string& m : t.Missing) printf("  missing %s\n", m.c_str());
+            }
+            for (const auto& [m, n] : missingZones) printf("%4zu zone(s): %s\n", n, m.c_str());
+            return 0;
+        }
         if (cmd == "amx-asm" && argc >= 4)
         {
             // a script assembled from source (Amx.h), its natives checked against the game's tables and the zone's native
