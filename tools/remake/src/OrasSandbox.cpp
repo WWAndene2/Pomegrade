@@ -569,6 +569,7 @@ static XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, con
             from = "translated";
         }
         else source = init ? EmptyInitScript : EmptyZoneScript;
+        source = XyMoveZones(source, numbers.Zones, notes);
         uint32_t mask = 0x243;
         Bytes assembled;
         for (int tries = 0;; tries++)
@@ -989,6 +990,10 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
             xyDx = (d.XyPieces[0][0] - piece.Files.at(4).at(1)) * 40;
             xyDz = (d.XyPieces[0][1] - piece.Files.at(4).at(0)) * 40;
         }
+        // X/Y's zones the scripts may send the player to (XyMoveZones): the outdoor ones on the xy-pieces, shifted, and the
+        // insides on matrices of their own
+        for (const SandboxZone& z : d.Zones) if (z.XyEvents >= 0 && z.Number >= 0) xyNumbers.Zones[z.XyEvents] = {z.Number, xyDx, xyDz};
+        for (const auto& [x, zone] : xyZoneOf) xyNumbers.Zones[x] = {zone, 0, 0};
     }
 
     // each new zone's text file (header word 3): a new member of the eight story text archives (a/0/7/9-a/0/8/6, one per

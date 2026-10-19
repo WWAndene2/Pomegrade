@@ -151,6 +151,19 @@ int main()
         check(assembles && notes.empty(), "the source assembles, nothing computed left");
         std::filesystem::remove(names);
     }
+    {
+        // XyMoveZones: a map change's zone moved and its tile shifted, an unknown zone kept and noted
+        const std::string source = "native FlagGet\nnative _MapChangeCore\ncode\n"
+            "    push.p.c 0\n    push.p.c 596\n    push.p.c 145\n    push.p.c 467\n    push.p.c 0\n    sysreq.n 1 20\n"
+            "    push.p.c 9\n    push.p.c 1\n    push.p.c 1\n    push.p.c 1\n    push.p.c 77\n    sysreq.n 1 20\n";
+        std::vector<std::string> notes;
+        const std::string moved = XyMoveZones(source, {{0, {538, -440, -560}}}, notes);
+        check(moved.find("push.p.c 538   ; X/Y's zone 0") != std::string::npos && moved.find("push.p.c 27   ; X/Y's x 467") != std::string::npos
+                  && moved.find("push.p.c 36   ; X/Y's z 596") != std::string::npos && moved.find("push.p.c 145\n") != std::string::npos,
+              "a map change's zone moved, its tile shifted, its height kept");
+        check(moved.find("push.p.c 77\n") != std::string::npos && notes.size() == 1 && notes[0].find("zone 77 is not in this mod") != std::string::npos,
+              "a zone not in the mod kept and noted");
+    }
     Bytes truncated = b;
     truncated.push_back(0); Put32(truncated, 0, (uint32_t)truncated.size());
     bool threw = false;

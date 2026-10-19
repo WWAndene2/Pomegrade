@@ -273,4 +273,57 @@ std::string XyScriptSource(const Bytes& script, const std::string& namesFile, co
     return out;
 }
 
+std::string XyMoveZones(const std::string& source, const std::map<int, XyZonePlace>& zones, std::vector<std::string>& notes)
+{
+    const std::vector<Line> lines = Split(source);
+    std::vector<std::string> text, names;
+    {
+        std::istringstream in(source);
+        for (std::string l; std::getline(in, l);) text.push_back(l);
+    }
+    for (const Line& l : lines) if (l.Op == "native" && l.Words.size() >= 2) names.push_back(l.Words[1]);
+    // the instruction pushing the n-th argument of the sysreq.n at `at` (the last push is the first argument), -1 when not
+    // a constant push in the same block
+    const auto argument = [&](size_t at, size_t n) -> int {
+        size_t seen = 0;
+        for (size_t k = at; k-- > 0 && at - k <= 32;)
+        {
+            const std::string& op = lines[k].Op;
+            if (op.empty() || op.back() == ':') return -1;
+            if (op.rfind("push", 0) != 0) continue;
+            if (seen++ < n) continue;
+            return (op == "push.c" || op == "push.p.c") && lines[k].Words.size() == 2 ? (int)k : -1;
+        }
+        return -1;
+    };
+    const auto value = [&](int line) { return (int)std::stol(lines[(size_t)line].Words[1], nullptr, 0); };
+    const auto set = [&](int line, int v, const std::string& why) { text[(size_t)line] = "    " + lines[(size_t)line].Op + " " + std::to_string(v) + "   ; " + why; };
+    const std::set<std::string> withTile = {"_MapChangeCore", "_MapChangeAndDemoCall"}, zoneOnly = {"_MapChangeRailCore"},
+        unread = {"PlayerGetZoneID", "EventMapReplace", "CallMapConnect", "GymEsperWarpEvent"};
+    for (size_t i = 0; i < lines.size(); i++)
+    {
+        if (lines[i].Op != "sysreq.n" || lines[i].Words.size() < 2) continue;
+        const size_t index = std::stoul(lines[i].Words[1]);
+        const std::string name = index < names.size() ? names[index] : "";
+        const std::string where = " at source line " + std::to_string(i + 1);
+        if (unread.count(name)) { notes.push_back(name + where + ": uses X/Y's zone numbers, not moved"); continue; }
+        if (!withTile.count(name) && !zoneOnly.count(name)) continue;
+        const int zoneLine = argument(i, 0);
+        if (zoneLine < 0) { notes.push_back(name + where + ": its zone is computed, not moved"); continue; }
+        const int xZone = value(zoneLine);
+        const auto place = zones.find(xZone);
+        if (place == zones.end()) { notes.push_back(name + where + ": X/Y zone " + std::to_string(xZone) + " is not in this mod, kept"); continue; }
+        set(zoneLine, place->second.Zone, "X/Y's zone " + std::to_string(xZone));
+        if (!withTile.count(name) || (place->second.Dx == 0 && place->second.Dz == 0)) continue;
+        const int x = argument(i, 1), z = argument(i, 3);
+        if (x < 0 || z < 0) { notes.push_back(name + where + ": its tile is computed, not shifted"); continue; }
+        set(x, value(x) + place->second.Dx, "X/Y's x " + std::to_string(value(x)));
+        set(z, value(z) + place->second.Dz, "X/Y's z " + std::to_string(value(z)));
+    }
+    std::string out;
+    for (const std::string& l : text) out += l + "\n";
+    return out;
 }
+
+}
+

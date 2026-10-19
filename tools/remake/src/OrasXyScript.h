@@ -38,10 +38,14 @@ struct XyScriptNatives
     std::vector<std::string> Missing;   // natives the zone's mask does not register in Omega Ruby: "#HASH (X name or ?): why"
 };
 
-// X/Y's flags and event works -> Omega Ruby's numbers (XyNumbersFor)
+// where an X/Y zone is in the mod: its zone number and the shift of its tiles (X/Y's matrix to the mod's)
+struct XyZonePlace { int Zone = 0, Dx = 0, Dz = 0; };
+
+// X/Y's flags and event works -> Omega Ruby's numbers (XyNumbersFor), and X/Y's zones -> the mod's (filled by the builder)
 struct XyNumbers
 {
     std::map<int, int> Flags, Works;
+    std::map<int, XyZonePlace> Zones;
 };
 
 // the numbers XyNumbersFor gives from
@@ -56,6 +60,14 @@ XyNumbers XyNumbersFor(const std::vector<Bytes>& scripts, const std::set<int>& e
 // when Omega Ruby has none, CommandNOP with the X hash in a comment (`notes` says so); each sysreq.n commented with its
 // native; flags and works moved by `numbers`; a flag or work given by a variable added to `notes`
 std::string XyScriptSource(const Bytes& script, const std::string& namesFile, const XyNumbers& numbers, std::vector<std::string>& notes);
+
+// the zones in a script's source (XyScriptSource's, or one edited from it) moved to the mod's: the first argument of
+// _MapChangeCore, _MapChangeAndDemoCall and _MapChangeRailCore (a zone, Omega Ruby's natives read it as a u16: Script_Native_
+// _MapChangeCore 0x10296AA4 and the others, read 19 October) when a constant, and with the first two the destination tile
+// (arguments 2 and 4, x and z in tiles) shifted by that zone's Dx, Dz. Natives are known by the names in the source's
+// native lines. Not moved, in `notes`: a zone computed, a zone not in `zones`, and the natives whose zone arguments are
+// not read (PlayerGetZoneID's result compared with X/Y numbers, EventMapReplace, CallMapConnect, GymEsperWarpEvent)
+std::string XyMoveZones(const std::string& source, const std::map<int, XyZonePlace>& zones, std::vector<std::string>& notes);
 
 // xScript: an X/Y zone script; namesFile: tools/remake/ghidra/function_names.tsv (Omega Ruby's natives and their mask
 // bits); mask: the native mask of the zone it will run in (0x243 for zones 536 and up unless oras-engine --script-mask)
