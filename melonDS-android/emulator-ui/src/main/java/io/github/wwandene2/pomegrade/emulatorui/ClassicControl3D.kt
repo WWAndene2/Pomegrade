@@ -70,10 +70,11 @@ object ClassicControl3D {
         cap(canvas, shape, RectF(cx - d / 2f, cy - d / 2f, cx + d / 2f, cy + d / 2f), d * 0.06f, d * 0.03f, outlined, stroke, press, face, decorate)
     }
 
-    /** L or R ([isLeft] for L) in [rect], its outer top corner rounded over [corner]. */
-    fun bumper(canvas: Canvas, rect: RectF, corner: Float, isLeft: Boolean, outlined: Boolean, stroke: Float, press: Press, decorate: (Canvas) -> Unit) {
+    /** L or R ([isLeft] for L) in [rect], its outer top corner rounded over [corner], the others over [small] (null: bumperPath's default). */
+    fun bumper(canvas: Canvas, rect: RectF, corner: Float, isLeft: Boolean, outlined: Boolean, stroke: Float, press: Press, small: Float? = null, decorate: (Canvas) -> Unit) {
         val inset = if (outlined) stroke / 2f else 0f
-        val shape = ClassicControlPainter.bumperPath(rect.left + inset, rect.top + inset, rect.right - inset, rect.bottom - inset, corner, isLeft)
+        val shape = if (small == null) ClassicControlPainter.bumperPath(rect.left + inset, rect.top + inset, rect.right - inset, rect.bottom - inset, corner, isLeft)
+                    else ClassicControlPainter.bumperPath(rect.left + inset, rect.top + inset, rect.right - inset, rect.bottom - inset, corner, isLeft, small)
         cap(canvas, shape, rect, rect.height() * 0.06f, rect.height() * 0.03f, outlined, stroke, press, null, decorate)
     }
 

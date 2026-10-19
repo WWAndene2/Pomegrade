@@ -25,7 +25,7 @@ import kotlin.math.max
  * Pomegrade: the Classic layout's controls, drawn as the Punica 3DS skin template draws them
  * (assets/consoles/skins/gabarit_skin_3ds_1220x2712.svg), so each fills its template rectangle (ClassicOverlayLayout),
  * in the style chosen in Punica's settings ("punica_classic_button_style", shared with the DS Classic layout).
- * Every size is a share of the control's template size: L / R 271 x 112.4 with a 46 corner, ZL / ZR 165.6 x 112.4 rounded rectangles,
+ * Every size is a share of the control's template size: L / R 271 x 112.4 with a 46 outer corner and 17.3 inner ones, ZL / ZR 165.6 x 112.4 rounded rectangles,
  * A / B / X / Y 136.6, START / SELECT / Punica 83, the D-pad 329.3 in the DS Lite's shape with its grooves.
  *
  * Buttons and the D-pad are drawn by the overlay itself each frame (their painters, ClassicControl3D): filled, solid
@@ -104,7 +104,8 @@ object ClassicOverlayControls {
             }
             when (id) {
                 ButtonType.TRIGGER_L, ButtonType.TRIGGER_R ->
-                    ClassicControl3D.bumper(canvas, rect, 46f * scale, id == ButtonType.TRIGGER_L, style.outlined, stroke, press, decorate)
+                    // the three inner corners as the D-pad's and ZL / ZR's (17.3, owner's choice, 19 October)
+                    ClassicControl3D.bumper(canvas, rect, 46f * scale, id == ButtonType.TRIGGER_L, style.outlined, stroke, press, 17.3f * scale, decorate)
                 ButtonType.BUTTON_ZL, ButtonType.BUTTON_ZR ->
                     ClassicControl3D.zButton(canvas, rect, 17.3f * scale, style.outlined, stroke, press, decorate)
                 else -> {
