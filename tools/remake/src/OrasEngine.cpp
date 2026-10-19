@@ -572,6 +572,55 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
             log.push_back("field scene: groups 5 and 6 hold 128 models each (the game's 64)");
         }
     }
+    if (o.LargeWildTables)
+    {
+        // X/Y's five land tables (OrasXyEncounters.h). Omega Ruby's step check (Field_WildEncounter_StepCheck) gives a tile
+        // kind a table kind: 0x1F 0x20 0x24 0x25 0x2B 0x2D kind 0, 0x27 kind 1, any other no encounter; X/Y's (its DllField
+        // 0x834AC, read 20 October) 0x20 0x24 0x25 table 0, 0x21-0x23 tables 1-3, any other table 4 (the zone's header byte
+        // of the table 0: none). Here the kinds Omega Ruby knows keep theirs, 0x21-0x23 take kinds 9-11 and any other kind
+        // 12, so Map_GetAttributeEffectEntry, knowing none of them, takes their entry from the zone file's header byte
+        // [kind] - 1, as X/Y does (bytes 9-12 are zero in all 150 of Omega Ruby's encounter files: none of its zones change).
+        // Field_WildEncounter_SelectTable gives kinds 9-11 the tables at +0x102, +0x132, +0x162 (12 slots, kind 0's pick)
+        // and kind 12 kind 1's table, then names them kind 0 and kind 1 for the rest of the encounter.
+        const auto at = [](uint32_t file) { return DllFieldBase + file; };
+        const auto branch = [](uint32_t cond, uint32_t from, uint32_t to) { return (Branch(from, to, false) & 0x0FFFFFFFu) | cond << 28; };
+        constexpr uint32_t EQ = 0x0, HI = 0x8, AL = 0xE;
+        const uint32_t step[14] = {
+            0xE3500025, 0x1350001F, 0x13500020, 0x13500024, 0x1350002B, 0x1350002D, // cmp r0, #0x25; cmpne #0x1F ... #0x2D
+            branch(EQ, at(0x8B420), at(0x8B440)),                                   // beq: kind 0
+            0xE3500027,                                                             // cmp r0, #0x27
+            branch(EQ, at(0x8B428), at(0x8B444)),                                   // beq: kind 1 (r4 holds 1)
+            0xE2401021, 0xE3510002, 0x92814009, 0x83A0400C,                         // sub r1, r0, #0x21; cmp r1, #2; addls r4, r1, #9; movhi r4, #12
+            branch(AL, at(0x8B43C), at(0x8B444)),                                   // b: kind 9-12
+        };
+        const uint32_t stepGame[14] = {0xE3500025, 0xE320F000, 0x0A00000A, 0xCA000004, 0xE350001F, 0x13500020, 0x13500024,
+                                       0x0A000005, 0xEA000049, 0xE3500027, 0x0A000003, 0xE350002B, 0x1350002D, 0x1A000044};
+        for (uint32_t k = 0; k < 14; k++) croWords.push_back({at(0x8B408 + 4 * k), stepGame[k], step[k], "Field_WildEncounter_StepCheck's tile kinds"});
+
+        const CroLayout layout(oras.Read("DllField.cro"));
+        uint32_t cave = DllFieldBase + layout.CodeEnd();
+        for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
+        // Field_WildEncounter_TileEntry: its "none" (0xFF) for an unknown kind, the same kinds as the step check
+        croWords.push_back({at(0x97D50), 0xE3A080FF, Branch(at(0x97D50), cave, false), "Field_WildEncounter_TileEntry's unknown kind: to its cave"});
+        const uint32_t entry[5] = {0xE240C021, 0xE35C0002, 0x928C8009, 0x83A0800C, Branch(cave + 16, at(0x97D54), false)};
+        for (uint32_t k = 0; k < 5; k++) croWords.push_back({cave + 4 * k, 0, entry[k], "Field_WildEncounter_TileEntry (cave)"});
+        cave += 20;
+        // Field_WildEncounter_SelectTable's default (kind 9 and up): r1 the file, r2 the kind, r3 1, r4 the context
+        croWords.push_back({at(0x7DBC8), 0xEA000023, Branch(at(0x7DBC8), cave, false), "Field_WildEncounter_SelectTable's kinds past 8: to its cave"});
+        const uint32_t tail = cave + 15 * 4;
+        const uint32_t select[20] = {
+            0xE352000C, 0x0281103E, 0x05C43082, 0x05C43080,  // cmp r2, #12; addeq r1, r1, #0x3E; strbeq r3, [r4, #0x82]; strbeq r3, [r4, #0x80]
+            branch(EQ, cave + 16, tail),                     // beq: the 12-slot tail
+            0xE242C009, 0xE35C0002,                          // sub ip, r2, #9; cmp ip, #2
+            branch(HI, cave + 28, at(0x7DC5C)),              // bhi: the game's "no table"
+            0xE081128C, 0xE081120C, 0xE2811C01, 0xE2811002,  // r1 += 0x30 (kind - 9) + 0x102
+            0xE3A00000, 0xE5C40082, 0xE5C40080,              // mov r0, #0; strb r0, [r4, #0x82]; strb r0, [r4, #0x80]
+            0xE3A0000C, 0xE5843074, 0xE5840070, 0xE584306C,  // tail: 12 slots (the game's table 0x141F20 for kinds 0 and 1), as the game's
+            Branch(cave + 19 * 4, at(0x7DC88), false),       // back to the slot pick
+        };
+        for (uint32_t k = 0; k < 20; k++) croWords.push_back({cave + 4 * k, 0, select[k], "Field_WildEncounter_SelectTable (cave)"});
+        log.push_back("wild tables: kinds 9-12 (X/Y's land tables 1-4) on tiles 0x21-0x23 and kinds Omega Ruby has none for");
+    }
     if (!croWords.empty()) dllField = PatchCro(oras.Read("DllField.cro"), DllFieldBase, croWords);
     for (const auto& [id, size] : o.HeapSizes)
     {

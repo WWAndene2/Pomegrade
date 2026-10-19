@@ -25,14 +25,8 @@ uint32_t XyTileValue(uint32_t value)
     switch (value)
     {
     case 0x31000020: return 0x00000020;
-    default: break;
+    default: return value;
     }
-    // X/Y's wild encounter tiles (OrasXyEncounters.h): the flower beds (tables 1-3) made grass, Omega Ruby's kind 0, and the
-    // tiles of its table 4 made 0x27, Omega Ruby's kind 1; the low bits kept
-    const uint32_t kind = value >> 24, low = value & 0xFFFFFF;
-    if (kind >= 0x21 && kind <= 0x23) return 0x20000000 | low;
-    if (kind == 0x28 || kind == 0x29 || (kind >= 0x31 && kind <= 0x34)) return 0x27000000 | low;
-    return value;
 }
 
 std::set<uint32_t> XyPieceProps(const Bytes& xPiece)

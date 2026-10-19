@@ -146,6 +146,7 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
 
     // the zones
     std::map<int, uint32_t> masks;
+    bool wildTables = false; // a zone with X/Y's encounters, which need its land tables in the engine
     for (const int z : taken)
     {
         const OrasZone& x = all.at(z);
@@ -195,8 +196,8 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         }
         zone.Script = e.Script;
         zone.InitScript = e.InitScript;
-        const Bytes encounters = XyEncountersToOras(BinLinker::Read(Plain(xZones.Sub((size_t)z)), "ZO").Files.at(3),
-                                                    XyLandTiles(z, OrasMatrix::Read(Plain(xMatrices.Sub((size_t)x.Matrix()))), xPieces), z, log);
+        const Bytes encounters = XyEncountersToOras(BinLinker::Read(Plain(xZones.Sub((size_t)z)), "ZO").Files.at(3), z);
+        if (!encounters.empty()) wildTables = true;
         const int added = ws.AddZone(WriteNewZone(zone, encounters), encounters);
         if (added != number) throw FormatError("oras-xy-world: X/Y zone " + std::to_string(z) + " took zone " + std::to_string(added) + ", not " + std::to_string(number));
         if (e.Mask != 0x243) masks[number] = e.Mask;
@@ -205,6 +206,7 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     // what the engine must be given (oras-engine)
     std::string engine = "oras-engine options: --zone-rows " + std::to_string(ws.NextZone()) + " --story large";
     if (std::any_of(packOf.begin(), packOf.end(), [](const auto& p) { return p.second > 255; })) engine += " --area-packs large";
+    if (wildTables) engine += " --wild-tables large";
     for (const auto& [zone, mask] : masks)
     {
         snprintf(line, sizeof line, " --script-mask %d:0x%X", zone, mask);
