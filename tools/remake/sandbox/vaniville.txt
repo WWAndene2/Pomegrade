@@ -4,7 +4,9 @@
 # are not used (every piece is X's). For the phone, Remake mod workflow variants:
 #   sb: sandbox tools/remake/sandbox/vaniville.txt --xy dumps-x/x.3ds --character-models 64
 #   eng: engine --zone-rows 545 --script-mask 538:0x247 --character-models 64 --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000
-#   sv: save 538 20.5 48.5
+#   sv: save 542 10.5 15.5
+#     (in the bedroom, X's start: a save moved by oras-save keeps the old zone's saved characters, MoveModelSave, which
+#     Continue rebuilds instead of the zone's own; the bedroom has none, the next zones are read when walked into)
 #   vaniville: merge sb eng sv
 zone 538
 pack 8
