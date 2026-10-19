@@ -213,18 +213,28 @@ std::string XyScriptSource(const Bytes& script, const std::string& namesFile, co
 {
     const std::map<uint32_t, std::string> oras = OrasNatives(namesFile);
     const AmxScript s = AmxScript::Read(script);
+    const std::string source = AmxSource(script);
+    std::vector<Line> lines = Split(source);
+    // natives whose result a script waits on: a sysreq.n followed by jnz (the loop left once it returns non-zero; house
+    // 2's mirror, X/Y's #F5C84EF0, froze the game as CommandNOP, which returns 0: owner's phone, 19 October)
+    std::set<size_t> waitedOn;
+    for (size_t i = 0; i + 1 < lines.size(); i++)
+        if (lines[i].Op == "sysreq.n" && lines[i].Words.size() >= 2 && lines[i + 1].Op == "jnz") waitedOn.insert(std::stoul(lines[i].Words[1]));
     std::vector<std::string> names; // by native index, as written in the source
-    for (const AmxScript::Entry& e : s.Natives)
+    for (size_t index = 0; index < s.Natives.size(); index++)
     {
+        const AmxScript::Entry& e = s.Natives[index];
         const auto o = oras.find(e.Name);
         if (o != oras.end() || e.Name == AmxNameHash("_Suspend")) { names.push_back(o != oras.end() ? o->second : "_Suspend"); continue; }
         char hash[16];
         snprintf(hash, sizeof hash, "#%08X", e.Name);
-        names.push_back("CommandNOP");
-        notes.push_back(std::string("native ") + hash + ": none in Omega Ruby, CommandNOP in its place (it does nothing; a wait on its result may not end)");
+        // a wait on it ends with FadeIsEnd, which returns 1 unless a fade is running (Script_Native_FadeIsEnd 0x370774, in
+        // the natives every zone has) and changes nothing; otherwise CommandNOP, which does nothing and returns 0
+        const bool waited = waitedOn.count(index);
+        names.push_back(waited ? "FadeIsEnd" : "CommandNOP");
+        notes.push_back(std::string("native ") + hash + (waited ? ": none in Omega Ruby, FadeIsEnd in its place (a wait on it ends; it does nothing)"
+                                                                : ": none in Omega Ruby, CommandNOP in its place (it does nothing)"));
     }
-    const std::string source = AmxSource(script);
-    std::vector<Line> lines = Split(source);
     std::vector<std::string> text;
     {
         std::istringstream in(source);
@@ -240,7 +250,8 @@ std::string XyScriptSource(const Bytes& script, const std::string& namesFile, co
             const uint32_t h = s.Natives[native].Name;
             char hash[16];
             snprintf(hash, sizeof hash, "#%08X", h);
-            rewrite[i] = "native " + names[native] + (names[native] == "CommandNOP" && h != AmxNameHash("CommandNOP") ? std::string("   ; X/Y's ") + hash + ", none in Omega Ruby" : "");
+            const bool standIn = h != AmxNameHash(names[native]) && names[native] != "_Suspend";
+            rewrite[i] = "native " + names[native] + (standIn ? std::string("   ; X/Y's ") + hash + ", none in Omega Ruby" : "");
             native++;
             continue;
         }

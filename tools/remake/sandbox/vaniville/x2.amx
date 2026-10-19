@@ -52,7 +52,7 @@ native CommandNOP
 native ResetMirror
 native CommandNOP   ; X/Y's #C0DC5EA5, none in Omega Ruby
 native CommandNOP   ; X/Y's #F5C84EF0, none in Omega Ruby
-native CommandNOP   ; X/Y's #FCD28E80, none in Omega Ruby
+native FadeIsEnd   ; X/Y's #FCD28E80, none in Omega Ruby
 native SetMirror
 native PokePartyGetCount
 native FadeRequestOut
@@ -1218,7 +1218,7 @@ L0015A4:
     call L000004
 L001608:
     push.p.s -4
-    sysreq.n 52 4   ; CommandNOP
+    sysreq.n 52 4   ; FadeIsEnd
     jnz L001638
     push.p.c 1
     push.p.c 4

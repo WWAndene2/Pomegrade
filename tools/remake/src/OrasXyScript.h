@@ -57,7 +57,8 @@ constexpr int XyFirstFlag = 0xD00, XyLastFlag = 0x2C3F, XyFirstWork = 0x4178, Xy
 XyNumbers XyNumbersFor(const std::vector<Bytes>& scripts, const std::set<int>& extraFlags, const std::set<int>& extraWorks);
 
 // the script (after XyScriptToOras) as editable amx-asm source: natives by name (Omega Ruby's tables, namesFile) or,
-// when Omega Ruby has none, CommandNOP with the X hash in a comment (`notes` says so); each sysreq.n commented with its
+// when Omega Ruby has none, a stand-in with the X hash in a comment (`notes` says so: FadeIsEnd when a loop waits on its
+// result, else CommandNOP); each sysreq.n commented with its
 // native; flags and works moved by `numbers`; a flag or work given by a variable added to `notes`
 std::string XyScriptSource(const Bytes& script, const std::string& namesFile, const XyNumbers& numbers, std::vector<std::string>& notes);
 
