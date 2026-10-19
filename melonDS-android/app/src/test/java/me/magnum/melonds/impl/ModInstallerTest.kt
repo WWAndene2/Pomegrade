@@ -66,6 +66,40 @@ class ModInstallerTest {
     }
 
     @Test
+    fun aCopyLeftInTheOtherLayoutsModsFolderIsDeletedToo() {
+        val folder = layoutFolder()
+        // the folder Azahar reads before the layout: the core picks one when it starts
+        val old = File(folder, "load/mods/$oras/romfs/a").apply { parentFile!!.mkdirs(); writeText("old") }
+        File(folder, "Mods/mods/$oras/romfs/a").apply { parentFile!!.mkdirs(); writeText("older") }
+        val result = install(zip("load/mods/$oras/romfs/b" to "new"), folder)
+        assertFalse(old.exists())
+        assertEquals(listOf("Mods/mods/$oras", "load/mods/$oras"), (result as ModInstaller.Result.Installed).removed)
+        assertEquals("new", File(folder, "Mods/mods/$oras/romfs/b").readText())
+    }
+
+    @Test
+    fun aZipIsRecognisedAsNewTheSameAgainOrAnUpdate() {
+        val folder = layoutFolder()
+        val first = zip("load/mods/$oras/romfs/a" to "1")
+        val second = zip("load/mods/$oras/romfs/a" to "2")
+        val installer = ModInstaller()
+        val before = installer.recognise(installer.inspect { first.inputStream() }, folder).single()
+        assertEquals(null, before.previous)
+        assertTrue(before.copies.isEmpty())
+        installer.install({ first.inputStream() }, folder, "vaniville", now = 1L)
+        val again = installer.recognise(installer.inspect { first.inputStream() }, folder).single()
+        assertTrue(again.sameZip)
+        assertEquals("vaniville", again.previous!!.name)
+        assertEquals(1L, again.previous.installedAt)
+        assertEquals(listOf("Mods/mods/$oras"), again.copies)
+        val update = installer.recognise(installer.inspect { second.inputStream() }, folder).single()
+        assertFalse(update.sameZip)
+        assertEquals("vaniville", update.previous!!.name)
+        // the record sits beside Azahar's mods folder, not in it
+        assertTrue(File(folder, "Mods/punica_installed_mods.tsv").isFile)
+    }
+
+    @Test
     fun aZipOfTheModsFolderIsReadLikeItsContent() {
         val folder = layoutFolder()
         val result = install(zip("Pomegrade_Sinnoh_r9/load/mods/$oras/romfs/a" to "a", "Pomegrade_Sinnoh_r9/$save" to "s"), folder)

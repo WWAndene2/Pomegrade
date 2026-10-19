@@ -12,6 +12,8 @@
 #include "OrasNewZone.h"
 #include "OrasWorkspace.h"
 #include "OrasXyPiece.h"
+#include "OrasXyScript.h"
+#include "XyCharacter.h"
 #include "N3dsRom.h"
 #include "OrasZone.h"
 #include "TownLayout.h"
@@ -37,6 +39,7 @@ struct SandboxZone
     std::map<uint32_t, float> Camera; // the camera settings given: byte offset in preset 0 of the area pack's file 6 -> value
     std::map<uint32_t, float> Light;  // the light colours given: byte offset in the area pack's file 4 -> value
     float SpawnX = -1, SpawnZ = -1;
+    int XyEvents = -1; // xy-events: the X/Y zone whose people, objects, triggers, text and scripts the zone takes
     std::string Name;
     std::vector<std::array<int, 8>> Characters; // model, x, z, facing, script, movement, kind, sight
     std::vector<std::array<int, 3>> Shared;     // per character: its two zones and its shared id ({-1, -1, -1}: its zone only)
@@ -56,8 +59,9 @@ struct SandboxDescription
     std::map<int, std::pair<int, std::string>> TeamNames; // a team's trainer -> its new class (-1: kept) and name ("": kept)
     std::vector<SandboxZone> Edits;                 // game zones added to (edit Z): their lines, characters, triggers, scene
     std::vector<std::array<int, 4>> XyPieces;       // piece x, y, X/Y's a/0/4/1 member, the a/0/1/3 area pack it draws from
-    // stairs X/Y runs by script (xy-stairs): X/Y zone A, its tiles x z w h going up; X/Y zone B, its tiles going down
-    std::vector<std::array<int, 10>> XyStairs;
+    // stairs X/Y runs by script (xy-stairs): X/Y zone A, its tiles x z w h going up and the way they are walked into; X/Y
+    // zone B, its tiles going down and their way (0 down, 1 up, 2 right, 3 left: a warp kind's low byte)
+    std::vector<std::array<int, 12>> XyStairs;
 };
 
 static constexpr size_t rowBytesOf536 = 56; // a zone header row (member 536 of a/0/1/3)
@@ -187,10 +191,23 @@ static SandboxDescription ReadDescription(const std::string& text)
         }
         if (what == "xy-stairs")
         {
-            std::array<int, 10> x{};
+            // ZA X Z W H WAY ZB X Z W H WAY, a way being down, up, right or left
+            std::array<int, 12> x{};
             ok = true;
-            for (int& v : x) ok = ok && (bool)(words >> v);
-            if (!ok) fail("xy-stairs needs ZA X Z W H ZB X Z W H");
+            for (int k = 0; k < 12 && ok; k++)
+            {
+                if (k == 5 || k == 11)
+                {
+                    std::string way;
+                    ok = (bool)(words >> way);
+                    const char* ways[] = {"down", "up", "right", "left"};
+                    x[k] = -1;
+                    for (int w = 0; w < 4; w++) if (way == ways[w]) x[k] = w;
+                    ok = ok && x[k] >= 0;
+                }
+                else ok = (bool)(words >> x[k]);
+            }
+            if (!ok) fail("xy-stairs needs ZA X Z W H WAY ZB X Z W H WAY (WAY: down, up, right or left)");
             d.XyStairs.push_back(x);
             continue;
         }
@@ -252,6 +269,7 @@ static SandboxDescription ReadDescription(const std::string& text)
             }
         }
         else if (what == "spawn") ok = (bool)(words >> z.SpawnX >> z.SpawnZ);
+        else if (what == "xy-events") ok = (bool)(words >> z.XyEvents) && z.XyEvents >= 0;
         else if (what == "name") { std::getline(words >> std::ws, z.Name); ok = !z.Name.empty(); }
         else if (what == "character" || what == "trainer")
         {
@@ -460,8 +478,118 @@ static XyInside XyInsideToOras(OrasWorkspace& ws, int xZone, const std::vector<i
     return in;
 }
 
+// An X/Y zone's people, objects, triggers, text and scripts made Omega Ruby's (xy-events, and the insides of door ... xy):
+// characters' plain models (under 0x1000) converted (XyCharacter.h) and appended to a/0/2/1 once each (modelOf), class
+// models (0x1000+, 0x2000+: the two games' numbering, not compared) kept; flags (characters' word 4) and works (triggers'
+// word 2) moved by `numbers`; tiles shifted by (dx, dz) from X/Y's matrix to the new one; the text, X/Y's a/0/8/0-7 member
+// of the zone's header word 3, added as it is in each language; the scripts read from <scriptDir>/x<zone>.amx and
+// x<zone>.init.amx when there, else translated (XyScriptToOras, XyScriptSource), and assembled against the native mask they
+// need (0x243 and the bits their natives are registered under: `mask`, which oras-engine --script-mask must give the zone
+// when it is not 0x243). X/Y's fifth kind of event (zone 0 has 2) is left out (logged).
+struct XyEvents
+{
+    std::vector<ZoneFurniture> Furniture;
+    std::vector<ZoneCharacter> Characters;
+    std::vector<ZoneTrigger> Triggers;
+    Bytes Script, InitScript;
+    int Text = -1;
+    uint32_t Mask = 0x243;
+    std::vector<int> Models; // the Omega Ruby models of its characters (plain ones), for the area pack's list
+};
+static XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNumbers& numbers, std::map<int, int>& modelOf,
+                               const std::string& namesFile, const std::string& scriptDir, int orasZone, std::vector<std::string>& log)
+{
+    N3dsRom xRom(ws.XyRom);
+    const Garc xZones(xRom.Read("a/0/1/2"));
+    const OrasZone x = OrasZone::Read(Plain(xZones.Sub((size_t)xZone)));
+    XyEvents e;
+    const auto moved = [](const std::map<int, int>& table, int v) { const auto t = table.find(v); return t == table.end() ? v : t->second; };
+    for (ZoneFurniture f : x.Furniture)
+    {
+        f.Raw[4] = (uint16_t)(f.Raw[4] + dx); f.Raw[5] = (uint16_t)(f.Raw[5] + dz);
+        e.Furniture.push_back(f);
+    }
+    for (ZoneCharacter c : x.Characters)
+    {
+        const int model = c.Raw[1];
+        if (model < 0x1000)
+        {
+            if (!modelOf.count(model))
+            {
+                const Garc xCharacters(xRom.Read("a/0/2/1"));
+                std::vector<std::string> report;
+                const Bytes file = XyCharacterToOras(Plain(xCharacters.Sub((size_t)model)), report);
+                const size_t member = AppendMember(ws.Edited("a/0/2/1"), ws.Original("a/0/2/1"), 284, file, std::string(file.begin(), file.begin() + 2));
+                if (member >= 0x1000) throw FormatError("X/Y character " + std::to_string(model) + ": a/0/2/1 member " + std::to_string(member) + " past a plain model number");
+                modelOf[model] = (int)member;
+                log.push_back("X/Y character model " + std::to_string(model) + ": a/0/2/1 member " + std::to_string(member));
+            }
+            c.Raw[1] = (uint16_t)modelOf[model];
+            if (std::find(e.Models.begin(), e.Models.end(), modelOf[model]) == e.Models.end()) e.Models.push_back(modelOf[model]);
+        }
+        c.Raw[4] = (uint16_t)moved(numbers.Flags, c.Raw[4]);
+        c.Raw[20] = (uint16_t)(c.Raw[20] + dx); c.Raw[21] = (uint16_t)(c.Raw[21] + dz);
+        e.Characters.push_back(c);
+    }
+    for (ZoneTrigger t : x.Triggers)
+    {
+        t.Raw[2] = (uint16_t)moved(numbers.Works, t.Raw[2]);
+        t.Raw[6] = (uint16_t)(t.Raw[6] + dx); t.Raw[7] = (uint16_t)(t.Raw[7] + dz);
+        e.Triggers.push_back(t);
+    }
+    if (!x.Others.empty()) log.push_back("X/Y zone " + std::to_string(xZone) + ": its " + std::to_string(x.Others.size()) + " event(s) of the fifth kind left out");
+    // the text, each language's file as X/Y has it
+    std::vector<Bytes> texts;
+    for (int k = 0; k < 8; k++) texts.push_back(Plain(Garc(xRom.Read("a/0/8/" + std::to_string(k))).Sub(x.Header[3])));
+    e.Text = ws.AddZoneTextFiles(texts);
+    // the scripts
+    for (const bool init : {false, true})
+    {
+        const Bytes& xScript = init ? x.InitScript : x.Script;
+        const std::filesystem::path file = std::filesystem::path(scriptDir) / ("x" + std::to_string(xZone) + (init ? ".init" : "") + ".amx");
+        std::string source, from;
+        std::vector<std::string> notes;
+        if (!scriptDir.empty() && std::filesystem::exists(file))
+        {
+            const Bytes text = ReadFile(file.string());
+            source.assign(text.begin(), text.end());
+            from = file.string();
+        }
+        else if (xScript.size() >= 16)
+        {
+            source = XyScriptSource(XyScriptToOras(xScript, namesFile, 0x243).Script, namesFile, numbers, notes);
+            from = "translated";
+        }
+        else source = init ? EmptyInitScript : EmptyZoneScript;
+        uint32_t mask = 0x243;
+        Bytes assembled;
+        for (int tries = 0;; tries++)
+        {
+            try { assembled = AmxAssemble(source, AmxNativeCheck(namesFile, mask)); break; }
+            catch (const FormatError& err)
+            {
+                const std::string why = err.what();
+                const size_t bit = why.find("registered under bit ");
+                if (bit == std::string::npos || tries > 16) throw FormatError("X/Y zone " + std::to_string(xZone) + (init ? " init" : "") + " script (" + from + "): " + why);
+                mask |= (uint32_t)std::stoul(why.substr(bit + 21), nullptr, 0);
+            }
+        }
+        e.Mask |= mask;
+        (init ? e.InitScript : e.Script) = assembled;
+        if (!from.empty()) log.push_back("zone " + std::to_string(orasZone) + ": X/Y zone " + std::to_string(xZone) + "'s " + (init ? "init script" : "script") + ", " + from);
+        for (const std::string& n : notes) log.push_back("  " + n);
+    }
+    if (e.Mask != 0x243)
+    {
+        char m[160];
+        snprintf(m, sizeof m, "zone %d: its scripts need native mask 0x%X: give oras-engine --script-mask %d:0x%X", orasZone, e.Mask, orasZone, e.Mask);
+        log.push_back(m);
+    }
+    return e;
+}
+
 std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& description, const std::string& outDir,
-                                          const std::function<std::string(const std::string&)>& checkNative)
+                                          const std::function<std::string(const std::string&)>& checkNative, const std::string& descriptionPath)
 {
     SandboxDescription d = ReadDescription(description);
     std::vector<std::string> log;
@@ -803,18 +931,57 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         }
         xyWarpCount[insides[i].Map] = events.at(6);
         // the floor of stairs X/Y runs by script (xy-stairs), a zone of its own as a floor its warps reach
-        for (const std::array<int, 10>& st : d.XyStairs)
+        for (const std::array<int, 12>& st : d.XyStairs)
         {
-            if (st[0] != insides[i].Map || xyZoneOf.count(st[5])) continue;
-            xyZoneOf[st[5]] = nextZone;
+            if (st[0] != insides[i].Map || xyZoneOf.count(st[6])) continue;
+            xyZoneOf[st[6]] = nextZone;
             Inside extra = insides[i];
-            extra.Zone = nextZone++; extra.Map = st[5]; extra.Warp = -1; extra.Extra = true;
+            extra.Zone = nextZone++; extra.Map = st[6]; extra.Warp = -1; extra.Extra = true;
             insides.push_back(extra);
         }
     }
-    for (const std::array<int, 10>& st : d.XyStairs)
-        if (!xyZoneOf.count(st[0]) || !xyZoneOf.count(st[5]))
+    for (const std::array<int, 12>& st : d.XyStairs)
+        if (!xyZoneOf.count(st[0]) || !xyZoneOf.count(st[6]))
             throw FormatError("sandbox: xy-stairs from X/Y zone " + std::to_string(st[0]) + ", which no door ... xy leads into");
+
+    // the X/Y zones taken (xy-events and the insides of door ... xy): their story numbers moved together (XyNumbersFor), as
+    // remake_tool xy-script-export numbers them for the same zones, so its files and these events agree
+    std::set<int> xyZones;
+    for (const SandboxZone& z : d.Zones) if (z.XyEvents >= 0) xyZones.insert(z.XyEvents);
+    for (const Inside& in : insides) if (in.Xy) xyZones.insert(in.Map);
+    const std::filesystem::path descFile(descriptionPath);
+    const std::string xyNames = descriptionPath.empty() ? "" : (descFile.parent_path() / ".." / "ghidra" / "function_names.tsv").string();
+    const std::string xyScripts = descriptionPath.empty() ? "" : (descFile.parent_path() / descFile.stem()).string();
+    XyNumbers xyNumbers;
+    std::map<int, int> xyModelOf;
+    int xyDx = 0, xyDz = 0; // X/Y's matrix tiles to the sandbox's, for an outdoor zone's events (xy-events)
+    if (!xyZones.empty())
+    {
+        if (xyNames.empty() || !std::filesystem::exists(xyNames))
+            throw FormatError("sandbox: X/Y zones' events and scripts need ghidra/function_names.tsv beside the description's folder");
+        N3dsRom xRom(ws.XyRom);
+        const Garc xZones(xRom.Read("a/0/1/2"));
+        std::vector<Bytes> scripts;
+        std::set<int> vanish, conditions;
+        for (const int z : xyZones)
+        {
+            const OrasZone o = OrasZone::Read(Plain(xZones.Sub((size_t)z)));
+            for (const ZoneCharacter& c : o.Characters) if (c.Raw[4]) vanish.insert(c.Raw[4]);
+            for (const ZoneTrigger& t : o.Triggers) conditions.insert(t.Raw[2]);
+            for (const Bytes* s : {&o.Script, &o.InitScript})
+                if (s->size() >= 16) scripts.push_back(XyScriptToOras(*s, xyNames, 0x243).Script);
+        }
+        xyNumbers = XyNumbersFor(scripts, vanish, conditions);
+        log.push_back("X/Y zones' story numbers: " + std::to_string(xyNumbers.Flags.size()) + " flag(s) from 0xC09, " + std::to_string(xyNumbers.Works.size()) +
+                      " work(s) from 0x4100 (XyNumbersFor)");
+        if (!d.XyPieces.empty())
+        {
+            // the first xy-piece's cell in X/Y's matrix (its file 4: row, column) against its cell here
+            const BinLinker piece = BinLinker::Read(Plain(Garc(xRom.Read("a/0/4/1")).Sub((size_t)d.XyPieces[0][2])), "GR");
+            xyDx = (d.XyPieces[0][0] - piece.Files.at(4).at(1)) * 40;
+            xyDz = (d.XyPieces[0][1] - piece.Files.at(4).at(0)) * 40;
+        }
+    }
 
     // each new zone's text file (header word 3): a new member of the eight story text archives (a/0/7/9-a/0/8/6, one per
     // language; ORAS_ENGINE.md 6), the zone's lines in all eight, one empty line when it gives none
@@ -859,6 +1026,12 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         NewZoneFields f;
         f.Number = z.Number; f.AreaPack = packOf[k]; f.Matrix = (int)matrixIndex; f.Text = textOf[k];
         f.NameLine = nameLine[k]; f.Music = z.Music; f.SpawnX = z.SpawnX; f.SpawnZ = z.SpawnZ;
+        XyEvents xe;
+        if (z.XyEvents >= 0)
+        {
+            xe = XyEventsToOras(ws, z.XyEvents, xyDx, xyDz, xyNumbers, xyModelOf, xyNames, xyScripts, z.Number, log);
+            f.Text = xe.Text;
+        }
         zone.Header = NewZoneHeader(f);
         for (size_t i = 0; i < z.Characters.size(); i++)
         {
@@ -895,7 +1068,17 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
             tr.Raw[8] = (uint16_t)t[2]; tr.Raw[9] = (uint16_t)t[3];
             zone.Triggers.push_back(tr);
         }
-        if (!z.Scene.empty())
+        if (z.XyEvents >= 0)
+        {
+            // X/Y's people keep their ids, which its scripts name: none given here beside them
+            if (!zone.Characters.empty()) throw FormatError("sandbox: zone " + std::to_string(z.Number) + " takes X/Y's people (xy-events): give it no character");
+            zone.Characters = xe.Characters;
+            zone.Furniture.insert(zone.Furniture.end(), xe.Furniture.begin(), xe.Furniture.end());
+            zone.Triggers.insert(zone.Triggers.end(), xe.Triggers.begin(), xe.Triggers.end());
+            ws.ListCharacters(f.AreaPack, xe.Models);
+        }
+        if (z.XyEvents >= 0 && z.Scene.empty() && z.Script.empty()) zone.Script = xe.Script;
+        else if (!z.Scene.empty())
         {
             // the scene on Littleroot's zone script (zone 6), whose routines it calls (SceneScript.h)
             std::string scene;
@@ -904,7 +1087,7 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
             zone.Script = assemble(scene, z.Number, "scene");
         }
         else zone.Script = assemble(z.Script.empty() ? EmptyZoneScript : z.Script, z.Number, "script");
-        zone.InitScript = assemble(z.InitScript.empty() ? EmptyInitScript : z.InitScript, z.Number, "init-script");
+        zone.InitScript = z.XyEvents >= 0 && z.InitScript.empty() ? xe.InitScript : assemble(z.InitScript.empty() ? EmptyInitScript : z.InitScript, z.Number, "init-script");
         const Bytes encounter = z.Encounters >= 0 ? BinLinker::Read(Plain(zoneArchive.Sub((size_t)z.Encounters)), "ZO").Files.at(3) : Bytes{};
         CheckCharacterCount(ws, z.Number, zone.Characters.size());
         appendZone(zone, encounter, z.Number);
@@ -921,15 +1104,18 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         const Inside& in = insides[i];
         if (in.Xy)
         {
-            // a stairs' warp, as X/Y's own between floors (houses 2 and 3 of Vaniville, X's zones 4-5: kind 0x501 up, height 9,
-            // 0x503 down, height -9; pixels at the first tile's centre, span in tiles): the stairs' tiles, its destination
-            // and the destination's warp (X/Y's warps there, then this one: so none of them may be left out)
-            const auto stairsWarp = [&](const int* rect, int toXy, bool up) {
+            // a stairs' warp, as X/Y's own between floors (houses 2 and 3 of Vaniville, X's zones 4-5: kind 0x5WW, WW the way it
+            // is walked into, 0 down, 1 up, 2 right, 3 left, read from X's mats, zone 77: 0x902 on its right edge, 0x903 on its
+            // left, 0x901 on its top; height 9 going up, -9 down; pixels at the first tile's centre, span in tiles): the stairs'
+            // tiles and way, its destination and the destination's warp (X/Y's warps there, then this one: so none of them may
+            // be left out). With the way wrong the game set the player out on the wrong side (owner's phone, 18 October: the
+            // middle house's upper floor, its stairs walked into rightward, had 0x503)
+            const auto stairsWarp = [&](const int* rect, int way, int toXy, bool up) {
                 ZoneDoor w;
                 w.Raw = {};
                 w.Raw[0] = (uint16_t)xyZoneOf.at(toXy);
                 w.Raw[1] = (uint16_t)xyWarpCount[toXy];
-                w.Raw[2] = up ? 0x0501 : 0x0503;
+                w.Raw[2] = (uint16_t)(0x0500 | way);
                 w.Raw[4] = (uint16_t)(rect[0] * 18 + 9);
                 w.Raw[5] = (uint16_t)(int16_t)(up ? 9 : -9);
                 w.Raw[6] = (uint16_t)(rect[1] * 18 + 9);
@@ -939,22 +1125,29 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
             };
             std::array<uint16_t, 2> floorAt{};
             bool scriptFloor = false;
-            for (const std::array<int, 10>& st : d.XyStairs)
-                if (st[5] == in.Map) { floorAt = {(uint16_t)(st[6] * 18 + 9), (uint16_t)(st[7] * 18 + 9)}; scriptFloor = true; }
+            for (const std::array<int, 12>& st : d.XyStairs)
+                if (st[6] == in.Map) { floorAt = {(uint16_t)(st[7] * 18 + 9), (uint16_t)(st[8] * 18 + 9)}; scriptFloor = true; }
             const XyInside x = XyInsideToOras(ws, in.Map, models, pieceArchive, zoneArchive, log, scriptFloor ? &floorAt : nullptr);
             OrasZone zone;
             NewZoneFields f;
             f.Kind = NewZoneKind::Interior; f.Number = in.Zone; f.AreaPack = x.AreaPack; f.Matrix = x.Matrix;
             f.Text = textOf[d.Zones.size() + i]; f.Overworld = in.Outside; f.NameLine = nameLine[in.OutsideAt];
             f.SpawnX = x.ExitX / 18.0f; f.SpawnZ = x.ExitZ / 18.0f;
+            // its people, objects, triggers, text and scripts, X/Y's (an inside is on its own matrix: no shift)
+            const XyEvents xe = XyEventsToOras(ws, in.Map, 0, 0, xyNumbers, xyModelOf, xyNames, xyScripts, in.Zone, log);
+            f.Text = xe.Text;
             zone.Header = NewZoneHeader(f);
+            zone.Furniture = xe.Furniture;
+            zone.Characters = xe.Characters;
+            zone.Triggers = xe.Triggers;
+            ws.ListCharacters(f.AreaPack, xe.Models);
             for (size_t k = 0; k < x.Warps.size(); k++)
             {
                 if (k == 0 && !in.Extra) { zone.Doors.push_back(NewExitWarp(in.Outside, in.Warp, x.ExitX, x.ExitZ)); continue; }
                 // X's warp as it is (kind, position, height, span), into the zone made of its destination; the arrival warp index
                 // is X's (each zone keeps its warps in X's order). A warp out of town (to the outdoor zone) from a floor: not kept
                 const auto to = xyZoneOf.find(x.Warps[k][0]);
-                const bool stairsZone = std::any_of(d.XyStairs.begin(), d.XyStairs.end(), [&](const std::array<int, 10>& st) { return st[0] == in.Map || st[5] == in.Map; });
+                const bool stairsZone = std::any_of(d.XyStairs.begin(), d.XyStairs.end(), [&](const std::array<int, 12>& st) { return st[0] == in.Map || st[6] == in.Map; });
                 if (to == xyZoneOf.end() && stairsZone)
                     throw FormatError("sandbox: X/Y zone " + std::to_string(in.Map) + " of an xy-stairs has a warp left out: its stairs warp's index would be wrong");
                 if (to == xyZoneOf.end()) { log.push_back("zone " + std::to_string(in.Zone) + ": X's warp " + std::to_string(k) + " to X zone " + std::to_string(x.Warps[k][0]) + " left out"); continue; }
@@ -963,16 +1156,16 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
                 w.Raw[0] = (uint16_t)to->second;
                 zone.Doors.push_back(w);
             }
-            for (const std::array<int, 10>& st : d.XyStairs)
+            for (const std::array<int, 12>& st : d.XyStairs)
             {
-                if (st[0] == in.Map) zone.Doors.push_back(stairsWarp(&st[1], st[5], true));
-                if (st[5] == in.Map) zone.Doors.push_back(stairsWarp(&st[6], st[0], false));
-                if (st[0] == in.Map || st[5] == in.Map)
+                if (st[0] == in.Map) zone.Doors.push_back(stairsWarp(&st[1], st[5], st[6], true));
+                if (st[6] == in.Map) zone.Doors.push_back(stairsWarp(&st[7], st[11], st[0], false));
+                if (st[0] == in.Map || st[6] == in.Map)
                     log.push_back("zone " + std::to_string(in.Zone) + ": stairs " + (st[0] == in.Map ? "up" : "down") + " to zone " +
-                                  std::to_string(xyZoneOf.at(st[0] == in.Map ? st[5] : st[0])) + " (xy-stairs)");
+                                  std::to_string(xyZoneOf.at(st[0] == in.Map ? st[6] : st[0])) + " (xy-stairs)");
             }
-            zone.Script = assemble(EmptyZoneScript, in.Zone, "script");
-            zone.InitScript = assemble(EmptyInitScript, in.Zone, "init-script");
+            zone.Script = xe.Script;
+            zone.InitScript = xe.InitScript;
             appendZone(zone, Bytes{}, in.Zone);
             if (in.Extra) snprintf(line, sizeof line, "zone %d: X/Y's zone %d (matrix %d, area pack %d), a floor reached by its warps, %zu warp(s)",
                                    in.Zone, in.Map, f.Matrix, f.AreaPack, zone.Doors.size());

@@ -74,10 +74,11 @@
 //   xy-piece X Y M P  piece X, Y is Pokemon X/Y's map piece M (a/0/4/1 member) made Omega Ruby's, its textures from X/Y's area
 //                     pack P (a/0/1/3 member, the pack its zone draws from), instead of one built from the map's rows (which are
 //                     then not used for it): OrasXyPiece.h. Needs oras-sandbox --xy <x.3ds>
-//   xy-stairs ZA X Z W H ZB X Z W H
+//   xy-stairs ZA X Z W H WAY ZB X Z W H WAY
 //                     stairs X/Y runs by script (no warp of its own: X's zone 2, the player's house, to its upper floor 3):
 //                     X/Y zone ZA's W x H tiles from X, Z go up to zone ZB, whose tiles go back down, written as X/Y's own
-//                     stairs warps (kind 0x501 up, 0x503 down). ZA is a door ... xy's inside; ZB becomes a floor of its own.
+//                     stairs warps (kind 0x500 + the way). WAY: how the tiles are walked into, down, up, right or left (the
+//                     game sets the player out the other way). ZA is a door ... xy's inside; ZB becomes a floor of its own.
 //                     The tiles are the solid stair tiles, walked into, as X/Y's own stairs warps sit (zones 4-5): beside the
 //                     tiles of X's stairs triggers (zone 2's trigger records 1 and 2, at 31 35 and 9 15: run hSt1, 18 October)
 //   blocks            with several zones: then 4 H rows of 4 W digits, the zone (0 the first given, 1 the next...) of each
@@ -100,9 +101,13 @@ namespace remake
 
 // adds the described zones to the build's archives (OrasWorkspace.h: OrasWorkspace::Write then writes the mod) and writes
 // <outDir>/sandbox_layout.txt; returns what it did, line by line. Throws FormatError on a description it cannot build.
-// `checkNative` (AmxNativeCheck) checks the natives of the zones' scripts; without it nothing is built
+// `checkNative` (AmxNativeCheck) checks the natives of the zones' scripts; without it nothing is built. `descriptionPath`,
+// the description's file: X/Y zones' scripts (xy-events, door ... xy) are read from x<zone>.amx and x<zone>.init.amx in the
+// folder of its name beside it when there (tools/remake/sandbox/vaniville/ for vaniville.txt: remake_tool xy-script-export
+// writes them), else translated (OrasXyScript.h); the natives are named from ../ghidra/function_names.tsv beside it
 std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& description, const std::string& outDir,
-                                          const std::function<std::string(const std::string&)>& checkNative = {});
+                                          const std::function<std::string(const std::string&)>& checkNative = {},
+                                          const std::string& descriptionPath = "");
 
 }
 

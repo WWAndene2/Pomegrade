@@ -794,7 +794,11 @@
     <string name="three_ds_mod_reading">Lecture du mod…</string>
     <string name="three_ds_mod_installing">Installation du mod…</string>
     <string name="three_ds_mod_confirm_title">Installer ce mod ?</string>
-    <string name="three_ds_mod_confirm">Jeux modifiés : %1$s\n\nLe mod actuel de ces jeux est d\'abord supprimé.</string>
+    <string name="three_ds_mod_confirm">%1$s\n\nTout mod actuel de ces jeux est d\'abord supprimé, où qu\'il soit.</string>
+    <string name="three_ds_mod_new">%1$s : un nouveau mod</string>
+    <string name="three_ds_mod_same">%1$s : %2$s à nouveau (le même zip, installé le %3$s)</string>
+    <string name="three_ds_mod_update">%1$s : remplace %2$s (installé le %3$s)</string>
+    <string name="three_ds_mod_copies">\n   mod trouvé dans : %1$s</string>
     <string name="three_ds_mod_confirm_save">\n\nCe zip contient aussi une sauvegarde (%1$d fichiers) : elle remplace ta sauvegarde actuelle de ces jeux.</string>
     <string name="three_ds_mod_none">aucun (seulement une sauvegarde)</string>
     <string name="three_ds_mod_install_action">Installer</string>

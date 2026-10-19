@@ -129,8 +129,8 @@ object ClassicOverlayControls {
 
     /**
      * A stick's range, knob and pressed knob images, [side] pixels. The circle pad's knob is 257 of its 380.2
-     * range; the C stick's image is drawn at twice its 128.6 (InputOverlay's outerScale), its nub 0.3 of it (0.6 of
-     * its template circle, as on the owner's approved mock-up).
+     * range; the C stick's nub 0.6 of its image, as on the owner's approved mock-up (0.3, from taking the image for
+     * twice its 128.6 as its touch area is, drew it half that size on the phone, 19 October).
      *
      * Filled, after the New 3DS (owner's mock-up, 18 October): the circle pad a shallow round recess with a soft
      * rim, its knob a low, flat grey disc with a slightly dished top; the C stick a small grey nub in a fine seam.
@@ -154,7 +154,7 @@ object ClassicOverlayControls {
             return Triple(range, knobImage(false), knobImage(true))
         }
         val nub = id == ButtonType.STICK_C
-        val knob = if (nub) 0.3f else 257f / 380.2f
+        val knob = if (nub) 0.6f else 257f / 380.2f
         val range = image { canvas, half -> if (nub) ClassicStickPainter.nubSeam(canvas, half, half * knob) else ClassicStickPainter.recess(canvas, half, half) }
         // the knob does not sink while held: one image for both
         val knobImage = image { canvas, half -> ClassicStickPainter.knob(canvas, half, half * knob, if (nub) 0.17f else 0.12f) }

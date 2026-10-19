@@ -1,8 +1,10 @@
 // Zone scripts (Amx.h): a compact AMX script written here with Pawn's encoding is unpacked to its cells, its natives
 // named and its code disassembled with Pawn 3 opcodes. No game data.
 #include "Amx.h"
+#include "OrasXyScript.h"
 
 #include <cstdio>
+#include <filesystem>
 #include <string>
 
 using namespace remake;
@@ -106,6 +108,47 @@ int main()
         refused = false;
         try { AmxAssemble("code\n    push.c\n"); } catch (const FormatError& e) { refused = std::string(e.what()).find("line 2") != std::string::npos; }
         check(refused, "a wrong operand count refused, naming the line");
+    }
+    {
+        // an X/Y script's natives made Omega Ruby's (OrasXyScript.h): one renamed, one kept, one missing, against a names
+        // file written as function_names.tsv's Script_Native_ rows
+        const std::string names = (std::filesystem::temp_directory_path() / "remake_script_test_names.tsv").string();
+        const std::string rows =
+            "003BD480\tScript_Native__FadeRequestIn\tPawn (AMX) native, named by the game's own native table; \"_FadeRequestIn\" (hash 0x7B2FEC69, table 0x0057A860): x.\tread\n"
+            "10293344\tScript_Native_FlagSet\tPawn (AMX) native, named by the game's own native table; \"FlagSet\" (hash 0x13413496, table 0x1033A234, bit 1): x.\tread\n"
+            "10293330\tScript_Native_FlagGet\tPawn (AMX) native, named by the game's own native table; \"FlagGet\" (hash 0x133DAA6A, table 0x1033A234, bit 1): x.\tread\n"
+            "1029344C\tScript_Native_WorkSet\tPawn (AMX) native, named by the game's own native table; \"WorkSet\" (hash 0x8E55F629, table 0x1033A234, bit 1): x.\tread\n";
+        WriteFile(names, Bytes(rows.begin(), rows.end()));
+        const Bytes x = AmxAssemble("code\n    sysreq.n FadeRequestIn 0\n    sysreq.n FlagSet 0\n    sysreq.n ChangeFashionBefore 0\n    halt 0\n");
+        const XyScriptNatives t = XyScriptToOras(x, names, 0x243);
+        const AmxScript s = AmxScript::Read(t.Script);
+        check(t.Renamed.size() == 1 && t.Renamed[0] == "FadeRequestIn -> _FadeRequestIn", "an X native renamed to Omega Ruby's");
+        check(s.Natives.size() == 3 && s.Natives[0].Name == AmxNameHash("_FadeRequestIn") && s.Natives[1].Name == AmxNameHash("FlagSet"),
+              "the native table rewritten, the shared native kept");
+        check(t.Missing.size() == 1 && t.Missing[0].find("not in Omega Ruby's tables") != std::string::npos, "a native Omega Ruby lacks reported");
+        check(AmxCells(t.Script) == AmxCells(x), "the code left as it was");
+        // the source step: X's flags and works moved, also when a procedure gets the flag as a parameter
+        const Bytes y = AmxAssemble(
+            "code\n"
+            "main:\n"
+            "    push.p.c 614\n    sysreq.n FlagSet 4\n"
+            "    push.p.c 9\n    push.p.c 16498\n    sysreq.n WorkSet 8\n"
+            "    push.p.c 615\n    push.p.c 4\n    call helper\n"
+            "    halt 0\n"
+            "helper:\n    proc\n    push.p.s 12\n    sysreq.n FlagGet 4\n    retn\n");
+        const XyNumbers numbers = XyNumbersFor({y}, {}, {});
+        check(numbers.Flags.size() == 2 && numbers.Flags.at(614) == XyFirstFlag && numbers.Flags.at(615) == XyFirstFlag + 1,
+              "X's flags numbered from 0xC09, the one passed to a procedure too");
+        check(numbers.Works.size() == 1 && numbers.Works.at(16498) == XyFirstWork, "X's event work numbered from 0x4100");
+        std::vector<std::string> notes;
+        const std::string source = XyScriptSource(y, names, numbers, notes);
+        check(source.find("push.p.c 3081   ; X/Y's flag 614") != std::string::npos && source.find("push.p.c 3082   ; X/Y's flag 615") != std::string::npos
+                  && source.find("push.p.c 16640   ; X/Y's work 16498") != std::string::npos && source.find("push.p.c 9\n") != std::string::npos,
+              "the source moves them, the value set left");
+        bool assembles = true;
+        try { AmxAssemble(source); } catch (const FormatError&) { assembles = false; }
+        check(assembles && notes.empty(), "the source assembles, nothing computed left");
+        std::filesystem::remove(names);
     }
     Bytes truncated = b;
     truncated.push_back(0); Put32(truncated, 0, (uint32_t)truncated.size());

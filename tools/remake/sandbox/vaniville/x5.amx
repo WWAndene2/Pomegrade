@@ -1,0 +1,156 @@
+header 10 10 0x1C L0001E8 4096
+native _Suspend
+native SEPlay
+native LastKeyWait
+native MsgWinCloseNo
+native TalkMdlMsg_Seq
+native CheckWinAllSuspend
+native CommandNOP
+library #CA18AA2E 0
+pubvar #865A53E1 8
+pubvar #29654047 4
+pubvar #D7477C97 0
+tag #CA18AA2E 0x40000002
+nametable 3f000000
+code
+    halt.p 0
+L000004:
+    proc
+    push.p.s 12
+    sysreq.n 0 4   ; _Suspend
+    zero.pri
+    zero.alt
+    halt 12
+    zero.pri
+    retn
+L000030:
+    proc
+    load.p.s.pri 20
+    const.p.alt 4
+    or
+    push.pri
+    push.p.c 0
+    push.p.c -1
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 0
+    push.p.c 170
+    push.p.c 20
+    push.p.s 16
+    push.p.c -1
+    push.p.c 0
+    push.p.s 12
+    push.p.c 76
+    call L000110
+    zero.pri
+    retn
+L0000A0:
+    proc
+    push.c 393216
+    sysreq.n 1 4   ; SEPlay
+    push.p.c 0
+    push.p.s 16
+    push.p.s 12
+    push.p.c 12
+    call L000030
+    sysreq.n 2 0   ; LastKeyWait
+    push.p.c 0
+    push.p.c 4
+    call L0000F4
+    zero.pri
+    retn
+L0000F4:
+    proc
+    push.p.s 12
+    sysreq.n 3 4   ; MsgWinCloseNo
+    zero.pri
+    retn
+L000110:
+    proc
+    push.p.s 84
+    push.p.s 80
+    push.p.s 76
+    push.p.s 72
+    push.p.s 68
+    push.p.s 64
+    push.p.s 60
+    push.p.s 56
+    push.p.s 52
+    push.p.s 48
+    push.p.s 44
+    push.p.s 40
+    push.p.s 36
+    push.p.s 32
+    push.p.s 28
+    push.p.s 24
+    push.p.s 20
+    push.p.s 16
+    push.p.s 12
+    sysreq.n 4 76   ; TalkMdlMsg_Seq
+    load.p.s.pri 84
+    const.alt 65536
+    and
+    jnz L000190
+    push.p.c 0
+    call L000198
+L000190:
+    zero.pri
+    retn
+L000198:
+    proc
+    jump L0001A4
+L0001A4:
+    sysreq.n 5 0   ; CheckWinAllSuspend
+    jzer L0001C8
+    jump L0001E0
+    jump L0001D8
+L0001C8:
+    push.p.c 1
+    push.p.c 4
+    call L000004
+L0001D8:
+    jump L0001A4
+L0001E0:
+    zero.pri
+    retn
+L0001E8:
+    proc
+    load.p.pri 0
+    switch L000234
+L0001F8:
+    push.p.c 0
+    call L000264
+    jump L000250
+L00020C:
+    push.p.c 0
+    call L000258
+    jump L000250
+L000220:
+    sysreq.n 6 0   ; CommandNOP
+    jump L000250
+L000234:
+    casetbl 2 L000220 -1 L00020C 1 L0001F8
+L000250:
+    zero.pri
+    retn
+L000258:
+    proc
+    zero.pri
+    retn
+L000264:
+    proc
+    push.p.c 7
+    push.p.c 0
+    push.p.c 8
+    call L0000A0
+    zero.pri
+    retn
+data
+    cell -1 0 0
