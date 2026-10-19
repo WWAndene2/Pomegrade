@@ -479,8 +479,8 @@ static XyInside XyInsideToOras(OrasWorkspace& ws, int xZone, const std::vector<i
 }
 
 // An X/Y zone's people, objects, triggers, text and scripts made Omega Ruby's (xy-events, and the insides of door ... xy):
-// characters' plain models (under 0x1000) converted (XyCharacter.h) and appended to a/0/2/1 once each (modelOf), class
-// models (0x1000+, 0x2000+: the two games' numbering, not compared) kept; flags (characters' word 4) and works (triggers'
+// characters' plain models (under 0x1000) converted (XyCharacter.h) and appended to a/0/2/1 once each (modelOf), characters
+// of class models (0x1000+, 0x2000+: the two games' numbering, not compared) left out; flags (characters' word 4) and works (triggers'
 // word 2) moved by `numbers`; tiles shifted by (dx, dz) from X/Y's matrix to the new one; the text, X/Y's a/0/8/0-7 member
 // of the zone's header word 3, added as it is in each language; the scripts read from <scriptDir>/x<zone>.amx and
 // x<zone>.init.amx when there, else translated (XyScriptToOras, XyScriptSource), and assembled against the native mask they
@@ -512,21 +512,27 @@ static XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, con
     for (ZoneCharacter c : x.Characters)
     {
         const int model = c.Raw[1];
-        if (model < 0x1000)
+        // X/Y's class models (0x1000+, 0x2000+: the rivals and the player's mother in zone 2) are numbered by X/Y's own tables;
+        // kept as they were, the game stopped entering the zone (run hDoorA, 19 October). Left out until mapped
+        if (model >= 0x1000)
         {
-            if (!modelOf.count(model))
-            {
-                const Garc xCharacters(xRom.Read("a/0/2/1"));
-                std::vector<std::string> report;
-                const Bytes file = XyCharacterToOras(Plain(xCharacters.Sub((size_t)model)), report);
-                const size_t member = AppendMember(ws.Edited("a/0/2/1"), ws.Original("a/0/2/1"), 284, file, std::string(file.begin(), file.begin() + 2));
-                if (member >= 0x1000) throw FormatError("X/Y character " + std::to_string(model) + ": a/0/2/1 member " + std::to_string(member) + " past a plain model number");
-                modelOf[model] = (int)member;
-                log.push_back("X/Y character model " + std::to_string(model) + ": a/0/2/1 member " + std::to_string(member));
-            }
-            c.Raw[1] = (uint16_t)modelOf[model];
-            if (std::find(e.Models.begin(), e.Models.end(), modelOf[model]) == e.Models.end()) e.Models.push_back(modelOf[model]);
+            char m[128];
+            snprintf(m, sizeof m, "X/Y zone %d: its character %d left out (class model 0x%X, not mapped to Omega Ruby's)", xZone, (int)c.Raw[0], model);
+            log.push_back(m);
+            continue;
         }
+        if (!modelOf.count(model))
+        {
+            const Garc xCharacters(xRom.Read("a/0/2/1"));
+            std::vector<std::string> report;
+            const Bytes file = XyCharacterToOras(Plain(xCharacters.Sub((size_t)model)), report);
+            const size_t member = AppendMember(ws.Edited("a/0/2/1"), ws.Original("a/0/2/1"), 284, file, std::string(file.begin(), file.begin() + 2));
+            if (member >= 0x1000) throw FormatError("X/Y character " + std::to_string(model) + ": a/0/2/1 member " + std::to_string(member) + " past a plain model number");
+            modelOf[model] = (int)member;
+            log.push_back("X/Y character model " + std::to_string(model) + ": a/0/2/1 member " + std::to_string(member));
+        }
+        c.Raw[1] = (uint16_t)modelOf[model];
+        if (std::find(e.Models.begin(), e.Models.end(), modelOf[model]) == e.Models.end()) e.Models.push_back(modelOf[model]);
         c.Raw[4] = (uint16_t)moved(numbers.Flags, c.Raw[4]);
         c.Raw[20] = (uint16_t)(c.Raw[20] + dx); c.Raw[21] = (uint16_t)(c.Raw[21] + dz);
         e.Characters.push_back(c);
