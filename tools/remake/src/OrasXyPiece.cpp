@@ -198,34 +198,38 @@ Bytes XyPieceToOras(const Bytes& xPiece, const Bytes& xAreaPack, size_t xPackInd
     const std::string xName = Bch::Read(model).Models.at(0).Name;
     std::string name = xName;
     if (xName.size() == modelName.size()) { model = BchReplaceString(model, xName, modelName); name = modelName; }
-    std::set<std::string> wanted;
-    {
-        const BchModel m = Bch::Read(model).Models.at(0);
-        for (const BchMaterial& mat : m.Materials)
-            for (const std::string& t : mat.Texture) if (!t.empty() && t != "projection_dummy") wanted.insert(t);
-    }
-    {
+    // a model's textures brought from X's pack into the Omega Ruby one, its materials renamed to their names there; returns
+    // how many it names and how many X's pack lacks
+    const auto bringTextures = [&](Bytes& m) {
+        std::set<std::string> wanted;
         bool dummy = false;
-        const Bch read = Bch::Read(model); // kept alive while its materials are walked (.at() would end a temporary's life)
-        for (const BchMaterial& mat : read.Models.at(0).Materials)
-            for (const std::string& t : mat.Texture) dummy = dummy || t == "projection_dummy";
+        {
+            const Bch read = Bch::Read(m); // kept alive while its materials are walked (.at() would end a temporary's life)
+            for (const BchMaterial& mat : read.Models.at(0).Materials)
+                for (const std::string& t : mat.Texture)
+                {
+                    if (!t.empty() && t != "projection_dummy") wanted.insert(t);
+                    dummy = dummy || t == "projection_dummy";
+                }
+        }
         if (dummy) orasAreaPack = WithProjectionDummy(orasAreaPack, 11, xAreaPack, log);
-    }
-    std::map<std::string, std::string> finalName;
-    orasAreaPack = ImportTextures(orasAreaPack, xAreaPack, xPackIndex, {wanted.begin(), wanted.end()}, finalName, log, "_x" + std::to_string(xPackIndex));
-    {
-        const BchModel m = Bch::Read(model).Models.at(0);
-        for (size_t k = 0; k < m.Materials.size(); k++)
+        std::map<std::string, std::string> finalName;
+        orasAreaPack = ImportTextures(orasAreaPack, xAreaPack, xPackIndex, {wanted.begin(), wanted.end()}, finalName, log, "_x" + std::to_string(xPackIndex));
+        const Bch read = Bch::Read(m);
+        const BchModel& model0 = read.Models.at(0);
+        for (size_t k = 0; k < model0.Materials.size(); k++)
             for (int slot = 0; slot < 3; slot++)
             {
-                const std::string& t = m.Materials[k].Texture[slot];
+                const std::string& t = model0.Materials[k].Texture[slot];
                 const auto f = finalName.find(t);
-                if (f != finalName.end() && !f->second.empty() && f->second != t) model = BchSetTextureName(model, 0, k, slot, f->second);
+                if (f != finalName.end() && !f->second.empty() && f->second != t) m = BchSetTextureName(m, 0, k, slot, f->second);
             }
-    }
-    size_t missing = 0;
-    for (const auto& [name, final] : finalName) if (final.empty()) missing++;
-    log.push_back("X piece: model " + name + ", " + std::to_string(wanted.size()) + " texture(s) named, " + std::to_string(missing) + " not in X's pack " +
+        size_t missing = 0;
+        for (const auto& [n, final] : finalName) if (final.empty()) missing++;
+        return std::pair<size_t, size_t>{wanted.size(), missing};
+    };
+    const auto [named, missing] = bringTextures(model);
+    log.push_back("X piece: model " + name + ", " + std::to_string(named) + " texture(s) named, " + std::to_string(missing) + " not in X's pack " +
                   std::to_string(xPackIndex));
     gr.Files[1] = model;
 
@@ -265,8 +269,17 @@ Bytes XyPieceToOras(const Bytes& xPiece, const Bytes& xAreaPack, size_t xPackInd
     gr.Files[4][0] = (uint8_t)cellY;
     gr.Files[4][1] = (uint8_t)cellX;
 
-    // file 5: tall grass, when there is any
-    if (Bch::Is(gr.Files[5])) gr.Files[5] = BchUpgradeTo21(gr.Files[5]);
+    // file 5: tall grass, when there is any, its textures brought as file 1's: without them its model did not bind and the
+    // piece loader stopped (FUN_102e2b50, DllField, its bound flag 4 unset: X's Aquacorde and Santalune, runs hZ8, hZ12)
+    if (Bch::Is(gr.Files[5]))
+    {
+        gr.Files[5] = BchUpgradeTo21(gr.Files[5]);
+        if (!Bch::Read(gr.Files[5]).Models.empty())
+        {
+            const auto [grassNamed, grassMissing] = bringTextures(gr.Files[5]);
+            log.push_back("X piece: tall grass, " + std::to_string(grassNamed) + " texture(s) named, " + std::to_string(grassMissing) + " not in X's pack");
+        }
+    }
 
     gr.Files.push_back(kage);
     for (Bytes& layer : layers) gr.Files.push_back(std::move(layer));
