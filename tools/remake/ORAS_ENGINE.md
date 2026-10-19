@@ -189,7 +189,7 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   0x12FD48 and `Save_ClearEventFlag_0011F9E8`): 1-0xCFF are bits of the save (save + 0x13434 for writing), 0xD00-0x2FFF
   are fatal (`FUN_0014ea64`), 0x3000-0x303F a separate area of 64. The 1,072 zone scripts name 699 flags as constants
   (2,056 uses, 10 to 3,080) and compute 76 more, 35 of them `1740 + n`; none names 0xC09-0xCFF, the range a mod's story
-  takes from the top. Not read: a use of that range by the game's own code.
+  takes from the top. Not read: a use of that range by the game's own code. **More room** (19 October, read; checked headless for flags, run `hStory` against `hStory0`): `oras-engine --story large` sends flags 0xD00-0x2C3F and event works 0x4178-0x436B into save block 47 (`ReservedSaveData`, 2000 bytes, no user found, zero in the owner's saves), at EventWork + 0xA550 (EventWork is block 19, SaveData + 0x13140; measured in memory): X/Y's story names 880 flags and 176 works. The works' range check in FUN_0011fa90 is empty in the build (a work past 0x4177 lands on the flags). Not checked: the works part, and block 47 across a save and reload (saved like every block).
   **Movement** (16 October): `act WHO CODE DIR [N]` sends the game's movement commands (`MdlAcmdInit`, `MdlAcmdSet`
   CODE DIR 1 0 per step, `MdlAcmdSetEnd`, then `MdlAcmdUpdate` each frame until done, as the library's command-list
   routine does: a list is triples, code, direction, 1). Run `sceneD1` (18 commands, a line between each): directions 0

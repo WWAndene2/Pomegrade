@@ -43,7 +43,8 @@
 //   if [not] flag N | if [not] item I | if [not] party N   then statements (item: at least one in the bag,
 //                     ItemGetNum; party: at least N Pokemon, PokePartyGetCount 0), an optional "else" and its statements,
 //                     up to "endif"; nests
-// Story flags: 1 to 0xCFF are saved; 0xD00 to 0x2FFF are fatal; no game script names 0xC09-0xCFF as a constant
+// Story flags: 1 to 0xCFF are saved; 0xD00 to 0x2FFF are fatal, but 0xD00-0x2C3F with oras-engine --story large (save
+// block 47); no game script names 0xC09-0xCFF as a constant
 // (ORAS_ENGINE.md 6: 2,056 constant uses of 699 flags in the 1,072 zone scripts, 16 October), so a mod's story takes
 // them from the top (0xCE0-0xCFF). Not read in the game's code beyond the scripts: a flag there may yet have a use.
 //

@@ -422,6 +422,54 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         snprintf(line, sizeof line, "character model objects: %u (the game's 32), their heap 0x62 0x%X bytes (the game's 0x10000)", objects, heap);
         log.push_back(line);
     }
+    if (o.LargeStory)
+    {
+        // Story flags and event works past the game's (ORAS_ENGINE.md 6, Story flags; read 19 October). Flags 1-0xCFF are
+        // bits of the EventWork object (save block 19, SaveData + 0x13140) at +0x2F4, read by FUN_0012fd48, set by
+        // Save_SetEventFlag (0x406B30), cleared by Save_ClearEventFlag_0011FA10 (0x11F9E8 leads to one or the other); each
+        // sends 0xD00-0x2FFF to the error routine 0x14EA64 (get: answers 0). Works 0x4000-0x4177 are u16 at +4, their address
+        // from FUN_0011fa90, whose range check the build left empty (a work past 0x4177 lands on the flags and beyond). Save
+        // block 47, ReservedSaveData (2000 bytes), has only the methods every block has (size 0x7D0, data at +4, copy, clear;
+        // its vtable 0x5E074C is named once, by Save_SaveData_Construct) and is zero in the owner's two saves: unused,
+        // inferred. Its object lies 0xA54C after EventWork's (measured in memory, run hSave2), so its data at EventWork +
+        // 0xA550: works 0x4178-0x436B its first 1000 bytes, flags 0xD00-0x2C3F its last 1000. Saved and loaded with the
+        // block, the save's layout unchanged. Code that reaches the bits without these four functions is not covered (none
+        // found; not searched beyond their callers)
+        const uint32_t cave = 0x579E00; // past the script-mask routine and its table (0x579608-0x579DC3), zeros to 0x57A000
+        uint32_t at = cave;
+        const auto bcs = [](uint32_t from, uint32_t to) { return 0x2A000000u | (((to - from - 8) >> 2) & 0xFFFFFF); };
+        struct FlagSite { uint32_t Branch, Fail, Use; const char* Name; };
+        for (const FlagSite& f : {FlagSite{0x12FD68, 0x12FD7C, 0x12FDAC, "the flag reader FUN_0012fd48"},
+                                  FlagSite{0x11FA2C, 0x11FA40, 0x11FA64, "the flag clearer 0x11FA10"},
+                                  FlagSite{0x406B4C, 0x406B60, 0x406B84, "the flag setter Save_SetEventFlag"}})
+        {
+            words.push_back({f.Branch, bcs(f.Branch, f.Fail), bcs(f.Branch, at), std::string(f.Name) + ": flags 0xD00 and up to its cave"});
+            const uint32_t routine[] = {
+                0xE2412C0D,          // sub r2, r1, #0xD00
+                0xE3520D7D,          // cmp r2, #0x1F40           8000 flags
+                bcs(at + 8, f.Fail), // bhs the game's error path
+                0xE2800CA9,          // add r0, r0, #0xA900       r0 is EventWork here
+                0xE2800038,          // add r0, r0, #0x38         block 47's data + 1000
+                0xE08001A2,          // add r0, r0, r2, lsr #3
+                Branch(at + 24, f.Use, false),
+            };
+            for (uint32_t k = 0; k < 7; k++) words.push_back({at + 4 * k, 0, routine[k], std::string(f.Name) + " (cave)"});
+            at += 28;
+        }
+        words.push_back({0x11FAA8, 0xE3A02000, Branch(0x11FAA8, at, false), "FUN_0011fa90: works past 0x4177 to its cave"});
+        const uint32_t works[] = {
+            0xE2440C41,          // sub r0, r4, #0x4100       r4 the work, r5 EventWork
+            0xE2400078,          // sub r0, r0, #0x78
+            0xE3500F7D,          // cmp r0, #0x1F4            500 works
+            bcs(at + 12, 0x11FAB8), // bhs the game's own address
+            0xE0850080,          // add r0, r5, r0, lsl #1
+            0xE2800CA5,          // add r0, r0, #0xA500
+            0xE2800050,          // add r0, r0, #0x50         block 47's data
+            0xE8BD8070,          // ldmia sp!, {r4, r5, r6, pc}
+        };
+        for (uint32_t k = 0; k < 8; k++) words.push_back({at + 4 * k, 0, works[k], "FUN_0011fa90 (cave)"});
+        log.push_back("story: flags 0xD00-0x2C3F and works 0x4178-0x436B in save block 47 (the game's flags end at 0xCFF, works at 0x4177)");
+    }
     if (o.LargeEvents)
     {
         // A zone's events file is copied on entering it into one of two 0xC8C-byte slots of the events object (0x1958 bytes,

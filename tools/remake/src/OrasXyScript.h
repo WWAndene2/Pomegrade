@@ -11,9 +11,9 @@
 // Second step, XyScriptSource: the script as amx-asm source to read and edit (Amx.h's format), its natives named, every call
 // commented with the native's name, and X's story numbers moved out of Omega Ruby's: X's flags (FlagSet 604, 614, 2745...
 // in Vaniville) and event works (0x4000-0x7FFF, kept in the save) are X's story, which in Omega Ruby are its own. Flags go
-// to 0xC09 and up (none of Omega Ruby's 1,072 zone scripts names 0xC09-0xCFF, the range kept for a mod's story:
-// ORAS_ENGINE.md 6), works to 0x4100 and up (0x4100-0x4137: none named by those scripts; the save's work area reaches at
-// least 0x414E, the highest they name). Not moved: a flag or work a script computes (reported), X's text files (MsgLoad)
+// to 0xD00 and up, works to 0x4178 and up: past the game's own (its flags end at 0xCFF, its works at 0x4177), in save
+// block 47, which oras-engine --story large opens (OrasEngine.cpp: X names 880 flags and 176 works, more than the 247
+// flags and 56 works the game leaves free; without the patch a flag of 0xD00 or more stops the game). Not moved: a flag or work a script computes (reported), X's text files (MsgLoad)
 // and zones (MapChangeFake: X's numbers, reported by the caller).
 
 #include "Bytes.h"
@@ -45,7 +45,7 @@ struct XyNumbers
 };
 
 // the numbers XyNumbersFor gives from
-constexpr int XyFirstFlag = 0xC09, XyLastFlag = 0xCFF, XyFirstWork = 0x4100, XyLastWork = 0x4137;
+constexpr int XyFirstFlag = 0xD00, XyLastFlag = 0x2C3F, XyFirstWork = 0x4178, XyLastWork = 0x436B;
 
 // X's flags and works the scripts (after XyScriptToOras) name, with the extra flags (characters' vanish flags, word 4: zone 0's character 3 hides on 615) and
 // works (triggers' conditions, word 2), numbered from XyFirstFlag and XyFirstWork in increasing order; throws FormatError

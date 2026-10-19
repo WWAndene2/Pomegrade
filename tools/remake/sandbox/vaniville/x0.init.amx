@@ -16,19 +16,19 @@ code
 L000004:
     proc
     stack.p -4
-    push.p.c 16643   ; X/Y's work 16498
+    push.p.c 16763   ; X/Y's work 16498
     sysreq.n 0 4   ; WorkGet
     stor.p.s.pri -4
     load.p.s.pri -4
     const.p.alt 2
     jsleq L00004C
     push.p.c 4116
-    push.p.c 16640   ; X/Y's work 16417
+    push.p.c 16760   ; X/Y's work 16417
     sysreq.n 1 8   ; WorkSet
     jump L000060
 L00004C:
     push.p.c 4102
-    push.p.c 16640   ; X/Y's work 16417
+    push.p.c 16760   ; X/Y's work 16417
     sysreq.n 1 8   ; WorkSet
 L000060:
     sysreq.n 2 0   ; CommandNOP
@@ -70,7 +70,7 @@ L000120:
 L00012C:
     proc
     sysreq.n 2 0   ; CommandNOP
-    push.p.c 16642   ; X/Y's work 16496
+    push.p.c 16762   ; X/Y's work 16496
     sysreq.n 0 4   ; WorkGet
     jzer L00019C
     push.p.c 460
@@ -94,7 +94,7 @@ L0001A4:
     jzer L0001F0
     sysreq.n 2 0   ; CommandNOP
     push.p.c 1
-    push.p.c 16642   ; X/Y's work 16496
+    push.p.c 16762   ; X/Y's work 16496
     sysreq.n 1 8   ; WorkSet
     push.p.c 0
     call L00012C
@@ -102,7 +102,7 @@ L0001A4:
 L0001F0:
     sysreq.n 2 0   ; CommandNOP
     push.p.c 0
-    push.p.c 16642   ; X/Y's work 16496
+    push.p.c 16762   ; X/Y's work 16496
     sysreq.n 1 8   ; WorkSet
 L000210:
     push.p.c 0
@@ -117,7 +117,7 @@ L000244:
     proc
     sysreq.n 2 0   ; CommandNOP
     stack.p -4
-    push.p.c 16643   ; X/Y's work 16498
+    push.p.c 16763   ; X/Y's work 16498
     sysreq.n 0 4   ; WorkGet
     stor.p.s.pri -4
     load.p.s.pri -4

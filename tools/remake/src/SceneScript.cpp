@@ -333,8 +333,9 @@ std::string CompileScene(const std::string& scene, const std::string& librarySou
             need(3);
             if (w[2] != "on" && w[2] != "off") throw FormatError("scene line " + std::to_string(lineNo) + ": a flag is set \"on\" or \"off\"");
             const int n = Number(w[1], lineNo);
-            if (n < 1 || (n > 0xCFF && n < 0x3000) || n > 0x303F)
-                throw FormatError("scene line " + std::to_string(lineNo) + ": flag " + w[1] + " is outside 1-0xCFF and 0x3000-0x303F (fatal in the game)");
+            // 0xD00-0x2C3F only with oras-engine --story large (save block 47, OrasEngine.cpp)
+            if (n < 1 || (n > 0x2C3F && n < 0x3000) || n > 0x303F)
+                throw FormatError("scene line " + std::to_string(lineNo) + ": flag " + w[1] + " is outside 1-0x2C3F and 0x3000-0x303F (fatal in the game; 0xD00-0x2C3F need oras-engine --story large)");
             code.insert(code.end(), {"    push.c " + std::to_string(n),
                                      "    sysreq.n " + std::to_string(lib.Native(w[2] == "on" ? "FlagSet" : "FlagReset")) + " 4"});
         }

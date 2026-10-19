@@ -203,9 +203,9 @@ XyNumbers XyNumbersFor(const std::vector<Bytes>& scripts, const std::set<int>& e
     }
     XyNumbers n;
     int next = XyFirstFlag;
-    for (int f : flags) { if (next > XyLastFlag) throw FormatError("X/Y scripts: more flags than 0xC09-0xCFF holds"); n.Flags[f] = next++; }
+    for (int f : flags) { if (next > XyLastFlag) throw FormatError("X/Y scripts: more flags than 0xD00-0x2C3F holds"); n.Flags[f] = next++; }
     next = XyFirstWork;
-    for (int w : works) { if (next > XyLastWork) throw FormatError("X/Y scripts: more event works than 0x4100-0x4137 holds"); n.Works[w] = next++; }
+    for (int w : works) { if (next > XyLastWork) throw FormatError("X/Y scripts: more event works than 0x4178-0x436B holds"); n.Works[w] = next++; }
     return n;
 }
 

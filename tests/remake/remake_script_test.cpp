@@ -138,12 +138,13 @@ int main()
             "helper:\n    proc\n    push.p.s 12\n    sysreq.n FlagGet 4\n    retn\n");
         const XyNumbers numbers = XyNumbersFor({y}, {}, {});
         check(numbers.Flags.size() == 2 && numbers.Flags.at(614) == XyFirstFlag && numbers.Flags.at(615) == XyFirstFlag + 1,
-              "X's flags numbered from 0xC09, the one passed to a procedure too");
-        check(numbers.Works.size() == 1 && numbers.Works.at(16498) == XyFirstWork, "X's event work numbered from 0x4100");
+              "X's flags numbered from 0xD00, the one passed to a procedure too");
+        check(numbers.Works.size() == 1 && numbers.Works.at(16498) == XyFirstWork, "X's event work numbered from 0x4178");
         std::vector<std::string> notes;
         const std::string source = XyScriptSource(y, names, numbers, notes);
-        check(source.find("push.p.c 3081   ; X/Y's flag 614") != std::string::npos && source.find("push.p.c 3082   ; X/Y's flag 615") != std::string::npos
-                  && source.find("push.p.c 16640   ; X/Y's work 16498") != std::string::npos && source.find("push.p.c 9\n") != std::string::npos,
+        check(source.find("push.p.c " + std::to_string(XyFirstFlag) + "   ; X/Y's flag 614") != std::string::npos
+                  && source.find("push.p.c " + std::to_string(XyFirstFlag + 1) + "   ; X/Y's flag 615") != std::string::npos
+                  && source.find("push.p.c " + std::to_string(XyFirstWork) + "   ; X/Y's work 16498") != std::string::npos && source.find("push.p.c 9\n") != std::string::npos,
               "the source moves them, the value set left");
         bool assembles = true;
         try { AmxAssemble(source); } catch (const FormatError&) { assembles = false; }

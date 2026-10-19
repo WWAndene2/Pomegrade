@@ -978,8 +978,8 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
                 if (s->size() >= 16) scripts.push_back(XyScriptToOras(*s, xyNames, 0x243).Script);
         }
         xyNumbers = XyNumbersFor(scripts, vanish, conditions);
-        log.push_back("X/Y zones' story numbers: " + std::to_string(xyNumbers.Flags.size()) + " flag(s) from 0xC09, " + std::to_string(xyNumbers.Works.size()) +
-                      " work(s) from 0x4100 (XyNumbersFor)");
+        log.push_back("X/Y zones' story numbers: " + std::to_string(xyNumbers.Flags.size()) + " flag(s) from 0xD00, " + std::to_string(xyNumbers.Works.size()) +
+                      " work(s) from 0x4178 (XyNumbersFor): give oras-engine --story large");
         if (!d.XyPieces.empty())
         {
             // the first xy-piece's cell in X/Y's matrix (its file 4: row, column) against its cell here
