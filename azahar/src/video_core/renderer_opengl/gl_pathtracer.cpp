@@ -369,8 +369,20 @@ float Sun(vec3 p) {
     return c.z - shadow_bias - length(p) * 0.002 * depth_scale < texture(shadow_map, c.xy + jitter).r ? 1.0 : 0.0;
 }
 
-vec3 Cosine(vec3 n) {
-    float r1 = Random(), r2 = Random();
+// Pomegrade: the fast tracer's samples are not white noise (the hash above, clumpy and different every frame: the
+// "snow"), but interleaved gradient noise (Jimenez 2014), each pixel a little apart from its neighbours, stepped each
+// frame along the R2 sequence (Roberts 2018): the error is spread evenly over the screen and over the frames, which the
+// a-trous passes and the accumulation then average away far better than clumps
+vec3 Structured() {
+    vec2 px = gl_FragCoord.xy;
+    float f = mod(seed, 64.0);
+    float a = fract(52.9829189 * fract(dot(px + 5.588238 * f, vec2(0.06711056, 0.00583715))));
+    float b = fract(52.9829189 * fract(dot(px.yx + vec2(17.0, 59.0) + 5.588238 * f, vec2(0.06711056, 0.00583715))));
+    return fract(vec3(a, b, a + 0.5) + f * vec3(0.7548776662, 0.5698402910, 0.6180339887));
+}
+
+vec3 Cosine(vec3 n, vec2 r) {
+    float r1 = r.x, r2 = r.y;
     float phi = 6.2831853 * r1, s = sqrt(r2);
     vec3 a = abs(n.x) < 0.9 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
     vec3 t = normalize(cross(a, n)), b = cross(n, t);
@@ -393,8 +405,9 @@ void main() {
     // one ray: a surface it reaches on screen sends back its light (the bounce), else the sky above the horizon; below
     // it, the ground beyond the reach (its glow, not sky: counting it open lit the walls far too much)
     float reach = reach_share * dist, thickness = thickness_share * dist;
-    vec3 d = Cosine(n);
-    float jitter = Random();
+    vec3 r = Structured();
+    vec3 d = Cosine(n, r.xy);
+    float jitter = r.z;
     vec3 gathered = dot(d, up) >= 0.0 ? Sky(d) : sky_horizon * 0.35;
     float open_ = dot(d, up) >= 0.0 ? 1.0 : 0.0;
     for (int i = 0; i < 32; i++) {
@@ -415,7 +428,10 @@ void main() {
             break;
         }
     }
-    color = vec4(gathered * indirect / reference, open_);
+    vec3 light = gathered * indirect / reference;
+    float peak = max(max(light.r, light.g), light.b);
+    if (peak > 1.5) light *= 1.5 / peak; // a lone bright ray capped (it was left as a sparkle)
+    color = vec4(light, open_);
 }
 )";
 
@@ -494,8 +510,25 @@ void main() {
         }
         now = sum / wsum;
     }
+    // the history: Pomegrade kept it only where the pixel shows the very same point as last frame, which the field's
+    // camera, following the player, breaks for nearly every pixel while walking: the raw noise every frame (the snow).
+    // Now it is kept there too, a little less, clamped to the range of this frame's light around the pixel (3x3 half-size
+    // texels), as temporal anti-aliasing does without motion vectors: a moving shadow or a new surface pulls it in at once
+    // (no trail), still ground keeps its average
     bool same = first < 0.5 && gp.w > 0.5 && pp.w > 0.5 && length(gp.xyz - pp.xyz) < 0.01 * length(gp.xyz) + 0.05;
-    color = same ? mix(now, texture(history_, p), history_weight) : now;
+    if (first < 0.5 && gp.w > 0.5) {
+        vec4 lo = vec4(1e9), hi = vec4(-1e9);
+        for (int y = -1; y <= 1; y++) {
+            for (int x = -1; x <= 1; x++) {
+                vec4 c = texture(current, p + vec2(float(x), float(y)) / half_size);
+                lo = min(lo, c); hi = max(hi, c);
+            }
+        }
+        vec4 h = clamp(texture(history_, p), lo, hi);
+        color = mix(now, h, same ? history_weight : history_weight * 0.75);
+    } else {
+        color = now;
+    }
     lit = color;
     if (gp.w > 0.5) {
         vec3 n = texture(g_normal, p).xyz;
