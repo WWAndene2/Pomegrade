@@ -116,3 +116,15 @@ st4). The opening (zone 2 case 1, L001CA4) waits on EVCameraIsEndFrame, MdlAcmdU
 sweep repeating suggests the case is started again and again. Tracing the natives that run there (interpreter, slow).
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 09:45 to all
+What: the bedroom loop located (run st6, interpreter trace of 20 s in the loop, module addresses mapped through the
+run's CRO load addresses): the only natives running are _Suspend and EVCameraIsEndFrame (and strfloat), so X/Y's
+opening (zone 2 case 1, L001CA4) waits forever on its first camera (EVCameraBegin, then L0001BC polling
+EVCameraIsEndFrame); the case is not restarted. EVCameraSetFrameParam's arguments have Omega Ruby's own shape (0 1 N 0,
+used by its scripts); EVCameraSetDstParam takes in both a byte then 8 values, X/Y's 8th being 0. Next: what X/Y's 8
+values mean against Omega Ruby's (positions in other units, inferred from their sizes) and why the camera never
+reports its end. Also merged main (b048f850) into my branch, conflicts in RemakeTool.cpp's usage line and
+OrasXyWorld.cpp's engine line, both sides kept; tests pass.
+Needs: nothing.
+Commits: the merge, the one adding this entry.
