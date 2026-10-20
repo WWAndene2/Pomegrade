@@ -11,6 +11,9 @@
 //   say L             the person talked to says line L of the zone's text (its `line` statements, 0 first), in their
 //                     balloon; the game turns them to face the player, waits for A, then closes the window; "say L by N": character N of
 //                     the zone says it (its number in the zone, 0 first), for a scene a trigger starts
+//   ask L [by N]      line L said as "say" does, then the yes/no box (YesNoWin_Seq 0 0 0 0 polled each frame until it
+//                     returns non-zero, as the game's 89 scripts call it); the answer stays in work 0x8010
+//   if yes / if no    the last "ask"'s answer (work 0x8010; the first choice is yes), then statements as any "if"
 //   wait F            waits F frames
 //   act WHO CODE DIR [N]   a person's movement command, N times (1 by default), then waits for its end: WHO -1 the
 //                     person talked to, 255 the player (as the game's scripts give them), else a character's number;
@@ -48,6 +51,9 @@
 // (ORAS_ENGINE.md 6: 2,056 constant uses of 699 flags in the 1,072 zone scripts, 16 October), so a mod's story takes
 // them from the top (0xCE0-0xCFF). Not read in the game's code beyond the scripts: a flag there may yet have a use.
 //
+// Any zone (20 October): with targetSource, the routines are found in the library (Littleroot's) and copied into the
+// target script (an X/Y zone's translated one, or a game zone's whose routines differ: X/Y's talking routine has no
+// WorkSet(0x8016, 1), zones 1 and 12 of X/Y have none), with every procedure they call; the scene chained to its main.
 // The library (`librarySource`, AmxSource of a game zone's script: Littleroot's, zone 6) keeps all its code; the scene
 // adds its own `main` (the header's cip moved to it) that runs the events given, CommandNOP for any other and nothing for
 // -1, as the game's mains do. Its routines are found by their code, not their address, and the compile fails when one is
@@ -62,7 +68,11 @@ namespace remake
 // the scene compiled into amx-asm source; throws FormatError naming the scene's line, or the library routine not found
 // lineBase: added to every "say" line (a game zone's own lines come first, ours after them); chain: an event the scene
 // does not give goes to the library's own main, so a game zone's people, signs and triggers keep working
-std::string CompileScene(const std::string& scene, const std::string& librarySource, int lineBase = 0, bool chain = false);
+// targetSource: another zone's script (an X/Y zone's translated, or one without the routines) to write the scene into: the
+// routines found in librarySource are copied into it with every procedure they call (labels "lib_..."), and chain goes
+// to its main; empty, the library is the target as before
+std::string CompileScene(const std::string& scene, const std::string& librarySource, int lineBase = 0, bool chain = false,
+                         const std::string& targetSource = "");
 
 }
 

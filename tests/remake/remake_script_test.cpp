@@ -4,6 +4,7 @@
 #include "OrasXyScript.h"
 #include "OrasXySound.h"
 #include "OrasXyTrainers.h"
+#include "SceneScript.h"
 
 #include <cstdio>
 #include <filesystem>
@@ -259,6 +260,38 @@ int main()
               "a battle's trainer moved through the procedure that passes it");
         // a trainer character's flag in X/Y (0x6CC + n) is the one oras-engine --xy-trainers gives trainer 950 + n
         check(XyTrainerToOras(613) == 1563 && XyTrainerToOras(0) == 0, "X/Y's trainer n is Omega Ruby's 950 + n, 0 none");
+    }
+    {
+        // CompileScene into another script (SceneScript.h, targetSource): the library's routines (the shapes it looks for,
+        // as Littleroot's) copied with the procedure they call under "lib_" labels, "ask" and "if yes" compiled, the scene
+        // chained to the target's own main; the result assembles
+        const std::string library =
+            "header 10 10 0x1C L0 4096\npubvar g_mode 0\n"
+            "native _Suspend\nnative WorkGet\nnative WorkSet\nnative MdlAcmdUpdate\nnative _FieldMapBlockIsLoading\nnative FadeIsEnd\n"
+            "code\n    halt.p 0\n"
+            "L0:\n    proc\n    zero.pri\n    retn\n"
+            "L1:\n    proc\n    push.p.s 12\n    sysreq.n 0 4\n    zero.pri\n    zero.alt\n    halt 12\n    retn\n"
+            "L2:\n    proc\n    load.p.s.pri 20\n    eq.p.c.pri -1\n    jzer L2a\n    push.c 32785\n    sysreq.n 1 4\n    stor.p.s.pri 20\n"
+            "L2a:\n    push.p.c 1\n    push.c 32790\n    sysreq.n 2 8\n    push.p.s 20\n    push.p.c 4\n    call L6\n    retn\n"
+            "L3:\n    proc\n    jump L3a\nL3a:\n    push.p.s 12\n    sysreq.n 3 4\n    jzer L3a\n    retn\n"
+            "L4:\n    proc\n    push.p.c 0\n    zero.p.s -4\n    jump L4a\nL4a:\n    inc.p.s -4\nL4b:\n    load.p.s.pri -4\n    const.p.alt 60\n    jsgeq L4c\n"
+            "    sysreq.n 4 0\nL4c:\n    stack.p 4\n    retn\n"
+            "L5:\n    proc\n    jump L5a\nL5a:\n    sysreq.n 5 0\n    jzer L5a\n    retn\n"
+            "L6:\n    proc\n    zero.pri\n    retn\n"
+            "data\n    cell -1\n";
+        const std::string target = "header 10 10 0x1C main 4096\npubvar g_mode 0\nnative CommandNOP\ncode\n    halt.p 0\n"
+                                   "main:\n    proc\n    sysreq.n 0 0\n    zero.pri\n    retn\ndata\n    cell -1\n";
+        std::string scene;
+        bool compiled = true;
+        try { scene = CompileScene("on 31\n    ask 0\n    if yes\n        say 1\n    else\n        say 2\n    endif\n", library, 0, true, target); }
+        catch (const FormatError& e) { compiled = false; printf("  %s\n", e.what()); }
+        check(compiled && scene.find("lib_L2:") != std::string::npos && scene.find("lib_L6:") != std::string::npos
+                  && scene.find("call lib_L2") != std::string::npos && scene.find("native YesNoWin_Seq") != std::string::npos,
+              "a scene written into another script: the routines and their callee copied, the yes/no box declared");
+        check(scene.find("    call main") != std::string::npos && scene.find("L0:") == std::string::npos, "chained to the target's main, the library's main not copied");
+        bool assembles = compiled;
+        try { if (compiled) AmxAssemble(scene); } catch (const FormatError& e) { assembles = false; printf("  %s\n", e.what()); }
+        check(assembles, "it assembles");
     }
     Bytes truncated = b;
     truncated.push_back(0); Put32(truncated, 0, (uint32_t)truncated.size());

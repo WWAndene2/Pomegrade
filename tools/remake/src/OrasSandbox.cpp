@@ -619,7 +619,9 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         {
             if (!checkNative) throw FormatError("sandbox: zone " + std::to_string(z.Number) + "'s scene: no native tables to check it against");
             std::string scene;
-            try { scene = CompileScene(z.Scene, AmxSource(zone.Script), lineBase, true); }
+            // the routines from Littleroot's script (zone 6, SceneScript.h), copied into this zone's own, chained to it
+            const std::string library = AmxSource(OrasZone::Read(Plain(ws.Original("a/0/1/3").Sub(6))).Script);
+            try { scene = CompileScene(z.Scene, library, lineBase, true, AmxSource(zone.Script)); }
             catch (const FormatError& e) { throw FormatError("sandbox: zone " + std::to_string(z.Number) + "'s " + e.what()); }
             zone.Script = AmxAssemble(scene, checkNative);
         }
@@ -976,9 +978,11 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         if (z.XyEvents >= 0 && z.Scene.empty() && z.Script.empty()) zone.Script = xe.Script;
         else if (!z.Scene.empty())
         {
-            // the scene on Littleroot's zone script (zone 6), whose routines it calls (SceneScript.h)
+            // the scene on Littleroot's zone script (zone 6), whose routines it calls (SceneScript.h); with X/Y's events, written
+            // into X/Y's translated script (the routines copied there) and chained to it, its people's events kept
             std::string scene;
-            try { scene = CompileScene(z.Scene, AmxSource(OrasZone::Read(Plain(zoneArchive.Sub(6))).Script)); }
+            const std::string library = AmxSource(OrasZone::Read(Plain(zoneArchive.Sub(6))).Script);
+            try { scene = z.XyEvents >= 0 ? CompileScene(z.Scene, library, 0, true, AmxSource(xe.Script)) : CompileScene(z.Scene, library); }
             catch (const FormatError& e) { throw FormatError("sandbox: zone " + std::to_string(z.Number) + "'s " + e.what()); }
             zone.Script = assemble(scene, z.Number, "scene");
         }
