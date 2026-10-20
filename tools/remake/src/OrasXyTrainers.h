@@ -25,6 +25,13 @@
 // 0x21328, 0xDFC34, 0xDFDEC; X/Y's DllField the same at 0x2D980, 0xDFE68, 0xE0020), room for 980 in Omega Ruby
 // (0x6CC-0xA9F; 0xAA0 is another flag). X/Y's trainer n's flag is 0x2900 + n here (in the story's large range, oras-engine
 // --story large), and an X/Y script's flag 0x6CC + n (n < 785) is that one (XyNumbersFor).
+//
+// Checked headless (run hBat2, 20 October: X/Y zone 56 alone, --story off, its character 8, script 3040, talked to):
+// "Donnie le Gamin veut se battre !", then "Donnie le Gamin envoie un Pérégrain !": X/Y's trainer 40 (a Youngster with
+// a Spewpa at 10) as Omega Ruby's 990, its name, class and team; the battle runs, a loss sends the player home (run hBat1).
+// Battle lines: X/Y's (AddXyTrainers, Omega Ruby's a/1/3/5 and a/0/7/1-8 member 23): the same trainer says "Les Pokémon
+// Insecte évoluent très vite !" before the battle (run hBat3). Not seen yet: a win and its flag 0x2928, a trainer walking up
+// on sight, the lines after a battle.
 
 #include "OrasWorkspace.h"
 
