@@ -53,8 +53,8 @@ struct XyNumbers
 constexpr int XyFirstFlag = 0xD00, XyLastFlag = 0x28FF, XyFirstWork = 0x4178, XyLastWork = 0x436B;
 
 // X's flags and works the scripts (after XyScriptToOras) name, with the extra flags (characters' vanish flags, word 4: zone 0's character 3 hides on 615) and
-// works (triggers' conditions, word 2), numbered from XyFirstFlag and XyFirstWork in increasing order; throws FormatError
-// past XyLastFlag or XyLastWork
+// works (triggers' conditions, word 2), moved by an offset: flag f to XyFirstFlag + f, work w to XyFirstWork + w - 0x4000
+// (a range stays a range); throws FormatError past XyLastFlag or XyLastWork
 XyNumbers XyNumbersFor(const std::vector<Bytes>& scripts, const std::set<int>& extraFlags, const std::set<int>& extraWorks);
 
 // the script (after XyScriptToOras) as editable amx-asm source: natives by name (Omega Ruby's tables, namesFile) or,

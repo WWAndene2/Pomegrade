@@ -143,18 +143,25 @@ int main()
             "    halt 0\n"
             "helper:\n    proc\n    push.p.s 12\n    sysreq.n FlagGet 4\n    retn\n");
         const XyNumbers numbers = XyNumbersFor({y}, {}, {});
-        check(numbers.Flags.size() == 2 && numbers.Flags.at(614) == XyFirstFlag && numbers.Flags.at(615) == XyFirstFlag + 1,
-              "X's flags numbered from 0xD00, the one passed to a procedure too");
-        check(numbers.Works.size() == 1 && numbers.Works.at(16498) == XyFirstWork, "X's event work numbered from 0x4178");
+        check(numbers.Flags.size() == 2 && numbers.Flags.at(614) == XyFirstFlag + 614 && numbers.Flags.at(615) == XyFirstFlag + 615,
+              "X's flags moved by 0xD00, the one passed to a procedure too");
+        check(numbers.Works.size() == 1 && numbers.Works.at(16498) == XyFirstWork + 16498 - 0x4000, "X's event work moved to 0x4178 + its rank from 0x4000");
         std::vector<std::string> notes;
         const std::string source = XyScriptSource(y, names, numbers, notes);
-        check(source.find("push.p.c " + std::to_string(XyFirstFlag) + "   ; X/Y's flag 614") != std::string::npos
-                  && source.find("push.p.c " + std::to_string(XyFirstFlag + 1) + "   ; X/Y's flag 615") != std::string::npos
-                  && source.find("push.p.c " + std::to_string(XyFirstWork) + "   ; X/Y's work 16498") != std::string::npos && source.find("push.p.c 9\n") != std::string::npos,
+        check(source.find("push.p.c " + std::to_string(XyFirstFlag + 614) + "   ; X/Y's flag 614") != std::string::npos
+                  && source.find("push.p.c " + std::to_string(XyFirstFlag + 615) + "   ; X/Y's flag 615") != std::string::npos
+                  && source.find("push.p.c " + std::to_string(XyFirstWork + 16498 - 0x4000) + "   ; X/Y's work 16498") != std::string::npos && source.find("push.p.c 9\n") != std::string::npos,
               "the source moves them, the value set left");
         bool assembles = true;
         try { AmxAssemble(source); } catch (const FormatError&) { assembles = false; }
         check(assembles && notes.empty(), "the source assembles, nothing computed left");
+        // a flag given as a base plus an index (X/Y's ranges): the base moved, the range kept
+        const Bytes r = AmxAssemble("code\nmain:\n    load.p.s.pri -4\n    add.p.c 2962\n    push.pri\n    sysreq.n FlagSet 4\n    halt 0\n");
+        const XyNumbers rangeNumbers = XyNumbersFor({r}, {}, {});
+        std::vector<std::string> rangeNotes;
+        const std::string range = XyScriptSource(r, names, rangeNumbers, rangeNotes);
+        check(range.find("add.p.c " + std::to_string(XyFirstFlag + 2962) + "   ; X/Y's flag 2962") != std::string::npos && rangeNotes.empty(),
+              "a flag range's base moved by the offset");
         // the scenes a zone starts by itself (GetSceneChangeData's (case, work, value) triples): their works numbered and
         // moved, also one no native names (16600), the cases and values kept
         const Bytes z = AmxAssemble(
@@ -173,6 +180,17 @@ int main()
         try { AmxAssemble(scenes); } catch (const FormatError&) { scenesAssemble = false; }
         check(scenesAssemble && sceneNotes.size() == 1 && sceneNotes[0] == "scene changes: 2 work(s) moved", "it assembles, the move noted");
         std::filesystem::remove(names);
+    }
+    {
+        // XyMoveZones: a zone a procedure passes on to _MapChangeCore (X/Y's wrappers) moved at each call
+        const std::string source = "native _MapChangeCore\ncode\n"
+            "main:\n    push.p.c 3\n    push.p.c 9\n    push.p.c 0\n    push.p.c 5\n    push.p.c 2\n    push.p.c 20\n    call wrap\n    halt 0\n"
+            "wrap:\n    proc\n    push.p.c 0\n    push.p.s 24\n    push.p.s 20\n    push.p.s 16\n    push.p.s 12\n    sysreq.n 0 20\n    retn\n";
+        std::vector<std::string> notes;
+        const std::string moved = XyMoveZones(source, {{2, {540, 0, 0}}}, notes);
+        check(moved.find("push.p.c 540   ; X/Y's zone 2, passed on to a map change") != std::string::npos && moved.find("push.p.c 9\n") != std::string::npos,
+              "a zone passed by a procedure moved at its call, the rest kept");
+        check(notes.size() == 1 && notes[0].find("1 zone(s)") != std::string::npos, "the move noted");
     }
     {
         // XyMoveMessages: MsgLoad(table, n)'s n moved by (table != 0, n), a computed one noted; XyMessageMember: X's switch
