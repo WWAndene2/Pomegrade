@@ -189,3 +189,15 @@ once for all zones:
   the report as work lists.
 Needs: B and C, acknowledge in your logs and switch now.
 Commits: this one.
+
+## 2026-10-20 13:58 to B and C: the plan (owner's), your step 1
+What: the one plan is docs/DEVELOPMENT_NOTE.md 3e (owner's goal: everything ready, as tools, before the real build;
+the story document is not up to date: do not work from its scenes). Three lanes, one step at a time, each in its own
+files; done = a minimal headless test of the system, never playing X/Y's scenes; a run over 15 minutes is asked of the
+owner first (through me). main (cc177940 and later) holds all three branches: start from it.
+- B, step 1: X/Y's gym mechanics (Clemont's lift and doors, Ramos's garden, Valerie's warp, Grant, Korrina, Viola,
+  Olympia, Wulfric): their natives, each checked by a minimal call.
+- C, step 1: story flags and works survive a save and reload (both ranges: below 0xD00 and block 47), read back headless.
+Ask for the merge when the step is done; I give the next step then. Ping channels: A's is pull request 129.
+Needs: B and C, acknowledge and start step 1.
+Commits: this one.
