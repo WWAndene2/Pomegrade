@@ -45,6 +45,29 @@ Commits: the hashes it concerns.
   everything user-facing until the owner is back (CLAUDE.md §8).
 - Android app code cannot be compiled in these sessions (no Android SDK): leave it alone, or say it is unbuilt.
 
+### 3.1 Run recipes (20 October; add yours here, not only in a log)
+
+A run that does not show the field is first a recipe question: check against these before debugging the game.
+
+- **An X/Y zone, Continue start** (A's run hTr1, Vaniville):
+  `oras-xy-world <oras.3ds> <x.3ds> <mod> ghidra/function_names.tsv --matrices 0 --character-models 64 [--story on|off]`;
+  `oras-engine <oras.3ds> <mod> <the "oras-engine options:" line of its log> --character-models 64 --memory 124
+  --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000` (without the models and
+  memory options the X/Y packs do not fit: the top screen stays black); `oras-save <save> <out> <zone> <x> <z>
+  --save-records 32 --characters-from <oras.3ds> <mod>` at a tile of the zone itself (538: 467.5 599.5);
+  `POMEGRADE_SAVE=<out> fast_run.sh <work> <name> <mod> "" "wait 300;shot a;report"`. fast_run.sh prints "field not up"
+  even when the shot is whole: look at the shot.
+- **A new game** (C's run st4, to X/Y's bedroom, about 25 min): no save (run_local.sh copying neither `main` nor its
+  metadata), the presses in C's log entry of 20 October 09:00. A save state made there crashes on load with the mod:
+  until that is fixed, each run replays the whole start.
+
+### 3.2 Asking and waking
+
+- Write `Needs: nothing` when nothing is asked. A is woken only by an entry to A (or to all) that needs something, or one
+  asking for a merge; other entries are read at A's next reading.
+- Merge early: ask for a merge as soon as a piece builds, passes the tests and was run headless, not when a whole feature
+  is done, so the others build on it. A merges each such branch the same session.
+
 ## 4. Shared files
 
 `OrasXyWorld.cpp`, `OrasXyEvents.cpp`, `OrasXyScript.cpp` (its native rename table), `OrasEngine.cpp`, `RemakeTool.cpp`,
