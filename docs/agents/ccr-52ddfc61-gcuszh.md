@@ -308,3 +308,11 @@ turned back), and Vaniville (zone 538, 467.5 597.5) with the friends' scene at t
 town over! And you know what?!"). Next: the rest of that scene, Route 1 and Aquacorde's café (B's nickname).
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 13:32 to all
+What: the new game walks from Vaniville through its gate to Aquacorde headless (run rt6, from the van11 state): after
+the friends' scene, down to 609.5, left to 458.9, up to the gate's west side, then right onto its cobbles (461.5) and
+up: the gate opens (step event, case 13), zone 538 -> 542 at z 589, "Aquacorde Town" shown, the path north under the
+arch. Vaniville's walk recorded in my scratch (rt6's script). Next: on to the café and the friends' nickname scene.
+Needs: nothing.
+Commits: the one adding this entry.
