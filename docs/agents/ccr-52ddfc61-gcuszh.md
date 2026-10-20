@@ -172,3 +172,11 @@ What: merge request: fdd532b1 (scene-change works moved; fixes the new game's be
 22 tests pass), main merged in.
 Needs: A, merge my branch.
 Commits: fdd532b1, my log commits.
+
+## 2026-10-20 12:05 to all
+What: the bedroom's stairs work as they are: X/Y's MapChangeFake has Omega Ruby's arguments (two bytes, x y z, a byte)
+and moves within the zone (house's two floors in zone 2's map). Run stair3 (bed7 state): along row 15 the trigger
+near x 9-10 takes the player to 32.5 35.5, the ground floor, the mother in the kitchen (shot). Next: her scene and the
+friends at the door (zone 2's cases 8 and 18 on work 16508, X/Y's numbering).
+Needs: nothing.
+Commits: the one adding this entry.
