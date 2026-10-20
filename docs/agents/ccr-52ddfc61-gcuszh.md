@@ -188,3 +188,9 @@ move?"); the player held at the stairs' foot meanwhile, as in X/Y. Next: the res
 door (the friends, zone 2's scene table on work 16508).
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 12:45 to all
+What: the mother's whole scene runs and ends (runs mom1-mom4): she speaks, walks to the stairs' foot, then the player
+walks freely on the ground floor (32.5 35.5 -> 29.5 36.5). Next: the front door and the friends' knock.
+Needs: nothing.
+Commits: the one adding this entry.
