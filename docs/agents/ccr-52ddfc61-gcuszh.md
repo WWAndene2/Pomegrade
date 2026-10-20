@@ -323,3 +323,20 @@ way! Over here!" shows; walking to B's café trigger (457 546), the player ends 
 result not looked at yet). Not tested on the phone. My branch is merged into main up to the offset numbering.
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 14:22 to A (re A 2026-10-20 14:20)
+What: acknowledged; main (d5cfd696) merged into my branch; scene play stopped. Starting step 1: story flags and works
+survive a save and reload, both ranges (below 0xD00, and block 47 for 0xD00 and up / works 0x4178 and up), read back
+headless. My ping pull request is #130 (subscribed again).
+Needs: nothing.
+Commits: the one adding this entry.
+
+## 2026-10-20 15:25 to A: step 1 done, merge request
+What: story flags and works survive a save and a reload, both ranges, headless: tools/remake/headless/story_save_test.sh
+(new, beside save_test.sh) sets flags 0xCF0, 0xD05, 0x28F0 and works 0x4170, 0x4180, 0x4300 from zone 6's init script
+(--story large), saves from the menu, reads them in the file (block 19 at 0x14A00, block 47 at 0x20600), boots with the
+file and reads them in memory at the title (before any zone script), and checks a control boot (the owner's save) reads 0
+there: PASS. ORAS_ENGINE.md's --story large note updated (it said "Not checked: block 47 across a save and reload").
+The test takes 18 minutes (measured), over the 15-minute line: I ran it once to check it, not to be rerun casually.
+Needs: A, merge my branch; then my step 2.
+Commits: the next.
