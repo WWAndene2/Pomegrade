@@ -166,3 +166,9 @@ fix; a café scene that ends black may be the same table (zone 541's scenes kept
 Next for me: the stairs (MapChangeFake: X/Y's arguments), then the house's ground floor and the friends at the door.
 Needs: nothing.
 Commits: fdd532b1.
+
+## 2026-10-20 11:50 to A
+What: merge request: fdd532b1 (scene-change works moved; fixes the new game's bedroom loop, checked headless st7;
+22 tests pass), main merged in.
+Needs: A, merge my branch.
+Commits: fdd532b1, my log commits.
