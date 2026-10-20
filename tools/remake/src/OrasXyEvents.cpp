@@ -11,11 +11,77 @@
 #include <algorithm>
 #include <cstdio>
 #include <filesystem>
+#include <sstream>
 
 namespace remake
 {
 
 static Bytes Plain(const Bytes& data) { return IsLzCompressed(data) ? LzDecompress(data) : data; }
+
+// the function a case of the zone script's main dispatch calls (XyScriptSource's text: "Lc:", "push.p.c 0", "call Lf"), its
+// body from "Lf:" to its first retn; empty when the case or the shape is not there
+static std::pair<size_t, size_t> CaseFunction(const std::string& source, int value)
+{
+    size_t table = std::string::npos, best = 0;
+    for (size_t at = source.find("casetbl "); at != std::string::npos; at = source.find("casetbl ", at + 1))
+    {
+        const size_t end = source.find('\n', at);
+        if (end - at > best) { best = end - at; table = at; }
+    }
+    if (table == std::string::npos) return {0, 0};
+    std::istringstream entries(source.substr(table, source.find('\n', table) - table));
+    std::string word, label, count, fallback;
+    entries >> word >> count >> fallback;
+    for (std::string c, l; entries >> c >> l;) if (c == std::to_string(value)) label = l;
+    if (label.empty()) return {0, 0};
+    const size_t at = source.find("\n" + label + ":\n");
+    if (at == std::string::npos) return {0, 0};
+    const size_t call = source.find("call ", at), next = source.find(":\n", at + label.size() + 3);
+    if (call == std::string::npos || call > next) return {0, 0};
+    const std::string target = source.substr(call + 5, source.find('\n', call) - call - 5);
+    const size_t start = source.find("\n" + target + ":\n");
+    if (start == std::string::npos) return {0, 0};
+    const size_t retn = source.find("    retn\n", start);
+    return retn == std::string::npos ? std::pair<size_t, size_t>{0, 0} : std::pair<size_t, size_t>{start + 1, retn};
+}
+
+// X/Y's step events whose case only asks its parent flag (ParentFlagSetReq) open what the next case does when that flag is
+// set: Vaniville's gate (zone 0, case 12 asks, case 13 tests ParentFlagGet, opens the gate and sets work 16496, ending the
+// event). How X/Y then runs case 13 is not read; Omega Ruby does not (run hGate, 20 October: the gate stayed shut). So the
+// trigger runs the next case, its flag test removed. Triggers from `first` on are the step events
+static std::string XyParentFlagSteps(std::string source, std::vector<ZoneTrigger>& triggers, size_t first, int xZone, std::vector<std::string>& log)
+{
+    for (size_t k = first; k < triggers.size(); k++)
+    {
+        ZoneTrigger& t = triggers[k];
+        const auto [askAt, askEnd] = CaseFunction(source, t.Raw[0]);
+        if (askEnd == 0) continue;
+        const std::string ask = source.substr(askAt, askEnd - askAt);
+        if (ask.find("; ParentFlagSetReq") == std::string::npos) continue;
+        bool onlyAsks = true;
+        for (size_t at = ask.find("sysreq"); at != std::string::npos; at = ask.find("sysreq", at + 1))
+        {
+            const std::string line = ask.substr(at, ask.find('\n', at) - at);
+            if (line.find("; ParentFlagSetReq") == std::string::npos && line.find("; CommandNOP") == std::string::npos) onlyAsks = false;
+        }
+        const auto [openAt, openEnd] = CaseFunction(source, t.Raw[0] + 1);
+        if (!onlyAsks || openEnd == 0) continue;
+        // the test: "push.p.c F", "sysreq.n N 4   ; ParentFlagGet", "eq.p.c.pri 1", "jzer L" right after "proc"
+        const std::string open = source.substr(openAt, openEnd - openAt);
+        const std::string test = "; ParentFlagGet\n    eq.p.c.pri 1\n    jzer ";
+        const size_t get = open.find(test);
+        const size_t proc = open.find("    proc\n");
+        if (get == std::string::npos || proc == std::string::npos) continue;
+        const size_t testStart = proc + 9, testEnd = open.find('\n', get + test.size()) + 1;
+        if (open.substr(testStart, 9) != "    push.") continue;
+        source.erase(openAt + testStart, testEnd - testStart);
+        char line[160];
+        snprintf(line, sizeof line, "X/Y zone %d: step event of case %d (asks its parent flag) runs case %d, its flag test removed", xZone, t.Raw[0], t.Raw[0] + 1);
+        log.push_back(line);
+        t.Raw[0] = (uint16_t)(t.Raw[0] + 1);
+    }
+    return source;
+}
 
 XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNumbers& numbers, std::map<int, int>& modelOf,
                                const std::string& namesFile, const std::string& scriptDir, int orasZone, std::vector<std::string>& log, bool story)
@@ -73,7 +139,19 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
         t.Raw[6] = (uint16_t)(t.Raw[6] + dx); t.Raw[7] = (uint16_t)(t.Raw[7] + dz);
         e.Triggers.push_back(t);
     }
-    if (!x.Others.empty()) log.push_back("X/Y zone " + std::to_string(xZone) + ": its " + std::to_string(x.Others.size()) + " event(s) of the fifth kind left out");
+    // X/Y's fifth kind: step events that run the zone script's case [0] while work [2] equals [1] (zone 57's mirror stripes,
+    // 1 SetMirror and 2 ResetMirror; Vaniville's gate, case 12), the layout of a trigger, which Omega Ruby's fifth kind
+    // is not (its popup messages, read only by PopupMsgStartEvent). Made triggers: they are not the story, kept without it
+    const size_t firstStep = e.Triggers.size();
+    for (const ZoneOther& o : x.Others)
+    {
+        ZoneTrigger t;
+        t.Raw = o.Raw;
+        t.Raw[2] = (uint16_t)moved(numbers.Works, t.Raw[2]);
+        t.Raw[6] = (uint16_t)(t.Raw[6] + dx); t.Raw[7] = (uint16_t)(t.Raw[7] + dz);
+        e.Triggers.push_back(t);
+    }
+    if (!x.Others.empty()) log.push_back("X/Y zone " + std::to_string(xZone) + ": its " + std::to_string(x.Others.size()) + " step event(s) of the fifth kind made triggers");
     // the text, each language's file as X/Y has it
     std::vector<Bytes> texts;
     for (int k = 0; k < 8; k++) texts.push_back(Plain(Garc(xRom.Read("a/0/8/" + std::to_string(k))).Sub(x.Header[3])));
@@ -99,6 +177,7 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
         }
         else source = init ? EmptyInitScript : EmptyZoneScript;
         source = XyMoveZones(source, numbers.Zones, notes);
+        if (!init && from == "translated") source = XyParentFlagSteps(source, e.Triggers, firstStep, xZone, log);
         uint32_t mask = 0x243;
         Bytes assembled;
         for (int tries = 0;; tries++)

@@ -54,6 +54,7 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         {
             for (const ZoneCharacter& c : zone.Characters) if (c.Raw[4]) vanish.insert(c.Raw[4]);
             for (const ZoneTrigger& t : zone.Triggers) conditions.insert(t.Raw[2]);
+            for (const ZoneOther& t : zone.Others) conditions.insert(t.Raw[2]);
             for (const Bytes* s : {&zone.Script, &zone.InitScript})
                 if (s->size() >= 16) scripts.push_back(XyScriptToOras(*s, o.NamesFile, 0x243).Script);
         }
