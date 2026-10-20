@@ -20,7 +20,8 @@
 // words 22 and 26: x and z in pixels, each the low half of a u32); X/Y's warps with their destination renumbered (a warp to a
 // zone not taken is left out, logged); its people, objects, triggers, text and scripts (XyEventsToOras, no shift). X/Y's
 // story flags and works are numbered over all 360 zones, so a flag keeps its number whatever part a build takes. Wild Pokemon: X/Y's
-// tables (XyEncountersToOras, with oras-engine --wild-tables large). Music: the header's default (Littleroot's outdoors, its house's inside): X/Y's tracks are not Omega Ruby's.
+// tables (XyEncountersToOras, with oras-engine --wild-tables large). Trainers: X/Y's after Omega Ruby's (AddXyTrainers, with
+// oras-engine --xy-trainers on). Music: the header's default (Littleroot's outdoors, its house's inside): X/Y's tracks are not Omega Ruby's.
 
 #include "OrasWorkspace.h"
 

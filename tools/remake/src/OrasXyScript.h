@@ -49,7 +49,8 @@ struct XyNumbers
 };
 
 // the numbers XyNumbersFor gives from
-constexpr int XyFirstFlag = 0xD00, XyLastFlag = 0x2C3F, XyFirstWork = 0x4178, XyLastWork = 0x436B;
+// (flags 0x2900-0x2C10 are X/Y's trainers', OrasXyTrainers.h)
+constexpr int XyFirstFlag = 0xD00, XyLastFlag = 0x28FF, XyFirstWork = 0x4178, XyLastWork = 0x436B;
 
 // X's flags and works the scripts (after XyScriptToOras) name, with the extra flags (characters' vanish flags, word 4: zone 0's character 3 hides on 615) and
 // works (triggers' conditions, word 2), numbered from XyFirstFlag and XyFirstWork in increasing order; throws FormatError
@@ -75,6 +76,11 @@ std::string XyMoveZones(const std::string& source, const std::map<int, XyZonePla
 // (OrasXySound.h): an effect by its name; a stream (music, a jingle) as its category-0 id only with `streams` (X/Y's music
 // in the mod), else kept
 std::string XyMoveSounds(const std::string& source, const struct XySounds& sounds, bool streams, std::vector<std::string>& notes);
+
+// the trainers of a script's battles (_CallTrainerBattleCore's second argument when a constant, or the constant each call of
+// the script's own procedure passes for it, followed through up to four procedures) made Omega Ruby's numbers of X/Y's
+// trainers (XyTrainerToOras); a trainer computed is in `notes`, not moved
+std::string XyMoveTrainers(const std::string& source, std::vector<std::string>& notes);
 
 // xScript: an X/Y zone script; namesFile: tools/remake/ghidra/function_names.tsv (Omega Ruby's natives and their mask
 // bits); mask: the native mask of the zone it will run in (0x243 for zones 536 and up unless oras-engine --script-mask)

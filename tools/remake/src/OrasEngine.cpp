@@ -2,6 +2,7 @@
 #include "Bps.h"
 #include "CodePatch.h"
 #include "OrasSave.h"
+#include "OrasXyTrainers.h"
 
 #include <filesystem>
 #include <set>
@@ -125,6 +126,20 @@ static uint32_t Branch(uint32_t from, uint32_t to, bool link)
 {
     return (link ? 0xEB000000u : 0xEA000000u) | (((to - from - 8) >> 2) & 0xFFFFFF);
 }
+
+// The trainer flag routine (--xy-trainers, BuildEngineMod): r0 a trainer id in, its "beaten" flag out, r1 clobbered
+static constexpr uint32_t TrainerFlagRoutine[12] = {
+    0xE2401FED, 0xE2511002, // sub r1, r0, #0x3B4; subs r1, r1, #2     r1 = id - 950
+    0x2A000002,             // bhs: X/Y's
+    0xE2800D1B, 0xE280000C, // add r0, r0, #0x6C0; add r0, r0, #0xC    the game's 0x6CC + id
+    0xE12FFF1E,             // bx lr
+    0xE3510E31,             // cmp r1, #0x310                          past X/Y's 785
+    0x83A00D1B, 0x8280000D, // movhi r0, #0x6C0; addhi r0, r0, #0xD    trainer 1's flag
+    0x812FFF1E,             // bxhi lr
+    0xE2810C29,             // add r0, r1, #0x2900                     X/Y's 0x2900 + n
+    0xE12FFF1E,             // bx lr
+};
+static_assert(XyTrainerFlagBase == 0x2900 && XyTrainerFirst == 950 && XyTrainerCount == 785 && GameTrainerFlags == 0x6CC, "the routine's immediates");
 
 static uint32_t BranchTarget(uint32_t at, uint32_t word)
 {
@@ -493,6 +508,31 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         for (uint32_t k = 0; k < 8; k++) words.push_back({at + 4 * k, 0, works[k], "FUN_0011fa90 (cave)"});
         log.push_back("story: flags 0xD00-0x2C3F and works 0x4178-0x436B in save block 47 (the game's flags end at 0xCFF, works at 0x4177)");
     }
+    if (o.XyTrainers)
+    {
+        // X/Y's trainers after the game's 950 (OrasXyTrainers.h). The data readers bound a trainer id by literal words 950
+        // (seven words read by ten readers: Trainer_ReadData 0x453E08, Trainer_BuildOneTeam 0x454EA4, Trainer_FillInfo
+        // 0x455450 and seven others; id 0 or past the bound reads trainer 1) and 949 (0x443AC0, a battle setup's check of
+        // its trainer), none of the eight loaded by another instruction (checked 20 October); the trainer a character's script names (3000 + id, 5000 + id for a double's second)
+        // is bounded by 980 in the getter FUN_004dc648 (DllField's import 0x13C0), Event_IsWarpEnabledByFlag and DllField
+        // 0x21328, the room of the "beaten" flags 0x6CC + id. The bound becomes 1792 (0x700, an immediate) and the flag
+        // comes from one routine: 0x6CC + id below 950 as the game's, 0x2900 + (id - 950) for X/Y's, past them trainer 1's
+        // as the game does past its bound. In the .code at 0x579F80-0x579FAF and a copy in DllField's cave (DllField cannot
+        // branch to the .code: it is loaded where the game puts it); r0 the id in and the flag out, r1 clobbered (each
+        // site's next instruction writes r1, and lr is saved by each of the four functions)
+        if (!o.LargeStory) throw FormatError("--xy-trainers needs --story large (X/Y's trainer flags are 0x2900 and up)");
+        const uint32_t count = XyTrainerCount, last = XyTrainerFirst + XyTrainerCount;
+        for (const uint32_t pool : {0x450FBCu, 0x4533ACu, 0x453504u, 0x453EA4u, 0x454D90u, 0x45544Cu, 0x455600u})
+            words.push_back({pool, 0x3B6, last, "a trainer data reader's bound (950 -> " + std::to_string(last) + ")"});
+        words.push_back({0x443EC8, 0x3B5, last - 1, "a battle setup's last trainer (949)"});
+        constexpr uint32_t cave = 0x579F80;
+        for (uint32_t k = 0; k < 12; k++) words.push_back({cave + 4 * k, 0, TrainerFlagRoutine[k], "trainer flags (cave)"});
+        words.push_back({0x4DC66C, 0xE3500FF5, 0xE3500C07, "the trainer getter's bound (980 -> 1792)"});
+        words.push_back({0x4DE5D4, 0xE3550FF5, 0xE3550C07, "Event_IsWarpEnabledByFlag's trainer bound (980 -> 1792)"});
+        words.push_back({0x4DE5F0, 0xE2850B01, 0xE1A00005, "Event_IsWarpEnabledByFlag: the id to r0"});
+        words.push_back({0x4DE5F4, 0xE2800FB3, Branch(0x4DE5F4, cave, true), "Event_IsWarpEnabledByFlag: its flag from the routine"});
+        log.push_back("trainers: " + std::to_string(last) + " (X/Y's " + std::to_string(count) + " after the game's 950), their flags 0x2900 and up");
+    }
     if (o.LargeEvents)
     {
         // A zone's events file is copied on entering it into one of two 0xC8C-byte slots of the events object (0x1958 bytes,
@@ -620,6 +660,21 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         };
         for (uint32_t k = 0; k < 20; k++) croWords.push_back({cave + 4 * k, 0, select[k], "Field_WildEncounter_SelectTable (cave)"});
         log.push_back("wild tables: kinds 9-12 (X/Y's land tables 1-4) on tiles 0x21-0x23 and kinds Omega Ruby has none for");
+    }
+    if (o.XyTrainers)
+    {
+        // the trainer flag routine above, in DllField's cave, for its three trainer flags (the one at 0x2133C after its bound)
+        const auto at = [](uint32_t file) { return DllFieldBase + file; };
+        const CroLayout layout(oras.Read("DllField.cro"));
+        uint32_t cave = DllFieldBase + layout.CodeEnd();
+        for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
+        croWords.push_back({at(0x21328), 0xE3500FF5, 0xE3500C07, "DllField's trainer flag bound (980 -> 1792)"});
+        for (const uint32_t site : {0x2133Cu, 0xDFC34u, 0xDFDECu})
+        {
+            croWords.push_back({at(site), 0xE2800B01, 0xE320F000, "a trainer flag: the id kept in r0 (nop)"});
+            croWords.push_back({at(site + 4), 0xE2800FB3, Branch(at(site + 4), cave, true), "a trainer flag from the routine"});
+        }
+        for (uint32_t k = 0; k < 12; k++) croWords.push_back({cave + 4 * k, 0, TrainerFlagRoutine[k], "trainer flags (cave)"});
     }
     if (!croWords.empty()) dllField = PatchCro(oras.Read("DllField.cro"), DllFieldBase, croWords);
     for (const auto& [id, size] : o.HeapSizes)

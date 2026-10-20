@@ -13,6 +13,7 @@
 #include "OrasXyPiece.h"
 #include "OrasXySound.h"
 #include "OrasXyScript.h"
+#include "OrasXyTrainers.h"
 #include "OrasZone.h"
 
 #include <algorithm>
@@ -32,6 +33,9 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     N3dsRom xRom(ws.XyRom);
     const Garc xZones(xRom.Read("a/0/1/2")), xMatrices(xRom.Read("a/0/4/2")), xPieces(xRom.Read("a/0/4/1")), xPacks(xRom.Read("a/0/1/3")),
         xProps(xRom.Read("a/0/2/4"));
+
+    // X/Y's trainers, before the zones' scripts name them (OrasXyTrainers.h)
+    for (const std::string& l : AddXyTrainers(ws)) log.push_back(l);
 
     // every X/Y zone (the archive's last member is its header table, not a zone), and those taken
     std::map<int, OrasZone> all;
@@ -152,6 +156,7 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     // the zones
     std::map<int, uint32_t> masks;
     bool wildTables = false; // a zone with X/Y's encounters, which need its land tables in the engine
+    bool largeEvents = false; // a zone whose events file needs oras-engine --events large
     for (const int z : taken)
     {
         const OrasZone& x = all.at(z);
@@ -214,6 +219,9 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         zone.InitScript = e.InitScript;
         const Bytes encounters = XyEncountersToOras(BinLinker::Read(Plain(xZones.Sub((size_t)z)), "ZO").Files.at(3), z);
         if (!encounters.empty()) wildTables = true;
+        // a zone of many people and triggers (with its story) outgrows the game's events buffer: oras-engine --events large
+        OrasZone::EventsLimit = 0x1910;
+        if (zone.EventsFile().size() >= OrasZone::EventsBudget) largeEvents = true;
         const int added = ws.AddZone(WriteNewZone(zone, encounters), encounters);
         if (added != number) throw FormatError("oras-xy-world: X/Y zone " + std::to_string(z) + " took zone " + std::to_string(added) + ", not " + std::to_string(number));
         if (e.Mask != 0x243) masks[number] = e.Mask;
@@ -223,6 +231,8 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     std::string engine = "oras-engine options: --zone-rows " + std::to_string(ws.NextZone()) + " --story large";
     if (std::any_of(packOf.begin(), packOf.end(), [](const auto& p) { return p.second > 255; })) engine += " --area-packs large";
     if (wildTables) engine += " --wild-tables large";
+    if (largeEvents) engine += " --events large";
+    engine += " --xy-trainers on";
     // with its story, a new game starts in X/Y zone 2, the player's bedroom in Vaniville (its mirror scene), at its header's
     // spawn (OrasEngine.h StartZone); that X/Y's own new game starts there is inferred, not read in X/Y's code
     if (o.Story && numbers.Zones.count(2)) engine += " --start-zone " + std::to_string(numbers.Zones.at(2).Zone);

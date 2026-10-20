@@ -7,6 +7,7 @@
 #include "OrasTown.h"
 #include "OrasWorkspace.h"
 #include "OrasXySound.h"
+#include "OrasXyTrainers.h"
 #include "XyCharacter.h"
 
 #include <algorithm>
@@ -128,6 +129,11 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
         c.Raw[1] = (uint16_t)modelOf[model];
         if (std::find(e.Models.begin(), e.Models.end(), modelOf[model]) == e.Models.end()) e.Models.push_back(modelOf[model]);
         c.Raw[4] = (uint16_t)moved(numbers.Flags, c.Raw[4]);
+        // a trainer's script (3000 + its id, 5000 + id for a double's second: ZoneCharacter::TrainerId) names Omega Ruby's
+        // number of X/Y's trainer (OrasXyTrainers.h)
+        for (const int base : {3000, 5000})
+            if ((c.Raw[3] == 1 || c.Raw[3] == 3 || c.Raw[3] == 9) && c.Raw[5] > base && c.Raw[5] < base + XyTrainerCount)
+                c.Raw[5] = (uint16_t)(base + XyTrainerToOras(c.Raw[5] - base));
         c.Raw[20] = (uint16_t)(c.Raw[20] + dx); c.Raw[21] = (uint16_t)(c.Raw[21] + dz);
         e.Characters.push_back(c);
     }
@@ -180,6 +186,7 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
         else source = init ? EmptyInitScript : EmptyZoneScript;
         source = XyMoveZones(source, numbers.Zones, notes);
         if (sounds) source = XyMoveSounds(source, *sounds, music, notes);
+        source = XyMoveTrainers(source, notes);
         if (!init && from == "translated") source = XyParentFlagSteps(source, e.Triggers, firstStep, xZone, log);
         uint32_t mask = 0x243;
         Bytes assembled;
