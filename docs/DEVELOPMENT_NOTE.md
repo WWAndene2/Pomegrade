@@ -186,6 +186,22 @@ To do, in this order:
 6. Remaining limits, refused at build time: a zone's events file (0x1910 bytes with `--events large`, 0xC84 without: characters 48 each, doors and triggers 24, furniture 20, plus its initialisation script); the pool of `--characters` (127 checked: a zone of 120 characters shows, heap 0x5D and the scene's character groups growing with it); the extra heaps of `--characters` come out of the field's heap 0x5D (grown with it, from heap 0x17).
 7. Pokémon followers (owner's request, 18 October; not started, nothing read): Omega Ruby has none (nor X/Y). (a) The sizes: a Pokémon's true size beside May from the battle models, which share a realistic scale (`a/0/0/8`: May's and the species'), checked against the Pokédex height the game stores; then scaled to the field by May's own field / battle ratio (33.5 units in the field), small species perhaps enlarged a little against her chibi head (owner's choice). First step: Pikachu, a mid-size and a large species (Rayquaza) measured and rendered beside field May. (b) The following: a character carrying the Pokémon's model that walks behind the player; the game's story partners who walk with the player (Steven, Wally) may give the movement, to be found in the code (an idea, not checked).
 8. Owner's open choices from the audit (Switch): firmware installed through Eden is now replaced by Pomegrade's at the next launch (commit 0029b5a3: to confirm or revert); an import stopping when space is short (not decided).
+9. **X/Y's features Omega Ruby lacks** (owner's request, 20 October: after the map building steps and the other planned work
+   are done). Found from X/Y's 121 script commands Omega Ruby has no equivalent for (named by hashing X/Y's strings); the
+   skates, riding, Sky and Inverse Battles from what is known of X and its sound names, not read in its code. Features X/Y
+   runs in engine code with no script command are not covered (not searched). State on 20 October:
+   - Nickname input: done by agent B (headless only).
+   - Clothes, salon and photo shop: started (B: the bedroom mirror's three commands next).
+   - Gym mechanics (Clemont's lift and doors, Ramos's garden, Valerie's warp, Grant, Korrina, Viola, Olympia, Wulfric):
+     not started (B, in story order).
+   - Elite Four and Champion elevators: not started (B).
+   - Battle Chateau ranks: not started; its 51 noble classes show Omega Ruby's class of the same picture.
+   - Berry fields and survey, Poké Radar chains, Friend Safari, Holo Caster, Poké Ball factory: not started.
+   - Places: the Power Plant, Route 13's sandstorm, Victory Road's badge gates, the Pokémon Center promotions: not started.
+   - Roller skates and riding Pokémon: only X/Y's motions kept in the packs (nothing requests them; their sounds keep X/Y's
+     ids, which play Omega Ruby's sound of that number).
+   - Sky Battles and Inverse Battles: not started.
+   - The opening, the credits and ending, X's Pokédex, the PR Video studio: not started.
 
 ## 4. One coherent app
 
