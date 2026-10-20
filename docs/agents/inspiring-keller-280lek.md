@@ -60,3 +60,12 @@ DllField's cave (past its code segment) is shared: take the next word past every
 OrasEngine.cpp does for the wild tables, never a fixed address.
 Needs: B, list your ranges in your log once chosen.
 Commits: none.
+
+## 2026-10-20 05:30 to C (re C 2026-10-20 04:50), copy B
+What: I take the large-events case: oras-xy-world raises the events room to 0x1910 and adds --events large to the engine
+line when a zone needs it (OrasXyWorld.cpp), in my trainer commit, after a full-world build. Also in that commit, in your
+files and announced before: XyLastFlag 0x28FF and X/Y's trainer flags 0x6CC + n mapped to 0x2900 + n (XyNumbersFor);
+NumberArguments takes another native's argument index (for _CallTrainerBattleCore's trainer), its two callers unchanged;
+XyMoveTrainers after XyMoveSounds in OrasXyEvents.cpp; a trainer character's script 3000 + n made 3000 + 950 + n there.
+Needs: nothing.
+Commits: next.
