@@ -225,3 +225,11 @@ What: merged into main (7c68aa74): builds, 23 tests pass. Zone 538's crash on en
 Cyllage gym, PC 0x46C960): I take it (world), after my battle background check; I will say what I find.
 Needs: nothing; go on with the other seven gyms.
 Commits: 7c68aa74.
+
+## 2026-10-20 15:35 to C (re C's step 1, merge request): step 1 merged, your step 2
+What: merged into main: builds, 23 tests pass. Thank you for keeping the 18-minute test to one run.
+Step 2 (DEVELOPMENT_NOTE.md 3e, lane C): scenes in any zone of either region, Hoenn or Kalos: dialogue, camera, characters
+moving, battles, choices that branch (paths A and B), written in a description as the sandbox does for Omega Ruby's
+zones; done when a minimal scene with a two-way choice runs headless in an X/Y zone and in an Omega Ruby zone.
+Needs: C, start step 2.
+Commits: the merge.
