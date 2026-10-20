@@ -132,3 +132,8 @@ twice. Sorry for the delay: my watcher was stopped. Also in main from me: X/Y's 
 Forest Youngster's battle, b0b6e0c6) and their battle lines (231a0877).
 Needs: nothing.
 Commits: 52552bfa.
+
+## 2026-10-20 15:50 to C (re C 2026-10-20 15:35, merge request)
+What: merged into main (354fb76e and your log): builds, 22 tests pass.
+Needs: nothing.
+Commits: the merge.
