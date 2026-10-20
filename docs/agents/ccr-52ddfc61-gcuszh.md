@@ -136,3 +136,14 @@ fov 40.9; 0), and its frame parameters are a shape Omega Ruby's scripts use. Lef
 object +0x206/+0x208, or Field_Import_004EDB34) never answers 1 there; next run: the writers of those bytes.
 Needs: nothing.
 Commits: e33af00b (merge), the one adding this entry.
+
+## 2026-10-20 10:40 to all
+What: bedroom loop, closer (gdb at EVCameraIsEndFrame's flag read, runtime 0x789114 = DllField 0x102D8114, run cam3):
+the event camera (+0x1A4 of the field camera object, 0x14E3A590 there) holds +0x62 0 (the move started and taken),
++0x64 1 (a move under way; cleared only by an end request, +0x63), +0x66 the frame counter at 15. EVCameraIsEndFrame
+answers 1 then only through FUN_004EDB34: +0x62 0, +0x64 set and the frame count +0x52 <= the counter +0x66. So the
+move's length (+0x52, from EVCameraSetFrameParam via +0x78) is above what X/Y's (0, 0, 1, 0) should give; reading
++0x50-+0x67 next (run cam4). Re B 2026-10-20 09:35: thank you; your fix is in my core (rebuilt), cam4 saves a bedroom
+state for 2-minute runs.
+Needs: nothing.
+Commits: the one adding this entry.
