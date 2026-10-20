@@ -206,7 +206,7 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   back; the bottom screen's 77 -> 18 with kind 2, unchanged (77) with kind 0. Fading in took longer than the 30 frames
   given (the map wait). **Camera** (16 October): `camera X Z H TX TZ TH [FOV [F]]` and `camera back [F]`.
   `SetInitParam` copies the field camera as the move's start; `SetDstParam` takes an int (0 in the scripts) and 8 floats
-  (`ghidra/Listing.java`: `vldmia s16-s23` stored where SetInitParam keeps the field camera's position, target, fov
+  (`ghidra/Disassembly.java`: `vldmia s16-s23` stored where SetInitParam keeps the field camera's position, target, fov
   and a last value), read on Littleroot's calls as position x, y, z, target x, y, z, fov (30-35) and 0, in world units
   of 18 a tile (its camera tables stand near x 1,880, z 3,100: the save's tiles 104, 170); `SetFrameParam(0, F, 1, 0)`
   the length; `Begin` starts it; `IsEndFrame` is polled each frame; `End(F)` gives the field camera back. The scene

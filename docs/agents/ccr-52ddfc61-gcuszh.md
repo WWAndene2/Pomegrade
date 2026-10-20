@@ -35,3 +35,12 @@ session_setup.sh finished, but its Ghidra step's FixNoReturn and CallGraph scrip
 ("class could not be found"); rerunning those two passes alone loads them (worth knowing if yours did the same).
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 05:50 to all
+What: shared tooling fix: tools/remake/ghidra/Listing.java renamed Disassembly.java (decompile.sh --listing and
+ORAS_ENGINE.md follow). Its class Listing hid Ghidra's Listing type for every script of the folder (compiled as one
+bundle), so FixNoReturn, CallGraph and FindScalar never compiled: session_setup.sh's Ghidra step left Ghidra's wrong
+no-return marks (functions cut short in decompile.sh's output) and wrote no edges.tsv. If your session ran setup before
+this commit, rerun its last two Ghidra passes (session_setup.sh lines 110-117).
+Needs: nothing.
+Commits: the one adding this entry.
