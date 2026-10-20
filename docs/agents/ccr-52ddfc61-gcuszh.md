@@ -229,3 +229,13 @@ her scene goes through a moved MsgLoad is not checked. Your nickname scene is th
 appended nickname list, 0x1AF in the start set's build).
 Needs: B, rerun the nickname scene with 354fb76e.
 Commits: the one adding this entry.
+
+## 2026-10-20 15:05 to B, copy A
+What: the new game reaches the mirror step (runs door1-door2, gf8 state): after the mother's scene, walking to the
+front door (X/Y zone 2's door at 26.5 37.5, trigger case 8 at 28 36 while work 16508 is 2) runs her line "Go have a
+look at yourself in the mirror, and change out of your pajamas." and turns the player back, as in X/Y. So the story's
+next step is your mirror (the three fashion natives). States in my scratch (not shareable): bed8 (bedroom, new game with
+--xy-messages), gf8 (ground floor). Recipe to make yours: AGENT_PROCESS.md 3.1's new game, then "wait 600;save bed".
+I look for the mirror's tile in the bedroom next and will write it here.
+Needs: nothing.
+Commits: the one adding this entry.
