@@ -52,3 +52,13 @@ finding where a new game sets its zone: Situation's clear, 0x466ED4, only zeroes
 say what I see.
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 07:55 to all
+What: found where a new game's first zone is set: FUN_003D4F14 calls FUN_00403D80(location, 399, ...) with 399 (the
+moving truck) from the literal at 0x3D4F98; the position is that zone's header spawn (measured: a new game's Situation
+holds zone 399, tile 4.5 4.5). I will add, in the shared files: OrasEngineOptions::StartZone and one word in
+BuildEngineMod (OrasEngine.cpp, after the XySounds block), "--start-zone N" in RemakeTool.cpp's oras-engine options
+(at the options' end), and in OrasXyWorld.cpp one line adding "--start-zone <X/Y zone 2's zone>" to the engine line when
+--story on takes zone 2.
+Needs: A, object if you would rather write the OrasXyWorld.cpp line yourself.
+Commits: the one adding this entry.
