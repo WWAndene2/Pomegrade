@@ -9,6 +9,7 @@
 #include "OrasTown.h"
 #include "OrasXyEncounters.h"
 #include "OrasXyEvents.h"
+#include "OrasXyLight.h"
 #include "OrasXyPiece.h"
 #include "OrasXySound.h"
 #include "OrasXyScript.h"
@@ -88,7 +89,7 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         const int pack = all.at(z).AreaPack();
         if (packData.count(pack)) continue;
         packDonor[pack] = all.at(z).Header[0] == 3 ? interiorDonor : outdoorDonor;
-        // the donor's light (file 4), camera (6) and the rest, but not its props, textures (0, 1, 11) nor material animations (2):
+        // the donor's camera (6) and the rest, but not its light (4, X/Y's below), props, textures (0, 1, 11) nor material animations (2):
         // Littleroot's, beside X/Y's of the same names, left some of Santalune's meshes black (OpenGL) or noisy (software
         // renderer) and renamed X/Y's textures (run hZ12gl); on placeholder pack 0's files instead (its few textures, no
         // animation) they drew right (run hD0, 19 October). Which of the two did it is not separated
@@ -96,6 +97,8 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         const BinLinker blank = BinLinker::Read(Plain(ws.Original("a/0/1/4").Sub(0)), "AD");
         // file 0 too: its list of Littleroot's props, whose textures were in file 1, stopped the area loader (run hM2)
         for (const size_t f : {(size_t)0, (size_t)1, (size_t)2, (size_t)11}) donor.Files.at(f) = blank.Files.at(f);
+        // X/Y's own light (OrasXyLight.h), where the donor's was kept before
+        donor.Files.at(4) = XyLightToOras(BinLinker::Read(Plain(xPacks.Sub((size_t)pack)), "AD").Files.at(4), donor.Files.at(4));
         packData[pack] = donor.Write();
     }
 

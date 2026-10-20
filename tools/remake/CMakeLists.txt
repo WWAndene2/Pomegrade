@@ -75,6 +75,7 @@ add_library(remake STATIC
     src/Bcsar.cpp
     src/Bcstm.cpp
     src/OrasXyEncounters.cpp
+    src/OrasXyLight.cpp
     src/OrasXyMusic.cpp
     src/OrasXySound.cpp
     src/OrasXyEvents.cpp
