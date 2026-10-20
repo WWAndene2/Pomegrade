@@ -1,0 +1,64 @@
+#ifndef REMAKE_ORASXYGYMMODULES_H
+#define REMAKE_ORASXYGYMMODULES_H
+
+// X/Y's gym mechanics given to Omega Ruby (DEVELOPMENT_NOTE.md 3e, lane B step 1): X/Y keeps each gym's mechanics in a code
+// module of its own, DllUSGym<Type>.cro, which X's DllField loads for the zones whose header word +0x26 (the area kind)
+// names it, as Omega Ruby's Field_LoadAreaSpecificModule (0x10273D30) loads its DllUS modules (read 20 October: X's switch
+// 0x1023B52C, kinds 0 Fighting, 1 Fairy, 2 Insect, 3 Rock, 4 Grass, 0xD Esper, 0xE Ice, 0x19-0x1B Elec; Omega Ruby's kinds
+// 1, 2, 9, 12, 17-20 and 22 load nothing). Each is ported rather than rewritten: X's module, with
+//  - its imports pointed at Omega Ruby's same functions: a CRO names an import by a segment tag of the module exporting it
+//    (|static|, the .code, or DllField), so each tag is rewritten to Omega Ruby's address, found by
+//    prototype/xy_import_match.py and read where it found only a changed copy;
+//  - its own words that hold X's layouts patched: the player object's position (+0xC64 in X, +0x6F8 in Omega Ruby: X's
+//    0x1029B53C and Omega Ruby's 0x102DC288 read side by side), X's sound ids (OrasXySound.h);
+//  - its class's vtable given the slot Omega Ruby added: the area module class has 13 virtual methods in X and 14 in Omega
+//    Ruby, a "return 0" at slot 12 (both games' DllUSPokecen compared). The new vtable is written in the free bytes after
+//    the code segment, which grows to hold it, and the module's own relocations of the old one are pointed at it, so no
+//    table of the module grows;
+//  - renamed (DllXy..., the same length), as Omega Ruby has modules of X's names.
+// Azahar only: a console checks a module's hash against the program's list (Azahar does not, CROHelper::VerifyHash).
+
+#include "Bytes.h"
+
+#include <cstdint>
+#include <functional>
+#include <map>
+#include <string>
+#include <vector>
+
+namespace remake
+{
+
+// what XyPortModule changes in an X module
+struct XyModulePort
+{
+    std::string XName, Name;              // X's module name and the ported one's (the same length)
+    std::map<uint32_t, uint32_t> Static;  // an X .code address imported -> Omega Ruby's
+    std::map<uint32_t, uint32_t> Field;   // an X DllField address imported (linked, prototype/cro_link.py) -> Omega Ruby's
+    struct Word { uint32_t Offset, Expected, Value; std::string Why; };
+    std::vector<Word> Words;              // the module's own words (file offsets) changed
+    std::vector<std::pair<uint32_t, uint32_t>> Sounds; // a word holding an X sound id (file offset, the id): translated
+    uint32_t Vtable = 0, Slots = 0;       // X's vtable (the file offset of its slot 0) and its slot count
+    uint32_t InsertSlot = 0, InsertValue = 0; // the slot Omega Ruby added and the .code function it holds
+    uint32_t Constructor = 0, ObjectSize = 0; // the class's constructor (a file offset) and its object's size
+};
+
+// a game's static module (static.crs) and DllField (the file, and where the linked program places it)
+struct XyGameModules
+{
+    Bytes Static, Field;
+    uint32_t FieldBase = 0;
+};
+
+// X's module ported: throws if a word or an import is not X's as described, or an import is not mapped. sound: X's sound
+// id -> Omega Ruby's (XySounds::Translate)
+Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameModules& oras, const XyModulePort& port,
+                   const std::function<uint32_t(uint32_t)>& sound);
+
+// Grant's gym (X zone 160, Cyllage): an ambient sound whose volume follows the player's distance (DllUSGymRock, read 20
+// October)
+const XyModulePort& XyGymRock();
+
+}
+
+#endif // REMAKE_ORASXYGYMMODULES_H
