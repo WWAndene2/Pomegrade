@@ -3,6 +3,7 @@
 #include "Amx.h"
 #include "Bytes.h"
 #include "OrasXyNickname.h"
+#include "OrasXyZoneWalk.h"
 
 #include <set>
 
@@ -69,6 +70,7 @@ const std::vector<XyNative>& XyNatives()
     static const std::vector<XyNative> all = [] {
         std::vector<XyNative> v;
         for (const XyNative& n : XyNicknameNatives()) v.push_back(n);
+        for (const XyNative& n : XyZoneWalkNatives()) v.push_back(n);
         return v;
     }();
     return all;

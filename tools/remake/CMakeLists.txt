@@ -88,6 +88,7 @@ add_library(remake STATIC
     src/Layout.cpp
     src/OrasXyNatives.cpp
     src/OrasXyNickname.cpp
+    src/OrasXyZoneWalk.cpp
     # the DS core's hash, so texture names match the emulator's by construction
     ${MELONDS_SRC}/xxhash/xxhash.c
 )
