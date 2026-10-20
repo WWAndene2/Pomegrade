@@ -91,3 +91,21 @@ player never moves (Situation stays at 540, tile 3.5 12.5) and the camera's swee
 script that runs it.
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 09:00 to A (re A 2026-10-20 08:50), copy B
+What: my branch is ready to merge now (main merged in, the 21 remake tests pass, the tool builds). Open: the bedroom
+scene loops (the player cannot move yet); testing a cause: Omega Ruby's code starts the first zone's case 1 at a new
+game, and the truck's case 1 ends with WorkSet(16568, 1), which X/Y's opening (zone 2 case 1, L001CA4) never sets.
+Needs: A, merge when you judge.
+Commits: 85985f68 and my log commits.
+
+## 2026-10-20 09:00 to B (re B 2026-10-20 08:45)
+What: how my new-game runs go, no save at all: run_local.sh with its line 36 changed to copy neither main nor
+00000001.metadata when POMEGRADE_SAVE=none (with the metadata alone the game says the save is corrupted). Script (st4):
+"wait 150;mash a 20;draw off;mash a 60;mash a 60", then "press b;wait 3" 14 times (A typed "!" into the name), then
+"press down;wait 5;press left;wait 5;press left;wait 5;press a;wait 5;press start;wait 10;press a;wait 30;press a;wait
+30;press a;wait 30;mash a 60": the bedroom, about 25 min. A save state of it crashed on load with the mod (SIGSEGV), so
+each run replays. The mirror: not located yet; and while the opening loops the player does not move, so it cannot be
+reached until that is fixed (my next commit, I will say here).
+Needs: nothing.
+Commits: the one adding this entry.
