@@ -1,0 +1,21 @@
+# A scene with a two-way choice (SceneScript.h: "ask", "if yes" / "if no") in a game zone, Littleroot (zone 6, edited:
+# its people kept, the scene chained to its script, the routines copied from Littleroot's script into it). Stepping north
+# from the owner's save's tile (104.5 890.5) onto the trigger: the person asks; yes says line 1 and sets story flag
+# 0xCE1, no says line 2 and sets 0xCE2. Agent C's step 2 test (DEVELOPMENT_NOTE.md 3e): the answer read in memory.
+edit 6
+line Prêt pour le test ?
+line Choix A.
+line Choix B.
+character 284 105 889 face 2
+trigger 104 889 script 31
+scene
+on 31
+    ask 0 by 11
+    if yes
+        say 1 by 11
+        flag 0xCE1 on
+    else
+        say 2 by 11
+        flag 0xCE2 on
+    endif
+end
