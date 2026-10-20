@@ -35,21 +35,25 @@ int main()
         for (const CodeWord& c : v) if (c.Address == address) return &c;
         return nullptr;
     };
+    const auto bl = [](uint32_t from, uint32_t to) { return 0xEB000000u | (((to - from - 8) >> 2) & 0xFFFFFF); };
     const CodeWord* test = at(p.Code, 0x3FBDA0);
-    check(test && test->Expected == 0xE3140B01 && test->Value == 0xEA05F836, "the bit 0x400 test: b 0x579E80");
-    const CodeWord* back = at(p.Code, 0x579EF0);
-    check(back && back->Value == (0xEA000000u | (((0x3FBDA4u - 0x579EF0u - 8) >> 2) & 0xFFFFFF)), "the routine's end: b 0x3FBDA4");
-    const CodeWord* offset = at(p.Code, 0x579EF4);
-    check(offset && offset->Value == cave - 0x1029F1E0u, "the routine's literal: the table from DllField's getter");
-    const CodeWord* stub = at(p.Code, 0x579EF8);
-    check(stub && stub->Value == 0x19C8D4, "the routine's second literal: the stub's word holding the getter");
+    check(test && test->Expected == 0xE3140B01 && test->Value == bl(0x3FBDA0, 0x579E80), "the bit 0x400 test: bl the first stub");
+    const CodeWord* tail = at(p.Code, 0x506178);
+    check(tail && tail->Expected == bl(0x506178, 0x19C910) && tail->Value == bl(0x506178, 0x579E98),
+          "Script_LinkNativeImports' getter call: bl the second stub");
+    const CodeWord* stub = at(p.Code, 0x579EC0);
+    check(stub && stub->Value == 0x19C8D4, "the stubs' literal: the import stub's word holding the getter");
+    const CodeWord* toSub = at(p.Code, 0x579EC4);
+    const CodeWord* subLiteral = toSub ? at(p.Field, toSub->Value + 0x1029F1E0u + 0x74) : nullptr;
+    check(subLiteral && subLiteral->Value + toSub->Value + 0x1029F1E0u + 0x14 == cave,
+          "the subroutine, from the getter, finds the table from its pc");
     const CodeWord* count = at(p.Field, cave);
     check(count && count->Value == XyNatives().size(), "the table's count");
     bool zeros = true, inCave = true;
     for (const CodeWord& c : p.Field) { zeros = zeros && c.Expected == 0; inCave = inCave && c.Address >= cave; }
-    for (const CodeWord& c : p.Code) if (c.Address != 0x3FBDA0) zeros = zeros && c.Expected == 0;
-    check(zeros && inCave, "every word but the branch over a zero, DllField's from the cave on");
+    for (const CodeWord& c : p.Code) if (c.Address != 0x3FBDA0 && c.Address != 0x506178) zeros = zeros && c.Expected == 0;
+    check(zeros && inCave, "every word but the two calls over a zero, DllField's from the cave on");
     const CodeWord* name = at(p.Field, cave + 4);
-    check(name && name->Value + 0x1029F1E0u == cave + 4 + 8 * (uint32_t)XyNatives().size(), "the first name follows the table");
+    check(name && name->Value == 4 + 8 * (uint32_t)XyNatives().size(), "the first name follows the table (offsets from the table)");
     return ok ? 0 : 1;
 }

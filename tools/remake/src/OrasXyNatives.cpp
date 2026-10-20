@@ -15,7 +15,9 @@ namespace
 {
 constexpr uint32_t MaskTest = 0x3FBDA0;      // `tst r4, #0x400` in Script_RegisterNativeTablesByMask (r4 the mask, r5 the list)
 constexpr uint32_t MaskTestWord = 0xE3140B01;
-constexpr uint32_t Routine = 0x579E80;       // to 0x579EFB
+constexpr uint32_t Routine = 0x579E80;       // to 0x579EC7 (0x579E80-0x579EFB is this file's)
+constexpr uint32_t LinkTail = 0x506178;      // Script_LinkNativeImports' `bl` of the bit-0x400 table getter (r4 the list)
+constexpr uint32_t Getter400 = 0x19C910;     // that getter's .code stub
 // the .code's import stub to DllField's bit-2 table getter is `ldr pc, [pc, #-4]` and the getter's address, which the
 // loader writes at 0x19C8D4; the getter (`ldr r0, [pc]; bx lr`) is in DllField's code segment, at 0x1029F1E0 linked. The
 // anchor is the getter, not its table: a module's data segment (the table's) is loaded apart from its code
@@ -99,7 +101,8 @@ XyNativesPatch XyNativesPatchAt(uint32_t fieldCave)
 {
     const std::vector<XyNative>& natives = XyNatives();
     XyNativesPatch p;
-    // DllField: the table (a count, then each native's name and function as offsets from the bit-2 table), the names, the code
+    // DllField: the table (a count, then each native's name and function as offsets from the table), the names, the code,
+    // then the subroutine registering them
     const uint32_t table = (fieldCave + 3) & ~3u;
     uint32_t at = table + 4 + 8 * (uint32_t)natives.size();
     std::vector<uint32_t> names, functions;
@@ -122,48 +125,75 @@ XyNativesPatch XyNativesPatchAt(uint32_t fieldCave)
     p.Field.push_back({table, 0, (uint32_t)natives.size(), "X/Y natives: their count"});
     for (size_t k = 0; k < natives.size(); k++)
     {
-        p.Field.push_back({table + 4 + 8 * (uint32_t)k, 0, names[k] - Getter, "X/Y native " + natives[k].Name + ": its name"});
-        p.Field.push_back({table + 8 + 8 * (uint32_t)k, 0, functions[k] - Getter, "X/Y native " + natives[k].Name + ": its function"});
+        p.Field.push_back({table + 4 + 8 * (uint32_t)k, 0, names[k] - table, "X/Y native " + natives[k].Name + ": its name"});
+        p.Field.push_back({table + 8 + 8 * (uint32_t)k, 0, functions[k] - table, "X/Y native " + natives[k].Name + ": its function"});
     }
-
-    // the .code: the mask test to the routine; the routine (r5 the script's list; r6 is saved by the function and unused by
-    // it), the table copied onto the stack with DllField's address added, ended by a null entry
-    p.Code.push_back({MaskTest, MaskTestWord, ArmBranch(0xE, MaskTest, Routine, false), "Script_RegisterNativeTablesByMask's bit 0x400 test: to the X/Y natives' routine"});
-    const uint32_t r = Routine;
-    const uint32_t routine[] = {
-        0xE59F0070,                                 // 00 ldr r0, [pc, #0x70]   0x19C8D4 (every script, whatever its mask)
-        0xE5900000,                                 // 04 ldr r0, [r0]          the getter, in DllField's code
-        0xE320F000,                                 // 08 nop
-        0xE59F1060,                                 // 0C ldr r1, [pc, #0x60]   our table - the getter
-        0xE0801001,                                 // 10 add r1, r0, r1
+    // the subroutine (r0 the script's list): the table copied onto the stack with its own address added to each offset,
+    // ended by a null entry, and given to Sys_LinkImportsByNameHash; it finds the table from its own pc
+    const uint32_t sub = at;
+    const uint32_t subroutine[] = {
+        0xE92D4070,                                 // 00 push {r4, r5, r6, lr}
+        0xE1A05000,                                 // 04 mov r5, r0            the list
+        0xE59F1064,                                 // 08 ldr r1, [pc, #0x64]   the table - (here + 0x14)
+        0xE08F1001,                                 // 0C add r1, pc, r1        the table
+        0xE1A00001,                                 // 10 mov r0, r1
         0xE4912004,                                 // 14 ldr r2, [r1], #4      the count
         0xE1A0600D,                                 // 18 mov r6, sp
         0xE04DD182,                                 // 1C sub sp, sp, r2, lsl #3
         0xE24DD008,                                 // 20 sub sp, sp, #8        the null entry
         0xE1A0300D,                                 // 24 mov r3, sp
         0xE2522001,                                 // 28 subs r2, r2, #1
-        ArmBranch(0xB, r + 0x2C, r + 0x4C, false),  // 2C blt the end
+        ArmBranch(0xB, 0x2C, 0x4C, false),          // 2C blt the end
         0xE491C004,                                 // 30 ldr ip, [r1], #4      a name
         0xE08CC000,                                 // 34 add ip, ip, r0
         0xE483C004,                                 // 38 str ip, [r3], #4
         0xE491C004,                                 // 3C ldr ip, [r1], #4      its function
         0xE08CC000,                                 // 40 add ip, ip, r0
         0xE483C004,                                 // 44 str ip, [r3], #4
-        ArmBranch(0xE, r + 0x48, r + 0x28, false),  // 48 b the next
+        ArmBranch(0xE, 0x48, 0x28, false),          // 48 b the next
         0xE3A0C000,                                 // 4C mov ip, #0
         0xE583C000,                                 // 50 str ip, [r3]
         0xE583C004,                                 // 54 str ip, [r3, #4]
         0xE1A0100D,                                 // 58 mov r1, sp
         0xE3E02000,                                 // 5C mvn r2, #0
         0xE1A00005,                                 // 60 mov r0, r5
-        ArmBranch(0xE, r + 0x64, LinkImports, true),// 64 bl Sys_LinkImportsByNameHash
-        0xE1A0D006,                                 // 68 mov sp, r6
-        MaskTestWord,                               // 6C tst r4, #0x400        the game's test
-        ArmBranch(0xE, r + 0x70, MaskTest + 4, false), // 70 b back
-        table - Getter,                             // 74 our table, from the getter
-        GetterAddress,                              // 78
+        0xE59FC00C,                                 // 64 ldr ip, [pc, #0xC]
+        0xE12FFF3C,                                 // 68 blx ip                Sys_LinkImportsByNameHash
+        0xE1A0D006,                                 // 6C mov sp, r6
+        0xE8BD8070,                                 // 70 pop {r4, r5, r6, pc}
+        table - (sub + 0x14),                       // 74
+        LinkImports,                                // 78
     };
-    for (uint32_t k = 0; k < sizeof routine / 4; k++) p.Code.push_back({r + 4 * k, 0, routine[k], "the X/Y natives' routine"});
+    for (uint32_t k = 0; k < sizeof subroutine / 4; k++) p.Field.push_back({sub + 4 * k, 0, subroutine[k], "the X/Y natives' registration"});
+
+    // the .code: both ways a script's natives are linked call it before their last table: Script_RegisterNativeTables
+    // ByMask's bit-0x400 test (r5 the list) and Script_LinkNativeImports' call of the bit-0x400 table getter (r4 the list);
+    // each stub saves lr (with r3, for the stack's 8-byte alignment) and enters the subroutine through `call`, which finds
+    // DllField from the getter's address in the .code's import stub
+    const uint32_t r = Routine, call = r + 0x2C;
+    p.Code.push_back({MaskTest, MaskTestWord, ArmBranch(0xE, MaskTest, r, true), "Script_RegisterNativeTablesByMask's bit 0x400 test: bl the X/Y natives' stub"});
+    p.Code.push_back({LinkTail, ArmBranch(0xE, LinkTail, Getter400, true), ArmBranch(0xE, LinkTail, r + 0x18, true), "Script_LinkNativeImports' bit-0x400 getter call: bl the X/Y natives' stub"});
+    const uint32_t routine[] = {
+        0xE92D4008,                                 // 00 push {r3, lr}         from Script_RegisterNativeTablesByMask
+        0xE1A00005,                                 // 04 mov r0, r5
+        ArmBranch(0xE, r + 0x08, call, true),       // 08 bl call
+        0xE8BD4008,                                 // 0C pop {r3, lr}
+        MaskTestWord,                               // 10 tst r4, #0x400        the game's test
+        0xE12FFF1E,                                 // 14 bx lr
+        0xE92D4008,                                 // 18 push {r3, lr}         from Script_LinkNativeImports
+        0xE1A00004,                                 // 1C mov r0, r4
+        ArmBranch(0xE, r + 0x20, call, true),       // 20 bl call
+        0xE8BD4008,                                 // 24 pop {r3, lr}
+        ArmBranch(0xE, r + 0x28, Getter400, false), // 28 b the game's getter, which returns to the caller
+        0xE59FC00C,                                 // 2C ldr ip, [pc, #0xC]    call: 0x19C8D4
+        0xE59CC000,                                 // 30 ldr ip, [ip]          the getter, in DllField's code
+        0xE59F1008,                                 // 34 ldr r1, [pc, #8]
+        0xE08CC001,                                 // 38 add ip, ip, r1        the subroutine
+        0xE12FFF1C,                                 // 3C bx ip
+        GetterAddress,                              // 40
+        sub - Getter,                               // 44 the subroutine, from the getter
+    };
+    for (uint32_t k = 0; k < sizeof routine / 4; k++) p.Code.push_back({r + 4 * k, 0, routine[k], "the X/Y natives' stubs"});
     return p;
 }
 
