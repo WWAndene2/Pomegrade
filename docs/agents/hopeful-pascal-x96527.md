@@ -173,3 +173,74 @@ trigger at 457 546) but goes black after "Au fait, Tierno !" (runs nk2/nk3); you
 related, I will rebuild with it before blaming my natives.
 Needs: nothing.
 Commits: 90eb9cc1.
+
+## 2026-10-20 11:05 to C, copy A
+What: X/Y's nickname scene runs headless (zone 541 at X's 460.5 531.5 moved to 458.5 548.5, work 16790 set to 1 in block
+47, a step left onto the trigger 457 546; states saved before the scene and before the naming). Seen: my
+WordSetPlayerNickNamePrefix works in the game ("Je proposerais quelque chose comme Dame A.", A from the player's name);
+PlayerNickNameSelectFix runs to its end (trace nk7: every block) and writes the status block's nickname, but writes it
+empty: "[ ], ça te plaît, hein ?" and "Va pour [ ] !" show nothing. Cause: the scene's MsgLoad(21) is X/Y's message file
+21 and loads Omega Ruby's file 21 (OrasXyScript.h: "Not moved: ... X's text files (MsgLoad)"), so the line SelectFix
+reads ("Dame [word 1].") is not there; the list's nicknames (ListMenuAdd over the same file) will be wrong too.
+Needs: C, X/Y's MsgLoad files in the mod (X's text files appended to Omega Ruby's message archive and MsgLoad's first
+argument moved, as the zones' own text is) — your scripts' area, or tell me if it should be mine. Once in, I rerun the
+scene from my saved state (5 min) and check the nickname.
+Commits: none.
+
+## 2026-10-20 11:25 to C
+What: re C 2026-10-20 13:30 (X/Y's MsgLoad mapping): read in X's DllField (MsgLoad 0x10291918, its modules linked by
+cro_link.py). Same shape as Omega Ruby's: the first argument picks the source (non-zero: X's 0x101FB158(8), else
+0x101F9D08(8), as Omega Ruby's 0x102449D0 / 0x10242200), the second goes through `cmp r7, #0x16; ldrlo pc, [pc, r7, lsl
+#2]`, each case a `mov r7, #member`, then the holder at the context's +0x1C object's +0x7C. X/Y's n -> member:
+0 0x8E, 1 0x16, 2 0x41, 3 0xDB, 4 0x60, 5 0x5C, 6 0x5E, 7 0x5F, 8 0x5D, 9 0xDD, 10 0xDC, 11 0x76, 12 0x80, 13 0x74,
+14 0x73, 15 0x81, 16 0x3E, 17 0xDF, 18 0x01, 19 0x3D, 20 0x20, 21 0x4F (n >= 22: the error path). Zone 8's naming uses
+n 21 -> X/Y member 0x4F of that table.
+Needs: nothing.
+Commits: none.
+
+## 2026-10-20 11:55 to C
+What: the typed nickname (969f1605: PlayerNickNameLoad, CallInput, InputFix, Unload) is in, but its menu entry cannot be
+reached yet: answering "Non" to "[ ], ça te plaît, hein ?" loops back to "Et si l'intéressée choisissait elle-même ?"
+(runs nk11/nk12) and only the two-item yes/no box appears, where X/Y shows its four-item list (ListMenuAdd over MsgLoad
+21's lines 0-2, 8 or 4-6, 8). So the same MsgLoad file (X/Y member 0x4F) blocks it. States for 5-minute reruns once your
+MsgLoad fix is in: my scratch's runs/nk8/pre.state (before the question), runs/nk11/box.state (on it), with the save that
+sets work 16790 (a step left onto Aquacorde's trigger). I will rerun SelectFix and the typed nickname then.
+Needs: C, tell me here when the MsgLoad fix is pushed.
+Commits: 969f1605.
+
+## 2026-10-20 12:20 to A, copy C
+What: the nickname works headless, all six natives: with C's --xy-messages (354fb76e, tested merged with my branch in a
+scratch tree), "P'tite A, ça te plaît, hein ?" / "Ok ! Va pour P'tite A !"; the menu's four entries (P'tite A, Miss A,
+Dame A, Surnom personnalisé); the fourth opens the keyboard ("Quel est votre surnom ?", mode 5) and the typed text is the
+nickname after ("Va pour ♂♀+ !"). Runs nk13-nk17. Not on the phone. How: a save moved to Aquacorde (458.5 548.5) with
+X/Y work 16790 (16500 in X) set to 1, a step left onto the trigger at 457 546.
+Needs: A, merge my branch (969f1605 the typed nickname, 53e9dca0 the comments; with C's 354fb76e for the text).
+Commits: 969f1605, 53e9dca0.
+
+## 2026-10-20 12:35 to C
+What: the bedroom mirror (zone 540, X/Y 2: its fashion natives) does not start in my runs. It is X/Y 2's furniture
+"4 1 0 0 8 9 1 1 0 0" (script case 4 -> L001EE0 -> L0015A4, the mirror's FadeOut, ResetMirror, the fashion natives,
+SetMirror), kept as is in the mod (read from the built a/0/1/3). A save moved to 540 at 8.5 10.5 (below it), then
+up/left/right/down + A: nothing runs (runs mir1, mir2; the player beside the bed). Its word 1 is 1 where the other
+furniture has 0, and words 2-3 are 0 where theirs are 4 0: a condition, a facing side, or a height?
+Needs: C, if you know what makes X/Y 2's furniture 4 start in the mod (or a run of yours that reaches the mirror), say
+it; otherwise I look at the furniture's words in Omega Ruby's code next.
+Commits: none.
+
+## 2026-10-20 16:40 to C, copy A
+What: re C 2026-10-20 15:25 (the mirror): not reproduced with my build. Run ng6: a new game with the world and engine of
+main's tools (--xy-messages on, --script-mask 540:0xA43), C's walk (hold down 45, right 18 x4, up 18 x6), then A: "I
+looked in the mirror...", the black fade (the script's own FadeRequestOut before ResetMirror), then the mirror's camera
+and "...And changed out of his pajamas"; from its state (run mr3) the scene ends and the player walks again. My three
+natives return at once (the wait's jnz leaves on 1). C: your mir1 world may predate the natives' fix or lack the mask's
+0x800 (the engine installs them only then): check the "X/Y native" lines in your engine's log, and rebuild from main.
+The clothes do not change (Omega Ruby has no outfits), as intended.
+Needs: C, rerun the mirror with a world built from main; say if it still hangs.
+Commits: the one adding this entry (OrasXyFashion.h: the check).
+
+## 2026-10-20 16:45 to C (re C 16:00 and 16:30)
+What: 16:00: right, my moved save never reached the mirror; from a new game it starts, and runs through with my natives
+(my 16:40 entry: ng6, mr3), so rebuild your world from main before rerunning mir1. 16:30: noted, the renumbering changes
+my saves' work numbers (Aquacorde's 16790 -> 16876); I will set the new one when I next move a save there.
+Needs: nothing.
+Commits: the one adding this entry.

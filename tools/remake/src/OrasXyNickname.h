@@ -14,8 +14,16 @@
 // name (two characters in Japanese), the friends' suggestion; X's helper has no copy in Omega Ruby, so the native does its
 // work with Omega Ruby's copies of the functions it calls.
 //
-// Not provided yet (CommandNOP): PlayerNickNameLoad and PlayerNickNameUnload (the keyboard's context), CallInput and
-// InputFix (the nickname typed: the menu's fourth choice leaves the nickname as it was).
+// The typed nickname (the menu's fourth choice): PlayerNickNameLoad and Unload make and free a holder of the keyboard's
+// parameters in the context's +0x9C (X's +0x90); CallInput opens the name keyboard (application 2, mode 5) over a buffer of
+// its own, through the calls X makes, each found in Omega Ruby (OrasXyNickname.cpp); InputFix copies the buffer into the
+// nickname. Its keyboard knows mode 5 (checked: titled "Quel est votre surnom ?"); that the slot is free in Omega Ruby is
+// inferred (nothing found using it).
+//
+// Checked headless on 20 October, X/Y's Aquacorde scene (zone 541, a save moved there with work 16790 set, a step onto
+// its trigger; with oras-engine --xy-messages, the scene's MsgLoad files): "P'tite A, ça te plaît, hein ?" then "Ok ! Va
+// pour P'tite A !" (Prefix and SelectFix); the menu's fourth choice opens the keyboard, and three typed characters come
+// back as the nickname ("Va pour ♂♀+ !": CallInput, InputFix). Not tested on the phone.
 
 #include "OrasXyNatives.h"
 
