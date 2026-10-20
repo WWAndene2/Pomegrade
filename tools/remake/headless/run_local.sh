@@ -4,7 +4,7 @@
 #
 #   tools/remake/headless/run_local.sh <work dir> <name> <mod dir|-> "<zone x z>|" "<script>" [seconds] [gdb]
 #
-# (env) POMEGRADE_SAVE  a save file to start from instead of <work>/dumps/save/main
+# (env) POMEGRADE_SAVE  a save file to start from instead of <work>/dumps/save/main; "none" for no save (a new game)
 # mod dir   a folder holding load/mods/000400000011C400 (oras-region, oras-engine, oras-append-test ... write one); - for none
 # zone x z  the save moved there first (oras-save); empty to keep the owner's position (Littleroot, zone 6)
 # script    retro_host commands separated by ';' (retro_host.cpp: wait N, hold KEYS N, press KEYS, mash KEYS N, field [N],
@@ -33,7 +33,9 @@ save="$run/Azahar/sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000
 # 7 October: in front of a trainer, as a save moved by oras-save into another matrix does not load and one moved into a zone
 # finds no characters there)
 start=${POMEGRADE_SAVE:-dumps/save/main}
-mkdir -p "$save"; cp "$start" "$save/main"; cp dumps/save/00000001.metadata "$save.metadata"
+# none: no save at all, for a new game (the metadata without its save makes the game report a corrupted save)
+mkdir -p "$save"
+if [ "$start" != none ]; then cp "$start" "$save/main"; cp dumps/save/00000001.metadata "$save.metadata"; fi
 [ -n "$move" ] && ./build-remake/remake_tool oras-save "$start" "$save/main" $move > "$run/save.txt"
 # POMEGRADE_STATE: an emulator state file copied into the run as <name>.state, for the script's "load <name>" (save_test.sh:
 # the boot to the title played once, then each save tested from there)

@@ -57,9 +57,11 @@ A run that does not show the field is first a recipe question: check against the
   --save-records 32 --characters-from <oras.3ds> <mod>` at a tile of the zone itself (538: 467.5 599.5);
   `POMEGRADE_SAVE=<out> fast_run.sh <work> <name> <mod> "" "wait 300;shot a;report"`. fast_run.sh prints "field not up"
   even when the shot is whole: look at the shot.
-- **A new game** (C's run st4, to X/Y's bedroom, about 25 min): no save (run_local.sh copying neither `main` nor its
-  metadata), the presses in C's log entry of 20 October 09:00. A save state made there crashes on load with the mod:
-  until that is fixed, each run replays the whole start.
+- **A new game** (C's run st4, to X/Y's bedroom, about 25 min): `POMEGRADE_SAVE=none run_local.sh ...` (no save), the
+  presses in C's log entry of 20 October 09:00, ending with `save NAME`; later runs start from it in about 2 min
+  (`POMEGRADE_SAVE=none POMEGRADE_STATE=<work>/runs/<run>/NAME.state run_local.sh ... "wait 120;load NAME;..."`). The crash
+  such a state gave on load was the software renderer's (fixed in 61ca0ae4: a core built before it still crashes, rebuild
+  it with session_setup.sh's `core` step).
 
 ### 3.2 Asking and waking
 
