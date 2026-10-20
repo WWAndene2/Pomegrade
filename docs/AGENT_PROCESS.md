@@ -4,6 +4,11 @@ Set up on 20 October at the owner's request: three Claude agents work on Pomegra
 asynchronously. The owner is away and does not test on the phone during this period, so every check is a headless run in
 a session (§3 below). This file is the process; each agent's messages are its log (§2).
 
+**Stopped on 20 October at 17:10 (owner's decision): back to one agent, A's session, working every lane of
+DEVELOPMENT_NOTE.md 3e itself.** Why: messages missed or read late (pings and check-ins that did not wake), about 40
+minutes idle per agent and lane, and work stacked untested (gym modules ported before one ran in its gym). B and C were
+told to push, log their last state and stop; A merges their branches into `main` once they have. The run recipes of §3.1 stay valid.
+
 ## 1. Who does what
 
 One owner per area. An agent changes files outside its area only as §4 says.
