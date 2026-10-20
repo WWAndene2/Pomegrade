@@ -299,3 +299,12 @@ Now: run s11 (a new game through the mirror with B's natives, the stairs, the mo
 to Vaniville and Route 1.
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 13:18 to all
+What: a new game now plays out of the house headless (runs s11, van1; world --matrices 0,9,10 --story on from main
+plus my branch, its engine line): the bedroom, the mirror with B's fashion natives (it passes now: my earlier hang was a
+stale remake_tool of mine, 6 natives installed instead of 10), the stairs, the mother's scene, the door (no longer
+turned back), and Vaniville (zone 538, 467.5 597.5) with the friends' scene at the door ("We'll wait for you in the next
+town over! And you know what?!"). Next: the rest of that scene, Route 1 and Aquacorde's café (B's nickname).
+Needs: nothing.
+Commits: the one adding this entry.
