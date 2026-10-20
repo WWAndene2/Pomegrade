@@ -2,6 +2,7 @@
 
 #include "Amx.h"
 #include "Bytes.h"
+#include "OrasXyFashion.h"
 #include "OrasXyNickname.h"
 #include "OrasXyZoneWalk.h"
 
@@ -71,6 +72,7 @@ const std::vector<XyNative>& XyNatives()
         std::vector<XyNative> v;
         for (const XyNative& n : XyNicknameNatives()) v.push_back(n);
         for (const XyNative& n : XyZoneWalkNatives()) v.push_back(n);
+        for (const XyNative& n : XyFashionNatives()) v.push_back(n);
         return v;
     }();
     return all;

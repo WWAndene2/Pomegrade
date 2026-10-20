@@ -120,13 +120,17 @@ int main()
             "10293330\tScript_Native_FlagGet\tPawn (AMX) native, named by the game's own native table; \"FlagGet\" (hash 0x133DAA6A, table 0x1033A234, bit 1): x.\tread\n"
             "1029344C\tScript_Native_WorkSet\tPawn (AMX) native, named by the game's own native table; \"WorkSet\" (hash 0x8E55F629, table 0x1033A234, bit 1): x.\tread\n";
         WriteFile(names, Bytes(rows.begin(), rows.end()));
-        const Bytes x = AmxAssemble("code\n    sysreq.n FadeRequestIn 0\n    sysreq.n FlagSet 0\n    sysreq.n ChangeFashionBefore 0\n    halt 0\n");
+        // CallKisekaeDisplay: an X/Y native nobody provides; ChangeFashionBefore: one the mod provides (OrasXyFashion.h),
+        // under the X/Y natives' mask bit 0x800
+        const Bytes x = AmxAssemble("code\n    sysreq.n FadeRequestIn 0\n    sysreq.n FlagSet 0\n    sysreq.n CallKisekaeDisplay 0\n    sysreq.n ChangeFashionBefore 0\n    halt 0\n");
         const XyScriptNatives t = XyScriptToOras(x, names, 0x243);
         const AmxScript s = AmxScript::Read(t.Script);
         check(t.Renamed.size() == 1 && t.Renamed[0] == "FadeRequestIn -> _FadeRequestIn", "an X native renamed to Omega Ruby's");
-        check(s.Natives.size() == 3 && s.Natives[0].Name == AmxNameHash("_FadeRequestIn") && s.Natives[1].Name == AmxNameHash("FlagSet"),
+        check(s.Natives.size() == 4 && s.Natives[0].Name == AmxNameHash("_FadeRequestIn") && s.Natives[1].Name == AmxNameHash("FlagSet"),
               "the native table rewritten, the shared native kept");
-        check(t.Missing.size() == 1 && t.Missing[0].find("not in Omega Ruby's tables") != std::string::npos, "a native Omega Ruby lacks reported");
+        check(t.Missing.size() == 2 && t.Missing[0].find("not in Omega Ruby's tables") != std::string::npos, "a native Omega Ruby lacks reported");
+        check(t.Missing.size() == 2 && t.Missing[1].find("bit 0x800") != std::string::npos, "an X/Y native the mod provides asks for its mask bit");
+        check(XyScriptToOras(x, names, 0x243 | 0x800).Missing.size() == 1, "with that bit, only the native nobody provides is missing");
         check(AmxCells(t.Script) == AmxCells(x), "the code left as it was");
         // the source step: X's flags and works moved, also when a procedure gets the flag as a parameter
         const Bytes y = AmxAssemble(
