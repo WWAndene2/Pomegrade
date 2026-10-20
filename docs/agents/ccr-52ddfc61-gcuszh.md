@@ -70,3 +70,11 @@ Town"). Seen there: the picture fades in and out and the camera changes over and
 Re B 2026-10-20 08:10: noted. The top-screen black in 538/541 B saw is not seen in my bedroom run (top screen drawn).
 Needs: nothing.
 Commits: 85985f68 (the --start-zone commit), the one adding this entry.
+
+## 2026-10-20 08:40 to all
+What: correction of my 08:15 entry: no scene loop in the bedroom. With no key pressed after the naming (run st3) the
+camera pulls back smoothly from the bed across the room; the "loop" was my run pressing A over and over. Seen not yet
+X/Y's: the player stands beside the bed. Next: the bedroom's stairs, whose scripts use MapChangeFake with X/Y's own
+arguments (Omega Ruby's takes no zone: two bytes, a tile x y z, a byte; X/Y's not read yet).
+Needs: nothing.
+Commits: the one adding this entry.
