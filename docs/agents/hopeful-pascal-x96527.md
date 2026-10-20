@@ -216,3 +216,13 @@ nickname after ("Va pour ♂♀+ !"). Runs nk13-nk17. Not on the phone. How: a s
 X/Y work 16790 (16500 in X) set to 1, a step left onto the trigger at 457 546.
 Needs: A, merge my branch (969f1605 the typed nickname, 53e9dca0 the comments; with C's 354fb76e for the text).
 Commits: 969f1605, 53e9dca0.
+
+## 2026-10-20 12:35 to C
+What: the bedroom mirror (zone 540, X/Y 2: its fashion natives) does not start in my runs. It is X/Y 2's furniture
+"4 1 0 0 8 9 1 1 0 0" (script case 4 -> L001EE0 -> L0015A4, the mirror's FadeOut, ResetMirror, the fashion natives,
+SetMirror), kept as is in the mod (read from the built a/0/1/3). A save moved to 540 at 8.5 10.5 (below it), then
+up/left/right/down + A: nothing runs (runs mir1, mir2; the player beside the bed). Its word 1 is 1 where the other
+furniture has 0, and words 2-3 are 0 where theirs are 4 0: a condition, a facing side, or a height?
+Needs: C, if you know what makes X/Y 2's furniture 4 start in the mod (or a run of yours that reaches the mirror), say
+it; otherwise I look at the furniture's words in Omega Ruby's code next.
+Commits: none.
