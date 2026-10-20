@@ -174,7 +174,7 @@ static int Usage()
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone|zone-raised|crowd [N]\n"
                     "  remake_tool oras-zone-check <oras.3ds>\n"
-                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--character-models N] [--events large] [--story large] [--area-packs large] [--wild-tables large] [--xy-sounds FIRST:COUNT] [--xy-trainers on] [--xy-battle-types FILE] [--heap ID:BYTES]... [--start-zone N] [--xy-messages on] [--xy-gyms <x.3ds>]\n"
+                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--character-models N] [--events large] [--story large] [--area-packs large] [--wild-tables large] [--xy-sounds FIRST:COUNT] [--xy-trainers on] [--xy-battle-types FILE] [--more-archives N] [--heap ID:BYTES]... [--start-zone N] [--xy-messages on] [--xy-gyms <x.3ds>]\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
                     "                    [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]\n"
                     "  remake_tool oras-code <oras.3ds> <out.bin>\n"
@@ -758,6 +758,7 @@ int main(int argc, char** argv)
                     o.LargeStory = true;
                 }
                 else if (flag == "--xy-battle-types") o.XyBattleTypes = value;
+                else if (flag == "--more-archives") o.MoreArchives = (uint32_t)std::stoul(value);
                 else if (flag == "--xy-trainers")
                 {
                     if (value != "on") throw FormatError("--xy-trainers on (X/Y's trainers 950-1734, OrasXyTrainers.h; with --story large)");

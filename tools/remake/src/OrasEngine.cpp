@@ -811,6 +811,32 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         snprintf(line, sizeof line, "battle types: %zu after the game's 73, the table at 0x%X", extra.size() / 24, moved);
         log.push_back(line);
     }
+    if (o.MoreArchives)
+    {
+        // More archives (read 20 October): the archive paths ("rom:/a/0/0/0", UTF-16) are 299 pointers from 0x5F5050, the
+        // table and its count read at boot from the literal words 0x1085BC and 0x1085B8 (stored into 0x6173F0 + 0x54 and
+        // + 0x50 by 0x10A49C; no other word points into the table). The copy in the room keeps the game's pointers and adds
+        // the new paths after them, archive n at rom:/a/<n's three digits>, the files themselves added under romfs/
+        constexpr uint32_t table = 0x5F5050, countWord = 0x1085B8, tableWord = 0x1085BC, gameArchives = 299;
+        const uint32_t count = gameArchives + o.MoreArchives;
+        if (count > 1000) throw FormatError("--more-archives: up to 701 (paths have three digits)");
+        const uint32_t at = roomAt, strings = at + count * 4;
+        Bytes all(code.begin() + (table - CodeBase), code.begin() + (table - CodeBase) + gameArchives * 4), text;
+        for (uint32_t n = gameArchives; n < count; n++)
+        {
+            const uint32_t p = strings + (uint32_t)text.size();
+            for (int b = 0; b < 4; b++) all.push_back((uint8_t)(p >> (8 * b)));
+            char path[16];
+            snprintf(path, sizeof path, "rom:/a/%u/%u/%u", n / 100, n / 10 % 10, n % 10);
+            for (const char* c = path;; c++) { text.push_back((uint8_t)*c); text.push_back(0); if (!*c) break; }
+        }
+        all.insert(all.end(), text.begin(), text.end());
+        if (roomPut(all, "the archive paths") != at) throw FormatError("--more-archives: the room moved");
+        words.push_back({tableWord, table, at, "the archive path table"});
+        words.push_back({countWord, gameArchives, count, "the archive count"});
+        snprintf(line, sizeof line, "archives: %u after the game's 299 (a/2/9/9 up), the path table at 0x%X", o.MoreArchives, at);
+        log.push_back(line);
+    }
 
     char id[17];
     snprintf(id, sizeof id, "%016llX", (unsigned long long)oras.ProgramId());
