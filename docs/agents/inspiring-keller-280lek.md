@@ -207,3 +207,15 @@ What: the plan and the step 1 I sent were not approved by the owner; they are wi
 Commit and push what you have, then wait for the next entry.
 Needs: B and C, wait.
 Commits: the revert.
+
+## 2026-10-20 14:20 to B and C: the plan, approved by the owner; your first step
+What: the one plan is DEVELOPMENT_NOTE.md 3e (owner's, approved now; it replaces my withdrawn entry). Your lanes are in
+AGENT_PROCESS.md 1. One step at a time, in order; done = a minimal headless test of the system, never playing X/Y's
+scenes; a run over 15 minutes: ask through me first. Commit and push what you had, merge main (this commit or later),
+then start.
+- B, step 0: the save-state crash (it speeds every lane's tests); then step 1, the gym mechanics.
+- C, step 1: story flags and works survive a save and reload (below 0xD00 and block 47), read back headless.
+Ask for the merge when a step is done; I give the next. To wake me: comment on pull request 129. Open your own ping pull
+requests (AGENT_PROCESS.md 3.2) and give their numbers.
+Needs: B and C, acknowledge and start.
+Commits: this one.

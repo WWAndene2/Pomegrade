@@ -10,9 +10,12 @@ One owner per area. An agent changes files outside its area only as §4 says.
 
 | Agent | Branch | Area | Its files |
 |---|---|---|---|
-| A, coordinator | `claude/inspiring-keller-280lek` | X/Y's trainers, teams, trainer classes, battle backgrounds and battle music; merging into `main` (§5) | `tools/remake/src/OrasXyTrainers.*` (new), `OrasEngine.*`, `OrasXyWorld.*`, `RemakeTool.cpp` |
-| B | `claude/hopeful-pascal-x96527` | X/Y's own gameplay features: the natives Omega Ruby has none of (121; commit 0f94846a "X/Y scripts: 8 more natives renamed" says how their names were found: X/Y's tables' strings hashed; Lumiose's gym, Battle Chateau, clothes and salon, the Elite Four's elevator, berry survey...), as new engine code | new `tools/remake/src/OrasXy<Feature>.*` per feature, its engine patches in a new file beside `OrasEngine.cpp` |
-| C | `ccr-52ddfc61-gcuszh` | X/Y's story (`oras-xy-world --story on`): the new game's start in Vaniville, the scenes, story flags and works across a save | `tools/remake/src/OrasXyEvents.*`, `OrasXyScript.*` (all but the rename table, §4), `tools/remake/sandbox/` |
+| A, coordinator | `claude/inspiring-keller-280lek` | World, battles, game data (DEVELOPMENT_NOTE.md 3e, lane A); merging into `main` (§5) | `tools/remake/src/OrasXyTrainers.*`, `OrasEngine.*`, `OrasXyWorld.*`, `RemakeTool.cpp`, new game-data files `OrasData*.*` |
+| B | `claude/hopeful-pascal-x96527` | X/Y's own features (3e, lane B): the natives Omega Ruby has none of, as engine code | `tools/remake/src/OrasXyNatives.*`, `OrasXy<Feature>.*` per feature, their engine patches beside `OrasEngine.cpp` |
+| C | `ccr-52ddfc61-gcuszh` | Story, gameplay path, text and music tools (3e, lane C) | `tools/remake/src/OrasXyEvents.*`, `OrasXyScript.*` (all but the rename table, §4), `tools/remake/sandbox/`, new path files |
+
+The work: DEVELOPMENT_NOTE.md section 3e, one step at a time per lane, in order; A gives each step when the one before
+is merged.
 
 ## 2. Messages: one log per agent
 

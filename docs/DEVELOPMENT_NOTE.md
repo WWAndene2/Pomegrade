@@ -205,6 +205,32 @@ To do, in this order:
    - Sky Battles and Inverse Battles: not started.
    - The opening, the credits and ending, X's Pokédex, the PR Video studio: not started.
 
+## 3e. Ready before the build: the plan (owner's, approved 20 October)
+
+Everything below must be ready, as tools that can be changed, before the real map build; the story
+(`docs/Equilibrium_Scenario.md`) is not up to date, so nothing here depends on its scenes. Done when the whole map, the
+story and the gameplay path can be built without problems: Hoenn and Kalos in one game with travel between them and every
+zone usable; scenes (dialogue, camera, characters moving, battles, choices with paths A and B) on story flags that survive
+a save; any character of either game in any zone; the gameplay path (gates, badges, items given, trainers and wild
+Pokémon per area, X/Y's features) and everything in it editable: the League (gym leaders, Elite Four, Champion), badges,
+Pokémon, items (the new orbs), moves, text and music.
+
+Three lanes by area, one step at a time each, in its own files; a step is done when a minimal headless test of the
+system passes (never by playing X/Y's scenes) and is merged the same session; a run over 15 minutes is asked of the owner
+first (agents ask through A).
+
+| Step | A: world, battles, game data | B: X/Y's own features | C: story, path, text |
+|---|---|---|---|
+| 0 | | The save-state crash (a new-game run 25 min -> about 2) | |
+| 1 | X/Y's battle music and backgrounds | Gym mechanics (Clemont's lift and doors, Ramos's garden, Valerie's warp, Grant, Korrina, Viola, Olympia, Wulfric) | Story flags and works survive a save and reload |
+| 2 | League and badges: gym leaders, Elite Four, Champion (teams, names, models, music, order), badges (names, pictures, count, what each unlocks, obedience cap), every trainer editable | Elite Four and Champion elevators, badge gates, Victory Road | Scenes in any zone of either region: dialogue, camera, moves, battles, choices A/B |
+| 3 | Pokémon and items: stats, types, abilities, moves, learnsets, evolutions, forms, new items (the orbs), TMs, tutors, shops, starters, gifts and static Pokémon | Clothes, salon, photo shop | The gameplay path in one description: gates added or changed, items given, wild Pokémon per area |
+| 4 | Surf, fishing, Rock Smash, hordes in X/Y's zones; Sky and Inverse Battles | Battle Chateau, berry fields, Poké Radar, Friend Safari, Holo Caster, Poké Ball factory | Text and music: any line, place or name in every language; music per zone and per battle; any character of either game in any zone |
+| 5 | Travel between Hoenn and Kalos, both regions in one build; every zone load-tested, in batches, each asked first | Roller skates, riding; the opening, credits and ending, Pokédex | A test path built only with the tools (both regions, a scene with a choice, a changed gym leader and badge, a new item, edited Pokémon), played headless |
+
+After: the owner's phone checks, then the real map build; then the cast's variants (old and young Archie, Maxie with
+glasses, the legendaries' repaints: a mesh rewriter, `BchWriter`).
+
 ## 4. One coherent app
 
 Today each core keeps its own settings, screens, visual style and file storage. Target architecture:
