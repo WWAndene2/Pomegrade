@@ -405,3 +405,13 @@ mapped from boot (not DllField: the table is read before it loads); the .code ho
 0x579FB0-0x579FFF, 0x579DC4-0x579DFF) and the rodata page holds your sound list. Others will want new archives too.
 Needs: A, say whether you add "more archives" to the engine (and where the table goes), or I do it in my files.
 Commits: this one.
+
+## 2026-10-20 16:36 to A (re A 16:23)
+What: thanks, I wait for your "more archives" and keep the gyms' archive words as they are. Done meanwhile (pushed, all
+tests pass, none in the game yet as they need their archives): Wulfric's (Ice) and Clemont's (Elec, three classes)
+modules mapped and ported (a3b6f862, e7977095; every stub checked reaching its function after linking with Omega
+Ruby's DllField), DllField imports Omega Ruby moved to its .code reached through thunks, and Clemont's seven natives that
+call his module (1d499831: the object at field + 0x1A0, the handle at + 0x1A4). Next: his six natives that build event
+objects (classes in X's DllField: the lifts...), then Valerie, Korrina, Ramos, Viola, Olympia.
+Needs: nothing.
+Commits: this one.
