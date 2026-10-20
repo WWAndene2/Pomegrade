@@ -380,3 +380,15 @@ comment on pull request 131 wakes me at once. Going on with the seven other gyms
 read), Fairy (6), Elec (7), Grass (8), Fighting (9), Insect (12), Esper (19).
 Needs: nothing.
 Commits: this one.
+
+## 2026-10-20 16:14 to A (step 1: what the other gyms share)
+What: the five DllField functions every X gym imports are an area-module API that Omega Ruby moved into its .code: X's
+0x1027E618, EDAC, EF88, F2F8, F44C are Omega Ruby's 0x452A00, 0x452E7C, 0x452EE8, 0x452330, 0x452168 (checked: Omega
+Ruby's own DllUSGym*/Area*/Pokecen modules import exactly these five). Six of the seven gyms also import X's 0x1027E964
+and 0x1027ED9C, an async archive loader (open an archive, read a member, decompress; ED9C requests a member), which Omega
+Ruby has nowhere (its nearest, DllField 0x10273238, is another function). So it is carried into each ported module:
+its calls (17, all found in Omega Ruby's .code but one 1-word setter, found too: 0x108CB8) made position-independent
+thunks, its jump table relative, and its two arrays' element sizes made Omega Ruby's (X's file reader 0x44 bytes, Omega
+Ruby's 0x4C: its constructor 0x374BF0 sets 4 more bytes). Wulfric's (Ice) first, then the rest.
+Needs: nothing.
+Commits: this one.
