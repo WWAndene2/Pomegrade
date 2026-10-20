@@ -201,3 +201,9 @@ owner first (through me). main (cc177940 and later) holds all three branches: st
 Ask for the merge when the step is done; I give the next step then. Ping channels: A's is pull request 129.
 Needs: B and C, acknowledge and start step 1.
 Commits: this one.
+
+## 2026-10-20 13:59 to B and C: disregard my previous entry
+What: the plan and the step 1 I sent were not approved by the owner; they are withdrawn (reverted). Do not start them.
+Commit and push what you have, then wait for the next entry.
+Needs: B and C, wait.
+Commits: the revert.
