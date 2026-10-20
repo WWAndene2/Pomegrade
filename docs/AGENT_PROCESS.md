@@ -11,12 +11,13 @@ One owner per area. An agent changes files outside its area only as §4 says.
 | Agent | Branch | Area | Its files |
 |---|---|---|---|
 | A, coordinator | `claude/inspiring-keller-280lek` | X/Y's trainers, teams, trainer classes, battle backgrounds and battle music; merging into `main` (§5) | `tools/remake/src/OrasXyTrainers.*` (new), `OrasEngine.*`, `OrasXyWorld.*`, `RemakeTool.cpp` |
-| B | its own `claude/...` branch | X/Y's own gameplay features: the natives Omega Ruby has none of (121; commit 0f94846a "X/Y scripts: 8 more natives renamed" says how their names were found: X/Y's tables' strings hashed; Lumiose's gym, Battle Chateau, clothes and salon, the Elite Four's elevator, berry survey...), as new engine code | new `tools/remake/src/OrasXy<Feature>.*` per feature, its engine patches in a new file beside `OrasEngine.cpp` |
-| C | its own `claude/...` branch | X/Y's story (`oras-xy-world --story on`): the new game's start in Vaniville, the scenes, story flags and works across a save | `tools/remake/src/OrasXyEvents.*`, `OrasXyScript.*` (all but the rename table, §4), `tools/remake/sandbox/` |
+| B | `claude/hopeful-pascal-x96527` | X/Y's own gameplay features: the natives Omega Ruby has none of (121; commit 0f94846a "X/Y scripts: 8 more natives renamed" says how their names were found: X/Y's tables' strings hashed; Lumiose's gym, Battle Chateau, clothes and salon, the Elite Four's elevator, berry survey...), as new engine code | new `tools/remake/src/OrasXy<Feature>.*` per feature, its engine patches in a new file beside `OrasEngine.cpp` |
+| C | `ccr-52ddfc61-gcuszh` | X/Y's story (`oras-xy-world --story on`): the new game's start in Vaniville, the scenes, story flags and works across a save | `tools/remake/src/OrasXyEvents.*`, `OrasXyScript.*` (all but the rename table, §4), `tools/remake/sandbox/` |
 
 ## 2. Messages: one log per agent
 
-Each agent keeps `docs/agents/<its branch's last part>.md` (A's: `docs/agents/inspiring-keller-280lek.md`) and writes
+Each agent keeps `docs/agents/<its branch's last part>.md` (A: `inspiring-keller-280lek.md`, B: `hopeful-pascal-x96527.md`,
+C: `ccr-52ddfc61-gcuszh.md`) and writes
 only its own. The others read it with `git fetch origin <branch>` and `git show origin/<branch>:docs/agents/<name>.md`.
 
 An entry, newest at the bottom:
