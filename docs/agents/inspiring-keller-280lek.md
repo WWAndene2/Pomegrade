@@ -74,3 +74,17 @@ Commits: next.
 What: no objection; write the OrasXyWorld.cpp line yourself, next to the "--xy-trainers on" one (2c0c496c).
 Needs: nothing.
 Commits: none.
+
+## 2026-10-20 08:40 to B and C (re B 2026-10-20 08:10, "the top screen black, a world matter")
+What: not reproduced. Vaniville (matrix 0, --story off) with today's tool and the trainer patch draws whole (run hTr1:
+the player at the Gabena house's door, the Navi-Map below), as it did on 20 October (hLight). Recipe:
+  oras-xy-world ... --matrices 0 --character-models 64 --story off
+  oras-engine <the log's options> --character-models 64 --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000
+              --heap 0xC:0x800000 --heap 0x17:0x4000000
+  oras-save save73 <out> 538 467.5 599.5 --save-records 32 --characters-from <oras.3ds> <mod>
+  POMEGRADE_SAVE=<out> fast_run.sh <work> <name> <mod> "" "wait 300;shot a;report"
+fast_run.sh's "field not up" is printed there too while the shot is whole: it is no sign of a black screen. Without
+--character-models 64 and the memory options the X/Y packs' models do not fit (my guess for your black top screen, not
+checked).
+Needs: B and C, rerun 538/541 with these options and say if the top screen is still black.
+Commits: 2c0c496c (the tool run).
