@@ -118,6 +118,43 @@ std::vector<Line> Split(const std::string& source)
     return lines;
 }
 
+// The scenes a zone starts by itself: Zone_LoadZoneScript (0x3FF538) calls the script's public GetSceneChangeData with 0,
+// 1, 2... and keeps (case, work, value) triples until -1, the case run while the work holds the value. In X/Y's 55 zones
+// with that public it is "const.p.alt N", then the N/4 + i-th data cell (lidx.p.b 2). Returns the cell indices holding the
+// triples' works, empty without the public or that shape. Their works were X/Y's own once moved elsewhere: zone 2's
+// opening (case 1 while work 16514 is 0) set the moved work and ran again and again (run cam4, 20 October)
+std::vector<size_t> SceneChangeWorkCells(const std::vector<Line>& lines, const std::vector<long>& cells)
+{
+    std::vector<size_t> out;
+    const std::string hash = "#63F02D54"; // AmxNameHash("GetSceneChangeData")
+    std::string label;
+    for (const Line& l : lines)
+        if (l.Op == "public" && l.Words.size() >= 3 && l.Words[1] == hash) label = l.Words[2] + ":";
+    if (label.empty()) return out;
+    for (size_t i = 0; i + 2 < lines.size(); i++)
+    {
+        if (lines[i].Op != label) continue;
+        if (lines[i + 1].Op != "proc" || lines[i + 2].Op != "const.p.alt" || lines[i + 2].Words.size() != 2) return out;
+        const size_t first = std::stoul(lines[i + 2].Words[1], nullptr, 0) / 4;
+        for (size_t k = first; k + 2 < cells.size() && cells[k] != -1; k += 3) out.push_back(k + 1);
+        return out;
+    }
+    return out;
+}
+
+// the data section's cells, in order
+std::vector<long> DataCells(const std::vector<Line>& lines)
+{
+    std::vector<long> cells;
+    bool data = false;
+    for (const Line& l : lines)
+    {
+        if (l.Op == "data") { data = true; continue; }
+        if (data && l.Op == "cell") for (size_t k = 1; k < l.Words.size(); k++) cells.push_back(std::stol(l.Words[k], nullptr, 0));
+    }
+    return cells;
+}
+
 // the instructions holding a flag's or work's number given to a flag or work native (its first argument): the push (or
 // the constant a push.pri pushes) before the sysreq.n, or, when that is a procedure's parameter (push.s / push.p.s at 12 +
 // 4 n), the constant each call of the procedure pushes for it, followed through up to four procedures. `name` gives a
@@ -224,6 +261,8 @@ XyNumbers XyNumbersFor(const std::vector<Bytes>& scripts, const std::set<int>& e
             if (a.Flag) { if (v != 0) flags.insert(v); }
             else if (v >= 0x4000 && v < 0x8000) works.insert(v);
         }
+        const std::vector<long> cells = DataCells(lines);
+        for (const size_t k : SceneChangeWorkCells(lines, cells)) if (cells[k] >= 0x4000 && cells[k] < 0x8000) works.insert((int)cells[k]);
     }
     XyNumbers n;
     int next = XyFirstFlag;
@@ -309,8 +348,30 @@ std::string XyScriptSource(const Bytes& script, const std::string& namesFile, co
         const auto to = numbers.Works.find(v);
         if (to != numbers.Works.end()) rewrite[i] = "    " + lines[i].Op + " " + std::to_string(to->second) + "   ; X/Y's work " + std::to_string(v);
     }
+    // the works of the scenes the zone starts by itself (GetSceneChangeData's table), the data written again, 8 cells a line
+    std::vector<long> cells = DataCells(lines);
+    size_t movedScenes = 0;
+    for (const size_t k : SceneChangeWorkCells(lines, cells))
+    {
+        const auto to = numbers.Works.find((int)cells[k]);
+        if (to != numbers.Works.end()) { cells[k] = to->second; movedScenes++; }
+    }
+    if (movedScenes)
+    {
+        notes.push_back("scene changes: " + std::to_string(movedScenes) + " work(s) moved");
+        size_t data = 0;
+        while (data < lines.size() && lines[data].Op != "data") data++;
+        for (size_t i = data + 1; i < lines.size(); i++) if (lines[i].Op == "cell") rewrite[i] = "";
+        std::string block;
+        for (size_t k = 0; k < cells.size(); k++) block += (k % 8 ? " " : (k ? "\n    cell " : "    cell ")) + std::to_string(cells[k]);
+        rewrite[data] = text[data] + "\n" + block;
+    }
     std::string out;
-    for (size_t i = 0; i < text.size(); i++) out += (rewrite.count(i) ? rewrite[i] : text[i]) + "\n";
+    for (size_t i = 0; i < text.size(); i++)
+    {
+        if (rewrite.count(i) && rewrite[i].empty()) continue;
+        out += (rewrite.count(i) ? rewrite[i] : text[i]) + "\n";
+    }
     return out;
 }
 

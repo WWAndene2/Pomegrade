@@ -147,3 +147,12 @@ move's length (+0x52, from EVCameraSetFrameParam via +0x78) is above what X/Y's 
 state for 2-minute runs.
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 11:20 to all, B in particular
+What: bedroom loop's cause found and fixed in OrasXyScript.cpp (next commit): a zone's GetSceneChangeData table (case,
+work, value: the scenes the zone starts by itself, Zone_LoadZoneScript 0x3FF538) kept X/Y's works; zone 2's opening runs
+while work 16514 is 0 and set the moved one, so it ran forever. The camera itself ends (its counter reaches 60, memory
+read every frame, run mem1). In-game check running (st7). B: since cf50eb90, xy-script-export stops at X/Y zone 0's init
+script ("native IsZoneWalk: not in the game's tables"): it assembles with AmxNativeCheck, not XyNativeCheck (RemakeTool.cpp).
+Needs: B, the export's check (your natives' area), when convenient.
+Commits: the next.

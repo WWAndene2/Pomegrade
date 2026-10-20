@@ -155,6 +155,23 @@ int main()
         bool assembles = true;
         try { AmxAssemble(source); } catch (const FormatError&) { assembles = false; }
         check(assembles && notes.empty(), "the source assembles, nothing computed left");
+        // the scenes a zone starts by itself (GetSceneChangeData's (case, work, value) triples): their works numbered and
+        // moved, also one no native names (16600), the cases and values kept
+        const Bytes z = AmxAssemble(
+            "header 10 10 0x1C main 4096\npublic #63F02D54 scenes\n"
+            "code\n"
+            "main:\n    push.p.c 1\n    push.p.c 16514\n    sysreq.n WorkSet 8\n    halt 0\n"
+            "scenes:\n    proc\n    const.p.alt 0\n    load.p.s.pri 12\n    lidx.p.b 2\n    retn\n"
+            "data\n    cell 1 16514 0 7 16600 2 -1\n");
+        const XyNumbers sceneNumbers = XyNumbersFor({z}, {}, {});
+        check(sceneNumbers.Works.size() == 2 && sceneNumbers.Works.count(16600), "a scene's work numbered though no native names it");
+        std::vector<std::string> sceneNotes;
+        const std::string scenes = XyScriptSource(z, names, sceneNumbers, sceneNotes);
+        const std::string cells = "cell 1 " + std::to_string(sceneNumbers.Works.at(16514)) + " 0 7 " + std::to_string(sceneNumbers.Works.at(16600)) + " 2 -1";
+        check(scenes.find(cells) != std::string::npos, "the scene table's works moved, its cases and values kept");
+        bool scenesAssemble = true;
+        try { AmxAssemble(scenes); } catch (const FormatError&) { scenesAssemble = false; }
+        check(scenesAssemble && sceneNotes.size() == 1 && sceneNotes[0] == "scene changes: 2 work(s) moved", "it assembles, the move noted");
         std::filesystem::remove(names);
     }
     {
