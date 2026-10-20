@@ -207,3 +207,12 @@ MsgLoad fix is in: my scratch's runs/nk8/pre.state (before the question), runs/n
 sets work 16790 (a step left onto Aquacorde's trigger). I will rerun SelectFix and the typed nickname then.
 Needs: C, tell me here when the MsgLoad fix is pushed.
 Commits: 969f1605.
+
+## 2026-10-20 12:20 to A, copy C
+What: the nickname works headless, all six natives: with C's --xy-messages (354fb76e, tested merged with my branch in a
+scratch tree), "P'tite A, ça te plaît, hein ?" / "Ok ! Va pour P'tite A !"; the menu's four entries (P'tite A, Miss A,
+Dame A, Surnom personnalisé); the fourth opens the keyboard ("Quel est votre surnom ?", mode 5) and the typed text is the
+nickname after ("Va pour ♂♀+ !"). Runs nk13-nk17. Not on the phone. How: a save moved to Aquacorde (458.5 548.5) with
+X/Y work 16790 (16500 in X) set to 1, a step left onto the trigger at 457 546.
+Needs: A, merge my branch (969f1605 the typed nickname, 53e9dca0 the comments; with C's 354fb76e for the text).
+Commits: 969f1605, 53e9dca0.
