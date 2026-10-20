@@ -166,18 +166,18 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
         }
     }
 
-    // the vtable, with the slot Omega Ruby added, after the code segment: the offset to the top and the type info before
+    // each vtable, with the slot Omega Ruby added, after the code segment: the offset to the top and the type info before
     // its slots, as X's
-    if (port.Slots)
+    for (const uint32_t vtable : port.Vtables)
     {
         const uint32_t start = reserve(8 + 4 * (port.Slots + 1)), slots = start + 8;
         // the new place of an old vtable word (-2, -1: the offset to the top, the type info; then the slots)
         const auto newPlace = [&](uint32_t old) -> uint32_t {
-            const int index = ((int)old - (int)port.Vtable) / 4;
+            const int index = ((int)old - (int)vtable) / 4;
             if (index < 0) return slots + 4 * (uint32_t)index;
             return slots + 4 * (uint32_t)(index < (int)port.InsertSlot ? index : index + 1);
         };
-        for (uint32_t old = port.Vtable - 8; old < port.Vtable + 4 * port.Slots; old += 4) Put(out, newPlace(old), U32(out, old));
+        for (uint32_t old = vtable - 8; old < vtable + 4 * port.Slots; old += 4) Put(out, newPlace(old), U32(out, old));
         Put(out, slots + 4 * port.InsertSlot, port.InsertValue);
         // the relocations writing the old vtable's words now write the new one's; those pointing at the old vtable point
         // at the new one
@@ -186,13 +186,13 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
         {
             const size_t at = Header(out, InternalRelocationTableOffset) + 12 * (size_t)i;
             const uint32_t target = TagAddress(seg, U32(out, at), 0);
-            if (target >= port.Vtable - 8 && target < port.Vtable + 4 * port.Slots)
+            if (target >= vtable - 8 && target < vtable + 4 * port.Slots)
             {
                 Put(out, at, AddressTag(seg, newPlace(target), 0));
                 written++;
             }
             const uint32_t s = out.at(at + 5), addend = U32(out, at + 8);
-            if (s < seg.size() && seg[s].Offset + addend == port.Vtable)
+            if (s < seg.size() && seg[s].Offset + addend == vtable)
             {
                 out[at + 5] = 0;
                 Put(out, at + 8, slots - seg[0].Offset);
@@ -200,8 +200,8 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
             }
         }
         if (written != (int)port.Slots + 1 || pointing == 0)
-            throw FormatError(port.XName + ": the vtable's relocations are not as read (" + std::to_string(written) + " written, " +
-                              std::to_string(pointing) + " pointing)");
+            throw FormatError(port.XName + ": the vtable at " + Hex(vtable) + "'s relocations are not as read (" + std::to_string(written) +
+                              " written, " + std::to_string(pointing) + " pointing)");
     }
     return out;
 }
@@ -253,8 +253,8 @@ std::vector<CodeWord> XyGymLoaderPatchAt(uint32_t cave)
             0xE086C00C,                                // 2C add ip, r6, ip
             0xE8BD4070,                                // 30 pop {r4, r5, r6, lr}
             0xE12FFF1C,                                // 34 bx ip                  the constructor (object, field)
-            p.Constructor,                             // 38 the constructor's offset in the module
-            p.ObjectSize,                              // 3C the object's size
+            p.Classes.at(g.Class).Constructor,         // 38 the constructor's offset in the module
+            p.Classes.at(g.Class).ObjectSize,          // 3C the object's size
         };
         for (uint32_t k = 0; k < sizeof routine / 4; k++) w.push_back({code + 4 * k, 0, routine[k], p.Name + "'s loader (cave)"});
         Bytes text(path.begin(), path.end());
@@ -268,6 +268,46 @@ std::vector<CodeWord> XyGymLoaderPatchAt(uint32_t cave)
     w.push_back({back + 4, 0, ArmBranch(back + 4, NoModule + 4, false), "X/Y gyms' dispatcher (cave): back to the default case"});
     return w;
 }
+
+// what X's gym modules import alike, mapped (read 20 October)
+std::map<uint32_t, uint32_t> SharedStatic()
+{
+    return {
+        {0x1001D9, 0x10018D}, {0x100205, 0x100295}, // Thumb helpers (the same bytes)
+        {0x2FF520, 0x2FF8C0},                       // the heap's delete (Omega Ruby's also called by OrasXyNickname)
+        {0x14F220, 0x1F9544},                       // an empty function (an assert, empty in this build) -> Util_Nop_001F9544
+        {0x122920, 0x123480},                       // an allocation from a heap
+        {0x369914, 0x381B00}, {0x3699A8, 0x381B94}, {0x369AD0, 0x381CBC}, {0x369B58, 0x381D44}, // gfl::grp::g3d, X's +0x181EC
+        {0x36A758, 0x382944}, {0x36A7E4, 0x3829D0}, // H3dResAnim's (two identical copies in Omega Ruby: this one at +0x181EC)
+        {0x3739F0, 0x38B374}, {0x373D18, 0x38B69C}, // X's +0x17984
+        {0x37EC00, 0x3964E8}, // a vector set at +0x138 (Omega Ruby's +0x130): the functions around both line up
+        {0x49B680, 0x4CCDDC}, // its getter (+0x130 in Omega Ruby)
+        {0x42E728, 0x45BB00}, {0x42E7A0, 0x45BB78},
+        {0x58E8AC, 0x5D4458}, {0x58E8BC, 0x5D4468}, // the C++ type infos' vtables
+    };
+}
+
+// the area modules' API, which Omega Ruby moved from DllField to its .code (its own gym modules import these five:
+// 0x452A00, 0x452E7C, 0x452EE8, 0x452330, 0x452168), its loader 0x4525BC, and the field's getters
+std::map<uint32_t, uint32_t> SharedField()
+{
+    return {
+        {0x1027E618, 0x452A00}, {0x1027EDAC, 0x452E7C}, {0x1027EF88, 0x452EE8}, {0x1027F2F8, 0x452330}, {0x1027F44C, 0x452168},
+        {0x1027E964, 0x4525BC}, // the loader (an archive read and its members unpacked): its fields from +0x2C 4 bytes on
+        {0x102CD7DC, 0x45248C},
+        {0x102DDD30, 0x10327CF0}, // the field's getter of +0xF0 (Omega Ruby's +0x100: the getters line up)
+        {0x102DDD60, 0x10327D20}, // the field's player ([+0x158] in X, [+0x164] in Omega Ruby)
+    };
+}
+
+// the loader's request (object, archive): Omega Ruby's takes a third word, how many members, 0 all
+const XyModulePort::Thunk Request{0x1027ED9C, 0x452E5C, {0xE3A02000}, "the loader's request: mov r2, #0 (all members)"};
+
+// the loader object's allocation (mov r0, #0x3C): 0x40 bytes in Omega Ruby (its count at +0x30 for X's +0x2C; Omega
+// Ruby's modules allocate 0x40)
+XyModulePort::Word LoaderSize(uint32_t offset) { return {offset, 0xE3A0003C, 0xE3A00040, "the loader object's size: 0x3C -> 0x40"}; }
+
+template <typename Map> Map Merged(Map a, const Map& b) { a.insert(b.begin(), b.end()); return a; }
 
 const XyModulePort& XyGymRock()
 {
@@ -296,12 +336,11 @@ const XyModulePort& XyGymRock()
         p.Words = {{0x21C, 0xE2800B03, 0xE2800B01, "the player's position: add #0xC00 -> #0x400"},
                    {0x228, 0xE2800064, 0xE2800FBE, "the player's position: add #0x64 -> #0x2F8"}};
         p.Sounds = {{0x280, 0xA0060}, {0x290, 0xA0060}}; // the ambient sound set to a volume, then stopped
-        p.Vtable = 0x1568;
+        p.Vtables = {0x1568};
         p.Slots = 13;
         p.InsertSlot = 12;
         p.InsertValue = 0x4D8734; // Util_ReturnZero_004D8734
-        p.Constructor = 0x544;
-        p.ObjectSize = 0x18;
+        p.Classes = {{0x544, 0x18}};
         return p;
     }();
     return port;
@@ -314,42 +353,48 @@ const XyModulePort& XyGymIce()
         p.XName = "DllUSGymIce";
         p.Name = "DllXyGymIce";
         // X's .code -> Omega Ruby's (xy_import_match.py; pairs of identical copies taken in their order, read 20 October)
-        p.Static = {
-            {0x1001D9, 0x10018D}, {0x100205, 0x100295}, // Thumb helpers (the same bytes)
-            {0x2FF520, 0x2FF8C0},                       // the heap's delete
+        p.Static = Merged(SharedStatic(), {
             {0x359E3C, 0x372748},
-            {0x369914, 0x381B00}, {0x3699A8, 0x381B94}, {0x369AD0, 0x381CBC}, {0x369B58, 0x381D44}, // X's +0x181EC
-            {0x3739F0, 0x38B374}, {0x373D18, 0x38B69C}, // X's +0x17984
-            {0x37EC00, 0x3964E8}, // a vector set at +0x138 (Omega Ruby's +0x130): the functions around both line up
             {0x3D1A90, 0x3F2AA4}, {0x3D1AAC, 0x3F2AC0},
-            {0x42E728, 0x45BB00}, {0x42E7A0, 0x45BB78},
             {0x4A3FD8, 0x4DBDF4},
-            {0x122920, 0x123480}, // an allocation from a heap
-            {0x58E8AC, 0x5D4458}, {0x58E8BC, 0x5D4468}, // the C++ type infos' vtables
-        };
-        // X's DllField -> Omega Ruby's; the area modules' API Omega Ruby moved to its .code (its own gym modules import
-        // these five: 0x452A00, 0x452E7C, 0x452EE8, 0x452330, 0x452168), with its loader 0x4525BC and 0x45248C
-        p.Field = {
-            {0x1027E618, 0x452A00}, {0x1027EDAC, 0x452E7C}, {0x1027EF88, 0x452EE8}, {0x1027F2F8, 0x452330}, {0x1027F44C, 0x452168},
-            {0x1027E964, 0x4525BC}, // the loader (an archive read and its members unpacked): its fields from +0x2C 4 bytes on
-            {0x102CD7DC, 0x45248C},
+        });
+        p.Field = Merged(SharedField(), {
             {0x1027F1B0, 0x102CC758}, // two identical copies in Omega Ruby: the one whose callee is X's (0x1027670C, 0x102C8574)
             {0x102832E4, 0x102D1644}, // (Omega Ruby's gym modules import it)
             {0x10282940, 0x102D0D2C},
-            {0x102DDD30, 0x10327CF0}, // the field's getter of +0xF0 (Omega Ruby's +0x100: the getters line up)
-        };
-        // the loader's request (object, archive): Omega Ruby's takes a third word, how many members, 0 all
-        p.Thunks = {{0x1027ED9C, 0x452E5C, {0xE3A02000}, "the loader's request: mov r2, #0 (all members)"}};
-        // the loader object: 0x3C bytes in X, 0x40 in Omega Ruby (its count at +0x30 for +0x2C; Omega Ruby's modules
-        // allocate 0x40)
-        p.Words = {{0x180C, 0xE3A0003C, 0xE3A00040, "the loader object's size: 0x3C -> 0x40"}};
+        });
+        p.Thunks = {Request};
+        p.Words = {LoaderSize(0x180C)};
         // its archive, X's 0xAE (a/1/7/4, mov r1, #0xae at 0x1698): to be given a number of Omega Ruby's (not yet)
-        p.Vtable = 0x2620;
+        p.Vtables = {0x2620};
         p.Slots = 13;
         p.InsertSlot = 12;
         p.InsertValue = 0x4D8734; // Util_ReturnZero_004D8734
-        p.Constructor = 0x176C;
-        p.ObjectSize = 0x36C;
+        p.Classes = {{0x176C, 0x36C}};
+        return p;
+    }();
+    return port;
+}
+
+const XyModulePort& XyGymElec()
+{
+    static const XyModulePort port = [] {
+        XyModulePort p;
+        p.XName = "DllUSGymElec";
+        p.Name = "DllXyGymElec";
+        p.Static = Merged(SharedStatic(), {
+            {0x3D09A0, 0x3F18A4}, {0x425B1C, 0x44FA8C},
+        });
+        p.Field = SharedField();
+        p.Thunks = {Request};
+        p.Words = {LoaderSize(0xEA8), LoaderSize(0x1364), LoaderSize(0x1704)};
+        // its archive, X's 0xEB (a/2/3/5, mov r1, #0xeb three times): to be given a number of Omega Ruby's (not yet)
+        p.Vtables = {0x2108, 0x2144, 0x2180}; // its three classes'
+        p.Slots = 13;
+        p.InsertSlot = 12;
+        p.InsertValue = 0x4D8734; // Util_ReturnZero_004D8734
+        // X's kinds 0x19, 0x1A, 0x1B (X/Y zones 79-82, 77, 78), each its class (X's DllField cases, read 20 October)
+        p.Classes = {{0xDF4, 0x1DC}, {0x16CC, 0x38}, {0x1348, 0x18}};
         return p;
     }();
     return port;

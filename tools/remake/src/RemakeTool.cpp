@@ -40,7 +40,7 @@
 //   remake_tool xy-script-export <x.3ds> <function_names.tsv> <out dir> <zone>...  X/Y zones' scripts as editable amx-asm
 //                     source (OrasXyScript.h: XyScriptSource), x<zone>.amx and x<zone>.init.amx, the flags and works of the
 //                     zones given numbered together; each file checked to assemble
-//   remake_tool xy-gym-module <oras.3ds> <x.3ds> <out.cro> rock|ice   an X/Y gym's code module ported to Omega Ruby
+//   remake_tool xy-gym-module <oras.3ds> <x.3ds> <out.cro> rock|ice|elec   an X/Y gym's code module ported to Omega Ruby
 //                     (OrasXyGymModules.h): its imports, layouts, sound ids and vtable made Omega Ruby's
 //   remake_tool amx-asm <in.txt> <out.amx> [function_names.tsv [--mask M]]  a Pawn (AMX) script assembled (Amx.h:
 //                     AmxAssemble), the natives named checked against the game's tables in tools/remake/ghidra/function_names.tsv
@@ -442,8 +442,8 @@ int main(int argc, char** argv)
         if (cmd == "xy-gym-module" && argc >= 6)
         {
             const std::string which = argv[5];
-            if (which != "rock" && which != "ice") throw FormatError("xy-gym-module: rock or ice");
-            const XyModulePort& port = which == "rock" ? XyGymRock() : XyGymIce();
+            if (which != "rock" && which != "ice" && which != "elec") throw FormatError("xy-gym-module: rock, ice or elec");
+            const XyModulePort& port = which == "rock" ? XyGymRock() : which == "ice" ? XyGymIce() : XyGymElec();
             N3dsRom oras(argv[2]), xy(argv[3]);
             // where prototype/cro_link.py places each game's DllField (the addresses OrasXyGymModules.cpp names)
             const XyGameModules x{xy.Read("static.crs"), xy.Read("DllField.cro"), 0x101F9000};

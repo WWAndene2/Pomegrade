@@ -75,7 +75,7 @@ int main()
     p.Field = {{0x10200190, 0x103001A0}};
     p.Words = {{0x184, 0xE2800B03, 0xE2800B01, "a word"}};
     p.Sounds = {{0x188, 0xA0060}};
-    p.Vtable = 0x408;
+    p.Vtables = {0x408};
     p.Slots = 2;
     p.InsertSlot = 1;
     p.InsertValue = 0x4D8734;
@@ -104,7 +104,7 @@ int main()
         Set(t, 0x684, 0x780);                       // the |static| import's batch
         Set(t, 0x780, 0 | 0x14 << 4); t[0x784] = 2; t[0x785] = 1; // its one relocation: segment 0 + 0x14 (0x194), the last
         XyModulePort q = p;
-        q.Slots = 0;
+        q.Vtables.clear();
         q.Static.clear();
         q.Thunks = {{0x100040, 0x100900, {0xE3A02000}, "a third argument"}};
         const Bytes o = XyPortModule(t, x, oras, q, [](uint32_t id) { return id; });

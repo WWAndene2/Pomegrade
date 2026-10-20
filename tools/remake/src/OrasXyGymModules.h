@@ -39,9 +39,11 @@ struct XyModulePort
     struct Word { uint32_t Offset, Expected, Value; std::string Why; };
     std::vector<Word> Words;              // the module's own words (file offsets) changed
     std::vector<std::pair<uint32_t, uint32_t>> Sounds; // a word holding an X sound id (file offset, the id): translated
-    uint32_t Vtable = 0, Slots = 0;       // X's vtable (the file offset of its slot 0) and its slot count
+    std::vector<uint32_t> Vtables;        // X's vtables of the area module class (the file offset of each one's slot 0)
+    uint32_t Slots = 0;                   // their slot count in X
     uint32_t InsertSlot = 0, InsertValue = 0; // the slot Omega Ruby added and the .code function it holds
-    uint32_t Constructor = 0, ObjectSize = 0; // the class's constructor (a file offset) and its object's size
+    struct Class { uint32_t Constructor, ObjectSize; }; // a constructor (a file offset) and its object's size
+    std::vector<Class> Classes;           // one per area kind loading the module (Clemont's has three)
     // an X import Omega Ruby has only changed (its arguments): the import resolved to Omega Ruby's function, but each of the
     // module's stubs of it (`ldr pc, [pc, #-4]` and the word the loader writes) made a branch to a thunk written after the
     // code: Prefix (setting what Omega Ruby's function takes more), then a jump to it
@@ -61,11 +63,13 @@ struct XyGameModules
 Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameModules& oras, const XyModulePort& port,
                    const std::function<uint32_t(uint32_t)>& sound);
 
-// a ported gym: X's area kind (zone header word +0x26), the free Omega Ruby kind given it, its module
+// a ported gym: X's area kind (zone header word +0x26), the free Omega Ruby kind given it, its module and the class it
+// builds (Port.Classes)
 struct XyGym
 {
     uint16_t XKind, OrasKind;
     const XyModulePort& Port;
+    size_t Class = 0;
 };
 const std::vector<XyGym>& XyGyms();
 
@@ -89,6 +93,10 @@ const XyModulePort& XyGymRock();
 // Wulfric's gym (X zone 226, Snowbelle; DllUSGymIce, read 20 October): its imports mapped, not yet loaded (its archive needs
 // a number of Omega Ruby's)
 const XyModulePort& XyGymIce();
+
+// Clemont's gym (X zones 77-82, Lumiose; DllUSGymElec, read 20 October): its lifts and doors, three classes (X's area kinds
+// 0x19-0x1B); mapped, not yet loaded (its archive, as Wulfric's)
+const XyModulePort& XyGymElec();
 
 }
 
