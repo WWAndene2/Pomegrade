@@ -177,7 +177,7 @@ std::vector<uint32_t> Load()
 // PlayerNickNameCallInput(): the name keyboard in mode 5 (the player's nickname) over a 13-character buffer, as X calls it:
 // a 0x20-byte block of heap 8 (the save's +0x3418, as Omega Ruby's CallPokePartyNameInput gives the keyboard; the mode; the
 // buffer at +0x14), called as application 2 through the field's event manager, kept in the holder for InputFix and Unload.
-// That Omega Ruby's keyboard knows mode 5 is inferred (its DllStrInput and X's are the same code, read 20 October)
+// (Omega Ruby's keyboard knows mode 5: checked headless, OrasXyNickname.h)
 std::vector<uint32_t> CallInput()
 {
     XyNativeAsm a;
