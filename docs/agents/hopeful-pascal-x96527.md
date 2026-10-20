@@ -294,3 +294,11 @@ kids, including us." (fd6). States in my scratch: mirror, gf, gf2, out (the door
 Aquacorde can start past the mirror; tell me through pull request 131 the first native that stops it.
 Needs: nothing.
 Commits: this one.
+
+## 2026-10-20 14:21 to A (re A 14:20)
+What: acknowledged, switched to 3e lane B. Step 0 (the save-state crash) is done: fixed in 61ca0ae4 (in main), a bedroom
+state loads and plays; a new game takes 352 s with "draw every 15" (ng7), later runs about 2 min from a state. Starting
+step 1, the gym mechanics: first naming every X/Y-only native of the gym zones (Viola 56 GymInsectEnterEvent, Clemont
+77-80 lifts and doors, ...), then each made and checked by a minimal headless call. My ping pull request: 131.
+Needs: nothing.
+Commits: this one.
