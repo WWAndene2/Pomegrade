@@ -826,33 +826,34 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         snprintf(line, sizeof line, "battle types: %zu after the game's 73, the table at 0x%X", extra.size() / 24, moved);
         log.push_back(line);
     }
-    if (!gymArchives.empty())
+    // the gyms' archives (OrasXyGymModules.h: numbers past 299 that are ARM immediates, 0x130...) take this table too, as
+    // many more as their highest number needs
+    uint32_t moreArchives = o.MoreArchives;
+    for (const auto& [number, file] : gymArchives) moreArchives = std::max(moreArchives, number + 1 - 299);
+    if (moreArchives)
     {
-        // More archives (B's, read 20 October): the game opens an archive by number through a table of 299 pointers to
-        // UTF-16 paths (0x5F5050), its address and count stored at boot from two literal words (0x1085BC, 0x1085B8; by
-        // 0x10A49C into 0x6173F0 + 0x54 / + 0x50). The table copied into the room, longer, the new archives' paths with it,
-        // and the two words changed; a number between the game's last and a new one names archive 0's path (none opens it)
-        constexpr uint32_t table = 0x5F5050, tableWord = 0x1085BC, countWord = 0x1085B8, gameArchives = 299;
-        uint32_t count = gameArchives;
-        for (const auto& [number, file] : gymArchives) count = std::max(count, number + 1);
-        Bytes all(code.begin() + (table - CodeBase), code.begin() + (table - CodeBase) + 4 * gameArchives);
-        const uint32_t first = (uint32_t)(all[0] | all[1] << 8 | all[2] << 16 | (uint32_t)all[3] << 24);
-        all.resize(4 * (size_t)count);
+        // More archives (read 20 October): the archive paths ("rom:/a/0/0/0", UTF-16) are 299 pointers from 0x5F5050, the
+        // table and its count read at boot from the literal words 0x1085BC and 0x1085B8 (stored into 0x6173F0 + 0x54 and
+        // + 0x50 by 0x10A49C; no other word points into the table). The copy in the room keeps the game's pointers and adds
+        // the new paths after them, archive n at rom:/a/<n's three digits>, the files themselves added under romfs/
+        constexpr uint32_t table = 0x5F5050, countWord = 0x1085B8, tableWord = 0x1085BC, gameArchives = 299;
+        const uint32_t count = gameArchives + moreArchives;
+        if (count > 1000) throw FormatError("--more-archives: up to 701 (paths have three digits)");
+        const uint32_t at = roomAt, strings = at + count * 4;
+        Bytes all(code.begin() + (table - CodeBase), code.begin() + (table - CodeBase) + gameArchives * 4), text;
         for (uint32_t n = gameArchives; n < count; n++)
-            for (int b = 0; b < 4; b++) all[4 * n + b] = (uint8_t)(first >> (8 * b));
-        for (const auto& [number, file] : gymArchives)
         {
-            const std::string path = "rom:/" + XyArchivePath(number);
-            Bytes text;
-            for (const char c : path) { text.push_back((uint8_t)c); text.push_back(0); }
-            text.push_back(0); text.push_back(0);
-            const uint32_t at = roomPut(text, "the path of archive " + std::to_string(number));
-            for (int b = 0; b < 4; b++) all[4 * number + b] = (uint8_t)(at >> (8 * b));
+            const uint32_t p = strings + (uint32_t)text.size();
+            for (int b = 0; b < 4; b++) all.push_back((uint8_t)(p >> (8 * b)));
+            char path[16];
+            snprintf(path, sizeof path, "rom:/a/%u/%u/%u", n / 100, n / 10 % 10, n % 10);
+            for (const char* c = path;; c++) { text.push_back((uint8_t)*c); text.push_back(0); if (!*c) break; }
         }
-        const uint32_t moved = roomPut(all, "the archive path table");
-        words.push_back({tableWord, table, moved, "the archive path table's address"});
+        all.insert(all.end(), text.begin(), text.end());
+        if (roomPut(all, "the archive paths") != at) throw FormatError("--more-archives: the room moved");
+        words.push_back({tableWord, table, at, "the archive path table"});
         words.push_back({countWord, gameArchives, count, "the archive count"});
-        snprintf(line, sizeof line, "archives: %u (the game's 299 and X/Y's gyms'), the path table at 0x%X", count, moved);
+        snprintf(line, sizeof line, "archives: %u after the game's 299 (a/2/9/9 up), the path table at 0x%X", moreArchives, at);
         log.push_back(line);
     }
 

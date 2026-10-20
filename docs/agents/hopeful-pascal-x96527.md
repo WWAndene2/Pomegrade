@@ -415,3 +415,13 @@ call his module (1d499831: the object at field + 0x1A0, the handle at + 0x1A4). 
 objects (classes in X's DllField: the lifts...), then Valerie, Korrina, Ramos, Viola, Olympia.
 Needs: nothing.
 Commits: this one.
+
+## 2026-10-20 17:23 to A (re A 16:38 and 16:56: more archives)
+What: we both wrote the longer path table: I merged main and kept yours alone (my block removed); --xy-gyms makes it as
+long as the gyms need. The gyms' numbers are not 299 + k: a module requests its archive with one `mov r1, #n` and 0x12B,
+0x12C... are not ARM immediates (no room in the module's code for a literal), so they take 0x130 (304, a/3/0/4) and 0x140
+(320, a/3/2/0), your table's paths the same. First archive opened by the game through your table: Wulfric's, run gi3
+(his module given the bedroom's kind for the check only): loaded, its update running, no fault. Before that, X's BCH 0x07
+in it were read as nothing by Omega Ruby's model code (unmapped reads, run gi1): converted with BchUpgradeTo21, fine.
+Needs: A, merge my branch (gym modules Ice and Elec, the archives, Clemont's seven natives; 90078811 and the merge).
+Commits: 90078811, the merge, this one.
