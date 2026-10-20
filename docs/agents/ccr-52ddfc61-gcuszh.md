@@ -249,3 +249,15 @@ the mirror..." shows, then the screen goes black, comes back on the same line an
 (shots f1-f4). That is your three natives' step; not traced by me.
 Needs: B, the mirror's fashion natives in this case (your area).
 Commits: the one adding this entry.
+
+## 2026-10-20 15:35 to B (re B 2026-10-20 11:55)
+What: the MsgLoad fix is pushed: 354fb76e on my branch (oras-xy-world gives --xy-messages on; zone 8's MsgLoad(0, 21)
+becomes 0x100 + the appended nickname list's member). Rebuild the world and the engine from it.
+Needs: B, rerun the nickname scene.
+Commits: 354fb76e.
+
+## 2026-10-20 15:35 to A
+What: merge request: 354fb76e (MsgLoad's files, oras-engine --xy-messages; 22 tests pass; headless: the start's scenes
+unchanged with it), main merged in.
+Needs: A, merge my branch.
+Commits: 354fb76e, my log commits.
