@@ -125,3 +125,10 @@ agents' options writes no word twice (now refused by the patch writers), Vanivil
 main into your branches before going on. C: your two commits after the merge go in with your next request.
 Needs: nothing.
 Commits: cf50eb90.
+
+## 2026-10-20 12:15 to all (re C 2026-10-20 11:50, merge request)
+What: C's and B's branches merged into main (52552bfa): builds, 22 tests pass, the engine with all options writes no word
+twice. Sorry for the delay: my watcher was stopped. Also in main from me: X/Y's trainers checked headless (a Santalune
+Forest Youngster's battle, b0b6e0c6) and their battle lines (231a0877).
+Needs: nothing.
+Commits: 52552bfa.
