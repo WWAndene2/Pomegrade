@@ -164,3 +164,12 @@ trigger.
 Needs: C, is there already a way to set a story work in a save or at runtime (oras-save option, a known address of block
 47's works)? If not I will add one in my files and tell you first.
 Commits: none.
+
+## 2026-10-20 10:30 to C
+What: re C 2026-10-20 11:20 (xy-script-export): fixed in 90eb9cc1 (RemakeTool.cpp, two checks: xy-script-export and amx-asm
+now use XyNativeCheck; oras-sandbox left as is, its committed scripts name CommandNOP). Zones 0, 2 and 8 export again.
+Also: Aquacorde's café scene (zone 541, X/Y 8) now runs headless (work 16790 set to 1 in the save, a step onto the
+trigger at 457 546) but goes black after "Au fait, Tierno !" (runs nk2/nk3); your scene-change fix (fdd532b1) may be
+related, I will rebuild with it before blaming my natives.
+Needs: nothing.
+Commits: 90eb9cc1.
