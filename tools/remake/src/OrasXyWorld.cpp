@@ -26,6 +26,31 @@ namespace remake
 
 static Bytes Plain(const Bytes& data) { return IsLzCompressed(data) ? LzDecompress(data) : data; }
 
+// A zone's battle background (header word 15, bits 7-13), X/Y's -> Omega Ruby's. The field is the background: Santalune's
+// gym (X/Y zone 56, X/Y's 24) given its own value fought in front of Omega Ruby's background 24, an Elite Four room, not
+// Littleroot's (runs hBat1, hBg3, 20 October); DllBattle picks the platform model from it (a/1/3/6 btl_O_*, the table at
+// 0x10106074: 4 btl_O_mori, 16-23 the eight gyms' platforms), the backdrop not traced yet. The two games number them
+// differently, so each X/Y value takes the Omega Ruby one its zones' kind of place has in both games' zone lists (by
+// kind, inferred): grass routes 1, caves 3, forests 4, the sea 13, mountains 6, desert 43, interiors 8, towns 9, gyms 16-23,
+// villains' bases 29. X/Y's own backgrounds (its gyms') are not brought in: Omega Ruby's of the same kind show
+static int XyBattleFieldToOras(int x)
+{
+    static const std::map<int, int> byKind = {
+        {1, 1}, {42, 1}, {62, 1},            // routes
+        {3, 3}, {17, 3}, {19, 3}, {20, 3},   // caves (ice and crystal ones too)
+        {4, 4},                              // forests
+        {5, 13},                             // the sea (Azure Bay)
+        {6, 6},                              // snow, as mountains
+        {7, 43},                             // sand (Route 13, Ambrette's beach)
+        {8, 8}, {12, 8}, {57, 8},            // interiors, the palace and the Chateau, the Tower of Mastery
+        {9, 9}, {10, 9}, {22, 9},            // cities, towns, Lumiose
+        {24, 16}, {25, 17}, {26, 18}, {27, 19}, {28, 20}, {29, 21}, {30, 22}, {31, 23}, // the eight gyms
+        {2, 29}, {43, 29}, {44, 29},         // the Poke Ball factory, the labs and Power Plant, Team Flare's base
+    };
+    const auto it = byKind.find(x);
+    return it == byKind.end() ? 9 : it->second;
+}
+
 std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o)
 {
     if (ws.XyRom.empty()) throw FormatError("oras-xy-world needs X/Y's .3ds");
@@ -196,6 +221,7 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
                 log.push_back(line);
             }
         }
+        f.BattleField = XyBattleFieldToOras((x.Header[15] >> 7) & 0x7F);
         f.SpawnX = x.Header[22] / 18.0f;
         f.SpawnZ = x.Header[26] / 18.0f;
         OrasZone zone;
