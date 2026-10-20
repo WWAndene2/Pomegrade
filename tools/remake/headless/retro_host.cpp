@@ -16,6 +16,7 @@
 //   screen                 the screen as text: 96 x 36 characters, darker to brighter " .:-=+*#%@"
 //   report                 every thread of the game: state, PC, LR, SP, code addresses on its stack
 //   save NAME / load NAME  a save state, <work dir>/NAME.state (the same mod must be loaded to use it)
+//   audio NAME / audio off the game's sound from then on into <work dir>/NAME.wav (16-bit stereo at the core's rate), or stop
 // Whatever the commands, a screen that stays the same for 10 seconds is reported once (a freeze).
 //
 // <work dir>/Azahar is the core's user folder: put the mod in Azahar/load/mods/000400000011C400/ and the save in
@@ -217,8 +218,44 @@ static void VideoRefresh(const void* data, unsigned width, unsigned height, size
     luminance = sum / ((width / 4.0) * (height / 4.0) * 3.0);
 }
 
-static void AudioSample(int16_t, int16_t) {}
-static size_t AudioBatch(const int16_t*, size_t frames) { return frames; }
+// "audio NAME": the core's samples written to a WAV file (its header's sizes filled in when it is closed), to check that a
+// sound plays (a stream's level), not to listen to in a run that skips frames
+static FILE* audioFile = nullptr;
+static uint32_t audioFrames = 0, audioRate = 32728;
+static void AudioClose()
+{
+    if (!audioFile) return;
+    const uint32_t bytes = audioFrames * 4, riff = 36 + bytes;
+    fseek(audioFile, 4, SEEK_SET); fwrite(&riff, 4, 1, audioFile);
+    fseek(audioFile, 40, SEEK_SET); fwrite(&bytes, 4, 1, audioFile);
+    fclose(audioFile);
+    audioFile = nullptr;
+}
+static void AudioOpen(const std::string& path)
+{
+    AudioClose();
+    audioFile = fopen(path.c_str(), "wb");
+    if (!audioFile) return;
+    audioFrames = 0;
+    const uint32_t fmtSize = 16, rate = audioRate, byteRate = audioRate * 4, zero = 0;
+    const uint16_t pcm = 1, channels = 2, align = 4, bits = 16;
+    fwrite("RIFF", 1, 4, audioFile); fwrite(&zero, 4, 1, audioFile); fwrite("WAVEfmt ", 1, 8, audioFile);
+    fwrite(&fmtSize, 4, 1, audioFile); fwrite(&pcm, 2, 1, audioFile); fwrite(&channels, 2, 1, audioFile);
+    fwrite(&rate, 4, 1, audioFile); fwrite(&byteRate, 4, 1, audioFile); fwrite(&align, 2, 1, audioFile); fwrite(&bits, 2, 1, audioFile);
+    fwrite("data", 1, 4, audioFile); fwrite(&zero, 4, 1, audioFile);
+}
+static void AudioSample(int16_t left, int16_t right)
+{
+    if (!audioFile) return;
+    const int16_t both[2] = {left, right};
+    fwrite(both, 2, 2, audioFile);
+    audioFrames++;
+}
+static size_t AudioBatch(const int16_t* data, size_t frames)
+{
+    if (audioFile) { fwrite(data, 4, frames, audioFile); audioFrames += (uint32_t)frames; }
+    return frames;
+}
 static void InputPoll() {}
 
 // without a script: A pressed for 4 frames every second, once the system has had 5 seconds to boot; with one: the keys
@@ -494,6 +531,11 @@ static int RunScript(void* core, const char* path)
             if (!poke) printf("(no pomegrade_poke in this core)\n");
             else printf("[frame %lu] poke %s %s: %s\n", frame, arg.c_str(), value.c_str(), poke(strtoul(arg.c_str(), nullptr, 0), strtoul(value.c_str(), nullptr, 0)) ? "written" : "not mapped");
         }
+        else if (cmd == "audio")
+        {
+            if (arg == "off") { AudioClose(); printf("[frame %lu] audio off: %u frames\n", frame, audioFrames); }
+            else { AudioOpen(workDir + "/" + arg + ".wav"); printf("[frame %lu] audio into %s.wav\n", frame, arg.c_str()); }
+        }
         else if (cmd == "dump")
         {
             // dump ADDRESS LENGTH FILE: the game's memory written raw to FILE in the work folder (pomegrade_dump)
@@ -583,9 +625,14 @@ int main(int argc, char** argv)
     game.path = argv[2];
     if (!Symbol<bool (*)(const retro_game_info*)>(core, "retro_load_game")(&game)) { fprintf(stderr, "the game did not load\n"); return 2; }
     if (glMode && hwRender.context_reset) hwRender.context_reset(); // the frontend's part once the game is loaded
+    {
+        retro_system_av_info av{};
+        Symbol<void (*)(retro_system_av_info*)>(core, "retro_get_system_av_info")(&av);
+        if (av.timing.sample_rate > 0) audioRate = (uint32_t)(av.timing.sample_rate + 0.5);
+    }
     auto run = Symbol<void (*)()>(core, "retro_run");
     runFrame = run;
-    if (argc > 5) return RunScript(core, argv[5]);
+    if (argc > 5) { const int result = RunScript(core, argv[5]); AudioClose(); return result; }
     unsigned long fieldFrame = 0;
     for (frame = 0; frame < frames; frame++)
     {

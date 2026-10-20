@@ -3,8 +3,9 @@
 # Ruby's by xy-piece (OrasXyPiece.h); its three houses (door ... xy) and their three upper floors; X's people, text and scripts (xy-events, OrasXyScript.h), not yet seen in the game. The map's rows
 # are not used (every piece is X's). For the phone, Remake mod workflow variants:
 #   sb: sandbox tools/remake/sandbox/vaniville.txt --xy dumps-x/x.3ds --character-models 64
-#   eng: engine --zone-rows 545 --script-mask 538:0x247 --character-models 64 --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000
-#   sv: save 538 20.5 48.5
+#   eng: engine --zone-rows 545 --script-mask 538:0x247 --story large --character-models 64 --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000
+#   sv: save 538 20.5 48.5 --characters-from dumps/oras.3ds out/sb
+#     (Continue rebuilds a zone's people from the save, not the zone: oras-save writes Vaniville's, OrasSave::PlaceCharacters)
 #   vaniville: merge sb eng sv
 zone 538
 pack 8

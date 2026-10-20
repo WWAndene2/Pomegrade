@@ -50,7 +50,8 @@ struct NewZoneFields
     int AreaPack = -1, Matrix = -1, Text = -1;
     int Overworld = -1;        // word 13: the outdoor zone it belongs to; -1 for an outdoor zone, which belongs to itself
     int NameLine = -1;         // a line of a/0/7/x member 90; -1: none of its own (word 14 & 0x3FF 0)
-    int Music = -1;            // word 4; -1: Littleroot's (5) outdoors, its house's (65) inside
+    int Music = -1;            // word 4, n of the music id (word 5 << 16 | n); -1: Littleroot's (5) outdoors, its house's (65) inside
+    int MusicCategory = 1;     // word 5: the id's category (1 the game's music; 0 X/Y's, with oras-engine --xy-sounds)
     float SpawnX = 0, SpawnZ = 0; // the tile where a warp-less arrival lands (header words 22, 24, 25, 27)
 };
 

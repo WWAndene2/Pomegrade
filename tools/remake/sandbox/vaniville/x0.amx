@@ -1316,7 +1316,7 @@ L0017F8:
 L001804:
     proc
     stack.p -4
-    push.p.c 3081   ; X/Y's flag 190
+    push.p.c 3328   ; X/Y's flag 190
     sysreq.n 37 4   ; FlagGet
     stor.p.s.pri -4
     load.p.s.pri -4
@@ -1376,7 +1376,7 @@ L001940:
     const.pri 292
     addr.alt -36
     movs 32
-    push.p.c 16641   ; X/Y's work 16432
+    push.p.c 16761   ; X/Y's work 16432
     sysreq.n 14 4   ; WorkGet
     switch L0019F8
 L001974:
@@ -1384,7 +1384,7 @@ L001974:
     push.p.c 3
     push.p.c 8
     push.p.adr -36
-    push.p.c 3081   ; X/Y's flag 190
+    push.p.c 3328   ; X/Y's flag 190
     push.p.c 5
     push.p.c 24
     call L000F2C
@@ -1394,7 +1394,7 @@ L0019A0:
     push.p.c 3
     push.p.c 8
     push.p.adr -36
-    push.p.c 3081   ; X/Y's flag 190
+    push.p.c 3328   ; X/Y's flag 190
     push.p.c 6
     push.p.c 24
     call L000F2C
@@ -1404,7 +1404,7 @@ L0019CC:
     push.p.c 3
     push.p.c 8
     push.p.adr -36
-    push.p.c 3081   ; X/Y's flag 190
+    push.p.c 3328   ; X/Y's flag 190
     push.p.c 7
     push.p.c 24
     call L000F2C
@@ -1693,11 +1693,11 @@ L001A24:
     push.p.c 4
     sysreq.n 61 4   ; MdlDel
     push.p.c 2
-    push.p.c 16643   ; X/Y's work 16498
+    push.p.c 16763   ; X/Y's work 16498
     sysreq.n 62 8   ; WorkSet
-    push.p.c 3085   ; X/Y's flag 614
+    push.p.c 3332   ; X/Y's flag 614
     sysreq.n 38 4   ; FlagSet
-    push.p.c 3086   ; X/Y's flag 615
+    push.p.c 3333   ; X/Y's flag 615
     sysreq.n 38 4   ; FlagSet
     stack.p 4
     zero.pri
@@ -1812,7 +1812,7 @@ L0020BC:
     push.p.s -8
     push.p.c 8
     call L000B64
-    push.p.c 3087   ; X/Y's flag 618
+    push.p.c 3334   ; X/Y's flag 618
     sysreq.n 69 4   ; FlagReset
     push.p.c 5
     sysreq.n 70 4   ; MdlAdd
@@ -1936,7 +1936,7 @@ L0020BC:
     call L000A60
     push.p.c 5
     sysreq.n 61 4   ; MdlDel
-    push.p.c 3087   ; X/Y's flag 618
+    push.p.c 3334   ; X/Y's flag 618
     sysreq.n 38 4   ; FlagSet
     push.p.c 10
     push.p.c 4
@@ -2015,14 +2015,14 @@ L0020BC:
     push.p.c 4
     call L000C84
     push.p.c 4
-    push.p.c 16643   ; X/Y's work 16498
+    push.p.c 16763   ; X/Y's work 16498
     sysreq.n 62 8   ; WorkSet
     push.p.c 1
-    push.p.c 16645   ; X/Y's work 16506
+    push.p.c 16765   ; X/Y's work 16506
     sysreq.n 62 8   ; WorkSet
-    push.p.c 3084   ; X/Y's flag 604
+    push.p.c 3331   ; X/Y's flag 604
     sysreq.n 38 4   ; FlagSet
-    push.p.c 3083   ; X/Y's flag 603
+    push.p.c 3330   ; X/Y's flag 603
     sysreq.n 38 4   ; FlagSet
     stack.p 8
     zero.pri
@@ -2032,7 +2032,7 @@ L002854:
     push.p.c 0
     push.p.c 4
     call L0001A4
-    push.p.c 16641   ; X/Y's work 16432
+    push.p.c 16761   ; X/Y's work 16432
     sysreq.n 14 4   ; WorkGet
     switch L0028D4
 L002880:
@@ -2070,7 +2070,7 @@ L002910:
     push.p.c 8
     call L000594
     stack.p -4
-    push.p.c 16643   ; X/Y's work 16498
+    push.p.c 16763   ; X/Y's work 16498
     sysreq.n 14 4   ; WorkGet
     stor.p.s.pri -4
     load.p.s.pri -4
@@ -2132,7 +2132,7 @@ L002A38:
 L002A5C:
     proc
     stack.p -4
-    push.p.c 16644   ; X/Y's work 16500
+    push.p.c 16764   ; X/Y's work 16500
     sysreq.n 14 4   ; WorkGet
     stor.p.s.pri -4
     load.p.s.pri -4
@@ -2239,7 +2239,7 @@ L002C28:
     push.p.c 0
     sysreq.n 75 8   ; ParentFlagSetReq
     push.p.c 1
-    push.p.c 16642   ; X/Y's work 16496
+    push.p.c 16762   ; X/Y's work 16496
     sysreq.n 62 8   ; WorkSet
     push.p.c 460
     push.p.c 595
@@ -2362,7 +2362,7 @@ L002CF0:
     push.p.c 0
     call L001804
     push.p.c 6
-    push.p.c 16643   ; X/Y's work 16498
+    push.p.c 16763   ; X/Y's work 16498
     sysreq.n 62 8   ; WorkSet
     zero.pri
     retn

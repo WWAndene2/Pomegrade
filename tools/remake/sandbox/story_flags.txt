@@ -1,0 +1,79 @@
+# The scene demo (scene_demo.txt) with story flag 0xD05, past the game's own (1-0xCFF): it is kept only with
+# oras-engine --story large (save block 47, OrasEngine.cpp). Phone test of the flag across a save: talk to the person
+# (lines 1 and 2, the flag set), save, quit, continue, talk again: line 3 means the flag was saved. Variants:
+#   st: sandbox tools/remake/sandbox/story_flags.txt
+#   ste: engine --zone-rows 540 --story large
+#   sts: save 539 23.5 19.5 --characters-from dumps/oras.3ds out/st
+#   storyflags: merge st ste sts
+zone 538
+pack 8
+spawn 14.5 20.5
+name Bac à Sable
+zone 539
+pack 8
+spawn 30.5 20.5
+name Bac à Sable Est
+line Archie: La mer se souvient de tout. Moi aussi.
+line Archie: Reviens me voir quand tu auras compris.
+line Archie: Tu es revenu. La mer, elle, ne revient jamais.
+character 284 24 19 face 2 script 9
+scene
+on 9
+    if not flag 0xD05
+        say 0
+        walk person north 2
+        walk person south 2
+        face player south
+        say 1
+        flag 0xD05 on
+    else
+        say 2
+    endif
+end
+pieces 1 1
+blocks
+0011
+0011
+0011
+0011
+map
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::.........t......TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::............t...TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::......:.........TT
+TT..................::......:.........TT
+TT..................::......:.........TT
+TT::::::::::::::::::::::::::::::::::::TT
+TT::::::::::::::::::::::::::::::::::::TT
+TT..................::................TT
+TT..................::................TT
+TT..................::..FFFFFFFFFFF...TT
+TT..................::................TT
+TT......LLLLLLLLLLL.::................TT
+TT..................::................TT
+TT..................::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::........t.......TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT

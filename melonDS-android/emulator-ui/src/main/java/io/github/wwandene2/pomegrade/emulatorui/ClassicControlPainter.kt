@@ -53,11 +53,10 @@ object ClassicControlPainter {
 
     /**
      * A shoulder button (L / R) between [left], [top], [right], [bottom]: its outer top corner rounded over [corner],
-     * its three other corners very slightly, 4 % of its height (owner's choice); [isLeft] for L, whose outer side is
-     * on the left.
+     * its three other corners over [small], by default very slightly, 4 % of its height (owner's choice); [isLeft] for
+     * L, whose outer side is on the left.
      */
-    fun bumperPath(left: Float, top: Float, right: Float, bottom: Float, corner: Float, isLeft: Boolean): Path {
-        val small = (bottom - top) * 0.04f
+    fun bumperPath(left: Float, top: Float, right: Float, bottom: Float, corner: Float, isLeft: Boolean, small: Float = (bottom - top) * 0.04f): Path {
         // radii from the top left, clockwise
         val radii = if (isLeft) listOf(corner, small, small, small) else listOf(small, corner, small, small)
         return Path().apply {

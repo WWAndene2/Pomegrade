@@ -33,9 +33,9 @@ Bytes BchUpgradeTo21(const Bytes& bch)
     const uint32_t contentsLength = U32(bch, 0x1C), stringsLength = U32(bch, 0x20), commandsLength = U32(bch, 0x24);
     const uint32_t rawLength = U32(bch, 0x28);
     // 15 dictionaries of 12 bytes (SPICA's H3D: models, material parameters, shaders, textures, LUTs, lights, cameras,
-    // fogs, then 6 kinds of animations, scenes): skeletal (8) and material (9) animations are converted (below), the other kinds
-    // refused
-    for (int k : {10, 11, 12, 13})
+    // fogs, then 6 kinds of animations, scenes): skeletal (8), material (9) and visibility (10) animations are converted
+    // (below), the other kinds refused
+    for (int k : {11, 12, 13})
         if (U32(bch, s.Contents + 12 * k + 4)) throw FormatError("BCH upgrade: dictionary " + std::to_string(k) + " is not empty (not converted)");
 
     // the materials (their file offsets, from the reader's texture name words: names at +0x48 before 0x21)
@@ -111,7 +111,9 @@ Bytes BchUpgradeTo21(const Bytes& bch)
     // translation x, y, z, each a constant or a key frame group as a material animation's (SPICA H3DAnimTransform); a
     // QuatTransform (7: X's doors' opening, t01_door) or MtxTransform (9) element holds its own lists, the same in both
     // versions (SPICA: no field depends on it), kept
-    for (const uint32_t dictionary : {8u, 9u})
+    // visibility animations (dictionary 10; X's prop 22 in Vaniville's matrix has 3): Boolean elements (primitive 8: SPICA H3DAnimBoolean,
+    // a curve then a bit per frame, no field depending on the version), kept
+    for (const uint32_t dictionary : {8u, 9u, 10u})
     for (uint32_t i = 0, list = U32(contents, 12 * dictionary + 4) ? pointer(12 * dictionary) : 0; i < U32(contents, 12 * dictionary + 4); i++)
     {
         const uint32_t anim = pointer(list + 4 * i), elements = U32(contents, anim + 16);
@@ -125,6 +127,7 @@ Bytes BchUpgradeTo21(const Bytes& bch)
             const uint16_t prim = (uint16_t)(contents.at(el + 6) | contents.at(el + 7) << 8);
             int slots = prim == 0 || prim == 6 ? 1 : prim == 2 ? 2 : prim == 3 ? 3 : prim == 5 ? 4 : 0;
             if (dictionary == 8) slots = prim == 4 ? 9 : prim == 7 || prim == 9 ? -1 : 0;
+            if (dictionary == 10) slots = prim == 8 ? -1 : 0;
             if (slots < 0) continue;
             if (!slots) throw FormatError("BCH upgrade: an animation (dictionary " + std::to_string(dictionary) + ") of primitive type " + std::to_string(prim) + " (not converted)");
             for (int k = 0; k < slots; k++)

@@ -393,7 +393,7 @@ L0006CC:
 L0006D8:
     proc
     stack.p -4
-    push.p.c 16644   ; X/Y's work 16500
+    push.p.c 16764   ; X/Y's work 16500
     sysreq.n 8 4   ; WorkGet
     stor.p.s.pri -4
     load.p.s.pri -4

@@ -52,7 +52,7 @@ native CommandNOP
 native ResetMirror
 native CommandNOP   ; X/Y's #C0DC5EA5, none in Omega Ruby
 native CommandNOP   ; X/Y's #F5C84EF0, none in Omega Ruby
-native CommandNOP   ; X/Y's #FCD28E80, none in Omega Ruby
+native FadeIsEnd   ; X/Y's #FCD28E80, none in Omega Ruby
 native SetMirror
 native PokePartyGetCount
 native FadeRequestOut
@@ -1218,7 +1218,7 @@ L0015A4:
     call L000004
 L001608:
     push.p.s -4
-    sysreq.n 52 4   ; CommandNOP
+    sysreq.n 52 4   ; FadeIsEnd
     jnz L001638
     push.p.c 1
     push.p.c 4
@@ -1419,10 +1419,10 @@ L00197C:
     push.p.c 4
     call L000B70
     push.p.c 4
-    push.p.c 16646   ; X/Y's work 16508
+    push.p.c 16766   ; X/Y's work 16508
     sysreq.n 61 8   ; WorkSet
     push.p.c 1
-    push.p.c 16643   ; X/Y's work 16498
+    push.p.c 16763   ; X/Y's work 16498
     sysreq.n 61 8   ; WorkSet
     zero.pri
     retn
@@ -1578,7 +1578,7 @@ L001CA4:
     push.p.c 0
     sysreq.n 77 4   ; EVCameraEnd
     push.p.c 1
-    push.p.c 16647   ; X/Y's work 16514
+    push.p.c 16767   ; X/Y's work 16514
     sysreq.n 61 8   ; WorkSet
     zero.pri
     retn
@@ -1635,7 +1635,7 @@ L001EE0:
     push.p.c 16
     call L0002DC
     stack.p -4
-    push.p.c 3082   ; X/Y's flag 398
+    push.p.c 3329   ; X/Y's flag 398
     sysreq.n 78 4   ; FlagGet
     stor.p.s.pri -4
     load.p.s.pri -4
@@ -1728,9 +1728,9 @@ L001EE0:
     call L0001BC
     push.p.c 0
     sysreq.n 77 4   ; EVCameraEnd
-    push.p.c 3082   ; X/Y's flag 398
+    push.p.c 3329   ; X/Y's flag 398
     sysreq.n 80 4   ; FlagSet
-    push.p.c 3094   ; X/Y's flag 2745
+    push.p.c 3341   ; X/Y's flag 2745
     sysreq.n 80 4   ; FlagSet
     jump L002218
 L0021FC:
@@ -1802,26 +1802,26 @@ L002328:
     sysreq.n 81 24   ; MapChangeFake
 L00234C:
     stack.p -4
-    push.p.c 16646   ; X/Y's work 16508
+    push.p.c 16766   ; X/Y's work 16508
     sysreq.n 15 4   ; WorkGet
     stor.p.s.pri -8
     load.p.s.pri -8
     switch L0023D4
 L002370:
     push.p.c 1
-    push.p.c 16646   ; X/Y's work 16508
+    push.p.c 16766   ; X/Y's work 16508
     sysreq.n 61 8   ; WorkSet
     jump L0023F0
 L00238C:
     stack.p -4
-    push.p.c 3082   ; X/Y's flag 398
+    push.p.c 3329   ; X/Y's flag 398
     sysreq.n 78 4   ; FlagGet
     stor.p.s.pri -12
     load.p.s.pri -12
     eq.p.c.pri 1
     jzer L0023C8
     push.p.c 3
-    push.p.c 16646   ; X/Y's work 16508
+    push.p.c 16766   ; X/Y's work 16508
     sysreq.n 61 8   ; WorkSet
 L0023C8:
     stack.p 4
@@ -1830,7 +1830,7 @@ L0023D4:
     casetbl 2 L0023F0 0 L002370 2 L00238C
 L0023F0:
     stack.p -4
-    push.p.c 3093   ; X/Y's flag 2640
+    push.p.c 3340   ; X/Y's flag 2640
     sysreq.n 78 4   ; FlagGet
     stor.p.s.pri -12
     load.p.s.pri -12
@@ -1840,7 +1840,7 @@ L0023F0:
     eq.p.c.pri 8
     jzer L00243C
     push.p.c 9
-    push.p.c 16646   ; X/Y's work 16508
+    push.p.c 16766   ; X/Y's work 16508
     sysreq.n 61 8   ; WorkSet
 L00243C:
     stack.p 12
@@ -1940,7 +1940,7 @@ L002448:
     push.p.c 4
     call L000C7C
     stack.p -4
-    push.p.c 3082   ; X/Y's flag 398
+    push.p.c 3329   ; X/Y's flag 398
     sysreq.n 78 4   ; FlagGet
     stor.p.s.pri -4
     load.p.s.pri -4
@@ -1962,7 +1962,7 @@ L0026C8:
     push.p.c 4
     call L000464
     push.p.c 2
-    push.p.c 16646   ; X/Y's work 16508
+    push.p.c 16766   ; X/Y's work 16508
     sysreq.n 61 8   ; WorkSet
 L002714:
     sysreq.n 76 0   ; EVCameraSetGameCameraParam
@@ -2086,7 +2086,7 @@ L0029AC:
     push.p.c 4
     call L00017C
     stack.p -4
-    push.p.c 16641   ; X/Y's work 16432
+    push.p.c 16761   ; X/Y's work 16432
     sysreq.n 15 4   ; WorkGet
     stor.p.s.pri -4
     load.p.s.pri -4
@@ -2479,10 +2479,10 @@ L0031A0:
     push.p.c 0
     sysreq.n 77 4   ; EVCameraEnd
     push.p.c 7
-    push.p.c 16646   ; X/Y's work 16508
+    push.p.c 16766   ; X/Y's work 16508
     sysreq.n 61 8   ; WorkSet
     push.p.c 3
-    push.p.c 16643   ; X/Y's work 16498
+    push.p.c 16763   ; X/Y's work 16498
     sysreq.n 61 8   ; WorkSet
     stack.p 20
     zero.pri
@@ -2490,19 +2490,19 @@ L0031A0:
 L00328C:
     proc
     stack.p -4
-    push.p.c 16646   ; X/Y's work 16508
+    push.p.c 16766   ; X/Y's work 16508
     sysreq.n 15 4   ; WorkGet
     stor.p.s.pri -4
     stack.p -4
-    push.p.c 16643   ; X/Y's work 16498
+    push.p.c 16763   ; X/Y's work 16498
     sysreq.n 15 4   ; WorkGet
     stor.p.s.pri -8
     stack.p -4
-    push.p.c 16648   ; X/Y's work 16604
+    push.p.c 16768   ; X/Y's work 16604
     sysreq.n 15 4   ; WorkGet
     stor.p.s.pri -12
     stack.p -4
-    push.p.c 3093   ; X/Y's flag 2640
+    push.p.c 3340   ; X/Y's flag 2640
     sysreq.n 78 4   ; FlagGet
     stor.p.s.pri -16
     load.p.s.pri -4
@@ -2633,7 +2633,7 @@ L0034E4:
     push.p.c 0
     call L00050C
     push.p.c 5
-    push.p.c 16646   ; X/Y's work 16508
+    push.p.c 16766   ; X/Y's work 16508
     sysreq.n 61 8   ; WorkSet
     push.p.c 0
     call L000DE8
@@ -2821,12 +2821,12 @@ L003644:
     push.p.c 0
     sysreq.n 77 4   ; EVCameraEnd
     push.p.c 10
-    push.p.c 16646   ; X/Y's work 16508
+    push.p.c 16766   ; X/Y's work 16508
     sysreq.n 61 8   ; WorkSet
     push.p.c 5
-    push.p.c 16643   ; X/Y's work 16498
+    push.p.c 16763   ; X/Y's work 16498
     sysreq.n 61 8   ; WorkSet
-    push.p.c 3086   ; X/Y's flag 615
+    push.p.c 3333   ; X/Y's flag 615
     sysreq.n 91 4   ; FlagReset
     zero.pri
     retn

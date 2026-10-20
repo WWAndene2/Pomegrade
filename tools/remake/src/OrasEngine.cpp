@@ -422,6 +422,77 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         snprintf(line, sizeof line, "character model objects: %u (the game's 32), their heap 0x62 0x%X bytes (the game's 0x10000)", objects, heap);
         log.push_back(line);
     }
+    if (o.LargePacks)
+    {
+        // Zone_ChangeLoadStep (0x3D5698) passes the zone's area pack (Zone_HeaderGetAreaId, a u16) cut to a byte to the loader
+        // of the zone's character models (Event_LoadZoneCharacterModels, its a/1/3/7 member) and to Event_LoadAnimSetIfChanged
+        // (its 0x2C-byte entry of archive 0xE4, at pack x 0x2C), so pack 258 loaded pack 2's: the house of X/Y's zone 2 on pack
+        // 258 stopped the game in Event_CharacterPool_Acquire, on 255 it entered (runs h_wK37, h_wK34, 19 October). The three
+        // `and r1, r0, #0xff` pass it whole: both read it as a u16 (Res_ArchiveMemberSize, a short index); the second keeps a
+        // byte of it as its cache, which then never matches a pack past 255 and reloads its entry, as on a change of pack
+        for (const uint32_t at : {0x3D5728u, 0x3D5960u, 0x3D59A4u})
+            words.push_back({at, 0xE20010FF, 0xE1A01000, "Zone_ChangeLoadStep: the area pack whole (mov r1, r0)"});
+        // Event_LoadAnimSetIfChanged keeps the pack as a byte at +0x30 of the area object (EventWork's field context + 0x2C;
+        // its archive-14 handle at +0x34), and the area loader takes the pack's a/0/1/4 member from it (0x40483C, `ldrb sb,
+        // [r5, #0x30]`, then its size and Res_AsyncLoadMember): pack 258 loaded member 2, the house then ran out of memory
+        // loading its piece (run h_wK37b; found by the memory dumps hMd34/hMd37 and the code around the area handle). Kept
+        // as a u16 at +0x30 and read so by its three readers; the byte at +0x31 (the variant the cache compares) is no longer
+        // written, so with a variant other than 0 the 44-byte entry is reloaded on a zone change, as on a change of pack
+        words.push_back({0x402CF4, 0xE5C45030, 0xE1C453B0, "Event_LoadAnimSetIfChanged: the pack kept whole (strh r5, [r4, #0x30])"});
+        words.push_back({0x402CFC, 0xE5C46031, 0xE320F000, "Event_LoadAnimSetIfChanged: the variant byte, now the pack's high byte, not written"});
+        words.push_back({0x402C90, 0xE5D40030, 0xE1D403B0, "Event_LoadAnimSetIfChanged: its cache compares the pack whole (ldrh)"});
+        words.push_back({0x3D592C, 0xE5D71030, 0xE1D713B0, "Zone_ChangeLoadStep: a change of pack seen whole (ldrh)"});
+        words.push_back({0x40483C, 0xE5D59030, 0xE1D593B0, "the area loader: the pack's a/0/1/4 member whole (ldrh sb, [r5, #0x30])"});
+        log.push_back("area packs: past 255 (the zone change passes the pack whole)");
+    }
+    if (o.LargeStory)
+    {
+        // Story flags and event works past the game's (ORAS_ENGINE.md 6, Story flags; read 19 October). Flags 1-0xCFF are
+        // bits of the EventWork object (save block 19, SaveData + 0x13140) at +0x2F4, read by FUN_0012fd48, set by
+        // Save_SetEventFlag (0x406B30), cleared by Save_ClearEventFlag_0011FA10 (0x11F9E8 leads to one or the other); each
+        // sends 0xD00-0x2FFF to the error routine 0x14EA64 (get: answers 0). Works 0x4000-0x4177 are u16 at +4, their address
+        // from FUN_0011fa90, whose range check the build left empty (a work past 0x4177 lands on the flags and beyond). Save
+        // block 47, ReservedSaveData (2000 bytes), has only the methods every block has (size 0x7D0, data at +4, copy, clear;
+        // its vtable 0x5E074C is named once, by Save_SaveData_Construct) and is zero in the owner's two saves: unused,
+        // inferred. Its object lies 0xA54C after EventWork's (measured in memory, run hSave2), so its data at EventWork +
+        // 0xA550: works 0x4178-0x436B its first 1000 bytes, flags 0xD00-0x2C3F its last 1000. Saved and loaded with the
+        // block, the save's layout unchanged. Code that reaches the bits without these four functions is not covered (none
+        // found; not searched beyond their callers)
+        const uint32_t cave = 0x579E00; // past the script-mask routine and its table (0x579608-0x579DC3), zeros to 0x57A000
+        uint32_t at = cave;
+        const auto bcs = [](uint32_t from, uint32_t to) { return 0x2A000000u | (((to - from - 8) >> 2) & 0xFFFFFF); };
+        struct FlagSite { uint32_t Branch, Fail, Use; const char* Name; };
+        for (const FlagSite& f : {FlagSite{0x12FD68, 0x12FD7C, 0x12FDAC, "the flag reader FUN_0012fd48"},
+                                  FlagSite{0x11FA2C, 0x11FA40, 0x11FA64, "the flag clearer 0x11FA10"},
+                                  FlagSite{0x406B4C, 0x406B60, 0x406B84, "the flag setter Save_SetEventFlag"}})
+        {
+            words.push_back({f.Branch, bcs(f.Branch, f.Fail), bcs(f.Branch, at), std::string(f.Name) + ": flags 0xD00 and up to its cave"});
+            const uint32_t routine[] = {
+                0xE2412C0D,          // sub r2, r1, #0xD00
+                0xE3520D7D,          // cmp r2, #0x1F40           8000 flags
+                bcs(at + 8, f.Fail), // bhs the game's error path
+                0xE2800CA9,          // add r0, r0, #0xA900       r0 is EventWork here
+                0xE2800038,          // add r0, r0, #0x38         block 47's data + 1000
+                0xE08001A2,          // add r0, r0, r2, lsr #3
+                Branch(at + 24, f.Use, false),
+            };
+            for (uint32_t k = 0; k < 7; k++) words.push_back({at + 4 * k, 0, routine[k], std::string(f.Name) + " (cave)"});
+            at += 28;
+        }
+        words.push_back({0x11FAA8, 0xE3A02000, Branch(0x11FAA8, at, false), "FUN_0011fa90: works past 0x4177 to its cave"});
+        const uint32_t works[] = {
+            0xE2440C41,          // sub r0, r4, #0x4100       r4 the work, r5 EventWork
+            0xE2400078,          // sub r0, r0, #0x78
+            0xE3500F7D,          // cmp r0, #0x1F4            500 works
+            bcs(at + 12, 0x11FAB8), // bhs the game's own address
+            0xE0850080,          // add r0, r5, r0, lsl #1
+            0xE2800CA5,          // add r0, r0, #0xA500
+            0xE2800050,          // add r0, r0, #0x50         block 47's data
+            0xE8BD8070,          // ldmia sp!, {r4, r5, r6, pc}
+        };
+        for (uint32_t k = 0; k < 8; k++) words.push_back({at + 4 * k, 0, works[k], "FUN_0011fa90 (cave)"});
+        log.push_back("story: flags 0xD00-0x2C3F and works 0x4178-0x436B in save block 47 (the game's flags end at 0xCFF, works at 0x4177)");
+    }
     if (o.LargeEvents)
     {
         // A zone's events file is copied on entering it into one of two 0xC8C-byte slots of the events object (0x1958 bytes,
@@ -501,6 +572,55 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
             log.push_back("field scene: groups 5 and 6 hold 128 models each (the game's 64)");
         }
     }
+    if (o.LargeWildTables)
+    {
+        // X/Y's five land tables (OrasXyEncounters.h). Omega Ruby's step check (Field_WildEncounter_StepCheck) gives a tile
+        // kind a table kind: 0x1F 0x20 0x24 0x25 0x2B 0x2D kind 0, 0x27 kind 1, any other no encounter; X/Y's (its DllField
+        // 0x834AC, read 20 October) 0x20 0x24 0x25 table 0, 0x21-0x23 tables 1-3, any other table 4 (the zone's header byte
+        // of the table 0: none). Here the kinds Omega Ruby knows keep theirs, 0x21-0x23 take kinds 9-11 and any other kind
+        // 12, so Map_GetAttributeEffectEntry, knowing none of them, takes their entry from the zone file's header byte
+        // [kind] - 1, as X/Y does (bytes 9-12 are zero in all 150 of Omega Ruby's encounter files: none of its zones change).
+        // Field_WildEncounter_SelectTable gives kinds 9-11 the tables at +0x102, +0x132, +0x162 (12 slots, kind 0's pick)
+        // and kind 12 kind 1's table, then names them kind 0 and kind 1 for the rest of the encounter.
+        const auto at = [](uint32_t file) { return DllFieldBase + file; };
+        const auto branch = [](uint32_t cond, uint32_t from, uint32_t to) { return (Branch(from, to, false) & 0x0FFFFFFFu) | cond << 28; };
+        constexpr uint32_t EQ = 0x0, HI = 0x8, AL = 0xE;
+        const uint32_t step[14] = {
+            0xE3500025, 0x1350001F, 0x13500020, 0x13500024, 0x1350002B, 0x1350002D, // cmp r0, #0x25; cmpne #0x1F ... #0x2D
+            branch(EQ, at(0x8B420), at(0x8B440)),                                   // beq: kind 0
+            0xE3500027,                                                             // cmp r0, #0x27
+            branch(EQ, at(0x8B428), at(0x8B444)),                                   // beq: kind 1 (r4 holds 1)
+            0xE2401021, 0xE3510002, 0x92814009, 0x83A0400C,                         // sub r1, r0, #0x21; cmp r1, #2; addls r4, r1, #9; movhi r4, #12
+            branch(AL, at(0x8B43C), at(0x8B444)),                                   // b: kind 9-12
+        };
+        const uint32_t stepGame[14] = {0xE3500025, 0xE320F000, 0x0A00000A, 0xCA000004, 0xE350001F, 0x13500020, 0x13500024,
+                                       0x0A000005, 0xEA000049, 0xE3500027, 0x0A000003, 0xE350002B, 0x1350002D, 0x1A000044};
+        for (uint32_t k = 0; k < 14; k++) croWords.push_back({at(0x8B408 + 4 * k), stepGame[k], step[k], "Field_WildEncounter_StepCheck's tile kinds"});
+
+        const CroLayout layout(oras.Read("DllField.cro"));
+        uint32_t cave = DllFieldBase + layout.CodeEnd();
+        for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
+        // Field_WildEncounter_TileEntry: its "none" (0xFF) for an unknown kind, the same kinds as the step check
+        croWords.push_back({at(0x97D50), 0xE3A080FF, Branch(at(0x97D50), cave, false), "Field_WildEncounter_TileEntry's unknown kind: to its cave"});
+        const uint32_t entry[5] = {0xE240C021, 0xE35C0002, 0x928C8009, 0x83A0800C, Branch(cave + 16, at(0x97D54), false)};
+        for (uint32_t k = 0; k < 5; k++) croWords.push_back({cave + 4 * k, 0, entry[k], "Field_WildEncounter_TileEntry (cave)"});
+        cave += 20;
+        // Field_WildEncounter_SelectTable's default (kind 9 and up): r1 the file, r2 the kind, r3 1, r4 the context
+        croWords.push_back({at(0x7DBC8), 0xEA000023, Branch(at(0x7DBC8), cave, false), "Field_WildEncounter_SelectTable's kinds past 8: to its cave"});
+        const uint32_t tail = cave + 15 * 4;
+        const uint32_t select[20] = {
+            0xE352000C, 0x0281103E, 0x05C43082, 0x05C43080,  // cmp r2, #12; addeq r1, r1, #0x3E; strbeq r3, [r4, #0x82]; strbeq r3, [r4, #0x80]
+            branch(EQ, cave + 16, tail),                     // beq: the 12-slot tail
+            0xE242C009, 0xE35C0002,                          // sub ip, r2, #9; cmp ip, #2
+            branch(HI, cave + 28, at(0x7DC5C)),              // bhi: the game's "no table"
+            0xE081128C, 0xE081120C, 0xE2811C01, 0xE2811002,  // r1 += 0x30 (kind - 9) + 0x102
+            0xE3A00000, 0xE5C40082, 0xE5C40080,              // mov r0, #0; strb r0, [r4, #0x82]; strb r0, [r4, #0x80]
+            0xE3A0000C, 0xE5843074, 0xE5840070, 0xE584306C,  // tail: 12 slots (the game's table 0x141F20 for kinds 0 and 1), as the game's
+            Branch(cave + 19 * 4, at(0x7DC88), false),       // back to the slot pick
+        };
+        for (uint32_t k = 0; k < 20; k++) croWords.push_back({cave + 4 * k, 0, select[k], "Field_WildEncounter_SelectTable (cave)"});
+        log.push_back("wild tables: kinds 9-12 (X/Y's land tables 1-4) on tiles 0x21-0x23 and kinds Omega Ruby has none for");
+    }
     if (!croWords.empty()) dllField = PatchCro(oras.Read("DllField.cro"), DllFieldBase, croWords);
     for (const auto& [id, size] : o.HeapSizes)
     {
@@ -516,6 +636,23 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         }
         else words.push_back({h->Address, h->Size, size, "heap size"});
         snprintf(line, sizeof line, "heap 0x%X: 0x%X -> 0x%X (%.2f MB)", id, h->Size, size, size / 1048576.0);
+        log.push_back(line);
+    }
+
+    if (o.XySounds)
+    {
+        // X/Y's streams appended to the sound archive (OrasXySound.h), sounds first + k, played by ids k + 1 of category 0:
+        // its entry of the category table (0x592728, read by FUN_00115984: a count, then the list's address; 0 and 0 in the
+        // game) and the list, in the rodata segment's last page past its 0x71A14 bytes (0x5EBA14-0x5EC000, zeros, mapped
+        // with the segment as the .code's cave at 0x579608 is). Id 0 the game's silence, never given
+        const auto [first, count] = *o.XySounds;
+        constexpr uint32_t list = 0x5EBA18, end = 0x5EC000, categories = 0x592728;
+        if (count == 0 || list + 4 * (count + 1) > end) throw FormatError("--xy-sounds: 1 to " + std::to_string((end - list) / 4 - 1) + " sounds");
+        words.push_back({categories, 0, count + 1, "sound category 0's count"});
+        words.push_back({categories + 4, 0, list, "sound category 0's list"});
+        words.push_back({list, 0, 0x01000000, "sound category 0, id 0: the game's silence"});
+        for (uint32_t k = 0; k < count; k++) words.push_back({list + 4 * (k + 1), 0, 0x01000000 | (first + k), "sound category 0: X/Y's stream " + std::to_string(k)});
+        snprintf(line, sizeof line, "sound ids: category 0 holds %u X/Y streams, sounds %u-%u", count, first, first + count - 1);
         log.push_back(line);
     }
 

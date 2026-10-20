@@ -2,6 +2,7 @@
 // named and its code disassembled with Pawn 3 opcodes. No game data.
 #include "Amx.h"
 #include "OrasXyScript.h"
+#include "OrasXySound.h"
 
 #include <cstdio>
 #include <filesystem>
@@ -138,17 +139,54 @@ int main()
             "helper:\n    proc\n    push.p.s 12\n    sysreq.n FlagGet 4\n    retn\n");
         const XyNumbers numbers = XyNumbersFor({y}, {}, {});
         check(numbers.Flags.size() == 2 && numbers.Flags.at(614) == XyFirstFlag && numbers.Flags.at(615) == XyFirstFlag + 1,
-              "X's flags numbered from 0xC09, the one passed to a procedure too");
-        check(numbers.Works.size() == 1 && numbers.Works.at(16498) == XyFirstWork, "X's event work numbered from 0x4100");
+              "X's flags numbered from 0xD00, the one passed to a procedure too");
+        check(numbers.Works.size() == 1 && numbers.Works.at(16498) == XyFirstWork, "X's event work numbered from 0x4178");
         std::vector<std::string> notes;
         const std::string source = XyScriptSource(y, names, numbers, notes);
-        check(source.find("push.p.c 3081   ; X/Y's flag 614") != std::string::npos && source.find("push.p.c 3082   ; X/Y's flag 615") != std::string::npos
-                  && source.find("push.p.c 16640   ; X/Y's work 16498") != std::string::npos && source.find("push.p.c 9\n") != std::string::npos,
+        check(source.find("push.p.c " + std::to_string(XyFirstFlag) + "   ; X/Y's flag 614") != std::string::npos
+                  && source.find("push.p.c " + std::to_string(XyFirstFlag + 1) + "   ; X/Y's flag 615") != std::string::npos
+                  && source.find("push.p.c " + std::to_string(XyFirstWork) + "   ; X/Y's work 16498") != std::string::npos && source.find("push.p.c 9\n") != std::string::npos,
               "the source moves them, the value set left");
         bool assembles = true;
         try { AmxAssemble(source); } catch (const FormatError&) { assembles = false; }
         check(assembles && notes.empty(), "the source assembles, nothing computed left");
         std::filesystem::remove(names);
+    }
+    {
+        // XyMoveZones: a map change's zone moved and its tile shifted, an unknown zone kept and noted
+        const std::string source = "native FlagGet\nnative _MapChangeCore\ncode\n"
+            "    push.p.c 0\n    push.p.c 596\n    push.p.c 145\n    push.p.c 467\n    push.p.c 0\n    sysreq.n 1 20\n"
+            "    push.p.c 9\n    push.p.c 1\n    push.p.c 1\n    push.p.c 1\n    push.p.c 77\n    sysreq.n 1 20\n";
+        std::vector<std::string> notes;
+        const std::string moved = XyMoveZones(source, {{0, {538, -440, -560}}}, notes);
+        check(moved.find("push.p.c 538   ; X/Y's zone 0") != std::string::npos && moved.find("push.p.c 27   ; X/Y's x 467") != std::string::npos
+                  && moved.find("push.p.c 36   ; X/Y's z 596") != std::string::npos && moved.find("push.p.c 145\n") != std::string::npos,
+              "a map change's zone moved, its tile shifted, its height kept");
+        check(moved.find("push.p.c 77\n") != std::string::npos && notes.size() == 1 && notes[0].find("zone 77 is not in this mod") != std::string::npos,
+              "a zone not in the mod kept and noted");
+    }
+    {
+        // XyMoveZones: the zone PlayerGetZoneID's result is compared with, moved; one not in the mod kept and noted
+        const std::string source = "native PlayerGetZoneID\ncode\n"
+            "    sysreq.n 0 0\n    eq.p.c.pri 0\n    jnz L000010\n    sysreq.n 0 0\n    eq.p.c.pri 77\n    jnz L000010\nL000010:\n";
+        std::vector<std::string> notes;
+        const std::string moved = XyMoveZones(source, {{0, {538, 0, 0}}}, notes);
+        check(moved.find("eq.p.c.pri 538   ; X/Y's zone 0") != std::string::npos, "a zone compared with PlayerGetZoneID's result moved");
+        check(moved.find("eq.p.c.pri 77\n") != std::string::npos && notes.size() == 1 && notes[0].find("zone 77") != std::string::npos,
+              "one not in the mod kept and noted");
+    }
+    {
+        // XyMoveSounds: an effect's id made Omega Ruby's, a jingle (a stream) moved only with X/Y's music, an unknown id kept
+        XySounds sounds;
+        sounds.Ids = {{0xA0008, 0xA0010}, {0x50000, 0xB5}};
+        const std::string source = "native SEPlay\nnative MEPlay\ncode\n"
+            "    push.c 655368\n    sysreq.n 0 4\n    push.c 327680\n    sysreq.n 1 4\n    push.c 655369\n    sysreq.n 0 4\n";
+        std::vector<std::string> notes;
+        const std::string without = XyMoveSounds(source, sounds, false, notes), with = XyMoveSounds(source, sounds, true, notes);
+        check(without.find("push.c 655376   ; X/Y's sound 0xA0008") != std::string::npos && without.find("push.c 327680\n") != std::string::npos,
+              "an effect moved, a jingle kept without X/Y's music");
+        check(with.find("push.c 181   ; X/Y's sound 0x50000") != std::string::npos && with.find("push.c 655369\n") != std::string::npos,
+              "the jingle moved with it, an id of no X/Y sound kept");
     }
     Bytes truncated = b;
     truncated.push_back(0); Put32(truncated, 0, (uint32_t)truncated.size());

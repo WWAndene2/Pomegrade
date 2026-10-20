@@ -11,9 +11,9 @@
 // Second step, XyScriptSource: the script as amx-asm source to read and edit (Amx.h's format), its natives named, every call
 // commented with the native's name, and X's story numbers moved out of Omega Ruby's: X's flags (FlagSet 604, 614, 2745...
 // in Vaniville) and event works (0x4000-0x7FFF, kept in the save) are X's story, which in Omega Ruby are its own. Flags go
-// to 0xC09 and up (none of Omega Ruby's 1,072 zone scripts names 0xC09-0xCFF, the range kept for a mod's story:
-// ORAS_ENGINE.md 6), works to 0x4100 and up (0x4100-0x4137: none named by those scripts; the save's work area reaches at
-// least 0x414E, the highest they name). Not moved: a flag or work a script computes (reported), X's text files (MsgLoad)
+// to 0xD00 and up, works to 0x4178 and up: past the game's own (its flags end at 0xCFF, its works at 0x4177), in save
+// block 47, which oras-engine --story large opens (OrasEngine.cpp: X names 880 flags and 176 works, more than the 247
+// flags and 56 works the game leaves free; without the patch a flag of 0xD00 or more stops the game). Not moved: a flag or work a script computes (reported), X's text files (MsgLoad)
 // and zones (MapChangeFake: X's numbers, reported by the caller).
 
 #include "Bytes.h"
@@ -38,14 +38,18 @@ struct XyScriptNatives
     std::vector<std::string> Missing;   // natives the zone's mask does not register in Omega Ruby: "#HASH (X name or ?): why"
 };
 
-// X/Y's flags and event works -> Omega Ruby's numbers (XyNumbersFor)
+// where an X/Y zone is in the mod: its zone number and the shift of its tiles (X/Y's matrix to the mod's)
+struct XyZonePlace { int Zone = 0, Dx = 0, Dz = 0; };
+
+// X/Y's flags and event works -> Omega Ruby's numbers (XyNumbersFor), and X/Y's zones -> the mod's (filled by the builder)
 struct XyNumbers
 {
     std::map<int, int> Flags, Works;
+    std::map<int, XyZonePlace> Zones;
 };
 
 // the numbers XyNumbersFor gives from
-constexpr int XyFirstFlag = 0xC09, XyLastFlag = 0xCFF, XyFirstWork = 0x4100, XyLastWork = 0x4137;
+constexpr int XyFirstFlag = 0xD00, XyLastFlag = 0x2C3F, XyFirstWork = 0x4178, XyLastWork = 0x436B;
 
 // X's flags and works the scripts (after XyScriptToOras) name, with the extra flags (characters' vanish flags, word 4: zone 0's character 3 hides on 615) and
 // works (triggers' conditions, word 2), numbered from XyFirstFlag and XyFirstWork in increasing order; throws FormatError
@@ -53,9 +57,24 @@ constexpr int XyFirstFlag = 0xC09, XyLastFlag = 0xCFF, XyFirstWork = 0x4100, XyL
 XyNumbers XyNumbersFor(const std::vector<Bytes>& scripts, const std::set<int>& extraFlags, const std::set<int>& extraWorks);
 
 // the script (after XyScriptToOras) as editable amx-asm source: natives by name (Omega Ruby's tables, namesFile) or,
-// when Omega Ruby has none, CommandNOP with the X hash in a comment (`notes` says so); each sysreq.n commented with its
+// when Omega Ruby has none, a stand-in with the X hash in a comment (`notes` says so: FadeIsEnd when a loop waits on its
+// result, else CommandNOP); each sysreq.n commented with its
 // native; flags and works moved by `numbers`; a flag or work given by a variable added to `notes`
 std::string XyScriptSource(const Bytes& script, const std::string& namesFile, const XyNumbers& numbers, std::vector<std::string>& notes);
+
+// the zones in a script's source (XyScriptSource's, or one edited from it) moved to the mod's: the first argument of
+// _MapChangeCore, _MapChangeAndDemoCall and _MapChangeRailCore (a zone, Omega Ruby's natives read it as a u16: Script_Native_
+// _MapChangeCore 0x10296AA4 and the others, read 19 October) when a constant, and with the first two the destination tile
+// (arguments 2 and 4, x and z in tiles) shifted by that zone's Dx, Dz; and the constants PlayerGetZoneID's result is
+// compared with right after it. Natives are known by the names in the source's native lines. Not moved, in `notes`: a zone
+// computed, a zone not in `zones`, a PlayerGetZoneID result stored, and the natives using the zone without a zone argument:
+// EventMapReplace (indices into Omega Ruby's own replacement data), CallMapConnect, GymEsperWarpEvent (Mossdeep's gym's)
+std::string XyMoveZones(const std::string& source, const std::map<int, XyZonePlace>& zones, std::vector<std::string>& notes);
+
+// the sound ids of a script's SEPlay, SEStop, SEIsPlaying, MEPlay and music natives (their first argument, a constant) made Omega Ruby's
+// (OrasXySound.h): an effect by its name; a stream (music, a jingle) as its category-0 id only with `streams` (X/Y's music
+// in the mod), else kept
+std::string XyMoveSounds(const std::string& source, const struct XySounds& sounds, bool streams, std::vector<std::string>& notes);
 
 // xScript: an X/Y zone script; namesFile: tools/remake/ghidra/function_names.tsv (Omega Ruby's natives and their mask
 // bits); mask: the native mask of the zone it will run in (0x243 for zones 536 and up unless oras-engine --script-mask)

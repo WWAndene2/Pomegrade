@@ -9,6 +9,7 @@ import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
@@ -407,26 +408,34 @@ class ShortcutPill private constructor(
             // a button near the screen's edge leaves no room: the arc keeps its smallest radius rather than flipping
             min(max(dp(104).toDouble(), apart), max(onScreen, dp(104).toDouble()))
         }
+        // each blade's swing out (x, y) from the pill or the button
+        val swings = items.indices.map { i ->
+            if (anchor != null) {
+                val angle = if (items.size == 1) PI / 2 else PI / 2 + arcSpan / 2 - arcStep * i
+                Pair(cos(angle) * arcRadius, -sin(angle) * arcRadius - arcLift)
+            } else {
+                val angle = if (items.size == 1) 0.0 else span * i / (items.size - 1)
+                Pair(h * cos(angle) * radius, v * sin(angle) * radius)
+            }
+        }
+        // a blade's height: its bubble, the 4dp gap and two lines of 12sp label (1.5 lines of room each); the lowest blade kept inside this view
+        // (which clips them), every blade raised by what it would pass the bottom by, so the arc keeps its shape
+        val bladeHeight = bubble + dp(4) + (2 * 1.5f * TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 12f, resources.displayMetrics)).toInt()
+        val overrun = (cy - bubble / 2f + (swings.maxOf { it.second }) + bladeHeight) - (height - dp(8))
+        val raise = if (height > 0 && overrun > 0) overrun.toDouble() else 0.0
         items.forEachIndexed { i, blade ->
             val view = bladeView(blade, bubble)
-            // placed with its icon's centre on the pill's, then swung out by its translation
-            addView(view, LayoutParams(column, LayoutParams.WRAP_CONTENT).apply {
+            // placed with its icon's centre on the pill's, then swung out by its translation; its height given, as
+            // wrapping it measured the blade in the room left below that first place (near the screen's bottom from the
+            // button), which cut its label through the middle (owner's phone, 19 October)
+            addView(view, LayoutParams(column, bladeHeight).apply {
                 gravity = Gravity.TOP or Gravity.START
                 leftMargin = (cx - column / 2f).toInt()
                 topMargin = (cy - bubble / 2f).toInt()
             })
             // from the button: left to right on its arc; from the pill: toward the screen's middle
-            val dx: Double
-            val dy: Double
-            if (anchor != null) {
-                val angle = if (items.size == 1) PI / 2 else PI / 2 + arcSpan / 2 - arcStep * i
-                dx = cos(angle) * arcRadius
-                dy = -sin(angle) * arcRadius - arcLift
-            } else {
-                val angle = if (items.size == 1) 0.0 else span * i / (items.size - 1)
-                dx = h * cos(angle) * radius
-                dy = v * sin(angle) * radius
-            }
+            val dx = swings[i].first
+            val dy = swings[i].second - raise
             view.alpha = 0f
             view.scaleX = 0.4f; view.scaleY = 0.4f
             view.animate()
