@@ -205,34 +205,6 @@ To do, in this order:
    - Sky Battles and Inverse Battles: not started.
    - The opening, the credits and ending, X's Pokédex, the PR Video studio: not started.
 
-## 3e. Ready before the build: the plan (owner, 20 October)
-
-Everything below must be ready, as tools that can be changed, before the real build starts; the story
-(`docs/Equilibrium_Scenario.md`) is not up to date, so nothing here depends on its scenes. Done when the whole map,
-story and gameplay path can be built without problems.
-
-What must be ready:
-- **Map**: Hoenn and Kalos in one game, a way to travel between them, every zone usable.
-- **Story**: scenes (dialogue, camera, characters moving, battles, choices with two paths, A and B) on story flags that
-  survive a save.
-- **Cast**: every character as a field model, with the new variants: old and young Archie, Maxie with glasses, the
-  repainted legendaries (Rayquaza on the ground, the corrupted Primal forms, Rayquaza of Equilibrium).
-- **Gameplay path**: progression gates (badges, blocked paths, items given), trainers and wild Pokémon per area, X/Y's
-  features, the new orbs and forms (item and Pokémon table editing).
-
-Three lanes, one step at a time each, in its own files; a step is done when a minimal headless test of the system
-passes (never by playing X/Y's scenes), and is merged the same session. A run over 15 minutes is asked of the owner
-first.
-
-| Step | A: world and battles | B: gameplay systems | C: story and cast tools |
-|---|---|---|---|
-| 1 | X/Y's battle music and backgrounds | X/Y's gym mechanics | Story flags and works survive a save and reload |
-| 2 | Surf, fishing, Rock Smash, hordes in X/Y's zones | Elite Four elevators, badge gates, Victory Road | Scenes in any zone of either region: dialogue, camera, moves, battles, choices A/B |
-| 3 | Travel between Hoenn and Kalos, both regions in one build | Item and Pokémon tables: the new orbs, forms, battle data | Gameplay path in one description: gates, items given, trainers and wild Pokémon per area |
-| 4 | Zone load test, a sample (asked first) | Clothes, salon, Chateau, berries, Poké Radar, Friend Safari, Holo Caster | Cast: any character of either game in any zone; old/young Archie, Maxie with glasses, the legendaries' repaints (mesh parts removed: BchWriter) |
-| 5 | Sky and Inverse Battles, roller skates, riding | Opening, credits and ending, Pokédex | A test path built only with the tools (zones of both regions, a scene with a choice, gates, trainers, a new item), played headless |
-| End | the owner's phone checks, then the story is written and built with the tools | | |
-
 ## 4. One coherent app
 
 Today each core keeps its own settings, screens, visual style and file storage. Target architecture:
