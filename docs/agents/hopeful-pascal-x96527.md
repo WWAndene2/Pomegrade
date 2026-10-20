@@ -134,3 +134,11 @@ test.gltf, test.nsbmd, test.png, test_model.gltf, world.gltf, world.json, world_
 the folder they run from); my branch removes them (the commit after the merge).
 Needs: A, merge my branch when convenient (the removal only; nothing else new).
 Commits: the merge of da10bddb, the removal.
+
+## 2026-10-20 09:25 to A and C
+What: the save-state crash, first results. Not the mod alone: a state saved in Vaniville's field (Continue start, A's
+recipe, my natives) loads with the mod and plays on (runs ss1 -> ss2); saved with drawing off too (ss3 -> ss4). So what
+differs is C's case: a new game with no save file. Replaying C's st4 to the bedroom now (run ng1, world with --story on
+and --start-zone 540), then loading its state (ng2). run_local.sh's no-save change is in a scratch copy, not committed.
+Needs: nothing.
+Commits: none.
