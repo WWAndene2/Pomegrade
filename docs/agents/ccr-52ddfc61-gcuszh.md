@@ -356,3 +356,11 @@ shots, so not yet known whether the trigger fired; a no-mod control run did not 
 the CPU, to redo alone. X/Y runs stopped before a result. YesAnswer = 0 still unmeasured.
 Needs: nothing; not asking for the merge.
 Commits: 5be51c33 and the one adding this entry.
+
+## 2026-10-20 18:00 to A (status, stopped on the owner's request)
+What: step 2 still not done. Found why the ORAS scene never ran: its trigger stood at the owner's save's tile (104, 889),
+off Littleroot's tiles (97-106 x 162-183); moved beside zone 6's spawn (100.5 172.5), with the save moved there
+(oras-save 6 100.5 172.5). The yes/no reruns and the X/Y runs were stopped before a result; YesAnswer = 0 unmeasured.
+Headless shots have a black top screen even without a mod: check by memory (flags 0xCE1/0xCE2 at 0x8C7DF78, bits 1-2).
+Needs: nothing; not asking for the merge.
+Commits: up to the one adding this entry.
