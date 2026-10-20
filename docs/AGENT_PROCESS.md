@@ -63,6 +63,10 @@ A run that does not show the field is first a recipe question: check against the
   such a state gave on load was the software renderer's (fixed in 61ca0ae4: a core built before it still crashes, rebuild
   it with session_setup.sh's `core` step).
 
+- **Speed** (A's runs fps_*, 20 October, the idle field): drawing every frame 2 frames/s, `draw every 15` 18-24 (one frame
+  in 15 drawn, shots whole), `draw off` about 67. Use `draw off` wherever no picture is needed, else `draw every 15`
+  (the title and Continue menu, scenes waited on by shots); plain drawing only for a check of every frame.
+
 ### 3.2 Asking and waking
 
 - Write `Needs: nothing` when nothing is asked. A is woken only by an entry to A (or to all) that needs something, or one

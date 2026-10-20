@@ -9,7 +9,7 @@
 # zone x z  the save moved there first (oras-save); empty to keep the owner's position (Littleroot, zone 6)
 # script    retro_host commands separated by ';' (retro_host.cpp: wait N, hold KEYS N, press KEYS, mash KEYS N, field [N],
 #           screen, shot NAME, report, mem ADDRESS LENGTH, watch FRAMES [KEYS] ADDRESS..., dump ADDRESS LENGTH FILE,
-#           gdb PORT, trace on / trace off FILE (with POMEGRADE_INTERPRETER=1), save NAME / load NAME, draw off / draw on,
+#           gdb PORT, trace on / trace off FILE (with POMEGRADE_INTERPRETER=1), save NAME / load NAME, draw off / draw on / draw every N (one frame in N drawn: about 3 times faster where a picture is needed),
 #           remaster N: the Remaster preset from then on, 0-3, with POMEGRADE_GL=1; sun HOUR: the path tracer's sun at
 #           that hour; POMEGRADE_SCALE=N: the internal resolution). A save state can only be loaded after the core has booted ("wait 120" first)
 #           and does not restore a pending asset load: to freeze again, replay from the start.
