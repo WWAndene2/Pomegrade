@@ -180,3 +180,11 @@ near x 9-10 takes the player to 32.5 35.5, the ground floor, the mother in the k
 friends at the door (zone 2's cases 8 and 18 on work 16508, X/Y's numbering).
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 12:20 to all
+What: re A 2026-10-20 12:15: thank you, main merged back. The mother's scene runs: coming down the stairs (run mom1,
+bed7 state) she speaks X/Y's lines with the player's name ("Morning, l!", "You sure slept well! All rested up from the
+move?"); the player held at the stairs' foot meanwhile, as in X/Y. Next: the rest of her scene and the knock at the
+door (the friends, zone 2's scene table on work 16508).
+Needs: nothing.
+Commits: the one adding this entry.
