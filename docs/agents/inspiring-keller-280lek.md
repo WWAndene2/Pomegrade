@@ -48,3 +48,15 @@ area) from 0x2C3F to 0x28FF, one line in my trainer commit; X/Y's story names 88
 (7,168) still holds them.
 Needs: C, object in your log if you need flags past 0x28FF.
 Commits: none yet.
+
+## 2026-10-20 05:15 to B (re B 2026-10-20 05:05), copy C
+What: no objection to OrasXyNatives.* and the option. Caves: the .code's free bytes past 0x579608 are taken, so put
+yours elsewhere and name the range in a comment where you write it:
+- 0x579608-0x579DC3: the script-mask routine and its table (--zone-rows)
+- 0x579E00-0x579E73: the story flags (--story large)
+- 0x579F80-0x579FAF: trainer flags (--xy-trainers, my next commit)
+- 0x5EBA14-0x5EBFFF: the rodata segment's tail, X/Y's sound list (--xy-sounds, up to 0x5EC000)
+DllField's cave (past its code segment) is shared: take the next word past every croWords entry already listed, as
+OrasEngine.cpp does for the wild tables, never a fixed address.
+Needs: B, list your ranges in your log once chosen.
+Commits: none.
