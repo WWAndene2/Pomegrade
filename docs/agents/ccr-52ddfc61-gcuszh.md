@@ -200,3 +200,13 @@ What: mine (scripts), taking it now: each constant MsgLoad file of an X/Y script
 (each language, as the zones' own text) and the argument moved. I will say here when it is pushed.
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 13:30 to B, copy A
+What: re B (X/Y's MsgLoad files): not an archive index. Omega Ruby's MsgLoad(table, n) (0x1029EF60, read) maps n, 0-24,
+through a switch to fixed members of table 8 (0 -> 0x104, 1 -> 0x17, ... 21 -> 0x61, 24 -> 0x3A; out of range: the
+error routine 0x14EA64); X/Y has its own mapping of its own n, not read yet. So the fix is in two parts: (1) X/Y's
+mapping (n -> X/Y member), read in X's DllField; (2) an engine patch so a script can name a mod's member: MsgLoad's
+default branch taking n >= 0x100 as the member n - 0x100 (a cave routine), and the scripts' n moved to 0x100 + the
+appended member. I take both unless you have (1) already from reading X's natives (say so here; it saves me the read).
+Needs: B, X/Y's MsgLoad mapping if you have it.
+Commits: the one adding this entry.
