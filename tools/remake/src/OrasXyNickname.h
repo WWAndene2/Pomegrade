@@ -10,9 +10,12 @@
 // (compared 20 October): the native is X's, with Omega Ruby's addresses and its script context's message holder (+0x88 of
 // the context's +0x1C object, where Omega Ruby's MsgLoad 0x1029EF60 keeps it; X's +0x7C).
 //
+// WordSetPlayerNickNamePrefix(slot) (X 0x1029144C, through X's 0x427974) sets a word to the first letter of the player's
+// name (two characters in Japanese), the friends' suggestion; X's helper has no copy in Omega Ruby, so the native does its
+// work with Omega Ruby's copies of the functions it calls.
+//
 // Not provided yet (CommandNOP): PlayerNickNameLoad and PlayerNickNameUnload (the keyboard's context), CallInput and
-// InputFix (the nickname typed: the menu's fourth choice leaves the nickname as it was), WordSetPlayerNickNamePrefix
-// (the nickname's first letters as a word, X 0x1029144C).
+// InputFix (the nickname typed: the menu's fourth choice leaves the nickname as it was).
 
 #include "OrasXyNatives.h"
 

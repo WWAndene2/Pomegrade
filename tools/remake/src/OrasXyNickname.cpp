@@ -15,6 +15,11 @@ constexpr uint32_t StringFree = 0x12B624;     // its destructor (X 0x12AD4C)
 constexpr uint32_t GetLine = 0x139448;        // Text_GetMessageString(reader, line, buffer) (X 0x13A19C)
 constexpr uint32_t ExpandTags = 0x13CCEC;     // Text_ExpandControlTags(words, out, in) (X 0x13D844)
 constexpr uint32_t ToArray = 0x4CF164;        // a buffer's characters into an array (buffer, array, length) (X 0x49D97C)
+constexpr uint32_t GetName = 0x4EA7A8;        // the status block's name (+0x50) into a buffer (status, buffer) (X 0x4AFB6C)
+constexpr uint32_t Language = 0x1285D8;       // the game's language, 1 for Japanese (X 0x127AE8)
+// the same as X's but for their branches' offsets (compared with those masked, 20 October)
+constexpr uint32_t SetString = 0x3A5C74;      // a buffer from an array (buffer, array) (X 0x38E478)
+constexpr uint32_t SetWord = 0x13D4AC;        // a word of the script's words (words, slot, buffer, grammar, [sp] 0) (X 0x13E004)
 
 // PlayerNickNameSelectFix(line): X's 0x10290BA4 (its assertion on the context left out)
 std::vector<uint32_t> SelectFix()
@@ -86,11 +91,57 @@ std::vector<uint32_t> SelectFix()
     a.Op(0xE8BD81F0);      // pop {r4-r8, pc}
     return a.Finish();
 }
+
+// WordSetPlayerNickNamePrefix(slot): X's 0x1029144C and the function it calls, 0x427974: the player's name's first letter
+// (two characters in Japanese) as word slot, with the status's grammar (+0xD: 0-2)
+std::vector<uint32_t> Prefix()
+{
+    XyNativeAsm a;
+    a.Op(0xE92D41F0);      // push {r4-r8, lr}
+    a.Op(0xE24DD010);      // sub sp, sp, #0x10
+    a.Op(0xE5917004);      // ldr r7, [r1, #4]           the slot
+    a.Call(ScriptContext);
+    a.Op(0xE590101C);      // ldr r1, [r0, #0x1C]
+    a.Op(0xE5914000);      // ldr r4, [r1]               the words
+    a.Op(0xE590000C);      // ldr r0, [r0, #0xC]
+    a.Op(0xE590001C);      // ldr r0, [r0, #0x1C]
+    a.Op(0xE5906000);      // ldr r6, [r0]               the save
+    a.Op(0xE2866B4A);      // add r6, r6, #0x12800
+    a.Op(0xE2866F68);      // add r6, r6, #0x1A0         the status block
+    a.Op(0xE5941000);      // ldr r1, [r4]               the words' buffer
+    a.Op(0xE1A00006);      // mov r0, r6
+    a.Call(GetName);
+    a.Op(0xE5940000);      // ldr r0, [r4]
+    a.Op(0xE5905004);      // ldr r5, [r0, #4]           its characters
+    a.Call(Language);
+    a.Op(0xE3500001);      // cmp r0, #1
+    a.Op(0xE1D500B0);      // ldrh r0, [r5]
+    a.Op(0xE3A08000);      // mov r8, #0
+    a.Op(0xE1CD00B4);      // strh r0, [sp, #4]          the first character
+    a.Op(0x01D500B2);      // ldrheq r0, [r5, #2]
+    a.Op(0x01CD80B8);      // strheq r8, [sp, #8]
+    a.Op(0x01CD00B6);      // strheq r0, [sp, #6]        Japanese: the second
+    a.Op(0x11CD80B6);      // strhne r8, [sp, #6]
+    a.Op(0xE5940000);      // ldr r0, [r4]
+    a.Op(0xE28D1004);      // add r1, sp, #4
+    a.Call(SetString);
+    a.Op(0xE5D6300D);      // ldrb r3, [r6, #0xD]
+    a.Op(0xE2033003);      // and r3, r3, #3             the grammar
+    a.Op(0xE58D8000);      // str r8, [sp]
+    a.Op(0xE5942000);      // ldr r2, [r4]
+    a.Op(0xE1A01007);      // mov r1, r7
+    a.Op(0xE1A00004);      // mov r0, r4
+    a.Call(SetWord);
+    a.Op(0xE28DD010);      // add sp, sp, #0x10
+    a.Op(0xE3A00000);      // mov r0, #0
+    a.Op(0xE8BD81F0);      // pop {r4-r8, pc}
+    return a.Finish();
+}
 }
 
 std::vector<XyNative> XyNicknameNatives()
 {
-    return {{"PlayerNickNameSelectFix", SelectFix()}};
+    return {{"PlayerNickNameSelectFix", SelectFix()}, {"WordSetPlayerNickNamePrefix", Prefix()}};
 }
 
 }
