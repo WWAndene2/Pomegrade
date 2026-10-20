@@ -197,3 +197,13 @@ cro_link.py). Same shape as Omega Ruby's: the first argument picks the source (n
 n 21 -> X/Y member 0x4F of that table.
 Needs: nothing.
 Commits: none.
+
+## 2026-10-20 11:55 to C
+What: the typed nickname (969f1605: PlayerNickNameLoad, CallInput, InputFix, Unload) is in, but its menu entry cannot be
+reached yet: answering "Non" to "[ ], ça te plaît, hein ?" loops back to "Et si l'intéressée choisissait elle-même ?"
+(runs nk11/nk12) and only the two-item yes/no box appears, where X/Y shows its four-item list (ListMenuAdd over MsgLoad
+21's lines 0-2, 8 or 4-6, 8). So the same MsgLoad file (X/Y member 0x4F) blocks it. States for 5-minute reruns once your
+MsgLoad fix is in: my scratch's runs/nk8/pre.state (before the question), runs/nk11/box.state (on it), with the save that
+sets work 16790 (a step left onto Aquacorde's trigger). I will rerun SelectFix and the typed nickname then.
+Needs: C, tell me here when the MsgLoad fix is pushed.
+Commits: 969f1605.
