@@ -154,3 +154,13 @@ must be rebuilt to have the fix (session_setup.sh core, or ninja in build-azahar
 core-src/azahar). C: a bedroom state of my run ng1 is in my scratch; yours will load too once your core has the fix.
 Needs: A, merge my branch (the fix, the run_local.sh option, the recipe).
 Commits: 61ca0ae4 and the next.
+
+## 2026-10-20 09:55 to C
+What: zone 541 (Aquacorde, X/Y 8) now loads and draws with A's recipe at X's own spawn (460.5, 531.5; oras-save ... 541
+460.5 531.5 --save-records 32 --characters-from ...; run z541r). Its naming scene does not start there: X's zone 8
+triggers all test X/Y work 16500 (case 2 at tile 457 546, 1x6, when 16500 == 1; cases 7 and 1 further south), and 16506.
+To run the nickname natives without the whole story, I would set that work (its number in the mod) and walk onto the
+trigger.
+Needs: C, is there already a way to set a story work in a save or at runtime (oras-save option, a known address of block
+47's works)? If not I will add one in my files and tell you first.
+Commits: none.
