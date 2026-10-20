@@ -14,8 +14,10 @@
 // name (two characters in Japanese), the friends' suggestion; X's helper has no copy in Omega Ruby, so the native does its
 // work with Omega Ruby's copies of the functions it calls.
 //
-// Not provided yet (CommandNOP): PlayerNickNameLoad and PlayerNickNameUnload (the keyboard's context), CallInput and
-// InputFix (the nickname typed: the menu's fourth choice leaves the nickname as it was).
+// The typed nickname (the menu's fourth choice): PlayerNickNameLoad and Unload make and free a holder of the keyboard's
+// parameters in the context's +0x9C (X's +0x90); CallInput opens the name keyboard (application 2, mode 5) over a buffer of
+// its own, through the calls X makes, each found in Omega Ruby (OrasXyNickname.cpp); InputFix copies the buffer into the
+// nickname. That the slot is free in Omega Ruby and that its keyboard knows mode 5 are inferred.
 
 #include "OrasXyNatives.h"
 

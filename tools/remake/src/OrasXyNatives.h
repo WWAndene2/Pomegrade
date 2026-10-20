@@ -65,6 +65,11 @@ class XyNativeAsm
 public:
     void Op(uint32_t word) { Words.push_back(word); }
     void Call(uint32_t address);
+    // a call of a function of DllField by its address in the linked program (prototype/cro_link.py), through the getter's
+    // address the loader writes in the .code (DllField is mapped where the heap has room): r12 and lr are used
+    void CallField(uint32_t linked);
+    // `ldr rd, [pc, #k]`, the value in the pool
+    void Literal(uint32_t rd, uint32_t value);
     // a branch (cond: the top 4 bits, 0xE always, 0x0 eq ...) to a label set later
     void Branch(uint32_t cond, int label);
     int NewLabel();
@@ -72,7 +77,8 @@ public:
     std::vector<uint32_t> Finish(); // the code and its pool
 private:
     std::vector<uint32_t> Words;
-    std::vector<std::pair<size_t, uint32_t>> Calls;
+    struct PoolLoad { size_t At; uint32_t Rd, Value; };
+    std::vector<PoolLoad> Pool;
     std::vector<std::pair<size_t, int>> Branches;
     std::vector<int> Labels;
 };

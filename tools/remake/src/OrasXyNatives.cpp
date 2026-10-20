@@ -31,10 +31,24 @@ uint32_t ArmBranch(uint32_t cond, uint32_t from, uint32_t to, bool link)
 }
 }
 
+void XyNativeAsm::Literal(uint32_t rd, uint32_t value)
+{
+    Pool.push_back({Words.size(), rd, value});
+    Words.push_back(0);
+}
+
 void XyNativeAsm::Call(uint32_t address)
 {
-    Calls.push_back({Words.size(), address});
-    Words.push_back(0);          // ldr ip, [pc, #k]
+    Literal(12, address);        // ldr ip, [pc, #k]
+    Words.push_back(0xE12FFF3C); // blx ip
+}
+
+void XyNativeAsm::CallField(uint32_t linked)
+{
+    Literal(12, GetterAddress);  // ldr ip, =0x19C8D4
+    Words.push_back(0xE59CC000); // ldr ip, [ip]          the getter, where DllField lies
+    Literal(14, linked - Getter); // ldr lr, =the function - the getter
+    Words.push_back(0xE08CC00E); // add ip, ip, lr
     Words.push_back(0xE12FFF3C); // blx ip
 }
 
@@ -61,12 +75,12 @@ std::vector<uint32_t> XyNativeAsm::Finish()
         if (to < 0) throw FormatError("an X/Y native branches to a label never set");
         out[at] = ArmBranch(out[at] >> 28, 4 * (uint32_t)at, 4 * (uint32_t)to, false);
     }
-    for (const auto& [at, address] : Calls)
+    for (const PoolLoad& l : Pool)
     {
-        const uint32_t offset = 4 * (uint32_t)(out.size() - at) - 8;
-        if (offset >= 0x1000) throw FormatError("an X/Y native's call is too far from its pool");
-        out[at] = 0xE59FC000 | offset;
-        out.push_back(address);
+        const uint32_t offset = 4 * (uint32_t)(out.size() - l.At) - 8;
+        if (offset >= 0x1000) throw FormatError("an X/Y native's literal is too far from its pool");
+        out[l.At] = 0xE59F0000 | l.Rd << 12 | offset;
+        out.push_back(l.Value);
     }
     return out;
 }
