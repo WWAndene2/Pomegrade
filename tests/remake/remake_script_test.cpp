@@ -166,6 +166,16 @@ int main()
               "a zone not in the mod kept and noted");
     }
     {
+        // XyMoveZones: the zone PlayerGetZoneID's result is compared with, moved; one not in the mod kept and noted
+        const std::string source = "native PlayerGetZoneID\ncode\n"
+            "    sysreq.n 0 0\n    eq.p.c.pri 0\n    jnz L000010\n    sysreq.n 0 0\n    eq.p.c.pri 77\n    jnz L000010\nL000010:\n";
+        std::vector<std::string> notes;
+        const std::string moved = XyMoveZones(source, {{0, {538, 0, 0}}}, notes);
+        check(moved.find("eq.p.c.pri 538   ; X/Y's zone 0") != std::string::npos, "a zone compared with PlayerGetZoneID's result moved");
+        check(moved.find("eq.p.c.pri 77\n") != std::string::npos && notes.size() == 1 && notes[0].find("zone 77") != std::string::npos,
+              "one not in the mod kept and noted");
+    }
+    {
         // XyMoveSounds: an effect's id made Omega Ruby's, a jingle (a stream) moved only with X/Y's music, an unknown id kept
         XySounds sounds;
         sounds.Ids = {{0xA0008, 0xA0010}, {0x50000, 0xB5}};

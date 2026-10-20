@@ -326,7 +326,7 @@ std::string XyMoveZones(const std::string& source, const std::map<int, XyZonePla
     const auto value = [&](int line) { return (int)std::stol(lines[(size_t)line].Words[1], nullptr, 0); };
     const auto set = [&](int line, int v, const std::string& why) { text[(size_t)line] = "    " + lines[(size_t)line].Op + " " + std::to_string(v) + "   ; " + why; };
     const std::set<std::string> withTile = {"_MapChangeCore", "_MapChangeAndDemoCall"}, zoneOnly = {"_MapChangeRailCore"},
-        unread = {"PlayerGetZoneID", "EventMapReplace", "CallMapConnect", "GymEsperWarpEvent"};
+        unread = {"EventMapReplace", "CallMapConnect", "GymEsperWarpEvent"};
     for (size_t i = 0; i < lines.size(); i++)
     {
         if (lines[i].Op != "sysreq.n" || lines[i].Words.size() < 2) continue;
@@ -334,6 +334,27 @@ std::string XyMoveZones(const std::string& source, const std::map<int, XyZonePla
         const std::string name = index < names.size() ? names[index] : "";
         const std::string where = " at source line " + std::to_string(i + 1);
         if (unread.count(name)) { notes.push_back(name + where + ": uses X/Y's zone numbers, not moved"); continue; }
+        // PlayerGetZoneID's result compared with constants right after it (X/Y's 27 calls: "eq.p.c.pri 89", "jnz"), each a
+        // zone moved; a result stored or computed on is noted, not followed
+        if (name == "PlayerGetZoneID")
+        {
+            bool compared = false;
+            for (size_t k = i + 1; k < lines.size() && k <= i + 3; k++)
+            {
+                const std::string& op = lines[k].Op;
+                const bool compare = (op.rfind("eq.", 0) == 0 || op.rfind("neq.", 0) == 0 || op.rfind("const.", 0) == 0) && lines[k].Words.size() == 2;
+                if (!compare) break;
+                compared = true;
+                const int xZone = value((int)k);
+                const auto place = zones.find(xZone);
+                if (place == zones.end()) { notes.push_back(name + where + ": X/Y zone " + std::to_string(xZone) + " it is compared with is not in this mod, kept"); break; }
+                set((int)k, place->second.Zone, "X/Y's zone " + std::to_string(xZone));
+                if (op.rfind("const.", 0) == 0) continue; // a comparison's operand, then its compare
+                break;
+            }
+            if (!compared) notes.push_back(name + where + ": its result is not compared at once, not moved");
+            continue;
+        }
         if (!withTile.count(name) && !zoneOnly.count(name)) continue;
         const int zoneLine = argument(i, 0);
         if (zoneLine < 0) { notes.push_back(name + where + ": its zone is computed, not moved"); continue; }

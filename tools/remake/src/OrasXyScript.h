@@ -65,9 +65,10 @@ std::string XyScriptSource(const Bytes& script, const std::string& namesFile, co
 // the zones in a script's source (XyScriptSource's, or one edited from it) moved to the mod's: the first argument of
 // _MapChangeCore, _MapChangeAndDemoCall and _MapChangeRailCore (a zone, Omega Ruby's natives read it as a u16: Script_Native_
 // _MapChangeCore 0x10296AA4 and the others, read 19 October) when a constant, and with the first two the destination tile
-// (arguments 2 and 4, x and z in tiles) shifted by that zone's Dx, Dz. Natives are known by the names in the source's
-// native lines. Not moved, in `notes`: a zone computed, a zone not in `zones`, and the natives whose zone arguments are
-// not read (PlayerGetZoneID's result compared with X/Y numbers, EventMapReplace, CallMapConnect, GymEsperWarpEvent)
+// (arguments 2 and 4, x and z in tiles) shifted by that zone's Dx, Dz; and the constants PlayerGetZoneID's result is
+// compared with right after it. Natives are known by the names in the source's native lines. Not moved, in `notes`: a zone
+// computed, a zone not in `zones`, a PlayerGetZoneID result stored, and the natives using the zone without a zone argument:
+// EventMapReplace (indices into Omega Ruby's own replacement data), CallMapConnect, GymEsperWarpEvent (Mossdeep's gym's)
 std::string XyMoveZones(const std::string& source, const std::map<int, XyZonePlace>& zones, std::vector<std::string>& notes);
 
 // the sound ids of a script's SEPlay, SEStop, SEIsPlaying, MEPlay and music natives (their first argument, a constant) made Omega Ruby's
