@@ -242,6 +242,10 @@ int main()
               "an effect moved, a jingle kept without X/Y's music");
         check(with.find("push.c 181   ; X/Y's sound 0x50000") != std::string::npos && with.find("push.c 655369\n") != std::string::npos,
               "the jingle moved with it, an id of no X/Y sound kept");
+        // a trainer's music on sight (_TrainerBGMPlay, X/Y's BGMTrainerEyeBGM renamed) moved with X/Y's music as a jingle is
+        const std::string eye = "native _TrainerBGMPlay\ncode\n    push.c 327680\n    sysreq.n 0 4\n";
+        check(XyMoveSounds(eye, sounds, true, notes).find("push.c 181   ; X/Y's sound 0x50000") != std::string::npos,
+              "a trainer's music on sight moved");
     }
     {
         // XyMoveTrainers: a battle's trainer (_CallTrainerBattleCore's second argument) given through the script's own

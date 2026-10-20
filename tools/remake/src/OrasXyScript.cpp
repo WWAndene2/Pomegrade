@@ -546,7 +546,10 @@ std::string XyMoveSounds(const std::string& source, const XySounds& sounds, bool
     // the natives taking a sound id first, as X/Y's scripts give them constants (SEPlay 870 times, MEPlay 35, SEStop 6, and
     // the music natives renamed from X/Y's: BGMStartEvent's id then its fade, 0x1001E and 10 in Vaniville's)
     const std::set<std::string> withSound = {"SEPlay", "SEStop", "SEIsPlaying", "MEPlay", "BGMStartEvent", "BGMChangeEvent",
-                                             "BGMStartBattleEvent", "BGMChangeNowMap"};
+                                             "BGMStartBattleEvent", "BGMChangeNowMap",
+                                             // a trainer's music on sight: its id the script's (Script_Native__TrainerBGMPlay
+                                             // 0x102975F4 passes it on as it is; X/Y's BGMTrainerEyeBGM renamed to it)
+                                             "_TrainerBGMPlay"};
     size_t moved = 0, kept = 0;
     for (size_t i = 0; i < lines.size(); i++)
     {
