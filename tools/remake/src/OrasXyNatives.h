@@ -10,19 +10,20 @@
 // branch to a routine in the .code's free bytes (0x579E80-0x579EFB; the other options' ranges: OrasEngine.cpp, and A's log
 // of 20 October) that builds the table on the stack and registers it, then tests bit 0x400 as the game did.
 //
-// It registers them for every script, whatever its mask. Zone 538 (X/Y 0), whose init script alone calls an X/Y native
-// (IsZoneWalk), stayed black with the routine under bit 0x800 alone: amx_Exec (0x503320) relinks a script whose imports are
-// not all resolved (its flag 0x1000) and runs nothing, and the game kept relinking (runs z538b-g, 20 October; the same
-// with IsZoneWalk a bare `return 0`). That the init script is registered with another mask than the zone's (0x587D58 and
-// --script-mask give the main script's) is inferred, not read. Omega Ruby's own scripts import none of these X/Y names, so registering them
-// everywhere changes nothing for them; bit 0x800 (XyNativesBit) stays the sign, in a zone's mask, that the mod needs them.
+// It registers them for every script, whatever its mask: where a zone's init script takes its mask from is not read, and
+// Omega Ruby's own scripts import none of these X/Y names, so registering them everywhere changes nothing for them. Bit
+// 0x800 (XyNativesBit) stays the sign, in a zone's mask, that the mod needs them (oras-engine installs them then).
 //
 // The natives' code, names and the table of their offsets live in DllField's cave (the bytes past its code segment,
 // OrasEngine.cpp), shared with the other DllField patches: it is executable, and DllField is where the game's own natives
-// are. DllField is mapped where the heap has room, so the routine finds it through the .code's stub to the getter of
-// DllField's bit-2 table (0x19C8D0, which returns that table, at 0x10339594 in the linked program of prototype/cro_link.py):
-// every offset is from that table. The natives call the .code only (absolute addresses, `ldr ip, =f; blx ip`), so they run
-// wherever DllField lies. Azahar only, as every DllField patch (a console checks the module's hash).
+// are. DllField is mapped where the heap has room, so the routine finds it through the .code's import stub to the getter of
+// DllField's bit-2 table (0x19C8D0: `ldr pc, [pc, #-4]` and the getter's address, written by the loader): every offset is
+// from that getter (0x1029F1DC in the linked program of prototype/cro_link.py), in DllField's code segment like the cave.
+// Not from the table it returns: a module's data segment is loaded apart from its code. With offsets from the table, zone
+// 538 (X/Y 0), whose init script imports IsZoneWalk, stayed black: the routine ran (trace z538t) but the import stayed
+// unresolved, and amx_Exec (0x503320) relinks a script whose imports are not all resolved and runs nothing (runs z538b-h,
+// 20 October). The natives call the .code only (absolute addresses, `ldr ip, =f; blx ip`), so they run wherever DllField
+// lies. Azahar only, as every DllField patch (a console checks the module's hash).
 
 #include "CodePatch.h"
 

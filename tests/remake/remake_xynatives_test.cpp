@@ -40,7 +40,9 @@ int main()
     const CodeWord* back = at(p.Code, 0x579EF0);
     check(back && back->Value == (0xEA000000u | (((0x3FBDA4u - 0x579EF0u - 8) >> 2) & 0xFFFFFF)), "the routine's end: b 0x3FBDA4");
     const CodeWord* offset = at(p.Code, 0x579EF4);
-    check(offset && offset->Value == cave - 0x10339594u, "the routine's literal: the table from the bit-2 table");
+    check(offset && offset->Value == cave - 0x1029F1DCu, "the routine's literal: the table from DllField's getter");
+    const CodeWord* stub = at(p.Code, 0x579EF8);
+    check(stub && stub->Value == 0x19C8D4, "the routine's second literal: the stub's word holding the getter");
     const CodeWord* count = at(p.Field, cave);
     check(count && count->Value == XyNatives().size(), "the table's count");
     bool zeros = true, inCave = true;
@@ -48,6 +50,6 @@ int main()
     for (const CodeWord& c : p.Code) if (c.Address != 0x3FBDA0) zeros = zeros && c.Expected == 0;
     check(zeros && inCave, "every word but the branch over a zero, DllField's from the cave on");
     const CodeWord* name = at(p.Field, cave + 4);
-    check(name && name->Value + 0x10339594u == cave + 4 + 8 * (uint32_t)XyNatives().size(), "the first name follows the table");
+    check(name && name->Value + 0x1029F1DCu == cave + 4 + 8 * (uint32_t)XyNatives().size(), "the first name follows the table");
     return ok ? 0 : 1;
 }

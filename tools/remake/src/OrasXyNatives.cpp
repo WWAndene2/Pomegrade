@@ -16,8 +16,11 @@ namespace
 constexpr uint32_t MaskTest = 0x3FBDA0;      // `tst r4, #0x400` in Script_RegisterNativeTablesByMask (r4 the mask, r5 the list)
 constexpr uint32_t MaskTestWord = 0xE3140B01;
 constexpr uint32_t Routine = 0x579E80;       // to 0x579EFB
-constexpr uint32_t TableGetter = 0x19C8D0;   // the .code's stub to DllField's bit-2 table getter
-constexpr uint32_t Bit2Table = 0x10339594;   // that table, linked
+// the .code's import stub to DllField's bit-2 table getter is `ldr pc, [pc, #-4]` and the getter's address, which the
+// loader writes at 0x19C8D4; the getter (`ldr r0, [pc]; bx lr`) is in DllField's code segment, at 0x1029F1DC linked. The
+// anchor is the getter, not its table: a module's data segment (the table's) is loaded apart from its code
+constexpr uint32_t GetterAddress = 0x19C8D4;
+constexpr uint32_t Getter = 0x1029F1DC;
 constexpr uint32_t LinkImports = 0x506190;   // Sys_LinkImportsByNameHash(list, table, count; -1: to a null name)
 
 uint32_t ArmBranch(uint32_t cond, uint32_t from, uint32_t to, bool link)
@@ -119,8 +122,8 @@ XyNativesPatch XyNativesPatchAt(uint32_t fieldCave)
     p.Field.push_back({table, 0, (uint32_t)natives.size(), "X/Y natives: their count"});
     for (size_t k = 0; k < natives.size(); k++)
     {
-        p.Field.push_back({table + 4 + 8 * (uint32_t)k, 0, names[k] - Bit2Table, "X/Y native " + natives[k].Name + ": its name"});
-        p.Field.push_back({table + 8 + 8 * (uint32_t)k, 0, functions[k] - Bit2Table, "X/Y native " + natives[k].Name + ": its function"});
+        p.Field.push_back({table + 4 + 8 * (uint32_t)k, 0, names[k] - Getter, "X/Y native " + natives[k].Name + ": its name"});
+        p.Field.push_back({table + 8 + 8 * (uint32_t)k, 0, functions[k] - Getter, "X/Y native " + natives[k].Name + ": its function"});
     }
 
     // the .code: the mask test to the routine; the routine (r5 the script's list; r6 is saved by the function and unused by
@@ -128,10 +131,10 @@ XyNativesPatch XyNativesPatchAt(uint32_t fieldCave)
     p.Code.push_back({MaskTest, MaskTestWord, ArmBranch(0xE, MaskTest, Routine, false), "Script_RegisterNativeTablesByMask's bit 0x400 test: to the X/Y natives' routine"});
     const uint32_t r = Routine;
     const uint32_t routine[] = {
-        0xE320F000,                                 // 00 nop          every script, whatever its mask (OrasXyNatives.h)
-        0xE320F000,                                 // 04 nop
-        ArmBranch(0xE, r + 0x08, TableGetter, true),// 08 bl the bit-2 table's getter: r0 = that table
-        0xE59F1060,                                 // 0C ldr r1, [pc, #0x60]   our table - the bit-2 table
+        0xE59F0070,                                 // 00 ldr r0, [pc, #0x70]   0x19C8D4 (every script, whatever its mask)
+        0xE5900000,                                 // 04 ldr r0, [r0]          the getter, in DllField's code
+        0xE320F000,                                 // 08 nop
+        0xE59F1060,                                 // 0C ldr r1, [pc, #0x60]   our table - the getter
         0xE0801001,                                 // 10 add r1, r0, r1
         0xE4912004,                                 // 14 ldr r2, [r1], #4      the count
         0xE1A0600D,                                 // 18 mov r6, sp
@@ -157,7 +160,8 @@ XyNativesPatch XyNativesPatchAt(uint32_t fieldCave)
         0xE1A0D006,                                 // 68 mov sp, r6
         MaskTestWord,                               // 6C tst r4, #0x400        the game's test
         ArmBranch(0xE, r + 0x70, MaskTest + 4, false), // 70 b back
-        table - Bit2Table,                          // 74 our table, from the bit-2 table
+        table - Getter,                             // 74 our table, from the getter
+        GetterAddress,                              // 78
     };
     for (uint32_t k = 0; k < sizeof routine / 4; k++) p.Code.push_back({r + 4 * k, 0, routine[k], "the X/Y natives' routine"});
     return p;
