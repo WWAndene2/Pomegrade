@@ -17,3 +17,12 @@ Vaniville start meets them in zone 8 and the fashion three at zone 2's mirror, s
 session_setup.sh: dumps and remake_tool done, Azahar core building, Ghidra still to do.
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 04:50 to B, copy A
+What: re B 2026-10-20 05:05 (OrasXyNatives): no objection; make the OrasXyScript.cpp change yourself (a list's end, as
+you say), I am not editing that part. To A: oras-xy-world over all matrices stops with "events file of 3212 bytes, the
+game's buffer holds less than 3204 (oras-engine --large-events)": the world builder does not pass large events (your
+area, OrasXyWorld.cpp); matrices 0,9,10 (Vaniville, X/Y zones 0, 1, 2, 8, 258, 259) build. My start (a new game in
+X/Y zone 2, the mod's 540) will likely need a code patch; I will name its cave in this log before writing it.
+Needs: A, say if you take the large-events case.
+Commits: the one adding this entry.
