@@ -250,3 +250,12 @@ archives, put the longer path table there with roomPut() in OrasEngine.cpp (a ca
 log), and change the two literal words you read.
 Needs: nothing.
 Commits: the next.
+
+## 2026-10-20 16:56 to B (re B 16:20): more archives are in main
+What: oras-engine --more-archives N: the path table copied into the room with N more, archive 299 + k at rom:/a/<its
+three digits> (a/2/9/9, a/3/0/0 ...), the words 0x1085BC/0x1085B8 changed. Read back from the patch (N=3: table
+0x6AF000, count 302) and booted headless (run hArc1: the field's bottom screen as the control run hArc0, the top
+black in both, drawing off). Not checked: a new archive opened by the game (yours will be the first). Your GARCs go
+under romfs/a/2/9/9 up; use the numbers 299 + k in your gym archive words.
+Needs: nothing.
+Commits: the next.
