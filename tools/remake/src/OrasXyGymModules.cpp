@@ -1,5 +1,6 @@
 #include "OrasXyGymModules.h"
 
+#include <algorithm>
 #include <cstdio>
 
 namespace remake
@@ -86,7 +87,9 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
     if (port.Name.size() != port.XName.size()) throw FormatError(port.Name + ": not the length of " + port.XName);
     std::copy(port.Name.begin(), port.Name.end(), out.begin() + nameAt);
 
-    // the imports: each anonymous import's tag, of |static| or DllField, made Omega Ruby's
+    // the imports: each anonymous import's tag, of |static| or DllField, made Omega Ruby's (a thunk's import: its batch of
+    // relocations kept, to point its stubs at the thunk below)
+    std::vector<std::pair<const XyModulePort::Thunk*, uint32_t>> thunked; // a thunk, its import's batch (file offset)
     for (uint32_t m = 0; m < Header(out, ImportModuleNum); m++)
     {
         const size_t entry = Header(out, ImportModuleTableOffset) + 20 * (size_t)m;
@@ -100,6 +103,13 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
         {
             const size_t at = U32(out, entry + 12) + 8 * (size_t)i;
             const uint32_t from = isStatic ? TagAddress(xStatic, U32(out, at), 0) : TagAddress(xField, U32(out, at), x.FieldBase);
+            const auto thunk = std::find_if(port.Thunks.begin(), port.Thunks.end(), [&](const auto& t) { return t.XTarget == from; });
+            if (thunk != port.Thunks.end())
+            {
+                Put(out, at, AddressTag(oStatic, thunk->Target, 0));
+                thunked.push_back({&*thunk, U32(out, at + 4)});
+                continue;
+            }
             const auto to = map.find(from);
             if (to == map.end()) throw FormatError(port.XName + ": its import of " + module + " " + Hex(from) + " is not mapped");
             Put(out, at, isStatic ? AddressTag(oStatic, to->second, 0) : AddressTag(oField, to->second, oras.FieldBase));
@@ -118,16 +128,41 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
         Put(out, offset, sound(id));
     }
 
+    // the bytes after the code segment, free up to the next segment: the code segment grows over what is written there
+    const auto reserve = [&](uint32_t bytes) -> uint32_t {
+        const uint32_t start = (seg[0].Offset + seg[0].Size + 3) & ~3u, end = start + bytes;
+        for (size_t i = 1; i < seg.size(); i++)
+            if (seg[i].Type != 3 && seg[i].Size && seg[i].Offset < end && seg[i].Offset + seg[i].Size > start)
+                throw FormatError(port.XName + ": no room after the code");
+        for (uint32_t k = start; k < end; k++)
+            if (out.at(k) != 0) throw FormatError(port.XName + ": the bytes after the code are not free");
+        seg[0].Size = end - seg[0].Offset;
+        Put(out, (size_t)Header(out, SegmentTableOffset) + 4, seg[0].Size);
+        return start;
+    };
+
+    // the thunks: each written after the code, and each stub of its import (the word its batch's relocations write, after
+    // `ldr pc, [pc, #-4]`) made a branch to it
+    for (const auto& [thunk, batch] : thunked)
+    {
+        const uint32_t code = reserve(4 * ((uint32_t)thunk->Prefix.size() + 2));
+        for (size_t k = 0; k < thunk->Prefix.size(); k++) Put(out, code + 4 * k, thunk->Prefix[k]);
+        Put(out, code + 4 * (uint32_t)thunk->Prefix.size(), 0xE51FF004);             // ldr pc, [pc, #-4]
+        Put(out, code + 4 * (uint32_t)thunk->Prefix.size() + 4, thunk->Target);       // .code: no relocation
+        for (size_t at = batch;; at += 12)
+        {
+            const uint32_t stub = TagAddress(seg, U32(out, at), 0) - 4;
+            if (U32(out, stub) != 0xE51FF004) throw FormatError(port.XName + ": an import of " + Hex(thunk->XTarget) + " not through a stub");
+            Put(out, stub, ArmBranch(stub, code, false));
+            if (out.at(at + 5)) break; // the batch's last
+        }
+    }
+
     // the vtable, with the slot Omega Ruby added, after the code segment: the offset to the top and the type info before
     // its slots, as X's
     if (port.Slots)
     {
-        const uint32_t start = (seg[0].Offset + seg[0].Size + 3) & ~3u, slots = start + 8, end = slots + 4 * (port.Slots + 1);
-        for (size_t i = 1; i < seg.size(); i++)
-            if (seg[i].Type != 3 && seg[i].Size && seg[i].Offset < end && seg[i].Offset + seg[i].Size > start)
-                throw FormatError(port.XName + ": no room for the new vtable after the code");
-        for (uint32_t k = start; k < end; k++)
-            if (out.at(k) != 0) throw FormatError(port.XName + ": the bytes after the code are not free");
+        const uint32_t start = reserve(8 + 4 * (port.Slots + 1)), slots = start + 8;
         // the new place of an old vtable word (-2, -1: the offset to the top, the type info; then the slots)
         const auto newPlace = [&](uint32_t old) -> uint32_t {
             const int index = ((int)old - (int)port.Vtable) / 4;
@@ -136,8 +171,6 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
         };
         for (uint32_t old = port.Vtable - 8; old < port.Vtable + 4 * port.Slots; old += 4) Put(out, newPlace(old), U32(out, old));
         Put(out, slots + 4 * port.InsertSlot, port.InsertValue);
-        Put(out, (size_t)Header(out, SegmentTableOffset) + 4, end - seg[0].Offset);
-        seg[0].Size = end - seg[0].Offset;
         // the relocations writing the old vtable's words now write the new one's; those pointing at the old vtable point
         // at the new one
         int written = 0, pointing = 0;
@@ -196,15 +229,14 @@ std::vector<CodeWord> XyGymLoaderPatchAt(uint32_t cave)
         w.push_back({d + 4, 0, ArmBranch(d + 4, at, false, 0x0), "X/Y gyms' dispatcher (cave): beq " + p.Name + "'s loader"});
         // entered as the game's cases: r4 the field object, r5 the heap, {r4, r5, r6, lr} pushed
         const std::string path = "rom:/" + p.Name + ".cro";
-        const uint32_t code = at, name = code + 0x3C;
-        if (p.ObjectSize > 0xFF) throw FormatError(p.Name + ": its object size does not fit an immediate");
+        const uint32_t code = at, name = code + 0x40;
         const uint32_t routine[] = {
-            0xE28F0000 | (name - (code + 8)),          // 00 add r0, pc, #0x34: the module's path
+            0xE28F0000 | (name - (code + 8)),          // 00 add r0, pc, #0x38: the module's path
             ArmBranch(code + 0x04, LoadModule, true),  // 04 bl the loader
             0xE58401A4,                                // 08 str r0, [r4, #0x1a4]   the handle, as the game's cases
             0xE1A06000,                                // 0C mov r6, r0
             0xE1A01005,                                // 10 mov r1, r5
-            0xE3A00000 | p.ObjectSize,                 // 14 mov r0, #size
+            0xE59F0020,                                // 14 ldr r0, [pc, #0x20]   the size, the word at 0x3C
             ArmBranch(code + 0x18, New, true),         // 18 bl the allocation
             0xE3500000,                                // 1C cmp r0, #0
             ArmBranch(code + 0x20, Exit, false, 0x0),  // 20 beq the cases' exit
@@ -214,6 +246,7 @@ std::vector<CodeWord> XyGymLoaderPatchAt(uint32_t cave)
             0xE8BD4070,                                // 30 pop {r4, r5, r6, lr}
             0xE12FFF1C,                                // 34 bx ip                  the constructor (object, field)
             p.Constructor,                             // 38 the constructor's offset in the module
+            p.ObjectSize,                              // 3C the object's size
         };
         for (uint32_t k = 0; k < sizeof routine / 4; k++) w.push_back({code + 4 * k, 0, routine[k], p.Name + "'s loader (cave)"});
         Bytes text(path.begin(), path.end());

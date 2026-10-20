@@ -42,6 +42,11 @@ struct XyModulePort
     uint32_t Vtable = 0, Slots = 0;       // X's vtable (the file offset of its slot 0) and its slot count
     uint32_t InsertSlot = 0, InsertValue = 0; // the slot Omega Ruby added and the .code function it holds
     uint32_t Constructor = 0, ObjectSize = 0; // the class's constructor (a file offset) and its object's size
+    // an X import Omega Ruby has only changed (its arguments): the import resolved to Omega Ruby's function, but each of the
+    // module's stubs of it (`ldr pc, [pc, #-4]` and the word the loader writes) made a branch to a thunk written after the
+    // code: Prefix (setting what Omega Ruby's function takes more), then a jump to it
+    struct Thunk { uint32_t XTarget, Target; std::vector<uint32_t> Prefix; std::string Why; };
+    std::vector<Thunk> Thunks;
 };
 
 // a game's static module (static.crs) and DllField (the file, and where the linked program places it)

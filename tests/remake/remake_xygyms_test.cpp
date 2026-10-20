@@ -96,6 +96,24 @@ int main()
     try { XyModulePort q = p; q.Static.clear(); XyPortModule(m, x, oras, q, [](uint32_t id) { return id; }); }
     catch (const FormatError&) { refused = true; }
     check(refused, "an import not mapped is refused");
+    // a thunk: the |static| import made a jump through a word after the code, its stub (code 0x190, the word at 0x194 the
+    // import's batch writes) a branch to it
+    {
+        Bytes t = m;
+        Set(t, 0x190, 0xE51FF004);
+        Set(t, 0x684, 0x780);                       // the |static| import's batch
+        Set(t, 0x780, 0 | 0x14 << 4); t[0x784] = 2; t[0x785] = 1; // its one relocation: segment 0 + 0x14 (0x194), the last
+        XyModulePort q = p;
+        q.Slots = 0;
+        q.Static.clear();
+        q.Thunks = {{0x100040, 0x100900, {0xE3A02000}, "a third argument"}};
+        const Bytes o = XyPortModule(t, x, oras, q, [](uint32_t id) { return id; });
+        check(Get(o, 0x680) == (0x900u << 4), "a thunk's import resolves to Omega Ruby's function");
+        check(Get(o, 0x1A0) == 0xE3A02000 && Get(o, 0x1A4) == 0xE51FF004 && Get(o, 0x1A8) == 0x100900,
+              "the thunk after the code: its prefix, then a jump to the function");
+        check(Get(o, 0x190) == (0xEA000000u | (((0x1A0u - 0x190u - 8) >> 2) & 0xFFFFFF)), "the import's stub branches to it");
+    }
+
     // DllField loading Grant's module: the default case's first word to the dispatcher, kind 1 to the loader, which jumps
     // to the module's handle + its constructor's offset
     const std::vector<CodeWord> lw = XyGymLoaderPatchAt(0x10385CAC);
@@ -108,8 +126,9 @@ int main()
     check(word(0x10385CB4) && word(0x10385CB4)->Value == 0xE1A01000 && back && back->Value == (0xEA000000u | (((0x10274214u - 0x10385CB8u - 8) >> 2) & 0xFFFFFF)),
           "any other kind: the default case's word, then back to it");
     const uint32_t routine = 0x10385CBC;
-    check(word(routine + 0x14) && word(routine + 0x14)->Value == (0xE3A00000u | 0x18), "the object's size, 0x18");
+    check(word(routine + 0x14) && word(routine + 0x14)->Value == 0xE59F0020 && word(routine + 0x3C) && word(routine + 0x3C)->Value == 0x18,
+          "the object's size, 0x18, loaded from the routine's word 0x3C");
     check(word(routine + 0x38) && word(routine + 0x38)->Value == 0x544, "the constructor's offset, 0x544");
-    check(word(routine + 0x3C) && word(routine + 0x3C)->Value == 0x3A6D6F72, "the module's path follows (\"rom:\")");
+    check(word(routine + 0x40) && word(routine + 0x40)->Value == 0x3A6D6F72, "the module's path follows (\"rom:\")");
     return ok ? 0 : 1;
 }
