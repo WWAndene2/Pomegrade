@@ -130,6 +130,7 @@
 #include "OrasSandbox.h"
 #include "OrasSave.h"
 #include "OrasTown.h"
+#include "OrasXyNatives.h"
 #include "OrasXyScript.h"
 #include "PlatinumWorld.h"
 #include "ZoneEvents.h"
@@ -385,7 +386,7 @@ int main(int argc, char** argv)
                     uint32_t mask = 0x243;
                     for (int tries = 0;; tries++)
                     {
-                        try { AmxAssemble(source, AmxNativeCheck(argv[3], mask)); break; }
+                        try { AmxAssemble(source, XyNativeCheck(argv[3], mask)); break; }
                         catch (const FormatError& e)
                         {
                             const std::string why = e.what();
@@ -408,7 +409,7 @@ int main(int argc, char** argv)
             for (int i = 5; i + 1 < argc; i++) if (std::string(argv[i]) == "--mask") mask = (uint32_t)std::stoul(argv[i + 1], nullptr, 0);
             const Bytes source = ReadFile(argv[2]);
             const Bytes script = AmxAssemble(std::string(source.begin(), source.end()),
-                                             argc >= 5 ? AmxNativeCheck(argv[4], mask) : std::function<std::string(const std::string&)>{});
+                                             argc >= 5 ? XyNativeCheck(argv[4], mask) : std::function<std::string(const std::string&)>{});
             const std::string listing = AmxDisassemble(script);
             const std::string last = listing.substr(listing.rfind('\n', listing.size() - 2) + 1);
             size_t c, u, n, dc, co, ca, jo, ja;
