@@ -4,9 +4,11 @@
 #include "Garc.h"
 #include "N3dsRom.h"
 #include "NitroCompression.h"
+#include "OrasXySound.h"
 
 #include <cstdio>
 #include <map>
+#include <set>
 
 namespace remake
 {
@@ -19,7 +21,7 @@ Bytes AsWas(const Bytes& was, const Bytes& file) { return IsLzCompressed(was) ? 
 int Picture(const Bytes& classRecord) { return classRecord.at(4) | classRecord.at(5) << 8; }
 }
 
-std::vector<std::string> AddXyTrainers(OrasWorkspace& ws)
+std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const XySounds* music, bool streams, Bytes* battleTypes)
 {
     std::vector<std::string> log;
     char line[192];
@@ -59,6 +61,52 @@ std::vector<std::string> AddXyTrainers(OrasWorkspace& ws)
         if (pictured < 0) throw FormatError("X/Y trainer class " + std::to_string(c) + " (" + xNames[c] + "): no Omega Ruby class has its picture");
         classOf[c] = pictured;
         snprintf(line, sizeof line, "trainer class: X/Y's %zu (%s) as Omega Ruby's %d (%s), its picture; no class of its name", c, xNames[c].c_str(), pictured, oNames[pictured].c_str());
+        log.push_back(line);
+    }
+
+    // the battle types X/Y's classes name (their byte +2), with X/Y's music: appended after Omega Ruby's 73 (OrasEngine.cpp)
+    if (music && battleTypes)
+    {
+        constexpr uint32_t xTable = 0x53C010, gameTypes = 73;
+        const Bytes xCode = xy.Code();
+        std::set<int> wanted;
+        for (size_t c = 0; c < xClasses.Count(); c++) wanted.insert(Plain(xClasses.Sub(c)).at(2));
+        std::map<int, int> numberOf;
+        for (const int t : wanted)
+        {
+            const size_t at = xTable - 0x100000 + 24 * (size_t)t;
+            Bytes r(xCode.begin() + at, xCode.begin() + at + 24);
+            for (const size_t w : {0x10u, 0x14u})
+            {
+                const uint32_t id = r[w] | r[w + 1] << 8 | r[w + 2] << 16 | (uint32_t)r[w + 3] << 24;
+                if ((id >> 16) != 1) throw FormatError("X/Y battle type " + std::to_string(t) + ": no music id at +" + std::to_string(w));
+                // X/Y's own track (a stream appended to the archive, category 0) only with X/Y's music in the mod; else the id
+                // as it is, which names Omega Ruby's sound of that number (its own trainer theme for X/Y's 0x10019: the PSS one)
+                const uint32_t translated = music->Translate(id), to = (translated >> 16) == 0 && !streams ? id : translated;
+                for (int b = 0; b < 4; b++) r[w + b] = (uint8_t)(to >> (8 * b));
+            }
+            numberOf[t] = (int)(gameTypes + battleTypes->size() / 24);
+            battleTypes->insert(battleTypes->end(), r.begin(), r.end());
+        }
+        std::set<int> orasUsed; // the classes Omega Ruby's own trainers use
+        for (size_t t = 0; t < (size_t)XyTrainerFirst; t++) { const Bytes r = Plain(ws.Original("a/0/3/6").Sub(t)); if (r.size() >= 4) orasUsed.insert(r[2] | r[3] << 8); }
+        Garc& classes = ws.Edited("a/0/3/7");
+        std::map<int, int> given; // Omega Ruby class -> the battle type it was given
+        size_t set = 0;
+        for (size_t c = 0; c < xClasses.Count(); c++)
+        {
+            const int o = classOf[c], type = numberOf.at(Plain(xClasses.Sub(c)).at(2));
+            if (orasUsed.count(o)) { snprintf(line, sizeof line, "battle type: X/Y's class %zu's Omega Ruby class %d is its own trainers': kept", c, o); log.push_back(line); continue; }
+            const auto g = given.find(o);
+            if (g != given.end()) { if (g->second != type) { snprintf(line, sizeof line, "battle type: Omega Ruby class %d keeps X/Y's %d (X/Y's class %zu names another)", o, g->second, c); log.push_back(line); } continue; }
+            const Bytes was = classes.Sub((size_t)o);
+            Bytes r = Plain(was);
+            r.at(2) = (uint8_t)type;
+            classes.Set((size_t)o, AsWas(was, r));
+            given[o] = type;
+            set++;
+        }
+        snprintf(line, sizeof line, "battle types: %zu of X/Y's (with its music) as 73-%zu, given to %zu classes", numberOf.size(), 72 + numberOf.size(), set);
         log.push_back(line);
     }
 

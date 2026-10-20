@@ -40,6 +40,7 @@ struct XyWorldOptions
     bool Story = true;       // X/Y's story (XyEventsToOras: without it, triggers, story characters and init scripts left out)
     const struct XySounds* Sounds = nullptr; // both games' sound ids (OrasXySound.h): the scripts' effects by name
     bool Music = false;      // X/Y's music and jingles (OrasXyMusic.h): the zones' music and the scripts' jingles X/Y's
+    std::string OutDir;      // where the mod is written: its xy_battle_types.bin beside it (oras-engine --xy-battle-types)
 };
 
 // builds into the workspace (ws.XyRom: X/Y's .3ds) and returns the log, ending with the oras-engine options the mod needs
