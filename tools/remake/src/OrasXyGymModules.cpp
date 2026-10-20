@@ -1,6 +1,13 @@
 #include "OrasXyGymModules.h"
 
+#include "Bch.h"
+#include "BchUpgrade.h"
+#include "BinLinker.h"
+#include "Garc.h"
+#include "NitroCompression.h"
+
 #include <algorithm>
+#include <cctype>
 #include <deque>
 #include <cstdio>
 
@@ -73,8 +80,50 @@ std::string Hex(uint32_t v)
 }
 }
 
+uint32_t XyGymArchiveNumber(size_t k) { return 0x130 + 0x10 * (uint32_t)k; }
+
+std::string XyArchivePath(uint32_t number)
+{
+    if (number > 999) throw FormatError("an archive number past 999");
+    char text[16];
+    snprintf(text, sizeof text, "a/%u/%u/%u", number / 100, number / 10 % 10, number % 10);
+    return text;
+}
+
+Bytes XyGymArchiveToOras(const Bytes& garc, std::vector<std::string>& report)
+{
+    Garc g(garc);
+    const auto upgrade = [&](Bytes& f, const std::string& where) {
+        if (!Bch::Is(f) || f.size() <= 4 || f[4] != 0x07) return false;
+        try { f = BchUpgradeTo21(f); return true; }
+        catch (const FormatError& e) { report.push_back(where + " kept as it is: " + e.what()); return false; }
+    };
+    for (size_t i = 0; i < g.Count(); i++)
+    {
+        // a member LZ11-compressed (X's Ice one is) is converted inside and compressed again: the loader decompresses by
+        // the header's type (Res_Decompress 0x36AF08)
+        const bool compressed = !g.Sub(i).empty() && g.Sub(i)[0] == 0x11;
+        Bytes member = compressed ? LzDecompress(g.Sub(i)) : g.Sub(i);
+        int converted = 0;
+        if (upgrade(member, "member " + std::to_string(i))) converted++;
+        else if (member.size() >= 4 && std::isalpha(member[0]) && std::isalpha(member[1]))
+        {
+            BinLinker pack = BinLinker::Read(member, std::string(member.begin(), member.begin() + 2));
+            for (size_t k = 0; k < pack.Files.size(); k++)
+                if (upgrade(pack.Files[k], "member " + std::to_string(i) + " file " + std::to_string(k))) converted++;
+            if (converted) member = pack.Write();
+        }
+        if (converted)
+        {
+            g.Set(i, compressed ? Lz11Compress(member) : member);
+            report.push_back("member " + std::to_string(i) + ": " + std::to_string(converted) + " BCH 0x07 -> 0x21");
+        }
+    }
+    return g.Write();
+}
+
 Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameModules& oras, const XyModulePort& port,
-                   const std::function<uint32_t(uint32_t)>& sound)
+                   const std::function<uint32_t(uint32_t)>& sound, uint32_t archive)
 {
     Bytes out = xModule;
     std::vector<Segment> seg = Segments(out);
@@ -129,6 +178,19 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
     {
         if (U32(out, w.Offset) != w.Expected) throw FormatError(port.XName + " " + Hex(w.Offset) + ": not X's word (" + w.Why + ")");
         Put(out, w.Offset, w.Value);
+    }
+    for (const uint32_t offset : port.ArchiveWords)
+    {
+        // `mov r1, #n`: X's archive, then Omega Ruby's number for it (an immediate rotated by an even amount: 0x130 is
+        // 0x13 rotated right by 28)
+        if (U32(out, offset) != (0xE3A01000 | port.Archive)) throw FormatError(port.XName + " " + Hex(offset) + ": not X's request of archive " + Hex(port.Archive));
+        if (archive)
+        {
+            uint32_t rot = 0, imm = archive;
+            while (imm > 0xFF && rot < 15) { rot++; imm = archive << (2 * rot) | archive >> (32 - 2 * rot); }
+            if (imm > 0xFF) throw FormatError(port.XName + ": archive " + Hex(archive) + " is no ARM immediate");
+            Put(out, offset, 0xE3A01000 | rot << 8 | imm);
+        }
     }
     for (const auto& [offset, id] : port.Sounds)
     {
@@ -208,7 +270,12 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
 
 const std::vector<XyGym>& XyGyms()
 {
-    static const std::vector<XyGym> gyms = {{3, 1, XyGymRock()}};
+    // X's kind -> a kind Omega Ruby's Field_LoadAreaSpecificModule has no module for (1, 2, 9, 12, 17-20, 22)
+    static const std::vector<XyGym> gyms = {
+        {3, 1, XyGymRock()},
+        {0xE, 2, XyGymIce()},
+        {0x19, 9, XyGymElec(), 0}, {0x1A, 12, XyGymElec(), 1}, {0x1B, 17, XyGymElec(), 2},
+    };
     return gyms;
 }
 
@@ -223,49 +290,61 @@ std::vector<CodeWord> XyGymLoaderPatchAt(uint32_t cave)
 {
     std::vector<CodeWord> w;
     const std::vector<XyGym>& gyms = XyGyms();
-    // the dispatcher: the default case's first word (the kind still in r2) branches to it; each gym's kind to its routine,
-    // any other kind back to the default case after its first word
-    const uint32_t dispatch = (cave + 3) & ~3u;
-    uint32_t at = dispatch + 8 * (uint32_t)gyms.size() + 8;
+    // the dispatcher: the default case's first word (the kind still in r2) branches to it; each gym's kind sets r3 to its
+    // record (the constructor's offset, the object's size, its path from the record) and goes to the routine; any other
+    // kind goes back to the default case after its first word. The cave is small (DllField's last page, shared): one
+    // routine, a record per gym, a path per module
+    const uint32_t dispatch = (cave + 3) & ~3u, back = dispatch + 12 * (uint32_t)gyms.size(), routine = back + 8;
+    const uint32_t records = routine + 0x40;
+    uint32_t paths = records + 12 * (uint32_t)gyms.size();
+    std::map<std::string, uint32_t> pathAt;
     w.push_back({NoModule, 0xE1A01000, ArmBranch(NoModule, dispatch, false), "Field_LoadAreaSpecificModule's default case: to the X/Y gyms' dispatcher"});
     for (size_t i = 0; i < gyms.size(); i++)
     {
         const XyGym& g = gyms[i];
         const XyModulePort& p = g.Port;
-        const uint32_t d = dispatch + 8 * (uint32_t)i;
+        const uint32_t d = dispatch + 12 * (uint32_t)i, record = records + 12 * (uint32_t)i, distance = record - (d + 4 + 8);
+        if (distance > 0xFF * 4 || distance % 4) throw FormatError("the X/Y gyms' records are too far from their dispatcher");
         w.push_back({d, 0, 0xE3520000 | g.OrasKind, "X/Y gyms' dispatcher (cave): cmp r2, #" + std::to_string(g.OrasKind)});
-        w.push_back({d + 4, 0, ArmBranch(d + 4, at, false, 0x0), "X/Y gyms' dispatcher (cave): beq " + p.Name + "'s loader"});
-        // entered as the game's cases: r4 the field object, r5 the heap, {r4, r5, r6, lr} pushed
+        w.push_back({d + 4, 0, 0x028F3F00 | distance / 4, "X/Y gyms' dispatcher (cave): addeq r3, pc, #: " + p.Name + "'s record"});
+        w.push_back({d + 8, 0, ArmBranch(d + 8, routine, false, 0x0), "X/Y gyms' dispatcher (cave): beq the loader"});
         const std::string path = "rom:/" + p.Name + ".cro";
-        const uint32_t code = at, name = code + 0x40;
-        const uint32_t routine[] = {
-            0xE28F0000 | (name - (code + 8)),          // 00 add r0, pc, #0x38: the module's path
-            ArmBranch(code + 0x04, LoadModule, true),  // 04 bl the loader
-            0xE58401A4,                                // 08 str r0, [r4, #0x1a4]   the handle, as the game's cases
-            0xE1A06000,                                // 0C mov r6, r0
-            0xE1A01005,                                // 10 mov r1, r5
-            0xE59F0020,                                // 14 ldr r0, [pc, #0x20]   the size, the word at 0x3C
-            ArmBranch(code + 0x18, New, true),         // 18 bl the allocation
-            0xE3500000,                                // 1C cmp r0, #0
-            ArmBranch(code + 0x20, Exit, false, 0x0),  // 20 beq the cases' exit
-            0xE1A01004,                                // 24 mov r1, r4
-            0xE59FC008,                                // 28 ldr ip, [pc, #8]       the word at 0x38
-            0xE086C00C,                                // 2C add ip, r6, ip
-            0xE8BD4070,                                // 30 pop {r4, r5, r6, lr}
-            0xE12FFF1C,                                // 34 bx ip                  the constructor (object, field)
-            p.Classes.at(g.Class).Constructor,         // 38 the constructor's offset in the module
-            p.Classes.at(g.Class).ObjectSize,          // 3C the object's size
-        };
-        for (uint32_t k = 0; k < sizeof routine / 4; k++) w.push_back({code + 4 * k, 0, routine[k], p.Name + "'s loader (cave)"});
-        Bytes text(path.begin(), path.end());
-        text.resize((text.size() + 4) & ~(size_t)3, 0);
-        for (size_t k = 0; k < text.size(); k += 4)
-            w.push_back({name + (uint32_t)k, 0, (uint32_t)(text[k] | text[k + 1] << 8 | text[k + 2] << 16 | (uint32_t)text[k + 3] << 24), p.Name + "'s loader: its path (cave)"});
-        at = name + (uint32_t)text.size();
+        if (!pathAt.count(path))
+        {
+            pathAt[path] = paths;
+            Bytes text(path.begin(), path.end());
+            text.resize((text.size() + 4) & ~(size_t)3, 0);
+            for (size_t k = 0; k < text.size(); k += 4)
+                w.push_back({paths + (uint32_t)k, 0, (uint32_t)(text[k] | text[k + 1] << 8 | text[k + 2] << 16 | (uint32_t)text[k + 3] << 24), p.Name + "'s path (cave)"});
+            paths += (uint32_t)text.size();
+        }
+        const XyModulePort::Class& c = p.Classes.at(g.Class);
+        w.push_back({record, 0, c.Constructor, p.Name + "'s record (cave): its constructor's offset"});
+        w.push_back({record + 4, 0, c.ObjectSize, p.Name + "'s record (cave): its object's size"});
+        w.push_back({record + 8, 0, pathAt[path] - record, p.Name + "'s record (cave): its path, from the record"});
     }
-    const uint32_t back = dispatch + 8 * (uint32_t)gyms.size();
     w.push_back({back, 0, 0xE1A01000, "X/Y gyms' dispatcher (cave): mov r1, r0 (the default case's first word)"});
     w.push_back({back + 4, 0, ArmBranch(back + 4, NoModule + 4, false), "X/Y gyms' dispatcher (cave): back to the default case"});
+    // entered as the game's cases (r4 the field object, r5 the heap, {r4, r5, r6, lr} pushed), r3 the record
+    const uint32_t code[] = {
+        0xE1A06003,                                   // 00 mov r6, r3              the record
+        0xE5960008,                                   // 04 ldr r0, [r6, #8]
+        0xE0860000,                                   // 08 add r0, r6, r0          the module's path
+        ArmBranch(routine + 0x0C, LoadModule, true),  // 0C bl the loader
+        0xE58401A4,                                   // 10 str r0, [r4, #0x1a4]    the handle, as the game's cases
+        0xE1A01005,                                   // 14 mov r1, r5
+        0xE5960004,                                   // 18 ldr r0, [r6, #4]        the object's size
+        ArmBranch(routine + 0x1C, New, true),         // 1C bl the allocation
+        0xE3500000,                                   // 20 cmp r0, #0
+        ArmBranch(routine + 0x24, Exit, false, 0x0),  // 24 beq the cases' exit
+        0xE596C000,                                   // 28 ldr ip, [r6]            the constructor's offset
+        0xE59421A4,                                   // 2C ldr r2, [r4, #0x1a4]
+        0xE082C00C,                                   // 30 add ip, r2, ip
+        0xE1A01004,                                   // 34 mov r1, r4
+        0xE8BD4070,                                   // 38 pop {r4, r5, r6, lr}
+        0xE12FFF1C,                                   // 3C bx ip                   the constructor (object, field)
+    };
+    for (uint32_t k = 0; k < 16; k++) w.push_back({routine + 4 * k, 0, code[k], "the X/Y gyms' loader (cave)"});
     return w;
 }
 
@@ -365,7 +444,8 @@ const XyModulePort& XyGymIce()
         });
         p.Thunks = {Request};
         p.Words = {LoaderSize(0x180C)};
-        // its archive, X's 0xAE (a/1/7/4, mov r1, #0xae at 0x1698): to be given a number of Omega Ruby's (not yet)
+        p.Archive = 0xAE; // a/1/7/4
+        p.ArchiveWords = {0x1698};
         p.Vtables = {0x2620};
         p.Slots = 13;
         p.InsertSlot = 12;
@@ -388,7 +468,8 @@ const XyModulePort& XyGymElec()
         p.Field = SharedField();
         p.Thunks = {Request};
         p.Words = {LoaderSize(0xEA8), LoaderSize(0x1364), LoaderSize(0x1704)};
-        // its archive, X's 0xEB (a/2/3/5, mov r1, #0xeb three times): to be given a number of Omega Ruby's (not yet)
+        p.Archive = 0xEB; // a/2/3/5
+        p.ArchiveWords = {0xD34, 0x1300, 0x1684};
         p.Vtables = {0x2108, 0x2144, 0x2180}; // its three classes'
         p.Slots = 13;
         p.InsertSlot = 12;

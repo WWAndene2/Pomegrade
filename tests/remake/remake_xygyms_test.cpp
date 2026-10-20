@@ -114,6 +114,18 @@ int main()
         check(Get(o, 0x190) == (0xEA000000u | (((0x1A0u - 0x190u - 8) >> 2) & 0xFFFFFF)), "the import's stub branches to it");
     }
 
+    // an archive request: X's mov r1, #0xae made Omega Ruby's number for it, 0x130, a/3/0/4
+    {
+        Bytes t = m;
+        Set(t, 0x18C, 0xE3A010AE);
+        XyModulePort q = p;
+        q.Archive = 0xAE;
+        q.ArchiveWords = {0x18C};
+        const Bytes o = XyPortModule(t, x, oras, q, [](uint32_t id) { return id; }, XyGymArchiveNumber(0));
+        check(XyGymArchiveNumber(0) == 0x130 && Get(o, 0x18C) == 0xE3A01E13, "the archive request: mov r1, #0x130 (0x13 rotated right by 28)");
+        check(XyArchivePath(0x130) == "a/3/0/4" && XyArchivePath(0xAE) == "a/1/7/4", "an archive's path by its digits");
+    }
+
     // DllField loading Grant's module: the default case's first word to the dispatcher, kind 1 to the loader, which jumps
     // to the module's handle + its constructor's offset
     const std::vector<CodeWord> lw = XyGymLoaderPatchAt(0x10385CAC);
@@ -121,14 +133,18 @@ int main()
     const CodeWord* entry = word(0x10274210);
     check(entry && entry->Expected == 0xE1A01000 && entry->Value == (0xEA000000u | (((0x10385CACu - 0x10274210u - 8) >> 2) & 0xFFFFFF)),
           "the default case's first word (mov r1, r0) becomes a branch to the dispatcher");
+    // the dispatcher: per gym a compare, r3 its record, a branch to the routine; then the default case's word and back
+    const uint32_t n = (uint32_t)XyGyms().size(), backAt = 0x10385CAC + 12 * n, routine = backAt + 8, record = routine + 0x40;
     check(word(0x10385CAC) && word(0x10385CAC)->Value == 0xE3520001, "the dispatcher compares the kind with Grant's (1)");
-    const CodeWord* back = word(0x10385CB4 + 4);
-    check(word(0x10385CB4) && word(0x10385CB4)->Value == 0xE1A01000 && back && back->Value == (0xEA000000u | (((0x10274214u - 0x10385CB8u - 8) >> 2) & 0xFFFFFF)),
+    check(word(0x10385CB0) && word(0x10385CB0)->Value == (0x028F3F00u | (record - (0x10385CB0 + 8)) / 4), "r3 = Grant's record (addeq r3, pc, #)");
+    check(word(0x10385CB4) && word(0x10385CB4)->Value == (0x0A000000u | (((routine - 0x10385CB4 - 8) >> 2) & 0xFFFFFF)), "beq the routine");
+    const CodeWord* back = word(backAt + 4);
+    check(word(backAt) && word(backAt)->Value == 0xE1A01000 && back && back->Value == (0xEA000000u | (((0x10274214u - (backAt + 4) - 8) >> 2) & 0xFFFFFF)),
           "any other kind: the default case's word, then back to it");
-    const uint32_t routine = 0x10385CBC;
-    check(word(routine + 0x14) && word(routine + 0x14)->Value == 0xE59F0020 && word(routine + 0x3C) && word(routine + 0x3C)->Value == 0x18,
-          "the object's size, 0x18, loaded from the routine's word 0x3C");
-    check(word(routine + 0x38) && word(routine + 0x38)->Value == 0x544, "the constructor's offset, 0x544");
-    check(word(routine + 0x40) && word(routine + 0x40)->Value == 0x3A6D6F72, "the module's path follows (\"rom:\")");
+    check(word(routine + 0x0C) && word(routine + 0x0C)->Value == (0xEB000000u | (((0x10243C48u - (routine + 0x0C) - 8) >> 2) & 0xFFFFFF)),
+          "the routine loads the module (the loader's stub)");
+    check(word(record) && word(record)->Value == 0x544 && word(record + 4)->Value == 0x18, "Grant's record: constructor 0x544, object 0x18 bytes");
+    const uint32_t path = record + word(record + 8)->Value;
+    check(word(path) && word(path)->Value == 0x3A6D6F72 && word(path + 4)->Value == 0x6C6C442F, "its path: \"rom:/Dll...\"");
     return ok ? 0 : 1;
 }
