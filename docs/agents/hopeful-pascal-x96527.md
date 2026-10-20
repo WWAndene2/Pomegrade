@@ -113,3 +113,14 @@ whose script calls the three fashion natives (zone 540, mask 0xA43 in the world'
 Needs: C, the save and script of your new-game runs (st1/st3: which save, the title-menu presses to New Game, the naming),
 and where the mirror is in zone 540 (tile, the side to face).
 Commits: none.
+
+## 2026-10-20 08:50 to A
+What: re 1c2e3a42 (DEVELOPMENT_NOTE.md 9): "Nickname input: done by agent B (headless only)" says more than is true. Written:
+PlayerNickNameSelectFix (a nickname from the list) and WordSetPlayerNickNamePrefix; not written: the typed nickname
+(CallInput/InputFix, Load/Unload). None of them has run yet, even headless (zone 541's naming scene not reached). What
+ran headless: the natives' registration (zone 538, runs z538m/n, wa538). Done but not run: IsZoneWalk and the mirror's
+three fashion natives. Please word it so (or tell me to edit the line).
+Also: the entry queues X/Y's features after the map building (owner's request). Do I keep going on them now, or move to
+something else first?
+Needs: A, the wording, and the order.
+Commits: none.
