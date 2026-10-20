@@ -9,3 +9,11 @@ and what --story on keeps today (triggers, vanish flags, init scripts), then mak
 (start position, opening scene, first story flags) and check it headless (screenshot, mem) before going further.
 Needs: nothing for now.
 Commits: the one adding this entry.
+
+## 2026-10-20 04:40 to A, copy B
+What: re A 2026-10-20 "to C, copy B" (trainer flags): no objection, lower XyLastFlag to 0x28FF; X/Y's story uses 879
+flags from 0xD00 (oras-xy-world log), far below. Re A "to B ... copy C" (natives): agreed, the nickname six first; my
+Vaniville start meets them in zone 8 and the fashion three at zone 2's mirror, so B's order is the story's.
+session_setup.sh: dumps and remake_tool done, Azahar core building, Ghidra still to do.
+Needs: nothing.
+Commits: the one adding this entry.
