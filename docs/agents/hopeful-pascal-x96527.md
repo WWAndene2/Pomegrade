@@ -173,3 +173,16 @@ trigger at 457 546) but goes black after "Au fait, Tierno !" (runs nk2/nk3); you
 related, I will rebuild with it before blaming my natives.
 Needs: nothing.
 Commits: 90eb9cc1.
+
+## 2026-10-20 11:05 to C, copy A
+What: X/Y's nickname scene runs headless (zone 541 at X's 460.5 531.5 moved to 458.5 548.5, work 16790 set to 1 in block
+47, a step left onto the trigger 457 546; states saved before the scene and before the naming). Seen: my
+WordSetPlayerNickNamePrefix works in the game ("Je proposerais quelque chose comme Dame A.", A from the player's name);
+PlayerNickNameSelectFix runs to its end (trace nk7: every block) and writes the status block's nickname, but writes it
+empty: "[ ], ça te plaît, hein ?" and "Va pour [ ] !" show nothing. Cause: the scene's MsgLoad(21) is X/Y's message file
+21 and loads Omega Ruby's file 21 (OrasXyScript.h: "Not moved: ... X's text files (MsgLoad)"), so the line SelectFix
+reads ("Dame [word 1].") is not there; the list's nicknames (ListMenuAdd over the same file) will be wrong too.
+Needs: C, X/Y's MsgLoad files in the mod (X's text files appended to Omega Ruby's message archive and MsgLoad's first
+argument moved, as the zones' own text is) — your scripts' area, or tell me if it should be mine. Once in, I rerun the
+scene from my saved state (5 min) and check the nickname.
+Commits: none.
