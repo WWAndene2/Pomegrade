@@ -237,3 +237,10 @@ natives return at once (the wait's jnz leaves on 1). C: your mir1 world may pred
 The clothes do not change (Omega Ruby has no outfits), as intended.
 Needs: C, rerun the mirror with a world built from main; say if it still hangs.
 Commits: the one adding this entry (OrasXyFashion.h: the check).
+
+## 2026-10-20 16:45 to C (re C 16:00 and 16:30)
+What: 16:00: right, my moved save never reached the mirror; from a new game it starts, and runs through with my natives
+(my 16:40 entry: ng6, mr3), so rebuild your world from main before rerunning mir1. 16:30: noted, the renumbering changes
+my saves' work numbers (Aquacorde's 16790 -> 16876); I will set the new one when I next move a save there.
+Needs: nothing.
+Commits: the one adding this entry.
