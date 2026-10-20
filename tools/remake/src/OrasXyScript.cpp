@@ -2,6 +2,7 @@
 
 #include "Amx.h"
 #include "OrasXySound.h"
+#include "OrasXyTrainers.h"
 
 #include <cstdio>
 #include <functional>
@@ -117,9 +118,11 @@ std::vector<Line> Split(const std::string& source)
 // the instructions holding a flag's or work's number given to a flag or work native (its first argument): the push (or
 // the constant a push.pri pushes) before the sysreq.n, or, when that is a procedure's parameter (push.s / push.p.s at 12 +
 // 4 n), the constant each call of the procedure pushes for it, followed through up to four procedures. `name` gives a
-// native index's name. A number computed otherwise is added to `notes` (when given), not moved.
-struct Argument { size_t Line; bool Flag; };
-std::vector<Argument> NumberArguments(const std::vector<Line>& lines, const std::function<std::string(size_t)>& name, std::vector<std::string>* notes)
+// native index's name. A number computed otherwise is added to `notes` (when given), not moved. `other`: more natives, each
+// with the argument (0 the first) whose constants are wanted, returned as Other
+struct Argument { size_t Line; bool Flag; bool Other = false; };
+std::vector<Argument> NumberArguments(const std::vector<Line>& lines, const std::function<std::string(size_t)>& name, std::vector<std::string>* notes,
+                                      const std::map<std::string, size_t>& other = {})
 {
     // the procedure each line is in (its label), and each procedure's calls
     std::vector<std::string> procOf(lines.size());
@@ -154,32 +157,34 @@ std::vector<Argument> NumberArguments(const std::vector<Line>& lines, const std:
     };
     std::vector<Argument> out;
     std::set<std::pair<size_t, bool>> done;
-    // (line of an argument's instruction, flag, depth)
-    std::vector<std::tuple<size_t, bool, int>> todo;
+    // (line of an argument's instruction, flag, other, depth)
+    std::vector<std::tuple<size_t, bool, bool, int>> todo;
     for (size_t i = 0; i < lines.size(); i++)
     {
         if (lines[i].Op != "sysreq.n" || lines[i].Words.size() < 2) continue;
         const std::string n = name(std::stoul(lines[i].Words[1]));
         const bool flag = FlagNatives.count(n), work = WorkNatives.count(n);
-        if (!flag && !work) continue;
-        const int at = pushed(i, 0);
+        const auto o = other.find(n);
+        if (!flag && !work && o == other.end()) continue;
+        const int at = pushed(i, flag || work ? 0 : o->second);
         if (at < 0) { if (notes) notes->push_back(n + " at source line " + std::to_string(i + 1) + ": its number is computed, not moved"); continue; }
-        todo.emplace_back((size_t)at, flag, 0);
+        todo.emplace_back((size_t)at, flag, !flag && !work, 0);
     }
     while (!todo.empty())
     {
-        const auto [at, flag, depth] = todo.back();
+        const auto [at, flag, isOther, depth] = todo.back();
         todo.pop_back();
         const Line& l = lines[at];
+        const std::string what = isOther ? "a number" : flag ? "a flag" : "a work";
         if (Constants.count(l.Op))
         {
-            if (done.insert({at, flag}).second) out.push_back({at, flag});
+            if (done.insert({at, flag}).second) out.push_back({at, flag, isOther});
             continue;
         }
         const bool param = (l.Op == "push.s" || l.Op == "push.p.s") && l.Words.size() == 2 && std::stol(l.Words[1], nullptr, 0) >= 12;
         if (!param || depth >= 4 || procOf[at].empty())
         {
-            if (notes) notes->push_back(std::string(flag ? "a flag" : "a work") + " at source line " + std::to_string(at + 1) + " is computed, not moved");
+            if (notes) notes->push_back(what + " at source line " + std::to_string(at + 1) + " is computed, not moved");
             continue;
         }
         const size_t n = (size_t)(std::stol(l.Words[1], nullptr, 0) - 12) / 4;
@@ -187,8 +192,8 @@ std::vector<Argument> NumberArguments(const std::vector<Line>& lines, const std:
         {
             // the call's argument bytes are pushed last (push.c / push.p.c), the arguments before them
             const int arg = pushed(call, n + 1);
-            if (arg < 0) { if (notes) notes->push_back(std::string(flag ? "a flag" : "a work") + " passed at source line " + std::to_string(call + 1) + " is computed, not moved"); continue; }
-            todo.emplace_back((size_t)arg, flag, depth + 1);
+            if (arg < 0) { if (notes) notes->push_back(what + " passed at source line " + std::to_string(call + 1) + " is computed, not moved"); continue; }
+            todo.emplace_back((size_t)arg, flag, isOther, depth + 1);
         }
     }
     return out;
@@ -219,7 +224,13 @@ XyNumbers XyNumbersFor(const std::vector<Bytes>& scripts, const std::set<int>& e
     }
     XyNumbers n;
     int next = XyFirstFlag;
-    for (int f : flags) { if (next > XyLastFlag) throw FormatError("X/Y scripts: more flags than 0xD00-0x2C3F holds"); n.Flags[f] = next++; }
+    for (int f : flags)
+    {
+        // a trainer's "beaten" flag (0x6CC + n in X/Y) is the one oras-engine --xy-trainers gives X/Y's trainer n
+        if (f > GameTrainerFlags && f < GameTrainerFlags + XyTrainerCount) { n.Flags[f] = XyTrainerFlagBase + (f - GameTrainerFlags); continue; }
+        if (next > XyLastFlag) throw FormatError("X/Y scripts: more flags than 0xD00-0x28FF holds");
+        n.Flags[f] = next++;
+    }
     next = XyFirstWork;
     for (int w : works) { if (next > XyLastWork) throw FormatError("X/Y scripts: more event works than 0x4178-0x436B holds"); n.Works[w] = next++; }
     return n;
@@ -412,6 +423,34 @@ std::string XyMoveSounds(const std::string& source, const XySounds& sounds, bool
         }
     }
     if (moved || kept) notes.push_back("sounds: " + std::to_string(moved) + " of X/Y's ids made Omega Ruby's, " + std::to_string(kept) + " kept");
+    std::string out;
+    for (const std::string& l : text) out += l + "\n";
+    return out;
+}
+
+
+std::string XyMoveTrainers(const std::string& source, std::vector<std::string>& notes)
+{
+    const std::vector<Line> lines = Split(source);
+    std::vector<std::string> text, names;
+    {
+        std::istringstream in(source);
+        for (std::string l; std::getline(in, l);) text.push_back(l);
+    }
+    for (const Line& l : lines) if (l.Op == "native" && l.Words.size() >= 2) names.push_back(l.Words[1]);
+    const auto nameOf = [&](size_t index) { return index < names.size() ? names[index] : std::string(); };
+    // _CallTrainerBattleCore(0, trainer, ...): X/Y's scripts call it through a procedure of their own, given the trainer
+    // first (Shalour's gym, X/Y zone 21: Korrina 613)
+    size_t moved = 0;
+    for (const Argument& a : NumberArguments(lines, nameOf, &notes, {{"_CallTrainerBattleCore", 1}}))
+    {
+        if (!a.Other) continue;
+        const int v = (int)std::stol(lines[a.Line].Words.back(), nullptr, 0);
+        if (v <= 0 || v >= XyTrainerCount) continue;
+        text[a.Line] = "    " + lines[a.Line].Op + " " + std::to_string(XyTrainerToOras(v)) + "   ; X/Y's trainer " + std::to_string(v);
+        moved++;
+    }
+    if (moved) notes.push_back("trainers: " + std::to_string(moved) + " battle(s) given Omega Ruby's numbers of X/Y's trainers");
     std::string out;
     for (const std::string& l : text) out += l + "\n";
     return out;

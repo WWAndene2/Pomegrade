@@ -3,6 +3,7 @@
 #include "Amx.h"
 #include "OrasXyScript.h"
 #include "OrasXySound.h"
+#include "OrasXyTrainers.h"
 
 #include <cstdio>
 #include <filesystem>
@@ -187,6 +188,19 @@ int main()
               "an effect moved, a jingle kept without X/Y's music");
         check(with.find("push.c 181   ; X/Y's sound 0x50000") != std::string::npos && with.find("push.c 655369\n") != std::string::npos,
               "the jingle moved with it, an id of no X/Y sound kept");
+    }
+    {
+        // XyMoveTrainers: a battle's trainer (_CallTrainerBattleCore's second argument) given through the script's own
+        // procedure, its first parameter, as X/Y zone 21's Korrina: the caller's constant moved; the procedure's 0 kept
+        const std::string source = "native _CallTrainerBattleCore\ncode\n"
+            "L000010:\n    proc\n    push.p.s 16\n    push.p.s 12\n    push.p.c 0\n    sysreq.n 0 12\n    retn\n"
+            "L000040:\n    proc\n    push.p.c 0\n    push.p.c 613\n    push.p.c 8\n    call L000010\n    retn\n";
+        std::vector<std::string> notes;
+        const std::string moved = XyMoveTrainers(source, notes);
+        check(moved.find("push.p.c 1563   ; X/Y's trainer 613") != std::string::npos && moved.find("    push.p.c 0\n    sysreq.n") != std::string::npos,
+              "a battle's trainer moved through the procedure that passes it");
+        // a trainer character's flag in X/Y (0x6CC + n) is the one oras-engine --xy-trainers gives trainer 950 + n
+        check(XyTrainerToOras(613) == 1563 && XyTrainerToOras(0) == 0, "X/Y's trainer n is Omega Ruby's 950 + n, 0 none");
     }
     Bytes truncated = b;
     truncated.push_back(0); Put32(truncated, 0, (uint32_t)truncated.size());

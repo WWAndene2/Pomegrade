@@ -24,7 +24,8 @@ class OrasWorkspace;
 // when it is not 0x243). X/Y's fifth kind of event (zone 0 has 2) is left out (logged). Without `story`: its triggers, the
 // characters with a vanish flag (the story's, shown or hidden by it) and its init script (the scenes on entering) are left out;
 // its zone script (people's talk, signs, objects) is kept, a talk's story branches taking their default course. With
-// `sounds`, the scripts' sound ids are Omega Ruby's (XyMoveSounds; X/Y's music and jingles only with `music`).
+// `sounds`, the scripts' sound ids are Omega Ruby's (XyMoveSounds; X/Y's music and jingles only with `music`). Trainers (a
+// trainer character's script, the scripts' battles: XyMoveTrainers) are Omega Ruby's numbers of X/Y's (OrasXyTrainers.h).
 struct XyEvents
 {
     std::vector<ZoneFurniture> Furniture;
