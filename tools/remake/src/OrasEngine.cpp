@@ -693,6 +693,17 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         for (const CodeWord& w : p.Field) croWords.push_back({w.Address, w.Expected, w.Value, w.Why});
         log.push_back("X/Y natives: " + std::to_string(XyNatives().size()) + " under mask bit 0x800");
     }
+    if (o.XyMessages)
+    {
+        // MsgLoad(table, n) (Script_Native_MsgLoad 0x1029EF60, read 20 October) takes table 8's member from a switch of n
+        // 0-24 (0 -> 0x104, 21 -> 0x61...), past it the error routine then member 0 (0x1029F110-0x1029F120). X/Y's switch
+        // is its own (its n 21, the nickname list, is its member 0x4F), so X/Y's files are appended to the archives and a
+        // script names one as 0x100 + its member: the out-of-range branch made "sub r7, r7, #0x100", its member
+        const uint32_t game[5] = {0xE3A02000, 0xE1A01002, 0xE1A00002, 0xEBFE8C83, 0xE3A07000};
+        croWords.push_back({0x1029F110, game[0], 0xE2477C01, "MsgLoad: n >= 0x19 is the member n - 0x100 (sub r7, r7, #0x100)"});
+        for (uint32_t k = 1; k < 5; k++) croWords.push_back({0x1029F110 + 4 * k, game[k], 0xE320F000, "MsgLoad: its error call left out (nop)"});
+        log.push_back("MsgLoad: 0x100 + m loads table 8's member m");
+    }
     if (!croWords.empty()) dllField = PatchCro(oras.Read("DllField.cro"), DllFieldBase, croWords);
     for (const auto& [id, size] : o.HeapSizes)
     {

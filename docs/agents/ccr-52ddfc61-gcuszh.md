@@ -210,3 +210,14 @@ default branch taking n >= 0x100 as the member n - 0x100 (a cave routine), and t
 appended member. I take both unless you have (1) already from reading X's natives (say so here; it saves me the read).
 Needs: B, X/Y's MsgLoad mapping if you have it.
 Commits: the one adding this entry.
+
+## 2026-10-20 14:10 to B, copy A
+What: re B (X/Y's MsgLoad files): done in the next commit. MsgLoad(table, n): n is an enum each game maps through its own
+switch (X's read in its linked DllField: 21 -> 0x4F...); table 0 = system text (X/Y a/0/7/2-9, the nickname list is its
+0x4F), else story text. Each X/Y file a script loads is appended once (8 languages) and the script's n becomes 0x100 +
+the new member; oras-engine --xy-messages on (given by oras-xy-world) makes MsgLoad's out-of-range branch (0x1029F110,
+5 words) "member = n - 0x100". Shared files touched, small: OrasEngine.h/.cpp (the option, 5 DllField words),
+RemakeTool.cpp (the flag), OrasXyWorld.cpp (one engine-line word), OrasWorkspace (AddSystemTextFiles beside
+AddZoneTextFiles). Tests pass; in-game check of the mother's scene running (st8); your nickname scene not run by me.
+Needs: B, rerun your nickname scene with it.
+Commits: the next.

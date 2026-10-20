@@ -50,6 +50,9 @@ public:
     // a zone's text from files already written, one per language in the story text archives' order (a/0/7/9 to a/0/8/6:
     // Japanese kana, kanji, English, French, Italian, German, Spanish, Korean, as X/Y's a/0/8/0-7 are); the member added
     int AddZoneTextFiles(const std::vector<Bytes>& files);
+    // a system text file (script message table 8: Script_Native_MsgLoad 0x1029EF60), one per language in the system text
+    // archives' order (a/0/7/1 to a/0/7/8, as X/Y's a/0/7/2-9 are); the member added
+    int AddSystemTextFiles(const std::vector<Bytes>& files);
     // a place name (header word 14 & 0x3FF): a new line of a/0/7/1-a/0/7/8 member 90 (the eight languages' names); returns it
     int AddPlaceName(const std::string& name);
     // the same with each language's name, in the archives' order (a/0/7/1 to a/0/7/8: Japanese kana, kanji, English, French,
@@ -92,6 +95,7 @@ public:
     std::vector<std::string> Write(const std::string& outDir);
 
 private:
+    int AddTextFiles(const std::vector<Bytes>& files, int first);
     struct Archive { Bytes Data; std::unique_ptr<Garc> Game, Now; };
     Archive& Open(const std::string& path);
     N3dsRom& Oras;

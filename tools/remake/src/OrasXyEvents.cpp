@@ -188,6 +188,32 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
         source = XyMoveZones(source, numbers.Zones, notes);
         if (sounds) source = XyMoveSounds(source, *sounds, music, notes);
         source = XyMoveTrainers(source, notes);
+        // the message files it loads (MsgLoad's (table, n), XyMessageMember): X/Y's member added once in its eight languages
+        // (system text: X/Y's a/0/7/2-9 -> a/0/7/1-8; story text: X/Y's a/0/8/0-7 -> a/0/7/9-a/0/8/6), named 0x100 + the new
+        // member (oras-engine --xy-messages on). B's nickname scene read Omega Ruby's file of the same n: an empty nickname
+        // (run nk7, 20 October)
+        {
+            static std::map<std::pair<bool, int>, int> messageOf; // X/Y's file -> MsgLoad's argument; one X/Y game and workspace per run
+            std::set<std::pair<bool, int>> found;
+            std::vector<std::string> ignored;
+            XyMoveMessages(source, messageOf, found, ignored);
+            for (const auto& file : found)
+            {
+                const int xMember = XyMessageMember(file.second);
+                if (messageOf.count(file) || xMember < 0) continue;
+                std::vector<Bytes> files;
+                for (int k = 0; k < 8; k++)
+                    files.push_back(Plain(Garc(xRom.Read(file.first ? "a/0/8/" + std::to_string(k) : "a/0/7/" + std::to_string(k + 2))).Sub((size_t)xMember)));
+                const int member = file.first ? ws.AddZoneTextFiles(files) : ws.AddSystemTextFiles(files);
+                messageOf[file] = 0x100 + member;
+                char line[160];
+                snprintf(line, sizeof line, "X/Y message file %d of its %s text (member 0x%X): member %d, MsgLoad's 0x%X", file.second,
+                         file.first ? "story" : "system", xMember, member, 0x100 + member);
+                log.push_back(line);
+            }
+            found.clear();
+            source = XyMoveMessages(source, messageOf, found, notes);
+        }
         if (!init && from == "translated") source = XyParentFlagSteps(source, e.Triggers, firstStep, xZone, log);
         uint32_t mask = 0x243;
         Bytes assembled;
