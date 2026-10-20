@@ -65,16 +65,20 @@ public:
     /// clock's, so a run renders a chosen time of day; negative goes back to the clock
     static void SetTestHour(float hour);
 
-    /// A vertex as the software vertex shader outputs it: clip position, the lighting's view vector and normal quaternion
+    /// A vertex as the software vertex shader outputs it: clip position, the lighting's view vector and normal
+    /// quaternion, its first texture coordinate
     struct InputVertex {
         float clip[4];
         float view[3];
         float normquat[4];
+        float uv[2];
     };
 
     /// A lit draw: its triangles (three vertices each), drawn into the render target whose colour buffer is at `target`
-    /// through `viewport` (x, y, width, height, in the target's scaled pixels)
-    void Capture(PAddr target, const std::array<GLint, 4>& viewport, std::span<const InputVertex> vertices);
+    /// through `viewport` (x, y, width, height, in the target's scaled pixels); `texture` and `sampler`, its first
+    /// texture as the game samples it (0: none), give its surface the normal map (Settings::values.remaster_normal_map)
+    void Capture(PAddr target, const std::array<GLint, 4>& viewport, std::span<const InputVertex> vertices,
+                 GLuint texture, GLuint sampler);
 
     struct Result {
         GLuint light = 0;    ///< the denoised light (rgb the light, a the occlusion), the target's size; 0: none
@@ -95,9 +99,11 @@ private:
         float clip[4];
         float position[3];
         float normal[3];
+        float uv[2];
     };
     struct Batch {
         std::array<GLint, 4> viewport;
+        GLuint texture, sampler; ///< the draw's first texture and its sampler (0: none)
         std::size_t first, count; ///< vertices in the frame's list
     };
     struct Frame {
@@ -119,6 +125,7 @@ private:
     u32 frame_number = 0;
 
     OGLTexture gbuffer_position, gbuffer_normal, gbuffer_distance;
+    OGLTexture gbuffer_bump; ///< the normal bent by the surface's texture (the normal map), for the light's shading only
     OGLRenderbuffer gbuffer_depth;
     OGLFramebuffer gbuffer_fbo;
     std::array<OGLTexture, 2> light;

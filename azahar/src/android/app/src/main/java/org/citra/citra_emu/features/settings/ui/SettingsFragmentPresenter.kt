@@ -1192,6 +1192,18 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
             )
             add(
                 SliderSetting(
+                    IntSetting.REMASTER_NORMAL_MAP,
+                    R.string.pomegrade_remaster_normal_map,
+                    R.string.pomegrade_remaster_normal_map_description,
+                    0,
+                    100,
+                    "%",
+                    IntSetting.REMASTER_NORMAL_MAP.key,
+                    IntSetting.REMASTER_NORMAL_MAP.defaultValue.toFloat()
+                )
+            )
+            add(
+                SliderSetting(
                     IntSetting.REMASTER_AO_STRENGTH,
                     R.string.pomegrade_remaster_ao_strength,
                     R.string.pomegrade_remaster_ao_strength_description,

@@ -26,16 +26,22 @@ namespace {
 // texture units OpenGLState never binds (it tracks 0-7; 15 is the texture runtime's temporary unit)
 constexpr GLuint UnitPosition = 8, UnitNormal = 9, UnitFrame = 10, UnitNodes = 11, UnitTriangles = 12;
 constexpr GLuint UnitShadow = 11; // the fast tracer's (Ultra's nodes are a buffer texture: never both in one pass)
+// the bent normal (the normal map): 12 in the fast tracer's passes (Ultra's triangles), 13 in Ultra's trace (a denoise
+// input only after it); the G-buffer draws read each draw's own texture at 0, OpenGLState's unit (restored after)
+constexpr GLuint UnitBumpFast = 12, UnitBumpUltra = 13;
 
 constexpr char GBUFFER_VERT[] = R"(
 layout(location = 0) in vec4 clip;
 layout(location = 1) in vec3 position;
 layout(location = 2) in vec3 normal;
+layout(location = 3) in vec2 uv;
 out vec3 v_position;
 out vec3 v_normal;
+out vec2 v_uv;
 void main() {
     v_position = position;
     v_normal = normal;
+    v_uv = uv;
     gl_Position = vec4(clip.x, clip.y, -clip.z, clip.w); // as the rasterizer's vertex shaders
 }
 )";
@@ -47,9 +53,14 @@ precision highp float;
 #endif
 in vec3 v_position;
 in vec3 v_normal;
+in vec2 v_uv;
+layout(binding = 0) uniform sampler2D albedo; // the draw's first texture, as the game samples it
+uniform float bump;                            // the normal map's strength (0: none, or no texture)
 layout(location = 0) out vec4 g_position;
 layout(location = 1) out vec4 g_normal;
 layout(location = 2) out float g_distance; // for Remaster's depth effects: 0 near, 1 far
+layout(location = 3) out vec4 g_bump;
+float Luma(vec2 uv) { return dot(texture(albedo, uv).rgb, vec3(0.2126, 0.7152, 0.0722)); }
 void main() {
     g_distance = clamp(length(v_position) / 3000.0, 0.0, 0.999);
     g_position = vec4(v_position, 1.0);
@@ -57,6 +68,33 @@ void main() {
     if (dot(n, -v_position) < 0.0) n = -n; // toward the camera
     g_normal = vec4(n, 0.0);
     gl_FragDepth = clamp(length(v_position) * 1e-5, 0.0, 1.0);
+    // The normal map, made from the texture as the Littleroot renders chose it (tools/remake/render, version 5 "soft
+    // edges, low intensity"): the height is a texel's brightness against its neighbourhood (a tuft against its own
+    // patch: a plain change of colour is not a slope), its slope read softly (4 bilinear taps 0.75 texel off, about
+    // the renders' 0.75-texel blur) less the slope of the neighbourhood's brightness (the same taps 6 texels off), and
+    // the normal tilted against that slope in the surface's own texture directions (from the screen derivatives).
+    // The renders' colour-aware smoothing is left out (a texture's dither can show as a fine grain), and window
+    // glass is not told apart (it gets a faint relief too)
+    g_bump = g_normal;
+    if (bump > 0.0) {
+        vec2 t = 1.0 / vec2(textureSize(albedo, 0));
+        vec2 f = 0.75 * t, w = 6.0 * t;
+        float a = Luma(v_uv + vec2(f.x, f.y)), b = Luma(v_uv + vec2(f.x, -f.y));
+        float c = Luma(v_uv + vec2(-f.x, f.y)), d = Luma(v_uv + vec2(-f.x, -f.y));
+        float A = Luma(v_uv + vec2(w.x, w.y)), B = Luma(v_uv + vec2(w.x, -w.y));
+        float C = Luma(v_uv + vec2(-w.x, w.y)), D = Luma(v_uv + vec2(-w.x, -w.y));
+        // slopes per texel
+        vec2 slope = vec2(a + b - c - d, a + c - b - d) / 3.0 - vec2(A + B - C - D, A + C - B - D) / 24.0;
+        vec3 dp1 = dFdx(v_position), dp2 = dFdy(v_position);
+        vec2 du1 = dFdx(v_uv), du2 = dFdy(v_uv);
+        vec3 dp2p = cross(dp2, n), dp1p = cross(n, dp1);
+        vec3 tu = dp2p * du1.x + dp1p * du2.x, tv = dp2p * du1.y + dp1p * du2.y;
+        if (dot(tu, tu) > 0.0 && dot(tv, tv) > 0.0) {
+            tu = normalize(tu);
+            tv = normalize(tv);
+            g_bump = vec4(normalize(n - (slope.x * tu + slope.y * tv) * bump), 0.0);
+        }
+    }
 }
 )";
 
@@ -88,6 +126,7 @@ constexpr char TRACE_FRAG[] = R"(
 layout(binding = 10) uniform sampler2D frame;
 layout(binding = 11) uniform samplerBuffer nodes;
 layout(binding = 12) uniform samplerBuffer triangles;
+layout(binding = 13) uniform sampler2D g_bump; // the normal bent by the normal map
 uniform vec3 sun;          // toward the sun, view space
 uniform vec3 sun_colour;
 uniform vec3 up;
@@ -203,7 +242,7 @@ void main() {
     float sr = sqrt(Random()) * 0.026, sa = 6.2831853 * Random();
     vec3 sun_ray = normalize(sun + (st * cos(sa) + sb * sin(sa)) * sr);
     float lit = Hit(o, sun_ray, 1e5, tri) < 1e5 ? 0.0 : 1.0;
-    vec3 light = sun_colour * max(dot(n, sun), 0.0) * lit;
+    vec3 light = sun_colour * max(dot(texture(g_bump, frag_tex_coord).xyz, sun), 0.0) * lit;
     // the sky and the bounce: three rays over the hemisphere, cosine-weighted (a white surface sends back their mean)
     const int Samples = 3;
     const float Reach = 600.0, Occlusion = 40.0;
@@ -305,6 +344,7 @@ void main() {
 constexpr char FAST_TRACE_FRAG[] = R"(
 layout(binding = 10) uniform sampler2D frame;
 layout(binding = 11) uniform sampler2D shadow_map;
+layout(binding = 12) uniform sampler2D g_bump; // the normal bent by the normal map
 uniform vec3 sun;
 uniform vec3 sun_colour;
 uniform vec3 up;
@@ -432,6 +472,10 @@ void main() {
     // the sky over the open share (around the normal, bent toward up), the bounce over the rest; with nothing found
     // rising (a surface facing down), the ground's glow, as the ray took below the horizon
     vec3 sky = dot(n, up) > -0.2 ? Sky(normalize(n + up)) : sky_horizon * 0.35;
+    // the normal map: the sky's light as a hemisphere's on the bent normal against the surface's own (its relief in
+    // the shade too, where the sun does not show it)
+    vec3 nb = texture(g_bump, frag_tex_coord).xyz;
+    sky *= (0.5 + 0.5 * dot(nb, up)) / max(0.5 + 0.5 * dot(n, up), 0.05);
     vec3 back_light = bounce_w > 0.0 ? bounce / bounce_w : sky_horizon * 0.35;
     vec3 gathered = sky * open_ + back_light * (1.0 - open_);
     vec3 light = gathered * indirect / reference;
@@ -451,6 +495,7 @@ layout(binding = 13) uniform sampler2D current;
 layout(binding = 14) uniform sampler2D history_;
 layout(binding = 10) uniform sampler2D previous;
 layout(binding = 11) uniform sampler2D shadow_map;
+layout(binding = 12) uniform sampler2D g_bump; // the normal bent by the normal map
 layout(location = 1) out vec4 lit;
 uniform float first;
 uniform vec2 half_size;
@@ -538,7 +583,7 @@ void main() {
     lit = color;
     if (gp.w > 0.5) {
         vec3 n = texture(g_normal, p).xyz;
-        float facing = max(dot(n, sun), 0.0);
+        float facing = max(dot(texture(g_bump, p).xyz, sun), 0.0) * step(0.0, dot(n, sun));
         if (facing > 0.0) {
             facing *= mix(1.0, SunFiltered(gp.xyz + n * (0.02 + length(gp.xyz) * 0.002)), shadow_strength);
         }
@@ -655,7 +700,7 @@ bool PathTracerGL::Ultra() {
 }
 
 void PathTracerGL::Capture(PAddr target, const std::array<GLint, 4>& viewport,
-                           std::span<const InputVertex> vertices) {
+                           std::span<const InputVertex> vertices, GLuint texture, GLuint sampler) {
     if (target == 0 || vertices.size() < 3) {
         return;
     }
@@ -678,9 +723,11 @@ void PathTracerGL::Capture(PAddr target, const std::array<GLint, 4>& viewport,
         out.normal[0] = 2.0f * (q[0] * q[2] + q[3] * q[1]);
         out.normal[1] = 2.0f * (q[1] * q[2] - q[3] * q[0]);
         out.normal[2] = 1.0f - 2.0f * (q[0] * q[0] + q[1] * q[1]);
+        out.uv[0] = v.uv[0];
+        out.uv[1] = v.uv[1];
         frame.vertices.push_back(out);
     }
-    frame.batches.push_back({viewport, first, vertices.size()});
+    frame.batches.push_back({viewport, texture, sampler, first, vertices.size()});
 }
 
 void PathTracerGL::Complete(PAddr target, PAddr display) {
@@ -705,6 +752,7 @@ void PathTracerGL::Resize(u32 w, u32 h) {
     make(gbuffer_position, GL_RGBA32F, w, h);
     make(gbuffer_normal, GL_RGBA16F, w, h);
     make(gbuffer_distance, GL_R32F, w, h);
+    make(gbuffer_bump, GL_RGBA16F, w, h);
     make(previous_position, GL_RGBA32F, w, h);
     have_history = false;
     gbuffer_depth.Release();
@@ -718,9 +766,11 @@ void PathTracerGL::Resize(u32 w, u32 h) {
     glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gbuffer_position.handle, 0);
     glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gbuffer_normal.handle, 0);
     glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gbuffer_distance.handle, 0);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, gbuffer_bump.handle, 0);
     glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, gbuffer_depth.handle);
-    const GLenum targets[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
-    glDrawBuffers(3, targets);
+    const GLenum targets[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2,
+                               GL_COLOR_ATTACHMENT3};
+    glDrawBuffers(4, targets);
     const u32 hw = w, hh = h; // full size: the sun's shadows stay sharp
     for (int i = 0; i < 2; i++) {
         make(light[i], GL_RGBA16F, hw, hh);
@@ -1047,6 +1097,7 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
     glClearBufferfv(GL_COLOR, 1, clear_colour);
     const GLfloat far_[4] = {1, 1, 1, 1};
     glClearBufferfv(GL_COLOR, 2, far_);
+    glClearBufferfv(GL_COLOR, 3, clear_colour);
     const GLfloat far_depth = 1.0f;
     glClearBufferfv(GL_DEPTH, 0, &far_depth);
     glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(frame.vertices.size() * sizeof(Vertex)),
@@ -1060,9 +1111,21 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
                           reinterpret_cast<const void*>(offsetof(Vertex, position)));
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
                           reinterpret_cast<const void*>(offsetof(Vertex, normal)));
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+                          reinterpret_cast<const void*>(offsetof(Vertex, uv)));
+    // the normal map's strength: the slider's 50 % is the renders' chosen one (9 per unit of brightness a texel)
+    const float bump = static_cast<float>(Settings::values.remaster_normal_map.GetValue()) * 9.0f / 50.0f;
+    const GLint bump_at = glGetUniformLocation(gbuffer_program.handle, "bump");
     for (const Batch& b : frame.batches) {
         state.viewport = {b.viewport[0], b.viewport[1], b.viewport[2], b.viewport[3]};
+        // the draw's texture, if it still exists (the texture cache may have dropped it since the draw)
+        const bool textured = bump > 0.0f && b.texture != 0 && glIsTexture(b.texture);
+        state.texture_units[0].texture_2d = textured ? b.texture : 0;
+        state.texture_units[0].target = GL_TEXTURE_2D;
+        state.texture_units[0].sampler = textured ? b.sampler : 0;
         state.Apply();
+        glProgramUniform1f(gbuffer_program.handle, bump_at, textured ? bump : 0.0f);
         glDrawArrays(GL_TRIANGLES, static_cast<GLint>(b.first), static_cast<GLsizei>(b.count));
     }
 
@@ -1084,6 +1147,7 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
     bind(UnitPosition, gbuffer_position.handle, nearest.handle);
     bind(UnitNormal, gbuffer_normal.handle, nearest.handle);
     bind(UnitFrame, frame_texture, linear.handle);
+    bind(ultra ? UnitBumpUltra : UnitBumpFast, gbuffer_bump.handle, nearest.handle);
     if (!ultra) {
         bind(UnitShadow, shadow_map.handle, nearest.handle);
     }
@@ -1177,7 +1241,9 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
     have_history = true;
     glCopyImageSubData(gbuffer_position.handle, GL_TEXTURE_2D, 0, 0, 0, 0, previous_position.handle, GL_TEXTURE_2D, 0,
                        0, 0, 0, static_cast<GLsizei>(width), static_cast<GLsizei>(height), 1);
-    for (GLuint unit : {UnitPosition, UnitNormal, UnitFrame, UnitShadow, GLuint{13}, GLuint{14}}) bind(unit, 0, 0);
+    for (GLuint unit : {UnitPosition, UnitNormal, UnitFrame, UnitShadow, UnitBumpFast, GLuint{13}, GLuint{14}}) {
+        bind(unit, 0, 0);
+    }
     glActiveTexture(GL_TEXTURE0);
     saved.Apply();
     Result result{ultra ? history[history_index].handle : fast_result[history_index].handle, gbuffer_distance.handle};

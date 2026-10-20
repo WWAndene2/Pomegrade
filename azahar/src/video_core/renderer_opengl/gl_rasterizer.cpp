@@ -666,12 +666,20 @@ bool RasterizerOpenGL::Draw(bool accelerate, bool is_indexed) {
                 const HardwareVertex& v = vertex_batch[i];
                 captured[i] = {{v.position[0], v.position[1], v.position[2], v.position[3]},
                                {v.view[0], v.view[1], v.view[2]},
-                               {v.normquat[0], v.normquat[1], v.normquat[2], v.normquat[3]}};
+                               {v.normquat[0], v.normquat[1], v.normquat[2], v.normquat[3]},
+                               {v.tex_coord0[0], v.tex_coord0[1]}};
             }
+            // its first texture, for the normal map the path tracer derives from it (a plain 2D texture only)
+            const auto& texture0 = regs.texturing.GetTextures()[0];
+            const bool plain_2d = texture0.enabled &&
+                                  texture0.config.type.Value() ==
+                                      Pica::TexturingRegs::TextureConfig::TextureType::Texture2D &&
+                                  state.texture_units[0].target == GL_TEXTURE_2D;
             path_tracer->Capture(regs.framebuffer.framebuffer.GetColorBufferPhysicalAddress(),
                                  {state.viewport.x, state.viewport.y, state.viewport.width,
                                   state.viewport.height},
-                                 captured);
+                                 captured, plain_2d ? state.texture_units[0].texture_2d : 0,
+                                 plain_2d ? state.texture_units[0].sampler : 0);
         }
         state.draw.vertex_array = sw_vao.handle;
         state.draw.vertex_buffer = vertex_buffer.GetHandle();

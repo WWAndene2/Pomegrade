@@ -1192,6 +1192,8 @@
     <string name="pomegrade_remaster_rt_shadow_size_description">Width of the sun\'s shadow map in texels (more: sharper shadows, heavier, more memory)</string>
     <string name="pomegrade_remaster_rt_shadow_range">Ray tracing: shadow range</string>
     <string name="pomegrade_remaster_rt_shadow_range_description">Share of the scene the shadow map covers, nearest first (more: shadows further away, less sharp)</string>
+    <string name="pomegrade_remaster_normal_map">Ray tracing: normal map</string>
+    <string name="pomegrade_remaster_normal_map_description">Relief the light reads from each surface\'s texture: grass tufts, stone, wood (0: none)</string>
     <string name="pomegrade_remaster_ao_strength">Remaster: ambient occlusion strength</string>
     <string name="pomegrade_remaster_ao_strength_description">How dark creases, corners and the ground under objects get (50%: V1)</string>
     <string name="pomegrade_remaster_bounce_strength">Remaster: colour bleeding</string>

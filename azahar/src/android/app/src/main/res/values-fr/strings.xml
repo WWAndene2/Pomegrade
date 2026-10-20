@@ -1122,6 +1122,8 @@
     <string name="pomegrade_remaster_rt_shadow_size_description">Largeur de la carte d\'ombre du soleil en texels (plus : ombres plus nettes, plus lourd, plus de mémoire)</string>
     <string name="pomegrade_remaster_rt_shadow_range">Ray tracing : portée des ombres</string>
     <string name="pomegrade_remaster_rt_shadow_range_description">Part de la scène couverte par la carte d\'ombre, la plus proche d\'abord (plus : ombres plus loin, moins nettes)</string>
+    <string name="pomegrade_remaster_normal_map">Ray tracing : normal map</string>
+    <string name="pomegrade_remaster_normal_map_description">Relief que la lumière lit dans la texture de chaque surface : touffes d\'herbe, pierre, bois (0 : aucun)</string>
     <string name="pomegrade_remaster_ao_strength">Remaster : force de l\'occlusion ambiante</string>
     <string name="pomegrade_remaster_ao_strength_description">Assombrissement des creux, des coins et du sol sous les objets (50 % : V1)</string>
     <string name="pomegrade_remaster_bounce_strength">Remaster : rebond de couleur</string>
