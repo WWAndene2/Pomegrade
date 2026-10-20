@@ -190,12 +190,9 @@ To do, in this order:
    are done). Found from X/Y's 121 script commands Omega Ruby has no equivalent for (named by hashing X/Y's strings); the
    skates, riding, Sky and Inverse Battles from what is known of X and its sound names, not read in its code. Features X/Y
    runs in engine code with no script command are not covered (not searched). State on 20 October:
-   - Nickname input: started by agent B. Written: PlayerNickNameSelectFix (a nickname from the list) and
-     WordSetPlayerNickNamePrefix; not written: the typed nickname (CallInput, InputFix, Load, Unload). None has run yet,
-     even headless (zone 541's naming scene not reached); only the commands' registration ran (zone 538).
-   - Clothes, salon and photo shop: started (B): the bedroom mirror's three commands written, not run yet.
-   - Gym mechanics (Clemont's lift and doors, Ramos's garden, Valerie's warp, Grant, Korrina, Viola, Olympia, Wulfric):
-     not started (B, in story order).
+   - Nickname input: done headless, all six commands (a nickname from the list and a typed one, runs nk13-nk17).
+   - Clothes, salon and photo shop: the bedroom mirror's three commands run headless (runs ng6, mr3); the rest not started.
+   - Gym mechanics: started, state in 3e (B1).
    - Elite Four and Champion elevators: not started (B).
    - Battle Chateau ranks: not started; its 51 noble classes show Omega Ruby's class of the same picture.
    - Berry fields and survey, Poké Radar chains, Friend Safari, Holo Caster, Poké Ball factory: not started.
@@ -217,7 +214,8 @@ Pokémon, items (the new orbs), moves, text and music.
 
 Three lanes by area, one step at a time each, in its own files; a step is done when a minimal headless test of the
 system passes (never by playing X/Y's scenes) and is merged the same session; a run over 15 minutes is asked of the owner
-first (agents ask through A).
+first. Since 20 October 17:10 one agent works every lane, one step at a time, and only when the owner asks (owner's
+decision; the three-agent period: `docs/AGENT_PROCESS.md`).
 
 | Step | A: world, battles, game data | B: X/Y's own features | C: story, path, text |
 |---|---|---|---|
@@ -227,6 +225,21 @@ first (agents ask through A).
 | 3 | Pokémon and items: stats, types, abilities, moves, learnsets, evolutions, forms, new items (the orbs), TMs, tutors, shops, starters, gifts and static Pokémon | Clothes, salon, photo shop | The gameplay path in one description: gates added or changed, items given, wild Pokémon per area |
 | 4 | Surf, fishing, Rock Smash, hordes in X/Y's zones; Sky and Inverse Battles | Battle Chateau, berry fields, Poké Radar, Friend Safari, Holo Caster, Poké Ball factory | Text and music: any line, place or name in every language; music per zone and per battle; any character of either game in any zone |
 | 5 | Travel between Hoenn and Kalos, both regions in one build; every zone load-tested, in batches, each asked first | Roller skates, riding; the opening, credits and ending, Pokédex | A test path built only with the tools (both regions, a scene with a choice, a changed gym leader and badge, a new item, edited Pokémon), played headless |
+
+State on 20 October, 18:00 (all of it on `main`; "headless" = a run in a session, nothing tested on the phone):
+
+| Step | State |
+|---|---|
+| B0 save-state crash | **Done.** Azahar's software renderer kept framebuffer pointers across a state load (use-after-free), fixed in 61ca0ae4; new-game runs use `POMEGRADE_SAVE=none`. |
+| A1 battle music and backgrounds | **Done, headless.** A room after the game's .bss (`oras-engine`, 0x6AF000 up); `--xy-battle-types` moves the battle-type table there with X/Y's 28 types (music, victory jingle): an X/Y trainer fights to X/Y's music (run hMus2). Backgrounds: each X/Y zone gets Omega Ruby's background of its kind of place (runs hBg3, hBg4); the mapping is inferred per kind, not checked value by value; X/Y's own backdrops (its gyms') not brought in (the backdrop table not found). Also: X/Y's trainers as Omega Ruby's 950-1734 with their battle lines (runs hBat2, hBat3; a win and the lines after a battle not seen), a trainer's music on sight. |
+| B1 gym mechanics | **Started, not working yet.** Gym modules ported from X (`--xy-gyms`, loaded by area kind): Grant's (Rock), Wulfric's (Ice), Clemont's (Electric), their archives in a longer archive table (`--more-archives`, numbers 304, 320...); Clemont's seven natives calling his module. Seen: Wulfric's archive opened and his module running with no fault (B's run gi3, given the bedroom's kind for the check). Open: zone 160 (Grant's gym) crashes after DllField and DllSequence load, with or without the story room (run hZ160n: PC 0x46C960 reads null + 0..8; its log floods to 4 GB: cap it); Clemont's six natives building event objects, Valerie, Korrina, Ramos, Viola, Olympia not done. |
+| C1 story flags across a save | **Done, headless.** `story_save_test.sh`: flags and works below and above the game's range (block 47 with `--story large`) set, saved from the menu, read back after a reboot; control read 0 (PASS, 18 min). |
+| C2 scenes in any zone | **Started.** `SceneScript` compiles a scene into any zone's own script (Littleroot's routines imported), with `ask` / `if yes` / `if no`; sandboxes `scene_choice.txt` (zone 6), `scene_choice_xy.txt` (Vaniville); unit test passes. Not seen working: the first runs set neither flag (the trigger was off Littleroot's tiles, moved in e79e2da0, not rerun); YesAnswer = 0 not measured; X/Y runs stopped before a result. |
+| A2-A5, B2-B5, C3-C5 | Not started. |
+
+Also done for the X/Y world on 20 October (headless): X/Y's text in its scripts (`--xy-messages`), flags, works, zone ids and map changes moved in X/Y's scripts, a new game's first zone (`--start-zone`, X/Y's bedroom), X/Y's music and light in the mod, its step events as triggers; X/Y natives: the nickname (all six, typed text included, runs nk13-nk17) and the bedroom mirror's three (runs ng6, mr3).
+
+Next, in this order when the owner asks: zone 160's crash and Grant's gym end to end (B1); C2's choice scene rerun; then A2.
 
 After: the owner's phone checks, then the real map build; then the cast's variants (old and young Archie, Maxie with
 glasses, the legendaries' repaints: a mesh rewriter, `BchWriter`).
