@@ -354,6 +354,18 @@ static void MemoryDump(void* core, const std::string& address, const std::string
 
 // "watch FRAMES ADDRESS...": runs FRAMES frames holding the keys of the last hold (none), printing each address's word
 // whenever one changes, with the frame: the order in which the game writes a loader's fields (a race between threads)
+// "draw off": the core's software renderer skips its triangles (pomegrade_set_skip_draw, sw_rasterizer.cpp), the game's
+// logic running on, much faster where no picture is wanted; a shot, a screen check and the final result draw a few frames
+// first, then drawing stops again. The screen does not change while off: no freeze can be told, and "field" (which waits
+// for the field's picture) needs drawing on
+static void (*setSkipDraw)(bool) = nullptr;
+static bool drawOff = false;
+// "draw every N" (owner's idea, 20 October): drawing on, but only one frame in N drawn (the others skip their triangles
+// as "draw off" does), the game's logic still run every frame. Measured on the idle field (20 October): every frame drawn
+// 2.0 frames/s (run fps_on), one in 4 3.9 (fps_e4), none about 67 (fps_off): a drawn frame costs far more than its
+// share, so a large N is worth it where a picture is needed only now and then (the title, menus, a scene's shots)
+static unsigned long drawEvery = 1;
+
 static void Step();
 static void Watch(void* core, unsigned long frames, const std::vector<uint32_t>& addresses, unsigned keys)
 {
@@ -385,6 +397,7 @@ static void Step()
     static const Clock::time_point start = Clock::now();
     static Clock::time_point lastSpeed = start;
     static unsigned long lastSpeedFrame = 0;
+    if (drawEvery > 1 && !drawOff && setSkipDraw) setSkipDraw(frame % drawEvery != 0);
     runFrame();
     frame++;
     const Clock::time_point now = Clock::now();
@@ -405,16 +418,10 @@ static void Step()
     }
 }
 
-// "draw off": the core's software renderer skips its triangles (pomegrade_set_skip_draw, sw_rasterizer.cpp), the game's
-// logic running on, much faster where no picture is wanted; a shot, a screen check and the final result draw a few frames
-// first, then drawing stops again. The screen does not change while off: no freeze can be told, and "field" (which waits
-// for the field's picture) needs drawing on
-static void (*setSkipDraw)(bool) = nullptr;
-static bool drawOff = false;
 
 static void DrawFrames()
 {
-    if (!drawOff) return;
+    if (!drawOff && drawEvery <= 1) return;
     setSkipDraw(false);
     for (int k = 0; k < 3; k++) Step();
 }
@@ -491,7 +498,15 @@ static int RunScript(void* core, const char* path)
         {
             if (!setSkipDraw) setSkipDraw = reinterpret_cast<void (*)(bool)>(dlsym(core, "pomegrade_set_skip_draw"));
             if (!setSkipDraw) printf("draw: the core has no pomegrade_set_skip_draw (an older build)\n");
-            else { drawOff = arg == "off"; setSkipDraw(drawOff); printf("[frame %lu] drawing %s\n", frame, drawOff ? "off" : "on"); }
+            else if (arg == "every")
+            {
+                words >> drawEvery;
+                if (drawEvery < 1) drawEvery = 1;
+                drawOff = false;
+                setSkipDraw(false);
+                printf("[frame %lu] drawing one frame in %lu\n", frame, drawEvery);
+            }
+            else { drawOff = arg == "off"; drawEvery = 1; setSkipDraw(drawOff); printf("[frame %lu] drawing %s\n", frame, drawOff ? "off" : "on"); }
         }
         else if (cmd == "report") ThreadReport(core);
         else if (cmd == "watch")

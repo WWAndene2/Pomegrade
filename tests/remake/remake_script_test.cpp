@@ -175,6 +175,21 @@ int main()
         std::filesystem::remove(names);
     }
     {
+        // XyMoveMessages: MsgLoad(table, n)'s n moved by (table != 0, n), a computed one noted; XyMessageMember: X's switch
+        const std::string source = "native MsgLoad\ncode\n"
+            "    push.p.c 21\n    push.p.c 0\n    sysreq.n 0 8\n"
+            "    push.p.c 0\n    push.p.c 1\n    sysreq.n 0 8\n"
+            "    push.p.s 12\n    push.p.c 1\n    sysreq.n 0 8\n";
+        std::set<std::pair<bool, int>> found;
+        std::vector<std::string> notes;
+        const std::string moved = XyMoveMessages(source, {{{false, 21}, 0x1AF}, {{true, 0}, 0x380}}, found, notes);
+        check(moved.find("push.p.c 431   ; X/Y's system text file 21") != std::string::npos
+                  && moved.find("push.p.c 896   ; X/Y's story text file 0") != std::string::npos,
+              "MsgLoad's file moved by its table and n");
+        check(found.size() == 2 && notes.size() == 1 && notes[0].find("computed") != std::string::npos, "a computed file noted, kept");
+        check(XyMessageMember(21) == 0x4F && XyMessageMember(0) == 0x8E && XyMessageMember(22) == -1, "X's MsgLoad switch");
+    }
+    {
         // XyMoveZones: a map change's zone moved and its tile shifted, an unknown zone kept and noted
         const std::string source = "native FlagGet\nnative _MapChangeCore\ncode\n"
             "    push.p.c 0\n    push.p.c 596\n    push.p.c 145\n    push.p.c 467\n    push.p.c 0\n    sysreq.n 1 20\n"

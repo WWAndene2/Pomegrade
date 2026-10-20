@@ -82,6 +82,18 @@ std::string XyMoveSounds(const std::string& source, const struct XySounds& sound
 // trainers (XyTrainerToOras); a trainer computed is in `notes`, not moved
 std::string XyMoveTrainers(const std::string& source, std::vector<std::string>& notes);
 
+// X/Y's MsgLoad(table, n): n 0-21 picks a member of an archive of table 8 (X's DllField, its MsgLoad's switch, read 20
+// October: 0 -> 0x8E ... 21 -> 0x4F); -1 past them. The first argument picks the archive, as Omega Ruby's (0x1029EF60): 0
+// the system text (X/Y's a/0/7/2-9, Omega Ruby's a/0/7/1-8: X/Y's 0x4F the nickname list), else the story text (X/Y's
+// a/0/8/0-7, Omega Ruby's a/0/7/9-a/0/8/6)
+int XyMessageMember(int n);
+
+// a script's MsgLoad files ((first argument != 0, second argument), both constants) moved by `files` (to the mod's second
+// argument, oras-engine --xy-messages on's 0x100 + the appended member), each pair found added to `found`; one computed or
+// not in `files` is in `notes` and kept
+std::string XyMoveMessages(const std::string& source, const std::map<std::pair<bool, int>, int>& files, std::set<std::pair<bool, int>>& found,
+                           std::vector<std::string>& notes);
+
 // xScript: an X/Y zone script; namesFile: tools/remake/ghidra/function_names.tsv (Omega Ruby's natives and their mask
 // bits); mask: the native mask of the zone it will run in (0x243 for zones 536 and up unless oras-engine --script-mask)
 XyScriptNatives XyScriptToOras(const Bytes& xScript, const std::string& namesFile, uint32_t mask);

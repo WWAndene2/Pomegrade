@@ -74,18 +74,29 @@ int OrasWorkspace::AddZoneText(const std::vector<std::string>& lines)
 
 int OrasWorkspace::AddZoneTextFiles(const std::vector<Bytes>& files)
 {
-    if (files.size() != 8) throw FormatError("a zone's text needs its 8 languages' files, " + std::to_string(files.size()) + " given");
+    return AddTextFiles(files, 9);
+}
+
+int OrasWorkspace::AddSystemTextFiles(const std::vector<Bytes>& files)
+{
+    return AddTextFiles(files, 1);
+}
+
+// one file per language into the eight text archives a/0/7/<first> on (a/0/7/9 is followed by a/0/8/0); the member added
+int OrasWorkspace::AddTextFiles(const std::vector<Bytes>& files, int first)
+{
+    if (files.size() != 8) throw FormatError("a text needs its 8 languages' files, " + std::to_string(files.size()) + " given");
     int member = -1;
-    for (int a = 9; a <= 16; a++)
+    for (int a = first; a < first + 8; a++)
     {
         const std::string path = "a/0/" + std::to_string(7 + a / 10) + "/" + std::to_string(a % 10);
-        const Bytes& file = files[(size_t)(a - 9)];
+        const Bytes& file = files[(size_t)(a - first)];
         ReadGameText(file); // throws when it is not a game text file
         Garc& texts = Edited(path);
         const int index = (int)texts.Count();
         texts.Set((size_t)index, IsLzCompressed(Original(path).Sub(0)) ? Lz11Compress(file) : file);
         if (member < 0) member = index;
-        else if (index != member) throw FormatError(path + ": not as many members as a/0/7/9");
+        else if (index != member) throw FormatError(path + ": not as many members as the first language's archive");
     }
     return member;
 }

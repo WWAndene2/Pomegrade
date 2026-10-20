@@ -448,6 +448,54 @@ std::string XyMoveZones(const std::string& source, const std::map<int, XyZonePla
     return out;
 }
 
+int XyMessageMember(int n)
+{
+    // X's MsgLoad (linked X DllField 0x10291918): "cmp r7, #0x16; ldrlo pc, [pc, r7, lsl #2]", each case a "mov r7, #member"
+    static const int member[22] = {0x8E, 0x16, 0x41, 0xDB, 0x60, 0x5C, 0x5E, 0x5F, 0x5D, 0xDD, 0xDC,
+                                   0x76, 0x80, 0x74, 0x73, 0x81, 0x3E, 0xDF, 0x01, 0x3D, 0x20, 0x4F};
+    return n >= 0 && n < 22 ? member[n] : -1;
+}
+
+std::string XyMoveMessages(const std::string& source, const std::map<std::pair<bool, int>, int>& files, std::set<std::pair<bool, int>>& found,
+                           std::vector<std::string>& notes)
+{
+    const std::vector<Line> lines = Split(source);
+    std::vector<std::string> text, names;
+    {
+        std::istringstream in(source);
+        for (std::string l; std::getline(in, l);) text.push_back(l);
+    }
+    for (const Line& l : lines) if (l.Op == "native" && l.Words.size() >= 2) names.push_back(l.Words[1]);
+    for (size_t i = 0; i < lines.size(); i++)
+    {
+        if (lines[i].Op != "sysreq.n" || lines[i].Words.size() < 2) continue;
+        const size_t index = std::stoul(lines[i].Words[1]);
+        if (index >= names.size() || names[index] != "MsgLoad") continue;
+        // its two arguments: the last two pushes (the last push is the first argument), constants, in the same block
+        int at[2] = {-1, -1};
+        size_t seen = 0;
+        for (size_t k = i; k-- > 0 && i - k <= 8 && seen < 2;)
+        {
+            const std::string& op = lines[k].Op;
+            if (op.empty() || op.back() == ':') break;
+            if (op.rfind("push", 0) != 0) continue;
+            if ((op == "push.c" || op == "push.p.c") && lines[k].Words.size() == 2) at[seen] = (int)k;
+            seen++;
+        }
+        const std::string where = " at source line " + std::to_string(i + 1);
+        if (at[0] < 0 || at[1] < 0) { notes.push_back("MsgLoad" + where + ": its file is computed, not moved"); continue; }
+        const std::pair<bool, int> file{std::stol(lines[(size_t)at[0]].Words[1], nullptr, 0) != 0, (int)std::stol(lines[(size_t)at[1]].Words[1], nullptr, 0)};
+        found.insert(file);
+        const std::string name = std::string(file.first ? "story" : "system") + " text file " + std::to_string(file.second);
+        const auto to = files.find(file);
+        if (to == files.end()) { notes.push_back("MsgLoad" + where + ": X/Y's " + name + " not in the mod, kept"); continue; }
+        text[(size_t)at[1]] = "    " + lines[(size_t)at[1]].Op + " " + std::to_string(to->second) + "   ; X/Y's " + name;
+    }
+    std::string out;
+    for (const std::string& l : text) out += l + "\n";
+    return out;
+}
+
 std::string XyMoveSounds(const std::string& source, const XySounds& sounds, bool streams, std::vector<std::string>& notes)
 {
     const std::vector<Line> lines = Split(source);
