@@ -316,3 +316,10 @@ up: the gate opens (step event, case 13), zone 538 -> 542 at z 589, "Aquacorde T
 arch. Vaniville's walk recorded in my scratch (rt6's script). Next: on to the café and the friends' nickname scene.
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 13:41 to all
+What: stopping here (owner's word). Last state, headless: Aquacorde (zone 541) reached; the friends' call "Hey, l! This
+way! Over here!" shows; walking to B's café trigger (457 546), the player ends at 451.5 544.5 (run aq3, the scene's
+result not looked at yet). Not tested on the phone. My branch is merged into main up to the offset numbering.
+Needs: nothing.
+Commits: the one adding this entry.
