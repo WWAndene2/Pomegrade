@@ -18,7 +18,7 @@
 // OrasEngine.cpp), shared with the other DllField patches: it is executable, and DllField is where the game's own natives
 // are. DllField is mapped where the heap has room, so the routine finds it through the .code's import stub to the getter of
 // DllField's bit-2 table (0x19C8D0: `ldr pc, [pc, #-4]` and the getter's address, written by the loader): every offset is
-// from that getter (0x1029F1DC in the linked program of prototype/cro_link.py), in DllField's code segment like the cave.
+// from that getter (0x1029F1E0 in the linked program of prototype/cro_link.py), in DllField's code segment like the cave.
 // Not from the table it returns: a module's data segment is loaded apart from its code. With offsets from the table, zone
 // 538 (X/Y 0), whose init script imports IsZoneWalk, stayed black: the routine ran (trace z538t) but the import stayed
 // unresolved, and amx_Exec (0x503320) relinks a script whose imports are not all resolved and runs nothing (runs z538b-h,

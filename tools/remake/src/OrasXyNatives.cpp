@@ -17,10 +17,10 @@ constexpr uint32_t MaskTest = 0x3FBDA0;      // `tst r4, #0x400` in Script_Regis
 constexpr uint32_t MaskTestWord = 0xE3140B01;
 constexpr uint32_t Routine = 0x579E80;       // to 0x579EFB
 // the .code's import stub to DllField's bit-2 table getter is `ldr pc, [pc, #-4]` and the getter's address, which the
-// loader writes at 0x19C8D4; the getter (`ldr r0, [pc]; bx lr`) is in DllField's code segment, at 0x1029F1DC linked. The
+// loader writes at 0x19C8D4; the getter (`ldr r0, [pc]; bx lr`) is in DllField's code segment, at 0x1029F1E0 linked. The
 // anchor is the getter, not its table: a module's data segment (the table's) is loaded apart from its code
 constexpr uint32_t GetterAddress = 0x19C8D4;
-constexpr uint32_t Getter = 0x1029F1DC;
+constexpr uint32_t Getter = 0x1029F1E0;
 constexpr uint32_t LinkImports = 0x506190;   // Sys_LinkImportsByNameHash(list, table, count; -1: to a null name)
 
 uint32_t ArmBranch(uint32_t cond, uint32_t from, uint32_t to, bool link)
