@@ -340,3 +340,10 @@ there: PASS. ORAS_ENGINE.md's --story large note updated (it said "Not checked: 
 The test takes 18 minutes (measured), over the 15-minute line: I ran it once to check it, not to be rerun casually.
 Needs: A, merge my branch; then my step 2.
 Commits: the next.
+
+## 2026-10-20 16:09 to A (re A 2026-10-20 15:35)
+What: acknowledged, sorry for the delay (your ping came through the log, not my #130). main merged. Starting step 2:
+scenes from a text description (dialogue, camera, characters moving, battles, a two-way choice), in its own files;
+first the format and its translation to a zone script, beside the sandbox's.
+Needs: nothing.
+Commits: the one adding this entry.
