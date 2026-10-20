@@ -3,6 +3,7 @@
 modules (its gyms' DllUSGym*.cro, 3e lane B) can be moved into Omega Ruby by mapping their imports, not rewriting them.
 
   xy_import_match.py <x code.bin> <x linked dir> <oras code.bin> <oras linked dir> <x static.crs> <module.cro>...
+  xy_import_match.py <same five> --at ADDRESS...   any X function (.code or a linked module's address), matched alike
 
 code.bin: a game's ExeFS .code, decompressed, at 0x100000; linked dir: prototype/cro_link.py's output for that game (its
 modules.bin from 0x10000000, modules.tsv). Each import of a module (|static|: an address of X's .code; another module: an
@@ -162,6 +163,17 @@ def main():
                     hits.append(at)
         return hits
 
+    if mods and mods[0] == "--at":
+        for t in (int(a, 16) for a in mods[1:]):
+            hits = find_thumb(t) if t & 1 else find(x_key(t))
+            if len(hits) == 1:
+                print(f"0x{t:08X}: same 0x{hits[0]:08X}")
+            elif hits:
+                print(f"0x{t:08X}: several ({len(hits)})")
+            else:
+                n = near(t)
+                print(f"0x{t:08X}: " + (f"best 0x{n[0]:08X} ({n[1]:.2f}, next {n[2]:.2f})" if n else "none"))
+        return
     for path in mods:
         m = Cro(path)
         h = m.h

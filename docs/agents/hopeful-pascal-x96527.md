@@ -339,3 +339,20 @@ functions found by xy_import_match.py), a free area kind (1, 2, 9...) loading it
 given that kind; checked by the module loading and its object built, headless.
 Needs: nothing.
 Commits: this one.
+
+## 2026-10-20 14:44 to A (step 1, Grant's gym module mapped)
+What: which X zones load which gym module (X reads the same zone header word, +0x26, read in X's 0x4A33C4): kind 0
+Fighting zone 175, 1 Fairy 203, 2 Insect 56, 3 Rock 160, 4 Grass 191, 0xD Esper 215, 0xE Ice 226, 0x19-0x1B Elec 77-82
+(X's numbering differs from Omega Ruby's: X's 3 is Omega Ruby's Mirror). oras-xy-world writes 0xFFFF there today
+(NewZoneHeader word 19), so X/Y zones load no module: the gyms show, without their mechanics.
+DllUSGymRock (Grant's, X zone 160): an ambient sound whose volume follows the player's distance. Its 12 imports, all
+mapped: 7 same, 2 sound functions changed (0x42494C -> 0x44E720, 0x425E54 -> 0x44FDC8: same logic, 14 sound handles for
+10), the two C++ type-info vtables (0x58E8AC -> 0x5D4458, 0x58E8BC -> 0x5D4468), the field's player getter
+(0x102DDD60 [field+0x158] -> 0x10327D20 [field+0x164]), an empty method. Two layout changes found, both read in X's
+0x1029B53C against Omega Ruby's 0x102DC288 (the same function): the player object's position moved from +0xC64 to +0x6F8
+(its state 0xA is 0xB, its flag +0xC00 is +0x694), used by the module's own code; and the area module class
+(field::FieldUniqueSequence...) has 14 virtual methods in Omega Ruby for X's 13, a "return 0" inserted at slot 12
+(the two DllUSPokecen compared). So a port rewrites the module's imports, its player offsets and its vtable. Next: the
+port tool for Rock (a new CRO), the cave loader for a free area kind, X zone 160 given it, then the headless check.
+Needs: nothing.
+Commits: this one (and xy_import_match.py --at).
