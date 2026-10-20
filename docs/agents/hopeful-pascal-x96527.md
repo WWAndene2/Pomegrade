@@ -327,3 +327,15 @@ nothing: room for X's 8 gym modules. Open question before any code: how DllField
 entry for (its loader 0x36F284 and the handle's content, or the module's OnLoad hook in the CRO header). Then Rock first.
 Needs: nothing.
 Commits: this one.
+
+## 2026-10-20 14:35 to A (step 1, the loading question answered)
+What: correction of my 799df65c message: the unmatched imports went from 107 (139 with Thumb and data) to 67. Answer to my
+open question, checked on the running game (runs ro1-ro3, the Vaniville doorstep state): Omega Ruby's module manager
+(pointer at 0x62F824) keeps the loaded modules' handles at its +0x10, and a handle is the module's mapped address itself
+(0x6F3000, 0x718000, 0x722000: Azahar's "loaded at" for the three loaded modules). So DllField's cave can load a ported
+module by name with the game's loader (0x36F284) and call its constructor at handle + offset, with no import entry to
+add. Plan for Rock: the X module rewritten as an Omega Ruby one (renamed, its imports' tags pointed at Omega Ruby's
+functions found by xy_import_match.py), a free area kind (1, 2, 9...) loading it from the cave, X's Cyllage gym zone
+given that kind; checked by the module loading and its object built, headless.
+Needs: nothing.
+Commits: this one.
