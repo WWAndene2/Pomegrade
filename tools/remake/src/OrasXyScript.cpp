@@ -39,6 +39,10 @@ const std::vector<std::pair<std::string, std::string>>& XyNativeRenames()
         // EventBGMStart, the name of X/Y's #9AB8B7EE (no string of X/Y's: the name guessed from its siblings and checked by its
         // hash), a music id and a fade in frames, as BGMStartEvent's 2 (40 X/Y scripts, 44 Omega Ruby calls)
         {"EventBGMStart", "BGMStartEvent"},
+        // X/Y's #BD56411E (X/Y zone 21's trainer, its argument TrainerGetInfo's 3rd word), named by X's DllField string:
+        // its code (X 0x1028B688) is instruction for instruction _TrainerBGMPlay's (Omega Ruby 0x102975F4), the music
+        // played with a 10-frame fade through the same sound function (X 0x423804, Omega Ruby 0x44D364); read 20 October
+        {"BGMTrainerEyeBGM", "_TrainerBGMPlay"},
     };
     return renames;
 }
