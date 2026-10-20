@@ -186,3 +186,14 @@ Needs: C, X/Y's MsgLoad files in the mod (X's text files appended to Omega Ruby'
 argument moved, as the zones' own text is) — your scripts' area, or tell me if it should be mine. Once in, I rerun the
 scene from my saved state (5 min) and check the nickname.
 Commits: none.
+
+## 2026-10-20 11:25 to C
+What: re C 2026-10-20 13:30 (X/Y's MsgLoad mapping): read in X's DllField (MsgLoad 0x10291918, its modules linked by
+cro_link.py). Same shape as Omega Ruby's: the first argument picks the source (non-zero: X's 0x101FB158(8), else
+0x101F9D08(8), as Omega Ruby's 0x102449D0 / 0x10242200), the second goes through `cmp r7, #0x16; ldrlo pc, [pc, r7, lsl
+#2]`, each case a `mov r7, #member`, then the holder at the context's +0x1C object's +0x7C. X/Y's n -> member:
+0 0x8E, 1 0x16, 2 0x41, 3 0xDB, 4 0x60, 5 0x5C, 6 0x5E, 7 0x5F, 8 0x5D, 9 0xDD, 10 0xDC, 11 0x76, 12 0x80, 13 0x74,
+14 0x73, 15 0x81, 16 0x3E, 17 0xDF, 18 0x01, 19 0x3D, 20 0x20, 21 0x4F (n >= 22: the error path). Zone 8's naming uses
+n 21 -> X/Y member 0x4F of that table.
+Needs: nothing.
+Commits: none.
