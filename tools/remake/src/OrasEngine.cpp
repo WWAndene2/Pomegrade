@@ -711,6 +711,18 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         log.push_back(line);
     }
 
+    if (o.StartZone)
+    {
+        // A new game's first zone (read 20 October): FUN_003D4F14 builds the player's location with FUN_00403D80(location,
+        // zone, heap), which stores the zone and takes the position from that zone's header (its spawn, shorts +0x32-+0x36);
+        // the zone is the literal 399 (the moving truck) at 0x3D4F98, its only use. Measured: a new game's Situation (save
+        // block 4) holds zone 399 at tile (4.5, 4.5) once in the truck (run ng9). Not read: other code that expects the
+        // truck (the intro's own scenes run from zone 399's scripts, inferred)
+        if (*o.StartZone >= 0x10000) throw FormatError("--start-zone: a zone number below 65536");
+        words.push_back({0x3D4F98, 399, *o.StartZone, "a new game's first zone (FUN_003D4F14's literal)"});
+        log.push_back("new game: starts in zone " + std::to_string(*o.StartZone));
+    }
+
     char id[17];
     snprintf(id, sizeof id, "%016llX", (unsigned long long)oras.ProgramId());
     const std::filesystem::path root = std::filesystem::path(outDir) / "load" / "mods" / id;

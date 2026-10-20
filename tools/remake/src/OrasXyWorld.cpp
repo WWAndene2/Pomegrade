@@ -233,6 +233,9 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     if (wildTables) engine += " --wild-tables large";
     if (largeEvents) engine += " --events large";
     engine += " --xy-trainers on";
+    // with its story, a new game starts in X/Y zone 2, the player's bedroom in Vaniville (its mirror scene), at its header's
+    // spawn (OrasEngine.h StartZone); that X/Y's own new game starts there is inferred, not read in X/Y's code
+    if (o.Story && numbers.Zones.count(2)) engine += " --start-zone " + std::to_string(numbers.Zones.at(2).Zone);
     if (o.Music && o.Sounds)
     {
         snprintf(line, sizeof line, " --xy-sounds %zu:%zu", o.Sounds->First, o.Sounds->Streams.size());

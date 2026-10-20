@@ -6,7 +6,7 @@
 #
 #   tools/remake/ghidra/decompile.sh <work dir> <out dir> [--listing] [ADDRESS | --callers ADDRESS | --callees ADDRESS]...
 #
-# --listing: the functions disassembled instead, into <out dir>/listing.s (Listing.java: names of the addresses reached,
+# --listing: the functions disassembled instead, into <out dir>/listing.s (Disassembly.java: names of the addresses reached,
 # literal words also read as floats), for code the decompiler drops (VFP float instructions).
 #
 # ADDRESS in hex, 0x optional (0x453E08, 102cd2b4). Prints each function's name and size in lines.
@@ -20,7 +20,7 @@ while [ $# -gt 0 ]; do
     case $1 in
         --callers) a=$(norm "$2"); addresses+=($(awk -F'\t' -v a="$a" 'tolower($2) == a {print $1}' "$edges" | sort -u)); shift 2 ;;
         --callees) a=$(norm "$2"); addresses+=($(awk -F'\t' -v a="$a" 'tolower($1) == a {print $2}' "$edges" | sort -u)); shift 2 ;;
-        --listing) script=Listing.java; result=listing.s; shift ;;
+        --listing) script=Disassembly.java; result=listing.s; shift ;;
         *) addresses+=($(norm "$1")); shift ;;
     esac
 done

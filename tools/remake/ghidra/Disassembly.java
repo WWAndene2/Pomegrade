@@ -1,4 +1,4 @@
-// Listing: the functions at the given addresses as Ghidra disassembles them, for code its decompiler drops (the VFP float
+// Disassembly: the functions at the given addresses as Ghidra disassembles them, for code its decompiler drops (the VFP float
 // instructions of the camera natives, ORAS_ENGINE.md 6), into <out dir>/listing.s. Each instruction with its address,
 // the function and label names of the addresses it reaches, and the words it loads from the program's literal pools,
 // also read as floats (a constant 1.5 shows as "=0x3fc00000 (1.5)"). Read-only.
@@ -9,7 +9,7 @@ import ghidra.program.model.mem.MemoryAccessException;
 import ghidra.program.model.symbol.*;
 import java.io.*;
 
-public class Listing extends GhidraScript {
+public class Disassembly extends GhidraScript {
     private String nameAt(Address a) {
         Function f = getFunctionAt(a);
         if (f != null) return f.getName();
