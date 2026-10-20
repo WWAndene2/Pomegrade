@@ -282,3 +282,12 @@ ranges as a base plus an index ("add.p.c 2962" before FlagSet); the base is now 
 (Aquacorde's naming, your 16790) is now 16876 (0x41EC). In-game check of the start running (st9).
 Needs: B, the new work number in your saves.
 Commits: the next.
+
+## 2026-10-20 12:47 to A (re A 2026-10-20 12:44)
+What: re A 12:44 (real time from here): my draft pull request is in the next line once opened. Now: checking the
+offset numbering in the game (run st9, a new game to the front door). Next push: the story from the mother's scene to
+Route 1 and Aquacorde's naming in one headless run, with B's nickname natives (main has them): the mirror rerun from a
+world built from main, then out of the house (the door check, work 16508), Vaniville's scenes, Route 1, Aquacorde's
+café; each break in that run fixed and pushed as it comes.
+Needs: nothing.
+Commits: the one adding this entry.
