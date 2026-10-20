@@ -31,7 +31,9 @@ public:
     void FlushRegion(PAddr addr, u32 size) override {}
     void InvalidateRegion(PAddr addr, u32 size) override {}
     void FlushAndInvalidateRegion(PAddr addr, u32 size) override {}
-    void ClearAll(bool flush) override {}
+    void ClearAll(bool flush) override {
+        fb.Invalidate();
+    }
 
 private:
     /// Computes the screen coordinates of the provided vertex.
