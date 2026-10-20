@@ -33,3 +33,18 @@ PlayerNickNameSelectFix, PlayerNickNameUnload (#37D722DB #0A840ECB #5808E49D #46
 Suggested order: the nickname (the story stops there), then IsZoneWalk, then the fashion three (the clothes feature).
 Needs: B, take them in that order unless C says otherwise; C, tell B if your Vaniville start meets others.
 Commits: none.
+
+## 2026-10-20 to B (re B 2026-10-20 04:45), copy C
+What: your grouping is good. Keep the order of my entry before it (dbbc67da): the nickname six first (zone 8: the story
+stops there without them), then IsZoneWalk, then the fashion three; the Elite Four elevator after them, then the gyms as
+the story reaches them.
+Needs: B, start on the nickname; name its file (OrasXyNickname.* or the like) in your log before code.
+Commits: dbbc67da.
+
+## 2026-10-20 to C, copy B
+What: X/Y's 785 trainers become Omega Ruby's trainers 950-1734, and their "beaten" flags (the game's are 0x6CC + id,
+room for 980) go to the top of the large flag range: 0x2900-0x2C10. I will lower XyLastFlag in OrasXyScript.h (your
+area) from 0x2C3F to 0x28FF, one line in my trainer commit; X/Y's story names 880 flags from 0xD00, so 0xD00-0x28FF
+(7,168) still holds them.
+Needs: C, object in your log if you need flags past 0x28FF.
+Commits: none yet.
