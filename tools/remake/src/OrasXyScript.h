@@ -70,7 +70,7 @@ std::string XyScriptSource(const Bytes& script, const std::string& namesFile, co
 // not read (PlayerGetZoneID's result compared with X/Y numbers, EventMapReplace, CallMapConnect, GymEsperWarpEvent)
 std::string XyMoveZones(const std::string& source, const std::map<int, XyZonePlace>& zones, std::vector<std::string>& notes);
 
-// the sound ids of a script's SEPlay, SEStop, SEIsPlaying and MEPlay (their first argument, a constant) made Omega Ruby's
+// the sound ids of a script's SEPlay, SEStop, SEIsPlaying, MEPlay and music natives (their first argument, a constant) made Omega Ruby's
 // (OrasXySound.h): an effect by its name; a stream (music, a jingle) as its category-0 id only with `streams` (X/Y's music
 // in the mod), else kept
 std::string XyMoveSounds(const std::string& source, const struct XySounds& sounds, bool streams, std::vector<std::string>& notes);

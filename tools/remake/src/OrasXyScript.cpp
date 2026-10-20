@@ -24,6 +24,19 @@ const std::vector<std::pair<std::string, std::string>>& XyNativeRenames()
         {"SetupSpMotion", "SpMotionSetup"},
         {"PlaySpMotion", "SpMotionPlay"},
         {"DeleteSpMotion", "SpMotionDelete"},
+        // found on 20 October by the names of X/Y's natives (its tables' strings, hashed): the same words reordered, and the
+        // same argument count in both games' scripts (X / Omega Ruby calls: 35 / 117 of none, 12 / 7 of 3, 13 / 13 of 2,
+        // 7 / 8 of 3, 4 / 20 of 2, 2 / 4 of 1); PlaySpMotionMove's 7 arguments not compared (no Omega Ruby script calls it)
+        {"GetRomVersion", "RomGetVersion"},
+        {"GetTrainerInfo", "TrainerGetInfo"},
+        {"BattleEventBGMStart", "BGMStartBattleEvent"},
+        {"EventBGMChange", "BGMChangeEvent"},
+        {"NowMapBGMChange", "BGMChangeNowMap"},
+        {"CallPoke3Select", "_CallPoke3Select"},
+        {"PlaySpMotionMove", "SpMotionPlayMove"},
+        // EventBGMStart, the name of X/Y's #9AB8B7EE (no string of X/Y's: the name guessed from its siblings and checked by its
+        // hash), a music id and a fade in frames, as BGMStartEvent's 2 (40 X/Y scripts, 44 Omega Ruby calls)
+        {"EventBGMStart", "BGMStartEvent"},
     };
     return renames;
 }
@@ -348,9 +361,10 @@ std::string XyMoveSounds(const std::string& source, const XySounds& sounds, bool
         for (std::string l; std::getline(in, l);) text.push_back(l);
     }
     for (const Line& l : lines) if (l.Op == "native" && l.Words.size() >= 2) names.push_back(l.Words[1]);
-    // the natives taking a sound id first, as X/Y's scripts give them constants (SEPlay 870 times, MEPlay 35, SEStop 6; the
-    // BGM natives' ids are computed)
-    const std::set<std::string> withSound = {"SEPlay", "SEStop", "SEIsPlaying", "MEPlay"};
+    // the natives taking a sound id first, as X/Y's scripts give them constants (SEPlay 870 times, MEPlay 35, SEStop 6, and
+    // the music natives renamed from X/Y's: BGMStartEvent's id then its fade, 0x1001E and 10 in Vaniville's)
+    const std::set<std::string> withSound = {"SEPlay", "SEStop", "SEIsPlaying", "MEPlay", "BGMStartEvent", "BGMChangeEvent",
+                                             "BGMStartBattleEvent", "BGMChangeNowMap"};
     size_t moved = 0, kept = 0;
     for (size_t i = 0; i < lines.size(); i++)
     {
