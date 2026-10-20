@@ -9,12 +9,20 @@ modules.bin from 0x10000000, modules.tsv). Each import of a module (|static|: an
 export of it, located through the linked X modules) is compared, as the first 24 instructions of the function there (to
 its first return if sooner), with every place of Omega Ruby's .code and linked modules: equal when every instruction is
 equal but for a branch's offset (bl / b / blx to an address) and a literal pool load's offset (ldr rX, [pc, #k]). Printed:
-per module, each import's X address, then "same" (one place in Omega Ruby: its address), "several" (the count) or "none".
+per module, each import's X address, then "same" (one place in Omega Ruby: its address), "several" (the count), "near"
+(no equal function, but one whose sequence of instructions, registers and constants left out, is at least 85% alike
+(difflib's ratio) and 5 points ahead of the next: a changed copy, to read before use; X's 0x42494C, a sound volume
+setter, is Omega Ruby's 0x44E720 looping over 14 sound handles instead of 10; its address can be a few words off when the
+function's start follows a literal pool, X's 0x425E54 given as 0x44FDE4 for 0x44FDC8: check the entry) or "none" (with the
+best candidate).
 An odd address is Thumb code: its first 16 bytes compared raw. An address in X's
 data segments is reported as data (a vtable or type info, to map by what it holds). A match is a lead, not a proof: a short function (a getter) matches many places; check before using one.
 """
+import difflib
 import struct
 import sys
+
+from capstone import CS_ARCH_ARM, CS_MODE_ARM, Cs
 
 
 from cro_dis import Cro
@@ -57,6 +65,31 @@ def index(data, base, size):
     return table
 
 
+def shape(md, data, at, base, limit=64):
+    """the mnemonics of the function at address at, to its first return (registers and constants left out)"""
+    out = []
+    for i in md.disasm(bytes(data[at - base:at - base + 4 * limit]), at):
+        out.append(i.mnemonic)
+        if (i.mnemonic == "bx" and i.op_str == "lr") or (i.mnemonic.startswith("pop") and "pc" in i.op_str):
+            break
+    return out
+
+
+def starts(data, base):
+    """the likely starts of functions: every `push {..., lr}`, and the word after a return (`bx lr`, `pop {..., pc}`)
+    when it is an instruction (a leaf function that saves nothing first: X's 0x425E54, Omega Ruby's 0x44FDC8)"""
+    out = []
+    for off in range(0, len(data) - 8, 4):
+        w = struct.unpack_from("<I", data, off)[0]
+        if (w & 0xFFFF4000) == 0xE92D4000:
+            out.append(base + off)
+        elif w == 0xE12FFF1E or (w & 0xFFFF8000) == 0xE8BD8000:
+            n = struct.unpack_from("<I", data, off + 4)[0]
+            if n >> 28 == 0xE and (n & 0xFFFF4000) != 0xE92D4000:
+                out.append(base + off + 4)
+    return out
+
+
 def main():
     xcode, xlinked, ocode, olinked, xstatic = sys.argv[1:6]
     mods = sys.argv[6:]
@@ -85,6 +118,42 @@ def main():
             i = o["code"].find(k, i + 1)
         return hits
 
+    md = Cs(CS_ARCH_ARM, CS_MODE_ARM)
+    shapes = None
+
+    def near(addr):
+        """the Omega Ruby function most like it in shape: (address, ratio, the next best ratio) or None"""
+        nonlocal shapes
+        if shapes is None:
+            shapes = [(at, shape(md, d, at, b)) for d, b in ((o["code"], CODE), (o["mods"], LINKED)) for at in starts(d, b)]
+        data, base = (x["code"], CODE) if addr < LINKED else (x["mods"], LINKED)
+        want = shape(md, data, addr, base)
+        if len(want) < 8:
+            return None
+        scored = []
+        for at, have in shapes:
+            if not 0.7 * len(want) <= len(have) <= 1.3 * len(want):
+                continue
+            sm = difflib.SequenceMatcher(None, want, have, autojunk=False)
+            if sm.real_quick_ratio() < 0.8 or sm.quick_ratio() < 0.8:
+                continue
+            scored.append((sm.ratio(), at))
+        scored.sort(reverse=True)
+        if not scored:
+            return None
+        # a start not found above (after a literal pool: Omega Ruby's 0x44FDC8 was found 8 words in): the best of the
+        # 12 words before the hit
+        first, at = scored[0]
+        best, start = first, at
+        d, b = (o["code"], CODE) if at < LINKED else (o["mods"], LINKED)
+        for back in range(4, 52, 4):
+            if at - back < b:
+                break
+            r = difflib.SequenceMatcher(None, want, shape(md, d, at - back, b), autojunk=False).ratio()
+            if r > best:
+                best, start = r, at - back
+        return start, best, scored[1][0] if len(scored) > 1 else 0.0
+
     def find(k):
         hits = []
         for data, base, table in oidx:
@@ -96,7 +165,7 @@ def main():
     for path in mods:
         m = Cro(path)
         h = m.h
-        same = several = none = data = 0
+        same = several = close = none = data = 0
         print(f"== {m.name}")
         for i in range(h["ImportModuleNum"]):
             name_off, idx_off, idx_num, anon_off, anon_num = struct.unpack_from("<5I", m.data, h["ImportModuleTableOffset"] + 20 * i)
@@ -141,9 +210,14 @@ def main():
                     print(f"  {module} 0x{t:08X}: several ({len(hits)})")
                     several += 1
                 else:
-                    print(f"  {module} 0x{t:08X}: none")
-                    none += 1
-        print(f"  {m.name}: {same} same, {several} several, {none} none, {data} data")
+                    n = near(t)
+                    if n and n[1] >= 0.85 and n[1] - n[2] >= 0.05:
+                        print(f"  {module} 0x{t:08X}: near 0x{n[0]:08X} ({n[1]:.2f}, next {n[2]:.2f})")
+                        close += 1
+                    else:
+                        print(f"  {module} 0x{t:08X}: none" + (f" (best 0x{n[0]:08X} {n[1]:.2f}, next {n[2]:.2f})" if n else ""))
+                        none += 1
+        print(f"  {m.name}: {same} same, {several} several, {close} near, {none} none, {data} data")
 
 
 if __name__ == "__main__":

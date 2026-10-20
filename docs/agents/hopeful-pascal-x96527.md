@@ -316,3 +316,14 @@ prototype/xy_import_match.py measures it: of each module's imports, same functio
 Esper 21/2/28/2. Next: the unmatched ones, starting with Rock (the smallest), then the loader and the natives.
 Needs: nothing.
 Commits: this one.
+
+## 2026-10-20 14:32 to A (step 1, how a gym module would load)
+What: xy_import_match.py now also finds changed copies ("near": same instruction sequence, registers and constants left
+out): imports with no counterpart left, per module: Rock 2 (+2 data), Insect 12, Grass 8, Fighting 9, Elec 7, Ice 4, Fairy
+6, Esper 19. Loading, read in Omega Ruby's DllField: Field_LoadAreaSpecificModule (0x10273D30) switches on an area kind
+0-25, loads that kind's rom:/DllUS*.cro, keeps its handle at +0x1A4 and calls the module's constructor through one of
+DllField's own imports from that module (the modules export only nnroControlObject_). Kinds 1, 2, 9, 12, 17-20, 22 load
+nothing: room for X's 8 gym modules. Open question before any code: how DllField reaches a module it has no import
+entry for (its loader 0x36F284 and the handle's content, or the module's OnLoad hook in the CRO header). Then Rock first.
+Needs: nothing.
+Commits: this one.
