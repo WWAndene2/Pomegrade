@@ -6,6 +6,7 @@
 #include "OrasNewZone.h"
 #include "OrasTown.h"
 #include "OrasWorkspace.h"
+#include "OrasXyNatives.h"
 #include "OrasXySound.h"
 #include "OrasXyTrainers.h"
 #include "XyCharacter.h"
@@ -192,7 +193,7 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
         Bytes assembled;
         for (int tries = 0;; tries++)
         {
-            try { assembled = AmxAssemble(source, AmxNativeCheck(namesFile, mask)); break; }
+            try { assembled = AmxAssemble(source, XyNativeCheck(namesFile, mask)); break; }
             catch (const FormatError& err)
             {
                 const std::string why = err.what();

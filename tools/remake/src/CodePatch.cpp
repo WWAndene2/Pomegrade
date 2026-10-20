@@ -1,5 +1,7 @@
 #include "CodePatch.h"
 
+#include <map>
+
 namespace remake
 {
 
@@ -8,8 +10,12 @@ static uint32_t Word(const Bytes& b, size_t at) { return b.at(at) | b.at(at + 1)
 Bytes CodePatchIps(const Bytes& code, const std::vector<CodeWord>& words)
 {
     Bytes ips = {'P', 'A', 'T', 'C', 'H'};
+    // a word written twice is two patches claiming the same place (two features' caves overlapping): refused
+    std::map<uint32_t, std::string> written;
     for (const CodeWord& w : words)
     {
+        const auto [was, fresh] = written.emplace(w.Address, w.Why);
+        if (!fresh) throw FormatError("code patch: " + w.Why + " and " + was->second + " both write the same word");
         const size_t at = w.Address - CodeBase;
         if (w.Address < CodeBase || at + 4 > code.size() || at >= 0x1000000) throw FormatError("code patch: address outside the code");
         if (Word(code, at) != w.Expected)

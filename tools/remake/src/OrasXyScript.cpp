@@ -1,6 +1,7 @@
 #include "OrasXyScript.h"
 
 #include "Amx.h"
+#include "OrasXyNatives.h"
 #include "OrasXySound.h"
 #include "OrasXyTrainers.h"
 
@@ -46,7 +47,7 @@ static std::map<uint32_t, std::string> OrasNatives(const std::string& namesFile)
 
 XyScriptNatives XyScriptToOras(const Bytes& xScript, const std::string& namesFile, uint32_t mask)
 {
-    const auto check = AmxNativeCheck(namesFile, mask);
+    const auto check = XyNativeCheck(namesFile, mask);
     const std::map<uint32_t, std::string> oras = OrasNatives(namesFile);
     std::map<uint32_t, std::pair<std::string, std::string>> renamed;
     for (const auto& [x, o] : XyNativeRenames()) renamed[AmxNameHash(x)] = {x, o};
@@ -80,6 +81,8 @@ XyScriptNatives XyScriptToOras(const Bytes& xScript, const std::string& namesFil
 static std::map<uint32_t, std::string> OrasNatives(const std::string& namesFile)
 {
     std::map<uint32_t, std::string> oras;
+    // with X/Y's own natives the mod gives Omega Ruby (OrasXyNatives.h)
+    for (const XyNative& n : XyNatives()) oras[AmxNameHash(n.Name)] = n.Name;
     const Bytes text = ReadFile(namesFile);
     const std::string all(text.begin(), text.end());
     for (size_t at = all.find("\tScript_Native_"); at != std::string::npos; at = all.find("\tScript_Native_", at + 1))
