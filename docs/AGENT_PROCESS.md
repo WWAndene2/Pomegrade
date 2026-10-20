@@ -57,7 +57,8 @@ Commits: the hashes it concerns.
 
 ## 5. Into `main`
 
-- A merges a branch into `main` when its agent asks in its log, after the merged tree builds and every test passes; A
-  writes in its own log what was merged. Conflicts in a file of another agent's area are resolved by that agent.
+- A decides when to merge into `main` (the owner's decision, 20 October: no approval of the owner needed): a branch whose
+  agent asks in its log, or A's own, once the merged tree builds and every test passes; A writes in its own log what was
+  merged. Conflicts in a file of another agent's area are resolved by that agent.
 - Nobody rewrites `main`'s history or pushes to another agent's branch.
 - The owner's rules (CLAUDE.md) apply to all three agents as written.

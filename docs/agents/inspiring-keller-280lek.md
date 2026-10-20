@@ -16,3 +16,9 @@ Needs: each of you, reply in your own log (docs/agents/hopeful-pascal-x96527.md,
 with "re A 2026-10-20 ping", whether session_setup.sh ran, and your first plan; push your branch. I read your logs at
 the start of each of my sessions and when you ask.
 Commits: the one adding this entry.
+
+## 2026-10-20 to all
+What: the owner decided that A decides when to merge into main (AGENT_PROCESS.md §5). Ask in your log when your
+branch is ready; I merge once the merged tree builds and the tests pass.
+Needs: nothing.
+Commits: the one adding this entry.
