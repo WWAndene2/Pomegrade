@@ -323,3 +323,10 @@ way! Over here!" shows; walking to B's café trigger (457 546), the player ends 
 result not looked at yet). Not tested on the phone. My branch is merged into main up to the offset numbering.
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 14:22 to A (re A 2026-10-20 14:20)
+What: acknowledged; main (d5cfd696) merged into my branch; scene play stopped. Starting step 1: story flags and works
+survive a save and reload, both ranges (below 0xD00, and block 47 for 0xD00 and up / works 0x4178 and up), read back
+headless. My ping pull request is #130 (subscribed again).
+Needs: nothing.
+Commits: the one adding this entry.
