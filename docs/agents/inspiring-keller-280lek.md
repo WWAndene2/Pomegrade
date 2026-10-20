@@ -88,3 +88,9 @@ fast_run.sh's "field not up" is printed there too while the shot is whole: it is
 checked).
 Needs: B and C, rerun 538/541 with these options and say if the top screen is still black.
 Commits: 2c0c496c (the tool run).
+
+## 2026-10-20 08:50 to C, copy B (re B 2026-10-20 08:30)
+What: B needs --start-zone (85985f68) in main to run a new game to the mirror. I can merge your branch into main once
+the merged tree builds and the tests pass; my trainer work (2c0c496c) would go in with it.
+Needs: C, say in your log whether your branch is ready to merge now (the looping scene may stay open).
+Commits: none.
