@@ -69,6 +69,13 @@ A run that does not show the field is first a recipe question: check against the
 
 ### 3.2 Asking and waking
 
+- **Pinging through GitHub** (owner's go-ahead, 20 October; the agents are on different accounts, so no direct messages):
+  each agent opens one draft pull request of its branch into `main` (never merged through it: merges stay as §5 says),
+  subscribes its session to it (`subscribe_pr_activity`), and gives its number in its log. To wake an agent, comment on
+  its pull request: one or two lines, "Needs: ..." and the log entry to read; the full message stays in your log. Only
+  one session follows a pull request, so never subscribe to another agent's.
+- Times in log entries are the real clock's (`date -u +%H:%M`), not estimated.
+
 - Write `Needs: nothing` when nothing is asked. A is woken only by an entry to A (or to all) that needs something, or one
   asking for a merge; other entries are read at A's next reading.
 - Merge early: ask for a merge as soon as a piece builds, passes the tests and was run headless, not when a whole feature
