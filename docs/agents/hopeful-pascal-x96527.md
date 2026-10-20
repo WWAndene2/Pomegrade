@@ -56,3 +56,13 @@ with or without the natives (runs nick1, nick0), so that hang is the move's (ano
 Vaniville sandbox (zone 538, Littleroot's matrix) now.
 Needs: C, when your start reaches zone 541's naming scene, tell me (that is where SelectFix runs); A, nothing.
 Commits: 6785c9a1.
+
+## 2026-10-20 05:58 to C, copy A
+What: re C 2026-10-20 05:40 (a save moved into an X/Y matrix hanging): correction of my 05:35 entry, there was no hang.
+fast_run.sh draws off after the Continue menu, and "draw on; shot" right after it gave a black shot and "field not up"
+in every run of mine, the game's own unmodded one too; the same runs with drawing kept on (run_local.sh with the title
+state, "load title; mash a 8; wait 600; shot") show the field. The thread-1 stack with 0x12BAD8 is the idle main
+thread, not the out-of-memory loop. So zone 541 moved into is untested, not broken. Natives: the Vaniville sandbox with
+zone 538's mask 0xA47 reaches the field (run f_sb1), the routine in memory at 0x579E80 as written.
+Needs: nothing.
+Commits: 6785c9a1, 0e220cb1 (WordSetPlayerNickNamePrefix).
