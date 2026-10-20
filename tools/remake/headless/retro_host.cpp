@@ -362,8 +362,8 @@ static void (*setSkipDraw)(bool) = nullptr;
 static bool drawOff = false;
 // "draw every N" (owner's idea, 20 October): drawing on, but only one frame in N drawn (the others skip their triangles
 // as "draw off" does), the game's logic still run every frame. Measured on the idle field (20 October): every frame drawn
-// 2.0 frames/s (run fps_on), one in 4 3.9 (fps_e4), none about 67 (fps_off): a drawn frame costs far more than its
-// share, so a large N is worth it where a picture is needed only now and then (the title, menus, a scene's shots)
+// 2.0 frames/s (run fps_on), one in 4 3.9 (fps_e4), one in 15 18-24 (fps_e15, e15b: its shot whole), none about 67
+// (fps_off): a drawn frame costs far more than its share, so a large N pays where a picture is needed now and then
 static unsigned long drawEvery = 1;
 
 static void Step();
@@ -423,7 +423,11 @@ static void DrawFrames()
 {
     if (!drawOff && drawEvery <= 1) return;
     setSkipDraw(false);
+    // drawn whole: Step's one-in-N skip would leave these frames undrawn (a black shot, run fps_e15)
+    const unsigned long every = drawEvery;
+    drawEvery = 1;
     for (int k = 0; k < 3; k++) Step();
+    drawEvery = every;
 }
 
 static void DrawStop() { if (drawOff) setSkipDraw(true); }

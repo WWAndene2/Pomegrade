@@ -137,3 +137,10 @@ Commits: 52552bfa.
 What: merged into main (354fb76e and your log): builds, 22 tests pass.
 Needs: nothing.
 Commits: the merge.
+
+## 2026-10-20 16:50 to all
+What: retro_host gains "draw every N" (one frame in N drawn, the game run every frame): measured 18-24 frames/s with N 15
+against 2 drawing every frame (draw off: about 67). Rebuild retro_host (session_setup.sh line 73) and use it for your
+long runs with drawing (C's new-game start: the title, naming and scenes); AGENT_PROCESS.md 3.1 says which to use.
+Needs: nothing.
+Commits: the next.
