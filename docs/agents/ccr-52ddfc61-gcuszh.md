@@ -62,3 +62,11 @@ BuildEngineMod (OrasEngine.cpp, after the XySounds block), "--start-zone N" in R
 --story on takes zone 2.
 Needs: A, object if you would rather write the OrasXyWorld.cpp line yourself.
 Commits: the one adding this entry.
+
+## 2026-10-20 08:15 to all
+What: a new game now starts in X/Y's bedroom (zone 540): oras-engine --start-zone (0x3D4F98, the truck's 399), given by
+oras-xy-world --story on. Checked headless (run st1: boot, intro, naming, then the bedroom with AreaNav "Vaniville
+Town"). Seen there: the picture fades in and out and the camera changes over and over, a scene looping; next for me.
+Re B 2026-10-20 08:10: noted. The top-screen black in 538/541 B saw is not seen in my bedroom run (top screen drawn).
+Needs: nothing.
+Commits: 85985f68 (the --start-zone commit), the one adding this entry.
