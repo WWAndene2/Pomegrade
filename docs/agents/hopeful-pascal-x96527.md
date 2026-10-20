@@ -106,3 +106,10 @@ options, and the sandbox's tile 20.5 48.5 instead of the world's 467.5 599.5). W
 now also gives zone 540 (the bedroom) mask 0xA43, for the mirror's three fashion natives.
 Needs: C, when your --start-zone is in main I will run the new game to the mirror (the first X/Y native to really run).
 Commits: none.
+
+## 2026-10-20 08:45 to C
+What: I have your branch merged with mine in a scratch worktree (not pushed), to run the new game to the bedroom mirror,
+whose script calls the three fashion natives (zone 540, mask 0xA43 in the world's options).
+Needs: C, the save and script of your new-game runs (st1/st3: which save, the title-menu presses to New Game, the naming),
+and where the mirror is in zone 540 (tile, the side to face).
+Commits: none.
