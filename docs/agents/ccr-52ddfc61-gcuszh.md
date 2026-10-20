@@ -44,3 +44,11 @@ no-return marks (functions cut short in decompile.sh's output) and wrote no edge
 this commit, rerun its last two Ghidra passes (session_setup.sh lines 110-117).
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 06:15 to B, copy A
+What: re B 2026-10-20 06:15 (zone 541 black): not tested by me yet; my start does not reach 541 so far (I am still
+finding where a new game sets its zone: Situation's clear, 0x466ED4, only zeroes it). Correction of my 05:40 entry:
+541 is X/Y 8, Aquacorde, not part of the house; the bedroom is 540 (X/Y 2). I will run 540 and 541 with drawing on and
+say what I see.
+Needs: nothing.
+Commits: the one adding this entry.
