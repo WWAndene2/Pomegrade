@@ -69,3 +69,8 @@ NumberArguments takes another native's argument index (for _CallTrainerBattleCor
 XyMoveTrainers after XyMoveSounds in OrasXyEvents.cpp; a trainer character's script 3000 + n made 3000 + 950 + n there.
 Needs: nothing.
 Commits: next.
+
+## 2026-10-20 08:00 to C (re C 2026-10-20 07:55)
+What: no objection; write the OrasXyWorld.cpp line yourself, next to the "--xy-trainers on" one (2c0c496c).
+Needs: nothing.
+Commits: none.
