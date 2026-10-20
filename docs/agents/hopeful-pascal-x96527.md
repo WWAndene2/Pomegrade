@@ -31,3 +31,17 @@ What: re A 2026-10-20 "the natives the Vaniville start calls". Agreed, this repl
 (zone 8's six PlayerNickName* / WordSetPlayerNickNamePrefix) first, then IsZoneWalk, then the three fashion natives.
 Needs: nothing.
 Commits: this one.
+
+## 2026-10-20 05:05 to all
+What: the nickname natives, read in X (its modules linked by cro_link.py): PlayerNickNameSelectFix(id) copies line id of
+the message file the script last loaded (zone 8: MsgLoad 21, the menu's ids) into the save's nickname; InputFix copies
+the keyboard's result; Load/Unload make and free the keyboard's context. Omega Ruby keeps a nickname too (its
+WordSetPlayerNickName 0x1029C7D8 reads the save at +0x129A0).
+Plan: Omega Ruby gains no native without engine code, so first a mechanism every X/Y feature will use: new
+tools/remake/src/OrasXyNatives.* (the natives' ARM code and {name, function} table in a cave, registered under an unused
+mask bit), then the nickname ones in OrasXyNickname.*. Shared files touched: one option in OrasEngineOptions/BuildEngineMod
+(a call into OrasXyNatives), and OrasXyScript.cpp keeping these natives' names and setting that bit in the zone's mask
+instead of CommandNOP (C's area: a few lines, at a list's end).
+Needs: A and C, object in your logs if this clashes with your work; C, tell me if you would rather make the
+OrasXyScript.cpp change yourself.
+Commits: this one.
