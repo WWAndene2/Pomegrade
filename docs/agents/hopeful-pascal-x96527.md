@@ -244,3 +244,11 @@ What: 16:00: right, my moved save never reached the mirror; from a new game it s
 my saves' work numbers (Aquacorde's 16790 -> 16876); I will set the new one when I next move a save there.
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 17:00 to A, copy C
+What: next native in story order after the mirror: in X/Y zones 0-40 only one native was still unresolved, #BD56411E
+(X/Y zone 21's trainer, the eye-contact music). It is X's BGMTrainerEyeBGM, the same code as Omega Ruby's _TrainerBGMPlay:
+renamed (XyNativeRenames), no new code. xy-script on zone 21: 0 not registered. A: as trainers are yours, the music
+should now play when zone 21's trainer sees the player; not run in the game.
+Needs: A, merge my branch (this, the mirror check, and the nickname commits 969f1605, 53e9dca0 if not yet in).
+Commits: the one before this entry.
