@@ -3,8 +3,11 @@
 #include "CodePatch.h"
 #include "OrasSave.h"
 #include "OrasXyTrainers.h"
+#include "OrasXyNatives.h"
 
+#include <algorithm>
 #include <filesystem>
+#include <map>
 #include <set>
 
 namespace remake
@@ -266,6 +269,9 @@ static Bytes PatchCro(const Bytes& cro, uint32_t base, const std::vector<CroWord
     const auto field = [&](int index) { return layout.Field(index); };
     const auto& segments = layout.Segments;
     const uint32_t codeEnd = layout.CodeEnd(), pagesEnd = (codeEnd + 0xFFF) & ~0xFFFu;
+    std::map<uint32_t, std::string> written; // as CodePatchIps: two patches on one word refused
+    for (const CroWord& w : words)
+        if (!written.emplace(w.Address, w.Why).second) throw FormatError("DllField patch: " + w.Why + " and " + written[w.Address] + " both write the same word");
     for (const auto& [offset, size] : segments)
         if (size && offset < pagesEnd && offset + size > codeEnd) throw FormatError("a segment lies in the code's last page");
     std::set<uint32_t> relocated;
@@ -675,6 +681,17 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
             croWords.push_back({at(site + 4), 0xE2800FB3, Branch(at(site + 4), cave, true), "a trainer flag from the routine"});
         }
         for (uint32_t k = 0; k < 12; k++) croWords.push_back({cave + 4 * k, 0, TrainerFlagRoutine[k], "trainer flags (cave)"});
+    }
+    if (std::any_of(o.ScriptMasks.begin(), o.ScriptMasks.end(), [](const auto& m) { return (m.second & XyNativesBit) != 0; }))
+    {
+        // X/Y's own natives (OrasXyNatives.h), for the zones whose mask holds their bit
+        const CroLayout layout(oras.Read("DllField.cro"));
+        uint32_t cave = DllFieldBase + layout.CodeEnd();
+        for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
+        const XyNativesPatch p = XyNativesPatchAt(cave);
+        words.insert(words.end(), p.Code.begin(), p.Code.end());
+        for (const CodeWord& w : p.Field) croWords.push_back({w.Address, w.Expected, w.Value, w.Why});
+        log.push_back("X/Y natives: " + std::to_string(XyNatives().size()) + " under mask bit 0x800");
     }
     if (!croWords.empty()) dllField = PatchCro(oras.Read("DllField.cro"), DllFieldBase, croWords);
     for (const auto& [id, size] : o.HeapSizes)
