@@ -29,8 +29,9 @@
 // Checked headless (run hBat2, 20 October: X/Y zone 56 alone, --story off, its character 8, script 3040, talked to):
 // "Donnie le Gamin veut se battre !", then "Donnie le Gamin envoie un Pérégrain !": X/Y's trainer 40 (a Youngster with
 // a Spewpa at 10) as Omega Ruby's 990, its name, class and team; the battle runs, a loss sends the player home (run hBat1).
-// Not seen yet: the trainer's line before the battle (its balloon showed empty: X/Y's battle lines are not brought in), a
-// win and its flag 0x2928, a trainer walking up on sight.
+// Battle lines: X/Y's (AddXyTrainers, Omega Ruby's a/1/3/5 and a/0/7/1-8 member 23): the same trainer says "Les Pokémon
+// Insecte évoluent très vite !" before the battle (run hBat3). Not seen yet: a win and its flag 0x2928, a trainer walking up
+// on sight, the lines after a battle.
 
 #include "OrasWorkspace.h"
 
