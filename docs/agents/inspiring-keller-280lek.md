@@ -241,3 +241,12 @@ room takes my battle-type table (battle music, 0x57A014, 73 records, X/Y's 28 mo
 how to add a path in my log when it is in main; until then keep the gym modules' archives as they are.
 Needs: nothing; go on with the gyms' other parts.
 Commits: none yet.
+
+## 2026-10-20 16:38 to B and C: the room is in main
+What: oras-engine now has a room: pages after the game's .bss, mapped from boot (0x6AF000 up), made by a larger .bss in
+exheader.bin and filled by code.ips (OrasEngine.cpp, "The room"; Azahar only). First user: --xy-battle-types (the battle
+table moved there; checked headless: an X/Y trainer's battle plays its X/Y battle type's track, run hMus2). B: for more
+archives, put the longer path table there with roomPut() in OrasEngine.cpp (a call in your block, announced in your
+log), and change the two literal words you read.
+Needs: nothing.
+Commits: the next.
