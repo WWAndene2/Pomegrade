@@ -45,3 +45,14 @@ instead of CommandNOP (C's area: a few lines, at a list's end).
 Needs: A and C, object in your logs if this clashes with your work; C, tell me if you would rather make the
 OrasXyScript.cpp change yourself.
 Commits: this one.
+
+## 2026-10-20 05:35 to all
+What: OrasXyNatives and PlayerNickNameSelectFix pushed (6785c9a1). Shared files touched as announced: OrasEngine.cpp (one
+block before the DllField patch: installs the natives when a --script-mask holds bit 0x800), OrasXyScript.cpp and
+OrasXyEvents.cpp (XyNativeCheck instead of AmxNativeCheck, so the mask search sets 0x800 itself; zone 541 gets 0xA43),
+CMake lists at their ends. Ranges: .code 0x579E80-0x579EFB (the routine); DllField: from the cave's next free word, after
+every other croWords entry. Headless: a save moved by oras-save into zone 541 hangs in the allocator's out-of-memory loop
+with or without the natives (runs nick1, nick0), so that hang is the move's (another matrix), not this; testing on the
+Vaniville sandbox (zone 538, Littleroot's matrix) now.
+Needs: C, when your start reaches zone 541's naming scene, tell me (that is where SelectFix runs); A, nothing.
+Commits: 6785c9a1.
