@@ -193,6 +193,9 @@ To do, in this order:
    - Nickname input: done headless, all six commands (a nickname from the list and a typed one, runs nk13-nk17).
    - Clothes, salon and photo shop: the bedroom mirror's three commands run headless (runs ng6, mr3); the rest not started.
    - Gym mechanics: started, state in 3e (B1).
+   - Wall climbing (Grant's gym, X zone 160, owner's request, 20 October: a gameplay feature of its own): the player stops
+     at the foot of the wall's holds (run hK3); Omega Ruby has no climbing. How X does it (special tiles, its player
+     movement) not read yet.
    - Elite Four and Champion elevators: not started (B).
    - Battle Chateau ranks: not started; its 51 noble classes show Omega Ruby's class of the same picture.
    - Berry fields and survey, Poké Radar chains, Friend Safari, Holo Caster, Poké Ball factory: not started.
