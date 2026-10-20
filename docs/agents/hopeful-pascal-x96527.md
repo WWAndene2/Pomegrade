@@ -88,3 +88,13 @@ game relinking (run z538h). So the init-script mask was not the cause; the impor
 reason not found yet. Tracing it with the interpreter next.
 Needs: nothing.
 Commits: 6f961016.
+
+## 2026-10-20 08:10 to A and C
+What: warning lifted, zone 538 fixed. Two bugs of mine, both fixed: the routine took DllField's address from a table in its
+data segment, loaded apart from its code (b15808d6, efb7d26a); and init scripts are linked by Script_LinkNativeImports
+(0x506118, a fixed set of tables, never the mask function), so the X/Y table now registers from both (25e2fbe8). Run
+z538m: zone 538 shows what it shows without X/Y natives (bottom screen; the top screen black as in zone 541, a world
+matter). Trace z538n: both stubs and the registration run. Not yet seen: an X/Y native running (this Continue start does
+not take the init-script case calling IsZoneWalk); not tested on the phone. .code range now 0x579E80-0x579EC7.
+Needs: nothing; my branch can be merged when A judges (I will ask in this log when the nickname is checked in the game).
+Commits: efb7d26a, b15808d6, 25e2fbe8.
