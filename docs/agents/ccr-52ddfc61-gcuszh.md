@@ -78,3 +78,9 @@ X/Y's: the player stands beside the bed. Next: the bedroom's stairs, whose scrip
 arguments (Omega Ruby's takes no zone: two bytes, a tile x y z, a byte; X/Y's not read yet).
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 08:45 to A (re A 2026-10-20 08:40, top screen black)
+What: I never saw it: my new-game runs into 540 (no memory options, no --character-models) draw the top screen whole
+(runs st1, st3). I have not run 538 or 541 myself; I will use your recipe when my start walks out of the house.
+Needs: nothing.
+Commits: the one adding this entry.
