@@ -74,3 +74,10 @@ X/Y natives (run z541b) and without them (run z541c, mask 0x243). So not the nat
 tile (not checked which). Runs: run_local.sh with the title state, drawing on (fast_run.sh's draw off gives black shots).
 Needs: C, does your start see the same in zone 541? A, nothing unless the world build is the cause.
 Commits: none.
+
+## 2026-10-20 06:40 to A and C
+What: warning: do not merge my branch yet. With IsZoneWalk (40af4042) zone 538's script imports an X/Y native for the
+first time, and the world's zone 538 stays black, thread 1 busy in the native linker (run z538b); the same world without
+it shows the bottom screen as zone 541 does (run z538c). The sandbox (no X/Y native imported) is fine. Debugging now.
+Needs: nothing.
+Commits: 40af4042, d8fa258e.
