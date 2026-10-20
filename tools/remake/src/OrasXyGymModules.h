@@ -86,6 +86,10 @@ std::vector<CodeWord> XyGymLoaderPatchAt(uint32_t cave);
 // October)
 const XyModulePort& XyGymRock();
 
+// Wulfric's gym (X zone 226, Snowbelle; DllUSGymIce, read 20 October): its imports mapped, not yet loaded (its archive needs
+// a number of Omega Ruby's)
+const XyModulePort& XyGymIce();
+
 }
 
 #endif // REMAKE_ORASXYGYMMODULES_H

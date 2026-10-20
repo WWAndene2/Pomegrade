@@ -1,6 +1,7 @@
 #include "OrasXyGymModules.h"
 
 #include <algorithm>
+#include <deque>
 #include <cstdio>
 
 namespace remake
@@ -90,6 +91,7 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
     // the imports: each anonymous import's tag, of |static| or DllField, made Omega Ruby's (a thunk's import: its batch of
     // relocations kept, to point its stubs at the thunk below)
     std::vector<std::pair<const XyModulePort::Thunk*, uint32_t>> thunked; // a thunk, its import's batch (file offset)
+    std::deque<XyModulePort::Thunk> moved;                                // the thunks made for DllField imports
     for (uint32_t m = 0; m < Header(out, ImportModuleNum); m++)
     {
         const size_t entry = Header(out, ImportModuleTableOffset) + 20 * (size_t)m;
@@ -103,14 +105,20 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
         {
             const size_t at = U32(out, entry + 12) + 8 * (size_t)i;
             const uint32_t from = isStatic ? TagAddress(xStatic, U32(out, at), 0) : TagAddress(xField, U32(out, at), x.FieldBase);
-            const auto thunk = std::find_if(port.Thunks.begin(), port.Thunks.end(), [&](const auto& t) { return t.XTarget == from; });
-            if (thunk != port.Thunks.end())
+            // a thunk: given, or a DllField import whose Omega Ruby function is in the .code (Omega Ruby moved the area
+            // modules' API there: X's 0x1027E618 is 0x452A00...), which a DllField import cannot name; the import itself
+            // then resolves to DllField's first word, unused (its stubs branch to the thunk)
+            const XyModulePort::Thunk* thunk = nullptr;
+            for (const XyModulePort::Thunk& t : port.Thunks) if (t.XTarget == from) thunk = &t;
+            const auto to = map.find(from);
+            if (!thunk && !isStatic && to != map.end() && to->second < 0x10000000)
+                thunk = &moved.emplace_back(XyModulePort::Thunk{from, to->second, {}, "moved to the .code"});
+            if (thunk)
             {
-                Put(out, at, AddressTag(oStatic, thunk->Target, 0));
-                thunked.push_back({&*thunk, U32(out, at + 4)});
+                Put(out, at, isStatic ? AddressTag(oStatic, thunk->Target, 0) : AddressTag(oField, oras.FieldBase + oField[0].Offset, oras.FieldBase));
+                thunked.push_back({thunk, U32(out, at + 4)});
                 continue;
             }
-            const auto to = map.find(from);
             if (to == map.end()) throw FormatError(port.XName + ": its import of " + module + " " + Hex(from) + " is not mapped");
             Put(out, at, isStatic ? AddressTag(oStatic, to->second, 0) : AddressTag(oField, to->second, oras.FieldBase));
         }
@@ -294,6 +302,54 @@ const XyModulePort& XyGymRock()
         p.InsertValue = 0x4D8734; // Util_ReturnZero_004D8734
         p.Constructor = 0x544;
         p.ObjectSize = 0x18;
+        return p;
+    }();
+    return port;
+}
+
+const XyModulePort& XyGymIce()
+{
+    static const XyModulePort port = [] {
+        XyModulePort p;
+        p.XName = "DllUSGymIce";
+        p.Name = "DllXyGymIce";
+        // X's .code -> Omega Ruby's (xy_import_match.py; pairs of identical copies taken in their order, read 20 October)
+        p.Static = {
+            {0x1001D9, 0x10018D}, {0x100205, 0x100295}, // Thumb helpers (the same bytes)
+            {0x2FF520, 0x2FF8C0},                       // the heap's delete
+            {0x359E3C, 0x372748},
+            {0x369914, 0x381B00}, {0x3699A8, 0x381B94}, {0x369AD0, 0x381CBC}, {0x369B58, 0x381D44}, // X's +0x181EC
+            {0x3739F0, 0x38B374}, {0x373D18, 0x38B69C}, // X's +0x17984
+            {0x37EC00, 0x3964E8}, // a vector set at +0x138 (Omega Ruby's +0x130): the functions around both line up
+            {0x3D1A90, 0x3F2AA4}, {0x3D1AAC, 0x3F2AC0},
+            {0x42E728, 0x45BB00}, {0x42E7A0, 0x45BB78},
+            {0x4A3FD8, 0x4DBDF4},
+            {0x122920, 0x123480}, // an allocation from a heap
+            {0x58E8AC, 0x5D4458}, {0x58E8BC, 0x5D4468}, // the C++ type infos' vtables
+        };
+        // X's DllField -> Omega Ruby's; the area modules' API Omega Ruby moved to its .code (its own gym modules import
+        // these five: 0x452A00, 0x452E7C, 0x452EE8, 0x452330, 0x452168), with its loader 0x4525BC and 0x45248C
+        p.Field = {
+            {0x1027E618, 0x452A00}, {0x1027EDAC, 0x452E7C}, {0x1027EF88, 0x452EE8}, {0x1027F2F8, 0x452330}, {0x1027F44C, 0x452168},
+            {0x1027E964, 0x4525BC}, // the loader (an archive read and its members unpacked): its fields from +0x2C 4 bytes on
+            {0x102CD7DC, 0x45248C},
+            {0x1027F1B0, 0x102CC758}, // two identical copies in Omega Ruby: the one whose callee is X's (0x1027670C, 0x102C8574)
+            {0x102832E4, 0x102D1644}, // (Omega Ruby's gym modules import it)
+            {0x10282940, 0x102D0D2C},
+            {0x102DDD30, 0x10327CF0}, // the field's getter of +0xF0 (Omega Ruby's +0x100: the getters line up)
+        };
+        // the loader's request (object, archive): Omega Ruby's takes a third word, how many members, 0 all
+        p.Thunks = {{0x1027ED9C, 0x452E5C, {0xE3A02000}, "the loader's request: mov r2, #0 (all members)"}};
+        // the loader object: 0x3C bytes in X, 0x40 in Omega Ruby (its count at +0x30 for +0x2C; Omega Ruby's modules
+        // allocate 0x40)
+        p.Words = {{0x180C, 0xE3A0003C, 0xE3A00040, "the loader object's size: 0x3C -> 0x40"}};
+        // its archive, X's 0xAE (a/1/7/4, mov r1, #0xae at 0x1698): to be given a number of Omega Ruby's (not yet)
+        p.Vtable = 0x2620;
+        p.Slots = 13;
+        p.InsertSlot = 12;
+        p.InsertValue = 0x4D8734; // Util_ReturnZero_004D8734
+        p.Constructor = 0x176C;
+        p.ObjectSize = 0x36C;
         return p;
     }();
     return port;
