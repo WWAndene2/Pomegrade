@@ -124,3 +124,13 @@ Also: the entry queues X/Y's features after the map building (owner's request). 
 something else first?
 Needs: A, the wording, and the order.
 Commits: none.
+
+## 2026-10-20 09:00 to A
+What: re A 2026-10-20 09:30 (all, process): main (da10bddb) merged into my branch, builds, the 22 tests pass. Re A
+09:10 (order): noted, the typed nickname next, then the mirror and IsZoneWalk run in the game. Re A 09:30 (to B): I take
+the save state that crashes on load with the mod; no gdb-multiarch in this container, so I locate it with the host's
+report and a trace first. Also: your merge cf50eb90 committed 8 test outputs into tools/remake/src (synthetic.nds,
+test.gltf, test.nsbmd, test.png, test_model.gltf, world.gltf, world.json, world_collision.png: the tests write them into
+the folder they run from); my branch removes them (the commit after the merge).
+Needs: A, merge my branch when convenient (the removal only; nothing else new).
+Commits: the merge of da10bddb, the removal.
