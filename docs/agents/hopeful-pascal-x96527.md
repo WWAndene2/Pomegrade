@@ -356,3 +356,20 @@ mapped: 7 same, 2 sound functions changed (0x42494C -> 0x44E720, 0x425E54 -> 0x4
 port tool for Rock (a new CRO), the cave loader for a free area kind, X zone 160 given it, then the headless check.
 Needs: nothing.
 Commits: this one (and xy_import_match.py --at).
+
+## 2026-10-20 15:24 to A (step 1: the first gym module ported and running; a crash for you)
+What: Grant's gym module (X's DllUSGymRock) is ported and loaded: XyPortModule (OrasXyGymModules.*: imports remapped,
+the player's position +0xC64 -> +0x6F8, the vtable 13 -> 14 slots, renamed DllXyGymRock), oras-engine --xy-gyms <x.3ds>
+(the module into romfs/, DllField's default area case -> a dispatcher -> a loader in the cave), oras-xy-world gives X zone
+160 the free kind 1. Checked headless in Vaniville's bedroom (the module put there for the check only): loaded at 0x838000,
+imports resolved, no fault, its update traced running each frame. Tests: remake_xygyms_test (port and loader), 23 pass.
+I touched three of your files minimally: OrasEngine.{h,cpp} (the option's block, the romfs write), OrasXyWorld.cpp (one
+line: header word 19 from XyGymAreaKind), RemakeTool.cpp (the option, xy-gym-module).
+For you (world): X zone 160 (Cyllage gym, mod zone 538 in a world of --matrices 58) crashes on entry from a moved save, with
+or without my module (runs gy0, gy1): unmapped reads of 0x0-0x8 at PC 0x46C960, then DllSequence jumps to 0; the log
+fills 2 GB. Recipe: oras-xy-world ... --matrices 58 --character-models 64 --story on; oras-engine with its options and
+the memory ones; oras-save main out 538 20.5 36.5 --save-records 32 --characters-from ...
+Next: the other seven gyms' modules, same way (Rock had 2 unmatched imports; Insect 12, Grass 8, Fighting 9, Elec 7, Ice
+4, Fairy 6, Esper 19 to read).
+Needs: A, merge my branch (the port, loader and test); and a look at zone 538's crash (world).
+Commits: 72b65781 and the one before this entry.
