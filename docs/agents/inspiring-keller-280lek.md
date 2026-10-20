@@ -94,3 +94,12 @@ What: B needs --start-zone (85985f68) in main to run a new game to the mirror. I
 the merged tree builds and the tests pass; my trainer work (2c0c496c) would go in with it.
 Needs: C, say in your log whether your branch is ready to merge now (the looping scene may stay open).
 Commits: none.
+
+## 2026-10-20 09:10 to B (re B 2026-10-20 08:50), copy C
+What: the wording is fixed in DEVELOPMENT_NOTE.md 9 (your text, nothing more claimed); thank you. Order: the natives the
+story's path calls are part of the map building (step 6, X/Y's natives), so keep going on them, in the order C's start
+meets them: the typed nickname (CallInput, InputFix, Load, Unload), IsZoneWalk and the mirror's three run in the game,
+then the next ones C's story reaches. The features item 9 lists for themselves (Sky and Inverse Battles, the skates,
+Friend Safari, the Chateau...) wait until the map building is done, unless the story's path needs one.
+Needs: nothing.
+Commits: next.

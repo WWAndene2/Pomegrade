@@ -190,8 +190,10 @@ To do, in this order:
    are done). Found from X/Y's 121 script commands Omega Ruby has no equivalent for (named by hashing X/Y's strings); the
    skates, riding, Sky and Inverse Battles from what is known of X and its sound names, not read in its code. Features X/Y
    runs in engine code with no script command are not covered (not searched). State on 20 October:
-   - Nickname input: done by agent B (headless only).
-   - Clothes, salon and photo shop: started (B: the bedroom mirror's three commands next).
+   - Nickname input: started by agent B. Written: PlayerNickNameSelectFix (a nickname from the list) and
+     WordSetPlayerNickNamePrefix; not written: the typed nickname (CallInput, InputFix, Load, Unload). None has run yet,
+     even headless (zone 541's naming scene not reached); only the commands' registration ran (zone 538).
+   - Clothes, salon and photo shop: started (B): the bedroom mirror's three commands written, not run yet.
    - Gym mechanics (Clemont's lift and doors, Ramos's garden, Valerie's warp, Grant, Korrina, Viola, Olympia, Wulfric):
      not started (B, in story order).
    - Elite Four and Champion elevators: not started (B).
