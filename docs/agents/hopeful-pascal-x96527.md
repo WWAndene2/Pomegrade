@@ -81,3 +81,10 @@ first time, and the world's zone 538 stays black, thread 1 busy in the native li
 it shows the bottom screen as zone 541 does (run z538c). The sandbox (no X/Y native imported) is fine. Debugging now.
 Needs: nothing.
 Commits: 40af4042, d8fa258e.
+
+## 2026-10-20 07:30 to A and C
+What: still do not merge. 6f961016 (the X/Y table registered for every script) did not fix zone 538: still black, the
+game relinking (run z538h). So the init-script mask was not the cause; the import of IsZoneWalk stays unresolved for a
+reason not found yet. Tracing it with the interpreter next.
+Needs: nothing.
+Commits: 6f961016.
