@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <filesystem>
 #include <map>
 
 namespace remake
@@ -61,7 +62,8 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         xProps(xRom.Read("a/0/2/4"));
 
     // X/Y's trainers, before the zones' scripts name them (OrasXyTrainers.h)
-    for (const std::string& l : AddXyTrainers(ws)) log.push_back(l);
+    Bytes battleTypes;
+    for (const std::string& l : AddXyTrainers(ws, o.Sounds, o.Music, o.Sounds && !o.OutDir.empty() ? &battleTypes : nullptr)) log.push_back(l);
 
     // every X/Y zone (the archive's last member is its header table, not a zone), and those taken
     std::map<int, OrasZone> all;
@@ -263,6 +265,13 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     if (wildTables) engine += " --wild-tables large";
     if (largeEvents) engine += " --events large";
     engine += " --xy-trainers on";
+    if (!battleTypes.empty())
+    {
+        const std::string file = (std::filesystem::path(o.OutDir) / "xy_battle_types.bin").string();
+        std::filesystem::create_directories(o.OutDir);
+        WriteFile(file, battleTypes);
+        engine += " --xy-battle-types " + file;
+    }
     // with its story, a new game starts in X/Y zone 2, the player's bedroom in Vaniville (its mirror scene), at its header's
     // spawn (OrasEngine.h StartZone); that X/Y's own new game starts there is inferred, not read in X/Y's code
     if (o.Story && numbers.Zones.count(2)) engine += " --start-zone " + std::to_string(numbers.Zones.at(2).Zone);

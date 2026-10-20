@@ -770,19 +770,72 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         log.push_back("new game: starts in zone " + std::to_string(*o.StartZone));
     }
 
+    // The room (read 20 October): memory past the game's .bss, mapped from boot, for tables that outgrow their place. Azahar
+    // sizes the data segment as its pages plus the .bss's, and resizes the code buffer to include the .bss before it applies
+    // code.ips (azahar/src/core/loader/ncch.cpp), so a larger .bss size in the exheader gives pages after the game's own
+    // .bss (0x6AF000 up in Omega Ruby: data at 0x5EC000, 68 pages, .bss 0x7EC2C) that code.ips can fill; the game's start
+    // clears only its own .bss (inferred: its end is fixed in the code). Azahar only: a console reads the exheader signed
+    // NCCH's, not the mod's
+    const Bytes exheader = oras.ExHeader();
+    const auto u32 = [&](size_t at) { return (uint32_t)(exheader.at(at) | exheader.at(at + 1) << 8 | exheader.at(at + 2) << 16 | (uint32_t)exheader.at(at + 3) << 24); };
+    const uint32_t dataEnd = u32(0x30) + u32(0x34) * 0x1000, gameBss = u32(0x3C);
+    const uint32_t roomBase = dataEnd + ((gameBss + 0xFFF) & ~0xFFFu);
+    uint32_t roomAt = roomBase;
+    const auto roomPut = [&](const Bytes& data, const std::string& why) {
+        const uint32_t at = roomAt;
+        for (size_t k = 0; k < data.size(); k += 4)
+        {
+            uint32_t v = 0;
+            for (size_t b = 0; b < 4 && k + b < data.size(); b++) v |= (uint32_t)data[k + b] << (8 * b);
+            words.push_back({at + (uint32_t)k, 0, v, why + " (room)"});
+        }
+        roomAt += (uint32_t)((data.size() + 3) & ~(size_t)3);
+        return at;
+    };
+    if (!o.XyBattleTypes.empty())
+    {
+        // The battle types (read 20 October): 24-byte records from 0x57A014 (rodata), the battle's music (+0x10) and victory
+        // jingle (+0x14) among them, a battle's record the byte at its settings' +0x10 (from the trainer class's byte +2,
+        // a/0/3/7), base + byte x 24 with no bound (15 readers: the literal words below, each 0x57A014). 73 in the game; the
+        // copy in the room keeps them at the same numbers and adds the file's after them (X/Y's, OrasXyTrainers.h); code
+        // reading one fixed record by its own address reads the game's copy, unchanged
+        constexpr uint32_t table = 0x57A014, gameTypes = 73;
+        const Bytes extra = ReadFile(o.XyBattleTypes);
+        if (extra.empty() || extra.size() % 24 || gameTypes + extra.size() / 24 > 256) throw FormatError("--xy-battle-types: 24-byte records, up to 183");
+        Bytes all(code.begin() + (table - CodeBase), code.begin() + (table - CodeBase) + gameTypes * 24);
+        all.insert(all.end(), extra.begin(), extra.end());
+        const uint32_t moved = roomPut(all, "the battle types");
+        for (const uint32_t pool : {0x1D6C70u, 0x1D6E08u, 0x1D6F44u, 0x1D8D3Cu, 0x1DBCF0u, 0x1DBE64u, 0x1DC07Cu, 0x1DF638u, 0x1E0514u,
+                                    0x1E0630u, 0x1E07B8u, 0x1E0A1Cu, 0x1E0DE0u, 0x1E15DCu, 0x1E1C14u})
+            words.push_back({pool, table, moved, "a battle type reader's table"});
+        snprintf(line, sizeof line, "battle types: %zu after the game's 73, the table at 0x%X", extra.size() / 24, moved);
+        log.push_back(line);
+    }
+
     char id[17];
     snprintf(id, sizeof id, "%016llX", (unsigned long long)oras.ProgramId());
     const std::filesystem::path root = std::filesystem::path(outDir) / "load" / "mods" / id;
-    if (o.Memory)
+    if (o.Memory || roomAt != roomBase)
     {
+        Bytes header = o.Memory ? ExHeaderWithSystemMode(exheader, *o.Memory) : exheader;
+        if (roomAt != roomBase)
+        {
+            const uint32_t bss = roomAt - dataEnd; // the game's .bss (page-rounded) and the room
+            for (int b = 0; b < 4; b++) header[0x3C + b] = (uint8_t)(bss >> (8 * b));
+            snprintf(line, sizeof line, "room: 0x%X-0x%X (%u bytes past the game's .bss)", roomBase, roomAt, roomAt - roomBase);
+            log.push_back(line);
+        }
         std::filesystem::create_directories(root);
-        WriteFile((root / "exheader.bin").string(), ExHeaderWithSystemMode(oras.ExHeader(), *o.Memory));
-        log.push_back("exheader.bin: system mode " + std::to_string((int)*o.Memory));
+        WriteFile((root / "exheader.bin").string(), header);
+        log.push_back(std::string("exheader.bin:") + (o.Memory ? " system mode " + std::to_string((int)*o.Memory) : "") + (roomAt != roomBase ? " .bss with the room" : ""));
     }
     if (!words.empty())
     {
-        const Bytes ips = CodePatchIps(code, words);
-        CodePatchApply(code, ips);
+        // the code as Azahar patches it: its .bss and the room after it (zeros)
+        Bytes image = code;
+        if (roomAt != roomBase) image.resize(roomAt - CodeBase, 0);
+        const Bytes ips = CodePatchIps(image, words);
+        CodePatchApply(image, ips);
         std::filesystem::create_directories(root / "exefs");
         WriteFile((root / "exefs" / "code.ips").string(), ips);
         log.push_back("code.ips: " + std::to_string(words.size()) + " words");

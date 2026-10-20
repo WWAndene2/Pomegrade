@@ -49,8 +49,14 @@ constexpr int GameTrainerFlags = 0x6CC;   // both games' trainer n's flag: 0x6CC
 // Omega Ruby's trainer id of X/Y's (0 stays 0: no trainer)
 inline int XyTrainerToOras(int xTrainer) { return xTrainer > 0 ? XyTrainerFirst + xTrainer : xTrainer; }
 
-// appends X/Y's trainers (ws.XyRom) to the workspace's a/0/3/6, a/0/3/8 and a/0/7/1-8 member 22; returns the log
-std::vector<std::string> AddXyTrainers(OrasWorkspace& ws);
+// appends X/Y's trainers (ws.XyRom) to the workspace's a/0/3/6, a/0/3/8 and a/0/7/1-8 member 22; returns the log. With
+// `music` (both games' sound ids, OrasXySound.h; X/Y's own tracks with `streams`, X/Y's music in the mod) and `battleTypes`: X/Y's battle types (the records of X/Y's 0x53C010 its
+// classes name: music, victory jingle, intro), their music ids made the mod's, into *battleTypes for oras-engine
+// --xy-battle-types (Omega Ruby's 73 kept, these numbered from 73); the Omega Ruby classes X/Y's take, when none of Omega
+// Ruby's trainers uses them, name them (a/0/3/7 byte +2). Checked headless (20 October): an X/Y trainer fought to Omega
+// Ruby's STRM_BGM_VS_TRAINER_SG before (run hMus1: its recording matched it, 1.04 against 0.36), to the track its X/Y battle
+// type names after, without X/Y's music Omega Ruby's sound of X/Y's number (run hMus2: STRM_BGM_VS_TRAINER 1.25, the _SG 0.30)
+std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const struct XySounds* music = nullptr, bool streams = false, Bytes* battleTypes = nullptr);
 
 }
 
