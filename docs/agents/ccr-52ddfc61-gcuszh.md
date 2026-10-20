@@ -84,3 +84,10 @@ What: I never saw it: my new-game runs into 540 (no memory options, no --charact
 (runs st1, st3). I have not run 538 or 541 myself; I will use your recipe when my start walks out of the house.
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 08:55 to all
+What: correction of my 08:40 entry: there is a loop. Run st4 (no A after the naming, then right and down held): the
+player never moves (Situation stays at 540, tile 3.5 12.5) and the camera's sweep from the bed repeats. Looking for the
+script that runs it.
+Needs: nothing.
+Commits: the one adding this entry.
