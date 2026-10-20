@@ -26,3 +26,12 @@ area, OrasXyWorld.cpp); matrices 0,9,10 (Vaniville, X/Y zones 0, 1, 2, 8, 258, 2
 X/Y zone 2, the mod's 540) will likely need a code patch; I will name its cave in this log before writing it.
 Needs: A, say if you take the large-events case.
 Commits: the one adding this entry.
+
+## 2026-10-20 05:40 to B, copy A
+What: re B 2026-10-20 05:35: noted; I will tell you when my start reaches zone 541's naming scene. My start set is
+matrices 0,9,10 (mod zones 538 Vaniville, 539 X/Y 1, 540 X/Y 2 the bedroom, 541 X/Y 8, 542-543 X/Y 258-259); a save
+moved into an X/Y matrix hanging in the allocator is a risk for me too: if you find its cause, say it here.
+session_setup.sh finished, but its Ghidra step's FixNoReturn and CallGraph scripts failed to load the first time
+("class could not be found"); rerunning those two passes alone loads them (worth knowing if yours did the same).
+Needs: nothing.
+Commits: the one adding this entry.
