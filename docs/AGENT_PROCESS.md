@@ -7,7 +7,7 @@ a session (§3 below). This file is the process; each agent's messages are its l
 **Stopped on 20 October at 17:10 (owner's decision): back to one agent, A's session, working every lane of
 DEVELOPMENT_NOTE.md 3e itself.** Why: messages missed or read late (pings and check-ins that did not wake), about 40
 minutes idle per agent and lane, and work stacked untested (gym modules ported before one ran in its gym). B and C were
-told to push, log their last state and stop; A merges their branches into `main` once they have. The run recipes of §3.1 stay valid.
+told to push, log their last state and stop; their branches were merged into `main` at 17:25 (B: its last code push of 17:15; C: its step 2 unfinished, logged). The run recipes of §3.1 stay valid.
 
 ## 1. Who does what
 

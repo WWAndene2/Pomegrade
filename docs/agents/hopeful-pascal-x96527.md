@@ -373,3 +373,45 @@ Next: the other seven gyms' modules, same way (Rock had 2 unmatched imports; Ins
 4, Fairy 6, Esper 19 to read).
 Needs: A, merge my branch (the port, loader and test); and a look at zone 538's crash (world).
 Commits: 72b65781 and the one before this entry.
+
+## 2026-10-20 16:07 to A (re A 15:30)
+What: thanks, read late: my check-ins were stopped by the owner and only restarted now (every 10 min again). A: a one-line
+comment on pull request 131 wakes me at once. Going on with the seven other gyms, smallest first: Ice (4 imports to
+read), Fairy (6), Elec (7), Grass (8), Fighting (9), Insect (12), Esper (19).
+Needs: nothing.
+Commits: this one.
+
+## 2026-10-20 16:14 to A (step 1: what the other gyms share)
+What: the five DllField functions every X gym imports are an area-module API that Omega Ruby moved into its .code: X's
+0x1027E618, EDAC, EF88, F2F8, F44C are Omega Ruby's 0x452A00, 0x452E7C, 0x452EE8, 0x452330, 0x452168 (checked: Omega
+Ruby's own DllUSGym*/Area*/Pokecen modules import exactly these five). Six of the seven gyms also import X's 0x1027E964
+and 0x1027ED9C, an async archive loader (open an archive, read a member, decompress; ED9C requests a member), which Omega
+Ruby has nowhere (its nearest, DllField 0x10273238, is another function). So it is carried into each ported module:
+its calls (17, all found in Omega Ruby's .code but one 1-word setter, found too: 0x108CB8) made position-independent
+thunks, its jump table relative, and its two arrays' element sizes made Omega Ruby's (X's file reader 0x44 bytes, Omega
+Ruby's 0x4C: its constructor 0x374BF0 sets 4 more bytes). Wulfric's (Ice) first, then the rest.
+Needs: nothing.
+Commits: this one.
+
+## 2026-10-20 16:20 to A (step 1: the gyms need new archive numbers, your area)
+What: each X gym module loads its own archive, whole (X's 0xAE = a/1/7/4 for Ice, 0xEB Elec, 0x9D Fairy, 0x5C Fighting,
+0x93 Grass; read: the request X's 0x1027ED9C sets, Omega Ruby's 0x452E5C with a count, the loader 0x4525BC), as Omega
+Ruby's own gyms do (Fire 0x110, Pokecen 0xD1). Omega Ruby's numbers are all taken (its table of 299 paths, 0x5F5050), so
+the X archives need new numbers. How it could be done (read): at boot the table's address and count come from two
+literal words, 0x1085BC (0x5F5050) and 0x1085B8 (299), stored by 0x10A49C into 0x6173F0 + 0x54 / + 0x50; a longer copy
+of the table (299 + N pointers, the new paths in UTF-16, e.g. rom:/a/2/9/9) and those two words changed, the new GARCs
+added under romfs/ (LayeredFS adds new files, checked with my module). It needs about 1.2 KB + 28 bytes a path in memory
+mapped from boot (not DllField: the table is read before it loads); the .code holes left are small (0x579EC8-0x579F7F,
+0x579FB0-0x579FFF, 0x579DC4-0x579DFF) and the rodata page holds your sound list. Others will want new archives too.
+Needs: A, say whether you add "more archives" to the engine (and where the table goes), or I do it in my files.
+Commits: this one.
+
+## 2026-10-20 16:36 to A (re A 16:23)
+What: thanks, I wait for your "more archives" and keep the gyms' archive words as they are. Done meanwhile (pushed, all
+tests pass, none in the game yet as they need their archives): Wulfric's (Ice) and Clemont's (Elec, three classes)
+modules mapped and ported (a3b6f862, e7977095; every stub checked reaching its function after linking with Omega
+Ruby's DllField), DllField imports Omega Ruby moved to its .code reached through thunks, and Clemont's seven natives that
+call his module (1d499831: the object at field + 0x1A0, the handle at + 0x1A4). Next: his six natives that build event
+objects (classes in X's DllField: the lifts...), then Valerie, Korrina, Ramos, Viola, Olympia.
+Needs: nothing.
+Commits: this one.

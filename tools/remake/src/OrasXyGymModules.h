@@ -39,9 +39,20 @@ struct XyModulePort
     struct Word { uint32_t Offset, Expected, Value; std::string Why; };
     std::vector<Word> Words;              // the module's own words (file offsets) changed
     std::vector<std::pair<uint32_t, uint32_t>> Sounds; // a word holding an X sound id (file offset, the id): translated
-    uint32_t Vtable = 0, Slots = 0;       // X's vtable (the file offset of its slot 0) and its slot count
+    std::vector<uint32_t> Vtables;        // X's vtables of the area module class (the file offset of each one's slot 0)
+    uint32_t Slots = 0;                   // their slot count in X
     uint32_t InsertSlot = 0, InsertValue = 0; // the slot Omega Ruby added and the .code function it holds
-    uint32_t Constructor = 0, ObjectSize = 0; // the class's constructor (a file offset) and its object's size
+    struct Class { uint32_t Constructor, ObjectSize; }; // a constructor (a file offset) and its object's size
+    std::vector<Class> Classes;           // one per area kind loading the module (Clemont's has three)
+    // an X import Omega Ruby has only changed (its arguments): the import resolved to Omega Ruby's function, but each of the
+    // module's stubs of it (`ldr pc, [pc, #-4]` and the word the loader writes) made a branch to a thunk written after the
+    // code: Prefix (setting what Omega Ruby's function takes more), then a jump to it
+    struct Thunk { uint32_t XTarget, Target; std::vector<uint32_t> Prefix; std::string Why; };
+    std::vector<Thunk> Thunks;
+    // the archive the module loads (X's number, a/X/Y/Z by its digits; 0 none) and its words requesting it (`mov r1, #n`,
+    // file offsets): given Omega Ruby's number for it (XyGymArchiveNumber)
+    uint16_t Archive = 0;
+    std::vector<uint32_t> ArchiveWords;
 };
 
 // a game's static module (static.crs) and DllField (the file, and where the linked program places it)
@@ -54,13 +65,27 @@ struct XyGameModules
 // X's module ported: throws if a word or an import is not X's as described, or an import is not mapped. sound: X's sound
 // id -> Omega Ruby's (XySounds::Translate)
 Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameModules& oras, const XyModulePort& port,
-                   const std::function<uint32_t(uint32_t)>& sound);
+                   const std::function<uint32_t(uint32_t)>& sound, uint32_t archive = 0);
 
-// a ported gym: X's area kind (zone header word +0x26), the free Omega Ruby kind given it, its module
+// the Omega Ruby number given the k-th ported archive (k from 0): past the game's 299 (oras-engine's longer path table,
+// the room), an ARM immediate for the modules' `mov r1, #n` (0x130, 0x140...); its path rom:/a/X/Y/Z by its digits
+uint32_t XyGymArchiveNumber(size_t k);
+std::string XyArchivePath(uint32_t number); // "a/X/Y/Z"
+
+// a gym's archive (a GARC: X's Ice one is one LZ11-compressed "TM" container of the 48 BCH its loader unpacks) made
+// Omega Ruby's: each BCH, a member or in a member's 2-letter container, converted to Omega Ruby's version (BchUpgrade.h;
+// Omega Ruby's model code read X's BCH 0x07 as nothing: unmapped reads in Gfx_ModelBinding_BindResources 0x374A94, run
+// gi1; none once converted, run gi2); a compressed member decompressed and compressed again; a file the conversion
+// cannot carry kept, with a report line
+Bytes XyGymArchiveToOras(const Bytes& garc, std::vector<std::string>& report);
+
+// a ported gym: X's area kind (zone header word +0x26), the free Omega Ruby kind given it, its module and the class it
+// builds (Port.Classes)
 struct XyGym
 {
     uint16_t XKind, OrasKind;
     const XyModulePort& Port;
+    size_t Class = 0;
 };
 const std::vector<XyGym>& XyGyms();
 
@@ -70,8 +95,8 @@ uint16_t XyGymAreaKind(uint16_t xKind);
 // the DllField words loading the ported modules (DllField linked addresses, cave words expected zero): Field_LoadArea
 // SpecificModule's switch (0x10273D30) sends the kinds Omega Ruby has no module for to its default case, whose first word
 // (0x10274210, the kind still in r2; the switch's table is relocated by the loader, so not written) becomes a branch to a
-// dispatcher sending each gym's kind to a routine in the cave doing what the game's cases do (read 20 October): load the
-// module by name (the import
+// dispatcher sending each gym's kind, with its record (constructor, object size, path), to a routine in the cave doing
+// what the game's cases do (read 20 October): load the module by name (the import
 // stub 0x10243C48 of the module loader 0x36F284, which returns the module's handle, its mapped address: Omega Ruby's
 // module list read on the running game, runs ro1-ro3), keep it at +0x1A4, allocate the object (0x102421F8, size and heap)
 // and jump to its constructor (object, field), at the handle + the constructor's offset, as DllField has no import of it
@@ -80,6 +105,14 @@ std::vector<CodeWord> XyGymLoaderPatchAt(uint32_t cave);
 // Grant's gym (X zone 160, Cyllage): an ambient sound whose volume follows the player's distance (DllUSGymRock, read 20
 // October)
 const XyModulePort& XyGymRock();
+
+// Wulfric's gym (X zone 226, Snowbelle; DllUSGymIce, read 20 October): checked headless in Vaniville's bedroom (given its
+// kind for the check only, run gi2): the module and its archive load, its update runs each frame, no fault
+const XyModulePort& XyGymIce();
+
+// Clemont's gym (X zones 77-82, Lumiose; DllUSGymElec, read 20 October): its lifts and doors, three classes (X's area kinds
+// 0x19-0x1B); mapped and ported, not run in the game
+const XyModulePort& XyGymElec();
 
 }
 

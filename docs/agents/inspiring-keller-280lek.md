@@ -259,3 +259,11 @@ black in both, drawing off). Not checked: a new archive opened by the game (your
 under romfs/a/2/9/9 up; use the numbers 299 + k in your gym archive words.
 Needs: nothing.
 Commits: the next.
+
+## 2026-10-20 17:24 to all: stopped, merged; one agent from now (owner's decision)
+What: B's and C's branches merged into main. My --more-archives removed in the merge: B's own version (the gym
+archives' numbers, from --xy-gyms) does the same table move and is the one in use. Zone 160's crash reproduced without
+the room (run hZ160n: PC 0x46C960 reads 0x0-0x8 right after DllSequence loads, a null third argument passed from
+0x34A6A8 as [r4+8]); not solved yet. Its log fills the disk: cap it. Work goes on in A's session only.
+Needs: nothing.
+Commits: this merge.

@@ -707,6 +707,7 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         log.push_back("MsgLoad: 0x100 + m loads table 8's member m");
     }
     std::vector<std::pair<std::string, Bytes>> gymModules; // X/Y's gym modules ported, written into the mod's romfs below
+    std::vector<std::pair<uint32_t, Bytes>> gymArchives;   // their archives: Omega Ruby's new number, X/Y's file
     if (!o.XyGyms.empty())
     {
         // X/Y's gym modules (OrasXyGymModules.h): each ported from X/Y's image, and DllField loading it by its area kind
@@ -714,9 +715,23 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         const XyGameModules x{xy.Read("static.crs"), xy.Read("DllField.cro"), 0x101F9000};
         const XyGameModules orasModules{oras.Read("static.crs"), oras.Read("DllField.cro"), DllFieldBase};
         const XySounds sounds = XySounds::Read(oras.Code(), oras.Read("sound/sango_sound.bcsar"), xy.Code(), xy.Read("sound/xy_sound.bcsar"));
+        // each module once (Clemont's serves three kinds), its archive given the next number past the game's (the path
+        // table below, in the room)
+        std::set<std::string> ported;
         for (const XyGym& g : XyGyms())
+        {
+            if (!ported.insert(g.Port.Name).second) continue;
+            uint32_t archive = 0;
+            if (g.Port.Archive)
+            {
+                archive = XyGymArchiveNumber(gymArchives.size());
+                std::vector<std::string> report;
+                gymArchives.push_back({archive, XyGymArchiveToOras(xy.Read(XyArchivePath(g.Port.Archive)), report)});
+                for (const std::string& r : report) log.push_back(g.Port.Name + "'s archive: " + r);
+            }
             gymModules.push_back({g.Port.Name + ".cro", XyPortModule(xy.Read(g.Port.XName + ".cro"), x, orasModules, g.Port,
-                                                                    [&](uint32_t id) { return sounds.Translate(id); })});
+                                                                    [&](uint32_t id) { return sounds.Translate(id); }, archive)});
+        }
         const CroLayout layout(oras.Read("DllField.cro"));
         uint32_t cave = DllFieldBase + layout.CodeEnd();
         for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
@@ -811,30 +826,33 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         snprintf(line, sizeof line, "battle types: %zu after the game's 73, the table at 0x%X", extra.size() / 24, moved);
         log.push_back(line);
     }
-    if (o.MoreArchives)
+    if (!gymArchives.empty())
     {
-        // More archives (read 20 October): the archive paths ("rom:/a/0/0/0", UTF-16) are 299 pointers from 0x5F5050, the
-        // table and its count read at boot from the literal words 0x1085BC and 0x1085B8 (stored into 0x6173F0 + 0x54 and
-        // + 0x50 by 0x10A49C; no other word points into the table). The copy in the room keeps the game's pointers and adds
-        // the new paths after them, archive n at rom:/a/<n's three digits>, the files themselves added under romfs/
-        constexpr uint32_t table = 0x5F5050, countWord = 0x1085B8, tableWord = 0x1085BC, gameArchives = 299;
-        const uint32_t count = gameArchives + o.MoreArchives;
-        if (count > 1000) throw FormatError("--more-archives: up to 701 (paths have three digits)");
-        const uint32_t at = roomAt, strings = at + count * 4;
-        Bytes all(code.begin() + (table - CodeBase), code.begin() + (table - CodeBase) + gameArchives * 4), text;
+        // More archives (B's, read 20 October): the game opens an archive by number through a table of 299 pointers to
+        // UTF-16 paths (0x5F5050), its address and count stored at boot from two literal words (0x1085BC, 0x1085B8; by
+        // 0x10A49C into 0x6173F0 + 0x54 / + 0x50). The table copied into the room, longer, the new archives' paths with it,
+        // and the two words changed; a number between the game's last and a new one names archive 0's path (none opens it)
+        constexpr uint32_t table = 0x5F5050, tableWord = 0x1085BC, countWord = 0x1085B8, gameArchives = 299;
+        uint32_t count = gameArchives;
+        for (const auto& [number, file] : gymArchives) count = std::max(count, number + 1);
+        Bytes all(code.begin() + (table - CodeBase), code.begin() + (table - CodeBase) + 4 * gameArchives);
+        const uint32_t first = (uint32_t)(all[0] | all[1] << 8 | all[2] << 16 | (uint32_t)all[3] << 24);
+        all.resize(4 * (size_t)count);
         for (uint32_t n = gameArchives; n < count; n++)
+            for (int b = 0; b < 4; b++) all[4 * n + b] = (uint8_t)(first >> (8 * b));
+        for (const auto& [number, file] : gymArchives)
         {
-            const uint32_t p = strings + (uint32_t)text.size();
-            for (int b = 0; b < 4; b++) all.push_back((uint8_t)(p >> (8 * b)));
-            char path[16];
-            snprintf(path, sizeof path, "rom:/a/%u/%u/%u", n / 100, n / 10 % 10, n % 10);
-            for (const char* c = path;; c++) { text.push_back((uint8_t)*c); text.push_back(0); if (!*c) break; }
+            const std::string path = "rom:/" + XyArchivePath(number);
+            Bytes text;
+            for (const char c : path) { text.push_back((uint8_t)c); text.push_back(0); }
+            text.push_back(0); text.push_back(0);
+            const uint32_t at = roomPut(text, "the path of archive " + std::to_string(number));
+            for (int b = 0; b < 4; b++) all[4 * number + b] = (uint8_t)(at >> (8 * b));
         }
-        all.insert(all.end(), text.begin(), text.end());
-        if (roomPut(all, "the archive paths") != at) throw FormatError("--more-archives: the room moved");
-        words.push_back({tableWord, table, at, "the archive path table"});
+        const uint32_t moved = roomPut(all, "the archive path table");
+        words.push_back({tableWord, table, moved, "the archive path table's address"});
         words.push_back({countWord, gameArchives, count, "the archive count"});
-        snprintf(line, sizeof line, "archives: %u after the game's 299 (a/2/9/9 up), the path table at 0x%X", o.MoreArchives, at);
+        snprintf(line, sizeof line, "archives: %u (the game's 299 and X/Y's gyms'), the path table at 0x%X", count, moved);
         log.push_back(line);
     }
 
@@ -865,6 +883,14 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         std::filesystem::create_directories(root / "exefs");
         WriteFile((root / "exefs" / "code.ips").string(), ips);
         log.push_back("code.ips: " + std::to_string(words.size()) + " words");
+    }
+    for (const auto& [number, file] : gymArchives)
+    {
+        // a new archive (X/Y's, whole) at its new number's path
+        const std::filesystem::path path = root / "romfs" / XyArchivePath(number);
+        std::filesystem::create_directories(path.parent_path());
+        WriteFile(path.string(), file);
+        log.push_back("romfs/" + XyArchivePath(number) + ": " + std::to_string(file.size()) + " bytes (X/Y's)");
     }
     for (const auto& [name, module] : gymModules)
     {

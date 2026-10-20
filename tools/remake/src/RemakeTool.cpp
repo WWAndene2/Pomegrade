@@ -40,7 +40,7 @@
 //   remake_tool xy-script-export <x.3ds> <function_names.tsv> <out dir> <zone>...  X/Y zones' scripts as editable amx-asm
 //                     source (OrasXyScript.h: XyScriptSource), x<zone>.amx and x<zone>.init.amx, the flags and works of the
 //                     zones given numbered together; each file checked to assemble
-//   remake_tool xy-gym-module <oras.3ds> <x.3ds> <out.cro> rock   an X/Y gym's code module ported to Omega Ruby
+//   remake_tool xy-gym-module <oras.3ds> <x.3ds> <out.cro> rock|ice|elec   an X/Y gym's code module ported to Omega Ruby
 //                     (OrasXyGymModules.h): its imports, layouts, sound ids and vtable made Omega Ruby's
 //   remake_tool amx-asm <in.txt> <out.amx> [function_names.tsv [--mask M]]  a Pawn (AMX) script assembled (Amx.h:
 //                     AmxAssemble), the natives named checked against the game's tables in tools/remake/ghidra/function_names.tsv
@@ -174,7 +174,7 @@ static int Usage()
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone|zone-raised|crowd [N]\n"
                     "  remake_tool oras-zone-check <oras.3ds>\n"
-                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--character-models N] [--events large] [--story large] [--area-packs large] [--wild-tables large] [--xy-sounds FIRST:COUNT] [--xy-trainers on] [--xy-battle-types FILE] [--more-archives N] [--heap ID:BYTES]... [--start-zone N] [--xy-messages on] [--xy-gyms <x.3ds>]\n"
+                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--character-models N] [--events large] [--story large] [--area-packs large] [--wild-tables large] [--xy-sounds FIRST:COUNT] [--xy-trainers on] [--xy-battle-types FILE] [--heap ID:BYTES]... [--start-zone N] [--xy-messages on] [--xy-gyms <x.3ds>]\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
                     "                    [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]\n"
                     "  remake_tool oras-code <oras.3ds> <out.bin>\n"
@@ -442,8 +442,8 @@ int main(int argc, char** argv)
         if (cmd == "xy-gym-module" && argc >= 6)
         {
             const std::string which = argv[5];
-            if (which != "rock") throw FormatError("xy-gym-module: rock is the only gym ported so far");
-            const XyModulePort& port = XyGymRock();
+            if (which != "rock" && which != "ice" && which != "elec") throw FormatError("xy-gym-module: rock, ice or elec");
+            const XyModulePort& port = which == "rock" ? XyGymRock() : which == "ice" ? XyGymIce() : XyGymElec();
             N3dsRom oras(argv[2]), xy(argv[3]);
             // where prototype/cro_link.py places each game's DllField (the addresses OrasXyGymModules.cpp names)
             const XyGameModules x{xy.Read("static.crs"), xy.Read("DllField.cro"), 0x101F9000};
@@ -758,7 +758,6 @@ int main(int argc, char** argv)
                     o.LargeStory = true;
                 }
                 else if (flag == "--xy-battle-types") o.XyBattleTypes = value;
-                else if (flag == "--more-archives") o.MoreArchives = (uint32_t)std::stoul(value);
                 else if (flag == "--xy-trainers")
                 {
                     if (value != "on") throw FormatError("--xy-trainers on (X/Y's trainers 950-1734, OrasXyTrainers.h; with --story large)");

@@ -37,7 +37,6 @@ struct OrasEngineOptions
     bool XyMessages = false;                 // MsgLoad(table, 0x100 + m): member m of table 8 (X/Y's message files appended)
     std::optional<uint32_t> StartZone;       // the zone a new game starts in, at its header's spawn (the game's 399, the truck)
     std::string XyGyms;                      // X/Y's image: its gym modules ported and loaded by their area kinds (OrasXyGymModules.h)
-    uint32_t MoreArchives = 0;               // archives numbered from 299 (romfs a/2/9/9 up), the path table copied longer in the room
     std::string XyBattleTypes;               // a file of battle-type records (24 bytes each) appended after the game's 73, in the room (OrasEngine.cpp)
 };
 
