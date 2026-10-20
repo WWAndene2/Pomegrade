@@ -26,6 +26,12 @@ public:
     /// Updates the framebuffer addresses from the PICA registers.
     void Bind();
 
+    /// Forgets the buffers' pointers, so the next Bind looks them up again (a state load replaces the memory they point into).
+    void Invalidate() {
+        color_addr = 0;
+        depth_addr = 0;
+    }
+
     /// Draws a pixel at the specified coordinates.
     void DrawPixel(u32 x, u32 y, const Common::Vec4<u8>& color) const;
 
