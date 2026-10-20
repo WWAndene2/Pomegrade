@@ -171,12 +171,19 @@ need the camera's place in the world to be cached, which the 3DS does not hand o
 ## Water (20 October, owner's request)
 
 `water.html`: Route 103's sea moved as the game moves it (area pack 8's material animation, read by
-`material_anim.py`: texture scrolls only, see ORAS_LITTLEROOT.md section 5), then lit in the game's anime style:
-a swell (five travelling waves, invented, a whole number of periods a cycle so the loop is seamless) bends the
-light (flat lighter and darker tones on its sides, hard-edged glints) and a planar reflection (the scene mirrored in
-the water's plane, colours in 4 steps); the land stays as the game draws it. Rejected on the way, by the owner: a
-glossy physically based look ("plastic UE5 vinyl"), and glints made from the texture's lines (they traced the
-foam cells instead of the water's volume). The seabed under the transparency is added (the piece has none).
+`material_anim.py`: texture scrolls only, see ORAS_LITTLEROOT.md section 5), then lit in the game's anime style.
+The version the owner approved: the light bent by the two layers' own cells (their brightness blurred to the cells'
+scale, the main layer weighted as it shows in the colour), flat lighter and darker tones, a planar reflection (the
+scene mirrored in the water's plane, colours in 4 steps), and the shimmer cel-shaded as the edge foam: flat blobs, a
+light band and a white core, where a bright line of one layer crosses one of the other as they slide past each
+other. Rejected on the way, by the owner: a glossy physically based look ("plastic UE5 vinyl"); glints from the
+texture's thin lines; an invented swell ("follow the texture instead"); shapes along every line ("web"). The seabed
+under the transparency is added (the piece has none).
+
+In the emulator (Remaster on, OpenGL): the sea's two textures are recognised by their data (CityHash64 of level 0,
+the two pairs all 46 Hoenn area packs with sea use: chip_sea_b e53b6f153f236c99 / 4c9145a61f71d1bb, chip_sea_a
+90950c2c5e5fd1e9 / 561aa1c86743ce79, rasterizer_cache.h) and the draw gets the shimmer in its fragment shader
+(WriteWater). The reflection and the tones are not there yet: the draw cannot see the scene above the water.
 
 ## Ride viewer (point 39 of docs/Delta_Emerald_Development.md, 11 October)
 

@@ -1289,6 +1289,16 @@ void RasterizerCache<T>::UploadSurface(Surface& surface, SurfaceInterval interva
     }
 
     const auto upload_data = source_ptr.GetWriteBytes(load_info.end - load_info.addr);
+    // Pomegrade: ORAS's sea, its two layers recognised by their data's hash (level 0, 128 x 128 ETC1A4; the two
+    // pairs every Hoenn area pack uses, read from the game's area packs, tools/remake/render/ORAS_RENDER.md "Water")
+    if (load_info.width == 128 && load_info.height == 128 && load_info.pixel_format == PixelFormat::ETC1A4 &&
+        surface.LevelOf(load_info.addr) == 0 && upload_data.size() >= 128 * 128) {
+        const u64 hash =
+            Common::ComputeHash64<Common::HashAlgo64::CityHash>(upload_data.data(), 128 * 128);
+        surface.pomegrade_water = (hash == 0xe53b6f153f236c99ULL || hash == 0x4c9145a61f71d1bbULL)   ? 1
+                                  : (hash == 0x90950c2c5e5fd1e9ULL || hash == 0x561aa1c86743ce79ULL) ? 2
+                                                                                                       : 0;
+    }
     DecodeTexture(load_info, load_info.addr, load_info.end, upload_data, staging.mapped,
                   runtime.NeedsConversion(surface));
 

@@ -721,6 +721,7 @@ void RasterizerOpenGL::SyncTextureUnits(const Framebuffer* framebuffer) {
     user_config = {};
 
     const auto pica_textures = regs.texturing.GetTextures();
+    std::array<u8, 2> water{}; // Pomegrade: the ORAS sea layers bound to textures 0 and 1 (Surface::pomegrade_water)
     for (u32 texture_index = 0; texture_index < pica_textures.size(); ++texture_index) {
         const auto& texture = pica_textures[texture_index];
 
@@ -772,11 +773,19 @@ void RasterizerOpenGL::SyncTextureUnits(const Framebuffer* framebuffer) {
 
         // Bind the texture provided by the rasterizer cache
         Surface& surface = res_cache.GetTextureSurface(texture);
+        if (texture_index < water.size()) {
+            water[texture_index] = surface.pomegrade_water;
+        }
         if (!IsFeedbackLoop(texture_index, framebuffer, surface)) {
             BindMaterial(texture_index, surface);
             state.texture_units[texture_index].texture_2d = surface.Handle();
             state.texture_units[texture_index].target = GL_TEXTURE_2D;
         }
+    }
+    // Pomegrade: the sea's draw (its main layer on texture 0, its second on texture 1) gets the water look while the
+    // Remaster is on
+    if (water[0] == 1 && water[1] == 2 && Settings::values.remaster_preset.GetValue() != 0) {
+        user_config.pomegrade_water.Assign(1);
     }
 
     if (emulate_minmax_blend && !driver.HasShaderFramebufferFetch()) {

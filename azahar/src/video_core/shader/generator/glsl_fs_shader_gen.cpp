@@ -193,6 +193,9 @@ vec4 secondary_fragment_color = vec4(0.0);
                    "(0.35 + 0.65 * combiner_output.rgb / max(max(combiner_output.r, "
                    "combiner_output.g), max(combiner_output.b, 0.2))), pg_room.a);\n";
         }
+        if (user.pomegrade_water) {
+            WriteWater();
+        }
         // Round the final fragment color to maintain the PICA's 8 bits of precision
         out += "combiner_output = byteround(combiner_output);\n";
         WriteBlending();
@@ -1014,6 +1017,38 @@ void FragmentModule::WriteLogicOp() {
         LOG_CRITICAL(HW_GPU, "Unhandled logic_op {:x}", logic_op);
         UNIMPLEMENTED();
     }
+}
+
+void FragmentModule::WriteWater() {
+    // Pomegrade: the water look chosen on the Route 103 renders (tools/remake/render/water.html, owner's "perfect", 20
+    // October), cel-shaded as the game's foam: where a bright line of the main layer (texture 0) crosses one of the
+    // second layer (texture 1) as the game slides them past each other, a flat shape, a light band and a white core
+    // with hard edges. Each layer's lines are its brightness, softened 1.5 texels, above its own surroundings 5
+    // texels wide, both blurred in texture space (a mip does not blur where the texture is magnified); the shape is
+    // where the weaker of the two passes the cut, so separate blobs appear and fade instead of a net. The
+    // renders' reflection is not here: it needs the scene above the water, which this draw cannot see
+    out += R"(
+{
+    vec2 pw_t0 = 1.0 / vec2(textureSize(tex0, 0)), pw_t1 = 1.0 / vec2(textureSize(tex1, 0));
+    const vec3 pw_luma = vec3(0.2126, 0.7152, 0.0722);
+    float pw_n0 = 2.0 * dot(texture(tex0, texcoord0).rgb, pw_luma), pw_w0 = 0.0;
+    float pw_n1 = 2.0 * dot(texture(tex1, texcoord1).rgb, pw_luma), pw_w1 = 0.0;
+    for (int i = 0; i < 6; i++) {
+        vec2 d = vec2(cos(float(i) * 1.0472), sin(float(i) * 1.0472)) * 1.5;
+        pw_n0 += dot(texture(tex0, texcoord0 + d * pw_t0).rgb, pw_luma);
+        pw_n1 += dot(texture(tex1, texcoord1 + d * pw_t1).rgb, pw_luma);
+    }
+    for (int i = 0; i < 8; i++) {
+        vec2 d = vec2(cos(float(i) * 0.7854), sin(float(i) * 0.7854)) * 5.0;
+        pw_w0 += dot(texture(tex0, texcoord0 + d * pw_t0).rgb, pw_luma);
+        pw_w1 += dot(texture(tex1, texcoord1 + d * pw_t1).rgb, pw_luma);
+    }
+    float pw_line = min(pw_n0 / 8.0 - pw_w0 / 8.0, pw_n1 / 8.0 - pw_w1 / 8.0);
+    combiner_output.rgb = mix(combiner_output.rgb, mix(combiner_output.rgb, vec3(0.85, 0.96, 1.0), 0.65),
+                              step(0.045, pw_line));
+    combiner_output.rgb = mix(combiner_output.rgb, vec3(0.97, 0.99, 1.0), step(0.055, pw_line));
+}
+)";
 }
 
 void FragmentModule::WriteBlending() {

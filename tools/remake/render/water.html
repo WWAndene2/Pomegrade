@@ -5,14 +5,17 @@
  "three":"./node_modules/three/build/three.module.js",
  "three/addons/":"./node_modules/three/examples/jsm/"}}</script>
 <script type="module">
-// Route 103's sea (owner's request, 20 October): the piece (a/0/3/9 member 1, as r103.gltf: `remake_tool bch` on the
-// piece with area pack 8's files 11 and 1) and the textures chip_sea_a, r103_mizutama (`remake_tool oras-texture`), from
-// the owner's dump, never committed. The game's own movement, read by material_anim.py from area pack 8's file 2
-// (world01_02_01_chikei_, 239 frames a cycle): ?f=<frame> &shot=close|sea|low. On top of it, in the game's anime style:
-// a swell (invented) bends the light and the reflection, flat tones, hard-edged glints
+// Route 103's sea (owner's request, 20 October; this version approved, "perfect"): the piece (a/0/3/9 member 1, as
+// r103.gltf: `remake_tool bch` on the piece with area pack 8's files 11 and 1) and the textures chip_sea_a,
+// r103_mizutama (`remake_tool oras-texture`), from the owner's dump, never committed. The game's own movement, read by
+// material_anim.py from area pack 8's file 2 (world01_02_01_chikei_, 239 frames a cycle): ?f=<frame> &shot=close|sea|low.
+// On top, in the game's anime style: the light bent by the textures' own cells (blurred), flat tones, a planar
+// reflection in 4 colour steps, and the shimmer as flat blobs where the two layers' bright lines cross (the part the
+// emulator now draws, glsl_fs_shader_gen.cpp WriteWater). ?v=b weighs both layers equally (A/B test, no difference seen)
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 const q = new URLSearchParams(location.search);
+const VAR = q.get('v') || 'a', SH0 = Number(q.get('s0') || 0.045), SH1 = Number(q.get('s1') || 0.055);
 const F = Number(q.get('f') || 0), shot = q.get('shot') || 'game';
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.setSize(1280, 800); renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -66,7 +69,7 @@ function waterMaterial(map0, map1, o0, o1) {
   return new THREE.ShaderMaterial({
     uniforms: { m0: { value: map0 }, m1: { value: map1 }, o0: { value: new THREE.Vector2(...o0) }, o1: { value: new THREE.Vector2(...o1) },
       refl: { value: reflRT.texture }, refr: { value: refrRT.texture }, refrDepth: { value: refrRT.depthTexture },
-      sunDir: { value: sunDir }, phase: { value: t }, res: { value: new THREE.Vector2(W, H) }, near: { value: 1 }, far: { value: 5000 } },
+      sunDir: { value: sunDir }, phase: { value: t }, wB: { value: VAR === 'a' ? 0.35 : 1.0 }, mixB: { value: VAR === 'a' ? 0.6 : 1.0 }, res: { value: new THREE.Vector2(W, H) }, near: { value: 1 }, far: { value: 5000 } },
     vertexColors: true, transparent: false,
     vertexShader: `varying vec2 vUv; varying vec4 vCol; varying vec3 vWorld; varying float vViewZ;
 void main() { vUv = uv;
@@ -77,27 +80,14 @@ vCol = vec4(1.0);
 #endif
 vec4 w = modelMatrix * vec4(position, 1.0); vWorld = w.xyz; vec4 v = viewMatrix * w; vViewZ = -v.z;
 gl_Position = projectionMatrix * v; }`,
-    fragmentShader: `uniform sampler2D m0, m1, refl, refr, refrDepth; uniform vec2 o0, o1, res; uniform vec3 sunDir; uniform float near, far, phase;
+    fragmentShader: `#define SH0 ${SH0.toFixed(3)}
+#define SH1 ${SH1.toFixed(3)}
+uniform sampler2D m0, m1, refl, refr, refrDepth; uniform vec2 o0, o1, res; uniform vec3 sunDir; uniform float near, far, phase, wB, mixB;
 varying vec2 vUv; varying vec4 vCol; varying vec3 vWorld; varying float vViewZ;
 float L(sampler2D m, vec2 uv) { return dot(texture2D(m, uv).rgb, vec3(0.2126, 0.7152, 0.0722)); }
-// the water's volume moving: a sum of travelling swells (directions, lengths in map units, heights), each an
-// integer number of periods per animation cycle so the loop is seamless; the normal is their exact slope
-const float TAU = 6.2831853;
-vec3 Swell(vec2 p) {
-  vec2 d[5]; float len[5], amp[5], cyc[5];
-  d[0] = normalize(vec2(1.0, 0.35)); len[0] = 95.0; amp[0] = 1.1; cyc[0] = 2.0;
-  d[1] = normalize(vec2(0.8, -0.6)); len[1] = 61.0; amp[1] = 0.7; cyc[1] = 3.0;
-  d[2] = normalize(vec2(0.2, 1.0)); len[2] = 43.0; amp[2] = 0.45; cyc[2] = 4.0;
-  d[3] = normalize(vec2(-0.7, 0.7)); len[3] = 29.0; amp[3] = 0.25; cyc[3] = 5.0;
-  d[4] = normalize(vec2(1.0, -0.15)); len[4] = 19.0; amp[4] = 0.14; cyc[4] = 7.0;
-  vec2 slope = vec2(0.0); float h = 0.0;
-  for (int i = 0; i < 5; i++) {
-    float k = TAU / len[i], a = k * dot(d[i], p) - TAU * cyc[i] * phase;
-    h += amp[i] * sin(a);
-    slope += amp[i] * k * cos(a) * d[i];
-  }
-  return vec3(slope, h);
-}
+float L1b(sampler2D m, vec2 uv) { float s = 0.0; for (int i = 0; i < 6; i++) { float a = float(i) * 1.0472; s += L(m, uv + vec2(cos(a), sin(a)) * 1.5 / 128.0); } return (s + 2.0 * L(m, uv)) / 8.0; }
+float Lwide(sampler2D m, vec2 uv) { float s = 0.0; for (int i = 0; i < 8; i++) { float a = float(i) * 0.7854; s += L(m, uv + vec2(cos(a), sin(a)) * 5.0 / 128.0); } return s / 8.0; }
+float L2(sampler2D m, vec2 uv) { return dot(texture2D(m, uv, 3.0).rgb, vec3(0.2126, 0.7152, 0.0722)); }
 float viewZ(float d) { float z = d * 2.0 - 1.0; return 2.0 * near * far / (far + near - z * (far - near)); }
 void main() {
   // ripples: slopes of the two layers' brightness, each scrolled as the game scrolls it
@@ -106,8 +96,14 @@ void main() {
   vec2 g0 = vec2(L(m0, u0 + e.xy) - L(m0, u0 - e.xy), L(m0, u0 + e.yx) - L(m0, u0 - e.yx));
   vec2 g1 = vec2(L(m1, u1 + e.xy) - L(m1, u1 - e.xy), L(m1, u1 + e.yx) - L(m1, u1 - e.yx));
   vec2 g = (g0 + g1) * 2.5; // the texture's lines: only for the foam's edge now
-  vec3 sw = Swell(vWorld.xz);
-  vec3 n = normalize(vec3(-sw.x * 2.2, 1.0, -sw.y * 2.2));
+  // the surface's shape from the game's own two layers, as they scroll: their brightness blurred to the scale of
+  // the cells (a mip about 8 texels wide), so the water swells where the texture's cells are and moves with them,
+  // and the thin lines do not make glints
+  vec2 q = vec2(4.0 / 128.0, 0.0);
+  float b0x = L2(m0, u0 + q.xy) - L2(m0, u0 - q.xy), b0y = L2(m0, u0 + q.yx) - L2(m0, u0 - q.yx);
+  float b1x = L2(m1, u1 + q.xy) - L2(m1, u1 - q.xy), b1y = L2(m1, u1 + q.yx) - L2(m1, u1 - q.yx);
+  vec2 slope = (vec2(b0x, b0y) + wB * vec2(b1x, b1y)) * 1.6 * (2.0 / (1.0 + wB));
+  vec3 n = normalize(vec3(-slope.x, 1.0, -slope.y));
   vec3 v = normalize(cameraPosition - vWorld);
   vec2 sc = gl_FragCoord.xy / res;
   // see-through: what lies under the water (refraction image), tinted by the depth of water it is seen through
@@ -117,7 +113,7 @@ void main() {
   vec3 below = texture2D(refr, rs).rgb;
   // anime style: flat bands instead of smooth gradients. The game's own two layers are the water's colour
   vec4 a = texture2D(m0, u0), b = texture2D(m1, u1);
-  vec3 game = mix(a.rgb * vCol.rgb, b.rgb, b.a * 0.6);
+  vec3 game = mix(a.rgb * vCol.rgb, b.rgb, b.a * mixB);
   // depth in two flat steps: a lighter band along the shore, the game's colour, a deeper band further out
   float band = under < 2.5 ? 0.0 : (under < 9.0 ? 1.0 : 2.0);
   vec3 c = band == 0.0 ? mix(game, vec3(0.62, 0.9, 0.95), 0.45) : (band == 1.0 ? game : game * vec3(0.78, 0.86, 0.95));
@@ -126,15 +122,22 @@ void main() {
   // the reflection: what stands above the water, mirrored and bent by the swell, its colours flattened to 4 steps
   vec3 mp = floor(mirror * 4.0 + 0.5) / 4.0;
   float facing = 1.0 - max(dot(n, v), 0.0);
-  c = mix(c, mix(c, mp, 0.55), smoothstep(0.25, 0.6, facing) * 0.8 + 0.15);
+  c = mix(c, mix(c, mp, 0.4), smoothstep(0.25, 0.6, facing) * 0.6 + 0.1);
   // highlights: hard-edged white shapes where the sun's glint passes a threshold (no soft bloom)
   vec3 h = normalize(sunDir + v);
   // the swell's sides in flat tones: lit side lighter, the far side a little darker, so the volume shows moving
   float side = dot(n, normalize(vec3(sunDir.x, 0.25, sunDir.z)));
-  c *= side > 0.33 ? 1.1 : (side < 0.2 ? 0.9 : 1.0);
-  float spec = pow(max(dot(n, h), 0.0), 250.0);
-  c = mix(c, vec3(1.0), step(0.45, spec) * 0.95);
-  c = mix(c, c * 1.15, step(0.06, spec) * 0.7); // a lighter band round each glint (a second flat tone)
+  c *= side > 0.33 ? 1.05 : (side < 0.2 ? 0.96 : 1.0);
+  // the shimmer, cel-shaded as the foam on the edge is: the two layers' bright lines (each one's brightness above its
+  // own blurred self) add up where they cross as they slide past each other; that sum, cut at two levels, gives flat
+  // shapes, a light band and a white core, with hard edges and nothing in between. Lit more where the swell faces
+  // the sun, so they gather on the sunny side of each cell
+  float l0 = L1b(m0, u0) - Lwide(m0, u0), l1 = L1b(m1, u1) - Lwide(m1, u1); // a touch blurred: shapes, not hairlines
+  // only where both layers' lines cross: separate blobs that appear and fade as the layers slide (the sum traced
+  // the whole cell outlines, a net)
+  float sh = min(l0, l1) + 0.006 * clamp((dot(n, h) - 0.97) / 0.03, -1.0, 1.0);
+  c = mix(c, mix(c, vec3(0.85, 0.96, 1.0), 0.65), step(SH0, sh));
+  c = mix(c, vec3(0.97, 0.99, 1.0), step(SH1, sh)); // a lighter band round each glint (a second flat tone)
   // the shore: a white foam line of fixed width, its edge wobbling with the ripples
   float foam = step(under + (g.x + g.y) * 1.5, 0.8);
   c = mix(c, vec3(0.97, 0.99, 1.0), foam);

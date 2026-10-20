@@ -383,6 +383,8 @@ union UserConfig {
     // relief 1.1, window rooms); 0 (relief 2.2, no volume) and 1 are older looks no preset sets
     BitField<1, 1, u32> pomegrade_surface;
     BitField<2, 2, u32> pomegrade_surface_mode;
+    // Pomegrade: ORAS's sea (texture 0 its main layer, texture 1 its second): the water look, WriteWater
+    BitField<4, 1, u32> pomegrade_water;
 
     // Whether a FSConfig + UserConfig combination can be
     // cached to disk. Right now, this is true if the

@@ -41,6 +41,8 @@ private:
 
     /// Writes the code to emulate PICA min/max blending factors
     void WriteBlending();
+    /// Pomegrade: ORAS's sea, cel-shaded shimmer (UserConfig::pomegrade_water)
+    void WriteWater();
 
     /// Returns the specified TEV stage source component(s)
     std::string GetSource(Pica::TexturingRegs::TevStageConfig::Source source, u32 tev_index);
