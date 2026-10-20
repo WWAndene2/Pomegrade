@@ -96,5 +96,20 @@ int main()
     try { XyModulePort q = p; q.Static.clear(); XyPortModule(m, x, oras, q, [](uint32_t id) { return id; }); }
     catch (const FormatError&) { refused = true; }
     check(refused, "an import not mapped is refused");
+    // DllField loading Grant's module: the default case's first word to the dispatcher, kind 1 to the loader, which jumps
+    // to the module's handle + its constructor's offset
+    const std::vector<CodeWord> lw = XyGymLoaderPatchAt(0x10385CAC);
+    const auto word = [&](uint32_t address) -> const CodeWord* { for (const CodeWord& c : lw) if (c.Address == address) return &c; return nullptr; };
+    const CodeWord* entry = word(0x10274210);
+    check(entry && entry->Expected == 0xE1A01000 && entry->Value == (0xEA000000u | (((0x10385CACu - 0x10274210u - 8) >> 2) & 0xFFFFFF)),
+          "the default case's first word (mov r1, r0) becomes a branch to the dispatcher");
+    check(word(0x10385CAC) && word(0x10385CAC)->Value == 0xE3520001, "the dispatcher compares the kind with Grant's (1)");
+    const CodeWord* back = word(0x10385CB4 + 4);
+    check(word(0x10385CB4) && word(0x10385CB4)->Value == 0xE1A01000 && back && back->Value == (0xEA000000u | (((0x10274214u - 0x10385CB8u - 8) >> 2) & 0xFFFFFF)),
+          "any other kind: the default case's word, then back to it");
+    const uint32_t routine = 0x10385CBC;
+    check(word(routine + 0x14) && word(routine + 0x14)->Value == (0xE3A00000u | 0x18), "the object's size, 0x18");
+    check(word(routine + 0x38) && word(routine + 0x38)->Value == 0x544, "the constructor's offset, 0x544");
+    check(word(routine + 0x3C) && word(routine + 0x3C)->Value == 0x3A6D6F72, "the module's path follows (\"rom:\")");
     return ok ? 0 : 1;
 }

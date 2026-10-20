@@ -19,6 +19,7 @@
 // Azahar only: a console checks a module's hash against the program's list (Azahar does not, CROHelper::VerifyHash).
 
 #include "Bytes.h"
+#include "CodePatch.h"
 
 #include <cstdint>
 #include <functional>
@@ -54,6 +55,27 @@ struct XyGameModules
 // id -> Omega Ruby's (XySounds::Translate)
 Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameModules& oras, const XyModulePort& port,
                    const std::function<uint32_t(uint32_t)>& sound);
+
+// a ported gym: X's area kind (zone header word +0x26), the free Omega Ruby kind given it, its module
+struct XyGym
+{
+    uint16_t XKind, OrasKind;
+    const XyModulePort& Port;
+};
+const std::vector<XyGym>& XyGyms();
+
+// Omega Ruby's area kind for an X/Y zone's (0xFFFF, none, when its module is not ported)
+uint16_t XyGymAreaKind(uint16_t xKind);
+
+// the DllField words loading the ported modules (DllField linked addresses, cave words expected zero): Field_LoadArea
+// SpecificModule's switch (0x10273D30) sends the kinds Omega Ruby has no module for to its default case, whose first word
+// (0x10274210, the kind still in r2; the switch's table is relocated by the loader, so not written) becomes a branch to a
+// dispatcher sending each gym's kind to a routine in the cave doing what the game's cases do (read 20 October): load the
+// module by name (the import
+// stub 0x10243C48 of the module loader 0x36F284, which returns the module's handle, its mapped address: Omega Ruby's
+// module list read on the running game, runs ro1-ro3), keep it at +0x1A4, allocate the object (0x102421F8, size and heap)
+// and jump to its constructor (object, field), at the handle + the constructor's offset, as DllField has no import of it
+std::vector<CodeWord> XyGymLoaderPatchAt(uint32_t cave);
 
 // Grant's gym (X zone 160, Cyllage): an ambient sound whose volume follows the player's distance (DllUSGymRock, read 20
 // October)

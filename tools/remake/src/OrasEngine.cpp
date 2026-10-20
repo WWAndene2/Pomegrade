@@ -2,6 +2,8 @@
 #include "Bps.h"
 #include "CodePatch.h"
 #include "OrasSave.h"
+#include "OrasXyGymModules.h"
+#include "OrasXySound.h"
 #include "OrasXyTrainers.h"
 #include "OrasXyNatives.h"
 
@@ -704,6 +706,23 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         for (uint32_t k = 1; k < 5; k++) croWords.push_back({0x1029F110 + 4 * k, game[k], 0xE320F000, "MsgLoad: its error call left out (nop)"});
         log.push_back("MsgLoad: 0x100 + m loads table 8's member m");
     }
+    std::vector<std::pair<std::string, Bytes>> gymModules; // X/Y's gym modules ported, written into the mod's romfs below
+    if (!o.XyGyms.empty())
+    {
+        // X/Y's gym modules (OrasXyGymModules.h): each ported from X/Y's image, and DllField loading it by its area kind
+        N3dsRom xy(o.XyGyms);
+        const XyGameModules x{xy.Read("static.crs"), xy.Read("DllField.cro"), 0x101F9000};
+        const XyGameModules orasModules{oras.Read("static.crs"), oras.Read("DllField.cro"), DllFieldBase};
+        const XySounds sounds = XySounds::Read(oras.Code(), oras.Read("sound/sango_sound.bcsar"), xy.Code(), xy.Read("sound/xy_sound.bcsar"));
+        for (const XyGym& g : XyGyms())
+            gymModules.push_back({g.Port.Name + ".cro", XyPortModule(xy.Read(g.Port.XName + ".cro"), x, orasModules, g.Port,
+                                                                    [&](uint32_t id) { return sounds.Translate(id); })});
+        const CroLayout layout(oras.Read("DllField.cro"));
+        uint32_t cave = DllFieldBase + layout.CodeEnd();
+        for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
+        for (const CodeWord& w : XyGymLoaderPatchAt(cave)) croWords.push_back({w.Address, w.Expected, w.Value, w.Why});
+        log.push_back("X/Y gyms: " + std::to_string(XyGyms().size()) + " module(s) ported and loaded by their area kinds");
+    }
     if (!croWords.empty()) dllField = PatchCro(oras.Read("DllField.cro"), DllFieldBase, croWords);
     for (const auto& [id, size] : o.HeapSizes)
     {
@@ -767,6 +786,13 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         std::filesystem::create_directories(root / "exefs");
         WriteFile((root / "exefs" / "code.ips").string(), ips);
         log.push_back("code.ips: " + std::to_string(words.size()) + " words");
+    }
+    for (const auto& [name, module] : gymModules)
+    {
+        // a module of its own (X/Y's, ported): the whole file, under a name the game has no file of
+        std::filesystem::create_directories(root / "romfs");
+        WriteFile((root / "romfs" / name).string(), module);
+        log.push_back("romfs/" + name + ": " + std::to_string(module.size()) + " bytes");
     }
     if (!dllField.empty())
     {

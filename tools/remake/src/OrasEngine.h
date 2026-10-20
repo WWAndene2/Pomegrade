@@ -36,6 +36,7 @@ struct OrasEngineOptions
     std::map<uint32_t, uint32_t> ScriptMasks; // zone 536-1023 -> its script's native mask (with ZoneRows; 0x243 otherwise)
     bool XyMessages = false;                 // MsgLoad(table, 0x100 + m): member m of table 8 (X/Y's message files appended)
     std::optional<uint32_t> StartZone;       // the zone a new game starts in, at its header's spawn (the game's 399, the truck)
+    std::string XyGyms;                      // X/Y's image: its gym modules ported and loaded by their area kinds (OrasXyGymModules.h)
 };
 
 // the ARM data-processing immediate encoding of value (an 8-bit value rotated right by an even amount), when there is one

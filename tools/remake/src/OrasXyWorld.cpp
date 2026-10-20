@@ -9,6 +9,7 @@
 #include "OrasTown.h"
 #include "OrasXyEncounters.h"
 #include "OrasXyEvents.h"
+#include "OrasXyGymModules.h"
 #include "OrasXyLight.h"
 #include "OrasXyPiece.h"
 #include "OrasXySound.h"
@@ -199,6 +200,9 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         f.SpawnZ = x.Header[26] / 18.0f;
         OrasZone zone;
         zone.Header = NewZoneHeader(f);
+        // its area kind (word 19, the module DllField loads for it): Omega Ruby's for a gym whose module is ported
+        // (OrasXyGymModules.h; loaded with oras-engine --xy-gyms), none otherwise
+        zone.Header[19] = XyGymAreaKind(x.Header[19]);
         zone.Furniture = e.Furniture;
         zone.Characters = e.Characters;
         zone.Triggers = e.Triggers;

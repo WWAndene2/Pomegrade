@@ -53,6 +53,16 @@ uint32_t AddressTag(const std::vector<Segment>& s, uint32_t address, uint32_t ba
     throw FormatError(text);
 }
 
+uint32_t ArmBranch(uint32_t from, uint32_t to, bool link, uint32_t cond = 0xE)
+{
+    return cond << 28 | (link ? 0x0B000000u : 0x0A000000u) | (((to - from - 8) >> 2) & 0xFFFFFF);
+}
+
+constexpr uint32_t NoModule = 0x10274210;     // Field_LoadAreaSpecificModule's default case (the kinds that load nothing)
+constexpr uint32_t Exit = 0x10274230;         // `pop {r4, r5, r6, pc}`: the cases' way out when the allocation fails
+constexpr uint32_t LoadModule = 0x10243C48;   // DllField's import stub of the module loader (0x36F284)
+constexpr uint32_t New = 0x102421F8;          // DllField's import stub of the allocation (size, heap)
+
 std::string Hex(uint32_t v)
 {
     char text[16];
@@ -153,6 +163,69 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
                               std::to_string(pointing) + " pointing)");
     }
     return out;
+}
+
+const std::vector<XyGym>& XyGyms()
+{
+    static const std::vector<XyGym> gyms = {{3, 1, XyGymRock()}};
+    return gyms;
+}
+
+uint16_t XyGymAreaKind(uint16_t xKind)
+{
+    for (const XyGym& g : XyGyms())
+        if (g.XKind == xKind) return g.OrasKind;
+    return 0xFFFF;
+}
+
+std::vector<CodeWord> XyGymLoaderPatchAt(uint32_t cave)
+{
+    std::vector<CodeWord> w;
+    const std::vector<XyGym>& gyms = XyGyms();
+    // the dispatcher: the default case's first word (the kind still in r2) branches to it; each gym's kind to its routine,
+    // any other kind back to the default case after its first word
+    const uint32_t dispatch = (cave + 3) & ~3u;
+    uint32_t at = dispatch + 8 * (uint32_t)gyms.size() + 8;
+    w.push_back({NoModule, 0xE1A01000, ArmBranch(NoModule, dispatch, false), "Field_LoadAreaSpecificModule's default case: to the X/Y gyms' dispatcher"});
+    for (size_t i = 0; i < gyms.size(); i++)
+    {
+        const XyGym& g = gyms[i];
+        const XyModulePort& p = g.Port;
+        const uint32_t d = dispatch + 8 * (uint32_t)i;
+        w.push_back({d, 0, 0xE3520000 | g.OrasKind, "X/Y gyms' dispatcher (cave): cmp r2, #" + std::to_string(g.OrasKind)});
+        w.push_back({d + 4, 0, ArmBranch(d + 4, at, false, 0x0), "X/Y gyms' dispatcher (cave): beq " + p.Name + "'s loader"});
+        // entered as the game's cases: r4 the field object, r5 the heap, {r4, r5, r6, lr} pushed
+        const std::string path = "rom:/" + p.Name + ".cro";
+        const uint32_t code = at, name = code + 0x3C;
+        if (p.ObjectSize > 0xFF) throw FormatError(p.Name + ": its object size does not fit an immediate");
+        const uint32_t routine[] = {
+            0xE28F0000 | (name - (code + 8)),          // 00 add r0, pc, #0x34: the module's path
+            ArmBranch(code + 0x04, LoadModule, true),  // 04 bl the loader
+            0xE58401A4,                                // 08 str r0, [r4, #0x1a4]   the handle, as the game's cases
+            0xE1A06000,                                // 0C mov r6, r0
+            0xE1A01005,                                // 10 mov r1, r5
+            0xE3A00000 | p.ObjectSize,                 // 14 mov r0, #size
+            ArmBranch(code + 0x18, New, true),         // 18 bl the allocation
+            0xE3500000,                                // 1C cmp r0, #0
+            ArmBranch(code + 0x20, Exit, false, 0x0),  // 20 beq the cases' exit
+            0xE1A01004,                                // 24 mov r1, r4
+            0xE59FC008,                                // 28 ldr ip, [pc, #8]       the word at 0x38
+            0xE086C00C,                                // 2C add ip, r6, ip
+            0xE8BD4070,                                // 30 pop {r4, r5, r6, lr}
+            0xE12FFF1C,                                // 34 bx ip                  the constructor (object, field)
+            p.Constructor,                             // 38 the constructor's offset in the module
+        };
+        for (uint32_t k = 0; k < sizeof routine / 4; k++) w.push_back({code + 4 * k, 0, routine[k], p.Name + "'s loader (cave)"});
+        Bytes text(path.begin(), path.end());
+        text.resize((text.size() + 4) & ~(size_t)3, 0);
+        for (size_t k = 0; k < text.size(); k += 4)
+            w.push_back({name + (uint32_t)k, 0, (uint32_t)(text[k] | text[k + 1] << 8 | text[k + 2] << 16 | (uint32_t)text[k + 3] << 24), p.Name + "'s loader: its path (cave)"});
+        at = name + (uint32_t)text.size();
+    }
+    const uint32_t back = dispatch + 8 * (uint32_t)gyms.size();
+    w.push_back({back, 0, 0xE1A01000, "X/Y gyms' dispatcher (cave): mov r1, r0 (the default case's first word)"});
+    w.push_back({back + 4, 0, ArmBranch(back + 4, NoModule + 4, false), "X/Y gyms' dispatcher (cave): back to the default case"});
+    return w;
 }
 
 const XyModulePort& XyGymRock()
