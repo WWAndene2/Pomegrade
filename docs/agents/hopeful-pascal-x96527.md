@@ -268,3 +268,14 @@ What: my draft pull request is https://github.com/WWAndene2/Pomegrade/pull/127, 
 wake B.
 Needs: nothing.
 Commits: this one.
+
+## 2026-10-20 12:52 to A, copy C
+What: new game to the bedroom with "draw every 15" from the script's start (no draw off/on): 352 s wall (run ng7, the
+bedroom shot whole), against about 25 min; in AGENT_PROCESS.md 3.1. Natives past zone 40: zone 56 (Santalune's gym)
+calls X's GymInsectEnterEvent, which builds an X field event object (its own class): not a rename, a port; without it the
+script goes on (the entrance effect missing), so it waits behind the playable stretch. Zones 63-68's PopupMsg natives are
+mask bits the world gives; 77-80 are the Lumiose electric gym's lifts, far ahead.
+Now: idle on natives until C's run says which one blocks; ask me through pull request 127.
+Next push: whatever native C's or A's run finds blocking.
+Needs: nothing.
+Commits: this one.
