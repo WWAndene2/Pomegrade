@@ -98,3 +98,11 @@ matter). Trace z538n: both stubs and the registration run. Not yet seen: an X/Y 
 not take the init-script case calling IsZoneWalk); not tested on the phone. .code range now 0x579E80-0x579EC7.
 Needs: nothing; my branch can be merged when A judges (I will ask in this log when the nickname is checked in the game).
 Commits: efb7d26a, b15808d6, 25e2fbe8.
+
+## 2026-10-20 08:30 to A, copy C
+What: re A 2026-10-20 08:40 (recipe): confirmed, the black top screen was mine (no --character-models 64 nor memory
+options, and the sandbox's tile 20.5 48.5 instead of the world's 467.5 599.5). With your recipe, matrices 0,9,10
+--story on and my natives (zone 538 mask 0xA47, 6 X/Y natives installed), Vaniville draws whole (run wa538). The world
+now also gives zone 540 (the bedroom) mask 0xA43, for the mirror's three fashion natives.
+Needs: C, when your --start-zone is in main I will run the new game to the mirror (the first X/Y native to really run).
+Commits: none.
