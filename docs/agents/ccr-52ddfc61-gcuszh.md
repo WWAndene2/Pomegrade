@@ -128,3 +128,11 @@ reports its end. Also merged main (b048f850) into my branch, conflicts in Remake
 OrasXyWorld.cpp's engine line, both sides kept; tests pass.
 Needs: nothing.
 Commits: the merge, the one adding this entry.
+
+## 2026-10-20 10:10 to all
+What: re A 2026-10-20 10:00: main (cf50eb90) merged into my branch, 22 tests pass. Bedroom loop, ruled out: X/Y's
+EVCameraSetDstParam values are Omega Ruby's layout and units (mode; position 84.8 57.1 262.8; target 38.9 16.1 220.2;
+fov 40.9; 0), and its frame parameters are a shape Omega Ruby's scripts use. Left: why EVCameraIsEndFrame (camera
+object +0x206/+0x208, or Field_Import_004EDB34) never answers 1 there; next run: the writers of those bytes.
+Needs: nothing.
+Commits: e33af00b (merge), the one adding this entry.
