@@ -26,6 +26,7 @@ object RemasterQuality {
         Range(IntSetting.REMASTER_RT_SOFTNESS, 34, 100),     // the sun's size; 67
         Range(IntSetting.REMASTER_RT_DENOISE, 50, 100),      // 2-4 passes; 75 (the noise is worst low, so never below 2)
         Range(IntSetting.REMASTER_RT_HISTORY, 90, 100),      // frames blended over time against noise; 95
+        Range(IntSetting.REMASTER_RT_PROBES, 0, 100),        // the light probes' rays, 4 x 4 to 12 x 12 (0 off); 50
     )
 
     /** The effects' switches: each on from that quality up (the cheap colour ones always). */

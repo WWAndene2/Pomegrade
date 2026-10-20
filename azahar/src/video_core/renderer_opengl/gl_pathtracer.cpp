@@ -341,7 +341,7 @@ void main() {
 // The fast tracer, at half size: the sun from the shadow map, then one ray marched through the G-buffer for the sky
 // and the bounce. Its distances are a share of the point's own distance to the camera (the scene's scale is not known):
 // reach 0.3, thickness 0.05, as fitted on the test scene against three-gpu-pathtracer.
-constexpr char FAST_TRACE_FRAG[] = R"(
+constexpr char FAST_HELPERS[] = R"(
 layout(binding = 10) uniform sampler2D frame;
 layout(binding = 11) uniform sampler2D shadow_map;
 layout(binding = 12) uniform sampler2D g_bump; // the normal bent by the normal map
@@ -400,6 +400,47 @@ float Sun(vec3 p) {
     if (any(lessThan(c.xy, vec2(0.0))) || any(greaterThan(c.xy, vec2(1.0)))) return 1.0;
     // Pomegrade: no random jitter (it was noise in the bounce, which the horizon search now gathers without any)
     return c.z - shadow_bias - length(p) * 0.002 * depth_scale < texture(shadow_map, c.xy).r ? 1.0 : 0.0;
+}
+
+)";
+
+// Light probes (Settings::values.remaster_rt_probes; screen-space probes, as Lumen's): one probe every `probe_tile`
+// G-buffer pixels, on the surface there, traces a hemisphere of rays beyond the horizon search's reach (PROBE_TRACE_FRAG),
+// summed into spherical harmonics (PROBE_SH_FRAG); each pixel reads the four probes around it, weighted by how close
+// their surface is to its own plane and normal. They give the light coming from far through the open share: the sky
+// where the rays escape, hidden where something far stands in the way, and the sun's light bounced off what they hit
+constexpr char FAST_TRACE_FRAG[] = R"(
+layout(binding = 13) uniform sampler2D probe_colour; // rgb: the light's mean (L0), a: 1 where the probe is valid
+layout(binding = 14) uniform sampler2D probe_slope;  // xyz: its brightness's direction (L1)
+uniform float probes;     // 0 off
+uniform vec2 probe_count; // probes across and down
+uniform float probe_tile; // G-buffer pixels between probes
+
+// the light reaching a surface of normal n at p from the probes around it (irradiance over pi); w: their total weight
+vec3 ProbeLight(vec3 p, vec3 n, out float w) {
+    vec2 g = frag_tex_coord * vec2(textureSize(g_position, 0)) / probe_tile - 0.5;
+    vec2 i0 = floor(g), f = g - i0;
+    vec3 sum = vec3(0.0);
+    w = 0.0;
+    for (int k = 0; k < 4; k++) {
+        vec2 c = clamp(i0 + vec2(float(k & 1), float(k >> 1)), vec2(0.0), probe_count - 1.0);
+        vec2 uv = (c + 0.5) / probe_count;
+        vec4 l0 = texture(probe_colour, uv);
+        if (l0.a < 0.5) continue;
+        vec2 at = (c + 0.5) * probe_tile / vec2(textureSize(g_position, 0));
+        vec3 pp = texture(g_position, at).xyz, pn = texture(g_normal, at).xyz;
+        float bil = (k & 1) == 1 ? f.x : 1.0 - f.x;
+        bil *= (k >> 1) == 1 ? f.y : 1.0 - f.y;
+        float plane = exp(-abs(dot(p - pp, pn)) / (0.02 * length(p) + 0.05));
+        float wt = max(bil, 1e-3) * plane * pow(max(dot(n, pn), 0.0), 4.0);
+        vec3 l1 = texture(probe_slope, uv).xyz;
+        float lum = max(dot(l0.rgb, vec3(0.2126, 0.7152, 0.0722)), 1e-4);
+        // L0 and L1 convolved with the cosine (irradiance / pi): 0.282095 Y0, 2/3 of 0.488603 Y1
+        float dir = 1.0 + (2.0 / 3.0) * 0.488603 * dot(l1, n) / (0.282095 * lum);
+        sum += wt * 0.282095 * l0.rgb * max(dir, 0.0);
+        w += wt;
+    }
+    return w > 0.0 ? sum / w : vec3(0.0);
 }
 
 void main() {
@@ -474,6 +515,11 @@ void main() {
     vec3 sky = dot(n, up) > -0.2 ? Sky(normalize(n + up)) : sky_horizon * 0.35;
     // the normal map: the sky's light as a hemisphere's on the bent normal against the surface's own (its relief in
     // the shade too, where the sun does not show it)
+    if (probes > 0.5) {
+        float pw;
+        vec3 far_light = ProbeLight(p, n, pw);
+        sky = mix(sky, far_light, clamp(pw * 4.0, 0.0, 1.0)); // the sky as before where no probe fits
+    }
     vec3 nb = texture(g_bump, frag_tex_coord).xyz;
     sky *= (0.5 + 0.5 * dot(nb, up)) / max(0.5 + 0.5 * dot(n, up), 0.05);
     vec3 back_light = bounce_w > 0.0 ? bounce / bounce_w : sky_horizon * 0.35;
@@ -482,6 +528,99 @@ void main() {
     float peak = max(max(light.r, light.g), light.b);
     if (peak > 1.5) light *= 1.5 / peak; // a lone bright ray capped (it was left as a sparkle)
     color = vec4(light, open_);
+}
+)";
+
+// a probe's rays: the atlas holds probe_side x probe_side texels per probe, one ray each over the hemisphere around the
+// probe's normal (octahedral), marched through the G-buffer from the horizon search's reach to six times it
+constexpr char PROBE_TRACE_FRAG[] = R"(
+uniform float probe_side;
+uniform float probe_tile;
+
+void main() {
+    vec2 px = floor(gl_FragCoord.xy);
+    vec2 probe = floor(px / probe_side), cell = px - probe * probe_side;
+    vec2 at = (probe + 0.5) * probe_tile / vec2(textureSize(g_position, 0));
+    vec4 gp = texture(g_position, at);
+    if (gp.w < 0.5 || any(greaterThan(at, vec2(1.0)))) {
+        color = vec4(0.0);
+        return;
+    }
+    vec3 p = gp.xyz, n = texture(g_normal, at).xyz;
+    float dist = length(p);
+    vec3 o = p + n * (0.02 + dist * 0.002);
+    vec2 u = (cell + 0.5) / probe_side * 2.0 - 1.0;
+    vec3 h = vec3((u.x + u.y) * 0.5, (u.x - u.y) * 0.5, 0.0);
+    h.z = 1.0 - abs(h.x) - abs(h.y);
+    vec3 t = normalize(cross(abs(n.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0), n)), b = cross(n, t);
+    vec3 d = normalize(t * h.x + b * h.y + n * h.z);
+    float reach = reach_share * dist, thickness = thickness_share * dist;
+    const int K = 12;
+    vec3 radiance = dot(d, up) > -0.2 ? Sky(d) : sky_horizon * 0.35; // escaped: the sky, or the ground's glow
+    float prev = reach;
+    for (int i = 0; i < K; i++) {
+        float tt = reach * pow(6.0, float(i + 1) / float(K)); // reach to 6 x reach, spaced by ratio
+        vec3 s = o + d * tt;
+        vec2 st;
+        if (!ToGbuffer(s, st)) break; // off screen: taken as open (as the horizon search does)
+        vec4 q = texture(g_position, st);
+        float len_q = length(q.xyz), len_s = length(s);
+        if (q.w > 0.5 && len_q < len_s - 1e-3 && len_s - len_q < thickness + (tt - prev)) {
+            // hit: the surface's colour, lit by the sun where it reaches it, plus the sky's mean
+            vec3 hn = texture(g_normal, st).xyz;
+            float sun_at = max(dot(hn, sun), 0.0);
+            if (sun_at > 0.0) sun_at *= Sun(q.xyz + hn * (0.02 + len_q * 0.002));
+            radiance = Albedo(st) * (sun_colour * sun_at + 0.5 * (sky_top + sky_horizon));
+            break;
+        }
+        prev = tt;
+    }
+    color = vec4(radiance, 1.0);
+}
+)";
+
+// a probe's rays summed into spherical harmonics: L0 in colour, L1 of the brightness (each ray 2 pi / N of the
+// hemisphere); location 0 its colour and validity, 1 its slope
+constexpr char PROBE_SH_FRAG[] = R"(
+#ifdef GL_ES
+precision highp float;
+precision highp int;
+precision highp sampler2D;
+#endif
+layout(location = 0) out vec4 l0;
+layout(location = 1) out vec4 l1;
+layout(binding = 8) uniform sampler2D g_position;
+layout(binding = 9) uniform sampler2D g_normal;
+layout(binding = 13) uniform sampler2D atlas;
+uniform float probe_side;
+uniform float probe_tile;
+void main() {
+    vec2 probe = floor(gl_FragCoord.xy);
+    vec2 at = (probe + 0.5) * probe_tile / vec2(textureSize(g_position, 0));
+    vec4 gp = texture(g_position, at);
+    if (gp.w < 0.5 || any(greaterThan(at, vec2(1.0)))) {
+        l0 = vec4(0.0);
+        l1 = vec4(0.0);
+        return;
+    }
+    vec3 n = texture(g_normal, at).xyz;
+    vec3 t = normalize(cross(abs(n.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0), n)), b = cross(n, t);
+    int side = int(probe_side);
+    float w = 6.2831853 / float(side * side);
+    vec3 c0 = vec3(0.0), c1 = vec3(0.0);
+    for (int y = 0; y < side; y++) {
+        for (int x = 0; x < side; x++) {
+            vec2 u = (vec2(float(x), float(y)) + 0.5) / probe_side * 2.0 - 1.0;
+            vec3 h = vec3((u.x + u.y) * 0.5, (u.x - u.y) * 0.5, 0.0);
+            h.z = 1.0 - abs(h.x) - abs(h.y);
+            vec3 d = normalize(t * h.x + b * h.y + n * h.z);
+            vec3 r = texelFetch(atlas, ivec2(probe * probe_side) + ivec2(x, y), 0).rgb;
+            c0 += r * (0.282095 * w);
+            c1 += d * (dot(r, vec3(0.2126, 0.7152, 0.0722)) * 0.488603 * w);
+        }
+    }
+    l0 = vec4(c0, 1.0);
+    l1 = vec4(c1, 0.0);
 }
 )";
 
@@ -606,6 +745,7 @@ struct Tuning {
     float history;    ///< 0-0.95
     u32 shadow_size;  ///< texels, 512-4096 in steps of 256
     u32 shadow_range; ///< percent of the vertices covered, 25-100
+    u32 probe_side;   ///< rays a probe traces: its side, 4-12 (0: no probes)
 };
 Tuning ReadTuning() {
     const auto& v = Settings::values;
@@ -623,6 +763,7 @@ Tuning ReadTuning() {
     t.history = at(v.remaster_rt_history.GetValue(), 0.0f, 0.95f);
     t.shadow_size = static_cast<u32>(whole(v.remaster_rt_shadow_size.GetValue(), 2, 16)) * 256;
     t.shadow_range = static_cast<u32>(whole(v.remaster_rt_shadow_range.GetValue(), 25, 100));
+    t.probe_side = v.remaster_rt_probes.GetValue() == 0 ? 0 : static_cast<u32>(whole(v.remaster_rt_probes.GetValue(), 4, 12));
     return t;
 }
 
@@ -802,7 +943,9 @@ void PathTracerGL::Resize(u32 w, u32 h) {
         denoise_program.Create(FULLSCREEN_VERT, std::string(COMMON) + DENOISE_FRAG);
         temporal_program.Create(FULLSCREEN_VERT, std::string(COMMON) + TEMPORAL_FRAG);
         shadow_program.Create(SHADOW_VERT, SHADOW_FRAG);
-        fast_trace_program.Create(FULLSCREEN_VERT, std::string(COMMON) + FAST_TRACE_FRAG);
+        fast_trace_program.Create(FULLSCREEN_VERT, std::string(COMMON) + FAST_HELPERS + FAST_TRACE_FRAG);
+        probe_trace_program.Create(FULLSCREEN_VERT, std::string(COMMON) + FAST_HELPERS + PROBE_TRACE_FRAG);
+        probe_sh_program.Create(FULLSCREEN_VERT, PROBE_SH_FRAG);
         fast_temporal_program.Create(FULLSCREEN_VERT, std::string(COMMON) + FAST_TEMPORAL_FRAG);
         gbuffer_vao.Create();
         fullscreen_vao.Create();
@@ -1063,6 +1206,34 @@ void PathTracerGL::DrawShadowMap(const Frame& frame, OpenGLState& state) {
     depth_scale = 1.0f / range;
 }
 
+void PathTracerGL::ResizeProbes(u32 w, u32 h, u32 side) {
+    if (w == probe_w_ && h == probe_h_ && side == probe_side_) {
+        return;
+    }
+    probe_w_ = w, probe_h_ = h, probe_side_ = side;
+    const auto make = [](OGLTexture& texture, u32 tw, u32 th) {
+        texture.Release();
+        texture.Create();
+        glActiveTexture(GL_TEXTURE15);
+        glBindTexture(GL_TEXTURE_2D, texture.handle);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA16F, static_cast<GLsizei>(tw), static_cast<GLsizei>(th));
+    };
+    make(probe_atlas, w * side, h * side);
+    make(probe_colour, w, h);
+    make(probe_slope, w, h);
+    probe_atlas_fbo.Release();
+    probe_atlas_fbo.Create();
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, probe_atlas_fbo.handle);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, probe_atlas.handle, 0);
+    probe_sh_fbo.Release();
+    probe_sh_fbo.Create();
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, probe_sh_fbo.handle);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, probe_colour.handle, 0);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, probe_slope.handle, 0);
+    const GLenum both[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+    glDrawBuffers(2, both);
+}
+
 PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint frame_texture) {
     const auto it = completed.find(screen_info.display_address);
     if (it == completed.end() || !it->second || it->second->vertices.empty() || screen_info.target_width == 0) {
@@ -1171,25 +1342,66 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
                          static_cast<float>(main_viewport[1]) / static_cast<float>(height),
                          static_cast<float>(main_viewport[2]) / static_cast<float>(width),
                          static_cast<float>(main_viewport[3]) / static_cast<float>(height)};
-    glProgramUniform3fv(tp, glGetUniformLocation(tp, "sun"), 1, sun);
-    glProgramUniform3fv(tp, glGetUniformLocation(tp, "sun_colour"), 1, sun_colour);
-    glProgramUniform3fv(tp, glGetUniformLocation(tp, "up"), 1, up);
-    glProgramUniform3fv(tp, glGetUniformLocation(tp, "sky_top"), 1, sky_top);
-    glProgramUniform3fv(tp, glGetUniformLocation(tp, "sky_horizon"), 1, sky_horizon);
-    glProgramUniformMatrix4fv(tp, glGetUniformLocation(tp, "view_to_clip"), 1, GL_FALSE, view_to_clip);
-    glProgramUniform4fv(tp, glGetUniformLocation(tp, "viewport"), 1, vp);
-    glProgramUniform4fv(tp, glGetUniformLocation(tp, "dr"), 1, d.data());
-    glProgramUniform4f(tp, glGetUniformLocation(tp, "cr"), tc.top, tc.bottom, tc.left, tc.right);
-    glProgramUniform1f(tp, glGetUniformLocation(tp, "seed"), static_cast<float>(frame_number++ % 4096));
-    glProgramUniform1f(tp, glGetUniformLocation(tp, "reference"), std::max(reference, 1e-3f));
+    // the probes' tile: about 48 across, never under 8 G-buffer pixels
+    const u32 probe_tile = std::max<u32>(8, width / 48);
+    const u32 probe_w = (width + probe_tile - 1) / probe_tile, probe_h = (height + probe_tile - 1) / probe_tile;
+    const bool use_probes = !ultra && tune.probe_side > 0;
+    const auto set_uniforms = [&](GLuint tp) {
+        glProgramUniform3fv(tp, glGetUniformLocation(tp, "sun"), 1, sun);
+        glProgramUniform3fv(tp, glGetUniformLocation(tp, "sun_colour"), 1, sun_colour);
+        glProgramUniform3fv(tp, glGetUniformLocation(tp, "up"), 1, up);
+        glProgramUniform3fv(tp, glGetUniformLocation(tp, "sky_top"), 1, sky_top);
+        glProgramUniform3fv(tp, glGetUniformLocation(tp, "sky_horizon"), 1, sky_horizon);
+        glProgramUniformMatrix4fv(tp, glGetUniformLocation(tp, "view_to_clip"), 1, GL_FALSE, view_to_clip);
+        glProgramUniform4fv(tp, glGetUniformLocation(tp, "viewport"), 1, vp);
+        glProgramUniform4fv(tp, glGetUniformLocation(tp, "dr"), 1, d.data());
+        glProgramUniform4f(tp, glGetUniformLocation(tp, "cr"), tc.top, tc.bottom, tc.left, tc.right);
+        glProgramUniform1f(tp, glGetUniformLocation(tp, "seed"), static_cast<float>(frame_number % 4096));
+        glProgramUniform1f(tp, glGetUniformLocation(tp, "reference"), std::max(reference, 1e-3f));
+        if (!ultra) {
+            glProgramUniformMatrix4fv(tp, glGetUniformLocation(tp, "view_to_sun"), 1, GL_FALSE, view_to_sun);
+            glProgramUniform1f(tp, glGetUniformLocation(tp, "shadow_bias"), shadow_bias);
+            glProgramUniform1f(tp, glGetUniformLocation(tp, "depth_scale"), depth_scale);
+            glProgramUniform1i(tp, glGetUniformLocation(tp, "steps"), tune.steps);
+            glProgramUniform1f(tp, glGetUniformLocation(tp, "reach_share"), tune.reach);
+            glProgramUniform1f(tp, glGetUniformLocation(tp, "thickness_share"), tune.thickness);
+            glProgramUniform1f(tp, glGetUniformLocation(tp, "indirect"), tune.indirect);
+        }
+    };
+    frame_number++;
+    if (use_probes) {
+        ResizeProbes(probe_w, probe_h, tune.probe_side);
+        const GLuint pt = probe_trace_program.handle, ps = probe_sh_program.handle;
+        set_uniforms(pt);
+        for (GLuint prog : {pt, ps}) {
+            glProgramUniform1f(prog, glGetUniformLocation(prog, "probe_side"), static_cast<float>(tune.probe_side));
+            glProgramUniform1f(prog, glGetUniformLocation(prog, "probe_tile"), static_cast<float>(probe_tile));
+        }
+        state.draw.shader_program = pt;
+        state.draw.draw_framebuffer = probe_atlas_fbo.handle;
+        state.viewport = {0, 0, static_cast<GLsizei>(probe_w * tune.probe_side),
+                          static_cast<GLsizei>(probe_h * tune.probe_side)};
+        state.Apply();
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        bind(13, probe_atlas.handle, nearest.handle);
+        state.draw.shader_program = ps;
+        state.draw.draw_framebuffer = probe_sh_fbo.handle;
+        state.viewport = {0, 0, static_cast<GLsizei>(probe_w), static_cast<GLsizei>(probe_h)};
+        state.Apply();
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        bind(13, probe_colour.handle, linear.handle);
+        bind(14, probe_slope.handle, linear.handle);
+        state.draw.shader_program = tp;
+        state.draw.draw_framebuffer = traced[0].handle;
+        state.viewport = {0, 0, static_cast<GLsizei>(hw), static_cast<GLsizei>(hh)};
+        state.Apply();
+    }
+    set_uniforms(tp);
     if (!ultra) {
-        glProgramUniformMatrix4fv(tp, glGetUniformLocation(tp, "view_to_sun"), 1, GL_FALSE, view_to_sun);
-        glProgramUniform1f(tp, glGetUniformLocation(tp, "shadow_bias"), shadow_bias);
-        glProgramUniform1f(tp, glGetUniformLocation(tp, "depth_scale"), depth_scale);
-        glProgramUniform1i(tp, glGetUniformLocation(tp, "steps"), tune.steps);
-        glProgramUniform1f(tp, glGetUniformLocation(tp, "reach_share"), tune.reach);
-        glProgramUniform1f(tp, glGetUniformLocation(tp, "thickness_share"), tune.thickness);
-        glProgramUniform1f(tp, glGetUniformLocation(tp, "indirect"), tune.indirect);
+        glProgramUniform1f(tp, glGetUniformLocation(tp, "probes"), use_probes ? 1.0f : 0.0f);
+        glProgramUniform2f(tp, glGetUniformLocation(tp, "probe_count"), static_cast<float>(probe_w),
+                           static_cast<float>(probe_h));
+        glProgramUniform1f(tp, glGetUniformLocation(tp, "probe_tile"), static_cast<float>(probe_tile));
     }
     glDrawArrays(GL_TRIANGLES, 0, 3);
 

@@ -80,6 +80,7 @@ foreach(KEY IN ITEMS
     "remaster_rt_shadow_size"
     "remaster_rt_shadow_range"
     "remaster_normal_map"
+    "remaster_rt_probes"
     "remaster_ao_strength"
     "remaster_bounce_strength"
     "remaster_shade_contrast"

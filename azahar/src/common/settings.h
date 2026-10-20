@@ -607,6 +607,8 @@ struct Values {
     // Pomegrade: the normal map the traced light reads from each surface's texture, 0-100 % (0 off; 50 the strength
     // chosen on the Littleroot renders, gl_pathtracer.cpp GBUFFER_FRAG)
     SwitchableSetting<u32, true> remaster_normal_map{50, 0, 100, Keys::remaster_normal_map};
+    // Pomegrade: the fast tracer's light probes, 0-100 % (0 off; their rays, 4 x 4 to 12 x 12 each; 50: 8 x 8)
+    SwitchableSetting<u32, true> remaster_rt_probes{50, 0, 100, Keys::remaster_rt_probes};
     // Pomegrade: Remaster's composition (remaster.cpp MAIN_FRAG, p5 and p6), 0-100 %: 50 is V1 (twice V1 at 100); exposure
     // 0 is off
     SwitchableSetting<u32, true> remaster_ao_strength{50, 0, 100, Keys::remaster_ao_strength};

@@ -153,6 +153,13 @@ private:
     std::array<OGLFramebuffer, 2> half_light_fbo;
     std::array<OGLTexture, 2> fast_result;   ///< the history plus the sun's light, handed to Remaster
     std::array<OGLFramebuffer, 2> fast_fbo;  ///< history and fast_result together
+    // the light probes (Settings::values.remaster_rt_probes): their rays (an atlas), then each one's light as spherical
+    // harmonics; rebuilt when their count or rays change
+    void ResizeProbes(u32 w, u32 h, u32 side);
+    u32 probe_w_ = 0, probe_h_ = 0, probe_side_ = 0;
+    OGLTexture probe_atlas, probe_colour, probe_slope;
+    OGLFramebuffer probe_atlas_fbo, probe_sh_fbo;
+    OGLProgram probe_trace_program, probe_sh_program;
     float view_to_sun[16] = {}; ///< view space to the shadow map's clip space (column-major)
     float shadow_bias = 0, depth_scale = 0, shadow_texel = 0;
 

@@ -65,6 +65,7 @@ object SettingKeys {
     external fun remaster_rt_shadow_size(): String
     external fun remaster_rt_shadow_range(): String
     external fun remaster_normal_map(): String
+    external fun remaster_rt_probes(): String
     external fun remaster_ao_strength(): String
     external fun remaster_bounce_strength(): String
     external fun remaster_shade_contrast(): String

@@ -1204,6 +1204,18 @@ class SettingsFragmentPresenter(private val fragmentView: SettingsFragmentView) 
             )
             add(
                 SliderSetting(
+                    IntSetting.REMASTER_RT_PROBES,
+                    R.string.pomegrade_remaster_rt_probes,
+                    R.string.pomegrade_remaster_rt_probes_description,
+                    0,
+                    100,
+                    "%",
+                    IntSetting.REMASTER_RT_PROBES.key,
+                    IntSetting.REMASTER_RT_PROBES.defaultValue.toFloat()
+                )
+            )
+            add(
+                SliderSetting(
                     IntSetting.REMASTER_AO_STRENGTH,
                     R.string.pomegrade_remaster_ao_strength,
                     R.string.pomegrade_remaster_ao_strength_description,

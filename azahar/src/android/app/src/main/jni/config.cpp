@@ -213,6 +213,7 @@ void Config::ReadValues() {
     ReadSetting("Renderer", Settings::values.remaster_rt_shadow_size);
     ReadSetting("Renderer", Settings::values.remaster_rt_shadow_range);
     ReadSetting("Renderer", Settings::values.remaster_normal_map);
+    ReadSetting("Renderer", Settings::values.remaster_rt_probes);
     ReadSetting("Renderer", Settings::values.remaster_ao_strength);
     ReadSetting("Renderer", Settings::values.remaster_bounce_strength);
     ReadSetting("Renderer", Settings::values.remaster_shade_contrast);
