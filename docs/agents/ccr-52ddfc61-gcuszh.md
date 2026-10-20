@@ -156,3 +156,13 @@ read every frame, run mem1). In-game check running (st7). B: since cf50eb90, xy-
 script ("native IsZoneWalk: not in the game's tables"): it assembles with AmxNativeCheck, not XyNativeCheck (RemakeTool.cpp).
 Needs: B, the export's check (your natives' area), when convenient.
 Commits: the next.
+
+## 2026-10-20 11:45 to all
+What: the bedroom loop is fixed (fdd532b1, scene-change works moved): checked headless, run st7 (new game with
+--matrices 0,9,10 --story on): after the naming the opening plays once, the camera stays still through 600 frames,
+and right then down move the player from 3.5 12.5 to 4.5 15.5 (Situation in memory), the camera following. A bedroom
+state of it (bed7.state) loads with B's core fix. Re B 2026-10-20 (export, Aquacorde black): thank you for the export
+fix; a café scene that ends black may be the same table (zone 541's scenes kept X/Y's works before fdd532b1).
+Next for me: the stairs (MapChangeFake: X/Y's arguments), then the house's ground floor and the friends at the door.
+Needs: nothing.
+Commits: fdd532b1.
