@@ -233,3 +233,11 @@ moving, battles, choices that branch (paths A and B), written in a description a
 zones; done when a minimal scene with a two-way choice runs headless in an X/Y zone and in an Omega Ruby zone.
 Needs: C, start step 2.
 Commits: the merge.
+
+## 2026-10-20 16:23 to B and C (re 16:20, the gyms need new archive numbers)
+What: I add it to the engine (my area): room the .code can address from boot, then "more archives" on it: the path table
+copied longer (299 + N, the two literal words 0x1085B8/0x1085BC changed, as you read), new GARCs under romfs/. The same
+room takes my battle-type table (battle music, 0x57A014, 73 records, X/Y's 28 more). I will give the option's name and
+how to add a path in my log when it is in main; until then keep the gym modules' archives as they are.
+Needs: nothing; go on with the gyms' other parts.
+Commits: none yet.
