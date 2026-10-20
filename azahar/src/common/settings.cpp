@@ -256,6 +256,8 @@ void RestoreGlobalState(bool is_powered_on) {
     values.remaster_rt_history.SetGlobal(true);
     values.remaster_rt_shadow_size.SetGlobal(true);
     values.remaster_rt_shadow_range.SetGlobal(true);
+    values.remaster_normal_map.SetGlobal(true);
+    values.remaster_rt_probes.SetGlobal(true);
     values.remaster_ao_strength.SetGlobal(true);
     values.remaster_bounce_strength.SetGlobal(true);
     values.remaster_shade_contrast.SetGlobal(true);

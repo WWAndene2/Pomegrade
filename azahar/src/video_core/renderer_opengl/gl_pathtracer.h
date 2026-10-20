@@ -65,16 +65,20 @@ public:
     /// clock's, so a run renders a chosen time of day; negative goes back to the clock
     static void SetTestHour(float hour);
 
-    /// A vertex as the software vertex shader outputs it: clip position, the lighting's view vector and normal quaternion
+    /// A vertex as the software vertex shader outputs it: clip position, the lighting's view vector and normal
+    /// quaternion, its first texture coordinate
     struct InputVertex {
         float clip[4];
         float view[3];
         float normquat[4];
+        float uv[2];
     };
 
     /// A lit draw: its triangles (three vertices each), drawn into the render target whose colour buffer is at `target`
-    /// through `viewport` (x, y, width, height, in the target's scaled pixels)
-    void Capture(PAddr target, const std::array<GLint, 4>& viewport, std::span<const InputVertex> vertices);
+    /// through `viewport` (x, y, width, height, in the target's scaled pixels); `texture` and `sampler`, its first
+    /// texture as the game samples it (0: none), give its surface the normal map (Settings::values.remaster_normal_map)
+    void Capture(PAddr target, const std::array<GLint, 4>& viewport, std::span<const InputVertex> vertices,
+                 GLuint texture, GLuint sampler);
 
     struct Result {
         GLuint light = 0;    ///< the denoised light (rgb the light, a the occlusion), the target's size; 0: none
@@ -95,9 +99,11 @@ private:
         float clip[4];
         float position[3];
         float normal[3];
+        float uv[2];
     };
     struct Batch {
         std::array<GLint, 4> viewport;
+        GLuint texture, sampler; ///< the draw's first texture and its sampler (0: none)
         std::size_t first, count; ///< vertices in the frame's list
     };
     struct Frame {
@@ -109,6 +115,8 @@ private:
     void Upload(const Frame& frame);
     /// The sun's shadow map: the frame's triangles drawn again from the sun (orthographic, around the camera)
     void DrawShadowMap(const Frame& frame, OpenGLState& state);
+    /// Pomegrade: the triangles whose lighting position disagrees with where the game drew them, made empty
+    static void RejectStrays(Frame& frame);
 
     std::unordered_map<PAddr, std::shared_ptr<Frame>> frames;    ///< being drawn, by render target
     std::unordered_map<PAddr, bool> copied;                       ///< a target's frame was copied out: next draw starts anew
@@ -117,6 +125,7 @@ private:
     u32 frame_number = 0;
 
     OGLTexture gbuffer_position, gbuffer_normal, gbuffer_distance;
+    OGLTexture gbuffer_bump; ///< the normal bent by the surface's texture (the normal map), for the light's shading only
     OGLRenderbuffer gbuffer_depth;
     OGLFramebuffer gbuffer_fbo;
     std::array<OGLTexture, 2> light;
@@ -144,6 +153,13 @@ private:
     std::array<OGLFramebuffer, 2> half_light_fbo;
     std::array<OGLTexture, 2> fast_result;   ///< the history plus the sun's light, handed to Remaster
     std::array<OGLFramebuffer, 2> fast_fbo;  ///< history and fast_result together
+    // the light probes (Settings::values.remaster_rt_probes): their rays (an atlas), then each one's light as spherical
+    // harmonics; rebuilt when their count or rays change
+    void ResizeProbes(u32 w, u32 h, u32 side);
+    u32 probe_w_ = 0, probe_h_ = 0, probe_side_ = 0;
+    OGLTexture probe_atlas, probe_colour, probe_slope;
+    OGLFramebuffer probe_atlas_fbo, probe_sh_fbo;
+    OGLProgram probe_trace_program, probe_sh_program;
     float view_to_sun[16] = {}; ///< view space to the shadow map's clip space (column-major)
     float shadow_bias = 0, depth_scale = 0, shadow_texel = 0;
 

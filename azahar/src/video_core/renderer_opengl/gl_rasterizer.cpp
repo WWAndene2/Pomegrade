@@ -655,19 +655,31 @@ bool RasterizerOpenGL::Draw(bool accelerate, bool is_indexed) {
         // Pomegrade: a lit draw that writes depth goes to the path tracer. The others are left out: ORAS lays its paths
         // and ground details as sheets just above the ground, not writing depth, which would shadow it all (its opaque
         // terrain is drawn with blending on, so blending does not tell them apart)
-        if (path_tracer && !regs.lighting.disable && !shadow_rendering && using_color_fb &&
+        // Nor a draw that writes no colour: games draw collision volumes and occluders that way (depth only), and they
+        // cast shadows and occlusion as if they were there
+        const bool writes_colour = state.color_mask.red_enabled || state.color_mask.green_enabled ||
+                                   state.color_mask.blue_enabled;
+        if (path_tracer && !regs.lighting.disable && !shadow_rendering && using_color_fb && writes_colour &&
             state.depth.write_mask == GL_TRUE && PathTracerGL::Enabled()) {
             std::vector<PathTracerGL::InputVertex> captured(vertex_batch.size());
             for (std::size_t i = 0; i < vertex_batch.size(); i++) {
                 const HardwareVertex& v = vertex_batch[i];
                 captured[i] = {{v.position[0], v.position[1], v.position[2], v.position[3]},
                                {v.view[0], v.view[1], v.view[2]},
-                               {v.normquat[0], v.normquat[1], v.normquat[2], v.normquat[3]}};
+                               {v.normquat[0], v.normquat[1], v.normquat[2], v.normquat[3]},
+                               {v.tex_coord0[0], v.tex_coord0[1]}};
             }
+            // its first texture, for the normal map the path tracer derives from it (a plain 2D texture only)
+            const auto& texture0 = regs.texturing.GetTextures()[0];
+            const bool plain_2d = texture0.enabled &&
+                                  texture0.config.type.Value() ==
+                                      Pica::TexturingRegs::TextureConfig::TextureType::Texture2D &&
+                                  state.texture_units[0].target == GL_TEXTURE_2D;
             path_tracer->Capture(regs.framebuffer.framebuffer.GetColorBufferPhysicalAddress(),
                                  {state.viewport.x, state.viewport.y, state.viewport.width,
                                   state.viewport.height},
-                                 captured);
+                                 captured, plain_2d ? state.texture_units[0].texture_2d : 0,
+                                 plain_2d ? state.texture_units[0].sampler : 0);
         }
         state.draw.vertex_array = sw_vao.handle;
         state.draw.vertex_buffer = vertex_buffer.GetHandle();
@@ -709,6 +721,7 @@ void RasterizerOpenGL::SyncTextureUnits(const Framebuffer* framebuffer) {
     user_config = {};
 
     const auto pica_textures = regs.texturing.GetTextures();
+    std::array<u8, 2> water{}; // Pomegrade: the ORAS sea layers bound to textures 0 and 1 (Surface::pomegrade_water)
     for (u32 texture_index = 0; texture_index < pica_textures.size(); ++texture_index) {
         const auto& texture = pica_textures[texture_index];
 
@@ -760,11 +773,19 @@ void RasterizerOpenGL::SyncTextureUnits(const Framebuffer* framebuffer) {
 
         // Bind the texture provided by the rasterizer cache
         Surface& surface = res_cache.GetTextureSurface(texture);
+        if (texture_index < water.size()) {
+            water[texture_index] = surface.pomegrade_water;
+        }
         if (!IsFeedbackLoop(texture_index, framebuffer, surface)) {
             BindMaterial(texture_index, surface);
             state.texture_units[texture_index].texture_2d = surface.Handle();
             state.texture_units[texture_index].target = GL_TEXTURE_2D;
         }
+    }
+    // Pomegrade: the sea's draw (its main layer on texture 0, its second on texture 1) gets the water look while the
+    // Remaster is on
+    if (water[0] == 1 && water[1] == 2 && Settings::values.remaster_preset.GetValue() != 0) {
+        user_config.pomegrade_water.Assign(1);
     }
 
     if (emulate_minmax_blend && !driver.HasShaderFramebufferFetch()) {

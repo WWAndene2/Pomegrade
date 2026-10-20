@@ -86,6 +86,9 @@ private:
 public:
     SurfaceFlagBits flags{};
     const Material* material = nullptr;
+    /// Pomegrade: an ORAS sea texture, recognised by its data at upload (0 none, 1 the main layer chip_sea_b, 2 the
+    /// second chip_sea_a); the rasterizer gives a draw on layer 1 the water look (glsl_fs_shader_gen.cpp, WriteWater)
+    u8 pomegrade_water = 0;
     SurfaceRegions invalid_regions;
     u32 fill_size = 0;
     std::array<u8, 4> fill_data{};

@@ -317,6 +317,12 @@ static const char* android_config_default_file_content = (BOOST_HANA_STRING(R"(
 # Pomegrade: Ray tracing: shadow range (0-100%, default 67): Share of the scene the shadow map covers, nearest first (more: shadows further away, less sharp)
 )") DECLARE_KEY(remaster_rt_shadow_range) BOOST_HANA_STRING(R"(
 
+# Pomegrade: Ray tracing: normal map (0-100%, default 50): Relief the light reads from each surface's texture (0: none)
+)") DECLARE_KEY(remaster_normal_map) BOOST_HANA_STRING(R"(
+
+# Pomegrade: Ray tracing: light probes (0-100%, default 50): Rays each probe traces for the light from far away: distant sky, shade and bounce (0: off)
+)") DECLARE_KEY(remaster_rt_probes) BOOST_HANA_STRING(R"(
+
 # Pomegrade: Remaster: ambient occlusion strength (0-100%, default 50): How dark creases, corners and the ground under objects get
 )") DECLARE_KEY(remaster_ao_strength) BOOST_HANA_STRING(R"(
 

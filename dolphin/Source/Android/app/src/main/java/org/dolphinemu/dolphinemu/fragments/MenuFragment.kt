@@ -49,6 +49,7 @@ class MenuFragment : Fragment() {
             EmulatorMenuR.id.emulator_menu_save_state,
             EmulatorMenuR.id.emulator_menu_load_state,
             EmulatorMenuR.id.emulator_menu_change_disc,
+            EmulatorMenuR.id.emulator_menu_performance_overlay,
             EmulatorMenuR.id.emulator_menu_settings,
             EmulatorMenuR.id.emulator_menu_exit,
         )
@@ -94,6 +95,12 @@ class MenuFragment : Fragment() {
         // in hardcore mode, AchievementManager blocks loading and says so on screen
         menu.findItem(EmulatorMenuR.id.emulator_menu_quick_load).isEnabled = !hardcoreEnabled
         menu.findItem(EmulatorMenuR.id.emulator_menu_load_state).isEnabled = !hardcoreEnabled
+        updatePerformanceOverlayCheck()
+    }
+
+    private fun updatePerformanceOverlayCheck() {
+        binding.inGameMenu.menu.findItem(EmulatorMenuR.id.emulator_menu_performance_overlay)?.isChecked =
+            EmulationActivity.isPerformanceOverlayShown()
     }
 
     override fun onDestroyView() {
@@ -118,6 +125,7 @@ class MenuFragment : Fragment() {
         }
         runItem(activity, itemId)
         if (itemId == EmulatorMenuR.id.emulator_menu_pause) updatePauseTitle()
+        updatePerformanceOverlayCheck()
     }
 
     companion object {
@@ -135,6 +143,7 @@ class MenuFragment : Fragment() {
             EmulatorMenuR.id.emulator_menu_settings to EmulationActivity.MENU_ACTION_SETTINGS,
             EmulatorMenuR.id.emulator_menu_skylanders to EmulationActivity.MENU_ACTION_SKYLANDERS,
             EmulatorMenuR.id.emulator_menu_infinity_base to EmulationActivity.MENU_ACTION_INFINITY_BASE,
+            EmulatorMenuR.id.emulator_menu_performance_overlay to EmulationActivity.MENU_ACTION_PERFORMANCE_OVERLAY,
         )
 
         /** Pomegrade: the entries the shortcut pill offers on this core (those that need no open menu). */

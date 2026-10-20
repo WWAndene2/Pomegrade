@@ -33,6 +33,8 @@ enum class IntSetting(
     REMASTER_RT_HISTORY(SettingKeys.remaster_rt_history(), Settings.SECTION_RENDERER, 95),
     REMASTER_RT_SHADOW_SIZE(SettingKeys.remaster_rt_shadow_size(), Settings.SECTION_RENDERER, 43),
     REMASTER_RT_SHADOW_RANGE(SettingKeys.remaster_rt_shadow_range(), Settings.SECTION_RENDERER, 67),
+    REMASTER_NORMAL_MAP(SettingKeys.remaster_normal_map(), Settings.SECTION_RENDERER, 50),
+    REMASTER_RT_PROBES(SettingKeys.remaster_rt_probes(), Settings.SECTION_RENDERER, 50),
     REMASTER_AO_STRENGTH(SettingKeys.remaster_ao_strength(), Settings.SECTION_RENDERER, 50),
     REMASTER_BOUNCE_STRENGTH(SettingKeys.remaster_bounce_strength(), Settings.SECTION_RENDERER, 50),
     REMASTER_SHADE_CONTRAST(SettingKeys.remaster_shade_contrast(), Settings.SECTION_RENDERER, 50),

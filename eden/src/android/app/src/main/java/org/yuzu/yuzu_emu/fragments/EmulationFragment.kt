@@ -744,6 +744,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 EmulatorMenuR.id.emulator_menu_controls,
                 EmulatorMenuR.id.emulator_menu_overlay_visibility,
                 EmulatorMenuR.id.emulator_menu_overlay_options,
+                EmulatorMenuR.id.emulator_menu_performance_overlay,
                 EmulatorMenuR.id.emulator_menu_amiibo,
                 EmulatorMenuR.id.emulator_menu_lock_drawer,
                 EmulatorMenuR.id.emulator_menu_quick_settings,
@@ -828,6 +829,14 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 openQuickSettingsMenu()
                 true
             }
+
+                // Pomegrade: every console's menu has it; the same switch as the overlay options' "show stats"
+                EmulatorMenuR.id.emulator_menu_performance_overlay -> {
+                    BooleanSetting.SHOW_PERFORMANCE_OVERLAY.setBoolean(!BooleanSetting.SHOW_PERFORMANCE_OVERLAY.getBoolean())
+                    NativeConfig.saveGlobalConfig()
+                    updateShowStatsOverlay()
+                    true
+                }
 
                 EmulatorMenuR.id.emulator_menu_game_settings -> {
                     val action = HomeNavigationDirections.actionGlobalSettingsActivity(
@@ -1515,6 +1524,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
     @SuppressLint("DefaultLocale")
     private fun updateShowStatsOverlay() {
         val showPerfOverlay = BooleanSetting.SHOW_PERFORMANCE_OVERLAY.getBoolean()
+        binding.inGameMenu.menu.findItem(EmulatorMenuR.id.emulator_menu_performance_overlay)?.isChecked = showPerfOverlay
         binding.showStatsOverlayText.apply {
             setTextColor(
                 MaterialColors.getColor(

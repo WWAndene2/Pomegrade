@@ -26,16 +26,22 @@ namespace {
 // texture units OpenGLState never binds (it tracks 0-7; 15 is the texture runtime's temporary unit)
 constexpr GLuint UnitPosition = 8, UnitNormal = 9, UnitFrame = 10, UnitNodes = 11, UnitTriangles = 12;
 constexpr GLuint UnitShadow = 11; // the fast tracer's (Ultra's nodes are a buffer texture: never both in one pass)
+// the bent normal (the normal map): 12 in the fast tracer's passes (Ultra's triangles), 13 in Ultra's trace (a denoise
+// input only after it); the G-buffer draws read each draw's own texture at 0, OpenGLState's unit (restored after)
+constexpr GLuint UnitBumpFast = 12, UnitBumpUltra = 13;
 
 constexpr char GBUFFER_VERT[] = R"(
 layout(location = 0) in vec4 clip;
 layout(location = 1) in vec3 position;
 layout(location = 2) in vec3 normal;
+layout(location = 3) in vec2 uv;
 out vec3 v_position;
 out vec3 v_normal;
+out vec2 v_uv;
 void main() {
     v_position = position;
     v_normal = normal;
+    v_uv = uv;
     gl_Position = vec4(clip.x, clip.y, -clip.z, clip.w); // as the rasterizer's vertex shaders
 }
 )";
@@ -47,9 +53,14 @@ precision highp float;
 #endif
 in vec3 v_position;
 in vec3 v_normal;
+in vec2 v_uv;
+layout(binding = 0) uniform sampler2D albedo; // the draw's first texture, as the game samples it
+uniform float bump;                            // the normal map's strength (0: none, or no texture)
 layout(location = 0) out vec4 g_position;
 layout(location = 1) out vec4 g_normal;
 layout(location = 2) out float g_distance; // for Remaster's depth effects: 0 near, 1 far
+layout(location = 3) out vec4 g_bump;
+float Luma(vec2 uv) { return dot(texture(albedo, uv).rgb, vec3(0.2126, 0.7152, 0.0722)); }
 void main() {
     g_distance = clamp(length(v_position) / 3000.0, 0.0, 0.999);
     g_position = vec4(v_position, 1.0);
@@ -57,6 +68,33 @@ void main() {
     if (dot(n, -v_position) < 0.0) n = -n; // toward the camera
     g_normal = vec4(n, 0.0);
     gl_FragDepth = clamp(length(v_position) * 1e-5, 0.0, 1.0);
+    // The normal map, made from the texture as the Littleroot renders chose it (tools/remake/render, version 5 "soft
+    // edges, low intensity"): the height is a texel's brightness against its neighbourhood (a tuft against its own
+    // patch: a plain change of colour is not a slope), its slope read softly (4 bilinear taps 0.75 texel off, about
+    // the renders' 0.75-texel blur) less the slope of the neighbourhood's brightness (the same taps 6 texels off), and
+    // the normal tilted against that slope in the surface's own texture directions (from the screen derivatives).
+    // The renders' colour-aware smoothing is left out (a texture's dither can show as a fine grain), and window
+    // glass is not told apart (it gets a faint relief too)
+    g_bump = g_normal;
+    if (bump > 0.0) {
+        vec2 t = 1.0 / vec2(textureSize(albedo, 0));
+        vec2 f = 0.75 * t, w = 6.0 * t;
+        float a = Luma(v_uv + vec2(f.x, f.y)), b = Luma(v_uv + vec2(f.x, -f.y));
+        float c = Luma(v_uv + vec2(-f.x, f.y)), d = Luma(v_uv + vec2(-f.x, -f.y));
+        float A = Luma(v_uv + vec2(w.x, w.y)), B = Luma(v_uv + vec2(w.x, -w.y));
+        float C = Luma(v_uv + vec2(-w.x, w.y)), D = Luma(v_uv + vec2(-w.x, -w.y));
+        // slopes per texel
+        vec2 slope = vec2(a + b - c - d, a + c - b - d) / 3.0 - vec2(A + B - C - D, A + C - B - D) / 24.0;
+        vec3 dp1 = dFdx(v_position), dp2 = dFdy(v_position);
+        vec2 du1 = dFdx(v_uv), du2 = dFdy(v_uv);
+        vec3 dp2p = cross(dp2, n), dp1p = cross(n, dp1);
+        vec3 tu = dp2p * du1.x + dp1p * du2.x, tv = dp2p * du1.y + dp1p * du2.y;
+        if (dot(tu, tu) > 0.0 && dot(tv, tv) > 0.0) {
+            tu = normalize(tu);
+            tv = normalize(tv);
+            g_bump = vec4(normalize(n - (slope.x * tu + slope.y * tv) * bump), 0.0);
+        }
+    }
 }
 )";
 
@@ -88,6 +126,7 @@ constexpr char TRACE_FRAG[] = R"(
 layout(binding = 10) uniform sampler2D frame;
 layout(binding = 11) uniform samplerBuffer nodes;
 layout(binding = 12) uniform samplerBuffer triangles;
+layout(binding = 13) uniform sampler2D g_bump; // the normal bent by the normal map
 uniform vec3 sun;          // toward the sun, view space
 uniform vec3 sun_colour;
 uniform vec3 up;
@@ -203,7 +242,7 @@ void main() {
     float sr = sqrt(Random()) * 0.026, sa = 6.2831853 * Random();
     vec3 sun_ray = normalize(sun + (st * cos(sa) + sb * sin(sa)) * sr);
     float lit = Hit(o, sun_ray, 1e5, tri) < 1e5 ? 0.0 : 1.0;
-    vec3 light = sun_colour * max(dot(n, sun), 0.0) * lit;
+    vec3 light = sun_colour * max(dot(texture(g_bump, frag_tex_coord).xyz, sun), 0.0) * lit;
     // the sky and the bounce: three rays over the hemisphere, cosine-weighted (a white surface sends back their mean)
     const int Samples = 3;
     const float Reach = 600.0, Occlusion = 40.0;
@@ -302,9 +341,10 @@ void main() {
 // The fast tracer, at half size: the sun from the shadow map, then one ray marched through the G-buffer for the sky
 // and the bounce. Its distances are a share of the point's own distance to the camera (the scene's scale is not known):
 // reach 0.3, thickness 0.05, as fitted on the test scene against three-gpu-pathtracer.
-constexpr char FAST_TRACE_FRAG[] = R"(
+constexpr char FAST_HELPERS[] = R"(
 layout(binding = 10) uniform sampler2D frame;
 layout(binding = 11) uniform sampler2D shadow_map;
+layout(binding = 12) uniform sampler2D g_bump; // the normal bent by the normal map
 uniform vec3 sun;
 uniform vec3 sun_colour;
 uniform vec3 up;
@@ -325,13 +365,6 @@ uniform int steps;
 uniform float reach_share;
 uniform float thickness_share;
 uniform float indirect;
-
-uint state_;
-float Random() {
-    state_ = state_ * 747796405u + 2891336453u;
-    uint w = ((state_ >> ((state_ >> 28u) + 4u)) ^ state_) * 277803737u;
-    return float((w >> 22u) ^ w) * (1.0 / 4294967296.0);
-}
 
 vec3 Sky(vec3 d) {
     float h = dot(d, up);
@@ -365,16 +398,49 @@ float Sun(vec3 p) {
     vec4 l = view_to_sun * vec4(p, 1.0);
     vec3 c = l.xyz / l.w * 0.5 + 0.5;
     if (any(lessThan(c.xy, vec2(0.0))) || any(greaterThan(c.xy, vec2(1.0)))) return 1.0;
-    vec2 jitter = (vec2(Random(), Random()) - 0.5) / vec2(textureSize(shadow_map, 0));
-    return c.z - shadow_bias - length(p) * 0.002 * depth_scale < texture(shadow_map, c.xy + jitter).r ? 1.0 : 0.0;
+    // Pomegrade: no random jitter (it was noise in the bounce, which the horizon search now gathers without any)
+    return c.z - shadow_bias - length(p) * 0.002 * depth_scale < texture(shadow_map, c.xy).r ? 1.0 : 0.0;
 }
 
-vec3 Cosine(vec3 n) {
-    float r1 = Random(), r2 = Random();
-    float phi = 6.2831853 * r1, s = sqrt(r2);
-    vec3 a = abs(n.x) < 0.9 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
-    vec3 t = normalize(cross(a, n)), b = cross(n, t);
-    return normalize(t * cos(phi) * s + b * sin(phi) * s + n * sqrt(1.0 - r2));
+)";
+
+// Light probes (Settings::values.remaster_rt_probes; screen-space probes, as Lumen's): one probe every `probe_tile`
+// G-buffer pixels, on the surface there, traces a hemisphere of rays beyond the horizon search's reach (PROBE_TRACE_FRAG),
+// summed into spherical harmonics (PROBE_SH_FRAG); each pixel reads the four probes around it, weighted by how close
+// their surface is to its own plane and normal. They give the light coming from far through the open share: the sky
+// where the rays escape, hidden where something far stands in the way, and the sun's light bounced off what they hit
+constexpr char FAST_TRACE_FRAG[] = R"(
+layout(binding = 13) uniform sampler2D probe_colour; // rgb: the light's mean (L0), a: 1 where the probe is valid
+layout(binding = 14) uniform sampler2D probe_slope;  // xyz: its brightness's direction (L1)
+uniform float probes;     // 0 off
+uniform vec2 probe_count; // probes across and down
+uniform float probe_tile; // G-buffer pixels between probes
+
+// the light reaching a surface of normal n at p from the probes around it (irradiance over pi); w: their total weight
+vec3 ProbeLight(vec3 p, vec3 n, out float w) {
+    vec2 g = frag_tex_coord * vec2(textureSize(g_position, 0)) / probe_tile - 0.5;
+    vec2 i0 = floor(g), f = g - i0;
+    vec3 sum = vec3(0.0);
+    w = 0.0;
+    for (int k = 0; k < 4; k++) {
+        vec2 c = clamp(i0 + vec2(float(k & 1), float(k >> 1)), vec2(0.0), probe_count - 1.0);
+        vec2 uv = (c + 0.5) / probe_count;
+        vec4 l0 = texture(probe_colour, uv);
+        if (l0.a < 0.5) continue;
+        vec2 at = (c + 0.5) * probe_tile / vec2(textureSize(g_position, 0));
+        vec3 pp = texture(g_position, at).xyz, pn = texture(g_normal, at).xyz;
+        float bil = (k & 1) == 1 ? f.x : 1.0 - f.x;
+        bil *= (k >> 1) == 1 ? f.y : 1.0 - f.y;
+        float plane = exp(-abs(dot(p - pp, pn)) / (0.02 * length(p) + 0.05));
+        float wt = max(bil, 1e-3) * plane * pow(max(dot(n, pn), 0.0), 4.0);
+        vec3 l1 = texture(probe_slope, uv).xyz;
+        float lum = max(dot(l0.rgb, vec3(0.2126, 0.7152, 0.0722)), 1e-4);
+        // L0 and L1 convolved with the cosine (irradiance / pi): 0.282095 Y0, 2/3 of 0.488603 Y1
+        float dir = 1.0 + (2.0 / 3.0) * 0.488603 * dot(l1, n) / (0.282095 * lum);
+        sum += wt * 0.282095 * l0.rgb * max(dir, 0.0);
+        w += wt;
+    }
+    return w > 0.0 ? sum / w : vec3(0.0);
 }
 
 void main() {
@@ -384,38 +450,177 @@ void main() {
         return;
     }
     ivec2 px = ivec2(gl_FragCoord.xy);
-    state_ = uint(px.x) * 1973u + uint(px.y) * 9277u + uint(seed) * 26699u;
     vec3 p = gp.xyz, n = texture(g_normal, frag_tex_coord).xyz;
     float dist = length(p);
     vec3 o = p + n * (0.02 + dist * 0.002);
     // the sun's own light is added at full size after the accumulation (FAST_TEMPORAL_FRAG): denoised and accumulated
     // here it blurred the shadows and left a moving object's shadow trailing on still ground
-    // one ray: a surface it reaches on screen sends back its light (the bounce), else the sky above the horizon; below
-    // it, the ground beyond the reach (its glow, not sky: counting it open lit the walls far too much)
+    // Pomegrade: the sky and the bounce from the horizon, not from one random ray (a random direction each pixel and
+    // frame was the "snow"). In 4 screen directions, on both sides, the highest the G-buffer rises toward the camera
+    // within the reach (GTAO, Jimenez 2016): the share of sky the surface sees has an exact formula from those angles and
+    // its normal; what forms the horizon sends its light back (the bounce, lit by the sun as the ray's hit was). No
+    // randomness: the same pixel gives the same light every frame (a fixed 4 x 4 turn of the directions, which the
+    // a-trous passes smooth). Measured on Littleroot (tools/remake/render/ORAS_RENDER.md, "Probe light")
     float reach = reach_share * dist, thickness = thickness_share * dist;
-    vec3 d = Cosine(n);
-    float jitter = Random();
-    vec3 gathered = dot(d, up) >= 0.0 ? Sky(d) : sky_horizon * 0.35;
-    float open_ = dot(d, up) >= 0.0 ? 1.0 : 0.0;
-    for (int i = 0; i < 32; i++) {
-        if (i >= steps) break;
-        float t = reach * (float(i) + jitter) / float(steps);
-        vec3 s = o + d * t;
+    int per_side = clamp(steps / 4, 2, 8);
+    vec3 v = normalize(-p);
+    float turn = float((px.x & 3) * 4 + (px.y & 3)) / 16.0 * 0.7853982;
+    float vis = 0.0;
+    vec3 bounce = vec3(0.0);
+    float bounce_w = 0.0;
+    for (int sl = 0; sl < 4; sl++) {
+        float phi = float(sl) * 0.7853982 + turn;
+        vec3 dir = vec3(cos(phi), sin(phi), 0.0);
+        vec3 ortho = dir - dot(dir, v) * v;
+        vec3 axis = normalize(cross(dir, v));
+        vec3 pn = n - axis * dot(n, axis);
+        float plen = max(length(pn), 1e-4);
+        float cos_n = clamp(dot(pn, v) / plen, -1.0, 1.0);
+        float n_ang = sign(dot(pn, ortho)) * acos(cos_n);
+        float hor[2] = float[2](-1.0, -1.0);
+        for (int side = 0; side < 2; side++) {
+            float sg = side == 0 ? -1.0 : 1.0;
+            for (int i = 1; i <= 8; i++) {
+                if (i > per_side) break;
+                vec3 s = o + ortho * (sg * reach * float(i) / float(per_side));
+                vec2 st;
+                if (!ToGbuffer(s, st)) break; // off screen: nothing known, taken as open
+                vec4 q = texture(g_position, st);
+                if (q.w < 0.5) continue;
+                vec3 w = q.xyz - p;
+                float len = length(w);
+                if (len > reach || len < 1e-3 || length(s) - length(q.xyz) > thickness + reach) continue;
+                float c = dot(w, v) / len;
+                if (c > hor[side]) {
+                    hor[side] = c;
+                    // what rises above the surface sends its light back: its colour, lit by the sun where it reaches it
+                    vec3 hn = texture(g_normal, st).xyz;
+                    float lq = length(q.xyz);
+                    float sun_at = max(dot(hn, sun), 0.0);
+                    if (sun_at > 0.0) sun_at *= Sun(q.xyz + hn * (0.02 + lq * 0.002));
+                    float wt = max(dot(n, w / len), 0.0);
+                    bounce += Albedo(st) * (sun_colour * sun_at + 0.5 * (sky_top + sky_horizon)) * wt;
+                    bounce_w += wt;
+                }
+            }
+        }
+        float h0 = n_ang + max(-acos(hor[0]) - n_ang, -1.5707963);
+        float h1 = n_ang + min(acos(hor[1]) - n_ang, 1.5707963);
+        float sn = sin(n_ang);
+        vis += plen * 0.25 * ((-cos(2.0 * h0 - n_ang) + cos_n + 2.0 * h0 * sn) + (-cos(2.0 * h1 - n_ang) + cos_n + 2.0 * h1 * sn));
+    }
+    float open_ = clamp(vis / 4.0, 0.0, 1.0);
+    // the sky over the open share (around the normal, bent toward up), the bounce over the rest; with nothing found
+    // rising (a surface facing down), the ground's glow, as the ray took below the horizon
+    vec3 sky = dot(n, up) > -0.2 ? Sky(normalize(n + up)) : sky_horizon * 0.35;
+    // the normal map: the sky's light as a hemisphere's on the bent normal against the surface's own (its relief in
+    // the shade too, where the sun does not show it)
+    if (probes > 0.5) {
+        float pw;
+        vec3 far_light = ProbeLight(p, n, pw);
+        sky = mix(sky, far_light, clamp(pw * 4.0, 0.0, 1.0)); // the sky as before where no probe fits
+    }
+    vec3 nb = texture(g_bump, frag_tex_coord).xyz;
+    sky *= (0.5 + 0.5 * dot(nb, up)) / max(0.5 + 0.5 * dot(n, up), 0.05);
+    vec3 back_light = bounce_w > 0.0 ? bounce / bounce_w : sky_horizon * 0.35;
+    vec3 gathered = sky * open_ + back_light * (1.0 - open_);
+    vec3 light = gathered * indirect / reference;
+    float peak = max(max(light.r, light.g), light.b);
+    if (peak > 1.5) light *= 1.5 / peak; // a lone bright ray capped (it was left as a sparkle)
+    color = vec4(light, open_);
+}
+)";
+
+// a probe's rays: the atlas holds probe_side x probe_side texels per probe, one ray each over the hemisphere around the
+// probe's normal (octahedral), marched through the G-buffer from the horizon search's reach to six times it
+constexpr char PROBE_TRACE_FRAG[] = R"(
+uniform float probe_side;
+uniform float probe_tile;
+
+void main() {
+    vec2 px = floor(gl_FragCoord.xy);
+    vec2 probe = floor(px / probe_side), cell = px - probe * probe_side;
+    vec2 at = (probe + 0.5) * probe_tile / vec2(textureSize(g_position, 0));
+    vec4 gp = texture(g_position, at);
+    if (gp.w < 0.5 || any(greaterThan(at, vec2(1.0)))) {
+        color = vec4(0.0);
+        return;
+    }
+    vec3 p = gp.xyz, n = texture(g_normal, at).xyz;
+    float dist = length(p);
+    vec3 o = p + n * (0.02 + dist * 0.002);
+    vec2 u = (cell + 0.5) / probe_side * 2.0 - 1.0;
+    vec3 h = vec3((u.x + u.y) * 0.5, (u.x - u.y) * 0.5, 0.0);
+    h.z = 1.0 - abs(h.x) - abs(h.y);
+    vec3 t = normalize(cross(abs(n.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0), n)), b = cross(n, t);
+    vec3 d = normalize(t * h.x + b * h.y + n * h.z);
+    float reach = reach_share * dist, thickness = thickness_share * dist;
+    const int K = 12;
+    vec3 radiance = dot(d, up) > -0.2 ? Sky(d) : sky_horizon * 0.35; // escaped: the sky, or the ground's glow
+    float prev = reach;
+    for (int i = 0; i < K; i++) {
+        float tt = reach * pow(6.0, float(i + 1) / float(K)); // reach to 6 x reach, spaced by ratio
+        vec3 s = o + d * tt;
         vec2 st;
-        if (!ToGbuffer(s, st)) break; // off screen: nothing known, taken as open
+        if (!ToGbuffer(s, st)) break; // off screen: taken as open (as the horizon search does)
         vec4 q = texture(g_position, st);
-        if (q.w < 0.5) continue;
-        float ls = length(s), lq = length(q.xyz);
-        if (lq < ls - 0.002 * ls - 0.01 && ls - lq < thickness) {
+        float len_q = length(q.xyz), len_s = length(s);
+        if (q.w > 0.5 && len_q < len_s - 1e-3 && len_s - len_q < thickness + (tt - prev)) {
+            // hit: the surface's colour, lit by the sun where it reaches it, plus the sky's mean
             vec3 hn = texture(g_normal, st).xyz;
             float sun_at = max(dot(hn, sun), 0.0);
-            if (sun_at > 0.0) sun_at *= Sun(q.xyz + hn * (0.02 + lq * 0.002));
-            gathered = Albedo(st) * (sun_colour * sun_at + 0.5 * (sky_top + sky_horizon));
-            open_ = smoothstep(0.0, 1.0, t / reach);
+            if (sun_at > 0.0) sun_at *= Sun(q.xyz + hn * (0.02 + len_q * 0.002));
+            radiance = Albedo(st) * (sun_colour * sun_at + 0.5 * (sky_top + sky_horizon));
             break;
         }
+        prev = tt;
     }
-    color = vec4(gathered * indirect / reference, open_);
+    color = vec4(radiance, 1.0);
+}
+)";
+
+// a probe's rays summed into spherical harmonics: L0 in colour, L1 of the brightness (each ray 2 pi / N of the
+// hemisphere); location 0 its colour and validity, 1 its slope
+constexpr char PROBE_SH_FRAG[] = R"(
+#ifdef GL_ES
+precision highp float;
+precision highp int;
+precision highp sampler2D;
+#endif
+layout(location = 0) out vec4 l0;
+layout(location = 1) out vec4 l1;
+layout(binding = 8) uniform sampler2D g_position;
+layout(binding = 9) uniform sampler2D g_normal;
+layout(binding = 13) uniform sampler2D atlas;
+uniform float probe_side;
+uniform float probe_tile;
+void main() {
+    vec2 probe = floor(gl_FragCoord.xy);
+    vec2 at = (probe + 0.5) * probe_tile / vec2(textureSize(g_position, 0));
+    vec4 gp = texture(g_position, at);
+    if (gp.w < 0.5 || any(greaterThan(at, vec2(1.0)))) {
+        l0 = vec4(0.0);
+        l1 = vec4(0.0);
+        return;
+    }
+    vec3 n = texture(g_normal, at).xyz;
+    vec3 t = normalize(cross(abs(n.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0), n)), b = cross(n, t);
+    int side = int(probe_side);
+    float w = 6.2831853 / float(side * side);
+    vec3 c0 = vec3(0.0), c1 = vec3(0.0);
+    for (int y = 0; y < side; y++) {
+        for (int x = 0; x < side; x++) {
+            vec2 u = (vec2(float(x), float(y)) + 0.5) / probe_side * 2.0 - 1.0;
+            vec3 h = vec3((u.x + u.y) * 0.5, (u.x - u.y) * 0.5, 0.0);
+            h.z = 1.0 - abs(h.x) - abs(h.y);
+            vec3 d = normalize(t * h.x + b * h.y + n * h.z);
+            vec3 r = texelFetch(atlas, ivec2(probe * probe_side) + ivec2(x, y), 0).rgb;
+            c0 += r * (0.282095 * w);
+            c1 += d * (dot(r, vec3(0.2126, 0.7152, 0.0722)) * 0.488603 * w);
+        }
+    }
+    l0 = vec4(c0, 1.0);
+    l1 = vec4(c1, 0.0);
 }
 )";
 
@@ -429,6 +634,7 @@ layout(binding = 13) uniform sampler2D current;
 layout(binding = 14) uniform sampler2D history_;
 layout(binding = 10) uniform sampler2D previous;
 layout(binding = 11) uniform sampler2D shadow_map;
+layout(binding = 12) uniform sampler2D g_bump; // the normal bent by the normal map
 layout(location = 1) out vec4 lit;
 uniform float first;
 uniform vec2 half_size;
@@ -494,12 +700,29 @@ void main() {
         }
         now = sum / wsum;
     }
+    // the history: Pomegrade kept it only where the pixel shows the very same point as last frame, which the field's
+    // camera, following the player, breaks for nearly every pixel while walking: the raw noise every frame (the snow).
+    // Now it is kept there too, a little less, clamped to the range of this frame's light around the pixel (3x3 half-size
+    // texels), as temporal anti-aliasing does without motion vectors: a moving shadow or a new surface pulls it in at once
+    // (no trail), still ground keeps its average
     bool same = first < 0.5 && gp.w > 0.5 && pp.w > 0.5 && length(gp.xyz - pp.xyz) < 0.01 * length(gp.xyz) + 0.05;
-    color = same ? mix(now, texture(history_, p), history_weight) : now;
+    if (first < 0.5 && gp.w > 0.5) {
+        vec4 lo = vec4(1e9), hi = vec4(-1e9);
+        for (int y = -1; y <= 1; y++) {
+            for (int x = -1; x <= 1; x++) {
+                vec4 c = texture(current, p + vec2(float(x), float(y)) / half_size);
+                lo = min(lo, c); hi = max(hi, c);
+            }
+        }
+        vec4 h = clamp(texture(history_, p), lo, hi);
+        color = mix(now, h, same ? history_weight : history_weight * 0.75);
+    } else {
+        color = now;
+    }
     lit = color;
     if (gp.w > 0.5) {
         vec3 n = texture(g_normal, p).xyz;
-        float facing = max(dot(n, sun), 0.0);
+        float facing = max(dot(texture(g_bump, p).xyz, sun), 0.0) * step(0.0, dot(n, sun));
         if (facing > 0.0) {
             facing *= mix(1.0, SunFiltered(gp.xyz + n * (0.02 + length(gp.xyz) * 0.002)), shadow_strength);
         }
@@ -522,6 +745,7 @@ struct Tuning {
     float history;    ///< 0-0.95
     u32 shadow_size;  ///< texels, 512-4096 in steps of 256
     u32 shadow_range; ///< percent of the vertices covered, 25-100
+    u32 probe_side;   ///< rays a probe traces: its side, 4-12 (0: no probes)
 };
 Tuning ReadTuning() {
     const auto& v = Settings::values;
@@ -539,6 +763,7 @@ Tuning ReadTuning() {
     t.history = at(v.remaster_rt_history.GetValue(), 0.0f, 0.95f);
     t.shadow_size = static_cast<u32>(whole(v.remaster_rt_shadow_size.GetValue(), 2, 16)) * 256;
     t.shadow_range = static_cast<u32>(whole(v.remaster_rt_shadow_range.GetValue(), 25, 100));
+    t.probe_side = v.remaster_rt_probes.GetValue() == 0 ? 0 : static_cast<u32>(whole(v.remaster_rt_probes.GetValue(), 4, 12));
     return t;
 }
 
@@ -616,7 +841,7 @@ bool PathTracerGL::Ultra() {
 }
 
 void PathTracerGL::Capture(PAddr target, const std::array<GLint, 4>& viewport,
-                           std::span<const InputVertex> vertices) {
+                           std::span<const InputVertex> vertices, GLuint texture, GLuint sampler) {
     if (target == 0 || vertices.size() < 3) {
         return;
     }
@@ -639,9 +864,11 @@ void PathTracerGL::Capture(PAddr target, const std::array<GLint, 4>& viewport,
         out.normal[0] = 2.0f * (q[0] * q[2] + q[3] * q[1]);
         out.normal[1] = 2.0f * (q[1] * q[2] - q[3] * q[0]);
         out.normal[2] = 1.0f - 2.0f * (q[0] * q[0] + q[1] * q[1]);
+        out.uv[0] = v.uv[0];
+        out.uv[1] = v.uv[1];
         frame.vertices.push_back(out);
     }
-    frame.batches.push_back({viewport, first, vertices.size()});
+    frame.batches.push_back({viewport, texture, sampler, first, vertices.size()});
 }
 
 void PathTracerGL::Complete(PAddr target, PAddr display) {
@@ -666,6 +893,7 @@ void PathTracerGL::Resize(u32 w, u32 h) {
     make(gbuffer_position, GL_RGBA32F, w, h);
     make(gbuffer_normal, GL_RGBA16F, w, h);
     make(gbuffer_distance, GL_R32F, w, h);
+    make(gbuffer_bump, GL_RGBA16F, w, h);
     make(previous_position, GL_RGBA32F, w, h);
     have_history = false;
     gbuffer_depth.Release();
@@ -679,9 +907,11 @@ void PathTracerGL::Resize(u32 w, u32 h) {
     glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gbuffer_position.handle, 0);
     glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gbuffer_normal.handle, 0);
     glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gbuffer_distance.handle, 0);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, gbuffer_bump.handle, 0);
     glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, gbuffer_depth.handle);
-    const GLenum targets[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
-    glDrawBuffers(3, targets);
+    const GLenum targets[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2,
+                               GL_COLOR_ATTACHMENT3};
+    glDrawBuffers(4, targets);
     const u32 hw = w, hh = h; // full size: the sun's shadows stay sharp
     for (int i = 0; i < 2; i++) {
         make(light[i], GL_RGBA16F, hw, hh);
@@ -713,7 +943,9 @@ void PathTracerGL::Resize(u32 w, u32 h) {
         denoise_program.Create(FULLSCREEN_VERT, std::string(COMMON) + DENOISE_FRAG);
         temporal_program.Create(FULLSCREEN_VERT, std::string(COMMON) + TEMPORAL_FRAG);
         shadow_program.Create(SHADOW_VERT, SHADOW_FRAG);
-        fast_trace_program.Create(FULLSCREEN_VERT, std::string(COMMON) + FAST_TRACE_FRAG);
+        fast_trace_program.Create(FULLSCREEN_VERT, std::string(COMMON) + FAST_HELPERS + FAST_TRACE_FRAG);
+        probe_trace_program.Create(FULLSCREEN_VERT, std::string(COMMON) + FAST_HELPERS + PROBE_TRACE_FRAG);
+        probe_sh_program.Create(FULLSCREEN_VERT, PROBE_SH_FRAG);
         fast_temporal_program.Create(FULLSCREEN_VERT, std::string(COMMON) + FAST_TEMPORAL_FRAG);
         gbuffer_vao.Create();
         fullscreen_vao.Create();
@@ -760,6 +992,42 @@ void PathTracerGL::ResizeFast(u32 percent, u32 size) {
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadow_map.handle, 0);
         const GLenum none = GL_NONE;
         glDrawBuffers(1, &none);
+    }
+}
+
+// A vertex's position comes from the lighting's view vector, which the game sets for lighting, not for us: most
+// models give the surface's own view position, but some (reflective or specially lit materials) give something else,
+// and their triangles landed anywhere in the G-buffer, the shadow map and the bounces: the "shards". Each triangle is
+// checked against where the game drew it: its positions through the frame's projection (fitted on all the vertices,
+// then again on those that agreed) must land within 1.5 % of the screen of its own clip positions, else it is made
+// empty (no area: drawn nowhere, cast nowhere)
+void PathTracerGL::RejectStrays(Frame& frame) {
+    auto& v = frame.vertices;
+    if (v.size() < 3) return;
+    std::vector<bool> keep(v.size() / 3, true);
+    for (int round = 0; round < 2; round++) {
+        std::vector<std::array<float, 8>> samples;
+        const std::size_t stride = std::max<std::size_t>(1, v.size() / 4096);
+        for (std::size_t i = 0; i < v.size(); i += stride) {
+            if (!keep[i / 3]) continue;
+            samples.push_back({v[i].clip[0], v[i].clip[1], v[i].clip[2], v[i].clip[3], v[i].position[0], v[i].position[1], v[i].position[2], 0});
+        }
+        float m[16];
+        if (samples.size() < 16 || !FitProjection(samples, m)) return;
+        const auto off = [&m](const Vertex& x) {
+            float c[4];
+            for (int r = 0; r < 4; r++) {
+                c[r] = m[r] * x.position[0] + m[4 + r] * x.position[1] + m[8 + r] * x.position[2] + m[12 + r];
+            }
+            if (c[3] <= 1e-6f || x.clip[3] <= 1e-6f) return 1e9f;
+            return std::max(std::abs(c[0] / c[3] - x.clip[0] / x.clip[3]), std::abs(c[1] / c[3] - x.clip[1] / x.clip[3]));
+        };
+        for (std::size_t t = 0; t + 2 < v.size(); t += 3) {
+            keep[t / 3] = off(v[t]) < 0.03f && off(v[t + 1]) < 0.03f && off(v[t + 2]) < 0.03f; // NDC spans 2: 1.5 %
+        }
+    }
+    for (std::size_t t = 0; t + 2 < v.size(); t += 3) {
+        if (!keep[t / 3]) v[t + 1] = v[t + 2] = v[t];
     }
 }
 
@@ -938,12 +1206,41 @@ void PathTracerGL::DrawShadowMap(const Frame& frame, OpenGLState& state) {
     depth_scale = 1.0f / range;
 }
 
+void PathTracerGL::ResizeProbes(u32 w, u32 h, u32 side) {
+    if (w == probe_w_ && h == probe_h_ && side == probe_side_) {
+        return;
+    }
+    probe_w_ = w, probe_h_ = h, probe_side_ = side;
+    const auto make = [](OGLTexture& texture, u32 tw, u32 th) {
+        texture.Release();
+        texture.Create();
+        glActiveTexture(GL_TEXTURE15);
+        glBindTexture(GL_TEXTURE_2D, texture.handle);
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA16F, static_cast<GLsizei>(tw), static_cast<GLsizei>(th));
+    };
+    make(probe_atlas, w * side, h * side);
+    make(probe_colour, w, h);
+    make(probe_slope, w, h);
+    probe_atlas_fbo.Release();
+    probe_atlas_fbo.Create();
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, probe_atlas_fbo.handle);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, probe_atlas.handle, 0);
+    probe_sh_fbo.Release();
+    probe_sh_fbo.Create();
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, probe_sh_fbo.handle);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, probe_colour.handle, 0);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, probe_slope.handle, 0);
+    const GLenum both[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+    glDrawBuffers(2, both);
+}
+
 PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint frame_texture) {
     const auto it = completed.find(screen_info.display_address);
     if (it == completed.end() || !it->second || it->second->vertices.empty() || screen_info.target_width == 0) {
         return {};
     }
-    const Frame& frame = *it->second;
+    Frame& frame = *it->second;
+    RejectStrays(frame);
     const OpenGLState saved = OpenGLState::GetCurState();
     if (screen_info.target_width != width || screen_info.target_height != height) {
         Resize(screen_info.target_width, screen_info.target_height);
@@ -971,6 +1268,7 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
     glClearBufferfv(GL_COLOR, 1, clear_colour);
     const GLfloat far_[4] = {1, 1, 1, 1};
     glClearBufferfv(GL_COLOR, 2, far_);
+    glClearBufferfv(GL_COLOR, 3, clear_colour);
     const GLfloat far_depth = 1.0f;
     glClearBufferfv(GL_DEPTH, 0, &far_depth);
     glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(frame.vertices.size() * sizeof(Vertex)),
@@ -984,9 +1282,21 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
                           reinterpret_cast<const void*>(offsetof(Vertex, position)));
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
                           reinterpret_cast<const void*>(offsetof(Vertex, normal)));
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+                          reinterpret_cast<const void*>(offsetof(Vertex, uv)));
+    // the normal map's strength: the slider's 50 % is the renders' chosen one (9 per unit of brightness a texel)
+    const float bump = static_cast<float>(Settings::values.remaster_normal_map.GetValue()) * 9.0f / 50.0f;
+    const GLint bump_at = glGetUniformLocation(gbuffer_program.handle, "bump");
     for (const Batch& b : frame.batches) {
         state.viewport = {b.viewport[0], b.viewport[1], b.viewport[2], b.viewport[3]};
+        // the draw's texture, if it still exists (the texture cache may have dropped it since the draw)
+        const bool textured = bump > 0.0f && b.texture != 0 && glIsTexture(b.texture);
+        state.texture_units[0].texture_2d = textured ? b.texture : 0;
+        state.texture_units[0].target = GL_TEXTURE_2D;
+        state.texture_units[0].sampler = textured ? b.sampler : 0;
         state.Apply();
+        glProgramUniform1f(gbuffer_program.handle, bump_at, textured ? bump : 0.0f);
         glDrawArrays(GL_TRIANGLES, static_cast<GLint>(b.first), static_cast<GLsizei>(b.count));
     }
 
@@ -1008,6 +1318,7 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
     bind(UnitPosition, gbuffer_position.handle, nearest.handle);
     bind(UnitNormal, gbuffer_normal.handle, nearest.handle);
     bind(UnitFrame, frame_texture, linear.handle);
+    bind(ultra ? UnitBumpUltra : UnitBumpFast, gbuffer_bump.handle, nearest.handle);
     if (!ultra) {
         bind(UnitShadow, shadow_map.handle, nearest.handle);
     }
@@ -1031,25 +1342,66 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
                          static_cast<float>(main_viewport[1]) / static_cast<float>(height),
                          static_cast<float>(main_viewport[2]) / static_cast<float>(width),
                          static_cast<float>(main_viewport[3]) / static_cast<float>(height)};
-    glProgramUniform3fv(tp, glGetUniformLocation(tp, "sun"), 1, sun);
-    glProgramUniform3fv(tp, glGetUniformLocation(tp, "sun_colour"), 1, sun_colour);
-    glProgramUniform3fv(tp, glGetUniformLocation(tp, "up"), 1, up);
-    glProgramUniform3fv(tp, glGetUniformLocation(tp, "sky_top"), 1, sky_top);
-    glProgramUniform3fv(tp, glGetUniformLocation(tp, "sky_horizon"), 1, sky_horizon);
-    glProgramUniformMatrix4fv(tp, glGetUniformLocation(tp, "view_to_clip"), 1, GL_FALSE, view_to_clip);
-    glProgramUniform4fv(tp, glGetUniformLocation(tp, "viewport"), 1, vp);
-    glProgramUniform4fv(tp, glGetUniformLocation(tp, "dr"), 1, d.data());
-    glProgramUniform4f(tp, glGetUniformLocation(tp, "cr"), tc.top, tc.bottom, tc.left, tc.right);
-    glProgramUniform1f(tp, glGetUniformLocation(tp, "seed"), static_cast<float>(frame_number++ % 4096));
-    glProgramUniform1f(tp, glGetUniformLocation(tp, "reference"), std::max(reference, 1e-3f));
+    // the probes' tile: about 48 across, never under 8 G-buffer pixels
+    const u32 probe_tile = std::max<u32>(8, width / 48);
+    const u32 probe_w = (width + probe_tile - 1) / probe_tile, probe_h = (height + probe_tile - 1) / probe_tile;
+    const bool use_probes = !ultra && tune.probe_side > 0;
+    const auto set_uniforms = [&](GLuint tp) {
+        glProgramUniform3fv(tp, glGetUniformLocation(tp, "sun"), 1, sun);
+        glProgramUniform3fv(tp, glGetUniformLocation(tp, "sun_colour"), 1, sun_colour);
+        glProgramUniform3fv(tp, glGetUniformLocation(tp, "up"), 1, up);
+        glProgramUniform3fv(tp, glGetUniformLocation(tp, "sky_top"), 1, sky_top);
+        glProgramUniform3fv(tp, glGetUniformLocation(tp, "sky_horizon"), 1, sky_horizon);
+        glProgramUniformMatrix4fv(tp, glGetUniformLocation(tp, "view_to_clip"), 1, GL_FALSE, view_to_clip);
+        glProgramUniform4fv(tp, glGetUniformLocation(tp, "viewport"), 1, vp);
+        glProgramUniform4fv(tp, glGetUniformLocation(tp, "dr"), 1, d.data());
+        glProgramUniform4f(tp, glGetUniformLocation(tp, "cr"), tc.top, tc.bottom, tc.left, tc.right);
+        glProgramUniform1f(tp, glGetUniformLocation(tp, "seed"), static_cast<float>(frame_number % 4096));
+        glProgramUniform1f(tp, glGetUniformLocation(tp, "reference"), std::max(reference, 1e-3f));
+        if (!ultra) {
+            glProgramUniformMatrix4fv(tp, glGetUniformLocation(tp, "view_to_sun"), 1, GL_FALSE, view_to_sun);
+            glProgramUniform1f(tp, glGetUniformLocation(tp, "shadow_bias"), shadow_bias);
+            glProgramUniform1f(tp, glGetUniformLocation(tp, "depth_scale"), depth_scale);
+            glProgramUniform1i(tp, glGetUniformLocation(tp, "steps"), tune.steps);
+            glProgramUniform1f(tp, glGetUniformLocation(tp, "reach_share"), tune.reach);
+            glProgramUniform1f(tp, glGetUniformLocation(tp, "thickness_share"), tune.thickness);
+            glProgramUniform1f(tp, glGetUniformLocation(tp, "indirect"), tune.indirect);
+        }
+    };
+    frame_number++;
+    if (use_probes) {
+        ResizeProbes(probe_w, probe_h, tune.probe_side);
+        const GLuint pt = probe_trace_program.handle, ps = probe_sh_program.handle;
+        set_uniforms(pt);
+        for (GLuint prog : {pt, ps}) {
+            glProgramUniform1f(prog, glGetUniformLocation(prog, "probe_side"), static_cast<float>(tune.probe_side));
+            glProgramUniform1f(prog, glGetUniformLocation(prog, "probe_tile"), static_cast<float>(probe_tile));
+        }
+        state.draw.shader_program = pt;
+        state.draw.draw_framebuffer = probe_atlas_fbo.handle;
+        state.viewport = {0, 0, static_cast<GLsizei>(probe_w * tune.probe_side),
+                          static_cast<GLsizei>(probe_h * tune.probe_side)};
+        state.Apply();
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        bind(13, probe_atlas.handle, nearest.handle);
+        state.draw.shader_program = ps;
+        state.draw.draw_framebuffer = probe_sh_fbo.handle;
+        state.viewport = {0, 0, static_cast<GLsizei>(probe_w), static_cast<GLsizei>(probe_h)};
+        state.Apply();
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        bind(13, probe_colour.handle, linear.handle);
+        bind(14, probe_slope.handle, linear.handle);
+        state.draw.shader_program = tp;
+        state.draw.draw_framebuffer = traced[0].handle;
+        state.viewport = {0, 0, static_cast<GLsizei>(hw), static_cast<GLsizei>(hh)};
+        state.Apply();
+    }
+    set_uniforms(tp);
     if (!ultra) {
-        glProgramUniformMatrix4fv(tp, glGetUniformLocation(tp, "view_to_sun"), 1, GL_FALSE, view_to_sun);
-        glProgramUniform1f(tp, glGetUniformLocation(tp, "shadow_bias"), shadow_bias);
-        glProgramUniform1f(tp, glGetUniformLocation(tp, "depth_scale"), depth_scale);
-        glProgramUniform1i(tp, glGetUniformLocation(tp, "steps"), tune.steps);
-        glProgramUniform1f(tp, glGetUniformLocation(tp, "reach_share"), tune.reach);
-        glProgramUniform1f(tp, glGetUniformLocation(tp, "thickness_share"), tune.thickness);
-        glProgramUniform1f(tp, glGetUniformLocation(tp, "indirect"), tune.indirect);
+        glProgramUniform1f(tp, glGetUniformLocation(tp, "probes"), use_probes ? 1.0f : 0.0f);
+        glProgramUniform2f(tp, glGetUniformLocation(tp, "probe_count"), static_cast<float>(probe_w),
+                           static_cast<float>(probe_h));
+        glProgramUniform1f(tp, glGetUniformLocation(tp, "probe_tile"), static_cast<float>(probe_tile));
     }
     glDrawArrays(GL_TRIANGLES, 0, 3);
 
@@ -1101,7 +1453,9 @@ PathTracerGL::Result PathTracerGL::Trace(const ScreenInfo& screen_info, GLuint f
     have_history = true;
     glCopyImageSubData(gbuffer_position.handle, GL_TEXTURE_2D, 0, 0, 0, 0, previous_position.handle, GL_TEXTURE_2D, 0,
                        0, 0, 0, static_cast<GLsizei>(width), static_cast<GLsizei>(height), 1);
-    for (GLuint unit : {UnitPosition, UnitNormal, UnitFrame, UnitShadow, GLuint{13}, GLuint{14}}) bind(unit, 0, 0);
+    for (GLuint unit : {UnitPosition, UnitNormal, UnitFrame, UnitShadow, UnitBumpFast, GLuint{13}, GLuint{14}}) {
+        bind(unit, 0, 0);
+    }
     glActiveTexture(GL_TEXTURE0);
     saved.Apply();
     Result result{ultra ? history[history_index].handle : fast_result[history_index].handle, gbuffer_distance.handle};

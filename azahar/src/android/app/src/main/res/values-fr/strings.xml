@@ -1092,7 +1092,11 @@
     <string name="pomegrade_remaster_contrast">Remaster : contraste adaptatif</string>
     <string name="pomegrade_remaster_contrast_description">Une courbe en S douce, plus ou moins forte selon le contraste qu\'a déjà la scène (préréglage personnalisé)</string>
     <string name="pomegrade_remaster_custom">Personnalisé</string>
-    <string name="pomegrade_remaster_description">Une lumière moderne sur l\'écran du haut, en path tracing en direct, l\'aspect des jeux gardé (OpenGL). V1 : le remaster complet. Personnalisé : V1 avec les interrupteurs ci-dessous</string>
+    <string name="pomegrade_remaster_description">Une lumière moderne sur l\'écran du haut, en path tracing en direct, l\'aspect des jeux gardé (OpenGL). V1 : le remaster complet. Personnalisé : V1 avec les interrupteurs de la page Options du Remaster</string>
+    <string name="pomegrade_remaster_quality">Qualité du Remaster</string>
+    <string name="pomegrade_remaster_quality_description">Toutes les options qui coûtent en vitesse ou rendent la lumière bruitée, sur un seul curseur : 0 % désactivé, 50 % les valeurs par défaut, 100 % le meilleur (Ultra compris). L\'exposition, le contraste, la couleur et la force de la lumière restent comme réglés</string>
+    <string name="pomegrade_remaster_options">Options du Remaster</string>
+    <string name="pomegrade_remaster_options_description">Chacune des options du Remaster, une par une</string>
     <string name="pomegrade_remaster_far_blur">Remaster : flou lointain</string>
     <string name="pomegrade_remaster_far_blur_description">Le décor le plus lointain s\'adoucit légèrement (préréglage personnalisé)</string>
     <string name="pomegrade_remaster_ultra">Remaster : ray tracing Ultra</string>
@@ -1118,6 +1122,10 @@
     <string name="pomegrade_remaster_rt_shadow_size_description">Largeur de la carte d\'ombre du soleil en texels (plus : ombres plus nettes, plus lourd, plus de mémoire)</string>
     <string name="pomegrade_remaster_rt_shadow_range">Ray tracing : portée des ombres</string>
     <string name="pomegrade_remaster_rt_shadow_range_description">Part de la scène couverte par la carte d\'ombre, la plus proche d\'abord (plus : ombres plus loin, moins nettes)</string>
+    <string name="pomegrade_remaster_rt_probes">Ray tracing : sondes de lumière</string>
+    <string name="pomegrade_remaster_rt_probes_description">Rayons tracés par chaque sonde pour la lumière lointaine : ciel au loin, ombre et rebond (plus : plus doux, plus lourd ; 0 : aucune)</string>
+    <string name="pomegrade_remaster_normal_map">Ray tracing : normal map</string>
+    <string name="pomegrade_remaster_normal_map_description">Relief que la lumière lit dans la texture de chaque surface : touffes d\'herbe, pierre, bois (0 : aucun)</string>
     <string name="pomegrade_remaster_ao_strength">Remaster : force de l\'occlusion ambiante</string>
     <string name="pomegrade_remaster_ao_strength_description">Assombrissement des creux, des coins et du sol sous les objets (50 % : V1)</string>
     <string name="pomegrade_remaster_bounce_strength">Remaster : rebond de couleur</string>

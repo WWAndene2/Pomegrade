@@ -230,6 +230,7 @@ class EmulationFragment :
                 EmulatorMenuR.id.emulator_menu_lock_drawer,
                 EmulatorMenuR.id.emulator_menu_multiplayer,
                 EmulatorMenuR.id.emulator_menu_screenshot,
+                EmulatorMenuR.id.emulator_menu_performance_overlay,
                 EmulatorMenuR.id.emulator_menu_game_settings,
                 EmulatorMenuR.id.emulator_menu_home,
             )
@@ -387,6 +388,14 @@ class EmulationFragment :
 
                 EmulatorMenuR.id.emulator_menu_controls -> {
                     showOverlayMenu()
+                    true
+                }
+
+                // Pomegrade: every console's menu has it; the same switch as the controls menu's
+                EmulatorMenuR.id.emulator_menu_performance_overlay -> {
+                    BooleanSetting.PERF_OVERLAY_ENABLE.boolean = !BooleanSetting.PERF_OVERLAY_ENABLE.boolean
+                    settings.saveSetting(BooleanSetting.PERF_OVERLAY_ENABLE, SettingsFile.FILE_NAME_CONFIG)
+                    updateShowPerformanceOverlay()
                     true
                 }
 
@@ -1577,6 +1586,8 @@ class EmulationFragment :
     }
 
     fun updateShowPerformanceOverlay() {
+        binding.inGameMenu.menu.findItem(EmulatorMenuR.id.emulator_menu_performance_overlay)?.isChecked =
+            BooleanSetting.PERF_OVERLAY_ENABLE.boolean
         if (perfStatsUpdater != null) {
             perfStatsUpdateHandler.removeCallbacks(perfStatsUpdater!!)
         }

@@ -370,6 +370,17 @@ class SharedPreferencesSettingsRepository(
         return preferences.getBoolean("performance_details", false)
     }
 
+    override fun setPerformanceOverlayShown(shown: Boolean) {
+        preferences.edit {
+            if (!shown) {
+                putString("fps_counter_position", "hidden")
+            } else if (getFpsCounterPosition() == FpsCounterPosition.HIDDEN) {
+                putString("fps_counter_position", "top_left")
+            }
+            putBoolean("performance_details", shown)
+        }
+    }
+
     override fun getDSiCameraSource(): DSiCameraSourceType {
         val dsiCameraSource = preferences.getString("dsi_camera_source", "physical_cameras")!!
         return DSiCameraSourceType.valueOf(dsiCameraSource.uppercase())

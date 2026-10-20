@@ -25,44 +25,16 @@ object ThemeUtil {
     private val preferences: SharedPreferences get() =
         PreferenceManager.getDefaultSharedPreferences(CitraApplication.appContext)
 
-    // Pomegrade: red (index 2, recoloured to the Pomegrade palette) is the default
-    private fun getSelectedStaticThemeColor(): Int {
-        val themeIndex = preferences.getInt(Settings.PREF_STATIC_THEME_COLOR, 2)
-        val themes = arrayOf(
-            R.style.Theme_Citra_Blue,
-            R.style.Theme_Citra_Cyan,
-            R.style.Theme_Citra_Red,
-            R.style.Theme_Citra_Green,
-            R.style.Theme_Citra_Yellow,
-            R.style.Theme_Citra_Orange,
-            R.style.Theme_Citra_Violet,
-            R.style.Theme_Citra_Pink,
-            R.style.Theme_Citra_Gray
-        )
-        return themes[themeIndex]
-    }
-
+    // Pomegrade: Punica is always dark and coral (owner's decision, 13 October), so Azahar's own
+    // colour, Material You, theme mode and black backgrounds are not applied, whatever was stored
+    // before (its theme section is not reachable from Punica's settings)
     fun setTheme(activity: AppCompatActivity) {
         setThemeMode(activity)
-        if (preferences.getBoolean(Settings.PREF_MATERIAL_YOU, false)) {
-            activity.setTheme(R.style.Theme_Citra_Main_MaterialYou)
-        } else {
-            activity.setTheme(getSelectedStaticThemeColor())
-        }
-
-        // Using a specific night mode check because this could apply incorrectly when using the
-        // light app mode, dark system mode, and black backgrounds. Launching the settings activity
-        // will then show light mode colors/navigation bars but with black backgrounds.
-        if (preferences.getBoolean(Settings.PREF_BLACK_BACKGROUNDS, false) &&
-            isNightMode(activity)
-        ) {
-            activity.setTheme(R.style.ThemeOverlay_Citra_Dark)
-        }
+        activity.setTheme(R.style.Theme_Citra_Red)
     }
 
     fun setThemeMode(activity: AppCompatActivity) {
-        val themeMode = PreferenceManager.getDefaultSharedPreferences(activity.applicationContext)
-            .getInt(Settings.PREF_THEME_MODE, AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        val themeMode = AppCompatDelegate.MODE_NIGHT_YES // Pomegrade: always dark
         activity.delegate.localNightMode = themeMode
         val windowController = WindowCompat.getInsetsController(
             activity.window,

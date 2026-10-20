@@ -832,6 +832,12 @@ class EmulatorViewModel @Inject constructor(
         return settingsRepository.getFpsCounterPosition()
     }
 
+    fun isPerformanceOverlayShown(): Boolean = settingsRepository.getFpsCounterPosition() != FpsCounterPosition.HIDDEN
+
+    fun togglePerformanceOverlay() {
+        settingsRepository.setPerformanceOverlayShown(!isPerformanceOverlayShown())
+    }
+
     private suspend fun getRomEnabledCheats(romInfo: RomInfo): List<Cheat> {
         if (!settingsRepository.areCheatsEnabled() || !emulatorSession.areCheatsEnabled()) {
             return emptyList()
