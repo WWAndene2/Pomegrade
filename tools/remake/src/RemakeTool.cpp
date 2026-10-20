@@ -66,7 +66,7 @@
 //   remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>
 //                     several sandboxes and regions in one mod, each step's zones, matrices, pieces and area packs numbered after
 //                     the ones before it (OrasWorkspace.h): one line a step, "sandbox <description file>" or "region <options>"
-//   remake_tool oras-xy-world <oras.3ds> <x.3ds> <out dir> <function_names.tsv> [--matrices A,B,...] [--character-models N] [--scripts DIR] [--story on|off]
+//   remake_tool oras-xy-world <oras.3ds> <x.3ds> <out dir> <function_names.tsv> [--matrices A,B,...] [--character-models N] [--scripts DIR] [--story on|off] [--music on|off]
 //                     Pokemon X/Y's world as Omega Ruby zones, matrices, pieces and packs (OrasXyWorld.h), X/Y's coordinates kept
 //   remake_tool oras-save <main> [<out> [<zone> <tile x> <tile z>] [--template <save> [--blocks A,B,...]] [--save-records N]]
 //                     where an ORAS save puts the player (OrasSave.h); with the rest, a copy with the player moved there;
@@ -112,6 +112,8 @@
 #include "Darc.h"
 #include "Bclim.h"
 #include "OrasZone.h"
+#include "OrasXyMusic.h"
+#include "OrasXySound.h"
 #include "OrasXyWorld.h"
 #include "GameText.h"
 #include "Amx.h"
@@ -168,7 +170,7 @@ static int Usage()
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone|zone-raised|crowd [N]\n"
                     "  remake_tool oras-zone-check <oras.3ds>\n"
-                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--character-models N] [--events large] [--story large] [--area-packs large] [--wild-tables large] [--heap ID:BYTES]...\n"
+                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--character-models N] [--events large] [--story large] [--area-packs large] [--wild-tables large] [--xy-sounds FIRST:COUNT] [--heap ID:BYTES]...\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
                     "                    [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]\n"
                     "  remake_tool oras-code <oras.3ds> <out.bin>\n"
@@ -176,7 +178,7 @@ static int Usage()
                     "  remake_tool oras-sinnoh <platinum.nds> <oras.3ds> [strip width]\n"
                     "  remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt> [--character-models N] [--characters N] [--events large] [--xy <x.3ds>]\n"
                     "  remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>\n"
-                    "  remake_tool oras-xy-world <oras.3ds> <x.3ds> <out dir> <function_names.tsv> [--matrices A,B,...] [--character-models N] [--scripts DIR] [--story on|off]\n"
+                    "  remake_tool oras-xy-world <oras.3ds> <x.3ds> <out dir> <function_names.tsv> [--matrices A,B,...] [--character-models N] [--scripts DIR] [--story on|off] [--music on|off]\n"
                     "  remake_tool oras-save <main> [<out> [<zone> <tile x> <tile z>] [--template <save> [--blocks A,B,...]] [--save-records N] [--characters-from <oras.3ds> [<mod dir>]]]\n"
                     "                    [--matrix-template M] [--model-matrix NN] [oras-town's --matrix, --target, --donor, --trees, --donor-pack, --grass, ... --allow-errors]\n");
     return 2;
@@ -713,6 +715,12 @@ int main(int argc, char** argv)
                 {
                     if (value != "large") throw FormatError("--events large (a zone's events file up to 0x1910 bytes)");
                     o.LargeEvents = true;
+                }
+                else if (flag == "--xy-sounds")
+                {
+                    const size_t colon = value.find(':');
+                    if (colon == std::string::npos) throw FormatError("--xy-sounds FIRST:COUNT (X/Y's streams appended to the sound archive)");
+                    o.XySounds = std::pair<uint32_t, uint32_t>{(uint32_t)OptionNumber(value.substr(0, colon).c_str(), flag), (uint32_t)OptionNumber(value.substr(colon + 1).c_str(), flag)};
                 }
                 else if (flag == "--wild-tables")
                 {
@@ -1497,10 +1505,23 @@ int main(int argc, char** argv)
                     if (value != "on" && value != "off") throw FormatError("oras-xy-world --story on|off");
                     wo.Story = value == "on";
                 }
+                else if (flag == "--music")
+                {
+                    if (value != "on" && value != "off") throw FormatError("oras-xy-world --music on|off (X/Y's music, with ffmpeg)");
+                    wo.Music = value == "on";
+                }
                 else throw FormatError("oras-xy-world: unknown option " + flag + " " + value);
             }
+            // both games' sound ids (OrasXySound.h): the scripts' effects by name always, X/Y's music with --music on
+            N3dsRom xy(argv[3]);
+            const XySounds sounds = XySounds::Read(oras.Code(), oras.Read("sound/sango_sound.bcsar"), xy.Code(), xy.Read("sound/xy_sound.bcsar"));
+            printf("sound ids: %zu of X/Y's made Omega Ruby's, %zu without a match (kept)\n", sounds.Ids.size(), sounds.Unmatched.size());
+            wo.Sounds = &sounds;
             for (const std::string& line : BuildXyWorld(ws, wo)) printf("%s\n", line.c_str());
             for (const std::string& line : ws.Write(argv[4])) printf("%s\n", line.c_str());
+            if (wo.Music)
+                for (const std::string& line : BuildXyMusic(oras, xy, sounds, argv[4], (std::filesystem::path(argv[4]) / ".music-scratch").string()))
+                    printf("%s\n", line.c_str());
             return 0;
         }
         if (cmd == "oras-save" && argc >= 3)

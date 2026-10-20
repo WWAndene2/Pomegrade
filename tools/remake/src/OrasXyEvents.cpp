@@ -6,6 +6,7 @@
 #include "OrasNewZone.h"
 #include "OrasTown.h"
 #include "OrasWorkspace.h"
+#include "OrasXySound.h"
 #include "XyCharacter.h"
 
 #include <algorithm>
@@ -84,7 +85,8 @@ static std::string XyParentFlagSteps(std::string source, std::vector<ZoneTrigger
 }
 
 XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNumbers& numbers, std::map<int, int>& modelOf,
-                               const std::string& namesFile, const std::string& scriptDir, int orasZone, std::vector<std::string>& log, bool story)
+                               const std::string& namesFile, const std::string& scriptDir, int orasZone, std::vector<std::string>& log, bool story,
+                               const XySounds* sounds, bool music)
 {
     N3dsRom xRom(ws.XyRom);
     const Garc xZones(xRom.Read("a/0/1/2"));
@@ -177,6 +179,7 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
         }
         else source = init ? EmptyInitScript : EmptyZoneScript;
         source = XyMoveZones(source, numbers.Zones, notes);
+        if (sounds) source = XyMoveSounds(source, *sounds, music, notes);
         if (!init && from == "translated") source = XyParentFlagSteps(source, e.Triggers, firstStep, xZone, log);
         uint32_t mask = 0x243;
         Bytes assembled;

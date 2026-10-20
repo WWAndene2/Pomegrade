@@ -30,6 +30,7 @@ struct OrasEngineOptions
     bool LargePacks = false;                 // area packs past 255 (the zone change cut the pack number to a byte)
     bool LargeWildTables = false;            // X/Y's land tables: kinds 9-12 (tiles 0x21-0x23 and the kinds Omega Ruby has none for)
     bool LargeStory = false;                 // story flags 0xD00-0x2C3F and event works 0x4178-0x436B, in save block 47
+    std::optional<std::pair<uint32_t, uint32_t>> XySounds; // X/Y's streams appended to the sound archive: the first's index, their count
     std::map<uint32_t, uint32_t> HeapSizes;  // heap id -> size (bytes)
     std::map<uint32_t, uint32_t> ScriptMasks; // zone 536-1023 -> its script's native mask (with ZoneRows; 0x243 otherwise)
 };

@@ -2,6 +2,7 @@
 // named and its code disassembled with Pawn 3 opcodes. No game data.
 #include "Amx.h"
 #include "OrasXyScript.h"
+#include "OrasXySound.h"
 
 #include <cstdio>
 #include <filesystem>
@@ -163,6 +164,19 @@ int main()
               "a map change's zone moved, its tile shifted, its height kept");
         check(moved.find("push.p.c 77\n") != std::string::npos && notes.size() == 1 && notes[0].find("zone 77 is not in this mod") != std::string::npos,
               "a zone not in the mod kept and noted");
+    }
+    {
+        // XyMoveSounds: an effect's id made Omega Ruby's, a jingle (a stream) moved only with X/Y's music, an unknown id kept
+        XySounds sounds;
+        sounds.Ids = {{0xA0008, 0xA0010}, {0x50000, 0xB5}};
+        const std::string source = "native SEPlay\nnative MEPlay\ncode\n"
+            "    push.c 655368\n    sysreq.n 0 4\n    push.c 327680\n    sysreq.n 1 4\n    push.c 655369\n    sysreq.n 0 4\n";
+        std::vector<std::string> notes;
+        const std::string without = XyMoveSounds(source, sounds, false, notes), with = XyMoveSounds(source, sounds, true, notes);
+        check(without.find("push.c 655376   ; X/Y's sound 0xA0008") != std::string::npos && without.find("push.c 327680\n") != std::string::npos,
+              "an effect moved, a jingle kept without X/Y's music");
+        check(with.find("push.c 181   ; X/Y's sound 0x50000") != std::string::npos && with.find("push.c 655369\n") != std::string::npos,
+              "the jingle moved with it, an id of no X/Y sound kept");
     }
     Bytes truncated = b;
     truncated.push_back(0); Put32(truncated, 0, (uint32_t)truncated.size());

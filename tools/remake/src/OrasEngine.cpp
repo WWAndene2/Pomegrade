@@ -639,6 +639,23 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         log.push_back(line);
     }
 
+    if (o.XySounds)
+    {
+        // X/Y's streams appended to the sound archive (OrasXySound.h), sounds first + k, played by ids k + 1 of category 0:
+        // its entry of the category table (0x592728, read by FUN_00115984: a count, then the list's address; 0 and 0 in the
+        // game) and the list, in the rodata segment's last page past its 0x71A14 bytes (0x5EBA14-0x5EC000, zeros, mapped
+        // with the segment as the .code's cave at 0x579608 is). Id 0 the game's silence, never given
+        const auto [first, count] = *o.XySounds;
+        constexpr uint32_t list = 0x5EBA18, end = 0x5EC000, categories = 0x592728;
+        if (count == 0 || list + 4 * (count + 1) > end) throw FormatError("--xy-sounds: 1 to " + std::to_string((end - list) / 4 - 1) + " sounds");
+        words.push_back({categories, 0, count + 1, "sound category 0's count"});
+        words.push_back({categories + 4, 0, list, "sound category 0's list"});
+        words.push_back({list, 0, 0x01000000, "sound category 0, id 0: the game's silence"});
+        for (uint32_t k = 0; k < count; k++) words.push_back({list + 4 * (k + 1), 0, 0x01000000 | (first + k), "sound category 0: X/Y's stream " + std::to_string(k)});
+        snprintf(line, sizeof line, "sound ids: category 0 holds %u X/Y streams, sounds %u-%u", count, first, first + count - 1);
+        log.push_back(line);
+    }
+
     char id[17];
     snprintf(id, sizeof id, "%016llX", (unsigned long long)oras.ProgramId());
     const std::filesystem::path root = std::filesystem::path(outDir) / "load" / "mods" / id;

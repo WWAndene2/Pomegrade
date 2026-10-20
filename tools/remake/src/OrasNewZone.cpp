@@ -17,7 +17,7 @@ std::array<uint16_t, 28> NewZoneHeader(const NewZoneFields& f)
     h[2] = (uint16_t)f.Matrix;
     h[3] = (uint16_t)f.Text;
     h[4] = (uint16_t)(f.Music >= 0 ? f.Music : inside ? 65 : 5);
-    h[5] = 1;
+    h[5] = (uint16_t)f.MusicCategory;
     const uint16_t constant[6] = {5, 1, 5, 1, 14, 1}; // words 6-11, the same in every zone
     for (int k = 0; k < 6; k++) h[6 + k] = constant[k];
     h[12] = (uint16_t)f.Number; // unread; past the game's 0-537 for a new zone

@@ -70,6 +70,11 @@ std::string XyScriptSource(const Bytes& script, const std::string& namesFile, co
 // not read (PlayerGetZoneID's result compared with X/Y numbers, EventMapReplace, CallMapConnect, GymEsperWarpEvent)
 std::string XyMoveZones(const std::string& source, const std::map<int, XyZonePlace>& zones, std::vector<std::string>& notes);
 
+// the sound ids of a script's SEPlay, SEStop, SEIsPlaying and MEPlay (their first argument, a constant) made Omega Ruby's
+// (OrasXySound.h): an effect by its name; a stream (music, a jingle) as its category-0 id only with `streams` (X/Y's music
+// in the mod), else kept
+std::string XyMoveSounds(const std::string& source, const struct XySounds& sounds, bool streams, std::vector<std::string>& notes);
+
 // xScript: an X/Y zone script; namesFile: tools/remake/ghidra/function_names.tsv (Omega Ruby's natives and their mask
 // bits); mask: the native mask of the zone it will run in (0x243 for zones 536 and up unless oras-engine --script-mask)
 XyScriptNatives XyScriptToOras(const Bytes& xScript, const std::string& namesFile, uint32_t mask);

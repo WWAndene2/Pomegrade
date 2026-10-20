@@ -10,6 +10,7 @@
 #include "OrasXyEncounters.h"
 #include "OrasXyEvents.h"
 #include "OrasXyPiece.h"
+#include "OrasXySound.h"
 #include "OrasXyScript.h"
 #include "OrasZone.h"
 
@@ -72,7 +73,7 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     std::map<int, std::vector<int>> packModels; // X/Y pack -> the Omega Ruby models its zones show
     for (const int z : taken)
     {
-        events[z] = XyEventsToOras(ws, z, 0, 0, numbers, modelOf, o.NamesFile, o.ScriptDir, numbers.Zones.at(z).Zone, log, o.Story);
+        events[z] = XyEventsToOras(ws, z, 0, 0, numbers, modelOf, o.NamesFile, o.ScriptDir, numbers.Zones.at(z).Zone, log, o.Story, o.Sounds, o.Music);
         std::vector<int>& models = packModels[all.at(z).AreaPack()];
         for (const int m : events[z].Models) if (std::find(models.begin(), models.end(), m) == models.end()) models.push_back(m);
     }
@@ -175,6 +176,17 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
             }
             f.NameLine = nameLineOf[name];
         }
+        if (o.Music && o.Sounds)
+        {
+            // its music (header words 4-5, an id: OrasXySound.h), X/Y's track through category 0
+            const uint32_t xMusic = (uint32_t)x.Header[4] | (uint32_t)x.Header[5] << 16, music = o.Sounds->Translate(xMusic);
+            if (music != xMusic) { f.Music = (int)(music & 0xFFFF); f.MusicCategory = (int)(music >> 16); }
+            else
+            {
+                snprintf(line, sizeof line, "zone %d (X/Y's %d): its music 0x%X is none of X/Y's sounds, Omega Ruby's default kept", number, z, xMusic);
+                log.push_back(line);
+            }
+        }
         f.SpawnX = x.Header[22] / 18.0f;
         f.SpawnZ = x.Header[26] / 18.0f;
         OrasZone zone;
@@ -208,6 +220,11 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     std::string engine = "oras-engine options: --zone-rows " + std::to_string(ws.NextZone()) + " --story large";
     if (std::any_of(packOf.begin(), packOf.end(), [](const auto& p) { return p.second > 255; })) engine += " --area-packs large";
     if (wildTables) engine += " --wild-tables large";
+    if (o.Music && o.Sounds)
+    {
+        snprintf(line, sizeof line, " --xy-sounds %zu:%zu", o.Sounds->First, o.Sounds->Streams.size());
+        engine += line;
+    }
     for (const auto& [zone, mask] : masks)
     {
         snprintf(line, sizeof line, " --script-mask %d:0x%X", zone, mask);

@@ -204,9 +204,11 @@ jobs:
               # (OrasXyWorld.h: --matrices A,B,... for part of it, --character-models N), from dumps-x/x.3ds (secret X_DRIVE_ID),
               # with in the same mod the engine patches it prints (zone rows, --story large, --area-packs large, the zones'
               # script masks) and the ones given after "--" (memory, heaps); --character-models is given to both. Merge it
-              # with a save moved into one of its zones ("save 538 467.5 597.5 --characters-from dumps/oras.3ds out/<name>")
+              # with a save moved into one of its zones ("save 538 467.5 597.5 --characters-from dumps/oras.3ds out/<name>").
+              # --music on: X/Y's music and jingles too (OrasXyMusic.h; ffmpeg decodes X/Y's AAC, about 230 MB more in the mod)
               if [ ! -f dumps-x/x.3ds ]; then echo "::error::xy-world needs Pokemon X (secret X_DRIVE_ID)"; exit 1; fi
               rest="${options#*xy-world}"; world="${rest%% -- *}"; engine=""
+              if [[ "$world" == *"--music on"* ]] && ! command -v ffmpeg > /dev/null; then sudo apt-get install --yes --quiet ffmpeg > /dev/null; fi
               [[ "$rest" == *" -- "* ]] && engine="${rest#* -- }"
               models=$(echo "$world" | grep -oE -- '--character-models [0-9]+' || true)
               ./build-remake/remake_tool oras-xy-world dumps/oras.3ds dumps-x/x.3ds "out/$name" tools/remake/ghidra/function_names.tsv $world | tee "mods/${name}_log.txt"

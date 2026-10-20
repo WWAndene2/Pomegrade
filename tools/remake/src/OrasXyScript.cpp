@@ -1,10 +1,12 @@
 #include "OrasXyScript.h"
 
 #include "Amx.h"
+#include "OrasXySound.h"
 
 #include <cstdio>
 #include <functional>
 #include <map>
+#include <set>
 #include <sstream>
 #include <tuple>
 
@@ -332,6 +334,49 @@ std::string XyMoveZones(const std::string& source, const std::map<int, XyZonePla
         set(x, value(x) + place->second.Dx, "X/Y's x " + std::to_string(value(x)));
         set(z, value(z) + place->second.Dz, "X/Y's z " + std::to_string(value(z)));
     }
+    std::string out;
+    for (const std::string& l : text) out += l + "\n";
+    return out;
+}
+
+std::string XyMoveSounds(const std::string& source, const XySounds& sounds, bool streams, std::vector<std::string>& notes)
+{
+    const std::vector<Line> lines = Split(source);
+    std::vector<std::string> text, names;
+    {
+        std::istringstream in(source);
+        for (std::string l; std::getline(in, l);) text.push_back(l);
+    }
+    for (const Line& l : lines) if (l.Op == "native" && l.Words.size() >= 2) names.push_back(l.Words[1]);
+    // the natives taking a sound id first, as X/Y's scripts give them constants (SEPlay 870 times, MEPlay 35, SEStop 6; the
+    // BGM natives' ids are computed)
+    const std::set<std::string> withSound = {"SEPlay", "SEStop", "SEIsPlaying", "MEPlay"};
+    size_t moved = 0, kept = 0;
+    for (size_t i = 0; i < lines.size(); i++)
+    {
+        if (lines[i].Op != "sysreq.n" || lines[i].Words.size() < 2) continue;
+        const size_t index = std::stoul(lines[i].Words[1]);
+        if (index >= names.size() || !withSound.count(names[index])) continue;
+        // its first argument: the last push before it, a constant, in the same block
+        for (size_t k = i; k-- > 0 && i - k <= 8;)
+        {
+            const std::string& op = lines[k].Op;
+            if (op.empty() || op.back() == ':') break;
+            if (op.rfind("push", 0) != 0) continue;
+            if ((op == "push.c" || op == "push.p.c") && lines[k].Words.size() == 2)
+            {
+                const uint32_t id = (uint32_t)std::stoul(lines[k].Words[1], nullptr, 0), to = sounds.Translate(id);
+                const bool stream = to != id && (to >> 16) == 0;
+                if (to == id || (stream && !streams)) { kept++; break; }
+                char why[48];
+                snprintf(why, sizeof why, "   ; X/Y's sound 0x%X", id);
+                text[k] = "    " + op + " " + std::to_string(to) + why;
+                moved++;
+            }
+            break;
+        }
+    }
+    if (moved || kept) notes.push_back("sounds: " + std::to_string(moved) + " of X/Y's ids made Omega Ruby's, " + std::to_string(kept) + " kept");
     std::string out;
     for (const std::string& l : text) out += l + "\n";
     return out;
