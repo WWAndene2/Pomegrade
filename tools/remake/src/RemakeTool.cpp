@@ -70,7 +70,7 @@
 //                     the ones before it (OrasWorkspace.h): one line a step, "sandbox <description file>" or "region <options>"
 //   remake_tool oras-xy-world <oras.3ds> <x.3ds> <out dir> <function_names.tsv> [--matrices A,B,...] [--character-models N] [--scripts DIR] [--story on|off] [--music on|off]
 //                     Pokemon X/Y's world as Omega Ruby zones, matrices, pieces and packs (OrasXyWorld.h), X/Y's coordinates kept
-//   remake_tool oras-save <main> [<out> [<zone> <tile x> <tile z>] [--template <save> [--blocks A,B,...]] [--save-records N]]
+//   remake_tool oras-save <main> [<out> [<zone> <tile x> <tile z>] [--template <save> [--blocks A,B,...]] [--save-records N] [--height PIXELS]]
 //                     where an ORAS save puts the player (OrasSave.h); with the rest, a copy with the player moved there;
 //                     --save-records N: the copy in the layout of oras-engine --characters N - 1 (block 10 of N records)
 //                     --characters-from <oras.3ds> [<mod dir>]: the destination zone's people written into the save (Continue
@@ -145,6 +145,7 @@
 #include <cstdlib>
 #include <memory>
 #include <filesystem>
+#include <limits>
 #include <map>
 #include <functional>
 #include <set>
@@ -183,7 +184,7 @@ static int Usage()
                     "  remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt> [--character-models N] [--characters N] [--events large] [--xy <x.3ds>]\n"
                     "  remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>\n"
                     "  remake_tool oras-xy-world <oras.3ds> <x.3ds> <out dir> <function_names.tsv> [--matrices A,B,...] [--character-models N] [--scripts DIR] [--story on|off] [--music on|off]\n"
-                    "  remake_tool oras-save <main> [<out> [<zone> <tile x> <tile z>] [--template <save> [--blocks A,B,...]] [--save-records N] [--characters-from <oras.3ds> [<mod dir>]]]\n"
+                    "  remake_tool oras-save <main> [<out> [<zone> <tile x> <tile z>] [--template <save> [--blocks A,B,...]] [--save-records N] [--height PIXELS] [--characters-from <oras.3ds> [<mod dir>]]]\n"
                     "                    [--matrix-template M] [--model-matrix NN] [oras-town's --matrix, --target, --donor, --trees, --donor-pack, --grass, ... --allow-errors]\n");
     return 2;
 }
@@ -1592,7 +1593,11 @@ int main(int argc, char** argv)
                     save.ResizeMoveModels(*records);
                     printf("block 10 holds %zu records (0x%zX bytes), the file 0x%zX bytes\n", *records, OrasMoveModelBytes(*records), save.Data.size());
                 }
-                if (move) save.MoveTo(atoi(argv[4]), (float)atof(argv[5]), (float)atof(argv[6]));
+                // --height PIXELS: the height the player stands at, as the zone files give a character's (a gym's upper floor)
+                float height = std::numeric_limits<float>::quiet_NaN();
+                for (int i = 4; i + 1 < argc; i++)
+                    if (std::string(argv[i]) == "--height") height = (float)atof(argv[i + 1]);
+                if (move) save.MoveTo(atoi(argv[4]), (float)atof(argv[5]), (float)atof(argv[6]), height);
                 // --characters-from <oras.3ds> [<mod dir>]: the destination zone's people written into the moved save
                 // (OrasSave::PlaceCharacters), read from the game's a/0/1/3, with the mod's patch of it applied when given
                 for (int i = 4; move && i + 1 < argc; i++)

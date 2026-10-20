@@ -2,6 +2,7 @@
 #include "OrasEngine.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <string>
 
@@ -115,7 +116,7 @@ void OrasSave::ResizeMoveModels(size_t records)
     WriteChecksums();
 }
 
-void OrasSave::MoveTo(int zone, float tileX, float tileZ)
+void OrasSave::MoveTo(int zone, float tileX, float tileZ, float height)
 {
     // into another zone: block 10 holds the characters of the zone the save was made in, 0x108 bytes each (u16 +4 the
     // character's number, 0xFF the player; u16 +6 the zone; u16 +8 the model), and the game restores them on loading; kept,
@@ -141,6 +142,9 @@ void OrasSave::MoveTo(int zone, float tileX, float tileZ)
     // the position is held twice in block 4 (+0x10/+0x18 and +0x104/+0x10C: two saves of the owner, a few steps apart, differ at both
     // with the same values); r5 on the phone kept the player in place when only the first was written
     for (size_t at : {(size_t)0x1410, (size_t)0x1504}) { std::memcpy(&Data[at], &x, 4); std::memcpy(&Data[at + 8], &z, 4); }
+    // the height between them (+0x14, +0x108: 2.0 in the owner's Littleroot save; inferred from the layout, not yet checked
+    // in a run)
+    if (!std::isnan(height)) for (size_t at : {(size_t)0x1414, (size_t)0x1508}) std::memcpy(&Data[at], &height, 4);
     WriteChecksums();
 }
 

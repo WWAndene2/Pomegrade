@@ -19,6 +19,7 @@
 #include "Bytes.h"
 #include "OrasZone.h"
 
+#include <limits>
 #include <vector>
 
 namespace remake
@@ -36,8 +37,9 @@ struct OrasSave
     int Zone() const;
     float X() const;
     float Z() const;
-    // moves the player (zone, and the tile's centre in pixels) and writes block 4's checksum again
-    void MoveTo(int zone, float tileX, float tileZ);
+    // moves the player (zone, and the tile's centre in pixels; the height in pixels too unless NaN) and writes block 4's
+    // checksum again
+    void MoveTo(int zone, float tileX, float tileZ, float height = std::numeric_limits<float>::quiet_NaN());
     // copies the whole player block (block 4) from another save (one the game made in the target matrix), before MoveTo: the
     // block's other words (last warp, a second zone and position record, ...) then come from a place the game wrote itself
     void TakePlayerBlockFrom(const OrasSave& other);
