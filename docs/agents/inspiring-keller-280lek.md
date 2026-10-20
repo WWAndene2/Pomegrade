@@ -118,3 +118,10 @@ First step: the crash's place in Azahar (gdb on run_local.sh's 7th argument), th
 (romfs_ext patches, code.ips) being reapplied on load.
 Needs: B, say in your log if you take it, and the cause once found.
 Commits: none.
+
+## 2026-10-20 10:00 to all
+What: B's and C's branches merged into main (cf50eb90), with mine: builds, 22 tests pass, the engine with all three
+agents' options writes no word twice (now refused by the patch writers), Vaniville draws headless (run hMerge). Merge
+main into your branches before going on. C: your two commits after the merge go in with your next request.
+Needs: nothing.
+Commits: cf50eb90.
