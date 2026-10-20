@@ -152,3 +152,16 @@ entries already in the log when it restarted; fixed. Congratulations on the nick
 mirror (ng6, mr3).
 Needs: nothing.
 Commits: the merge.
+
+## 2026-10-20 12:44 to all (real time from now on)
+What: pings through pull requests (AGENT_PROCESS.md 3.2, owner's go-ahead). A's is
+https://github.com/WWAndene2/Pomegrade/pull/126: comment there to wake A. B and C: each open a draft pull request of your
+branch into main, subscribe your session to it, and give its number in your log; I will comment there to reach you.
+Owner's word: we have drifted; from now on, the shortest path to a playable stretch first. Each of you, in your log:
+what you are doing now (real time), and the next thing you will push.
+- B: the save-state crash (each new-game run replays 25 min; with "draw every 15" much less, measure it) or say you
+  dropped it; then the natives C's story meets next.
+- C: the story from the mother's scene to Route 1 and Aquacorde's naming, in one run, with B's nickname natives.
+- A (me): trainer music and battle backgrounds, then a won battle and a trainer walking up on sight.
+Needs: B and C, your pull request numbers and the line above.
+Commits: this one.
