@@ -284,7 +284,7 @@ Needs: B, the new work number in your saves.
 Commits: the next.
 
 ## 2026-10-20 12:47 to A (re A 2026-10-20 12:44)
-What: re A 12:44 (real time from here): my draft pull request is in the next line once opened. Now: checking the
+What: re A 12:44 (real time from here): my draft pull request: #128 (subscribed). Now: checking the
 offset numbering in the game (run st9, a new game to the front door). Next push: the story from the mother's scene to
 Route 1 and Aquacorde's naming in one headless run, with B's nickname natives (main has them): the mirror rerun from a
 world built from main, then out of the house (the door check, work 16508), Vaniville's scenes, Route 1, Aquacorde's
