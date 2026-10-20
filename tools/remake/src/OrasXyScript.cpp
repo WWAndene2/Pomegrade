@@ -399,7 +399,12 @@ std::string XyMoveZones(const std::string& source, const std::map<int, XyZonePla
         return -1;
     };
     const auto value = [&](int line) { return (int)std::stol(lines[(size_t)line].Words[1], nullptr, 0); };
-    const auto set = [&](int line, int v, const std::string& why) { text[(size_t)line] = "    " + lines[(size_t)line].Op + " " + std::to_string(v) + "   ; " + why; };
+    std::set<size_t> moved; // lines already rewritten
+    const auto set = [&](int line, int v, const std::string& why) {
+        text[(size_t)line] = "    " + lines[(size_t)line].Op + " " + std::to_string(v) + "   ; " + why;
+        moved.insert((size_t)line);
+    };
+    std::vector<std::string> viaProcedure; // map changes whose zone is not a constant pushed beside them
     const std::set<std::string> withTile = {"_MapChangeCore", "_MapChangeAndDemoCall"}, zoneOnly = {"_MapChangeRailCore"},
         unread = {"EventMapReplace", "CallMapConnect", "GymEsperWarpEvent"};
     for (size_t i = 0; i < lines.size(); i++)
@@ -432,7 +437,7 @@ std::string XyMoveZones(const std::string& source, const std::map<int, XyZonePla
         }
         if (!withTile.count(name) && !zoneOnly.count(name)) continue;
         const int zoneLine = argument(i, 0);
-        if (zoneLine < 0) { notes.push_back(name + where + ": its zone is computed, not moved"); continue; }
+        if (zoneLine < 0) { viaProcedure.push_back(name + where); continue; }
         const int xZone = value(zoneLine);
         const auto place = zones.find(xZone);
         if (place == zones.end()) { notes.push_back(name + where + ": X/Y zone " + std::to_string(xZone) + " is not in this mod, kept"); continue; }
@@ -442,6 +447,28 @@ std::string XyMoveZones(const std::string& source, const std::map<int, XyZonePla
         if (x < 0 || z < 0) { notes.push_back(name + where + ": its tile is computed, not shifted"); continue; }
         set(x, value(x) + place->second.Dx, "X/Y's x " + std::to_string(value(x)));
         set(z, value(z) + place->second.Dz, "X/Y's z " + std::to_string(value(z)));
+    }
+    // a zone a procedure passes on (X/Y's map-change wrappers, "push.p.s 12" ... "sysreq.n _MapChangeCore"): the constant each
+    // of its calls pushes, followed as NumberArguments follows a flag (45 such calls in X/Y's world, 20 October). Its tile is
+    // not shifted (the world's zones keep X/Y's tiles: Dx, Dz 0); a zone moved with a shift is noted
+    if (!viaProcedure.empty())
+    {
+        const auto nameOf = [&](size_t index) { return index < names.size() ? names[index] : std::string(); };
+        std::vector<std::string> unresolved;
+        size_t passed = 0;
+        for (const Argument& a : NumberArguments(lines, nameOf, &unresolved, {{"_MapChangeCore", 0}, {"_MapChangeAndDemoCall", 0}, {"_MapChangeRailCore", 0}}))
+        {
+            if (!a.Other || moved.count(a.Line) || lines[a.Line].Words.size() != 2 || !Constants.count(lines[a.Line].Op)) continue;
+            const int xZone = value((int)a.Line);
+            const auto place = zones.find(xZone);
+            if (place == zones.end()) { notes.push_back("a map change's zone passed by a procedure, X/Y zone " + std::to_string(xZone) + " at source line " + std::to_string(a.Line + 1) + ", is not in this mod, kept"); continue; }
+            set((int)a.Line, place->second.Zone, "X/Y's zone " + std::to_string(xZone) + ", passed on to a map change");
+            if (place->second.Dx != 0 || place->second.Dz != 0) notes.push_back("a map change's zone passed by a procedure at source line " + std::to_string(a.Line + 1) + ": its tile not shifted");
+            passed++;
+        }
+        for (const std::string& u : unresolved) notes.push_back(u);
+        if (!passed) for (const std::string& v : viaProcedure) notes.push_back(v + ": its zone is computed, not moved");
+        else notes.push_back(std::to_string(passed) + " zone(s) of map changes passed by procedures moved");
     }
     std::string out;
     for (const std::string& l : text) out += l + "\n";

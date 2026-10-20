@@ -175,6 +175,17 @@ int main()
         std::filesystem::remove(names);
     }
     {
+        // XyMoveZones: a zone a procedure passes on to _MapChangeCore (X/Y's wrappers) moved at each call
+        const std::string source = "native _MapChangeCore\ncode\n"
+            "main:\n    push.p.c 3\n    push.p.c 9\n    push.p.c 0\n    push.p.c 5\n    push.p.c 2\n    push.p.c 20\n    call wrap\n    halt 0\n"
+            "wrap:\n    proc\n    push.p.c 0\n    push.p.s 24\n    push.p.s 20\n    push.p.s 16\n    push.p.s 12\n    sysreq.n 0 20\n    retn\n";
+        std::vector<std::string> notes;
+        const std::string moved = XyMoveZones(source, {{2, {540, 0, 0}}}, notes);
+        check(moved.find("push.p.c 540   ; X/Y's zone 2, passed on to a map change") != std::string::npos && moved.find("push.p.c 9\n") != std::string::npos,
+              "a zone passed by a procedure moved at its call, the rest kept");
+        check(notes.size() == 1 && notes[0].find("1 zone(s)") != std::string::npos, "the move noted");
+    }
+    {
         // XyMoveMessages: MsgLoad(table, n)'s n moved by (table != 0, n), a computed one noted; XyMessageMember: X's switch
         const std::string source = "native MsgLoad\ncode\n"
             "    push.p.c 21\n    push.p.c 0\n    sysreq.n 0 8\n"
