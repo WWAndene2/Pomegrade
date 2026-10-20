@@ -50,8 +50,9 @@ constexpr int GameTrainerFlags = 0x6CC;   // both games' trainer n's flag: 0x6CC
 inline int XyTrainerToOras(int xTrainer) { return xTrainer > 0 ? XyTrainerFirst + xTrainer : xTrainer; }
 
 // appends X/Y's trainers (ws.XyRom) to the workspace's a/0/3/6, a/0/3/8 and a/0/7/1-8 member 22; returns the log. With
-// `music` (both games' sound ids, OrasXySound.h; X/Y's own tracks with `streams`, X/Y's music in the mod) and `battleTypes`: X/Y's battle types (the records of X/Y's 0x53C010 its
-// classes name: music, victory jingle, intro), their music ids made the mod's, into *battleTypes for oras-engine
+// `music` (both games' sound ids, OrasXySound.h; X/Y's own tracks with `streams`, X/Y's music in the mod) and `battleTypes`: battle types for X/Y's classes (Omega Ruby's record of the
+// type its copy of the class names, with the music and victory jingle of the X/Y type the class names, made the mod's
+// ids; one per pair of the two), into *battleTypes for oras-engine
 // --xy-battle-types (Omega Ruby's 73 kept, these numbered from 73); the Omega Ruby classes X/Y's take, when none of Omega
 // Ruby's trainers uses them, name them (a/0/3/7 byte +2). Checked headless (20 October): an X/Y trainer fought to Omega
 // Ruby's STRM_BGM_VS_TRAINER_SG before (run hMus1: its recording matched it, 1.04 against 0.36), to the track its X/Y battle

@@ -64,28 +64,35 @@ std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const XySounds* music,
         log.push_back(line);
     }
 
-    // the battle types X/Y's classes name (their byte +2), with X/Y's music: appended after Omega Ruby's 73 (OrasEngine.cpp)
+    // the battle types X/Y's classes name (their byte +2), with X/Y's music: appended after Omega Ruby's 73 (OrasEngine.cpp).
+    // Each is Omega Ruby's record of the type its own copy of the class names (Omega Ruby keeps X/Y's classes 0-108 and
+    // gives each one of its types: class 39, Grant's, X/Y's 34 -> Omega Ruby's 45), with X/Y's music and victory jingle
+    // (+0x10, +0x14) in place of its own; the other words are not X/Y's: X/Y's type 34 has 0x12 at +4 where Omega Ruby's
+    // leader types have 0x27-0x2C, one each, and Grant's battle so read stopped in its intro on null reads from
+    // Res_DictFindIndex (0x4CC890; run hG2). What +4 picks is inferred (a resource of the type's intro), not read
     if (music && battleTypes)
     {
-        constexpr uint32_t xTable = 0x53C010, gameTypes = 73;
-        const Bytes xCode = xy.Code();
-        std::set<int> wanted;
-        for (size_t c = 0; c < xClasses.Count(); c++) wanted.insert(Plain(xClasses.Sub(c)).at(2));
-        std::map<int, int> numberOf;
-        for (const int t : wanted)
+        constexpr uint32_t xTable = 0x53C010, oTable = 0x57A014, gameTypes = 73;
+        const Bytes xCode = xy.Code(), oCode = ws.Rom().Code();
+        std::map<std::pair<int, int>, int> numberOf; // (X/Y's type, Omega Ruby's type of the class) -> the new type
+        std::vector<std::pair<int, int>> typeOf(xClasses.Count());
+        for (size_t c = 0; c < xClasses.Count(); c++)
         {
-            const size_t at = xTable - 0x100000 + 24 * (size_t)t;
-            Bytes r(xCode.begin() + at, xCode.begin() + at + 24);
+            const std::pair<int, int> key{Plain(xClasses.Sub(c)).at(2), Plain(oClasses.Sub((size_t)classOf[c])).at(2)};
+            typeOf[c] = key;
+            if (numberOf.count(key)) continue;
+            const size_t xAt = xTable - 0x100000 + 24 * (size_t)key.first, oAt = oTable - 0x100000 + 24 * (size_t)key.second;
+            Bytes r(oCode.begin() + oAt, oCode.begin() + oAt + 24);
             for (const size_t w : {0x10u, 0x14u})
             {
-                const uint32_t id = r[w] | r[w + 1] << 8 | r[w + 2] << 16 | (uint32_t)r[w + 3] << 24;
-                if ((id >> 16) != 1) throw FormatError("X/Y battle type " + std::to_string(t) + ": no music id at +" + std::to_string(w));
+                const uint32_t id = xCode[xAt + w] | xCode[xAt + w + 1] << 8 | xCode[xAt + w + 2] << 16 | (uint32_t)xCode[xAt + w + 3] << 24;
+                if ((id >> 16) != 1) throw FormatError("X/Y battle type " + std::to_string(key.first) + ": no music id at +" + std::to_string(w));
                 // X/Y's own track (a stream appended to the archive, category 0) only with X/Y's music in the mod; else the id
                 // as it is, which names Omega Ruby's sound of that number (its own trainer theme for X/Y's 0x10019: the PSS one)
                 const uint32_t translated = music->Translate(id), to = (translated >> 16) == 0 && !streams ? id : translated;
                 for (int b = 0; b < 4; b++) r[w + b] = (uint8_t)(to >> (8 * b));
             }
-            numberOf[t] = (int)(gameTypes + battleTypes->size() / 24);
+            numberOf[key] = (int)(gameTypes + battleTypes->size() / 24);
             battleTypes->insert(battleTypes->end(), r.begin(), r.end());
         }
         std::set<int> orasUsed; // the classes Omega Ruby's own trainers use
@@ -95,7 +102,7 @@ std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const XySounds* music,
         size_t set = 0;
         for (size_t c = 0; c < xClasses.Count(); c++)
         {
-            const int o = classOf[c], type = numberOf.at(Plain(xClasses.Sub(c)).at(2));
+            const int o = classOf[c], type = numberOf.at(typeOf[c]);
             if (orasUsed.count(o)) { snprintf(line, sizeof line, "battle type: X/Y's class %zu's Omega Ruby class %d is its own trainers': kept", c, o); log.push_back(line); continue; }
             const auto g = given.find(o);
             if (g != given.end()) { if (g->second != type) { snprintf(line, sizeof line, "battle type: Omega Ruby class %d keeps X/Y's %d (X/Y's class %zu names another)", o, g->second, c); log.push_back(line); } continue; }
@@ -106,7 +113,7 @@ std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const XySounds* music,
             given[o] = type;
             set++;
         }
-        snprintf(line, sizeof line, "battle types: %zu of X/Y's (with its music) as 73-%zu, given to %zu classes", numberOf.size(), 72 + numberOf.size(), set);
+        snprintf(line, sizeof line, "battle types: %zu (Omega Ruby's of the class, X/Y's music) as 73-%zu, given to %zu classes", numberOf.size(), 72 + numberOf.size(), set);
         log.push_back(line);
     }
 
