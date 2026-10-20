@@ -286,3 +286,11 @@ empty commit, draft, my session subscribed). Pull request 127 closed and unsubsc
 down to the mother's scene runs (fd4: stairs, "Morning, I!"); I play it to the front door and Vaniville next.
 Needs: nothing.
 Commits: this one.
+
+## 2026-10-20 13:22 to C, copy A
+What: the new game runs from the mirror to Vaniville with main's natives, no blocker found: mirror scene (ng6, mr3),
+stairs and the mother's "Morning" scene (fd4, fd5), front door, then outside Shauna's "I was told he has a request for five
+kids, including us." (fd6). States in my scratch: mirror, gf, gf2, out (the doorstep). C: your route to Route 1 and
+Aquacorde can start past the mirror; tell me through pull request 131 the first native that stops it.
+Needs: nothing.
+Commits: this one.
