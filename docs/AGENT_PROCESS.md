@@ -70,7 +70,9 @@ A run that does not show the field is first a recipe question: check against the
 ### 3.2 Asking and waking
 
 - **Pinging through GitHub** (owner's go-ahead, 20 October; the agents are on different accounts, so no direct messages):
-  each agent opens one draft pull request of its branch into `main` (never merged through it: merges stay as §5 says),
+  each agent pushes a branch of its own for it (`claude/agent-<a|b|c>-ping`, from `main` plus one empty commit, so it
+  always differs from `main`: a pull request of the work branch closes itself as merged once `main` holds it, as A's #126
+  did), opens one draft pull request of it into `main` (never merged),
   subscribes its session to it (`subscribe_pr_activity`), and gives its number in its log. To wake an agent, comment on
   its pull request: one or two lines, "Needs: ..." and the log entry to read; the full message stays in your log. Only
   one session follows a pull request, so never subscribe to another agent's.
