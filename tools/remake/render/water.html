@@ -1,0 +1,187 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#9fc3e6;overflow:hidden}</style></head>
+<body>
+<script type="importmap">{"imports":{
+ "three":"./node_modules/three/build/three.module.js",
+ "three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// Route 103's sea (owner's request, 20 October): the piece (a/0/3/9 member 1, as r103.gltf: `remake_tool bch` on the
+// piece with area pack 8's files 11 and 1) and the textures chip_sea_a, r103_mizutama (`remake_tool oras-texture`), from
+// the owner's dump, never committed. The game's own movement, read by material_anim.py from area pack 8's file 2
+// (world01_02_01_chikei_, 239 frames a cycle): ?f=<frame> &shot=close|sea|low. On top of it, in the game's anime style:
+// a swell (invented) bends the light and the reflection, flat tones, hard-edged glints
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+const q = new URLSearchParams(location.search);
+const F = Number(q.get('f') || 0), shot = q.get('shot') || 'game';
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(1280, 800); renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x9fc3e6);
+const load = n => new Promise(r => new THREE.TextureLoader().load(n, t => { t.flipY = false; t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = THREE.LinearFilter; r(t); }));
+// the curves as read (linear between keys); the rock's y keys
+const t = F / 239;
+const rockY = [[0, 0.0001], [52, 0.049], [96, 0.0253], [138, 0.035], [180, 0.035], [223, 0.0229], [239, 0]];
+function lerpKeys(k, f) { for (let i = 1; i < k.length; i++) if (f <= k[i][0]) { const a = k[i - 1], b = k[i]; return a[1] + (b[1] - a[1]) * (f - a[0]) / (b[0] - a[0]); } return k[k.length - 1][1]; }
+const seaA = await load('chip_sea_a.png'), mizu = await load('r103_mizutama.png');
+const vert = `varying vec2 vUv; varying vec4 vCol;
+void main() { vUv = uv;
+#ifdef USE_COLOR_ALPHA
+vCol = color;
+#elif defined(USE_COLOR)
+vCol = vec4(color, 1.0);
+#else
+vCol = vec4(1.0);
+#endif
+gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+// two layers: the game's combiner is not decoded, so how they mix is a guess: layer 0 times the vertex colour,
+// layer 1 laid over by its alpha
+function twoLayer(map0, map1, o0, o1, mix1) {
+  return new THREE.ShaderMaterial({
+    uniforms: { m0: { value: map0 }, m1: { value: map1 }, o0: { value: new THREE.Vector2(...o0) }, o1: { value: new THREE.Vector2(...o1) } },
+    vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    vertexShader: vert,
+    fragmentShader: `uniform sampler2D m0, m1; uniform vec2 o0, o1; varying vec2 vUv; varying vec4 vCol;
+void main() { vec4 a = texture2D(m0, vUv + o0), b = texture2D(m1, vUv + o1);
+  vec3 c = mix(a.rgb * vCol.rgb, b.rgb, b.a * ${mix1.toFixed(2)});
+  gl_FragColor = vec4(c, vCol.a * a.a);
+  #include <colorspace_fragment>
+}`,
+  });
+}
+
+// Lighting, transparency and reflection (added here, not the game's): the land lit by a sun and the sky; the sea
+// (chip_sea_b) drawn as a water surface: its normal from the two scrolling layers' brightness (so the ripples
+// keep the game's pattern and motion), a planar reflection of the scene, see-through toward an added seabed with
+// depth tint, Fresnel between the two, and the sun's highlight
+const SEA_Y = -9.0;
+scene.add(new THREE.HemisphereLight(0xdfefff, 0x6f7a5a, 1.0));
+const sunDir = new THREE.Vector3(0.15, 0.45, -0.88).normalize(); // in front of the camera, low: its glints fall on the water seen
+const sunL = new THREE.DirectionalLight(0xfff1dc, 2.2); sunL.position.copy(sunDir).multiplyScalar(500); scene.add(sunL);
+const W = 1280, H = 800;
+const reflRT = new THREE.WebGLRenderTarget(W, H), refrRT = new THREE.WebGLRenderTarget(W, H, { depthBuffer: true });
+refrRT.depthTexture = new THREE.DepthTexture(W, H);
+let waterMat = null; const seaMeshes = [];
+function waterMaterial(map0, map1, o0, o1) {
+  return new THREE.ShaderMaterial({
+    uniforms: { m0: { value: map0 }, m1: { value: map1 }, o0: { value: new THREE.Vector2(...o0) }, o1: { value: new THREE.Vector2(...o1) },
+      refl: { value: reflRT.texture }, refr: { value: refrRT.texture }, refrDepth: { value: refrRT.depthTexture },
+      sunDir: { value: sunDir }, phase: { value: t }, res: { value: new THREE.Vector2(W, H) }, near: { value: 1 }, far: { value: 5000 } },
+    vertexColors: true, transparent: false,
+    vertexShader: `varying vec2 vUv; varying vec4 vCol; varying vec3 vWorld; varying float vViewZ;
+void main() { vUv = uv;
+#ifdef USE_COLOR
+vCol = vec4(color.rgb, 1.0);
+#else
+vCol = vec4(1.0);
+#endif
+vec4 w = modelMatrix * vec4(position, 1.0); vWorld = w.xyz; vec4 v = viewMatrix * w; vViewZ = -v.z;
+gl_Position = projectionMatrix * v; }`,
+    fragmentShader: `uniform sampler2D m0, m1, refl, refr, refrDepth; uniform vec2 o0, o1, res; uniform vec3 sunDir; uniform float near, far, phase;
+varying vec2 vUv; varying vec4 vCol; varying vec3 vWorld; varying float vViewZ;
+float L(sampler2D m, vec2 uv) { return dot(texture2D(m, uv).rgb, vec3(0.2126, 0.7152, 0.0722)); }
+// the water's volume moving: a sum of travelling swells (directions, lengths in map units, heights), each an
+// integer number of periods per animation cycle so the loop is seamless; the normal is their exact slope
+const float TAU = 6.2831853;
+vec3 Swell(vec2 p) {
+  vec2 d[5]; float len[5], amp[5], cyc[5];
+  d[0] = normalize(vec2(1.0, 0.35)); len[0] = 95.0; amp[0] = 1.1; cyc[0] = 2.0;
+  d[1] = normalize(vec2(0.8, -0.6)); len[1] = 61.0; amp[1] = 0.7; cyc[1] = 3.0;
+  d[2] = normalize(vec2(0.2, 1.0)); len[2] = 43.0; amp[2] = 0.45; cyc[2] = 4.0;
+  d[3] = normalize(vec2(-0.7, 0.7)); len[3] = 29.0; amp[3] = 0.25; cyc[3] = 5.0;
+  d[4] = normalize(vec2(1.0, -0.15)); len[4] = 19.0; amp[4] = 0.14; cyc[4] = 7.0;
+  vec2 slope = vec2(0.0); float h = 0.0;
+  for (int i = 0; i < 5; i++) {
+    float k = TAU / len[i], a = k * dot(d[i], p) - TAU * cyc[i] * phase;
+    h += amp[i] * sin(a);
+    slope += amp[i] * k * cos(a) * d[i];
+  }
+  return vec3(slope, h);
+}
+float viewZ(float d) { float z = d * 2.0 - 1.0; return 2.0 * near * far / (far + near - z * (far - near)); }
+void main() {
+  // ripples: slopes of the two layers' brightness, each scrolled as the game scrolls it
+  vec2 e = vec2(1.0 / 128.0, 0.0);
+  vec2 u0 = vUv + o0, u1 = vUv + o1;
+  vec2 g0 = vec2(L(m0, u0 + e.xy) - L(m0, u0 - e.xy), L(m0, u0 + e.yx) - L(m0, u0 - e.yx));
+  vec2 g1 = vec2(L(m1, u1 + e.xy) - L(m1, u1 - e.xy), L(m1, u1 + e.yx) - L(m1, u1 - e.yx));
+  vec2 g = (g0 + g1) * 2.5; // the texture's lines: only for the foam's edge now
+  vec3 sw = Swell(vWorld.xz);
+  vec3 n = normalize(vec3(-sw.x * 2.2, 1.0, -sw.y * 2.2));
+  vec3 v = normalize(cameraPosition - vWorld);
+  vec2 sc = gl_FragCoord.xy / res;
+  // see-through: what lies under the water (refraction image), tinted by the depth of water it is seen through
+  vec2 rs = clamp(sc + n.xz * 0.02, 0.0, 1.0);
+  float under = viewZ(texture2D(refrDepth, rs).r) - vViewZ;
+  if (under < 0.0) { rs = sc; under = max(viewZ(texture2D(refrDepth, sc).r) - vViewZ, 0.0); }
+  vec3 below = texture2D(refr, rs).rgb;
+  // anime style: flat bands instead of smooth gradients. The game's own two layers are the water's colour
+  vec4 a = texture2D(m0, u0), b = texture2D(m1, u1);
+  vec3 game = mix(a.rgb * vCol.rgb, b.rgb, b.a * 0.6);
+  // depth in two flat steps: a lighter band along the shore, the game's colour, a deeper band further out
+  float band = under < 2.5 ? 0.0 : (under < 9.0 ? 1.0 : 2.0);
+  vec3 c = band == 0.0 ? mix(game, vec3(0.62, 0.9, 0.95), 0.45) : (band == 1.0 ? game : game * vec3(0.78, 0.86, 0.95));
+  // the reflection only as a flat, faint shape: the mirrored scene posterised to 3 tones, a quarter strength
+  vec3 mirror = texture2D(refl, clamp(sc + n.xz * 0.04, 0.0, 1.0)).rgb;
+  // the reflection: what stands above the water, mirrored and bent by the swell, its colours flattened to 4 steps
+  vec3 mp = floor(mirror * 4.0 + 0.5) / 4.0;
+  float facing = 1.0 - max(dot(n, v), 0.0);
+  c = mix(c, mix(c, mp, 0.55), smoothstep(0.25, 0.6, facing) * 0.8 + 0.15);
+  // highlights: hard-edged white shapes where the sun's glint passes a threshold (no soft bloom)
+  vec3 h = normalize(sunDir + v);
+  // the swell's sides in flat tones: lit side lighter, the far side a little darker, so the volume shows moving
+  float side = dot(n, normalize(vec3(sunDir.x, 0.25, sunDir.z)));
+  c *= side > 0.33 ? 1.1 : (side < 0.2 ? 0.9 : 1.0);
+  float spec = pow(max(dot(n, h), 0.0), 250.0);
+  c = mix(c, vec3(1.0), step(0.45, spec) * 0.95);
+  c = mix(c, c * 1.15, step(0.06, spec) * 0.7); // a lighter band round each glint (a second flat tone)
+  // the shore: a white foam line of fixed width, its edge wobbling with the ripples
+  float foam = step(under + (g.x + g.y) * 1.5, 0.8);
+  c = mix(c, vec3(0.97, 0.99, 1.0), foam);
+  gl_FragColor = vec4(c, 1.0);
+  #include <colorspace_fragment>
+}`,
+  });
+}
+new GLTFLoader().load('r103.gltf', gltf => {
+  gltf.scene.traverse(o => {
+    if (!o.isMesh) return;
+    const m = o.material, map = m.map;
+    map.magFilter = THREE.LinearFilter; map.wrapS = map.wrapT = THREE.RepeatWrapping;
+    if (m.name === 'chip_sea_b') { waterMat = waterMaterial(map, seaA, [t, 0], [-t, 0]); o.material = waterMat; seaMeshes.push(o); return; }
+    if (m.name === 'r103_mizutama2') { o.material = twoLayer(map, mizu, [-t, t], [t, t], 0.5); o.renderOrder = 2; return; }
+    const mat = new THREE.MeshBasicMaterial({ map, vertexColors: true, transparent: m.transparent, alphaTest: m.alphaTest, side: THREE.DoubleSide, depthWrite: m.depthWrite });
+    if (m.name === 'chip_rock_b') { map.offset.set(-0.5 * t, lerpKeys(rockY, F)); o.renderOrder = 2; }
+    o.material = mat;
+  });
+  scene.add(gltf.scene);
+  // the seabed (added: the piece has none under its sea): sand darkening with depth, sloping away from the shore
+  const bedGeo = new THREE.PlaneGeometry(74, 722, 20, 80); bedGeo.rotateX(-Math.PI / 2);
+  const pos = bedGeo.attributes.position;
+  for (let i = 0; i < pos.count; i++) { const x = pos.getX(i) + 324.5; pos.setY(i, SEA_Y - 1.0 - Math.max(0, x - 288) * 0.25); pos.setX(i, x); }
+  bedGeo.computeVertexNormals();
+  const bed = new THREE.Mesh(bedGeo, new THREE.MeshStandardMaterial({ color: 0xc9b98f, roughness: 1 }));
+  scene.add(bed);
+  const views = { close: [40, [322, 38, 150], [335, -9, 95]], sea: [42, [300, 150, 200], [330, -9, 110]], low: [42, [300, 40, 190], [345, -9, 90]] };
+  const [fov, p, tg] = views[shot] || views.sea;
+  const camera = new THREE.PerspectiveCamera(fov, 1.6, 1, 5000);
+  camera.position.set(...p); camera.lookAt(...tg); camera.updateMatrixWorld();
+  // under the water: everything but the sea
+  seaMeshes.forEach(o => o.visible = false);
+  renderer.setRenderTarget(refrRT); renderer.render(scene, camera);
+  // the reflection: the scene above the water seen from the camera mirrored in it (clipped at the surface)
+  const mirrorCam = camera.clone();
+  mirrorCam.matrixAutoUpdate = false; mirrorCam.matrixWorldAutoUpdate = false;
+  const flip = new THREE.Matrix4().set(1, 0, 0, 0, 0, -1, 0, 2 * SEA_Y, 0, 0, 1, 0, 0, 0, 0, 1);
+  mirrorCam.matrixWorld.multiplyMatrices(flip, camera.matrixWorld);
+  mirrorCam.matrixWorldInverse.copy(mirrorCam.matrixWorld).invert();
+  renderer.clippingPlanes = [new THREE.Plane(new THREE.Vector3(0, 1, 0), -SEA_Y)];
+  bed.visible = false;
+  renderer.setRenderTarget(reflRT); renderer.render(scene, mirrorCam);
+  renderer.clippingPlanes = []; bed.visible = true;
+  seaMeshes.forEach(o => o.visible = true);
+  renderer.setRenderTarget(null); renderer.render(scene, camera);
+  window.done = true;
+}, undefined, e => { console.log('load error', e); window.done = true; });
+</script>
+</body></html>

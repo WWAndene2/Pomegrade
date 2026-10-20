@@ -168,6 +168,16 @@ instead of traced (21 of 790 in Littleroot: 2 % fewer rays, 0.0424). The sky pro
 turning round needs only its shadows and its bounce again each frame (`gif=N`). Not written into the emulator: the probes
 need the camera's place in the world to be cached, which the 3DS does not hand over (to read from the game's memory).
 
+## Water (20 October, owner's request)
+
+`water.html`: Route 103's sea moved as the game moves it (area pack 8's material animation, read by
+`material_anim.py`: texture scrolls only, see ORAS_LITTLEROOT.md section 5), then lit in the game's anime style:
+a swell (five travelling waves, invented, a whole number of periods a cycle so the loop is seamless) bends the
+light (flat lighter and darker tones on its sides, hard-edged glints) and a planar reflection (the scene mirrored in
+the water's plane, colours in 4 steps); the land stays as the game draws it. Rejected on the way, by the owner: a
+glossy physically based look ("plastic UE5 vinyl"), and glints made from the texture's lines (they traced the
+foam cells instead of the water's volume). The seabed under the transparency is added (the piece has none).
+
 ## Ride viewer (point 39 of docs/Delta_Emerald_Development.md, 11 October)
 
 `ride_viewer.html` is the template of a self-contained page where Giratina flies with the player on its back: the game's
