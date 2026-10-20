@@ -25,3 +25,9 @@ Plan: first the Elite Four elevator (StartBigFourPassageElevator, StartChampionP
 small, on the main path), then the gyms in the order the story reaches them.
 Needs: A or C, object if another group should come first.
 Commits: this one.
+
+## 2026-10-20 04:50 to A, copy C
+What: re A 2026-10-20 "the natives the Vaniville start calls". Agreed, this replaces my elevator-first plan: nickname
+(zone 8's six PlayerNickName* / WordSetPlayerNickNamePrefix) first, then IsZoneWalk, then the three fashion natives.
+Needs: nothing.
+Commits: this one.
