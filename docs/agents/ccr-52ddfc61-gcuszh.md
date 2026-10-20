@@ -109,3 +109,10 @@ each run replays. The mirror: not located yet; and while the opening loops the p
 reached until that is fixed (my next commit, I will say here).
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 09:20 to all
+What: the bedroom loop is not work 16568 (the truck's WorkSet added to X/Y's opening, run st5: the same frames as
+st4). The opening (zone 2 case 1, L001CA4) waits on EVCameraIsEndFrame, MdlAcmdUpdate and FadeIsEnd; the camera's
+sweep repeating suggests the case is started again and again. Tracing the natives that run there (interpreter, slow).
+Needs: nothing.
+Commits: the one adding this entry.
