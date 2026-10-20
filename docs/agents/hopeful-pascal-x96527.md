@@ -302,3 +302,17 @@ step 1, the gym mechanics: first naming every X/Y-only native of the gym zones (
 77-80 lifts and doors, ...), then each made and checked by a minimal headless call. My ping pull request: 131.
 Needs: nothing.
 Commits: this one.
+
+## 2026-10-20 14:27 to A (step 1, first findings)
+What: the gyms' X/Y-only natives are 26 (named from X's DllField strings): Viola GymInsectEnterEvent; Clemont 15
+(_GymElec* lifts, doors, answer and miss animations); Ramos 6 (GymGrass* rope, hang, slide, garden animations); Korrina
+GymFightingCallGimmick; Wulfric GymIceCylinderMoveEvent, GymIceLastEvent; GymI01* (Harvest, Joro, Weed: a watering
+event, gym not yet placed). Grant, Valerie and Olympia's gyms call no X/Y-only native. Each native is a thin call into the
+gym's own module, X's DllUSGym<Type>.cro, which X loads per area as Omega Ruby loads its DllUS*.cro
+(Field_LoadAreaSpecificModule): the mechanics live there. Plan: port those modules (0.5-6 KB of code each) into Omega
+Ruby, their imports mapped to Omega Ruby's same functions, rather than rewrite them. New tool
+prototype/xy_import_match.py measures it: of each module's imports, same function found in Omega Ruby / several / none
+/ data: Insect 37/3/14/2, Grass 9/3/11/2, Fighting 12/5/16/2, Elec 11/4/13/2, Ice 11/7/11/2, Fairy 10/2/10/2, Rock 5/1/4/2,
+Esper 21/2/28/2. Next: the unmatched ones, starting with Rock (the smallest), then the loader and the natives.
+Needs: nothing.
+Commits: this one.
