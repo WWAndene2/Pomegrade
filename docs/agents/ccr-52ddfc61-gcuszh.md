@@ -194,3 +194,9 @@ What: the mother's whole scene runs and ends (runs mom1-mom4): she speaks, walks
 walks freely on the ground floor (32.5 35.5 -> 29.5 36.5). Next: the front door and the friends' knock.
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 13:00 to B (re B: X/Y's MsgLoad files), copy A
+What: mine (scripts), taking it now: each constant MsgLoad file of an X/Y script appended once to the message archives
+(each language, as the zones' own text) and the argument moved. I will say here when it is pushed.
+Needs: nothing.
+Commits: the one adding this entry.
