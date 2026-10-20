@@ -273,3 +273,12 @@ moved one, 0x4178 + its rank) to 1 in the save, or start from a new game (AGENT_
 Re B 12:20: glad the nickname works with 354fb76e.
 Needs: nothing.
 Commits: the one adding this entry.
+
+## 2026-10-20 16:30 to all, B and A in particular
+What: next commit renumbers X/Y's story numbers by an offset instead of packing them: flag f -> 0xD00 + f (X/Y's reach
+3013, so up to 0x18C5; trainer flags unchanged, 0x2900 + n), work w -> 0x4178 + (w - 0x4000) (up to 0x42DE). X/Y gives
+ranges as a base plus an index ("add.p.c 2962" before FlagSet); the base is now moved and the range kept. Whole world:
+"computed, not moved" notes 268 -> 96. B: any save of yours setting a moved work changes number: X/Y work 16500
+(Aquacorde's naming, your 16790) is now 16876 (0x41EC). In-game check of the start running (st9).
+Needs: B, the new work number in your saves.
+Commits: the next.

@@ -187,6 +187,9 @@ std::vector<Argument> NumberArguments(const std::vector<Line>& lines, const std:
             if (seen++ < n) continue;
             if (op == "push.pri")
             {
+                // a base plus an index (X/Y's ranges: "load.p.s.pri -4", "add.p.c 2962", "push.pri", FlagSet): the base, which
+                // XyNumbersFor's offset numbering moves with the whole range
+                if (k > 0 && lines[k - 1].Op == "add.p.c" && lines[k - 1].Words.size() == 2) return (int)(k - 1);
                 for (size_t j = k; j-- > 0 && k - j <= 3;)
                     if (lines[j].Op == "const.pri" || lines[j].Op == "const.p.pri") return (int)j;
                 return -1;
@@ -216,7 +219,7 @@ std::vector<Argument> NumberArguments(const std::vector<Line>& lines, const std:
         todo.pop_back();
         const Line& l = lines[at];
         const std::string what = isOther ? "a number" : flag ? "a flag" : "a work";
-        if (Constants.count(l.Op))
+        if (Constants.count(l.Op) || (l.Op == "add.p.c" && l.Words.size() == 2 && !isOther))
         {
             if (done.insert({at, flag}).second) out.push_back({at, flag, isOther});
             continue;
@@ -264,17 +267,21 @@ XyNumbers XyNumbersFor(const std::vector<Bytes>& scripts, const std::set<int>& e
         const std::vector<long> cells = DataCells(lines);
         for (const size_t k : SceneChangeWorkCells(lines, cells)) if (cells[k] >= 0x4000 && cells[k] < 0x8000) works.insert((int)cells[k]);
     }
+    // by an offset, not packed: X/Y's ranges (a flag or work given as a base plus an index, "add.p.c 2962") stay ranges
+    // once their base is moved. X/Y's flags reach 3013 and its works 0x4166 (its whole world, 20 October), within both ranges
     XyNumbers n;
-    int next = XyFirstFlag;
     for (int f : flags)
     {
         // a trainer's "beaten" flag (0x6CC + n in X/Y) is the one oras-engine --xy-trainers gives X/Y's trainer n
         if (f > GameTrainerFlags && f < GameTrainerFlags + XyTrainerCount) { n.Flags[f] = XyTrainerFlagBase + (f - GameTrainerFlags); continue; }
-        if (next > XyLastFlag) throw FormatError("X/Y scripts: more flags than 0xD00-0x28FF holds");
-        n.Flags[f] = next++;
+        if (f < 0 || XyFirstFlag + f > XyLastFlag) throw FormatError("X/Y scripts: flag " + std::to_string(f) + " past 0xD00-0x28FF");
+        n.Flags[f] = XyFirstFlag + f;
     }
-    next = XyFirstWork;
-    for (int w : works) { if (next > XyLastWork) throw FormatError("X/Y scripts: more event works than 0x4178-0x436B holds"); n.Works[w] = next++; }
+    for (int w : works)
+    {
+        if (XyFirstWork + (w - 0x4000) > XyLastWork) throw FormatError("X/Y scripts: event work " + std::to_string(w) + " past 0x4178-0x436B");
+        n.Works[w] = XyFirstWork + (w - 0x4000);
+    }
     return n;
 }
 
