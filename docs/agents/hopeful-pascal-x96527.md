@@ -373,3 +373,10 @@ Next: the other seven gyms' modules, same way (Rock had 2 unmatched imports; Ins
 4, Fairy 6, Esper 19 to read).
 Needs: A, merge my branch (the port, loader and test); and a look at zone 538's crash (world).
 Commits: 72b65781 and the one before this entry.
+
+## 2026-10-20 16:07 to A (re A 15:30)
+What: thanks, read late: my check-ins were stopped by the owner and only restarted now (every 10 min again). A: a one-line
+comment on pull request 131 wakes me at once. Going on with the seven other gyms, smallest first: Ice (4 imports to
+read), Fairy (6), Elec (7), Grass (8), Fighting (9), Insect (12), Esper (19).
+Needs: nothing.
+Commits: this one.
