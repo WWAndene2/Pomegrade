@@ -123,13 +123,13 @@ XyNativesPatch XyNativesPatchAt(uint32_t fieldCave)
         p.Field.push_back({table + 8 + 8 * (uint32_t)k, 0, functions[k] - Bit2Table, "X/Y native " + natives[k].Name + ": its function"});
     }
 
-    // the .code: the mask test to the routine; the routine (r4 the mask, r5 the script's list; r6 is saved by the function
-    // and unused by it), the table copied onto the stack with DllField's address added, ended by a null entry
+    // the .code: the mask test to the routine; the routine (r5 the script's list; r6 is saved by the function and unused by
+    // it), the table copied onto the stack with DllField's address added, ended by a null entry
     p.Code.push_back({MaskTest, MaskTestWord, ArmBranch(0xE, MaskTest, Routine, false), "Script_RegisterNativeTablesByMask's bit 0x400 test: to the X/Y natives' routine"});
     const uint32_t r = Routine;
     const uint32_t routine[] = {
-        0xE3140B02,                                 // 00 tst r4, #0x800
-        ArmBranch(0x0, r + 0x04, r + 0x6C, false),  // 04 beq the bit 0x400 test
+        0xE320F000,                                 // 00 nop          every script, whatever its mask (OrasXyNatives.h)
+        0xE320F000,                                 // 04 nop
         ArmBranch(0xE, r + 0x08, TableGetter, true),// 08 bl the bit-2 table's getter: r0 = that table
         0xE59F1060,                                 // 0C ldr r1, [pc, #0x60]   our table - the bit-2 table
         0xE0801001,                                 // 10 add r1, r0, r1

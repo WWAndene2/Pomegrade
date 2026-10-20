@@ -5,11 +5,17 @@
 // that X/Y's zone scripts call them unchanged. Read 20 October.
 //
 // How a script finds its natives: Script_RegisterNativeTablesByMask (0x3FBC80) passes one {char *name, function} table per
-// bit of the zone's mask to Sys_LinkImportsByNameHash (0x506190), which hashes each name and copies the functions into the
-// script's import slots (the table is read once, not kept: read in 0x506190). Bit 0x800 is free (the game tests 0x1-0x400).
-// So the test of bit 0x400 (0x3FBDA0) becomes a branch to a routine in the .code's free bytes (0x579E80-0x579EFB; the other
-// options' ranges: OrasEngine.cpp, and A's log of 20 October) that, under bit 0x800, builds the table on the stack and
-// registers it, then tests bit 0x400 as the game did.
+// bit of the script's mask to Sys_LinkImportsByNameHash (0x506190), which hashes each name and copies the functions into the
+// script's import slots (the table is read once, not kept: read in 0x506190). The test of bit 0x400 (0x3FBDA0) becomes a
+// branch to a routine in the .code's free bytes (0x579E80-0x579EFB; the other options' ranges: OrasEngine.cpp, and A's log
+// of 20 October) that builds the table on the stack and registers it, then tests bit 0x400 as the game did.
+//
+// It registers them for every script, whatever its mask. Zone 538 (X/Y 0), whose init script alone calls an X/Y native
+// (IsZoneWalk), stayed black with the routine under bit 0x800 alone: amx_Exec (0x503320) relinks a script whose imports are
+// not all resolved (its flag 0x1000) and runs nothing, and the game kept relinking (runs z538b-g, 20 October; the same
+// with IsZoneWalk a bare `return 0`). That the init script is registered with another mask than the zone's (0x587D58 and
+// --script-mask give the main script's) is inferred, not read. Omega Ruby's own scripts import none of these X/Y names, so registering them
+// everywhere changes nothing for them; bit 0x800 (XyNativesBit) stays the sign, in a zone's mask, that the mod needs them.
 //
 // The natives' code, names and the table of their offsets live in DllField's cave (the bytes past its code segment,
 // OrasEngine.cpp), shared with the other DllField patches: it is executable, and DllField is where the game's own natives
