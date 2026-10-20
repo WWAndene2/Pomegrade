@@ -63,6 +63,11 @@ XyNumbers XyNumbersFor(const std::vector<Bytes>& scripts, const std::set<int>& e
 // native; flags and works moved by `numbers`; a flag or work given by a variable added to `notes`
 std::string XyScriptSource(const Bytes& script, const std::string& namesFile, const XyNumbers& numbers, std::vector<std::string>& notes);
 
+// the natives playing a field cutscene by its number, which XyScriptSource skips in X/Y's scripts (Omega Ruby would play its
+// own demo of X/Y's number): CallFieldTradeDemo, CallApplicationDemo and _MapChangeAndDemoCall are not among them (a trade,
+// an application, a map change: not only a cutscene)
+const std::set<std::string>& XyDemoNatives();
+
 // the zones in a script's source (XyScriptSource's, or one edited from it) moved to the mod's: the first argument of
 // _MapChangeCore, _MapChangeAndDemoCall and _MapChangeRailCore (a zone, Omega Ruby's natives read it as a u16: Script_Native_
 // _MapChangeCore 0x10296AA4 and the others, read 19 October) when a constant, and with the first two the destination tile

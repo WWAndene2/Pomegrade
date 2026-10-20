@@ -289,6 +289,12 @@ XyNumbers XyNumbersFor(const std::vector<Bytes>& scripts, const std::set<int>& e
     return n;
 }
 
+const std::set<std::string>& XyDemoNatives()
+{
+    static const std::set<std::string> natives = {"CallFieldCaptureDemo", "CallFieldNotCaptureDemo", "CallFieldCaptureDemoSimplePoke", "CallCaptureDemo"};
+    return natives;
+}
+
 std::string XyScriptSource(const Bytes& script, const std::string& namesFile, const XyNumbers& numbers, std::vector<std::string>& notes)
 {
     const std::map<uint32_t, std::string> oras = OrasNatives(namesFile);
@@ -340,6 +346,16 @@ std::string XyScriptSource(const Bytes& script, const std::string& namesFile, co
             const size_t index = std::stoul(l.Words[1]);
             const std::string name = index < names.size() ? names[index] : "?";
             rewrite[i] = text[i] + "   ; " + name;
+            // X/Y's cutscenes (owner's decision, 20 October): translated but skipped, their arguments released and 0 as
+            // the result, the call kept in a comment; putting it back in an edited script (oras-xy-world --scripts) plays
+            // it. Omega Ruby's natives of these names play its own demo of X/Y's number: X/Y zone 160's scene 4,
+            // CallFieldNotCaptureDemo(45, 6, 1), loaded DllSequence and read a null effect (0x46C950; runs hK0, hK2)
+            if (XyDemoNatives().count(name) && l.Words.size() >= 3)
+            {
+                rewrite[i] = "    stack.p " + l.Words[2] + "   ; X/Y's demo, skipped; to play it, this line and the next become:"
+                             " sysreq.n " + l.Words[1] + " " + l.Words[2] + "   ; " + name + "\n    zero.pri";
+                notes.push_back(name + " at source line " + std::to_string(i + 1) + ": X/Y's demo, skipped (kept in a comment)");
+            }
         }
     }
     const auto nameOf = [&](size_t index) { return index < names.size() ? names[index] : std::string(); };

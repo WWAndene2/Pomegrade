@@ -120,7 +120,8 @@ int main()
             "003BD480\tScript_Native__FadeRequestIn\tPawn (AMX) native, named by the game's own native table; \"_FadeRequestIn\" (hash 0x7B2FEC69, table 0x0057A860): x.\tread\n"
             "10293344\tScript_Native_FlagSet\tPawn (AMX) native, named by the game's own native table; \"FlagSet\" (hash 0x13413496, table 0x1033A234, bit 1): x.\tread\n"
             "10293330\tScript_Native_FlagGet\tPawn (AMX) native, named by the game's own native table; \"FlagGet\" (hash 0x133DAA6A, table 0x1033A234, bit 1): x.\tread\n"
-            "1029344C\tScript_Native_WorkSet\tPawn (AMX) native, named by the game's own native table; \"WorkSet\" (hash 0x8E55F629, table 0x1033A234, bit 1): x.\tread\n";
+            "1029344C\tScript_Native_WorkSet\tPawn (AMX) native, named by the game's own native table; \"WorkSet\" (hash 0x8E55F629, table 0x1033A234, bit 1): x.\tread\n"
+            "1029D84C\tScript_Native_CallFieldNotCaptureDemo\tPawn (AMX) native, named by the game's own native table; \"CallFieldNotCaptureDemo\" (hash 0x07109D9E, table 0x10339594, bit 2): x.\tread\n";
         WriteFile(names, Bytes(rows.begin(), rows.end()));
         // CallKisekaeDisplay: an X/Y native nobody provides; ChangeFashionBefore: one the mod provides (OrasXyFashion.h),
         // under the X/Y natives' mask bit 0x800
@@ -180,6 +181,20 @@ int main()
         bool scenesAssemble = true;
         try { AmxAssemble(scenes); } catch (const FormatError&) { scenesAssemble = false; }
         check(scenesAssemble && sceneNotes.size() == 1 && sceneNotes[0] == "scene changes: 2 work(s) moved", "it assembles, the move noted");
+        // X/Y's demo (X/Y zone 160's scene 4): skipped, its arguments released and 0 as the result, the call in a comment
+        const Bytes d = AmxAssemble("code\nmain:\n    push.p.c 1\n    push.p.c 6\n    push.p.c 45\n    sysreq.n CallFieldNotCaptureDemo 12\n    halt 0\n");
+        std::vector<std::string> demoNotes;
+        const std::string demo = XyScriptSource(d, names, XyNumbersFor({d}, {}, {}), demoNotes);
+        check(demo.find("    stack.p 12   ; X/Y's demo, skipped; to play it, this line and the next become: sysreq.n 0 12   ; CallFieldNotCaptureDemo\n    zero.pri\n")
+                      != std::string::npos,
+              "an X/Y demo skipped, the call kept in a comment");
+        const Bytes skipped = AmxAssemble(demo);
+        check(demoNotes.size() == 1 && demoNotes[0].find("CallFieldNotCaptureDemo") != std::string::npos && AmxSource(skipped).find("sysreq") == std::string::npos,
+              "it assembles without the call, the skip noted");
+        std::string restored = demo;
+        const size_t at = restored.find("    stack.p 12");
+        restored.replace(at, restored.find("\n    zero.pri\n", at) + 14 - at, "    sysreq.n 0 12\n");
+        check(AmxCells(AmxAssemble(restored)) == AmxCells(d), "put back as the comment says, it is the original call");
         std::filesystem::remove(names);
     }
     {
