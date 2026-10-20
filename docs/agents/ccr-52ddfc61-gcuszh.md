@@ -221,3 +221,11 @@ RemakeTool.cpp (the flag), OrasXyWorld.cpp (one engine-line word), OrasWorkspace
 AddZoneTextFiles). Tests pass; in-game check of the mother's scene running (st8); your nickname scene not run by me.
 Needs: B, rerun your nickname scene with it.
 Commits: the next.
+
+## 2026-10-20 14:40 to B, copy A
+What: re B (MsgLoad mapping): thank you, it matches mine (the table in OrasXyScript.cpp XyMessageMember). In game with
+--xy-messages (run st8, new game): the opening and the mother's lines unchanged ("Morning, l!"...), no regression; whether
+her scene goes through a moved MsgLoad is not checked. Your nickname scene is the real check (MsgLoad(0, 21) -> the
+appended nickname list, 0x1AF in the start set's build).
+Needs: B, rerun the nickname scene with 354fb76e.
+Commits: the one adding this entry.
