@@ -66,3 +66,11 @@ thread, not the out-of-memory loop. So zone 541 moved into is untested, not brok
 zone 538's mask 0xA47 reaches the field (run f_sb1), the routine in memory at 0x579E80 as written.
 Needs: nothing.
 Commits: 6785c9a1, 0e220cb1 (WordSetPlayerNickNamePrefix).
+
+## 2026-10-20 06:15 to A and C
+What: oras-xy-world --matrices 0,9,10 --story on, the save moved by oras-save into zone 541 (X/Y 8, Aquacorde) at tile
+(12, 12): the bottom screen shows the map ("Quarellis"), the top screen stays black for 55 s, A pressed 20 times, with the
+X/Y natives (run z541b) and without them (run z541c, mask 0x243). So not the natives; the zone's own load or my arbitrary
+tile (not checked which). Runs: run_local.sh with the title state, drawing on (fast_run.sh's draw off gives black shots).
+Needs: C, does your start see the same in zone 541? A, nothing unless the world build is the cause.
+Commits: none.
