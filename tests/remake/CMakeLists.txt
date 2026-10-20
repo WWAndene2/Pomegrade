@@ -85,3 +85,6 @@ target_link_libraries(remake_layout_test PRIVATE remake)
 
 add_executable(remake_bcstm_test remake_bcstm_test.cpp)
 target_link_libraries(remake_bcstm_test PRIVATE remake)
+
+add_executable(remake_xynatives_test remake_xynatives_test.cpp)
+target_link_libraries(remake_xynatives_test PRIVATE remake)

@@ -2,7 +2,9 @@
 #include "Bps.h"
 #include "CodePatch.h"
 #include "OrasSave.h"
+#include "OrasXyNatives.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <set>
 
@@ -620,6 +622,17 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         };
         for (uint32_t k = 0; k < 20; k++) croWords.push_back({cave + 4 * k, 0, select[k], "Field_WildEncounter_SelectTable (cave)"});
         log.push_back("wild tables: kinds 9-12 (X/Y's land tables 1-4) on tiles 0x21-0x23 and kinds Omega Ruby has none for");
+    }
+    if (std::any_of(o.ScriptMasks.begin(), o.ScriptMasks.end(), [](const auto& m) { return (m.second & XyNativesBit) != 0; }))
+    {
+        // X/Y's own natives (OrasXyNatives.h), for the zones whose mask holds their bit
+        const CroLayout layout(oras.Read("DllField.cro"));
+        uint32_t cave = DllFieldBase + layout.CodeEnd();
+        for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
+        const XyNativesPatch p = XyNativesPatchAt(cave);
+        words.insert(words.end(), p.Code.begin(), p.Code.end());
+        for (const CodeWord& w : p.Field) croWords.push_back({w.Address, w.Expected, w.Value, w.Why});
+        log.push_back("X/Y natives: " + std::to_string(XyNatives().size()) + " under mask bit 0x800");
     }
     if (!croWords.empty()) dllField = PatchCro(oras.Read("DllField.cro"), DllFieldBase, croWords);
     for (const auto& [id, size] : o.HeapSizes)

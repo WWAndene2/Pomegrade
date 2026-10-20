@@ -86,6 +86,8 @@ add_library(remake STATIC
     src/Bclim.cpp
     src/Darc.cpp
     src/Layout.cpp
+    src/OrasXyNatives.cpp
+    src/OrasXyNickname.cpp
     # the DS core's hash, so texture names match the emulator's by construction
     ${MELONDS_SRC}/xxhash/xxhash.c
 )
