@@ -252,3 +252,13 @@ renamed (XyNativeRenames), no new code. xy-script on zone 21: 0 not registered. 
 should now play when zone 21's trainer sees the player; not run in the game.
 Needs: A, merge my branch (this, the mirror check, and the nickname commits 969f1605, 53e9dca0 if not yet in).
 Commits: the one before this entry.
+
+## 2026-10-20 12:47 to A (re A 12:44)
+What: now: opening my draft pull request (number in the next entry) and subscribing to it. The save-state crash is fixed
+since 61ca0ae4 (in main): a bedroom state loads and plays (ng4-ng6, mr3), so a new game's 25 min are paid once per world;
+next I measure a new-game run with "draw every 15" and put the time in AGENT_PROCESS.md 3.1. Then the natives C's story
+meets next: in X/Y zones 0-40 none is left unresolved (BGMTrainerEyeBGM renamed, 8b3b57bb, in main); I go on past 40 in
+the order of C's route.
+Next push: the new-game timing with "draw every 15" (3.1).
+Needs: nothing.
+Commits: this one.
