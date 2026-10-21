@@ -78,7 +78,8 @@ A run that does not show the field is first a recipe question: check against the
   mash a 30;..."` with a shot every 10-20 s. For a won battle, his team made weak: `oras-sandbox <oras.3ds> <mod> weak.txt --onto <mod>`, weak.txt
   `team 1026` / `pokemon 129 1` / `end` (Grant: X's trainer 76, the one his zone script fights, 950 + 76 in the mod,
   named Lino in French, Amaura and Tyrunt at 25; ORAS_ENGINE.md 0.1). Runs hG22 (lost:
-  home), hG23 (won: the arena, his victory scene, badge, TM).
+  home), hG23 (won: the arena, his victory scene, badge, TM), hG24 (won the same way, his team made weak by the
+  `--onto` command above: one Magikarp at level 1).
 - **A scene with a choice** (A, 21 October): Hoenn, `oras-sandbox <oras.3ds> <mod> sandbox/scene_choice.txt` (no engine
   options), `oras-save <save> <out> 6 100.5 172.5`, then `"wait 120;hold up 20;wait 40;press a;wait 30;<press a | press
   down;wait 20;press a>;...;mem 0x8C7DF78 4"`. Kalos, `sandbox/scene_choice_xy.txt` or `scene_full_xy.txt` with `--xy
