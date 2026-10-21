@@ -87,6 +87,12 @@ std::string XyMoveSounds(const std::string& source, const struct XySounds& sound
 // trainers (XyTrainerToOras); a trainer computed is in `notes`, not moved
 std::string XyMoveTrainers(const std::string& source, std::vector<std::string>& notes);
 
+// X/Y's badges (BadgeGetFlag, BadgeSetFlag, BadgeResetFlag: their argument when a constant 0-7, or the constant each call of
+// the script's own procedure passes for it) made Kalos's in Omega Ruby's 16, 8-15 (oras-engine --badges 16; Hoenn's keep
+// 0-7: owner's decision, 21 October); a badge computed is in `notes`, not moved
+std::string XyMoveBadges(const std::string& source, std::vector<std::string>& notes);
+constexpr int XyBadgeFirst = 8;
+
 // X/Y's MsgLoad(table, n): n 0-21 picks a member of an archive of table 8 (X's DllField, its MsgLoad's switch, read 20
 // October: 0 -> 0x8E ... 21 -> 0x4F); -1 past them. The first argument picks the archive, as Omega Ruby's (0x1029EF60): 0
 // the system text (X/Y's a/0/7/2-9, Omega Ruby's a/0/7/1-8: X/Y's 0x4F the nickname list), else the story text (X/Y's

@@ -651,5 +651,30 @@ std::string XyMoveTrainers(const std::string& source, std::vector<std::string>& 
     return out;
 }
 
+std::string XyMoveBadges(const std::string& source, std::vector<std::string>& notes)
+{
+    const std::vector<Line> lines = Split(source);
+    std::vector<std::string> text, names;
+    {
+        std::istringstream in(source);
+        for (std::string l; std::getline(in, l);) text.push_back(l);
+    }
+    for (const Line& l : lines) if (l.Op == "native" && l.Words.size() >= 2) names.push_back(l.Words[1]);
+    const auto nameOf = [&](size_t index) { return index < names.size() ? names[index] : std::string(); };
+    size_t moved = 0;
+    for (const Argument& a : NumberArguments(lines, nameOf, &notes, {{"BadgeGetFlag", 0}, {"BadgeSetFlag", 0}, {"BadgeResetFlag", 0}}))
+    {
+        if (!a.Other) continue;
+        const int v = (int)std::stol(lines[a.Line].Words.back(), nullptr, 0);
+        if (v < 0 || v >= 8) { notes.push_back("badge " + std::to_string(v) + " at source line " + std::to_string(a.Line + 1) + ": not one of X/Y's 8, kept"); continue; }
+        text[a.Line] = "    " + lines[a.Line].Op + " " + std::to_string(XyBadgeFirst + v) + "   ; X/Y's badge " + std::to_string(v);
+        moved++;
+    }
+    if (moved) notes.push_back("badges: " + std::to_string(moved) + " made Kalos's, 8-15 (oras-engine --badges 16)");
+    std::string out;
+    for (const std::string& l : text) out += l + "\n";
+    return out;
+}
+
 }
 

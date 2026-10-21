@@ -30,6 +30,9 @@ struct OrasEngineOptions
     bool LargePacks = false;                 // area packs past 255 (the zone change cut the pack number to a byte)
     bool LargeWildTables = false;            // X/Y's land tables: kinds 9-12 (tiles 0x21-0x23 and the kinds Omega Ruby has none for)
     bool LargeStory = false;                 // story flags 0xD00-0x2C3F and event works 0x4178-0x436B, in save block 47
+    // 16 badges (owner's decision, 21 October): Hoenn's 0-7 and Kalos's 8-15 (XyMoveBadges), the count the larger region's
+    // progress (OrasEngine.cpp)
+    bool Badges16 = false;
     bool XyTrainers = false;                 // X/Y's trainers 950-1734 (OrasXyTrainers.h): the trainer bounds, their flags 0x2900 + n
     std::optional<std::pair<uint32_t, uint32_t>> XySounds; // X/Y's streams appended to the sound archive: the first's index, their count
     std::map<uint32_t, uint32_t> HeapSizes;  // heap id -> size (bytes)

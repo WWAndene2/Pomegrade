@@ -290,6 +290,19 @@ int main()
         check(XyTrainerToOras(613) == 1563 && XyTrainerToOras(0) == 0, "X/Y's trainer n is Omega Ruby's 950 + n, 0 none");
     }
     {
+        // XyMoveBadges: BadgeSetFlag(1) as Grant's zone script gives it (X/Y zone 160) is Kalos's badge 9; one given through
+        // the script's own procedure too; a number past X/Y's 8 kept
+        const std::string source = "native BadgeSetFlag\nnative BadgeGetFlag\ncode\n"
+            "L000010:\n    proc\n    push.p.c 1\n    sysreq.n 0 4\n    retn\n"
+            "L000030:\n    proc\n    push.p.s 12\n    sysreq.n 1 4\n    retn\n"
+            "L000050:\n    proc\n    push.p.c 7\n    push.p.c 4\n    call L000030\n    push.p.c 9\n    sysreq.n 1 4\n    retn\n";
+        std::vector<std::string> notes;
+        const std::string moved = XyMoveBadges(source, notes);
+        check(moved.find("push.p.c 9   ; X/Y's badge 1") != std::string::npos && moved.find("push.p.c 15   ; X/Y's badge 7") != std::string::npos
+              && moved.find("    push.p.c 9\n    sysreq.n 1 4") != std::string::npos,
+              "X/Y's badges 0-7 made 8-15, directly and through a procedure; 9 kept");
+    }
+    {
         // CompileScene into another script (SceneScript.h, targetSource): the library's routines (the shapes it looks for,
         // as Littleroot's) copied with the procedure they call under "lib_" labels, "ask" and "if yes" compiled, the scene
         // chained to the target's own main; the result assembles

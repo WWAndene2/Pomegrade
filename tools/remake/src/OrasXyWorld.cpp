@@ -265,6 +265,8 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     if (wildTables) engine += " --wild-tables large";
     if (largeEvents) engine += " --events large";
     engine += " --xy-trainers on";
+    // X/Y's badges are Kalos's 8-15 in its scripts (XyMoveBadges), whether or not a zone given gives one
+    engine += " --badges 16";
     if (!battleTypes.empty())
     {
         const std::string file = (std::filesystem::path(o.OutDir) / "xy_battle_types.bin").string();

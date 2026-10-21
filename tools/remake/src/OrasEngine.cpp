@@ -516,6 +516,32 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         for (uint32_t k = 0; k < 8; k++) words.push_back({at + 4 * k, 0, works[k], "FUN_0011fa90 (cave)"});
         log.push_back("story: flags 0xD00-0x2C3F and works 0x4178-0x436B in save block 47 (the game's flags end at 0xCFF, works at 0x4177)");
     }
+    if (o.Badges16)
+    {
+        // The badges (read 21 October): a u32 at the player's status (game data + 0x3418) + 0x14, one bit a badge. Read by
+        // FUN_004E9E1C (BadgeGetFlag's), set by 0x462628, cleared by 0x46273C, each refusing a number from 8 (`cmp r1, #8`, to the
+        // fatal-error call); counted by FUN_004E9E64 (BadgeGetCount's and 7 callers': the level cap through FUN_003CB784,
+        // the mart's stock under 5, the trainer card, the battle's settings) and inline by FUN_004E9ED4 (the money lost, a
+        // table of 9 indexed by the count). No other code reads the word (searched: every "+ 0x3418 + 0x14" in the .code and
+        // the modules, and the status functions' +0x14 accesses). Numbers 8-15 allowed; both counts become the badges of
+        // either region: popcount((bits | bits >> 8) & 0xFF), each region's own count when only one has badges, at most 8
+        // (the tables' bound) when both do
+        for (const uint32_t at : {0x4E9E1Cu, 0x462628u, 0x46273Cu})
+            words.push_back({at, 0xE3510008, 0xE3510010, "a badge number bound 8 -> 16 (cmp r1, #16)"});
+        const std::vector<std::pair<uint32_t, uint32_t>> count = {
+            {0xE5900014, 0xE5900014}, {0xE3A01000, 0xE1800420}, {0xE3500000, 0xE20000FF}, {0x0A000003, 0xE3A01000},
+            {0xE3100001, 0xE1B000A0}, {0x12811001, 0xE2A11000}, {0xE1B000A0, 0x1AFFFFFC}, {0x1AFFFFFB, 0xE1A00001},
+            {0xE20100FF, 0xE12FFF1E}, {0xE12FFF1E, 0xE12FFF1E}};
+        for (size_t k = 0; k < count.size(); k++)
+            words.push_back({0x4E9E64 + 4 * (uint32_t)k, count[k].first, count[k].second, "the badge count, either region's (ldr; orr lsr 8; and 0xFF; lsrs/adc loop)"});
+        const std::vector<std::pair<uint32_t, uint32_t>> money = {
+            {0xE5902014, 0xE5902014}, {0xE3A03000, 0xE1822422}, {0xE3520000, 0xE20220FF}, {0x0A000003, 0xE3A03000},
+            {0xE3120001, 0xE1B020A2}, {0x12833001, 0xE2A33000}, {0xE1B020A2, 0x1AFFFFFC}, {0x1AFFFFFB, 0xE1A02003},
+            {0xE20320FF, 0xE1A00000}};
+        for (size_t k = 0; k < money.size(); k++)
+            words.push_back({0x4E9ED4 + 4 * (uint32_t)k, money[k].first, money[k].second, "the money lost's badge count, the same"});
+        log.push_back("badges: 16 (Hoenn's 0-7, Kalos's 8-15), counted by region");
+    }
     if (o.XyTrainers)
     {
         // X/Y's trainers after the game's 950 (OrasXyTrainers.h). The data readers bound a trainer id by literal words 950
