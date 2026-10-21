@@ -989,8 +989,11 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
             if (i >= gameIntros) highest = std::max(highest, v);
             battleWords.push_back({base + cave + 4 * i, 0, v, "the intro table's copy"});
         }
-        const auto bound = ArmImmediate(highest + 1);
-        if (!bound) throw FormatError("--xy-intros: the sequence bound is no ARM immediate");
+        // the bound: the smallest ARM immediate past the highest sequence (no intro names the numbers between)
+        uint32_t limit = highest + 1;
+        while (!ArmImmediate(limit) && limit < 0x10000) limit++;
+        const auto bound = ArmImmediate(limit);
+        if (!bound) throw FormatError("--xy-intros: no sequence bound an ARM immediate");
         battleWords.push_back({boundAt, 0xE3510E3D, 0xE3510000 | *bound, "the sequences played (cmp r1, #bound)"});
         Bytes patched = PatchCro(original, base, battleWords);
         // the literal's internal relocation: {tag (segment | offset << 4), type, symbol segment, 2 bytes, addend}

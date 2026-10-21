@@ -1,5 +1,6 @@
 #include "OrasXyTrainers.h"
 
+#include "Bclim.h"
 #include "Darc.h"
 #include "GameText.h"
 #include "Garc.h"
@@ -8,6 +9,7 @@
 #include "OrasXySound.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <map>
 #include <set>
@@ -151,86 +153,146 @@ std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const XySounds* music,
         snprintf(line, sizeof line, "battle types: %zu (Omega Ruby's of the class, X/Y's music) as 73-%zu, given to %zu classes", numberOf.size(), 72 + numberOf.size(), set);
         log.push_back(line);
 
-        // Kalos's leaders' own names in their battle intro (read 22 October, ORAS_ENGINE.md 0.1). X/Y's leader types have
-        // the intros 0x11-0x18 at +4, Viola's to Wulfric's, in the order of X/Y's drawn names (a/2/4/1: gym_name01 Violette
-        // ... gym_name08 Urup); Omega Ruby's record kept for the class shows a Hoenn leader's intro, whose a/0/3/4 sequence
-        // names that leader's drawn name (gym_name0N, from a/2/1/4). Each Kalos leader gets an intro of its own past the
-        // game's 162 (oras-engine --xy-intros copies DllBattle's table longer), its sequence a copy of the one it showed
-        // with only the name changed, gym_name09-16: X/Y's eight names added to a/2/1/4 under those names, every language
+        // Kalos's leaders', Elite Four's and Champion's own names in their battle intro (read 22 October, ORAS_ENGINE.md
+        // 0.1). X/Y's types have the intros 0x11-0x18 (leaders, Viola's to Wulfric's), 0x19-0x1C (the Elite Four) and 0x1D
+        // (the Champion) at +4, each X/Y's sequence naming its drawn name (X/Y's table, checked: gym_name01-08,
+        // big_four_name01-04, champion_name in X's a/2/4/1); Omega Ruby's record kept for the class shows a Hoenn intro,
+        // whose a/0/3/4 sequence names a drawn name of a/2/1/4 (gym_name0N, big_four_name0N; its Champion's, champion_name,
+        // is sequence 799, which no intro id names: the game picks it by the trainer). Each Kalos one gets an intro of its
+        // own past the game's 162 (oras-engine --xy-intros copies DllBattle's table longer), its sequence a copy of the one
+        // it showed (else of the game's sequence naming that family's name) with only the name changed: gym_name09-16,
+        // big_four_name05-08, champion_name02; X/Y's names added to a/2/1/4 under those names, every language
         if (intros)
         {
-            constexpr uint32_t introTable = 0x10105CDC - 0x10025000, gameIntros = 162, xFirst = 0x11, xLast = 0x18;
+            constexpr uint32_t introTable = 0x10105CDC - 0x10025000, gameIntros = 162;
+            struct Family
+            {
+                uint32_t XFirst, XLast;
+                const char* Prefix; // a numbered family's names: Prefix + 2 digits + ".bclim"; else Prefix + ".bclim"
+                bool Numbered;
+                uint32_t FirstNew;  // the first new name's number
+            };
+            static const Family families[] = {{0x11, 0x18, "gym_name", true, 9}, {0x19, 0x1C, "big_four_name", true, 5}, {0x1D, 0x1D, "champion_name", false, 2}};
+            const auto nameOf = [](const Family& f, uint32_t number, bool numbered) {
+                char n[32];
+                if (numbered) snprintf(n, sizeof n, "%s%02u.bclim", f.Prefix, number);
+                else snprintf(n, sizeof n, "%s.bclim", f.Prefix);
+                return std::string(n);
+            };
+            // where a sequence names one of the family's game names (a field of 0x18 bytes, FUN_100AF3E4)
+            const auto names = [](const Family& f, const Bytes& seq) {
+                std::vector<size_t> at;
+                const std::string prefix = f.Prefix;
+                for (size_t i = 0; i + prefix.size() + 9 <= seq.size(); i++)
+                {
+                    if (!std::equal(prefix.begin(), prefix.end(), seq.begin() + (long)i)) continue;
+                    const size_t rest = i + prefix.size();
+                    const bool numbered = std::isdigit(seq[rest]) && std::isdigit(seq[rest + 1]) && std::equal(seq.begin() + (long)rest + 2, seq.begin() + (long)rest + 8, ".bclim");
+                    const bool plain = std::equal(seq.begin() + (long)rest, seq.begin() + (long)rest + 6, ".bclim");
+                    if ((f.Numbered && numbered) || (!f.Numbered && plain)) at.push_back(i);
+                }
+                return at;
+            };
             const Bytes dllBattle = ws.Rom().Read("DllBattle.cro");
             Garc& sequences = ws.Edited("a/0/3/4");
             const uint32_t gameSequences = (uint32_t)sequences.Count();
-            if (gameSequences != 0x3D0) throw FormatError("X/Y leader intros: a/0/3/4 does not hold the game's 976 sequences (added to already?)");
-            std::map<uint32_t, std::pair<int, uint32_t>> leaders; // X/Y intro -> (new battle type, Omega Ruby's intro it showed)
+            if (gameSequences != 0x3D0) throw FormatError("X/Y intros: a/0/3/4 does not hold the game's 976 sequences (added to already?)");
+            std::map<uint32_t, std::pair<int, uint32_t>> given; // X/Y intro -> (new battle type, Omega Ruby's intro it showed)
             for (const auto& [key, type] : numberOf)
             {
                 const size_t xAt = xTable - 0x100000 + 24 * (size_t)key.first;
                 const uint32_t xIntro = U32(xCode, xAt + 4);
-                if (xIntro < xFirst || xIntro > xLast) continue;
+                if (xIntro < families[0].XFirst || xIntro > families[2].XLast) continue;
                 const size_t at = 24 * (size_t)(type - gameTypes) + 4;
-                if (!leaders.emplace(xIntro, std::pair{type, U32(*battleTypes, at)}).second)
-                    throw FormatError("X/Y leader intros: two battle types show X/Y intro " + std::to_string(xIntro));
+                if (!given.emplace(xIntro, std::pair{type, U32(*battleTypes, at)}).second)
+                    throw FormatError("X/Y intros: two battle types show X/Y intro " + std::to_string(xIntro));
             }
-            for (const auto& [xIntro, leader] : leaders)
+            for (const auto& [xIntro, kalos] : given)
             {
+                const Family& f = *std::find_if(std::begin(families), std::end(families), [&](const Family& g) { return xIntro >= g.XFirst && xIntro <= g.XLast; });
                 const uint32_t id = gameIntros + (uint32_t)(intros->size() / 4), sequence = gameSequences + (uint32_t)(intros->size() / 4);
-                if (leader.second >= gameIntros) throw FormatError("X/Y leader intros: Omega Ruby's intro past its table");
-                const uint32_t shown = U32(dllBattle, introTable + 4 * leader.second);
-                const Bytes was = sequences.Sub(shown);
+                if (kalos.second >= gameIntros) throw FormatError("X/Y intros: Omega Ruby's intro past its table");
+                uint32_t base = U32(dllBattle, introTable + 4 * kalos.second);
+                if (names(f, Plain(sequences.Sub(base))).size() != 1)
+                    for (base = 0; base < gameSequences && names(f, Plain(sequences.Sub(base))).size() != 1; base++) {}
+                if (base == gameSequences) throw FormatError(std::string("X/Y intros: no sequence names one ") + f.Prefix);
+                const Bytes was = sequences.Sub(base);
                 Bytes copy = Plain(was);
-                char name[24];
-                snprintf(name, sizeof name, "gym_name%02u.bclim", 8 + xIntro - xFirst + 1);
-                const std::string pattern = "gym_name0";
-                size_t found = std::string::npos, count = 0;
-                for (size_t i = 0; i + 16 <= copy.size(); i++)
-                    if (std::equal(pattern.begin(), pattern.end(), copy.begin() + i) && std::equal(name + 10, name + 16, copy.begin() + i + 10)) found = i, count++;
-                if (count != 1) throw FormatError("X/Y leader intros: sequence " + std::to_string(shown) + " does not name one gym_name0N.bclim");
-                std::copy(name, name + 16, copy.begin() + found);
+                const size_t found = names(f, copy).front();
+                const std::string name = nameOf(f, f.FirstNew + xIntro - f.XFirst, true);
+                if (name.size() >= 0x18 || found + name.size() >= copy.size() ||
+                    std::any_of(copy.begin() + (long)found + (long)nameOf(f, 1, f.Numbered).size(), copy.begin() + (long)found + (long)name.size() + 1, [](uint8_t b) { return b != 0; }))
+                    throw FormatError("X/Y intros: no room for " + name + " in sequence " + std::to_string(base));
+                std::copy(name.begin(), name.end(), copy.begin() + (long)found);
                 sequences.Set(sequence, AsWas(was, copy));
-                const size_t at = 24 * (size_t)(leader.first - gameTypes) + 4;
+                const size_t at = 24 * (size_t)(kalos.first - gameTypes) + 4;
                 for (int b = 0; b < 4; b++) (*battleTypes)[at + b] = (uint8_t)(id >> (8 * b));
                 for (int b = 0; b < 4; b++) intros->push_back((uint8_t)(sequence >> (8 * b)));
-                snprintf(line, sizeof line, "leader intro: X/Y's 0x%X as intro %u, a/0/3/4 %u (a copy of %u naming %s), battle type %d", xIntro, id, sequence, shown, name, leader.first);
+                snprintf(line, sizeof line, "X/Y intro 0x%X as intro %u, a/0/3/4 %u (a copy of %u naming %s), battle type %d", xIntro, id, sequence, base, name.c_str(), kalos.first);
                 log.push_back(line);
             }
-            // the names: X/Y's a/2/4/1 and Omega Ruby's a/2/1/4 each hold one member, a language per sub-file
+            // the names: X/Y's a/2/4/1 and Omega Ruby's a/2/1/4 each hold one member, a language per sub-file; each family's
+            // new names after its last game name, the DARC's files and the names in the same (alphabetical) order
             const Garc xNamesArchive(xy.Read("a/2/4/1"));
             Garc& namesArchive = ws.Edited("a/2/1/4");
             size_t languages = 0;
             for (size_t sub = 0; sub < 32; sub++)
             {
                 if (!namesArchive.Has(0, sub)) continue;
-                if (!xNamesArchive.Has(0, sub)) throw FormatError("X/Y leader intros: X/Y's a/2/4/1 lacks language " + std::to_string(sub));
+                if (!xNamesArchive.Has(0, sub)) throw FormatError("X/Y intros: X/Y's a/2/4/1 lacks language " + std::to_string(sub));
                 const Bytes was = namesArchive.Sub(0, sub);
-                LayoutResource names = ReadLayoutResource(Plain(was));
-                if (WriteLayoutResource(names) != Plain(was)) throw FormatError("X/Y leader intros: a/2/1/4 does not write back as read");
-                const LayoutResource xNames = ReadLayoutResource(Plain(xNamesArchive.Sub(0, sub)));
-                if (std::any_of(names.Files.begin(), names.Files.end(), [](const std::string& f) { return f == "gym_name09.bclim"; }))
-                    throw FormatError("X/Y leader intros: a/2/1/4 has gym_name09 already");
-                // after gym_name08, the DARC's files and the names in the same order
-                const auto after = std::find(names.Files.begin(), names.Files.end(), "gym_name08.bclim");
-                if (after == names.Files.end()) throw FormatError("X/Y leader intros: a/2/1/4 has no gym_name08");
-                size_t insertAt = (size_t)(after - names.Files.begin()) + 1;
-                if (names.Darc.at(insertAt - 1).Path.substr(names.Darc.at(insertAt - 1).Path.rfind('/') + 1) != "gym_name08.bclim")
-                    throw FormatError("X/Y leader intros: a/2/1/4's names and DARC are not in the same order");
-                const std::string folder = names.Darc.at(insertAt - 1).Path.substr(0, names.Darc.at(insertAt - 1).Path.rfind('/') + 1);
-                for (uint32_t k = 1; k <= 8; k++, insertAt++)
+                LayoutResource res = ReadLayoutResource(Plain(was));
+                if (WriteLayoutResource(res) != Plain(was)) throw FormatError("X/Y intros: a/2/1/4 does not write back as read");
+                const LayoutResource xRes = ReadLayoutResource(Plain(xNamesArchive.Sub(0, sub)));
+                for (const Family& f : families)
                 {
-                    char from[24], to[24];
-                    snprintf(from, sizeof from, "gym_name%02u.bclim", k);
-                    snprintf(to, sizeof to, "gym_name%02u.bclim", 8 + k);
-                    const auto x = std::find_if(xNames.Darc.begin(), xNames.Darc.end(), [&](const DarcFile& f) { return f.Path.size() >= 16 && f.Path.substr(f.Path.size() - 16) == from; });
-                    if (x == xNames.Darc.end()) throw FormatError(std::string("X/Y leader intros: X/Y's a/2/4/1 lacks ") + from);
-                    names.Files.insert(names.Files.begin() + (long)insertAt, to);
-                    names.Darc.insert(names.Darc.begin() + (long)insertAt, DarcFile{folder + to, x->Data});
+                    const uint32_t count = f.XLast - f.XFirst + 1;
+                    const std::string last = f.Numbered ? nameOf(f, count, true) : nameOf(f, 0, false);
+                    const auto after = std::find(res.Files.begin(), res.Files.end(), last);
+                    if (after == res.Files.end()) throw FormatError("X/Y intros: a/2/1/4 has no " + last);
+                    size_t insertAt = (size_t)(after - res.Files.begin()) + 1;
+                    const std::string& path = res.Darc.at(insertAt - 1).Path;
+                    if (path.substr(path.rfind('/') + 1) != last) throw FormatError("X/Y intros: a/2/1/4's names and DARC are not in the same order");
+                    const std::string folder = path.substr(0, path.rfind('/') + 1);
+                    for (uint32_t k = 1; k <= count; k++, insertAt++)
+                    {
+                        const std::string from = nameOf(f, k, f.Numbered), to = nameOf(f, f.FirstNew + k - 1, true);
+                        if (std::find(res.Files.begin(), res.Files.end(), to) != res.Files.end()) throw FormatError("X/Y intros: a/2/1/4 has " + to + " already");
+                        const auto x = std::find_if(xRes.Darc.begin(), xRes.Darc.end(), [&](const DarcFile& d) { return d.Path.size() >= from.size() && d.Path.substr(d.Path.size() - from.size()) == from && d.Path[d.Path.size() - from.size() - 1] == '/'; });
+                        if (x == xRes.Darc.end()) throw FormatError("X/Y intros: X/Y's a/2/4/1 lacks " + from);
+                        Bytes data = x->Data;
+                        if (!f.Numbered)
+                        {
+                            // X/Y's Champion name holds its title under the name (X's French: 256 x 128, the name rows 38-92,
+                            // "Maitre de la Ligue" 96-121); Omega Ruby's is the name alone, 256 x 64, its title drawn apart:
+                            // the 64 rows around the image's tallest block of drawn rows (the name) kept
+                            const ClimImage image = ClimImage::Read(data);
+                            const Bytes rgba = image.Rgba();
+                            const auto drawn = [&](uint32_t y) { for (uint32_t c = 0; c < image.Width; c++) if (rgba[4 * (y * image.Width + c) + 3]) return true; return false; };
+                            uint32_t top = 0, bottom = 0;
+                            for (uint32_t y = 0; y < image.Height;)
+                            {
+                                if (!drawn(y)) { y++; continue; }
+                                uint32_t end = y;
+                                while (end < image.Height && drawn(end)) end++;
+                                if (end - y > bottom - top) top = y, bottom = end;
+                                y = end;
+                            }
+                            const uint32_t rows = 64;
+                            if (bottom - top > rows || image.Height < rows) throw FormatError("X/Y intros: X/Y's champion_name's name is taller than 64 rows");
+                            uint32_t from = top > (rows - (bottom - top)) / 2 ? top - (rows - (bottom - top)) / 2 : 0;
+                            from = std::min(from, (uint32_t)image.Height - rows);
+                            const Bytes band(rgba.begin() + 4 * (long)(from * image.Width), rgba.begin() + 4 * (long)((from + rows) * image.Width));
+                            data = ClimImage::WriteRgba8(image.Width, (uint16_t)rows, band);
+                        }
+                        res.Files.insert(res.Files.begin() + (long)insertAt, to);
+                        res.Darc.insert(res.Darc.begin() + (long)insertAt, DarcFile{folder + to, data});
+                    }
                 }
-                namesArchive.Set(0, AsWas(was, WriteLayoutResource(names)), sub);
+                namesArchive.Set(0, AsWas(was, WriteLayoutResource(res)), sub);
                 languages++;
             }
-            snprintf(line, sizeof line, "leader intros: %zu, X/Y's eight drawn names as a/2/1/4's gym_name09-16 in %zu languages", leaders.size(), languages);
+            snprintf(line, sizeof line, "X/Y intros: %zu, X/Y's drawn names as a/2/1/4's gym_name09-16, big_four_name05-08, champion_name02 in %zu languages", given.size(), languages);
             log.push_back(line);
         }
     }

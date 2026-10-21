@@ -44,7 +44,14 @@ is tested on the phone.
   languages; `oras-engine --xy-intros` (given by the options line) copies DllBattle's intro table longer into the free
   bytes past its code, points the literal's relocation at the copy and raises the sequence bound (0x3D0 at 0x10081410).
   `WriteDarc` lays files out as the game's DARCs (data at 8, BCLIM at 0x80, other files at 8; a/2/1/4 writes back byte for
-  byte). Not done: Kalos's Elite Four and Champion (X's 0x19-0x1D, the same way, with A2's League). Not tested on the phone.
+  byte). Since (22 October) Kalos's Elite Four and Champion the same way (X's intros 0x19-0x1C -> 170-173, sequences
+  984-987 copied from Omega Ruby's Elite Four's 851-854, big_four_name05-08 Thyméo, Malva, Dracéna, Narcisse; 0x1D -> 174,
+  988 a copy of 799, the Champion's sequence no intro id names, champion_name02: X's name image cut to its name, 256 x 64,
+  its title "Maitre de la Ligue" being drawn apart in Omega Ruby). Checked headless on Grant's battle given their types:
+  run e79 (type 79: "Thyméo") and c89b (type 89: "Dianthéa", the title once). Omega Ruby's Elite Four intros are 0x2F-0x32
+  (not 0x38). **Left**: the Elite Four intro shows the four members' drawings, Hoenn's (a/1/6/0 15, 21, 18, 24: classes
+  194-197, picture p -> member 3p), the one fought lit; where the four are chosen is not found yet (run t79's read trace;
+  gdb failed to connect twice). Not tested on the phone.
 - **In progress (22 October): the badge case's Kalos drawer** (owner's choices: a touch button and L/R, the case's own lid
   closing and reopening on the other region). Read so far (DllTrainerCase, 0x1081E000; runs bc1-bc6 on the gk mod, the
   badge word poked): the case is a mode of the trainer card (Menu, the card, A "Voir les Badges"; B back), one layout
