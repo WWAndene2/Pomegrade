@@ -205,7 +205,23 @@ Bytes BchUpgradeTo21(const Bytes& bch)
     const uint32_t addresses[6] = {contentsAt, stringsAt, commandsAt, rawAt, relocAt, relocAt};
     const uint32_t lengths[6] = {(uint32_t)newContents.size(), stringsLength, commandsLength, rawLength, 0, relocLength};
     for (int k = 0; k < 6; k++) { Put32(out, 8 + 4 * k, addresses[k]); Put32(out, 0x20 + 4 * k, lengths[k]); }
-    Put32(out, 0x38, 4u * rawPointers);                  // uninitialised data: a word a raw-data pointer (SPICA, ORAS's files)
+    // uninitialised data: a word a raw-data pointer, and for each shader its program's runtime data: 4 bytes an operand
+    // descriptor (its DVLP's count), 328, 244 a program in its DVLB (DVLE) and 72 more for a geometry one (DVLE type 1).
+    // Fitted 22 October on 847 of Omega Ruby's BCH files (a/0/0/8, a/0/0/9, a/0/1/4, a/0/2/1, a/0/2/2, a/0/3/9, a/0/9/4,
+    // a/1/0/1, a/1/3/6, a/1/5/2, a/1/9/9, a/2/0/0), every one exact; the shaders' part left out (4 bytes a pointer only)
+    // made the game's heap overflow when it loaded the file: X's badge models in the badge case (runs bdi, bdk, bdr)
+    uint32_t uninitialised = 4u * rawPointers;
+    const uint32_t shaders = U32(out, contentsAt + 12 * 2 + 4), shaderList = contentsAt + U32(out, contentsAt + 12 * 2);
+    for (uint32_t k = 0; k < shaders; k++)
+    {
+        const uint32_t dvlb = contentsAt + U32(out, contentsAt + U32(out, shaderList + 4 * k));
+        if (dvlb + 8 > out.size() || Text(out, dvlb, 4) != "DVLB") throw FormatError("BCH upgrade: a shader with no DVLB");
+        const uint32_t programs = U32(out, dvlb + 4), dvlp = dvlb + 8 + 4 * programs;
+        uninitialised += 4 * U32(out, dvlp + 0x14) + 328 + 244 * programs;
+        for (uint32_t e = 0; e < programs; e++)
+            if (out.at(dvlb + U32(out, dvlb + 8 + 4 * e) + 6) == 1) uninitialised += 72;
+    }
+    Put32(out, 0x38, uninitialised);
     Put32(out, 0x3C, U32(bch, 0x34));                    // uninitialised commands, as X's
     out[0x40] = 1; out[0x41] = 0;                        // flags: from the new converter
     out[0x42] = (uint8_t)rawPointers; out[0x43] = (uint8_t)(rawPointers >> 8);

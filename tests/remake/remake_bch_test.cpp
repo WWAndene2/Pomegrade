@@ -484,6 +484,35 @@ int main()
         try { BchUpgradeTo21(up); } catch (const FormatError&) { refusedAgain = true; }
         check(refusedAgain, "BCH upgrade: a file already 0x21 refused");
     }
+    // a shader (dictionary 2): its DVLB in the contents with two programs, the second a geometry one, and 5 operand
+    // descriptors; the uninitialised data its runtime takes: 4 x 5 + 328 + 244 x 2 + 72 (BchUpgrade.cpp)
+    {
+        BchBuilder x;
+        x.Contents.assign(15 * 12, 0);
+        const uint32_t list = (uint32_t)x.Contents.size(); x.Contents.resize(list + 4, 0);
+        const uint32_t shader = (uint32_t)x.Contents.size(); x.Contents.resize(shader + 8, 0);
+        const uint32_t dvlb = (uint32_t)x.Contents.size(); x.Contents.resize(dvlb + 0x10 + 0x18 + 2 * 0x40, 0);
+        x.Pointer(x.Contents, 0, 24, 0, list); Put32(x.Contents, 28, 1);
+        x.Pointer(x.Contents, 0, list, 0, shader);
+        x.Pointer(x.Contents, 0, shader, 0, dvlb); Put32(x.Contents, shader + 4, 0x10 + 0x18 + 2 * 0x40);
+        memcpy(&x.Contents[dvlb], "DVLB", 4); Put32(x.Contents, dvlb + 4, 2);
+        Put32(x.Contents, dvlb + 8, 0x10 + 0x18); Put32(x.Contents, dvlb + 12, 0x10 + 0x18 + 0x40);
+        memcpy(&x.Contents[dvlb + 0x10], "DVLP", 4); Put32(x.Contents, dvlb + 0x10 + 0x14, 5);
+        memcpy(&x.Contents[dvlb + 0x28], "DVLE", 4);
+        memcpy(&x.Contents[dvlb + 0x68], "DVLE", 4); x.Contents[dvlb + 0x68 + 6] = 1;
+        Bytes relocs;
+        for (uint32_t v : x.Relocs) Push32(relocs, v);
+        Bytes old(0x38, 0);
+        memcpy(old.data(), "BCH", 3); old[4] = old[5] = 0x07;
+        const std::vector<const Bytes*> secs = {&x.Contents, &x.Strings, &x.Commands, &x.Raw, &relocs};
+        for (size_t i = 0; i < secs.size(); i++)
+        {
+            if (i == 3) while (old.size() % 0x80) old.push_back(0);
+            Put32(old, 8 + i * 4, (uint32_t)old.size()); Put32(old, 0x1C + i * 4, (uint32_t)secs[i]->size());
+            old.insert(old.end(), secs[i]->begin(), secs[i]->end());
+        }
+        check(U32(BchUpgradeTo21(old), 0x38) == 4 * 5 + 328 + 244 * 2 + 72, "BCH upgrade: a shader's runtime data counted in the uninitialised data");
+    }
 
     printf(ok ? "ALL OK\n" : "FAILURES\n");
     return ok ? 0 : 1;

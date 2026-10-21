@@ -61,8 +61,13 @@ is tested on the phone.
   slot 2 Brawly's -> Grant's): the leader's drawing (the table's +0x20, 33 -> 378), the texts (a/0/7/4 member 26 lines 30
   and 38 <- X's a/0/7/5 member 25 lines 27 and 35: "Badge Mur", "Champion : Lino") and the bottom icon (a/1/0/9's
   badge_02 and badge_02_base <- X's a/1/1/3) all show (run bdj); X's model for it (a/1/6/5 343, badge_c02, bch-upgrade) in
-  a/1/5/2 975 stops the game when the case builds the badges (FUN_1082074C: the model handle null, unmapped reads at PC
-  0x170A78, then the fatal-error loop; runs bdi, bdk): why the game refuses the converted model is not found.
+  a/1/5/2 975 stopped the game when the case built the badges (unmapped reads at PC 0x170A78, then the fatal-error loop;
+  runs bdi, bdk). **Found and fixed (22 October)**: the reads are the heap allocator's (FUN_00178260, a free block's
+  pointer worth 1: the heap overflowed) and the stop the allocator's failure loop (FUN_0012B9A0); `BchUpgrade` gave the
+  header's uninitialised data (+0x38) 4 bytes a raw-data pointer only, while the game's files also count each shader's
+  runtime data: 4 an operand descriptor, 328, 244 a DVLE, 72 more a geometry one (exact on 847 of Omega Ruby's BCH
+  files); with it X's Cliff badge (a/1/6/5 344, badge_c03: X's c0N are not the gyms' order, 343 is Clemont's Voltage)
+  shows and turns in the case (run bds; bdr with the size set by hand confirmed the cause).
 - **Before, the owner's item: Grant's own battle intro.** X's leaders show Brawly's portrait and name
   ("Bastien") in their intro. Found: the intro is chosen by the battle type record's word +4 alone (0x27-0x2E Omega
   Ruby's 8 leaders, 0x38-0x3E the Elite Four; run hI2: Grant's type given 0x27 shows Roxanne's portrait, name and rocks);
