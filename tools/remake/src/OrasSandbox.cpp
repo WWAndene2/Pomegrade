@@ -302,7 +302,8 @@ static SandboxDescription ReadDescription(const std::string& text)
         {
             // trigger X Z [W H] script N [height P]: stepping on the W x H tiles from X, Z runs the zone script with g_mode N;
             // P the ground's height in pixels (word 10), as X's Vaniville triggers hold 144 where its ground stands (doors
-            // there are at 144 too): at 0 a trigger under raised ground did not fire (runs hCX_yes, hCX2, 21 October)
+            // there are at 144 too): at 0 a trigger under raised ground did not fire (runs hCX_yes, hCX2, 21 October), at 144 it
+            // does (runs hCX4, hCX5)
             std::array<int, 6> t{0, 0, 1, 1, 0, 0};
             std::vector<std::string> rest;
             for (std::string v; words >> v;) rest.push_back(v);
