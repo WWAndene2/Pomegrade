@@ -1,7 +1,9 @@
 # A whole scene in an X/Y zone (point 2 of DEVELOPMENT_NOTE.md 3e, step C2: dialogue, camera, characters moving, a battle,
 # a two-way choice, in either region): Vaniville as scene_choice_xy.txt builds it (X's zone 0 with its people, text and
 # scripts, the scene written into X's translated script), the save at 538 20.5 48.5. Stepping north onto the trigger: X's
-# person 0 says X's line 0, walks a tile south and back, the player turns north; the camera moves to a low view while the
+# person 0 says X's line 0, walks two tiles north and back (south and east of him
+# flower beds stop a walk: run hCW3), the player turns north,
+# walks a tile west and back; the camera moves to a low view while the
 # person says line 1, then back; the screen fades out and in; a battle against trainer 10 (Dixie, as scene_demo's run
 # sceneG4); line 2 after it; then the choice (yes: flag 0xCE1, no: 0xCE2). Each step checked by its picture.
 zone 538
@@ -15,9 +17,11 @@ trigger 20 47 script 31 height 144
 scene
 on 31
     say 0 by 0
-    walk 0 south 1
-    walk 0 north 1
+    walk 0 north 2
+    walk 0 south 2
     face player north
+    walk player west 1
+    walk player east 1
     camera 23.5 52.5 12 20.5 46.5 9 30 60
     say 1 by 0
     camera back 30
