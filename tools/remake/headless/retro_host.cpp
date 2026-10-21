@@ -26,9 +26,11 @@
 #include "libretro.h"
 
 #include <dlfcn.h>
+#include <sys/stat.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
+#include <cerrno>
 #include <chrono>
 
 #include <cstdarg>
@@ -457,7 +459,21 @@ static int RunScript(void* core, const char* path)
     if (!in) { fprintf(stderr, "no script %s\n", path); return 2; }
     scripted = true;
     std::string line;
-    while (std::getline(in, line))
+    // interactive FIFO: from then on the commands come from the named pipe FIFO, a batch per writer (headless/play.sh), each
+    // batch followed by "[ready frame N]" in the log; "quit" ends the session as the script's end would
+    std::string fifo;
+    std::ifstream pipe;
+    const auto next = [&](std::string& l) {
+        if (fifo.empty()) return (bool)std::getline(in, l);
+        while (true)
+        {
+            if (pipe.is_open() && std::getline(pipe, l)) return l != "quit";
+            if (pipe.is_open()) { pipe.close(); printf("[ready frame %lu]\n", frame); fflush(stdout); }
+            pipe.open(fifo); // blocks until a writer opens the pipe
+            if (!pipe.is_open()) { printf("interactive: cannot open %s\n", fifo.c_str()); fflush(stdout); return false; }
+        }
+    };
+    while (next(line))
     {
         if (line.find('#') != std::string::npos) line.erase(line.find('#'));
         std::stringstream words(line);
@@ -608,6 +624,12 @@ static int RunScript(void* core, const char* path)
         }
         else if (cmd == "mem") { std::string length; words >> length; MemoryDump(core, arg, length); }
         else if (cmd == "save") StateFile(core, arg, true);
+        else if (cmd == "interactive")
+        {
+            fifo = arg;
+            if (mkfifo(fifo.c_str(), 0600) != 0 && errno != EEXIST) printf("interactive: no pipe %s\n", fifo.c_str());
+            printf("[ready frame %lu]\n", frame);
+        }
         else if (cmd == "load")
         {
             // the core may refuse a state until it has run long enough (run cache2, 8 October: refused at frame 120): tried

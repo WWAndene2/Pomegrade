@@ -86,6 +86,11 @@ A run that does not show the field is first a recipe question: check against the
   <x.3ds> --character-models 64`, `oras-engine <oras.3ds> <mod> --zone-rows 545 --script-mask 538:0xA47 --script-mask
   539:0xA43 --story large` plus the models and memory options, `oras-save <save> <out> 538 20.5 48.5 --save-records 32
   --characters-from <oras.3ds> <mod>`. Runs hC4_yes, hC4_no, hCX4, hCX5, hCF6.
+- **A game kept running, driven step by step** (22 October): start `fast_run.sh <work> <name> <mod> "" "draw every 15;wait
+  120;interactive <work>/runs/<name>/play.fifo" 100000` in the background (nohup ... &), then each
+  `tools/remake/headless/play.sh <work> <name> "<commands>"` runs retro_host commands and prints what they logged (shots as
+  `<work>/runs/<name>/<shot>.png`); the first call waits for the boot (about 3.5 min), the next take the commands' time
+  (8 s to open the trainer card: run bdi); `play.sh ... quit` ends it. A mod change still needs a new session.
 - **Speed** (A's runs fps_*, 20 October, the idle field): drawing every frame 2 frames/s, `draw every 15` 18-24 (one frame
   in 15 drawn, shots whole), `draw off` about 67. Use `draw off` wherever no picture is needed, else `draw every 15`
   (the title and Continue menu, scenes waited on by shots); plain drawing only for a check of every frame.
