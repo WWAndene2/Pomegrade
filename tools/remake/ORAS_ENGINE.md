@@ -46,7 +46,11 @@ is tested on the phone.
   champion_vs, champ_font. **The portrait, likely**: a/1/6/0, 549 RGBA8 512 x 256 BCLIMs, every trainer class's
   drawing in threes (small, large, silhouette): Brawly 33-35, Steven 12-14, Flannery 39-41, and Kalos's leaders
   among them (Grant 378-380, Viola 375-377, Clemont 387-389, Olympia 393-395, Wulfric 396-398; read by eye). Next:
-  the code reading a/2/1/4's gym_nameNN and a/1/6/0's member from the intro type. Before (21 October): where the portrait and the
+  the code reading a/2/1/4's gym_nameNN and a/1/6/0's member from the intro type. **X has Kalos's own** (same
+  search on X): a/2/4/1 member 0, the same DARC per language (0, 0_2-0_8, French 0_3) with the same 18 file names:
+  gym_name01-08 Violette, Lino, Cornélia, Amaro, Lem, Valériane, Astera, Urup (RGBA4 256 x 64, decoded and read),
+  big_four_name01-04 Thyméo, Malva, Dracéna, Narcisse, champion_name Dianthéa (512 x 128); X's trainer drawings
+  are a/1/7/8 (273 RGBA8 512 x 256). Before (21 October): where the portrait and the
   drawn name come from. A RomFS read trace (below) of the same battle with 0x28 and with 0x27 differs only in a/0/3/1
   646 (a CGFX particle effect: Roxanne's rocks) and a/0/3/2 576/598/604 (move effects): the portrait is read by both,
   or from a file the mod patches (LayeredFS: not traced), or held in memory from earlier. Not it: a/0/3/3 (the intros'
