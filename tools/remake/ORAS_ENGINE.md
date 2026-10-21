@@ -57,6 +57,12 @@ is tested on the phone.
   badge word in the headless runs: 0x926E094 (the status at 0x926E080 given to FUN_004E9E64; poke it to light
   badges). The update (FUN_10820A44) reads the keys by the game's masks (FUN_004C7CFC held, FUN_004C7E34 pressed):
   1, 2, 3, 4, 8; L and R showed nothing with badges lit (run bc5). retro_host has no touch input yet.
+  **Set aside by the owner (22 October), after a check**: one Hoenn slot made a Kalos badge (session demo, not committed:
+  slot 2 Brawly's -> Grant's): the leader's drawing (the table's +0x20, 33 -> 378), the texts (a/0/7/4 member 26 lines 30
+  and 38 <- X's a/0/7/5 member 25 lines 27 and 35: "Badge Mur", "Champion : Lino") and the bottom icon (a/1/0/9's
+  badge_02 and badge_02_base <- X's a/1/1/3) all show (run bdj); X's model for it (a/1/6/5 343, badge_c02, bch-upgrade) in
+  a/1/5/2 975 stops the game when the case builds the badges (FUN_1082074C: the model handle null, unmapped reads at PC
+  0x170A78, then the fatal-error loop; runs bdi, bdk): why the game refuses the converted model is not found.
 - **Before, the owner's item: Grant's own battle intro.** X's leaders show Brawly's portrait and name
   ("Bastien") in their intro. Found: the intro is chosen by the battle type record's word +4 alone (0x27-0x2E Omega
   Ruby's 8 leaders, 0x38-0x3E the Elite Four; run hI2: Grant's type given 0x27 shows Roxanne's portrait, name and rocks);
