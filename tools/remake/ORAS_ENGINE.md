@@ -43,7 +43,11 @@ is tested on the phone.
   646 (a CGFX particle effect: Roxanne's rocks) and a/0/3/2 576/598/604 (move effects): the portrait is read by both,
   or from a file the mod patches (LayeredFS: not traced), or held in memory from earlier. Not it: a/0/3/3 (the intros'
   effect layouts gym_0N/big_four/champion: sparks, "VS"), a/1/6/0 440-443 (512x256 drawings of X's Tierno), a/1/5/2
-  cut-ins, the switch at DllBattle 0x1003F400 (battle commands). Next leads: trace the reads from the battle's start
+  cut-ins, the switch at DllBattle 0x1003F400 (battle commands). Next leads, first the owner's (21 October): a search of the whole game by file type, then place, then name: every
+  image (BCLIM, packed ones included, and every BCH and CGFX texture) in every archive, those that may be a portrait or a
+  drawn name (256 px and up, or wide and short) listed by archive and member, grouped (8 leaders + 4 Elite Four + the
+  Champion should stand out), their names read, a contact sheet to find Roxanne's and Brawly's by eye; then the code
+  that loads that member. Else: trace the reads from the battle's start
   (frame of the "veut se battre" line) with the mod's patched archives logged too; or read DllBattle's use of the
   settings' +0x30. X's own intro: a layout (a/1/1/3) with Kalos's 8 badges in 2D, the leader likely his 3D battle model.
 - Then, the owner's order: the badge drawer (Kalos's models, names and outlines in the case, with the animated
