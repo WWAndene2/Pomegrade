@@ -45,6 +45,18 @@ is tested on the phone.
   bytes past its code, points the literal's relocation at the copy and raises the sequence bound (0x3D0 at 0x10081410).
   `WriteDarc` lays files out as the game's DARCs (data at 8, BCLIM at 0x80, other files at 8; a/2/1/4 writes back byte for
   byte). Not done: Kalos's Elite Four and Champion (X's 0x19-0x1D, the same way, with A2's League). Not tested on the phone.
+- **In progress (22 October): the badge case's Kalos drawer** (owner's choices: a touch button and L/R, the case's own lid
+  closing and reopening on the other region). Read so far (DllTrainerCase, 0x1081E000; runs bc1-bc6 on the gk mod, the
+  badge word poked): the case is a mode of the trainer card (Menu, the card, A "Voir les Badges"; B back), one layout
+  for both, a/1/0/9 member 0 (`tranercase_lower/upper`: badge_01-08 lit and `_base` outlines, tr0013-0020_full the
+  leaders, tcase_up/_g/_n/_s and tcaselid_low/_g/_n/_s the case's colours, the lid's animation
+  `tranercase_lower_tcaselid_low`), members 1-2 its 3D scenes. X's a/1/1/3 member 0 is the same layout with Kalos's
+  icons, outlines and leaders under the same names. The 8 badges' table at 0x10822048 (9 words each: pane and animation
+  ids, +0x20 the leader's drawing in a/1/6/0: 27, 33, 36, 39, 30, 42, 45, 51), read through several literal words; the
+  badge models a/1/5/2 974-981 and 985-999 (odd) by the table at 0x10822168 (X's: a/1/6/5 342-349, 354-369). The
+  badge word in the headless runs: 0x926E094 (the status at 0x926E080 given to FUN_004E9E64; poke it to light
+  badges). The update (FUN_10820A44) reads the keys by the game's masks (FUN_004C7CFC held, FUN_004C7E34 pressed):
+  1, 2, 3, 4, 8; L and R showed nothing with badges lit (run bc5). retro_host has no touch input yet.
 - **Before, the owner's item: Grant's own battle intro.** X's leaders show Brawly's portrait and name
   ("Bastien") in their intro. Found: the intro is chosen by the battle type record's word +4 alone (0x27-0x2E Omega
   Ruby's 8 leaders, 0x38-0x3E the Elite Four; run hI2: Grant's type given 0x27 shows Roxanne's portrait, name and rocks);
