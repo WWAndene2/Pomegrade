@@ -38,7 +38,15 @@ is tested on the phone.
 - **In progress, the owner's current item: Grant's own battle intro.** X's leaders show Brawly's portrait and name
   ("Bastien") in their intro. Found: the intro is chosen by the battle type record's word +4 alone (0x27-0x2E Omega
   Ruby's 8 leaders, 0x38-0x3E the Elite Four; run hI2: Grant's type given 0x27 shows Roxanne's portrait, name and rocks);
-  the record is copied into the battle's settings at +0x2C (so +0x30 holds it). Not found: where the portrait and the
+  the record is copied into the battle's settings at +0x2C (so +0x30 holds it). **Found by the owner's search (22
+  October, every BCLIM and CGFX texture of the 299 archives listed by size, session scan; not yet linked by the code):
+  the drawn name** is a/2/1/4 member 0, one per language (0, 0_2-0_8; French 0_3), a DARC "timg" of 18 BCLIMs:
+  gym_name01-08 (RGBA4 256 x 64: Roxanne, Bastien, Voltère, Adriane, Norman, Alizée, Lévy & Tatia, Marc, decoded and
+  read), big_four_name01-04 (Damien, Spectra, Glacia, Aragon), champion_name (Pierre), gym_vs, big_four(_vs),
+  champion_vs, champ_font. **The portrait, likely**: a/1/6/0, 549 RGBA8 512 x 256 BCLIMs, every trainer class's
+  drawing in threes (small, large, silhouette): Brawly 33-35, Steven 12-14, Flannery 39-41, and Kalos's leaders
+  among them (Grant 378-380, Viola 375-377, Clemont 387-389, Olympia 393-395, Wulfric 396-398; read by eye). Next:
+  the code reading a/2/1/4's gym_nameNN and a/1/6/0's member from the intro type. Before (21 October): where the portrait and the
   drawn name come from. A RomFS read trace (below) of the same battle with 0x28 and with 0x27 differs only in a/0/3/1
   646 (a CGFX particle effect: Roxanne's rocks) and a/0/3/2 576/598/604 (move effects): the portrait is read by both,
   or from a file the mod patches (LayeredFS: not traced), or held in memory from earlier. Not it: a/0/3/3 (the intros'
