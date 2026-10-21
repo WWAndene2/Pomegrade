@@ -30,6 +30,30 @@ is a feature of its own (3d item 9); X's cutscenes are translated but skipped (o
 `CallFieldTradeDemo`, `CallApplicationDemo` and `_MapChangeAndDemoCall` are not skipped and may fail the same way. Nothing
 is tested on the phone.
 
+**State at the second handover (21 October, evening), point 3 = A2 in progress** (3e's A2 row has the runs):
+- Done and checked headless: 16 badges (Hoenn 0-7, Kalos 8-15, `--badges 16`, X's scripts' badges + 8; owner: "the rank
+  mixed, the badge's place stays its origin"); the badge case lighting each badge by its bit (DllTrainerCase patch; run
+  hG27); the League's statements (`oras-sandbox` `restyle`, `class C battle-type T`, `edit` of a mod's zone, with
+  `team`: runs hL1/hL0). X's 8 badge models found (a/1/6/5 342-350, identified: 3e) and converted (`bch-upgrade`).
+- **In progress, the owner's current item: Grant's own battle intro.** X's leaders show Brawly's portrait and name
+  ("Bastien") in their intro. Found: the intro is chosen by the battle type record's word +4 alone (0x27-0x2E Omega
+  Ruby's 8 leaders, 0x38-0x3E the Elite Four; run hI2: Grant's type given 0x27 shows Roxanne's portrait, name and rocks);
+  the record is copied into the battle's settings at +0x2C (so +0x30 holds it). Not found: where the portrait and the
+  drawn name come from. A RomFS read trace (below) of the same battle with 0x28 and with 0x27 differs only in a/0/3/1
+  646 (a CGFX particle effect: Roxanne's rocks) and a/0/3/2 576/598/604 (move effects): the portrait is read by both,
+  or from a file the mod patches (LayeredFS: not traced), or held in memory from earlier. Not it: a/0/3/3 (the intros'
+  effect layouts gym_0N/big_four/champion: sparks, "VS"), a/1/6/0 440-443 (512x256 drawings of X's Tierno), a/1/5/2
+  cut-ins, the switch at DllBattle 0x1003F400 (battle commands). Next leads: trace the reads from the battle's start
+  (frame of the "veut se battre" line) with the mod's patched archives logged too; or read DllBattle's use of the
+  settings' +0x30. X's own intro: a layout (a/1/1/3) with Kalos's 8 badges in 2D, the leader likely his 3D battle model.
+- Then, the owner's order: the badge drawer (Kalos's models, names and outlines in the case, with the animated
+  Hoenn/Kalos switch and the case's look and colour: 3d item 9); later the League's order and each region's Elite Four
+  and Champion (with C3).
+- RomFS read trace (a session diagnostic, never committed): in `<work>/core-src/azahar/src/core/file_sys/romfs_reader.cpp`,
+  `DirectRomFSReader::ReadFile` logs `offset` and `length` when `POMEGRADE_ROMFS_TRACE` is set; `ninja -C build-azahar
+  citra_libretro`; the log's offsets + 0x563C6C are the image offsets of `N3dsRom::Files()` (Omega Ruby), a GARC member
+  then read from its FATB. Files the mod patches are read by LayeredFS from memory, not logged.
+
 **Pitfalls met, so they cost the next agent nothing**:
 - A run's log can grow to gigabytes after a fault and fill the disk: watch it (`stat` in a loop) and stop the host with
   `pkill -x retro_host`. Never `pkill -f` with a word that is in the watcher's own command line: it kills the watcher's
