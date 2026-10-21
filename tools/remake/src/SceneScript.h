@@ -36,7 +36,7 @@
 //   flag N on|off     sets or clears story flag N (FlagSet / FlagReset)
 //   battle T          a battle against trainer T (a/0/3/6), as the scripts that start one do (_CallTrainerBattleCore 0 T
 //                     0 0 0 0 0); lost (_BattleGetResult's first cell 0), the game's handler takes over (CallTrainerLose)
-//                     and the event ends; won, the scene goes on
+//                     and the event ends; won, the screen comes back (as "fade in both 20") and the scene goes on
 //   give item I [N]   N of item I (1 by default) into the bag (ItemAdd), with no message: a "say" tells it
 //   give pokemon N    entry N of the game's 37 gift Pokemon (PokePartyAdd N 0; DllField 0x1033B06C, read 16 October: 0-2
 //                     Hoenn's starters level 5, 3-5 Kanto's 10, 6-14 and 17-18 fossils 20, 15 Castform 30, 16 Lucario 32,

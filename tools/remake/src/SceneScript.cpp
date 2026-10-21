@@ -434,6 +434,10 @@ std::string CompileScene(const std::string& scene, const std::string& librarySou
                                      "    addr.p.pri -32", "    load.i", "    stack.p 32", "    jnz " + won,
                                      "    sysreq.n " + std::to_string(out.Native("CallTrainerLose")) + " 0", "    jump scene_end",
                                      won + ":"});
+            // after a won battle, the screen back (as "fade in both 20"): in an X/Y zone (Vaniville) the field came back
+            // black and the scene went on unseen, its lines and choice answered in the dark (run hCF2); with it, line 2
+            // and the choice shown (run hCF3)
+            code.insert(code.end(), {"    push.c 20", "    push.c 2", "    push.p.c 8", "    call " + fadeIn, "    push.p.c 0", "    call " + fadeWait});
         }
         else if (w[0] == "give")
         {
