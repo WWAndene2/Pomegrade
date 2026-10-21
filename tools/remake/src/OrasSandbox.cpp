@@ -48,6 +48,7 @@ struct SandboxZone
     std::vector<std::array<int, 6>> Triggers;   // x, z, width, height, the zone script's event number, height in pixels
     std::string Script, InitScript;             // assembler source (Amx.h) of the zone's own scripts, empty: ones that do nothing
     std::string Scene;                          // the zone script as a scene (SceneScript.h), instead of Script
+    std::vector<std::array<int, 2>> Restyles;   // an edited zone's character (its number, word 0) and its new model
 };
 
 struct SandboxDescription
@@ -59,6 +60,7 @@ struct SandboxDescription
     std::vector<std::pair<int, std::string>> Teams; // a trainer of a/0/3/6 and its team block's lines
     std::map<int, std::pair<int, std::string>> TeamNames; // a team's trainer -> its new class (-1: kept) and name ("": kept)
     std::vector<SandboxZone> Edits;                 // game zones added to (edit Z): their lines, characters, triggers, scene
+    std::map<int, int> ClassTypes;                  // a trainer class (a/0/3/7) -> its new battle type (its byte +2)
     std::vector<std::array<int, 4>> XyPieces;       // piece x, y, X/Y's a/0/4/1 member, the a/0/1/3 area pack it draws from
     // stairs X/Y runs by script (xy-stairs): X/Y zone A, its tiles x z w h going up and the way they are walked into; X/Y
     // zone B, its tiles going down and their way (0 down, 1 up, 2 right, 3 left: a warp kind's low byte)
@@ -156,9 +158,11 @@ static SandboxDescription ReadDescription(const std::string& text)
         }
         if (what == "edit")
         {
-            // edit Z: then lines, characters, triggers and a scene added to game zone Z (0-535), its own kept
+            // edit Z: then lines, characters, triggers and a scene added to zone Z, its own kept (a game zone, 0-535, or with
+            // --onto one the mod added: its bound checked when the mod is built)
             d.Edits.emplace_back();
-            if (!(words >> d.Edits.back().Number) || d.Edits.back().Number < 0 || d.Edits.back().Number > 535) fail("edit takes a game zone, 0-535");
+            if (!(words >> d.Edits.back().Number) || d.Edits.back().Number < 0 || d.Edits.back().Number == 536 || d.Edits.back().Number == 537)
+                fail("edit takes a zone of a/0/1/3 (not 536 or 537, the tables)");
             editing = true;
             continue;
         }
@@ -213,10 +217,29 @@ static SandboxDescription ReadDescription(const std::string& text)
             continue;
         }
         if (what == "blocks") { part = Blocks; continue; }
+        if (what == "class")
+        {
+            // class C battle-type T: the class's battles (portrait and title kept) take battle type T, its music and victory
+            // jingle (a/0/3/7 byte +2, OrasXyTrainers.h; 73 in the game, more with oras-engine --xy-battle-types)
+            int cls = 0, type = 0;
+            std::string key;
+            if (!(words >> cls >> key >> type) || key != "battle-type" || cls < 0 || type < 0 || type > 255) fail("class C battle-type T (T 0-255)");
+            d.ClassTypes[cls] = type;
+            continue;
+        }
         if (editing ? d.Edits.empty() : d.Zones.empty()) fail(what + " before any zone");
         SandboxZone& z = editing ? d.Edits.back() : d.Zones.back();
-        if (editing && what != "line" && what != "character" && what != "trigger" && what != "scene")
-            fail("an edited game zone takes line, character, trigger and scene only");
+        if (editing && what != "line" && what != "character" && what != "trigger" && what != "scene" && what != "restyle")
+            fail("an edited game zone takes line, character, trigger, restyle and scene only");
+        if (what == "restyle")
+        {
+            // restyle N model M: the zone's own character N (word 0, as oras-inspect zone prints it) given model M
+            std::array<int, 2> r{};
+            std::string key;
+            if (!editing || !(words >> r[0] >> key >> r[1]) || key != "model" || r[0] < 0 || r[1] < 0 || r[1] > 0xFFF) fail("restyle N model M, in an edit");
+            z.Restyles.push_back(r);
+            continue;
+        }
         if (what == "script" || what == "init-script" || what == "scene")
         {
             std::string& block = what == "script" ? z.Script : what == "scene" ? z.Scene : z.InitScript;
@@ -346,7 +369,7 @@ static SandboxDescription ReadDescription(const std::string& text)
     if (d.Zones.empty())
     {
         // edits and teams alone: no new zone, no map
-        if (d.Edits.empty() && d.Teams.empty()) throw FormatError("sandbox description: a zone, an edit or a team is required");
+        if (d.Edits.empty() && d.Teams.empty() && d.ClassTypes.empty()) throw FormatError("sandbox description: a zone, an edit, a team or a class is required");
         return d;
     }
     if (d.Width <= 0 || d.Height <= 0) throw FormatError("sandbox description: pieces are required with new zones");
@@ -578,6 +601,18 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         log.push_back(line);
     }
 
+    for (const auto& [cls, type] : d.ClassTypes)
+    {
+        Garc& classes = ws.Edited("a/0/3/7");
+        if ((size_t)cls >= classes.Count()) throw FormatError("sandbox: a/0/3/7 has no class " + std::to_string(cls));
+        Bytes record = Plain(classes.Sub((size_t)cls));
+        if (record.size() < 3) throw FormatError("sandbox: class " + std::to_string(cls) + "'s record is cut short");
+        snprintf(line, sizeof line, "class %d: battle type %d -> %d", cls, record[2], type);
+        log.push_back(line);
+        record[2] = (uint8_t)type;
+        classes.Set((size_t)cls, IsLzCompressed(classes.Sub((size_t)cls)) ? Lz11Compress(record) : record);
+    }
+
     // the game zones added to (edit Z): their lines appended to the zone's text file in the eight languages (header word
     // 3, a/0/7/9-a/0/8/6), so a scene's "say L" is the zone's own count + L; their characters after the zone's own, numbered
     // from its highest + 1 (a scene's "say L by N" and "walk N" name a character by that number, as the log prints it);
@@ -586,7 +621,9 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
     for (const SandboxZone& edit : d.Edits)
     {
         const SandboxZone z = WithSilentCharacters(edit);
-        const Bytes raw = ws.Original("a/0/1/3").Sub((size_t)z.Number);
+        // as the build stands: a zone a mod loaded with --onto added (oras-xy-world's) is not in the game's
+        if ((size_t)z.Number >= ws.Edited("a/0/1/3").Count()) throw FormatError("sandbox: a/0/1/3 has no zone " + std::to_string(z.Number));
+        const Bytes raw = ws.Edited("a/0/1/3").Sub((size_t)z.Number);
         OrasZone zone = OrasZone::Read(Plain(raw));
         const int text = zone.Header[3];
         int lineBase = -1;
@@ -613,10 +650,19 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
             if (ws.Swims(c[0])) log.push_back("warning: zone " + std::to_string(z.Number) + ": model " + std::to_string(c[0]) + " is a swimmer, drawn swimming half in the ground off water (OrasWorkspace::Swims)");
             nextId++;
         }
+        for (const auto& [id, model] : z.Restyles)
+        {
+            auto c = std::find_if(zone.Characters.begin(), zone.Characters.end(), [&](const ZoneCharacter& k) { return k.Raw[0] == id; });
+            if (c == zone.Characters.end()) throw FormatError("sandbox: zone " + std::to_string(z.Number) + " has no character " + std::to_string(id));
+            snprintf(line, sizeof line, "zone %d: character %d's model %d -> %d", z.Number, id, c->Raw[1], model);
+            log.push_back(line);
+            c->Raw[1] = (uint16_t)model;
+        }
         {
             // the models it is given added to its pack's list, which a model must be in (OrasWorkspace::CharacterList)
             std::vector<int> models;
             for (const auto& c : z.Characters) models.push_back(c[0]);
+            for (const auto& r : z.Restyles) models.push_back(r[1]);
             ws.ListCharacters(zone.AreaPack(), models);
         }
         for (const auto& t : z.Triggers)

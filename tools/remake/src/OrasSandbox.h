@@ -63,6 +63,13 @@
 //                     items and moves given; class C (a/0/3/7: the battle's portrait and title, 178 Team Magma's leader,
 //                     174 Team Aqua's) and name TEXT (line ID of a/0/7/1-8 member 22, all eight languages) when given;
 //                     the rest of the record kept
+//   edit Z            instead of a new zone: then line, character, trigger, restyle and scene statements added to zone Z
+//                     of a/0/1/3, its own kept (a game zone, or with --onto one the mod added, X/Y's 538 and up)
+//   class C battle-type T
+//                     trainer class C's battles take battle type T (its music and victory jingle; a/0/3/7 byte +2): every
+//                     trainer of the class, the portrait and title kept
+//   restyle N model M in an "edit Z": the zone's own character N (word 0, as oras-inspect zone prints it) given model M,
+//                     added to its pack's character list (a gym leader's look)
 //   trigger X Z [W H] script N [height P]
 //                     stepping on the W x H tiles (1 x 1 by default) from tile X, Z runs the zone script with g_mode N (a
 //                     scene's "on N"): words 0, 6-9 of the game's trigger records, no condition; P the ground's height
