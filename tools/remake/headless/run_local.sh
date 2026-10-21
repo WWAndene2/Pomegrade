@@ -46,7 +46,10 @@ printf '%s\n' "$script" | tr ';' '\n' > "$run/script.txt"
 host_bin=./retro_host
 if [ -n "${POMEGRADE_GL:-}" ]; then core=build-azahar-gl/bin/Release/azahar_libretro.so
 else core=build-azahar/bin/Release/azahar_libretro.so; fi
-host() { (ulimit -f 4000000; $host_bin $core dumps/oras.3ds "$run" "$secs" "$PWD/$run/script.txt" > "$run/log.txt" 2>&1); }
+# POMEGRADE_GAME: another cartridge than dumps/oras.3ds (dumps/x.3ds: X/Y itself, the reference for what is ported; its save
+# folder is X's title id 0x55D00, the mod folder X's: a mod for Omega Ruby is not applied to it)
+game=${POMEGRADE_GAME:-dumps/oras.3ds}
+host() { (ulimit -f 4000000; $host_bin $core "$game" "$run" "$secs" "$PWD/$run/script.txt" > "$run/log.txt" 2>&1); }
 if [ -z "$gdb" ]; then
     host
 else
