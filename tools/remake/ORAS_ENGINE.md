@@ -46,7 +46,19 @@ is tested on the phone.
   champion_vs, champ_font. **The portrait, likely**: a/1/6/0, 549 RGBA8 512 x 256 BCLIMs, every trainer class's
   drawing in threes (small, large, silhouette): Brawly 33-35, Steven 12-14, Flannery 39-41, and Kalos's leaders
   among them (Grant 378-380, Viola 375-377, Clemont 387-389, Olympia 393-395, Wulfric 396-398; read by eye). Next:
-  the code reading a/2/1/4's gym_nameNN and a/1/6/0's member from the intro type. **X has Kalos's own** (same
+  the code reading a/2/1/4's gym_nameNN and a/1/6/0's member from the intro type. **The chain, read 22 October** (Grant's
+  battle, runs gi3/gi4 on the A2 recipe; RomFS read trace, Ghidra): the portrait already is the trainer's own (gi3: Grant's
+  drawing, a/1/6/0 378-379 read by his class), only the name is Brawly's. The intro id (the battle type record's word +4)
+  indexes a u32 table in DllBattle at 0x10105CDC (162 entries, ids 0-161; read by FUN_10068370 through its literal word
+  0x10069278) giving an a/0/3/4 member, the intro's sequence: 843-850 the 8 leaders (0x27-0x2E), 851-854 the Elite Four
+  (0x38-0x3B), 855- the Champion's and others. Each leader's sequence loads the shared layout gym_01 (a/0/3/3 member 2,
+  read for every leader) and names its pane `gym_name01_00`'s texture: "gym_name0N.bclim" (844: gym_name02, Brawly);
+  FUN_100af3e4 reads the two 0x18-byte names from the sequence and finds that texture in a/2/1/4's DARC (the player's
+  language, 0_3 in French), loaded at the battle's start by FUN_100d07c4 (object +0x9BC). So a Kalos leader's own name
+  needs its own sequence (a copy of 844 with gym_name09-16), X's names added to a/2/1/4's DARC under those names, and
+  intro ids whose table entries give the new sequences (the table to extend or unused ids to take). The read trace's
+  offsets + **0x344000** (not 0x563C6C: checked on DllBattle.cro's read, 1,089,536 bytes at 0x2DAD0, the file at
+  0x371AD0) are image offsets. **X has Kalos's own** (same
   search on X): a/2/4/1 member 0, the same DARC per language (0, 0_2-0_8, French 0_3) with the same 18 file names:
   gym_name01-08 Violette, Lino, Cornélia, Amaro, Lem, Valériane, Astera, Urup (RGBA4 256 x 64, decoded and read),
   big_four_name01-04 Thyméo, Malva, Dracéna, Narcisse, champion_name Dianthéa (512 x 128); X's trainer drawings
