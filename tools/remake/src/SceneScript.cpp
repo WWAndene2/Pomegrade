@@ -196,7 +196,7 @@ std::vector<std::string> ImportProcedures(const Library& from, Library& to, cons
 }
 
 // work 0x8010 after the yes/no box: the first choice (yes) is 1, as the game's scripts compare it (75 of them, eq.p.c.pri 1); 0 read
-// "yes" as "no" (runs hC_y2, hC_up, 21 October: the box's cursor on "Oui", flag 0xCE2 set); 1 not yet checked headless
+// "yes" as "no" (runs hC_y2, hC_up, 21 October: the box's cursor on "Oui", flag 0xCE2 set); 1 checked headless: yes sets 0xCE1 alone, no 0xCE2 alone (runs hC4_yes, hC4_no)
 constexpr int YesAnswer = 1;
 
 // a float as the cell the game reads it from (the camera natives take floats)
