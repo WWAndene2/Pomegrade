@@ -220,10 +220,13 @@ Pokémon, items (the new orbs), moves, text and music.
 **The rule (owner, 22 October; CLAUDE.md 8)**: the two games merged as a compatibility job, the least changed: what is the
 same in both is shared, what differs stays its own game's (data and code, ported as is, never replaced by the other's
 equivalent), and a feature either game lacks is supplied; customising only after. The audit of 22 October (every X/Y
-element: its own, or an Omega Ruby substitute) found substitutes to undo, first in battles: the leaders', Elite Four's and
-Champion's intros (Omega Ruby's with Kalos's names), ordinary trainers' intro and transition, backgrounds, battle types
-(only the music X/Y's), trainer classes and portraits, sound effects and cries; then zones (packs, camera, light, tiles),
-scripts (natives stubbed or renamed, map demos, scripted stairs), the player and interface (badge case). Order: battles first.
+element: its own, or an Omega Ruby substitute) found substitutes to undo, first in battles; owner's precisions (22
+October): ordinary trainers keep Omega Ruby's intro and transition; a battle's intro and transition depend on its context
+(Kalos's leaders, Elite Four and Champion: X/Y's own, to port; the Omega Ruby intros with Kalos's names of 22 October are a
+stand-in until then); backgrounds depend on the place and the context, not on the game (a Kalos zone takes its own); the
+interface and features are merged, parts of both put together as is easiest. Then: battle types (only the music X/Y's),
+trainer classes and portraits, sound effects and cries; zones (packs, camera, light, tiles), scripts (natives stubbed or
+renamed, map demos, scripted stairs), the player and interface (badge case). Order: battles first.
 
 Three lanes by area, one step at a time each, in its own files; a step is done when a minimal headless test of the
 system passes (never by playing X/Y's scenes) and is merged the same session; a run over 15 minutes is asked of the owner
