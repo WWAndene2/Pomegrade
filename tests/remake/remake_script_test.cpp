@@ -121,6 +121,7 @@ int main()
             "10293344\tScript_Native_FlagSet\tPawn (AMX) native, named by the game's own native table; \"FlagSet\" (hash 0x13413496, table 0x1033A234, bit 1): x.\tread\n"
             "10293330\tScript_Native_FlagGet\tPawn (AMX) native, named by the game's own native table; \"FlagGet\" (hash 0x133DAA6A, table 0x1033A234, bit 1): x.\tread\n"
             "1029344C\tScript_Native_WorkSet\tPawn (AMX) native, named by the game's own native table; \"WorkSet\" (hash 0x8E55F629, table 0x1033A234, bit 1): x.\tread\n"
+            "1029833C\tScript_Native__BattleGetResult\tPawn (AMX) native, named by the game's own native table; \"_BattleGetResult\" (hash 0x4A2FA0E8, table 0x10339594, bit 2): x.\tread\n"
             "1029D84C\tScript_Native_CallFieldNotCaptureDemo\tPawn (AMX) native, named by the game's own native table; \"CallFieldNotCaptureDemo\" (hash 0x07109D9E, table 0x10339594, bit 2): x.\tread\n";
         WriteFile(names, Bytes(rows.begin(), rows.end()));
         // CallKisekaeDisplay: an X/Y native nobody provides; ChangeFashionBefore: one the mod provides (OrasXyFashion.h),
@@ -195,6 +196,18 @@ int main()
         const size_t at = restored.find("    stack.p 12");
         restored.replace(at, restored.find("\n    zero.pri\n", at) + 14 - at, "    sysreq.n 0 12\n");
         check(AmxCells(AmxAssemble(restored)) == AmxCells(d), "put back as the comment says, it is the original call");
+        // _BattleGetResult's buffer (X/Y zone 160's L000384): X/Y's 16 bytes made Omega Ruby's 32
+        const Bytes g = AmxAssemble("code\nmain:\n    proc\n    stack.p -16\n    zero.pri\n    addr.alt -16\n    fill 16\n    push.p.adr -16\n"
+                                    "    sysreq.n _BattleGetResult 4\n    addr.p.pri -16\n    load.i\n    stack.p 16\n    retn\n");
+        std::vector<std::string> resultNotes;
+        const std::string result = XyScriptSource(g, names, XyNumbersFor({g}, {}, {}), resultNotes);
+        check(result.find("    stack.p -32   ; X/Y's 16") != std::string::npos && result.find("    fill 32\n") != std::string::npos
+                  && result.find("    push.p.adr -32\n") != std::string::npos && result.find("    addr.p.pri -32\n") != std::string::npos
+                  && result.find("    stack.p 32\n") != std::string::npos && result.find("-16") == std::string::npos,
+              "_BattleGetResult's buffer made 32 bytes");
+        bool resultAssembles = true;
+        try { AmxAssemble(result); } catch (const FormatError&) { resultAssembles = false; }
+        check(resultAssembles && resultNotes.empty(), "it assembles, nothing noted");
         std::filesystem::remove(names);
     }
     {

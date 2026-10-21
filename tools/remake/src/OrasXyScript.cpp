@@ -358,6 +358,32 @@ std::string XyScriptSource(const Bytes& script, const std::string& namesFile, co
             }
         }
     }
+    // _BattleGetResult's buffer: X/Y's scripts give it 16 bytes (all 54 calls), Omega Ruby's native writes 32 (eight words,
+    // +0 to +0x1C: Script_Native__BattleGetResult 0x1029833C, read 21 October; Omega Ruby's 43 calls give 32). The 16 more
+    // overwrote the procedure's frame: Grant's lost battle (X/Y zone 160) went on to his victory scene, whose first camera
+    // command read a null (0x789734), the field never rebuilt (runs hG3, hG21). The buffer of X/Y's procedure made 32 bytes
+    static const char* const resultIdiom[] = {"stack.p -16", "zero.pri", "addr.alt -16", "fill 16", "push.p.adr -16", nullptr, "addr.p.pri -16", "load.i", "stack.p 16"};
+    for (size_t i = 5; i + 3 < lines.size(); i++)
+    {
+        if (lines[i].Op != "sysreq.n" || lines[i].Words.size() < 2) continue;
+        const size_t index = std::stoul(lines[i].Words[1]);
+        if (index >= names.size() || names[index] != "_BattleGetResult") continue;
+        bool idiom = true;
+        for (size_t k = 0; k < 9 && idiom; k++)
+        {
+            if (!resultIdiom[k]) continue;
+            std::string have = lines[i - 5 + k].Op;
+            for (size_t w = 1; w < lines[i - 5 + k].Words.size(); w++) have += " " + lines[i - 5 + k].Words[w];
+            idiom = have == resultIdiom[k];
+        }
+        if (!idiom) { notes.push_back("_BattleGetResult at source line " + std::to_string(i + 1) + ": its buffer not in X/Y's usual form, kept at its size"); continue; }
+        rewrite[i - 5] = "    stack.p -32   ; X/Y's 16: Omega Ruby's _BattleGetResult writes 32 bytes";
+        rewrite[i - 3] = "    addr.alt -32";
+        rewrite[i - 2] = "    fill 32";
+        rewrite[i - 1] = "    push.p.adr -32";
+        rewrite[i + 1] = "    addr.p.pri -32";
+        rewrite[i + 3] = "    stack.p 32";
+    }
     const auto nameOf = [&](size_t index) { return index < names.size() ? names[index] : std::string(); };
     for (const Argument& a : NumberArguments(lines, nameOf, &notes))
     {
