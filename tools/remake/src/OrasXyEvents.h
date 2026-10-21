@@ -25,7 +25,8 @@ class OrasWorkspace;
 // characters with a vanish flag (the story's, shown or hidden by it) and its init script (the scenes on entering) are left out;
 // its zone script (people's talk, signs, objects) is kept, a talk's story branches taking their default course. With
 // `sounds`, the scripts' sound ids are Omega Ruby's (XyMoveSounds; X/Y's music and jingles only with `music`). Trainers (a
-// trainer character's script, the scripts' battles: XyMoveTrainers) are Omega Ruby's numbers of X/Y's (OrasXyTrainers.h).
+// trainer character's script, the scripts' battles: XyMoveTrainers) are Omega Ruby's numbers of X/Y's (OrasXyTrainers.h);
+// with `backgrounds`, the battles' backgrounds too (XyMoveBackgrounds, numbered there: OrasXyBackgrounds.h).
 struct XyEvents
 {
     std::vector<ZoneFurniture> Furniture;
@@ -40,7 +41,7 @@ struct XyEvents
 XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNumbers& numbers, std::map<int, int>& modelOf,
                        const std::string& namesFile, const std::string& scriptDir, int orasZone, std::vector<std::string>& log,
                        bool story = true,
-                        const struct XySounds* sounds = nullptr, bool music = false);
+                        const struct XySounds* sounds = nullptr, bool music = false, struct XyBackgroundNumbers* backgrounds = nullptr);
 
 }
 

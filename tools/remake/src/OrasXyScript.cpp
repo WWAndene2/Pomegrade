@@ -1,4 +1,5 @@
 #include "OrasXyScript.h"
+#include "OrasXyBackgrounds.h"
 
 #include "Amx.h"
 #include "OrasXyNatives.h"
@@ -646,6 +647,32 @@ std::string XyMoveTrainers(const std::string& source, std::vector<std::string>& 
         moved++;
     }
     if (moved) notes.push_back("trainers: " + std::to_string(moved) + " battle(s) given Omega Ruby's numbers of X/Y's trainers");
+    std::string out;
+    for (const std::string& l : text) out += l + "\n";
+    return out;
+}
+
+std::string XyMoveBackgrounds(const std::string& source, XyBackgroundNumbers& numbers, std::vector<std::string>& notes)
+{
+    const std::vector<Line> lines = Split(source);
+    std::vector<std::string> text, names;
+    {
+        std::istringstream in(source);
+        for (std::string l; std::getline(in, l);) text.push_back(l);
+    }
+    for (const Line& l : lines) if (l.Op == "native" && l.Words.size() >= 2) names.push_back(l.Words[1]);
+    const auto nameOf = [&](size_t index) { return index < names.size() ? names[index] : std::string(); };
+    size_t moved = 0;
+    for (const size_t argument : {4u, 5u})
+        for (const Argument& a : NumberArguments(lines, nameOf, &notes, {{"_CallTrainerBattleCore", argument}}))
+        {
+            if (!a.Other) continue;
+            const int v = (int)std::stol(lines[a.Line].Words.back(), nullptr, 0);
+            if (v == 0) continue;
+            text[a.Line] = "    " + lines[a.Line].Op + " " + std::to_string(XyBackgroundValue(numbers, v, false)) + "   ; X/Y's battle background " + std::to_string(v);
+            moved++;
+        }
+    if (moved) notes.push_back("battle backgrounds: " + std::to_string(moved) + " given Omega Ruby's numbers of X/Y's");
     std::string out;
     for (const std::string& l : text) out += l + "\n";
     return out;

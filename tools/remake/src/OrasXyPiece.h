@@ -42,9 +42,12 @@ std::map<uint32_t, uint32_t> XyPropsToOras(const std::set<uint32_t>& types, cons
                                            Garc& orasProps, const Garc& orasPropsOriginal, Bytes& orasAreaPack, std::vector<std::string>& log);
 
 // xPiece: X's a/0/4/1 member (plain); xAreaPack: the X area pack its zone draws from (a/0/1/3 member xPackIndex, plain);
-// kage: an Omega Ruby piece's file 6; orasAreaPack: the Omega Ruby pack the piece will draw from, X's textures added to it
+// kage: an Omega Ruby piece's file 6; orasAreaPack: the Omega Ruby pack the piece will draw from, X's textures added to it;
+// backgrounds: X/Y's battle backgrounds given Omega Ruby's numbers (OrasXyBackgrounds.h), for the tiles naming one (bits
+// 17-23: the background of a battle fought on the tile, FUN_00403190), X's kept without it
 Bytes XyPieceToOras(const Bytes& xPiece, const Bytes& xAreaPack, size_t xPackIndex, const Bytes& kage, const std::string& modelName,
-                    int cellX, int cellY, const std::map<uint32_t, uint32_t>& propTypes, Bytes& orasAreaPack, std::vector<std::string>& log);
+                    int cellX, int cellY, const std::map<uint32_t, uint32_t>& propTypes, Bytes& orasAreaPack, std::vector<std::string>& log,
+                    struct XyBackgroundNumbers* backgrounds = nullptr);
 
 }
 

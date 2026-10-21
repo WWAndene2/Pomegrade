@@ -88,7 +88,7 @@ static std::string XyParentFlagSteps(std::string source, std::vector<ZoneTrigger
 
 XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNumbers& numbers, std::map<int, int>& modelOf,
                                const std::string& namesFile, const std::string& scriptDir, int orasZone, std::vector<std::string>& log, bool story,
-                               const XySounds* sounds, bool music)
+                               const XySounds* sounds, bool music, XyBackgroundNumbers* backgrounds)
 {
     N3dsRom xRom(ws.XyRom);
     const Garc xZones(xRom.Read("a/0/1/2"));
@@ -188,6 +188,7 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
         source = XyMoveZones(source, numbers.Zones, notes);
         if (sounds) source = XyMoveSounds(source, *sounds, music, notes);
         source = XyMoveTrainers(source, notes);
+        if (backgrounds) source = XyMoveBackgrounds(source, *backgrounds, notes);
         source = XyMoveBadges(source, notes);
         // the message files it loads (MsgLoad's (table, n), XyMessageMember): X/Y's member added once in its eight languages
         // (system text: X/Y's a/0/7/2-9 -> a/0/7/1-8; story text: X/Y's a/0/8/0-7 -> a/0/7/9-a/0/8/6), named 0x100 + the new

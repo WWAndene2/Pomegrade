@@ -43,6 +43,7 @@ struct OrasEngineOptions
     uint32_t MoreArchives = 0;               // archives numbered from 299 (romfs a/2/9/9 up), the path table copied longer in the room
     std::string XyBattleTypes;               // a file of battle-type records (24 bytes each) appended after the game's 73, in the room (OrasEngine.cpp)
     std::string XyIntros;                    // a file of a/0/3/4 sequence numbers (u32) for the battle intros 162 up (Kalos's leaders, OrasXyTrainers.h): DllBattle's intro table copied longer (OrasEngine.cpp)
+    std::string XyBackgrounds;               // a file of the battle background tables, longer (OrasXyBackgrounds.h): placed in the room, their readers pointed at them (OrasEngine.cpp)
 };
 
 // the ARM data-processing immediate encoding of value (an 8-bit value rotated right by an even amount), when there is one

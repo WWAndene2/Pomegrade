@@ -77,19 +77,30 @@ is tested on the phone.
   runtime data: 4 an operand descriptor, 328, 244 a DVLE, 72 more a geometry one (exact on 847 of Omega Ruby's BCH
   files); with it X's Cliff badge (a/1/6/5 344, badge_c03: X's c0N are not the gyms' order, 343 is Clemont's Voltage)
   shows and turns in the case (run bds; bdr with the size set by hand confirmed the cause).
-- **In progress (22 October): Kalos's battle backgrounds, X/Y's own** (owner: a background follows the place and the
+- **Done (22 October), headless: Kalos's battle backgrounds, X/Y's own** (owner: a background follows the place and the
   context). Read: a zone's background value (header halfword 15, bits 7-13, FUN_004D86B4; 7 bits, 128 values) gives the
   battle's background record in FUN_0048AA44 (X's 0x45A5C8): a table (Omega Ruby's 0x595CD0, 93 values; X's 0x551C04, 65)
   of 2 bytes a value (record bytes 0-1), then at +2N 5 bytes a value (bytes 2, 3, 4, 8, 9); byte 5 drawn at random from the
   pairs of a 12-byte entry (by byte 4) of the table at 0x595F5C (X's 0x551DCC), bytes 6-7 from a 0x18-byte entry (by
-  byte 5) of the table at 0x595F68 (X's 0x551E68): random scenery, one entry in Omega Ruby, 10 in X (trees, rocks, snow,
-  sand: X's btl_V_*). The record goes to DllBackGround (FUN_100043E4: byte 3 the backdrop through the table at
-  0x10005000, byte 0 the ground through 0x10007454, bytes 4 and 5 through 0x100075C8 (12 bytes) and 0x100075D4 (0x18);
-  X's backdrop table at its 0x10005000) and to DllBattle (the platform: byte 2 through 0x10106074). The files: Omega
-  Ruby's a/1/3/6 (158 members, "BG" containers: backdrops btl_G_*, platforms btl_O_* 115-152), X's a/1/4/6 (131: grounds
-  btl_F_/btl_B_ 3-21, backdrops 26-74 with its 8 gyms, Elite Four rooms 4hi/4hag/4dor/4miz, cham, roji..., scenery btl_V_
-  75-89, platforms 90-). X/Y's zones use 28 values, Omega Ruby's 93 leave 35 free: each takes a new value with X's record,
-  its files appended (identical ones shared) and the tables lengthened. Not written yet.
+  byte 5) of the table at 0x595F68 (X's 0x551E68): random scenery, one entry in Omega Ruby (never drawn), 10 in X (trees,
+  rocks, snow, sand: X's btl_V_*). The record goes to DllBackGround (FUN_100043E4: byte 3 the backdrop through the table
+  at 0x10005000 and its two light tables of 4 times of day, 0x30 bytes each, at 0x10005174 and 0x100062E4 (X's one
+  literal, the second +0xC30), byte 0 the ground through 0x10007454, bytes 4 and 5 through 0x100075C8 (12 bytes) and
+  0x100075D4 (0x18), the same entries as the static tables) and to DllBattle (the platform: byte 2 through 0x10106074).
+  A battle may take bytes 2-9 from a second value (FUN_003EAB6C): its script's (`_CallTrainerBattleCore` arguments 4 and
+  5: Grant's X 49, his arena btl_G_gym1_copy2_c03, which Omega Ruby's 49 made a cave, run bgk1) or the tile under the
+  player's bits 17-23 (FUN_00403190). Both games' gyms are so: the zone's value an indoor backdrop with the gym's
+  platform, the leader's battle the arena. Ported (`OrasXyBackgrounds.h`): each X/Y value met takes a number with X's
+  record, 93-127 for headers and tiles, 128-255 for scripts (35 free below 128 are fewer than X/Y's values), its members
+  converted (BCH 0x07 -> 0x21, in the "BG" containers too; none the same as Omega Ruby's) and appended to a/1/3/6, the
+  tables copied longer into the room (`oras-engine --xy-backgrounds`: the .code's readers through their literals, the
+  record table's `add #0xBA` made #0x200; the modules' literals through their relocations, each made a copy of its
+  neighbour so the loader leaves the room's address: `PointLiteralAt`). All of X/Y: 49 numbers, 89 members. Checked
+  headless: Grant's arena (runs bgk3, bgk4: its floor and side lights; the rest of the model is dark, as the converted
+  model shows off the game too), a route's (bgr1, Grant's script given X's 1 in a session copy: X's forest, grass and
+  platforms). Not checked: against X running (no X save), the scenery drawn (random), the bytes 1, 8, 9 (carried, the
+  same ranges in both games: inferred the same meaning), other scripts' battles naming a background (only
+  `_CallTrainerBattleCore` moved); X's tiles naming 106, 107, 110 (no X value; 12 tiles of pieces 346-348) cleared.
 - **Before, the owner's item: Grant's own battle intro.** X's leaders show Brawly's portrait and name
   ("Bastien") in their intro. Found: the intro is chosen by the battle type record's word +4 alone (0x27-0x2E Omega
   Ruby's 8 leaders, 0x38-0x3E the Elite Four; run hI2: Grant's type given 0x27 shows Roxanne's portrait, name and rocks);

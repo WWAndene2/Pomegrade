@@ -87,6 +87,11 @@ std::string XyMoveSounds(const std::string& source, const struct XySounds& sound
 // trainers (XyTrainerToOras); a trainer computed is in `notes`, not moved
 std::string XyMoveTrainers(const std::string& source, std::vector<std::string>& notes);
 
+// the battle backgrounds a script's trainer battles name (_CallTrainerBattleCore's arguments 4 and 5, constants or followed
+// through the script's procedures as XyMoveTrainers does) made Omega Ruby's numbers of X/Y's (XyBackgroundValue,
+// OrasXyBackgrounds.h; 0, none, kept); one computed is in `notes`, not moved
+std::string XyMoveBackgrounds(const std::string& source, struct XyBackgroundNumbers& numbers, std::vector<std::string>& notes);
+
 // X/Y's badges (BadgeGetFlag, BadgeSetFlag, BadgeResetFlag: their argument when a constant 0-7, or the constant each call of
 // the script's own procedure passes for it) made Kalos's in Omega Ruby's 16, 8-15 (oras-engine --badges 16; Hoenn's keep
 // 0-7: owner's decision, 21 October); a badge computed is in `notes`, not moved

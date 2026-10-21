@@ -7,6 +7,7 @@
 #include "OrasMatrix.h"
 #include "OrasNewZone.h"
 #include "OrasTown.h"
+#include "OrasXyBackgrounds.h"
 #include "OrasXyEncounters.h"
 #include "OrasXyEvents.h"
 #include "OrasXyGymModules.h"
@@ -26,31 +27,6 @@ namespace remake
 {
 
 static Bytes Plain(const Bytes& data) { return IsLzCompressed(data) ? LzDecompress(data) : data; }
-
-// A zone's battle background (header word 15, bits 7-13), X/Y's -> Omega Ruby's. The field is the background: Santalune's
-// gym (X/Y zone 56, X/Y's 24) given its own value fought in front of Omega Ruby's background 24, an Elite Four room, not
-// Littleroot's (runs hBat1, hBg3, 20 October); DllBattle picks the platform model from it (a/1/3/6 btl_O_*, the table at
-// 0x10106074: 4 btl_O_mori, 16-23 the eight gyms' platforms), the backdrop not traced yet. The two games number them
-// differently, so each X/Y value takes the Omega Ruby one its zones' kind of place has in both games' zone lists (by
-// kind, inferred): grass routes 1, caves 3, forests 4, the sea 13, mountains 6, desert 43, interiors 8, towns 9, gyms 16-23,
-// villains' bases 29. X/Y's own backgrounds (its gyms') are not brought in: Omega Ruby's of the same kind show
-static int XyBattleFieldToOras(int x)
-{
-    static const std::map<int, int> byKind = {
-        {1, 1}, {42, 1}, {62, 1},            // routes
-        {3, 3}, {17, 3}, {19, 3}, {20, 3},   // caves (ice and crystal ones too)
-        {4, 4},                              // forests
-        {5, 13},                             // the sea (Azure Bay)
-        {6, 6},                              // snow, as mountains
-        {7, 43},                             // sand (Route 13, Ambrette's beach)
-        {8, 8}, {12, 8}, {57, 8},            // interiors, the palace and the Chateau, the Tower of Mastery
-        {9, 9}, {10, 9}, {22, 9},            // cities, towns, Lumiose
-        {24, 16}, {25, 17}, {26, 18}, {27, 19}, {28, 20}, {29, 21}, {30, 22}, {31, 23}, // the eight gyms
-        {2, 29}, {43, 29}, {44, 29},         // the Poke Ball factory, the labs and Power Plant, Team Flare's base
-    };
-    const auto it = byKind.find(x);
-    return it == byKind.end() ? 9 : it->second;
-}
 
 std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o)
 {
@@ -103,10 +79,11 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     // the zones' events first: they convert and append the characters' models, which the area packs must list
     std::map<int, int> modelOf;
     std::map<int, XyEvents> events;
+    XyBackgroundNumbers backgroundOf; // X/Y's battle backgrounds met, Omega Ruby's numbers (OrasXyBackgrounds.h)
     std::map<int, std::vector<int>> packModels; // X/Y pack -> the Omega Ruby models its zones show
     for (const int z : taken)
     {
-        events[z] = XyEventsToOras(ws, z, 0, 0, numbers, modelOf, o.NamesFile, o.ScriptDir, numbers.Zones.at(z).Zone, log, o.Story, o.Sounds, o.Music);
+        events[z] = XyEventsToOras(ws, z, 0, 0, numbers, modelOf, o.NamesFile, o.ScriptDir, numbers.Zones.at(z).Zone, log, o.Story, o.Sounds, o.Music, &backgroundOf);
         std::vector<int>& models = packModels[all.at(z).AreaPack()];
         for (const int m : events[z].Models) if (std::find(models.begin(), models.end(), m) == models.end()) models.push_back(m);
     }
@@ -154,7 +131,7 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
             if (p == OrasMatrix::None) continue;
             const Bytes xPiece = Plain(xPieces.Sub(p));
             const BinLinker gr = BinLinker::Read(xPiece, "GR");
-            const Bytes piece = XyPieceToOras(xPiece, xPack, (size_t)pack, kage, "", gr.Files.at(4).at(1), gr.Files.at(4).at(0), props, packData.at(pack), log);
+            const Bytes piece = XyPieceToOras(xPiece, xPack, (size_t)pack, kage, "", gr.Files.at(4).at(1), gr.Files.at(4).at(0), props, packData.at(pack), log, &backgroundOf);
             p = (uint16_t)AppendMember(ws.Edited("a/0/3/9"), orasPieces, 6, piece, "GR");
         }
         for (uint16_t& zone : matrix.Zones)
@@ -180,6 +157,11 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     std::vector<std::vector<std::string>> xNames;
     for (int a = 2; a <= 9; a++) xNames.push_back(ReadGameText(Plain(Garc(xRom.Read("a/0/7/" + std::to_string(a))).Sub(72))));
     std::map<int, int> nameLineOf;
+
+    // their battle backgrounds, X/Y's own (OrasXyBackgrounds.h): each value the taken zones use (header halfword 15, bits 7-13;
+    // 0, none given, keeps Littleroot's), the scripts' battles and the pieces' tiles name
+    for (const int z : taken) XyBackgroundValue(backgroundOf, (all.at(z).Header[15] >> 7) & 0x7F, true);
+    const XyBackgrounds backgrounds = AddXyBackgrounds(ws, xRom, backgroundOf, log);
 
     // the zones
     std::map<int, uint32_t> masks;
@@ -223,7 +205,7 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
                 log.push_back(line);
             }
         }
-        f.BattleField = XyBattleFieldToOras((x.Header[15] >> 7) & 0x7F);
+        if (const int field = (x.Header[15] >> 7) & 0x7F) f.BattleField = XyBackgroundValue(backgroundOf, field, true);
         f.SpawnX = x.Header[22] / 18.0f;
         f.SpawnZ = x.Header[26] / 18.0f;
         OrasZone zone;
@@ -280,6 +262,14 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         const std::string file = (std::filesystem::path(o.OutDir) / "xy_intros.bin").string();
         WriteFile(file, intros);
         engine += " --xy-intros " + file;
+    }
+    if (!backgroundOf.Empty())
+    {
+        // their tables, longer, placed by the engine (OrasEngine.cpp)
+        const std::string file = (std::filesystem::path(o.OutDir) / "xy_backgrounds.bin").string();
+        std::filesystem::create_directories(o.OutDir);
+        WriteFile(file, backgrounds.Tables());
+        engine += " --xy-backgrounds " + file;
     }
     // with its story, a new game starts in X/Y zone 2, the player's bedroom in Vaniville (its mirror scene), at its header's
     // spawn (OrasEngine.h StartZone); that X/Y's own new game starts there is inferred, not read in X/Y's code

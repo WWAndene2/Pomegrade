@@ -1,6 +1,7 @@
 // Zone scripts (Amx.h): a compact AMX script written here with Pawn's encoding is unpacked to its cells, its natives
 // named and its code disassembled with Pawn 3 opcodes. No game data.
 #include "Amx.h"
+#include "OrasXyBackgrounds.h"
 #include "OrasXyScript.h"
 #include "OrasXySound.h"
 #include "OrasXyTrainers.h"
@@ -301,6 +302,24 @@ int main()
         check(moved.find("push.p.c 9   ; X/Y's badge 1") != std::string::npos && moved.find("push.p.c 15   ; X/Y's badge 7") != std::string::npos
               && moved.find("    push.p.c 9\n    sysreq.n 1 4") != std::string::npos,
               "X/Y's badges 0-7 made 8-15, directly and through a procedure; 9 kept");
+    }
+    {
+        // XyMoveBackgrounds: the backgrounds Grant's battle names (X/Y zone 160: _CallTrainerBattleCore's arguments 4 and 5,
+        // 49 and 49, given through the script's own procedure) take one number past the header's 128; the same X/Y value
+        // named by a header later takes one below 128 of its own; 0 (none) kept
+        const std::string source = "native _CallTrainerBattleCore\ncode\n"
+            "L000010:\n    proc\n    push.p.s 32\n    push.p.s 28\n    push.p.s 24\n    push.p.s 20\n    push.p.s 16\n    push.p.s 12\n"
+            "    push.p.c 0\n    sysreq.n 0 28\n    retn\n"
+            "L000060:\n    proc\n    push.p.c 0\n    push.p.c 49\n    push.p.c 49\n    push.p.c 0\n    push.p.c 0\n    push.p.c 76\n"
+            "    push.p.c 24\n    call L000010\n    retn\n";
+        XyBackgroundNumbers numbers;
+        std::vector<std::string> notes;
+        const std::string moved = XyMoveBackgrounds(source, numbers, notes);
+        size_t count = 0;
+        for (size_t at = 0; (at = moved.find("push.p.c 128   ; X/Y's battle background 49", at)) != std::string::npos; at++) count++;
+        check(count == 2 && numbers.Wide.size() == 1 && numbers.Narrow.empty(), "a battle's two backgrounds moved through the procedure, one number past 128");
+        check(XyBackgroundValue(numbers, 49, true) == 93 && XyBackgroundValue(numbers, 49, false) == 93 && XyBackgroundValue(numbers, 0, true) == 0,
+              "a header's value below 128, then the one a script takes; 0 none");
     }
     {
         // CompileScene into another script (SceneScript.h, targetSource): the library's routines (the shapes it looks for,

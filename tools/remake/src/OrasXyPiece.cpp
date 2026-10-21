@@ -6,6 +6,7 @@
 #include "BchWriter.h"
 #include "BinLinker.h"
 #include "OrasTown.h"
+#include "OrasXyBackgrounds.h"
 #include "NitroCompression.h"
 #include "XyCharacter.h"
 
@@ -161,7 +162,8 @@ std::map<uint32_t, uint32_t> XyPropsToOras(const std::set<uint32_t>& types, cons
 }
 
 Bytes XyPieceToOras(const Bytes& xPiece, const Bytes& xAreaPack, size_t xPackIndex, const Bytes& kage, const std::string& modelName,
-                    int cellX, int cellY, const std::map<uint32_t, uint32_t>& propTypes, Bytes& orasAreaPack, std::vector<std::string>& log)
+                    int cellX, int cellY, const std::map<uint32_t, uint32_t>& propTypes, Bytes& orasAreaPack, std::vector<std::string>& log,
+                    XyBackgroundNumbers* backgrounds)
 {
     BinLinker gr = BinLinker::Read(xPiece, "GR");
     // 6 files, or 8 or 10: one or two more layers (35 of X's 1,030 pieces), their tile grids then their collisions, as
@@ -174,12 +176,24 @@ Bytes XyPieceToOras(const Bytes& xPiece, const Bytes& xAreaPack, size_t xPackInd
 
     // file 0 (and each layer's grid): the tile grid (two u16 40, then 40 x 40 u32)
     std::map<uint32_t, size_t> mapped;
+    std::map<std::pair<int, int>, size_t> fields; // a tile's battle background, X's -> Omega Ruby's
     const auto mapTiles = [&](Bytes& tiles) {
         if (tiles.size() < 4 + 1600 * 4) throw FormatError("X piece: a tile grid of " + std::to_string(tiles.size()) + " bytes");
         for (size_t at = 4; at < 4 + 1600 * 4; at += 4)
         {
-            const uint32_t v = U32(tiles, at), o = XyTileValue(v);
-            if (o != v) { Put32(tiles, at, o); mapped[v]++; }
+            const uint32_t v = U32(tiles, at);
+            uint32_t o = XyTileValue(v);
+            if (o != v) mapped[v]++;
+            // its battle background (none when the high byte is 0xFF, as FUN_00403190 reads it); X's 106, 107 and 110 (pieces
+            // 346-348, 12 tiles) name no X value (65 of them): cleared, as they would name the mod's new ones
+            const int field = (int)(o >> 17) & 0x7F;
+            if (backgrounds && field && (o >> 24) != 0xFF)
+            {
+                const int to = field < 65 ? XyBackgroundValue(*backgrounds, field, true) : 0;
+                o = (o & ~(0x7Fu << 17)) | (uint32_t)to << 17;
+                fields[{field, to}]++;
+            }
+            if (o != v) Put32(tiles, at, o);
         }
     };
     mapTiles(gr.Files[0]);
@@ -188,6 +202,12 @@ Bytes XyPieceToOras(const Bytes& xPiece, const Bytes& xAreaPack, size_t xPackInd
     {
         char line[96];
         snprintf(line, sizeof line, "X tiles: 0x%08X on %zu tile(s) made 0x%08X", v, n, XyTileValue(v));
+        log.push_back(line);
+    }
+    for (const auto& [field, n] : fields)
+    {
+        char line[96];
+        snprintf(line, sizeof line, "X tiles: battle background %d on %zu tile(s) made %d", field.first, n, field.second);
         log.push_back(line);
     }
 

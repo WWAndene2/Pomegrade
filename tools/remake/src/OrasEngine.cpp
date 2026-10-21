@@ -303,6 +303,29 @@ static Bytes PatchCro(const Bytes& cro, uint32_t base, const std::vector<CroWord
     return out;
 }
 
+// a literal word the loader relocates (an internal relocation, to `expected` in the module) made to hold `value`, an address
+// outside the module (the room): its relocation entry made a copy of the next one, which the loader then writes twice with
+// the same value (R_ARM_ABS32 and the other kinds write, they do not add: Azahar's CROHelper::ApplyRelocation; unloading
+// writes 0 there twice), and the word written with the value
+static void PointLiteralAt(Bytes& cro, uint32_t base, uint32_t literal, uint32_t expected, uint32_t value, const std::string& why)
+{
+    const CroLayout layout(cro);
+    const uint32_t relocations = layout.Field(42), count = layout.Field(43), at = literal - base - layout.Segments[0].first;
+    for (uint32_t i = 0; i < count; i++)
+    {
+        const uint32_t entry = relocations + 12 * i, tag = layout.U32(entry);
+        if ((tag & 0xF) != 0 || (tag >> 4) != at) continue;
+        const uint8_t segment = cro[entry + 5];
+        if (count < 2 || segment >= layout.Segments.size() || base + layout.Segments[segment].first + layout.U32(entry + 8) != expected)
+            throw FormatError(why + ": its relocation is not the one read (another version of the game?)");
+        const uint32_t other = relocations + 12 * (i + 1 < count ? i + 1 : i - 1);
+        std::copy(cro.begin() + other, cro.begin() + other + 12, cro.begin() + entry);
+        for (int k = 0; k < 4; k++) cro[literal - base + k] = (uint8_t)(value >> (8 * k));
+        return;
+    }
+    throw FormatError(why + ": no relocation of its literal word");
+}
+
 std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& o, const std::string& outDir)
 {
     std::vector<std::string> log;
@@ -883,6 +906,69 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         log.push_back(line);
     }
 
+    Bytes dllBattle, dllBackGround; // the modules patched (empty: the game's)
+    if (!o.XyBackgrounds.empty())
+    {
+        // The battle backgrounds' tables, longer (OrasXyBackgrounds.h): each copied into the room, the game's entries first,
+        // and its readers pointed at the copy, each read through one literal word: in the .code the records (2 bytes a
+        // value, then 5 at +2N: FUN_0048AA44's `add r1, ip, #0xBA` made +0x200, 256 values), the scenery sets and sceneries
+        // (their static copies are the same as DllBackGround's: one copy for both); in DllBackGround the backdrops' members
+        // and two light tables, the grounds', the sets and the sceneries (two readers); in DllBattle the platforms'. The
+        // modules' literals hold the room's address (PointLiteralAt)
+        const Bytes file = ReadFile(o.XyBackgrounds);
+        if (file.size() < 4 || std::string(file.begin(), file.begin() + 4) != "XYBG") throw FormatError("--xy-backgrounds: not an XYBG file");
+        std::vector<Bytes> t;
+        for (size_t at = 4; at < file.size();)
+        {
+            const uint32_t size = U32(file, at);
+            if (at + 4 + size > file.size()) throw FormatError("--xy-backgrounds: a table past the file's end");
+            t.emplace_back(file.begin() + at + 4, file.begin() + at + 4 + size);
+            at += 4 + size;
+        }
+        if (t.size() != 8 || t[0].size() != 7 * 256) throw FormatError("--xy-backgrounds: 8 tables, the records 256 values");
+        const Bytes& records = t[0];
+        const Bytes& sets = t[1];
+        const Bytes& sceneries = t[2];
+        dllBackGround = oras.Read("DllBackGround.cro");
+        dllBattle = oras.Read("DllBattle.cro");
+        // each table must begin with the game's own
+        const auto game = [&](const Bytes& from, uint32_t at, const Bytes& table, size_t size, const char* what) {
+            if (table.size() < size || !std::equal(table.begin(), table.begin() + size, from.begin() + at)) throw FormatError(std::string("--xy-backgrounds: ") + what + " do not begin with the game's");
+        };
+        constexpr uint32_t recordsAt = 0x595CD0, setsAt = 0x595F5C, sceneriesAt = 0x595F68, bgBase = 0x10000000, battleBase = 0x10025000;
+        game(code, recordsAt - CodeBase, Bytes(records.begin(), records.begin() + 2 * 93), 2 * 93, "the records");
+        game(code, recordsAt - CodeBase + 2 * 93, Bytes(records.begin() + 2 * 256, records.begin() + 2 * 256 + 5 * 93), 5 * 93, "the records");
+        game(code, setsAt - CodeBase, sets, 12, "the scenery sets");
+        game(code, sceneriesAt - CodeBase, sceneries, 0x18, "the sceneries");
+        game(dllBackGround, 0x100075C8 - bgBase, sets, 12, "the scenery sets");
+        game(dllBackGround, 0x100075D4 - bgBase, sceneries, 0x18, "the sceneries");
+        game(dllBackGround, 0x10005000 - bgBase, t[3], 4 * 93, "the backdrops");
+        game(dllBackGround, 0x10005174 - bgBase, t[4], 0x30 * 93, "the backdrops' first lights");
+        game(dllBackGround, 0x100062E4 - bgBase, t[5], 0x30 * 93, "the backdrops' second lights");
+        game(dllBackGround, 0x10007454 - bgBase, t[6], 4 * 93, "the grounds");
+        game(dllBattle, 0x10106074 - battleBase, t[7], 4 * 92, "the platforms");
+
+        const uint32_t recordsRoom = roomPut(records, "the background records"), setsRoom = roomPut(sets, "the scenery sets"),
+                       sceneriesRoom = roomPut(sceneries, "the sceneries");
+        words.push_back({0x48AC0C, recordsAt, recordsRoom, "FUN_0048AA44's background records"});
+        words.push_back({0x48AA5C, 0xE28C10BA, 0xE28C1000 | *ArmImmediate(2 * 256), "FUN_0048AA44's records' second part (add r1, ip, #0x200)"});
+        words.push_back({0x48AC14, setsAt, setsRoom, "FUN_0048AA44's scenery sets"});
+        words.push_back({0x48AC18, sceneriesAt, sceneriesRoom, "FUN_0048AA44's sceneries"});
+        const uint32_t backdrops = roomPut(t[3], "the backdrops"), lightA = roomPut(t[4], "the backdrops' first lights"), lightB = roomPut(t[5], "the backdrops' second lights"),
+                       grounds = roomPut(t[6], "the grounds"), platforms = roomPut(t[7], "the platforms");
+        PointLiteralAt(dllBackGround, bgBase, 0x100045A8, 0x10005000, backdrops, "DllBackGround's backdrops");
+        PointLiteralAt(dllBackGround, bgBase, 0x100041A0, 0x10005174, lightA, "DllBackGround's first lights");
+        PointLiteralAt(dllBackGround, bgBase, 0x100041A4, 0x100062E4, lightB, "DllBackGround's second lights");
+        PointLiteralAt(dllBackGround, bgBase, 0x100045AC, 0x10007454, grounds, "DllBackGround's grounds");
+        PointLiteralAt(dllBackGround, bgBase, 0x100045B0, 0x100075C8, setsRoom, "DllBackGround's scenery sets");
+        PointLiteralAt(dllBackGround, bgBase, 0x100045B4, 0x100075D4, sceneriesRoom, "DllBackGround's sceneries");
+        PointLiteralAt(dllBackGround, bgBase, 0x10001B04, 0x100075D4, sceneriesRoom, "DllBackGround's sceneries (second reader)");
+        PointLiteralAt(dllBattle, battleBase, 0x10070FA8, 0x10106074, platforms, "DllBattle's platforms");
+        snprintf(line, sizeof line, "battle backgrounds: the tables in the room (records 0x%X, %zu backdrops, %zu grounds, %zu platforms, %zu scenery sets, %zu sceneries)",
+                 recordsRoom, t[3].size() / 4, t[6].size() / 4, t[7].size() / 4, sets.size() / 12, sceneries.size() / 0x18);
+        log.push_back(line);
+    }
+
     char id[17];
     snprintf(id, sizeof id, "%016llX", (unsigned long long)oras.ProgramId());
     const std::filesystem::path root = std::filesystem::path(outDir) / "load" / "mods" / id;
@@ -975,7 +1061,7 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         constexpr uint32_t base = 0x10025000, table = 0x10105CDC, literal = 0x10069278, boundAt = 0x10081410, gameIntros = 162;
         const Bytes extra = ReadFile(o.XyIntros);
         if (extra.empty() || extra.size() % 4) throw FormatError("--xy-intros: u32 sequence numbers");
-        const Bytes original = oras.Read("DllBattle.cro");
+        const Bytes original = dllBattle.empty() ? oras.Read("DllBattle.cro") : dllBattle;
         const CroLayout layout(original);
         const uint32_t cave = (layout.CodeEnd() + 3) & ~3u, pagesEnd = (layout.CodeEnd() + 0xFFF) & ~0xFFFu;
         const uint32_t count = gameIntros + (uint32_t)extra.size() / 4;
@@ -1011,12 +1097,18 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
             moved = true;
         }
         if (!moved) throw FormatError("DllBattle.cro: no relocation of the intro table's literal word");
-        const Bytes bps = BpsCreate(original, patched);
-        if (BpsApply(original, bps) != patched) throw FormatError("DllBattle.cro: the patch does not rebuild the module");
-        std::filesystem::create_directories(root / "romfs_ext");
-        WriteFile((root / "romfs_ext" / "DllBattle.cro.bps").string(), bps);
-        snprintf(line, sizeof line, "romfs_ext/DllBattle.cro.bps: the battle intros 162-%u (sequences up to %u), %zu bytes, checked", count - 1, highest, bps.size());
+        dllBattle = patched;
+        snprintf(line, sizeof line, "DllBattle: the battle intros 162-%u (sequences up to %u)", count - 1, highest);
         log.push_back(line);
+    }
+    for (const auto& [name, module] : {std::pair<const char*, const Bytes*>{"DllBattle.cro", &dllBattle}, {"DllBackGround.cro", &dllBackGround}})
+    {
+        if (module->empty()) continue;
+        const Bytes original = oras.Read(name), bps = BpsCreate(original, *module);
+        if (BpsApply(original, bps) != *module) throw FormatError(std::string(name) + ": the patch does not rebuild the module");
+        std::filesystem::create_directories(root / "romfs_ext");
+        WriteFile((root / "romfs_ext" / (std::string(name) + ".bps")).string(), bps);
+        log.push_back("romfs_ext/" + std::string(name) + ".bps: " + std::to_string(bps.size()) + " bytes, checked");
     }
     if (!dllField.empty())
     {
