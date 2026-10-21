@@ -341,6 +341,33 @@ std::vector<std::string> OrasWorkspace::LinkWarps()
     return log;
 }
 
+std::vector<std::string> OrasWorkspace::LoadMod(const std::string& modDir)
+{
+    char id[17];
+    snprintf(id, sizeof id, "%016llX", (unsigned long long)Oras.ProgramId());
+    const std::filesystem::path mod = std::filesystem::path(modDir) / "load" / "mods" / id;
+    if (!std::filesystem::is_directory(mod)) throw FormatError(modDir + " has no load/mods/" + id);
+    std::vector<std::string> read;
+    for (const char* kind : {"romfs_ext", "romfs"})
+    {
+        const std::filesystem::path root = mod / kind;
+        if (!std::filesystem::is_directory(root)) continue;
+        for (const auto& f : std::filesystem::recursive_directory_iterator(root))
+        {
+            if (!f.is_regular_file()) continue;
+            std::string path = f.path().lexically_relative(root).generic_string();
+            const bool patch = std::string(kind) == "romfs_ext";
+            if (patch && (path.size() < 4 || path.substr(path.size() - 4) != ".bps")) continue;
+            if (patch) path.resize(path.size() - 4);
+            if (path.rfind("a/", 0) != 0) continue; // a module (DllField.cro, oras-engine's), not an archive
+            Archive& a = Open(path);
+            a.Now = std::make_unique<Garc>(patch ? BpsApply(a.Data, ReadFile(f.path().string())) : ReadFile(f.path().string()));
+            read.push_back(path + (patch ? " (patch)" : " (whole)"));
+        }
+    }
+    return read;
+}
+
 std::vector<std::string> OrasWorkspace::Write(const std::string& outDir)
 {
     std::vector<std::string> log;
@@ -350,6 +377,10 @@ std::vector<std::string> OrasWorkspace::Write(const std::string& outDir)
     for (const auto& [path, a] : Archives)
     {
         const Bytes data = a.Now->Write();
+        // one form only: a mod loaded with LoadMod may hold the other (Azahar would apply both), or the archive back as the
+        // game has it
+        std::filesystem::remove(mod / "romfs" / path);
+        std::filesystem::remove(mod / "romfs_ext" / (path + ".bps"));
         if (data == a.Data) continue;
         const Garc back(data);
         if (data.size() < a.Data.size())

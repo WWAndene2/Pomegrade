@@ -53,10 +53,13 @@ static std::string Script(const char* what, const Bytes& b)
     catch (const FormatError& e) { return F("  %s: %zu bytes, not a script: %s\n", what, b.size(), e.what()); }
 }
 
-std::string InspectZone(N3dsRom& game, size_t zone)
+std::string InspectZone(N3dsRom& game, size_t zone, const Garc* zones)
 {
     Bytes data;
-    std::string s = Member(game, "a/0/1/3", zone, data);
+    std::string s;
+    if (!zones) s = Member(game, "a/0/1/3", zone, data);
+    else if (zone >= zones->Count() || !zones->Has(zone)) s = F("the mod's a/0/1/3 has no member %zu (it has %zu)\n", zone, zones->Count());
+    else data = Plain(zones->Sub(zone));
     if (!s.empty()) return s;
     const OrasZone z = OrasZone::Read(data);
     s += F("zone %zu (a/0/1/3 member %zu, %zu bytes decompressed)\n", zone, zone, data.size());
@@ -74,6 +77,9 @@ std::string InspectZone(N3dsRom& game, size_t zone)
                c.Raw[0], c.Model(), c.TileX(), c.TileZ(), c.Raw[2] & 0xFF, c.Raw[3], c.Raw[5], c.Raw[6] & 0xFF, c.Raw[7],
                c.Raw[12], c.Raw[13]);
         s += c.TrainerId() ? F(", trainer %d\n", c.TrainerId()) : "\n";
+        s += "      words:";
+        for (uint16_t w : c.Raw) s += F(" %u", w);
+        s += "\n";
     }
     for (const ZoneDoor& d : z.Doors)
     {
@@ -81,7 +87,13 @@ std::string InspectZone(N3dsRom& game, size_t zone)
         for (uint16_t w : d.Raw) s += F(" %u", w);
         s += "\n";
     }
-    for (const ZoneTrigger& t : z.Triggers) s += F("    trigger at tile (%d, %d)\n", t.TileX(), t.TileZ());
+    // a trigger's words: 0 its script, 6-7 its tile, 10 the height it is on (oras-sandbox's trigger ... height, OrasSandbox.h)
+    for (const ZoneTrigger& t : z.Triggers)
+    {
+        s += F("    trigger at tile (%d, %d), words:", t.TileX(), t.TileZ());
+        for (uint16_t w : t.Raw) s += F(" %u", w);
+        s += "\n";
+    }
     s += Script("initialisation script", z.InitScript);
     s += Script("zone script", z.Script);
     return s;

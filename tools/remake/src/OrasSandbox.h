@@ -56,7 +56,8 @@
 //   trainer ID MODEL X Z [face F] [sight N] [move M]
 //                     a trainer of a/0/3/6 (script 3000 + ID, kind 1, sight 4 tiles unless given: inferred, OrasZone.h)
 //   team ID [class C] [name TEXT]
-//                     then trainer ID's new team (a/0/3/6, a/0/3/8), up to "end": a line each, "pokemon SPECIES LEVEL
+//                     then trainer ID's new team (a/0/3/6, a/0/3/8; with --onto, a trainer the mod added too: oras-xy-world's
+//                     X trainers, 950 and up), up to "end": a line each, "pokemon SPECIES LEVEL
 //                     [form F] [item I] [moves A B C D] [difficulty D]" (1 to 6; national dex numbers, the game's item and
 //                     move numbers; difficulty 0-255 as the game's teams hold it, 0 by default); the format follows the
 //                     items and moves given; class C (a/0/3/7: the battle's portrait and title, 178 Team Magma's leader,

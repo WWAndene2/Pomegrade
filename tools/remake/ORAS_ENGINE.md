@@ -42,8 +42,7 @@ is tested on the phone.
 - Flags read at 0x8C7DF78 (0xCE1 bit 1, 0xCE2 bit 2) only in a mod without `--story large`; with it their address is not
   known: check by what the scene shows.
 - The owner's saves (`headless/saves`, `dumps/save`) are early in the game: a gym leader's battle is lost even against a
-  level-1 team when mashing A picks Growl. A real win needs a weakened team (a temporary switch in `AddXyTrainers` or an
-  `OrasWorkspace` program writing `a/0/3/8`, reverted before any commit); a "won" result forced in a script is not a win:
+  level-1 team when mashing A picks Growl. A real win needs a weakened team (`oras-sandbox ... --onto`, below); a "won" result forced in a script is not a win:
   the engine took the loss path (point 1).
 - gdb through the headless stub did not connect reliably here. What worked: save a state with the JIT just before the
   moment (`save NAME`), then an interpreter run (`POMEGRADE_INTERPRETER=1`) that loads it (`load NAME`: the state keeps its
@@ -54,10 +53,11 @@ is tested on the phone.
 - Test changes to an X/Y zone's script go through `oras-xy-world --scripts DIR` with a copy of `xy-script-export`'s
   source kept outside the repository; `xy-script-export` of all 360 zones assembles all 720 scripts, a quick check of
   any translator change.
-- Throwaway programs used on 21 October (out of the repository, CLAUDE.md 4.3, not kept): dumping a zone's character and
-  trigger records and its header (OrasZone over `a/0/1/2` or `a/0/1/3`, a mod's patch applied with `BpsApply`), weakening
-  a trainer's team, copying a game zone as a new zone (`OrasWorkspace::AddZone`). Each is a few lines over `libremake.a`;
-  making them `remake_tool` commands is the owner's call.
+- The tools those runs needed are `remake_tool` commands (owner's request, 21 October): a zone as a mod leaves it, with its
+  characters' and triggers' raw words, `oras-inspect <oras.3ds> zone N --mod <mod dir>`; a trainer's team changed in a mod
+  already built (a weak team for a won battle; X's trainers are 950 and up), `oras-sandbox <oras.3ds> <mod dir> <team
+  description> --onto <mod dir>` with only a `team ID` block; a zone copied as a new one, `oras-zone-copy <oras.3ds> <out
+  dir> Z [--onto <mod dir>]`. `--onto` rewrites the mod's archives (`OrasWorkspace::LoadMod`) and leaves its other files.
 
 **The owner's objectives, in order** (their words, 7 October): (1) take the game apart to the binary and learn every part;
 (2) reference every table and asset; (3) a limitless sandbox; (4) remove the memory, cache, zone and asset limits; (5)

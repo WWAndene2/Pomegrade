@@ -166,7 +166,7 @@ static int Usage()
                     "  remake_tool oras-world <rom.nds> <matrix index> <out dir>\n  remake_tool platinum-zones <rom.nds>\n"
                     "  remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]\n  remake_tool bch-upgrade <in> <out>\n  remake_tool xy-motion-slots\n  remake_tool oras-list <oras.3ds>\n  remake_tool oras-extract <oras.3ds> <path> <out>\n"
                     "  remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...\n"
-                    "  remake_tool oras-inspect <oras.3ds> zone|piece|area|matrix|piece-names|zones|matrices|archives|piece-budget|coll-sizes|zone-reach <index>\n"
+                    "  remake_tool oras-inspect <oras.3ds> zone|piece|area|matrix|piece-names|zones|matrices|archives|piece-budget|coll-sizes|zone-reach <index> [zone: --mod <mod dir>]\n"
                     "  remake_tool oras-measure <oras.3ds> <out dir>\n"
                     "  remake_tool oras-topview <oras.3ds> <piece> <out.png> [--grid] [--tiles] [--doors] [--points] [--px N]\n"
                     "  remake_tool topview <GR piece file> <out.png> [--grid] [--tiles] [--doors] [--points] [--px N]\n"
@@ -181,7 +181,8 @@ static int Usage()
                     "  remake_tool oras-code <oras.3ds> <out.bin>\n"
                     "  remake_tool oras-region <platinum.nds> <oras.3ds> <out dir> --rect LEFT TOP WIDTH HEIGHT --zone HEADER:ZONE... [--plan]\n"
                     "  remake_tool oras-sinnoh <platinum.nds> <oras.3ds> [strip width]\n"
-                    "  remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt> [--character-models N] [--characters N] [--events large] [--xy <x.3ds>]\n"
+                    "  remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt> [--character-models N] [--characters N] [--events large] [--xy <x.3ds>] [--onto <mod dir>]\n"
+                    "  remake_tool oras-zone-copy <oras.3ds> <out dir> <zone> [--onto <mod dir>]\n"
                     "  remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>\n"
                     "  remake_tool oras-xy-world <oras.3ds> <x.3ds> <out dir> <function_names.tsv> [--matrices A,B,...] [--character-models N] [--scripts DIR] [--story on|off] [--music on|off]\n"
                     "  remake_tool oras-save <main> [<out> [<zone> <tile x> <tile z>] [--template <save> [--blocks A,B,...]] [--save-records N] [--height PIXELS] [--characters-from <oras.3ds> [<mod dir>]]]\n"
@@ -566,7 +567,14 @@ int main(int argc, char** argv)
             const std::string what = argv[3];
             const size_t index = (size_t)atoi(argv[4]);
             std::string text;
-            if (what == "zone") text = InspectZone(game, index);
+            // zone N --mod <mod dir>: the zone as a mod leaves it (its a/0/1/3 patch applied)
+            if (what == "zone" && argc >= 7 && std::string(argv[5]) == "--mod")
+            {
+                OrasWorkspace ws(game);
+                ws.LoadMod(argv[6]);
+                text = InspectZone(game, index, &ws.Edited("a/0/1/3"));
+            }
+            else if (what == "zone") text = InspectZone(game, index);
             else if (what == "piece") text = InspectPiece(game, index);
             else if (what == "area") text = InspectArea(game, index);
             else if (what == "matrix") text = InspectMatrix(game, index);
@@ -1509,9 +1517,34 @@ int main(int argc, char** argv)
                 else if (flag == "--characters") ws.CharacterPool = (size_t)OptionNumber(value.c_str(), flag);
                 else if (flag == "--events" && value == "large") OrasZone::EventsLimit = 0x1910;
                 else if (flag == "--xy") ws.XyRom = value;
+                // --onto <mod dir>: built on a mod written before (OrasWorkspace::LoadMod), e.g. a team made weak in an
+                // oras-xy-world mod, the out dir that mod's own to keep its other files
+                else if (flag == "--onto") for (const std::string& read : ws.LoadMod(value)) printf("onto %s\n", read.c_str());
                 else throw FormatError("oras-sandbox: unknown option " + flag + " " + value);
             }
             for (const std::string& line : BuildOrasSandbox(ws, std::string(text.begin(), text.end()), argv[3], check, argv[4])) printf("%s\n", line.c_str());
+            for (const std::string& line : ws.Write(argv[3])) printf("%s\n", line.c_str());
+            return 0;
+        }
+        if (cmd == "oras-zone-copy" && argc >= 5 && argc % 2 == 1)
+        {
+            // a zone copied as a new one (OrasWorkspace::AddZone, the next free number): its container and encounter file as
+            // they are, so it shares the original's area pack, matrix, text and scripts' flags; --onto <mod dir>: copied from
+            // and added to that mod (a zone it added copied too)
+            N3dsRom oras(argv[2]);
+            OrasWorkspace ws(oras);
+            for (int i = 5; i + 1 < argc; i += 2)
+            {
+                if (std::string(argv[i]) != "--onto") throw FormatError(std::string("oras-zone-copy: unknown option ") + argv[i]);
+                for (const std::string& read : ws.LoadMod(argv[i + 1])) printf("onto %s\n", read.c_str());
+            }
+            const int zone = atoi(argv[4]);
+            Garc& zones = ws.Edited("a/0/1/3");
+            const Bytes plain = zone >= 0 && (size_t)zone < zones.Count() ? Plain(zones.Sub((size_t)zone)) : Bytes{};
+            if (plain.size() < 2 || plain[0] != 'Z' || plain[1] != 'O') throw FormatError("oras-zone-copy: zone " + std::string(argv[4]) + " is no ZO container");
+            const BinLinker en = BinLinker::Read(Plain(zones.Sub(537)), "EN");
+            const int added = ws.AddZone(plain, (size_t)zone < en.Files.size() ? en.Files[(size_t)zone] : Bytes{});
+            printf("zone %d copied as zone %d\n", zone, added);
             for (const std::string& line : ws.Write(argv[3])) printf("%s\n", line.c_str());
             return 0;
         }

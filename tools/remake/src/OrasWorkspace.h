@@ -93,6 +93,11 @@ public:
     // keep the old file's tail (Bps.h). Returns what it wrote, line by line, and the zone header rows the engine is to read
     // (oras-engine --zone-rows) when the zones changed
     std::vector<std::string> Write(const std::string& outDir);
+    // a mod written before (<modDir>/load/mods/<program id>, as Write lays it out) as the build's starting point: each archive
+    // it holds, patched (romfs_ext/<path>.bps) or whole (romfs/<path>), becomes that archive as the build stands, so a later
+    // Write gives the mod's changes and this build's together (a trainer's team weakened in an oras-xy-world mod, a zone added
+    // to it). Its other files (exefs, oras-engine's modules: anything not under a/) are left as they are. Returns the archives read
+    std::vector<std::string> LoadMod(const std::string& modDir);
 
 private:
     int AddTextFiles(const std::vector<Bytes>& files, int first);

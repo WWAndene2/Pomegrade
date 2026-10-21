@@ -167,7 +167,7 @@ static SandboxDescription ReadDescription(const std::string& text)
             // team ID: then the trainer's new team, a "pokemon" line each, up to "end" (read when the mod is built)
             // team ID [class C] [name TEXT]: the class (a/0/3/7 record, the battle's portrait) and the name may change too
             int id = 0;
-            if (!(words >> id) || id < 1 || id > 949) fail("team takes a trainer id, 1-949 (a/0/3/6)");
+            if (!(words >> id) || id < 1) fail("team takes a trainer id of a/0/3/6 (1-949 in the game, more in a mod with X's trainers, --onto)");
             int cls = -1;
             std::string name, key;
             while (words >> key)
@@ -545,7 +545,9 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
             if (items) u16(m.Item);
             if (moves) for (int k = 0; k < 4; k++) u16(m.Moves.empty() ? 0 : m.Moves[k]);
         }
-        Bytes record = ws.Original("a/0/3/6").Sub((size_t)id);
+        // as the build stands: a trainer a mod loaded with --onto added (oras-xy-world's X trainers) is not in the game's
+        if ((size_t)id >= ws.Edited("a/0/3/6").Count()) throw FormatError("sandbox: a/0/3/6 has no trainer " + std::to_string(id));
+        Bytes record = ws.Edited("a/0/3/6").Sub((size_t)id);
         if (record.size() != 24) throw FormatError("sandbox: trainer " + std::to_string(id) + "'s record is not 24 bytes");
         record[0] = (uint8_t)format;
         record[7] = (uint8_t)mons.size();
