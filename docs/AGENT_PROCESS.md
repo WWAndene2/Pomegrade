@@ -71,6 +71,18 @@ A run that does not show the field is first a recipe question: check against the
   such a state gave on load was the software renderer's (fixed in 61ca0ae4: a core built before it still crashes, rebuild
   it with session_setup.sh's `core` step).
 
+- **An X/Y gym, end to end** (A, 21 October, Grant's: X zone 160, mod zone 538): `oras-xy-world ... --matrices 58
+  --character-models 64 --story on`; `oras-engine` with its log's options plus `--xy-gyms <x.3ds>` and the memory options
+  above; `oras-save <save> <out> 538 20.5 17.5 --save-records 32 --height 414 --characters-from <oras.3ds> <mod>` (Grant's
+  floor: a character's height is its record's float at word 22, in pixels); `fast_run.sh ... "wait 300;press up;press a;
+  mash a 30;..."` with a shot every 10-20 s. For a won battle, his team made weak (ORAS_ENGINE.md 0.1). Runs hG22 (lost:
+  home), hG23 (won: the arena, his victory scene, badge, TM).
+- **A scene with a choice** (A, 21 October): Hoenn, `oras-sandbox <oras.3ds> <mod> sandbox/scene_choice.txt` (no engine
+  options), `oras-save <save> <out> 6 100.5 172.5`, then `"wait 120;hold up 20;wait 40;press a;wait 30;<press a | press
+  down;wait 20;press a>;...;mem 0x8C7DF78 4"`. Kalos, `sandbox/scene_choice_xy.txt` or `scene_full_xy.txt` with `--xy
+  <x.3ds> --character-models 64`, `oras-engine <oras.3ds> <mod> --zone-rows 545 --script-mask 538:0xA47 --script-mask
+  539:0xA43 --story large` plus the models and memory options, `oras-save <save> <out> 538 20.5 48.5 --save-records 32
+  --characters-from <oras.3ds> <mod>`. Runs hC4_yes, hC4_no, hCX4, hCX5, hCF6.
 - **Speed** (A's runs fps_*, 20 October, the idle field): drawing every frame 2 frames/s, `draw every 15` 18-24 (one frame
   in 15 drawn, shots whole), `draw off` about 67. Use `draw off` wherever no picture is needed, else `draw every 15`
   (the title and Continue menu, scenes waited on by shots); plain drawing only for a check of every frame.

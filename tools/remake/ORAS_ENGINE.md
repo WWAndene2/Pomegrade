@@ -9,6 +9,56 @@ marked **checked** (seen in memory or under the debugger), **read** (from the de
 
 ## 0. Start here (the state on 7 October, for whoever continues)
 
+### 0.1 Taking over (21 October, A's handover; read this first, the 7 October text below is history)
+
+**How the owner works with an agent** (their decisions, 20-21 October): one agent at a time (`docs/AGENT_PROCESS.md`, the
+three-agent period stopped); it works **only when the owner asks**, **one point at a time**, a point closed only when
+**entirely** done (every element of its step, in both regions where the step says so: point 2 was closed too early once
+and reopened); commit and push at every verified step, log the progress in the plan as it goes, merge into `main` when a
+point closes. Ask before a run over 15 minutes, before anything changing behaviour or scope, and say plainly what was not
+checked. Answer in French when the owner writes French.
+
+**Where things are**: the plan and each step's state with the runs that show it, `docs/DEVELOPMENT_NOTE.md` 3e (3d item
+9: X/Y's features Omega Ruby lacks). Run recipes: `docs/AGENT_PROCESS.md` 3.1. Setting up a session (dumps from the
+owner's Drive, remake_tool, the headless core, Ghidra's program): `tools/remake/headless/session_setup.sh`.
+
+**State on 21 October**: points 1 (Grant's gym, B1) and 2 (scenes, C2) closed headless; next is **A2** (the League and
+badges editable). Open, written in 3e: Grant's ported module writes into X's field at +0xFC on the way back from a won
+battle (null in Omega Ruby; ignored by the emulator, a console would fault): the same kind of access is to be translated
+or neutralised for every ported module; the badge is given by X's number (`BadgeSetFlag(1)`), A2's to map; wall climbing
+is a feature of its own (3d item 9); X's cutscenes are translated but skipped (owner's decision), while
+`CallFieldTradeDemo`, `CallApplicationDemo` and `_MapChangeAndDemoCall` are not skipped and may fail the same way. Nothing
+is tested on the phone.
+
+**Pitfalls met, so they cost the next agent nothing**:
+- A run's log can grow to gigabytes after a fault and fill the disk: watch it (`stat` in a loop) and stop the host with
+  `pkill -x retro_host`. Never `pkill -f` with a word that is in the watcher's own command line: it kills the watcher's
+  shell (exit 144). `ulimit` is refused in these containers.
+- `fast_run.sh` makes one title state per mod, save and move (the first run of a new mod boots once more, minutes). A run
+  killed while making it can leave a bad state: the next runs show a black screen at 30 s; delete `<work>/states/<key>`.
+  Its "field not up" is often wrong: look at the shot.
+- A shot taken 30 frames after a press can miss a whole line of text: shoot right after each press to see dialogue. The
+  yes/no box opens on the press that ends the question; a second A answers "yes" before a "down" reaches it.
+- Flags read at 0x8C7DF78 (0xCE1 bit 1, 0xCE2 bit 2) only in a mod without `--story large`; with it their address is not
+  known: check by what the scene shows.
+- The owner's saves (`headless/saves`, `dumps/save`) are early in the game: a gym leader's battle is lost even against a
+  level-1 team when mashing A picks Growl. A real win needs a weakened team (a temporary switch in `AddXyTrainers` or an
+  `OrasWorkspace` program writing `a/0/3/8`, reverted before any commit); a "won" result forced in a script is not a win:
+  the engine took the loss path (point 1).
+- gdb through the headless stub did not connect reliably here. What worked: save a state with the JIT just before the
+  moment (`save NAME`), then an interpreter run (`POMEGRADE_INTERPRETER=1`) that loads it (`load NAME`: the state keeps its
+  file name, `load title` finds nothing) and traces only that moment (`trace on` / `trace off FILE`, a minute or two).
+  Compare two traces (one that works, one that does not) by function: DllBattle and DllField load at the same address
+  (0x6F3000), so a trace over a battle mixes their code; and `ghidra/function_names.tsv` can give a block the name of the
+  function before it.
+- Test changes to an X/Y zone's script go through `oras-xy-world --scripts DIR` with a copy of `xy-script-export`'s
+  source kept outside the repository; `xy-script-export` of all 360 zones assembles all 720 scripts, a quick check of
+  any translator change.
+- Throwaway programs used on 21 October (out of the repository, CLAUDE.md 4.3, not kept): dumping a zone's character and
+  trigger records and its header (OrasZone over `a/0/1/2` or `a/0/1/3`, a mod's patch applied with `BpsApply`), weakening
+  a trainer's team, copying a game zone as a new zone (`OrasWorkspace::AddZone`). Each is a few lines over `libremake.a`;
+  making them `remake_tool` commands is the owner's call.
+
 **The owner's objectives, in order** (their words, 7 October): (1) take the game apart to the binary and learn every part;
 (2) reference every table and asset; (3) a limitless sandbox; (4) remove the memory, cache, zone and asset limits; (5)
 patch the game where it is in the way; (6) Sinnoh rebuilt on a blank map, nothing tied to Hoenn; (7) a story mod.
