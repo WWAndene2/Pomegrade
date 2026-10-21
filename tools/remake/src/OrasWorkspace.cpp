@@ -360,6 +360,7 @@ std::vector<std::string> OrasWorkspace::LoadMod(const std::string& modDir)
             if (patch && (path.size() < 4 || path.substr(path.size() - 4) != ".bps")) continue;
             if (patch) path.resize(path.size() - 4);
             if (path.rfind("a/", 0) != 0) continue; // a module (DllField.cro, oras-engine's), not an archive
+            if (!Oras.Has(path)) continue; // an archive the game lacks (oras-engine --more-archives' a/3/2/0): not the build's
             Archive& a = Open(path);
             a.Now = std::make_unique<Garc>(patch ? BpsApply(a.Data, ReadFile(f.path().string())) : ReadFile(f.path().string()));
             read.push_back(path + (patch ? " (patch)" : " (whole)"));
