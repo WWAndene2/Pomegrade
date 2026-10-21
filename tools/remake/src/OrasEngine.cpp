@@ -273,7 +273,7 @@ static Bytes PatchCro(const Bytes& cro, uint32_t base, const std::vector<CroWord
     const uint32_t codeEnd = layout.CodeEnd(), pagesEnd = (codeEnd + 0xFFF) & ~0xFFFu;
     std::map<uint32_t, std::string> written; // as CodePatchIps: two patches on one word refused
     for (const CroWord& w : words)
-        if (!written.emplace(w.Address, w.Why).second) throw FormatError("DllField patch: " + w.Why + " and " + written[w.Address] + " both write the same word");
+        if (!written.emplace(w.Address, w.Why).second) throw FormatError("module patch: " + w.Why + " and " + written[w.Address] + " both write the same word");
     for (const auto& [offset, size] : segments)
         if (size && offset < pagesEnd && offset + size > codeEnd) throw FormatError("a segment lies in the code's last page");
     std::set<uint32_t> relocated;
@@ -288,7 +288,7 @@ static Bytes PatchCro(const Bytes& cro, uint32_t base, const std::vector<CroWord
     {
         const uint32_t at = w.Address - base;
         char where[96];
-        snprintf(where, sizeof where, "DllField 0x%08X (file 0x%X): ", w.Address, at);
+        snprintf(where, sizeof where, "module 0x%08X (file 0x%X): ", w.Address, at);
         if (at < segments[0].first || at + 4 > pagesEnd) throw FormatError(std::string(where) + "outside the code's pages (" + w.Why + ")");
         if (at >= codeEnd && w.Expected != 0) throw FormatError(std::string(where) + "a cave word must be expected zero (" + w.Why + ")");
         if (relocated.count(at)) throw FormatError(std::string(where) + "the loader relocates this word (" + w.Why + ")");
@@ -925,6 +925,43 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         std::filesystem::create_directories(root / "romfs");
         WriteFile((root / "romfs" / name).string(), module);
         log.push_back("romfs/" + name + ": " + std::to_string(module.size()) + " bytes");
+    }
+    if (o.Badges16)
+    {
+        // The badge case (DllTrainerCase, linked at 0x1081E000; read 21 October): FUN_1081EC74 keeps the badge count at
+        // this + 0xA8 and lights badge i of the 8 when i < count (0x1081EE18), and its detail (FUN_108202B0, 0x10820310)
+        // gives badge i's name text when i < count, else the unknown badge's; this + 0xA8 has no other reader. Each badge's
+        // own bit now (badges stay their region's own, owner, 21 October): the badge word kept instead of the count, and
+        // both tests made "bit i set" (the case shows Hoenn's 0-7; Kalos's 8-15 are not in its 8)
+        constexpr uint32_t base = 0x1081E000;
+        const auto bl = [](uint32_t from, uint32_t to) { return Branch(from, to, true); };
+        const std::vector<CroWord> caseWords = {
+            {0x1081EC90, 0xEBFFFD5E, 0xE5900014, "the badge word kept, not the count (ldr r0, [r0, #0x14])"},
+            {0x1081EE18, 0xE1550009, 0xE1A01539, "badge i lit when its bit is set: lsr r1, sb, r5"},
+            {0x1081EE1C, 0xE1A00004, 0xE3110001, "tst r1, #1"},
+            {0x1081EE20, 0x2A000007, 0xE1A00004, "mov r0, r4"},
+            {0x1081EE24, 0xEBFFFD0B, 0x0A000007, "beq to the unlit badge (0x1081EE48)"},
+            {0x1081EE28, 0xE3A03001, bl(0x1081EE28, 0x1081E258), "the lit badge's calls, one word down"},
+            {0x1081EE2C, 0xE7962105, 0xE3A03001, "mov r3, #1"},
+            {0x1081EE30, 0xE1A01003, 0xE7962105, "ldr r2, [r6, r5, lsl #2]"},
+            {0x1081EE34, 0xEBFFFD09, 0xE1A01003, "mov r1, r3"},
+            {0x1081EE38, 0xE320F000, bl(0x1081EE38, 0x1081E260), "bl"},
+            {0x10820308, 0xE59410A8, 0xE3A01002, "the detail's call first (mov r1, #2)"},
+            {0x1082030C, 0xE0850185, 0xE1A00004, "mov r0, r4"},
+            {0x10820310, 0xE1510005, bl(0x10820310, 0x10820054), "bl"},
+            {0x10820314, 0xE0890100, 0xE59410A8, "then badge i's bit: ldr r1, [r4, #0xA8]"},
+            {0x10820318, 0xE3A01002, 0xE1A01531, "lsr r1, r1, r5"},
+            {0x1082031C, 0x85905010, 0xE3110001, "tst r1, #1"},
+            {0x10820320, 0x95905014, 0xE0850185, "add r0, r5, r5, lsl #3"},
+            {0x10820324, 0xE1A00004, 0xE0890100, "add r0, sb, r0, lsl #2"},
+            {0x10820328, 0xEBFFFF49, 0x15905010, "its name when set (ldrne)"},
+            {0x1082032C, 0xE1A00004, 0x05905014, "the unknown badge's when not (ldreq)"},
+            {0x10820330, 0xE320F000, 0xE1A00004, "mov r0, r4"}};
+        const Bytes original = oras.Read("DllTrainerCase.cro"), patched = PatchCro(original, base, caseWords), bps = BpsCreate(original, patched);
+        if (BpsApply(original, bps) != patched) throw FormatError("DllTrainerCase.cro: the patch does not rebuild the module");
+        std::filesystem::create_directories(root / "romfs_ext");
+        WriteFile((root / "romfs_ext" / "DllTrainerCase.cro.bps").string(), bps);
+        log.push_back("romfs_ext/DllTrainerCase.cro.bps: the badge case by each badge's bit, " + std::to_string(bps.size()) + " bytes, checked");
     }
     if (!dllField.empty())
     {

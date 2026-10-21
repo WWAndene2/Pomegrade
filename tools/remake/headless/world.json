@@ -1,0 +1,9 @@
+{
+  "name": "w", "width": 2, "height": 2,
+  "cells": [
+    {"x": 0, "y": 0, "landData": 0, "header": 10, "heightLayer": 0, "solidTiles": 1, "behaviours": {"0": 1023, "2": 1}, "modelBytes": 365, "heightBytes": 4, "buildings": [{"model": 0, "position": [1.5, 0, -2]}]},
+    {"x": 1, "y": 0, "landData": 1, "header": 11, "heightLayer": 1, "error": true},
+    {"x": 1, "y": 1, "landData": 2, "header": 13, "heightLayer": 3, "solidTiles": 1, "behaviours": {"0": 1023, "2": 1}, "modelBytes": 365, "heightBytes": 4, "buildings": [{"model": 0, "position": [1.5, 0, -2]}]}
+  ],
+  "errors": ["land data 1: land data: permissions of 4 bytes"]
+}
