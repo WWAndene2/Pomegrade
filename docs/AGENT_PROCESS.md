@@ -76,7 +76,8 @@ A run that does not show the field is first a recipe question: check against the
   above; `oras-save <save> <out> 538 20.5 17.5 --save-records 32 --height 414 --characters-from <oras.3ds> <mod>` (Grant's
   floor: a character's height is its record's float at word 22, in pixels); `fast_run.sh ... "wait 300;press up;press a;
   mash a 30;..."` with a shot every 10-20 s. For a won battle, his team made weak: `oras-sandbox <oras.3ds> <mod> weak.txt --onto <mod>`, weak.txt
-  `team ID` / `pokemon 129 1` / `end` (ORAS_ENGINE.md 0.1). Runs hG22 (lost:
+  `team 1026` / `pokemon 129 1` / `end` (Grant: X's trainer 76, the one his zone script fights, 950 + 76 in the mod,
+  named Lino in French, Amaura and Tyrunt at 25; ORAS_ENGINE.md 0.1). Runs hG22 (lost:
   home), hG23 (won: the arena, his victory scene, badge, TM).
 - **A scene with a choice** (A, 21 October): Hoenn, `oras-sandbox <oras.3ds> <mod> sandbox/scene_choice.txt` (no engine
   options), `oras-save <save> <out> 6 100.5 172.5`, then `"wait 120;hold up 20;wait 40;press a;wait 30;<press a | press

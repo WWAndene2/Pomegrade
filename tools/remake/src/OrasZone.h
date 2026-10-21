@@ -46,12 +46,16 @@ struct ZoneCharacter
     int Model() const { return Raw[1]; }
     int TileX() const { return Raw[20]; }
     int TileZ() const { return Raw[21]; }
-    // the trainer this character is, 0 when none (inferred: see the comment above)
+    // the trainer this character is, 0 when none (inferred: see the comment above). Up to TrainerIds: the game's 949 and
+    // the X/Y trainers a mod adds after them (950-1734, OrasXyTrainers.h: script 4055 in Grant's gym, mod zone 538, is
+    // trainer 1055);
+    // no game character of kind 1, 3 or 9 has a script from 3950 to 4999 (checked on all 536 zones, 21 October)
+    static constexpr int TrainerIds = 2000;
     int TrainerId() const
     {
         const bool kind = Raw[3] == 1 || Raw[3] == 3 || Raw[3] == 9;
-        if (kind && Raw[5] > 3000 && Raw[5] < 3950) return Raw[5] - 3000;
-        if (kind && Raw[5] > 5000 && Raw[5] < 5950) return Raw[5] - 5000;
+        if (kind && Raw[5] > 3000 && Raw[5] < 3000 + TrainerIds) return Raw[5] - 3000;
+        if (kind && Raw[5] > 5000 && Raw[5] < 5000 + TrainerIds) return Raw[5] - 5000;
         return 0;
     }
 };
