@@ -45,7 +45,7 @@ struct SandboxZone
     std::vector<std::array<int, 8>> Characters; // model, x, z, facing, script, movement, kind, sight
     std::vector<std::array<int, 3>> Shared;     // per character: its two zones and its shared id ({-1, -1, -1}: its zone only)
     std::vector<std::array<int, 5>> Doors;      // x, z, the zone its house's inside is made of, 1 for an X/Y zone (door ... xy), height
-    std::vector<std::array<int, 5>> Triggers;   // x, z, width, height, the zone script's event number
+    std::vector<std::array<int, 6>> Triggers;   // x, z, width, height, the zone script's event number, height in pixels
     std::string Script, InitScript;             // assembler source (Amx.h) of the zone's own scripts, empty: ones that do nothing
     std::string Scene;                          // the zone script as a scene (SceneScript.h), instead of Script
 };
@@ -300,10 +300,17 @@ static SandboxDescription ReadDescription(const std::string& text)
         }
         else if (what == "trigger")
         {
-            // trigger X Z [W H] script N: stepping on the W x H tiles from X, Z runs the zone script with g_mode N
-            std::array<int, 5> t{0, 0, 1, 1, 0};
+            // trigger X Z [W H] script N [height P]: stepping on the W x H tiles from X, Z runs the zone script with g_mode N;
+            // P the ground's height in pixels (word 10), as X's Vaniville triggers hold 144 where its ground stands (doors
+            // there are at 144 too): at 0 a trigger under raised ground did not fire (runs hCX_yes, hCX2, 21 October)
+            std::array<int, 6> t{0, 0, 1, 1, 0, 0};
             std::vector<std::string> rest;
             for (std::string v; words >> v;) rest.push_back(v);
+            if (rest.size() >= 2 && rest[rest.size() - 2] == "height")
+            {
+                try { t[5] = std::stoi(rest.back()); } catch (...) { ok = false; }
+                rest.resize(rest.size() - 2);
+            }
             ok = (rest.size() == 4 || rest.size() == 6) && rest[rest.size() - 2] == "script";
             if (ok)
             {
@@ -316,6 +323,7 @@ static SandboxDescription ReadDescription(const std::string& text)
                 catch (...) { ok = false; }
             }
             if (ok && (t[2] < 1 || t[3] < 1 || t[4] < 1)) fail("a trigger's size and script are 1 or more");
+            if (ok && (t[5] < 0 || t[5] > 0xFFFF)) fail("a trigger's height is 0 to 65535 pixels");
             z.Triggers.push_back(t);
         }
         else if (what == "door")
@@ -612,7 +620,7 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         {
             ZoneTrigger tr;
             tr.Raw[0] = (uint16_t)t[4]; tr.Raw[6] = (uint16_t)t[0]; tr.Raw[7] = (uint16_t)t[1];
-            tr.Raw[8] = (uint16_t)t[2]; tr.Raw[9] = (uint16_t)t[3];
+            tr.Raw[8] = (uint16_t)t[2]; tr.Raw[9] = (uint16_t)t[3]; tr.Raw[10] = (uint16_t)t[5];
             zone.Triggers.push_back(tr);
         }
         if (!z.Scene.empty())
@@ -960,10 +968,11 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         {
             // a trigger's 12 words, as the game's 361 hold them: 0 the event number, 1-2 a condition (work variable word 2
             // equal to word 1; 0 in word 2, as 134 of the game's have it, is none: inferred), 6-7 the tile, 8-9 its size
-            // (width, height); the rest 0 (word 3 is 0, 5, 6, 7 or 8 in the game's, word 10 0 or a multiple of 9: not read)
+            // (width, height), 10 the height in pixels ("height P"; 0 or a multiple of 9 in the game's, 144 in X's Vaniville:
+            // inferred); the rest 0 (word 3 is 0, 5, 6, 7 or 8 in the game's: not read)
             ZoneTrigger tr;
             tr.Raw[0] = (uint16_t)t[4]; tr.Raw[6] = (uint16_t)t[0]; tr.Raw[7] = (uint16_t)t[1];
-            tr.Raw[8] = (uint16_t)t[2]; tr.Raw[9] = (uint16_t)t[3];
+            tr.Raw[8] = (uint16_t)t[2]; tr.Raw[9] = (uint16_t)t[3]; tr.Raw[10] = (uint16_t)t[5];
             zone.Triggers.push_back(tr);
         }
         if (z.XyEvents >= 0)

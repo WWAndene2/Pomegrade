@@ -62,9 +62,10 @@
 //                     items and moves given; class C (a/0/3/7: the battle's portrait and title, 178 Team Magma's leader,
 //                     174 Team Aqua's) and name TEXT (line ID of a/0/7/1-8 member 22, all eight languages) when given;
 //                     the rest of the record kept
-//   trigger X Z [W H] script N
+//   trigger X Z [W H] script N [height P]
 //                     stepping on the W x H tiles (1 x 1 by default) from tile X, Z runs the zone script with g_mode N (a
-//                     scene's "on N"): words 0, 6-9 of the game's trigger records, no condition
+//                     scene's "on N"): words 0, 6-9 of the game's trigger records, no condition; P the ground's height
+//                     there in pixels (word 10, 0 by default: Littleroot's ground), as a door's "height H"
 //   door X Z house Z2 a door ('D' on the map) into a new zone after the described ones, written from nothing on game interior
 //                     Z2's map (its matrix, area pack and the tile of its way out); its one warp leads back out
 //   door X Z xy ZX    on an xy-piece: the inside made of X/Y's zone ZX (its piece, props, textures and way out: XyInsideToOras),
