@@ -207,6 +207,9 @@ std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const XySounds* music,
                 if (!given.emplace(xIntro, std::pair{type, U32(*battleTypes, at)}).second)
                     throw FormatError("X/Y intros: two battle types show X/Y intro " + std::to_string(xIntro));
             }
+            std::map<uint32_t, size_t> xClassOfIntro; // X/Y intro -> the first X/Y class whose type shows it
+            for (size_t c = 0; c < xClasses.Count(); c++)
+                xClassOfIntro.emplace(U32(xCode, xTable - 0x100000 + 24 * (size_t)typeOf[c].first + 4), c);
             for (const auto& [xIntro, kalos] : given)
             {
                 const Family& f = *std::find_if(std::begin(families), std::end(families), [&](const Family& g) { return xIntro >= g.XFirst && xIntro <= g.XLast; });
@@ -224,6 +227,27 @@ std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const XySounds* music,
                     std::any_of(copy.begin() + (long)found + (long)nameOf(f, 1, f.Numbered).size(), copy.begin() + (long)found + (long)name.size() + 1, [](uint8_t b) { return b != 0; }))
                     throw FormatError("X/Y intros: no room for " + name + " in sequence " + std::to_string(base));
                 std::copy(name.begin(), name.end(), copy.begin() + (long)found);
+                if (f.FirstNew == 5)
+                {
+                    // the Elite Four intro shows the four members' drawings: commands 0xA8 (u16 0xA8, u32 3, u32 a trainer
+                    // class, the pane's name) give panes chara_01-04 the classes of big_four_name01-04 (Omega Ruby's 851:
+                    // 194, 195, 196, 197, its read trace a/1/6/0 15, 18, 21, 24, a class's picture p its member 3p): made
+                    // Kalos's, the Omega Ruby classes of X/Y's Elite Four in its names' order (intros 0x19-0x1C)
+                    size_t set = 0;
+                    for (size_t i = 0; i + 0x18 <= copy.size(); i++)
+                    {
+                        static const uint8_t head[] = {0xA8, 0, 3, 0, 0, 0};
+                        if (!std::equal(std::begin(head), std::end(head), copy.begin() + (long)i)) continue;
+                        const std::string pane((const char*)&copy[i + 10]);
+                        if (pane.size() != 8 || pane.compare(0, 7, "chara_0") || pane[7] < '1' || pane[7] > '4') continue;
+                        const uint32_t member = 0x19 + (uint32_t)(pane[7] - '1');
+                        if (!xClassOfIntro.count(member)) throw FormatError("X/Y intros: no X/Y class has intro " + std::to_string(member));
+                        const uint32_t cls = (uint32_t)classOf[xClassOfIntro.at(member)];
+                        for (int b = 0; b < 4; b++) copy[i + 6 + b] = (uint8_t)(cls >> (8 * b));
+                        set++;
+                    }
+                    if (set != 4) throw FormatError("X/Y intros: sequence " + std::to_string(base) + " does not give four Elite Four panes");
+                }
                 sequences.Set(sequence, AsWas(was, copy));
                 const size_t at = 24 * (size_t)(kalos.first - gameTypes) + 4;
                 for (int b = 0; b < 4; b++) (*battleTypes)[at + b] = (uint8_t)(id >> (8 * b));

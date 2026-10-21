@@ -49,9 +49,11 @@ is tested on the phone.
   988 a copy of 799, the Champion's sequence no intro id names, champion_name02: X's name image cut to its name, 256 x 64,
   its title "Maitre de la Ligue" being drawn apart in Omega Ruby). Checked headless on Grant's battle given their types:
   run e79 (type 79: "Thyméo") and c89b (type 89: "Dianthéa", the title once). Omega Ruby's Elite Four intros are 0x2F-0x32
-  (not 0x38). **Left**: the Elite Four intro shows the four members' drawings, Hoenn's (a/1/6/0 15, 21, 18, 24: classes
-  194-197, picture p -> member 3p), the one fought lit; where the four are chosen is not found yet (run t79's read trace;
-  gdb failed to connect twice). Not tested on the phone.
+  (not 0x38). The Elite Four intro shows the four members' drawings (a/1/6/0 15, 21, 18, 24 in run t79's read trace: classes
+  194-197, a class's picture p its member 3p), the one fought lit: the sequence itself names them, commands 0xA8 (u16
+  0xA8, u32 3, u32 a class, the pane chara_01-04, in big_four_name01-04's order); the copies give Kalos's four classes
+  (run e80: Wikstrom, Malva, Drasna, Siebold drawn, Malva lit, "Malva"). The effects stay the copied Hoenn member's, as the
+  leaders'. Not tested on the phone.
 - **In progress (22 October): the badge case's Kalos drawer** (owner's choices: a touch button and L/R, the case's own lid
   closing and reopening on the other region). Read so far (DllTrainerCase, 0x1081E000; runs bc1-bc6 on the gk mod, the
   badge word poked): the case is a mode of the trainer card (Menu, the card, A "Voir les Badges"; B back), one layout
