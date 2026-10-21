@@ -142,8 +142,8 @@ void OrasSave::MoveTo(int zone, float tileX, float tileZ, float height)
     // the position is held twice in block 4 (+0x10/+0x18 and +0x104/+0x10C: two saves of the owner, a few steps apart, differ at both
     // with the same values); r5 on the phone kept the player in place when only the first was written
     for (size_t at : {(size_t)0x1410, (size_t)0x1504}) { std::memcpy(&Data[at], &x, 4); std::memcpy(&Data[at + 8], &z, 4); }
-    // the height between them (+0x14, +0x108: 2.0 in the owner's Littleroot save; inferred from the layout, not yet checked
-    // in a run)
+    // the height between them (+0x14, +0x108: 2.0 in the owner's Littleroot save; inferred from the layout; checked
+    // headless: a save moved onto Grant's floor, 414, stands there, runs hG2, hG23)
     if (!std::isnan(height)) for (size_t at : {(size_t)0x1414, (size_t)0x1508}) std::memcpy(&Data[at], &height, 4);
     WriteChecksums();
 }
