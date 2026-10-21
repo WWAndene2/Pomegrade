@@ -77,6 +77,19 @@ is tested on the phone.
   runtime data: 4 an operand descriptor, 328, 244 a DVLE, 72 more a geometry one (exact on 847 of Omega Ruby's BCH
   files); with it X's Cliff badge (a/1/6/5 344, badge_c03: X's c0N are not the gyms' order, 343 is Clemont's Voltage)
   shows and turns in the case (run bds; bdr with the size set by hand confirmed the cause).
+- **In progress (22 October): Kalos's battle backgrounds, X/Y's own** (owner: a background follows the place and the
+  context). Read: a zone's background value (header halfword 15, bits 7-13, FUN_004D86B4; 7 bits, 128 values) gives the
+  battle's background record in FUN_0048AA44 (X's 0x45A5C8): a table (Omega Ruby's 0x595CD0, 93 values; X's 0x551C04, 65)
+  of 2 bytes a value (record bytes 0-1), then at +2N 5 bytes a value (bytes 2, 3, 4, 8, 9); byte 5 drawn at random from the
+  pairs of a 12-byte entry (by byte 4) of the table at 0x595F5C (X's 0x551DCC), bytes 6-7 from a 0x18-byte entry (by
+  byte 5) of the table at 0x595F68 (X's 0x551E68): random scenery, one entry in Omega Ruby, 10 in X (trees, rocks, snow,
+  sand: X's btl_V_*). The record goes to DllBackGround (FUN_100043E4: byte 3 the backdrop through the table at
+  0x10005000, byte 0 the ground through 0x10007454, bytes 4 and 5 through 0x100075C8 (12 bytes) and 0x100075D4 (0x18);
+  X's backdrop table at its 0x10005000) and to DllBattle (the platform: byte 2 through 0x10106074). The files: Omega
+  Ruby's a/1/3/6 (158 members, "BG" containers: backdrops btl_G_*, platforms btl_O_* 115-152), X's a/1/4/6 (131: grounds
+  btl_F_/btl_B_ 3-21, backdrops 26-74 with its 8 gyms, Elite Four rooms 4hi/4hag/4dor/4miz, cham, roji..., scenery btl_V_
+  75-89, platforms 90-). X/Y's zones use 28 values, Omega Ruby's 93 leave 35 free: each takes a new value with X's record,
+  its files appended (identical ones shared) and the tables lengthened. Not written yet.
 - **Before, the owner's item: Grant's own battle intro.** X's leaders show Brawly's portrait and name
   ("Bastien") in their intro. Found: the intro is chosen by the battle type record's word +4 alone (0x27-0x2E Omega
   Ruby's 8 leaders, 0x38-0x3E the Elite Four; run hI2: Grant's type given 0x27 shows Roxanne's portrait, name and rocks);
