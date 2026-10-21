@@ -59,6 +59,15 @@ int main()
     // a folder's files given apart (a/x, b/y, a/z) stay in their own folders
     const std::vector<DarcFile> apart = {{"a/x", {1}}, {"b/y", {2}}, {"a/z", {3}}};
     check(same(ReadDarc(WriteDarc(apart)), {apart[0], apart[2], apart[1]}), "DARC folders kept apart when their files are interleaved");
+    // laid out as the game's: the data offset the table's end rounded to 8, a BCLIM at 0x80, any other file at 8
+    {
+        auto u32 = [&](size_t at) { return (uint32_t)(darc[at] | darc[at + 1] << 8 | darc[at + 2] << 16 | (uint32_t)darc[at + 3] << 24); };
+        const uint32_t table = u32(16), tableSize = u32(20), nodes = u32(table + 8);
+        bool aligned = u32(24) == ((table + tableSize + 7) & ~7u);
+        for (uint32_t i = 0; i < nodes; i++)
+            if (!(u32(table + 12 * i) >> 24)) aligned = aligned && u32(table + 12 * i + 4) % (u32(table + 12 * i + 8) == clim.size() ? 0x80 : 8) == 0;
+        check(aligned, "DARC laid out as the game's (data offset at 8, BCLIM at 0x80, other files at 8)");
+    }
 
     // BCLYT: lyt1, txl1 (one texture), pas1, pic1, pae1
     Bytes body;

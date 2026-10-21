@@ -963,6 +963,58 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         WriteFile((root / "romfs_ext" / "DllTrainerCase.cro.bps").string(), bps);
         log.push_back("romfs_ext/DllTrainerCase.cro.bps: the badge case by each badge's bit, " + std::to_string(bps.size()) + " bytes, checked");
     }
+    if (!o.XyIntros.empty())
+    {
+        // The battle intros (read 22 October, ORAS_ENGINE.md 0.1): the intro id (a battle type's word +4) indexes a table
+        // of 162 a/0/3/4 sequence numbers in DllBattle (0x10105CDC, rodata), read by FUN_10068370 through one literal word
+        // (0x10069278, set by the loader: internal relocation to segment 1 + 0x8CDC); FUN_10081314 plays a sequence below
+        // 0x3D0 (the archive's 976 members; cmp r1, #0x3D0 at 0x10081410) and stops the game on a larger one. Here the
+        // table is copied into the free bytes past the module's code (the code's last page, zero, loaded with the file),
+        // the file's sequences after the game's 162 (ids 162 up), the literal's relocation pointed at the copy (the code is
+        // not changed), and the bound raised past the highest sequence given
+        constexpr uint32_t base = 0x10025000, table = 0x10105CDC, literal = 0x10069278, boundAt = 0x10081410, gameIntros = 162;
+        const Bytes extra = ReadFile(o.XyIntros);
+        if (extra.empty() || extra.size() % 4) throw FormatError("--xy-intros: u32 sequence numbers");
+        const Bytes original = oras.Read("DllBattle.cro");
+        const CroLayout layout(original);
+        const uint32_t cave = (layout.CodeEnd() + 3) & ~3u, pagesEnd = (layout.CodeEnd() + 0xFFF) & ~0xFFFu;
+        const uint32_t count = gameIntros + (uint32_t)extra.size() / 4;
+        if (cave + 4 * count > pagesEnd) throw FormatError("--xy-intros: the intro table does not fit past DllBattle's code");
+        std::vector<CroWord> battleWords;
+        uint32_t highest = 0x3CF;
+        for (uint32_t i = 0; i < count; i++)
+        {
+            const uint32_t v = i < gameIntros ? layout.U32(table - base + 4 * i) : (uint32_t)(extra[4 * (i - gameIntros)] | extra[4 * (i - gameIntros) + 1] << 8 |
+                                                                                                   extra[4 * (i - gameIntros) + 2] << 16 | (uint32_t)extra[4 * (i - gameIntros) + 3] << 24);
+            if (i >= gameIntros) highest = std::max(highest, v);
+            battleWords.push_back({base + cave + 4 * i, 0, v, "the intro table's copy"});
+        }
+        const auto bound = ArmImmediate(highest + 1);
+        if (!bound) throw FormatError("--xy-intros: the sequence bound is no ARM immediate");
+        battleWords.push_back({boundAt, 0xE3510E3D, 0xE3510000 | *bound, "the sequences played (cmp r1, #bound)"});
+        Bytes patched = PatchCro(original, base, battleWords);
+        // the literal's internal relocation: {tag (segment | offset << 4), type, symbol segment, 2 bytes, addend}
+        const uint32_t relocations = layout.Field(42), relocationCount = layout.Field(43), at = literal - base - layout.Segments[0].first;
+        bool moved = false;
+        for (uint32_t i = 0; i < relocationCount && !moved; i++)
+        {
+            const uint32_t entry = relocations + 12 * i, tag = layout.U32(entry);
+            if ((tag & 0xF) != 0 || (tag >> 4) != at) continue;
+            if (original[entry + 4] != 2 || original[entry + 5] != 1 || layout.U32(entry + 8) != table - base - layout.Segments[1].first)
+                throw FormatError("DllBattle.cro: the intro table's relocation is not the one read (another version of the game?)");
+            const uint32_t addend = cave - layout.Segments[0].first;
+            patched[entry + 5] = 0;
+            for (int k = 0; k < 4; k++) patched[entry + 8 + k] = (uint8_t)(addend >> (8 * k));
+            moved = true;
+        }
+        if (!moved) throw FormatError("DllBattle.cro: no relocation of the intro table's literal word");
+        const Bytes bps = BpsCreate(original, patched);
+        if (BpsApply(original, bps) != patched) throw FormatError("DllBattle.cro: the patch does not rebuild the module");
+        std::filesystem::create_directories(root / "romfs_ext");
+        WriteFile((root / "romfs_ext" / "DllBattle.cro.bps").string(), bps);
+        snprintf(line, sizeof line, "romfs_ext/DllBattle.cro.bps: the battle intros 162-%u (sequences up to %u), %zu bytes, checked", count - 1, highest, bps.size());
+        log.push_back(line);
+    }
     if (!dllField.empty())
     {
         // a BPS patch of the module (romfs_ext, Bps.h): the game's own file is not copied into the mod

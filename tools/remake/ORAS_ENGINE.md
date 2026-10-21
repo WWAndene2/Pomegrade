@@ -35,7 +35,17 @@ is tested on the phone.
   mixed, the badge's place stays its origin"); the badge case lighting each badge by its bit (DllTrainerCase patch; run
   hG27); the League's statements (`oras-sandbox` `restyle`, `class C battle-type T`, `edit` of a mod's zone, with
   `team`: runs hL1/hL0). X's 8 badge models found (a/1/6/5 342-350, identified: 3e) and converted (`bch-upgrade`).
-- **In progress, the owner's current item: Grant's own battle intro.** X's leaders show Brawly's portrait and name
+- **Done (22 October): Kalos's leaders' own names in their battle intro**, checked headless on Grant's battle (run gk1:
+  "Lino" in X's drawn name, the rest of the intro as before; run gkh1, his class given Roxanne's type 44 by
+  `class 39 battle-type 44`: "Roxanne" in Omega Ruby's style, her rocks, so Hoenn's intros still go through the moved table
+  and the rewritten a/2/1/4; no loader error in either log). How: `oras-xy-world` (AddXyTrainers) gives X/Y's leader types
+  (X/Y's intros 0x11-0x18) the intros 162-169, each an a/0/3/4 sequence 976-983 copied from the one it showed with only
+  its name changed (gym_name09-16), and adds X/Y's eight drawn names (X's a/2/4/1) to a/2/1/4 under those names in its 7
+  languages; `oras-engine --xy-intros` (given by the options line) copies DllBattle's intro table longer into the free
+  bytes past its code, points the literal's relocation at the copy and raises the sequence bound (0x3D0 at 0x10081410).
+  `WriteDarc` lays files out as the game's DARCs (data at 8, BCLIM at 0x80, other files at 8; a/2/1/4 writes back byte for
+  byte). Not done: Kalos's Elite Four and Champion (X's 0x19-0x1D, the same way, with A2's League). Not tested on the phone.
+- **Before, the owner's item: Grant's own battle intro.** X's leaders show Brawly's portrait and name
   ("Bastien") in their intro. Found: the intro is chosen by the battle type record's word +4 alone (0x27-0x2E Omega
   Ruby's 8 leaders, 0x38-0x3E the Elite Four; run hI2: Grant's type given 0x27 shows Roxanne's portrait, name and rocks);
   the record is copied into the battle's settings at +0x2C (so +0x30 holds it). **Found by the owner's search (22

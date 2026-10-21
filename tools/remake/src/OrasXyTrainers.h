@@ -57,7 +57,10 @@ inline int XyTrainerToOras(int xTrainer) { return xTrainer > 0 ? XyTrainerFirst 
 // Ruby's trainers uses them, name them (a/0/3/7 byte +2). Checked headless (20 October): an X/Y trainer fought to Omega
 // Ruby's STRM_BGM_VS_TRAINER_SG before (run hMus1: its recording matched it, 1.04 against 0.36), to the track its X/Y battle
 // type names after, without X/Y's music Omega Ruby's sound of X/Y's number (run hMus2: STRM_BGM_VS_TRAINER 1.25, the _SG 0.30)
-std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const struct XySounds* music = nullptr, bool streams = false, Bytes* battleTypes = nullptr);
+// With `intros` (and battleTypes), Kalos's leaders' battle intros get their own drawn names: sequences appended to
+// a/0/3/4, X/Y's names to a/2/1/4, their types' intros 162 up, and *intros the sequences for oras-engine --xy-intros
+std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const struct XySounds* music = nullptr, bool streams = false, Bytes* battleTypes = nullptr,
+                                       Bytes* intros = nullptr);
 
 }
 

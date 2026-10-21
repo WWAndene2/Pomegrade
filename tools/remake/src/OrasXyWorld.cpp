@@ -62,8 +62,8 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         xProps(xRom.Read("a/0/2/4"));
 
     // X/Y's trainers, before the zones' scripts name them (OrasXyTrainers.h)
-    Bytes battleTypes;
-    for (const std::string& l : AddXyTrainers(ws, o.Sounds, o.Music, o.Sounds && !o.OutDir.empty() ? &battleTypes : nullptr)) log.push_back(l);
+    Bytes battleTypes, intros;
+    for (const std::string& l : AddXyTrainers(ws, o.Sounds, o.Music, o.Sounds && !o.OutDir.empty() ? &battleTypes : nullptr, &intros)) log.push_back(l);
 
     // every X/Y zone (the archive's last member is its header table, not a zone), and those taken
     std::map<int, OrasZone> all;
@@ -273,6 +273,13 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         std::filesystem::create_directories(o.OutDir);
         WriteFile(file, battleTypes);
         engine += " --xy-battle-types " + file;
+    }
+    if (!intros.empty())
+    {
+        // Kalos's leaders' intros (OrasXyTrainers.h): their types name intros 162 up, which the engine's table must hold
+        const std::string file = (std::filesystem::path(o.OutDir) / "xy_intros.bin").string();
+        WriteFile(file, intros);
+        engine += " --xy-intros " + file;
     }
     // with its story, a new game starts in X/Y zone 2, the player's bedroom in Vaniville (its mirror scene), at its header's
     // spawn (OrasEngine.h StartZone); that X/Y's own new game starts there is inferred, not read in X/Y's code

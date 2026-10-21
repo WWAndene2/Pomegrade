@@ -77,13 +77,17 @@ Bytes WriteDarc(const std::vector<DarcFile>& files)
         for (char c : n.Name) { nameTable.push_back((uint8_t)c); nameTable.push_back(0); }
         nameTable.push_back(0); nameTable.push_back(0);
     }
+    // as the game's (read 22 October on 642 files of 57 DARCs, a/0/3/3 and a/2/1/4 of both games): the data offset the
+    // table's end rounded up to 8, each BCLIM at a multiple of 0x80 and every other file (BCLYT, BCLAN) of 8
     const uint32_t table = 0x1C, tableSize = (uint32_t)(12 * nodes.size() + nameTable.size());
-    uint32_t data = (table + tableSize + 0x7F) & ~0x7Fu;
+    uint32_t data = (table + tableSize + 7) & ~7u;
     Bytes out(data, 0);
     std::vector<uint32_t> fileAt(files.size());
     for (size_t i = 0; i < files.size(); i++)
     {
-        while (out.size() % 0x80) out.push_back(0);
+        const std::string& path = files[i].Path;
+        const size_t align = path.size() >= 6 && path.compare(path.size() - 6, 6, ".bclim") == 0 ? 0x80 : 8;
+        while (out.size() % align) out.push_back(0);
         fileAt[i] = (uint32_t)out.size();
         out.insert(out.end(), files[i].Data.begin(), files[i].Data.end());
     }
