@@ -12,6 +12,10 @@ instructions; ORAS's code is ARM, its data pools read as junk instructions and a
   --string   every place the text lies, and every literal pool word holding its address (the code that loads it)
   --at       the instructions around an address (to read a hit's function)
   --word     every aligned word holding a value, with its neighbours (data tables)
+  --field    every load or store at an offset from a register ([rN, #OFFSET]), --within LOW HIGH for the code there: who
+             reads a structure's field (22 October: the battle type's words copied into a battle's settings at +0x2C-0x43;
+             in the whole code too many structures share an offset, so narrow it, or find the readers with retro_host's
+             "readers", run_local.sh)
   --calls    every BL/BLX/B to an address (its callers and tail calls), each with N instructions before it: the arguments a
              caller sets up (the linked modules too: linked/modules.bin with --base 0x10000000; a call through an import
              stub or a function pointer is not seen: ghidra/CallGraph.java follows the stubs)
@@ -21,7 +25,7 @@ import argparse
 import struct
 
 from capstone import CS_ARCH_ARM, CS_MODE_ARM, Cs
-from capstone.arm import ARM_OP_IMM, ARM_OP_MEM, ARM_REG_PC
+from capstone.arm import ARM_OP_IMM, ARM_OP_MEM, ARM_REG_PC, ARM_REG_SP
 
 BASE = 0x100000  # the .code's load address; --base for another file (a CRO module: 0, addresses are file offsets)
 
@@ -41,6 +45,11 @@ def main():
                     help="every place a byte string lies, at any alignment (hex, e.g. 7F01 for a u16 383), with the bytes around it")
     ap.add_argument("--calls", action="append", default=[], type=lambda v: int(v, 0),
                     help="every direct call or branch (BL, BLX immediate, B) to the address, with the instructions before it")
+    ap.add_argument("--field", action="append", default=[], type=lambda v: int(v, 0),
+                    help="every load or store at that offset from a register other than PC and SP ([rN, #OFFSET]): who reads or "
+                         "writes a structure's field; --within LOW HIGH keeps the code there (the field's own code, not every "
+                         "structure with something at that offset)")
+    ap.add_argument("--within", nargs=2, type=lambda v: int(v, 0), metavar=("LOW", "HIGH"))
     ap.add_argument("--context", type=int, default=8)
     ap.add_argument("--max", type=int, default=60, help="hits printed per value")
     ap.add_argument("--base", type=lambda v: int(v, 0), default=BASE, help="the file's load address (0 for a CRO module)")
@@ -66,6 +75,9 @@ def main():
     # one sweep: immediates and literal loads
     wanted = set(a.imm)
     hits = {v: [] for v in wanted}
+    fields = set(a.field)
+    field_hits = {v: [] for v in fields}
+    wlo, whi = a.within if a.within else (0, 0xFFFFFFFF)
     lo, hi = a.range if a.range else (1, 0)
     ranged = []
     for off in range(0, len(code) - 3, 4):
@@ -77,6 +89,9 @@ def main():
                 hits[op.imm & 0xFFFFFFFF].append((ins.address, f"{ins.mnemonic} {ins.op_str}"))
             if op.type == ARM_OP_IMM and lo <= (op.imm & 0xFFFFFFFF) <= hi:
                 ranged.append((ins.address, f"{ins.mnemonic} {ins.op_str}"))
+            if (op.type == ARM_OP_MEM and op.mem.base not in (ARM_REG_PC, ARM_REG_SP) and op.mem.disp in fields
+                    and wlo <= ins.address <= whi and ins.mnemonic[:3] in ("ldr", "str")):
+                field_hits[op.mem.disp].append((ins.address, f"{ins.mnemonic} {ins.op_str}"))
             if op.type == ARM_OP_MEM and op.mem.base == ARM_REG_PC and ins.mnemonic.startswith("ldr"):
                 pool = ins.address + 8 + op.mem.disp
                 v = word(pool)
@@ -87,6 +102,11 @@ def main():
     for v in a.imm:
         print(f"== value 0x{v:X}: {len(hits[v])} instructions")
         for addr, text in hits[v][:a.max]:
+            show(addr, text)
+
+    for v in a.field:
+        print(f"== field +0x{v:X}: {len(field_hits[v])} loads and stores")
+        for addr, text in field_hits[v][:a.max]:
             show(addr, text)
 
     if a.range:
