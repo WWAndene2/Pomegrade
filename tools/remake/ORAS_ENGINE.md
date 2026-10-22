@@ -131,6 +131,15 @@ is tested on the phone.
   silhouette, X's gym_02 layout, his portrait and name, the battle goes on), xi5_170 and xi5_174 (his battle given the
   Elite Four's and the Champion's intro: X's stained-glass and rose-window screens, "Thymeo", "Diantha / Maitre de la
   Ligue"). Not checked: against X running, the Elite Four and Champion in their own battles, on the phone.
+  **Then (22 October): X/Y's battle types, intros and trainer classes ported whole.** X/Y's 64 battle types appended
+  (73-136) and its 32 intros as its own sequences, with the layouts, models, motions and sounds they load; X/Y's 178
+  trainer classes appended (280-457, the game made to load 460: OrasEngine.cpp), each with its own drawings (a/1/6/0,
+  a/1/2/1). X/Y's trainers use intros 0xD (571 of them), 0xE (163), 0x11-0x1D (the League) and 0x21 (1); 0x1-0xB are
+  not a class's (wild battles: their type is chosen by the encounter code, not ported yet; 819, 820 and 826 load X/Y's
+  "Twist" intro camera 0x201, which Omega Ruby's engine draws black: Omega Ruby remade it, poke_y_intro_01_CAM). Checked
+  headless on the sandbox (demo.txt with X/Y's trainers, oras-sandbox --onto): X/Y's trainers 1 (Youngster, 0xD), 107
+  and 130 (0xE) and 238 (Korrina, 0x21) play their X/Y intros with their own drawings and names (runs xf_17-xf_27).
+  Not checked: against X running, on the phone.
 - **Before, the owner's item: Grant's own battle intro.** X's leaders show Brawly's portrait and name
   ("Bastien") in their intro. Found: the intro is chosen by the battle type record's word +4 alone (0x27-0x2E Omega
   Ruby's 8 leaders, 0x38-0x3E the Elite Four; run hI2: Grant's type given 0x27 shows Roxanne's portrait, name and rocks);
