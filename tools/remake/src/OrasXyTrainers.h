@@ -50,15 +50,13 @@ constexpr int GameTrainerFlags = 0x6CC;   // both games' trainer n's flag: 0x6CC
 inline int XyTrainerToOras(int xTrainer) { return xTrainer > 0 ? XyTrainerFirst + xTrainer : xTrainer; }
 
 // appends X/Y's trainers (ws.XyRom) to the workspace's a/0/3/6, a/0/3/8 and a/0/7/1-8 member 22; returns the log. With
-// `music` (both games' sound ids, OrasXySound.h; X/Y's own tracks with `streams`, X/Y's music in the mod) and `battleTypes`: battle types for X/Y's classes (Omega Ruby's record of the
-// type its copy of the class names, with the music and victory jingle of the X/Y type the class names, made the mod's
-// ids; one per pair of the two), into *battleTypes for oras-engine
-// --xy-battle-types (Omega Ruby's 73 kept, these numbered from 73); the Omega Ruby classes X/Y's take, when none of Omega
-// Ruby's trainers uses them, name them (a/0/3/7 byte +2). Checked headless (20 October): an X/Y trainer fought to Omega
-// Ruby's STRM_BGM_VS_TRAINER_SG before (run hMus1: its recording matched it, 1.04 against 0.36), to the track its X/Y battle
-// type names after, without X/Y's music Omega Ruby's sound of X/Y's number (run hMus2: STRM_BGM_VS_TRAINER 1.25, the _SG 0.30)
-// With `intros` (and battleTypes), Kalos's leaders' battle intros get their own drawn names: sequences appended to
-// a/0/3/4, X/Y's names to a/2/1/4, their types' intros 162 up, and *intros the sequences for oras-engine --xy-intros
+// `music` (both games' sound ids, OrasXySound.h; X/Y's own tracks with `streams`, X/Y's music in the mod) and `battleTypes`:
+// X/Y's 64 battle types whole, numbered from 73 after Omega Ruby's (into *battleTypes for oras-engine --xy-battle-types),
+// their music and victory jingle made the mod's ids, and each Omega Ruby class an X/Y class takes, when none of Omega
+// Ruby's trainers uses it, naming its X/Y type (a/0/3/7 byte +2). With `intros` (and battleTypes), every intro X/Y's types
+// name is X/Y's own sequence: appended to a/0/3/4 with the layouts, models, motions and sounds it loads made the mod's, the
+// Kalos ones' drawn names X/Y's added to a/2/1/4, their intros numbered from 162 and *intros the sequences for oras-engine
+// --xy-intros.
 std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const struct XySounds* music = nullptr, bool streams = false, Bytes* battleTypes = nullptr,
                                        Bytes* intros = nullptr);
 

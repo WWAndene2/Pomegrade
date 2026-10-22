@@ -1,5 +1,7 @@
 #include "OrasXyTrainers.h"
 
+#include "Bch.h"
+#include "BchUpgrade.h"
 #include "Darc.h"
 #include "GameText.h"
 #include "Garc.h"
@@ -101,35 +103,30 @@ std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const XySounds* music,
         log.push_back(line);
     }
 
-    // the battle types X/Y's classes name (their byte +2), with X/Y's music: appended after Omega Ruby's 73 (OrasEngine.cpp).
-    // Each is Omega Ruby's record of the type its own copy of the class names (Omega Ruby keeps X/Y's classes 0-108 and
-    // gives each one of its types: class 39, Grant's, X/Y's 34 -> Omega Ruby's 45), with X/Y's music and victory jingle
-    // (+0x10, +0x14) in place of its own; the other words are not X/Y's: X/Y's type 34 has 0x12 at +4 where Omega Ruby's
-    // leader types have 0x27-0x2C, one each, and Grant's battle so read stopped in its intro on null reads from
-    // Res_DictFindIndex (0x4CC890; run hG2). What +4 picks is inferred (a resource of the type's intro), not read
+    // X/Y's 64 battle types, ported whole (owner, 22 October: not identical = ported; ORAS_ENGINE.md 0.1): appended after Omega
+    // Ruby's 73 (OrasEngine.cpp), X/Y's type t as 73 + t, and each X/Y class given its own. A type is 6 words, copied whole
+    // into a battle's settings (+0x2C) in both games by the same code: +0 the encounter transition (DllField's table of 10,
+    // the same in both, its effects the same files: X's a/2/6/2 and Omega Ruby's a/2/3/3, read 22 October), +4 the intro, +8
+    // 0, +0xC read by no code at a battle's start in either game (runs bc7-bc10), +0x10 the music and +0x14 the victory
+    // jingle (made the mod's sound ids). The intro (an index into DllBattle's table of sequences) is X/Y's own sequence,
+    // ported below with `intros`; without, the intro word is Omega Ruby's same number (not X/Y's intro)
     if (music && battleTypes)
     {
-        constexpr uint32_t xTable = 0x53C010, oTable = 0x57A014, gameTypes = 73;
-        const Bytes xCode = xy.Code(), oCode = ws.Rom().Code();
-        std::map<std::pair<int, int>, int> numberOf; // (X/Y's type, Omega Ruby's type of the class) -> the new type
-        std::vector<std::pair<int, int>> typeOf(xClasses.Count());
-        for (size_t c = 0; c < xClasses.Count(); c++)
+        constexpr uint32_t xTable = 0x53C010, gameTypes = 73, xTypes = 64;
+        const Bytes xCode = xy.Code();
+        for (uint32_t t = 0; t < xTypes; t++)
         {
-            const std::pair<int, int> key{Plain(xClasses.Sub(c)).at(2), Plain(oClasses.Sub((size_t)classOf[c])).at(2)};
-            typeOf[c] = key;
-            if (numberOf.count(key)) continue;
-            const size_t xAt = xTable - 0x100000 + 24 * (size_t)key.first, oAt = oTable - 0x100000 + 24 * (size_t)key.second;
-            Bytes r(oCode.begin() + oAt, oCode.begin() + oAt + 24);
+            const size_t xAt = xTable - 0x100000 + 24 * (size_t)t;
+            Bytes r(xCode.begin() + (long)xAt, xCode.begin() + (long)xAt + 24);
             for (const size_t w : {0x10u, 0x14u})
             {
-                const uint32_t id = xCode[xAt + w] | xCode[xAt + w + 1] << 8 | xCode[xAt + w + 2] << 16 | (uint32_t)xCode[xAt + w + 3] << 24;
-                if ((id >> 16) != 1) throw FormatError("X/Y battle type " + std::to_string(key.first) + ": no music id at +" + std::to_string(w));
+                const uint32_t id = U32(r, w);
+                if ((id >> 16) != 1) throw FormatError("X/Y battle type " + std::to_string(t) + ": no music id at +" + std::to_string(w));
                 // X/Y's own track (a stream appended to the archive, category 0) only with X/Y's music in the mod; else the id
                 // as it is, which names Omega Ruby's sound of that number (its own trainer theme for X/Y's 0x10019: the PSS one)
                 const uint32_t translated = music->Translate(id), to = (translated >> 16) == 0 && !streams ? id : translated;
                 for (int b = 0; b < 4; b++) r[w + b] = (uint8_t)(to >> (8 * b));
             }
-            numberOf[key] = (int)(gameTypes + battleTypes->size() / 24);
             battleTypes->insert(battleTypes->end(), r.begin(), r.end());
         }
         std::set<int> orasUsed; // the classes Omega Ruby's own trainers use
@@ -139,7 +136,7 @@ std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const XySounds* music,
         size_t set = 0;
         for (size_t c = 0; c < xClasses.Count(); c++)
         {
-            const int o = classOf[c], type = numberOf.at(typeOf[c]);
+            const int o = classOf[c], type = (int)gameTypes + Plain(xClasses.Sub(c)).at(2);
             if (orasUsed.count(o)) { snprintf(line, sizeof line, "battle type: X/Y's class %zu's Omega Ruby class %d is its own trainers': kept", c, o); log.push_back(line); continue; }
             const auto g = given.find(o);
             if (g != given.end()) { if (g->second != type) { snprintf(line, sizeof line, "battle type: Omega Ruby class %d keeps X/Y's %d (X/Y's class %zu names another)", o, g->second, c); log.push_back(line); } continue; }
@@ -150,15 +147,23 @@ std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const XySounds* music,
             given[o] = type;
             set++;
         }
-        snprintf(line, sizeof line, "battle types: %zu (Omega Ruby's of the class, X/Y's music) as 73-%zu, given to %zu classes", numberOf.size(), 72 + numberOf.size(), set);
+        snprintf(line, sizeof line, "battle types: X/Y's %u as 73-%u, given to %zu classes", xTypes, gameTypes + xTypes - 1, set);
         log.push_back(line);
 
-        // Kalos's leaders', Elite Four's and Champion's own battle intros (read 22 October, ORAS_ENGINE.md 0.1). X/Y's types
-        // have the intros 0x11-0x18 (leaders, Viola's to Wulfric's), 0x19-0x1C (the Elite Four) and 0x1D (the Champion) at +4;
-        // Omega Ruby's record kept for the class showed a Hoenn intro. Each Kalos one gets an intro of its own past the game's
-        // 162 (oras-engine --xy-intros copies DllBattle's table longer) playing X/Y's own sequence made Omega Ruby's (below),
-        // with X/Y's drawn names added to a/2/1/4 under new names: gym_name09-16, big_four_name05-08, champion_name02, every
-        // language
+        // X/Y's battle intros, each X/Y's own sequence (read 22 October, ORAS_ENGINE.md 0.1): every intro X/Y's types name gets
+        // an intro of its own past Omega Ruby's 162 (oras-engine --xy-intros copies DllBattle's table longer), playing X/Y's
+        // sequence (X's a/0/3/6 member at X's DllBattle table, file offset 0xD69B0: intro 0x11 -> 831, checked by the name each
+        // Kalos one shows) made Omega Ruby's (OrasXySequence.h) with what it loads made the mod's:
+        //  - its screen layout (command 0xA0's first argument, resource kind 0x21: X's a/0/3/5, the same names as Omega Ruby's
+        //    a/0/3/3 but other files) appended to a/0/3/3;
+        //  - a model or camera (kind 0x20: X's a/0/3/4, Omega Ruby's a/0/3/2; commands 0x1F, 0x20, 0x3F, 0x50, 0x52-0x54, 0x89,
+        //    0x8A, 0xB1, their first argument; the archives found by a run's RomFS reads, btr) and a motion (kind 0x1F: X's
+        //    a/0/3/3, Omega Ruby's a/0/3/1; command 0x2B): Omega Ruby's member when it is the same file, else X/Y's appended
+        //    (a BCH made 0x21). None of X/Y's ids is in its model variants table (FUN_10090120), so each loads as given;
+        //  - a sound (command 0x5D's first argument: (category << 16) | n) made the mod's id (OrasXySound.h);
+        //  - Kalos's drawn names (command 0xA9: a pane, then a texture of a/2/1/4, 0x18 bytes each) X/Y's under new names
+        //    (below); champ_font, another file in X/Y, as champ_font02.
+        // Command 0x40 names a slot (the ball thrown), 0xA8 a trainer slot: nothing to make.
         if (intros)
         {
             constexpr uint32_t gameIntros = 162;
@@ -194,70 +199,115 @@ std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const XySounds* music,
             Garc& sequences = ws.Edited("a/0/3/4");
             const uint32_t gameSequences = (uint32_t)sequences.Count();
             if (gameSequences != 0x3D0) throw FormatError("X/Y intros: a/0/3/4 does not hold the game's 976 sequences (added to already?)");
-            std::map<uint32_t, std::pair<int, uint32_t>> given; // X/Y intro -> (new battle type, Omega Ruby's intro it showed)
-            for (const auto& [key, type] : numberOf)
-            {
-                const size_t xAt = xTable - 0x100000 + 24 * (size_t)key.first;
-                const uint32_t xIntro = U32(xCode, xAt + 4);
-                if (xIntro < families[0].XFirst || xIntro > families[2].XLast) continue;
-                const size_t at = 24 * (size_t)(type - gameTypes) + 4;
-                if (!given.emplace(xIntro, std::pair{type, U32(*battleTypes, at)}).second)
-                    throw FormatError("X/Y intros: two battle types show X/Y intro " + std::to_string(xIntro));
-            }
-            // X/Y's own sequence for each (X's a/0/3/6 831 + intro - 0x11: X's table, checked by the name each one shows), made
-            // Omega Ruby's (OrasXySequence.h); its screen layout (command 0xA0's first argument, a member of X's a/0/3/5: gym_01-08,
-            // big_four_01-04, champion, the same names as Omega Ruby's a/0/3/3 but other files) appended to a/0/3/3; its drawn
-            // name (command 0xA9: a pane, then a texture of a/2/1/4, 0x18 bytes each) X/Y's under its new name. The other
-            // textures it names are the same in both games' a/2/1/4 (gym_vs, big_four_vs, champion_vs) but champ_font, X/Y's
-            // added as champ_font02; its effects (commands 0x5D, 0x64) name the same numbers with the same arguments as Omega
-            // Ruby's own intros (checked on a/0/3/4 844), kept
-            const Garc xSequences(xy.Read("a/0/3/6")), xLayouts(xy.Read("a/0/3/5"));
+            const Garc xSequences(xy.Read("a/0/3/6")), xLayouts(xy.Read("a/0/3/5")), xModels(xy.Read("a/0/3/4")), xMotions(xy.Read("a/0/3/3"));
             const Bytes xBattle = xy.Read("DllBattle.cro");
             const Bytes xSizes(xBattle.begin() + 0xD91F8, xBattle.begin() + 0xD91F8 + 4 * 186), orasSizes(dllBattle.begin() + 0xE3800, dllBattle.begin() + 0xE3800 + 4 * 213);
             Garc& layouts = ws.Edited("a/0/3/3");
+            Garc& models = ws.Edited("a/0/3/2");
+            Garc& motions = ws.Edited("a/0/3/1");
             std::map<uint32_t, uint32_t> layoutOf; // X's layout -> Omega Ruby's member
-            for (const auto& [xIntro, kalos] : given)
+            // X's member of a kind's archive as Omega Ruby's: the same file there, or X's appended (a BCH made version 0x21)
+            struct Kind { const Garc& X; Garc& Oras; const char* Name; std::map<uint32_t, uint32_t> Of; std::vector<Bytes> Game; size_t Shared = 0, Added = 0; };
+            Kind modelKind{xModels, models, "a/0/3/2", {}, {}}, motionKind{xMotions, motions, "a/0/3/1", {}, {}};
+            const auto port = [&](Kind& k, uint32_t xMember) {
+                const auto known = k.Of.find(xMember);
+                if (known != k.Of.end()) return known->second;
+                if (xMember >= k.X.Count()) throw FormatError(std::string("X/Y intros: X's archive for ") + k.Name + " has no member " + std::to_string(xMember));
+                if (k.Game.empty()) for (size_t i = 0; i < k.Oras.Count(); i++) k.Game.push_back(Plain(k.Oras.Sub(i)));
+                const Bytes& raw = k.X.Sub(xMember);
+                const bool compressed = IsLzCompressed(raw);
+                Bytes plain = compressed ? LzDecompress(raw) : raw;
+                if (Bch::Is(plain)) plain = BchUpgradeTo21(plain);
+                const auto same = std::find(k.Game.begin(), k.Game.end(), plain);
+                uint32_t at;
+                if (same != k.Game.end()) { at = (uint32_t)(same - k.Game.begin()); k.Shared++; }
+                else { at = (uint32_t)k.Oras.Count(); k.Oras.Set(at, compressed ? Lz11Compress(plain) : plain); k.Game.push_back(plain); k.Added++; }
+                return k.Of[xMember] = at;
+            };
+            const auto setU32 = [](Bytes& a, size_t at, uint32_t v) { for (int b = 0; b < 4; b++) a[at + b] = (uint8_t)(v >> (8 * b)); };
+            std::map<uint32_t, uint32_t> introOf, sequenceOf; // X/Y's intro -> the mod's; X's sequence -> a/0/3/4's member (X
+                                                               // plays one sequence for several intros: 824, 845 three times each)
+            for (uint32_t t = 0; t < xTypes; t++)
             {
-                const Family& f = *std::find_if(std::begin(families), std::end(families), [&](const Family& g) { return xIntro >= g.XFirst && xIntro <= g.XLast; });
-                const uint32_t id = gameIntros + (uint32_t)(intros->size() / 4), sequence = gameSequences + (uint32_t)(intros->size() / 4);
-                const uint32_t xSequence = 831 + xIntro - 0x11, k = xIntro - f.XFirst + 1;
-                const std::string xName = nameOf(f, k, f.Numbered), name = nameOf(f, f.FirstNew + k - 1, true);
-                const Bytes xs = Plain(xSequences.Sub(xSequence));
-                if (names(f, xs).size() != 1 || !std::equal(xName.begin(), xName.end(), xs.begin() + (long)names(f, xs).front()))
-                    throw FormatError("X/Y intros: X's sequence " + std::to_string(xSequence) + " does not show " + xName);
-                const auto field = [](Bytes& a, size_t at, const std::string& from, const std::string& to) {
-                    if (std::string((const char*)&a[at]) != from) return false;
-                    if (to.size() >= 0x18) throw FormatError("X/Y intros: " + to + " is too long a name");
-                    std::fill(a.begin() + (long)at, a.begin() + (long)at + 0x18, 0);
-                    std::copy(to.begin(), to.end(), a.begin() + (long)at);
-                    return true;
-                };
-                int named = 0;
-                const Bytes converted = XySequenceToOras(xs, xSizes, orasSizes, [&](uint16_t command, Bytes& a) {
-                    if (command == 0xA0)
+                const uint32_t xIntro = U32(*battleTypes, 24 * (size_t)t + 4);
+                auto it = introOf.find(xIntro);
+                if (it == introOf.end())
+                {
+                    const uint32_t id = gameIntros + (uint32_t)(intros->size() / 4);
+                    if (xIntro >= 0x24) throw FormatError("X/Y intros: X's intro " + std::to_string(xIntro) + " past X's table");
+                    const uint32_t xSequence = U32(xBattle, 0xD69B0 + 4 * (size_t)xIntro);
+                    if (xSequence >= xSequences.Count()) throw FormatError("X/Y intros: X's intro " + std::to_string(xIntro) + " has no sequence");
+                    const auto played = sequenceOf.find(xSequence);
+                    const uint32_t sequence = played != sequenceOf.end() ? played->second : (uint32_t)sequences.Count();
+                    const Bytes xs = Plain(xSequences.Sub(xSequence));
+                    const Family* f = nullptr;
+                    for (const Family& g : families) if (xIntro >= g.XFirst && xIntro <= g.XLast) f = &g;
+                    std::string xName, name;
+                    if (f)
                     {
-                        const uint32_t xLayout = U32(a, 0);
-                        auto it = layoutOf.find(xLayout);
-                        if (it == layoutOf.end())
-                        {
-                            if (xLayout >= xLayouts.Count()) throw FormatError("X/Y intros: X's a/0/3/5 has no layout " + std::to_string(xLayout));
-                            it = layoutOf.emplace(xLayout, (uint32_t)layouts.Count()).first;
-                            layouts.Set(layouts.Count(), xLayouts.Sub(xLayout));
-                        }
-                        for (int b = 0; b < 4; b++) a[b] = (uint8_t)(it->second >> (8 * b));
+                        const uint32_t k = xIntro - f->XFirst + 1;
+                        xName = nameOf(*f, k, f->Numbered); name = nameOf(*f, f->FirstNew + k - 1, true);
+                        if (names(*f, xs).size() != 1 || !std::equal(xName.begin(), xName.end(), xs.begin() + (long)names(*f, xs).front()))
+                            throw FormatError("X/Y intros: X's sequence " + std::to_string(xSequence) + " does not show " + xName);
                     }
-                    if (command == 0xA9 && a.size() >= 0x30)
+                    const auto field = [](Bytes& a, size_t at, const std::string& from, const std::string& to) {
+                        if (std::string((const char*)&a[at]) != from) return false;
+                        if (to.size() >= 0x18) throw FormatError("X/Y intros: " + to + " is too long a name");
+                        std::fill(a.begin() + (long)at, a.begin() + (long)at + 0x18, 0);
+                        std::copy(to.begin(), to.end(), a.begin() + (long)at);
+                        return true;
+                    };
+                    int named = 0;
+                    if (played == sequenceOf.end())
                     {
-                        if (field(a, 0x18, xName, name)) named++;
-                        field(a, 0x18, "champ_font.bclim", "champ_font02.bclim");
+                        const Bytes converted = XySequenceToOras(xs, xSizes, orasSizes, [&](uint16_t command, Bytes& a) {
+                            switch (command)
+                            {
+                            case 0xA0:
+                            {
+                                const uint32_t xLayout = U32(a, 0);
+                                auto l = layoutOf.find(xLayout);
+                                if (l == layoutOf.end())
+                                {
+                                    if (xLayout >= xLayouts.Count()) throw FormatError("X/Y intros: X's a/0/3/5 has no layout " + std::to_string(xLayout));
+                                    l = layoutOf.emplace(xLayout, (uint32_t)layouts.Count()).first;
+                                    layouts.Set(layouts.Count(), xLayouts.Sub(xLayout));
+                                }
+                                setU32(a, 0, l->second);
+                                break;
+                            }
+                            case 0xA9:
+                                if (a.size() >= 0x30)
+                                {
+                                    if (f && field(a, 0x18, xName, name)) named++;
+                                    field(a, 0x18, "champ_font.bclim", "champ_font02.bclim");
+                                }
+                                break;
+                            case 0x1F: case 0x20: case 0x3F: case 0x50: case 0x52: case 0x53: case 0x54: case 0x89: case 0x8A: case 0xB1:
+                                setU32(a, 0, port(modelKind, U32(a, 0)));
+                                break;
+                            case 0x2B:
+                                setU32(a, 0, port(motionKind, U32(a, 0)));
+                                break;
+                            case 0x5D:
+                                if (U32(a, 0)) setU32(a, 0, music->Translate(U32(a, 0)));
+                                break;
+                            }
+                        });
+                        if (f && named != 1) throw FormatError("X/Y intros: X's sequence " + std::to_string(xSequence) + " names " + xName + " " + std::to_string(named) + " times");
+                        sequences.Set(sequence, converted);
+                        sequenceOf[xSequence] = sequence;
                     }
-                });
-                if (named != 1) throw FormatError("X/Y intros: X's sequence " + std::to_string(xSequence) + " names " + xName + " " + std::to_string(named) + " times");
-                sequences.Set(sequence, converted);
-                const size_t at = 24 * (size_t)(kalos.first - gameTypes) + 4;
-                for (int b = 0; b < 4; b++) (*battleTypes)[at + b] = (uint8_t)(id >> (8 * b));
-                for (int b = 0; b < 4; b++) intros->push_back((uint8_t)(sequence >> (8 * b)));
-                snprintf(line, sizeof line, "X/Y intro 0x%X as intro %u, a/0/3/4 %u (X's sequence %u, naming %s), battle type %d", xIntro, id, sequence, xSequence, name.c_str(), kalos.first);
+                    for (int b = 0; b < 4; b++) intros->push_back((uint8_t)(sequence >> (8 * b)));
+                    it = introOf.emplace(xIntro, id).first;
+                    snprintf(line, sizeof line, "X/Y intro 0x%X as intro %u, a/0/3/4 %u (X's sequence %u%s%s)", xIntro, id, sequence, xSequence, f ? ", naming " : "", name.c_str());
+                    log.push_back(line);
+                }
+                setU32(*battleTypes, 24 * (size_t)t + 4, it->second);
+            }
+            for (const Kind* k : {&modelKind, &motionKind})
+            {
+                snprintf(line, sizeof line, "X/Y intros: %zu of X/Y's files for %s shared with Omega Ruby's, %zu added", k->Shared, k->Name, k->Added);
                 log.push_back(line);
             }
             // the names: X/Y's a/2/4/1 and Omega Ruby's a/2/1/4 each hold one member, a language per sub-file; each family's
@@ -307,7 +357,7 @@ std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const XySounds* music,
                 namesArchive.Set(0, AsWas(was, WriteLayoutResource(res)), sub);
                 languages++;
             }
-            snprintf(line, sizeof line, "X/Y intros: %zu, X/Y's drawn names as a/2/1/4's gym_name09-16, big_four_name05-08, champion_name02 and champ_font02 in %zu languages", given.size(), languages);
+            snprintf(line, sizeof line, "X/Y intros: %zu ported, Kalos's drawn names as a/2/1/4's gym_name09-16, big_four_name05-08, champion_name02 and champ_font02 in %zu languages", introOf.size(), languages);
             log.push_back(line);
         }
     }
