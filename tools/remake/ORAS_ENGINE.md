@@ -369,7 +369,8 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   `static.crs` and a module lists which module function each `.code` import stub reaches). `code_find.py --field OFFSET
   --within LOW HIGH` lists the loads and stores at that offset from a register in that code (a structure's field: narrow
   it, the whole code has too many structures sharing an offset). X's code: `session_setup.sh <work> ghidra-x` builds its
-  own program (no names), read with `POMEGRADE_GHIDRA_GAME=x ghidra/decompile.sh ...`; `cro_dis.py` and `code_find.py`
+  own program (no names; about 10 min, 22 October: 106,082 calls in its graph), read with
+  `POMEGRADE_GHIDRA_GAME=x ghidra/decompile.sh ...` (checked: X's transition object, FUN_003bcbe4); `cro_dis.py` and `code_find.py`
   read X's files as they read Omega Ruby's. **Battle sequences**: `prototype/sesd.py <DllBattle.cro> oras|x <member>...`
   lists a SESD sequence's records with the argument sizes of that game's DllBattle. **Which file a RomFS read loads**:
   `prototype/romfs_member.py <game.3ds> <trace offset>...` (POMEGRADE_ROMFS_TRACE's offsets; Omega Ruby's RomFS base by
