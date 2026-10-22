@@ -304,26 +304,33 @@ static Bytes PatchCro(const Bytes& cro, uint32_t base, const std::vector<CroWord
 }
 
 // a literal word the loader relocates (an internal relocation, to `expected` in the module) made to hold `value`, an address
-// outside the module (the room): its relocation entry made a copy of the next one, which the loader then writes twice with
-// the same value (R_ARM_ABS32 and the other kinds write, they do not add: Azahar's CROHelper::ApplyRelocation; unloading
-// writes 0 there twice), and the word written with the value
+// outside the module (the room): each relocation entry of the word made a copy of an entry relocating another word, which
+// the loader then writes twice with the same value (R_ARM_ABS32 and the other kinds write, they do not add: Azahar's
+// CROHelper::ApplyRelocation; unloading writes 0 there twice), and the word written with the value. Every entry of the word
+// is replaced: a word made a copy of before (two literals side by side, DllBackGround's backdrops then grounds) has two,
+// and the one left kept the game's table for the grounds (X/Y's grounds from 93 read the table after, one ground for all:
+// runs bgv1-bgv62, 22 October)
 static void PointLiteralAt(Bytes& cro, uint32_t base, uint32_t literal, uint32_t expected, uint32_t value, const std::string& why)
 {
     const CroLayout layout(cro);
     const uint32_t relocations = layout.Field(42), count = layout.Field(43), at = literal - base - layout.Segments[0].first;
+    const auto target = [&](uint32_t i) { const uint32_t tag = layout.U32(relocations + 12 * i); return (tag & 0xF) == 0 ? tag >> 4 : 0xFFFFFFFFu; };
+    uint32_t other = count;
+    for (uint32_t i = 0; i < count && other == count; i++) if (target(i) != at && (layout.U32(relocations + 12 * i) & 0xF) == 0) other = i;
+    if (other == count) throw FormatError(why + ": no other relocation to copy");
+    bool found = false;
     for (uint32_t i = 0; i < count; i++)
     {
-        const uint32_t entry = relocations + 12 * i, tag = layout.U32(entry);
-        if ((tag & 0xF) != 0 || (tag >> 4) != at) continue;
+        if (target(i) != at) continue;
+        const uint32_t entry = relocations + 12 * i;
         const uint8_t segment = cro[entry + 5];
-        if (count < 2 || segment >= layout.Segments.size() || base + layout.Segments[segment].first + layout.U32(entry + 8) != expected)
+        if (segment >= layout.Segments.size() || base + layout.Segments[segment].first + layout.U32(entry + 8) != expected)
             throw FormatError(why + ": its relocation is not the one read (another version of the game?)");
-        const uint32_t other = relocations + 12 * (i + 1 < count ? i + 1 : i - 1);
-        std::copy(cro.begin() + other, cro.begin() + other + 12, cro.begin() + entry);
-        for (int k = 0; k < 4; k++) cro[literal - base + k] = (uint8_t)(value >> (8 * k));
-        return;
+        std::copy(cro.begin() + relocations + 12 * other, cro.begin() + relocations + 12 * other + 12, cro.begin() + entry);
+        found = true;
     }
-    throw FormatError(why + ": no relocation of its literal word");
+    if (!found) throw FormatError(why + ": no relocation of its literal word");
+    for (int k = 0; k < 4; k++) cro[literal - base + k] = (uint8_t)(value >> (8 * k));
 }
 
 std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& o, const std::string& outDir)
