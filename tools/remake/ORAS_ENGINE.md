@@ -138,7 +138,7 @@ is tested on the phone.
   not a class's (wild battles: their type is chosen by the encounter code, not ported yet; 819, 820 and 826 load X/Y's
   "Twist" intro camera 0x201, which Omega Ruby's engine draws black: Omega Ruby remade it, poke_y_intro_01_CAM). Checked
   headless on the sandbox (demo.txt with X/Y's trainers, oras-sandbox --onto): X/Y's trainers 1 (Youngster, 0xD), 107
-  and 130 (0xE) and 238 (Korrina, 0x21) play their X/Y intros with their own drawings and names (runs xf_17-xf_27).
+  and 130 (0xE) and 188 (Korrina, 0x21) play their X/Y intros with their own drawings and names (runs xf_17-xf_27).
   Not checked: against X running, on the phone.
 - **Before, the owner's item: Grant's own battle intro.** X's leaders show Brawly's portrait and name
   ("Bastien") in their intro. Found: the intro is chosen by the battle type record's word +4 alone (0x27-0x2E Omega
