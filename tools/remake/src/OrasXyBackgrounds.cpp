@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
 
 namespace remake
 {
@@ -48,6 +49,39 @@ uint8_t EntryIndex(Bytes& table, size_t size, const Bytes& entry)
 }
 
 void Put32(Bytes& b, size_t at, uint32_t v) { for (int k = 0; k < 4; k++) b[at + k] = (uint8_t)(v >> (8 * k)); }
+
+// two BCH files (any version) holding the same models and textures as the reader sees them: names, materials (textures,
+// render flags, texture units, mappers), meshes (material, layer, every vertex and triangle) and textures (size, format,
+// data), all equal
+bool SameBch(const Bytes& a, const Bytes& b)
+{
+    const Bch x = Bch::Read(a), y = Bch::Read(b);
+    if (x.Models.size() != y.Models.size() || x.Textures.size() != y.Textures.size()) return false;
+    for (size_t m = 0; m < x.Models.size(); m++)
+    {
+        const BchModel &p = x.Models[m], &q = y.Models[m];
+        if (p.Name != q.Name || p.Materials.size() != q.Materials.size() || p.Meshes.size() != q.Meshes.size()) return false;
+        for (size_t k = 0; k < p.Materials.size(); k++)
+        {
+            const BchMaterial &u = p.Materials[k], &v = q.Materials[k];
+            if (u.Name != v.Name || u.Flags != v.Flags || u.TextureUnits != v.TextureUnits) return false;
+            for (int t = 0; t < 3; t++) if (u.Texture[t] != v.Texture[t] || u.Mappers[t] != v.Mappers[t]) return false;
+        }
+        for (size_t k = 0; k < p.Meshes.size(); k++)
+        {
+            const BchMesh &u = p.Meshes[k], &v = q.Meshes[k];
+            if (u.Material != v.Material || u.Layer != v.Layer || u.Triangles != v.Triangles || u.Vertices.size() != v.Vertices.size()) return false;
+            for (size_t i = 0; i < u.Vertices.size(); i++)
+                if (std::memcmp(&u.Vertices[i], &v.Vertices[i], sizeof(BchVertex))) return false;
+        }
+    }
+    for (const BchTexture& t : x.Textures)
+    {
+        const auto o = std::find_if(y.Textures.begin(), y.Textures.end(), [&](const BchTexture& u) { return u.Name == t.Name; });
+        if (o == y.Textures.end() || o->Width != t.Width || o->Height != t.Height || o->Format != t.Format || o->Data != t.Data) return false;
+    }
+    return true;
+}
 
 }
 
@@ -117,7 +151,16 @@ XyBackgrounds AddXyBackgrounds(OrasWorkspace& ws, N3dsRom& xRom, const XyBackgro
         const bool compressed = IsLzCompressed(raw);
         Bytes plain = compressed ? LzDecompress(raw) : raw;
         const std::string where = "X's a/1/4/6 member " + std::to_string(xMember);
-        if (Bch::Is(plain)) plain = BchUpgradeTo21(plain);
+        if (Bch::Is(plain))
+        {
+            // a lone model (a ground) the same as one of Omega Ruby's, every part of it as the reader sees it, is Omega Ruby's
+            // file (owner, 22 October: shared only when 100% the same). X's forest ground, the same as Omega Ruby's member 13,
+            // converted drew a raised block over the backdrop (runs bgf1-bgf3, bgig: the difference not found in the file);
+            // Omega Ruby's own draws right (run bgf_ix)
+            for (size_t i = 0; i < gamePlain.size(); i++)
+                if (Bch::Is(gamePlain[i]) && SameBch(plain, gamePlain[i])) { shared++; return memberOf[xMember] = (uint32_t)i; }
+            plain = BchUpgradeTo21(plain);
+        }
         else if (plain.size() >= 4 && plain[0] == 'B' && plain[1] == 'G')
         {
             BinLinker bg = BinLinker::Read(plain, "BG");

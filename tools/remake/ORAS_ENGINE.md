@@ -101,6 +101,11 @@ is tested on the phone.
   platforms). Not checked: against X running (no X save), the scenery drawn (random), the bytes 1, 8, 9 (carried, the
   same ranges in both games: inferred the same meaning), other scripts' battles naming a background (only
   `_CallTrainerBattleCore` moved); X's tiles naming 106, 107, 110 (no X value; 12 tiles of pieces 346-348) cleared.
+  Found after (owner, 22 October: the forest's platform looked wrong): X's converted ground drew a raised block over the
+  backdrop (runs bgf1-bgf3; with Omega Ruby's own ground, the same model, it draws right, run bgf_ix). The difference was
+  not found in the file (geometry, textures, materials, metadata compared); a lone model the same as Omega Ruby's in every
+  part the reader sees is now Omega Ruby's file (owner: shared only when 100% the same; run bgf4: the forest right). 2 of
+  X's grounds are so; its 8 others are still converted and may draw the same block (not checked).
 - **Before, the owner's item: Grant's own battle intro.** X's leaders show Brawly's portrait and name
   ("Bastien") in their intro. Found: the intro is chosen by the battle type record's word +4 alone (0x27-0x2E Omega
   Ruby's 8 leaders, 0x38-0x3E the Elite Four; run hI2: Grant's type given 0x27 shows Roxanne's portrait, name and rocks);
