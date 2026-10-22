@@ -209,7 +209,8 @@ extern "C" RETRO_API bool pomegrade_poke(u32 address, u32 value) {
 }
 
 // writers LO HI [PCLO PCHI] | writers off FILE: every write of the game (interpreter only: POMEGRADE_INTERPRETER=1) into [LO, HI) in
-// between, with the instruction's address and the return address (patch_core.py, armstate.cpp): who fills a structure
+// between, with the instruction's address and the return address (patch_core.py, armstate.cpp): who fills a structure. The first
+// 100,000 are kept (the count says when the cap was reached): give a narrow range, or PCLO PCHI
 u32 pomegrade_writers_lo = 0, pomegrade_writers_hi = 0;
 static u32 pomegrade_writers_pclo = 0, pomegrade_writers_pchi = 0xFFFFFFFF; // only the writes of this code (all by default)
 static std::vector<std::array<u32, 4>> pomegrade_writes;
@@ -226,4 +227,27 @@ extern "C" RETRO_API u32 pomegrade_writers(u32 lo, u32 hi, const char* path) {
         fclose(f);
     }
     return (u32)pomegrade_writes.size();
+}
+
+// readers LO HI [PCLO PCHI] | readers off FILE: every read of the game (interpreter only) from [LO, HI) in between, kept as the
+// writes are (patch_core.py, armstate.cpp's ReadMemory8/16/32/64): who uses a field (run br1, 22 October: the battle type's word +0
+// read by the encounter transition, found this way after the GDB stub's breakpoints never fired under the JIT). Kept in time
+// order: memory freed and given to another object is read by its new owner too, so the lines after the owner's last use are not
+// the field's readers
+u32 pomegrade_readers_lo = 0, pomegrade_readers_hi = 0;
+static u32 pomegrade_readers_pclo = 0, pomegrade_readers_pchi = 0xFFFFFFFF;
+static std::vector<std::array<u32, 4>> pomegrade_reads;
+extern "C" void pomegrade_reader(u32 address, u32 value, u32 pc, u32 lr) {
+    if (pc < pomegrade_readers_pclo || pc >= pomegrade_readers_pchi) return;
+    if (pomegrade_reads.size() < 100000) pomegrade_reads.push_back({address, value, pc, lr});
+}
+extern "C" RETRO_API void pomegrade_readers_code(u32 lo, u32 hi) { pomegrade_readers_pclo = lo; pomegrade_readers_pchi = hi; }
+extern "C" RETRO_API u32 pomegrade_readers(u32 lo, u32 hi, const char* path) {
+    if (path == nullptr) { pomegrade_reads.clear(); pomegrade_readers_lo = lo; pomegrade_readers_hi = hi; return 0; }
+    pomegrade_readers_lo = pomegrade_readers_hi = 0;
+    if (FILE* f = fopen(path, "w")) {
+        for (const auto& r : pomegrade_reads) fprintf(f, "%08X %08X pc %08X lr %08X\n", r[0], r[1], r[2], r[3]);
+        fclose(f);
+    }
+    return (u32)pomegrade_reads.size();
 }

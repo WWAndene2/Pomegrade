@@ -97,3 +97,19 @@ for size, call in (("32", "    memory.Write32(address, data);\n"), ("64", "    m
 s = s.replace('#include "core/memory.h"\n', '#include "core/memory.h"\nextern u32 pomegrade_writers_lo, pomegrade_writers_hi;\nextern "C" void pomegrade_writer(u32 address, u32 value, u32 pc, u32 lr);\n', 1)
 assert "pomegrade_writers_lo, pomegrade_writers_hi;" in s, "armstate.cpp's includes moved"
 open(p, "w").write(s)
+
+# the readers of a memory range ("readers LO HI" / "readers off FILE", pomegrade_report.inc), the same way: each 8/16/32/64-bit
+# read of the game from [LO, HI) kept with Reg[15] and Reg[14] (interpreter only)
+p = "azahar/src/core/arm/skyeye_common/armstate.cpp"
+s = open(p).read()
+hook = "    if (address >= pomegrade_readers_lo && address < pomegrade_readers_hi) pomegrade_reader(address, (u32)data, Reg[15], Reg[14]); // Pomegrade headless\n"
+eight = "u8 ARMul_State::ReadMemory8(u32 address) const {\n    return memory.Read8(address);\n"
+assert s.count(eight) == 1, "ReadMemory8 moved"
+s = s.replace(eight, "u8 ARMul_State::ReadMemory8(u32 address) const {\n    u8 data = memory.Read8(address);\n" + hook + "    return data;\n", 1)
+for size in ("16", "32", "64"):
+    read = "    u%s data = memory.Read%s(address);\n" % (size, size)
+    assert s.count(read) == 1, "ReadMemory" + size + " moved"
+    s = s.replace(read, read + hook, 1)
+s = s.replace("extern u32 pomegrade_writers_lo, pomegrade_writers_hi;\n", "extern u32 pomegrade_writers_lo, pomegrade_writers_hi;\nextern u32 pomegrade_readers_lo, pomegrade_readers_hi;\nextern \"C\" void pomegrade_reader(u32 address, u32 value, u32 pc, u32 lr);\n", 1)
+assert "pomegrade_readers_lo, pomegrade_readers_hi;" in s, "armstate.cpp's includes moved"
+open(p, "w").write(s)

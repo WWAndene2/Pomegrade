@@ -9,7 +9,9 @@
 # zone x z  the save moved there first (oras-save); empty to keep the owner's position (Littleroot, zone 6)
 # script    retro_host commands separated by ';' (retro_host.cpp: wait N, hold KEYS N, press KEYS, mash KEYS N, field [N],
 #           screen, shot NAME, report, mem ADDRESS LENGTH, watch FRAMES [KEYS] ADDRESS..., dump ADDRESS LENGTH FILE,
-#           gdb PORT, trace on / trace off FILE (with POMEGRADE_INTERPRETER=1), save NAME / load NAME, draw off / draw on / draw every N (one frame in N drawn: about 3 times faster where a picture is needed),
+#           gdb PORT, trace on / trace off FILE, writers / readers LO HI [PCLO PCHI] and writers / readers off FILE (the game's
+#           writes into / reads from a range, with the code doing them; these three with POMEGRADE_INTERPRETER=1, FILE relative to the
+#           run's folder), save NAME / load NAME, draw off / draw on / draw every N (one frame in N drawn: about 3 times faster where a picture is needed),
 #           remaster N: the Remaster preset from then on, 0-3, with POMEGRADE_GL=1; sun HOUR: the path tracer's sun at
 #           that hour; POMEGRADE_SCALE=N: the internal resolution). A save state can only be loaded after the core has booted ("wait 120" first)
 #           and does not restore a pending asset load: to freeze again, replay from the start.
@@ -17,8 +19,14 @@
 #           "wait 120;load title;mash a 8;draw off;wait 900;..." : the title state skips the boot, and with drawing off the
 #           renderer skips its triangles (a shot or a screen check draws 3 frames first). The title and the Continue menu need
 #           drawing (with it off from the start the title never took A); "field" needs it too (it waits for a picture).
+#           The interpreter runs about 10 times slower: to reach a moment late in the game (a battle's start), save a state just
+#           before it in a JIT run ("...;save pre"), then run the interpreter from it (POMEGRADE_STATE=<work>/runs/<run>/pre.state,
+#           "wait 120;load pre;readers ...") (runs bpre, br1, 22 October: the battle in 15 min instead of not at all).
 # gdb       given as the 7th argument: run in the background and attach gdb-multiarch with the commands of the file
 #           <work>/runs/<name>.gdb (see gdb_attach notes below); the script must hold "gdb 24689" after its first "wait".
+#           Seen 22 October (runs bt1-bt6): under the JIT no breakpoint fired on code the run did execute (Trainer_SetupBattleParty,
+#           found by writers since); under the interpreter the stub dropped the connection while breakpoints were set; attached
+#           before a dialogue, the game took no more keys. For who reads or writes a field, writers / readers are the reliable way.
 #
 # The log is capped at 2 GB: a game looping on an unmapped read once wrote 22 GB and filled the disk.
 set -uo pipefail
@@ -56,10 +64,11 @@ else
     # gdb_attach: the stub answers once the game has booted; "set osabi none" (its "3DS" OS type crashes gdb), commands in a
     # file sourced in batch mode. Known flakiness: gdb sometimes believes the target is running and refuses "continue"
     # (retry the run); "set remote interrupt-on-connect" crashes the core; a breakpoint's "commands ... continue" block does
-    # not resume in batch mode, so log with a "while" loop of "continue" + "printf" instead
+    # not resume in batch mode, so log with a "while" loop of "continue" + "printf" instead; the interpreter answers slowly enough
+    # that gdb gave up on its first packets ("Remote replied unexpectedly to 'vMustReplyEmpty'", run bt1): remotetimeout 120
     host & pid=$!
     for i in $(seq 1 120); do grep -q "gdb stub on port" "$run/log.txt" 2>/dev/null && break; sleep 5; done
-    timeout 900 gdb-multiarch -q -batch -ex "set architecture arm" -ex "set osabi none" -ex "set tcp connect-timeout 60" \
+    timeout 900 gdb-multiarch -q -batch -ex "set architecture arm" -ex "set osabi none" -ex "set tcp connect-timeout 60" -ex "set remotetimeout 120" \
         -ex "target remote :24689" -ex "source $work/runs/$name.gdb" > "$run/gdb.txt" 2>&1
     kill $pid 2>/dev/null; wait $pid 2>/dev/null
     grep -v "^warning" "$run/gdb.txt" | tail -20

@@ -540,22 +540,23 @@ static int RunScript(void* core, const char* path)
                 else keys = Keys(word);
             Watch(core, strtoul(arg.c_str(), nullptr, 10), addresses, keys);
         }
-        else if (cmd == "writers")
+        else if (cmd == "writers" || cmd == "readers")
         {
-            // writers LO HI [PCLO PCHI] | writers off FILE: the game's writes into [LO, HI) in between, with their code (pomegrade_writers;
-            // with POMEGRADE_INTERPRETER=1, the JIT bypasses it)
+            // writers|readers LO HI [PCLO PCHI] | writers|readers off FILE: the game's writes into (reads from) [LO, HI) in between,
+            // with their code (pomegrade_writers / pomegrade_readers; with POMEGRADE_INTERPRETER=1, the JIT bypasses both). FILE is
+            // relative to the run's folder ("writes.txt", not "runs/NAME/writes.txt")
             std::string second; words >> second;
-            auto writers = reinterpret_cast<uint32_t (*)(uint32_t, uint32_t, const char*)>(dlsym(core, "pomegrade_writers"));
-            if (!writers) printf("(no pomegrade_writers in this core)\n");
-            else if (arg == "off") { const std::string path = workDir + "/" + second; printf("[frame %lu] writers off: %u writes in %s\n", frame, writers(0, 0, path.c_str()), path.c_str()); }
+            auto log = reinterpret_cast<uint32_t (*)(uint32_t, uint32_t, const char*)>(dlsym(core, ("pomegrade_" + cmd).c_str()));
+            if (!log) printf("(no pomegrade_%s in this core)\n", cmd.c_str());
+            else if (arg == "off") { const std::string path = workDir + "/" + second; printf("[frame %lu] %s off: %u %s in %s\n", frame, cmd.c_str(), log(0, 0, path.c_str()), cmd == "writers" ? "writes" : "reads", path.c_str()); }
             else
             {
-                // PCLO PCHI, optional: only the writes made by the code in [PCLO, PCHI) (pomegrade_writers_code)
+                // PCLO PCHI, optional: only the accesses made by the code in [PCLO, PCHI) (pomegrade_writers_code / pomegrade_readers_code)
                 std::string pclo, pchi; words >> pclo >> pchi;
-                auto code = reinterpret_cast<void (*)(uint32_t, uint32_t)>(dlsym(core, "pomegrade_writers_code"));
+                auto code = reinterpret_cast<void (*)(uint32_t, uint32_t)>(dlsym(core, ("pomegrade_" + cmd + "_code").c_str()));
                 if (code) code(pclo.empty() ? 0 : strtoul(pclo.c_str(), nullptr, 0), pchi.empty() ? 0xFFFFFFFFu : strtoul(pchi.c_str(), nullptr, 0));
-                writers(strtoul(arg.c_str(), nullptr, 0), strtoul(second.c_str(), nullptr, 0), nullptr);
-                printf("[frame %lu] writers %s %s %s %s\n", frame, arg.c_str(), second.c_str(), pclo.c_str(), pchi.c_str());
+                log(strtoul(arg.c_str(), nullptr, 0), strtoul(second.c_str(), nullptr, 0), nullptr);
+                printf("[frame %lu] %s %s %s %s %s\n", frame, cmd.c_str(), arg.c_str(), second.c_str(), pclo.c_str(), pchi.c_str());
             }
         }
         else if (cmd == "poke")
