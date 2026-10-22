@@ -3,7 +3,7 @@
 # (ORAS_ENGINE.md 1, "How a session works"). Everything goes into a work folder outside the repository: the owner's dumps are
 # never committed (CLAUDE.md 8).
 #
-#   tools/remake/headless/session_setup.sh <work dir> [dumps|tool|core|ghidra|all]...
+#   tools/remake/headless/session_setup.sh <work dir> [dumps|tool|core|ghidra|ghidra-x|all]...
 #
 # dumps   the owner's files from Google Drive, by the ids given in the environment (each is in the Drive folder "Pokemon
 #         Project - Radiant Platinum"; ask the owner for a share link when one is missing):
@@ -23,6 +23,7 @@
 # ghidra  Ghidra 11.4.2 and the whole game's code analysed in one program: the .code and the 145 code modules linked by
 #         prototype/cro_link.py, Ghidra's wrong no-return marks cleared (FixNoReturn.java), the names of
 #         ghidra/function_names.tsv applied (15 min) -> ghidra_proj/, linked/, functions.tsv, edges.tsv, noreturn.tsv
+# ghidra-x  X's code the same way (dumps/x.3ds), in ghidra_proj_x: no names, its lists in <work>/x/
 # all     the four, in that order (the default)
 set -euo pipefail
 repo=$(cd "$(dirname "$0")/../../.." && pwd)
@@ -116,6 +117,29 @@ ghidra)
         -scriptPath "$repo/tools/remake/ghidra" -postScript Export.java "$work" -postScript CallGraph.java "$work" \
         >> ghidra_setup.log 2>&1
     grep -E "REPORT|FixNoReturn.java>|ApplyNames.java>|CallGraph.java>" ghidra_setup.log | tail -6 ;;
-*) echo "unknown step $step (dumps, tool, core, core-gl, spica, ghidra, all)"; exit 2 ;;
+ghidra-x)
+    # X's code the same way, in a project of its own (ghidra_proj_x, program xcode.bin; ghidra/decompile.sh reads it with
+    # POMEGRADE_GHIDRA_GAME=x): to read what X does where Omega Ruby's code is known (22 October, the battle types: the
+    # transition and its table found in both games). No names applied: function_names.tsv names Omega Ruby's addresses.
+    # Needs the ghidra step's Ghidra and dumps/x.3ds; about as long as the ghidra step
+    [ -s dumps/x.3ds ] || { echo "no dumps/x.3ds (POMEGRADE_X_DRIVE_ID)"; exit 1; }
+    [ -s dumps/xcode.bin ] || ./build-remake/remake_tool oras-code dumps/x.3ds dumps/xcode.bin
+    mkdir -p xcro x
+    ./build-remake/remake_tool oras-list dumps/x.3ds | grep -oE "[A-Za-z0-9_]+\.cro" | while read -r m; do
+        [ -s "xcro/$m" ] || ./build-remake/remake_tool oras-extract dumps/x.3ds "$m" "xcro/$m" > /dev/null
+    done
+    ./build-remake/remake_tool oras-extract dumps/x.3ds static.crs xcro/static.crs > /dev/null
+    python3 "$repo/tools/remake/prototype/cro_link.py" xlinked xcro/static.crs xcro/*.cro
+    rm -rf ghidra_proj_x && mkdir -p ghidra_proj_x
+    ./ghidra_11.4.2_PUBLIC/support/analyzeHeadless "$work/ghidra_proj_x" x -import dumps/xcode.bin -loader BinaryLoader \
+        -loader-baseAddr 0x100000 -processor ARM:LE:32:v6 -max-cpu 4 -scriptPath "$repo/tools/remake/ghidra" \
+        -preScript AddModules.java "$work/xlinked/modules.bin" "$work/xlinked/modules.tsv" > ghidra_setup_x.log 2>&1
+    ./ghidra_11.4.2_PUBLIC/support/analyzeHeadless "$work/ghidra_proj_x" x -process xcode.bin -noanalysis \
+        -scriptPath "$repo/tools/remake/ghidra" -postScript FixNoReturn.java >> ghidra_setup_x.log 2>&1
+    ./ghidra_11.4.2_PUBLIC/support/analyzeHeadless "$work/ghidra_proj_x" x -process xcode.bin -noanalysis -readOnly \
+        -scriptPath "$repo/tools/remake/ghidra" -postScript Export.java "$work/x" -postScript CallGraph.java "$work/x" \
+        >> ghidra_setup_x.log 2>&1
+    grep -E "REPORT|FixNoReturn.java>|CallGraph.java>" ghidra_setup_x.log | tail -6 ;;
+*) echo "unknown step $step (dumps, tool, core, core-gl, spica, ghidra, ghidra-x, all)"; exit 2 ;;
 esac
 done

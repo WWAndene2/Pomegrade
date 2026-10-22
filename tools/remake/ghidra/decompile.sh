@@ -10,10 +10,13 @@
 # literal words also read as floats), for code the decompiler drops (VFP float instructions).
 #
 # ADDRESS in hex, 0x optional (0x453E08, 102cd2b4). Prints each function's name and size in lines.
+#
+# POMEGRADE_GHIDRA_GAME=x: X's program instead (session_setup.sh ghidra-x: ghidra_proj_x, xcode.bin, the call graph in <work>/x/)
 set -uo pipefail
 work=$(cd "$1" && pwd); out=$2; shift 2
 here=$(cd "$(dirname "$0")" && pwd)
-edges=$work/edges.tsv; [ -f "$edges" ] || edges=$work/fresh/edges.tsv
+project=ghidra_proj; name=oras; program=code.bin; edges=$work/edges.tsv; [ -f "$edges" ] || edges=$work/fresh/edges.tsv
+[ "${POMEGRADE_GHIDRA_GAME:-}" = x ] && { project=ghidra_proj_x; name=x; program=xcode.bin; edges=$work/x/edges.tsv; }
 norm() { printf '%08x' "0x${1#0x}"; }
 addresses=(); script=Export.java; result=decomp.c
 while [ $# -gt 0 ]; do
@@ -26,7 +29,7 @@ while [ $# -gt 0 ]; do
 done
 [ ${#addresses[@]} -gt 0 ] || { echo "no function to decompile"; exit 1; }
 mkdir -p "$out"
-"$work/ghidra_11.4.2_PUBLIC/support/analyzeHeadless" "$work/ghidra_proj" oras -process code.bin -noanalysis -readOnly \
+"$work/ghidra_11.4.2_PUBLIC/support/analyzeHeadless" "$work/$project" $name -process $program -noanalysis -readOnly \
     -scriptPath "$here" -postScript "$script" "$(cd "$out" && pwd)" $(printf '0x%s ' "${addresses[@]}") > "$out/ghidra.log" 2>&1
 [ -s "$out/$result" ] || { echo "Ghidra wrote nothing: $out/ghidra.log"; tail -5 "$out/ghidra.log"; exit 1; }
 awk '/^(\/\/|;) ---- /{if (name) print name, n " lines"; name = $3 " " ($4 == "in" ? $5 : $4); n = 0; next} {n++} END {if (name) print name, n " lines"}' "$out/$result"

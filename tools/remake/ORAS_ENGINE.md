@@ -338,7 +338,9 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
 - **Show that a function runs**: `trace on` / `trace off FILE` around the action (needs `POMEGRADE_INTERPRETER=1`), then
   look for the function's running address in the file (a DllField function at its linked address - 0x10242000 + 0x6F3000) or
   map the whole trace with `prototype/coverage_map.py` (`--minus <run>/<trace>` subtracts a trace of another run). Not GDB:
-  `gdb-multiarch` is not installed by `session_setup.sh` and the stub dropped the connection in both tries of 7 October.
+  `gdb-multiarch` is not installed by `session_setup.sh` and the stub dropped the connection in both tries of 7 October; on
+  22 October (runs bt1-bt6, with it installed) no breakpoint fired under the JIT on code the run did execute, the stub dropped
+  the connection under the interpreter, and attached before a dialogue it kept the game from taking keys.
 - **Read a value while it runs**: script commands `mem`, `watch` (a word's changes frame by frame), `dump ADDRESS LENGTH
   FILE`. A script's state: `dump 0x08000000 0x6000000 heap.bin` while the thing is on screen, then
   `prototype/amx_dump.py heap.bin --script <size>` lists the loaded scripts, their contexts (native mask, wait) and the call
@@ -349,6 +351,11 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   GPU register) and eliminate the known copies; `poke ADDRESS VALUE` (a word written while the game runs; at the title,
   after `load title`, to change what a zone load reads); `writers LO HI` / `writers off FILE` with
   `POMEGRADE_INTERPRETER=1` (each write into the range with its instruction and return address), then read that code.
+  **Who reads a field**: `readers LO HI` / `readers off FILE`, the same for reads (22 October, the battle type's words: the
+  settings found by `writers`, then their readers, and those of the copies they were made into). The lines come in time
+  order; memory freed and given to another object is read by its new owner too, so stop at the owner's last use. The
+  interpreter is about 10 times slower: save a state just before the moment in a JIT run (`...;save pre`), then run the
+  interpreter from it (`POMEGRADE_STATE=<work>/runs/<run>/pre.state`, `wait 120;load pre;readers ...`).
   The full decompilation for grepping: `Export.java` with every address of `functions.tsv` (15 min, 47,750 functions).
 - **Area packs read so far** (section 2): file 4 the light's colours, file 6 the camera presets, file 3 read by
   `Field_AreaTriggers_Init`, file 7 by `FUN_1025EF50`; `a/0/5/9` holds tables of file 4's layout for battles.
@@ -359,7 +366,14 @@ more, 190 made by `ApplyNames` where a named address had none; it also writes `f
   in the running game DllField sits at 0x6F3000). `prototype/code_find.py <work>/dumps/code.bin --at|--imm|--word|--calls
   ...` finds an instruction, a constant or every call to an address (`--base 0x10000000` on `linked/modules.bin` for the
   modules); `prototype/cro_dis.py <module.cro> dis <offset> <n>` reads a module with its imports resolved (`symbols` on
-  `static.crs` and a module lists which module function each `.code` import stub reaches).
+  `static.crs` and a module lists which module function each `.code` import stub reaches). `code_find.py --field OFFSET
+  --within LOW HIGH` lists the loads and stores at that offset from a register in that code (a structure's field: narrow
+  it, the whole code has too many structures sharing an offset). X's code: `session_setup.sh <work> ghidra-x` builds its
+  own program (no names), read with `POMEGRADE_GHIDRA_GAME=x ghidra/decompile.sh ...`; `cro_dis.py` and `code_find.py`
+  read X's files as they read Omega Ruby's. **Battle sequences**: `prototype/sesd.py <DllBattle.cro> oras|x <member>...`
+  lists a SESD sequence's records with the argument sizes of that game's DllBattle. **Which file a RomFS read loads**:
+  `prototype/romfs_member.py <game.3ds> <trace offset>...` (POMEGRADE_ROMFS_TRACE's offsets; Omega Ruby's RomFS base by
+  default).
 - **Write a script**: `remake_tool amx-asm <source.txt> <out.amx> tools/remake/ghidra/function_names.tsv` assembles Pawn
   source (format in `Amx.h`, above `AmxSource`: labels for jumps, calls and `casetbl`, natives by name, checked against the
   game's tables); `oras-script <oras.3ds> <zone> [init] source` gives a game script in that format. **Checked** (8 October):
