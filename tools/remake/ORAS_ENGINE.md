@@ -105,7 +105,9 @@ is tested on the phone.
   backdrop (runs bgf1-bgf3; with Omega Ruby's own ground, the same model, it draws right, run bgf_ix). The difference was
   not found in the file (geometry, textures, materials, metadata compared); a lone model the same as Omega Ruby's in every
   part the reader sees is now Omega Ruby's file (owner: shared only when 100% the same; run bgf4: the forest right). 2 of
-  X's grounds are so; its 8 others are still converted and may draw the same block (not checked).
+  X's grounds are so. The block's cause, found after: oras-engine left DllBackGround's grounds (and second light, sceneries)
+  on the game's tables (a relocation not neutralised, fixed in PointLiteralAt), so X's grounds from 93 read past them; the
+  8 converted grounds now draw right (runs bgv1fix, bgw5-bgw62: beach, snow, cliffs, city, town, meadow, autumn, route).
 - **Before, the owner's item: Grant's own battle intro.** X's leaders show Brawly's portrait and name
   ("Bastien") in their intro. Found: the intro is chosen by the battle type record's word +4 alone (0x27-0x2E Omega
   Ruby's 8 leaders, 0x38-0x3E the Elite Four; run hI2: Grant's type given 0x27 shows Roxanne's portrait, name and rocks);
