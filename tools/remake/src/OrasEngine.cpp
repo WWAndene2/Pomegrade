@@ -596,6 +596,22 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         words.push_back({0x4DE5F0, 0xE2850B01, 0xE1A00005, "Event_IsWarpEnabledByFlag: the id to r0"});
         words.push_back({0x4DE5F4, 0xE2800FB3, Branch(0x4DE5F4, cave, true), "Event_IsWarpEnabledByFlag: its flag from the routine"});
         log.push_back("trainers: " + std::to_string(last) + " (X/Y's " + std::to_string(count) + " after the game's 950), their flags 0x2900 and up");
+        // X/Y's trainer classes after the game's 280 (OrasXyTrainers.h: 178, as 280-457). The classes are read at boot into a
+        // table of 0x14 bytes each after a 0x10-byte head (0x108E58 allocates 0x15F0 for 280, 0x108E8C hands 280 to the
+        // loader, whose loop 0x10EA9C reads a/0/3/7 member by member up to 280 through 0x128C7C, itself bounded); each
+        // reader bounds the class by 280 and takes the table's first entry past it (Trainer_LoadInfoAndName 0x1F019C,
+        // Trainer_ReadClass 0x4540CC, Trainer_BuildTeams 0x454434, Trainer_BuildOneTeam 0x454EA4; read 22 October; the other
+        // compares with 280 in the .code and the modules are not classes: move switches, sizes). 460 (0x1CC, an immediate;
+        // 458 is not), two left free. Trainer_Class_GetIndexedEntry's own bound (drawing 0x2AB) below
+        for (const auto& [at, from] : std::vector<std::pair<uint32_t, uint32_t>>{{0x10EAB4, 0xE3540F46}, {0x128C80, 0xE3520F46}, {0x1F01BC, 0xE3560F46},
+                                                                                {0x4540D0, 0xE3520F46}, {0x4545C0, 0xE3570F46}, {0x455034, 0xE35B0F46}})
+            words.push_back({at, from, (from & ~0xFFFu) | 0xF73u, "a trainer class bound (280 -> 460)"});
+        words.push_back({0x108E8C, 0xE3A03F46, 0xE3A03F73, "the trainer classes loaded at boot (280 -> 460)"});
+        words.push_back({0x109200, 0x15F0, 0x10 + 460 * 0x14, "the class table's size (0x15F0 -> 0x2400)"});
+        // the drawings a class names (a/1/6/0, OrasXyTrainers.cpp): Trainer_Class_GetIndexedEntry reads past 0x2AB as the
+        // variant alone (Omega Ruby's 228 groups end there); X/Y's appended groups past it, up to 1024 drawings
+        words.push_back({0x4E79B8, 0xE3500FAB, 0xE3500B01, "Trainer_Class_GetIndexedEntry's bound (drawing 0x2AC -> 0x400)"});
+        log.push_back("trainer classes: 460 (X/Y's after the game's 280)");
     }
     if (o.LargeEvents)
     {

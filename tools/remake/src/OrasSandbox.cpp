@@ -317,7 +317,9 @@ static SandboxDescription ReadDescription(const std::string& text)
                 else if (key == "sight" && what == "trainer") c[7] = v;
                 else fail(what + " has no " + key);
             }
-            if (what == "trainer" && (id < 1 || id > 949)) fail("trainer ids are 1-949 (a/0/3/6)");
+            // 1-949 in the game; with --onto a mod of X/Y's trainers (oras-engine --xy-trainers, bound 1792) theirs too, checked
+            // against a/0/3/6 when the zone is built
+            if (what == "trainer" && (id < 1 || id > 1791)) fail("trainer ids are 1-949 (a/0/3/6), up to 1791 in a mod with X/Y's trainers");
             z.Characters.push_back(c);
             z.Shared.push_back({share < 0 ? -1 : z.Number, share, share < 0 ? -1 : 0});
         }
@@ -644,6 +646,8 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         for (const ZoneCharacter& c : zone.Characters) nextId = std::max(nextId, (int)c.Raw[0] + 1);
         for (const auto& c : z.Characters)
         {
+            if (c[6] == 1 && (size_t)(c[4] - 3000) >= ws.Edited("a/0/3/6").Count())
+                throw FormatError("sandbox: trainer " + std::to_string(c[4] - 3000) + " is not in a/0/3/6 (a mod's trainers need --onto)");
             zone.Characters.push_back(NewCharacter(nextId, c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[6] == 1 ? c[7] : 0));
             snprintf(line, sizeof line, "zone %d: character %d (model %d) at tile (%d, %d)", z.Number, nextId, c[0], c[1], c[2]);
             log.push_back(line);
