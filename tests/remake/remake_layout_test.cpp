@@ -108,7 +108,8 @@ int main()
         check(o.size() == x.size() + 4 && o[0x1C] == 0xA0 && o[0x1E] == 41 && o[0x1F] == 3 && o[0x2E] == 0 && o[0x31] == 0 &&
               o[0x32] == 29 && o[0x3E] == 0x9 && o[0x40] == 7 && o[o.size() - 1] == 0xFF && seen == std::vector<int>{0xA0, 0x9},
               "an X/Y sequence renumbered, an argument grown with zeros, a record changed by the caller");
-        check(XySequenceCommand(0x14) == 0x15 && XySequenceCommand(0x6C) == 0x75 && XySequenceCommand(0xB8) == 0xD3, "X/Y's sequence commands as Omega Ruby's");
+        check(XySequenceCommand(0x14) == 0x15 && XySequenceCommand(0x6C) == 0x75 && XySequenceCommand(0xB8) == 0xD3 &&
+              XySequenceCommand(0x32) == 0x38 && XySequenceCommand(0x9B) == 0xA5, "X/Y's sequence commands as Omega Ruby's");
     }
     printf(ok ? "all passed\n" : "FAILED\n");
     return ok ? 0 : 1;

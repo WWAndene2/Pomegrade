@@ -7,8 +7,9 @@
 // FUN_003C4F98, FUN_003C4DF0) hands each record to DllBattle and moves on by the command's argument size from DllBattle's
 // table (Omega Ruby's 213 commands at 0x10108800, X's 186 at 0x100FB1F8), or further when the command read more (some
 // commands' arguments vary: those are refused here). Omega Ruby inserted 27 commands into X's list, so X's numbers are
-// renumbered (XySequenceCommand); a command whose arguments grew in Omega Ruby gets zeros after X's (seen: X 0x14 and 0x97,
-// Omega Ruby's own uses hold 0 there).
+// renumbered (XySequenceCommand); a command whose arguments grew in Omega Ruby gets zeros after X's (X 0x14, 0x19, 0x1D, 0x32,
+// 0x45, 0x97: most of Omega Ruby's own uses of the longer command hold 0 there, 44 of 58 to 1179 of 1231, a/0/3/4 counted;
+// X 0xA0 -> 0xAA: Omega Ruby's handler (0x100ABBEC) takes 0 as its default 0.2, 1 use of 6; inferred to be X's value).
 
 #include "Bytes.h"
 
@@ -19,7 +20,10 @@ namespace remake
 {
 
 // X's command n as Omega Ruby's: an ordered alignment of both DllBattles' command handlers by their code (masked branches and
-// relocated words), confirmed by the variable-size commands pairing (X 0x6C, 0x19, 0xB8 -> 0x75, 0x1A, 0xD3)
+// relocated words), confirmed by the variable-size commands pairing (X 0x6C, 0x19, 0xB8 -> 0x75, 0x1A, 0xD3); checked again on
+// both games' handlers decompiled (Ghidra, 22 October: the arguments each reads, the values it tests, the calls it makes),
+// which moved two weak pairs: X 0x32 -> 0x38 (was 0x39: X 0x32 tests -1/100/0x65 as Omega Ruby's 0x38 does) and X 0x9B ->
+// 0xA5 (was 0xA4)
 uint16_t XySequenceCommand(uint16_t xCommand);
 
 // xSequence made Omega Ruby's, the commands renumbered and their arguments sized from each game's DllBattle (xSizes: X's
