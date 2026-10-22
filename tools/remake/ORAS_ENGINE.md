@@ -108,7 +108,7 @@ is tested on the phone.
   X's grounds are so. The block's cause, found after: oras-engine left DllBackGround's grounds (and second light, sceneries)
   on the game's tables (a relocation not neutralised, fixed in PointLiteralAt), so X's grounds from 93 read past them; the
   8 converted grounds now draw right (runs bgv1fix, bgw5-bgw62: beach, snow, cliffs, city, town, meadow, autumn, route).
-- **In progress (22 October): Kalos's context intros, X/Y's own** (leaders, Elite Four, Champion). X's sequence played as
+- **Done headless (22 October): Kalos's context intros, X/Y's own** (leaders, Elite Four, Champion). X's sequence played as
   is in Omega Ruby (Grant's, X/Y a/0/3/6 832, its name's texture renamed) stopped the game (null read at 0x0078086C,
   run xi1). Read, step 1 (the format): a sequence (Omega Ruby's a/0/3/4, X's a/0/3/6) is "SESD", u32 2, u32 0, u32 the
   last frame, then records {u32 start frame, u32 end frame, u16, u16 (version 2), u16 command, arguments} ending with
@@ -121,8 +121,16 @@ is tested on the phone.
   commands, which pair the same (X 0x6C, 0x19, 0xB8, 0x67, 0x6E, 0x2E -> Omega Ruby 0x75, 0x1A, 0xD3, 0x70, 0x77, 0x34).
   X's 13 Kalos intros (a/0/3/6 831-843) parse whole and use 25 commands; 23 take the same argument size in both games,
   2 one u32 more in Omega Ruby, always 0 there, after X's same bytes (X 0x14 -> 0x15: 32 -> 36; X 0x97 -> 0xA0: 16 ->
-  20). Handlers paired by a weaker likeness, to check: X 0x14, 0x5B, 0x97, 0xA5 (-> 0x15, 0x64, 0xA0, 0xC0). Next: the
-  resources the intros name (textures such as gym_vs.bclim, numbers), then a converted sequence played headless.
+  20). Handlers paired by a weaker likeness: X 0x14, 0x5B, 0x97, 0xA5 (-> 0x15, 0x64, 0xA0, 0xC0), checked in use below.
+  Step 2, **done headless (22 October)**: the resources. Command 0xA0's first argument is a screen layout of a/0/3/3
+  (X's a/0/3/5: gym_01-08, big_four_01-04, champion, the same names as Omega Ruby's but other files: X's appended); 0xA9
+  names a pane and a texture of a/2/1/4 (the drawn name, X's under its new name; gym_vs, big_four_vs, champion_vs the same
+  file in both games; champ_font another, X's added as champ_font02); the effects (0x5D, 0x64) name the same numbers with
+  the same arguments as Omega Ruby's own intros (a/0/3/4 844). OrasXySequence.h converts; AddXyTrainers plays X's own
+  sequence for each Kalos intro (the Omega Ruby copies and the Champion name's crop removed). Runs xi5 (Grant: his
+  silhouette, X's gym_02 layout, his portrait and name, the battle goes on), xi5_170 and xi5_174 (his battle given the
+  Elite Four's and the Champion's intro: X's stained-glass and rose-window screens, "Thymeo", "Diantha / Maitre de la
+  Ligue"). Not checked: against X running, the Elite Four and Champion in their own battles, on the phone.
 - **Before, the owner's item: Grant's own battle intro.** X's leaders show Brawly's portrait and name
   ("Bastien") in their intro. Found: the intro is chosen by the battle type record's word +4 alone (0x27-0x2E Omega
   Ruby's 8 leaders, 0x38-0x3E the Elite Four; run hI2: Grant's type given 0x27 shows Roxanne's portrait, name and rocks);

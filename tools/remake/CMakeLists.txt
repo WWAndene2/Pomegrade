@@ -88,6 +88,7 @@ add_library(remake STATIC
     src/Layout.cpp
     src/OrasXyTrainers.cpp
     src/OrasXyBackgrounds.cpp
+    src/OrasXySequence.cpp
     src/OrasXyNatives.cpp
     src/OrasXyNickname.cpp
     src/OrasXyZoneWalk.cpp

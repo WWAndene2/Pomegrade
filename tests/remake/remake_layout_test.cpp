@@ -3,9 +3,11 @@
 #include "Bclim.h"
 #include "Darc.h"
 #include "Layout.h"
+#include "OrasXySequence.h"
 
 #include <cstdio>
 #include <cstring>
+#include <vector>
 #include <string>
 
 using namespace remake;
@@ -86,6 +88,28 @@ int main()
     check(text.find("txl1: 1 logo.bclim") != std::string::npos, "txl1 texture names");
     check(text.find("    pic1 N_Logo: at (10, -20, 0), rotation (0, 0, 45), scale (1, 1), size 256 x 128, alpha 255") != std::string::npos,
           "a pane nested under pas1, with its transform");
+    {
+        // XySequenceToOras: X's command 0x97 (16 bytes of arguments) is Omega Ruby's 0xA0 (20: zeros added), X's 0x9 stays 0x9;
+        // the header, the records' frames and the end mark kept, the record handed over with Omega Ruby's number
+        Bytes xSizes(4 * 186, 0), oSizes(4 * 213, 0);
+        xSizes[4 * 0x97] = 16; oSizes[4 * 0xA0] = 20; xSizes[4 * 0x9] = 8; oSizes[4 * 0x9] = 8;
+        Bytes x = {'S', 'E', 'S', 'D', 2, 0, 0, 0, 0, 0, 0, 0, 0xE6, 0, 0, 0};
+        const auto record = [&](uint32_t start, uint16_t command, uint8_t fill, size_t n) {
+            for (int k = 0; k < 4; k++) x.push_back((uint8_t)(start >> (8 * k)));
+            for (int k = 0; k < 4; k++) x.push_back((uint8_t)(start >> (8 * k)));
+            x.insert(x.end(), {0, 0, 0, 0, (uint8_t)command, (uint8_t)(command >> 8)});
+            x.insert(x.end(), n, fill);
+        };
+        record(0, 0x97, 3, 16);
+        record(29, 0x9, 7, 8);
+        x.insert(x.end(), {0xFF, 0xFF, 0xFF, 0xFF});
+        std::vector<int> seen;
+        const Bytes o = XySequenceToOras(x, xSizes, oSizes, [&](uint16_t c, Bytes& a) { seen.push_back(c); if (c == 0xA0) a[0] = 41; });
+        check(o.size() == x.size() + 4 && o[0x1C] == 0xA0 && o[0x1E] == 41 && o[0x1F] == 3 && o[0x2E] == 0 && o[0x31] == 0 &&
+              o[0x32] == 29 && o[0x3E] == 0x9 && o[0x40] == 7 && o[o.size() - 1] == 0xFF && seen == std::vector<int>{0xA0, 0x9},
+              "an X/Y sequence renumbered, an argument grown with zeros, a record changed by the caller");
+        check(XySequenceCommand(0x14) == 0x15 && XySequenceCommand(0x6C) == 0x75 && XySequenceCommand(0xB8) == 0xD3, "X/Y's sequence commands as Omega Ruby's");
+    }
     printf(ok ? "all passed\n" : "FAILED\n");
     return ok ? 0 : 1;
 }
