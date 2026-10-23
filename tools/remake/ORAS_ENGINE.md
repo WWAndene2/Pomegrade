@@ -115,6 +115,20 @@ where it found only a copy):
   module is ported with the gym modules' tooling (27 imports: 8 same, 4 near, 2 several, 11 none, 2 data). A zone has
   dust clouds when it is given that module's area kind (Hoenn's too). Not read: whether `DllUSR13` loads its spots from
   an archive (B2's first 15 minutes).
+  **B2 read further (23 October, static)**: the event's vtable X 0x102FEF4C holds 0x10239B54 (destructor), 0x10239B0C,
+  0x10239668, 0x1023969C (start: allocates the 0x84-byte cloud effect, X's 0x10250D68, on the field's heap at
+  [field+0x48]+0x10, starts it with 0x10250CC4, stops the player [field+0x48]+0x158's method 0xC, keeps
+  [field+0x48]+0x198, `DllUSR13`'s object), 0x10239704 (update, 12 states: the effect runs (0x10250D1C/D00/D54/CE0/D34),
+  `DllUSR13`'s 0x107AF818 marks the spot used (its list at +0x18, 6-byte entries: +2 the spot, +4 cleared; count +0x6C),
+  then the battle X 0x1029B1E4: Rock Smash's shape with table kind 0x16 and X's start 0x3BC140(..., 3), the player
+  object's checks (0x4A4734 bits 8 and 0x1000000), a fade, an object of 0x4C bytes (vtable X 0x10239AE4) on the
+  field's heap with 0x1CE040(0x16, ...)), 0x10239670 (frees the effect). The effect (0x10250D68) builds a 0x3C-byte
+  model object (X 0x1027EDAC(heap, ..., 4, 0, 8)) from a resource named by X's data 0x10250DEC: X's effect files,
+  to port with it. So B2 is the module, the event (6 methods), the effect class (7 functions) and its files, the
+  encounter of table kind 0x16 (X/Y's encounter file: its table for the cloud, OrasXyEncounters.h), and about 12
+  X field offsets to match to Omega Ruby's ([field+0x48] +0x10, +0xF4 (= +0x104), +0x158, +0x160, +0x198;
+  field +0x18, +0x1C (+0x188, +0x20), +0x2C (+0x34 = +0x1C), +0x54): more than phase A's 4-5 hours, about two
+  sessions;
 - `CallHideItemEncount` is empty in X: nothing to port.
 Code to port goes into **DllField's room** (below). Step 2 (Sky and Inverse Battles, Battle Chateau, 79 sounds) follows.
 
