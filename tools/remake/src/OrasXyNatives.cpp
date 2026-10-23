@@ -16,7 +16,7 @@ namespace
 {
 constexpr uint32_t MaskTest = 0x3FBDA0;      // `tst r4, #0x400` in Script_RegisterNativeTablesByMask (r4 the mask, r5 the list)
 constexpr uint32_t MaskTestWord = 0xE3140B01;
-constexpr uint32_t Routine = 0x579E80;       // to 0x579EC7 (0x579E80-0x579EFB is this file's)
+constexpr uint32_t Routine = 0x579E80;       // to 0x579EC7 (X/Y's scripted wild battles follow: OrasEngine.cpp --xy-static-wild)
 constexpr uint32_t LinkTail = 0x506178;      // Script_LinkNativeImports' `bl` of the bit-0x400 table getter (r4 the list)
 constexpr uint32_t Getter400 = 0x19C910;     // that getter's .code stub
 // the .code's import stub to DllField's bit-2 table getter is `ldr pc, [pc, #-4]` and the getter's address, which the

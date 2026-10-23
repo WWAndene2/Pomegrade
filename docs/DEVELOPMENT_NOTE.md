@@ -271,11 +271,15 @@ X/Y's zones (X/Y's encounter entries and types, hordes on X/Y's tiles with X/Y's
 What is left, in working order (23 October, owner's request: the order that makes the work quickest). The reasons:
 finish a block while its code is read and its tools set up; search before building, so the list is whole and nothing is
 redone; the zones before what runs in them; one phone check per block, not per change.
-1. Finish wild battles (the encounter code is mapped, one hook pattern, one session per test): Sweet Scent's type in
-   X/Y's zones (X/Y's type 6; likely, not read in Omega Ruby yet); X/Y's field encounters its own content never calls
-   (`CallDustBoxEncount`, `CallTsuchikemuriEncountEvent`, `CallHideItemEncount`'s event: the same entries and types);
-   scripted wild battles of X/Y's zones (`CallWildBattle`'s numbers name Omega Ruby's table, not X/Y's: 6 zones, its
-   legendaries and static Pokemon).
+1. Finish wild battles (read 23 October in both games' code; ORAS_ENGINE.md 0.1). Done: X/Y's 13 scripted wild battles
+   (`CallWildBattle` 59-71, run sw: X's Snorlax, control Omega Ruby's entry 0). Sweet Scent's battle needs nothing more
+   (both games run the step check forced, the type from the ported entries, X/Y's forced horde already ported). Left:
+   Sweet Scent's refusal in X/Y by the zone's weather (X/Y's FUN_10223730: values 0-13, 21, 23 allowed, else its
+   message 0x27B6; Omega Ruby has none: the weather numbers of both games to compare, the message to port);
+   `CallDustBoxEncount` (a fixed wild battle, X/Y's type 21, from a table at +0x18C of the game data, its source not
+   found) and `CallTsuchikemuriEncountEvent` (X/Y's own field sequence class): X/Y's DllField code to port into Omega
+   Ruby's, with the natives added, a tool not written yet (DllField's cave is full: 0 bytes left after 23 October).
+   `CallHideItemEncount` is empty in X/Y: nothing to port.
 2. Finish battles (the battle modules are mapped): Sky and Inverse Battles, the Battle Chateau, the 79 sound effects
    and cries with no match.
 3. Phone check of the battle block (everything of 22-23 October).

@@ -190,6 +190,7 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
         source = XyMoveTrainers(source, notes);
         if (backgrounds) source = XyMoveBackgrounds(source, *backgrounds, notes);
         source = XyMoveBadges(source, notes);
+        source = XyMoveWildBattles(source, notes);
         // the message files it loads (MsgLoad's (table, n), XyMessageMember): X/Y's member added once in its eight languages
         // (system text: X/Y's a/0/7/2-9 -> a/0/7/1-8; story text: X/Y's a/0/8/0-7 -> a/0/7/9-a/0/8/6), named 0x100 + the new
         // member (oras-engine --xy-messages on). B's nickname scene read Omega Ruby's file of the same n: an empty nickname

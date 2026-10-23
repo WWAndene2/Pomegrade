@@ -98,6 +98,12 @@ std::string XyMoveBackgrounds(const std::string& source, struct XyBackgroundNumb
 std::string XyMoveBadges(const std::string& source, std::vector<std::string>& notes);
 constexpr int XyBadgeFirst = 8;
 
+// X/Y's scripted wild battles (CallWildBattle's argument when a constant 0-12, or the constant each call of the script's own
+// procedure passes for it) made the mod's 59-71: X/Y's 13 entries appended after Omega Ruby's 59 (oras-engine
+// --xy-static-wild, written by oras-xy-world); one computed is in `notes`, not moved
+std::string XyMoveWildBattles(const std::string& source, std::vector<std::string>& notes);
+constexpr int XyStaticWildFirst = 59, XyStaticWildCount = 13;
+
 // X/Y's MsgLoad(table, n): n 0-21 picks a member of an archive of table 8 (X's DllField, its MsgLoad's switch, read 20
 // October: 0 -> 0x8E ... 21 -> 0x4F); -1 past them. The first argument picks the archive, as Omega Ruby's (0x1029EF60): 0
 // the system text (X/Y's a/0/7/2-9, Omega Ruby's a/0/7/1-8: X/Y's 0x4F the nickname list), else the story text (X/Y's

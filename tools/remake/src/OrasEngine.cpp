@@ -822,6 +822,59 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         snprintf(line, sizeof line, "wild battles: X/Y's 12 encounter effect entries at 0x%X, its fishing and Rock Smash types %u and %u in its zones", table, xFishing, xRockSmash);
         log.push_back(line);
     }
+    if (!o.XyStaticWild.empty())
+    {
+        // X/Y's scripted wild battles (read 23 October, ORAS_ENGINE.md 0.1): CallWildBattle(n) (Omega Ruby's 0x10295D38, X's
+        // 0x1028A330) starts the entry n of a static table of 12-byte entries, read the same way in both games
+        // (Field_WildEncounter_StartFromTable, X's FUN_1029A6DC): species +0, form +2, level +3, item +4, +6 bits (2 the
+        // gender, 2-3, 4-6, 7-14 a mode: 1, 2, 3 battle flags 0x80, 4, 0x200 in both), +8 +9 the two backgrounds (as
+        // _CallTrainerBattleCore's arguments 4 and 5), +10 the battle type. Omega Ruby's 59 (DllField 0xF1B20, its literal at
+        // 0x8A148), X/Y's 13 appended in the .code at 0x579EC8-0x579F63 (in the zeros past the X/Y natives' stubs, which end at
+        // 0x579EC7, before the trainer flags at 0x579F80; DllField's cave has no room left for them, 156 bytes) and named
+        // 59-71 by X/Y's scripts (XyMoveWildBattles). Omega Ruby differs in two
+        // places, kept its own for its entries and left out for X/Y's: StartFromTable sets the context's flag 0x200 for modes 2,
+        // 3, 5 (X/Y's never); and its event's mode 3 also clears flag 0xBCE when set (0x003D9CDC; X/Y's 0x003BC520 only sets
+        // 0x200): not changed, X/Y's legendaries (mode 3) take it (unknown what flag 0xBCE is)
+        if (o.XyBattleTypes.empty()) throw FormatError("--xy-static-wild needs --xy-battle-types");
+        const Bytes entries = ReadFile(o.XyStaticWild);
+        constexpr uint32_t gameEntries = 59, xyEntries = 13;
+        if (entries.size() != xyEntries * 12) throw FormatError("--xy-static-wild: 13 entries of 12 bytes");
+        const auto at = [](uint32_t file) { return DllFieldBase + file; };
+        constexpr uint32_t table = 0x579EC8;
+        for (uint32_t k = 0; k < xyEntries * 3; k++)
+            words.push_back({table + 4 * k, 0, (uint32_t)entries[4 * k] | (uint32_t)entries[4 * k + 1] << 8 | (uint32_t)entries[4 * k + 2] << 16 | (uint32_t)entries[4 * k + 3] << 24,
+                             "X/Y's scripted wild battles (cave)"});
+        const CroLayout layout(oras.Read("DllField.cro"));
+        uint32_t cave = DllFieldBase + layout.CodeEnd();
+        for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
+        // the entry's address (r5 n, r0 3n, r2 the game's table, free after): X/Y's past the game's 59, from an absolute
+        // literal (the .code is loaded where it is linked; the cave's words have no relocation)
+        croWords.push_back({at(0x8A090), 0xE0820100, Branch(at(0x8A090), cave, true), "Field_WildEncounter_StartFromTable: its entry from the cave"});
+        const uint32_t entry[8] = {
+            0xE3550000 | gameEntries,     // cmp r5, #59
+            0x30820100, 0x312FFF1E,       // addlo r0, r2, r0, lsl #2; bxlo lr (the game's)
+            0xE2400000 | 3 * gameEntries, // sub r0, r0, #177
+            0xE59F2004,                   // ldr r2, [pc, #4] (the entries)
+            0xE0820100,                   // add r0, r2, r0, lsl #2
+            0xE12FFF1E,                   // bx lr
+            table,
+        };
+        for (uint32_t k = 0; k < 8; k++) croWords.push_back({cave + 4 * k, 0, entry[k], "StartFromTable's entry (cave)"});
+        cave += 8 * 4;
+        // the context's flag 0x200 for modes 2, 3, 5: not for X/Y's entries (r2 the mode, stored at sp + 0x93 first)
+        croWords.push_back({at(0x8A0C0), 0xE3520002, Branch(at(0x8A0C0), cave, false), "Field_WildEncounter_StartFromTable's mode flag: to its cave"});
+        const uint32_t mode[5] = {
+            0xE3550000 | gameEntries,               // cmp r5, #59
+            0x25CD2093,                             // strbhs r2, [sp, #0x93] (the game's, skipped)
+            (Branch(cave + 8, at(0x8A0E0), false) & 0x0FFFFFFFu) | 0x2u << 28, // bhs: past the flag
+            0xE3520002,                             // cmp r2, #2 (the game's)
+            Branch(cave + 16, at(0x8A0C4), false),  // back to its cmpne r2, #3
+        };
+        for (uint32_t k = 0; k < 5; k++) croWords.push_back({cave + 4 * k, 0, mode[k], "StartFromTable's mode flag (cave)"});
+        cave += 5 * 4;
+        snprintf(line, sizeof line, "scripted wild battles: X/Y's 13 at 0x%X, CallWildBattle 59-71", table);
+        log.push_back(line);
+    }
     if (o.XyTrainers)
     {
         // the trainer flag routine above, in DllField's cave, for its three trainer flags (the one at 0x2133C after its bound)

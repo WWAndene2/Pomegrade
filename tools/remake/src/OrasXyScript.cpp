@@ -703,5 +703,30 @@ std::string XyMoveBadges(const std::string& source, std::vector<std::string>& no
     return out;
 }
 
+std::string XyMoveWildBattles(const std::string& source, std::vector<std::string>& notes)
+{
+    const std::vector<Line> lines = Split(source);
+    std::vector<std::string> text, names;
+    {
+        std::istringstream in(source);
+        for (std::string l; std::getline(in, l);) text.push_back(l);
+    }
+    for (const Line& l : lines) if (l.Op == "native" && l.Words.size() >= 2) names.push_back(l.Words[1]);
+    const auto nameOf = [&](size_t index) { return index < names.size() ? names[index] : std::string(); };
+    size_t moved = 0;
+    for (const Argument& a : NumberArguments(lines, nameOf, &notes, {{"CallWildBattle", 0}}))
+    {
+        if (!a.Other) continue;
+        const int v = (int)std::stol(lines[a.Line].Words.back(), nullptr, 0);
+        if (v < 0 || v >= XyStaticWildCount) { notes.push_back("wild battle " + std::to_string(v) + " at source line " + std::to_string(a.Line + 1) + ": not one of X/Y's 13, kept"); continue; }
+        text[a.Line] = "    " + lines[a.Line].Op + " " + std::to_string(XyStaticWildFirst + v) + "   ; X/Y's scripted wild battle " + std::to_string(v);
+        moved++;
+    }
+    if (moved) notes.push_back("scripted wild battles: " + std::to_string(moved) + " made the mod's, 59-71 (oras-engine --xy-static-wild)");
+    std::string out;
+    for (const std::string& l : text) out += l + "\n";
+    return out;
+}
+
 }
 

@@ -162,6 +162,24 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     // their battle backgrounds, X/Y's own (OrasXyBackgrounds.h): each value the taken zones use (header halfword 15, bits 7-13;
     // 0, none given, keeps Littleroot's), the scripts' battles and the pieces' tiles name
     for (const int z : taken) XyBackgroundValue(backgroundOf, (all.at(z).Header[15] >> 7) & 0x7F, true);
+    // X/Y's 13 scripted wild battles (CallWildBattle's table, X's DllField 0xEE46C, its literal at 0x1029A7D8 read 23 October:
+    // OrasEngine.cpp --xy-static-wild), their backgrounds (+8, +9; 0 none) and battle type (+10) made the mod's
+    Bytes staticWild;
+    if (!battleTypes.empty())
+    {
+        const Bytes cro = xRom.Read("DllField.cro");
+        constexpr size_t xTable = 0xEE46C, xEntries = 13;
+        if (cro.size() < xTable + xEntries * 12) throw FormatError("X/Y's DllField.cro too short for its scripted wild battles");
+        staticWild.assign(cro.begin() + (long)xTable, cro.begin() + (long)(xTable + xEntries * 12));
+        for (size_t e = 0; e < xEntries; e++)
+        {
+            uint8_t* entry = &staticWild[12 * e];
+            for (const size_t b : {8u, 9u})
+                if (entry[b]) entry[b] = (uint8_t)XyBackgroundValue(backgroundOf, entry[b], false);
+            if ((size_t)entry[10] * 24 >= battleTypes.size()) throw FormatError("X/Y's scripted wild battle " + std::to_string(e) + ": battle type " + std::to_string(entry[10]) + " not ported");
+            entry[10] = (uint8_t)(73 + entry[10]);
+        }
+    }
     const XyBackgrounds backgrounds = AddXyBackgrounds(ws, xRom, backgroundOf, log);
 
     // the zones
@@ -265,6 +283,13 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         std::filesystem::create_directories(o.OutDir);
         WriteFile(file, effects);
         engine += " --xy-wild-effects " + file;
+    }
+    if (!staticWild.empty())
+    {
+        const std::string file = (std::filesystem::path(o.OutDir) / "xy_static_wild.bin").string();
+        std::filesystem::create_directories(o.OutDir);
+        WriteFile(file, staticWild);
+        engine += " --xy-static-wild " + file;
     }
     if (largeEvents) engine += " --events large";
     engine += " --xy-trainers on";

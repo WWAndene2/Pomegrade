@@ -158,7 +158,13 @@ is tested on the phone.
   Wrong turns: the 'horde' of the controls wb4 and s3 was Omega Ruby's horde battle type forced on one Pokemon; and
   four horde tests ran at the zone's own chance, because mod_variant.sh rebuilt each change to one archive from the base
   mod, the last change dropping the earlier ones (fixed; found by reading the loaded file in the game's memory: `dump`
-  of the heap, the encounter file found by its slots). **All 9 of X/Y's wild intros checked 23 October (session iv)**: one game, the field state loaded
+  of the heap, the encounter file found by its slots). **Scripted wild battles, checked 23 October (session sw)**: both games' `CallWildBattle(n)` start entry n of a
+  static table of 12-byte entries read alike (Omega Ruby's 59 at DllField 0xF1B20, X/Y's 13 at its 0xEE46C): X/Y's 13
+  appended in the .code at 0x579EC8 and named 59-71 by X/Y's scripts (oras-engine --xy-static-wild, XyMoveWildBattles),
+  their types +73 and backgrounds made the mod's; a sandbox trigger calling 59 fought X's Snorlax, the control calling
+  0 Omega Ruby's Poochyena. Not established: what Omega Ruby's mode 3 extra (flag 0xBCE cleared) means for X/Y's
+  legendaries. Sweet Scent and X/Y's field encounters: DEVELOPMENT_NOTE.md 3e step 1. DllField's cave is full (its last
+  156 bytes taken here): the next DllField patch needs room found elsewhere. **All 9 of X/Y's wild intros checked 23 October (session iv)**: one game, the field state loaded
   before each battle and X/Y's effect entry 0's battle types written in memory (`poke`: DllField at 0x6F3000, the entries
   at 0x7E353C, types +4/+5) to X/Y's types 0, 5, 6, 7, 10, 19, 23, 25, 26 (intros 1, 3-8, A, B; 2 checked in f1): each
   plays whole (speed lines, water, cave, snow, sand, falling leaves, shadow, hexagons) with X/Y's own lines ("Votre
