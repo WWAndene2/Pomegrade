@@ -12,7 +12,7 @@
 # A file the mod patched (romfs_ext/PATH.bps) is then given whole in romfs/ and its patch removed. Run oras-engine on the
 # base mod before, never on the variant (it would write the engine's files back over the changes). The variant's title
 # state is a new one (fast_run.sh keys it by the mod's content): its first run boots once more, and random rolls differ
-# from the base mod's runs, so a test that needs an encounter wants oras-engine --wild-encounter always on the base.
+# from the base mod's runs: for a wild battle use retro_host's "until log:DllBattle MAX left:16,right:16" (walks until it).
 set -euo pipefail
 work=$(cd "$1" && pwd); base=$2; variant=$3; shift 3
 tool=$work/build-remake/remake_tool; game=$work/dumps/oras.3ds

@@ -17,6 +17,13 @@
 //   report                 every thread of the game: state, PC, LR, SP, code addresses on its stack
 //   save NAME / load NAME  a save state, <work dir>/NAME.state (the same mod must be loaded to use it)
 //   audio NAME / audio off the game's sound from then on into <work dir>/NAME.wav (16-bit stereo at the core's rate), or stop
+//   until COND MAX [CYCLE] frames run until COND holds, at most MAX, then "[frame N] until: met|not met after F frames";
+//                          COND: log:TEXT (a core log line holding TEXT, '_' for a space: log:DllBattle), change (the
+//                          screen differs from when it began), still:N (the screen unchanged N frames), bright>X /
+//                          bright<X (mean brightness 0-255); CYCLE: keys held in turn, KEYS:N,KEYS:N (left:16,right:16:
+//                          walking back and forth), none by default. Screen conditions need drawing: with drawing off,
+//                          one frame in 15 is drawn meanwhile (23 October: one command instead of a run per guess)
+//   burst NAME EVERY COUNT COUNT shots NAME_1..., one every EVERY frames (an intro, a transition)
 // Whatever the commands, a screen that stays the same for 10 seconds is reported once (a freeze).
 //
 // <work dir>/Azahar is the core's user folder: put the mod in Azahar/load/mods/000400000011C400/ and the save in
@@ -48,6 +55,10 @@ static unsigned long frame = 0;
 static double luminance = 0;
 static unsigned long logLines = 0;
 
+// "until log:TEXT": set when a core log line holds the text watched
+static std::string logWatch;
+static bool logSeen = false;
+
 static void Log(enum retro_log_level level, const char* format, ...)
 {
     char text[4096];
@@ -56,6 +67,7 @@ static void Log(enum retro_log_level level, const char* format, ...)
     vsnprintf(text, sizeof text, format, args);
     va_end(args);
     if (strstr(text, "CRO \"DllFieldEventPlayer\" loaded")) fieldUp = true;
+    if (!logWatch.empty() && strstr(text, logWatch.c_str())) logSeen = true;
     // the modules and the file system tell where the game is; the rest is printed up to a bound
     if (level >= RETRO_LOG_WARN || strstr(text, "CRO \"") || strstr(text, "LayeredFS") || logLines < 400)
         fprintf(stdout, "[frame %lu] %s%s", frame, text, text[0] && text[strlen(text) - 1] == '\n' ? "" : "\n");
@@ -502,6 +514,64 @@ static int RunScript(void* core, const char* path)
         }
         else if (cmd == "screen") { DrawFrames(); Screen(); DrawStop(); }
         else if (cmd == "shot") { DrawFrames(); Shot(arg); DrawStop(); }
+        else if (cmd == "until")
+        {
+            std::string max, cycle; words >> max >> cycle;
+            const unsigned long limit = strtoul(max.c_str(), nullptr, 10);
+            std::vector<std::pair<unsigned, unsigned long>> steps; // keys, frames
+            for (size_t at = 0; at < cycle.size();)
+            {
+                const size_t comma = cycle.find(',', at), colon = cycle.find(':', at);
+                const std::string part = cycle.substr(at, comma == std::string::npos ? std::string::npos : comma - at);
+                if (colon == std::string::npos || colon > at + part.size()) { printf("until: a cycle step is KEYS:FRAMES\n"); break; }
+                steps.push_back({Keys(part.substr(0, colon - at)), strtoul(part.c_str() + (colon - at) + 1, nullptr, 10)});
+                at = comma == std::string::npos ? cycle.size() : comma + 1;
+            }
+            const bool screen = arg.rfind("log:", 0) != 0;
+            const unsigned long everyWas = drawEvery;
+            const bool offWas = drawOff;
+            if (screen && drawOff && setSkipDraw) { drawOff = false; drawEvery = 15; setSkipDraw(false); }
+            logWatch.clear(); logSeen = false;
+            if (!screen) { logWatch = arg.substr(4); for (char& c : logWatch) if (c == '_') c = ' '; }
+            const uint64_t startHash = frameHash;
+            const double threshold = arg.size() > 7 ? strtod(arg.c_str() + 7, nullptr) : 0;
+            const unsigned long stillFor = arg.rfind("still:", 0) == 0 ? strtoul(arg.c_str() + 6, nullptr, 10) : 0;
+            unsigned long k = 0, stepAt = 0;
+            size_t step = 0;
+            bool met = false;
+            for (; k < limit && !met; k++)
+            {
+                if (!steps.empty())
+                {
+                    if (stepAt >= steps[step].second) { step = (step + 1) % steps.size(); stepAt = 0; }
+                    held = steps[step].first;
+                    stepAt++;
+                }
+                Step();
+                if (!screen) met = logSeen;
+                else if (arg == "change") met = frameHash != startHash;
+                else if (stillFor) met = frame - sameSince >= stillFor;
+                else if (arg.rfind("bright>", 0) == 0) met = luminance > threshold;
+                else if (arg.rfind("bright<", 0) == 0) met = luminance < threshold;
+                else { printf("until: unknown condition %s\n", arg.c_str()); break; }
+            }
+            held = 0;
+            logWatch.clear();
+            if (screen && setSkipDraw) { drawEvery = everyWas; drawOff = offWas; setSkipDraw(drawOff); }
+            printf("[frame %lu] until %s: %s after %lu frames, screen brightness %.1f\n", frame, arg.c_str(), met ? "met" : "NOT met", k, luminance);
+        }
+        else if (cmd == "burst")
+        {
+            std::string count; words >> count;
+            const unsigned long every = strtoul(count.c_str(), nullptr, 10);
+            std::string number; words >> number;
+            const unsigned long n = strtoul(number.c_str(), nullptr, 10);
+            for (unsigned long k = 1; k <= n; k++)
+            {
+                for (unsigned long f = 0; f + 3 < every; f++) Step();
+                DrawFrames(); Shot(arg + "_" + std::to_string(k)); DrawStop();
+            }
+        }
         else if (cmd == "frames")
         {
             // frames N NAME [KEYS]: N consecutive frames saved, NAME_000.ppm..., KEYS held meanwhile (test sequences for frame

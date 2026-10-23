@@ -193,20 +193,35 @@ is tested on the phone.
   citra_libretro`; the log's offsets + 0x563C6C are the image offsets of `N3dsRom::Files()` (Omega Ruby), a GARC member
   then read from its FATB. Files the mod patches are read by LayeredFS from memory, not logged.
 
-**A file-swap test, the short way** (23 October, after a day lost to hand-made copies): build the base mod once, with
-`oras-engine ... --wild-encounter always` when the test needs a wild battle (a battle on the first encounter step: random
-rolls differ between mods, and runs were lost to steps without one); `headless/mod_variant.sh <work> <base> <work>/out/var
+**A file-swap test, the short way** (23 October, after a day lost to hand-made copies): build the base mod once; `headless/mod_variant.sh <work> <base> <work>/out/var
 PATH=FILE PATH:N=FILE...` makes the variant (whole files, or archive members through `remake_tool mod-file` and
 `garc-set`, each read back); run it; `prototype/shot_sheet.py <run dir> <out.png>` puts the shots on one labelled sheet;
 with `POMEGRADE_ROMFS_TRACE=1`, `prototype/romfs_member.py <game.3ds> --log <run>/log.txt [--after FRAME]` lists what was
 read, grouped by archive (files the variant gives are not traced). `prototype/cgfx.py` lists a CGFX file's cameras and
 animations (view type, curves absent, constant or animated). **Method**: run the control first (the same variant with the
 game's own file), then change one thing per run.
+**The game's files** (23 October): `prototype/gamefs.py <work> ls|members|get|find|diff|where ... [--mod MOD] [--game
+x]` lists the RomFS (what the mod does to each file), an archive's members (size, type, first name in each), gets a
+file or member as the game or the mod has it, finds the members holding a text or bytes, lists the members a mod
+changes, adds or drops, and names the file and member at an image offset; archives are extracted once into
+`<work>/fscache`. First use: the mod's a/0/3/2 member 1031 is a BCH named `tile_test`, not X/Y's band camera
+(a/0/3/4 514) that the ported sequences' 0x407 names (not looked into further).
+**A game kept running** (23 October): `headless/session.py start <work> <name> --mod <mod> [--save S] [--hot PATH]`
+boots once (about 7.5 min for a mod not run before: its title state is made first), then `session.py do <work> <name>
+"<commands>"` runs retro_host commands in the same game and prints only what they report, with a sheet for two shots
+or more; `stop` ends it. retro_host's `until COND MAX [KEYS:N,...]` runs until a condition (`log:DllBattle`, `change`,
+`still:N`, `bright>X`), walking if a key cycle is given: a wild battle in about 100 frames (session s3), where whole
+runs were lost to steps without one; `burst NAME EVERY COUNT` takes a series of shots. `save NAME` / `load NAME` go
+back to a moment: s3 fought the same battle again after `load field` (Pidgey's colours looked off after the load: not
+looked into). Not working: `session.py swap` of a/0/3/4 (see its help). A forced-encounter patch tried on 23 October
+(StepCheck's rate exits skipped) left every battle black (sessions s1, s2 against s3) and was removed.
 
 **Pitfalls met, so they cost the next agent nothing**:
 - A GARC rewritten by hand needs its data section's size (FIMB, the word before the data offset) and its file size
   changed with its members: a test on 22-23 October whose GARC kept the old size failed for that alone, and its result
   (a "resource number bound") was wrong. Use `remake_tool garc-set`.
+- Two runs of different mods do not draw the same random numbers (their title states differ): encounters, hordes and
+  wild Pokemon change; compare within one session (`session.py`, `save`/`load`), or walk with `until`.
 - `pkill -f <word>` kills the calling shell when the word is in its own command line (exit 144), here too for
   `code_find.py`.
 - A run's log can grow to gigabytes after a fault and fill the disk: watch it (`stat` in a loop) and stop the host with

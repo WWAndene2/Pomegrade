@@ -4,9 +4,10 @@
 //   remake_tool extract <rom.nds> <path> <out>        one file (LZ data decompressed)
 //   remake_tool unpack <rom.nds> <path.narc> <dir>    every member of a NARC, decompressed
 //   remake_tool garc <file.garc> <dir>                every sub-file of a 3DS GARC, decompressed
+//   remake_tool romfs-ls <game.3ds> [prefix]           every RomFS file: path, size, image offset
 //   remake_tool mod-file <oras.3ds> <mod dir> <romfs path> <out>  a file as the mod gives it to the game: the mod's
 //                                                     romfs/ copy, else its romfs_ext/ patch applied to the game's, else the game's
-//   remake_tool mod-file <oras.3ds> <mod dir> <romfs path> <out>\n  remake_tool garc-set <in.garc> <out.garc> <member> <file>...  members replaced (or one past the last appended) by
+//   remake_tool romfs-ls <game.3ds> [prefix]\n  remake_tool mod-file <oras.3ds> <mod dir> <romfs path> <out>\n  remake_tool garc-set <in.garc> <out.garc> <member> <file>...  members replaced (or one past the last appended) by
 //                                                     Garc::Write, so offsets, sizes and the data section stay right
 //                                                     (a diagnostic copy of an archive; never a mod's member: ReplaceMember)
 //   remake_tool textures <file.nsbtx|.nsbmd> <dir>    every texture as PNG
@@ -180,7 +181,7 @@ static int Usage()
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone|zone-raised|crowd [N]\n"
                     "  remake_tool oras-zone-check <oras.3ds>\n"
-                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--character-models N] [--events large] [--story large] [--area-packs large] [--wild-tables large] [--wild-encounter always] [--xy-sounds FIRST:COUNT] [--xy-trainers on] [--badges 16] [--xy-battle-types FILE] [--xy-intros FILE] [--xy-backgrounds FILE] [--xy-wild-effects FILE] [--more-archives N] [--heap ID:BYTES]... [--start-zone N] [--xy-messages on] [--xy-gyms <x.3ds>]\n"
+                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--character-models N] [--events large] [--story large] [--area-packs large] [--wild-tables large] [--xy-sounds FIRST:COUNT] [--xy-trainers on] [--badges 16] [--xy-battle-types FILE] [--xy-intros FILE] [--xy-backgrounds FILE] [--xy-wild-effects FILE] [--more-archives N] [--heap ID:BYTES]... [--start-zone N] [--xy-messages on] [--xy-gyms <x.3ds>]\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
                     "                    [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]\n"
                     "  remake_tool oras-code <oras.3ds> <out.bin>\n"
@@ -444,6 +445,14 @@ int main(int argc, char** argv)
                     written++;
                 }
             printf("%zu entries, %zu files\n", garc.Count(), written);
+            return 0;
+        }
+        if (cmd == "romfs-ls" && argc >= 3)
+        {
+            N3dsRom rom(argv[2]);
+            const std::string prefix = argc > 3 ? argv[3] : "";
+            for (const auto& [path, at] : rom.Files())
+                if (path.rfind(prefix, 0) == 0) printf("%s\t%llu\t0x%llX\n", path.c_str(), (unsigned long long)at.second, (unsigned long long)at.first);
             return 0;
         }
         if (cmd == "mod-file" && argc >= 6)
@@ -796,11 +805,6 @@ int main(int argc, char** argv)
                 {
                     if (value != "large") throw FormatError("--wild-tables large (X/Y's land tables, kinds 9-12)");
                     o.LargeWildTables = true;
-                }
-                else if (flag == "--wild-encounter")
-                {
-                    if (value != "always") throw FormatError("--wild-encounter always (a diagnostic: a battle on every encounter step)");
-                    o.WildEncounterAlways = true;
                 }
                 else if (flag == "--area-packs")
                 {

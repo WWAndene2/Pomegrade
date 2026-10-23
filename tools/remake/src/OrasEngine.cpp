@@ -741,16 +741,6 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         for (uint32_t k = 0; k < 20; k++) croWords.push_back({cave + 4 * k, 0, select[k], "Field_WildEncounter_SelectTable (cave)"});
         log.push_back("wild tables: kinds 9-12 (X/Y's land tables 1-4) on tiles 0x21-0x23 and kinds Omega Ruby has none for");
     }
-    if (o.WildEncounterAlways)
-    {
-        // A diagnostic (23 October: wild-battle tests lost whole runs to steps without an encounter): Field_WildEncounter_
-        // StepCheck's two exits on the rate (read: a tile rate of 0, then random(100) against the rate) skipped, so every
-        // step on an encounter tile starts a battle; its horde roll is left as it is. Never for a mod someone plays
-        constexpr uint32_t at = DllFieldBase;
-        croWords.push_back({at + 0x8B484, 0x1A000032, 0xE320F000, "Field_WildEncounter_StepCheck: a rate of 0 does not stop it (nop)"});
-        croWords.push_back({at + 0x8B550, 0x8A000002, 0xEA000002, "Field_WildEncounter_StepCheck: the rate roll always passes (b)"});
-        log.push_back("wild encounters: one on every encounter step (diagnostic)");
-    }
     if (!o.XyWildEffects.empty())
     {
         // X/Y's wild battle types (read 22 October, ORAS_ENGINE.md 0.1). A step encounter's battle type is the encounter effect
