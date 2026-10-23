@@ -2,6 +2,7 @@
 #include "Bps.h"
 #include "CodePatch.h"
 #include "OrasSave.h"
+#include "OrasXyDustBox.h"
 #include "OrasXyGymModules.h"
 #include "OrasXySound.h"
 #include "OrasXyTrainers.h"
@@ -936,9 +937,19 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         }
         for (uint32_t k = 0; k < 12; k++) croWords.push_back({cave + 4 * k, 0, TrainerFlagRoutine[k], "trainer flags (cave)"});
     }
-    if (std::any_of(o.ScriptMasks.begin(), o.ScriptMasks.end(), [](const auto& m) { return (m.second & XyNativesBit) != 0; }))
+    if (!o.XyDustBox.empty())
     {
-        // X/Y's own natives (OrasXyNatives.h), for the zones whose mask holds their bit
+        // X/Y's dust boxes (OrasXyDustBox.h): the placed prop's routine in DllField's cave (the room's part below)
+        if (!o.LargeStory || o.XyBattleTypes.empty() || o.FieldRoom < 0x1000) throw FormatError("--xy-dust-box needs --story large, --xy-battle-types and --field-room");
+        if (73 + ReadFile(o.XyBattleTypes).size() / 24 <= XyDustBoxBattleTypeNumber) throw FormatError("--xy-dust-box: X/Y's battle type 0x15 not in --xy-battle-types");
+        const CroLayout layout(oras.Read("DllField.cro"));
+        uint32_t cave = DllFieldBase + layout.CodeEnd();
+        for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
+        for (const CodeWord& w : XyDustBoxFieldPatchAt(cave)) croWords.push_back({w.Address, w.Expected, w.Value, w.Why});
+    }
+    if (!o.XyDustBox.empty() || std::any_of(o.ScriptMasks.begin(), o.ScriptMasks.end(), [](const auto& m) { return (m.second & XyNativesBit) != 0; }))
+    {
+        // X/Y's own natives (OrasXyNatives.h), for the zones whose mask holds their bit (and the dust boxes' shared script)
         const CroLayout layout(oras.Read("DllField.cro"));
         uint32_t cave = DllFieldBase + layout.CodeEnd();
         for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
@@ -1083,6 +1094,16 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
                                     0x1E0630u, 0x1E07B8u, 0x1E0A1Cu, 0x1E0DE0u, 0x1E15DCu, 0x1E1C14u})
             words.push_back({pool, table, moved, "a battle type reader's table"});
         snprintf(line, sizeof line, "battle types: %zu after the game's 73, the table at 0x%X", extra.size() / 24, moved);
+        log.push_back(line);
+    }
+    if (!o.XyDustBox.empty())
+    {
+        // X/Y's dust boxes (OrasXyDustBox.h): the table, X's tables and code in the room, the hooks calling it
+        N3dsRom xy(o.XyDustBox);
+        const XyDustBoxRoom box = XyDustBoxRoomAt(xy.Code(), code, roomAt);
+        if (roomPut(box.Room, "X/Y's dust boxes") != box.Table) throw FormatError("--xy-dust-box: the room moved");
+        words.insert(words.end(), box.Code.begin(), box.Code.end());
+        snprintf(line, sizeof line, "dust boxes: X/Y's table at 0x%X, its filler, reset and hooks", box.Table);
         log.push_back(line);
     }
     // the gyms' archives (OrasXyGymModules.h: numbers past 299 that are ARM immediates, 0x130...) take this table too, as

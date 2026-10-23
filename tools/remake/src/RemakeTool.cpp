@@ -181,7 +181,7 @@ static int Usage()
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone|zone-raised|crowd [N]\n"
                     "  remake_tool oras-zone-check <oras.3ds>\n"
-                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--character-models N] [--events large] [--story large] [--area-packs large] [--wild-tables large] [--xy-sounds FIRST:COUNT] [--xy-trainers on] [--badges 16] [--xy-battle-types FILE] [--xy-intros FILE] [--xy-band-camera FROM:TO] [--xy-backgrounds FILE] [--xy-wild-effects FILE] [--xy-static-wild FILE] [--field-room BYTES] [--more-archives N] [--heap ID:BYTES]... [--start-zone N] [--xy-messages on] [--xy-gyms <x.3ds>]\n"
+                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--character-models N] [--events large] [--story large] [--area-packs large] [--wild-tables large] [--xy-sounds FIRST:COUNT] [--xy-trainers on] [--badges 16] [--xy-battle-types FILE] [--xy-intros FILE] [--xy-band-camera FROM:TO] [--xy-backgrounds FILE] [--xy-wild-effects FILE] [--xy-static-wild FILE] [--field-room BYTES] [--more-archives N] [--heap ID:BYTES]... [--start-zone N] [--xy-messages on] [--xy-gyms <x.3ds>] [--xy-dust-box <x.3ds>]\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
                     "                    [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]\n"
                     "  remake_tool oras-code <oras.3ds> <out.bin>\n"
@@ -863,6 +863,7 @@ int main(int argc, char** argv)
                 }
                 else if (flag == "--start-zone") o.StartZone = (uint32_t)OptionNumber(value.c_str(), flag);
                 else if (flag == "--xy-gyms") o.XyGyms = value; // X/Y's image: its gym modules (OrasXyGymModules.h)
+                else if (flag == "--xy-dust-box") o.XyDustBox = value; // X/Y's image: its dust boxes (OrasXyDustBox.h)
                 else throw FormatError("oras-engine: unknown option " + flag);
             }
             N3dsRom oras(argv[2]);
