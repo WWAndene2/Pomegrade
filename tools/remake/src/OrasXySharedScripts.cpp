@@ -1,0 +1,158 @@
+#include "OrasXySharedScripts.h"
+
+#include "CodePatch.h"
+#include "Garc.h"
+#include "N3dsRom.h"
+#include "NitroCompression.h"
+#include "OrasTown.h"
+#include "OrasWorkspace.h"
+#include "OrasXyEvents.h"
+
+#include <cstdio>
+#include <map>
+#include <sstream>
+
+namespace remake
+{
+
+namespace
+{
+Bytes Plain(const Bytes& data) { return IsLzCompressed(data) ? LzDecompress(data) : data; }
+uint32_t Word(const Bytes& b, size_t at) { return (uint32_t)(b.at(at) | b.at(at + 1) << 8 | b.at(at + 2) << 16 | (uint32_t)b.at(at + 3) << 24); }
+uint16_t Half(const Bytes& b, size_t at) { return (uint16_t)(b.at(at) | b.at(at + 1) << 8); }
+void Put16(Bytes& b, uint32_t v) { b.push_back((uint8_t)v); b.push_back((uint8_t)(v >> 8)); }
+void Put32(Bytes& b, uint32_t v) { for (int k = 0; k < 4; k++) b.push_back((uint8_t)(v >> (8 * k))); }
+
+// X's table and its scripts' names (X's 0x3D9C64: its literals 0x5457A4 and 0x5AE760, its bound `cmp r5, #0x42`)
+constexpr uint32_t XRows = 0x5457A4, XRowCount = 66, XNames = 0x5AE760;
+constexpr size_t NameSize = 32;
+}
+
+std::vector<XyScriptRange> XyScriptRanges(const Bytes& xCode)
+{
+    std::vector<XyScriptRange> rows;
+    for (uint32_t k = 0; k < XRowCount; k++)
+    {
+        const size_t at = XRows - CodeBase + 16 * k;
+        rows.push_back({Half(xCode, at), Half(xCode, at + 2), Half(xCode, at + 4), Half(xCode, at + 6), Half(xCode, at + 8)});
+        if (rows.back().First < 2000 || rows.back().Last < rows.back().First) throw FormatError("X/Y's script ranges: a row not of an id range (not X/Y's code)");
+    }
+    return rows;
+}
+
+std::string XySharedScriptEdits(std::string source, int member, const std::vector<XyScriptRange>& rows)
+{
+    // its dispatch: a shared script picks its case by the id it is run for (objectencount.amx: `casetbl 11 ... 10480 L ...
+    // 10489 L`), so the case values in its own ranges move with its ids
+    for (size_t at = source.find("    casetbl "); at != std::string::npos; at = source.find("    casetbl ", at + 1))
+    {
+        const size_t end = source.find('\n', at);
+        std::istringstream in(source.substr(at + 12, end - at - 12));
+        std::string count, fallback, out;
+        in >> count >> fallback;
+        out = "    casetbl " + count + " " + fallback;
+        for (std::string value, label; in >> value >> label;)
+        {
+            int v = std::stoi(value);
+            for (const XyScriptRange& r : rows)
+                if (r.Member == member && v >= r.First && v <= r.Last) { v += XyScriptIdShift; break; }
+            out += " " + std::to_string(v) + " " + label;
+        }
+        source.replace(at, end - at, out);
+    }
+    if (member == 39)
+    {
+        // objectencount.amx: a can's flag is its spot + 3152 (0xC50, X's 0xC50-0xC59: OrasXyDustBox.h), computed, so not
+        // moved by XyScriptSource; the same value is the can prop's id (BuildMdlGetHandleByUniqID), which the zones keep, so
+        // only what FlagGet and FlagReset are given moves (XyFirstFlag + it)
+        size_t flags = 0;
+        for (const char* native : {"FlagGet", "FlagReset"})
+        {
+            const std::string from = std::string("    push.p.s -4\n    sysreq.n ");
+            for (size_t at = source.find(from); at != std::string::npos; at = source.find(from, at + 1))
+            {
+                const size_t line = at + 16, end = source.find('\n', line);
+                if (source.substr(line, end - line).find(std::string("; ") + native) == std::string::npos) continue;
+                source.replace(at, 16, "    load.p.s.pri -4\n    add.p.c " + std::to_string(XyFirstFlag) + "\n    push.pri\n");
+                flags++;
+            }
+        }
+        if (flags != 2) throw FormatError("X/Y's objectencount.amx: not its two flag calls (" + std::to_string(flags) + ")");
+    }
+    return source;
+}
+
+int XyScriptIds::ToOras(int id) const
+{
+    for (const XyScriptRange& r : Ranges)
+        if (id >= r.First && id <= r.Last) return id + XyScriptIdShift;
+    return id;
+}
+
+std::vector<Bytes> XySharedScriptsOf(N3dsRom& xRom, const std::set<int>& xMembers, const std::string& namesFile)
+{
+    const Garc scripts(xRom.Read("a/0/3/1"));
+    std::vector<Bytes> out;
+    for (const int m : xMembers) out.push_back(XyScriptToOras(Plain(scripts.Sub((size_t)m)), namesFile, 0x243).Script);
+    return out;
+}
+
+Bytes AddXySharedScripts(OrasWorkspace& ws, N3dsRom& xRom, const std::set<int>& xMembers, const XyNumbers& numbers,
+                         const std::string& namesFile, const XySounds* sounds, bool music, XyBackgroundNumbers* backgrounds,
+                         XyScriptIds& ids, std::vector<std::string>& log)
+{
+    const Bytes xCode = xRom.Code();
+    const std::vector<XyScriptRange> rows = XyScriptRanges(xCode);
+    const Garc scripts(xRom.Read("a/0/3/1"));
+    std::map<int, int> textOf; // X/Y's system text file -> the mod's
+    Bytes rowsOut, members;
+    uint32_t rowCount = 0;
+    for (const int m : xMembers)
+    {
+        if ((size_t)m >= scripts.Count()) throw FormatError("X/Y's shared script " + std::to_string(m) + ": no such member of a/0/3/1");
+        std::vector<std::string> notes;
+        const std::string source = XyScriptSource(XyScriptToOras(Plain(scripts.Sub((size_t)m)), namesFile, 0x243).Script, namesFile, numbers, notes);
+        uint32_t mask = 0x243;
+        const auto edit = [&](const std::string& moved) { return XySharedScriptEdits(moved, m, rows); };
+        const Bytes assembled = XyAssembleScript(ws, xRom, source, numbers, namesFile, sounds, music, backgrounds, edit,
+                                                 "X/Y shared script " + std::to_string(m), mask, notes, log);
+        const size_t member = AppendMember(ws.Edited("a/0/2/9"), ws.Original("a/0/2/9"), 0, assembled, "");
+        const uint32_t nameAt = Word(xCode, XNames - CodeBase + 4 * (size_t)m);
+        std::string name;
+        for (size_t c = nameAt - CodeBase; c < xCode.size() && xCode[c] && name.size() < NameSize - 1; c++) name.push_back((char)xCode[c]);
+        size_t ranges = 0;
+        for (const XyScriptRange& r : rows)
+        {
+            if (r.Member != m) continue;
+            if (r.TextKind != 1) throw FormatError("X/Y's shared script " + std::to_string(m) + ": a range whose text is not the system text's (kind " + std::to_string(r.TextKind) + ", not ported)");
+            if (!textOf.count(r.Text))
+            {
+                std::vector<Bytes> files;
+                for (int k = 0; k < 8; k++) files.push_back(Plain(Garc(xRom.Read("a/0/7/" + std::to_string(k + 2))).Sub(r.Text)));
+                textOf[r.Text] = ws.AddSystemTextFiles(files);
+            }
+            for (const uint32_t v : {(uint32_t)r.First + XyScriptIdShift, (uint32_t)r.Last + XyScriptIdShift, (uint32_t)member, 1u, (uint32_t)textOf[r.Text], 0u, 0u, 0u}) Put16(rowsOut, v);
+            ids.Add(r);
+            rowCount++;
+            ranges++;
+            char line[192];
+            snprintf(line, sizeof line, "X/Y shared script %d (%s): a/0/2/9 member %zu, ids %d-%d (X/Y's %d-%d), text file %d, mask 0x%X", m, name.c_str(),
+                     member, r.First + XyScriptIdShift, r.Last + XyScriptIdShift, r.First, r.Last, textOf[r.Text], mask);
+            log.push_back(line);
+        }
+        if (!ranges) throw FormatError("X/Y's shared script " + std::to_string(m) + ": no range names it");
+        for (const std::string& n : notes) log.push_back("  " + n);
+        Put16(members, (uint32_t)member);
+        Put16(members, 0);
+        Put32(members, mask);
+        for (size_t c = 0; c < NameSize; c++) members.push_back(c < name.size() ? (uint8_t)name[c] : 0);
+    }
+    Bytes file = {'X', 'Y', 'S', 'S'};
+    Put32(file, rowCount);
+    file.insert(file.end(), rowsOut.begin(), rowsOut.end());
+    Put32(file, (uint32_t)xMembers.size());
+    file.insert(file.end(), members.begin(), members.end());
+    return file;
+}
+
+}

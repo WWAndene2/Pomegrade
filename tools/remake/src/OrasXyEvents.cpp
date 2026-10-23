@@ -7,6 +7,7 @@
 #include "OrasTown.h"
 #include "OrasWorkspace.h"
 #include "OrasXyNatives.h"
+#include "OrasXySharedScripts.h"
 #include "OrasXySound.h"
 #include "OrasXyTrainers.h"
 #include "XyCharacter.h"
@@ -14,6 +15,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <filesystem>
+#include <functional>
 #include <sstream>
 
 namespace remake
@@ -86,9 +88,62 @@ static std::string XyParentFlagSteps(std::string source, std::vector<ZoneTrigger
     return source;
 }
 
+Bytes XyAssembleScript(OrasWorkspace& ws, N3dsRom& xRom, std::string source, const XyNumbers& numbers, const std::string& namesFile,
+                       const XySounds* sounds, bool music, XyBackgroundNumbers* backgrounds,
+                       const std::function<std::string(const std::string&)>& edit, const std::string& what, uint32_t& mask,
+                       std::vector<std::string>& notes, std::vector<std::string>& log)
+{
+    source = XyMoveZones(source, numbers.Zones, notes);
+    if (sounds) source = XyMoveSounds(source, *sounds, music, notes);
+    source = XyMoveTrainers(source, notes);
+    if (backgrounds) source = XyMoveBackgrounds(source, *backgrounds, notes);
+    source = XyMoveBadges(source, notes);
+    source = XyMoveWildBattles(source, notes);
+    // the message files it loads (MsgLoad's (table, n), XyMessageMember): X/Y's member added once in its eight languages
+    // (system text: X/Y's a/0/7/2-9 -> a/0/7/1-8; story text: X/Y's a/0/8/0-7 -> a/0/7/9-a/0/8/6), named 0x100 + the new
+    // member (oras-engine --xy-messages on). B's nickname scene read Omega Ruby's file of the same n: an empty nickname
+    // (run nk7, 20 October)
+    {
+        static std::map<std::pair<bool, int>, int> messageOf; // X/Y's file -> MsgLoad's argument; one X/Y game and workspace per run
+        std::set<std::pair<bool, int>> found;
+        std::vector<std::string> ignored;
+        XyMoveMessages(source, messageOf, found, ignored);
+        for (const auto& file : found)
+        {
+            const int xMember = XyMessageMember(file.second);
+            if (messageOf.count(file) || xMember < 0) continue;
+            std::vector<Bytes> files;
+            for (int k = 0; k < 8; k++)
+                files.push_back(Plain(Garc(xRom.Read(file.first ? "a/0/8/" + std::to_string(k) : "a/0/7/" + std::to_string(k + 2))).Sub((size_t)xMember)));
+            const int member = file.first ? ws.AddZoneTextFiles(files) : ws.AddSystemTextFiles(files);
+            messageOf[file] = 0x100 + member;
+            char line[160];
+            snprintf(line, sizeof line, "X/Y message file %d of its %s text (member 0x%X): member %d, MsgLoad's 0x%X", file.second,
+                     file.first ? "story" : "system", xMember, member, 0x100 + member);
+            log.push_back(line);
+        }
+        found.clear();
+        source = XyMoveMessages(source, messageOf, found, notes);
+    }
+    source = edit(source);
+    Bytes assembled;
+    for (int tries = 0;; tries++)
+    {
+        try { assembled = AmxAssemble(source, XyNativeCheck(namesFile, mask)); break; }
+        catch (const FormatError& err)
+        {
+            const std::string why = err.what();
+            const size_t bit = why.find("registered under bit ");
+            if (bit == std::string::npos || tries > 16) throw FormatError(what + ": " + why);
+            mask |= (uint32_t)std::stoul(why.substr(bit + 21), nullptr, 0);
+        }
+    }
+    return assembled;
+}
+
 XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNumbers& numbers, std::map<int, int>& modelOf,
                                const std::string& namesFile, const std::string& scriptDir, int orasZone, std::vector<std::string>& log, bool story,
-                               const XySounds* sounds, bool music, XyBackgroundNumbers* backgrounds)
+                               const XySounds* sounds, bool music, XyBackgroundNumbers* backgrounds, const XyScriptIds* scriptIds)
 {
     N3dsRom xRom(ws.XyRom);
     const Garc xZones(xRom.Read("a/0/1/2"));
@@ -98,6 +153,7 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
     for (ZoneFurniture f : x.Furniture)
     {
         f.Raw[4] = (uint16_t)(f.Raw[4] + dx); f.Raw[5] = (uint16_t)(f.Raw[5] + dz);
+        if (scriptIds) f.Raw[0] = (uint16_t)scriptIds->ToOras(f.Raw[0]);
         e.Furniture.push_back(f);
     }
     size_t storyPeople = 0;
@@ -136,6 +192,7 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
             if ((c.Raw[3] == 1 || c.Raw[3] == 3 || c.Raw[3] == 9) && c.Raw[5] > base && c.Raw[5] < base + XyTrainerCount)
                 c.Raw[5] = (uint16_t)(base + XyTrainerToOras(c.Raw[5] - base));
         c.Raw[20] = (uint16_t)(c.Raw[20] + dx); c.Raw[21] = (uint16_t)(c.Raw[21] + dz);
+        if (scriptIds) c.Raw[5] = (uint16_t)scriptIds->ToOras(c.Raw[5]);
         e.Characters.push_back(c);
     }
     if (!story && (!x.Triggers.empty() || storyPeople))
@@ -146,6 +203,7 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
         if (!story) break;
         t.Raw[2] = (uint16_t)moved(numbers.Works, t.Raw[2]);
         t.Raw[6] = (uint16_t)(t.Raw[6] + dx); t.Raw[7] = (uint16_t)(t.Raw[7] + dz);
+        if (scriptIds) t.Raw[0] = (uint16_t)scriptIds->ToOras(t.Raw[0]);
         e.Triggers.push_back(t);
     }
     // X/Y's fifth kind: step events that run the zone script's case [0] while work [2] equals [1] (zone 57's mirror stripes,
@@ -185,52 +243,12 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
             from = "translated";
         }
         else source = init ? EmptyInitScript : EmptyZoneScript;
-        source = XyMoveZones(source, numbers.Zones, notes);
-        if (sounds) source = XyMoveSounds(source, *sounds, music, notes);
-        source = XyMoveTrainers(source, notes);
-        if (backgrounds) source = XyMoveBackgrounds(source, *backgrounds, notes);
-        source = XyMoveBadges(source, notes);
-        source = XyMoveWildBattles(source, notes);
-        // the message files it loads (MsgLoad's (table, n), XyMessageMember): X/Y's member added once in its eight languages
-        // (system text: X/Y's a/0/7/2-9 -> a/0/7/1-8; story text: X/Y's a/0/8/0-7 -> a/0/7/9-a/0/8/6), named 0x100 + the new
-        // member (oras-engine --xy-messages on). B's nickname scene read Omega Ruby's file of the same n: an empty nickname
-        // (run nk7, 20 October)
-        {
-            static std::map<std::pair<bool, int>, int> messageOf; // X/Y's file -> MsgLoad's argument; one X/Y game and workspace per run
-            std::set<std::pair<bool, int>> found;
-            std::vector<std::string> ignored;
-            XyMoveMessages(source, messageOf, found, ignored);
-            for (const auto& file : found)
-            {
-                const int xMember = XyMessageMember(file.second);
-                if (messageOf.count(file) || xMember < 0) continue;
-                std::vector<Bytes> files;
-                for (int k = 0; k < 8; k++)
-                    files.push_back(Plain(Garc(xRom.Read(file.first ? "a/0/8/" + std::to_string(k) : "a/0/7/" + std::to_string(k + 2))).Sub((size_t)xMember)));
-                const int member = file.first ? ws.AddZoneTextFiles(files) : ws.AddSystemTextFiles(files);
-                messageOf[file] = 0x100 + member;
-                char line[160];
-                snprintf(line, sizeof line, "X/Y message file %d of its %s text (member 0x%X): member %d, MsgLoad's 0x%X", file.second,
-                         file.first ? "story" : "system", xMember, member, 0x100 + member);
-                log.push_back(line);
-            }
-            found.clear();
-            source = XyMoveMessages(source, messageOf, found, notes);
-        }
-        if (!init && from == "translated") source = XyParentFlagSteps(source, e.Triggers, firstStep, xZone, log);
+        const auto steps = [&](const std::string& moved) {
+            return !init && from == "translated" ? XyParentFlagSteps(moved, e.Triggers, firstStep, xZone, log) : moved;
+        };
         uint32_t mask = 0x243;
-        Bytes assembled;
-        for (int tries = 0;; tries++)
-        {
-            try { assembled = AmxAssemble(source, XyNativeCheck(namesFile, mask)); break; }
-            catch (const FormatError& err)
-            {
-                const std::string why = err.what();
-                const size_t bit = why.find("registered under bit ");
-                if (bit == std::string::npos || tries > 16) throw FormatError("X/Y zone " + std::to_string(xZone) + (init ? " init" : "") + " script (" + from + "): " + why);
-                mask |= (uint32_t)std::stoul(why.substr(bit + 21), nullptr, 0);
-            }
-        }
+        const Bytes assembled = XyAssembleScript(ws, xRom, source, numbers, namesFile, sounds, music, backgrounds, steps,
+                                                 "X/Y zone " + std::to_string(xZone) + (init ? " init" : "") + " script (" + from + ")", mask, notes, log);
         e.Mask |= mask;
         (init ? e.InitScript : e.Script) = assembled;
         if (!from.empty()) log.push_back("zone " + std::to_string(orasZone) + ": X/Y zone " + std::to_string(xZone) + "'s " + (init ? "init script" : "script") + ", " + from);

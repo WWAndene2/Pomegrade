@@ -83,8 +83,16 @@ where it found only a copy):
   the member of a/0/2/9 (archive 0x1D), the text kind, the text file; read by `Msg_ResolveTextSource` 0x3FB230, bound
   0x56), X through its own (X .code 0x5457A4, read by X's 0x3D9C64): member 39 is X's ids **10480-10529** (text file
   142), which in Omega Ruby are its own (rows 25-29: members 27, 56, 52, 83). The port gives it a free range (none past
-  12109 but 20000-20010) and moves the ids X/Y's zones name; which event words name script ids, and what else member
-  39 holds besides the cans, is not read yet;
+  12109 but 20000-20010) and moves the ids X/Y's zones name.
+  **B1 written (23 October; built and checked offline, not run)**: `oras-engine --xy-dust-box <x.3ds>` (OrasXyDustBox.h:
+  the table, X's block and the hooks in the room, the prop routine in DllField's cave, the 3 natives) and X/Y's shared
+  scripts (OrasXySharedScripts.h): X/Y's ids + 30000 (32000-50010; 20011-29999 and 50011-59999 free for new scripts),
+  the script appended to a/0/2/9 (objectencount.amx: member 85, ids 40480-40529, text file 175), the ids in furniture
+  word 0, character word 5 and trigger word 0 (the words holding ids of 2000 and up in X's 361 zones; only zones 318 and
+  349 name 10480-10489, the cans), `--xy-shared-scripts` copying the 86 rows, 96 masks and the names into the room.
+  objectencount.amx dispatches on its ids (`casetbl`, moved) and computes a can's flag as spot + 0xC50, also the can
+  prop's id: only FlagGet/FlagReset's argument moves. Left: the diary text of event 0x204 (0x205 for an item, the
+  script's own PokeDiarySet), an id a script passes to a native, the other 58 shared scripts (the next step);
 - **dust cloud**: no script imports `CallTsuchikemuriEncountEvent` (X 0x102914A0; ported anyway, owner's rule): the step
   does, X's 0x102265DC (0x5AC bytes, reached from 0x1022711C, 0x10227324; Omega Ruby's 0x10263014, 97%: the dust-cloud
   branch to add) creates `field::EventTsuchikemuriEncount` (0x34 bytes, vtable X 0x102FEF4C: 6 methods, about 350

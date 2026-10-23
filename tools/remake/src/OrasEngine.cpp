@@ -1096,6 +1096,55 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         snprintf(line, sizeof line, "battle types: %zu after the game's 73, the table at 0x%X", extra.size() / 24, moved);
         log.push_back(line);
     }
+    if (!o.XySharedScripts.empty())
+    {
+        // X/Y's shared scripts (OrasXySharedScripts.h, read 23 October): Msg_ResolveTextSource (0x3FB230) finds a script id's
+        // row in 86 rows (0x587678, its literal 0x3FB388, its bound `cmp r5, #0x56` at 0x3FB310), then by the row's member of
+        // a/0/2/9 its native mask (96 words at 0x587BD8, literal 0x3FB390) and its name (0x5F4704, literal 0x3FB38C); no
+        // other word of the .code or the modules points at them. Each is copied into the room, the game's first, the file's
+        // rows after them (the bound an ARM immediate: padded with rows of id 0xFFFF, which no event names) and its members'
+        // masks and names at their numbers
+        constexpr uint32_t rows = 0x587678, rowsWord = 0x3FB388, boundAt = 0x3FB310, masks = 0x587BD8, masksWord = 0x3FB390, names = 0x5F4704, namesWord = 0x3FB38C;
+        constexpr uint32_t gameRows = 0x56, gameMasks = 96, gameNames = 96;
+        const Bytes file = ReadFile(o.XySharedScripts);
+        if (file.size() < 12 || std::string(file.begin(), file.begin() + 4) != "XYSS") throw FormatError("--xy-shared-scripts: not an XYSS file");
+        const uint32_t added = U32(file, 4);
+        size_t at = 8 + 16 * (size_t)added;
+        if (file.size() < at + 4) throw FormatError("--xy-shared-scripts: its rows past the file's end");
+        const uint32_t memberCount = U32(file, at);
+        at += 4;
+        if (file.size() != at + 40 * (size_t)memberCount) throw FormatError("--xy-shared-scripts: not its members' size");
+        Bytes table(code.begin() + (rows - CodeBase), code.begin() + (rows - CodeBase) + 16 * gameRows);
+        table.insert(table.end(), file.begin() + 8, file.begin() + 8 + 16 * (long)added);
+        uint32_t count = gameRows + added;
+        while (!ArmImmediate(count)) count++;
+        for (uint32_t k = gameRows + added; k < count; k++) { Bytes pad(16, 0); pad[0] = pad[1] = pad[2] = pad[3] = 0xFF; table.insert(table.end(), pad.begin(), pad.end()); }
+        std::vector<uint32_t> maskOf(gameMasks), nameOf(gameNames);
+        for (uint32_t k = 0; k < gameMasks; k++) maskOf[k] = U32(code, masks - CodeBase + 4 * k);
+        for (uint32_t k = 0; k < gameNames; k++) nameOf[k] = U32(code, names - CodeBase + 4 * k);
+        Bytes strings;
+        std::vector<std::pair<uint32_t, size_t>> named; // a member, its name's offset in strings
+        for (uint32_t m = 0; m < memberCount; m++, at += 40)
+        {
+            const uint32_t member = (uint32_t)(file[at] | file[at + 1] << 8);
+            if (member >= 4096) throw FormatError("--xy-shared-scripts: a member past 4095");
+            if (member >= maskOf.size()) { maskOf.resize(member + 1, 0x243); nameOf.resize(member + 1, 0); }
+            maskOf[member] = U32(file, at + 4);
+            named.push_back({member, strings.size()});
+            strings.insert(strings.end(), file.begin() + at + 8, file.begin() + at + 40);
+        }
+        const auto words32 = [](const std::vector<uint32_t>& v) { Bytes b; for (const uint32_t w : v) for (int k = 0; k < 4; k++) b.push_back((uint8_t)(w >> (8 * k))); return b; };
+        const uint32_t rowsRoom = roomPut(table, "the script id ranges"), masksRoom = roomPut(words32(maskOf), "the shared scripts' native masks");
+        const uint32_t stringsRoom = roomPut(strings, "the shared scripts' names");
+        for (const auto& [member, offset] : named) nameOf[member] = stringsRoom + (uint32_t)offset;
+        const uint32_t namesRoom = roomPut(words32(nameOf), "the shared scripts' name table");
+        words.push_back({rowsWord, rows, rowsRoom, "Msg_ResolveTextSource's script id ranges"});
+        words.push_back({boundAt, 0xE3550000 | gameRows, 0xE3550000 | *ArmImmediate(count), "Msg_ResolveTextSource's row count"});
+        words.push_back({masksWord, masks, masksRoom, "Msg_ResolveTextSource's shared scripts' masks"});
+        words.push_back({namesWord, names, namesRoom, "Msg_ResolveTextSource's shared scripts' names"});
+        snprintf(line, sizeof line, "shared scripts: %u X/Y range(s) after the game's 86 rows (%u with padding) at 0x%X, %u member(s)", added, count, rowsRoom, memberCount);
+        log.push_back(line);
+    }
     if (!o.XyDustBox.empty())
     {
         // X/Y's dust boxes (OrasXyDustBox.h): the table, X's tables and code in the room, the hooks calling it

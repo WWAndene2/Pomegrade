@@ -15,6 +15,7 @@
 #include "OrasXyPiece.h"
 #include "OrasXySound.h"
 #include "OrasXyScript.h"
+#include "OrasXySharedScripts.h"
 #include "OrasXyTrainers.h"
 #include "OrasZone.h"
 
@@ -69,6 +70,8 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
             for (const Bytes* s : {&zone.Script, &zone.InitScript})
                 if (s->size() >= 16) scripts.push_back(XyScriptToOras(*s, o.NamesFile, 0x243).Script);
         }
+        // and the X/Y shared scripts ported (OrasXySharedScripts.h), whose flags are the same story's
+        for (const Bytes& shared : XySharedScriptsOf(xRom, XyPortedSharedScripts, o.NamesFile)) scripts.push_back(shared);
         numbers = XyNumbersFor(scripts, vanish, conditions);
     }
     const int firstZone = ws.NextZone();
@@ -81,10 +84,13 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     std::map<int, int> modelOf;
     std::map<int, XyEvents> events;
     XyBackgroundNumbers backgroundOf; // X/Y's battle backgrounds met, Omega Ruby's numbers (OrasXyBackgrounds.h)
+    // X/Y's shared scripts, before the zones' events name their ids (OrasXySharedScripts.h)
+    XyScriptIds scriptIds;
+    const Bytes sharedScripts = AddXySharedScripts(ws, xRom, XyPortedSharedScripts, numbers, o.NamesFile, o.Sounds, o.Music, &backgroundOf, scriptIds, log);
     std::map<int, std::vector<int>> packModels; // X/Y pack -> the Omega Ruby models its zones show
     for (const int z : taken)
     {
-        events[z] = XyEventsToOras(ws, z, 0, 0, numbers, modelOf, o.NamesFile, o.ScriptDir, numbers.Zones.at(z).Zone, log, o.Story, o.Sounds, o.Music, &backgroundOf);
+        events[z] = XyEventsToOras(ws, z, 0, 0, numbers, modelOf, o.NamesFile, o.ScriptDir, numbers.Zones.at(z).Zone, log, o.Story, o.Sounds, o.Music, &backgroundOf, &scriptIds);
         std::vector<int>& models = packModels[all.at(z).AreaPack()];
         for (const int m : events[z].Models) if (std::find(models.begin(), models.end(), m) == models.end()) models.push_back(m);
     }
@@ -323,6 +329,12 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     // with its story, a new game starts in X/Y zone 2, the player's bedroom in Vaniville (its mirror scene), at its header's
     // spawn (OrasEngine.h StartZone); that X/Y's own new game starts there is inferred, not read in X/Y's code
     if (o.Story && numbers.Zones.count(2)) engine += " --start-zone " + std::to_string(numbers.Zones.at(2).Zone);
+    {
+        const std::string file = (std::filesystem::path(o.OutDir) / "xy_shared_scripts.bin").string();
+        std::filesystem::create_directories(o.OutDir);
+        WriteFile(file, sharedScripts);
+        engine += " --xy-shared-scripts " + file;
+    }
     // the zones' scripts name X/Y's message files as 0x100 + their member (XyMoveMessages)
     engine += " --xy-messages on";
     if (o.Music && o.Sounds)
