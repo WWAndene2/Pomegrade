@@ -103,8 +103,13 @@ def do(a):
     info = json.load(open(state))
     before, lines = ready_count(log), sum(1 for _ in open(log, errors="replace"))
     t0 = time.time()
-    with open(fifo, "w") as f:
-        f.write("\n".join(c.strip() for c in a.commands.split(";") if c.strip()) + "\n")
+    try:  # non-blocking: a game that ended (or crashed) has no reader, and a plain open would wait for ever
+        fd = os.open(fifo, os.O_WRONLY | os.O_NONBLOCK)
+    except OSError:
+        raise SystemExit(f"{a.name}: the game is no longer running (see {log}); start a new session")
+    os.set_blocking(fd, True)
+    os.write(fd, ("\n".join(c.strip() for c in a.commands.split(";") if c.strip()) + "\n").encode())
+    os.close(fd)
     while ready_count(log) <= before:
         if time.time() - t0 > a.timeout:
             print(f"(still running after {a.timeout} s: its output so far)")
@@ -171,8 +176,14 @@ def stop(a):
     work = os.path.abspath(a.work)
     run, fifo, log, state = paths(work, a.name)
     if os.path.exists(fifo):
-        with open(fifo, "w") as f:
-            f.write("quit\n")
+        # non-blocking: a game already ended has no reader, and a plain open would wait for one for ever (23 October)
+        try:
+            fd = os.open(fifo, os.O_WRONLY | os.O_NONBLOCK)
+            os.write(fd, b"quit\n")
+            os.close(fd)
+        except OSError:
+            pass
+        os.remove(fifo)
     for p in (state, os.path.join(work, "sessions", a.name + ".out")):
         if os.path.exists(p):
             os.remove(p)
