@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <cstring>
 #include <map>
 #include <set>
 
@@ -58,6 +59,66 @@ Bytes WriteLayoutResource(const LayoutResource& r)
     out.insert(out.end(), darc.begin(), darc.end());
     return out;
 }
+}
+
+// X/Y's battle cameras in Aim view made LookAt, as Omega Ruby remade its own (read 23 October, ORAS_ENGINE.md 0.1): Omega
+// Ruby's wild-intro camera setup (DllBattle FUN_1005C418) keeps the camera's up vector (+0x59 of its camera object) and
+// fills it only for a LookAt view (FUN_004CB6A4, the view type; FUN_004CB63C, the up vector); X/Y's (FUN_10058438) has
+// neither, and its intro camera (a/0/3/4 513, poke_y_intro_01) is an Aim view, so in Omega Ruby the up vector stays unset
+// and the intro is black. Omega Ruby's own version of it (a/0/3/2 1016, poke_y_intro_01_CAM) is LookAt. An Aim view
+// whose twist is 0 and not animated (no ViewUpdater.Twist element) is exactly a LookAt view with the up vector (0, 1, 0):
+// the view is appended in that form (32 bytes after the file) and the camera pointed at it; the old view is left unused.
+// CGFX layout (SPICA's CtrGfx, checked on 513, 874, 1016): DATA's 16 (count, DICT) pairs from 0x1C, cameras the 6th;
+// a camera's view type at +0xB4 (0 Aim, 1 LookAt), its view at +0xBC (self-relative); an Aim view {0x80000000, flags,
+// target xyz, twist}, a LookAt view {0x40000000, flags, target xyz, up xyz}; file size at 0x0C, DATA's at 0x18
+static Bytes AimCamerasAsLookAt(const Bytes& file)
+{
+    if (file.size() < 0x9C || std::string((const char*)file.data(), 4) != "CGFX") return file;
+    Bytes d = file;
+    const auto u32 = [&](size_t at) { return (uint32_t)d.at(at) | (uint32_t)d.at(at + 1) << 8 | (uint32_t)d.at(at + 2) << 16 | (uint32_t)d.at(at + 3) << 24; };
+    const auto set = [&](size_t at, uint32_t v) { for (int b = 0; b < 4; b++) d.at(at + b) = (uint8_t)(v >> (8 * b)); };
+    const auto f32 = [&](size_t at) { uint32_t v = u32(at); float f; memcpy(&f, &v, 4); return f; };
+    const auto dict = [&](int section) {
+        std::vector<size_t> objects;
+        const size_t pair = 0x1C + 8 * (size_t)section;
+        if (!u32(pair)) return objects;
+        const size_t at = pair + 4 + u32(pair + 4);
+        if (std::string((const char*)&d.at(at), 4) != "DICT") throw FormatError("a CGFX camera file: no DICT");
+        for (uint32_t i = 0; i < u32(at + 8); i++) { const size_t e = at + 0x1C + 16 * i + 12; objects.push_back(e + u32(e)); }
+        return objects;
+    };
+    // a twist animated by one of the file's camera animations (an element named so; the name alone is in every camera
+    // file's strings): not this simple case. An animation's elements: a DICT at +0x1C (self-relative), names at its nodes' +8
+    for (const size_t animation : dict(12))
+    {
+        const size_t elements = animation + 0x1C + u32(animation + 0x1C);
+        for (uint32_t i = 0; i < u32(elements + 8); i++)
+        {
+            const size_t node = elements + 0x1C + 16 * i + 8, name = node + u32(node);
+            if (std::string((const char*)&d.at(name)) == "ViewUpdater.Twist") return file;
+        }
+    }
+    for (const size_t camera : dict(5))
+    {
+        if (u32(camera + 0xB4) != 0) continue;
+        const size_t view = camera + 0xBC + u32(camera + 0xBC);
+        if (u32(view) != 0x80000000) throw FormatError("a CGFX camera: view type 0 but not an Aim view");
+        if (f32(view + 20) != 0.0f) return file; // a twist: not this simple case
+        const uint32_t flags = u32(view + 4), lookAtFlags = (flags & 1) << 1 | (flags & 2) << 1; // inherit target rotation, translation
+        while (d.size() % 4) d.push_back(0);
+        const size_t at = d.size();
+        const float up[3] = {0.0f, 1.0f, 0.0f};
+        d.resize(at + 32);
+        set(at, 0x40000000);
+        set(at + 4, lookAtFlags);
+        memcpy(&d[at + 8], &d[view + 8], 12);
+        memcpy(&d[at + 20], up, 12);
+        set(camera + 0xB4, 1);
+        set(camera + 0xBC, (uint32_t)(at - (camera + 0xBC)));
+    }
+    set(0x0C, (uint32_t)d.size());
+    set(0x18, (uint32_t)d.size() - 0x14);
+    return d;
 }
 
 std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const XySounds* music, bool streams, Bytes* battleTypes, Bytes* intros)
@@ -258,6 +319,7 @@ std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const XySounds* music,
                 const bool compressed = IsLzCompressed(raw);
                 Bytes plain = compressed ? LzDecompress(raw) : raw;
                 if (Bch::Is(plain)) plain = BchUpgradeTo21(plain);
+                if (&k == &modelKind) plain = AimCamerasAsLookAt(plain);
                 const auto same = std::find(k.Game.begin(), k.Game.end(), plain);
                 uint32_t at;
                 if (same != k.Game.end()) { at = (uint32_t)(same - k.Game.begin()); k.Shared++; }

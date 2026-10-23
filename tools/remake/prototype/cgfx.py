@@ -49,7 +49,7 @@ def camera(d, o):
     view_type, projection = u32(d, o + 0xB4), u32(d, o + 0xB8)
     v, p = ptr(d, o + 0xBC), ptr(d, o + 0xC0)
     kind = {0x80000000: "Aim", 0x40000000: "LookAt", 0x20000000: "Rotate"}.get(u32(d, v), f"0x{u32(d, v):08X}")
-    floats = [f32(d, v + 8 + 4 * k) for k in range(7 if kind == "LookAt" else 4)]
+    floats = [f32(d, v + 8 + 4 * k) for k in range(6 if kind == "LookAt" else 4)]
     view = (f"target {floats[0]:.4g} {floats[1]:.4g} {floats[2]:.4g}, " +
             (f"up {floats[3]:.4g} {floats[4]:.4g} {floats[5]:.4g}" if kind == "LookAt" else f"twist {floats[3]:.4g}"))
     near, far = f32(d, p + 4), f32(d, p + 8)
