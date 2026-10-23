@@ -134,6 +134,18 @@ where it found only a copy):
   the step check, X 0x10226600 / Omega Ruby 0x1026303C): 0x160 (2 loads) is 0x168 or 0x16C, not settled (X's
   0x1027F5AC, which takes it, has no copy found in Omega Ruby's DllField); 0x10 not read. X's battle 0x1029B1E4 is
   Omega Ruby's `Field_WildEncounter_StartRockSmash` 0x102D9F04 (95%);
+  **B2 read further (23 October, static, second part)**: X's start 0x3BC140(heap, field, context, 3) is Omega Ruby's
+  `Field_StartEncounterEvent` 0x3DADE8(heap, field, context, 3, 0): both build the encounter event (X 0x26C bytes, Omega
+  Ruby 0x290) and keep their fourth argument at the event's +0x1C as flags, read alike (bit 0 the event's +0x29, both
+  games' 0x3BC520 / 0x3DA1E8; bit 1 at X 0x3BCC70 / 0x3BCD98 = Omega Ruby 0x3DAFC0 / 0x3DB104, the same tests); Omega
+  Ruby's added bits (8, 0x40, 0x80, 0x100: the context's +0x7C) are not in 3. So the battle is Rock Smash's with X's
+  table 4 (the mod's kind 12, OrasXyEncounters.h), battle type 95 and flags 3. The code the event reaches (its call
+  graph, X's edges): 109 functions, 30 of X's DllField (the event, the effect, the effect's update 0x10277324 called by
+  it alone, and the helpers it shares with X's other field effects: 0x1027E618, 0x1027E964, 0x1027ED9C, 0x1027EDAC,
+  0x10277D18, 0x10277E64, which Omega Ruby keeps in its .code near 0x452A00, 0x4525BC, 0x452E7C, 0x4521E4: leads by
+  shape, not read) and 79 of the .code (44 the same function in Omega Ruby; X's 0x3E018C / 0x3E0194 (a byte at +0x70)
+  and 0x4AA5C8 (a half at +0xC) getters with none; 0x14F220, 0x1D4744 empty; 0x11E864 the fatal error). To port:
+  X's DllField part copied whole (its own calls inside it, its .code calls mapped), not matched to Omega Ruby's helpers.
 - `CallHideItemEncount` is empty in X: nothing to port.
 Code to port goes into **DllField's room** (below). Step 2 (Sky and Inverse Battles, Battle Chateau, 79 sounds) follows.
 
