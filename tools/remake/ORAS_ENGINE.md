@@ -150,8 +150,15 @@ is tested on the phone.
   writes X/Y's Aim cameras as LookAt (an unanimated twist of 0: the same view); whether this is still needed with the
   storage fixed is not tested. Wrong turns, so they cost nothing again: the camera's absent X curves, its view type and
   its number were each blamed before the storage was looked at; `prototype/gamefs.py members` now flags a member stored
-  unlike the rest of its archive. Not checked yet: hordes (a/0/3/2 1031, which the ported sequences name as X/Y's band
-  camera, holds `tile_test`), X/Y's other 8 wild intros, the phone. Checked
+  unlike the rest of its archive. **Hordes, checked 23 October (session hx2)**: in X/Y's zone 264 (its horde table, the chance
+  raised to 100 in a diagnostic variant), a step in plain grass (tile 0x20) starts a horde of five Hoppip with X/Y's
+  intro and its horde camera. Two ports made it: X/Y's horde camera (X a/0/3/4 0x202, named by no sequence) carried
+  beside its intro camera and swapped in by FUN_1009905C's horde test (oras-engine --xy-band-camera); X/Y's horde
+  tiles (X/Y rolls hordes on its tables 0-3, plain grass included; Omega Ruby on tile kind 0x27 only) in X/Y's zones.
+  Wrong turns: the 'horde' of the controls wb4 and s3 was Omega Ruby's horde battle type forced on one Pokemon; and
+  four horde tests ran at the zone's own chance, because mod_variant.sh rebuilt each change to one archive from the base
+  mod, the last change dropping the earlier ones (fixed; found by reading the loaded file in the game's memory: `dump`
+  of the heap, the encounter file found by its slots). Not checked yet: X/Y's other 8 wild intros, the phone. Checked
   headless on the sandbox (demo.txt with X/Y's trainers, oras-sandbox --onto): X/Y's trainers 1 (Youngster, 0xD), 107
   and 130 (0xE) and 188 (Korrina, 0x21) play their X/Y intros with their own drawings and names (runs xf_17-xf_27).
   Not checked: against X running, on the phone.

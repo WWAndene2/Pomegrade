@@ -7,7 +7,7 @@
 #
 # CHANGE:
 #   PATH=FILE          the romfs file PATH (a/0/3/4, DllBattle.cro...) made FILE, whole
-#   PATH:N=FILE        member N of the archive PATH (as the base mod gives it: remake_tool mod-file) made FILE; N one
+#   PATH:N=FILE        member N of the archive PATH (as the variant holds it so far, from the base mod: remake_tool mod-file) made FILE; N one
 #                      past the last appends it (remake_tool garc-set)
 # A file the mod patched (romfs_ext/PATH.bps) is then given whole in romfs/ and its patch removed. Run oras-engine on the
 # base mod before, never on the variant (it would write the engine's files back over the changes). The variant's title
@@ -31,7 +31,7 @@ for change in "$@"; do
     path=${target%%:*}
     if [ "$path" != "$target" ]; then
         member=${target#*:}
-        "$tool" mod-file "$game" "$base" "$path" "$tmp/archive" > /dev/null
+        "$tool" mod-file "$game" "$variant" "$path" "$tmp/archive" > /dev/null  # the variant as it stands: two changes to one archive both kept
         "$tool" garc-set "$tmp/archive" "$tmp/new" "$member" "$file" | tail -1
         "$tool" garc "$tmp/new" "$tmp/check" > /dev/null
         cmp -s "$(ls "$tmp/check/$member".* | head -1)" "$file" || { echo "member $member of $path does not read back"; exit 1; }
