@@ -1,0 +1,266 @@
+# Everything ported so far in one mod, to test on the phone (owner's request, 23 October): a Hoenn hub (this zone, 556,
+# Littleroot's pack, Omega Ruby's encounters in its tall grass) whose triggers on row z = 5 warp to the X/Y zones a mod of
+# oras-xy-world --matrices 0,10,58,69,57,221,222,77,98,2 numbers 538-555 (in X's order: the warps name those numbers, so
+# build it with exactly these matrices), or start a scripted wild battle. Built by headless/test_all_mod.sh.
+# The triggers, west to east (walk north from the spawn, then along the row):
+#   x 4: Vaniville (X 0), mod zone 538
+#   x 6: chambre du joueur (X 2), mod zone 539
+#   x 8: X 12, mod zone 541
+#   x 10: X 264, ses hautes herbes, mod zone 553
+#   x 12: X 262, mod zone 552
+#   x 14: arene de Clemont (X 77), mod zone 542
+#   x 16: arene de Grant (X 160), mod zone 548
+#   x 18: arene de Wulfric (X 226), mod zone 549
+#   x 24: Village Pokemon, sous la poubelle du point 0 (X 318), mod zone 554
+#   x 26: X 349, sous la poubelle du point 5, mod zone 555
+#   x 28: combat sauvage scripte de X (Ronflex, CallWildBattle 59)
+#   x 30: temoin: celui d'Omega Ruby (CallWildBattle 0)
+zone
+pack 8
+spawn 17.5 18.5
+name Carrefour des tests
+encounters 24
+door 28 16 house 223
+trigger 4 5 script 1
+trigger 6 5 script 2
+trigger 8 5 script 3
+trigger 10 5 script 4
+trigger 12 5 script 5
+trigger 14 5 script 6
+trigger 16 5 script 7
+trigger 18 5 script 8
+trigger 24 5 script 9
+trigger 26 5 script 10
+trigger 28 5 script 11
+trigger 30 5 script 12
+script
+pubvar g_ai_flag ai
+pubvar g_interactive_flag interactive
+pubvar g_mode mode
+code
+    halt.p 0
+main:
+    proc
+    load.pri 0
+    eq.c.pri 1
+    jzer not1
+    push.c 1
+    push.c 1
+    push.c 0
+    push.c 0
+    push.c 597
+    push.c 144
+    push.c 467
+    push.c 538
+    sysreq.n _MapChangeCore 32
+    zero.pri
+    retn
+not1:
+    load.pri 0
+    eq.c.pri 2
+    jzer not2
+    push.c 1
+    push.c 1
+    push.c 0
+    push.c 0
+    push.c 12
+    push.c 0
+    push.c 3
+    push.c 539
+    sysreq.n _MapChangeCore 32
+    zero.pri
+    retn
+not2:
+    load.pri 0
+    eq.c.pri 3
+    jzer not3
+    push.c 1
+    push.c 1
+    push.c 0
+    push.c 0
+    push.c 525
+    push.c 0
+    push.c 669
+    push.c 541
+    sysreq.n _MapChangeCore 32
+    zero.pri
+    retn
+not3:
+    load.pri 0
+    eq.c.pri 4
+    jzer not4
+    push.c 1
+    push.c 1
+    push.c 0
+    push.c 0
+    push.c 513
+    push.c 0
+    push.c 639
+    push.c 553
+    sysreq.n _MapChangeCore 32
+    zero.pri
+    retn
+not4:
+    load.pri 0
+    eq.c.pri 5
+    jzer not5
+    push.c 1
+    push.c 1
+    push.c 0
+    push.c 0
+    push.c 461
+    push.c -180
+    push.c 792
+    push.c 552
+    sysreq.n _MapChangeCore 32
+    zero.pri
+    retn
+not5:
+    load.pri 0
+    eq.c.pri 6
+    jzer not6
+    push.c 1
+    push.c 1
+    push.c 0
+    push.c 0
+    push.c 31
+    push.c 0
+    push.c 19
+    push.c 542
+    sysreq.n _MapChangeCore 32
+    zero.pri
+    retn
+not6:
+    load.pri 0
+    eq.c.pri 7
+    jzer not7
+    push.c 1
+    push.c 1
+    push.c 0
+    push.c 0
+    push.c 36
+    push.c 0
+    push.c 20
+    push.c 548
+    sysreq.n _MapChangeCore 32
+    zero.pri
+    retn
+not7:
+    load.pri 0
+    eq.c.pri 8
+    jzer not8
+    push.c 1
+    push.c 1
+    push.c 0
+    push.c 0
+    push.c 79
+    push.c 180
+    push.c 20
+    push.c 549
+    sysreq.n _MapChangeCore 32
+    zero.pri
+    retn
+not8:
+    load.pri 0
+    eq.c.pri 9
+    jzer not9
+    push.c 1
+    push.c 1
+    push.c 0
+    push.c 0
+    push.c 60
+    push.c 0
+    push.c 37
+    push.c 554
+    sysreq.n _MapChangeCore 32
+    zero.pri
+    retn
+not9:
+    load.pri 0
+    eq.c.pri 10
+    jzer not10
+    push.c 1
+    push.c 1
+    push.c 0
+    push.c 0
+    push.c 39
+    push.c 27
+    push.c 20
+    push.c 555
+    sysreq.n _MapChangeCore 32
+    zero.pri
+    retn
+not10:
+    load.pri 0
+    eq.c.pri 11
+    jzer not11
+    push.c 59
+    sysreq.n CallWildBattle 4
+    zero.pri
+    retn
+not11:
+    load.pri 0
+    eq.c.pri 12
+    jzer not12
+    push.c 0
+    sysreq.n CallWildBattle 4
+    zero.pri
+    retn
+not12:
+    zero.pri
+    retn
+data
+mode:
+    cell -1
+interactive:
+    cell 0
+ai:
+    cell 0
+end
+pieces 1 1
+blocks
+0000
+0000
+0000
+0000
+map
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::.........t......TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::............t...TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HHDHH.......TT
+TT..................::......:.........TT
+TT..................::......:.........TT
+TT..................::......:.........TT
+TT::::::::::::::::::::::::::::::::::::TT
+TT::::::::::::::::::::::::::::::::::::TT
+TT..................::................TT
+TT..................::................TT
+TT..................::..FFFFFFFFFFF...TT
+TT..................::................TT
+TT......LLLLLLLLLLL.::................TT
+TT..................::................TT
+TT..................::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::........t.......TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT

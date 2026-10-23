@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       variants:
-        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"; "... +cro <module> OFFSET=OLD:NEW" also patches a code module, "name: cro <module> OFFSET=OLD:NEW" patches one alone, "name: copy <archive> <dst>=<src>" copies archive members (<src> xy:dumps-x/x.3ds:<member> an X/Y character, with the secret X_DRIVE_ID), "name: merge a b" joins mods built on earlier lines, "name: save Z X Y" a moved save to merge, "name: engine <oras-engine options>" the engine patches (memory, heaps, zones, characters) to merge, "name: sandbox <description file>" new zones from a text description (oras-sandbox) to merge, "name: build <steps file>" regions and sandboxes in one mod (oras-build) to merge, "name: xy-world [options] [-- engine options]" Pokemon X/Y world (oras-xy-world, with its engine patches) to merge'
+        description: 'One mod per line, "name: oras-town options" (no options = the defaults), "name: region oras-region options" or "name: append unused|piece|matrix|zone"; "... +cro <module> OFFSET=OLD:NEW" also patches a code module, "name: cro <module> OFFSET=OLD:NEW" patches one alone, "name: copy <archive> <dst>=<src>" copies archive members (<src> xy:dumps-x/x.3ds:<member> an X/Y character, with the secret X_DRIVE_ID), "name: merge a b" joins mods built on earlier lines, "name: save Z X Y" a moved save to merge, "name: engine <oras-engine options>" the engine patches (memory, heaps, zones, characters) to merge, "name: sandbox <description file>" new zones from a text description (oras-sandbox) to merge, "name: build <steps file>" regions and sandboxes in one mod (oras-build) to merge, "name: xy-world [options] [-- engine options]" Pokemon X/Y world (oras-xy-world, with its engine patches) to merge, "name: test-all" everything ported so far in one mod with its save (tools/remake/headless/test_all_mod.sh)'
         # no default mod: an empty input fell back to "v24:", and an inspect-only run shipped a v24 zip the owner took for r5
         default: ''
         required: false
@@ -199,6 +199,23 @@ jobs:
               set -- ${options#*sandbox }  # the file, then oras-sandbox options (--character-models N)
               ./build-remake/remake_tool oras-sandbox dumps/oras.3ds "out/$name" "$GITHUB_WORKSPACE/$1" "${@:2}" | tee "mods/${name}_log.txt"
               rm -f "out/$name/sandbox_layout.txt"
+            elif [[ "$options" =~ ^[[:space:]]*test-all([[:space:]]|$) ]]; then
+              # "name: test-all": everything ported so far in one mod, with its save in the hub (tools/remake/headless/
+              # test_all_mod.sh, sandbox/test_all.txt; needs X, secret X_DRIVE_ID, and the save, ORAS_SAVE_DRIVE_ID)
+              if [ ! -f dumps-x/x.3ds ]; then echo "::error::test-all needs Pokemon X (secret X_DRIVE_ID)"; exit 1; fi
+              if [ ! -d save ]; then
+                id=$(printf '%s' "$SAVE_DRIVE_ID" | tr -d '[:space:]' | sed -E 's#.*/d/([^/?]+).*#\1#; s#.*[?&]id=([^&]+).*#\1#')
+                curl --location --silent --show-error --output save.zip "https://drive.usercontent.google.com/download?id=$id&export=download&confirm=t"
+                mkdir -p save && unzip -q save.zip -d save
+              fi
+              tw="$RUNNER_TEMP/test_all_work"; rm -rf "$tw" && mkdir -p "$tw/dumps/save" "$tw/out"
+              ln -s "$GITHUB_WORKSPACE/dumps/oras.3ds" "$tw/dumps/oras.3ds"; ln -s "$GITHUB_WORKSPACE/dumps-x/x.3ds" "$tw/dumps/x.3ds"
+              ln -s "$GITHUB_WORKSPACE/build-remake" "$tw/build-remake"
+              cp "$(find save -type f -name main | head -n 1)" "$tw/dumps/save/main"
+              cp "$(find save -type f -name '00000001.metadata' | head -n 1)" "$tw/dumps/save/"
+              tools/remake/headless/test_all_mod.sh "$tw" "$name" | tee "mods/${name}_log.txt"
+              cat "$tw/out/${name}_sb.log" "$tw/out/${name}_engine.log" >> "mods/${name}_log.txt"
+              rm -rf "out/$name" && mkdir -p "out/$name" && (cd "out/$name" && unzip -q "$tw/out/$name.zip")
             elif [[ "$options" =~ ^[[:space:]]*xy-world([[:space:]]|$) ]]; then
               # "name: xy-world [oras-xy-world options] [-- oras-engine options]": Pokemon X/Y's world made Omega Ruby's
               # (OrasXyWorld.h: --matrices A,B,... for part of it, --character-models N), from dumps-x/x.3ds (secret X_DRIVE_ID),
