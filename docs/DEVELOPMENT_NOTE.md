@@ -275,7 +275,11 @@ redone; the zones before what runs in them; one phone check per block, not per c
    (`CallWildBattle` 59-71, run sw: X's Snorlax, control Omega Ruby's entry 0). Sweet Scent's battle needs nothing more
    (both games run the step check forced, the type from the ported entries, X/Y's forced horde already ported). Left:
    Sweet Scent's refusal in X/Y by the zone's weather (X/Y's FUN_10223730: values 0-13, 21, 23 allowed, else its
-   message 0x27B6; Omega Ruby has none: the weather numbers of both games to compare, the message to port);
+   message 0x27B6; Omega Ruby has none). The two games number the field weather apart (read 23 October, the field to
+   battle weather switch: Omega Ruby's 0x003EAB6C rain 1-2, sandstorm 5, then 7 and 8; X's 0x003C8AB4 rain 14-16, hail
+   17-20), and so does the lead's ability test (Omega Ruby's FUN_102DC858 Sand Veil in weather 5, X's FUN_1029BAC0 Snow
+   Cloak in 17-19): so the refusal, and X/Y's ability rule, go with the port of X/Y's weather (step 6, Route 13's
+   sandstorm), X/Y's zones having none today;
    `CallDustBoxEncount` (a fixed wild battle, X/Y's type 21, from a table at +0x18C of the game data, its source not
    found) and `CallTsuchikemuriEncountEvent` (X/Y's own field sequence class): X/Y's DllField code to port into Omega
    Ruby's, with the natives added, a tool not written yet (DllField's cave is full: 0 bytes left after 23 October).
