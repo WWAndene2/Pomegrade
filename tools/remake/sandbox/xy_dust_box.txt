@@ -1,0 +1,83 @@
+# X/Y's dust boxes (B1, 23 October, ORAS_ENGINE.md 0.0): a mod of X's zone 318 alone (oras-xy-world --matrices 77, mod
+# zone 538: five cans, spots 0-4) and this Hoenn zone (539, Littleroot's pack). Stepping on tile (16, 20) warps to zone
+# 538's tile (37, 60), below the can of spot 0 (37, 59): the zone change runs the dust boxes' reset and filler. The new-day
+# flags (the table's + 0x118-+0x11B) are poked before it, so the filler draws the cans (OrasXyDustBox.h).
+zone
+pack 8
+spawn 14.5 20.5
+name Bac à Sable
+trigger 16 20 script 1
+script
+pubvar g_ai_flag ai
+pubvar g_interactive_flag interactive
+pubvar g_mode mode
+code
+    halt.p 0
+main:
+    proc
+    push.c 1
+    push.c 1
+    push.c 0
+    push.c 0
+    push.c 60
+    push.c 0
+    push.c 37
+    push.c 538
+    sysreq.n _MapChangeCore 32
+    zero.pri
+    retn
+data
+mode:
+    cell -1
+interactive:
+    cell 0
+ai:
+    cell 0
+end
+pieces 1 1
+blocks
+0000
+0000
+0000
+0000
+map
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::.........t......TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::............t...TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HH.HH.......TT
+TT..................::......:.........TT
+TT..................::......:.........TT
+TT..................::......:.........TT
+TT::::::::::::::::::::::::::::::::::::TT
+TT::::::::::::::::::::::::::::::::::::TT
+TT..................::................TT
+TT..................::................TT
+TT..................::..FFFFFFFFFFF...TT
+TT..................::................TT
+TT......LLLLLLLLLLL.::................TT
+TT..................::................TT
+TT..................::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::........t.......TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT

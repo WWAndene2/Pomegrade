@@ -1101,8 +1101,8 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         // X/Y's shared scripts (OrasXySharedScripts.h, read 23 October): Msg_ResolveTextSource (0x3FB230) finds a script id's
         // row in 86 rows (0x587678, its literal 0x3FB388, its bound `cmp r5, #0x56` at 0x3FB310), then by the row's member of
         // a/0/2/9 its native mask (96 words at 0x587BD8, literal 0x3FB390) and its name (0x5F4704, literal 0x3FB38C); no
-        // other word of the .code or the modules points at them. Each is copied into the room, the game's first, the file's
-        // rows after them (the bound an ARM immediate: padded with rows of id 0xFFFF, which no event names) and its members'
+        // other word of the .code or the modules points at them. Each is copied into the room, the file's rows before the
+        // game's (below; the bound an ARM immediate: padded with rows of id 0xFFFF, which no event names) and its members'
         // masks and names at their numbers
         constexpr uint32_t rows = 0x587678, rowsWord = 0x3FB388, boundAt = 0x3FB310, masks = 0x587BD8, masksWord = 0x3FB390, names = 0x5F4704, namesWord = 0x3FB38C;
         constexpr uint32_t gameRows = 0x56, gameMasks = 96, gameNames = 96;
@@ -1114,8 +1114,21 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         const uint32_t memberCount = U32(file, at);
         at += 4;
         if (file.size() != at + 40 * (size_t)memberCount) throw FormatError("--xy-shared-scripts: not its members' size");
-        Bytes table(code.begin() + (rows - CodeBase), code.begin() + (rows - CodeBase) + 16 * gameRows);
-        table.insert(table.end(), file.begin() + 8, file.begin() + 8 + 16 * (long)added);
+        // the rows are searched in order for the first whose first id is at most the id, which must then be at most its last
+        // (else the fatal error 0x11EF4C, from 0x3FB290: run db1, 23 October, the rows put after the game's): the game's
+        // run down from 20010, so the file's (32000 and up) go before them, in the same order
+        std::vector<Bytes> fileRows;
+        for (uint32_t k = 0; k < added; k++) fileRows.emplace_back(file.begin() + 8 + 16 * (long)k, file.begin() + 8 + 16 * (long)(k + 1));
+        const auto first = [](const Bytes& r) { return (uint32_t)(r[0] | r[1] << 8); };
+        std::sort(fileRows.begin(), fileRows.end(), [&](const Bytes& a, const Bytes& b) { return first(a) > first(b); });
+        Bytes table;
+        for (const Bytes& r : fileRows)
+        {
+            if (first(r) <= 20010 || (uint32_t)(r[2] | r[3] << 8) < first(r)) throw FormatError("--xy-shared-scripts: a row not above the game's ids");
+            if (!table.empty() && (uint32_t)(r[2] | r[3] << 8) >= first(Bytes(table.end() - 16, table.end()))) throw FormatError("--xy-shared-scripts: two rows overlap");
+            table.insert(table.end(), r.begin(), r.end());
+        }
+        table.insert(table.end(), code.begin() + (rows - CodeBase), code.begin() + (rows - CodeBase) + 16 * gameRows);
         uint32_t count = gameRows + added;
         while (!ArmImmediate(count)) count++;
         for (uint32_t k = gameRows + added; k < count; k++) { Bytes pad(16, 0); pad[0] = pad[1] = pad[2] = pad[3] = 0xFF; table.insert(table.end(), pad.begin(), pad.end()); }
@@ -1142,7 +1155,7 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         words.push_back({boundAt, 0xE3550000 | gameRows, 0xE3550000 | *ArmImmediate(count), "Msg_ResolveTextSource's row count"});
         words.push_back({masksWord, masks, masksRoom, "Msg_ResolveTextSource's shared scripts' masks"});
         words.push_back({namesWord, names, namesRoom, "Msg_ResolveTextSource's shared scripts' names"});
-        snprintf(line, sizeof line, "shared scripts: %u X/Y range(s) after the game's 86 rows (%u with padding) at 0x%X, %u member(s)", added, count, rowsRoom, memberCount);
+        snprintf(line, sizeof line, "shared scripts: %u X/Y range(s) before the game's 86 rows (%u with padding) at 0x%X, %u member(s)", added, count, rowsRoom, memberCount);
         log.push_back(line);
     }
     if (!o.XyDustBox.empty())

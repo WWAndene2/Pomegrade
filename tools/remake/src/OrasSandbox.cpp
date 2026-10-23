@@ -14,6 +14,7 @@
 #include "OrasXyPiece.h"
 #include "OrasXyEncounters.h"
 #include "OrasXyEvents.h"
+#include "OrasXySharedScripts.h"
 #include "OrasXyScript.h"
 #include "XyCharacter.h"
 #include "N3dsRom.h"
@@ -917,6 +918,7 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
     const std::string xyNames = descriptionPath.empty() ? "" : (descFile.parent_path() / ".." / "ghidra" / "function_names.tsv").string();
     const std::string xyScripts = descriptionPath.empty() ? "" : (descFile.parent_path() / descFile.stem()).string();
     XyNumbers xyNumbers;
+    XyScriptIds xyScriptIds; // X/Y's shared scripts' ids, the mod's (OrasXySharedScripts.h: oras-xy-world ports them, the same shift)
     std::map<int, int> xyModelOf;
     int xyDx = 0, xyDz = 0; // X/Y's matrix tiles to the sandbox's, for an outdoor zone's events (xy-events)
     if (!xyZones.empty())
@@ -934,6 +936,11 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
             for (const ZoneTrigger& t : o.Triggers) conditions.insert(t.Raw[2]);
             for (const Bytes* s : {&o.Script, &o.InitScript})
                 if (s->size() >= 16) scripts.push_back(XyScriptToOras(*s, xyNames, 0x243).Script);
+        }
+        {
+            const Bytes xCode = xRom.Code();
+            const std::set<int> shared = XySharedScriptMembers(xCode);
+            for (const XyScriptRange& r : XyScriptRanges(xCode)) if (shared.count(r.Member)) xyScriptIds.Add(r);
         }
         xyNumbers = XyNumbersFor(scripts, vanish, conditions);
         log.push_back("X/Y zones' story numbers: " + std::to_string(xyNumbers.Flags.size()) + " flag(s) from 0xD00, " + std::to_string(xyNumbers.Works.size()) +
@@ -997,7 +1004,7 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         XyEvents xe;
         if (z.XyEvents >= 0)
         {
-            xe = XyEventsToOras(ws, z.XyEvents, xyDx, xyDz, xyNumbers, xyModelOf, xyNames, xyScripts, z.Number, log);
+            xe = XyEventsToOras(ws, z.XyEvents, xyDx, xyDz, xyNumbers, xyModelOf, xyNames, xyScripts, z.Number, log, true, nullptr, false, nullptr, &xyScriptIds);
             f.Text = xe.Text;
         }
         zone.Header = NewZoneHeader(f);
@@ -1114,7 +1121,7 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
             f.Text = textOf[d.Zones.size() + i]; f.Overworld = in.Outside; f.NameLine = nameLine[in.OutsideAt];
             f.SpawnX = x.ExitX / 18.0f; f.SpawnZ = x.ExitZ / 18.0f;
             // its people, objects, triggers, text and scripts, X/Y's (an inside is on its own matrix: no shift)
-            const XyEvents xe = XyEventsToOras(ws, in.Map, 0, 0, xyNumbers, xyModelOf, xyNames, xyScripts, in.Zone, log);
+            const XyEvents xe = XyEventsToOras(ws, in.Map, 0, 0, xyNumbers, xyModelOf, xyNames, xyScripts, in.Zone, log, true, nullptr, false, nullptr, &xyScriptIds);
             f.Text = xe.Text;
             zone.Header = NewZoneHeader(f);
             zone.Furniture = xe.Furniture;

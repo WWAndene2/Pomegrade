@@ -97,7 +97,15 @@ where it found only a copy):
   AI natives moved (`XyMoveScriptIds`, unpacked past 16 bits); every X/Y shared script but trainer.amx ported (64 rows,
   55 members appended, 3 merged: OrasXySharedScripts.h; a row's text kind 1 is the story text, kind 0 the system text;
   X's member 41 is a plain Pawn image whose first byte is LZ10's mark). Not moved: computed flags, works and zones (75,
-  reported);
+  reported). **Run (23 October, runs db1-db2, sandbox/xy_dust_box.txt: X's zone 318, Pokemon Village, as mod zone
+  538, warped to from Hoenn sandbox zone 539)**: the room's code runs in Azahar (the table filled at the save's load,
+  in zone 539: the new-day stub then the filler, entries 0 and 5 drawn); spot 0's can gives X's item path ("Une
+  silhouette vient de disparaître sous vos yeux ! ... tombé au fond de la poubelle", the Pretty Wing obtained, then
+  "Une poubelle !" once empty) and, its entry poked to Garbodor level 46, X's battle ("Oh ! Un Miasmax sauvage surgit de
+  la poubelle", the command menu). Fixed by the run: the script id rows are searched in order for the first whose first
+  id is at most the id (run db1: the fatal error 0x11EF4C from 0x3FB290 with the rows after the game's): X/Y's go
+  first. Not checked: the searched can's animation (the prop routine), a weekday list, a can in a Hoenn zone (the
+  sandbox has no statement placing furniture with a script nor a prop: to add), the diary record;
 - **dust cloud**: no script imports `CallTsuchikemuriEncountEvent` (X 0x102914A0; ported anyway, owner's rule): the step
   does, X's 0x102265DC (0x5AC bytes, reached from 0x1022711C, 0x10227324; Omega Ruby's 0x10263014, 97%: the dust-cloud
   branch to add) creates `field::EventTsuchikemuriEncount` (0x34 bytes, vtable X 0x102FEF4C: 6 methods, about 350
