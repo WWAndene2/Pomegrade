@@ -47,6 +47,20 @@ where it found only a copy):
   species, +8 level, +0xC; the battle by X's 0x1029A650, 72%: to read; then 0x448E08 = 0x478964 and 0x3DEA54 =
   0x3FFF30), `CheckTypeOfDustBox` 0x1028D7EC (entry n's byte: 0, 1, else 2), `GetItemIdOfDustBox` 0x1028D8F0 (entry n's
   +0x14). Not saved (inferred: game data, not the save; the searched flags are the save's);
+  **B1's reading (23 October, static)**: the filler draws per zone change, from X's tables (X .code 0x5432A4: 10 spots
+  of 12 bytes, the entry, its save flag 0xC50-0xC59, its group), 40% an item (0x544B6C: 4 groups of 7 items with
+  cumulative percents), else a Pokemon (0x5449EC: 4 groups of 6, species, form, level, cumulative percent: 0 Garbodor
+  46-50, 1 Banette 46-50, 2 Trubbish/Garbodor 34-38, 3 Rotom's 6 forms 38). The entry is +4 species, **+8 form, +0xC
+  level** (the phase A line above said +8 level: wrong). The random 0x45A908 is Omega Ruby's 0x48AD84 (read side by
+  side; the 93% one is the next function); 0x11F034 = 0x11FA10, 0x1765F0 = 0x177300 (same). The battle: X's
+  0x1029A650 is X's scripted wild battle 0x1029A7DC (native 0x1028FEA4) with situation byte 0x15 instead of 0x11;
+  Omega Ruby's `CallWildBattle` takes a table entry (0x102CC01C), not a species: X's setter 0x1026DE30 has no copy,
+  so it is ported. X's encounter context is Omega Ruby's with one word more at +0x78 (X's InitContext 0x1026E434 and
+  Omega Ruby's 0x102BFDD4 read side by side: X's +0x7C-0xA4 are Omega Ruby's +0x78-0xA0): the setter's +0x8E becomes
+  +0x8A, its +0x98/+0xA4 tests +0x94/+0xA0; the start 0x3BCB44 is Omega Ruby's `Field_StartEncounterEvent` 0x3DADE8
+  (one argument more, 0). Not read: what situation 0x15 does in Omega Ruby's battle setup; the model hide: 0x19AB0C is
+  a `|static|` import stub (its word 0x19AB10 written by the loader), to resolve through static.crs; X's flags
+  0xC50-0xC59 against Omega Ruby's use of them;
 - **dust cloud**: no script imports `CallTsuchikemuriEncountEvent` (X 0x102914A0; ported anyway, owner's rule): the step
   does, X's 0x102265DC (0x5AC bytes, reached from 0x1022711C, 0x10227324; Omega Ruby's 0x10263014, 97%: the dust-cloud
   branch to add) creates `field::EventTsuchikemuriEncount` (0x34 bytes, vtable X 0x102FEF4C: 6 methods, about 350
