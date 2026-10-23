@@ -60,7 +60,31 @@ where it found only a copy):
   +0x8A, its +0x98/+0xA4 tests +0x94/+0xA0; the start 0x3BCB44 is Omega Ruby's `Field_StartEncounterEvent` 0x3DADE8
   (one argument more, 0). Not read: what situation 0x15 does in Omega Ruby's battle setup; the model hide: 0x19AB0C is
   a `|static|` import stub (its word 0x19AB10 written by the loader), to resolve through static.crs; X's flags
-  0xC50-0xC59 against Omega Ruby's use of them;
+  0xC50-0xC59 against Omega Ruby's use of them.
+  **B1, the rest read (23 October, static)**: the situation byte is the **battle type**: X's context +0x8E, Omega
+  Ruby's +0x8A (X's 0x102DD9C4 and Omega Ruby's 0x103279DC, the same function, read it), so 0x15 is the mod's X/Y type
+  73 + 0x15 (`--xy-battle-types`). The battle's first word: X's `[field+0x48]+0xF4` is Omega Ruby's `+0x104` (both Rock
+  Smash natives, X 0x102909DC and Omega Ruby 0x1029DB40); X's getter 0x4A4000 is Omega Ruby's 0x4DBE1C (`ldr r0,
+  [r0, #0x148]`); InitContext's last argument `[field+0x2C]+0x34` is Omega Ruby's `+0x1C` (Omega Ruby's 0x102CC01C).
+  The native's diary line (X 0x448E08 = Omega Ruby 0x478964, `PokeDiarySet`'s, with X's diary event 0x204 and the zone
+  at game data + 0x124): Omega Ruby's event 0x204 is not read, so not ported yet (the owner's call). The `|static|`
+  stubs: 0x19AB08 is X's DllField 0x102D030C = Omega Ruby's 0x1031BEAC (the prop of an id in a prop list), 0x19AB10
+  X's 0x102141AC = Omega Ruby's 0x10257E34 (plays the prop's animation slot n + 3: the searched can's). The prop hook:
+  X's call sits after each prop's placement in X's 0x1027D3BC (`id - 0xC50 < 0x96`); Omega Ruby's loop (0x102607A4)
+  keeps the prop list in r8 (X's map + 0x168, Omega Ruby's + 0x170) and X's map + 0x50 is Omega Ruby's + 0x60 (X's
+  0x1029E1F8 and Omega Ruby's 0x102DF4E0, the same function), the game data at its + 0x1C. Event work: game data's
+  first word + 0x13140 (X's + 0x13148), the date + 0xEB0 (X's + 0xEA8; both from X's 0x3CEB48 and Omega Ruby's
+  0x3F0AD0); X's date constructor 0x13A158 is Omega Ruby's 0x139404 (the call before every date read). Hooks: the zone
+  change at 0x3D5858 (`ldrh r0, [sb, #4]`, after 0x3F0FBC = X's 0x3CF184, where X calls the reset and the filler),
+  the new day at 0x3F0C34 (`mov r0, r0` inside 0x3F0AD0's new-day block, where X sets +0x118-+0x11B). X's filler, helper
+  and reset are one block, X .code 0x3B4C14-0x3B5208 (7 calls to map, 8 literal words to X's tables, the offsets
+  +0x13148 and +0xEA8). X's flags 0xC50-0xC59 become 0x1950-0x1959 (`XyNumbersFor`'s rule; `--story large`).
+  **The shared script**: Omega Ruby runs a script id through 86 ranges (.code 0x587678, 16 bytes each: first id, last,
+  the member of a/0/2/9 (archive 0x1D), the text kind, the text file; read by `Msg_ResolveTextSource` 0x3FB230, bound
+  0x56), X through its own (X .code 0x5457A4, read by X's 0x3D9C64): member 39 is X's ids **10480-10529** (text file
+  142), which in Omega Ruby are its own (rows 25-29: members 27, 56, 52, 83). The port gives it a free range (none past
+  12109 but 20000-20010) and moves the ids X/Y's zones name; which event words name script ids, and what else member
+  39 holds besides the cans, is not read yet;
 - **dust cloud**: no script imports `CallTsuchikemuriEncountEvent` (X 0x102914A0; ported anyway, owner's rule): the step
   does, X's 0x102265DC (0x5AC bytes, reached from 0x1022711C, 0x10227324; Omega Ruby's 0x10263014, 97%: the dust-cloud
   branch to add) creates `field::EventTsuchikemuriEncount` (0x34 bytes, vtable X 0x102FEF4C: 6 methods, about 350
