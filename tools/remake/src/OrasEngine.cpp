@@ -795,6 +795,30 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
             for (uint32_t k = 0; k < 5; k++) croWords.push_back({cave + 4 * k, 0, pick[k], std::string(why) + "'s battle type (cave)"});
             cave += 20;
         }
+        // Hordes (read 23 October): both games roll the zone file's horde chance (Omega Ruby byte 8, X/Y's byte 10, the
+        // same byte here), but on other tiles: X/Y on its tables 0-3 (its FUN_1027C3D4: plain grass 0x20 0x24 0x25 and
+        // 0x21-0x23), Omega Ruby on its kind 1 only (tile 0x27; Field_WildEncounter_StepCheck 0x102CD4B4-0x102CD4CC: kind 0
+        // or 1, then a forced encounter, then kind 0 left out). In an X/Y zone (byte 13 is 1) X/Y's rule, as Omega Ruby's
+        // kinds: 0 and 9-11 (X/Y's tables 0-3), not 1 or 12 (its table 4); sb the file, r4 the kind, r8 1 when forced
+        constexpr uint32_t HI = 0x8;
+        const uint32_t skip = at(0x8B4F4), horde = at(0x8B4F0), roll = at(0x8B4D0), rest = at(0x8B4B8);
+        croWords.push_back({at(0x8B4B4), 0xE3540000, Branch(at(0x8B4B4), cave, false), "Field_WildEncounter_StepCheck's horde tiles: to its cave"});
+        const uint32_t hordes[14] = {
+            0xE5D9C00D, 0xE35C0001,             // ldrb ip, [sb, #13]; cmp ip, #1
+            branch(0x1, cave + 8, cave + 48),   // bne: Omega Ruby's rule
+            0xE3540000,                         // cmp r4, #0
+            branch(EQ, cave + 16, cave + 32),   // beq: a horde tile
+            0xE244C009, 0xE35C0002,             // sub ip, r4, #9; cmp ip, #2
+            branch(HI, cave + 28, skip),        // bhi: no horde
+            0xE3580001,                         // cmp r8, #1 (forced)
+            branch(EQ, cave + 36, horde),       // beq: a horde, as the game's forced one
+            Branch(cave + 40, roll, false),     // b: the chance roll
+            0xE320F000,                         // nop
+            0xE3540000,                         // Omega Ruby's rule: cmp r4, #0 (the game's)
+            Branch(cave + 52, rest, false),     // b: back to its cmpne r4, #1
+        };
+        for (uint32_t k = 0; k < 14; k++) croWords.push_back({cave + 4 * k, 0, hordes[k], "the horde tiles (cave)"});
+        cave += 14 * 4;
         snprintf(line, sizeof line, "wild battles: X/Y's 12 encounter effect entries at 0x%X, its fishing and Rock Smash types %u and %u in its zones", table, xFishing, xRockSmash);
         log.push_back(line);
     }
