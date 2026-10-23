@@ -9,7 +9,76 @@ marked **checked** (seen in memory or under the debugger), **read** (from the de
 
 ## 0. Start here (the state on 7 October, for whoever continues)
 
-### 0.1 Taking over (21 October, A's handover; read this first, the 7 October text below is history)
+### 0.0 Handover of 23 October (read this first, then 0.1 for the rules and the history)
+
+**The project**: Pomegrade's remake tooling merges Pokemon X/Y into Omega Ruby ("Equilibrium"): one game with both maps,
+built as a mod (LayeredFS: romfs files, BPS patches, a `.code` IPS) by `remake_tool` (C++, `tools/remake/src`). The
+owner's rules for the merge are in `CLAUDE.md` section 8 (**100% identical = merged, not identical = ported; X/Y is
+ported whole**) and, since 23 October, **everything of X/Y must work in Omega Ruby and everything of Omega Ruby in X/Y's
+zones** (features X/Y's own content never calls included). The owner writes French: answer in French.
+
+**How to work** (the owner's demands, 23 October, after a day lost to blind runs): read and compare both games' code
+statically first (Ghidra decompilation of both, below); a run only confirms, once, with a control; one change per run;
+report after about 30 minutes without a result; work only when asked, one point at a time; commit and push each verified
+step; ask before a run over 15 minutes and before any behaviour or scope change; say what is not verified. Never commit or
+publish the owner's game dumps. Merge into `main` only when asked (fast-forward from the branch).
+
+**Start a session** (dumps, tools, Ghidra programs of both games: about 45 minutes the first time, one step at a time):
+`tools/remake/headless/session_setup.sh <work dir>` (its steps: section "Setting up a session" below). The work dir of
+23 October was `/tmp/claude-0/work` (not kept by a new container).
+
+**The plan and its state**: `docs/DEVELOPMENT_NOTE.md` 3e, "State of the port, 23 October": what is left, in working
+order (steps 1-9). **Step 1 (wild battles) is in progress.** Done in step 1: X/Y's scripted wild battles
+(`CallWildBattle` 59-71); Sweet Scent's battle (needs nothing). Deferred: Sweet Scent's refusal by weather (goes with
+X/Y's weather, step 6). **Next, proposed to the owner and not yet approved**: a static reading (30 minutes at most) of
+X/Y's dust box (`CallDustBoxEncount`) and dust cloud (`CallTsuchikemuriEncountEvent`) before porting them:
+- dust box, read so far: X's game system object holds at +0x18C an X-only object of 0x13C bytes (allocated in X's
+  `.code` 0x109208, initialised by 0x112A48: 10 entries of 0x1C bytes, then flags and 8 words), filled at run time by
+  X's `.code` functions (0x112AB8 and after: not read). `CallDustBoxEncount(n)` (X DllField 0x1028CFD4) starts a fixed
+  wild battle (X's type 21) from entry n (+4 species, +8 level, +0xC) through X's FUN_1029A650. To find: who fills the
+  entries, when, whether saved; then where the object lives in Omega Ruby (its game system has no such member);
+- dust cloud: `CallTsuchikemuriEncountEvent` (X 0x102914A0) creates X's `FieldUniqueSequenceTsuchikemuriEncount` (0x34
+  bytes, vtable in X's DllField): its size and callees to measure;
+- `CallHideItemEncount` is empty in X: nothing to port.
+Code to port goes into **DllField's room** (below). Step 2 (Sky and Inverse Battles, Battle Chateau, 79 sounds) follows.
+
+**What changed on 23 October** (all headless; **nothing of 22-23 October is tested on the phone**):
+- wild battles in X/Y's zones: X/Y's encounter effect entries and battle types, its 9 intros, hordes on its tiles with
+  its horde camera, fishing and Rock Smash types (0.1 below, "Hordes" and "All 9");
+- X/Y's scripted wild battles (`--xy-static-wild`, `XyMoveWildBattles`; 0.1 below);
+- **DllField grown by 128 KB** (`oras-engine --field-room 0x20000`, `GrowCroCode`): caves from linked 0x10333000 to
+  0x10353000, almost all free. In a grown mod DllField's read-only and data segments sit 0x20000 past the linked image
+  (Ghidra, `cro_link.py`): add it to an address read there. The `.code`'s own free room (0x579604-0x57A000) is nearly
+  full: 0x579DC4-0x579DFF and 0x579EFC-0x579F7F only.
+
+**Tools** (each documented in its file's header; the list with examples: section "Setting up a session" below):
+- `remake_tool` (build: `cmake -G Ninja` of `tools/remake`, then `ninja remake_tool`): `oras-xy-world` (X/Y's zones into
+  Omega Ruby; prints the `oras-engine options` line to use), `oras-sandbox` (zones from a text description,
+  `tools/remake/sandbox/*.txt`; `--onto` a mod, `--xy` X/Y's data), `oras-engine` (code patches: every option in
+  `remake_tool` usage and `OrasEngine.h`), `oras-save` (a save moved to a zone and tile), `mod-file` (a file as a mod
+  has it), `garc`, `garc-set`, `romfs-ls`, `amx-asm`, `xy-script-export`, `bch-upgrade`;
+- `headless/xy_test_mod.sh <work> <name> <description>`: X/Y's world + a sandbox + the engine + a save, in one command
+  (checked 23 October: it rebuilds the mod of run sg byte for byte); `sandbox/xy_static_wild.txt` is the scripted wild
+  battle test with its control;
+- `headless/session.py start|do|swap|stop|list`: one game kept running (boots once, about 9 minutes), command batches
+  (`retro_host` commands: wait, hold KEY N, press, until COND MAX, burst, shot, save/load NAME, mem, poke, dump), shots put
+  on one sheet to read; `swap` does not work for battle sequences (its header says why);
+- `headless/mod_variant.sh`: a copy of a mod with files or archive members swapped, each read back;
+- `ghidra/decompile.sh <work> <out> ADDRESS... [--callers A] [--callees A]` (Omega Ruby; `POMEGRADE_GHIDRA_GAME=x` for X):
+  decompiles into `<out>/decomp.c` in about 15 s; `ghidra/function_names.tsv` names Omega Ruby's functions (read|guess);
+- `prototype/gamefs.py` (ls, members, get, find, diff, where: files of the game or of a mod), `prototype/romfs_member.py
+  --log` (which files a run read), `prototype/shot_sheet.py`, `prototype/cgfx.py`, `prototype/cro_dis.py`,
+  `prototype/code_find.py`; the linked images of all modules: `<work>/linked/modules.bin` (Omega Ruby, from 0x10000000;
+  DllField at 0x10242000) and `<work>/xlinked/modules.bin` (X; DllField at 0x101F9000), `.code` at `<work>/dumps/code.bin`
+  and `xcode.bin` (both from 0x100000): capstone reads them in a few lines of Python.
+
+**Pitfalls met** (each cost hours): a state load rebuilds LayeredFS but replays the same random numbers; a module runs at
+another address than its linked one (DllField at 0x6F3000): a cave reaches its own data from the pc, the `.code` by an
+absolute literal (it is loaded where it is linked), never by a branch; every a/0/3/2 member must be LZ11 (the loader
+decompresses all); a hand-rebuilt GARC with a stale size field gives false results (use `garc-set`); `pkill -f` kills the
+agent's own shell; never two heavy jobs (emulator, Ghidra, a build) at once.
+
+### 0.1 Taking over (21 October, A's handover; read after 0.0, the 7 October text below is history)
 
 **How the owner works with an agent** (their decisions, 20-21 October): one agent at a time (`docs/AGENT_PROCESS.md`, the
 three-agent period stopped); it works **only when the owner asks**, **one point at a time**, a point closed only when

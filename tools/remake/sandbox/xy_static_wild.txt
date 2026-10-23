@@ -1,0 +1,100 @@
+# X/Y's scripted wild battles (23 October, ORAS_ENGINE.md 0.0): zone 542 of a mod built with X/Y's world
+# (headless/xy_test_mod.sh builds it and the save at 542 14.5 20.5). Stepping on tile (16, 20) runs CallWildBattle 59
+# (X/Y's entry 0, Snorlax), on (12, 20) CallWildBattle 0 (Omega Ruby's entry 0, Poochyena: the control). From the save:
+# session.py do ... "save field; hold right 70; wait 630; shot a; load field; hold left 70; wait 630; shot b".
+zone
+pack 8
+spawn 14.5 20.5
+name Bac à Sable
+xy-encounters 264
+trigger 16 20 script 1
+trigger 12 20 script 2
+script
+pubvar g_ai_flag ai
+pubvar g_interactive_flag interactive
+pubvar g_mode mode
+code
+    halt.p 0
+main:
+    proc
+    load.pri 0
+    eq.c.pri 1
+    jzer control
+    push.c 59
+    sysreq.n CallWildBattle 4
+    zero.pri
+    retn
+control:
+    push.c 0
+    sysreq.n CallWildBattle 4
+    zero.pri
+    retn
+data
+mode:
+    cell -1
+interactive:
+    cell 0
+ai:
+    cell 0
+end
+
+zone
+pack 8
+spawn 30.5 20.5
+name Bac à Sable Est
+line Championne: Bienvenue dans le bac à sable !
+character 284 24 19 face 1 script 1
+character 174 25 19 face 1
+trainer 10 219 33 20 face 2 sight 5
+door 28 16 house 223
+scene
+on 1
+    say 0
+end
+pieces 1 1
+blocks
+0011
+0011
+0011
+0011
+map
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::.........t......TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::............t...TT
+TT....~~~~~~~~~.....::................TT
+TT....~~~~~~~~~.....::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HHHHH.......TT
+TT..................::....HHDHH.......TT
+TT..................::......:.........TT
+TT..................::......:.........TT
+TT..................::......:.........TT
+TT::::::::::::::::::::::::::::::::::::TT
+TT::::::::::::::::::::::::::::::::::::TT
+TT..................::................TT
+TT..................::................TT
+TT..................::..FFFFFFFFFFF...TT
+TT..................::................TT
+TT......LLLLLLLLLLL.::................TT
+TT..................::................TT
+TT..................::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::........t.......TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT....ggggggggg.....::................TT
+TT..................::................TT
+TT..................::................TT
+TT..................::................TT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
