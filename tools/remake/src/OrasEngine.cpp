@@ -1163,12 +1163,12 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         battleWords.push_back({boundAt, 0xE3510E3D, 0xE3510000 | *bound, "the sequences played (cmp r1, #bound)"});
         Bytes patched = PatchCro(original, base, battleWords);
         // the literal's internal relocation: {tag (segment | offset << 4), type, symbol segment, 2 bytes, addend}
-        const uint32_t relocations = layout.Field(42), relocationCount = layout.Field(43), at = literal - base - layout.Segments[0].first;
+        const uint32_t relocations = layout.Field(42), relocationCount = layout.Field(43), at0 = literal - base - layout.Segments[0].first;
         bool moved = false;
         for (uint32_t i = 0; i < relocationCount && !moved; i++)
         {
             const uint32_t entry = relocations + 12 * i, tag = layout.U32(entry);
-            if ((tag & 0xF) != 0 || (tag >> 4) != at) continue;
+            if ((tag & 0xF) != 0 || (tag >> 4) != at0) continue;
             if (original[entry + 4] != 2 || original[entry + 5] != 1 || layout.U32(entry + 8) != table - base - layout.Segments[1].first)
                 throw FormatError("DllBattle.cro: the intro table's relocation is not the one read (another version of the game?)");
             const uint32_t addend = cave - layout.Segments[0].first;
@@ -1177,6 +1177,55 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
             moved = true;
         }
         if (!moved) throw FormatError("DllBattle.cro: no relocation of the intro table's literal word");
+        if (o.XyBandCamera)
+        {
+            // The horde camera (read 23 October): FUN_1009905C hands a battle sequence's camera on, but the wild-intro camera
+            // 0x3F8 as 0x3F9 when the battle mode (vtable +0x64) is 4 (0x10099234-0x10099258); X/Y's code does the same with
+            // its pair, so the pair X/Y's intros load (OrasXyTrainers.h) gets the same test, in the code past the intro table
+            const auto [from, to] = *o.XyBandCamera;
+            const uint32_t code = base + cave + 4 * count;
+            const auto at = [&](uint32_t k) { return code + 4 * k; };
+            const auto cond = [](uint32_t c, uint32_t from, uint32_t to) { return (Branch(from, to, false) & 0x0FFFFFFFu) | c << 28; };
+            constexpr uint32_t EQ = 0x0;
+            const uint32_t back = 0x10099258, done = 0x10099104; // the game's "hand it on" and its return of r0
+            // r6 (saved by the function, not used again on these paths) carries the band camera to the mode test
+            const std::vector<uint32_t> program = {
+                0xE3540FFE,                     // 0  cmp r4, #0x3F8
+                0x059F6038,                     // 1  ldreq r6, [pc, #0x38]: word 17, 0x3F9
+                cond(EQ, at(2), at(9)),         // 2  beq: the mode test
+                0xE59F0034,                     // 3  ldr r0, [pc, #0x34]: word 18, X/Y's camera
+                0xE1540000,                     // 4  cmp r4, r0
+                0x059F6030,                     // 5  ldreq r6, [pc, #0x30]: word 19, its horde version
+                cond(EQ, at(6), at(9)),         // 6  beq: the mode test
+                Branch(at(7), back, false),     // 7  b: another camera, handed on
+                0xE320F000,                     // 8  nop
+                0xE5950000,                     // 9  ldr r0, [r5]: the mode test, as the game's
+                0xE5901064,                     // 10 ldr r1, [r0, #0x64]
+                0xE1A00005,                     // 11 mov r0, r5
+                0xE12FFF31,                     // 12 blx r1
+                0xE3500004,                     // 13 cmp r0, #4
+                0x01A00006,                     // 14 moveq r0, r6
+                cond(EQ, at(15), done),         // 15 beq: the horde version returned
+                Branch(at(16), back, false),    // 16 b: not a horde, handed on
+                0x000003F9, from, to,           // 17-19
+            };
+            if ((code - base) + 4 * program.size() > pagesEnd) throw FormatError("--xy-band-camera: no room past the intro table");
+            for (size_t k = 0; k < program.size(); k++) battleWords.push_back({at((uint32_t)k), 0, program[k], "the band camera test (cave)"});
+            battleWords.push_back({0x10099234, 0xE3540FFE, Branch(0x10099234, at(0), false), "FUN_1009905C's band camera test: to the cave"});
+            patched = PatchCro(original, base, battleWords);
+            moved = false;
+            for (uint32_t i = 0; i < relocationCount && !moved; i++)
+            {
+                const uint32_t entry = relocations + 12 * i, tag = layout.U32(entry);
+                if ((tag & 0xF) != 0 || (tag >> 4) != at0) continue;
+                const uint32_t addend = cave - layout.Segments[0].first;
+                patched[entry + 5] = 0;
+                for (int k = 0; k < 4; k++) patched[entry + 8 + k] = (uint8_t)(addend >> (8 * k));
+                moved = true;
+            }
+            snprintf(line, sizeof line, "DllBattle: X/Y's wild-intro camera %u takes its horde version %u in a horde, as the game's 0x3F8 / 0x3F9", from, to);
+            log.push_back(line);
+        }
         dllBattle = patched;
         snprintf(line, sizeof line, "DllBattle: the battle intros 162-%u (sequences up to %u)", count - 1, highest);
         log.push_back(line);

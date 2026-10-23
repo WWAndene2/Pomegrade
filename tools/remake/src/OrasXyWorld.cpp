@@ -39,7 +39,8 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
 
     // X/Y's trainers, before the zones' scripts name them (OrasXyTrainers.h)
     Bytes battleTypes, intros;
-    for (const std::string& l : AddXyTrainers(ws, o.Sounds, o.Music, o.Sounds && !o.OutDir.empty() ? &battleTypes : nullptr, &intros)) log.push_back(l);
+    std::pair<uint32_t, uint32_t> bandCamera{0, 0};
+    for (const std::string& l : AddXyTrainers(ws, o.Sounds, o.Music, o.Sounds && !o.OutDir.empty() ? &battleTypes : nullptr, &intros, &bandCamera)) log.push_back(l);
 
     // every X/Y zone (the archive's last member is its header table, not a zone), and those taken
     std::map<int, OrasZone> all;
@@ -282,6 +283,7 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         const std::string file = (std::filesystem::path(o.OutDir) / "xy_intros.bin").string();
         WriteFile(file, intros);
         engine += " --xy-intros " + file;
+        if (bandCamera.first) engine += " --xy-band-camera " + std::to_string(bandCamera.first) + ":" + std::to_string(bandCamera.second);
     }
     if (!backgroundOf.Empty())
     {

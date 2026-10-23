@@ -121,7 +121,8 @@ static Bytes AimCamerasAsLookAt(const Bytes& file)
     return d;
 }
 
-std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const XySounds* music, bool streams, Bytes* battleTypes, Bytes* intros)
+std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const XySounds* music, bool streams, Bytes* battleTypes, Bytes* intros,
+                                       std::pair<uint32_t, uint32_t>* bandCamera)
 {
     std::vector<std::string> log;
     char line[192];
@@ -415,6 +416,16 @@ std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const XySounds* music,
                     log.push_back(line);
                 }
                 setU32(*battleTypes, 24 * (size_t)t + 4, it->second);
+            }
+            // X/Y's wild intros' camera (X's a/0/3/4 0x201) has a horde version (0x202) no sequence names: in a horde battle the
+            // game takes it instead (X/Y's FUN_10090120 when the battle mode is 4, as Omega Ruby's FUN_1009905C does with its
+            // own pair 0x3F8 / 0x3F9, read 23 October). Ported with it, and handed to oras-engine --xy-band-camera
+            if (modelKind.Of.count(0x201))
+            {
+                const uint32_t camera = modelKind.Of.at(0x201), band = port(modelKind, 0x202);
+                if (bandCamera) *bandCamera = {camera, band};
+                snprintf(line, sizeof line, "X/Y intros: the wild intros' camera as a/0/3/2 %u, its horde version %u", camera, band);
+                log.push_back(line);
             }
             for (const Kind* k : {&modelKind, &motionKind})
             {

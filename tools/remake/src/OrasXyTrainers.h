@@ -56,9 +56,10 @@ inline int XyTrainerToOras(int xTrainer) { return xTrainer > 0 ? XyTrainerFirst 
 // Ruby's trainers uses it, naming its X/Y type (a/0/3/7 byte +2). With `intros` (and battleTypes), every intro X/Y's types
 // name is X/Y's own sequence: appended to a/0/3/4 with the layouts, models, motions and sounds it loads made the mod's, the
 // Kalos ones' drawn names X/Y's added to a/2/1/4, their intros numbered from 162 and *intros the sequences for oras-engine
-// --xy-intros.
+// --xy-intros. *bandCamera: X/Y's wild-intro camera and its horde ("band") version as the mod's a/0/3/2 members, for
+// oras-engine --xy-band-camera (0, 0 when no intro loads that camera).
 std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const struct XySounds* music = nullptr, bool streams = false, Bytes* battleTypes = nullptr,
-                                       Bytes* intros = nullptr);
+                                       Bytes* intros = nullptr, std::pair<uint32_t, uint32_t>* bandCamera = nullptr);
 
 }
 

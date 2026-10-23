@@ -42,6 +42,7 @@ struct OrasEngineOptions
     std::string XyGyms;                      // X/Y's image: its gym modules ported and loaded by their area kinds (OrasXyGymModules.h)
     uint32_t MoreArchives = 0;               // archives numbered from 299 (romfs a/2/9/9 up), the path table copied longer in the room
     std::string XyBattleTypes;               // a file of battle-type records (24 bytes each) appended after the game's 73, in the room (OrasEngine.cpp)
+    std::optional<std::pair<uint32_t, uint32_t>> XyBandCamera; // X/Y's wild-intro camera and its horde version (a/0/3/2 members): swapped in a horde battle, as the game's pair (OrasEngine.cpp)
     std::string XyIntros;                    // a file of a/0/3/4 sequence numbers (u32) for the battle intros 162 up (Kalos's leaders, OrasXyTrainers.h): DllBattle's intro table copied longer (OrasEngine.cpp)
     std::string XyBackgrounds;               // a file of the battle background tables, longer (OrasXyBackgrounds.h): placed in the room, their readers pointed at them (OrasEngine.cpp)
     std::string XyWildEffects;               // a file of X/Y's 12 wild encounter effect entries (6 bytes each, their battle types the mod's), for X/Y's zones (OrasXyEncounters.h; needs --wild-tables large and --xy-battle-types)
