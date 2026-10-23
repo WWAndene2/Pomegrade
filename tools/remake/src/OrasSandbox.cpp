@@ -58,6 +58,7 @@ struct SandboxDescription
     int Width = 0, Height = 0;
     std::vector<std::string> Blocks; // 4 Height rows of 4 Width digits: the zone (its place in Zones) of each 10 x 10 block
     std::vector<std::string> Map;
+    uint32_t TallGrass = 0x20004004; // grass-tile VALUE: the tile value under tall grass
     std::vector<std::pair<int, std::string>> Teams; // a trainer of a/0/3/6 and its team block's lines
     std::map<int, std::pair<int, std::string>> TeamNames; // a team's trainer -> its new class (-1: kept) and name ("": kept)
     std::vector<SandboxZone> Edits;                 // game zones added to (edit Z): their lines, characters, triggers, scene
@@ -186,6 +187,7 @@ static SandboxDescription ReadDescription(const std::string& text)
             source = &d.Teams.back().second;
             continue;
         }
+        if (what == "grass-tile") { std::string v; ok = (bool)(words >> v); if (ok) d.TallGrass = (uint32_t)std::stoul(v, nullptr, 0); continue; }
         if (what == "pieces") { ok = (bool)(words >> d.Width >> d.Height); if (!ok) fail("pieces needs its numbers"); continue; }
         if (what == "xy-piece")
         {
@@ -736,6 +738,7 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
 
     OrasTownOptions to;
     to.CloseEdges = false;
+    to.TallGrass = d.TallGrass;
     to.Ledges = true;
     to.SnowClumps = false; // no snow in a sandbox, and its clumps take the snow-band mesh the ledges use
     to.AreaPack = (size_t)pack;

@@ -40,6 +40,9 @@ struct TownSources
     // the bottom row and the side columns made solid: a town built alone in another place's cell (oras-town); oras-region's pieces
     // meet their neighbours there
     bool CloseEdges = true;
+    // the tile value under tall grass ('g'): the game's most used (59 pieces), or 0x27005004, the tall grass Omega Ruby rolls
+    // hordes on (Field_WildEncounter_StepCheck: tile kind 0x27 only, read 23 October; ORAS_LITTLEROOT.md 9e)
+    uint32_t TallGrass = 0x20004004;
     // the terrain model's name, which tells its place (world<matrix>_<x>_<y>, 13 characters as the game's); empty: the target's
     std::string ModelName;
     // ledges: the layout's 'L' tiles a ledge jumped down southward (oras-sandbox; a region keeps Platinum's ledges as their

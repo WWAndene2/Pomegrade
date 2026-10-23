@@ -66,6 +66,7 @@ struct OrasTownOptions
     int TreeReach = 2;                // TownSources::TreeReach
     uint32_t DoorType = 0;            // TownSources::DoorType (Petalburg's houses: 4)
     bool CloseEdges = true;           // TownSources::CloseEdges (oras-region sets it false)
+    uint32_t TallGrass = 0x20004004;  // TownSources::TallGrass (oras-sandbox's grass-tile)
     bool Ledges = false;              // TownSources::Ledges (oras-sandbox sets it)
     // the donor piece written as it is in the game in place of the built one (with the textures it names added to the area pack):
     // tells whether any foreign piece shows at the target's place, the built one being the first suspect (v22: no picture)

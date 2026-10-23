@@ -47,6 +47,8 @@
 //   scene             optional, instead of script: then the zone script as a scene (SceneScript.h: "on N", "say L", "wait F",
 //                     "flag N on|off", "if [not] flag N" ... "else" ... "endif"), up to a line "end"; compiled on Littleroot's
 //                     zone script, whose talking and waiting routines it calls. Example: tools/remake/sandbox/scene_demo.txt
+//   grass-tile VALUE  optional: the tile value under tall grass, 0x20004004 by default (the game's most used);
+//                     0x27005004 is the tall grass Omega Ruby rolls hordes on (tile kind 0x27 only, Field_WildEncounter_StepCheck)
 //   encounters Z      optional: game zone Z's encounter file (its file 3) copied; none without it
 //   xy-encounters Z   optional, instead: X/Y's zone Z's, made Omega Ruby's as oras-xy-world makes it (OrasXyEncounters.h,
 //                     X/Y's battle types: --xy, and --onto a mod built with oras-engine --xy-wild-effects)
