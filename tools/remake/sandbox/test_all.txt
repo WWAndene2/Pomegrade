@@ -2,8 +2,9 @@
 # Littleroot's pack, Omega Ruby's encounters in its tall grass) whose triggers on row z = 5 warp to the X/Y zones a mod of
 # oras-xy-world --matrices 0,10,58,69,57,221,222,77,98,2 numbers 538-555 (in X's order: the warps name those numbers, so
 # build it with exactly these matrices), or start a scripted wild battle. Built by headless/test_all_mod.sh.
-# The triggers, west to east (walk north from the spawn, then along the row; each tile drawn with flowers, '*', to be
-# seen: the owner found them invisible on the phone, 23 October):
+# The triggers, west to east, each the tile just south of a person standing on row z = 4 (walk up to the person from the
+# south: the owner found the triggers invisible, then the flowers drawn on them ('*') missing or off, 23 October; a
+# person is seen and counted):
 #   x 4: Vaniville (X 0), mod zone 538
 #   x 6: chambre du joueur (X 2), mod zone 539
 #   x 8: X 12, mod zone 541
@@ -22,6 +23,18 @@ spawn 17.5 18.5
 name Carrefour des tests
 encounters 24
 door 28 16 house 223
+character 284 4 4 face 0
+character 284 6 4 face 0
+character 284 8 4 face 0
+character 284 10 4 face 0
+character 284 12 4 face 0
+character 284 14 4 face 0
+character 284 16 4 face 0
+character 284 18 4 face 0
+character 284 24 4 face 0
+character 284 26 4 face 0
+character 284 28 4 face 0
+character 284 30 4 face 0
 trigger 4 5 script 1
 trigger 6 5 script 2
 trigger 8 5 script 3
@@ -230,7 +243,7 @@ TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
 TT..................::................TT
 TT..................::................TT
 TT..................::................TT
-TT..*.*.*.*.*.*.*.*.::..*.*.*.*.......TT
+TT..................::................TT
 TT....~~~~~~~~~.....::................TT
 TT....~~~~~~~~~.....::................TT
 TT....~~~~~~~~~.....::.........t......TT
