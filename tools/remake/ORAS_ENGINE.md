@@ -137,12 +137,21 @@ is tested on the phone.
   a/1/2/1). X/Y's trainers use intros 0xD (571 of them), 0xE (163), 0x11-0x1D (the League) and 0x21 (1); 0x1-0xB are
   not a class's (wild battles: their type is the encounter effect entry's byte +4, +5 for a horde, read 22-23 October:
   OrasXyEncounters.h; all nine of X/Y's wild intro sequences, 819-827, load X/Y's intro camera 0x201, a/0/3/4 513).
-  **Checked headless (23 October, runs wb4-wb17, tv2)**: X/Y's wild intro 825 plays whole with Omega Ruby's camera
-  (0x3F8, or another original member at 0x3FC); with X/Y's camera it stays black, at the appended member 1030 and at the
-  original member 1020 alike, so the cause is the camera file's content, not its number. Not the cause, each tested
-  alone: its absent X curves made constants (wb7). Not isolated yet: its Aim view made LookAt (wb16, at member 1030).
-  X/Y and Omega Ruby both swap the intro camera for its "band" one (0x201 -> 0x202, 0x3F8 -> 0x3F9) in battle mode 4
-  (FUN_1009905C; X/Y's FUN_10090120). Checked
+  **Fixed 23 October (run f1): X/Y's wild intros play.** The cause was storage, not the camera: Omega Ruby's battle
+  loader reads every a/0/3/2 member through its decompressor (all 1017 of the game's are LZ11); the port appended X/Y's
+  members as X/Y stores them, and X/Y's intro camera (a/0/3/4 513) is plain there, so the loader's thread read it for
+  ever (run k1: `report` twice a minute apart, thread 216 at the same place under Res_AsyncLoadJob_Run, thread 217 in
+  Res_ReadCompressedEntry) and every X/Y wild intro stayed black. Appended members now follow the archive's own storage
+  (OrasXyTrainers.cpp); f1: X/Y's grass intro (sequence 819) whole with X/Y's camera (Pansear, the battle on). Read in both
+  games' code on the way, all the same in X/Y and Omega Ruby: the camera command (Omega Ruby 0x1F FUN_100B1794, X/Y 0x1D
+  FUN_100A796C, from the two command tables 0x1012E5B0 and 0x1011EEF8), the sequence preload (FUN_10038748), the load
+  request (FUN_10098EEC, no bound on the number), the per-frame camera update (FUN_1005C5B0 / FUN_100585B0, the same 10
+  element names). One difference: Omega Ruby fills the up vector only for a LookAt view (FUN_1005C418), so the port also
+  writes X/Y's Aim cameras as LookAt (an unanimated twist of 0: the same view); whether this is still needed with the
+  storage fixed is not tested. Wrong turns, so they cost nothing again: the camera's absent X curves, its view type and
+  its number were each blamed before the storage was looked at; `prototype/gamefs.py members` now flags a member stored
+  unlike the rest of its archive. Not checked yet: hordes (a/0/3/2 1031, which the ported sequences name as X/Y's band
+  camera, holds `tile_test`), X/Y's other 8 wild intros, the phone. Checked
   headless on the sandbox (demo.txt with X/Y's trainers, oras-sandbox --onto): X/Y's trainers 1 (Youngster, 0xD), 107
   and 130 (0xE) and 188 (Korrina, 0x21) play their X/Y intros with their own drawings and names (runs xf_17-xf_27).
   Not checked: against X running, on the phone.

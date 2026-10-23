@@ -81,6 +81,23 @@ class Fs:
         return ""
 
 
+def stored(garc):
+    """each member's first stored byte (0x10/0x11: LZ compressed), from the raw GARC's FATB, keyed as the members are"""
+    hs = struct.unpack_from("<H", garc, 4)[0]
+    data = struct.unpack_from("<I", garc, 0x10)[0]
+    fatb = hs + struct.unpack_from("<I", garc, hs + 4)[0]
+    q, out = fatb + 12, {}
+    for i in range(struct.unpack_from("<I", garc, fatb + 8)[0]):
+        bits = struct.unpack_from("<I", garc, q)[0]
+        q += 4
+        for k in range(32):
+            if bits >> k & 1:
+                start = struct.unpack_from("<I", garc, q)[0]
+                q += 12
+                out[str(i) if k == 0 else f"{i}_{k}"] = garc[data + start] in (0x10, 0x11)
+    return out
+
+
 def kind(data):
     if data[:4] == b"CRAG":
         return f"GARC, {struct.unpack_from('<H', data, 0x1C + 8)[0] if len(data) > 0x26 else '?'} members"
@@ -124,9 +141,14 @@ def main():
                     if p not in game_paths and p.startswith(a.args[0] if a.args else ""):
                         print(f"{p:40} {os.path.getsize(os.path.join(root, n)):>11} {'':22} added")
     elif a.what == "members":
+        # stored: LZ or plain as the archive holds it (23 October: X/Y's camera appended plain to a/0/3/2, whose every
+        # member is LZ and read through the decompressor, hung the battle loader); a member stored unlike most is flagged
+        packed = stored(fs.read(a.args[0]))
+        usual = sum(packed.values()) * 2 > len(packed)
         for key, f in fs.members(a.args[0]).items():
             d = open(f, "rb").read()
-            print(f"{key:>8} {len(d):>9} {f.rsplit('.', 1)[-1]:8} {first_name(d)}")
+            flag = "" if packed.get(key) == usual else ("  <- stored plain, the archive's others LZ" if usual else "  <- stored LZ, the archive's others plain")
+            print(f"{key:>8} {len(d):>9} {'LZ' if packed.get(key) else 'plain':5} {f.rsplit('.', 1)[-1]:8} {first_name(d)}{flag}")
     elif a.what == "get":
         path, _, member = a.args[0].partition(":")
         data = open(fs.members(path)[member], "rb").read() if member else fs.read(path)
