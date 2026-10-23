@@ -212,8 +212,11 @@ jobs:
               ln -s "$GITHUB_WORKSPACE/dumps/oras.3ds" "$tw/dumps/oras.3ds"; ln -s "$GITHUB_WORKSPACE/dumps-x/x.3ds" "$tw/dumps/x.3ds"
               ln -s "$GITHUB_WORKSPACE/build-remake" "$tw/build-remake"
               cp "$(find save -type f -name main | head -n 1)" "$tw/dumps/save/main"
-              cp "$(find save -type f -name '00000001.metadata' | head -n 1)" "$tw/dumps/save/"
-              tools/remake/headless/test_all_mod.sh "$tw" "$name" | tee "mods/${name}_log.txt"
+              meta=$(find save -type f -name '00000001.metadata' | head -n 1)
+              if [ -n "$meta" ]; then cp "$meta" "$tw/dumps/save/"; else echo "::warning::the Drive save has no 00000001.metadata"; fi
+              echo "save: $(find save -type f | head -5 | tr '\n' ' ')"
+              tools/remake/headless/test_all_mod.sh "$tw" "$name" 2>&1 | tee "mods/${name}_log.txt" || {
+                for f in "$tw"/out/*.log; do echo "== $f"; tail -n 30 "$f"; done; exit 1; }
               cat "$tw/out/${name}_sb.log" "$tw/out/${name}_engine.log" >> "mods/${name}_log.txt"
               rm -rf "out/$name" && mkdir -p "out/$name" && (cd "out/$name" && unzip -q "$tw/out/$name.zip")
             elif [[ "$options" =~ ^[[:space:]]*xy-world([[:space:]]|$) ]]; then

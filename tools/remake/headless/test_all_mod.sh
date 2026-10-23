@@ -30,7 +30,7 @@ $T oras-save dumps/save/main "out/${name}_save" 556 17.5 18.5 --save-records 32 
 rm -rf "out/$name.pack" && mkdir -p "out/$name.pack/sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/00040000/0011c400/data/00000001"
 cp -r "out/$name/load" "out/$name.pack/"
 cp "out/${name}_save" "out/$name.pack/sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/00040000/0011c400/data/00000001/main"
-cp dumps/save/00000001.metadata "out/$name.pack/sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/00040000/0011c400/data/"  # beside it, as the workflow's save
+[ -f dumps/save/00000001.metadata ] && cp dumps/save/00000001.metadata "out/$name.pack/sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/00040000/0011c400/data/"  # beside it, as the workflow's save
 (cd "out/$name.pack" && zip -qr "../$name.zip" load sdmc)
 rm -rf "out/$name.pack"
 echo "mod out/$name, save out/${name}_save, zip out/$name.zip ($(du -h "out/$name.zip" | cut -f1))"
