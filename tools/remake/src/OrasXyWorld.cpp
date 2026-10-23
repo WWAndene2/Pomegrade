@@ -71,7 +71,7 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
                 if (s->size() >= 16) scripts.push_back(XyScriptToOras(*s, o.NamesFile, 0x243).Script);
         }
         // and the X/Y shared scripts ported (OrasXySharedScripts.h), whose flags are the same story's
-        for (const Bytes& shared : XySharedScriptsOf(xRom, XyPortedSharedScripts, o.NamesFile)) scripts.push_back(shared);
+        for (const Bytes& shared : XySharedScriptsOf(xRom, XySharedScriptMembers(xRom.Code()), o.NamesFile)) scripts.push_back(shared);
         numbers = XyNumbersFor(scripts, vanish, conditions);
     }
     const int firstZone = ws.NextZone();
@@ -86,7 +86,7 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     XyBackgroundNumbers backgroundOf; // X/Y's battle backgrounds met, Omega Ruby's numbers (OrasXyBackgrounds.h)
     // X/Y's shared scripts, before the zones' events name their ids (OrasXySharedScripts.h)
     XyScriptIds scriptIds;
-    const Bytes sharedScripts = AddXySharedScripts(ws, xRom, XyPortedSharedScripts, numbers, o.NamesFile, o.Sounds, o.Music, &backgroundOf, scriptIds, log);
+    const Bytes sharedScripts = AddXySharedScripts(ws, xRom, XySharedScriptMembers(xRom.Code()), numbers, o.NamesFile, o.Sounds, o.Music, &backgroundOf, scriptIds, log);
     std::map<int, std::vector<int>> packModels; // X/Y pack -> the Omega Ruby models its zones show
     for (const int z : taken)
     {

@@ -27,10 +27,11 @@
 //    battle 0x1029A650 sets it, X's setter 0x1026DE30 written out with Omega Ruby's encounter context: X's +0x7C-+0xA4
 //    are Omega Ruby's +0x78-+0xA0, the battle type X's +0x8E Omega Ruby's +0x8A; X's 0x15 is the mod's X/Y type 73 + 0x15),
 //    CheckTypeOfDustBox (X 0x1028D7EC), GetItemIdOfDustBox (X 0x1028D8F0).
-// Not ported yet: the native's diary line (X's 0x448E08 = Omega Ruby's 0x478964, event 0x204, the zone at X's game data +
-// 0x124: Omega Ruby keeps events 0x10B-0x242 in its second list, game data + 0x1C49C, 50 records, so 0x204 is kept; the
-// text its diary shows for 0x204 is not read), X's shared script calling the natives (X's a/0/3/1 member 39, its ids
-// 10480-10529 Omega Ruby's own). Not run.
+// The diary line (X's 0x448E08 = Omega Ruby's 0x478964, event 0x204, the zone at the game data + 0x124 in both games):
+// ported as is. Omega Ruby keeps events 0x10B-0x242 in its second list (game data + 0x1C49C, 50 records), read only by
+// the save's constructor, 0x444FF4 and DllGift (Game Sync's upload: inferred from those readers), shown by nothing in the
+// game; the Memory Rater's lines (Omega Ruby's system text 79, X's 65, line 97 "checked a trash can" in both) are another
+// record. Not run.
 // Azahar only: the room's code runs because Azahar fetches code from any mapped page (DynarmicUserCallbacks::
 // MemoryReadCode, azahar/src/core/arm/dynarmic/arm_dynarmic.cpp: read, not run), and DllField is patched.
 

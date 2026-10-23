@@ -728,5 +728,35 @@ std::string XyMoveWildBattles(const std::string& source, std::vector<std::string
     return out;
 }
 
+std::string XyMoveScriptIds(const std::string& source, const std::function<int(int)>& toOras, std::vector<std::string>& notes)
+{
+    const std::vector<Line> lines = Split(source);
+    std::vector<std::string> text, names;
+    {
+        std::istringstream in(source);
+        for (std::string l; std::getline(in, l);) text.push_back(l);
+    }
+    for (const Line& l : lines) if (l.Op == "native" && l.Words.size() >= 2) names.push_back(l.Words[1]);
+    const auto nameOf = [&](size_t index) { return index < names.size() ? names[index] : std::string(); };
+    size_t moved = 0;
+    for (const Argument& a : NumberArguments(lines, nameOf, &notes, {{"GlobalCall", 0}, {"ReserveScript", 0}, {"WeakReserveScript", 0},
+                                                                    {"AILoad", 0}, {"AICreate", 0}, {"AIDelete", 0}, {"AIIsAlive", 0}}))
+    {
+        if (!a.Other) continue;
+        const int v = (int)std::stol(lines[a.Line].Words.back(), nullptr, 0), id = toOras(v);
+        if (id == v) continue;
+        // a packed instruction's operand is 16 bits, signed: the moved ids (32000-50010) take the unpacked form (push.p.c ->
+        // push.c), 32 bits
+        std::string op = lines[a.Line].Op;
+        const size_t packed = op.find(".p.");
+        if ((id < -32768 || id > 32767) && packed != std::string::npos) op.erase(packed, 2);
+        text[a.Line] = "    " + op + " " + std::to_string(id) + "   ; X/Y's script id " + std::to_string(v);
+        moved++;
+    }
+    if (moved) notes.push_back("script ids: " + std::to_string(moved) + " of X/Y's shared scripts made the mod's (+ 30000)");
+    std::string out;
+    for (const std::string& l : text) out += l + "\n";
+    return out;
 }
 
+}

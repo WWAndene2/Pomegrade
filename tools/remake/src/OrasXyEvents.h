@@ -44,9 +44,10 @@ struct XyEvents
 
 // an X/Y script's source (XyScriptSource's) made Omega Ruby's and assembled, as a zone's is: its zones, sounds (with
 // `sounds`), trainers, backgrounds (with `backgrounds`), badges, scripted wild battles and message files (X/Y's appended
-// once a run) moved, then `edit`; assembled against the native mask it needs, added to `mask` (`what` names it in errors)
+// once a run) moved, with `scriptIds` the shared scripts' ids it gives natives (XyMoveScriptIds), then `edit`; assembled
+// against the native mask it needs, added to `mask` (`what` names it in errors)
 Bytes XyAssembleScript(OrasWorkspace& ws, N3dsRom& xRom, std::string source, const XyNumbers& numbers, const std::string& namesFile,
-                       const struct XySounds* sounds, bool music, struct XyBackgroundNumbers* backgrounds,
+                       const struct XySounds* sounds, bool music, struct XyBackgroundNumbers* backgrounds, const class XyScriptIds* scriptIds,
                        const std::function<std::string(const std::string&)>& edit, const std::string& what, uint32_t& mask,
                        std::vector<std::string>& notes, std::vector<std::string>& log);
 

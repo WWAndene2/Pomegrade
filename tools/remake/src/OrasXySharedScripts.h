@@ -13,8 +13,13 @@
 // for new scripts. Its script is appended to a/0/2/9 (translated as a zone's, XyAssembleScript), its text file to the
 // system text (X/Y's a/0/7/2-9 -> a/0/7/1-8), and oras-engine --xy-shared-scripts gives the engine its rows, masks and
 // names (the tables copied longer into the room, OrasEngine.cpp). The ids X/Y's zones name (furniture word 0, character
-// word 5, trigger word 0: the words holding ids of 2000 and up in X's 361 zones) are moved with it (XyScriptIdToOras).
-// Not moved yet: an id a script passes to a native (GlobalCall, ReserveScript...).
+// word 5, trigger word 0: the words holding ids of 2000 and up in X's 361 zones) are moved with it (XyScriptIds), and
+// so are those a script gives GlobalCall, ReserveScript, WeakReserveScript and the AI natives (XyMoveScriptIds: 34, 10,
+// 3 and 14 calls in X's scripts, the natives' constants inside X's ranges counted over all its 420 scripts). Every member
+// a row names is ported but trainer.amx (XySharedScriptMembers); the three the same as Omega Ruby's (cafe_scr and
+// hotel_scr as Omega Ruby's 48, dummy as its 33: empty scripts, no dispatch on their ids) are merged. Not moved, as in
+// the zone scripts: a flag, work or zone a script computes (reported: 25 flags, 16 works, 34 zones in 9 or more members;
+// objectencount.amx's can flags edited, XySharedScriptEdits). Not run.
 
 #include "Bytes.h"
 #include "OrasXyScript.h"
@@ -31,8 +36,6 @@ class OrasWorkspace;
 
 constexpr int XyScriptIdShift = 30000;
 
-// the members oras-xy-world ports: objectencount.amx, the dust boxes' (OrasXyDustBox.h); the others are the next step
-inline const std::set<int> XyPortedSharedScripts = {39};
 
 struct XyScriptRange
 {
@@ -41,6 +44,10 @@ struct XyScriptRange
 
 // X/Y's rows (its .code's table)
 std::vector<XyScriptRange> XyScriptRanges(const Bytes& xCode);
+
+// the members oras-xy-world ports: every one a row names but trainer.amx (ids 3000-4999 and 5000-6999: a trainer's script
+// is 3000 + its id, already Omega Ruby's number of X/Y's trainer, OrasXyTrainers.h, run by Omega Ruby's own trainer.amx)
+std::set<int> XySharedScriptMembers(const Bytes& xCode);
 
 // the ported ranges' ids (X/Y's) moved; any other id kept
 class XyScriptIds
@@ -53,7 +60,8 @@ private:
 };
 
 // X/Y's shared scripts of the given members ported (their rows' ids added to `ids`): the engine's file (oras-engine
-// --xy-shared-scripts), "XYSS", the rows' count and rows, then per member its number in a/0/2/9, native mask and name
+// --xy-shared-scripts), "XYSS", the rows' count and rows, then per member appended its number in a/0/2/9, native mask and
+// name (32 bytes). A member the same as one of Omega Ruby's (byte for byte) is not appended: its rows name Omega Ruby's
 Bytes AddXySharedScripts(OrasWorkspace& ws, N3dsRom& xRom, const std::set<int>& xMembers, const XyNumbers& numbers,
                          const std::string& namesFile, const struct XySounds* sounds, bool music, struct XyBackgroundNumbers* backgrounds,
                          XyScriptIds& ids, std::vector<std::string>& log);

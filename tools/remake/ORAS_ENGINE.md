@@ -91,8 +91,13 @@ where it found only a copy):
   word 0, character word 5 and trigger word 0 (the words holding ids of 2000 and up in X's 361 zones; only zones 318 and
   349 name 10480-10489, the cans), `--xy-shared-scripts` copying the 86 rows, 96 masks and the names into the room.
   objectencount.amx dispatches on its ids (`casetbl`, moved) and computes a can's flag as spot + 0xC50, also the can
-  prop's id: only FlagGet/FlagReset's argument moves. Left: the diary text of event 0x204 (0x205 for an item, the
-  script's own PokeDiarySet), an id a script passes to a native, the other 58 shared scripts (the next step);
+  prop's id: only FlagGet/FlagReset's argument moves. **Then (23 October)**: the diary line ported as is (Omega Ruby's
+  list of events 0x10B-0x242 is read only by the save, 0x444FF4 and DllGift: Game Sync's upload, shown by nothing in the
+  game; the zone at game data + 0x124 in both games); the ids given GlobalCall, ReserveScript, WeakReserveScript and the
+  AI natives moved (`XyMoveScriptIds`, unpacked past 16 bits); every X/Y shared script but trainer.amx ported (64 rows,
+  55 members appended, 3 merged: OrasXySharedScripts.h; a row's text kind 1 is the story text, kind 0 the system text;
+  X's member 41 is a plain Pawn image whose first byte is LZ10's mark). Not moved: computed flags, works and zones (75,
+  reported);
 - **dust cloud**: no script imports `CallTsuchikemuriEncountEvent` (X 0x102914A0; ported anyway, owner's rule): the step
   does, X's 0x102265DC (0x5AC bytes, reached from 0x1022711C, 0x10227324; Omega Ruby's 0x10263014, 97%: the dust-cloud
   branch to add) creates `field::EventTsuchikemuriEncount` (0x34 bytes, vtable X 0x102FEF4C: 6 methods, about 350

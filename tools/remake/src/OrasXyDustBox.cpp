@@ -231,7 +231,7 @@ std::vector<CodeWord> XyDustBoxFieldPatchAt(uint32_t cave)
 
 std::vector<XyNative> XyDustBoxNatives()
 {
-    constexpr uint32_t ScriptContext = 0x3FE5C8, Getter = 0x4DBE1C, StartEncounter = 0x3DADE8, ClearTemp = 0x3FFF30;
+    constexpr uint32_t ScriptContext = 0x3FE5C8, Getter = 0x4DBE1C, StartEncounter = 0x3DADE8, ClearTemp = 0x3FFF30, PokeDiarySet = 0x478964;
     constexpr uint32_t ClearContext = 0x102C00C0, InitContext = 0x102BFDD4;
     // CallDustBoxEncount(n): X's 0x1028CFD4 and the battle it sets (0x1029A650), on Omega Ruby's encounter context (0xA4
     // bytes at sp + 8)
@@ -297,6 +297,16 @@ std::vector<XyNative> XyDustBoxNatives()
                              0xE3A03000u})  // mov r3, #0
         battle.Op(w);
     battle.Call(StartEncounter);
+    // X's diary line: PokeDiarySet's (X 0x448E08 = Omega Ruby's 0x478964) event 0x204, the zone, the species
+    for (const uint32_t w : {0xE3A00F81u,   // mov r0, #0x204
+                             0xE596101Cu,   // ldr r1, [r6, #0x1C]   the game data
+                             0xE2811E12u,   // add r1, r1, #0x120
+                             0xE1D110B4u,   // ldrh r1, [r1, #4]      the zone (PlayerGetZoneID's, both games)
+                             0xE5972004u,   // ldr r2, [r7, #4]
+                             0xE6FF2072u,   // uxth r2, r2            the species
+                             0xE3A03000u})  // mov r3, #0
+        battle.Op(w);
+    battle.Call(PokeDiarySet);
     battle.Op(0xE1A00005);                  // mov r0, r5
     battle.Call(ClearTemp);
     for (const uint32_t w : {0xE3A00000u,   // mov r0, #0

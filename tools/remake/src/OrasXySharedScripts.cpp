@@ -4,7 +4,6 @@
 #include "Garc.h"
 #include "N3dsRom.h"
 #include "NitroCompression.h"
-#include "OrasTown.h"
 #include "OrasWorkspace.h"
 #include "OrasXyEvents.h"
 
@@ -18,6 +17,9 @@ namespace remake
 namespace
 {
 Bytes Plain(const Bytes& data) { return IsLzCompressed(data) ? LzDecompress(data) : data; }
+// a script member: a Pawn image (its magic 0xF1E0 at +4) is plain whatever its first byte (X's member 41, 0x610 bytes,
+// begins with 0x10, LZ10's mark); anything else decompressed
+Bytes Script(const Bytes& data) { return data.size() >= 6 && data[4] == 0xE0 && data[5] == 0xF1 ? data : Plain(data); }
 uint32_t Word(const Bytes& b, size_t at) { return (uint32_t)(b.at(at) | b.at(at + 1) << 8 | b.at(at + 2) << 16 | (uint32_t)b.at(at + 3) << 24); }
 uint16_t Half(const Bytes& b, size_t at) { return (uint16_t)(b.at(at) | b.at(at + 1) << 8); }
 void Put16(Bytes& b, uint32_t v) { b.push_back((uint8_t)v); b.push_back((uint8_t)(v >> 8)); }
@@ -89,11 +91,19 @@ int XyScriptIds::ToOras(int id) const
     return id;
 }
 
+std::set<int> XySharedScriptMembers(const Bytes& xCode)
+{
+    std::set<int> members;
+    for (const XyScriptRange& r : XyScriptRanges(xCode))
+        if (!(r.First >= 3000 && r.Last <= 6999)) members.insert(r.Member);
+    return members;
+}
+
 std::vector<Bytes> XySharedScriptsOf(N3dsRom& xRom, const std::set<int>& xMembers, const std::string& namesFile)
 {
     const Garc scripts(xRom.Read("a/0/3/1"));
     std::vector<Bytes> out;
-    for (const int m : xMembers) out.push_back(XyScriptToOras(Plain(scripts.Sub((size_t)m)), namesFile, 0x243).Script);
+    for (const int m : xMembers) out.push_back(XyScriptToOras(Script(scripts.Sub((size_t)m)), namesFile, 0x243).Script);
     return out;
 }
 
@@ -104,19 +114,33 @@ Bytes AddXySharedScripts(OrasWorkspace& ws, N3dsRom& xRom, const std::set<int>& 
     const Bytes xCode = xRom.Code();
     const std::vector<XyScriptRange> rows = XyScriptRanges(xCode);
     const Garc scripts(xRom.Read("a/0/3/1"));
-    std::map<int, int> textOf; // X/Y's system text file -> the mod's
+    std::map<std::pair<int, int>, int> textOf; // X/Y's text file (kind, member) -> the mod's
     Bytes rowsOut, members;
-    uint32_t rowCount = 0;
+    uint32_t rowCount = 0, memberCount = 0;
+    // every range first: a shared script may name another's ids
+    for (const XyScriptRange& r : rows) if (xMembers.count(r.Member)) ids.Add(r);
     for (const int m : xMembers)
     {
         if ((size_t)m >= scripts.Count()) throw FormatError("X/Y's shared script " + std::to_string(m) + ": no such member of a/0/3/1");
         std::vector<std::string> notes;
-        const std::string source = XyScriptSource(XyScriptToOras(Plain(scripts.Sub((size_t)m)), namesFile, 0x243).Script, namesFile, numbers, notes);
+        const std::string source = XyScriptSource(XyScriptToOras(Script(scripts.Sub((size_t)m)), namesFile, 0x243).Script, namesFile, numbers, notes);
         uint32_t mask = 0x243;
         const auto edit = [&](const std::string& moved) { return XySharedScriptEdits(moved, m, rows); };
-        const Bytes assembled = XyAssembleScript(ws, xRom, source, numbers, namesFile, sounds, music, backgrounds, edit,
+        const Bytes assembled = XyAssembleScript(ws, xRom, source, numbers, namesFile, sounds, music, backgrounds, &ids, edit,
                                                  "X/Y shared script " + std::to_string(m), mask, notes, log);
-        const size_t member = AppendMember(ws.Edited("a/0/2/9"), ws.Original("a/0/2/9"), 0, assembled, "");
+        // the same script as one of Omega Ruby's: merged, its rows naming Omega Ruby's member (CLAUDE.md 8); else appended
+        const Garc& orasScripts = ws.Original("a/0/2/9");
+        size_t member = orasScripts.Count();
+        bool merged = false;
+        for (size_t k = 0; k < orasScripts.Count() && !merged; k++)
+            if (Script(orasScripts.Sub(k)) == Script(scripts.Sub((size_t)m))) { member = k; merged = true; }
+        if (!merged)
+        {
+            Garc& archive = ws.Edited("a/0/2/9");
+            member = archive.Count();
+            archive.Set(member, assembled);
+            if (Garc(archive.Write()).Sub(member) != assembled) throw FormatError("X/Y's shared script " + std::to_string(m) + ": its member does not read back identical");
+        }
         const uint32_t nameAt = Word(xCode, XNames - CodeBase + 4 * (size_t)m);
         std::string name;
         for (size_t c = nameAt - CodeBase; c < xCode.size() && xCode[c] && name.size() < NameSize - 1; c++) name.push_back((char)xCode[c]);
@@ -124,24 +148,30 @@ Bytes AddXySharedScripts(OrasWorkspace& ws, N3dsRom& xRom, const std::set<int>& 
         for (const XyScriptRange& r : rows)
         {
             if (r.Member != m) continue;
-            if (r.TextKind != 1) throw FormatError("X/Y's shared script " + std::to_string(m) + ": a range whose text is not the system text's (kind " + std::to_string(r.TextKind) + ", not ported)");
-            if (!textOf.count(r.Text))
+            // the text: kind 1 the story text (Text_GetLanguageTable 0x4191B8: archives 79-86, a/0/7/9-a/0/8/6; X/Y's
+            // a/0/8/0-7: X's member 142, its "obtained" lines), kind 0 the system text (Sys_GetTableEntryByIndex 0x11FB9C:
+            // archives 71-78, a/0/7/1-8; X/Y's a/0/7/2-9)
+            if (r.TextKind > 1) throw FormatError("X/Y's shared script " + std::to_string(m) + ": a range of text kind " + std::to_string(r.TextKind));
+            const std::pair<int, int> text{r.TextKind, r.Text};
+            if (!textOf.count(text))
             {
                 std::vector<Bytes> files;
-                for (int k = 0; k < 8; k++) files.push_back(Plain(Garc(xRom.Read("a/0/7/" + std::to_string(k + 2))).Sub(r.Text)));
-                textOf[r.Text] = ws.AddSystemTextFiles(files);
+                for (int k = 0; k < 8; k++)
+                    files.push_back(Plain(Garc(xRom.Read(r.TextKind == 1 ? "a/0/8/" + std::to_string(k) : "a/0/7/" + std::to_string(k + 2))).Sub(r.Text)));
+                textOf[text] = r.TextKind == 1 ? ws.AddZoneTextFiles(files) : ws.AddSystemTextFiles(files);
             }
-            for (const uint32_t v : {(uint32_t)r.First + XyScriptIdShift, (uint32_t)r.Last + XyScriptIdShift, (uint32_t)member, 1u, (uint32_t)textOf[r.Text], 0u, 0u, 0u}) Put16(rowsOut, v);
-            ids.Add(r);
+            for (const uint32_t v : {(uint32_t)r.First + XyScriptIdShift, (uint32_t)r.Last + XyScriptIdShift, (uint32_t)member, (uint32_t)r.TextKind, (uint32_t)textOf[text], 0u, 0u, 0u}) Put16(rowsOut, v);
             rowCount++;
             ranges++;
             char line[192];
-            snprintf(line, sizeof line, "X/Y shared script %d (%s): a/0/2/9 member %zu, ids %d-%d (X/Y's %d-%d), text file %d, mask 0x%X", m, name.c_str(),
-                     member, r.First + XyScriptIdShift, r.Last + XyScriptIdShift, r.First, r.Last, textOf[r.Text], mask);
+            snprintf(line, sizeof line, "X/Y shared script %d (%s): a/0/2/9 member %zu, ids %d-%d (X/Y's %d-%d), %s text file %d, mask 0x%X", m, name.c_str(),
+                     member, r.First + XyScriptIdShift, r.Last + XyScriptIdShift, r.First, r.Last, r.TextKind ? "story" : "system", textOf[text], mask);
             log.push_back(line);
         }
         if (!ranges) throw FormatError("X/Y's shared script " + std::to_string(m) + ": no range names it");
         for (const std::string& n : notes) log.push_back("  " + n);
+        if (merged) { log.push_back("  the same as Omega Ruby's member " + std::to_string(member) + ": merged"); continue; }
+        memberCount++;
         Put16(members, (uint32_t)member);
         Put16(members, 0);
         Put32(members, mask);
@@ -150,7 +180,7 @@ Bytes AddXySharedScripts(OrasWorkspace& ws, N3dsRom& xRom, const std::set<int>& 
     Bytes file = {'X', 'Y', 'S', 'S'};
     Put32(file, rowCount);
     file.insert(file.end(), rowsOut.begin(), rowsOut.end());
-    Put32(file, (uint32_t)xMembers.size());
+    Put32(file, memberCount);
     file.insert(file.end(), members.begin(), members.end());
     return file;
 }

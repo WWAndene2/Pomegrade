@@ -39,5 +39,16 @@ int main()
     check(refused, "objectencount.amx without its two flag calls is refused");
     check(XySharedScriptEdits(source, 7, rows) == "    casetbl 3 L1 -1 L2 10480 L3 20001 L4\n" + source.substr(source.find("L5:")),
           "another member: nothing of its own moved");
+    // the ids a script gives natives: GlobalCall's first argument, a constant, made the mod's; 40480 does not fit a packed
+    // instruction's 16 bits, so push.p.c becomes push.c
+    const std::string calls =
+        "native GlobalCall\n"
+        "native AILoad\n"
+        "L1:\n    proc\n    push.p.c 10481\n    sysreq.n 0 4   ; GlobalCall\n"
+        "    push.p.c 20000\n    sysreq.n 1 4   ; AILoad\n    retn\n";
+    std::vector<std::string> notes;
+    const std::string moved = XyMoveScriptIds(calls, [&](int id) { return ids.ToOras(id); }, notes);
+    check(moved.find("    push.c 40481   ; X/Y's script id 10481\n    sysreq.n 0 4   ; GlobalCall") != std::string::npos, "GlobalCall's id moved, unpacked");
+    check(moved.find("    push.p.c 20000\n    sysreq.n 1 4   ; AILoad") != std::string::npos, "an id of a range not ported kept");
     return ok ? 0 : 1;
 }

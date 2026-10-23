@@ -89,7 +89,7 @@ static std::string XyParentFlagSteps(std::string source, std::vector<ZoneTrigger
 }
 
 Bytes XyAssembleScript(OrasWorkspace& ws, N3dsRom& xRom, std::string source, const XyNumbers& numbers, const std::string& namesFile,
-                       const XySounds* sounds, bool music, XyBackgroundNumbers* backgrounds,
+                       const XySounds* sounds, bool music, XyBackgroundNumbers* backgrounds, const XyScriptIds* scriptIds,
                        const std::function<std::string(const std::string&)>& edit, const std::string& what, uint32_t& mask,
                        std::vector<std::string>& notes, std::vector<std::string>& log)
 {
@@ -99,6 +99,7 @@ Bytes XyAssembleScript(OrasWorkspace& ws, N3dsRom& xRom, std::string source, con
     if (backgrounds) source = XyMoveBackgrounds(source, *backgrounds, notes);
     source = XyMoveBadges(source, notes);
     source = XyMoveWildBattles(source, notes);
+    if (scriptIds) source = XyMoveScriptIds(source, [&](int id) { return scriptIds->ToOras(id); }, notes);
     // the message files it loads (MsgLoad's (table, n), XyMessageMember): X/Y's member added once in its eight languages
     // (system text: X/Y's a/0/7/2-9 -> a/0/7/1-8; story text: X/Y's a/0/8/0-7 -> a/0/7/9-a/0/8/6), named 0x100 + the new
     // member (oras-engine --xy-messages on). B's nickname scene read Omega Ruby's file of the same n: an empty nickname
@@ -247,7 +248,7 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
             return !init && from == "translated" ? XyParentFlagSteps(moved, e.Triggers, firstStep, xZone, log) : moved;
         };
         uint32_t mask = 0x243;
-        const Bytes assembled = XyAssembleScript(ws, xRom, source, numbers, namesFile, sounds, music, backgrounds, steps,
+        const Bytes assembled = XyAssembleScript(ws, xRom, source, numbers, namesFile, sounds, music, backgrounds, scriptIds, steps,
                                                  "X/Y zone " + std::to_string(xZone) + (init ? " init" : "") + " script (" + from + ")", mask, notes, log);
         e.Mask |= mask;
         (init ? e.InitScript : e.Script) = assembled;
