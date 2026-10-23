@@ -44,6 +44,7 @@ struct OrasEngineOptions
     std::string XyBattleTypes;               // a file of battle-type records (24 bytes each) appended after the game's 73, in the room (OrasEngine.cpp)
     std::string XyIntros;                    // a file of a/0/3/4 sequence numbers (u32) for the battle intros 162 up (Kalos's leaders, OrasXyTrainers.h): DllBattle's intro table copied longer (OrasEngine.cpp)
     std::string XyBackgrounds;               // a file of the battle background tables, longer (OrasXyBackgrounds.h): placed in the room, their readers pointed at them (OrasEngine.cpp)
+    std::string XyWildEffects;               // a file of X/Y's 12 wild encounter effect entries (6 bytes each, their battle types the mod's), for X/Y's zones (OrasXyEncounters.h; needs --wild-tables large and --xy-battle-types)
 };
 
 // the ARM data-processing immediate encoding of value (an 8-bit value rotated right by an even amount), when there is one

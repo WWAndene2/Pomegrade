@@ -14,7 +14,7 @@ constexpr size_t LandBytes = 12 * 4, SlotBytes = 4;
 const uint8_t EmptySlot[SlotBytes] = {0, 0, 1, 1};
 }
 
-Bytes XyEncountersToOras(const Bytes& x, int xZone)
+Bytes XyEncountersToOras(const Bytes& x, int xZone, bool xyEffects)
 {
     if (x.empty()) return {};
     if (x.size() != XyBytes) throw FormatError("X/Y zone " + std::to_string(xZone) + ": an encounter file of " + std::to_string(x.size()) + " bytes, not 392");
@@ -34,6 +34,14 @@ Bytes XyEncountersToOras(const Bytes& x, int xZone)
     // surf, rock smash, the three rods and hordes: the same tables in the same order (bytes 3-8, X/Y's 5-10)
     for (size_t k = 0; k < 6; k++) o[3 + k] = x[5 + k];
     memcpy(&o[OrasSurf], &x[XySurf], XyEnd - XySurf);
+    if (xyEffects)
+    {
+        // the land and surf tables' bytes name X/Y's own effect entries, appended after Omega Ruby's 12 (oras-engine
+        // --xy-wild-effects); byte 13, unused by Omega Ruby (0 in its 150 files), marks the zone X/Y's
+        for (const size_t k : {0u, 1u, 3u, 9u, 10u, 11u, 12u})
+            if (o[k]) o[k] = (uint8_t)(o[k] + XyEffectsAfter);
+        o[13] = 1;
+    }
     return o;
 }
 

@@ -12,6 +12,7 @@
 #include "OrasNewZone.h"
 #include "OrasWorkspace.h"
 #include "OrasXyPiece.h"
+#include "OrasXyEncounters.h"
 #include "OrasXyEvents.h"
 #include "OrasXyScript.h"
 #include "XyCharacter.h"
@@ -35,7 +36,7 @@ static Bytes Plain(const Bytes& data) { return IsLzCompressed(data) ? LzDecompre
 
 struct SandboxZone
 {
-    int Number = -1, Pack = -1, Music = -1, Encounters = -1, Lighting = -1;
+    int Number = -1, Pack = -1, Music = -1, Encounters = -1, XyEncounters = -1, Lighting = -1;
     std::vector<std::string> Lines; // its text file's lines (the zone's own, header word 3)
     std::map<uint32_t, float> Camera; // the camera settings given: byte offset in preset 0 of the area pack's file 6 -> value
     std::map<uint32_t, float> Light;  // the light colours given: byte offset in the area pack's file 4 -> value
@@ -255,6 +256,7 @@ static SandboxDescription ReadDescription(const std::string& text)
         else if (what == "music") ok = (bool)(words >> z.Music);
         else if (what == "line") { std::string rest; std::getline(words, rest); z.Lines.push_back(rest.substr(rest.find_first_not_of(' ') == std::string::npos ? rest.size() : rest.find_first_not_of(' '))); }
         else if (what == "encounters") ok = (bool)(words >> z.Encounters);
+        else if (what == "xy-encounters") ok = (bool)(words >> z.XyEncounters);
         else if (what == "lighting") ok = (bool)(words >> z.Lighting);
         else if (what == "light" || what == "character-light")
         {
@@ -703,7 +705,11 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
     if ((size_t)d.Zones[0].Number != newZones.Count())
         throw FormatError("sandbox: zone " + std::to_string(d.Zones[0].Number) + " is not the next free member of a/0/1/3 (" + std::to_string(newZones.Count()) + " as the build stands)");
     for (const SandboxZone& z : d.Zones)
+    {
         if (z.Encounters >= 536 || z.Lighting >= 536) throw FormatError("sandbox: encounters and lighting are game zones, 0-535");
+        if (z.XyEncounters >= 0 && z.Encounters >= 0) throw FormatError("sandbox: zone " + std::to_string(z.Number) + " has both encounters and xy-encounters");
+        if (z.XyEncounters >= 0 && ws.XyRom.empty()) throw FormatError("sandbox: xy-encounters needs oras-sandbox --xy <x.3ds>");
+    }
 
     // every zone draws its textures from the first zone's area pack (a/0/1/4 member: the game's assets), which the pieces are
     // built into
@@ -1050,13 +1056,22 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         }
         else zone.Script = assemble(z.Script.empty() ? EmptyZoneScript : z.Script, z.Number, "script");
         zone.InitScript = z.XyEvents >= 0 && z.InitScript.empty() ? xe.InitScript : assemble(z.InitScript.empty() ? EmptyInitScript : z.InitScript, z.Number, "init-script");
-        const Bytes encounter = z.Encounters >= 0 ? BinLinker::Read(Plain(zoneArchive.Sub((size_t)z.Encounters)), "ZO").Files.at(3) : Bytes{};
+        Bytes encounter = z.Encounters >= 0 ? BinLinker::Read(Plain(zoneArchive.Sub((size_t)z.Encounters)), "ZO").Files.at(3) : Bytes{};
+        if (z.XyEncounters >= 0)
+        {
+            // X/Y's zone's file made Omega Ruby's as oras-xy-world makes it, naming X/Y's effect entries and battle types
+            // (OrasXyEncounters.h): the engine needs --wild-tables large and --xy-wild-effects (the mod's, --onto)
+            const Garc xZones(N3dsRom(ws.XyRom).Read("a/0/1/2"));
+            if ((size_t)z.XyEncounters >= xZones.Count()) throw FormatError("sandbox: xy-encounters " + std::to_string(z.XyEncounters) + ": no such X/Y zone");
+            encounter = XyEncountersToOras(BinLinker::Read(Plain(xZones.Sub((size_t)z.XyEncounters)), "ZO").Files.at(3), z.XyEncounters, true);
+            if (encounter.empty()) throw FormatError("sandbox: xy-encounters " + std::to_string(z.XyEncounters) + ": that X/Y zone has none");
+        }
         CheckCharacterCount(ws, z.Number, zone.Characters.size());
         appendZone(zone, encounter, z.Number);
         snprintf(line, sizeof line, "zone %d: written from nothing (OrasNewZone.h), area pack %d, text member %d, %zu character(s), %s scripts, spawn (%.1f, %.1f), name %s, encounters %s",
                  z.Number, f.AreaPack, f.Text, zone.Characters.size(), !z.Scene.empty() ? "a scene's" : z.Script.empty() && z.InitScript.empty() ? "empty" : "its own", z.SpawnX, z.SpawnZ,
                  nameLine[k] >= 0 ? ("\"" + z.Name + "\" (line " + std::to_string(nameLine[k]) + ")").c_str() : "none",
-                 z.Encounters >= 0 ? ("of zone " + std::to_string(z.Encounters)).c_str() : "none");
+                 z.Encounters >= 0 ? ("of zone " + std::to_string(z.Encounters)).c_str() : z.XyEncounters >= 0 ? ("of X/Y's zone " + std::to_string(z.XyEncounters)).c_str() : "none");
         log.push_back(line);
     }
     for (size_t i = 0; i < insides.size(); i++)

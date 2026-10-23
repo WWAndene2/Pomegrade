@@ -231,7 +231,7 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         }
         zone.Script = e.Script;
         zone.InitScript = e.InitScript;
-        const Bytes encounters = XyEncountersToOras(BinLinker::Read(Plain(xZones.Sub((size_t)z)), "ZO").Files.at(3), z);
+        const Bytes encounters = XyEncountersToOras(BinLinker::Read(Plain(xZones.Sub((size_t)z)), "ZO").Files.at(3), z, !battleTypes.empty());
         if (!encounters.empty()) wildTables = true;
         // a zone of many people and triggers (with its story) outgrows the game's events buffer: oras-engine --events large
         OrasZone::EventsLimit = 0x1910;
@@ -245,6 +245,26 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     std::string engine = "oras-engine options: --zone-rows " + std::to_string(ws.NextZone()) + " --story large";
     if (std::any_of(packOf.begin(), packOf.end(), [](const auto& p) { return p.second > 255; })) engine += " --area-packs large";
     if (wildTables) engine += " --wild-tables large";
+    if (wildTables && !battleTypes.empty())
+    {
+        // X/Y's wild encounter effect entries (OrasXyEncounters.h): its DllField's 12 at 0xEF7D0 (Map_GetAttributeEffectEntry's
+        // table, X's literal 0x102E87D0 read 22 October), their battle types (+4, +5 a horde) made the mod's (73 + X/Y's)
+        const Bytes cro = xRom.Read("DllField.cro");
+        constexpr size_t xTable = 0xEF7D0;
+        if (cro.size() < xTable + 72) throw FormatError("X/Y's DllField.cro too short for its encounter effect entries");
+        Bytes effects(cro.begin() + (long)xTable, cro.begin() + (long)xTable + 72);
+        for (size_t e = 0; e < 12; e++)
+            for (const size_t b : {4u, 5u})
+            {
+                uint8_t& t = effects[6 * e + b];
+                if ((size_t)t * 24 >= battleTypes.size()) throw FormatError("X/Y's encounter effect entry " + std::to_string(e) + ": battle type " + std::to_string(t) + " not ported");
+                t = (uint8_t)(73 + t);
+            }
+        const std::string file = (std::filesystem::path(o.OutDir) / "xy_wild_effects.bin").string();
+        std::filesystem::create_directories(o.OutDir);
+        WriteFile(file, effects);
+        engine += " --xy-wild-effects " + file;
+    }
     if (largeEvents) engine += " --events large";
     engine += " --xy-trainers on";
     // X/Y's badges are Kalos's 8-15 in its scripts (XyMoveBadges), whether or not a zone given gives one

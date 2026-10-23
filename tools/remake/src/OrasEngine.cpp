@@ -741,6 +741,63 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         for (uint32_t k = 0; k < 20; k++) croWords.push_back({cave + 4 * k, 0, select[k], "Field_WildEncounter_SelectTable (cave)"});
         log.push_back("wild tables: kinds 9-12 (X/Y's land tables 1-4) on tiles 0x21-0x23 and kinds Omega Ruby has none for");
     }
+    if (!o.XyWildEffects.empty())
+    {
+        // X/Y's wild battle types (read 22 October, ORAS_ENGINE.md 0.1). A step encounter's battle type is the encounter effect
+        // entry's byte +4 (+5 for a horde): FUN_103279DC reads it when the context's type is 0x49 (X/Y's FUN_102DD9C4: 0x40),
+        // the type the step check gives. The entry (6 bytes: the step rate's growth, steps per growth, maximum, steps before
+        // any, then the two types) is Map_GetAttributeEffectEntry's: Omega Ruby's 12 at DllField 0xF308C, chosen by the tile
+        // kind (the zone file's header byte [kind] - 1 for a kind it does not list); X/Y's 12 at its DllField 0xEF7D0, always
+        // the header byte [table] - 1. X/Y's differ (their rates, entry 4, and their types), so they are appended here, after
+        // the cave's code, and X/Y's zones name them by header bytes 13-24 (OrasXyEncounters.h), which the lookup takes first
+        // (13 and up: Omega Ruby's own bytes are 12 at most, 150 files read). Fishing and Rock Smash give fixed types: Omega
+        // Ruby's 3 and 9 (Field_WildEncounter_TryKind, Field_WildEncounter_StartRockSmash), X/Y's 5 and 10 (its fishing
+        // FUN_1029A890, its CallWildBattleRockCrash FUN_1029B120), taken in a zone whose file's byte 13 is 1 (X/Y's)
+        if (!o.LargeWildTables || o.XyBattleTypes.empty()) throw FormatError("--xy-wild-effects needs --wild-tables large and --xy-battle-types");
+        const Bytes effects = ReadFile(o.XyWildEffects);
+        if (effects.size() != 12 * 6) throw FormatError("--xy-wild-effects: 12 entries of 6 bytes");
+        constexpr uint32_t gameTypes = 73, xFishing = gameTypes + 5, xRockSmash = gameTypes + 10;
+        if (gameTypes + ReadFile(o.XyBattleTypes).size() / 24 <= xRockSmash) throw FormatError("--xy-wild-effects: X/Y's types 5 and 10 not in --xy-battle-types");
+        const auto at = [](uint32_t file) { return DllFieldBase + file; };
+        const auto branch = [](uint32_t cond, uint32_t from, uint32_t to) { return (Branch(from, to, false) & 0x0FFFFFFFu) | cond << 28; };
+        constexpr uint32_t EQ = 0x0, LS = 0x9;
+        const CroLayout layout(oras.Read("DllField.cro"));
+        uint32_t cave = DllFieldBase + layout.CodeEnd();
+        for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
+        const uint32_t table = cave;
+        for (uint32_t k = 0; k < 18; k++)
+            croWords.push_back({cave + 4 * k, 0, (uint32_t)effects[4 * k] | (uint32_t)effects[4 * k + 1] << 8 | (uint32_t)effects[4 * k + 2] << 16 | (uint32_t)effects[4 * k + 3] << 24,
+                                 "X/Y's wild encounter effect entries (cave)"});
+        cave += 72;
+        // Map_GetAttributeEffectEntry (r1 the tile, r2 the kind or 0xFF, r3 the zone's encounter file, never 0 at its three
+        // callers): a header byte of 13 and up is X/Y's entry (byte - 13), else the game's. The entries are reached from the
+        // pc (the module runs elsewhere than its linked address, and a word of the cave has no relocation)
+        croWords.push_back({at(0x7DFE8), 0xE92D41F0, Branch(at(0x7DFE8), cave, false), "Map_GetAttributeEffectEntry: to its cave"});
+        const uint32_t lookup[12] = {
+            0xE92D41F0,                             // stmdb sp!, {r4-r8, lr} (the game's)
+            0xE35200FF, branch(EQ, cave + 8, cave + 44), // cmp r2, #0xFF; beq: the game's
+            0xE7D3C002, 0xE35C000C,                 // ldrb ip, [r3, r2]; cmp ip, #12
+            branch(LS, cave + 20, cave + 44),       // bls: the game's
+            0xE24CC00D, 0xE08CC08C,                 // sub ip, ip, #13; add ip, ip, ip, lsl #1
+            0xE24F0070, 0xE080008C,                 // sub r0, pc, #112 (the entries, 72 bytes before this code); add r0, r0, ip, lsl #1
+            0xE8BD81F0,                             // ldmia sp!, {r4-r8, pc}
+            Branch(cave + 44, at(0x7DFEC), false),  // the game's: back after its first instruction
+        };
+        if (cave + 32 + 8 - 112 != table) throw FormatError("--xy-wild-effects: the entries are not where the lookup reads them");
+        for (uint32_t k = 0; k < 12; k++) croWords.push_back({cave + 4 * k, 0, lookup[k], "Map_GetAttributeEffectEntry (cave)"});
+        cave += 12 * 4;
+        // the fixed types, r5 the zone's encounter file at both: mov r2, #type made a call
+        for (const auto& [site, game, xy, why] : {std::tuple<uint32_t, uint32_t, uint32_t, const char*>{0x97EC4, 3, xFishing, "Field_WildEncounter_TryKind (fishing)"},
+                                                  {0x97F88, 9, xRockSmash, "Field_WildEncounter_StartRockSmash"}})
+        {
+            croWords.push_back({at(site), 0xE3A02000 | game, Branch(at(site), cave, true), std::string(why) + ": its battle type from the cave"});
+            const uint32_t pick[5] = {0xE5D5200D, 0xE3520000, 0x03A02000 | game, 0x13A02000 | xy, 0xE12FFF1E}; // ldrb r2, [r5, #13]; cmp; moveq; movne; bx lr
+            for (uint32_t k = 0; k < 5; k++) croWords.push_back({cave + 4 * k, 0, pick[k], std::string(why) + "'s battle type (cave)"});
+            cave += 20;
+        }
+        snprintf(line, sizeof line, "wild battles: X/Y's 12 encounter effect entries at 0x%X, its fishing and Rock Smash types %u and %u in its zones", table, xFishing, xRockSmash);
+        log.push_back(line);
+    }
     if (o.XyTrainers)
     {
         // the trainer flag routine above, in DllField's cave, for its three trainer flags (the one at 0x2133C after its bound)

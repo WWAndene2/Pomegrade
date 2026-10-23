@@ -25,8 +25,15 @@
 namespace remake
 {
 
+// X/Y's wild battle types (read 22 October, ORAS_ENGINE.md 0.1): a step encounter's type is its effect entry's byte +4 (+5 a
+// horde), and X/Y's 12 entries differ from Omega Ruby's (their types, rates, entry 4). With xyEffects, the land and surf
+// header bytes (0, 1, 3, 9-12) name X/Y's entries appended after Omega Ruby's 12 (+12; oras-engine --xy-wild-effects reads
+// them, Map_GetAttributeEffectEntry taking a byte of 13 and up first) and byte 13 is 1, so fishing and Rock Smash give X/Y's
+// types in the zone. The rods' bytes (5-7) are rates, kept; byte 8, the horde chance, kept
+constexpr uint8_t XyEffectsAfter = 12;
+
 // X/Y's file 3 made Omega Ruby's (empty for an empty one)
-Bytes XyEncountersToOras(const Bytes& xFile, int xZone);
+Bytes XyEncountersToOras(const Bytes& xFile, int xZone, bool xyEffects);
 
 }
 
