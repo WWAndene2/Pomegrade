@@ -158,7 +158,11 @@ is tested on the phone.
   Wrong turns: the 'horde' of the controls wb4 and s3 was Omega Ruby's horde battle type forced on one Pokemon; and
   four horde tests ran at the zone's own chance, because mod_variant.sh rebuilt each change to one archive from the base
   mod, the last change dropping the earlier ones (fixed; found by reading the loaded file in the game's memory: `dump`
-  of the heap, the encounter file found by its slots). Not checked yet: X/Y's other 8 wild intros, the phone. Checked
+  of the heap, the encounter file found by its slots). **All 9 of X/Y's wild intros checked 23 October (session iv)**: one game, the field state loaded
+  before each battle and X/Y's effect entry 0's battle types written in memory (`poke`: DllField at 0x6F3000, the entries
+  at 0x7E353C, types +4/+5) to X/Y's types 0, 5, 6, 7, 10, 19, 23, 25, 26 (intros 1, 3-8, A, B; 2 checked in f1): each
+  plays whole (speed lines, water, cave, snow, sand, falling leaves, shadow, hexagons) with X/Y's own lines ("Votre
+  monture a failli écraser...", "... fond sur vous !"). Not checked: the phone. Checked
   headless on the sandbox (demo.txt with X/Y's trainers, oras-sandbox --onto): X/Y's trainers 1 (Youngster, 0xD), 107
   and 130 (0xE) and 188 (Korrina, 0x21) play their X/Y intros with their own drawings and names (runs xf_17-xf_27).
   Not checked: against X running, on the phone.
