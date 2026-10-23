@@ -290,6 +290,8 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         std::filesystem::create_directories(o.OutDir);
         WriteFile(file, staticWild);
         engine += " --xy-static-wild " + file;
+        // DllField's room for caves (OrasEngine.cpp GrowCroCode): 128 KB, the owner's margin for the ports to come (23 October)
+        engine += " --field-room 0x20000";
     }
     if (largeEvents) engine += " --events large";
     engine += " --xy-trainers on";

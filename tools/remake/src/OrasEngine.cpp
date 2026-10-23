@@ -264,6 +264,52 @@ struct CroLayout
     std::vector<std::pair<uint32_t, uint32_t>> Segments; // file offset, size
 };
 
+// The module's code segment grown by `extra` bytes (a multiple of 0x1000) of zeros, placed at the end of its last page: room
+// for caves past the few bytes a page leaves (DllField's were all taken on 23 October). Everything the file holds after
+// that page moves by `extra`: the header's offsets (azahar cro_helper.h HeaderField, NameOffset and CodeOffset through
+// StaticRelocationTableOffset, and FileSize), the segment table's offsets, and the file offsets inside the tables (export
+// names; import modules' names and subtables; import symbols' names and relocation batches). Segment tags (a segment and
+// an offset in it: relocations, exports) do not change, the code segment's start neither: code and linked addresses keep
+// theirs. The loader maps the code segment's pages executable (GetExecutablePages), the grown ones included. The data
+// segment is loaded apart (RebaseSegmentTable). Azahar only: a console's loader checks the module's hashes (static.crr)
+static Bytes GrowCroCode(const Bytes& cro, uint32_t extra)
+{
+    if (extra % 0x1000) throw FormatError("a module's code grows by a multiple of 0x1000");
+    const CroLayout layout(cro);
+    const uint32_t at = (layout.CodeEnd() + 0xFFF) & ~0xFFFu;
+    for (const auto& [offset, size] : layout.Segments)
+        if (size && offset != 0 && offset != layout.Segments[0].first && offset < at) throw FormatError("a segment lies before the code's end"); // offset 0: bss, not in the file
+    Bytes out(cro.begin(), cro.begin() + at);
+    out.insert(out.end(), extra, 0);
+    out.insert(out.end(), cro.begin() + at, cro.end());
+    const auto get = [&](uint32_t where) { return (uint32_t)(out[where] | out[where + 1] << 8 | out[where + 2] << 16 | (uint32_t)out[where + 3] << 24); };
+    const auto put = [&](uint32_t where, uint32_t v) { for (int k = 0; k < 4; k++) out[where + k] = (uint8_t)(v >> 8 * k); };
+    const auto move = [&](uint32_t where) { const uint32_t v = get(where); if (v >= at) put(where, v + extra); };
+    const auto field = [](int index) { return 0x80u + 4u * (uint32_t)index; };
+    // NameOffset 1, FileSize 4, the (offset, count or size) pairs CodeOffset 12 ... StaticRelocationTableOffset 44
+    move(field(1));
+    put(field(4), get(field(4)) + extra);
+    for (int f = 12; f <= 44; f += 2) move(field(f));
+    // the header's code region (CodeOffset, CodeSize: the code and the read-only segment after it, in DllField) to its end
+    // moved, or to the room's end when it ends before
+    const uint32_t codeStart = get(field(12)), codeSize = get(field(13));
+    put(field(13), codeStart + codeSize > at ? codeSize + extra : at + extra - codeStart);
+    const uint32_t segments = get(field(18));
+    put(segments + 4, at - get(segments) + extra);                    // the code segment's size (its first, checked by CroLayout)
+    for (uint32_t i = 1; i < get(field(19)); i++) move(segments + 12 * i);
+    for (uint32_t i = 0; i < get(field(21)); i++) move(get(field(20)) + 8 * i);           // export names
+    for (uint32_t i = 0; i < get(field(29)); i++)                                          // import modules
+        for (const uint32_t o : {0u, 4u, 12u}) move(get(field(28)) + 20 * i + o);
+    for (const int table : {32, 34, 36})                                                   // import symbols (named, indexed, anonymous)
+        for (uint32_t i = 0; i < get(field(table + 1)); i++)
+        {
+            if (table == 32) move(get(field(table)) + 8 * i);
+            move(get(field(table)) + 8 * i + 4);
+        }
+    if (CroLayout(out).CodeEnd() != at + extra) throw FormatError("the grown module's code does not end where it should");
+    return out;
+}
+
 static Bytes PatchCro(const Bytes& cro, uint32_t base, const std::vector<CroWord>& words)
 {
     const CroLayout layout(cro);
@@ -829,38 +875,38 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         // (Field_WildEncounter_StartFromTable, X's FUN_1029A6DC): species +0, form +2, level +3, item +4, +6 bits (2 the
         // gender, 2-3, 4-6, 7-14 a mode: 1, 2, 3 battle flags 0x80, 4, 0x200 in both), +8 +9 the two backgrounds (as
         // _CallTrainerBattleCore's arguments 4 and 5), +10 the battle type. Omega Ruby's 59 (DllField 0xF1B20, its literal at
-        // 0x8A148), X/Y's 13 appended in the .code at 0x579EC8-0x579F63 (in the zeros past the X/Y natives' stubs, which end at
-        // 0x579EC7, before the trainer flags at 0x579F80; DllField's cave has no room left for them, 156 bytes) and named
-        // 59-71 by X/Y's scripts (XyMoveWildBattles). Omega Ruby differs in two
+        // 0x8A148), X/Y's 13 appended at the start of DllField's room (--field-room: the first cave words past the code's
+        // first pages, so that a run of them checks the room) and named 59-71 by X/Y's scripts (XyMoveWildBattles). Omega Ruby differs in two
         // places, kept its own for its entries and left out for X/Y's: StartFromTable sets the context's flag 0x200 for modes 2,
         // 3, 5 (X/Y's never); and its event's mode 3 also clears flag 0xBCE when set (0x003D9CDC; X/Y's 0x003BC520 only sets
         // 0x200): not changed, X/Y's legendaries (mode 3) take it (unknown what flag 0xBCE is)
-        if (o.XyBattleTypes.empty()) throw FormatError("--xy-static-wild needs --xy-battle-types");
+        if (o.XyBattleTypes.empty() || o.FieldRoom < 0x1000) throw FormatError("--xy-static-wild needs --xy-battle-types and --field-room");
         const Bytes entries = ReadFile(o.XyStaticWild);
         constexpr uint32_t gameEntries = 59, xyEntries = 13;
         if (entries.size() != xyEntries * 12) throw FormatError("--xy-static-wild: 13 entries of 12 bytes");
         const auto at = [](uint32_t file) { return DllFieldBase + file; };
-        constexpr uint32_t table = 0x579EC8;
-        for (uint32_t k = 0; k < xyEntries * 3; k++)
-            words.push_back({table + 4 * k, 0, (uint32_t)entries[4 * k] | (uint32_t)entries[4 * k + 1] << 8 | (uint32_t)entries[4 * k + 2] << 16 | (uint32_t)entries[4 * k + 3] << 24,
-                             "X/Y's scripted wild battles (cave)"});
         const CroLayout layout(oras.Read("DllField.cro"));
-        uint32_t cave = DllFieldBase + layout.CodeEnd();
+        uint32_t cave = DllFieldBase + ((layout.CodeEnd() + 0xFFF) & ~0xFFFu);
         for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
-        // the entry's address (r5 n, r0 3n, r2 the game's table, free after): X/Y's past the game's 59, from an absolute
-        // literal (the .code is loaded where it is linked; the cave's words have no relocation)
+        const uint32_t table = cave;
+        for (uint32_t k = 0; k < xyEntries * 3; k++)
+            croWords.push_back({table + 4 * k, 0, (uint32_t)entries[4 * k] | (uint32_t)entries[4 * k + 1] << 8 | (uint32_t)entries[4 * k + 2] << 16 | (uint32_t)entries[4 * k + 3] << 24,
+                                "X/Y's scripted wild battles (cave)"});
+        cave += xyEntries * 12;
+        // the entry's address (r5 n, r0 3n, r2 the game's table): X/Y's past the game's 59, reached from the pc (the module
+        // runs elsewhere than its linked address, and a cave word has no relocation)
         croWords.push_back({at(0x8A090), 0xE0820100, Branch(at(0x8A090), cave, true), "Field_WildEncounter_StartFromTable: its entry from the cave"});
-        const uint32_t entry[8] = {
+        const uint32_t entry[7] = {
             0xE3550000 | gameEntries,     // cmp r5, #59
             0x30820100, 0x312FFF1E,       // addlo r0, r2, r0, lsl #2; bxlo lr (the game's)
             0xE2400000 | 3 * gameEntries, // sub r0, r0, #177
-            0xE59F2004,                   // ldr r2, [pc, #4] (the entries)
-            0xE0820100,                   // add r0, r2, r0, lsl #2
+            0xE08F0100,                   // add r0, pc, r0, lsl #2
+            0xE2400000 | (cave + 4 * 4 + 8 - table), // sub r0, r0, #(pc - the entries)
             0xE12FFF1E,                   // bx lr
-            table,
         };
-        for (uint32_t k = 0; k < 8; k++) croWords.push_back({cave + 4 * k, 0, entry[k], "StartFromTable's entry (cave)"});
-        cave += 8 * 4;
+        if (cave + 4 * 4 + 8 - table > 255) throw FormatError("--xy-static-wild: the entries too far from their lookup");
+        for (uint32_t k = 0; k < 7; k++) croWords.push_back({cave + 4 * k, 0, entry[k], "StartFromTable's entry (cave)"});
+        cave += 7 * 4;
         // the context's flag 0x200 for modes 2, 3, 5: not for X/Y's entries (r2 the mode, stored at sp + 0x93 first)
         croWords.push_back({at(0x8A0C0), 0xE3520002, Branch(at(0x8A0C0), cave, false), "Field_WildEncounter_StartFromTable's mode flag: to its cave"});
         const uint32_t mode[5] = {
@@ -944,7 +990,14 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         for (const CodeWord& w : XyGymLoaderPatchAt(cave)) croWords.push_back({w.Address, w.Expected, w.Value, w.Why});
         log.push_back("X/Y gyms: " + std::to_string(XyGyms().size()) + " module(s) ported and loaded by their area kinds");
     }
-    if (!croWords.empty()) dllField = PatchCro(oras.Read("DllField.cro"), DllFieldBase, croWords);
+    if (o.FieldRoom)
+    {
+        // room for caves (GrowCroCode): DllField's code from 0xF1000 to 0xF1000 + the room, at its linked 0x10333000
+        snprintf(line, sizeof line, "DllField: its code grown by 0x%X bytes of room (caves to 0x%X)", o.FieldRoom, DllFieldBase + 0xF1000 + o.FieldRoom);
+        log.push_back(line);
+    }
+    if (!croWords.empty() || o.FieldRoom)
+        dllField = PatchCro(o.FieldRoom ? GrowCroCode(oras.Read("DllField.cro"), o.FieldRoom) : oras.Read("DllField.cro"), DllFieldBase, croWords);
     for (const auto& [id, size] : o.HeapSizes)
     {
         const HeapSize* h = nullptr;

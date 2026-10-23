@@ -282,7 +282,7 @@ redone; the zones before what runs in them; one phone check per block, not per c
    sandstorm), X/Y's zones having none today;
    `CallDustBoxEncount` (a fixed wild battle, X/Y's type 21, from a table at +0x18C of the game data, its source not
    found) and `CallTsuchikemuriEncountEvent` (X/Y's own field sequence class): X/Y's DllField code to port into Omega
-   Ruby's, with the natives added, a tool not written yet (DllField's cave is full: 0 bytes left after 23 October).
+   Ruby's, with the natives added (room: DllField grown by 128 KB, `--field-room`, 23 October).
    `CallHideItemEncount` is empty in X/Y: nothing to port.
 2. Finish battles (the battle modules are mapped): Sky and Inverse Battles, the Battle Chateau, the 79 sound effects
    and cries with no match.
