@@ -316,14 +316,23 @@ std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const XySounds* music,
                 if (xMember >= k.X.Count()) throw FormatError(std::string("X/Y intros: X's archive for ") + k.Name + " has no member " + std::to_string(xMember));
                 if (k.Game.empty()) for (size_t i = 0; i < k.Oras.Count(); i++) k.Game.push_back(Plain(k.Oras.Sub(i)));
                 const Bytes& raw = k.X.Sub(xMember);
-                const bool compressed = IsLzCompressed(raw);
-                Bytes plain = compressed ? LzDecompress(raw) : raw;
+                Bytes plain = IsLzCompressed(raw) ? LzDecompress(raw) : raw;
                 if (Bch::Is(plain)) plain = BchUpgradeTo21(plain);
                 if (&k == &modelKind) plain = AimCamerasAsLookAt(plain);
                 const auto same = std::find(k.Game.begin(), k.Game.end(), plain);
                 uint32_t at;
                 if (same != k.Game.end()) { at = (uint32_t)(same - k.Game.begin()); k.Shared++; }
-                else { at = (uint32_t)k.Oras.Count(); k.Oras.Set(at, compressed ? Lz11Compress(plain) : plain); k.Game.push_back(plain); k.Added++; }
+                else
+                {
+                    // stored as the game's archive stores its members, not as X's: Omega Ruby's battle loader decompresses every
+                    // member of a/0/3/2 and a/0/3/1 (all LZ11 in the game; run k1, 23 October: X's camera 513, plain in X,
+                    // appended plain, left the loader's thread reading it for ever and the intro black)
+                    const bool gameCompressed = k.Oras.Count() && IsLzCompressed(k.Oras.Sub(0));
+                    at = (uint32_t)k.Oras.Count();
+                    k.Oras.Set(at, gameCompressed ? Lz11Compress(plain) : plain);
+                    k.Game.push_back(plain);
+                    k.Added++;
+                }
                 return k.Of[xMember] = at;
             };
             const auto setU32 = [](Bytes& a, size_t at, uint32_t v) { for (int b = 0; b < 4; b++) a[at + b] = (uint8_t)(v >> (8 * b)); };
