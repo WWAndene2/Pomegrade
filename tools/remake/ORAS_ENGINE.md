@@ -146,6 +146,31 @@ where it found only a copy):
   shape, not read) and 79 of the .code (44 the same function in Omega Ruby; X's 0x3E018C / 0x3E0194 (a byte at +0x70)
   and 0x4AA5C8 (a half at +0xC) getters with none; 0x14F220, 0x1D4744 empty; 0x11E864 the fatal error). To port:
   X's DllField part copied whole (its own calls inside it, its .code calls mapped), not matched to Omega Ruby's helpers.
+  **B2's map, X -> Omega Ruby (23 October, static; "same": prototype/xy_import_match.py; "read": side by side)**:
+  - the effect's resource class (X DllField 0x1027EDAC, 0x3C bytes) is Omega Ruby's .code class of 0x40 bytes (its
+    constructor 0x452E7C, one word added at +0x2C, the fields past it 4 further: read): X's 0x1027E618, 0x1027E964,
+    0x10277D18, 0x1027EF88 = 0x452A00, 0x4525BC, 0x4521E4, 0x452EE8 (the same code but those offsets, read with
+    offdiff), X's 0x10277E64 = 0x4CE280 (Omega Ruby's effects call it in its place, 0x10272094: read); X's 0x1027ED9C
+    (sets +4, +8, which do not move) has no copy (inlined): copied;
+  - the 0x4C-byte object of the event's state 6 is Omega Ruby's 0x48-byte one (vtable 0x10349664, constructor
+    0x1026BCD0, the same six methods with X's +0x18 byte left out and the fields past it 4 nearer: read; X's 0x3BF770 =
+    Omega Ruby's 0x3DDCDC build it alike), its six words from the battle type table (X 0x1CE040 = 0x1DBCD8, X/Y's type
+    0x16 the mod's 95 in the longer table, --xy-battle-types: X's entry 7, 6, 0, 9, music 0x10018, 0x1001B);
+  - the field object [field+0x48]: +0x10 and +0x24 kept, +0x2C -> +0x38 (X 0x10241038 = 0x1027A6E4), +0x160 -> +0x168
+    and +0x15C -> +0x16C (the two 0x48-byte objects built in turn, X 0x10245D00 = 0x1027F7CC); X's 0x1027F5CC (its +0x50
+    chain) = 0x102CDFD0 (called at the same place, X 0x1021B580 = 0x1025E270);
+  - the game system [field+0x1C]: +0x188 -> +0x184 (the weather: X's InitContext 0x1026E554 = 0x102BFF3C), the records
+    [+0] + 0x1B814 -> + 0x1C8D4, record 0x77 (119, Sweet Scent encounters, X/Y and Omega Ruby's one list: PKHeX
+    Records.cs RecordList_6) kept;
+  - .code: 0x11E46C = 0x11EB78, 0x14F220 = 0x14EA64 (both empty), 0x1D4744 = 0x1E8294, 0x2FF520 = 0x2FF8C0, 0x359404 =
+    0x371C04, 0x36FD78 = 0x3878F8, 0x377E38 = 0x38F934, 0x37E398 = 0x395C80 (read side by side, or the thunk Omega
+    Ruby calls at the same place: 0x3D4564 = 0x3F57B8);
+  - the encounter: X's 0x1029B1E4 written as Omega Ruby's Rock Smash (InitContext kind 12, SelectTable 95,
+    Field_StartEncounterEvent flags 3) with X's record increment;
+  - not ported now: X's weather byte (+0x70 set to 3 when set, X's 0x3E018C / 0x3E0194): X/Y's weather is step 6, and
+    Omega Ruby's weather object has no such byte read (no such getter, inlined or not found);
+  - still to read: the step check's spot object (X's 0x4AA5C8, its +0xC), field +0x54 (X's 0x4AB4E0 = 0x4E435C),
+    the effect's sound (X 0x10277784) and resource id (0x10277770), the effect files, DllUSR13.
 - `CallHideItemEncount` is empty in X: nothing to port.
 Code to port goes into **DllField's room** (below). Step 2 (Sky and Inverse Battles, Battle Chateau, 79 sounds) follows.
 
