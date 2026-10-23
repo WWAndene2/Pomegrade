@@ -10,21 +10,14 @@ Bytes XyLightToOras(const Bytes& x, const Bytes& oras)
     constexpr size_t Sets = 4, Planes = 15, Kinds = 3, Times = 4;
     constexpr size_t OrasPlane = 0x30, OrasSet = Planes * OrasPlane, XyPlane = 0x40, XySet = Planes * XyPlane;
     if (oras.size() < Sets * OrasSet) throw FormatError("an Omega Ruby light file of " + std::to_string(oras.size()) + " bytes, not 2944");
-    if (x.size() < Sets * XySet) throw FormatError("an X/Y light file of " + std::to_string(x.size()) + " bytes, not 9728");
+    if (x.size() < 4 * XySet) throw FormatError("an X/Y light file of " + std::to_string(x.size()) + " bytes, not 9728");
     Bytes out = oras;
-    for (size_t s = 0; s < Sets; s++)
+    // Omega Ruby's sets 0-2 from X/Y's 0, 2 and 3 (OrasXyLight.h); its set 3 and the last 0x40 bytes kept
+    const size_t from[3] = {0, 2, 3};
+    for (size_t s = 0; s < 3; s++)
         for (size_t p = 0; p < Planes; p++)
             for (size_t k = 0; k < Kinds; k++)
-            {
-                if (s == 1 || s == 2)
-                {
-                    // the characters' sets: X/Y's set 0, its time 0, every time (OrasXyLight.h)
-                    for (size_t t = 0; t < Times; t++)
-                        std::memcpy(&out[s * OrasSet + p * OrasPlane + (k * Times + t) * 4], &x[p * XyPlane + k * Times * 4], 4);
-                    continue;
-                }
-                std::memcpy(&out[s * OrasSet + p * OrasPlane + k * Times * 4], &x[s * XySet + p * XyPlane + k * Times * 4], Times * 4);
-            }
+                std::memcpy(&out[s * OrasSet + p * OrasPlane + k * Times * 4], &x[from[s] * XySet + p * XyPlane + k * Times * 4], Times * 4);
     return out;
 }
 
