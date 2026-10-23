@@ -262,6 +262,32 @@ Also done for the X/Y world on 20 October (headless): X/Y's text in its scripts 
 
 Next, in this order when the owner asks: A2 (points 1, Grant's gym, and 2, scenes, closed 21 October).
 
+**State of the port, 23 October** (owner's rule of 23 October: the final game has X/Y's and Omega Ruby's features on
+both maps, so everything is ported, a feature X/Y's own content never calls included). Headless only; nothing of
+22-23 October tested on the phone.
+- Battles, done: X/Y's battle types, its trainer classes and drawings, its trainer intros (Kalos's leaders, Elite Four,
+  Champion) and its 9 wild intros with their camera, backgrounds, music; wild battles in X/Y's zones (X/Y's encounter
+  entries and types, hordes on X/Y's tiles with X/Y's horde camera, fishing and Rock Smash types). Left: Sweet Scent's
+  type in X/Y's zones (X/Y's type 6; likely, not read in Omega Ruby yet); scripted wild battles of X/Y's zones
+  (`CallWildBattle`'s numbers name Omega Ruby's table, not X/Y's: 6 zones, its legendaries and static Pokemon); X/Y's
+  field encounters its own content never calls (`CallDustBoxEncount`, `CallTsuchikemuriEncountEvent`,
+  `CallHideItemEncount`'s event); Sky and Inverse Battles; the Battle Chateau; 79 sound effects and cries with no match.
+- X/Y's features (3d item 9): gyms (Grant's done; the other seven, with their mechanics: Clemont's lift, Ramos's garden,
+  Valerie's warp, Korrina, Viola, Olympia, Wulfric), wall climbing, the Elite Four and Champion elevators, badge gates and
+  Victory Road, the badge case's Kalos drawer (in progress, set aside 22 October), clothes, salon and photo shop (the
+  mirror only), berry fields (zone 352's `GymI01*` natives and `CallWildBattleNutsYard`: a block of 9 natives),
+  Poke Radar, Friend Safari, Holo Caster, Poke Ball factory, the Power Plant, Route 13's sandstorm, Pokemon Center
+  promotions, roller skates and riding, the opening, credits and ending, X/Y's Pokedex, the PR Video studio. Not
+  searched: features X/Y runs in engine code with no script command (the field encounters above were found this way).
+- X/Y's zones: packs, camera, light and tiles (substitutes from the audit of 22 October); 137 of X/Y's natives Omega Ruby
+  does not register (159 of its 360 zones call at least one; the nickname's six and Clemont's seven done); map demos
+  (translated but skipped, owner's decision), scripted stairs, door models and street lamps not drawn; only matrices 0
+  and 58 built and run.
+- Omega Ruby's features on Kalos's map: not audited (DexNav, soaring, secret bases, the PokeNav Plus apps, contests ...:
+  which need per-zone data X/Y's zones do not have).
+- Lane C: C3 (the gameplay path in one description), C4 (text and music), C5 (a test path) not started; A3 (Pokemon
+  and items), A5 (travel between the regions, every zone load-tested) not started.
+
 After: the owner's phone checks, then the real map build; then the cast's variants (old and young Archie, Maxie with
 glasses, the legendaries' repaints: a mesh rewriter, `BchWriter`).
 
