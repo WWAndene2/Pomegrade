@@ -482,8 +482,13 @@ int main(int argc, char** argv)
             {
                 const size_t member = (size_t)std::stoul(argv[a]);
                 if (member > garc.Count()) throw FormatError("garc-set: member " + std::string(argv[a]) + " past the archive's " + std::to_string(garc.Count()));
-                garc.Set(member, ReadFile(argv[a + 1]));
-                printf("member %zu: %s\n", member, argv[a + 1]);
+                // stored as the archive stores its members (23 October: a plain member in an all-LZ archive hung the game's
+                // loader): a plain file is compressed when the archive's first member is LZ
+                Bytes data = ReadFile(argv[a + 1]);
+                const bool archiveLz = garc.Count() && IsLzCompressed(garc.Sub(0));
+                if (archiveLz && !IsLzCompressed(data)) data = Lz11Compress(data);
+                garc.Set(member, data);
+                printf("member %zu: %s%s\n", member, argv[a + 1], archiveLz ? " (LZ11, as the archive's)" : "");
             }
             const Bytes out = garc.Write();
             if (Garc(out).Count() != garc.Count()) throw FormatError("garc-set: the archive written does not read back");
