@@ -128,7 +128,12 @@ where it found only a copy):
   encounter of table kind 0x16 (X/Y's encounter file: its table for the cloud, OrasXyEncounters.h), and about 12
   X field offsets to match to Omega Ruby's ([field+0x48] +0x10, +0xF4 (= +0x104), +0x158, +0x160, +0x198;
   field +0x18, +0x1C (+0x188, +0x20), +0x2C (+0x34 = +0x1C), +0x54): more than phase A's 4-5 hours, about two
-  sessions;
+  sessions. The [field+0x48] object's offsets, X -> Omega Ruby (23 October: the counts of loads after `ldr rX, [rY,
+  #0x48]` in both DllFields, X's / Omega Ruby's: 0xF0 54 -> 0x100 64, 0xFC 27 -> 0x10C 31, 0x158 33 -> 0x164 33,
+  0x168 12 -> 0x170 12, 0x194 14 -> 0x19C 14, 0x198 18 -> 0x1A0 13; 0x158 -> 0x164 checked on the same instruction of
+  the step check, X 0x10226600 / Omega Ruby 0x1026303C): 0x160 (2 loads) is 0x168 or 0x16C, not settled (X's
+  0x1027F5AC, which takes it, has no copy found in Omega Ruby's DllField); 0x10 not read. X's battle 0x1029B1E4 is
+  Omega Ruby's `Field_WildEncounter_StartRockSmash` 0x102D9F04 (95%);
 - `CallHideItemEncount` is empty in X: nothing to port.
 Code to port goes into **DllField's room** (below). Step 2 (Sky and Inverse Battles, Battle Chateau, 79 sounds) follows.
 
