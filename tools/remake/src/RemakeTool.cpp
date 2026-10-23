@@ -4,6 +4,11 @@
 //   remake_tool extract <rom.nds> <path> <out>        one file (LZ data decompressed)
 //   remake_tool unpack <rom.nds> <path.narc> <dir>    every member of a NARC, decompressed
 //   remake_tool garc <file.garc> <dir>                every sub-file of a 3DS GARC, decompressed
+//   remake_tool mod-file <oras.3ds> <mod dir> <romfs path> <out>  a file as the mod gives it to the game: the mod's
+//                                                     romfs/ copy, else its romfs_ext/ patch applied to the game's, else the game's
+//   remake_tool mod-file <oras.3ds> <mod dir> <romfs path> <out>\n  remake_tool garc-set <in.garc> <out.garc> <member> <file>...  members replaced (or one past the last appended) by
+//                                                     Garc::Write, so offsets, sizes and the data section stay right
+//                                                     (a diagnostic copy of an archive; never a mod's member: ReplaceMember)
 //   remake_tool textures <file.nsbtx|.nsbmd> <dir>    every texture as PNG
 //   remake_tool model <file.nsbmd> <out.gltf> [tex.nsbtx] [model index]   a DS model as glTF
 //   remake_tool texindex <rom.nds>                    every texture under its emulator dump name (TSV)
@@ -158,7 +163,7 @@ static int Usage()
 {
     fprintf(stderr, "usage:\n  remake_tool info <rom.nds>\n  remake_tool inventory <rom.nds>\n"
                     "  remake_tool extract <rom.nds> <path> <out>\n  remake_tool unpack <rom.nds> <path.narc> <dir>\n"
-                    "  remake_tool garc <file.garc> <dir>\n  remake_tool textures <file.nsbtx|.nsbmd> <dir>\n"
+                    "  remake_tool garc <file.garc> <dir>\n  remake_tool garc-set <in.garc> <out.garc> <member> <file> [<member> <file>]...\n  remake_tool textures <file.nsbtx|.nsbmd> <dir>\n"
                     "  remake_tool model <file.nsbmd> <out.gltf> [tex.nsbtx] [model index]\n"
                     "  remake_tool texindex <rom.nds>\n  remake_tool identify <rom.nds> <dump dir>\n"
                     "  remake_tool world <map_matrix.narc> <matrix index> <land_data.narc> <out dir>\n"
@@ -175,7 +180,7 @@ static int Usage()
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone|zone-raised|crowd [N]\n"
                     "  remake_tool oras-zone-check <oras.3ds>\n"
-                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--character-models N] [--events large] [--story large] [--area-packs large] [--wild-tables large] [--xy-sounds FIRST:COUNT] [--xy-trainers on] [--badges 16] [--xy-battle-types FILE] [--xy-intros FILE] [--xy-backgrounds FILE] [--xy-wild-effects FILE] [--more-archives N] [--heap ID:BYTES]... [--start-zone N] [--xy-messages on] [--xy-gyms <x.3ds>]\n"
+                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--character-models N] [--events large] [--story large] [--area-packs large] [--wild-tables large] [--wild-encounter always] [--xy-sounds FIRST:COUNT] [--xy-trainers on] [--badges 16] [--xy-battle-types FILE] [--xy-intros FILE] [--xy-backgrounds FILE] [--xy-wild-effects FILE] [--more-archives N] [--heap ID:BYTES]... [--start-zone N] [--xy-messages on] [--xy-gyms <x.3ds>]\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
                     "                    [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]\n"
                     "  remake_tool oras-code <oras.3ds> <out.bin>\n"
@@ -439,6 +444,42 @@ int main(int argc, char** argv)
                     written++;
                 }
             printf("%zu entries, %zu files\n", garc.Count(), written);
+            return 0;
+        }
+        if (cmd == "mod-file" && argc >= 6)
+        {
+            N3dsRom rom(argv[2]);
+            char id[17];
+            snprintf(id, sizeof id, "%016llX", (unsigned long long)rom.ProgramId());
+            const std::filesystem::path base = std::filesystem::path(argv[3]) / "load" / "mods" / id;
+            const std::string path = argv[4];
+            Bytes out;
+            const char* from;
+            if (std::filesystem::exists(base / "romfs" / path)) { out = ReadFile((base / "romfs" / path).string()); from = "the mod's romfs copy"; }
+            else if (std::filesystem::exists(base / "romfs_ext" / (path + ".bps")))
+            {
+                out = BpsApply(rom.Read(path), ReadFile((base / "romfs_ext" / (path + ".bps")).string()));
+                from = "the game's, with the mod's patch";
+            }
+            else { out = rom.Read(path); from = "the game's (the mod leaves it)"; }
+            WriteFile(argv[5], out);
+            printf("%s: %zu bytes, %s\n", argv[5], out.size(), from);
+            return 0;
+        }
+        if (cmd == "garc-set" && argc >= 6 && argc % 2 == 0)
+        {
+            Garc garc(ReadFile(argv[2]));
+            for (int a = 4; a + 1 < argc; a += 2)
+            {
+                const size_t member = (size_t)std::stoul(argv[a]);
+                if (member > garc.Count()) throw FormatError("garc-set: member " + std::string(argv[a]) + " past the archive's " + std::to_string(garc.Count()));
+                garc.Set(member, ReadFile(argv[a + 1]));
+                printf("member %zu: %s\n", member, argv[a + 1]);
+            }
+            const Bytes out = garc.Write();
+            if (Garc(out).Count() != garc.Count()) throw FormatError("garc-set: the archive written does not read back");
+            WriteFile(argv[3], out);
+            printf("%s: %zu members, %zu bytes\n", argv[3], garc.Count(), out.size());
             return 0;
         }
         if (cmd == "xy-gym-module" && argc >= 6)
@@ -755,6 +796,11 @@ int main(int argc, char** argv)
                 {
                     if (value != "large") throw FormatError("--wild-tables large (X/Y's land tables, kinds 9-12)");
                     o.LargeWildTables = true;
+                }
+                else if (flag == "--wild-encounter")
+                {
+                    if (value != "always") throw FormatError("--wild-encounter always (a diagnostic: a battle on every encounter step)");
+                    o.WildEncounterAlways = true;
                 }
                 else if (flag == "--area-packs")
                 {

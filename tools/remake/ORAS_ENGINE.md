@@ -135,8 +135,14 @@ is tested on the phone.
   (73-136) and its 32 intros as its own sequences, with the layouts, models, motions and sounds they load; X/Y's 178
   trainer classes appended (280-457, the game made to load 460: OrasEngine.cpp), each with its own drawings (a/1/6/0,
   a/1/2/1). X/Y's trainers use intros 0xD (571 of them), 0xE (163), 0x11-0x1D (the League) and 0x21 (1); 0x1-0xB are
-  not a class's (wild battles: their type is chosen by the encounter code, not ported yet; 819, 820 and 826 load X/Y's
-  "Twist" intro camera 0x201, which Omega Ruby's engine draws black: Omega Ruby remade it, poke_y_intro_01_CAM). Checked
+  not a class's (wild battles: their type is the encounter effect entry's byte +4, +5 for a horde, read 22-23 October:
+  OrasXyEncounters.h; all nine of X/Y's wild intro sequences, 819-827, load X/Y's intro camera 0x201, a/0/3/4 513).
+  **Checked headless (23 October, runs wb4-wb17, tv2)**: X/Y's wild intro 825 plays whole with Omega Ruby's camera
+  (0x3F8, or another original member at 0x3FC); with X/Y's camera it stays black, at the appended member 1030 and at the
+  original member 1020 alike, so the cause is the camera file's content, not its number. Not the cause, each tested
+  alone: its absent X curves made constants (wb7). Not isolated yet: its Aim view made LookAt (wb16, at member 1030).
+  X/Y and Omega Ruby both swap the intro camera for its "band" one (0x201 -> 0x202, 0x3F8 -> 0x3F9) in battle mode 4
+  (FUN_1009905C; X/Y's FUN_10090120). Checked
   headless on the sandbox (demo.txt with X/Y's trainers, oras-sandbox --onto): X/Y's trainers 1 (Youngster, 0xD), 107
   and 130 (0xE) and 188 (Korrina, 0x21) play their X/Y intros with their own drawings and names (runs xf_17-xf_27).
   Not checked: against X running, on the phone.
@@ -187,7 +193,22 @@ is tested on the phone.
   citra_libretro`; the log's offsets + 0x563C6C are the image offsets of `N3dsRom::Files()` (Omega Ruby), a GARC member
   then read from its FATB. Files the mod patches are read by LayeredFS from memory, not logged.
 
+**A file-swap test, the short way** (23 October, after a day lost to hand-made copies): build the base mod once, with
+`oras-engine ... --wild-encounter always` when the test needs a wild battle (a battle on the first encounter step: random
+rolls differ between mods, and runs were lost to steps without one); `headless/mod_variant.sh <work> <base> <work>/out/var
+PATH=FILE PATH:N=FILE...` makes the variant (whole files, or archive members through `remake_tool mod-file` and
+`garc-set`, each read back); run it; `prototype/shot_sheet.py <run dir> <out.png>` puts the shots on one labelled sheet;
+with `POMEGRADE_ROMFS_TRACE=1`, `prototype/romfs_member.py <game.3ds> --log <run>/log.txt [--after FRAME]` lists what was
+read, grouped by archive (files the variant gives are not traced). `prototype/cgfx.py` lists a CGFX file's cameras and
+animations (view type, curves absent, constant or animated). **Method**: run the control first (the same variant with the
+game's own file), then change one thing per run.
+
 **Pitfalls met, so they cost the next agent nothing**:
+- A GARC rewritten by hand needs its data section's size (FIMB, the word before the data offset) and its file size
+  changed with its members: a test on 22-23 October whose GARC kept the old size failed for that alone, and its result
+  (a "resource number bound") was wrong. Use `remake_tool garc-set`.
+- `pkill -f <word>` kills the calling shell when the word is in its own command line (exit 144), here too for
+  `code_find.py`.
 - A run's log can grow to gigabytes after a fault and fill the disk: watch it (`stat` in a loop) and stop the host with
   `pkill -x retro_host`. Never `pkill -f` with a word that is in the watcher's own command line: it kills the watcher's
   shell (exit 144). `ulimit` is refused in these containers.
