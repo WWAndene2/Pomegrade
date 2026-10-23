@@ -15,7 +15,16 @@ Bytes XyLightToOras(const Bytes& x, const Bytes& oras)
     for (size_t s = 0; s < Sets; s++)
         for (size_t p = 0; p < Planes; p++)
             for (size_t k = 0; k < Kinds; k++)
+            {
+                if (s == 1 || s == 2)
+                {
+                    // the characters' sets: X/Y's set 0, its time 0, every time (OrasXyLight.h)
+                    for (size_t t = 0; t < Times; t++)
+                        std::memcpy(&out[s * OrasSet + p * OrasPlane + (k * Times + t) * 4], &x[p * XyPlane + k * Times * 4], 4);
+                    continue;
+                }
                 std::memcpy(&out[s * OrasSet + p * OrasPlane + k * Times * 4], &x[s * XySet + p * XyPlane + k * Times * 4], Times * 4);
+            }
     return out;
 }
 
