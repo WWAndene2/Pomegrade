@@ -30,15 +30,32 @@ publish the owner's game dumps. Merge into `main` only when asked (fast-forward 
 **The plan and its state**: `docs/DEVELOPMENT_NOTE.md` 3e, "State of the port, 23 October": what is left, in working
 order (steps 1-9). **Step 1 (wild battles) is in progress.** Done in step 1: X/Y's scripted wild battles
 (`CallWildBattle` 59-71); Sweet Scent's battle (needs nothing). Deferred: Sweet Scent's refusal by weather (goes with
-X/Y's weather, step 6). **Next, proposed to the owner and not yet approved**: a static reading (30 minutes at most) of
-X/Y's dust box (`CallDustBoxEncount`) and dust cloud (`CallTsuchikemuriEncountEvent`) before porting them:
-- dust box, read so far: X's game system object holds at +0x18C an X-only object of 0x13C bytes (allocated in X's
-  `.code` 0x109208, initialised by 0x112A48: 10 entries of 0x1C bytes, then flags and 8 words), filled at run time by
-  X's `.code` functions (0x112AB8 and after: not read). `CallDustBoxEncount(n)` (X DllField 0x1028CFD4) starts a fixed
-  wild battle (X's type 21) from entry n (+4 species, +8 level, +0xC) through X's FUN_1029A650. To find: who fills the
-  entries, when, whether saved; then where the object lives in Omega Ruby (its game system has no such member);
-- dust cloud: `CallTsuchikemuriEncountEvent` (X 0x102914A0) creates X's `FieldUniqueSequenceTsuchikemuriEncount` (0x34
-  bytes, vtable in X's DllField): its size and callees to measure;
+X/Y's weather, step 6). **Read (23 October, owner-approved phase A; static, nothing run), the plan B1 then B2 approved**: X/Y's dust box
+(trash cans) and dust cloud, everything they touch, X's address -> Omega Ruby's (`prototype/xy_import_match.py`, read
+where it found only a copy):
+- **dust box**: no zone script calls its natives; one shared script does, X's `a/0/3/1` member 39 (the three natives'
+  hashes found in X's image by bytes, placed by `gamefs.py where`): it must be ported too (`oras-xy-world` translates zone
+  scripts only). The table: X's game data + 0x18C, 0x13C bytes (allocated by 0x109208, initialised by 0x112A48: 10 entries
+  of 0x1C, byte +0 the state 2, then flags +0x118-0x11B, 8 words from +0x11C at -1); Omega Ruby's game data has no such
+  member: the table goes into the room. Filled at each zone change: X's 0x3B843C (Omega Ruby's `Zone_ChangeLoadStep`
+  0x3D5698, 98%) calls the reset 0x3B513C (0xCC bytes, reads the date 0x479B84 = Omega Ruby's 0x4AA6E0) then the filler
+  0x3B4C14 (0x3EC bytes, its helper 0x3B5000; save flags 0x140170 = 0x12FD48, 0x3E3250 = 0x406B30, 0x45A908 two
+  candidates 0x48AD84 95% / 93%). The flags: X's 0x3CEB48 (Omega Ruby's 0x3F0AD0, 86%: without those lines) sets +0x11A,
+  +0x11B and +0x118 (when 0x479B84 gives 4). Searched cans hidden: X's 0x1027D3BC (Omega Ruby's
+  `Map_PlacePropsFromContainer` 0x102607A4, 95%) calls 0x3B4BC0 for props of ids 0xC50-0xCE5 (a save flag, the prop's
+  model hidden by 0x19AB0C: no match, to read). Natives (X DllField): `CallDustBoxEncount` 0x1028CFD4 (entry n: +4
+  species, +8 level, +0xC; the battle by X's 0x1029A650, 72%: to read; then 0x448E08 = 0x478964 and 0x3DEA54 =
+  0x3FFF30), `CheckTypeOfDustBox` 0x1028D7EC (entry n's byte: 0, 1, else 2), `GetItemIdOfDustBox` 0x1028D8F0 (entry n's
+  +0x14). Not saved (inferred: game data, not the save; the searched flags are the save's);
+- **dust cloud**: no script imports `CallTsuchikemuriEncountEvent` (X 0x102914A0; ported anyway, owner's rule): the step
+  does, X's 0x102265DC (0x5AC bytes, reached from 0x1022711C, 0x10227324; Omega Ruby's 0x10263014, 97%: the dust-cloud
+  branch to add) creates `field::EventTsuchikemuriEncount` (0x34 bytes, vtable X 0x102FEF4C: 6 methods, about 350
+  instructions, the update 0x10239704 257) as the native does. Its update calls about 25 functions: 15 found, 3 copies
+  at 100% to confirm, 7 X DllField functions with no counterpart (0x10250CC4-0x10250D68, carried with it), and X's Route
+  13 module `DllUSR13` (0x107AF818: marks a dust-cloud spot used in the module's list, 6-byte entries at +0x18): the
+  module is ported with the gym modules' tooling (27 imports: 8 same, 4 near, 2 several, 11 none, 2 data). A zone has
+  dust clouds when it is given that module's area kind (Hoenn's too). Not read: whether `DllUSR13` loads its spots from
+  an archive (B2's first 15 minutes).
 - `CallHideItemEncount` is empty in X: nothing to port.
 Code to port goes into **DllField's room** (below). Step 2 (Sky and Inverse Battles, Battle Chateau, 79 sounds) follows.
 

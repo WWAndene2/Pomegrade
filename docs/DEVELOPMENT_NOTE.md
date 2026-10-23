@@ -280,9 +280,10 @@ redone; the zones before what runs in them; one phone check per block, not per c
    17-20), and so does the lead's ability test (Omega Ruby's FUN_102DC858 Sand Veil in weather 5, X's FUN_1029BAC0 Snow
    Cloak in 17-19): so the refusal, and X/Y's ability rule, go with the port of X/Y's weather (step 6, Route 13's
    sandstorm), X/Y's zones having none today;
-   `CallDustBoxEncount` (a fixed wild battle, X/Y's type 21, from a table at +0x18C of the game data, its source not
-   found) and `CallTsuchikemuriEncountEvent` (X/Y's own field sequence class): X/Y's DllField code to port into Omega
-   Ruby's, with the natives added (room: DllField grown by 128 KB, `--field-room`, 23 October).
+   the dust box (trash cans: three natives called by X/Y's shared script a/0/3/1 member 39, a table filled at each zone
+   change, X-only code of about 450 instructions, three hooks into Omega Ruby found) and the dust cloud (no script: the
+   step check starts X/Y's own event class, which needs X/Y's Route 13 module `DllUSR13`): read 23 October, ORAS_ENGINE.md
+   0.0; next B1 (dust box) then B2 (dust cloud), then one test mod with a Kalos zone and a Hoenn zone (owner's plan).
    `CallHideItemEncount` is empty in X/Y: nothing to port.
 2. Finish battles (the battle modules are mapped): Sky and Inverse Battles, the Battle Chateau, the 79 sound effects
    and cries with no match.
