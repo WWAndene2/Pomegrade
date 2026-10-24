@@ -65,6 +65,9 @@ static void Triangle(double x, double y, double z, double size)
 // a shallow scene, as a game's far camera gives: the gain scales the shift up
 static const double Depths[3] = {-4.0, -5.0, -6.0}; // within the 4.12 vertex range (±8)
 
+// an orthographic scene, as Platinum's overworld: two triangles at different depths
+static bool OrthoScene = false;
+
 static void SubmitFrame()
 {
     GPU3D& g = Nds->GPU.GPU3D;
@@ -87,11 +90,13 @@ static void SubmitFrame()
     // the game's position test, at the far depth
     Cmd(0x24, {(Fx(0.5) & 0xFFFF) | ((Fx(0.0) & 0xFFFF) << 16), Fx(-6.0) & 0xFFFF});
 
-    // a 3D menu: orthographic
+    // orthographic: a flat 3D menu (one depth), or a scene with depth
     double ortho[16] = {1, 0, 0, 0,  0, 1, 0, 0,  0, 0, -1, 0,  0, 0, 0, 1};
     Cmd(0x10, {0}); LoadMatrix(ortho);
     Cmd(0x10, {2}); Cmd(0x15);
     Triangle(0.5, 0.5, -0.5, 0.2);
+    if (OrthoScene)
+        Triangle(-0.5, -0.5, -0.9, 0.2);
 
     Cmd(0x50, {0});
     g.VBlank();
@@ -212,6 +217,32 @@ int main()
     SubmitFrame(); SubmitFrame();
     Result back = Measure();
     ok &= Check(back.x[0] == off.x[0] && back.x[1] == off.x[1] && back.x[2] == off.x[2], "off again: the scene back in place");
+
+    // orthographic scene: the nearer triangle goes left, the farther right,
+    // each by the shift (two triangles: each is one spread from the average)
+    OrthoScene = true;
+    SubmitFrame(); SubmitFrame();
+    double orthoOff[2] {}, orthoOn[2] {};
+    auto orthoX = [&](double* out) {
+        for (u32 i = 0; i < g.RenderNumPolygons; i++)
+        {
+            Polygon* p = g.RenderPolygonRAM[i];
+            if (p->Vertices[0]->Position[3] != 4096) continue; // orthographic: W = 1.0
+            double sx = 0;
+            for (u32 j = 0; j < p->NumVertices; j++) sx += (double)p->Vertices[j]->Position[0] / 4096.0;
+            out[p->Vertices[0]->Position[2] > 0.7 * 4096 ? 1 : 0] += sx / p->NumVertices; // clip z 0.5 (near) and 0.9 (far)
+        }
+    };
+    orthoX(orthoOff);
+    g.SetTiltParallax(shift, 0.0f);
+    SubmitFrame(); SubmitFrame();
+    orthoX(orthoOn);
+    printf("      orthographic: near moved %+.4f, far moved %+.4f, expected -/+%.4f\n",
+           orthoOn[0] - orthoOff[0], orthoOn[1] - orthoOff[1], shift / 2.0);
+    ok &= Check(std::fabs(orthoOn[0] - orthoOff[0] + shift / 2.0) < 0.002 && std::fabs(orthoOn[1] - orthoOff[1] - shift / 2.0) < 0.002,
+                "orthographic scene moved by its depth");
+    g.SetTiltParallax(0.0f, 0.0f);
+    OrthoScene = false;
 
     printf(ok ? "ALL PASSED\n" : "FAILED\n");
     return ok ? 0 : 1;

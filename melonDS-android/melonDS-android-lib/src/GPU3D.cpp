@@ -1485,12 +1485,23 @@ void GPU3D::SetTiltParallax(float x, float y) noexcept
 
 void GPU3D::ApplyTiltParallax(s32* position) noexcept
 {
-    // orthographic projection (W column zero): 3D menus and icons, no depth to show
-    if (ProjMatrix[3] == 0 && ProjMatrix[7] == 0 && ProjMatrix[11] == 0) return;
     const s32 w = position[3];
     if (w <= 0) return;
     const float x = TiltFrameX, y = TiltFrameY;
-    if ((x == 0.0f && y == 0.0f) || TiltPivotW <= 0) return;
+    if (x == 0.0f && y == 0.0f) return;
+    // orthographic projection (W column zero; Platinum and HeartGold draw
+    // their overworld so): W is the same everywhere, the depth is Z. The same
+    // shear by Z: a point two standard deviations of Z behind the average
+    // moves by the full shift on screen (x / W).
+    if (ProjMatrix[3] == 0 && ProjMatrix[7] == 0 && ProjMatrix[11] == 0)
+    {
+        if (TiltZScale == 0.0f) return;
+        const double along = ((double)position[2] - TiltPivotZ) * TiltZScale * w;
+        position[0] += (s32)std::lround(x * along);
+        position[1] += (s32)std::lround(y * along);
+        return;
+    }
+    if (TiltPivotW <= 0) return;
     // a shear in clip space: on screen a point moves by
     // shift * gain * (1 - pivot/W), the pivot's depth not at all. Straight
     // edges stay straight, and clipping and culling then see the moved scene.
@@ -2102,7 +2113,14 @@ void GPU3D::SubmitVertex() noexcept
     vertextrans->Position[2] = (vertex[0]*ClipMatrix[2] + vertex[1]*ClipMatrix[6] + vertex[2]*ClipMatrix[10] + vertex[3]*ClipMatrix[14]) >> 12;
     vertextrans->Position[3] = (vertex[0]*ClipMatrix[3] + vertex[1]*ClipMatrix[7] + vertex[2]*ClipMatrix[11] + vertex[3]*ClipMatrix[15]) >> 12;
     // the game's vertices only, so the multiplier's sub-vertices don't weigh in the average
-    if (vertextrans->Position[3] > 0 && (ProjMatrix[3] != 0 || ProjMatrix[7] != 0 || ProjMatrix[11] != 0))
+    if (vertextrans->Position[3] > 0 && ProjMatrix[3] == 0 && ProjMatrix[7] == 0 && ProjMatrix[11] == 0)
+    {
+        const double z = vertextrans->Position[2];
+        TiltZSum += z;
+        TiltZSquares += z * z;
+        TiltZCount++;
+    }
+    else if (vertextrans->Position[3] > 0)
     {
         const double w = vertextrans->Position[3];
         TiltDepthSum += w;
@@ -3361,6 +3379,19 @@ void GPU3D::VBlank() noexcept
                 TiltDepthSum = 0.0;
                 TiltDepthSquares = 0.0;
                 TiltDepthCount = 0;
+                TiltPivotZ = 0;
+                TiltZScale = 0.0f;
+                if (TiltZCount)
+                {
+                    const double mean = TiltZSum / TiltZCount;
+                    const double spread = std::sqrt(std::max(0.0, TiltZSquares / TiltZCount - mean * mean));
+                    TiltPivotZ = (s32)mean;
+                    if (spread >= 1.0) // a flat layer (a 2D-like 3D menu) has nothing to show
+                        TiltZScale = (float)(1.0 / (2.0 * spread));
+                }
+                TiltZSum = 0.0;
+                TiltZSquares = 0.0;
+                TiltZCount = 0;
                 UpdateEdgeKeep();
                 std::swap(EdgeLevelsShown, EdgeLevelsNext);
                 EdgeLevelsNext.clear();
