@@ -223,7 +223,12 @@ where it found only a copy):
   with a flag at + 0x4C and move code 0x38-0x3A it answers 1 without testing the flag; the flag is a trainer's (0x6CC +
   n): the trainers' sight, not the drawing; not ported, its effect not known). The only other X test of these codes is
   the step check's. The cloud character is X's a/0/2/1 member 0 in both games (a woman): what X draws instead is not
-  read. Next, likely: run X itself headless on Route 13 and read what loads for a cloud.
+  read. **Tried, not kept (24 October, runs taz, tb)**: X's branch put into Omega Ruby's 0x4DE514 (a hook at 0x4DE5A0):
+  the cloud's woman then shows and vanishes in turns (about 400 frames each, run tb), the battle still starts; no run
+  without the branch was filmed the same way, so what it changes is not known. Not kept: Omega Ruby's zone 47 has two
+  trainers (106, 108) of move code 58, whose beaten flag the branch would skip. The clouds in X's zone 272 (mod 554):
+  kind 2, a flag (4135-4145), move codes 56-58, an area (e.g. 17 x 22 tiles), X's model 0.
+  Next, likely: run X itself headless on Route 13 (an X save there is needed) and read what loads for a cloud.
 - `CallHideItemEncount` is empty in X: nothing to port.
 **Porting X/Y code: the method (24 October, for the next agent; how B2 was done)**:
 1. *Map.* `prototype/xy_import_match.py` gives X's functions Omega Ruby has; `prototype/xy_code_compare.py` (`pairs`,
