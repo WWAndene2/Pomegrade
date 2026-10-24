@@ -3,6 +3,7 @@
 #include "CodePatch.h"
 #include "OrasSave.h"
 #include "OrasXyDustBox.h"
+#include "OrasXyDustCloud.h"
 #include "OrasXyGymModules.h"
 #include "OrasXySound.h"
 #include "OrasXyTrainers.h"
@@ -1001,6 +1002,17 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         for (const CodeWord& w : XyGymLoaderPatchAt(cave)) croWords.push_back({w.Address, w.Expected, w.Value, w.Why});
         log.push_back("X/Y gyms: " + std::to_string(XyGyms().size()) + " module(s) ported and loaded by their area kinds");
     }
+    if (o.XyDustCloud)
+    {
+        // X/Y's dust clouds (OrasXyDustCloud.h): DllUSR13 is ported with the gyms; the step check's hook in DllField's cave
+        // (the room's part below)
+        if (o.XyGyms.empty() || o.XyBattleTypes.empty() || o.FieldRoom < 0x1000) throw FormatError("--xy-dust-cloud needs --xy-gyms, --xy-battle-types and --field-room");
+        if (73 + ReadFile(o.XyBattleTypes).size() / 24 <= XyDustCloudBattleTypeNumber) throw FormatError("--xy-dust-cloud: X/Y's battle type 0x16 not in --xy-battle-types");
+        const CroLayout layout(oras.Read("DllField.cro"));
+        uint32_t cave = DllFieldBase + layout.CodeEnd();
+        for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
+        for (const CodeWord& w : XyDustCloudFieldPatchAt(cave)) croWords.push_back({w.Address, w.Expected, w.Value, w.Why});
+    }
     if (o.FieldRoom)
     {
         // room for caves (GrowCroCode): DllField's code from 0xF1000 to 0xF1000 + the room, at its linked 0x10333000
@@ -1166,6 +1178,19 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         if (roomPut(box.Room, "X/Y's dust boxes") != box.Table) throw FormatError("--xy-dust-box: the room moved");
         words.insert(words.end(), box.Code.begin(), box.Code.end());
         snprintf(line, sizeof line, "dust boxes: X/Y's table at 0x%X, its filler, reset and hooks", box.Table);
+        log.push_back(line);
+    }
+    if (o.XyDustCloud)
+    {
+        // X/Y's dust clouds (OrasXyDustCloud.h): X's event, effect and battle in the room, the step hook naming it
+        N3dsRom xy(o.XyGyms);
+        const XySounds sounds = XySounds::Read(oras.Code(), oras.Read("sound/sango_sound.bcsar"), xy.Code(), xy.Read("sound/xy_sound.bcsar"));
+        const uint32_t archive = XyGymArchiveNumberOf(XyRoute13());
+        const XyDustCloudRoom cloud = XyDustCloudRoomAt(xy.Read("DllField.cro"), oras.Read("DllField.cro"), code, roomAt, archive,
+                                                        [&](uint32_t id) { return sounds.Translate(id); });
+        const uint32_t at = roomPut(cloud.Room, "X/Y's dust clouds");
+        words.insert(words.end(), cloud.Code.begin(), cloud.Code.end());
+        snprintf(line, sizeof line, "dust clouds: X/Y's event, effect and battle at 0x%X (%zu bytes), its models archive %s", at, cloud.Room.size(), XyArchivePath(archive).c_str());
         log.push_back(line);
     }
     // the gyms' archives (OrasXyGymModules.h: numbers past 299 that are ARM immediates, 0x130...) take this table too, as

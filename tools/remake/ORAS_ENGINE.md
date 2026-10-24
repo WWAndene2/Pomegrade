@@ -182,8 +182,20 @@ where it found only a copy):
     0x102632FC and 0x10263310 (its `ldr r0, [fp, #0x1c]` at 0x10263304 the place of the hook). X/Y's characters keep
     their models through the zone port (OrasXyEvents.cpp, modelOf: X/Y's a/0/2/1 member appended), so the module's and
     the hook's models are the mod's numbers of X/Y's 0x38-0x3A, given at build time;
-  - still to read: the effect's sound (X 0x10277784: 0xA012A) and resource (X DllField 0x102EB7C8, its ids 0x82, 0x83,
-    0xBC-0xBF: X's effect archive) and DllUSR13's 11 imports without a match.
+  - **ported (24 October, OrasXyDustCloud.h, oras-engine --xy-dust-cloud on)** and **run headless** (runs dc1-dcj, X's
+    zone 272 alone, `--matrices 31`, as mod zone 538): DllUSR13 lists the zone's 11 spots and shows 8-9; the player
+    walking into one starts the event; the cloud's character goes, X's swirl plays (X's a/1/7/5 as a/3/3/6), the
+    field is torn down and the battle starts (a wild Dugtrio). Fixed by the runs: the room's stubs written in another
+    order than placed (the array constructor called the destructor, dc2-dc3); the character manager's map + 0x14 -> +
+    0x10 (read live: its words 4 nearer from + 0x10, the module read garbage, dcd); Omega Ruby's encounter event pushed
+    at once tore the field down under the effect (X's 0x3BC140 does not push it; X's update does at its state 9: dce ->
+    dcg). Found by the runs, not fixed (the owner's call, below): **the battle's command menu takes no input** with X's
+    type 0x16 whole: its word 3 is 9 (X's special wild types 17-22 hold 2, 8-12 there; Omega Ruby's types 0, 1, 5-8),
+    with 1 the battle plays to its end (run dcj; word 0, X's 7, kept), so X's dust box battle (type 0x15, word 3 0xC)
+    is likely stuck the same (it reached the command menu only, run db2); and **a cloud shows as a standing woman** (X's
+    model 0: X hides the character and plays a small swirl from time to time through its move controller of codes
+    0x38-0x3A, which Omega Ruby's code 0x3A is not; where the controllers are made not read). Not ported: X's weather
+    byte (step 6), the module's lamps (an X object Omega Ruby lacks: off), the script native CallTsuchikemuriEncountEvent.
 - `CallHideItemEncount` is empty in X: nothing to port.
 Code to port goes into **DllField's room** (below). Step 2 (Sky and Inverse Battles, Battle Chateau, 79 sounds) follows.
 

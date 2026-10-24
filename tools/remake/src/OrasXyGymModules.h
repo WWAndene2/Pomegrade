@@ -70,6 +70,8 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
 // the Omega Ruby number given the k-th ported archive (k from 0): past the game's 299 (oras-engine's longer path table,
 // the room), an ARM immediate for the modules' `mov r1, #n` (0x130, 0x140...); its path rom:/a/X/Y/Z by its digits
 uint32_t XyGymArchiveNumber(size_t k);
+// the number the module's archive gets (its place among the ported modules with one)
+uint32_t XyGymArchiveNumberOf(const XyModulePort& port);
 std::string XyArchivePath(uint32_t number); // "a/X/Y/Z"
 
 // a gym's archive (a GARC: X's Ice one is one LZ11-compressed "TM" container of the 48 BCH its loader unpacks) made

@@ -95,5 +95,8 @@ target_link_libraries(remake_xygyms_test PRIVATE remake)
 add_executable(remake_xydustbox_test remake_xydustbox_test.cpp)
 target_link_libraries(remake_xydustbox_test PRIVATE remake)
 
+add_executable(remake_xydustcloud_test remake_xydustcloud_test.cpp)
+target_link_libraries(remake_xydustcloud_test PRIVATE remake)
+
 add_executable(remake_xysharedscripts_test remake_xysharedscripts_test.cpp)
 target_link_libraries(remake_xysharedscripts_test PRIVATE remake)

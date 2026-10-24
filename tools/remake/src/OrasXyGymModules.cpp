@@ -1,4 +1,5 @@
 #include "OrasXyGymModules.h"
+#include "OrasXyDustCloud.h"
 
 #include "Bch.h"
 #include "BchUpgrade.h"
@@ -9,6 +10,7 @@
 #include <algorithm>
 #include <cctype>
 #include <deque>
+#include <set>
 #include <cstdio>
 
 namespace remake
@@ -275,8 +277,23 @@ const std::vector<XyGym>& XyGyms()
         {3, 1, XyGymRock()},
         {0xE, 2, XyGymIce()},
         {0x19, 9, XyGymElec(), 0}, {0x1A, 12, XyGymElec(), 1}, {0x1B, 17, XyGymElec(), 2},
+        {0x18, 18, XyRoute13()}, // not a gym: Route 13's dust clouds (OrasXyDustCloud.h)
     };
     return gyms;
+}
+
+uint32_t XyGymArchiveNumberOf(const XyModulePort& port)
+{
+    // in the order oras-engine ports them: each module once, its archive the next number
+    std::set<std::string> ported;
+    size_t k = 0;
+    for (const XyGym& g : XyGyms())
+    {
+        if (!ported.insert(g.Port.Name).second || !g.Port.Archive) continue;
+        if (&g.Port == &port) return XyGymArchiveNumber(k);
+        k++;
+    }
+    throw FormatError(port.XName + ": no archive among the ported modules");
 }
 
 uint16_t XyGymAreaKind(uint16_t xKind)
