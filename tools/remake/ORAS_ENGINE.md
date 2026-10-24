@@ -202,7 +202,11 @@ where it found only a copy):
   0x10064C68, the same code): a switch on 0-12 giving the appearance message of the battle text (a/0/7/4 member 147
   in French) 0x105-0x109 for 8-12, 9 "... sauvage surgit du sol !" and 0xC "... de la poubelle !", lines Omega Ruby
   has. So Omega Ruby handles words 3 of 8-12 as X does: nothing to port there, and the stalled menu has another cause
-  (not found; to test: word 3 = 9 alone on an Omega Ruby wild battle, then word 0 = 7 alone).
+  (not found). **Tested** (24 October, runs catA/catB: an Omega Ruby wild battle on Route 102, its type record poked
+  from a state saved just before it): word 3 = 9 alone, the battle plays (menu, move chosen, turn played); word 0 = 7
+  alone, about 3 s into the battle the core loops on an unimplemented local-wireless call (nwm::UDS), under 1 frame/s, no
+  menu. Likely, not read: Omega Ruby's word 0 of 7 is a kind of network battle, X's a special wild one. Not explained:
+  the cloud's type with 7 and 1 played (run dcj). Next: read the code taking word 0 in both games.
 - `CallHideItemEncount` is empty in X: nothing to port.
 **Porting X/Y code: the method (24 October, for the next agent; how B2 was done)**:
 1. *Map.* `prototype/xy_import_match.py` gives X's functions Omega Ruby has; `prototype/xy_code_compare.py` (`pairs`,
