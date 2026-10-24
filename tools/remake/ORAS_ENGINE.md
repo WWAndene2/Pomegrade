@@ -197,6 +197,25 @@ where it found only a copy):
     0x38-0x3A, which Omega Ruby's code 0x3A is not; where the controllers are made not read). Not ported: X's weather
     byte (step 6), the module's lamps (an X object Omega Ruby lacks: off), the script native CallTsuchikemuriEncountEvent.
 - `CallHideItemEncount` is empty in X: nothing to port.
+**Porting X/Y code: the method (24 October, for the next agent; how B2 was done)**:
+1. *Map.* `prototype/xy_import_match.py` gives X's functions Omega Ruby has; `prototype/xy_code_compare.py` (`pairs`,
+   `calls`, `offsets`, `closure`, `sites`) gives the rest: a copied block's twins, what each call became, which fields
+   moved (the map object, the character manager, the character, the records: OrasXyDustCloud.cpp's words list them,
+   each with its X and Omega Ruby offset), what a port takes.
+2. *Addresses.* .CRO files are mapped linked = base + file offset (X's DllField 0x101F9000, Omega Ruby's 0x10242000);
+   DllField itself is loaded where the heap has room (0x6F3000 in the runs), so ported code never holds a DllField
+   address: it calls DllField through the getter word the loader writes (.code 0x19C8D4, OrasXyNatives.h) and lives in
+   the .code's room past the .bss (0x6AF000+, written by code.ips). In a mod grown by `--field-room 0x20000`, a DllField
+   read-only address seen live is linked 0x10242000 + (runtime - load base) - 0x20000.
+3. *Copy, then patch.* Copy X's functions whole (PortArmBlock), point their calls at Omega Ruby's functions, rewrite
+   every field offset that moved, and assert each part's place and each patched word's old value (`placed()`, intended
+   == changed): a wrong order of written stubs was the costliest bug (dc2-dc3).
+4. *Run headless* (`headless/session.py start/do/stop`, about 8 minutes to boot; retro_host's `hold`, `press`,
+   `mash a N`, `shot`, `mem`, `watch`). To see what a ported function does, a temporary thunk can store registers to an
+   unmapped address (0xF0000000+): Azahar logs each such write with its value and PC. Remove every such thunk before
+   committing. Truncate the run logs: a crash loop wrote 1.6 million lines and filled the disk.
+5. *Never substitute.* When X's value has no Omega Ruby meaning (the battle type's category 9), port X's handling of it,
+   or ask the owner (CLAUDE.md 8).
 Code to port goes into **DllField's room** (below). Step 2 (Sky and Inverse Battles, Battle Chateau, 79 sounds) follows.
 
 **What changed on 23 October** (all headless; **nothing of 22-23 October is tested on the phone**):

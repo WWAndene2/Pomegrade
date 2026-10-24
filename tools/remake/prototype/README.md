@@ -111,3 +111,11 @@ NCGR images with their NCLR palette, and Platinum's encrypted trainer sprites:
 `python3 -I nitro_sprites.py trainer trf 0 lucas.png --zoom 3` (trainer 0 is Lucas; `trbgra.narc` for the back sprites).
 The field sprites are NSBTX textures: `remake_tool textures <member.nsbtx> <dir>` on `data/mmodel/mmodel.narc` (Lucas in
 Platinum's outfit: member 157, `pl_whelo`; member 417, `hero`, is his Diamond/Pearl outfit).
+
+## Comparing X/Y's code with Omega Ruby's (`xy_import_match.py`, `xy_code_compare.py`)
+
+To port X/Y code (ORAS_ENGINE.md, "Porting X/Y code: the method"), on a work directory laid out by
+`headless/session_setup.sh` (steps tool, ghidra, ghidra-x): `xy_import_match.py` tells which X functions Omega Ruby has
+(by name and shape); `xy_code_compare.py` aligns an X function with its Omega Ruby twin (`offsets`: the fields that
+moved; `calls`: what each call became), finds a block's twins (`pairs`), what a port takes (`closure`), and where a
+field reached through another is read (`sites`). Disassembling a range of either game: `code_find.py --at`.
