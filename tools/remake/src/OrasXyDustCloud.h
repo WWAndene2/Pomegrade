@@ -30,8 +30,9 @@
 //  - the cloud's character wears X's model 0 (a woman, standing): X hides it and plays a small swirl from time to time
 //    through its move controller of codes 0x38-0x3A (the counter at the controller's + 0xC the module sets), which Omega
 //    Ruby's move code 0x3A does not do (not read: where the controllers are made);
-//  - the battle's command menu takes no input with X's type 0x16 whole (words 0 and 3: 7 and 9, values Omega Ruby's
-//    types never hold); with 6 and 1 (Rock Smash's) the battle plays to its end (run dci).
+//  - the battle's command menu took no input once (run dcj) with X's type 0x16 whole (words 0 and 3: 7 and 9); not
+//    reproduced since: run dcx (24 October, the same type) plays the battle's turn. Omega Ruby's battle reads word 3 as
+//    X's does (ORAS_ENGINE.md 0.0, "Word 3 read live").
 // Not ported now: the weather byte X sets (its +0x70 to 3, X's 0x3E018C / 0x3E0194: X/Y's weather is step 6) and the
 // module's lamps (15 props switched by a word of X's [[game system + 0x2C] + 0x14], an object Omega Ruby does not have:
 // X's 0x4B3EA4 answered 0, the lamps left as placed). X's script native CallTsuchikemuriEncountEvent (0x102914A0) is not

@@ -205,8 +205,13 @@ where it found only a copy):
   (not found). **Tested** (24 October, runs catA/catB: an Omega Ruby wild battle on Route 102, its type record poked
   from a state saved just before it): word 3 = 9 alone, the battle plays (menu, move chosen, turn played); word 0 = 7
   alone, about 3 s into the battle the core loops on an unimplemented local-wireless call (nwm::UDS), under 1 frame/s, no
-  menu. Likely, not read: Omega Ruby's word 0 of 7 is a kind of network battle, X's a special wild one. Not explained:
-  the cloud's type with 7 and 1 played (run dcj). Next: read the code taking word 0 in both games.
+  menu by the run's end (whether stuck or only slow not checked). The nwm::UDS errors are not the cause: they come in
+  the working battle below too. Word 0 indexes the transition's table of effects (Omega Ruby's DllField 0x1026BB58, X's
+  0x1022FF28, the same code and the same table 3, 8, 0, 1, 2, 4, 5, 6, 7, 9 for 0-9). **The dust cloud's battle plays**
+  (run dcx, 24 October: the mod of 08:08, X's type 0x16 whole, 7 and 9; the player walked into a cloud on Route 13, a
+  wild Kraknoix (Trapinch), "Attaque", a move chosen, the turn played: "Le Kraknoix sauvage se cache dans le sol !"). The earlier
+  stall (dcj) is not reproduced; its cause is not known (an older build, or the keys pressed during the intro: not
+  checked).
 - `CallHideItemEncount` is empty in X: nothing to port.
 **Porting X/Y code: the method (24 October, for the next agent; how B2 was done)**:
 1. *Map.* `prototype/xy_import_match.py` gives X's functions Omega Ruby has; `prototype/xy_code_compare.py` (`pairs`,
