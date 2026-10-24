@@ -228,7 +228,18 @@ where it found only a copy):
   without the branch was filmed the same way, so what it changes is not known. Not kept: Omega Ruby's zone 47 has two
   trainers (106, 108) of move code 58, whose beaten flag the branch would skip. The clouds in X's zone 272 (mod 554):
   kind 2, a flag (4135-4145), move codes 56-58, an area (e.g. 17 x 22 tiles), X's model 0.
-  Next, likely: run X itself headless on Route 13 (an X save there is needed) and read what loads for a cloud.
+  **X itself run on Route 13 (24 October, handover: start here)**: the owner's X save (Drive file id
+  1IJLf3c0zxuN3A88gkYAY_wNe5mdexzTy, into `<work>/dumps/xsave/main`, never committed) moved by
+  `prototype/xy_save_move.py dumps/xsave/main dumps/xsave/main_r13 272 126.5 81.5 2.0`, run with
+  `POMEGRADE_GAME=dumps/x.3ds POMEGRADE_SAVE=<abs>/dumps/xsave/main_r13 headless/run_local.sh ...` (`run_local.sh` puts it in
+  X's folder; the core's dump/report/writers accept X's program since this day: `pomegrade_report.inc`, the session's core
+  rebuilt). X shows no woman there, only a small dust swirl (run xr2). **Found**: the 9 shown clouds are objects of
+  0xAA8 bytes in X (0xAB0 in the mod), u16 +0xC the zone record's id, +0x10 model, +0x12 move code, +0x14 kind; their
+  word +4 is 0x01010007 in X, 0x00010003 in the mod. **Bit 0x4 of that word hides the character**: poked into the mod's
+  9 clouds, the woman goes at once and stays gone (run pk4); bit 0x01000000 alone does nothing (pk6). **Next**: find
+  which X code sets bit 4 for a cloud (a `writers` run on X's cloud objects under the interpreter, from the state
+  `runs/xr2/field.state`: the module recreates clouds every few hundred frames; run xw1 was stopped before its result),
+  then port that code (or its branch) into Omega Ruby; check Omega Ruby's move code 58 trainers (zone 47) are untouched.
 - `CallHideItemEncount` is empty in X: nothing to port.
 **Porting X/Y code: the method (24 October, for the next agent; how B2 was done)**:
 1. *Map.* `prototype/xy_import_match.py` gives X's functions Omega Ruby has; `prototype/xy_code_compare.py` (`pairs`,

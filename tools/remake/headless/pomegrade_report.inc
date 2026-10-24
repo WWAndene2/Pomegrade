@@ -15,6 +15,9 @@
 #include "core/gdbstub/gdbstub.h"
 #endif
 
+// the game a run looks at: Omega Ruby, or X (POMEGRADE_GAME=dumps/x.3ds, run_local.sh: X/Y itself, the reference of a port)
+static bool pomegrade_game(u64 program_id) { return program_id == 0x000400000011C400 || program_id == 0x0004000000055D00; }
+
 extern "C" RETRO_API void pomegrade_report(void (*out)(const char* line)) {
     auto& system = Core::System::GetInstance();
     if (!system.IsPoweredOn()) {
@@ -31,7 +34,7 @@ extern "C" RETRO_API void pomegrade_report(void (*out)(const char* line)) {
         const auto current = manager.GetCurrentThread();
         for (const auto& thread : manager.GetThreadList()) {
             const auto process = thread->owner_process.lock();
-            if (!process || process->codeset == nullptr || process->codeset->program_id != 0x000400000011C400) continue; // Omega Ruby
+            if (!process || process->codeset == nullptr || !pomegrade_game(process->codeset->program_id)) continue;
             const bool live = thread.get() == current;
             const auto& cpu = system.GetCore(core);
             const u32 pc = live ? cpu.GetPC() : thread->context.GetProgramCounter();
@@ -86,7 +89,7 @@ extern "C" RETRO_API void pomegrade_peek(u32 address, u32 length, void (*out)(co
     if (!system.IsPoweredOn()) return;
     for (const auto& thread : system.Kernel().GetThreadManager(0).GetThreadList()) {
         const auto process = thread->owner_process.lock();
-        if (!process || process->codeset == nullptr || process->codeset->program_id != 0x000400000011C400) continue;
+        if (!process || process->codeset == nullptr || !pomegrade_game(process->codeset->program_id)) continue;
         auto& memory = system.Memory();
         for (u32 at = address & ~3u; at < address + length; at += 0x20) {
             char line[512];
@@ -132,7 +135,7 @@ extern "C" RETRO_API u32 pomegrade_dump(u32 address, u32 length, const char* pat
     if (!system.IsPoweredOn()) return 0;
     for (const auto& thread : system.Kernel().GetThreadManager(0).GetThreadList()) {
         const auto process = thread->owner_process.lock();
-        if (!process || process->codeset == nullptr || process->codeset->program_id != 0x000400000011C400) continue;
+        if (!process || process->codeset == nullptr || !pomegrade_game(process->codeset->program_id)) continue;
         auto& memory = system.Memory();
         std::vector<u8> data(length, 0);
         u32 mapped = 0;
@@ -199,7 +202,7 @@ extern "C" RETRO_API bool pomegrade_poke(u32 address, u32 value) {
     if (!system.IsPoweredOn()) return false;
     for (const auto& thread : system.Kernel().GetThreadManager(0).GetThreadList()) {
         const auto process = thread->owner_process.lock();
-        if (!process || process->codeset == nullptr || process->codeset->program_id != 0x000400000011C400) continue;
+        if (!process || process->codeset == nullptr || !pomegrade_game(process->codeset->program_id)) continue;
         auto& memory = system.Memory();
         if (!memory.IsValidVirtualAddress(*process, address)) return false;
         memory.WriteBlock(*process, address, &value, 4);
