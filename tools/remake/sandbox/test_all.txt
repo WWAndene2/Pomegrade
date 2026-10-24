@@ -1,6 +1,6 @@
-# Everything ported so far in one mod, to test on the phone (owner's request, 23 October): a Hoenn hub (this zone, 556,
+# Everything ported so far in one mod, to test on the phone (owner's request, 23 October): a Hoenn hub (this zone, 557,
 # Littleroot's pack, Omega Ruby's encounters in its tall grass) whose triggers on row z = 5 warp to the X/Y zones a mod of
-# oras-xy-world --matrices 0,10,58,69,57,221,222,77,98,2 numbers 538-555 (in X's order: the warps name those numbers, so
+# oras-xy-world --matrices 0,10,58,69,57,221,222,77,98,2,31 numbers 538-556 (in X's order: the warps name those numbers, so
 # build it with exactly these matrices), or start a scripted wild battle. Built by headless/test_all_mod.sh.
 # The triggers, west to east, each a square of path (':') alone in the grass on row z = 5 (the owner found the triggers
 # invisible, then the flowers drawn on them ('*') missing or off, 23 October; people placed north of them did not show
@@ -13,10 +13,11 @@
 #   x 14: arene de Clemont (X 77), mod zone 542
 #   x 16: arene de Grant (X 160), mod zone 548
 #   x 18: arene de Wulfric (X 226), mod zone 549
-#   x 24: Village Pokemon, sous la poubelle du point 0 (X 318), mod zone 554
+#   x 24: Village Pokemon, sous la poubelle du point 0 (X 318), mod zone 555
 #   x 26: X 349, sous la poubelle du point 5, mod zone 555
 #   x 28: combat sauvage scripte de X (Ronflex, CallWildBattle 59)
 #   x 30: temoin: celui d'Omega Ruby (CallWildBattle 0)
+#   x 32: Route 13, ses nuages de poussiere (X 272), mod zone 554
 zone
 pack 8
 spawn 17.5 18.5
@@ -35,6 +36,7 @@ trigger 24 5 script 9
 trigger 26 5 script 10
 trigger 28 5 script 11
 trigger 30 5 script 12
+trigger 32 5 script 13
 script
 pubvar g_ai_flag ai
 pubvar g_interactive_flag interactive
@@ -173,7 +175,7 @@ not8:
     push.c 60
     push.c 0
     push.c 37
-    push.c 554
+    push.c 555
     sysreq.n _MapChangeCore 32
     zero.pri
     retn
@@ -188,7 +190,7 @@ not9:
     push.c 39
     push.c 27
     push.c 20
-    push.c 555
+    push.c 556
     sysreq.n _MapChangeCore 32
     zero.pri
     retn
@@ -209,6 +211,21 @@ not11:
     zero.pri
     retn
 not12:
+    load.pri 0
+    eq.c.pri 13
+    jzer not13
+    push.c 1
+    push.c 1
+    push.c 0
+    push.c 0
+    push.c 81
+    push.c 0
+    push.c 126
+    push.c 554
+    sysreq.n _MapChangeCore 32
+    zero.pri
+    retn
+not13:
     zero.pri
     retn
 data
@@ -231,7 +248,7 @@ TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
 TT..................::................TT
 TT..................::................TT
 TT..................::................TT
-TT..:.:.:.:.:.:.:.:.::..:.:.:.:.......TT
+TT..:.:.:.:.:.:.:.:.::..:.:.:.:.:.....TT
 TT....~~~~~~~~~.....::................TT
 TT....~~~~~~~~~.....::................TT
 TT....~~~~~~~~~.....::.........t......TT

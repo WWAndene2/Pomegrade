@@ -212,6 +212,11 @@ where it found only a copy):
   wild Kraknoix (Trapinch), "Attaque", a move chosen, the turn played: "Le Kraknoix sauvage se cache dans le sol !"). The earlier
   stall (dcj) is not reproduced; its cause is not known (an older build, or the keys pressed during the intro: not
   checked).
+  **In the phone test mod** (`headless/test_all_mod.sh`, 24 October): X's matrix 31 added (Route 13, X zone 272, mod
+  zone 554; the zones after it and the hub one further: 538-556, hub 557), the hub's trigger at x 32 warps to it (tile
+  126, 81), `--xy-dust-cloud on`. Run tay: the trigger loads Route 13 and its module, the player walks into a cloud, the
+  battle (a wild Dugtrio) plays its turn. Not checked: the phone. Still open: a cloud is drawn as X's model 0 (a
+  woman); X's controller of move codes 0x38-0x3A that hides it is not found.
 - `CallHideItemEncount` is empty in X: nothing to port.
 **Porting X/Y code: the method (24 October, for the next agent; how B2 was done)**:
 1. *Map.* `prototype/xy_import_match.py` gives X's functions Omega Ruby has; `prototype/xy_code_compare.py` (`pairs`,
