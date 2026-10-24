@@ -36,7 +36,9 @@ cd "$work"
 run=runs/$name
 rm -rf "$run"; mkdir -p "$run/Azahar/load/mods"
 [ "$mod" != - ] && cp -r "$mod/load/mods/000400000011C400" "$run/Azahar/load/mods/"
-save="$run/Azahar/sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/00040000/0011c400/data/00000001"
+# the save goes in the title's folder: X's (0x55D00) when POMEGRADE_GAME is X/Y (dumps/x.3ds), else Omega Ruby's
+title=0011c400; [ "${POMEGRADE_GAME:-}" = dumps/x.3ds ] && title=00055d00
+save="$run/Azahar/sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/00040000/$title/data/00000001"
 # POMEGRADE_SAVE: another save file than the owner's dumps/save/main (one the owner made in the game where a run must start,
 # 7 October: in front of a trainer, as a save moved by oras-save into another matrix does not load and one moved into a zone
 # finds no characters there)
