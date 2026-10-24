@@ -788,6 +788,9 @@
     <string name="three_ds_rom_label">3DS · %1$s</string>
     <string name="unlimited_polygons">Remove polygon limit</string>
     <string name="unlimited_polygons_summary">Draw the polygons a DS would drop when a scene has too many (missing or flickering objects)</string>
+    <string name="tilt_parallax">Tilt depth</string>
+    <string name="tilt_parallax_summary">Tilting the phone moves the 3D scene by depth, like a model behind the screen (Pokémon Platinum, HeartGold, SoulSilver…). Menus and 2D layers stay still. Needs a gyroscope</string>
+    <string name="tilt_parallax_strength">Tilt depth strength</string>
     <string name="high_precision_geometry">High-precision geometry</string>
     <string name="high_precision_geometry_summary">Place vertices between pixels instead of snapping them: less shaking of moving 3D models</string>
     <string name="oled_blacks">Deep black</string>

@@ -20,6 +20,7 @@
 #define GPU3D_H
 
 #include <array>
+#include <atomic>
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
@@ -193,6 +194,15 @@ public:
     // lighting instead of being rounded to 5 bits per channel. Meant for the
     // OpenGL renderer, whose compositor then blends in 8 bits.
     void SetHighColor(bool enable) noexcept { HighColor = enable; }
+
+    // Tilt parallax (Pomegrade): the phone's tilt shifts the 3D scene by
+    // depth, so it looks like a model behind the screen. x and y are the
+    // shift of the farthest points, in clip units (1 = half the screen),
+    // right and up; the scene's average depth stays in place, nearer points
+    // move the other way. (0, 0) = off. Only perspective polygons move (not
+    // orthographic 3D menus), and only what is drawn: box and position tests
+    // keep the game's values. Called from the UI thread.
+    void SetTiltParallax(float x, float y) noexcept;
 
     // Polygons for the renderers: the hardware list, or the same list with
     // multiplied polygons replaced by their sub-polygons.
@@ -496,6 +506,15 @@ public:
     u32 BestProjVertices = 0;
     bool FrameProjectionCheck = true; // a matrix or the viewport changed since the last check
     bool HighColor = false;
+
+    // tilt parallax (Pomegrade), not part of the hardware state, don't serialize
+    std::atomic<float> TiltParallaxX {0.0f};
+    std::atomic<float> TiltParallaxY {0.0f};
+    s64 TiltDepthSum = 0;    // W of this frame's perspective vertices
+    u32 TiltDepthCount = 0;
+    s32 TiltPivotW = 0;      // last frame's average W: the depth that stays in place
+    float TiltFrameX = 0.0f, TiltFrameY = 0.0f; // the tilt this frame is drawn with
+    void ApplyTiltParallax(s32* position) noexcept;
     s32 VertexColorPrecise[3] {}; // current vertex colour, 5.12 fixed point (high colour)
     std::vector<Polygon*> ExtraPolygons[2]; // past the hardware limit, per bank, in the sub-polygon storage
     u32 MultipliedRenderNumPolygons = 0;

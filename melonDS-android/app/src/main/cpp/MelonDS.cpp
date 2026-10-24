@@ -193,6 +193,12 @@ namespace MelonDSAndroid
             instance->setAnalogueStick(x, y);
     }
 
+    void setTiltParallax(float x, float y)
+    {
+        if (instance)
+            instance->setTiltParallax(x, y);
+    }
+
     void setDisplayRefreshRate(float hz)
     {
         if (instance)

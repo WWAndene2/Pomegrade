@@ -37,6 +37,24 @@
             android:entryValues="@array/polygon_multiplier_values"
             android:defaultValue="1"/>
 
+    <!-- Pomegrade: the tilt parallax (TiltParallaxSensor) -->
+    <SwitchPreference
+            android:key="tilt_parallax"
+            android:title="@string/tilt_parallax"
+            android:summary="@string/tilt_parallax_summary"
+            app:iconSpaceReserved="false"
+            android:defaultValue="false" />
+
+    <SeekBarPreference
+            android:key="tilt_parallax_strength"
+            android:title="@string/tilt_parallax_strength"
+            android:dependency="tilt_parallax"
+            app:iconSpaceReserved="false"
+            app:showSeekBarValue="true"
+            android:defaultValue="50"
+            app:min="1"
+            android:max="100" />
+
     <SwitchPreference
             android:key="unlimited_polygons"
             android:title="@string/unlimited_polygons"

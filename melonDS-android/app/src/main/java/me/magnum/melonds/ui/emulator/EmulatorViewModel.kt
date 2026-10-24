@@ -132,6 +132,7 @@ class EmulatorViewModel @Inject constructor(
 
     val controllerConfiguration = settingsRepository.observeControllerConfiguration()
     val isAnalogueMovementEnabled = settingsRepository.isAnalogueMovementEnabled()
+    val tiltParallaxStrength = settingsRepository.getTiltParallaxStrength()
 
     private val _runtimeRendererConfiguration = MutableStateFlow<RuntimeRendererConfiguration?>(null)
     val runtimeRendererConfiguration = _runtimeRendererConfiguration.asStateFlow()

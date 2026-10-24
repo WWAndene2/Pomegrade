@@ -519,6 +519,12 @@ Java_me_magnum_melonds_MelonEmulator_onAnalogueStick(JNIEnv* env, jobject thiz, 
 }
 
 JNIEXPORT void JNICALL
+Java_me_magnum_melonds_MelonEmulator_setTiltParallax(JNIEnv* env, jobject thiz, jfloat x, jfloat y)
+{
+    MelonDSAndroid::setTiltParallax(x, y);
+}
+
+JNIEXPORT void JNICALL
 Java_me_magnum_melonds_MelonEmulator_setInspector(JNIEnv* env, jobject thiz, jboolean enabled, jint view)
 {
     MelonDSAndroid::setInspector(enabled, view);

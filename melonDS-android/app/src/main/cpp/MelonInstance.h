@@ -45,6 +45,8 @@ public:
     void pressKey(u32 key);
     // Pomegrade: x right, y up, -1 to 1 (see NDS_AnalogueStick.h)
     void setAnalogueStick(float x, float y);
+    // Pomegrade: the farthest 3D points' shift, right and up, 1 = half the screen (see GPU3D::SetTiltParallax). Any thread
+    void setTiltParallax(float x, float y);
     // Pomegrade: the inspector (see NDS_Inspector.h); view 0 = off. Any thread
     void setInspector(bool enabled, int view);
     // Pomegrade: frame rate modes (see FrameRatePacer). Any thread

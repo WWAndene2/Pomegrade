@@ -515,6 +515,11 @@ void MelonInstance::setAnalogueStick(float x, float y)
     nds->AnalogueStick.SetPosition(x, y);
 }
 
+void MelonInstance::setTiltParallax(float x, float y)
+{
+    nds->GPU.GPU3D.SetTiltParallax(x, y);
+}
+
 void MelonInstance::setDisplayRefreshRate(float hz)
 {
     frameRatePacer.SetDisplayRate(hz);

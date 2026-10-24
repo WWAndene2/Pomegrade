@@ -812,6 +812,9 @@
     <string name="three_ds_encrypted">Chiffré : impossible à jouer (déchiffre d\'abord le jeu)</string>
     <string name="three_ds_rom_label">3DS · %1$s</string>
     <string name="unlimited_polygons">Supprimer la limite de polygones</string>
+    <string name="tilt_parallax">Profondeur à l\'inclinaison</string>
+    <string name="tilt_parallax_summary">Incliner le téléphone déplace la scène 3D selon la profondeur, comme une maquette derrière l\'écran (Pokémon Platine, Or HeartGold, Argent SoulSilver…). Les menus et les couches 2D restent fixes. Nécessite un gyroscope</string>
+    <string name="tilt_parallax_strength">Intensité de la profondeur à l\'inclinaison</string>
     <string name="unlimited_polygons_summary">Dessine les polygones qu\'une DS abandonne quand une scène en a trop (objets manquants ou qui clignotent)</string>
     <string name="high_precision_geometry">Géométrie haute précision</string>
     <string name="high_precision_geometry_summary">Place les sommets entre les pixels au lieu de les aligner dessus : les modèles 3D en mouvement tremblent moins</string>
