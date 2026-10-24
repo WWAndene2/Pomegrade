@@ -1491,12 +1491,15 @@ void GPU3D::ApplyTiltParallax(s32* position) noexcept
     if (w <= 0) return;
     const float x = TiltFrameX, y = TiltFrameY;
     if ((x == 0.0f && y == 0.0f) || TiltPivotW <= 0) return;
-    // a shear in clip space: on screen a point moves by shift * (1 - pivot/W),
-    // the farthest by the full shift, the pivot's depth not at all. Straight
+    // a shear in clip space: on screen a point moves by
+    // shift * gain * (1 - pivot/W), the pivot's depth not at all. Straight
     // edges stay straight, and clipping and culling then see the moved scene.
-    const s64 depth = (s64)w - TiltPivotW;
-    position[0] += (s32)std::lround(x * depth);
-    position[1] += (s32)std::lround(y * depth);
+    // The gain scales it to the scene's own depth range: a far camera over a
+    // shallow scene (Platinum's title screen: W from 0.69 to 1.6 times the
+    // average) would otherwise move a few pixels only.
+    const double depth = (double)w - TiltPivotW;
+    position[0] += (s32)std::lround(x * TiltDepthGain * depth);
+    position[1] += (s32)std::lround(y * TiltDepthGain * depth);
 }
 
 void GPU3D::SetPolygonMultiplier(int level) noexcept
@@ -2101,7 +2104,9 @@ void GPU3D::SubmitVertex() noexcept
     // the game's vertices only, so the multiplier's sub-vertices don't weigh in the average
     if (vertextrans->Position[3] > 0 && (ProjMatrix[3] != 0 || ProjMatrix[7] != 0 || ProjMatrix[11] != 0))
     {
-        TiltDepthSum += vertextrans->Position[3];
+        const double w = vertextrans->Position[3];
+        TiltDepthSum += w;
+        TiltDepthSquares += w * w;
         TiltDepthCount++;
     }
     ApplyTiltParallax(vertextrans->Position);
@@ -3331,7 +3336,7 @@ void GPU3D::VBlank() noexcept
                 // with the tilt and pivot this frame's vertices used
                 if (TiltPivotW > 0 && (TiltFrameX != 0.0f || TiltFrameY != 0.0f))
                 {
-                    const float shift[2] = {TiltFrameX, TiltFrameY};
+                    const float shift[2] = {TiltFrameX * TiltDepthGain, TiltFrameY * TiltDepthGain};
                     for (int i = 0; i < 2; i++)
                     {
                         for (int r = 0; r < 4; r++)
@@ -3342,8 +3347,19 @@ void GPU3D::VBlank() noexcept
                 // one tilt per frame, so the scene doesn't tear mid-frame
                 TiltFrameX = TiltParallaxX.load(std::memory_order_relaxed);
                 TiltFrameY = TiltParallaxY.load(std::memory_order_relaxed);
-                TiltPivotW = TiltDepthCount ? (s32)(TiltDepthSum / TiltDepthCount) : 0;
-                TiltDepthSum = 0;
+                TiltPivotW = 0;
+                TiltDepthGain = 1.0f;
+                if (TiltDepthCount)
+                {
+                    const double mean = TiltDepthSum / TiltDepthCount;
+                    const double spread = std::sqrt(std::max(0.0, TiltDepthSquares / TiltDepthCount - mean * mean));
+                    TiltPivotW = (s32)mean;
+                    // at least the plain shear; at most 20 times it, for an almost flat scene
+                    if (spread > 0.0)
+                        TiltDepthGain = (float)std::clamp(mean / (2.0 * spread), 1.0, 20.0);
+                }
+                TiltDepthSum = 0.0;
+                TiltDepthSquares = 0.0;
                 TiltDepthCount = 0;
                 UpdateEdgeKeep();
                 std::swap(EdgeLevelsShown, EdgeLevelsNext);

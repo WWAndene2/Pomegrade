@@ -62,7 +62,8 @@ static void Triangle(double x, double y, double z, double size)
     Cmd(0x41);
 }
 
-static const double Depths[3] = {-2.0, -4.0, -8.0};
+// a shallow scene, as a game's far camera gives: the gain scales the shift up
+static const double Depths[3] = {-4.0, -5.0, -6.0}; // within the 4.12 vertex range (±8)
 
 static void SubmitFrame()
 {
@@ -84,7 +85,7 @@ static void SubmitFrame()
         Triangle(0.0, 0.0, z, 0.1 * -z);
 
     // the game's position test, at the far depth
-    Cmd(0x24, {(Fx(0.5) & 0xFFFF) | ((Fx(0.0) & 0xFFFF) << 16), Fx(-8.0) & 0xFFFF});
+    Cmd(0x24, {(Fx(0.5) & 0xFFFF) | ((Fx(0.0) & 0xFFFF) << 16), Fx(-6.0) & 0xFFFF});
 
     // a 3D menu: orthographic
     double ortho[16] = {1, 0, 0, 0,  0, 1, 0, 0,  0, 0, -1, 0,  0, 0, 0, 1};
@@ -173,11 +174,15 @@ int main()
     SubmitFrame();
     Result on = Measure();
 
-    // pivot = the average W of the perspective vertices: (2 + 4 + 8) / 3
-    const double pivot = (2.0 + 4.0 + 8.0) / 3.0;
+    // pivot = the average W of the perspective vertices, gain = pivot / (2 * their standard deviation)
+    double pivot = 0, squares = 0;
+    for (double z : Depths) { pivot += -z / 3.0; squares += z * z / 3.0; }
+    const double gain = std::clamp(pivot / (2.0 * std::sqrt(squares - pivot * pivot)), 1.0, 20.0);
+    printf("      pivot %.3f, gain %.3f\n", pivot, gain);
+    ok &= Check(gain > 2.0, "the shallow scene's shift is scaled up");
     for (int d = 0; d < 3; d++)
     {
-        double expected = shift * (1.0 - pivot / -Depths[d]);
+        double expected = shift * gain * (1.0 - pivot / -Depths[d]);
         double got = on.x[d] - off.x[d];
         printf("      depth %.0f: moved %+.4f, expected %+.4f\n", -Depths[d], got, expected);
         ok &= Check(std::fabs(got - expected) < 0.002, "perspective triangle moved by its depth");

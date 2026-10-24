@@ -25,8 +25,13 @@ class TiltParallaxSensor(private val activity: Activity, strength: Int) : Sensor
     private companion object {
         /** The tilt, in radians, that gives the full shift (about 20 degrees) */
         const val FULL_TILT = 0.35f
-        /** The farthest points' shift at full strength and full tilt, in clip units (1 = half the screen) */
-        const val MAX_SHIFT = 0.12f
+        /**
+         * The shift at full strength and full tilt, in clip units (1 = half the screen), of a point two standard deviations of
+         * the scene's depth behind its average (see GPU3D::SetTiltParallax). Measured on Platinum's live title scene: a shift
+         * of 0.06 moves its nearest and farthest points 13 DS pixels apart, so the default strength at a 20 degree tilt (0.1)
+         * gives about 22; the 0.12 used before, without the core's depth scaling, gave about 6
+         */
+        const val MAX_SHIFT = 0.2f
         /** How fast the rest position follows the phone, in seconds */
         const val RECENTRE_SECONDS = 3f
     }
