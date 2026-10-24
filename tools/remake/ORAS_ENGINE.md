@@ -196,6 +196,13 @@ where it found only a copy):
     model 0: X hides the character and plays a small swirl from time to time through its move controller of codes
     0x38-0x3A, which Omega Ruby's code 0x3A is not; where the controllers are made not read). Not ported: X's weather
     byte (step 6), the module's lamps (an X object Omega Ruby lacks: off), the script native CallTsuchikemuriEncountEvent.
+  **Word 3 read live (24 October, runs rd1-rd4, rw1-rw2, interpreter `readers`)**: in a trainer battle no code reads it
+  (the settings' copy at 0x3DB0B8 into the encounter transition object, 0x48 bytes: word 0 at +0x18, words 1-5 at
+  +0x1C, where X's 0x3BCD60 puts words 0-5 at +0x1C); in a wild battle one reader, DllBattle 0x1006C024 (X's
+  0x10064C68, the same code): a switch on 0-12 giving the appearance message of the battle text (a/0/7/4 member 147
+  in French) 0x105-0x109 for 8-12, 9 "... sauvage surgit du sol !" and 0xC "... de la poubelle !", lines Omega Ruby
+  has. So Omega Ruby handles words 3 of 8-12 as X does: nothing to port there, and the stalled menu has another cause
+  (not found; to test: word 3 = 9 alone on an Omega Ruby wild battle, then word 0 = 7 alone).
 - `CallHideItemEncount` is empty in X: nothing to port.
 **Porting X/Y code: the method (24 October, for the next agent; how B2 was done)**:
 1. *Map.* `prototype/xy_import_match.py` gives X's functions Omega Ruby has; `prototype/xy_code_compare.py` (`pairs`,
