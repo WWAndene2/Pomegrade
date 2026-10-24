@@ -58,6 +58,7 @@ namespace MelonDSAndroid {
     extern void releaseScreen();
     extern void pressKey(u32 key);
     extern void setAnalogueStick(float x, float y);
+    extern void setTiltParallax(float x, float y);
     extern void setInspector(bool enabled, int view);
     // Pomegrade: frame rate modes (see FrameRatePacer). Any thread
     extern void setDisplayRefreshRate(float hz);

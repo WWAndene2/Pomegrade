@@ -1477,6 +1477,28 @@ void GPU3D::SetUnlimitedPolygons(bool enable) noexcept
     UnlimitedPolygons = enable;
 }
 
+void GPU3D::SetTiltParallax(float x, float y) noexcept
+{
+    TiltParallaxX.store(x, std::memory_order_relaxed);
+    TiltParallaxY.store(y, std::memory_order_relaxed);
+}
+
+void GPU3D::ApplyTiltParallax(s32* position) noexcept
+{
+    // orthographic projection (W column zero): 3D menus and icons, no depth to show
+    if (ProjMatrix[3] == 0 && ProjMatrix[7] == 0 && ProjMatrix[11] == 0) return;
+    const s32 w = position[3];
+    if (w <= 0) return;
+    const float x = TiltFrameX, y = TiltFrameY;
+    if ((x == 0.0f && y == 0.0f) || TiltPivotW <= 0) return;
+    // a shear in clip space: on screen a point moves by shift * (1 - pivot/W),
+    // the farthest by the full shift, the pivot's depth not at all. Straight
+    // edges stay straight, and clipping and culling then see the moved scene.
+    const s64 depth = (s64)w - TiltPivotW;
+    position[0] += (s32)std::lround(x * depth);
+    position[1] += (s32)std::lround(y * depth);
+}
+
 void GPU3D::SetPolygonMultiplier(int level) noexcept
 {
     if (level < 1) level = 1;
@@ -1708,6 +1730,8 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
                     double clip = view[0]*ProjMatrix[i] + view[1]*ProjMatrix[4+i] + view[2]*ProjMatrix[8+i] + view[3]*ProjMatrix[12+i];
                     out.Position[i] = (s32)std::floor(clip / 4096.0);
                 }
+                // the corners have it already (SubmitVertex)
+                ApplyTiltParallax(out.Position);
             }
 
             if (corner >= 0)
@@ -2074,6 +2098,13 @@ void GPU3D::SubmitVertex() noexcept
     vertextrans->Position[1] = (vertex[0]*ClipMatrix[1] + vertex[1]*ClipMatrix[5] + vertex[2]*ClipMatrix[9] + vertex[3]*ClipMatrix[13]) >> 12;
     vertextrans->Position[2] = (vertex[0]*ClipMatrix[2] + vertex[1]*ClipMatrix[6] + vertex[2]*ClipMatrix[10] + vertex[3]*ClipMatrix[14]) >> 12;
     vertextrans->Position[3] = (vertex[0]*ClipMatrix[3] + vertex[1]*ClipMatrix[7] + vertex[2]*ClipMatrix[11] + vertex[3]*ClipMatrix[15]) >> 12;
+    // the game's vertices only, so the multiplier's sub-vertices don't weigh in the average
+    if (vertextrans->Position[3] > 0 && (ProjMatrix[3] != 0 || ProjMatrix[7] != 0 || ProjMatrix[11] != 0))
+    {
+        TiltDepthSum += vertextrans->Position[3];
+        TiltDepthCount++;
+    }
+    ApplyTiltParallax(vertextrans->Position);
 
     // this probably shouldn't be.
     // the way color is handled during clipping needs investigation. TODO
@@ -3296,6 +3327,24 @@ void GPU3D::VBlank() noexcept
                     memcpy(RenderViewport, BestViewport, sizeof(BestViewport));
                 }
                 FrameProjVertices = BestProjVertices = 0;
+                // the reflections reproject view positions: the same shear,
+                // with the tilt and pivot this frame's vertices used
+                if (TiltPivotW > 0 && (TiltFrameX != 0.0f || TiltFrameY != 0.0f))
+                {
+                    const float shift[2] = {TiltFrameX, TiltFrameY};
+                    for (int i = 0; i < 2; i++)
+                    {
+                        for (int r = 0; r < 4; r++)
+                            RenderProjMatrix[r*4+i] += (s32)std::lround(shift[i] * RenderProjMatrix[r*4+3]);
+                        RenderProjMatrix[12+i] -= (s32)std::lround(shift[i] * TiltPivotW);
+                    }
+                }
+                // one tilt per frame, so the scene doesn't tear mid-frame
+                TiltFrameX = TiltParallaxX.load(std::memory_order_relaxed);
+                TiltFrameY = TiltParallaxY.load(std::memory_order_relaxed);
+                TiltPivotW = TiltDepthCount ? (s32)(TiltDepthSum / TiltDepthCount) : 0;
+                TiltDepthSum = 0;
+                TiltDepthCount = 0;
                 UpdateEdgeKeep();
                 std::swap(EdgeLevelsShown, EdgeLevelsNext);
                 EdgeLevelsNext.clear();

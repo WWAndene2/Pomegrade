@@ -50,6 +50,7 @@ import io.github.wwandene2.pomegrade.emulatorui.ShortcutPill
 import io.github.wwandene2.pomegrade.emulatorui.SaveStateSlotUi
 import io.github.wwandene2.pomegrade.emulatorui.SaveStatesDialog
 import kotlin.math.abs
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterIsInstance
@@ -90,6 +91,7 @@ import me.magnum.melonds.ui.emulator.input.FrontendInputHandler
 import me.magnum.melonds.ui.emulator.input.INativeInputListener
 import me.magnum.melonds.ui.emulator.input.InputProcessor
 import me.magnum.melonds.ui.emulator.input.MelonTouchHandler
+import me.magnum.melonds.ui.emulator.input.TiltParallaxSensor
 import me.magnum.melonds.ui.emulator.model.EmulatorOverlay
 import me.magnum.melonds.ui.emulator.model.EmulatorState
 import me.magnum.melonds.ui.emulator.model.EmulatorUiEvent
@@ -452,6 +454,21 @@ class EmulatorActivity : AppCompatActivity() {
                 combine(viewModel.controllerConfiguration, viewModel.isAnalogueMovementEnabled, ::Pair).collect { (configuration, analogueMovement) ->
                     setupInputHandling(configuration, analogueMovement)
                     connectedControllerManager.setCurrentControllerConfiguration(configuration)
+                }
+            }
+        }
+        lifecycleScope.launch {
+            // Pomegrade: the tilt parallax, while the screen is visible
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.tiltParallaxStrength.collectLatest { strength ->
+                    if (strength <= 0) return@collectLatest
+                    val sensor = TiltParallaxSensor(this@EmulatorActivity, strength)
+                    try {
+                        sensor.start()
+                        awaitCancellation()
+                    } finally {
+                        sensor.stop()
+                    }
                 }
             }
         }

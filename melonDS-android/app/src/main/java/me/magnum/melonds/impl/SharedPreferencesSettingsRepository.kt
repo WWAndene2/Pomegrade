@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
@@ -541,6 +542,13 @@ class SharedPreferencesSettingsRepository(
         return getOrCreatePreferenceSharedFlow("analogue_movement") {
             preferences.getBoolean("analogue_movement", false)
         }
+    }
+
+    override fun getTiltParallaxStrength(): Flow<Int> {
+        return combine(
+            getOrCreatePreferenceSharedFlow("tilt_parallax") { preferences.getBoolean("tilt_parallax", false) },
+            getOrCreatePreferenceSharedFlow("tilt_parallax_strength") { preferences.getInt("tilt_parallax_strength", 50) },
+        ) { enabled, strength -> if (enabled) strength else 0 }.distinctUntilChanged()
     }
 
     override fun getClassicButtonStyle(): Flow<ClassicButtonStyle> {

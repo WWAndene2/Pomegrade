@@ -71,6 +71,9 @@ interface SettingsRepository {
     /** Pomegrade: the touch D-pad becomes a joystick, gamepad sticks are read as analogue */
     fun isAnalogueMovementEnabled(): Flow<Boolean>
 
+    /** Pomegrade: the tilt parallax's strength, 1 to 100, or 0 when off (see TiltParallaxSensor) */
+    fun getTiltParallaxStrength(): Flow<Int>
+
     /** Pomegrade: how the Classic layout draws its buttons */
     fun getClassicButtonStyle(): Flow<ClassicButtonStyle>
 
