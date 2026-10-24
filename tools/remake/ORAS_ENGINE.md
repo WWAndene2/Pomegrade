@@ -217,6 +217,13 @@ where it found only a copy):
   126, 81), `--xy-dust-cloud on`. Run tay: the trigger loads Route 13 and its module, the player walks into a cloud, the
   battle (a wild Dugtrio) plays its turn. Not checked: the phone. Still open: a cloud is drawn as X's model 0 (a
   woman); X's controller of move codes 0x38-0x3A that hides it is not found.
+  **Searched for it (24 October, static), ruled out**: X's switches on 0x40 and 0x45 values (.code 0x38C530 = Omega
+  Ruby's 0x3A3DB8, the same cases; DllField 0x1026A820, a position by move code: 0x38-0x3A share the default); X's
+  0x17A218 (a graphics command queue); X's 0x4A64CC (= Omega Ruby's 0x4DE514, which lacks its branch: for a character
+  with a flag at + 0x4C and move code 0x38-0x3A it answers 1 without testing the flag; the flag is a trainer's (0x6CC +
+  n): the trainers' sight, not the drawing; not ported, its effect not known). The only other X test of these codes is
+  the step check's. The cloud character is X's a/0/2/1 member 0 in both games (a woman): what X draws instead is not
+  read. Next, likely: run X itself headless on Route 13 and read what loads for a cloud.
 - `CallHideItemEncount` is empty in X: nothing to port.
 **Porting X/Y code: the method (24 October, for the next agent; how B2 was done)**:
 1. *Map.* `prototype/xy_import_match.py` gives X's functions Omega Ruby has; `prototype/xy_code_compare.py` (`pairs`,
