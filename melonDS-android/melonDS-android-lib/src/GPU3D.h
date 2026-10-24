@@ -197,11 +197,13 @@ public:
 
     // Tilt parallax (Pomegrade): the phone's tilt shifts the 3D scene by
     // depth, so it looks like a model behind the screen. x and y are the
-    // shift of the farthest points, in clip units (1 = half the screen),
-    // right and up; the scene's average depth stays in place, nearer points
-    // move the other way. (0, 0) = off. Only perspective polygons move (not
-    // orthographic 3D menus), and only what is drawn: box and position tests
-    // keep the game's values. Called from the UI thread.
+    // shift, in clip units (1 = half the screen), right and up, of a point
+    // two standard deviations of the scene's depth behind its average depth;
+    // the average depth stays in place, nearer points move the other way.
+    // (0, 0) = off. Orthographic scenes (Platinum's overworld) move by their
+    // Z the same way; a flat orthographic layer doesn't. Only what is drawn
+    // moves: box and position tests keep the game's values. Called from the
+    // UI thread.
     void SetTiltParallax(float x, float y) noexcept;
 
     // Polygons for the renderers: the hardware list, or the same list with
@@ -510,9 +512,16 @@ public:
     // tilt parallax (Pomegrade), not part of the hardware state, don't serialize
     std::atomic<float> TiltParallaxX {0.0f};
     std::atomic<float> TiltParallaxY {0.0f};
-    s64 TiltDepthSum = 0;    // W of this frame's perspective vertices
+    double TiltDepthSum = 0.0;   // W of this frame's perspective vertices
+    double TiltDepthSquares = 0.0;
     u32 TiltDepthCount = 0;
-    s32 TiltPivotW = 0;      // last frame's average W: the depth that stays in place
+    s32 TiltPivotW = 0;          // last frame's average W: the depth that stays in place
+    float TiltDepthGain = 1.0f;  // last frame's: average W / (2 * spread of W)
+    // orthographic scenes (Platinum's overworld): the depth is Z, W is the same everywhere
+    double TiltZSum = 0.0, TiltZSquares = 0.0;
+    u32 TiltZCount = 0;
+    s32 TiltPivotZ = 0;          // last frame's average Z
+    float TiltZScale = 0.0f;     // last frame's 1 / (2 * spread of Z), 0 = flat
     float TiltFrameX = 0.0f, TiltFrameY = 0.0f; // the tilt this frame is drawn with
     void ApplyTiltParallax(s32* position) noexcept;
     s32 VertexColorPrecise[3] {}; // current vertex colour, 5.12 fixed point (high colour)
