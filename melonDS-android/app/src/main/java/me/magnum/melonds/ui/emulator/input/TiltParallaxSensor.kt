@@ -66,7 +66,8 @@ class TiltParallaxSensor(private val activity: Activity, strength: Int) : Sensor
         val deviceX = event.values[0]
         val deviceY = event.values[1]
         @Suppress("DEPRECATION")
-        val (rateX, rateY) = when (activity.windowManager.defaultDisplay.rotation) {
+        val rotation = activity.windowManager.defaultDisplay.rotation
+        val (rateX, rateY) = when (rotation) {
             Surface.ROTATION_90 -> -deviceY to deviceX
             Surface.ROTATION_180 -> -deviceX to -deviceY
             Surface.ROTATION_270 -> deviceY to -deviceX
