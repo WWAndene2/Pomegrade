@@ -169,8 +169,21 @@ where it found only a copy):
     Field_StartEncounterEvent flags 3) with X's record increment;
   - not ported now: X's weather byte (+0x70 set to 3 when set, X's 0x3E018C / 0x3E0194): X/Y's weather is step 6, and
     Omega Ruby's weather object has no such byte read (no such getter, inlined or not found);
-  - still to read: the step check's spot object (X's 0x4AA5C8, its +0xC), field +0x54 (X's 0x4AB4E0 = 0x4E435C),
-    the effect's sound (X 0x10277784) and resource id (0x10277770), the effect files, DllUSR13.
+  - field +0x54 kept (Omega Ruby's Script_TalkSequence_Update 0x3DC120 gives it to 0x4E435C as X's 0x3BDD00 to
+    0x4AB4E0); X's 0x4AA5C8 (a character's +0xC, its id) = 0x4E3234 (the step check's calls side by side, X 0x102265DC /
+    Omega Ruby 0x10263014: 55 calls, each pair mapped);
+  - **how a dust cloud is found (read)**: a dust cloud is a character of the zone, of model 0x38, 0x39 or 0x3A (X/Y's
+    numbers). DllUSR13 (X's Route 13 module, 12 KB) lists them from the zone's character records ([[[[map+0x50]+0x1C]
+    +0x1C], count +4, 0x30-byte records from +0x10, the model at +4; at most 12: 0x107AF3E8), shows 9 at random the first
+    time (a byte the save keeps, event work + 0x12E4 kind 0x11: 0x107AF898), creates their characters (X 0x3D41D8 ~
+    0x3F54E8) and moves one away when it is used (0x107AF818 then 0x107AF664: a random spot 3 tiles or more from the
+    player). The step check (X 0x102265DC) creates the event (0x34 bytes, its +0x1C the character) when the character the
+    player walks into is of those models: X's branch at 0x10226878, which Omega Ruby's 0x10263014 lacks between
+    0x102632FC and 0x10263310 (its `ldr r0, [fp, #0x1c]` at 0x10263304 the place of the hook). X/Y's characters keep
+    their models through the zone port (OrasXyEvents.cpp, modelOf: X/Y's a/0/2/1 member appended), so the module's and
+    the hook's models are the mod's numbers of X/Y's 0x38-0x3A, given at build time;
+  - still to read: the effect's sound (X 0x10277784: 0xA012A) and resource (X DllField 0x102EB7C8, its ids 0x82, 0x83,
+    0xBC-0xBF: X's effect archive) and DllUSR13's 11 imports without a match.
 - `CallHideItemEncount` is empty in X: nothing to port.
 Code to port goes into **DllField's room** (below). Step 2 (Sky and Inverse Battles, Battle Chateau, 79 sounds) follows.
 
