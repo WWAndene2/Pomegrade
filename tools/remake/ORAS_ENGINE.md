@@ -261,6 +261,19 @@ where it found only a copy):
   Omega Ruby's 0x3C0-0x3E0 only there). **Not found yet**: which code gives a cloud that command (the number is not an
   immediate 0x2B / 0x2C in DllUSR13 or DllField; the character's command states at +0x8B8 / +0x8D4 are written only at
   its creation in run xw5): next, a writers run on the command state the dispatcher receives (its address read live).
+  **Who gives it (25 October, runs xr6, xw10, xw13)**: the state is the character's + 0x8F4 (+0 the character, +4 a
+  table, **+8 the command, u16**, +0xA, +0xC the step); the dispatcher reads command **0x2C** there for every cloud (run
+  xr6). The writers missed it until `patch_core.py` hooked 8- and 16-bit writes too (25 October: it hooked 32/64 only).
+  Set once while the zone loads (run xw10, from a state at frame 120: three times 0, then 0x2C, by DllField's
+  0x102425D4 called from .code 0x3D9874 `SetCommand(chara, command, arg)`); a recreated cloud only gets its step reset
+  to 0 (+0x900 written), so the command runs again from the hiding step. The caller (the setter's `push` writes its
+  return address, run xw13: 16 calls): **X's DllField 0x1025B30C** (124 bytes: `SetCommand([this], 0x2C, 9)`, then reads
+  [chara + 0x8AC] and a table), called from 0x102DB160, 0x102DCCE8 and 0x102DCD84 (28-44 bytes each); its nearest Omega
+  Ruby function (0x102A83A4, 72%) is another one. So X's dust-cloud character gets X-only command 0x2C, whose first step
+  hides it; Omega Ruby's command 0x2C is another (flag 8). To port: X's 0x1025B30C path and command 0x2C's controller,
+  the command under a number free in Omega Ruby's table (to choose: the owner's call). Lesson: capstone's `disasm`
+  stops at the first word it cannot decode: scans over a module must go word by word (the immediate search of 0x2C
+  missed 0x1025B334 that way).
 - `CallHideItemEncount` is empty in X: nothing to port.
 **Porting X/Y code: the method (24 October, for the next agent; how B2 was done)**:
 1. *Map.* `prototype/xy_import_match.py` gives X's functions Omega Ruby has; `prototype/xy_code_compare.py` (`pairs`,
