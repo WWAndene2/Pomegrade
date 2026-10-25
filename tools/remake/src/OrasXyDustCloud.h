@@ -3,7 +3,7 @@
 
 // X/Y's dust clouds (the swirls of Route 13 a wild Pokemon jumps out of when the player walks into one) given to Omega
 // Ruby, which has none (ORAS_ENGINE.md 0.0, step 1 B2; read 23-24 October, static). Ported, not rewritten (CLAUDE.md 8):
-//  - a dust cloud is a character of the zone (no model, its move code 0x38, 0x39 or 0x3A, X's zone 272 has 11): X's Route
+//  - a dust cloud is a character of the zone (no model, its move code 0x38, 0x39 or 0x3A, the mod's 0x3F-0x41: OrasXyMoveCodes.h; X's zone 272 has 11): X's Route
 //    13 module DllUSR13 lists them, shows 9 at random, and moves one away once it is used. The module is ported with the
 //    gyms' tooling (XyRoute13, OrasXyGymModules.h: its imports pointed at Omega Ruby's same functions, its field offsets
 //    made Omega Ruby's) and loaded for X's area kind 0x18, the mod's 18 (a kind Omega Ruby loads nothing for);

@@ -1,4 +1,5 @@
 #include "OrasXyEvents.h"
+#include "OrasXyMoveCodes.h"
 #include "Amx.h"
 #include "Garc.h"
 #include "N3dsRom.h"
@@ -187,6 +188,9 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
         c.Raw[1] = (uint16_t)modelOf[model];
         if (std::find(e.Models.begin(), e.Models.end(), modelOf[model]) == e.Models.end()) e.Models.push_back(modelOf[model]);
         c.Raw[4] = (uint16_t)moved(numbers.Flags, c.Raw[4]);
+        // its move code (word 2) Omega Ruby's number of X/Y's class (OrasXyMoveCodes.h: X's 0x38-0x40 differ; the engine
+        // needs --xy-move-codes on for the seven past 0x3E)
+        c.Raw[2] = (uint16_t)XyMoveCodeToOras(c.Raw[2]);
         // a trainer's script (3000 + its id, 5000 + id for a double's second: ZoneCharacter::TrainerId) names Omega Ruby's
         // number of X/Y's trainer (OrasXyTrainers.h)
         for (const int base : {3000, 5000})

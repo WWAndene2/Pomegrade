@@ -49,6 +49,7 @@ struct OrasEngineOptions
     uint32_t FieldRoom = 0;                  // bytes added to DllField's code for caves (GrowCroCode in OrasEngine.cpp), a multiple of 0x1000
     std::string XySharedScripts;             // a file of X/Y's shared scripts' rows, masks and names (OrasXySharedScripts.h): Msg_ResolveTextSource's tables copied longer into the room
     std::string XyDustBox;                   // X/Y's image: its dust boxes ported (OrasXyDustBox.h; needs --story large, --xy-battle-types, --field-room)
+    bool XyMoveCodes = false;                // X/Y's move codes past 0x3E (OrasXyMoveCodes.h; needs --field-room)
     bool XyDustCloud = false;                // X/Y's dust clouds (OrasXyDustCloud.h; needs --xy-gyms, --xy-battle-types, --field-room)
     std::string XyStaticWild;                // a file of X/Y's 13 scripted wild battles (CallWildBattle's 12-byte entries, their types and backgrounds the mod's), appended after Omega Ruby's 59 (OrasXyScript.h XyMoveWildBattles; needs --xy-battle-types)
 };

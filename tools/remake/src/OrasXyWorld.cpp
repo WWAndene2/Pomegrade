@@ -268,6 +268,8 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
 
     // what the engine must be given (oras-engine)
     std::string engine = "oras-engine options: --zone-rows " + std::to_string(ws.NextZone()) + " --story large";
+    // X/Y's characters keep X/Y's move classes (OrasXyMoveCodes.h: the zone port gives the X-only ones codes past 0x3E)
+    engine += " --xy-move-codes on";
     if (std::any_of(packOf.begin(), packOf.end(), [](const auto& p) { return p.second > 255; })) engine += " --area-packs large";
     if (wildTables) engine += " --wild-tables large";
     if (wildTables && !battleTypes.empty())
@@ -300,6 +302,8 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         engine += " --field-room 0x20000";
     }
     if (largeEvents) engine += " --events large";
+    // the move codes' caves need DllField's room (the same 128 KB, once)
+    if (engine.find(" --field-room ") == std::string::npos) engine += " --field-room 0x20000";
     engine += " --xy-trainers on";
     // X/Y's badges are Kalos's 8-15 in its scripts (XyMoveBadges), whether or not a zone given gives one
     engine += " --badges 16";

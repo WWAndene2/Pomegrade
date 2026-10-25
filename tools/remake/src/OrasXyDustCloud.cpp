@@ -1,6 +1,7 @@
 #include "OrasXyDustCloud.h"
 
 #include "OrasXyDustBox.h"
+#include "OrasXyMoveCodes.h"
 
 #include <cstdio>
 #include <iterator>
@@ -173,6 +174,10 @@ const XyModulePort& XyRoute13()
             {0x770, 0xE5900014, 0xE5900010, "the character manager's map: + 0x14 -> + 0x10 (read in a run: the manager's words 4 nearer from + 0x10)"},
             {0x8D4, 0xE2800FB9, 0xE2800FBB, "the game data's area work: + 0x12E4 -> + 0x12EC"},
             {0x90C, 0xE2800FB9, 0xE2800FBB, "the game data's area work: + 0x12E4 -> + 0x12EC"},
+            // the zone's clouds: characters of X's move codes 0x38-0x3A, Omega Ruby's numbers of them (OrasXyMoveCodes.h)
+            {0x428, 0xE3500038, 0xE3500000u | (uint32_t)XyMoveCodeToOras(0x38), "a cloud's move code: X's 0x38 -> the mod's"},
+            {0x42C, 0x13500039, 0x13500000u | (uint32_t)XyMoveCodeToOras(0x39), "a cloud's move code: X's 0x39 -> the mod's"},
+            {0x430, 0x1350003A, 0x13500000u | (uint32_t)XyMoveCodeToOras(0x3A), "a cloud's move code: X's 0x3A -> the mod's"},
         };
         p.Vtables = {0x10A8};
         p.Slots = 13;
@@ -298,9 +303,9 @@ XyDustCloudRoom XyDustCloudRoomAt(const Bytes& xField, const Bytes& orasField, c
             0xE1A05000,                               // 04 mov r5, r0           the character
             0xE1A06001,                               // 08 mov r6, r1           the field
             Branch(0xE, s + 0x0C, 0x4DC198, true),    // 0C bl its move code
-            0xE3500038,                               // 10 cmp r0, #0x38
-            0x13500039,                               // 14 cmpne r0, #0x39
-            0x1350003A,                               // 18 cmpne r0, #0x3a
+            0xE3500000u | (uint32_t)XyMoveCodeToOras(0x38), // 10 cmp r0, #code   X's 0x38-0x3A, the mod's numbers
+            0x13500000u | (uint32_t)XyMoveCodeToOras(0x39), // 14 cmpne r0, #code
+            0x13500000u | (uint32_t)XyMoveCodeToOras(0x3A), // 18 cmpne r0, #code
             0x13A00000,                               // 1C movne r0, #0
             0x18BD8070,                               // 20 popne {r4, r5, r6, pc}
             0xE5966018,                               // 24 ldr r6, [r6, #0x18]  the heap
