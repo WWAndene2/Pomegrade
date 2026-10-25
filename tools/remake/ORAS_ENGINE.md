@@ -274,6 +274,25 @@ where it found only a copy):
   the command under a number free in Omega Ruby's table (to choose: the owner's call). Lesson: capstone's `disasm`
   stops at the first word it cannot decode: scans over a module must go word by word (the immediate search of 0x2C
   missed 0x1025B334 that way).
+  **Move codes, X against Omega Ruby (25 October, static; the owner's choice (B): the whole list before porting)**: each
+  game's builder (X DllField 0x1024C138, Omega Ruby 0x10286208, the same code) fills a table of one 4-byte object per
+  move code (its class's vtable), X's at 0x103376CC (codes 0-0x40), Omega Ruby's at 0x10385720 (0-0x3E; the same builder
+  fills a second table, 24 trainer event types, 0x1038581C). Compared by the classes' RTTI names (vtable word -1 ->
+  typeinfo -> name; an instruction comparison did not tell the classes apart): **0x00-0x37 the same names in both**
+  (None, Player, DirRnd*, Up/Down/Left/Right, RndH/VLim, RouteTwoPoint 0x13-0x2B, TrainerPair, AlongWall*, Rand,
+  AlongBit*, Kakuremino, Sit, Route, RouteEasy); then:
+  | X | X's class | X's zones | Omega Ruby's code (its zones) |
+  | 0x38-0x3A | MoveCodeTsutikemuri AlongBitLeftHand / AlongBitRightHand / Rand (dust clouds) | 272 | none: X-only |
+  | 0x3B-0x3D | MoveCodeYagi Stay / Slow / Quick (Skiddo) | 270 | none: X-only |
+  | 0x3E | MoveCodeTravelingPoke | 351 | none: X-only |
+  | 0x3F, 0x40 | MoveCodeSpinRight, SpinLeft | 146 | 0x38, 0x39 (no zone uses them) |
+  Omega Ruby's own 0x3A MimicryType1Move (zone 47), 0x3B MimicryType2Move (zone 47), 0x3C Seiza (9 zones), 0x3D
+  SecretBaseTrainer (51), 0x3E Fishing2 (14) are not in X. The zone port copies a character's move code (record word 2)
+  unchanged (OrasXyEvents.cpp), so today X's 0x38-0x40 run Omega Ruby's classes of those numbers. Omega Ruby's table
+  is read in three places only (its pool words at 0x10286E4C, 0x10286F84, 0x10286FE8: the builder, the teardown loop
+  0x10286F18 and the getter 0x10286FBC, `cmp r0, #0x3f`): moved into the room with 7 slots more, X's seven classes get
+  0x3F-0x45, X's 0x3F/0x40 become 0x38/0x39, and the zone port translates word 2. Same name is not proved the same
+  code: each pair is to be read side by side before it is called merged (CLAUDE.md 8).
 - `CallHideItemEncount` is empty in X: nothing to port.
 **Porting X/Y code: the method (24 October, for the next agent; how B2 was done)**:
 1. *Map.* `prototype/xy_import_match.py` gives X's functions Omega Ruby has; `prototype/xy_code_compare.py` (`pairs`,
