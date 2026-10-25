@@ -25,7 +25,14 @@ publish the owner's game dumps. Merge into `main` only when asked (fast-forward 
 
 **Start a session** (dumps, tools, Ghidra programs of both games: about 45 minutes the first time, one step at a time):
 `tools/remake/headless/session_setup.sh <work dir>` (its steps: section "Setting up a session" below). The work dir of
-23 October was `/tmp/claude-0/work` (not kept by a new container).
+23 October was `/tmp/claude-0/work` (not kept by a new container). **25 October** (35 minutes, `session_setup.sh <work>
+dumps tool core ghidra ghidra-x`): the environment's `PkmORAS` / `PkmYX` hold share links, not ids: give the setup
+the id inside (`.../file/d/<id>/view`) as POMEGRADE_ORAS_DRIVE_ID / POMEGRADE_X_DRIVE_ID, else Drive answers a 1.6 KB
+404 page and the tool step stops ("not a 3DS game image"). The owner's X save is now the Drive file "Pkm XY save -
+main" (id 1cTLQR0Gu4EQBnj1pKjm7d4rcUpTNUPK4, 25 October), into `<work>/dumps/xsave/main`. Checked that day: the 26
+remake tests and `cro_dis_test.py` pass, the phone test mod builds (3 min) and boots to its hub (run boot3: the
+title, Continue, the field). Speed: drawing every frame gives about 2.5 frames/s on the field, `draw every 15` after
+the Continue menu 20.6 (retro_host.cpp's measures); the title and the menu need drawing (`mash a` there first).
 
 **The plan and its state**: `docs/DEVELOPMENT_NOTE.md` 3e, "State of the port, 23 October": what is left, in working
 order (steps 1-9). **Step 1 (wild battles) is in progress.** Done in step 1: X/Y's scripted wild battles

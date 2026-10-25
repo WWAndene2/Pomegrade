@@ -283,7 +283,17 @@ redone; the zones before what runs in them; one phone check per block, not per c
    the dust box (trash cans: three natives called by X/Y's shared script a/0/3/1 member 39, a table filled at each zone
    change, X-only code of about 450 instructions, three hooks into Omega Ruby found) and the dust cloud (no script: the
    step check starts X/Y's own event class, which needs X/Y's Route 13 module `DllUSR13`): read 23 October, ORAS_ENGINE.md
-   0.0; next B1 (dust box) then B2 (dust cloud), then one test mod with a Kalos zone and a Hoenn zone (owner's plan).
+   0.0. **State on 25 October** (headless only, nothing on the phone): B1 (dust box) ported and run (db1-db2: a can's
+   item, and its Garbodor battle up to the command menu); B2 (dust cloud) ported and run (dcx, tay: walking into a
+   cloud on Route 13 plays X's swirl and a wild battle to its turn); both in the phone test mod
+   (`headless/test_all_mod.sh`, Route 13 as zone 554, rebuilt and booted to the hub on 25 October, run boot3). Left
+   in step 1, in this order:
+   a. a dust cloud is drawn as a standing woman (X's character model 0): X hides it by bit 0x4 of the cloud object's
+      word +4 (found 24 October, run pk4); find the X code that sets it (a `writers` run on X itself on Route 13),
+      port it, check Omega Ruby's zone 47 trainers of move code 58 are untouched;
+   b. the dust box's open checks: its battle played to the end (only the menu seen, db2), the searched can's
+      animation, the weekday list, a can in a Hoenn zone, the diary record;
+   c. Sweet Scent's refusal by weather: with X/Y's weather, step 6 (unchanged).
    `CallHideItemEncount` is empty in X/Y: nothing to port.
 2. Finish battles (the battle modules are mapped): Sky and Inverse Battles, the Battle Chateau, the 79 sound effects
    and cries with no match.
