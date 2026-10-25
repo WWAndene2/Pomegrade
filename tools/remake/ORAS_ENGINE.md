@@ -306,6 +306,26 @@ where it found only a copy):
   numbers**: a command past X's 0x08 is another action (not seen in a run yet). To port: the map by name (the basic
   commands), then by DrawStatus (the animations), X's own commands as ported classes, and the translation in the
   script port (MdlAcmdSet's code) and in each ported block.
+  **The clouds hidden and their swirl drawn (25 October, runs dc2a-dc4c, headless)**: X's move-code classes 0x38-0x3A
+  (MoveCodeTsutikemuri*, the mod's 0x3F-0x41) are ported into the room (OrasXyDustCloud.cpp): their start gives the cloud
+  X's VanishON (Omega Ruby's command 0x30) and makes its swirl, a record of X's effect kind 0x1F
+  (FieldMoveModelEffectTsuchikemuriEncount, read live: X's 9 records of that kind are Route 13's clouds), also ported:
+  its own methods copied, its base's Omega Ruby's (field::mmodel::FieldMoveModelEffect, the same code in both), its
+  three files (X's a/0/6/6 TM entries 0xBD-0xBF: a model and two animations) appended to Omega Ruby's a/0/6/4 TM (189
+  files) at the same numbers, the field's effect pack (built by 0x1026D628: 0xA5 entries of 0x4C bytes, ids 8-0xAC, the
+  TM's entry numbers) grown to 0xB8 entries. Offsets read side by side or live: the effect manager at the character
+  manager + 0x36C0 (X's + 0x14B4), records at its + 0xD8 (X's + 0xE0); the player's position + 0xC64 -> + 0x6F8 (the
+  PlayerGrid read in both heaps); the camera + 0xAB8 -> + 0xAA4; the model (xy_system::H3dShaderModel in both) virtual
+  + 0xB8 -> + 0xD0, position + 0x138 -> + 0x130. **The last cause found**: the clouds are characters of **model 0**,
+  both games' "no model" (its per-area list entry, X's a/1/4/9 and Omega Ruby's a/1/3/7, the same 24 bytes in every pack
+  of both: no member, no parameters); the zone port had given them X's a/0/2/1 member 0 (the woman) with an entry
+  copied from model 284's, so they had a model (the character manager's table copies the entry into the character's +
+  0x884, X's + 0x87C, found by `writers`, run dc3f: 0x3F62D8), and the effect base (both games' 0x10325BE8 / 0x102DC6EC)
+  makes no effect for a character with a model (byte + 0x887 non zero) and the flag 0x800000: their swirls were made
+  and dropped (run dc3c: the start called 5 times, never the update). Model 0 kept: the 9 swirls live (run dc4b), drawn
+  where X draws them, and walking into a cloud starts the event and a wild battle (run dc4c, a Trapinch). Not checked:
+  the swirl's sound when the player is near (ported, X's 0xA00C7 translated; no run listened), the phone, the zone 47
+  trainers of Omega Ruby's move code 58.
 - `CallHideItemEncount` is empty in X: nothing to port.
 **Porting X/Y code: the method (24 October, for the next agent; how B2 was done)**:
 1. *Map.* `prototype/xy_import_match.py` gives X's functions Omega Ruby has; `prototype/xy_code_compare.py` (`pairs`,

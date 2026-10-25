@@ -26,10 +26,10 @@
 //    Archive), and its sound X's 0xA012A is translated (OrasXySound.h).
 // Run headless (24 October, runs dc1-dcj, X's zone 272 as mod zone 538): the module lists 11 spots and shows 8-9, the
 // player walking into one starts the event, the cloud's character goes, X's swirl plays, the field is torn down and the
-// battle starts (a wild Dugtrio, Route 13's desert). Seen there, not fixed here:
-//  - the cloud's character wears X's model 0 (a woman, standing): X hides it and plays a small swirl from time to time
-//    through its move controller of codes 0x38-0x3A (the counter at the controller's + 0xC the module sets), which Omega
-//    Ruby's move code 0x3A does not do (not read: where the controllers are made);
+// battle starts (a wild Dugtrio, Route 13's desert). The cloud's character is hidden and its small swirl drawn by X's
+// move-code classes 0x38-0x3A (the mod's 0x3F-0x41, below: XyDustCloudRoomAt) and X's swirl effect kind 0x1F, the
+// character of model 0 (both games' "no model": OrasXyEvents.cpp); runs dc4b-dc4c (25 October): the 9 swirls live, drawn
+// where X draws them, walking into one starts the event and a wild battle (a Trapinch). Seen there, not fixed here:
 //  - the battle's command menu took no input once (run dcj) with X's type 0x16 whole (words 0 and 3: 7 and 9); not
 //    reproduced since: run dcx (24 October, the same type) plays the battle's turn. Omega Ruby's battle reads word 3 as
 //    X's does (ORAS_ENGINE.md 0.0, "Word 3 read live").
