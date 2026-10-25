@@ -4,6 +4,7 @@
 #include "OrasSave.h"
 #include "OrasXyDustBox.h"
 #include "OrasXyDustCloud.h"
+#include "OrasXyMoveCodes.h"
 #include "OrasXyGymModules.h"
 #include "OrasXySound.h"
 #include "OrasXyTrainers.h"
@@ -1013,6 +1014,16 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
         for (const CodeWord& w : XyDustCloudFieldPatchAt(cave)) croWords.push_back({w.Address, w.Expected, w.Value, w.Why});
     }
+    if (o.XyMoveCodes)
+    {
+        // X/Y's move codes past 0x3E (OrasXyMoveCodes.h): the move-code table's three loads and two bounds through DllField's
+        // cave (the room's part below)
+        if (o.FieldRoom < 0x1000) throw FormatError("--xy-move-codes needs --field-room");
+        const CroLayout layout(oras.Read("DllField.cro"));
+        uint32_t cave = DllFieldBase + layout.CodeEnd();
+        for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
+        for (const CodeWord& w : XyMoveCodesFieldPatchAt(cave)) croWords.push_back({w.Address, w.Expected, w.Value, w.Why});
+    }
     if (o.FieldRoom)
     {
         // room for caves (GrowCroCode): DllField's code from 0xF1000 to 0xF1000 + the room, at its linked 0x10333000
@@ -1180,6 +1191,8 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         snprintf(line, sizeof line, "dust boxes: X/Y's table at 0x%X, its filler, reset and hooks", box.Table);
         log.push_back(line);
     }
+    std::vector<uint32_t> cloudVtables; // the dust clouds' move-code classes, for the move-code table
+    Bytes effectsArchive;               // the field's effect files with X/Y's dust cloud swirl's (romfs/a/0/6/4)
     if (o.XyDustCloud)
     {
         // X/Y's dust clouds (OrasXyDustCloud.h): X's event, effect and battle in the room, the step hook naming it
@@ -1189,8 +1202,21 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         const XyDustCloudRoom cloud = XyDustCloudRoomAt(xy.Read("DllField.cro"), oras.Read("DllField.cro"), code, roomAt, archive,
                                                         [&](uint32_t id) { return sounds.Translate(id); });
         const uint32_t at = roomPut(cloud.Room, "X/Y's dust clouds");
+        cloudVtables = cloud.Vtables;
+        effectsArchive = XyDustCloudEffectsArchive(oras.Read("a/0/6/4"), xy.Read("a/0/6/6"));
         words.insert(words.end(), cloud.Code.begin(), cloud.Code.end());
         snprintf(line, sizeof line, "dust clouds: X/Y's event, effect and battle at 0x%X (%zu bytes), its models archive %s", at, cloud.Room.size(), XyArchivePath(archive).c_str());
+        log.push_back(line);
+    }
+    if (o.XyMoveCodes)
+    {
+        // X/Y's move codes past 0x3E (OrasXyMoveCodes.h): the move-code table, 70 slots, and its new codes' vtables
+        const uint32_t asked = roomAt;
+        const XyMoveCodesRoom codes = XyMoveCodesRoomAt(asked, cloudVtables);
+        if (roomPut(codes.Room, "X/Y's move codes") != asked) throw FormatError("--xy-move-codes: the room moved");
+        words.insert(words.end(), codes.Code.begin(), codes.Code.end());
+        snprintf(line, sizeof line, "move codes: the table at 0x%X, %d slots (X/Y's 0x38-0x3E as 0x%X-0x%X)", codes.Table, XyMoveCodeSlots,
+                 OrasMoveCodes, XyMoveCodeSlots - 1);
         log.push_back(line);
     }
     // the gyms' archives (OrasXyGymModules.h: numbers past 299 that are ARM immediates, 0x130...) take this table too, as
@@ -1322,6 +1348,13 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         std::filesystem::create_directories(path.parent_path());
         WriteFile(path.string(), file);
         log.push_back("romfs/" + XyArchivePath(number) + ": " + std::to_string(file.size()) + " bytes (X/Y's)");
+    }
+    if (!effectsArchive.empty())
+    {
+        const std::filesystem::path path = root / "romfs" / "a/0/6/4";
+        std::filesystem::create_directories(path.parent_path());
+        WriteFile(path.string(), effectsArchive);
+        log.push_back("romfs/a/0/6/4: the field's effect files and X/Y's dust cloud swirl's, " + std::to_string(effectsArchive.size()) + " bytes");
     }
     for (const auto& [name, module] : gymModules)
     {

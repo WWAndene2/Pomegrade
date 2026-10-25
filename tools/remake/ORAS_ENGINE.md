@@ -25,7 +25,14 @@ publish the owner's game dumps. Merge into `main` only when asked (fast-forward 
 
 **Start a session** (dumps, tools, Ghidra programs of both games: about 45 minutes the first time, one step at a time):
 `tools/remake/headless/session_setup.sh <work dir>` (its steps: section "Setting up a session" below). The work dir of
-23 October was `/tmp/claude-0/work` (not kept by a new container).
+23 October was `/tmp/claude-0/work` (not kept by a new container). **25 October** (35 minutes, `session_setup.sh <work>
+dumps tool core ghidra ghidra-x`): the environment's `PkmORAS` / `PkmYX` hold share links, not ids: give the setup
+the id inside (`.../file/d/<id>/view`) as POMEGRADE_ORAS_DRIVE_ID / POMEGRADE_X_DRIVE_ID, else Drive answers a 1.6 KB
+404 page and the tool step stops ("not a 3DS game image"). The owner's X save is now the Drive file "Pkm XY save -
+main" (id 1cTLQR0Gu4EQBnj1pKjm7d4rcUpTNUPK4, 25 October), into `<work>/dumps/xsave/main`. Checked that day: the 26
+remake tests and `cro_dis_test.py` pass, the phone test mod builds (3 min) and boots to its hub (run boot3: the
+title, Continue, the field). Speed: drawing every frame gives about 2.5 frames/s on the field, `draw every 15` after
+the Continue menu 20.6 (retro_host.cpp's measures); the title and the menu need drawing (`mash a` there first).
 
 **The plan and its state**: `docs/DEVELOPMENT_NOTE.md` 3e, "State of the port, 23 October": what is left, in working
 order (steps 1-9). **Step 1 (wild battles) is in progress.** Done in step 1: X/Y's scripted wild battles
@@ -240,6 +247,88 @@ where it found only a copy):
   which X code sets bit 4 for a cloud (a `writers` run on X's cloud objects under the interpreter, from the state
   `runs/xr2/field.state`: the module recreates clouds every few hundred frames; run xw1 was stopped before its result),
   then port that code (or its branch) into Omega Ruby; check Omega Ruby's move code 58 trainers (zone 47) are untouched.
+  **What hides a cloud in X (25 October, runs xr3, xw2, xr4, xw5: X on Route 13 from the owner's new X save, the
+  interpreter's writers / readers from the state `runs/xr3/field.state`)**: the 9 clouds at 0x08D043CC + n * 0xAA8 (move
+  code 58, one 56). When the module recreates a cloud, its word +4 goes 0, 1, 0x10001, 0x10003 (as in the mod), then
+  **0x10007 and 0x01010007** by X's .code 0x3D037C (`SetFlag(chara, bits)`: word +4 |= bits) called from **X's DllField
+  0x102485C0** (40 bytes: `SetFlag(chara, 4); SetFlag(chara, 0x1000000); return 3`). That function is one step of a
+  character command: X's 0x102446F0 (11 KB, Omega Ruby's twin 0x1027E180, 93%) builds 70 command controllers (0x48 bytes:
+  +0 the class, +4.. its steps, +0x44 the step count) into a table, X's at slot + 0xB0; X's dispatcher 0x10247AA8 runs
+  command number `u16 [state + 8]` (under 0xD4) from that table (read live: slot 0xB0 read by run-time 0x6F3ABC = linked
+  0x10247ABC, from .code 0x3D72F8, the character update 0x3D7200, 23 times in 3,000 frames). **Omega Ruby has no such
+  step**: no function there sets 4 then 0x1000000 (DllField swept); its slot 0xB0 is another command (0x1027D1D0 sets
+  flag 8; its slot 0xAC sets 4 alone), and the two tables differ past 0xE4 (X's 0xE8-0xFC and 0x32C-0x348 only in X,
+  Omega Ruby's 0x3C0-0x3E0 only there). **Not found yet**: which code gives a cloud that command (the number is not an
+  immediate 0x2B / 0x2C in DllUSR13 or DllField; the character's command states at +0x8B8 / +0x8D4 are written only at
+  its creation in run xw5): next, a writers run on the command state the dispatcher receives (its address read live).
+  **Who gives it (25 October, runs xr6, xw10, xw13)**: the state is the character's + 0x8F4 (+0 the character, +4 a
+  table, **+8 the command, u16**, +0xA, +0xC the step); the dispatcher reads command **0x2C** there for every cloud (run
+  xr6). The writers missed it until `patch_core.py` hooked 8- and 16-bit writes too (25 October: it hooked 32/64 only).
+  Set once while the zone loads (run xw10, from a state at frame 120: three times 0, then 0x2C, by DllField's
+  0x102425D4 called from .code 0x3D9874 `SetCommand(chara, command, arg)`); a recreated cloud only gets its step reset
+  to 0 (+0x900 written), so the command runs again from the hiding step. The caller (the setter's `push` writes its
+  return address, run xw13: 16 calls): **X's DllField 0x1025B30C** (124 bytes: `SetCommand([this], 0x2C, 9)`, then reads
+  [chara + 0x8AC] and a table), called from 0x102DB160, 0x102DCCE8 and 0x102DCD84 (28-44 bytes each); its nearest Omega
+  Ruby function (0x102A83A4, 72%) is another one. So X's dust-cloud character gets X-only command 0x2C, whose first step
+  hides it; Omega Ruby's command 0x2C is another (flag 8). (Corrected the same day: X's 0x2C is ActionCmdVanishON, the
+  same class as Omega Ruby's 0x30, the tables numbered apart: "Action commands" below; the port gives it 0x30.) Lesson: capstone's `disasm`
+  stops at the first word it cannot decode: scans over a module must go word by word (the immediate search of 0x2C
+  missed 0x1025B334 that way).
+  **Move codes, X against Omega Ruby (25 October, static; the owner's choice (B): the whole list before porting)**: each
+  game's builder (X DllField 0x1024C138, Omega Ruby 0x10286208, the same code) fills a table of one 4-byte object per
+  move code (its class's vtable), X's at 0x103376CC (codes 0-0x40), Omega Ruby's at 0x10385720 (0-0x3E; the same builder
+  fills a second table, 24 trainer event types, 0x1038581C). Compared by the classes' RTTI names (vtable word -1 ->
+  typeinfo -> name; an instruction comparison did not tell the classes apart): **0x00-0x37 the same names in both**
+  (None, Player, DirRnd*, Up/Down/Left/Right, RndH/VLim, RouteTwoPoint 0x13-0x2B, TrainerPair, AlongWall*, Rand,
+  AlongBit*, Kakuremino, Sit, Route, RouteEasy); then:
+  | X | X's class | X's zones | Omega Ruby's code (its zones) |
+  | 0x38-0x3A | MoveCodeTsutikemuri AlongBitLeftHand / AlongBitRightHand / Rand (dust clouds) | 272 | none: X-only |
+  | 0x3B-0x3D | MoveCodeYagi Stay / Slow / Quick (Skiddo) | 270 | none: X-only |
+  | 0x3E | MoveCodeTravelingPoke | 351 | none: X-only |
+  | 0x3F, 0x40 | MoveCodeSpinRight, SpinLeft | 146 | 0x38, 0x39 (no zone uses them) |
+  Omega Ruby's own 0x3A MimicryType1Move (zone 47), 0x3B MimicryType2Move (zone 47), 0x3C Seiza (9 zones), 0x3D
+  SecretBaseTrainer (51), 0x3E Fishing2 (14) are not in X. The zone port copies a character's move code (record word 2)
+  unchanged (OrasXyEvents.cpp), so today X's 0x38-0x40 run Omega Ruby's classes of those numbers. Omega Ruby's table
+  is read in three places only (its pool words at 0x10286E4C, 0x10286F84, 0x10286FE8: the builder, the teardown loop
+  0x10286F18 and the getter 0x10286FBC, `cmp r0, #0x3f`): moved into the room with 7 slots more, X's seven classes get
+  0x3F-0x45, X's 0x3F/0x40 become 0x38/0x39, and the zone port translates word 2. Same name is not proved the same
+  code: each pair is to be read side by side before it is called merged (CLAUDE.md 8).
+  **Action commands, X against Omega Ruby (25 October, read live from both games' heaps: X's table at 0x08183624, 0xD4
+  entries, run xr3; Omega Ruby's at 0x081884D0, more than 0x100, run or1; each entry's object -> its class's RTTI
+  name)**: the number a character's command state holds (+8 of the state at its + 0x8F4 in X) and the number zone
+  scripts give `MdlAcmdSet` (Omega Ruby's native 0x10293B44 passes it unchanged into the command list, 0x10244918) index
+  these tables. **The numbering differs**: Omega Ruby has commands X lacks (SlowWalk_12F 0x18, StealthyWalk_16F 0x19,
+  Turn2F, StayWalk*...), so from X's 0x09 on most same-named commands sit at other numbers: of X's 212, 9 at the same
+  number, 99 at another (ActionCmdVanishON: X 0x2C, Omega Ruby 0x30; Walk_7F: X 0x12, Omega Ruby 0x13), 104 with no
+  same name: the ActionCmdAnimation<Acmd, DrawStatus, mode> instances (their names hold their own number, so they match
+  by the animation they play, DrawStatus, whose numbering is to be compared too) and X's own (AnalogJump/Move, Cycle*,
+  Climb*, PokeRide3*, Tear). So today **X/Y's ported zone scripts and ported code give Omega Ruby's commands of X's
+  numbers**: a command past X's 0x08 is another action (not seen in a run yet). To port: the map by name (the basic
+  commands), then by DrawStatus (the animations), X's own commands as ported classes, and the translation in the
+  script port (MdlAcmdSet's code) and in each ported block.
+  **The clouds hidden and their swirl drawn (25 October, runs dc2a-dc4c, headless)**: X's move-code classes 0x38-0x3A
+  (MoveCodeTsutikemuri*, the mod's 0x3F-0x41) are ported into the room (OrasXyDustCloud.cpp): their start gives the cloud
+  X's VanishON (Omega Ruby's command 0x30) and makes its swirl, a record of X's effect kind 0x1F
+  (FieldMoveModelEffectTsuchikemuriEncount, read live: X's 9 records of that kind are Route 13's clouds), also ported:
+  its own methods copied, its base's Omega Ruby's (field::mmodel::FieldMoveModelEffect, the same code in both), its
+  three files (X's a/0/6/6 TM entries 0xBD-0xBF: a model and two animations) appended to Omega Ruby's a/0/6/4 TM (189
+  files) at the same numbers, the field's effect pack (built by 0x1026D628: 0xA5 entries of 0x4C bytes, ids 8-0xAC, the
+  TM's entry numbers) grown to 0xB8 entries. Offsets read side by side or live: the effect manager at the character
+  manager + 0x36C0 (X's + 0x14B4), records at its + 0xD8 (X's + 0xE0); the player's position + 0xC64 -> + 0x6F8 (the
+  PlayerGrid read in both heaps); the camera + 0xAB8 -> + 0xAA4; the model (xy_system::H3dShaderModel in both) virtual
+  + 0xB8 -> + 0xD0, position + 0x138 -> + 0x130. **The last cause found**: the clouds are characters of **model 0**,
+  both games' "no model" (its per-area list entry, X's a/1/4/9 and Omega Ruby's a/1/3/7, the same 24 bytes in every pack
+  of both: no member, no parameters); the zone port had given them X's a/0/2/1 member 0 (the woman) with an entry
+  copied from model 284's, so they had a model (the character manager's table copies the entry into the character's +
+  0x884, X's + 0x87C, found by `writers`, run dc3f: 0x3F62D8), and the effect base (both games' 0x10325BE8 / 0x102DC6EC)
+  makes no effect for a character with a model (byte + 0x887 non zero) and the flag 0x800000: their swirls were made
+  and dropped (run dc3c: the start called 5 times, never the update). Model 0 kept: the 9 swirls live (run dc4b), drawn
+  where X draws them, and walking into a cloud starts the event and a wild battle (run dc4c, a Trapinch). Not checked:
+  the swirl's sound when the player is near (ported, X's 0xA00C7 translated; no run listened), the phone, the zone 47
+  trainers of Omega Ruby's move code 58.
+  The tools of that search: `prototype/heap_classes.py` (a heap dump's tables and objects named by their RTTI classes,
+  who points at them) and `prototype/archive_find.py` (a game's archives searched for bytes, members decompressed, or
+  listed by member count); the runs' `dump`, `readers` and `writers` (headless/run_local.sh).
 - `CallHideItemEncount` is empty in X: nothing to port.
 **Porting X/Y code: the method (24 October, for the next agent; how B2 was done)**:
 1. *Map.* `prototype/xy_import_match.py` gives X's functions Omega Ruby has; `prototype/xy_code_compare.py` (`pairs`,

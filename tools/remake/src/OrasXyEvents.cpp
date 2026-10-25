@@ -1,4 +1,5 @@
 #include "OrasXyEvents.h"
+#include "OrasXyMoveCodes.h"
 #include "Amx.h"
 #include "Garc.h"
 #include "N3dsRom.h"
@@ -174,7 +175,16 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
             throw FormatError(m);
         }
         const int model = numbered == xyMembers.end() ? c.Raw[1] : numbered->second;
-        if (!modelOf.count(model))
+        // model 0 is both games' "no model" (its a/1/3/7 entry, X/Y's a/1/4/9, the same 24 bytes in every pack of both: no
+        // member, no parameters), not X/Y's a/0/2/1 member 0: kept (the dust clouds of X's Route 13 are characters of model
+        // 0, which X loads no model for; given member 0 converted, they were drawn as it, a woman, and Omega Ruby's effect
+        // base, seeing a model, made no swirl for them: runs dc3b-dc3f, 25 October)
+        const bool none = c.Raw[1] == 0;
+        if (none)
+        {
+            if (std::find(e.Models.begin(), e.Models.end(), 0) == e.Models.end()) e.Models.push_back(0);
+        }
+        else if (!modelOf.count(model))
         {
             const Garc xCharacters(xRom.Read("a/0/2/1"));
             std::vector<std::string> report;
@@ -184,9 +194,15 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
             modelOf[model] = (int)member;
             log.push_back("X/Y character model " + std::to_string(model) + ": a/0/2/1 member " + std::to_string(member));
         }
-        c.Raw[1] = (uint16_t)modelOf[model];
-        if (std::find(e.Models.begin(), e.Models.end(), modelOf[model]) == e.Models.end()) e.Models.push_back(modelOf[model]);
+        if (!none)
+        {
+            c.Raw[1] = (uint16_t)modelOf[model];
+            if (std::find(e.Models.begin(), e.Models.end(), modelOf[model]) == e.Models.end()) e.Models.push_back(modelOf[model]);
+        }
         c.Raw[4] = (uint16_t)moved(numbers.Flags, c.Raw[4]);
+        // its move code (word 2) Omega Ruby's number of X/Y's class (OrasXyMoveCodes.h: X's 0x38-0x40 differ; the engine
+        // needs --xy-move-codes on for the seven past 0x3E)
+        c.Raw[2] = (uint16_t)XyMoveCodeToOras(c.Raw[2]);
         // a trainer's script (3000 + its id, 5000 + id for a double's second: ZoneCharacter::TrainerId) names Omega Ruby's
         // number of X/Y's trainer (OrasXyTrainers.h)
         for (const int base : {3000, 5000})

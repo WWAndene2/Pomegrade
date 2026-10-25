@@ -3,7 +3,7 @@
 
 // X/Y's dust clouds (the swirls of Route 13 a wild Pokemon jumps out of when the player walks into one) given to Omega
 // Ruby, which has none (ORAS_ENGINE.md 0.0, step 1 B2; read 23-24 October, static). Ported, not rewritten (CLAUDE.md 8):
-//  - a dust cloud is a character of the zone (no model, its move code 0x38, 0x39 or 0x3A, X's zone 272 has 11): X's Route
+//  - a dust cloud is a character of the zone (no model, its move code 0x38, 0x39 or 0x3A, the mod's 0x3F-0x41: OrasXyMoveCodes.h; X's zone 272 has 11): X's Route
 //    13 module DllUSR13 lists them, shows 9 at random, and moves one away once it is used. The module is ported with the
 //    gyms' tooling (XyRoute13, OrasXyGymModules.h: its imports pointed at Omega Ruby's same functions, its field offsets
 //    made Omega Ruby's) and loaded for X's area kind 0x18, the mod's 18 (a kind Omega Ruby loads nothing for);
@@ -26,10 +26,10 @@
 //    Archive), and its sound X's 0xA012A is translated (OrasXySound.h).
 // Run headless (24 October, runs dc1-dcj, X's zone 272 as mod zone 538): the module lists 11 spots and shows 8-9, the
 // player walking into one starts the event, the cloud's character goes, X's swirl plays, the field is torn down and the
-// battle starts (a wild Dugtrio, Route 13's desert). Seen there, not fixed here:
-//  - the cloud's character wears X's model 0 (a woman, standing): X hides it and plays a small swirl from time to time
-//    through its move controller of codes 0x38-0x3A (the counter at the controller's + 0xC the module sets), which Omega
-//    Ruby's move code 0x3A does not do (not read: where the controllers are made);
+// battle starts (a wild Dugtrio, Route 13's desert). The cloud's character is hidden and its small swirl drawn by X's
+// move-code classes 0x38-0x3A (the mod's 0x3F-0x41, below: XyDustCloudRoomAt) and X's swirl effect kind 0x1F, the
+// character of model 0 (both games' "no model": OrasXyEvents.cpp); runs dc4b-dc4c (25 October): the 9 swirls live, drawn
+// where X draws them, walking into one starts the event and a wild battle (a Trapinch). Seen there, not fixed here:
 //  - the battle's command menu took no input once (run dcj) with X's type 0x16 whole (words 0 and 3: 7 and 9); not
 //    reproduced since: run dcx (24 October, the same type) plays the battle's turn. Omega Ruby's battle reads word 3 as
 //    X's does (ORAS_ENGINE.md 0.0, "Word 3 read live").
@@ -63,12 +63,19 @@ struct XyDustCloudRoom
 {
     Bytes Room;
     std::vector<CodeWord> Code;
+    std::vector<uint32_t> Vtables; // the move codes 0x38-0x3A's classes (the mod's 0x3F-0x41), their vtables in the room
 };
 XyDustCloudRoom XyDustCloudRoomAt(const Bytes& xField, const Bytes& orasField, const Bytes& orasCode, uint32_t at, uint32_t archive,
                                   const std::function<uint32_t(uint32_t)>& sound);
 
-// DllField's words (linked addresses): the step check's hook and its cave
+constexpr uint32_t XySwirlFirstId = 0xBD;      // X's swirl's effect files 0xBD-0xBF: Omega Ruby's a/0/6/4 entries 0xBD-0xBF
+constexpr uint32_t XyEffectPackEntries = 0xB8; // the effect pack's ids 8-0xBF (Omega Ruby's: 8-0xAC)
+
+// DllField's words (linked addresses): the step check's hook and its cave, the effect pack grown to the swirl's ids
 std::vector<CodeWord> XyDustCloudFieldPatchAt(uint32_t cave);
+
+// Omega Ruby's a/0/6/4 (the field's effect files) with X's a/0/6/6 swirl files 0xBD-0xBF appended (BCH 0x07 -> 0x21)
+Bytes XyDustCloudEffectsArchive(const Bytes& orasGarc, const Bytes& xGarc);
 
 }
 
