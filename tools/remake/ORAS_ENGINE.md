@@ -293,6 +293,19 @@ where it found only a copy):
   0x10286F18 and the getter 0x10286FBC, `cmp r0, #0x3f`): moved into the room with 7 slots more, X's seven classes get
   0x3F-0x45, X's 0x3F/0x40 become 0x38/0x39, and the zone port translates word 2. Same name is not proved the same
   code: each pair is to be read side by side before it is called merged (CLAUDE.md 8).
+  **Action commands, X against Omega Ruby (25 October, read live from both games' heaps: X's table at 0x08183624, 0xD4
+  entries, run xr3; Omega Ruby's at 0x081884D0, more than 0x100, run or1; each entry's object -> its class's RTTI
+  name)**: the number a character's command state holds (+8 of the state at its + 0x8F4 in X) and the number zone
+  scripts give `MdlAcmdSet` (Omega Ruby's native 0x10293B44 passes it unchanged into the command list, 0x10244918) index
+  these tables. **The numbering differs**: Omega Ruby has commands X lacks (SlowWalk_12F 0x18, StealthyWalk_16F 0x19,
+  Turn2F, StayWalk*...), so from X's 0x09 on most same-named commands sit at other numbers: of X's 212, 9 at the same
+  number, 99 at another (ActionCmdVanishON: X 0x2C, Omega Ruby 0x30; Walk_7F: X 0x12, Omega Ruby 0x13), 104 with no
+  same name: the ActionCmdAnimation<Acmd, DrawStatus, mode> instances (their names hold their own number, so they match
+  by the animation they play, DrawStatus, whose numbering is to be compared too) and X's own (AnalogJump/Move, Cycle*,
+  Climb*, PokeRide3*, Tear). So today **X/Y's ported zone scripts and ported code give Omega Ruby's commands of X's
+  numbers**: a command past X's 0x08 is another action (not seen in a run yet). To port: the map by name (the basic
+  commands), then by DrawStatus (the animations), X's own commands as ported classes, and the translation in the
+  script port (MdlAcmdSet's code) and in each ported block.
 - `CallHideItemEncount` is empty in X: nothing to port.
 **Porting X/Y code: the method (24 October, for the next agent; how B2 was done)**:
 1. *Map.* `prototype/xy_import_match.py` gives X's functions Omega Ruby has; `prototype/xy_code_compare.py` (`pairs`,
