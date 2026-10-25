@@ -2,6 +2,11 @@
 
 #include "OrasXyDustBox.h"
 #include "OrasXyMoveCodes.h"
+#include "Bch.h"
+#include "BchUpgrade.h"
+#include "BinLinker.h"
+#include "Garc.h"
+#include "NitroCompression.h"
 
 #include <cstdio>
 #include <iterator>
@@ -147,6 +152,35 @@ constexpr uint32_t ClassThunks[][2] = {
     {0x101FE680, 0xE1C015BC}, // strh r1, [r0, #0x5c]
 };
 
+// the clouds' small swirl: X's effect kind 0x1F (field::mmodel::FieldMoveModelEffectTsuchikemuriEncount, read live in X's
+// effect manager, run xr3: the 9 records of kind 0x1F are Route 13's clouds), a kind Omega Ruby has not (its 0x29 kinds,
+// X's 0x2B). Its methods [10]-[13], [15] and destructors copied, its base's (field::mmodel::FieldMoveModelEffect, the same
+// code in both: X's splash and slope dust vtables against Omega Ruby's) Omega Ruby's. Its resources, X's effect pack ids
+// 0xBD (the model), 0xBE and 0xBF (its animations), are X's a/0/6/6 "TM" entries 0xBD-0xBF given Omega Ruby's a/0/6/4 at
+// the same numbers (XyDustCloudEffectsArchive), the pack grown to them (XyDustCloudFieldPatchAt)
+constexpr Block SwirlBlocks[] = {
+    {0x10251228, 0x10251230}, // its destructors
+    {0x102DCFE0, 0x102DD23C}, // its resource ids [12], model id [11], count [10], placement [15], update [13]
+};
+constexpr uint32_t SwirlIds = 0x102DCFEC;    // the literal naming X's data 0x102EB7E8: the animations' ids
+constexpr uint32_t SwirlIdsData = 0x102EB7E8;
+// its vtable: X's methods (in the blocks) or Omega Ruby's base's (0: X's own; Omega Ruby's FieldMoveModelEffect methods,
+// X's base's twins one for one: 0x102DC694 = 0x10325B8C ... 0x102DC69C = 0x10325B94)
+constexpr uint32_t SwirlVtable[17][2] = {
+    {0x1025122C, 0}, {0x10251228, 0}, {0, 0x10325B8C}, {0, 0x10325BA4}, {0, 0x10325AC0}, {0, 0x10325B9C}, {0, 0x103259CC},
+    {0, 0x1028770C}, {0, 0x10287714}, {0, 0x10287718}, {0x102DCFF8, 0}, {0x102DCFF0, 0}, {0x102DCFE0, 0}, {0x102DD0F4, 0},
+    {0, 0x10325BA0}, {0x102DD000, 0}, {0, 0x10325B94},
+};
+constexpr uint32_t EffectCreate = 0x102D25A0, EffectRemove = 0x102CFB74; // X's 0x10284434, 0x10282C9C (the same code)
+const std::map<uint32_t, uint32_t> SwirlCodeCalls = {
+    {0x101F91C8, 0x2FF8C0}, // the heap's delete
+    {0x101F91F8, 0x44FA8C}, // a sound played (same)
+    {0x101F9BD8, 0x44C710}, // a sound playing (same)
+    {0x101FA1B0, 0x4DC690}, // a character's position (same)
+    {0x101FAF00, 0x4C9C58}, // a box seen by the camera (same)
+    {0x101FA3A8, 0x3964E8}, // a model's position set (X's model + 0x138, Omega Ruby's + 0x130: the same code beside it)
+};
+
 // the jump tables (relocated words, zero in the file): X's targets
 constexpr uint32_t UpdateTable = 0x10239734, EffectTable = 0x10277350;
 constexpr uint32_t UpdateTargets[] = {0x10239B00, 0x10239764, 0x102397C4, 0x10239828, 0x10239868, 0x1023994C,
@@ -254,7 +288,9 @@ XyDustCloudRoom XyDustCloudRoomAt(const Bytes& xField, const Bytes& orasField, c
     std::vector<uint32_t> thumbOrder, fieldOrder;
     for (const auto& [x, to] : ThumbCalls) { thumbStub[to] = take(8); thumbOrder.push_back(to); }
     for (const uint32_t to : {FieldCalls.at(0x1027DE54), FieldCalls.at(0x1027F5CC), OrasStateObject, InitContext, SelectTable, ClearContext,
-                              ClassFieldCalls.at(0x10272BA4), ClassFieldCalls.at(0x1027AB84), ClassFieldCalls.at(0x102832E4)})
+                              ClassFieldCalls.at(0x10272BA4), ClassFieldCalls.at(0x1027AB84), ClassFieldCalls.at(0x102832E4),
+                              EffectCreate, EffectRemove, 0x10325B8Cu, 0x10325BA4u, 0x10325AC0u, 0x10325B9Cu, 0x103259CCu, 0x1028770Cu,
+                              0x10287714u, 0x10287718u, 0x10325BA0u, 0x10325B94u})
     {
         fieldStub[to] = take(28);
         fieldOrder.push_back(to);
@@ -266,12 +302,22 @@ XyDustCloudRoom XyDustCloudRoomAt(const Bytes& xField, const Bytes& orasField, c
     const uint32_t eventVtable = take(8 + 6 * 4) + 8, effectVtable = take(8 + 2 * 4) + 8, desc = take(8);
     std::map<uint32_t, uint32_t> classThunk;
     for (const auto& t : ClassThunks) classThunk[t[0]] = take(8);
-    const uint32_t noSwirl = take(12);
+    const uint32_t swirlCreate = take(16 * 4);
     std::vector<uint32_t> classAt;
     for (const Block& b : ClassBlocks) classAt.push_back(take(b.To - b.From));
     const uint32_t directions = take(4);
     uint32_t classVtable[3];
     for (uint32_t& v : classVtable) v = take(8 + 7 * 4) + 8;
+    std::vector<uint32_t> swirlAt;
+    for (const Block& b : SwirlBlocks) swirlAt.push_back(take(b.To - b.From));
+    const uint32_t swirlIds = take(16), swirlVtable = take(8 + 17 * 4) + 8, swirlKind = take(4);
+    const auto swirlRoom = [&](uint32_t x) -> uint32_t {
+        for (size_t k = 0; k < std::size(SwirlBlocks); k++)
+            if (x >= SwirlBlocks[k].From && x < SwirlBlocks[k].To) return swirlAt[k] + (x - SwirlBlocks[k].From);
+        char m[64];
+        snprintf(m, sizeof m, "X's dust cloud swirl: 0x%X is in no copied block", x);
+        throw FormatError(m);
+    };
     const auto classRoom = [&](uint32_t x) -> uint32_t {
         for (size_t k = 0; k < std::size(ClassBlocks); k++)
             if (x >= ClassBlocks[k].From && x < ClassBlocks[k].To) return classAt[k] + (x - ClassBlocks[k].From);
@@ -496,12 +542,30 @@ XyDustCloudRoom XyDustCloudRoomAt(const Bytes& xField, const Bytes& orasField, c
     out.push_back(Word(xField, 0x102EB7C8 - XFieldBase));
     out.push_back(Word(xField, 0x102EB7CC - XFieldBase));
 
-    // the move codes' classes: the thunks, the swirl's effect not made (Omega Ruby's effect list numbers its effects apart:
-    // 0x29 kinds for X's 0x2B, X's 0x1F not looked up yet; its manager's word, X's character manager + 0x14B4, read as 0, so
-    // the swirl's handle stays 0xFFFF and the effect calls are not reached), the blocks, X's four directions, the vtables
+    // the move codes' classes: the thunks, the swirl's record made, the blocks, X's four directions, the vtables
     for (const auto& t : ClassThunks) { placed(classThunk.at(t[0])); out.insert(out.end(), {t[1], 0xE12FFF1E}); }
-    placed(noSwirl);
-    out.insert(out.end(), {0xE3A00CFF, 0xE38000FF, 0xE12FFF1E}); // mov r0, #0xff00; orr r0, r0, #0xff; bx lr
+    // X's 0x10284434 (the effect manager, X's kind, the character -> the record's handle or 0xFFFF): Omega Ruby's same
+    // function given a kind past its 0x29 (its kind 0's object, no check), the record then given X's kind's object (+0xC,
+    // the only word of the record the kind gives; records of 0x57 words at the manager's + 0xD8, X's + 0xE0)
+    placed(swirlCreate);
+    out.insert(out.end(), {
+        0xE92D4010,                                                       // 00 push {r4, lr}
+        0xE1A04000,                                                       // 04 mov r4, r0
+        0xE3A01029,                                                       // 08 mov r1, #0x29
+        Branch(0xE, swirlCreate + 0x0C, fieldStub.at(EffectCreate), true), // 0C bl the record made
+        0xE59F1020,                                                       // 10 ldr r1, [pc, #0x20]  0xFFFF
+        0xE1500001,                                                       // 14 cmp r0, r1
+        0x08BD8010,                                                       // 18 popeq {r4, pc}
+        0xE3A03F57,                                                       // 1C mov r3, #0x15c
+        0xE0020390,                                                       // 20 mul r2, r0, r3
+        0xE59410D8,                                                       // 24 ldr r1, [r4, #0xd8]  the records
+        0xE59F300C,                                                       // 28 ldr r3, [pc, #0xc]   X's kind's object
+        0xE0811002,                                                       // 2C add r1, r1, r2
+        0xE581300C,                                                       // 30 str r3, [r1, #0xc]
+        0xE8BD8010,                                                       // 34 pop {r4, pc}
+        0x0000FFFF,                                                       // 38
+        swirlKind,                                                        // 3C
+    });
     for (size_t k = 0; k < std::size(ClassBlocks); k++)
     {
         ArmBlockPort p;
@@ -510,8 +574,8 @@ XyDustCloudRoom XyDustCloudRoomAt(const Bytes& xField, const Bytes& orasField, c
         for (const auto& [x, to] : ClassCodeCalls) p.Calls[x] = to;
         for (const auto& [x, to] : ClassFieldCalls) p.Calls[x] = fieldStub.at(to);
         for (const auto& [x, to] : classThunk) p.Calls[x] = to;
-        p.Calls[0x10284434] = noSwirl; // the swirl's effect made (not reached: above)
-        p.Calls[0x10282C9C] = noSwirl; // and removed
+        p.Calls[0x10284434] = swirlCreate;                  // the swirl's record made (above)
+        p.Calls[0x10282C9C] = fieldStub.at(EffectRemove);   // and removed
         for (const Block& b : ClassBlocks)
             for (uint32_t a = b.From; a < b.To; a += 4) p.Calls[a] = classRoom(a);
         const auto word = [&](uint32_t a, uint32_t expected, uint32_t value) {
@@ -536,10 +600,9 @@ XyDustCloudRoom XyDustCloudRoomAt(const Bytes& xField, const Bytes& orasField, c
         word(0x102DB22C, 0xE2811064, 0xE28110F8); // add r1, r1, #0xf8
         word(0x102DB280, 0xE2804B03, 0xE2804C06); // add r4, r0, #0x600
         word(0x102DB288, 0xE2844064, 0xE28440F8); // add r4, r4, #0xf8
-        // the swirl's effect manager (X's character manager + 0x14B4): none (above)
-        word(0x1025B254, 0xE7900005, 0xE3A00000);
-        word(0x1025B2C8, 0xE7900006, 0xE3A00000);
-        word(0x1025B348, 0xE7900007, 0xE3A00000);
+        // the effect manager: the character manager's + 0x14B4 -> + 0x36C0 (Omega Ruby's callers of its 0x102D25A0 read it
+        // there, 0x10282868, 0x10287474)
+        for (const uint32_t a : {0x1025B290u, 0x1025B308u, 0x1025B388u}) word(a, 0x14B4, 0x36C0);
         // X's action commands -> Omega Ruby's same-named ones (ORAS_ENGINE.md 0.0, "Action commands"): Walk_7F 0x12 ->
         // 0x13, Wait8F 0x28 -> 0x2C, VanishON 0x2C -> 0x30
         word(0x1025B0A8, 0xE3A01012, 0xE3A01013);
@@ -565,6 +628,48 @@ XyDustCloudRoom XyDustCloudRoomAt(const Bytes& xField, const Bytes& orasField, c
         for (const uint32_t m : ClassVtables[c]) out.push_back(classRoom(m));
         r.Vtables.push_back(classVtable[c]);
     }
+
+    // the swirl: its blocks, X's animation ids, its vtable, its kind's object (a vtable word, as the game's kinds are)
+    for (size_t k = 0; k < std::size(SwirlBlocks); k++)
+    {
+        ArmBlockPort p;
+        p.From = SwirlBlocks[k].From;
+        p.To = SwirlBlocks[k].To;
+        for (const auto& [x, to] : SwirlCodeCalls) p.Calls[x] = to;
+        const auto word = [&](uint32_t a, uint32_t expected, uint32_t value) {
+            swirlRoom(a);
+            if (a >= p.From && a < p.To) p.Words[a] = {expected, value};
+        };
+        word(SwirlIds, 0, swirlIds);
+        // the character's + 0x87F -> + 0x887 (both bases' starts read it, 0x102DC6EC / 0x10325BE8), its manager + 0x8AC ->
+        // + 0x8B4, the manager's map + 0x14 -> + 0x10, the map's + 0xF0 -> + 0x100, its camera + 0xAB8 -> + 0xAA4 (that
+        // object's four fields X reads, + 0xAB4 0xAB8 0xAF8 0xAFC, Omega Ruby's + 0xAA0 0xAA4 0xAE4 0xAE8: the same code at
+        // X's + 0xAB4 and Omega Ruby's + 0xAA0, 0x10240004 / 0x102797BC), the map's player + 0x158 -> + 0x164
+        word(0x102DD014, 0xE5D0187F, 0xE5D01887);
+        word(0x102DD020, 0xE59008AC, 0xE59008B4);
+        word(0x102DD024, 0xE5900014, 0xE5900010);
+        word(0x102DD028, 0xE59000F0, 0xE5900100);
+        word(0x102DD02C, 0xE5900AB8, 0xE5900AA4);
+        word(0x102DD10C, 0xE59008AC, 0xE59008B4);
+        word(0x102DD110, 0xE5900014, 0xE5900010);
+        word(0x102DD114, 0xE5900158, 0xE5900164);
+        // the model's (xy_system::H3dShaderModel, both games') animation frame: its virtual + 0xB8 -> + 0xD0 (the same
+        // code, the vtables X 0x59B278 and Omega Ruby 0x5E0F9C side by side: from + 0xB0 on 0x18 further; + 0x40 the same)
+        word(0x102DD1C0, 0xE59120B8, 0xE59120D0);
+        if (Word(xField, 0x102DD238 - XFieldBase) != 0xA00C7) throw FormatError("X's dust cloud swirl: not its sound 0xA00C7");
+        word(0x102DD238, 0xA00C7, sound(0xA00C7));
+        placed(swirlAt[k]);
+        const std::vector<uint32_t> w = PortArmBlock(xField, XFieldBase, p, swirlAt[k]);
+        out.insert(out.end(), w.begin(), w.end());
+    }
+    placed(swirlIds);
+    for (uint32_t k = 0; k < 4; k++) out.push_back(Word(xField, SwirlIdsData + 4 * k - XFieldBase));
+    if (out[out.size() - 4] != 0xBE || out[out.size() - 3] != 0xBF) throw FormatError("X's dust cloud swirl: not its animation ids 0xBE, 0xBF");
+    placed(swirlVtable - 8);
+    out.insert(out.end(), {0u, 0u});
+    for (const auto& m : SwirlVtable) out.push_back(m[0] ? swirlRoom(m[0]) : fieldStub.at(m[1]));
+    placed(swirlKind);
+    out.push_back(swirlVtable);
     if (at + 4 * (uint32_t)out.size() != next) throw FormatError("X's dust cloud code: its layout and words differ");
     for (const uint32_t w : out) Put(r.Room, w);
     r.Code.push_back({XyDustCloudPointer, 0, step, "X/Y's dust clouds: the step routine's address"});
@@ -591,7 +696,37 @@ std::vector<CodeWord> XyDustCloudFieldPatchAt(uint32_t cave)
         XyDustCloudPointer,                             // 24
     };
     for (uint32_t k = 0; k < std::size(code); k++) w.push_back({cave + 4 * k, 0, code[k], "X/Y's dust clouds' step hook (cave)"});
+    // the field's effect pack (its builder 0x1026D628, its lookup 0x102AA3A8): ids 8-0xAC (0xA5 entries of 0x4C bytes, the
+    // TM a/0/6/4's entries at their own numbers) -> 8-0xBF, for X's swirl's 0xBD-0xBF (XyDustCloudEffectsArchive). It loads
+    // Omega Ruby's entries 0xAD-0xBC too (BCH, 0x10 files, about 330 KB of the field's resources: not read by the pack
+    // before)
+    w.push_back({0x1026D680, 0xE3A040A5, 0xE3A04000 | XyEffectPackEntries, "the effect pack: its entries, 0xA5 -> 0xB8"});
+    w.push_back({0x1026D7D4, 0x3104, 8 + 0x4C * XyEffectPackEntries, "the effect pack: its entries' allocation"});
+    w.push_back({0x102AA3AC, 0xE35200A4, 0xE3520000 | (XyEffectPackEntries - 1), "the effect pack's lookup: its last id"});
     return w;
+}
+
+Bytes XyDustCloudEffectsArchive(const Bytes& orasGarc, const Bytes& xGarc)
+{
+    // both games' archives hold one TM of the field's effect files (X's a/0/6/6: 204, Omega Ruby's a/0/6/4: 189), the
+    // effect pack's id the entry's number (the swirl's three BCH found in X's by their bytes as X loaded them, run xd2)
+    Garc o(orasGarc);
+    const Garc x(xGarc);
+    const auto plain = [](const Bytes& m) { return !m.empty() && m[0] == 0x11 ? LzDecompress(m) : m; };
+    const bool compressed = !o.Sub(0).empty() && o.Sub(0)[0] == 0x11;
+    BinLinker ot = BinLinker::Read(plain(o.Sub(0)), "TM");
+    const BinLinker xt = BinLinker::Read(plain(x.Sub(0)), "TM");
+    if (o.Count() != 1 || ot.Files.size() != XySwirlFirstId || xt.Files.size() != 204)
+        throw FormatError("the effects' archives: not Omega Ruby's 189 files and X's 204");
+    for (uint32_t id = XySwirlFirstId; id < XySwirlFirstId + 3; id++)
+    {
+        Bytes f = xt.Files.at(id);
+        if (!Bch::Is(f) || f[4] != 0x07) throw FormatError("the effects' archives: X's swirl file not a BCH 0x07");
+        ot.Files.push_back(BchUpgradeTo21(f));
+    }
+    const Bytes tm = ot.Write();
+    o.Set(0, compressed ? Lz11Compress(tm) : tm);
+    return o.Write();
 }
 
 }

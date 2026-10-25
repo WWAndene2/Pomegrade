@@ -68,8 +68,14 @@ struct XyDustCloudRoom
 XyDustCloudRoom XyDustCloudRoomAt(const Bytes& xField, const Bytes& orasField, const Bytes& orasCode, uint32_t at, uint32_t archive,
                                   const std::function<uint32_t(uint32_t)>& sound);
 
-// DllField's words (linked addresses): the step check's hook and its cave
+constexpr uint32_t XySwirlFirstId = 0xBD;      // X's swirl's effect files 0xBD-0xBF: Omega Ruby's a/0/6/4 entries 0xBD-0xBF
+constexpr uint32_t XyEffectPackEntries = 0xB8; // the effect pack's ids 8-0xBF (Omega Ruby's: 8-0xAC)
+
+// DllField's words (linked addresses): the step check's hook and its cave, the effect pack grown to the swirl's ids
 std::vector<CodeWord> XyDustCloudFieldPatchAt(uint32_t cave);
+
+// Omega Ruby's a/0/6/4 (the field's effect files) with X's a/0/6/6 swirl files 0xBD-0xBF appended (BCH 0x07 -> 0x21)
+Bytes XyDustCloudEffectsArchive(const Bytes& orasGarc, const Bytes& xGarc);
 
 }
 
