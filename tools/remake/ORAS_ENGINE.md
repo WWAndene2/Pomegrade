@@ -247,6 +247,20 @@ where it found only a copy):
   which X code sets bit 4 for a cloud (a `writers` run on X's cloud objects under the interpreter, from the state
   `runs/xr2/field.state`: the module recreates clouds every few hundred frames; run xw1 was stopped before its result),
   then port that code (or its branch) into Omega Ruby; check Omega Ruby's move code 58 trainers (zone 47) are untouched.
+  **What hides a cloud in X (25 October, runs xr3, xw2, xr4, xw5: X on Route 13 from the owner's new X save, the
+  interpreter's writers / readers from the state `runs/xr3/field.state`)**: the 9 clouds at 0x08D043CC + n * 0xAA8 (move
+  code 58, one 56). When the module recreates a cloud, its word +4 goes 0, 1, 0x10001, 0x10003 (as in the mod), then
+  **0x10007 and 0x01010007** by X's .code 0x3D037C (`SetFlag(chara, bits)`: word +4 |= bits) called from **X's DllField
+  0x102485C0** (40 bytes: `SetFlag(chara, 4); SetFlag(chara, 0x1000000); return 3`). That function is one step of a
+  character command: X's 0x102446F0 (11 KB, Omega Ruby's twin 0x1027E180, 93%) builds 70 command controllers (0x48 bytes:
+  +0 the class, +4.. its steps, +0x44 the step count) into a table, X's at slot + 0xB0; X's dispatcher 0x10247AA8 runs
+  command number `u16 [state + 8]` (under 0xD4) from that table (read live: slot 0xB0 read by run-time 0x6F3ABC = linked
+  0x10247ABC, from .code 0x3D72F8, the character update 0x3D7200, 23 times in 3,000 frames). **Omega Ruby has no such
+  step**: no function there sets 4 then 0x1000000 (DllField swept); its slot 0xB0 is another command (0x1027D1D0 sets
+  flag 8; its slot 0xAC sets 4 alone), and the two tables differ past 0xE4 (X's 0xE8-0xFC and 0x32C-0x348 only in X,
+  Omega Ruby's 0x3C0-0x3E0 only there). **Not found yet**: which code gives a cloud that command (the number is not an
+  immediate 0x2B / 0x2C in DllUSR13 or DllField; the character's command states at +0x8B8 / +0x8D4 are written only at
+  its creation in run xw5): next, a writers run on the command state the dispatcher receives (its address read live).
 - `CallHideItemEncount` is empty in X: nothing to port.
 **Porting X/Y code: the method (24 October, for the next agent; how B2 was done)**:
 1. *Map.* `prototype/xy_import_match.py` gives X's functions Omega Ruby has; `prototype/xy_code_compare.py` (`pairs`,

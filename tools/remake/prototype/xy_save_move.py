@@ -9,6 +9,8 @@ length, u16 id, u16 CRC16-CCITT; 55 blocks, all matching): block 4 at 0x1400 hol
 emptied but the player's (OrasSave::MoveTo, done the same). Checked: the owner's X save moved to zone 272 (126.5, 81.5,
 height 2) loads there (run xr2). Run X with POMEGRADE_GAME=dumps/x.3ds POMEGRADE_SAVE=<out> (headless/run_local.sh).
 """
+import struct, sys
+
 src,out,zone,tx,tz,h=sys.argv[1],sys.argv[2],int(sys.argv[3]),float(sys.argv[4]),float(sys.argv[5]),float(sys.argv[6])
 d=bytearray(open(src,'rb').read())
 foot=len(d)-0x200; assert d[foot+0x10:foot+0x14]==b'FEEB'
