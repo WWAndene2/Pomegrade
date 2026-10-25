@@ -61,9 +61,14 @@ int main()
     check(at[e + 0x50].Value == 0xE8BD81F0, "then the builder's pop");
 
     // the room: the table aligned, 70 slots and the seven vtables, zero; the .code word naming it
-    const XyMoveCodesRoom r = XyMoveCodesRoomAt(0x6B0002);
+    const XyMoveCodesRoom r = XyMoveCodesRoomAt(0x6B0002, {});
     check(r.Table == 0x6B0004 && r.Room.size() == 2 + 4 * (XyMoveCodeSlots + XyMoveCodesAdded), "the room's table aligned, its size");
     check(r.Code.size() == 1 && r.Code[0].Address == XyMoveCodesPointer && r.Code[0].Value == r.Table, "the .code word names it");
+    // the classes ported: their vtables in the list after the table, the rest zero (MoveCodeNone)
+    const XyMoveCodesRoom c = XyMoveCodesRoomAt(0x6B0000, {0x6C0008, 0x6C0030, 0x6C0058});
+    const auto room = [&](size_t k) { return (uint32_t)(c.Room[4 * k] | c.Room[4 * k + 1] << 8 | c.Room[4 * k + 2] << 16 | (uint32_t)c.Room[4 * k + 3] << 24); };
+    check(room(XyMoveCodeSlots) == 0x6C0008 && room(XyMoveCodeSlots + 1) == 0x6C0030 && room(XyMoveCodeSlots + 2) == 0x6C0058 &&
+          room(XyMoveCodeSlots + 3) == 0, "the ported classes' vtables in the list, the others MoveCodeNone");
 
     printf(ok ? "all passed\n" : "FAILED\n");
     return ok ? 0 : 1;

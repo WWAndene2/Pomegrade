@@ -13,7 +13,7 @@
 //    table's address from a free .code word, both bounds become 0x46, and the builder's end allocates the 7 new codes'
 //    objects as it does the others. Each new code's class is the room's (its vtable in the list after the table), or,
 //    until X's class is ported, Omega Ruby's MoveCodeNone (slot 0's vtable, read at run time: a cave word holding a
-//    DllField address would not be relocated).
+//    DllField address would not be relocated). The dust clouds' three (0x3F-0x41) are ported (OrasXyDustCloud.h).
 // Azahar only (the room runs: OrasXyDustBox.h).
 
 #include "CodePatch.h"
@@ -31,15 +31,15 @@ constexpr uint32_t XyMoveCodesPointer = 0x579DCC;   // the .code's free word hol
 // X/Y's move code -> Omega Ruby's (throws past X/Y's 0x40)
 int XyMoveCodeToOras(int xCode);
 
-// the room's part at `at`: the table (zero; the builder fills it), then the new codes' vtables (zero: Omega Ruby's
-// MoveCodeNone, until X's classes are ported); Code: the .code word naming the table
+// the room's part at `at`: the table (zero; the builder fills it), then the new codes' vtables (vtables: the mod's 0x3F on,
+// the classes ported; zero: Omega Ruby's MoveCodeNone); Code: the .code word naming the table
 struct XyMoveCodesRoom
 {
     Bytes Room;
     uint32_t Table = 0;
     std::vector<CodeWord> Code;
 };
-XyMoveCodesRoom XyMoveCodesRoomAt(uint32_t at);
+XyMoveCodesRoom XyMoveCodesRoomAt(uint32_t at, const std::vector<uint32_t>& vtables);
 
 // DllField's words (linked addresses): the builder's, teardown's and getter's table and bounds, and their cave
 std::vector<CodeWord> XyMoveCodesFieldPatchAt(uint32_t cave);

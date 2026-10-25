@@ -94,6 +94,59 @@ const std::map<uint32_t, uint32_t> FieldCalls = {
     {0x1027F5CC, 0x102CDFD0}, // the zone's character list (called at the same place, X 0x1021B580 = 0x1025E270)
 };
 
+// X's dust cloud move codes 0x38-0x3A (MoveCodeTsutikemuri*, the mod's 0x3F-0x41: OrasXyMoveCodes.h), their 7 methods
+// each (X's vtables 0x103013B4, 0x103013FC, 0x10300D54) and the routines they share, copied (read 25 October). The
+// method [3] (the start) hides the cloud's character (X's command 0x2C, VanishON) and sets the work's counters; [4] (the
+// update) of 0x38/0x39 walks it a step when the player walks by (X 0x1025B01C), of 0x3A turns it toward the player in its
+// range (the range widened by one around a check, X's 0x102DB17C); [5]/[6] remove and make its small swirl effect.
+constexpr Block ClassBlocks[] = {
+    {0x1024FC88, 0x1024FC90}, // 0x3A's destructors
+    {0x10251088, 0x102510A0}, // 0x38's and 0x39's destructors
+    {0x1025B014, 0x1025B0C0}, // 0x38's update, its walk a step (X's 0x1025B01C)
+    {0x1025B228, 0x1025B38C}, // the swirl made (0x1025B230), removed (0x1025B29C), the start (0x1025B30C)
+    {0x102DB160, 0x102DB3E8}, // 0x3A's start, update and code
+    {0x102DCCE8, 0x102DCDD0}, // 0x38's and 0x39's start, methods and codes
+};
+constexpr uint32_t ClassVtables[3][7] = {
+    {0x1025108C, 0x10251088, 0x102DCD24, 0x102DCCE8, 0x1025B014, 0x102DCD14, 0x102DCD1C},
+    {0x1025109C, 0x10251098, 0x102DCDC8, 0x102DCD84, 0x102DCDB0, 0x102DCDB8, 0x102DCDC0},
+    {0x1024FC8C, 0x1024FC88, 0x102DB3E0, 0x102DB160, 0x102DB17C, 0x1025B294, 0x1025B228},
+};
+constexpr uint32_t ClassDirections = 0x102DB3DC; // the literal naming X's data 0x102EB720: the four directions 0, 1, 2, 3
+// X's calls out of the class blocks -> Omega Ruby's same .code functions (X's DllField stub -> X's .code; Omega Ruby's twin
+// read side by side, the character's fields +0x4E-+0x60 the same in both: X 0x4AA680/0x3D3488 = 0x4E32D4/0x3F48F8)
+const std::map<uint32_t, uint32_t> ClassCodeCalls = {
+    {0x101F91C8, 0x2FF8C0}, // the heap's delete
+    {0x101F9200, 0x14EA64}, // an assert, empty in both
+    {0x101FA098, 0x4DBDBC}, // a character's direction
+    {0x101FA1D0, 0x4DBDF4}, // a character's position set
+    {0x101FA238, 0x4DD0E0}, // a character's step checked
+    {0x101FA2E8, 0x48AD84}, // Util_RandomBelow
+    {0x101FA3B8, 0x3FAE50}, // SetCommand (the command numbers translated below)
+    {0x101FC1B0, 0x4E394C}, // a character's flag (X's 0x4AAB48)
+    {0x101FC1B8, 0x4E39C0}, // a character's flag cleared (X's 0x4AABBC)
+    {0x101FC1C0, 0x4DBE10}, // a character's direction (X's 0x4A3FF4)
+    {0x101FC1D8, 0x4E32E4}, // a character's + 0x5E
+    {0x101FC1E0, 0x4E32EC}, // its + 0x60
+    {0x101FC1E8, 0x3F4908}, // + 0x5E set
+    {0x101FC1F0, 0x3F4910}, // + 0x60 set
+    {0x101FE630, 0x4DDF48}, // a position in the character's range (the same code, the + 0x5A-+0x60 range)
+};
+// X's DllField functions the class blocks call -> Omega Ruby's (through the getter word)
+const std::map<uint32_t, uint32_t> ClassFieldCalls = {
+    {0x10272BA4, 0x102C3F74}, // a step's cell checked (Omega Ruby's twin of X's 0x1025B0D0, 0x102A824C, calls it there)
+    {0x1027AB84, 0x102CC730}, // a position -> its grid cell
+    {0x102832E4, 0x102D1644}, // a grid position
+};
+// X's .code accessors Omega Ruby has not (its characters' + 0x5A, + 0x5C, read in Omega Ruby's 0x4DDF48 as in X's), and
+// the swirl's effect (below), as thunks of the room
+constexpr uint32_t ClassThunks[][2] = {
+    {0x101FE668, 0xE1D005FA}, // ldrsh r0, [r0, #0x5a]
+    {0x101FE670, 0xE1D005FC}, // ldrsh r0, [r0, #0x5c]
+    {0x101FE678, 0xE1C015BA}, // strh r1, [r0, #0x5a]
+    {0x101FE680, 0xE1C015BC}, // strh r1, [r0, #0x5c]
+};
+
 // the jump tables (relocated words, zero in the file): X's targets
 constexpr uint32_t UpdateTable = 0x10239734, EffectTable = 0x10277350;
 constexpr uint32_t UpdateTargets[] = {0x10239B00, 0x10239764, 0x102397C4, 0x10239828, 0x10239868, 0x1023994C,
@@ -200,7 +253,8 @@ XyDustCloudRoom XyDustCloudRoomAt(const Bytes& xField, const Bytes& orasField, c
     std::map<uint32_t, uint32_t> thumbStub, fieldStub;
     std::vector<uint32_t> thumbOrder, fieldOrder;
     for (const auto& [x, to] : ThumbCalls) { thumbStub[to] = take(8); thumbOrder.push_back(to); }
-    for (const uint32_t to : {FieldCalls.at(0x1027DE54), FieldCalls.at(0x1027F5CC), OrasStateObject, InitContext, SelectTable, ClearContext})
+    for (const uint32_t to : {FieldCalls.at(0x1027DE54), FieldCalls.at(0x1027F5CC), OrasStateObject, InitContext, SelectTable, ClearContext,
+                              ClassFieldCalls.at(0x10272BA4), ClassFieldCalls.at(0x1027AB84), ClassFieldCalls.at(0x102832E4)})
     {
         fieldStub[to] = take(28);
         fieldOrder.push_back(to);
@@ -210,6 +264,21 @@ XyDustCloudRoom XyDustCloudRoomAt(const Bytes& xField, const Bytes& orasField, c
     std::vector<uint32_t> blockAt;
     for (const Block& b : Blocks) blockAt.push_back(take(b.To - b.From));
     const uint32_t eventVtable = take(8 + 6 * 4) + 8, effectVtable = take(8 + 2 * 4) + 8, desc = take(8);
+    std::map<uint32_t, uint32_t> classThunk;
+    for (const auto& t : ClassThunks) classThunk[t[0]] = take(8);
+    const uint32_t noSwirl = take(12);
+    std::vector<uint32_t> classAt;
+    for (const Block& b : ClassBlocks) classAt.push_back(take(b.To - b.From));
+    const uint32_t directions = take(4);
+    uint32_t classVtable[3];
+    for (uint32_t& v : classVtable) v = take(8 + 7 * 4) + 8;
+    const auto classRoom = [&](uint32_t x) -> uint32_t {
+        for (size_t k = 0; k < std::size(ClassBlocks); k++)
+            if (x >= ClassBlocks[k].From && x < ClassBlocks[k].To) return classAt[k] + (x - ClassBlocks[k].From);
+        char m[64];
+        snprintf(m, sizeof m, "X's dust cloud classes: 0x%X is in no copied block", x);
+        throw FormatError(m);
+    };
     const auto room = [&](uint32_t x) -> uint32_t {
         for (size_t k = 0; k < std::size(Blocks); k++)
             if (x >= Blocks[k].From && x < Blocks[k].To) return blockAt[k] + (x - Blocks[k].From);
@@ -426,6 +495,76 @@ XyDustCloudRoom XyDustCloudRoomAt(const Bytes& xField, const Bytes& orasField, c
     out.insert(out.end(), {0u, typeInfo, room(0x10250E2C), room(0x10250DF0)});
     out.push_back(Word(xField, 0x102EB7C8 - XFieldBase));
     out.push_back(Word(xField, 0x102EB7CC - XFieldBase));
+
+    // the move codes' classes: the thunks, the swirl's effect not made (Omega Ruby's effect list numbers its effects apart:
+    // 0x29 kinds for X's 0x2B, X's 0x1F not looked up yet; its manager's word, X's character manager + 0x14B4, read as 0, so
+    // the swirl's handle stays 0xFFFF and the effect calls are not reached), the blocks, X's four directions, the vtables
+    for (const auto& t : ClassThunks) { placed(classThunk.at(t[0])); out.insert(out.end(), {t[1], 0xE12FFF1E}); }
+    placed(noSwirl);
+    out.insert(out.end(), {0xE3A00CFF, 0xE38000FF, 0xE12FFF1E}); // mov r0, #0xff00; orr r0, r0, #0xff; bx lr
+    for (size_t k = 0; k < std::size(ClassBlocks); k++)
+    {
+        ArmBlockPort p;
+        p.From = ClassBlocks[k].From;
+        p.To = ClassBlocks[k].To;
+        for (const auto& [x, to] : ClassCodeCalls) p.Calls[x] = to;
+        for (const auto& [x, to] : ClassFieldCalls) p.Calls[x] = fieldStub.at(to);
+        for (const auto& [x, to] : classThunk) p.Calls[x] = to;
+        p.Calls[0x10284434] = noSwirl; // the swirl's effect made (not reached: above)
+        p.Calls[0x10282C9C] = noSwirl; // and removed
+        for (const Block& b : ClassBlocks)
+            for (uint32_t a = b.From; a < b.To; a += 4) p.Calls[a] = classRoom(a);
+        const auto word = [&](uint32_t a, uint32_t expected, uint32_t value) {
+            classRoom(a);
+            if (a >= p.From && a < p.To) p.Words[a] = {expected, value};
+        };
+        // a character's manager + 0x8AC -> + 0x8B4, the manager's map + 0x14 -> + 0x10, the map's player + 0x158 -> + 0x164
+        // (as the event's above and XyRoute13's)
+        for (const uint32_t a : {0x1025B044u, 0x102DB210u, 0x102DB26Cu, 0x102DB2C8u}) word(a, 0xE59508AC, 0xE59508B4);
+        word(0x1025B24C, 0xE59258AC, 0xE59258B4);
+        word(0x1025B2C0, 0xE59068AC, 0xE59068B4);
+        word(0x1025B340, 0xE59678AC, 0xE59678B4);
+        word(0x102DCD54, 0xE59608AC, 0xE59608B4);
+        for (const uint32_t a : {0x102DCD68u, 0x102DCD74u}) word(a, 0xE59108AC, 0xE59108B4);
+        for (const uint32_t a : {0x1025B048u, 0x102DB214u, 0x102DB274u}) word(a, 0xE5900014, 0xE5900010);
+        for (const uint32_t a : {0x1025B04Cu, 0x102DB218u, 0x102DB27Cu, 0x102DB364u}) word(a, 0xE5900158, 0xE5900164);
+        word(0x102DB2CC, 0xE590201C, 0xE5902018); // the character manager's + 0x1C -> + 0x18 (XyRoute13's)
+        // the player's position, its + 0xC64 -> + 0x6F8: the player (field::PlayerGrid) read live in both games' heaps (X
+        // run xr3 0x082BF3E4, Omega Ruby run or1 0x082C8030), its part at X's + 0xC04 (a base's vtable) at Omega Ruby's
+        // + 0x698, the same words from there (the position + 0x60 into it)
+        word(0x102DB228, 0xE2801B03, 0xE2801C06); // add r1, r0, #0x600
+        word(0x102DB22C, 0xE2811064, 0xE28110F8); // add r1, r1, #0xf8
+        word(0x102DB280, 0xE2804B03, 0xE2804C06); // add r4, r0, #0x600
+        word(0x102DB288, 0xE2844064, 0xE28440F8); // add r4, r4, #0xf8
+        // the swirl's effect manager (X's character manager + 0x14B4): none (above)
+        word(0x1025B254, 0xE7900005, 0xE3A00000);
+        word(0x1025B2C8, 0xE7900006, 0xE3A00000);
+        word(0x1025B348, 0xE7900007, 0xE3A00000);
+        // X's action commands -> Omega Ruby's same-named ones (ORAS_ENGINE.md 0.0, "Action commands"): Walk_7F 0x12 ->
+        // 0x13, Wait8F 0x28 -> 0x2C, VanishON 0x2C -> 0x30
+        word(0x1025B0A8, 0xE3A01012, 0xE3A01013);
+        word(0x102DB3CC, 0xE3A01012, 0xE3A01013);
+        word(0x102DB2C0, 0xE3A01028, 0xE3A0102C);
+        word(0x1025B334, 0xE3A0102C, 0xE3A01030);
+        // each class's code (its method [2]): the mod's numbers
+        word(0x102DCD24, 0xE3A00038, 0xE3A00000u | (uint32_t)XyMoveCodeToOras(0x38));
+        word(0x102DCDC8, 0xE3A00039, 0xE3A00000u | (uint32_t)XyMoveCodeToOras(0x39));
+        word(0x102DB3E0, 0xE3A0003A, 0xE3A00000u | (uint32_t)XyMoveCodeToOras(0x3A));
+        word(ClassDirections, 0, directions);
+        placed(classAt[k]);
+        const std::vector<uint32_t> w = PortArmBlock(xField, XFieldBase, p, classAt[k]);
+        out.insert(out.end(), w.begin(), w.end());
+    }
+    placed(directions);
+    out.push_back(Word(xField, 0x102EB720 - XFieldBase));
+    if (out.back() != 0x03020100) throw FormatError("X's dust cloud classes: not X's four directions at 0x102EB720");
+    for (size_t c = 0; c < 3; c++)
+    {
+        placed(classVtable[c] - 8);
+        out.insert(out.end(), {0u, 0u}); // the offset to the top, no type info (a DllField address would not be relocated)
+        for (const uint32_t m : ClassVtables[c]) out.push_back(classRoom(m));
+        r.Vtables.push_back(classVtable[c]);
+    }
     if (at + 4 * (uint32_t)out.size() != next) throw FormatError("X's dust cloud code: its layout and words differ");
     for (const uint32_t w : out) Put(r.Room, w);
     r.Code.push_back({XyDustCloudPointer, 0, step, "X/Y's dust clouds: the step routine's address"});

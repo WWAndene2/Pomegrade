@@ -63,6 +63,7 @@ struct XyDustCloudRoom
 {
     Bytes Room;
     std::vector<CodeWord> Code;
+    std::vector<uint32_t> Vtables; // the move codes 0x38-0x3A's classes (the mod's 0x3F-0x41), their vtables in the room
 };
 XyDustCloudRoom XyDustCloudRoomAt(const Bytes& xField, const Bytes& orasField, const Bytes& orasCode, uint32_t at, uint32_t archive,
                                   const std::function<uint32_t(uint32_t)>& sound);

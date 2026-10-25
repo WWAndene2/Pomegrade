@@ -1191,6 +1191,7 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         snprintf(line, sizeof line, "dust boxes: X/Y's table at 0x%X, its filler, reset and hooks", box.Table);
         log.push_back(line);
     }
+    std::vector<uint32_t> cloudVtables; // the dust clouds' move-code classes, for the move-code table
     if (o.XyDustCloud)
     {
         // X/Y's dust clouds (OrasXyDustCloud.h): X's event, effect and battle in the room, the step hook naming it
@@ -1200,6 +1201,7 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         const XyDustCloudRoom cloud = XyDustCloudRoomAt(xy.Read("DllField.cro"), oras.Read("DllField.cro"), code, roomAt, archive,
                                                         [&](uint32_t id) { return sounds.Translate(id); });
         const uint32_t at = roomPut(cloud.Room, "X/Y's dust clouds");
+        cloudVtables = cloud.Vtables;
         words.insert(words.end(), cloud.Code.begin(), cloud.Code.end());
         snprintf(line, sizeof line, "dust clouds: X/Y's event, effect and battle at 0x%X (%zu bytes), its models archive %s", at, cloud.Room.size(), XyArchivePath(archive).c_str());
         log.push_back(line);
@@ -1208,7 +1210,7 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
     {
         // X/Y's move codes past 0x3E (OrasXyMoveCodes.h): the move-code table, 70 slots, and its new codes' vtables
         const uint32_t asked = roomAt;
-        const XyMoveCodesRoom codes = XyMoveCodesRoomAt(asked);
+        const XyMoveCodesRoom codes = XyMoveCodesRoomAt(asked, cloudVtables);
         if (roomPut(codes.Room, "X/Y's move codes") != asked) throw FormatError("--xy-move-codes: the room moved");
         words.insert(words.end(), codes.Code.begin(), codes.Code.end());
         snprintf(line, sizeof line, "move codes: the table at 0x%X, %d slots (X/Y's 0x38-0x3E as 0x%X-0x%X)", codes.Table, XyMoveCodeSlots,

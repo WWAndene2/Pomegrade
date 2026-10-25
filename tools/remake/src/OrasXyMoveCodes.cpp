@@ -32,12 +32,14 @@ int XyMoveCodeToOras(int xCode)
     throw FormatError(m);
 }
 
-XyMoveCodesRoom XyMoveCodesRoomAt(uint32_t at)
+XyMoveCodesRoom XyMoveCodesRoomAt(uint32_t at, const std::vector<uint32_t>& vtables)
 {
+    if (vtables.size() > XyMoveCodesAdded) throw FormatError("X/Y's move codes: more classes than codes added");
     XyMoveCodesRoom r;
     r.Table = (at + 3) & ~3u;
     r.Room.assign(r.Table - at, 0);
-    for (int k = 0; k < XyMoveCodeSlots + XyMoveCodesAdded; k++) Put(r.Room, 0); // the table, then the new codes' vtables
+    for (int k = 0; k < XyMoveCodeSlots; k++) Put(r.Room, 0);                         // the table (the builder fills it)
+    for (int k = 0; k < XyMoveCodesAdded; k++) Put(r.Room, k < (int)vtables.size() ? vtables[k] : 0); // the new codes' vtables
     r.Code.push_back({XyMoveCodesPointer, 0, r.Table, "X/Y's move codes: the room table's address"});
     return r;
 }
