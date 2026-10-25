@@ -119,3 +119,10 @@ To port X/Y code (ORAS_ENGINE.md, "Porting X/Y code: the method"), on a work dir
 (by name and shape); `xy_code_compare.py` aligns an X function with its Omega Ruby twin (`offsets`: the fields that
 moved; `calls`: what each call became), finds a block's twins (`pairs`), what a port takes (`closure`), and where a
 field reached through another is read (`sites`). Disassembling a range of either game: `code_find.py --at`.
+
+Reading a running game (25 October, the dust clouds): `heap_classes.py` names a heap dump's objects by their RTTI
+classes (`table`: each entry of a pointer table, as the action commands', effect kinds' and move codes'; `find`: the
+objects of a class and what points at them; `refs`: the words holding an address), DllField's run-time base given (a
+mod's moves: its MoveCodeNone object's vtable minus the linked one). `archive_find.py` searches every archive of a game
+for bytes (`bytes`: a file a run dumped from memory, found in its archive; members LZ11-decompressed) or lists archives
+by member count (`count`).

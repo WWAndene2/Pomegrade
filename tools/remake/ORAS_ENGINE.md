@@ -270,8 +270,8 @@ where it found only a copy):
   return address, run xw13: 16 calls): **X's DllField 0x1025B30C** (124 bytes: `SetCommand([this], 0x2C, 9)`, then reads
   [chara + 0x8AC] and a table), called from 0x102DB160, 0x102DCCE8 and 0x102DCD84 (28-44 bytes each); its nearest Omega
   Ruby function (0x102A83A4, 72%) is another one. So X's dust-cloud character gets X-only command 0x2C, whose first step
-  hides it; Omega Ruby's command 0x2C is another (flag 8). To port: X's 0x1025B30C path and command 0x2C's controller,
-  the command under a number free in Omega Ruby's table (to choose: the owner's call). Lesson: capstone's `disasm`
+  hides it; Omega Ruby's command 0x2C is another (flag 8). (Corrected the same day: X's 0x2C is ActionCmdVanishON, the
+  same class as Omega Ruby's 0x30, the tables numbered apart: "Action commands" below; the port gives it 0x30.) Lesson: capstone's `disasm`
   stops at the first word it cannot decode: scans over a module must go word by word (the immediate search of 0x2C
   missed 0x1025B334 that way).
   **Move codes, X against Omega Ruby (25 October, static; the owner's choice (B): the whole list before porting)**: each
@@ -326,6 +326,9 @@ where it found only a copy):
   where X draws them, and walking into a cloud starts the event and a wild battle (run dc4c, a Trapinch). Not checked:
   the swirl's sound when the player is near (ported, X's 0xA00C7 translated; no run listened), the phone, the zone 47
   trainers of Omega Ruby's move code 58.
+  The tools of that search: `prototype/heap_classes.py` (a heap dump's tables and objects named by their RTTI classes,
+  who points at them) and `prototype/archive_find.py` (a game's archives searched for bytes, members decompressed, or
+  listed by member count); the runs' `dump`, `readers` and `writers` (headless/run_local.sh).
 - `CallHideItemEncount` is empty in X: nothing to port.
 **Porting X/Y code: the method (24 October, for the next agent; how B2 was done)**:
 1. *Map.* `prototype/xy_import_match.py` gives X's functions Omega Ruby has; `prototype/xy_code_compare.py` (`pairs`,
