@@ -308,7 +308,10 @@ redone; the zones before what runs in them; one phone check per block, not per c
 4. Search, statically, before building (no run): the X/Y features run in engine code with no script command (the field
    encounters of 1 were found this way), and the audit of Omega Ruby's features on Kalos's map (DexNav, soaring, secret
    bases, the PokeNav Plus apps, contests ...: which need per-zone data X/Y's zones lack). Gives the whole list for 5-8.
-5. X/Y's zones, the ground the features run on: packs, camera, light and tiles (substitutes from the audit of
+5. **(Next, owner 26 October: before steps 2-4's rest.)** Substitutes inventoried 26 October (ORAS_ENGINE.md 0.0): the
+   camera (areas and presets) Littleroot's, X/Y's water animations and cloud texture missing, 29 tile behaviours only
+   X/Y's; X/Y's camera and water files tried as is and failing (reverted).
+   X/Y's zones, the ground the features run on: packs, camera, light and tiles (substitutes from the audit of
    22 October); the 137 natives Omega Ruby does not register (159 of its 360 zones call one; the nickname's six and
    Clemont's seven done); map demos (translated but skipped, owner's decision), scripted stairs, door models and street
    lamps; matrices beyond 0 and 58 built. With A5's load test of every zone run as each matrix is built (catches a broken
