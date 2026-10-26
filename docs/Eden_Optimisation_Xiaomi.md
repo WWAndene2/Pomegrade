@@ -477,6 +477,12 @@ never committed or uploaded (same rule as the game dumps, CLAUDE.md §8).
 - **Asynchronous shaders**: they hide stutters by drawing frames with missing effects.
 - **Lower resolution, lower accuracy, "unsafe" CPU options**: user choices, not fixes.
 - **Skipping more GPU syncs on Mali**: the query skips in 2.8 are already a correctness risk.
+- **An OpenGL ES renderer** (owner's question, 26 October): Eden's OpenGL renderer needs desktop OpenGL 4.6
+  (`video_core/renderer_opengl/gl_device.cpp`: "OpenGL 4.6 is not available" ends it; seen), which Android does not
+  offer: the Mali gives OpenGL ES 3.2, so on Android Eden runs Vulkan only. An ES renderer would be a whole new
+  renderer, emulating what ES lacks and the Switch's games use, and it would give less control than Vulkan over the
+  render passes, the Mali's measured limit (4.1). Not measured, inferred: Mali's ES driver is not known to be faster
+  than its Vulkan one. Not proposed.
 
 ---
 
@@ -517,6 +523,13 @@ never committed or uploaded (same rule as the game dumps, CLAUDE.md §8).
 ---
 
 ## 9. Next steps
+
+**State on 26 October** (no new measurement since the thirteenth log, 15 October): the CPU side no longer limits in the
+field; the Mali's work on 140-170 render passes a frame does, most of them ended by the guest's buffer copies
+(`CopyBuffer`). What stays planned on the Mali: record which caller of `CopyBuffer` ends each pass and keep those
+copies out of the passes where ordering allows; Mali driver-version checks (2.8); a try of PanVK on the 13T (allowed
+since 15 October, untested); D7 in the long run. The inline index draws' fix (15 October) is unmeasured.
+
 
 1. Done (14 October): the logs, the first baseline (4.1); ADB refused for good.
 2. The diagnostic's lines: the logs sent on 14 October were cut by the upload before the game started (4.1); to
