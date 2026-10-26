@@ -1,4 +1,5 @@
 #include "OrasXyWorld.h"
+#include "BchUpgrade.h"
 #include "BinLinker.h"
 #include "GameText.h"
 #include "Garc.h"
@@ -114,7 +115,10 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         // file 0 too: its list of Littleroot's props, whose textures were in file 1, stopped the area loader (run hM2)
         for (const size_t f : {(size_t)0, (size_t)1, (size_t)2, (size_t)11}) donor.Files.at(f) = blank.Files.at(f);
         // X/Y's own light (OrasXyLight.h), where the donor's was kept before
-        donor.Files.at(4) = XyLightToOras(BinLinker::Read(Plain(xPacks.Sub((size_t)pack)), "AD").Files.at(4), donor.Files.at(4));
+        const BinLinker xPack = BinLinker::Read(Plain(xPacks.Sub((size_t)pack)), "AD");
+        donor.Files.at(4) = XyLightToOras(xPack.Files.at(4), donor.Files.at(4));
+        for (const size_t f : {(size_t)1, (size_t)2, (size_t)11})
+            if (!xPack.Files.at(f).empty()) donor.Files.at(f) = BchUpgradeTo21(xPack.Files.at(f));
         packData[pack] = donor.Write();
     }
 
