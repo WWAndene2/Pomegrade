@@ -326,7 +326,11 @@ where it found only a copy):
   its own methods copied, its base's Omega Ruby's (field::mmodel::FieldMoveModelEffect, the same code in both), its
   three files (X's a/0/6/6 TM entries 0xBD-0xBF: a model and two animations) appended to Omega Ruby's a/0/6/4 TM (189
   files) at the same numbers, the field's effect pack (built by 0x1026D628: 0xA5 entries of 0x4C bytes, ids 8-0xAC, the
-  TM's entry numbers) grown to 0xB8 entries. Offsets read side by side or live: the effect manager at the character
+  TM's entry numbers) grown to 0xB8 entries, its builder skipping Omega Ruby's own entries 0xAD-0xBC (7 models and 8
+  animations the game never loads as effects: loaded, they left two of the scene's animations without a resource, read
+  near address 0 about 5,000 times a run on X/Y's zones, PCs 0x38A28C and 0x4CCDF4; bisected 26 October: none at
+  6372c2f8, from cc0d85de, gone without the pack grown, runs sc1x-sc3x; with the skip none, the swirl drawn and the
+  battle started, runs sfx, sfb). Offsets read side by side or live: the effect manager at the character
   manager + 0x36C0 (X's + 0x14B4), records at its + 0xD8 (X's + 0xE0); the player's position + 0xC64 -> + 0x6F8 (the
   PlayerGrid read in both heaps); the camera + 0xAB8 -> + 0xAA4; the model (xy_system::H3dShaderModel in both) virtual
   + 0xB8 -> + 0xD0, position + 0x138 -> + 0x130. **The last cause found**: the clouds are characters of **model 0**,

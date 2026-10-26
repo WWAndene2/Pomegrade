@@ -28,10 +28,17 @@ int main()
     check(word(c + 0x24) && word(c + 0x24)->Value == XyDustCloudPointer && word(c + 8)->Value == 0xE59FC014, "the routine's address read from the .code word");
     check(word(c + 0x18) && word(c + 0x18)->Value == B(0x1, c + 0x18, 0x10263498), "an event leaves through the function's exit");
     check(word(c + 0x1C) && word(c + 0x1C)->Value == 0xE59B001C && word(c + 0x20)->Value == B(0xE, c + 0x20, 0x10263308), "else the game's word, and back");
-    check(f.size() == 14, "the hook, ten cave words and the effect pack's three");
+    check(f.size() == 20, "the hook, ten cave words, the effect pack's three and its builder's skip (a word and five)");
     check(word(0x1026D680) && word(0x1026D680)->Expected == 0xE3A040A5 && word(0x1026D680)->Value == 0xE3A040B8, "the effect pack: 0xB8 entries");
     check(word(0x1026D7D4) && word(0x1026D7D4)->Expected == 0x3104 && word(0x1026D7D4)->Value == 8 + 0x4C * 0xB8, "its allocation, 0x4C bytes each");
     check(word(0x102AA3AC) && word(0x102AA3AC)->Expected == 0xE35200A4 && word(0x102AA3AC)->Value == 0xE35200B7, "its lookup to id 0xBF");
+    const uint32_t s = c + 0x28;
+    check(word(0x1026D6E8) && word(0x1026D6E8)->Expected == 0xE2840008 && word(0x1026D6E8)->Value == B(0xE, 0x1026D6E8, s) + 0x01000000u,
+          "the builder's id word calls the skip");
+    check(word(s) && word(s)->Value == 0xE2840008 && word(s + 4)->Value == 0xE240C0AD && word(s + 8)->Value == 0xE35C000F,
+          "the skip: the game's word, then ids 0xAD-0xBC");
+    check(word(s + 0xC) && word(s + 0xC)->Value == 0x812FFF1E && word(s + 0x10)->Value == B(0xE, s + 0x10, 0x1026D79C),
+          "other ids back, those to the builder's next entry");
 
     // Route 13's module: X's area kind 0x18 loads it as the mod's 18, its archive the third number past the game's
     check(XyGymAreaKind(0x18) == 18, "X's area kind 0x18 is the mod's 18");
