@@ -122,8 +122,10 @@ where it found only a copy):
   (static). The diary: a search writes one record through `PokeDiarySet` (0x478BA8-0x478BCC, save + 0x1C2B8 + 0x1E4:
   zone 555, species 569, the date; its event field 0xDB 0x04 not decoded, so not compared with X's 0x204; run dy1,
   `writers`). A can in a Hoenn zone: `dust-box X Z spot N` (OrasSandbox.h), the hub's can of spot 9 on (19, 17) drawn, its
-  script answering "Une poubelle !" (runs hc2, hc3); its contents path not seen there (spot 9 not drawn that day; the
-  natives are the Village's). Not checked: the phone;
+  script answering "Une poubelle !" (runs hc2, hc3); with spot 9's flag set after the zone's load (the reset clears it:
+  0x1959, byte 0x928CAAB bit 1 in that run) and its entries poked to Garbodor level 46, a search opens the can's lid,
+  then the battle (Littleroot's background) plays to its end, the loss taking the player home (runs hc5, hc6). Not
+  checked: the phone;
 - **dust cloud**: no script imports `CallTsuchikemuriEncountEvent` (X 0x102914A0; ported anyway, owner's rule): the step
   does, X's 0x102265DC (0x5AC bytes, reached from 0x1022711C, 0x10227324; Omega Ruby's 0x10263014, 97%: the dust-cloud
   branch to add) creates `field::EventTsuchikemuriEncount` (0x34 bytes, vtable X 0x102FEF4C: 6 methods, about 350
