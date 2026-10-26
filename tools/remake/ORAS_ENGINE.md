@@ -383,10 +383,14 @@ Code to port goes into **DllField's room** (below). Step 2 (Sky and Inverse Batt
 zones are ported (pieces' ground, collision and props, textures, events, scripts, light and battle backgrounds X/Y's own),
 but each X/Y area pack is built on a copy of an Omega Ruby pack (Littleroot's 8 outdoors, a house's indoors:
 OrasXyWorld.cpp). Both games' packs are AD containers of 12 files, the same layout:
-- file 0 (props list), 1 and 11 (textures), 4 (light): X/Y's (converted);
-- file 2, material animations (Pokemon Village's pack 40: bm_w_river, bm_w_taki* waterfalls, lights): left **empty**.
-  X/Y's converted (BchUpgradeTo21) put there: a black screen and 4,335 unmapped reads (run wt1), as Littleroot's beside
-  X/Y's names left meshes black on 19 October (run hZ12gl). Not found why;
+- file 4 (light): X/Y's (converted); files 0 (props list) and 1 (textures): placeholder pack 0's (the pieces carry
+  their own textures);
+- files 2 (material animations: pack 40's bm_w_river, bm_w_taki* waterfalls, lights) and 11 (textures, holding the frames
+  those animations swap, bm_w_river.1/.2...): **X/Y's** (BchUpgradeTo21, 26 October). With pack 0's empty file 11 the
+  animations read near-null entries (4,335 reads, run wt1); with both, the Village's river and waterfall drawn and moving,
+  0 reads (run wtf). X/Y's file 1 added as well: the area stops loading, both screens black (run wtc); pack 40's files 1
+  + 11 are 1.56 MB, Omega Ruby's largest 1.47 MB (a size limit inferred, not read). Other packs than 40 not checked.
+  Runs: the first shot after `draw on` is always black (cm3: 0 then 113.6), shoot after a few frames;
 - file 3, the **camera areas** (a count, then 0x64-byte records: a map area, its mode byte +0x17 read by
   Field_Camera_ApplyModeStep; modes 3, 0 and 1 in both games, the same layout): **Littleroot's**;
 - file 5, a "cloud" texture (X/Y: 60 packs; Omega Ruby: none, so its engine does not read it): **none**;
