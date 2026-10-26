@@ -237,9 +237,22 @@ bool BufferCache<P>::DMACopy(GPUVAddr src_address, GPUVAddr dest_address, u64 am
         gpu_modified_ranges.Add(pair.first, pair.second);
     }
     const auto& copy = copies[0];
-    src_buffer.MarkUsage(copy.src_offset, copy.size);
-    dest_buffer.MarkUsage(copy.dst_offset, copy.size);
-    runtime.CopyBuffer(dest_buffer, src_buffer, copies, true);
+    // Pomegrade: a copy whose source and destination no GPU work has used this frame can run before the frame's
+    // commands (Vulkan's upload command buffer, ahead of them in the same submission), so it no longer ends a render
+    // pass (97 of a frame's 175 in Pokemon Shield's field, Eden_Optimisation_Xiaomi.md section 9). Uploads that could
+    // not move mark their region used, so a copy reading or writing it stays in place; moved uploads are recorded in
+    // that buffer in the guest's order too
+    if constexpr (requires { runtime.CopyBuffer(dest_buffer, src_buffer, copies, true, true); }) {
+        const bool can_reorder = runtime.CanReorderUpload(dest_buffer, copies) &&
+                                 !src_buffer.IsRegionUsed(copy.src_offset, copy.size);
+        src_buffer.MarkUsage(copy.src_offset, copy.size);
+        dest_buffer.MarkUsage(copy.dst_offset, copy.size);
+        runtime.CopyBuffer(dest_buffer, src_buffer, copies, true, can_reorder);
+    } else {
+        src_buffer.MarkUsage(copy.src_offset, copy.size);
+        dest_buffer.MarkUsage(copy.dst_offset, copy.size);
+        runtime.CopyBuffer(dest_buffer, src_buffer, copies, true);
+    }
     if (has_new_downloads) {
         memory_tracker.MarkRegionAsGpuModified(*cpu_dest_address, amount);
     }

@@ -533,6 +533,22 @@ the pass-end count, so each copy that ends a pass is counted at the line of `buf
 the same settings as the thirteenth, then the fix of the callers whose copies can leave the pass. The diagnostic is
 deleted again once read (CLAUDE.md 2.4).
 
+Fourteenth log (owner, 26 October, main at PR #136; the game left running all night standing still in Pokemon Shield's
+field, 1x, asynchronous GPU, compressed render targets, clear on load and defer wait for idle on; the old test cycle,
+still on in the owner's settings, ran its 5 phases in the first 308 s, left out here): 32 132 samples, 13 039 in play,
+measured. FPS 22.8 mean (22.4 median), steady over 9 hours (no heat drift: thermal status 0); 175 render passes a
+frame. What ends them, per frame: **`buffer_cache.h:242` (`DMACopy`, the guest's own GPU buffer copies) 97.0**,
+`vk_rasterizer.cpp:892` (`FragmentBarrier`) 25.0, a draw needing other attachments 20.9, `buffer_cache.h:1719`
+(`MappedUploadMemory`, uploads that could not move) 19.2, texture copies 5, queries 2, submits 2. So more than half of
+the passes are cut by the guest's DMA copies.
+
+Change (26 October): a DMA copy whose source and destination no GPU work has used this frame (the buffer cache's usage
+tracking, reset each frame) is recorded in the upload command buffer, which runs ahead of the frame's commands in the
+same submission, after a barrier ordering it after everything submitted before; so it no longer ends a render pass.
+Ordering kept: uploads that could not move mark their region used (a copy touching it stays in place), uploads that
+moved are in the same buffer in the guest's order, and a copy whose regions were used this frame stays where it was.
+Unmeasured: how many of the 97 qualify, and the FPS. Not built here: CI.
+
 
 **State on 26 October** (no new measurement since the thirteenth log, 15 October): the CPU side no longer limits in the
 field; the Mali's work on 140-170 render passes a frame does, most of them ended by the guest's buffer copies

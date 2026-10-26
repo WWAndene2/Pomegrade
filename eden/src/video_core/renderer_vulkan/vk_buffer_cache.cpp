@@ -437,6 +437,22 @@ void BufferCacheRuntime::CopyBuffer(VkBuffer dst_buffer, VkBuffer src_buffer,
         });
         return;
     }
+    // Pomegrade: a copy between device buffers allowed to move (DMACopy) goes to the upload command buffer too, after
+    // a barrier ordering it after every command before it in submission order (the uploads moved before it, earlier
+    // submissions), so it no longer ends the render pass
+    if (can_reorder_upload) {
+        scheduler.RecordWithUploadBuffer([src_buffer, dst_buffer, vk_copies, barrier](
+                                             vk::CommandBuffer, vk::CommandBuffer upload_cmdbuf) {
+            upload_cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                          VK_PIPELINE_STAGE_TRANSFER_BIT, 0, READ_BARRIER);
+            upload_cmdbuf.CopyBuffer(src_buffer, dst_buffer, VideoCommon::FixSmallVectorADL(vk_copies));
+            if (barrier) {
+                upload_cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, WRITE_BARRIER);
+            }
+        });
+        return;
+    }
 
     scheduler.RequestOutsideRenderPassOperationContext(file, line); // Pomegrade: the caller's (TEMPORARY)
     scheduler.Record([src_buffer, dst_buffer, vk_copies, barrier](vk::CommandBuffer cmdbuf) {
