@@ -332,7 +332,11 @@ where it found only a copy):
   through the battle: the command menu takes the input, the turns play, the owner's level 5 Torchic loses to the wild
   level 28 Trapinch and the game takes the player home as after any lost battle (Littleroot, "... se hâte vers sa
   maison"). So X's battle type 0x16 (the mod's 95) whole works; the stuck menu of run dcj (24 October) does not come
-  back. X's dust box battle (type 0x15, the mod's 94) not run to its end yet.
+  back. **X's dust box battle (type 0x15, the mod's 94) played to its end too (26 October, runs db5, db6, headless)**: in
+  the Pokemon Village (mod zone 555, X's 318), the table drawn by the new day (spots 1, 0, 0, 0, 2, ...), its entries
+  poked to Garbodor level 46, A at the can of spot 0 (tile 37, 59, as in X's zone file; script 10480) gives "Oh ! Un
+  Miasmax sauvage surgit de la poubelle !", X's background 1 of that zone, the command menu, the turns, the loss and
+  home with Mom. Not compared with X itself on screen (the X save in the session is at the game's start).
   The tools of that search: `prototype/heap_classes.py` (a heap dump's tables and objects named by their RTTI classes,
   who points at them) and `prototype/archive_find.py` (a game's archives searched for bytes, members decompressed, or
   listed by member count); the runs' `dump`, `readers` and `writers` (headless/run_local.sh).
