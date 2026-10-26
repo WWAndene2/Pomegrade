@@ -18,6 +18,7 @@
 #   x 28: combat sauvage scripte de X (Ronflex, CallWildBattle 59)
 #   x 30: temoin: celui d'Omega Ruby (CallWildBattle 0)
 #   x 32: Route 13, ses nuages de poussiere (X 272), mod zone 554
+#   x 34: combat inverse de X (CallSakasaBattle 0 65 25, comme son script partage 50)
 # A dust box of X's in this Hoenn zone (26 October, ORAS_ENGINE.md 0.0): the can of spot 9 on tile (19, 17), north-east
 # of the spawn.
 zone
@@ -40,6 +41,7 @@ trigger 26 5 script 10
 trigger 28 5 script 11
 trigger 30 5 script 12
 trigger 32 5 script 13
+trigger 34 5 script 14
 script
 pubvar g_ai_flag ai
 pubvar g_interactive_flag interactive
@@ -229,6 +231,16 @@ not12:
     zero.pri
     retn
 not13:
+    load.pri 0
+    eq.c.pri 14
+    jzer not14
+    push.c 25
+    push.c 65
+    push.c 0
+    sysreq.n CallSakasaBattle 12
+    zero.pri
+    retn
+not14:
     zero.pri
     retn
 data
@@ -251,7 +263,7 @@ TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
 TT..................::................TT
 TT..................::................TT
 TT..................::................TT
-TT..:.:.:.:.:.:.:.:.::..:.:.:.:.:.....TT
+TT..:.:.:.:.:.:.:.:.::..:.:.:.:.:.:...TT
 TT....~~~~~~~~~.....::................TT
 TT....~~~~~~~~~.....::................TT
 TT....~~~~~~~~~.....::.........t......TT
