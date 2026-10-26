@@ -290,7 +290,8 @@ redone; the zones before what runs in them; one phone check per block, not per c
    in step 1, in this order:
    a. done headless on 25 October (runs dc4b-dc4c, ORAS_ENGINE.md 0.0): the clouds hidden by X's ported move codes,
       their swirl drawn by X's ported effect, the battle started by walking into one; Omega Ruby's move code 58 keeps
-      its class in the moved table (zone 47's trainers); left: the phone;
+      its class in the moved table (zone 47's trainers); the reads near address 0 the swirl's port brought (the effect pack
+      loading Omega Ruby's entries 0xAD-0xBC) fixed on 26 October (runs sfx, sfb: none); left: the phone;
    b. done headless on 26 October (ORAS_ENGINE.md 0.0): the dust cloud's battle and the dust box's play to their end
       (runs bt1, db5, db6); the searched can as in X itself (runs sc2, xv3), the weekday list (static), the diary record
       written (run dy1), a can in a Hoenn zone (sandbox `dust-box`: its lid and its battle to the end, runs hc2-hc6); left: the phone;
