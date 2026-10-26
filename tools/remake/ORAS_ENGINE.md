@@ -379,6 +379,31 @@ where it found only a copy):
    or ask the owner (CLAUDE.md 8).
 Code to port goes into **DllField's room** (below). Step 2 (Sky and Inverse Battles, Battle Chateau, 79 sounds) follows.
 
+**Step 2, the inventory (26 October; what is the same in both games, what differs; read statically and headless):**
+- *Sounds.* X/Y's 1,554 sound ids: 146 streams (music, ported apart), 1,329 of a name Omega Ruby has, 79 of none. By
+  their data (the sound's sequence file, its banks, their wave archives; each file's version word +8 set aside, 0x0100 in
+  X/Y and 0x0101 in Omega Ruby, and a bank's wave archive ids 0x05xxxxxx compared by the archive's contents, the two
+  games numbering them apart): **1,005 the same, 324 different** (212 `SEQ_SE_FLD`, 40 `SEQ_SE_DEMO`, 23 `SEQ_SE_SYS`,
+  11 `SEQ_SE_BT`, the rest menus and others). Today all 1,329 take Omega Ruby's sound of the name (OrasXySound.h): the
+  324 should be X/Y's own (the owner's rule), which needs X/Y's sequences, banks and wave archives appended to
+  Omega Ruby's archive (BcsarAppendStreams adds streams only: not written). The 79 of no name: 40 roller skates
+  (`SEQ_SE_RS_*`), 30 the PR Video studio (`SEQ_SE_PVD_*`), the moves 546-550 (`SEQ_SE_W546`-`W550`), 4 `FT`/`PFT2`.
+  Not checked: that the 324 sound different to the ear.
+- *Inverse and Sky Battles.* Omega Ruby keeps X/Y's three natives, called by none of its scripts: `PokePartyCheckSkyBattle`
+  (the same code as X's, its callees too: merged), `SkyBattleResultGet` (the same, the battle's result byte read at the
+  game data + 0x1D0, X's + 0x1CC, where both games' `_BattleGetResult` read it: merged) and `CallSakasaBattle` (the same
+  but one constant: the battle's two background values, Omega Ruby's 7 and X's 8, FUN_003EAB6C's arguments taking the
+  zone's and the tile's place; its setup FUN_003DA5CC is X's 0x3BC720 built on Omega Ruby's structures). X/Y's scripts
+  for them are shared scripts 50 (Inverse, ids 10425-10429; X zone 280's character 0, model 88) and 52 (Sky, ids
+  10350-10379, `_CallTrainerBattleCore` between the party check and the result), ported with the others (23 October).
+  `CallSakasaBattle(0, 65, 25)` (X's arguments; 55 and 15 with flag 2640) run from the test hub (trigger x 34, run iv2):
+  a battle starts, against Omega Ruby's "Jeremiah le Patron" (trainer name 681, a Magneton) on an indoor background, not
+  X's opponent; where the 65 and 25 pick him is not read (both setups' FUN_003676B4 / X 0x34F110 differ in one branch,
+  0x1F019C / 0x1DC0D0). Not read: X's Inverse opponent and background on screen (run xi1: the house drawn without its
+  character, a save moved into a zone), the type chart's inversion in DllBattle, how a Sky trainer's battle reaches
+  script 52 (no X character holds ids 10350-10379).
+- *Battle Chateau.* No native of its own in X; its zones' scripts and 51 noble classes: not read yet.
+
 **What changed on 23 October** (all headless; **nothing of 22-23 October is tested on the phone**):
 - wild battles in X/Y's zones: X/Y's encounter effect entries and battle types, its 9 intros, hordes on its tiles with
   its horde camera, fishing and Rock Smash types (0.1 below, "Hordes" and "All 9");
