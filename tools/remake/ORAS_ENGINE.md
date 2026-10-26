@@ -388,7 +388,12 @@ Code to port goes into **DllField's room** (below). Step 2 (Sky and Inverse Batt
   324 should be X/Y's own (the owner's rule), which needs X/Y's sequences, banks and wave archives appended to
   Omega Ruby's archive (BcsarAppendStreams adds streams only: not written). The 79 of no name: 40 roller skates
   (`SEQ_SE_RS_*`), 30 the PR Video studio (`SEQ_SE_PVD_*`), the moves 546-550 (`SEQ_SE_W546`-`W550`), 4 `FT`/`PFT2`.
-  Not checked: that the 324 sound different to the ear.
+  Not checked: that the 324 sound different to the ear. The way chosen (owner, 26 October): X/Y's sounds **added
+  beside** Omega Ruby's, with their own sequences, banks and wave archives, rather than written over Omega Ruby's
+  same-named data (those files are shared by several sounds: Hoenn's would change). A sound plays only once its data
+  is loaded, which the game does by groups (CGRP: 28 in X/Y, 2 of them the same as Omega Ruby's), scene by scene: the
+  added files must go into the groups loaded where X/Y's sounds play. Not read yet: which groups Omega Ruby loads in the
+  field and in battle. Tools: `prototype/sound_compare.py` (this comparison, `--list` the 324).
 - *Inverse and Sky Battles.* Omega Ruby keeps X/Y's three natives, called by none of its scripts: `PokePartyCheckSkyBattle`
   (the same code as X's, its callees too: merged), `SkyBattleResultGet` (the same, the battle's result byte read at the
   game data + 0x1D0, X's + 0x1CC, where both games' `_BattleGetResult` read it: merged) and `CallSakasaBattle` (the same
@@ -403,6 +408,9 @@ Code to port goes into **DllField's room** (below). Step 2 (Sky and Inverse Batt
   character, a save moved into a zone), the type chart's inversion in DllBattle, how a Sky trainer's battle reaches
   script 52 (no X character holds ids 10350-10379).
 - *Battle Chateau.* No native of its own in X; its zones' scripts and 51 noble classes: not read yet.
+  Tools of this inventory: `prototype/call_tree_compare.py` (a function and its callees in both games),
+  `prototype/bch_sections.py` (what a BCH holds), `prototype/bps_apply.py` (a mod's patched file rebuilt),
+  `prototype/oras_save.py flag` (a moved flag set in a save).
 
 **What changed on 23 October** (all headless; **nothing of 22-23 October is tested on the phone**):
 - wild battles in X/Y's zones: X/Y's encounter effect entries and battle types, its 9 intros, hordes on its tiles with

@@ -298,7 +298,12 @@ redone; the zones before what runs in them; one phone check per block, not per c
    c. moved to step 6 (owner, 26 October: what depends on a later step goes with it): Sweet Scent's refusal by weather.
    `CallHideItemEncount` is empty in X/Y: nothing to port.
 2. Finish battles (the battle modules are mapped): Sky and Inverse Battles, the Battle Chateau, the 79 sound effects
-   and cries with no match.
+   and cries with no match. **Inventory, 26 October** (ORAS_ENGINE.md 0.0): the Sky Battles' natives the same in both
+   games (merged); the Inverse Battle's the same but its background values, its battle started from the test hub against
+   Omega Ruby's own trainer (X's opponent not found yet); of X/Y's sounds of an Omega Ruby name, 1,005 the same and 324
+   different, to port beside Omega Ruby's with the 79 of no name (owner's choice: added, not written over; needs the
+   sound archive's sequences, banks and wave archives appended and put in the groups the game loads: not written). Left
+   to read: X's Inverse opponent and type chart, how a Sky trainer reaches its script, the Battle Chateau, the groups.
 3. Phone check of the battle block (everything of 22-23 October).
 4. Search, statically, before building (no run): the X/Y features run in engine code with no script command (the field
    encounters of 1 were found this way), and the audit of Omega Ruby's features on Kalos's map (DexNav, soaring, secret

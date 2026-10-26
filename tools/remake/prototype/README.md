@@ -126,3 +126,12 @@ objects of a class and what points at them; `refs`: the words holding an address
 mod's moves: its MoveCodeNone object's vtable minus the linked one). `archive_find.py` searches every archive of a game
 for bytes (`bytes`: a file a run dumped from memory, found in its archive; members LZ11-decompressed) or lists archives
 by member count (`count`).
+
+Comparing the two games and reading a mod's files (26 October, step 2's inventory, ORAS_ENGINE.md 0.0):
+`call_tree_compare.py` compares an Omega Ruby function with its X/Y twin and what they call, down a few levels (import
+stubs followed, call targets and address literals set aside; no Ghidra export needed). `sound_compare.py` compares
+X/Y's sounds with Omega Ruby's same-named ones by what they play (sequence, banks, wave archives; files' version word
+and wave archive numbering set aside): the same ones merged, the different ones to port. `bch_sections.py` lists what
+each BCH of a file or container holds (models, materials, textures, the kinds of animations). `bps_apply.py` rebuilds a
+file a mod ships as a BPS patch (romfs_ext/*.bps), to read its entries. `oras_save.py flag` sets moved event flags
+(0xD00 and up) in a save.
