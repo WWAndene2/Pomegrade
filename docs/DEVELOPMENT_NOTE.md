@@ -291,7 +291,8 @@ redone; the zones before what runs in them; one phone check per block, not per c
    a. done headless on 25 October (runs dc4b-dc4c, ORAS_ENGINE.md 0.0): the clouds hidden by X's ported move codes,
       their swirl drawn by X's ported effect, the battle started by walking into one; Omega Ruby's move code 58 keeps
       its class in the moved table (zone 47's trainers); left: the phone;
-   b. the dust box's open checks: its battle played to the end (only the menu seen, db2), the searched can's
+   b. the dust box's open checks (the dust cloud's battle plays to its end: run bt1, 26 October): its battle played
+      to the end (only the menu seen, db2), the searched can's
       animation, the weekday list, a can in a Hoenn zone, the diary record;
    c. Sweet Scent's refusal by weather: with X/Y's weather, step 6 (unchanged).
    `CallHideItemEncount` is empty in X/Y: nothing to port.
