@@ -324,8 +324,10 @@ where it found only a copy):
   makes no effect for a character with a model (byte + 0x887 non zero) and the flag 0x800000: their swirls were made
   and dropped (run dc3c: the start called 5 times, never the update). Model 0 kept: the 9 swirls live (run dc4b), drawn
   where X draws them, and walking into a cloud starts the event and a wild battle (run dc4c, a Trapinch). Not checked:
-  the swirl's sound when the player is near (ported, X's 0xA00C7 translated; no run listened), the phone, the zone 47
-  trainers of Omega Ruby's move code 58.
+  the swirl's sound when the player is near (ported, X's 0xA00C7 translated; no run listened), the phone. Omega Ruby's
+  own codes keep their classes in the moved table (run dc4b's memory: 0x38-0x39 Spin, 0x3A MoveCodeMimicryType1Move,
+  the class of the game's own 0x3A, 0x3E Fishing2), so its zone 47 trainers of move code 58 keep theirs (a walk in zone
+  47 not run).
   The tools of that search: `prototype/heap_classes.py` (a heap dump's tables and objects named by their RTTI classes,
   who points at them) and `prototype/archive_find.py` (a game's archives searched for bytes, members decompressed, or
   listed by member count); the runs' `dump`, `readers` and `writers` (headless/run_local.sh).

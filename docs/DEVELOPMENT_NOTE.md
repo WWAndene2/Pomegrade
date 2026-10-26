@@ -289,8 +289,8 @@ redone; the zones before what runs in them; one phone check per block, not per c
    (`headless/test_all_mod.sh`, Route 13 as zone 554, rebuilt and booted to the hub on 25 October, run boot3). Left
    in step 1, in this order:
    a. done headless on 25 October (runs dc4b-dc4c, ORAS_ENGINE.md 0.0): the clouds hidden by X's ported move codes,
-      their swirl drawn by X's ported effect, the battle started by walking into one; left: the phone, Omega Ruby's
-      zone 47 trainers of move code 58;
+      their swirl drawn by X's ported effect, the battle started by walking into one; Omega Ruby's move code 58 keeps
+      its class in the moved table (zone 47's trainers); left: the phone;
    b. the dust box's open checks: its battle played to the end (only the menu seen, db2), the searched can's
       animation, the weekday list, a can in a Hoenn zone, the diary record;
    c. Sweet Scent's refusal by weather: with X/Y's weather, step 6 (unchanged).
