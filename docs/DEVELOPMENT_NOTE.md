@@ -294,7 +294,7 @@ redone; the zones before what runs in them; one phone check per block, not per c
    b. the dust box's open checks (the dust cloud's battle plays to its end: run bt1, 26 October): its battle plays
       to the end (runs db5, db6, 26 October: the can's line, the turns, the loss); left: the searched can's
       animation, the weekday list, a can in a Hoenn zone, the diary record;
-   c. Sweet Scent's refusal by weather: with X/Y's weather, step 6 (unchanged).
+   c. moved to step 6 (owner, 26 October: what depends on a later step goes with it): Sweet Scent's refusal by weather.
    `CallHideItemEncount` is empty in X/Y: nothing to port.
 2. Finish battles (the battle modules are mapped): Sky and Inverse Battles, the Battle Chateau, the 79 sound effects
    and cries with no match.
@@ -310,7 +310,8 @@ redone; the zones before what runs in them; one phone check per block, not per c
 6. X/Y's features, grouped by the code they share (3d item 9):
    - gyms and their gates: the seven left (Clemont's lift, Ramos's garden, Valerie's warp, Korrina, Viola, Olympia,
      Wulfric), the Elite Four and Champion elevators, badge gates and Victory Road;
-   - field movement and world: wall climbing, roller skates and riding, Route 13's sandstorm, Poke Radar, Friend Safari,
+   - field movement and world: wall climbing, roller skates and riding, Route 13's sandstorm (X/Y's weather; with it Sweet Scent's refusal by
+     weather and X/Y's lead ability rule, step 1 above), Poke Radar, Friend Safari,
      berry fields (zone 352's `GymI01*` natives and `CallWildBattleNutsYard`: a block of 9 natives);
    - menus: the badge case's Kalos drawer (in progress, set aside 22 October), X/Y's Pokedex, Holo Caster;
    - shops and places: clothes, salon and photo shop (the mirror only), Pokemon Center promotions, the Poke Ball factory,
