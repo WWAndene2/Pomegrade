@@ -111,8 +111,19 @@ where it found only a copy):
   "Une poubelle !" once empty) and, its entry poked to Garbodor level 46, X's battle ("Oh ! Un Miasmax sauvage surgit de
   la poubelle", the command menu). Fixed by the run: the script id rows are searched in order for the first whose first
   id is at most the id (run db1: the fatal error 0x11EF4C from 0x3FB290 with the rows after the game's): X/Y's go
-  first. Not checked: the searched can's animation (the prop routine), a weekday list, a can in a Hoenn zone (the
-  sandbox has no statement placing furniture with a script nor a prop: to add), the diary record;
+  first. **Checked 26 October (headless)**: X itself run in its Pokemon Village (run xv3, the owner's X save moved by
+  `prototype/xy_save_move.py`, `POMEGRADE_GAME=dumps/x.3ds` relative, as `run_local.sh` names X's save folder by it): its
+  can of spot 0 stands in the flower field on tile (37, 59), behind the player seen from (37, 60), as in the mod; a search
+  opens its lid, closed again after, the same in the mod (runs sc2, xv3). The prop routine: X gives the animation call
+  s0 = 1.0 (`vldr` at X's 0x3B4C04), the cave did not (fixed; no difference seen, runs sc9, sc10); at the zone load X's
+  reset clears the spots' flags, the filler sets the drawn spots' (spots 0 and 5: run sc8, `readers` under the
+  interpreter), then the routine reads them. The weekday list: the new-day stub is X's 0x3CEB48's lines (0x11A, 0x11B,
+  weekday 4 then 2), its three calls the same code in both games, the date at + 0xEB0 as Omega Ruby's 0x3F0AD0 reads it
+  (static). The diary: a search writes one record through `PokeDiarySet` (0x478BA8-0x478BCC, save + 0x1C2B8 + 0x1E4:
+  zone 555, species 569, the date; its event field 0xDB 0x04 not decoded, so not compared with X's 0x204; run dy1,
+  `writers`). A can in a Hoenn zone: `dust-box X Z spot N` (OrasSandbox.h), the hub's can of spot 9 on (19, 17) drawn, its
+  script answering "Une poubelle !" (runs hc2, hc3); its contents path not seen there (spot 9 not drawn that day; the
+  natives are the Village's). Not checked: the phone;
 - **dust cloud**: no script imports `CallTsuchikemuriEncountEvent` (X 0x102914A0; ported anyway, owner's rule): the step
   does, X's 0x102265DC (0x5AC bytes, reached from 0x1022711C, 0x10227324; Omega Ruby's 0x10263014, 97%: the dust-cloud
   branch to add) creates `field::EventTsuchikemuriEncount` (0x34 bytes, vtable X 0x102FEF4C: 6 methods, about 350

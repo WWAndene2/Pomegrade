@@ -18,12 +18,15 @@
 #   x 28: combat sauvage scripte de X (Ronflex, CallWildBattle 59)
 #   x 30: temoin: celui d'Omega Ruby (CallWildBattle 0)
 #   x 32: Route 13, ses nuages de poussiere (X 272), mod zone 554
+# A dust box of X's in this Hoenn zone (26 October, ORAS_ENGINE.md 0.0): the can of spot 9 on tile (19, 17), north-east
+# of the spawn.
 zone
 pack 8
 spawn 17.5 18.5
 name Carrefour des tests
 encounters 24
 door 28 16 house 223
+dust-box 19 17 spot 9
 trigger 4 5 script 1
 trigger 6 5 script 2
 trigger 8 5 script 3

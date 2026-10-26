@@ -20,6 +20,7 @@
 #include "Garc.h"
 
 #include <cstdint>
+#include <array>
 #include <map>
 #include <set>
 #include <string>
@@ -40,6 +41,11 @@ std::set<uint32_t> XyPieceProps(const Bytes& xPiece);
 // Returns X's type -> Omega Ruby's
 std::map<uint32_t, uint32_t> XyPropsToOras(const std::set<uint32_t>& types, const Garc& xProps, const Bytes& xAreaPack, size_t xPackIndex,
                                            Garc& orasProps, const Garc& orasPropsOriginal, Bytes& orasAreaPack, std::vector<std::string>& log);
+
+// a piece (an Omega Ruby GR container) with props added to its file 3 (u32 count, then 44 bytes each, OrasXyPiece.cpp): each
+// {tile x, tile z, id offset} placed at its tile's centre in the whole matrix's pixels (18 a tile), scale 1, no rotation, of
+// type `type`, its last word the id XyDustBoxPropId + the offset (X's can props, OrasXyDustBox.h)
+Bytes AddPieceProps(const Bytes& piece, uint32_t type, const std::vector<std::array<int, 3>>& props);
 
 // xPiece: X's a/0/4/1 member (plain); xAreaPack: the X area pack its zone draws from (a/0/1/3 member xPackIndex, plain);
 // kage: an Omega Ruby piece's file 6; orasAreaPack: the Omega Ruby pack the piece will draw from, X's textures added to it;

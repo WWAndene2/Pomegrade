@@ -12,6 +12,7 @@
 #include "OrasNewZone.h"
 #include "OrasWorkspace.h"
 #include "OrasXyPiece.h"
+#include "OrasXyDustBox.h"
 #include "OrasXyEncounters.h"
 #include "OrasXyEvents.h"
 #include "OrasXySharedScripts.h"
@@ -51,6 +52,7 @@ struct SandboxZone
     std::string Script, InitScript;             // assembler source (Amx.h) of the zone's own scripts, empty: ones that do nothing
     std::string Scene;                          // the zone script as a scene (SceneScript.h), instead of Script
     std::vector<std::array<int, 2>> Restyles;   // an edited zone's character (its number, word 0) and its new model
+    std::vector<std::array<int, 3>> DustBoxes;  // X/Y's dust box (dust-box X Z spot N): its tile and its spot, 0-9
 };
 
 struct SandboxDescription
@@ -356,6 +358,17 @@ static SandboxDescription ReadDescription(const std::string& text)
             if (ok && (t[2] < 1 || t[3] < 1 || t[4] < 1)) fail("a trigger's size and script are 1 or more");
             if (ok && (t[5] < 0 || t[5] > 0xFFFF)) fail("a trigger's height is 0 to 65535 pixels");
             z.Triggers.push_back(t);
+        }
+        else if (what == "dust-box")
+        {
+            // dust-box X Z spot N: X/Y's can of spot N (its table, OrasXyDustBox.h) on tile X, Z, as X's Pokemon Village holds its
+            // own: the furniture running the shared script's id 10480 + N (moved: 40480 + N) and X's can model, whose prop id
+            // 0xC50 + N the searched look reads; needs oras-sandbox --xy and, in the engine, --xy-dust-box
+            std::array<int, 3> b{0, 0, 0};
+            std::string key;
+            ok = (bool)(words >> b[0] >> b[1] >> key >> b[2]) && key == "spot";
+            if (ok && (b[2] < 0 || b[2] > 9)) fail("a dust box's spot is 0-9 (X's table)");
+            z.DustBoxes.push_back(b);
         }
         else if (what == "door")
         {
@@ -771,6 +784,25 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
                 log.push_back("piece (" + std::to_string(x) + ", " + std::to_string(y) + "): X/Y's a/0/4/1 member " + std::to_string((*xy)[2]));
             }
             else piece = BuildTownPiece(layout, to, pieceArchive, areaArchive, budget, x, y, line, packData, log);
+            // the dust boxes on this piece: X's can model (a/0/2/4 member 4 of X, converted once) placed on their tiles
+            std::vector<std::array<int, 3>> cans;
+            for (const SandboxZone& z : d.Zones)
+                for (const auto& b : z.DustBoxes)
+                    if (b[0] / 40 == x && b[1] / 40 == y) cans.push_back(b);
+            if (!cans.empty())
+            {
+                if (ws.XyRom.empty()) throw FormatError("sandbox: dust-box needs oras-sandbox --xy <x.3ds>");
+                if (!xyPropTypes.count(XyCanPropType))
+                {
+                    N3dsRom xRom(ws.XyRom);
+                    const Garc xProps(xRom.Read("a/0/2/4")), xPacks(xRom.Read("a/0/1/3"));
+                    for (const auto& [from, to2] : XyPropsToOras({XyCanPropType}, xProps, Plain(xPacks.Sub(XyCanPack)), XyCanPack, ws.Edited("a/0/2/3"),
+                                                                 ws.Original("a/0/2/3"), packData, log))
+                        xyPropTypes[from] = to2;
+                }
+                piece = AddPieceProps(piece, xyPropTypes.at(XyCanPropType), cans);
+                log.push_back("piece (" + std::to_string(x) + ", " + std::to_string(y) + "): " + std::to_string(cans.size()) + " dust box(es)");
+            }
             const size_t index = AppendMember(newPieces, pieceArchive, to.TargetPiece, piece, "GR");
             matrix.Piece(x, y) = (uint16_t)index;
             snprintf(line, sizeof line, "piece (%d, %d): a/0/3/9 member %zu, %zu bytes", x, y, index, piece.size());
@@ -1032,6 +1064,13 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
         {
             zone.Doors.push_back(NewDoorWarp(insides.at(insideAt++).Zone, 0, door[0], door[1]));
             zone.Doors.back().Raw[5] = (uint16_t)door[4];
+        }
+        for (const auto& b : z.DustBoxes)
+        {
+            // X's can furniture as its zone 318 holds it (script, then 2 4 0, the tile, its size 1 x 1)
+            ZoneFurniture fu;
+            fu.Raw = {(uint16_t)(XyDustBoxScriptId + XyScriptIdShift + b[2]), 2, 4, 0, (uint16_t)b[0], (uint16_t)b[1], 1, 1, 0, 0};
+            zone.Furniture.push_back(fu);
         }
         for (const auto& t : z.Triggers)
         {
