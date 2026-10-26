@@ -549,6 +549,14 @@ Ordering kept: uploads that could not move mark their region used (a copy touchi
 moved are in the same buffer in the guest's order, and a copy whose regions were used this frame stays where it was.
 Unmeasured: how many of the 97 qualify, and the FPS. Not built here: CI.
 
+Fifteenth log (owner, 26 October, main at PR #137, the same place and settings, test cycle off, 125 samples in play,
+about 2 minutes), measured: FPS 23.3 mean (23.6 median) against 22.8; 168 passes a frame against 175; `DMACopy` ends 88
+a frame against 97. So about one DMA copy in ten qualified: the others touch regions this frame's draws already used
+(the guest draws, then copies). The gain is within the noise of a short run; the owner judges it too small. The change
+is kept (it only moves copies whose order cannot change). What could take the other copies out of the pass: renaming
+the destination when this frame only read it (a new region for the copy, as drivers do); a source this frame wrote
+must wait. Not started.
+
 
 **State on 26 October** (no new measurement since the thirteenth log, 15 October): the CPU side no longer limits in the
 field; the Mali's work on 140-170 render passes a frame does, most of them ended by the guest's buffer copies
