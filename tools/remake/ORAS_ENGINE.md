@@ -328,6 +328,11 @@ where it found only a copy):
   own codes keep their classes in the moved table (run dc4b's memory: 0x38-0x39 Spin, 0x3A MoveCodeMimicryType1Move,
   the class of the game's own 0x3A, 0x3E Fishing2), so its zone 47 trainers of move code 58 keep theirs (a walk in zone
   47 not run).
+  **A dust cloud's battle played to its end (26 October, run bt1, headless)**: walking into the cloud, then A pressed
+  through the battle: the command menu takes the input, the turns play, the owner's level 5 Torchic loses to the wild
+  level 28 Trapinch and the game takes the player home as after any lost battle (Littleroot, "... se hâte vers sa
+  maison"). So X's battle type 0x16 (the mod's 95) whole works; the stuck menu of run dcj (24 October) does not come
+  back. X's dust box battle (type 0x15, the mod's 94) not run to its end yet.
   The tools of that search: `prototype/heap_classes.py` (a heap dump's tables and objects named by their RTTI classes,
   who points at them) and `prototype/archive_find.py` (a game's archives searched for bytes, members decompressed, or
   listed by member count); the runs' `dump`, `readers` and `writers` (headless/run_local.sh).
