@@ -1,4 +1,5 @@
 #include "OrasXyWorld.h"
+#include "BchUpgrade.h"
 #include "BinLinker.h"
 #include "GameText.h"
 #include "Garc.h"
@@ -114,7 +115,15 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         // file 0 too: its list of Littleroot's props, whose textures were in file 1, stopped the area loader (run hM2)
         for (const size_t f : {(size_t)0, (size_t)1, (size_t)2, (size_t)11}) donor.Files.at(f) = blank.Files.at(f);
         // X/Y's own light (OrasXyLight.h), where the donor's was kept before
-        donor.Files.at(4) = XyLightToOras(BinLinker::Read(Plain(xPacks.Sub((size_t)pack)), "AD").Files.at(4), donor.Files.at(4));
+        const BinLinker xPack = BinLinker::Read(Plain(xPacks.Sub((size_t)pack)), "AD");
+        donor.Files.at(4) = XyLightToOras(xPack.Files.at(4), donor.Files.at(4));
+        // X/Y's material animations (2: Pokemon Village's river and waterfalls) and the textures they swap frames from (11:
+        // bm_w_river.1/.2...), where pack 0's empty ones left the animations reading near-null entries (4,335 reads, run
+        // wt1): the Village's water drawn and moving (run wtf). X/Y's file 1 too stopped the area loading (both screens black,
+        // run wtc; files 1 + 11 are 1.56 MB in pack 40, Omega Ruby's largest 1.47 MB: a size limit inferred, not read);
+        // pack 0's kept, the pieces drawing without it. Other packs than 40 not checked
+        for (const size_t f : {(size_t)2, (size_t)11})
+            if (!xPack.Files.at(f).empty()) donor.Files.at(f) = BchUpgradeTo21(xPack.Files.at(f));
         packData[pack] = donor.Write();
     }
 
