@@ -379,6 +379,29 @@ where it found only a copy):
    or ask the owner (CLAUDE.md 8).
 Code to port goes into **DllField's room** (below). Step 2 (Sky and Inverse Battles, Battle Chateau, 79 sounds) follows.
 
+**Step 5, the substitutes' inventory (26 October, owner: the map before the rest; read statically and headless).** X/Y's
+zones are ported (pieces' ground, collision and props, textures, events, scripts, light and battle backgrounds X/Y's own),
+but each X/Y area pack is built on a copy of an Omega Ruby pack (Littleroot's 8 outdoors, a house's indoors:
+OrasXyWorld.cpp). Both games' packs are AD containers of 12 files, the same layout:
+- file 0 (props list), 1 and 11 (textures), 4 (light): X/Y's (converted);
+- file 2, material animations (Pokemon Village's pack 40: bm_w_river, bm_w_taki* waterfalls, lights): left **empty**.
+  X/Y's converted (BchUpgradeTo21) put there: a black screen and 4,335 unmapped reads (run wt1), as Littleroot's beside
+  X/Y's names left meshes black on 19 October (run hZ12gl). Not found why;
+- file 3, the **camera areas** (a count, then 0x64-byte records: a map area, its mode byte +0x17 read by
+  Field_Camera_ApplyModeStep; modes 3, 0 and 1 in both games, the same layout): **Littleroot's**;
+- file 5, a "cloud" texture (X/Y: 60 packs; Omega Ruby: none, so its engine does not read it): **none**;
+- file 6, the **camera presets** (0x44-byte records read by number, Field 0x102C9C50 copying one; a u16 number, a u16
+  flag, 1 in Omega Ruby and 0 in X/Y, then height, pitch, field of view 32, far 2000, distance...; X/Y's 60 in 4,096
+  bytes, Omega Ruby's 16 in 1,152): **Littleroot's**. Read every frame by Field 0x102C9974-0x102C9D30 and 0x102700CC
+  (run cam2, `readers`). X/Y's files 3 and 6 put there: the camera much lower and closer than X's own at the same tile
+  (run cm3 against X run xv3) and unmapped reads back, while Littleroot's gives a view close to X's: Omega Ruby does
+  not choose or read X/Y's presets as X does. To compare: the two games' camera code.
+- Tiles: X/Y's values kept, but 0x31000020 made 0x20 (2,317 tiles; its meaning in X not read). By behaviour (the low
+  16 bits): X/Y uses 49, Omega Ruby 58, 20 shared; **29 only X/Y's**, on 55,274 of X/Y's 1,715,200 tiles (3.2 %; most
+  0x1821, 0x0005, 0x2004), which Omega Ruby reads its own way. Field_ClassifyAttribute is the same in both games
+  (Omega Ruby 0x102688CC, X 0x1022AFB4); the .code functions it and others use not compared yet.
+All attempts reverted: the mod as merged.
+
 **Step 2, the inventory (26 October; what is the same in both games, what differs; read statically and headless):**
 - *Sounds.* X/Y's 1,554 sound ids: 146 streams (music, ported apart), 1,329 of a name Omega Ruby has, 79 of none. By
   their data (the sound's sequence file, its banks, their wave archives; each file's version word +8 set aside, 0x0100 in
