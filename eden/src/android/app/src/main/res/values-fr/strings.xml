@@ -1173,4 +1173,9 @@
     <string name="pomegrade_clear_on_load_description">Une passe de rendu qui commence par effacer tout l\'écran l\'efface dès son début, au lieu de relire d\'abord l\'ancienne image en mémoire : moins de trafic mémoire à chaque image sur les GPU de téléphone</string>
     <string name="pomegrade_defer_wait_for_idle">Moins de coupures de rendu (Mali)</string>
     <string name="pomegrade_defer_wait_for_idle_description">Quand le jeu demande au GPU d\'attendre en plein dessin, attend à la fin de l\'étape de dessin au lieu de la couper en deux : beaucoup moins de trafic mémoire sur les GPU de téléphone. Expérimental : un effet peut s\'afficher avec une image de retard ou scintiller</string>
+    <string name="pomegrade_test_reorder_all_uploads">Test : envois en début d\'image</string>
+    <string name="pomegrade_test_skip_fragment_barriers">Test : ignorer les barrières de fragment</string>
+    <string name="pomegrade_test_description">Pour mesurer seulement, dessine des images fausses : montre de combien le jeu pourrait aller plus vite. À désactiver pour jouer</string>
+    <string name="pomegrade_test_cycle">Cycle de test (4 min)</string>
+    <string name="pomegrade_test_cycle_description">Pour mesurer seulement : pendant une partie, change tout seul les options de test toutes les 45 secondes pendant environ 4 minutes et note chaque étape dans le log ; certaines étapes dessinent des images fausses. Jouez en exploration jusqu\'à la fin, puis désactivez-le</string>
 </resources>

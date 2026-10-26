@@ -19,6 +19,7 @@
 #include "video_core/renderer_vulkan/vk_command_pool.h"
 #include "video_core/renderer_vulkan/vk_graphics_pipeline.h"
 #include "video_core/renderer_vulkan/vk_master_semaphore.h"
+#include "common/pomegrade_diagnostics.h"
 #include "video_core/renderer_vulkan/vk_render_pass_cache.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_state_tracker.h"
@@ -73,6 +74,7 @@ u64 Scheduler::Flush(VkSemaphore signal_semaphore, VkSemaphore wait_semaphore) {
 }
 
 void Scheduler::Finish(VkSemaphore signal_semaphore, VkSemaphore wait_semaphore) {
+    PomegradeDiagnostics::finish_calls.fetch_add(1, std::memory_order_relaxed); // Pomegrade: TEMPORARY
     // When finishing, we need to wait for the submission to have executed on the device.
     const u64 presubmit_tick = CurrentTick();
     SubmitExecution(signal_semaphore, wait_semaphore);
@@ -114,10 +116,18 @@ void Scheduler::RequestRenderpass(const Framebuffer* framebuffer) {
         render_area.height == state.render_area.height) {
         return;
     }
+    if (state.renderpass) {
+        PomegradeDiagnostics::CountPassEnd("new render target", 0); // Pomegrade: TEMPORARY
+    }
     EndRenderPass();
     state.renderpass = renderpass;
     state.framebuffer = framebuffer_handle;
     state.render_area = render_area;
+    // Pomegrade: TEMPORARY, render passes counted (common/pomegrade_diagnostics.h)
+    PomegradeDiagnostics::render_passes.fetch_add(1, std::memory_order_relaxed);
+    PomegradeDiagnostics::render_pass_pixels.fetch_add(u64(render_area.width) * render_area.height,
+                                                       std::memory_order_relaxed);
+    PomegradeDiagnostics::pass_untouched.store(true, std::memory_order_relaxed);
 
     // Log render pass begin
     if (Settings::values.gpu_logging_enabled.GetValue() &&
@@ -187,7 +197,10 @@ bool Scheduler::ClearOnLoad(const Framebuffer* framebuffer, u16 clear_bits, u32 
     return true;
 }
 
-void Scheduler::RequestOutsideRenderPassOperationContext() {
+void Scheduler::RequestOutsideRenderPassOperationContext(const char* file, int line) {
+    if (state.renderpass) {
+        PomegradeDiagnostics::CountPassEnd(file, line); // Pomegrade: TEMPORARY
+    }
     EndRenderPass();
 }
 
@@ -359,6 +372,9 @@ void Scheduler::InvalidateState() {
 
 void Scheduler::EndPendingOperations() {
     query_cache->CounterReset(VideoCommon::QueryType::ZPassPixelCount64);
+    if (state.renderpass) {
+        PomegradeDiagnostics::CountPassEnd("submit", 0); // Pomegrade: TEMPORARY
+    }
     EndRenderPass();
 }
 

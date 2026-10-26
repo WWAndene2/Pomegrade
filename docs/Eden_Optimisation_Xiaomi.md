@@ -524,6 +524,16 @@ never committed or uploaded (same rule as the game dumps, CLAUDE.md §8).
 
 ## 9. Next steps
 
+**Step 1 of the owner's plan (26 October): which copies end the render passes.** The TEMPORARY diagnostic of 14-15
+October is back (commit 68faafea reverted), and `BufferCacheRuntime::CopyBuffer` now hands its caller's file and line to
+the pass-end count, so each copy that ends a pass is counted at the line of `buffer_cache.h` that asked for it (on
+26 October: 242 `DMACopy` (the guest's GPU copy), 656 `CommitAsyncFlushesHigh` and 1812 downloads, 761
+`BindHostIndexBuffer` (an index upload), 1559
+`JoinOverlap`, 1719 `MappedUploadMemory`, 1761 `InlineMemory`). To read: a log of two minutes in the field at 1x with
+the same settings as the thirteenth, then the fix of the callers whose copies can leave the pass. The diagnostic is
+deleted again once read (CLAUDE.md 2.4).
+
+
 **State on 26 October** (no new measurement since the thirteenth log, 15 October): the CPU side no longer limits in the
 field; the Mali's work on 140-170 render passes a frame does, most of them ended by the guest's buffer copies
 (`CopyBuffer`). What stays planned on the Mali: record which caller of `CopyBuffer` ends each pass and keep those

@@ -7,6 +7,7 @@
 #include <cinttypes>
 #include <memory>
 
+#include "common/pomegrade_diagnostics.h"
 #include "common/signal_chain.h"
 #include "core/arm/nce/arm_nce.h"
 #include "core/arm/nce/interpreter_visitor.h"
@@ -158,6 +159,7 @@ bool ArmNce::HandleGuestAlignmentFault(GuestContext* guest_ctx, void* raw_info, 
 }
 
 bool ArmNce::HandleGuestAccessFault(GuestContext* guest_ctx, void* raw_info, void* raw_context) {
+    PomegradeDiagnostics::nce_access_faults.fetch_add(1, std::memory_order_relaxed); // Pomegrade: TEMPORARY
     auto* info = static_cast<siginfo_t*>(raw_info);
 
     // Try to handle an invalid access.
