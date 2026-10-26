@@ -9,6 +9,10 @@ tests of 8 October needed and did with throwaway scripts.
                                                   copies whole blocks from the template, then rewrites every checksum
   oras_save.py records <save> <out> <template> <record>[,<record>...]
                                                   copies block-10 records (0x108 bytes each) from the template
+  oras_save.py flag <save> <out> <flag>[,<flag>...]
+                                                  sets event flags of 0xD00 and up (oras-engine --story large: block 47's last
+                                                  1000 bytes, OrasEngine.cpp), then rewrites every checksum (26 October: a dust
+                                                  box spot's moved flag set in a save, run sc4)
 
 What is read and what is only seen:
   - the block table (checked on the owner's saves, OrasSave.cpp): at 0x75E14, one 8-byte entry per block, u32 size, u16 id,
@@ -134,10 +138,23 @@ def cmd_records(path, out, template, which):
     print(f"{out}: block-10 records {which} from {template}, checksums rewritten")
 
 
+def cmd_flag(path, out, which):
+    # flags 1-0xCFF are EventWork's (block 19); 0xD00-0x2C3F the moved ones, bit (f - 0xD00) of block 47 from its +1000
+    data = read(path)
+    _, _, offset, size, _ = block_at(data, 47)
+    for f in (int(v, 0) for v in which.split(",")):
+        if not 0xD00 <= f < 0xD00 + 8 * (size - 1000):
+            sys.exit(f"flag 0x{f:X}: not one of the moved flags 0xD00-0x{0xD00 + 8 * (size - 1000) - 1:X}")
+        data[offset + 1000 + (f - 0xD00) // 8] |= 1 << ((f - 0xD00) % 8)
+    write_checksums(data)
+    open(out, "wb").write(data)
+    print(f"{out}: flags {which} set, checksums rewritten")
+
+
 def main():
     a = sys.argv[1:]
     commands = {("blocks", 1): cmd_blocks, ("diff", 2): cmd_diff, ("characters", 1): cmd_characters,
-                ("take", 4): cmd_take, ("records", 4): cmd_records}
+                ("take", 4): cmd_take, ("records", 4): cmd_records, ("flag", 3): cmd_flag}
     if not a or (a[0], len(a) - 1) not in commands:
         sys.exit(__doc__)
     commands[(a[0], len(a) - 1)](*a[1:])
