@@ -83,6 +83,10 @@
 //   door X Z xy ZX    on an xy-piece: the inside made of X/Y's zone ZX (its piece, props, textures and way out: XyInsideToOras),
 //                     X's own door model being the piece's (no 'D' on the map). Either form may end with "height H", the warp's
 //                     height in pixels (0 by default; X's Vaniville stands at 144)
+//   dust-box X Z spot N
+//                     X/Y's can of dust box spot N (0-9, X's table: OrasXyDustBox.h) on tile X, Z: X's furniture (its shared
+//                     script's id, moved) and X's can model placed on the tile's piece with its prop id. Needs oras-sandbox --xy
+//                     <x.3ds>, and oras-engine --xy-dust-box for the can to answer; the tile keeps its own collision
 //   pieces W H        the size in map pieces (40 x 40 tiles each)
 //   xy-piece X Y M P  piece X, Y is Pokemon X/Y's map piece M (a/0/4/1 member) made Omega Ruby's, its textures from X/Y's area
 //                     pack P (a/0/1/3 member, the pack its zone draws from), instead of one built from the map's rows (which are

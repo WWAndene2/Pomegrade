@@ -7,6 +7,7 @@
 #include "BinLinker.h"
 #include "OrasTown.h"
 #include "OrasXyBackgrounds.h"
+#include "OrasXyDustBox.h"
 #include "NitroCompression.h"
 #include "XyCharacter.h"
 
@@ -159,6 +160,28 @@ std::map<uint32_t, uint32_t> XyPropsToOras(const std::set<uint32_t>& types, cons
     pack.Files.at(0) = table;
     orasAreaPack = pack.Write();
     return to;
+}
+
+Bytes AddPieceProps(const Bytes& piece, uint32_t type, const std::vector<std::array<int, 3>>& props)
+{
+    BinLinker gr = BinLinker::Read(piece, "GR");
+    if (gr.Files.size() < 4) throw FormatError("piece: no file 3 (its props)");
+    Bytes& f = gr.Files[3];
+    if (f.size() < 4) f.assign(4, 0);
+    const uint32_t count = U32(f, 0);
+    if (f.size() < 4 + 44 * (size_t)count) throw FormatError("piece: file 3 shorter than its " + std::to_string(count) + " entries");
+    f.resize(4 + 44 * (size_t)count);
+    for (const auto& p : props)
+    {
+        const float row[9] = {1, 1, 1, 0, 0, 0, p[0] * 18.0f + 9, 0, p[1] * 18.0f + 9};
+        const size_t at = f.size();
+        f.resize(at + 44);
+        Put32(f, at, type);
+        std::memcpy(&f[at + 4], row, sizeof row);
+        Put32(f, at + 40, (uint32_t)(XyDustBoxPropId + p[2]));
+    }
+    Put32(f, 0, count + (uint32_t)props.size());
+    return gr.Write();
 }
 
 Bytes XyPieceToOras(const Bytes& xPiece, const Bytes& xAreaPack, size_t xPackIndex, const Bytes& kage, const std::string& modelName,

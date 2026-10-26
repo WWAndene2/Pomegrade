@@ -189,7 +189,7 @@ std::vector<CodeWord> XyDustBoxFieldPatchAt(uint32_t cave)
 {
     // the placed prop (Map_PlacePropsFromContainer's loop, r4 its row + 4, r8 the prop list, the caller's r1 at sp + 0x40)
     constexpr uint32_t hook = 0x102608AC, hookWord = 0xE2855001, propOf = 0x1031BEAC, searched = 0x10257E34, flagState = 0x12FD48;
-    const uint32_t done = cave + 0x68;
+    const uint32_t done = cave + 0x6C;
     const uint32_t routine[] = {
         0xE92D404F,                                 // 00 push {r0-r3, r6, lr}
         0xE5946028,                                 // 04 ldr r6, [r4, #0x28]   the prop's id
@@ -206,7 +206,7 @@ std::vector<CodeWord> XyDustBoxFieldPatchAt(uint32_t cave)
         0xE2800DC5,                                 // 30 add r0, r0, #0x3140   the event work
         0xE6FF1076,                                 // 34 uxth r1, r6
         0xE2811C0D,                                 // 38 add r1, r1, #0xD00    X's flag moved (XyFirstFlag)
-        0xE59FC030,                                 // 3C ldr ip, [pc, #0x30]
+        0xE59FC034,                                 // 3C ldr ip, [pc, #0x34]
         0xE12FFF3C,                                 // 40 blx ip                the flag's state
         0xE3500000,                                 // 44 cmp r0, #0
         ArmBranch(0x0, cave + 0x48, done, false),   // 48 beq done
@@ -216,11 +216,15 @@ std::vector<CodeWord> XyDustBoxFieldPatchAt(uint32_t cave)
         0xE3500000,                                 // 58 cmp r0, #0
         ArmBranch(0x0, cave + 0x5C, done, false),   // 5C beq done
         0xE3A01001,                                 // 60 mov r1, #1
-        ArmBranch(0xE, cave + 0x64, searched, true),// 64 bl its animation slot 1 + 3 (searched)
-        0xE8BD404F,                                 // 68 done: pop {r0-r3, r6, lr}
-        hookWord,                                   // 6C add r5, r5, #1        the game's
-        0xE12FFF1E,                                 // 70 bx lr
-        flagState,                                  // 74
+        // the animation's float in s0, 1.0 as X's 0x3B4BC0 gives it (`vldr s0` at 0x3B4C04): without it the call took
+        // whatever s0 held. No difference seen either way (runs sc9, sc10, 26 October: the can of a drawn spot looks and moves
+        // as an empty one's, as in X itself, run xv3)
+        0xEEB70A00,                                 // 64 vmov.f32 s0, #1.0
+        ArmBranch(0xE, cave + 0x68, searched, true),// 68 bl its animation slot 1 + 3 (searched)
+        0xE8BD404F,                                 // 6C done: pop {r0-r3, r6, lr}
+        hookWord,                                   // 70 add r5, r5, #1        the game's
+        0xE12FFF1E,                                 // 74 bx lr
+        flagState,                                  // 78
     };
     static_assert(XyFirstFlag == 0xD00, "the routine adds 0xD00");
     std::vector<CodeWord> words;

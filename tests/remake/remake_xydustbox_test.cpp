@@ -50,9 +50,11 @@ int main()
     const auto word = [&](uint32_t a) -> const CodeWord* { for (const CodeWord& w : f) if (w.Address == a) return &w; return nullptr; };
     check(word(0x102608AC) && word(0x102608AC)->Expected == 0xE2855001 && word(0x102608AC)->Value == Bl(0x102608AC, cave), "the loop's end calls the routine");
     check(word(cave + 0x54) && word(cave + 0x54)->Value == Bl(cave + 0x54, 0x1031BEAC), "the routine finds the prop of the id");
-    check(word(cave + 0x64) && word(cave + 0x64)->Value == Bl(cave + 0x64, 0x10257E34), "and plays its searched animation");
-    check(word(cave + 0x6C) && word(cave + 0x6C)->Value == 0xE2855001 && word(cave + 0x74)->Value == 0x12FD48, "the game's word after it; the flag reader in its pool");
-    check(word(cave + 0x10) && word(cave + 0x10)->Value == (0x8A000000u | (((0x68u - 0x10 - 8) >> 2) & 0xFFFFFF)), "ids outside 0xC50-0xCE5 skip to the end");
+    check(word(cave + 0x64) && word(cave + 0x64)->Value == 0xEEB70A00, "with the speed 1.0 in s0, as X gives it");
+    check(word(cave + 0x68) && word(cave + 0x68)->Value == Bl(cave + 0x68, 0x10257E34), "and plays its searched animation");
+    check(word(cave + 0x70) && word(cave + 0x70)->Value == 0xE2855001 && word(cave + 0x78)->Value == 0x12FD48, "the game's word after it; the flag reader in its pool");
+    check(word(cave + 0x3C) && word(cave + 0x3C)->Value == 0xE59FC034, "the flag reader loaded from that pool word");
+    check(word(cave + 0x10) && word(cave + 0x10)->Value == (0x8A000000u | (((0x6Cu - 0x10 - 8) >> 2) & 0xFFFFFF)), "ids outside 0xC50-0xCE5 skip to the end");
 
     // the natives: X's names, the battle setting the mod's battle type at the context's + 0x8A
     const std::vector<XyNative> n = XyDustBoxNatives();

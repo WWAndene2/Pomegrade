@@ -76,6 +76,13 @@ std::vector<CodeWord> XyDustBoxFieldPatchAt(uint32_t cave);
 // the three natives (OrasXyNatives.h)
 std::vector<XyNative> XyDustBoxNatives();
 
+// X's can (its Pokemon Village, zone 318, read 26 October): its furniture runs the shared script id 10480 + spot (moved by
+// XyScriptIdShift), its model is X's prop type 4 (a/0/2/4 member 4, com_bm_dustbox, drawn from X's area pack 40), its prop
+// id 0xC50 + spot (the routine of XyDustBoxFieldPatchAt reads it)
+constexpr int XyDustBoxScriptId = 10480, XyDustBoxPropId = 0xC50; // X's script id (moved: + XyScriptIdShift)
+constexpr uint32_t XyCanPropType = 4;
+constexpr size_t XyCanPack = 40;
+
 }
 
 #endif // REMAKE_ORASXYDUSTBOX_H
