@@ -27,6 +27,18 @@ over 15 minutes; one run at a time, drawing off until the shot (`draw off` ... `
   Which model is which move not checked; not checked in game. Hoenn is not neutral yet.
 - **Hoenn map** (`tools/remake/map/`, its README): the X/Y-style town map `hoenn_xy_map.png`, approved by the owner, and Kalos in the same style, `kalos_xy_map.png` (its east, north and south coasts invented).
 
+**Phone test of the reference mod "kalosfull"** (28 October: the whole of Kalos, story off, music, gyms, dust boxes and
+clouds; "things seem to work"), three issues the owner reported, to fix:
+- **Tall grass drawn as flowers:** some of X/Y's tall grass shows a flower asset, and turns back into grass when walked
+  on (likely: the piece's tall grass file 5 or its textures not matching what the step animation draws; not read).
+- **X/Y battle platforms drawn as a big block mesh again:** the old bug (OrasXyBackgrounds.h: X's forest ground, the same
+  as Omega Ruby's member 13, drew a raised block when converted; shared then, runs bgf1-bgf3). Back since the background
+  bank (28 October, 9910b39f): to check whether the bank's records point at converted grounds or platforms the merge
+  used to share, and the platform table's index for bank values.
+- **Story and event scripts still run** in the neutral build (`--story off` leaves out triggers, story characters, init
+  scripts and field-move obstacles; zone scripts' scene changes, characters without a vanish flag that run story
+  events, and the shared scripts are kept): which ones, to list from the phone and the zones' scripts.
+
 **Next, in the owner's order:**
 1. **Both maps in the menu** (owner: Hoenn and Kalos in the town map, then Fly between them). Static reading started:
    the two games' DllTownmap modules differ (X's 24 KB with TownmapData, Omega Ruby's 80 KB PokéNav Plus); X's art is
