@@ -25,7 +25,7 @@ over 15 minutes; one run at a time, drawing off until the shot (`draw off` ... `
 - **Neutral Kalos** (`--story off`): besides the story's characters, triggers and init scripts, the 123 field-move
   obstacles (characters of X's hiden.amx, script ids 10000-10089, models 0x200C/0x200B/0x2009/0x2034) are left out.
   Which model is which move not checked; not checked in game. Hoenn is not neutral yet.
-- **Hoenn map** (`tools/remake/map/`, its README): the X/Y-style town map `hoenn_xy_map.png`, approved by the owner.
+- **Hoenn map** (`tools/remake/map/`, its README): the X/Y-style town map `hoenn_xy_map.png`, approved by the owner, and Kalos in the same style, `kalos_xy_map.png` (its east, north and south coasts invented).
 
 **Next, in the owner's order:**
 1. **Both maps in the menu** (owner: Hoenn and Kalos in the town map, then Fly between them). Static reading started:
