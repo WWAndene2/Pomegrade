@@ -106,7 +106,7 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         const int pack = all.at(z).AreaPack();
         if (packData.count(pack)) continue;
         packDonor[pack] = all.at(z).Header[0] == 3 ? interiorDonor : outdoorDonor;
-        // the donor's camera (6) and the rest, but not its light (4, X/Y's below), props, textures (0, 1, 11) nor material animations (2):
+        // the donor's rest, but not its camera (3, 6), light (4, X/Y's below), props, textures (0, 1, 11) nor material animations (2):
         // Littleroot's, beside X/Y's of the same names, left some of Santalune's meshes black (OpenGL) or noisy (software
         // renderer) and renamed X/Y's textures (run hZ12gl); on placeholder pack 0's files instead (its few textures, no
         // animation) they drew right (run hD0, 19 October). Which of the two did it is not separated
@@ -124,6 +124,9 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         // pack 0's kept, the pieces drawing without it. Other packs than 40 not checked
         for (const size_t f : {(size_t)2, (size_t)11})
             if (!xPack.Files.at(f).empty()) donor.Files.at(f) = BchUpgradeTo21(xPack.Files.at(f));
+        // X/Y's camera areas (3) and presets (6), the same layouts and the same code reading them in both games (FUN_102CE4B8,
+        // FUN_102C9C50, FUN_1026FF20 against X's)
+        for (const size_t f : {(size_t)3, (size_t)6}) donor.Files.at(f) = xPack.Files.at(f);
         packData[pack] = donor.Write();
     }
 
@@ -161,10 +164,15 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         snprintf(line, sizeof line, "X/Y matrix %d with pack %d: a/0/4/0 member %d, %d x %d pieces", xMatrix, pack, matrixOf[group], matrix.Width, matrix.Height);
         log.push_back(line);
     }
+    const Bytes xPackTable = Plain(xPacks.Sub(xPacks.Count() - 1));
     std::map<int, int> packOf;
     for (auto& [pack, data] : packData)
     {
         packOf[pack] = ws.AddAreaPack(data, packDonor.at(pack), packModels[pack]);
+        // X/Y's own camera preset to start with (its per-pack table's +0xA, 36-byte entries there, the layout of Omega Ruby's
+        // first 36: Pokemon Village's pack 40 reads 36, the preset X shows there, run xm1), where the slot's entry was kept
+        // (the mod started on X/Y's preset 4, run mm1). Its other fields not compared
+        ws.SetAreaPackTableWord(packOf[pack], 0xA, (uint16_t)(xPackTable[(size_t)pack * 36 + 0xA] | xPackTable[(size_t)pack * 36 + 0xB] << 8));
         snprintf(line, sizeof line, "X/Y pack %d: area pack %d (a copy of pack %d with its textures and props)", pack, packOf[pack], packDonor.at(pack));
         log.push_back(line);
     }
