@@ -22,13 +22,17 @@ static void Put32(Bytes& b, size_t at, uint32_t v) { for (int k = 0; k < 4; k++)
 
 uint32_t XyTileValue(uint32_t value)
 {
-    // Vaniville's four values (pieces 12-15): 0x20, 0x01000021 and 0x28 occur in Omega Ruby's pieces (0x28 on 203 tiles);
-    // 0x31000020, one tile in piece 14, in none: made plain walkable, its low bits (inferred: what it does in X is not read)
-    switch (value)
-    {
-    case 0x31000020: return 0x00000020;
-    default: return value;
-    }
+    // Vaniville's 0x31000020, one tile in piece 14, in none: made plain walkable, its low bits (inferred: what it does in X is
+    // not read)
+    if (value == 0x31000020) return 0x00000020;
+    // the two games' fields (their readers, 27 October): X's flags bits 0-10 (0x3E11A0), footstep ground type bits 11-15
+    // (0x3E0A34), battle background bits 16-23 (0x3E0AA8, 0x3DFB94), kind bits 24-31; Omega Ruby's flags bits 0-11
+    // (Map_TileAttr_Flags 0x403ADC), ground type bits 12-16 (0x402FCC), background bits 17-23 (FUN_00403190, 0x4028E0),
+    // kind bits 24-31. Each X field moved to Omega Ruby's place (flag bit 11, Omega Ruby's own, left 0); the background is
+    // XyPieceToOras's to renumber, here only moved (its high bit dropped: X's 212, 215 and 221, 12 tiles, name no record).
+    // An empty word (kind 0xFF, or all ones) is kept as it is
+    if (value == 0xFFFFFFFF || value >> 24 == 0xFF) return value;
+    return (value & 0xFF000000) | (value >> 16 & 0x7F) << 17 | (value >> 11 & 0x1F) << 12 | (value & 0x7FF);
 }
 
 std::set<uint32_t> XyPieceProps(const Bytes& xPiece)
@@ -207,9 +211,9 @@ Bytes XyPieceToOras(const Bytes& xPiece, const Bytes& xAreaPack, size_t xPackInd
             const uint32_t v = U32(tiles, at);
             uint32_t o = XyTileValue(v);
             if (o != v) mapped[v]++;
-            // its battle background (none when the high byte is 0xFF, as FUN_00403190 reads it); X's 106, 107 and 110 (pieces
-            // 346-348, 12 tiles) name no X value (65 of them): cleared, as they would name the mod's new ones
-            const int field = (int)(o >> 17) & 0x7F;
+            // its battle background, X's bits 16-23 (none when the high byte is 0xFF, as X's 0x3E0AA8 reads it); X's 212,
+            // 215 and 221 (pieces 346-348, 12 tiles) name no X value (65 of them): cleared, as they would name the mod's new ones
+            const int field = (int)(v >> 16) & 0xFF;
             if (backgrounds && field && (o >> 24) != 0xFF)
             {
                 const int to = field < 65 ? XyBackgroundValue(*backgrounds, field, true) : 0;
