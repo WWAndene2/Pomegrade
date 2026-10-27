@@ -30,7 +30,6 @@ constexpr BackgroundTables OrasTables = {0x595CD0, 93, 0x10000000, 0x10005000, 0
 // and 16 sceneries before the table's next data
 constexpr BackgroundTables XTables = {0x551C04, 65, 0x10000000, 0x10005000, 0x10005104, 0x10005D34, 0x10006964, 0x10006A68, 0x10006B04, 65, 13, 16, 0x10022000, 0x100F8C3C, 65};
 constexpr uint32_t CodeBase = 0x100000;
-constexpr int NarrowValues = 128, AllValues = 256; // 7 bits (a header's halfword 15, a tile's bits 17-23); a record byte
 
 Bytes Span(const Bytes& data, uint32_t at, size_t size)
 {
@@ -100,19 +99,14 @@ int XyBackgroundValue(XyBackgroundNumbers& numbers, int x, bool narrow)
 {
     if (x == 0) return 0;
     if (x < 0 || x >= (int)XTables.Values) throw FormatError("X/Y background value " + std::to_string(x) + " is not one of X's");
-    const auto known = numbers.Narrow.find(x);
-    if (known != numbers.Narrow.end()) return known->second;
-    if (narrow)
+    auto known = numbers.Bank.find(x);
+    if (known == numbers.Bank.end())
     {
-        const int value = (int)OrasTables.Values + (int)numbers.Narrow.size();
-        if (value >= NarrowValues) throw FormatError("background values: past the 128 a zone header or a tile can name");
-        return numbers.Narrow[x] = value;
+        const int n = 1 + (int)numbers.Bank.size();
+        if (n >= XyBackgroundBankScript) throw FormatError("background values: past the 127 of X/Y's bank");
+        known = numbers.Bank.emplace(x, n).first;
     }
-    const auto wide = numbers.Wide.find(x);
-    if (wide != numbers.Wide.end()) return wide->second;
-    const int value = NarrowValues + (int)numbers.Wide.size();
-    if (value >= AllValues) throw FormatError("background values: past 256");
-    return numbers.Wide[x] = value;
+    return narrow ? known->second : XyBackgroundBankScript + known->second;
 }
 
 XyBackgrounds AddXyBackgrounds(OrasWorkspace& ws, N3dsRom& xRom, const XyBackgroundNumbers& numbers, std::vector<std::string>& log)
@@ -125,8 +119,8 @@ XyBackgrounds AddXyBackgrounds(OrasWorkspace& ws, N3dsRom& xRom, const XyBackgro
     XyBackgrounds r;
     // Omega Ruby's tables as the game has them
     Bytes recordsA = Span(oCode, o.Records - CodeBase, 2 * o.Values), recordsB = Span(oCode, o.Records - CodeBase + 2 * o.Values, 5 * o.Values);
-    recordsA.resize(2 * AllValues, 0);
-    recordsB.resize(5 * AllValues, 0);
+    recordsA.resize(2 * XyBackgroundRecords, 0);
+    recordsB.resize(5 * XyBackgroundRecords, 0);
     r.Sets = Span(oBg, o.Sets - o.Base, 12 * o.SetCount);
     r.Sceneries = Span(oBg, o.Sceneries - o.Base, 0x18 * o.SceneryCount);
     r.Backdrops = Span(oBg, o.Backdrops - o.Base, 4 * o.Entries);
@@ -192,11 +186,10 @@ XyBackgrounds AddXyBackgrounds(OrasWorkspace& ws, N3dsRom& xRom, const XyBackgro
     };
 
     char line[200];
-    std::vector<std::pair<int, int>> valueOf(numbers.Narrow.begin(), numbers.Narrow.end());
-    valueOf.insert(valueOf.end(), numbers.Wide.begin(), numbers.Wide.end());
-    for (const auto& [v, next] : valueOf)
+    for (const auto& [v, n] : numbers.Bank)
     {
-        if (v <= 0 || v >= (int)x.Values || next < (int)o.Values || next >= AllValues) throw FormatError("X/Y background value " + std::to_string(v) + " or its number is out of range");
+        const int next = XyBackgroundBankRecord + n;
+        if (v <= 0 || v >= (int)x.Values || n <= 0 || next >= XyBackgroundRecords) throw FormatError("X/Y background value " + std::to_string(v) + " or its number is out of range");
         const uint8_t* a = &xCode[x.Records - CodeBase + 2 * v];
         const uint8_t* b = &xCode[x.Records - CodeBase + 2 * x.Values + 5 * v];
         uint8_t ground = a[0], platform = b[0], backdrop = b[1], set = b[2];
@@ -248,12 +241,12 @@ XyBackgrounds AddXyBackgrounds(OrasWorkspace& ws, N3dsRom& xRom, const XyBackgro
         recordsA[2 * next + 1] = a[1];
         const uint8_t record[5] = {platform, backdrop, set, b[3], b[4]};
         std::copy(record, record + 5, recordsB.begin() + 5 * next);
-        snprintf(line, sizeof line, "battle background: X/Y's %d as %d (ground %u, platform %u, backdrop %u, scenery set %u)", v, next, ground, platform, backdrop, set);
+        snprintf(line, sizeof line, "battle background: X/Y's %d as bank %d, record %d (ground %u, platform %u, backdrop %u, scenery set %u)", v, n, next, ground, platform, backdrop, set);
         log.push_back(line);
     }
     r.Records = recordsA;
     r.Records.insert(r.Records.end(), recordsB.begin(), recordsB.end());
-    snprintf(line, sizeof line, "battle backgrounds: %zu numbers of X/Y values, a/1/3/6 +%zu members (%zu of X's the same as Omega Ruby's)", valueOf.size(), added, shared);
+    snprintf(line, sizeof line, "battle backgrounds: %zu X/Y values in their bank, a/1/3/6 +%zu members (%zu of X's the same as Omega Ruby's)", numbers.Bank.size(), added, shared);
     log.push_back(line);
     return r;
 }

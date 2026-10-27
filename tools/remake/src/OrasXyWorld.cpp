@@ -247,7 +247,10 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
                 log.push_back(line);
             }
         }
-        if (const int field = (x.Header[15] >> 7) & 0x7F) f.BattleField = XyBackgroundValue(backgroundOf, field, true);
+        // X/Y's own background, 0 (none) too: its record in the bank, 256, is X/Y's record 0, all zeros as X's own; its
+        // tiles' values are the bank's
+        f.BattleField = XyBackgroundValue(backgroundOf, (x.Header[15] >> 7) & 0x7F, true);
+        f.XyBackgroundBank = true;
         f.SpawnX = x.Header[22] / 18.0f;
         f.SpawnZ = x.Header[26] / 18.0f;
         OrasZone zone;

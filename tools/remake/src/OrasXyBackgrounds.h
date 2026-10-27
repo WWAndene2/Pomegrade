@@ -18,10 +18,15 @@
 // the player its bits 17-23 (FUN_00403190, XyPieceToOras). The values are numbered as they are met (XyBackgroundValue), the
 // tables built for them once all are (AddXyBackgrounds).
 //
-// Omega Ruby's 93 values leave 35 of the 128 a zone's header and a tile can name (7 bits), fewer than X/Y's zones and
-// tiles and scripts name together: a script's value is a whole number, FUN_0048AA44 takes any, so the table is made 256
-// values long and the values only scripts name are numbered from 128 (a value named both ways has two numbers, the same
-// record).
+// Omega Ruby's 93 values leave 35 of the 128 a zone's header and a tile can name (7 bits), and X/Y's whole world names 39
+// (counted 27 October, all 360 zones built). So X/Y's values have a bank of their own (owner's choice, 27 October):
+// each X/Y value is a number n of 1-127, its record at 256 + n of a table of 384 values. A header or a tile names n; an
+// X/Y zone's header carries bit 14 of halfword 15 (unused by both games' zones, checked 27 October), which
+// FUN_004D86B4 (the header's value) turns into 0x100 + n, and FUN_0048AA44 then reads a tile's n (below 0x80) as 0x100
+// + n too (oras-engine --xy-backgrounds). A script or a scripted wild battle names a whole number or a byte: 128 + n,
+// which FUN_0048AA44 makes 256 + n. Omega Ruby's own values (1-92, never 128 or more) are read as the game reads them
+// everywhere. Not covered: FUN_003DA1E8's background (a byte at its battle's + 0x88, of unknown origin) in an X/Y zone,
+// and a battle started with a script's value in an Omega Ruby zone from an X/Y tile (none known).
 //
 // Each X/Y value given takes its number with X's record, every
 // index in it pointing at a new entry of Omega Ruby's table (X's entry, its members converted: BCH 0x07 -> 0x21, inside
@@ -43,7 +48,7 @@ namespace remake
 
 struct XyBackgrounds
 {
-    // Omega Ruby's tables, each the game's entries then the added ones: the records (256 values, 2 bytes each, then 5 bytes
+    // Omega Ruby's tables, each the game's entries then the added ones: the records (384 values, 2 bytes each, then 5 bytes
     // each), the scenery sets (12 bytes), the sceneries (0x18), the backdrops' members (4), their two light tables (0x30
     // each), the grounds' members (4) and the platforms' (4)
     Bytes Records, Sets, Sceneries, Backdrops, LightA, LightB, Grounds, Platforms;
@@ -51,15 +56,18 @@ struct XyBackgrounds
     Bytes Tables() const;
 };
 
-// X/Y's background values given Omega Ruby's numbers: 93-127 (Narrow, for a header or a tile) and 128-255 (Wide, for a script)
+// X/Y's background values given their bank's numbers n, 1-127: a header or a tile names n, a script 128 + n, the record
+// is at 256 + n
 struct XyBackgroundNumbers
 {
-    std::map<int, int> Narrow, Wide; // X/Y's value -> Omega Ruby's
-    bool Empty() const { return Narrow.empty() && Wide.empty(); }
+    std::map<int, int> Bank; // X/Y's value -> its n
+    bool Empty() const { return Bank.empty(); }
 };
 
-// X/Y's background value x as Omega Ruby's: its number, the next free one the first time it is met (narrow: below 128, for a
-// header or a tile; otherwise its narrow number when it has one); 0 (none) stays 0
+constexpr int XyBackgroundBankRecord = 256, XyBackgroundBankScript = 128, XyBackgroundRecords = 384;
+
+// X/Y's background value x as the mod's: its n the first time it is met the next free one, given as n (narrow: for a header
+// or a tile) or 128 + n (for a script or a scripted wild battle); 0 (none) stays 0
 int XyBackgroundValue(XyBackgroundNumbers& numbers, int x, bool narrow);
 
 // X/Y's values given Omega Ruby's numbers made Omega Ruby's: their members appended to a/1/3/6 (ws), the log's lines added

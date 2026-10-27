@@ -1281,7 +1281,7 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
             t.emplace_back(file.begin() + at + 4, file.begin() + at + 4 + size);
             at += 4 + size;
         }
-        if (t.size() != 8 || t[0].size() != 7 * 256) throw FormatError("--xy-backgrounds: 8 tables, the records 256 values");
+        if (t.size() != 8 || t[0].size() != 7 * 384) throw FormatError("--xy-backgrounds: 8 tables, the records 384 values");
         const Bytes& records = t[0];
         const Bytes& sets = t[1];
         const Bytes& sceneries = t[2];
@@ -1293,7 +1293,7 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         };
         constexpr uint32_t recordsAt = 0x595CD0, setsAt = 0x595F5C, sceneriesAt = 0x595F68, bgBase = 0x10000000, battleBase = 0x10025000;
         game(code, recordsAt - CodeBase, Bytes(records.begin(), records.begin() + 2 * 93), 2 * 93, "the records");
-        game(code, recordsAt - CodeBase + 2 * 93, Bytes(records.begin() + 2 * 256, records.begin() + 2 * 256 + 5 * 93), 5 * 93, "the records");
+        game(code, recordsAt - CodeBase + 2 * 93, Bytes(records.begin() + 2 * 384, records.begin() + 2 * 384 + 5 * 93), 5 * 93, "the records");
         game(code, setsAt - CodeBase, sets, 12, "the scenery sets");
         game(code, sceneriesAt - CodeBase, sceneries, 0x18, "the sceneries");
         game(dllBackGround, 0x100075C8 - bgBase, sets, 12, "the scenery sets");
@@ -1307,7 +1307,38 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         const uint32_t recordsRoom = roomPut(records, "the background records"), setsRoom = roomPut(sets, "the scenery sets"),
                        sceneriesRoom = roomPut(sceneries, "the sceneries");
         words.push_back({0x48AC0C, recordsAt, recordsRoom, "FUN_0048AA44's background records"});
-        words.push_back({0x48AA5C, 0xE28C10BA, 0xE28C1000 | *ArmImmediate(2 * 256), "FUN_0048AA44's records' second part (add r1, ip, #0x200)"});
+        words.push_back({0x48AA5C, 0xE28C10BA, 0xE28C1000 | *ArmImmediate(2 * 384), "FUN_0048AA44's records' second part (add r1, ip, #0x300)"});
+        // X/Y's bank (OrasXyBackgrounds.h), in the .code's cave at 0x579FB0-0x579FF3 (zeros to 0x57A000). FUN_004D86B4, the
+        // header's value: bit 14 of the halfword gives 0x100 + n. FUN_0048AA44 (r3 the first value, r0 the second or the
+        // first, r1 free until +0x18): a script's 128 + n made 256 + n, then, the first 0x100 or more, a tile's n (1-127)
+        // made 256 + n too
+        constexpr uint32_t bankCave = 0x579FB0;
+        const auto cond = [](uint32_t c, uint32_t from, uint32_t to) { return c << 28 | 0x0A000000u | (((to - from - 8) >> 2) & 0xFFFFFF); };
+        words.push_back({0x4D86C0, 0xE1D001BE, 0xE1D011BE, "FUN_004D86B4: ldrh r1, [r0, #0x1e] (the halfword kept)"});
+        words.push_back({0x4D86C4, 0xE1A00900, 0xE1A00901, "FUN_004D86B4: mov r0, r1, lsl #18"});
+        words.push_back({0x4D86CC, 0xE8BD8010, Branch(0x4D86CC, bankCave, false), "FUN_004D86B4: its return to the bank's cave"});
+        const uint32_t header[] = {0xE3110901,  // tst r1, #0x4000
+                                   0x13800C01,  // orrne r0, r0, #0x100
+                                   0xE8BD8010}; // ldmia sp!, {r4, pc}
+        for (uint32_t k = 0; k < 3; k++) words.push_back({bankCave + 4 * k, 0, header[k], "X/Y's background bank: the header's bit (cave)"});
+        const uint32_t lookup = bankCave + 12;
+        words.push_back({0x48AA54, 0xE92D41F0, Branch(0x48AA54, lookup, false), "FUN_0048AA44: to the bank's cave"});
+        const uint32_t back = lookup + 4 * 13;
+        const uint32_t values[] = {0xE92D41F0,                    // stmdb sp!, {r4, r5, r6, r7, r8, lr}   the game's
+                                   0xE2431080,                    // sub r1, r3, #0x80
+                                   0xE3510080,                    // cmp r1, #0x80
+                                   0x32833080,                    // addlo r3, r3, #0x80       a script's 128 + n
+                                   0xE2401080,                    // sub r1, r0, #0x80
+                                   0xE3510080,                    // cmp r1, #0x80
+                                   0x32800080,                    // addlo r0, r0, #0x80
+                                   0xE3530C01,                    // cmp r3, #0x100
+                                   cond(0x3, lookup + 32, back),  // blo back                  not an X/Y zone's
+                                   0xE3500000,                    // cmp r0, #0
+                                   cond(0x0, lookup + 40, back),  // beq back
+                                   0xE3500080,                    // cmp r0, #0x80
+                                   0x32800C01};                   // addlo r0, r0, #0x100     a tile's n
+        for (uint32_t k = 0; k < 13; k++) words.push_back({lookup + 4 * k, 0, values[k], "X/Y's background bank: the values (cave)"});
+        words.push_back({back, 0, Branch(back, 0x48AA58, false), "X/Y's background bank (cave): back"});
         words.push_back({0x48AC14, setsAt, setsRoom, "FUN_0048AA44's scenery sets"});
         words.push_back({0x48AC18, sceneriesAt, sceneriesRoom, "FUN_0048AA44's sceneries"});
         const uint32_t backdrops = roomPut(t[3], "the backdrops"), lightA = roomPut(t[4], "the backdrops' first lights"), lightB = roomPut(t[5], "the backdrops' second lights"),

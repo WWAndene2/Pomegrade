@@ -9,6 +9,36 @@ marked **checked** (seen in memory or under the debugger), **read** (from the de
 
 ## 0. Start here (the state on 7 October, for whoever continues)
 
+### 0.00 Handover of 28 October (read first; then 0.0)
+
+The owner now writes French or English: answer in the language of the message. Short, simple answers; ask before a run
+over 15 minutes; one run at a time, drawing off until the shot (`draw off` ... `draw; wait 8; shot`), 15 fps or more.
+
+**Done 27-28 October** (all on `main` after this merge):
+- **The whole of Kalos builds** into Omega Ruby: `oras-xy-world ... --matrices 0,1,...,399 --story off` takes X's 360
+  zones (mod zones 538-897) and 241 matrices, no error; then `oras-engine` with the options it prints. 9 minutes.
+- **Battle backgrounds unbounded** (`OrasXyBackgrounds.h`): X/Y's values have a bank of their own (n 1-127, records 256 +
+  n of 384); an X/Y zone's header carries bit 14 of halfword 15 (unused by both games' zones), FUN_004D86B4 and
+  FUN_0048AA44 patched (OrasEngine.cpp, cave 0x579FB0-0x579FF3). Whole world: 57 values in the bank. Checked headless:
+  a wild battle in Santalune Forest (mod zone 824, tile 23.5 54.5) draws a forest background. Not covered:
+  FUN_003DA1E8's background byte in an X/Y zone. Not checked on the phone.
+- **Neutral Kalos** (`--story off`): besides the story's characters, triggers and init scripts, the 123 field-move
+  obstacles (characters of X's hiden.amx, script ids 10000-10089, models 0x200C/0x200B/0x2009/0x2034) are left out.
+  Which model is which move not checked; not checked in game. Hoenn is not neutral yet.
+- **Hoenn map** (`tools/remake/map/`, its README): the X/Y-style town map `hoenn_xy_map.png`, approved by the owner.
+
+**Next, in the owner's order:**
+1. **Both maps in the menu** (owner: Hoenn and Kalos in the town map, then Fly between them). Static reading started:
+   the two games' DllTownmap modules differ (X's 24 KB with TownmapData, Omega Ruby's 80 KB PokéNav Plus); X's art is
+   `a/0/6/9` member 0, Omega Ruby's `a/0/6/7` member 0 (map README). Left to read: each module's zone -> map position /
+   Fly point table, how the menu opens the module (to offer Hoenn or Kalos), then port X's module beside Omega Ruby's.
+   Fly between the regions is not ported.
+2. **Load test of every Kalos zone**, in batches, each asked first (step 5 of DEVELOPMENT_NOTE 3e).
+3. Neutral Hoenn (its story and field-move obstacles out); the save that reloads at the zone's start point (X's
+   player house); X/Y's projection maps (owner's decision pending); footsteps with the sounds (step 2).
+4. Not explained: black stripes on the battle menu's lower screen in the Santalune shot (likely the first frames after
+   `draw`; not checked).
+
 ### 0.0 Handover of 23 October (read this first, then 0.1 for the rules and the history)
 
 **The project**: Pomegrade's remake tooling merges Pokemon X/Y into Omega Ruby ("Equilibrium"): one game with both maps,

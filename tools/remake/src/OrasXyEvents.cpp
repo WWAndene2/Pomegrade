@@ -158,11 +158,16 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
         if (scriptIds) f.Raw[0] = (uint16_t)scriptIds->ToOras(f.Raw[0]);
         e.Furniture.push_back(f);
     }
-    size_t storyPeople = 0;
+    size_t storyPeople = 0, obstacles = 0;
     for (ZoneCharacter c : x.Characters)
     {
         // without the story: a character with a vanish flag is one the story shows or hides (zone 2's rivals, 838-842)
         if (!story && c.Raw[4] != 0) { storyPeople++; continue; }
+        // and the map neutral (owner, 27 October: every gated path open): the field moves' obstacles, the characters whose
+        // script is X/Y's hiden.amx (ids 10000-10089; in X's 361 zones only 10000, 10002, 10004 and 10006, models 0x200C,
+        // 0x200B, 0x2009 and 0x2034, 123 characters, none with a vanish flag: by their counts and models the Cut trees,
+        // the Rock Smash rocks, the Strength boulders and a fourth move's, which is which not checked)
+        if (!story && c.Raw[5] >= 10000 && c.Raw[5] <= 10089) { obstacles++; continue; }
         // X/Y's model number -> its a/0/2/1 member (XyModelMembers: the class models 0x1000 and up, the rivals and the player's
         // mother in zone 2, through X/Y's table; kept as they were, the game stopped entering the zone, run hDoorA, 19 October)
         static std::map<int, int> xyMembers; // one X/Y game per run of the tool
@@ -212,9 +217,9 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
         if (scriptIds) c.Raw[5] = (uint16_t)scriptIds->ToOras(c.Raw[5]);
         e.Characters.push_back(c);
     }
-    if (!story && (!x.Triggers.empty() || storyPeople))
-        log.push_back("X/Y zone " + std::to_string(xZone) + ": without its story, " + std::to_string(storyPeople) + " character(s) of a vanish flag and " +
-                      std::to_string(x.Triggers.size()) + " trigger(s) left out, its init script empty");
+    if (!story && (!x.Triggers.empty() || storyPeople || obstacles))
+        log.push_back("X/Y zone " + std::to_string(xZone) + ": without its story, " + std::to_string(storyPeople) + " character(s) of a vanish flag, " +
+                      std::to_string(obstacles) + " field move obstacle(s) and " + std::to_string(x.Triggers.size()) + " trigger(s) left out, its init script empty");
     for (ZoneTrigger t : x.Triggers)
     {
         if (!story) break;
