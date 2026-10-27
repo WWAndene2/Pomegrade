@@ -27,6 +27,7 @@ std::array<uint16_t, 28> NewZoneHeader(const NewZoneFields& f)
     // words 15, 16, 20, 21 (camera mode, location type and flags): the reference headers', zone 6's outdoors and zone 223's inside
     h[15] = inside ? 0x0389 : 0x04E0;
     if (f.BattleField >= 0) h[15] = (uint16_t)((h[15] & ~(0x7F << 7)) | (f.BattleField & 0x7F) << 7);
+    if (f.XyBackgroundBank) h[15] |= 0x4000;
     h[16] = inside ? 0x4802 : 0x6C01;
     h[19] = 0xFFFF;
     h[20] = inside ? 0x4824 : 0x6814;

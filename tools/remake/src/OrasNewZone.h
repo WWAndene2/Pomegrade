@@ -53,6 +53,7 @@ struct NewZoneFields
     int Music = -1;            // word 4, n of the music id (word 5 << 16 | n); -1: Littleroot's (5) outdoors, its house's (65) inside
     int MusicCategory = 1;     // word 5: the id's category (1 the game's music; 0 X/Y's, with oras-engine --xy-sounds)
     int BattleField = -1;      // word 15 bits 7-13: the battle background (OrasXyBackgrounds.h); -1: Littleroot's (9) / its house's
+    bool XyBackgroundBank = false; // word 15 bit 14: the header's and tiles' backgrounds are X/Y's bank's (OrasXyBackgrounds.h)
     float SpawnX = 0, SpawnZ = 0; // the tile where a warp-less arrival lands (header words 22, 24, 25, 27)
 };
 
