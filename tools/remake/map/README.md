@@ -59,3 +59,14 @@ NaviUtil, SecretBaseView, NutsView...), X's `a/0/6/9` member 0 (DARC at 0x3B00: 
 animations, `townmap_bg1.bclim` 320 × 210 the Kalos map, a 160 × 100 photo per place `image_c01`...; its DllTownmap.cro
 holds TownmapData). Different code and files: X's is to be ported beside Omega Ruby's (both maps in the menu); not done.
 Not read yet: the zone -> map position / Fly point table of each, how the menu opens the module.
+
+## Kalos in the same style (28 October)
+
+`kalos_xy_map.png` (`kalos_xy_draw.py`), drawn to match `hoenn_xy_map.png` (same palette, terraces, icons, route
+strokes, Lumiose's Poké Ball as the capital). From X's own town map image (`townmap_bg1`, a/0/6/9 member 0): the land,
+the relief (its colours, greener low, browner high, in the six terraces), the 16 stops, 14 places and 27 routes, read off
+the image square by square (their positions X's own, each route joining the icons X joins). Approximate or invented:
+the coast past the image's cut top, right and bottom edges (X's image shows only part of Kalos; drawn irregular, from
+nothing in the game), one size for every stop (X draws cities and towns alike), the routes made straight and 45° legs.
+Tried and set aside (28 October): Kalos assembled from X's tiles; its routes join towns through gate rooms (no world
+position), Lumiose's two rings (matrices 128, 129) fit nothing, X's material names are not TopView's; several hours.
