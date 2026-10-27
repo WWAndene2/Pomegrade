@@ -4,6 +4,7 @@
 #include "OrasSave.h"
 #include "OrasXyDustBox.h"
 #include "OrasXyDustCloud.h"
+#include "OrasXyPlayerScale.h"
 #include "OrasXyMoveCodes.h"
 #include "OrasXyGymModules.h"
 #include "OrasXySound.h"
@@ -1023,6 +1024,17 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         uint32_t cave = DllFieldBase + layout.CodeEnd();
         for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
         for (const CodeWord& w : XyMoveCodesFieldPatchAt(cave)) croWords.push_back({w.Address, w.Expected, w.Value, w.Why});
+    }
+    if (o.XyPlayerScale)
+    {
+        // the player x1.08 in X/Y's zones (OrasXyPlayerScale.h): a hook after its creation, its cave in DllField's room
+        if (o.FieldRoom < 0x1000) throw FormatError("--xy-player-scale needs --field-room");
+        const CroLayout layout(oras.Read("DllField.cro"));
+        uint32_t cave = DllFieldBase + layout.CodeEnd();
+        for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
+        for (const CodeWord& w : XyPlayerScaleFieldPatchAt(cave, o.XyPlayerScale->first, o.XyPlayerScale->second)) croWords.push_back({w.Address, w.Expected, w.Value, w.Why});
+        snprintf(line, sizeof line, "X/Y's player scale: x1.08 in zones %d-%d", o.XyPlayerScale->first, o.XyPlayerScale->second);
+        log.push_back(line);
     }
     if (o.FieldRoom)
     {

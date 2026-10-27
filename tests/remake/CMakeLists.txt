@@ -103,3 +103,6 @@ target_link_libraries(remake_xysharedscripts_test PRIVATE remake)
 
 add_executable(remake_xymovecodes_test remake_xymovecodes_test.cpp)
 target_link_libraries(remake_xymovecodes_test PRIVATE remake)
+
+add_executable(remake_xyplayerscale_test remake_xyplayerscale_test.cpp)
+target_link_libraries(remake_xyplayerscale_test PRIVATE remake)
