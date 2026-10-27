@@ -65,6 +65,9 @@ public:
     // no limit but the archive's. `models`: character models its zones show, added to its list when `like`'s lacks them
     // (CharacterList)
     int AddAreaPack(const Bytes& pack, int like, const std::vector<int>& models = {});
+    // one u16 of pack `pack`'s entry in a/0/1/4's per-pack table (44 bytes a pack, its last member): +0xA the camera preset
+    // (pack file 6's record) the field starts with (FUN_102E22D0)
+    void SetAreaPackTableWord(int pack, size_t offset, uint16_t value);
     // pack `like`'s characters' list (a/1/3/7) with an entry for each of `models` it lacks
     Bytes CharacterList(int like, const std::vector<int>& models);
     Bytes CharacterList(Bytes list, const std::vector<int>& models);

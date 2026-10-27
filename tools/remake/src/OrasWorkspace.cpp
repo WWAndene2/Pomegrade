@@ -263,6 +263,18 @@ int OrasWorkspace::AddAreaPack(const Bytes& pack, int like, const std::vector<in
     return append();
 }
 
+void OrasWorkspace::SetAreaPackTableWord(int pack, size_t offset, uint16_t value)
+{
+    Garc& packs = Edited("a/0/1/4");
+    const size_t tableAt = packs.Count() - 1, entry = 44;
+    const Bytes stored = packs.Sub(tableAt);
+    Bytes table = Plain(stored);
+    if ((size_t)(pack + 1) * entry > table.size() || offset + 2 > entry) throw FormatError("the area pack table has no entry for pack " + std::to_string(pack));
+    table[(size_t)pack * entry + offset] = (uint8_t)value;
+    table[(size_t)pack * entry + offset + 1] = (uint8_t)(value >> 8);
+    packs.Set(tableAt, IsLzCompressed(stored) ? Lz11Compress(table) : table);
+}
+
 void OrasWorkspace::RegisterHeaderZone(int header, int zone, bool interior, const std::vector<HeaderWarp>& warps)
 {
     for (const HeaderZone& h : HeaderZones)

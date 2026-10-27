@@ -391,15 +391,20 @@ OrasXyWorld.cpp). Both games' packs are AD containers of 12 files, the same layo
   0 reads (run wtf). X/Y's file 1 added as well: the area stops loading, both screens black (run wtc); pack 40's files 1
   + 11 are 1.56 MB, Omega Ruby's largest 1.47 MB (a size limit inferred, not read). Other packs than 40 not checked.
   Runs: the first shot after `draw on` is always black (cm3: 0 then 113.6), shoot after a few frames;
-- file 3, the **camera areas** (a count, then 0x64-byte records: a map area, its mode byte +0x17 read by
-  Field_Camera_ApplyModeStep; modes 3, 0 and 1 in both games, the same layout): **Littleroot's**;
+- files 3 (the **camera areas**: a count, then 0x64-byte records, a map area and its mode byte +0x17) and 6 (the
+  **camera presets**: 0x44-byte records, a u16 flag, a u16 number, then height, pitch, field of view 32, far 2000,
+  distance...; X/Y's 60 in 4,096 bytes, Omega Ruby's 16 in 1,152): **X/Y's** (27 October). The code reading them is the
+  same in both games (the area search Omega Ruby 0x102CE4B8 / X 0x1027FBFC, the preset copy 0x102C9C50 / 0x102782B4, the
+  zone-load setup 0x1026FF20 / 0x1023679C: `call_tree_compare.py`). The field starts on the preset that **a/0/1/4's
+  per-pack table** names (its last member; FUN_102E22D0 reads the entry's +0xA and copies file 6's record; +8, 0xFF for
+  none, read beside it). X/Y's table (its a/0/1/3's last member) has 36-byte entries, Omega Ruby's 44: the same first 36
+  bytes, then 8 bytes more (-1 in most). Our packs kept the Omega Ruby slot's entry, so the Village started on X/Y's
+  preset 4 (run mm1: the camera low and close, cm3, cm4) where X starts on 36 (run xm1: memory searched for the records,
+  pitch 15.9, distance 305.8). With X/Y's +0xA: the view matches X's at the same tile (run cma against xv3).
+  `OrasWorkspace::SetAreaPackTableWord`. The entry's other fields are not compared yet. On the way: zone header words 16,
+  17, 20 and 21 (builder's reference values, not X/Y's) change nothing on screen (runs cm6, cm7, cm9); X/Y's word 15 stops
+  the area loading (6 reads at 0x48B39C, run cm8): its meaning not read;
 - file 5, a "cloud" texture (X/Y: 60 packs; Omega Ruby: none, so its engine does not read it): **none**;
-- file 6, the **camera presets** (0x44-byte records read by number, Field 0x102C9C50 copying one; a u16 number, a u16
-  flag, 1 in Omega Ruby and 0 in X/Y, then height, pitch, field of view 32, far 2000, distance...; X/Y's 60 in 4,096
-  bytes, Omega Ruby's 16 in 1,152): **Littleroot's**. Read every frame by Field 0x102C9974-0x102C9D30 and 0x102700CC
-  (run cam2, `readers`). X/Y's files 3 and 6 put there: the camera much lower and closer than X's own at the same tile
-  (run cm3 against X run xv3) and unmapped reads back, while Littleroot's gives a view close to X's: Omega Ruby does
-  not choose or read X/Y's presets as X does. To compare: the two games' camera code.
 - Tiles: X/Y's values kept, but 0x31000020 made 0x20 (2,317 tiles; its meaning in X not read). By behaviour (the low
   16 bits): X/Y uses 49, Omega Ruby 58, 20 shared; **29 only X/Y's**, on 55,274 of X/Y's 1,715,200 tiles (3.2 %; most
   0x1821, 0x0005, 0x2004), which Omega Ruby reads its own way. Field_ClassifyAttribute is the same in both games
