@@ -2,11 +2,6 @@
 
 #include "OrasXyDustBox.h"
 #include "OrasXyMoveCodes.h"
-#include "Bch.h"
-#include "BchUpgrade.h"
-#include "BinLinker.h"
-#include "Garc.h"
-#include "NitroCompression.h"
 
 #include <cstdio>
 #include <iterator>
@@ -157,7 +152,7 @@ constexpr uint32_t ClassThunks[][2] = {
 // X's 0x2B). Its methods [10]-[13], [15] and destructors copied, its base's (field::mmodel::FieldMoveModelEffect, the same
 // code in both: X's splash and slope dust vtables against Omega Ruby's) Omega Ruby's. Its resources, X's effect pack ids
 // 0xBD (the model), 0xBE and 0xBF (its animations), are X's a/0/6/6 "TM" entries 0xBD-0xBF given Omega Ruby's a/0/6/4 at
-// the same numbers (XyDustCloudEffectsArchive), the pack grown to them (XyDustCloudFieldPatchAt)
+// the same numbers, the pack grown to them (OrasXyEffectPack.h)
 constexpr Block SwirlBlocks[] = {
     {0x10251228, 0x10251230}, // its destructors
     {0x102DCFE0, 0x102DD23C}, // its resource ids [12], model id [11], count [10], placement [15], update [13]
@@ -696,53 +691,7 @@ std::vector<CodeWord> XyDustCloudFieldPatchAt(uint32_t cave)
         XyDustCloudPointer,                             // 24
     };
     for (uint32_t k = 0; k < std::size(code); k++) w.push_back({cave + 4 * k, 0, code[k], "X/Y's dust clouds' step hook (cave)"});
-    // the field's effect pack (its builder 0x1026D628, its lookup 0x102AA3A8): ids 8-0xAC (0xA5 entries of 0x4C bytes, the
-    // TM a/0/6/4's entries at their own numbers) -> 8-0xBF, for X's swirl's 0xBD-0xBF (XyDustCloudEffectsArchive)
-    w.push_back({0x1026D680, 0xE3A040A5, 0xE3A04000 | XyEffectPackEntries, "the effect pack: its entries, 0xA5 -> 0xB8"});
-    w.push_back({0x1026D7D4, 0x3104, 8 + 0x4C * XyEffectPackEntries, "the effect pack: its entries' allocation"});
-    w.push_back({0x102AA3AC, 0xE35200A4, 0xE3520000 | (XyEffectPackEntries - 1), "the effect pack's lookup: its last id"});
-    // its builder skips Omega Ruby's own entries past the game's (0xAD-0xBC: 7 models, 4 visibility, 2 skeletal and 2
-    // material animations the game never loads as effects): loaded, they left two of the scene's animations without a
-    // resource, read near address 0 every frame on X/Y's zones (PCs 0x38A28C, 0x4CCDF4: about 5,000 reads a run; bisected
-    // 26 October, runs sc1x-sc3x: none without the pack grown). Their entries stay empty, as the lookup found them before
-    // (+ 0x3C 0: none). The loop's `add r0, r4, #8` (the id) calls the routine, which goes on to the next entry for these
-    constexpr uint32_t BuilderId = 0x1026D6E8, BuilderNext = 0x1026D79C;
-    constexpr uint32_t SkipFirst = 8 + 0xA5, SkipLast = XySwirlFirstId - 1;
-    static_assert(SkipLast - SkipFirst < 0x100, "the routine compares with an 8-bit immediate");
-    const uint32_t skip = cave + 4 * (uint32_t)std::size(code);
-    w.push_back({BuilderId, 0xE2840008, Branch(0xE, BuilderId, skip, true), "the effect pack's builder: Omega Ruby's ids 0xAD-0xBC skipped"});
-    const uint32_t skipCode[] = {
-        0xE2840008,                                     // 00 add r0, r4, #8        the id (the game's word)
-        0xE240C000 | SkipFirst,                         // 04 sub ip, r0, #0xAD
-        0xE35C0000 | (SkipLast - SkipFirst),            // 08 cmp ip, #0xF
-        0x812FFF1E,                                     // 0C bxhi lr               another id: loaded
-        Branch(0xE, skip + 0x10, BuilderNext, false),   // 10 b the next entry
-    };
-    for (uint32_t k = 0; k < std::size(skipCode); k++) w.push_back({skip + 4 * k, 0, skipCode[k], "the effect pack's skipped ids (cave)"});
     return w;
-}
-
-Bytes XyDustCloudEffectsArchive(const Bytes& orasGarc, const Bytes& xGarc)
-{
-    // both games' archives hold one TM of the field's effect files (X's a/0/6/6: 204, Omega Ruby's a/0/6/4: 189), the
-    // effect pack's id the entry's number (the swirl's three BCH found in X's by their bytes as X loaded them, run xd2)
-    Garc o(orasGarc);
-    const Garc x(xGarc);
-    const auto plain = [](const Bytes& m) { return !m.empty() && m[0] == 0x11 ? LzDecompress(m) : m; };
-    const bool compressed = !o.Sub(0).empty() && o.Sub(0)[0] == 0x11;
-    BinLinker ot = BinLinker::Read(plain(o.Sub(0)), "TM");
-    const BinLinker xt = BinLinker::Read(plain(x.Sub(0)), "TM");
-    if (o.Count() != 1 || ot.Files.size() != XySwirlFirstId || xt.Files.size() != 204)
-        throw FormatError("the effects' archives: not Omega Ruby's 189 files and X's 204");
-    for (uint32_t id = XySwirlFirstId; id < XySwirlFirstId + 3; id++)
-    {
-        Bytes f = xt.Files.at(id);
-        if (!Bch::Is(f) || f[4] != 0x07) throw FormatError("the effects' archives: X's swirl file not a BCH 0x07");
-        ot.Files.push_back(BchUpgradeTo21(f));
-    }
-    const Bytes tm = ot.Write();
-    o.Set(0, compressed ? Lz11Compress(tm) : tm);
-    return o.Write();
 }
 
 }

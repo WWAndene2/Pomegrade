@@ -1,7 +1,7 @@
 #!/bin/bash
 # The mod to test everything ported so far on the phone (owner's request, 23 October): X/Y's world on the matrices
 # sandbox/test_all.txt's warps name (its zones 538-556), the hub sandbox zone 557 on top, the engine with every port
-# (X/Y's gyms, dust boxes, dust clouds, shared scripts, trainers, battles, music), a save standing in the hub, and one zip of both.
+# (X/Y's gyms, dust boxes, dust clouds, flower grass, shared scripts, trainers, battles, music), a save standing in the hub, and one zip of both.
 #
 #   tools/remake/headless/test_all_mod.sh <work dir> <out name>
 #
@@ -24,7 +24,7 @@ rows=$(sed -n 's/.*(oras-engine --zone-rows \([0-9]*\)).*/\1/p' "out/${name}_sb.
 opts=$(grep "oras-engine options" "out/$name.log" | sed 's/oras-engine options: //' | sed "s/--zone-rows [0-9]*/--zone-rows $rows/")
 # shellcheck disable=SC2086
 $T oras-engine dumps/oras.3ds "out/$name" $opts --character-models 64 --memory 124 --linear-heap 0x5800000 --normal-heap 0x1800000 \
-    --heap 0xC:0x800000 --heap 0x17:0x4000000 --xy-gyms dumps/x.3ds --xy-dust-box dumps/x.3ds --xy-dust-cloud on > "out/${name}_engine.log" 2>&1
+    --heap 0xC:0x800000 --heap 0x17:0x4000000 --xy-gyms dumps/x.3ds --xy-dust-box dumps/x.3ds --xy-dust-cloud on --xy-flower-grass dumps/x.3ds > "out/${name}_engine.log" 2>&1
 grep -i "error" "out/${name}_engine.log" && exit 1
 $T oras-save dumps/save/main "out/${name}_save" 557 17.5 18.5 --save-records 32 | tail -1
 rm -rf "out/$name.pack" && mkdir -p "out/$name.pack/sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/00040000/0011c400/data/00000001"

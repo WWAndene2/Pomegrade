@@ -4,6 +4,7 @@
 #include "OrasSave.h"
 #include "OrasXyDustBox.h"
 #include "OrasXyDustCloud.h"
+#include "OrasXyEffectPack.h"
 #include "OrasXyPlayerScale.h"
 #include "OrasXyMoveCodes.h"
 #include "OrasXyGymModules.h"
@@ -339,8 +340,10 @@ static Bytes PatchCro(const Bytes& cro, uint32_t base, const std::vector<CroWord
         const uint32_t at = w.Address - base;
         char where[96];
         snprintf(where, sizeof where, "module 0x%08X (file 0x%X): ", w.Address, at);
-        if (at < segments[0].first || at + 4 > pagesEnd) throw FormatError(std::string(where) + "outside the code's pages (" + w.Why + ")");
-        if (at >= codeEnd && w.Expected != 0) throw FormatError(std::string(where) + "a cave word must be expected zero (" + w.Why + ")");
+        // a word of the code's pages, or of another segment the file holds (DllField's read-only data: its grass tables)
+        const bool data = std::any_of(segments.begin() + 1, segments.end(), [&](const auto& s) { return s.first && at >= s.first && at + 4 <= s.first + s.second; });
+        if (!data && (at < segments[0].first || at + 4 > pagesEnd)) throw FormatError(std::string(where) + "outside the code's pages (" + w.Why + ")");
+        if (!data && at >= codeEnd && w.Expected != 0) throw FormatError(std::string(where) + "a cave word must be expected zero (" + w.Why + ")");
         if (relocated.count(at)) throw FormatError(std::string(where) + "the loader relocates this word (" + w.Why + ")");
         if (u32(at) != w.Expected)
         {
@@ -1015,6 +1018,15 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
         for (const CodeWord& w : XyDustCloudFieldPatchAt(cave)) croWords.push_back({w.Address, w.Expected, w.Value, w.Why});
     }
+    if (o.XyDustCloud || !o.XyFlowerGrass.empty())
+    {
+        // the field's effect pack grown to X/Y's effect files (OrasXyEffectPack.h): the swirl's, and the flower grass's
+        // with its grass kinds 1-3 (romfs/a/0/6/4 below)
+        const CroLayout layout(oras.Read("DllField.cro"));
+        uint32_t cave = DllFieldBase + layout.CodeEnd();
+        for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
+        for (const CodeWord& w : XyEffectPackPatchAt(cave, !o.XyFlowerGrass.empty())) croWords.push_back({w.Address, w.Expected, w.Value, w.Why});
+    }
     if (o.XyMoveCodes)
     {
         // X/Y's move codes past 0x3E (OrasXyMoveCodes.h): the move-code table's three loads and two bounds through DllField's
@@ -1043,7 +1055,12 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         log.push_back(line);
     }
     if (!croWords.empty() || o.FieldRoom)
+    {
+        // the read-only segment's words last: the caves above are placed after the highest word patched so far
+        if (!o.XyFlowerGrass.empty())
+            for (const CodeWord& w : XyFlowerGrassTableWords(o.FieldRoom)) croWords.push_back({w.Address, w.Expected, w.Value, w.Why});
         dllField = PatchCro(o.FieldRoom ? GrowCroCode(oras.Read("DllField.cro"), o.FieldRoom) : oras.Read("DllField.cro"), DllFieldBase, croWords);
+    }
     for (const auto& [id, size] : o.HeapSizes)
     {
         const HeapSize* h = nullptr;
@@ -1204,7 +1221,7 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         log.push_back(line);
     }
     std::vector<uint32_t> cloudVtables; // the dust clouds' move-code classes, for the move-code table
-    Bytes effectsArchive;               // the field's effect files with X/Y's dust cloud swirl's (romfs/a/0/6/4)
+    Bytes effectsArchive;               // the field's effect files with X/Y's (romfs/a/0/6/4, OrasXyEffectPack.h)
     if (o.XyDustCloud)
     {
         // X/Y's dust clouds (OrasXyDustCloud.h): X's event, effect and battle in the room, the step hook naming it
@@ -1215,10 +1232,15 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
                                                         [&](uint32_t id) { return sounds.Translate(id); });
         const uint32_t at = roomPut(cloud.Room, "X/Y's dust clouds");
         cloudVtables = cloud.Vtables;
-        effectsArchive = XyDustCloudEffectsArchive(oras.Read("a/0/6/4"), xy.Read("a/0/6/6"));
         words.insert(words.end(), cloud.Code.begin(), cloud.Code.end());
         snprintf(line, sizeof line, "dust clouds: X/Y's event, effect and battle at 0x%X (%zu bytes), its models archive %s", at, cloud.Room.size(), XyArchivePath(archive).c_str());
         log.push_back(line);
+    }
+    if (o.XyDustCloud || !o.XyFlowerGrass.empty())
+    {
+        N3dsRom xy(o.XyFlowerGrass.empty() ? o.XyGyms : o.XyFlowerGrass);
+        effectsArchive = XyEffectsArchive(oras.Read("a/0/6/4"), xy.Read("a/0/6/6"), !o.XyFlowerGrass.empty());
+        if (!o.XyFlowerGrass.empty()) log.push_back("flower grass: X/Y's grass01-03 at effect ids 0xC0-0xC5, the grass kinds 1-3 naming them");
     }
     if (o.XyMoveCodes)
     {
@@ -1397,7 +1419,7 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         const std::filesystem::path path = root / "romfs" / "a/0/6/4";
         std::filesystem::create_directories(path.parent_path());
         WriteFile(path.string(), effectsArchive);
-        log.push_back("romfs/a/0/6/4: the field's effect files and X/Y's dust cloud swirl's, " + std::to_string(effectsArchive.size()) + " bytes");
+        log.push_back("romfs/a/0/6/4: the field's effect files and X/Y's, " + std::to_string(effectsArchive.size()) + " bytes");
     }
     for (const auto& [name, module] : gymModules)
     {

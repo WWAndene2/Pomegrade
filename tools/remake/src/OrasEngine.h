@@ -52,6 +52,7 @@ struct OrasEngineOptions
     std::optional<std::pair<int, int>> XyPlayerScale; // X/Y's zones (first, last) where the player is drawn x1.08 (OrasXyPlayerScale.h; needs --field-room)
     bool XyMoveCodes = false;                // X/Y's move codes past 0x3E (OrasXyMoveCodes.h; needs --field-room)
     bool XyDustCloud = false;                // X/Y's dust clouds (OrasXyDustCloud.h; needs --xy-gyms, --xy-battle-types, --field-room)
+    std::string XyFlowerGrass;               // X/Y's image: its flower beds' shaken grass (OrasXyEffectPack.h)
     std::string XyStaticWild;                // a file of X/Y's 13 scripted wild battles (CallWildBattle's 12-byte entries, their types and backgrounds the mod's), appended after Omega Ruby's 59 (OrasXyScript.h XyMoveWildBattles; needs --xy-battle-types)
 };
 

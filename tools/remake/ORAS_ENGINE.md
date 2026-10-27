@@ -29,8 +29,11 @@ over 15 minutes; one run at a time, drawing off until the shot (`draw off` ... `
 
 **Phone test of the reference mod "kalosfull"** (28 October: the whole of Kalos, story off, music, gyms, dust boxes and
 clouds; "things seem to work"), three issues the owner reported, to fix:
-- **Tall grass drawn as flowers:** some of X/Y's tall grass shows a flower asset, and turns back into grass when walked
-  on (likely: the piece's tall grass file 5 or its textures not matching what the step animation draws; not read).
+- **Tall grass drawn as flowers** (fixed 28 October, `oras-engine --xy-flower-grass <x.3ds>`, OrasXyEffectPack.h): the
+  flowers are X/Y's own flower beds (tiles 0x21-0x23; X itself draws the same lavender on Route 5, run xr5b); walked on,
+  they turned to plain grass because Omega Ruby's grass tables name grass00 for those kinds where X's name its grass01-03.
+  Checked headless (runs r5s, r5fs, mod zone 539): with the option the lavender stays under the player, as in X. Not
+  checked on the phone.
 - **X/Y battle platforms drawn as a big block mesh again:** the old bug (OrasXyBackgrounds.h: X's forest ground, the same
   as Omega Ruby's member 13, drew a raised block when converted; shared then, runs bgf1-bgf3). Back since the background
   bank (28 October, 9910b39f): to check whether the bank's records point at converted grounds or platforms the merge
