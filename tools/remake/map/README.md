@@ -33,3 +33,29 @@ python3 hoenn_draw.py       # hoenn_map.png
 
 `hoenn_place.py` (matrix placement), `hoenn_assemble.py` (the tile render, `hoenn_assembled.png`) and
 `hoenn_lines.py` (the lines' place order) are read by the others.
+
+## Hoenn in X/Y's town map style (28 October)
+
+`hoenn_xy_map.png`, the owner's approved version: X/Y's town map look (flat relief terraces with outlines, white routes
+with a dark edge, grey stops, orange places, Mauville's Poké Ball as the capital, sea routes as dots with one shared dot
+at each junction), drawn whole (the DexNav screen's cut edges widened and rounded off).
+
+- **From the game:** the relief (the pieces' 3D terrain, `hoenn_height.py` with `piece_height.cpp`), the roads' course
+  (`map/paths.pkl`, warped onto the map through the towns and places; the warp misses by up to 34 px, so each route was
+  then redrawn by hand along it, straight and 45° legs).
+- **From the DexNav screen:** the land outline and the towns' and places' squares.
+- **Chosen, approximate:** the hand-drawn bends, the sea routes of the 124-128 block, the 10 places the DexNav omits
+  (Weather Institute, Desert Ruins, Scorched Slab, Ancient Tomb, Trick House, Island Cave, Sealed Chamber, Secret
+  Islet, Meadow, Shore), the land past the screen's edges. Not drawn: the Mirage spots.
+
+Run, after the four steps above: build `piece_height` (`g++ -std=c++17 -O2 -I../src piece_height.cpp
+<build>/libremake.a -lz`), then `REMAKE_PIECE_HEIGHT=<it> python3 hoenn_height.py` and `python3 hoenn_xy_draw.py`
+(with `ref/dexnav.jpg` and X's decoded `xtm/png/` in the work directory: `darc_png.cpp`, the same build, decodes a DARC's
+BCLIM images to PNG: `darc_png <file> <offset of "darc"> <out dir>`).
+
+The two games' own town maps, read 28 October (static): Omega Ruby's `a/0/6/7` member 0 (DARC at 0x5900: `map_lower.bclyt`,
+`poke_navi_map.bclim` 380 × 270 ETC1, cursor, player icons, city icons; module DllTownmap.cro, classes NaviLayout,
+NaviUtil, SecretBaseView, NutsView...), X's `a/0/6/9` member 0 (DARC at 0x3B00: `townmap_upper/lower.bclyt`, weather
+animations, `townmap_bg1.bclim` 320 × 210 the Kalos map, a 160 × 100 photo per place `image_c01`...; its DllTownmap.cro
+holds TownmapData). Different code and files: X's is to be ported beside Omega Ruby's (both maps in the menu); not done.
+Not read yet: the zone -> map position / Fly point table of each, how the menu opens the module.
