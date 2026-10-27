@@ -103,6 +103,7 @@ Pomegrade (shown to users as Punica) is six codebases in one Gradle build, roote
 | CI workflows | `.github/workflows/` |
 | Pokemon remake tooling (DS/3DS game data readers, converters, editor; desktop C++, no app code) | `tools/remake/` (`src/`), tests in `tests/remake/` |
 | Sandbox zone descriptions (`remake_tool oras-sandbox` input, one text file per sandbox) | `tools/remake/sandbox/` |
+| Hoenn map (ORAS): its scripts and the map they draw (owner's request, 27 October) | `tools/remake/map/` |
 | Kotlin unit tests | `melonDS-android/app/src/test/java/`, mirroring the package of the class under test |
 | Android instrumented tests | `melonDS-android/app/src/androidTest/java/`, same mirroring |
 | Desktop tests of the DS core (CMake, no Android), one folder per feature | `tests/<feature>/` (`hd-textures/`, `polygon-multiplier/`) |
