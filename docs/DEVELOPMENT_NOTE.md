@@ -309,7 +309,7 @@ redone; the zones before what runs in them; one phone check per block, not per c
    encounters of 1 were found this way), and the audit of Omega Ruby's features on Kalos's map (DexNav, soaring, secret
    bases, the PokeNav Plus apps, contests ...: which need per-zone data X/Y's zones lack). Gives the whole list for 5-8.
 5. **(Next, owner 26 October: before steps 2-4's rest.)** Substitutes inventoried 26 October (ORAS_ENGINE.md 0.0): the
-   camera (areas, presets and the start preset) X/Y's (27 October, Pokemon Village checked headless), X/Y's water animations ported (26 October, Pokemon Village checked headless), cloud texture missing, 29 tile behaviours only
+   camera (areas, presets and the start preset) X/Y's (27 October, Pokemon Village checked headless), the player drawn x1.08 in X/Y's zones to match X/Y's world (27 October, owner's decision, checked headless), X/Y's water animations ported (26 October, Pokemon Village checked headless), cloud texture missing, 29 tile behaviours only
    X/Y's; X/Y's camera and water files tried as is and failing (reverted).
    X/Y's zones, the ground the features run on: packs, camera, light and tiles (substitutes from the audit of
    22 October); the 137 natives Omega Ruby does not register (159 of its 360 zones call one; the nickname's six and

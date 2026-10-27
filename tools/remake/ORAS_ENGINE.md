@@ -404,6 +404,14 @@ OrasXyWorld.cpp). Both games' packs are AD containers of 12 files, the same layo
   `OrasWorkspace::SetAreaPackTableWord`. The entry's other fields are not compared yet. On the way: zone header words 16,
   17, 20 and 21 (builder's reference values, not X/Y's) change nothing on screen (runs cm6, cm7, cm9); X/Y's word 15 stops
   the area loading (6 reads at 0x48B39C, run cm8): its meaning not read;
+- **the player's scale against X/Y's world** (27 October, owner's decision): X's player stands 35.8 units from its
+  feet to the top of its hair (its parts, a/0/8/8, no hat), May 33.0 (a/0/2/1 member 171, ribbon left out): 8 % more.
+  The two worlds share a scale (18-unit tiles; the props both games have, the same size), so the player is drawn x1.08
+  in X/Y's zones (`--xy-player-scale FIRST:LAST`, OrasXyPlayerScale.h: a per-frame cave writing the model's scale,
+  1.0 put back outside them). Checked headless: 1.08 in the Village (runs ps3, ps5), 1.0 in the Hoenn hub (ps4, ps6).
+  The colours "darker than X's" were the hour: the game's clock is the real one, X's reference shot taken in the
+  evening and ours after midnight; at the same hour X is as dark (runs xv4, cma; ours still ~10 % darker on the flowers,
+  not explained). The pack table entry's other fields (0, 4, 6, 7) changed nothing seen (run tb1): left as they are;
 - file 5, a "cloud" texture (X/Y: 60 packs; Omega Ruby: none, so its engine does not read it): **none**;
 - Tiles: X/Y's values kept, but 0x31000020 made 0x20 (2,317 tiles; its meaning in X not read). By behaviour (the low
   16 bits): X/Y uses 49, Omega Ruby 58, 20 shared; **29 only X/Y's**, on 55,274 of X/Y's 1,715,200 tiles (3.2 %; most

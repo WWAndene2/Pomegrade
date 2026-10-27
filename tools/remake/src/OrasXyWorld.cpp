@@ -287,6 +287,8 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     std::string engine = "oras-engine options: --zone-rows " + std::to_string(ws.NextZone()) + " --story large";
     // X/Y's characters keep X/Y's move classes (OrasXyMoveCodes.h: the zone port gives the X-only ones codes past 0x3E)
     engine += " --xy-move-codes on";
+    // the player x1.08 in X/Y's zones, numbered from firstZone in a row (OrasXyPlayerScale.h)
+    if (!taken.empty()) engine += " --xy-player-scale " + std::to_string(firstZone) + ":" + std::to_string(firstZone + (int)taken.size() - 1);
     if (std::any_of(packOf.begin(), packOf.end(), [](const auto& p) { return p.second > 255; })) engine += " --area-packs large";
     if (wildTables) engine += " --wild-tables large";
     if (wildTables && !battleTypes.empty())
