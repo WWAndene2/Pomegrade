@@ -412,7 +412,22 @@ OrasXyWorld.cpp). Both games' packs are AD containers of 12 files, the same layo
   The colours "darker than X's" were the hour: the game's clock is the real one, X's reference shot taken in the
   evening and ours after midnight; at the same hour X is as dark (runs xv4, cma; ours still ~10 % darker on the flowers,
   not explained). The pack table entry's other fields (0, 4, 6, 7) changed nothing seen (run tb1): left as they are;
-- file 5, a "cloud" texture (X/Y: 60 packs; Omega Ruby: none, so its engine does not read it): **none**;
+- file 5, X/Y's **projection maps** (27 October, read, not ported): its textures (`cloud` in 50 packs, `treelight`,
+  `pokecen`, `plr0201`/`0701`/`0702`) are projected on the ground by X's `field::projectionmap` classes (Base, Cloud,
+  TreeLight, Pokecen, ProjectionMapPlr0201/0701/0702: X DllField 0x102218D8-0x10223720), which Omega Ruby has none of.
+  X's area load (0x1029E728) calls their factory (0x102224D0) with the area: its kind is the per-pack table entry's
+  +0xE (field 7: Pokemon Village's pack 40 reads 1, the clouds, shown from 3:00 to 20:00 and in weathers up to 12), its
+  texture pack file 5 (getters 0x4AB77C / 0x4AB74C). Of the 26 functions they use, 13 have a copy in Omega Ruby, five
+  none (.code 0x35EE88, 0x35F0BC, 0x35F2E8, at most 59 % alike, and DllField 0x1027CA58, 0x1027CC10): the port reaches
+  into the renderer. Not done (the owner to decide when);
+- doors, street lamps and stairs (27 October, checked headless against X, Vaniville in the test mod): X's door models are
+  drawn now (runs vd1, xvd1) and the lamps too (vl1, xvl1); X's stairs in the player's house are not warps but
+  triggers (event 5, 6) running `MapChangeFake(5, 5, x, y, z, dir)`, a move inside the same zone (both floors are one
+  piece, 163, side by side), which Omega Ruby registers (bit 2): walked up headless (session stS). Trigger kinds (word 3:
+  0, 5, 6, 7, 8) are the same set in both games. **Seen wrong**: a save in that house (zone 539, X's 2), moved by
+  oras-save or made with the game's own menu (its Situation block holding the right zone and position), loads at the
+  zone's start point by the bed, with or without X's story (`--story off`, run sto1): the game's load ignores the
+  position there, not known why (the header matches Omega Ruby's house 223, its source);
 - Tiles (27 October): **the two games split a tile word differently** (their readers): X flags bits 0-10 (0x3E11A0),
   footstep ground type 11-15 (0x3E0A34), battle background 16-23 (0x3E0AA8, 0x3DFB94); Omega Ruby flags 0-11
   (Map_TileAttr_Flags), ground type 12-16 (0x402FCC), background 17-23 (FUN_00403190); kind 24-31 in both. X's values had

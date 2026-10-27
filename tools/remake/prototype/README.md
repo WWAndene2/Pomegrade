@@ -128,6 +128,10 @@ for bytes (`bytes`: a file a run dumped from memory, found in its archive; membe
 by member count (`count`).
 
 Comparing the two games and reading a mod's files (26 October, step 2's inventory, ORAS_ENGINE.md 0.0):
+`mem_find.py` searches a memory dump taken with retro_host's `mem` (words, floats, camera records, the objects holding a
+pointer): how X's start camera, the player's model scale and the player's position copies were found (27 October; its
+header gives the commands). The addresses found hold for other runs of the same mod and save: check them by a `poke`.
+
 `call_tree_compare.py` compares an Omega Ruby function with its X/Y twin and what they call, down a few levels (import
 stubs followed, call targets and address literals set aside; no Ghidra export needed). `sound_compare.py` compares
 X/Y's sounds with Omega Ruby's same-named ones by what they play (sequence, banks, wave archives; files' version word
