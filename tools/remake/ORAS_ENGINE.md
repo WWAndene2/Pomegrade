@@ -40,9 +40,14 @@ clouds; "things seem to work"), three issues the owner reported, to fix:
   Omega Ruby 0x100043E4 / X 0x10004340, the node at +0x60 given the transform at +0xBC, the same code): it sits at its
   own coordinates, and X shows it too (owner's X shots). Not compared: the foe's platform (X's shots a flat disc, the
   mod's shot the tall-grass ring), which may follow the tile rather than the zone (not read).
-- **Story and event scripts still run** in the neutral build (`--story off` leaves out triggers, story characters, init
-  scripts and field-move obstacles; zone scripts' scene changes, characters without a vanish flag that run story
-  events, and the shared scripts are kept): which ones, to list from the phone and the zones' scripts.
+- **Story and event scripts still run** in the neutral build (owner's example: Route 5's champion and her two Lucario
+  on every entry, from either side). Fixed 28 October: the scenes a zone starts by itself (its script's
+  GetSceneChangeData table, read by Zone_LoadZoneScript; 55 of X's zones) are left out with `--story off`
+  (OrasXyScript.cpp; checked at build: Route 5 and 7 note it; not seen in game, the scene needing an entry on foot).
+  `--story off` also kept out the items on the ground (207) and 26 trainers, by their flags: now kept (run r5ib: Route
+  5's ball drawn). Left to sort with the owner: the scripts still reachable, listed by a static reading of the zone
+  scripts (the natives each case calls): 95 scenes (camera, fades, warps, battles, gym leaders), 82 gifts or services,
+  23 setting flags only, 36 unknown cases; the shared scripts (GlobalCall, ids 2000 and up) not followed.
 
 **Session notes of 28 October** (session setup: `session_setup.sh <work> dumps tool core ghidra ghidra-x`, 35 minutes;
 the environment's `PkmXY` and `PkmXYsave` hold share links: give the setup and the download the id inside them):

@@ -161,8 +161,12 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
     size_t storyPeople = 0, obstacles = 0;
     for (ZoneCharacter c : x.Characters)
     {
-        // without the story: a character with a vanish flag is one the story shows or hides (zone 2's rivals, 838-842)
-        if (!story && c.Raw[4] != 0) { storyPeople++; continue; }
+        // without the story: a character with a vanish flag is one the story shows or hides (zone 2's rivals, 838-842), but
+        // for the items on the ground (scripts 7000-7999, their flag the one set once picked up: 207 in X's zones) and the
+        // trainers (their scripts 3000 + id, 5000 + id: 26), kept (owner, 28 October: they are the map's, not the story's)
+        const bool item = c.Raw[5] >= 7000 && c.Raw[5] < 8000;
+        const bool trainer = (c.Raw[3] == 1 || c.Raw[3] == 3 || c.Raw[3] == 9) && c.Raw[5] > 3000 && c.Raw[5] < 5000 + XyTrainerCount;
+        if (!story && c.Raw[4] != 0 && !item && !trainer) { storyPeople++; continue; }
         // and the map neutral (owner, 27 October: every gated path open): the field moves' obstacles, the characters whose
         // script is X/Y's hiden.amx (ids 10000-10089; in X's 361 zones only 10000, 10002, 10004 and 10006, models 0x200C,
         // 0x200B, 0x2009 and 0x2034, 123 characters, none with a vanish flag: by their counts and models the Cut trees,
