@@ -34,10 +34,12 @@ clouds; "things seem to work"), three issues the owner reported, to fix:
   they turned to plain grass because Omega Ruby's grass tables name grass00 for those kinds where X's name its grass01-03.
   Checked headless (runs r5s, r5fs, mod zone 539): with the option the lavender stays under the player, as in X. Not
   checked on the phone.
-- **X/Y battle platforms drawn as a big block mesh again:** the old bug (OrasXyBackgrounds.h: X's forest ground, the same
-  as Omega Ruby's member 13, drew a raised block when converted; shared then, runs bgf1-bgf3). Back since the background
-  bank (28 October, 9910b39f): to check whether the bank's records point at converted grounds or platforms the merge
-  used to share, and the platform table's index for bank values.
+- **The "big block" behind the foe** (owner's shot, Route 5, mod zone 539; not a bug, owner, 28 October): X's scenery set
+  model `btl_B_kusa` (X a/1/4/6 member 16, a grassy ledge), named by X/Y's background value 1 (Route 5's: ground X 3,
+  backdrop X 26, scenery set 1). DllBackGround loads and places it as X does (read 28 October, both modules decompiled:
+  Omega Ruby 0x100043E4 / X 0x10004340, the node at +0x60 given the transform at +0xBC, the same code): it sits at its
+  own coordinates, and X shows it too (owner's X shots). Not compared: the foe's platform (X's shots a flat disc, the
+  mod's shot the tall-grass ring), which may follow the tile rather than the zone (not read).
 - **Story and event scripts still run** in the neutral build (`--story off` leaves out triggers, story characters, init
   scripts and field-move obstacles; zone scripts' scene changes, characters without a vanish flag that run story
   events, and the shared scripts are kept): which ones, to list from the phone and the zones' scripts.
