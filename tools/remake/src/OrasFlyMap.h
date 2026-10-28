@@ -21,6 +21,8 @@
 #include "Bytes.h"
 #include "CodePatch.h"
 
+#include <map>
+#include <string>
 #include <vector>
 
 namespace remake
@@ -29,9 +31,27 @@ namespace remake
 constexpr uint32_t FlyMapWidth = 380, FlyMapHeight = 256; // each map's image (RGBA rows, map/fly_background.py)
 constexpr uint32_t DllTownmapBase = 0x107F2000;           // where prototype/cro_link.py and the Ghidra program place it
 
+// The places on a drawing (map/hoenn_xy_places.txt): the cursor names a place where its box is, a bnd1 pane under "s"
+// (named by its id in base 36) that the place's a/0/6/6 records name (u16 2); a record's name is its zone's place name
+// (u16 0: the zone header's halfword 14 bits 1-9, a line of a/0/7/4 member 90 at twice it, read 28 October)
+struct FlyPlaces
+{
+    uint32_t Width = 0, Height = 0;                 // the drawing's, in pixels
+    std::map<uint16_t, std::pair<float, float>> Panes; // a box on a pixel of the drawing
+    struct NewPlace { uint16_t Zone, Pane; };       // a record added: a zone's name on a box (placed in Panes)
+    std::vector<NewPlace> News;
+};
+FlyPlaces ReadFlyPlaces(const std::string& text);
+
 // a/0/6/7 member 0 (plain) with `hoenn` as its background, `kalos` (empty: none) after it, and the places' pictures
-// transparent
-Bytes FlyMapWithBackgrounds(const Bytes& member, const Bytes& hoenn, const Bytes& kalos);
+// transparent; with `places`, the boxes placed on their points (the drawing fitted as map/fly_background.py fits it,
+// 12 x 12 each) and every other box of "s" made 0 x 0
+Bytes FlyMapWithBackgrounds(const Bytes& member, const Bytes& hoenn, const Bytes& kalos, const FlyPlaces* places = nullptr);
+
+// a/0/6/6 member 0 (60-byte records) for `places`: the records whose box is not placed (the routes...) all naming one
+// such box, hidden; the new places appended, each a copy of the record that named its box before, its zone set and its
+// flight (u16 8) none
+Bytes FlyPlacesRecords(const Bytes& records, const FlyPlaces& places);
 
 // DllTownmap's words (linked addresses): L or R switching the map shown, in a cave at `cave` (past the code, grown)
 std::vector<CodeWord> FlyMapSwitchWords(uint32_t cave);

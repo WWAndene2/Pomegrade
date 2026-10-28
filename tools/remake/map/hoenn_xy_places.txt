@@ -1,0 +1,54 @@
+# The fly screen's places on hoenn_xy_map.png (oras-engine --fly-places-hoenn, OrasFlyMap.h): the cursor names a place on
+# its point of the drawing. Read 28 October from hoenn_xy_draw.py: the towns (T) and places (P) are the DexNav squares it
+# draws, each point found on the PNG within 1 pixel of its square; the ten places it adds from the game's tiles (EXTRA) are
+# the remaining points, each on the route the script puts it on.
+#   pane ID X Y   the place's box (a/0/6/7 map_lower.bclyt, a bnd1 named ID in base 36; a/0/6/6 records name it) on the
+#                 drawing's pixel X, Y
+#   zone ZONE ID X Y   a new place (a/0/6/6 record, no flight) named by the zone's place name, its box ID (one the routes
+#                 leave: a route has no point on the drawing) on X, Y
+# Every other box a record names (the routes, Cave of Origin, inside Sootopolis) is made 0 x 0: nothing to point at.
+size 2160 1500     # the drawing's
+pane 21 438 1057   # Littleroot Town (T, record 0)
+pane 23 438 926    # Oldale Town
+pane 47 305 1255   # Dewford Town
+pane 48 504 531    # Lavaridge Town
+pane 49 372 267    # Fallarbor Town
+pane 50 438 662    # Verdanturf Town
+pane 179 1366 991  # Pacifidlog Town
+pane 51 239 926    # Petalburg City
+pane 52 703 1024   # Slateport City
+pane 53 736 662    # Mauville City
+pane 54 173 629    # Rustboro City
+pane 55 968 267    # Fortree City
+pane 56 1466 465   # Lilycove City
+pane 57 1797 596   # Mossdeep City
+pane 58 1631 794   # Sootopolis City
+pane 180 1963 926  # Ever Grande City
+pane 59 1963 794   # Pokemon League
+pane 92 239 399    # Meteor Falls (P)
+pane 182 571 399   # Mt. Chimney
+pane 183 571 465   # Jagged Pass
+pane 184 637 465   # Fiery Path
+pane 93 438 596    # Rusturf Tunnel
+pane 101 813 762   # New Mauville
+pane 95 173 794    # Petalburg Woods
+pane 94 239 1255   # Granite Cave
+pane 102 637 1189  # Sea Mauville
+pane 106 1035 1255 # Southern Island
+pane 181 1234 399  # Safari Zone
+pane 96 1300 596   # Mt. Pyre
+pane 100 1897 465  # Shoal Cave
+pane 99 1963 860   # Victory Road
+pane 103 1499 926  # Sky Pillar
+pane 97 1764 926   # Seafloor Cavern
+pane 105 1631 1123 # Battle Resort
+pane 624 1611 720  # Secret Islet (EXTRA)
+pane 642 1567 977  # Secret Meadow (EXTRA)
+pane 633 1728 1150 # Secret Shore (EXTRA)
+zone 47 60 952 465   # Weather Institute (EXTRA): a building of Route 119, named so
+zone 34 61 703 921   # Trick House (EXTRA): a building of Route 110
+zone 77 62 706 554   # Desert Ruins (EXTRA)
+zone 164 63 1064 432 # Scorched Slab (EXTRA): zones 164-168, "Grotte Zénith" (that it is the slab is inferred)
+zone 159 64 1137 574 # Ancient Tomb (EXTRA)
+zone 162 65 1123 995 # Sealed Chamber (EXTRA)
+zone 158 66 132 1065 # Island Cave (EXTRA)

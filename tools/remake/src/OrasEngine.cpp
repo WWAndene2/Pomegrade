@@ -1438,7 +1438,22 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         Garc a067(oras.Read("a/0/6/7"));
         const bool compressed = IsLzCompressed(a067.Sub(0));
         const Bytes kalos = o.FlyMapKalos.empty() ? Bytes() : ReadFile(o.FlyMapKalos);
-        const Bytes member = FlyMapWithBackgrounds(compressed ? LzDecompress(a067.Sub(0)) : a067.Sub(0), ReadFile(o.FlyMapHoenn), kalos);
+        std::optional<FlyPlaces> places;
+        if (!o.FlyPlacesHoenn.empty())
+        {
+            const Bytes text = ReadFile(o.FlyPlacesHoenn);
+            places = ReadFlyPlaces(std::string(text.begin(), text.end()));
+            Garc a066(oras.Read("a/0/6/6"));
+            const bool lz = IsLzCompressed(a066.Sub(0));
+            const Bytes records = FlyPlacesRecords(lz ? LzDecompress(a066.Sub(0)) : a066.Sub(0), *places);
+            a066.Set(0, lz ? Lz11Compress(records) : records);
+            const std::filesystem::path recordsPath = root / "romfs" / "a/0/6/6";
+            std::filesystem::create_directories(recordsPath.parent_path());
+            WriteFile(recordsPath.string(), a066.Write());
+            log.push_back("romfs/a/0/6/6: the fly screen's places from " + o.FlyPlacesHoenn + ", " + std::to_string(records.size() / 60) + " records");
+        }
+        const Bytes member = FlyMapWithBackgrounds(compressed ? LzDecompress(a067.Sub(0)) : a067.Sub(0), ReadFile(o.FlyMapHoenn), kalos,
+                                                   places ? &*places : nullptr);
         a067.Set(0, compressed ? Lz11Compress(member) : member);
         const std::filesystem::path path = root / "romfs" / "a/0/6/7";
         std::filesystem::create_directories(path.parent_path());
@@ -1458,7 +1473,7 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
             log.push_back("romfs_ext/DllTownmap.cro.bps: L/R switch the fly screen's map, " + std::to_string(bps.size()) + " bytes, checked");
         }
     }
-    else if (!o.FlyMapKalos.empty()) throw FormatError("--fly-map-kalos needs --fly-map-hoenn");
+    else if (!o.FlyMapKalos.empty() || !o.FlyPlacesHoenn.empty()) throw FormatError("--fly-map-kalos and --fly-places-hoenn need --fly-map-hoenn");
     if (!effectsArchive.empty())
     {
         const std::filesystem::path path = root / "romfs" / "a/0/6/4";

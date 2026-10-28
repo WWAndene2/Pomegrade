@@ -4,7 +4,10 @@
 #include "Darc.h"
 #include "PicaTexture.h"
 
+#include <algorithm>
 #include <cstring>
+#include <set>
+#include <sstream>
 #include <string>
 
 namespace remake
@@ -17,9 +20,17 @@ constexpr uint8_t PicaEtc1 = 0x0C;                    // PICA's ETC1 (CLIM's 10)
 
 uint32_t Word(const Bytes& b, size_t at) { return (uint32_t)(b.at(at) | b.at(at + 1) << 8 | b.at(at + 2) << 16 | (uint32_t)b.at(at + 3) << 24); }
 
+void PutFloat(Bytes& b, size_t at, float v)
+{
+    uint32_t u;
+    std::memcpy(&u, &v, 4);
+    for (int k = 0; k < 4; k++) b[at + k] = (uint8_t)(u >> 8 * k);
+}
+
 // the layout with every picture inside the pane "s" made transparent: its sections in order, pas1/pae1 opening and closing
-// a pane's children; returns how many pictures
-Bytes WithPlacesTransparent(Bytes layout, size_t& pictures)
+// a pane's children; returns how many pictures. With places, its boxes (bnd1 children of "s") placed: a pane's
+// translation at +0x24 (x, y; from its parent's centre, y up), its size at +0x44
+Bytes WithPlacesTransparent(Bytes layout, size_t& pictures, const FlyPlaces* places)
 {
     if (layout.size() < 0x14 || std::memcmp(layout.data(), "CLYT", 4) != 0) throw FormatError("fly map: map_lower.bclyt is not a CLYT layout");
     size_t at = (uint16_t)(layout[6] | layout[7] << 8);
@@ -36,6 +47,23 @@ Bytes WithPlacesTransparent(Bytes layout, size_t& pictures)
         {
             last = std::string(reinterpret_cast<const char*>(&layout[at + 12]), strnlen(reinterpret_cast<const char*>(&layout[at + 12]), 16));
             if (depth > 0 && magic == "pic1") { layout[at + 10] = 0; pictures++; }
+            if (places && depth == 1 && magic == "bnd1")
+            {
+                const auto placed = places->Panes.find((uint16_t)std::stoul(last, nullptr, 36));
+                float x = 0, y = 0, side = 0;
+                if (placed != places->Panes.end())
+                {
+                    // the drawing scaled into the 320 x 210 of "s", centred (fly_background.py)
+                    const float scale = std::min(320.0f / (float)places->Width, 210.0f / (float)places->Height);
+                    x = (placed->second.first - (float)places->Width / 2) * scale;
+                    y = -(placed->second.second - (float)places->Height / 2) * scale;
+                    side = 12;
+                    PutFloat(layout, at + 0x24, x);
+                    PutFloat(layout, at + 0x28, y);
+                }
+                PutFloat(layout, at + 0x44, side);
+                PutFloat(layout, at + 0x48, side);
+            }
         }
         else if (magic == "pas1")
         {
@@ -51,7 +79,59 @@ Bytes WithPlacesTransparent(Bytes layout, size_t& pictures)
 }
 }
 
-Bytes FlyMapWithBackgrounds(const Bytes& member, const Bytes& hoenn, const Bytes& kalos)
+FlyPlaces ReadFlyPlaces(const std::string& text)
+{
+    FlyPlaces p;
+    std::istringstream lines(text);
+    std::string line;
+    while (std::getline(lines, line))
+    {
+        line = line.substr(0, line.find('#'));
+        std::istringstream words(line);
+        std::string kind;
+        if (!(words >> kind)) continue;
+        float x = 0, y = 0;
+        unsigned a = 0, b = 0;
+        if (kind == "size" && words >> p.Width >> p.Height) continue;
+        if (kind == "pane" && words >> a >> x >> y) { p.Panes[(uint16_t)a] = {x, y}; continue; }
+        if (kind == "zone" && words >> a >> b >> x >> y) { p.News.push_back({(uint16_t)a, (uint16_t)b}); p.Panes[(uint16_t)b] = {x, y}; continue; }
+        throw FormatError("fly places: a line not read: " + line);
+    }
+    if (!p.Width || !p.Height || p.Panes.empty()) throw FormatError("fly places: no size or no place");
+    return p;
+}
+
+Bytes FlyPlacesRecords(const Bytes& records, const FlyPlaces& places)
+{
+    constexpr size_t Record = 60;
+    if (records.empty() || records.size() % Record) throw FormatError("fly places: a/0/6/6 is not 60-byte records");
+    const auto pane = [](const Bytes& b, size_t r) { return (uint16_t)(b[r * Record + 4] | b[r * Record + 5] << 8); };
+    const auto setU16 = [](Bytes& b, size_t at, uint16_t v) { b[at] = (uint8_t)v; b[at + 1] = (uint8_t)(v >> 8); };
+    const size_t count = records.size() / Record;
+    std::set<uint16_t> taken;
+    for (const FlyPlaces::NewPlace& n : places.News) taken.insert(n.Pane);
+    uint16_t hidden = 0;
+    for (size_t r = 0; r < count && !hidden; r++)
+        if (!places.Panes.count(pane(records, r)) && !taken.count(pane(records, r))) hidden = pane(records, r);
+    if (!hidden) throw FormatError("fly places: no box left to hide the others in");
+    Bytes out = records;
+    for (const FlyPlaces::NewPlace& n : places.News)
+    {
+        size_t from = count;
+        for (size_t r = 0; r < count && from == count; r++) if (pane(records, r) == n.Pane) from = r;
+        if (from == count) throw FormatError("fly places: no record names box " + std::to_string(n.Pane));
+        Bytes added(records.begin() + (long)(from * Record), records.begin() + (long)((from + 1) * Record));
+        setU16(added, 0, n.Zone);
+        setU16(added, 2, n.Zone);
+        setU16(added, 16, 0);
+        out.insert(out.end(), added.begin(), added.end());
+    }
+    for (size_t r = 0; r < count; r++)
+        if (!places.Panes.count(pane(records, r)) || taken.count(pane(records, r))) setU16(out, r * Record + 4, hidden);
+    return out;
+}
+
+Bytes FlyMapWithBackgrounds(const Bytes& member, const Bytes& hoenn, const Bytes& kalos, const FlyPlaces* places)
 {
     const size_t imageSize = (size_t)FlyMapWidth * FlyMapHeight * 4;
     if (hoenn.size() != imageSize || (!kalos.empty() && kalos.size() != imageSize)) throw FormatError("fly map: a map is 380 x 256 RGBA");
@@ -93,7 +173,7 @@ Bytes FlyMapWithBackgrounds(const Bytes& member, const Bytes& hoenn, const Bytes
         else if (f.Path.find("map_lower.bclyt") != std::string::npos)
         {
             size_t pictures = 0;
-            f.Data = WithPlacesTransparent(f.Data, pictures);
+            f.Data = WithPlacesTransparent(f.Data, pictures, places);
             layout = true;
         }
     }

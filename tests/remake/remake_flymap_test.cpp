@@ -1,5 +1,6 @@
 // The fly screen's L/R switch (OrasFlyMap.h): the hook's branch into the cave, every branch and literal load of the cave
-// inside it, and its way back after the push it replaces (the maps themselves need the game: checked by oras-engine)
+// inside it, and its way back after the push it replaces; the places' records (the maps themselves need the game: checked
+// by oras-engine)
 #include "OrasFlyMap.h"
 #include <cstdio>
 #include <string>
@@ -43,6 +44,15 @@ int main()
     check(inside, "every branch of the cave stays in it, every word of it expected zero");
     check(back, "the cave goes back after the push");
     check(loads, "every literal it loads is in the cave");
+
+    // the places: two records on box 10 and 11, a third on box 12; box 10 placed, a new place on box 11
+    Bytes records(3 * 60, 0);
+    for (int r = 0; r < 3; r++) { records[r * 60] = (uint8_t)(5 + r); records[r * 60 + 4] = (uint8_t)(10 + r); records[r * 60 + 16] = 7; }
+    const FlyPlaces places = ReadFlyPlaces("size 100 50\npane 10 50 25 # a town\nzone 77 11 10 10\n");
+    const Bytes out = FlyPlacesRecords(records, places);
+    check(out.size() == 4 * 60, "the new place appended");
+    check(out[3 * 60] == 77 && out[3 * 60 + 4] == 11 && out[3 * 60 + 16] == 0 && out[3 * 60 + 2] == 77, "its zone, its box, no flight");
+    check(out[4] == 10 && out[64] == 12 && out[124] == 12, "the placed box kept; the box given away and the unplaced one hidden in the unplaced one");
     printf(ok ? "all passed\n" : "FAILED\n");
     return ok ? 0 : 1;
 }

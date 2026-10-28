@@ -105,7 +105,16 @@ the environment's `PkmXY` and `PkmXYsave` hold share links: give the setup and t
   material +0x13C, texture slot +0x34, address +4). Read in the game's memory (runs lr1-lr7): the texture slot's address
   is read every frame (a poke changes the picture at once), the picture's texture coordinates and its material's
   texture SRT are not; the manager's +0xC device is a touch one. Checked headless, run lr7: L shows Kalos, R Hoenn, R
-  Kalos. The screen opens on Hoenn. Left: Kalos's places (the cursor names and flies to Hoenn's on both maps).
+  Kalos. The screen opens on Hoenn. **Hoenn's places on the drawing (28 October)**: `--fly-places-hoenn
+  map/hoenn_xy_places.txt` (OrasFlyMap.h). The cursor names the place whose box it is on: a bnd1 under "s" (named by
+  its id in base 36), named by a/0/6/6 records (60 bytes: u16 0 the zone, u16 2 the box, u16 8 the flight). The name is
+  the zone's place name (header halfword 14 bits 1-9, line 2N of a/0/7/4 member 90). Each point of the drawing, read
+  from `hoenn_xy_draw.py` (17 towns, 17 DexNav places, 10 added from the tiles), has its box moved onto it (12 x 12);
+  the routes and Cave of Origin, without a point, lose theirs. The 7 places Omega Ruby's screen lacks are new records
+  (the game takes their count from the file: 175 shown). Checked headless (run pl1): "Lavandia" on Mauville's point,
+  "Ruines Désert" on the desert's. Known: a new place shows the description of the route record it was copied from;
+  Scorched Slab named by zones 164-168 ("Grotte Zénith", inferred); the "you are here" mark on a route goes to the
+  hidden box. Left: Kalos's places.
 
 **Next, in the owner's order:**
 1. **Both maps in the menu** (owner: Hoenn and Kalos in the town map, then Fly between them). Static reading started:

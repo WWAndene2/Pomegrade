@@ -56,6 +56,7 @@ struct OrasEngineOptions
     std::string XyPlaces;                    // a file of Kalos's places (10-byte entries) after Omega Ruby's 78 (OrasXyPlaces.h)
     std::string FlyMapHoenn;                 // the fly screen's background, 380 x 256 RGBA (map/fly_background.py; OrasFlyMap.h)
     std::string FlyMapKalos;                 // the fly screen's second map, L/R switching them (OrasFlyMap.h)
+    std::string FlyPlacesHoenn;              // the fly screen's places on the Hoenn drawing (map/hoenn_xy_places.txt; OrasFlyMap.h)
     std::string XyStaticWild;                // a file of X/Y's 13 scripted wild battles (CallWildBattle's 12-byte entries, their types and backgrounds the mod's), appended after Omega Ruby's 59 (OrasXyScript.h XyMoveWildBattles; needs --xy-battle-types)
 };
 
