@@ -75,6 +75,21 @@ the environment's `PkmXY` and `PkmXYsave` hold share links: give the setup and t
 - **DllField's read-only segment** (file 0xF1000 on, its tables) moves in the file by `--field-room`: a word patched
   there is at its linked address + the room, and is added after every cave (`PatchCro` takes it; OrasXyEffectPack.h).
 
+**Fly between the regions** (owner, 28 October: one fly screen, L/R switching Hoenn and Kalos, the maps
+`map/hoenn_xy_map.png` and `map/kalos_xy_map.png` as its backgrounds). Read (static) and checked:
+- A fly is a zone number: the town map hands it to the party menu (0x3EF8CC `ldrh r5, [r5, #2]`, kept at the fly event's
+  +0x40), the event (vtable 0x5DEE48) warps with Event_StartCharacterMove kind 2 and FUN_00403F40, which lands in the zone
+  of the header's word 21 bits 5-14 at its spawn (words 22-24). New zones named zone 6 there: fixed (`NewZoneHeader`);
+  checked by run fly3 (a diagnostic copy of the mod whose 0x3EF8CC was `mov r5, #540`: Fly from the menu, Littleroot
+  picked on the map, the player landed on X's Route 7). The save: `prototype/oras_save.py move <save> <out> 0 3 19`
+  (Fly) then `badges ... 0xFF`.
+- The places' table (`.code` 0x5862E0, 78 entries of 10 bytes: visited flag, attributes (bit 1 a fly point), the
+  Pokémon Center's zone and tile, the town's zone; bounded by 0x4E in 6 functions) also gives the last healing place
+  (FUN_003EBE7C, Teleport and blackout). X's (0x544E4C, 19 entries of 20 bytes, its first 10 as Omega Ruby's) holds
+  Kalos's 19 places. Left: Kalos's entries added (the table moved and its bounds raised), their visited flags; the fly
+  screen (DllTownmap, 384 functions: its background `poke_navi_map.bclim` 380 x 270, the points' positions, the cursor),
+  the two backgrounds, the L/R switch.
+
 **Next, in the owner's order:**
 1. **Both maps in the menu** (owner: Hoenn and Kalos in the town map, then Fly between them). Static reading started:
    the two games' DllTownmap modules differ (X's 24 KB with TownmapData, Omega Ruby's 80 KB PokéNav Plus); X's art is

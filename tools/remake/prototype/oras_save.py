@@ -9,12 +9,23 @@ tests of 8 October needed and did with throwaway scripts.
                                                   copies whole blocks from the template, then rewrites every checksum
   oras_save.py records <save> <out> <template> <record>[,<record>...]
                                                   copies block-10 records (0x108 bytes each) from the template
+  oras_save.py move <save> <out> <slot> <index> <move>
+                                                  a party Pokemon (slot 0-5) given a move at index 0-3 (its PP 15), its
+                                                  data decrypted and encrypted again (28 October: Fly, 19, for a fly test)
+  oras_save.py badges <save> <out> <mask>        the badges byte (Misc block 11 + 0xC, one bit a badge: 0xFF all eight)
   oras_save.py flag <save> <out> <flag>[,<flag>...]
                                                   sets event flags of 0xD00 and up (oras-engine --story large: block 47's last
                                                   1000 bytes, OrasEngine.cpp), then rewrites every checksum (26 October: a dust
                                                   box spot's moved flag set in a save, run sc4)
 
 What is read and what is only seen:
+  - the party (block 18 PokePartySave, 6 slots of 0x104 bytes; checked 28 October on the owner's save: Torchic, its moves
+    Scratch, Growl and Ember, its checksum matching): each slot the layout PKHeX names PK6, encrypted: its first 8 bytes
+    plain (the encryption constant at +0, the checksum at +6, the sum of the decrypted words 8-0xE7), the rest XORed with
+    the high halfword of the game's LCRNG (x * 0x41C64E6D + 0x6073, seeded with the constant), its four 56-byte blocks
+    shuffled by ((constant >> 13) & 31) % 24; the moves at +0x5A of the decrypted data, their PP at +0x62.
+  - the badges: Misc (block 11) + 0xC, a byte, next to the money at + 8 (3000 in the owner's save); with 0xFF Fly is
+    accepted (run fly3).
   - the block table (checked on the owner's saves, OrasSave.cpp): at 0x75E14, one 8-byte entry per block, u32 size, u16 id,
     u16 CRC16-CCITT (initial 0xFFFF) of the block; blocks follow each other from offset 0, each on a 0x200 boundary.
   - block 10 (0x2000, 8,448 bytes; N + 1 records with oras-engine --characters N > 31, ORAS_ENGINE.md 6), not read in code: 32 records of 0x108 bytes, one per character of the zone the save was
@@ -151,10 +162,72 @@ def cmd_flag(path, out, which):
     print(f"{out}: flags {which} set, checksums rewritten")
 
 
+# PK6 (the party's Pokemon, above): the order of the four blocks for each shuffle value
+SHUFFLE = [[0, 1, 2, 3], [0, 1, 3, 2], [0, 2, 1, 3], [0, 3, 1, 2], [0, 2, 3, 1], [0, 3, 2, 1], [1, 0, 2, 3], [1, 0, 3, 2],
+           [2, 0, 1, 3], [3, 0, 1, 2], [2, 0, 3, 1], [3, 0, 2, 1], [1, 2, 0, 3], [1, 3, 0, 2], [2, 1, 0, 3], [3, 1, 0, 2],
+           [2, 3, 0, 1], [3, 2, 0, 1], [1, 2, 3, 0], [1, 3, 2, 0], [2, 1, 3, 0], [3, 1, 2, 0], [2, 3, 1, 0], [3, 2, 1, 0]]
+SLOT = 0x104
+
+
+def pk6_xor(data, seed):
+    out = bytearray(data)
+    for i in range(8, len(out) - 1, 2):
+        seed = (seed * 0x41C64E6D + 0x6073) & 0xFFFFFFFF
+        struct.pack_into("<H", out, i, struct.unpack_from("<H", out, i)[0] ^ (seed >> 16))
+    return out
+
+
+def pk6_decrypt(slot):
+    ec = struct.unpack_from("<I", slot, 0)[0]
+    d, order = pk6_xor(slot, ec), SHUFFLE[((ec >> 13) & 31) % 24]
+    out = bytearray(d)
+    for i in range(4):
+        k = order.index(i)
+        out[8 + 56 * i:64 + 56 * i] = d[8 + 56 * k:64 + 56 * k]
+    return out
+
+
+def pk6_encrypt(plain):
+    ec = struct.unpack_from("<I", plain, 0)[0]
+    order, d = SHUFFLE[((ec >> 13) & 31) % 24], bytearray(plain)
+    for i in range(4):
+        d[8 + 56 * i:64 + 56 * i] = plain[8 + 56 * order[i]:64 + 56 * order[i]]
+    return pk6_xor(d, ec)
+
+
+def cmd_move(path, out, slot, index, move):
+    slot, index, move = int(slot), int(index), int(move, 0)
+    if not 0 <= slot < 6 or not 0 <= index < 4:
+        sys.exit("slot 0-5, move index 0-3")
+    data = read(path)
+    _, _, offset, _, _ = block_at(data, 18)
+    at = offset + slot * SLOT
+    p = pk6_decrypt(data[at:at + SLOT])
+    if struct.unpack_from("<H", p, 6)[0] != sum(struct.unpack_from("<112H", p, 8)) & 0xFFFF:
+        sys.exit(f"slot {slot}: its checksum does not match once decrypted (an empty slot, or not this layout)")
+    struct.pack_into("<H", p, 0x5A + 2 * index, move)
+    p[0x62 + index] = 15
+    struct.pack_into("<H", p, 6, sum(struct.unpack_from("<112H", p, 8)) & 0xFFFF)
+    data[at:at + SLOT] = pk6_encrypt(p)
+    write_checksums(data)
+    open(out, "wb").write(data)
+    print(f"{out}: party slot {slot} (species {struct.unpack_from('<H', p, 8)[0]}) given move {move} at {index}, checksums rewritten")
+
+
+def cmd_badges(path, out, mask):
+    data = read(path)
+    _, _, offset, _, _ = block_at(data, 11)
+    data[offset + 0xC] = int(mask, 0) & 0xFF
+    write_checksums(data)
+    open(out, "wb").write(data)
+    print(f"{out}: badges 0x{int(mask, 0) & 0xFF:02X}, checksums rewritten")
+
+
 def main():
     a = sys.argv[1:]
     commands = {("blocks", 1): cmd_blocks, ("diff", 2): cmd_diff, ("characters", 1): cmd_characters,
-                ("take", 4): cmd_take, ("records", 4): cmd_records, ("flag", 3): cmd_flag}
+                ("take", 4): cmd_take, ("records", 4): cmd_records, ("flag", 3): cmd_flag,
+                ("move", 5): cmd_move, ("badges", 3): cmd_badges}
     if not a or (a[0], len(a) - 1) not in commands:
         sys.exit(__doc__)
     commands[(a[0], len(a) - 1)](*a[1:])
