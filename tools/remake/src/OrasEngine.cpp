@@ -1438,22 +1438,27 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         Garc a067(oras.Read("a/0/6/7"));
         const bool compressed = IsLzCompressed(a067.Sub(0));
         const Bytes kalos = o.FlyMapKalos.empty() ? Bytes() : ReadFile(o.FlyMapKalos);
-        std::optional<FlyPlaces> places;
+        std::map<uint16_t, std::array<float, 3>> boxes;
+        std::optional<FlySwitch> sw;
         if (!o.FlyPlacesHoenn.empty())
         {
-            const Bytes text = ReadFile(o.FlyPlacesHoenn);
-            places = ReadFlyPlaces(std::string(text.begin(), text.end()));
+            const auto read = [](const std::string& path) { const Bytes text = ReadFile(path); return ReadFlyPlaces(std::string(text.begin(), text.end())); };
+            const FlyPlaces hoennPlaces = read(o.FlyPlacesHoenn);
+            std::optional<FlyPlaces> kalosPlaces;
+            if (!o.FlyPlacesKalos.empty()) kalosPlaces = read(o.FlyPlacesKalos);
             Garc a066(oras.Read("a/0/6/6"));
             const bool lz = IsLzCompressed(a066.Sub(0));
-            const Bytes records = FlyPlacesRecords(lz ? LzDecompress(a066.Sub(0)) : a066.Sub(0), *places);
+            sw.emplace();
+            const Bytes records = FlyPlacesRecords(lz ? LzDecompress(a066.Sub(0)) : a066.Sub(0), hoennPlaces, kalosPlaces ? &*kalosPlaces : nullptr, boxes, *sw);
             a066.Set(0, lz ? Lz11Compress(records) : records);
             const std::filesystem::path recordsPath = root / "romfs" / "a/0/6/6";
             std::filesystem::create_directories(recordsPath.parent_path());
             WriteFile(recordsPath.string(), a066.Write());
-            log.push_back("romfs/a/0/6/6: the fly screen's places from " + o.FlyPlacesHoenn + ", " + std::to_string(records.size() / 60) + " records");
+            log.push_back("romfs/a/0/6/6: the fly screen's places from " + o.FlyPlacesHoenn + (kalosPlaces ? " and " + o.FlyPlacesKalos : "") + ", " +
+                          std::to_string(records.size() / 60) + " records");
         }
         const Bytes member = FlyMapWithBackgrounds(compressed ? LzDecompress(a067.Sub(0)) : a067.Sub(0), ReadFile(o.FlyMapHoenn), kalos,
-                                                   places ? &*places : nullptr);
+                                                   sw ? &boxes : nullptr);
         a067.Set(0, compressed ? Lz11Compress(member) : member);
         const std::filesystem::path path = root / "romfs" / "a/0/6/7";
         std::filesystem::create_directories(path.parent_path());
@@ -1465,7 +1470,7 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
             const Bytes original = oras.Read("DllTownmap.cro"), grown = GrowCroCode(original, 0x1000);
             const uint32_t cave = DllTownmapBase + ((CroLayout(original).CodeEnd() + 0xFFF) & ~0xFFFu);
             std::vector<CroWord> words;
-            for (const CodeWord& w : FlyMapSwitchWords(cave)) words.push_back({w.Address, w.Expected, w.Value, w.Why});
+            for (const CodeWord& w : FlyMapSwitchWords(cave, o.FlyPlacesKalos.empty() ? nullptr : &*sw)) words.push_back({w.Address, w.Expected, w.Value, w.Why});
             const Bytes patched = PatchCro(grown, DllTownmapBase, words), bps = BpsCreate(original, patched);
             if (BpsApply(original, bps) != patched) throw FormatError("DllTownmap.cro: the patch does not rebuild the module");
             std::filesystem::create_directories(root / "romfs_ext");
@@ -1474,6 +1479,7 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         }
     }
     else if (!o.FlyMapKalos.empty() || !o.FlyPlacesHoenn.empty()) throw FormatError("--fly-map-kalos and --fly-places-hoenn need --fly-map-hoenn");
+    if (!o.FlyPlacesKalos.empty() && (o.FlyPlacesHoenn.empty() || o.FlyMapKalos.empty())) throw FormatError("--fly-places-kalos needs --fly-places-hoenn and --fly-map-kalos");
     if (!effectsArchive.empty())
     {
         const std::filesystem::path path = root / "romfs" / "a/0/6/4";

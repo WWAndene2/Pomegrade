@@ -3,6 +3,7 @@
 // by oras-engine)
 #include "OrasFlyMap.h"
 #include <cstdio>
+#include <map>
 #include <string>
 
 using namespace remake;
@@ -45,14 +46,32 @@ int main()
     check(back, "the cave goes back after the push");
     check(loads, "every literal it loads is in the cave");
 
-    // the places: two records on box 10 and 11, a third on box 12; box 10 placed, a new place on box 11
-    Bytes records(3 * 60, 0);
-    for (int r = 0; r < 3; r++) { records[r * 60] = (uint8_t)(5 + r); records[r * 60 + 4] = (uint8_t)(10 + r); records[r * 60 + 16] = 7; }
-    const FlyPlaces places = ReadFlyPlaces("size 100 50\npane 10 50 25 # a town\nzone 77 11 10 10\n");
-    const Bytes out = FlyPlacesRecords(records, places);
-    check(out.size() == 4 * 60, "the new place appended");
-    check(out[3 * 60] == 77 && out[3 * 60 + 4] == 11 && out[3 * 60 + 16] == 0 && out[3 * 60 + 2] == 77, "its zone, its box, no flight");
-    check(out[4] == 10 && out[64] == 12 && out[124] == 12, "the placed box kept; the box given away and the unplaced one hidden in the unplaced one");
+    // the places: records on boxes 10, 11, 12 and 13; box 10 a Hoenn place, a new Hoenn place on box 11, two Kalos places
+    Bytes records(4 * 60, 0);
+    for (int r = 0; r < 4; r++) { records[r * 60] = (uint8_t)(5 + r); records[r * 60 + 4] = (uint8_t)(10 + r); records[r * 60 + 16] = 7; }
+    const FlyPlaces hoenn = ReadFlyPlaces("size 100 50\npane 10 50 25 # a town\nzone 77 11 10 10\n");
+    const FlyPlaces kalos = ReadFlyPlaces("size 100 50\nflip\nplace 600 82 0x17B1 50 0\nplace 601 0 0x17A0 0 50\n");
+    std::map<uint16_t, std::array<float, 3>> boxes;
+    FlySwitch sw;
+    const Bytes out = FlyPlacesRecords(records, hoenn, &kalos, boxes, sw);
+    const auto u16 = [&](size_t at) { return out[at] | out[at + 1] << 8; };
+    check(out.size() == 7 * 60, "the new Hoenn place and the two Kalos places appended");
+    check(u16(4 * 60) == 77 && u16(4 * 60 + 4) == 11 && u16(4 * 60 + 16) == 0, "the Hoenn place: its zone, its box, no flight");
+    check(u16(4) == 10 && u16(64) == 12 && u16(124) == 12 && u16(184) == 12, "the placed box kept; the box given away and the unplaced ones hidden in box 12");
+    check(u16(5 * 60) == 600 && u16(5 * 60 + 4) == 13 && u16(5 * 60 + 16) == 82 && u16(5 * 60 + 20) == 0x17B1 && u16(5 * 60 + 32) == 0,
+          "the first Kalos place on the one free box, with its flight, flag and an empty description");
+    check(u16(6 * 60) == 601 && u16(6 * 60 + 4) == 12, "the second on a Hoenn place's box, hidden until Kalos shows");
+    check(sw.Hidden == 12 && sw.Records.size() == 7 && sw.Records[5] == (0x8000 | 13) && sw.Records[6] == (0x8000 | 10) && sw.Records[0] == 10 && sw.Records[1] == 12,
+          "the records' boxes on either map");
+    bool own = false, moved = false;
+    for (const FlySwitch::Box& box : sw.Boxes)
+    {
+        if (box.Id == 13) own = box.Hoenn[2] == 0 && box.Kalos[2] == 12 && box.Kalos[0] == 0 && box.Kalos[1] == -80;  // (50, 0) turned: the bottom; scale 3.2
+        if (box.Id == 10) moved = box.Hoenn[2] == 12 && box.Kalos[2] == 12 && box.Kalos[0] == -160 && box.Kalos[1] == 80;
+    }
+    check(own && moved && boxes.at(13)[2] == 0, "the boxes' places on either map (the Kalos drawing turned upside down)");
+    const std::vector<CodeWord> both = FlyMapSwitchWords(cave, &sw);
+    check(both.size() > w.size() && both[0].Value == w[0].Value, "the cave with the places' tables");
     printf(ok ? "all passed\n" : "FAILED\n");
     return ok ? 0 : 1;
 }

@@ -105,16 +105,31 @@ the environment's `PkmXY` and `PkmXYsave` hold share links: give the setup and t
   material +0x13C, texture slot +0x34, address +4). Read in the game's memory (runs lr1-lr7): the texture slot's address
   is read every frame (a poke changes the picture at once), the picture's texture coordinates and its material's
   texture SRT are not; the manager's +0xC device is a touch one. Checked headless, run lr7: L shows Kalos, R Hoenn, R
-  Kalos. The screen opens on Hoenn. **Hoenn's places on the drawing (28 October)**: `--fly-places-hoenn
-  map/hoenn_xy_places.txt` (OrasFlyMap.h). The cursor names the place whose box it is on: a bnd1 under "s" (named by
-  its id in base 36), named by a/0/6/6 records (60 bytes: u16 0 the zone, u16 2 the box, u16 8 the flight). The name is
-  the zone's place name (header halfword 14 bits 1-9, line 2N of a/0/7/4 member 90). Each point of the drawing, read
-  from `hoenn_xy_draw.py` (17 towns, 17 DexNav places, 10 added from the tiles), has its box moved onto it (12 x 12);
-  the routes and Cave of Origin, without a point, lose theirs. The 7 places Omega Ruby's screen lacks are new records
-  (the game takes their count from the file: 175 shown). Checked headless (run pl1): "Lavandia" on Mauville's point,
-  "Ruines Désert" on the desert's. Known: a new place shows the description of the route record it was copied from;
-  Scorched Slab named by zones 164-168 ("Grotte Zénith", inferred); the "you are here" mark on a route goes to the
-  hidden box. Left: Kalos's places.
+  Kalos. **Hoenn's places on the drawing (28 October)**: `--fly-places-hoenn map/hoenn_xy_places.txt`
+  (OrasFlyMap.h). The cursor names the place whose box it is on: a bnd1 under "s" (named by its id in base 36), named
+  by a/0/6/6 records (60 bytes: u16 0 the zone, u16 2 the box, u16 4 a town's own name, u16 8 the flight, u16 10 the
+  flag that makes it shown and flown to, u16 16 the description). Without a town name the name is the zone's place
+  name (header halfword 14 bits 0-9, a line of a/0/7/4 member 90; the mod's Kalos names are its appended lines 356 on).
+  Each point of the drawing, read from `hoenn_xy_draw.py` (17 towns, 17 DexNav places, 10 added from the tiles), has
+  its box moved onto it (12 x 12); the routes and Cave of Origin, without a point, lose theirs. The 7 places Omega
+  Ruby's screen lacks are new records (the game takes their count from the file). Checked headless (run pl1):
+  "Lavandia" on Mauville's point, "Ruines Désert" on the desert's. **Kalos's places (28 October)**:
+  `--fly-places-kalos map/kalos_xy_places.txt`. Its points are X's own town map icons as `kalos_xy_draw.py` draws them
+  (scale 6, exact once turned upside down, the owner's choice): the 17 towns named by X's a/0/6/8 records (64 bytes,
+  u32 2 the pane in X's townmap_lower, on the icon within 2 px), the 14 places by the roads to them (inferred, 8 of
+  them). Each is a new record (a copy of a route record: a copied town record took Littleroot's name, run pk3) with its
+  zone, its flight (Kalos's entry n of the places table, flagged by X's flag + 0xD00, is 79 + n) and that flag. L/R also
+  moves the boxes and switches the records (the cave, FlySwitch): Kalos takes the 28 boxes the routes left, then 3 of
+  Hoenn's places'. A record's zone is read when the screen opens (zones swapped at L/R showed zone 0's name, run pk4),
+  so it is kept; the record's box is what switches (Hidden, 0 x 0, off its map). The screen opens on the player's
+  place: the mark kept at the cursor's object (this + 0xA4) +0x90; on a box only Kalos shows, the cave shows Kalos at
+  once. Read: the screen took the L/R press for itself (the cursor went to the player's place), so the cave clears it.
+  Checked headless (runs pk6-pk9): the screen opens on Kalos at Camphrier with the player there, on Hoenn at
+  Littleroot after flying there; L/R switch; "Grotte Étincelante", "Fort-Vanitas", "Illumis" named on their points;
+  flown Camphrier to Littleroot and Camphrier to Lumiose (its flag set in the save: an unvisited place is named but not
+  flown to, as Omega Ruby's). Known: Kalos's places have no description (line 0); the player's mark stays where it was
+  put when L/R changes the map; the field's Navi-Map shows the Hoenn drawing in Kalos too; Scorched Slab named by zones
+  164-168 ("Grotte Zénith", inferred); the "you are here" mark on a route goes to the hidden box.
 
 **Next, in the owner's order:**
 1. **Both maps in the menu** (owner: Hoenn and Kalos in the town map, then Fly between them). Static reading started:

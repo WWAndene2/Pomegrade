@@ -21,6 +21,7 @@
 #include "Bytes.h"
 #include "CodePatch.h"
 
+#include <array>
 #include <map>
 #include <string>
 #include <vector>
@@ -31,30 +32,52 @@ namespace remake
 constexpr uint32_t FlyMapWidth = 380, FlyMapHeight = 256; // each map's image (RGBA rows, map/fly_background.py)
 constexpr uint32_t DllTownmapBase = 0x107F2000;           // where prototype/cro_link.py and the Ghidra program place it
 
-// The places on a drawing (map/hoenn_xy_places.txt): the cursor names a place where its box is, a bnd1 pane under "s"
-// (named by its id in base 36) that the place's a/0/6/6 records name (u16 2); a record's name is its zone's place name
-// (u16 0: the zone header's halfword 14 bits 1-9, a line of a/0/7/4 member 90 at twice it, read 28 October)
+// The places on a drawing (map/hoenn_xy_places.txt, map/kalos_xy_places.txt): the cursor names a place where its box is,
+// a bnd1 pane under "s" (named by its id in base 36) that the place's a/0/6/6 record names. A record (60 bytes): u16 0 and
+// 1 its zone, u16 2 its box, u16 4 a town's own name (0: the zone's), u16 8 its flight (Omega Ruby's places table entry
+// + 1, 0 none), u16 10 and 14 flags (the place's visited flag), u16 16 its description (a line of a/0/7/4 member 33).
+// Without a town name its name is its zone's place name: the zone header's halfword 14 bits 0-9, a line of a/0/7/4
+// member 90 (read 28 October)
 struct FlyPlaces
 {
     uint32_t Width = 0, Height = 0;                 // the drawing's, in pixels
-    std::map<uint16_t, std::pair<float, float>> Panes; // a box on a pixel of the drawing
+    bool Flip = false;                              // the drawing shown upside down (fly_background.py --flip)
+    std::map<uint16_t, std::pair<float, float>> Panes; // a box of the game's place on a pixel of the drawing
     struct NewPlace { uint16_t Zone, Pane; };       // a record added: a zone's name on a box (placed in Panes)
     std::vector<NewPlace> News;
+    struct Place { uint16_t Zone, Flight, Flag; float X, Y; }; // a record added on a pixel, its box chosen (Kalos)
+    std::vector<Place> Places;
 };
 FlyPlaces ReadFlyPlaces(const std::string& text);
 
+// What L/R switches besides the texture (FlyMapSwitchWords): each box's place (x, y from the centre of "s", side; side 0:
+// nothing to point at) on either map, and each record's box (bits 0-14) and map (bit 15 set for a Kalos record); a record
+// not on the shown map names Hidden (a 0 x 0 box)
+struct FlySwitch
+{
+    struct Box { uint16_t Id; float Hoenn[3], Kalos[3]; };
+    std::vector<Box> Boxes;
+    uint16_t Hidden = 0;
+    std::vector<uint16_t> Records;
+};
+
+// a/0/6/6 member 0 (60-byte records) for Hoenn's places and, given, Kalos's: Hoenn's records whose box is not placed (the
+// routes...) naming one such box, Hidden; Hoenn's new places appended, each a copy of the record that named its box
+// before; then Kalos's, copies of the first record named by its zone (u16 4 zero). A Kalos place takes a box no Hoenn
+// place holds (on its point, 0 x 0 until Kalos is shown: the screen opens on the player's box, so a player in Kalos is
+// found there) while some are left (28 of 31), then one of Hoenn's places (moved by L/R). An added record takes its
+// zone, flight and flag, and description line 0 (empty). `boxes` gets each box's place in the file, `sw` what L/R switches
+Bytes FlyPlacesRecords(const Bytes& records, const FlyPlaces& hoenn, const FlyPlaces* kalos, std::map<uint16_t, std::array<float, 3>>& boxes,
+                       FlySwitch& sw);
+
 // a/0/6/7 member 0 (plain) with `hoenn` as its background, `kalos` (empty: none) after it, and the places' pictures
-// transparent; with `places`, the boxes placed on their points (the drawing fitted as map/fly_background.py fits it,
-// 12 x 12 each) and every other box of "s" made 0 x 0
-Bytes FlyMapWithBackgrounds(const Bytes& member, const Bytes& hoenn, const Bytes& kalos, const FlyPlaces* places = nullptr);
+// transparent; with `boxes`, every box of "s" placed so (x, y, side), the others made 0 x 0
+Bytes FlyMapWithBackgrounds(const Bytes& member, const Bytes& hoenn, const Bytes& kalos,
+                            const std::map<uint16_t, std::array<float, 3>>* boxes = nullptr);
 
-// a/0/6/6 member 0 (60-byte records) for `places`: the records whose box is not placed (the routes...) all naming one
-// such box, hidden; the new places appended, each a copy of the record that named its box before, its zone set and its
-// flight (u16 8) none
-Bytes FlyPlacesRecords(const Bytes& records, const FlyPlaces& places);
-
-// DllTownmap's words (linked addresses): L or R switching the map shown, in a cave at `cave` (past the code, grown)
-std::vector<CodeWord> FlyMapSwitchWords(uint32_t cave);
+// DllTownmap's words (linked addresses): L or R switching the map shown, in a cave at `cave` (past the code, grown), and
+// with `sw` the boxes and records too
+std::vector<CodeWord> FlyMapSwitchWords(uint32_t cave, const FlySwitch* sw = nullptr);
 
 }
 

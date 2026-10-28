@@ -1,0 +1,42 @@
+# The fly screen's Kalos places on kalos_xy_map.png turned upside down (oras-engine --fly-places-kalos, OrasFlyMap.h),
+# shown after L or R. Read 28 October: kalos_xy_draw.py draws X's own town map icons (its IC squares: towns A-Pp, Lumiose B,
+# places d1-d14); with the drawing turned (fly_background.py --flip) each one is on its point exactly (scale 6, 0 px off).
+# A town is X's a/0/6/8 record whose pane in X's layout (a/0/6/9 townmap_lower, id in base 36) lies on its square (within
+# 2 px); a place (X's records without a pane) is named from the roads the script draws to it and Kalos's geography
+# (inferred, marked so).
+#   place ZONE FLIGHT FLAG X Y   the mod's zone (538 + X's), its flight (Omega Ruby's places table entry + 1: Kalos's
+#                                entry n, X's table order, is 79 + n; 0 none), its visited flag (X's moved to 0xD00 + f,
+#                                as the build moves them), its pixel on the drawing as kalos_xy_map.png holds it
+size 2196 1896
+flip
+place 601 82 0x17B1 1173 1243   # B: Illumis (zone 601, X's table entry 3: its main one of the three)
+place 583 93 0x17AE 606 763   # A: Roche-sur-Gliffe
+place 695 83 0x17A4 513 991   # Bs: Relifac-le-Haut
+place 559 90 0x17AB 354 1111   # C: Cromlac’h
+place 710 84 0x17A5 468 1264   # D: Yantreizh
+place 726 85 0x17A6 840 1333   # E: Port Tempères
+place 550 89 0x17AA 963 988   # F: Fort-Vanitas
+place 591 81 0x17A2 1356 997   # G: Neuvartault
+place 546 80 0x17A1 1452 775   # H: Quarellis
+place 538 79 0x17A0 1452 631   # I: Bourg Croquis
+place 771 95 0x17B0 1614 553   # J: Batisques
+place 781 94 0x17AF 1590 1159   # K: Ligue Pokémon
+place 760 88 0x17A9 1806 1012   # L: Auffrac-les-Congères
+place 576 92 0x17AD 1968 1138   # M: Mozheim
+place 749 87 0x17A8 1863 1231   # N: Flusselles
+place 567 91 0x17AC 1494 1333   # O: La Frescale
+place 738 86 0x17A7 1164 1573   # Pp: Romant-sous-Bois
+place 841 0 0x17A0 876 763   # d1: Grotte Étincelante, a dead end from Cyllage (A)
+place 872 0 0x17A0 603 991   # d2: Cave Connecterre, between Ambrette (Bs) and Camphrier (F)
+place 843 0 0x17A0 417 1213   # d3: Grotte Miroitante, between Geosenge (C) and Shalour (D)
+place 825 0 0x17A0 744 1153   # d4: Palais Chaydeuvre, a dead end from Camphrier (F)
+place 873 0 0x17A0 912 1204   # d5: Centrale de Kalos, between Coumarine and Lumiose, no road (inferred)
+place 824 0 0x17A0 1452 907   # d6: Forêt de Neuvartault, between Santalune (G) and Aquacorde (H)
+place 888 0 0x17A0 1512 958   # d7: Chambre Néant, alone, no road (inferred, the least sure)
+place 858 0 0x17A0 1584 1024   # d8: Route Victoire, the junction before the League (K) (inferred)
+place 881 0 0x17A0 1728 766   # d9: Grotte Coda, a dead end from Anistar (L) (inferred)
+place 856 0 0x17A0 2025 1243   # d10: Village Pokémon, east of Snowbelle, no road (inferred)
+place 887 0 0x17A0 1323 1390   # d11: Hôtel Désolation, a dead end from Dendemille (O) (inferred)
+place 851 0 0x17A0 1572 1423   # d12: Caverne Gelée, north of Dendemille, no road (inferred)
+place 889 0 0x17A0 660 1486   # d13: Antre Néréen, across the sea from Coumarine (E)
+place 847 0 0x17A0 1170 1645   # d14: Usine de Poké Balls, a dead end from Laverre (Pp)
