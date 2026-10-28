@@ -45,9 +45,13 @@ clouds; "things seem to work"), three issues the owner reported, to fix:
   GetSceneChangeData table, read by Zone_LoadZoneScript; 55 of X's zones) are left out with `--story off`
   (OrasXyScript.cpp; checked at build: Route 5 and 7 note it; not seen in game, the scene needing an entry on foot).
   `--story off` also kept out the items on the ground (207) and 26 trainers, by their flags: now kept (run r5ib: Route
-  5's ball drawn). Left to sort with the owner: the scripts still reachable, listed by a static reading of the zone
-  scripts (the natives each case calls): 95 scenes (camera, fades, warps, battles, gym leaders), 82 gifts or services,
-  23 setting flags only, 36 unknown cases; the shared scripts (GlobalCall, ids 2000 and up) not followed.
+  5's ball drawn). The rest is kept (owner, 28 October: a map with no story keeps its champions, items, people,
+  trainers, gifts, services and wild battles): `XY_NEUTRAL_SCRIPTS.md` lists what the zone scripts can still run, by a
+  static reading (`prototype/XyZoneDump.cpp`, `prototype/xy_zone_cases.py`): 106 scenes, of which the only event-camera
+  ones not a gym battle are gameplay (Shalour's gym, Prism Tower's lift, the Battle Chateau, the Elite Four's rooms), and
+  20 step events (Parfum Palace's maze, Flare's doors...). Path blockers open without the story (owner): Vaniville's
+  gate opens and lets the player through in a neutral build (run vg1, mod zone 538 from 460.5 605.5, walking north);
+  the owner's blocked double door not found yet (which one, where, to ask).
 
 **Session notes of 28 October** (session setup: `session_setup.sh <work> dumps tool core ghidra ghidra-x`, 35 minutes;
 the environment's `PkmXY` and `PkmXYsave` hold share links: give the setup and the download the id inside them):
