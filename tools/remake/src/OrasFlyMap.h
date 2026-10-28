@@ -79,6 +79,10 @@ Bytes FlyMapWithBackgrounds(const Bytes& member, const Bytes& hoenn, const Bytes
 // with `sw` the boxes and records too
 std::vector<CodeWord> FlyMapSwitchWords(uint32_t cave, const FlySwitch* sw = nullptr);
 
+// DllField's words (linked addresses): the field's Navi-Map (the lower screen's map, the same texture) showing Kalos's
+// half when the player's zone is `firstKalos` or above, in a cave at `cave` (DllField's room)
+std::vector<CodeWord> NaviMapWords(uint32_t cave, uint32_t firstKalos);
+
 }
 
 #endif // REMAKE_ORASFLYMAP_H

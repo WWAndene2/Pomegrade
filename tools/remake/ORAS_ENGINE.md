@@ -128,8 +128,13 @@ the environment's `PkmXY` and `PkmXYsave` hold share links: give the setup and t
   Littleroot after flying there; L/R switch; "Grotte Étincelante", "Fort-Vanitas", "Illumis" named on their points;
   flown Camphrier to Littleroot and Camphrier to Lumiose (its flag set in the save: an unvisited place is named but not
   flown to, as Omega Ruby's). Known: Kalos's places have no description (line 0); the player's mark stays where it was
-  put when L/R changes the map; the field's Navi-Map shows the Hoenn drawing in Kalos too; Scorched Slab named by zones
-  164-168 ("Grotte Zénith", inferred); the "you are here" mark on a route goes to the hidden box.
+  put when L/R changes the map; Scorched Slab named by zones
+  164-168 ("Grotte Zénith", inferred); the "you are here" mark on a route goes to the hidden box. **The field's
+  Navi-Map (29 October)**: the same texture, in a layout DllField's FUN_102B5164 updates (the player's mark and the
+  map's scroll: its object +0xC +0xF0 the player's zone, +0x10 the view, whose +0xA8 is the layout; found from the
+  texture's address in memory, run nv1). Its entry branches to a cave in DllField's room that shows Kalos's half when
+  the zone is the first Kalos zone of the places file (538) or above (`--fly-places-kalos`). Checked headless (run
+  nv4): Kalos at Camphrier, Hoenn after flying to Littleroot. A Hoenn zone added past 538 (a sandbox) would show Kalos.
 
 **Next, in the owner's order:**
 1. **Both maps in the menu** (owner: Hoenn and Kalos in the town map, then Fly between them). Static reading started:

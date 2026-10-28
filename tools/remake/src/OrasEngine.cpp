@@ -1021,6 +1021,22 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
         for (const CodeWord& w : XyDustCloudFieldPatchAt(cave)) croWords.push_back({w.Address, w.Expected, w.Value, w.Why});
     }
+    if (!o.FlyPlacesKalos.empty())
+    {
+        // the field's Navi-Map showing Kalos's half of the map in a Kalos zone (OrasFlyMap.h), the first Kalos zone the
+        // places file names
+        if (o.FieldRoom < 0x1000) throw FormatError("--fly-places-kalos needs --field-room (the Navi-Map's cave)");
+        const Bytes text = ReadFile(o.FlyPlacesKalos);
+        const FlyPlaces kalosPlaces = ReadFlyPlaces(std::string(text.begin(), text.end()));
+        uint32_t first = 0xFFFF;
+        for (const FlyPlaces::Place& k : kalosPlaces.Places) first = std::min<uint32_t>(first, k.Zone);
+        const CroLayout layout(oras.Read("DllField.cro"));
+        uint32_t cave = DllFieldBase + layout.CodeEnd();
+        for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
+        for (const CodeWord& w : NaviMapWords(cave, first)) croWords.push_back({w.Address, w.Expected, w.Value, w.Why});
+        snprintf(line, sizeof line, "DllField: the Navi-Map shows Kalos from zone %u", first);
+        log.push_back(line);
+    }
     if (o.XyDustCloud || !o.XyFlowerGrass.empty())
     {
         // the field's effect pack grown to X/Y's effect files (OrasXyEffectPack.h): the swirl's, and the flower grass's

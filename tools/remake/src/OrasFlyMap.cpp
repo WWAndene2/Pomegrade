@@ -455,4 +455,67 @@ std::vector<CodeWord> FlyMapSwitchWords(uint32_t cave, const FlySwitch* sw)
     return words;
 }
 
+std::vector<CodeWord> NaviMapWords(uint32_t cave, uint32_t firstKalos)
+{
+    // FUN_102B5164 (DllField: the Navi-Map's player mark and scroll, by the player's zone's place record, as the fly
+    // screen's; read 28 October) begins with push {r4, r5, r6, lr}, made a branch to the cave, which does it and comes
+    // back after it. Its object's +0xC holds the player's zone at +0xF0 (the function compares it so; calling
+    // FUN_004D8398 without its zone argument stopped the field, run nv2), its +0x10 the Navi-Map's
+    // view, whose +0xA8 is the layout (its panes 0x20 and 0xB, FUN_004C8F3C). The picture "0" of that layout, 380 wide,
+    // its material's texture slot's address (found in memory, run nv1: a poke of +0x10001 showed Kalos's half) is set
+    // to Kalos's half or Hoenn's as the zone is a Kalos one (the mod's Kalos zones from the first one up) or not
+    constexpr uint32_t hook = 0x102B5164, push = 0xE92D4070;
+    std::vector<uint32_t> code;
+    std::vector<std::pair<size_t, int>> loads, toDone;
+    const auto load = [&](uint32_t rd, int literal) { loads.push_back({code.size(), literal}); code.push_back(0xE59F0000u | rd << 12); };
+    const auto call = [&](int literal) { load(12, literal); code.push_back(0xE12FFF3C); };
+    const auto doneIf = [&](uint32_t condition) { toDone.push_back({code.size(), 0}); code.push_back(condition << 28 | 0x0A000000u); };
+    constexpr uint32_t eq = 0x0, ne = 0x1;
+    enum { PaneOf, Width, Step, First };
+    const uint32_t literals[] = {0x004C8F3C, 0x43BE0000 /* 380.0 */, 0x00010001, firstKalos};
+    code.push_back(0xE92D40F0);                       // push {r4-r7, lr}
+    code.push_back(0xE1A04000);                       // mov r4, r0
+    code.push_back(0xE594000C);                       // ldr r0, [r4, #0xC]
+    code.push_back(0xE3500000); doneIf(eq);
+    code.push_back(0xE1D05FB0);                       // ldrh r5, [r0, #0xF0]: the player's zone, as the function reads it
+    code.push_back(0xE5940010);                       // ldr r0, [r4, #0x10]: the Navi-Map's view
+    code.push_back(0xE3500000); doneIf(eq);
+    code.push_back(0xE59000A8);                       // ldr r0, [r0, #0xA8]: its layout
+    code.push_back(0xE3500000); doneIf(eq);
+    code.push_back(0xE3A01000);                       // mov r1, #0: the pane "0"
+    call(PaneOf);
+    code.push_back(0xE3500000); doneIf(eq);
+    code.push_back(0xE5901048);                       // ldr r1, [r0, #0x48]: its width
+    load(2, Width);
+    code.push_back(0xE1510002); doneIf(ne);           // cmp r1, r2
+    code.push_back(0xE590013C);                       // ldr r0, [r0, #0x13C]: its material
+    code.push_back(0xE3500000); doneIf(eq);
+    code.push_back(0xE5900034);                       // ldr r0, [r0, #0x34]: its texture slot
+    code.push_back(0xE3500000); doneIf(eq);
+    code.push_back(0xE5901004);                       // ldr r1, [r0, #4]: the texture's address
+    load(2, First);
+    code.push_back(0xE1550002);                       // cmp r5, r2
+    code.push_back(0x23A03001);                       // movhs r3, #1: Kalos
+    code.push_back(0x33A03000);                       // movlo r3, #0: Hoenn
+    code.push_back(0xE201C001);                       // and r12, r1, #1: the half shown
+    code.push_back(0xE15C0003); doneIf(eq);           // cmp r12, r3
+    load(2, Step);
+    code.push_back(0xE3530000);                       // cmp r3, #0
+    code.push_back(0x10811002);                       // addne r1, r1, r2
+    code.push_back(0x00411002);                       // subeq r1, r1, r2
+    code.push_back(0xE5801004);                       // str r1, [r0, #4]
+    const uint32_t done = cave + 4 * (uint32_t)code.size();
+    code.push_back(0xE1A00004);                       // mov r0, r4
+    code.push_back(0xE8BD40F0);                       // pop {r4-r7, lr}
+    code.push_back(push);                             // the hook's own push {r4, r5, r6, lr}
+    code.push_back(0xEA000000u | (((hook + 4 - (cave + 4 * (uint32_t)code.size()) - 8) >> 2) & 0xFFFFFF));
+    const uint32_t pool = cave + 4 * (uint32_t)code.size();
+    for (const uint32_t l : literals) code.push_back(l);
+    for (const auto& [at, literal] : loads) code[at] |= pool + 4 * (uint32_t)literal - (cave + 4 * (uint32_t)at) - 8;
+    for (const auto& [at, unused] : toDone) code[at] |= ((done - (cave + 4 * (uint32_t)at) - 8) >> 2) & 0xFFFFFF;
+    std::vector<CodeWord> words{{hook, push, 0xEA000000u | (((cave - hook - 8) >> 2) & 0xFFFFFF), "the Navi-Map's update: to its cave"}};
+    for (uint32_t k = 0; k < code.size(); k++) words.push_back({cave + 4 * k, 0, code[k], "the Navi-Map's region (cave)"});
+    return words;
+}
+
 }

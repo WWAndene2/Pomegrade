@@ -72,6 +72,15 @@ int main()
     check(own && moved && boxes.at(13)[2] == 0, "the boxes' places on either map (the Kalos drawing turned upside down)");
     const std::vector<CodeWord> both = FlyMapSwitchWords(cave, &sw);
     check(both.size() > w.size() && both[0].Value == w[0].Value, "the cave with the places' tables");
+    // the Navi-Map's cave in DllField: its hook a branch to it, and back after the hook's own push
+    constexpr uint32_t naviCave = 0x10340000, naviHook = 0x102B5164;
+    const std::vector<CodeWord> navi = NaviMapWords(naviCave, 538);
+    bool naviBack = false;
+    for (size_t k = 1; k < navi.size(); k++)
+        if ((navi[k].Value & 0xFF000000) == 0xEA000000 && Target(navi[k].Address, navi[k].Value) == naviHook + 4)
+            naviBack = navi[k - 1].Value == 0xE92D4070;
+    check(navi[0].Address == naviHook && navi[0].Expected == 0xE92D4070 && Target(naviHook, navi[0].Value) == naviCave && naviBack,
+          "the Navi-Map's hook into its cave, and back after its push");
     printf(ok ? "all passed\n" : "FAILED\n");
     return ok ? 0 : 1;
 }
