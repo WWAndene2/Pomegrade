@@ -6,6 +6,8 @@
 #include "OrasXyDustCloud.h"
 #include "OrasXyEffectPack.h"
 #include "OrasXyPlaces.h"
+#include "OrasFlyMap.h"
+#include "NitroCompression.h"
 #include "OrasXyPlayerScale.h"
 #include "OrasXyMoveCodes.h"
 #include "OrasXyGymModules.h"
@@ -1428,6 +1430,18 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         std::filesystem::create_directories(path.parent_path());
         WriteFile(path.string(), file);
         log.push_back("romfs/" + XyArchivePath(number) + ": " + std::to_string(file.size()) + " bytes (X/Y's)");
+    }
+    if (!o.FlyMapHoenn.empty())
+    {
+        // the fly screen's background (OrasFlyMap.h): a/0/6/7's one member rewritten, compressed as the game's
+        Garc a067(oras.Read("a/0/6/7"));
+        const bool compressed = IsLzCompressed(a067.Sub(0));
+        const Bytes member = FlyMapWithBackground(compressed ? LzDecompress(a067.Sub(0)) : a067.Sub(0), ReadFile(o.FlyMapHoenn));
+        a067.Set(0, compressed ? Lz11Compress(member) : member);
+        const std::filesystem::path path = root / "romfs" / "a/0/6/7";
+        std::filesystem::create_directories(path.parent_path());
+        WriteFile(path.string(), a067.Write());
+        log.push_back("romfs/a/0/6/7: the fly screen's background from " + o.FlyMapHoenn + ", Omega Ruby's places' pictures transparent");
     }
     if (!effectsArchive.empty())
     {

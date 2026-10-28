@@ -89,8 +89,16 @@ the environment's `PkmXY` and `PkmXYsave` hold share links: give the setup and t
   Kalos's 19 places, now given after Omega Ruby's 78 (`oras-engine --xy-places`, OrasXyPlaces.h; whole Kalos: 98
   entries, the table at 0x6AFCD8). Checked: Fort-Vanitas's flag 0x17AA set on leaving its Pokémon Center (run fv4, a
   full boot: run_local.sh; a save made through fast_run.sh's title state is not written, runs fv1-fv3). Left: the fly
-  screen (DllTownmap, 384 functions: its background `poke_navi_map.bclim` 380 x 270, the points' positions, the cursor),
-  the two backgrounds, the L/R switch.
+  screen: read 28 October (a RomFS read trace of the screen opening, run fm1): its files are a/0/6/7 member 0 (a header,
+  then a DARC at 0x5900: the layout map_lower.bclyt, the image poke_navi_map.bclim) and its places a/0/6/6 (168 records
+  of 60 bytes: zone, text lines, the layout's panes, the place's flag 0xAC6..., its fly place). Hoenn itself is the
+  image (ETC1, 512 x 512 stored, the map in the bottom-left 380 x 270, upside down as PicaTextureDecode gives it); the
+  layout's pane "s" holds one bounding pane per place (where the cursor names it) with three pictures (the square or
+  road shown, lit, dimmed). Done (owner: test maps, the simplest way): `map/fly_background.py <drawing> <out.rgba>` then
+  `oras-engine --fly-map-hoenn <out.rgba>` (OrasFlyMap.h) makes the drawing the background and the places' pictures
+  transparent; checked, run fm6: `hoenn_xy_map.png` drawn the right way up. Not matched: the bounding panes stay where
+  Omega Ruby's map had its places, so the cursor names a place there, not on the drawing's towns. Left: Kalos's image
+  and places, the L/R switch (code in DllTownmap).
 
 **Next, in the owner's order:**
 1. **Both maps in the menu** (owner: Hoenn and Kalos in the town map, then Fly between them). Static reading started:

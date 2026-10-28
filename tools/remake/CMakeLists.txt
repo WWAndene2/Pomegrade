@@ -102,6 +102,7 @@ add_library(remake STATIC
     src/OrasXyGymNatives.cpp
     src/OrasXyEffectPack.cpp
     src/OrasXyPlaces.cpp
+    src/OrasFlyMap.cpp
     # the DS core's hash, so texture names match the emulator's by construction
     ${MELONDS_SRC}/xxhash/xxhash.c
 )
