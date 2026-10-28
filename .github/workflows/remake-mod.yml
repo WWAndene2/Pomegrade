@@ -248,7 +248,7 @@ jobs:
               if [[ "$engine" =~ --fly-map-hoenn[[:space:]]+([^[:space:]]+\.png) ]]; then
                 drawing="${BASH_REMATCH[1]}"
                 python3 -c 'import PIL' 2> /dev/null || pip install --quiet pillow
-                python3 tools/remake/map/fly_background.py "$drawing" "out/${name}_fly_hoenn.rgba"
+                mkdir -p out && python3 tools/remake/map/fly_background.py "$drawing" "out/${name}_fly_hoenn.rgba"
                 engine="${engine/$drawing/out/${name}_fly_hoenn.rgba}"
               fi
               models=$(echo "$world" | grep -oE -- '--character-models [0-9]+' || true)
