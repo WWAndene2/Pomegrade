@@ -44,6 +44,28 @@ clouds; "things seem to work"), three issues the owner reported, to fix:
   scripts and field-move obstacles; zone scripts' scene changes, characters without a vanish flag that run story
   events, and the shared scripts are kept): which ones, to list from the phone and the zones' scripts.
 
+**Session notes of 28 October** (session setup: `session_setup.sh <work> dumps tool core ghidra ghidra-x`, 35 minutes;
+the environment's `PkmXY` and `PkmXYsave` hold share links: give the setup and the download the id inside them):
+- **Rebuilding kalosfull** with the fix: the same `oras-engine` command plus `--xy-flower-grass dumps/x.3ds`
+  (`headless/test_all_mod.sh` passes it).
+- **One matrix is enough to test a Kalos place**: `oras-xy-world ... --matrices 2 --story off` (30 s) builds X's Route 5
+  (X zone 262, mod zone 539) and Route 7 (X 264, mod 540); the zone numbers are in the log (`zone N (X/Y's Z)`). A tile to
+  stand on: a piece's cell (its file 4: y, x) times 40, plus 20, plus its tuft or vertex position / 18.
+- **X itself as the reference, run headless**: `prototype/xy_save_move.py dumps/xsave/main <out> ZONE X Z 0`, then
+  `POMEGRADE_GAME=dumps/x.3ds POMEGRADE_SAVE=<out> run_local.sh <work> <name> - "" "wait 120;draw every 15;mash a 8;wait
+  40;draw;wait 8;shot a"` (runs xr5b, xr5s: Route 5 in 4 minutes). The owner's X save shows a Player Search System
+  message on its first steps: a `press a` between moves clears it (run xbt3).
+- **No wild battle came headless** on Route 5, in the mod or in X (runs bp1-bp4, xbt-xbt3: 60-80 steps in the lavender,
+  walking `hold left 16;hold right 16` with drawing off or every 15). Not explained (the save's repel, the lead's ability
+  or the walk itself not checked); a battle to look at needs a forced one (the horde check of 23 October raised the
+  zone's chance to 100 in a diagnostic variant).
+- **Reading a whole module of both games**: `ghidra/decompile.sh` with every function start of the module's range from
+  `<work>/functions.tsv` (or `<work>/x/functions.tsv`, `POMEGRADE_GHIDRA_GAME=x`), the module's linked base from
+  `linked/modules.tsv` / `xlinked/modules.tsv` (DllBackGround: 140 and 135 functions, a minute each). A table's readers:
+  its linked address searched as a word in `linked/modules.bin` (the literal pools; the file starts at 0x10000000).
+- **DllField's read-only segment** (file 0xF1000 on, its tables) moves in the file by `--field-room`: a word patched
+  there is at its linked address + the room, and is added after every cave (`PatchCro` takes it; OrasXyEffectPack.h).
+
 **Next, in the owner's order:**
 1. **Both maps in the menu** (owner: Hoenn and Kalos in the town map, then Fly between them). Static reading started:
    the two games' DllTownmap modules differ (X's 24 KB with TownmapData, Omega Ruby's 80 KB PokéNav Plus); X's art is
