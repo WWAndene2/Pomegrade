@@ -31,7 +31,11 @@ std::array<uint16_t, 28> NewZoneHeader(const NewZoneFields& f)
     h[16] = inside ? 0x4802 : 0x6C01;
     h[19] = 0xFFFF;
     h[20] = inside ? 0x4824 : 0x6814;
-    h[21] = inside ? 0x1BE8 : 0x00C8;
+    // word 21 bits 5-14: the zone a fly or a header warp lands in (FUN_00403F40 reads it at +0x2A; 524 of Omega Ruby's 536
+    // zones name themselves, read 28 October): this zone, where the reference headers named theirs (6 and 223, so a fly to
+    // a new zone landed in Littleroot)
+    if (f.Number > 0x3FF) throw FormatError("new zone " + std::to_string(f.Number) + ": its number past the 10 bits of word 21");
+    h[21] = (uint16_t)((inside ? 0x1BE8 : 0x00C8) & ~(0x3FF << 5) | f.Number << 5);
     for (int at : {22, 25})
     {
         h[at] = (uint16_t)(f.SpawnX * 18);

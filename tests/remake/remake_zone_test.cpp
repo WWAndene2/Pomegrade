@@ -98,6 +98,8 @@ int main()
         in.Kind = NewZoneKind::Interior; in.Number = 540; in.Overworld = 539; in.Text = 639;
         const std::array<uint16_t, 28> ih = NewZoneHeader(in);
         check(ih[0] == 3 && ih[13] == 539 && ih[4] == 65 && (ih[14] >> 10) == 0, "an interior header: kind 3, belonging to its town");
+        check(((h[21] >> 5) & 0x3FF) == 538 && (h[21] & 0x1F) == 8 && ((ih[21] >> 5) & 0x3FF) == 540 && (ih[21] & 0x1F) == 8,
+              "word 21 names the zone itself (where a fly lands), its other bits the reference headers'");
         bool refused = false;
         in.Overworld = -1;
         try { NewZoneHeader(in); } catch (const FormatError&) { refused = true; }

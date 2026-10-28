@@ -26,8 +26,8 @@
 //          bits 0x400, 0x800 read by the warps
 //   17, 18 0 in every zone
 //   19     -1 in 446 zones; 10 marks a Secret Base spot (Zone_HeaderGetField26 == 10), others the mirror natives'
-//   20, 21 one u32 of flags at +0x28 (bits 0, 1, 3, 4-10, 11-14, 16, 17-20 each read by one accessor); word 21's upper bits
-//          differ in nearly every zone, not read
+//   20, 21 one u32 of flags at +0x28 (bits 0, 1, 3, 4-10, 11-14, 16, 17-20 each read by one accessor); word 21 bits 5-14
+//          the zone a fly lands in (FUN_00403F40), the zone itself in 524 of the 536
 //   22-24  the spawn, x y z in pixels (18 a tile; y the height), and 25-27 the same again (equal in 524 zones)
 // The words whose meaning is not read take the values of two headers every sandbox run has loaded (ORAS_ENGINE.md 2):
 // Littleroot's (zone 6) for an outdoor zone, its first house's (zone 223) for an interior, written here as numbers.
