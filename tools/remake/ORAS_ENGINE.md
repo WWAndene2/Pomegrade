@@ -86,7 +86,9 @@ the environment's `PkmXY` and `PkmXYsave` hold share links: give the setup and t
 - The places' table (`.code` 0x5862E0, 78 entries of 10 bytes: visited flag, attributes (bit 1 a fly point), the
   Pokémon Center's zone and tile, the town's zone; bounded by 0x4E in 6 functions) also gives the last healing place
   (FUN_003EBE7C, Teleport and blackout). X's (0x544E4C, 19 entries of 20 bytes, its first 10 as Omega Ruby's) holds
-  Kalos's 19 places. Left: Kalos's entries added (the table moved and its bounds raised), their visited flags; the fly
+  Kalos's 19 places, now given after Omega Ruby's 78 (`oras-engine --xy-places`, OrasXyPlaces.h; whole Kalos: 98
+  entries, the table at 0x6AFCD8). Checked: Fort-Vanitas's flag 0x17AA set on leaving its Pokémon Center (run fv4, a
+  full boot: run_local.sh; a save made through fast_run.sh's title state is not written, runs fv1-fv3). Left: the fly
   screen (DllTownmap, 384 functions: its background `poke_navi_map.bclim` 380 x 270, the points' positions, the cursor),
   the two backgrounds, the L/R switch.
 
