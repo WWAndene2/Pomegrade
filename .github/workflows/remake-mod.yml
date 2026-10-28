@@ -243,6 +243,14 @@ jobs:
               rest="${options#*xy-world}"; world="${rest%% -- *}"; engine=""
               if [[ "$world" == *"--music on"* ]] && ! command -v ffmpeg > /dev/null; then sudo apt-get install --yes --quiet ffmpeg > /dev/null; fi
               [[ "$rest" == *" -- "* ]] && engine="${rest#* -- }"
+              # --fly-map-hoenn given a drawing (.png, tools/remake/map): made the fly screen's 380 x 270 RGBA first
+              # (map/fly_background.py, OrasFlyMap.h)
+              if [[ "$engine" =~ --fly-map-hoenn[[:space:]]+([^[:space:]]+\.png) ]]; then
+                drawing="${BASH_REMATCH[1]}"
+                python3 -c 'import PIL' 2> /dev/null || pip install --quiet pillow
+                python3 tools/remake/map/fly_background.py "$drawing" "out/${name}_fly_hoenn.rgba"
+                engine="${engine/$drawing/out/${name}_fly_hoenn.rgba}"
+              fi
               models=$(echo "$world" | grep -oE -- '--character-models [0-9]+' || true)
               ./build-remake/remake_tool oras-xy-world dumps/oras.3ds dumps-x/x.3ds "out/$name" tools/remake/ghidra/function_names.tsv $world | tee "mods/${name}_log.txt"
               printed=$(grep '^oras-engine options:' "mods/${name}_log.txt" | sed 's/^oras-engine options: //')
