@@ -109,3 +109,6 @@ target_link_libraries(remake_xyplayerscale_test PRIVATE remake)
 
 add_executable(remake_xyeffectpack_test remake_xyeffectpack_test.cpp)
 target_link_libraries(remake_xyeffectpack_test PRIVATE remake)
+
+add_executable(remake_xyplaces_test remake_xyplaces_test.cpp)
+target_link_libraries(remake_xyplaces_test PRIVATE remake)

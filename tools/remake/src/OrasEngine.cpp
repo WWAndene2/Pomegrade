@@ -5,6 +5,7 @@
 #include "OrasXyDustBox.h"
 #include "OrasXyDustCloud.h"
 #include "OrasXyEffectPack.h"
+#include "OrasXyPlaces.h"
 #include "OrasXyPlayerScale.h"
 #include "OrasXyMoveCodes.h"
 #include "OrasXyGymModules.h"
@@ -1146,6 +1147,20 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
                                     0x1E0630u, 0x1E07B8u, 0x1E0A1Cu, 0x1E0DE0u, 0x1E15DCu, 0x1E1C14u})
             words.push_back({pool, table, moved, "a battle type reader's table"});
         snprintf(line, sizeof line, "battle types: %zu after the game's 73, the table at 0x%X", extra.size() / 24, moved);
+        log.push_back(line);
+    }
+    if (!o.XyPlaces.empty())
+    {
+        // Kalos's places (OrasXyPlaces.h): Omega Ruby's 78 copied into the room, the file's after them, padded with empty
+        // entries (attributes 0: no flag set, no fly point) to an even count
+        const Bytes extra = ReadFile(o.XyPlaces);
+        if (extra.empty() || extra.size() % PlaceBytes) throw FormatError("--xy-places: 10-byte entries");
+        Bytes all(code.begin() + (OrasPlacesTable - CodeBase), code.begin() + (OrasPlacesTable - CodeBase) + OrasPlaceCount * PlaceBytes);
+        all.insert(all.end(), extra.begin(), extra.end());
+        if (all.size() / PlaceBytes % 2) all.resize(all.size() + PlaceBytes, 0);
+        const uint32_t count = (uint32_t)(all.size() / PlaceBytes), moved = roomPut(all, "the places");
+        for (const CodeWord& w : XyPlacesPatch(moved, count)) words.push_back(w);
+        snprintf(line, sizeof line, "places: %zu of Kalos after Omega Ruby's 78 (%u in all), the table at 0x%X", extra.size() / PlaceBytes, count, moved);
         log.push_back(line);
     }
     if (!o.XySharedScripts.empty())

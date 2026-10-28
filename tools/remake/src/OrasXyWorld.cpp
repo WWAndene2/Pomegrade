@@ -1,4 +1,5 @@
 #include "OrasXyWorld.h"
+#include "OrasXyPlaces.h"
 #include "BchUpgrade.h"
 #include "BinLinker.h"
 #include "GameText.h"
@@ -73,6 +74,8 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         }
         // and the X/Y shared scripts ported (OrasXySharedScripts.h), whose flags are the same story's
         for (const Bytes& shared : XySharedScriptsOf(xRom, XySharedScriptMembers(xRom.Code()), o.NamesFile)) scripts.push_back(shared);
+        // and the places' visited flags (OrasXyPlaces.h), which the code sets on entering a town
+        for (const int f : XyPlaceFlags(xRom.Code())) vanish.insert(f);
         numbers = XyNumbersFor(scripts, vanish, conditions);
     }
     const int firstZone = ws.NextZone();
@@ -324,6 +327,17 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
         engine += " --field-room 0x20000";
     }
     if (largeEvents) engine += " --events large";
+    {
+        // Kalos's places after Omega Ruby's (OrasXyPlaces.h): their visited flags and fly points
+        const Bytes places = XyPlacesToOras(xRom.Code(), numbers, log);
+        if (!places.empty())
+        {
+            const std::string file = (std::filesystem::path(o.OutDir) / "xy_places.bin").string();
+            std::filesystem::create_directories(o.OutDir);
+            WriteFile(file, places);
+            engine += " --xy-places " + file;
+        }
+    }
     // the move codes' caves need DllField's room (the same 128 KB, once)
     if (engine.find(" --field-room ") == std::string::npos) engine += " --field-room 0x20000";
     engine += " --xy-trainers on";
