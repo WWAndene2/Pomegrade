@@ -181,7 +181,7 @@ static int Usage()
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone|zone-raised|crowd [N]\n"
                     "  remake_tool oras-zone-check <oras.3ds>\n"
-                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--character-models N] [--events large] [--story large] [--area-packs large] [--wild-tables large] [--xy-sounds FIRST:COUNT] [--xy-trainers on] [--badges 16] [--xy-battle-types FILE] [--xy-intros FILE] [--xy-band-camera FROM:TO] [--xy-backgrounds FILE] [--xy-wild-effects FILE] [--xy-static-wild FILE] [--field-room BYTES] [--more-archives N] [--heap ID:BYTES]... [--start-zone N] [--xy-messages on] [--xy-gyms <x.3ds>] [--xy-dust-box <x.3ds>] [--xy-dust-cloud on] [--xy-flower-grass X.3DS] [--xy-places FILE] [--fly-map-hoenn RGBA] [--xy-move-codes on] [--xy-player-scale FIRST:LAST] [--xy-shared-scripts FILE]\n"
+                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--character-models N] [--events large] [--story large] [--area-packs large] [--wild-tables large] [--xy-sounds FIRST:COUNT] [--xy-trainers on] [--badges 16] [--xy-battle-types FILE] [--xy-intros FILE] [--xy-band-camera FROM:TO] [--xy-backgrounds FILE] [--xy-wild-effects FILE] [--xy-static-wild FILE] [--field-room BYTES] [--more-archives N] [--heap ID:BYTES]... [--start-zone N] [--xy-messages on] [--xy-gyms <x.3ds>] [--xy-dust-box <x.3ds>] [--xy-dust-cloud on] [--xy-flower-grass X.3DS] [--xy-places FILE] [--fly-map-hoenn RGBA [--fly-map-kalos RGBA]] [--xy-move-codes on] [--xy-player-scale FIRST:LAST] [--xy-shared-scripts FILE]\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
                     "                    [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]\n"
                     "  remake_tool oras-code <oras.3ds> <out.bin>\n"
@@ -875,6 +875,7 @@ int main(int argc, char** argv)
                 else if (flag == "--xy-flower-grass") o.XyFlowerGrass = value; // X/Y's image: its flower beds' shaken grass (OrasXyEffectPack.h)
                 else if (flag == "--xy-places") o.XyPlaces = value; // Kalos's places after Omega Ruby's (OrasXyPlaces.h)
                 else if (flag == "--fly-map-hoenn") o.FlyMapHoenn = value; // the fly screen's background (OrasFlyMap.h)
+                else if (flag == "--fly-map-kalos") o.FlyMapKalos = value; // its second map, L/R switching them
                 else if (flag == "--xy-move-codes") o.XyMoveCodes = value == "on"; // X/Y's move codes (OrasXyMoveCodes.h)
                 else throw FormatError("oras-engine: unknown option " + flag);
             }

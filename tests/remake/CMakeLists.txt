@@ -112,3 +112,6 @@ target_link_libraries(remake_xyeffectpack_test PRIVATE remake)
 
 add_executable(remake_xyplaces_test remake_xyplaces_test.cpp)
 target_link_libraries(remake_xyplaces_test PRIVATE remake)
+
+add_executable(remake_flymap_test remake_flymap_test.cpp)
+target_link_libraries(remake_flymap_test PRIVATE remake)

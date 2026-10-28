@@ -95,10 +95,17 @@ the environment's `PkmXY` and `PkmXYsave` hold share links: give the setup and t
   image (ETC1, 512 x 512 stored, the map in the bottom-left 380 x 270, upside down as PicaTextureDecode gives it); the
   layout's pane "s" holds one bounding pane per place (where the cursor names it) with three pictures (the square or
   road shown, lit, dimmed). Done (owner: test maps, the simplest way): `map/fly_background.py <drawing> <out.rgba>` then
-  `oras-engine --fly-map-hoenn <out.rgba>` (OrasFlyMap.h) makes the drawing the background and the places' pictures
-  transparent; checked, run fm6: `hoenn_xy_map.png` drawn the right way up. Not matched: the bounding panes stay where
-  Omega Ruby's map had its places, so the cursor names a place there, not on the drawing's towns. Left: Kalos's image
-  and places, the L/R switch (code in DllTownmap).
+  `oras-engine --fly-map-hoenn <out.rgba> [--fly-map-kalos <out.rgba>]` (OrasFlyMap.h) makes the drawings the
+  background and the places' pictures transparent; checked, run fm6: `hoenn_xy_map.png` drawn the right way up. Not
+  matched: the bounding panes stay where Omega Ruby's map had its places, so the cursor names a place there, not on the
+  drawing's towns. **L/R (28 October)**: both maps in the one texture (Hoenn's 256 rows, then Kalos's, the image
+  declared 380 x 256); DllTownmap's FUN_107F5434 (the screen's update, every frame) branches to a cave (the module's
+  code grown by a page) that, on L or R (FUN_004C84F0 on the input manager's +0x24 button device; the game's masks L
+  0x100, R 0x200), moves the picture "0"'s texture address by 0x10001 (pane id 0 of the layout at this + 0xA4,
+  material +0x13C, texture slot +0x34, address +4). Read in the game's memory (runs lr1-lr7): the texture slot's address
+  is read every frame (a poke changes the picture at once), the picture's texture coordinates and its material's
+  texture SRT are not; the manager's +0xC device is a touch one. Checked headless, run lr7: L shows Kalos, R Hoenn, R
+  Kalos. The screen opens on Hoenn. Left: Kalos's places (the cursor names and flies to Hoenn's on both maps).
 
 **Next, in the owner's order:**
 1. **Both maps in the menu** (owner: Hoenn and Kalos in the town map, then Fly between them). Static reading started:

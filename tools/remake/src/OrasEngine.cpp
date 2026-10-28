@@ -1433,16 +1433,32 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
     }
     if (!o.FlyMapHoenn.empty())
     {
-        // the fly screen's background (OrasFlyMap.h): a/0/6/7's one member rewritten, compressed as the game's
+        // the fly screen's maps (OrasFlyMap.h): a/0/6/7's one member rewritten, compressed as the game's; with Kalos's,
+        // DllTownmap's L/R switching them, in a cave past its code grown by a page
         Garc a067(oras.Read("a/0/6/7"));
         const bool compressed = IsLzCompressed(a067.Sub(0));
-        const Bytes member = FlyMapWithBackground(compressed ? LzDecompress(a067.Sub(0)) : a067.Sub(0), ReadFile(o.FlyMapHoenn));
+        const Bytes kalos = o.FlyMapKalos.empty() ? Bytes() : ReadFile(o.FlyMapKalos);
+        const Bytes member = FlyMapWithBackgrounds(compressed ? LzDecompress(a067.Sub(0)) : a067.Sub(0), ReadFile(o.FlyMapHoenn), kalos);
         a067.Set(0, compressed ? Lz11Compress(member) : member);
         const std::filesystem::path path = root / "romfs" / "a/0/6/7";
         std::filesystem::create_directories(path.parent_path());
         WriteFile(path.string(), a067.Write());
-        log.push_back("romfs/a/0/6/7: the fly screen's background from " + o.FlyMapHoenn + ", Omega Ruby's places' pictures transparent");
+        log.push_back("romfs/a/0/6/7: the fly screen's background from " + o.FlyMapHoenn + (kalos.empty() ? "" : " and " + o.FlyMapKalos) +
+                      ", Omega Ruby's places' pictures transparent");
+        if (!kalos.empty())
+        {
+            const Bytes original = oras.Read("DllTownmap.cro"), grown = GrowCroCode(original, 0x1000);
+            const uint32_t cave = DllTownmapBase + ((CroLayout(original).CodeEnd() + 0xFFF) & ~0xFFFu);
+            std::vector<CroWord> words;
+            for (const CodeWord& w : FlyMapSwitchWords(cave)) words.push_back({w.Address, w.Expected, w.Value, w.Why});
+            const Bytes patched = PatchCro(grown, DllTownmapBase, words), bps = BpsCreate(original, patched);
+            if (BpsApply(original, bps) != patched) throw FormatError("DllTownmap.cro: the patch does not rebuild the module");
+            std::filesystem::create_directories(root / "romfs_ext");
+            WriteFile((root / "romfs_ext" / "DllTownmap.cro.bps").string(), bps);
+            log.push_back("romfs_ext/DllTownmap.cro.bps: L/R switch the fly screen's map, " + std::to_string(bps.size()) + " bytes, checked");
+        }
     }
+    else if (!o.FlyMapKalos.empty()) throw FormatError("--fly-map-kalos needs --fly-map-hoenn");
     if (!effectsArchive.empty())
     {
         const std::filesystem::path path = root / "romfs" / "a/0/6/4";
