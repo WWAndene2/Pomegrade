@@ -183,6 +183,14 @@ int main()
         bool scenesAssemble = true;
         try { AmxAssemble(scenes); } catch (const FormatError&) { scenesAssemble = false; }
         check(scenesAssemble && sceneNotes.size() == 1 && sceneNotes[0] == "scene changes: 2 work(s) moved", "it assembles, the move noted");
+        // without the story: the table ends at its first triple, so no scene starts by itself
+        std::vector<std::string> noStoryNotes;
+        const std::string noStory = XyScriptSource(z, names, sceneNumbers, noStoryNotes, false);
+        const std::string ended = "cell -1 " + std::to_string(sceneNumbers.Works.at(16514)) + " 0 7 ";
+        bool noStoryAssembles = true;
+        try { AmxAssemble(noStory); } catch (const FormatError&) { noStoryAssembles = false; }
+        check(noStory.find(ended) != std::string::npos && noStoryAssembles && noStoryNotes.size() == 2 && noStoryNotes[0] == "scene changes: 2 left out (no story)",
+              "without the story the scene table is empty (its first case -1), noted");
         // X/Y's demo (X/Y zone 160's scene 4): skipped, its arguments released and 0 as the result, the call in a comment
         const Bytes d = AmxAssemble("code\nmain:\n    push.p.c 1\n    push.p.c 6\n    push.p.c 45\n    sysreq.n CallFieldNotCaptureDemo 12\n    halt 0\n");
         std::vector<std::string> demoNotes;

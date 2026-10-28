@@ -261,7 +261,7 @@ XyEvents XyEventsToOras(OrasWorkspace& ws, int xZone, int dx, int dz, const XyNu
         }
         else if (xScript.size() >= 16)
         {
-            source = XyScriptSource(XyScriptToOras(xScript, namesFile, 0x243).Script, namesFile, numbers, notes);
+            source = XyScriptSource(XyScriptToOras(xScript, namesFile, 0x243).Script, namesFile, numbers, notes, story);
             from = "translated";
         }
         else source = init ? EmptyInitScript : EmptyZoneScript;

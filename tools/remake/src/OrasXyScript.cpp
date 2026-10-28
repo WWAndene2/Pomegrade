@@ -296,7 +296,7 @@ const std::set<std::string>& XyDemoNatives()
     return natives;
 }
 
-std::string XyScriptSource(const Bytes& script, const std::string& namesFile, const XyNumbers& numbers, std::vector<std::string>& notes)
+std::string XyScriptSource(const Bytes& script, const std::string& namesFile, const XyNumbers& numbers, std::vector<std::string>& notes, bool sceneChanges)
 {
     const std::map<uint32_t, std::string> oras = OrasNatives(namesFile);
     const AmxScript s = AmxScript::Read(script);
@@ -405,14 +405,24 @@ std::string XyScriptSource(const Bytes& script, const std::string& namesFile, co
     // the works of the scenes the zone starts by itself (GetSceneChangeData's table), the data written again, 8 cells a line
     std::vector<long> cells = DataCells(lines);
     size_t movedScenes = 0;
-    for (const size_t k : SceneChangeWorkCells(lines, cells))
+    const std::vector<size_t> sceneWorks = SceneChangeWorkCells(lines, cells);
+    for (const size_t k : sceneWorks)
     {
         const auto to = numbers.Works.find((int)cells[k]);
         if (to != numbers.Works.end()) { cells[k] = to->second; movedScenes++; }
     }
-    if (movedScenes)
+    // without the story, no scene starts by itself: the table ends at its first triple (its case cell -1). Kept, a scene
+    // whose work nothing moves on ran on every entry, from any side (Route 5's friends, case 1 while work 16509 is 0:
+    // owner's phone, kalosfull, 28 October)
+    const bool dropScenes = !sceneChanges && !sceneWorks.empty();
+    if (dropScenes)
     {
-        notes.push_back("scene changes: " + std::to_string(movedScenes) + " work(s) moved");
+        cells[sceneWorks[0] - 1] = -1;
+        notes.push_back("scene changes: " + std::to_string(sceneWorks.size()) + " left out (no story)");
+    }
+    if (movedScenes || dropScenes)
+    {
+        if (movedScenes) notes.push_back("scene changes: " + std::to_string(movedScenes) + " work(s) moved");
         size_t data = 0;
         while (data < lines.size() && lines[data].Op != "data") data++;
         for (size_t i = data + 1; i < lines.size(); i++) if (lines[i].Op == "cell") rewrite[i] = "";

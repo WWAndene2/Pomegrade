@@ -61,8 +61,10 @@ XyNumbers XyNumbersFor(const std::vector<Bytes>& scripts, const std::set<int>& e
 // the script (after XyScriptToOras) as editable amx-asm source: natives by name (Omega Ruby's tables, namesFile) or,
 // when Omega Ruby has none, a stand-in with the X hash in a comment (`notes` says so: FadeIsEnd when a loop waits on its
 // result, else CommandNOP); each sysreq.n commented with its
-// native; flags and works moved by `numbers`; a flag or work given by a variable added to `notes`
-std::string XyScriptSource(const Bytes& script, const std::string& namesFile, const XyNumbers& numbers, std::vector<std::string>& notes);
+// native; flags and works moved by `numbers`; a flag or work given by a variable added to `notes`. sceneChanges false: the
+// scenes the zone starts by itself (GetSceneChangeData's table) left out, for a build without the story
+std::string XyScriptSource(const Bytes& script, const std::string& namesFile, const XyNumbers& numbers, std::vector<std::string>& notes,
+                           bool sceneChanges = true);
 
 // the natives playing a field cutscene by its number, which XyScriptSource skips in X/Y's scripts (Omega Ruby would play its
 // own demo of X/Y's number): CallFieldTradeDemo, CallApplicationDemo and _MapChangeAndDemoCall are not among them (a trade,
