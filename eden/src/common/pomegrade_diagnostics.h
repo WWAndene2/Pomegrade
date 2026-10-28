@@ -12,6 +12,8 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace PomegradeDiagnostics {
 
@@ -71,6 +73,50 @@ inline void CountPassEnd(const char* file, int line) {
     }
     std::scoped_lock lock{pass_end_mutex};
     ++pass_ends[where];
+}
+
+// transform feedback draws (GraphicsPipeline::ConfigureImpl ends the pass before each one): whether they draw
+// anything (rasterizer discard, colour targets, fragment stage), whether they use a geometry shader, how many runs
+// of back-to-back ones (what batching them would save), and the later draws reading their output as vertices
+inline std::atomic<std::uint64_t> tf_draws{0};
+inline std::atomic<std::uint64_t> tf_draws_discard{0};
+inline std::atomic<std::uint64_t> tf_draws_to_color{0};
+inline std::atomic<std::uint64_t> tf_draws_fragment{0};
+inline std::atomic<std::uint64_t> tf_draws_geometry{0};
+inline std::atomic<std::uint64_t> tf_runs{0};
+inline std::atomic<std::uint64_t> tf_consumer_draws{0};
+inline std::atomic<std::uint64_t> tf_consumers_next_draw{0};
+inline std::mutex tf_mutex;
+inline std::vector<std::pair<std::uint64_t, std::uint64_t>> tf_outputs; // [begin, end) GPU addresses, this second
+inline bool tf_last_draw{false};
+inline void CountTfDraw(bool discard, bool to_color, bool fragment, bool geometry,
+                        const std::pair<std::uint64_t, std::uint64_t>* outputs, int output_count) {
+    tf_draws.fetch_add(1, std::memory_order_relaxed);
+    tf_draws_discard.fetch_add(discard, std::memory_order_relaxed);
+    tf_draws_to_color.fetch_add(to_color, std::memory_order_relaxed);
+    tf_draws_fragment.fetch_add(fragment, std::memory_order_relaxed);
+    tf_draws_geometry.fetch_add(geometry, std::memory_order_relaxed);
+    std::scoped_lock lock{tf_mutex};
+    tf_runs.fetch_add(!tf_last_draw, std::memory_order_relaxed);
+    tf_last_draw = true;
+    for (int i = 0; i < output_count && tf_outputs.size() < 4096; i++) {
+        tf_outputs.push_back(outputs[i]);
+    }
+}
+// a draw without transform feedback: does one of its vertex streams start inside a range written by one
+inline void CountNonTfDraw(const std::uint64_t* stream_addresses, int stream_count) {
+    std::scoped_lock lock{tf_mutex};
+    const bool after_tf = tf_last_draw;
+    tf_last_draw = false;
+    for (int i = 0; i < stream_count; i++) {
+        for (const auto& [begin, end] : tf_outputs) {
+            if (stream_addresses[i] >= begin && stream_addresses[i] < end) {
+                tf_consumer_draws.fetch_add(1, std::memory_order_relaxed);
+                tf_consumers_next_draw.fetch_add(after_tf, std::memory_order_relaxed);
+                return;
+            }
+        }
+    }
 }
 
 } // namespace PomegradeDiagnostics

@@ -496,6 +496,22 @@ public:
             const u64 deferred = PomegradeDiagnostics::deferred_waits.exchange(0, std::memory_order_relaxed);
             LOG_INFO(Frontend, "[Pomegrade diag] passes ended per frame by{} | waits for idle deferred to the pass's end {:.1f}",
                      ended, deferred * per_frame);
+            // Pomegrade: TEMPORARY, the transform feedback draws (Pokémon Scarlet), per frame
+            const u64 tf = PomegradeDiagnostics::tf_draws.exchange(0, std::memory_order_relaxed);
+            const u64 tf_discard = PomegradeDiagnostics::tf_draws_discard.exchange(0, std::memory_order_relaxed);
+            const u64 tf_color = PomegradeDiagnostics::tf_draws_to_color.exchange(0, std::memory_order_relaxed);
+            const u64 tf_fragment = PomegradeDiagnostics::tf_draws_fragment.exchange(0, std::memory_order_relaxed);
+            const u64 tf_geometry = PomegradeDiagnostics::tf_draws_geometry.exchange(0, std::memory_order_relaxed);
+            const u64 tf_runs = PomegradeDiagnostics::tf_runs.exchange(0, std::memory_order_relaxed);
+            const u64 tf_consumers = PomegradeDiagnostics::tf_consumer_draws.exchange(0, std::memory_order_relaxed);
+            const u64 tf_next = PomegradeDiagnostics::tf_consumers_next_draw.exchange(0, std::memory_order_relaxed);
+            {
+                std::scoped_lock lock{PomegradeDiagnostics::tf_mutex};
+                PomegradeDiagnostics::tf_outputs.clear();
+            }
+            LOG_INFO(Frontend, "[Pomegrade diag] transform feedback draws per frame {:.1f}: rasterizer discard {:.1f}, drawing to colour {:.1f}, with a fragment shader {:.1f}, with a geometry shader {:.1f} | runs of back-to-back ones {:.1f} | later draws reading their output as vertices {:.1f}, of which right after one {:.1f}",
+                     tf * per_frame, tf_discard * per_frame, tf_color * per_frame, tf_fragment * per_frame,
+                     tf_geometry * per_frame, tf_runs * per_frame, tf_consumers * per_frame, tf_next * per_frame);
         }
         m_last = now;
         m_started = true;
