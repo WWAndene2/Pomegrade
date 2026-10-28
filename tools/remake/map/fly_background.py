@@ -4,7 +4,10 @@ kalos_xy_map.png, as the fly screen's backgrounds; test maps, the simplest way):
 area and laid on a 380 x 270 image filled with its sea, then made 380 x 256 (the texture holds two maps of 256 rows, drawn
 on the screen's 270: OrasFlyMap.h), as raw RGBA rows (oras-engine --fly-map-hoenn and --fly-map-kalos read it).
 
-  fly_background.py <drawing.png> <out.rgba>
+  fly_background.py <drawing.png> <out.rgba> [--flip]
+
+--flip: the drawing turned upside down first (top and bottom swapped): kalos_xy_map.png, which the owner wants shown so
+(28 October, after seeing it drawn as the file is).
 
 Omega Ruby's fly screen (a/0/6/7 member 0, its layout map_lower.bclyt, read 28 October): the background picture "0" is
 380 x 270 (poke_navi_map.bclim) at (0, 15), and the places' pane "s", 320 x 210, at the same centre; the drawing is scaled
@@ -18,9 +21,11 @@ WIDTH, HEIGHT, AREA_W, AREA_H, ROWS = 380, 270, 320, 210, 256
 
 
 def main():
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3, 4) or (len(sys.argv) == 4 and sys.argv[3] != '--flip'):
         sys.exit(__doc__)
     drawing = Image.open(sys.argv[1]).convert('RGBA')
+    if len(sys.argv) == 4:
+        drawing = drawing.transpose(Image.FLIP_TOP_BOTTOM)
     sea = drawing.getpixel((0, 0))
     scale = min(AREA_W / drawing.width, AREA_H / drawing.height)
     size = (round(drawing.width * scale), round(drawing.height * scale))
