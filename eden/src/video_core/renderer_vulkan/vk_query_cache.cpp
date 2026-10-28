@@ -602,14 +602,19 @@ public:
     static constexpr size_t BANK_SIZE = 1024;
     static constexpr size_t QUERY_SIZE = 4;
     explicit TFBQueryBank(Scheduler& scheduler_, const MemoryAllocator& memory_allocator,
-                          size_t index_)
+                          size_t index_, bool is_counter_buffer)
         : BankBase(BANK_SIZE), scheduler{scheduler_}, index{index_} {
+        VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        if (is_counter_buffer) {
+            // Pomegrade: EndTransformFeedbackEXT writes a query's counter straight into its slot
+            usage |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT;
+        }
         const VkBufferCreateInfo buffer_ci = {
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
             .pNext = nullptr,
             .flags = 0,
             .size = QUERY_SIZE * BANK_SIZE,
-            .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            .usage = usage,
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
             .queueFamilyIndexCount = 0,
             .pQueueFamilyIndices = nullptr,
@@ -628,6 +633,8 @@ public:
         scheduler.RequestOutsideRenderPassOperationContext();
         scheduler.Record([this, dst_buffer = stagging_buffer.buffer, extra_offset, start,
                           size](vk::CommandBuffer cmdbuf) {
+            cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFORM_FEEDBACK_BIT_EXT,
+                                   VK_PIPELINE_STAGE_TRANSFER_BIT, 0, COUNTER_READ_BARRIER);
             std::array<VkBufferCopy, 1> copy{VkBufferCopy{
                 .srcOffset = start * QUERY_SIZE,
                 .dstOffset = extra_offset,
@@ -644,6 +651,14 @@ public:
     VkBuffer GetBuffer() const {
         return *buffer;
     }
+
+    // Pomegrade: a counter EndTransformFeedbackEXT wrote into a slot, made visible to the copies reading it
+    static constexpr VkMemoryBarrier COUNTER_READ_BARRIER{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+        .pNext = nullptr,
+        .srcAccessMask = VK_ACCESS_TRANSFORM_FEEDBACK_COUNTER_WRITE_BIT_EXT,
+        .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+    };
 
 private:
     Scheduler& scheduler;
@@ -692,6 +707,9 @@ public:
             o = base_offset;
             base_offset += TFBQueryBank::QUERY_SIZE;
         }
+        resume_buffers = counter_buffers;
+        resume_offsets = offsets;
+        resume_banks.fill(INVALID_BANK);
     }
 
     ~TFBCounterStreamer() = default;
@@ -749,6 +767,14 @@ public:
                 .offset = query->start_slot * TFBQueryBank::QUERY_SIZE,
             });
         }
+        if (!sync_values_stash.empty()) {
+            scheduler.RequestOutsideRenderPassOperationContext();
+            scheduler.Record([](vk::CommandBuffer cmdbuf) {
+                cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFORM_FEEDBACK_BIT_EXT,
+                                       VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+                                       TFBQueryBank::COUNTER_READ_BARRIER);
+            });
+        }
         for (auto& p : sync_values_stash) {
             auto& bank = bank_pool.GetBank(p.first);
             runtime.template SyncValues<HostSyncValues>(p.second, bank.GetBuffer());
@@ -789,7 +815,20 @@ public:
             new_query->flags |= VideoCommon::QueryFlagBits::IsFinalValueSynced;
             return index;
         }
-        
+        if (scheduler.IsRenderPassActive() && has_started && slot < buffers_count) {
+            // Pomegrade: the counter is written into the query's slot by the GPU, inside the pass. Copying it
+            // needs the pass closed: 237 passes a frame closed this way in Pokémon Scarlet, 337 instead of 75
+            // and 607 screens of pixels stored and reloaded a frame on the Mali of a Xiaomi 13T (13.7 FPS)
+            auto [bank_slot, data_slot] = SnapshotCounter(slot);
+            new_query->start_bank_id = static_cast<u32>(bank_slot);
+            new_query->size_banks = 1;
+            new_query->start_slot = static_cast<u32>(data_slot);
+            new_query->size_slots = 1;
+            pending_sync.push_back(index);
+            pending_flush_queries.push_back(index);
+            return index;
+        }
+
         scheduler.RequestOutsideRenderPassOperationContext();
         CloseCounter();
         auto [bank_slot, data_slot] = ProduceCounterBuffer(slot);
@@ -909,11 +948,13 @@ private:
             .srcAccessMask = VK_ACCESS_TRANSFORM_FEEDBACK_COUNTER_WRITE_BIT_EXT,
             .dstAccessMask = VK_ACCESS_TRANSFORM_FEEDBACK_COUNTER_READ_BIT_EXT,
         };
-        scheduler.Record([this, total = static_cast<u32>(buffers_count)](vk::CommandBuffer cmdbuf) {
+        // Pomegrade: by value, the counters resume from where the last end wrote them (SnapshotCounter)
+        scheduler.Record([buffers = resume_buffers, buffer_offsets = resume_offsets,
+                          total = static_cast<u32>(buffers_count)](vk::CommandBuffer cmdbuf) {
             cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFORM_FEEDBACK_BIT_EXT,
                                    VK_PIPELINE_STAGE_TRANSFORM_FEEDBACK_BIT_EXT, 0,
                                    COUNTER_RESUME_BARRIER);
-            cmdbuf.BeginTransformFeedbackEXT(0, total, counter_buffers.data(), offsets.data());
+            cmdbuf.BeginTransformFeedbackEXT(0, total, buffers.data(), buffer_offsets.data());
         });
     }
 
@@ -940,6 +981,70 @@ private:
                               total = static_cast<u32>(buffers_count)](vk::CommandBuffer cmdbuf) {
                 cmdbuf.EndTransformFeedbackEXT(0, total, counter_buffers.data(), offsets.data());
             });
+            ResumeFrom(counter_buffers, offsets, INVALID_SLOT);
+        }
+    }
+
+    // Pomegrade: ends transform feedback with the counter of `slot_index` written into a new query slot, then
+    // resumes it from there; inactive, it begins and ends at once to write it. Never leaves the render pass
+    std::pair<size_t, size_t> SnapshotCounter(size_t slot_index) {
+        if (current_bank == nullptr || current_bank->IsClosed()) {
+            current_bank_id =
+                bank_pool.ReserveBank([this](std::deque<TFBQueryBank>& queue, size_t index) {
+                    queue.emplace_back(scheduler, memory_allocator, index,
+                                       device.IsExtTransformFeedbackSupported());
+                });
+            current_bank = &bank_pool.GetBank(current_bank_id);
+        }
+        auto [dont_care, slot] = current_bank->Reserve();
+        current_bank->AddReference();
+        auto end_buffers = counter_buffers;
+        auto end_offsets = offsets;
+        end_buffers[slot_index] = current_bank->GetBuffer();
+        end_offsets[slot_index] = slot * TFBQueryBank::QUERY_SIZE;
+        static constexpr VkMemoryBarrier COUNTER_RESUME_BARRIER{
+            .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+            .pNext = nullptr,
+            .srcAccessMask = VK_ACCESS_TRANSFORM_FEEDBACK_COUNTER_WRITE_BIT_EXT,
+            .dstAccessMask = VK_ACCESS_TRANSFORM_FEEDBACK_COUNTER_READ_BIT_EXT,
+        };
+        const bool is_active = has_flushed_end_pending;
+        scheduler.Record([is_active, buffers = resume_buffers, buffer_offsets = resume_offsets,
+                          end_buffers, end_offsets,
+                          total = static_cast<u32>(buffers_count)](vk::CommandBuffer cmdbuf) {
+            if (!is_active) {
+                cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFORM_FEEDBACK_BIT_EXT,
+                                       VK_PIPELINE_STAGE_TRANSFORM_FEEDBACK_BIT_EXT, 0,
+                                       COUNTER_RESUME_BARRIER);
+                cmdbuf.BeginTransformFeedbackEXT(0, total, buffers.data(), buffer_offsets.data());
+            }
+            cmdbuf.EndTransformFeedbackEXT(0, total, end_buffers.data(), end_offsets.data());
+            if (is_active) {
+                cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFORM_FEEDBACK_BIT_EXT,
+                                       VK_PIPELINE_STAGE_TRANSFORM_FEEDBACK_BIT_EXT, 0,
+                                       COUNTER_RESUME_BARRIER);
+                cmdbuf.BeginTransformFeedbackEXT(0, total, end_buffers.data(), end_offsets.data());
+            }
+        });
+        ResumeFrom(end_buffers, end_offsets, slot_index);
+        return {current_bank_id, slot};
+    }
+
+    // Pomegrade: after an end wrote the first buffers_count counters at `buffers`/`buffer_offsets`, the next
+    // begin reads them there. A query slot read this way keeps a reference on its bank so it is not reused
+    template <typename Buffers, typename Offsets> // the arrays' size, NUM_STREAMS, is declared below
+    void ResumeFrom(const Buffers& buffers, const Offsets& buffer_offsets, size_t snapshot_slot) {
+        for (size_t i = 0; i < buffers_count && i < NUM_STREAMS; i++) {
+            if (resume_banks[i] != INVALID_BANK) {
+                bank_pool.GetBank(resume_banks[i]).CloseReference();
+                resume_banks[i] = INVALID_BANK;
+            }
+            resume_buffers[i] = buffers[i];
+            resume_offsets[i] = buffer_offsets[i];
+        }
+        if (snapshot_slot != INVALID_SLOT) {
+            current_bank->AddReference();
+            resume_banks[snapshot_slot] = current_bank_id;
         }
     }
 
@@ -991,7 +1096,8 @@ private:
         if (current_bank == nullptr || current_bank->IsClosed()) {
             current_bank_id =
                 bank_pool.ReserveBank([this](std::deque<TFBQueryBank>& queue, size_t index) {
-                    queue.emplace_back(scheduler, memory_allocator, index);
+                    queue.emplace_back(scheduler, memory_allocator, index,
+                                       device.IsExtTransformFeedbackSupported());
                 });
             current_bank = &bank_pool.GetBank(current_bank_id);
         }
@@ -1013,8 +1119,8 @@ private:
         };
         scheduler.RequestOutsideRenderPassOperationContext();
         scheduler.Record([dst_buffer = current_bank->GetBuffer(),
-                          src_buffer = counter_buffers[slot_index],
-                          src_offset = offsets[slot_index],
+                          src_buffer = resume_buffers[slot_index],
+                          src_offset = resume_offsets[slot_index],
                           slot](vk::CommandBuffer cmdbuf) {
             cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFORM_FEEDBACK_BIT_EXT,
                                    VK_PIPELINE_STAGE_TRANSFER_BIT, 0, READ_BARRIER);
@@ -1034,6 +1140,7 @@ private:
 
     static constexpr size_t NUM_STREAMS = 4;
     static constexpr size_t INVALID_SLOT = NUM_STREAMS;
+    static constexpr size_t INVALID_BANK = ~size_t{0};
 
     QueryCacheRuntime& runtime;
     const Device& device;
@@ -1061,6 +1168,10 @@ private:
     size_t buffers_count{};
     std::array<VkBuffer, NUM_STREAMS> counter_buffers{};
     std::array<VkDeviceSize, NUM_STREAMS> offsets{};
+    // Pomegrade: where the next begin reads each counter, and the bank of the query slot it is in (if any)
+    std::array<VkBuffer, NUM_STREAMS> resume_buffers{};
+    std::array<VkDeviceSize, NUM_STREAMS> resume_offsets{};
+    std::array<size_t, NUM_STREAMS> resume_banks{};
     std::array<DAddr, NUM_STREAMS> last_queries;
     std::array<size_t, NUM_STREAMS> last_queries_stride;
     std::array<size_t, NUM_STREAMS> stream_to_slot;

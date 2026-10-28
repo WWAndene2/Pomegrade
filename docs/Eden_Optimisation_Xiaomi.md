@@ -439,6 +439,7 @@ Gains are estimates; difficulty and risk are judgements from the code.
 | O4 | Batch texture downloads: record every image's copy, then one `Finish`, then swizzle them all (as `PopAsyncFlushes` already does) | `texture_cache/texture_cache.h` (`DownloadMemory`) | Fewer stalls where the CPU reads GPU-written textures | Low | Low; same order of copies. **Done (15 October), untested on the phone** |
 | O5 | Make the frame pacing setting work on Android 11+ again, or hide it there | `renderer_vulkan/vk_swapchain.cpp` (`AcquireNextImage`) | Lets the user cap at 30 for steadier frames and heat | Low | Low |
 | O6 | Release APK; `-march=armv8.2-a` as an extra build for current phones | `android-apk.yml`; `YUZU_BUILD_PRESET` | Small | Low | Low; armv8.0 phones keep the generic build |
+| O12 | Transform feedback counters read without closing the render pass: the end writes the counter into the query's slot and the next begin resumes from there (`SnapshotCounter`). Seen in Pokémon Scarlet past the title screen (owner's log, 28 October): 237 of 337 passes a frame closed at `vk_query_cache.cpp:793`, 607 screens of pixels a frame, 1.6 s of GPU waits a second, 13.7 FPS | `renderer_vulkan/vk_query_cache.cpp` (`TFBCounterStreamer`) | Large in Scarlet (back towards the title screen's 75 passes and 30 FPS, inferred) | Medium | Medium: a barrier inside a pass, as `FlushBeginTFB` already records. **Done (28 October), untested on the phone** |
 
 ### 5.2 Root-cause work, larger
 
