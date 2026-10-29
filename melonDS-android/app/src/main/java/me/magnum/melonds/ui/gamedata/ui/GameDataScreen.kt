@@ -176,9 +176,9 @@ fun GameDataScreen(
                 }
                 item {
                     Card {
-                        if (state.takesMods) ActionRow(Icons.Outlined.Add, stringResource(R.string.game_data_install_mod)) { onInstall(GameData.Kind.MOD) }
+                        if (state.takesMods) ActionRow(Icons.Outlined.Add, stringResource(R.string.game_data_install_mod), onClick = { onInstall(GameData.Kind.MOD) })
                         if (state.takesMods && state.takesTextures) Divider(color = PunicaTheme.line)
-                        if (state.takesTextures) ActionRow(Icons.Outlined.Add, stringResource(R.string.texture_pack_install)) { onInstall(GameData.Kind.TEXTURES) }
+                        if (state.takesTextures) ActionRow(Icons.Outlined.Add, stringResource(R.string.texture_pack_install), onClick = { onInstall(GameData.Kind.TEXTURES) })
                     }
                 }
                 item { Muted(stringResource(R.string.game_data_mods_note)) }
