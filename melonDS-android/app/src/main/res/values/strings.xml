@@ -1011,4 +1011,49 @@
     <string name="punica_layout_saves_note_file">Where are the saves.txt</string>
     <string name="punica_layout_saves_note_three_ds">A 3DS game\'s saves are on the console\'s SD card, with the games installed on it: in System/sdmc (Nintendo 3DS/…/title/…/data). They cannot be kept apart from it.\n\nThe save states are in States.</string>
     <string name="punica_layout_saves_note_gc_wii">GameCube saves (memory cards) are here, in GameCube.\n\nA Wii game\'s saves are in the Wii\'s internal memory, with its system menu and channels: in System/Wii (title/…/data). They cannot be kept apart from it.\n\nThe save states are in States.</string>
+    <!-- Diagnostics over wireless debugging (WirelessDebugPreferencesFragment, impl/diagnostics) -->
+    <string name="wireless_debug">Diagnostics (wireless debugging)</string>
+    <string name="wireless_debug_summary">Records what the phone and its GPU do while a game runs, for a slow game. Off until you pair it, for this session only</string>
+    <string name="wireless_debug_connection">Connection</string>
+    <string name="wireless_debug_status">Status</string>
+    <string name="wireless_debug_status_off">Not connected. Punica can't run anything over wireless debugging until it is paired, and only the diagnostics below</string>
+    <string name="wireless_debug_status_connected">Connected until Punica closes</string>
+    <string name="wireless_debug_pair">Pair</string>
+    <string name="wireless_debug_pair_summary">Needs Developer options, Wi-Fi on, and Wireless debugging on. In Wireless debugging, tap Pair device with pairing code, then type the code in Punica's notification</string>
+    <string name="wireless_debug_disconnect">Disconnect</string>
+    <string name="wireless_debug_disconnect_summary">Ends the connection now. Punica's entry stays in Wireless debugging's paired devices until you forget it there</string>
+    <string name="wireless_debug_diagnostics">Diagnostics</string>
+    <string name="wireless_debug_trace_delay">Time before the trace starts</string>
+    <string name="wireless_debug_trace">Record a system trace</string>
+    <string name="wireless_debug_trace_summary">After the time above, records 20 seconds of every thread, the CPU and GPU clocks and Punica's own markers. Start the game meanwhile and reach the slow part. Written to Punica/Switch/Core/log</string>
+    <string name="wireless_debug_gpu_state">Save the GPU's state</string>
+    <string name="wireless_debug_gpu_state_summary">The GPU driver, its Vulkan version and memory, and Punica's frame statistics. Written to Punica/Switch/Core/log</string>
+    <string name="wireless_debug_driver_log">Save the GPU driver's messages</string>
+    <string name="wireless_debug_driver_log_summary">The messages of the GPU driver and of Android's graphics loader so far. Written to Punica/Switch/Core/log</string>
+    <string name="wireless_debug_unsupported">Wireless debugging needs Android 11 or later</string>
+    <string name="wireless_debug_notifications_needed">Punica needs to show a notification to take the pairing code</string>
+    <string name="wireless_debug_pairing_started">In Wireless debugging, tap Pair device with pairing code, then type the code in Punica's notification</string>
+    <string name="wireless_debug_notification_channel">Wireless debugging pairing</string>
+    <string name="wireless_debug_pairing_title">Pair Punica with wireless debugging</string>
+    <string name="wireless_debug_pairing_text">Open Pair device with pairing code in Wireless debugging, then type the six-digit code here</string>
+    <string name="wireless_debug_pairing_code">Pairing code</string>
+    <string name="wireless_debug_paired">Paired and connected. Back in Punica, the diagnostics are on until it closes</string>
+    <string name="wireless_debug_pairing_failed">Pairing failed: check the code and that the pairing dialog is still open, then try again</string>
+    <string name="wireless_debug_written">Written to %1$s</string>
+    <string name="wireless_debug_trace_started">The trace starts in %1$d seconds and lasts %2$d. It will be in %3$s</string>
+    <string name="wireless_debug_failed">Failed: %1$s</string>
+    <string-array name="wireless_debug_trace_delay_options">
+        <item>30 seconds</item>
+        <item>1 minute</item>
+        <item>1 minute 30</item>
+        <item>2 minutes</item>
+        <item>3 minutes</item>
+    </string-array>
+    <string-array name="wireless_debug_trace_delay_values" translatable="false">
+        <item>30</item>
+        <item>60</item>
+        <item>90</item>
+        <item>120</item>
+        <item>180</item>
+    </string-array>
 </resources>

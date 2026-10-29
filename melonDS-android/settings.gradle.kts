@@ -11,6 +11,14 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // only the ADB library of the wireless debugging diagnostics and its SPAKE2 dependency, built by JitPack
+        // from their GitHub tags
+        maven("https://jitpack.io") {
+            content {
+                includeGroup("com.github.MuntashirAkon")
+                includeGroup("com.github.MuntashirAkon.spake2-java")
+            }
+        }
     }
 }
 

@@ -60,6 +60,12 @@
                 android:summary="@string/category_general_summary"
                 app:icon="@drawable/ic_settings"
                 android:fragment="me.magnum.melonds.ui.settings.fragments.GeneralPreferencesFragment" />
+
+        <Preference
+                android:title="@string/wireless_debug"
+                android:summary="@string/wireless_debug_summary"
+                app:icon="@drawable/ic_settings"
+                android:fragment="me.magnum.melonds.ui.settings.fragments.WirelessDebugPreferencesFragment" />
     </PreferenceCategory>
 
     <!-- the console whose settings are shown below: one section at a time (MainPreferencesFragment) -->
