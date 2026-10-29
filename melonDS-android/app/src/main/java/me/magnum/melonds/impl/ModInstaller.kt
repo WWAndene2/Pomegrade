@@ -12,7 +12,7 @@ import java.util.zip.ZipInputStream
  * them, each part where Azahar reads it there:
  *
  * ```
- * load/mods/<program id>/romfs/…, romfs_ext/….bps, exefs/…   the mod (Azahar's LayeredFS) -> 3DS/Mods/mods/…
+ * load/mods/<program id>/romfs/…, romfs_ext/….bps, exefs/…   the mod (Azahar's LayeredFS) -> 3DS/Mods/<program id>/…
  * sdmc/Nintendo 3DS/…/title/…/data/…                        a save that goes with it      -> 3DS/System/sdmc/…
  * ```
  *
@@ -21,7 +21,8 @@ import java.util.zip.ZipInputStream
  *
  * A zip holding those two folders inside one top folder (a zip of the folder rather than of its
  * content) is read the same way. Each game's previous mod is deleted first, in both places Azahar may
- * read it (Mods/mods/<program id> and load/mods/<program id>: the core picks one when it starts, so a
+ * read it (Mods/<program id>, load/mods/<program id>, and Mods/mods/<program id> where earlier versions put it: the
+ * core picks one when it starts, so a
  * copy left in the other could still be loaded): a file of an older mod left in place would still be
  * loaded. Files of a save replace the ones there. Entries outside load/mods and sdmc are skipped.
  *
@@ -137,7 +138,7 @@ class ModInstaller {
 
     // a game's mod in every folder Azahar may read it from, whichever layout it started with
     private fun modCopies(root: File, programId: String): List<File> =
-        listOf("${PunicaLayout.MODS}/mods/$programId", "$LOAD/mods/$programId").map { File(root, it) }.filter { it.exists() }
+        listOf("${PunicaLayout.MODS}/$programId", "${PunicaLayout.MODS}/mods/$programId", "$LOAD/mods/$programId").map { File(root, it) }.filter { it.exists() }
 
     // the record, in the mods folder of either layout (the current one first): game -> its mod
     private fun readRecord(root: File): Map<String, InstalledMod> {
@@ -204,10 +205,12 @@ class ModInstaller {
         }
     }
 
-    // a zip path (load/…, sdmc/…) to its place in the 3DS folder: in the layout ([layout]) Azahar's load folder is
-    // Mods, its SD card System/sdmc; otherwise both are where the zip has them
+    // a zip path (load/…, sdmc/…) to its place in the 3DS folder: in the layout ([layout]) a game's mod is
+    // Mods/<program id> (Azahar's FileUtil::GetModDir there), the rest of load in Mods, the SD card System/sdmc;
+    // otherwise both are where the zip has them
     private fun placed(path: String, layout: Boolean): String = when {
         !layout -> path
+        path.startsWith("$LOAD/mods/") -> "${PunicaLayout.MODS}/" + path.removePrefix("$LOAD/mods/")
         path.startsWith("$LOAD/") -> "${PunicaLayout.MODS}/" + path.removePrefix("$LOAD/")
         path.startsWith("$SDMC/") -> "${PunicaLayout.SYSTEM}/" + path
         else -> path

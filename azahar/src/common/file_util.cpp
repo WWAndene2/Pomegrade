@@ -1109,6 +1109,24 @@ std::string GetPunicaCoreDir() {
     return user_path;
 }
 
+// the load folder is the layout's Mods/ (SetUserPath's Punica block)
+static bool IsPunicaLoadDir(const std::string& load) {
+    constexpr std::string_view mods = DIR_SEP "Mods" DIR_SEP;
+    return load.size() >= mods.size() && load.compare(load.size() - mods.size(), mods.size(), mods) == 0;
+}
+
+std::string GetModDir(u64 title_id) {
+    const std::string& load = GetUserPath(UserPath::LoadDir);
+    return IsPunicaLoadDir(load) ? fmt::format("{}{:016X}/", load, title_id)
+                                 : fmt::format("{}mods/{:016X}/", load, title_id);
+}
+
+std::string GetTexturePackDir(u64 title_id) {
+    const std::string& load = GetUserPath(UserPath::LoadDir);
+    return IsPunicaLoadDir(load) ? fmt::format("{}Textures/{:016X}/", load, title_id)
+                                 : fmt::format("{}textures/{:016X}/", load, title_id);
+}
+
 const std::string& GetDefaultUserPath(UserPath path) {
     // Set up all paths and files on the first run
     if (g_default_paths.empty())

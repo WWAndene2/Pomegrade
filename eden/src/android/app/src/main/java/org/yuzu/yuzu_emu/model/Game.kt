@@ -16,7 +16,6 @@ import org.yuzu.yuzu_emu.NativeLibrary
 import org.yuzu.yuzu_emu.R
 import org.yuzu.yuzu_emu.YuzuApplication
 import org.yuzu.yuzu_emu.activities.EmulationActivity
-import org.yuzu.yuzu_emu.utils.DirectoryInitialization
 import org.yuzu.yuzu_emu.utils.FileUtil
 import org.yuzu.yuzu_emu.utils.NativeConfig
 import java.time.LocalDateTime
@@ -63,8 +62,10 @@ class Game(
     val saveDir: String
         get() = NativeConfig.getSaveDir() + NativeLibrary.getSavePath(programId)
 
+    // Pomegrade: the load folder Eden reads (its setting: Switch/Mods in the Punica layout), not the default one in
+    // its user folder, where an add-on installed here was never loaded
     val addonDir: String
-        get() = DirectoryInitialization.userDirectory + "/load/" + programIdHex + "/"
+        get() = NativeConfig.getLoadDir().trimEnd('/') + "/" + programIdHex + "/"
 
     val launchIntent: Intent
         get() = Intent(YuzuApplication.appContext, EmulationActivity::class.java).apply {

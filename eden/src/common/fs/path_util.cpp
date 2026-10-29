@@ -166,6 +166,21 @@ public:
         GenerateEdenPath(EdenPath::ShaderDir, eden_path / SHADER_DIR);
         GenerateEdenPath(EdenPath::TASDir, eden_path / TAS_DIR);
         GenerateEdenPath(EdenPath::IconsDir, eden_path / ICONS_DIR);
+#ifdef ANDROID
+        // Pomegrade: in the Punica folder's layout (melonDS-android's PunicaLayout) Eden's folder is
+        // Punica/Switch/Core, and the console's other folders are its siblings: the NAND and SD card in System, the
+        // saves in Saves, the mods in Mods. Set here, before anything creates Eden's folders, so its defaults are
+        // never made inside Core (the app's SwitchFolder.setUp names the same folders in Eden's settings). Told by
+        // the layout's marker in the Punica folder, above the console's.
+        const fs::path core = eden_path.has_filename() ? eden_path : eden_path.parent_path();
+        const fs::path console = core.parent_path();
+        if (core.filename() == "Core" && Exists(console.parent_path() / ".punica-layout")) {
+            GenerateEdenPath(EdenPath::NANDDir, console / "System" / NAND_DIR);
+            GenerateEdenPath(EdenPath::SDMCDir, console / "System" / SDMC_DIR);
+            GenerateEdenPath(EdenPath::SaveDir, console / "Saves");
+            GenerateEdenPath(EdenPath::LoadDir, console / "Mods");
+        }
+#endif
 
 #ifdef _WIN32
         GenerateLegacyPath(EmuPath::RyujinxDir, GetAppDataRoamingDirectory() / RYUJINX_DIR);

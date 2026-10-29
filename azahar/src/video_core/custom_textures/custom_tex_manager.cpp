@@ -175,8 +175,7 @@ bool CustomTexManager::ParseFilename(const FileUtil::FSTEntry& file, CustomTextu
 void CustomTexManager::PrepareDumping(u64 title_id) {
     // If a pack exists in the load folder that uses the old hash, dump textures using the old hash.
     // This occurs either if a configuration file doesn't exist or that file sets the old hash.
-    const std::string load_path =
-        fmt::format("{}textures/{:016X}/", GetUserPath(FileUtil::UserPath::LoadDir), title_id);
+    const std::string load_path = FileUtil::GetTexturePackDir(title_id);
     if (FileUtil::Exists(load_path) && !ReadConfig(title_id, true)) {
         use_new_hash = false;
     }
@@ -313,8 +312,7 @@ bool CustomTexManager::Decode(Material* material, std::function<bool()>&& upload
 }
 
 bool CustomTexManager::ReadConfig(u64 title_id, bool options_only) {
-    const std::string load_path =
-        fmt::format("{}textures/{:016X}/", GetUserPath(FileUtil::UserPath::LoadDir), title_id);
+    const std::string load_path = FileUtil::GetTexturePackDir(title_id);
     if (!FileUtil::Exists(load_path)) {
         FileUtil::CreateFullPath(load_path);
     }
@@ -372,8 +370,7 @@ bool CustomTexManager::ReadConfig(u64 title_id, bool options_only) {
 }
 
 std::vector<FileUtil::FSTEntry> CustomTexManager::GetTextures(u64 title_id) {
-    const std::string load_path =
-        fmt::format("{}textures/{:016X}/", GetUserPath(FileUtil::UserPath::LoadDir), title_id);
+    const std::string load_path = FileUtil::GetTexturePackDir(title_id);
     if (!FileUtil::Exists(load_path)) {
         FileUtil::CreateFullPath(load_path);
     }

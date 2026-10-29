@@ -76,6 +76,9 @@ class PomegradeFolder(
         /** Where Pomegrade creates its folder: /storage/emulated/0/Pomegrade. */
         // the app's visible name; folders made before 13 October were named Pomegrade (see PunicaFolderRename)
         const val DEFAULT_NAME = "Punica"
+        // PunicaLayout.tidy has run in this process (moveIntoLayout)
+        @Volatile
+        private var tidied = false
         const val PREFERENCE = "pomegrade_folder"
         private const val TAG = "PomegradeFolder"
         private const val STORAGE_PROVIDER = "com.android.externalstorage.documents"
@@ -227,7 +230,8 @@ class PomegradeFolder(
 
         // texture packs (and dumps) from the app's own folder, which Android deletes with the app
         context.getExternalFilesDir("textures")?.listFiles()?.forEach { game ->
-            val target = File(PunicaLayout.part(root, PunicaLayout.DS, PunicaLayout.MODS), game.name)
+            val target = File(File(PunicaLayout.part(root, PunicaLayout.DS, PunicaLayout.MODS), PunicaLayout.TEXTURES), game.name)
+            target.parentFile?.mkdirs()
             if (!target.exists()) game.renameTo(target) || game.copyRecursively(target) && game.deleteRecursively()
         }
         screenshotProvider.moveTo(File(PunicaLayout.part(root, PunicaLayout.DS, PunicaLayout.STATES), PunicaLayout.PREVIEWS))
@@ -289,6 +293,14 @@ class PomegradeFolder(
             val report = PunicaLayout.moveLeftGames(root, onGame)
             report.left.forEach { Log.w(TAG, "Punica layout: still left $it") }
             moved = report.moved > 0
+        }
+        // what a core or an earlier version left out of place, put back once per process, at the first call (the game
+        // list's first scan, before any core runs a game: none has these folders open)
+        if (!tidied) {
+            tidied = true
+            val report = PunicaLayout.tidy(root)
+            if (report.moved > 0) Log.i(TAG, "Punica layout: ${report.moved} entries put back in place")
+            report.left.forEach { Log.w(TAG, "Punica layout: left out of place $it") }
         }
         // every console's Games scanned; the earlier Roms too while it holds what could not move (included again if
         // an earlier version excluded it with games left in it)

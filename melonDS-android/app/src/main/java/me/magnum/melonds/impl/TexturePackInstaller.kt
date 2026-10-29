@@ -12,9 +12,9 @@ import java.util.zip.ZipInputStream
 /**
  * Installs a texture pack (a zip) for one game, into the folder its console's core reads, named after the
  * game's ID:
- * - DS: Textures/<game code> (4 characters, the cartridge header's), read by melonDS's texture replacement;
- * - 3DS: 3DS/load/textures/<title ID> (16 hexadecimal digits), Azahar's custom textures;
- * - GameCube / Wii: GC-Wii/Load/Textures/<game ID> (6 characters, the disc header's), Dolphin's.
+ * - DS: DS/Mods/Textures/<game code> (4 characters, the cartridge header's), read by melonDS's texture replacement;
+ * - 3DS: 3DS/Mods/Textures/<title ID> (16 hexadecimal digits), Azahar's custom textures (FileUtil::GetTexturePackDir);
+ * - GameCube / Wii: GC-Wii/Mods/Textures/<game ID> (6 characters, the disc header's), Dolphin's.
  * The ID is read from the game's file; when the format hides it (a 3DS CIA or 3DSX, a GCZ or CISO disc),
  * the pack's own top folder gives it, as packs are usually made (GALE01/..., 0004000000030800/...). A pack
  * held in one top folder has it removed, whatever its name. Files already there with the same names are
@@ -78,11 +78,10 @@ object TexturePackInstaller {
     }
 
     private fun texturesRoot(context: Context, platform: RomPlatform): File? = when (platform) {
-        // each console's Mods (PunicaLayout), in the form its core reads: DS <game code>/, 3DS (Azahar's load folder)
-        // textures/<title id>/, GameCube / Wii (Dolphin's Load folder) Textures/<game id>/
-        RomPlatform.NDS -> PomegradeFolder.consoleFolder(context, PunicaLayout.DS, PunicaLayout.MODS)
-        RomPlatform.N3DS -> PomegradeFolder.consoleFolder(context, PunicaLayout.N3DS, PunicaLayout.MODS)?.let { File(it, "textures") }
-        RomPlatform.GC_WII -> PomegradeFolder.consoleFolder(context, PunicaLayout.GC_WII, PunicaLayout.MODS)?.let { File(it, "Textures") }
+        // every console's Mods/Textures (PunicaLayout.TEXTURES), <game id>/ in it: DS's texture replacement, Azahar's
+        // custom textures (FileUtil::GetTexturePackDir), Dolphin's Load/Textures (Load is Mods)
+        RomPlatform.NDS, RomPlatform.N3DS, RomPlatform.GC_WII ->
+            PomegradeFolder.consoleFolder(context, PunicaLayout.console(platform), PunicaLayout.MODS)?.let { File(it, PunicaLayout.TEXTURES) }
         else -> null
     }?.takeIf { it.isDirectory || it.mkdirs() }
 

@@ -223,6 +223,12 @@ void ResetUserPaths();
 // Core and System folders, as SetUserPath does), else the user folder itself. Ends with a separator.
 std::string GetPunicaCoreDir();
 
+// Pomegrade: a game's mod folder and texture pack folder. Upstream they are <load>/mods/<id>/ and
+// <load>/textures/<id>/; in the Punica folder's layout (load is Mods/) Mods/<id>/ and Mods/Textures/<id>/, as every
+// console keeps them there (melonDS-android's PunicaLayout). Ends with a separator.
+std::string GetModDir(u64 title_id);
+std::string GetTexturePackDir(u64 title_id);
+
 void SetCurrentRomPath(const std::string& path);
 
 // Returns a pointer to a string with a Citra data dir in the user's home

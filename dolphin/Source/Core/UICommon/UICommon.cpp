@@ -357,12 +357,31 @@ void CreateDirectories()
 #endif
 }
 
+// Pomegrade: the folders Dolphin derives from its user folder (Punica/GC-Wii/Core in the layout) that the layout puts
+// beside it, set as soon as the user folder is: CreateDirectories (Android's Initialize) and the first config load
+// would otherwise make Dolphin's defaults inside Core (StateSaves, Load, Wii, GC), which stayed there empty beside
+// the layout's own (owner, 29 October). The GameCube folder (its SRAM, and the boot ROMs GetBootROMPath also finds
+// there) is System/GC; UsePunicaLayout sets the paths kept in the config. Nothing outside the layout.
+static void UsePunicaUserPaths()
+{
+#ifdef ANDROID
+  const std::string console = Config::GetPunicaConsoleDirectory();
+  if (console.empty())
+    return;
+  File::SetUserPath(D_STATESAVES_IDX, console + "States");
+  File::SetUserPath(D_LOAD_IDX, console + "Mods");
+  File::SetUserPath(D_WIIROOT_IDX, console + "System/Wii");
+  File::SetUserPath(D_GCUSER_IDX, console + "System/" GC_USER_DIR);
+#endif
+}
+
 void SetUserDirectory(std::string custom_path)
 {
   if (!custom_path.empty())
   {
     File::CreateFullPath(custom_path + DIR_SEP);
     File::SetUserPath(D_USER_IDX, std::move(custom_path));
+    UsePunicaUserPaths();
     return;
   }
 

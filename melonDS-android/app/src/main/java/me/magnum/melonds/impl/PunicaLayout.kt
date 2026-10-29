@@ -16,7 +16,7 @@ import java.util.Locale
  * │   ├── Saves/    the saves
  * │   ├── States/   the save states (and their screenshots)
  * │   ├── System/   BIOS, keys, firmware, the console's system memory
- * │   ├── Mods/     texture packs and game mods
+ * │   ├── Mods/     game mods (<game id>/) and texture packs (Textures/<game id>/)
  * │   └── Core/     the emulator's own files: settings, caches, logs, traces
  * ├── Settings/     Punica's settings, read back after a reinstall
  * └── Backups/      copies made before data is moved or imported over
@@ -27,13 +27,26 @@ import java.util.Locale
  *   States/Previews/ holds the state screenshots (one folder per game, as SaveStateScreenshotProvider names them).
  * - GBA: Punica's own code.
  * - 3DS (Azahar): Azahar's folder is 3DS/ itself, its sub-folders pointed into the six (nand, sdmc and the keys
- *   in System, states in States, load in Mods, the rest in Core; azahar/src/common/file_util.cpp). A 3DS game's
+ *   in System, states in States, load in Mods, the rest in Core; azahar/src/common/file_util.cpp; a game's mod
+ *   Mods/<title id>, its textures Mods/Textures/<title id>: GetModDir, GetTexturePackDir). A 3DS game's
  *   saves are on the emulated SD card (System/sdmc), mixed with installed titles: Saves/ only says so.
  * - Switch (Eden): Eden's folder is Switch/Core; its NAND and SD card in System, its saves folder (Eden's
- *   save_directory) in Saves, its mods folder in Mods (SwitchFolder).
- * - GameCube / Wii (Dolphin): Dolphin's folder is GC-Wii/Core; the Wii's NAND in System/Wii, the GameCube memory
- *   cards in Saves/GameCube, states in States, Load in Mods (dolphin/Source/Core/UICommon/UICommon.cpp). A Wii
+ *   save_directory) in Saves, its mods folder in Mods (SwitchFolder; from Eden's start, eden/src/common/fs/path_util.cpp).
+ * - GameCube / Wii (Dolphin): Dolphin's folder is GC-Wii/Core; the Wii's NAND in System/Wii, its GameCube folder
+ *   (SRAM, boot ROMs) System/GC, the memory cards in Saves/GameCube, states in States, Load in Mods
+ *   (dolphin/Source/Core/UICommon/UICommon.cpp: UsePunicaUserPaths, UsePunicaLayout). A Wii
  *   game's saves are in the Wii's NAND: Saves/ only says so.
+ *
+ * Inside Mods, the same two forms on every console: Mods/<game id>/ a game's mods (3DS: romfs, exefs, romfs_ext; Switch:
+ * one folder per mod), Mods/Textures/<game id>/ its texture packs (DS, 3DS, GC-Wii); Dolphin's other Load folders
+ * (GraphicMods, Riivolution...) beside them as Dolphin names them.
+ *
+ * Each core is pointed into these folders before it creates any of its own (29 October, the owner: "un problème
+ * récurrent qui nécessite d'être clos pour de bon"): Azahar by FileUtil::SetUserPath and GetModDir /
+ * GetTexturePackDir, Eden by its PathManager (Core's siblings, told by the layout's marker), Dolphin by
+ * UsePunicaUserPaths and UsePunicaLayout. Until then each made its default folders where the layout has none, and
+ * they stayed: 3DS/cheats, config, log, nand, sdmc... beside 3DS/Core; Mods/mods/<id>; Eden's Core/nand, sdmc, load;
+ * Dolphin's Core/StateSaves, Load, Wii, GC. [tidy] puts back whatever is out of place at every start.
  *
  * [migrate] moves an earlier layout (Roms/, BIOS/, Textures/, the cores' folders as they were) into this one.
  * Moves are renames on one storage; a name already taken at the target is never overwritten (the file goes to
@@ -59,6 +72,8 @@ object PunicaLayout {
 
     const val SETTINGS = "Settings"
     const val BACKUPS = "Backups"
+    /** Every console's texture packs, in its Mods: Mods/Textures/<game id>/ (DS, 3DS, GC-Wii). */
+    const val TEXTURES = "Textures"
     /** DS state screenshots, in DS/States. */
     const val PREVIEWS = "Previews"
     /** The DSi BIOS set, in DS/System (its files have the DS set's names). */
@@ -151,11 +166,33 @@ object PunicaLayout {
         run.firmwareFromRoms()
         run.games()
         run.oldConsoleFolders()
+        run.coreDefaults()
         run.topLevel()
+        run.mods()
         CONSOLES.forEach { console -> PARTS.forEach { part(root, console, it).mkdirs() } }
         savesNotes.forEach { (console, note) -> runCatching { File(part(root, console, SAVES), note.first).writeText(note.second) } }
         listOf(SETTINGS, BACKUPS).forEach { File(root, it).mkdirs() }
         File(root, MARKER).writeText(VERSION)
+        return Report(run.games, run.moved, run.left)
+    }
+
+    /**
+     * Puts back what is out of place in a folder already in the layout, at every start (cheap: a few listings): an
+     * entry of a console folder that is none of the six goes where [migrate] puts it; a core's default folder made
+     * in its Core (Eden's nand, sdmc, load; Dolphin's StateSaves, Load, Wii, GC; Azahar's) is merged into the
+     * layout's, which the core now uses (an empty one just goes); the mods in their two forms (Mods/<game id>,
+     * Mods/Textures/<game id>). Nothing is overwritten: a name already taken goes to Backups/Conflicts-<date>/.
+     * Missing folders of the layout are made again. Run before any core starts in the process (the game list's
+     * first scan), so none has these folders open.
+     */
+    fun tidy(root: File): Report {
+        if (!isMigrated(root)) return Report(emptyMap(), 0, emptyList())
+        val run = Run(root) { _, _ -> }
+        run.oldConsoleFolders()
+        run.coreDefaults()
+        run.mods()
+        CONSOLES.forEach { console -> PARTS.forEach { part(root, console, it).mkdirs() } }
+        listOf(DS, N3DS, GC_WII).forEach { part(root, it, MODS).resolve(TEXTURES).mkdirs() }
         return Report(run.games, run.moved, run.left)
     }
 
@@ -441,7 +478,8 @@ object PunicaLayout {
             }
             // memory cards: GC/MemoryCardA.USA.raw and GC/<region>/Card A, as Dolphin's custom paths take them
             val gc = to(GC_WII, CORE, "GC")
-            gc.listFiles { f -> f.isFile && f.name.endsWith(".raw", true) }?.forEach { move(it, to(GC_WII, SAVES, GAMECUBE, it.name)) }
+            // MemoryCardA.USA.raw: not SRAM.raw, the console's settings, which stays with the GameCube folder
+            gc.listFiles { f -> f.isFile && f.name.startsWith("MemoryCard", true) && f.name.endsWith(".raw", true) }?.forEach { move(it, to(GC_WII, SAVES, GAMECUBE, it.name)) }
             gc.listFiles { f -> f.isDirectory }?.forEach { region ->
                 region.listFiles { f -> f.isDirectory && f.name.startsWith("Card ") }?.forEach { card ->
                     move(card, to(GC_WII, SAVES, GAMECUBE, card.name, region.name))
@@ -469,9 +507,42 @@ object PunicaLayout {
             }
         }
 
+        /**
+         * The default folders a core made in its Core before it was pointed into the layout (see the class comment),
+         * merged into the layout's, which each core uses instead (Azahar's paths, Eden's settings set by
+         * SwitchFolder.setUp, Dolphin's UsePunicaLayout); an empty one is removed.
+         */
+        fun coreDefaults() {
+            val defaults = mapOf(
+                N3DS to mapOf("nand" to to(N3DS, SYSTEM, "nand"), "sdmc" to to(N3DS, SYSTEM, "sdmc"), "states" to to(N3DS, STATES), "load" to to(N3DS, MODS)),
+                SWITCH to mapOf("nand" to to(SWITCH, SYSTEM, "nand"), "sdmc" to to(SWITCH, SYSTEM, "sdmc"), "load" to to(SWITCH, MODS)),
+                GC_WII to mapOf("Wii" to to(GC_WII, SYSTEM, "Wii"), "StateSaves" to to(GC_WII, STATES), "Load" to to(GC_WII, MODS), "GC" to to(GC_WII, SYSTEM, GC)),
+            )
+            defaults.forEach { (console, folders) ->
+                folders.forEach { (name, target) ->
+                    val dir = to(console, CORE, name)
+                    if (!dir.isDirectory) return@forEach
+                    if (dir.walkTopDown().none { it.isFile }) {
+                        if (dir.deleteRecursively()) moved++ else left += dir.path
+                    } else {
+                        move(dir, target)
+                    }
+                }
+            }
+        }
+
+        /** The mods in the layout's two forms: Mods/<game id>/ and Mods/Textures/<game id>/ (see the class comment). */
+        fun mods() {
+            // 3DS: Azahar's load/mods/<id> and load/textures/<id>, as Mods/mods and Mods/textures before 29 October
+            moveContent(to(N3DS, MODS, "mods"), to(N3DS, MODS))
+            moveContent(to(N3DS, MODS, "textures"), to(N3DS, MODS, TEXTURES))
+            // DS: texture packs were Mods/<game code> (4 characters) and their dumps Mods/dump
+            to(DS, MODS).listFiles { f -> f.isDirectory && (f.name.length == 4 || f.name == "dump") }?.forEach { move(it, to(DS, MODS, TEXTURES, it.name)) }
+        }
+
         /** The other top-level folders of the earlier layout. */
         fun topLevel() {
-            moveContent(File(root, "Textures"), to(DS, MODS))
+            moveContent(File(root, "Textures"), to(DS, MODS, TEXTURES))
             moveContent(File(root, "Save state previews"), to(DS, STATES, PREVIEWS))
             listOf("Inspector", "Materials").forEach { move(File(root, it), to(DS, CORE, it)) }
         }

@@ -74,10 +74,10 @@ class PunicaLayoutTest {
         listOf(
             "DS/Games/Pokemon - Version Platine.nds", "DS/Saves/Dragon Quest Monsters - Joker.sav",
             "DS/States/Dragon Quest Monsters - Joker.ml1", "DS/States/Previews/12345/1.png", "DS/System/bios7.bin",
-            "DS/System/DSi/bios7.bin", "DS/Mods/IRBF/t.png", "DS/Core/Traces/trace.txt",
+            "DS/System/DSi/bios7.bin", "DS/Mods/Textures/IRBF/t.png", "DS/Core/Traces/trace.txt",
             "GBA/Games/Emerald.gba", "GBA/Saves/Emerald.sav", "GBA/System/gba_bios.bin",
             "3DS/Games/Omega Ruby.3ds", "3DS/System/sdmc/Nintendo 3DS/game/save.bin", "3DS/System/aes_keys.txt",
-            "3DS/States/0004000000055D00.01.cst", "3DS/Mods/mods/0004000000055D00/romfs/a", "3DS/Core/config/config.ini",
+            "3DS/States/0004000000055D00.01.cst", "3DS/Mods/0004000000055D00/romfs/a", "3DS/Core/config/config.ini",
             "Switch/Games/Pokemon Sword [0100ABF008968000].xci", "Switch/Saves/user/save/0000/1/sword.sav",
             "Switch/System/nand/system/Contents/system.nca", "Switch/System/prod.keys",
             "Switch/System/Firmware/${"%032x".format(1)}.cnmt.nca", "Switch/Mods/0100ABF008968000/mod/a",
@@ -85,7 +85,7 @@ class PunicaLayoutTest {
             "GC-Wii/Games/Zelda/disc1.rvz", "GC-Wii/System/Wii/title/00010000/game/data/banner.bin",
             "GC-Wii/System/GC/USA/IPL.bin", "GC-Wii/Saves/GameCube/MemoryCardA.USA.raw",
             "GC-Wii/Saves/GameCube/Card A/USA/01-GAME.gci", "GC-Wii/States/GAME.s01", "GC-Wii/Mods/Textures/GAME/t.png",
-            "GC-Wii/Core/GC/USA/IPL.bin", "Settings/settings.json",
+            "Settings/settings.json",
         ).forEach { assertTrue("missing $it", it in after) }
 
         // nothing else at the top level, every console with its six folders
@@ -94,6 +94,8 @@ class PunicaLayoutTest {
             PunicaLayout.PARTS.forEach { assertTrue("$console/$it", File(File(root, console), it).isDirectory) }
             assertEquals(PunicaLayout.PARTS.toSet(), File(root, console).list()!!.toSet())
         }
+        // Dolphin's GameCube folder is the layout's System/GC (its copy of the boot ROM the same file as the BIOS one)
+        assertFalse(File(root, "GC-Wii/Core/GC").exists())
         assertTrue(report.left.isEmpty())
         assertEquals(File(root, "Switch/Games/Pokemon Sword [0100ABF008968000].xci"), report.games[File(root, "Roms/Pokemon Sword [0100ABF008968000].xci")])
     }
@@ -239,5 +241,77 @@ class PunicaLayoutTest {
         // a second run in the same second finds its saves' backup already made: only that is reported
         assertTrue(again.left.all { it.startsWith("backup: ") })
         assertTrue(PunicaLayout.isMigrated(root))
+    }
+
+    // the owner's folder on 29 October (screenshots): Azahar's default folders beside 3DS/Core (made before it was
+    // pointed into the layout), its mods in Mods/mods; Eden's and Dolphin's defaults inside their Core
+    private fun layoutWithStrays(): File {
+        val root = temp.newFolder("Punica")
+        PunicaLayout.migrate(root)
+        file(root, "3DS/Core/cheats/000400000011C400.txt", "cheat in use")
+        file(root, "3DS/cheats/000400000011C400.txt", "old cheat")
+        file(root, "3DS/config/config.ini", "old config")
+        File(root, "3DS/log").mkdirs()
+        file(root, "3DS/sysdata/mac.txt", "mac")
+        file(root, "3DS/shaders/opengl/transferable/000400000011C400.bin", "shaders")
+        file(root, "3DS/Mods/mods/000400000011C400/romfs_ext/a/0/1/3.bps", "mod")
+        file(root, "3DS/Mods/textures/000400000011C400/tex.png", "texture")
+        File(root, "Switch/Core/nand").mkdirs()
+        File(root, "Switch/Core/load").mkdirs()
+        file(root, "Switch/Core/sdmc/Nintendo/Album/shot.jpg", "album")
+        File(root, "GC-Wii/Core/StateSaves").mkdirs()
+        file(root, "GC-Wii/Core/GC/SRAM.raw", "sram")
+        file(root, "DS/Mods/CPUE/tex.png", "ds texture")
+        file(root, "DS/Mods/dump/CPUE/d.png", "ds dump")
+        return root
+    }
+
+    @Test
+    fun tidyPutsBackWhatCoresLeftOutOfPlace() {
+        val root = layoutWithStrays()
+        val report = PunicaLayout.tidy(root)
+        val all = files(root)
+        for (f in listOf(
+            "3DS/Mods/000400000011C400/romfs_ext/a/0/1/3.bps", "3DS/Mods/Textures/000400000011C400/tex.png",
+            "3DS/System/mac.txt", "3DS/Core/shaders/opengl/transferable/000400000011C400.bin", "3DS/Core/config/config.ini",
+            "Switch/System/sdmc/Nintendo/Album/shot.jpg", "GC-Wii/System/GC/SRAM.raw",
+            "DS/Mods/Textures/CPUE/tex.png", "DS/Mods/Textures/dump/CPUE/d.png",
+        )) assertTrue("$f in place", f in all)
+        assertEquals("cheat in use", File(root, "3DS/Core/cheats/000400000011C400.txt").readText())
+        // the older cheat, whose name the one in use has, is kept aside, not written over it
+        assertTrue(all.any { it.startsWith("Backups/Conflicts-") && it.endsWith("3DS/cheats/000400000011C400.txt") })
+        for (stray in listOf("3DS/cheats", "3DS/config", "3DS/log", "3DS/sysdata", "3DS/shaders", "3DS/Mods/mods", "3DS/Mods/textures",
+            "Switch/Core/nand", "Switch/Core/load", "Switch/Core/sdmc", "GC-Wii/Core/StateSaves", "GC-Wii/Core/GC", "DS/Mods/CPUE", "DS/Mods/dump"))
+            assertFalse("$stray gone", File(root, stray).exists())
+        val consoles = File(root, "3DS").list()!!.filterNot { it.startsWith(".") }.toSet()
+        assertEquals(PunicaLayout.PARTS.toSet(), consoles)
+        assertTrue(report.left.isEmpty())
+    }
+
+    @Test
+    fun tidyTwiceChangesNothingMore() {
+        val root = layoutWithStrays()
+        PunicaLayout.tidy(root)
+        val once = files(root)
+        val report = PunicaLayout.tidy(root)
+        assertEquals(once, files(root))
+        assertEquals(0, report.moved)
+    }
+
+    @Test
+    fun tidyLosesNoContent() {
+        val root = layoutWithStrays()
+        val before = root.walkTopDown().filter { it.isFile && !it.name.startsWith(".") }.map { it.readText() }.sorted().toList()
+        PunicaLayout.tidy(root)
+        val after = root.walkTopDown().filter { it.isFile && !it.name.startsWith(".") && !it.path.contains("/Saves/") }.map { it.readText() }.sorted().toList()
+        assertEquals(before, after)
+    }
+
+    @Test
+    fun tidyLeavesAFolderNotInTheLayoutAlone() {
+        val root = temp.newFolder("Punica")
+        file(root, "3DS/cheats/a.txt", "a")
+        PunicaLayout.tidy(root)
+        assertTrue(File(root, "3DS/cheats/a.txt").isFile)
     }
 }
