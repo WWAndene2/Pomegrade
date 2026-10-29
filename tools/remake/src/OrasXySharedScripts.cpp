@@ -62,6 +62,22 @@ std::string XySharedScriptEdits(std::string source, int member, const std::vecto
         }
         source.replace(at, end - at, out);
     }
+    // its table lookup: a script that reads a table by its id takes its range's first off it (fld_item.amx: `load.p.pri 24`,
+    // the id, `add.p.c -7000`, then 3 cells a case), so that first moves too; left as X's, the ids moved by the shift read
+    // 30000 x 3 cells past the table and the game hung on picking up an item (owner's phone, 29 October: Shalour)
+    for (const char* op : {"    add.p.c -", "    add.c -"})
+        for (size_t at = source.find(op); at != std::string::npos; at = source.find(op, at + 1))
+        {
+            const size_t value = at + std::string(op).size(), end = source.find_first_not_of("0123456789", value);
+            const int v = std::stoi(source.substr(value, end - value));
+            for (const XyScriptRange& r : rows)
+                if (r.Member == member && v == r.First)
+                {
+                    // the packed form holds 16 bits: the moved first (37000) takes the plain one
+                    source.replace(at, end - at, "    add.c -" + std::to_string(v + XyScriptIdShift));
+                    break;
+                }
+        }
     if (member == 39)
     {
         // objectencount.amx: a can's flag is its spot + 3152 (0xC50, X's 0xC50-0xC59: OrasXyDustBox.h), computed, so not
