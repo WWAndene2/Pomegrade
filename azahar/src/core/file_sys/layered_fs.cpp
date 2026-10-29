@@ -22,6 +22,9 @@ struct FileRelocationInfo {
     int type;                      // 0 - none, 1 - replaced / created, 2 - patched, 3 - removed
     u64 original_offset;           // Type 0. Offset is absolute
     std::string replace_file_path; // Type 1
+    // Pomegrade: the replacement file kept open from its first read (opening it for every read, as upstream does, costs an
+    // open per chunk of a streamed file; on Android a folder's files are opened through its content provider, slowly)
+    std::shared_ptr<FileUtil::IOFile> replace_file;
     std::vector<u8> patched_file;  // Type 2
     u64 size;                      // Relocated file size
 };
@@ -526,7 +529,11 @@ std::size_t LayeredFS::ReadFile(std::size_t offset, std::size_t length, u8* buff
             romfs->ReadFile(relocation.original_offset + relative_offset, to_read,
                             buffer + read_size);
         } else if (relocation.type == 1) { // replace
-            FileUtil::IOFile replace_file(relocation.replace_file_path, "rb");
+            if (!relocation.replace_file || !relocation.replace_file->IsOpen()) {
+                relocation.replace_file =
+                    std::make_shared<FileUtil::IOFile>(relocation.replace_file_path, "rb");
+            }
+            auto& replace_file = *relocation.replace_file;
             if (replace_file) {
                 replace_file.Seek(relative_offset, SEEK_SET);
                 replace_file.ReadBytes(buffer + read_size, to_read);
