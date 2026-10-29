@@ -1,5 +1,6 @@
 #include "Bcsar.h"
 
+#include <algorithm>
 #include <cstring>
 #include <map>
 
@@ -117,6 +118,53 @@ Bytes SoundKey(const Layout& l, size_t sound, std::map<uint32_t, Bytes>& warcCac
         key.insert(key.end(), withArchives.begin(), withArchives.end());
     }
     return key;
+}
+
+// The archive without the given byte ranges of INFO (the tables a growth replaced and left unused, each a table's count and
+// references): every reference that crosses one is moved, the sections after INFO follow (INFO shrinks by a multiple of
+// 0x40, padded at its end, as FILE starts on 0x40 in the game's archives). The references moved: INFO's body to its
+// tables, each table's (0-6, the eighth the project's information) to its entries; an entry's own references stay within
+// it (read 29 October on both games' archives: sounds, banks, wave archives, players, groups, files)
+Bytes WithoutInfoRanges(const Bytes& b, std::vector<std::pair<size_t, size_t>> ranges)
+{
+    const Layout l(b);
+    std::sort(ranges.begin(), ranges.end());
+    size_t removed = 0;
+    for (const auto& [at, size] : ranges)
+    {
+        if (at < l.Body || at + size > l.Info + l.InfoSize) throw FormatError("sound archive: a range to remove outside INFO");
+        removed += size;
+    }
+    const size_t kept = removed & ~(size_t)0x3F, pad = removed - kept;
+    const auto moved = [&](size_t at) { size_t before = 0; for (const auto& [r, size] : ranges) if (r + size <= at) before += size; return at - before; };
+    Bytes info(b.begin() + (long)l.Info, b.begin() + (long)(l.Info + l.InfoSize));
+    const auto put = [&](size_t at, uint32_t v) { Put32(info, at - l.Info, v); };
+    for (int k = 0; k < 8; k++)
+    {
+        const size_t table = l.Table(k);
+        put(l.Body + 8 * (size_t)k + 4, (uint32_t)(moved(table) - l.Body));
+        if (k == 7) continue;
+        for (size_t i = 0; i < l.Count(k); i++) put(table + 8 + 8 * i, (uint32_t)(moved(l.Entry(k, i)) - moved(table)));
+    }
+    Bytes out(b.begin(), b.begin() + (long)l.Info);
+    size_t from = l.Info;
+    for (const auto& [at, size] : ranges)
+    {
+        out.insert(out.end(), info.begin() + (long)(from - l.Info), info.begin() + (long)(at - l.Info));
+        from = at + size;
+    }
+    out.insert(out.end(), info.begin() + (long)(from - l.Info), info.end());
+    out.insert(out.end(), pad, 0);
+    out.insert(out.end(), b.begin() + (long)(l.Info + l.InfoSize), b.end());
+    Put32(out, l.Info + 4, (uint32_t)(l.InfoSize - kept));
+    for (uint16_t k = 0; k < U16(b, 0x10); k++)
+    {
+        const size_t at = U32(b, 0x18 + 12 * k);
+        if (at == l.Info) Put32(out, 0x1C + 12 * k, (uint32_t)(l.InfoSize - kept));
+        else if (at > l.Info) Put32(out, 0x18 + 12 * k, (uint32_t)(at - kept));
+    }
+    Put32(out, 0x0C, (uint32_t)out.size());
+    return out;
 }
 
 uint32_t Options(const Bytes& b, size_t entry, int bit) // the option value of a set flag bit, or ~0
@@ -252,7 +300,8 @@ Bytes BcsarAppendStreams(const Bytes& b, size_t like, const std::vector<NewStrea
     }
     Put32(out, 0x0C, (uint32_t)out.size());
     first = sounds0;
-    return out;
+    // the two tables replaced, unused: removed (the game holds INFO in memory)
+    return WithoutInfoRanges(out, {{l.Table(0), 4 + 8 * sounds0}, {l.Table(6), 4 + 8 * files0}});
 }
 
 std::vector<std::pair<size_t, size_t>> BcsarDifferentSequences(const Bytes& oras, const Bytes& xy)
@@ -437,6 +486,10 @@ Bytes BcsarAppendSequences(const Bytes& b, const Bytes& xy, const std::vector<st
     Put32(out, l.File + grown + 4, (uint32_t)fileSize);
     Put32(out, 0x0C, (uint32_t)out.size());
     first = sounds0;
+    // the four tables replaced, unused: removed (the game holds INFO in memory: with X/Y's streams too, INFO grown by
+    // 0x3A200 bytes stopped the game at boot, an allocation failing in its sound setup, 29 October)
+    out = WithoutInfoRanges(out, {{l.Table(Sounds), 4 + 8 * sounds0}, {l.Table(Banks), 4 + 8 * banks0}, {l.Table(Warcs), 4 + 8 * warcs0},
+                                  {l.Table(Files), 4 + 8 * files0}});
     addedLog = std::to_string(newBankFiles.size()) + " bank(s) and " + std::to_string(newWarcFiles.size()) + " wave archive(s) added, " +
                std::to_string(bankOf.size() - newBankFiles.size()) + " and " + std::to_string(warcOf.size() - newWarcFiles.size()) + " shared";
     return out;
