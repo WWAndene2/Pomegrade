@@ -34,7 +34,7 @@ if (ARCHITECTURE_arm64)
         NAME hwcpipe
         REPO ARM-software/libGPUCounters
         TAG 2.5.0
-        HASH 80c345cdf5a7a255db32329be007d4920b177c7915e7c3515c4a049871292eae5276b8cd45fa2c6bf7445dcd5434c96afb57dc4244e2bfbee6813c5f2954b4df
+        HASH 9dc6ab57dc751b1e2f7ffc85c9c09cfabcdcdc6c182fdc37a28fd9ea03377d4b2eb482e0f229121e30e85422eac965689fc13aee70ac36570b4256eaf8275d37
         FORCE_BUNDLED_PACKAGE ON
         OPTIONS
             "HWCPIPE_WERROR OFF"
