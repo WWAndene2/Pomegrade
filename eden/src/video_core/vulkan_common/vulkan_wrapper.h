@@ -226,6 +226,7 @@ struct DeviceDispatch : InstanceDispatch {
     PFN_vkCmdFillBuffer vkCmdFillBuffer{};
     PFN_vkCmdPipelineBarrier vkCmdPipelineBarrier{};
     PFN_vkCmdResetQueryPool vkCmdResetQueryPool{};
+    PFN_vkCmdWriteTimestamp vkCmdWriteTimestamp{}; // Pomegrade: TEMPORARY
     PFN_vkCmdPushConstants vkCmdPushConstants{};
     PFN_vkCmdPushDescriptorSetWithTemplateKHR vkCmdPushDescriptorSetWithTemplateKHR{};
     PFN_vkCmdResolveImage vkCmdResolveImage{};
@@ -1171,6 +1172,11 @@ public:
 
     void ResetQueryPool(VkQueryPool query_pool, u32 first_query, u32 query_count) const noexcept {
         dld->vkCmdResetQueryPool(handle, query_pool, first_query, query_count);
+    }
+
+    // Pomegrade: TEMPORARY, GPU timing of the study's diagnostic (Scheduler)
+    void WriteTimestamp(VkPipelineStageFlagBits stage, VkQueryPool query_pool, u32 query) const noexcept {
+        dld->vkCmdWriteTimestamp(handle, stage, query_pool, query);
     }
 
     void BindDescriptorSets(VkPipelineBindPoint bind_point, VkPipelineLayout layout, u32 first,

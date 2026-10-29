@@ -492,6 +492,11 @@ bool GraphicsPipeline::ConfigureImpl(bool is_indexed) {
                     outputs[output_count++] = {buffer.Address(), buffer.Address() + u64(buffer.size)};
                 }
             }
+            if (!PomegradeDiagnostics::tf_run_open) { // a run begins: its GPU time and a trace section
+                PomegradeDiagnostics::tf_run_open = true;
+                PomegradeDiagnostics::tf_run_pair = scheduler.PomegradeTimestampBegin();
+                PomegradeDiagnostics::TraceBegin("transform feedback run");
+            }
             const bool discard = regs.rasterize_enable == 0;
             PomegradeDiagnostics::CountTfDraw(discard, !discard && regs.rt_control.count != 0,
                                               *spv_modules[4] != VK_NULL_HANDLE, *spv_modules[3] != VK_NULL_HANDLE,
@@ -505,6 +510,12 @@ bool GraphicsPipeline::ConfigureImpl(bool is_indexed) {
                 }
             }
             PomegradeDiagnostics::CountNonTfDraw(streams.data(), stream_count);
+            if (PomegradeDiagnostics::tf_run_open) { // the run ended with the previous draw
+                PomegradeDiagnostics::tf_run_open = false;
+                scheduler.PomegradeTimestampEnd(PomegradeDiagnostics::tf_run_pair,
+                                                Scheduler::PomegradeTimed::TransformFeedbackRun);
+                PomegradeDiagnostics::TraceEnd();
+            }
         }
     }
 

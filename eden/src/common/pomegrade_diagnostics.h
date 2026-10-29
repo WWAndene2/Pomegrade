@@ -15,6 +15,10 @@
 #include <utility>
 #include <vector>
 
+#ifdef __ANDROID__
+#include <dlfcn.h>
+#endif
+
 namespace PomegradeDiagnostics {
 
 // Scheduler::Finish calls (a CPU thread waiting for the GPU to have run everything submitted)
@@ -118,5 +122,64 @@ inline void CountNonTfDraw(const std::uint64_t* stream_addresses, int stream_cou
         }
     }
 }
+
+// the code that waited for the GPU (Scheduler::Wait's caller, file:line), per waiting thread, counted with the time
+inline thread_local const char* wait_file = nullptr;
+inline thread_local int wait_line = 0;
+inline std::mutex wait_site_mutex;
+inline std::map<std::string, std::pair<std::uint64_t, std::uint64_t>> wait_sites; // count, ns
+inline void CountWaitSite(const char* thread, std::uint64_t ns) {
+    std::string where = wait_file ? wait_file : "?";
+    const auto slash = where.rfind('/');
+    if (slash != std::string::npos) {
+        where = where.substr(slash + 1);
+    }
+    where = std::string(thread) + " " + where + ":" + std::to_string(wait_line);
+    std::scoped_lock lock{wait_site_mutex};
+    auto& [count, total] = wait_sites[where];
+    ++count;
+    total += ns;
+}
+
+// GPU time measured with Vulkan timestamps (Scheduler): command buffers from start to end, the runs of transform
+// feedback draws, and the pairs dropped because no query was free
+inline std::atomic<std::uint64_t> gpu_cmdbuf_ns{0};
+inline std::atomic<std::uint64_t> gpu_cmdbufs{0};
+inline std::atomic<std::uint64_t> gpu_tf_ns{0};
+inline std::atomic<std::uint64_t> gpu_tf_runs{0};
+inline std::atomic<std::uint64_t> gpu_timer_dropped{0};
+inline std::atomic<bool> gpu_timer_available{false};
+inline bool tf_run_open{false}; // the GPU thread's current run has a timestamp pair (GraphicsPipeline)
+inline std::uint32_t tf_run_pair{0};
+
+// Perfetto/systrace sections (ATrace of libandroid.so, which the app links, looked up once): visible in a system trace of the app
+inline void TraceBegin(const char* name) {
+#ifdef __ANDROID__
+    static auto begin = reinterpret_cast<void (*)(const char*)>(dlsym(RTLD_DEFAULT, "ATrace_beginSection"));
+    if (begin) {
+        begin(name);
+    }
+#else
+    (void)name;
+#endif
+}
+inline void TraceEnd() {
+#ifdef __ANDROID__
+    static auto end = reinterpret_cast<void (*)()>(dlsym(RTLD_DEFAULT, "ATrace_endSection"));
+    if (end) {
+        end();
+    }
+#endif
+}
+struct TraceScope {
+    explicit TraceScope(const char* name) {
+        TraceBegin(name);
+    }
+    ~TraceScope() {
+        TraceEnd();
+    }
+    TraceScope(const TraceScope&) = delete;
+    TraceScope& operator=(const TraceScope&) = delete;
+};
 
 } // namespace PomegradeDiagnostics
