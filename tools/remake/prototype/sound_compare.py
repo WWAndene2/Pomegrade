@@ -2,14 +2,17 @@
 """X/Y's sounds against Omega Ruby's same-named ones, by their data (26 October, step 2's inventory, ORAS_ENGINE.md 0.0):
 which are the same (merged: Omega Ruby's played) and which differ (X/Y's own to port).
 
-  sound_compare.py <sango_sound.bcsar> <xy_sound.bcsar> [--list FILE]
+  sound_compare.py <sango_sound.bcsar> <xy_sound.bcsar> [--list FILE] [--why]
 
 The archives: `remake_tool oras-extract <game> sound/sango_sound.bcsar <out>` (X/Y: sound/xy_sound.bcsar). A sound is
 compared through what it plays: its sequence file and, for a sequence (details 0x2203), each bank it names and each wave
 archive those banks name. Two things are set aside, the two games' archives differing there for every file: the files'
 version word (+8: 0x0100 in X/Y, 0x0101 in Omega Ruby) and a bank's wave archive ids (0x05xxxxxx, each game numbering
 its archives apart), compared by the archive's contents. Streams (0x2201, the music) are counted apart: oras-xy-world
---music ports them. --list writes the names of the different ones, one a line.
+--music ports them. --list writes the names of the different ones, one a line. --why says, for each different one, what
+differs (29 October, the instrument-level comparison): its sequence, its banks (the instruments), and of the waves (the
+samples) its banks name, how many X/Y's are not found in any of Omega Ruby's wave archives (by their bytes): those are
+what a port must bring, the rest Omega Ruby already holds.
 
 The INFO tables read (Bcsar.h): sounds (0x2100: file, player, details; the name's string at option bit 0), banks
 (0x2101: file, then a reference to its wave archive id table), wave archives (0x2103: file), files (0x2106: 0x220C an
@@ -82,6 +85,36 @@ class Csar:
                 out.append(digest(self.bank_contents(data)) if data else None)
         return out
 
+    def waves(self, number):
+        """a wave archive's waves (CWAR: INFO's references to the CWAVs in FILE), as their hashes"""
+        data = self.file_bytes(struct.unpack_from('<I', self.d, self.warcs[number])[0]) if number < len(self.warcs) else None
+        if not data or data[:4] != b'CWAR':
+            return []
+        sections = {struct.unpack_from('<H', data, 0x14 + 12 * k)[0]: struct.unpack_from('<I', data, 0x18 + 12 * k)[0]
+                    for k in range(struct.unpack_from('<H', data, 0x10)[0])}
+        info, file = sections[0x6800] + 8, sections[0x6801] + 8
+        out = []
+        for i in range(struct.unpack_from('<I', data, info)[0]):
+            _, _, at, size = struct.unpack_from('<HHII', data, info + 4 + 12 * i)
+            out.append(hashlib.md5(unversioned(data[file + at:file + at + size])).digest())
+        return out
+
+    def sound_waves(self, sound):
+        """the waves a sequence's banks name: (wave archive, index) pairs read from each bank's wave id table"""
+        d, e = self.d, self.sounds[sound]
+        if self.kind(sound) != 0x2203:
+            return set()
+        details = e + struct.unpack_from('<I', d, e + 0x10)[0]
+        banks = details + struct.unpack_from('<I', d, details + 4)[0]
+        out = set()
+        for bank in struct.unpack_from('<%dI' % struct.unpack_from('<I', d, banks)[0], d, banks + 4):
+            data = self.file_bytes(struct.unpack_from('<I', d, self.banks[bank & 0xFFFFFF])[0]) if (bank & 0xFFFFFF) < len(self.banks) else None
+            for i in range(0, len(data or b'') - 7, 4):
+                w, index = struct.unpack_from('<II', data, i)
+                if w >> 24 == 5 and (w & 0xFFFFFF) < len(self.warcs) and index < 0x10000:
+                    out.add((w & 0xFFFFFF, index))
+        return out
+
     def bank_contents(self, data):
         data, out, i = unversioned(data), bytearray(), 0
         while i < len(data):
@@ -104,9 +137,13 @@ def digest(data):
 
 
 def main():
-    if len(sys.argv) not in (3, 5) or (len(sys.argv) == 5 and sys.argv[3] != '--list'):
+    args = sys.argv[1:]
+    why = '--why' in args
+    if why:
+        args.remove('--why')
+    if len(args) not in (2, 4) or (len(args) == 4 and args[2] != '--list'):
         sys.exit(__doc__)
-    oras, xy = Csar(sys.argv[1]), Csar(sys.argv[2])
+    oras, xy = Csar(args[0]), Csar(args[1])
     first = {}
     for i in range(len(oras.sounds)):
         first.setdefault(oras.name(i), i)
@@ -126,8 +163,24 @@ def main():
         print(f'{n:5} {what}')
     families = collections.Counter('_'.join(n.split('_')[:3]) for n in different)
     print('different, by family:', ', '.join(f'{f} {n}' for f, n in families.most_common(12)))
-    if len(sys.argv) == 5:
-        open(sys.argv[4], 'w').write('\n'.join(different) + '\n')
+    if len(args) == 4:
+        open(args[3], 'w').write('\n'.join(different) + '\n')
+    if why:
+        held = {h for n in range(len(oras.warcs)) for h in oras.waves(n)}
+        xwaves = {n: xy.waves(n) for n in range(len(xy.warcs))}
+        kinds, new = collections.Counter(), set()
+        for name in different:
+            x, o = next(i for i in range(len(xy.sounds)) if xy.name(i) == name), first[name]
+            kx, ko = xy.key(x), oras.key(o)
+            parts = [p for p, a, b in (('sequence', kx[1], ko[1]), ('banks', kx[2:], ko[2:])) if a != b]
+            missing = {(w, i) for w, i in xy.sound_waves(x) if i < len(xwaves[w]) and xwaves[w][i] not in held}
+            new |= {xwaves[w][i] for w, i in missing}
+            what = ' and '.join(parts) or 'kind'
+            kinds[what + (', new waves' if missing else '')] += 1
+            print(f'{name}: {what} differ; {len(missing)} of its {len(xy.sound_waves(x))} waves not in Omega Ruby')
+        for what, n in kinds.most_common():
+            print(f'{n:5} {what}')
+        print(f'{len(new)} different waves to bring')
 
 
 if __name__ == '__main__':

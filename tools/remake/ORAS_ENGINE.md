@@ -600,6 +600,11 @@ OrasXyWorld.cpp). Both games' packs are AD containers of 12 files, the same layo
   is loaded, which the game does by groups (CGRP: 28 in X/Y, 2 of them the same as Omega Ruby's), scene by scene: the
   added files must go into the groups loaded where X/Y's sounds play. Not read yet: which groups Omega Ruby loads in the
   field and in battle. Tools: `prototype/sound_compare.py` (this comparison, `--list` the 324).
+  Instrument level (29 October, `--why`): of the 324, 238 differ in their sequence and their banks, 78 in their banks
+  only, 8 in their sequence only; 190 name a wave (sample) found in none of Omega Ruby's wave archives (by its bytes),
+  **174 different waves** in all: the rest of the 324 replay waves Omega Ruby already holds, with other instruments or
+  notes. Footsteps (`SEQ_SE_FT_*`, `SEQ_SE_RU_*`, 12): all differ, 10 with a wave of their own. Checked: over the 1,005
+  same sounds, all 1,179 waves their banks name are found in Omega Ruby's archives.
 - *Inverse and Sky Battles.* Omega Ruby keeps X/Y's three natives, called by none of its scripts: `PokePartyCheckSkyBattle`
   (the same code as X's, its callees too: merged), `SkyBattleResultGet` (the same, the battle's result byte read at the
   game data + 0x1D0, X's + 0x1CC, where both games' `_BattleGetResult` read it: merged) and `CallSakasaBattle` (the same
