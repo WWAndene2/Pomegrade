@@ -6,6 +6,7 @@
 #include "Garc.h"
 #include "N3dsRom.h"
 #include "NitroCompression.h"
+#include "OrasHoennNeutral.h"
 #include "OrasMatrix.h"
 #include "OrasNewZone.h"
 #include "OrasTown.h"
@@ -39,6 +40,10 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     N3dsRom xRom(ws.XyRom);
     const Garc xZones(xRom.Read("a/0/1/2")), xMatrices(xRom.Read("a/0/4/2")), xPieces(xRom.Read("a/0/4/1")), xPacks(xRom.Read("a/0/1/3")),
         xProps(xRom.Read("a/0/2/4"));
+
+    // Omega Ruby's own zones neutral (--hoenn-story off), before X/Y's are appended
+    if (!o.HoennStory)
+        for (const std::string& l : HoennWithoutStory(ws, 538)) log.push_back(l);
 
     // X/Y's trainers, before the zones' scripts name them (OrasXyTrainers.h)
     Bytes battleTypes, intros;

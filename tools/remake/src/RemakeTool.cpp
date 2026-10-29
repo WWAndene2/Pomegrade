@@ -74,7 +74,7 @@
 //   remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>
 //                     several sandboxes and regions in one mod, each step's zones, matrices, pieces and area packs numbered after
 //                     the ones before it (OrasWorkspace.h): one line a step, "sandbox <description file>" or "region <options>"
-//   remake_tool oras-xy-world <oras.3ds> <x.3ds> <out dir> <function_names.tsv> [--matrices A,B,...] [--character-models N] [--scripts DIR] [--story on|off] [--music on|off]
+//   remake_tool oras-xy-world <oras.3ds> <x.3ds> <out dir> <function_names.tsv> [--matrices A,B,...] [--character-models N] [--scripts DIR] [--story on|off] [--hoenn-story on|off] [--music on|off]
 //                     Pokemon X/Y's world as Omega Ruby zones, matrices, pieces and packs (OrasXyWorld.h), X/Y's coordinates kept
 //   remake_tool oras-save <main> [<out> [<zone> <tile x> <tile z>] [--template <save> [--blocks A,B,...]] [--save-records N] [--height PIXELS]]
 //                     where an ORAS save puts the player (OrasSave.h); with the rest, a copy with the player moved there;
@@ -190,7 +190,7 @@ static int Usage()
                     "  remake_tool oras-sandbox <oras.3ds> <out dir> <description.txt> [--character-models N] [--characters N] [--events large] [--xy <x.3ds>] [--onto <mod dir>]\n"
                     "  remake_tool oras-zone-copy <oras.3ds> <out dir> <zone> [--onto <mod dir>]\n"
                     "  remake_tool oras-build <platinum.nds|-> <oras.3ds> <out dir> <steps.txt>\n"
-                    "  remake_tool oras-xy-world <oras.3ds> <x.3ds> <out dir> <function_names.tsv> [--matrices A,B,...] [--character-models N] [--scripts DIR] [--story on|off] [--music on|off]\n"
+                    "  remake_tool oras-xy-world <oras.3ds> <x.3ds> <out dir> <function_names.tsv> [--matrices A,B,...] [--character-models N] [--scripts DIR] [--story on|off] [--hoenn-story on|off] [--music on|off]\n"
                     "  remake_tool oras-save <main> [<out> [<zone> <tile x> <tile z>] [--template <save> [--blocks A,B,...]] [--save-records N] [--height PIXELS] [--characters-from <oras.3ds> [<mod dir>]]]\n"
                     "                    [--matrix-template M] [--model-matrix NN] [oras-town's --matrix, --target, --donor, --trees, --donor-pack, --grass, ... --allow-errors]\n");
     return 2;
@@ -1659,6 +1659,11 @@ int main(int argc, char** argv)
                 {
                     if (value != "on" && value != "off") throw FormatError("oras-xy-world --story on|off");
                     wo.Story = value == "on";
+                }
+                else if (flag == "--hoenn-story")
+                {
+                    if (value != "on" && value != "off") throw FormatError("oras-xy-world --hoenn-story on|off");
+                    wo.HoennStory = value == "on";
                 }
                 else if (flag == "--music")
                 {

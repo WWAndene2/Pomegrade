@@ -24,7 +24,12 @@ over 15 minutes; one run at a time, drawing off until the shot (`draw off` ... `
   FUN_003DA1E8's background byte in an X/Y zone. Not checked on the phone.
 - **Neutral Kalos** (`--story off`): besides the story's characters, triggers and init scripts, the 123 field-move
   obstacles (characters of X's hiden.amx, script ids 10000-10089, models 0x200C/0x200B/0x2009/0x2034) are left out.
-  Which model is which move not checked; not checked in game. Hoenn is not neutral yet.
+  Which model is which move not checked; not checked in game.
+- **Neutral Hoenn** (`oras-xy-world ... --hoenn-story off`, OrasHoennNeutral.h): Omega Ruby's own zones lose their
+  story characters (talk or script 2000 with a vanish flag), field-move obstacles (scripts 10050/10052/10054), triggers
+  and the scenes started on entering; init scripts kept. Built 29 October: 304 zones changed, 697 characters, 190
+  obstacles, 361 triggers, 118 scenes. The script rewrite reassembles all 536 Hoenn scripts to the same bytes (over the
+  header's size; the rest is padding). Not run in game yet; not tested on the phone.
 - **Hoenn map** (`tools/remake/map/`, its README): the X/Y-style town map `hoenn_xy_map.png`, approved by the owner, and Kalos in the same style, `kalos_xy_map.png` (its east, north and south coasts invented).
 
 **Phone test of the reference mod "kalosfull"** (28 October: the whole of Kalos, story off, music, gyms, dust boxes and

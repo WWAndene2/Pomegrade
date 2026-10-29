@@ -1,6 +1,7 @@
 // Zone scripts (Amx.h): a compact AMX script written here with Pawn's encoding is unpacked to its cells, its natives
 // named and its code disassembled with Pawn 3 opcodes. No game data.
 #include "Amx.h"
+#include "OrasHoennNeutral.h"
 #include "OrasXyBackgrounds.h"
 #include "OrasXyScript.h"
 #include "OrasXySound.h"
@@ -360,6 +361,16 @@ int main()
         bool assembles = compiled;
         try { if (compiled) AmxAssemble(scene); } catch (const FormatError& e) { assembles = false; printf("  %s\n", e.what()); }
         check(assembles, "it assembles");
+    }
+    {
+        // Hoenn neutral (OrasHoennNeutral.h): GetSceneChangeData's table (case, work, value) ended at its first triple
+        const Bytes script = AmxAssemble("header 10 10 0x1C main 4096\npublic #63F02D54 scenes\ncode\n    halt.p 0\n"
+                                         "main:\n    proc\n    zero.pri\n    retn\nscenes:\n    proc\n    const.p.alt 4\n    retn\n"
+                                         "data\n    cell 7 1 16500 2 -1\n");
+        size_t dropped = 0;
+        const Bytes neutral = ScriptWithoutSceneChanges(script, dropped);
+        check(dropped == 1 && AmxScript::Read(neutral).Data == std::vector<int32_t>{7, -1, 16500, 2, -1}, "the zone's scene on entering left out");
+        check(ScriptWithoutSceneChanges(neutral, dropped) == neutral && dropped == 0, "a table already empty left as it is");
     }
     Bytes truncated = b;
     truncated.push_back(0); Put32(truncated, 0, (uint32_t)truncated.size());
