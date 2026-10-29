@@ -54,6 +54,10 @@
             </intent-filter>
         </activity>
         <activity
+            android:name=".ui.gamedata.GameDataActivity"
+            android:parentActivityName=".ui.romlist.RomListActivity"
+            android:exported="false" />
+        <activity
             android:name=".ui.romdetails.RomDetailsActivity"
             android:parentActivityName=".ui.romlist.RomListActivity"
             android:exported="false">

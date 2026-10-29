@@ -104,6 +104,7 @@ internal fun HomeScreen(
             isFavorite = actions.isFavorite,
             onGameSettings = actions.onGameSettings,
             onInstallTexturePack = actions.onInstallTexturePack,
+            onManageData = actions.onManageData,
             onAddShortcut = actions.onAddShortcut,
             onOpenSheet = { sheetRom = it },
             loadIcon = actions.loadIcon,

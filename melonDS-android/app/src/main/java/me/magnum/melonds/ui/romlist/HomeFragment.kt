@@ -34,6 +34,7 @@ import me.magnum.melonds.ui.common.rom.GcWiiLauncher
 import me.magnum.melonds.ui.common.rom.N3dsLauncher
 import me.magnum.melonds.ui.common.rom.SwitchLauncher
 import me.magnum.melonds.ui.common.rom.TexturePackResultDialog
+import me.magnum.melonds.ui.gamedata.GameDataActivity
 import me.magnum.melonds.ui.romdetails.RomDetailsActivity
 import me.magnum.melonds.ui.settings.GcWiiToolDialogActivity
 import me.magnum.melonds.ui.romlist.home.GameActions
@@ -109,6 +110,7 @@ class HomeFragment : Fragment() {
                             texturePackRom = rom
                             texturePackPicker.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
                         },
+                        onManageData = { rom -> startActivity(GameDataActivity.intent(requireContext(), rom)) },
                         onAddShortcut = { rom -> addShortcut(rom) },
                         // the home screen opens its own sheet (HomeScreen)
                         onOpenSheet = { },

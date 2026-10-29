@@ -216,12 +216,12 @@ class ModInstaller {
         else -> path
     }
 
-    private companion object {
-        const val LOAD = "load"
-        const val SDMC = "sdmc"
-        // the installs' record, in the mods folder beside Azahar's mods/ (which it alone reads)
+    companion object {
+        private const val LOAD = "load"
+        private const val SDMC = "sdmc"
+        /** The installs' record, in the 3DS Mods folder (read by GameData for a mod's name). */
         const val RECORD = "punica_installed_mods.tsv"
         // a 3DS title's program ID, as Azahar names a mod's folder (000400000011C400: Omega Ruby)
-        val PROGRAM_ID = Regex("[0-9A-Fa-f]{16}")
+        private val PROGRAM_ID = Regex("[0-9A-Fa-f]{16}")
     }
 }

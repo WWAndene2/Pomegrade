@@ -51,6 +51,8 @@ internal class GameActions(
     /** Null when the game has no per-game settings screen reachable from here (only DS games have one). */
     val onGameSettings: ((Rom) -> Unit)?,
     val onInstallTexturePack: (Rom) -> Unit,
+    /** Opens the game's mods and saves page (GameDataActivity). */
+    val onManageData: (Rom) -> Unit,
     val onAddShortcut: (Rom) -> Unit,
     /** Opens the game sheet ([HomeGameSheet]): the ⋮ and the long press. */
     val onOpenSheet: (Rom) -> Unit,

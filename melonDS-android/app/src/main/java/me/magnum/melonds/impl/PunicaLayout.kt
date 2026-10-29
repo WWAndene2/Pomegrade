@@ -39,7 +39,9 @@ import java.util.Locale
  *
  * Inside Mods, the same two forms on every console: Mods/<game id>/ a game's mods (3DS: romfs, exefs, romfs_ext; Switch:
  * one folder per mod), Mods/Textures/<game id>/ its texture packs (DS, 3DS, GC-Wii); Dolphin's other Load folders
- * (GraphicMods, Riivolution...) beside them as Dolphin names them.
+ * (GraphicMods, Riivolution...) beside them as Dolphin names them. Mods set aside (turned off, or kept when another
+ * replaced them, from a game's "Mods and saves" page: GameData) are in Mods/Disabled/<the same path>/<name>/, which
+ * no core reads.
  *
  * Each core is pointed into these folders before it creates any of its own (29 October, the owner: "un problème
  * récurrent qui nécessite d'être clos pour de bon"): Azahar by FileUtil::SetUserPath and GetModDir /

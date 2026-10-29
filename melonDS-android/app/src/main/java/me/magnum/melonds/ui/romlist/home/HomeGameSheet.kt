@@ -35,6 +35,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.AddToHomeScreen
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.runtime.Composable
@@ -169,6 +170,7 @@ private fun SheetContent(rom: Rom, actions: GameActions, onDismiss: () -> Unit) 
         ) {
             val rows = buildList<Triple<ImageVector, Int, () -> Unit>> {
                 actions.onGameSettings?.takeIf { rom.platform in GAME_SETTINGS_PLATFORMS }?.let { open -> add(Triple(Icons.Outlined.Settings, R.string.home_game_settings) { onDismiss(); open(rom) }) }
+                add(Triple(Icons.Outlined.Save, R.string.game_data_title) { onDismiss(); actions.onManageData(rom) })
                 add(Triple(Icons.Outlined.Image, R.string.texture_pack_install) { onDismiss(); actions.onInstallTexturePack(rom) })
                 add(Triple(Icons.Outlined.AddToHomeScreen, R.string.home_shortcut) { onDismiss(); actions.onAddShortcut(rom) })
             }
