@@ -4,6 +4,9 @@
 //   remake_tool extract <rom.nds> <path> <out>        one file (LZ data decompressed)
 //   remake_tool unpack <rom.nds> <path.narc> <dir>    every member of a NARC, decompressed
 //   remake_tool garc <file.garc> <dir>                every sub-file of a 3DS GARC, decompressed
+//   remake_tool amx-source <file.garc> <member>       a script member's source (Amx.h), as the assembler reads it
+//   remake_tool zone-characters <a/0/1/3.garc> <zone> a zone's characters: model, kind, script, vanish flag, tile
+//   remake_tool sound-id <oras.3ds> <x.3ds> <id>...   what a sound id names in X/Y and Omega Ruby, and the X/Y port's id
 //   remake_tool romfs-ls <game.3ds> [prefix]           every RomFS file: path, size, image offset
 //   remake_tool mod-file <oras.3ds> <mod dir> <romfs path> <out>  a file as the mod gives it to the game: the mod's
 //                                                     romfs/ copy, else its romfs_ext/ patch applied to the game's, else the game's
@@ -164,7 +167,8 @@ static int Usage()
 {
     fprintf(stderr, "usage:\n  remake_tool info <rom.nds>\n  remake_tool inventory <rom.nds>\n"
                     "  remake_tool extract <rom.nds> <path> <out>\n  remake_tool unpack <rom.nds> <path.narc> <dir>\n"
-                    "  remake_tool garc <file.garc> <dir>\n  remake_tool garc-set <in.garc> <out.garc> <member> <file> [<member> <file>]...\n  remake_tool textures <file.nsbtx|.nsbmd> <dir>\n"
+                    "  remake_tool garc <file.garc> <dir>\n  remake_tool garc-set <in.garc> <out.garc> <member> <file> [<member> <file>]...\n"
+                    "  remake_tool amx-source <file.garc> <member>\n  remake_tool zone-characters <a/0/1/3.garc> <zone>\n  remake_tool sound-id <oras.3ds> <x.3ds> <id>...\n  remake_tool textures <file.nsbtx|.nsbmd> <dir>\n"
                     "  remake_tool model <file.nsbmd> <out.gltf> [tex.nsbtx] [model index]\n"
                     "  remake_tool texindex <rom.nds>\n  remake_tool identify <rom.nds> <dump dir>\n"
                     "  remake_tool world <map_matrix.narc> <matrix index> <land_data.narc> <out dir>\n"
@@ -494,6 +498,60 @@ int main(int argc, char** argv)
             if (Garc(out).Count() != garc.Count()) throw FormatError("garc-set: the archive written does not read back");
             WriteFile(argv[3], out);
             printf("%s: %zu members, %zu bytes\n", argv[3], garc.Count(), out.size());
+            return 0;
+        }
+        if (cmd == "amx-source" && argc >= 4)
+        {
+            // a script's source as the assembler reads it (Amx.h AmxSource): a member of a script archive (a/0/2/9, X/Y's
+            // a/0/3/1, a zone's own in a/0/1/3 is not this), LZ11 or plain; its natives by hash, named in function_names.tsv
+            const Garc garc(ReadFile(argv[2]));
+            const size_t member = (size_t)std::stoul(argv[3]);
+            if (member >= garc.Count()) throw FormatError("amx-source: no member " + std::string(argv[3]));
+            Bytes script = garc.Sub(member);
+            if (!(script.size() >= 6 && script[4] == 0xE0 && script[5] == 0xF1)) script = LzDecompress(script);
+            printf("%s", AmxSource(script).c_str());
+            return 0;
+        }
+        if (cmd == "zone-characters" && argc >= 4)
+        {
+            // a zone's characters (OrasZone.h): model, kind, script, vanish flag and tile, from a zone archive (a mod's:
+            // remake_tool mod-file ... a/0/1/3 first)
+            const Garc garc(ReadFile(argv[2]));
+            const size_t zone = (size_t)std::stoul(argv[3]);
+            if (zone >= garc.Count()) throw FormatError("zone-characters: no zone " + std::string(argv[3]));
+            Bytes raw = garc.Sub(zone);
+            if (IsLzCompressed(raw)) raw = LzDecompress(raw);
+            const OrasZone z = OrasZone::Read(raw);
+            for (const ZoneCharacter& c : z.Characters)
+                printf("model %d kind %d script %d flag %d at %d,%d\n", c.Raw[1], c.Raw[3], c.Raw[5], c.Raw[4], c.TileX(), c.TileZ());
+            printf("%zu character(s), %zu trigger(s)\n", z.Characters.size(), z.Triggers.size());
+            return 0;
+        }
+        if (cmd == "sound-id" && argc >= 5)
+        {
+            // what a sound id (category << 16 | n, as scripts and code give them) names in X/Y and in Omega Ruby, and the id
+            // the X/Y port gives it (OrasXySound.h)
+            N3dsRom oras(argv[2]), xy(argv[3]);
+            const Bytes orasArchive = oras.Read("sound/sango_sound.bcsar"), xArchive = xy.Read("sound/xy_sound.bcsar");
+            const XySounds sounds = XySounds::Read(oras.Code(), orasArchive, xy.Code(), xArchive);
+            const std::vector<std::string> xNames = BcsarSoundNames(xArchive), orasNames = BcsarSoundNames(orasArchive);
+            const Bytes xCode = xy.Code(), orasCode = oras.Code();
+            const uint32_t xTable = SoundCategoryTable(xCode, "rom:/sound/xy_sound.bcsar"), orasTable = SoundCategoryTable(orasCode, "rom:/sound/sango_sound.bcsar");
+            const auto name = [](const Bytes& code, uint32_t table, const std::vector<std::string>& names, uint32_t id) -> std::string
+            {
+                const uint32_t category = id >> 16, n = id & 0xFFFF;
+                if (category >= 0x17) return "?";
+                const uint32_t count = U32(code, table + 8 * category - 0x100000), list = U32(code, table + 8 * category + 4 - 0x100000);
+                if (!list || n >= count) return "none";
+                const uint32_t sound = U32(code, list + 4 * n - 0x100000) & 0xFFFFFF;
+                return sound < names.size() ? names[sound] : "?";
+            };
+            for (int a = 4; a < argc; a++)
+            {
+                const uint32_t id = (uint32_t)std::stoul(argv[a], nullptr, 0);
+                printf("0x%X: X/Y's %s, Omega Ruby's same id %s, the port's id 0x%X\n", id, name(xCode, xTable, xNames, id).c_str(),
+                       name(orasCode, orasTable, orasNames, id).c_str(), sounds.Translate(id));
+            }
             return 0;
         }
         if (cmd == "xy-gym-module" && argc >= 6)

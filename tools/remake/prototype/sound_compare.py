@@ -2,7 +2,7 @@
 """X/Y's sounds against Omega Ruby's same-named ones, by their data (26 October, step 2's inventory, ORAS_ENGINE.md 0.0):
 which are the same (merged: Omega Ruby's played) and which differ (X/Y's own to port).
 
-  sound_compare.py <sango_sound.bcsar> <xy_sound.bcsar> [--list FILE] [--why]
+  sound_compare.py <sango_sound.bcsar> <xy_sound.bcsar> [--list FILE] [--why] [--appended GROWN.bcsar]
 
 The archives: `remake_tool oras-extract <game> sound/sango_sound.bcsar <out>` (X/Y: sound/xy_sound.bcsar). A sound is
 compared through what it plays: its sequence file and, for a sequence (details 0x2203), each bank it names and each wave
@@ -12,7 +12,9 @@ its archives apart), compared by the archive's contents. Streams (0x2201, the mu
 --music ports them. --list writes the names of the different ones, one a line. --why says, for each different one, what
 differs (29 October, the instrument-level comparison): its sequence, its banks (the instruments), and of the waves (the
 samples) its banks name, how many X/Y's are not found in any of Omega Ruby's wave archives (by their bytes): those are
-what a port must bring, the rest Omega Ruby already holds.
+what a port must bring, the rest Omega Ruby already holds. --appended checks an archive oras-xy-world grew (the mod's
+sango_sound.bcsar: remake_tool mod-file): each of its sounds past Omega Ruby's that names one of X/Y's plays X/Y's data
+(its key as above), and Omega Ruby's own sounds are unchanged, read here apart from the C++ that wrote it.
 
 The INFO tables read (Bcsar.h): sounds (0x2100: file, player, details; the name's string at option bit 0), banks
 (0x2101: file, then a reference to its wave archive id table), wave archives (0x2103: file), files (0x2106: 0x220C an
@@ -45,7 +47,8 @@ class Csar:
 
     def entries(self, kind):
         at = self.tables[kind]
-        return [at + struct.unpack_from('<HHI', self.d, at + 4 + 8 * i)[2] for i in range(struct.unpack_from('<I', self.d, at)[0])]
+        # in 32 bits, as the 3DS adds them: a grown archive's tables, past their entries, reach them with offsets that wrap
+        return [(at + struct.unpack_from('<HHI', self.d, at + 4 + 8 * i)[2]) & 0xFFFFFFFF for i in range(struct.unpack_from('<I', self.d, at)[0])]
 
     def file_bytes(self, number):
         """an internal file's bytes, None for an external or missing one"""
@@ -141,6 +144,11 @@ def main():
     why = '--why' in args
     if why:
         args.remove('--why')
+    appended = None
+    if '--appended' in args:
+        i = args.index('--appended')
+        appended = args[i + 1]
+        del args[i:i + 2]
     if len(args) not in (2, 4) or (len(args) == 4 and args[2] != '--list'):
         sys.exit(__doc__)
     oras, xy = Csar(args[0]), Csar(args[1])
@@ -181,6 +189,23 @@ def main():
         for what, n in kinds.most_common():
             print(f'{n:5} {what}')
         print(f'{len(new)} different waves to bring')
+    if appended:
+        grown = Csar(appended)
+        x_of = {}
+        for i in range(len(xy.sounds)):
+            x_of.setdefault(xy.name(i), i)
+        old = sum(grown.key(i) == oras.key(i) and grown.name(i) == oras.name(i) for i in range(len(oras.sounds)))
+        same = wrong = 0
+        for i in range(len(oras.sounds), len(grown.sounds)):
+            x = x_of.get(grown.name(i))
+            if x is None or xy.kind(x) != 0x2203:
+                continue
+            if grown.key(i) == xy.key(x):
+                same += 1
+            else:
+                wrong += 1
+                print('not X/Y\'s data:', grown.name(i))
+        print(f'appended: {same} of X/Y\'s sound effects play its data, {wrong} not; {old} of Omega Ruby\'s {len(oras.sounds)} unchanged')
 
 
 if __name__ == '__main__':

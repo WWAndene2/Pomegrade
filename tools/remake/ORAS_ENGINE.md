@@ -248,7 +248,10 @@ where it found only a copy):
   AI natives moved (`XyMoveScriptIds`, unpacked past 16 bits); every X/Y shared script but trainer.amx ported (64 rows,
   55 members appended, 3 merged: OrasXySharedScripts.h; a row's text kind 1 is the story text, kind 0 the system text;
   X's member 41 is a plain Pawn image whose first byte is LZ10's mark). Not moved: computed flags, works and zones (75,
-  reported). **Run (23 October, runs db1-db2, sandbox/xy_dust_box.txt: X's zone 318, Pokemon Village, as mod zone
+  reported). **29 October**: fld_item.amx and hide_item.amx read their item at (id - 7000) x 3 and (id - 8000) x 3 of
+  their data; their ids moved by 30000, picking up an item read past the table and hung the game (owner's phone,
+  Shalour; runs it9-it13): the first a script takes off its id now moves with it (`add.c -37000`). A moved save shows a
+  zone's items only with `oras-save ... --characters-from` (on Continue the game rebuilds people from the save). **Run (23 October, runs db1-db2, sandbox/xy_dust_box.txt: X's zone 318, Pokemon Village, as mod zone
   538, warped to from Hoenn sandbox zone 539)**: the room's code runs in Azahar (the table filled at the save's load,
   in zone 539: the new-day stub then the filler, entries 0 and 5 drawn); spot 0's can gives X's item path ("Une
   silhouette vient de disparaître sous vos yeux ! ... tombé au fond de la poubelle", the Pretty Wing obtained, then
@@ -586,8 +589,13 @@ OrasXyWorld.cpp). Both games' packs are AD containers of 12 files, the same layo
   headless: a Route 13 battle draws X's badlands backdrop as X does at the same hour (runs tbg2, xbg2). **Footsteps**:
   X's code (0x1026DAF8: 17 ground types x 23 movement kinds, its own sound ids) differs from Omega Ruby's (13 x 9):
   ported 29 October (OrasXyFootsteps.h, oras-engine --xy-footsteps, written by oras-xy-world): in X/Y's zones Omega
-  Ruby's code reads a 17 x 9 table of X's sounds. Built and patched (run fs1); whether the ported sounds play in game is
-  being checked (audio runs afs1/afs0/afsN), not tested on the phone.
+  Ruby's code reads a 17 x 9 table of X's sounds. Built and patched (run fs1). **Not working yet**: the owner hears steps
+  now and then in Hoenn, none in Kalos (phone, 29 October). Headless no step ever sounds, Hoenn's own included: with
+  the table forced to Omega Ruby's SEQ_SE_FT_02 everywhere (zone 0 up), a walk in Littleroot, on Route 2's grass (zone
+  797, X's ground 4) and in Vaniville records the same samples as with no table (runs dP/dN, g1/gN/gP;
+  headless/audio_diff.py), drawing on or off, so the step function 0x102E5DC8 is not reached on those walks (its
+  caller FUN_102E93EC plays a step only on frames of the player's motions it lists, 0x102E962C, not traced). To hear
+  them on the phone: cheats below (no music, no wild Pokemon).
 - *Sounds.* X/Y's 1,554 sound ids: 146 streams (music, ported apart), 1,329 of a name Omega Ruby has, 79 of none. By
   their data (the sound's sequence file, its banks, their wave archives; each file's version word +8 set aside, 0x0100 in
   X/Y and 0x0101 in Omega Ruby, and a bank's wave archive ids 0x05xxxxxx compared by the archive's contents, the two
@@ -610,7 +618,15 @@ OrasXyWorld.cpp). Both games' packs are AD containers of 12 files, the same layo
   Ported 29 October: oras-xy-world appends the 324 to the archive (Bcsar.h BcsarAppendSequences: 179 banks and 164
   wave archives added, 98 and 113 shared; all 324 checked by sound_compare.py's reading to play X/Y's data, Omega
   Ruby's 1,709 unchanged), ids of category 0 after the streams' (oras-engine --xy-sequences; category 0 now computed
-  by a routine in FUN_00115984, the list no longer fitting). Not yet heard in game.
+  by a routine in FUN_00115984, the list no longer fitting). Not yet heard in game. Each growth (streams, then these)
+  left the old copies of the tables it grew in INFO, which the game holds in memory: with both, INFO 0xA0D00 bytes and
+  the game stopped at boot, an allocation of its sound setup failing (owner's phone, 29 October; run mu1). The replaced
+  tables are now removed (Bcsar.cpp WithoutInfoRanges): INFO 0x82100 with the streams, the title reached. Tools:
+  `sound_compare.py --appended` checks a grown archive, `remake_tool sound-id` names an id in both games.
+- *Testing cheats* (Azahar's Cheats menu, Gateway codes, 29 October; Azahar invalidates the code a cheat writes; not
+  tried): no wild Pokemon, Field_WildEncounter_StepRate (0x4E4778) returning 0: `004E4778 E3A00000`, `004E477C
+  E12FFF1E`; no music, Snd_BgmStack_PlayCurrent (0x44DB28) doing nothing: `0044DB28 E3A00000`, `0044DB2C E12FFF1E` (the
+  music playing goes on until the next zone change). Unticking leaves the code patched until the game restarts.
 - *Inverse and Sky Battles.* Omega Ruby keeps X/Y's three natives, called by none of its scripts: `PokePartyCheckSkyBattle`
   (the same code as X's, its callees too: merged), `SkyBattleResultGet` (the same, the battle's result byte read at the
   game data + 0x1D0, X's + 0x1CC, where both games' `_BattleGetResult` read it: merged) and `CallSakasaBattle` (the same
