@@ -10,6 +10,7 @@
 #include "N3dsRom.h"
 #include "OrasMemory.h"
 
+#include <array>
 #include <map>
 #include <optional>
 #include <string>
@@ -35,6 +36,7 @@ struct OrasEngineOptions
     bool Badges16 = false;
     bool XyTrainers = false;                 // X/Y's trainers 950-1734 (OrasXyTrainers.h): the trainer bounds, their flags 0x2900 + n
     std::optional<std::pair<uint32_t, uint32_t>> XySounds; // X/Y's streams appended to the sound archive: the first's index, their count
+    std::optional<std::array<uint32_t, 3>> XySequences;   // X/Y's sound effects appended to it: their first id in category 0, the first's index, their count
     std::map<uint32_t, uint32_t> HeapSizes;  // heap id -> size (bytes)
     std::map<uint32_t, uint32_t> ScriptMasks; // zone 536-1023 -> its script's native mask (with ZoneRows; 0x243 otherwise)
     bool XyMessages = false;                 // MsgLoad(table, 0x100 + m): member m of table 8 (X/Y's message files appended)
@@ -52,6 +54,7 @@ struct OrasEngineOptions
     std::optional<std::pair<int, int>> XyPlayerScale; // X/Y's zones (first, last) where the player is drawn x1.08 (OrasXyPlayerScale.h; needs --field-room)
     bool XyMoveCodes = false;                // X/Y's move codes past 0x3E (OrasXyMoveCodes.h; needs --field-room)
     bool XyDustCloud = false;                // X/Y's dust clouds (OrasXyDustCloud.h; needs --xy-gyms, --xy-battle-types, --field-room)
+    std::string XyFootsteps;                 // oras-xy-world's xy_footsteps.bin: X/Y's footsteps in its zones (OrasXyFootsteps.h)
     std::string XyFlowerGrass;               // X/Y's image: its flower beds' shaken grass (OrasXyEffectPack.h)
     std::string XyPlaces;                    // a file of Kalos's places (10-byte entries) after Omega Ruby's 78 (OrasXyPlaces.h)
     std::string FlyMapHoenn;                 // the fly screen's background, 380 x 256 RGBA (map/fly_background.py; OrasFlyMap.h)

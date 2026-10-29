@@ -1,6 +1,7 @@
 #include "Bcsar.h"
 
 #include <cstring>
+#include <map>
 
 namespace remake
 {
@@ -39,6 +40,84 @@ struct Layout
         return std::string(B.begin() + (long)at, B.begin() + (long)(at + size - 1));
     }
 };
+
+// tables of INFO's body (Layout::Table): 0 sounds, 2 banks, 3 wave archives, 6 files
+constexpr int Sounds = 0, Banks = 2, Warcs = 3, Files = 6;
+
+// an internal file's place in the archive and its size (entry 0x220C: a reference to its location, a FILE-body offset and
+// a size); {0, 0} for an external or missing one
+std::pair<size_t, size_t> FileAt(const Layout& l, uint32_t file)
+{
+    const Bytes& b = l.B;
+    if (file >= l.Count(Files)) return {0, 0};
+    const size_t e = l.Entry(Files, file);
+    if (U16(b, e) != 0x220C) return {0, 0};
+    const size_t loc = e + U32(b, e + 4), at = U32(b, loc + 4), size = U32(b, loc + 8);
+    if (at == 0xFFFFFFFF || l.File + 8 + at + size > b.size()) return {0, 0};
+    return {l.File + 8 + at, size};
+}
+
+// a file's bytes with its version word (+8) cleared: 0x0100 in X/Y's, 0x0101 in Omega Ruby's for the same contents
+Bytes Unversioned(const Layout& l, uint32_t file)
+{
+    const auto [at, size] = FileAt(l, file);
+    Bytes out(l.B.begin() + (long)at, l.B.begin() + (long)(at + size));
+    if (out.size() >= 12) Put32(out, 8, 0);
+    return out;
+}
+
+uint32_t ItemFile(const Layout& l, int table, uint32_t id) { return (id & 0xFFFFFF) < l.Count(table) ? U32(l.B, l.Entry(table, id & 0xFFFFFF)) : 0xFFFFFFFF; }
+
+// a bank file's wave id table (its INFO body's first reference): its place and count
+std::pair<size_t, size_t> WaveTable(const Bytes& bank)
+{
+    if (bank.size() < 0x20 || std::memcmp(&bank[0], "CBNK", 4) != 0) throw FormatError("sound archive: a bank that is no CBNK");
+    for (uint16_t k = 0; k < U16(bank, 0x10); k++)
+        if (U16(bank, 0x14 + 12 * k) == 0x5800)
+        {
+            const size_t body = U32(bank, 0x18 + 12 * k) + 8;
+            const size_t table = body + U32(bank, body + 4);
+            return {table + 4, U32(bank, table)};
+        }
+    throw FormatError("sound archive: a bank without INFO");
+}
+
+// a sequence sound's bank table (its details' reference +4): its place and count
+std::pair<size_t, size_t> BankTable(const Bytes& b, size_t entry)
+{
+    const size_t details = entry + U32(b, entry + 16), table = details + U32(b, details + 4);
+    return {table + 4, U32(b, table)};
+}
+
+// what a sound plays, game-independent (sound_compare.py's key): its sequence file, then each bank with its wave archive ids
+// as their archives' contents
+Bytes SoundKey(const Layout& l, size_t sound, std::map<uint32_t, Bytes>& warcCache)
+{
+    const Bytes& b = l.B;
+    const size_t e = l.Entry(Sounds, sound);
+    Bytes key = Unversioned(l, U32(b, e));
+    const auto [table, count] = BankTable(b, e);
+    for (size_t k = 0; k < count; k++)
+    {
+        Bytes bank = Unversioned(l, ItemFile(l, Banks, U32(b, table + 4 * k)));
+        if (bank.empty()) continue;
+        const auto [waves, n] = WaveTable(bank);
+        Bytes withArchives;
+        size_t from = 0;
+        for (size_t w = 0; w < n; w++)
+        {
+            const uint32_t warc = U32(bank, waves + 8 * w);
+            if (!warcCache.count(warc)) warcCache[warc] = Unversioned(l, ItemFile(l, Warcs, warc));
+            withArchives.insert(withArchives.end(), bank.begin() + (long)from, bank.begin() + (long)(waves + 8 * w));
+            const Bytes& contents = warcCache[warc];
+            withArchives.insert(withArchives.end(), contents.begin(), contents.end());
+            from = waves + 8 * w + 4;
+        }
+        withArchives.insert(withArchives.end(), bank.begin() + (long)from, bank.end());
+        key.insert(key.end(), withArchives.begin(), withArchives.end());
+    }
+    return key;
+}
 
 uint32_t Options(const Bytes& b, size_t entry, int bit) // the option value of a set flag bit, or ~0
 {
@@ -173,6 +252,193 @@ Bytes BcsarAppendStreams(const Bytes& b, size_t like, const std::vector<NewStrea
     }
     Put32(out, 0x0C, (uint32_t)out.size());
     first = sounds0;
+    return out;
+}
+
+std::vector<std::pair<size_t, size_t>> BcsarDifferentSequences(const Bytes& oras, const Bytes& xy)
+{
+    const Layout lo(oras), lx(xy);
+    const std::vector<std::string> orasNames = BcsarSoundNames(oras), xNames = BcsarSoundNames(xy);
+    std::map<std::string, size_t> orasOfName;
+    for (size_t i = 0; i < orasNames.size(); i++) if (!orasNames[i].empty()) orasOfName.emplace(orasNames[i], i);
+    std::map<uint32_t, Bytes> orasWarcs, xWarcs;
+    std::vector<std::pair<size_t, size_t>> out;
+    for (size_t i = 0; i < xNames.size(); i++)
+    {
+        const auto o = orasOfName.find(xNames[i]);
+        if (o == orasOfName.end() || U16(xy, lx.Entry(Sounds, i) + 12) != 0x2203 || U16(oras, lo.Entry(Sounds, o->second) + 12) != 0x2203) continue;
+        if (SoundKey(lx, i, xWarcs) != SoundKey(lo, o->second, orasWarcs)) out.push_back({i, o->second});
+    }
+    return out;
+}
+
+Bytes BcsarAppendSequences(const Bytes& b, const Bytes& xy, const std::vector<std::pair<size_t, size_t>>& sounds, size_t& first, std::string& addedLog)
+{
+    const Layout l(b), lx(xy);
+    const size_t sounds0 = l.Count(Sounds), banks0 = l.Count(Banks), warcs0 = l.Count(Warcs), files0 = l.Count(Files);
+    // the archive's own banks and wave archives by their contents, to share them
+    std::map<Bytes, uint32_t> orasWarcOf, orasBankOf;
+    for (uint32_t w = 0; w < warcs0; w++)
+    {
+        Bytes c = Unversioned(l, ItemFile(l, Warcs, w));
+        if (!c.empty()) orasWarcOf.emplace(std::move(c), w);
+    }
+    for (uint32_t k = 0; k < banks0; k++)
+    {
+        Bytes c = Unversioned(l, ItemFile(l, Banks, k));
+        if (!c.empty()) orasBankOf.emplace(std::move(c), k);
+    }
+
+    std::vector<Bytes> newFiles;                       // appended to FILE: file files0 + k
+    std::vector<uint32_t> newWarcFiles, newBankFiles;  // the added wave archives' and banks' files
+    std::map<uint32_t, uint32_t> warcOf, bankOf;       // X/Y's id (low 24 bits) -> the archive's
+    const auto addFile = [&](Bytes data) { newFiles.push_back(std::move(data)); return (uint32_t)(files0 + newFiles.size() - 1); };
+    const auto fileBytes = [&](const Layout& from, uint32_t file)
+    {
+        const auto [at, size] = FileAt(from, file);
+        if (!size) throw FormatError("sound archive: X/Y's file " + std::to_string(file) + " is not internal");
+        return Bytes(from.B.begin() + (long)at, from.B.begin() + (long)(at + size));
+    };
+    const auto warc = [&](uint32_t xId)
+    {
+        const uint32_t x = xId & 0xFFFFFF;
+        if (warcOf.count(x)) return warcOf[x];
+        const uint32_t file = ItemFile(lx, Warcs, x);
+        const auto same = orasWarcOf.find(Unversioned(lx, file));
+        if (same != orasWarcOf.end()) return warcOf[x] = same->second;
+        newWarcFiles.push_back(addFile(fileBytes(lx, file)));
+        return warcOf[x] = (uint32_t)(warcs0 + newWarcFiles.size() - 1);
+    };
+    const auto bank = [&](uint32_t xId)
+    {
+        const uint32_t x = xId & 0xFFFFFF;
+        if (bankOf.count(x)) return bankOf[x];
+        Bytes data = fileBytes(lx, ItemFile(lx, Banks, x));
+        const auto [waves, n] = WaveTable(data);
+        for (size_t w = 0; w < n; w++) Put32(data, waves + 8 * w, 0x05000000 | warc(U32(data, waves + 8 * w)));
+        Bytes plain = data;
+        Put32(plain, 8, 0);
+        const auto same = orasBankOf.find(plain);
+        if (same != orasBankOf.end()) return bankOf[x] = same->second;
+        newBankFiles.push_back(addFile(std::move(data)));
+        return bankOf[x] = (uint32_t)(banks0 + newBankFiles.size() - 1);
+    };
+    // the sounds' entries: X/Y's (with its details, 100 bytes in both games), its file, banks, player and name renumbered
+    std::vector<Bytes> entries;
+    for (const auto& [x, oras] : sounds)
+    {
+        if (x + 1 >= lx.Count(Sounds)) throw FormatError("sound archive: X/Y's sound " + std::to_string(x) + " is its last");
+        const size_t xe = lx.Entry(Sounds, x), oe = l.Entry(Sounds, oras);
+        Bytes entry(xy.begin() + (long)xe, xy.begin() + (long)lx.Entry(Sounds, x + 1));
+        if (U16(entry, 12) != 0x2203 || U32(entry, 20) != U32(b, oe + 20)) throw FormatError("sound archive: X/Y's sound " + std::to_string(x) + " is not a sequence laid out as Omega Ruby's");
+        Put32(entry, 0, addFile(fileBytes(lx, U32(entry, 0))));
+        Put32(entry, 4, U32(b, oe + 4));                       // the player
+        if (U32(entry, 20) & 1) Put32(entry, 24, U32(b, oe + 24)); // the name (option bit 0's value, the first)
+        const auto [table, count] = BankTable(entry, 0);
+        for (size_t k = 0; k < count; k++) Put32(entry, table + 4 * k, 0x03000000 | bank(U32(entry, table + 4 * k)));
+        entries.push_back(std::move(entry));
+    }
+
+    // appended inside INFO: the four tables, grown, then the new entries
+    Bytes added;
+    const size_t base = l.Info + l.InfoSize;
+    const auto align = [&](size_t a) { while (added.size() % a) added.push_back(0); };
+    const int tables[4] = {Sounds, Banks, Warcs, Files};
+    const size_t newCount[4] = {entries.size(), newBankFiles.size(), newWarcFiles.size(), newFiles.size()};
+    size_t tableAt[4];
+    for (int t = 0; t < 4; t++)
+    {
+        const int k = tables[t];
+        tableAt[t] = added.size();
+        const size_t count = l.Count(k) + newCount[t];
+        added.resize(tableAt[t] + 4 + 8 * count);
+        Put32(added, tableAt[t], (uint32_t)count);
+        for (size_t i = 0; i < l.Count(k); i++)
+        {
+            Put16(added, tableAt[t] + 4 + 8 * i, U16(b, l.Table(k) + 4 + 8 * i));
+            Put32(added, tableAt[t] + 8 + 8 * i, (uint32_t)(l.Entry(k, i) - (base + tableAt[t])));
+        }
+        align(4);
+    }
+    const auto entry = [&](int t, size_t i, const Bytes& data)
+    {
+        const size_t at = added.size();
+        added.insert(added.end(), data.begin(), data.end());
+        align(4);
+        const size_t slot = tableAt[t] + 4 + 8 * (l.Count(tables[t]) + i);
+        Put16(added, slot, U16(b, l.Table(tables[t]) + 4)); // the table's entry type (0x2200 a sound, ...)
+        Put32(added, slot + 4, (uint32_t)(at - tableAt[t]));
+    };
+    for (size_t i = 0; i < entries.size(); i++) entry(0, i, entries[i]);
+    for (size_t i = 0; i < newBankFiles.size(); i++)
+    {
+        // file, a reference (0x0100) to its wave archive item table (relative to the entry, +0x14: count 0), no options
+        Bytes e(24, 0);
+        Put32(e, 0, newBankFiles[i]);
+        Put16(e, 4, 0x0100);
+        Put32(e, 8, 0x14);
+        entry(1, i, e);
+    }
+    for (size_t i = 0; i < newWarcFiles.size(); i++)
+    {
+        Bytes e(12, 0); // file, 0, no options (as Omega Ruby's unnamed ones)
+        Put32(e, 0, newWarcFiles[i]);
+        entry(2, i, e);
+    }
+    // the files: an internal file's entry (a reference to its location, 0, the location 0x1F00: offset in FILE's body, size)
+    const size_t fileTemplate = l.Entry(Files, U32(b, l.Entry(Sounds, sounds.empty() ? 0 : sounds[0].second)));
+    if (U16(b, fileTemplate) != 0x220C) throw FormatError("sound archive: the template sound's file is not internal");
+    const size_t fileEnd = b.size();                       // FILE is the archive's last section: the files go at its end
+    std::vector<size_t> fileAt;
+    size_t end = fileEnd;
+    for (const Bytes& f : newFiles)
+    {
+        end = (end + 0x1F) & ~(size_t)0x1F;
+        fileAt.push_back(end);
+        end += f.size();
+    }
+    for (size_t i = 0; i < newFiles.size(); i++)
+    {
+        Bytes e(b.begin() + (long)fileTemplate, b.begin() + (long)fileTemplate + 0x18);
+        Put32(e, 0x10, 0); // set once INFO's growth is known
+        Put32(e, 0x14, (uint32_t)newFiles[i].size());
+        entry(3, i, e);
+    }
+    align(0x40);
+    const size_t grown = added.size();
+    // the new files' offsets from FILE's body, which moves by `grown`
+    for (size_t i = 0; i < newFiles.size(); i++)
+    {
+        const size_t slot = tableAt[3] + 4 + 8 * (files0 + i);
+        const size_t at = tableAt[3] + U32(added, slot + 4);
+        Put32(added, at + 0x10, (uint32_t)(fileAt[i] - (l.File + 8)));
+    }
+    if (l.File < l.Info || U32(b, l.File + 4) + l.File != fileEnd) throw FormatError("sound archive: FILE is not its last section");
+
+    Bytes out(b.begin(), b.begin() + (long)base);
+    out.insert(out.end(), added.begin(), added.end());
+    out.insert(out.end(), b.begin() + (long)base, b.end());
+    for (size_t i = 0; i < newFiles.size(); i++)
+    {
+        out.resize(fileAt[i] + grown, 0);
+        out.insert(out.end(), newFiles[i].begin(), newFiles[i].end());
+    }
+    while (out.size() % 0x20) out.push_back(0);
+    for (int t = 0; t < 4; t++) Put32(out, l.Body + 8 * (size_t)tables[t] + 4, (uint32_t)(base + tableAt[t] - l.Body));
+    Put32(out, l.Info + 4, (uint32_t)(l.InfoSize + grown));
+    const size_t fileSize = out.size() - (l.File + grown);
+    for (uint16_t k = 0; k < U16(b, 0x10); k++)
+    {
+        const size_t at = U32(b, 0x18 + 12 * k);
+        if (at == l.Info) Put32(out, 0x1C + 12 * k, (uint32_t)(l.InfoSize + grown));
+        else if (at == l.File) { Put32(out, 0x18 + 12 * k, (uint32_t)(at + grown)); Put32(out, 0x1C + 12 * k, (uint32_t)fileSize); }
+        else if (at > l.Info) Put32(out, 0x18 + 12 * k, (uint32_t)(at + grown));
+    }
+    Put32(out, l.File + grown + 4, (uint32_t)fileSize);
+    Put32(out, 0x0C, (uint32_t)out.size());
+    first = sounds0;
+    addedLog = std::to_string(newBankFiles.size()) + " bank(s) and " + std::to_string(newWarcFiles.size()) + " wave archive(s) added, " +
+               std::to_string(bankOf.size() - newBankFiles.size()) + " and " + std::to_string(warcOf.size() - newWarcFiles.size()) + " shared";
     return out;
 }
 

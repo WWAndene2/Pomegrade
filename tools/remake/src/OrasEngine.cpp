@@ -8,6 +8,7 @@
 #include "OrasXyPlaces.h"
 #include "OrasFlyMap.h"
 #include "NitroCompression.h"
+#include "OrasXyFootsteps.h"
 #include "OrasXyPlayerScale.h"
 #include "OrasXyMoveCodes.h"
 #include "OrasXyGymModules.h"
@@ -1067,6 +1068,18 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         snprintf(line, sizeof line, "X/Y's player scale: x1.08 in zones %d-%d", o.XyPlayerScale->first, o.XyPlayerScale->second);
         log.push_back(line);
     }
+    if (!o.XyFootsteps.empty())
+    {
+        // X/Y's footsteps in X/Y's zones (OrasXyFootsteps.h): two hooks, the cave and its table in DllField's room
+        if (o.FieldRoom < 0x1000) throw FormatError("--xy-footsteps needs --field-room");
+        const Bytes file = ReadFile(o.XyFootsteps);
+        const CroLayout layout(oras.Read("DllField.cro"));
+        uint32_t cave = DllFieldBase + layout.CodeEnd();
+        for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
+        for (const CodeWord& w : XyFootstepsFieldPatchAt(cave, file)) croWords.push_back({w.Address, w.Expected, w.Value, w.Why});
+        snprintf(line, sizeof line, "X/Y's footsteps: X/Y's table in zones %u-%u", U16(file, 0), U16(file, 2));
+        log.push_back(line);
+    }
     if (o.FieldRoom)
     {
         // room for caves (GrowCroCode): DllField's code from 0xF1000 to 0xF1000 + the room, at its linked 0x10333000
@@ -1097,20 +1110,48 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         log.push_back(line);
     }
 
-    if (o.XySounds)
+    if (o.XySounds || o.XySequences)
     {
-        // X/Y's streams appended to the sound archive (OrasXySound.h), sounds first + k, played by ids k + 1 of category 0:
-        // its entry of the category table (0x592728, read by FUN_00115984: a count, then the list's address; 0 and 0 in the
-        // game) and the list, in the rodata segment's last page past its 0x71A14 bytes (0x5EBA14-0x5EC000, zeros, mapped
-        // with the segment as the .code's cave at 0x579608 is). Id 0 the game's silence, never given
-        const auto [first, count] = *o.XySounds;
-        constexpr uint32_t list = 0x5EBA18, end = 0x5EC000, categories = 0x592728;
-        if (count == 0 || list + 4 * (count + 1) > end) throw FormatError("--xy-sounds: 1 to " + std::to_string((end - list) / 4 - 1) + " sounds");
-        words.push_back({categories, 0, count + 1, "sound category 0's count"});
-        words.push_back({categories + 4, 0, list, "sound category 0's list"});
-        words.push_back({list, 0, 0x01000000, "sound category 0, id 0: the game's silence"});
-        for (uint32_t k = 0; k < count; k++) words.push_back({list + 4 * (k + 1), 0, 0x01000000 | (first + k), "sound category 0: X/Y's stream " + std::to_string(k)});
-        snprintf(line, sizeof line, "sound ids: category 0 holds %u X/Y streams, sounds %u-%u", count, first, first + count - 1);
+        // X/Y's streams (--xy-sounds) and ported sound effects (--xy-sequences) appended to the sound archive (OrasXySound.h)
+        // are played by ids of category 0, the streams' 1 to their count, the effects' after the streams' slots (whether or
+        // not the streams are there). Category 0 of the table (0x592728, read by FUN_00115984: a count, then a list's
+        // address; 0 and 0 in the game) gets the ids' bound and a marker address, 0x5EBA18 (the rodata segment's last page,
+        // past its 0x71A14 bytes: zeros), and no list: 550 ids would not fit the page (377 words), so FUN_00115984's list
+        // load `ldrhi r0, [r2, r0, lsl #2]` (0x1159B4, under its bound check) calls a routine in the .code's cave
+        // (0x579F00-0x579F3F, zeros; 0x579EFC-0x579F7F unused before) that gives category 0's id n the sound n + delta (0x01000000 | ...) from the first id
+        // on, the silence (sound 0) below, and loads the list for any other category; it ends with the flags `bhi` needs
+        // (cmp r0, #0: an item is never 0). Id 0 the game's silence, never given
+        const auto [first, count] = o.XySounds.value_or(std::pair<uint32_t, uint32_t>{0, 0});
+        const auto [seqId, seqFirst, seqCount] = o.XySequences.value_or(std::array<uint32_t, 3>{count + 1, first + count, 0});
+        if (o.XySounds && o.XySequences && (seqId != count + 1 || seqFirst != first + count))
+            throw FormatError("--xy-sounds, --xy-sequences: the effects' ids and sounds must follow the streams'");
+        const uint32_t lowest = o.XySounds ? 1 : seqId, bound = o.XySequences ? seqId + seqCount : count + 1;
+        const uint32_t delta = o.XySounds ? first - 1 : seqFirst - seqId;
+        constexpr uint32_t marker = 0x5EBA18, categories = 0x592728, hook = 0x1159B4, routine = 0x579F00;
+        words.push_back({categories, 0, bound, "sound category 0's bound"});
+        words.push_back({categories + 4, 0, marker, "sound category 0's marker (no list: FUN_00115984's routine)"});
+        words.push_back({hook, 0x87920100, 0x8B000000 | (((routine - hook - 8) >> 2) & 0xFFFFFF), "FUN_00115984's list load -> blhi the category 0 routine"});
+        const auto movw = [](uint32_t reg, uint32_t v) { return 0xE3000000 | (v >> 12 & 0xF) << 16 | reg << 12 | (v & 0xFFF); };
+        const auto movt = [](uint32_t reg, uint32_t v) { return 0xE3400000 | (v >> 12 & 0xF) << 16 | reg << 12 | (v & 0xFFF); };
+        const uint32_t code[] = {
+            0xE52D3004,                       // push {r3}             (the game's function leaves r3 alone)
+            movw(3, marker & 0xFFFF), movt(3, marker >> 16),
+            0xE1520003,                       // cmp r2, r3            category 0's marker?
+            0x17920100,                       // ldrne r0, [r2, r0, lsl #2]   another category: its list
+            0x1A000006,                       // bne the end
+            movw(3, lowest),
+            0xE1500003,                       // cmp r0, r3
+            0x33A00000,                       // movlo r0, #0          below the first id: the silence
+            movw(3, delta & 0xFFFF), movt(3, delta >> 16),
+            0x20800003,                       // addhs r0, r0, r3
+            0xE3800401,                       // orr r0, r0, #0x01000000
+            0xE3500000,                       // cmp r0, #0            the end: hi for bhi
+            0xE49D3004,                       // pop {r3}
+            0xE12FFF1E,                       // bx lr
+        };
+        for (uint32_t k = 0; k < sizeof code / 4; k++) words.push_back({routine + 4 * k, 0, code[k], "sound category 0's routine"});
+        snprintf(line, sizeof line, "sound ids: category 0 ids %u-%u play sounds %u-%u (%u X/Y streams, %u X/Y sound effects)", lowest, bound - 1,
+                 lowest + delta, bound - 1 + delta, count, seqCount);
         log.push_back(line);
     }
 

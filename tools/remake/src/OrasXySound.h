@@ -12,11 +12,17 @@
 // X/Y's streams (its 225 music tracks and jingles, AAC) are appended to Omega Ruby's archive as DSP-ADPCM streams
 // (Bcstm.h), sound index first + k for X/Y's k-th stream, and reached through category 0: id k + 1 (0 left out), the list
 // written by oras-engine --xy-sounds N (in the rodata segment's last page, past its 0x71A14 bytes). Any other X/Y sound (its
-// sequences: sound effects, cries) takes Omega Ruby's sound of the same name, by its own id; one of a name Omega Ruby has
-// not keeps X/Y's id (logged), which plays whatever Omega Ruby has there.
+// sequences: sound effects, cries) takes Omega Ruby's sound of the same name, by its own id, when the two play the same data;
+// one of a name Omega Ruby has not keeps X/Y's id (logged), which plays whatever Omega Ruby has there.
+//
+// X/Y's sound effects whose data differs from Omega Ruby's same-named ones (324, Bcsar.h BcsarDifferentSequences; 29
+// October, the owner's rule: what is not identical is ported) are appended to the archive after the streams (when they are
+// there) with their own sequences, banks and wave archives (BcsarAppendSequences), and reached through category 0 too: ids
+// Streams.size() + 1 + j for the j-th, the list written by oras-engine --xy-sequences.
 
 #include "Bcsar.h"
 #include "Bytes.h"
+#include "N3dsRom.h"
 
 #include <map>
 #include <string>
@@ -31,12 +37,20 @@ struct XySounds
     size_t First = 0;                      // Omega Ruby's sound count: the first appended sound's index
     std::map<uint32_t, uint32_t> Ids;      // X/Y's sound id -> Omega Ruby's, for every sound id (item type 1) X/Y's categories list
     std::vector<std::string> Unmatched;    // X/Y's sounds of no stream and no name in Omega Ruby
+    std::vector<std::pair<size_t, size_t>> Sequences; // X/Y's sound effects ported (X/Y's sound, Omega Ruby's of its name): the j-th id SequenceId + j
+    uint32_t SequenceId = 0;               // the first one's id in category 0: Streams.size() + 1
 
     // reads both games' codes (their category tables) and sound archives
     static XySounds Read(const Bytes& orasCode, const Bytes& orasArchive, const Bytes& xCode, const Bytes& xArchive);
     // Omega Ruby's id for X/Y's, or the same id when X/Y's categories do not list it
     uint32_t Translate(uint32_t xId) const;
 };
+
+// the archive (Omega Ruby's, with X/Y's streams appended when `streams`) with X/Y's ported sound effects appended
+// (Sequences), written as its patch romfs_ext/sound/sango_sound.bcsar.bps under outDir's load/mods/<program id>; returns
+// the log
+std::vector<std::string> WriteXySoundArchive(N3dsRom& oras, const Bytes& original, Bytes archive, const Bytes& xyArchive, const XySounds& sounds,
+                                             bool streams, const std::string& outDir);
 
 // the category table of a code (the "count, list" pairs from category 0, found before the archive's path in the code, as in
 // both games); its address in memory (the code from 0x100000)

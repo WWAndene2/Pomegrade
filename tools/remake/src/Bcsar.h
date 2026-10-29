@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace remake
@@ -47,6 +48,20 @@ struct NewStreamSound { std::string File; uint8_t Volume = 0x7F; };
 // the archive with these stream sounds appended to its sound table, each a copy of stream sound `like` (its entry and
 // details, name included) playing its own new external file; returns the archive, the first new sound's index in `first`
 Bytes BcsarAppendStreams(const Bytes& bcsar, size_t like, const std::vector<NewStreamSound>& sounds, size_t& first);
+
+// X/Y's sequence sounds (sound effects) whose name Omega Ruby's archive has but whose data differs (prototype/
+// sound_compare.py's comparison, 29 October: the sequence file, then each bank, its wave archive ids compared by the
+// archives' contents; each file's version word +8 set aside): pairs of X/Y's sound and Omega Ruby's of its name
+std::vector<std::pair<size_t, size_t>> BcsarDifferentSequences(const Bytes& oras, const Bytes& xy);
+
+// The archive with `xy`'s sequence sounds appended to its sound table (the k-th pair's as sound first + k), beside its
+// own, with their own data: each sound's sequence file, its banks and their wave archives, appended to the file table and
+// to FILE. A bank or wave archive whose contents the archive already holds is shared (its own id); the others are added,
+// their ids renumbered (a bank's wave id table, a sequence's bank table). A sound takes X/Y's entry, Omega Ruby's
+// same-named sound's player and name; an added bank or wave archive has no name. `added` counts the banks and wave
+// archives added
+Bytes BcsarAppendSequences(const Bytes& bcsar, const Bytes& xy, const std::vector<std::pair<size_t, size_t>>& sounds, size_t& first,
+                           std::string& added);
 
 }
 

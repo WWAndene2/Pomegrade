@@ -13,6 +13,7 @@
 #include "OrasXyBackgrounds.h"
 #include "OrasXyEncounters.h"
 #include "OrasXyEvents.h"
+#include "OrasXyFootsteps.h"
 #include "OrasXyGymModules.h"
 #include "OrasXyLight.h"
 #include "OrasXyPiece.h"
@@ -300,6 +301,14 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     engine += " --xy-move-codes on";
     // the player x1.08 in X/Y's zones, numbered from firstZone in a row (OrasXyPlayerScale.h)
     if (!taken.empty()) engine += " --xy-player-scale " + std::to_string(firstZone) + ":" + std::to_string(firstZone + (int)taken.size() - 1);
+    // X/Y's footsteps in the same zones, by X/Y's sound ids made Omega Ruby's (OrasXyFootsteps.h)
+    if (!taken.empty() && o.Sounds && !o.OutDir.empty())
+    {
+        const std::string file = (std::filesystem::path(o.OutDir) / "xy_footsteps.bin").string();
+        std::filesystem::create_directories(o.OutDir);
+        WriteFile(file, XyFootstepsFile(xRom.Read("DllField.cro"), ws.Rom().Read("DllField.cro"), *o.Sounds, firstZone, firstZone + (int)taken.size() - 1));
+        engine += " --xy-footsteps " + file;
+    }
     if (std::any_of(packOf.begin(), packOf.end(), [](const auto& p) { return p.second > 255; })) engine += " --area-packs large";
     if (wildTables) engine += " --wild-tables large";
     if (wildTables && !battleTypes.empty())
@@ -385,6 +394,13 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     if (o.Music && o.Sounds)
     {
         snprintf(line, sizeof line, " --xy-sounds %zu:%zu", o.Sounds->First, o.Sounds->Streams.size());
+        engine += line;
+    }
+    if (o.Sounds && !o.Sounds->Sequences.empty())
+    {
+        // X/Y's ported sound effects, after the streams in the archive when --music on (WriteXySoundArchive)
+        snprintf(line, sizeof line, " --xy-sequences %u:%zu:%zu", o.Sounds->SequenceId, o.Sounds->First + (o.Music ? o.Sounds->Streams.size() : 0),
+                 o.Sounds->Sequences.size());
         engine += line;
     }
     for (const auto& [zone, mask] : masks)

@@ -2,7 +2,6 @@
 
 #include "Bcsar.h"
 #include "Bcstm.h"
-#include "Bps.h"
 
 #include <cmath>
 #include <cstdio>
@@ -69,10 +68,10 @@ Bytes ConvertStream(const Bytes& aac, const BcsarStream& s, const std::string& s
 }
 }
 
-std::vector<std::string> BuildXyMusic(N3dsRom& oras, N3dsRom& xy, const XySounds& sounds, const std::string& outDir, const std::string& scratchDir)
+std::vector<std::string> BuildXyMusic(N3dsRom& oras, N3dsRom& xy, const XySounds& sounds, const std::string& outDir, const std::string& scratchDir,
+                                      Bytes& archive)
 {
     std::vector<std::string> log;
-    const Bytes archive = oras.Read("sound/sango_sound.bcsar");
     // the template: Omega Ruby's STRM_BGM_C_01 (a stereo stream of one track, as every one of X/Y's)
     size_t like = SIZE_MAX;
     for (const BcsarStream& s : BcsarStreams(archive)) if (s.Name == "STRM_BGM_C_01") like = s.Index;
@@ -111,14 +110,10 @@ std::vector<std::string> BuildXyMusic(N3dsRom& oras, N3dsRom& xy, const XySounds
     std::filesystem::remove_all(scratchDir);
 
     size_t first = 0;
-    const Bytes grown = BcsarAppendStreams(archive, like, added, first);
+    archive = BcsarAppendStreams(archive, like, added, first);
     if (first != sounds.First) throw FormatError("music: the archive's first new sound is not the one the ids were given");
-    const Bytes bps = BpsCreate(archive, grown);
-    if (BpsApply(archive, bps) != grown) throw FormatError("sango_sound.bcsar: the patch does not rebuild the archive");
-    std::filesystem::create_directories(root / "romfs_ext" / "sound");
-    WriteFile((root / "romfs_ext" / "sound" / "sango_sound.bcsar.bps").string(), bps);
     char line[160];
-    snprintf(line, sizeof line, "music: %zu X/Y streams as sounds %zu-%zu (archive patch %zu bytes)", added.size(), first, first + added.size() - 1, bps.size());
+    snprintf(line, sizeof line, "music: %zu X/Y streams as sounds %zu-%zu", added.size(), first, first + added.size() - 1);
     log.push_back(line);
     return log;
 }

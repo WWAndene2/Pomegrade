@@ -181,7 +181,7 @@ static int Usage()
                     "  remake_tool oras-patch <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-append-test <oras.3ds> <out dir> unused|piece|matrix|zone|zone-raised|crowd [N]\n"
                     "  remake_tool oras-zone-check <oras.3ds>\n"
-                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--character-models N] [--events large] [--story large] [--area-packs large] [--wild-tables large] [--xy-sounds FIRST:COUNT] [--xy-trainers on] [--badges 16] [--xy-battle-types FILE] [--xy-intros FILE] [--xy-band-camera FROM:TO] [--xy-backgrounds FILE] [--xy-wild-effects FILE] [--xy-static-wild FILE] [--field-room BYTES] [--more-archives N] [--heap ID:BYTES]... [--start-zone N] [--xy-messages on] [--xy-gyms <x.3ds>] [--xy-dust-box <x.3ds>] [--xy-dust-cloud on] [--xy-flower-grass X.3DS] [--xy-places FILE] [--fly-map-hoenn RGBA [--fly-map-kalos RGBA] [--fly-places-hoenn FILE [--fly-places-kalos FILE]]] [--xy-move-codes on] [--xy-player-scale FIRST:LAST] [--xy-shared-scripts FILE]\n"
+                    "  remake_tool oras-engine <oras.3ds> <out dir> [--memory 64|72|80|96|124] [--linear-heap BYTES] [--normal-heap BYTES] [--zone-rows N [--script-mask ZONE:MASK]...] [--characters N] [--character-models N] [--events large] [--story large] [--area-packs large] [--wild-tables large] [--xy-sounds FIRST:COUNT] [--xy-sequences ID:FIRST:COUNT] [--xy-trainers on] [--badges 16] [--xy-battle-types FILE] [--xy-intros FILE] [--xy-band-camera FROM:TO] [--xy-backgrounds FILE] [--xy-wild-effects FILE] [--xy-static-wild FILE] [--field-room BYTES] [--more-archives N] [--heap ID:BYTES]... [--start-zone N] [--xy-messages on] [--xy-gyms <x.3ds>] [--xy-dust-box <x.3ds>] [--xy-dust-cloud on] [--xy-flower-grass X.3DS] [--xy-places FILE] [--fly-map-hoenn RGBA [--fly-map-kalos RGBA] [--fly-places-hoenn FILE [--fly-places-kalos FILE]]] [--xy-move-codes on] [--xy-player-scale FIRST:LAST] [--xy-footsteps FILE] [--xy-shared-scripts FILE]\n"
                     "  remake_tool oras-town <platinum.nds> <oras.3ds> <out dir> [--matrix N] [--left X --top Y] [--target P --donor P --trees P]\n"
                     "                    [--cell X Y] [--zone Z] [--area A] [--donor-pack P] [--grass P] [--snow P] [--fence P] [--snow-clumps 0|1] [--pond-wall 0-2] [--zone-pack 0|1] [--zone-warps 0|1] [--add-warps 0|1] [--piece 0|1] [--tree-reach N] [--door-type T] [--donor-as-is 0|1] [--pad-piece BYTES] [--piece-files MASK] [--allow-errors]\n"
                     "  remake_tool oras-code <oras.3ds> <out.bin>\n"
@@ -806,6 +806,18 @@ int main(int argc, char** argv)
                     if (colon == std::string::npos) throw FormatError("--xy-sounds FIRST:COUNT (X/Y's streams appended to the sound archive)");
                     o.XySounds = std::pair<uint32_t, uint32_t>{(uint32_t)OptionNumber(value.substr(0, colon).c_str(), flag), (uint32_t)OptionNumber(value.substr(colon + 1).c_str(), flag)};
                 }
+                else if (flag == "--xy-sequences")
+                {
+                    std::array<uint32_t, 3> v{};
+                    std::stringstream list(value);
+                    std::string part;
+                    for (size_t k = 0; k < 3; k++)
+                    {
+                        if (!std::getline(list, part, ':')) throw FormatError("--xy-sequences ID:FIRST:COUNT (X/Y's sound effects appended to the sound archive)");
+                        v[k] = (uint32_t)OptionNumber(part.c_str(), flag);
+                    }
+                    o.XySequences = v;
+                }
                 else if (flag == "--wild-tables")
                 {
                     if (value != "large") throw FormatError("--wild-tables large (X/Y's land tables, kinds 9-12)");
@@ -822,6 +834,7 @@ int main(int argc, char** argv)
                     o.LargeStory = true;
                 }
                 else if (flag == "--xy-battle-types") o.XyBattleTypes = value;
+                else if (flag == "--xy-footsteps") o.XyFootsteps = value;
                 else if (flag == "--xy-intros") o.XyIntros = value;
                 else if (flag == "--xy-player-scale")
                 {
@@ -1680,9 +1693,14 @@ int main(int argc, char** argv)
             wo.OutDir = argv[4];
             for (const std::string& line : BuildXyWorld(ws, wo)) printf("%s\n", line.c_str());
             for (const std::string& line : ws.Write(argv[4])) printf("%s\n", line.c_str());
+            // the sound archive: X/Y's streams (--music on), then X/Y's ported sound effects
+            const Bytes original = oras.Read("sound/sango_sound.bcsar");
+            Bytes archive = original;
             if (wo.Music)
-                for (const std::string& line : BuildXyMusic(oras, xy, sounds, argv[4], (std::filesystem::path(argv[4]) / ".music-scratch").string()))
+                for (const std::string& line : BuildXyMusic(oras, xy, sounds, argv[4], (std::filesystem::path(argv[4]) / ".music-scratch").string(), archive))
                     printf("%s\n", line.c_str());
+            for (const std::string& line : WriteXySoundArchive(oras, original, archive, xy.Read("sound/xy_sound.bcsar"), sounds, wo.Music, argv[4]))
+                printf("%s\n", line.c_str());
             return 0;
         }
         if (cmd == "oras-save" && argc >= 3)

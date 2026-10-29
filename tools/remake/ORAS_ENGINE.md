@@ -584,8 +584,10 @@ OrasXyWorld.cpp). Both games' packs are AD containers of 12 files, the same layo
   behaviours" were mostly that shift: 14,263 tiles keep values Omega Ruby's pieces lack, new combinations of known flag
   bits, and X's ground types 13, 15, 16 (Omega Ruby has 13: its footstep code, 0x102E5DC8, skips the rest). Checked
   headless: a Route 13 battle draws X's badlands backdrop as X does at the same hour (runs tbg2, xbg2). **Footsteps**:
-  X's code (0x1026DAF8: 17 ground types x 23 movement kinds, its own sound ids) differs from Omega Ruby's (13 x 9): to
-  port with X's sounds (step 2's sound archive), not done.
+  X's code (0x1026DAF8: 17 ground types x 23 movement kinds, its own sound ids) differs from Omega Ruby's (13 x 9):
+  ported 29 October (OrasXyFootsteps.h, oras-engine --xy-footsteps, written by oras-xy-world): in X/Y's zones Omega
+  Ruby's code reads a 17 x 9 table of X's sounds. Built and patched (run fs1); whether the ported sounds play in game is
+  being checked (audio runs afs1/afs0/afsN), not tested on the phone.
 - *Sounds.* X/Y's 1,554 sound ids: 146 streams (music, ported apart), 1,329 of a name Omega Ruby has, 79 of none. By
   their data (the sound's sequence file, its banks, their wave archives; each file's version word +8 set aside, 0x0100 in
   X/Y and 0x0101 in Omega Ruby, and a bank's wave archive ids 0x05xxxxxx compared by the archive's contents, the two
@@ -605,6 +607,10 @@ OrasXyWorld.cpp). Both games' packs are AD containers of 12 files, the same layo
   **174 different waves** in all: the rest of the 324 replay waves Omega Ruby already holds, with other instruments or
   notes. Footsteps (`SEQ_SE_FT_*`, `SEQ_SE_RU_*`, 12): all differ, 10 with a wave of their own. Checked: over the 1,005
   same sounds, all 1,179 waves their banks name are found in Omega Ruby's archives.
+  Ported 29 October: oras-xy-world appends the 324 to the archive (Bcsar.h BcsarAppendSequences: 179 banks and 164
+  wave archives added, 98 and 113 shared; all 324 checked by sound_compare.py's reading to play X/Y's data, Omega
+  Ruby's 1,709 unchanged), ids of category 0 after the streams' (oras-engine --xy-sequences; category 0 now computed
+  by a routine in FUN_00115984, the list no longer fitting). Not yet heard in game.
 - *Inverse and Sky Battles.* Omega Ruby keeps X/Y's three natives, called by none of its scripts: `PokePartyCheckSkyBattle`
   (the same code as X's, its callees too: merged), `SkyBattleResultGet` (the same, the battle's result byte read at the
   game data + 0x1D0, X's + 0x1CC, where both games' `_BattleGetResult` read it: merged) and `CallSakasaBattle` (the same

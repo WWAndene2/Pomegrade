@@ -1,6 +1,9 @@
 #include "OrasXySound.h"
 
+#include "Bps.h"
+
 #include <algorithm>
+#include <filesystem>
 #include <cstdio>
 #include <cstring>
 
@@ -52,6 +55,10 @@ XySounds XySounds::Read(const Bytes& orasCode, const Bytes& orasArchive, const B
     s.First = BcsarSoundCount(orasArchive);
     std::map<size_t, size_t> rank; // X/Y's stream sound -> its place among the appended
     for (size_t k = 0; k < s.Streams.size(); k++) rank[s.Streams[k].Index] = k;
+    s.Sequences = BcsarDifferentSequences(orasArchive, xArchive);
+    s.SequenceId = (uint32_t)s.Streams.size() + 1;
+    std::map<size_t, size_t> sequence; // X/Y's sound effect ported -> its place among them
+    for (size_t j = 0; j < s.Sequences.size(); j++) sequence[s.Sequences[j].first] = j;
 
     const std::map<uint32_t, uint32_t> orasIds = AllIds(orasCode, SoundCategoryTable(orasCode, "rom:/sound/sango_sound.bcsar"));
     const std::map<uint32_t, uint32_t> xIds = AllIds(xCode, SoundCategoryTable(xCode, "rom:/sound/xy_sound.bcsar"));
@@ -69,6 +76,8 @@ XySounds XySounds::Read(const Bytes& orasCode, const Bytes& orasArchive, const B
         const size_t sound = item & 0xFFFFFF;
         const auto stream = rank.find(sound);
         if (stream != rank.end()) { s.Ids[id] = (uint32_t)(stream->second + 1); continue; } // category 0
+        const auto ported = sequence.find(sound);
+        if (ported != sequence.end()) { s.Ids[id] = s.SequenceId + (uint32_t)ported->second; continue; } // category 0
         // not a stream of X/Y's: Omega Ruby's sound of its name, by the first id Omega Ruby's categories give it
         const std::string name = sound < xNames.size() ? xNames[sound] : "";
         const auto oras = orasSoundOfName.find(name);
@@ -79,6 +88,29 @@ XySounds XySounds::Read(const Bytes& orasCode, const Bytes& orasArchive, const B
         s.Unmatched.push_back(line);
     }
     return s;
+}
+
+std::vector<std::string> WriteXySoundArchive(N3dsRom& oras, const Bytes& original, Bytes archive, const Bytes& xyArchive, const XySounds& sounds,
+                                             bool streams, const std::string& outDir)
+{
+    std::vector<std::string> log;
+    size_t first = 0;
+    std::string shared;
+    archive = BcsarAppendSequences(archive, xyArchive, sounds.Sequences, first, shared);
+    if (first != sounds.First + (streams ? sounds.Streams.size() : 0)) throw FormatError("sound effects: the archive's first new sound is not the one the ids were given");
+    const Bytes bps = BpsCreate(original, archive);
+    if (BpsApply(original, bps) != archive) throw FormatError("sango_sound.bcsar: the patch does not rebuild the archive");
+    char id[17];
+    snprintf(id, sizeof id, "%016llX", (unsigned long long)oras.ProgramId());
+    const std::filesystem::path dir = std::filesystem::path(outDir) / "load" / "mods" / id / "romfs_ext" / "sound";
+    std::filesystem::create_directories(dir);
+    WriteFile((dir / "sango_sound.bcsar.bps").string(), bps);
+    char line[200];
+    snprintf(line, sizeof line, "sound effects: %zu of X/Y's ported as sounds %zu-%zu, ids %u-%u of category 0; %s (archive patch %zu bytes)",
+             sounds.Sequences.size(), first, first + sounds.Sequences.size() - 1, sounds.SequenceId, sounds.SequenceId + (uint32_t)sounds.Sequences.size() - 1,
+             shared.c_str(), bps.size());
+    log.push_back(line);
+    return log;
 }
 
 uint32_t XySounds::Translate(uint32_t xId) const
