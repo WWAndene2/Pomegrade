@@ -565,8 +565,12 @@ OrasXyWorld.cpp). Both games' packs are AD containers of 12 files, the same layo
   piece, 163, side by side), which Omega Ruby registers (bit 2): walked up headless (session stS). Trigger kinds (word 3:
   0, 5, 6, 7, 8) are the same set in both games. **Seen wrong**: a save in that house (zone 539, X's 2), moved by
   oras-save or made with the game's own menu (its Situation block holding the right zone and position), loads at the
-  zone's start point by the bed, with or without X's story (`--story off`, run sto1): the game's load ignores the
-  position there, not known why (the header matches Omega Ruby's house 223, its source);
+  zone's start point by the bed, with or without X's story (`--story off`, run sto1): the game's load ignored the
+  position there, not known why (the header matches Omega Ruby's house 223, its source). **No longer seen (29
+  October)**: two saves moved into zone 539 at (5.5, 8.5) and (12.5, 12.5) load at their own tiles (runs s39a, s39b,
+  the whole-Kalos mod); Omega Ruby's own house 223 keeps a moved save's tile too (runs sv1, sv2). Likely fixed by the
+  tile fields' repacking (27 October); a save made with the menu there not rechecked (the full boot's run hung at
+  start, run ms1);
 - Tiles (27 October): **the two games split a tile word differently** (their readers): X flags bits 0-10 (0x3E11A0),
   footstep ground type 11-15 (0x3E0A34), battle background 16-23 (0x3E0AA8, 0x3DFB94); Omega Ruby flags 0-11
   (Map_TileAttr_Flags), ground type 12-16 (0x402FCC), background 17-23 (FUN_00403190); kind 24-31 in both. X's values had
