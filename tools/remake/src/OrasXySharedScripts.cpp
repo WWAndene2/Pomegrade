@@ -78,6 +78,18 @@ std::string XySharedScriptEdits(std::string source, int member, const std::vecto
                     break;
                 }
         }
+    if (member == 17 || member == 26)
+    {
+        // fld_item.amx and hide_item.amx: an item's flag is its case's cell + 1306 (items on the ground) or + 1100 (hidden),
+        // computed, so not moved by XyScriptSource; the zones' item characters vanish by the moved flag (XyFirstFlag + it:
+        // Shalour's item 198 has flag 4832 = 0xD00 + 1306 + 198), so the script sets the moved one too. Left as X's, an
+        // item picked up stayed and could be picked up again (owner's phone, 29 October)
+        const std::string from = member == 17 ? "    add.p.c 1306\n" : "    add.p.c 1100\n";
+        const size_t at = source.find(from);
+        if (at == std::string::npos || source.find(from, at + 1) != std::string::npos)
+            throw FormatError("X/Y's shared script " + std::to_string(member) + ": not its one item flag base");
+        source.replace(at, from.size(), "    add.p.c " + std::to_string((member == 17 ? 1306 : 1100) + XyFirstFlag) + "\n");
+    }
     if (member == 39)
     {
         // objectencount.amx: a can's flag is its spot + 3152 (0xC50, X's 0xC50-0xC59: OrasXyDustBox.h), computed, so not
