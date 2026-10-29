@@ -211,6 +211,8 @@ private:
 
     TextureCacheRuntime texture_cache_runtime;
     TextureCache texture_cache;
+    // Pomegrade: a framebuffer with no attachment, for the draws that only capture transform feedback
+    std::unique_ptr<Framebuffer> null_framebuffer;
     BufferCacheRuntime buffer_cache_runtime;
     BufferCache buffer_cache;
     QueryCacheRuntime query_cache_runtime;

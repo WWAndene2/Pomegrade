@@ -61,6 +61,15 @@ public:
     /// Requests to begin a renderpass.
     void RequestRenderpass(const Framebuffer* framebuffer);
 
+    /// Pomegrade: the framebuffer with no attachment, for draws that rasterize nothing (set by the rasterizer)
+    void SetNullFramebuffer(const Framebuffer* framebuffer) noexcept {
+        null_framebuffer = framebuffer;
+    }
+
+    [[nodiscard]] const Framebuffer* NullFramebuffer() const noexcept {
+        return null_framebuffer;
+    }
+
     /// Pomegrade: true while a render pass is open
     [[nodiscard]] bool IsInsideRenderPass() const noexcept {
         return state.renderpass != VkRenderPass{};
@@ -324,6 +333,7 @@ private:
     u64 record_count_at_begin = 0;
 
     u32 num_renderpass_images = 0;
+    const Framebuffer* null_framebuffer = nullptr;
     std::array<VkImage, 9> renderpass_images{};
     std::array<VkImageSubresourceRange, 9> renderpass_image_ranges{};
 

@@ -254,6 +254,13 @@ GraphicsPipeline::GraphicsPipeline(
     : key{key_}, device{device_}, texture_cache{texture_cache_}, buffer_cache{buffer_cache_},
       pipeline_cache(pipeline_cache_), scheduler{scheduler_},
       guest_descriptor_queue{guest_descriptor_queue_}, spv_modules{std::move(stages)} {
+    // Pomegrade: a pipeline that captures transform feedback and rasterizes nothing writes no attachment, so it
+    // runs in a render pass without any instead of the game's: Pokémon Scarlet makes about 237 such draws a
+    // frame, each closing the pass around it, and each pass over the game's framebuffer loaded and stored it
+    // whole (about 600 screens of pixels a frame on a Mali, 13.7 FPS). Only when rasterizer discard is part of
+    // the key: with extended dynamic state 2 it is set at draw time, and the pipeline keeps the game's pass
+    uses_null_render_pass = key.state.xfb_enabled != 0 && key.state.extended_dynamic_state_2 == 0 &&
+                            key.state.dynamic_state.rasterize_enable == 0;
     if (shader_notify) {
         shader_notify->MarkShaderBuilding();
     }
@@ -286,7 +293,12 @@ GraphicsPipeline::GraphicsPipeline(
         descriptor_update_template =
             builder.CreateTemplate(set_layout, *pipeline_layout, uses_push_descriptor);
 
-        const VkRenderPass render_pass{render_pass_cache.Get(MakeRenderPassKey(key.state))};
+        RenderPassKey render_pass_key{MakeRenderPassKey(key.state)};
+        if (uses_null_render_pass) {
+            render_pass_key.color_formats.fill(PixelFormat::Invalid);
+            render_pass_key.depth_format = PixelFormat::Invalid;
+        }
+        const VkRenderPass render_pass{render_pass_cache.Get(render_pass_key)};
         Validate();
         MakePipeline(render_pass);
         if (pipeline_statistics) {
@@ -545,7 +557,8 @@ bool GraphicsPipeline::ConfigureImpl(bool is_indexed) {
 
 void GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
                                      const RenderAreaPushConstant& render_area) {
-    scheduler.RequestRenderpass(texture_cache.GetFramebuffer());
+    scheduler.RequestRenderpass(uses_null_render_pass ? scheduler.NullFramebuffer()
+                                                      : texture_cache.GetFramebuffer());
     if (!is_built.load(std::memory_order::relaxed)) {
         // Wait for the pipeline to be built
         scheduler.Record([this](vk::CommandBuffer) {
@@ -838,7 +851,7 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
         LOG_WARNING(Render_Vulkan, "Depth bounds is enabled but not supported");
     }
     static_vector<VkPipelineColorBlendAttachmentState, Maxwell::NumRenderTargets> cb_attachments;
-    const size_t num_attachments{NumAttachments(key.state)};
+    const size_t num_attachments{uses_null_render_pass ? 0 : NumAttachments(key.state)};
     for (size_t index = 0; index < num_attachments; ++index) {
         static constexpr std::array mask_table{
             VK_COLOR_COMPONENT_R_BIT,

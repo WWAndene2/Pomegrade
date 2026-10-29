@@ -223,6 +223,9 @@ RasterizerVulkan::RasterizerVulkan(Core::Frontend::EmuWindow& emu_window_, Tegra
       fence_manager(*this, gpu, texture_cache, buffer_cache, query_cache, device, scheduler),
       wfi_event(device.GetLogical().CreateEvent()) {
     scheduler.SetQueryCache(query_cache);
+    null_framebuffer = std::make_unique<Framebuffer>(texture_cache_runtime, nullptr, nullptr,
+                                                     VkExtent2D{.width = 1, .height = 1}, false);
+    scheduler.SetNullFramebuffer(null_framebuffer.get());
 }
 
 RasterizerVulkan::~RasterizerVulkan() = default;

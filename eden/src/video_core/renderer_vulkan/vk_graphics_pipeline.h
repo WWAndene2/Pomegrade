@@ -173,6 +173,8 @@ private:
     std::mutex build_mutex;
     std::atomic_bool is_built{false};
     bool uses_push_descriptor{false};
+    // Pomegrade: built for, and drawn in, the render pass with no attachment (see the constructor)
+    bool uses_null_render_pass{false};
 };
 
 } // namespace Vulkan
