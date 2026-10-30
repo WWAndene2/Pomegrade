@@ -132,8 +132,12 @@ const XyModulePort& XyGymElec();
 // a null read in Omega Ruby's 0x388B70 (the model class's slot 11, X's 0x37121C, identical) called from the module's
 // +0x988, building the dew drops' models (materials dew01-dew15, leafdew1-4) with the field's +0x24 and +0x2C; the
 // same zone without the module shows (run vI0). Ruled out: the copies' object offsets (library twins agree), the vtable
-// slot, the method itself. Next: what the field's +0x24 / +0x2C hold in each game (the area's resources: the dew
-// models are not found by name in X's a/0/1/3 nor a/0/4/1)
+// slot, the method itself; memory (owner's lead, 30 October): the field's heap 0x5D (its +0x2C) grown by 0x3C0000
+// (--characters 96, run vI3: the same null read), the module's 0x40-byte objects (built by X's 0x3864EC = Omega Ruby's
+// 0x39DBEC; the class around them, X's 0x4566EC-0x456984 = Omega Ruby's 0x486B1C-0x48A7A4, touches the same members).
+// The faulting method's 6th argument is a block the module builds on its stack (+0x940-0x96C), whose words come from
+// its 17 resource objects at +0x1C (filled by 0x49CAF4 -> 0x4CE2DC from the field's +0x24 resources). Next: read the
+// faulting registers under the interpreter (`readers 0 0x40` around +0x988, a run of about 40 minutes)
 const XyModulePort& XyGymInsect();
 
 }
