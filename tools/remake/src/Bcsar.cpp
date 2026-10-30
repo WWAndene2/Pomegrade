@@ -541,7 +541,7 @@ std::vector<uint32_t> BcsarSoundFiles(const Bytes& b, size_t sound)
     return files;
 }
 
-Bytes BcsarWithGroupFiles(const Bytes& b, const std::string& groupName, const std::vector<uint32_t>& files, size_t& added)
+Bytes BcsarWithGroupSounds(const Bytes& b, const std::string& groupName, const std::vector<size_t>& sounds, size_t& added)
 {
     const Layout l(b);
     constexpr int Groups = 4;
@@ -571,9 +571,23 @@ Bytes BcsarWithGroupFiles(const Bytes& b, const std::string& groupName, const st
         list.push_back(U32(old, entry));
     }
     const Bytes entryTemplate(old.begin() + (long)(info + U32(old, info + 8)), old.begin() + (long)(info + U32(old, info + 8) + 16));
+    // INFX: u32 count, references (0x7901) to 8-byte entries: an item (0x01000000 | a sound) and its load flags (~0: all
+    // of its data, as SEQ_SE_FT_04's)
+    const size_t infx = U32(old, 0x18 + 24) + 8, itemCount = U32(old, infx);
+    std::vector<std::pair<uint32_t, uint32_t>> items;
+    for (size_t i = 0; i < itemCount; i++)
+    {
+        const size_t entry = infx + U32(old, infx + 4 + 8 * i + 4);
+        items.push_back({U32(old, entry), U32(old, entry + 4)});
+    }
     added = 0;
-    for (const uint32_t f : files)
-        if (std::find(list.begin(), list.end(), f) == list.end()) { list.push_back(f); added++; }
+    for (const size_t sound : sounds)
+    {
+        const uint32_t item = 0x01000000u | (uint32_t)sound;
+        if (std::none_of(items.begin(), items.end(), [&](const auto& i) { return i.first == item; })) { items.push_back({item, 0xFFFFFFFF}); added++; }
+        for (const uint32_t f : BcsarSoundFiles(b, sound))
+            if (std::find(list.begin(), list.end(), f) == list.end()) list.push_back(f);
+    }
     if (!added) return b;
 
     Bytes body(4 + 8 * list.size() + 16 * list.size(), 0);
@@ -593,11 +607,28 @@ Bytes BcsarWithGroupFiles(const Bytes& b, const std::string& groupName, const st
     Put32(cgrp, 0x18, 0x40);
     Put32(cgrp, 0x1C, (uint32_t)infoSection.size());
     cgrp.insert(cgrp.end(), infoSection.begin(), infoSection.end());
-    for (int k = 1; k < 3; k++) // FILE and INFX as they were
-    {
-        const size_t from = U32(old, 0x18 + 12 * k), length = U32(old, 0x1C + 12 * k);
-        Put32(cgrp, 0x18 + 12 * k, (uint32_t)cgrp.size());
+    { // FILE as it was
+        const size_t from = U32(old, 0x18 + 12), length = U32(old, 0x1C + 12);
+        Put32(cgrp, 0x18 + 12, (uint32_t)cgrp.size());
         cgrp.insert(cgrp.end(), old.begin() + (long)from, old.begin() + (long)(from + length));
+    }
+    { // INFX with the items
+        Bytes x = {'I', 'N', 'F', 'X', 0, 0, 0, 0};
+        Bytes xb(4 + 16 * items.size(), 0);
+        Put32(xb, 0, (uint32_t)items.size());
+        for (size_t i = 0; i < items.size(); i++)
+        {
+            Put16(xb, 4 + 8 * i, 0x7901);
+            Put32(xb, 8 + 8 * i, (uint32_t)(4 + 8 * items.size() + 8 * i));
+            Put32(xb, 4 + 8 * items.size() + 8 * i, items[i].first);
+            Put32(xb, 8 + 8 * items.size() + 8 * i, items[i].second);
+        }
+        x.insert(x.end(), xb.begin(), xb.end());
+        while (x.size() % 0x20) x.push_back(0);
+        Put32(x, 4, (uint32_t)x.size());
+        Put32(cgrp, 0x18 + 24, (uint32_t)cgrp.size());
+        Put32(cgrp, 0x1C + 24, (uint32_t)x.size());
+        cgrp.insert(cgrp.end(), x.begin(), x.end());
     }
     Put32(cgrp, 0x0C, (uint32_t)cgrp.size());
 

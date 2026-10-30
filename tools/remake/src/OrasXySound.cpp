@@ -134,7 +134,7 @@ std::vector<std::string> WriteXySoundArchive(N3dsRom& oras, const Bytes& origina
     // are in no group of their own; the other grounds' sounds load with their ground's group, only where the game wants it)
     if (!sounds.Resident.empty())
     {
-        std::vector<uint32_t> files;
+        std::vector<size_t> list;
         for (const uint32_t id : sounds.Resident)
         {
             size_t sound;
@@ -145,12 +145,12 @@ std::vector<std::string> WriteXySoundArchive(N3dsRom& oras, const Bytes& origina
                 if (item == sounds.OrasItems.end() || item->second >> 24 != 1) throw FormatError("footsteps: id " + std::to_string(id) + " names no sound");
                 sound = item->second & 0xFFFFFF;
             }
-            for (const uint32_t f : BcsarSoundFiles(archive, sound)) files.push_back(f);
+            list.push_back(sound);
         }
         size_t added = 0;
-        archive = BcsarWithGroupFiles(archive, "GROUP_FIELD_GLOBAL", files, added);
+        archive = BcsarWithGroupSounds(archive, "GROUP_FIELD_GLOBAL", list, added);
         log.push_back("footsteps: " + std::to_string(sounds.Resident.size()) + " sounds kept loaded, " + std::to_string(added) +
-                      " file(s) added to GROUP_FIELD_GLOBAL");
+                      " added to GROUP_FIELD_GLOBAL");
     }
     if (muteStreams)
     {
