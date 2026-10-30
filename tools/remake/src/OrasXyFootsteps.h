@@ -19,9 +19,9 @@
 // function, 0x102E5DC8, is FUN_00402FCC's only caller: no other code indexes by the ground). Each surface plays a
 // ground's sounds, Omega Ruby's or X's (X's ported: OrasXySound.h), at its own volume through quiet copies of the sounds
 // (XySounds::Quiet): soft grass quieter than the grass, a dull dirt step (X's carpet sound), paved and indoor floors
-// quieter than stone; the same in Hoenn and Kalos. Each step varies as a real one does, in loudness and intonation (the
-// owner, 30 October): the cave's code scales its volume by +-20% and its pitch (the field inferred) by +-8% from the
-// game's LCRNG, its seed kept after the code. The sounds play only once loaded: XySounds::Resident.
+// quieter than stone; the same in Hoenn and Kalos. Each step varies in loudness and intonation (the owner, 30 October):
+// the cave's code scales its volume by +-20% from the game's LCRNG and its pitch (the field inferred) by a pattern of
+// five steps, low high middle high low (0.94 1.06 1 1.06 0.94); the seed, the counter and the factors after the code. The sounds play only once loaded: XySounds::Resident.
 // Two tables of 25 grounds x 9 kinds x 2 feet (Omega Ruby's layout) go into DllField's room: Hoenn's (Omega Ruby's 13
 // grounds, 13-16 none, the surfaces) and Kalos's (X's 17, the surfaces). The ground bound `cmp r6, #0xD` (0x102E5E90)
 // made 25, and after the table's load (0x102E5EE4) the table replaced, Kalos's in X/Y's zones (the zone read as
@@ -40,7 +40,7 @@ namespace remake
 // the surfaces' grounds, in the tiles of both regions (OrasFootstepGround.h gives them)
 enum FootstepSurface : int
 {
-    // each one sound (the owner's choice by ear, 30 October) at one volume, varied at random at every step
+    // each one sound (the owner's choice by ear, 30 October) at one base volume, varied at every step
     SoftGrass = 17,   // short grass, lawns: X's leaves (55%)
     Dirt = 18,        // earth paths, paths without grass, fields, ash: X's carpet sound, a dull step (31%)
     Paved = 19,       // streets, paving, stairs: the stone sound (31%)

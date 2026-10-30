@@ -1,6 +1,5 @@
 #include "OrasXyFootsteps.h"
 
-#include <array>
 #include <string>
 
 namespace remake
@@ -91,7 +90,7 @@ Bytes XyFootstepsFile(const Bytes& xDllField, const Bytes& orasDllField, XySound
     // X's carpet FT_11 -17.8 and its centroid the lowest of the dry steps, 1.6 kHz, X's leaves FT_06 -22.9)
     // Each surface plays one sound, the one the owner chose for it by ear (30 October: X's leaves for grass textures, stone
     // for paving, the carpet's for plain paths), at one volume, about half the first tried (heard all the time, the steps
-    // must stay subtle); each step's volume and pitch varied at random (the cave's code, below)
+    // must stay subtle); each step's volume varied at random, its pitch following a pattern (the cave's code, below)
     struct Surface { int Ground; bool FromX; uint32_t Base; int Percent; };
     static const Surface surfaces[] = {
         {SoftGrass, true, 6, 55},    // X's leaves
@@ -143,9 +142,10 @@ std::vector<CodeWord> XyFootstepsFieldPatchAt(uint32_t cave, const Bytes& file)
     const uint32_t tableCode = cave + 4 * (uint32_t)c.size();
     // on a surface (ground 17 up), walking or running (kind r5 0-2): the step's play parameters (the function's struct at
     // sp, filled before the table's load: +4 the volume after the walking ramp; +8 a factor 1.0, taken for the pitch:
-    // inferred, not read in the sound code) each scaled by 1 + (a random byte - 128) * k, the volume +-20% (bits 8-15),
-    // the pitch +-8% (bits 16-23), as a real step varies in loudness and intonation (owner, 30 October); the game's LCRNG
-    // (x * 0x41C64E6D + 0x6073), its seed kept after the code (r1, r2, r12 free here)
+    // inferred, not read in the sound code): the volume scaled by 1 + (a random byte - 128) * k, +-20%; the pitch by a
+    // pattern of five steps, low high middle high low (0.94 1.06 1 1.06 0.94) (the owner's, 30 October: each step's own
+    // intonation, and its loudness varying); the game's LCRNG (x * 0x41C64E6D + 0x6073), its seed, the pattern's counter
+    // and its factors kept after the code (r1, r2, r12 free here)
     const size_t toSame = c.size(); c.push_back(0);   // cmp r6, #17 then blo past
     c[toSame] = 0xE3560000 | SoftGrass;               // cmp r6, #17
     const size_t skip1 = c.size(); c.push_back(0x3);  // blo
@@ -160,8 +160,8 @@ std::vector<CodeWord> XyFootstepsFieldPatchAt(uint32_t cave, const Bytes& file)
     c.push_back(Movw(1, 0x6073));
     c.push_back(0xE0822001);                          // add r2, r2, r1
     c.push_back(0xE58C2000);                          // str r2, [r12]
-    for (const auto& [lsb, k, field] : {std::array<uint32_t, 3>{8, 0x3ACCCCCD, 4}, {16, 0x3A23D70A, 8}}) // 0.2 / 128, 0.08 / 128
     {
+        constexpr uint32_t lsb = 8, k = 0x3ACCCCCD, field = 4; // +-20%: 0.2 / 128
         c.push_back(0xE7E70052 | 1u << 12 | lsb << 7);  // ubfx r1, r2, #lsb, #8
         c.push_back(0xE2411080);                         // sub r1, r1, #128
         c.push_back(0xEE071A10);                         // vmov s14, r1
@@ -174,6 +174,17 @@ std::vector<CodeWord> XyFootstepsFieldPatchAt(uint32_t cave, const Bytes& file)
         c.push_back(0xEE477A87);                         // vmla.f32 s15, s15, s14
         c.push_back(0xEDCD7A00 | field / 4);             // vstr s15, [sp, #field]
     }
+    c.push_back(0xE59C1004);                          // ldr r1, [r12, #4]   the pattern's counter
+    c.push_back(0xE2811001);                          // add r1, r1, #1
+    c.push_back(0xE3510005);                          // cmp r1, #5
+    c.push_back(0x23A01000);                          // movhs r1, #0
+    c.push_back(0xE58C1004);                          // str r1, [r12, #4]
+    c.push_back(0xE28CC008);                          // add r12, r12, #8   the pattern's factors
+    c.push_back(0xE08CC101);                          // add r12, r12, r1, lsl #2
+    c.push_back(0xED9C7A00);                          // vldr s14, [r12]
+    c.push_back(0xEDDD7A02);                          // vldr s15, [sp, #8]
+    c.push_back(0xEE677A87);                          // vmul.f32 s15, s15, s14
+    c.push_back(0xEDCD7A02);                          // vstr s15, [sp, #8]
     const uint32_t past = cave + 4 * (uint32_t)c.size();
     c[skip1] = Branch(0x3, cave + 4 * (uint32_t)skip1, past, false);
     c[skip2] = Branch(0x8, cave + 4 * (uint32_t)skip2, past, false);
@@ -186,9 +197,11 @@ std::vector<CodeWord> XyFootstepsFieldPatchAt(uint32_t cave, const Bytes& file)
     PcRelative(c, cave, 1, kalos);
     c.push_back(TableWord);                            // add r2, r6, r6, lsl #3
     c.push_back(0xE12FFF1E);                           // bx lr
-    // the seed, then its address in r12 at seedAdr (pc-relative, padded with nops to three words)
+    // the seed, the pattern's counter and factors, then the seed's address in r12 at seedAdr (pc-relative, padded with nops to three words)
     const uint32_t seed = cave + 4 * (uint32_t)c.size();
     c.push_back(0x2D0F00D5);
+    c.push_back(0);                                    // the pattern's counter
+    for (const uint32_t f : {0x3F70A3D7u, 0x3F87AE14u, 0x3F800000u, 0x3F87AE14u, 0x3F70A3D7u}) c.push_back(f); // 0.94 1.06 1 1.06 0.94
     {
         std::vector<uint32_t> pad(seedAdr, 0);
         PcRelative(pad, cave, 12, seed);

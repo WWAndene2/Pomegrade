@@ -1,6 +1,6 @@
 // The footsteps (OrasXyFootsteps.h): the ground bound made 25, the table hook reading the zone pc-relatively through
 // DllField's word holding its global, Hoenn's table below the first X/Y zone and Kalos's from it, both reached
-// pc-relatively and word for word the file's; on a surface, the step's volume and pitch varied at random
+// pc-relatively and word for word the file's; on a surface, the step's volume varied at random and its pitch by a pattern
 #include "OrasXyFootsteps.h"
 #include <cstdio>
 #include <map>
@@ -70,9 +70,12 @@ int main()
         uint32_t s = tableCode + 16;
         const uint32_t seed = Chain12(at, s);
         check(at[tableCode + 28].Value == 0xE59C2000 && at[tableCode + 40].Value == 0xE0020291 && at[tableCode + 52].Value == 0xE58C2000 &&
-                  at[tableCode + 56].Value == 0xE7E71452 && at[tableCode + 96].Value == 0xEDCD7A01 && at[tableCode + 100].Value == 0xE7E71852 &&
-                  at[tableCode + 140].Value == 0xEDCD7A02 && at.count(seed) && seed > tableCode + 144,
-              "the variation: the LCRNG's seed stored, the volume (sp + 4) and pitch (sp + 8) scaled by its bytes" + where);
+                  at[tableCode + 56].Value == 0xE7E71452 && at[tableCode + 96].Value == 0xEDCD7A01 && at[tableCode + 100].Value == 0xE59C1004 &&
+                  at[tableCode + 108].Value == 0xE3510005 && at[tableCode + 128].Value == 0xED9C7A00 && at[tableCode + 140].Value == 0xEDCD7A02 &&
+                  at.count(seed) && seed > tableCode + 144 && at[seed + 4].Value == 0 && at[seed + 8].Value == 0x3F70A3D7 &&
+                  at[seed + 12].Value == 0x3F87AE14 && at[seed + 16].Value == 0x3F800000 && at[seed + 20].Value == 0x3F87AE14 &&
+                  at[seed + 24].Value == 0x3F70A3D7,
+              "the variation: the volume (sp + 4) by the LCRNG, the pitch (sp + 8) by the pattern 0.94 1.06 1 1.06 0.94" + where);
         uint32_t a = tableCode + 144;
         check(Chain(at, a) == 0x10263D84, "the table: the zone through DllField's word holding the global" + where);
         check(at[a].Value == 0xE59CC000 && at[a + 4].Value == 0xE59CC01C && at[a + 8].Value == 0xE6FFC07C && at[a + 12].Value == (0xE3002000 | 538) &&
