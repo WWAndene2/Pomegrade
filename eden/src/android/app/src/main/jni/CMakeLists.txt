@@ -40,6 +40,10 @@ if (ARCHITECTURE_arm64)
             "HWCPIPE_WERROR OFF"
             "HWCPIPE_WALL OFF"
             "HWCPIPE_ENABLE_LTO OFF")
+    # Arm's code under Eden's warnings-as-errors (-Werror=shadow and others, src/CMakeLists.txt) does not build
+    # (CI run 305): its own warnings are not ours to fix
+    target_compile_options(device PRIVATE -w)
+    target_compile_options(hwcpipe PRIVATE -w)
     target_link_libraries(yuzu-android PRIVATE hwcpipe)
     target_compile_definitions(yuzu-android PRIVATE POMEGRADE_HWCPIPE)
 endif()
