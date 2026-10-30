@@ -89,22 +89,22 @@ Bytes XyFootstepsFile(const Bytes& xDllField, const Bytes& orasDllField, XySound
     // the surfaces (OrasXyFootsteps.h): which game's ground each plays, at what volume. Volumes chosen from the samples'
     // loudness (prototype/footstep_sounds.py, 30 October: grass FT_04 -16.9 dB RMS, stone FT_03 -20.0, wood FT_06 -17.3,
     // X's carpet FT_11 -17.8 and its centroid the lowest of the dry steps, 1.6 kHz, X's leaves FT_06 -22.9)
-    // Each surface has two steps, the cave's code picking one at random at every walking or running step (kinds 0-2; in
-    // the table, the second foot's column, which those kinds never use: their step frames all name foot 1, 0xF2EB8): the
-    // owner heard one sound over and over (30 October)
+    // Each surface has three steps, the cave's code picking one at random at every walking or running step (kinds 0-2; in
+    // the table, the second foot's column, which those kinds never use: their step frames all name foot 1, 0xF2EB8, and
+    // kind 1's row for the third): the owner heard one sound over and over, then asked for a third variation (30 October)
     struct Step { bool FromX; uint32_t Base; int Percent; };
-    struct Surface { int Ground; Step A, B; };
+    struct Surface { int Ground; Step A, B, C; };
     // each surface one sound, the one the owner chose for it by ear (30 October: leaves for grass textures, stone for
     // paving, the carpet's for plain paths), at two volumes; mixing sounds of different grounds sounded incoherent
     static const Surface surfaces[] = {
-        {SoftGrass, {true, 6, 100}, {true, 6, 80}},    // X's leaves
-        {Dirt, {true, 11, 70}, {true, 11, 55}},        // X's carpet
-        {Paved, {false, 3, 75}, {false, 3, 60}},       // stone
-        {Wood, {false, 6, 75}, {false, 6, 60}},        // Omega Ruby's wood
-        {ForestFloor, {true, 6, 100}, {true, 6, 85}},  // X's leaves
-        {CaveRock, {false, 3, 100}, {false, 3, 80}},   // stone
-        {Carpet, {true, 11, 45}, {true, 11, 35}},      // X's carpet
-        {IndoorFloor, {false, 3, 50}, {false, 3, 40}}, // stone
+        {SoftGrass, {true, 6, 100}, {true, 6, 80}, {true, 6, 90}},     // X's leaves
+        {Dirt, {true, 11, 70}, {true, 11, 55}, {true, 11, 62}},        // X's carpet
+        {Paved, {false, 3, 75}, {false, 3, 60}, {false, 3, 67}},       // stone
+        {Wood, {false, 6, 75}, {false, 6, 60}, {false, 6, 67}},        // Omega Ruby's wood
+        {ForestFloor, {true, 6, 100}, {true, 6, 85}, {true, 6, 92}},   // X's leaves
+        {CaveRock, {false, 3, 100}, {false, 3, 80}, {false, 3, 90}},   // stone
+        {Carpet, {true, 11, 45}, {true, 11, 35}, {true, 11, 40}},      // X's carpet
+        {IndoorFloor, {false, 3, 50}, {false, 3, 40}, {false, 3, 45}}, // stone
     };
     // a step's row (9 kinds x 2 feet), its walking and running sounds at its volume (the jumps and a ledge's landing as loud
     // as on the base ground: kinds 3-8, SEQ_SE_RS_JUMP, SEQ_SE_FLD_DANSA, SEQ_SE_FLD_CHAKUCHI there)
@@ -118,8 +118,10 @@ Bytes XyFootstepsFile(const Bytes& xDllField, const Bytes& orasDllField, XySound
     for (const Surface& s : surfaces)
     {
         std::vector<uint32_t> row = stepRow(s.A);
-        const std::vector<uint32_t> b = stepRow(s.B);
+        const std::vector<uint32_t> b = stepRow(s.B), third = stepRow(s.C);
         for (uint32_t k = 0; k < 3; k++) row[k * 2 + 1] = b[k * 2];
+        row[1 * 2 + 0] = third[0 * 2]; // kind 1's row: the third step, walking then running
+        row[1 * 2 + 1] = third[2 * 2];
         extra[(size_t)s.Ground] = row;
     }
 
@@ -167,7 +169,19 @@ std::vector<CodeWord> XyFootstepsFieldPatchAt(uint32_t cave, const Bytes& file)
     c.push_back(Movw(1, 0x6073));
     c.push_back(0xE0822001);                          // add r2, r2, r1
     c.push_back(0xE58C2000);                          // str r2, [r12]
-    c.push_back(0xE1A00FA2);                          // lsr r0, r2, #31
+    // one of three steps: (top byte * 3) >> 8, 0 or 1 the foot's column of the motion's own row, 2 the third step in
+    // kind 1's row (its first column walking, its second running), r5 the kind read after this hook
+    c.push_back(0xE1A01C22);                          // lsr r1, r2, #24
+    c.push_back(0xE0811081);                          // add r1, r1, r1, lsl #1
+    c.push_back(0xE1A01421);                          // lsr r1, r1, #8
+    c.push_back(0xE3510002);                          // cmp r1, #2
+    c.push_back(0x11A00001);                          // movne r0, r1
+    const size_t notThird = c.size(); c.push_back(0x1);  // bne past the third's
+    c.push_back(0xE3550002);                          // cmp r5, #2
+    c.push_back(0x03A00001);                          // moveq r0, #1
+    c.push_back(0x13A00000);                          // movne r0, #0
+    c.push_back(0xE3A05001);                          // mov r5, #1
+    c[notThird] = Branch(0x1, cave + 4 * (uint32_t)notThird, cave + 4 * (uint32_t)c.size(), false);
     // the step's play parameters on the stack (the function's struct at sp, filled before the table's load: +4 the volume,
     // the walking ramp; +8 a factor 1.0, taken for the pitch: inferred, not read in the sound code) each scaled by
     // 1 + (a random byte - 128) * k: the volume +-15% (bits 8-15), the pitch +-8% (bits 16-23) (owner, 30 October: more

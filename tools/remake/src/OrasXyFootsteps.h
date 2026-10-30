@@ -19,9 +19,10 @@
 // function, 0x102E5DC8, is FUN_00402FCC's only caller: no other code indexes by the ground). Each surface plays a
 // ground's sounds, Omega Ruby's or X's (X's ported: OrasXySound.h), at its own volume through quiet copies of the sounds
 // (XySounds::Quiet): soft grass quieter than the grass, a dull dirt step (X's carpet sound), paved and indoor floors
-// quieter than stone; the same in Hoenn and Kalos. Two steps each, picked at random (the owner heard one sound over and
-// over, 30 October): the cave's code makes the foot's column (the second foot's, unused by walking and running) a random
-// bit of the game's LCRNG, its seed a word after the code. The sounds play only once loaded: XySounds::Resident.
+// quieter than stone; the same in Hoenn and Kalos. Three steps each, picked at random (the owner heard one sound over
+// and over, 30 October): the cave's code picks the foot's column (the second foot's, unused by walking and running) or
+// kind 1's row by the game's LCRNG, its seed a word after the code, and scales the step's volume (+-15%) and its pitch
+// (+-8%, the field inferred) by the same value. The sounds play only once loaded: XySounds::Resident.
 // Two tables of 25 grounds x 9 kinds x 2 feet (Omega Ruby's layout) go into DllField's room: Hoenn's (Omega Ruby's 13
 // grounds, 13-16 none, the surfaces) and Kalos's (X's 17, the surfaces). The ground bound `cmp r6, #0xD` (0x102E5E90)
 // made 25, and after the table's load (0x102E5EE4) the table replaced, Kalos's in X/Y's zones (the zone read as
@@ -40,7 +41,7 @@ namespace remake
 // the surfaces' grounds, in the tiles of both regions (OrasFootstepGround.h gives them)
 enum FootstepSurface : int
 {
-    // each one sound (the owner's choice by ear, 30 October) at two volumes, one picked at random at every step
+    // each one sound (the owner's choice by ear, 30 October) at three volumes, one picked at random at every step
     SoftGrass = 17,   // short grass, lawns: X's leaves (100%, 80%)
     Dirt = 18,        // earth paths, paths without grass, fields, ash: X's carpet sound, a dull step (70%, 55%)
     Paved = 19,       // streets, paving, stairs: the stone sound (75%, 60%)
