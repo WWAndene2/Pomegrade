@@ -70,7 +70,9 @@ android {
             signingConfig = signingConfigs.getByName("release")
         }
         getByName("debug") {
-            applicationIdSuffix = ".dev"
+            // branch ccr-4d85cc49-gs95xb only (owner's request, 30 October): its own ID and name, so it installs
+            // beside the owner's Punica Dev; ".dev" and "Punica Dev" come back before it is merged
+            applicationIdSuffix = ".opt"
         }
     }
 
