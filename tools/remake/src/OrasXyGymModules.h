@@ -136,8 +136,13 @@ const XyModulePort& XyGymElec();
 // (--characters 96, run vI3: the same null read), the module's 0x40-byte objects (built by X's 0x3864EC = Omega Ruby's
 // 0x39DBEC; the class around them, X's 0x4566EC-0x456984 = Omega Ruby's 0x486B1C-0x48A7A4, touches the same members).
 // The faulting method's 6th argument is a block the module builds on its stack (+0x940-0x96C), whose words come from
-// its 17 resource objects at +0x1C (filled by 0x49CAF4 -> 0x4CE2DC from the field's +0x24 resources). Next: read the
-// faulting registers under the interpreter (`readers 0 0x40` around +0x988, a run of about 40 minutes)
+// its 17 resource objects at +0x1C (filled by 0x49CAF4 -> 0x4CE2DC from the field's +0x24 resources). Read in memory
+// after the fault (run vD1, a JIT run with `dump`; the interpreter crashes at boot with this core): the module's object
+// (its vtable the port's, 0x859DD4 with the module at 0x858000) holds the field at +4 and +8, its 17 objects at +0x1C
+// are resource handles (vtable 0x5DDF64, ids 0x35-0x45) all unresolved (words 2-4 0xFFFFFFFF): the dew drops' resources
+// are not found. Not X's area pack 62 (12 files; its BCH holds c01_* textures) nor the effect pack (X's a/0/6/6 0x35-
+// 0x45 are grass01/grass02, Omega Ruby's a/0/6/4 others). Next: which resource set the field's +0x24 is (X's ids 0x35-
+// 0x45 there) and give X's files to it, as the dust clouds' swirl was given to the effect pack (OrasXyEffectPack.h)
 const XyModulePort& XyGymInsect();
 
 }
