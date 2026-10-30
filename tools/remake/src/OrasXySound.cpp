@@ -130,6 +130,28 @@ std::vector<std::string> WriteXySoundArchive(N3dsRom& oras, const Bytes& origina
                  sounds.QuietId(), sounds.QuietId() + (uint32_t)copies.size() - 1, quietShared.c_str());
         log.push_back(quiet);
     }
+    // the footsteps' sounds kept loaded: their files added to GROUP_FIELD_GLOBAL (the ported effects and the quiet copies
+    // are in no group of their own; the other grounds' sounds load with their ground's group, only where the game wants it)
+    if (!sounds.Resident.empty())
+    {
+        std::vector<uint32_t> files;
+        for (const uint32_t id : sounds.Resident)
+        {
+            size_t sound;
+            if (id >> 16 == 0 && id >= sounds.SequenceId) sound = first + (id - sounds.SequenceId); // a ported effect or a quiet copy
+            else
+            {
+                const auto item = sounds.OrasItems.find(id);
+                if (item == sounds.OrasItems.end() || item->second >> 24 != 1) throw FormatError("footsteps: id " + std::to_string(id) + " names no sound");
+                sound = item->second & 0xFFFFFF;
+            }
+            for (const uint32_t f : BcsarSoundFiles(archive, sound)) files.push_back(f);
+        }
+        size_t added = 0;
+        archive = BcsarWithGroupFiles(archive, "GROUP_FIELD_GLOBAL", files, added);
+        log.push_back("footsteps: " + std::to_string(sounds.Resident.size()) + " sounds kept loaded, " + std::to_string(added) +
+                      " file(s) added to GROUP_FIELD_GLOBAL");
+    }
     if (muteStreams)
     {
         const std::vector<BcsarStream> all = BcsarStreams(archive);

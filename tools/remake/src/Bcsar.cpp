@@ -512,4 +512,119 @@ Bytes BcsarAppendSequences(const Bytes& b, const Bytes& xy, const std::vector<st
     return out;
 }
 
+
+std::vector<uint32_t> BcsarSoundFiles(const Bytes& b, size_t sound)
+{
+    const Layout l(b);
+    if (sound >= l.Count(Sounds)) throw FormatError("sound archive: no sound " + std::to_string(sound));
+    const size_t e = l.Entry(Sounds, sound);
+    std::vector<uint32_t> files{U32(b, e)};
+    if (U16(b, e + 12) != 0x2203) return files; // not a sequence: its file alone
+    const auto [table, count] = BankTable(b, e);
+    for (size_t k = 0; k < count; k++)
+    {
+        const uint32_t bankFile = ItemFile(l, Banks, U32(b, table + 4 * k));
+        if (bankFile == 0xFFFFFFFF) continue;
+        files.push_back(bankFile);
+        const auto [at, size] = FileAt(l, bankFile);
+        if (!size) continue;
+        const Bytes bank(b.begin() + (long)at, b.begin() + (long)(at + size));
+        const auto [waves, n] = WaveTable(bank);
+        for (size_t w = 0; w < n; w++)
+        {
+            const uint32_t warcFile = ItemFile(l, Warcs, U32(bank, waves + 8 * w));
+            if (warcFile != 0xFFFFFFFF) files.push_back(warcFile);
+        }
+    }
+    std::sort(files.begin(), files.end());
+    files.erase(std::unique(files.begin(), files.end()), files.end());
+    return files;
+}
+
+Bytes BcsarWithGroupFiles(const Bytes& b, const std::string& groupName, const std::vector<uint32_t>& files, size_t& added)
+{
+    const Layout l(b);
+    constexpr int Groups = 4;
+    size_t groupEntry = 0;
+    bool found = false;
+    for (size_t g = 0; g < l.Count(Groups) && !found; g++)
+    {
+        // a group's entry: its file, then option flags (bit 0: the name's string index, the value after them)
+        const size_t e = l.Entry(Groups, g);
+        if ((U32(b, e + 4) & 1) && l.Name(U32(b, e + 8)) == groupName) { groupEntry = e; found = true; }
+    }
+    if (!found) throw FormatError("sound archive: no group " + groupName);
+    const uint32_t groupFile = U32(b, groupEntry);
+    const auto [at, size] = FileAt(l, groupFile);
+    if (!size) throw FormatError("sound archive: group " + groupName + "'s file is not internal");
+    const Bytes old(b.begin() + (long)at, b.begin() + (long)(at + size));
+    // CGRP: a 0x40 header (section references at 0x14, 12 bytes each: type, 0, offset, size), then INFO (0x7800: u32
+    // count, references (0x7900, offset from the body) to 16-byte entries: file, then a link's 0 and ~0 ~0: the file is
+    // loaded from the archive), FILE (0x7801: embedded files, none in a linked group) and INFX (0x7802: its items)
+    if (std::memcmp(&old[0], "CGRP", 4) != 0 || U16(old, 0x10) != 3 || U16(old, 0x14) != 0x7800) throw FormatError("sound archive: group " + groupName + " is not a CGRP laid out as expected");
+    const size_t info = U32(old, 0x18) + 8, count = U32(old, info);
+    std::vector<uint32_t> list;
+    for (size_t i = 0; i < count; i++)
+    {
+        const size_t entry = info + U32(old, info + 4 + 8 * i + 4);
+        if (U32(old, entry + 8) != 0xFFFFFFFF) throw FormatError("sound archive: group " + groupName + " embeds its files");
+        list.push_back(U32(old, entry));
+    }
+    const Bytes entryTemplate(old.begin() + (long)(info + U32(old, info + 8)), old.begin() + (long)(info + U32(old, info + 8) + 16));
+    added = 0;
+    for (const uint32_t f : files)
+        if (std::find(list.begin(), list.end(), f) == list.end()) { list.push_back(f); added++; }
+    if (!added) return b;
+
+    Bytes body(4 + 8 * list.size() + 16 * list.size(), 0);
+    Put32(body, 0, (uint32_t)list.size());
+    for (size_t i = 0; i < list.size(); i++)
+    {
+        Put16(body, 4 + 8 * i, 0x7900);
+        Put32(body, 8 + 8 * i, (uint32_t)(4 + 8 * list.size() + 16 * i));
+        std::copy(entryTemplate.begin(), entryTemplate.end(), body.begin() + (long)(4 + 8 * list.size() + 16 * i));
+        Put32(body, 4 + 8 * list.size() + 16 * i, list[i]);
+    }
+    Bytes infoSection = {'I', 'N', 'F', 'O', 0, 0, 0, 0};
+    infoSection.insert(infoSection.end(), body.begin(), body.end());
+    while (infoSection.size() % 0x20) infoSection.push_back(0);
+    Put32(infoSection, 4, (uint32_t)infoSection.size());
+    Bytes cgrp(old.begin(), old.begin() + 0x40);
+    Put32(cgrp, 0x18, 0x40);
+    Put32(cgrp, 0x1C, (uint32_t)infoSection.size());
+    cgrp.insert(cgrp.end(), infoSection.begin(), infoSection.end());
+    for (int k = 1; k < 3; k++) // FILE and INFX as they were
+    {
+        const size_t from = U32(old, 0x18 + 12 * k), length = U32(old, 0x1C + 12 * k);
+        Put32(cgrp, 0x18 + 12 * k, (uint32_t)cgrp.size());
+        cgrp.insert(cgrp.end(), old.begin() + (long)from, old.begin() + (long)(from + length));
+    }
+    Put32(cgrp, 0x0C, (uint32_t)cgrp.size());
+
+    // the file replaced in place, the files after it moved by the growth (files sit on 0x20 boundaries)
+    const size_t oldSpan = (size + 0x1F) & ~(size_t)0x1F, newSpan = (cgrp.size() + 0x1F) & ~(size_t)0x1F, delta = newSpan - oldSpan;
+    if (l.File < l.Info || U32(b, l.File + 4) + l.File != b.size()) throw FormatError("sound archive: FILE is not its last section");
+    Bytes out(b.begin(), b.begin() + (long)at);
+    out.insert(out.end(), cgrp.begin(), cgrp.end());
+    out.resize(at + newSpan, 0);
+    out.insert(out.end(), b.begin() + (long)std::min(b.size(), at + oldSpan), b.end());
+    const uint32_t oldOffset = (uint32_t)(at - (l.File + 8));
+    for (size_t f = 0; f < l.Count(Files); f++)
+    {
+        const size_t e = l.Entry(Files, f);
+        if (U16(b, e) != 0x220C) continue;
+        const size_t loc = e + U32(b, e + 4);
+        const uint32_t offset = U32(b, loc + 4);
+        if (offset == 0xFFFFFFFF) continue;
+        if (f == groupFile) Put32(out, loc + 8, (uint32_t)cgrp.size());
+        else if (offset > oldOffset) Put32(out, loc + 4, offset + (uint32_t)delta);
+    }
+    const size_t fileSize = out.size() - l.File;
+    for (uint16_t k = 0; k < U16(b, 0x10); k++)
+        if (U32(b, 0x18 + 12 * k) == l.File) Put32(out, 0x1C + 12 * k, (uint32_t)fileSize);
+    Put32(out, l.File + 4, (uint32_t)fileSize);
+    Put32(out, 0x0C, (uint32_t)out.size());
+    return out;
+}
+
 }

@@ -25,6 +25,7 @@
 #include "N3dsRom.h"
 
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -44,6 +45,9 @@ struct XySounds
     // an id the archive plays (Omega Ruby's, or a ported effect's) and its volume in percent; the k-th plays as id QuietId() + k
     struct QuietSound { uint32_t Id = 0; int Percent = 100; };
     std::vector<QuietSound> Quiet;
+    // ids the footsteps play (walking and running, both regions' tables: OrasXyFootsteps.h), their data added to the always
+    // loaded group GROUP_FIELD_GLOBAL by WriteXySoundArchive: a sound in no loaded group plays nothing
+    std::set<uint32_t> Resident;
 
     // reads both games' codes (their category tables) and sound archives
     static XySounds Read(const Bytes& orasCode, const Bytes& orasArchive, const Bytes& xCode, const Bytes& xArchive);

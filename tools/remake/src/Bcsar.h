@@ -44,6 +44,15 @@ size_t BcsarSoundCount(const Bytes& bcsar);
 uint8_t BcsarSoundVolume(const Bytes& bcsar, size_t sound);
 void BcsarSetSoundVolume(Bytes& bcsar, size_t sound, uint8_t volume);
 
+// the files a sound's data is in: its own (a sequence's), its banks' and their wave archives'
+std::vector<uint32_t> BcsarSoundFiles(const Bytes& bcsar, size_t sound);
+
+// The archive with these files added to group `groupName`'s list (a linked group: the game loads each listed file from the
+// archive when it loads the group), the group's file rewritten in place and the files after it moved; `added` counts the
+// files not listed before (30 October: the footstep sounds the mod plays added to GROUP_FIELD_GLOBAL, which holds the
+// grass's; a sound in no loaded group stays silent, the other grounds' sounds loading with their own groups)
+Bytes BcsarWithGroupFiles(const Bytes& bcsar, const std::string& groupName, const std::vector<uint32_t>& files, size_t& added);
+
 // every sound's name (its option bit 0's string; empty without one), in the sound table's order
 std::vector<std::string> BcsarSoundNames(const Bytes& bcsar);
 

@@ -112,7 +112,10 @@ Bytes XyFootstepsFile(const Bytes& xDllField, const Bytes& orasDllField, XySound
         {
             const std::vector<uint32_t> row = g >= (uint32_t)SoftGrass ? extra[g] : table == 0 ? orasRow(g) : g < Grounds ? xRow(g) : std::vector<uint32_t>(Kinds * 2, 0);
             for (uint32_t i = 0; i < Kinds * 2; i++)
+            {
                 Put32(out, 4 + ((size_t)table * FootstepGrounds * Kinds * 2 + g * Kinds * 2 + i) * 4, row[i]);
+                if (i < 3 * 2 && row[i]) sounds.Resident.insert(row[i]); // the steps (kinds 0-2) kept loaded
+            }
         }
     return out;
 }
