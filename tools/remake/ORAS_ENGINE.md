@@ -604,10 +604,13 @@ OrasXyWorld.cpp). Both games' packs are AD containers of 12 files, the same layo
   texture drawn over it (the highest upward face over its centre; X/Y's ground texture is in the material's second
   unit, after projection_dummy; the material's name when no texture is named), by a table of name words read from both
   games' walked tiles (`remake_tool piece-grounds [--x] <pieces>`). Eight surfaces, grounds 17-24 in both regions'
-  tables (25 grounds each; the footstep function is the ground reader's only caller): soft grass (grass sound, 50%),
-  dirt (X's carpet sound, the dullest dry step, 70%), paving (stone, 75%), wood (Omega Ruby's, 75%), forest floor (X's
-  leaves), cave rock (stone), carpet (X's carpet, 45%), indoor floor (stone, 50%); sand, shallows, metal and X's snow
-  take the games' own grounds. The volumes are quiet copies of the sounds (their entries again, the volume byte
+  tables (25 grounds each; the footstep function is the ground reader's only caller), each with two steps picked at
+  random (OrasXyFootsteps.h lists them: soft grass mostly the dirt's dull step, X's carpet sound, with a light grass
+  rustle; dirt, paving, wood, forest floor, cave rock, carpet, indoor floor); sand, shallows, metal and X's snow
+  take the games' own grounds. **Heard on the phone (30 October, the test field sandbox/footsteps.txt):** every surface
+  and X's ported steps sound once kept loaded (GROUP_FIELD_GLOBAL, below); the field's strips of the game's own tall
+  grass, sand, metal and deep swamp stay silent there while sand and tall grass sound in Hoenn's maps (their tiles' kind
+  0x02 / 0x27 there, none in the strips: the cause inferred, not read). The volumes are quiet copies of the sounds (their entries again, the volume byte
   lowered; 15 copies, no data added), for the steps only (walk and run: a ledge's jump and landing keep their volume).
   Built (local, matrix 0): 126,707 of Omega Ruby's tiles in 597 pieces, the a/0/3/9 patch 82 MB. Silent still: the names
   matching nothing (listed by piece-grounds). Checked 30 October: the 23,428 walkable-valued tiles with no face over

@@ -19,7 +19,9 @@
 // function, 0x102E5DC8, is FUN_00402FCC's only caller: no other code indexes by the ground). Each surface plays a
 // ground's sounds, Omega Ruby's or X's (X's ported: OrasXySound.h), at its own volume through quiet copies of the sounds
 // (XySounds::Quiet): soft grass quieter than the grass, a dull dirt step (X's carpet sound), paved and indoor floors
-// quieter than stone; the same in Hoenn and Kalos.
+// quieter than stone; the same in Hoenn and Kalos. Two steps each, picked at random (the owner heard one sound over and
+// over, 30 October): the cave's code makes the foot's column (the second foot's, unused by walking and running) a random
+// bit of the game's LCRNG, its seed a word after the code. The sounds play only once loaded: XySounds::Resident.
 // Two tables of 25 grounds x 9 kinds x 2 feet (Omega Ruby's layout) go into DllField's room: Hoenn's (Omega Ruby's 13
 // grounds, 13-16 none, the surfaces) and Kalos's (X's 17, the surfaces). The ground bound `cmp r6, #0xD` (0x102E5E90)
 // made 25, and after the table's load (0x102E5EE4) the table replaced, Kalos's in X/Y's zones (the zone read as
@@ -38,14 +40,15 @@ namespace remake
 // the surfaces' grounds, in the tiles of both regions (OrasFootstepGround.h gives them)
 enum FootstepSurface : int
 {
-    SoftGrass = 17,   // short grass, lawns: the grass's sound, half as loud
-    Dirt = 18,        // earth paths, fields, ash: X's carpet sound, a dull step
-    Paved = 19,       // streets, paving, stairs: the stone sound, quieter
-    Wood = 20,        // floorboards, bridges, decks: Omega Ruby's wood sound, quieter
-    ForestFloor = 21, // leaves, forest soil: X's leaves sound
-    CaveRock = 22,    // cave and mountain rock: the stone sound
-    Carpet = 23,      // carpets, mats: X's carpet sound, low
-    IndoorFloor = 24, // floors indoors (tiles, gyms, unknown): the stone sound, low
+    // each with two steps, one picked at random at every walking or running step (OrasXyFootsteps.cpp)
+    SoftGrass = 17,   // short grass, lawns: the dirt's dull step (60%) or a light rustle of grass (40%)
+    Dirt = 18,        // earth paths, fields, ash: X's carpet sound, a dull step (70%, 55%)
+    Paved = 19,       // streets, paving, stairs: the stone sound (75%, 60%)
+    Wood = 20,        // floorboards, bridges, decks: Omega Ruby's wood sound (75%, 60%)
+    ForestFloor = 21, // leaves, forest soil: X's leaves sound, or the dull step (50%)
+    CaveRock = 22,    // cave and mountain rock: the stone sound (100%, 80%)
+    Carpet = 23,      // carpets, mats: X's carpet sound (45%, 35%)
+    IndoorFloor = 24, // floors indoors (tiles, gyms, unknown): the stone sound (50%, 40%)
     FootstepGrounds = 25
 };
 

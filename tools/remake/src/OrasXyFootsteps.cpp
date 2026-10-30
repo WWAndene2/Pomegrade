@@ -88,19 +88,35 @@ Bytes XyFootstepsFile(const Bytes& xDllField, const Bytes& orasDllField, XySound
     // the surfaces (OrasXyFootsteps.h): which game's ground each plays, at what volume. Volumes chosen from the samples'
     // loudness (prototype/footstep_sounds.py, 30 October: grass FT_04 -16.9 dB RMS, stone FT_03 -20.0, wood FT_06 -17.3,
     // X's carpet FT_11 -17.8 and its centroid the lowest of the dry steps, 1.6 kHz, X's leaves FT_06 -22.9)
-    struct Surface { int Ground; bool FromX; uint32_t Base; int Percent; };
+    // Each surface has two steps, the cave's code picking one at random at every walking or running step (kinds 0-2; in
+    // the table, the second foot's column, which those kinds never use: their step frames all name foot 1, 0xF2EB8): the
+    // owner heard one sound over and over (30 October), and wanted short grass nearer the dirt's step than the grass's
+    struct Step { bool FromX; uint32_t Base; int Percent; };
+    struct Surface { int Ground; Step A, B; };
     static const Surface surfaces[] = {
-        {SoftGrass, false, 4, 50}, {Dirt, true, 11, 70}, {Paved, false, 3, 75}, {Wood, false, 6, 75},
-        {ForestFloor, true, 6, 100}, {CaveRock, false, 3, 100}, {Carpet, true, 11, 45}, {IndoorFloor, false, 3, 50},
+        {SoftGrass, {true, 11, 60}, {false, 4, 40}},   // the dirt's dull step, or a light rustle of grass
+        {Dirt, {true, 11, 70}, {true, 11, 55}},
+        {Paved, {false, 3, 75}, {false, 3, 60}},
+        {Wood, {false, 6, 75}, {false, 6, 60}},
+        {ForestFloor, {true, 6, 100}, {true, 11, 50}}, // leaves, or the soil under them
+        {CaveRock, {false, 3, 100}, {false, 3, 80}},
+        {Carpet, {true, 11, 45}, {true, 11, 35}},
+        {IndoorFloor, {false, 3, 50}, {false, 3, 40}},
+    };
+    // a step's row (9 kinds x 2 feet), its walking and running sounds at its volume (the jumps and a ledge's landing as loud
+    // as on the base ground: kinds 3-8, SEQ_SE_RS_JUMP, SEQ_SE_FLD_DANSA, SEQ_SE_FLD_CHAKUCHI there)
+    const auto stepRow = [&](const Step& step) {
+        std::vector<uint32_t> row = step.FromX ? xRow(step.Base) : orasRow(step.Base);
+        if (step.Percent != 100)
+            for (uint32_t i = 0; i < 3 * 2; i++) if (row[i]) row[i] = sounds.QuietCopy(row[i], step.Percent);
+        return row;
     };
     std::vector<std::vector<uint32_t>> extra(FootstepGrounds);
     for (const Surface& s : surfaces)
     {
-        std::vector<uint32_t> row = s.FromX ? xRow(s.Base) : orasRow(s.Base);
-        // the steps quieter (kinds 0-2: walking, Omega Ruby's own kind 1, running), the jumps and a ledge's landing as loud
-        // as on the base ground (kinds 3-8: SEQ_SE_RS_JUMP, SEQ_SE_FLD_DANSA, SEQ_SE_FLD_CHAKUCHI there)
-        if (s.Percent != 100)
-            for (uint32_t i = 0; i < 3 * 2; i++) if (row[i]) row[i] = sounds.QuietCopy(row[i], s.Percent);
+        std::vector<uint32_t> row = stepRow(s.A);
+        const std::vector<uint32_t> b = stepRow(s.B);
+        for (uint32_t k = 0; k < 3; k++) row[k * 2 + 1] = b[k * 2];
         extra[(size_t)s.Ground] = row;
     }
 
@@ -132,6 +148,26 @@ std::vector<CodeWord> XyFootstepsFieldPatchAt(uint32_t cave, const Bytes& file)
     const uint32_t hoenn = cave, kalos = cave + (uint32_t)tableBytes;
     // the table (r0, the foot, kept; r2 and r12 free): r1 Kalos's in X/Y's zones, Hoenn's elsewhere, then the game's add
     const uint32_t tableCode = cave + 4 * (uint32_t)c.size();
+    // on a surface (ground 17 up), walking or running (kind r5 0-2): r0, the foot's column, made a random bit, the game's LCRNG
+    // (x * 0x41C64E6D + 0x6073) kept in the word after the code (r1, r2, r12 free here)
+    const size_t toSame = c.size(); c.push_back(0);   // cmp r6, #17 then blo past
+    c[toSame] = 0xE3560000 | SoftGrass;               // cmp r6, #17
+    const size_t skip1 = c.size(); c.push_back(0x3);  // blo
+    c.push_back(0xE3550002);                          // cmp r5, #2
+    const size_t skip2 = c.size(); c.push_back(0x8);  // bhi
+    const size_t seedAdr = c.size();
+    c.push_back(0); c.push_back(0); c.push_back(0);   // r12 = the seed's address (filled below, three words at most)
+    c.push_back(0xE59C2000);                          // ldr r2, [r12]
+    c.push_back(Movw(1, 0x4E6D));
+    c.push_back(0xE3401000 | (0x41C6 >> 12 & 0xF) << 16 | (0x41C6 & 0xFFF)); // movt r1, #0x41C6
+    c.push_back(0xE0020291);                          // mul r2, r1, r2
+    c.push_back(Movw(1, 0x6073));
+    c.push_back(0xE0822001);                          // add r2, r2, r1
+    c.push_back(0xE58C2000);                          // str r2, [r12]
+    c.push_back(0xE1A00FA2);                          // lsr r0, r2, #31
+    const uint32_t past = cave + 4 * (uint32_t)c.size();
+    c[skip1] = Branch(0x3, cave + 4 * (uint32_t)skip1, past, false);
+    c[skip2] = Branch(0x8, cave + 4 * (uint32_t)skip2, past, false);
     ZoneAtLeast(c, cave, 12, 2, first);
     const size_t toKalos = c.size(); c.push_back(0x2); // bhs
     PcRelative(c, cave, 1, hoenn);
@@ -141,6 +177,15 @@ std::vector<CodeWord> XyFootstepsFieldPatchAt(uint32_t cave, const Bytes& file)
     PcRelative(c, cave, 1, kalos);
     c.push_back(TableWord);                            // add r2, r6, r6, lsl #3
     c.push_back(0xE12FFF1E);                           // bx lr
+    // the seed, then its address in r12 at seedAdr (pc-relative, padded with nops to three words)
+    const uint32_t seed = cave + 4 * (uint32_t)c.size();
+    c.push_back(0x2D0F00D5);
+    {
+        std::vector<uint32_t> pad(seedAdr, 0);
+        PcRelative(pad, cave, 12, seed);
+        if (pad.size() - seedAdr > 3) throw FormatError("--xy-footsteps: the seed out of reach");
+        for (size_t k = 0; k < 3; k++) c[seedAdr + k] = seedAdr + k < pad.size() ? pad[seedAdr + k] : 0xE320F000;
+    }
 
     std::vector<CodeWord> w;
     w.push_back({BoundHook, BoundWord, 0xE3560000 | FootstepGrounds, "footsteps: the ground bound, 25 (the surfaces)"});

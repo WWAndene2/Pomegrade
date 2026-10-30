@@ -1,6 +1,6 @@
 // The footsteps (OrasXyFootsteps.h): the ground bound made 25, the table hook reading the zone pc-relatively through
 // DllField's word holding its global, Hoenn's table below the first X/Y zone and Kalos's from it, both reached
-// pc-relatively and word for word the file's
+// pc-relatively and word for word the file's; on a surface, the step's sound picked at random
 #include "OrasXyFootsteps.h"
 #include <cstdio>
 #include <map>
@@ -32,6 +32,15 @@ static uint32_t Chain(std::map<uint32_t, CodeWord>& at, uint32_t& a)
     return r;
 }
 
+// the same for a chain into r12 padded with nops to three words (the seed's address)
+static uint32_t Chain12(std::map<uint32_t, CodeWord>& at, uint32_t a)
+{
+    const uint32_t end = a + 12;
+    const uint32_t r = Chain(at, a);
+    for (; a < end; a += 4) if (at[a].Value != 0xE320F000) return 0;
+    return r;
+}
+
 int main()
 {
     const size_t tableBytes = 25 * 9 * 8;
@@ -53,7 +62,17 @@ int main()
         check(same, "the two tables word for word the file's, at the cave's start" + where);
         const uint32_t tableCode = Target(0x102E5EE8, at[0x102E5EE8].Value);
         check(tableCode == start + 2 * tableBytes, "the table's code after the tables" + where);
-        uint32_t a = tableCode;
+        // on a surface, walking or running: the foot's column a random bit of the LCRNG, its seed past the code
+        check(at[tableCode].Value == 0xE3560011 && (at[tableCode + 4].Value >> 24) == 0x3A && at[tableCode + 8].Value == 0xE3550002 &&
+                  (at[tableCode + 12].Value >> 24) == 0x8A && Target(tableCode + 4, at[tableCode + 4].Value) == tableCode + 60 &&
+                  Target(tableCode + 12, at[tableCode + 12].Value) == tableCode + 60,
+              "the random foot: ground 17 up and kinds 0-2 only" + where);
+        uint32_t s = tableCode + 16;
+        const uint32_t seed = Chain12(at, s);
+        check(at[tableCode + 28].Value == 0xE59C2000 && at[tableCode + 40].Value == 0xE0020291 && at[tableCode + 52].Value == 0xE58C2000 &&
+                  at[tableCode + 56].Value == 0xE1A00FA2 && at.count(seed) && seed > tableCode + 60,
+              "the random foot: seed * 0x41C64E6D + 0x6073 stored, r0 its top bit, the seed past the code" + where);
+        uint32_t a = tableCode + 60;
         check(Chain(at, a) == 0x10263D84, "the table: the zone through DllField's word holding the global" + where);
         check(at[a].Value == 0xE59CC000 && at[a + 4].Value == 0xE59CC01C && at[a + 8].Value == 0xE6FFC07C && at[a + 12].Value == (0xE3002000 | 538) &&
               at[a + 16].Value == 0xE15C0002,
