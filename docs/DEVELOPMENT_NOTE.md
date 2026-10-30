@@ -336,6 +336,23 @@ redone; the zones before what runs in them; one phone check per block, not per c
    it, then its +0x18 / +0x1C) and X's +0xFC is +0x10C (Grant's and Wulfric's; then +0x7C / +0xC4): Grant's null write
    (B1) is this, not a member Omega Ruby lacks. Not patched yet: XyPortModule's Words, for every ported module.
 
+   **Viola's gym, started 30 October** (step 3). X's zones by area kind (header +0x26, read in X's a/0/1/2): Viola
+   56 (kind 2), Grant 160 (3), Korrina 175 (0), Ramos 191 (4), Valerie 203 (1), Olympia 215 (0xD), Wulfric 226 (0xE),
+   Clemont 79-82, 77, 78 (0x19-0x1B); kind 0x1C has 17 zones (13, 24, 33, 40, 47, 54, 75, 76, 159, 174, 190, 202, 214,
+   225, 234, 244, 359: likely the gyms' entrance halls, to read). DllUSGymInsect's 56 imports: 37 the same; by
+   `prototype/xy_callee_map.py` (an X function's Omega Ruby twin found through its callers' copies, aligned; checked
+   on X's 0x1027F5CC, the zone's character list, 80 callers agreeing with DllUSR13's hand mapping 0x102CDFD0):
+   0x300DF9 (Thumb) -> 0x3009F5, 0x36FD78 -> 0x3878F8, 0x49CAF4 -> 0x4CE2DC, 0x4AA98C -> 0x4E3594, DllField
+   0x102DDD30 -> 0x10327CF0, 0x1027F5CC -> 0x102CDFD0; by their own code: 0x45672C -> 0x486B1C (0.98, the same writes),
+   0x456970 -> 0x48A790 (identical), 0x4B3D9C -> 0x4C4D0C (identical, `ldrsb r0, [r0, #0x14]`, the object's +0x14
+   written alike by both games' 0x45672C / 0x486B1C), 0x390550 -> 0x3A7D54, 0x11E46C -> 0x11EB78 (identical setters),
+   0x390560 (a bare return) -> Util_Nop; shared already: 0x2FF520, 0x14F220, 0x58E8AC/BC. X's own, to copy into the
+   module: 0x455C30 and 0x455D44 (a helper class over a model's 0x34-byte entries) with their callees 0x455F28,
+   0x456148, 0x4563D8, 0x2F66E4, 0x488AB8 (0.74 to Omega Ruby's 0x4AC9DC, to read), 0x367AD4 (returns a string's
+   address): about 2,700 bytes. **Next:** a way to copy X functions into a ported module (its cave, their calls
+   relocated, as the dust cloud's code was copied into DllField's), needed by the other gyms too; then Viola's module,
+   its zone, a headless run.
+
    **Working order, 30 October (owner's request: every point left, ordered by logic and priority).** It replaces the
    order above. The reasons: the shared fixes before the modules that need them; search before building, so the list is
    whole; a block finished while its code is read; one phone mod per block, with a list of what to check; what depends on
@@ -354,7 +371,8 @@ redone; the zones before what runs in them; one phone check per block, not per c
       Kalos's map (DexNav, soaring, secret bases, the PokeNav Plus apps, contests): the whole list for 4-7 below.
       **First part done 30 October** (`prototype/xy_only_code.py`: each X DllField function against every Omega Ruby
       module's by its instructions' shapes, aligned; the rest grouped by X's call graph, roots and natives named): of X
-      DllField's 5,357 functions, 4,065 have a copy in Omega Ruby, 1,292 are X's own (91,658 instructions, 621 groups).
+      DllField's 5,357 functions, 4,703 have a copy in Omega Ruby, 654 are X's own (65,686 instructions, 290 groups;
+      first counted 4,065 / 1,292 before a fix of the tool's counts, which used 16 of their 1,024 places).
       234 script natives run X-own code (some are Omega Ruby's same-named natives changed, to compare one by one before
       porting). By feature: clothes, salon, photo and mirror (`Kisekae*`, `*Fashion*`, `*Mannequin`, `SetMirror*`,
       `Promo*`, `_CallPhotoViewer`, hair and eye colours); Battle Chateau and Maison (`BattleHouse_*`, `Dueling*`,

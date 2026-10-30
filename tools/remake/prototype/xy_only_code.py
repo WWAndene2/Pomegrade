@@ -67,46 +67,71 @@ def key(data, base, at):
     return tuple(words)
 
 
-def shapes(data, at, size):
+def shapes(data, at, size, base=LINKED):
     """the function's instructions as shapes (masked), at most 400"""
-    off = at - LINKED
+    off = at - base
     return [masked(struct.unpack_from('<I', data, off + 4 * k)[0]) for k in range(min(size, 400)) if off + 4 * k + 4 <= len(data)]
+
+
+DIMENSIONS = 4096
+
+
+def bucket(shape):
+    """a shape's place among the counts: its opcode bits (27-20) and bits 7-4, 4096 places (the condition left out)"""
+    return ((shape >> 20) & 0xFF) << 4 | (shape >> 4) & 0xF
+
+
+class Twins:
+    """Omega Ruby's functions (given as {address: instructions}, read from blobs [(data, base), ...]) searched for the
+    copy of an X function: the 5 nearest by their shapes' counts (cosine 0.8), aligned (difflib)"""
+    def __init__(self, ofun, blobs):
+        import numpy as np
+        self.np = np
+        self.addresses = sorted(ofun)
+        self.shapes = []
+        for a in self.addresses:
+            data, base = next((d, b) for d, b in blobs if b <= a < b + len(d))
+            self.shapes.append(shapes(data, a, ofun[a], base))
+        matrix = np.zeros((len(self.addresses), DIMENSIONS), dtype=np.float32)
+        for i, sh in enumerate(self.shapes):
+            for w in sh:
+                matrix[i, bucket(w)] += 1
+        norms = np.linalg.norm(matrix, axis=1)
+        norms[norms == 0] = 1
+        self.matrix = matrix / norms[:, None]
+
+    def best(self, sh):
+        """(Omega Ruby's address, ratio) of the best aligned of the 5 nearest, or (None, 0)"""
+        import difflib
+        np = self.np
+        vector = np.zeros(DIMENSIONS, dtype=np.float32)
+        for w in sh:
+            vector[bucket(w)] += 1
+        vector /= np.linalg.norm(vector) or 1
+        scores = self.matrix @ vector
+        found = (None, 0.0)
+        for i in np.argsort(-scores)[:5]:
+            other = self.shapes[i]
+            if scores[i] < 0.8 or not other or not 0.6 <= len(other) / len(sh) <= 1.6:
+                continue
+            ratio = difflib.SequenceMatcher(None, sh, other, autojunk=False).ratio()
+            if ratio > found[1]:
+                found = (self.addresses[i], ratio)
+        return found
 
 
 TWINS = {}
 
 
 def twin(xdata, at, size, odata, ofun):
-    """whether Omega Ruby's modules hold a copy of X's function: the 5 nearest by their shapes' counts (cosine), one of
-    them aligned (difflib) at a ratio of 0.75 or more"""
-    import difflib
-    import numpy as np
-    if not TWINS:
-        addresses = sorted(ofun)
-        TWINS['addresses'] = addresses
-        TWINS['shapes'] = [shapes(odata, a, ofun[a]) for a in addresses]
-        matrix = np.zeros((len(addresses), 1024), dtype=np.float32)
-        for i, sh in enumerate(TWINS['shapes']):
-            for w in sh:
-                matrix[i, hash(w) % 1024] += 1
-        norms = np.linalg.norm(matrix, axis=1)
-        norms[norms == 0] = 1
-        TWINS['matrix'] = matrix / norms[:, None]
+    """whether Omega Ruby's modules hold a copy of X's function (Twins, a ratio of 0.75 or more); a function of fewer
+    than 3 instructions is too short to tell, counted as shared"""
+    if 'twins' not in TWINS:
+        TWINS['twins'] = Twins(ofun, [(odata, LINKED)])
     sh = shapes(xdata, at, size)
     if len(sh) < 3:
-        return True  # too short to tell (a getter, a thunk): counted as shared
-    vector = np.zeros(1024, dtype=np.float32)
-    for w in sh:
-        vector[hash(w) % 1024] += 1
-    vector /= np.linalg.norm(vector) or 1
-    scores = TWINS['matrix'] @ vector
-    for i in np.argsort(-scores)[:5]:
-        other = TWINS['shapes'][i]
-        if scores[i] < 0.8 or not 0.6 <= len(other) / len(sh) <= 1.6:
-            continue
-        if difflib.SequenceMatcher(None, sh, other, autojunk=False).ratio() >= 0.75:
-            return True
-    return False
+        return True
+    return TWINS['twins'].best(sh)[1] >= 0.75
 
 
 def class_of(data, slot):
