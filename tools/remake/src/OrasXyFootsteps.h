@@ -40,12 +40,12 @@ namespace remake
 // the surfaces' grounds, in the tiles of both regions (OrasFootstepGround.h gives them)
 enum FootstepSurface : int
 {
-    // each with two steps, one picked at random at every walking or running step (OrasXyFootsteps.cpp)
-    SoftGrass = 17,   // short grass, lawns: the dirt's dull step (60%) or a light rustle of grass (40%)
-    Dirt = 18,        // earth paths, fields, ash: X's carpet sound, a dull step (70%, 55%)
+    // each one sound (the owner's choice by ear, 30 October) at two volumes, one picked at random at every step
+    SoftGrass = 17,   // short grass, lawns: X's leaves (100%, 80%)
+    Dirt = 18,        // earth paths, paths without grass, fields, ash: X's carpet sound, a dull step (70%, 55%)
     Paved = 19,       // streets, paving, stairs: the stone sound (75%, 60%)
     Wood = 20,        // floorboards, bridges, decks: Omega Ruby's wood sound (75%, 60%)
-    ForestFloor = 21, // leaves, forest soil: X's leaves sound, or the dull step (50%)
+    ForestFloor = 21, // leaves, forest soil: X's leaves (100%, 85%)
     CaveRock = 22,    // cave and mountain rock: the stone sound (100%, 80%)
     Carpet = 23,      // carpets, mats: X's carpet sound (45%, 35%)
     IndoorFloor = 24, // floors indoors (tiles, gyms, unknown): the stone sound (50%, 40%)

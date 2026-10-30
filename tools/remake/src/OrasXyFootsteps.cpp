@@ -90,18 +90,20 @@ Bytes XyFootstepsFile(const Bytes& xDllField, const Bytes& orasDllField, XySound
     // X's carpet FT_11 -17.8 and its centroid the lowest of the dry steps, 1.6 kHz, X's leaves FT_06 -22.9)
     // Each surface has two steps, the cave's code picking one at random at every walking or running step (kinds 0-2; in
     // the table, the second foot's column, which those kinds never use: their step frames all name foot 1, 0xF2EB8): the
-    // owner heard one sound over and over (30 October), and wanted short grass nearer the dirt's step than the grass's
+    // owner heard one sound over and over (30 October)
     struct Step { bool FromX; uint32_t Base; int Percent; };
     struct Surface { int Ground; Step A, B; };
+    // each surface one sound, the one the owner chose for it by ear (30 October: leaves for grass textures, stone for
+    // paving, the carpet's for plain paths), at two volumes; mixing sounds of different grounds sounded incoherent
     static const Surface surfaces[] = {
-        {SoftGrass, {true, 11, 60}, {false, 4, 40}},   // the dirt's dull step, or a light rustle of grass
-        {Dirt, {true, 11, 70}, {true, 11, 55}},
-        {Paved, {false, 3, 75}, {false, 3, 60}},
-        {Wood, {false, 6, 75}, {false, 6, 60}},
-        {ForestFloor, {true, 6, 100}, {true, 11, 50}}, // leaves, or the soil under them
-        {CaveRock, {false, 3, 100}, {false, 3, 80}},
-        {Carpet, {true, 11, 45}, {true, 11, 35}},
-        {IndoorFloor, {false, 3, 50}, {false, 3, 40}},
+        {SoftGrass, {true, 6, 100}, {true, 6, 80}},    // X's leaves
+        {Dirt, {true, 11, 70}, {true, 11, 55}},        // X's carpet
+        {Paved, {false, 3, 75}, {false, 3, 60}},       // stone
+        {Wood, {false, 6, 75}, {false, 6, 60}},        // Omega Ruby's wood
+        {ForestFloor, {true, 6, 100}, {true, 6, 85}},  // X's leaves
+        {CaveRock, {false, 3, 100}, {false, 3, 80}},   // stone
+        {Carpet, {true, 11, 45}, {true, 11, 35}},      // X's carpet
+        {IndoorFloor, {false, 3, 50}, {false, 3, 40}}, // stone
     };
     // a step's row (9 kinds x 2 feet), its walking and running sounds at its volume (the jumps and a ledge's landing as loud
     // as on the base ground: kinds 3-8, SEQ_SE_RS_JUMP, SEQ_SE_FLD_DANSA, SEQ_SE_FLD_CHAKUCHI there)
