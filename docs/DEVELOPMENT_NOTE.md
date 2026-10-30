@@ -383,7 +383,25 @@ redone; the zones before what runs in them; one phone check per block, not per c
       `AreaWaterSurface`, `AreaFriendShip`, `AreaTenji` braille, `DllUSShrine`, `DllUSR113` ash). Which of them need
       per-zone data X/Y's zones lack (inferred, not read): DexNav (each zone's hidden Pokemon), secret bases (their
       spots), soaring and contests (Hoenn's sky and venues: placing them in Kalos is a design choice, the owner's).
-      Left in step 2: read each one's per-zone data, then the list for 6-7 is whole.
+      **Read 30 October, what starts each one** (step 2 closed):
+      - by a zone's area kind (header +0x26), `Field_LoadAreaSpecificModule` 0x10273D30, its 26 cases read: 0 Fighting
+        gym, 3 Mirror, 4 Elite Four Dragon, 5 Esper gym, 6 and 23 Passage, 7 Elec gym, 8 Pokemon Center, 10 secret
+        base, 11 Flight gym, 13 Fire gym, 14 Water gym, 15 Route 113, 16 contest venue, 21 bridge, 24 contest museum,
+        25 shrine; 1, 2, 9, 12, 17-20, 22 nothing. A second module per zone (kept at +0x1B8,
+        `Field_LoadAreaWaterSurfaceModule` 0x10273B40) by a second kind: 0xC friendship, 0xF one more (not named),
+        0x14 water surface, 0x1A braille, 0x1B one more. These are places: on Kalos's map only where a Kalos zone is
+        given such a kind (none today; X's kinds are translated for its gyms only, XyGymAreaKind);
+      - by event, the event modules' table (.code 0x5F46CC, by index): Flash 6 from the native `CallFlashEffect` (the
+        field move's script; which zones are dark: not read), fishing 7 from the .code (0x3D14F8), the secret base PCs
+        9 and 10 from the natives `_SecretBaseCallPcEvent` / `_SecretBaseCallOtherPcEvent`, the DexNav's sneaking
+        encounter 11 (`DllFieldEventContactEncount`) from DllField 0x102DAD80, under the step checks (0x10263AD0);
+      - per-zone data, inferred, not read: the DexNav's hidden Pokemon are likely Omega Ruby's encounter kind 2 (3
+        slots, a kind X/Y lacks: OrasXyEncounters.h leaves it empty in Kalos's zones); secret bases' spots are zone
+        events (trees, bushes, caves): none in Kalos; soaring's places and contest venues are Hoenn's (Kalos: the
+        owner's choice).
+      So for 6-7: X/Y's own code by the groups above (234 natives, the classes named), Omega Ruby's on Kalos's map:
+      the DexNav (kind 2 tables per Kalos zone), secret base spots in Kalos, Flash's dark zones, and the owner's
+      choice on soaring and contests in Kalos.
    3. The League block: the eight gyms (the per-gym steps above: Viola, Grant, Korrina, Ramos, Clemont, Valerie,
       Olympia, Wulfric), each with its badge; then the Elite Four and Champion of each region (A2, their intros as the
       leaders'), the Elite Four and Champion elevators, badge gates and Victory Road (B2).
