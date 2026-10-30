@@ -9,3 +9,14 @@ field +0xFC	field +0x10C	chains +0xFC +0x7C: X 145, Omega Ruby 0; +0x10C +0x7C: 
 field +0xFC +0x7C	field +0x10C +0x7C	the same counts
 field +0xFC +0xC4	field +0x10C +0xC4	chains +0xFC +0xC4: X 1, Omega Ruby 0; +0x10C +0xC4: X 0, Omega Ruby 1 (one each: the ambience setter)
 field +0x0	not the field	DllUSGymEsper 0xB70: the object at [sp, #0x20]'s +4, not the field (the tool's over-approximation)
+# Same in both games, 30 October: Omega Ruby's own area modules (cro/DllUS*.cro, run through this tool) reach the same offsets from their
+# constructors and methods: DllUSPassage +0x4 +0x8 +0xC +0x10 +0x24 +0x2C, DllUSGymElec and DllUSGymEsper +0x4 +0x10 (as X's same-named modules).
+field +0x4	same	Omega Ruby's DllUSPassage, DllUSGymElec, DllUSGymEsper read it in their constructors as X's (the heap the module allocates from)
+field +0x8	same	Omega Ruby's DllUSPassage reads it as X's
+field +0xC	same	Omega Ruby's DllUSPassage; chains +0xC +k: the same signature in both DllFields (cosine 0.99, 600 and 586 chains)
+field +0x10	same	Omega Ruby's DllUSPassage, DllUSGymElec, DllUSGymEsper read it in their constructors as X's
+field +0x24	same	Omega Ruby's DllUSPassage reads it as X's
+field +0x2C	same	Omega Ruby's DllUSPassage reads it as X's
+field +0x50 +0x2C	field +0x60 +0x2C	xy_code_compare.py sites: +0x50 +0x2C in 10 X functions, +0x60 +0x2C in 6 Omega Ruby ones, +0x50 +0x2C in none
+field +0xE0	field +0xF0	the field's function aligned (X 0x1029E69C, Omega Ruby 0x102DF954): +0xD8 +0xDC +0xE0 +0xE4 +0xE8 +0xEC +0xF0 each +0x10 (one vote each)
+field +0x168	field +0x170	DllUSPokecen: X's reads +0x168 where Omega Ruby's reads +0x170; chains +0x168 +k / +0x170 +k: the same signature (cosine 0.99, 4 and 3)

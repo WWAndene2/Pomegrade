@@ -429,8 +429,14 @@ const XyModulePort& XyGymRock()
             {0x102DDD60, 0x10327D20}, // the field's player ([+0x158] in X, [+0x164] in Omega Ruby)
         };
         // the player's position: + 0xC64 in X, + 0x6F8 in Omega Ruby (add r0, r0, #0x400; add r0, r0, #0x2F8)
+        // and the field's members Omega Ruby keeps elsewhere (prototype/xy_module_layout.py --words, 30 October): + 0xFC is
+        // its + 0x10C (X's + 0xFC + 0xC4, the ambience, written on the way back from a won battle, was a null write)
         p.Words = {{0x21C, 0xE2800B03, 0xE2800B01, "the player's position: add #0xC00 -> #0x400"},
-                   {0x228, 0xE2800064, 0xE2800FBE, "the player's position: add #0x64 -> #0x2F8"}};
+                   {0x228, 0xE2800064, 0xE2800FBE, "the player's position: add #0x64 -> #0x2F8"},
+                   {0x410, 0xE59220FC, 0xE592210C, "the field's + 0xFC -> + 0x10C"},
+                   {0x468, 0xE5900050, 0xE5900060, "the field's + 0x50 -> + 0x60"},
+                   {0x4EC, 0xE59110FC, 0xE591110C, "the field's + 0xFC -> + 0x10C"},
+                   {0x500, 0xE59220FC, 0xE592210C, "the field's + 0xFC -> + 0x10C"}};
         p.Sounds = {{0x280, 0xA0060}, {0x290, 0xA0060}}; // the ambient sound set to a volume, then stopped
         p.Vtables = {0x1568};
         p.Slots = 13;
@@ -460,7 +466,12 @@ const XyModulePort& XyGymIce()
             {0x10282940, 0x102D0D2C},
         });
         p.Thunks = {Request};
-        p.Words = {LoaderSize(0x180C)};
+        p.Words = {LoaderSize(0x180C),
+                   // the field's members Omega Ruby keeps elsewhere (prototype/xy_module_layout.py --words, 30 October)
+                   {0x1580, 0xE59020FC, 0xE590210C, "the field's + 0xFC -> + 0x10C"},
+                   {0x1594, 0xE59020FC, 0xE590210C, "the field's + 0xFC -> + 0x10C"},
+                   {0x15A8, 0xE59020FC, 0xE590210C, "the field's + 0xFC -> + 0x10C"},
+                   {0x16D8, 0xE5900050, 0xE5900060, "the field's + 0x50 -> + 0x60"}};
         p.Archive = 0xAE; // a/1/7/4
         p.ArchiveWords = {0x1698};
         p.Vtables = {0x2620};
@@ -484,7 +495,9 @@ const XyModulePort& XyGymElec()
         });
         p.Field = SharedField();
         p.Thunks = {Request};
-        p.Words = {LoaderSize(0xEA8), LoaderSize(0x1364), LoaderSize(0x1704)};
+        p.Words = {LoaderSize(0xEA8), LoaderSize(0x1364), LoaderSize(0x1704),
+                   // the field's member Omega Ruby keeps elsewhere (prototype/xy_module_layout.py --words, 30 October)
+                   {0xD74, 0xE5900050, 0xE5900060, "the field's + 0x50 -> + 0x60"}};
         p.Archive = 0xEB; // a/2/3/5
         p.ArchiveWords = {0xD34, 0x1300, 0x1684};
         p.Vtables = {0x2108, 0x2144, 0x2180}; // its three classes'

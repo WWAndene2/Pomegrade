@@ -342,7 +342,12 @@ redone; the zones before what runs in them; one phone check per block, not per c
    another step goes with it. Owner's decisions kept: the zones' load test last, the gyms next.
    1. The field offsets fixed for every ported module (+0x50 -> +0x60, +0xFC -> +0x10C, through the tool's table, in
       XyPortModule), the tool run on the other ported modules (Route 13's DllUSR13, the dust box and cloud), Grant's gym
-      run again headless (its return after the win).
+      run again headless (its return after the win). **Done 30 October but the run:** the tool's table now covers every
+      place of the eight gyms and DllUSR13 (31 places; the low members +0x4 to +0x2C the same, read in Omega Ruby's own
+      DllUSPassage, DllUSGymElec, DllUSGymEsper; +0xE0 -> +0xF0, +0x168 -> +0x170); `--words` writes the patches:
+      Grant's 4, Wulfric's 4 and Clemont's 1 added to their ports (OrasXyGymModules.cpp, `xy-gym-module` builds all three);
+      DllUSR13's 7 were already patched by hand on 24 October, the tool finds the same 7. The dust box is DllField cave code,
+      no module. Left: Grant's headless run (over 15 minutes, to ask).
    2. Step 4's static search (no run): X/Y's features in engine code with no script command, and Omega Ruby's features on
       Kalos's map (DexNav, soaring, secret bases, the PokeNav Plus apps, contests): the whole list for 4-7 below.
    3. The League block: the eight gyms (the per-gym steps above: Viola, Grant, Korrina, Ramos, Clemont, Valerie,
