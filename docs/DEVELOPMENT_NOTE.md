@@ -381,7 +381,11 @@ redone; the zones before what runs in them; one phone check per block, not per c
       DllUSR13's 7 were already patched by hand on 24 October, the tool finds the same 7. The dust box is DllField cave code,
       no module. Grant's gym run again headless (run gW1, 30 October, his team made weak): the battle, the win, back in the
       arena with his TM's line, the field going on. Not proven by that run: that the null write is gone (the emulator maps
-      0-0x40000000 and logs no such write; the fix is checked in the ported module's words, `xy-gym-module`).
+      0-0x40000000 and logs no such write; the fix is checked in the ported module's words, `xy-gym-module`). **31 October:** the tool's
+      two blind spots fixed (a field slot stored after the constructor's first call, `this` followed through add / sub
+      and calls as sub-object constructors return it; a base writeback, `[rB, #d]!`): Viola's module keeps the field at
+      +0x8 too and walks it from there, its +0x10, +0x24, +0x2C (read wrongly as +0x1C, +0x20) and the heap's vtable,
+      all checked the same; the nine modules 0 unchecked, their 25 words unchanged (the ports already hold them).
    2. Step 4's static search (no run): X/Y's features in engine code with no script command, and Omega Ruby's features on
       Kalos's map (DexNav, soaring, secret bases, the PokeNav Plus apps, contests): the whole list for 4-7 below.
       **First part done 30 October** (`prototype/xy_only_code.py`: each X DllField function against every Omega Ruby
