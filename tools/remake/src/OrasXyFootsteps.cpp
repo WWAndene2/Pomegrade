@@ -96,15 +96,16 @@ Bytes XyFootstepsFile(const Bytes& xDllField, const Bytes& orasDllField, XySound
     struct Surface { int Ground; Step A, B, C; };
     // each surface one sound, the one the owner chose for it by ear (30 October: leaves for grass textures, stone for
     // paving, the carpet's for plain paths), at two volumes; mixing sounds of different grounds sounded incoherent
+    // about half the volumes first tried: heard all the time while playing, the steps must stay subtle (owner, 30 October)
     static const Surface surfaces[] = {
-        {SoftGrass, {true, 6, 100}, {true, 6, 80}, {true, 6, 90}},     // X's leaves
-        {Dirt, {true, 11, 70}, {true, 11, 55}, {true, 11, 62}},        // X's carpet
-        {Paved, {false, 3, 75}, {false, 3, 60}, {false, 3, 67}},       // stone
-        {Wood, {false, 6, 75}, {false, 6, 60}, {false, 6, 67}},        // Omega Ruby's wood
-        {ForestFloor, {true, 6, 100}, {true, 6, 85}, {true, 6, 92}},   // X's leaves
-        {CaveRock, {false, 3, 100}, {false, 3, 80}, {false, 3, 90}},   // stone
-        {Carpet, {true, 11, 45}, {true, 11, 35}, {true, 11, 40}},      // X's carpet
-        {IndoorFloor, {false, 3, 50}, {false, 3, 40}, {false, 3, 45}}, // stone
+        {SoftGrass, {true, 6, 60}, {true, 6, 45}, {true, 6, 52}},      // X's leaves
+        {Dirt, {true, 11, 35}, {true, 11, 27}, {true, 11, 31}},        // X's carpet
+        {Paved, {false, 3, 35}, {false, 3, 27}, {false, 3, 31}},       // stone
+        {Wood, {false, 6, 35}, {false, 6, 27}, {false, 6, 31}},        // Omega Ruby's wood
+        {ForestFloor, {true, 6, 60}, {true, 6, 48}, {true, 6, 54}},    // X's leaves
+        {CaveRock, {false, 3, 50}, {false, 3, 40}, {false, 3, 45}},    // stone
+        {Carpet, {true, 11, 25}, {true, 11, 18}, {true, 11, 21}},      // X's carpet
+        {IndoorFloor, {false, 3, 25}, {false, 3, 18}, {false, 3, 21}}, // stone
     };
     // a step's row (9 kinds x 2 feet), its walking and running sounds at its volume (the jumps and a ledge's landing as loud
     // as on the base ground: kinds 3-8, SEQ_SE_RS_JUMP, SEQ_SE_FLD_DANSA, SEQ_SE_FLD_CHAKUCHI there)

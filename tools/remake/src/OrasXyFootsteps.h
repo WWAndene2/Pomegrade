@@ -42,14 +42,14 @@ namespace remake
 enum FootstepSurface : int
 {
     // each one sound (the owner's choice by ear, 30 October) at three volumes, one picked at random at every step
-    SoftGrass = 17,   // short grass, lawns: X's leaves (100%, 80%)
-    Dirt = 18,        // earth paths, paths without grass, fields, ash: X's carpet sound, a dull step (70%, 55%)
-    Paved = 19,       // streets, paving, stairs: the stone sound (75%, 60%)
-    Wood = 20,        // floorboards, bridges, decks: Omega Ruby's wood sound (75%, 60%)
-    ForestFloor = 21, // leaves, forest soil: X's leaves (100%, 85%)
-    CaveRock = 22,    // cave and mountain rock: the stone sound (100%, 80%)
-    Carpet = 23,      // carpets, mats: X's carpet sound (45%, 35%)
-    IndoorFloor = 24, // floors indoors (tiles, gyms, unknown): the stone sound (50%, 40%)
+    SoftGrass = 17,   // short grass, lawns: X's leaves (60%, 45%, 52%)
+    Dirt = 18,        // earth paths, paths without grass, fields, ash: X's carpet sound, a dull step (35%, 27%, 31%)
+    Paved = 19,       // streets, paving, stairs: the stone sound (35%, 27%, 31%)
+    Wood = 20,        // floorboards, bridges, decks: Omega Ruby's wood sound (35%, 27%, 31%)
+    ForestFloor = 21, // leaves, forest soil: X's leaves (60%, 48%, 54%)
+    CaveRock = 22,    // cave and mountain rock: the stone sound (50%, 40%, 45%)
+    Carpet = 23,      // carpets, mats: X's carpet sound (25%, 18%, 21%)
+    IndoorFloor = 24, // floors indoors (tiles, gyms, unknown): the stone sound (25%, 18%, 21%)
     FootstepGrounds = 25
 };
 
