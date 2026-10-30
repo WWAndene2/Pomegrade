@@ -366,8 +366,24 @@ redone; the zones before what runs in them; one phone check per block, not per c
       (Furfrou `PokePartyChangePoodleFormNo`, Rotom), field demos (`CallFieldCaptureDemo*`, `CallHidenDemo`,
       `_MapChangeAndDemoCall`), the event camera (`EVCamera*`), the dust box and clouds (ported). Groups reached as data
       (vtables, callbacks) with no native: the projection maps' cloud class (0x10221A04-0x102221D4), and about twenty
-      groups of 3 to 16 functions still to name (the largest: 0x10244530, 0x1022E070, 0x102BCAAC, 0x10293EE8). Left in
-      step 2: name those groups; Omega Ruby's features on Kalos's map.
+      groups of 3 to 16 functions, named the same day by their vtables' C++ classes (the tool reads the type info): the
+      projection maps (`projectionmap::Cloud`, `ProjectionMapPlr0201`, `Plr0701`, `Plr0702`, factory 0x102224D0), the
+      fitting room (`EventKisekaeCheck`), Friend Safari (`app::friendsafari::Event`, `Select1View`), the Elite Four's
+      rooms (`SequenceBigFourFire`, `SequenceBigFourDragon`), the field capture demo (`EventFieldNotCaptureDemo`),
+      Pokemon jumping out (`EffectTobiEnc_Hirai`, `EffectTobiEnc_Tenzyou`), the dust clouds' move codes (ported),
+      the player's grid (`PlayerGrid`), drawing codes (`DrawCodeHero`, `DrawCodeMannequin`, `DrawCodeWaitLoop`,
+      `DrawCodeNormal`), the field menu and PSS (`subscreen::FieldMenu`, `pss::FM_Pss`, its Wi-Fi and play menus), 3D
+      sub-objects' movement (`mmodel::Move3DSubObject`, 0x10244530, 16 functions: X's moving platforms, to confirm).
+      Not named (no class, no string, read before porting): 0x102BCAAC (5 functions, from a table at 0x10336AB4),
+      0x1029C288 and 0x1029DCC0 (a table at 0x102E7058-0x102E7088), 0x102496D8 (12 small functions), 0x10251600.
+      **Omega Ruby's own, for Kalos's map** (its modules X has none of, 30 October): contests (`DllContest*`, the
+      venues and museum `DllUSContestVenue`, `DllUSContestMuseum`), secret bases (`DllUSSecretBase`, the PCs, QR,
+      photos), soaring (`DllSkyTrip`), DexNav and its sneaking encounters (`DllFieldEventContactEncount`), Flash in dark
+      caves (`DllFieldEventFlash`), fishing's own event (`DllFieldEventFishing`), the areas' modules (`DllUSAreaBridge`,
+      `AreaWaterSurface`, `AreaFriendShip`, `AreaTenji` braille, `DllUSShrine`, `DllUSR113` ash). Which of them need
+      per-zone data X/Y's zones lack (inferred, not read): DexNav (each zone's hidden Pokemon), secret bases (their
+      spots), soaring and contests (Hoenn's sky and venues: placing them in Kalos is a design choice, the owner's).
+      Left in step 2: read each one's per-zone data, then the list for 6-7 is whole.
    3. The League block: the eight gyms (the per-gym steps above: Viola, Grant, Korrina, Ramos, Clemont, Valerie,
       Olympia, Wulfric), each with its badge; then the Elite Four and Champion of each region (A2, their intros as the
       leaders'), the Elite Four and Champion elevators, badge gates and Victory Road (B2).

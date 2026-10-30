@@ -15,7 +15,7 @@ module) by the shapes' counts are aligned with it (difflib), and a ratio of 0.75
 (a function of fewer than 3 instructions is counted as shared). The others are X's own. They are grouped by X's call
 graph into clusters (an X-own function and the X-own functions it calls); a cluster's root is a member no other member calls, and its entry says how the game reaches it:
 "called by <X function>" from shared code (the hook a port needs), "data" (its address is a word of X's modules: a
-vtable, a native's table, a callback), or "unreached" (neither found). Printed: one line per cluster of at least N
+vtable, a native's table, a callback; a vtable's C++ class named from its type info), or "unreached" (neither found). Printed: one line per cluster of at least N
 functions (default 1), largest first: root, functions, instructions, entry; then the totals. The script natives among a cluster's
 functions are named (X's {name, function} tables found in its modules). --names: a TSV of `address<TAB>name` (X
 addresses) printed beside the roots (the ones read so far).
@@ -109,6 +109,23 @@ def twin(xdata, at, size, odata, ofun):
     return False
 
 
+def class_of(data, slot):
+    """the C++ class whose vtable holds this slot, by its type info (the word before a vtable's first slot points at
+    {vptr, char *mangled name}): the nearest such word up to 64 words back, its name ("N5field10PlayerGridE"), or None"""
+    def word(a):
+        return struct.unpack_from('<I', data, a - LINKED)[0] if LINKED <= a < LINKED + len(data) - 3 else None
+
+    for k in range(0, 256, 4):
+        info = word(slot - k)
+        name_at = word(info + 4) if info is not None else None
+        if name_at is None or not LINKED <= name_at < LINKED + len(data):
+            continue
+        raw = data[name_at - LINKED:name_at - LINKED + 96].split(b'\0')[0]
+        if len(raw) > 4 and raw[:1] in b'N0123456789' and all(32 < c < 127 for c in raw):
+            return raw.decode()
+    return None
+
+
 def functions(path):
     """each function's start and its size in instructions (the TSV's second column is its bytes, Ghidra's body)"""
     out = {}
@@ -155,12 +172,12 @@ def main():
             raw = xlinked[name_at - LINKED:name_at - LINKED + 48].split(b'\0')[0]
             if 3 <= len(raw) < 48 and raw.replace(b'_', b'').isalnum() and raw[:1].isalpha() or raw[:1] == b'_':
                 names[function] = 'native ' + raw.decode()
-    # words of X's modules pointing at a function (vtables, native tables, callbacks)
-    referenced = set()
+    # words of X's modules pointing at a function (vtables, native tables, callbacks), and the C++ class of a vtable
+    referenced = {}
     for off in range(0, len(xlinked) - 3, 4):
         w = struct.unpack_from('<I', xlinked, off)[0]
-        if w in own:
-            referenced.add(w)
+        if w in own and w not in referenced:
+            referenced[w] = class_of(xlinked, LINKED + off)
     # clusters: union of an own function and the own functions it calls
     parent = {a: a for a in own}
 
@@ -187,7 +204,7 @@ def main():
             if outside:
                 entries.append('0x%X called by %s' % (r, ' '.join('0x%X' % c for c in outside[:3]) + (' ...' if len(outside) > 3 else '')))
             elif r in referenced:
-                entries.append('0x%X data' % r)
+                entries.append('0x%X data' % r + (' (%s)' % referenced[r] if referenced[r] else ''))
             else:
                 entries.append('0x%X unreached' % r)
             if r in names:
