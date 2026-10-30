@@ -347,7 +347,9 @@ redone; the zones before what runs in them; one phone check per block, not per c
       DllUSPassage, DllUSGymElec, DllUSGymEsper; +0xE0 -> +0xF0, +0x168 -> +0x170); `--words` writes the patches:
       Grant's 4, Wulfric's 4 and Clemont's 1 added to their ports (OrasXyGymModules.cpp, `xy-gym-module` builds all three);
       DllUSR13's 7 were already patched by hand on 24 October, the tool finds the same 7. The dust box is DllField cave code,
-      no module. Left: Grant's headless run (over 15 minutes, to ask).
+      no module. Grant's gym run again headless (run gW1, 30 October, his team made weak): the battle, the win, back in the
+      arena with his TM's line, the field going on. Not proven by that run: that the null write is gone (the emulator maps
+      0-0x40000000 and logs no such write; the fix is checked in the ported module's words, `xy-gym-module`).
    2. Step 4's static search (no run): X/Y's features in engine code with no script command, and Omega Ruby's features on
       Kalos's map (DexNav, soaring, secret bases, the PokeNav Plus apps, contests): the whole list for 4-7 below.
    3. The League block: the eight gyms (the per-gym steps above: Viola, Grant, Korrina, Ramos, Clemont, Valerie,
