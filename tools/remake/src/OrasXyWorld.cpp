@@ -6,6 +6,7 @@
 #include "Garc.h"
 #include "N3dsRom.h"
 #include "NitroCompression.h"
+#include "OrasFootstepGround.h"
 #include "OrasHoennNeutral.h"
 #include "OrasMatrix.h"
 #include "OrasNewZone.h"
@@ -41,6 +42,30 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     N3dsRom xRom(ws.XyRom);
     const Garc xZones(xRom.Read("a/0/1/2")), xMatrices(xRom.Read("a/0/4/2")), xPieces(xRom.Read("a/0/4/1")), xPacks(xRom.Read("a/0/1/3")),
         xProps(xRom.Read("a/0/2/4"));
+
+    // Omega Ruby's own pieces with footstep grounds from their textures (OrasFootstepGround.h), before X/Y's are appended:
+    // each changed member compressed again as it was, and checked to read back. Not ReplaceMember, which writes the whole
+    // archive to check each of the 857 members
+    {
+        Garc& pieces = ws.Edited("a/0/3/9");
+        const Garc& original = ws.Original("a/0/3/9");
+        int members = 0, tiles = 0;
+        for (size_t i = 0; i < original.Count(); i++)
+        {
+            const Bytes plain = Plain(pieces.Sub(i));
+            if (plain.size() < 2 || plain[0] != 'G' || plain[1] != 'R') continue;
+            int changed = 0;
+            const Bytes grounded = WithTextureGrounds(plain, FootstepGame::Oras, &changed);
+            if (changed == 0) continue;
+            const Bytes stored = IsLzCompressed(original.Sub(i)) ? Lz11Compress(grounded) : grounded;
+            if (Plain(stored) != grounded) throw FormatError("piece " + std::to_string(i) + " does not read back identical");
+            pieces.Set(i, stored);
+            members++;
+            tiles += changed;
+        }
+        snprintf(line, sizeof line, "Omega Ruby's pieces: %d tile(s) of ground 0 given their texture's footstep ground, in %d piece(s)", tiles, members);
+        log.push_back(line);
+    }
 
     // Omega Ruby's own zones neutral (--hoenn-story off), before X/Y's are appended
     if (!o.HoennStory)
@@ -159,7 +184,8 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
             if (p == OrasMatrix::None) continue;
             const Bytes xPiece = Plain(xPieces.Sub(p));
             const BinLinker gr = BinLinker::Read(xPiece, "GR");
-            const Bytes piece = XyPieceToOras(xPiece, xPack, (size_t)pack, kage, "", gr.Files.at(4).at(1), gr.Files.at(4).at(0), props, packData.at(pack), log, &backgroundOf);
+            // with footstep grounds from its textures, X's numbers (Kalos's zones play X's table: OrasXyFootsteps.h)
+            const Bytes piece = WithTextureGrounds(XyPieceToOras(xPiece, xPack, (size_t)pack, kage, "", gr.Files.at(4).at(1), gr.Files.at(4).at(0), props, packData.at(pack), log, &backgroundOf), FootstepGame::X);
             p = (uint16_t)AppendMember(ws.Edited("a/0/3/9"), orasPieces, 6, piece, "GR");
         }
         for (uint16_t& zone : matrix.Zones)

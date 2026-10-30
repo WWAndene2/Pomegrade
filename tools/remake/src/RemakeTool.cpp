@@ -134,6 +134,7 @@
 #include "OrasInspect.h"
 #include "OrasMeasure.h"
 #include "TopView.h"
+#include "OrasFootstepGround.h"
 #include "OrasAppend.h"
 #include "OrasWorkspace.h"
 #include "OrasEngine.h"
@@ -777,6 +778,32 @@ int main(int argc, char** argv)
                 for (const auto& [value, n] : count) printf(" %08X x%d%s", value, n, TileValueEstablished(value) ? "" : " (not the game's)");
                 printf("\n");
             }
+            return 0;
+        }
+        if (cmd == "piece-grounds" && argc >= 3)
+        {
+            // piece-grounds [--x] <GR piece>...: which texture each footstep ground is drawn with (the tiles' ground, bits 12-16,
+            // against the texture over each tile, OrasFootstepGround.h), counted over the pieces given: what the games tag,
+            // and what their ground-0 tiles show; a line: ground, texture, tiles, the ground the texture is given (GroundOfTexture)
+            // --x: X's own pieces, their ground in bits 11-15
+            const bool x = std::string(argv[2]) == "--x";
+            std::map<std::pair<int, std::string>, int> count;
+            for (int a = x ? 3 : 2; a < argc; a++)
+            {
+                Bytes gr = Plain(ReadFile(argv[a]));
+                if (x)
+                {
+                    // X's terrain models are BCH 0x20, read as Omega Ruby's once upgraded (as XyPieceToOras does)
+                    BinLinker piece = BinLinker::Read(gr, "GR");
+                    piece.Files.at(1) = BchUpgradeTo21(piece.Files.at(1));
+                    gr = piece.Write();
+                }
+                const Bytes tiles = BinLinker::Read(gr, "GR").Files.at(0);
+                const std::vector<std::string> textures = TileSurfaceTextures(gr);
+                for (int t = 0; t < 1600 && 4 + (size_t)t * 4 + 4 <= tiles.size(); t++) count[{(int)(U32(tiles, 4 + (size_t)t * 4) >> (x ? 11 : 12) & 0x1F), textures[t]}]++;
+            }
+            for (const auto& [key, n] : count)
+                printf("%d\t%s\t%d\t%d\n", key.first, key.second.c_str(), n, GroundOfTexture(key.second, x ? FootstepGame::X : FootstepGame::Oras));
             return 0;
         }
         if ((cmd == "oras-topview" && argc >= 5) || (cmd == "topview" && argc >= 4))

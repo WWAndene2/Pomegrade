@@ -596,6 +596,16 @@ OrasXyWorld.cpp). Both games' packs are AD containers of 12 files, the same layo
   headless/audio_diff.py), drawing on or off, so the step function 0x102E5DC8 is not reached on those walks (its
   caller FUN_102E93EC plays a step only on frames of the player's motions it lists, 0x102E962C, not traced). To hear
   them on the phone: cheats below (no music, no wild Pokemon).
+  **Ground 0 has no sound in either game** (checked on the phone by the owner, 30 October): 96% of Omega Ruby's tiles
+  (grass, paths, floors indoors) are at ground 0. Grounds from textures (owner's request, 30 October,
+  `OrasFootstepGround.h`, run by oras-xy-world): each ground-0 tile takes the ground of the texture drawn over it (the
+  highest upward face over its centre, the material's name when no texture is named), by a table of name words read
+  from the games' own tagging (`remake_tool piece-grounds [--x] <pieces>` prints it: 50% of the tiles the games tag
+  get the same ground back, the rest wet sand 10 and tall grass 5 read as sand 8 and grass 4). Built (local, matrix 0):
+  422,575 of Omega Ruby's tiles in 726 pieces given a ground; its pieces recompressed, the a/0/3/9 patch 98 MB. Not
+  covered: X/Y's outdoor terrain, drawn by projection (projection_dummy, 404,507 tiles), and the 84 pieces whose model
+  has no face over the tiles; they stay silent. The new tile values (00004020...) are not among the game's own;
+  not tested on the phone.
 - *Sounds.* X/Y's 1,554 sound ids: 146 streams (music, ported apart), 1,329 of a name Omega Ruby has, 79 of none. By
   their data (the sound's sequence file, its banks, their wave archives; each file's version word +8 set aside, 0x0100 in
   X/Y and 0x0101 in Omega Ruby, and a bank's wave archive ids 0x05xxxxxx compared by the archive's contents, the two
