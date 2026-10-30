@@ -1,6 +1,6 @@
 // The footsteps (OrasXyFootsteps.h): the ground bound made 25, the table hook reading the zone pc-relatively through
 // DllField's word holding its global, Hoenn's table below the first X/Y zone and Kalos's from it, both reached
-// pc-relatively and word for word the file's; on a surface, the step's sound picked at random
+// pc-relatively and word for word the file's; on a surface, the step's volume and pitch varied at random
 #include "OrasXyFootsteps.h"
 #include <cstdio>
 #include <map>
@@ -64,16 +64,16 @@ int main()
         check(tableCode == start + 2 * tableBytes, "the table's code after the tables" + where);
         // on a surface, walking or running: the foot's column a random bit of the LCRNG, its seed past the code
         check(at[tableCode].Value == 0xE3560011 && (at[tableCode + 4].Value >> 24) == 0x3A && at[tableCode + 8].Value == 0xE3550002 &&
-                  (at[tableCode + 12].Value >> 24) == 0x8A && Target(tableCode + 4, at[tableCode + 4].Value) == tableCode + 184 &&
-                  Target(tableCode + 12, at[tableCode + 12].Value) == tableCode + 184,
+                  (at[tableCode + 12].Value >> 24) == 0x8A && Target(tableCode + 4, at[tableCode + 4].Value) == tableCode + 144 &&
+                  Target(tableCode + 12, at[tableCode + 12].Value) == tableCode + 144,
               "the random foot: ground 17 up and kinds 0-2 only" + where);
         uint32_t s = tableCode + 16;
         const uint32_t seed = Chain12(at, s);
         check(at[tableCode + 28].Value == 0xE59C2000 && at[tableCode + 40].Value == 0xE0020291 && at[tableCode + 52].Value == 0xE58C2000 &&
-                  at.count(seed) && seed > tableCode + 184 && at[tableCode + 96].Value == 0xE7E71452 && at[tableCode + 56].Value == 0xE1A01C22 && at[tableCode + 92].Value == 0xE3A05001 &&
-                  at[tableCode + 140].Value == 0xE7E71852 && at[tableCode + 136].Value == 0xEDCD7A01 && at[tableCode + 180].Value == 0xEDCD7A02,
-              "the random step: seed * 0x41C64E6D + 0x6073 stored, one of three columns, the volume and pitch scaled by its bytes, the seed past the code" + where);
-        uint32_t a = tableCode + 184;
+                  at[tableCode + 56].Value == 0xE7E71452 && at[tableCode + 96].Value == 0xEDCD7A01 && at[tableCode + 100].Value == 0xE7E71852 &&
+                  at[tableCode + 140].Value == 0xEDCD7A02 && at.count(seed) && seed > tableCode + 144,
+              "the variation: the LCRNG's seed stored, the volume (sp + 4) and pitch (sp + 8) scaled by its bytes" + where);
+        uint32_t a = tableCode + 144;
         check(Chain(at, a) == 0x10263D84, "the table: the zone through DllField's word holding the global" + where);
         check(at[a].Value == 0xE59CC000 && at[a + 4].Value == 0xE59CC01C && at[a + 8].Value == 0xE6FFC07C && at[a + 12].Value == (0xE3002000 | 538) &&
               at[a + 16].Value == 0xE15C0002,

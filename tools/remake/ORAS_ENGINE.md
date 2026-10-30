@@ -606,7 +606,8 @@ OrasXyWorld.cpp). Both games' packs are AD containers of 12 files, the same layo
   games' walked tiles (`remake_tool piece-grounds [--x] <pieces>`). Eight surfaces, grounds 17-24 in both regions'
   tables (25 grounds each; the footstep function is the ground reader's only caller), each with two steps picked at
   random: one sound each, the owner's choice by ear (30 October: X's leaves for grass textures, stone for paving and
-  rock, X's carpet for plain paths; OrasXyFootsteps.h lists them), at two volumes; sand, shallows, metal and X's snow
+  rock, X's carpet for plain paths; OrasXyFootsteps.h lists them) at one volume, about half the first tried, each step
+  varied at random in volume (+-20%) and pitch (+-8%, the field inferred); sand, shallows, metal and X's snow
   take the games' own grounds. **Heard on the phone (30 October, the test field sandbox/footsteps.txt):** every surface
   and X's ported steps sound once kept loaded (GROUP_FIELD_GLOBAL, below); the field's strips of the game's own tall
   grass, sand, metal and deep swamp stay silent there while sand and tall grass sound in Hoenn's maps (their tiles' kind
