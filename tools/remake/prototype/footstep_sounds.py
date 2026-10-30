@@ -10,9 +10,12 @@ sequence rendered (pitch, volume and envelope left out).
   footstep_sounds.py <oras code.bin> <x code.bin> <sango_sound.bcsar> <xy_sound.bcsar> <oras DllField.cro> \\
                      <x DllField.cro> <out dir>
 
-Writes <out dir>/<sound name>.wav and <out dir>/footsteps.json (each game's grounds: the walk and run sounds of each
-foot, by name). The archives: remake_tool oras-extract; the modules likewise (DllField.cro).
+Writes <out dir>/<sound name>.wav, <out dir>/footsteps.json (each game's grounds: the walk and run sounds of each
+foot, by name) and <out dir>/footsteps.html, a page to listen to them ground by ground (the waves embedded; the ground
+names are the sound groups' (GROUP_FIELD_FT_SAND...), "?" where inferred). The archives: remake_tool oras-extract; the modules likewise (DllField.cro).
 """
+import base64
+import html
 import json
 import os
 import struct
@@ -23,6 +26,15 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sound_compare import Csar  # noqa: E402
 
 CODE_BASE = 0x100000
+# each ground's name, from the games' sound groups (GROUP_FIELD_FT_<ground>); "?" inferred, not read
+GROUND_NAMES = {
+    'oras': {0: 'sol normal', 1: 'algues (plongée)', 2: 'rails / chariot', 3: 'pierre', 4: 'herbe ?', 5: 'hautes herbes',
+             6: 'bois (plancher)', 7: 'pont', 8: 'sable', 9: 'sable profond', 10: 'eau peu profonde', 11: 'eau profonde',
+             12: 'plaque de métal'},
+    'x': {0: 'sol normal', 2: 'sol lumineux', 3: 'pierre', 4: 'herbe', 5: 'hautes herbes', 6: 'feuilles mortes', 7: 'neige',
+          8: 'sable', 9: 'marécage', 10: 'eau peu profonde', 11: 'tapis', 12: 'plaque de métal', 13: 'boue collante',
+          16: 'marécage profond'},
+}
 
 
 def category_item(code, table, sound_id):
@@ -141,7 +153,49 @@ def main():
         result[game] = rows
     with open(os.path.join(out, 'footsteps.json'), 'w') as f:
         json.dump(result, f, indent=1)
+    with open(os.path.join(out, 'footsteps.html'), 'w') as f:
+        f.write(page(result, out))
     print('%d sounds written to %s' % (len(written), out))
+
+
+def page(result, out):
+    """the HTML page of the sounds (French, the owner's language), each wave embedded"""
+    def audio(sound):
+        if not sound or not sound['file']:
+            return '<span class=none>—</span>'
+        with open(os.path.join(out, sound['file']), 'rb') as f:
+            data = base64.b64encode(f.read()).decode()
+        return ('<div class=s><code>%s</code><audio controls preload=none src="data:audio/wav;base64,%s"></audio></div>'
+                % (html.escape(sound['name']), data))
+
+    def cell(sounds):
+        seen, cells = set(), []
+        for sound in sounds:
+            if (sound and sound['name']) not in seen:
+                seen.add(sound and sound['name'])
+                cells.append(audio(sound))
+        return ''.join(cells)
+
+    tables = []
+    for game, title in (('oras', 'Omega Ruby (Hoenn)'), ('x', 'X (Kalos)')):
+        rows = ''.join('<tr><th>Sol %d<br><small>%s</small></th><td>%s</td><td>%s</td></tr>'
+                       % (r['ground'], GROUND_NAMES[game].get(r['ground'], 'inconnu'), cell(r['walk']), cell(r['run']))
+                       for r in result[game])
+        tables.append('<h2>%s</h2><div class=w><table><tr><th></th><th>Marche</th><th>Course</th></tr>%s</table></div>'
+                      % (title, rows))
+    style = (':root{--bg:#fff;--fg:#1a1a1a;--mut:#666;--line:#ddd;--acc:#DC4249}'
+             '@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#111215;--fg:#eee;--mut:#999;'
+             '--line:#2a2c33;--acc:#EC2B39}}'
+             ':root[data-theme=dark]{--bg:#111215;--fg:#eee;--mut:#999;--line:#2a2c33;--acc:#EC2B39}'
+             'body{background:var(--bg);color:var(--fg);font:16px system-ui;padding:16px;max-width:1024px;margin:auto}'
+             'h1{color:var(--acc)}p{color:var(--mut)}.w{overflow-x:auto}table{border-collapse:collapse;width:100%}'
+             'td,th{border-bottom:1px solid var(--line);padding:8px;text-align:left;vertical-align:top}'
+             '.s{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}audio{width:100%;max-width:256px;height:32px}'
+             '.none{color:var(--mut)}')
+    return ('<!doctype html><html lang=fr><head><meta charset=utf-8><meta name=viewport content="width=device-width,'
+            'initial-scale=1"><title>Sons de pas</title><style>%s</style></head><body><h1>Sons de pas — ORAS et X</h1>'
+            '<p>Échantillon brut joué par chaque pas (hauteur, volume et enveloppe de la séquence non appliqués). '
+            '« ? » = déduit, pas lu.</p>%s</body></html>' % (style, ''.join(tables)))
 
 
 if __name__ == '__main__':

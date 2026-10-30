@@ -606,9 +606,9 @@ OrasXyWorld.cpp). Both games' packs are AD containers of 12 files, the same layo
   games' walked tiles (`remake_tool piece-grounds [--x] <pieces>`). Eight surfaces, grounds 17-24 in both regions'
   tables (25 grounds each; the footstep function is the ground reader's only caller), each with two steps picked at
   random: one sound each, the owner's choice by ear (30 October: X's leaves for grass textures, stone for paving and
-  rock, X's carpet for plain paths; OrasXyFootsteps.h lists them) at one volume, about half the first tried, each step
+  rock, X's carpet for plain paths; OrasXyFootsteps.h lists them) at a base volume of its own per surface, each step
   varied in volume (+-20% at random) and pitch (a pattern of five, low high middle high low, +-6%; the field inferred); sand, shallows, metal and X's snow
-  take the games' own grounds. **Heard on the phone (30 October, the test field sandbox/footsteps.txt):** every surface
+  take the games' own grounds (the variation and base volumes built, not yet heard on the phone). Tools: `prototype/footstep_sounds.py` (both games' step sounds as WAV and a page to listen to them), `headless/footsteps_mod.sh` (the test field's mod with its save: Fly, badges, places visited, music muted). **Heard on the phone (30 October, the test field sandbox/footsteps.txt):** every surface
   and X's ported steps sound once kept loaded (GROUP_FIELD_GLOBAL, below); the field's strips of the game's own tall
   grass, sand, metal and deep swamp stay silent there while sand and tall grass sound in Hoenn's maps (their tiles' kind
   0x02 / 0x27 there, none in the strips: the cause inferred, not read). The volumes are quiet copies of the sounds (their entries again, the volume byte

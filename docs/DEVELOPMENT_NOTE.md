@@ -313,6 +313,23 @@ redone; the zones before what runs in them; one phone check per block, not per c
    Center and player's house lights; by steps: the clouds in Pokemon Village first, checked against X), then a
    homogenisation of the two regions so that they are consistent, and only then every zone's load test (left for the
    end: too long now).
+   **Set aside 30 October (owner):** the projection maps. State: X's cloud texture read (X pack 40 file 5, `cloud`
+   128 x 128) and its class (vtable at X DllField data 0x1056B0: an orthographic camera at height 1000, a scroll, the
+   texture set on the materials naming projection_dummy, through two renderer functions Omega Ruby lacks); headless shots
+   of X's Pokemon Village 600 frames apart show no drifting shadow (`headless/time_lapse_diff.py`: 6.39, 1.51, 5.40), so
+   no reference yet: clouds, or the wind's light on the grass (the owner's idea), not settled; the mod's same run not
+   finished. The trial planned: an overlay in Pokemon Village measured against X, X's system ported if under 95%.
+   **Next (owner, 30 October): the eight gyms ported again from the start, properly** (6, first bullet; B1 in 3e). The
+   inventory of 30 October (`prototype/xy_import_match.py` on X's eight DllUSGym*.cro; same / several or changed /
+   none / data): Insect (Viola) 37 / 5 / 5 / 9 of 56, Rock (Grant) 5 / 3 / 0 / 4 of 12, Fighting (Korrina) 12 /
+   12 / 6 / 5 of 35, Grass (Ramos) 9 / 6 / 5 / 5 of 25, Elec (Clemont) 11 / 10 / 4 / 5 of 30, Fairy (Valerie) 10 / 6 /
+   3 / 5 of 24, Esper (Olympia) 21 / 11 / 13 / 8 of 53, Ice (Wulfric) 11 / 14 / 3 / 3 of 31. Script natives of X's
+   DllField: Clemont's 13 (`_GymElec*`), Ramos's 2 (`_GymGrass*Gard*`), `GymSetVictoryInfo` / `GymGetVictoryInfo`;
+   their events (`GymEsperWarpEvent`, `GymGrassRopeUpDownEvent`, `GymIceCylinderMoveEvent`...) in X's DllField too.
+   Per gym, in order: the zone from X (map, people, scripts); the module whole, every import mapped or its function
+   ported; every access of the module to the game's structures checked against Omega Ruby's layout (a tool for all
+   eight, first: Grant's +0xFC write, B1, is one); its natives and events; a headless run entry, puzzle, battle, badge;
+   the phone. Order: the tool, then Viola, Grant (redone), Korrina, Ramos, Clemont, Valerie, Olympia, Wulfric.
    camera (areas, presets and the start preset) X/Y's (27 October, Pokemon Village checked headless), the player drawn x1.08 in X/Y's zones to match X/Y's world (27 October, owner's decision, checked headless), X/Y's water animations ported (26 October, Pokemon Village checked headless), X/Y's projection maps (file 5: cloud shadows, tree and Pokemon Center lights) read, not ported (a port into the renderer), doors, street lamps and the house stairs checked working (27 October), a save in X's player's house loading at its start point (not explained), X/Y's tile fields repacked into Omega Ruby's layout (27 October: the 29 X-only behaviours were mostly a one-bit shift; Route 13 battle checked headless), X/Y's footstep sounds to port with step 2's sounds.
    X/Y's zones, the ground the features run on: packs, camera, light and tiles (substitutes from the audit of
    22 October); the 137 natives Omega Ruby does not register (159 of its 360 zones call one; the nickname's six and
