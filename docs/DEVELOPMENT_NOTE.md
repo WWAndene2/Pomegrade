@@ -352,6 +352,22 @@ redone; the zones before what runs in them; one phone check per block, not per c
       0-0x40000000 and logs no such write; the fix is checked in the ported module's words, `xy-gym-module`).
    2. Step 4's static search (no run): X/Y's features in engine code with no script command, and Omega Ruby's features on
       Kalos's map (DexNav, soaring, secret bases, the PokeNav Plus apps, contests): the whole list for 4-7 below.
+      **First part done 30 October** (`prototype/xy_only_code.py`: each X DllField function against every Omega Ruby
+      module's by its instructions' shapes, aligned; the rest grouped by X's call graph, roots and natives named): of X
+      DllField's 5,357 functions, 4,065 have a copy in Omega Ruby, 1,292 are X's own (91,658 instructions, 621 groups).
+      234 script natives run X-own code (some are Omega Ruby's same-named natives changed, to compare one by one before
+      porting). By feature: clothes, salon, photo and mirror (`Kisekae*`, `*Fashion*`, `*Mannequin`, `SetMirror*`,
+      `Promo*`, `_CallPhotoViewer`, hair and eye colours); Battle Chateau and Maison (`BattleHouse_*`, `Dueling*`,
+      `*WinCount`, `BattleInstWork*`, `SkyBattleResultGet`); berry fields (`_GetKinomi*`, `_GetNutsParam`,
+      `_SetNutsYardParam`, `_SendKinomiSurveyMessage`, `_GetWildTreeParam`, `CallWildBattleNutsYard`); Poke Radar
+      (`GetPokeTracer*`); gyms (`Gym*`, `_GymElec*`); the Holo Caster (`CallAppHologramMail`), Friend Safari
+      (`ConnectFriend`, `GetRomFriendDataCode`), Looker's quests (`_CheckBootHandsomeQuest`), the postman and travelling
+      Pokemon (`_Postman*`, `_TravelingPoke*`), the daycare (`_Sodateya*`), rentals (`_RentPokeEventCommand`), forms
+      (Furfrou `PokePartyChangePoodleFormNo`, Rotom), field demos (`CallFieldCaptureDemo*`, `CallHidenDemo`,
+      `_MapChangeAndDemoCall`), the event camera (`EVCamera*`), the dust box and clouds (ported). Groups reached as data
+      (vtables, callbacks) with no native: the projection maps' cloud class (0x10221A04-0x102221D4), and about twenty
+      groups of 3 to 16 functions still to name (the largest: 0x10244530, 0x1022E070, 0x102BCAAC, 0x10293EE8). Left in
+      step 2: name those groups; Omega Ruby's features on Kalos's map.
    3. The League block: the eight gyms (the per-gym steps above: Viola, Grant, Korrina, Ramos, Clemont, Valerie,
       Olympia, Wulfric), each with its badge; then the Elite Four and Champion of each region (A2, their intros as the
       leaders'), the Elite Four and Champion elevators, badge gates and Victory Road (B2).
