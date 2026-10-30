@@ -1772,7 +1772,7 @@ int main(int argc, char** argv)
             }
             // both games' sound ids (OrasXySound.h): the scripts' effects by name always, X/Y's music with --music on
             N3dsRom xy(argv[3]);
-            const XySounds sounds = XySounds::Read(oras.Code(), oras.Read("sound/sango_sound.bcsar"), xy.Code(), xy.Read("sound/xy_sound.bcsar"));
+            XySounds sounds = XySounds::Read(oras.Code(), oras.Read("sound/sango_sound.bcsar"), xy.Code(), xy.Read("sound/xy_sound.bcsar"));
             printf("sound ids: %zu of X/Y's made Omega Ruby's, %zu without a match (kept)\n", sounds.Ids.size(), sounds.Unmatched.size());
             wo.Sounds = &sounds;
             wo.OutDir = argv[4];

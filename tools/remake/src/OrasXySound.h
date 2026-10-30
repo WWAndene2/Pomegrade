@@ -39,11 +39,20 @@ struct XySounds
     std::vector<std::string> Unmatched;    // X/Y's sounds of no stream and no name in Omega Ruby
     std::vector<std::pair<size_t, size_t>> Sequences; // X/Y's sound effects ported (X/Y's sound, Omega Ruby's of its name): the j-th id SequenceId + j
     uint32_t SequenceId = 0;               // the first one's id in category 0: Streams.size() + 1
+    std::map<uint32_t, uint32_t> OrasItems; // Omega Ruby's sound ids -> their items (category tables: 0x01000000 | the sound)
+    // quieter copies of sounds (the footsteps' surfaces, OrasXyFootsteps.h), appended after the ported sound effects: each
+    // an id the archive plays (Omega Ruby's, or a ported effect's) and its volume in percent; the k-th plays as id QuietId() + k
+    struct QuietSound { uint32_t Id = 0; int Percent = 100; };
+    std::vector<QuietSound> Quiet;
 
     // reads both games' codes (their category tables) and sound archives
     static XySounds Read(const Bytes& orasCode, const Bytes& orasArchive, const Bytes& xCode, const Bytes& xArchive);
     // Omega Ruby's id for X/Y's, or the same id when X/Y's categories do not list it
     uint32_t Translate(uint32_t xId) const;
+    // the id of the first quiet copy (after the ported sound effects', in category 0)
+    uint32_t QuietId() const { return SequenceId + (uint32_t)Sequences.size(); }
+    // the id of the copy of `id` at `percent`, added to Quiet when not there yet
+    uint32_t QuietCopy(uint32_t id, int percent);
 };
 
 // the archive (Omega Ruby's, with X/Y's streams appended when `streams`) with X/Y's ported sound effects appended

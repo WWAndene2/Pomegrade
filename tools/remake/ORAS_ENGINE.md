@@ -596,16 +596,24 @@ OrasXyWorld.cpp). Both games' packs are AD containers of 12 files, the same layo
   headless/audio_diff.py), drawing on or off, so the step function 0x102E5DC8 is not reached on those walks (its
   caller FUN_102E93EC plays a step only on frames of the player's motions it lists, 0x102E962C, not traced). To hear
   them on the phone: cheats below (no music, no wild Pokemon).
-  **Ground 0 has no sound in either game** (checked on the phone by the owner, 30 October): 96% of Omega Ruby's tiles
-  (grass, paths, floors indoors) are at ground 0. Grounds from textures (owner's request, 30 October,
-  `OrasFootstepGround.h`, run by oras-xy-world): each ground-0 tile takes the ground of the texture drawn over it (the
-  highest upward face over its centre, the material's name when no texture is named), by a table of name words read
-  from the games' own tagging (`remake_tool piece-grounds [--x] <pieces>` prints it: 50% of the tiles the games tag
-  get the same ground back, the rest wet sand 10 and tall grass 5 read as sand 8 and grass 4). Built (local, matrix 0):
-  422,575 of Omega Ruby's tiles in 726 pieces given a ground; its pieces recompressed, the a/0/3/9 patch 98 MB. Not
-  covered: X/Y's outdoor terrain, drawn by projection (projection_dummy, 404,507 tiles), and the 84 pieces whose model
-  has no face over the tiles; they stay silent. The new tile values (00004020...) are not among the game's own;
-  not tested on the phone.
+  **Ground 0 has no sound in either game** (checked on the phone by the owner, 30 October). Of Omega Ruby's 1.33
+  million ground-0 tiles, about 1.04 million are not walked on (kind 1: walls, cliffs, the void around a map; the
+  others water to surf, 0x3D / 0x41 / 0x42 / 0x95-0x97, and counters, 0xD4); 172,000 are walked (kinds 0, 0x24, 0x25).
+  Surfaces (owner's request, 30 October: soft grass quieter than tall grass, a dirt path duller than sand;
+  `OrasFootstepGround.h`, `OrasXyFootsteps.h`, run by oras-xy-world): each walked ground-0 tile takes the surface of the
+  texture drawn over it (the highest upward face over its centre; X/Y's ground texture is in the material's second
+  unit, after projection_dummy; the material's name when no texture is named), by a table of name words read from both
+  games' walked tiles (`remake_tool piece-grounds [--x] <pieces>`). Eight surfaces, grounds 17-24 in both regions'
+  tables (25 grounds each; the footstep function is the ground reader's only caller): soft grass (grass sound, 50%),
+  dirt (X's carpet sound, the dullest dry step, 70%), paving (stone, 75%), wood (Omega Ruby's, 75%), forest floor (X's
+  leaves), cave rock (stone), carpet (X's carpet, 45%), indoor floor (stone, 50%); sand, shallows, metal and X's snow
+  take the games' own grounds. The volumes are quiet copies of the sounds (their entries again, the volume byte
+  lowered; 15 copies, no data added), for the steps only (walk and run: a ledge's jump and landing keep their volume).
+  Built (local, matrix 0): 126,707 of Omega Ruby's tiles in 597 pieces, the a/0/3/9 patch 82 MB. Silent still: 23,000
+  walked tiles of Omega Ruby's rooms whose model is placed by its skeleton (84 pieces, the skeleton not applied), and
+  the names matching nothing (listed by piece-grounds). Kalos's 190,400 Comb1 tiles are filler pieces (one quad), not
+  walked. The volumes are chosen from the samples' loudness, not heard; the new tile values are not among the game's
+  own; not tested on the phone.
 - *Sounds.* X/Y's 1,554 sound ids: 146 streams (music, ported apart), 1,329 of a name Omega Ruby has, 79 of none. By
   their data (the sound's sequence file, its banks, their wave archives; each file's version word +8 set aside, 0x0100 in
   X/Y and 0x0101 in Omega Ruby, and a bank's wave archive ids 0x05xxxxxx compared by the archive's contents, the two

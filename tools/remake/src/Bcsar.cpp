@@ -179,6 +179,23 @@ uint32_t Options(const Bytes& b, size_t entry, int bit) // the option value of a
 
 size_t BcsarSoundCount(const Bytes& bcsar) { return Layout(bcsar).Count(0); }
 
+uint8_t BcsarSoundVolume(const Bytes& bcsar, size_t sound)
+{
+    const Layout l(bcsar);
+    if (sound >= l.Count(Sounds)) throw FormatError("sound archive: no sound " + std::to_string(sound));
+    return bcsar[l.Entry(Sounds, sound) + 8];
+}
+
+void BcsarSetSoundVolume(Bytes& bcsar, size_t sound, uint8_t volume)
+{
+    const size_t at = [&] {
+        const Layout l(bcsar);
+        if (sound >= l.Count(Sounds)) throw FormatError("sound archive: no sound " + std::to_string(sound));
+        return l.Entry(Sounds, sound) + 8;
+    }();
+    bcsar[at] = volume;
+}
+
 std::vector<std::string> BcsarSoundNames(const Bytes& b)
 {
     const Layout l(b);

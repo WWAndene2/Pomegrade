@@ -38,7 +38,7 @@ struct XyWorldOptions
     std::string NamesFile;   // tools/remake/ghidra/function_names.tsv (Omega Ruby's natives)
     std::string ScriptDir;   // a folder of edited scripts x<zone>.amx / x<zone>.init.amx, read in place of the translation
     bool Story = true;       // X/Y's story (XyEventsToOras: without it, the map neutral: triggers, story characters, field move obstacles and init scripts left out)
-    const struct XySounds* Sounds = nullptr; // both games' sound ids (OrasXySound.h): the scripts' effects by name
+    struct XySounds* Sounds = nullptr; // both games' sound ids (OrasXySound.h): the scripts' effects by name; the footsteps add their quiet copies
     bool HoennStory = true;  // Omega Ruby's story in Hoenn's zones (OrasHoennNeutral.h: without it, Hoenn neutral)
     bool Music = false;      // X/Y's music and jingles (OrasXyMusic.h): the zones' music and the scripts' jingles X/Y's
     std::string OutDir;      // where the mod is written: its xy_battle_types.bin beside it (oras-engine --xy-battle-types)

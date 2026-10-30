@@ -40,6 +40,10 @@ std::vector<BcsarStream> BcsarStreams(const Bytes& bcsar);
 // the number of sounds in its sound table
 size_t BcsarSoundCount(const Bytes& bcsar);
 
+// a sound's volume (its entry's u8, 0-127 as the archive's own sounds use it), and the same set
+uint8_t BcsarSoundVolume(const Bytes& bcsar, size_t sound);
+void BcsarSetSoundVolume(Bytes& bcsar, size_t sound, uint8_t volume);
+
 // every sound's name (its option bit 0's string; empty without one), in the sound table's order
 std::vector<std::string> BcsarSoundNames(const Bytes& bcsar);
 

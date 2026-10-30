@@ -14,10 +14,17 @@
 // grounds, of class 0) keeps Omega Ruby's sounds, X having no such kind. The ids are X's made Omega Ruby's (OrasXySound.h:
 // a sound of the same data by Omega Ruby's id, the others ported); X's id 0 is silence. X's ground 1 has no step sound
 // (Omega Ruby's has one): X's kept.
-// The table (17 x 9 x 2, Omega Ruby's layout grown to X's grounds) goes into DllField's room; two hooks pick it in X/Y's
-// zones (the zone read as OrasXyPlayerScale.h reads it): the ground bound `cmp r6, #0xD` (0x102E5E90) made 17 there, and
-// after the table's load (0x102E5EE4) the table replaced. Not checked: the kinds' meaning in game (inferred from the
-// sounds and classes); X's kinds Omega Ruby's player never takes (the bicycle's, 4-10) are not reached.
+// Surfaces (owner's request, 30 October): ground 0, which neither game gives a sound, covers most walked tiles; the tiles
+// get a surface from their texture (OrasFootstepGround.h), as grounds 17-24 (the tile field holds 5 bits; the footstep
+// function, 0x102E5DC8, is FUN_00402FCC's only caller: no other code indexes by the ground). Each surface plays a
+// ground's sounds, Omega Ruby's or X's (X's ported: OrasXySound.h), at its own volume through quiet copies of the sounds
+// (XySounds::Quiet): soft grass quieter than the grass, a dull dirt step (X's carpet sound), paved and indoor floors
+// quieter than stone; the same in Hoenn and Kalos.
+// Two tables of 25 grounds x 9 kinds x 2 feet (Omega Ruby's layout) go into DllField's room: Hoenn's (Omega Ruby's 13
+// grounds, 13-16 none, the surfaces) and Kalos's (X's 17, the surfaces). The ground bound `cmp r6, #0xD` (0x102E5E90)
+// made 25, and after the table's load (0x102E5EE4) the table replaced, Kalos's in X/Y's zones (the zone read as
+// OrasXyPlayerScale.h reads it), Hoenn's elsewhere. Not checked: the kinds' meaning in game (inferred from the sounds and
+// classes); X's kinds Omega Ruby's player never takes (the bicycle's, 4-10) are not reached.
 
 #include "Bytes.h"
 #include "CodePatch.h"
@@ -28,11 +35,26 @@
 namespace remake
 {
 
-// the file oras-xy-world writes for oras-engine --xy-footsteps: u16 the first and last of X/Y's zones, then the table
-// (17 x 9 x 2 u32 sound ids, Omega Ruby's); from X's and Omega Ruby's DllField.cro
-Bytes XyFootstepsFile(const Bytes& xDllField, const Bytes& orasDllField, const XySounds& sounds, int firstZone, int lastZone);
+// the surfaces' grounds, in the tiles of both regions (OrasFootstepGround.h gives them)
+enum FootstepSurface : int
+{
+    SoftGrass = 17,   // short grass, lawns: the grass's sound, half as loud
+    Dirt = 18,        // earth paths, fields, ash: X's carpet sound, a dull step
+    Paved = 19,       // streets, paving, stairs: the stone sound, quieter
+    Wood = 20,        // floorboards, bridges, decks: Omega Ruby's wood sound, quieter
+    ForestFloor = 21, // leaves, forest soil: X's leaves sound
+    CaveRock = 22,    // cave and mountain rock: the stone sound
+    Carpet = 23,      // carpets, mats: X's carpet sound, low
+    IndoorFloor = 24, // floors indoors (tiles, gyms, unknown): the stone sound, low
+    FootstepGrounds = 25
+};
 
-// DllField's words (linked addresses): the two hooks and the cave at `cave` (DllField's room), from that file
+// the file oras-xy-world writes for oras-engine --xy-footsteps: u16 the first and last of X/Y's zones, then Hoenn's table
+// and Kalos's (25 x 9 x 2 u32 sound ids each, Omega Ruby's); from X's and Omega Ruby's DllField.cro. The surfaces' quiet
+// copies are added to sounds.Quiet
+Bytes XyFootstepsFile(const Bytes& xDllField, const Bytes& orasDllField, XySounds& sounds, int firstZone, int lastZone);
+
+// DllField's words (linked addresses): the two hooks, and the tables then the code at `cave` (DllField's room), from that file
 std::vector<CodeWord> XyFootstepsFieldPatchAt(uint32_t cave, const Bytes& file);
 
 }

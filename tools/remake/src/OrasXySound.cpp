@@ -62,6 +62,7 @@ XySounds XySounds::Read(const Bytes& orasCode, const Bytes& orasArchive, const B
 
     const std::map<uint32_t, uint32_t> orasIds = AllIds(orasCode, SoundCategoryTable(orasCode, "rom:/sound/sango_sound.bcsar"));
     const std::map<uint32_t, uint32_t> xIds = AllIds(xCode, SoundCategoryTable(xCode, "rom:/sound/xy_sound.bcsar"));
+    s.OrasItems = orasIds;
     std::map<uint32_t, uint32_t> orasIdOfItem;
     for (const auto& [id, item] : orasIds) orasIdOfItem.emplace(item, id); // the first id of an item
     const std::vector<std::string> orasNames = BcsarSoundNames(orasArchive), xNames = BcsarSoundNames(xArchive);
@@ -98,6 +99,37 @@ std::vector<std::string> WriteXySoundArchive(N3dsRom& oras, const Bytes& origina
     std::string shared;
     archive = BcsarAppendSequences(archive, xyArchive, sounds.Sequences, first, shared);
     if (first != sounds.First + (streams ? sounds.Streams.size() : 0)) throw FormatError("sound effects: the archive's first new sound is not the one the ids were given");
+    // the quiet copies: each sound appended again from the archive itself (its banks and wave archives shared, no data
+    // added), then its entry's volume lowered
+    if (!sounds.Quiet.empty())
+    {
+        std::vector<std::pair<size_t, size_t>> copies;
+        for (const XySounds::QuietSound& q : sounds.Quiet)
+        {
+            size_t sound;
+            if (q.Id >> 16 == 0 && q.Id >= sounds.SequenceId && q.Id < sounds.QuietId()) sound = first + (q.Id - sounds.SequenceId); // a ported effect
+            else
+            {
+                const auto item = sounds.OrasItems.find(q.Id);
+                if (item == sounds.OrasItems.end() || item->second >> 24 != 1) throw FormatError("quiet sounds: id " + std::to_string(q.Id) + " names no sound");
+                sound = item->second & 0xFFFFFF;
+            }
+            copies.push_back({sound, sound});
+        }
+        size_t quietFirst = 0;
+        std::string quietShared;
+        archive = BcsarAppendSequences(archive, archive, copies, quietFirst, quietShared);
+        if (quietFirst != first + sounds.Sequences.size()) throw FormatError("quiet sounds: not appended after the ported effects");
+        for (size_t k = 0; k < copies.size(); k++)
+        {
+            const int volume = BcsarSoundVolume(archive, copies[k].first) * sounds.Quiet[k].Percent / 100;
+            BcsarSetSoundVolume(archive, quietFirst + k, (uint8_t)std::max(1, std::min(127, volume)));
+        }
+        char quiet[160];
+        snprintf(quiet, sizeof quiet, "quiet sounds: %zu as sounds %zu-%zu, ids %u-%u of category 0; %s", copies.size(), quietFirst, quietFirst + copies.size() - 1,
+                 sounds.QuietId(), sounds.QuietId() + (uint32_t)copies.size() - 1, quietShared.c_str());
+        log.push_back(quiet);
+    }
     const Bytes bps = BpsCreate(original, archive);
     if (BpsApply(original, bps) != archive) throw FormatError("sango_sound.bcsar: the patch does not rebuild the archive");
     char id[17];
@@ -111,6 +143,14 @@ std::vector<std::string> WriteXySoundArchive(N3dsRom& oras, const Bytes& origina
              shared.c_str(), bps.size());
     log.push_back(line);
     return log;
+}
+
+uint32_t XySounds::QuietCopy(uint32_t id, int percent)
+{
+    for (size_t k = 0; k < Quiet.size(); k++)
+        if (Quiet[k].Id == id && Quiet[k].Percent == percent) return QuietId() + (uint32_t)k;
+    Quiet.push_back({id, percent});
+    return QuietId() + (uint32_t)(Quiet.size() - 1);
 }
 
 uint32_t XySounds::Translate(uint32_t xId) const

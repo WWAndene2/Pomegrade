@@ -424,9 +424,10 @@ std::vector<std::string> BuildXyWorld(OrasWorkspace& ws, const XyWorldOptions& o
     }
     if (o.Sounds && !o.Sounds->Sequences.empty())
     {
-        // X/Y's ported sound effects, after the streams in the archive when --music on (WriteXySoundArchive)
+        // X/Y's ported sound effects, after the streams in the archive when --music on, then the quiet copies the footsteps
+        // took (WriteXySoundArchive), their ids following
         snprintf(line, sizeof line, " --xy-sequences %u:%zu:%zu", o.Sounds->SequenceId, o.Sounds->First + (o.Music ? o.Sounds->Streams.size() : 0),
-                 o.Sounds->Sequences.size());
+                 o.Sounds->Sequences.size() + o.Sounds->Quiet.size());
         engine += line;
     }
     for (const auto& [zone, mask] : masks)
