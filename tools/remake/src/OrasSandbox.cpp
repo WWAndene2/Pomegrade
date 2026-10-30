@@ -62,6 +62,7 @@ struct SandboxDescription
     std::vector<std::string> Blocks; // 4 Height rows of 4 Width digits: the zone (its place in Zones) of each 10 x 10 block
     std::vector<std::string> Map;
     uint32_t TallGrass = 0x20004004; // grass-tile VALUE: the tile value under tall grass
+    std::vector<std::array<int, 5>> Grounds;        // ground X Z W H G: footstep ground G on the W x H tiles from X, Z
     std::vector<std::pair<int, std::string>> Teams; // a trainer of a/0/3/6 and its team block's lines
     std::map<int, std::pair<int, std::string>> TeamNames; // a team's trainer -> its new class (-1: kept) and name ("": kept)
     std::vector<SandboxZone> Edits;                 // game zones added to (edit Z): their lines, characters, triggers, scene
@@ -191,6 +192,14 @@ static SandboxDescription ReadDescription(const std::string& text)
             continue;
         }
         if (what == "grass-tile") { std::string v; ok = (bool)(words >> v); if (ok) d.TallGrass = (uint32_t)std::stoul(v, nullptr, 0); continue; }
+        if (what == "ground")
+        {
+            std::array<int, 5> g{};
+            ok = (bool)(words >> g[0] >> g[1] >> g[2] >> g[3] >> g[4]) && g[2] > 0 && g[3] > 0 && g[4] >= 0 && g[4] < 32;
+            if (!ok) fail("ground needs X Z W H GROUND (0-31)");
+            d.Grounds.push_back(g);
+            continue;
+        }
         if (what == "pieces") { ok = (bool)(words >> d.Width >> d.Height); if (!ok) fail("pieces needs its numbers"); continue; }
         if (what == "xy-piece")
         {
@@ -784,6 +793,21 @@ std::vector<std::string> BuildOrasSandbox(OrasWorkspace& ws, const std::string& 
                 log.push_back("piece (" + std::to_string(x) + ", " + std::to_string(y) + "): X/Y's a/0/4/1 member " + std::to_string((*xy)[2]));
             }
             else piece = BuildTownPiece(layout, to, pieceArchive, areaArchive, budget, x, y, line, packData, log);
+            // the footstep grounds given (ground X Z W H G): tile bits 12-16 of this piece's tiles in the rectangles
+            if (!d.Grounds.empty())
+            {
+                BinLinker gr = BinLinker::Read(piece, "GR");
+                Bytes& tiles = gr.Files.at(0);
+                for (const auto& g : d.Grounds)
+                    for (int tz = std::max(g[1], 40 * y); tz < std::min(g[1] + g[3], 40 * y + 40); tz++)
+                        for (int tx = std::max(g[0], 40 * x); tx < std::min(g[0] + g[2], 40 * x + 40); tx++)
+                        {
+                            const size_t at = 4 + 4 * (size_t)((tz - 40 * y) * 40 + (tx - 40 * x));
+                            const uint32_t v = (U32(tiles, at) & ~(0x1Fu << 12)) | (uint32_t)g[4] << 12;
+                            for (int k = 0; k < 4; k++) tiles[at + (size_t)k] = (uint8_t)(v >> (8 * k));
+                        }
+                piece = gr.Write();
+            }
             // the dust boxes on this piece: X's can model (a/0/2/4 member 4 of X, converted once) placed on their tiles
             std::vector<std::array<int, 3>> cans;
             for (const SandboxZone& z : d.Zones)

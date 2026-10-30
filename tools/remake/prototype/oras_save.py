@@ -14,9 +14,10 @@ tests of 8 October needed and did with throwaway scripts.
                                                   data decrypted and encrypted again (28 October: Fly, 19, for a fly test)
   oras_save.py badges <save> <out> <mask>        the badges byte (Misc block 11 + 0xC, one bit a badge: 0xFF all eight)
   oras_save.py flag <save> <out> <flag>[,<flag>...]
-                                                  sets event flags of 0xD00 and up (oras-engine --story large: block 47's last
-                                                  1000 bytes, OrasEngine.cpp), then rewrites every checksum (26 October: a dust
-                                                  box spot's moved flag set in a save, run sc4)
+                                                  sets event flags: 1-0xCFF in EventWork (block 19 from +0x2F0; 30 October: the
+                                                  places' visited flags, for Fly), 0xD00 and up the moved ones (oras-engine --story
+                                                  large: block 47's last 1000 bytes, OrasEngine.cpp), then rewrites every checksum
+                                                  (26 October: a dust box spot's moved flag set in a save, run sc4)
 
 What is read and what is only seen:
   - the party (block 18 PokePartySave, 6 slots of 0x104 bytes; checked 28 October on the owner's save: Torchic, its moves
@@ -151,11 +152,16 @@ def cmd_records(path, out, template, which):
 
 def cmd_flag(path, out, which):
     # flags 1-0xCFF are EventWork's (block 19); 0xD00-0x2C3F the moved ones, bit (f - 0xD00) of block 47 from its +1000
+    # (block 19's flags from its +0x2F0: ORAS_ENGINE.md, "More room", checked across a save and a reload, runs svC-svE)
     data = read(path)
     _, _, offset, size, _ = block_at(data, 47)
+    _, _, work, _, _ = block_at(data, 19)
     for f in (int(v, 0) for v in which.split(",")):
+        if 1 <= f < 0xD00:
+            data[work + 0x2F0 + f // 8] |= 1 << (f % 8)
+            continue
         if not 0xD00 <= f < 0xD00 + 8 * (size - 1000):
-            sys.exit(f"flag 0x{f:X}: not one of the moved flags 0xD00-0x{0xD00 + 8 * (size - 1000) - 1:X}")
+            sys.exit(f"flag 0x{f:X}: not one of the flags 1-0x{0xD00 + 8 * (size - 1000) - 1:X}")
         data[offset + 1000 + (f - 0xD00) // 8] |= 1 << ((f - 0xD00) % 8)
     write_checksums(data)
     open(out, "wb").write(data)
