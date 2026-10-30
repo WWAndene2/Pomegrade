@@ -609,9 +609,10 @@ OrasXyWorld.cpp). Both games' packs are AD containers of 12 files, the same layo
   leaves), cave rock (stone), carpet (X's carpet, 45%), indoor floor (stone, 50%); sand, shallows, metal and X's snow
   take the games' own grounds. The volumes are quiet copies of the sounds (their entries again, the volume byte
   lowered; 15 copies, no data added), for the steps only (walk and run: a ledge's jump and landing keep their volume).
-  Built (local, matrix 0): 126,707 of Omega Ruby's tiles in 597 pieces, the a/0/3/9 patch 82 MB. Silent still: 23,000
-  walked tiles of Omega Ruby's rooms whose model is placed by its skeleton (84 pieces, the skeleton not applied), and
-  the names matching nothing (listed by piece-grounds). Kalos's 190,400 Comb1 tiles are filler pieces (one quad), not
+  Built (local, matrix 0): 126,707 of Omega Ruby's tiles in 597 pieces, the a/0/3/9 patch 82 MB. Silent still: the names
+  matching nothing (listed by piece-grounds). Checked 30 October: the 23,428 walkable-valued tiles with no face over
+  them (84 pieces, rooms) are rectangular blocks beside the room's model, with no prop placed there either: not walked.
+  Bones are not the cause: 548 pieces have a skeleton, but no sub-mesh vertex names a bone (all read unplaced, as drawn). Kalos's 190,400 Comb1 tiles are filler pieces (one quad), not
   walked. The volumes are chosen from the samples' loudness, not heard; the new tile values are not among the game's
   own; not tested on the phone.
 - *Sounds.* X/Y's 1,554 sound ids: 146 streams (music, ported apart), 1,329 of a name Omega Ruby has, 79 of none. By

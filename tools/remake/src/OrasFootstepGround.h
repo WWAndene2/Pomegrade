@@ -7,9 +7,9 @@
 // tile at ground 0 is given the surface it is drawn as: the texture of the highest upward triangle over the tile's centre
 // in the piece's terrain model, matched by name against a table of the two games' texture names, to one of the surfaces
 // OrasXyFootsteps.h plays (soft grass, dirt, paving, wood, forest floor, cave rock, carpet, indoor floor) or a ground the
-// games have (sand, shallows, metal, X's snow). A tile whose texture matches nothing stays at 0, silent as before; so do
-// the rooms whose model is placed by its skeleton (not applied here: 84 of Omega Ruby's pieces show no face over their
-// tiles).
+// games have (sand, shallows, metal, X's snow). A tile whose texture matches nothing stays at 0, silent as before; so does
+// a tile with no face over it (23,428 walkable-valued tiles in Omega Ruby's rooms: rectangular blocks beside the room's
+// model, with no prop either, so not walked; no piece's vertices are placed by bones, the 548 skeletons naming none).
 
 #include "Bytes.h"
 
