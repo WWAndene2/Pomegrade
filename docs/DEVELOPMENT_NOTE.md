@@ -330,6 +330,40 @@ redone; the zones before what runs in them; one phone check per block, not per c
    ported; every access of the module to the game's structures checked against Omega Ruby's layout (a tool for all
    eight, first: Grant's +0xFC write, B1, is one); its natives and events; a headless run entry, puzzle, battle, badge;
    the phone. Order: the tool, then Viola, Grant (redone), Korrina, Ramos, Clemont, Valerie, Olympia, Wulfric.
+   **The tool, done 30 October:** `prototype/xy_module_layout.py` (its checked places: `prototype/xy_module_layout.tsv`)
+   lists every access of a module to the field it is built with. On X's eight gym modules: 22 places, all checked. The
+   field's members from +0x50 on lie 0x10 further in Omega Ruby: X's +0x50 is Omega Ruby's +0x60 (all eight modules read
+   it, then its +0x18 / +0x1C) and X's +0xFC is +0x10C (Grant's and Wulfric's; then +0x7C / +0xC4): Grant's null write
+   (B1) is this, not a member Omega Ruby lacks. Not patched yet: XyPortModule's Words, for every ported module.
+
+   **Working order, 30 October (owner's request: every point left, ordered by logic and priority).** It replaces the
+   order above. The reasons: the shared fixes before the modules that need them; search before building, so the list is
+   whole; a block finished while its code is read; one phone mod per block, with a list of what to check; what depends on
+   another step goes with it. Owner's decisions kept: the zones' load test last, the gyms next.
+   1. The field offsets fixed for every ported module (+0x50 -> +0x60, +0xFC -> +0x10C, through the tool's table, in
+      XyPortModule), the tool run on the other ported modules (Route 13's DllUSR13, the dust box and cloud), Grant's gym
+      run again headless (its return after the win).
+   2. Step 4's static search (no run): X/Y's features in engine code with no script command, and Omega Ruby's features on
+      Kalos's map (DexNav, soaring, secret bases, the PokeNav Plus apps, contests): the whole list for 4-7 below.
+   3. The League block: the eight gyms (the per-gym steps above: Viola, Grant, Korrina, Ramos, Clemont, Valerie,
+      Olympia, Wulfric), each with its badge; then the Elite Four and Champion of each region (A2, their intros as the
+      leaders'), the Elite Four and Champion elevators, badge gates and Victory Road (B2).
+   4. Battles finished (step 2): X's Inverse opponent and type chart, how a Sky trainer reaches its script, the Battle
+      Chateau; X/Y's 324 different sounds and 79 unnamed ones added (the footsteps' tools now append sequences and put
+      them in loaded groups: BcsarAppendSequences, BcsarWithGroupSounds).
+   5. Phone check of 1-4 and of everything of 22-30 October not yet heard or seen (battles, dust box and cloud,
+      footsteps' variation): one mod, one list.
+   6. X/Y's field features, by shared code: weather (Route 13's sandstorm, with Sweet Scent's refusal and X/Y's lead
+      ability rule), wall climbing, roller skates, riding; Poke Radar, Friend Safari, berry fields; the badge case's
+      Kalos drawer, X/Y's Pokedex, Holo Caster; clothes, salon and photo shop, Pokemon Center promotions, the Poke Ball
+      factory, the Power Plant, the PR Video studio; the opening, credits and ending. A phone check per group.
+   7. Omega Ruby's features on Kalos's map (from 2's audit).
+   8. The look: the homogenisation of the two regions, with the projection maps (a reference for X's clouds first: a
+      run with the camera still and longer apart, or the owner's eye on X).
+   9. A3 (Pokemon and items), C3 (the gameplay path in one description), C4 (text and music), A5's travel between the
+      regions.
+   10. Every zone's load test (owner: last), then C5's test path played headless, then the owner's phone checks; then the
+       real map build.
    camera (areas, presets and the start preset) X/Y's (27 October, Pokemon Village checked headless), the player drawn x1.08 in X/Y's zones to match X/Y's world (27 October, owner's decision, checked headless), X/Y's water animations ported (26 October, Pokemon Village checked headless), X/Y's projection maps (file 5: cloud shadows, tree and Pokemon Center lights) read, not ported (a port into the renderer), doors, street lamps and the house stairs checked working (27 October), a save in X's player's house loading at its start point (not explained), X/Y's tile fields repacked into Omega Ruby's layout (27 October: the 29 X-only behaviours were mostly a one-bit shift; Route 13 battle checked headless), X/Y's footstep sounds to port with step 2's sounds.
    X/Y's zones, the ground the features run on: packs, camera, light and tiles (substitutes from the audit of
    22 October); the 137 natives Omega Ruby does not register (159 of its 360 zones call one; the nickname's six and

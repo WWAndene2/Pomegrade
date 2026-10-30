@@ -1,0 +1,11 @@
+# The places in the game's structures that X/Y's modules reach, checked in Omega Ruby (prototype/xy_module_layout.py).
+# path<TAB>Omega Ruby's path, or same<TAB>how it was checked
+# Field members, 30 October: X's and Omega Ruby's DllField (linked, cro_link.py) counted for each two-load chain ldr rA, [rB, #a]; ldr rC, [rA, #b],
+# none of X's offset in Omega Ruby and none of Omega Ruby's in X; and the field's own function aligned (X 0x1029E69C, Omega Ruby 0x102DF954).
+field +0x50	field +0x60	chains +0x50 +0x1C: X 140, Omega Ruby 0; +0x60 +0x1C: X 0, Omega Ruby 159; the field's function aligned: ldr [r4, #0x50] / [r4, #0x60]
+field +0x50 +0x1C	field +0x60 +0x1C	the same counts (the member's +0x1C kept)
+field +0x50 +0x18	field +0x60 +0x18	chains +0x50 +0x18: X 47, Omega Ruby 0; +0x60 +0x18: X 0, Omega Ruby 37
+field +0xFC	field +0x10C	chains +0xFC +0x7C: X 145, Omega Ruby 0; +0x10C +0x7C: X 0, Omega Ruby 156 (Grant's null write, B1: +0xFC is another member in Omega Ruby)
+field +0xFC +0x7C	field +0x10C +0x7C	the same counts
+field +0xFC +0xC4	field +0x10C +0xC4	chains +0xFC +0xC4: X 1, Omega Ruby 0; +0x10C +0xC4: X 0, Omega Ruby 1 (one each: the ambience setter)
+field +0x0	not the field	DllUSGymEsper 0xB70: the object at [sp, #0x20]'s +4, not the field (the tool's over-approximation)
