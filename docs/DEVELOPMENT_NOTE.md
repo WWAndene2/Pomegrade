@@ -359,8 +359,9 @@ redone; the zones before what runs in them; one phone check per block, not per c
    **31 October: Viola's gym shows** (run vA2, headless; not on the phone): the dew drops' resources are X's archive
    a/1/1/0 (17 CGFX), requested in r2 (`mov r2, #0x6E`), now given to her module as the other gyms' archives; her port
    also patches the player's position (+0xC64 -> +0x6F8, as Grant's) and the field camera's slot (+0xF0's +0xAB8 ->
-   +0xAA4, aligned). Viola is in XyGyms (kind 19). Left: an unmapped read at 0x95 every frame, a model drawn before it
-   is bound (OrasXyGymModules.h); then the puzzle, the battle, the badge.
+   +0xAA4, aligned), and copies X's 0x378548 (a model drawn with the camera; Omega Ruby has only its sibling, mapped
+   before: an unmapped read every frame). Viola is in XyGyms (kind 19). Run vA5: no unmapped read, the player walks on
+   the web. Next: the puzzle, the battle, the badge.
    **Handover (30 October, end of session; the owner's tokens ran out).** Where Viola stands: run vD1 (memory dumped
    after the fault) shows her module's 17 resource handles (ids 0x35-0x45, the dew drops) unresolved: OrasXyGymModules.h
    has what is read and ruled out (memory: the field heap 0x5D grown, objects' sizes; the area pack; the effect pack).

@@ -638,7 +638,9 @@ const XyModulePort& XyGymInsect()
             {0x390550, 0x3A7D54}, {0x11E46C, 0x11EB78}, // identical setters
             {0x390560, 0x1F9544}, // a bare return -> Util_Nop_001F9544
             // called by the copies below
-            {0x378548, 0x390048}, {0x49A03C, 0x4CB7A4}, {0x2F9B90, 0x312498}, {0x2FEAA4, 0x2FF034}, {0x481FA8, 0x4B2A08},
+            {0x499368, 0x4CAA58}, // 0.99 (xy_callee_map.py: X's 0x37AADC = Omega Ruby's 0x392540 calls it there)
+            {0x376FC4, 0x38EAC0}, // 1.00
+            {0x49A03C, 0x4CB7A4}, {0x2F9B90, 0x312498}, {0x2FEAA4, 0x2FF034}, {0x481FA8, 0x4B2A08},
         });
         p.Field = Merged(SharedField(), {
             {0x1027AB84, 0x102CC730}, // a position -> its grid cell
@@ -654,6 +656,11 @@ const XyModulePort& XyGymInsect()
             {0x2F66E4, 188, "a material's value (X's library, no copy in Omega Ruby)"},
             {0x488AB8, 108, "(0.74 to Omega Ruby's 0x4AC9DC: X's kept)"},
             {0x367AD4, 24, "the name \"IDEdgeEnable\": add r0, pc, #0; bx lr, then the string"},
+            // a model's node drawn with the camera: X's 0x378548 and 0x3785E4 are twins but for the model's getters
+            // (0x499368 and slot 0x70 here, 0x49B440 and slot 0x3C there); Omega Ruby has only the second (0x390048,
+            // 1.00 to 0x3785E4), mapped here before: it read the model's + 0x28 (flags, 1) as a pointer, an unmapped
+            // read at 0x95 every frame (run vA2, 31 October)
+            {0x378548, 156, "a model's node drawn with the camera (with its literal 0.0)"},
         };
         p.Literals = {
             {0x5D0F10, 0x6172DC}, // a class's identifier, compared with a virtual getter's answer: 39 copies agree

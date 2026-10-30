@@ -131,10 +131,10 @@ const XyModulePort& XyGymElec();
 // In XyGyms (X's kind 2 -> 19) since 31 October: its dew drops' archive is X's a/1/1/0 (one "TM" container of 17 CGFX,
 // ids 0x35-0x45), given to it as the other gyms' archives; without it Omega Ruby's a/1/1/0 was read, the 17 resource
 // handles stayed unresolved and the dew drops' build read null (runs vI1, vD1, 30 October). Run vA2 (31 October): the
-// gym shows, web, dew drops, people and the player, the game going on. Left: an unmapped read at 0x95 every frame
-// (Omega Ruby's 0x4CCB9C reads [model + 0x28] + 0x94, the model's + 0x28 still the flag 1 its create method writes,
-// the same in both games: the model the helper at + 0x43C draws (the object's + 0x2C) is not bound yet, slots 0xC /
-// 0x14 write its + 0x28); not checked: why, and whether X reaches that read the same way
+// gym shows, web, dew drops, people and the player, the game going on. Its unmapped read at 0x95 every frame was a
+// wrong twin: X's 0x378548 (a model's node drawn with the camera) mapped to Omega Ruby's 0x390048, the twin of X's
+// 0x3785E4 instead; Omega Ruby has none of the first, now copied (run vA5, 31 October: no unmapped read, the player
+// walks on the web)
 const XyModulePort& XyGymInsect();
 
 }
