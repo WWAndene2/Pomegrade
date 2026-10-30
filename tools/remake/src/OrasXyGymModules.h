@@ -58,7 +58,7 @@ struct XyModulePort
     struct Copy { uint32_t XAddress, Size; std::string Why; };
     std::vector<Copy> Copies;
     std::map<uint32_t, uint32_t> Literals; // a literal of the copies: an X .code or data address -> Omega Ruby's
-    // the archive the module loads (X's number, a/X/Y/Z by its digits; 0 none) and its words requesting it (`mov r1, #n`,
+    // the archive the module loads (X's number, a/X/Y/Z by its digits; 0 none) and its words requesting it (`mov rd, #n`,
     // file offsets): given Omega Ruby's number for it (XyGymArchiveNumber)
     uint16_t Archive = 0;
     std::vector<uint32_t> ArchiveWords;
@@ -128,21 +128,13 @@ const XyModulePort& XyGymElec();
 
 // Viola's gym (X zone 56, Santalune; DllUSGymInsect, mapped 30 October): its imports mapped (xy_import_match.py,
 // xy_callee_map.py), its two X-own helpers and their callees copied (Copies); `xy-gym-module ... insect` builds it.
-// Not in XyGyms yet: given its kind (19) in a headless run (vI1, 30 October), the module loads and the zone stays black,
-// a null read in Omega Ruby's 0x388B70 (the model class's slot 11, X's 0x37121C, identical) called from the module's
-// +0x988, building the dew drops' models (materials dew01-dew15, leafdew1-4) with the field's +0x24 and +0x2C; the
-// same zone without the module shows (run vI0). Ruled out: the copies' object offsets (library twins agree), the vtable
-// slot, the method itself; memory (owner's lead, 30 October): the field's heap 0x5D (its +0x2C) grown by 0x3C0000
-// (--characters 96, run vI3: the same null read), the module's 0x40-byte objects (built by X's 0x3864EC = Omega Ruby's
-// 0x39DBEC; the class around them, X's 0x4566EC-0x456984 = Omega Ruby's 0x486B1C-0x48A7A4, touches the same members).
-// The faulting method's 6th argument is a block the module builds on its stack (+0x940-0x96C), whose words come from
-// its 17 resource objects at +0x1C (filled by 0x49CAF4 -> 0x4CE2DC from the field's +0x24 resources). Read in memory
-// after the fault (run vD1, a JIT run with `dump`; the interpreter crashes at boot with this core): the module's object
-// (its vtable the port's, 0x859DD4 with the module at 0x858000) holds the field at +4 and +8, its 17 objects at +0x1C
-// are resource handles (vtable 0x5DDF64, ids 0x35-0x45) all unresolved (words 2-4 0xFFFFFFFF): the dew drops' resources
-// are not found. Not X's area pack 62 (12 files; its BCH holds c01_* textures) nor the effect pack (X's a/0/6/6 0x35-
-// 0x45 are grass01/grass02, Omega Ruby's a/0/6/4 others). Next: which resource set the field's +0x24 is (X's ids 0x35-
-// 0x45 there) and give X's files to it, as the dust clouds' swirl was given to the effect pack (OrasXyEffectPack.h)
+// In XyGyms (X's kind 2 -> 19) since 31 October: its dew drops' archive is X's a/1/1/0 (one "TM" container of 17 CGFX,
+// ids 0x35-0x45), given to it as the other gyms' archives; without it Omega Ruby's a/1/1/0 was read, the 17 resource
+// handles stayed unresolved and the dew drops' build read null (runs vI1, vD1, 30 October). Run vA2 (31 October): the
+// gym shows, web, dew drops, people and the player, the game going on. Left: an unmapped read at 0x95 every frame
+// (Omega Ruby's 0x4CCB9C reads [model + 0x28] + 0x94, the model's + 0x28 still the flag 1 its create method writes,
+// the same in both games: the model the helper at + 0x43C draws (the object's + 0x2C) is not bound yet, slots 0xC /
+// 0x14 write its + 0x28); not checked: why, and whether X reaches that read the same way
 const XyModulePort& XyGymInsect();
 
 }

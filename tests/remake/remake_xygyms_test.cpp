@@ -126,6 +126,17 @@ int main()
         check(XyArchivePath(0x130) == "a/3/0/4" && XyArchivePath(0xAE) == "a/1/7/4", "an archive's path by its digits");
     }
 
+    // Viola's request goes in r2 (Res_OpenArchive's own argument): mov r2, #0x6e made mov r2, #0x130, its register kept
+    {
+        Bytes t = m;
+        Set(t, 0x18C, 0xE3A0206E);
+        XyModulePort q = p;
+        q.Archive = 0x6E;
+        q.ArchiveWords = {0x18C};
+        const Bytes o = XyPortModule(t, x, oras, q, [](uint32_t id) { return id; }, XyGymArchiveNumber(0));
+        check(Get(o, 0x18C) == 0xE3A02E13, "the archive request in r2: mov r2, #0x130");
+    }
+
     // DllField loading Grant's module: the default case's first word to the dispatcher, kind 1 to the loader, which jumps
     // to the module's handle + its constructor's offset
     const std::vector<CodeWord> lw = XyGymLoaderPatchAt(0x10385CAC);
