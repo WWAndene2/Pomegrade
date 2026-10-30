@@ -985,7 +985,7 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
     {
         // X/Y's gym modules (OrasXyGymModules.h): each ported from X/Y's image, and DllField loading it by its area kind
         N3dsRom xy(o.XyGyms);
-        const XyGameModules x{xy.Read("static.crs"), xy.Read("DllField.cro"), 0x101F9000};
+        const XyGameModules x{xy.Read("static.crs"), xy.Read("DllField.cro"), 0x101F9000, xy.Code()};
         const XyGameModules orasModules{oras.Read("static.crs"), oras.Read("DllField.cro"), DllFieldBase};
         const XySounds sounds = XySounds::Read(oras.Code(), oras.Read("sound/sango_sound.bcsar"), xy.Code(), xy.Read("sound/xy_sound.bcsar"));
         // each module once (Clemont's serves three kinds), its archive given the next number past the game's (the path

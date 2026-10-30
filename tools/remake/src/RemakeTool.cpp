@@ -558,11 +558,11 @@ int main(int argc, char** argv)
         if (cmd == "xy-gym-module" && argc >= 6)
         {
             const std::string which = argv[5];
-            if (which != "rock" && which != "ice" && which != "elec") throw FormatError("xy-gym-module: rock, ice or elec");
-            const XyModulePort& port = which == "rock" ? XyGymRock() : which == "ice" ? XyGymIce() : XyGymElec();
+            if (which != "rock" && which != "ice" && which != "elec" && which != "insect") throw FormatError("xy-gym-module: rock, ice, elec or insect");
+            const XyModulePort& port = which == "rock" ? XyGymRock() : which == "ice" ? XyGymIce() : which == "elec" ? XyGymElec() : XyGymInsect();
             N3dsRom oras(argv[2]), xy(argv[3]);
             // where prototype/cro_link.py places each game's DllField (the addresses OrasXyGymModules.cpp names)
-            const XyGameModules x{xy.Read("static.crs"), xy.Read("DllField.cro"), 0x101F9000};
+            const XyGameModules x{xy.Read("static.crs"), xy.Read("DllField.cro"), 0x101F9000, xy.Code()};
             const XyGameModules o{oras.Read("static.crs"), oras.Read("DllField.cro"), 0x10242000};
             const XySounds sounds = XySounds::Read(oras.Code(), oras.Read("sound/sango_sound.bcsar"), xy.Code(), xy.Read("sound/xy_sound.bcsar"));
             const Bytes out = XyPortModule(xy.Read(port.XName + ".cro"), x, o, port, [&](uint32_t id) { return sounds.Translate(id); });

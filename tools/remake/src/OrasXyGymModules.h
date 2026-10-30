@@ -49,6 +49,15 @@ struct XyModulePort
     // code: Prefix (setting what Omega Ruby's function takes more), then a jump to it
     struct Thunk { uint32_t XTarget, Target; std::vector<uint32_t> Prefix; std::string Why; };
     std::vector<Thunk> Thunks;
+    // X's .code functions Omega Ruby has no copy of (xy_only_code.py), copied after the code (30 October, Viola's): each
+    // its X address and bytes (its literal pool and any data it addresses from the pc included). In the copies, a branch
+    // to another copy stays relative; one to X's .code goes to a veneer (`ldr pc, [pc, #-4]` and Omega Ruby's address
+    // from Static: the module runs where the heap has room, the .code where it is linked, so never a direct branch); a
+    // literal naming an X address must be in Literals (X's -> Omega Ruby's), else the port throws; an import of a copied
+    // function has its stubs made branches to the copy
+    struct Copy { uint32_t XAddress, Size; std::string Why; };
+    std::vector<Copy> Copies;
+    std::map<uint32_t, uint32_t> Literals; // a literal of the copies: an X .code or data address -> Omega Ruby's
     // the archive the module loads (X's number, a/X/Y/Z by its digits; 0 none) and its words requesting it (`mov r1, #n`,
     // file offsets): given Omega Ruby's number for it (XyGymArchiveNumber)
     uint16_t Archive = 0;
@@ -60,6 +69,7 @@ struct XyGameModules
 {
     Bytes Static, Field;
     uint32_t FieldBase = 0;
+    Bytes Code; // its .code (from 0x100000): what a port's Copies copy (X's); may be empty when nothing is copied
 };
 
 // X's module ported: throws if a word or an import is not X's as described, or an import is not mapped. sound: X's sound
@@ -115,6 +125,16 @@ const XyModulePort& XyGymIce();
 // Clemont's gym (X zones 77-82, Lumiose; DllUSGymElec, read 20 October): its lifts and doors, three classes (X's area kinds
 // 0x19-0x1B); mapped and ported, not run in the game
 const XyModulePort& XyGymElec();
+
+// Viola's gym (X zone 56, Santalune; DllUSGymInsect, mapped 30 October): its imports mapped (xy_import_match.py,
+// xy_callee_map.py), its two X-own helpers and their callees copied (Copies); `xy-gym-module ... insect` builds it.
+// Not in XyGyms yet: given its kind (19) in a headless run (vI1, 30 October), the module loads and the zone stays black,
+// a null read in Omega Ruby's 0x388B70 (the model class's slot 11, X's 0x37121C, identical) called from the module's
+// +0x988, building the dew drops' models (materials dew01-dew15, leafdew1-4) with the field's +0x24 and +0x2C; the
+// same zone without the module shows (run vI0). Ruled out: the copies' object offsets (library twins agree), the vtable
+// slot, the method itself. Next: what the field's +0x24 / +0x2C hold in each game (the area's resources: the dew
+// models are not found by name in X's a/0/1/3 nor a/0/4/1)
+const XyModulePort& XyGymInsect();
 
 }
 

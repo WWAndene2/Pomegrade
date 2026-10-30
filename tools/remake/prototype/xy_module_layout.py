@@ -69,13 +69,13 @@ def instructions(cro, md, start=None, end=None):
 
 def functions(cro, md):
     """function starts: `push {..., lr}`, bl targets (as cro_dis.py's `functions`) and the code a data word points to
-    (vtables, and the jump table of the export nnroControlObject_ giving the constructors)"""
+    (the vtables, in the data segments)"""
     start, end = code_range(cro)
     starts = set()
     starts |= {a for a in cro.labels if start <= a < end}  # its exports (X's DllField imports the constructors)
-    for at, what in cro.patches.items():  # relocated words: vtables, and the jump table of nnroControlObject_,
-        word = struct.unpack_from('<I', cro.data, at)[0]  # the export handing out the constructors
-        if what.startswith('->') and start <= word < end and word % 4 == 0:
+    for at, what in cro.patches.items():  # relocated words of the data segments: the vtables (a switch's jump table,
+        word = struct.unpack_from('<I', cro.data, at)[0]  # in the code segment, names cases inside a function: not starts)
+        if what.startswith('->') and start <= word < end and word % 4 == 0 and not start <= at < end:
             starts.add(word)
     listing = list(instructions(cro, md))
     literals = set()  # the words pc-relative loads read: data, not code

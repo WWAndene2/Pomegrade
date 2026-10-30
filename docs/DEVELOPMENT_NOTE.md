@@ -349,9 +349,14 @@ redone; the zones before what runs in them; one phone check per block, not per c
    0x390560 (a bare return) -> Util_Nop; shared already: 0x2FF520, 0x14F220, 0x58E8AC/BC. X's own, to copy into the
    module: 0x455C30 and 0x455D44 (a helper class over a model's 0x34-byte entries) with their callees 0x455F28,
    0x456148, 0x4563D8, 0x2F66E4, 0x488AB8 (0.74 to Omega Ruby's 0x4AC9DC, to read), 0x367AD4 (returns a string's
-   address): about 2,700 bytes. **Next:** a way to copy X functions into a ported module (its cave, their calls
-   relocated, as the dust cloud's code was copied into DllField's), needed by the other gyms too; then Viola's module,
-   its zone, a headless run.
+   address): about 2,700 bytes. **Done the same day:** XyModulePort's Copies (X functions copied after a module's code,
+   their calls to other copies relative, to the .code through veneers, their literals mapped or the port refused) and
+   Literals (0x5D0F10 -> 0x6172DC, a class identifier, 39 copies agree; two constant tables, the same bytes); Viola's
+   port builds (`xy-gym-module ... insect`), its copies checked in the output (24 calls kept inside, 6 veneers, no X
+   address left). Run vI1 (her kind given): the module loads, the zone stays black, a null read in Omega Ruby's
+   0x388B70 building the dew drops (OrasXyGymModules.h has what is ruled out); run vI0, the zone without the module,
+   shows. Viola is kept out of XyGyms until that is found. Found on the way: xy_module_layout.py misses a field kept
+   through another register (Viola's constructor's `str r4, [r5, #8]`).
 
    **Working order, 30 October (owner's request: every point left, ordered by logic and priority).** It replaces the
    order above. The reasons: the shared fixes before the modules that need them; search before building, so the list is
