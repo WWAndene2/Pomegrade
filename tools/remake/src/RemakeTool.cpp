@@ -1742,6 +1742,7 @@ int main(int argc, char** argv)
             OrasWorkspace ws(oras);
             ws.XyRom = argv[3];
             XyWorldOptions wo;
+            bool muteMusic = false;
             wo.NamesFile = argv[5];
             for (int i = 6; i + 1 < argc; i += 2)
             {
@@ -1765,8 +1766,11 @@ int main(int argc, char** argv)
                 }
                 else if (flag == "--music")
                 {
-                    if (value != "on" && value != "off") throw FormatError("oras-xy-world --music on|off (X/Y's music, with ffmpeg)");
+                    // mute: no music at all, both regions' streams at volume 0 (owner's request, 30 October: to hear the
+                    // footsteps; the in-game cheat did not silence it)
+                    if (value != "on" && value != "off" && value != "mute") throw FormatError("oras-xy-world --music on|off|mute (X/Y's music, with ffmpeg; mute: none)");
                     wo.Music = value == "on";
+                    muteMusic = value == "mute";
                 }
                 else throw FormatError("oras-xy-world: unknown option " + flag + " " + value);
             }
@@ -1784,7 +1788,7 @@ int main(int argc, char** argv)
             if (wo.Music)
                 for (const std::string& line : BuildXyMusic(oras, xy, sounds, argv[4], (std::filesystem::path(argv[4]) / ".music-scratch").string(), archive))
                     printf("%s\n", line.c_str());
-            for (const std::string& line : WriteXySoundArchive(oras, original, archive, xy.Read("sound/xy_sound.bcsar"), sounds, wo.Music, argv[4]))
+            for (const std::string& line : WriteXySoundArchive(oras, original, archive, xy.Read("sound/xy_sound.bcsar"), sounds, wo.Music, argv[4], muteMusic))
                 printf("%s\n", line.c_str());
             return 0;
         }

@@ -92,7 +92,7 @@ XySounds XySounds::Read(const Bytes& orasCode, const Bytes& orasArchive, const B
 }
 
 std::vector<std::string> WriteXySoundArchive(N3dsRom& oras, const Bytes& original, Bytes archive, const Bytes& xyArchive, const XySounds& sounds,
-                                             bool streams, const std::string& outDir)
+                                             bool streams, const std::string& outDir, bool muteStreams)
 {
     std::vector<std::string> log;
     size_t first = 0;
@@ -129,6 +129,12 @@ std::vector<std::string> WriteXySoundArchive(N3dsRom& oras, const Bytes& origina
         snprintf(quiet, sizeof quiet, "quiet sounds: %zu as sounds %zu-%zu, ids %u-%u of category 0; %s", copies.size(), quietFirst, quietFirst + copies.size() - 1,
                  sounds.QuietId(), sounds.QuietId() + (uint32_t)copies.size() - 1, quietShared.c_str());
         log.push_back(quiet);
+    }
+    if (muteStreams)
+    {
+        const std::vector<BcsarStream> all = BcsarStreams(archive);
+        for (const BcsarStream& stream : all) BcsarSetSoundVolume(archive, stream.Index, 0);
+        log.push_back("music muted: " + std::to_string(all.size()) + " stream sounds at volume 0");
     }
     const Bytes bps = BpsCreate(original, archive);
     if (BpsApply(original, bps) != archive) throw FormatError("sango_sound.bcsar: the patch does not rebuild the archive");

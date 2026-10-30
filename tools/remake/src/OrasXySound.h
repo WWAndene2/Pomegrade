@@ -56,10 +56,10 @@ struct XySounds
 };
 
 // the archive (Omega Ruby's, with X/Y's streams appended when `streams`) with X/Y's ported sound effects appended
-// (Sequences), written as its patch romfs_ext/sound/sango_sound.bcsar.bps under outDir's load/mods/<program id>; returns
-// the log
+// (Sequences), written as its patch romfs_ext/sound/sango_sound.bcsar.bps under outDir's load/mods/<program id>; with
+// muteStreams, every stream sound (the music and jingles) at volume 0; returns the log
 std::vector<std::string> WriteXySoundArchive(N3dsRom& oras, const Bytes& original, Bytes archive, const Bytes& xyArchive, const XySounds& sounds,
-                                             bool streams, const std::string& outDir);
+                                             bool streams, const std::string& outDir, bool muteStreams = false);
 
 // the category table of a code (the "count, list" pairs from category 0, found before the archive's path in the code, as in
 // both games); its address in memory (the code from 0x100000)
