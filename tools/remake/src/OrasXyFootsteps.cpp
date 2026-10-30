@@ -1,6 +1,7 @@
 #include "OrasXyFootsteps.h"
 
 #include <string>
+#include <tuple>
 
 namespace remake
 {
@@ -167,6 +168,24 @@ std::vector<CodeWord> XyFootstepsFieldPatchAt(uint32_t cave, const Bytes& file)
     c.push_back(0xE0822001);                          // add r2, r2, r1
     c.push_back(0xE58C2000);                          // str r2, [r12]
     c.push_back(0xE1A00FA2);                          // lsr r0, r2, #31
+    // the step's play parameters on the stack (the function's struct at sp, filled before the table's load: +4 the volume,
+    // the walking ramp; +8 a factor 1.0, taken for the pitch: inferred, not read in the sound code) each scaled by
+    // 1 + (a random byte - 128) * k: the volume +-15% (bits 8-15), the pitch +-8% (bits 16-23) (owner, 30 October: more
+    // variation of pitch and tone)
+    for (const auto& [lsb, k, field] : {std::tuple<uint32_t, uint32_t, uint32_t>{8, 0x3A99999A, 4}, {16, 0x3A23D70A, 8}})
+    {
+        c.push_back(0xE7E70052 | 1u << 12 | lsb << 7);  // ubfx r1, r2, #lsb, #8
+        c.push_back(0xE2411080);                         // sub r1, r1, #128
+        c.push_back(0xEE071A10);                         // vmov s14, r1
+        c.push_back(0xEEB87AC7);                         // vcvt.f32.s32 s14, s14
+        c.push_back(Movw(1, k & 0xFFFF));
+        c.push_back(0xE3401000 | (k >> 28) << 16 | (k >> 16 & 0xFFF)); // movt r1, #k >> 16
+        c.push_back(0xEE071A90);                         // vmov s15, r1
+        c.push_back(0xEE277A27);                         // vmul.f32 s14, s14, s15
+        c.push_back(0xEDDD7A00 | field / 4);             // vldr s15, [sp, #field]
+        c.push_back(0xEE477A87);                         // vmla.f32 s15, s15, s14
+        c.push_back(0xEDCD7A00 | field / 4);             // vstr s15, [sp, #field]
+    }
     const uint32_t past = cave + 4 * (uint32_t)c.size();
     c[skip1] = Branch(0x3, cave + 4 * (uint32_t)skip1, past, false);
     c[skip2] = Branch(0x8, cave + 4 * (uint32_t)skip2, past, false);
