@@ -355,7 +355,17 @@ redone; the zones before what runs in them; one phone check per block, not per c
    port builds (`xy-gym-module ... insect`), its copies checked in the output (24 calls kept inside, 6 veneers, no X
    address left). Run vI1 (her kind given): the module loads, the zone stays black, a null read in Omega Ruby's
    0x388B70 building the dew drops (OrasXyGymModules.h has what is ruled out); run vI0, the zone without the module,
-   shows. Viola is kept out of XyGyms until that is found. Found on the way: xy_module_layout.py misses a field kept
+   shows. Viola is kept out of XyGyms until that is found.
+   **Handover (30 October, end of session; the owner's tokens ran out).** Where Viola stands: run vD1 (memory dumped
+   after the fault) shows her module's 17 resource handles (ids 0x35-0x45, the dew drops) unresolved: OrasXyGymModules.h
+   has what is read and ruled out (memory: the field heap 0x5D grown, objects' sizes; the area pack; the effect pack).
+   Next for the next agent: find which resource set the field's +0x24 is (X: ids 0x35-0x45 there), give it X's files
+   as OrasXyEffectPack.h did the swirl, put Viola back in XyGyms (kind 19), run `headless/xy_gym_mod.sh <work> viola 51
+   20.5 64.5`; then the other gyms in the order above. Tools of the session: `prototype/xy_module_layout.py` (field
+   accesses, `--words`), `xy_only_code.py` (X's own code), `xy_callee_map.py` (an X function's twin by its callers),
+   `headless/xy_gym_mod.sh` (a gym's mod and save), `footsteps_mod.sh`, `time_lapse_diff.py`. Pitfalls met again:
+   the interpreter crashes at boot (read memory with `dump` in a JIT run instead); `--characters` changes the save's
+   layout (the save's records with it, or the game says the save is corrupted). Found on the way: xy_module_layout.py misses a field kept
    through another register (Viola's constructor's `str r4, [r5, #8]`).
 
    **Working order, 30 October (owner's request: every point left, ordered by logic and priority).** It replaces the
