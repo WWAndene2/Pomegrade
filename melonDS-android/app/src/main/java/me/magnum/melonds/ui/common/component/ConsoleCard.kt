@@ -29,7 +29,7 @@ import me.magnum.melonds.ui.theme.PunicaTheme
 /** A console card (96 x 96: the mock-up's 88 wide put on the scale, square; home quick access and the settings' console picker): the console's drawing and its full name; the chosen one ringed in red. */
 @Composable
 fun ConsoleCard(platform: RomPlatform, selected: Boolean, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(24.dp) // §7.3: 0.24 x 96 = 23 -> 24
     Column(
         Modifier
             .size(96.dp)
