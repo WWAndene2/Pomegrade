@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Punica's settings look (owner's choice, 13 October: the app's settings, 31 October: every console's), laid over
+         a core's own settings screen (theme.applyStyle in its SettingsActivity): the dark palette, red accents, the
+         page behind the cards -->
+    <style name="ThemeOverlay.Pomegrade.EmulatorSettings" parent="">
+        <item name="colorPrimary">@color/emulator_menu_primary</item>
+        <item name="colorOnPrimary">@color/emulator_menu_on_primary</item>
+        <item name="colorPrimaryContainer">@color/emulator_menu_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/emulator_menu_on_primary_container</item>
+        <item name="colorSecondary">@color/emulator_menu_primary</item>
+        <item name="colorSecondaryContainer">@color/emulator_menu_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/emulator_menu_on_secondary_container</item>
+        <item name="colorTertiary">@color/emulator_menu_primary</item>
+        <item name="colorSurface">@color/emulator_settings_background</item>
+        <item name="colorSurfaceContainer">@color/emulator_menu_surface</item>
+        <item name="colorSurfaceContainerLow">@color/emulator_menu_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/emulator_menu_surface</item>
+        <item name="colorSurfaceContainerHighest">@color/emulator_menu_secondary_container</item>
+        <item name="colorOnSurface">@color/emulator_menu_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/emulator_menu_on_surface_variant</item>
+        <item name="colorOutline">@color/emulator_settings_line</item>
+        <item name="colorOutlineVariant">@color/emulator_settings_line</item>
+        <item name="android:colorBackground">@color/emulator_settings_background</item>
+        <item name="android:windowBackground">@color/emulator_settings_background</item>
+        <item name="android:statusBarColor">@color/emulator_settings_background</item>
+        <item name="android:navigationBarColor">@color/emulator_settings_background</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Pomegrade.EmulatorMenu.Dialog</item>
+        <item name="textAppearanceTitleLarge">@style/TextAppearance.Pomegrade.EmulatorMenu.Title</item>
+        <item name="textAppearanceTitleMedium">@style/TextAppearance.Pomegrade.EmulatorMenu.TitleMedium</item>
+    </style>
+
+    <!-- A settings row (the app's preference_punica.xml): at least 64 dp, 16 dp sides, 12 dp above and below the text -->
+    <style name="Widget.Pomegrade.EmulatorSettings.Row" parent="">
+        <item name="android:minHeight">@dimen/emulator_settings_row_min_height</item>
+        <item name="android:paddingStart">@dimen/emulator_settings_margin</item>
+        <item name="android:paddingEnd">@dimen/emulator_settings_margin</item>
+        <item name="android:paddingTop">@dimen/emulator_settings_gap_wide</item>
+        <item name="android:paddingBottom">@dimen/emulator_settings_gap_wide</item>
+        <item name="android:background">?android:attr/selectableItemBackground</item>
+    </style>
+
+    <!-- A section title, outside the cards: Bricolage Grotesque 16, 16 dp above, 8 below -->
+    <style name="Widget.Pomegrade.EmulatorSettings.Section" parent="">
+        <item name="android:paddingStart">@dimen/emulator_settings_margin</item>
+        <item name="android:paddingEnd">@dimen/emulator_settings_margin</item>
+        <item name="android:paddingTop">@dimen/emulator_settings_margin</item>
+        <item name="android:paddingBottom">@dimen/emulator_settings_gap</item>
+    </style>
+
+    <style name="TextAppearance.Pomegrade.EmulatorSettings.Title" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:textSize">14sp</item>
+        <item name="lineHeight">20sp</item>
+        <item name="android:textColor">@color/emulator_menu_on_surface</item>
+        <item name="fontFamily">sans-serif-medium</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="TextAppearance.Pomegrade.EmulatorSettings.Summary" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:textSize">12sp</item>
+        <item name="lineHeight">16sp</item>
+        <item name="android:textColor">@color/emulator_menu_on_surface_variant</item>
+    </style>
+
+    <!-- the value a row is set to, under its summary: red, as the app's chosen options -->
+    <style name="TextAppearance.Pomegrade.EmulatorSettings.Value" parent="TextAppearance.Material3.LabelMedium">
+        <item name="android:textSize">12sp</item>
+        <item name="lineHeight">16sp</item>
+        <item name="android:textColor">@color/emulator_menu_primary</item>
+        <item name="fontFamily">sans-serif-medium</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="TextAppearance.Pomegrade.EmulatorSettings.Section" parent="TextAppearance.Material3.TitleSmall">
+        <item name="android:textSize">16sp</item>
+        <item name="lineHeight">24sp</item>
+        <item name="android:textColor">@color/emulator_menu_on_surface</item>
+        <item name="fontFamily">@font/punica_bricolage_grotesque_bold</item>
+        <item name="android:fontFamily">@font/punica_bricolage_grotesque_bold</item>
+    </style>
+</resources>

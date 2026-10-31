@@ -6,11 +6,11 @@
     android:background="?android:attr/selectableItemBackground"
     android:clickable="true"
     android:focusable="true"
-    android:minHeight="54dp">
+    android:minHeight="@dimen/emulator_settings_row_min_height">
 
     <TextView
         android:id="@+id/text_setting_name"
-        style="@style/TextAppearance.MaterialComponents.Headline5"
+        android:textAppearance="@style/TextAppearance.Pomegrade.EmulatorSettings.Title"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_alignParentEnd="true"
@@ -19,7 +19,6 @@
         android:layout_marginEnd="@dimen/dolphin_spacing_large"
         android:layout_marginStart="@dimen/dolphin_spacing_large"
         android:layout_marginTop="@dimen/dolphin_spacing_large"
-        android:textSize="16sp"
         android:textAlignment="viewStart"
         tools:text="Setting Name" />
 

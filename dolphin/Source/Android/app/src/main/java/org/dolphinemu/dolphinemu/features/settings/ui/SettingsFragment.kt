@@ -101,8 +101,13 @@ class SettingsFragment : Fragment(), SettingsFragmentView {
         recyclerView.adapter = adapter
         recyclerView.layoutManager = manager
 
-        val divider = SettingsDividerItemDecoration(requireActivity())
-        recyclerView.addItemDecoration(divider)
+        // Pomegrade: Punica's cards behind the rows instead of the dividers, the section titles outside them (every
+        // console's settings)
+        recyclerView.addItemDecoration(
+            io.github.wwandene2.pomegrade.emulatorui.PunicaSettingsCards(requireActivity()) { list, position ->
+                list.adapter?.getItemViewType(position) != org.dolphinemu.dolphinemu.features.settings.model.view.SettingsItem.TYPE_HEADER
+            }
+        )
 
         setInsets()
 

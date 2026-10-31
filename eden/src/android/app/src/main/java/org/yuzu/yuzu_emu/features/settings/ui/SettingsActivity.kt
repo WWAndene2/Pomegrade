@@ -44,6 +44,8 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemeHelper.setTheme(this)
+        // Pomegrade: Punica's settings look over Eden's theme, as on every console's settings
+        theme.applyStyle(io.github.wwandene2.pomegrade.emulatorui.R.style.ThemeOverlay_Pomegrade_EmulatorSettings, true)
 
         super.onCreate(savedInstanceState)
 

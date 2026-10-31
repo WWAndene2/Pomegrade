@@ -11,4 +11,7 @@
     <color name="emulator_menu_surface">#191B20</color>
     <color name="emulator_menu_on_surface">#F3F4F6</color>
     <color name="emulator_menu_on_surface_variant">#9EA3AC</color>
+    <!-- Punica's settings (every core's): the page behind the cards, the lines between rows -->
+    <color name="emulator_settings_background">#111215</color>
+    <color name="emulator_settings_line">#2B2E35</color>
 </resources>

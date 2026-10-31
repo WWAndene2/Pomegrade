@@ -14,11 +14,10 @@
         android:layout_alignParentStart="true"
         android:layout_alignParentTop="true"
         android:layout_marginHorizontal="@dimen/dolphin_spacing_large"
-        android:layout_marginTop="24dp"
-        android:layout_marginBottom="8dp"
+        android:layout_marginTop="@dimen/emulator_settings_margin"
+        android:layout_marginBottom="@dimen/emulator_settings_gap"
         android:gravity="start|center_vertical"
-        android:textColor="?attr/colorPrimary"
-        android:textStyle="bold"
+        android:textAppearance="@style/TextAppearance.Pomegrade.EmulatorSettings.Section"
         android:textAlignment="viewStart"
         tools:text="CPU Settings" />
 

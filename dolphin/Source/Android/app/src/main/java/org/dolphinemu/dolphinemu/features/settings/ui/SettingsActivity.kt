@@ -51,6 +51,8 @@ class SettingsActivity : AppCompatActivity(), SettingsActivityView, ThemeProvide
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(this)
+        // Pomegrade: Punica's settings look over Dolphin's theme, as on every console's settings
+        theme.applyStyle(io.github.wwandene2.pomegrade.emulatorui.R.style.ThemeOverlay_Pomegrade_EmulatorSettings, true)
         enableEdgeToEdge()
 
         super.onCreate(savedInstanceState)

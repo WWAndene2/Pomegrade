@@ -9,8 +9,7 @@
     android:clickable="true"
     android:focusable="true"
     android:gravity="center_vertical"
-    android:minHeight="72dp"
-    android:padding="16dp">
+    style="@style/Widget.Pomegrade.EmulatorSettings.Row">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -34,17 +33,15 @@
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/text_setting_name"
-                style="@style/TextAppearance.Material3.HeadlineMedium"
+                android:textAppearance="@style/TextAppearance.Pomegrade.EmulatorSettings.Title"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textAlignment="viewStart"
-                android:textSize="17sp"
-                app:lineHeight="22dp"
                 tools:text="Setting Name" />
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/text_setting_description"
-                style="@style/TextAppearance.Material3.BodySmall"
+                android:textAppearance="@style/TextAppearance.Pomegrade.EmulatorSettings.Summary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/spacing_small"
@@ -53,13 +50,11 @@
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/text_setting_value"
-                style="@style/TextAppearance.Material3.LabelMedium"
+                android:textAppearance="@style/TextAppearance.Pomegrade.EmulatorSettings.Value"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/spacing_small"
                 android:textAlignment="viewStart"
-                android:textStyle="bold"
-                android:textSize="13sp"
                 tools:text="1x" />
 
         </LinearLayout>
