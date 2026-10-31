@@ -4,8 +4,10 @@
 #include "Darc.h"
 #include "Layout.h"
 #include "OrasXySequence.h"
+#include "PicaTexture.h"
 
 #include <cstdio>
+#include <algorithm>
 #include <cstring>
 #include <vector>
 #include <string>
@@ -33,6 +35,12 @@ int main()
     const ClimImage c = ClimImage::Read(clim);
     check(c.Width == 20 && c.Height == 10 && c.StoredWidth == 32 && c.StoredHeight == 16 && c.Format == 9, "BCLIM size, rounded storage and format read back");
     check(c.Rgba() == rgba, "BCLIM pixels read back");
+    {
+        // the padded image in the stored texture's last rows: texels count from the bottom row (PicaTextureDecode reads
+        // them so), and the game draws a padded layout image from there (X's badge case, 31 October)
+        const Bytes all = PicaTextureDecode(c.Pixels, 32, 16, 0);
+        check(std::equal(rgba.begin(), rgba.begin() + 20 * 4, all.begin() + (size_t)6 * 32 * 4), "a padded image's first row is the stored texture's row 6 of 16");
+    }
 
     // an L8 image 20 x 8 stored 32 x 8: 256 bytes, the same length as 20 x 8 rounded up to 0x80, so the length alone
     // does not decide; 20 is no whole number of 8x8 tiles, so the stored size is the power of two
