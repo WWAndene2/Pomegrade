@@ -10,18 +10,16 @@ data class PerformanceDetails(
     val polygonMultiplierCpuMs: Float,
     val texturesCpuMs: Float,
     val gpuSceneMs: Float?,
-    val gpuShadowsMs: Float?,
-    val gpuLightingMs: Float?,
     val gpuCompositorMs: Float?,
     val gpuFrameGenerationMs: Float?,
 ) {
-    val gpuTotalMs: Float? get() = listOf(gpuSceneMs, gpuShadowsMs, gpuLightingMs, gpuCompositorMs, gpuFrameGenerationMs)
+    val gpuTotalMs: Float? get() = listOf(gpuSceneMs, gpuCompositorMs, gpuFrameGenerationMs)
         .takeIf { values -> values.all { it != null } }
         ?.sumOf { it!!.toDouble() }
         ?.toFloat()
 
     companion object {
-        private const val SECTION_COUNT = 8
+        private const val SECTION_COUNT = 6
 
         /**
          * From the native counters: frames measured, then one value per section in the order of
@@ -37,10 +35,8 @@ data class PerformanceDetails(
                 polygonMultiplierCpuMs = counters[2],
                 texturesCpuMs = counters[3],
                 gpuSceneMs = gpu(3),
-                gpuShadowsMs = gpu(4),
-                gpuLightingMs = gpu(5),
-                gpuCompositorMs = gpu(6),
-                gpuFrameGenerationMs = gpu(7),
+                gpuCompositorMs = gpu(4),
+                gpuFrameGenerationMs = gpu(5),
             )
         }
     }

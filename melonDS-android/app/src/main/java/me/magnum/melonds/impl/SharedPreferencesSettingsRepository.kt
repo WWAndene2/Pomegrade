@@ -191,12 +191,6 @@ class SharedPreferencesSettingsRepository(
             textureUpscale = preferences.getString("texture_upscale", "1")?.toIntOrNull() ?: 1,
             textureFilter = preferences.getBoolean("texture_filter", false),
             oledBlacks = preferences.getBoolean("oled_blacks", false),
-            adaptiveColours = preferences.getBoolean("adaptive_colours", false),
-            ambientOcclusion = preferences.getBoolean("ambient_occlusion", false),
-            lightBounce = preferences.getBoolean("light_bounce", false),
-            shadows = preferences.getBoolean("shadows", false),
-            reflections = preferences.getBoolean("reflections", false),
-            reliefTextures = preferences.getString("relief_textures", "0")?.toIntOrNull() ?: 0,
             frameRate = getFrameRateMode().nativeValue,
             analogueMovement = preferences.getBoolean("analogue_movement", false),
         )

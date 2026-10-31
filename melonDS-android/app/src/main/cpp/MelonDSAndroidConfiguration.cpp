@@ -125,12 +125,6 @@ MelonDSAndroid::EmulatorConfiguration MelonDSAndroidConfiguration::buildEmulator
     finalEmulatorConfiguration.textureUpscale = env->GetIntField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "textureUpscale", "I"));
     finalEmulatorConfiguration.textureFilter = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "textureFilter", "Z"));
     finalEmulatorConfiguration.oledBlacks = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "oledBlacks", "Z"));
-    finalEmulatorConfiguration.adaptiveColours = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "adaptiveColours", "Z"));
-    finalEmulatorConfiguration.ambientOcclusion = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "ambientOcclusion", "Z"));
-    finalEmulatorConfiguration.lightBounce = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "lightBounce", "Z"));
-    finalEmulatorConfiguration.shadows = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "shadows", "Z"));
-    finalEmulatorConfiguration.reflections = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "reflections", "Z"));
-    finalEmulatorConfiguration.reliefTextures = env->GetIntField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "reliefTextures", "I"));
     finalEmulatorConfiguration.frameRate = env->GetIntField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "frameRate", "I"));
     finalEmulatorConfiguration.analogueMovement = env->GetBooleanField(emulatorConfiguration, env->GetFieldID(emulatorConfigurationClass, "analogueMovement", "Z"));
 

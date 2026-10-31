@@ -64,9 +64,9 @@ int main()
         for (int i = 0; i < 10; i++)
         {
             auto plan = p.NextFrame();
-            alternate = alternate && plan.Show == (i % 2 == 0) && plan.NextShow == !plan.Show && plan.Generated == 0;
+            alternate = alternate && plan.Show == (i % 2 == 0) && plan.Generated == 0;
         }
-        check(alternate, "30: one DS frame in two shown (and the 3D rendered during a shown one is hidden)");
+        check(alternate, "30: one DS frame in two shown");
     }
 
     // a screen that changes rate while a fixed mode runs

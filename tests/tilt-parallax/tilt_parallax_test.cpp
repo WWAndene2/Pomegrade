@@ -126,29 +126,27 @@ static Result Measure()
     return r;
 }
 
-// worst gap between each perspective vertex and its view position through the
-// projection the renderer's reflections use, as a fraction of W
-static double ReprojectionError(u32 count, Polygon* const* polygons)
+// the rendered list's average screen x per depth slot (all polygons of a slot
+// share its W: each triangle lies at one depth), for the multiplied list
+static Result MeasureRendered()
 {
-    const GPU3D& g = Nds->GPU.GPU3D;
-    double worst = 0;
-    for (u32 i = 0; i < count; i++)
+    GPU3D& g = Nds->GPU.GPU3D;
+    Result r {};
+    int n[4] = {};
+    for (u32 i = 0; i < g.GetRenderNumPolygons(); i++)
     {
-        const Polygon* p = polygons[i];
-        if (p->Vertices[0]->Orthographic) continue;
+        const Polygon* p = g.GetRenderPolygons()[i];
+        double sx = 0, w = p->Vertices[0]->Position[3];
         for (u32 j = 0; j < p->NumVertices; j++)
-        {
-            const Vertex* v = p->Vertices[j];
-            const double view[4] = {v->ViewPosition[0], v->ViewPosition[1], v->ViewPosition[2], 4096.0};
-            for (int c = 0; c < 4; c++)
-            {
-                double clip = (view[0]*g.RenderProjMatrix[c] + view[1]*g.RenderProjMatrix[4+c] + view[2]*g.RenderProjMatrix[8+c] + view[3]*g.RenderProjMatrix[12+c]) / 4096.0;
-                worst = std::max(worst, std::fabs(clip - v->Position[c]) / v->Position[3]);
-            }
-        }
+            sx += (double)p->Vertices[j]->Position[0] / p->Vertices[j]->Position[3];
+        int slot = 3;
+        for (int d = 0; d < 3; d++)
+            if (std::fabs(w / 4096.0 + Depths[d]) < 0.05) slot = d;
+        r.x[slot] += sx / p->NumVertices;
+        n[slot]++;
     }
-    printf("      worst reprojection error: %.5f of W\n", worst);
-    return worst;
+    for (int d = 0; d < 4; d++) if (n[d]) r.x[d] /= n[d];
+    return r;
 }
 
 static bool Check(bool cond, const char* what)
@@ -165,7 +163,6 @@ int main()
     GPU3D& g = nds->GPU.GPU3D;
     g.Reset();
     g.SetEnabled(true, true);
-    g.SetViewDataCapture(true);
 
     bool ok = true;
     SubmitFrame(); SubmitFrame();
@@ -198,18 +195,26 @@ int main()
     for (int i = 0; i < 4; i++) sameTest &= on.posTest[i] == off.posTest[i];
     ok &= Check(sameTest, "the game's position test unchanged");
 
-    // the reflections' projection reproduces the moved vertices
-    ok &= Check(ReprojectionError(g.RenderNumPolygons, g.RenderPolygonRAM.data()) < 0.002,
-                "reflection projection matches the moved vertices");
-
     // polygon multiplier: its sub-vertices (built from view space, not from
     // the game's vertices) move like the rest of the scene
     g.SetPolygonMultiplier(2);
+    g.SetTiltParallax(0.0f, 0.0f);
     SubmitFrame(); SubmitFrame();
+    Result multipliedOff = MeasureRendered();
+    g.SetTiltParallax(shift, 0.0f);
+    SubmitFrame(); SubmitFrame();
+    Result multipliedOn = MeasureRendered();
     printf("      multiplier: %u hardware polygons -> %u rendered polygons\n", g.RenderNumPolygons, g.GetRenderNumPolygons());
-    ok &= Check(g.GetRenderNumPolygons() > g.RenderNumPolygons &&
-                ReprojectionError(g.GetRenderNumPolygons(), g.GetRenderPolygons()) < 0.002,
-                "multiplied sub-vertices moved with the scene");
+    bool movedLikeScene = g.GetRenderNumPolygons() > g.RenderNumPolygons;
+    for (int d = 0; d < 3; d++)
+    {
+        printf("      multiplied depth %.0f: moved %+.4f, scene %+.4f\n", -Depths[d], multipliedOn.x[d] - multipliedOff.x[d], on.x[d] - off.x[d]);
+        // the pivot and gain come from every vertex drawn, sub-vertices included: measured 0.003-0.004 apart
+        movedLikeScene &= std::fabs((multipliedOn.x[d] - multipliedOff.x[d]) - (on.x[d] - off.x[d])) < 0.006;
+    }
+    movedLikeScene &= multipliedOn.x[0] - multipliedOff.x[0] < multipliedOn.x[1] - multipliedOff.x[1] &&
+                      multipliedOn.x[1] - multipliedOff.x[1] < multipliedOn.x[2] - multipliedOff.x[2];
+    ok &= Check(movedLikeScene, "multiplied sub-vertices moved with the scene");
 
     // back to off: nothing moves
     g.SetPolygonMultiplier(1);

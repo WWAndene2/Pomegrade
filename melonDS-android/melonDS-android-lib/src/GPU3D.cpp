@@ -722,7 +722,6 @@ void GPU3D::UpdateClipMatrix() noexcept
 {
     if (!ClipMatrixDirty) return;
     ClipMatrixDirty = false;
-    FrameProjectionCheck = true; // Pomegrade: see SubmitVertex
 
     memcpy(ClipMatrix, ProjMatrix, 16*4);
     MatrixMult4x4(ClipMatrix, PosMatrix);
@@ -862,7 +861,6 @@ void ClipSegment(Vertex* outbuf, Vertex* vin, Vertex* vout)
         outbuf->HasViewNormal = vin->HasViewNormal && vout->HasViewNormal;
         outbuf->LitColor = vin->LitColor && vout->LitColor;
         outbuf->Orthographic = vin->Orthographic;
-        outbuf->Specular = vin->Specular + (vout->Specular - vin->Specular) * t;
         outbuf->GridPoint = 0; // not a point of the multiplier's subdivision
     }
 
@@ -1176,8 +1174,6 @@ void GPU3D::SubmitPolygon() noexcept
     // including those culled or clipped away below
     if (PolygonMultiplierLevel > 1)
         RegisterEdgeFaces(nverts);
-    if (ViewDataRequested)
-        RecordShadowCaster(nverts);
     const u32 frameId = (PolygonSubmitCount++ << 8) | 0xFF;
 
     // culling
@@ -1786,7 +1782,6 @@ void GPU3D::MultiplyPolygon(Polygon* parent, int nverts) noexcept
             for (int i = 0; i < 3; i++) out.ViewNormal[i] = (float)mv.Normal[i];
             out.HasViewNormal = true;
             out.Orthographic = TempVertexBuffer[0].Orthographic;
-            out.Specular = TempVertexBuffer[0].Specular;
             out.GridPoint = gridpoint[g];
 
             const s32 w = out.Position[3];
@@ -1945,39 +1940,6 @@ u64 GPU3D::EdgeKeyOf(int corner, int other) const noexcept
     u64 texture = ((u64)TexPalette << 32) | TexParam;
     u64 key = ka * 0x9E3779B97F4A7C15ull ^ (kb + 0x632BE59BD9B4E019ull + (ka << 6) + (ka >> 2));
     return key ^ (texture * 0xC2B2AE3D27D4EB4Full + (key << 6) + (key >> 2));
-}
-
-// Shadows come from the scene, not from what the camera sees: each polygon
-// is recorded as the game submits it, before the DS discards the faces turned
-// away from the camera (half of each character, which half depending on the
-// camera's angle) and clips what lies outside the view (objects off screen
-// still shadow what is on screen). Only what the shadow map may draw: opaque
-// polygons the DS lights, in perspective (see GLRenderer::RenderShadowMap).
-// Geometry the game never submits (culled by the game itself) casts nothing.
-void GPU3D::RecordShadowCaster(int nverts)
-{
-    u32 attr = CurPolygonAttr;
-    u32 texfmt = (TexParam >> 26) & 0x7;
-    if (!(attr & 0xF) || ((attr >> 4) & 0x3) == 3 || ((attr >> 16) & 0x1F) != 31 || texfmt == 1 || texfmt == 6)
-        return;
-    float normal[3] = {};
-    for (int i = 0; i < nverts; i++)
-    {
-        const Vertex& v = TempVertexBuffer[i];
-        if (v.Orthographic || !v.HasViewNormal)
-            return;
-        for (int c = 0; c < 3; c++) normal[c] += v.ViewNormal[c];
-    }
-    // quads as two triangles (0 1 2, 0 2 3)
-    static constexpr int order[2][3] = {{0, 1, 2}, {0, 2, 3}};
-    for (int t = 0; t < nverts - 2; t++)
-    {
-        for (int k : order[t])
-            for (int c = 0; c < 3; c++)
-                ShadowCasters.push_back(TempVertexBuffer[k].ViewPosition[c]);
-        for (int c = 0; c < 3; c++)
-            ShadowCasters.push_back(normal[c]);
-    }
 }
 
 void GPU3D::RegisterEdgeFaces(int nverts) noexcept
@@ -2166,36 +2128,13 @@ void GPU3D::SubmitVertex() noexcept
         // the projection's W column (row-vector matrices: elements 3, 7, 11)
         // is zero when W doesn't depend on depth
         vertextrans->Orthographic = ProjMatrix[3] == 0 && ProjMatrix[7] == 0 && ProjMatrix[11] == 0;
-        vertextrans->Specular = CurColorFromLighting ? (MatSpecular[0] + MatSpecular[1] + MatSpecular[2]) / 93.0f : 0.0f;
         for (int i = 0; i < 3; i++) vertextrans->ModelPosition[i] = CurVertex[i];
-        // the perspective projection and viewport used by the most vertices
-        // this frame (the scene's, not a small 3D icon's), compared only when
-        // a matrix or the viewport changed
-        if (!vertextrans->Orthographic)
-        {
-            if ((FrameProjectionCheck || FrameProjVertices == 0) &&
-                (memcmp(FrameProjMatrix, ProjMatrix, sizeof(ProjMatrix)) || memcmp(FrameViewport, Viewport, sizeof(FrameViewport))))
-            {
-                if (FrameProjVertices > BestProjVertices)
-                {
-                    memcpy(BestProjMatrix, FrameProjMatrix, sizeof(FrameProjMatrix));
-                    memcpy(BestViewport, FrameViewport, sizeof(FrameViewport));
-                    BestProjVertices = FrameProjVertices;
-                }
-                memcpy(FrameProjMatrix, ProjMatrix, sizeof(ProjMatrix));
-                memcpy(FrameViewport, Viewport, sizeof(FrameViewport));
-                FrameProjVertices = 0;
-            }
-            FrameProjectionCheck = false;
-            FrameProjVertices++;
-        }
     }
     else
     {
         vertextrans->HasViewNormal = false;
         vertextrans->LitColor = false;
         vertextrans->Orthographic = false;
-        vertextrans->Specular = 0.0f;
     }
 
     VertexNum++;
@@ -2945,7 +2884,6 @@ void GPU3D::ExecuteCommand() noexcept
             Viewport[3] = (191 - (entry.Param >> 24)) & 0xFF;             // y1
             Viewport[4] = (Viewport[2] - Viewport[0] + 1) & 0x1FF;          // width
             Viewport[5] = (Viewport[1] - Viewport[3] + 1) & 0xFF;           // height
-            FrameProjectionCheck = true; // Pomegrade: see SubmitVertex
             break;
 
         case 0x72: // vec test
@@ -3334,34 +3272,8 @@ void GPU3D::VBlank() noexcept
                 RenderNumPolygons = NumPolygons;
                 RenderFrameIdentical = false;
 
-                // for the renderer's effects (shadows, reflections)
-                memcpy(RenderLightDirection, LightDirection, sizeof(LightDirection));
-                std::swap(RenderShadowCasters, ShadowCasters);
                 if (NDS.Inspector.IsEnabled())
                     NDS.Inspector.OnFlush();
-                if (FrameProjVertices >= BestProjVertices)
-                {
-                    memcpy(RenderProjMatrix, FrameProjMatrix, sizeof(FrameProjMatrix));
-                    memcpy(RenderViewport, FrameViewport, sizeof(FrameViewport));
-                }
-                else if (BestProjVertices)
-                {
-                    memcpy(RenderProjMatrix, BestProjMatrix, sizeof(BestProjMatrix));
-                    memcpy(RenderViewport, BestViewport, sizeof(BestViewport));
-                }
-                FrameProjVertices = BestProjVertices = 0;
-                // the reflections reproject view positions: the same shear,
-                // with the tilt and pivot this frame's vertices used
-                if (TiltPivotW > 0 && (TiltFrameX != 0.0f || TiltFrameY != 0.0f))
-                {
-                    const float shift[2] = {TiltFrameX * TiltDepthGain, TiltFrameY * TiltDepthGain};
-                    for (int i = 0; i < 2; i++)
-                    {
-                        for (int r = 0; r < 4; r++)
-                            RenderProjMatrix[r*4+i] += (s32)std::lround(shift[i] * RenderProjMatrix[r*4+3]);
-                        RenderProjMatrix[12+i] -= (s32)std::lround(shift[i] * TiltPivotW);
-                    }
-                }
                 // one tilt per frame, so the scene doesn't tear mid-frame
                 TiltFrameX = TiltParallaxX.load(std::memory_order_relaxed);
                 TiltFrameY = TiltParallaxY.load(std::memory_order_relaxed);
@@ -3442,7 +3354,6 @@ void GPU3D::VBlank() noexcept
             NumSubVertices = 0;
             NumSubPolygons = 0;
             ExtraPolygons[CurRAMBank].clear();
-            ShadowCasters.clear();
             PolygonSubmitCount = 0;
 
             FlushRequest = 0;

@@ -842,7 +842,7 @@ class EmulatorActivity : AppCompatActivity() {
         return listOf(
             cpu,
             getString(R.string.info_performance_gpu, gpuTotal),
-            getString(R.string.info_performance_gpu_passes, details.gpuSceneMs, details.gpuShadowsMs, details.gpuLightingMs),
+            getString(R.string.info_performance_gpu_passes, details.gpuSceneMs),
             getString(R.string.info_performance_gpu_more, details.gpuFrameGenerationMs, details.gpuCompositorMs),
         ).joinToString("\n")
     }

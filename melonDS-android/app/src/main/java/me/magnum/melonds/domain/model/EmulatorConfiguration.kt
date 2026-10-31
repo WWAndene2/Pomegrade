@@ -45,16 +45,8 @@ data class EmulatorConfiguration(
         val textureUpscale: Int = 1,
         // Pomegrade: texture filtering, colour only (OpenGL renderer)
         val textureFilter: Boolean = false,
-        // Pomegrade: scene-adaptive colour (OpenGL renderer)
+        // Pomegrade: deeper blacks on OLED screens (OpenGL renderer, GPU_SceneColour.h)
         val oledBlacks: Boolean = false,
-        val adaptiveColours: Boolean = false,
-        // Pomegrade: lighting effects (OpenGL renderer)
-        val ambientOcclusion: Boolean = false,
-        val lightBounce: Boolean = false,
-        val shadows: Boolean = false,
-        val reflections: Boolean = false,
-        // Pomegrade: relief from texture brightness, 0 off, 1 subtle, 2 strong (OpenGL renderer)
-        val reliefTextures: Int = 0,
         // Pomegrade: frame rate mode, FrameRateMode.nativeValue (generated images: OpenGL renderer)
         val frameRate: Int = FrameRateMode.DEFAULT.nativeValue,
         // Pomegrade: analogue movement in the games with a patch (any renderer)

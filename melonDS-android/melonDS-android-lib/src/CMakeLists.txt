@@ -54,8 +54,6 @@ add_library(core STATIC
     GPU3D_LightRecovery.cpp
     GPU2D_TilemapFlattening.cpp
     GPU2D_SpriteLimitInversion.cpp
-    GPU3D_OpenGL_MaterialRelief.cpp
-    GPU3D_WorldFrame.cpp
     NDSCart.cpp
     NDSCartR4.cpp
     Platform.h

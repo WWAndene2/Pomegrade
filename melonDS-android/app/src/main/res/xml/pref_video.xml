@@ -92,49 +92,11 @@
             app:iconSpaceReserved="false"
             android:defaultValue="false" />
 
-    <SwitchPreference
-            android:key="adaptive_colours"
-            android:title="@string/adaptive_colours"
-            android:summary="@string/adaptive_colours_summary"
-            app:iconSpaceReserved="false"
-            android:defaultValue="false" />
 
-    <SwitchPreference
-            android:key="ambient_occlusion"
-            android:title="@string/ambient_occlusion"
-            android:summary="@string/ambient_occlusion_summary"
-            app:iconSpaceReserved="false"
-            android:defaultValue="false" />
 
-    <SwitchPreference
-            android:key="light_bounce"
-            android:title="@string/light_bounce"
-            android:summary="@string/light_bounce_summary"
-            app:iconSpaceReserved="false"
-            android:defaultValue="false" />
 
-    <SwitchPreference
-            android:key="shadows"
-            android:title="@string/shadows"
-            android:summary="@string/shadows_summary"
-            app:iconSpaceReserved="false"
-            android:defaultValue="false" />
 
-    <SwitchPreference
-            android:key="reflections"
-            android:title="@string/reflections"
-            android:summary="@string/reflections_summary"
-            app:iconSpaceReserved="false"
-            android:defaultValue="false" />
 
-    <ListPreference
-            android:key="relief_textures"
-            android:title="@string/relief_textures"
-            android:summary="%s"
-            app:iconSpaceReserved="false"
-            android:entries="@array/relief_textures_options"
-            android:entryValues="@array/relief_textures_values"
-            android:defaultValue="0"/>
 
     <ListPreference
             android:key="frame_rate"

@@ -86,10 +86,7 @@ FrameRatePacer::Plan FrameRatePacer::NextFrame()
 
     Plan plan;
     if (level == 30)
-    {
         plan.Show = (FrameCount & 1) == 0;
-        plan.NextShow = !plan.Show;
-    }
     else
         plan.Generated = level / 60 - 1;
     FrameCount++;

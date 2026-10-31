@@ -597,7 +597,7 @@
     <string name="info_fps_shown">FPS : %1$d · %2$d affichées</string>
     <string name="info_performance_cpu">CPU : %1$.1f ms (multiplicateur %2$.1f, textures %3$.1f)</string>
     <string name="info_performance_gpu">GPU : %1$.1f ms</string>
-    <string name="info_performance_gpu_passes">3D %1$.1f · ombres %2$.1f · éclairage %3$.1f</string>
+    <string name="info_performance_gpu_passes">3D %1$.1f</string>
     <string name="info_performance_gpu_more">génération d\'images %1$.1f · écrans %2$.1f</string>
     <string name="info_performance_gpu_unavailable">GPU : non mesuré (rendu logiciel, ou pas de minuteur GPU sur cet appareil)</string>
     <string name="info_play_time_hours_minutes">Temps de jeu : %1$d h %2$d min</string>
@@ -820,17 +820,6 @@
     <string name="high_precision_geometry_summary">Place les sommets entre les pixels au lieu de les aligner dessus : les modèles 3D en mouvement tremblent moins</string>
     <string name="oled_blacks">Noir profond</string>
     <string name="oled_blacks_summary">Les teintes presque noires de chaque scène deviennent du vrai noir (pixels éteints sur les écrans OLED)</string>
-    <string name="adaptive_colours">Couleurs adaptatives</string>
-    <string name="adaptive_colours_summary">Contraste et couleurs ajustés à chaque scène : les scènes ternes et délavées reprennent vie</string>
-    <string name="ambient_occlusion">Occlusion ambiante</string>
-    <string name="ambient_occlusion_summary">Des ombres douces là où les surfaces se rejoignent et où les objets touchent le sol, calculées depuis la scène 3D</string>
-    <string name="light_bounce">Rebond de lumière</string>
-    <string name="light_bounce_summary">Les surfaces éclairées éclairent leur entourage de leur propre couleur (un rebond, d\'après ce qui est à l\'écran)</string>
-    <string name="shadows">Ombres en temps réel</string>
-    <string name="shadows_summary">Les objets 3D projettent des ombres depuis la lumière principale de la scène : nettes contre l\'objet, plus douces plus loin</string>
-    <string name="reflections">Reflets</string>
-    <string name="reflections_summary">Les surfaces reflètent ce qui est à l\'écran : nettement pour les matières brillantes, les autres seulement en angle rasant</string>
-    <string name="relief_textures">Textures en relief</string>
     <string name="renderer_unavailable">Moteur de rendu indisponible</string>
     <string name="renderer_unavailable_message">Le moteur de rendu choisi dans les réglages n\'a pas pu démarrer sur cet appareil, le jeu tourne donc avec le rendu logiciel. Le pilote graphique a répondu :\n\n%1$s</string>
     <string name="frame_rate">Images par seconde</string>
@@ -904,11 +893,6 @@
         <item>Quand une manette est connectée, les boutons de la console (A B X Y, croix, L, R, Start et Select) sont masqués. Les autres boutons de la disposition restent visibles.</item>
         <item>Quand une manette est connectée, toutes les touches associées à cette manette sont masquées. Les autres touches de la disposition, non associées aux manettes connectées, restent visibles.</item>
         <item>Les boutons à l\'écran sont toujours masqués, quels que soient les boutons de la disposition actuelle.</item>
-    </string-array>
-    <string-array name="relief_textures_options">
-        <item>Désactivé</item>
-        <item>Léger</item>
-        <item>Fort</item>
     </string-array>
     <string-array name="frame_rate_options">
         <item>30 FPS (économie de batterie)</item>

@@ -96,16 +96,8 @@ typedef struct
     int textureUpscale = 1;
     // Pomegrade: texture filtering in the OpenGL renderer (see TextureLookup_Filtered)
     bool textureFilter = false;
-    // Pomegrade: scene-adaptive colour in the OpenGL renderer (see GPU_SceneColour.h)
+    // Pomegrade: deeper blacks on OLED screens in the OpenGL renderer (see GPU_SceneColour.h)
     bool oledBlacks = false;
-    bool adaptiveColours = false;
-    // Pomegrade: lighting effects in the OpenGL renderer (see GLRenderer::RenderLighting)
-    bool ambientOcclusion = false;
-    bool lightBounce = false;
-    bool shadows = false;
-    bool reflections = false;
-    // Pomegrade: relief textures (see GLRenderer::SetRelief): 0 off, 1 subtle, 2 strong
-    int reliefTextures = 0;
     // Pomegrade: frame rate mode (see FrameRatePacer): 30, 60, 120, 240, 0 = adaptive. Generated
     // images (GLRenderer::RenderIntermediateFrame, OpenGL renderer) are presented in order
     int frameRate = 60;
