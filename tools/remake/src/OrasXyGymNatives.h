@@ -16,6 +16,9 @@
 // Ramos's (Coumarine, DllUSGymGrass): _GymGrassPlayGardAnm(), _GymGrassIsEndGardAnm(). His three event natives
 // (GymGrassSlideEvent, GymGrassHangMoveEvent, GymGrassRopeUpDownEvent) are not here yet.
 
+// Olympia's (Anistar, DllUSGymEsper): GymEsperWarpEvent, X's 0x10294528 (the arrival effect: X's DllField class the
+// ported module builds, its init copied there), as XyGymEsperWarpEvent: Omega Ruby has a native of that name (Mossdeep's
+// gym, another class), so X's scripts call X's under its own name (OrasXyEvents.cpp).
 #include "OrasXyNatives.h"
 
 #include <vector>
