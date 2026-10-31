@@ -378,13 +378,6 @@ static_assert(std::has_unique_object_representations_v<ProcTexConfig>);
 union UserConfig {
     u32 raw{};
     BitField<0, 1, u32> use_custom_normal;
-    // Pomegrade: texture 0 carries recognised material maps (VideoCore::MaterialRecognition) in its normal map slot (RG
-    // the normal, B the height, A the volume); the mode is the surfaces' look: 2 Remaster V1 (parallax, layered volume,
-    // relief 1.1, window rooms); 0 (relief 2.2, no volume) and 1 are older looks no preset sets
-    BitField<1, 1, u32> pomegrade_surface;
-    BitField<2, 2, u32> pomegrade_surface_mode;
-    // Pomegrade: ORAS's sea (texture 0 its main layer, texture 1 its second): the water look, WriteWater
-    BitField<4, 1, u32> pomegrade_water;
 
     // Whether a FSConfig + UserConfig combination can be
     // cached to disk. Right now, this is true if the

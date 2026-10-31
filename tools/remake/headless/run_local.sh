@@ -12,8 +12,7 @@
 #           gdb PORT, trace on / trace off FILE, writers / readers LO HI [PCLO PCHI] and writers / readers off FILE (the game's
 #           writes into / reads from a range, with the code doing them; these three with POMEGRADE_INTERPRETER=1, FILE relative to the
 #           run's folder), save NAME / load NAME, draw off / draw on / draw every N (one frame in N drawn: about 3 times faster where a picture is needed),
-#           remaster N: the Remaster preset from then on, 0-3, with POMEGRADE_GL=1; sun HOUR: the path tracer's sun at
-#           that hour; POMEGRADE_SCALE=N: the internal resolution). A save state can only be loaded after the core has booted ("wait 120" first)
+#           POMEGRADE_SCALE=N: the internal resolution, with POMEGRADE_GL=1). A save state can only be loaded after the core has booted ("wait 120" first)
 #           and does not restore a pending asset load: to freeze again, replay from the start.
 #           The fast way (8 October, 2.5 min to a walk on the field instead of 10-12): POMEGRADE_STATE=<work>/title.state and
 #           "wait 120;load title;mash a 8;draw off;wait 900;..." : the title state skips the boot, and with drawing off the
@@ -51,7 +50,7 @@ if [ "$start" != none ]; then cp "$start" "$save/main"; cp dumps/save/00000001.m
 # the boot to the title played once, then each save tested from there)
 [ -n "${POMEGRADE_STATE:-}" ] && cp "$POMEGRADE_STATE" "$run/"
 printf '%s\n' "$script" | tr ';' '\n' > "$run/script.txt"
-# POMEGRADE_GL=1: the OpenGL core of session_setup.sh's core-gl stage (POMEGRADE_REMASTER: its Remaster preset), run by
+# POMEGRADE_GL=1: the OpenGL core of session_setup.sh's core-gl stage, run by
 # the same retro_host, which opens its EGL context when the variable is set (no retro_host_gl is built: run hVanG, 18 October)
 host_bin=./retro_host
 if [ -n "${POMEGRADE_GL:-}" ]; then core=build-azahar-gl/bin/Release/azahar_libretro.so

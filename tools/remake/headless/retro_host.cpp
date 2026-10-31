@@ -77,7 +77,6 @@ static void Log(enum retro_log_level level, const char* format, ...)
 
 // POMEGRADE_GL=1: the core's OpenGL renderer instead of the software one, in an EGL context with no screen (Mesa's
 // llvmpipe on the runner): the core draws into a framebuffer of ours, read back for the screenshots and the checks.
-// POMEGRADE_REMASTER=<0-3> picks the Remaster preset (citra_remaster_preset)
 static const bool glMode = getenv("POMEGRADE_GL") != nullptr;
 
 static retro_hw_render_callback hwRender{};
@@ -151,7 +150,6 @@ static bool Environment(unsigned cmd, void* data)
         auto* var = static_cast<retro_variable*>(data);
         var->value = nullptr;
         if (!strcmp(var->key, "citra_graphics_api")) var->value = glMode ? "OpenGL" : "Software";
-        if (!strcmp(var->key, "citra_remaster_preset") && getenv("POMEGRADE_REMASTER")) var->value = getenv("POMEGRADE_REMASTER");
         // POMEGRADE_SCALE: the internal resolution (1-10 times the 3DS's), with POMEGRADE_GL
         if (!strcmp(var->key, "citra_resolution_factor") && getenv("POMEGRADE_SCALE")) var->value = getenv("POMEGRADE_SCALE");
         // the interpreter instead of the JIT, for code coverage ("trace on"): slower, but every block passes its dispatch
@@ -670,22 +668,6 @@ static int RunScript(void* core, const char* path)
             if (!lights) printf("(no pomegrade_lights in this core)\n");
             else if (arg == "on") { lights(1, nullptr); printf("[frame %lu] lights on\n", frame); }
             else printf("[frame %lu] lights off: %u draws in %s\n", frame, lights(0, path.c_str()), path.c_str());
-        }
-        else if (cmd == "remaster")
-        {
-            // remaster N: the Remaster preset from now on (the core's pomegrade_remaster), so a run reaches the field
-            // with it off and turns it on there: the path tracer runs at about 1 frame a second on a CPU renderer. A core
-            // option update would do it too, but it resets the libretro frontend's layout (the screens came out black)
-            auto set = reinterpret_cast<void (*)(uint32_t)>(dlsym(core, "pomegrade_remaster"));
-            if (set) set((uint32_t)strtoul(arg.c_str(), nullptr, 10));
-            printf("[frame %lu] remaster preset %s: %s\n", frame, arg.c_str(), set ? "set" : "not in this core");
-        }
-        else if (cmd == "sun")
-        {
-            // sun HOUR: the path tracer's sun at that hour of its table (negative: the game's clock again)
-            auto set = reinterpret_cast<void (*)(float)>(dlsym(core, "pomegrade_sun_hour"));
-            if (set) set(strtof(arg.c_str(), nullptr));
-            printf("[frame %lu] sun at %s: %s\n", frame, arg.c_str(), set ? "set" : "not in this core");
         }
         else if (cmd == "gdb")
         {

@@ -116,7 +116,6 @@ class Settings {
         const val SECTION_CUSTOM_LANDSCAPE = "Custom Landscape Layout"
         const val SECTION_CUSTOM_PORTRAIT = "Custom Portrait Layout"
         const val SECTION_PERFORMANCE_OVERLAY = "Performance Overlay"
-        const val SECTION_REMASTER = "Remaster" // Pomegrade: a page only, its settings are the Renderer section's
         const val SECTION_STORAGE = "Storage"
         const val SECTION_MISC = "Miscellaneous"
 

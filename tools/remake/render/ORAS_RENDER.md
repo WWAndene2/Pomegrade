@@ -93,9 +93,14 @@ python layers.py <dir> <cam> 32
 
 ## Live in the emulator: Remaster (9 October)
 
-Remaster V1 runs live on the 3DS core (OpenGL): Settings → Remaster → "V1" (or "Custom": V1 with its switches). It
-path-traces the light every frame (renderer_opengl/gl_pathtracer), shades the textures' surfaces from their recognised
-materials, and composes the frame as the offline renders did; the table below says where each technique went.
+**Removed from the 3DS core with its code on the owner's request (31 October 2026)**: the Remaster setting and its
+options page, the live path tracer (renderer_opengl/gl_pathtracer, pathtrace_bvh), the post-process (remaster,
+gl_remaster), the textures' recognised materials (material_recognition, DARP's surface maps), the painted shadows left out
+and the sea's water look. They are in the history before that date; what follows records how they worked.
+
+Remaster V1 ran live on the 3DS core (OpenGL): Settings → Remaster → "V1" (or "Custom": V1 with its switches). It
+path-traced the light every frame (renderer_opengl/gl_pathtracer), shaded the textures' surfaces from their recognised
+materials, and composed the frame as the offline renders did; the table below says where each technique went.
 
 ## The modern engine: every technique live (owner's request, 9 October)
 

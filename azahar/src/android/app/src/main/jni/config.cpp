@@ -190,36 +190,6 @@ void Config::ReadValues() {
     ReadSetting("Renderer", Settings::values.texture_upscale_factor);
     ReadSetting("Renderer", Settings::values.rich_colours);
     ReadSetting("Renderer", Settings::values.deep_black);
-    ReadSetting("Renderer", Settings::values.remaster_preset);
-    ReadSetting("Renderer", Settings::values.remaster_ao);
-    ReadSetting("Renderer", Settings::values.remaster_grading);
-    ReadSetting("Renderer", Settings::values.remaster_vibrance);
-    ReadSetting("Renderer", Settings::values.remaster_contrast);
-    ReadSetting("Renderer", Settings::values.remaster_outline);
-    ReadSetting("Renderer", Settings::values.remaster_aerial);
-    ReadSetting("Renderer", Settings::values.remaster_glow);
-    ReadSetting("Renderer", Settings::values.remaster_sky);
-    ReadSetting("Renderer", Settings::values.remaster_far_blur);
-    ReadSetting("Renderer", Settings::values.remaster_ultra);
-    ReadSetting("Renderer", Settings::values.remaster_rt_resolution);
-    ReadSetting("Renderer", Settings::values.remaster_rt_steps);
-    ReadSetting("Renderer", Settings::values.remaster_rt_reach);
-    ReadSetting("Renderer", Settings::values.remaster_rt_thickness);
-    ReadSetting("Renderer", Settings::values.remaster_rt_indirect);
-    ReadSetting("Renderer", Settings::values.remaster_rt_shadow);
-    ReadSetting("Renderer", Settings::values.remaster_rt_softness);
-    ReadSetting("Renderer", Settings::values.remaster_rt_denoise);
-    ReadSetting("Renderer", Settings::values.remaster_rt_history);
-    ReadSetting("Renderer", Settings::values.remaster_rt_shadow_size);
-    ReadSetting("Renderer", Settings::values.remaster_rt_shadow_range);
-    ReadSetting("Renderer", Settings::values.remaster_normal_map);
-    ReadSetting("Renderer", Settings::values.remaster_rt_probes);
-    ReadSetting("Renderer", Settings::values.remaster_ao_strength);
-    ReadSetting("Renderer", Settings::values.remaster_bounce_strength);
-    ReadSetting("Renderer", Settings::values.remaster_shade_contrast);
-    ReadSetting("Renderer", Settings::values.remaster_exposure);
-    ReadSetting("Renderer", Settings::values.remaster_contrast_strength);
-    ReadSetting("Renderer", Settings::values.remaster_colour_strength);
     ReadSetting("Renderer", Settings::values.turbo_limit);
     // Workaround to map Android setting for enabling the frame limiter to the format Citra expects
     if (android_config->GetBoolean("Renderer", "use_frame_limit", true)) {
