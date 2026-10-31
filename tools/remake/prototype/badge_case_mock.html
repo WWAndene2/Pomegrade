@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Étui à badges</title>
+<style>
+:root{--bg:#f4f5f7;--card:#ffffff;--text:#15171c;--muted:#5b6070;--line:#d9dce3;--accent:#c95a22}
+:root .kalos{--accent:#1f86c0}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111215;--card:#191B20;--text:#eef0f4;--muted:#9aa0ab;--line:#2c2f37;--accent:#e8743b}
+ :root:not([data-theme="light"]) .kalos{--accent:#3aa7e0}}
+:root[data-theme="dark"]{--bg:#111215;--card:#191B20;--text:#eef0f4;--muted:#9aa0ab;--line:#2c2f37;--accent:#e8743b}
+:root[data-theme="dark"] .kalos{--accent:#3aa7e0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;padding:16px}
+h1{font-size:16px;font-weight:600;margin:0 0 4px}p.note{color:var(--muted);margin:0 0 16px;max-width:640px;text-align:center}
+.wrap{width:100%;max-width:640px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.screen{position:relative;overflow:hidden;background:#000;border-radius:6px}
+.scaler{position:absolute;left:0;top:0;transform-origin:0 0}
+.pane{position:absolute}
+.pane>img{position:absolute;inset:0;width:100%;height:100%;display:block}
+.pane>canvas{position:absolute;inset:0;width:100%;height:100%}
+.top .bgmark{position:absolute;inset:0;background-size:64px 64px;opacity:.5}
+.top .shade{position:absolute;inset:0;background:radial-gradient(circle at 50% 44%,transparent 0,rgba(0,0,0,.75) 70%)}
+.top .big{position:absolute;left:50%;top:42%;width:120px;height:120px;transform:translate(-50%,-50%);perspective:500px}
+.top .big img{width:100%;height:100%;object-fit:contain;animation:spin 6s ease-in-out infinite;filter:drop-shadow(0 6px 8px rgba(0,0,0,.7))}
+.top .big img.unlit{filter:brightness(.2)}
+@keyframes spin{0%,100%{transform:rotateY(-25deg)}50%{transform:rotateY(25deg)}}
+.top .cap{position:absolute;left:0;right:0;bottom:22px;text-align:center;text-shadow:0 1px 2px #000}
+.top .cap b{display:block;font-size:20px}.top .cap span{color:#d0d4dc}
+.top .reg{position:absolute;left:14px;top:10px;font-weight:700;color:var(--accent);letter-spacing:.06em}
+.hit{position:absolute;cursor:pointer}
+.controls{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.controls button{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font:inherit;cursor:pointer;min-height:40px}
+.controls button.on{border-color:var(--accent);color:var(--accent)}
+</style></head><body>
+<h1>Étui à badges d'Omega Ruby, tiroir Hoenn / Kalos</h1>
+<p class="note">L'écran du bas est la mise en page du jeu (tranercase_lower.bclyt) rendue telle quelle, avec ses textures. La bascule rejoue l'animation du couvercle (tcaselid_low) : fermeture, badges de Kalos posés comme dans X, réouverture. Touchez un badge pour le choisir, une seconde fois pour le donner ou le retirer.</p>
+<div class="wrap" id="root">
+  <div class="screen top" id="top"><div class="scaler" style="width:400px;height:240px"><div class="bgmark" id="mark"></div><div class="shade"></div>
+    <div class="reg" id="reg"></div><div class="big"><img id="big" alt=""></div><div class="cap"><b id="title"></b><span id="leader"></span></div></div></div>
+  <div class="screen bottom" id="bottom"><div class="scaler" id="stage" style="width:320px;height:240px"></div></div>
+  <div class="controls"><button data-r="hoenn">L · Hoenn</button><button data-r="kalos">Kalos · R</button><button id="all">Tous</button><button id="none">Aucun</button></div>
+</div>
+<script>
+const D=/*DATA*/null;
+const BADGES={'0':0,'z':1,'2':2,'4':3,'6':4,'a':5,'8':6,'12':7}, OUTLINES={'1h':0,'1j':1,'1l':2,'1n':3,'1p':4,'1r':5,'1t':6,'1v':7};
+const got={hoenn:[1,1,1,0,0,0,0,0],kalos:[1,0,0,0,0,0,0,0]};
+let region='hoenn',sel=0,busy=false;const els={};
+const img=src=>new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.src=src});
+const cache={};async function tex(set,name){const k=set+name;if(!cache[k]&&D.tex[set][name])cache[k]=await img(D.tex[set][name]);return cache[k]}
+// a one-frame window: the corner texture at the four corners (mirrored), its last column/row stretched along the edges, the content its texture's centre texel (the corner texels are transparent)
+async function drawWindow(cv,p,set){const w=Math.round(p.w),h=Math.round(p.h);cv.width=w;cv.height=h;const g=cv.getContext('2d');g.imageSmoothingEnabled=true;
+  const f=p.frames[0]&&await tex(set,p.frames[0].mat.tex);const fw=f?f.width:0,fh=f?f.height:0;
+  const c=p.content;if(c.tex){const t=await tex(set,c.tex);if(t)g.drawImage(t,t.width>>1,t.height>>1,1,1,fw,fh,w-2*fw,h-2*fh)}
+  else{g.fillStyle=`rgba(${c.colour[0]},${c.colour[1]},${c.colour[2]},${c.colour[3]/255})`;g.fillRect(fw,fh,w-2*fw,h-2*fh)}
+  if(!f)return;const corner=(sx,sy,x,y)=>{g.save();g.translate(x,y);g.scale(sx,sy);g.drawImage(f,0,0);g.restore()};
+  corner(1,1,0,0);corner(-1,1,w,0);corner(1,-1,0,h);corner(-1,-1,w,h);
+  g.drawImage(f,fw-1,0,1,fh,fw,0,w-2*fw,fh);g.save();g.translate(0,h);g.scale(1,-1);g.drawImage(f,fw-1,0,1,fh,fw,0,w-2*fw,fh);g.restore();
+  g.drawImage(f,0,fh-1,fw,1,0,fh,fw,h-2*fh);g.save();g.translate(w,0);g.scale(-1,1);g.drawImage(f,0,fh-1,fw,1,0,fh,fw,h-2*fh);g.restore()}
+// a pane placed as the layout places it: its origin point at (x, -y) from its parent's centre, scaled about that point
+async function build(p,parent,pw,ph,set){if(p.kind==='bnd1'||p.kind==='txt1')return;
+  const ox=[0,.5,1][p.origin%3],oy=[0,.5,1][Math.floor(p.origin/3)];
+  const d=document.createElement('div');d.className='pane';d.style.width=p.w+'px';d.style.height=p.h+'px';
+  d.style.left=(pw/2+p.x-ox*p.w)+'px';d.style.top=(ph/2-p.y-oy*p.h)+'px';d.style.transformOrigin=`${ox*100}% ${oy*100}%`;
+  d.style.transform=`scale(${p.sx},${p.sy}) rotate(${-p.rot}deg)`;d.style.opacity=p.alpha/255;if(!p.visible)d.style.display='none';
+  if(p.kind==='pic1'&&p.mat.tex){const t=await tex(set,p.mat.tex);if(t){const i=document.createElement('img');i.src=t.src;d.appendChild(i)}}
+  if(p.kind==='wnd1'){const cv=document.createElement('canvas');d.appendChild(cv);await drawWindow(cv,p,set)}
+  parent.appendChild(d);els[p.name]=d;for(const c of p.children)await build(c,d,p.w,p.h,set)}
+async function setBadges(){const L=D.layout[region].panes,set=region==='hoenn'?'o':'x';
+  for(const [n,i] of Object.entries({...BADGES,...OUTLINES})){const e=els[n],q=L[n];if(!e||!q)continue;
+    const isBadge=n in BADGES;const name=`badge_0${i+1}${isBadge?'':'_base'}.bclim`;const t=await tex(set,name);
+    e.querySelector('img').src=t.src;e.style.width=q.w+'px';e.style.height=q.h+'px';
+    const pw=parseFloat(e.parentElement.style.width)||320,ph=parseFloat(e.parentElement.style.height)||240;
+    e.style.left=(pw/2+q.x-q.w/2)+'px';e.style.top=(ph/2-q.y-q.h/2)+'px';e.style.transform=`scale(${q.sx},${q.sy})`;
+    if(isBadge){e.style.opacity=got[region][i]?1:0;e.style.outline=i===sel?'2px solid var(--accent)':'none';e.style.outlineOffset='2px'}}
+  const lid=D.lid[region];const t=await tex(region==='hoenn'?'o':'x',lid);await drawWindow(els['n'].querySelector('canvas'),{...D.lidPane,content:{tex:lid,colour:[255,255,255,255]},frames:[{mat:{tex:lid}}]},region==='hoenn'?'o':'x');
+  const b=D.names[region][sel],has=got[region][sel];document.getElementById('big').src=(await tex(set,`badge_0${sel+1}${has?'':'_base'}.bclim`)).src;
+  document.getElementById('big').className=has?'':'unlit';document.getElementById('title').textContent=has?b[0]:'Badge inconnu';
+  document.getElementById('leader').textContent=has?'Champion : '+b[1]:'Pas encore obtenu';document.getElementById('reg').textContent=region==='hoenn'?'HOENN':'KALOS';
+  document.getElementById('mark').style.backgroundImage=`url(${(await tex(set,'ball_mark.bclim')).src})`;
+  document.getElementById('root').classList.toggle('kalos',region==='kalos');
+  document.querySelectorAll('[data-r]').forEach(x=>x.classList.toggle('on',x.dataset.r===region))}
+// the lid: tcaselid_low's scale Y, 1 (closed) to -1 (open) over 20 frames, about its top edge
+function lid(from,to,ms){return new Promise(r=>{const e=els['n'];const t0=performance.now();e.style.display='';
+  const step=t=>{const k=Math.min(1,(t-t0)/ms),s=from+(to-from)*k;e.style.transform=`scale(1,${s})`;k<1?requestAnimationFrame(step):r()};requestAnimationFrame(step)})}
+async function switchTo(r){if(busy||r===region)return;busy=true;await lid(-1,1,333);region=r;sel=0;await setBadges();await new Promise(x=>setTimeout(x,120));await lid(1,-1,333);busy=false}
+function fit(){const w=Math.min(document.querySelector('.wrap').clientWidth,640);
+  for(const [id,sw,sh,max] of [['top',400,240,640],['bottom',320,240,512]]){const s=Math.min(w,max)/sw,el=document.getElementById(id);el.style.width=sw*s+'px';el.style.height=sh*s+'px';el.firstElementChild.style.transform=`scale(${s})`}}
+(async()=>{fit();addEventListener('resize',fit);const st=document.getElementById('stage');await build(D.layout.hoenn.root,st,320,240,'o');
+  els['n'].style.transform='scale(1,-1)';
+  for(const [n,i] of Object.entries(BADGES)){const h=document.createElement('div');h.className='hit';const e=els[n];
+    h.onclick=()=>{if(busy)return;if(i===sel)got[region][i]^=1;sel=i;setBadges()};e.appendChild(h);h.style.inset='-8px';e.style.cursor='pointer'}
+  for(const n of Object.keys(OUTLINES))els[n].style.pointerEvents='none';
+  await setBadges();window.ready=true})();
+document.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>switchTo(b.dataset.r));
+addEventListener('keydown',e=>{if('lL'.includes(e.key)||e.key==='ArrowLeft')switchTo('hoenn');if('rR'.includes(e.key)||e.key==='ArrowRight')switchTo('kalos')});
+document.getElementById('all').onclick=()=>{got[region]=got[region].map(()=>1);setBadges()};document.getElementById('none').onclick=()=>{got[region]=got[region].map(()=>0);setBadges()};
+</script></body></html>
