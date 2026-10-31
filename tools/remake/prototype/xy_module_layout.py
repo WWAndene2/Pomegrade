@@ -101,34 +101,58 @@ def functions(cro, md):
 
 def field_slots(cro, md):
     """the object offsets where a constructor keeps its second argument (the field), and the constructors: a function
-    that, before its first
-    call, stores a pointer to the module's own data at [this] (the vtable) and r1 at [this, #k] (str, or stm's k-th
-    word), r0 and r1 followed through movs"""
+    that stores a pointer to the module's own data at [this] (the vtable) and r1 at [this, #k] (str, or stm's k-th
+    word), r0 and r1 followed through movs; `this` also through add / sub of an immediate (a register at this + d) and
+    through calls, read as sub-object constructors returning their r0 (ARM's C++ ABI, IHI 0041 3.1.5: a constructor
+    returns this): Viola's constructor keeps the field at +0x8 after three of them (X's DllUSGymInsect 0xFC0, str r4,
+    [r5, #8], r5 = this + 0x43C - 0x43C), missed when the reading stopped at the first call"""
     data_segments = [(o, o + s) for o, s, k in cro.segments if k in (1, 2)]
     slots, constructors = set(), set()
     for function in functions(cro, md):
-        this, field, literal = {'r0'}, {'r1'}, set()
+        this, field, literal = {'r0': 0}, {'r1'}, set()  # this: register -> its offset d from this
         stored, vtable = set(), False
         for ins in instructions(cro, md, function, function + 0xA0):
             op = ins.op_str
+            if ins.mnemonic in ('bl', 'blx'):
+                returned = this.get('r0')
+                for r in CLOBBERED:
+                    this.pop(r, None)
+                    field.discard(r)
+                    literal.discard(r)
+                if returned is not None:
+                    this['r0'] = returned
+                continue
             if ins.mnemonic.startswith('b'):
                 break
             m = re.match(r'(r\d+), \[pc, #(0x[0-9a-f]+|\d+)\]$', op)
             if ins.mnemonic == 'ldr' and m:
+                this.pop(m.group(1), None)
+                field.discard(m.group(1))
                 value = struct.unpack_from('<I', cro.data, ins.address + 8 + int(m.group(2), 0))[0]
                 if any(a <= value < b for a, b in data_segments):
                     literal.add(m.group(1))
                 continue
             m = re.match(r'(r\d+), (r\d+)$', op)
             if ins.mnemonic == 'mov' and m:
-                for group in (this, field, literal):
+                moved = this.get(m.group(2))
+                this.pop(m.group(1), None)
+                if moved is not None:
+                    this[m.group(1)] = moved
+                for group in (field, literal):
                     group.discard(m.group(1))
                     if m.group(2) in group:
                         group.add(m.group(1))
                 continue
+            m = re.match(r'(r\d+), (r\d+), #(0x[0-9a-f]+|\d+)$', op)
+            if ins.mnemonic in ('add', 'sub') and m and m.group(2) in this:
+                d = int(m.group(3), 0)
+                this[m.group(1)] = this[m.group(2)] + (d if ins.mnemonic == 'add' else -d)
+                field.discard(m.group(1))
+                literal.discard(m.group(1))
+                continue
             m = re.match(r'(r\d+), \[(r\d+)(?:, #(0x[0-9a-f]+|\d+))?\]$', op)
             if ins.mnemonic == 'str' and m and m.group(2) in this:
-                k = int(m.group(3), 0) if m.group(3) else 0
+                k = this[m.group(2)] + (int(m.group(3), 0) if m.group(3) else 0)
                 if m.group(1) in field:
                     stored.add(k)
                 if k == 0 and m.group(1) in literal:
@@ -136,7 +160,7 @@ def field_slots(cro, md):
                 continue
             m = re.match(r'(r\d+), (r\d+), \[(r\d+)(?:, #(0x[0-9a-f]+|\d+))?\]$', op)
             if ins.mnemonic == 'strd' and m and m.group(3) in this:
-                k = int(m.group(4), 0) if m.group(4) else 0
+                k = this[m.group(3)] + (int(m.group(4), 0) if m.group(4) else 0)
                 for j, reg in enumerate((m.group(1), m.group(2))):
                     if reg in field:
                         stored.add(k + 4 * j)
@@ -147,14 +171,15 @@ def field_slots(cro, md):
             if ins.mnemonic in ('stm', 'stmia') and m and m.group(1) in this:
                 for k, reg in enumerate(r.strip() for r in m.group(2).split(',')):
                     if reg in field:
-                        stored.add(4 * k)
-                    if k == 0 and reg in literal:
+                        stored.add(this[m.group(1)] + 4 * k)
+                    if this[m.group(1)] + 4 * k == 0 and reg in literal:
                         vtable = True
                 continue
             dest = op.split(',')[0].strip()
-            for group in (this, field, literal):
-                if ins.mnemonic not in ('str', 'strd', 'vstr', 'cmp', 'tst', 'push', 'stm', 'stmia'):
-                    group.discard(dest)
+            if ins.mnemonic not in ('str', 'strd', 'strb', 'strh', 'vstr', 'cmp', 'tst', 'push', 'stm', 'stmia'):
+                this.pop(dest, None)
+                field.discard(dest)
+                literal.discard(dest)
         if vtable and stored - {0}:
             slots |= stored - {0}  # [this] is the vtable
             constructors.add(function)
@@ -166,10 +191,14 @@ def accesses(cro, md, slots, constructors=()):
     starts = set(functions(cro, md))
     found = []
     held = {}  # register -> path ('field', 'field +0xA')
+    # register -> d when it points d bytes into what its path names, moved there by a base writeback ([rB, #d]! or
+    # [rB], #d): Viola's methods walk the field with ldr r1, [r0, #4]!; ldr r7, [r0, #0x20]! (X's DllUSGymInsect 0x904,
+    # its +0x4 then +0x24), read as +0x4 and +0x20 before
+    delta = {}
     function = None
     for ins in instructions(cro, md):  # 'this': the method's r0, followed through movs
         if ins.address in starts:
-            function, held = ins.address, {'r0': 'this'}
+            function, held, delta = ins.address, {'r0': 'this'}, {}
             if ins.address in constructors:
                 held['r1'] = 'field'
         regs = [ins.reg_name(o.reg) for o in ins.operands if o.type == ARM_OP_REG]
@@ -177,6 +206,7 @@ def accesses(cro, md, slots, constructors=()):
         if ins.mnemonic in ('bl', 'blx') or ins.mnemonic.startswith('bl'):
             for r in CLOBBERED:
                 held.pop(r, None)
+                delta.pop(r, None)
             continue
         if ins.mnemonic.startswith(('ldr', 'str', 'vldr', 'vstr')) and mems and function is not None:
             mem = mems[0].mem
@@ -184,9 +214,24 @@ def accesses(cro, md, slots, constructors=()):
             disp = mem.disp if mem.index == 0 else None
             dest = regs[0] if regs else None
             load = ins.mnemonic.startswith(('ldr', 'vldr'))
+            post = re.search(r'\], #(-?0x[0-9a-f]+|-?\d+)$', ins.op_str)
+            if post:
+                disp = 0
+            if disp is not None:
+                disp += delta.get(base, 0)
+            if base in held and disp is not None and (post or ins.op_str.endswith('!')):
+                # the base moves: after this access it points at disp (pre-index) or disp + the post-index step
+                moved = disp + (int(post.group(1), 0) if post else 0)
+                if dest == base:
+                    pass
+                elif moved:
+                    delta[base] = moved
+                else:
+                    delta.pop(base, None)
             if held.get(base) == 'this':
                 if load and ins.mnemonic == 'ldr' and disp in slots and dest:
                     held[dest] = 'field'
+                    delta.pop(dest, None)
                     continue
             elif base in held and disp is not None:
                 place = '%s +0x%X' % (held[base], disp)
@@ -194,14 +239,21 @@ def accesses(cro, md, slots, constructors=()):
                     found.append((place, function, ins.address, 'r' if load else 'w'))
                 if load and dest and ins.mnemonic == 'ldr' and place.count('+') < 2:
                     held[dest] = place
+                    delta.pop(dest, None)
                     continue
             if load and dest:
                 held.pop(dest, None)
+                delta.pop(dest, None)
             continue
         if ins.mnemonic == 'mov' and len(regs) == 2 and regs[1] in held:
             held[regs[0]] = held[regs[1]]
+            if regs[1] in delta:
+                delta[regs[0]] = delta[regs[1]]
+            else:
+                delta.pop(regs[0], None)
         elif regs:
             held.pop(regs[0], None)
+            delta.pop(regs[0], None)
     return found
 
 

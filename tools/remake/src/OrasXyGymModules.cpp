@@ -193,15 +193,16 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
     }
     for (const uint32_t offset : port.ArchiveWords)
     {
-        // `mov r1, #n`: X's archive, then Omega Ruby's number for it (an immediate rotated by an even amount: 0x130 is
-        // 0x13 rotated right by 28)
-        if (U32(out, offset) != (0xE3A01000 | port.Archive)) throw FormatError(port.XName + " " + Hex(offset) + ": not X's request of archive " + Hex(port.Archive));
+        // `mov rd, #n`: X's archive, then Omega Ruby's number for it (an immediate rotated by an even amount: 0x130 is
+        // 0x13 rotated right by 28); rd kept (Res_OpenArchive takes it in r2, Viola's module calls it directly)
+        const uint32_t rd = U32(out, offset) & 0xF000;
+        if ((U32(out, offset) & ~0xF000u) != (0xE3A00000 | port.Archive)) throw FormatError(port.XName + " " + Hex(offset) + ": not X's request of archive " + Hex(port.Archive));
         if (archive)
         {
             uint32_t rot = 0, imm = archive;
             while (imm > 0xFF && rot < 15) { rot++; imm = archive << (2 * rot) | archive >> (32 - 2 * rot); }
             if (imm > 0xFF) throw FormatError(port.XName + ": archive " + Hex(archive) + " is no ARM immediate");
-            Put(out, offset, 0xE3A01000 | rot << 8 | imm);
+            Put(out, offset, 0xE3A00000 | rd | rot << 8 | imm);
         }
     }
     for (const auto& [offset, id] : port.Sounds)
@@ -377,6 +378,7 @@ const std::vector<XyGym>& XyGyms()
         {0xE, 2, XyGymIce()},
         {0x19, 9, XyGymElec(), 0}, {0x1A, 12, XyGymElec(), 1}, {0x1B, 17, XyGymElec(), 2},
         {0x18, 18, XyRoute13()}, // not a gym: Route 13's dust clouds (OrasXyDustCloud.h)
+        {2, 19, XyGymInsect()},
     };
     return gyms;
 }
@@ -636,7 +638,9 @@ const XyModulePort& XyGymInsect()
             {0x390550, 0x3A7D54}, {0x11E46C, 0x11EB78}, // identical setters
             {0x390560, 0x1F9544}, // a bare return -> Util_Nop_001F9544
             // called by the copies below
-            {0x378548, 0x390048}, {0x49A03C, 0x4CB7A4}, {0x2F9B90, 0x312498}, {0x2FEAA4, 0x2FF034}, {0x481FA8, 0x4B2A08},
+            {0x499368, 0x4CAA58}, // 0.99 (xy_callee_map.py: X's 0x37AADC = Omega Ruby's 0x392540 calls it there)
+            {0x376FC4, 0x38EAC0}, // 1.00
+            {0x49A03C, 0x4CB7A4}, {0x2F9B90, 0x312498}, {0x2FEAA4, 0x2FF034}, {0x481FA8, 0x4B2A08},
         });
         p.Field = Merged(SharedField(), {
             {0x1027AB84, 0x102CC730}, // a position -> its grid cell
@@ -652,13 +656,30 @@ const XyModulePort& XyGymInsect()
             {0x2F66E4, 188, "a material's value (X's library, no copy in Omega Ruby)"},
             {0x488AB8, 108, "(0.74 to Omega Ruby's 0x4AC9DC: X's kept)"},
             {0x367AD4, 24, "the name \"IDEdgeEnable\": add r0, pc, #0; bx lr, then the string"},
+            // a model's node drawn with the camera: X's 0x378548 and 0x3785E4 are twins but for the model's getters
+            // (0x499368 and slot 0x70 here, 0x49B440 and slot 0x3C there); Omega Ruby has only the second (0x390048,
+            // 1.00 to 0x3785E4), mapped here before: it read the model's + 0x28 (flags, 1) as a pointer, an unmapped
+            // read at 0x95 every frame (run vA2, 31 October)
+            {0x378548, 156, "a model's node drawn with the camera (with its literal 0.0)"},
         };
         p.Literals = {
             {0x5D0F10, 0x6172DC}, // a class's identifier, compared with a virtual getter's answer: 39 copies agree
             {0x59C238, 0x5E1F3C}, // 16 constant bytes (1, 2, 1, 0), the same in Omega Ruby
             {0x59C2D4, 0x587170}, // 16 constant bytes (1, 1, 1, 0), the same in Omega Ruby
         };
-        p.Words = {{0xE90, 0xE5900050, 0xE5900060, "the field's + 0x50 -> + 0x60"}};
+        // the player's position: + 0xC64 in X, + 0x6F8 in Omega Ruby (as Grant's); the field's + 0xF0 object's + 0xAB8 is
+        // its + 0xAA4 (X's DllField 0x1029F19C aligned with Omega Ruby's 0x102E06BC, 0.98: + 0xAB4 / + 0xAB8 / + 0xAC0 each
+        // - 0x14; both read the member's + 0x94 the same way; its + 0x98, read here, inferred the same, not seen in Omega
+        // Ruby); run vA1 (31 October) read the member null at + 0x4A4 once the dew drops loaded
+        p.Words = {{0x390, 0xE2800B03, 0xE2800B01, "the player's position: add #0xC00 -> #0x400"},
+                   {0x394, 0xE2800064, 0xE2800FBE, "the player's position: add #0x64 -> #0x2F8"},
+                   {0x4A4, 0xE5900AB8, 0xE5900AA4, "the field's + 0xF0 object's + 0xAB8 -> + 0xAA4"},
+                   {0xE90, 0xE5900050, 0xE5900060, "the field's + 0x50 -> + 0x60"}};
+        // its dew drops' models and materials (dew01-dew15, leafdew1-4): X's a/1/1/0, opened by Res_OpenArchive (0xCB0,
+        // `mov r2, #0x6E`); Omega Ruby's a/1/1/0 is another file, so its 17 resources (ids 0x35-0x45) stayed unresolved
+        // and the dew drops' build read null (runs vI1, vD1, 30 October)
+        p.Archive = 0x6E; // a/1/1/0
+        p.ArchiveWords = {0xCB0};
         p.Sounds = {{0x4D8, 0xA004E}};
         p.Vtables = {0x2204};
         p.Slots = 13;

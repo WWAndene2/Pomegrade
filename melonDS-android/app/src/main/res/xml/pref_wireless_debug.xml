@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto">
+    <!-- Pomegrade: diagnostics over wireless debugging, for this session only (WirelessDebugPreferencesFragment) -->
+    <PreferenceCategory
+            android:title="@string/wireless_debug_connection"
+            app:iconSpaceReserved="false">
+        <Preference
+                android:key="wireless_debug_status"
+                android:title="@string/wireless_debug_status"
+                android:selectable="false"
+                app:iconSpaceReserved="false" />
+
+        <Preference
+                android:key="wireless_debug_pair"
+                android:title="@string/wireless_debug_pair"
+                android:summary="@string/wireless_debug_pair_summary"
+                app:iconSpaceReserved="false" />
+
+        <Preference
+                android:key="wireless_debug_disconnect"
+                android:title="@string/wireless_debug_disconnect"
+                android:summary="@string/wireless_debug_disconnect_summary"
+                app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+            android:title="@string/wireless_debug_diagnostics"
+            app:iconSpaceReserved="false">
+        <ListPreference
+                android:key="wireless_debug_trace_delay"
+                android:title="@string/wireless_debug_trace_delay"
+                android:summary="%s"
+                android:entries="@array/wireless_debug_trace_delay_options"
+                android:entryValues="@array/wireless_debug_trace_delay_values"
+                android:defaultValue="60"
+                app:iconSpaceReserved="false" />
+
+        <Preference
+                android:key="wireless_debug_full"
+                android:title="@string/wireless_debug_full"
+                android:summary="@string/wireless_debug_full_summary"
+                app:iconSpaceReserved="false" />
+
+        <Preference
+                android:key="wireless_debug_trace"
+                android:title="@string/wireless_debug_trace"
+                android:summary="@string/wireless_debug_trace_summary"
+                app:iconSpaceReserved="false" />
+
+        <Preference
+                android:key="wireless_debug_gpu_state"
+                android:title="@string/wireless_debug_gpu_state"
+                android:summary="@string/wireless_debug_gpu_state_summary"
+                app:iconSpaceReserved="false" />
+
+        <Preference
+                android:key="wireless_debug_driver_log"
+                android:title="@string/wireless_debug_driver_log"
+                android:summary="@string/wireless_debug_driver_log_summary"
+                app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+</PreferenceScreen>

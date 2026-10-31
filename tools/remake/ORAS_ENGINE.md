@@ -758,7 +758,9 @@ is tested on the phone.
   icons, outlines and leaders under the same names. The 8 badges' table at 0x10822048 (9 words each: pane and animation
   ids, +0x20 the leader's drawing in a/1/6/0: 27, 33, 36, 39, 30, 42, 45, 51), read through several literal words; the
   badge models a/1/5/2 974-981 and 985-999 (odd) by the table at 0x10822168 (X's: a/1/6/5 342-349, 354-369). The
-  badge word in the headless runs: 0x926E094 (the status at 0x926E080 given to FUN_004E9E64; poke it to light
+  badge word in the headless runs: found by the chain BadgeSetFlag's native follows (Script_Native_BadgeSetFlag
+  0x1028E0AC): [[[[0x5F46FC] + 0xC] + 0x1C]] + 0x3418 + 0x14 (`mem` each step); 0x926E094 on the gk mod (22 October),
+  0x926E3B4 on the Viola mods of 31 October: the address moves with the mod, so it is not a constant (poke it to light
   badges). The update (FUN_10820A44) reads the keys by the game's masks (FUN_004C7CFC held, FUN_004C7E34 pressed):
   1, 2, 3, 4, 8; L and R showed nothing with badges lit (run bc5). retro_host has no touch input yet.
   **Set aside by the owner (22 October), after a check**: one Hoenn slot made a Kalos badge (session demo, not committed:

@@ -189,5 +189,9 @@
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
+        <!-- Pomegrade: the wireless debugging pairing code typed in its notification (impl/diagnostics) -->
+        <receiver
+            android:name=".impl.diagnostics.WirelessDebugPairingReceiver"
+            android:exported="false" />
     </application>
 </manifest>

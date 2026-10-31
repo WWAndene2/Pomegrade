@@ -356,6 +356,15 @@ redone; the zones before what runs in them; one phone check per block, not per c
    address left). Run vI1 (her kind given): the module loads, the zone stays black, a null read in Omega Ruby's
    0x388B70 building the dew drops (OrasXyGymModules.h has what is ruled out); run vI0, the zone without the module,
    shows. Viola is kept out of XyGyms until that is found.
+   **31 October: Viola's gym shows** (run vA2, headless; not on the phone): the dew drops' resources are X's archive
+   a/1/1/0 (17 CGFX), requested in r2 (`mov r2, #0x6E`), now given to her module as the other gyms' archives; her port
+   also patches the player's position (+0xC64 -> +0x6F8, as Grant's) and the field camera's slot (+0xF0's +0xAB8 ->
+   +0xAA4, aligned), and copies X's 0x378548 (a model drawn with the camera; Omega Ruby has only its sibling, mapped
+   before: an unmapped read every frame). Viola is in XyGyms (kind 19). Run vA5: no unmapped read, the player walks on
+   the web. Battle and badge (run vB3, her team made weak: trainer 956, X's 6): the battle, her victory lines, the badge
+   word's bit 8 set (Kalos's first, 0 before; the badge case shows Hoenn's only, its Kalos drawer set aside 22 October),
+   TM83 given. Not run: the puzzle. Seen and not read: 11 unmapped accesses when her battle starts (near address 0,
+   heap code 0x3A9990, 0x2FF8C0).
    **Handover (30 October, end of session; the owner's tokens ran out).** Where Viola stands: run vD1 (memory dumped
    after the fault) shows her module's 17 resource handles (ids 0x35-0x45, the dew drops) unresolved: OrasXyGymModules.h
    has what is read and ruled out (memory: the field heap 0x5D grown, objects' sizes; the area pack; the effect pack).
@@ -381,7 +390,11 @@ redone; the zones before what runs in them; one phone check per block, not per c
       DllUSR13's 7 were already patched by hand on 24 October, the tool finds the same 7. The dust box is DllField cave code,
       no module. Grant's gym run again headless (run gW1, 30 October, his team made weak): the battle, the win, back in the
       arena with his TM's line, the field going on. Not proven by that run: that the null write is gone (the emulator maps
-      0-0x40000000 and logs no such write; the fix is checked in the ported module's words, `xy-gym-module`).
+      0-0x40000000 and logs no such write; the fix is checked in the ported module's words, `xy-gym-module`). **31 October:** the tool's
+      two blind spots fixed (a field slot stored after the constructor's first call, `this` followed through add / sub
+      and calls as sub-object constructors return it; a base writeback, `[rB, #d]!`): Viola's module keeps the field at
+      +0x8 too and walks it from there, its +0x10, +0x24, +0x2C (read wrongly as +0x1C, +0x20) and the heap's vtable,
+      all checked the same; the nine modules 0 unchecked, their 25 words unchanged (the ports already hold them).
    2. Step 4's static search (no run): X/Y's features in engine code with no script command, and Omega Ruby's features on
       Kalos's map (DexNav, soaring, secret bases, the PokeNav Plus apps, contests): the whole list for 4-7 below.
       **First part done 30 October** (`prototype/xy_only_code.py`: each X DllField function against every Omega Ruby

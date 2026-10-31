@@ -100,9 +100,11 @@ static void CountPomegradeWait(std::chrono::steady_clock::time_point start) {
     }();
     PomegradeDiagnostics::waits_by_thread[bucket].fetch_add(1, std::memory_order_relaxed);
     PomegradeDiagnostics::wait_ns_by_thread[bucket].fetch_add(static_cast<u64>(waited.count()), std::memory_order_relaxed);
+    PomegradeDiagnostics::CountWaitSite(PomegradeDiagnostics::wait_thread_names[bucket], static_cast<u64>(waited.count()));
 }
 
 void MasterSemaphore::Wait(u64 tick) {
+    const PomegradeDiagnostics::TraceScope pomegrade_trace{"GPU wait"}; // Pomegrade: TEMPORARY
     if (!semaphore) {
         // Fast check: already reached the requested tick?
         if (gpu_tick.load(std::memory_order_acquire) >= tick) {

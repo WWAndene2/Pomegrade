@@ -223,6 +223,9 @@ RasterizerVulkan::RasterizerVulkan(Core::Frontend::EmuWindow& emu_window_, Tegra
       fence_manager(*this, gpu, texture_cache, buffer_cache, query_cache, device, scheduler),
       wfi_event(device.GetLogical().CreateEvent()) {
     scheduler.SetQueryCache(query_cache);
+    null_framebuffer = std::make_unique<Framebuffer>(texture_cache_runtime, nullptr, nullptr,
+                                                     VkExtent2D{.width = 1, .height = 1}, false);
+    scheduler.SetNullFramebuffer(null_framebuffer.get());
 }
 
 RasterizerVulkan::~RasterizerVulkan() = default;
@@ -259,6 +262,28 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
         const auto& draw_state = maxwell3d->draw_manager.draw_state;
         const u32 num_instances{instance_count};
         const DrawParams draw_params{MakeDrawParams(draw_state, num_instances, is_indexed)};
+        { // Pomegrade: TEMPORARY, the transform feedback draws' shape (common/pomegrade_diagnostics.h)
+            const auto& regs = maxwell3d->regs;
+            if (regs.transform_feedback_enabled != 0) {
+                static constexpr std::array<const char*, 15> topologies{
+                    "Points", "Lines", "LineLoop", "LineStrip", "Triangles", "TriangleStrip", "TriangleFan", "Quads",
+                    "QuadStrip", "Polygon", "LinesAdjacency", "LineStripAdjacency", "TrianglesAdjacency",
+                    "TriangleStripAdjacency", "Patches"};
+                const auto topology = static_cast<size_t>(draw_state.topology);
+                std::string shape = fmt::format("{} {} {}", topology < topologies.size() ? topologies[topology] : "?",
+                                                is_indexed ? "indexed" : "not indexed",
+                                                num_instances > 1 ? "instanced" : "x1");
+                for (size_t i = 0; i < Maxwell::NumTransformFeedbackBuffers; i++) {
+                    if (regs.transform_feedback.buffers[i].enable != 0) {
+                        shape += fmt::format(" [b{} stride {} varyings {} stream {}]", i,
+                                             regs.transform_feedback.controls[i].stride,
+                                             regs.transform_feedback.controls[i].varying_count,
+                                             regs.transform_feedback.controls[i].stream);
+                    }
+                }
+                PomegradeDiagnostics::CountTfShape(shape, u64(draw_params.num_vertices) * draw_params.num_instances);
+            }
+        }
 
         scheduler.Record([draw_params](vk::CommandBuffer cmdbuf) {
             if (draw_params.is_indexed) {
@@ -289,6 +314,10 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
 }
 
 void RasterizerVulkan::DrawIndirect() {
+    // Pomegrade: TEMPORARY, transform feedback draws whose counts the GPU reads (common/pomegrade_diagnostics.h)
+    if (maxwell3d->regs.transform_feedback_enabled != 0) {
+        PomegradeDiagnostics::tf_indirect_draws.fetch_add(1, std::memory_order_relaxed);
+    }
     const auto& params = maxwell3d->draw_manager.indirect_state;
     buffer_cache.SetDrawIndirect(&params);
     PrepareDraw(params.is_indexed, [this, &params] {

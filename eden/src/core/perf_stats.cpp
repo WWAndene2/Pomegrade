@@ -89,6 +89,9 @@ void PerfStats::EndSystemFrame() {
 
 void PerfStats::EndGameFrame() {
     game_frames.fetch_add(1, std::memory_order_relaxed);
+    // Pomegrade: TEMPORARY, each guest frame's end marked in a system trace
+    PomegradeDiagnostics::TraceBegin("guest frame end");
+    PomegradeDiagnostics::TraceEnd();
 #ifdef __ANDROID__
     // Pomegrade: each guest frame's duration to Android's performance hints; a gap of a second or more is a pause,
     // not a slow frame

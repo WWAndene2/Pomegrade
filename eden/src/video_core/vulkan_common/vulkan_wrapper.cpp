@@ -124,6 +124,7 @@ void Load(VkDevice device, DeviceDispatch& dld) noexcept {
     X(vkCmdFillBuffer);
     X(vkCmdPipelineBarrier);
     X(vkCmdResetQueryPool);
+    X(vkCmdWriteTimestamp); // Pomegrade: TEMPORARY, GPU timing of the study's diagnostic
     X(vkCmdPushConstants);
     X(vkCmdPushDescriptorSetWithTemplateKHR);
     X(vkCmdSetBlendConstants);

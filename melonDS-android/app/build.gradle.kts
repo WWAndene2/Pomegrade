@@ -167,6 +167,9 @@ dependencies {
 
     implementation(libs.coil)
     implementation(libs.gson)
+    implementation(libs.libadb)
+    implementation(libs.conscrypt)
+    implementation(libs.bouncycastle.pkix)
     implementation(libs.hilt)
     implementation(libs.kotlin.serialization)
     implementation(libs.kotlinx.coroutines.rx)
