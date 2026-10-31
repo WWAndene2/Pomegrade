@@ -18,7 +18,6 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.ViewModelProvider
-import com.google.android.material.appbar.CollapsingToolbarLayout
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.dolphinemu.dolphinemu.NativeLibrary
 import org.dolphinemu.dolphinemu.R
@@ -30,14 +29,12 @@ import org.dolphinemu.dolphinemu.ui.main.MainPresenter
 import org.dolphinemu.dolphinemu.ui.main.ThemeProvider
 import org.dolphinemu.dolphinemu.utils.InsetsHelper
 import org.dolphinemu.dolphinemu.utils.SerializableHelper.serializable
-import org.dolphinemu.dolphinemu.utils.ThemeHelper.enableScrollTint
 import org.dolphinemu.dolphinemu.utils.ThemeHelper.setCorrectTheme
 import org.dolphinemu.dolphinemu.utils.ThemeHelper.setTheme
 
 class SettingsActivity : AppCompatActivity(), SettingsActivityView, ThemeProvider {
     private var presenter: SettingsActivityPresenter? = null
     private var dialog: AlertDialog? = null
-    private var toolbarLayout: CollapsingToolbarLayout? = null
     private var binding: DolphinActivitySettingsBinding? = null
 
     override var themeId: Int = 0
@@ -77,15 +74,10 @@ class SettingsActivity : AppCompatActivity(), SettingsActivityView, ThemeProvide
 
         presenter = SettingsActivityPresenter(this, settings)
         presenter!!.onCreate(savedInstanceState, menuTag, gameID, revision, isWii, this)
-        toolbarLayout = binding!!.toolbarSettingsLayout
         setSupportActionBar(binding!!.toolbarSettings)
         supportActionBar!!.setDisplayHomeAsUpEnabled(true)
-
-        // TODO: Remove this when CollapsingToolbarLayouts are fixed by Google
-        // https://github.com/material-components/material-components-android/issues/1310
-        ViewCompat.setOnApplyWindowInsetsListener(toolbarLayout!!, null)
+        // Pomegrade: Punica's header (PunicaToolbar) in place of the collapsing toolbar, and no scroll tint
         setInsets()
-        enableScrollTint(this, binding!!.toolbarSettings, binding!!.appbarSettings)
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -237,7 +229,7 @@ class SettingsActivity : AppCompatActivity(), SettingsActivityView, ThemeProvide
     }
 
     override fun setToolbarTitle(title: String) {
-        binding!!.toolbarSettingsLayout.title = title
+        binding!!.toolbarSettings.title = title
     }
 
     override fun setOldControllerSettingsWarningVisibility(visible: Boolean): Int {

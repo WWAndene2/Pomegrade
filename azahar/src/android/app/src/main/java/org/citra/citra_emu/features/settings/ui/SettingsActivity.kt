@@ -274,7 +274,7 @@ class SettingsActivity :
     }
 
     fun setToolbarTitle(title: String) {
-        binding.toolbarSettingsLayout.title = title
+        binding.toolbarSettings.title = title
     }
 
     private val settingsFragment: SettingsFragment?

@@ -6,7 +6,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:background="@drawable/bg_punica_title_mask"
+    android:background="@drawable/punica_bg_title_mask"
     android:orientation="vertical"
     android:paddingStart="8dp"
     android:paddingTop="4dp"
@@ -16,7 +16,7 @@
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="32dp"
-        android:background="@drawable/bg_punica_logo"
+        android:background="@drawable/punica_bg_logo"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="12dp"
@@ -35,7 +35,7 @@
             android:layout_marginStart="6dp"
             android:fontFamily="@font/punica_bricolage_grotesque_extrabold"
             android:includeFontPadding="false"
-            android:textColor="@color/punicaText"
+            android:textColor="@color/emulator_menu_on_surface"
             android:textSize="24sp"
             tools:text="Punica." />
     </LinearLayout>
@@ -50,7 +50,7 @@
         android:gravity="center_vertical"
         android:includeFontPadding="false"
         android:maxLines="1"
-        android:textColor="@color/punicaText"
+        android:textColor="@color/emulator_menu_on_surface"
         android:textSize="16sp"
         android:textStyle="italic"
         tools:text="Réglages" />

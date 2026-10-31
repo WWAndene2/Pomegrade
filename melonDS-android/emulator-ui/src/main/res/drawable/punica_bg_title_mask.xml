@@ -3,5 +3,5 @@
      radius. Same as the Compose PunicaLogo's -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
     <solid android:color="#4D111215" />
-    <corners android:radius="@dimen/punica_card_radius" />
+    <corners android:radius="@dimen/emulator_settings_card_radius" />
 </shape>

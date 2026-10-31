@@ -30,6 +30,19 @@
         <item name="textAppearanceTitleMedium">@style/TextAppearance.Pomegrade.EmulatorMenu.TitleMedium</item>
     </style>
 
+    <!-- The header (PunicaToolbar) on every console's settings, as the app's: 64 dp, transparent, 4 dp edges, the
+         logo 12 dp after the back arrow -->
+    <style name="Widget.Pomegrade.EmulatorSettings.Header" parent="">
+        <item name="android:background">@android:color/transparent</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:minHeight">@dimen/emulator_settings_header_height</item>
+        <item name="android:paddingStart">@dimen/emulator_settings_header_edge</item>
+        <item name="android:paddingEnd">@dimen/emulator_settings_header_edge</item>
+        <item name="contentInsetStart">@dimen/emulator_settings_gap_wide</item>
+        <item name="contentInsetStartWithNavigation">0dp</item>
+        <item name="navigationIconTint">@color/emulator_menu_on_surface</item>
+    </style>
+
     <!-- A settings row (the app's preference_punica.xml): at least 64 dp, 16 dp sides, 12 dp above and below the text -->
     <style name="Widget.Pomegrade.EmulatorSettings.Row" parent="">
         <item name="android:minHeight">@dimen/emulator_settings_row_min_height</item>
@@ -38,6 +51,45 @@
         <item name="android:paddingTop">@dimen/emulator_settings_gap_wide</item>
         <item name="android:paddingBottom">@dimen/emulator_settings_gap_wide</item>
         <item name="android:background">?android:attr/selectableItemBackground</item>
+    </style>
+
+    <!-- A row's icon (the app's preference_punica.xml): a 16 dp glyph on a 32 dp tile, 12 dp before the text -->
+    <style name="Widget.Pomegrade.EmulatorSettings.Icon" parent="">
+        <item name="android:layout_width">@dimen/emulator_settings_row_icon</item>
+        <item name="android:layout_height">@dimen/emulator_settings_row_icon</item>
+        <item name="android:layout_marginEnd">@dimen/emulator_settings_gap_wide</item>
+        <item name="android:padding">@dimen/emulator_settings_gap</item>
+        <item name="android:background">@drawable/punica_bg_row_icon</item>
+        <item name="android:scaleType">fitCenter</item>
+        <item name="tint">@color/emulator_menu_on_surface</item>
+    </style>
+
+    <!-- A row's switch: the app's 48 x 24 dp pill (punica_switch_track / _thumb), 12 dp after the text -->
+    <style name="Widget.Pomegrade.EmulatorSettings.Switch" parent="">
+        <item name="android:layout_marginStart">@dimen/emulator_settings_gap_wide</item>
+        <item name="android:background">@null</item>
+        <item name="android:thumb">@drawable/punica_switch_thumb</item>
+        <item name="track">@drawable/punica_switch_track</item>
+        <item name="thumbTint">@null</item>
+        <item name="trackTint">@null</item>
+        <item name="showText">false</item>
+        <item name="switchMinWidth">48dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:minHeight">0dp</item>
+    </style>
+
+    <!-- A row's button at its end (more settings, options): 48 dp touch, 12 dp after the text -->
+    <style name="Widget.Pomegrade.EmulatorSettings.EndButton" parent="Widget.Material3.Button.IconButton">
+        <item name="android:layout_marginStart">@dimen/emulator_settings_gap_wide</item>
+        <item name="android:minWidth">@dimen/emulator_settings_touch</item>
+        <item name="android:minHeight">@dimen/emulator_settings_touch</item>
+        <item name="iconSize">@dimen/emulator_settings_icon</item>
+        <item name="iconTint">@color/emulator_menu_on_surface</item>
+    </style>
+
+    <!-- A row's "use the global setting" / "reset" button, under its text, 8 dp below it -->
+    <style name="Widget.Pomegrade.EmulatorSettings.RowButton" parent="Widget.Material3.Button.TonalButton">
+        <item name="android:layout_marginTop">@dimen/emulator_settings_gap</item>
     </style>
 
     <!-- A section title, outside the cards: Bricolage Grotesque 16, 16 dp above, 8 below -->

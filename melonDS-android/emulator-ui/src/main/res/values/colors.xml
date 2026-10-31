@@ -14,4 +14,6 @@
     <!-- Punica's settings (every core's): the page behind the cards, the lines between rows -->
     <color name="emulator_settings_background">#111215</color>
     <color name="emulator_settings_line">#2B2E35</color>
+    <!-- a raised surface on a card: the row icons' tiles, the switch's track when off -->
+    <color name="emulator_settings_raised">#1F2228</color>
 </resources>

@@ -15,7 +15,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toTopOf="@id/toolbar" />
 
-    <me.magnum.melonds.ui.common.PunicaToolbar
+    <io.github.wwandene2.pomegrade.emulatorui.PunicaToolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
