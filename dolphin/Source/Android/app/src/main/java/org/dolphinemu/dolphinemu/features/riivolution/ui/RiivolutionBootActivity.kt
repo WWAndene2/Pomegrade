@@ -66,7 +66,6 @@ class RiivolutionBootActivity : AppCompatActivity() {
         supportActionBar!!.setDisplayHomeAsUpEnabled(true)
 
         setInsets()
-        ThemeHelper.enableScrollTint(this, binding.toolbarRiivolution, binding.appbarRiivolution)
     }
 
     override fun onStop() {

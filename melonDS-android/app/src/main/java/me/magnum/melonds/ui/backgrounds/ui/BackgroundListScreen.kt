@@ -191,12 +191,12 @@ private fun BackgroundList(
 ) {
     LazyVerticalGrid(
         modifier = modifier.consumeWindowInsets(contentPadding),
-        columns = GridCells.Adaptive(minSize = 140.dp),
+        columns = GridCells.Adaptive(minSize = 136.dp),
         contentPadding = PaddingValues(
             start = contentPadding.calculateStartPadding(LocalLayoutDirection.current) + 16.dp,
             top = contentPadding.calculateTopPadding() + 16.dp,
             end = contentPadding.calculateEndPadding(LocalLayoutDirection.current) + 16.dp,
-            bottom = contentPadding.calculateBottomPadding() + 16.dp + 56.dp + 16.dp, // Add FAB size and FAB padding
+            bottom = contentPadding.calculateBottomPadding() + 96.dp, // clears the FAB: its margin, its Material height and a gap below the last row (16 + 56 + 16, on the scale as 64 + 32)
         ),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),

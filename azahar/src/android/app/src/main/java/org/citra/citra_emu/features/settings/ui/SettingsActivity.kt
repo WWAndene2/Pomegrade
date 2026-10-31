@@ -124,8 +124,11 @@ class SettingsActivity :
     }
 
     override fun onResume() {
-        super.onResume()
+        // Pomegrade: the settings fragment, committed in onStart, gets its view in
+        // super.onResume() and reads the system save (country, language...) from there, so the
+        // save is loaded first; read before it, the native config is still null and crashes.
         presenter.onResume()
+        super.onResume()
     }
 
     override fun onStart() {

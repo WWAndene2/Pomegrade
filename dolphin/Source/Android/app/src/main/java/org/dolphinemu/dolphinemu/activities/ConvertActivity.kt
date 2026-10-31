@@ -38,12 +38,11 @@ class ConvertActivity : AppCompatActivity() {
             supportFragmentManager.beginTransaction().add(R.id.fragment_convert, fragment).commit()
         }
 
-        binding.toolbarConvertLayout.title = getString(R.string.convert_convert)
+        binding.toolbarConvert.title = getString(R.string.convert_convert)
         setSupportActionBar(binding.toolbarConvert)
         supportActionBar!!.setDisplayHomeAsUpEnabled(true)
 
         setInsets()
-        ThemeHelper.enableScrollTint(this, binding.toolbarConvert, binding.appbarConvert)
     }
 
     override fun onSupportNavigateUp(): Boolean {

@@ -51,63 +51,63 @@ class SettingsAdapter(
         val inflater = LayoutInflater.from(parent.context)
         return when (viewType) {
             SettingsItem.TYPE_HEADER -> {
-                HeaderViewHolder(EdenListItemSettingsHeaderBinding.inflate(inflater), this)
+                HeaderViewHolder(EdenListItemSettingsHeaderBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_SWITCH -> {
-                SwitchSettingViewHolder(EdenListItemSettingSwitchBinding.inflate(inflater), this)
+                SwitchSettingViewHolder(EdenListItemSettingSwitchBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_SINGLE_CHOICE, SettingsItem.TYPE_STRING_SINGLE_CHOICE -> {
-                SingleChoiceViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+                SingleChoiceViewHolder(EdenListItemSettingBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_SLIDER -> {
-                SliderViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+                SliderViewHolder(EdenListItemSettingBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_SPINBOX -> {
-                SpinBoxViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+                SpinBoxViewHolder(EdenListItemSettingBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_SUBMENU -> {
-                SubmenuViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+                SubmenuViewHolder(EdenListItemSettingBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_DATETIME_SETTING -> {
-                DateTimeViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+                DateTimeViewHolder(EdenListItemSettingBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_RUNNABLE -> {
-                RunnableViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+                RunnableViewHolder(EdenListItemSettingBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_INPUT -> {
-                InputViewHolder(ListItemSettingInputBinding.inflate(inflater), this)
+                InputViewHolder(ListItemSettingInputBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_INT_SINGLE_CHOICE -> {
-                SingleChoiceViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+                SingleChoiceViewHolder(EdenListItemSettingBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_INPUT_PROFILE -> {
-                InputProfileViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+                InputProfileViewHolder(EdenListItemSettingBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_STRING_INPUT -> {
-                StringInputViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+                StringInputViewHolder(EdenListItemSettingBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_LAUNCHABLE -> {
-                LaunchableViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+                LaunchableViewHolder(EdenListItemSettingBinding.inflate(inflater, parent, false), this)
             }
 			
             SettingsItem.TYPE_PATH -> {
-                PathViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+                PathViewHolder(EdenListItemSettingBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_GPU_UNSWIZZLE -> {
-                GpuUnswizzleViewHolder(EdenListItemSettingBinding.inflate(inflater), this)
+                GpuUnswizzleViewHolder(EdenListItemSettingBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_FX_TOOLBAR -> {
@@ -139,7 +139,7 @@ class SettingsAdapter(
             }
 
             else -> {
-                HeaderViewHolder(EdenListItemSettingsHeaderBinding.inflate(inflater), this)
+                HeaderViewHolder(EdenListItemSettingsHeaderBinding.inflate(inflater, parent, false), this)
             }
         }
     }

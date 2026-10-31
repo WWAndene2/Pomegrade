@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Punica's switch track: 48 x 24 dp pill, red when on, the raised card with its outline when off -->
+<!-- Punica's switch track: 64 x 32 dp pill (2:1, the scale's 64 and 32), red when on, the raised card with its outline when off -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_checked="true">
         <shape android:shape="rectangle">
-            <size android:width="48dp" android:height="24dp" />
+            <size android:width="64dp" android:height="32dp" />
             <solid android:color="@color/emulator_menu_primary" />
-            <corners android:radius="12dp" />
+            <corners android:radius="16dp" />
         </shape>
     </item>
     <item>
         <shape android:shape="rectangle">
-            <size android:width="48dp" android:height="24dp" />
+            <size android:width="64dp" android:height="32dp" />
             <solid android:color="@color/emulator_settings_raised" />
             <stroke android:width="1dp" android:color="@color/emulator_settings_line" />
-            <corners android:radius="12dp" />
+            <corners android:radius="16dp" />
         </shape>
     </item>
 </selector>

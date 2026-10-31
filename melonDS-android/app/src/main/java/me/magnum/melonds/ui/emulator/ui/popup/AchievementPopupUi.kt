@@ -70,7 +70,7 @@ fun AchievementPopupUi(
         modifier = modifier
             .padding(16.dp)
             .shadow(8.dp, RoundedCornerShape(8.dp))
-            .widthIn(max = 400.dp),
+            .widthIn(max = 384.dp),
         shape = RoundedCornerShape(8.dp),
     ) {
         Row(

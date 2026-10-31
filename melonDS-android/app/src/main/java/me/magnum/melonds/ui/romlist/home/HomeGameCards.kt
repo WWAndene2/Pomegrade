@@ -127,7 +127,7 @@ internal fun RecentGameCard(rom: Rom, selected: Boolean, actions: GameActions) {
             .padding(8.dp),
     ) {
         Box {
-            GameCover(rom, actions.loadIcon, Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(16.dp)))
+            GameCover(rom, actions.loadIcon, Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(8.dp)))
             PlatformTag(rom.platform, outlined = false, modifier = Modifier.padding(4.dp))
         }
         Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.Top) {

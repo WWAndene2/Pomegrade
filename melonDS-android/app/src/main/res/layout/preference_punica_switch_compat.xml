@@ -10,5 +10,5 @@
     android:focusable="false"
     android:thumb="@drawable/punica_switch_thumb"
     app:showText="false"
-    app:switchMinWidth="48dp"
+    app:switchMinWidth="64dp"
     app:track="@drawable/punica_switch_track" />

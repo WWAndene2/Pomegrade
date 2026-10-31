@@ -64,7 +64,7 @@
         <item name="tint">@color/emulator_menu_on_surface</item>
     </style>
 
-    <!-- A row's switch: the app's 48 x 24 dp pill (punica_switch_track / _thumb), 12 dp after the text -->
+    <!-- A row's switch: the app's 64 x 32 dp pill (punica_switch_track / _thumb), 12 dp after the text -->
     <style name="Widget.Pomegrade.EmulatorSettings.Switch" parent="">
         <item name="android:layout_marginStart">@dimen/emulator_settings_gap_wide</item>
         <item name="android:background">@null</item>
@@ -73,7 +73,7 @@
         <item name="thumbTint">@null</item>
         <item name="trackTint">@null</item>
         <item name="showText">false</item>
-        <item name="switchMinWidth">48dp</item>
+        <item name="switchMinWidth">64dp</item>
         <item name="android:minWidth">0dp</item>
         <item name="android:minHeight">0dp</item>
     </style>

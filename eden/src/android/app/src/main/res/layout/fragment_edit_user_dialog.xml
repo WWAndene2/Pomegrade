@@ -12,13 +12,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <com.google.android.material.appbar.MaterialToolbar
+        <io.github.wwandene2.pomegrade.emulatorui.PunicaToolbar
             android:id="@+id/toolbar_new_user"
+                style="@style/Widget.Pomegrade.EmulatorSettings.Header"
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
+            android:layout_height="wrap_content"
             app:title="@string/profile_new_user"
-            app:navigationIcon="@drawable/eden_ic_back"
-            app:titleCentered="false" />
+            app:navigationIcon="@drawable/eden_ic_back" />
 
     </com.google.android.material.appbar.AppBarLayout>
 

@@ -17,11 +17,11 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <com.google.android.material.appbar.MaterialToolbar
+        <io.github.wwandene2.pomegrade.emulatorui.PunicaToolbar
             android:id="@+id/toolbar_lossless"
-            style="@style/Widget.Eden.TransparentTopToolbar"
+                style="@style/Widget.Pomegrade.EmulatorSettings.Header"
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
+            android:layout_height="wrap_content"
             android:touchscreenBlocksFocus="false"
             app:navigationIcon="@drawable/eden_ic_back"
             app:title="@string/lossless_scaling" />

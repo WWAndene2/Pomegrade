@@ -33,6 +33,22 @@ object PunicaTheme {
     )
 }
 
+/**
+ * The four opacity levels of Punica's screens; nothing else is used. The XML side has the same: the menu's selected
+ * fill (:emulator-ui emulator_menu_item_fill, 0.14), the title mask (punica_bg_title_mask, #4D = 30 %), the switch
+ * rail and the window's sweep (#80 = 50 %).
+ */
+object PunicaAlpha {
+    /** a selected item's red tint over its card */
+    const val SELECTED = 0.14f
+    /** the see-through mask behind the header's title */
+    const val MASK = 0.3f
+    /** half: a fading gradient's middle, a secondary mark (sheet handle) */
+    const val HALF = 0.5f
+    /** a scrim over content, an item that is shown but not chosen */
+    const val SOFT = 0.8f
+}
+
 /** The shared sizes, in dp (sp for text), all on the PerfectSuite scale. */
 object PunicaDimens {
     const val HEADER = 64

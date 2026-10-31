@@ -53,6 +53,7 @@ import me.magnum.melonds.ui.common.component.PunicaHeader
 import me.magnum.melonds.ui.common.component.punicaBackground
 import me.magnum.melonds.ui.inputsetup.InputSetupViewModel
 import me.magnum.melonds.ui.theme.MelonTheme
+import me.magnum.melonds.ui.theme.PunicaAlpha
 import me.magnum.melonds.ui.theme.PunicaDimens
 
 @Composable
@@ -203,7 +204,7 @@ private fun WaitingForInputOverlay(onCancel: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colors.background.copy(alpha = 0.8f))
+            .background(MaterialTheme.colors.background.copy(alpha = PunicaAlpha.SOFT))
             .clickable(enabled = true, onClick = { })
     ) {
         Column(

@@ -13,23 +13,11 @@
         android:layout_alignParentTop="true"
         app:elevation="0dp">
 
-        <com.google.android.material.appbar.CollapsingToolbarLayout
-            style="?attr/collapsingToolbarLayoutMediumStyle"
-            android:id="@+id/toolbar_convert_layout"
+        <io.github.wwandene2.pomegrade.emulatorui.PunicaToolbar
+            android:id="@+id/toolbar_convert"
+            style="@style/Widget.Pomegrade.EmulatorSettings.Header"
             android:layout_width="match_parent"
-            android:layout_height="?attr/collapsingToolbarLayoutMediumSize"
-            app:contentScrim="@android:color/transparent"
-            app:layout_scrollFlags="scroll|exitUntilCollapsed|snap">
-
-            <com.google.android.material.appbar.MaterialToolbar
-                android:id="@+id/toolbar_convert"
-                android:layout_width="match_parent"
-                android:layout_height="?attr/actionBarSize"
-                android:background="?attr/colorSurface"
-                app:layout_collapseMode="pin"
-                app:elevation="0dp" />
-
-        </com.google.android.material.appbar.CollapsingToolbarLayout>
+            android:layout_height="wrap_content" />
 
     </com.google.android.material.appbar.AppBarLayout>
 

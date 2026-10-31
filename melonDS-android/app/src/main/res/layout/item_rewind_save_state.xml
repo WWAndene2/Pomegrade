@@ -11,7 +11,7 @@
 
     <ImageView
             android:id="@+id/image_screenshot"
-            android:layout_width="95dp"
+            android:layout_width="96dp"
             android:layout_height="wrap_content"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"

@@ -75,8 +75,8 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-private val DISMISS_DISTANCE_THRESHOLD = 150.dp
-private val FLING_DISMISS_VELOCITY_THRESHOLD = 150.dp
+private val DISMISS_DISTANCE_THRESHOLD = 144.dp
+private val FLING_DISMISS_VELOCITY_THRESHOLD = 144.dp
 private val LIST_CONTENT_PADDING = 40.dp
 
 private val CONTENT_TYPE_ACHIEVEMENT = "achievement"
@@ -330,7 +330,7 @@ private fun Content(
                         modifier = Modifier.fillMaxWidth(),
                         achievementModel = it,
                         onViewAchievement = { onViewAchievement(it.actualAchievement()) },
-                        badgeSize = 52.dp,
+                        badgeSize = 48.dp,
                     )
                 }
             }

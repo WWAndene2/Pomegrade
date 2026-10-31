@@ -13,10 +13,11 @@
         android:layout_height="wrap_content"
         android:fitsSystemWindows="true">
 
-        <com.google.android.material.appbar.MaterialToolbar
+        <io.github.wwandene2.pomegrade.emulatorui.PunicaToolbar
             android:id="@+id/toolbar_about"
+                style="@style/Widget.Pomegrade.EmulatorSettings.Header"
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
+            android:layout_height="wrap_content"
             app:title="@string/about"
             app:navigationIcon="@drawable/ic_back" />
 
