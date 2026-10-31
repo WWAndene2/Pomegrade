@@ -20,13 +20,13 @@
                 android:key="pomegrade_settings_save"
                 android:title="@string/pomegrade_settings_save"
                 android:summary="@string/pomegrade_settings_save_summary"
-                app:icon="@drawable/ic_download" />
+                app:icon="@drawable/ic_row_download" />
 
         <Preference
                 android:key="pomegrade_check_system_files"
                 android:title="@string/system_files_check"
                 android:summary="@string/system_files_check_summary"
-                app:icon="@drawable/ic_verified" />
+                app:icon="@drawable/ic_row_verified" />
 
         <Preference
                 android:key="pomegrade_settings_restore"
@@ -55,7 +55,7 @@
                 android:key="punica_pill_opacity"
                 android:title="@string/pill_opacity"
                 android:summary="%s"
-                app:icon="@drawable/ic_eye"
+                app:icon="@drawable/ic_row_eye"
                 android:entries="@array/pill_opacity_options"
                 android:entryValues="@array/pill_opacity_values"
                 android:defaultValue="faint" />
@@ -65,7 +65,7 @@
                 android:key="punica_pill_size"
                 android:title="@string/pill_size"
                 android:summary="%s"
-                app:icon="@drawable/ic_size"
+                app:icon="@drawable/ic_row_size"
                 android:entries="@array/pill_size_options"
                 android:entryValues="@array/pill_size_values"
                 android:defaultValue="normal" />
@@ -85,7 +85,7 @@
         <Preference
                 android:title="@string/wireless_debug"
                 android:summary="@string/wireless_debug_summary"
-                app:icon="@drawable/ic_bug"
+                app:icon="@drawable/ic_row_bug"
                 android:fragment="me.magnum.melonds.ui.settings.fragments.WirelessDebugPreferencesFragment" />
     </PreferenceCategory>
 
@@ -150,7 +150,7 @@
                     android:title="@string/ds_debug_trace"
                     android:summary="@string/ds_debug_trace_summary"
                     android:defaultValue="false"
-                    app:icon="@drawable/ic_log" />
+                    app:icon="@drawable/ic_row_log" />
         </PreferenceCategory>
     </PreferenceCategory>
 
@@ -188,21 +188,21 @@
             <Preference android:key="three_ds_settings_Core" android:title="@string/category_general" android:summary="@string/three_ds_settings_core_summary" app:icon="@drawable/ic_settings" />
             <Preference android:key="three_ds_settings_System" android:title="@string/category_system" android:summary="@string/three_ds_settings_system_summary" app:icon="@drawable/ic_firmware" />
             <Preference android:key="three_ds_settings_Renderer" android:title="@string/category_video" android:summary="@string/three_ds_settings_renderer_summary" app:icon="@drawable/ic_video" />
-            <Preference android:key="three_ds_settings_Layout" android:title="@string/three_ds_settings_layout" android:summary="@string/three_ds_settings_layout_summary" app:icon="@drawable/ic_layout" />
+            <Preference android:key="three_ds_settings_Layout" android:title="@string/three_ds_settings_layout" android:summary="@string/three_ds_settings_layout_summary" app:icon="@drawable/ic_row_layout" />
             <Preference android:key="three_ds_settings_Audio" android:title="@string/category_audio" android:summary="@string/three_ds_settings_audio_summary" app:icon="@drawable/ic_audio" />
             <Preference android:key="three_ds_settings_Controls" android:title="@string/input" android:summary="@string/three_ds_settings_controls_summary" app:icon="@drawable/ic_input" />
-            <Preference android:key="three_ds_settings_Camera" android:title="@string/three_ds_settings_camera" android:summary="@string/three_ds_settings_camera_summary" app:icon="@drawable/ic_camera" />
+            <Preference android:key="three_ds_settings_Camera" android:title="@string/three_ds_settings_camera" android:summary="@string/three_ds_settings_camera_summary" app:icon="@drawable/ic_row_camera" />
         </PreferenceCategory>
         <PreferenceCategory
                 android:title="@string/settings_advanced"
                 app:iconSpaceReserved="false">
-            <Preference android:key="three_ds_settings_Debugging" android:title="@string/settings_advanced_options" android:summary="@string/three_ds_settings_debug_summary" app:icon="@drawable/ic_bug" />
+            <Preference android:key="three_ds_settings_Debugging" android:title="@string/settings_advanced_options" android:summary="@string/three_ds_settings_debug_summary" app:icon="@drawable/ic_row_bug" />
             <SwitchPreference
                     android:key="three_ds_code_trace"
                     android:title="@string/three_ds_code_trace"
                     android:summary="@string/three_ds_code_trace_summary"
                     android:defaultValue="false"
-                    app:icon="@drawable/ic_log" />
+                    app:icon="@drawable/ic_row_log" />
         </PreferenceCategory>
         <PreferenceCategory
                 android:title="@string/settings_group_tools"
@@ -227,23 +227,23 @@
         <PreferenceCategory
                 android:title="@string/settings_group_settings"
                 app:iconSpaceReserved="false">
-            <Preference android:key="switch_settings_SECTION_APP_SETTINGS" android:title="@string/settings_interface" android:summary="@string/switch_settings_interface_summary" app:icon="@drawable/ic_tune" />
+            <Preference android:key="switch_settings_SECTION_APP_SETTINGS" android:title="@string/settings_interface" android:summary="@string/switch_settings_interface_summary" app:icon="@drawable/ic_row_tune" />
             <Preference android:key="switch_settings_SECTION_SYSTEM" android:title="@string/category_system" android:summary="@string/switch_settings_system_summary" app:icon="@drawable/ic_firmware" />
             <Preference android:key="switch_settings_SECTION_RENDERER" android:title="@string/category_video" android:summary="@string/switch_settings_renderer_summary" app:icon="@drawable/ic_video" />
-            <Preference android:key="switch_settings_SECTION_PERFORMANCE_STATS" android:title="@string/settings_performance_overlay" android:summary="@string/switch_settings_performance_summary" app:icon="@drawable/ic_chart" />
-            <Preference android:key="switch_settings_SECTION_SOC_OVERLAY" android:title="@string/settings_system_overlay" android:summary="@string/switch_settings_soc_summary" app:icon="@drawable/ic_info" />
+            <Preference android:key="switch_settings_SECTION_PERFORMANCE_STATS" android:title="@string/settings_performance_overlay" android:summary="@string/switch_settings_performance_summary" app:icon="@drawable/ic_row_chart" />
+            <Preference android:key="switch_settings_SECTION_SOC_OVERLAY" android:title="@string/settings_system_overlay" android:summary="@string/switch_settings_soc_summary" app:icon="@drawable/ic_row_info" />
             <Preference android:key="switch_settings_SECTION_AUDIO" android:title="@string/category_audio" android:summary="@string/switch_settings_audio_summary" app:icon="@drawable/ic_audio" />
             <Preference android:key="switch_settings_SECTION_INPUT" android:title="@string/input" android:summary="@string/switch_settings_input_summary" app:icon="@drawable/ic_input" />
-            <Preference android:key="switch_settings_SECTION_INPUT_OVERLAY" android:title="@string/settings_on_screen_controls" android:summary="@string/switch_settings_input_overlay_summary" app:icon="@drawable/ic_layout" />
-            <Preference android:key="switch_settings_SECTION_APPLETS" android:title="@string/switch_settings_applets" android:summary="@string/switch_settings_applets_summary" app:icon="@drawable/ic_apps" />
+            <Preference android:key="switch_settings_SECTION_INPUT_OVERLAY" android:title="@string/settings_on_screen_controls" android:summary="@string/switch_settings_input_overlay_summary" app:icon="@drawable/ic_row_layout" />
+            <Preference android:key="switch_settings_SECTION_APPLETS" android:title="@string/switch_settings_applets" android:summary="@string/switch_settings_applets_summary" app:icon="@drawable/ic_row_apps" />
         </PreferenceCategory>
         <PreferenceCategory
                 android:title="@string/settings_advanced"
                 app:iconSpaceReserved="false">
-            <Preference android:key="switch_settings_SECTION_DEBUG" android:title="@string/settings_advanced_options" android:summary="@string/switch_settings_debug_summary" app:icon="@drawable/ic_bug" />
-            <Preference android:key="switch_dialog_SYSTEM_INFO" android:title="@string/system_information" android:summary="@string/system_information_description" app:icon="@drawable/ic_info" />
-            <Preference android:key="switch_share_log" android:title="@string/eden_share_log" android:summary="@string/eden_share_log_description" app:icon="@drawable/ic_log" />
-            <Preference android:key="switch_share_gpu_log" android:title="@string/share_gpu_log" android:summary="@string/share_gpu_log_description" app:icon="@drawable/ic_log" />
+            <Preference android:key="switch_settings_SECTION_DEBUG" android:title="@string/settings_advanced_options" android:summary="@string/switch_settings_debug_summary" app:icon="@drawable/ic_row_bug" />
+            <Preference android:key="switch_dialog_SYSTEM_INFO" android:title="@string/system_information" android:summary="@string/system_information_description" app:icon="@drawable/ic_row_info" />
+            <Preference android:key="switch_share_log" android:title="@string/eden_share_log" android:summary="@string/eden_share_log_description" app:icon="@drawable/ic_row_log" />
+            <Preference android:key="switch_share_gpu_log" android:title="@string/share_gpu_log" android:summary="@string/share_gpu_log_description" app:icon="@drawable/ic_row_log" />
         </PreferenceCategory>
         <PreferenceCategory
                 android:title="@string/settings_group_tools"
@@ -254,16 +254,16 @@
                     android:key="switch_import_data"
                     android:title="@string/switch_import_data"
                     android:summary="@string/switch_import_data_summary"
-                    app:icon="@drawable/ic_download" />
+                    app:icon="@drawable/ic_row_download" />
             <Preference android:key="switch_tool_DRIVER_MANAGER" android:title="@string/eden_gpu_driver_manager" android:summary="@string/eden_install_gpu_driver_description" app:icon="@drawable/ic_video" />
             <!-- Adreno only (Turnip/Freedreno), hidden on other GPUs -->
-            <Preference android:key="switch_tool_FREEDRENO_SETTINGS" android:title="@string/freedreno_settings_title" android:summary="@string/gpu_driver_settings" app:icon="@drawable/ic_tune" />
-            <Preference android:key="switch_tool_PROFILE_MANAGER" android:title="@string/profile_manager" android:summary="@string/profile_manager_description" app:icon="@drawable/ic_person" />
-            <Preference android:key="switch_tool_APPLET_LAUNCHER" android:title="@string/applets" android:summary="@string/applets_description" app:icon="@drawable/ic_apps" />
+            <Preference android:key="switch_tool_FREEDRENO_SETTINGS" android:title="@string/freedreno_settings_title" android:summary="@string/gpu_driver_settings" app:icon="@drawable/ic_row_tune" />
+            <Preference android:key="switch_tool_PROFILE_MANAGER" android:title="@string/profile_manager" android:summary="@string/profile_manager_description" app:icon="@drawable/ic_row_person" />
+            <Preference android:key="switch_tool_APPLET_LAUNCHER" android:title="@string/applets" android:summary="@string/applets_description" app:icon="@drawable/ic_row_apps" />
             <!-- Eden's home screen tools that are dialogs, shown by SwitchToolDialogActivity (key: its Tool) -->
-            <Preference android:key="switch_dialog_MULTIPLAYER" android:title="@string/eden_multiplayer" android:summary="@string/eden_multiplayer_description" app:icon="@drawable/ic_people" />
-            <Preference android:key="switch_dialog_VERIFY_CONTENT" android:title="@string/verify_installed_content" android:summary="@string/verify_installed_content_description" app:icon="@drawable/ic_verified" />
-            <Preference android:key="switch_tool_ABOUT" android:title="@string/eden_about" android:summary="@string/eden_about_description" app:icon="@drawable/ic_info" />
+            <Preference android:key="switch_dialog_MULTIPLAYER" android:title="@string/eden_multiplayer" android:summary="@string/eden_multiplayer_description" app:icon="@drawable/ic_row_people" />
+            <Preference android:key="switch_dialog_VERIFY_CONTENT" android:title="@string/verify_installed_content" android:summary="@string/verify_installed_content_description" app:icon="@drawable/ic_row_verified" />
+            <Preference android:key="switch_tool_ABOUT" android:title="@string/eden_about" android:summary="@string/eden_about_description" app:icon="@drawable/ic_row_info" />
         </PreferenceCategory>
     </PreferenceCategory>
 
@@ -277,7 +277,7 @@
                 android:title="@string/settings_group_settings"
                 app:iconSpaceReserved="false">
             <Preference android:key="gc_wii_settings_CONFIG_GENERAL" android:title="@string/category_general" android:summary="@string/gc_wii_settings_general_summary" app:icon="@drawable/ic_settings" />
-            <Preference android:key="gc_wii_settings_CONFIG_INTERFACE" android:title="@string/settings_interface" android:summary="@string/gc_wii_settings_interface_summary" app:icon="@drawable/ic_tune" />
+            <Preference android:key="gc_wii_settings_CONFIG_INTERFACE" android:title="@string/settings_interface" android:summary="@string/gc_wii_settings_interface_summary" app:icon="@drawable/ic_row_tune" />
             <Preference android:key="gc_wii_settings_CONFIG_GAME_CUBE" android:title="@string/gc_wii_settings_gamecube" android:summary="@string/gc_wii_settings_gamecube_summary" app:icon="@drawable/ic_firmware" />
             <Preference android:key="gc_wii_settings_CONFIG_WII" android:title="@string/gc_wii_settings_wii" android:summary="@string/gc_wii_settings_wii_summary" app:icon="@drawable/ic_firmware" />
             <Preference android:key="gc_wii_settings_GRAPHICS" android:title="@string/category_video" android:summary="@string/gc_wii_settings_graphics_summary" app:icon="@drawable/ic_video" />
@@ -290,8 +290,8 @@
                 android:title="@string/settings_advanced"
                 app:iconSpaceReserved="false">
             <Preference android:key="gc_wii_settings_CONFIG_ADVANCED" android:title="@string/settings_advanced_options" android:summary="@string/gc_wii_settings_advanced_summary" app:icon="@drawable/ic_settings" />
-            <Preference android:key="gc_wii_settings_CONFIG_LOG" android:title="@string/gc_wii_settings_log" android:summary="@string/gc_wii_settings_log_summary" app:icon="@drawable/ic_log" />
-            <Preference android:key="gc_wii_settings_DEBUG" android:title="@string/gc_wii_settings_debug" android:summary="@string/gc_wii_settings_debug_summary" app:icon="@drawable/ic_bug" />
+            <Preference android:key="gc_wii_settings_CONFIG_LOG" android:title="@string/gc_wii_settings_log" android:summary="@string/gc_wii_settings_log_summary" app:icon="@drawable/ic_row_log" />
+            <Preference android:key="gc_wii_settings_DEBUG" android:title="@string/gc_wii_settings_debug" android:summary="@string/gc_wii_settings_debug_summary" app:icon="@drawable/ic_row_bug" />
         </PreferenceCategory>
         <PreferenceCategory
                 android:title="@string/settings_group_tools"
@@ -299,10 +299,10 @@
             <!-- Dolphin's home screen tools, shown by GcWiiToolDialogActivity (key: its Tool) -->
             <Preference android:key="gc_wii_tool_WII_SYSTEM_MENU" android:title="@string/grid_menu_load_wii_system_menu" android:summary="@string/gc_wii_tool_system_menu_summary" app:icon="@drawable/ic_firmware" />
             <Preference android:key="gc_wii_tool_INSTALL_WAD" android:title="@string/grid_menu_install_wad" android:summary="@string/gc_wii_tool_install_wad_summary" app:icon="@drawable/ic_add" />
-            <Preference android:key="gc_wii_tool_IMPORT_WII_SAVE" android:title="@string/grid_menu_import_wii_save" android:summary="@string/gc_wii_tool_import_wii_save_summary" app:icon="@drawable/ic_download" />
-            <Preference android:key="gc_wii_tool_IMPORT_NAND_BACKUP" android:title="@string/grid_menu_import_nand_backup" android:summary="@string/gc_wii_tool_import_nand_summary" app:icon="@drawable/ic_download" />
+            <Preference android:key="gc_wii_tool_IMPORT_WII_SAVE" android:title="@string/grid_menu_import_wii_save" android:summary="@string/gc_wii_tool_import_wii_save_summary" app:icon="@drawable/ic_row_download" />
+            <Preference android:key="gc_wii_tool_IMPORT_NAND_BACKUP" android:title="@string/grid_menu_import_nand_backup" android:summary="@string/gc_wii_tool_import_nand_summary" app:icon="@drawable/ic_row_download" />
             <Preference android:key="gc_wii_tool_ONLINE_SYSTEM_UPDATE" android:title="@string/grid_menu_online_system_update" android:summary="@string/gc_wii_tool_online_update_summary" app:icon="@drawable/ic_refresh" />
-            <Preference android:key="gc_wii_tool_ABOUT" android:title="@string/gc_wii_tool_about" android:summary="@string/gc_wii_tool_about_summary" app:icon="@drawable/ic_info" />
+            <Preference android:key="gc_wii_tool_ABOUT" android:title="@string/gc_wii_tool_about" android:summary="@string/gc_wii_tool_about_summary" app:icon="@drawable/ic_row_info" />
         </PreferenceCategory>
     </PreferenceCategory>
 </PreferenceScreen>

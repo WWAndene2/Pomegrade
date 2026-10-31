@@ -536,6 +536,26 @@ redone; the zones before what runs in them; one phone check per block, not per c
 After: the owner's phone checks, then the real map build; then the cast's variants (old and young Archie, Maxie with
 glasses, the legendaries' repaints: a mesh rewriter, `BchWriter`).
 
+### 3e. Errors met in the X/Y gyms' ports and their fixes (30-31 October)
+
+Each row's commit holds the runs and the evidence; what a run showed is "seen", what the code shows is "read".
+
+| Error | Cause | Fix, and how to avoid it |
+|---|---|---|
+| Grant's module: a null write on the way back from a won battle | X's field members at +0x50 and +0xFC are +0x60 and +0x10C in Omega Ruby (read) | The ports patch the words (ee0bde29); `xy_module_layout.py` lists every field member a module reaches, each checked by its pointer chain; `XyPortModule` refuses a word that is not X's |
+| `xy_module_layout.py` missing members in Viola's module | It stopped reading a constructor at its first call, and read `[rB, #d]!` writebacks without their offset | Constructors read through `bl` (`this` kept in r0, ARM C++ ABI) and writebacks carried (42581698) |
+| Viola's gym: 17 resources not found (ids 0x35-0x45), the gym missing | Her module opens X's archive a/1/1/0 (the dew drops) with `mov r2, #0x6E`; Omega Ruby's a/1/1/0 is another file, and the request was read as `mov r1` only | The archive given to her module (Archive 0x6E, ArchiveWords {0xCB0}), `mov rd, #n` read with any rd, a test for r2 (406b05a6); the memory leads tried first were ruled out (3d683362) |
+| Viola's gym: an unmapped read at 0x95 every frame | X has two sibling functions (0x378548 for a model, 0x3785E4 for another kind); Omega Ruby has only the second, and the first was mapped to it | X's 0x378548 copied into the port (86bf0eb0). A twin found by one caller's alignment is a lead: check the callee's arguments before mapping |
+| Ramos's gym: area kind 22 loaded another module | Kind 22, listed as free, is Field_LoadAreaSpecificModule's case 22; the switch stops at 0x1A | Kinds 26 and up (past the switch's bound) for the gyms (b62fa6ce) |
+| Ramos's zone stays black | Not the port: the zone is black without his module too (runs r0, r1, rD1-rE1) | Left to the zones' load test (87f1cab2); his two thin natives and the game data's +0x12E4 -> +0x12EC done |
+| Olympia's gym under the wrong camera | First read as the field camera's +0x1260 being Omega Ruby's +0x1250 (3a39772d); X's own run through Anistar's door showed the change was wrong, the earlier runs had started on a rail tile where the arrival never runs | Reverted (455f8fe1). Compare against X itself (the owner's X save) before changing an offset from a mod run alone |
+| X's badges cut and mixed with padding (a/1/1/3) | `ClimImage::Rgba` read a padded image from the stored texture's first rows; texels count from the bottom row | Read and written from the last rows, with a test (4e78d49e) |
+| Gym modules grown by `InsertRoom`: static anonymous symbols' batches left at their old offsets | The batch offsets (header field 40, +4) point into the static relocations (field 44), which move | Moved too, with a test (b4bbb39f, found by the code review) |
+
+Tools kept from this work: `xy_disasm.py` (a game's code at an address, a function's calls through its stubs) and
+`xy_copy_plan.py` (what copying X functions into a port takes), beside `xy_callee_map.py` and `xy_module_layout.py`.
+Not yet guarded: Olympia's warp native uses fixed offsets of the ported module (0x27A0, 0x2248).
+
 ## 4. One coherent app
 
 Today each core keeps its own settings, screens, visual style and file storage. Target architecture:

@@ -105,6 +105,10 @@ A run that does not show the field is first a recipe question: check against the
   `/tmp/rb/*_test` (33; a failed check prints `: NO`). `ctest` finds none.
 - **Punica's sizes on the scale** (31 October): `tools/ui-check/check_scale.py --branch` (or file names) lists every dp
   and sp value off CLAUDE.md §7's scale; corner radii (§7.3) are checked by hand.
+- **An Eden update** (31 October): its resources that clash with another module's take the `eden_` prefix
+  (CLAUDE.md §4.2): `tools/android-build/eden_resource_prefix.py carry <old release> eden <names.json>`, then
+  `clashes <new tree> <names.json> <all.json>` from the repository's root, then `apply <new tree> <all.json>`. Its
+  `clashes` also finds a new resource of ours that would override one of Eden's (it found `ic_eye` and `ic_log`).
 - **A review before merging into `main`** (31 October): `/code-review high origin/main...<branch>` scoped in its
   arguments to the Pomegrade-written parts (`melonDS-android/`, `tools/remake/src/`, Pomegrade's edits in the cores);
   unscoped, a branch carrying a core update is only sampled.
