@@ -182,7 +182,7 @@
     <string name="rewind_max_memory_usage">Max. memory usage: %1$s</string>
     <string name="rewind_memory_usage_above_recommended_limit">Memory usage above recommended limit</string>
     <string name="sustained_performance_mode">Sustained performance mode</string>
-    <string name="sustained_performance_mode_summary">When enabled, peak performance will be lower but thermal throttling will be less pronounced.</string>
+    <string name="sustained_performance_mode_summary">Lower peaks, less heat</string>
     <string name="check_for_updates">Check for updates</string>
     <string name="check_for_updates_summary">When enabled, the app will periodically check for available updates</string>
     <string name="rom_icon_filtering">Icon filtering</string>
@@ -196,17 +196,17 @@
     <string name="internal_firmware_settings">Internal firmware settings</string>
     <string name="internal_firmware_settings_summary">Adjust the settings of the internal firmware.</string>
     <string name="custom_bios_firmware">Custom BIOS and firmware</string>
-    <string name="custom_bios_firmware_description">Using a custom BIOS and firmware allows you to launch and navigate in the DS\'s firmware without loading a ROM, just like in a real system</string>
+    <string name="custom_bios_firmware_description">Boots the DS menu without a game, as the console does</string>
     <string name="bios_directory">DS BIOS directory</string>
     <string name="dsi_bios_directory">DSi BIOS directory</string>
     <string name="show_boot_screen">Show boot screen</string>
     <string name="mac_address">MAC address</string>
     <string name="randomize_mac_address">Randomize MAC address</string>
-    <string name="randomize_mac_address_summary">When enabled, a random MAC address is used at every boot. This may cause some games to think its running on a different system and can break time based events.</string>
+    <string name="randomize_mac_address_summary">A different MAC address at each start</string>
     <string name="generate_new_mac_address">Generate new</string>
     <string name="generate_new_mac_address_description">Generating a new MAC address will make games think they are running on a different system.</string>
     <string name="enable_jit">Enable JIT</string>
-    <string name="enable_jit_summary">Improves performance but may cause freezes or crashes.</string>
+    <string name="enable_jit_summary">Faster; may cause freezes</string>
     <string name="jit_not_supported">JIT is only supported in 64 bit devices.</string>
     <string name="backup_settings">Backup settings</string>
     <string name="restore_settings">Restore settings</string>
@@ -229,8 +229,8 @@
     <string name="threaded_rendering">Threaded rendering</string>
     <string name="fps_counter_position">FPS counter position</string>
     <string name="performance_details">Performance details</string>
-    <string name="performance_details_summary">Under the FPS counter, in milliseconds per DS frame: the emulation\'s CPU time (polygon multiplier and textures included) and the GPU time of each pass (3D, shadows, lighting effects, frame generation, screens). Turn the effects on one at a time to see what each costs. Shown only with the FPS counter</string>
-    <string name="threaded_rendering_summary">Improves performance on 3D games when enabled but may cause graphical glitches.</string>
+    <string name="performance_details_summary">CPU and GPU time of each pass, under the FPS counter</string>
+    <string name="threaded_rendering_summary">Faster 3D; may cause graphical glitches</string>
     <string name="category_video">Video</string>
     <string name="category_video_summary">Filter, threaded rendering, FPS counter</string>
     <string name="filter">Filter</string>
@@ -270,13 +270,13 @@
     <string name="vibration_strength">Vibration strength</string>
     <string name="soft_input_opacity">Soft input opacity</string>
     <string name="analogue_movement">Analogue movement</string>
-    <string name="analogue_movement_summary">The touch D-pad becomes a joystick and gamepad sticks are read as analogue. Supported games walk in the stick\'s exact direction: Dragon Quest Monsters: Joker (Europe). Others get the nearest of the 8 directions</string>
+    <string name="analogue_movement_summary">The D-pad becomes a stick; exact directions where the game allows</string>
     <string name="retroachievements">RetroAchievements</string> <!-- Keep words together because this is the official name -->
     <string name="retroachievements_summary">Login &amp; manage RetroAchievements integration</string> <!-- Keep words together because this is the official name -->
     <string name="enable_rich_presence">Enable rich presence</string>
-    <string name="rich_presence_summary">Allows other RetroAchievement users to see what you are playing</string>
+    <string name="rich_presence_summary">Other players see what you are playing</string>
     <string name="hardcore_mode">Hardcore mode</string>
-    <string name="hardcore_mode_summary">Allows hardcore achievements to be earned. Cheats, save states, slow-motion, and rewind are disabled</string>
+    <string name="hardcore_mode_summary">Double points; no save states, cheats or slow motion</string>
     <string name="show_active_challenge_indicators">Show active challenge indicators</string>
     <string name="show_active_challenge_indicators_summary">Shows on-screen indicators while certain achievements can be earned</string>
     <string name="show_progress_indicators">Show progress indicators</string>
@@ -289,7 +289,7 @@
     <string name="enable_cheats">Enable cheats</string>
     <string name="cheats_database">Cheats database (XML format)</string>
     <string name="import_cheats">Import cheats</string>
-    <string name="import_cheats_summary">Import cheats from database files to make them available. Only XML databases are supported for now. Any previously imported cheat will be deleted.</string>
+    <string name="import_cheats_summary">From an XML database; replaces the cheats imported before</string>
     <string name="rom_shortcut">ROM shortcut</string>
 
     <string name="firmware_nickname">Nickname</string>
@@ -662,7 +662,7 @@
     <string name="switch_system_files_failed">The keys or firmware in Punica/Switch/System could not be installed: %1$s</string>
     <string name="settings_section_switch">Switch</string>
     <string name="switch_import_data">Import Switch data</string>
-    <string name="switch_import_data_summary">Adds the Switch data left in the app\'s own folder, or a backup exported by Eden (zip), to the Switch folder</string>
+    <string name="switch_import_data_summary">Switch data left in the app\'s folder, or an Eden backup (zip)</string>
     <string name="switch_import_old_data">From the app\'s old Switch folder (files already there are kept)</string>
     <string name="switch_import_backup">From a backup exported by Eden (zip; the Switch folder is saved first)</string>
     <string name="switch_import_running">Importing the Switch data…</string>
@@ -700,7 +700,7 @@
     <string name="gc_wii_tool_install_wad_summary">Installs a Wii channel or title (.wad) into the Wii system</string>
     <string name="gc_wii_tool_import_wii_save_summary">Imports a Wii game\'s save (data.bin)</string>
     <string name="gc_wii_tool_import_nand_summary">Replaces the Wii system with a BootMii NAND backup (nand.bin)</string>
-    <string name="gc_wii_tool_online_update_summary">Downloads the Wii system from Nintendo\'s update servers</string>
+    <string name="gc_wii_tool_online_update_summary">Downloads the Wii system from Nintendo</string>
     <string name="gc_wii_tool_about">About Dolphin</string>
     <string name="gc_wii_tool_about_summary">The GameCube and Wii core\'s version, licence and authors</string>
     <string name="gc_wii_settings_general_summary">Dual core, speed, language</string>
@@ -716,9 +716,9 @@
     <string name="gc_wii_settings_wii_remotes_summary">Emulated or real Wii Remotes, their mapping</string>
     <string name="gc_wii_settings_advanced_summary">CPU emulation, clock override</string>
     <string name="gba_console_bios">Use your console\'s BIOS</string>
-    <string name="gba_console_bios_summary">gba_bios.bin from Punica/GBA/System when it is there; mGBA\'s own BIOS otherwise</string>
+    <string name="gba_console_bios_summary">Punica/GBA/System/gba_bios.bin, else mGBA\'s own</string>
     <string name="gba_screen_smoothing">Smooth the screen</string>
-    <string name="gba_screen_smoothing_summary">Blends the pixels when the picture is enlarged; off keeps them sharp</string>
+    <string name="gba_screen_smoothing_summary">Pixels blended when enlarged</string>
     <string name="switch_settings_system_summary">Language, region, console mode (docked or handheld)</string>
     <string name="switch_settings_renderer_summary">Resolution, graphics driver, filters, frame rate</string>
     <string name="switch_settings_audio_summary">Volume, audio output</string>
@@ -727,11 +727,11 @@
     <string name="pomegrade_folder_not_set">Not set up yet: tap to set it up</string>
     <string name="pomegrade_folder_location">%1$s\n\nOne folder per console (DS, GBA, 3DS, Switch, GC-Wii), each with the same folders: Games, Saves, States, System, Mods, Core; and a copy of your settings. It stays on your phone if you uninstall Punica.</string>
     <string name="system_files_check">Check the system files</string>
-    <string name="system_files_check_summary">Puts the keys, BIOS and the Switch firmware where Punica reads them (moved, never deleted), and extracts the firmware\'s zip</string>
+    <string name="system_files_check_summary">Puts keys, BIOS and firmware where Punica reads them</string>
     <string name="system_files_check_done">System files: %1$d moved, %2$d extracted, %3$d left where they were</string>
     <string name="system_files_check_failed">The system files could not be checked</string>
     <string name="pomegrade_settings_save">Save settings now</string>
-    <string name="pomegrade_settings_save_summary">Into Punica/Settings (also done automatically): settings, controls, layouts, and each game\'s settings and play time</string>
+    <string name="pomegrade_settings_save_summary">Settings, keys and play time, in Punica/Settings</string>
     <string name="pomegrade_settings_restore">Restore saved settings</string>
     <string name="pomegrade_settings_restore_summary">From Punica/Settings, for example after reinstalling Punica</string>
     <string name="pomegrade_settings_saved">Settings saved in the Punica folder</string>
@@ -754,15 +754,15 @@
     <string name="settings_advanced">Advanced</string>
     <string name="three_ds_settings_debug_summary">Logs and options for troubleshooting</string>
     <string name="three_ds_code_trace">Record a code trace (debug)</string>
-    <string name="three_ds_code_trace_summary">While a 3DS game runs, records what its code does (kernel calls, system requests, files opened, modules loaded, every thread several times a second). Written to Punica/3DS/Core/Traces when you quit the game, and every 30 seconds. Slows the game a little</string>
+    <string name="three_ds_code_trace_summary">Log of the game\'s code, in Punica/3DS/Core/Traces (slower)</string>
     <string name="ds_debug_trace">Record a debug trace (debug)</string>
-    <string name="ds_debug_trace_summary">While a DS game starts and runs, records what the emulator does: the emulator\'s messages (OpenGL errors, each shader compiled and how long it took), each stage of the start (ROM, OpenGL, renderer, first frames) and, every second, where it is. Written to Punica/DS/Core/Traces as it happens: if a game freezes, close the app and the file shows where it stopped</string>
+    <string name="ds_debug_trace_summary">Start-up and rendering log, in Punica/DS/Core/Traces</string>
     <string name="ds_debug_trace_no_folder">The Punica folder could not be found, or Punica can\'t write to it: set it up first</string>
     <string name="ds_debug_trace_on">Debug trace on: each game you start writes a trace to %1$s</string>
     <string name="three_ds_code_trace_no_folder">The 3DS folder could not be found: set up the Punica folder first</string>
     <string name="three_ds_code_trace_on">Code trace on: quit the game to write it to %1$s</string>
     <string name="three_ds_mod_install">Install a mod</string>
-    <string name="three_ds_mod_install_summary">From a zip holding load/mods and, optionally, the save that goes with it (sdmc)</string>
+    <string name="three_ds_mod_install_summary">From a zip holding load/mods (and sdmc if needed)</string>
     <string name="three_ds_mod_reading">Reading the mod…</string>
     <string name="three_ds_mod_installing">Installing the mod…</string>
     <string name="three_ds_mod_confirm_title">Install this mod?</string>
@@ -787,12 +787,12 @@
     <string name="three_ds_encrypted">Encrypted: can\'t be played (decrypt the game first)</string>
     <string name="three_ds_rom_label">3DS · %1$s</string>
     <string name="tilt_parallax">Tilt depth</string>
-    <string name="tilt_parallax_summary">Tilting the phone moves the 3D scene by depth, like a model behind the screen (Pokémon Platinum, HeartGold, SoulSilver…). Menus and 2D layers stay still. Needs a gyroscope</string>
+    <string name="tilt_parallax_summary">Tilting the phone moves the 3D by depth (gyroscope)</string>
     <string name="tilt_parallax_strength">Tilt depth strength</string>
     <string name="high_precision_geometry">High-precision geometry</string>
-    <string name="high_precision_geometry_summary">Place vertices between pixels instead of snapping them: less shaking of moving 3D models</string>
+    <string name="high_precision_geometry_summary">Vertices between pixels: moving 3D shakes less</string>
     <string name="oled_blacks">Deep black</string>
-    <string name="oled_blacks_summary">Near-black shades of each scene become true black (pixels off on OLED screens)</string>
+    <string name="oled_blacks_summary">Near-blacks become true black on OLED screens</string>
     <string name="renderer_unavailable">Renderer unavailable</string>
     <string name="renderer_unavailable_message">The renderer chosen in the settings could not start on this device, so the game runs with the software renderer. The graphics driver said:\n\n%1$s</string>
     <string name="frame_rate">Frame rate</string>
@@ -813,7 +813,7 @@
     </string-array>
     <string name="texture_upscale">Texture upscaling</string>
     <string name="texture_filter">Texture filtering</string>
-    <string name="texture_filter_summary">Smooth texel edges up close without blurring, and less shimmer on distant surfaces. Costs more texture reads</string>
+    <string name="texture_filter_summary">Smoothed textures without blur; a little costlier</string>
     <string-array name="texture_upscale_options">
         <item>Off</item>
         <item>×2 (texture detail, pixel-art style)</item>
@@ -829,9 +829,9 @@
         <item>16</item>
     </string-array>
     <string name="high_color">Rich colours</string>
-    <string name="high_color_summary">8 bits per colour instead of the DS\'s 6: smoother gradients and lighting, less banding</string>
+    <string name="high_color_summary">8 bits per colour instead of 6: gradients without banding</string>
     <string name="better_polygons">Better polygons</string>
-    <string name="better_polygons_summary">Fewer seams and distortions on large polygons at high resolution</string>
+    <string name="better_polygons_summary">Fewer seams on large polygons at high resolution</string>
     <string name="polygon_multiplier">Polygons</string>
     <!-- polygons per original polygon; values are subdivision levels (n gives n*n) -->
     <string-array name="polygon_multiplier_options">
@@ -853,9 +853,9 @@
         <item>8</item>
     </string-array>
     <string name="hd_textures">HD textures</string>
-    <string name="hd_textures_summary">Replace 3D textures with HD versions from Punica/DS/Mods/&lt;game code&gt;/</string>
+    <string name="hd_textures_summary">HD textures from Punica/DS/Mods/&lt;game code&gt;</string>
     <string name="dump_textures">Dump textures</string>
-    <string name="dump_textures_summary">Save every 3D texture the game uses to Punica/DS/Mods/&lt;game code&gt;/dump/ (slower, for creating texture packs)</string>
+    <string name="dump_textures_summary">Saves the game\'s 3D textures, to make a pack (slower)</string>
 
     <!-- Pomegrade: about screen -->
     <string name="pomegrade_about">About</string>
@@ -901,14 +901,14 @@
     <string name="settings_performance_overlay">Performance overlay</string>
     <string name="settings_system_overlay">System overlay</string>
     <string name="settings_on_screen_controls">On-screen controls</string>
-    <string name="switch_settings_interface_summary">Language, update checks, quick settings in game, controller confirm and back buttons, theme and light or dark mode</string>
-    <string name="switch_settings_performance_summary">Frame rate, frame time, memory, battery temperature and shader builds shown over the game</string>
-    <string name="switch_settings_soc_summary">The phone\'s model, chip, GPU and driver, and the Switch firmware, shown over the game</string>
-    <string name="switch_settings_input_overlay_summary">Showing the on-screen buttons, hiding them after a while or when a controller is used, grid snapping</string>
+    <string name="switch_settings_interface_summary">Language, updates, quick settings, theme</string>
+    <string name="switch_settings_performance_summary">FPS, frame time, memory, temperature, shaders</string>
+    <string name="switch_settings_soc_summary">Phone, chip, GPU, driver and firmware, shown in game</string>
+    <string name="switch_settings_input_overlay_summary">On-screen buttons, auto-hide, grid</string>
     <string name="switch_settings_applets">Applets</string>
     <string name="switch_settings_applets_summary">The Switch\'s system applets: software keyboard, airplane mode, overlay</string>
-    <string name="gc_wii_settings_interface_summary">Screen orientation, the camera notch area, messages on screen, play time, theme</string>
-    <string name="gc_wii_settings_achievements_summary">RetroAchievements for GameCube and Wii games: account, hardcore mode</string>
+    <string name="gc_wii_settings_interface_summary">Orientation, notch, messages, play time, theme</string>
+    <string name="gc_wii_settings_achievements_summary">Account and hardcore mode</string>
     <string name="gc_wii_settings_log">Log</string>
     <string name="gc_wii_settings_log_summary">What the GameCube / Wii core writes to its log</string>
     <string name="gc_wii_settings_debug">Debugging</string>
@@ -964,7 +964,7 @@
         <item>large</item>
     </string-array>
     <string name="pill_auto_hide">Hide the pill while playing</string>
-    <string name="pill_auto_hide_summary">After a few seconds without a touch; a touch on the screen shows it again</string>
+    <string name="pill_auto_hide_summary">After a few seconds without a touch; a touch brings it back</string>
     <!-- Punica's home screen (ui/romlist/home) -->
     <string name="home_subtitle">Virtual console</string>
     <string name="home_quick_access">Quick access</string>
@@ -1041,26 +1041,26 @@
     <string name="game_data_reason_before_mod">Before a mod change</string>
     <!-- Diagnostics over wireless debugging (WirelessDebugPreferencesFragment, impl/diagnostics) -->
     <string name="wireless_debug">Diagnostics (wireless debugging)</string>
-    <string name="wireless_debug_summary">Records what the phone and its GPU do while a game runs, for a slow game. Off until you pair it, for this session only</string>
+    <string name="wireless_debug_summary">Wireless debugging: phone and GPU traces in game</string>
     <string name="wireless_debug_connection">Connection</string>
     <string name="wireless_debug_status">Status</string>
     <string name="wireless_debug_status_off">Not connected. Punica can\'t run anything over wireless debugging until it is paired, and only the diagnostics below</string>
     <string name="wireless_debug_status_connected">Connected until Punica closes</string>
     <string name="wireless_debug_pair">Pair</string>
-    <string name="wireless_debug_pair_summary">Needs Developer options, Wi-Fi on, and Wireless debugging on. In Wireless debugging, tap Pair device with pairing code, then type the code in Punica\'s notification</string>
+    <string name="wireless_debug_pair_summary">Wireless debugging pairing code, in the notification</string>
     <string name="wireless_debug_disconnect">Disconnect</string>
-    <string name="wireless_debug_disconnect_summary">Ends the connection now. Punica\'s entry stays in Wireless debugging\'s paired devices until you forget it there</string>
+    <string name="wireless_debug_disconnect_summary">Ends the debugging connection now</string>
     <string name="wireless_debug_diagnostics">Diagnostics</string>
     <string name="wireless_debug_trace_delay">Time before the trace starts</string>
     <string name="wireless_debug_full">Full analysis</string>
-    <string name="wireless_debug_full_summary">Everything in one go: after the time above, the GPU state, a 20-second system trace, the GPU state again and the driver\'s messages. Start the game meanwhile and reach the slow part, then leave it 30 seconds. Written to Punica/Switch/Core/log, beside Eden\'s log (which has the emulator\'s own counters)</string>
+    <string name="wireless_debug_full_summary">GPU state, 20 s trace and driver messages, all at once</string>
     <string name="wireless_debug_full_started">The analysis starts in %1$d seconds; its trace lasts %2$d. Everything will be in %3$s</string>
     <string name="wireless_debug_trace">Record a system trace</string>
-    <string name="wireless_debug_trace_summary">After the time above, records 20 seconds of every thread, the CPU and GPU clocks and Punica\'s own markers. Start the game meanwhile and reach the slow part. Written to Punica/Switch/Core/log</string>
+    <string name="wireless_debug_trace_summary">20 s of threads, CPU and GPU clocks, after the delay</string>
     <string name="wireless_debug_gpu_state">Save the GPU\'s state</string>
-    <string name="wireless_debug_gpu_state_summary">The GPU driver, its Vulkan version and memory, and Punica\'s frame statistics. Written to Punica/Switch/Core/log</string>
+    <string name="wireless_debug_gpu_state_summary">GPU driver, Vulkan and memory, in Punica/Switch/Core/log</string>
     <string name="wireless_debug_driver_log">Save the GPU driver\'s messages</string>
-    <string name="wireless_debug_driver_log_summary">The messages of the GPU driver and of Android\'s graphics loader so far. Written to Punica/Switch/Core/log</string>
+    <string name="wireless_debug_driver_log_summary">GPU driver messages, in Punica/Switch/Core/log</string>
     <string name="wireless_debug_unsupported">Wireless debugging needs Android 11 or later</string>
     <string name="wireless_debug_notifications_needed">Punica needs to show a notification to take the pairing code</string>
     <string name="wireless_debug_pairing_started">In Wireless debugging, tap Pair device with pairing code, then type the code in Punica\'s notification</string>

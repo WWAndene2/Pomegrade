@@ -114,11 +114,12 @@
         <item name="android:textColor">@color/emulator_menu_on_surface_variant</item>
     </style>
 
-    <!-- the value a row is set to, under its summary: red, as the app's chosen options -->
+    <!-- the value a row is set to, under its summary: the summary's grey, as the DS settings show a chosen option
+         (red before 31 October, which no other screen used) -->
     <style name="TextAppearance.Pomegrade.EmulatorSettings.Value" parent="TextAppearance.Material3.LabelMedium">
         <item name="android:textSize">12sp</item>
         <item name="lineHeight">16sp</item>
-        <item name="android:textColor">@color/emulator_menu_primary</item>
+        <item name="android:textColor">@color/emulator_menu_on_surface_variant</item>
         <item name="fontFamily">sans-serif-medium</item>
         <item name="android:fontFamily">sans-serif-medium</item>
     </style>
