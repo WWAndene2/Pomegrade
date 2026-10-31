@@ -1,4 +1,6 @@
 #include "OrasXyEvents.h"
+
+#include <cctype>
 #include "OrasXyMoveCodes.h"
 #include "Amx.h"
 #include "Garc.h"
@@ -95,6 +97,14 @@ Bytes XyAssembleScript(OrasWorkspace& ws, N3dsRom& xRom, std::string source, con
                        std::vector<std::string>& notes, std::vector<std::string>& log)
 {
     source = XyMoveZones(source, numbers.Zones, notes);
+    // X's GymEsperWarpEvent (Olympia's) shares its name with Omega Ruby's (Mossdeep's gym, another class): X's is given
+    // to the scripts as XyGymEsperWarpEvent (OrasXyGymNatives.h), so Omega Ruby's own scripts keep theirs
+    for (size_t at = 0; (at = source.find("GymEsperWarpEvent", at)) != std::string::npos; at += 19)
+    {
+        const bool alone = (at == 0 || !(isalnum((unsigned char)source[at - 1]) || source[at - 1] == '_')) &&
+                           !(isalnum((unsigned char)source[at + 17]) || source[at + 17] == '_');
+        if (alone) source.replace(at, 17, "XyGymEsperWarpEvent"); else at -= 2;
+    }
     if (sounds) source = XyMoveSounds(source, *sounds, music, notes);
     source = XyMoveTrainers(source, notes);
     if (backgrounds) source = XyMoveBackgrounds(source, *backgrounds, notes);
