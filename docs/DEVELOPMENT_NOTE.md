@@ -393,6 +393,13 @@ redone; the zones before what runs in them; one phone check per block, not per c
    reads an X .data global (0x6270C8, to find in Omega Ruby by the code reading it). The X-own closure is 65
    functions, about ten of DllField's still to map or copy. Next: Olympia's port (large), then Clemont's natives,
    Wulfric's run.
+   **31 October (later): Wulfric, Olympia, Clemont run headless.** Wulfric (X zone 226, matrix 69, spawn 20.5 79.5):
+   the hall shows, his module loads, no unmapped access (run wF1); his battle (run wB1, trainer 976, X's 26, the player
+   at 20.5 7.5, `--height 180`): won, the badge word 0x8000 (bit 15, Kalos's eighth). Olympia ported (commit 37a284d0:
+   CopyWords, Room; kind 28): her entrance shows at X's spawn height (`--height 339`: header +0x30; run oF2), the player
+   walks, no unmapped access. Not run: her space room (past the warp pad), her class's puzzle, her battle (her record's
+   position is not a tile: to read). Clemont (zone 77, matrix 57, spawn 19.5 31.5): the ground floor shows, no unmapped
+   access (run cF1); not run: the lift, his natives, the battle. Ramos: X's spawn height is 0 (not the black zone's cause).
    **Handover (30 October, end of session; the owner's tokens ran out).** Where Viola stands: run vD1 (memory dumped
    after the fault) shows her module's 17 resource handles (ids 0x35-0x45, the dew drops) unresolved: OrasXyGymModules.h
    has what is read and ruled out (memory: the field heap 0x5D grown, objects' sizes; the area pack; the effect pack).
