@@ -129,3 +129,10 @@ dependencies {
     implementation(libs.compose.ui.text)
     implementation("net.swiftzer.semver:semver:2.0.0")
 }
+
+// SDL3's Java classes (sourceSets above) only exist once CMake has configured: compile Kotlin after it,
+// or a clean checkout (CI) fails with "Unresolved reference 'libsdl'"
+tasks.matching { it.name.startsWith("compile") && it.name.endsWith("Kotlin") }.configureEach {
+    val variant = name.removePrefix("compile").removeSuffix("Kotlin")
+    dependsOn(tasks.matching { it.name.startsWith("configureCMake$variant") })
+}
