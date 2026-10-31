@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Punica's switch thumb: a 16 dp dot inside a 24 dp square (4 dp from the track's edge), white when on, grey when off -->
+<!-- Punica's switch thumb: a 24 dp dot inside a 32 dp square (4 dp from the track's edge), white when on, grey when off -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_checked="true">
         <inset android:inset="4dp">
             <shape android:shape="oval">
-                <size android:width="16dp" android:height="16dp" />
+                <size android:width="24dp" android:height="24dp" />
                 <solid android:color="@color/emulator_menu_on_surface" />
             </shape>
         </inset>
@@ -12,7 +12,7 @@
     <item>
         <inset android:inset="4dp">
             <shape android:shape="oval">
-                <size android:width="16dp" android:height="16dp" />
+                <size android:width="24dp" android:height="24dp" />
                 <solid android:color="@color/emulator_menu_on_surface_variant" />
             </shape>
         </inset>

@@ -97,48 +97,48 @@ class SettingsAdapter(private val fragmentView: SettingsFragmentView, public val
         val inflater = LayoutInflater.from(parent.context)
         return when (viewType) {
             SettingsItem.TYPE_HEADER -> {
-                HeaderViewHolder(ListItemSettingsHeaderBinding.inflate(inflater), this)
+                HeaderViewHolder(ListItemSettingsHeaderBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_SWITCH -> {
-                SwitchSettingViewHolder(ListItemSettingSwitchBinding.inflate(inflater), this)
+                SwitchSettingViewHolder(ListItemSettingSwitchBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_SINGLE_CHOICE, SettingsItem.TYPE_STRING_SINGLE_CHOICE -> {
-                SingleChoiceViewHolder(ListItemSettingBinding.inflate(inflater), this)
+                SingleChoiceViewHolder(ListItemSettingBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_MULTI_CHOICE -> {
-                MultiChoiceViewHolder(ListItemSettingBinding.inflate(inflater), this)
+                MultiChoiceViewHolder(ListItemSettingBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_SLIDER -> {
-                SliderViewHolder(ListItemSettingBinding.inflate(inflater), this)
+                SliderViewHolder(ListItemSettingBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_SUBMENU -> {
-                SubmenuViewHolder(ListItemSettingBinding.inflate(inflater), this)
+                SubmenuViewHolder(ListItemSettingBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_DATETIME_SETTING -> {
-                DateTimeViewHolder(ListItemSettingBinding.inflate(inflater), this)
+                DateTimeViewHolder(ListItemSettingBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_RUNNABLE -> {
-                RunnableViewHolder(ListItemSettingBinding.inflate(inflater), this)
+                RunnableViewHolder(ListItemSettingBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_INPUT_BINDING -> {
-                InputBindingSettingViewHolder(ListItemSettingBinding.inflate(inflater), this)
+                InputBindingSettingViewHolder(ListItemSettingBinding.inflate(inflater, parent, false), this)
             }
 
             SettingsItem.TYPE_STRING_INPUT -> {
-                StringInputViewHolder(ListItemSettingBinding.inflate(inflater), this)
+                StringInputViewHolder(ListItemSettingBinding.inflate(inflater, parent, false), this)
             }
 
             else -> {
                 // TODO: Create an error view since we can't return null now
-                HeaderViewHolder(ListItemSettingsHeaderBinding.inflate(inflater), this)
+                HeaderViewHolder(ListItemSettingsHeaderBinding.inflate(inflater, parent, false), this)
             }
         }
     }
