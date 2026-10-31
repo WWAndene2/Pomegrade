@@ -370,7 +370,14 @@ redone; the zones before what runs in them; one phone check per block, not per c
    now copies X DllField functions, reaches Omega Ruby's DllField at run time, builds that class's vtable in the module
    and adds internal relocations. Headless (runs kF1, kB2, her team made weak: trainer 971, X's 21): the gym shows, the
    battle, her victory lines, the badge word's bit 10 (Kalos's third), the TM. Not run: the rails (the copied method).
-   Next in the order: Ramos, Clemont, Valerie, Olympia, Wulfric.
+   **31 October: Ramos's gym ported, his zone does not show** (X zone 191, area kind 4 -> 26; OrasXyGymModules.h).
+   Omega Ruby's kind 22 is not free (its case loads a module): kinds 26 and up are, past the loader's switch. His module
+   loads and starts to its last state; three X-own functions copied, his badge read (3 -> 11) and the game data's
+   members it reads moved (+0x3410 -> +0x3418, +0x12E4 -> +0x12EC); his two thin natives ported (OrasXyGymNatives.h).
+   The zone stays black headless, with his module, without it, without his rope trainers and at X's own spawn: its own
+   load, left to the zones' load test. Left for his gym: his three event natives (GymGrassSlideEvent, HangMoveEvent,
+   RopeUpDownEvent; Clemont's six such are missing too), his rope trainers' records (X's put them off the map once
+   converted). Next in the order: Valerie, Olympia (then Clemont's natives, Wulfric run).
    **Handover (30 October, end of session; the owner's tokens ran out).** Where Viola stands: run vD1 (memory dumped
    after the fault) shows her module's 17 resource handles (ids 0x35-0x45, the dew drops) unresolved: OrasXyGymModules.h
    has what is read and ruled out (memory: the field heap 0x5D grown, objects' sizes; the area pack; the effect pack).
