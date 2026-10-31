@@ -12,6 +12,9 @@
 // _GymElecPlayMissAnm(a), _GymElecIsEndDoorAnm(a), _GymElecIsEndMissAnm(), _GymElecSetBlackFace(),
 // _GymElecBtmIsEndDoorAnm(). Its six natives building event objects (the lifts, the stand, black and answer animations)
 // are not here yet. Not run in the game: the module needs its archive (OrasXyGymModules.h).
+//
+// Ramos's (Coumarine, DllUSGymGrass): _GymGrassPlayGardAnm(), _GymGrassIsEndGardAnm(). His three event natives
+// (GymGrassSlideEvent, GymGrassHangMoveEvent, GymGrassRopeUpDownEvent) are not here yet.
 
 #include "OrasXyNatives.h"
 

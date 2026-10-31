@@ -53,6 +53,11 @@ std::vector<XyNative> XyGymNatives()
         {"_GymElecIsEndMissAnm", ModuleCall(0x994, 0, 0, false, true)},
         {"_GymElecSetBlackFace", ModuleCall(0x2A0, 0, 0, true, false)},
         {"_GymElecBtmIsEndDoorAnm", ModuleCall(0x1630, 0, 0, false, true)},
+        // Ramos's (31 October): X's 0x10294B4C and 0x10294CCC, each a call of a function of DllUSGymGrass with the
+        // module's object (X's DllField stubs 0x101FD3D8 and 0x101FD3E0: its 0x69C, then 0 returned; its 0x780, its
+        // answer returned)
+        {"_GymGrassPlayGardAnm", ModuleCall(0x69C, 0, 0, false, false)},
+        {"_GymGrassIsEndGardAnm", ModuleCall(0x780, 0, 0, false, true)},
     };
 }
 

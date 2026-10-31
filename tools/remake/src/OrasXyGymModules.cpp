@@ -902,7 +902,11 @@ const XyModulePort& XyGymGrass()
                    // immediate, so the pair is Omega Ruby's own, + 0x3400 then + 0x18)
                    {0x4E4, 0xE3A01003, 0xE3A0100B, "Ramos's badge: mov r1, #3 -> #11"},
                    {0x4F4, 0xE2800A03, 0xE2800B0D, "the status: add #0x3000 -> #0x3400"},
-                   {0x4F8, 0xE2800E41, 0xE2800018, "the status: add #0x410 -> #0x18"}};
+                   {0x4F8, 0xE2800E41, 0xE2800018, "the status: add #0x410 -> #0x18"},
+                   // the game data's + 0x12E4 + 4 read when it starts (compared with 4): + 0x12EC in Omega Ruby (`add #0x1000;
+                   // add #0x2E4` in 47 places of X's code, `add #0x1000; add #0x2EC` in 23 of Omega Ruby's and no + 0x12E4)
+                   {0x828, 0xE2800FB9, 0xE2800FBB, "the game data's + 0x12E4 -> + 0x12EC"},
+                   {0x860, 0xE2800FB9, 0xE2800FBB, "the game data's + 0x12E4 -> + 0x12EC"}};
         p.Archive = 0x93; // a/1/4/7
         p.ArchiveWords = {0x7D8};
         // X's own: no copy in Omega Ruby (searched: no function calls slot 0x28 then sets bit 0x800; the two DllField
