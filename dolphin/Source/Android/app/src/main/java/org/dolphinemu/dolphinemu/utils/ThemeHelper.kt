@@ -9,9 +9,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.WindowCompat
 import org.dolphinemu.dolphinemu.ui.main.ThemeProvider
 import android.content.res.Configuration
-import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.appbar.AppBarLayout
-import com.google.android.material.elevation.ElevationOverlayProvider
 import com.google.android.material.color.MaterialColors
 import androidx.annotation.ColorInt
 import androidx.preference.PreferenceManager
@@ -155,31 +153,6 @@ object ThemeHelper {
     @JvmStatic
     fun setStatusBarColor(activity: AppCompatActivity, @ColorInt color: Int) {
         activity.window.statusBarColor = color
-    }
-
-    @JvmStatic
-    fun enableScrollTint(
-        activity: AppCompatActivity, toolbar: MaterialToolbar, appBarLayout: AppBarLayout
-    ) {
-        appBarLayout.addOnOffsetChangedListener { layout: AppBarLayout, verticalOffset: Int ->
-            if (-verticalOffset >= layout.totalScrollRange / 2) {
-                @ColorInt val color =
-                    ElevationOverlayProvider(appBarLayout.context).compositeOverlay(
-                        MaterialColors.getColor(appBarLayout, R.attr.colorSurface),
-                        activity.resources.getDimensionPixelSize(R.dimen.dolphin_elevated_app_bar).toFloat()
-                    )
-                toolbar.setBackgroundColor(color)
-                setStatusBarColor(activity, color)
-            } else {
-                @ColorInt val statusBarColor = ContextCompat.getColor(
-                    activity.applicationContext,
-                    android.R.color.transparent
-                )
-                @ColorInt val appBarColor = MaterialColors.getColor(toolbar, R.attr.colorSurface)
-                toolbar.setBackgroundColor(appBarColor)
-                setStatusBarColor(activity, statusBarColor)
-            }
-        }
     }
 
     @JvmStatic

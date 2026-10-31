@@ -22,11 +22,11 @@
             app:elevation="0dp"
             app:liftOnScroll="false">
 
-            <com.google.android.material.appbar.MaterialToolbar
+            <io.github.wwandene2.pomegrade.emulatorui.PunicaToolbar
                 android:id="@+id/toolbar_cheats"
+                style="@style/Widget.Pomegrade.EmulatorSettings.Header"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="?attr/colorSurface" />
+                android:layout_height="wrap_content" />
 
         </com.google.android.material.appbar.AppBarLayout>
 

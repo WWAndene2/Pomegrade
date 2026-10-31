@@ -11,7 +11,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.MarginLayoutParams
 import androidx.activity.enableEdgeToEdge
-import androidx.annotation.ColorInt
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsAnimationCompat
@@ -20,9 +19,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.slidingpanelayout.widget.SlidingPaneLayout
 import androidx.slidingpanelayout.widget.SlidingPaneLayout.PanelSlideListener
-import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.elevation.ElevationOverlayProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -93,14 +90,6 @@ class CheatsActivity : AppCompatActivity(), PanelSlideListener {
         supportActionBar!!.setDisplayHomeAsUpEnabled(true)
 
         setInsets()
-
-        @ColorInt val color =
-            ElevationOverlayProvider(binding.toolbarCheats.context).compositeOverlay(
-                MaterialColors.getColor(binding.toolbarCheats, R.attr.colorSurface),
-                resources.getDimensionPixelSize(R.dimen.dolphin_elevated_app_bar).toFloat()
-            )
-        binding.toolbarCheats.setBackgroundColor(color)
-        ThemeHelper.setStatusBarColor(this, color)
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {

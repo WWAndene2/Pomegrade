@@ -29,7 +29,6 @@ import org.dolphinemu.dolphinemu.model.TaskViewModel
 import org.dolphinemu.dolphinemu.ui.main.ThemeProvider
 import org.dolphinemu.dolphinemu.utils.*
 import org.dolphinemu.dolphinemu.utils.ThemeHelper
-import org.dolphinemu.dolphinemu.utils.ThemeHelper.enableScrollTint
 import org.dolphinemu.dolphinemu.utils.ThemeHelper.setCorrectTheme
 import java.io.File
 import java.io.FileInputStream
@@ -121,7 +120,6 @@ class UserDataActivity : AppCompatActivity(), ThemeProvider {
         supportActionBar!!.setDisplayHomeAsUpEnabled(true)
 
         setInsets()
-        enableScrollTint(this, mBinding.toolbarUserData, mBinding.appbarUserData)
 
         if (savedInstanceState == null) {
             Analytics.checkAnalyticsInit(this)

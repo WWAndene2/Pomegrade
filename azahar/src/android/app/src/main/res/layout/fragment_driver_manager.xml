@@ -17,10 +17,11 @@
             android:fitsSystemWindows="true"
             app:liftOnScrollTargetViewId="@id/list_drivers">
 
-            <com.google.android.material.appbar.MaterialToolbar
+            <io.github.wwandene2.pomegrade.emulatorui.PunicaToolbar
                 android:id="@+id/toolbar_drivers"
+                style="@style/Widget.Pomegrade.EmulatorSettings.Header"
                 android:layout_width="match_parent"
-                android:layout_height="?attr/actionBarSize"
+                android:layout_height="wrap_content"
                 app:navigationIcon="@drawable/ic_back"
                 app:title="@string/gpu_driver_manager" />
 
