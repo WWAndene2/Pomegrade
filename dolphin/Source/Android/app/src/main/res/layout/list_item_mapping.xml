@@ -1,63 +1,52 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout android:id="@+id/root"
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Pomegrade: Punica's settings row, the same as the app's preference_punica.xml (shared styles in :emulator-ui's
+     themes_settings.xml): at least 64 dp, 16 dp sides, 12 dp above and below the text, the icon tile, then the text,
+     then the widget 12 dp after it -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
+    style="@style/Widget.Pomegrade.EmulatorSettings.Row"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="?android:attr/selectableItemBackground"
+    android:baselineAligned="false"
     android:clickable="true"
     android:focusable="true"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:id="@+id/root"
     android:nextFocusRight="@id/button_advanced_settings">
 
-    <TextView
-        android:id="@+id/text_setting_name"
-        style="@style/TextAppearance.MaterialComponents.Headline5"
-        android:layout_width="match_parent"
+    <LinearLayout
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentTop="true"
-        android:layout_marginEnd="@dimen/dolphin_spacing_large"
-        android:layout_marginStart="@dimen/dolphin_spacing_large"
-        android:layout_marginTop="@dimen/dolphin_spacing_large"
-        android:textSize="16sp"
-        android:textAlignment="viewStart"
-        android:layout_toStartOf="@id/control_state_bar"
-        tools:text="Setting Name" />
+        android:layout_weight="1"
+        android:orientation="vertical">
 
-    <TextView
-        android:id="@+id/text_setting_description"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentStart="true"
-        android:layout_alignStart="@id/text_setting_name"
-        android:layout_below="@id/text_setting_name"
-        android:layout_marginBottom="@dimen/dolphin_spacing_large"
-        android:layout_marginEnd="@dimen/dolphin_spacing_large"
-        android:layout_marginStart="@dimen/dolphin_spacing_large"
-        android:layout_marginTop="@dimen/dolphin_spacing_small"
-        android:layout_toStartOf="@id/control_state_bar"
-        android:textAlignment="viewStart"
-        tools:text="@string/overclock_enable_description" />
+        <TextView
+            android:id="@+id/text_setting_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAlignment="viewStart"
+            android:textAppearance="@style/TextAppearance.Pomegrade.EmulatorSettings.Title" />
+        <TextView
+            android:id="@+id/text_setting_description"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAlignment="viewStart"
+            android:textAppearance="@style/TextAppearance.Pomegrade.EmulatorSettings.Summary" />
+    </LinearLayout>
 
     <org.dolphinemu.dolphinemu.features.input.ui.ControlStateBarVertical
         android:id="@+id/control_state_bar"
         android:layout_width="4dp"
         android:layout_height="16dp"
-        android:layout_centerVertical="true"
-        android:layout_toStartOf="@id/button_advanced_settings" />
+        android:layout_marginStart="@dimen/emulator_settings_gap_wide" />
 
     <Button
         android:id="@+id/button_advanced_settings"
-        style="?attr/materialIconButtonStyle"
-        android:contentDescription="@string/dolphin_advanced_settings"
+        style="@style/Widget.Pomegrade.EmulatorSettings.EndButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentEnd="true"
-        android:layout_centerVertical="true"
-        android:layout_marginEnd="@dimen/dolphin_spacing_small"
+        android:contentDescription="@string/dolphin_advanced_settings"
         android:nextFocusLeft="@id/root"
-        app:icon="@drawable/dolphin_ic_more"
-        app:iconTint="?attr/colorOnPrimaryContainer" />
-
-</RelativeLayout>
+        app:icon="@drawable/dolphin_ic_more" />
+</LinearLayout>

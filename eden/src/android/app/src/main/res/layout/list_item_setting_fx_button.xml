@@ -2,17 +2,17 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginStart="16dp"
-    android:layout_marginEnd="16dp"
-    android:layout_marginTop="6dp"
-    android:layout_marginBottom="6dp"
+    android:layout_marginStart="@dimen/emulator_settings_margin"
+    android:layout_marginEnd="@dimen/emulator_settings_margin"
+    android:layout_marginTop="@dimen/emulator_settings_gap"
+    android:layout_marginBottom="@dimen/emulator_settings_gap"
     android:orientation="horizontal">
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/fx_button"
         style="@style/Widget.Material3.Button.TonalButton"
         android:layout_width="match_parent"
-        android:layout_height="48dp"
+        android:layout_height="@dimen/emulator_settings_touch"
         android:ellipsize="end"
         android:maxLines="1" />
 
