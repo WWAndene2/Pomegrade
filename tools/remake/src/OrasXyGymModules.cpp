@@ -163,11 +163,12 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
             // modules' API there: X's 0x1027E618 is 0x452A00...), which a DllField import cannot name; the import itself
             // then resolves to DllField's first word, unused (its stubs branch to the thunk)
             bool isCopy = false;
-            for (const XyModulePort::Copy& c : port.Copies) isCopy |= isStatic && (from & ~1u) == c.XAddress;
+            for (const XyModulePort::Copy& c : port.Copies) isCopy |= (from & ~1u) == c.XAddress;
             if (isCopy)
             {
-                // its stubs branch to the copy (below); the import itself resolves to the .code's first word, unused
-                Put(out, at, AddressTag(oStatic, 0x100000, 0));
+                // its stubs branch to the copy (below); the import itself resolves to the .code's (or DllField's) first
+                // word, unused
+                Put(out, at, isStatic ? AddressTag(oStatic, 0x100000, 0) : AddressTag(oField, oras.FieldBase + oField[0].Offset, oras.FieldBase));
                 copied.push_back({from & ~1u, U32(out, at + 4)});
                 continue;
             }
@@ -490,7 +491,9 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
 
 const std::vector<XyGym>& XyGyms()
 {
-    // X's kind -> a kind Omega Ruby's Field_LoadAreaSpecificModule has no module for (1, 2, 9, 12, 17-20, 22)
+    // X's kind -> a kind Omega Ruby's Field_LoadAreaSpecificModule has no module for: 1, 2, 9, 12, 17-20 (its cases going
+    // to the default one), or 26 and up (past its switch's bound, `cmp r2, #0x1A`, read 31 October: kind 22 is not free,
+    // its case 0x10274180 loads a module)
     static const std::vector<XyGym> gyms = {
         {3, 1, XyGymRock()},
         {0xE, 2, XyGymIce()},
@@ -498,6 +501,7 @@ const std::vector<XyGym>& XyGyms()
         {0x18, 18, XyRoute13()}, // not a gym: Route 13's dust clouds (OrasXyDustCloud.h)
         {2, 19, XyGymInsect()},
         {0, 20, XyGymFighting()}, // X's kind 0: zone 175 only (the others 0xFFFF)
+        {4, 26, XyGymGrass()},
     };
     return gyms;
 }
@@ -867,6 +871,53 @@ const XyModulePort& XyGymFighting()
         p.InsertSlot = 12;
         p.InsertValue = 0x4D8734; // Util_ReturnZero_004D8734
         p.Classes = {{0xF60, 0x180}}; // X's kind 0 case: the object 0x180 bytes
+        return p;
+    }();
+    return port;
+}
+
+const XyModulePort& XyGymGrass()
+{
+    static const XyModulePort port = [] {
+        XyModulePort p;
+        p.XName = "DllUSGymGrass";
+        p.Name = "DllXyGymGrass";
+        // X's .code -> Omega Ruby's: the same functions (xy_import_match.py), then read
+        p.Static = Merged(SharedStatic(), {
+            {0x36FD78, 0x3878F8}, // as Viola's (6 callers agree)
+            {0x379DB8, 0x39181C}, {0x37E388, 0x395C70}, {0x37E398, 0x395C80}, {0x37E444, 0x395D2C},
+            {0x4AF324, 0x4E9E1C}, // BadgeGetFlag's: the same bytes (oras-engine --badges 16 lets it take 8-15)
+            // called by the copies below
+            {0x144EB4, 0x144CA8}, {0x371888, 0x3891DC},
+        });
+        p.Field = Merged(SharedField(), {
+            {0x10277E64, 0x4CE280}, // 4 callers agree (moved to the .code, as the dust clouds' port maps it)
+        });
+        p.Thunks = {Request};
+        p.Words = {LoaderSize(0x8DC),
+                   {0x4E8, 0xE5900050, 0xE5900060, "the field's + 0x50 -> + 0x60"},
+                   {0x818, 0xE5900050, 0xE5900060, "the field's + 0x50 -> + 0x60"},
+                   // Ramos's badge read by the module: X's 3, Kalos's 11 (XyMoveBadges); the player's status at the game
+                   // data's + 0x3418 in Omega Ruby (+ 0x3410 in X: 31 and 33 places read it so; + 0x418 is no ARM
+                   // immediate, so the pair is Omega Ruby's own, + 0x3400 then + 0x18)
+                   {0x4E4, 0xE3A01003, 0xE3A0100B, "Ramos's badge: mov r1, #3 -> #11"},
+                   {0x4F4, 0xE2800A03, 0xE2800B0D, "the status: add #0x3000 -> #0x3400"},
+                   {0x4F8, 0xE2800E41, 0xE2800018, "the status: add #0x410 -> #0x18"}};
+        p.Archive = 0x93; // a/1/4/7
+        p.ArchiveWords = {0x7D8};
+        // X's own: no copy in Omega Ruby (searched: no function calls slot 0x28 then sets bit 0x800; the two DllField
+        // ones are called by X-own code only, xy_callee_map.py)
+        p.Copies = {
+            {0x37022C, 52, "a model's sub-object (its slot 0x28) given a value at + 0x4C, then + 0x88's bit 0x800 set"},
+            {0x102CD5D0, 12, "a DllField getter: [[r0 + 0x1C] + 4 r1]"},
+            {0x102CD908, 344, "a DllField function building a model (its literal pool included)"},
+        };
+        p.FieldStubs = {{0x101F9200, 0x14F220}, {0x101F9218, 0x122920}, {0x101FCBF0, 0x371888}};
+        p.Vtables = {0x1074};
+        p.Slots = 13;
+        p.InsertSlot = 12;
+        p.InsertValue = 0x4D8734; // Util_ReturnZero_004D8734
+        p.Classes = {{0x894, 0x44C}}; // X's kind 4 case: the object 0x44C bytes
         return p;
     }();
     return port;

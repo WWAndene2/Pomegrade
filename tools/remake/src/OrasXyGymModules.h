@@ -160,6 +160,12 @@ const XyModulePort& XyGymInsect();
 // copied, the class's vtable built in the module (FieldVtables), its five other methods Omega Ruby's same ones
 const XyModulePort& XyGymFighting();
 
+// Ramos's gym (X zone 191, Coumarine; DllUSGymGrass, X's area kind 4, mapped 31 October): its imports mapped
+// (xy_import_match.py, xy_callee_map.py); three X-own functions copied (a model's flag setter in the .code, two
+// DllField functions only X-own code calls); it reads Ramos's badge itself (BadgeGetFlag, X's 0x4AF324 = Omega Ruby's
+// 0x4E9E1C): X's badge 3 made Kalos's 11, and the player's status at the game data's + 0x3418 (X's + 0x3410)
+const XyModulePort& XyGymGrass();
+
 }
 
 #endif // REMAKE_ORASXYGYMMODULES_H
