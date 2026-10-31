@@ -124,6 +124,30 @@ Bytes XyGymArchiveToOras(const Bytes& garc, std::vector<std::string>& report)
     return g.Write();
 }
 
+// `grow` zero bytes inserted at file offset `at` (31 October, Olympia's: its copies outgrow the room after the code): the
+// header's offsets past it, the code region's size when it holds it, the file's size, and the tables' own file offsets
+// (cro_helper.h's layouts: the segments', the exported names', the import modules', the imported names', indexes' and
+// anonymous symbols' batches) moved. Segment tags (an index and an offset in the segment) need nothing
+void InsertRoom(Bytes& out, uint32_t at, uint32_t grow)
+{
+    const auto shift = [&](size_t word) { if (U32(out, word) >= at && U32(out, word) != 0) Put(out, word, U32(out, word) + grow); };
+    // the tables' entries first, read where they are now (all past `at` or all before it)
+    const auto entries = [&](int table, int count, uint32_t size, std::initializer_list<uint32_t> words) {
+        for (uint32_t i = 0; i < Header(out, count); i++)
+            for (const uint32_t w : words) shift(Header(out, table) + size * (size_t)i + w);
+    };
+    entries(SegmentTableOffset, SegmentNum, 12, {0});
+    entries(20, 21, 8, {0});                 // exported named symbols: the name
+    entries(ImportModuleTableOffset, ImportModuleNum, 20, {0, 4, 12}); // the name, its indexed and anonymous tables
+    entries(32, 33, 8, {0, 4});              // imported named symbols: the name, the batch
+    entries(34, 35, 8, {4});                 // imported indexed symbols: the batch
+    entries(36, 37, 8, {4});                 // imported anonymous symbols: the batch
+    for (const int field : {1, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44}) shift(0x80 + 4 * (size_t)field);
+    if (Header(out, 12) <= at && at <= Header(out, 12) + Header(out, 13)) Put(out, 0x80 + 4 * 13, Header(out, 13) + grow);
+    Put(out, 0x80 + 4 * 4, Header(out, 4) + grow); // the file's size
+    out.insert(out.begin() + at, grow, 0);
+}
+
 Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameModules& oras, const XyModulePort& port,
                    const std::function<uint32_t(uint32_t)>& sound, uint32_t archive)
 {
@@ -163,7 +187,7 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
             // modules' API there: X's 0x1027E618 is 0x452A00...), which a DllField import cannot name; the import itself
             // then resolves to DllField's first word, unused (its stubs branch to the thunk)
             bool isCopy = false;
-            for (const XyModulePort::Copy& c : port.Copies) isCopy |= (from & ~1u) == c.XAddress;
+            for (const XyModulePort::Copy& c : port.Copies) isCopy |= (from & ~1u) >= c.XAddress && (from & ~1u) < c.XAddress + c.Size;
             if (isCopy)
             {
                 // its stubs branch to the copy (below); the import itself resolves to the .code's (or DllField's) first
@@ -225,6 +249,21 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
         Put(out, offset, sound(id));
     }
 
+    // room asked for (Room): inserted before the segment after the code; the batches read above, past it, moved too
+    uint32_t roomAt = 0;
+    if (port.Room)
+    {
+        if (port.Room % 0x1000 || seg.size() < 2 || seg[1].Offset < seg[0].Offset + seg[0].Size) throw FormatError(port.XName + ": room not insertable");
+        roomAt = seg[1].Offset;
+        InsertRoom(out, roomAt, port.Room);
+        seg = Segments(out);
+        for (auto& t : thunked) if (t.second >= roomAt) t.second += port.Room;
+        for (auto& c : copied) if (c.second >= roomAt) c.second += port.Room;
+        for (auto& v : vtableBatches) if (v.second >= roomAt) v.second += port.Room;
+        if (anchorWord >= roomAt) anchorWord += port.Room;
+    }
+    const auto afterRoom = [&](uint32_t offset) { return port.Room && offset >= roomAt ? offset + port.Room : offset; };
+
     // the bytes after the code segment, free up to the next segment: the code segment grows over what is written there
     const auto reserve = [&](uint32_t bytes) -> uint32_t {
         const uint32_t start = (seg[0].Offset + seg[0].Size + 3) & ~3u, end = start + bytes;
@@ -277,6 +316,15 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
             std::copy(source.begin() + (c.XAddress - base), source.begin() + (c.XAddress - base + c.Size), out.begin() + next);
             placed[c.XAddress] = next;
             next += (c.Size + 3) & ~3u;
+        }
+        for (const XyModulePort::CopyWord& cw : port.CopyWords)
+        {
+            int64_t at = -1;
+            for (const XyModulePort::Copy& c : port.Copies)
+                if (cw.XAddress >= c.XAddress && cw.XAddress + 4 <= c.XAddress + c.Size) at = (int64_t)placed[c.XAddress] + (cw.XAddress - c.XAddress);
+            if (at < 0) throw FormatError(port.XName + ": copy word " + Hex(cw.XAddress) + " in no copy");
+            if (U32(out, (uint32_t)at) != cw.Expected) throw FormatError(port.XName + ": copy word " + Hex(cw.XAddress) + " is not X's (" + cw.Why + ")");
+            Put(out, (uint32_t)at, cw.Value);
         }
         const auto copyOf = [&](uint32_t xAddress) -> int64_t {
             for (const XyModulePort::Copy& c : port.Copies)
@@ -415,15 +463,16 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
             {
                 const uint32_t stub = TagAddress(seg, U32(out, b), 0) - 4;
                 if (U32(out, stub) != 0xE51FF004) throw FormatError(port.XName + ": an import of " + Hex(xAddress) + " not through a stub");
-                Put(out, stub, ArmBranch(stub, placed.at(xAddress), false));
+                Put(out, stub, ArmBranch(stub, (uint32_t)copyOf(xAddress), false)); // the copy holding it (a block may hold several)
                 if (out.at(b + 5)) break;
             }
     }
 
     // each vtable, with the slot Omega Ruby added, after the code segment: the offset to the top and the type info before
     // its slots, as X's
-    for (const uint32_t vtable : port.Vtables)
+    for (const uint32_t xVtable : port.Vtables)
     {
+        const uint32_t vtable = afterRoom(xVtable);
         const uint32_t start = reserve(8 + 4 * (port.Slots + 1)), slots = start + 8;
         // the new place of an old vtable word (-2, -1: the offset to the top, the type info; then the slots)
         const auto newPlace = [&](uint32_t old) -> uint32_t {
@@ -503,6 +552,7 @@ const std::vector<XyGym>& XyGyms()
         {0, 20, XyGymFighting()}, // X's kind 0: zone 175 only (the others 0xFFFF)
         {4, 26, XyGymGrass()},
         {1, 27, XyGymFairy()},
+        {0xD, 28, XyGymEsper()},
     };
     return gyms;
 }
@@ -956,6 +1006,124 @@ const XyModulePort& XyGymFairy()
         p.InsertSlot = 12;
         p.InsertValue = 0x4D8734; // Util_ReturnZero_004D8734
         p.Classes = {{0x6D4, 0xB4}}; // X's kind 1 case: the object 0xB4 bytes
+        return p;
+    }();
+    return port;
+}
+
+const XyModulePort& XyGymEsper()
+{
+    static const XyModulePort port = [] {
+        XyModulePort p;
+        p.XName = "DllUSGymEsper";
+        p.Name = "DllXyGymEsper";
+        // X's .code -> Omega Ruby's: the same functions (xy_import_match.py), then by their callers (xy_callee_map.py)
+        p.Static = Merged(SharedStatic(), {
+            {0x194360, 0x195C40}, {0x36FDAC, 0x38792C}, {0x379DB8, 0x39181C}, {0x37E388, 0x395C70}, {0x37E398, 0x395C80},
+            {0x37E444, 0x395D2C}, {0x3BBA9C, 0x3D9638}, {0x3CDC94, 0x3EFE3C}, {0x3CE6A4, 0x3F06B4}, {0x3D037C, 0x3F1324},
+            {0x4A5044, 0x4DCFC4}, {0x12B27C, 0x12BB54}, {0x108CF0, 0x108CB0}, {0x109498, 0x109434},
+            {0x36FD78, 0x3878F8},  // as Viola's
+            {0x4998F8, 0x4CAFE8},  // as Valerie's
+            {0x4AA98C, 0x4E3594},  // as Viola's
+            {0x4AAF98, 0x4E3D94},  // 1.00, its members + 0xA10 / + 0x894 at + 0xA18 / + 0x89C
+            {0x163B74, 0x164608},  // 80 callers agree
+            {0x4A4958, 0x4DC6BC},  // a getter, by its callers
+            {0x6270C8, 0x672DB8},  // X .data: the literal of two twin readers (0x3CD380 / 0x3EF170, 0x4A4D8C / 0x4DCD0C)
+            // called by the copies below
+            {0x1D4744, 0x1F9544},  // an empty function (bx lr) -> Util_Nop_001F9544
+            {0x3580AC, 0x370778}, {0x358B34, 0x37128C}, {0x358F58, 0x3716F0}, {0x3D0674, 0x3F1620}, {0x3D1DE0, 0x3F2E04},
+            {0x3D33D4, 0x3F4844}, {0x425B1C, 0x44FA8C},
+            {0x3D149C, 0x3F2354}, {0x3D4564, 0x3F57B8}, {0x3D4CF0, 0x3F6088}, {0x4AAA70, 0x4E3674}, // 1.00, 1.00, 1.00, 0.93
+            {0x4A4A2C, 0x4DC790},  // 17 callers agree
+            {0x148DF4, 0x14849C}, {0x2C7428, 0x2DBE24}, {0x4B86DC, 0x4F32B4}, // by their callers (read 31 October)
+        });
+        p.Field = Merged(SharedField(), {
+            {0x10277E64, 0x4CE280}, // as Ramos's (4 callers agree)
+            {0x10277D18, 0x4521E4}, // as Valerie's (near, 0.98)
+            {0x1027F5CC, 0x102CDFD0}, // the zone's character list (Viola's port maps it the same)
+            {0x10274980, 0x102C65D0}, {0x10279158, 0x102C914C}, {0x1027DBE4, 0x102CB74C},
+            {0x10281B4C, 0x4D5B94}, {0x1025EF88, 0x4D6E98}, {0x10281BF0, 0x4D7804}, {0x102CF594, 0x4D66A0},
+            {0x1027DE08, 0x1027B7BC}, // 1.00
+            // called by the copies below
+            {0x1027DD50, 0x3EE510}, {0x1027DE54, 0x1032AC3C}, {0x1027F4C4, 0x102C8EF8}, {0x1025EB6C, 0x4D7BAC},
+        });
+        p.Thunks = {Request};
+        p.Words = {LoaderSize(0x1760),
+                   {0x166C, 0xE5900050, 0xE5900060, "the field's + 0x50 -> + 0x60"}};
+        p.Room = 0x1000; // the copies (about 3.5 KB) outgrow the 0x6D4 bytes after the code
+        p.Archive = 0xB1; // a/1/7/7
+        p.ArchiveWords = {0x1708};
+        // the X-own DllField class (its nine methods and the init its constructor calls, one block: 0x1021E72C-0x1021F090),
+        // the X-own DllField and .code functions it and the module reach
+        p.Copies = {
+            {0x1021E72C, 0x964, "the class's methods (vtable 0x102FE5A4) and their literals"},
+            {0x1027DCA8, 168, "called by them (the field's + 0xFC's + 0x7C)"},
+            {0x102CFF00, 356, "imported: Omega Ruby has only its sibling 0x4D66A0 (0x102CF594's)"},
+            {0x3CDDA0, 204, "imported: none in Omega Ruby"},
+            {0x3CE730, 132, "imported: Omega Ruby has only its sibling 0x3F06B4 (0x3CE6A4's)"},
+        };
+        p.Literals = {{0x5636A8, 0x5A5650}}; // pi, 2 pi, pi / 2, FLT_MAX: the same 16 bytes, once in Omega Ruby
+        p.CopySounds = {0xA0090, 0xA0091, 0xA0092, 0xA0093};
+        const auto player = [](uint32_t at, uint32_t word) { return XyModulePort::CopyWord{at, word, (word & ~0xFFFu) | 0x164, "the field's player: + 0x158 -> + 0x164"}; };
+        p.CopyWords = {
+            player(0x1021E744, 0xE5900158), player(0x1021E82C, 0xE5900158), player(0x1021E954, 0xE5900158),
+            player(0x1021EA9C, 0xE5900158), player(0x1021ED34, 0xE5900158), player(0x1021EDB8, 0xE5900158),
+            player(0x1021EE90, 0xE5900158), player(0x1021EEF4, 0xE5900158),
+            {0x1021E7D0, 0xE5900050, 0xE5900060, "the field's + 0x50 -> + 0x60"},
+            {0x1021EB24, 0xE5900050, 0xE5900060, "the field's + 0x50 -> + 0x60"},
+            {0x1021E918, 0xE59020FC, 0xE590210C, "the field's + 0xFC -> + 0x10C"},
+            {0x1021ECB8, 0xE59020FC, 0xE590210C, "the field's + 0xFC -> + 0x10C"},
+            {0x1021EEB8, 0xE59020FC, 0xE590210C, "the field's + 0xFC -> + 0x10C"},
+            {0x1027DCF8, 0xE59020FC, 0xE590210C, "the field's + 0xFC -> + 0x10C"},
+            {0x1021EA6C, 0xE5911198, 0xE59111A0, "the field's gym object: + 0x198 -> + 0x1A0"},
+            {0x1021EFF8, 0xE5911198, 0xE59111A0, "the field's gym object: + 0x198 -> + 0x1A0"},
+            // the field's + 0x160 stopped (0x1027F5AC): no such object in Omega Ruby's field
+            {0x1021E7C0, 0xE5900160, 0xE320F000, "nop: the field's + 0x160 (X's only)"},
+            {0x1021E7C4, 0xEB018378, 0xE320F000, "nop: 0x1027F5AC on it"},
+            {0x1021EB14, 0xE5900160, 0xE320F000, "nop: the field's + 0x160 (X's only)"},
+            {0x1021EB18, 0xEB0182A3, 0xE320F000, "nop: 0x1027F5AC on it"},
+            // the zone object's + 0x188 block (X's only) read and cleared (0x1027EE14)
+            {0x1021E7D8, 0xEB01818D, 0xE320F000, "nop: 0x1027EE14 (X's block of the zone object)"},
+            {0x1021EB2C, 0xEB0180B8, 0xE320F000, "nop: 0x1027EE14 (X's block of the zone object)"},
+            // the field's camera (X's + 0xF0, Omega Ruby's + 0x100), as X's 0x1026CAF0 and Omega Ruby's 0x102BB844 set it:
+            // X's word + 0xBD8 is Omega Ruby's halfword + 0xBC8 (strh r0, [r4 + 0xB00, #0xC8]), + 0xE64 / + 0xE65 / + 0x1260
+            // its + 0xE54 / + 0xE55 / + 0x1250. The nop before frees a word: r3 (unused after) holds the camera + 0xB00
+            {0x1021E9C4, 0xE320F000, 0xE5900100, "the field's camera: ldr r0, [r0, #0x100]"},
+            {0x1021E9C8, 0xE59000F0, 0xE2803C0B, "the camera: add r3, r0, #0xB00"},
+            {0x1021E9D4, 0xE5801BD8, 0xE1C31CB8, "the camera: strh r1, [r3, #0xC8] (X's str + 0xBD8)"},
+            {0x1021E9E4, 0x15C08E64, 0x15C08E54, "the camera: + 0xE64 -> + 0xE54"},
+            {0x1021E9E8, 0x15C08E65, 0x15C08E55, "the camera: + 0xE65 -> + 0xE55"},
+            {0x1021E9F8, 0x15C08260, 0x15C08250, "the camera: + 0x1260 -> + 0x1250"},
+            {0x1021EA58, 0xE64, 0xE54, "the camera: + 0xE64 -> + 0xE54 (literal)"},
+            {0x1021EA5C, 0x1260, 0x1250, "the camera: + 0x1260 -> + 0x1250 (literal)"},
+            {0x1021EF64, 0xE320F000, 0xE5900100, "the field's camera: ldr r0, [r0, #0x100]"},
+            {0x1021EF68, 0xE59000F0, 0xE2803C0B, "the camera: add r3, r0, #0xB00"},
+            {0x1021EF74, 0xE5801BD8, 0xE1C31CB8, "the camera: strh r1, [r3, #0xC8] (X's str + 0xBD8)"},
+            {0x1021EF84, 0x15C07E64, 0x15C07E54, "the camera: + 0xE64 -> + 0xE54"},
+            {0x1021EF88, 0x15C07E65, 0x15C07E55, "the camera: + 0xE65 -> + 0xE55"},
+            {0x1021EF98, 0x15C07260, 0x15C07250, "the camera: + 0x1260 -> + 0x1250"},
+            {0x1021EFE4, 0xE64, 0xE54, "the camera: + 0xE64 -> + 0xE54 (literal)"},
+            {0x1021EFE8, 0x1260, 0x1250, "the camera: + 0x1260 -> + 0x1250 (literal)"},
+        };
+        // X DllField's import stubs the copies call, with what each reaches (X's linked program)
+        p.FieldStubs = {
+            {0x101F91C8, 0x2FF520}, {0x101F91F8, 0x425B1C}, {0x101F9200, 0x14F220}, {0x101F94B0, 0x358B34},
+            {0x101F94B8, 0x3580AC}, {0x101F94F8, 0x1D4744}, {0x101F9978, 0x3D037C}, {0x101F99B8, 0x3D0674},
+            {0x101FA1E8, 0x4AAF98}, {0x101FA2C0, 0x4A4A2C}, {0x101FA370, 0x3D4564}, {0x101FA390, 0x3D4CF0},
+            {0x101FA510, 0x4AAA70}, {0x101FA528, 0x358F58}, {0x101FA530, 0x3D149C}, {0x101FA538, 0x3D1DE0},
+            {0x101FA540, 0x3D33D4},
+            {0x101FA518, 0x1078333C}, {0x101FA520, 0x10783DE0}, {0x101FA548, 0x10783AD4}, {0x101FA550, 0x10783328},
+            {0x101FA558, 0x10783480}, {0x101FA560, 0x10784534}, {0x101FA568, 0x10783EBC}, // the module's own functions
+        };
+        p.XLinked = 0x10783000;
+        p.FieldAnchor = 0x1027F5CC;
+        p.FieldVtables = {{0x102FE59C, {0x1021F08C, 0x1021F07C, 0x1021F004, 0x1021F010, 0x1021F014, 0x1021F00C, 0x1021EA84,
+                                        0x1021E72C, 0x1021ED1C}}};
+        p.Vtables = {0x22E0};
+        p.Slots = 13;
+        p.InsertSlot = 12;
+        p.InsertValue = 0x4D8734; // Util_ReturnZero_004D8734
+        p.Classes = {{0x16FC, 0x1C8}}; // X's kind 0xD case: the object 0x1C8 bytes
         return p;
     }();
     return port;

@@ -57,6 +57,11 @@ struct XyModulePort
     // function has its stubs made branches to the copy
     struct Copy { uint32_t XAddress, Size; std::string Why; };
     std::vector<Copy> Copies;
+    // a copy's words changed (31 October, Olympia's: X's DllField class reads the field's members Omega Ruby keeps
+    // elsewhere): each by its X address, X's word checked first; applied before the copy's branches are resolved, so a
+    // call made a nop is not resolved
+    struct CopyWord { uint32_t XAddress, Expected, Value; std::string Why; };
+    std::vector<CopyWord> CopyWords;
     std::map<uint32_t, uint32_t> Literals; // a literal of the copies: an X .code or data address -> Omega Ruby's
     std::vector<uint32_t> CopySounds;      // X sound ids among the copies' literals: translated as Sounds
     // X's DllField functions copied too (a Copy at a DllField address; 31 October, Korrina's: a DllField class X ties to
@@ -77,6 +82,9 @@ struct XyModulePort
     std::vector<FieldVtable> FieldVtables;
     // the archive the module loads (X's number, a/X/Y/Z by its digits; 0 none) and its words requesting it (`mov rd, #n`,
     // file offsets): given Omega Ruby's number for it (XyGymArchiveNumber)
+    // bytes inserted before the segment after the code (a multiple of 0x1000), when what is written after the code
+    // (thunks, copies, veneers, vtables) outgrows the room there; the file offsets above stay X's
+    uint32_t Room = 0;
     uint16_t Archive = 0;
     std::vector<uint32_t> ArchiveWords;
 };
@@ -169,6 +177,15 @@ const XyModulePort& XyGymGrass();
 // Valerie's gym (X zone 203, Laverre; DllUSGymFairy, X's area kind 1, mapped 31 October): its imports mapped
 // (xy_import_match.py), the game data's member it reads moved (+0x12E4 -> +0x12EC, as Ramos's)
 const XyModulePort& XyGymFairy();
+
+// Olympia's gym (X zone 215, Anistar; DllUSGymEsper, X's area kind 0xD, ported 31 October): it instantiates an X-own
+// DllField class (X's vtable 0x102FE5A4, nine methods; Omega Ruby has none of them), copied whole with the X-own DllField
+// and .code functions it reaches; the copies read the field's members Omega Ruby keeps elsewhere (CopyWords). Two X
+// field objects the class stops have nothing to stop in Omega Ruby: the field's + 0x160 (X's 0x10230B80 object, which
+// Omega Ruby's field does not build: X's + 0x15C and + 0x164 are its + 0x168 and + 0x16C) and the block of the zone
+// object's + 0x188 X's 0x1027EE14 reads and clears (+ 0xC to + 0x90, absent from Omega Ruby's class: X's getter at
+// + 0x90 is its + 0xC; nothing of Olympia's writes it): those two calls are nops
+const XyModulePort& XyGymEsper();
 
 }
 

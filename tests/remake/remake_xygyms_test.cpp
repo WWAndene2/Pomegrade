@@ -137,6 +137,36 @@ int main()
         check(Get(o, 0x18C) == 0xE3A02E13, "the archive request in r2: mov r2, #0x130");
     }
 
+    // room inserted before rodata (Olympia's copies outgrow the space after the code) and a copy's word changed: an X
+    // .code function (ldr r0, [r0, #0x158]; bx lr) copied after the code, its player offset made Omega Ruby's
+    {
+        XyGameModules xc = x;
+        xc.Code.assign(0x200, 0);
+        Set(xc.Code, 0x100, 0xE5900158);
+        Set(xc.Code, 0x104, 0xE12FFF1E);
+        // the segment table moved out of the header (Module() puts it at 0x100, over the import tables' fields this reads)
+        Bytes mm = m;
+        std::copy(mm.begin() + 0x100, mm.begin() + 0x118, mm.begin() + 0x200);
+        std::fill(mm.begin() + 0x100, mm.begin() + 0x118, 0);
+        Field(mm, 18, 0x200);
+        XyModulePort q = p;
+        q.Room = 0x1000;
+        q.Copies = {{0x100100, 8, "a getter"}};
+        q.CopyWords = {{0x100100, 0xE5900158, 0xE5900164, "the field's player"}};
+        const Bytes o = XyPortModule(mm, xc, oras, q, [](uint32_t id) { return id; });
+        check(o.size() == m.size() + 0x1000 && Get(o, 0x20C) == 0x1400, "the room: the file 0x1000 longer, rodata at 0x1400");
+        check(Get(o, 0x80 + 4 * 42) == 0x1700 && Get(o, 0x80 + 4 * 28) == 0x1640 && Get(o, 0x80 + 4 * 16) == 0x1600,
+              "the tables past it moved (relocations, import modules, the name)");
+        check(Get(o, 0x1640) == 0x1620 && Get(o, 0x164C) == 0x1680, "an import module's own offsets moved");
+        check(Get(o, 0x1A0) == 0xE5900164 && Get(o, 0x1A4) == 0xE12FFF1E, "the copy after the code, its word changed");
+        check(Get(o, 0x1700) == (0x2Cu << 4) && Get(o, 0x170C) == (0x30u << 4),
+              "the vtable (X's 0x408, now 0x1408) rebuilt after the copy (0x1A8): its type info and slot relocations rewritten");
+        bool wrong = false;
+        try { XyModulePort r = q; r.CopyWords[0].Expected = 0; XyPortModule(mm, xc, oras, r, [](uint32_t id) { return id; }); }
+        catch (const FormatError&) { wrong = true; }
+        check(wrong, "a copy word not X's is refused");
+    }
+
     // DllField loading Grant's module: the default case's first word to the dispatcher, kind 1 to the loader, which jumps
     // to the module's handle + its constructor's offset
     const std::vector<CodeWord> lw = XyGymLoaderPatchAt(0x10385CAC);
