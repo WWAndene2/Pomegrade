@@ -34,7 +34,7 @@ if (ARCHITECTURE_arm64)
     AddPackage(
         NAME hwcpipe
         REPO ARM-software/libGPUCounters
-        TAG 2.5.0
+        VERSION 2.5.0 # Eden's CPMUtil since its master of 26 October: VERSION (archive/2.5.0.tar.gz), no TAG
         HASH 9dc6ab57dc751b1e2f7ffc85c9c09cfabcdcdc6c182fdc37a28fd9ea03377d4b2eb482e0f229121e30e85422eac965689fc13aee70ac36570b4256eaf8275d37
         FORCE_BUNDLED_PACKAGE ON
         OPTIONS
