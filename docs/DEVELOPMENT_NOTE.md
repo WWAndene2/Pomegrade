@@ -361,7 +361,10 @@ redone; the zones before what runs in them; one phone check per block, not per c
    also patches the player's position (+0xC64 -> +0x6F8, as Grant's) and the field camera's slot (+0xF0's +0xAB8 ->
    +0xAA4, aligned), and copies X's 0x378548 (a model drawn with the camera; Omega Ruby has only its sibling, mapped
    before: an unmapped read every frame). Viola is in XyGyms (kind 19). Run vA5: no unmapped read, the player walks on
-   the web. Next: the puzzle, the battle, the badge.
+   the web. Battle and badge (run vB3, her team made weak: trainer 956, X's 6): the battle, her victory lines, the badge
+   word's bit 8 set (Kalos's first, 0 before; the badge case shows Hoenn's only, its Kalos drawer set aside 22 October),
+   TM83 given. Not run: the puzzle. Seen and not read: 11 unmapped accesses when her battle starts (near address 0,
+   heap code 0x3A9990, 0x2FF8C0).
    **Handover (30 October, end of session; the owner's tokens ran out).** Where Viola stands: run vD1 (memory dumped
    after the fault) shows her module's 17 resource handles (ids 0x35-0x45, the dew drops) unresolved: OrasXyGymModules.h
    has what is read and ruled out (memory: the field heap 0x5D grown, objects' sizes; the area pack; the effect pack).
