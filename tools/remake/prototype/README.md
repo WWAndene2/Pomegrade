@@ -139,3 +139,11 @@ and wave archive numbering set aside): the same ones merged, the different ones 
 each BCH of a file or container holds (models, materials, textures, the kinds of animations). `bps_apply.py` rebuilds a
 file a mod ships as a BPS patch (romfs_ext/*.bps), to read its entries. `oras_save.py flag` sets moved event flags
 (0xD00 and up) in a save.
+
+## Reading a port's code (`xy_disasm.py`, `xy_copy_plan.py`, 31 October)
+
+`xy_disasm.py <work> x|oras ADDRESS [WORDS]` prints a game's instructions from an address (its .code or linked modules);
+`--calls ADDRESS:BYTES...` lists a function's calls, a stub's target followed, and its pc-relative literals.
+`xy_copy_plan.py <work> MAPPED ROOTS` lists the X functions a port must copy with ROOTS (calls into X's DllField
+followed) and the calls left to map onto Omega Ruby; MAPPED is the pairs already mapped (`X=ORAS,...`). Both read the
+work directory as `xy_callee_map.py` does.
