@@ -377,7 +377,11 @@ redone; the zones before what runs in them; one phone check per block, not per c
    The zone stays black headless, with his module, without it, without his rope trainers and at X's own spawn: its own
    load, left to the zones' load test. Left for his gym: his three event natives (GymGrassSlideEvent, HangMoveEvent,
    RopeUpDownEvent; Clemont's six such are missing too), his rope trainers' records (X's put them off the map once
-   converted). Next in the order: Valerie, Olympia (then Clemont's natives, Wulfric run).
+   converted).
+   **31 October: Valerie's gym ported** (X zone 203, area kind 1 -> 27): headless (runs vF1, vB1, her team made weak:
+   trainer 974, X's 24; the player on her platform, `xy_gym_mod.sh --height 180`): the gym shows, the battle, her
+   lines, the badge word's bit 13 (0x2000, Kalos's sixth), TM99; no unmapped access. Not run: her warp puzzle.
+   Next: Olympia (then Clemont's natives, Wulfric run).
    **Handover (30 October, end of session; the owner's tokens ran out).** Where Viola stands: run vD1 (memory dumped
    after the fault) shows her module's 17 resource handles (ids 0x35-0x45, the dew drops) unresolved: OrasXyGymModules.h
    has what is read and ruled out (memory: the field heap 0x5D grown, objects' sizes; the area pack; the effect pack).
