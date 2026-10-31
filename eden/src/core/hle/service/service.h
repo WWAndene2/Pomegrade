@@ -8,7 +8,7 @@
 
 #include <cstddef>
 #include <mutex>
-#include <ankerl/unordered_dense.h>
+#include "common/container/unordered_map.h"
 #include "common/common_types.h"
 #include "core/hle/service/hle_ipc.h"
 
@@ -99,8 +99,8 @@ private:
     void ReportUnimplementedFunction(HLERequestContext& ctx, const FunctionInfoBase* info);
 
 protected:
-    ankerl::unordered_dense::map<u32, FunctionInfoBase> handlers;
-    ankerl::unordered_dense::map<u32, FunctionInfoBase> handlers_tipc;
+    ::Common::unordered_map<u32, FunctionInfoBase> handlers;
+    ::Common::unordered_map<u32, FunctionInfoBase> handlers_tipc;
     /// Used to gain exclusive access to the service members, e.g. from CoreTiming thread.
     std::mutex lock_service;
     /// System context that the service operates under.
@@ -141,7 +141,7 @@ protected:
         /// @param expected_header_ request header in the command buffer which will trigger dispatch to this handler
         /// @param handler_callback_ member function in this service which will be called to handle the request
         /// @param name_ human-friendly name for the request. Used mostly for logging purposes.
-        constexpr FunctionInfoTyped(u32 expected_header_, HandlerFnP<T> handler_callback_, const char* name_)
+        FunctionInfoTyped(u32 expected_header_, HandlerFnP<T> handler_callback_, const char* name_)
             : FunctionInfoBase{expected_header_, HandlerFnP<ServiceFrameworkBase>(handler_callback_), name_} {}
     };
     using FunctionInfo = FunctionInfoTyped<Self>;

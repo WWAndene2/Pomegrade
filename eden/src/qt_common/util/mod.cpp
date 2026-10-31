@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <filesystem>
+#include <system_error>
 #include <JlCompress.h>
 #include "frontend_common/mod_manager.h"
 #include "mod.h"
@@ -33,10 +34,13 @@ QStringList GetModFolders(const QString& root, const QString& fallbackName) {
             std_path = paths[0];
 
         QString default_name;
-        if (!fallbackName.isEmpty())
-            default_name = fallbackName;
-        else if (!paths.empty())
+
+        // If this is an atmosphere-packed mod, the default name will end up as the game's title ID.
+        // So in this case ignore it and use the zip name instead
+        if (!paths.empty() && std_path.string().find("atmosphere") == std::string::npos)
             default_name = QString::fromStdString(std_path.filename().string());
+        else if (!fallbackName.isEmpty())
+            default_name = fallbackName;
         else
             default_name = root.split(QLatin1Char('/')).last();
 
@@ -121,8 +125,8 @@ const QString ExtractMod(const QString& path) {
     fs::remove_all(tmp, ec);
     if (!fs::create_directories(tmp, ec)) {
         QtCommon::Frontend::Critical(tr("Mod Extract Failed"),
-                                     tr("Failed to create temporary directory %1")
-                                         .arg(QString::fromStdString(tmp.string())));
+                                    tr("Failed to create temporary directory %1")
+                                        .arg(QString::fromStdString(tmp.string())));
         return QString();
     }
 

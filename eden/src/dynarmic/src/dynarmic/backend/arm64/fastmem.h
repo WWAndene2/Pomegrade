@@ -10,7 +10,7 @@
 
 #include <cstddef>
 #include <tuple>
-#include <ankerl/unordered_dense.h>
+#include "common/container/unordered_set.h"
 
 #include "dynarmic/mcl/bit.hpp"
 #include "common/common_types.h"
@@ -24,7 +24,7 @@ using DoNotFastmemMarker = std::tuple<IR::LocationDescriptor, unsigned>;
 constexpr std::size_t xmrx(std::size_t x) noexcept {
     x ^= x >> 32;
     x *= 0xff51afd7ed558ccd;
-    x ^= mcl::bit::rotate_right(x, 47) ^ mcl::bit::rotate_right(x, 23);
+    x ^= std::rotr(x, 47) ^ std::rotr(x, 23);
     return x;
 }
 
@@ -59,7 +59,7 @@ public:
 
 private:
     ExceptionHandler& exception_handler;
-    ankerl::unordered_dense::set<DoNotFastmemMarker, DoNotFastmemMarkerHash> do_not_fastmem;
+    ::Common::unordered_set<DoNotFastmemMarker, DoNotFastmemMarkerHash> do_not_fastmem;
 };
 
 }  // namespace Dynarmic::Backend::Arm64

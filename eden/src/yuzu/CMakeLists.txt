@@ -8,7 +8,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 # Set the RPATH for Qt Libraries
 # This must be done before the `yuzu` target is created
-if (YUZU_USE_BUNDLED_QT AND PLATFORM_LINUX)
+if (YUZU_USE_BUNDLED_QT AND LINUX)
     set(CMAKE_BUILD_RPATH "${CMAKE_BINARY_DIR}/bin/lib/")
 endif()
 
@@ -37,9 +37,6 @@ add_executable(yuzu
     applets/qt_web_browser_scripts.h
     bootmanager.cpp
     bootmanager.h
-    compatdb.ui
-    compatibility_list.cpp
-    compatibility_list.h
     configuration/configuration_shared.cpp
     configuration/configuration_shared.h
     configuration/configure.ui
@@ -156,13 +153,12 @@ add_executable(yuzu
     debugger/controller.cpp
     debugger/controller.h
 
-    game/game_list.cpp
-    game/game_list.h
-    game/game_list_p.h
-    game/game_list_worker.cpp
-    game/game_list_worker.h
-    game/game_card.h
-    game/game_card.cpp
+    game/game_list.cpp game/game_list.h
+    game/game_grid.cpp game/game_grid.h
+
+    game/game_tree.h game/game_tree.cpp
+    game/game_card.h game/game_card.cpp
+    game/search_field.h game/search_field.cpp
 
     hotkeys.cpp
     hotkeys.h
@@ -217,22 +213,16 @@ add_executable(yuzu
     util/url_request_interceptor.h
     util/util.cpp
     util/util.h
-    vk_device_info.cpp
-    vk_device_info.h
-    compatdb.cpp
-    compatdb.h
-    user_data_migration.cpp
-    user_data_migration.h
+
+    user_data_migration.h user_data_migration.cpp
 
     yuzu.qrc
     yuzu.rc
     migration_dialog.h migration_dialog.cpp
-    migration_worker.h
-    migration_worker.cpp
+    migration_worker.h migration_worker.cpp
+    libqt_common.h libqt_common.cpp
 
-    deps_dialog.cpp
-    deps_dialog.h
-    deps_dialog.ui
+    deps_dialog.cpp deps_dialog.h deps_dialog.ui
 
     data_dialog.h data_dialog.cpp data_dialog.ui
     data_widget.ui
@@ -244,9 +234,9 @@ add_executable(yuzu
     configuration/addon/mod_select_dialog.h configuration/addon/mod_select_dialog.cpp configuration/addon/mod_select_dialog.ui
 
     render/performance_overlay.h render/performance_overlay.cpp render/performance_overlay.ui
-    libqt_common.h libqt_common.cpp
     updater/update_dialog.h updater/update_dialog.cpp updater/update_dialog.ui
-
+    game/common.h
+    game/carousel.h game/carousel.cpp
 )
 
 set_target_properties(yuzu PROPERTIES OUTPUT_NAME "eden")
@@ -260,14 +250,17 @@ if (YUZU_CRASH_DUMPS)
     target_compile_definitions(yuzu PRIVATE YUZU_CRASH_DUMPS)
 endif()
 
+if (ENABLE_RESHADE)
+    target_sources(yuzu PRIVATE
+        configuration/configure_post_processing.cpp
+        configuration/configure_post_processing.h)
+endif()
+
 if (CXX_CLANG)
     target_compile_definitions(yuzu PRIVATE
         $<$<VERSION_LESS:$<CXX_COMPILER_VERSION>,15>:CANNOT_EXPLICITLY_INSTANTIATE>)
 endif()
 
-file(GLOB COMPAT_LIST
-     ${PROJECT_BINARY_DIR}/dist/compatibility_list/compatibility_list.qrc
-     ${PROJECT_BINARY_DIR}/dist/compatibility_list/compatibility_list.json)
 file(GLOB_RECURSE ICONS ${PROJECT_SOURCE_DIR}/dist/icons/*)
 file(GLOB_RECURSE THEMES ${PROJECT_SOURCE_DIR}/dist/qt_themes/*)
 
@@ -359,7 +352,6 @@ endif()
 
 target_sources(yuzu
     PRIVATE
-        ${COMPAT_LIST}
         ${ICONS}
         ${LANGUAGES}
         ${THEMES})
@@ -421,10 +413,6 @@ if (UNIX AND NOT APPLE)
     target_link_libraries(yuzu PRIVATE Qt6::DBus)
 endif()
 
-if (YUZU_ENABLE_COMPATIBILITY_REPORTING)
-    target_compile_definitions(yuzu PRIVATE YUZU_ENABLE_COMPATIBILITY_REPORTING)
-endif()
-
 if (ENABLE_WEB_SERVICE)
     target_compile_definitions(yuzu PRIVATE ENABLE_WEB_SERVICE)
 endif()
@@ -466,6 +454,6 @@ if (NOT MSVC AND (APPLE OR NOT YUZU_STATIC_BUILD))
 endif()
 
 # Remember that the linker is incredibly stupid.
-target_link_libraries(yuzu PRIVATE OpenSSL::SSL OpenSSL::Crypto SDL2::SDL2)
+target_link_libraries(yuzu PRIVATE OpenSSL::SSL OpenSSL::Crypto SDL3::SDL3)
 
 create_target_directory_groups(yuzu)

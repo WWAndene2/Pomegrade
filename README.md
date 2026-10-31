@@ -11,7 +11,7 @@ Pomegrade est une version modifiée de [melonDS-android](https://github.com/rafa
 | `azahar/` | Le cœur 3DS (Azahar, GPLv2+), module Gradle `melonDS-android/azahar/` |
 | `mgba/` | Le cœur GBA ([mGBA](https://github.com/mgba-emu/mgba) 0.10.5, MPL 2.0), module Gradle `melonDS-android/mgba/` (pont JNI et écran de jeu GBA de Pomegrade) |
 | `dolphin/` | Le cœur GameCube et Wii ([Dolphin](https://dolphin-emu.org) 2606a, GPLv2+), module Gradle `melonDS-android/dolphin/` ; ses bibliothèques (`dolphin/Externals/`) sont des sous-modules git |
-| `eden/` | Le cœur Switch ([Eden](https://git.eden-emu.dev/eden-emu/eden) v0.2.1, GPLv3+), module Gradle `melonDS-android/eden/` ; ses dépendances C++ sont téléchargées à la première compilation (`eden/.cache/`, ignoré) |
+| `eden/` | Le cœur Switch ([Eden](https://git.eden-emu.dev/eden-emu/eden), branche master du 26 octobre 2026, GPLv3+), module Gradle `melonDS-android/eden/` ; ses dépendances C++ sont téléchargées à la première compilation (`eden/.cache/`, ignoré) |
 | `assets/` | Le logo de l'app (`branding/`) et des logos et modèles 3D de consoles (`consoles/`) |
 | `docs/` | Feuille de route et plans de développement |
 | `tools/`, `tests/` | Outils du remake Pokémon, tests sur PC |

@@ -64,6 +64,15 @@ public:
     /// Requests to begin a renderpass.
     void RequestRenderpass(const Framebuffer* framebuffer);
 
+    /// Defers a full-attachment color clear so it becomes the next render pass.
+    bool DeferColorClear(const Framebuffer* framebuffer, u32 rt_slot, const VkClearValue& value);
+
+    /// Defers a full depth/stencil clear so it becomes the next render pass.
+    bool DeferDepthStencilClear(const Framebuffer* framebuffer, const VkClearValue& value);
+
+    /// Realizes any pending deferred clear before its framebuffer can be moved or freed.
+    void FlushDeferredClear();
+
     /// Pomegrade: the framebuffer with no attachment, for draws that rasterize nothing (set by the rasterizer)
     void SetNullFramebuffer(const Framebuffer* framebuffer) noexcept {
         null_framebuffer = framebuffer;
@@ -96,13 +105,6 @@ public:
         return state.renderpass && record_count == record_count_at_begin;
     }
 
-    /// Pomegrade: has the current render pass load `attachment` with a clear (LOAD_OP_CLEAR) instead of loading it
-    /// from memory, when the pass begins with a full clear of it; `clear_bits` are its RenderPassKey::clear_mask
-    /// bits. The caller checks IsRenderPassUntouched first. False when the pass has already begun on the GPU's
-    /// command buffer: the caller then clears as before
-    bool ClearOnLoad(const Framebuffer* framebuffer, u16 clear_bits, u32 attachment,
-                     const VkClearValue& value);
-
     /// Requests the current execution context to be able to execute operations only allowed outside
     /// of a renderpass.
     /// Pomegrade: the caller's file and line are counted when it ends a render pass (TEMPORARY diagnostic)
@@ -119,6 +121,9 @@ public:
 
     /// Update the rescaling state. Returns true if the state has to be updated.
     bool UpdateRescaling(bool is_rescaling);
+
+    /// Returns true when the descriptor buffer chunk has to be bound into the command buffer.
+    bool UpdateDescriptorBufferChunk(u32 descriptor_chunk);
 
     /// Invalidates current command buffer state except for render passes
     void InvalidateState();
@@ -188,9 +193,10 @@ public:
             frame_counter++;
             auto target_time = start_time + frame_interval * frame_counter;
             if (target_time >= now) {
+                constexpr auto spin_tail = std::chrono::milliseconds(1);
                 auto sleep_time = target_time - now;
-                if (sleep_time > std::chrono::milliseconds(15)) {
-                    std::this_thread::sleep_for(sleep_time - std::chrono::milliseconds(1));
+                if (sleep_time > spin_tail * 2) {
+                    std::this_thread::sleep_for(sleep_time - spin_tail);
                 }
                 while (std::chrono::steady_clock::now() < target_time) {
                     std::this_thread::yield();
@@ -300,7 +306,24 @@ private:
         bool is_rescaling = false;
         bool rescaling_defined = false;
         bool needs_state_enable_refresh = false;
+        u32 descriptor_buffer_chunk = 0;
+        bool descriptor_buffer_bound = false;
     };
+
+    struct DeferredClear {
+        const Framebuffer* framebuffer = nullptr;
+        u32 color_clear_mask = 0;
+        std::array<VkClearValue, 8> color_values{};
+        bool depth_stencil = false;
+        VkClearValue depth_stencil_value{};
+    };
+
+    /// Begins a render pass for the given framebuffer, optionally with clear values.
+    void BeginRenderPassImpl(const Framebuffer* framebuffer, VkRenderPass renderpass,
+                             const VkClearValue* clear_values, u32 clear_value_count);
+
+    /// If a deferred clear is pending.
+    void RealizeDeferredClear();
 
     void WorkerThread(std::stop_token stop_token);
 
@@ -327,21 +350,13 @@ private:
     vk::CommandBuffer current_cmdbuf;
     vk::CommandBuffer current_upload_cmdbuf;
 
+    DeferredClear deferred_clear;
+
     std::unique_ptr<CommandChunk> chunk;
     std::function<void()> on_submit;
 
     State state;
 
-    // Pomegrade: the current render pass's begin, which a full clear made before anything else in the pass turns
-    // into a clear on load; sealed once the worker has recorded the begin into the command buffer
-    struct PendingBegin {
-        std::mutex mutex;
-        bool sealed = false;
-        u16 clear_mask = 0;
-        VkRenderPass clear_renderpass{};
-        std::array<VkClearValue, 9> clear_values{};
-    };
-    std::shared_ptr<PendingBegin> pending_begin;
     u64 record_count = 0;
     bool deferred_wait_for_idle = false;
     u64 record_count_at_begin = 0;

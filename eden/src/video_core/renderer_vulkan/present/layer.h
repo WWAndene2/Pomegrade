@@ -13,8 +13,12 @@
 #include "video_core/host1x/gpu_device_memory_manager.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
 #include "video_core/renderer_vulkan/present/fsr.h"
+#include "video_core/renderer_vulkan/present/sgsr.h"
 #include "video_core/renderer_vulkan/present/pomegrade_picture_pass.h"
 #include "video_core/renderer_vulkan/present/fxaa.h"
+#ifdef HAS_RESHADE
+#include "video_core/renderer_vulkan/present/post_process.h"
+#endif
 #include "video_core/renderer_vulkan/present/smaa.h"
 
 namespace Layout {
@@ -52,34 +56,35 @@ public:
                    const PresentFilters& filters);
     ~Layer();
 
-    void ConfigureDraw(PresentPushConstants* out_push_constants,
+    void ConfigureDraw(const Device& device, PresentPushConstants* out_push_constants,
                        VkDescriptorSet* out_descriptor_set, RasterizerVulkan& rasterizer,
                        VkSampler sampler, size_t image_index,
                        const Tegra::FramebufferConfig& framebuffer,
                        const Layout::FramebufferLayout& layout);
 
 private:
-    void CreateDescriptorPool();
-    void CreateDescriptorSets(VkDescriptorSetLayout layout);
-    void CreateStagingBuffer(const Tegra::FramebufferConfig& framebuffer);
-    void CreateRawImages(const Tegra::FramebufferConfig& framebuffer);
+    void CreateDescriptorPool(const Device& device);
+    void CreateDescriptorSets(const Device& device, VkDescriptorSetLayout layout);
+    void CreateStagingBuffer(const Device& device, const Tegra::FramebufferConfig& framebuffer);
+    void CreateRawImages(const Device& device, const Tegra::FramebufferConfig& framebuffer);
 
-    void RefreshResources(const Tegra::FramebufferConfig& framebuffer);
-    void SetAntiAliasPass();
-    void SetPicturePasses();
+    void RefreshResources(const Device& device, const Tegra::FramebufferConfig& framebuffer);
+    void SetAntiAliasPass(const Device& device);
+#ifdef HAS_RESHADE
+    void SetPostProcessPass(const Device& device, bool is_applet);
+#endif
+    void SetPicturePasses(const Device& device);
     void ReleaseRawImages();
 
     u64 CalculateBufferSize(const Tegra::FramebufferConfig& framebuffer) const;
     u64 GetRawImageOffset(const Tegra::FramebufferConfig& framebuffer, size_t image_index) const;
 
-    void SetMatrixData(PresentPushConstants& data, const Layout::FramebufferLayout& layout) const;
-    void SetVertexData(PresentPushConstants& data, const Layout::FramebufferLayout& layout,
-                       const Common::Rectangle<f32>& crop) const;
-    void UpdateDescriptorSet(VkImageView image_view, VkSampler sampler, size_t image_index);
+    void SetMatrixData(const Device& device, PresentPushConstants& data, const Layout::FramebufferLayout& layout) const;
+    void SetVertexData(const Device& device, PresentPushConstants& data, const Layout::FramebufferLayout& layout, const Common::Rectangle<f32>& crop) const;
+    void UpdateDescriptorSet(const Device& device, VkImageView image_view, VkSampler sampler, size_t image_index);
     void UpdateRawImage(const Tegra::FramebufferConfig& framebuffer, size_t image_index);
 
 private:
-    const Device& device;
     MemoryAllocator& memory_allocator;
     Scheduler& scheduler;
     Tegra::MaxwellDeviceMemoryManager& device_memory;
@@ -97,7 +102,13 @@ private:
 
     Settings::AntiAliasing anti_alias_setting{};
     std::variant<std::monostate, FXAA, SMAA> anti_alias{};
-    std::optional<FSR> fsr{};
+    std::variant<std::monostate, SGSR, FSR> sr_filter{};
+#ifdef HAS_RESHADE
+    std::optional<PostProcessChain> post_process{};
+    u64 post_process_generation{};
+    bool post_process_enabled{};
+    VkExtent2D post_process_extent{};
+#endif
     // Pomegrade: Rich colours and Deep black, sized as the anti-alias pass
     std::optional<PomegradePicturePass> rich_colours{};
     std::optional<PomegradePicturePass> deep_black{};

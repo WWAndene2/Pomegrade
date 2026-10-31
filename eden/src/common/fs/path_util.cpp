@@ -5,13 +5,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <cctype>
 #include <iostream>
 #include <sstream>
-#include <ankerl/unordered_dense.h>
+#include "common/container/unordered_map.h"
 
 #include "common/assert.h"
 #include "common/fs/fs.h"
-#ifdef ANDROID
+#ifdef __ANDROID__
 #include "common/fs/fs_android.h"
 #endif
 #include "common/fs/fs_paths.h"
@@ -90,7 +91,7 @@ public:
 
     void CreateEdenPaths() {
         std::for_each(eden_paths.begin(), eden_paths.end(), [](auto &path) {
-            void(FS::CreateDir(path.second));
+            void(FS::CreateDirs(path.second));
         });
     }
 
@@ -126,7 +127,7 @@ public:
         LEGACY_PATH(Yuzu, YUZU)
         LEGACY_PATH(Suyu, SUYU)
 #undef LEGACY_PATH
-#elif ANDROID
+#elif __ANDROID__
         ASSERT(!eden_path.empty());
         eden_path_cache = eden_path / CACHE_DIR;
         eden_path_config = eden_path / CONFIG_DIR;
@@ -149,23 +150,29 @@ public:
         LEGACY_PATH(Suyu, SUYU)
 #undef LEGACY_PATH
 #endif
+        // data
         GenerateEdenPath(EdenPath::EdenDir, eden_path);
         GenerateEdenPath(EdenPath::AmiiboDir, eden_path / AMIIBO_DIR);
-        GenerateEdenPath(EdenPath::CacheDir, eden_path_cache);
-        GenerateEdenPath(EdenPath::ConfigDir, eden_path_config);
         GenerateEdenPath(EdenPath::CrashDumpsDir, eden_path / CRASH_DUMPS_DIR);
         GenerateEdenPath(EdenPath::DumpDir, eden_path / DUMP_DIR);
         GenerateEdenPath(EdenPath::KeysDir, eden_path / KEYS_DIR);
         GenerateEdenPath(EdenPath::LoadDir, eden_path / LOAD_DIR);
         GenerateEdenPath(EdenPath::LogDir, eden_path / LOG_DIR);
+        GenerateEdenPath(EdenPath::LosslessDir, eden_path / LOSSLESS_DIR);
         GenerateEdenPath(EdenPath::NANDDir, eden_path / NAND_DIR);
         GenerateEdenPath(EdenPath::PlayTimeDir, eden_path / PLAY_TIME_DIR);
+        GenerateEdenPath(EdenPath::PostPresetDir, eden_path / POST_PRESET_DIR);
+        GenerateEdenPath(EdenPath::PostShaderDir, eden_path / POST_SHADER_DIR);
         GenerateEdenPath(EdenPath::SaveDir, eden_path / NAND_DIR);
         GenerateEdenPath(EdenPath::ScreenshotsDir, eden_path / SCREENSHOTS_DIR);
         GenerateEdenPath(EdenPath::SDMCDir, eden_path / SDMC_DIR);
-        GenerateEdenPath(EdenPath::ShaderDir, eden_path / SHADER_DIR);
         GenerateEdenPath(EdenPath::TASDir, eden_path / TAS_DIR);
         GenerateEdenPath(EdenPath::IconsDir, eden_path / ICONS_DIR);
+        // config
+        GenerateEdenPath(EdenPath::ConfigDir, eden_path_config);
+        // cache
+        GenerateEdenPath(EdenPath::CacheDir, eden_path_cache);
+        GenerateEdenPath(EdenPath::ShaderDir, eden_path_cache / SHADER_DIR);
 #ifdef ANDROID
         // Pomegrade: in the Punica folder's layout (melonDS-android's PunicaLayout) Eden's folder is
         // Punica/Switch/Core, and the console's other folders are its siblings: the NAND and SD card in System, the
@@ -179,6 +186,9 @@ public:
             GenerateEdenPath(EdenPath::SDMCDir, console / "System" / SDMC_DIR);
             GenerateEdenPath(EdenPath::SaveDir, console / "Saves");
             GenerateEdenPath(EdenPath::LoadDir, console / "Mods");
+            // the shader cache where Eden v0.2.1 kept it (Core/shader; Eden's master moved it under cache/):
+            // the Punica folder's layout and the caches already built stay as they are
+            GenerateEdenPath(EdenPath::ShaderDir, core / SHADER_DIR);
         }
 #endif
 
@@ -208,8 +218,8 @@ private:
         SetLegacyPathImpl(legacy_path, new_path);
     }
 
-    ankerl::unordered_dense::map<EdenPath, fs::path> eden_paths;
-    ankerl::unordered_dense::map<EmuPath, fs::path> legacy_paths;
+    ::Common::unordered_map<EdenPath, fs::path> eden_paths;
+    ::Common::unordered_map<EmuPath, fs::path> legacy_paths;
 };
 
 bool ValidatePath(const fs::path& path) {
@@ -462,11 +472,11 @@ std::vector<std::string> SplitPathComponentsCopy(std::string_view filename) {
 
 std::string SanitizePath(std::string_view path_, DirectorySeparator directory_separator) {
     std::string path(path_);
-#ifdef ANDROID
+#ifdef __ANDROID__
     if (Android::IsContentUri(path)) {
         return path;
     }
-#endif // ANDROID
+#endif // __ANDROID__
 
     char type1 = directory_separator == DirectorySeparator::BackwardSlash ? '/' : '\\';
     char type2 = directory_separator == DirectorySeparator::BackwardSlash ? '\\' : '/';
@@ -489,6 +499,81 @@ std::string SanitizePath(std::string_view path_, DirectorySeparator directory_se
     path.erase(std::unique(start, path.end(),
                            [type2](char c1, char c2) { return c1 == type2 && c2 == type2; }),
                path.end());
+
+    std::string root;
+    std::string_view components{path};
+    bool drive_relative = false;
+
+#ifdef _WIN32
+    const bool network = path.size() > 1 && path[0] == type2 && path[1] == type2;
+    const bool drive =
+        path.size() > 1 && std::isalpha(static_cast<unsigned char>(path[0])) && path[1] == ':';
+
+    if (network) {
+        root.assign(2, type2);
+        components.remove_prefix(2);
+    } else if (drive) {
+        root.assign(path.data(), 2);
+        components.remove_prefix(2);
+        if (!components.empty() && components.front() == type2) {
+            root += type2;
+            components.remove_prefix(1);
+        } else {
+            drive_relative = true;
+        }
+    }
+#endif
+
+    if (root.empty() && !components.empty() && components.front() == type2) {
+        root += type2;
+        components.remove_prefix(1);
+    }
+
+    const auto path_parts = SplitPathComponents(components);
+    std::size_t root_component_count = 0;
+#ifdef _WIN32
+    if (network) {
+        root_component_count = 2;
+
+        const auto is_unc = [](std::string_view part) {
+            return part.size() == 3 && (part[0] == 'U' || part[0] == 'u') &&
+                   (part[1] == 'N' || part[1] == 'n') && (part[2] == 'C' || part[2] == 'c');
+        };
+        if (path_parts.size() >= 2 && path_parts[0] == "?" && is_unc(path_parts[1])) {
+            root_component_count = 4;
+        }
+    }
+#endif
+
+    std::vector<std::string_view> parts;
+    for (std::size_t i = 0; i < path_parts.size(); ++i) {
+        const auto part = path_parts[i];
+        if (i < root_component_count) {
+            parts.push_back(part);
+        } else if (part.empty() || part == ".") {
+            continue;
+        } else if (part == "..") {
+            if (parts.size() > root_component_count) {
+                parts.pop_back();
+            }
+        } else {
+            parts.push_back(part);
+        }
+    }
+
+    const std::size_t root_length = root.size();
+    std::string resolved = std::move(root);
+    for (std::size_t i = 0; i < parts.size(); ++i) {
+        if (i != 0 || (!resolved.empty() && resolved.back() != type2 && !drive_relative))
+            resolved += type2;
+        resolved.append(parts[i].data(), parts[i].size());
+    }
+
+    path = std::move(resolved);
+
+    if (!path.empty() && path.size() == root_length) {
+        return path;
+    }
     return std::string(RemoveTrailingSlash(path));
 }
 
@@ -497,7 +582,7 @@ std::string GetParentPath(std::string_view path) {
         return std::string(path);
     }
 
-#ifdef ANDROID
+#ifdef __ANDROID__
     if (path[0] != '/') {
         std::string path_string{path};
         return FS::Android::GetParentDirectory(path_string);

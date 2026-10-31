@@ -1,8 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#ifndef QT_CONTENT_UTIL_H
-#define QT_CONTENT_UTIL_H
+#pragma once
 
 #include <QObject>
 #include "common/common_types.h"
@@ -37,8 +36,11 @@ inline const QString GetKeyInstallResultString(FirmwareManager::KeyInstallResult
 }
 
 void InstallFirmware(const QString& location, bool recursive);
-
 QString UnzipFirmwareToTmp(const QString& location);
+
+bool CheckKeys();
+void InstallFirmware();
+void InstallFirmwareZip();
 
 // Keys //
 void InstallKeys();
@@ -54,7 +56,9 @@ void ExportDataDir(FrontendCommon::DataManager::DataDir dir, const std::string& 
 void ImportDataDir(FrontendCommon::DataManager::DataDir dir, const std::string& user_id = "",
                    std::function<void()> callback = {});
 
+// Loader //
+void configureFilesystemProvider(const std::string& filepath);
+
 // Profiles //
 void FixProfiles();
 } // namespace QtCommon::Content
-#endif // QT_CONTENT_UTIL_H

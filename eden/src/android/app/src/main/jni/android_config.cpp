@@ -19,6 +19,9 @@ AndroidConfig::AndroidConfig(const std::string& config_name, ConfigType config_t
 }
 
 void AndroidConfig::ReloadAllValues() {
+    // Ensure the INI file is current before reloading values.
+    SetUpIni();
+
     Reload();
     ReadAndroidValues();
     SaveAndroidValues();
@@ -30,8 +33,8 @@ void AndroidConfig::SaveAllValues() {
 }
 
 void AndroidConfig::ReadAndroidValues() {
+    ReadAndroidUIValues();
     if (global) {
-        ReadAndroidUIValues();
         ReadUIValues();
         BeginGroup(Settings::TranslateCategory(Settings::Category::DataStorage));
         Settings::values.ext_content_from_game_dirs = ReadBooleanSetting(
@@ -220,8 +223,8 @@ void AndroidConfig::ReadAndroidControlValues() {
 }
 
 void AndroidConfig::SaveAndroidValues() {
+    SaveAndroidUIValues();
     if (global) {
-        SaveAndroidUIValues();
         SaveUIValues();
         SaveOverlayValues();
     }

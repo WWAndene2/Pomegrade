@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2025 Eden Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // SPDX-FileCopyrightText: Copyright 2020 yuzu Emulator Project
@@ -6,9 +6,6 @@
 
 #pragma once
 
-#ifdef __ANDROID__
-#include "common/android/performance_hint.h"
-#endif
 #include "common/pomegrade_diagnostics.h" // Pomegrade: TEMPORARY
 
 #include <algorithm>
@@ -78,11 +75,11 @@ public:
     }
 
     void SignalFence(std::function<void()>&& func) {
+        const bool delay_fence = Settings::IsGPUFenceBehaviorDefault() ? Settings::IsGPULevelHigh() : Settings::IsGPUFenceBehaviorBalanced() || Settings::IsGPUFenceBehaviorAccurate();
+        const bool should_flush = ShouldFlush();
         if constexpr (!can_async_check) {
             TryReleasePendingFences<false>();
         }
-        const bool should_flush = ShouldFlush();
-        const bool delay_fence = Settings::IsGPULevelHigh() || (Settings::IsGPULevelMedium() && should_flush);
         CommitAsyncFlushes();
         TFence new_fence = CreateFence(!should_flush);
         if constexpr (can_async_check) {
@@ -208,11 +205,7 @@ private:
     void ReleaseThreadFunc(std::stop_token stop_token) {
         Common::SetCurrentThreadName("GPUFencingThread");
         Common::SetCurrentThreadPriority(Common::ThreadPriority::High);
-#ifdef __ANDROID__
-        // Pomegrade: the GPU thread waits for it to release the fences (ReleaseFences): in Android's performance
-        // hints with the threads that make a frame, so its clock rises with theirs
-        Common::Android::PerformanceHint::AddCurrentThread();
-#endif
+        Common::SetCurrentThreadToPerformanceCores();
 
         TFence current_fence;
         std::deque<std::function<void()>> current_operations;

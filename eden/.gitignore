@@ -64,3 +64,6 @@ artifacts
 /install*
 vulkansdk*.exe
 *.tar.zst
+
+# Build-time generated external sources
+externals/generated

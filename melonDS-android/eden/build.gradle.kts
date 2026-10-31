@@ -65,7 +65,8 @@ android {
 
     externalNativeBuild {
         cmake {
-            version = "3.22.1+"
+            // Eden's CMakeLists asks for 3.31 since the update to its master of 26 October (its own build: 3.31.5)
+            version = "3.31.5+"
             path = file("$edenRoot/CMakeLists.txt")
         }
     }
@@ -77,6 +78,10 @@ android {
             kotlin.directories += "$edenAndroid/java"
             res.directories += "$edenAndroid/res"
             assets.directories += "$edenAndroid/assets"
+            // SDL3's Java classes, copied there by Eden's externals/CMakeLists.txt when CMake configures (Eden's own
+            // build adds the same folder; ignored by Eden's .gitignore)
+            java.directories += "$edenRoot/externals/generated/sdl/java"
+            kotlin.directories += "$edenRoot/externals/generated/sdl/java"
         }
     }
 
