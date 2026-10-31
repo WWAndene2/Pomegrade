@@ -39,8 +39,12 @@ ClimImage ClimImage::Read(const Bytes& f)
 Bytes ClimImage::Rgba() const
 {
     const Bytes all = PicaTextureDecode(Pixels, StoredWidth, StoredHeight, ToPica[Format]);
+    // the texels count from the bottom row, so a padded image is the decoded texture's last Height rows (X's badge
+    // case, a/1/1/3: badge_02 is 55 x 77 stored 64 x 128, read from the first rows it came out cut and mixed with the
+    // padding; checked by eye on its six non-square badges, 31 October)
+    const uint32_t top = StoredHeight - Height;
     Bytes out;
-    for (uint32_t y = 0; y < Height; y++) out.insert(out.end(), all.begin() + (size_t)y * StoredWidth * 4, all.begin() + ((size_t)y * StoredWidth + Width) * 4);
+    for (uint32_t y = top; y < StoredHeight; y++) out.insert(out.end(), all.begin() + (size_t)y * StoredWidth * 4, all.begin() + ((size_t)y * StoredWidth + Width) * 4);
     return out;
 }
 
@@ -49,7 +53,8 @@ Bytes ClimImage::WriteRgba8(uint16_t width, uint16_t height, const Bytes& rgba)
     if (rgba.size() != (size_t)width * height * 4) throw FormatError("BCLIM: RGBA size does not match the image");
     const uint32_t sw = Pow2(width), sh = Pow2(height);
     Bytes padded((size_t)sw * sh * 4, 0);
-    for (uint32_t y = 0; y < height; y++) std::copy(rgba.begin() + (size_t)y * width * 4, rgba.begin() + (size_t)(y + 1) * width * 4, padded.begin() + (size_t)y * sw * 4);
+    // in the last rows, where Rgba reads it (the texels count from the bottom row)
+    for (uint32_t y = 0; y < height; y++) std::copy(rgba.begin() + (size_t)y * width * 4, rgba.begin() + (size_t)(y + 1) * width * 4, padded.begin() + (size_t)(sh - height + y) * sw * 4);
     Bytes out = PicaTextureEncodeRgba8(padded, sw, sh);
     const uint32_t dataSize = (uint32_t)out.size(), fileSize = dataSize + 0x28;
     auto p16 = [&](uint16_t v) { out.push_back((uint8_t)v); out.push_back((uint8_t)(v >> 8)); };

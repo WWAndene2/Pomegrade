@@ -65,7 +65,8 @@ android {
 
     externalNativeBuild {
         cmake {
-            version = "3.22.1+"
+            // Eden's CMakeLists asks for 3.31 since the update to its master of 26 October (its own build: 3.31.5)
+            version = "3.31.5+"
             path = file("$edenRoot/CMakeLists.txt")
         }
     }
@@ -77,6 +78,10 @@ android {
             kotlin.directories += "$edenAndroid/java"
             res.directories += "$edenAndroid/res"
             assets.directories += "$edenAndroid/assets"
+            // SDL3's Java classes, copied there by Eden's externals/CMakeLists.txt when CMake configures (Eden's own
+            // build adds the same folder; ignored by Eden's .gitignore)
+            java.directories += "$edenRoot/externals/generated/sdl/java"
+            kotlin.directories += "$edenRoot/externals/generated/sdl/java"
         }
     }
 
@@ -123,4 +128,15 @@ dependencies {
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.ui.text)
     implementation("net.swiftzer.semver:semver:2.0.0")
+}
+
+// SDL3's Java classes (sourceSets above) only exist once CMake has configured: compile Kotlin after it,
+// or a clean checkout (CI) fails with "Unresolved reference 'libsdl'". The configure task is named after the
+// CMake build type: AGP's (Debug, RelWithDebInfo for release) or POMEGRADE_NATIVE_BUILD_TYPE's override (CI:
+// Release). Matched lazily, as AGP registers these tasks late
+tasks.matching { it.name.startsWith("compile") && it.name.endsWith("Kotlin") }.configureEach {
+    val variant = name.removePrefix("compile").removeSuffix("Kotlin")
+    val cmakeBuildType = System.getenv("POMEGRADE_NATIVE_BUILD_TYPE")
+        ?: if (variant == "Debug") "Debug" else "RelWithDebInfo"
+    dependsOn(tasks.matching { it.name.startsWith("configureCMake$cmakeBuildType[", ignoreCase = true) })
 }

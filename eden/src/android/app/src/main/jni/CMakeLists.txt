@@ -17,12 +17,13 @@ add_library(yuzu-android SHARED
     android_config.cpp
     android_config.h
     native_input.cpp
+    native_post_processing.cpp
 )
 
 set_property(TARGET yuzu-android PROPERTY IMPORTED_LOCATION ${FFmpeg_LIBRARY_DIR})
 
 target_link_libraries(yuzu-android PRIVATE audio_core common core input_common frontend_common video_core)
-target_link_libraries(yuzu-android PRIVATE android camera2ndk EGL glad jnigraphics log)
+target_link_libraries(yuzu-android PRIVATE android camera2ndk EGL glad jnigraphics log GLESv2)
 if (ARCHITECTURE_arm64)
     target_link_libraries(yuzu-android PRIVATE adrenotools)
 endif()
@@ -33,7 +34,7 @@ if (ARCHITECTURE_arm64)
     AddPackage(
         NAME hwcpipe
         REPO ARM-software/libGPUCounters
-        TAG 2.5.0
+        VERSION 2.5.0 # Eden's CPMUtil since its master of 26 October: VERSION (archive/2.5.0.tar.gz), no TAG
         HASH 9dc6ab57dc751b1e2f7ffc85c9c09cfabcdcdc6c182fdc37a28fd9ea03377d4b2eb482e0f229121e30e85422eac965689fc13aee70ac36570b4256eaf8275d37
         FORCE_BUNDLED_PACKAGE ON
         OPTIONS
@@ -48,9 +49,11 @@ if (ARCHITECTURE_arm64)
     target_compile_definitions(yuzu-android PRIVATE POMEGRADE_HWCPIPE)
 endif()
 
-target_link_libraries(yuzu-android PRIVATE OpenSSL::SSL cpp-jwt::cpp-jwt)
+target_link_libraries(yuzu-android PRIVATE ${FFmpeg_LIBRARIES} OpenSSL::SSL cpp-jwt::cpp-jwt)
 if (ENABLE_UPDATE_CHECKER)
     target_compile_definitions(yuzu-android PUBLIC ENABLE_UPDATE_CHECKER)
 endif()
 
 set(CPACK_PACKAGE_EXECUTABLES ${CPACK_PACKAGE_EXECUTABLES} yuzu-android)
+
+target_link_options(yuzu-android PRIVATE "-Wl,-Bsymbolic")

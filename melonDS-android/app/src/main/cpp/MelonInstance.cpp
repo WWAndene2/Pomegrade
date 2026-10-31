@@ -362,8 +362,6 @@ u32 MelonInstance::runFrame()
     if (currentRenderer == Renderer::OpenGl)
     {
         auto& glRenderer = static_cast<GLRenderer&>(nds->GPU.GetRenderer3D());
-        // the 3D the DS renders during this frame is shown with the next one
-        glRenderer.SetFrameHidden(!framePlan.NextShow);
         // the polygons of each frame are kept only while images are generated
         glRenderer.SetFrameGeneration(framePlan.Generated > 0);
     }
@@ -797,8 +795,6 @@ void MelonInstance::updateRenderer()
             if (currentConfiguration->renderer == Renderer::Software)
                 threaded = static_cast<SoftwareRenderSettings&>(*currentConfiguration->renderSettings).threadedRendering;
             static_cast<SoftRenderer&>(nds->GPU.GetRenderer3D()).SetThreaded(threaded, nds->GPU);
-            // the OpenGL renderer's lighting effects may have asked for view-space data
-            nds->GPU.GPU3D.SetViewDataCapture(false);
             break;
         }
         case Renderer::OpenGl:
@@ -810,19 +806,12 @@ void MelonInstance::updateRenderer()
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetTextureUpscale(currentConfiguration->textureUpscale);
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetTextureFilter(currentConfiguration->textureFilter);
             static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetOledBlacks(currentConfiguration->oledBlacks);
-            static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetAdaptiveColours(currentConfiguration->adaptiveColours);
-            static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetAmbientOcclusion(currentConfiguration->ambientOcclusion);
-            static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetLightBounce(currentConfiguration->lightBounce);
-            static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetShadows(currentConfiguration->shadows);
-            static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetReflections(currentConfiguration->reflections);
-            static_cast<GLRenderer&>(nds->GPU.GetRenderer3D()).SetRelief(currentConfiguration->reliefTextures);
             break;
         }
         case Renderer::Compute:
         {
             auto computeRenderSettings = static_cast<ComputeRenderSettings&>(*currentConfiguration->renderSettings);
             static_cast<ComputeRenderer&>(nds->GPU.GetRenderer3D()).SetRenderSettings(computeRenderSettings.scale,computeRenderSettings.highResCoordinates);
-            nds->GPU.GPU3D.SetViewDataCapture(false);
             break;
         }
         default: __builtin_unreachable();

@@ -25,7 +25,7 @@ endif()
 # Dynarmic project options
 option(DYNARMIC_ENABLE_CPU_FEATURE_DETECTION "Turning this off causes dynarmic to assume the host CPU doesn't support anything later than SSE3" ON)
 
-if (PLATFORM_OPENBSD OR PLATFORM_DRAGONFLY OR PLATFORM_NETBSD)
+if (OPENBSD OR DRAGONFLY OR NETBSD)
     set(REQUIRE_WX ON)
 else()
     set(REQUIRE_WX OFF)
@@ -120,7 +120,6 @@ if (NOT Boost_FOUND)
 endif()
 
 find_package(fmt 8 CONFIG)
-find_package(unordered_dense REQUIRED)
 
 if ("arm64" IN_LIST ARCHITECTURE OR DYNARMIC_TESTS)
     find_package(oaknut 2.0.1 CONFIG)
@@ -128,6 +127,10 @@ endif()
 
 if ("riscv64" IN_LIST ARCHITECTURE)
     find_package(biscuit 0.9.1 REQUIRED)
+endif()
+
+if ("loongarch64" IN_LIST ARCHITECTURE)
+    find_package(lagoon REQUIRED)
 endif()
 
 if ("x86_64" IN_LIST ARCHITECTURE)

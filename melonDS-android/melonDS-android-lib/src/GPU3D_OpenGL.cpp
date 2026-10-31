@@ -34,11 +34,7 @@ namespace melonDS
 using Platform::Log;
 using Platform::LogLevel;
 
-// Pomegrade: the eight variants of the polygon shader. The relief textures and
-// stylised rendering are compiled in only while relief is on (ReliefShaders):
-// with them, a Mali-G610 driver took 10 to 25 s per variant, two minutes of
-// black screen before every DS game (DS debug trace, owner's phone); without,
-// a few milliseconds each
+// Pomegrade: the eight variants of the polygon shader, built again when they must change
 bool GLRenderer::BuildRenderShaders()
 {
     for (GLuint& prog : RenderShader)
@@ -57,22 +53,6 @@ bool GLRenderer::BuildRenderShaders()
         && BuildRenderShader(RenderFlag_ShadowMask | RenderFlag_WBuffer, kRenderVS_W, kRenderFS_WSM);
 }
 
-void GLRenderer::SetRelief(int level) noexcept
-{
-    Relief = level;
-    if ((level > 0) == ReliefShaders)
-        return;
-    ReliefShaders = level > 0;
-    if (!BuildRenderShaders())
-    {
-        // the driver refused the relief code: the scene keeps drawing without it
-        Log(LogLevel::Error, "Relief textures: shaders refused, relief disabled\n");
-        Relief = 0;
-        ReliefShaders = false;
-        BuildRenderShaders();
-    }
-}
-
 bool GLRenderer::BuildRenderShader(u32 flags, const std::string& vs, const std::string& fs)
 {
     char shadername[32];
@@ -87,7 +67,6 @@ bool GLRenderer::BuildRenderShader(u32 flags, const std::string& vs, const std::
 
     std::string fsbuf;
     fsbuf += kShaderHeader;
-    fsbuf += ReliefShaders ? "\n#define POMEGRADE_RELIEF 1\n" : "\n#define POMEGRADE_RELIEF 0\n";
     fsbuf += kRenderFSCommon;
     fsbuf += fs;
 
@@ -95,9 +74,8 @@ bool GLRenderer::BuildRenderShader(u32 flags, const std::string& vs, const std::
     bool ret = OpenGL::CompileVertexFragmentProgram(prog,
         vsbuf, fsbuf,
         shadername,
-        {{"vPosition", 0}, {"vColor", 1}, {"vTexcoord", 2}, {"vPolygonAttr", 3}, {"vHDTexture", 4},
-         {"vViewPosition", 5}, {"vViewNormal", 6}},
-        {{"oColor", 0}, {"oAttr", 1}, {"oViewPosition", 2}, {"oViewNormal", 3}});
+        {{"vPosition", 0}, {"vColor", 1}, {"vTexcoord", 2}, {"vPolygonAttr", 3}, {"vHDTexture", 4}},
+        {{"oColor", 0}, {"oAttr", 1}});
 
     if (!ret) return false;
 
@@ -210,114 +188,6 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
     glUniform1i(uni_id, 1);
 
 
-    // lighting effects (Pomegrade)
-    if (!OpenGL::CompileVertexFragmentProgram(result->LightingAOShader,
-            kFinalPassVS, kLightingAOFS,
-            "LightingAOShader",
-            {{"vPosition", 0}},
-            {{"oAO", 0}, {"oBounce", 1}}))
-        return nullptr;
-    glUseProgram(result->LightingAOShader);
-    glUniform1i(glGetUniformLocation(result->LightingAOShader, "GPosition"), 0);
-    glUniform1i(glGetUniformLocation(result->LightingAOShader, "GNormal"), 1);
-    glUniform1i(glGetUniformLocation(result->LightingAOShader, "Color"), 2);
-    result->LightingAORadiusLoc = glGetUniformLocation(result->LightingAOShader, "uRadius");
-    result->LightingAOPixelInWLoc = glGetUniformLocation(result->LightingAOShader, "uPixelInW");
-    result->LightingBounceRadiusLoc = glGetUniformLocation(result->LightingAOShader, "uBounceRadius");
-
-    if (!OpenGL::CompileVertexFragmentProgram(result->LightingComposeShader,
-            kFinalPassVS, kLightingComposeFS,
-            "LightingComposeShader",
-            {{"vPosition", 0}},
-            {{"oColor", 0}}))
-        return nullptr;
-    glUseProgram(result->LightingComposeShader);
-    glUniform1i(glGetUniformLocation(result->LightingComposeShader, "Color"), 0);
-    glUniform1i(glGetUniformLocation(result->LightingComposeShader, "GPosition"), 1);
-    glUniform1i(glGetUniformLocation(result->LightingComposeShader, "GNormal"), 2);
-    glUniform1i(glGetUniformLocation(result->LightingComposeShader, "AO"), 3);
-    glUniform1i(glGetUniformLocation(result->LightingComposeShader, "Bounce"), 4);
-    glUniform1i(glGetUniformLocation(result->LightingComposeShader, "ShadowMap"), 5);
-    glUniform1i(glGetUniformLocation(result->LightingComposeShader, "ShadowDepthMap"), 6);
-    {
-        const char* names[7] = {"uShadowStrength", "uLightRight", "uLightUp", "uLightDir", "uShadowBounds", "uShadowDepth", "uShadowTexel"};
-        for (int i = 0; i < 7; i++)
-            result->ComposeShadowLoc[i] = glGetUniformLocation(result->LightingComposeShader, names[i]);
-    }
-
-    {
-        const char* names[4] = {"uReflectionStrength", "uProj", "uViewport", "uScale"};
-        for (int i = 0; i < 4; i++)
-            result->ComposeReflectionLoc[i] = glGetUniformLocation(result->LightingComposeShader, names[i]);
-    }
-
-    if (!OpenGL::CompileVertexFragmentProgram(result->LightingShadowShader,
-            kLightingShadowVS, kLightingShadowFS,
-            "LightingShadowShader",
-            {{"vViewPosition", 5}},
-            {}))
-        return nullptr;
-    {
-        const char* names[5] = {"uLightRight", "uLightUp", "uLightDir", "uShadowBounds", "uShadowDepth"};
-        for (int i = 0; i < 5; i++)
-            result->ShadowLoc[i] = glGetUniformLocation(result->LightingShadowShader, names[i]);
-    }
-    result->LightingComposeAOLoc = glGetUniformLocation(result->LightingComposeShader, "uAmbientOcclusion");
-    result->LightingComposeBounceLoc = glGetUniformLocation(result->LightingComposeShader, "uBounceIntensity");
-    result->ComposeAttrLoc[0] = glGetUniformLocation(result->LightingComposeShader, "AttrBuf");
-    result->ComposeAttrLoc[1] = glGetUniformLocation(result->LightingComposeShader, "uSceneryId");
-
-    // lighting terms at high resolutions (see MaxLightingScale)
-    if (!OpenGL::CompileVertexFragmentProgram(result->LightingDownsampleShader,
-            kFinalPassVS, kLightingDownsampleFS,
-            "LightingDownsampleShader",
-            {{"vPosition", 0}},
-            {{"oPosition", 0}, {"oNormal", 1}, {"oColor", 2}}))
-        return nullptr;
-    glUseProgram(result->LightingDownsampleShader);
-    glUniform1i(glGetUniformLocation(result->LightingDownsampleShader, "GPosition"), 0);
-    glUniform1i(glGetUniformLocation(result->LightingDownsampleShader, "GNormal"), 1);
-    glUniform1i(glGetUniformLocation(result->LightingDownsampleShader, "Color"), 2);
-    result->DownsampleFactorLoc = glGetUniformLocation(result->LightingDownsampleShader, "uFactor");
-
-    if (!OpenGL::CompileVertexFragmentProgram(result->LightingTermsShader,
-            kFinalPassVS, kLightingTermsFS,
-            "LightingTermsShader",
-            {{"vPosition", 0}},
-            {{"oTerms", 0}, {"oBounce", 1}, {"oReflected", 2}}))
-        return nullptr;
-    glUseProgram(result->LightingTermsShader);
-    // the compose shader's texture units
-    {
-        const char* samplers[7] = {"Color", "GPosition", "GNormal", "AO", "Bounce", "ShadowMap", "ShadowDepthMap"};
-        for (int i = 0; i < 7; i++)
-            glUniform1i(glGetUniformLocation(result->LightingTermsShader, samplers[i]), i);
-        const char* shadow[7] = {"uShadowStrength", "uLightRight", "uLightUp", "uLightDir", "uShadowBounds", "uShadowDepth", "uShadowTexel"};
-        for (int i = 0; i < 7; i++)
-            result->TermsShadowLoc[i] = glGetUniformLocation(result->LightingTermsShader, shadow[i]);
-        const char* reflection[4] = {"uReflectionStrength", "uProj", "uViewport", "uScale"};
-        for (int i = 0; i < 4; i++)
-            result->TermsReflectionLoc[i] = glGetUniformLocation(result->LightingTermsShader, reflection[i]);
-    }
-
-    if (!OpenGL::CompileVertexFragmentProgram(result->LightingUpsampleShader,
-            kFinalPassVS, kLightingUpsampleFS,
-            "LightingUpsampleShader",
-            {{"vPosition", 0}},
-            {{"oColor", 0}}))
-        return nullptr;
-    glUseProgram(result->LightingUpsampleShader);
-    {
-        const char* samplers[9] = {"Color", "GPosition", "GNormal", "LowPosition", "LowNormal", "Terms", "TermsBounce", "TermsReflected", "LowAO"};
-        for (int i = 0; i < 9; i++)
-            glUniform1i(glGetUniformLocation(result->LightingUpsampleShader, samplers[i]), i);
-        const char* names[6] = {"uFactor", "uAmbientOcclusion", "uBounceIntensity", "uShadowStrength", "uLightDir", "uReflectionStrength"};
-        for (int i = 0; i < 6; i++)
-            result->UpsampleLoc[i] = glGetUniformLocation(result->LightingUpsampleShader, names[i]);
-    }
-    result->UpsampleAttrLoc[0] = glGetUniformLocation(result->LightingUpsampleShader, "AttrBuf");
-    result->UpsampleAttrLoc[1] = glGetUniformLocation(result->LightingUpsampleShader, "uSceneryId");
-
 
     memset(&result->ShaderConfig, 0, sizeof(ShaderConfig));
 
@@ -366,24 +236,12 @@ std::unique_ptr<GLRenderer> GLRenderer::New() noexcept
     glEnableVertexAttribArray(4); // HD texture atlas location
     glVertexAttribIPointer(4, 1, GL_INT, VertexSize*4, (void*)(7*4));
 
-    // view-space data for the lighting effects, enabled per frame (RenderFrame)
-    glGenBuffers(1, &result->ViewVertexBufferID);
-    glBindBuffer(GL_ARRAY_BUFFER, result->ViewVertexBufferID);
-    glBufferData(GL_ARRAY_BUFFER, result->ViewVertexBuffer.size() * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
-    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, ViewVertexSize*4, (void*)(0));
-    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, ViewVertexSize*4, (void*)(4*4));
-
     glGenBuffers(1, &result->IndexBufferID);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, result->IndexBufferID);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, result->IndexBuffer.size() * sizeof(u32), nullptr, GL_DYNAMIC_DRAW);
 
     glGenFramebuffers(1, &result->MainFramebuffer);
     glGenFramebuffers(1, &result->DownscaleFramebuffer);
-    glGenFramebuffers(1, &result->AOFramebuffer);
-    glGenFramebuffers(1, &result->LightingFramebuffer);
-    glGenFramebuffers(1, &result->LowGBufferFramebuffer);
-    glGenFramebuffers(1, &result->TermsFramebuffer);
-    glGenFramebuffers(1, &result->ShadowFramebuffer);
 
     // color buffers
     glGenTextures(1, &result->ColorBufferTex);
@@ -449,34 +307,8 @@ GLRenderer::~GLRenderer()
     glDeleteTextures(1, &AttrBufferTex);
     glDeleteTextures(1, &DownScaleBufferTex);
 
-    glDeleteFramebuffers(1, &AOFramebuffer);
-    glDeleteFramebuffers(1, &LightingFramebuffer);
-    glDeleteFramebuffers(1, &LowGBufferFramebuffer);
-    glDeleteFramebuffers(1, &TermsFramebuffer);
-    for (GLuint* tex : {&LowPositionTex, &LowNormalTex, &LowColorTex, &TermsTex, &TermsBounceTex, &TermsReflectedTex})
-        glDeleteTextures(1, tex);
-    glDeleteProgram(LightingDownsampleShader);
-    glDeleteProgram(LightingTermsShader);
-    glDeleteProgram(LightingUpsampleShader);
-    glDeleteTextures(1, &ViewPositionTex);
-    glDeleteTextures(1, &ViewNormalTex);
-    glDeleteTextures(1, &AOTex);
-    glDeleteTextures(1, &BounceTex);
-    glDeleteTextures(1, &LightingTex);
-    glDeleteTextures(1, &LitDepthTex);
-    glDeleteTextures(1, &LitAttrTex);
-    glDeleteBuffers(1, &ViewVertexBufferID);
-    glDeleteProgram(LightingAOShader);
-    glDeleteProgram(LightingComposeShader);
-    glDeleteProgram(LightingShadowShader);
     glDeleteTextures(1, &BackupColorTex);
-    glDeleteTextures(1, &BackupLightingTex);
     glDeleteFramebuffers(2, CopyFramebuffers);
-    glDeleteFramebuffers(1, &ShadowFramebuffer);
-    glDeleteTextures(1, &ShadowMapTex);
-    glDeleteSamplers(1, &ShadowDepthSampler);
-    glDeleteBuffers(1, &ShadowCasterBufferID);
-    glDeleteVertexArrays(1, &ShadowCasterArrayID);
 
     glDeleteVertexArrays(1, &VertexArrayID);
     glDeleteBuffers(1, &VertexBufferID);
@@ -540,11 +372,6 @@ void GLRenderer::SetRenderSettings(bool betterpolygons, int scale) noexcept
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, ColorBufferTex, 0);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, DepthBufferTex, 0);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, AttrBufferTex, 0);
-    // lighting targets still at the old size would limit rendering to their
-    // area: detached here, made again at the new size when next used
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, 0, 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, 0, 0);
-    LightingTargetsW = LightingTargetsH = 0;
     glDrawBuffers(2, fbassign);
 
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
@@ -650,7 +477,7 @@ u32 GLRenderer::PlaneDepth(const double plane[3], u32 x, u32 y) noexcept
     return (u32)std::clamp(std::lround(z), 0L, 0xFFFFFFL);
 }
 
-u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 hdTexture, u32* vptr, u32 procedural) const
+u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 hdTexture, u32* vptr) const
 {
     u32 z = poly->FinalZ[vid];
     u32 w = poly->FinalW[vid];
@@ -721,54 +548,17 @@ u32* GLRenderer::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u3
 
     // Split TexParam into 2 because some GPUs don't have 32 bit ints. TexPalette only uses 13 bits
     *vptr++ = vtxattr | (zshift << 16);
-    *vptr++ = (poly->TexParam & 0xFFFF) | (procedural << 16);
+    *vptr++ = poly->TexParam & 0xFFFF;
     *vptr++ = (poly->TexParam >> 16 ) | (poly->TexPalette << 16);
     *vptr++ = hdTexture;
 
     return vptr;
 }
 
-float* GLRenderer::SetupViewVertex(const Vertex* vtx, float* gptr) const
-{
-    for (int i = 0; i < 3; i++) *gptr++ = vtx->ViewPosition[i];
-    *gptr++ = vtx->Orthographic ? 0.f : 1.f;
-    for (int i = 0; i < 3; i++) *gptr++ = vtx->ViewNormal[i];
-    *gptr++ = vtx->Specular;
-    return gptr;
-}
-
-float* GLRenderer::SetupViewCenterVertex(const Polygon* poly, float* gptr) const
-{
-    // the centre vertex sits at the average screen position: its view-space
-    // data is the perspective-correct average (weights 1/W), as for its colour
-    float pos[3] = {}, normal[3] = {}, specular = 0, weight = 0;
-    bool perspective = true;
-    for (u32 j = 0; j < poly->NumVertices; j++)
-    {
-        const Vertex* vtx = poly->Vertices[j];
-        float w = 1.0f / (float)std::max(poly->FinalW[j], 1);
-        for (int i = 0; i < 3; i++)
-        {
-            pos[i] += vtx->ViewPosition[i] * w;
-            normal[i] += vtx->ViewNormal[i] * w;
-        }
-        specular += vtx->Specular * w;
-        weight += w;
-        perspective = perspective && !vtx->Orthographic;
-    }
-    for (int i = 0; i < 3; i++) *gptr++ = pos[i] / weight;
-    *gptr++ = perspective ? 1.f : 0.f;
-    for (int i = 0; i < 3; i++) *gptr++ = normal[i] / weight;
-    *gptr++ = specular / weight;
-    return gptr;
-}
-
 void GLRenderer::LookupHDTextures(GPU& gpu, int npolys)
 {
     PerformanceCounters::CpuScope cpuTime(PerformanceCounters::Section::TexturesCpu);
     bool textured = gpu.GPU3D.RenderDispCnt & (1<<0);
-    // relief by material reads texels from the flat texture VRAM
-    HDTextures.SetKeepCoherent(ViewDataActive && Relief > 0);
     if (!HDTextures.BeginFrame(gpu) || !textured)
     {
         for (int i = 0; i < npolys; i++)
@@ -813,45 +603,6 @@ void GLRenderer::LookupHDTextures(GPU& gpu, int npolys)
     glActiveTexture(prevActiveTexture);
 }
 
-void GLRenderer::LookupReliefScales(GPU& gpu, int npolys)
-{
-    const bool active = ViewDataActive && Relief > 0 && (gpu.GPU3D.RenderDispCnt & (1<<0));
-    // the frame's polygon IDs per texture: evidence for the character class
-    // (relief) and characters' softer shade (lighting effects)
-    std::unordered_map<u64, u64> textureIds;
-    if (active || LightingActive)
-        for (int i = 0; i < npolys; i++)
-        {
-            const Polygon* poly = PolygonList[i].PolyData;
-            if ((poly->TexParam >> 26) & 0x7)
-                textureIds[TexcacheKey(poly->TexParam, poly->TexPalette)] |= 1ull << ((poly->Attr >> 24) & 0x3F);
-        }
-    int counts[64] = {};
-    for (auto& [key, ids] : textureIds)
-        for (int n = 0; n < 64; n++) counts[n] += (ids >> n) & 1;
-    FrameSceneryId = MaterialClassifier::SceneryId(counts);
-    MaterialRelief.BeginFrame(HDTextures.TexturesChanged(), FrameSceneryId);
-    u32 prevParam = 0, prevPal = 0, prevScale = 0;
-    bool havePrev = false;
-    for (int i = 0; i < npolys; i++)
-    {
-        Polygon* poly = PolygonList[i].PolyData;
-        u32 scale = 0;
-        if (active && ((poly->TexParam >> 26) & 0x7) != 0)
-        {
-            if (havePrev && poly->TexParam == prevParam && poly->TexPalette == prevPal)
-                scale = prevScale;
-            else
-            {
-                scale = MaterialRelief.Scale(gpu, poly->TexParam, poly->TexPalette, textureIds[TexcacheKey(poly->TexParam, poly->TexPalette)]);
-                prevParam = poly->TexParam; prevPal = poly->TexPalette; prevScale = scale;
-                havePrev = true;
-            }
-        }
-        PolygonList[i].ReliefScale = scale;
-    }
-}
-
 void GLRenderer::EnsureCapacity(Polygon** polygons, u32 npolys)
 {
     // upper bounds per polygon of n vertices, as BuildPolygons fills them:
@@ -875,13 +626,6 @@ void GLRenderer::EnsureCapacity(Polygon** polygons, u32 npolys)
         glBufferData(GL_ARRAY_BUFFER, VertexBuffer.size() * sizeof(u32), nullptr, GL_DYNAMIC_DRAW);
     }
 
-    if (ViewDataActive && vertices * ViewVertexSize > ViewVertexBuffer.size())
-    {
-        ViewVertexBuffer.resize(vertices * ViewVertexSize);
-        glBindBuffer(GL_ARRAY_BUFFER, ViewVertexBufferID);
-        glBufferData(GL_ARRAY_BUFFER, ViewVertexBuffer.size() * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
-    }
-
     if (triIndices > EdgeIndicesOffset || EdgeIndicesOffset + edgeIndices > IndexBuffer.size())
     {
         EdgeIndicesOffset = std::max(EdgeIndicesOffset, triIndices);
@@ -897,38 +641,6 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
 {
     u32* vptr = &VertexBuffer[0];
     u32 vidx = 0;
-    // view-space data, one entry per vertex of VertexBuffer (lighting effects)
-    float* gptr = &ViewVertexBuffer[0];
-    const bool viewdata = ViewDataActive;
-    memset(LightUse, 0, sizeof(LightUse));
-    memset(SceneryLightUse, 0, sizeof(SceneryLightUse));
-    SceneryPoints.clear();
-    // the backdrop (a skybox, a sky dome, painted distant scenery) is left out of the lighting effects: its pixels
-    // neither receive them nor count for their neighbours, so a skybox's edges are not taken for real corners. A
-    // polygon is backdrop when the game does not light it and it lies wholly over twice the median distance of what
-    // the frame draws, or when any of it lies over 8 times that distance (as RenderShadowMap's casters)
-    float backdropNear = 1e30f, backdropFar = 1e30f;
-    if (viewdata)
-    {
-        std::vector<float>& d = BackdropDistances;
-        d.clear();
-        for (int i = 0; i < npolys; i++)
-        {
-            const Polygon* p = polygons[i].PolyData;
-            if (p->Translucent) continue;
-            for (u32 j = 0; j < p->NumVertices; j++)
-            {
-                const float* v = p->Vertices[j]->ViewPosition;
-                if (!p->Vertices[j]->Orthographic) d.push_back(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-            }
-        }
-        if (!d.empty())
-        {
-            std::nth_element(d.begin(), d.begin() + d.size() / 2, d.end());
-            backdropNear = d[d.size() / 2] * 4.0f; // squared distances
-            backdropFar = d[d.size() / 2] * 64.0f;
-        }
-    }
 
     u32 iidx = 0;
     u32 eidx = EdgeIndicesOffset;
@@ -938,34 +650,17 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
         RendererPolygon* rp = &polygons[i];
         Polygon* poly = rp->PolyData;
 
-        if (viewdata && !poly->Translucent)
-        {
-            for (int l = 0; l < 4; l++)
-                if (poly->Attr & (1 << l)) LightUse[l]++;
-            // the scenery's (all opaque polygons when the frame has no scenery ID: untextured scenes)
-            if (FrameSceneryId < 0 || (int)((poly->Attr >> 24) & 0x3F) == FrameSceneryId)
-            {
-                if (FrameSceneryId >= 0)
-                    for (int l = 0; l < 4; l++)
-                        if (poly->Attr & (1 << l)) SceneryLightUse[l]++;
-                for (u32 j = 0; j < poly->NumVertices; j++)
-                    if (!poly->Vertices[j]->Orthographic) // a 2D panel stays put on screen
-                        SceneryPoints.insert(SceneryPoints.end(), poly->Vertices[j]->ViewPosition, poly->Vertices[j]->ViewPosition + 3);
-            }
-        }
 
         rp->IndicesOffset = iidx;
         rp->NumIndices = 0;
 
         u32 vidx_first = vidx;
-        float* gptr_first = gptr;
 
         u32 polyattr = poly->Attr;
 
         u32 alpha = (polyattr >> 16) & 0x1F;
 
         u32 vtxattr = polyattr & 0x1F00C8F0;
-        vtxattr |= rp->ReliefScale & (0xF | GLMaterialRelief::VolumetricGrass | GLMaterialRelief::Fabric); // bits 0-3, 12, 13: free in the DS attributes kept here
         if (poly->FacingView) vtxattr |= (1<<8);
         if (poly->WBuffer)    vtxattr |= (1<<9);
 
@@ -989,8 +684,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 lastx = vtx->FinalPosition[0];
                 lasty = vtx->FinalPosition[1];
 
-                vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr, (rp->ReliefScale >> GLMaterialRelief::ProceduralShift) & 0xF);
-                if (viewdata) gptr = SetupViewVertex(vtx, gptr);
+                vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr);
 
                 IndexBuffer[iidx++] = vidx;
                 rp->NumIndices++;
@@ -1008,8 +702,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
             {
                 Vertex* vtx = poly->Vertices[j];
 
-                vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr, (rp->ReliefScale >> GLMaterialRelief::ProceduralShift) & 0xF);
-                if (viewdata) gptr = SetupViewVertex(vtx, gptr);
+                vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr);
                 vidx++;
             }
 
@@ -1031,8 +724,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 {
                     Vertex* vtx = poly->Vertices[j];
 
-                    vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr, (rp->ReliefScale >> GLMaterialRelief::ProceduralShift) & 0xF);
-                    if (viewdata) gptr = SetupViewVertex(vtx, gptr);
+                    vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr);
 
                     if (j >= 2)
                     {
@@ -1139,10 +831,9 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
 
                 // Split TexParam into 2 because some GPUs don't have 32 bit ints. TexPalette only uses 13 bits
                 *vptr++ = vtxattr | (zshift << 16);
-                *vptr++ = (poly->TexParam & 0xFFFF) | (((rp->ReliefScale >> GLMaterialRelief::ProceduralShift) & 0xF) << 16);
+                *vptr++ = poly->TexParam & 0xFFFF;
                 *vptr++ = (poly->TexParam >> 16 ) | (poly->TexPalette << 16);
                 *vptr++ = rp->HDTexture;
-                if (viewdata) gptr = SetupViewCenterVertex(poly, gptr);
 
                 vidx++;
 
@@ -1151,8 +842,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 {
                     Vertex* vtx = poly->Vertices[j];
 
-                    vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr, (rp->ReliefScale >> GLMaterialRelief::ProceduralShift) & 0xF);
-                    if (viewdata) gptr = SetupViewVertex(vtx, gptr);
+                    vptr = SetupVertex(poly, j, vtx, vtxattr, rp->HDTexture, vptr);
 
                     if (j >= 1)
                     {
@@ -1173,19 +863,6 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
             }
         }
 
-        if (viewdata && !poly->Translucent)
-        {
-            bool unlit = (poly->Attr & 0xF) == 0, allBeyond = true, anyFar = false;
-            for (u32 j = 0; j < poly->NumVertices; j++)
-            {
-                const float* v = poly->Vertices[j]->ViewPosition;
-                const float d = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
-                allBeyond = allBeyond && d > backdropNear;
-                anyFar = anyFar || d > backdropFar;
-            }
-            if ((unlit && allBeyond) || anyFar)
-                for (float* g = gptr_first; g < gptr; g += ViewVertexSize) g[3] = 0.f; // not valid for the effects
-        }
 
         if (ViewInspector)
         {
@@ -1304,12 +981,8 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
 
     glBindVertexArray(VertexArrayID);
 
-    // lighting effects: opaque polygons also write their view-space position and normal
-    const GLenum drawbuffers[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
-    if (LightingActive && !TranslucentPassOnly)
-        glDrawBuffers(4, drawbuffers);
 
-    for (int i = TranslucentPassOnly ? NumFinalPolys : 0; i < NumFinalPolys; )
+    for (int i = 0; i < NumFinalPolys; )
     {
         RendererPolygon* rp = &PolygonList[i];
 
@@ -1331,14 +1004,6 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
         i += RenderPolygonBatch(i);
     }
 
-    if (LightingActive)
-        glDrawBuffers(2, drawbuffers);
-    // the lit image of the opaque layer (LightingTex), before translucent polygons
-    if (LightingActive && !TranslucentPassOnly)
-    {
-        RenderLighting(gpu3d);
-        UseRenderShader(flags);
-    }
 
     // if edge marking is enabled, mark all opaque edges
     // TODO BETTER EDGE MARKING!!! THIS SUCKS
@@ -1391,8 +1056,6 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
             for (int i = 0; i < NumFinalPolys; )
             {
                 RendererPolygon* rp = &PolygonList[i];
-
-                if (DSShadowsReplaced && rp->PolyData->IsShadow && ShadowReplaced[i]) { i++; continue; }
 
                 if (rp->PolyData->IsShadowMask)
                 {
@@ -1494,8 +1157,6 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
         for (int i = 0; i < NumFinalPolys; )
         {
             RendererPolygon* rp = &PolygonList[i];
-
-            if (DSShadowsReplaced && rp->PolyData->IsShadow && ShadowReplaced[i]) { i++; continue; }
 
             if (rp->PolyData->IsShadowMask)
             {
@@ -1618,9 +1279,9 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
         glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, 0, 0);
 
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, TranslucentPassOnly ? LitDepthTex : DepthBufferTex);
+        glBindTexture(GL_TEXTURE_2D, DepthBufferTex);
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, TranslucentPassOnly ? LitAttrTex : AttrBufferTex);
+        glBindTexture(GL_TEXTURE_2D, AttrBufferTex);
 
         glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
         glBindVertexArray(ClearVertexArrayID);
@@ -1661,544 +1322,10 @@ void GLRenderer::RenderSceneChunk(const GPU3D& gpu3d, int y, int h)
             glDrawArrays(GL_TRIANGLES, 0, 2*3);
         }
 
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, TranslucentPassOnly ? LitDepthTex : DepthBufferTex, 0);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, DepthBufferTex, 0);
     }
 }
 
-
-void GLRenderer::SetupLightingTargets()
-{
-    if (LightingTargetsW == ScreenW && LightingTargetsH == ScreenH)
-        return;
-    LightingTargetsW = ScreenW;
-    LightingTargetsH = ScreenH;
-    // the lighting terms' resolution (see MaxLightingScale); 256 * scale is even
-    LightingFactor = (ScaleFactor + MaxLightingScale - 1) / MaxLightingScale;
-    const int lowW = ScreenW / LightingFactor, lowH = ScreenH / LightingFactor;
-
-    auto makeTarget = [&](GLuint& tex, GLenum internalFormat, GLenum format, GLenum type, bool low = false)
-    {
-        if (!tex) glGenTextures(1, &tex);
-        SetupDefaultTexParams(tex);
-        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, low ? lowW : ScreenW, low ? lowH : ScreenH, 0, format, type, nullptr);
-    };
-    glActiveTexture(GL_TEXTURE0);
-    // view positions need float32: view-space units are 1/4096, with depths in the thousands
-    makeTarget(ViewPositionTex, GL_RGBA32F, GL_RGBA, GL_FLOAT);
-    makeTarget(ViewNormalTex, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
-    makeTarget(AOTex, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT, true);
-    makeTarget(BounceTex, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT, true);
-    makeTarget(LightingTex, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE);
-    // same formats as DepthBufferTex and AttrBufferTex (copied with blits)
-    makeTarget(LitDepthTex, GL_DEPTH24_STENCIL8, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8);
-    makeTarget(LitAttrTex, GL_RGB, GL_RGB, GL_UNSIGNED_BYTE);
-
-    // attachments 2 and 3 of the main framebuffer, drawn to by opaque polygons only
-    glBindFramebuffer(GL_FRAMEBUFFER, MainFramebuffer);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, ViewPositionTex, 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, ViewNormalTex, 0);
-
-    const GLenum buffers[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
-    glDrawBuffers(4, buffers);
-    bool complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
-    glDrawBuffers(2, buffers);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, AOFramebuffer);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, AOTex, 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, BounceTex, 0);
-    glDrawBuffers(2, buffers);
-    complete = complete && glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
-    glBindFramebuffer(GL_FRAMEBUFFER, LightingFramebuffer);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, LightingTex, 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, LitAttrTex, 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, LitDepthTex, 0);
-    glDrawBuffers(2, buffers);
-    complete = complete && glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
-
-    if (LightingFactor > 1)
-    {
-        // the smaller copy of the frame's data, and the terms computed on it
-        makeTarget(LowPositionTex, GL_RGBA32F, GL_RGBA, GL_FLOAT, true);
-        makeTarget(LowNormalTex, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, true);
-        makeTarget(LowColorTex, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, true);
-        makeTarget(TermsTex, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, true);
-        makeTarget(TermsBounceTex, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT, true);
-        makeTarget(TermsReflectedTex, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, true);
-        glBindFramebuffer(GL_FRAMEBUFFER, LowGBufferFramebuffer);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, LowPositionTex, 0);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, LowNormalTex, 0);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, LowColorTex, 0);
-        glDrawBuffers(3, buffers);
-        complete = complete && glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
-        glBindFramebuffer(GL_FRAMEBUFFER, TermsFramebuffer);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, TermsTex, 0);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, TermsBounceTex, 0);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, TermsReflectedTex, 0);
-        glDrawBuffers(3, buffers);
-        complete = complete && glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
-    }
-
-    if (!complete)
-    {
-        // float render targets missing: the effects stay off, and the main
-        // framebuffer gets back to its own attachments (with the unusable ones
-        // attached it would be incomplete, and nothing would render)
-        Log(LogLevel::Warn, "Lighting effects: render targets not supported, effects disabled\n");
-        glBindFramebuffer(GL_FRAMEBUFFER, MainFramebuffer);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, 0, 0);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, 0, 0);
-        LightingSupported = false;
-        LightingActive = false;
-    }
-}
-
-bool GLRenderer::RenderShadowMap(const GPU3D& gpu3d)
-{
-    // the main light: the one the most opaque polygons of the scenery use (a character's own light followed it),
-    // else of all
-    const u32* use = SceneryLightUse;
-    if (!(use[0] | use[1] | use[2] | use[3])) use = LightUse;
-    int light = 0;
-    for (int l = 1; l < 4; l++)
-        if (use[l] > use[light]) light = l;
-    // the scene's frame of reference, followed every frame there are shadows
-    const bool restarted = SceneFrame.Update(SceneryPoints);
-    if (!use[light])
-        return false;
-
-    float dir[3];
-    for (int i = 0; i < 3; i++) dir[i] = (float)gpu3d.RenderLightDirection[light][i];
-    float len = std::sqrt(dir[0]*dir[0] + dir[1]*dir[1] + dir[2]*dir[2]);
-    if (len <= 0)
-        return false;
-    auto& sp = ShadowParams;
-    for (int i = 0; i < 3; i++) dir[i] /= len;
-    // the game's direction unchanged in view space: a light that turns with the camera, held fixed in the scene (it
-    // turns the other way in view space as the camera turns, as a light of the scene does). Changed: the game moved
-    // it, or it is a light of the scene already (it turns as the camera does): followed. A new scene takes the game's
-    const float moved = (dir[0] - GameLight[0]) * (dir[0] - GameLight[0]) + (dir[1] - GameLight[1]) * (dir[1] - GameLight[1]) +
-                        (dir[2] - GameLight[2]) * (dir[2] - GameLight[2]);
-    if (restarted || !HaveSceneLight || moved > 1e-6f)
-        SceneFrame.ViewToWorld(dir, SceneLight);
-    HaveSceneLight = true;
-    std::copy(dir, dir + 3, GameLight);
-    SceneFrame.WorldToView(SceneLight, sp.Dir);
-
-    // light space: any two axes across the light's direction
-    float hint[3] = {0, 1, 0};
-    if (std::fabs(sp.Dir[1]) > 0.9f) { hint[0] = 1; hint[1] = 0; }
-    auto cross = [](const float* a, const float* b, float* out) {
-        out[0] = a[1]*b[2] - a[2]*b[1]; out[1] = a[2]*b[0] - a[0]*b[2]; out[2] = a[0]*b[1] - a[1]*b[0];
-    };
-    cross(hint, sp.Dir, sp.Right);
-    float rlen = std::sqrt(sp.Right[0]*sp.Right[0] + sp.Right[1]*sp.Right[1] + sp.Right[2]*sp.Right[2]);
-    for (int i = 0; i < 3; i++) sp.Right[i] /= rlen;
-    cross(sp.Dir, sp.Right, sp.Up);
-
-    // fitted to the 3D geometry of the frame
-    float lo[3] = {1e30f, 1e30f, 1e30f}, hi[3] = {-1e30f, -1e30f, -1e30f};
-    for (u32 v = 0; v < NumVertices; v++)
-    {
-        const float* g = &ViewVertexBuffer[v * ViewVertexSize];
-        if (g[3] < 0.5f) continue;
-        const float* axes[3] = {sp.Right, sp.Up, sp.Dir};
-        for (int a = 0; a < 3; a++)
-        {
-            float d = g[0]*axes[a][0] + g[1]*axes[a][1] + g[2]*axes[a][2];
-            lo[a] = std::min(lo[a], d);
-            hi[a] = std::max(hi[a], d);
-        }
-    }
-    // what casts may lie outside the view (see GPU3D::RecordShadowCaster):
-    // the depth range covers it, across the light only what is on screen
-    // matters (a directional light's shadows fall straight along it)
-    // Only faces turned towards the light cast: a closed object's lit half
-    // has its whole outline, and the inside of what encloses the scene (a
-    // room's ceiling and walls, lit by the DS too) faces away from a light
-    // coming from outside, which it would otherwise block entirely
-    // Far background (a sky dome, distant mountains) casts nothing: what lies
-    // over 8 times further than the median distance of what the frame draws.
-    // On Joker's harbour a piece of the sky dome, a million units out (the
-    // scene within about 60 thousand), joined the casters on some frames and
-    // put the whole scene in shadow
-    ShadowDistances.clear();
-    for (u32 v = 0; v < NumVertices; v++)
-    {
-        const float* g = &ViewVertexBuffer[v * ViewVertexSize];
-        if (g[3] >= 0.5f) ShadowDistances.push_back(g[0]*g[0] + g[1]*g[1] + g[2]*g[2]);
-    }
-    float farthest = 1e30f;
-    if (!ShadowDistances.empty())
-    {
-        auto mid = ShadowDistances.begin() + ShadowDistances.size() / 2;
-        std::nth_element(ShadowDistances.begin(), mid, ShadowDistances.end());
-        farthest = *mid * 64.0f; // squared: 8 times the distance
-    }
-    const std::vector<float>& recorded = gpu3d.RenderShadowCasters;
-    ShadowCasterVertices.clear();
-    for (size_t t = 0; t + 11 < recorded.size(); t += 12)
-    {
-        const float* n = &recorded[t + 9];
-        if (n[0]*sp.Dir[0] + n[1]*sp.Dir[1] + n[2]*sp.Dir[2] <= 0)
-            continue;
-        bool background = false;
-        for (int v = 0; v < 3; v++)
-        {
-            const float* q = &recorded[t + v * 3];
-            background = background || q[0]*q[0] + q[1]*q[1] + q[2]*q[2] > farthest;
-        }
-        if (background)
-            continue;
-        ShadowCasterVertices.insert(ShadowCasterVertices.end(), &recorded[t], &recorded[t + 9]);
-    }
-    const std::vector<float>& casters = ShadowCasterVertices;
-    for (size_t v = 0; v + 2 < casters.size(); v += 3)
-    {
-        float d = casters[v]*sp.Dir[0] + casters[v+1]*sp.Dir[1] + casters[v+2]*sp.Dir[2];
-        lo[2] = std::min(lo[2], d);
-        hi[2] = std::max(hi[2], d);
-    }
-    float extent = std::max(hi[0] - lo[0], hi[1] - lo[1]);
-    if (!(extent > 0) || !(hi[2] > lo[2]) || casters.empty())
-        return false;
-    // stable from frame to frame: the map's width in steps of 19% (with 4
-    // texels of margin), its corner on whole texels, so that a moving view
-    // doesn't make shadow edges crawl
-    float width = std::exp2(std::ceil(std::log2(extent * (1.0f + 4.0f / ShadowMapSize)) * 4.0f) / 4.0f);
-    float texel = width / ShadowMapSize;
-    sp.Bounds[0] = (std::floor(lo[0] / texel) - 1.0f) * texel;
-    sp.Bounds[1] = (std::floor(lo[1] / texel) - 1.0f) * texel;
-    sp.Bounds[2] = 1.0f / width;
-    sp.Bounds[3] = 1.0f / width;
-    sp.Depth[0] = hi[2] + texel;
-    sp.Depth[1] = 1.0f / (hi[2] - lo[2] + 2 * texel);
-    sp.Texel = texel;
-
-    if (!ShadowMapTex)
-    {
-        glGenTextures(1, &ShadowMapTex);
-        glBindTexture(GL_TEXTURE_2D, ShadowMapTex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        // hardware depth comparison, bilinear: each lookup is a 2x2 filtered test
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, ShadowMapSize, ShadowMapSize, 0,
-                     GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, nullptr);
-        glBindFramebuffer(GL_FRAMEBUFFER, ShadowFramebuffer);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, ShadowMapTex, 0);
-        const GLenum none = GL_NONE;
-        glDrawBuffers(1, &none);
-        glReadBuffer(GL_NONE);
-        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        {
-            Log(LogLevel::Warn, "Lighting effects: shadow map not supported, shadows disabled\n");
-            glDeleteTextures(1, &ShadowMapTex);
-            ShadowMapTex = 0;
-            Shadows = false;
-            return false;
-        }
-    }
-
-    glBindFramebuffer(GL_FRAMEBUFFER, ShadowFramebuffer);
-    glViewport(0, 0, ShadowMapSize, ShadowMapSize);
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-    glDepthMask(GL_TRUE);
-    glClear(GL_DEPTH_BUFFER_BIT);
-
-    glUseProgram(LightingShadowShader);
-    glUniform3fv(ShadowLoc[0], 1, sp.Right);
-    glUniform3fv(ShadowLoc[1], 1, sp.Up);
-    glUniform3fv(ShadowLoc[2], 1, sp.Dir);
-    glUniform4fv(ShadowLoc[3], 1, sp.Bounds);
-    glUniform2fv(ShadowLoc[4], 1, sp.Depth);
-
-    // the casters, on screen or not, whichever side the camera sees. Only
-    // geometry the DS lights casts: unlit polygons carry lighting the game
-    // painted in, occlusion included, or are backdrops (a sky behind a
-    // window would block the sun)
-    if (!ShadowCasterBufferID)
-    {
-        glGenBuffers(1, &ShadowCasterBufferID);
-        glGenVertexArrays(1, &ShadowCasterArrayID);
-        glBindVertexArray(ShadowCasterArrayID);
-        glBindBuffer(GL_ARRAY_BUFFER, ShadowCasterBufferID);
-        glEnableVertexAttribArray(5); // vViewPosition (w = 1: perspective)
-        glVertexAttribPointer(5, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
-    }
-    glBindVertexArray(ShadowCasterArrayID);
-    glBindBuffer(GL_ARRAY_BUFFER, ShadowCasterBufferID);
-    glBufferData(GL_ARRAY_BUFFER, casters.size() * sizeof(float), casters.data(), GL_STREAM_DRAW);
-    glDisable(GL_CULL_FACE);
-    glDrawArrays(GL_TRIANGLES, 0, (GLsizei)(casters.size() / 3));
-    glBindVertexArray(VertexArrayID);
-    return true;
-}
-
-// The game's own shadows (DS shadow polygons) that real-time shadows replace:
-// each run of consecutive shadow polygons with one polygon id (one volume,
-// usually a disc under a character) where something that casts lies within
-// its bounds, grown by its own size. Elsewhere (a character the DS doesn't
-// light, a shadow polygon used for another effect) the game's shadow stays.
-// Their masks are drawn either way (stencil only).
-bool GLRenderer::FindReplacedShadows(const GPU3D& gpu3d)
-{
-    ShadowReplaced.assign(NumFinalPolys, false);
-    const std::vector<float>& casters = gpu3d.RenderShadowCasters;
-    bool any = false;
-    for (int i = 0; i < NumFinalPolys; )
-    {
-        const Polygon* first = PolygonList[i].PolyData;
-        if (!first->IsShadow) { i++; continue; }
-        u32 id = (first->Attr >> 24) & 0x3F;
-        int end = i;
-        float lo[3] = {1e30f, 1e30f, 1e30f}, hi[3] = {-1e30f, -1e30f, -1e30f};
-        while (end < NumFinalPolys && PolygonList[end].PolyData->IsShadow && ((PolygonList[end].PolyData->Attr >> 24) & 0x3F) == id)
-        {
-            const Polygon* p = PolygonList[end].PolyData;
-            for (u32 k = 0; k < p->NumVertices; k++)
-                for (int c = 0; c < 3; c++)
-                {
-                    lo[c] = std::min(lo[c], p->Vertices[k]->ViewPosition[c]);
-                    hi[c] = std::max(hi[c], p->Vertices[k]->ViewPosition[c]);
-                }
-            end++;
-        }
-        float grow = std::max({hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]});
-        // the game's shadow gives way only where the real one covers it: its
-        // middle, seen from the main light, inside the outline of the casters
-        // near it, and those casters between it and the light. A caster near
-        // the volume is not enough: with a grazing light (Joker's harbour) the
-        // real shadow falls away from the feet and characters lost theirs
-        const auto& sp = ShadowParams;
-        auto across = [&](const float* q, const float* axis) { return q[0]*axis[0] + q[1]*axis[1] + q[2]*axis[2]; };
-        const float mid[3] = {(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2};
-        float cLo[2] = {1e30f, 1e30f}, cHi[2] = {-1e30f, -1e30f}, casterNearest = -1e30f;
-        bool nearby = false;
-        for (size_t t = 0; t + 11 < casters.size(); t += 12)
-            for (int v = 0; v < 3; v++)
-            {
-                const float* p = &casters[t + v * 3];
-                if (!(p[0] >= lo[0] - grow && p[0] <= hi[0] + grow && p[1] >= lo[1] - grow && p[1] <= hi[1] + grow &&
-                      p[2] >= lo[2] - grow && p[2] <= hi[2] + grow))
-                    continue;
-                nearby = true;
-                const float r = across(p, sp.Right), u = across(p, sp.Up);
-                cLo[0] = std::min(cLo[0], r); cHi[0] = std::max(cHi[0], r);
-                cLo[1] = std::min(cLo[1], u); cHi[1] = std::max(cHi[1], u);
-                // nearer the light: larger along Dir (as the shadow map's depth)
-                casterNearest = std::max(casterNearest, across(p, sp.Dir));
-            }
-        const float mr = across(mid, sp.Right), mu = across(mid, sp.Up);
-        const bool covered = nearby && mr >= cLo[0] && mr <= cHi[0] && mu >= cLo[1] && mu <= cHi[1] && casterNearest > across(mid, sp.Dir);
-        for (int k = i; k < end; k++) ShadowReplaced[k] = covered;
-        any = any || covered;
-        i = end;
-    }
-    return any;
-}
-
-void GLRenderer::SetLightingTermUniforms(const GLint* shadowLoc, const GLint* reflectionLoc, bool shadows,
-                                         const GPU3D& gpu3d, float scale) const
-{
-    glUniform1f(shadowLoc[0], shadows ? ShadowStrength : 0.0f);
-    if (shadows)
-    {
-        glUniform3fv(shadowLoc[1], 1, ShadowParams.Right);
-        glUniform3fv(shadowLoc[2], 1, ShadowParams.Up);
-        glUniform3fv(shadowLoc[3], 1, ShadowParams.Dir);
-        glUniform4fv(shadowLoc[4], 1, ShadowParams.Bounds);
-        glUniform2fv(shadowLoc[5], 1, ShadowParams.Depth);
-        glUniform1f(shadowLoc[6], ShadowParams.Texel);
-    }
-    glUniform1f(reflectionLoc[0], Reflections ? ReflectionStrength : 0.0f);
-    if (Reflections)
-    {
-        float proj[16], viewport[4];
-        for (int i = 0; i < 16; i++) proj[i] = (float)gpu3d.RenderProjMatrix[i];
-        // x0, top row, width, height (see GPU3D::ComputeScreenPosition)
-        viewport[0] = (float)gpu3d.RenderViewport[0];
-        viewport[1] = (float)gpu3d.RenderViewport[3];
-        viewport[2] = (float)gpu3d.RenderViewport[4];
-        viewport[3] = (float)gpu3d.RenderViewport[5];
-        glUniformMatrix4fv(reflectionLoc[1], 1, GL_FALSE, proj);
-        glUniform4fv(reflectionLoc[2], 1, viewport);
-        // output pixels per DS pixel, of the image the terms are computed on
-        glUniform1f(reflectionLoc[3], scale);
-    }
-}
-
-void GLRenderer::RenderLighting(const GPU3D& gpu3d)
-{
-    GLTimer::Scope gpuTime(PerformanceCounters::Section::GpuLighting);
-    // depth/stencil and attributes as the opaque pass left them, for drawing
-    // the translucent layer again over the lit image
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, MainFramebuffer);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, LightingFramebuffer);
-    glDisable(GL_SCISSOR_TEST);
-    glBlitFramebuffer(0, 0, ScreenW, ScreenH, 0, 0, ScreenW, ScreenH, GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, GL_NEAREST);
-    const GLenum attrOnly[2] = {GL_NONE, GL_COLOR_ATTACHMENT1};
-    glReadBuffer(GL_COLOR_ATTACHMENT1);
-    glDrawBuffers(2, attrOnly);
-    glBlitFramebuffer(0, 0, ScreenW, ScreenH, 0, 0, ScreenW, ScreenH, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-    glReadBuffer(GL_COLOR_ATTACHMENT0);
-    const GLenum colourOnly = GL_COLOR_ATTACHMENT0;
-    glDrawBuffers(1, &colourOnly);
-
-    bool shadows;
-    {
-        GLTimer::Scope shadowTime(PerformanceCounters::Section::GpuShadows);
-        shadows = Shadows && RenderShadowMap(gpu3d);
-    }
-    ShadowsDrawn = shadows;
-
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_STENCIL_TEST);
-    glDisable(GL_BLEND);
-    glDisable(GL_SCISSOR_TEST);
-    // write masks are per draw buffer index, not per framebuffer: the scene
-    // render leaves index 1 (its attribute buffer) partly masked
-    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glColorMaski(1, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glColorMaski(2, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE); // the passes at high resolutions write 3
-    glViewport(0, 0, ScreenW, ScreenH);
-    glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
-    glBindVertexArray(ClearVertexArrayID);
-
-    // at high resolutions, the smaller copy of the frame's data the terms are computed on
-    const int lowW = ScreenW / LightingFactor, lowH = ScreenH / LightingFactor;
-    if (LightingFactor > 1)
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, LowGBufferFramebuffer);
-        glViewport(0, 0, lowW, lowH);
-        glUseProgram(LightingDownsampleShader);
-        glUniform1i(DownsampleFactorLoc, LightingFactor);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, ViewPositionTex);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, ViewNormalTex);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, ColorBufferTex);
-        glDrawArrays(GL_TRIANGLES, 0, 2*3);
-    }
-
-    // pass 1: ambient occlusion up to 24 native pixels around each pixel, light bounce up to 64
-    glBindFramebuffer(GL_FRAMEBUFFER, AOFramebuffer);
-    glViewport(0, 0, lowW, lowH);
-    glUseProgram(LightingAOShader);
-    glUniform1f(LightingAORadiusLoc, 24.0f * ScaleFactor / LightingFactor);
-    glUniform1f(LightingBounceRadiusLoc, 64.0f * ScaleFactor / LightingFactor);
-    glUniform1i(LightingAOPixelInWLoc, LightingFactor > 1 ? 1 : 0);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, LightingFactor > 1 ? LowPositionTex : ViewPositionTex);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, LightingFactor > 1 ? LowNormalTex : ViewNormalTex);
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, LightingFactor > 1 ? LowColorTex : ColorBufferTex);
-    glDrawArrays(GL_TRIANGLES, 0, 2*3);
-    glViewport(0, 0, ScreenW, ScreenH);
-
-    // pass 2: the lit image
-    glBindFramebuffer(GL_FRAMEBUFFER, LightingFramebuffer);
-    glUseProgram(LightingComposeShader);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, ColorBufferTex);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, ViewPositionTex);
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, ViewNormalTex);
-    glActiveTexture(GL_TEXTURE3);
-    glBindTexture(GL_TEXTURE_2D, AOTex);
-    glActiveTexture(GL_TEXTURE4);
-    glBindTexture(GL_TEXTURE_2D, BounceTex);
-    glActiveTexture(GL_TEXTURE5);
-    glBindTexture(GL_TEXTURE_2D, shadows ? ShadowMapTex : 0);
-    // the shadow map again, read as depths: the sampler overrides its comparison mode
-    if (!ShadowDepthSampler)
-    {
-        glGenSamplers(1, &ShadowDepthSampler);
-        glSamplerParameteri(ShadowDepthSampler, GL_TEXTURE_COMPARE_MODE, GL_NONE);
-        glSamplerParameteri(ShadowDepthSampler, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glSamplerParameteri(ShadowDepthSampler, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glSamplerParameteri(ShadowDepthSampler, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glSamplerParameteri(ShadowDepthSampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    }
-    glActiveTexture(GL_TEXTURE6);
-    glBindTexture(GL_TEXTURE_2D, shadows ? ShadowMapTex : 0);
-    glBindSampler(6, ShadowDepthSampler);
-    // characters' softer shade: polygon IDs (the opaque pass's attributes)
-    glActiveTexture(GL_TEXTURE9);
-    glBindTexture(GL_TEXTURE_2D, AttrBufferTex);
-    glUseProgram(LightingComposeShader);
-    glUniform1i(ComposeAttrLoc[0], 9);
-    glUniform1i(ComposeAttrLoc[1], FrameSceneryId);
-    glUseProgram(LightingUpsampleShader);
-    glUniform1i(UpsampleAttrLoc[0], 9);
-    glUniform1i(UpsampleAttrLoc[1], FrameSceneryId);
-    glUseProgram(LightingComposeShader);
-    if (LightingFactor == 1)
-    {
-        SetLightingTermUniforms(ComposeShadowLoc, ComposeReflectionLoc, shadows, gpu3d, (float)ScaleFactor);
-        glUniform1i(LightingComposeAOLoc, AmbientOcclusion ? 1 : 0);
-        glUniform1f(LightingComposeBounceLoc, LightBounce ? BounceIntensity : 0.0f);
-        glDrawArrays(GL_TRIANGLES, 0, 2*3);
-        glBindSampler(6, 0);
-    }
-    else
-    {
-        // pass 2: the terms, on the smaller copy (the same texture units as the
-        // compose shader, its inputs replaced by the copy's)
-        glBindFramebuffer(GL_FRAMEBUFFER, TermsFramebuffer);
-        glViewport(0, 0, lowW, lowH);
-        glUseProgram(LightingTermsShader);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, LowColorTex);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, LowPositionTex);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, LowNormalTex);
-        SetLightingTermUniforms(TermsShadowLoc, TermsReflectionLoc, shadows, gpu3d, (float)ScaleFactor / LightingFactor);
-        glDrawArrays(GL_TRIANGLES, 0, 2*3);
-        glBindSampler(6, 0);
-
-        // pass 3: the lit image at full resolution
-        glBindFramebuffer(GL_FRAMEBUFFER, LightingFramebuffer);
-        glViewport(0, 0, ScreenW, ScreenH);
-        glUseProgram(LightingUpsampleShader);
-        const GLuint inputs[9] = {ColorBufferTex, ViewPositionTex, ViewNormalTex, LowPositionTex, LowNormalTex,
-                                  TermsTex, TermsBounceTex, TermsReflectedTex, AOTex};
-        for (int i = 0; i < 9; i++)
-        {
-            glActiveTexture(GL_TEXTURE0 + i);
-            glBindTexture(GL_TEXTURE_2D, inputs[i]);
-        }
-        glUniform1i(UpsampleLoc[0], LightingFactor);
-        glUniform1i(UpsampleLoc[1], AmbientOcclusion ? 1 : 0);
-        glUniform1f(UpsampleLoc[2], LightBounce ? BounceIntensity : 0.0f);
-        glUniform1f(UpsampleLoc[3], shadows ? ShadowStrength : 0.0f);
-        glUniform3fv(UpsampleLoc[4], 1, ShadowParams.Dir);
-        glUniform1f(UpsampleLoc[5], Reflections ? ReflectionStrength : 0.0f);
-        glDrawArrays(GL_TRIANGLES, 0, 2*3);
-    }
-
-    // state as the opaque pass leaves it (the translucent pass follows)
-    const GLenum colourAndAttr[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
-    glDrawBuffers(2, colourAndAttr);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, TexPalMemID);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, TexMemID);
-    glBindFramebuffer(GL_FRAMEBUFFER, MainFramebuffer);
-    glBindVertexArray(VertexArrayID);
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_STENCIL_TEST);
-    glEnable(GL_BLEND);
-    CurShaderID = -1;
-    LightingDone = true;
-}
 
 void GLRenderer::RenderFrame(GPU& gpu)
 {
@@ -2218,36 +1345,7 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
 {
     CurShaderID = -1;
 
-    // lighting effects: GPU3D captures view-space data while the game submits a
-    // frame, so they start with the first frame submitted after being enabled
-    // (an intermediate frame keeps the decision of the frame it comes from)
-    if (!intermediate)
-    {
-        CaptureStreak = CapturedSinceRender ? CaptureStreak + 1 : 0;
-        CapturedSinceRender = false;
-        if (CaptureStreak >= 2)
-            CapturePauseFrames = CapturePauseLength;
-        else if (CapturePauseFrames > 0)
-            CapturePauseFrames--;
-        LightingActive = LightingEnabled() && ViewDataCaptured && LightingSupported && !CapturePauseFrames && !FrameHidden;
-        ViewDataActive = ViewDataCaptured && LightingSupported && (LightingActive || Relief > 0);
-        gpu.GPU3D.SetViewDataCapture(ViewDataWanted() && LightingSupported);
-        ViewDataCaptured = gpu.GPU3D.CaptureViewData();
-    }
-    LightingDone = false;
-    if (LightingActive)
-        SetupLightingTargets();
     glBindVertexArray(VertexArrayID);
-    if (ViewDataActive) // lighting effects or relief textures
-    {
-        glEnableVertexAttribArray(5);
-        glEnableVertexAttribArray(6);
-    }
-    else
-    {
-        glDisableVertexAttribArray(5);
-        glDisableVertexAttribArray(6);
-    }
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, MainFramebuffer);
@@ -2300,24 +1398,6 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
         ShaderConfig.uFogDensity[i][0] = (float)d / 127.0;
     }
 
-    // relief textures: depth in texels, and the main light (most used by
-    // opaque polygons last frame, in view space, towards the light)
-    ShaderConfig.uRelief = ViewDataActive ? (Relief >= 2 ? 2.0f : Relief == 1 ? 1.0f : 0.0f) : 0.0f;
-    // wind for volumetric grass: 2 radians a second at the DS's 60 frames a
-    // second, reduced here in doubles so the float never loses precision
-    if (ShaderConfig.uRelief > 0) WindFrames++;
-    ShaderConfig.uWindPhase = (float)std::fmod(WindFrames * (2.0 / 60.0), 2.0 * M_PI);
-    ShaderConfig.uStyle = ShaderConfig.uRelief > 0 && Relief >= 3 ? 1.0f : 0.0f;
-    {
-        int light = 0;
-        for (int l = 1; l < 4; l++)
-            if (LightUse[l] > LightUse[light]) light = l;
-        float dir[3], len = 0;
-        for (int i = 0; i < 3; i++) { dir[i] = (float)gpu.GPU3D.RenderLightDirection[light][i]; len += dir[i] * dir[i]; }
-        len = std::sqrt(len);
-        for (int i = 0; i < 3; i++) ShaderConfig.uReliefLight[i] = len > 0 ? dir[i] / len : 0.0f;
-        ShaderConfig.uReliefLight[3] = (len > 0 && LightUse[light]) ? 1.0f : 0.0f;
-    }
 
     ShaderConfig.uFogOffset = gpu.GPU3D.RenderFogOffset;
     ShaderConfig.uFogShift = gpu.GPU3D.RenderFogShift;
@@ -2420,18 +1500,6 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
         glDrawArrays(GL_TRIANGLES, 0, 2*3);
     }
 
-    if (LightingActive)
-    {
-        // no view data = background, 2D-like geometry, translucent polygons
-        const GLenum buffers[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
-        const float zero[4] = {};
-        glDrawBuffers(4, buffers);
-        glColorMaski(2, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-        glColorMaski(3, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-        glClearBufferfv(GL_COLOR, 2, zero);
-        glClearBufferfv(GL_COLOR, 3, zero);
-        glDrawBuffers(2, buffers);
-    }
 
     if (numrenderpolys)
     {
@@ -2457,18 +1525,12 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
         NumOpaqueFinalPolys = firsttrans;
 
         LookupHDTextures(gpu, npolys);
-        LookupReliefScales(gpu, npolys);
 
         // inspector (Pomegrade): polygons coloured by what drew them
         ViewInspector = gpu.NDS.Inspector.GetView() != Inspector::View::Off ? &gpu.NDS.Inspector : nullptr;
         BuildPolygons(&PolygonList[0], npolys);
         glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
         glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*VertexSize*4, VertexBuffer.data());
-        if (ViewDataActive)
-        {
-            glBindBuffer(GL_ARRAY_BUFFER, ViewVertexBufferID);
-            glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*ViewVertexSize*4, ViewVertexBuffer.data());
-        }
 
         // bind to access the index buffer
         glBindVertexArray(VertexArrayID);
@@ -2477,24 +1539,6 @@ void GLRenderer::RenderScene(GPU& gpu, Polygon** renderpolys, u32 numrenderpolys
 
         RenderSceneChunk(gpu.GPU3D, 0, 192);
 
-        if (LightingDone)
-        {
-            // the translucent layer, fog and edge marking again, over the lit
-            // opaque layer: the effects don't touch what is drawn in front of
-            // the opaque geometry (2D panels, water, smoke, fog)
-            glBindFramebuffer(GL_FRAMEBUFFER, LightingFramebuffer);
-            // the fog/edge pass left the depth and attribute buffers on these units
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, TexPalMemID);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, TexMemID);
-            TranslucentPassOnly = true;
-            DSShadowsReplaced = ShadowsDrawn && FindReplacedShadows(gpu.GPU3D);
-            RenderSceneChunk(gpu.GPU3D, 0, 192);
-            DSShadowsReplaced = false;
-            TranslucentPassOnly = false;
-            glBindFramebuffer(GL_FRAMEBUFFER, MainFramebuffer);
-        }
     }
 }
 
@@ -2598,7 +1642,6 @@ bool GLRenderer::ResamplePrevious(const Polygon& cur, const Polygon* const* prev
         }
         for (int k = 0; k < 4; k++)
             vtx.ViewPosition[k] = (float)lerp([k](const Vertex& x) { return x.ViewPosition[k]; });
-        vtx.Specular = (float)lerp([](const Vertex& x) { return x.Specular; });
         double z = 0, w4 = 0;
         for (int k = 0; k < 3; k++)
         {
@@ -2800,7 +1843,6 @@ bool GLRenderer::RenderIntermediateFrame(GPU& gpu, u32 outputTexture, float posi
             }
             for (int k = 0; k < 4; k++)
                 vtx.ViewPosition[k] = mix(a.ViewPosition[k], b.ViewPosition[k]);
-            vtx.Specular = mix(a.Specular, b.Specular);
             out.FinalZ[j] = mid(p->FinalZ[j], c.FinalZ[j]);
             out.FinalW[j] = mid(p->FinalW[j], c.FinalW[j]);
         }
@@ -2810,12 +1852,9 @@ bool GLRenderer::RenderIntermediateFrame(GPU& gpu, u32 outputTexture, float posi
     // keep the renderer's image (the next frame shows it, the game may capture it)
     if (BackupW != ScreenW || BackupH != ScreenH)
     {
-        for (GLuint* tex : {&BackupColorTex, &BackupLightingTex})
-        {
-            if (!*tex) glGenTextures(1, tex);
-            SetupDefaultTexParams(*tex);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-        }
+        if (!BackupColorTex) glGenTextures(1, &BackupColorTex);
+        SetupDefaultTexParams(BackupColorTex);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
         BackupW = ScreenW;
         BackupH = ScreenH;
     }
@@ -2834,18 +1873,12 @@ bool GLRenderer::RenderIntermediateFrame(GPU& gpu, u32 outputTexture, float posi
         glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
         glBlitFramebuffer(0, 0, ScreenW, ScreenH, 0, 0, ScreenW, ScreenH, GL_COLOR_BUFFER_BIT, GL_NEAREST);
     };
-    const bool lightingDone = LightingDone;
     copy(ColorBufferTex, BackupColorTex);
-    if (lightingDone)
-        copy(LightingTex, BackupLightingTex);
 
     RenderScene(gpu, IntermediateList.data(), (u32)IntermediateList.size(), true);
     CurGLCompositor.RenderIntermediateFrame(gpu, *this, outputTexture);
 
     copy(BackupColorTex, ColorBufferTex);
-    if (lightingDone)
-        copy(BackupLightingTex, LightingTex);
-    LightingDone = lightingDone;
     glBindFramebuffer(GL_FRAMEBUFFER, MainFramebuffer);
     return true;
 }
@@ -2857,7 +1890,6 @@ void GLRenderer::Stop(const GPU& gpu)
 
 void GLRenderer::PrepareCaptureFrame()
 {
-    CapturedSinceRender = true;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, MainFramebuffer);
     glReadBuffer(GL_COLOR_ATTACHMENT0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, DownscaleFramebuffer);
@@ -2915,9 +1947,7 @@ u32* GLRenderer::GetLine(int line)
 
 void GLRenderer::SetupAccelFrame()
 {
-    // the lit image is for display only: display capture (PrepareCaptureFrame)
-    // keeps reading the DS render, like the downscale of upscaled frames
-    glBindTexture(GL_TEXTURE_2D, LightingDone ? LightingTex : ColorBufferTex);
+    glBindTexture(GL_TEXTURE_2D, ColorBufferTex);
 }
 
 }

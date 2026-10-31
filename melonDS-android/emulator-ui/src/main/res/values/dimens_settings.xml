@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Punica's settings rows and cards (the app's dimens_punica.xml values), shared by every core's settings -->
+    <dimen name="emulator_settings_margin">16dp</dimen>
+    <dimen name="emulator_settings_gap">8dp</dimen>
+    <dimen name="emulator_settings_gap_wide">12dp</dimen>
+    <dimen name="emulator_settings_card_radius">16dp</dimen>
+    <dimen name="emulator_settings_row_min_height">64dp</dimen>
+    <dimen name="emulator_settings_row_icon">32dp</dimen>
+    <dimen name="emulator_settings_touch">48dp</dimen>
+    <dimen name="emulator_settings_icon">24dp</dimen>
+    <!-- the header (PunicaToolbar): 64 dp high, 4 dp from the screen's edges -->
+    <dimen name="emulator_settings_header_height">64dp</dimen>
+    <dimen name="emulator_settings_header_edge">4dp</dimen>
+</resources>

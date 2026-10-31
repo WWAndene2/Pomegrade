@@ -42,36 +42,6 @@ object SettingKeys {
     external fun use_vsync(): String
     external fun use_skip_duplicate_frames(): String
     external fun frame_rate_mode(): String
-    external fun remaster_preset(): String
-    external fun remaster_ao(): String
-    external fun remaster_grading(): String
-    external fun remaster_vibrance(): String
-    external fun remaster_contrast(): String
-    external fun remaster_outline(): String
-    external fun remaster_aerial(): String
-    external fun remaster_glow(): String
-    external fun remaster_sky(): String
-    external fun remaster_far_blur(): String
-    external fun remaster_ultra(): String
-    external fun remaster_rt_resolution(): String
-    external fun remaster_rt_steps(): String
-    external fun remaster_rt_reach(): String
-    external fun remaster_rt_thickness(): String
-    external fun remaster_rt_indirect(): String
-    external fun remaster_rt_shadow(): String
-    external fun remaster_rt_softness(): String
-    external fun remaster_rt_denoise(): String
-    external fun remaster_rt_history(): String
-    external fun remaster_rt_shadow_size(): String
-    external fun remaster_rt_shadow_range(): String
-    external fun remaster_normal_map(): String
-    external fun remaster_rt_probes(): String
-    external fun remaster_ao_strength(): String
-    external fun remaster_bounce_strength(): String
-    external fun remaster_shade_contrast(): String
-    external fun remaster_exposure(): String
-    external fun remaster_contrast_strength(): String
-    external fun remaster_colour_strength(): String
     external fun use_shader_jit(): String
     external fun resolution_factor(): String
     external fun frame_limit(): String

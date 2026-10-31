@@ -9,6 +9,7 @@
 #include <array>
 
 #include <sirit/sirit.h>
+#include "common/container/unordered_set.h"
 
 #include "shader_recompiler/backend/bindings.h"
 #include "shader_recompiler/frontend/ir/program.h"
@@ -41,6 +42,7 @@ struct TextureDefinition {
     Id image_type;
     u32 count;
     bool is_multisample;
+    bool is_integer;
 };
 
 struct TextureBufferDefinition {
@@ -309,6 +311,7 @@ public:
 
     Id local_memory{};
 
+    bool uses_explicit_workgroup_layout{};
     Id shared_memory_u8{};
     Id shared_memory_u16{};
     Id shared_memory_u32{};
@@ -358,6 +361,7 @@ public:
     Id frag_depth{};
 
     std::vector<Id> interfaces;
+    std::vector<std::pair<u32, spv::Op>> opcode_rewrites;
 
     Id load_const_func_u8{};
     Id load_const_func_u16{};
@@ -365,6 +369,14 @@ public:
     Id load_const_func_f32{};
     Id load_const_func_u32x2{};
     Id load_const_func_u32x4{};
+
+    // Sirit::Id doesn't play nice with *::set<>
+    ::Common::unordered_set<u32> non_uniform_ids;
+
+    bool uses_nonuniform_sampled_image{};
+    bool uses_nonuniform_storage_image{};
+    bool uses_nonuniform_uniform_texel_buffer{};
+    bool uses_nonuniform_storage_texel_buffer{};
 
 private:
     void DefineCommonTypes(const Info& info);

@@ -69,7 +69,7 @@ void TransitionImageLayout(vk::CommandBuffer& cmdbuf, VkImage image, VkImageLayo
             .layerCount = 1,
         },
     };
-    cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+    cmdbuf.PipelineBarrier(vk::PIPELINE_STAGE_GRAPHICS_COMPUTE, vk::PIPELINE_STAGE_GRAPHICS_COMPUTE,
                            0, barrier);
 }
 
@@ -171,10 +171,10 @@ void DownloadColorImage(vk::CommandBuffer& cmdbuf, VkImage image, VkBuffer buffe
         .imageOffset{.x = 0, .y = 0, .z = 0},
         .imageExtent{extent},
     };
-    cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+    cmdbuf.PipelineBarrier(vk::PIPELINE_STAGE_GRAPHICS_COMPUTE_TRANSFER, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
                            read_barrier);
     cmdbuf.CopyImageToBuffer(image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffer, copy);
-    cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0,
+    cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT, vk::PIPELINE_STAGE_GRAPHICS_COMPUTE, 0,
                            memory_write_barrier, nullptr, image_write_barrier);
 }
 
@@ -320,15 +320,16 @@ vk::DescriptorPool CreateWrappedDescriptorPool(const Device& device, size_t max_
     });
 }
 
-vk::DescriptorSetLayout CreateWrappedDescriptorSetLayout(
-    const Device& device, std::initializer_list<VkDescriptorType> types) {
+vk::DescriptorSetLayout CreateWrappedDescriptorSetLayout(const Device& device,
+                                                         std::span<const VkDescriptorType> types,
+                                                         VkShaderStageFlags stages) {
     std::vector<VkDescriptorSetLayoutBinding> bindings(types.size());
     for (size_t i = 0; i < types.size(); i++) {
         bindings[i] = {
             .binding = static_cast<u32>(i),
-            .descriptorType = std::data(types)[i],
+            .descriptorType = types[i],
             .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            .stageFlags = stages,
             .pImmutableSamplers = nullptr,
         };
     }
@@ -342,6 +343,13 @@ vk::DescriptorSetLayout CreateWrappedDescriptorSetLayout(
     });
 }
 
+vk::DescriptorSetLayout CreateWrappedDescriptorSetLayout(
+    const Device& device, std::initializer_list<VkDescriptorType> types,
+    VkShaderStageFlags stages) {
+    return CreateWrappedDescriptorSetLayout(
+        device, std::span<const VkDescriptorType>{std::data(types), types.size()}, stages);
+}
+
 vk::DescriptorSets CreateWrappedDescriptorSets(vk::DescriptorPool& pool,
                                                vk::Span<VkDescriptorSetLayout> layouts) {
     return pool.Allocate(VkDescriptorSetAllocateInfo{
@@ -350,6 +358,28 @@ vk::DescriptorSets CreateWrappedDescriptorSets(vk::DescriptorPool& pool,
         .descriptorPool = *pool,
         .descriptorSetCount = layouts.size(),
         .pSetLayouts = layouts.data(),
+    });
+}
+
+vk::Pipeline CreateWrappedComputePipeline(const Device& device, vk::PipelineLayout& layout,
+                                          VkShaderModule shader) {
+    return device.GetLogical().CreateComputePipeline(VkComputePipelineCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .stage =
+            {
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                .pNext = nullptr,
+                .flags = 0,
+                .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+                .module = shader,
+                .pName = "main",
+                .pSpecializationInfo = nullptr,
+            },
+        .layout = *layout,
+        .basePipelineHandle = VK_NULL_HANDLE,
+        .basePipelineIndex = 0,
     });
 }
 
@@ -491,7 +521,7 @@ static vk::Pipeline CreateWrappedPipelineImpl(
         .subpass = 0,
         .basePipelineHandle = 0,
         .basePipelineIndex = 0,
-    });
+    }, device.StaticPipelineCache());
 }
 
 vk::Pipeline CreateWrappedPipeline(const Device& device, vk::RenderPass& renderpass,

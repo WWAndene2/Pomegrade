@@ -39,12 +39,6 @@ public:
     // drops textures whose VRAM contents changed. Returns whether texture
     // replacement or dumping is enabled.
     bool BeginFrame(GPU& gpu);
-    // Pomegrade: also keep the flat texture VRAM coherent while replacement
-    // is off (relief by material reads texels), and report whether texture
-    // VRAM or palettes changed in the last BeginFrame
-    void SetKeepCoherent(bool keep) { KeepCoherent = keep; }
-    bool TexturesChanged() const { return Changed; }
-
     // Returns the packed atlas location for a polygon's texture, 0 if it has
     // no replacement. Layout (fits in 26 bits):
     //   bits 0-6   cell x / 8
@@ -97,7 +91,6 @@ private:
     u32 ReplacementGeneration = 0;
     u32 ReplacementLoaded = 0;
     bool Enabled = false;
-    bool KeepCoherent = false, Changed = false, WasCoherent = false;
     int UpscaleFactor = 1;
 
     std::unordered_map<u64, Entry> Cache;

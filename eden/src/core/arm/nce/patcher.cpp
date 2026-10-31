@@ -3,7 +3,7 @@
 
 #include <numeric>
 #include <bit>
-#include "common/arm64/native_clock.h"
+#include "common/cpu_features.h"
 #include "common/alignment.h"
 #include "common/literals.h"
 #include "core/arm/nce/arm_nce.h"
@@ -43,6 +43,23 @@ Patcher::Patcher() : c(m_patch_instructions), c_pre(m_patch_instructions_pre) {
     WriteLoadContext();
     c_pre.l(m_load_context_pre);
     WriteLoadContext(c_pre);
+}
+
+Patcher::Patcher(std::span<const u8> text) : c(m_patch_instructions), c_pre(m_patch_instructions_pre) {
+    modules.emplace_back();
+    curr_patch = &modules.back();
+    const auto words = std::span<const u32>{reinterpret_cast<const u32*>(text.data()), text.size() / sizeof(u32)};
+    for (u32 i = ModuleCodeIndex; i < static_cast<u32>(words.size()); ++i) {
+        const uintptr_t offset = i * sizeof(u32);
+        if (auto mrs = MRS{words[i]}; mrs.Verify() && mrs.GetRt() != 31 && (mrs.GetSystemReg() == TpidrEl0 || mrs.GetSystemReg() == TpidrroEl0)) {
+            BranchToPatch(offset);
+            const auto src_reg = mrs.GetSystemReg() == TpidrroEl0 ? oaknut::SystemReg::TPIDRRO_EL0 : oaknut::SystemReg::TPIDR_EL0;
+            WriteMrsHandler(offset + sizeof(u32), oaknut::XReg{static_cast<int>(mrs.GetRt())}, src_reg);
+        } else if (auto msr = MSR{words[i]}; msr.Verify() && msr.GetSystemReg() == TpidrEl0) {
+            BranchToPatch(offset);
+            WriteMsrHandler(offset + sizeof(u32), oaknut::XReg{static_cast<int>(msr.GetRt())});
+        }
+    }
 }
 
 Patcher::~Patcher() = default;
@@ -145,7 +162,14 @@ bool Patcher::PatchText(std::span<const u8> program_image, const Kernel::CodeSet
 
         // MRS Xn, CNTFRQ_EL0
         if (auto mrs = MRS{inst}; mrs.Verify() && mrs.GetSystemReg() == CntfrqEl0) {
-            UNREACHABLE();
+            bool pre_buffer = false;
+            auto ret = AddRelocations(pre_buffer);
+            if (pre_buffer) {
+                WriteCntfrqHandler(ret, oaknut::XReg{static_cast<int>(mrs.GetRt())}, c_pre);
+            } else {
+                WriteCntfrqHandler(ret, oaknut::XReg{static_cast<int>(mrs.GetRt())}, c);
+            }
+            continue;
         }
 
         // MSR TPIDR_EL0, Xn
@@ -173,6 +197,31 @@ bool Patcher::PatchText(std::span<const u8> program_image, const Kernel::CodeSet
         this->mode = image_size > MaxRelativeBranch ? PatchMode::PreText : PatchMode::PostData;
     }
     return true;
+}
+
+std::span<const u32> Patcher::RelocateRuntimeTls(
+    s64 patch_offset, std::vector<InstructionPatch>& out_patches) {
+    const auto& patch = modules.front();
+    const auto can_branch = [](s64 offset) {
+        return offset % 4 == 0 && offset >= -static_cast<s64>(MaxRelativeBranch) && offset < static_cast<s64>(MaxRelativeBranch);
+    };
+    out_patches.clear();
+    out_patches.reserve(patch.m_branch_to_patch_relocations.size());
+    for (const auto& rel : patch.m_branch_to_patch_relocations) {
+        const s64 offset = patch_offset + rel.patch_offset - static_cast<s64>(rel.module_offset);
+        if (!can_branch(offset)) {return {};}
+        u32 replacement;
+        oaknut::CodeGenerator rc{&replacement};
+        rc.B(offset);
+        out_patches.push_back({rel.module_offset, replacement});
+    }
+    for (const auto& rel : patch.m_branch_to_module_relocations) {
+        const s64 offset = static_cast<s64>(rel.module_offset) - patch_offset - rel.patch_offset;
+        if (!can_branch(offset)) {return {};}
+        oaknut::CodeGenerator rc{m_patch_instructions.data() + rel.patch_offset / sizeof(u32)};
+        rc.B(offset);
+    }
+    return m_patch_instructions;
 }
 
 bool Patcher::RelocateAndCopy(Common::ProcessAddress load_base, const Kernel::CodeSet::Segment& code, std::vector<u8>& program_image, EntryTrampolines* out_trampolines) {
@@ -577,8 +626,22 @@ void Patcher::WriteMsrHandler(ModuleDestLabel module_dest, oaknut::XReg src_reg,
         this->BranchToModule(module_dest);
 }
 
+void Patcher::WriteCntfrqHandler(ModuleDestLabel module_dest, oaknut::XReg dest_reg, oaknut::VectorCodeGenerator& cg) {
+    cg.MOV(dest_reg, Common::WallClock::CNTFRQ);
+
+    // Jump back to the instruction after the emulated MRS.
+    if (&cg == &c_pre)
+        this->BranchToModulePre(module_dest);
+    else
+        this->BranchToModule(module_dest);
+}
+
 void Patcher::WriteCntpctHandler(ModuleDestLabel module_dest, oaknut::XReg dest_reg, oaknut::VectorCodeGenerator& cg) {
-    static Common::Arm64::NativeClock clock{};
+#if defined(HAS_NCE)
+    static Common::WallClock clock(false, 1);
+#else
+    static Common::WallClock clock(true, 1);
+#endif
     const auto factor = clock.GetGuestCNTFRQFactor();
     const auto raw_factor = std::bit_cast<std::array<u64, 2>>(factor);
 

@@ -11,12 +11,6 @@ add_library(video_core STATIC EXCLUDE_FROM_ALL
     debug_utils/debug_utils.h
     frame_generation.cpp
     frame_generation.h
-    material_recognition.cpp
-    pathtrace_bvh.cpp
-    pathtrace_bvh.h
-    material_recognition.h
-    remaster.cpp
-    remaster.h
     gpu.cpp
     gpu.h
     gpu_debugger.h
@@ -153,10 +147,6 @@ if (ENABLE_OPENGL)
         renderer_opengl/gl_driver.cpp
         renderer_opengl/gl_frame_generation.cpp
         renderer_opengl/gl_frame_generation.h
-        renderer_opengl/gl_pathtracer.cpp
-        renderer_opengl/gl_pathtracer.h
-        renderer_opengl/gl_remaster.cpp
-        renderer_opengl/gl_remaster.h
         renderer_opengl/gl_driver.h
         renderer_opengl/gl_rasterizer.cpp
         renderer_opengl/gl_rasterizer.h

@@ -16,7 +16,7 @@
         android:layout_width="@dimen/punica_row_icon"
         android:layout_height="@dimen/punica_row_icon"
         android:layout_marginEnd="@dimen/punica_gap_wide"
-        android:background="@drawable/bg_punica_row_icon">
+        android:background="@drawable/punica_bg_row_icon">
 
         <ImageView
             android:id="@android:id/icon"

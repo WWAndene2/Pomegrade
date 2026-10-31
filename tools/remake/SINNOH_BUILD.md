@@ -81,7 +81,7 @@ caves (not tried); the phone test.
 **Setup (one command, about 40 minutes the first time, all outside the repository):**
 
     export POMEGRADE_ORAS_DRIVE_ID=... POMEGRADE_PLATINUM_DRIVE_ID=... POMEGRADE_SAVE_DRIVE_ID=...   # ask the owner
-    tools/remake/headless/session_setup.sh $WORK dumps tool core     # core-gl only for the Remaster's OpenGL path
+    tools/remake/headless/session_setup.sh $WORK dumps tool core     # core-gl only for the OpenGL path
 
 **Build the R4 mod and walk into a house** (`headless/run_local.sh`, its header lists every script command):
 
@@ -100,4 +100,4 @@ look. Run only to check a finished change.
 `src/OrasWorkspace.cpp` (`LinkWarps`) and `src/OrasNewZone.cpp` (door, exit and stairs kinds), the rooms' look
 `src/RoomBuilder.cpp`, the steps
 `sandbox/twinleaf_interiors.txt`, the rules and facts `ORAS_LITTLEROOT.md` (section 0: the phone test protocol) and
-`ORAS_ENGINE.md` (zone rows, heaps). The graphics work (Remaster V1, path tracer) is separate: `render/ORAS_RENDER.md`.
+`ORAS_ENGINE.md` (zone rows, heaps). The offline graphics work (the renders) is separate: `render/ORAS_RENDER.md`.

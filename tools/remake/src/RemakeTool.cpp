@@ -32,6 +32,7 @@
 //                     a Pokemon X/Y model (BCH 0x07) as Omega Ruby's (0x21, BchUpgrade.h): a BCH file, or a 2-letter
 //                     container (an a/0/2/1 character member) converted (XyCharacter.h); oras-copy's xy: source does the
 //                     same from the X/Y game itself
+//   remake_tool bclim-png <file.bclim> <out.png>      a layout image (Bclim.h) as a PNG
 //   remake_tool oras-list <oras.3ds>                  a decrypted 3DS game's RomFS files, with sizes
 //   remake_tool oras-extract <oras.3ds> <path> <out>  one RomFS file
 //   remake_tool oras-find <oras.3ds> <text>...
@@ -49,7 +50,7 @@
 //   remake_tool xy-script-export <x.3ds> <function_names.tsv> <out dir> <zone>...  X/Y zones' scripts as editable amx-asm
 //                     source (OrasXyScript.h: XyScriptSource), x<zone>.amx and x<zone>.init.amx, the flags and works of the
 //                     zones given numbered together; each file checked to assemble
-//   remake_tool xy-gym-module <oras.3ds> <x.3ds> <out.cro> rock|ice|elec   an X/Y gym's code module ported to Omega Ruby
+//   remake_tool xy-gym-module <oras.3ds> <x.3ds> <out.cro> rock|ice|elec|insect|fighting|grass|fairy|esper   an X/Y gym's code module ported to Omega Ruby
 //                     (OrasXyGymModules.h): its imports, layouts, sound ids and vtable made Omega Ruby's
 //   remake_tool amx-asm <in.txt> <out.amx> [function_names.tsv [--mask M]]  a Pawn (AMX) script assembled (Amx.h:
 //                     AmxAssemble), the natives named checked against the game's tables in tools/remake/ghidra/function_names.tsv
@@ -175,7 +176,7 @@ static int Usage()
                     "  remake_tool world <map_matrix.narc> <matrix index> <land_data.narc> <out dir>\n"
                     "                    [map textures.nsbtx|-] [buildings.narc|-] [building textures.nsbtx|-]\n"
                     "  remake_tool oras-world <rom.nds> <matrix index> <out dir>\n  remake_tool platinum-zones <rom.nds>\n"
-                    "  remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]\n  remake_tool bch-upgrade <in> <out>\n  remake_tool xy-motion-slots\n  remake_tool oras-list <oras.3ds>\n  remake_tool oras-extract <oras.3ds> <path> <out>\n"
+                    "  remake_tool bch <file.bch|GR piece> <out.gltf> [textures...]\n  remake_tool bch-upgrade <in> <out>\n  remake_tool bclim-png <file.bclim> <out.png>\n  remake_tool xy-motion-slots\n  remake_tool oras-list <oras.3ds>\n  remake_tool oras-extract <oras.3ds> <path> <out>\n"
                     "  remake_tool oras-mod <oras.3ds> <out dir> <path>=<file>...\n"
                     "  remake_tool oras-inspect <oras.3ds> zone|piece|area|matrix|piece-names|zones|matrices|archives|piece-budget|coll-sizes|zone-reach <index> [zone: --mod <mod dir>]\n"
                     "  remake_tool oras-measure <oras.3ds> <out dir>\n"
@@ -558,8 +559,8 @@ int main(int argc, char** argv)
         if (cmd == "xy-gym-module" && argc >= 6)
         {
             const std::string which = argv[5];
-            if (which != "rock" && which != "ice" && which != "elec" && which != "insect") throw FormatError("xy-gym-module: rock, ice, elec or insect");
-            const XyModulePort& port = which == "rock" ? XyGymRock() : which == "ice" ? XyGymIce() : which == "elec" ? XyGymElec() : XyGymInsect();
+            if (which != "rock" && which != "ice" && which != "elec" && which != "insect" && which != "fighting" && which != "grass" && which != "fairy" && which != "esper") throw FormatError("xy-gym-module: rock, ice, elec, insect, fighting, grass, fairy or esper");
+            const XyModulePort& port = which == "rock" ? XyGymRock() : which == "ice" ? XyGymIce() : which == "elec" ? XyGymElec() : which == "insect" ? XyGymInsect() : which == "fighting" ? XyGymFighting() : which == "grass" ? XyGymGrass() : which == "fairy" ? XyGymFairy() : XyGymEsper();
             N3dsRom oras(argv[2]), xy(argv[3]);
             // where prototype/cro_link.py places each game's DllField (the addresses OrasXyGymModules.cpp names)
             const XyGameModules x{xy.Read("static.crs"), xy.Read("DllField.cro"), 0x101F9000, xy.Code()};
@@ -589,6 +590,13 @@ int main(int argc, char** argv)
             std::vector<std::string> report;
             WriteFile(argv[3], XyCharacterToOras(file, report));
             for (const std::string& line : report) printf("%s\n", line.c_str());
+            return 0;
+        }
+        if (cmd == "bclim-png" && argc >= 4)
+        {
+            const ClimImage c = ClimImage::Read(ReadFile(argv[2]));
+            WriteFile(argv[3], EncodePng(c.Width, c.Height, c.Rgba()));
+            printf("%u x %u %s\n", c.Width, c.Height, ClimFormatName(c.Format));
             return 0;
         }
         if (cmd == "bch" && argc >= 4)

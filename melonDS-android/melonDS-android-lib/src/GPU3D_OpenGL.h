@@ -22,8 +22,6 @@
 #include "GPU3D.h"
 #include "GPU_OpenGL.h"
 #include "GPU3D_OpenGL_HDTextures.h"
-#include "GPU3D_OpenGL_MaterialRelief.h"
-#include "GPU3D_WorldFrame.h"
 #include "OpenGLSupport.h"
 
 namespace melonDS
@@ -47,29 +45,10 @@ public:
     void SetTextureUpscale(int factor) { HDTextures.SetUpscaleFactor(factor); }
     // Pomegrade: smooth texture filtering, colour only (see TextureLookup_Filtered)
     void SetTextureFilter(bool enable) noexcept { ShaderConfig.uTextureFilter = enable ? 1 : 0; }
-    // Relief textures (Pomegrade): 0 off, 1 subtle, 2 strong, 3 stylised (strong, and the
-    // scene redrawn in flat colours and soft painted light) (docs/DS_ENGINE_REMAKE.md 14.1, 15.2)
-    // The relief code is compiled into the polygon shaders only while relief is
-    // on: turning it on or off rebuilds them (GL context current)
-    void SetRelief(int level) noexcept;
-    // Scene-adaptive colour (Pomegrade): see GPU_SceneColour.h
-    void SetAdaptiveColours(bool enable) { CurGLCompositor.SetAdaptiveColours(enable); }
+    // Deeper blacks on OLED screens (Pomegrade): see GPU_SceneColour.h
     void SetOledBlacks(bool enable) { CurGLCompositor.SetOledBlacks(enable); }
-    // Pseudo ray tracing (Pomegrade): lighting effects computed from the
-    // view-space position and normal of each opaque pixel, see RenderLighting.
-    // Display only: the frame the game can capture stays the DS render.
-    void SetAmbientOcclusion(bool enable) noexcept { AmbientOcclusion = enable; }
-    void SetLightBounce(bool enable) noexcept { LightBounce = enable; }
-    void SetShadows(bool enable) noexcept { Shadows = enable; }
-    void SetReflections(bool enable) noexcept { Reflections = enable; }
-    // the shadows' light last frame, view space, towards the light (tests)
-    const float* ShadowLightDirection() const noexcept { return ShadowParams.Dir; }
     // Frame generation (Pomegrade): see RenderIntermediateFrame
     void SetFrameGeneration(bool enable) noexcept;
-    // Pomegrade: the next frame won't be shown (30 fps mode): the display-only
-    // lighting effects are skipped. The DS render itself is made as always
-    // (the game may capture it)
-    void SetFrameHidden(bool hidden) noexcept { FrameHidden = hidden; }
     // Renders an image between the 3D frame last shown and the one rendered
     // after it (the DS renders a frame ahead), at position (0 = the frame
     // shown, 1 = the next; 0.5 halfway, 0.25/0.5/0.75 for three images): each
@@ -121,7 +100,6 @@ private:
         u32 RenderKey;
 
         u32 HDTexture; // packed HD atlas location, see GLHDTextures::Lookup
-        u32 ReliefScale; // Pomegrade: relief depth of its texture's material, eighths (GLMaterialRelief)
     };
 
     GLCompositor CurGLCompositor;
@@ -133,10 +111,8 @@ private:
     bool BuildRenderShader(u32 flags, const std::string& vs, const std::string& fs);
     void UseRenderShader(u32 flags);
     void SetupPolygon(RendererPolygon* rp, Polygon* polygon) const;
-    // procedural: GLMaterialRelief's procedural bits, into the texture address attribute's bits 16-19
-    u32* SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 hdTexture, u32* vptr, u32 procedural) const;
+    u32* SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, u32 vtxattr, u32 hdTexture, u32* vptr) const;
     void LookupHDTextures(GPU& gpu, int npolys);
-    void LookupReliefScales(GPU& gpu, int npolys);
     void BuildPolygons(RendererPolygon* polygons, int npolys);
     void EnsureCapacity(Polygon** polygons, u32 npolys);
     int RenderSinglePolygon(int i) const;
@@ -154,7 +130,6 @@ private:
         void Take(Polygon** polys, u32 count);
     };
     bool FrameGeneration {};
-    bool FrameHidden {};
     FrameSnapshot Snapshots[2]; // previous, current
     FrameSnapshot Intermediate;
     // the previous frame's counterparts of sub-polygons subdivided differently
@@ -168,23 +143,14 @@ private:
     u32 SnapshotVersion = 0, PairedVersion = ~0u;
     bool Paired = false;
     std::vector<Polygon*> IntermediateList;
-    GLuint BackupColorTex {}, BackupLightingTex {};
+    GLuint BackupColorTex {};
     GLuint CopyFramebuffers[2] {};
     int BackupW {}, BackupH {};
 
-    bool LightingEnabled() const noexcept { return AmbientOcclusion || LightBounce || Shadows || Reflections; }
-    // the view-space vertex data: for the lighting effects and for relief textures
-    bool ViewDataWanted() const noexcept { return LightingEnabled() || Relief > 0; }
     // Pomegrade: a polygon's Z-buffer depth as a plane on screen (output
     // units), when its rounded vertices need it; and its depth at a position
     bool DepthPlane(const Polygon* poly, double plane[3]) const;
     static u32 PlaneDepth(const double plane[3], u32 x, u32 y) noexcept;
-    float* SetupViewVertex(const Vertex* vtx, float* gptr) const;
-    float* SetupViewCenterVertex(const Polygon* poly, float* gptr) const;
-    void SetupLightingTargets();
-    void RenderLighting(const GPU3D& gpu3d);
-    bool RenderShadowMap(const GPU3D& gpu3d);
-    bool FindReplacedShadows(const GPU3D& gpu3d);
 
     enum
     {
@@ -216,11 +182,7 @@ private:
         u32 uFogOffset;             // int        304 / 1
         u32 uFogShift;              // int        305 / 1
         u32 uTextureFilter;         // int        306 / 1   Pomegrade: TextureLookup_Filtered
-        float uRelief;              // float      307 / 1   Pomegrade: relief depth in texels, 0 = off
-        float uReliefLight[4];      // vec4       308 / 4   Pomegrade: towards the main light (view space), w: 1 if known
-        float uWindPhase;           // float      312 / 1   Pomegrade: wind phase in radians (0-2 pi), sways volumetric grass
-        float uStyle;               // float      313 / 1   Pomegrade: 1 = stylised rendering (relief level 3)
-        float __pad1[2];            // the block's size stays a multiple of 16 bytes
+        u32 __pad1;                 // the block's size stays a multiple of 16 bytes
     } ShaderConfig {};
 
     GLuint ShaderConfigUBO {};
@@ -246,10 +208,6 @@ private:
     std::vector<u32> VertexBuffer = std::vector<u32>(10240 * VertexSize);
 
     GLHDTextures HDTextures;
-    GLMaterialRelief MaterialRelief;
-    u64 WindFrames = 0; // frames rendered with relief, for uWindPhase
-    int FrameSceneryId = -1; // the frame's scenery polygon ID (MaterialClassifier::SceneryId), -1: none
-    GLint ComposeAttrLoc[2] {}, UpsampleAttrLoc[2] {}; // AttrBuf and uSceneryId of the lighting compose and upsample shaders
     u32 NumVertices {};
 
     GLuint VertexArrayID {};
@@ -277,108 +235,8 @@ private:
 
     GLuint MainFramebuffer {}, DownscaleFramebuffer {};
 
-    // lighting effects (Pomegrade)
-    bool AmbientOcclusion {};
-    bool LightBounce {};
-    bool Shadows {};
-    int Relief {};
-    bool ReliefShaders {}; // the polygon shaders hold the relief code (see BuildRenderShaders)
-    bool ViewDataActive {}; // view-space vertex data built and uploaded this frame
     // inspector (Pomegrade): set while polygons are drawn in its colours
     const class Inspector* ViewInspector = nullptr;
-    bool Reflections {};
-    // reflection strength, times Fresnel and the material's shininess
-    static constexpr float ReflectionStrength = 1.0f;
-    GLint ComposeReflectionLoc[4] {}; // compose shader: strength, projection, viewport, scale
-    // light bounce strength. Test scene (tests/lighting-effects): grey floor in
-    // front of a lit red sphere 3-6% redder, floor-wall crease 3% brighter
-    static constexpr float BounceIntensity = 3.0f;
-    bool LightingActive {};   // view data is being rendered this frame
-    bool LightingDone {};     // this frame's lit image is in LightingTex
-    bool ViewDataCaptured {}; // GPU3D captured view data while the rendered frame was submitted
-    bool LightingSupported = true; // the render targets work on this GPU
-    // Display capture copies the DS render (unlit, 256x192) for the game. A game
-    // capturing every frame shows those copies (3D on both screens, motion
-    // blur): each screen would alternate between the lit image and the unlit
-    // copy. The effects pause from the second frame in a row with a capture,
-    // and come back after CapturePauseLength frames without one.
-    static constexpr int CapturePauseLength = 30;
-    bool CapturedSinceRender {};
-    int CaptureStreak {}, CapturePauseFrames {};
-    // per vertex, beside VertexBuffer: view position xyz + perspective flag,
-    // view normal xyz + shininess
-    GLuint ViewVertexBufferID {};
-    static constexpr u32 ViewVertexSize = 8; // in floats
-    std::vector<float> ViewVertexBuffer = std::vector<float>(10240 * ViewVertexSize);
-    GLuint ViewPositionTex {}, ViewNormalTex {}, AOTex {}, BounceTex {}, LightingTex {};
-    GLuint AOFramebuffer {}, LightingFramebuffer {};
-    // the effects light the opaque layer only: translucent polygons, fog and
-    // edge marking are drawn again over the lit image (LightingFramebuffer),
-    // against the depth/stencil and attributes the opaque pass left, copied here.
-    // Limitation: the opaque pixels of polygons the DS draws in the translucent
-    // pass (A3I5/A5I3 cut-out textures) keep their colours, without effects
-    GLuint LitDepthTex {}, LitAttrTex {};
-    bool TranslucentPassOnly {}; // RenderSceneChunk: skip the opaque pass
-    // Real-time shadows replace the game's fake ones: DS shadow polygons (the
-    // dark discs games draw under characters) next to something that casts
-    // are left out of the lit image when the shadow map was drawn this frame
-    // (see FindReplacedShadows); the DS image keeps them
-    bool ShadowsDrawn {}, DSShadowsReplaced {};
-    std::vector<bool> ShadowReplaced; // per PolygonList entry
-    std::vector<float> ShadowDistances; // squared view distances of the frame's vertices (RenderShadowMap's background cut)
-    GLuint LightingAOShader {}, LightingComposeShader {}, LightingShadowShader {};
-    // shadow map of the main light (the light the most polygons use this frame)
-    static constexpr int ShadowMapSize = 2048;
-    // share of the main light's contribution taken away in its shadow
-    static constexpr float ShadowStrength = 0.6f;
-    GLuint ShadowMapTex {}, ShadowFramebuffer {};
-    GLuint ShadowDepthSampler {}; // reads the shadow map's depths (contact-hardening search)
-    GLuint ShadowCasterBufferID {}, ShadowCasterArrayID {}; // GPU3D::RenderShadowCasters
-    std::vector<float> ShadowCasterVertices; // those facing the light, drawn this frame
-    u32 LightUse[4] {}; // opaque polygons lit by each light, this frame
-    // the same, the scenery's polygons only (FrameSceneryId): the shadows' light is the scenery's, not a character's
-    u32 SceneryLightUse[4] {};
-    // the scenery's vertices this frame (view space), and the frame of reference that stays with the scene while the
-    // camera turns. Games set their lights in view space or on the character, so the game's own direction turned with
-    // the camera: the shadows' light is held fixed in the scene while the game's direction stays the same in view
-    // space, and follows the game when that changes (a light of the scene, a light the game moves)
-    std::vector<float> SceneryPoints;
-    std::vector<float> BackdropDistances; // squared view distances of the frame's opaque vertices (BuildPolygons' backdrop)
-    WorldFrame SceneFrame;
-    float SceneLight[3] {};
-    float GameLight[3] {}; // the game's direction last frame, view space
-    bool HaveSceneLight = false;
-    struct
-    {
-        float Right[3], Up[3], Dir[3]; // light space, Dir towards the light
-        float Bounds[4];               // min x, min y, 1 / width, 1 / height
-        float Depth[2];                // nearest to the light, 1 / depth range
-        float Texel;                   // one texel, in view units
-    } ShadowParams {};
-    GLint ShadowLoc[5] {};  // shadow shader: right, up, dir, bounds, depth
-    GLint ComposeShadowLoc[7] {}; // compose shader: strength, right, up, dir, bounds, depth, texel
-    GLint LightingAORadiusLoc = -1, LightingBounceRadiusLoc = -1, LightingComposeAOLoc = -1, LightingComposeBounceLoc = -1;
-    int LightingTargetsW {}, LightingTargetsH {};
-    // At high resolutions the lighting terms (occlusion, bounce, shadows,
-    // reflections) are computed on a copy of the frame LightingFactor times
-    // smaller each way, at most MaxLightingScale times the DS resolution, and
-    // brought back by an edge-aware filter (see kLightingDownsampleFS). Measured
-    // at 8x on the desktop (llvmpipe), the effects were 83% of the GPU's work
-    // per frame at full resolution. 1 = at full resolution.
-    // 2 (was 4): on Joker's harbour at x4 with every effect, the effects'
-    // cost fell by 62% (197 -> 75 ms over the frame without them, software
-    // rendering) for at most half a level of difference in the image
-    static constexpr int MaxLightingScale = 2;
-    int LightingFactor = 1;
-    GLuint LowPositionTex {}, LowNormalTex {}, LowColorTex {};
-    GLuint TermsTex {}, TermsBounceTex {}, TermsReflectedTex {};
-    GLuint LowGBufferFramebuffer {}, TermsFramebuffer {};
-    GLuint LightingDownsampleShader {}, LightingTermsShader {}, LightingUpsampleShader {};
-    GLint DownsampleFactorLoc = -1, LightingAOPixelInWLoc = -1;
-    GLint TermsShadowLoc[7] {}, TermsReflectionLoc[4] {}; // as ComposeShadowLoc, ComposeReflectionLoc
-    GLint UpsampleLoc[6] {}; // factor, AO on, bounce intensity, shadow strength, light direction, reflection strength
-    void SetLightingTermUniforms(const GLint* shadowLoc, const GLint* reflectionLoc, bool shadows,
-                                 const GPU3D& gpu3d, float scale) const;
     u32 Framebuffer[256*192] {};
 };
 }

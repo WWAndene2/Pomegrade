@@ -92,7 +92,7 @@ static std::vector<u32> Composite(GLRenderer& r, GPU& gpu)
     glDeleteTextures(1, &tex);
 
     // the top screen is rows 194-385, in screen order (checked against the
-    // display capture in tests/lighting-effects)
+    // display capture)
     std::vector<u32> top(256 * 192);
     for (int y = 0; y < 192; y++)
         memcpy(&top[y * 256], &all[(194 + y) * 256], 256 * 4);
@@ -138,17 +138,6 @@ int main()
     printf("OLED: background %06x (was %06x), quad middle luma %.3f (was %.3f)\n", bg, bgPlain, quadMid, quadMidPlain);
     ok = ok && bgPlain != 0 && bg == 0 && std::fabs(quadMid - quadMidPlain) < 0.02;
     r->SetOledBlacks(false);
-
-    // adaptive colours
-    r->SetAdaptiveColours(true);
-    for (int f = 0; f < 90; f++) img = Composite(*r, gpu);
-    double contrast = QuadContrast(img);
-    printf("adaptive: quad contrast %.4f (was %.4f)\n", contrast, contrastPlain);
-    // expected stretch: the scene's darkest 2% is the background (luma ~0.047), so the
-    // black level only moves to ~0.03; the white level (quad top, ~0.71) moves to ~0.83:
-    // contrast x 1 / (0.83 - 0.03) = ~1.25
-    ok = ok && contrast > contrastPlain * 1.2;
-    r->SetAdaptiveColours(false);
 
     // both off again: the same image as before
     bool same = Composite(*r, gpu) == plain;

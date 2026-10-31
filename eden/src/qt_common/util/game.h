@@ -1,8 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#ifndef QT_GAME_UTIL_H
-#define QT_GAME_UTIL_H
+#pragma once
 
 #include <QObject>
 #include <QStandardPaths>
@@ -69,6 +68,12 @@ void CreateShortcut(const std::string& game_path, const u64 program_id,
 std::string GetShortcutPath(ShortcutTarget target);
 void CreateHomeMenuShortcut(ShortcutTarget target);
 
-} // namespace QtCommon::Game
+/**
+ * Saves a windows icon to a file
+ * @param path The icons path
+ * @param image The image to save
+ * @return bool If the operation succeeded
+ */
+[[nodiscard]] bool SaveIconToFile(const std::filesystem::path& icon_path, const QImage& image);
 
-#endif // QT_GAME_UTIL_H
+} // namespace QtCommon::Game

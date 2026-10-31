@@ -49,11 +49,11 @@ inline std::atomic<std::uint64_t> render_passes{0};
 inline std::atomic<std::uint64_t> render_pass_pixels{0};
 // the current pass has had no draw nor clear yet (set when a pass begins)
 inline std::atomic<bool> pass_untouched{false};
-// clears covering the whole render area: as the pass's first command (its load could be a CLEAR, not a LOAD) or later
+// clears covering the whole render area: deferred by Eden into the next pass's CLEAR load (no pass open), as the
+// open pass's first command (its load could be a CLEAR, not a LOAD) or later
+inline std::atomic<std::uint64_t> full_clears_deferred{0};
 inline std::atomic<std::uint64_t> full_clears_first{0};
 inline std::atomic<std::uint64_t> full_clears_later{0};
-// full clears turned into their pass's load (LOAD_OP_CLEAR, setting pomegrade_clear_on_load), per attachment
-inline std::atomic<std::uint64_t> clears_on_load{0};
 // the guest's "wait for idle" made at the end of the render pass instead of ending it (pomegrade_defer_wait_for_idle)
 inline std::atomic<std::uint64_t> deferred_waits{0};
 // images made: renderable ones, renderable ones also given STORAGE usage (no AFBC compression on Mali), and storage

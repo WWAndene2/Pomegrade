@@ -9,14 +9,24 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.dp
 import me.magnum.melonds.domain.model.rom.RomPlatform
 
-/** A small drawing of [platform]'s console, 40 x 28 dp, for the quick-access cards. No console maker's artwork. */
+/**
+ * A small drawing of [platform]'s console for the quick-access cards, on a 48 x 32 dp canvas (3:2, PerfectSuite;
+ * 40 x 28 before): drawn on a 40 x 28 grid, fitted to the canvas's height and centred. No console maker's artwork.
+ */
 @Composable
 fun ConsoleGlyph(platform: RomPlatform, modifier: Modifier = Modifier) {
-    Canvas(modifier.size(40.dp, 28.dp)) {
-        val u = size.width / 40f
+    Canvas(modifier.size(48.dp, 32.dp)) {
+        val u = size.height / 28f
+        translate(left = (size.width - 40f * u) / 2f) { drawGlyph(platform, u) }
+    }
+}
+
+private fun DrawScope.drawGlyph(platform: RomPlatform, u: Float) {
+    run {
         when (platform) {
             RomPlatform.NDS -> {
                 screenHalf(8 * u, 1 * u, 24 * u, 12 * u, u, Color(0xFFC9CFDA), Color(0xFF2B3A5C))

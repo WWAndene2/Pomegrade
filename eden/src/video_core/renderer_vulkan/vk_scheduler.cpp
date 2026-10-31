@@ -29,7 +29,6 @@
 
 namespace Vulkan {
 
-
 void Scheduler::CommandChunk::ExecuteAll(vk::CommandBuffer cmdbuf,
                                          vk::CommandBuffer upload_cmdbuf) {
     auto command = first;
@@ -49,15 +48,6 @@ Scheduler::Scheduler(const Device& device_, StateTracker& state_tracker_)
     : device{device_}, state_tracker{state_tracker_},
       master_semaphore{std::make_unique<MasterSemaphore>(device)},
       command_pool{std::make_unique<CommandPool>(*master_semaphore, device)} {
-
-    /*// PRE-OPTIMIZATION: Warm up the pool to prevent mid-frame spikes
-    {
-        std::scoped_lock rl{reserve_mutex};
-        chunk_reserve.reserve(2048); // Prevent vector resizing
-        for (int i = 0; i < 1024; ++i) {
-            chunk_reserve.push_back(std::make_unique<CommandChunk>());
-        }
-    }*/
 
     // Pomegrade: TEMPORARY, timestamps of the study's diagnostic, when the queue writes them
     const auto limits = device.GetPhysical().GetProperties().limits;
@@ -115,18 +105,134 @@ void Scheduler::WaitWorker() {
 }
 
 void Scheduler::DispatchWork() {
-    if (chunk->Empty()) {
+    if (chunk && !chunk->Empty()) {
+        {
+            std::scoped_lock ql{queue_mutex};
+            work_queue.push(std::move(chunk));
+        }
+        event_cv.notify_all();
+        AcquireNewChunk();
+    }
+}
+
+void Scheduler::BeginRenderPassImpl(const Framebuffer* framebuffer, VkRenderPass renderpass,
+                                    const VkClearValue* clear_values, u32 clear_value_count) {
+    const VkFramebuffer framebuffer_handle = framebuffer->Handle();
+    const VkExtent2D render_area = framebuffer->RenderArea();
+    state.renderpass = renderpass;
+    state.framebuffer = framebuffer_handle;
+    state.render_area = render_area;
+    // Pomegrade: TEMPORARY, render passes counted (common/pomegrade_diagnostics.h)
+    PomegradeDiagnostics::render_passes.fetch_add(1, std::memory_order_relaxed);
+    PomegradeDiagnostics::render_pass_pixels.fetch_add(u64(render_area.width) * render_area.height,
+                                                       std::memory_order_relaxed);
+    PomegradeDiagnostics::pass_untouched.store(true, std::memory_order_relaxed);
+
+    if (GPU::Logging::IsActive() && Settings::values.gpu_log_vulkan_calls.GetValue()) {
+        const std::string render_pass_info =
+            fmt::format("renderArea={}x{}, numImages={}", render_area.width, render_area.height,
+                        framebuffer->NumImages());
+        GPU::Logging::GPULogger::GetInstance().LogRenderPassBegin(render_pass_info);
+    }
+
+    std::array<VkClearValue, 9> values{};
+    for (u32 i = 0; i < clear_value_count && i < values.size(); ++i) {
+        values[i] = clear_values[i];
+    }
+    Record([renderpass, framebuffer_handle, render_area, values, clear_value_count](
+               vk::CommandBuffer cmdbuf) {
+        const VkRenderPassBeginInfo renderpass_bi{
+            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+            .pNext = nullptr,
+            .renderPass = renderpass,
+            .framebuffer = framebuffer_handle,
+            .renderArea =
+                {
+                    .offset = {.x = 0, .y = 0},
+                    .extent = render_area,
+                },
+            .clearValueCount = clear_value_count,
+            .pClearValues = clear_value_count != 0 ? values.data() : nullptr,
+        };
+        cmdbuf.BeginRenderPass(renderpass_bi, VK_SUBPASS_CONTENTS_INLINE);
+    });
+    num_renderpass_images = framebuffer->NumImages();
+    renderpass_images = framebuffer->Images();
+    renderpass_image_ranges = framebuffer->ImageRanges();
+    framebuffer->MarkResolveShadowsUpToDate();
+}
+
+void Scheduler::RealizeDeferredClear() {
+    if (deferred_clear.framebuffer == nullptr) {
         return;
     }
-    {
-        std::scoped_lock ql{queue_mutex};
-        work_queue.push(std::move(chunk));
+    const DeferredClear dc = deferred_clear;
+    deferred_clear = {};
+
+    std::array<VkClearValue, 9> clear_values{};
+    u32 count = 0;
+    const RenderPassKey& base = dc.framebuffer->RenderPassKeyBase();
+    for (u32 slot = 0; slot < 8; ++slot) {
+        if (base.color_formats[slot] == VideoCore::Surface::PixelFormat::Invalid) {
+            continue;
+        }
+        clear_values[count++] = dc.color_values[slot];
     }
-    event_cv.notify_all();
-    AcquireNewChunk();
+    if (base.depth_format != VideoCore::Surface::PixelFormat::Invalid) {
+        clear_values[count++] = dc.depth_stencil_value;
+    }
+    const u32 color_discard_mask =
+        dc.framebuffer->DiscardsMsaaColor() ? dc.color_clear_mask : 0u;
+    const bool depth_stencil_discard =
+        dc.depth_stencil && dc.framebuffer->DiscardsMsaaDepthStencil();
+    const VkRenderPass renderpass = dc.framebuffer->RenderPassVariant(
+        dc.color_clear_mask, dc.depth_stencil, color_discard_mask, depth_stencil_discard);
+    EndRenderPass();
+    BeginRenderPassImpl(dc.framebuffer, renderpass, clear_values.data(), count);
+}
+
+bool Scheduler::DeferColorClear(const Framebuffer* framebuffer, u32 rt_slot,
+                                const VkClearValue& value) {
+    if (IsRenderPassActive()) {
+        return false;
+    }
+    if (deferred_clear.framebuffer != nullptr && deferred_clear.framebuffer != framebuffer) {
+        RealizeDeferredClear();
+        EndRenderPass();
+    }
+    deferred_clear.framebuffer = framebuffer;
+    deferred_clear.color_clear_mask |= 1u << rt_slot;
+    deferred_clear.color_values[rt_slot] = value;
+    return true;
+}
+
+bool Scheduler::DeferDepthStencilClear(const Framebuffer* framebuffer, const VkClearValue& value) {
+    if (IsRenderPassActive()) {
+        return false;
+    }
+    if (deferred_clear.framebuffer != nullptr && deferred_clear.framebuffer != framebuffer) {
+        RealizeDeferredClear();
+        EndRenderPass();
+    }
+    deferred_clear.framebuffer = framebuffer;
+    deferred_clear.depth_stencil = true;
+    deferred_clear.depth_stencil_value = value;
+    return true;
+}
+
+void Scheduler::FlushDeferredClear() {
+    if (deferred_clear.framebuffer == nullptr) {
+        return;
+    }
+    RealizeDeferredClear();
+    EndRenderPass();
 }
 
 void Scheduler::RequestRenderpass(const Framebuffer* framebuffer) {
+    if (deferred_clear.framebuffer == framebuffer) {
+        RealizeDeferredClear();
+        return;
+    }
     const VkRenderPass renderpass = framebuffer->RenderPass();
     const VkFramebuffer framebuffer_handle = framebuffer->Handle();
     const VkExtent2D render_area = framebuffer->RenderArea();
@@ -138,82 +244,9 @@ void Scheduler::RequestRenderpass(const Framebuffer* framebuffer) {
     if (state.renderpass) {
         PomegradeDiagnostics::CountPassEnd("new render target", 0); // Pomegrade: TEMPORARY
     }
+    // Ends any active pass and realizes a deferred clear
     EndRenderPass();
-    state.renderpass = renderpass;
-    state.framebuffer = framebuffer_handle;
-    state.render_area = render_area;
-    // Pomegrade: TEMPORARY, render passes counted (common/pomegrade_diagnostics.h)
-    PomegradeDiagnostics::render_passes.fetch_add(1, std::memory_order_relaxed);
-    PomegradeDiagnostics::render_pass_pixels.fetch_add(u64(render_area.width) * render_area.height,
-                                                       std::memory_order_relaxed);
-    PomegradeDiagnostics::pass_untouched.store(true, std::memory_order_relaxed);
-
-    // Log render pass begin
-    if (Settings::values.gpu_logging_enabled.GetValue() &&
-        Settings::values.gpu_log_vulkan_calls.GetValue()) {
-        const std::string render_pass_info = fmt::format(
-            "renderArea={}x{}, numImages={}",
-            render_area.width, render_area.height, framebuffer->NumImages());
-        GPU::Logging::GPULogger::GetInstance().LogRenderPassBegin(render_pass_info);
-    }
-
-    // Pomegrade: a full clear recorded before anything else in the pass may still turn its load into a clear
-    // (ClearOnLoad), until the worker seals the begin here
-    pending_begin = std::make_shared<PendingBegin>();
-    Record([renderpass, framebuffer_handle, render_area,
-            pending = pending_begin](vk::CommandBuffer cmdbuf) {
-        std::scoped_lock lock{pending->mutex};
-        pending->sealed = true;
-        const bool clears = pending->clear_renderpass != VK_NULL_HANDLE;
-        const VkRenderPassBeginInfo renderpass_bi{
-            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-            .pNext = nullptr,
-            .renderPass = clears ? pending->clear_renderpass : renderpass,
-            .framebuffer = framebuffer_handle,
-            .renderArea =
-                {
-                    .offset = {.x = 0, .y = 0},
-                    .extent = render_area,
-                },
-            .clearValueCount = clears ? static_cast<u32>(pending->clear_values.size()) : 0,
-            .pClearValues = clears ? pending->clear_values.data() : nullptr,
-        };
-        cmdbuf.BeginRenderPass(renderpass_bi, VK_SUBPASS_CONTENTS_INLINE);
-    });
-    record_count_at_begin = record_count;
-    num_renderpass_images = framebuffer->NumImages();
-    renderpass_images = framebuffer->Images();
-    renderpass_image_ranges = framebuffer->ImageRanges();
-}
-
-bool Scheduler::ClearOnLoad(const Framebuffer* framebuffer, u16 clear_bits, u32 attachment,
-                            const VkClearValue& value) {
-    // the caller checked IsRenderPassUntouched when the clear began: what it recorded since (viewports, queries)
-    // draws nothing, so the clear may still be the pass's load
-    if (!pending_begin || attachment >= 9) {
-        return false;
-    }
-    std::scoped_lock lock{pending_begin->mutex};
-    if (pending_begin->sealed) {
-        return false;
-    }
-    const u16 mask = static_cast<u16>(pending_begin->clear_mask | clear_bits);
-    const VkRenderPass clear_renderpass = framebuffer->RenderPassWithClears(mask);
-    if (clear_renderpass == VK_NULL_HANDLE) {
-        return false;
-    }
-    pending_begin->clear_mask = mask;
-    pending_begin->clear_renderpass = clear_renderpass;
-    // depth and stencil share their attachment's value: the second keeps what the first set
-    VkClearValue& slot = pending_begin->clear_values[attachment];
-    if (clear_bits == RenderPassKey::ClearStencilBit) {
-        slot.depthStencil.stencil = value.depthStencil.stencil;
-    } else if (clear_bits == RenderPassKey::ClearDepthBit) {
-        slot.depthStencil.depth = value.depthStencil.depth;
-    } else {
-        slot = value;
-    }
-    return true;
+    BeginRenderPassImpl(framebuffer, renderpass, nullptr, 0);
 }
 
 void Scheduler::RequestOutsideRenderPassOperationContext(const char* file, int line) {
@@ -258,13 +291,19 @@ bool Scheduler::UpdateRescaling(bool is_rescaling) {
     return true;
 }
 
+bool Scheduler::UpdateDescriptorBufferChunk(u32 descriptor_chunk) {
+    if (state.descriptor_buffer_bound && descriptor_chunk == state.descriptor_buffer_chunk) {
+        return false;
+    }
+    state.descriptor_buffer_bound = true;
+    state.descriptor_buffer_chunk = descriptor_chunk;
+    return true;
+}
+
 void Scheduler::WorkerThread(std::stop_token stop_token) {
     Common::SetCurrentThreadName("VulkanWorker");
-#ifdef __ANDROID__
-    // Pomegrade: it records and submits each frame's GPU work, on the critical path (14-23 % of a core in the
-    // owner's logs): the guest cores' and GPU thread's priority, and with them in Android's performance hints
     Common::SetCurrentThreadPriority(Common::ThreadPriority::Critical);
-#endif
+    Common::SetCurrentThreadToPerformanceCores();
 
     const auto TryPopQueue{[this](auto& work) -> bool {
         if (work_queue.empty()) {
@@ -294,7 +333,7 @@ void Scheduler::WorkerThread(std::stop_token stop_token) {
             // Exchange lock ownership so that we take the execution lock before
             // the queue lock goes out of scope. This allows us to force execution
             // to complete in the next step.
-            std::exchange(lk, std::unique_lock{execution_mutex});
+            void(std::exchange(lk, std::unique_lock{execution_mutex}));
 
             // Perform the work, tracking whether the chunk was a submission
             // before executing.
@@ -441,7 +480,7 @@ u64 Scheduler::SubmitExecution(VkSemaphore signal_semaphore, VkSemaphore wait_se
                     cmdbuf, upload_cmdbuf, signal_semaphore, wait_semaphore, signal_value)) {
         case VK_SUCCESS:
             // Log successful queue submission
-            if (Settings::values.gpu_logging_enabled.GetValue() &&
+            if (GPU::Logging::IsActive() &&
                 Settings::values.gpu_log_vulkan_calls.GetValue()) {
                 GPU::Logging::GPULogger::GetInstance().LogVulkanCall(
                     "vkQueueSubmit", "", VK_SUCCESS);
@@ -467,6 +506,7 @@ void Scheduler::AllocateNewContext() {
 void Scheduler::InvalidateState() {
     state.graphics_pipeline = nullptr;
     state.rescaling_defined = false;
+    state.descriptor_buffer_bound = false;
     state_tracker.InvalidateCommandBufferState();
 }
 
@@ -480,15 +520,15 @@ void Scheduler::EndPendingOperations() {
 
 void Scheduler::EndRenderPass()
     {
+        RealizeDeferredClear();
         if (!state.renderpass) {
             return;
         }
-        pending_begin.reset(); // Pomegrade: the pass is closed, its begin can no longer change
 
         query_cache->CounterClose(VideoCommon::QueryType::StreamingByteCount);
 
         // Log render pass end
-        if (Settings::values.gpu_logging_enabled.GetValue() &&
+        if (GPU::Logging::IsActive() &&
             Settings::values.gpu_log_vulkan_calls.GetValue()) {
             GPU::Logging::GPULogger::GetInstance().LogRenderPassEnd();
         }
@@ -501,7 +541,10 @@ void Scheduler::EndRenderPass()
         deferred_wait_for_idle = false;
         Record([num_images = num_renderpass_images,
                        images = renderpass_images,
-                       ranges = renderpass_image_ranges, wait_for_idle](vk::CommandBuffer cmdbuf) {
+                       ranges = renderpass_image_ranges,
+                       has_transform_feedback = device.IsExtTransformFeedbackSupported(),
+                       wait_for_idle](
+                          vk::CommandBuffer cmdbuf) {
             std::array<VkImageMemoryBarrier, 9> barriers;
             for (size_t i = 0; i < num_images; ++i) {
                 const VkImageSubresourceRange& range = ranges[i];
@@ -539,8 +582,19 @@ void Scheduler::EndRenderPass()
             }
             cmdbuf.EndRenderPass();
             cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT |
-                                   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, vk::PIPELINE_STAGE_GRAPHICS_COMPUTE,
                                    0, nullptr, nullptr, vk::Span(barriers.data(), num_images));
+            if (has_transform_feedback) {
+                static constexpr VkMemoryBarrier XFB_OUTPUT_BARRIER{
+                    .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                    .pNext = nullptr,
+                    .srcAccessMask = VK_ACCESS_TRANSFORM_FEEDBACK_WRITE_BIT_EXT,
+                    .dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT,
+                };
+                cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFORM_FEEDBACK_BIT_EXT,
+                                       VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                       0, XFB_OUTPUT_BARRIER);
+            }
             if (wait_for_idle) {
                 // everything recorded before waits for everything before it, as the guest asked
                 static constexpr VkMemoryBarrier WAIT_FOR_IDLE{

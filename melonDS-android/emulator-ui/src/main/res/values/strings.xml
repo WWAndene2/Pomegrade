@@ -53,8 +53,15 @@
     <string name="emulator_pill_back">Back</string>
     <string name="emulator_pill_edit">Edit</string>
     <string name="emulator_pill_system">System</string>
-    <string name="emulator_pill_game">Game</string>
-    <string name="emulator_pill_edit_title">Pill shortcuts (up to 6)</string>
+    <string name="emulator_pill_game">This game</string>
+    <string name="emulator_pill_edit_title">Pill shortcuts (up to 9)</string>
     <string name="emulator_pill_default">Default</string>
-    <string name="emulator_pill_too_many">6 shortcuts at most</string>
+    <string name="emulator_pill_too_many">9 shortcuts at most</string>
+    <string name="emulator_pill_settings_title">Settings</string>
+    <string name="emulator_pill_video">Video</string>
+    <string name="emulator_pill_audio">Audio</string>
+    <string name="emulator_pill_controls">Controls</string>
+    <string name="emulator_pill_move_up">Move up</string>
+    <string name="emulator_pill_move_down">Move down</string>
+    <string name="emulator_pill_edit_hint">Ticked shortcuts show in this order. Settings and Punica are always there.</string>
 </resources>

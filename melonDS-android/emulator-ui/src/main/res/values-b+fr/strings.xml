@@ -53,8 +53,15 @@
     <string name="emulator_pill_back">Retour</string>
     <string name="emulator_pill_edit">Modifier</string>
     <string name="emulator_pill_system">Système</string>
-    <string name="emulator_pill_game">Jeu</string>
-    <string name="emulator_pill_edit_title">Raccourcis de la pastille (6 au plus)</string>
+    <string name="emulator_pill_game">Ce jeu</string>
+    <string name="emulator_pill_edit_title">Raccourcis de la pastille (9 au plus)</string>
     <string name="emulator_pill_default">Par défaut</string>
-    <string name="emulator_pill_too_many">6 raccourcis au plus</string>
+    <string name="emulator_pill_too_many">9 raccourcis au plus</string>
+    <string name="emulator_pill_settings_title">Paramètres</string>
+    <string name="emulator_pill_video">Vidéo</string>
+    <string name="emulator_pill_audio">Audio</string>
+    <string name="emulator_pill_controls">Commandes</string>
+    <string name="emulator_pill_move_up">Monter</string>
+    <string name="emulator_pill_move_down">Descendre</string>
+    <string name="emulator_pill_edit_hint">Les raccourcis cochés s\'affichent dans cet ordre. Paramètres et Punica sont toujours là.</string>
 </resources>

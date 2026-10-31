@@ -698,8 +698,6 @@ class InputOverlay(context: Context?, attrs: AttributeSet?) :
     fun punicaButtonArea(): Rect? =
         overlayButtons.firstOrNull { it.id == NativeLibrary.ButtonType.BUTTON_PUNICA }?.bounds?.let { Rect(it) }
 
-    /** Pomegrade: the A button's width in pixels (the fan's bubbles), 0 when hidden. */
-    fun faceButtonSize(): Int = overlayButtons.firstOrNull { it.id == NativeLibrary.ButtonType.BUTTON_A }?.bounds?.width() ?: 0
 
     private fun saveControlPosition(sharedPrefsId: Int, x: Int, y: Int, orientation: String) {
         preferences.edit()

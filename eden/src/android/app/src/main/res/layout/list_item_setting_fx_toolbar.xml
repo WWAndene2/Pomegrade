@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="@dimen/emulator_settings_margin"
+    android:layout_marginEnd="@dimen/emulator_settings_margin"
+    android:layout_marginTop="@dimen/emulator_settings_gap"
+    android:layout_marginBottom="@dimen/emulator_settings_gap"
+    android:baselineAligned="false"
+    android:gravity="center_vertical"
+    android:orientation="horizontal">
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/fx_add"
+        style="@style/Widget.Material3.Button.TonalButton"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:minHeight="@dimen/emulator_settings_touch"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:text="@string/post_processing_add"
+        app:icon="@drawable/eden_ic_add"
+        app:iconPadding="@dimen/emulator_settings_gap" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/fx_presets"
+        style="@style/Widget.Material3.Button.TonalButton"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="@dimen/emulator_settings_gap"
+        android:layout_weight="1.4"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:minHeight="@dimen/emulator_settings_touch"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:text="@string/post_processing_presets"
+        app:icon="@drawable/ic_dropdown_arrow"
+        app:iconGravity="textEnd"
+        app:iconPadding="@dimen/emulator_settings_gap" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/fx_create_preset"
+        style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
+        android:layout_width="@dimen/emulator_settings_touch"
+        android:layout_height="@dimen/emulator_settings_touch"
+        android:layout_marginStart="@dimen/emulator_settings_gap"
+        android:contentDescription="@string/post_processing_preset_new"
+        app:icon="@drawable/eden_ic_add" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/fx_remove_all"
+        style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
+        android:layout_width="@dimen/emulator_settings_touch"
+        android:layout_height="@dimen/emulator_settings_touch"
+        android:layout_marginStart="@dimen/emulator_settings_gap"
+        android:contentDescription="@string/post_processing_remove_all"
+        app:icon="@drawable/eden_ic_delete" />
+
+</LinearLayout>

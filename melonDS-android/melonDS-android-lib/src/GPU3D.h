@@ -61,7 +61,6 @@ struct Vertex
     bool HasViewNormal;
     bool LitColor; // colour computed by the DS lighting from that normal
     bool Orthographic; // projected without perspective (2D-like 3D: menus, HUDs)
-    float Specular;    // how shiny the material is, 0..1 (its specular colour, when lit)
     s16 ModelPosition[3]; // as the game sent it, before any matrix (polygon multiplier: edge identity)
     // polygon multiplier: a sub-polygon vertex's place in its triangle, the
     // barycentric weights of the triangle's 2nd and 3rd corners as fractions
@@ -185,10 +184,8 @@ public:
     // behaviour (overflow flag, counters, timing) either way.
     void SetUnlimitedPolygons(bool enable) noexcept;
 
-    // View-space position and normal per vertex (Pomegrade), for the polygon
-    // multiplier and the renderer's lighting effects.
-    void SetViewDataCapture(bool enable) noexcept { ViewDataRequested = enable; }
-    [[nodiscard]] bool CaptureViewData() const noexcept { return PolygonMultiplierLevel > 1 || ViewDataRequested; }
+    // View-space position and normal per vertex (Pomegrade), for the polygon multiplier
+    [[nodiscard]] bool CaptureViewData() const noexcept { return PolygonMultiplierLevel > 1; }
 
     // High colour (Pomegrade): vertex colours keep the precision of the DS
     // lighting instead of being rounded to 5 bits per channel. Meant for the
@@ -452,7 +449,6 @@ public:
     u32 NumSubPolygons = 0;
     std::vector<Polygon*> MultipliedRenderPolygons;
     bool UnlimitedPolygons = false;
-    bool ViewDataRequested = false;
     u32 PolygonSubmitCount = 0; // polygons the game sent this frame, see Polygon::FrameId
     // Polygon multiplier, geometry fidelity from neighbours: share of the
     // curvature kept along each edge, from the angle between the two faces
@@ -472,8 +468,6 @@ public:
     std::unordered_map<u64, float> EdgeKeep;
     void UpdateEdgeKeep() noexcept;
     void RegisterEdgeFaces(int nverts) noexcept;
-    void RecordShadowCaster(int nverts);
-    std::vector<float> ShadowCasters; // the frame being submitted
     [[nodiscard]] u64 EdgeKey(int corner, int nverts) const noexcept;
     [[nodiscard]] u64 EdgeKeyOf(int corner, int other) const noexcept;
     // Adaptive multiplier level, per edge (same keys as EdgeKeep): the levels
@@ -490,23 +484,6 @@ public:
     std::unordered_set<u64> StraightEdgesShown, StraightEdgesNext;
     void RecordStraightEdges(int nverts) noexcept;
     [[nodiscard]] u64 EdgePositionKey(int corner, int other) const noexcept;
-    s16 RenderLightDirection[4][3] {}; // light directions (view space) at the end of the rendered frame
-    // Pomegrade: what casts shadows in the rendered frame (see RecordShadowCaster):
-    // opaque lit triangles as the game submitted them, 12 floats each: the
-    // three corners' view-space xyz, then the face's normal (its vertex normals' average)
-    std::vector<float> RenderShadowCasters;
-    // the perspective projection and viewport most of the rendered frame's vertices used
-    s32 RenderProjMatrix[16] {};
-    u32 RenderViewport[6] {};
-    // while the frame is submitted: the projection in use and its vertex count,
-    // and the one with the most vertices so far
-    s32 FrameProjMatrix[16] {};
-    u32 FrameViewport[6] {};
-    u32 FrameProjVertices = 0;
-    s32 BestProjMatrix[16] {};
-    u32 BestViewport[6] {};
-    u32 BestProjVertices = 0;
-    bool FrameProjectionCheck = true; // a matrix or the viewport changed since the last check
     bool HighColor = false;
 
     // tilt parallax (Pomegrade), not part of the hardware state, don't serialize

@@ -13,8 +13,9 @@
 #include <memory>
 #include <type_traits>
 
-#include "dynarmic/mcl/bit.hpp"
 #include "common/common_types.h"
+#include "common/x64/xbyak.h"
+#include "dynarmic/mcl/bit.hpp"
 #include "dynarmic/backend/x64/xbyak.h"
 #include "dynarmic/backend/x64/abi.h"
 #include "dynarmic/backend/x64/callback.h"
@@ -30,9 +31,9 @@ namespace Dynarmic::Backend::X64 {
 using CodePtr = const void*;
 
 struct RunCodeCallbacks {
-    std::unique_ptr<Callback> LookupBlock;
-    std::unique_ptr<Callback> AddTicks;
-    std::unique_ptr<Callback> GetTicksRemaining;
+    ArgCallback LookupBlock;
+    ArgCallback AddTicks;
+    ArgCallback GetTicksRemaining;
     bool enable_cycle_counting;
 };
 
@@ -82,28 +83,17 @@ public:
     /// Code emitter: Load required flags for conditional cond from rax into host rflags
     void LoadRequiredFlagsForCondFromRax(IR::Cond cond);
 
-    /// Code emitter: Calls the function
-    template<typename FunctionPointer>
-    void CallFunction(FunctionPointer fn) {
-        static_assert(std::is_pointer_v<FunctionPointer> && std::is_function_v<std::remove_pointer_t<FunctionPointer>>,
-                      "Supplied type must be a pointer to a function");
-
-        const u64 address = reinterpret_cast<u64>(fn);
-        const u64 distance = address - (getCurr<u64>() + 5);
-
-        if (distance >= 0x0000000080000000ULL && distance < 0xFFFFFFFF80000000ULL) {
-            // Far call
-            mov(rax, address);
-            call(rax);
-        } else {
-            call(fn);
-        }
+    /// @brief Code emitter: Calls the function
+    template<typename F>
+        requires std::is_pointer_v<F> && std::is_function_v<std::remove_pointer_t<F>>
+    void CallFunction(F fn) {
+        ::Common::X64::CallFarFunction(*this, fn);
     }
 
-    /// Code emitter: Calls the lambda. Lambda must not have any captures.
+    /// @brief Code emitter: Calls the lambda. Lambda must not have any captures.
     template<typename Lambda>
     void CallLambda(Lambda l) {
-        CallFunction(Common::FptrCast(l));
+        ::Common::X64::CallFarFunction(*this, Common::FptrCast(l));
     }
 
     void ZeroExtendFrom(size_t bitsize, Xbyak::Reg64 reg) {
@@ -176,27 +166,24 @@ public:
 
     JitStateInfo GetJitStateInfo() const { return jsi; }
 
-    bool HasHostFeature(HostFeature feature) const {
-        return (host_features & feature) == feature;
-    }
+    bool HasHostFeature(HostFeature feature) const noexcept;
 
 private:
     using RunCodeFuncType = HaltReason (*)(void*, CodePtr);
     static constexpr size_t MXCSR_ALREADY_EXITED = 1 << 0;
     static constexpr size_t FORCE_RETURN = 1 << 1;
 
-    RunCodeCallbacks cb;
+    ConstantPool constant_pool;
     JitStateInfo jsi;
+    std::array<const void*, 4> return_from_run_code;
+    RunCodeFuncType run_code = nullptr;
+    RunCodeFuncType step_code = nullptr;
+    RunCodeCallbacks cb;
     CodePtr code_begin = nullptr;
 #ifdef _WIN32
     size_t committed_size = 0;
 #endif
-    ConstantPool constant_pool;
-    RunCodeFuncType run_code = nullptr;
-    RunCodeFuncType step_code = nullptr;
-    std::array<const void*, 4> return_from_run_code;
     bool prelude_complete = false;
-    const HostFeature host_features;
 
     void GenRunCode(std::function<void(BlockOfCode&)> rcp);
 };

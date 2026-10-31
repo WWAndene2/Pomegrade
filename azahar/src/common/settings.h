@@ -576,47 +576,6 @@ struct Values {
     SwitchableSetting<bool> rich_colours{false, Keys::rich_colours};
     // Scene-adaptive deep black: the near-black shades of each scene become true black.
     SwitchableSetting<bool> deep_black{false, Keys::deep_black};
-    // Pomegrade: Remaster, a post-process of the top screen after the offline ORAS renders' presets (VideoCore::Remaster,
-    // tools/remake/render/ORAS_RENDER.md): 0 off, 1 V1 (the remaster, path tracing included), 2 custom (V1 from the switches below)
-    Setting<u32, true> remaster_preset{0, 0, 2, Keys::remaster_preset};
-    SwitchableSetting<bool> remaster_ao{true, Keys::remaster_ao};
-    SwitchableSetting<bool> remaster_grading{true, Keys::remaster_grading};
-    SwitchableSetting<bool> remaster_vibrance{true, Keys::remaster_vibrance};
-    SwitchableSetting<bool> remaster_contrast{true, Keys::remaster_contrast};
-    SwitchableSetting<bool> remaster_outline{true, Keys::remaster_outline};
-    SwitchableSetting<bool> remaster_aerial{true, Keys::remaster_aerial};
-    SwitchableSetting<bool> remaster_glow{true, Keys::remaster_glow};
-    SwitchableSetting<bool> remaster_sky{true, Keys::remaster_sky};
-    SwitchableSetting<bool> remaster_far_blur{true, Keys::remaster_far_blur};
-    // Pomegrade: the light of V1 and custom: false (default) the fast tracer (shadow map and screen-space rays, half size),
-    // true Ultra, the path tracer through the whole scene's BVH (gl_pathtracer.h)
-    SwitchableSetting<bool> remaster_ultra{false, Keys::remaster_ultra};
-    // Pomegrade: the fast tracer's tuning (gl_pathtracer.h), each 0-100 %, mapped to its own range there; the defaults
-    // are its measured look
-    SwitchableSetting<u32, true> remaster_rt_resolution{33, 0, 100, Keys::remaster_rt_resolution};
-    SwitchableSetting<u32, true> remaster_rt_steps{43, 0, 100, Keys::remaster_rt_steps};
-    SwitchableSetting<u32, true> remaster_rt_reach{26, 0, 100, Keys::remaster_rt_reach};
-    SwitchableSetting<u32, true> remaster_rt_thickness{21, 0, 100, Keys::remaster_rt_thickness};
-    SwitchableSetting<u32, true> remaster_rt_indirect{50, 0, 100, Keys::remaster_rt_indirect};
-    SwitchableSetting<u32, true> remaster_rt_shadow{100, 0, 100, Keys::remaster_rt_shadow};
-    SwitchableSetting<u32, true> remaster_rt_softness{67, 0, 100, Keys::remaster_rt_softness};
-    SwitchableSetting<u32, true> remaster_rt_denoise{75, 0, 100, Keys::remaster_rt_denoise};
-    SwitchableSetting<u32, true> remaster_rt_history{95, 0, 100, Keys::remaster_rt_history};
-    SwitchableSetting<u32, true> remaster_rt_shadow_size{43, 0, 100, Keys::remaster_rt_shadow_size};
-    SwitchableSetting<u32, true> remaster_rt_shadow_range{67, 0, 100, Keys::remaster_rt_shadow_range};
-    // Pomegrade: the normal map the traced light reads from each surface's texture, 0-100 % (0 off; 50 the strength
-    // chosen on the Littleroot renders, gl_pathtracer.cpp GBUFFER_FRAG)
-    SwitchableSetting<u32, true> remaster_normal_map{50, 0, 100, Keys::remaster_normal_map};
-    // Pomegrade: the fast tracer's light probes, 0-100 % (0 off; their rays, 4 x 4 to 12 x 12 each; 50: 8 x 8)
-    SwitchableSetting<u32, true> remaster_rt_probes{50, 0, 100, Keys::remaster_rt_probes};
-    // Pomegrade: Remaster's composition (remaster.cpp MAIN_FRAG, p5 and p6), 0-100 %: 50 is V1 (twice V1 at 100); exposure
-    // 0 is off
-    SwitchableSetting<u32, true> remaster_ao_strength{50, 0, 100, Keys::remaster_ao_strength};
-    SwitchableSetting<u32, true> remaster_bounce_strength{50, 0, 100, Keys::remaster_bounce_strength};
-    SwitchableSetting<u32, true> remaster_shade_contrast{50, 0, 100, Keys::remaster_shade_contrast};
-    SwitchableSetting<u32, true> remaster_exposure{0, 0, 100, Keys::remaster_exposure};
-    SwitchableSetting<u32, true> remaster_contrast_strength{50, 0, 100, Keys::remaster_contrast_strength};
-    SwitchableSetting<u32, true> remaster_colour_strength{50, 0, 100, Keys::remaster_colour_strength};
     SwitchableSetting<u16, true> delay_game_render_thread_us{0, 0, 65000,
                                                              Keys::delay_game_render_thread_us};
     SwitchableSetting<bool> simulate_3ds_gpu_timings{false, Keys::simulate_3ds_gpu_timings};

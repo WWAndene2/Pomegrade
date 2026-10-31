@@ -1,6 +1,6 @@
 // Performance counters: drives the real DS 3D engine with geometry commands
-// (a lit floor, wall and sphere, as in tests/lighting-effects), renders frames
-// with the OpenGL renderer's effects and frame generation, and checks that
+// (a lit floor, wall and sphere), renders frames with the OpenGL renderer's
+// frame generation and the polygon multiplier, and checks that
 // - off, nothing is timed: no query object, the same image;
 // - on, each section the frame used is measured, and only those;
 // - turned off again, the published values are cleared.
@@ -248,10 +248,6 @@ int main()
     bool ok = true;
     auto check = [&](bool cond, const char* what) { printf("%s: %s\n", what, cond ? "yes" : "NO"); ok = ok && cond; };
 
-    r->SetAmbientOcclusion(true);
-    r->SetLightBounce(true);
-    r->SetShadows(true);
-    r->SetReflections(true);
     r->SetFrameGeneration(true);
     gpu.GPU3D.SetPolygonMultiplier(4);
 
@@ -263,7 +259,7 @@ int main()
     check(!anyQuery, "off: no query object created");
     check(PerformanceCounters::Get().Frames == 0, "off: nothing published");
 
-    // --- on: every effect ---
+    // --- on: frame generation and the multiplier ---
     PerformanceCounters::SetEnabled(true);
     auto onImage = Frame(*r, gpu, 0, true);
     check(onImage == offImage, "on: the image is the same as off");
@@ -276,8 +272,6 @@ int main()
           "polygon multiplier part of the emulation CPU");
     check(all.Ms[(int)Section::TexturesCpu] >= 0, "textures CPU measured (untextured scene: about 0)");
     check(all.Ms[(int)Section::GpuScene] > 0, "GPU scene measured");
-    check(all.Ms[(int)Section::GpuShadows] > 0, "GPU shadows measured");
-    check(all.Ms[(int)Section::GpuLighting] > 0, "GPU lighting measured");
     check(all.Ms[(int)Section::GpuCompositor] > 0, "GPU compositor measured");
     check(all.Ms[(int)Section::GpuFrameGeneration] > 0, "GPU frame generation measured");
     double gpuTotal = 0;
@@ -285,36 +279,14 @@ int main()
     // llvmpipe runs on the CPU, inside the GL calls the emulation thread makes
     check(gpuTotal < all.Ms[(int)Section::EmulationCpu] * 1.5, "GPU total plausible against the frame's CPU time");
 
-    // --- on: hidden frames (30 fps mode) skip the lighting effects only ---
-    r->SetFrameGeneration(false);
-    auto lit = Frame(*r, gpu, 0, false);
-    r->SetFrameHidden(true);
-    auto hidden = Measure(*r, gpu, false);
-    Print(hidden);
-    check(hidden.Ms[(int)Section::GpuLighting] == 0 && hidden.Ms[(int)Section::GpuShadows] == 0,
-          "hidden frames: no lighting effects drawn");
-    check(hidden.Ms[(int)Section::GpuScene] > 0, "hidden frames: the DS render still made");
-    r->SetFrameHidden(false);
-    check(Frame(*r, gpu, 0, false) == lit, "shown again: lit as before");
-    r->SetFrameGeneration(true);
-
-    // --- on: effects off, no frame generation, no multiplier ---
-    r->SetAmbientOcclusion(false);
-    r->SetLightBounce(false);
-    r->SetShadows(false);
-    r->SetReflections(false);
+    // --- on: no frame generation, no multiplier ---
     r->SetFrameGeneration(false);
     gpu.GPU3D.SetPolygonMultiplier(1);
     auto plain = Measure(*r, gpu, false);
     Print(plain);
     check(plain.Ms[(int)Section::GpuScene] > 0, "plain: GPU scene measured");
-    check(plain.Ms[(int)Section::GpuShadows] == 0, "plain: no shadow time");
-    check(plain.Ms[(int)Section::GpuLighting] == 0, "plain: no lighting time");
     check(plain.Ms[(int)Section::GpuFrameGeneration] == 0, "plain: no frame generation time");
     check(plain.Ms[(int)Section::PolygonMultiplierCpu] == 0, "plain: no multiplier time");
-    check(plain.Ms[(int)Section::GpuScene] < all.Ms[(int)Section::GpuScene] + all.Ms[(int)Section::GpuLighting]
-                                                 + all.Ms[(int)Section::GpuShadows],
-          "plain: the scene costs less than with the effects");
 
     // --- on: nothing drawn with OpenGL (as with the software renderer) ---
     PerformanceCounters::Snapshot noGpu = PerformanceCounters::Get();

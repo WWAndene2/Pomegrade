@@ -2,9 +2,12 @@
 # An X/Y gym's test mod (30 October, the gyms' ports): X/Y's world on one matrix, the engine with X/Y's gym modules
 # (--xy-gyms), and a save standing in the gym, its first zone being mod zone 538.
 #
-#   tools/remake/headless/xy_gym_mod.sh <work dir> <out name> <X matrix> <x> <z> [--weak TEAM] [--characters N]
+#   tools/remake/headless/xy_gym_mod.sh <work dir> <out name> <X matrix> <x> <z> [--weak TEAM] [--characters N] [--height H]
 #
-# The gyms' matrices and tiles: Grant 58 (20.5 17.5, with --height 414 given by hand), Viola 51 (20.5 64.5).
+# The gyms' matrices and tiles: Grant 58 (20.5 17.5, --height 414), Viola 51 (20.5 64.5), Korrina 60 (40.5 40.5),
+# Ramos 64 (60.5 82.5, X's spawn; the zone does not show yet), Valerie 67 (15.5 9.5, X's spawn). --height H: the
+# player's height in pixels (oras-save --height), for a tile on a raised floor: a character's height is its record's
+# float at word 22, so standing beside one gives it (Valerie's platform: 180).
 # --weak TEAM: the trainer's team made one Magikarp at level 1 (oras-sandbox `team TEAM`; Grant's is 1026), for a won
 # battle. --characters N grows the field's heap 0x5D and the save's character records with it (N + 1).
 # Then: POMEGRADE_SAVE=<work>/out/<name>_save fast_run.sh <work> <run> <work>/out/<name> "" "<script>".
@@ -14,11 +17,12 @@
 # offset in the ported module).
 set -euo pipefail
 work=$(cd "$1" && pwd); name=$2; matrix=$3; x=$4; z=$5; shift 5
-weak=""; characters=""
+weak=""; characters=""; height=()
 while [ $# -gt 0 ]; do
     case $1 in
         --weak) weak=$2; shift 2 ;;
         --characters) characters=$2; shift 2 ;;
+        --height) height=(--height "$2"); shift 2 ;;
         *) echo "unknown option $1"; exit 1 ;;
     esac
 done
@@ -40,5 +44,5 @@ extra=(); records=32
 # shellcheck disable=SC2086
 $T oras-engine dumps/oras.3ds "out/$name" $opts --xy-gyms dumps/x.3ds "${extra[@]}" --character-models 64 --memory 124 \
     --linear-heap 0x5800000 --normal-heap 0x1800000 --heap 0xC:0x800000 --heap 0x17:0x4000000 > "out/${name}_engine.log" 2>&1
-$T oras-save dumps/save/main "out/${name}_save" 538 "$x" "$z" --save-records "$records" --characters-from dumps/oras.3ds "out/$name" | tail -1
+$T oras-save dumps/save/main "out/${name}_save" 538 "$x" "$z" --save-records "$records" "${height[@]}" --characters-from dumps/oras.3ds "out/$name" | tail -1
 echo "mod out/$name, save out/${name}_save"

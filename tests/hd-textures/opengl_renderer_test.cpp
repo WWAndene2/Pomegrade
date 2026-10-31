@@ -333,14 +333,10 @@ int main()
         auto t2 = std::chrono::steady_clock::now();
         loaded->SetRenderSettings(false, 1);
         auto fromCache = Render(*loaded, gpu);
-        // relief on compiles its own variants; off again takes the light ones from the cache
-        loaded->SetRelief(2);
-        loaded->SetRelief(0);
-        auto afterRelief = Render(*loaded, gpu);
         const double ms1 = std::chrono::duration<double, std::milli>(t1 - t0).count();
         const double ms2 = std::chrono::duration<double, std::milli>(t2 - t1).count();
         printf("program cache: %d programs saved; renderer created in %.0f ms compiling, %.0f ms from the cache\n", files, ms1, ms2);
-        cacheOk = compiled && loaded && files >= 8 && fromCache == native && afterRelief == native && ms2 < ms1;
+        cacheOk = compiled && loaded && files >= 8 && fromCache == native && ms2 < ms1;
         printf("program cache: saved, loaded faster, same image: %s\n", cacheOk ? "yes" : "NO");
         // a damaged file is compiled again, not used
         for (auto& e : fs::directory_iterator(cache))

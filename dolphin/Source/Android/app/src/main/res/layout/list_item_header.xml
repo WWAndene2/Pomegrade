@@ -1,25 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+<!-- Pomegrade: Punica's section title, the same as the app's preference_punica_category.xml -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/Widget.Pomegrade.EmulatorSettings.Section"
     android:layout_width="match_parent"
+    android:layout_height="wrap_content"
     android:focusable="false"
-    android:layout_height="wrap_content">
+    android:orientation="vertical">
 
     <TextView
         android:id="@+id/text_header_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentTop="true"
-        android:layout_marginHorizontal="@dimen/dolphin_spacing_large"
-        android:layout_marginTop="24dp"
-        android:layout_marginBottom="8dp"
-        android:gravity="start|center_vertical"
-        android:textColor="?attr/colorPrimary"
-        android:textStyle="bold"
         android:textAlignment="viewStart"
-        tools:text="CPU Settings" />
-
-</RelativeLayout>
+        android:textAppearance="@style/TextAppearance.Pomegrade.EmulatorSettings.Section" />
+</LinearLayout>

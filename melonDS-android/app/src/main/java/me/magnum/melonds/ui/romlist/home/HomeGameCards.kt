@@ -127,7 +127,7 @@ internal fun RecentGameCard(rom: Rom, selected: Boolean, actions: GameActions) {
             .padding(8.dp),
     ) {
         Box {
-            GameCover(rom, actions.loadIcon, Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(8.dp)))
+            GameCover(rom, actions.loadIcon, Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(16.dp)))
             PlatformTag(rom.platform, outlined = false, modifier = Modifier.padding(4.dp))
         }
         Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.Top) {
@@ -160,7 +160,7 @@ internal fun LibraryGameCard(rom: Rom, actions: GameActions, modifier: Modifier 
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            GameCover(rom, actions.loadIcon, Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)))
+            GameCover(rom, actions.loadIcon, Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)))
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
                 Text(rom.config.customName ?: rom.name, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, color = PunicaTheme.text)

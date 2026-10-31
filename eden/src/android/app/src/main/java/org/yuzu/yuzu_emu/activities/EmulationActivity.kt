@@ -15,7 +15,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Rect
 import android.graphics.drawable.Icon
@@ -101,7 +100,6 @@ class EmulationActivity : AppCompatActivity(), SensorEventListener, InputManager
     private var romSwapGeneration = 0
     private var hasEmulationSession = processHasEmulationSession
     private val romSwapStopTimeoutRunnable = Runnable { onRomSwapStopTimeout() }
-    private val pictureInPictureFailureActions: MutableSet<String> = mutableSetOf()
 
     private fun onRomSwapStopTimeout() {
         if (!isWaitingForRomSwapStop) {
@@ -126,6 +124,8 @@ class EmulationActivity : AppCompatActivity(), SensorEventListener, InputManager
         ThemeHelper.setTheme(this)
 
         super.onCreate(savedInstanceState)
+
+        NativeConfig.reloadGlobalConfig()
 
         InputHandler.updateControllerData()
         val players = NativeConfig.getInputSettings(true)
@@ -268,18 +268,12 @@ class EmulationActivity : AppCompatActivity(), SensorEventListener, InputManager
     }
 
     override fun onUserLeaveHint() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ||
-            !isPictureInPictureSupported() ||
-            !BooleanSetting.PICTURE_IN_PICTURE.getBoolean() ||
-            isInPictureInPictureMode
-        ) {
-            return
-        }
-
-        val pictureInPictureParamsBuilder = PictureInPictureParams.Builder()
-            .getPictureInPictureActionsBuilder().getPictureInPictureAspectBuilder()
-        runPictureInPictureAction("enter picture-in-picture mode") {
-            enterPictureInPictureMode(pictureInPictureParamsBuilder.build())
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            if (BooleanSetting.PICTURE_IN_PICTURE.getBoolean() && !isInPictureInPictureMode) {
+                val pictureInPictureParamsBuilder = PictureInPictureParams.Builder()
+                    .getPictureInPictureActionsBuilder().getPictureInPictureAspectBuilder()
+                enterPictureInPictureMode(pictureInPictureParamsBuilder.build())
+            }
         }
     }
 
@@ -565,6 +559,15 @@ class EmulationActivity : AppCompatActivity(), SensorEventListener, InputManager
     private fun enableFullscreenImmersive() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility =
+            View.SYSTEM_UI_FLAG_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+
         WindowInsetsControllerCompat(window, window.decorView).let { controller ->
             controller.hide(WindowInsetsCompat.Type.systemBars())
             controller.systemBarsBehavior =
@@ -659,29 +662,7 @@ class EmulationActivity : AppCompatActivity(), SensorEventListener, InputManager
         return this.apply { setActions(pictureInPictureActions) }
     }
 
-    private fun isPictureInPictureSupported() =
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
-
-    private fun runPictureInPictureAction(actionName: String, action: () -> Unit) {
-        try {
-            action()
-        } catch (e: IllegalStateException) {
-            if (pictureInPictureFailureActions.add(actionName)) {
-                Log.warning("[PiP] Failed to $actionName: ${e.message}")
-            }
-        } catch (e: UnsupportedOperationException) {
-            if (pictureInPictureFailureActions.add(actionName)) {
-                Log.warning("[PiP] Failed to $actionName: ${e.message}")
-            }
-        }
-    }
-
     fun buildPictureInPictureParams() {
-        if (!isPictureInPictureSupported()) {
-            return
-        }
-
         val pictureInPictureParamsBuilder = PictureInPictureParams.Builder()
             .getPictureInPictureActionsBuilder().getPictureInPictureAspectBuilder()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -691,9 +672,7 @@ class EmulationActivity : AppCompatActivity(), SensorEventListener, InputManager
                 BooleanSetting.PICTURE_IN_PICTURE.getBoolean() && isEmulationActive
             )
         }
-        runPictureInPictureAction("set picture-in-picture params") {
-            setPictureInPictureParams(pictureInPictureParamsBuilder.build())
-        }
+        setPictureInPictureParams(pictureInPictureParamsBuilder.build())
     }
 
     fun displayMultiplayerDialog() {

@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- The logo's rounded outline: 3 dp, corners half its 32 dp height -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <stroke android:width="3dp" android:color="@color/punicaText" />
-    <corners android:radius="16dp" />
-</shape>

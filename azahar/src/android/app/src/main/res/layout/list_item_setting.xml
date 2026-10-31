@@ -1,69 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Pomegrade: Punica's settings row, the same as the app's preference_punica.xml (shared styles in :emulator-ui's
+     themes_settings.xml): at least 64 dp, 16 dp sides, 12 dp above and below the text, the icon tile, then the text,
+     then the widget 12 dp after it -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
+    style="@style/Widget.Pomegrade.EmulatorSettings.Row"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="?android:attr/selectableItemBackground"
+    android:baselineAligned="false"
     android:clickable="true"
     android:focusable="true"
     android:gravity="center_vertical"
-    android:minHeight="72dp"
-    android:padding="16dp">
+    android:orientation="horizontal">
+
+    <ImageView
+        android:id="@+id/icon"
+        style="@style/Widget.Pomegrade.EmulatorSettings.Icon"
+        android:layout_width="@dimen/emulator_settings_row_icon"
+        android:layout_height="@dimen/emulator_settings_row_icon"
+        android:importantForAccessibility="no"
+        android:visibility="gone"
+        app:tint="@color/emulator_menu_on_surface" />
 
     <LinearLayout
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:layout_weight="1"
+        android:orientation="vertical">
 
-        <ImageView
-            android:id="@+id/icon"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="24dp"
-            android:layout_gravity="center_vertical"
-            android:visibility="gone"
-            app:tint="?attr/colorOnSurface" />
-
-        <LinearLayout
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/text_setting_name"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/text_setting_name"
-                style="@style/TextAppearance.Material3.HeadlineMedium"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textAlignment="viewStart"
-                android:textSize="17sp"
-                app:lineHeight="22dp"
-                tools:text="Setting Name" />
-
-            <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/text_setting_description"
-                style="@style/TextAppearance.Material3.BodySmall"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/spacing_small"
-                android:textAlignment="viewStart"
-                tools:text="@string/app_disclaimer" />
-
-            <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/text_setting_value"
-                style="@style/TextAppearance.Material3.LabelMedium"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/spacing_small"
-                android:textAlignment="viewStart"
-                android:textStyle="bold"
-                android:textSize="13sp"
-                tools:text="1x" />
-
-        </LinearLayout>
-
+            android:textAlignment="viewStart"
+            android:textAppearance="@style/TextAppearance.Pomegrade.EmulatorSettings.Title" />
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/text_setting_description"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAlignment="viewStart"
+            android:textAppearance="@style/TextAppearance.Pomegrade.EmulatorSettings.Summary" />
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/text_setting_value"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAlignment="viewStart"
+            android:textAppearance="@style/TextAppearance.Pomegrade.EmulatorSettings.Value" />
     </LinearLayout>
-
-</RelativeLayout>
+</LinearLayout>

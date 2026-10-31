@@ -34,16 +34,10 @@ public:
         is_set = false;
     }
 
-    bool WaitFor(const std::chrono::nanoseconds& time) {
-        std::unique_lock lk{mutex};
-        if (!condvar.wait_for(lk, time, [this] { return is_set.load(); }))
-            return false;
-        is_set = false;
-        return true;
-    }
+    bool WaitFor(const std::chrono::nanoseconds time);
 
-    template <class Clock, class Duration>
-    bool WaitUntil(const std::chrono::time_point<Clock, Duration>& time) {
+    template<class Clock, class Duration>
+    bool WaitUntil(const std::chrono::time_point<Clock, Duration> time) {
         std::unique_lock lk{mutex};
         if (!condvar.wait_until(lk, time, [this] { return is_set.load(); }))
             return false;
@@ -63,9 +57,9 @@ public:
     }
 
 private:
+    alignas(64) std::atomic<bool> is_set{false};
     std::condition_variable condvar;
     std::mutex mutex;
-    std::atomic_bool is_set{false};
 };
 
 class Barrier {
@@ -105,8 +99,20 @@ enum class ThreadPriority : u32 {
     Critical = 4,
 };
 
+enum class ThreadPlacement : u32 {
+    Default = 0,
+    Background = 1,
+    Efficiency = 2,
+};
+
 void SetCurrentThreadPriority(ThreadPriority new_priority);
 void SetCurrentThreadName(const char* name);
-void PinCurrentThreadToPerformanceCore(size_t core_id);
+void SetCurrentThreadToPerformanceCores();
+void SetCurrentThreadToEfficiencyCores();
+void SetCurrentThreadToBackgroundWork();
+void SetCurrentThreadToAllCores();
+
+void RefreshThreadPolicies();
+void PollThreadPolicies();
 
 } // namespace Common

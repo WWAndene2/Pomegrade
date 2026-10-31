@@ -1,8 +1,12 @@
-// SPDX-FileCopyrightText: Copyright 2025 Eden Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
+
+#include <algorithm>
+#include <chrono>
+#include <thread>
 
 #include "core/file_sys/errors.h"
 #include "core/hle/service/cmif_serialization.h"
@@ -26,10 +30,18 @@ IStorage::IStorage(Core::System& system_, FileSys::VirtualFile backend_)
 Result IStorage::Read(
     OutBuffer<BufferAttr_HipcMapAlias | BufferAttr_HipcMapTransferAllowsNonSecure> out_bytes,
     s64 offset, s64 length) {
-    LOG_DEBUG(Service_FS, "called, offset={:#X}, length={}", offset, length);
+    LOG_DEBUG(Service_FS, "called, offset={:#x}, length={}", offset, length);
 
     R_UNLESS(length >= 0, FileSys::ResultInvalidSize);
     R_UNLESS(offset >= 0, FileSys::ResultInvalidOffset);
+
+    const auto now = std::chrono::steady_clock::now();
+    if (now < next_read_tick) {
+        std::this_thread::sleep_for(next_read_tick - now);
+    }
+    next_read_tick = std::chrono::steady_clock::now() +
+                     std::chrono::nanoseconds{std::min(length, MaxChargedReadSize) *
+                                              1'000'000'000 / ReadBytesPerSecond};
 
     // Read the data from the Storage backend
     backend->Read(out_bytes.data(), length, offset);

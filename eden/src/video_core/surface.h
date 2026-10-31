@@ -5,6 +5,8 @@
 
 #pragma once
 
+#undef PIXEL_FORMAT_LIST
+
 #include <climits>
 #include <utility>
 #include "common/assert.h"
@@ -111,6 +113,16 @@ namespace VideoCore::Surface {
     PIXEL_FORMAT_ELEM(ASTC_2D_6X5_UNORM, 6, 5, 128) \
     PIXEL_FORMAT_ELEM(ASTC_2D_6X5_SRGB, 6, 5, 128) \
     PIXEL_FORMAT_ELEM(E5B9G9R9_FLOAT, 1, 1, 32) \
+    PIXEL_FORMAT_ELEM(ETC2_RGB_UNORM, 4, 4, 64) \
+    PIXEL_FORMAT_ELEM(ETC2_RGBA_UNORM, 4, 4, 128) \
+    PIXEL_FORMAT_ELEM(ETC2_RGB_PTA_UNORM, 4, 4, 64) \
+    PIXEL_FORMAT_ELEM(ETC2_RGB_SRGB, 4, 4, 64) \
+    PIXEL_FORMAT_ELEM(ETC2_RGBA_SRGB, 4, 4, 128) \
+    PIXEL_FORMAT_ELEM(ETC2_RGB_PTA_SRGB, 4, 4, 64) \
+    PIXEL_FORMAT_ELEM(EAC_R11_UNORM, 4, 4, 64) \
+    PIXEL_FORMAT_ELEM(EAC_R11_SNORM, 4, 4, 64) \
+    PIXEL_FORMAT_ELEM(EAC_R11G11_UNORM, 4, 4, 128) \
+    PIXEL_FORMAT_ELEM(EAC_R11G11_SNORM, 4, 4, 128) \
     /* Depth formats */ \
     PIXEL_FORMAT_ELEM(D32_FLOAT, 1, 1, 32) \
     PIXEL_FORMAT_ELEM(D16_UNORM, 1, 1, 16) \
@@ -122,7 +134,7 @@ namespace VideoCore::Surface {
     PIXEL_FORMAT_ELEM(S8_UINT_D24_UNORM, 1, 1, 32) \
     PIXEL_FORMAT_ELEM(D32_FLOAT_S8_UINT, 1, 1, 64)
 
-enum class PixelFormat {
+enum class PixelFormat : u32 {
 #define PIXEL_FORMAT_ELEM(name, ...) name,
     PIXEL_FORMAT_LIST
 #undef PIXEL_FORMAT_ELEM
@@ -181,12 +193,17 @@ constexpr u32 BitsPerBlock(PixelFormat format) noexcept {
     }
 }
 
-#undef PIXEL_FORMAT_LIST
-
 /// Returns the sizer in bytes of the specified pixel format
 constexpr u32 BytesPerBlock(PixelFormat pixel_format) {
     return BitsPerBlock(pixel_format) / CHAR_BIT;
 }
+
+}
+
+#include "video_core/gpu.h"
+#include "video_core/textures/texture.h"
+
+namespace VideoCore::Surface {
 
 SurfaceTarget SurfaceTargetFromTextureType(Tegra::Texture::TextureType texture_type);
 bool SurfaceTargetIsLayered(SurfaceTarget target);
@@ -198,6 +215,7 @@ SurfaceType GetFormatType(PixelFormat pixel_format);
 bool HasAlpha(PixelFormat pixel_format);
 bool IsPixelFormatASTC(PixelFormat format);
 bool IsPixelFormatBCn(PixelFormat format);
+bool IsPixelFormatETC2(PixelFormat format);
 bool IsPixelFormatSRGB(PixelFormat format);
 bool IsPixelFormatInteger(PixelFormat format);
 bool IsPixelFormatSignedInteger(PixelFormat format);

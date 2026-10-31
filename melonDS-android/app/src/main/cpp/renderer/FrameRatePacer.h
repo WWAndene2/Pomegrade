@@ -25,8 +25,6 @@ public:
     {
         bool Show = true;     // the DS frame is presented
         int Generated = 0;    // images generated after it (0, 1 or 3)
-        bool NextShow = true; // the next DS frame is presented: the DS renders its 3D during this one
-                              // (line 215, after this frame's 3D is composited at line 192)
     };
 
     void SetMode(int mode);             // 30, 60, 120, 240 or Adaptive

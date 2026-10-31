@@ -104,6 +104,12 @@ class SettingsFragment : Fragment() {
         binding.listSettings.apply {
             adapter = settingsAdapter
             layoutManager = LinearLayoutManager(requireContext())
+            // Pomegrade: Punica's cards behind the rows, the section titles outside them (every console's settings)
+            addItemDecoration(
+                io.github.wwandene2.pomegrade.emulatorui.PunicaSettingsCards(requireContext()) { list, position ->
+                    list.adapter?.getItemViewType(position) != org.yuzu.yuzu_emu.features.settings.model.view.SettingsItem.TYPE_HEADER
+                }
+            )
         }
 
         binding.toolbarSettings.setNavigationOnClickListener {

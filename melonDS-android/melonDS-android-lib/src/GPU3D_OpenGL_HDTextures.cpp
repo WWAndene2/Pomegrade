@@ -54,7 +54,6 @@ bool GLHDTextures::BeginFrame(GPU& gpu)
         ReplacementGeneration = Replacement.Generation();
         ClearEntries();
     }
-    Changed = false;
     if (Replacement.Loaded() != ReplacementLoaded)
     {
         // replacements loaded in the background since: the textures that were
@@ -70,31 +69,16 @@ bool GLHDTextures::BeginFrame(GPU& gpu)
             if (it->second.SizeClass >= 0)
                 FreeCell(it->second.SizeClass, it->second.Cell);
             it = Cache.erase(it);
-            Changed = true;
         }
     }
-    if (!Enabled && !KeepCoherent)
-    {
-        WasCoherent = false;
+    if (!Enabled)
         return false;
-    }
 
     auto textureDirty = gpu.VRAMDirty_Texture.DeriveState(gpu.VRAMMap_Texture, gpu);
     auto texPalDirty = gpu.VRAMDirty_TexPal.DeriveState(gpu.VRAMMap_TexPal, gpu);
 
     bool textureChanged = gpu.MakeVRAMFlat_TextureCoherent(textureDirty);
     bool texPalChanged = gpu.MakeVRAMFlat_TexPalCoherent(texPalDirty);
-    // the first coherent frame after a pause: anything may have changed
-    Changed = textureChanged || texPalChanged || !WasCoherent;
-    WasCoherent = true;
-    if (!Enabled)
-    {
-        // the changes are consumed here: textures kept from before replacement
-        // was turned off would be stale when it is turned back on
-        if (textureChanged || texPalChanged) ClearEntries();
-        return false;
-    }
-
     if (textureChanged || texPalChanged)
     {
         for (auto it = Cache.begin(); it != Cache.end();)

@@ -40,6 +40,55 @@ std::vector<uint32_t> ModuleCall(uint32_t offset, int count, int asBool, bool on
     a.Op(0xE8BD8070);                       // pop {r4, r5, r6, pc}
     return a.Finish();
 }
+
+// Olympia's GymEsperWarpEvent (X's 0x10294528, named XyGymEsperWarpEvent in X's scripts: OrasXyEvents.cpp): X's event
+// object (0x3C bytes, from the field's heap: X's [[field + 0x50] + 0x18], Omega Ruby's + 0x60) built as X does, its vtable
+// the one DllXyGymEsper builds (X's 0x102FE5A4, at 0x27A0 in the ported module) and the event registered (X's 0x108CF0 =
+// Omega Ruby's 0x108CB0), then its init (X's 0x1021EFEC, copied at 0x2248) with the field. The two offsets are where
+// XyPortModule places them for XyGymEsper(): xy-gym-module prints them, and they must be updated with its copies. As X,
+// no test of the allocation (X's would crash the same way on a null one)
+std::vector<uint32_t> EsperWarpEvent()
+{
+    XyNativeAsm a;
+    a.Op(0xE92D41F0);           // push {r4, r5, r6, r7, r8, lr}
+    a.Call(ScriptContext);
+    a.Op(0xE590000C);           // ldr r0, [r0, #0xc]
+    a.Op(0xE5905048);           // ldr r5, [r0, #0x48]          the field
+    a.Op(0xE5950060);           // ldr r0, [r5, #0x60]
+    a.Op(0xE5906018);           // ldr r6, [r0, #0x18]          its heap
+    a.Op(0xE1A00006);           // mov r0, r6
+    a.Call(0x12BB54);           // the heap's allocator
+    a.Op(0xE1A01000);           // mov r1, r0
+    a.Op(0xE3A0003C);           // mov r0, #0x3c
+    a.Call(0x123480);           // new
+    a.Op(0xE1A04000);           // mov r4, r0
+    a.Op(0xE1A00006);           // mov r0, r6
+    a.Call(0x12BB54);
+    a.Op(0xE1A01000);           // mov r1, r0
+    a.Op(0xE1A00004);           // mov r0, r4
+    a.Call(0x109434);           // the event's base constructor
+    a.Op(0xE59571A4);           // ldr r7, [r5, #0x1a4]         the module's handle
+    a.Literal(2, 0x27A0);       // ldr r2, =the vtable's offset
+    a.Op(0xE0872002);           // add r2, r7, r2
+    a.Op(0xE3A01000);           // mov r1, #0
+    a.Op(0xE5801018);           // str r1, [r0, #0x18]
+    a.Op(0xE5802000);           // str r2, [r0]
+    a.Op(0xE580101C);           // str r1, [r0, #0x1c]
+    a.Op(0xE5801020);           // str r1, [r0, #0x20]
+    a.Op(0xE5801024);           // str r1, [r0, #0x24]
+    a.Op(0xE1A04000);           // mov r4, r0
+    a.Op(0xE1A01000);           // mov r1, r0
+    a.Op(0xE1A00006);           // mov r0, r6
+    a.Call(0x108CB0);           // the event registered
+    a.Op(0xE1A00004);           // mov r0, r4
+    a.Op(0xE1A01005);           // mov r1, r5
+    a.Literal(12, 0x2248);      // ldr ip, =the init's offset
+    a.Op(0xE087C00C);           // add ip, r7, ip
+    a.Op(0xE12FFF3C);           // blx ip
+    a.Op(0xE3A00000);           // mov r0, #0
+    a.Op(0xE8BD81F0);           // pop {r4, r5, r6, r7, r8, pc}
+    return a.Finish();
+}
 }
 
 std::vector<XyNative> XyGymNatives()
@@ -53,6 +102,12 @@ std::vector<XyNative> XyGymNatives()
         {"_GymElecIsEndMissAnm", ModuleCall(0x994, 0, 0, false, true)},
         {"_GymElecSetBlackFace", ModuleCall(0x2A0, 0, 0, true, false)},
         {"_GymElecBtmIsEndDoorAnm", ModuleCall(0x1630, 0, 0, false, true)},
+        // Ramos's (31 October): X's 0x10294B4C and 0x10294CCC, each a call of a function of DllUSGymGrass with the
+        // module's object (X's DllField stubs 0x101FD3D8 and 0x101FD3E0: its 0x69C, then 0 returned; its 0x780, its
+        // answer returned)
+        {"_GymGrassPlayGardAnm", ModuleCall(0x69C, 0, 0, false, false)},
+        {"_GymGrassIsEndGardAnm", ModuleCall(0x780, 0, 0, false, true)},
+        {"XyGymEsperWarpEvent", EsperWarpEvent()},
     };
 }
 

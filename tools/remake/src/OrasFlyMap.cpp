@@ -207,7 +207,7 @@ Bytes FlyMapWithBackgrounds(const Bytes& member, const Bytes& hoenn, const Bytes
                 throw FormatError("fly map: poke_navi_map.bclim is not 380 x 270 ETC1 stored 512 x 512");
             // Hoenn in the stored rows 511 down to 256 as PicaTextureDecode numbers them (the texture's memory from its
             // start), Kalos in 255 down to 0: an image put the right way up in the decoded rows showed upside down (run
-            // fm5, 28 October), one in the top-left corner, where ClimImage::Rgba crops, black (run fm4)
+            // fm5, 28 October), one in the top-left corner, where ClimImage::Rgba cropped then, black (run fm4)
             Bytes padded((size_t)old.StoredWidth * old.StoredHeight * 4, 0);
             const auto place = [&](const Bytes& rgba, uint32_t firstRow)
             {

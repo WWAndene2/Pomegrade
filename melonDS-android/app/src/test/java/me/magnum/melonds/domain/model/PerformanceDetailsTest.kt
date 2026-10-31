@@ -8,7 +8,7 @@ class PerformanceDetailsTest {
 
     @Test
     fun nothingMeasuredYetGivesNoDetails() {
-        assertNull(PerformanceDetails.fromCounters(FloatArray(9)))
+        assertNull(PerformanceDetails.fromCounters(FloatArray(7)))
     }
 
     @Test
@@ -18,22 +18,20 @@ class PerformanceDetailsTest {
 
     @Test
     fun countersAreReadInSectionOrder() {
-        val details = PerformanceDetails.fromCounters(floatArrayOf(60f, 10f, 2f, 0.5f, 3f, 1f, 4f, 0.25f, 6f))!!
+        val details = PerformanceDetails.fromCounters(floatArrayOf(60f, 10f, 2f, 0.5f, 3f, 0.25f, 6f))!!
 
         assertEquals(10f, details.emulationCpuMs)
         assertEquals(2f, details.polygonMultiplierCpuMs)
         assertEquals(0.5f, details.texturesCpuMs)
         assertEquals(3f, details.gpuSceneMs)
-        assertEquals(1f, details.gpuShadowsMs)
-        assertEquals(4f, details.gpuLightingMs)
         assertEquals(0.25f, details.gpuCompositorMs)
         assertEquals(6f, details.gpuFrameGenerationMs)
-        assertEquals(14.25f, details.gpuTotalMs!!, 0.0001f)
+        assertEquals(9.25f, details.gpuTotalMs!!, 0.0001f)
     }
 
     @Test
     fun gpuThatCantBeTimedGivesNoGpuValues() {
-        val details = PerformanceDetails.fromCounters(floatArrayOf(60f, 10f, 2f, 0.5f, -1f, -1f, -1f, -1f, -1f))!!
+        val details = PerformanceDetails.fromCounters(floatArrayOf(60f, 10f, 2f, 0.5f, -1f, -1f, -1f))!!
 
         assertEquals(10f, details.emulationCpuMs)
         assertNull(details.gpuSceneMs)

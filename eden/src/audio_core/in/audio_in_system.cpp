@@ -14,21 +14,6 @@
 #include "core/core_timing.h"
 #include "core/hle/kernel/k_event.h"
 
-// See texture_cache/util.h
-template<typename T, size_t N>
-#if BOOST_VERSION >= 108100 || __GNUC__ > 12
-[[nodiscard]] boost::container::static_vector<T, N> FixStaticVectorADL(const boost::container::static_vector<T, N>& v) {
-    return v;
-}
-#else
-[[nodiscard]] std::vector<T> FixStaticVectorADL(const boost::container::static_vector<T, N>& v) {
-    std::vector<T> u;
-    for (auto const& e : v)
-        u.push_back(e);
-    return u;
-}
-#endif
-
 namespace AudioCore::AudioIn {
 
 System::System(Core::System& system_, Kernel::KEvent* event_, const size_t session_id_)
@@ -110,7 +95,7 @@ Result System::Start() {
 
     boost::container::static_vector<AudioBuffer, BufferCount> buffers_to_flush{};
     buffers.RegisterBuffers(buffers_to_flush);
-    session->AppendBuffers(FixStaticVectorADL(buffers_to_flush));
+    session->AppendBuffers(buffers_to_flush);
     session->SetRingSize(static_cast<u32>(buffers_to_flush.size()));
 
     return ResultSuccess;
@@ -122,7 +107,7 @@ Result System::Stop() {
         session->SetVolume(0.0f);
         session->ClearBuffers();
         if (buffers.ReleaseBuffers(system.CoreTiming(), *session, true)) {
-            buffer_event->Signal();
+            buffer_event->Signal(system.Kernel());
         }
         state = State::Stopped;
     }
@@ -155,7 +140,7 @@ void System::RegisterBuffers() {
     if (state == State::Started) {
         boost::container::static_vector<AudioBuffer, BufferCount> registered_buffers{};
         buffers.RegisterBuffers(registered_buffers);
-        session->AppendBuffers(FixStaticVectorADL(registered_buffers));
+        session->AppendBuffers(registered_buffers);
     }
 }
 
@@ -164,7 +149,7 @@ void System::ReleaseBuffers() {
 
     if (signal) {
         // Signal if any buffer was released, or if none are registered, we need more.
-        buffer_event->Signal();
+        buffer_event->Signal(system.Kernel());
     }
 }
 
@@ -181,7 +166,7 @@ bool System::FlushAudioInBuffers() {
     buffers.FlushBuffers(buffers_released);
 
     if (buffers_released > 0) {
-        buffer_event->Signal();
+        buffer_event->Signal(system.Kernel());
     }
     return true;
 }

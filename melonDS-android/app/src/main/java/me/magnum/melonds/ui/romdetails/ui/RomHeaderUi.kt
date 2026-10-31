@@ -83,7 +83,7 @@ fun RomHeaderUi(
                 .padding(horizontal = PunicaDimens.MARGIN.dp, vertical = PunicaDimens.GAP.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            RomIcon(rom, Modifier.size(96.dp).clip(RoundedCornerShape(PunicaDimens.TILE_RADIUS.dp)))
+            RomIcon(rom, Modifier.size(96.dp).clip(RoundedCornerShape(24.dp))) /* §7.3, as the game sheet's 96 dp cover */
             Spacer(Modifier.width(PunicaDimens.GAP_WIDE.dp))
             Column(Modifier.weight(1f)) {
                 Text(

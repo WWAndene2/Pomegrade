@@ -55,6 +55,12 @@ class SettingsFragment :
         binding.listSettings.apply {
             adapter = settingsAdapter
             layoutManager = LinearLayoutManager(activity)
+            // Pomegrade: Punica's cards behind the rows, the section titles outside them (every console's settings)
+            addItemDecoration(
+                io.github.wwandene2.pomegrade.emulatorui.PunicaSettingsCards(requireContext()) { list, position ->
+                    list.adapter?.getItemViewType(position) != org.citra.citra_emu.features.settings.model.view.SettingsItem.TYPE_HEADER
+                }
+            )
         }
         fragmentPresenter.onViewCreated(settingsAdapter!!)
 

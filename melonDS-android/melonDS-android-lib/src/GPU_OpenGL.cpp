@@ -54,8 +54,6 @@ GLCompositor::GLCompositor(GLuint compShader) noexcept : CompShader(compShader)
     CompScaleLoc = glGetUniformLocation(CompShader, "u3DScale");
     CompHighColorLoc = glGetUniformLocation(CompShader, "uHighColor");
     SceneColourState.AdjustLoc = glGetUniformLocation(CompShader, "uAdjust");
-    SceneColourState.LevelsLoc = glGetUniformLocation(CompShader, "uLevels");
-    SceneColourState.SaturationLoc = glGetUniformLocation(CompShader, "uSaturation");
     SceneColourState.OledLoc = glGetUniformLocation(CompShader, "uOledThreshold");
 
     glUseProgram(CompShader);
@@ -181,7 +179,7 @@ void GLCompositor::RunSceneColourPass() noexcept
         if (samples)
         {
             SceneStats stats = SceneColour::Measure((const u32*)samples, SceneColourPass::Width * SceneColourPass::Height);
-            s.Target = SceneColour::Target(stats, s.Adaptive, s.Oled);
+            s.Target = SceneColour::Target(stats);
             glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
         }
         glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
@@ -374,7 +372,7 @@ void GLCompositor::Composite(const GPU& gpu, Renderer3D& renderer, GLuint frameb
     glBindVertexArray(CompVertexArrayID);
 
     SceneColourPass& s = SceneColourState;
-    bool adjust = s.Adaptive || s.Oled;
+    bool adjust = s.Oled;
     if (adjust)
     {
         if (advanceSceneColour)
@@ -384,8 +382,6 @@ void GLCompositor::Composite(const GPU& gpu, Renderer3D& renderer, GLuint frameb
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer);
             glViewport(0, 0, ScreenW, ScreenH);
         }
-        glUniform2f(s.LevelsLoc, s.Current.LevelBlack, s.Current.LevelWhite);
-        glUniform1f(s.SaturationLoc, s.Current.Saturation);
         glUniform1f(s.OledLoc, s.Current.OledThreshold);
     }
     else if (advanceSceneColour)

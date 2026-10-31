@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Punica's shared sizes for the XML screens, the same as ui/theme/PunicaTheme.kt's PunicaDimens (PerfectSuite scale) -->
-    <dimen name="punica_header_height">64dp</dimen>
-    <dimen name="punica_header_edge">4dp</dimen>
-    <dimen name="punica_touch">48dp</dimen>
-    <dimen name="punica_margin">16dp</dimen>
-    <dimen name="punica_gap">8dp</dimen>
-    <dimen name="punica_gap_wide">12dp</dimen>
-    <dimen name="punica_card_radius">16dp</dimen>
+    <!-- Punica's shared sizes for the XML screens, the same as ui/theme/PunicaTheme.kt's PunicaDimens (PerfectSuite scale); those shared with every console's settings point to :emulator-ui's dimens_settings.xml, one source -->
+    <dimen name="punica_header_height">@dimen/emulator_settings_header_height</dimen>
+    <dimen name="punica_header_edge">@dimen/emulator_settings_header_edge</dimen>
+    <dimen name="punica_touch">@dimen/emulator_settings_touch</dimen>
+    <dimen name="punica_margin">@dimen/emulator_settings_margin</dimen>
+    <dimen name="punica_gap">@dimen/emulator_settings_gap</dimen>
+    <dimen name="punica_gap_wide">@dimen/emulator_settings_gap_wide</dimen>
+    <dimen name="punica_card_radius">@dimen/emulator_settings_card_radius</dimen>
     <dimen name="punica_tile_radius">12dp</dimen>
     <dimen name="punica_sheet_radius">24dp</dimen>
-    <dimen name="punica_row_min_height">64dp</dimen>
-    <dimen name="punica_row_icon">32dp</dimen>
+    <dimen name="punica_row_min_height">@dimen/emulator_settings_row_min_height</dimen>
+    <dimen name="punica_row_icon">@dimen/emulator_settings_row_icon</dimen>
 </resources>

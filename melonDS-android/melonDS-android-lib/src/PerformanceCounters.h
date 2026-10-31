@@ -20,8 +20,6 @@ enum class Section
     TexturesCpu,        // HD texture lookups and native upscaling (MMPX)
     // GPU
     GpuScene,           // the 3D scene, apart from what is below
-    GpuShadows,         // the real-time shadow map
-    GpuLighting,        // ambient occlusion, light bounce and reflections (one pass)
     GpuCompositor,      // the two screens composed, scene colour effects
     GpuFrameGeneration, // everything an in-between image draws
     Count

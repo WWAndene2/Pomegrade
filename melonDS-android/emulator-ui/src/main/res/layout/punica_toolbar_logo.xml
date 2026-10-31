@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The home screen's logo for the XML screens' toolbar (PunicaToolbar): "Punica." in its outline, the screen's name
+     in italics under it, lined up with the pill's left edge, 4 dp under it; behind them the see-through title mask,
+     8 dp beyond on the sides and 4 dp above and below. Same sizes as the Compose PunicaLogo -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/punica_bg_title_mask"
+    android:orientation="vertical"
+    android:paddingStart="8dp"
+    android:paddingTop="4dp"
+    android:paddingEnd="8dp"
+    android:paddingBottom="4dp">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="32dp"
+        android:background="@drawable/punica_bg_logo"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/punica_logo_fruit" />
+
+        <TextView
+            android:id="@+id/text_punica_logo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:fontFamily="@font/punica_bricolage_grotesque_extrabold"
+            android:includeFontPadding="false"
+            android:textColor="@color/emulator_menu_on_surface"
+            android:textSize="24sp"
+            tools:text="Punica." />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/text_punica_subtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="20dp"
+        android:layout_marginTop="4dp"
+        android:ellipsize="end"
+        android:fontFamily="@font/punica_bricolage_grotesque_extrabold"
+        android:gravity="center_vertical"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:textColor="@color/emulator_menu_on_surface"
+        android:textSize="16sp"
+        android:textStyle="italic"
+        tools:text="Réglages" />
+</LinearLayout>

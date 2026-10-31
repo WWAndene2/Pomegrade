@@ -74,7 +74,8 @@ std::vector<Asset> Release::GetPlatformAssets() const {
 #endif // ARCHITECTURE_arm64
 #elif defined(__APPLE__)
 #ifdef ARCHITECTURE_arm64
-    find_asset("Standard", {".dmg", ".tar.gz"});
+    find_asset("Standard", {"standard.dmg", "standard.tar.gz", ".dmg", ".tar.gz"});
+    find_asset("PGO", {"pgo.dmg", "pgo.tar.gz"});
 #endif // ARCHITECTURE_arm64
 #elif defined(__ANDROID__)
 #ifdef ARCHITECTURE_x86_64
@@ -240,7 +241,7 @@ std::optional<std::string> MakeRequest(const std::string& url, const std::string
                       response.status);
             return {};
         }
-        if (!response.headers.contains("content-type")) {
+        if (!response.has_header("content-type")) {
             LOG_ERROR(Common, "GET to {}{} returned no content", url, path);
             return {};
         }

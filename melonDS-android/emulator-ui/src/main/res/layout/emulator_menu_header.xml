@@ -48,7 +48,7 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:fontFamily="@font/punica_bricolage_grotesque_extrabold"
-            android:lineHeight="28sp"
+            android:lineHeight="32sp"
             android:maxLines="2"
             android:textAlignment="viewStart"
             android:textColor="@color/emulator_menu_on_surface"

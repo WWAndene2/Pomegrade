@@ -222,7 +222,7 @@ if (MSVC)
     )
 else()
     target_compile_options(audio_core PRIVATE
-        $<$<COMPILE_LANGUAGE:C,CXX>:-Werror=conversion>
+        $<$<COMPILE_LANGUAGE:C,CXX>:-Wconversion>
         $<$<COMPILE_LANGUAGE:C,CXX>:-Wno-sign-conversion>)
 endif()
 
@@ -238,20 +238,11 @@ if (ENABLE_CUBEB)
     target_compile_definitions(audio_core PRIVATE HAVE_CUBEB=1)
 endif()
 
-if(ANDROID)
-    target_sources(audio_core PRIVATE
-        sink/oboe_sink.cpp
-        sink/oboe_sink.h)
+target_sources(audio_core PRIVATE
+    sink/sdl3_sink.cpp
+    sink/sdl3_sink.h)
 
-    target_link_libraries(audio_core PRIVATE oboe)
-    target_compile_definitions(audio_core PUBLIC HAVE_OBOE)
-else()
-    target_sources(audio_core PRIVATE
-        sink/sdl2_sink.cpp
-        sink/sdl2_sink.h)
-
-    target_link_libraries(audio_core PRIVATE SDL2::SDL2)
-    target_compile_definitions(audio_core PRIVATE HAVE_SDL2)
-endif()
+target_link_libraries(audio_core PRIVATE SDL3::SDL3)
+target_compile_definitions(audio_core PRIVATE HAVE_SDL3)
 
 create_target_directory_groups(audio_core)

@@ -1,6 +1,6 @@
 # Eden optimisation study: Xiaomi 13T first, then low-end phones
 
-Study of how to make the Switch core (Eden v0.2.1, `eden/`) faster on the owner's Xiaomi 13T (MediaTek Dimensity
+Study of how to make the Switch core (Eden v0.2.1 until 31 October, then Eden's master of 26 October: section 9, `eden/`) faster on the owner's Xiaomi 13T (MediaTek Dimensity
 8200-Ultra, Mali-G610 MC6) and then on weaker phones (the owner's goal: "Switch even on a potato"). Test game:
 Pokemon Sword/Shield (64-bit, so run by NCE, section 1).
 
@@ -576,3 +576,23 @@ unknown). The inline index draws' fix (15 October) is unmeasured.
 4. O1 and its A/B; results written here, marked as measured.
 5. Then by measured impact, deep projects first: D2 and D1 if compiles dominate, D3 if H2 is confirmed, D4 if
    exits dominate, D6 if the command processor does; O2, O3, O4, O8, O9 alongside.
+
+**Eden updated (31 October, branch `eden-update-nx2-base`): from v0.2.1 to Eden's master of 26 October (commit
+26a03d24, the base of Eden-NX2), Punica's changes carried over.** Eden's master now does three of this study's
+optimisations itself; Punica's versions are removed rather than kept beside them (two of each would fight), seen in
+the code:
+- **O1, O2 (large cores, nice values)**: Eden's `common/thread.cpp` (#4254, its multithreading refactor) gives the same
+  nice values (Android's steps, clamped to `RLIMIT_NICE`) and picks the performance cores by `cpu_capacity` (at least
+  half the fastest, four at least), recomputed when the affinity changes. Punica's version taken out.
+- **O3 (ADPF)**: Eden's `common/adpf.cpp` opens render and background sessions for the guest cores, the GPU and Vulkan
+  threads and the fence thread, reports each displayed frame (`nvdisp_disp0`) against the frame period (`conductor`).
+  Punica's `common/android/performance_hint.*` and its frame report in `perf_stats.cpp` deleted.
+- **Clear on load**: Eden's scheduler defers a full clear made before its pass begins and begins the pass with
+  `LOAD_OP_CLEAR` (`DeferColorClear` / `DeferDepthStencilClear`, `RenderPassVariant`, also discarding MSAA stores).
+  Punica's `pomegrade_clear_on_load` (its setting, Android option, render pass key bit and scheduler code) deleted; the
+  test cycle has four phases (its fifth compared clear on load).
+Kept: compressed render targets (O13), defer wait for idle, O12 (no-attachment pass for transform feedback), the
+upload reordering, the picture passes, the TEMPORARY diagnostic. Asynchronous GPU emulation is on by default on
+Android now (Eden's master; v0.2.1 had it off there): H2 above. **Unmeasured**: whether Eden's deferred clear keeps
+clear on load's 1 to 2.5 FPS (the twelfth log), and the frame rate with all of it; the next log, same place and
+settings as the fifteenth, answers both.

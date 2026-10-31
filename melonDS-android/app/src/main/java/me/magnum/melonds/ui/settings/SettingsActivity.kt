@@ -19,8 +19,11 @@ import dagger.hilt.android.AndroidEntryPoint
 import me.magnum.melonds.R
 import me.magnum.melonds.databinding.ActivitySettingsBinding
 import me.magnum.melonds.ui.common.PomegradeFolderSetupDelegate
+import me.magnum.melonds.ui.settings.fragments.AudioPreferencesFragment
 import me.magnum.melonds.ui.settings.fragments.CustomFirmwarePreferencesFragment
+import me.magnum.melonds.ui.settings.fragments.InputPreferencesFragment
 import me.magnum.melonds.ui.settings.fragments.MainPreferencesFragment
+import me.magnum.melonds.ui.settings.fragments.VideoPreferencesFragment
 
 @AndroidEntryPoint
 class SettingsActivity : AppCompatActivity(), PreferenceFragmentCompat.OnPreferenceStartFragmentCallback {
@@ -33,6 +36,10 @@ class SettingsActivity : AppCompatActivity(), PreferenceFragmentCompat.OnPrefere
         const val KEY_ENTRY_POINT = "entry_point"
 
         const val CUSTOM_FIRMWARE_ENTRY_POINT = "custom_firmware_entry_point"
+        // Pomegrade: the shortcut pill's ways into the DS settings, from a game
+        const val VIDEO_ENTRY_POINT = "video_entry_point"
+        const val AUDIO_ENTRY_POINT = "audio_entry_point"
+        const val INPUT_ENTRY_POINT = "input_entry_point"
     }
 
     private lateinit var binding: ActivitySettingsBinding
@@ -75,6 +82,9 @@ class SettingsActivity : AppCompatActivity(), PreferenceFragmentCompat.OnPrefere
         if (savedInstanceState == null) {
             val entryPoint = when (intent.extras?.getString(KEY_ENTRY_POINT)) {
                 CUSTOM_FIRMWARE_ENTRY_POINT -> CustomFirmwarePreferencesFragment::class
+                VIDEO_ENTRY_POINT -> VideoPreferencesFragment::class
+                AUDIO_ENTRY_POINT -> AudioPreferencesFragment::class
+                INPUT_ENTRY_POINT -> InputPreferencesFragment::class
                 else -> MainPreferencesFragment::class
             }
 

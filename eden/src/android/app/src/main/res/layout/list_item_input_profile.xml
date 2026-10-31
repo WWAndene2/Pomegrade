@@ -5,23 +5,21 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:focusable="false"
-    android:paddingHorizontal="20dp"
-    android:paddingVertical="16dp">
+    android:paddingHorizontal="@dimen/emulator_settings_margin"
+    android:paddingVertical="@dimen/emulator_settings_gap_wide">
 
     <com.google.android.material.textview.MaterialTextView
         android:id="@+id/title"
-        style="@style/TextAppearance.Material3.HeadlineMedium"
+        android:textAppearance="@style/TextAppearance.Pomegrade.EmulatorSettings.Section"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:textAlignment="viewStart"
         android:gravity="start|center_vertical"
-        android:textSize="17sp"
-        android:layout_marginEnd="16dp"
+        android:layout_marginEnd="@dimen/emulator_settings_gap_wide"
         app:layout_constraintBottom_toBottomOf="@+id/button_layout"
         app:layout_constraintEnd_toStartOf="@+id/button_layout"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:lineHeight="28dp"
         tools:text="My profile" />
 
     <LinearLayout

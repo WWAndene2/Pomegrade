@@ -56,6 +56,8 @@ class SettingsActivity :
         RefreshRateUtil.enforceRefreshRate(this)
 
         ThemeUtil.setTheme(this)
+        // Pomegrade: Punica's settings look over Azahar's theme, as on every console's settings
+        theme.applyStyle(io.github.wwandene2.pomegrade.emulatorui.R.style.ThemeOverlay_Pomegrade_EmulatorSettings, true)
 
         super.onCreate(savedInstanceState)
 
@@ -272,7 +274,7 @@ class SettingsActivity :
     }
 
     fun setToolbarTitle(title: String) {
-        binding.toolbarSettingsLayout.title = title
+        binding.toolbarSettings.title = title
     }
 
     private val settingsFragment: SettingsFragment?

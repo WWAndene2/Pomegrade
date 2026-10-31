@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2025 Eden Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // SPDX-FileCopyrightText: Copyright 2023 yuzu Emulator Project
@@ -8,12 +8,13 @@
 
 #include <array>
 #include <chrono>
+#include <type_traits>
 #include <fmt/ranges.h>
 
 #include "common/common_types.h"
 #include "common/intrusive_list.h"
 #include "common/uuid.h"
-#include "common/wall_clock.h"
+#include "common/cpu_features.h"
 #include "core/hle/kernel/k_event.h"
 #include "core/hle/service/kernel_helpers.h"
 #include "core/hle/service/psc/time/errors.h"
