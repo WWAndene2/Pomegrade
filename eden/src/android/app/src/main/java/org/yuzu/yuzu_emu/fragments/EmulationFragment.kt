@@ -791,7 +791,16 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
         shortcutPill = ShortcutPill.attach(
             requireActivity(),
             { EmulatorMenu.visibleItems(binding.inGameMenu.menu) },
-            { id -> binding.inGameMenu.menu.performIdentifierAction(id, 0) }
+            { id -> binding.inGameMenu.menu.performIdentifierAction(id, 0) },
+            { page ->
+                // the pill's Settings page: Eden's own pages, opened as its Settings entry opens the root
+                val section = when (page) {
+                    ShortcutPill.SettingsPage.VIDEO -> Settings.MenuTag.SECTION_RENDERER
+                    ShortcutPill.SettingsPage.AUDIO -> Settings.MenuTag.SECTION_AUDIO
+                    ShortcutPill.SettingsPage.CONTROLS -> Settings.MenuTag.SECTION_INPUT
+                }
+                binding.root.findNavController().navigate(HomeNavigationDirections.actionGlobalSettingsActivity(null, section))
+            }
         )
         binding.inGameMenu.setNavigationItemSelectedListener {
             when (it.itemId) {

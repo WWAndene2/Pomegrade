@@ -221,7 +221,17 @@ class EmulationActivity : AppCompatActivity(), ThemeProvider {
         setInsets()
 
         // Pomegrade: the shortcut pill, running the in-game menu's entries as the menu does
-        ShortcutPill.attach(this, { MenuFragment.shortcutItems() }, { MenuFragment.runItem(this, it) })
+        ShortcutPill.attach(this, { MenuFragment.shortcutItems() }, { MenuFragment.runItem(this, it) }) { page ->
+            // the pill's Settings page: Dolphin's own pages, the controllers of the console being emulated
+            SettingsActivity.launch(
+                this,
+                when (page) {
+                    ShortcutPill.SettingsPage.VIDEO -> MenuTag.GRAPHICS
+                    ShortcutPill.SettingsPage.AUDIO -> MenuTag.CONFIG_AUDIO
+                    ShortcutPill.SettingsPage.CONTROLS -> if (NativeLibrary.IsEmulatingWii()) MenuTag.WIIMOTE else MenuTag.GCPAD_TYPE
+                }
+            )
+        }
 
         // Find or create the EmulationFragment
         emulationFragment = supportFragmentManager

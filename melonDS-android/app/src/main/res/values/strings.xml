@@ -945,12 +945,23 @@
     <string-array name="pill_opacity_options">
         <item>Visible</item>
         <item>Faint</item>
-        <item>Hidden (touch its corner)</item>
+        <item>Hidden (touch its place)</item>
     </string-array>
     <string-array name="pill_opacity_values" translatable="false">
         <item>visible</item>
         <item>faint</item>
         <item>hidden</item>
+    </string-array>
+    <string name="pill_size">Pill size</string>
+    <string-array name="pill_size_options">
+        <item>Small</item>
+        <item>Normal</item>
+        <item>Large</item>
+    </string-array>
+    <string-array name="pill_size_values" translatable="false">
+        <item>small</item>
+        <item>normal</item>
+        <item>large</item>
     </string-array>
     <string name="pill_auto_hide">Hide the pill while playing</string>
     <string name="pill_auto_hide_summary">After a few seconds without a touch; a touch on the screen shows it again</string>

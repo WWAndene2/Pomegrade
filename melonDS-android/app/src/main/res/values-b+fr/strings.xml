@@ -503,7 +503,13 @@
     <string-array name="pill_opacity_options">
         <item>Visible</item>
         <item>Discrète</item>
-        <item>Cachée (toucher son coin)</item>
+        <item>Cachée (touchez sa place)</item>
+    </string-array>
+    <string name="pill_size">Taille de la pastille</string>
+    <string-array name="pill_size_options">
+        <item>Petite</item>
+        <item>Normale</item>
+        <item>Grande</item>
     </string-array>
     <string name="pill_auto_hide">Cacher la pastille pendant le jeu</string>
     <string name="pill_auto_hide_summary">Après quelques secondes sans toucher l\'écran ; un toucher la fait réapparaître</string>

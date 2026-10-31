@@ -60,6 +60,16 @@
                 android:entryValues="@array/pill_opacity_values"
                 android:defaultValue="faint" />
 
+        <!-- the pill's size (ShortcutPill.KEY_SIZE, read by :emulator-ui) -->
+        <ListPreference
+                android:key="punica_pill_size"
+                android:title="@string/pill_size"
+                android:summary="%s"
+                app:iconSpaceReserved="true"
+                android:entries="@array/pill_size_options"
+                android:entryValues="@array/pill_size_values"
+                android:defaultValue="normal" />
+
         <SwitchPreference
                 android:key="punica_pill_auto_hide"
                 android:title="@string/pill_auto_hide"

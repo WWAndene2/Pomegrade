@@ -335,7 +335,16 @@ class EmulationFragment :
         shortcutPill = ShortcutPill.attach(
             requireActivity(),
             { EmulatorMenu.visibleItems(binding.inGameMenu.menu) },
-            { id -> binding.inGameMenu.menu.performIdentifierAction(id, 0) }
+            { id -> binding.inGameMenu.menu.performIdentifierAction(id, 0) },
+            { page ->
+                // the pill's Settings page: Azahar's own pages, opened directly
+                val section = when (page) {
+                    ShortcutPill.SettingsPage.VIDEO -> org.citra.citra_emu.features.settings.model.Settings.SECTION_RENDERER
+                    ShortcutPill.SettingsPage.AUDIO -> org.citra.citra_emu.features.settings.model.Settings.SECTION_AUDIO
+                    ShortcutPill.SettingsPage.CONTROLS -> org.citra.citra_emu.features.settings.model.Settings.SECTION_CONTROLS
+                }
+                SettingsActivity.launch(requireContext(), section, "")
+            }
         )
         // Pomegrade: the Classic layout's Punica button takes the pill's place, its fan's bubbles the size of A
         binding.surfaceInputOverlay.onPunicaButtonChanged = { area ->

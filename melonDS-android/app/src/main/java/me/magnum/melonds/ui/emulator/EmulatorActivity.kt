@@ -976,12 +976,24 @@ class EmulatorActivity : AppCompatActivity() {
             this,
             {
                 viewModel.currentPauseMenuOptions().mapNotNull { inGameMenuItemId(it) }.toSet() +
-                    EmulatorMenuR.id.emulator_menu_swap_screens + EmulatorMenuR.id.emulator_menu_screenshot
+                    EmulatorMenuR.id.emulator_menu_swap_screens + EmulatorMenuR.id.emulator_menu_screenshot +
+                    // a game's own settings, from the pill's Settings page (the menu's listener opens them)
+                    listOfNotNull(EmulatorMenuR.id.emulator_menu_game_settings.takeIf { viewModel.emulatorState.value is EmulatorState.RunningRom })
             },
             { id ->
                 pauseMenuOptions = viewModel.currentPauseMenuOptions()
                 viewModel.pauseEmulator(false)
                 binding.inGameMenu.menu.performIdentifierAction(id, 0)
+            },
+            { page ->
+                // the pill's Settings page: the DS settings' own page, the game paused until it is closed
+                viewModel.pauseEmulator(false)
+                val entry = when (page) {
+                    ShortcutPill.SettingsPage.VIDEO -> SettingsActivity.VIDEO_ENTRY_POINT
+                    ShortcutPill.SettingsPage.AUDIO -> SettingsActivity.AUDIO_ENTRY_POINT
+                    ShortcutPill.SettingsPage.CONTROLS -> SettingsActivity.INPUT_ENTRY_POINT
+                }
+                settingsLauncher.launch(Intent(this, SettingsActivity::class.java).putExtra(SettingsActivity.KEY_ENTRY_POINT, entry))
             }
         )
         // the layout may already show its Punica button
