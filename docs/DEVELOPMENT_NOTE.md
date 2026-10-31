@@ -381,7 +381,18 @@ redone; the zones before what runs in them; one phone check per block, not per c
    **31 October: Valerie's gym ported** (X zone 203, area kind 1 -> 27): headless (runs vF1, vB1, her team made weak:
    trainer 974, X's 24; the player on her platform, `xy_gym_mod.sh --height 180`): the gym shows, the battle, her
    lines, the badge word's bit 13 (0x2000, Kalos's sixth), TM99; no unmapped access. Not run: her warp puzzle.
-   Next: Olympia (then Clemont's natives, Wulfric run).
+   **Olympia's gym, read 31 October (not ported)**: DllUSGymEsper (X zone 215, kind 0xD) has 19 imports with no
+   equal function. Mapped by their callers (xy_callee_map.py) or bytes: 0x163B74 -> 0x164608 (80 callers),
+   0x10274980 -> 0x102C65D0, 0x10279158 -> 0x102C914C, 0x10281B4C -> 0x4D5B94, 0x1025EF88 -> 0x4D6E98, 0x10281BF0 ->
+   0x4D7804, 0x1027DE08 -> 0x1027B7BC (1.00), the getter 0x4A4958 -> 0x4DC6BC; for the copies' callees 0x2C7428 ->
+   0x2DBE24, 0x148DF4 -> 0x14849C, 0x4B86DC -> 0x4F32B4, 0x1025EB6C -> 0x4D7BAC. Two sibling pairs as Viola's: X's
+   0x3CE6A4 and 0x102CF594 are Omega Ruby's 0x3F06B4 and 0x4D66A0, their siblings 0x3CE730 and 0x102CFF00 have no
+   copy (to copy); 0x3CDDA0 too (a literal 0x5636A8, X data, to map). It instantiates an X-own DllField class (its
+   vtable 0x102FE5A4, nine methods 0x1021E72C-0x1021F08C; Omega Ruby has no vtable of those methods) and 0x1021EA60
+   (reads the field's +0x198, Omega Ruby's +0x1A0: a copy with a word changed, which XyPortModule cannot do yet); it
+   reads an X .data global (0x6270C8, to find in Omega Ruby by the code reading it). The X-own closure is 65
+   functions, about ten of DllField's still to map or copy. Next: Olympia's port (large), then Clemont's natives,
+   Wulfric's run.
    **Handover (30 October, end of session; the owner's tokens ran out).** Where Viola stands: run vD1 (memory dumped
    after the fault) shows her module's 17 resource handles (ids 0x35-0x45, the dew drops) unresolved: OrasXyGymModules.h
    has what is read and ruled out (memory: the field heap 0x5D grown, objects' sizes; the area pack; the effect pack).
