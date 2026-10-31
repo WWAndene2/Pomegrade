@@ -166,6 +166,10 @@ const XyModulePort& XyGymFighting();
 // 0x4E9E1C): X's badge 3 made Kalos's 11, and the player's status at the game data's + 0x3418 (X's + 0x3410)
 const XyModulePort& XyGymGrass();
 
+// Valerie's gym (X zone 203, Laverre; DllUSGymFairy, X's area kind 1, mapped 31 October): its imports mapped
+// (xy_import_match.py), the game data's member it reads moved (+0x12E4 -> +0x12EC, as Ramos's)
+const XyModulePort& XyGymFairy();
+
 }
 
 #endif // REMAKE_ORASXYGYMMODULES_H

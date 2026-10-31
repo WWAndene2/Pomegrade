@@ -502,6 +502,7 @@ const std::vector<XyGym>& XyGyms()
         {2, 19, XyGymInsect()},
         {0, 20, XyGymFighting()}, // X's kind 0: zone 175 only (the others 0xFFFF)
         {4, 26, XyGymGrass()},
+        {1, 27, XyGymFairy()},
     };
     return gyms;
 }
@@ -922,6 +923,39 @@ const XyModulePort& XyGymGrass()
         p.InsertSlot = 12;
         p.InsertValue = 0x4D8734; // Util_ReturnZero_004D8734
         p.Classes = {{0x894, 0x44C}}; // X's kind 4 case: the object 0x44C bytes
+        return p;
+    }();
+    return port;
+}
+
+const XyModulePort& XyGymFairy()
+{
+    static const XyModulePort port = [] {
+        XyModulePort p;
+        p.XName = "DllUSGymFairy";
+        p.Name = "DllXyGymFairy";
+        // X's .code -> Omega Ruby's: the same functions (xy_import_match.py), and the rest as the other gyms map them
+        p.Static = Merged(SharedStatic(), {
+            {0x36FD78, 0x3878F8}, {0x379DB8, 0x39181C}, {0x37E388, 0x395C70}, {0x37E398, 0x395C80}, {0x37E444, 0x395D2C},
+            {0x4A492C, 0x4DC690},
+            {0x4998F8, 0x4CAFE8}, // a getter (`ldr r0, [r0, #0x84]; bx lr`): the same bytes, the next function's start too
+        });
+        p.Field = Merged(SharedField(), {
+            {0x10277E64, 0x4CE280}, // as Ramos's (4 callers agree)
+            {0x10277D18, 0x4521E4}, // near, 0.98 (moved to the .code with the area modules' API; the dust clouds' port maps it so)
+        });
+        p.Thunks = {Request};
+        p.Words = {LoaderSize(0x720),
+                   {0x648, 0xE5900050, 0xE5900060, "the field's + 0x50 -> + 0x60"},
+                   {0x658, 0xE2800FB9, 0xE2800FBB, "the game data's + 0x12E4 -> + 0x12EC"},
+                   {0x690, 0xE2800FB9, 0xE2800FBB, "the game data's + 0x12E4 -> + 0x12EC"}};
+        p.Archive = 0x9D; // a/1/5/7
+        p.ArchiveWords = {0x608};
+        p.Vtables = {0x106C};
+        p.Slots = 13;
+        p.InsertSlot = 12;
+        p.InsertValue = 0x4D8734; // Util_ReturnZero_004D8734
+        p.Classes = {{0x6D4, 0xB4}}; // X's kind 1 case: the object 0xB4 bytes
         return p;
     }();
     return port;
