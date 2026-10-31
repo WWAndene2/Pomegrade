@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import me.magnum.melonds.ui.theme.PunicaAlpha
 import me.magnum.melonds.ui.theme.PunicaTheme
 
 /**
@@ -40,7 +41,7 @@ fun PunicaPill(text: String, selected: Boolean, onClick: () -> Unit, modifier: M
         modifier
             .height(32.dp)
             .clip(shape)
-            .background(if (selected) PunicaTheme.red.copy(alpha = 0.14f) else PunicaTheme.card)
+            .background(if (selected) PunicaTheme.red.copy(alpha = PunicaAlpha.SELECTED) else PunicaTheme.card)
             .border(if (selected) BorderStroke(2.dp, PunicaTheme.red) else BorderStroke(1.dp, PunicaTheme.line), shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp),

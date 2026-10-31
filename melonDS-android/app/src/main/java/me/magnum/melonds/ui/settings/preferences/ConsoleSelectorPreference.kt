@@ -25,6 +25,7 @@ import androidx.preference.Preference
 import androidx.preference.PreferenceViewHolder
 import me.magnum.melonds.R
 import me.magnum.melonds.ui.theme.MelonTheme
+import me.magnum.melonds.ui.theme.PunicaAlpha
 import me.magnum.melonds.ui.theme.PunicaDimens
 import me.magnum.melonds.ui.theme.PunicaTheme
 
@@ -116,7 +117,7 @@ class ConsoleSelectorPreference @JvmOverloads constructor(context: Context, attr
             modifier = modifier
                 .height(PunicaDimens.TOUCH.dp)
                 .clip(shape)
-                .background(if (selected) Color.White else Color.White.copy(alpha = 0.7f))
+                .background(if (selected) Color.White else Color.White.copy(alpha = PunicaAlpha.SOFT))
                 .then(if (selected) Modifier.border(2.dp, PunicaTheme.red, shape) else Modifier)
                 .clickable(onClick = onClick)
                 .padding(if (key == SWITCH) 4.dp else PunicaDimens.GAP_WIDE.dp),

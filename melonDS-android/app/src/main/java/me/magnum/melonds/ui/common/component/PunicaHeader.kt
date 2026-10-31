@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import me.magnum.melonds.R
+import me.magnum.melonds.ui.theme.PunicaAlpha
 import me.magnum.melonds.ui.theme.PunicaDimens
 import me.magnum.melonds.ui.theme.PunicaTheme
 
@@ -55,7 +56,7 @@ fun Modifier.punicaBackground(): Modifier = this
     .drawBehind {
         val radius = size.width * 0.9f
         drawCircle(
-            Brush.radialGradient(listOf(PunicaTheme.sweep, PunicaTheme.sweep.copy(alpha = 0.5f), Color.Transparent), center = Offset.Zero, radius = radius),
+            Brush.radialGradient(listOf(PunicaTheme.sweep, PunicaTheme.sweep.copy(alpha = PunicaAlpha.HALF), Color.Transparent), center = Offset.Zero, radius = radius),
             radius = radius,
             center = Offset.Zero,
         )
@@ -71,7 +72,7 @@ fun PunicaLogo(subtitle: String, modifier: Modifier = Modifier) {
     Box(modifier) {
         Column(
             Modifier
-                .background(PunicaTheme.background.copy(alpha = 0.3f), RoundedCornerShape(PunicaDimens.CARD_RADIUS.dp))
+                .background(PunicaTheme.background.copy(alpha = PunicaAlpha.MASK), RoundedCornerShape(PunicaDimens.CARD_RADIUS.dp))
                 .padding(horizontal = 8.dp, vertical = 4.dp),
         ) {
             Row(

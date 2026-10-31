@@ -61,6 +61,7 @@ import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.domain.model.rom.RomPlatform
 import me.magnum.melonds.ui.common.component.PunicaPlayButton
 import me.magnum.melonds.ui.common.component.platformLongName
+import me.magnum.melonds.ui.theme.PunicaAlpha
 import me.magnum.melonds.ui.theme.PunicaDimens
 import me.magnum.melonds.ui.theme.PunicaTheme
 
@@ -109,7 +110,7 @@ private fun SheetContent(rom: Rom, actions: GameActions, onDismiss: () -> Unit) 
             .windowInsetsPadding(WindowInsets.navigationBars)
             .padding(top = 8.dp, bottom = 24.dp),
     ) {
-        Box(Modifier.padding(bottom = 8.dp).size(32.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(PunicaTheme.textMuted.copy(alpha = 0.5f)).align(Alignment.CenterHorizontally))
+        Box(Modifier.padding(bottom = 8.dp).size(32.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(PunicaTheme.textMuted.copy(alpha = PunicaAlpha.HALF)).align(Alignment.CenterHorizontally))
 
         // the game
         Row(Modifier.padding(horizontal = PunicaDimens.MARGIN.dp, vertical = PunicaDimens.GAP.dp), verticalAlignment = Alignment.CenterVertically) {
