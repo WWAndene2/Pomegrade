@@ -1049,11 +1049,7 @@ const XyModulePort& XyGymEsper()
         });
         p.Thunks = {Request};
         p.Words = {LoaderSize(0x1760),
-                   {0x166C, 0xE5900050, 0xE5900060, "the field's + 0x50 -> + 0x60"},
-                   // the field camera's byte + 0x1260 (add #0x1000, add #0x260), Omega Ruby's + 0x1250 (X's 0x1026CAF0 /
-                   // Omega Ruby's 0x102BB844 aligned): written 0xFF when the module starts, 0 when it ends
-                   {0x4AC, 0xE2800E26, 0xE2800E25, "the camera's + 0x1260 -> + 0x1250"},
-                   {0xA9C, 0xE2800E26, 0xE2800E25, "the camera's + 0x1260 -> + 0x1250"}};
+                   {0x166C, 0xE5900050, 0xE5900060, "the field's + 0x50 -> + 0x60"}};
         p.Room = 0x1000; // the copies (about 3.5 KB) outgrow the 0x6D4 bytes after the code
         p.Archive = 0xB1; // a/1/7/7
         p.ArchiveWords = {0x1708};
