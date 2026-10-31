@@ -32,6 +32,16 @@ static Bytes Module(const std::vector<std::array<uint32_t, 3>>& segments, size_t
 
 int main()
 {
+    {
+        // InsertRoom moves the static anonymous symbols' batches with the static relocations they point into (review,
+        // 31 October): the table at 0x700, one entry whose batch is 0x780, the static relocations at 0x780
+        Bytes r = Module({{0x180, 0x20, 0}}, 0x800);
+        Field(r, 40, 0x700); Field(r, 41, 1); Field(r, 44, 0x780); Field(r, 45, 1);
+        Set(r, 0x704, 0x780);
+        InsertRoom(r, 0x6F0, 0x10);
+        check(Get(r, 0x80 + 4 * 40) == 0x710 && Get(r, 0x80 + 4 * 44) == 0x790, "InsertRoom: the static tables moved");
+        check(Get(r, 0x714) == 0x790, "InsertRoom: the static anonymous symbol's batch moved with them");
+    }
     // the static modules: code from 0x100000 (X) and 0x100000 (Omega Ruby), as static.crs gives absolute offsets
     XyGameModules x{Module({{0x100000, 0x1000, 0}}, 0x200), {}, 0x10200000}, oras{Module({{0x100000, 0x2000, 0}}, 0x200), {}, 0x10300000};
     x.Field = Module({{0x180, 0x80, 0}}, 0x300);

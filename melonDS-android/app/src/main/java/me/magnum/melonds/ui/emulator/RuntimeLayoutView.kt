@@ -250,17 +250,6 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
     /** Pomegrade: the layout's Punica button when it is shown, else null. */
     fun punicaMenuButton(): View? = getLayoutComponentView(LayoutComponent.BUTTON_PUNICA_MENU)?.view?.takeIf { it.isVisible }
 
-    /**
-     * Pomegrade: an A / B / X / Y button's diameter in this layout, in pixels (0 without them): the Classic
-     * layout's image draws each one 151.2 / 467 of the cluster, upstream's (R.drawable.buttons, 512 px) 160 px.
-     * Taken from the size the layout gives the view, so it is known before the view is measured.
-     */
-    fun faceButtonSize(): Int {
-        val width = getLayoutComponentView(LayoutComponent.BUTTONS)?.view?.layoutParams?.width ?: return 0
-        if (width <= 0) return 0
-        return if (currentRuntimeLayout?.classicButtonStyle != null) (width * 151.2f / 467f).toInt() else width * 160 / 512
-    }
-
     private fun classicImage(layout: RuntimeInputLayoutConfiguration, kind: ClassicButtonDrawable.Kind): ClassicButtonDrawable? =
         layout.classicButtonStyle?.let { ClassicButtonDrawable(context, kind, it) }
 

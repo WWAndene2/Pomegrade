@@ -48,7 +48,9 @@ DarpManager::~DarpManager() = default;
 
 u64 DarpManager::Key(const SurfaceParams& params, std::span<const u8> encoded,
                      const Darp::Options& options) {
-    const std::array<u32, 7> description = {
+    // the eighth word was the Remaster's surface-maps flag, 0 for every other job: kept at 0 so
+    // the reconstructions cached before its removal keep their keys
+    const std::array<u32, 8> description = {
         params.width,
         params.height,
         static_cast<u32>(params.pixel_format),
@@ -56,6 +58,7 @@ u64 DarpManager::Key(const SurfaceParams& params, std::span<const u8> encoded,
         static_cast<u32>(options.wrap_s),
         static_cast<u32>(options.wrap_t),
         Darp::Version,
+        0u,
     };
     const u64 data = Common::ComputeHash64(encoded.data(), encoded.size());
     const u64 shape = Common::ComputeHash64(description.data(), sizeof(description));

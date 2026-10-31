@@ -127,7 +127,7 @@ Bytes XyGymArchiveToOras(const Bytes& garc, std::vector<std::string>& report)
 // `grow` zero bytes inserted at file offset `at` (31 October, Olympia's: its copies outgrow the room after the code): the
 // header's offsets past it, the code region's size when it holds it, the file's size, and the tables' own file offsets
 // (cro_helper.h's layouts: the segments', the exported names', the import modules', the imported names', indexes' and
-// anonymous symbols' batches) moved. Segment tags (an index and an offset in the segment) need nothing
+// anonymous symbols' batches, imported and static) moved. Segment tags (an index and an offset in the segment) need nothing
 void InsertRoom(Bytes& out, uint32_t at, uint32_t grow)
 {
     const auto shift = [&](size_t word) { if (U32(out, word) >= at && U32(out, word) != 0) Put(out, word, U32(out, word) + grow); };
@@ -142,6 +142,7 @@ void InsertRoom(Bytes& out, uint32_t at, uint32_t grow)
     entries(32, 33, 8, {0, 4});              // imported named symbols: the name, the batch
     entries(34, 35, 8, {4});                 // imported indexed symbols: the batch
     entries(36, 37, 8, {4});                 // imported anonymous symbols: the batch
+    entries(40, 41, 8, {4});                 // static anonymous symbols: the batch (in the static relocations, field 44)
     for (const int field : {1, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44}) shift(0x80 + 4 * (size_t)field);
     if (Header(out, 12) <= at && at <= Header(out, 12) + Header(out, 13)) Put(out, 0x80 + 4 * 13, Header(out, 13) + grow);
     Put(out, 0x80 + 4 * 4, Header(out, 4) + grow); // the file's size
@@ -533,6 +534,12 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
         {
             const size_t at = Header(out, SegmentTableOffset) + 12 * (size_t)i;
             if (U32(out, at + 4) && U32(out, at) >= insert) Put(out, at, U32(out, at) + grow);
+        }
+        // the static anonymous symbols' batches point into the static relocations (field 44), which moved
+        for (uint32_t i = 0; i < Header(out, 41); i++)
+        {
+            const size_t at = Header(out, 40) + 8 * (size_t)i + 4;
+            if (U32(out, at) >= insert) Put(out, at, U32(out, at) + grow);
         }
     }
     return out;

@@ -97,6 +97,10 @@ struct XyGameModules
     Bytes Code; // its .code (from 0x100000): what a port's Copies copy (X's); may be empty when nothing is copied
 };
 
+// `grow` zero bytes inserted at file offset `at` of a CRO, the header's offsets and the tables' file offsets past it moved
+// (used by XyPortModule; public for its test)
+void InsertRoom(Bytes& out, uint32_t at, uint32_t grow);
+
 // X's module ported: throws if a word or an import is not X's as described, or an import is not mapped. sound: X's sound
 // id -> Omega Ruby's (XySounds::Translate)
 Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameModules& oras, const XyModulePort& port,

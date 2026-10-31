@@ -43,13 +43,13 @@
     <color name="white">#FFF</color>
 
     <!-- Punica's palette (always dark, so no night variant; ui/theme/PunicaTheme.kt has the same values) -->
-    <color name="punicaBackground">#111215</color>
-    <color name="punicaCard">#191B20</color>
-    <color name="punicaCardRaised">#1F2228</color>
-    <color name="punicaLine">#2B2E35</color>
-    <color name="punicaText">#F3F4F6</color>
-    <color name="punicaTextMuted">#9EA3AC</color>
-    <color name="punicaRed">#EC2B39</color>
+    <color name="punicaBackground">@color/emulator_settings_background</color>
+    <color name="punicaCard">@color/emulator_menu_surface</color>
+    <color name="punicaCardRaised">@color/emulator_settings_raised</color>
+    <color name="punicaLine">@color/emulator_settings_line</color>
+    <color name="punicaText">@color/emulator_menu_on_surface</color>
+    <color name="punicaTextMuted">@color/emulator_menu_on_surface_variant</color>
+    <color name="punicaRed">@color/emulator_menu_primary</color>
     <color name="punicaRedLight">#FF4553</color>
     <color name="punicaSweep">#6A0B15</color>
 </resources>

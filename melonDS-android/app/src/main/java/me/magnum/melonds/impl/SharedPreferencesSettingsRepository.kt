@@ -752,6 +752,8 @@ class SharedPreferencesSettingsRepository(
     }
 
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String?) {
+        // a settings restore can write back the old "unlimited polygons" key (null: the file was cleared)
+        if (key == "unlimited_polygons" || key == null) migrateUnlimitedPolygonsSetting()
         preferenceSharedFlows[key]?.tryEmit(Unit)
     }
 

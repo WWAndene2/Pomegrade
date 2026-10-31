@@ -157,7 +157,7 @@ class ShortcutPill private constructor(
         val dots = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
         repeat(3) {
             dots.addView(View(activity).apply {
-                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0xFF9EA3AC.toInt()) }
+                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(ContextCompat.getColor(activity, R.color.emulator_menu_on_surface_variant)) }
             }, LinearLayout.LayoutParams(pillHeight / 8, pillHeight / 8).apply { marginStart = pillHeight * 3 / 32 })
         }
         addView(dots, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginStart = pillHeight / 8 })
@@ -230,12 +230,11 @@ class ShortcutPill private constructor(
     }
 
     /**
-     * The layout's Punica button the panel opens from, the pill hidden; null shows the pill again. [bubbleSize]: kept
-     * for the layouts that give their buttons' size (the panel's tiles keep theirs). [area]: the button's part of
-     * [anchor] when the view draws more than the button (a core's overlay drawing every control), else null.
+     * The layout's Punica button the panel opens from, the pill hidden; null shows the pill again. [area]: the button's
+     * part of [anchor] when the view draws more than the button (a core's overlay drawing every control), else null;
+     * [areaOf] reads it again when the panel opens.
      */
-    @Suppress("UNUSED_PARAMETER")
-    fun useAnchor(anchor: View?, bubbleSize: Int = 0, area: Rect? = null, areaOf: (() -> Rect?)? = null) {
+    fun useAnchor(anchor: View?, area: Rect? = null, areaOf: (() -> Rect?)? = null) {
         anchorArea = area
         anchorAreaOf = areaOf
         if (this.anchor === anchor) return
@@ -433,7 +432,7 @@ class ShortcutPill private constructor(
             background = GradientDrawable().apply {
                 cornerRadius = dp(24).toFloat()
                 setColor(ContextCompat.getColor(activity, R.color.emulator_menu_surface))
-                setStroke(dp(1), 0xFF2B2E35.toInt())
+                setStroke(dp(1), ContextCompat.getColor(activity, R.color.emulator_settings_line))
             }
             elevation = dp(8).toFloat()
             isClickable = true // a touch between the tiles stays on the panel
@@ -514,7 +513,7 @@ class ShortcutPill private constructor(
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(fill)
-                setStroke(dp(1), if (tile.style == STYLE_EDIT) 0xFF9EA3AC.toInt() else 0x33FFFFFF)
+                setStroke(dp(1), if (tile.style == STYLE_EDIT) ContextCompat.getColor(activity, R.color.emulator_menu_on_surface_variant) else 0x33FFFFFF)
             }
             if (tile.style != STYLE_HOME) {
                 imageTintList = ColorStateList.valueOf(
