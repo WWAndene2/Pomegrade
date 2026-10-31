@@ -41,7 +41,7 @@ The open items of the unified list, HD textures, native enhancements and perform
   | Enhancement | Renderers | Status, measured on the desktop |
   |---|---|---|
   | Polygon multiplier (×4 to ×64): lit polygons subdivided on a curved surface and relit with the DS lighting | Software, OpenGL | Done. "PNhong" curves: per level, the measured best blend of Phong and circular PN (17% closer than either alone at ×9 and ×16, over six test models). No fixed cap (memory guard: 262144 extra polygons per frame) |
-  | Remove polygon limit: polygons the DS would drop are drawn | Software, OpenGL | Done. 3000-polygon scene: 1536 drawn → 3000 |
+  | Remove polygon limit: polygons the DS would drop are drawn | Software, OpenGL | Done; one "Polygons" setting with the multiplier since 31 October (Off, No limit, ×4-×64). 3000-polygon scene: 1536 drawn → 3000 |
   | High-precision geometry: sub-pixel vertex positions | OpenGL | Done. Frame-to-frame jitter of a rotating triangle 27.2 px → 3.0 px |
   | High colour: 8-bit colour instead of the DS's 6 | OpenGL | Done. Lit sphere shading 50 → 184 colour levels |
   | Better polygons (melonDS option, fewer seams at high resolution) | OpenGL | Exposed in the settings |
@@ -54,6 +54,9 @@ The open items of the unified list, HD textures, native enhancements and perform
   Geometry fidelity (local, per edge): curvature reduced where the normals don't match the geometry (e.g. spherical normals painted on a flat cel-shaded face: 28% less bulge), round shapes unchanged. Geometry fidelity from neighbours: an angular shape with smoothed normals (box, sharp chin) looks exactly like a rounded one from a single polygon, so the angle between the two faces of each edge decides (kept up to 55°, flat from 80°: a box's 90° edges stay sharp, a low-poly sphere's 36-45° keep their curve). Edges are recognised from frame to frame by their model positions; the angles found in a frame apply from the next one (a model's very first frame curves as before). Box with smoothed normals at ×16: bulge 67% → 0.1% of its half size, sphere unchanged, no cracks.
 
   Known limits: the Compute renderer ignores all of these; where a multiplied polygon meets one that isn't (a faceted part, an unlit polygon, out of room), a crack can open on the first frame the two meet (from the second, the shared edge stays straight and unsubdivided: `tests/polygon-multiplier`, faceted ring between smooth ones, 153 background pixels through the sphere before, 0 after); extra polygons aren't kept in savestates (redrawn on the next frame).
+
+**3DS: polygon multiplier (planned, owner's decision of 31 October: set aside for an optimisation pass)**
+- The DS's multiplier ported to the 3DS core: same curved surfaces (PNhong, from the lighting normals), lit 3D models only, a "Polygons" setting in the 3DS Video menu. On the 3DS the vertices are shaded on the phone's GPU (hardware shaders), so the subdivision belongs there too: tessellation shaders (GLES 3.2) between the generated vertex and fragment shaders, drawn as patches, from the view position and the normal quaternion the PICA outputs for lighting. OpenGL first, Vulkan if it convinces on the phone. Several days of work.
 
 **Build**
 - Remove or fix the unused upstream workflows in `melonDS-android/.github/` (still there on 13 October: `main.yaml`, `release.yaml`, `release-playstore.yaml`).
