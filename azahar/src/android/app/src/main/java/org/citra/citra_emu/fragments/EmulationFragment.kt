@@ -348,11 +348,11 @@ class EmulationFragment :
         )
         // Pomegrade: the Classic layout's Punica button takes the pill's place, its fan's bubbles the size of A
         binding.surfaceInputOverlay.onPunicaButtonChanged = { area ->
-            shortcutPill?.useAnchor(area?.let { binding.surfaceInputOverlay }, binding.surfaceInputOverlay.faceButtonSize(), area)
+            shortcutPill?.useAnchor(area?.let { binding.surfaceInputOverlay }, binding.surfaceInputOverlay.faceButtonSize(), area) { binding.surfaceInputOverlay.punicaButtonArea() }
         }
         binding.surfaceInputOverlay.onPunicaButton = { shortcutPill?.toggle() ?: binding.drawerLayout.open() }
         binding.surfaceInputOverlay.punicaButtonArea()?.let { area ->
-            shortcutPill?.useAnchor(binding.surfaceInputOverlay, binding.surfaceInputOverlay.faceButtonSize(), area)
+            shortcutPill?.useAnchor(binding.surfaceInputOverlay, binding.surfaceInputOverlay.faceButtonSize(), area) { binding.surfaceInputOverlay.punicaButtonArea() }
         }
         binding.inGameMenu.setNavigationItemSelectedListener {
             when (it.itemId) {

@@ -186,6 +186,8 @@ class ShortcutPill private constructor(
     // the layout's Punica button when the screen shows one: the panel opens above it, the pill is hidden
     private var anchor: View? = null
     private var anchorArea: Rect? = null
+    // the button's area read when the panel opens (its last position, not the one when the controls were built)
+    private var anchorAreaOf: (() -> Rect?)? = null
     // the controller's focused tile, -1 when none
     private var focused = -1
     private var selectDown = false
@@ -233,8 +235,9 @@ class ShortcutPill private constructor(
      * [anchor] when the view draws more than the button (a core's overlay drawing every control), else null.
      */
     @Suppress("UNUSED_PARAMETER")
-    fun useAnchor(anchor: View?, bubbleSize: Int = 0, area: Rect? = null) {
+    fun useAnchor(anchor: View?, bubbleSize: Int = 0, area: Rect? = null, areaOf: (() -> Rect?)? = null) {
         anchorArea = area
+        anchorAreaOf = areaOf
         if (this.anchor === anchor) return
         close()
         this.anchor = anchor
@@ -464,7 +467,8 @@ class ShortcutPill private constructor(
         if (anchor != null) {
             val here = IntArray(2).also { getLocationInWindow(it) }
             val there = IntArray(2).also { anchor.getLocationInWindow(it) }
-            val area = anchorArea
+            // null: the anchor is the button itself; an empty area (controls not placed yet): the anchor's bottom middle
+            val area = (anchorAreaOf?.invoke() ?: anchorArea)?.let { if (it.isEmpty) Rect(0, anchor.height, anchor.width, anchor.height) else it }
             val cx = there[0] - here[0] + (area?.exactCenterX() ?: (anchor.width / 2f))
             val buttonTop = there[1] - here[1] + (area?.top ?: 0)
             left = (cx - panelWidth / 2f).toInt()
