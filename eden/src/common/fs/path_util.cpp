@@ -173,7 +173,11 @@ public:
         // cache
         GenerateEdenPath(EdenPath::CacheDir, eden_path_cache);
         GenerateEdenPath(EdenPath::ShaderDir, eden_path_cache / SHADER_DIR);
-#ifdef ANDROID
+#ifdef __ANDROID__
+        // Pomegrade: the shader cache where Eden v0.2.1 kept it (<user>/shader; Eden's master moved it under
+        // cache/), in every layout: the caches already built stay valid, and the app's driver change
+        // (DriverViewModel) and "Clear shader cache" (GamePropertiesFragment) look there
+        GenerateEdenPath(EdenPath::ShaderDir, eden_path / SHADER_DIR);
         // Pomegrade: in the Punica folder's layout (melonDS-android's PunicaLayout) Eden's folder is
         // Punica/Switch/Core, and the console's other folders are its siblings: the NAND and SD card in System, the
         // saves in Saves, the mods in Mods. Set here, before anything creates Eden's folders, so its defaults are
@@ -186,9 +190,6 @@ public:
             GenerateEdenPath(EdenPath::SDMCDir, console / "System" / SDMC_DIR);
             GenerateEdenPath(EdenPath::SaveDir, console / "Saves");
             GenerateEdenPath(EdenPath::LoadDir, console / "Mods");
-            // the shader cache where Eden v0.2.1 kept it (Core/shader; Eden's master moved it under cache/):
-            // the Punica folder's layout and the caches already built stay as they are
-            GenerateEdenPath(EdenPath::ShaderDir, core / SHADER_DIR);
         }
 #endif
 

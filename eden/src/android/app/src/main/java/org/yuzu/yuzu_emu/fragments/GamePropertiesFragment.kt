@@ -470,7 +470,8 @@ class GamePropertiesFragment : Fragment() {
 
                 val shaderCacheDir = File(
                     DirectoryInitialization.userDirectory +
-                        "/cache/shader/" + args.game.settingsName.lowercase()
+                        // Pomegrade: Eden v0.2.1's place, kept (path_util.cpp)
+                        "/shader/" + args.game.settingsName.lowercase()
                 )
                 if (shaderCacheDir.exists()) {
                     add(

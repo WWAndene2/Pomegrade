@@ -40,7 +40,7 @@ object SwitchUserDataImport {
     }
 
     // nand and sdmc included: they stay in the app's folder when Pomegrade/Switch already had them
-    private val ENTRIES = listOf("nand", "sdmc", "config", "keys", "log", "shader", "load", "dump", "screenshots", "amiibo", "play_time", "icons", "crash_dumps", "tas", "cache", "gpu_drivers")
+    private val ENTRIES = listOf("nand", "sdmc", "config", "keys", "log", "shader", "load", "dump", "screenshots", "amiibo", "play_time", "icons", "crash_dumps", "tas", "cache", "gpu_drivers", "lossless", "post_presets", "post_shaders")
     private const val EDEN_CONFIG = "config/config.ini"
     private const val TAG = "SwitchUserDataImport"
     // Eden's settings naming its data folders by absolute path (frontend_common/config.cpp, [Data%20Storage])

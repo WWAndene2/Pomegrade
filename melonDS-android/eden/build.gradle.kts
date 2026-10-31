@@ -131,12 +131,12 @@ dependencies {
 }
 
 // SDL3's Java classes (sourceSets above) only exist once CMake has configured: compile Kotlin after it,
-// or a clean checkout (CI) fails with "Unresolved reference 'libsdl'"
-// The configure task is named after the CMake build type, which POMEGRADE_NATIVE_BUILD_TYPE overrides (CI:
-// Release, so the debug variant's task is configureCMakeRelease[arm64-v8a]); matched lazily, as AGP
-// registers it late
+// or a clean checkout (CI) fails with "Unresolved reference 'libsdl'". The configure task is named after the
+// CMake build type: AGP's (Debug, RelWithDebInfo for release) or POMEGRADE_NATIVE_BUILD_TYPE's override (CI:
+// Release). Matched lazily, as AGP registers these tasks late
 tasks.matching { it.name.startsWith("compile") && it.name.endsWith("Kotlin") }.configureEach {
     val variant = name.removePrefix("compile").removeSuffix("Kotlin")
-    val cmakeBuildType = System.getenv("POMEGRADE_NATIVE_BUILD_TYPE") ?: variant
-    dependsOn(tasks.matching { it.name.startsWith("configureCMake$cmakeBuildType[") })
+    val cmakeBuildType = System.getenv("POMEGRADE_NATIVE_BUILD_TYPE")
+        ?: if (variant == "Debug") "Debug" else "RelWithDebInfo"
+    dependsOn(tasks.matching { it.name.startsWith("configureCMake$cmakeBuildType[", ignoreCase = true) })
 }

@@ -89,20 +89,10 @@ public:
     u32 PomegradeTimestampBegin();
     void PomegradeTimestampEnd(u32 pair, PomegradeTimed kind);
 
-    /// Pomegrade: true while a render pass is open
-    [[nodiscard]] bool IsInsideRenderPass() const noexcept {
-        return state.renderpass != VkRenderPass{};
-    }
-
     /// Pomegrade: a "wait for idle" made at the end of the current render pass (a full memory barrier after it)
     /// instead of ending it now (setting pomegrade_defer_wait_for_idle)
     void DeferWaitForIdle() noexcept {
         deferred_wait_for_idle = true;
-    }
-
-    /// Pomegrade: true while nothing has been recorded in the current render pass since it began
-    [[nodiscard]] bool IsRenderPassUntouched() const noexcept {
-        return state.renderpass && record_count == record_count_at_begin;
     }
 
     /// Requests the current execution context to be able to execute operations only allowed outside
@@ -142,7 +132,6 @@ public:
     template <typename T>
         requires std::is_invocable_v<T, vk::CommandBuffer, vk::CommandBuffer>
     void RecordWithUploadBuffer(T&& command) {
-        ++record_count; // Pomegrade: commands recorded, for IsRenderPassUntouched
         if (chunk->Record(command)) {
             return;
         }
@@ -357,9 +346,7 @@ private:
 
     State state;
 
-    u64 record_count = 0;
     bool deferred_wait_for_idle = false;
-    u64 record_count_at_begin = 0;
 
     u32 num_renderpass_images = 0;
     const Framebuffer* null_framebuffer = nullptr;

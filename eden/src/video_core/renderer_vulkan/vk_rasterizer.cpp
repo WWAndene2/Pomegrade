@@ -518,18 +518,6 @@ void RasterizerVulkan::Clear(u32 layer_count) {
     if (!clamp_rect_to_render_area(clear_rect.rect)) {
         return;
     }
-    // Pomegrade: TEMPORARY, clears of the whole render area counted, first in their pass or not
-    if (clear_rect.rect.offset.x == 0 && clear_rect.rect.offset.y == 0 &&
-        clear_rect.rect.extent.width == render_area.width &&
-        clear_rect.rect.extent.height == render_area.height) {
-        (PomegradeDiagnostics::pass_untouched.exchange(false, std::memory_order_relaxed)
-             ? PomegradeDiagnostics::full_clears_first
-             : PomegradeDiagnostics::full_clears_later)
-            .fetch_add(1, std::memory_order_relaxed);
-    } else {
-        PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed);
-    }
-
     const bool clear_covers_render_area =
         clear_rect.rect.offset.x == 0 && clear_rect.rect.offset.y == 0 &&
         clear_rect.rect.extent.width >= render_area.width &&
@@ -538,6 +526,22 @@ void RasterizerVulkan::Clear(u32 layer_count) {
                                  regs.clear_surface.layer == 0 &&
                                  !scheduler.IsRenderPassActive() &&
                                  (!use_color || color_full_channels) && ds_deferrable;
+    // Pomegrade: TEMPORARY, clears of the whole render area counted: deferred (no pass open, Eden makes them the
+    // next pass's CLEAR load), else first in the open pass or later
+    if (clear_rect.rect.offset.x == 0 && clear_rect.rect.offset.y == 0 &&
+        clear_rect.rect.extent.width == render_area.width &&
+        clear_rect.rect.extent.height == render_area.height) {
+        if (can_defer_clear) {
+            PomegradeDiagnostics::full_clears_deferred.fetch_add(1, std::memory_order_relaxed);
+        } else {
+            (PomegradeDiagnostics::pass_untouched.exchange(false, std::memory_order_relaxed)
+                 ? PomegradeDiagnostics::full_clears_first
+                 : PomegradeDiagnostics::full_clears_later)
+                .fetch_add(1, std::memory_order_relaxed);
+        }
+    } else {
+        PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed);
+    }
     if (!can_defer_clear) {
         scheduler.RequestRenderpass(framebuffer);
     }
@@ -927,7 +931,7 @@ void RasterizerVulkan::WaitForIdle() {
     // ended about 104 of the 140 passes of a frame in Pokemon Sword (docs/Eden_Optimisation_Xiaomi.md, tenth log).
     // The draws after it in the same pass are not ordered after the ones before: a game whose draw reads what an
     // earlier draw of the pass wrote through a storage buffer or image may show it stale, hence the setting
-    if (Settings::values.pomegrade_defer_wait_for_idle.GetValue() && scheduler.IsInsideRenderPass()) {
+    if (Settings::values.pomegrade_defer_wait_for_idle.GetValue() && scheduler.IsRenderPassActive()) {
         scheduler.DeferWaitForIdle();
         fence_manager.SignalOrdering();
         PomegradeDiagnostics::deferred_waits.fetch_add(1, std::memory_order_relaxed); // Pomegrade: TEMPORARY
