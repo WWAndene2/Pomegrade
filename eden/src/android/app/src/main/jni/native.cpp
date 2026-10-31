@@ -855,7 +855,7 @@ private:
                  v.pomegrade_compressed_render_targets.GetValue(),
                  v.pomegrade_defer_wait_for_idle.GetValue(), v.pomegrade_test_reorder_all_uploads.GetValue(),
                  v.pomegrade_test_skip_fragment_barriers.GetValue(), v.pomegrade_test_cycle.GetValue(),
-                 v.gpu_logging_enabled.GetValue());
+                 static_cast<int>(v.gpu_log_level.GetValue())); // Eden's master: a level (0 off) for the old switch
     }
 
     static void LogCores() {
