@@ -19,12 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
 import androidx.compose.material.Scaffold
-import androidx.compose.material.TopAppBar
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -35,16 +30,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import me.magnum.melonds.R
 import me.magnum.melonds.domain.model.Background
+import me.magnum.melonds.ui.common.component.PunicaHeader
 
 @SuppressLint("UnusedMaterialScaffoldPaddingParameter")
 @OptIn(ExperimentalLayoutApi::class, ExperimentalSharedTransitionApi::class)
@@ -107,33 +101,17 @@ fun BackgroundPreviewScreen(
             enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
             exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
         ) {
-            AppBar(onBackClick = onBackClick)
+            AppBar(title = background.name, onBackClick = onBackClick)
         }
     }
 }
 
+/** Punica's header over the picture, on a black-to-clear fade so it stays readable on a light background. */
 @Composable
-private fun AppBar(onBackClick: () -> Unit) {
-    TopAppBar(
-        modifier = Modifier.background(
-            Brush.verticalGradient(
-                colors = listOf(
-                    Color.Black,
-                    Color.Transparent,
-                )
-            )
-        ),
-        title = { },
-        navigationIcon = {
-            IconButton(onClick = onBackClick) {
-                Icon(
-                    painter = rememberVectorPainter(Icons.AutoMirrored.Filled.ArrowBack),
-                    contentDescription = null,
-                )
-            }
-        },
-        elevation = 0.dp,
-        backgroundColor = Color.Transparent,
-        contentColor = Color.White,
+private fun AppBar(title: String, onBackClick: () -> Unit) {
+    PunicaHeader(
+        subtitle = title,
+        onBack = onBackClick,
+        modifier = Modifier.background(Brush.verticalGradient(listOf(Color.Black, Color.Transparent))),
     )
 }
