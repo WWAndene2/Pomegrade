@@ -365,6 +365,12 @@ redone; the zones before what runs in them; one phone check per block, not per c
    word's bit 8 set (Kalos's first, 0 before; the badge case shows Hoenn's only, its Kalos drawer set aside 22 October),
    TM83 given. Not run: the puzzle. Seen and not read: 11 unmapped accesses when her battle starts (near address 0,
    heap code 0x3A9990, 0x2FF8C0).
+   **31 October: Korrina's gym ported** (X zone 175, area kind 0 -> 20; OrasXyGymModules.h): her module instantiates a
+   DllField class whose update is X's own (owner's choice: X's method ported, not Omega Ruby's used), so XyPortModule
+   now copies X DllField functions, reaches Omega Ruby's DllField at run time, builds that class's vtable in the module
+   and adds internal relocations. Headless (runs kF1, kB2, her team made weak: trainer 971, X's 21): the gym shows, the
+   battle, her victory lines, the badge word's bit 10 (Kalos's third), the TM. Not run: the rails (the copied method).
+   Next in the order: Ramos, Clemont, Valerie, Olympia, Wulfric.
    **Handover (30 October, end of session; the owner's tokens ran out).** Where Viola stands: run vD1 (memory dumped
    after the fault) shows her module's 17 resource handles (ids 0x35-0x45, the dew drops) unresolved: OrasXyGymModules.h
    has what is read and ruled out (memory: the field heap 0x5D grown, objects' sizes; the area pack; the effect pack).
