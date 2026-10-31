@@ -26,7 +26,6 @@ import org.yuzu.yuzu_emu.utils.GpuDriverMetadata
 import org.yuzu.yuzu_emu.utils.DirectoryInitialization
 import org.yuzu.yuzu_emu.utils.NativeConfig
 import java.io.File
-import org.yuzu.yuzu_emu.utils.DirectoryInitialization
 
 class DriverViewModel : ViewModel() {
     private val _areDriversLoading = MutableStateFlow(false)
