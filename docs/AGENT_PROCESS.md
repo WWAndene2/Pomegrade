@@ -94,6 +94,20 @@ A run that does not show the field is first a recipe question: check against the
 - **Speed** (A's runs fps_*, 20 October, the idle field): drawing every frame 2 frames/s, `draw every 15` 18-24 (one frame
   in 15 drawn, shots whole), `draw off` about 67. Use `draw off` wherever no picture is needed, else `draw every 15`
   (the title and Continue menu, scenes waited on by shots); plain drawing only for a check of every frame.
+- **The Android app, compiled without the phone** (31 October): `export ANDROID_HOME=/home/user/android-sdk`;
+  `tools/android-build/ndk_stand_in.sh on` (the container's NDK 29 is incomplete), then from `melonDS-android/`
+  `POMEGRADE_ABIS=arm64-v8a ./gradlew --offline :emulator-ui:compileDebugKotlin :azahar:compileDebugKotlin
+  :eden:compileDebugKotlin :dolphin:compileDebugKotlin :app:compileProdDebugKotlin :app:processProdDebugResources`
+  (Kotlin and resources only, a few minutes) and `:app:testProdDebugUnitTest` (88 tests); `ndk_stand_in.sh off` after.
+  Native code is not built this way: an APK is built by the `Android APK` workflow, one run at a time (cancel the stale
+  one before starting another).
+- **The remake tool's tests** (31 October): `cmake -S tests/remake -B /tmp/rb && make -C /tmp/rb -j8`, then run each
+  `/tmp/rb/*_test` (33; a failed check prints `: NO`). `ctest` finds none.
+- **Punica's sizes on the scale** (31 October): `tools/ui-check/check_scale.py --branch` (or file names) lists every dp
+  and sp value off CLAUDE.md §7's scale; corner radii (§7.3) are checked by hand.
+- **A review before merging into `main`** (31 October): `/code-review high origin/main...<branch>` scoped in its
+  arguments to the Pomegrade-written parts (`melonDS-android/`, `tools/remake/src/`, Pomegrade's edits in the cores);
+  unscoped, a branch carrying a core update is only sampled.
 
 ### 3.2 Asking and waking
 
