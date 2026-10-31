@@ -1062,6 +1062,9 @@
     <string name="wireless_debug_disconnect_summary">Ends the connection now. Punica\'s entry stays in Wireless debugging\'s paired devices until you forget it there</string>
     <string name="wireless_debug_diagnostics">Diagnostics</string>
     <string name="wireless_debug_trace_delay">Time before the trace starts</string>
+    <string name="wireless_debug_full">Full analysis</string>
+    <string name="wireless_debug_full_summary">Everything in one go: after the time above, the GPU state, a 20-second system trace, the GPU state again and the driver\'s messages. Start the game meanwhile and reach the slow part, then leave it 30 seconds. Written to Punica/Switch/Core/log, beside Eden\'s log (which has the emulator\'s own counters)</string>
+    <string name="wireless_debug_full_started">The analysis starts in %1$d seconds; its trace lasts %2$d. Everything will be in %3$s</string>
     <string name="wireless_debug_trace">Record a system trace</string>
     <string name="wireless_debug_trace_summary">After the time above, records 20 seconds of every thread, the CPU and GPU clocks and Punica\'s own markers. Start the game meanwhile and reach the slow part. Written to Punica/Switch/Core/log</string>
     <string name="wireless_debug_gpu_state">Save the GPU\'s state</string>

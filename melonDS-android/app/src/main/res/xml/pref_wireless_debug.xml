@@ -37,6 +37,12 @@
                 app:iconSpaceReserved="false" />
 
         <Preference
+                android:key="wireless_debug_full"
+                android:title="@string/wireless_debug_full"
+                android:summary="@string/wireless_debug_full_summary"
+                app:iconSpaceReserved="false" />
+
+        <Preference
                 android:key="wireless_debug_trace"
                 android:title="@string/wireless_debug_trace"
                 android:summary="@string/wireless_debug_trace_summary"

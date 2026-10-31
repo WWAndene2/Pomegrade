@@ -1004,6 +1004,9 @@
     <string name="wireless_debug_disconnect_summary">Coupe la connexion maintenant. Punica reste dans les appareils associés du débogage sans fil jusqu\'à ce que vous l\'en retiriez</string>
     <string name="wireless_debug_diagnostics">Diagnostics</string>
     <string name="wireless_debug_trace_delay">Délai avant la trace</string>
+    <string name="wireless_debug_full">Analyse complète</string>
+    <string name="wireless_debug_full_summary">Tout en une fois : après le délai ci-dessus, l\'état du GPU, une trace système de 20 secondes, de nouveau l\'état du GPU et les messages du pilote. Lancez le jeu pendant ce temps et allez jusqu\'à la partie lente, puis restez-y 30 secondes. Écrit dans Punica/Switch/Core/log, à côté du journal d\'Eden (qui a les compteurs de l\'émulateur)</string>
+    <string name="wireless_debug_full_started">L\'analyse commence dans %1$d secondes ; sa trace dure %2$d secondes. Tout sera dans %3$s</string>
     <string name="wireless_debug_trace">Enregistrer une trace système</string>
     <string name="wireless_debug_trace_summary">Après le délai ci-dessus, enregistre 20 secondes de tous les threads, des fréquences du CPU et du GPU et des marqueurs de Punica. Lancez le jeu pendant ce temps et allez jusqu\'à la partie lente. Écrite dans Punica/Switch/Core/log</string>
     <string name="wireless_debug_gpu_state">Enregistrer l\'état du GPU</string>

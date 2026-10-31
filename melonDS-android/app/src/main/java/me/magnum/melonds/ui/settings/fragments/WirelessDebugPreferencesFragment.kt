@@ -39,9 +39,12 @@ class WirelessDebugPreferencesFragment : BasePreferenceFragment(), PreferenceFra
             }
             true
         }
+        findPreference<Preference>("wireless_debug_full")?.setOnPreferenceClickListener {
+            runCommand(DiagnosticCommand.FULL_ANALYSIS, traceDelay())
+            true
+        }
         findPreference<Preference>("wireless_debug_trace")?.setOnPreferenceClickListener {
-            val delay = findPreference<ListPreference>("wireless_debug_trace_delay")?.value?.toIntOrNull() ?: 60
-            runCommand(DiagnosticCommand.SYSTEM_TRACE, delay)
+            runCommand(DiagnosticCommand.SYSTEM_TRACE, traceDelay())
             true
         }
         findPreference<Preference>("wireless_debug_gpu_state")?.setOnPreferenceClickListener {
@@ -68,6 +71,9 @@ class WirelessDebugPreferencesFragment : BasePreferenceFragment(), PreferenceFra
         updateState()
     }
 
+    private fun traceDelay(): Int =
+        findPreference<ListPreference>("wireless_debug_trace_delay")?.value?.toIntOrNull() ?: 60
+
     private fun startPairing() {
         WirelessDebugDiagnostics.startPairing(requireContext())
         WirelessDebugPairingNotification.show(requireContext())
@@ -81,8 +87,12 @@ class WirelessDebugPreferencesFragment : BasePreferenceFragment(), PreferenceFra
             when (val result = WirelessDebugDiagnostics.run(requireContext(), command, delaySeconds)) {
                 is WirelessDebugDiagnostics.Result.Written ->
                     toast(getString(R.string.wireless_debug_written, result.file.absolutePath))
-                is WirelessDebugDiagnostics.Result.Started ->
-                    toast(getString(R.string.wireless_debug_trace_started, result.delaySeconds, DiagnosticCommand.TRACE_SECONDS, result.folder.absolutePath))
+                is WirelessDebugDiagnostics.Result.Started -> toast(
+                    getString(
+                        if (command == DiagnosticCommand.FULL_ANALYSIS) R.string.wireless_debug_full_started else R.string.wireless_debug_trace_started,
+                        result.delaySeconds, DiagnosticCommand.TRACE_SECONDS, result.folder.absolutePath,
+                    )
+                )
                 is WirelessDebugDiagnostics.Result.Failed ->
                     toast(getString(R.string.wireless_debug_failed, result.reason))
             }
@@ -97,7 +107,7 @@ class WirelessDebugPreferencesFragment : BasePreferenceFragment(), PreferenceFra
             if (connected) R.string.wireless_debug_status_connected else R.string.wireless_debug_status_off
         )
         findPreference<Preference>("wireless_debug_pair")?.isEnabled = !connected
-        listOf("wireless_debug_trace_delay", "wireless_debug_trace", "wireless_debug_gpu_state", "wireless_debug_driver_log", "wireless_debug_disconnect")
+        listOf("wireless_debug_trace_delay", "wireless_debug_full", "wireless_debug_trace", "wireless_debug_gpu_state", "wireless_debug_driver_log", "wireless_debug_disconnect")
             .forEach { findPreference<Preference>(it)?.isEnabled = connected }
     }
 

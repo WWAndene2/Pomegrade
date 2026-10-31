@@ -18,28 +18,40 @@ enum class DiagnosticCommand {
     GPU_STATE,
 
     /** The GPU driver's own messages so far (the Mali driver's, Android's graphics loader's). */
-    DRIVER_LOG;
+    DRIVER_LOG,
+
+    /**
+     * Everything in one go, detached as the system trace is (owner's request, 31 October: one run, not one per
+     * diagnostic): after the delay, the GPU state, the system trace, the GPU state again and the driver's messages,
+     * each in its own file. Eden's own counters (transform feedback shapes among them) are in Eden's log meanwhile.
+     */
+    FULL_ANALYSIS;
 
     /** The shell command, for Punica's [packageName] and an [outputFolder] without quotes. */
     fun shellCommand(packageName: String, outputFolder: String, delaySeconds: Int, stamp: String): String {
         require(SHELL_SPECIALS.none { it in outputFolder || it in packageName }) { "shell character in a diagnostic argument" }
+        val gpuState = "dumpsys gpu; dumpsys gfxinfo $packageName"
+        val driverLog = "logcat -d -v time -s mali:V Mali:V libmali:V GraphicsEnv:V vulkan:V libEGL:V AdrenoVK:V"
+        val trace = "/data/misc/perfetto-traces/punica-$stamp.perfetto-trace"
+        // the config is fed on perfetto's standard input; the trace is copied out of perfetto's own folder
+        val traced = "echo \"${perfettoConfig(packageName)}\" | perfetto --txt -c - -o $trace; " +
+            "cp $trace \"$outputFolder/punica-$stamp.perfetto-trace\"; rm $trace"
+        // setsid: the commands outlive the connection's shell, so they go on while Punica is in a game
+        fun detached(commands: String) = "setsid sh -c 'sleep $delaySeconds; $commands' > /dev/null 2>&1 < /dev/null &"
+        fun into(commands: String, name: String) = "{ $commands; } > \"$outputFolder/punica-$stamp-$name.txt\" 2>&1"
         return when (this) {
-            SYSTEM_TRACE -> {
-                val trace = "/data/misc/perfetto-traces/punica-$stamp.perfetto-trace"
-                val config = perfettoConfig(packageName)
-                // setsid: the trace outlives the connection's shell; the config is fed on its standard input
-                "setsid sh -c 'sleep $delaySeconds; echo \"$config\" | perfetto --txt -c - -o $trace; " +
-                    "cp $trace \"$outputFolder/punica-$stamp.perfetto-trace\"; rm $trace' " +
-                    "> /dev/null 2>&1 < /dev/null &"
-            }
-            GPU_STATE -> "dumpsys gpu; dumpsys gfxinfo $packageName"
-            DRIVER_LOG -> "logcat -d -v time -s mali:V Mali:V libmali:V GraphicsEnv:V vulkan:V libEGL:V AdrenoVK:V"
+            SYSTEM_TRACE -> detached(traced)
+            GPU_STATE -> gpuState
+            DRIVER_LOG -> driverLog
+            FULL_ANALYSIS -> detached(
+                "${into(gpuState, "gpu-before")}; $traced; ${into(gpuState, "gpu-after")}; ${into(driverLog, "driver-log")}"
+            )
         }
     }
 
     /** The file the output of a command run in the foreground is written to (the trace names its own). */
     fun outputName(stamp: String): String? = when (this) {
-        SYSTEM_TRACE -> null
+        SYSTEM_TRACE, FULL_ANALYSIS -> null
         GPU_STATE -> "punica-$stamp-gpu.txt"
         DRIVER_LOG -> "punica-$stamp-driver-log.txt"
     }

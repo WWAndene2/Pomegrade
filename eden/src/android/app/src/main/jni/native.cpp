@@ -518,6 +518,24 @@ public:
             LOG_INFO(Frontend, "[Pomegrade diag] transform feedback draws per frame {:.1f}: rasterizer discard {:.1f}, drawing to colour {:.1f}, with a fragment shader {:.1f}, with a geometry shader {:.1f} | runs of back-to-back ones {:.1f} | later draws reading their output as vertices {:.1f}, of which right after one {:.1f}",
                      tf * per_frame, tf_discard * per_frame, tf_color * per_frame, tf_fragment * per_frame,
                      tf_geometry * per_frame, tf_runs * per_frame, tf_consumers * per_frame, tf_next * per_frame);
+            // their shapes, the most frequent first (O13)
+            std::vector<std::pair<std::uint64_t, std::string>> shapes;
+            {
+                std::scoped_lock lock{PomegradeDiagnostics::tf_shape_mutex};
+                for (const auto& [shape, count] : PomegradeDiagnostics::tf_shapes) {
+                    shapes.emplace_back(count, shape);
+                }
+                PomegradeDiagnostics::tf_shapes.clear();
+            }
+            std::sort(shapes.begin(), shapes.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+            std::string shaped;
+            for (size_t i = 0; i < shapes.size() && i < 8; i++) {
+                shaped += fmt::format(" [{:.1f}: {}]", shapes[i].first * per_frame, shapes[i].second);
+            }
+            const u64 tf_vertices = PomegradeDiagnostics::tf_vertices.exchange(0, std::memory_order_relaxed);
+            const u64 tf_indirect = PomegradeDiagnostics::tf_indirect_draws.exchange(0, std::memory_order_relaxed);
+            LOG_INFO(Frontend, "[Pomegrade diag] transform feedback shapes per frame:{} | vertices sent per frame {:.0f} | indirect per frame {:.1f}",
+                     shaped, tf_vertices * per_frame, tf_indirect * per_frame);
             LogGpuTime(seconds, per_frame);
             LogWaitSites(seconds);
             m_mali.Log(seconds);

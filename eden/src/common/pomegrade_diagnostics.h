@@ -123,6 +123,21 @@ inline void CountNonTfDraw(const std::uint64_t* stream_addresses, int stream_cou
     }
 }
 
+// the shape of the transform feedback draws (O13, docs/Eden_Optimisation_Xiaomi.md: where a vertex shader would write
+// each captured vertex depends on it): topology, indexed or not, instances, and each capture buffer's stride and
+// varyings; the vertices (or indices) they send; the indirect ones (their counts unknown on the CPU)
+inline std::mutex tf_shape_mutex;
+inline std::map<std::string, std::uint64_t> tf_shapes; // shape -> draws, this second
+inline std::atomic<std::uint64_t> tf_vertices{0};
+inline std::atomic<std::uint64_t> tf_indirect_draws{0};
+inline void CountTfShape(const std::string& shape, std::uint64_t vertices) {
+    tf_vertices.fetch_add(vertices, std::memory_order_relaxed);
+    std::scoped_lock lock{tf_shape_mutex};
+    if (tf_shapes.size() < 64 || tf_shapes.contains(shape)) {
+        tf_shapes[shape]++;
+    }
+}
+
 // the code that waited for the GPU (Scheduler::Wait's caller, file:line), per waiting thread, counted with the time
 inline thread_local const char* wait_file = nullptr;
 inline thread_local int wait_line = 0;
