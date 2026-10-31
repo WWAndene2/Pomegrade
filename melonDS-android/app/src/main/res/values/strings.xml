@@ -1076,4 +1076,10 @@
         <item>120</item>
         <item>180</item>
     </string-array>
+    <string name="settings_group_settings">Settings</string>
+    <string name="settings_group_tools">Tools</string>
+    <string name="settings_group_in_game_menu">In-game menu</string>
+    <string name="settings_group_diagnostics">Diagnostics</string>
+    <string name="settings_advanced_options">Advanced options</string>
+    <string name="menu_access_opening">How it opens</string>
 </resources>

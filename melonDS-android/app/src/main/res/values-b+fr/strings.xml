@@ -1015,4 +1015,10 @@
         <item>2 minutes</item>
         <item>3 minutes</item>
     </string-array>
+    <string name="settings_group_settings">Réglages</string>
+    <string name="settings_group_tools">Outils</string>
+    <string name="settings_group_in_game_menu">Menu en jeu</string>
+    <string name="settings_group_diagnostics">Diagnostic</string>
+    <string name="settings_advanced_options">Options avancées</string>
+    <string name="menu_access_opening">Ouverture</string>
 </resources>

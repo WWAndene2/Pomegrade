@@ -158,8 +158,7 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
             true
         }
         preferenceScreen.findPreference<androidx.preference.PreferenceCategory>("three_ds_settings")?.let { category ->
-            for (i in 0 until category.preferenceCount) {
-                val preference = category.getPreference(i)
+            for (preference in category.descendants()) {
                 val key = preference.key ?: continue
                 if (!key.startsWith(THREE_DS_PREFIX)) continue
                 val section = key.removePrefix(THREE_DS_PREFIX)
@@ -170,8 +169,7 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
             }
         }
         preferenceScreen.findPreference<androidx.preference.PreferenceCategory>("switch_settings")?.let { category ->
-            for (i in 0 until category.preferenceCount) {
-                val preference = category.getPreference(i)
+            for (preference in category.descendants()) {
                 val key = preference.key ?: continue
                 if (!key.startsWith(SWITCH_PREFIX)) continue
                 val section = SwitchSettingsMenu.valueOf(key.removePrefix(SWITCH_PREFIX))
@@ -186,8 +184,7 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
         }
         // Eden's home screen tools, opened directly
         preferenceScreen.findPreference<androidx.preference.PreferenceCategory>("switch_settings")?.let { category ->
-            for (i in 0 until category.preferenceCount) {
-                val preference = category.getPreference(i)
+            for (preference in category.descendants()) {
                 val key = preference.key ?: continue
                 if (key.startsWith(SWITCH_DIALOG_PREFIX)) {
                     val tool = SwitchToolDialogActivity.Tool.valueOf(key.removePrefix(SWITCH_DIALOG_PREFIX))
@@ -248,8 +245,7 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
             true
         }
         preferenceScreen.findPreference<androidx.preference.PreferenceCategory>("gc_wii_settings")?.let { category ->
-            for (i in 0 until category.preferenceCount) {
-                val preference = category.getPreference(i)
+            for (preference in category.descendants()) {
                 val key = preference.key ?: continue
                 if (key.startsWith(GC_WII_TOOL_PREFIX)) {
                     val tool = GcWiiToolDialogActivity.Tool.valueOf(key.removePrefix(GC_WII_TOOL_PREFIX))
@@ -413,3 +409,9 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
         findPreference<Preference>("gc_wii_settings")?.isVisible = console == ConsoleSelectorPreference.GC_WII && GcWiiLauncher.isSupported()
     }
 }
+
+/** Pomegrade: every preference under a group, inside its sub-sections too (a console's Settings, Advanced and Tools) */
+private fun androidx.preference.PreferenceGroup.descendants(): List<Preference> =
+    (0 until preferenceCount).map { getPreference(it) }.flatMap { child ->
+        if (child is androidx.preference.PreferenceCategory) child.descendants() else listOf(child)
+    }
