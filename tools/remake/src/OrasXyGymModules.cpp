@@ -144,6 +144,8 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
     std::vector<std::pair<const XyModulePort::Thunk*, uint32_t>> thunked; // a thunk, its import's batch (file offset)
     std::deque<XyModulePort::Thunk> moved;                                // the thunks made for DllField imports
     std::vector<std::pair<uint32_t, uint32_t>> copied;                     // a copied function's X address, its import's batch
+    int64_t anchorWord = -1;                                               // the word the loader writes for FieldAnchor
+    std::vector<std::pair<const XyModulePort::FieldVtable*, uint32_t>> vtableBatches; // a FieldVtable, its import's batch
     for (uint32_t m = 0; m < Header(out, ImportModuleNum); m++)
     {
         const size_t entry = Header(out, ImportModuleTableOffset) + 20 * (size_t)m;
@@ -169,6 +171,17 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
                 copied.push_back({from & ~1u, U32(out, at + 4)});
                 continue;
             }
+            const XyModulePort::FieldVtable* fieldVtable = nullptr;
+            for (const XyModulePort::FieldVtable& v : port.FieldVtables) if (!isStatic && v.XImport == from) fieldVtable = &v;
+            if (fieldVtable)
+            {
+                // its words are given the module's own vtable below; the import itself resolves to DllField's first word,
+                // and its relocations write a word of their own
+                Put(out, at, AddressTag(oField, oras.FieldBase + oField[0].Offset, oras.FieldBase));
+                vtableBatches.push_back({fieldVtable, U32(out, at + 4)});
+                continue;
+            }
+            if (!isStatic && port.FieldAnchor && from == port.FieldAnchor) anchorWord = TagAddress(seg, U32(out, U32(out, at + 4)), 0);
             const XyModulePort::Thunk* thunk = nullptr;
             for (const XyModulePort::Thunk& t : port.Thunks) if (t.XTarget == from) thunk = &t;
             const auto to = map.find(from);
@@ -241,6 +254,10 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
         }
     }
 
+    // internal relocations added (a word's file offset, the code segment's offset it holds), written at the end
+    std::vector<std::pair<uint32_t, uint32_t>> added;
+    if (!port.FieldVtables.empty() && port.Copies.empty()) throw FormatError(port.XName + ": a DllField vtable with nothing copied");
+
     // the copies of X's .code functions, then a veneer per X function they call
     if (!port.Copies.empty())
     {
@@ -251,8 +268,12 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
         uint32_t next = base;
         for (const XyModulePort::Copy& c : port.Copies)
         {
-            if (c.XAddress < 0x100000 || c.XAddress - 0x100000 + c.Size > x.Code.size()) throw FormatError(port.XName + ": copy " + Hex(c.XAddress) + " outside X's .code");
-            std::copy(x.Code.begin() + (c.XAddress - 0x100000), x.Code.begin() + (c.XAddress - 0x100000 + c.Size), out.begin() + next);
+            // X's .code, or X's DllField (the file at its linked base)
+            const bool fromField = c.XAddress >= x.FieldBase && x.FieldBase;
+            const Bytes& source = fromField ? x.Field : x.Code;
+            const uint32_t base = fromField ? x.FieldBase : 0x100000;
+            if (c.XAddress < base || c.XAddress - base + c.Size > source.size()) throw FormatError(port.XName + ": copy " + Hex(c.XAddress) + " outside X's .code and DllField");
+            std::copy(source.begin() + (c.XAddress - base), source.begin() + (c.XAddress - base + c.Size), out.begin() + next);
             placed[c.XAddress] = next;
             next += (c.Size + 3) & ~3u;
         }
@@ -269,6 +290,26 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
             Put(out, v, 0xE51FF004); // ldr pc, [pc, #-4]
             Put(out, v + 4, target); // .code (Thumb when odd): no relocation
             return veneers[target] = v;
+        };
+        // Omega Ruby's DllField function at `target` (its linked address): the anchor's word read, the distance added
+        std::map<uint32_t, uint32_t> fieldVeneers;
+        const auto fieldVeneer = [&](uint32_t target) {
+            auto it = fieldVeneers.find(target);
+            if (it != fieldVeneers.end()) return it->second;
+            const auto anchor = port.Field.find(port.FieldAnchor);
+            if (anchorWord < 0 || anchor == port.Field.end() || anchor->second < 0x10000000) throw FormatError(port.XName + ": a DllField call with no DllField anchor imported");
+            const uint32_t v = reserve(40);
+            const uint32_t words[] = {0xE52D0004,  // str r0, [sp, #-4]!
+                                      0xE59F0014,  // ldr r0, [pc, #20]: the anchor word's distance
+                                      0xE08F0000,  // add r0, pc, r0
+                                      0xE5900000,  // ldr r0, [r0]: where the loader put the anchor
+                                      0xE59FC00C,  // ldr ip, [pc, #12]: the distance between the functions
+                                      0xE080C00C,  // add ip, r0, ip
+                                      0xE49D0004,  // ldr r0, [sp], #4
+                                      0xE12FFF1C,  // bx ip
+                                      (uint32_t)anchorWord - (v + 16), target - anchor->second};
+            for (size_t k = 0; k < 10; k++) Put(out, v + 4 * (uint32_t)k, words[k]);
+            return fieldVeneers[target] = v;
         };
         for (const XyModulePort::Copy& c : port.Copies)
         {
@@ -296,7 +337,9 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
                 const uint32_t w = U32(out, at + k), xAt = c.XAddress + k;
                 if (literals.count(k))
                 {
-                    if (w >= 0x100000 && w < 0x100000 + 0x800000) // an X .code or data address
+                    if (std::find(port.CopySounds.begin(), port.CopySounds.end(), w) != port.CopySounds.end())
+                        Put(out, at + k, sound(w));
+                    else if (w >= 0x100000 && w < 0x100000 + 0x800000) // an X .code or data address
                     {
                         const auto m = port.Literals.find(w);
                         if (m == port.Literals.end()) throw FormatError(port.XName + ": copy " + Hex(c.XAddress) + "'s literal " + Hex(w) + " is not mapped");
@@ -311,14 +354,60 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
                 const int64_t local = copyOf(target);
                 if (local >= 0 && !blx) { Put(out, at + k, (w & 0xFF000000) | ((((uint32_t)local - (at + k) - 8) >> 2) & 0xFFFFFF)); continue; }
                 if (local >= 0 || (target >= c.XAddress && target < c.XAddress + c.Size)) throw FormatError(port.XName + ": copy " + Hex(c.XAddress) + ": a blx into a copy at +" + Hex(k));
-                const auto m = port.Static.find(blx ? target | 1 : target);
-                if (m == port.Static.end()) throw FormatError(port.XName + ": copy " + Hex(c.XAddress) + " calls X's " + Hex(target) + ", not mapped");
-                const uint32_t v = veneer(m->second);
+                // through X DllField's import stub: what it reaches (this module's own function: a branch inside it)
+                uint32_t reached = target;
+                const auto stub = port.FieldStubs.find(target);
+                if (stub != port.FieldStubs.end())
+                {
+                    reached = stub->second;
+                    if (port.XLinked && reached >= port.XLinked && reached - port.XLinked < seg[0].Offset + seg[0].Size && !blx)
+                    {
+                        Put(out, at + k, (w & 0xFF000000) | (((reached - port.XLinked - (at + k) - 8) >> 2) & 0xFFFFFF));
+                        continue;
+                    }
+                }
+                const auto m = port.Static.find(blx ? reached | 1 : reached);
+                const auto f = port.Field.find(reached);
+                if (m == port.Static.end() && f == port.Field.end()) throw FormatError(port.XName + ": copy " + Hex(c.XAddress) + " calls X's " + Hex(reached) + ", not mapped");
+                const uint32_t v = m != port.Static.end() ? veneer(m->second) : f->second >= 0x10000000 ? fieldVeneer(f->second) : veneer(f->second);
                 // a bl / b keeps its condition and link bit; a blx becomes bl to the veneer (which enters Thumb by the odd address)
                 const uint32_t kept = blx ? 0xEB000000 : (w & 0xFF000000);
                 Put(out, at + k, kept | (((v - (at + k) - 8) >> 2) & 0xFFFFFF));
             }
         }
+        // each DllField class's vtable in the module: its slots a copy or a veneer to Omega Ruby's method; the words its
+        // import wrote (X's vtable + 8) now hold it (an internal relocation each), the import's own relocations a word of
+        // their own
+        for (const auto& [fv, batch] : vtableBatches)
+        {
+            const uint32_t start = reserve(8 + 4 * (uint32_t)fv->XSlots.size()), slots = start + 8;
+            Put(out, start, 0);
+            Put(out, start + 4, 0); // no type info (X's is DllField's own; nothing reached through it is ported)
+            for (size_t i = 0; i < fv->XSlots.size(); i++)
+            {
+                const uint32_t xs = fv->XSlots[i];
+                const int64_t local = copyOf(xs);
+                uint32_t to;
+                if (local >= 0) to = (uint32_t)local;
+                else
+                {
+                    const auto f = port.Field.find(xs);
+                    if (f == port.Field.end() || f->second < 0x10000000) throw FormatError(port.XName + ": the DllField vtable's slot " + Hex(xs) + " is not mapped");
+                    to = fieldVeneer(f->second);
+                }
+                added.push_back({slots + 4 * (uint32_t)i, to});
+            }
+            for (size_t b = batch;; b += 12)
+            {
+                const uint32_t word = TagAddress(seg, U32(out, b), 0);
+                if (U32(out, b + 8) != 8) throw FormatError(port.XName + ": the DllField vtable's import is not X's vtable + 8 at " + Hex(word));
+                const uint32_t spare = reserve(4);
+                Put(out, b, AddressTag(seg, spare, 0));
+                added.push_back({word, slots});
+                if (out.at(b + 5)) break;
+            }
+        }
+
         // the stubs of the imports of copied functions: branches to the copy
         for (const auto& [xAddress, batch] : copied)
             for (size_t b = batch;; b += 12)
@@ -367,6 +456,35 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
             throw FormatError(port.XName + ": the vtable at " + Hex(vtable) + "'s relocations are not as read (" + std::to_string(written) +
                               " written, " + std::to_string(pointing) + " pointing)");
     }
+    // the added internal relocations at the table's end (type 2, an absolute address: the code segment's base plus the
+    // offset): what follows the table (the data segment) moves down over the padding at the file's end (0xCC in X's gym
+    // modules)
+    if (!added.empty())
+    {
+        const uint32_t table = Header(out, InternalRelocationTableOffset), count = Header(out, InternalRelocationNum);
+        const uint32_t insert = table + 12 * count, grow = 12 * (uint32_t)added.size();
+        for (size_t k = out.size() - grow; k < out.size(); k++)
+            if (out[k] != 0 && out[k] != 0xCC) throw FormatError(port.XName + ": no free bytes at the end for the added relocations");
+        std::copy_backward(out.begin() + insert, out.end() - grow, out.end());
+        for (size_t i = 0; i < added.size(); i++)
+        {
+            const uint32_t at = insert + 12 * (uint32_t)i;
+            Put(out, at, AddressTag(seg, added[i].first, 0));
+            out[at + 4] = 2; // R_ARM_ABS32
+            out[at + 5] = 0; // the code segment
+            out[at + 6] = out[at + 7] = 0;
+            Put(out, at + 8, added[i].second - seg[0].Offset);
+        }
+        Put(out, 0x80 + 4 * InternalRelocationNum, count + (uint32_t)added.size());
+        // every table or segment after the insertion point moves down
+        for (const int field : {1, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 44})
+            if (Header(out, field) >= insert && Header(out, field) != 0) Put(out, 0x80 + 4 * (size_t)field, Header(out, field) + grow);
+        for (uint32_t i = 0; i < Header(out, SegmentNum); i++)
+        {
+            const size_t at = Header(out, SegmentTableOffset) + 12 * (size_t)i;
+            if (U32(out, at + 4) && U32(out, at) >= insert) Put(out, at, U32(out, at) + grow);
+        }
+    }
     return out;
 }
 
@@ -379,6 +497,7 @@ const std::vector<XyGym>& XyGyms()
         {0x19, 9, XyGymElec(), 0}, {0x1A, 12, XyGymElec(), 1}, {0x1B, 17, XyGymElec(), 2},
         {0x18, 18, XyRoute13()}, // not a gym: Route 13's dust clouds (OrasXyDustCloud.h)
         {2, 19, XyGymInsect()},
+        {0, 20, XyGymFighting()}, // X's kind 0: zone 175 only (the others 0xFFFF)
     };
     return gyms;
 }
@@ -686,6 +805,68 @@ const XyModulePort& XyGymInsect()
         p.InsertSlot = 12;
         p.InsertValue = 0x4D8734; // Util_ReturnZero_004D8734
         p.Classes = {{0xF4C, 0x46C}}; // X's kind 2 case: the object 0x46C bytes
+        return p;
+    }();
+    return port;
+}
+
+const XyModulePort& XyGymFighting()
+{
+    static const XyModulePort port = [] {
+        XyModulePort p;
+        p.XName = "DllUSGymFighting";
+        p.Name = "DllXyGymFighting";
+        // X's .code -> Omega Ruby's: the same functions (xy_import_match.py), then by their callers' copies (xy_callee_map.py)
+        p.Static = Merged(SharedStatic(), {
+            {0x12B27C, 0x12BB54}, {0x108CF0, 0x108CB0}, {0x109498, 0x109434}, {0x140170, 0x12FD48},
+            {0x4AAA70, 0x4E3674}, // near, 0.93 (the dust clouds' port maps it the same)
+            {0x3D0A20, 0x3F1924}, // 10 callers agree
+            // called by the copies below
+            {0x425B1C, 0x44FA8C}, {0x425BD4, 0x44FB44}, {0x4AB150, 0x4E3FDC}, {0x3D1DE0, 0x3F2E04},
+            {0x3D149C, 0x3F2354}, // 1.00, the next 0.62
+        });
+        p.Field = Merged(SharedField(), {
+            {0x1027DBB8, 0x102C13C8}, // 3 callers agree
+            {0x102832E4, 0x102D1644},
+            {0x1027F5CC, 0x102CDFD0}, // the zone's character list (Viola's port maps it the same)
+            {0x1027F4C4, 0x102C8EF8}, // the same function (called by a copy)
+            // the DllField class's methods Omega Ruby has the same (its vtable 0x1034946C: slots 0-3 and 5)
+            {0x1022B3FC, 0x10268A20}, {0x1022B3EC, 0x10268A10},
+            {0x1022B0FC, 0x102688BC}, {0x1022B108, 0x102688C8}, {0x1022B104, 0x102688C4},
+        });
+        p.Thunks = {Request};
+        p.Words = {LoaderSize(0xFD4),
+                   // the field's members Omega Ruby keeps elsewhere (prototype/xy_module_layout.py --words)
+                   {0x2B4, 0xE5900050, 0xE5900060, "the field's + 0x50 -> + 0x60"},
+                   {0x338, 0xE5900050, 0xE5900060, "the field's + 0x50 -> + 0x60"},
+                   {0x8C0, 0xE5900050, 0xE5900060, "the field's + 0x50 -> + 0x60"},
+                   {0xEE4, 0xE5900050, 0xE5900060, "the field's + 0x50 -> + 0x60"}};
+        p.Archive = 0x5C; // a/0/9/2
+        p.ArchiveWords = {0xEA4};
+        // the DllField class's update, X's own, and the X-own DllField functions it calls (their callers all X's own)
+        p.Copies = {
+            {0x1022B10C, 736, "the class's update (slot 4) and its literals, up to slot 1 (0x1022B3EC): Omega Ruby's 0x102688CC is another (0.32)"},
+            {0x1027B22C, 156, "called by it"},
+            {0x1027B1A8, 116, "called by it, with a sound id"},
+            {0x1027B138, 112, "called by it, with a sound id"},
+            {0x1027A0DC, 268, "called by it, and its literals"},
+        };
+        p.CopySounds = {0xA000C, 0xA000D, 0xA000E, 0xA000F};
+        // X DllField's import stubs the copies call, with what each reaches (X's linked program)
+        p.FieldStubs = {
+            {0x101F91F8, 0x425B1C}, {0x101F9200, 0x14F220}, {0x101F9A80, 0x425BD4}, {0x101FA230, 0x4AB150},
+            {0x101FA510, 0x4AAA70}, {0x101FA530, 0x3D149C}, {0x101FA538, 0x3D1DE0},
+            {0x101FADF8, 0x1078A4C8}, {0x101FAE00, 0x1078ADB4}, {0x101FAE08, 0x1078A410}, {0x101FAE10, 0x1078AD64},
+            {0x101FAE18, 0x1078ADDC}, // her module's own functions
+        };
+        p.XLinked = 0x1078A000;
+        p.FieldAnchor = 0x1027F5CC;
+        p.FieldVtables = {{0x102FE8A4, {0x1022B3FC, 0x1022B3EC, 0x1022B0FC, 0x1022B108, 0x1022B10C, 0x1022B104}}};
+        p.Vtables = {0x2114};
+        p.Slots = 13;
+        p.InsertSlot = 12;
+        p.InsertValue = 0x4D8734; // Util_ReturnZero_004D8734
+        p.Classes = {{0xF60, 0x180}}; // X's kind 0 case: the object 0x180 bytes
         return p;
     }();
     return port;

@@ -58,6 +58,23 @@ struct XyModulePort
     struct Copy { uint32_t XAddress, Size; std::string Why; };
     std::vector<Copy> Copies;
     std::map<uint32_t, uint32_t> Literals; // a literal of the copies: an X .code or data address -> Omega Ruby's
+    std::vector<uint32_t> CopySounds;      // X sound ids among the copies' literals: translated as Sounds
+    // X's DllField functions copied too (a Copy at a DllField address; 31 October, Korrina's: a DllField class X ties to
+    // her module). Their branches reach, besides other copies: X DllField's import stubs, given here with what each one
+    // reaches (FieldStubs: a .code function, through Static; a function of this module, by its place in X's linked
+    // program from XLinked, as a branch inside the module), or Omega Ruby's DllField (through Field) by a veneer: DllField
+    // is a module, loaded where the heap has room, so its address is read at run time from the word the loader wrote
+    // for one of this module's DllField imports (FieldAnchor, an X DllField address the module imports), plus the
+    // distance between the two functions in Omega Ruby's DllField
+    std::map<uint32_t, uint32_t> FieldStubs;
+    uint32_t XLinked = 0;
+    uint32_t FieldAnchor = 0;
+    // a DllField class the module instantiates, whose methods differ in Omega Ruby: its vtable built in the module (the
+    // offset to the top and the type info 0, then the slots: a copy, or Omega Ruby's same method through Field and a
+    // veneer), each slot a new internal relocation; the words the module's import of X's vtable (XImport, the DllField
+    // data address its words add 8 to) wrote now point at it
+    struct FieldVtable { uint32_t XImport; std::vector<uint32_t> XSlots; };
+    std::vector<FieldVtable> FieldVtables;
     // the archive the module loads (X's number, a/X/Y/Z by its digits; 0 none) and its words requesting it (`mov rd, #n`,
     // file offsets): given Omega Ruby's number for it (XyGymArchiveNumber)
     uint16_t Archive = 0;
@@ -136,6 +153,12 @@ const XyModulePort& XyGymElec();
 // 0x3785E4 instead; Omega Ruby has none of the first, now copied (run vA5, 31 October: no unmapped read, the player
 // walks on the web)
 const XyModulePort& XyGymInsect();
+
+// Korrina's gym (X zone 175, Shalour; DllUSGymFighting, X's area kind 0, mapped 31 October): its imports mapped
+// (xy_import_match.py, xy_callee_map.py); it instantiates a DllField class (X's vtable 0x102FE8AC) whose update (slot 4,
+// X's 0x1022B10C) is X's own and calls into her module: that method and the four X-own DllField functions it calls are
+// copied, the class's vtable built in the module (FieldVtables), its five other methods Omega Ruby's same ones
+const XyModulePort& XyGymFighting();
 
 }
 
