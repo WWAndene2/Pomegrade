@@ -56,7 +56,7 @@ fun RetroAchievementsLoginDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        Card(Modifier.widthIn(max = 450.dp).fillMaxWidth(0.85f)) {
+        Card(Modifier.widthIn(max = 512.dp).fillMaxWidth(0.85f)) {
             Column {
                 Box(
                     modifier = Modifier
@@ -111,7 +111,7 @@ fun RetroAchievementsLoginDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp)
+                        .height(48.dp)
                         .padding(8.dp),
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically,

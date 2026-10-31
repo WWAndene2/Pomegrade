@@ -66,7 +66,7 @@ fun RomAchievementUi(
     modifier: Modifier,
     achievementModel: AchievementUiModel,
     onViewAchievement: () -> Unit,
-    badgeSize: Dp = 52.dp,
+    badgeSize: Dp = 48.dp,
 ) {
     val (bodyFocusRequester, linkFocusRequester) = remember { FocusRequester.createRefs() }
     var expanded by remember(achievementModel) {

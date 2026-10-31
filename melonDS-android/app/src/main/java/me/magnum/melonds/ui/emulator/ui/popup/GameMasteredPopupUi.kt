@@ -68,7 +68,7 @@ fun GameMasteredPopupUi(
         modifier = modifier
             .padding(16.dp)
             .shadow(8.dp, RoundedCornerShape(8.dp), spotColor = gameMasteryColor)
-            .widthIn(max = 400.dp),
+            .widthIn(max = 384.dp),
         backgroundColor = gameMasteryColor,
         shape = RoundedCornerShape(8.dp),
     ) {

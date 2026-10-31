@@ -13,7 +13,7 @@
 
     <ImageView
             android:id="@+id/logoPlatform"
-            android:layout_width="50dp"
+            android:layout_width="48dp"
             android:layout_height="wrap_content"
             android:scaleType="fitCenter"
             android:layout_alignTop="@+id/textRomName"

@@ -85,7 +85,7 @@ private fun List(
                     start = contentPadding.calculateStartPadding(LocalLayoutDirection.current),
                     top = contentPadding.calculateTopPadding(),
                     end = contentPadding.calculateEndPadding(LocalLayoutDirection.current),
-                    bottom = contentPadding.calculateBottomPadding() + 16.dp + 56.dp + 16.dp, // Take FAB into consideration
+                    bottom = contentPadding.calculateBottomPadding() + 96.dp, // clears the FAB: its margin, its Material height and a gap below the last row (16 + 56 + 16, on the scale as 64 + 32)
                 ),
             ) {
                 itemsIndexed(

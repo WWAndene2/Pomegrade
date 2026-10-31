@@ -79,7 +79,7 @@ fun RomItem(
                 ) {
                     if (item.isDsiWareTitle) {
                         Image(
-                            modifier = Modifier.width(50.dp),
+                            modifier = Modifier.width(48.dp),
                             contentScale = ContentScale.FillWidth,
                             painter = painterResource(id = R.drawable.logo_dsiware),
                             contentDescription = null,
