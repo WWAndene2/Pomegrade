@@ -56,3 +56,9 @@
 -keepattributes Signature
 -keep,allowobfuscation,allowshrinking class com.google.gson.reflect.TypeToken
 -keep,allowobfuscation,allowshrinking class * extends com.google.gson.reflect.TypeToken
+
+# Wireless debugging diagnostics: libadb finds Conscrypt by reflection (org.conscrypt.Conscrypt, OpenSSLProvider)
+-keep class org.conscrypt.** { *; }
+-dontwarn org.conscrypt.**
+-keep class io.github.muntashirakon.adb.** { *; }
+-dontwarn org.bouncycastle.**

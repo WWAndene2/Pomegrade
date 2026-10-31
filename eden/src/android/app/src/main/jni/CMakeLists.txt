@@ -27,6 +27,27 @@ if (ARCHITECTURE_arm64)
     target_link_libraries(yuzu-android PRIVATE adrenotools)
 endif()
 
+# Pomegrade: TEMPORARY, Arm's libGPUCounters for the Mali hardware counters of the diagnostic
+# (common/pomegrade_diagnostics.h); deleted with it
+if (ARCHITECTURE_arm64)
+    AddPackage(
+        NAME hwcpipe
+        REPO ARM-software/libGPUCounters
+        TAG 2.5.0
+        HASH 9dc6ab57dc751b1e2f7ffc85c9c09cfabcdcdc6c182fdc37a28fd9ea03377d4b2eb482e0f229121e30e85422eac965689fc13aee70ac36570b4256eaf8275d37
+        FORCE_BUNDLED_PACKAGE ON
+        OPTIONS
+            "HWCPIPE_WERROR OFF"
+            "HWCPIPE_WALL OFF"
+            "HWCPIPE_ENABLE_LTO OFF")
+    # Arm's code under Eden's warnings-as-errors (-Werror=shadow and others, src/CMakeLists.txt) does not build
+    # (CI run 305): its own warnings are not ours to fix
+    target_compile_options(device PRIVATE -w)
+    target_compile_options(hwcpipe PRIVATE -w)
+    target_link_libraries(yuzu-android PRIVATE hwcpipe)
+    target_compile_definitions(yuzu-android PRIVATE POMEGRADE_HWCPIPE)
+endif()
+
 target_link_libraries(yuzu-android PRIVATE OpenSSL::SSL cpp-jwt::cpp-jwt)
 if (ENABLE_UPDATE_CHECKER)
     target_compile_definitions(yuzu-android PUBLIC ENABLE_UPDATE_CHECKER)

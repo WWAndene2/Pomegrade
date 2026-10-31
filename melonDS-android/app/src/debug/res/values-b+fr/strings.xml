@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- the debug build's name on a French phone too (main's values-b+fr would name it Punica) -->
+    <string name="app_name">Punica Opt</string>
+</resources>

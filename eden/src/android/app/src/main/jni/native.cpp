@@ -23,6 +23,8 @@
 #include <algorithm>
 #include <chrono>
 #include <dirent.h>
+#include <array>
+#include <memory>
 #include <tuple>
 #include <dlfcn.h>
 #include <unistd.h>
@@ -49,6 +51,10 @@
 #include "common/fs/path_util.h"
 #include "common/logging.h"
 #include "common/pomegrade_diagnostics.h" // Pomegrade: TEMPORARY
+#ifdef POMEGRADE_HWCPIPE
+#include <hwcpipe/gpu.hpp> // Pomegrade: TEMPORARY, the Mali counters of the diagnostic
+#include <hwcpipe/sampler.hpp>
+#endif
 #include "common/scm_rev.h"
 #include "common/scope_exit.h"
 #include "common/settings.h"
@@ -496,12 +502,163 @@ public:
             const u64 deferred = PomegradeDiagnostics::deferred_waits.exchange(0, std::memory_order_relaxed);
             LOG_INFO(Frontend, "[Pomegrade diag] passes ended per frame by{} | waits for idle deferred to the pass's end {:.1f}",
                      ended, deferred * per_frame);
+            // Pomegrade: TEMPORARY, the transform feedback draws (Pokémon Scarlet), per frame
+            const u64 tf = PomegradeDiagnostics::tf_draws.exchange(0, std::memory_order_relaxed);
+            const u64 tf_discard = PomegradeDiagnostics::tf_draws_discard.exchange(0, std::memory_order_relaxed);
+            const u64 tf_color = PomegradeDiagnostics::tf_draws_to_color.exchange(0, std::memory_order_relaxed);
+            const u64 tf_fragment = PomegradeDiagnostics::tf_draws_fragment.exchange(0, std::memory_order_relaxed);
+            const u64 tf_geometry = PomegradeDiagnostics::tf_draws_geometry.exchange(0, std::memory_order_relaxed);
+            const u64 tf_runs = PomegradeDiagnostics::tf_runs.exchange(0, std::memory_order_relaxed);
+            const u64 tf_consumers = PomegradeDiagnostics::tf_consumer_draws.exchange(0, std::memory_order_relaxed);
+            const u64 tf_next = PomegradeDiagnostics::tf_consumers_next_draw.exchange(0, std::memory_order_relaxed);
+            {
+                std::scoped_lock lock{PomegradeDiagnostics::tf_mutex};
+                PomegradeDiagnostics::tf_outputs.clear();
+            }
+            LOG_INFO(Frontend, "[Pomegrade diag] transform feedback draws per frame {:.1f}: rasterizer discard {:.1f}, drawing to colour {:.1f}, with a fragment shader {:.1f}, with a geometry shader {:.1f} | runs of back-to-back ones {:.1f} | later draws reading their output as vertices {:.1f}, of which right after one {:.1f}",
+                     tf * per_frame, tf_discard * per_frame, tf_color * per_frame, tf_fragment * per_frame,
+                     tf_geometry * per_frame, tf_runs * per_frame, tf_consumers * per_frame, tf_next * per_frame);
+            LogGpuTime(seconds, per_frame);
+            LogWaitSites(seconds);
+            m_mali.Log(seconds);
         }
         m_last = now;
         m_started = true;
     }
 
 private:
+    // the GPU's own time (Vulkan timestamps, Scheduler): its command buffers and the transform feedback runs
+    static void LogGpuTime(double seconds, double per_frame) {
+        const u64 cmdbuf_ns = PomegradeDiagnostics::gpu_cmdbuf_ns.exchange(0, std::memory_order_relaxed);
+        const u64 cmdbufs = PomegradeDiagnostics::gpu_cmdbufs.exchange(0, std::memory_order_relaxed);
+        const u64 tf_ns = PomegradeDiagnostics::gpu_tf_ns.exchange(0, std::memory_order_relaxed);
+        const u64 tf_runs = PomegradeDiagnostics::gpu_tf_runs.exchange(0, std::memory_order_relaxed);
+        const u64 dropped = PomegradeDiagnostics::gpu_timer_dropped.exchange(0, std::memory_order_relaxed);
+        if (!PomegradeDiagnostics::gpu_timer_available.load(std::memory_order_relaxed)) {
+            LOG_INFO(Frontend, "[Pomegrade diag] GPU time: no timestamps on this queue");
+            return;
+        }
+        LOG_INFO(Frontend, "[Pomegrade diag] GPU time: busy {:.0f}% of the time ({:.1f} ms a frame, {:.1f} command buffers a frame) | transform feedback runs {:.1f} ms a frame ({:.1f} runs) | timestamp pairs dropped {}",
+                 cmdbuf_ns / 1e7 / seconds, cmdbuf_ns / 1e6 * per_frame, cmdbufs * per_frame,
+                 tf_ns / 1e6 * per_frame, tf_runs * per_frame, dropped);
+    }
+
+    // who waited for the GPU, the eight longest in total, per second
+    static void LogWaitSites(double seconds) {
+        std::vector<std::tuple<u64, u64, std::string>> sites;
+        {
+            std::scoped_lock lock{PomegradeDiagnostics::wait_site_mutex};
+            for (const auto& [where, value] : PomegradeDiagnostics::wait_sites) {
+                sites.emplace_back(value.second, value.first, where);
+            }
+            PomegradeDiagnostics::wait_sites.clear();
+        }
+        std::sort(sites.begin(), sites.end(), [](const auto& a, const auto& b) { return std::get<0>(a) > std::get<0>(b); });
+        std::string text;
+        for (size_t i = 0; i < sites.size() && i < 8; i++) {
+            const auto& [ns, count, where] = sites[i];
+            text += fmt::format(" [{} {:.0f}/s {:.1f} ms]", where, count / seconds, ns / 1e6 / seconds);
+        }
+        LOG_INFO(Frontend, "[Pomegrade diag] GPU waits per s by thread and caller{}", text);
+    }
+
+    // the Mali's hardware counters (Arm's libGPUCounters, through /dev/mali0 like the driver), and its clock
+    class MaliCounters {
+    public:
+        void Log(double seconds) {
+#ifdef POMEGRADE_HWCPIPE
+            if (!m_tried) {
+                m_tried = true;
+                Start();
+            }
+            if (!m_sampler) {
+                LOG_INFO(Frontend, "[Pomegrade diag] Mali counters: unavailable ({}) | GPU clock {}", m_error, GpuClock());
+                return;
+            }
+            if (const auto ec = m_sampler->sample_now()) {
+                LOG_INFO(Frontend, "[Pomegrade diag] Mali counters: sample failed ({}) | GPU clock {}", ec.message(), GpuClock());
+                return;
+            }
+            std::string text;
+            for (const auto& [counter, name, is_rate] : m_counters) {
+                hwcpipe::counter_sample sample;
+                if (m_sampler->get_counter_value(counter, sample)) {
+                    continue;
+                }
+                const double value = sample.type == hwcpipe::counter_sample::type::uint64
+                                         ? static_cast<double>(sample.value.uint64)
+                                         : sample.value.float64;
+                text += is_rate ? fmt::format(" [{} {:.1f} M/s]", name, value / 1e6 / seconds)
+                                : fmt::format(" [{} {:.1f}]", name, value);
+            }
+            LOG_INFO(Frontend, "[Pomegrade diag] Mali counters per s:{} | GPU clock {}", text, GpuClock());
+#else
+            (void)seconds;
+            LOG_INFO(Frontend, "[Pomegrade diag] Mali counters: not built in | GPU clock {}", GpuClock());
+#endif
+        }
+
+    private:
+        // the clock of the GPU's devfreq entry (named after the Mali, or "gpu"), when readable
+        static std::string GpuClock() {
+            std::string clock = "?";
+            if (DIR* dir = opendir("/sys/class/devfreq")) {
+                while (dirent* entry = readdir(dir)) {
+                    const std::string name = entry->d_name;
+                    if (name.find("mali") == std::string::npos && name.find("gpu") == std::string::npos) {
+                        continue;
+                    }
+                    const std::string hz = ReadFirstLine("/sys/class/devfreq/" + name + "/cur_freq");
+                    if (hz != "?") {
+                        clock = fmt::format("{} MHz", std::atoll(hz.c_str()) / 1000000);
+                    }
+                }
+                closedir(dir);
+            }
+            return clock;
+        }
+
+#ifdef POMEGRADE_HWCPIPE
+        void Start() {
+            m_gpu = std::make_unique<hwcpipe::gpu>(0);
+            if (!*m_gpu) {
+                m_error = "no Mali GPU at /dev/mali0";
+                return;
+            }
+            hwcpipe::sampler_config config(*m_gpu);
+            // cycles and bytes are counted since the last sample (rates); the Util counters are percentages
+            static constexpr std::array<std::tuple<hwcpipe_counter, const char*, bool>, 9> wanted{{
+                {MaliGPUActiveCy, "GPU active cycles", true},
+                {MaliFragQueueActiveCy, "fragment queue active cycles", true},
+                {MaliNonFragQueueActiveCy, "non-fragment queue active cycles", true},
+                {MaliTilerActiveCy, "tiler active cycles", true},
+                {MaliCoreActiveCy, "shader core active cycles", true},
+                {MaliFragQueueUtil, "fragment queue use %", false},
+                {MaliNonFragQueueUtil, "non-fragment queue use %", false},
+                {MaliExtBusRdBy, "memory read bytes", true},
+                {MaliExtBusWrBy, "memory write bytes", true},
+            }};
+            for (const auto& counter : wanted) {
+                if (!config.add_counter(std::get<0>(counter))) {
+                    m_counters.push_back(counter);
+                }
+            }
+            auto sampler = std::make_unique<hwcpipe::sampler<>>(config);
+            if (const auto ec = sampler->start_sampling()) {
+                m_error = "start failed: " + ec.message();
+                return;
+            }
+            m_sampler = std::move(sampler);
+        }
+
+        bool m_tried = false;
+        std::string m_error;
+        std::unique_ptr<hwcpipe::gpu> m_gpu;
+        std::unique_ptr<hwcpipe::sampler<>> m_sampler;
+        std::vector<std::tuple<hwcpipe_counter, const char*, bool>> m_counters;
+#endif
+    };
+
     static bool ReadThread(int tid, std::string& name, unsigned long long& used, int& core) {
         std::FILE* file = std::fopen(fmt::format("/proc/self/task/{}/stat", tid).c_str(), "r");
         if (file == nullptr) {
@@ -677,6 +834,7 @@ private:
         LOG_INFO(Frontend, "[Pomegrade diag] cores: capacity {} | max MHz {}", capacities, maxima);
     }
 
+    MaliCounters m_mali;
     bool m_started = false;
     int m_cycle_phase = -1;
     bool m_cycle_done = false;

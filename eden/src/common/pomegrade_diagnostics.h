@@ -12,6 +12,12 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <utility>
+#include <vector>
+
+#ifdef __ANDROID__
+#include <dlfcn.h>
+#endif
 
 namespace PomegradeDiagnostics {
 
@@ -72,5 +78,108 @@ inline void CountPassEnd(const char* file, int line) {
     std::scoped_lock lock{pass_end_mutex};
     ++pass_ends[where];
 }
+
+// transform feedback draws (GraphicsPipeline::ConfigureImpl ends the pass before each one): whether they draw
+// anything (rasterizer discard, colour targets, fragment stage), whether they use a geometry shader, how many runs
+// of back-to-back ones (what batching them would save), and the later draws reading their output as vertices
+inline std::atomic<std::uint64_t> tf_draws{0};
+inline std::atomic<std::uint64_t> tf_draws_discard{0};
+inline std::atomic<std::uint64_t> tf_draws_to_color{0};
+inline std::atomic<std::uint64_t> tf_draws_fragment{0};
+inline std::atomic<std::uint64_t> tf_draws_geometry{0};
+inline std::atomic<std::uint64_t> tf_runs{0};
+inline std::atomic<std::uint64_t> tf_consumer_draws{0};
+inline std::atomic<std::uint64_t> tf_consumers_next_draw{0};
+inline std::mutex tf_mutex;
+inline std::vector<std::pair<std::uint64_t, std::uint64_t>> tf_outputs; // [begin, end) GPU addresses, this second
+inline bool tf_last_draw{false};
+inline void CountTfDraw(bool discard, bool to_color, bool fragment, bool geometry,
+                        const std::pair<std::uint64_t, std::uint64_t>* outputs, int output_count) {
+    tf_draws.fetch_add(1, std::memory_order_relaxed);
+    tf_draws_discard.fetch_add(discard, std::memory_order_relaxed);
+    tf_draws_to_color.fetch_add(to_color, std::memory_order_relaxed);
+    tf_draws_fragment.fetch_add(fragment, std::memory_order_relaxed);
+    tf_draws_geometry.fetch_add(geometry, std::memory_order_relaxed);
+    std::scoped_lock lock{tf_mutex};
+    tf_runs.fetch_add(!tf_last_draw, std::memory_order_relaxed);
+    tf_last_draw = true;
+    for (int i = 0; i < output_count && tf_outputs.size() < 4096; i++) {
+        tf_outputs.push_back(outputs[i]);
+    }
+}
+// a draw without transform feedback: does one of its vertex streams start inside a range written by one
+inline void CountNonTfDraw(const std::uint64_t* stream_addresses, int stream_count) {
+    std::scoped_lock lock{tf_mutex};
+    const bool after_tf = tf_last_draw;
+    tf_last_draw = false;
+    for (int i = 0; i < stream_count; i++) {
+        for (const auto& [begin, end] : tf_outputs) {
+            if (stream_addresses[i] >= begin && stream_addresses[i] < end) {
+                tf_consumer_draws.fetch_add(1, std::memory_order_relaxed);
+                tf_consumers_next_draw.fetch_add(after_tf, std::memory_order_relaxed);
+                return;
+            }
+        }
+    }
+}
+
+// the code that waited for the GPU (Scheduler::Wait's caller, file:line), per waiting thread, counted with the time
+inline thread_local const char* wait_file = nullptr;
+inline thread_local int wait_line = 0;
+inline std::mutex wait_site_mutex;
+inline std::map<std::string, std::pair<std::uint64_t, std::uint64_t>> wait_sites; // count, ns
+inline void CountWaitSite(const char* thread, std::uint64_t ns) {
+    std::string where = wait_file ? wait_file : "?";
+    const auto slash = where.rfind('/');
+    if (slash != std::string::npos) {
+        where = where.substr(slash + 1);
+    }
+    where = std::string(thread) + " " + where + ":" + std::to_string(wait_line);
+    std::scoped_lock lock{wait_site_mutex};
+    auto& [count, total] = wait_sites[where];
+    ++count;
+    total += ns;
+}
+
+// GPU time measured with Vulkan timestamps (Scheduler): command buffers from start to end, the runs of transform
+// feedback draws, and the pairs dropped because no query was free
+inline std::atomic<std::uint64_t> gpu_cmdbuf_ns{0};
+inline std::atomic<std::uint64_t> gpu_cmdbufs{0};
+inline std::atomic<std::uint64_t> gpu_tf_ns{0};
+inline std::atomic<std::uint64_t> gpu_tf_runs{0};
+inline std::atomic<std::uint64_t> gpu_timer_dropped{0};
+inline std::atomic<bool> gpu_timer_available{false};
+inline bool tf_run_open{false}; // the GPU thread's current run has a timestamp pair (GraphicsPipeline)
+inline std::uint32_t tf_run_pair{0};
+
+// Perfetto/systrace sections (ATrace of libandroid.so, which the app links, looked up once): visible in a system trace of the app
+inline void TraceBegin(const char* name) {
+#ifdef __ANDROID__
+    static auto begin = reinterpret_cast<void (*)(const char*)>(dlsym(RTLD_DEFAULT, "ATrace_beginSection"));
+    if (begin) {
+        begin(name);
+    }
+#else
+    (void)name;
+#endif
+}
+inline void TraceEnd() {
+#ifdef __ANDROID__
+    static auto end = reinterpret_cast<void (*)()>(dlsym(RTLD_DEFAULT, "ATrace_endSection"));
+    if (end) {
+        end();
+    }
+#endif
+}
+struct TraceScope {
+    explicit TraceScope(const char* name) {
+        TraceBegin(name);
+    }
+    ~TraceScope() {
+        TraceEnd();
+    }
+    TraceScope(const TraceScope&) = delete;
+    TraceScope& operator=(const TraceScope&) = delete;
+};
 
 } // namespace PomegradeDiagnostics
