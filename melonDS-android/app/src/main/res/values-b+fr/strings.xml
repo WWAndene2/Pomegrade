@@ -811,11 +811,9 @@
     <string name="platform_three_ds">3DS</string>
     <string name="three_ds_encrypted">Chiffré : impossible à jouer (déchiffre d\'abord le jeu)</string>
     <string name="three_ds_rom_label">3DS · %1$s</string>
-    <string name="unlimited_polygons">Supprimer la limite de polygones</string>
     <string name="tilt_parallax">Profondeur à l\'inclinaison</string>
     <string name="tilt_parallax_summary">Incliner le téléphone déplace la scène 3D selon la profondeur, comme une maquette derrière l\'écran (Pokémon Platine, Or HeartGold, Argent SoulSilver…). Les menus et les couches 2D restent fixes. Nécessite un gyroscope</string>
     <string name="tilt_parallax_strength">Intensité de la profondeur à l\'inclinaison</string>
-    <string name="unlimited_polygons_summary">Dessine les polygones qu\'une DS abandonne quand une scène en a trop (objets manquants ou qui clignotent)</string>
     <string name="high_precision_geometry">Géométrie haute précision</string>
     <string name="high_precision_geometry_summary">Place les sommets entre les pixels au lieu de les aligner dessus : les modèles 3D en mouvement tremblent moins</string>
     <string name="oled_blacks">Noir profond</string>
@@ -830,7 +828,7 @@
     <string name="high_color_summary">8 bits par couleur au lieu des 6 de la DS : dégradés et éclairage plus doux, moins de bandes</string>
     <string name="better_polygons">Polygones améliorés</string>
     <string name="better_polygons_summary">Moins de jointures et de déformations sur les grands polygones en haute résolution</string>
-    <string name="polygon_multiplier">Multiplicateur de polygones</string>
+    <string name="polygon_multiplier">Polygones</string>
     <string name="hd_textures">Textures HD</string>
     <string name="hd_textures_summary">Remplace les textures 3D par leur version HD depuis Punica/DS/Mods/&lt;code du jeu&gt;/</string>
     <string name="dump_textures">Extraire les textures</string>
@@ -909,7 +907,8 @@
         <item>×16 (plus de mémoire vidéo)</item>
     </string-array>
     <string-array name="polygon_multiplier_options">
-        <item>Désactivé</item>
+        <item>Désactivé (la limite de la DS)</item>
+        <item>Sans limite</item>
         <item>×4 polygones</item>
         <item>×9 polygones</item>
         <item>×16 polygones</item>

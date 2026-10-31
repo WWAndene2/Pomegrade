@@ -101,6 +101,7 @@ class SharedPreferencesSettingsRepository(
         setDefaultThemeIfRequired()
         setDefaultMacAddressIfRequired()
         migrateFrameGenerationSetting()
+        migrateUnlimitedPolygonsSetting()
 
         renderConfigurationFlow = combine(
             getVideoRenderer(),
@@ -183,9 +184,9 @@ class SharedPreferencesSettingsRepository(
                 )?.absolutePath,
             hdTexturesEnabled = preferences.getBoolean("enable_hd_textures", false),
             dumpTexturesEnabled = preferences.getBoolean("dump_textures", false),
-            polygonMultiplier = preferences.getString("polygon_multiplier", "1")?.toIntOrNull() ?: 1,
+            polygonMultiplier = polygonSetting().coerceAtLeast(1),
             betterPolygons = preferences.getBoolean("better_polygons", false),
-            unlimitedPolygons = preferences.getBoolean("unlimited_polygons", false),
+            unlimitedPolygons = polygonSetting() != 1,
             highPrecisionGeometry = preferences.getBoolean("high_precision_geometry", false),
             highColor = preferences.getBoolean("high_color", false),
             textureUpscale = preferences.getString("texture_upscale", "1")?.toIntOrNull() ?: 1,
@@ -238,6 +239,25 @@ class SharedPreferencesSettingsRepository(
             remove("frame_generation")
         }
     }
+
+    /**
+     * The DS's polygon limit and the polygon multiplier were two settings (Pomegrade); they are one list now
+     * (polygon_multiplier: 1 the DS's limit, 0 no limit, 2-8 the multiplier, which always draws past the limit). "Remove
+     * polygon limit" on with the multiplier off becomes "No limit". Done at start, as migrateFrameGenerationSetting.
+     */
+    private fun migrateUnlimitedPolygonsSetting() {
+        if (!preferences.contains("unlimited_polygons")) {
+            return
+        }
+        preferences.edit {
+            if (preferences.getBoolean("unlimited_polygons", false) && polygonSetting() == 1) {
+                putString("polygon_multiplier", "0")
+            }
+            remove("unlimited_polygons")
+        }
+    }
+
+    private fun polygonSetting(): Int = preferences.getString("polygon_multiplier", "1")?.toIntOrNull() ?: 1
 
     override fun getRomSearchDirectories(): Array<Uri> {
         val dirPreference = preferences.getStringSet("rom_search_dirs", emptySet())

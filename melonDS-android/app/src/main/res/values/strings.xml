@@ -786,8 +786,6 @@
     <string name="platform_gc_wii">GameCube / Wii</string>
     <string name="three_ds_encrypted">Encrypted: can\'t be played (decrypt the game first)</string>
     <string name="three_ds_rom_label">3DS · %1$s</string>
-    <string name="unlimited_polygons">Remove polygon limit</string>
-    <string name="unlimited_polygons_summary">Draw the polygons a DS would drop when a scene has too many (missing or flickering objects)</string>
     <string name="tilt_parallax">Tilt depth</string>
     <string name="tilt_parallax_summary">Tilting the phone moves the 3D scene by depth, like a model behind the screen (Pokémon Platinum, HeartGold, SoulSilver…). Menus and 2D layers stay still. Needs a gyroscope</string>
     <string name="tilt_parallax_strength">Tilt depth strength</string>
@@ -834,10 +832,11 @@
     <string name="high_color_summary">8 bits per colour instead of the DS\'s 6: smoother gradients and lighting, less banding</string>
     <string name="better_polygons">Better polygons</string>
     <string name="better_polygons_summary">Fewer seams and distortions on large polygons at high resolution</string>
-    <string name="polygon_multiplier">Polygon multiplier</string>
+    <string name="polygon_multiplier">Polygons</string>
     <!-- polygons per original polygon; values are subdivision levels (n gives n*n) -->
     <string-array name="polygon_multiplier_options">
-        <item>Off</item>
+        <item>Off (the DS\'s limit)</item>
+        <item>No limit</item>
         <item>×4 polygons</item>
         <item>×9 polygons</item>
         <item>×16 polygons</item>
@@ -846,6 +845,7 @@
     </string-array>
     <string-array name="polygon_multiplier_values" translatable="false">
         <item>1</item>
+        <item>0</item>
         <item>2</item>
         <item>3</item>
         <item>4</item>

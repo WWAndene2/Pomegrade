@@ -43,13 +43,11 @@ class VideoPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTit
         softwareRendererPreferences.apply {
             add(findPreference("enable_threaded_rendering")!!)
             add(findPreference("polygon_multiplier")!!)
-            add(findPreference("unlimited_polygons")!!)
         }
 
         openGlRendererPreferences.apply {
             add(findPreference("video_internal_resolution")!!)
             add(findPreference("polygon_multiplier")!!)
-            add(findPreference("unlimited_polygons")!!)
             add(findPreference("high_precision_geometry")!!)
             add(findPreference("high_color")!!)
             add(findPreference("texture_upscale")!!)

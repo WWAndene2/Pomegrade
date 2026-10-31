@@ -28,6 +28,8 @@
             app:iconSpaceReserved="false"
             android:defaultValue="true" />
 
+    <!-- Pomegrade: one setting for the DS's polygon limit and the multiplier (a multiplied scene always draws past the
+         limit): 1 the DS's limit, 0 no limit, 2-8 the multiplier's level (SharedPreferencesSettingsRepository) -->
     <ListPreference
             android:key="polygon_multiplier"
             android:title="@string/polygon_multiplier"
@@ -54,13 +56,6 @@
             android:defaultValue="50"
             app:min="1"
             android:max="100" />
-
-    <SwitchPreference
-            android:key="unlimited_polygons"
-            android:title="@string/unlimited_polygons"
-            android:summary="@string/unlimited_polygons_summary"
-            app:iconSpaceReserved="false"
-            android:defaultValue="false" />
 
     <SwitchPreference
             android:key="high_precision_geometry"
