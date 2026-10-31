@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <limits>
 #include <random>
 #include <regex>
 #include <openssl/evp.h>
@@ -15,6 +16,7 @@
 #include "common/random.h"
 #include "common/string_util.h"
 #include "core/crypto/key_manager.h"
+#include "core/crypto/ncz_decompressor.h"
 #include "core/file_sys/card_image.h"
 #include "core/file_sys/common_funcs.h"
 #include "core/file_sys/content_archive.h"
@@ -155,6 +157,25 @@ static std::shared_ptr<NSP> OpenContainerAsNsp(const VirtualFile& file, Loader::
     }
 
     return nullptr;
+}
+
+// Checks that every .ncz entry in the container is NCZBLOCK. Solid NCZ has no random access,
+// and the whole point of this build is to reject it at scan time so such files never appear
+// in the game list. Containers without any .ncz (plain NSP/XCI) pass through.
+static bool ContainerIsFullyBlockCompressed(const std::shared_ptr<NSP>& nsp) {
+    if (!nsp) {
+        return false;
+    }
+    for (const auto& entry : nsp->GetFiles()) {
+        const auto name = entry->GetName();
+        if (name.size() < 4 || name.substr(name.size() - 4) != ".ncz") {
+            continue;
+        }
+        if (!Core::Crypto::IsBlockCompressedNCZ(entry)) {
+            return false; // solid NCZ -> reject the whole container
+        }
+    }
+    return true; // no .ncz at all, or all block-compressed
 }
 
 template <typename Callback>
@@ -348,6 +369,22 @@ std::vector<ContentProviderEntry> ContentProvider::ListEntries() const {
     return ListEntriesFilter(std::nullopt, std::nullopt, std::nullopt);
 }
 
+std::optional<u64> ContentProvider::GetParentApplicationId(u64 program_id) const {
+    const auto application_id = GetBaseTitleID(program_id);
+    const auto program_index = program_id - application_id;
+    if (program_index == 0 || program_index > std::numeric_limits<u8>::max()) {
+        return std::nullopt;
+    }
+    if (!ListEntriesFilter(TitleType::Application, ContentRecordType::Meta, program_id).empty()) {
+        return std::nullopt;
+    }
+    if ((!ListEntriesFilter(TitleType::Application, ContentRecordType::Meta, application_id).empty() && HasEntry(program_id, ContentRecordType::Program))
+     || (!ListEntriesFilter(TitleType::Update, ContentRecordType::Meta, GetUpdateTitleID(application_id)).empty() && HasEntry(GetUpdateTitleID(program_id), ContentRecordType::Program))) {
+        return application_id;
+    }
+    return std::nullopt;
+}
+
 PlaceholderCache::PlaceholderCache(VirtualDir dir_) : dir(std::move(dir_)) {}
 
 bool PlaceholderCache::Create(const NcaID& id, u64 size) const {
@@ -503,6 +540,9 @@ NcaID PlaceholderCache::Generate() {
 
 VirtualFile RegisteredCache::OpenFileOrDirectoryConcat(const VirtualDir& open_dir,
                                                        std::string_view path) const {
+    if (open_dir == nullptr) {
+        return nullptr;
+    }
     const auto file = open_dir->GetFileRelative(path);
     if (file != nullptr) {
         return file;
@@ -563,21 +603,46 @@ VirtualFile RegisteredCache::GetFileAtID(NcaID id) const {
     return file;
 }
 
-static std::optional<NcaID> CheckMapForContentRecord(const ankerl::unordered_dense::map<u64, CNMT>& map, u64 title_id, ContentRecordType type) {
-    const auto cmnt_iter = map.find(title_id);
+static std::optional<NcaID> CheckMapForContentRecord(const ::Common::unordered_map<u64, CNMT>& map, u64 title_id, ContentRecordType type) {
+    auto cmnt_iter = map.find(title_id);
+    u8 id_offset = 0;
+
     if (cmnt_iter == map.cend()) {
-        return std::nullopt;
+        const auto program_index = title_id & AOC_TITLE_ID_MASK;
+        if (program_index == 0) {
+            return std::nullopt;
+        }
+
+        cmnt_iter = map.find(title_id & ~AOC_TITLE_ID_MASK);
+        if (cmnt_iter == map.cend()) {
+            return std::nullopt;
+        }
+
+        id_offset = static_cast<u8>(program_index);
     }
 
     const auto& cnmt = cmnt_iter->second;
     const auto& content_records = cnmt.GetContentRecords();
     const auto iter = std::find_if(content_records.cbegin(), content_records.cend(),
-                                   [type](const ContentRecord& rec) { return rec.type == type; });
-    if (iter == content_records.cend()) {
+                                   [type, id_offset](const ContentRecord& rec) {
+                                       return rec.type == type && rec.id_offset == id_offset;
+                                   });
+    if (iter != content_records.cend()) {
+        return std::make_optional(iter->nca_id);
+    }
+
+    if (id_offset != 0) {
         return std::nullopt;
     }
 
-    return std::make_optional(iter->nca_id);
+    const auto fallback_iter =
+        std::find_if(content_records.cbegin(), content_records.cend(),
+                     [type](const ContentRecord& rec) { return rec.type == type; });
+    if (fallback_iter == content_records.cend()) {
+        return std::nullopt;
+    }
+
+    return std::make_optional(fallback_iter->nca_id);
 }
 
 std::optional<NcaID> RegisteredCache::GetNcaIDFromMetadata(u64 title_id,
@@ -766,7 +831,14 @@ std::vector<ContentProviderEntry> RegisteredCache::ListEntriesFilter(
 }
 
 static std::shared_ptr<NCA> GetNCAFromNSPForID(const NSP& nsp, const NcaID& id) {
-    auto file = nsp.GetFile(fmt::format("{}.nca", Common::HexToString(id, false)));
+    const auto id_string = Common::HexToString(id, false);
+    auto file = nsp.GetFile(fmt::format("{}.nca", id_string));
+    if (file == nullptr) {
+        if (auto ncz_file = nsp.GetFile(fmt::format("{}.ncz", id_string))) {
+            file = Core::Crypto::DecompressNCZForInstall(
+                ncz_file, fmt::format("{}.nca", id_string));
+        }
+    }
     if (file == nullptr) {
         return nullptr;
     }
@@ -979,6 +1051,22 @@ bool RegisteredCache::RemoveExistingEntry(u64 title_id) const {
     }
 
     return removed_data;
+}
+
+bool RegisteredCache::Delete(const NcaID& id) const {
+    const auto path = GetRelativePathFromNcaID(id, false, true, false);
+
+    const bool is_file = dir->GetFileRelative(path) != nullptr;
+    const bool is_dir = dir->GetDirectoryRelative(path) != nullptr;
+
+    if (is_file) {
+        return dir->DeleteFile(path);
+    }
+    if (is_dir) {
+        return dir->DeleteSubdirectoryRecursive(path);
+    }
+
+    return true;
 }
 
 InstallResult RegisteredCache::RawInstallNCA(const NCA& nca, const VfsCopyFunction& copy,
@@ -1212,6 +1300,12 @@ bool ManualContentProvider::AddEntriesFromContainer(VirtualFile file, bool only_
         return false;
     }
 
+    // Reject solid NCZ (.nsz without -B): only block-compressed NCZ is supported.
+    if (!ContainerIsFullyBlockCompressed(nsp)) {
+        LOG_DEBUG(Service_FS, "Skipping solid-compressed container: {}", file->GetName());
+        return false;
+    }
+
     return ForEachContainerEntry(
         nsp, only_content, base_program_id,
         [this](TitleType title_type, ContentRecordType content_type, u64 title_id,
@@ -1354,8 +1448,9 @@ void ExternalContentProvider::ScanDirectory(const VirtualDir& dir) {
         }
 
         const auto extension = Common::ToLower(filename.substr(dot_pos + 1));
-
-        if (extension == "nsp") {
+        // .xcz is an XCI container, but its updates only work through the NSP/PFS0 path
+        // (DecompressNCZ), not ProcessXCI. So route .xcz here on purpose.
+        if (extension == "nsp" || extension == "nsz" || extension == "xcz") {
             ProcessNSP(file);
         } else if (extension == "xci") {
             ProcessXCI(file);
@@ -1370,6 +1465,12 @@ void ExternalContentProvider::ScanDirectory(const VirtualDir& dir) {
 void ExternalContentProvider::ProcessNSP(const VirtualFile& file) {
     const auto nsp = OpenContainerAsNsp(file, Loader::FileType::NSP);
     if (!nsp) {
+        return;
+    }
+
+    // Reject solid NCZ (.nsz without -B): Eden only supports block-compressed NCZ.
+    if (!ContainerIsFullyBlockCompressed(nsp)) {
+        LOG_DEBUG(Service_FS, "Skipping solid-compressed container: {}", file->GetName());
         return;
     }
 

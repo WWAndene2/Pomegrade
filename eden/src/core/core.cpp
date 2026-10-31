@@ -10,6 +10,7 @@
 #include "audio_core/audio_core.h"
 #include "common/fs/fs.h"
 #include "common/logging.h"
+#include "common/adpf.h"
 #include "common/settings.h"
 #include "common/settings_enums.h"
 #include "common/string_util.h"
@@ -108,7 +109,7 @@ FileSys::VirtualFile GetGameFileFromPath(const FileSys::VirtualFilesystem& vfs,
 
 struct System::Impl {
     explicit Impl(System& system)
-        : kernel{system}, fs_controller{system}, hid_core{}, cpu_manager{system},
+        : kernel{system}, fs_controller{system}, hid_core{kernel}, cpu_manager{system},
           reporter{system}, applet_manager{system}, frontend_applets{system}, profile_manager{} {}
 
     u64 program_id;
@@ -264,14 +265,12 @@ struct System::Impl {
 
         // Setting changes may require a full system reinitialization (e.g., disabling multicore).
         ReinitializeIfNecessary(system);
-
         kernel.Initialize();
-        cpu_manager.Initialize();
     }
 
     SystemResultStatus SetupForApplicationProcess(System& system, Frontend::EmuWindow& emu_window) {
         host1x_core.emplace(system);
-        gpu_core = VideoCore::CreateGPU(emu_window, system);
+        VideoCore::CreateGPU(gpu_core, emu_window, system);
         if (!gpu_core)
             return SystemResultStatus::ErrorVideoCore;
 
@@ -293,10 +292,16 @@ struct System::Impl {
         return SystemResultStatus::Success;
     }
 
-    SystemResultStatus Load(System& system, Frontend::EmuWindow& emu_window,
-                            const std::string& filepath,
-                            Service::AM::FrontendAppletParameters& params) {
+    SystemResultStatus Load(System& system, Frontend::EmuWindow& emu_window, const std::string& filepath, Service::AM::FrontendAppletParameters& params) {
+        if (params.launch_type == Service::AM::LaunchType::FrontendInitiated) {
+            fs_controller.InitTempStorage();
+        }
+
         InitializeKernel(system);
+
+        if (params.applet_type == Service::AM::AppletType::Application) {
+            current_application_filepath = filepath;
+        }
 
         const auto file = GetGameFileFromPath(virtual_filesystem, filepath);
 
@@ -326,11 +331,14 @@ struct System::Impl {
 
         LOG_INFO(Core, "Loading {} ({:016X}) ...", name, params.program_id);
 
+        // Expose program id to dump sites and other global readers.
+        Settings::SetCurrentProgramID(params.program_id);
+
         // Track launch time for frontend launches
         LaunchTimestampCache::SaveLaunchTimestamp(params.program_id);
 
         // Make the process created be the application
-        kernel.MakeApplicationProcess(process->GetHandle());
+        kernel.SetApplicationProcess(process->GetHandle());
 
         // Set up the rest of the system.
         SystemResultStatus init_result{SetupForApplicationProcess(system, emu_window)};
@@ -342,6 +350,8 @@ struct System::Impl {
             ShutdownMainProcess();
             return init_result;
         }
+        // Waiting for GPU before initializing CPU
+        cpu_manager.Initialize();
 
         // Initialize cheat engine
         if (cheat_engine) {
@@ -387,6 +397,7 @@ struct System::Impl {
 
     void ShutdownMainProcess() {
         SetShuttingDown(true);
+        Common::ADPF::Shutdown();
 
         // Reset per-game flags
         Settings::values.use_squashed_iterated_blend = false;
@@ -394,10 +405,8 @@ struct System::Impl {
         is_powered_on = false;
         exit_locked = false;
         exit_requested = false;
-
-        if (gpu_core != nullptr) {
+        if (gpu_core)
             gpu_core->NotifyShutdown();
-        }
 
         stop_event.request_stop();
         core_timing.SyncPause(false);
@@ -469,6 +478,7 @@ struct System::Impl {
     Core::SpeedLimiter speed_limiter;
     ExecuteProgramCallback execute_program_callback;
     ExitCallback exit_callback;
+    ApplicationChangedCallback application_changed_callback;
 
     std::optional<Service::Services> services;
     std::optional<Core::Debugger> debugger;
@@ -481,6 +491,7 @@ struct System::Impl {
     std::optional<Memory::CheatEngine> cheat_engine;
     std::optional<Tools::Freezer> memory_freezer;
     std::optional<Tools::RenderdocAPI> renderdoc_api;
+    std::optional<Tegra::GPU> gpu_core;
 
     std::array<Core::GPUDirtyMemoryManager, Core::Hardware::NUM_CPU_CORES> gpu_dirty_memory_managers;
     std::vector<std::vector<u8>> user_channel;
@@ -489,13 +500,14 @@ struct System::Impl {
     std::array<u64, Core::Hardware::NUM_CPU_CORES> dynarmic_ticks{};
     std::array<u8, 0x20> build_id{};
 
+    std::string current_application_filepath;
+
     /// Service manager
     std::shared_ptr<Service::SM::ServiceManager> service_manager;
     /// ContentProviderUnion instance
     std::unique_ptr<FileSys::ContentProviderUnion> content_provider;
     /// AppLoader used to load the current executing application
     std::unique_ptr<Loader::AppLoader> app_loader;
-    std::unique_ptr<Tegra::GPU> gpu_core;
     std::stop_source stop_event;
 
     mutable std::mutex suspend_guard;
@@ -729,7 +741,25 @@ const Core::SpeedLimiter& System::SpeedLimiter() const {
 }
 
 u64 System::GetApplicationProcessProgramID() const {
-    return impl->kernel.ApplicationProcess()->GetProgramId();
+    const auto* const process = impl->kernel.ApplicationProcess();
+    return process != nullptr ? process->GetProgramId() : 0;
+}
+
+u64 System::GetProgramIdForProcessId(u64 process_id) const {
+    auto process = impl->kernel.GetProcessByProcessId(process_id);
+    return process.IsNull() ? 0 : process->GetProgramId();
+}
+
+u64 System::ResolveCallerProgramId(u64 process_id) const {
+    if (const auto program_id = this->GetProgramIdForProcessId(process_id); program_id != 0) {
+        return program_id;
+    }
+
+    const auto fallback = this->GetApplicationProcessProgramID();
+    LOG_WARNING(Core,
+                "Could not resolve caller process_id={}, falling back to application {:016X}",
+                process_id, fallback);
+    return fallback;
 }
 
 Loader::ResultStatus System::GetGameName(std::string& out) const {
@@ -912,6 +942,10 @@ void System::ExecuteProgram(std::size_t program_index) {
     }
 }
 
+const std::string& System::GetCurrentApplicationFilePath() const {
+    return impl->current_application_filepath;
+}
+
 /// @brief Gets a reference to the user channel stack.
 /// It is used to transfer data between programs.
 std::vector<std::vector<u8>>& System::GetUserChannel() {
@@ -928,7 +962,7 @@ void System::PushGeneralChannelData(std::vector<u8>&& data) {
     const bool was_empty = impl->general_channel.empty();
     impl->general_channel.push_back(std::move(data));
     if (was_empty) {
-        impl->general_channel_event->Signal();
+        impl->general_channel_event->Signal(impl->kernel);
     }
 }
 
@@ -940,7 +974,7 @@ bool System::TryPopGeneralChannel(std::vector<u8>& out_data) {
     out_data = std::move(impl->general_channel.back());
     impl->general_channel.pop_back();
     if (impl->general_channel.empty()) {
-        impl->general_channel_event->Clear();
+        impl->general_channel_event->Clear(impl->kernel);
     }
     return true;
 }
@@ -960,6 +994,18 @@ void System::Exit() {
         impl->exit_callback();
     } else {
         LOG_CRITICAL(Core, "exit_callback must be initialized by the frontend");
+    }
+}
+
+void System::RegisterApplicationChangedCallback(ApplicationChangedCallback&& callback) {
+    impl->application_changed_callback = std::move(callback);
+}
+
+void System::NotifyApplicationChanged(u64 program_id) {
+    //LOG_DEBUG(Core, "Running application changed to {:016X}", program_id);
+
+    if (impl->application_changed_callback) {
+        impl->application_changed_callback(program_id);
     }
 }
 

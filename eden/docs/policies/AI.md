@@ -1,59 +1,159 @@
 # AI Policy
 
-Use at your peril.
+> [!WARNING]
+> We are trialing a slightly relaxed AI policy to allow high-quality contributors to use AI *responsibly*.
+> This policy is subject to change at any point in time, so check back frequently.
+>
+> This banner will be removed once we have finalized our revised policy.
 
-AI is a *tool*, not a replacement or catch-all solution. It is generally okay at a few *very specific* use cases:
+- [AI Policy](#ai-policy)
+  - [TL;DR](#tldr)
+  - [Definitions](#definitions)
+  - [Scope](#scope)
+  - [Introduction](#introduction)
+  - [Requirements](#requirements)
+  - [Sign-off, Authorship, and Copyright](#sign-off-authorship-and-copyright)
+  - [Permitted Usage](#permitted-usage)
+  - [Recommended Prior Discussion](#recommended-prior-discussion)
+  - [Forbidden Usage](#forbidden-usage)
+  - [Human Effort Denial of Service](#human-effort-denial-of-service)
+  - [Disclosure](#disclosure)
+  - [Codebase Ingestion](#codebase-ingestion)
+  - [Enforcement](#enforcement)
+  - [Addendum: AI Commit Messages](#addendum-ai-commit-messages)
+  - [References](#references)
 
-- Automation of tedious changes where you have already made the pattern clear and done the necessary groundwork.
-- Conversion of code from one paradigm to another.
+## TL;DR
 
-For everything else, AI is subpar at best, and actively harmful at worst. In general, you are **heavily** encouraged to not use AI at all.
+AI-assisted contributions are welcome, provided you take responsibility for them.
 
-## Why?
+- You **must** disclose any AI or LLM usage in your pull request description *and* commit message.
+- You **must** be able to explain, defend, and revise every line of code you submit.
+- Commit messages, PR descriptions, issues, and comments **must** be written by you. Verbatim AI output is not acceptable.
+- Undisclosed AI usage will result in your contribution being rejected.
+- Low-quality contributions, disclosed or not, will be reworked or rejected.
+- Spamming automated PRs, comments, or issues is treated as a Denial of Service (DoS) attack on our reviewers; see [Human Effort Denial of Service](#human-effort-denial-of-service).
 
-AI is notorious for hallucinating facts out of thin air and sometimes outright lying to users. Additionally, code written by LLMs is often needlessly verbose and horrifically inefficient (not to mention the rather ridiculous level of over-commenting). The end result is often one of three things:
+## Definitions
 
-- Completely nonfunctional code
-- Code that works, but is extraordinarily verbose or not nearly as efficient as it can be
-- Code that works well and is written well, but solves a different problem than was intended, or solves the same problem but in a completely incorrect way that will break other things horribly.
+An *AI or LLM-based tool* is any piece of software that generates code, text, or other content through machine learning models. This includes, but is not limited to: chat assistants, agentic coding tools/harnesses, inline code completion suggestions you have accepted into the code, and AI-driven explanation/refactoring features.
 
-Human-written code will, without exception, always be of infinitely higher quality when properly researched and implemented by someone familiar with *both* the surrounding code and the programming language in use. LLMs may produce a "good enough" result, but this result is often subpar.
+For the purposes of this policy, basic deterministic/static development tools (such as clang-tidy, git, compilers, etc.) are not considered AI tools.
 
-**All code is held under a STRICT STANDARD OF EXCELLENCE**. AI code is no different, and since it often produces subpar or outright terrible code, it will often fail to meet this excellence standard.
+Terms such as "substantially", "large-scale", "majority", and "low-quality" are intentionally left vague, and will be interpreted at the maintainers' discretion. When in doubt, ask first.
 
-On a lesser-known note, LLM outputs often contain unicode symbols such as emojis or the arrow symbol. Please don't put Unicode symbols in your code. It messes with many an IDE, and the three people viewing your code on Lynx will be very unhappy.
+## Scope
 
-**Learn to code**. It's worth it, we promise!
-
-## Acceptable Use
-
-As stated previously, AI is good in a few *very specific* cases. In these cases, it's usually fine to use AI, as long as you **explicitly provide notice that it was used**.
-
-- Anything directly outside of the realm of the code written in your PR or patch is none of our business.
-  - This primarily covers research.
-  - However, we *still* strongly discourage this for the reasons mentioned above.
-- Assistance with cleanups, and minor nitpicks/optimizations.
-  - This is still discouraged, but it's okay to occasionally use LLMs to catch any minor mistakes you made in your code.
-- Debugging
-  - In general, LLMs are not good at debugging, but if you solve a bug you're facing with help from an AI, and said fix **works properly**, then that's fine.
-
-## Unacceptable Use
-
-Well, everything else. But here are a few examples:
+This policy applies to all code contributions, alongside issues and pull requests surrounding this codebase. This includes:
 
 - Commit messages
-  - LLMs are absolutely horrible at this. They are needlessly verbose, almost never catch the actual intent of the commit, and will almost always hallucinate false information about said changes.
-  - See the addendum for an example
-- Solving problems
-  - Slapping a few files and a "please fix bug XYZ" into an LLM is a recipe for disaster that will pretty much never work.
-- Fully AI-generated code
-  - This shouldn't need explaining. Do not do this under any circumstance, especially if you don't actually understand what's going on.
-- Writing code based on pseudo-instructions
-  - If you don't know how to write code, don't. If you've figured out the root cause (preferably without feeding random files into an LLM) and actively know what's going on, provide information to other developers or friends of yours who have knowledge of the language and/or the codebase.
+- PR descriptions
+- Code review comments
+- Issue/PR comments
+- Patches submitted via e-mail
 
-## Addendum: Commit Messages
+Areas that are not directly related to code--such as our surrounding communities--are not covered by the terms of this policy. Additionally, spelling/grammar checking via AI or LLM-based tools is not covered under this document.
 
-The patchset for pull request [#3422](https://git.eden-emu.dev/eden-emu/eden/pulls/3422) was fed into several LLMs to generate a commit message. All of them sucked, and not a single one caught on to what the commit actually did. For example:
+## Introduction
+
+In the right hands, AI and LLM-based tools are incredibly useful for getting features and bugfixes out the door as fast as possible. At the same time, reviewer bandwidth is a scarce resource. We are therefore open to AI-assisted contributions, provided they are produced and disclosed properly.
+
+The goal of this document is *not* to set arbitrary restrictions, but rather to keep our development healthy and stable, while still allowing contributors to use the tools they find helpful. A contribution must be worth more to the project than the time it takes to review it.
+
+Throughout this document, **must** and **must not** are inflexible, binding requirements. Refusal to follow these is treated as a violation of the terms outlined in this document.
+
+## Requirements
+
+These apply to all contributions, whether AI-assisted or not. AI-assisted contributions also carry additional disclosure requirements as outlined in [Disclosure](#disclosure).
+
+1. *Disclosure*. Any and all usage of AI or LLM-based tools within any contribution **must** be explicitly marked and disclosed as appropriate.
+2. *Responsibility*. The human submitter of any contribution is held wholly responsible for the accuracy, completeness, and intent of what is submitted. You **must** be able to explain, defend, and revise your code during review.
+3. *Review*. All code **must** be thoroughly reviewed by the author before opening a PR or marking it ready for review.
+4. *Testing*. All code changes **must** be tested directly by the human author.
+5. *Quality*. All submitted code is held to a strict standard of excellence. Low-quality AI-generated content does not uphold this standard.
+6. *Licensing*. All code **must** be compatible with the GPLv3 or later. You **must** warrant that you have the right to submit it under those terms, and that it was not copied from work published under an incompatible license.
+
+## Sign-off, Authorship, and Copyright
+
+AI agents **must not** add `Signed-off-by:` tags. The human submitter **must** sign off on all changes.
+
+Similarly, AI agents cannot hold authorship or copyright over code, and **must not** add `Co-authored-by:` or `Co-developed-by:` tags. The human submitter **must** author all changes.
+
+## Permitted Usage
+
+This is a non-exhaustive list of permitted uses of AI and LLM-based tools, provided they are disclosed properly.
+
+- Drafting issues and pull requests, provided the final text and submitted code are substantially your own.
+- Debugging issues, bugs, glitches, and crashes, whether pre-existing or introduced by your own changes.
+- Reviewing your own changes before submitting a PR.
+- Research, brainstorming, and codebase searching/understanding.
+- Applying tedious but not particularly large changes, such as mass-migrating specific classes to polyfills or abstractions.
+
+## Recommended Prior Discussion
+
+Some usage cases are not necessarily forbidden nor permitted. These should be discussed with maintainers in an issue or e-mail *before* submission. Maintainers and reviewers may also comment on this during the review/submission phase.
+
+- Generating boilerplate/scaffolding for new code.
+- Writing unit tests.
+- Large-scale refactors primarily driven by an AI agent.
+- Any contribution where an AI agent or model was responsible for the majority of the implementation.
+
+## Forbidden Usage
+
+This is a non-exhaustive list of strictly forbidden uses of AI and LLM-based tools.
+
+- Vibecoding, or changes entirely authored by AI agents without human intervention or understanding.
+  - If you don't choose to put in the necessary effort to understand every line of code you submitted, neither will we.
+- Fully AI-generated commit messages, PR descriptions, issues, or comments. See [Addendum: AI Commit Messages](#addendum-ai-commit-messages).
+- Submission of AI-assisted work that is not disclosed per the [Disclosure](#disclosure) requirements.
+- Low-quality submissions that fail to satisfy our standard of code excellence.
+- Submitting secrets, credentials, private user data, or unpublished security reports to third-party AI services.
+  - This includes console keys, encryption material, and private vulnerability disclosures.
+- Verbatim AI code reviews (e.g. Codex/Copilot reviews).
+
+## Human Effort Denial of Service
+
+Using automated tools and AI to submit PRs, issues, and comments that we have to carefully review and handle is considered a [Denial-of-service attack](https://en.wikipedia.org/wiki/Denial-of-service_attack) on our human effort.
+
+It takes very little effort on your side (an LLM prompt) to generate a large amount of effort on ours (careful and thorough code review). Please respect our time and don't do that.
+
+## Disclosure
+
+How you disclose AI usage is up to you. However, it **must** be explicit, easy to identify, and placed both within the commit message *and* the surrounding PR description. For patches submitted by e-mail, the cover letter counts as the PR description. We recommend an `Assisted-by:` footer:
+
+```txt
+Assisted-by: <model> (<what it was used for>)
+```
+
+For instance:
+
+```txt
+Assisted-by: Claude Opus 5.5 (initial draft and code review)
+```
+
+Contributions without a commit message (e.g. issues/comments) should instead use a plain sentence in the text body such as `I used <model> to help with <X>`. PRs and commit messages may opt to use this format as well.
+
+Multi-commit series/squashes **must** maintain the trailer. Maintainers will handle this for merges to master, but you are responsible for ensuring the disclosure survives into the final commit/PR body of squashes within your branches.
+
+Regardless, what matters is that reviewers can tell *at a glance* where and how AI was involved in your contribution.
+
+## Codebase Ingestion
+
+Ingestion of this codebase by LLMs for any purpose--such as training or prompt context--is permitted *for now*. This may change at any point as litigation and court rulings around AI and code copyright proceed.
+
+AI models may have ingested AGPLv3 or otherwise copyleft-incompatible code and may regurgitate it. You remain responsible for ensuring that all code you submit is compatible with the GPLv3 or later.
+
+## Enforcement
+
+- If we suspect undisclosed AI usage in a contribution, we will ask for disclosure.
+- Refusal to provide disclosure will result in rejection of the contribution, and your PR or issue will be closed. Maintainers may choose to rework it themselves if the change is worth having.
+- Accounts that spam us with repeated automated PRs or comments will be blocked or permanently suspended from our Git instance.
+- Maintainers reserve the right to close your issues and pull requests if you don't follow the guidelines and procedures outlined in this document, and refuse or fail to make changes as necessary to comply.
+- Repeated failures to comply may result in loss of contribution privileges.
+
+## Addendum: AI Commit Messages
+
+The patchset for pull request [#3422](https://git.eden-emu.dev/eden-emu/eden/pulls/3422) was fed into a dedicated code AI model, and it produced the following:
 
 ```txt
 profile_manager: Refactor user deletion to use index instead of UUID
@@ -83,30 +183,21 @@ These changes eliminate redundant code, reduce the risk of UUID → index mismat
 Fixes: potential inconsistency when user order changes between UI and backend
 ```
 
-This is:
+This:
 
-- Needlessly verbose (nobody cares about most of these details)
+- Is needlessly verbose (nobody cares about most of these details)
 - Doesn't address the actual purpose of the PR (fixing a double-deletion bug in the profile manager)
-- Has unicode arrows
-- Uses overly corporate and, well, robotic language
+- Has unicode arrows (this is bad for command-line editors)
+- Uses corporate and word-salad language that pads out the message to make it look like a lot changed
 
-As another example:
+A good commit message should be concise, descriptive, and convey the *intent* behind the change, such as the bug being fixed or the feature being added. It should *not* be a detailed changelog of every individual byte that's changed.
 
-```txt
-profile(manager/ui): switch to index-based deletion and unify removal logic
+## References
 
-- Make ConfigureProfileManagerDeleteDialog emit a deleteUser(int) signal instead of taking a callback. Store the target index in the dialog (m_index) and emit it on acceptance.
-- Change ConfigureProfileManager to pass an index to SetInfo and to accept an index in DeleteUser. Wire the dialog signal to the new DeleteUser slot.
-- Update headers: add the signal and m_index, add TODO to move dialog to a .ui file, and update slot/signature declarations.
-- Add ProfileManager::RemoveProfileAtIndex(std::size_t) and refactor RemoveUser(UUID) to call RemoveProfileAtIndex to avoid duplicated removal logic. Ensure the removal path marks saves as needed and writes the user save file.
-- Ensure the profile list updates immediately after deletes by calling profile_manager.ResetUserSaveFile() when populating the user list (qlaunch fix).
-- Misc: update SPDX copyright year and fix build breakages caused by the API changes.
+This policy document has been adapted from the AI policies of numerous other free and open-source projects, whether restrictive or permissive.
 
-This consolidates profile removal behavior, fixes potential race conditions in the profile dialog, and removes duplicated removal code.
-```
-
-This has all of the same problems as the other one. Needlessly verbose, doesn't address *what* it actually fixes ("consolidates profile removal behavior"... okay, why? What does it fix?), etc. It even has the bonus of totally hallucinating the addition of a method!
-
-On a more "philosophical" note, LLMs tend to be geared towards *corporate language*, as that's what they're trained on. This is why AI-generated commit messages feel like "word salad", and typically pad out the commit message to make it *look* like a lot of things were changed (trust me, it's like that in the corporate world). They typically also drift towards unneeded buzzwords and useless implementation details.
-
-**Don't use AI for commit messages**.
+- [Gitea](https://github.com/go-gitea/gitea/blob/main/CONTRIBUTING.md#ai-contribution-policy)
+- The [Linux kernel](https://kernel.org/doc/html/next/process/coding-assistants.html)
+- [Gentoo Linux](https://wiki.gentoo.org/wiki/Project:Council/AI_policy)
+- [cURL](https://curl.se/dev/contribute.html#on-ai-use-in-curl)
+- [FastAPI](https://tiangolo.com/open-source/contributing/#automated-code-and-ai)

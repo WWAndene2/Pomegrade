@@ -6,7 +6,7 @@ When reporting issues or finding bugs, we often need backtraces, debug logs, or 
 
 ### Graphics Debugging
 
-If your bug is related to a graphical issue--e.g. mismatched colors, vertex explosions, flickering, etc.--then you are required to include graphical debugging logs in your issue reports.
+If your bug is related to a graphical issue -- e.g. mismatched colors, vertex explosions, flickering, etc. -- then you are required to include graphical debugging logs in your issue reports.
 
 Graphics Debugging is found in General -> Debug on desktop, and Advanced Settings -> Debug on Android. Android users are all set; however, desktop users may need to install the Vulkan Validation Layers:
 
@@ -17,7 +17,7 @@ Once Graphics Debugging is enabled, run the problematic game again and continue.
 
 ### Debug Logs
 
-Debug logs can be found in General -> Debug -> Open Log Location on desktop, and Share Debug Logs on Android. This MUST be included in all bug reports, except for certain UI bugs--but we still highly recommend them even for UI bugs.
+Debug logs can be found in `General -> Debug -> Open Log Location` on desktop, and `Share Debug Logs` on Android. This MUST be included in all bug reports, except for certain UI bugs -- but we still highly recommend them even for UI bugs.
 
 ## Debugging (host code)
 
@@ -38,7 +38,7 @@ You must have GDB installed for aarch64 to debug the target. Install it through 
   - `sudo emerge --ask crossdev`
   - `sudo crossdev -t aarch64-unknown-linux-gnu --ex-gdb`
 
-Run `./build/bin/eden-cli -c <path to your config file (see logs where you run eden normally to see where it is)> -d -g <path to game>`, or `Enable GDB Stub` at General > Debug, then hook up an aarch64-gdb:
+Run `./build/bin/eden-cli -c <path to your config file (see logs where you run Eden normally to see where it is)> -d -g <path to game>`, or `Enable GDB Stub` at General > Debug, then hook up an aarch64-gdb:
 
 - `target remote localhost:6543`
 
@@ -69,11 +69,37 @@ Expressions can be `variable_names` or `1234` (numbers) or `*var` (dereference o
 
 For more information type `info gdb` and read [the man page](https://man7.org/linux/man-pages/man1/gdb.1.html).
 
+# RenderDoc
+
+RenderDoc is a free, cross platform, multi-graphics API debugger. It is an invaluable tool for diagnosing issues with graphics applications, and includes support for Vulkan. Get it from [renderdoc.org](https://renderdoc.org).
+
+RenderDoc can capture Eden's Vulkan output when its Vulkan layer is loaded before Eden creates the Vulkan device. Before using RenderDoc to diagnose issues, it's always good to make sure there are no validation errors. Any errors means the behavior of the application is undefined. That said, RenderDoc can help debug validation errors if you do have them.
+
+## Usage on Windows 
+
+You can either use RenderDoc UI to launch Eden, or you can make Eden attach it internally:
+
+On Windows PowerShell:
+```powershell
+$env:ENABLE_VULKAN_RENDERDOC_CAPTURE='1'
+.\eden.exe
+```
+When RenderDoc is attached, Eden logs the default Windows capture folder:
+```text
+%LOCALAPPDATA%\Temp\RenderDoc
+```
+
+Press RenderDoc's capture hotkey, usually `F12`, to capture a frame. To stop using RenderDoc, close Eden and launch it again without `ENABLE_VULKAN_RENDERDOC_CAPTURE`.
+
+## Eden Hotkey
+
+Eden also has a separate `Toggle Renderdoc Capture` hotkey behind the debug setting `renderdoc_hotkey`.
+That hotkey does not load or unload RenderDoc. It only toggles Eden's own manual capture through RenderDoc's API:
+
+- First press: Starts a capture
+- Second press: Ends that capture
+
 ## Simple checklist for debugging black screens using Renderdoc
-
-Renderdoc is a free, cross platform, multi-graphics API debugger. It is an invaluable tool for diagnosing issues with graphics applications, and includes support for Vulkan. Get it at [renderdoc.org](https://renderdoc.org).
-
-Before using renderdoc to diagnose issues, it is always good to make sure there are no validation errors. Any errors means the behavior of the application is undefined. That said, renderdoc can help debug validation errors if you do have them.
 
 When debugging a black screen, there are many ways the application could have setup Vulkan wrong.
 Here is a short checklist of items to look at to make sure are appropriate:

@@ -113,7 +113,7 @@ Result SessionRequestManager::HandleDomainSyncRequest(Kernel::KServerSession* se
         }
 
     case IPC::DomainMessageHeader::CommandType::CloseVirtualHandle: {
-        LOG_DEBUG(IPC, "CloseVirtualHandle, object_id=0x{:08X}", object_id);
+        LOG_DEBUG(IPC, "CloseVirtualHandle, object_id={:#08x}", object_id);
 
         this->CloseDomainHandler(object_id - 1);
 
@@ -128,10 +128,12 @@ Result SessionRequestManager::HandleDomainSyncRequest(Kernel::KServerSession* se
     return ResultSuccess;
 }
 
-HLERequestContext::HLERequestContext(Kernel::KernelCore& kernel_, Core::Memory::Memory& memory_,
-                                     Kernel::KServerSession* server_session_,
-                                     Kernel::KThread* thread_)
-    : server_session(server_session_), thread(thread_), kernel{kernel_}, memory{memory_} {
+HLERequestContext::HLERequestContext(Kernel::KernelCore& kernel_, Core::Memory::Memory& memory_, Kernel::KServerSession* server_session_, Kernel::KThread* thread_)
+    : server_session(server_session_)
+    , thread(thread_)
+    , kernel{kernel_}
+    , memory{memory_}
+{
     cmd_buf[0] = 0;
 }
 
@@ -155,9 +157,6 @@ void HLERequestContext::ParseCommandBuffer(u32_le* src_cmdbuf, bool incoming) {
         }
         if (incoming) {
             // Populate the object lists with the data in the IPC request.
-            incoming_copy_handles.reserve(handle_descriptor_header->num_handles_to_copy);
-            incoming_move_handles.reserve(handle_descriptor_header->num_handles_to_move);
-
             for (u32 handle = 0; handle < handle_descriptor_header->num_handles_to_copy; ++handle) {
                 incoming_copy_handles.push_back(rp.Pop<Handle>());
             }
@@ -171,11 +170,6 @@ void HLERequestContext::ParseCommandBuffer(u32_le* src_cmdbuf, bool incoming) {
             rp.Skip(handle_descriptor_header->num_handles_to_move, false);
         }
     }
-
-    buffer_x_descriptors.reserve(command_header->num_buf_x_descriptors);
-    buffer_a_descriptors.reserve(command_header->num_buf_a_descriptors);
-    buffer_b_descriptors.reserve(command_header->num_buf_b_descriptors);
-    buffer_w_descriptors.reserve(command_header->num_buf_w_descriptors);
 
     for (u32 i = 0; i < command_header->num_buf_x_descriptors; ++i) {
         buffer_x_descriptors.push_back(rp.PopRaw<IPC::BufferDescriptorX>());
@@ -281,17 +275,17 @@ Result HLERequestContext::WriteToOutgoingCommandBuffer() {
     for (auto& object : outgoing_copy_objects) {
         Handle handle{};
         if (object) {
-            R_TRY(handle_table.Add(&handle, object));
+            R_TRY(handle_table.Add(kernel, &handle, object));
         }
         cmd_buf[current_offset++] = handle;
     }
     for (auto& object : outgoing_move_objects) {
         Handle handle{};
         if (object) {
-            R_TRY(handle_table.Add(&handle, object));
+            R_TRY(handle_table.Add(kernel, &handle, object));
 
             // Close our reference to the object, as it is being moved to the caller.
-            object->Close();
+            object->Close(kernel);
         }
         cmd_buf[current_offset++] = handle;
     }
@@ -509,11 +503,10 @@ bool HLERequestContext::CanWriteBuffer(std::size_t buffer_index) const {
 }
 
 void HLERequestContext::AddMoveInterface(SessionRequestHandlerPtr s) {
-    ASSERT(Kernel::GetCurrentProcess(kernel).GetResourceLimit()->Reserve(
-        Kernel::LimitableResource::SessionCountMax, 1));
+    ASSERT(Kernel::GetCurrentProcess(kernel).GetResourceLimit()->Reserve(kernel, Kernel::LimitableResource::SessionCountMax, 1));
 
     auto* session = Kernel::KSession::Create(kernel);
-    session->Initialize(nullptr, 0);
+    session->Initialize(kernel, nullptr, 0);
     Kernel::KSession::Register(kernel, session);
 
     auto& server = manager.lock()->GetServerManager();

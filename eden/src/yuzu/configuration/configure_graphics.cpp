@@ -4,14 +4,7 @@
 // SPDX-FileCopyrightText: 2016 Citra Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include <algorithm>
 #include <functional>
-#include <iosfwd>
-#include <iterator>
-#include <string>
-#include <tuple>
-#include <typeinfo>
-#include <utility>
 #include <vector>
 #include <QBoxLayout>
 #include <QCheckBox>
@@ -34,52 +27,19 @@
 #include <vulkan/vulkan_core.h>
 
 #include "common/common_types.h"
-#include "common/dynamic_library.h"
-#include "common/logging.h"
 #include "common/settings.h"
 #include "common/settings_enums.h"
 #include "core/core.h"
 #include "qt_common/config/uisettings.h"
-#include "qt_common/qt_common.h"
+#include "qt_common/util/vk.h"
 #include "ui_configure_graphics.h"
 #include "yuzu/configuration/configuration_shared.h"
 #include "yuzu/configuration/configure_graphics.h"
 #include "yuzu/configuration/shared_widget.h"
-#include "yuzu/vk_device_info.h"
 
-static const std::vector<VkPresentModeKHR> default_present_modes{VK_PRESENT_MODE_IMMEDIATE_KHR,
-                                                                 VK_PRESENT_MODE_FIFO_KHR};
-
-// Converts a setting to a present mode (or vice versa)
-static constexpr VkPresentModeKHR VSyncSettingToMode(Settings::VSyncMode mode) {
-    switch (mode) {
-    case Settings::VSyncMode::Immediate:
-        return VK_PRESENT_MODE_IMMEDIATE_KHR;
-    case Settings::VSyncMode::Mailbox:
-        return VK_PRESENT_MODE_MAILBOX_KHR;
-    case Settings::VSyncMode::Fifo:
-        return VK_PRESENT_MODE_FIFO_KHR;
-    case Settings::VSyncMode::FifoRelaxed:
-        return VK_PRESENT_MODE_FIFO_RELAXED_KHR;
-    default:
-        return VK_PRESENT_MODE_FIFO_KHR;
-    }
-}
-
-static constexpr Settings::VSyncMode PresentModeToSetting(VkPresentModeKHR mode) {
-    switch (mode) {
-    case VK_PRESENT_MODE_IMMEDIATE_KHR:
-        return Settings::VSyncMode::Immediate;
-    case VK_PRESENT_MODE_MAILBOX_KHR:
-        return Settings::VSyncMode::Mailbox;
-    case VK_PRESENT_MODE_FIFO_KHR:
-        return Settings::VSyncMode::Fifo;
-    case VK_PRESENT_MODE_FIFO_RELAXED_KHR:
-        return Settings::VSyncMode::FifoRelaxed;
-    default:
-        return Settings::VSyncMode::Fifo;
-    }
-}
+#ifdef HAS_RESHADE
+#include "yuzu/configuration/configure_post_processing.h"
+#endif
 
 ConfigureGraphics::ConfigureGraphics(
     const Core::System& system_, std::vector<VkDeviceInfo::Record>& records_,
@@ -260,12 +220,18 @@ void ConfigureGraphics::Setup(const ConfigurationShared::Builder& builder) {
     std::vector<QWidget*> hold_api;
 
     for (const auto setting : Settings::values.linkage.by_category[Settings::Category::Renderer]) {
+#ifndef HAS_RESHADE
+        if (setting->Id() == Settings::values.post_shader_enabled.Id()) {
+            continue;
+        }
+#endif
+
         ConfigurationShared::Widget* widget = [&]() {
             if (setting->Id() == Settings::values.fsr_sharpening_slider.Id()) {
                 // FSR needs a reversed slider and a 0.5 multiplier
                 return builder.BuildWidget(
                     setting, apply_funcs, ConfigurationShared::RequestType::ReverseSlider, true,
-                    0.5f, nullptr, tr("%", "FSR sharpening percentage (e.g. 50%)"));
+                    0.5f, nullptr, tr("%", "FSR/SGSR sharpening percentage (e.g. 50%)"));
             } else {
                 return builder.BuildWidget(setting, apply_funcs);
             }
@@ -339,6 +305,23 @@ void ConfigureGraphics::Setup(const ConfigurationShared::Builder& builder) {
             // Keep track of the resolution combobox to update other UI tabs that need it
             resolution_combobox = widget->combobox;
             hold_graphics.emplace(setting->Id(), widget);
+#ifdef HAS_RESHADE
+        } else if (setting->Id() == Settings::values.post_shader_enabled.Id()) {
+            QPushButton* post_shader_button = new QPushButton(tr("Configure Effects..."), widget);
+            post_shader_button->setVisible(widget->checkbox->isChecked());
+
+            connect(post_shader_button, &QAbstractButton::clicked, this, [this]() {
+                ConfigurePostProcessing dialog(this);
+                dialog.exec();
+            });
+            connect(widget->checkbox, &QCheckBox::toggled, post_shader_button,
+                    &QWidget::setVisible);
+
+            QBoxLayout* row = qobject_cast<QBoxLayout*>(widget->layout());
+            row->insertWidget(1, post_shader_button);
+
+            hold_graphics.emplace(setting->Id(), widget);
+#endif
         } else {
             hold_graphics.emplace(setting->Id(), widget);
         }

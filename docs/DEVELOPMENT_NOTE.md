@@ -4,7 +4,7 @@ Roadmap of Pomegrade: what is left before a first usable version, what can be im
 
 ## Where things stand
 
-Pomegrade (shown as Punica) is currently **five emulators side by side in one APK**, joined by a single game list: melonDS-android (DS/DSi, with Pomegrade's HD texture replacement), Azahar (3DS), mGBA 0.10.5 (GBA, with Pomegrade's own emulation screen), Eden v0.2.1 (Switch) and Dolphin 2606a (GameCube and Wii). Each core keeps its own emulation screen, but every console now opens the shared in-game menu and shortcut pill (`:emulator-ui`).
+Pomegrade (shown as Punica) is currently **five emulators side by side in one APK**, joined by a single game list: melonDS-android (DS/DSi, with Pomegrade's HD texture replacement), Azahar (3DS), mGBA 0.10.5 (GBA, with Pomegrade's own emulation screen), Eden (Switch; master of 26 October, updated from v0.2.1 on 31 October) and Dolphin 2606a (GameCube and Wii). Each core keeps its own emulation screen, but every console now opens the shared in-game menu and shortcut pill (`:emulator-ui`).
 
 | Done | Verified by |
 |---|---|

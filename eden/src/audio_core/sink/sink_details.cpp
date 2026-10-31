@@ -10,14 +10,11 @@
 #include <vector>
 
 #include "audio_core/sink/sink_details.h"
-#ifdef HAVE_OBOE
-#include "audio_core/sink/oboe_sink.h"
-#endif
 #ifdef HAVE_CUBEB
 #include "audio_core/sink/cubeb_sink.h"
 #endif
-#ifdef HAVE_SDL2
-#include "audio_core/sink/sdl2_sink.h"
+#ifdef HAVE_SDL3
+#include "audio_core/sink/sdl3_sink.h"
 #endif
 #include "audio_core/sink/null_sink.h"
 #include "common/logging.h"
@@ -43,24 +40,8 @@ struct SinkDetails {
     /// SuitableFn is_suitable; // REVERTED FOR LatencyFn latency ABOVE - DIABLO 3 FIX
 };
 
-// NOTE TO PROBABLY FIX LATER FOR ANDROID - the return value "0u" for the first HAVE_OBOE
-// section below was just copied from the null section so there's a somewhat valid value
-// being returned, since the previous "true" value probably isn't compatible with the
-// previous EA-3833 code. (HAVE_OBOE was introduced in a later release.) Eventually need
-// to change "0u" for something else directly from the oboe_sink.cpp functions.
-
 // sink_details is ordered in terms of desirability, with the best choice at the top.
 constexpr SinkDetails sink_details[] = {
-#ifdef HAVE_OBOE
-    SinkDetails{
-        Settings::AudioEngine::Oboe,
-        [](std::string_view device_id) -> std::unique_ptr<Sink> {
-            return std::make_unique<OboeSink>();
-        },
-        [](bool capture) { return std::vector<std::string>{"Default"}; },
-        []() { return 0u; },
-    },
-#endif
 #ifdef HAVE_CUBEB
     SinkDetails{
         Settings::AudioEngine::Cubeb,
@@ -71,9 +52,9 @@ constexpr SinkDetails sink_details[] = {
         &GetCubebLatency,
     },
 #endif
-#ifdef HAVE_SDL2
+#ifdef HAVE_SDL3
     SinkDetails{
-        Settings::AudioEngine::Sdl2,
+        Settings::AudioEngine::Sdl3,
         [](std::string_view device_id) -> std::unique_ptr<Sink> {
             return std::make_unique<SDLSink>(device_id);
         },
@@ -115,10 +96,10 @@ const SinkDetails& GetOutputSinkDetails(Settings::AudioEngine sink_id) {
         // BEGIN REINTRODUCED FROM 3833 - REPLACED CODE BLOCK ABOVE - DIABLO 3 FIX
         // Auto-select a backend. Prefer CubeB, but it may report a large minimum latency which
         // causes audio issues, in that case go with SDL.
-#if defined(HAVE_CUBEB) && defined(HAVE_SDL2)
+#if defined(HAVE_CUBEB) && defined(HAVE_SDL3)
         iter = find_backend(Settings::AudioEngine::Cubeb);
         if (iter->latency() > TargetSampleCount * 3) {
-            iter = find_backend(Settings::AudioEngine::Sdl2);
+        iter = find_backend(Settings::AudioEngine::Sdl3);
         }
 #else
         iter = std::begin(sink_details);

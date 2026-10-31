@@ -25,13 +25,11 @@ enum class BooleanSetting(override val key: String) : AbstractBooleanSetting {
     RENDERER_USE_DISK_SHADER_CACHE("use_disk_shader_cache"),
     RENDERER_FORCE_MAX_CLOCK("force_max_clock"),
     RENDERER_ASYNCHRONOUS_GPU_EMULATION("use_asynchronous_gpu_emulation"),
-    RENDERER_ASYNC_PRESENTATION("async_presentation"),
     RENDERER_ASYNCHRONOUS_SHADERS("use_asynchronous_shaders"),
     RENDERER_REACTIVE_FLUSHING("use_reactive_flushing"),
     POMEGRADE_RICH_COLOURS("pomegrade_rich_colours"),
     POMEGRADE_DEEP_BLACK("pomegrade_deep_black"),
     POMEGRADE_COMPRESSED_RENDER_TARGETS("pomegrade_compressed_render_targets"),
-    POMEGRADE_CLEAR_ON_LOAD("pomegrade_clear_on_load"),
     POMEGRADE_DEFER_WAIT_FOR_IDLE("pomegrade_defer_wait_for_idle"),
     POMEGRADE_TEST_CYCLE("pomegrade_test_cycle"),
     POMEGRADE_TEST_REORDER_ALL_UPLOADS("pomegrade_test_reorder_all_uploads"),
@@ -44,6 +42,8 @@ enum class BooleanSetting(override val key: String) : AbstractBooleanSetting {
     RENDERER_PATCH_OLD_QCOM_DRIVERS("patch_old_qcom_drivers"),
     RENDERER_VERTEX_INPUT_DYNAMIC_STATE("vertex_input_dynamic_state"),
     RENDERER_SAMPLE_SHADING("sample_shading"),
+    RENDERER_FRAME_GEN("frame_gen"),
+    RENDERER_FRAME_GEN_FLOW_SCALE_AUTO("frame_gen_flow_scale_auto"),
     GPU_UNSWIZZLE_ENABLED("gpu_unswizzle_enabled"),
     PICTURE_IN_PICTURE("picture_in_picture"),
     USE_CUSTOM_RTC("custom_rtc_enabled"),
@@ -86,19 +86,21 @@ enum class BooleanSetting(override val key: String) : AbstractBooleanSetting {
     SHOW_SHADERS_BUILDING("show_shaders_building"),
 
     DEBUG_FLUSH_BY_LINE("flush_line"),
+    EXTENDED_LOGGING("extended_logging"),
     DONT_SHOW_DRIVER_SHADER_WARNING("dont_show_driver_shader_warning"),
     ENABLE_OVERLAY("enable_overlay"),
 
     // GPU Logging
-    GPU_LOGGING_ENABLED("gpu_logging_enabled"),
     GPU_LOG_VULKAN_CALLS("gpu_log_vulkan_calls"),
     GPU_LOG_SHADER_DUMPS("gpu_log_shader_dumps"),
+    DUMP_GUEST_SHADERS("dump_guest_shaders"),
+    DUMP_MACROS("dump_macros"),
     GPU_LOG_MEMORY_TRACKING("gpu_log_memory_tracking"),
     GPU_LOG_DRIVER_DEBUG("gpu_log_driver_debug"),
 
     ENABLE_QUICK_SETTINGS("enable_quick_settings");
 
-//  external fun isFrameSkippingEnabled(): Boolean
+    //external fun isFrameSkippingEnabled(): Boolean
     external fun isFrameInterpolationEnabled(): Boolean
 
     override fun getBoolean(needsGlobal: Boolean): Boolean =

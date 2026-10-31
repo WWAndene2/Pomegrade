@@ -19,9 +19,6 @@
 #include "common/pomegrade_diagnostics.h" // Pomegrade: TEMPORARY
 #include "common/settings.h"
 #include "core/perf_stats.h"
-#ifdef __ANDROID__
-#include "common/android/performance_hint.h"
-#endif
 
 using namespace std::chrono_literals;
 using DoubleSecs = std::chrono::duration<double, std::chrono::seconds::period>;
@@ -92,19 +89,6 @@ void PerfStats::EndGameFrame() {
     // Pomegrade: TEMPORARY, each guest frame's end marked in a system trace
     PomegradeDiagnostics::TraceBegin("guest frame end");
     PomegradeDiagnostics::TraceEnd();
-#ifdef __ANDROID__
-    // Pomegrade: each guest frame's duration to Android's performance hints; a gap of a second or more is a pause,
-    // not a slow frame
-    {
-        static std::atomic<std::int64_t> previous_frame_ns{0};
-        const std::int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                        Clock::now().time_since_epoch()).count();
-        const std::int64_t previous_ns = previous_frame_ns.exchange(now_ns, std::memory_order_relaxed);
-        if (previous_ns != 0 && now_ns - previous_ns < 1'000'000'000) {
-            Common::Android::PerformanceHint::ReportFrame(now_ns - previous_ns);
-        }
-    }
-#endif
     // Pomegrade: TEMPORARY, frame rate and the slowest frame for the study's sampler
     const std::int64_t now = std::chrono::duration_cast<std::chrono::nanoseconds>(
                                  Clock::now().time_since_epoch()).count();

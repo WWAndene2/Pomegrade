@@ -370,6 +370,35 @@ class GamePropertiesFragment : Fragment() {
                     )
                 )
             }
+            add(
+                SubmenuProperty(
+                    R.string.frame_gen,
+                    R.string.frame_gen_per_game_description,
+                    R.drawable.ic_duck,
+                    action = {
+                        val action = HomeNavigationDirections.actionGlobalSettingsActivity(
+                            args.game,
+                            Settings.MenuTag.SECTION_FRAME_GEN
+                        )
+                        binding.root.findNavController().navigate(action)
+                    }
+                )
+            )
+            add(
+                SubmenuProperty(
+                    R.string.post_processing,
+                    R.string.post_processing_per_game_description,
+                    R.drawable.ic_post_processing,
+                    action = {
+                        val action = HomeNavigationDirections.actionGlobalSettingsActivity(
+                            args.game,
+                            Settings.MenuTag.SECTION_POST_PROCESSING
+                        )
+                        binding.root.findNavController().navigate(action)
+                    }
+                )
+            )
+
             if (GpuDriverHelper.isAdrenoGpu()) {
                 add(
                     SubmenuProperty(
@@ -441,6 +470,7 @@ class GamePropertiesFragment : Fragment() {
 
                 val shaderCacheDir = File(
                     DirectoryInitialization.userDirectory +
+                        // Pomegrade: Eden v0.2.1's place, kept (path_util.cpp)
                         "/shader/" + args.game.settingsName.lowercase()
                 )
                 if (shaderCacheDir.exists()) {

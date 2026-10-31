@@ -217,6 +217,16 @@ FormatInfo SurfaceFormat(const Device& device, FormatType format_type, bool with
     SURFACE_FORMAT_ELEM(VK_FORMAT_ASTC_6x5_UNORM_BLOCK, 0, ASTC_2D_6X5_UNORM) \
     SURFACE_FORMAT_ELEM(VK_FORMAT_ASTC_6x5_SRGB_BLOCK, 0, ASTC_2D_6X5_SRGB) \
     SURFACE_FORMAT_ELEM(VK_FORMAT_E5B9G9R9_UFLOAT_PACK32, 0, E5B9G9R9_FLOAT) \
+    SURFACE_FORMAT_ELEM(VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK, 0, ETC2_RGB_UNORM) \
+    SURFACE_FORMAT_ELEM(VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK, 0, ETC2_RGBA_UNORM) \
+    SURFACE_FORMAT_ELEM(VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK, 0, ETC2_RGB_PTA_UNORM) \
+    SURFACE_FORMAT_ELEM(VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK, 0, ETC2_RGB_SRGB) \
+    SURFACE_FORMAT_ELEM(VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK, 0, ETC2_RGBA_SRGB) \
+    SURFACE_FORMAT_ELEM(VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK, 0, ETC2_RGB_PTA_SRGB) \
+    SURFACE_FORMAT_ELEM(VK_FORMAT_EAC_R11_UNORM_BLOCK, 0, EAC_R11_UNORM) \
+    SURFACE_FORMAT_ELEM(VK_FORMAT_EAC_R11_SNORM_BLOCK, 0, EAC_R11_SNORM) \
+    SURFACE_FORMAT_ELEM(VK_FORMAT_EAC_R11G11_UNORM_BLOCK, 0, EAC_R11G11_UNORM) \
+    SURFACE_FORMAT_ELEM(VK_FORMAT_EAC_R11G11_SNORM_BLOCK, 0, EAC_R11G11_SNORM) \
     /* Depth formats */ \
     SURFACE_FORMAT_ELEM(VK_FORMAT_D32_SFLOAT, usage_attachable, D32_FLOAT) \
     SURFACE_FORMAT_ELEM(VK_FORMAT_D16_UNORM, usage_attachable, D16_UNORM) \
@@ -253,8 +263,8 @@ FormatInfo SurfaceFormat(const Device& device, FormatType format_type, bool with
             break;
         }
     }
-    // Transcode on hardware that doesn't support BCn natively
     if (!device.IsOptimalBcnSupported() && VideoCore::Surface::IsPixelFormatBCn(pixel_format)) {
+        // Transcode on hardware that doesn't support BCn natively
         if (pixel_format == PixelFormat::BC4_SNORM) {
             tuple.format = VK_FORMAT_R8_SNORM;
         } else if (pixel_format == PixelFormat::BC4_UNORM) {
@@ -269,6 +279,19 @@ FormatInfo SurfaceFormat(const Device& device, FormatType format_type, bool with
             tuple.format = VK_FORMAT_A8B8G8R8_SRGB_PACK32;
         } else {
             tuple.format = VK_FORMAT_A8B8G8R8_UNORM_PACK32;
+        }
+    } else if (!device.IsOptimalEtc2Supported() && VideoCore::Surface::IsPixelFormatETC2(pixel_format)) {
+        // Transcode on hardware that doesn't support ETC2 natively
+        if (pixel_format == PixelFormat::EAC_R11_SNORM) {
+            tuple.format = VK_FORMAT_R8_SNORM;
+        } else if (pixel_format == PixelFormat::EAC_R11_UNORM) {
+            tuple.format = VK_FORMAT_R8_UNORM;
+        } else if (pixel_format == PixelFormat::EAC_R11G11_SNORM) {
+            tuple.format = VK_FORMAT_R8G8_SNORM;
+        } else if (pixel_format == PixelFormat::EAC_R11G11_UNORM) {
+            tuple.format = VK_FORMAT_R8G8_UNORM;
+        } else {
+            tuple.format = is_srgb ? VK_FORMAT_A8B8G8R8_SRGB_PACK32 : VK_FORMAT_A8B8G8R8_UNORM_PACK32;
         }
     }
     bool const attachable = (tuple.usage & usage_attachable) != 0;

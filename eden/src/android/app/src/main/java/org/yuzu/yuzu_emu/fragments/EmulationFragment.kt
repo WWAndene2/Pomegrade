@@ -97,8 +97,10 @@ import org.yuzu.yuzu_emu.utils.GameIconUtils
 import org.yuzu.yuzu_emu.utils.GpuDriverHelper
 import org.yuzu.yuzu_emu.utils.InputHandler
 import org.yuzu.yuzu_emu.utils.Log
+import org.yuzu.yuzu_emu.utils.LosslessScalingHelper
 import org.yuzu.yuzu_emu.utils.NativeConfig
 import org.yuzu.yuzu_emu.utils.NativeFreedrenoConfig
+import org.yuzu.yuzu_emu.utils.NativePostProcessing
 import org.yuzu.yuzu_emu.utils.ViewUtils
 import org.yuzu.yuzu_emu.utils.ViewUtils.setVisible
 import org.yuzu.yuzu_emu.utils.collect
@@ -941,6 +943,8 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                     if (shouldUseCustom) {
                         SettingsFile.loadCustomConfig(game!!)
                     }
+                    refreshPostProcessing()
+                    addQuickSettings()
                 }
             }
 
@@ -1143,10 +1147,38 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
         }
     }
 
+    private fun withPerGameConfig(create: Boolean, action: () -> Unit) {
+        val target = game
+        var owned = false
+        if (target != null && !NativeConfig.isPerGameConfigLoaded()) {
+            if (create || SettingsFile.getCustomSettingsFile(target).exists()) {
+                SettingsFile.loadCustomConfig(target)
+                owned = true
+            }
+        }
+        action()
+        if (owned) {
+            NativeConfig.unloadPerGameConfig()
+        }
+    }
+
+    fun refreshPostProcessing() = withPerGameConfig(false) {
+        NativePostProcessing.reload()
+    }
+
+    fun persistPostProcessing() = withPerGameConfig(true) {
+        NativePostProcessing.persist()
+    }
+
+    fun editPostProcessing(action: () -> Unit) = withPerGameConfig(true) {
+        action()
+        NativePostProcessing.persist()
+    }
+
     private fun addQuickSettings() {
         binding.quickSettingsSheet.apply {
             val container = binding.quickSettingsSheet.findViewById<ViewGroup>(R.id.quick_settings_container)
-            val isFsrSelected = isFsrScalingFilterSelected()
+            val isSharpnessFilterSelected = isSharpnessScalingFilterSelected()
 
             container.removeAllViews()
 
@@ -1213,6 +1245,11 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
             quickSettings.addDivider(container)
 
+            if (LosslessScalingHelper.isInstalled() && LosslessScalingHelper.isSupportedByGpu()) {
+                quickSettings.addFrameGen(container)
+                quickSettings.addDivider(container)
+            }
+
             quickSettings.addIntSetting(
                 R.string.renderer_accuracy,
                 container,
@@ -1232,13 +1269,13 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 addQuickSettings()
             }
 
-            if (isFsrSelected) {
+            if (isSharpnessFilterSelected) {
                 quickSettings.addSliderSetting(
                     R.string.fsr_sharpness,
                     container,
                     IntSetting.FSR_SHARPENING_SLIDER,
                     minValue = 0,
-                    maxValue = 100,
+                    maxValue = 200,
                     units = "%"
                 )
             }
@@ -1250,20 +1287,31 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 R.array.rendererAntiAliasingNames,
                 R.array.rendererAntiAliasingValues
             )
+
+            quickSettings.addPostProcessing(container) {
+                addQuickSettings()
+            }
         }
     }
 
-    private fun isFsrScalingFilterSelected(): Boolean {
-        val fsrFilterValue = resolveFsrScalingFilterValue() ?: return false
+    private fun isSharpnessScalingFilterSelected(): Boolean {
         val selectedFilter = IntSetting.RENDERER_SCALING_FILTER.getInt(needsGlobal = false)
-        return selectedFilter == fsrFilterValue
+        return selectedFilter in resolveSharpnessScalingFilterValues()
     }
 
-    private fun resolveFsrScalingFilterValue(): Int? {
+    private fun resolveSharpnessScalingFilterValues(): Set<Int> {
         val names = resources.getStringArray(R.array.rendererScalingFilterNames)
         val values = resources.getIntArray(R.array.rendererScalingFilterValues)
-        val fsrIndex = names.indexOf(getString(R.string.scaling_filter_fsr))
-        return if (fsrIndex in values.indices) values[fsrIndex] else null
+        val sharpnessFilterNames = setOf(
+            getString(R.string.scaling_filter_fsr),
+            getString(R.string.scaling_filter_sgsr),
+            getString(R.string.scaling_filter_sgsr_edge),
+        )
+        return names.asSequence()
+            .mapIndexedNotNull { index, name ->
+                if (name in sharpnessFilterNames && index in values.indices) values[index] else null
+            }
+            .toSet()
     }
 
     private fun openQuickSettingsMenu() {
@@ -1502,6 +1550,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
     override fun onResume() {
         super.onResume()
+        NativeLibrary.refreshThreadPolicies()
         val b = _binding ?: return
         updateStatsPosition(IntSetting.PERF_OVERLAY_POSITION.getInt())
         updateSocPosition(IntSetting.SOC_OVERLAY_POSITION.getInt())

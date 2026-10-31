@@ -30,6 +30,8 @@
 #include "core/loader/loader.h"
 #include "frontend_common/config.h"
 #include "qt_common/config/uisettings.h"
+#include "qt_common/qt_common.h"
+#include "qt_common/util/vk.h"
 #include "ui_configure_per_game.h"
 #include "yuzu/configuration/configuration_shared.h"
 #include "yuzu/configuration/configure_applets.h"
@@ -44,7 +46,6 @@
 #include "yuzu/configuration/configure_per_game_addons.h"
 #include "yuzu/configuration/configure_system.h"
 #include "yuzu/util/util.h"
-#include "yuzu/vk_device_info.h"
 
 ConfigurePerGame::ConfigurePerGame(QWidget* parent, u64 title_id_, const std::string& file_name,
                                    std::vector<VkDeviceInfo::Record>& vk_device_records,
@@ -205,6 +206,6 @@ void ConfigurePerGame::LoadConfiguration() {
     ui->display_format->setText(
         QString::fromStdString(Loader::GetFileTypeString(loader->GetFileType())));
 
-    const auto valueText = ReadableByteSize(file->GetSize());
+    const auto valueText = QtCommon::ReadableByteSize(file->GetSize());
     ui->display_size->setText(valueText);
 }

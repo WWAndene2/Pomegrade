@@ -5,7 +5,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <array>
+#include <bitset>
 #include <memory>
+#include <optional>
 #include <vector>
 #include <queue>
 
@@ -132,13 +135,7 @@ void AddNVNStorageBuffers(IR::Program& program) {
     }
 }
 
-bool IsLegacyAttribute(IR::Attribute attribute) {
-    return (attribute >= IR::Attribute::ColorFrontDiffuseR &&
-            attribute <= IR::Attribute::ColorBackSpecularA) ||
-           attribute == IR::Attribute::FogCoordinate ||
-           (attribute >= IR::Attribute::FixedFncTexture0S &&
-            attribute <= IR::Attribute::FixedFncTexture9Q);
-}
+using IR::IsLegacyAttribute; //rescoped to attribute.h to make it visible in load_store_attribute.cpp IPA
 
 std::map<IR::Attribute, IR::Attribute> GenerateLegacyToGenericMappings(
     const VaryingState& state, std::queue<IR::Attribute> unused_generics,
@@ -178,7 +175,17 @@ std::map<IR::Attribute, IR::Attribute> GenerateLegacyToGenericMappings(
 void EmitGeometryPassthrough(IR::IREmitter& ir, const IR::Program& program,
                              const Shader::VaryingState& passthrough_mask,
                              bool passthrough_position,
-                             std::optional<IR::Attribute> passthrough_layer_attr) {
+                             std::optional<IR::Attribute> passthrough_layer_attr,
+                             std::optional<IR::Reg> viewport_mask_reg) {
+    constexpr std::array CULLED_POSITION{2.0f, 2.0f, 2.0f, 1.0f};
+    IR::U1 culled{ir.Imm1(false)};
+    IR::U32 viewport{ir.Imm32(0)};
+    if (viewport_mask_reg) {
+        const IR::U32 mask{ir.GetReg(*viewport_mask_reg)};
+        const IR::U32 lowest_bit{ir.BitwiseAnd(mask, IR::U32{ir.INeg(mask)})};
+        culled = ir.IEqual(mask, ir.Imm32(0));
+        viewport = IR::U32{ir.Select(culled, ir.Imm32(0), ir.FindUMsb(lowest_bit))};
+    }
     for (u32 i = 0; i < program.output_vertices; i++) {
         // Assign generics from input
         for (u32 j = 0; j < 32; j++) {
@@ -196,10 +203,19 @@ void EmitGeometryPassthrough(IR::IREmitter& ir, const IR::Program& program,
         if (passthrough_position) {
             // Assign position from input
             const IR::Attribute attr = IR::Attribute::PositionX;
-            ir.SetAttribute(attr + 0, ir.GetAttribute(attr + 0, ir.Imm32(i)), ir.Imm32(0));
-            ir.SetAttribute(attr + 1, ir.GetAttribute(attr + 1, ir.Imm32(i)), ir.Imm32(0));
-            ir.SetAttribute(attr + 2, ir.GetAttribute(attr + 2, ir.Imm32(i)), ir.Imm32(0));
-            ir.SetAttribute(attr + 3, ir.GetAttribute(attr + 3, ir.Imm32(i)), ir.Imm32(0));
+            for (u32 component = 0; component < 4; ++component) {
+                IR::F32 value{ir.GetAttribute(attr + component, ir.Imm32(i))};
+                if (viewport_mask_reg) {
+                    value = IR::F32{
+                        ir.Select(culled, ir.Imm32(CULLED_POSITION[component]), value)};
+                }
+                ir.SetAttribute(attr + component, value, ir.Imm32(0));
+            }
+        }
+
+        if (viewport_mask_reg) {
+            ir.SetAttribute(IR::Attribute::ViewportIndex, ir.BitCast<IR::F32>(viewport),
+                            ir.Imm32(0));
         }
 
         if (passthrough_layer_attr) {
@@ -225,25 +241,100 @@ u32 GetOutputTopologyVertices(OutputTopology output_topology) {
     }
 }
 
+std::optional<IR::Reg> FindFreeRegister(const IR::Program& program) {
+    std::bitset<IR::NUM_REGS> used;
+    for (IR::Block* const block : program.blocks) {
+        for (const IR::Inst& inst : block->Instructions()) {
+            const IR::Opcode opcode{inst.GetOpcode()};
+            if (opcode == IR::Opcode::GetRegister || opcode == IR::Opcode::SetRegister) {
+                used.set(IR::RegIndex(inst.Arg(0).Reg()));
+            }
+        }
+    }
+    for (size_t index = IR::NUM_USER_REGS; index-- > 0;) {
+        if (!used.test(index)) {
+            return static_cast<IR::Reg>(index);
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<IR::Reg> LowerViewportMask(const IR::Program& program) {
+    const std::optional<IR::Reg> reg{FindFreeRegister(program)};
+    if (!reg || program.blocks.empty()) {
+        return std::nullopt;
+    }
+    bool stores_mask{};
+    for (IR::Block* const block : program.blocks) {
+        for (IR::Inst& inst : block->Instructions()) {
+            if (inst.GetOpcode() != IR::Opcode::SetAttribute ||
+                inst.Arg(0).Attribute() != IR::Attribute::ViewportMask) {
+                continue;
+            }
+            IR::IREmitter ir{*block, IR::Block::InstructionList::s_iterator_to(inst)};
+            ir.SetReg(*reg, ir.BitCast<IR::U32>(IR::F32{inst.Arg(1)}));
+            inst.Invalidate();
+            stores_mask = true;
+        }
+    }
+    if (!stores_mask) {
+        return std::nullopt;
+    }
+    IR::Block& entry{*program.blocks.front()};
+    IR::IREmitter ir{entry, entry.begin()};
+    ir.SetReg(*reg, ir.Imm32(1));
+    return reg;
+}
+
 void LowerGeometryPassthrough(const IR::Program& program, const HostTranslateInfo& host_info) {
+    std::optional<IR::Reg> viewport_mask_reg;
+    if (!host_info.support_viewport_mask) {
+        viewport_mask_reg = LowerViewportMask(program);
+    }
     for (IR::Block* const block : program.blocks) {
         for (IR::Inst& inst : block->Instructions()) {
             if (inst.GetOpcode() == IR::Opcode::Epilogue) {
                 IR::IREmitter ir{*block, IR::Block::InstructionList::s_iterator_to(inst)};
                 EmitGeometryPassthrough(
                     ir, program, program.info.passthrough,
-                    program.info.passthrough.AnyComponent(IR::Attribute::PositionX), {});
+                    program.info.passthrough.AnyComponent(IR::Attribute::PositionX), {},
+                    viewport_mask_reg);
             }
         }
     }
 }
 
+void TightenOutputVertices(IR::Program& program) {
+    if (program.stage != Stage::Geometry || program.is_geometry_passthrough) {
+        return;
+    }
+    const bool has_loops = std::ranges::any_of(program.syntax_list, [](const auto& node) {
+        return node.type == IR::AbstractSyntaxNode::Type::Loop;
+    });
+    if (has_loops) {
+        return;
+    }
+    u32 num_emits = 0;
+    for (IR::Block* const block : program.blocks) {
+        for (const IR::Inst& inst : block->Instructions()) {
+            if (inst.GetOpcode() == IR::Opcode::EmitVertex) {
+                ++num_emits;
+            }
+        }
+    }
+    if (num_emits != 0) {
+        program.output_vertices = (std::min)(program.output_vertices, num_emits);
+    }
+}
 } // Anonymous namespace
 
 IR::Program TranslateProgram(ObjectPool<IR::Inst>& inst_pool, ObjectPool<IR::Block>& block_pool,
                              Environment& env, Flow::CFG& cfg, const HostTranslateInfo& host_info) {
+    HostTranslateInfo normalized_host_info{host_info};
+    normalized_host_info.ApplyDescriptorLimitPolicy();
+
     IR::Program program;
-    program.syntax_list = BuildASL(inst_pool, block_pool, env, cfg, host_info);
+    program.syntax_list = BuildASL(inst_pool, block_pool, env, cfg, normalized_host_info);
     program.blocks = GenerateBlocks(program.syntax_list);
     program.post_order_blocks = PostOrder(program.syntax_list.front());
     program.stage = env.ShaderStage();
@@ -266,9 +357,9 @@ IR::Program TranslateProgram(ObjectPool<IR::Inst>& inst_pool, ObjectPool<IR::Blo
                 program.info.passthrough.mask[i] = ((mask[i / 32] >> (i % 32)) & 1) == 0;
             }
 
-            if (!host_info.support_geometry_shader_passthrough) {
+            if (!normalized_host_info.support_geometry_shader_passthrough) {
                 program.output_vertices = GetOutputTopologyVertices(program.output_topology);
-                LowerGeometryPassthrough(program, host_info);
+                LowerGeometryPassthrough(program, normalized_host_info);
             }
         }
         break;
@@ -283,16 +374,16 @@ IR::Program TranslateProgram(ObjectPool<IR::Inst>& inst_pool, ObjectPool<IR::Blo
     RemoveUnreachableBlocks(program);
 
     // Replace instructions before the SSA rewrite
-    if (!host_info.support_float64) {
+    if (!normalized_host_info.support_float64) {
         Optimization::LowerFp64ToFp32(program);
     }
-    if (!host_info.support_float16) {
+    if (!normalized_host_info.support_float16) {
         Optimization::LowerFp16ToFp32(program);
     }
-    if (!host_info.support_int64) {
+    if (!normalized_host_info.support_int64) {
         Optimization::LowerInt64ToInt32(program);
     }
-    if (!host_info.support_conditional_barrier) {
+    if (!normalized_host_info.support_conditional_barrier) {
         Optimization::ConditionalBarrierPass(program);
     }
     Optimization::SsaRewritePass(program);
@@ -301,18 +392,20 @@ IR::Program TranslateProgram(ObjectPool<IR::Inst>& inst_pool, ObjectPool<IR::Blo
 
     Optimization::PositionPass(env, program);
 
-    Optimization::GlobalMemoryToStorageBufferPass(program, host_info);
-    Optimization::TexturePass(env, program, host_info);
+    Optimization::GlobalMemoryToStorageBufferPass(program, normalized_host_info);
+    Optimization::GeometryCompactionPass(program, normalized_host_info);
+    Optimization::TexturePass(env, program, normalized_host_info);
 
-    if (Settings::values.resolution_info.active || Settings::values.rescale_hack.GetValue()) {
+    if (Settings::values.resolution_info.active) {
         Optimization::RescalingPass(program);
     }
     Optimization::DeadCodeEliminationPass(program);
+    TightenOutputVertices(program);
     if (Settings::values.renderer_debug) {
         Optimization::VerificationPass(program);
     }
     Optimization::CollectShaderInfoPass(env, program);
-    Optimization::LayerPass(program, host_info);
+    Optimization::LayerPass(program, normalized_host_info);
     Optimization::VendorWorkaroundPass(program);
 
     CollectInterpolationInfo(env, program);
@@ -436,7 +529,7 @@ IR::Program GenerateGeometryPassthrough(ObjectPool<IR::Inst>& inst_pool,
 
     IR::IREmitter ir{*current_block};
     EmitGeometryPassthrough(ir, program, program.info.stores, true,
-                            source_program.info.emulated_layer);
+                            source_program.info.emulated_layer, std::nullopt);
 
     IR::Block* return_block{block_pool.Create(inst_pool)};
     IR::IREmitter{*return_block}.Epilogue();

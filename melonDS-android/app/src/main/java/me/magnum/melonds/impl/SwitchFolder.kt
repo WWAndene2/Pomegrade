@@ -37,7 +37,7 @@ object SwitchFolder {
     private const val SDMC = "sdmc"
     private const val LOAD = "load"
     // Eden's user folder entries other than nand, sdmc and load (common/fs/fs_paths.h)
-    private val USER_DATA = listOf("config", "keys", "log", "shader", "dump", "screenshots", "amiibo", "play_time", "icons", "crash_dumps", "tas", "cache", "gpu_drivers")
+    private val USER_DATA = listOf("config", "keys", "log", "shader", "dump", "screenshots", "amiibo", "play_time", "icons", "crash_dumps", "tas", "cache", "gpu_drivers", "lossless", "post_presets", "post_shaders")
     private const val USER_DATA_MOVED = "switch_user_data_moved"
     // the Punica folder's Switch that [setUp] last pointed Eden to: Eden's settings may still name folders in it
     // after the owner picks another folder, they are then adopted rather than kept as the owner's choice

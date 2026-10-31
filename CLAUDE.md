@@ -93,7 +93,7 @@ Pomegrade (shown to users as Punica) is six codebases in one Gradle build, roote
 | 3DS core sources (Azahar, C++ and its Android frontend) | `azahar/` — consumed by the `:azahar` Gradle module |
 | `:azahar` Gradle module definition (manifest, build script) | `melonDS-android/azahar/` |
 | GBA core sources (mGBA 0.10.5, C, upstream as released minus its `cinema/` test videos; no Android frontend of its own) | `mgba/` — built by the `:mgba` Gradle module |
-| Switch core sources (Eden v0.2.1, C++ and its Android frontend; its native dependencies are fetched by CMake (CPM) into the ignored `eden/.cache/`) | `eden/` — consumed by the `:eden` Gradle module |
+| Switch core sources (Eden's master of 26 October 2026, commit 26a03d24, the base of Eden-NX2; Eden v0.2.1 before 31 October, C++ and its Android frontend; its native dependencies are fetched by CMake (CPM) into the ignored `eden/.cache/`) | `eden/` — consumed by the `:eden` Gradle module |
 | `:eden` Gradle module definition (build script; manifest and sources are Eden's own, under `eden/src/android/app/src/main`) | `melonDS-android/eden/` |
 | GameCube and Wii core sources (Dolphin 2606a, C++ and its Android frontend; its `Externals/` third-party libraries are git submodules, minus the Windows, desktop and test ones) | `dolphin/` — consumed by the `:dolphin` Gradle module |
 | `:dolphin` Gradle module definition (build script; manifest and sources are Dolphin's own, under `dolphin/Source/Android/app/src/main`) | `melonDS-android/dolphin/` |

@@ -44,7 +44,7 @@ if (MSVC)
         /we4800 # Implicit conversion from 'type' to bool. Possible information loss
     )
 else()
-    target_compile_options(input_common PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:-Werror=conversion>)
+    target_compile_options(input_common PRIVATE $<$<COMPILE_LANGUAGE:C,CXX>:-Wconversion>)
 endif()
 
 if (ANDROID)
@@ -79,8 +79,8 @@ else()
         helpers/joycon_protocol/rumble.cpp
         helpers/joycon_protocol/rumble.h)
 
-    target_link_libraries(input_common PRIVATE SDL2::SDL2)
-    target_compile_definitions(input_common PRIVATE HAVE_SDL2)
+    target_link_libraries(input_common PRIVATE SDL3::SDL3)
+    target_compile_definitions(input_common PRIVATE HAVE_SDL3)
 endif()
 
 if (ENABLE_LIBUSB)

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <array>
 #include <exception>
 #include <limits>
 #include <memory>
@@ -146,6 +147,18 @@ inline VkResult Filter(VkResult result) {
     return result;
 }
 
+inline constexpr VkPipelineStageFlags PIPELINE_STAGE_GRAPHICS_COMPUTE =
+    VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+
+inline constexpr VkPipelineStageFlags PIPELINE_STAGE_GRAPHICS_COMPUTE_TRANSFER =
+    PIPELINE_STAGE_GRAPHICS_COMPUTE | VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+inline constexpr VkPipelineStageFlags PIPELINE_STAGE_GRAPHICS_COMPUTE_TRANSFER_HOST =
+    PIPELINE_STAGE_GRAPHICS_COMPUTE_TRANSFER | VK_PIPELINE_STAGE_HOST_BIT;
+
+inline constexpr VkPipelineStageFlags PIPELINE_STAGE_HOST = VK_PIPELINE_STAGE_HOST_BIT;
+
+
 /// Table holding Vulkan instance function pointers.
 struct InstanceDispatch {
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr{};
@@ -167,6 +180,7 @@ struct InstanceDispatch {
     PFN_vkGetDeviceProcAddr vkGetDeviceProcAddr{};
     PFN_vkGetPhysicalDeviceFeatures2 vkGetPhysicalDeviceFeatures2{};
     PFN_vkGetPhysicalDeviceFormatProperties vkGetPhysicalDeviceFormatProperties{};
+    PFN_vkGetPhysicalDeviceFormatProperties2 vkGetPhysicalDeviceFormatProperties2{};
     PFN_vkGetPhysicalDeviceMemoryProperties vkGetPhysicalDeviceMemoryProperties{};
     PFN_vkGetPhysicalDeviceMemoryProperties2 vkGetPhysicalDeviceMemoryProperties2{};
     PFN_vkGetPhysicalDeviceProperties vkGetPhysicalDeviceProperties{};
@@ -225,10 +239,11 @@ struct DeviceDispatch : InstanceDispatch {
     PFN_vkCmdEndTransformFeedbackEXT vkCmdEndTransformFeedbackEXT{};
     PFN_vkCmdFillBuffer vkCmdFillBuffer{};
     PFN_vkCmdPipelineBarrier vkCmdPipelineBarrier{};
-    PFN_vkCmdResetQueryPool vkCmdResetQueryPool{};
+    PFN_vkCmdPipelineBarrier2 vkCmdPipelineBarrier2{};
     PFN_vkCmdWriteTimestamp vkCmdWriteTimestamp{}; // Pomegrade: TEMPORARY
     PFN_vkCmdPushConstants vkCmdPushConstants{};
     PFN_vkCmdPushDescriptorSetWithTemplateKHR vkCmdPushDescriptorSetWithTemplateKHR{};
+    PFN_vkCmdResetQueryPool vkCmdResetQueryPool{};
     PFN_vkCmdResolveImage vkCmdResolveImage{};
     PFN_vkCmdSetBlendConstants vkCmdSetBlendConstants{};
     PFN_vkCmdSetCullModeEXT vkCmdSetCullModeEXT{};
@@ -265,6 +280,7 @@ struct DeviceDispatch : InstanceDispatch {
     PFN_vkCmdSetVertexInputEXT vkCmdSetVertexInputEXT{};
     PFN_vkCmdSetViewport vkCmdSetViewport{};
     PFN_vkCmdSetColorWriteMaskEXT vkCmdSetColorWriteMaskEXT{};
+    PFN_vkCmdSetColorWriteEnableEXT vkCmdSetColorWriteEnableEXT{};
     PFN_vkCmdSetColorBlendEnableEXT vkCmdSetColorBlendEnableEXT{};
     PFN_vkCmdSetColorBlendEquationEXT vkCmdSetColorBlendEquationEXT{};
     PFN_vkCmdWaitEvents vkCmdWaitEvents{};
@@ -285,6 +301,7 @@ struct DeviceDispatch : InstanceDispatch {
     PFN_vkCreatePipelineLayout vkCreatePipelineLayout{};
     PFN_vkCreateQueryPool vkCreateQueryPool{};
     PFN_vkCreateRenderPass vkCreateRenderPass{};
+    PFN_vkCreateRenderPass2 vkCreateRenderPass2{};
     PFN_vkCreateSampler vkCreateSampler{};
     PFN_vkCreateSemaphore vkCreateSemaphore{};
     PFN_vkCreateShaderModule vkCreateShaderModule{};
@@ -329,13 +346,21 @@ struct DeviceDispatch : InstanceDispatch {
     PFN_vkGetQueryPoolResults vkGetQueryPoolResults{};
     PFN_vkGetSemaphoreCounterValue vkGetSemaphoreCounterValue{};
     PFN_vkMapMemory vkMapMemory{};
+    PFN_vkQueueBindSparse vkQueueBindSparse{};
     PFN_vkQueueSubmit vkQueueSubmit{};
+    PFN_vkQueueSubmit2 vkQueueSubmit2{};
     PFN_vkResetFences vkResetFences{};
     PFN_vkResetQueryPool vkResetQueryPool{};
     PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT{};
     PFN_vkSetDebugUtilsObjectTagEXT vkSetDebugUtilsObjectTagEXT{};
     PFN_vkUnmapMemory vkUnmapMemory{};
     PFN_vkUpdateDescriptorSetWithTemplate vkUpdateDescriptorSetWithTemplate{};
+    PFN_vkGetBufferDeviceAddress vkGetBufferDeviceAddress{};
+    PFN_vkGetDescriptorSetLayoutSizeEXT vkGetDescriptorSetLayoutSizeEXT{};
+    PFN_vkGetDescriptorSetLayoutBindingOffsetEXT vkGetDescriptorSetLayoutBindingOffsetEXT{};
+    PFN_vkGetDescriptorEXT vkGetDescriptorEXT{};
+    PFN_vkCmdBindDescriptorBuffersEXT vkCmdBindDescriptorBuffersEXT{};
+    PFN_vkCmdSetDescriptorBufferOffsetsEXT vkCmdSetDescriptorBufferOffsetsEXT{};
     PFN_vkUpdateDescriptorSets vkUpdateDescriptorSets{};
     PFN_vkWaitForFences vkWaitForFences{};
     PFN_vkWaitSemaphores vkWaitSemaphores{};
@@ -443,7 +468,7 @@ public:
         return handle != Type{};
     }
 
-#ifndef ANDROID
+#ifndef __ANDROID__
     /**
      * Releases ownership of the managed handle.
      * The caller is responsible for managing the lifetime of the returned handle.
@@ -525,7 +550,7 @@ public:
         return handle != Type{};
     }
 
-#ifndef ANDROID
+#ifndef __ANDROID__
     /**
      * Releases ownership of the managed handle.
      * The caller is responsible for managing the lifetime of the returned handle.
@@ -717,13 +742,20 @@ private:
     const DeviceDispatch* dld = nullptr;
 };
 
+struct MemoryLocation {
+    VkDeviceMemory memory{};
+    VkDeviceSize offset{};
+    u32 memory_type{};
+};
+
 class Buffer {
 public:
     explicit Buffer(VkBuffer handle_, VkDevice owner_, VmaAllocator allocator_,
                     VmaAllocation allocation_, std::span<u8> mapped_, bool is_coherent_,
-                    const DeviceDispatch& dld_) noexcept
+                    MemoryLocation location_, const DeviceDispatch& dld_) noexcept
         : handle{handle_}, owner{owner_}, allocator{allocator_},
-          allocation{allocation_}, mapped{mapped_}, is_coherent{is_coherent_}, dld{&dld_} {}
+          allocation{allocation_}, mapped{mapped_}, location{location_},
+          is_coherent{is_coherent_}, dld{&dld_} {}
     Buffer() = default;
 
     Buffer(const Buffer&) = delete;
@@ -731,7 +763,7 @@ public:
 
     Buffer(Buffer&& rhs) noexcept
         : handle{std::exchange(rhs.handle, VkBuffer{})}, owner{rhs.owner}, allocator{rhs.allocator},
-          allocation{rhs.allocation}, mapped{rhs.mapped},
+          allocation{rhs.allocation}, mapped{rhs.mapped}, location{rhs.location},
           is_coherent{rhs.is_coherent}, dld{rhs.dld} {}
 
     Buffer& operator=(Buffer&& rhs) noexcept {
@@ -741,6 +773,7 @@ public:
         allocator = rhs.allocator;
         allocation = rhs.allocation;
         mapped = rhs.mapped;
+        location = rhs.location;
         is_coherent = rhs.is_coherent;
         dld = rhs.dld;
         return *this;
@@ -777,11 +810,20 @@ public:
         return !mapped.empty();
     }
 
+    /// Returns true if host writes are visible to the device.
+    bool IsHostCoherent() const noexcept {
+        return is_coherent;
+    }
+
     void Flush() const;
 
     void Invalidate() const;
 
     void SetObjectNameEXT(const char* name) const;
+
+    MemoryLocation Location() const noexcept {
+        return location;
+    }
 
 private:
     void Release() const noexcept;
@@ -791,6 +833,7 @@ private:
     VmaAllocator allocator = nullptr;
     VmaAllocation allocation = nullptr;
     std::span<u8> mapped = {};
+    MemoryLocation location{};
     bool is_coherent = false;
     const DeviceDispatch* dld = nullptr;
 };
@@ -807,6 +850,17 @@ public:
     VkResult Submit(Span<VkSubmitInfo> submit_infos,
                     VkFence fence = VK_NULL_HANDLE) const noexcept {
         return dld->vkQueueSubmit(queue, submit_infos.size(), submit_infos.data(), fence);
+    }
+
+    /// Submits using VK_KHR_synchronization2 / Vulkan 1.3 vkQueueSubmit2.
+    VkResult Submit2(Span<VkSubmitInfo2> submit_infos,
+                     VkFence fence = VK_NULL_HANDLE) const noexcept {
+        return dld->vkQueueSubmit2(queue, submit_infos.size(), submit_infos.data(), fence);
+    }
+
+    VkResult BindSparse(Span<VkBindSparseInfo> bind_infos,
+                        VkFence fence = VK_NULL_HANDLE) const noexcept {
+        return dld->vkQueueBindSparse(queue, bind_infos.size(), bind_infos.data(), fence);
     }
 
     VkResult Present(const VkPresentInfoKHR& present_info) const noexcept {
@@ -1012,6 +1066,8 @@ public:
 
     [[nodiscard]] RenderPass CreateRenderPass(const VkRenderPassCreateInfo& ci) const;
 
+    [[nodiscard]] RenderPass CreateRenderPass2(const VkRenderPassCreateInfo2& ci) const;
+
     [[nodiscard]] DescriptorSetLayout CreateDescriptorSetLayout(
         const VkDescriptorSetLayoutCreateInfo& ci) const;
 
@@ -1065,6 +1121,34 @@ public:
         dld->vkUpdateDescriptorSetWithTemplate(handle, set, update_template, data);
     }
 
+    [[nodiscard]] VkDeviceAddress GetBufferDeviceAddress(VkBuffer buffer) const noexcept {
+        const VkBufferDeviceAddressInfo info{
+            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+            .pNext = nullptr,
+            .buffer = buffer,
+        };
+        return dld->vkGetBufferDeviceAddress(handle, &info);
+    }
+
+    [[nodiscard]] VkDeviceSize GetDescriptorSetLayoutSizeEXT(
+        VkDescriptorSetLayout layout) const noexcept {
+        VkDeviceSize size{};
+        dld->vkGetDescriptorSetLayoutSizeEXT(handle, layout, &size);
+        return size;
+    }
+
+    [[nodiscard]] VkDeviceSize GetDescriptorSetLayoutBindingOffsetEXT(
+        VkDescriptorSetLayout layout, u32 binding) const noexcept {
+        VkDeviceSize offset{};
+        dld->vkGetDescriptorSetLayoutBindingOffsetEXT(handle, layout, binding, &offset);
+        return offset;
+    }
+
+    void GetDescriptorEXT(const VkDescriptorGetInfoEXT& info, size_t size,
+                          void* descriptor) const noexcept {
+        dld->vkGetDescriptorEXT(handle, &info, size, descriptor);
+    }
+
     VkResult AcquireNextImageKHR(VkSwapchainKHR swapchain, u64 timeout, VkSemaphore semaphore,
                                  VkFence fence, u32* image_index) const noexcept {
         return dld->vkAcquireNextImageKHR(handle, swapchain, timeout, semaphore, fence,
@@ -1108,6 +1192,8 @@ public:
     void GetFeatures2(VkPhysicalDeviceFeatures2&) const noexcept;
 
     VkFormatProperties GetFormatProperties(VkFormat) const noexcept;
+
+    VkFormatProperties3 GetFormatProperties3(VkFormat) const noexcept;
 
     std::vector<VkExtensionProperties> EnumerateDeviceExtensionProperties() const;
 
@@ -1170,8 +1256,8 @@ public:
         dld->vkCmdEndQuery(handle, query_pool, query);
     }
 
-    void ResetQueryPool(VkQueryPool query_pool, u32 first_query, u32 query_count) const noexcept {
-        dld->vkCmdResetQueryPool(handle, query_pool, first_query, query_count);
+    void ResetQueryPool(VkQueryPool query_pool, u32 first, u32 count) const noexcept {
+        dld->vkCmdResetQueryPool(handle, query_pool, first, count);
     }
 
     // Pomegrade: TEMPORARY, GPU timing of the study's diagnostic (Scheduler)
@@ -1286,6 +1372,72 @@ public:
                          VkDependencyFlags dependency_flags, Span<VkMemoryBarrier> memory_barriers,
                          Span<VkBufferMemoryBarrier> buffer_barriers,
                          Span<VkImageMemoryBarrier> image_barriers) const noexcept {
+        static constexpr u32 MaxBarriers = 16;
+        if (dld->vkCmdPipelineBarrier2 && memory_barriers.size() <= MaxBarriers &&
+            buffer_barriers.size() <= MaxBarriers && image_barriers.size() <= MaxBarriers) {
+            const auto src_stage_mask2 = static_cast<VkPipelineStageFlags2>(src_stage_mask);
+            const auto dst_stage_mask2 = static_cast<VkPipelineStageFlags2>(dst_stage_mask);
+
+            std::array<VkMemoryBarrier2, MaxBarriers> memory_barriers2;
+            for (u32 i = 0; i < memory_barriers.size(); ++i) {
+                memory_barriers2[i] = VkMemoryBarrier2{
+                    .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
+                    .pNext = nullptr,
+                    .srcStageMask = src_stage_mask2,
+                    .srcAccessMask = static_cast<VkAccessFlags2>(memory_barriers[i].srcAccessMask),
+                    .dstStageMask = dst_stage_mask2,
+                    .dstAccessMask = static_cast<VkAccessFlags2>(memory_barriers[i].dstAccessMask),
+                };
+            }
+            std::array<VkBufferMemoryBarrier2, MaxBarriers> buffer_barriers2;
+            for (u32 i = 0; i < buffer_barriers.size(); ++i) {
+                const auto& barrier = buffer_barriers[i];
+                buffer_barriers2[i] = VkBufferMemoryBarrier2{
+                    .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
+                    .pNext = nullptr,
+                    .srcStageMask = src_stage_mask2,
+                    .srcAccessMask = static_cast<VkAccessFlags2>(barrier.srcAccessMask),
+                    .dstStageMask = dst_stage_mask2,
+                    .dstAccessMask = static_cast<VkAccessFlags2>(barrier.dstAccessMask),
+                    .srcQueueFamilyIndex = barrier.srcQueueFamilyIndex,
+                    .dstQueueFamilyIndex = barrier.dstQueueFamilyIndex,
+                    .buffer = barrier.buffer,
+                    .offset = barrier.offset,
+                    .size = barrier.size,
+                };
+            }
+            std::array<VkImageMemoryBarrier2, MaxBarriers> image_barriers2;
+            for (u32 i = 0; i < image_barriers.size(); ++i) {
+                const auto& barrier = image_barriers[i];
+                image_barriers2[i] = VkImageMemoryBarrier2{
+                    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                    .pNext = nullptr,
+                    .srcStageMask = src_stage_mask2,
+                    .srcAccessMask = static_cast<VkAccessFlags2>(barrier.srcAccessMask),
+                    .dstStageMask = dst_stage_mask2,
+                    .dstAccessMask = static_cast<VkAccessFlags2>(barrier.dstAccessMask),
+                    .oldLayout = barrier.oldLayout,
+                    .newLayout = barrier.newLayout,
+                    .srcQueueFamilyIndex = barrier.srcQueueFamilyIndex,
+                    .dstQueueFamilyIndex = barrier.dstQueueFamilyIndex,
+                    .image = barrier.image,
+                    .subresourceRange = barrier.subresourceRange,
+                };
+            }
+            const VkDependencyInfo dependency_info{
+                .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+                .pNext = nullptr,
+                .dependencyFlags = dependency_flags,
+                .memoryBarrierCount = memory_barriers.size(),
+                .pMemoryBarriers = memory_barriers2.data(),
+                .bufferMemoryBarrierCount = buffer_barriers.size(),
+                .pBufferMemoryBarriers = buffer_barriers2.data(),
+                .imageMemoryBarrierCount = image_barriers.size(),
+                .pImageMemoryBarriers = image_barriers2.data(),
+            };
+            dld->vkCmdPipelineBarrier2(handle, &dependency_info);
+            return;
+        }
         dld->vkCmdPipelineBarrier(handle, src_stage_mask, dst_stage_mask, dependency_flags,
                                   memory_barriers.size(), memory_barriers.data(),
                                   buffer_barriers.size(), buffer_barriers.data(),
@@ -1313,6 +1465,18 @@ public:
                          VkDependencyFlags dependency_flags,
                          const VkImageMemoryBarrier& image_barrier) const noexcept {
         PipelineBarrier(src_stage_mask, dst_stage_mask, dependency_flags, {}, {}, image_barrier);
+    }
+
+    void BindDescriptorBuffersEXT(Span<VkDescriptorBufferBindingInfoEXT> bindings) const noexcept {
+        dld->vkCmdBindDescriptorBuffersEXT(handle, bindings.size(), bindings.data());
+    }
+
+    void SetDescriptorBufferOffsetsEXT(VkPipelineBindPoint bind_point, VkPipelineLayout layout,
+                                       u32 first_set, Span<u32> buffer_indices,
+                                       Span<VkDeviceSize> offsets) const noexcept {
+        dld->vkCmdSetDescriptorBufferOffsetsEXT(handle, bind_point, layout, first_set,
+                                                buffer_indices.size(), buffer_indices.data(),
+                                                offsets.data());
     }
 
     void CopyBufferToImage(VkBuffer src_buffer, VkImage dst_image, VkImageLayout dst_image_layout,
@@ -1356,10 +1520,9 @@ public:
     }
 
     template <typename T>
-    void PushConstants(VkPipelineLayout layout, VkShaderStageFlags flags,
-                       const T& data) const noexcept {
-        static_assert(std::is_trivially_copyable_v<T>, "<data> is not trivially copyable");
-        dld->vkCmdPushConstants(handle, layout, flags, 0, static_cast<u32>(sizeof(T)), &data);
+        requires std::is_trivially_copyable_v<T>
+    void PushConstants(VkPipelineLayout layout, VkShaderStageFlags flags, const T& data) const noexcept {
+        dld->vkCmdPushConstants(handle, layout, flags, 0, u32(sizeof(T)), std::addressof(data));
     }
 
     void SetViewport(u32 first, Span<VkViewport> viewports) const noexcept {
@@ -1508,6 +1671,10 @@ public:
 
     void SetColorWriteMaskEXT(u32 first, Span<VkColorComponentFlags> masks) const noexcept {
         dld->vkCmdSetColorWriteMaskEXT(handle, first, masks.size(), masks.data());
+    }
+
+    void SetColorWriteEnableEXT(Span<VkBool32> enables) const noexcept {
+        dld->vkCmdSetColorWriteEnableEXT(handle, enables.size(), enables.data());
     }
 
     void SetColorBlendEnableEXT(u32 first, Span<VkBool32> enables) const noexcept {

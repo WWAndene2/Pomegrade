@@ -8,6 +8,7 @@
 
 #include "common/common_types.h"
 #include "core/core.h"
+#include "core/file_sys/common_funcs.h"
 #include "core/file_sys/content_archive.h"
 #include "core/file_sys/control_metadata.h"
 #include "core/file_sys/nca_metadata.h"
@@ -34,17 +35,16 @@ AppLoader_NSP::AppLoader_NSP(FileSys::VirtualFile file_,
     }
 
     if (nsp->IsExtractedType()) {
-        secondary_loader = std::make_unique<AppLoader_DeconstructedRomDirectory>(
-            nsp->GetExeFS(), false, file->GetName() == "hbl.nsp");
+        secondary_loader = std::make_unique<AppLoader_DeconstructedRomDirectory>(nsp->GetExeFS(), false);
     } else {
         const auto control_nca =
-            nsp->GetNCA(nsp->GetProgramTitleID(), FileSys::ContentRecordType::Control);
+            nsp->GetNCA(FileSys::GetBaseTitleID(nsp->GetProgramTitleID()), FileSys::ContentRecordType::Control);
         if (control_nca == nullptr || control_nca->GetStatus() != ResultStatus::Success) {
             return;
         }
 
         std::tie(nacp_file, icon_file) = [this, &content_provider, &control_nca, &fsc] {
-            const FileSys::PatchManager pm{nsp->GetProgramTitleID(), fsc, content_provider};
+            const FileSys::PatchManager pm{FileSys::GetBaseTitleID(nsp->GetProgramTitleID()), fsc, content_provider};
             return pm.ParseControlNCA(*control_nca);
         }();
 
@@ -56,6 +56,17 @@ AppLoader_NSP::AppLoader_NSP(FileSys::VirtualFile file_,
 AppLoader_NSP::~AppLoader_NSP() = default;
 
 FileType AppLoader_NSP::IdentifyType(const FileSys::VirtualFile& nsp_file) {
+    // .nsz is NSP-compatible; return NSZ so the game list shows the right type.
+    if (nsp_file->GetName().ends_with(".nsz")) {
+        return FileType::NSZ;
+    }
+
+    // PFS0-shaped .xcz containers are handled by this loader too; report XCZ so the game
+    // list does not show them as NSP. XCI-shaped .xcz is identified by AppLoader_XCI.
+    if (nsp_file->GetName().ends_with(".xcz")) {
+        return FileType::XCZ;
+    }
+
     const FileSys::NSP nsp(nsp_file);
 
     if (nsp.GetStatus() != ResultStatus::Success) {
