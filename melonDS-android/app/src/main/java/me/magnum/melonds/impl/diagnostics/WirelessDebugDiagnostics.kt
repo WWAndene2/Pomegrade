@@ -2,6 +2,7 @@ package me.magnum.melonds.impl.diagnostics
 
 import android.content.Context
 import android.os.Build
+import io.github.muntashirakon.adb.AdbStream
 import io.github.muntashirakon.adb.android.AdbMdns
 import io.github.muntashirakon.adb.android.AndroidUtils
 import kotlinx.coroutines.CoroutineScope
@@ -13,7 +14,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import me.magnum.melonds.impl.PomegradeFolder
 import me.magnum.melonds.impl.PunicaLayout
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -84,6 +87,29 @@ object WirelessDebugDiagnostics {
         runCatching { WirelessDebugConnection.instance.disconnect() }
     }
 
+    /**
+     * The whole output of [stream], up to adbd closing it. libadb-android (3.1.1, AdbStream.read) reports that close
+     * by throwing IOException("Stream closed.") when it arrives while a read waits, instead of returning -1: every
+     * command ended that way, and the detached ones (the system trace, the full analysis), which close at once,
+     * always showed "Stream closed" although they had started (owner, 1 November). Once the stream is closed, the
+     * exception is its end; before, it is a real failure.
+     */
+    private fun readUntilClosed(stream: AdbStream): ByteArray {
+        val output = ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        val input = stream.openInputStream()
+        while (true) {
+            val read = try {
+                input.read(buffer)
+            } catch (e: IOException) {
+                if (stream.isClosed) break else throw e
+            }
+            if (read < 0) break
+            output.write(buffer, 0, read)
+        }
+        return output.toByteArray()
+    }
+
     /** Runs [command] (for the system trace, after [delaySeconds]); its output goes beside Eden's log. */
     suspend fun run(context: Context, command: DiagnosticCommand, delaySeconds: Int = 0): Result = withContext(Dispatchers.IO) {
         if (!isConnected) return@withContext Result.Failed("not connected")
@@ -96,9 +122,7 @@ object WirelessDebugDiagnostics {
         }.getOrElse { return@withContext Result.Failed(it.message ?: "bad argument") }
         val output = runCatching {
             // the shell service with the command as is (LocalServices.SHELL would quote it, and refuses double quotes)
-            WirelessDebugConnection.instance.openStream("shell:$shell").use { stream ->
-                stream.openInputStream().use { it.readBytes() }
-            }
+            WirelessDebugConnection.instance.openStream("shell:$shell").use { stream -> readUntilClosed(stream) }
         }.getOrElse { return@withContext Result.Failed(it.message ?: it.javaClass.simpleName) }
         val name = command.outputName(stamp) ?: return@withContext Result.Started(folder, delaySeconds)
         val file = File(folder, name)
