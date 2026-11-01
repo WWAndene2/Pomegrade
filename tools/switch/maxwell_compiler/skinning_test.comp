@@ -1,0 +1,18 @@
+#version 460
+#extension GL_EXT_buffer_reference : require
+layout(local_size_x = 64) in;
+layout(buffer_reference, std430) readonly buffer Floats { float v[]; };
+layout(buffer_reference, std430) readonly buffer Uints { uint v[]; };
+layout(buffer_reference, std430) writeonly buffer Out { float v[]; };
+layout(buffer_reference, std430) readonly buffer Bones { vec4 m[]; };
+layout(std140, binding = 0) uniform Args { Floats pos; Uints idx; Floats wgt; Bones bones; Out dst; uint count; };
+void main() {
+  uint i = gl_GlobalInvocationID.x; if (i >= count) return;
+  vec4 p = vec4(pos.v[i*3], pos.v[i*3+1], pos.v[i*3+2], 1.0);
+  vec3 r = vec3(0);
+  for (int k = 0; k < 4; k++) {
+    uint b = idx.v[i*4+k]; float w = wgt.v[i*4+k];
+    r += w * vec3(dot(bones.m[b*4], p), dot(bones.m[b*4+1], p), dot(bones.m[b*4+2], p));
+  }
+  dst.v[i*3] = r.x; dst.v[i*3+1] = r.y; dst.v[i*3+2] = r.z;
+}

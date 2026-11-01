@@ -10,6 +10,7 @@ stay in the session's scratch space and are never committed (CLAUDE.md §8).
 | `nso2elf.py` | Converts an NSO module (`main`, `sdk`, `subsdk*`) to an ELF that Ghidra's own ELF loader reads, with the dynamic symbols and relocations | Used on Scarlet 4.0.0's exefs; imported into Ghidra 11.4.2 |
 | `trpfs_extract.py`, `flatbuffer_reader.py` | Extract the files of the packs whose name contains a text from the asset archive `arc/data.trpfs` (index `arc/data.trpfd`), decompressing Oodle with `oozdec` | Used on Scarlet 4.0.0's two shader packs: output identical to the first hand-run extraction |
 | `ooz_linux/` | Builds ooz (powzix, GPL, open-source Oodle decompressor) on Linux: `Windows.h` shim and `oozdec.cpp`, a one-block decompressor. Build: clone ooz, cut `kraken.cpp` before `ParseCmdLine` into `kraken_lib.cpp`, then `g++ -O2 -w -fpermissive -Iooz_linux -o oozdec ooz_linux/oozdec.cpp kraken_lib.cpp bitknit.cpp lzna.cpp` (with an empty `SDKDDKVer.h`, `tchar.h`, `intrin.h` beside the shim) | Decompressed all of Scarlet's shader files, sizes as the pack states |
+| `maxwell_compiler/` | `spirv_to_maxwell.cpp`: compiles a SPIR-V compute shader to Maxwell instructions with Mesa's nouveau codegen (GM200 target). Uniform buffer binding *b* becomes constant buffer *b*; buffers are reached through 64-bit pointers read from it (`GL_EXT_buffer_reference`). `skinning_test.comp`: first test, 4-bone skinning of positions | `skinning_test.comp` compiles (1168 bytes, 29 registers) and disassembles with envytools as global loads from pointers in `c0[]`; not run on a GPU |
 | `hactool_newer_updates.patch` | Local changes to hactool (SciresM), applied with `git apply` in its checkout | Used on Scarlet 4.0.0 |
 
 **Why hactool needs a patch.** Scarlet's update 4.0.0 (SDK 21) lays out its patch RomFS
@@ -30,3 +31,7 @@ python3 nso2elf.py exefs/main main.elf                    # then import main.elf
 hactool -k prod.keys -t nca --basenca=base.nca --listromfs upd.nca
 HACTOOL_ONLY=/arc/ hactool -k prod.keys -t nca --basenca=base.nca --romfsdir=romfs upd.nca
 ```
+
+**Building `spirv_to_maxwell`.** Clone Mesa, `pip install meson mako pyyaml packaging`, then
+`meson setup build -Dgallium-drivers=nouveau -Dvulkan-drivers= -Dtools=nouveau -Dplatforms= -Dglx=disabled -Degl=disabled -Dgbm=disabled -Dllvm=disabled -Dgles1=disabled -Dgles2=disabled -Dzstd=disabled -Dexpat=disabled -Dlibunwind=disabled -Dvalgrind=disabled -Dbuildtype=release`,
+`ninja -C build` the static libraries `libnouveau_codegen.a`, `libvtn.a`, `libnir.a`, `libcompiler.a`, `libmesa_util*.a`, `libblake3.a`, `libmesa_util_c11.a`, and compile `spirv_to_maxwell.cpp` against them with the `-D` flags Mesa uses for `nv50_ir_from_nir.cpp` (from `build/compile_commands.json`) and Mesa's `include`, `src`, `src/gallium/include`, `src/gallium/drivers/nouveau`, `src/compiler/nir` and matching `build/src/...` include folders. Shaders: `glslangValidator -V --target-env vulkan1.2`. The Mesa checkout used was its main branch of 1 November 2026 (version 27.0.0-devel).
