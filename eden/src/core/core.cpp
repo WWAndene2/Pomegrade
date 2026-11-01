@@ -422,38 +422,66 @@ struct System::Impl {
     }
 
     void ShutdownMainProcess() {
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "SetShuttingDown(true)"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         SetShuttingDown(true);
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "Common::ADPF::Shutdown()"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         Common::ADPF::Shutdown();
 
         // Reset per-game flags
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "Settings::values.use_squashed_iterated_blend = false"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         Settings::values.use_squashed_iterated_blend = false;
 
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "is_powered_on = false"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         is_powered_on = false;
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "exit_locked = false"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         exit_locked = false;
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "exit_requested = false"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         exit_requested = false;
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "if (gpu_core)"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         if (gpu_core)
             gpu_core->NotifyShutdown();
 
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "stop_event.request_stop()"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         stop_event.request_stop();
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "core_timing.SyncPause(false)"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         core_timing.SyncPause(false);
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "Network::CancelPendingSocketOperations()"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         Network::CancelPendingSocketOperations();
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "kernel.SuspendEmulation(true)"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         kernel.SuspendEmulation(true);
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "kernel.CloseServices()"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         kernel.CloseServices();
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "kernel.ShutdownCores()"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         kernel.ShutdownCores();
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "services.reset()"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         services.reset();
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "service_manager.reset()"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         service_manager.reset();
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "fs_controller.Reset()"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         fs_controller.Reset();
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "cheat_engine.reset()"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         cheat_engine.reset();
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "core_timing.ClearPendingEvents()"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         core_timing.ClearPendingEvents();
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "app_loader.reset()"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         app_loader.reset();
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "audio_core.reset()"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         audio_core.reset();
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "gpu_core.reset()"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         gpu_core.reset();
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "host1x_core.reset()"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         host1x_core.reset();
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "perf_stats.reset()"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         perf_stats.reset();
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "cpu_manager.Shutdown()"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         cpu_manager.Shutdown();
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "debugger.reset()"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         debugger.reset();
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "kernel.Shutdown()"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         kernel.Shutdown();
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "stop_event = {}"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         stop_event = {};
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "Network::RestartSocketOperations()"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         Network::RestartSocketOperations();
 
         if (auto room_member = Network::GetRoomMember().lock()) {
@@ -462,8 +490,10 @@ struct System::Impl {
         }
 
         // Reset all glue registrations
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "arp_manager.ResetAll()"); // Pomegrade: TEMPORARY, the step a hang stops at (Error lines are written at once)
         arp_manager.ResetAll();
 
+        LOG_ERROR(Core, "[Pomegrade shutdown] {}", "done"); // Pomegrade: TEMPORARY
         LOG_DEBUG(Core, "Shutdown OK");
     }
 
