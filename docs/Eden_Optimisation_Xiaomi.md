@@ -620,7 +620,7 @@ Not without asking again: any online service not listed, other emulators or tool
 
 **Workflow, one step at a time, each merged before the next.**
 1. Identify the dump's contents: base game, update and DLC, and their versions. Done (checked with hactool, 1 November): the cartridge dump holds the base game 0100A3D008C5C000 version 1.0.0 (program NCA 6.7 GB), the update 0100A3D008C5C800 v786432, shown as 4.0.0 (program NCA 5.2 GB, SDK 21.0.0) and one DLC 0100A3D008C5D001 (a 114 KB PublicData NCA). Patches target update 4.0.0.
-2. Extract the exefs of the version Eden runs (base + update) and the shaders, and set up Ghidra on `main`.
+2. Extract the exefs of the version Eden runs (base + update) and the shaders, and set up Ghidra on `main`. Done 1 November (tools and steps in `tools/switch/README.md`): exefs of 4.0.0 extracted (`main` build ID 421c5411b487eb4d049dd065fec95477); `main` converted to ELF and imported into Ghidra 11.4.2 (the Adubbz Switch loader does not build against 11.4.2), full analysis started; the update's RomFS holds 30 files, the assets in `arc/data.trpfs` (8 GB, magic `ONEPACK`) indexed by `arc/data.trpfd` (20 MB, FlatBuffers). Where the shaders sit inside the archive: not checked yet.
 3. Find which game code issues the transform feedback draws and the other costly passes (Eden's draw log, section 10's measurement), and record it here as checked, seen, inferred or unknown.
 4. First patch: skinning without transform feedback, as an Eden mod; check that it loads headless, then the owner tests it on the phone (FPS against section 10's figures).
 5. Next patches only after measuring step 4, aimed at the ≤33 ms per frame needed for 30 FPS.
