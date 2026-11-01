@@ -2,36 +2,29 @@
 // Compute replacement for Scarlet's system/skinning vertex shader (variations 0 and 1): same math,
 // reading the model's vertex buffer directly instead of through vertex attributes, writing the
 // transform feedback buffers' layout (position 3 x float, normal packed signed 10:10:10).
-#extension GL_EXT_buffer_reference : require
-#extension GL_EXT_buffer_reference_uvec2 : require
 layout(local_size_x = 64) in;
-layout(buffer_reference, std430, buffer_reference_align = 4) readonly buffer Words { uint w[]; };
-layout(buffer_reference, std430, buffer_reference_align = 4) writeonly buffer OutWords { uint w[]; };
-// Bones as the game binds them for the vertex shader: constant buffer 13, 64 bytes per bone,
-// four columns (x, y, z used): skinned = c0*x + c1*y + c2*z + c3.
-layout(std140, binding = 13) uniform Bones { vec4 col[4096]; };
-layout(std140, binding = 1) uniform Args {
-  Words vertices;      // model vertex buffer, stride 48 (see the plan)
-  OutWords positions;  // transform feedback buffer 0
-  OutWords normals;    // transform feedback buffer 1
-  uint first, count;   // first vertex, vertex count
-};
-// Half to float by bit manipulation (the Maxwell codegen lacks the half unpack split ops); normals
-// are unit vectors, so denormals and infinities never occur and are not handled.
+// NVN storage buffers (address and size at c0[0x310 + 16 * binding]); the bones are the same memory
+// the game binds as the vertex shader's constant buffer 13: 64 bytes per bone, four columns (x, y, z
+// used), skinned = c0*x + c1*y + c2*z + c3.
+layout(std430, binding = 0) readonly buffer Params { uint first, count; };
+layout(std430, binding = 1) readonly buffer Vertices { uint words[]; } vertices;  // stride 48
+layout(std430, binding = 2) readonly buffer Bones { vec4 col[]; };
+layout(std430, binding = 3) writeonly buffer Positions { uint w[]; } positions;   // transform feedback buffer 0
+layout(std430, binding = 4) writeonly buffer Normals { uint w[]; } normals;       // transform feedback buffer 1
 float h2f(uint h) {
   uint e = (h >> 10) & 0x1fu;
   uint bits = ((h & 0x8000u) << 16) | (e == 0u ? 0u : (((e + 112u) << 23) | ((h & 0x3ffu) << 13)));
   return uintBitsToFloat(bits);
 }
-float f(uint i) { return uintBitsToFloat(vertices.w[i]); }
+float f(uint i) { return uintBitsToFloat(vertices.words[i]); }
 void main() {
   uint v = gl_GlobalInvocationID.x;
   if (v >= count) return;
   uint base = (first + v) * 12u;  // 48-byte stride in words
   vec3 p = vec3(f(base), f(base + 1u), f(base + 2u));
-  uint idx = vertices.w[base + 9u];
-  vec2 w01 = unpackUnorm2x16(vertices.w[base + 10u]);
-  vec2 w23 = unpackUnorm2x16(vertices.w[base + 11u]);
+  uint idx = vertices.words[base + 9u];
+  vec2 w01 = unpackUnorm2x16(vertices.words[base + 10u]);
+  vec2 w23 = unpackUnorm2x16(vertices.words[base + 11u]);
   vec3 c0 = vec3(0), c1 = vec3(0), c2 = vec3(0), c3 = vec3(0);
 #define BONE(k, wk) { uint b = ((idx >> (8 * k)) & 0xffu) * 4u; \
     c0 += wk * col[b].xyz; c1 += wk * col[b + 1u].xyz; c2 += wk * col[b + 2u].xyz; c3 += wk * col[b + 3u].xyz; }
@@ -42,7 +35,7 @@ void main() {
   positions.w[v * 3u + 2u] = floatBitsToUint(s.z);
 #ifdef WITH_NORMAL
   {
-    uint a = vertices.w[base + 3u], c = vertices.w[base + 4u];
+    uint a = vertices.words[base + 3u], c = vertices.words[base + 4u];
     vec3 n = normalize(c0 * h2f(a & 0xffffu) + c1 * h2f(a >> 16) + c2 * h2f(c & 0xffffu));
     ivec3 q = ivec3(n * 511.0);
     normals.w[v] = uint(q.x & 0x3ff) | (uint(q.y & 0x3ff) << 10) | (uint(q.z & 0x3ff) << 20);
