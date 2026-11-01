@@ -4,6 +4,8 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
+
 #ifdef _WIN32
 
 #include <iterator>
@@ -767,7 +769,16 @@ void HostMemory::Unmap(size_t virtual_offset, size_t length, bool separate_heap)
 #if !(defined(__OPENORBIS__) || defined(__managarm__))
     ASSERT(virtual_offset % PageAlignment == 0);
     ASSERT(length % PageAlignment == 0);
-    ASSERT(virtual_offset + length <= virtual_size);
+    // Pomegrade: with NCE (Android) the reservation is 2^38 bytes while a guest's address space
+    // has 39 bits, and KPageTableBase::Finalize unmaps every block of the process when a game
+    // closes, those above the reservation included. Map() never placed anything there (it asserts
+    // on it), so only the part inside the reservation is unmapped: the rest was passed on to
+    // munmap outside Eden's own mapping, freeing whatever lay there (the owner's crash on closing
+    // Pokemon Legends Z-A, 1 November, after this assert in the log).
+    if (virtual_offset >= virtual_size) {
+        return;
+    }
+    length = std::min(length, virtual_size - virtual_offset);
     if (length == 0 || !virtual_base || !impl) {
         return;
     }
