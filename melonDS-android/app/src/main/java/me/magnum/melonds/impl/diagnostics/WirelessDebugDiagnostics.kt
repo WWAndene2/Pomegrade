@@ -10,6 +10,8 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import me.magnum.melonds.impl.PomegradeFolder
@@ -110,23 +112,43 @@ object WirelessDebugDiagnostics {
         return output.toByteArray()
     }
 
-    /** Runs [command] (for the system trace, after [delaySeconds]); its output goes beside Eden's log. */
+    /**
+     * Runs [command]; its files go beside Eden's log. A delayed one (the system trace, the full analysis) starts after
+     * [delaySeconds] in Punica's own process and returns at once: its steps run while Punica is in a game, each output
+     * written by Punica (1 November: the shell-side version, detached with setsid and writing the files itself, left
+     * nothing on the owner's phone). A step that fails leaves a punica-<stamp>-error.txt saying which and why.
+     */
     suspend fun run(context: Context, command: DiagnosticCommand, delaySeconds: Int = 0): Result = withContext(Dispatchers.IO) {
         if (!isConnected) return@withContext Result.Failed("not connected")
         val folder = PomegradeFolder.consoleFolder(context, PunicaLayout.SWITCH, "${PunicaLayout.CORE}/log")
             ?: return@withContext Result.Failed("no Punica folder")
         folder.mkdirs()
         val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date())
-        val shell = runCatching {
-            command.shellCommand(context.packageName, folder.absolutePath, delaySeconds, stamp)
-        }.getOrElse { return@withContext Result.Failed(it.message ?: "bad argument") }
-        val output = runCatching {
-            // the shell service with the command as is (LocalServices.SHELL would quote it, and refuses double quotes)
-            WirelessDebugConnection.instance.openStream("shell:$shell").use { stream -> readUntilClosed(stream) }
-        }.getOrElse { return@withContext Result.Failed(it.message ?: it.javaClass.simpleName) }
-        val name = command.outputName(stamp) ?: return@withContext Result.Started(folder, delaySeconds)
-        val file = File(folder, name)
-        runCatching { file.writeBytes(output) }.getOrElse { return@withContext Result.Failed(it.message ?: "write failed") }
-        Result.Written(file)
+        val steps = runCatching { command.steps(context.packageName, stamp) }
+            .getOrElse { return@withContext Result.Failed(it.message ?: "bad argument") }
+        if (command.isDelayed) {
+            scope.launch {
+                delay(delaySeconds * 1000L)
+                runSteps(steps, folder, stamp)
+            }
+            return@withContext Result.Started(folder, delaySeconds)
+        }
+        runSteps(steps, folder, stamp)?.let { return@withContext Result.Failed(it) }
+        Result.Written(File(folder, steps.last().fileName))
+    }
+
+    /** Runs [steps] in order, each output into its file; the first failure stops them and is returned (and written). */
+    private fun runSteps(steps: List<DiagnosticCommand.Step>, folder: File, stamp: String): String? {
+        for (step in steps) {
+            val failure = runCatching {
+                // the shell service with the command as is (LocalServices.SHELL would quote it, and refuses double quotes)
+                val output = WirelessDebugConnection.instance.openStream("shell:${step.shell}").use { stream -> readUntilClosed(stream) }
+                File(folder, step.fileName).writeBytes(output)
+            }.exceptionOrNull() ?: continue
+            val reason = "${step.fileName}: ${failure.message ?: failure.javaClass.simpleName}"
+            runCatching { File(folder, "punica-$stamp-error.txt").writeText(reason) }
+            return reason
+        }
+        return null
     }
 }
