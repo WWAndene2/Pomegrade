@@ -992,6 +992,7 @@
     <string name="wireless_debug_disconnect">Déconnecter</string>
     <string name="wireless_debug_disconnect_summary">Coupe la connexion de débogage maintenant</string>
     <string name="wireless_debug_diagnostics">Diagnostics</string>
+    <string name="wireless_debug_traces">Traces</string>
     <string name="wireless_debug_trace_delay">Délai avant la trace</string>
     <string name="wireless_debug_full">Analyse complète</string>
     <string name="wireless_debug_full_summary">État du GPU, trace de 20 s et messages du pilote, en une fois</string>
@@ -1024,7 +1025,6 @@
     <string name="settings_group_settings">Réglages</string>
     <string name="settings_group_tools">Outils</string>
     <string name="settings_group_in_game_menu">Menu en jeu</string>
-    <string name="settings_group_diagnostics">Diagnostic</string>
     <string name="settings_advanced_options">Options avancées</string>
     <string name="menu_access_opening">Ouverture</string>
 </resources>

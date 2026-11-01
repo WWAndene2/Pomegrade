@@ -79,16 +79,6 @@
 
     </PreferenceCategory>
 
-    <PreferenceCategory
-            android:title="@string/settings_group_diagnostics"
-            app:iconSpaceReserved="false">
-        <Preference
-                android:title="@string/wireless_debug"
-                android:summary="@string/wireless_debug_summary"
-                app:icon="@drawable/ic_row_bug"
-                android:fragment="me.magnum.melonds.ui.settings.fragments.WirelessDebugPreferencesFragment" />
-    </PreferenceCategory>
-
     <!-- the console whose settings are shown below: one section at a time (MainPreferencesFragment) -->
     <me.magnum.melonds.ui.settings.preferences.ConsoleSelectorPreference
             android:key="settings_console"
@@ -141,16 +131,6 @@
                     android:summary="@string/cheats_summary"
                     app:icon="@drawable/ic_cheat"
                     android:fragment="me.magnum.melonds.ui.settings.fragments.CheatsPreferencesFragment" />
-        </PreferenceCategory>
-        <PreferenceCategory
-                android:title="@string/settings_advanced"
-                app:iconSpaceReserved="false">
-            <SwitchPreference
-                    android:key="ds_debug_trace"
-                    android:title="@string/ds_debug_trace"
-                    android:summary="@string/ds_debug_trace_summary"
-                    android:defaultValue="false"
-                    app:icon="@drawable/ic_row_log" />
         </PreferenceCategory>
     </PreferenceCategory>
 
