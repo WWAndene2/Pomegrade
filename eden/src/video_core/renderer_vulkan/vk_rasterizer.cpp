@@ -1013,10 +1013,12 @@ void Vulkan::RasterizerVulkan::DisableGraphicsUniformBuffer(size_t stage, u32 in
 
 void RasterizerVulkan::FlushAll() {}
 
-void RasterizerVulkan::FlushRegion(DAddr addr, u64 size, VideoCommon::CacheType which) {
+void RasterizerVulkan::FlushRegion(DAddr addr, u64 size, VideoCommon::CacheType which, const char* file, int line) {
     if (addr == 0 || size == 0) {
         return;
     }
+    // Pomegrade: TEMPORARY, the GPU waits made by this flush are counted with its caller
+    const PomegradeDiagnostics::FlushCaller pomegrade_flush_caller{file, line};
     if (True(which & VideoCommon::CacheType::TextureCache)) {
         std::scoped_lock lock{texture_cache.mutex};
         texture_cache.DownloadMemory(addr, size);

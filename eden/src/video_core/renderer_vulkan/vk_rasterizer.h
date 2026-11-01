@@ -98,7 +98,8 @@ public:
     void DisableGraphicsUniformBuffer(size_t stage, u32 index) override;
     void FlushAll() override;
     void FlushRegion(DAddr addr, u64 size,
-                     VideoCommon::CacheType which = VideoCommon::CacheType::All) override;
+                     VideoCommon::CacheType which = VideoCommon::CacheType::All,
+                     const char* file = __builtin_FILE(), int line = __builtin_LINE()) override;
     bool MustFlushRegion(DAddr addr, u64 size,
                          VideoCommon::CacheType which = VideoCommon::CacheType::All) override;
     VideoCore::RasterizerDownloadArea GetFlushArea(DAddr addr, u64 size) override;

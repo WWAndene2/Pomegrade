@@ -90,8 +90,10 @@ public:
     virtual void FlushAll() = 0;
 
     /// Notify rasterizer that any caches of the specified region should be flushed to Switch memory
+    /// Pomegrade: file and line name the caller for the TEMPORARY wait count (who makes the GPU flush)
     virtual void FlushRegion(DAddr addr, u64 size,
-                             VideoCommon::CacheType which = VideoCommon::CacheType::All) = 0;
+                             VideoCommon::CacheType which = VideoCommon::CacheType::All,
+                             const char* file = __builtin_FILE(), int line = __builtin_LINE()) = 0;
 
     /// Check if the the specified memory area requires flushing to CPU Memory.
     virtual bool MustFlushRegion(DAddr addr, u64 size,

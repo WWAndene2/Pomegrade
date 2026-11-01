@@ -43,7 +43,7 @@ void RasterizerNull::BindGraphicsUniformBuffer(size_t stage, u32 index, GPUVAddr
                                                u32 size) {}
 void RasterizerNull::DisableGraphicsUniformBuffer(size_t stage, u32 index) {}
 void RasterizerNull::FlushAll() {}
-void RasterizerNull::FlushRegion(DAddr addr, u64 size, VideoCommon::CacheType) {}
+void RasterizerNull::FlushRegion(DAddr addr, u64 size, VideoCommon::CacheType, const char*, int) {}
 bool RasterizerNull::MustFlushRegion(DAddr addr, u64 size, VideoCommon::CacheType) {
     return false;
 }

@@ -143,13 +143,31 @@ inline thread_local const char* wait_file = nullptr;
 inline thread_local int wait_line = 0;
 inline std::mutex wait_site_mutex;
 inline std::map<std::string, std::pair<std::uint64_t, std::uint64_t>> wait_sites; // count, ns
-inline void CountWaitSite(const char* thread, std::uint64_t ns) {
-    std::string where = wait_file ? wait_file : "?";
-    const auto slash = where.rfind('/');
-    if (slash != std::string::npos) {
-        where = where.substr(slash + 1);
+// the caller of the rasterizer's FlushRegion running on this thread, if any: the waits it causes name it too
+inline thread_local const char* flush_file = nullptr;
+inline thread_local int flush_line = 0;
+struct FlushCaller {
+    FlushCaller(const char* file, int line) : saved_file{flush_file}, saved_line{flush_line} {
+        flush_file = file;
+        flush_line = line;
     }
-    where = std::string(thread) + " " + where + ":" + std::to_string(wait_line);
+    ~FlushCaller() {
+        flush_file = saved_file;
+        flush_line = saved_line;
+    }
+    const char* saved_file;
+    int saved_line;
+};
+inline std::string ShortFileName(const char* file) {
+    std::string name = file ? file : "?";
+    const auto slash = name.rfind('/');
+    return slash == std::string::npos ? name : name.substr(slash + 1);
+}
+inline void CountWaitSite(const char* thread, std::uint64_t ns) {
+    std::string where = std::string(thread) + " " + ShortFileName(wait_file) + ":" + std::to_string(wait_line);
+    if (flush_file) {
+        where += " <- flush from " + ShortFileName(flush_file) + ":" + std::to_string(flush_line);
+    }
     std::scoped_lock lock{wait_site_mutex};
     auto& [count, total] = wait_sites[where];
     ++count;
