@@ -265,6 +265,14 @@ void RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_func) {
         FlushWork();
         gpu_memory->FlushCaching();
     }
+    // Pomegrade: TEMPORARY measurement (debug knobs = 2): the draws that only capture transform
+    // feedback (nothing rasterized) are skipped, to see what they cost on Mali. Breaks what they
+    // animate; debug knobs = 0 for normal play.
+    if (Settings::GetDebugKnobAt(1) && maxwell3d->regs.transform_feedback_enabled != 0 &&
+        maxwell3d->regs.rasterize_enable == 0) {
+        submitted = true;
+        return;
+    }
 
     const auto report_failure = [&](std::string_view reason) {
         static std::set<std::tuple<u64, u64, std::string_view>> seen;
