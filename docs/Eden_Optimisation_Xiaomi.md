@@ -596,3 +596,31 @@ upload reordering, the picture passes, the TEMPORARY diagnostic. Asynchronous GP
 Android now (Eden's master; v0.2.1 had it off there): H2 above. **Unmeasured**: whether Eden's deferred clear keeps
 clear on load's 1 to 2.5 FPS (the twelfth log), and the frame rate with all of it; the next log, same place and
 settings as the fifteenth, answers both.
+
+## 11. "Mali custom" version of Pokemon Scarlet (owner's request, 1 November)
+
+Numbered 11 because section 10 (the measurement of 1 November: skipping every transform feedback draw takes Scarlet from 13.7 to 18.5 FPS) lives on the branch `claude/app-ui-redesign-v1n2ii`.
+
+**Goal.** Patch the game itself (its code `main` in the exefs, and its shaders) so its GPU work suits the Mali (e.g. skinning in the vertex shader instead of a transform feedback pass), still run by Eden as an Eden mod (IPS patches on the exefs, replaced files), not a recompilation. Patches are tied to one game version. Scarlet first, Z-A later for comparison; long term, an open-world mod (Scarlet, Z-A, the next game).
+
+**Rules.** The owner's dump, keys (`prod.keys`, `title.keys`) and anything extracted from them stay in the session's temporary scratch space, never committed, uploaded or put in an artifact (CLAUDE.md §8). The repository only gets our own scripts, patches and documentation.
+
+**Approved tools (owner, 1 November, once for all).** Using anything not on this list needs the owner's approval first. No file or information of the owner's goes to an outside service, except the services named here.
+
+| Step | Tools |
+|---|---|
+| Open the game | hactool (SciresM), hactoolnet / LibHac (Thealexbarney, .NET), nstool (jakcron) |
+| Read the code | Ghidra, Ghidra Switch Loader (Adubbz), nx2elf / nsnsotool, Capstone, llvm-objdump |
+| GPU and shaders | Eden's own code (shader decoder, draw logs), Ryujinx's shader code (ShaderTools), SPIRV-Tools / glslang, RenderDoc |
+| Write patches | Keystone or aarch64 GNU binutils, IPS / IPS32 (written by our own script), our own C++ tools |
+| Game data (later) | pkNX (kwsch), the Scarlet/Violet Trinity tools (flatc schemas, TRPAK/TRPFS readers), FlatBuffers flatc, Blender with a Trinity import plugin |
+| Run and measure | Eden headless on Linux, Mesa lavapipe, the GitHub Actions workflow building the mod the owner tests |
+
+Not without asking again: any online service not listed, other emulators or tools, access to the phone (adb).
+
+**Workflow, one step at a time, each merged before the next.**
+1. Identify the dump's contents: base game, update and DLC, and their versions. The cartridge dump of 1 November holds 12 NCAs in 3 content groups; which group is which is not yet checked.
+2. Extract the exefs of the version Eden runs (base + update) and the shaders, and set up Ghidra on `main`.
+3. Find which game code issues the transform feedback draws and the other costly passes (Eden's draw log, section 10's measurement), and record it here as checked, seen, inferred or unknown.
+4. First patch: skinning without transform feedback, as an Eden mod; check that it loads headless, then the owner tests it on the phone (FPS against section 10's figures).
+5. Next patches only after measuring step 4, aimed at the ≤33 ms per frame needed for 30 FPS.
