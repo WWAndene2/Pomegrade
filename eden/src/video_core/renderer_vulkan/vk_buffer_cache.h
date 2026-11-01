@@ -116,8 +116,7 @@ public:
 
     void Wait(u64 tick);
 
-    /// Pomegrade: file and line name the caller for the TEMPORARY wait count
-    void Finish(const char* file = __builtin_FILE(), int line = __builtin_LINE());
+    void Finish();
 
     u64 GetDeviceLocalMemory() const;
 
@@ -139,11 +138,9 @@ public:
 
     void PreCopyBarrier();
 
-    /// Pomegrade: file and line are the caller's, counted when the copy ends a render pass (TEMPORARY diagnostic)
     void CopyBuffer(VkBuffer dst_buffer, VkBuffer src_buffer,
                     std::span<const VideoCommon::BufferCopy> copies, bool barrier,
-                    bool can_reorder_upload = false, const char* file = __builtin_FILE(),
-                    int line = __builtin_LINE());
+                    bool can_reorder_upload = false);
 
     void PostCopyBarrier();
 

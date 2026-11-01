@@ -29,7 +29,6 @@
 #include "video_core/vulkan_common/vulkan_device.h"
 #include "video_core/gpu_logging/gpu_logging.h"
 #include "common/settings.h"
-#include "common/pomegrade_diagnostics.h"
 #include "video_core/nx2_profile.h"
 
 #if defined(__clang__) && defined(NDEBUG)
@@ -541,41 +540,6 @@ bool GraphicsPipeline::ConfigureImpl(bool is_indexed) {
 
     if (regs.transform_feedback_enabled != 0) {
         scheduler.RequestOutsideRenderPassOperationContext();
-    }
-    { // Pomegrade: TEMPORARY, what the transform feedback draws do (common/pomegrade_diagnostics.h)
-        if (regs.transform_feedback_enabled != 0) {
-            std::array<std::pair<u64, u64>, Maxwell::NumTransformFeedbackBuffers> outputs{};
-            int output_count = 0;
-            for (const auto& buffer : regs.transform_feedback.buffers) {
-                if (buffer.enable != 0 && buffer.size > 0) {
-                    outputs[output_count++] = {buffer.Address(), buffer.Address() + u64(buffer.size)};
-                }
-            }
-            if (!PomegradeDiagnostics::tf_run_open) { // a run begins: its GPU time and a trace section
-                PomegradeDiagnostics::tf_run_open = true;
-                PomegradeDiagnostics::tf_run_pair = scheduler.PomegradeTimestampBegin();
-                PomegradeDiagnostics::TraceBegin("transform feedback run");
-            }
-            const bool discard = regs.rasterize_enable == 0;
-            PomegradeDiagnostics::CountTfDraw(discard, !discard && regs.rt_control.count != 0,
-                                              *spv_modules[4] != VK_NULL_HANDLE, *spv_modules[3] != VK_NULL_HANDLE,
-                                              outputs.data(), output_count);
-        } else {
-            std::array<u64, Maxwell::NumVertexArrays> streams{};
-            int stream_count = 0;
-            for (const auto& stream : regs.vertex_streams) {
-                if (stream.IsEnabled()) {
-                    streams[stream_count++] = stream.Address();
-                }
-            }
-            PomegradeDiagnostics::CountNonTfDraw(streams.data(), stream_count);
-            if (PomegradeDiagnostics::tf_run_open) { // the run ended with the previous draw
-                PomegradeDiagnostics::tf_run_open = false;
-                scheduler.PomegradeTimestampEnd(PomegradeDiagnostics::tf_run_pair,
-                                                Scheduler::PomegradeTimed::TransformFeedbackRun);
-                PomegradeDiagnostics::TraceEnd();
-            }
-        }
     }
 
     {

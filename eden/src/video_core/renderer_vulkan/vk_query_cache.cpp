@@ -11,7 +11,6 @@
 #include <span>
 #include <type_traits>
 #include "common/container/unordered_map.h"
-#include "common/settings.h"
 #include <utility>
 #include <vector>
 #include "video_core/renderer_vulkan/vk_texture_cache.h"
@@ -812,13 +811,6 @@ public:
         }
         const size_t slot = stream_to_slot[subreport];
         if (slot >= NUM_STREAMS) {
-            new_query->flags |= VideoCommon::QueryFlagBits::IsFinalValueSynced;
-            return index;
-        }
-        // Pomegrade: TEMPORARY measurement (debug knobs = 1): the transform feedback counter is not
-        // copied after each draw (the pass is not ended for it; the game reads 0), to see what the
-        // per-draw pass splits and copies cost on Mali. debug knobs = 0 for normal play.
-        if (Settings::GetDebugKnobAt(0)) {
             new_query->flags |= VideoCommon::QueryFlagBits::IsFinalValueSynced;
             return index;
         }

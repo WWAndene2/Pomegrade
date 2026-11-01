@@ -4,7 +4,6 @@
 // SPDX-FileCopyrightText: Copyright 2019 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include "common/pomegrade_diagnostics.h" // Pomegrade: TEMPORARY
 #include <chrono>
 #include <thread>
 
@@ -89,8 +88,6 @@ void ThreadManager::StartThread(VideoCore::RendererBase& renderer, Core::Fronten
             if (stop_token.stop_requested()) {
                 break;
             }
-            // Pomegrade: TEMPORARY, the GPU thread's work in a system trace
-            const PomegradeDiagnostics::TraceScope pomegrade_trace{"GPU thread command"};
             last_progress = std::chrono::steady_clock::now();
             if (split.Active()) {
                 // Only command lists are parsed here; everything else runs on the back thread

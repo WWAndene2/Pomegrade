@@ -16,7 +16,6 @@
 #include <boost/container/small_vector.hpp>
 #include <bit>
 #include <numeric>
-#include "common/pomegrade_diagnostics.h" // Pomegrade: TEMPORARY
 #include "common/bit_util.h"
 #include "common/settings.h"
 
@@ -1096,8 +1095,8 @@ TextureCacheRuntime::TextureCacheRuntime(const Device& device_, Scheduler& sched
     }
 }
 
-void TextureCacheRuntime::Finish(const char* file, int line) {
-    scheduler.Finish({}, {}, file, line);
+void TextureCacheRuntime::Finish() {
+    scheduler.Finish();
 }
 
 StagingBufferRef TextureCacheRuntime::UploadStagingBuffer(size_t size, bool deferred) {
@@ -2032,17 +2031,6 @@ Image::Image(TextureCacheRuntime& runtime_, const ImageInfo& info_, GPUVAddr gpu
                                    : runtime->ViewFormats(info.format),
                                AstcHostFormat(runtime_.device, info))),
       aspect_mask(ImageAspectMask(info.format)) {
-    // Pomegrade: TEMPORARY, renderable images counted, and those also made for storage (common/pomegrade_diagnostics.h)
-    {
-        const auto usage = ImageUsageFlags(
-            MaxwellToVK::SurfaceFormat(runtime->device, FormatType::Optimal, false, info.format), info.format);
-        if (usage & (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) {
-            PomegradeDiagnostics::attachment_images.fetch_add(1, std::memory_order_relaxed);
-            if (usage & VK_IMAGE_USAGE_STORAGE_BIT) {
-                PomegradeDiagnostics::storage_attachment_images.fetch_add(1, std::memory_order_relaxed);
-            }
-        }
-    }
     if (original_image.IsUnbacked()) {
         flags |= VideoCommon::ImageFlagBits::Unbacked;
     }
@@ -2872,8 +2860,6 @@ VkImageView ImageView::StorageView(Shader::TextureType texture_type,
         // null descriptor: the shader's accesses to it are dropped rather than made through an invalid view
         if (!((*slot_images)[image_id].UsageFlags() & VK_IMAGE_USAGE_STORAGE_BIT) &&
             device->HasNullDescriptor()) {
-            // Pomegrade: TEMPORARY, a renderable image the game uses as storage (common/pomegrade_diagnostics.h)
-            PomegradeDiagnostics::attachment_storage_views.fetch_add(1, std::memory_order_relaxed);
             return VK_NULL_HANDLE;
         }
         if (image_format == Shader::ImageFormat::Typeless) {
@@ -2889,13 +2875,8 @@ VkImageView ImageView::StorageView(Shader::TextureType texture_type,
             storage_views.emplace();
         auto& views{is_signed ? storage_views->signeds : storage_views->unsigneds};
         auto& view{views[size_t(texture_type)]};
-        if (!view) {
+        if (!view)
             view = MakeView(Format(image_format), VK_IMAGE_ASPECT_COLOR_BIT, texture_type);
-            // Pomegrade: TEMPORARY, a renderable image really used as storage
-            if ((*slot_images)[image_id].UsageFlags() & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
-                PomegradeDiagnostics::attachment_storage_views.fetch_add(1, std::memory_order_relaxed);
-            }
-        }
         return *view;
     }
     return VK_NULL_HANDLE;

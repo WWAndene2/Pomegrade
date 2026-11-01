@@ -6,23 +6,18 @@
 
 #pragma once
 
-#include <array>
 #include <condition_variable>
 #include <cstddef>
-#include <deque>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <thread>
 #include <utility>
-#include <vector>
 #include <queue>
 
 #include "common/alignment.h"
 #include "common/common_types.h"
 #include "common/polyfill_thread.h"
 #include "common/settings.h"
-#include "common/pomegrade_diagnostics.h" // Pomegrade: TEMPORARY
 #include "video_core/gpu_split.h"
 #include "video_core/renderer_vulkan/vk_master_semaphore.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
@@ -53,9 +48,7 @@ public:
     u64 Flush(VkSemaphore signal_semaphore = {}, VkSemaphore wait_semaphore = {});
 
     /// Sends the current execution context to the GPU and waits for it to complete.
-    /// Pomegrade: file and line name the caller for the TEMPORARY wait count (who finishes, not Finish itself).
-    void Finish(VkSemaphore signal_semaphore = {}, VkSemaphore wait_semaphore = {},
-                const char* file = __builtin_FILE(), int line = __builtin_LINE());
+    void Finish(VkSemaphore signal_semaphore = {}, VkSemaphore wait_semaphore = {});
 
     /// Waits for the worker thread to finish executing everything. After this function returns it's
     /// safe to touch worker resources.
@@ -85,13 +78,6 @@ public:
         return null_framebuffer;
     }
 
-    /// Pomegrade: TEMPORARY, a pair of GPU timestamps around recorded work (common/pomegrade_diagnostics.h):
-    /// begin returns the pair, or PomegradeNoTimestamp when none is free; end adds its time to `kind`
-    static constexpr u32 PomegradeNoTimestamp = ~u32{0};
-    enum class PomegradeTimed { CommandBuffer, TransformFeedbackRun };
-    u32 PomegradeTimestampBegin();
-    void PomegradeTimestampEnd(u32 pair, PomegradeTimed kind);
-
     /// Pomegrade: a "wait for idle" made at the end of the current render pass (a full memory barrier after it)
     /// instead of ending it now (setting pomegrade_defer_wait_for_idle)
     void DeferWaitForIdle() noexcept {
@@ -100,9 +86,7 @@ public:
 
     /// Requests the current execution context to be able to execute operations only allowed outside
     /// of a renderpass.
-    /// Pomegrade: the caller's file and line are counted when it ends a render pass (TEMPORARY diagnostic)
-    void RequestOutsideRenderPassOperationContext(const char* file = __builtin_FILE(),
-                                                  int line = __builtin_LINE());
+    void RequestOutsideRenderPassOperationContext();
 
     /// Returns true when a render pass is currently active in the scheduler state.
     bool IsRenderPassActive() const {
@@ -180,17 +164,13 @@ public:
     /// records (the async present thread) pass may_flush = false: flushing from there records
     /// into the current chunk while that thread does (corrupt command buffers, crashes). They
     /// wait for the recording thread to submit the tick instead, and give up after 20 ms (it may
-    /// be waiting for them). Pomegrade: file and line name the caller for the TEMPORARY wait count.
-    void Wait(u64 tick, double target_fps = 0.0, bool may_flush = true,
-              const char* file = __builtin_FILE(), int line = __builtin_LINE()) {
+    /// be waiting for them).
+    void Wait(u64 tick, double target_fps = 0.0, bool may_flush = true) {
         if (tick > 0 && (may_flush || WaitForSubmission(tick))) {
             if (tick >= master_semaphore->CurrentTick()) {
                 Flush();
             }
-            PomegradeDiagnostics::wait_file = file; // Pomegrade: TEMPORARY, who waits (CountWaitSite)
-            PomegradeDiagnostics::wait_line = line;
             master_semaphore->Wait(tick);
-            PomegradeDiagnostics::wait_file = nullptr;
         }
         if (Settings::values.use_speed_limit.GetValue() && target_fps > 0.0) {
             auto now = std::chrono::steady_clock::now();
@@ -372,18 +352,6 @@ private:
 
     u32 num_renderpass_images = 0;
     const Framebuffer* null_framebuffer = nullptr;
-
-    // Pomegrade: TEMPORARY, the GPU timestamps (PomegradeTimestampBegin), read back after each submission
-    void PomegradeTimestampWrite(vk::CommandBuffer cmdbuf, u32 query, bool is_begin) const;
-    u32 PomegradeTakePair();
-    void PomegradeCollectTimestamps();
-    static constexpr u32 POMEGRADE_TIMESTAMP_PAIRS = 2048;
-    vk::QueryPool pomegrade_timestamps;
-    double pomegrade_timestamp_period = 0.0;
-    std::mutex pomegrade_timestamp_mutex;
-    std::vector<u32> pomegrade_free_pairs;
-    std::deque<std::pair<u32, PomegradeTimed>> pomegrade_pending_pairs;
-    u32 pomegrade_cmdbuf_pair = PomegradeNoTimestamp;
     std::array<VkImage, 9> renderpass_images{};
     std::array<VkImageSubresourceRange, 9> renderpass_image_ranges{};
 

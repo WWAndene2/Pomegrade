@@ -1893,9 +1893,4 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="pomegrade_compressed_render_targets_description">Lets Mali GPUs compress the images the game draws, for less memory traffic every frame. Experimental: an effect a game draws into one of them through a shader may go missing. Takes effect at the next game start</string>
     <string name="pomegrade_defer_wait_for_idle">Fewer render pass splits (Mali)</string>
     <string name="pomegrade_defer_wait_for_idle_description">When the game asks the GPU to wait in the middle of drawing, waits at the end of the drawing step instead of cutting it in two: far less memory traffic on phone GPUs. Experimental: an effect may show a frame late or flicker</string>
-    <string name="pomegrade_test_reorder_all_uploads">Test: all uploads at frame start</string>
-    <string name="pomegrade_test_skip_fragment_barriers">Test: ignore fragment barriers</string>
-    <string name="pomegrade_test_description">Measurement only, draws wrong pictures: shows how much faster the game could run. Turn it off to play</string>
-    <string name="pomegrade_test_cycle">Test cycle (3 min)</string>
-    <string name="pomegrade_test_cycle_description">Measurement only: during a game, changes the test options by itself every 45 seconds for about 3 minutes and writes each step to the log; some steps draw wrong pictures. Play in the field until the log says it is done, then turn it off</string>
 </resources>

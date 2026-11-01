@@ -19,7 +19,6 @@
 #include "video_core/renderer_vulkan/vk_render_pass_cache.h"
 #include "video_core/renderer_vulkan/renderer_vulkan.h"
 
-#include "common/pomegrade_diagnostics.h" // Pomegrade: TEMPORARY
 #include "common/assert.h"
 #include "shader_recompiler/exception.h"
 #include "common/logging.h"
@@ -264,14 +263,6 @@ void RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_func) {
         Profile::Scope scope{Profile::Zone::FlushWork};
         FlushWork();
         gpu_memory->FlushCaching();
-    }
-    // Pomegrade: TEMPORARY measurement (debug knobs = 2): the draws that only capture transform
-    // feedback (nothing rasterized) are skipped, to see what they cost on Mali. Breaks what they
-    // animate; debug knobs = 0 for normal play.
-    if (Settings::GetDebugKnobAt(1) && maxwell3d->regs.transform_feedback_enabled != 0 &&
-        maxwell3d->regs.rasterize_enable == 0) {
-        submitted = true;
-        return;
     }
 
     const auto report_failure = [&](std::string_view reason) {
@@ -553,28 +544,6 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
         const auto& draw_state = maxwell3d->draw_manager.draw_state;
         const u32 num_instances{instance_count};
         const DrawParams draw_params{MakeDrawParams(draw_state, num_instances, is_indexed)};
-        { // Pomegrade: TEMPORARY, the transform feedback draws' shape (common/pomegrade_diagnostics.h)
-            const auto& regs = maxwell3d->regs;
-            if (regs.transform_feedback_enabled != 0) {
-                static constexpr std::array<const char*, 15> topologies{
-                    "Points", "Lines", "LineLoop", "LineStrip", "Triangles", "TriangleStrip", "TriangleFan", "Quads",
-                    "QuadStrip", "Polygon", "LinesAdjacency", "LineStripAdjacency", "TrianglesAdjacency",
-                    "TriangleStripAdjacency", "Patches"};
-                const auto topology = static_cast<size_t>(draw_state.topology);
-                std::string shape = fmt::format("{} {} {}", topology < topologies.size() ? topologies[topology] : "?",
-                                                is_indexed ? "indexed" : "not indexed",
-                                                num_instances > 1 ? "instanced" : "x1");
-                for (size_t i = 0; i < Maxwell::NumTransformFeedbackBuffers; i++) {
-                    if (regs.transform_feedback.buffers[i].enable != 0) {
-                        shape += fmt::format(" [b{} stride {} varyings {} stream {}]", i,
-                                             regs.transform_feedback.controls[i].stride,
-                                             regs.transform_feedback.controls[i].varying_count,
-                                             regs.transform_feedback.controls[i].stream);
-                    }
-                }
-                PomegradeDiagnostics::CountTfShape(shape, u64(draw_params.num_vertices) * draw_params.num_instances);
-            }
-        }
 
         scheduler.Record([draw_params](vk::CommandBuffer cmdbuf) {
             if (draw_params.is_indexed) {
@@ -601,14 +570,9 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
                 is_indexed ? "vkCmdDrawIndexed" : "vkCmdDraw", params, VK_SUCCESS);
         }
     });
-    PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed); // Pomegrade: TEMPORARY, after the draw: its pass has begun
 }
 
 void RasterizerVulkan::DrawIndirect() {
-    // Pomegrade: TEMPORARY, transform feedback draws whose counts the GPU reads (common/pomegrade_diagnostics.h)
-    if (maxwell3d->regs.transform_feedback_enabled != 0) {
-        PomegradeDiagnostics::tf_indirect_draws.fetch_add(1, std::memory_order_relaxed);
-    }
     VideoCommon::Nx2Profile::Scope profile_scope{VideoCommon::Nx2Profile::Zone::Draw};
     const auto& params = maxwell3d->draw_manager.indirect_state;
     buffer_cache.SetDrawIndirect(&params);
@@ -665,7 +629,6 @@ void RasterizerVulkan::DrawIndirect() {
         }
     });
     buffer_cache.SetDrawIndirect(nullptr);
-    PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed); // Pomegrade: TEMPORARY, after the draw: its pass has begun
 }
 
 void RasterizerVulkan::DrawTexture() {
@@ -713,7 +676,6 @@ void RasterizerVulkan::DrawTexture() {
                          static_cast<u32>(ScaleSrc(texture.size.height)), texture.size.depth};
     blit_image.BlitColor(framebuffer, texture.RenderTarget(), texture.ImageHandle(),
                          sampler->Handle(), dst_region, src_region, src_size);
-    PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed); // Pomegrade: TEMPORARY, after the draw: its pass has begun
 }
 
 void RasterizerVulkan::Clear(u32 layer_count) {
@@ -812,6 +774,7 @@ void RasterizerVulkan::Clear(u32 layer_count) {
     if (!clamp_rect_to_render_area(clear_rect.rect)) {
         return;
     }
+
     const bool clear_covers_render_area =
         clear_rect.rect.offset.x == 0 && clear_rect.rect.offset.y == 0 &&
         clear_rect.rect.extent.width >= render_area.width &&
@@ -820,22 +783,6 @@ void RasterizerVulkan::Clear(u32 layer_count) {
                                  regs.clear_surface.layer == 0 &&
                                  !scheduler.IsRenderPassActive() &&
                                  (!use_color || color_full_channels) && ds_deferrable;
-    // Pomegrade: TEMPORARY, clears of the whole render area counted: deferred (no pass open, Eden makes them the
-    // next pass's CLEAR load), else first in the open pass or later
-    if (clear_rect.rect.offset.x == 0 && clear_rect.rect.offset.y == 0 &&
-        clear_rect.rect.extent.width == render_area.width &&
-        clear_rect.rect.extent.height == render_area.height) {
-        if (can_defer_clear) {
-            PomegradeDiagnostics::full_clears_deferred.fetch_add(1, std::memory_order_relaxed);
-        } else {
-            (PomegradeDiagnostics::pass_untouched.exchange(false, std::memory_order_relaxed)
-                 ? PomegradeDiagnostics::full_clears_first
-                 : PomegradeDiagnostics::full_clears_later)
-                .fetch_add(1, std::memory_order_relaxed);
-        }
-    } else {
-        PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed);
-    }
     if (!can_defer_clear) {
         scheduler.RequestRenderpass(framebuffer);
     }
@@ -1021,12 +968,10 @@ void Vulkan::RasterizerVulkan::DisableGraphicsUniformBuffer(size_t stage, u32 in
 
 void RasterizerVulkan::FlushAll() {}
 
-void RasterizerVulkan::FlushRegion(DAddr addr, u64 size, VideoCommon::CacheType which, const char* file, int line) {
+void RasterizerVulkan::FlushRegion(DAddr addr, u64 size, VideoCommon::CacheType which) {
     if (addr == 0 || size == 0) {
         return;
     }
-    // Pomegrade: TEMPORARY, the GPU waits made by this flush are counted with its caller
-    const PomegradeDiagnostics::FlushCaller pomegrade_flush_caller{file, line};
     if (True(which & VideoCommon::CacheType::TextureCache)) {
         std::scoped_lock lock{texture_cache.mutex};
         texture_cache.DownloadMemory(addr, size);
@@ -1243,7 +1188,6 @@ void RasterizerVulkan::WaitForIdle() {
     if (Settings::values.pomegrade_defer_wait_for_idle.GetValue() && scheduler.IsRenderPassActive()) {
         scheduler.DeferWaitForIdle();
         fence_manager.SignalOrdering();
-        PomegradeDiagnostics::deferred_waits.fetch_add(1, std::memory_order_relaxed); // Pomegrade: TEMPORARY
         return;
     }
 
@@ -1256,10 +1200,6 @@ void RasterizerVulkan::WaitForIdle() {
 }
 
 void RasterizerVulkan::FragmentBarrier() {
-    // Pomegrade: TEMPORARY ceiling test, unsafe: a render target read back while drawn may show stale pixels
-    if (Settings::values.pomegrade_test_skip_fragment_barriers.GetValue()) {
-        return;
-    }
     // We already put barriers when a render pass finishes
     scheduler.RequestOutsideRenderPassOperationContext();
 }
