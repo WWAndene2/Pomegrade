@@ -154,7 +154,13 @@ void EmitEmitVertex(EmitContext& ctx, const IR::Value& stream) {
         ConvertDepthMode(ctx);
     }
     if (!ctx.profile.support_geometry_streams) {
-        throw NotImplementedException("Geometry streams");
+        // Pomegrade: without geometryStreams (Mali) the shader was refused whole and its draws
+        // vanished (Pokemon Legends Z-A: 12 pipelines, its 3D scene missing, owner, 1 November).
+        // Stream 0, the only one rasterized, is emitted as a plain vertex; another stream only feeds
+        // transform feedback, which such a device cannot capture by stream, and is dropped.
+        if (!stream.IsImmediate() || stream.U32() == 0) {
+            ctx.OpEmitVertex();
+        }
     } else if (stream.IsImmediate()) {
         ctx.OpEmitStreamVertex(ctx.Def(stream));
     } else {
@@ -167,7 +173,10 @@ void EmitEmitVertex(EmitContext& ctx, const IR::Value& stream) {
 
 void EmitEndPrimitive(EmitContext& ctx, const IR::Value& stream) {
     if (!ctx.profile.support_geometry_streams) {
-        throw NotImplementedException("Geometry streams");
+        // Pomegrade: as in EmitEmitVertex, stream 0 only, as a plain primitive end
+        if (!stream.IsImmediate() || stream.U32() == 0) {
+            ctx.OpEndPrimitive();
+        }
     } else if (stream.IsImmediate()) {
         ctx.OpEndStreamPrimitive(ctx.Def(stream));
     } else {
