@@ -67,6 +67,7 @@ import me.magnum.melonds.domain.model.layout.LayoutConfiguration
 import me.magnum.melonds.ui.common.MelonPreviewSet
 import me.magnum.melonds.ui.common.component.PunicaHeader
 import me.magnum.melonds.ui.common.component.punicaBackground
+import me.magnum.melonds.ui.common.component.withPageBottomMargin
 import me.magnum.melonds.ui.layouteditor.LayoutEditorActivity
 import me.magnum.melonds.ui.layouts.viewmodel.BaseLayoutsViewModel
 import me.magnum.melonds.ui.theme.MelonTheme
@@ -147,7 +148,7 @@ private fun LayoutsScreenContent(
             modifier = Modifier.fillMaxSize()
                 .focusRequester(initialFocusRequester)
                 .consumeWindowInsets(padding),
-            contentPadding = padding,
+            contentPadding = padding.withPageBottomMargin(),
         ) {
             items(
                 items = layouts,

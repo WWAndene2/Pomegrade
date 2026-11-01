@@ -7,7 +7,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -35,6 +38,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
@@ -61,6 +65,21 @@ fun Modifier.punicaBackground(): Modifier = this
             center = Offset.Zero,
         )
     }
+
+/**
+ * A page's content padding (its Scaffold's, the system bars') with the page's 16 dp margin added under the last item,
+ * as on its sides (owner, 1 November: no list ends flush with the navigation bar).
+ */
+@Composable
+fun PaddingValues.withPageBottomMargin(): PaddingValues {
+    val direction = LocalLayoutDirection.current
+    return PaddingValues(
+        start = calculateStartPadding(direction),
+        top = calculateTopPadding(),
+        end = calculateEndPadding(direction),
+        bottom = calculateBottomPadding() + PunicaDimens.MARGIN.dp,
+    )
+}
 
 /** The logo: the pomegranate (the app's logo) and "Punica." in a 32 dp rounded outline, [subtitle] in italics under it. */
 @Composable
