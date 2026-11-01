@@ -10,6 +10,7 @@
 #include <condition_variable>
 #include <cstddef>
 #include <deque>
+#include <unordered_map>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -85,7 +86,7 @@ public:
     /// Pomegrade: TEMPORARY, a pair of GPU timestamps around recorded work (common/pomegrade_diagnostics.h):
     /// begin returns the pair, or PomegradeNoTimestamp when none is free; end adds its time to `kind`
     static constexpr u32 PomegradeNoTimestamp = ~u32{0};
-    enum class PomegradeTimed { CommandBuffer, TransformFeedbackRun };
+    enum class PomegradeTimed { CommandBuffer, TransformFeedbackRun, RenderPass };
     u32 PomegradeTimestampBegin();
     void PomegradeTimestampEnd(u32 pair, PomegradeTimed kind);
 
@@ -361,6 +362,11 @@ private:
     std::mutex pomegrade_timestamp_mutex;
     std::vector<u32> pomegrade_free_pairs;
     std::deque<std::pair<u32, PomegradeTimed>> pomegrade_pending_pairs;
+    // Pomegrade: TEMPORARY, the open render pass's timestamp pair and kind, and each pending pass pair's kind
+    u32 pomegrade_pass_pair = PomegradeNoTimestamp;
+    u32 pomegrade_pass_images = 0;
+    u64 pomegrade_pass_draws_start = 0;
+    std::unordered_map<u32, std::string> pomegrade_pass_kinds;
     u32 pomegrade_cmdbuf_pair = PomegradeNoTimestamp;
     std::array<VkImage, 9> renderpass_images{};
     std::array<VkImageSubresourceRange, 9> renderpass_image_ranges{};

@@ -127,6 +127,10 @@ void Scheduler::BeginRenderPassImpl(const Framebuffer* framebuffer, VkRenderPass
     PomegradeDiagnostics::render_pass_pixels.fetch_add(u64(render_area.width) * render_area.height,
                                                        std::memory_order_relaxed);
     PomegradeDiagnostics::pass_untouched.store(true, std::memory_order_relaxed);
+    // Pomegrade: TEMPORARY, the pass's GPU time starts here (written before its BeginRenderPass is recorded)
+    pomegrade_pass_pair = PomegradeTimestampBegin();
+    pomegrade_pass_images = framebuffer->NumImages();
+    pomegrade_pass_draws_start = PomegradeDiagnostics::pass_draws.load(std::memory_order_relaxed);
 
     if (GPU::Logging::IsActive() && Settings::values.gpu_log_vulkan_calls.GetValue()) {
         const std::string render_pass_info =
@@ -434,7 +438,13 @@ void Scheduler::PomegradeCollectTimestamps() {
         const u64 ns = data[2] > data[0]
                            ? static_cast<u64>(static_cast<double>(data[2] - data[0]) * pomegrade_timestamp_period)
                            : 0;
-        if (kind == PomegradeTimed::CommandBuffer) {
+        if (kind == PomegradeTimed::RenderPass) {
+            std::scoped_lock pass_lock{PomegradeDiagnostics::pass_time_mutex};
+            auto& entry = PomegradeDiagnostics::pass_time[pomegrade_pass_kinds[pair]];
+            entry.first++;
+            entry.second += ns;
+            pomegrade_pass_kinds.erase(pair);
+        } else if (kind == PomegradeTimed::CommandBuffer) {
             PomegradeDiagnostics::gpu_cmdbuf_ns.fetch_add(ns, std::memory_order_relaxed);
             PomegradeDiagnostics::gpu_cmdbufs.fetch_add(1, std::memory_order_relaxed);
         } else {
@@ -607,6 +617,18 @@ void Scheduler::EndRenderPass()
                                        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, WAIT_FOR_IDLE);
             }
         });
+        // Pomegrade: TEMPORARY, the pass's GPU time ends after its EndRenderPass; its kind keys the table
+        if (pomegrade_pass_pair != PomegradeNoTimestamp) {
+            const u64 draws = PomegradeDiagnostics::pass_draws.load(std::memory_order_relaxed) - pomegrade_pass_draws_start;
+            const char* bucket = draws == 0 ? "0 draws" : draws == 1 ? "1 draw" : draws <= 10 ? "2-10 draws" : draws <= 100 ? "11-100 draws" : ">100 draws";
+            {
+                std::scoped_lock lock{pomegrade_timestamp_mutex};
+                pomegrade_pass_kinds[pomegrade_pass_pair] = fmt::format("{}x{} {} images, {}", state.render_area.width,
+                    state.render_area.height, pomegrade_pass_images, bucket);
+            }
+            PomegradeTimestampEnd(pomegrade_pass_pair, PomegradeTimed::RenderPass);
+            pomegrade_pass_pair = PomegradeNoTimestamp;
+        }
 
         state.renderpass = VkRenderPass{};
         num_renderpass_images = 0;

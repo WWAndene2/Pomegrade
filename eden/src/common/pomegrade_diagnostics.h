@@ -161,6 +161,11 @@ inline void CountWaitSite(const char* thread, std::uint64_t ns) {
 inline std::atomic<std::uint64_t> gpu_cmdbuf_ns{0};
 inline std::atomic<std::uint64_t> gpu_cmdbufs{0};
 inline std::atomic<std::uint64_t> gpu_tf_ns{0};
+// GPU time of each render pass (Vulkan timestamps around it), summed by the pass's kind: render area, attachment
+// count and draws in it (draws counted between its begin and end): where the frame's GPU time goes
+inline std::atomic<std::uint64_t> pass_draws{0};
+inline std::mutex pass_time_mutex;
+inline std::map<std::string, std::pair<std::uint64_t, std::uint64_t>> pass_time; // kind -> {passes, ns}
 inline std::atomic<std::uint64_t> gpu_tf_runs{0};
 inline std::atomic<std::uint64_t> gpu_timer_dropped{0};
 inline std::atomic<bool> gpu_timer_available{false};

@@ -318,6 +318,7 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
         }
     });
     PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed); // Pomegrade: TEMPORARY, after the draw: its pass has begun
+    PomegradeDiagnostics::pass_draws.fetch_add(1, std::memory_order_relaxed); // Pomegrade: TEMPORARY, draws per pass
 }
 
 void RasterizerVulkan::DrawIndirect() {
@@ -381,6 +382,7 @@ void RasterizerVulkan::DrawIndirect() {
     });
     buffer_cache.SetDrawIndirect(nullptr);
     PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed); // Pomegrade: TEMPORARY, after the draw: its pass has begun
+    PomegradeDiagnostics::pass_draws.fetch_add(1, std::memory_order_relaxed); // Pomegrade: TEMPORARY, draws per pass
 }
 
 void RasterizerVulkan::DrawTexture() {
@@ -429,6 +431,7 @@ void RasterizerVulkan::DrawTexture() {
     blit_image.BlitColor(framebuffer, texture.RenderTarget(), texture.ImageHandle(),
                          sampler->Handle(), dst_region, src_region, src_size);
     PomegradeDiagnostics::pass_untouched.store(false, std::memory_order_relaxed); // Pomegrade: TEMPORARY, after the draw: its pass has begun
+    PomegradeDiagnostics::pass_draws.fetch_add(1, std::memory_order_relaxed); // Pomegrade: TEMPORARY, draws per pass
 }
 
 void RasterizerVulkan::Clear(u32 layer_count) {

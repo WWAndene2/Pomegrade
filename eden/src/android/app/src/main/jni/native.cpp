@@ -581,6 +581,22 @@ private:
         LOG_INFO(Frontend, "[Pomegrade diag] GPU time: busy {:.0f}% of the time ({:.1f} ms a frame, {:.1f} command buffers a frame) | transform feedback runs {:.1f} ms a frame ({:.1f} runs) | timestamp pairs dropped {}",
                  cmdbuf_ns / 1e7 / seconds, cmdbuf_ns / 1e6 * per_frame, cmdbufs * per_frame,
                  tf_ns / 1e6 * per_frame, tf_runs * per_frame, dropped);
+        // where the GPU time goes: the 15 render pass kinds that took the most, per frame
+        std::vector<std::tuple<u64, u64, std::string>> kinds;
+        {
+            std::scoped_lock lock{PomegradeDiagnostics::pass_time_mutex};
+            for (const auto& [kind, value] : PomegradeDiagnostics::pass_time) {
+                kinds.emplace_back(value.second, value.first, kind);
+            }
+            PomegradeDiagnostics::pass_time.clear();
+        }
+        std::sort(kinds.begin(), kinds.end(), [](const auto& a, const auto& b) { return std::get<0>(a) > std::get<0>(b); });
+        std::string text;
+        for (size_t i = 0; i < kinds.size() && i < 15; i++) {
+            const auto& [ns, count, kind] = kinds[i];
+            text += fmt::format(" [{}: {:.1f} ms, {:.1f} passes]", kind, ns / 1e6 * per_frame, count * per_frame);
+        }
+        LOG_INFO(Frontend, "[Pomegrade diag] GPU time by render pass kind, per frame:{}", text);
     }
 
     // who waited for the GPU, the eight longest in total, per second
