@@ -759,7 +759,6 @@ void TextureCache<P>::DownloadMemory(DAddr cpu_addr, size_t size) {
     const size_t original_offset = map.offset;
     for (const ImageId image_id : images) {
         Image& image = slot_images[image_id];
-        auto map = runtime.DownloadStagingBuffer(image.unswizzled_size_bytes);
         const auto copies = FullDownloadCopies(image.info);
         image.DownloadMemory(map, copies);
         map.offset += image.unswizzled_size_bytes;
