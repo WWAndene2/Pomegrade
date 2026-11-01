@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- PunicaToolbar: a list's own top padding, kept under the header's height it adds -->
+    <item name="punica_header_base_padding" type="id" />
+</resources>

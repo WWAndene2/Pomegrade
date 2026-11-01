@@ -30,6 +30,8 @@ kotlin {
 dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.recyclerview)
+    // PunicaToolbar re-anchors the page under the header in the cores' ConstraintLayout screens
+    implementation(libs.androidx.constraintlayout)
     // NavigationView and the dialog builder are part of this module's API
     api(libs.android.material)
 }
