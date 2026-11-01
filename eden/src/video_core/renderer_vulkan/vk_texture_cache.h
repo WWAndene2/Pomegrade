@@ -51,7 +51,8 @@ public:
                                  DescriptorPool& descriptor_pool,
                                  ComputePassDescriptorQueue& compute_pass_descriptor_queue);
 
-    void Finish();
+    /// Pomegrade: file and line name the caller for the TEMPORARY wait count
+    void Finish(const char* file = __builtin_FILE(), int line = __builtin_LINE());
 
     StagingBufferRef UploadStagingBuffer(size_t size, bool deferred = false);
 

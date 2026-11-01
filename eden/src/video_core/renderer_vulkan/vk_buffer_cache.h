@@ -116,7 +116,8 @@ public:
 
     void Wait(u64 tick);
 
-    void Finish();
+    /// Pomegrade: file and line name the caller for the TEMPORARY wait count
+    void Finish(const char* file = __builtin_FILE(), int line = __builtin_LINE());
 
     u64 GetDeviceLocalMemory() const;
 

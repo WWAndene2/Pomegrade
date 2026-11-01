@@ -430,8 +430,8 @@ void BufferCacheRuntime::Wait(u64 tick) {
     scheduler.Wait(tick);
 }
 
-void BufferCacheRuntime::Finish() {
-    scheduler.Finish();
+void BufferCacheRuntime::Finish(const char* file, int line) {
+    scheduler.Finish({}, {}, file, line);
 }
 
 bool BufferCacheRuntime::CanReorderUpload(const Buffer& buffer,
