@@ -25,6 +25,7 @@ import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.domain.model.rom.config.RomConfig
 import me.magnum.melonds.ui.common.MelonPreviewSet
 import me.magnum.melonds.ui.common.component.punicaBackground
+import me.magnum.melonds.ui.common.component.withPageBottomMargin
 import me.magnum.melonds.ui.romdetails.model.RomConfigUiModel
 import me.magnum.melonds.ui.romdetails.model.RomConfigUiState
 import me.magnum.melonds.ui.romdetails.model.RomConfigUpdateEvent
@@ -108,7 +109,7 @@ fun RomDetailsScreen(
                 RomDetailsTab.CONFIG.tabIndex -> {
                     RomConfigUi(
                         modifier = Modifier.fillMaxSize().focusRequester(focusRequester),
-                        contentPadding = padding,
+                        contentPadding = padding.withPageBottomMargin(),
                         rom = rom,
                         romConfigUiState = romConfigUiState,
                         onConfigUpdate = onRomConfigUpdate,
@@ -118,7 +119,7 @@ fun RomDetailsScreen(
                 RomDetailsTab.RETRO_ACHIEVEMENTS.tabIndex -> {
                     RomRetroAchievementsUi(
                         modifier = Modifier.fillMaxSize().focusRequester(focusRequester),
-                        contentPadding = padding,
+                        contentPadding = padding.withPageBottomMargin(),
                         retroAchievementsUiState = retroAchievementsUiState,
                         onLogin = onRetroAchievementsLogin,
                         onRetryLoad = onRetroAchievementsRetryLoad,

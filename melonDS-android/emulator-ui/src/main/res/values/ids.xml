@@ -2,4 +2,6 @@
 <resources>
     <!-- PunicaToolbar: a list's own top padding, kept under the header's height it adds -->
     <item name="punica_header_base_padding" type="id" />
+    <!-- PunicaToolbar: the list's bottom padding as it last set it (the core's own, plus the page's margin) -->
+    <item name="punica_header_applied_bottom" type="id" />
 </resources>

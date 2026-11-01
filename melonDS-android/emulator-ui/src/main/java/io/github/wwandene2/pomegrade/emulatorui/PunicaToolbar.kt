@@ -103,16 +103,23 @@ class PunicaToolbar @JvmOverloads constructor(
         val appBar = overlaidAppBar ?: return
         val host = appBar.parent as? ViewGroup ?: return
         val top = appBar.height
+        val margin = resources.getDimensionPixelSize(R.dimen.emulator_settings_margin)
         for (i in 0 until host.childCount) {
             val page = host.getChildAt(i)
             if (page === appBar || page.top != 0 || !isPage(page)) continue
             forEachList(page) { list ->
                 // the list's own top padding (its styled one) is kept on top of the header's height
                 val base = list.getTag(R.id.punica_header_base_padding) as? Int ?: list.paddingTop.also { list.setTag(R.id.punica_header_base_padding, it) }
-                if (list.paddingTop != base + top) {
+                // bottom: whatever the core set (usually the navigation bar's inset), then the page's 16 dp margin
+                // under the last item, as in the app's settings (owner, 1 November). A bottom other than the one set
+                // here last means the core's insets code changed it: the margin goes on top of its new value
+                val applied = list.getTag(R.id.punica_header_applied_bottom) as? Int
+                val bottom = if (applied != null && list.paddingBottom == applied) applied else list.paddingBottom + margin
+                if (list.paddingTop != base + top || list.paddingBottom != bottom) {
                     (list as ViewGroup).clipToPadding = false
-                    list.setPadding(list.paddingLeft, base + top, list.paddingRight, list.paddingBottom)
+                    list.setPadding(list.paddingLeft, base + top, list.paddingRight, bottom)
                 }
+                list.setTag(R.id.punica_header_applied_bottom, bottom)
             }
         }
     }
