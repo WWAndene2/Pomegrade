@@ -619,7 +619,7 @@ Numbered 11 because section 10 (the measurement of 1 November: skipping every tr
 Not without asking again: any online service not listed, other emulators or tools, access to the phone (adb).
 
 **Workflow, one step at a time, each merged before the next.**
-1. Identify the dump's contents: base game, update and DLC, and their versions. The cartridge dump of 1 November holds 12 NCAs in 3 content groups; which group is which is not yet checked.
+1. Identify the dump's contents: base game, update and DLC, and their versions. Done (checked with hactool, 1 November): the cartridge dump holds the base game 0100A3D008C5C000 version 1.0.0 (program NCA 6.7 GB), the update 0100A3D008C5C800 v786432, shown as 4.0.0 (program NCA 5.2 GB, SDK 21.0.0) and one DLC 0100A3D008C5D001 (a 114 KB PublicData NCA). Patches target update 4.0.0.
 2. Extract the exefs of the version Eden runs (base + update) and the shaders, and set up Ghidra on `main`.
 3. Find which game code issues the transform feedback draws and the other costly passes (Eden's draw log, section 10's measurement), and record it here as checked, seen, inferred or unknown.
 4. First patch: skinning without transform feedback, as an Eden mod; check that it loads headless, then the owner tests it on the phone (FPS against section 10's figures).
