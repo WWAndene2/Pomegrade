@@ -9,6 +9,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.preference.PreferenceFragmentCompat
 import androidx.recyclerview.widget.RecyclerView
+import me.magnum.melonds.R
 import me.magnum.melonds.ui.common.preference.PunicaPreferenceCards
 import me.magnum.melonds.ui.settings.preferences.ConsoleSelectorPreference
 
@@ -28,8 +29,10 @@ abstract class BasePreferenceFragment : PreferenceFragmentCompat() {
 
             ViewCompat.setOnApplyWindowInsetsListener(this) { view, windowInsets ->
                 val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-                // top: the status bar and the transparent header (SettingsActivity), which the list scrolls under
-                view.updatePadding(top = insets.top, bottom = insets.bottom)
+                // top: the status bar and the transparent header (SettingsActivity), which the list scrolls under;
+                // bottom: the navigation bar, then the page's 16 dp margin under the last card, as on its sides
+                val margin = view.resources.getDimensionPixelSize(R.dimen.punica_margin)
+                view.updatePadding(top = insets.top, bottom = insets.bottom + margin)
 
                 WindowInsetsCompat.CONSUMED
             }
