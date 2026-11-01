@@ -108,6 +108,9 @@ struct RuntimeInfo {
     /// Transform feedback state for each varying
     std::array<TransformFeedbackVarying, 256> xfb_varyings{};
     u32 xfb_count{0};
+    /// Pomegrade: the stage only feeds transform feedback (rasterizer discard): its outputs that are
+    /// not captured are not written
+    bool xfb_capture_only{};
 
     /// Output types for each color attachment
     std::array<AttributeType, 8> color_output_types{};

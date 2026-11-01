@@ -186,6 +186,15 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
                         VideoCommon::MakeTransformFeedbackVaryings(key.state.xfb_state);
                     info.xfb_varyings = varyings;
                     info.xfb_count = count;
+                    // Pomegrade: a vertex shader that only feeds transform feedback (rasterizer
+                    // discard in the key, as for the no-attachment pass, and no tessellation after
+                    // it) writes only the outputs captured. On a Mali-G610 the transform feedback
+                    // shaders of Pokemon Scarlet are bound by load/store, and the outputs nothing
+                    // reads (position, other varyings) were most of it: the Mali offline compiler
+                    // gives 23 -> 11, 32 -> 20 and 62.5 -> 51 cycles a vertex for three of them.
+                    info.xfb_capture_only = key.state.extended_dynamic_state_2 == 0 &&
+                                            key.state.dynamic_state.rasterize_enable == 0 &&
+                                            key.unique_hashes[2] == 0 && key.unique_hashes[3] == 0;
                 } else {
                     LOG_WARNING(Render_Vulkan, "XFB requested in pipeline key but device lacks VK_EXT_transform_feedback; ignoring XFB decorations");
                 }
