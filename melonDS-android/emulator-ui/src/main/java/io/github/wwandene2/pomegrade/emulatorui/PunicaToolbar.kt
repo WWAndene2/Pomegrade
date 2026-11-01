@@ -45,7 +45,7 @@ class PunicaToolbar @JvmOverloads constructor(
     }
 
     private var hostAppBar: AppBarLayout? = null
-    private val pageLayoutListener = ViewTreeObserver.OnGlobalLayoutListener { addBottomMargin() }
+    private val pageLayoutListener = ViewTreeObserver.OnGlobalLayoutListener { addPageMargins() }
 
     /**
      * In the cores' screens the header sits in Material's AppBarLayout: it is made transparent (the page's colour shows
@@ -73,12 +73,12 @@ class PunicaToolbar @JvmOverloads constructor(
     private fun isList(view: View): Boolean = view is RecyclerView || view is NestedScrollView || view is ScrollView
 
     /**
-     * The page's 16 dp margin under the last item of its lists, on top of the bottom padding the core sets (usually
-     * the navigation bar's inset), as in the app's settings (owner, 1 November). Re-run on every layout: fragments put
-     * their lists in the page later, and a bottom other than the one set here last means the core's insets code
-     * changed it, so the margin goes on top of its new value.
+     * The page's 16 dp margin above the first item and under the last item of its lists, on top of the paddings the
+     * core sets (usually the navigation bar's inset at the bottom), as in the app's pages (owner, 1 November). Re-run on
+     * every layout: fragments put their lists in the page later, and a padding other than the one set here last means
+     * the core's insets code changed it, so the margin goes on top of its new value.
      */
-    private fun addBottomMargin() {
+    private fun addPageMargins() {
         val appBar = hostAppBar ?: return
         val host = appBar.parent as? ViewGroup ?: return
         val margin = resources.getDimensionPixelSize(R.dimen.emulator_settings_margin)
@@ -86,12 +86,15 @@ class PunicaToolbar @JvmOverloads constructor(
             val page = host.getChildAt(i)
             if (page === appBar) continue
             forEachList(page) { list ->
-                val applied = list.getTag(R.id.punica_header_applied_bottom) as? Int
-                val bottom = if (applied != null && list.paddingBottom == applied) applied else list.paddingBottom + margin
-                if (list.paddingBottom != bottom) {
+                val appliedTop = list.getTag(R.id.punica_header_applied_top) as? Int
+                val top = if (appliedTop != null && list.paddingTop == appliedTop) appliedTop else list.paddingTop + margin
+                val appliedBottom = list.getTag(R.id.punica_header_applied_bottom) as? Int
+                val bottom = if (appliedBottom != null && list.paddingBottom == appliedBottom) appliedBottom else list.paddingBottom + margin
+                if (list.paddingTop != top || list.paddingBottom != bottom) {
                     (list as ViewGroup).clipToPadding = false
-                    list.setPadding(list.paddingLeft, list.paddingTop, list.paddingRight, bottom)
+                    list.setPadding(list.paddingLeft, top, list.paddingRight, bottom)
                 }
+                list.setTag(R.id.punica_header_applied_top, top)
                 list.setTag(R.id.punica_header_applied_bottom, bottom)
             }
         }

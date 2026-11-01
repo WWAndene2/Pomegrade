@@ -67,15 +67,16 @@ fun Modifier.punicaBackground(): Modifier = this
     }
 
 /**
- * A page's content padding (its Scaffold's, the system bars') with the page's 16 dp margin added under the last item,
- * as on its sides (owner, 1 November: no list ends flush with the navigation bar).
+ * A page's content padding (its Scaffold's: the header, the system bars) with the page's 16 dp margin added above the
+ * first item and under the last, as the game data and about screens have (owner, 1 November: no list starts against
+ * the header or ends flush with the navigation bar).
  */
 @Composable
-fun PaddingValues.withPageBottomMargin(): PaddingValues {
+fun PaddingValues.withPageMargins(): PaddingValues {
     val direction = LocalLayoutDirection.current
     return PaddingValues(
         start = calculateStartPadding(direction),
-        top = calculateTopPadding(),
+        top = calculateTopPadding() + PunicaDimens.MARGIN.dp,
         end = calculateEndPadding(direction),
         bottom = calculateBottomPadding() + PunicaDimens.MARGIN.dp,
     )
