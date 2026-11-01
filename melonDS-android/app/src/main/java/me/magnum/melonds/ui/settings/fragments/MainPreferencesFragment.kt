@@ -112,21 +112,6 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
             true
         }
 
-        // DS debug trace: written by path into the Pomegrade folder, the path kept with the setting
-        findPreference<androidx.preference.SwitchPreference>("ds_debug_trace")?.setOnPreferenceChangeListener { _, value ->
-            if (value != true) return@setOnPreferenceChangeListener true
-            val traces = PomegradeFolder.consoleFolder(requireContext(), PunicaLayout.DS, "${PunicaLayout.CORE}/Traces")
-            if (traces == null) {
-                toast(R.string.ds_debug_trace_no_folder)
-                return@setOnPreferenceChangeListener false
-            }
-            androidx.preference.PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
-                .putString("ds_debug_trace_folder", traces.absolutePath)
-                .apply()
-            Toast.makeText(requireContext(), getString(R.string.ds_debug_trace_on, traces.absolutePath), Toast.LENGTH_LONG).show()
-            true
-        }
-
         // one console's section at a time, picked by its logo; 3DS on 64-bit devices only
         findPreference<ConsoleSelectorPreference>("settings_console")?.let { selector ->
             selector.threeDsAvailable = N3dsLauncher.isSupported()

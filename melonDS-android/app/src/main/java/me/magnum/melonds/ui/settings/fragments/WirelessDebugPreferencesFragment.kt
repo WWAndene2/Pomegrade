@@ -11,6 +11,8 @@ import androidx.preference.ListPreference
 import androidx.preference.Preference
 import kotlinx.coroutines.launch
 import me.magnum.melonds.R
+import me.magnum.melonds.impl.PomegradeFolder
+import me.magnum.melonds.impl.PunicaLayout
 import me.magnum.melonds.impl.diagnostics.DiagnosticCommand
 import me.magnum.melonds.impl.diagnostics.WirelessDebugDiagnostics
 import me.magnum.melonds.impl.diagnostics.WirelessDebugPairingNotification
@@ -30,6 +32,21 @@ class WirelessDebugPreferencesFragment : BasePreferenceFragment(), PreferenceFra
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         setPreferencesFromResource(R.xml.pref_wireless_debug, rootKey)
+
+        // DS debug trace: written by path into the Pomegrade folder, the path kept with the setting
+        findPreference<androidx.preference.SwitchPreference>("ds_debug_trace")?.setOnPreferenceChangeListener { _, value ->
+            if (value != true) return@setOnPreferenceChangeListener true
+            val traces = PomegradeFolder.consoleFolder(requireContext(), PunicaLayout.DS, "${PunicaLayout.CORE}/Traces")
+            if (traces == null) {
+                toast(getString(R.string.ds_debug_trace_no_folder))
+                return@setOnPreferenceChangeListener false
+            }
+            androidx.preference.PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
+                .putString("ds_debug_trace_folder", traces.absolutePath)
+                .apply()
+            Toast.makeText(requireContext(), getString(R.string.ds_debug_trace_on, traces.absolutePath), Toast.LENGTH_LONG).show()
+            true
+        }
 
         findPreference<Preference>("wireless_debug_pair")?.setOnPreferenceClickListener {
             when {

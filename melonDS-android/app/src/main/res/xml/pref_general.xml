@@ -55,4 +55,12 @@
             android:title="@string/restore_settings"
             app:isPreferenceVisible="@bool/settings_backup_restore_enabled"
             app:iconSpaceReserved="false" />
+
+    <!-- debugging and diagnostics, kept out of the main settings page (owner, 1 November): wireless debugging and the
+         DS debug trace, in WirelessDebugPreferencesFragment -->
+    <Preference
+            android:title="@string/wireless_debug"
+            android:summary="@string/wireless_debug_summary"
+            app:iconSpaceReserved="false"
+            android:fragment="me.magnum.melonds.ui.settings.fragments.WirelessDebugPreferencesFragment" />
 </PreferenceScreen>

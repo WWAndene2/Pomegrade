@@ -60,4 +60,16 @@
                 android:summary="@string/wireless_debug_driver_log_summary"
                 app:iconSpaceReserved="false" />
     </PreferenceCategory>
+
+    <!-- the DS core's debug trace, written to Punica/DS/Core/Traces (moved from the main settings page, 1 November) -->
+    <PreferenceCategory
+            android:title="@string/wireless_debug_traces"
+            app:iconSpaceReserved="false">
+        <SwitchPreference
+                android:key="ds_debug_trace"
+                android:title="@string/ds_debug_trace"
+                android:summary="@string/ds_debug_trace_summary"
+                android:defaultValue="false"
+                app:iconSpaceReserved="false" />
+    </PreferenceCategory>
 </PreferenceScreen>
