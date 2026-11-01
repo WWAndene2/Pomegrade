@@ -638,3 +638,40 @@ Open:
   told it was deleted with the diagnostics, unread; it is in the history (d9432d9b).
 - "Texture format=0" asserts in Scarlet, not looked at.
 
+
+---
+
+## 11. Next: patching the Switch Pokemon games themselves (plan, 1 November)
+
+Owner's direction (1 November): since Eden is no longer what limits Scarlet on the Mali (section 10), the next work makes
+the games draw less. Nothing below is started; each point is marked as in the rest of this document.
+
+**Rules.**
+- The owner's dumps, keys and firmware are fetched into the session's scratch space only, never committed, uploaded
+  or put in an artifact (CLAUDE.md section 8). What is committed is tooling (`tools/`) and documentation; a patch file
+  made from the game's code is handed to the owner as a CI artifact only if the owner agrees first.
+- A patch removes or lowers work the game does (passes, effects, animated characters, draw distance) while leaving the
+  picture recognisably the game's. Lowering the resolution is not the fix (owner). Every patch is a separate mod the
+  user can turn off.
+- One patch, one measurement: the same place, the same settings, the median FPS and GPU ms per frame against the build
+  without it (protocol of section 7). No gain claimed without that measurement.
+
+**How a mod reaches the game (inferred from Eden's code, to check first).** Eden loads per-game mods from its load
+folder (`Punica/Switch/Mods`, `path_util.cpp`), one folder per title ID then per mod: `exefs/` holds IPS or IPS32
+patches of the main executable, named after its build ID, and `romfs/` holds files that replace the game's. Check it
+in `core/file_sys/patch_manager.cpp` before relying on it.
+
+**Steps.**
+1. Inventory, in scratch space: unpack Scarlet's dump (Eden's own loader, or nstool/hactool with the owner's keys),
+   list the main executable's build ID, RomFS layout and the formats of its rendering settings files. Mark each as seen
+   or inferred.
+2. Find what costs: the remaining 40 ms GPU time a frame at character creation and in the first cutscene. A
+   short-lived diagnostic (deleted afterwards, CLAUDE.md 2.4) groups GPU time by render pass and shader; from
+   that, list the effects (shadows, post-processing, crowds, LOD) behind the largest groups.
+3. Data patches first (RomFS: LOD distances, effect toggles, crowd counts), as they are easiest to undo; then code
+   patches (exefs IPS) for what has no data switch, found with Ghidra on the main executable.
+4. Each patch measured on the owner's phone, results added here as measured.
+5. Then Violet (same engine, inferred), Legends Z-A once its 3D works (fix 851bcb83, untested).
+
+**Questions for the owner before step 1.** Which places of Scarlet to measure (beyond character creation and the first
+cutscene); how much visual change is acceptable per effect; whether patch files may be shared as CI artifacts.
