@@ -414,24 +414,6 @@ Id EmitGetAttributeU32(EmitContext& ctx, IR::Attribute attr, Id) {
 }
 
 void EmitSetAttribute(EmitContext& ctx, IR::Attribute attr, Id value, [[maybe_unused]] Id vertex) {
-    if (ctx.runtime_info.xfb_capture_only) {
-        // Pomegrade: only transform feedback reads this stage's outputs (rasterizer discard): an
-        // output no varying captures is not written (see vk_pipeline_cache.cpp, xfb_capture_only).
-        // A captured varying of n components starts at its attribute; its vector holds the others.
-        const u32 index{static_cast<u32>(attr)};
-        bool captured{false};
-        for (u32 back = 0; back <= index % 4; ++back) {
-            const u32 start{index - back};
-            if (start < ctx.runtime_info.xfb_count &&
-                ctx.runtime_info.xfb_varyings[start].components > back) {
-                captured = true;
-                break;
-            }
-        }
-        if (!captured) {
-            return;
-        }
-    }
     const std::optional<OutAttr> output{OutputAttrPointer(ctx, attr)};
     if (!output) {
         return;
