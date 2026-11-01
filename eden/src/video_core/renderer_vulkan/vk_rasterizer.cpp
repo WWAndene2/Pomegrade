@@ -1142,7 +1142,17 @@ bool RasterizerVulkan::TryCacheInvalidation(DAddr addr, u64 size) {
     if (addr == 0 || size == 0) return true;
     {
         std::scoped_lock lock{buffer_cache.mutex, texture_cache.mutex};
-        if (buffer_cache.IsRegionGpuModified(addr, size)) return false;
+        // Pomegrade: at the High GPU accuracy only, a guest CPU write to a page the GPU wrote waits for
+        // the GPU to copy that page back first (gpu.cpp InvalidateRegion: a FlushRegion, so a Finish),
+        // so the GPU's data in the rest of the page is kept. At Low accuracy (Android's default) the
+        // CPU's write wins at once: BufferCache::WriteMemory drops the page's GPU-modified state and
+        // the page is uploaded from guest memory when next used. Owner's Scarlet logs (1 November):
+        // NCE write faults on pages the transform feedback writes caused about 2,500 such
+        // synchronous read-backs in a session, 99 s of the GPU thread waiting (40 ms each), the
+        // main cause of its menus and cutscenes running at 6 to 15 FPS. What Low accuracy gives up:
+        // GPU-written data sharing a page with the CPU's write is replaced by guest memory's copy;
+        // reactive flushing being off already leaves that copy stale for CPU reads.
+        if (Settings::IsGPULevelHigh() && buffer_cache.IsRegionGpuModified(addr, size)) return false;
         texture_cache.WriteMemory(addr, size);
         buffer_cache.WriteMemory(addr, size);
     }
