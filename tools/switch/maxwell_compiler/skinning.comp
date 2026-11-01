@@ -6,11 +6,12 @@ layout(local_size_x = 64) in;
 // NVN storage buffers (address and size at c0[0x310 + 16 * binding]); the bones are the same memory
 // the game binds as the vertex shader's constant buffer 13: 64 bytes per bone, four columns (x, y, z
 // used), skinned = c0*x + c1*y + c2*z + c3.
-layout(std430, binding = 0) readonly buffer Params { uint first, count; };
-layout(std430, binding = 1) readonly buffer Vertices { uint words[]; } vertices;  // stride 48
-layout(std430, binding = 2) readonly buffer Bones { vec4 col[]; };
-layout(std430, binding = 3) writeonly buffer Positions { uint w[]; } positions;   // transform feedback buffer 0
-layout(std430, binding = 4) writeonly buffer Normals { uint w[]; } normals;       // transform feedback buffer 1
+// The patch binds the vertex buffer from the pass's first vertex with a size of count x 48 bytes, so
+// the vertex count comes from the buffer size and no parameter buffer is needed.
+layout(std430, binding = 0) readonly buffer Vertices { uint words[]; } vertices;  // stride 48
+layout(std430, binding = 1) readonly buffer Bones { vec4 col[]; };
+layout(std430, binding = 2) writeonly buffer Positions { uint w[]; } positions;   // transform feedback buffer 0
+layout(std430, binding = 3) writeonly buffer Normals { uint w[]; } normals;       // transform feedback buffer 1
 float h2f(uint h) {
   uint e = (h >> 10) & 0x1fu;
   uint bits = ((h & 0x8000u) << 16) | (e == 0u ? 0u : (((e + 112u) << 23) | ((h & 0x3ffu) << 13)));
@@ -19,8 +20,8 @@ float h2f(uint h) {
 float f(uint i) { return uintBitsToFloat(vertices.words[i]); }
 void main() {
   uint v = gl_GlobalInvocationID.x;
-  if (v >= count) return;
-  uint base = (first + v) * 12u;  // 48-byte stride in words
+  if (v >= uint(vertices.words.length()) / 12u) return;
+  uint base = v * 12u;  // 48-byte stride in words
   vec3 p = vec3(f(base), f(base + 1u), f(base + 2u));
   uint idx = vertices.words[base + 9u];
   vec2 w01 = unpackUnorm2x16(vertices.words[base + 10u]);
