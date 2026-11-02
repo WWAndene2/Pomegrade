@@ -190,6 +190,7 @@ jobs:
             elif [[ "$options" =~ ^[[:space:]]*pokemon-player[[:space:]] ]]; then
               # "name: pokemon-player <model member>": a Pokemon (its a/0/0/8 model member, Torchic 2827) as the player's
               # field character, over Brendan and May (tools/remake/prototype/pokemon_player.py; SPICA built here)
+              mkdir -p out
               if [ ! -x out/spica/spica ]; then
                 git submodule update --init --depth 1 tools/remake/external/SPICA
                 dotnet build -c Release -o out/spica tools/remake/spica/SpicaCli.csproj > out/spica_build.txt || { cat out/spica_build.txt; exit 1; }
