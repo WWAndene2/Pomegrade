@@ -115,3 +115,30 @@ for size in ("16", "32", "64"):
 s = s.replace("extern u32 pomegrade_writers_lo, pomegrade_writers_hi;\n", "extern u32 pomegrade_writers_lo, pomegrade_writers_hi;\nextern u32 pomegrade_readers_lo, pomegrade_readers_hi;\nextern \"C\" void pomegrade_reader(u32 address, u32 value, u32 pc, u32 lr);\n", 1)
 assert "pomegrade_readers_lo, pomegrade_readers_hi;" in s, "armstate.cpp's includes moved"
 open(p, "w").write(s)
+
+# where an unmapped access came from (2 November, Clemont's lift: an unmapped read in a model method reached through a
+# vtable, its caller not known): each of the first 20 unmapped accesses also logs the running core's lr and sp and the
+# words of the stack that look like code addresses (the .code 0x100000-0x700000, the modules 0x700000-0x1000000), deepest
+# frames last. Under the JIT the registers are those Dynarmic last wrote back (lr and sp may lag a call); the stack's
+# return addresses are memory, so they hold
+p = "azahar/src/core/memory.cpp"
+s = open(p).read()
+log = '    LOG_ERROR(HW_Memory, "{}", message);\n'
+assert s.count(log) == 1, "UnmappedAccess's log line moved"
+s = s.replace(log, log + """    { // Pomegrade headless: the access's caller
+        static int pomegrade_unmapped_logged = 0;
+        if (pomegrade_unmapped_logged < 20 && impl->system.IsPoweredOn()) {
+            pomegrade_unmapped_logged++;
+            const auto& cpu = impl->system.GetRunningCore();
+            const u32 sp = cpu.GetReg(13);
+            std::string frames;
+            for (u32 k = 0; k < 0x200; k += 4) {
+                if (!IsValidVirtualAddress(*impl->system.Kernel().GetCurrentProcess(), sp + k)) break;
+                const u32 w = Read32(sp + k);
+                if (w >= 0x100000 && w < 0x1000000) frames += fmt::format(" {:08X}@+{:X}", w, k);
+            }
+            LOG_ERROR(HW_Memory, "  unmapped access's lr 0x{:08X} sp 0x{:08X} stack code addresses:{}", cpu.GetReg(14), sp, frames);
+        }
+    }
+""", 1)
+open(p, "w").write(s)
