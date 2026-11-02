@@ -5,6 +5,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <memory>
+#include <tuple>
+#include <algorithm>
 #include <mutex>
 #include <thread>
 #include <utility>
@@ -47,6 +49,26 @@ Scheduler::Scheduler(const Device& device_, StateTracker& state_tracker_)
     : device{device_}, state_tracker{state_tracker_},
       master_semaphore{std::make_unique<MasterSemaphore>(device)},
       command_pool{std::make_unique<CommandPool>(*master_semaphore, device)} {
+
+    // Pomegrade: TEMPORARY, the per-pass GPU timer (vk_scheduler.h), when the queue writes timestamps
+    const auto limits = device.GetPhysical().GetProperties().limits;
+    if (limits.timestampComputeAndGraphics) {
+        pomegrade_pass_timestamps = device.GetLogical().CreateQueryPool({
+            .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .queryType = VK_QUERY_TYPE_TIMESTAMP,
+            .queryCount = POMEGRADE_PASS_PAIRS * 2,
+            .pipelineStatistics = 0,
+        });
+        device.GetLogical().ResetQueryPool(*pomegrade_pass_timestamps, 0, POMEGRADE_PASS_PAIRS * 2);
+        pomegrade_timestamp_period = limits.timestampPeriod;
+        for (u32 pair = POMEGRADE_PASS_PAIRS; pair-- > 0;) {
+            pomegrade_free_pairs.push_back(pair);
+        }
+    } else {
+        LOG_INFO(Render_Vulkan, "[Pomegrade pass time] no timestamps on this queue");
+    }
 
     AcquireNewChunk();
     AllocateWorkerCommandBuffer();
@@ -116,6 +138,7 @@ void Scheduler::BeginRenderPassImpl(const Framebuffer* framebuffer, VkRenderPass
     state.renderpass = renderpass;
     state.framebuffer = framebuffer_handle;
     state.render_area = render_area;
+    PomegradePassBegin(framebuffer->NumImages()); // Pomegrade: TEMPORARY, before the pass is recorded
 
     if (GPU::Logging::IsActive() && Settings::values.gpu_log_vulkan_calls.GetValue()) {
         const std::string render_pass_info =
@@ -510,6 +533,7 @@ void Scheduler::EndRenderPass()
             }
         });
 
+        PomegradePassEnd(); // Pomegrade: TEMPORARY, after the pass's end is recorded
         state.renderpass = VkRenderPass{};
         num_renderpass_images = 0;
     }
@@ -526,6 +550,104 @@ void Scheduler::AcquireNewChunk() {
         chunk = std::move(chunk_reserve.back());
         chunk_reserve.pop_back();
     }
+}
+
+// Pomegrade: TEMPORARY, the per-pass GPU timer (vk_scheduler.h). Begin and end timestamps are recorded around the
+// pass's commands; results are read back without waiting, oldest first, once the GPU has written them.
+void Scheduler::PomegradePassBegin(u32 images) {
+    pomegrade_pass_pair = ~u32{0};
+    if (!pomegrade_pass_timestamps) {
+        return;
+    }
+    PomegradeCollectPasses();
+    u32 pair;
+    {
+        // not held while recording: the worker thread takes this mutex in the end timestamp's command
+        std::scoped_lock lock{pomegrade_pass_mutex};
+        if (pomegrade_free_pairs.empty()) {
+            ++pomegrade_dropped;
+            return;
+        }
+        pair = pomegrade_free_pairs.back();
+        pomegrade_free_pairs.pop_back();
+    }
+    pomegrade_pass_pair = pair;
+    pomegrade_pass_images = images;
+    pomegrade_pass_draws_start = pomegrade_pass_draws;
+    Record([this, pair](vk::CommandBuffer cmdbuf) {
+        cmdbuf.WriteTimestamp(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, *pomegrade_pass_timestamps, pair * 2);
+    });
+}
+
+void Scheduler::PomegradePassEnd() {
+    const u32 pair = pomegrade_pass_pair;
+    pomegrade_pass_pair = ~u32{0};
+    if (pair == ~u32{0}) {
+        return;
+    }
+    const u64 draws = pomegrade_pass_draws - pomegrade_pass_draws_start;
+    const char* bucket = draws == 0    ? "0 draws"
+                         : draws == 1  ? "1 draw"
+                         : draws <= 10 ? "2-10 draws"
+                         : draws <= 100 ? "11-100 draws"
+                                        : ">100 draws";
+    std::string kind = fmt::format("{}x{} {} images, {}", state.render_area.width, state.render_area.height,
+                                   pomegrade_pass_images, bucket);
+    Record([this, pair, kind = std::move(kind)](vk::CommandBuffer cmdbuf) {
+        cmdbuf.WriteTimestamp(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, *pomegrade_pass_timestamps, pair * 2 + 1);
+        std::scoped_lock lock{pomegrade_pass_mutex};
+        pomegrade_pending_passes.push_back({pair, kind});
+    });
+}
+
+void Scheduler::PomegradeCollectPasses() {
+    std::scoped_lock lock{pomegrade_pass_mutex};
+    while (!pomegrade_pending_passes.empty()) {
+        const auto& pending = pomegrade_pending_passes.front();
+        std::array<u64, 4> data{}; // begin, its availability, end, its availability
+        const VkResult result = device.GetLogical().GetQueryResults(
+            *pomegrade_pass_timestamps, pending.pair * 2, 2, sizeof(data), data.data(), sizeof(u64) * 2,
+            VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+        if ((result != VK_SUCCESS && result != VK_NOT_READY) || data[1] == 0 || data[3] == 0) {
+            break;
+        }
+        const u64 ns = data[2] > data[0]
+                           ? static_cast<u64>(static_cast<double>(data[2] - data[0]) * pomegrade_timestamp_period)
+                           : 0;
+        auto& entry = pomegrade_pass_time[pending.kind];
+        entry.first++;
+        entry.second += ns;
+        device.GetLogical().ResetQueryPool(*pomegrade_pass_timestamps, pending.pair * 2, 2);
+        pomegrade_free_pairs.push_back(pending.pair);
+        pomegrade_pending_passes.pop_front();
+    }
+    const auto now = std::chrono::steady_clock::now();
+    if (pomegrade_last_log == std::chrono::steady_clock::time_point{}) {
+        pomegrade_last_log = now;
+        return;
+    }
+    if (now - pomegrade_last_log < std::chrono::seconds(2)) {
+        return;
+    }
+    const double seconds = std::chrono::duration<double>(now - pomegrade_last_log).count();
+    pomegrade_last_log = now;
+    std::vector<std::tuple<u64, u64, std::string>> kinds;
+    u64 total = 0;
+    for (const auto& [kind, value] : pomegrade_pass_time) {
+        kinds.emplace_back(value.second, value.first, kind);
+        total += value.second;
+    }
+    pomegrade_pass_time.clear();
+    std::sort(kinds.begin(), kinds.end(),
+              [](const auto& a, const auto& b) { return std::get<0>(a) > std::get<0>(b); });
+    std::string text;
+    for (size_t i = 0; i < kinds.size() && i < 20; i++) {
+        const auto& [ns, count, kind] = kinds[i];
+        text += fmt::format(" [{}: {:.1f} ms/s, {:.0f} passes/s]", kind, ns / 1e6 / seconds, count / seconds);
+    }
+    LOG_INFO(Render_Vulkan, "[Pomegrade pass time] all passes {:.0f} ms/s (pairs dropped {}):{}",
+             total / 1e6 / seconds, pomegrade_dropped, text);
+    pomegrade_dropped = 0;
 }
 
 } // namespace Vulkan
