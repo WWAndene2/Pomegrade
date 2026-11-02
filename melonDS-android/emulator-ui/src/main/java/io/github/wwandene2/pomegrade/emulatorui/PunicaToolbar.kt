@@ -9,7 +9,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
-import android.widget.FrameLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.widget.Toolbar
@@ -45,67 +44,57 @@ class PunicaToolbar @JvmOverloads constructor(
         setBackgroundColor(0)
     }
 
-    private var overlaidAppBar: AppBarLayout? = null
-    private val overlayLayoutListener = ViewTreeObserver.OnGlobalLayoutListener { padPagesBottom() }
+    private var hostAppBar: AppBarLayout? = null
+    private val pageLayoutListener = ViewTreeObserver.OnGlobalLayoutListener { addPageMargins() }
 
     /**
-     * In the cores' screens the header sits in Material's AppBarLayout. It is made transparent and fixed (no lift, no
-     * elevation, no scrolling away), and stays where Material lays it out: the page below it, never under it.
-     *
-     * Owner (2 November): the earlier version re-anchored the pages to the top of the screen, brought the bar to the
-     * front and padded the lists by the bar's height on every layout, so they would scroll under the header; on the
-     * phone the settings could then be neither scrolled nor tapped and content sat under the header. It is removed:
-     * no page is moved, no padding at the top, nothing drawn over the page.
+     * In the cores' screens the header sits in Material's AppBarLayout: it is made transparent (the page's colour shows
+     * through) and fixed, as in the app's screens, and the page stays laid out below it as the core placed it.
+     * Drawing the page under the header (1 November) is undone: forms and fragment pages ended up hidden under it and
+     * some lists stopped scrolling (owner, 1 November).
      */
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         val appBar = parent as? AppBarLayout ?: return
-        overlaidAppBar = appBar
+        hostAppBar = appBar
         appBar.background = null
         appBar.stateListAnimator = null
         appBar.elevation = 0f
         (layoutParams as? AppBarLayout.LayoutParams)?.scrollFlags = 0
-        appBar.viewTreeObserver.addOnGlobalLayoutListener(overlayLayoutListener)
+        appBar.viewTreeObserver.addOnGlobalLayoutListener(pageLayoutListener)
     }
 
     override fun onDetachedFromWindow() {
-        overlaidAppBar?.viewTreeObserver?.removeOnGlobalLayoutListener(overlayLayoutListener)
-        overlaidAppBar = null
+        hostAppBar?.viewTreeObserver?.removeOnGlobalLayoutListener(pageLayoutListener)
+        hostAppBar = null
         super.onDetachedFromWindow()
     }
-
-    /** A list, or a host of one (a fragment's frame, a sliding pane): the pages beside the header. */
-    private fun isPage(view: View): Boolean =
-        isList(view) || view is FrameLayout && view !is ScrollView || view.javaClass.name == "androidx.slidingpanelayout.widget.SlidingPaneLayout"
 
     private fun isList(view: View): Boolean = view is RecyclerView || view is NestedScrollView || view is ScrollView
 
     /**
-     * The page's 16 dp margin under the last item, as in the app's settings (owner, 1 November), on top of whatever
-     * bottom padding the core set (usually the navigation bar's inset). Re-run on every layout: fragments put their
-     * lists in the page later, and their own insets code may change the padding; a bottom other than the one set here
-     * last means the core changed it, and the margin goes on top of its new value.
+     * The page's 16 dp margin above the first item and under the last item of its lists, on top of the paddings the
+     * core sets (usually the navigation bar's inset at the bottom), as in the app's pages (owner, 1 November). Re-run on
+     * every layout: fragments put their lists in the page later, and a padding other than the one set here last means
+     * the core's insets code changed it, so the margin goes on top of its new value.
      */
-    private fun padPagesBottom() {
-        val appBar = overlaidAppBar ?: return
-        var bar: View = appBar
-        var host = appBar.parent as? ViewGroup ?: return
-        // a bar alone in its own CoordinatorLayout (Dolphin's cheats): the pages are that layout's siblings
-        if (host.childCount == 1) {
-            bar = host
-            host = host.parent as? ViewGroup ?: return
-        }
+    private fun addPageMargins() {
+        val appBar = hostAppBar ?: return
+        val host = appBar.parent as? ViewGroup ?: return
         val margin = resources.getDimensionPixelSize(R.dimen.emulator_settings_margin)
         for (i in 0 until host.childCount) {
             val page = host.getChildAt(i)
-            if (page === bar || !isPage(page)) continue
+            if (page === appBar) continue
             forEachList(page) { list ->
-                val applied = list.getTag(R.id.punica_header_applied_bottom) as? Int
-                val bottom = if (applied != null && list.paddingBottom == applied) applied else list.paddingBottom + margin
-                if (list.paddingBottom != bottom) {
+                val appliedTop = list.getTag(R.id.punica_header_applied_top) as? Int
+                val top = if (appliedTop != null && list.paddingTop == appliedTop) appliedTop else list.paddingTop + margin
+                val appliedBottom = list.getTag(R.id.punica_header_applied_bottom) as? Int
+                val bottom = if (appliedBottom != null && list.paddingBottom == appliedBottom) appliedBottom else list.paddingBottom + margin
+                if (list.paddingTop != top || list.paddingBottom != bottom) {
                     (list as ViewGroup).clipToPadding = false
-                    list.setPadding(list.paddingLeft, list.paddingTop, list.paddingRight, bottom)
+                    list.setPadding(list.paddingLeft, top, list.paddingRight, bottom)
                 }
+                list.setTag(R.id.punica_header_applied_top, top)
                 list.setTag(R.id.punica_header_applied_bottom, bottom)
             }
         }

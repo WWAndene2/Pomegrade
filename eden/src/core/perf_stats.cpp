@@ -16,7 +16,6 @@
 #include "common/fs/file.h"
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
-#include "common/pomegrade_diagnostics.h" // Pomegrade: TEMPORARY
 #include "common/settings.h"
 #include "core/perf_stats.h"
 
@@ -86,21 +85,6 @@ void PerfStats::EndSystemFrame() {
 
 void PerfStats::EndGameFrame() {
     game_frames.fetch_add(1, std::memory_order_relaxed);
-    // Pomegrade: TEMPORARY, each guest frame's end marked in a system trace
-    PomegradeDiagnostics::TraceBegin("guest frame end");
-    PomegradeDiagnostics::TraceEnd();
-    // Pomegrade: TEMPORARY, frame rate and the slowest frame for the study's sampler
-    const std::int64_t now = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                 Clock::now().time_since_epoch()).count();
-    const std::int64_t last = PomegradeDiagnostics::last_frame_ns.exchange(now, std::memory_order_relaxed);
-    PomegradeDiagnostics::game_frames.fetch_add(1, std::memory_order_relaxed);
-    if (last != 0 && now > last) {
-        const auto gap = static_cast<std::uint64_t>(now - last);
-        auto longest = PomegradeDiagnostics::longest_frame_ns.load(std::memory_order_relaxed);
-        while (gap > longest && !PomegradeDiagnostics::longest_frame_ns.compare_exchange_weak(
-                                    longest, gap, std::memory_order_relaxed)) {
-        }
-    }
 }
 
 double PerfStats::GetMeanFrametime() const {

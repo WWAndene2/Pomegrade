@@ -74,7 +74,7 @@ private fun List(
                 modifier = Modifier.fillMaxSize().consumeWindowInsets(contentPadding),
                 contentPadding = PaddingValues(
                     start = contentPadding.calculateStartPadding(LocalLayoutDirection.current),
-                    top = contentPadding.calculateTopPadding(),
+                    top = contentPadding.calculateTopPadding() + 16.dp,
                     end = contentPadding.calculateEndPadding(LocalLayoutDirection.current),
                     bottom = contentPadding.calculateBottomPadding() + 96.dp, // clears the FAB: its margin, its Material height and a gap below the last row (16 + 56 + 16, on the scale as 64 + 32)
                 ),

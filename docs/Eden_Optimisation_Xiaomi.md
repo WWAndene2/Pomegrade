@@ -4,8 +4,8 @@ Study of how to make the Switch core (Eden v0.2.1 until 31 October, then Eden's 
 8200-Ultra, Mali-G610 MC6) and then on weaker phones (the owner's goal: "Switch even on a potato"). Test game:
 Pokemon Sword/Shield (64-bit, so run by NCE, section 1).
 
-**Status (14 October): code audit, the owner's start-of-game logs read, a first baseline measured by the owner
-(section 4.1). No code changed.** Each statement is marked:
+**Status (1 November): study closed, conclusions in section 10; its TEMPORARY diagnostics deleted (commit
+dccaeea9, the parent holds them). Started 14 October with a code audit and a first baseline (section 4.1).** Each statement is marked:
 - **seen**: read in the code, with its file and function;
 - **inferred**: follows from what was read, not checked by running anything;
 - **unknown**: needs the phone (a log, a trace, a measurement);
@@ -450,7 +450,7 @@ Gains are estimates; difficulty and risk are judgements from the code.
 | O9 | GPU memory budget from the phone's RAM (e.g. a share of total RAM minus the guest's memory layout) instead of a fixed 4 GiB | `vulkan_device.cpp` (`device_access_memory`) | No kills on 6 GiB phones; fewer collections on 12 GiB phones | Low | Medium: too low a budget means more collection stalls (O4 then matters more) |
 | O10 | Fewer memory-tracking faults: track writes at a coarser granularity for regions the guest rewrites every frame (vertex streams, uniform buffers), or upload them without protection | `core/memory.cpp`, `buffer_cache/buffer_cache.h` | Depends on H5's count | High | High: missed writes show as stale geometry |
 | O11 | Async presentation on by default if the measurements show the present copy on the critical path | `settings.h` (`async_presentation`) | Small to medium | Low | Low to medium (one frame more latency) |
-| O13 | Transform feedback done by Eden in the vertex shader on Mali, not by the driver: the shader recompiler stores each captured output into a storage buffer at the place the hardware would (buffer offset + (base vertex + vertex index, or instance for instanced draws) x stride + the output's offset), the counters (bytes written per buffer, which the game reads and draws from) are updated by Eden, and the driver's VK_EXT_transform_feedback is not used. Why (owner's logs, 30-31 October, Punica Opt with the GPU timestamps and Mali counters of the diagnostics): in Pokémon Scarlet past the title screen the GPU is busy 94-97 % of the time, about 57 ms a frame, of which **about 40 ms (70 %) in the 2 runs of about 230 transform feedback draws** (rasterizer discard, no fragment shader: skinning, inferred); the fragment queue is used about 17 %, memory about 0.4 GB/s each way, the CPU threads mostly wait for the GPU (fence and present waits). The Mali has no transform feedback in hardware and its driver emulates it (inferred from the cost); the rest of the frame (about 17 ms) would hold 30 FPS | `shader_recompiler/backend/spirv/` (outputs of the vertex stage, `emit_spirv_context_get_set.cpp`, XFB decorations in `spirv_emit_context.cpp`), `renderer_vulkan/vk_pipeline_cache.cpp` (which pipelines take it), `vk_query_cache.cpp` (`TFBCounterStreamer`: counters from Eden instead of EndTransformFeedbackEXT), `buffer_cache/buffer_cache.h` (transform feedback buffers bound as storage) | Large in Scarlet: up to about 40 ms of the 57 ms a frame (from about 15 toward 30 FPS, inferred; not measured) | High: the recompiler, the buffer bindings and the counters change together | Medium to high: a wrong offset, stride or counter shows as broken or missing characters; Mali only, the driver path kept elsewhere. Not started. **Read 31 October**: the place above holds only for non-indexed point or list draws without strips: transform feedback writes the vertices of the assembled primitives in order, so an indexed draw writes a shared vertex once per primitive, a strip or fan is written as separate triangles, and instances follow one another (instance x vertices + vertex); the counter follows the same rule. Which case Scarlet's draws are is logged since 31 October (`transform feedback shapes`: topology, indexed, instanced, each buffer's stride and varyings, indirect draws); read it before starting. A vertex shader may store: vertexPipelineStoresAndAtomics is one of the features Eden requires (FOR_EACH_VK_MANDATORY_FEATURE) |
+| O13 | Transform feedback done by Eden in the vertex shader on Mali, not by the driver: the shader recompiler stores each captured output into a storage buffer at the place the hardware would (buffer offset + (base vertex + vertex index, or instance for instanced draws) x stride + the output's offset), the counters (bytes written per buffer, which the game reads and draws from) are updated by Eden, and the driver's VK_EXT_transform_feedback is not used. Why (owner's logs, 30-31 October, Punica Opt with the GPU timestamps and Mali counters of the diagnostics): in Pokémon Scarlet past the title screen the GPU is busy 94-97 % of the time, about 57 ms a frame, of which **about 40 ms (70 %) in the 2 runs of about 230 transform feedback draws** (rasterizer discard, no fragment shader: skinning, inferred); the fragment queue is used about 17 %, memory about 0.4 GB/s each way, the CPU threads mostly wait for the GPU (fence and present waits). The Mali has no transform feedback in hardware and its driver emulates it (inferred from the cost); the rest of the frame (about 17 ms) would hold 30 FPS | `shader_recompiler/backend/spirv/` (outputs of the vertex stage, `emit_spirv_context_get_set.cpp`, XFB decorations in `spirv_emit_context.cpp`), `renderer_vulkan/vk_pipeline_cache.cpp` (which pipelines take it), `vk_query_cache.cpp` (`TFBCounterStreamer`: counters from Eden instead of EndTransformFeedbackEXT), `buffer_cache/buffer_cache.h` (transform feedback buffers bound as storage) | Large in Scarlet: up to about 40 ms of the 57 ms a frame (from about 15 toward 30 FPS, inferred; not measured) | High: the recompiler, the buffer bindings and the counters change together | Medium to high: a wrong offset, stride or counter shows as broken or missing characters; Mali only, the driver path kept elsewhere. **Bounded 1 November (section 10): removing the transform feedback draws altogether gave 13.7 to 18.5 FPS median, so this change could give at most that; not started.** **Read 31 October**: the place above holds only for non-indexed point or list draws without strips: transform feedback writes the vertices of the assembled primitives in order, so an indexed draw writes a shared vertex once per primitive, a strip or fan is written as separate triangles, and instances follow one another (instance x vertices + vertex); the counter follows the same rule. Which case Scarlet's draws are is logged since 31 October (`transform feedback shapes`: topology, indexed, instanced, each buffer's stride and varyings, indirect draws); read it before starting. A vertex shader may store: vertexPipelineStoresAndAtomics is one of the features Eden requires (FOR_EACH_VK_MANDATORY_FEATURE) |
 
 ### 5.4 Raising the ceiling: deep projects
 
@@ -597,9 +597,88 @@ Android now (Eden's master; v0.2.1 had it off there): H2 above. **Unmeasured**: 
 clear on load's 1 to 2.5 FPS (the twelfth log), and the frame rate with all of it; the next log, same place and
 settings as the fifteenth, answers both.
 
-## 11. "Mali custom" version of Pokemon Scarlet (owner's request, 1 November)
+---
 
-Numbered 11 because section 10 (the measurement of 1 November: skipping every transform feedback draw takes Scarlet from 13.7 to 18.5 FPS) lives on the branch `claude/app-ui-redesign-v1n2ii`.
+## 10. Conclusion (1 November): what Eden can still give on the Mali, and what it cannot
+
+Measured on the owner's Xiaomi 13T in Pokemon Scarlet (character creation, then the first cutscene; Eden's master of
+26 October with Eden-NX2 merged, 1x, GPU accuracy Low), with the diagnostics of section 9 and Perfetto traces taken
+through Punica's wireless debugging. Median 13 to 15 FPS on every build of 31 October and 1 November.
+
+| Test (1 November) | Result | Mark |
+|---|---|---|
+| CPU writes to pages the GPU wrote: at Low accuracy, no synchronous read-back before the write (`vk_rasterizer.cpp`, `TryCacheInvalidation`) | About 2,500 read-backs and 99 s of GPU-thread waiting a session removed; FPS unchanged: the GPU was the limit behind them | measured; kept (Low accuracy only, the trade written beside the code) |
+| Debug knob 1: no transform feedback counter copy after each draw (no pass split) | No gain | measured; deleted |
+| Debug knob 2: the transform-feedback-only draws skipped | GPU time 62 to 40 ms a frame, median 13.7 to 18.5 FPS; broken 3D models (what the draws animate) | measured; deleted |
+| Vertex shaders of capture-only draws writing only the captured outputs (malioc, Mali-G610: 23 to 11 cycles a vertex) | No gain on the phone | measured; reverted (9da541d9) |
+
+Read from it, inferred from the measurements above:
+- **Transform feedback is worth about 4 FPS in Scarlet at most.** Knob 2 removed it entirely and gave 18.5 FPS; O13
+  (transform feedback in the vertex shader, section 5.2) or any other way of doing that work cannot do better than not
+  doing it. Not started: its cost (the recompiler, the bindings and the counters) is high for that ceiling.
+- **The rest of the frame, about 40 ms of GPU time, is the game's own rendering**: 230 to 500 render passes a frame and
+  fragment shaders of 95 to 135 load/store cycles (malioc). No single emulator cost is left to remove there; lowering the
+  resolution is not a fix (owner, 1 November; section 5.3).
+- So on the 13T, Sword/Shield holds 22 to 25 FPS and Scarlet 13 to 18; going further means changing what the game draws
+  (its passes, effects, animated characters), not Eden. That is the owner's next direction: patches of the game made
+  from the owner's dumps in scratch space (CLAUDE.md section 8), loaded as Eden mods, each measured on the phone.
+
+Fixed alongside (1 November), untested on the phone unless said:
+- Texture read-backs (O4): Eden's update (48fea858) had put upstream's per-image staging buffer back inside the batched
+  loop, so the swizzle read a buffer nothing was copied into (5b612e57). Every texture the guest's CPU read back since
+  31 October was wrong in guest memory; whether this caused Scarlet's screens that do not show is unknown.
+- Geometry shaders on GPUs without `geometryStreams` (the Mali): stream 0 is emitted plainly instead of the shader
+  failing to build (`emit_spirv_special.cpp`), the likely cause of Pokemon Legends Z-A's missing 3D (owner's log).
+- Closing a game no longer unmaps memory outside the NCE fastmem reservation (`common/host_memory.cpp`, Z-A's crash on
+  close).
+
+Open:
+- Scarlet hangs when closed during its first cutscene (the game breaks on the exit request, then Eden waits forever;
+  forcing the app closed nearly froze the phone). Where it stops is unknown: the shutdown step logging that would have
+  told it was deleted with the diagnostics, unread; it is in the history (d9432d9b).
+- "Texture format=0" asserts in Scarlet, not looked at.
+
+
+---
+
+## 11. Next: patching the Switch Pokemon games themselves (plan, 1 November)
+
+Owner's direction (1 November): since Eden is no longer what limits Scarlet on the Mali (section 10), the next work makes
+the games draw less. Nothing below is started; each point is marked as in the rest of this document.
+
+**Rules.**
+- The owner's dumps, keys and firmware are fetched into the session's scratch space only, never committed, uploaded
+  or put in an artifact (CLAUDE.md section 8). What is committed is tooling (`tools/`) and documentation; a patch file
+  made from the game's code is handed to the owner as a CI artifact only if the owner agrees first.
+- A patch removes or lowers work the game does (passes, effects, animated characters, draw distance) while leaving the
+  picture recognisably the game's. Lowering the resolution is not the fix (owner). Every patch is a separate mod the
+  user can turn off.
+- One patch, one measurement: the same place, the same settings, the median FPS and GPU ms per frame against the build
+  without it (protocol of section 7). No gain claimed without that measurement.
+
+**How a mod reaches the game (inferred from Eden's code, to check first).** Eden loads per-game mods from its load
+folder (`Punica/Switch/Mods`, `path_util.cpp`), one folder per title ID then per mod: `exefs/` holds IPS or IPS32
+patches of the main executable, named after its build ID, and `romfs/` holds files that replace the game's. Check it
+in `core/file_sys/patch_manager.cpp` before relying on it.
+
+**Steps.**
+1. Inventory, in scratch space: unpack Scarlet's dump (Eden's own loader, or nstool/hactool with the owner's keys),
+   list the main executable's build ID, RomFS layout and the formats of its rendering settings files. Mark each as seen
+   or inferred.
+2. Find what costs: the remaining 40 ms GPU time a frame at character creation and in the first cutscene. A
+   short-lived diagnostic (deleted afterwards, CLAUDE.md 2.4) groups GPU time by render pass and shader; from
+   that, list the effects (shadows, post-processing, crowds, LOD) behind the largest groups.
+3. Data patches first (RomFS: LOD distances, effect toggles, crowd counts), as they are easiest to undo; then code
+   patches (exefs IPS) for what has no data switch, found with Ghidra on the main executable.
+4. Each patch measured on the owner's phone, results added here as measured.
+5. Then Violet (same engine, inferred), Legends Z-A once its 3D works (fix 851bcb83, untested).
+
+**Questions for the owner before step 1.** Which places of Scarlet to measure (beyond character creation and the first
+cutscene); how much visual change is acceptable per effect; whether patch files may be shared as CI artifacts.
+
+## 12. "Mali custom" version of Pokemon Scarlet (owner's request, 1 November)
+
+The work done on section 11's plan, by another agent (branch `ccr-0a954b06-a3qep9`), merged with it on 2 November.
 
 **Goal.** Patch the game itself (its code `main` in the exefs, and its shaders) so its GPU work suits the Mali (e.g. skinning in the vertex shader instead of a transform feedback pass), still run by Eden as an Eden mod (IPS patches on the exefs, replaced files), not a recompilation. Patches are tied to one game version. Scarlet first, Z-A later for comparison; long term, an open-world mod (Scarlet, Z-A, the next game).
 

@@ -42,7 +42,7 @@ import me.magnum.melonds.ui.cheats.CheatsViewModel
 import me.magnum.melonds.ui.cheats.model.CheatsScreenUiState
 import me.magnum.melonds.ui.common.component.PunicaHeader
 import me.magnum.melonds.ui.common.component.punicaBackground
-import me.magnum.melonds.ui.common.component.withPageBottomMargin
+import me.magnum.melonds.ui.common.component.withPageMargins
 
 @OptIn(ExperimentalSerializationApi::class)
 @Composable
@@ -144,7 +144,7 @@ fun CheatsScreen(
 
                 GameListScreen(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = padding.withPageBottomMargin(),
+                    contentPadding = padding.withPageMargins(),
                     games = games,
                     onGameClick = { viewModel.setSelectedGame(it) },
                 )
@@ -189,7 +189,7 @@ fun CheatsScreen(
 
                 EnabledCheatsListScreen(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = padding.withPageBottomMargin(),
+                    contentPadding = padding.withPageMargins(),
                     cheats = cheats,
                     onCheatClick = { viewModel.toggleCheat(it.cheat) }
                 )

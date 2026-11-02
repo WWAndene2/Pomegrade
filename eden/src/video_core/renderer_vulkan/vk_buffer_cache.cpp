@@ -439,10 +439,6 @@ bool BufferCacheRuntime::CanReorderUpload(const Buffer& buffer,
     if (Settings::values.disable_buffer_reorder) {
         return false;
     }
-    // Pomegrade: TEMPORARY ceiling test, unsafe: draws already recorded may read the new data
-    if (Settings::values.pomegrade_test_reorder_all_uploads.GetValue()) {
-        return true;
-    }
     const bool can_use_upload_cmdbuf =
         std::ranges::all_of(copies, [&](const VideoCommon::BufferCopy& copy) {
             return !buffer.IsRegionUsed(copy.dst_offset, copy.size);
@@ -452,7 +448,7 @@ bool BufferCacheRuntime::CanReorderUpload(const Buffer& buffer,
 
 void BufferCacheRuntime::CopyBuffer(VkBuffer dst_buffer, VkBuffer src_buffer,
                                     std::span<const VideoCommon::BufferCopy> copies, bool barrier,
-                                    bool can_reorder_upload, const char* file, int line) {
+                                    bool can_reorder_upload) {
     if (dst_buffer == VK_NULL_HANDLE || src_buffer == VK_NULL_HANDLE) {
         return;
     }
@@ -496,7 +492,7 @@ void BufferCacheRuntime::CopyBuffer(VkBuffer dst_buffer, VkBuffer src_buffer,
         return;
     }
 
-    scheduler.RequestOutsideRenderPassOperationContext(file, line); // Pomegrade: the caller's (TEMPORARY)
+    scheduler.RequestOutsideRenderPassOperationContext();
     scheduler.Record([src_buffer, dst_buffer, vk_copies, barrier](vk::CommandBuffer cmdbuf) {
         if (barrier) {
             cmdbuf.PipelineBarrier(vk::PIPELINE_STAGE_GRAPHICS_COMPUTE_TRANSFER,

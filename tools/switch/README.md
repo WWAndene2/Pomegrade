@@ -1,7 +1,7 @@
 # Switch tools (Mali custom version of Scarlet)
 
 Our own scripts for opening a Switch game dump and reading its code, for the plan in
-`docs/Eden_Optimisation_Xiaomi.md` section 11. The dumps, keys and anything extracted from them
+`docs/Eden_Optimisation_Xiaomi.md` section 12. The dumps, keys and anything extracted from them
 stay in the session's scratch space and are never committed (CLAUDE.md §8).
 
 | File | What it does | Checked |

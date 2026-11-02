@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- PunicaToolbar: the list's bottom padding as it last set it (the core's own, plus the page's margin) -->
+    <!-- PunicaToolbar: the list's top and bottom paddings as it last set them (the core's own, plus the page's margin) -->
+    <item name="punica_header_applied_top" type="id" />
     <item name="punica_header_applied_bottom" type="id" />
 </resources>

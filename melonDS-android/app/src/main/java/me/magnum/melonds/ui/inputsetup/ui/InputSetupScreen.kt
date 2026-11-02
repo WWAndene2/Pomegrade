@@ -51,7 +51,7 @@ import me.magnum.melonds.domain.model.InputConfig
 import me.magnum.melonds.ui.common.MelonPreviewSet
 import me.magnum.melonds.ui.common.component.PunicaHeader
 import me.magnum.melonds.ui.common.component.punicaBackground
-import me.magnum.melonds.ui.common.component.withPageBottomMargin
+import me.magnum.melonds.ui.common.component.withPageMargins
 import me.magnum.melonds.ui.inputsetup.InputSetupViewModel
 import me.magnum.melonds.ui.theme.MelonTheme
 import me.magnum.melonds.ui.theme.PunicaAlpha
@@ -109,7 +109,7 @@ private fun InputSetupScreenContent(
         Box(Modifier.fillMaxSize().consumeWindowInsets(padding)) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = padding.withPageBottomMargin(),
+                contentPadding = padding.withPageMargins(),
             ) {
                 items(
                     items = inputConfig,

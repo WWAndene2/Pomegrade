@@ -484,27 +484,13 @@ struct Values {
     SwitchableSetting<bool> pomegrade_deep_black{linkage, false, "pomegrade_deep_black",
                                                  Category::Renderer, Specialization::Default,
                                                  true, true};
-    // Pomegrade: renderable images without STORAGE usage, so a Mali GPU may compress them (AFBC)
-    // (video_core/renderer_vulkan/vk_texture_cache.cpp, ImageUsageFlags)
     // Pomegrade: the guest's "wait for idle" inside a render pass waits at the pass's end instead of ending it
     // (video_core/renderer_vulkan/vk_rasterizer.cpp, WaitForIdle)
     SwitchableSetting<bool> pomegrade_defer_wait_for_idle{linkage, false, "pomegrade_defer_wait_for_idle",
                                                           Category::Renderer, Specialization::Default,
                                                           true, true};
-    // Pomegrade: TEMPORARY ceiling tests for the optimisation study (docs/Eden_Optimisation_Xiaomi.md): unsafe,
-    // they draw wrong pictures; only the frame rate they give counts. Every buffer upload made at the start of the
-    // command buffer (what buffer renaming could give at best), and the guest's fragment barriers ignored inside a
-    // render pass
-    // Pomegrade: TEMPORARY, the sampler switches the study's options every 45 s through four phases and logs them
-    // (android/app/src/main/jni/native.cpp, PomegradeSampler::Cycle): one session answers every comparison
-    SwitchableSetting<bool> pomegrade_test_cycle{linkage, false, "pomegrade_test_cycle", Category::Renderer,
-                                                 Specialization::Default, true, true};
-    SwitchableSetting<bool> pomegrade_test_reorder_all_uploads{
-        linkage, false, "pomegrade_test_reorder_all_uploads", Category::Renderer,
-        Specialization::Default, true, true};
-    SwitchableSetting<bool> pomegrade_test_skip_fragment_barriers{
-        linkage, false, "pomegrade_test_skip_fragment_barriers", Category::Renderer,
-        Specialization::Default, true, true};
+    // Pomegrade: renderable images without STORAGE usage, so a Mali GPU may compress them (AFBC)
+    // (video_core/renderer_vulkan/vk_texture_cache.cpp, ImageUsageFlags)
     SwitchableSetting<bool> pomegrade_compressed_render_targets{
         linkage, false, "pomegrade_compressed_render_targets", Category::Renderer,
         Specialization::Default, true, true};
