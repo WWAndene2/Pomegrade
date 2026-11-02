@@ -174,6 +174,11 @@ std::vector<XyNative> XyGymNatives()
         {"_GymElecTopLiftDown", ElecEventNative(ElecEvent::Lift, XyElecLiftDownVtable, 0, 1)},
         {"_GymElecAnswerAnm", ElecEventNative(ElecEvent::Answer, XyElecAnswerAnmVtable, 0, 0)},
         {"_GymElecBlackAnm", ElecEventNative(ElecEvent::Black, XyElecBlackAnmVtable, 0, 0)},
+        // the quiz stand (2 November): X's 0x10294040, an event built as the black's (0x20 bytes, class
+        // EventGymElecStandAnm), and X's 0x102952EC, a call of DllUSGymElec's 0xCF0 with the module's object (the stand
+        // closed)
+        {"GymElecStandAnm", ElecEventNative(ElecEvent::Black, XyElecStandAnmVtable, 0, 0)},
+        {"GymElecSetStandCloseState", ModuleCall(0xCF0, 0, 0, false, false)},
         // Ramos's (31 October): X's 0x10294B4C and 0x10294CCC, each a call of a function of DllUSGymGrass with the
         // module's object (X's DllField stubs 0x101FD3D8 and 0x101FD3E0: its 0x69C, then 0 returned; its 0x780, its
         // answer returned)

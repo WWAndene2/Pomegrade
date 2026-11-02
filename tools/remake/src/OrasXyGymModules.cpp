@@ -797,8 +797,8 @@ const XyModulePort& XyGymElec()
             {0x10279118, 0x102C910C}, {0x10279158, 0x102C914C},
         });
         // Clemont's events (2 November): X's natives _GymElecLiftUp / LiftDown / TopLiftUp / TopLiftDown / AnswerAnm /
-        // BlackAnm build objects of four DllField classes Omega Ruby lacks (EventGymElecLiftUp, LiftDown, AnswerAnm,
-        // BlackAnm); their methods copied here and their vtables built in the module, where the natives
+        // BlackAnm (and GymElecStandAnm) build objects of five DllField classes Omega Ruby lacks (EventGymElecLiftUp,
+        // LiftDown, AnswerAnm, BlackAnm, StandAnm); their methods copied here and their vtables built in the module, where the natives
         // (OrasXyGymNatives.cpp) find them. Their calls into this module go through X DllField's import stubs
         p.Room = 0x1000; // the copies, veneers and vtables outgrow the room after the code (as Olympia's)
         p.XLinked = 0x1077F000;
@@ -809,10 +809,11 @@ const XyModulePort& XyGymElec()
             {0x101F91C8, 0x2FF520}, {0x101FA230, 0x4AB150}, {0x101F91F8, 0x425B1C},
             {0x101FB138, 0x10780264}, {0x101FB140, 0x1077FC84}, {0x101FB228, 0x1077F9B8}, {0x101FB230, 0x1077FAA8},
             {0x101FB238, 0x1077F2A0}, {0x101FB2D0, 0x1077FAF0}, {0x101FB2D8, 0x1077FC00}, {0x101FB2E0, 0x1077FC24},
+            {0x101FB240, 0x1077FA48}, {0x101FB248, 0x1077FACC},
         };
         p.Copies = {
             {0x10230094, 0x21C, "EventGymElecLiftUp's methods"},
-            {0x102327C4, 0x248, "EventGymElecBlackAnm's and EventGymElecLiftDown's methods"},
+            {0x102327C4, 0x2E8, "EventGymElecBlackAnm's, EventGymElecLiftDown's and EventGymElecStandAnm's methods"},
             {0x10235488, 0xD8, "EventGymElecAnswerAnm's methods"},
         };
         // the field's members the copies read: + 0x198 (the area module's object) is Omega Ruby's + 0x1A0 (as the natives'),
@@ -829,6 +830,7 @@ const XyModulePort& XyGymElec()
             {0x10232914, 0xE5900198, 0xE59001A0, "the field's + 0x198 -> + 0x1A0"},
             {0x10232984, 0xE5900198, 0xE59001A0, "the field's + 0x198 -> + 0x1A0"},
             {0x102354A4, 0xE5906198, 0xE59061A0, "the field's + 0x198 -> + 0x1A0"},
+            {0x10232A18, 0xE5900198, 0xE59001A0, "the field's + 0x198 -> + 0x1A0"},
         };
         p.CopySounds = {0xA00FC}; // the lifts' sound
         p.FieldVtables = {
@@ -836,6 +838,7 @@ const XyModulePort& XyGymElec()
             {0, {0x102329F8, 0x102329E8, 0x10232878, 0x10232884, 0x10232888, 0x10232880}, XyElecLiftDownVtable},
             {0, {0x1023554C, 0x1023553C, 0x10235488, 0x10235494, 0x10235498, 0x10235490}, XyElecAnswerAnmVtable},
             {0, {0x10232874, 0x10232864, 0x102327C4, 0x102327D0, 0x102327D4, 0x102327CC}, XyElecBlackAnmVtable},
+            {0, {0x10232A98, 0x10232A88, 0x102329FC, 0x10232A08, 0x10232A0C, 0x10232A04}, XyElecStandAnmVtable},
         };
         p.Thunks = {Request};
         p.Words = {LoaderSize(0xEA8), LoaderSize(0x1364), LoaderSize(0x1704),

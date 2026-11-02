@@ -158,7 +158,8 @@ const XyModulePort& XyGymIce();
 const XyModulePort& XyGymElec();
 // where XyGymElec's port builds its event classes' vtables (their slot 0, file offsets in DllXyGymElec): their natives
 // store the module's handle plus these (OrasXyGymNatives.cpp); the port throws when they move
-constexpr uint32_t XyElecLiftUpVtable = 0x00001F30, XyElecLiftDownVtable = 0x00001F50, XyElecAnswerAnmVtable = 0x00001F70, XyElecBlackAnmVtable = 0x00001F90;
+constexpr uint32_t XyElecLiftUpVtable = 0x00001FD0, XyElecLiftDownVtable = 0x00001FF0, XyElecAnswerAnmVtable = 0x00002010, XyElecBlackAnmVtable = 0x00002030,
+                   XyElecStandAnmVtable = 0x00002050;
 
 // Viola's gym (X zone 56, Santalune; DllUSGymInsect, mapped 30 October): its imports mapped (xy_import_match.py,
 // xy_callee_map.py), its two X-own helpers and their callees copied (Copies); `xy-gym-module ... insect` builds it.
