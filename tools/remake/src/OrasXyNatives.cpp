@@ -4,6 +4,7 @@
 #include "Bytes.h"
 #include "OrasXyDustBox.h"
 #include "OrasXyFashion.h"
+#include "OrasXyActionCommands.h"
 #include "OrasXyGymNatives.h"
 #include "OrasXyNickname.h"
 #include "OrasXyZoneWalk.h"
@@ -95,6 +96,7 @@ const std::vector<XyNative>& XyNatives()
         for (const XyNative& n : XyZoneWalkNatives()) v.push_back(n);
         for (const XyNative& n : XyFashionNatives()) v.push_back(n);
         for (const XyNative& n : XyGymNatives()) v.push_back(n);
+        v.push_back(XyMdlAcmdSetNative()); // X/Y's action commands translated (OrasXyActionCommands.h)
         for (const XyNative& n : XyDustBoxNatives()) v.push_back(n);
         return v;
     }();

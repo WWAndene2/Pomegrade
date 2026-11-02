@@ -353,7 +353,15 @@ static class SpicaCli
             }
             m.Materials.Clear(); foreach (var nm in mats) m.Materials.Add(nm);
             foreach (var t in from.Textures) if (!scene.Textures.Contains(t.Name)) scene.Textures.Add(t);
-            foreach (var l in from.LUTs) if (!scene.LUTs.Contains(l.Name)) scene.LUTs.Add(l);
+            // the new materials are the template's, so their LUT samplers name the template's tables: a table of the same
+            // name already in the scene (a Pokemon model's and a field character's are both LookupTableSetContentCtrName)
+            // is replaced, else the game finds no Toontable.tga in it and stops binding the model (Torchic on Brendan,
+            // Gfx_ModelBinding_Update failing in DllField 0x102C27FC, 2 November)
+            foreach (var l in from.LUTs)
+            {
+                if (scene.LUTs.Contains(l.Name)) scene.LUTs.Remove(scene.LUTs[l.Name]);
+                scene.LUTs.Add(l);
+            }
         }
         H3D.Save(rest[1], scene);
         Console.WriteLine($"{rest[1]}: {scene.Models.Count} models, {scene.Textures.Count} textures, {scene.LUTs.Count} LUTs");

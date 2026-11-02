@@ -83,6 +83,19 @@ A=azahar; g++ -std=c++20 -O1 -Itools/remake/prototype/azahar_check/stub -I$A/src
 - Paths and the Twinleaf/Petalburg choices are hard-coded in the C++ prototypes.
 - No texture can be added to an area pack yet: that needs BCH dictionary editing, which also blocks snow (`c109_pur_yaneyuki`) and the white fence.
 
+## A Pokemon as the player (`pokemon_player.py`)
+
+Owner's request, 2 November: a Pokemon of Omega Ruby walking in the player's place (Torchic first). The script's header
+says what it builds and why (model and textures merged by `spica bch --material-from` Brendan, his motion slots filled
+with the Pokemon's Pokemon-Amie wait and hop). In a session, with SPICA built (`session_setup.sh <work> spica`):
+
+```
+python3 -I tools/remake/prototype/pokemon_player.py <work>/build-remake/remake_tool <work>/spica/spica <work>/dumps/oras.3ds <work>/pp 2827 <work>/pp/member.bin
+remake_tool oras-copy <work>/dumps/oras.3ds <mod dir> a/0/2/1 171=file:<work>/pp/member.bin 172=file:<work>/pp/member.bin
+```
+
+The Remake mod workflow builds the same mod with the variant `torchic: pokemon-player 2827`.
+
 ## Ultra Moon players on ORAS bodies (`usum_character.py`)
 
 Elio or Selene, in a chosen outfit, built on an ORAS field character (Brendan by default) for a preview. What the data is
@@ -147,3 +160,12 @@ file a mod ships as a BPS patch (romfs_ext/*.bps), to read its entries. `oras_sa
 `xy_copy_plan.py <work> MAPPED ROOTS` lists the X functions a port must copy with ROOTS (calls into X's DllField
 followed) and the calls left to map onto Omega Ruby; MAPPED is the pairs already mapped (`X=ORAS,...`). Both read the
 work directory as `xy_callee_map.py` does.
+
+## Reading a script live (`amx_path.py`, `trace_natives.py`, `member_offsets.py`, 2 November)
+
+`trace_natives.py <modules.bin> <lo> <hi> <delta> <trace.txt>` names the natives of a native table [lo, hi) a run
+called (retro_host `trace on` / `trace off FILE`; delta: runtime minus linked base of the module). `amx_path.py
+<rd.txt> <code address> [--listing L]` prints a Pawn script's path from a `readers` log over its code segment (the
+labels entered, the last cell read: where it waits). Both need `POMEGRADE_INTERPRETER=1`, so a mod built without
+`--xy-player-scale`, `--xy-footsteps` and `--xy-sequences` (ORAS_ENGINE.md 0.000). `member_offsets.py` matches a class
+member of X with Omega Ruby's by the offsets the code then reads from it (inferred; check the match in the code).

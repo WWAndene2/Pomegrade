@@ -10,6 +10,11 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <deque>
+#include <string>
+#include <chrono>
+#include <mutex>
+#include <map>
 #include <thread>
 #include <utility>
 #include <queue>
@@ -76,6 +81,11 @@ public:
 
     [[nodiscard]] const Framebuffer* NullFramebuffer() const noexcept {
         return null_framebuffer;
+    }
+
+    /// Pomegrade: TEMPORARY, a draw recorded in the open render pass (the per-pass GPU time's draw count)
+    void PomegradeCountDraw() noexcept {
+        ++pomegrade_pass_draws;
     }
 
     /// Pomegrade: a "wait for idle" made at the end of the current render pass (a full memory barrier after it)
@@ -369,6 +379,29 @@ private:
     double last_target_fps{};
     u64 max_frame_count{};
     u64 frame_counter{};
+
+    // Pomegrade: TEMPORARY, GPU time of each render pass (Vulkan timestamps around it), summed by the pass's kind
+    // (render area, attachment count, draws in it) and logged every 2 seconds: where the Mali's frame goes
+    struct PomegradePendingPass {
+        u32 pair;
+        std::string kind;
+    };
+    static constexpr u32 POMEGRADE_PASS_PAIRS = 4096;
+    vk::QueryPool pomegrade_pass_timestamps;
+    double pomegrade_timestamp_period = 0.0;
+    std::vector<u32> pomegrade_free_pairs;
+    std::deque<PomegradePendingPass> pomegrade_pending_passes;
+    std::map<std::string, std::pair<u64, u64>> pomegrade_pass_time; // kind -> {passes, ns}
+    std::mutex pomegrade_pass_mutex;
+    u32 pomegrade_pass_pair = ~u32{0};
+    u32 pomegrade_pass_images = 0;
+    u64 pomegrade_pass_draws = 0;
+    u64 pomegrade_pass_draws_start = 0;
+    u64 pomegrade_dropped = 0;
+    std::chrono::steady_clock::time_point pomegrade_last_log{};
+    void PomegradePassBegin(u32 images);
+    void PomegradePassEnd();
+    void PomegradeCollectPasses();
 };
 
 } // namespace Vulkan

@@ -96,6 +96,7 @@ add_library(remake STATIC
     src/OrasXyGymModules.cpp
     src/OrasXyDustBox.cpp
     src/OrasXyDustCloud.cpp
+    src/OrasXyActionCommands.cpp
     src/OrasXyMoveCodes.cpp
     src/OrasXyPlayerScale.cpp
     src/OrasXySharedScripts.cpp

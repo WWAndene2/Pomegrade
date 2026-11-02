@@ -9,6 +9,41 @@ marked **checked** (seen in memory or under the debugger), **read** (from the de
 
 ## 0. Start here (the state on 7 October, for whoever continues)
 
+### 0.000 Handover of 2 November (read first; then 0.00)
+
+**Clemont's gym (Lumiose, X's zone 79 and its rooms), state.** Built with `headless/xy_gym_mod.sh`; checked headless
+only, not on the phone. Works: the ground floor, the lift's door (his models' virtual methods moved to Omega Ruby's
+slots, OrasXyGymModules.cpp Words), the lift up to the quiz room; his events LiftUp, BlackAnm and StandAnm run and end
+(their objects' states read with `watch`). X/Y's scripts' action commands are translated (`XyMdlAcmdSet`, 0.0).
+**Blocked: the quiz room's arrival.** In X the arrival runs the camera intro and Bonnie's lines (25 natives: EVCamera*,
+WorkSet, TalkMdlMsg_Seq...; `trace_natives.py` on run xs2); the mod's runs 11 and stop. The script's path, read live
+(`amx_path.py`, interpreter readers over its code, run ms10): L002738 (arrival) -> SetBlackFace -> LiftUp -> SEPlay ->
+GymElecStandAnm -> `call L000004` (`_Suspend(1)`, then `halt`: wait for the events running to end) and never resumes.
+Inferred, not checked: the wait ends when the field sees no event running, so one of the ported events (or a native's
+object) stays registered or is not seen as ended. The JIT runs showed BlackAnm created after it, from a state saved
+during an asset load (unreliable): the two runs disagree, settle that first. **Next**: the same `amx_path.py` read in X
+(state at the lift, X's DllField at 0x6A5000; the script image found by `amx_dump.py`), how long X's `_Suspend` lasts
+and what ends it (the field's event list, +0x88 of the context); compare with the mod; fix; then the quiz, the lifts
+between floors, the trainers, Clemont's battle and the badge. Other gyms may need the same model-slot fix (not scanned:
+X's model classes have 5 virtual methods fewer, X +0xA0..0xF0 = Omega Ruby +0xB8..0x108; slots up to +0x70 the same).
+
+**The interpreter and our patches.** `POMEGRADE_INTERPRETER=1` (needed by `readers`, `writers`, `trace`) stops at boot
+("Decode failure") on mods built with `--xy-player-scale`, `--xy-footsteps` or `--xy-sequences`/`--xy-sounds`: their
+patches use movw/movt (ARMv7; the 3DS's ARM11 is ARMv6K, which Azahar's JIT accepts and its interpreter does not:
+OrasEngine.cpp's sounds routine at 0x579F00, OrasXyFootsteps.cpp, OrasXyPlayerScale.cpp). For a debug run, build the
+mod without those three options. Not fixed yet: rewrite them with literal pools (ARMv6K) - the phone runs the JIT, so
+it is a debugging limit, not a game bug (inferred; not tested on real hardware).
+
+**Tools of this session** (prototype/README.md, "Reading a script live"): `amx_path.py` (a script's path from a
+readers log), `trace_natives.py` (the natives a traced run called), `member_offsets.py` (which Omega Ruby member
+matches an X one, by its use), `xy_action_commands.py` (the action command table). The headless core logs the caller
+of an unmapped access (patch_core.py).
+
+**Also done this session**: a Pokemon as the player (`prototype/pokemon_player.py`, the `pokemon-player` variant of the
+Remake mod workflow; Torchic checked headless in Littleroot, Poochyena built by run 206); SPICA `--material-from`
+takes the template's LUTs. The owner reported a deformed mesh on Torchic; a headless render drew it right: waiting on
+the owner's screenshot.
+
 ### 0.00 Handover of 28 October (read first; then 0.0)
 
 The owner now writes French or English: answer in the language of the message. Short, simple answers; ask before a run
@@ -466,6 +501,13 @@ where it found only a copy):
   numbers**: a command past X's 0x08 is another action (not seen in a run yet). To port: the map by name (the basic
   commands), then by DrawStatus (the animations), X's own commands as ported classes, and the translation in the
   script port (MdlAcmdSet's code) and in each ported block.
+  **Ported for MdlAcmdSet (2 November, Clemont's quiz rooms)**: both builders read straight through
+  (`prototype/xy_action_commands.py`: X 212 commands, Omega Ruby 260, each command's class by its vtable's RTTI name);
+  X's command n becomes Omega Ruby's of the same class (108), else an animation by its DrawStatus block (75: X's
+  DrawStatus 84-100 +32, 136-161 +25, 164-191 +20, 35-41 +1, inferred from the two sequences), else stays n (29: X's
+  own commands and the other animations). X/Y's scripts call `XyMdlAcmdSet` (OrasXyEvents.cpp renames MdlAcmdSet), which
+  translates its first argument and calls Omega Ruby's MdlAcmdSet (OrasXyActionCommands.h). Not yet: `_MdlAcmdSet`,
+  `MdlAcmdSetToOtherMdl`, `IEMdlAcmdSet` and the commands ported code gives; the DrawStatus blocks not read in the code.
   **The clouds hidden and their swirl drawn (25 October, runs dc2a-dc4c, headless)**: X's move-code classes 0x38-0x3A
   (MoveCodeTsutikemuri*, the mod's 0x3F-0x41) are ported into the room (OrasXyDustCloud.cpp): their start gives the cloud
   X's VanishON (Omega Ruby's command 0x30) and makes its swirl, a record of X's effect kind 0x1F
