@@ -840,7 +840,45 @@ const XyModulePort& XyGymElec()
         p.Thunks = {Request};
         p.Words = {LoaderSize(0xEA8), LoaderSize(0x1364), LoaderSize(0x1704),
                    // the field's member Omega Ruby keeps elsewhere (prototype/xy_module_layout.py --words, 30 October)
-                   {0xD74, 0xE5900050, 0xE5900060, "the field's + 0x50 -> + 0x60"}};
+                   {0xD74, 0xE5900050, 0xE5900060, "the field's + 0x50 -> + 0x60"},
+                   // its models' virtual methods (2 November, the lift's door stuck, an unmapped read in Omega Ruby's
+                   // 0x4CD624 called from + 0x14D8): Omega Ruby's model classes have six more methods before X's + 0xA0,
+                   // so X's + 0xA0 .. + 0xF0 are Omega Ruby's + 0xB8 .. + 0x108 (their bodies alike at + 0xA0, + 0xA8 and
+                   // + 0xF0 in the vtables 0x5E0F9C / X 0x59B278, 20 slots of 0x5DDE0C / X 0x5981A4 agreeing on six); every
+                   // `ldr rN, [rM, #k]` then `blx` / `bx rN` with k in + 0x84 .. + 0x400 of the module (32 calls, k + 0xB4
+                   // + 0xBC + 0xD0 + 0xDC + 0xF0)
+                   {0x2F0, 0xE591C0F0, 0xE591C108, "model vtable + 0xF0 -> + 0x108"},
+                   {0x30C, 0xE59020BC, 0xE59020D4, "model vtable + 0xBC -> + 0xD4"},
+                   {0x3A0, 0xE592C0F0, 0xE592C108, "model vtable + 0xF0 -> + 0x108"},
+                   {0x3CC, 0xE592C0F0, 0xE592C108, "model vtable + 0xF0 -> + 0x108"},
+                   {0x3E4, 0xE59020BC, 0xE59020D4, "model vtable + 0xBC -> + 0xD4"},
+                   {0x400, 0xE59020BC, 0xE59020D4, "model vtable + 0xBC -> + 0xD4"},
+                   {0x58C, 0xE59120BC, 0xE59120D4, "model vtable + 0xBC -> + 0xD4"},
+                   {0x630, 0xE59120BC, 0xE59120D4, "model vtable + 0xBC -> + 0xD4"},
+                   {0x6C4, 0xE59120BC, 0xE59120D4, "model vtable + 0xBC -> + 0xD4"},
+                   {0x7A4, 0xE59120BC, 0xE59120D4, "model vtable + 0xBC -> + 0xD4"},
+                   {0x898, 0xE59120BC, 0xE59120D4, "model vtable + 0xBC -> + 0xD4"},
+                   {0x8B0, 0xE59120BC, 0xE59120D4, "model vtable + 0xBC -> + 0xD4"},
+                   {0x93C, 0xE59120D0, 0xE59120E8, "model vtable + 0xD0 -> + 0xE8"},
+                   {0x950, 0xE59020B4, 0xE59020CC, "model vtable + 0xB4 -> + 0xCC"},
+                   {0x97C, 0xE59120DC, 0xE59120F4, "model vtable + 0xDC -> + 0xF4"},
+                   {0x9A0, 0xE59120DC, 0xE59120F4, "model vtable + 0xDC -> + 0xF4"},
+                   {0xA04, 0xE592C0F0, 0xE592C108, "model vtable + 0xF0 -> + 0x108"},
+                   {0xA1C, 0xE59020BC, 0xE59020D4, "model vtable + 0xBC -> + 0xD4"},
+                   {0xA74, 0xE592C0F0, 0xE592C108, "model vtable + 0xF0 -> + 0x108"},
+                   {0xA90, 0xE59020BC, 0xE59020D4, "model vtable + 0xBC -> + 0xD4"},
+                   {0xAB4, 0xE59120DC, 0xE59120F4, "model vtable + 0xDC -> + 0xF4"},
+                   {0xAD8, 0xE59120DC, 0xE59120F4, "model vtable + 0xDC -> + 0xF4"},
+                   {0xB64, 0xE592C0F0, 0xE592C108, "model vtable + 0xF0 -> + 0x108"},
+                   {0xB7C, 0xE59020BC, 0xE59020D4, "model vtable + 0xBC -> + 0xD4"},
+                   {0xBC4, 0xE593C0F0, 0xE593C108, "model vtable + 0xF0 -> + 0x108"},
+                   {0xC0C, 0xE59120DC, 0xE59120F4, "model vtable + 0xDC -> + 0xF4"},
+                   {0xC50, 0xE592C0F0, 0xE592C108, "model vtable + 0xF0 -> + 0x108"},
+                   {0xC6C, 0xE59020BC, 0xE59020D4, "model vtable + 0xBC -> + 0xD4"},
+                   {0x14CC, 0xE593C0F0, 0xE593C108, "model vtable + 0xF0 -> + 0x108"},
+                   {0x14E4, 0xE59020BC, 0xE59020D4, "model vtable + 0xBC -> + 0xD4"},
+                   {0x15E4, 0xE59120BC, 0xE59120D4, "model vtable + 0xBC -> + 0xD4"},
+                   {0x163C, 0xE59120DC, 0xE59120F4, "model vtable + 0xDC -> + 0xF4"}};
         p.Archive = 0xEB; // a/2/3/5
         p.ArchiveWords = {0xD34, 0x1300, 0x1684};
         p.Vtables = {0x2108, 0x2144, 0x2180}; // its three classes'
