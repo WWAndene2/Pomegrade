@@ -202,7 +202,7 @@ const XyModulePort& XyRoute13()
         p.Static = {
             {0x2FEB7C, 0x2FF8C0}, // a thunk of the heap's delete
             {0x2FF520, 0x2FF8C0}, // the heap's delete
-            {0x14F220, 0x1F9544}, // an assert, empty -> Util_Nop_001F9544
+            {0x14F220, 0x1E8294}, // an assert, empty -> a bare return (OrasXyGymModules.cpp, SharedStatic)
             {0x3D41D8, 0x3F54E8}, // a character created from its zone record (its character manager's offsets moved)
             {0x3D5818, 0x3F6C70}, // a character removed (the same, offsets moved)
             {0x42E728, 0x45BB00}, // the area work set to a kind (the same function; the game data + 0x12E4 -> 0x12EC, below)

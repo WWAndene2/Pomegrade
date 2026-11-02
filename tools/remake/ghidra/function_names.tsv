@@ -109,7 +109,7 @@
 0019CA78	Util_ThunkIndirect146000d	Indirect jump thunk (Ghidra names it thunk_FUN_00146000).	guess
 001D3630	Script_ValidateBytecode	Walks a bytecode command stream (opcodes up to 0xD6), checks jump/offset targets and returns error 4/6/0x1C or 0.	guess
 001F5EB8	Util_CallVirtual18IfNotNull	Calls vtable slot 0x18 on an object if it is not null.	read
-001F9544	Util_Nop_001F9544	Empty function.	read
+001F9544	Math_FloatConvert_001F9544	Not empty: converts the float in s0 (vmov r0, s0; bics; shifts), its result in r0 (2 November, seen running 3 blocks in a trace). Was named Util_Nop.	read
 001F9854	Gfx_InitMaterialParams	Initialises a small render/material parameter struct to defaults.	guess
 001F98A8	Util_TreeNodeChainCreate	Creates a chain of four linked tree/list nodes of types 5,0,0,0 holding a value.	guess
 002E6E14	Util_SetInvalid	Stores 0xFFFFFFFF into a handle.	read

@@ -661,7 +661,10 @@ std::map<uint32_t, uint32_t> SharedStatic()
     return {
         {0x1001D9, 0x10018D}, {0x100205, 0x100295}, // Thumb helpers (the same bytes)
         {0x2FF520, 0x2FF8C0},                       // the heap's delete (Omega Ruby's also called by OrasXyNickname)
-        {0x14F220, 0x1F9544},                       // an empty function (an assert, empty in this build) -> Util_Nop_001F9544
+        // 0x1E8294: a bare return (`bx lr`, the base event class's destructor). Not 0x1F9544, named Util_Nop in the
+        // Ghidra names but a float conversion (vmov r0, s0; ...): called for a bare return it changed r0, so an event's
+        // destructor passed a wrong pointer to delete and the field stopped (2 November, Clemont's lift, run ms17)
+        {0x14F220, 0x1E8294},                       // an empty function (an assert, empty in this build) -> a bare return
         {0x122920, 0x123480},                       // an allocation from a heap
         {0x369914, 0x381B00}, {0x3699A8, 0x381B94}, {0x369AD0, 0x381CBC}, {0x369B58, 0x381D44}, // gfl::grp::g3d, X's +0x181EC
         {0x36A758, 0x382944}, {0x36A7E4, 0x3829D0}, // H3dResAnim's (two identical copies in Omega Ruby: this one at +0x181EC)
@@ -705,7 +708,7 @@ const XyModulePort& XyGymRock()
         p.Static = {
             {0x4B94D8, 0x4F40B0},
             {0x2FF520, 0x2FF8C0}, // the heap's delete (free from the block's header at -0x20); Omega Ruby's also called by OrasXyNickname
-            {0x14F220, 0x1F9544}, // an empty function (an assert, empty in this build) -> Util_Nop_001F9544
+            {0x14F220, 0x1E8294}, // an empty function (an assert, empty in this build) -> a bare return
             {0x42494C, 0x44E720}, // a sound's volume by id: the same loop over 14 handles for X's 10
             {0x425E54, 0x44FDC8}, // a sound stopped by id (the same guard and loop, 14 handles)
             {0x426304, 0x450274},
@@ -784,7 +787,7 @@ const XyModulePort& XyGymElec()
             {0x3D09A0, 0x3F18A4}, {0x425B1C, 0x44FA8C},
             // called by the event classes copied below (2 November): as the other ports, or by their callers' copies
             // (xy_callee_map.py, votes)
-            {0x3D037C, 0x3F1324}, {0x4AAF98, 0x4E3D94}, {0x1D4744, 0x1F9544},
+            {0x3D037C, 0x3F1324}, {0x4AAF98, 0x4E3D94}, {0x1D4744, 0x1E8294}, // the base event's destructor, bx lr in both
             {0x3D0674, 0x3F1620}, // 10 callers agree
             {0x425BD4, 0x44FB44}, // 20
             {0x4AB150, 0x4E3FDC}, // 14
@@ -919,7 +922,7 @@ const XyModulePort& XyGymInsect()
             {0x456970, 0x48A790}, // identical (clears +0, +4, +8)
             {0x4B3D9C, 0x4C4D0C}, // identical, `ldrsb r0, [r0, #0x14]` (the object 0x45672C fills)
             {0x390550, 0x3A7D54}, {0x11E46C, 0x11EB78}, // identical setters
-            {0x390560, 0x1F9544}, // a bare return -> Util_Nop_001F9544
+            {0x390560, 0x1E8294}, // a bare return -> a bare return
             // called by the copies below
             {0x499368, 0x4CAA58}, // 0.99 (xy_callee_map.py: X's 0x37AADC = Omega Ruby's 0x392540 calls it there)
             {0x376FC4, 0x38EAC0}, // 1.00
@@ -1139,7 +1142,7 @@ const XyModulePort& XyGymEsper()
             {0x4A4958, 0x4DC6BC},  // a getter, by its callers
             {0x6270C8, 0x672DB8},  // X .data: the literal of two twin readers (0x3CD380 / 0x3EF170, 0x4A4D8C / 0x4DCD0C)
             // called by the copies below
-            {0x1D4744, 0x1F9544},  // an empty function (bx lr) -> Util_Nop_001F9544
+            {0x1D4744, 0x1E8294},  // the base event's destructor, bx lr in both (X's vtable 0x58EA24, Omega Ruby's 0x5D45D0, slot 0)
             {0x3580AC, 0x370778}, {0x358B34, 0x37128C}, {0x358F58, 0x3716F0}, {0x3D0674, 0x3F1620}, {0x3D1DE0, 0x3F2E04},
             {0x3D33D4, 0x3F4844}, {0x425B1C, 0x44FA8C},
             {0x3D149C, 0x3F2354}, {0x3D4564, 0x3F57B8}, {0x3D4CF0, 0x3F6088}, {0x4AAA70, 0x4E3674}, // 1.00, 1.00, 1.00, 0.93
