@@ -466,6 +466,13 @@ where it found only a copy):
   numbers**: a command past X's 0x08 is another action (not seen in a run yet). To port: the map by name (the basic
   commands), then by DrawStatus (the animations), X's own commands as ported classes, and the translation in the
   script port (MdlAcmdSet's code) and in each ported block.
+  **Ported for MdlAcmdSet (2 November, Clemont's quiz rooms)**: both builders read straight through
+  (`prototype/xy_action_commands.py`: X 212 commands, Omega Ruby 260, each command's class by its vtable's RTTI name);
+  X's command n becomes Omega Ruby's of the same class (108), else an animation by its DrawStatus block (75: X's
+  DrawStatus 84-100 +32, 136-161 +25, 164-191 +20, 35-41 +1, inferred from the two sequences), else stays n (29: X's
+  own commands and the other animations). X/Y's scripts call `XyMdlAcmdSet` (OrasXyEvents.cpp renames MdlAcmdSet), which
+  translates its first argument and calls Omega Ruby's MdlAcmdSet (OrasXyActionCommands.h). Not yet: `_MdlAcmdSet`,
+  `MdlAcmdSetToOtherMdl`, `IEMdlAcmdSet` and the commands ported code gives; the DrawStatus blocks not read in the code.
   **The clouds hidden and their swirl drawn (25 October, runs dc2a-dc4c, headless)**: X's move-code classes 0x38-0x3A
   (MoveCodeTsutikemuri*, the mod's 0x3F-0x41) are ported into the room (OrasXyDustCloud.cpp): their start gives the cloud
   X's VanishON (Omega Ruby's command 0x30) and makes its swirl, a record of X's effect kind 0x1F

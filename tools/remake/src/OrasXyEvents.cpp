@@ -105,6 +105,14 @@ Bytes XyAssembleScript(OrasWorkspace& ws, N3dsRom& xRom, std::string source, con
                            !(isalnum((unsigned char)source[at + 17]) || source[at + 17] == '_');
         if (alone) source.replace(at, 17, "XyGymEsperWarpEvent"); else at -= 2;
     }
+    // X/Y's action commands are numbered otherwise: MdlAcmdSet (the name alone, not MdlAcmdSetEnd...) becomes
+    // XyMdlAcmdSet, which translates its command (OrasXyActionCommands.h)
+    for (size_t at = 0; (at = source.find("MdlAcmdSet", at)) != std::string::npos; at += 12)
+    {
+        const bool alone = (at == 0 || !(isalnum((unsigned char)source[at - 1]) || source[at - 1] == '_')) &&
+                           !(isalnum((unsigned char)source[at + 10]) || source[at + 10] == '_');
+        if (alone) source.replace(at, 10, "XyMdlAcmdSet"); else at -= 2;
+    }
     if (sounds) source = XyMoveSounds(source, *sounds, music, notes);
     source = XyMoveTrainers(source, notes);
     if (backgrounds) source = XyMoveBackgrounds(source, *backgrounds, notes);
