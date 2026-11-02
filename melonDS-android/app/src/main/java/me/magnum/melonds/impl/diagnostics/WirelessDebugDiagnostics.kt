@@ -2,6 +2,7 @@ package me.magnum.melonds.impl.diagnostics
 
 import android.content.Context
 import android.os.Build
+import io.github.muntashirakon.adb.AdbStream
 import io.github.muntashirakon.adb.android.AdbMdns
 import io.github.muntashirakon.adb.android.AndroidUtils
 import kotlinx.coroutines.CoroutineScope
@@ -9,11 +10,15 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import me.magnum.melonds.impl.PomegradeFolder
 import me.magnum.melonds.impl.PunicaLayout
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -84,25 +89,66 @@ object WirelessDebugDiagnostics {
         runCatching { WirelessDebugConnection.instance.disconnect() }
     }
 
-    /** Runs [command] (for the system trace, after [delaySeconds]); its output goes beside Eden's log. */
+    /**
+     * The whole output of [stream], up to adbd closing it. libadb-android (3.1.1, AdbStream.read) reports that close
+     * by throwing IOException("Stream closed.") when it arrives while a read waits, instead of returning -1: every
+     * command ended that way, and the detached ones (the system trace, the full analysis), which close at once,
+     * always showed "Stream closed" although they had started (owner, 1 November). Once the stream is closed, the
+     * exception is its end; before, it is a real failure.
+     */
+    private fun readUntilClosed(stream: AdbStream): ByteArray {
+        val output = ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        val input = stream.openInputStream()
+        while (true) {
+            val read = try {
+                input.read(buffer)
+            } catch (e: IOException) {
+                if (stream.isClosed) break else throw e
+            }
+            if (read < 0) break
+            output.write(buffer, 0, read)
+        }
+        return output.toByteArray()
+    }
+
+    /**
+     * Runs [command]; its files go beside Eden's log. A delayed one (the system trace, the full analysis) starts after
+     * [delaySeconds] in Punica's own process and returns at once: its steps run while Punica is in a game, each output
+     * written by Punica (1 November: the shell-side version, detached with setsid and writing the files itself, left
+     * nothing on the owner's phone). A step that fails leaves a punica-<stamp>-error.txt saying which and why.
+     */
     suspend fun run(context: Context, command: DiagnosticCommand, delaySeconds: Int = 0): Result = withContext(Dispatchers.IO) {
         if (!isConnected) return@withContext Result.Failed("not connected")
         val folder = PomegradeFolder.consoleFolder(context, PunicaLayout.SWITCH, "${PunicaLayout.CORE}/log")
             ?: return@withContext Result.Failed("no Punica folder")
         folder.mkdirs()
         val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date())
-        val shell = runCatching {
-            command.shellCommand(context.packageName, folder.absolutePath, delaySeconds, stamp)
-        }.getOrElse { return@withContext Result.Failed(it.message ?: "bad argument") }
-        val output = runCatching {
-            // the shell service with the command as is (LocalServices.SHELL would quote it, and refuses double quotes)
-            WirelessDebugConnection.instance.openStream("shell:$shell").use { stream ->
-                stream.openInputStream().use { it.readBytes() }
+        val steps = runCatching { command.steps(context.packageName, stamp) }
+            .getOrElse { return@withContext Result.Failed(it.message ?: "bad argument") }
+        if (command.isDelayed) {
+            scope.launch {
+                delay(delaySeconds * 1000L)
+                runSteps(steps, folder, stamp)
             }
-        }.getOrElse { return@withContext Result.Failed(it.message ?: it.javaClass.simpleName) }
-        val name = command.outputName(stamp) ?: return@withContext Result.Started(folder, delaySeconds)
-        val file = File(folder, name)
-        runCatching { file.writeBytes(output) }.getOrElse { return@withContext Result.Failed(it.message ?: "write failed") }
-        Result.Written(file)
+            return@withContext Result.Started(folder, delaySeconds)
+        }
+        runSteps(steps, folder, stamp)?.let { return@withContext Result.Failed(it) }
+        Result.Written(File(folder, steps.last().fileName))
+    }
+
+    /** Runs [steps] in order, each output into its file; the first failure stops them and is returned (and written). */
+    private fun runSteps(steps: List<DiagnosticCommand.Step>, folder: File, stamp: String): String? {
+        for (step in steps) {
+            val failure = runCatching {
+                // the shell service with the command as is (LocalServices.SHELL would quote it, and refuses double quotes)
+                val output = WirelessDebugConnection.instance.openStream("shell:${step.shell}").use { stream -> readUntilClosed(stream) }
+                File(folder, step.fileName).writeBytes(output)
+            }.exceptionOrNull() ?: continue
+            val reason = "${step.fileName}: ${failure.message ?: failure.javaClass.simpleName}"
+            runCatching { File(folder, "punica-$stamp-error.txt").writeText(reason) }
+            return reason
+        }
+        return null
     }
 }

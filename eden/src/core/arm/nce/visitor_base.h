@@ -717,6 +717,34 @@ public:
         return false;
     }
 
+    // Pomegrade: the ARMv8.1+ encodings Eden-NX2 added to dynarmic's a64.inc (Switch 2 code). The NCE
+    // interpreter decodes with the same table, so it needs them declared; like the other entries it
+    // doesn't handle, they report "not interpreted" (false). NX2 itself never builds NCE (x86 hosts).
+    virtual bool LDAPR_sz(Imm<2> size, Reg Rn, Reg Rt) {
+        return false;
+    }
+    virtual bool AtomicMemOp(Imm<2> size, bool A, bool R, Reg Rs, Imm<4> op, Reg Rn, Reg Rt) {
+        return false;
+    }
+    virtual bool CompareAndSwap(Imm<2> size, bool L, Reg Rs, bool o0, Reg Rn, Reg Rt) {
+        return false;
+    }
+    virtual bool CompareAndSwapPair(bool sz, bool L, Reg Rs, bool o0, Reg Rn, Reg Rt) {
+        return false;
+    }
+    virtual bool PACAUT_reg(bool Z, Imm<3> op, Reg Rn, Reg Rd) {
+        return false;
+    }
+    virtual bool BRA_BLRA(bool Z, bool L, bool M, Reg Rn, Reg Rm) {
+        return false;
+    }
+    virtual bool STG_family(Imm<2> opc, Imm<9> imm9, Imm<2> mode, Reg Rn, Reg Rt) {
+        return false;
+    }
+    virtual bool STGP(Imm<2> mode, Imm<7> imm7, Reg Rt2, Reg Rn, Reg Rt) {
+        return false;
+    }
+
     // Loads and stores - Load/Store register (register offset)
     virtual bool STRx_reg(Imm<2> size, Imm<1> opc_1, Reg Rm, Imm<3> option, bool S, Reg Rn,
                           Reg Rt) {

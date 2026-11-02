@@ -29,10 +29,11 @@ abstract class BasePreferenceFragment : PreferenceFragmentCompat() {
 
             ViewCompat.setOnApplyWindowInsetsListener(this) { view, windowInsets ->
                 val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-                // top: the status bar and the transparent header (SettingsActivity), which the list scrolls under;
-                // bottom: the navigation bar, then the page's 16 dp margin under the last card, as on its sides
+                // top: the status bar and the transparent header (SettingsActivity), which the list scrolls under,
+                // then the page's 16 dp margin above the first card (owner, 1 November: the sub-pages' first card
+                // touched the header); bottom: the navigation bar, then the same margin under the last card
                 val margin = view.resources.getDimensionPixelSize(R.dimen.punica_margin)
-                view.updatePadding(top = insets.top, bottom = insets.bottom + margin)
+                view.updatePadding(top = insets.top + margin, bottom = insets.bottom + margin)
 
                 WindowInsetsCompat.CONSUMED
             }

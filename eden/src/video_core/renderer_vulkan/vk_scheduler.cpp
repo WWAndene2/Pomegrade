@@ -19,7 +19,6 @@
 #include "video_core/renderer_vulkan/vk_command_pool.h"
 #include "video_core/renderer_vulkan/vk_graphics_pipeline.h"
 #include "video_core/renderer_vulkan/vk_master_semaphore.h"
-#include "common/pomegrade_diagnostics.h"
 #include "video_core/renderer_vulkan/vk_render_pass_cache.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_state_tracker.h"
@@ -49,25 +48,6 @@ Scheduler::Scheduler(const Device& device_, StateTracker& state_tracker_)
       master_semaphore{std::make_unique<MasterSemaphore>(device)},
       command_pool{std::make_unique<CommandPool>(*master_semaphore, device)} {
 
-    // Pomegrade: TEMPORARY, timestamps of the study's diagnostic, when the queue writes them
-    const auto limits = device.GetPhysical().GetProperties().limits;
-    if (limits.timestampComputeAndGraphics) {
-        pomegrade_timestamps = device.GetLogical().CreateQueryPool({
-            .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
-            .pNext = nullptr,
-            .flags = 0,
-            .queryType = VK_QUERY_TYPE_TIMESTAMP,
-            .queryCount = POMEGRADE_TIMESTAMP_PAIRS * 2,
-            .pipelineStatistics = 0,
-        });
-        device.GetLogical().ResetQueryPool(*pomegrade_timestamps, 0, POMEGRADE_TIMESTAMP_PAIRS * 2);
-        pomegrade_timestamp_period = limits.timestampPeriod;
-        for (u32 pair = POMEGRADE_TIMESTAMP_PAIRS; pair-- > 0;) {
-            pomegrade_free_pairs.push_back(pair);
-        }
-        PomegradeDiagnostics::gpu_timer_available.store(true, std::memory_order_relaxed);
-    }
-
     AcquireNewChunk();
     AllocateWorkerCommandBuffer();
     worker_thread = std::jthread([this](std::stop_token token) { WorkerThread(token); });
@@ -76,6 +56,9 @@ Scheduler::Scheduler(const Device& device_, StateTracker& state_tracker_)
 Scheduler::~Scheduler() = default;
 
 u64 Scheduler::Flush(VkSemaphore signal_semaphore, VkSemaphore wait_semaphore) {
+    if (VideoCommon::GpuSplit::check_owner) [[unlikely]] {
+        VideoCommon::GpuSplit::CheckOwner("Scheduler::Flush");
+    }
     // When flushing, we only send data to the worker thread; no waiting is necessary.
     const u64 signal_value = SubmitExecution(signal_semaphore, wait_semaphore);
     AllocateNewContext();
@@ -83,7 +66,9 @@ u64 Scheduler::Flush(VkSemaphore signal_semaphore, VkSemaphore wait_semaphore) {
 }
 
 void Scheduler::Finish(VkSemaphore signal_semaphore, VkSemaphore wait_semaphore) {
-    PomegradeDiagnostics::finish_calls.fetch_add(1, std::memory_order_relaxed); // Pomegrade: TEMPORARY
+    if (VideoCommon::GpuSplit::check_owner) [[unlikely]] {
+        VideoCommon::GpuSplit::CheckOwner("Scheduler::Finish");
+    }
     // When finishing, we need to wait for the submission to have executed on the device.
     const u64 presubmit_tick = CurrentTick();
     SubmitExecution(signal_semaphore, wait_semaphore);
@@ -105,12 +90,21 @@ void Scheduler::WaitWorker() {
 }
 
 void Scheduler::DispatchWork() {
+    if (VideoCommon::GpuSplit::check_owner) [[unlikely]] {
+        VideoCommon::GpuSplit::CheckOwner("Scheduler::DispatchWork");
+    }
     if (chunk && !chunk->Empty()) {
+        // Waking the worker is a system call (~2% of the GPU thread at one dispatch per 8
+        // draws): skip it while the worker is still busy, it pops the queue before waiting.
+        bool wake;
         {
             std::scoped_lock ql{queue_mutex};
             work_queue.push(std::move(chunk));
+            wake = worker_waiting;
         }
-        event_cv.notify_all();
+        if (wake) {
+            event_cv.notify_all();
+        }
         AcquireNewChunk();
     }
 }
@@ -122,11 +116,6 @@ void Scheduler::BeginRenderPassImpl(const Framebuffer* framebuffer, VkRenderPass
     state.renderpass = renderpass;
     state.framebuffer = framebuffer_handle;
     state.render_area = render_area;
-    // Pomegrade: TEMPORARY, render passes counted (common/pomegrade_diagnostics.h)
-    PomegradeDiagnostics::render_passes.fetch_add(1, std::memory_order_relaxed);
-    PomegradeDiagnostics::render_pass_pixels.fetch_add(u64(render_area.width) * render_area.height,
-                                                       std::memory_order_relaxed);
-    PomegradeDiagnostics::pass_untouched.store(true, std::memory_order_relaxed);
 
     if (GPU::Logging::IsActive() && Settings::values.gpu_log_vulkan_calls.GetValue()) {
         const std::string render_pass_info =
@@ -241,18 +230,12 @@ void Scheduler::RequestRenderpass(const Framebuffer* framebuffer) {
         render_area.height == state.render_area.height) {
         return;
     }
-    if (state.renderpass) {
-        PomegradeDiagnostics::CountPassEnd("new render target", 0); // Pomegrade: TEMPORARY
-    }
     // Ends any active pass and realizes a deferred clear
     EndRenderPass();
     BeginRenderPassImpl(framebuffer, renderpass, nullptr, 0);
 }
 
-void Scheduler::RequestOutsideRenderPassOperationContext(const char* file, int line) {
-    if (state.renderpass) {
-        PomegradeDiagnostics::CountPassEnd(file, line); // Pomegrade: TEMPORARY
-    }
+void Scheduler::RequestOutsideRenderPassOperationContext() {
     EndRenderPass();
 }
 
@@ -323,7 +306,11 @@ void Scheduler::WorkerThread(std::stop_token stop_token) {
             std::unique_lock lk{queue_mutex};
 
             // Wait for work.
-            event_cv.wait(lk, stop_token, [&] { return TryPopQueue(work); });
+            event_cv.wait(lk, stop_token, [&] {
+                worker_waiting = !TryPopQueue(work);
+                return !worker_waiting;
+            });
+            worker_waiting = false;
 
             // If we've been asked to stop, we're done.
             if (stop_token.stop_requested()) {
@@ -370,81 +357,6 @@ void Scheduler::AllocateWorkerCommandBuffer() {
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
         .pInheritanceInfo = nullptr,
     });
-    // Pomegrade: TEMPORARY, this command buffer's GPU time, from its start to its end (SubmitExecution)
-    PomegradeCollectTimestamps();
-    pomegrade_cmdbuf_pair = PomegradeTakePair();
-    if (pomegrade_cmdbuf_pair != PomegradeNoTimestamp) {
-        PomegradeTimestampWrite(current_cmdbuf, pomegrade_cmdbuf_pair * 2, true);
-    }
-}
-
-u32 Scheduler::PomegradeTakePair() {
-    if (!pomegrade_timestamps) {
-        return PomegradeNoTimestamp;
-    }
-    std::scoped_lock lock{pomegrade_timestamp_mutex};
-    if (pomegrade_free_pairs.empty()) {
-        PomegradeDiagnostics::gpu_timer_dropped.fetch_add(1, std::memory_order_relaxed);
-        return PomegradeNoTimestamp;
-    }
-    const u32 pair = pomegrade_free_pairs.back();
-    pomegrade_free_pairs.pop_back();
-    return pair;
-}
-
-void Scheduler::PomegradeTimestampWrite(vk::CommandBuffer cmdbuf, u32 query, bool is_begin) const {
-    cmdbuf.WriteTimestamp(is_begin ? VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT : VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-                          *pomegrade_timestamps, query);
-}
-
-u32 Scheduler::PomegradeTimestampBegin() {
-    const u32 pair = PomegradeTakePair();
-    if (pair != PomegradeNoTimestamp) {
-        Record([this, pair](vk::CommandBuffer cmdbuf) { PomegradeTimestampWrite(cmdbuf, pair * 2, true); });
-    }
-    return pair;
-}
-
-void Scheduler::PomegradeTimestampEnd(u32 pair, PomegradeTimed kind) {
-    if (pair == PomegradeNoTimestamp) {
-        return;
-    }
-    Record([this, pair, kind](vk::CommandBuffer cmdbuf) {
-        PomegradeTimestampWrite(cmdbuf, pair * 2 + 1, false);
-        std::scoped_lock lock{pomegrade_timestamp_mutex};
-        pomegrade_pending_pairs.emplace_back(pair, kind);
-    });
-}
-
-// the pairs the GPU has written, oldest first: their time added, their queries reset on the host and freed
-void Scheduler::PomegradeCollectTimestamps() {
-    if (!pomegrade_timestamps) {
-        return;
-    }
-    std::scoped_lock lock{pomegrade_timestamp_mutex};
-    while (!pomegrade_pending_pairs.empty()) {
-        const auto [pair, kind] = pomegrade_pending_pairs.front();
-        std::array<u64, 4> data{}; // begin, its availability, end, its availability
-        const VkResult result = device.GetLogical().GetQueryResults(
-            *pomegrade_timestamps, pair * 2, 2, sizeof(data), data.data(), sizeof(u64) * 2,
-            VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
-        if ((result != VK_SUCCESS && result != VK_NOT_READY) || data[1] == 0 || data[3] == 0) {
-            break;
-        }
-        const u64 ns = data[2] > data[0]
-                           ? static_cast<u64>(static_cast<double>(data[2] - data[0]) * pomegrade_timestamp_period)
-                           : 0;
-        if (kind == PomegradeTimed::CommandBuffer) {
-            PomegradeDiagnostics::gpu_cmdbuf_ns.fetch_add(ns, std::memory_order_relaxed);
-            PomegradeDiagnostics::gpu_cmdbufs.fetch_add(1, std::memory_order_relaxed);
-        } else {
-            PomegradeDiagnostics::gpu_tf_ns.fetch_add(ns, std::memory_order_relaxed);
-            PomegradeDiagnostics::gpu_tf_runs.fetch_add(1, std::memory_order_relaxed);
-        }
-        device.GetLogical().ResetQueryPool(*pomegrade_timestamps, pair * 2, 2);
-        pomegrade_free_pairs.push_back(pair);
-        pomegrade_pending_pairs.pop_front();
-    }
 }
 
 u64 Scheduler::SubmitExecution(VkSemaphore signal_semaphore, VkSemaphore wait_semaphore) {
@@ -460,13 +372,7 @@ u64 Scheduler::SubmitExecution(VkSemaphore signal_semaphore, VkSemaphore wait_se
             .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
             .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
         };
-        upload_cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
-                                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, WRITE_BARRIER);
-        if (pomegrade_cmdbuf_pair != PomegradeNoTimestamp) { // Pomegrade: TEMPORARY, the end of its GPU time
-            PomegradeTimestampWrite(cmdbuf, pomegrade_cmdbuf_pair * 2 + 1, false);
-            std::scoped_lock lock{pomegrade_timestamp_mutex};
-            pomegrade_pending_pairs.emplace_back(pomegrade_cmdbuf_pair, PomegradeTimed::CommandBuffer);
-        }
+        upload_cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, WRITE_BARRIER);
         upload_cmdbuf.End();
         cmdbuf.End();
 
@@ -475,7 +381,6 @@ u64 Scheduler::SubmitExecution(VkSemaphore signal_semaphore, VkSemaphore wait_se
         }
 
         std::scoped_lock lock{submit_mutex};
-        const PomegradeDiagnostics::TraceScope pomegrade_trace{"vkQueueSubmit"}; // Pomegrade: TEMPORARY
         switch (const VkResult result = master_semaphore->SubmitQueue(
                     cmdbuf, upload_cmdbuf, signal_semaphore, wait_semaphore, signal_value)) {
         case VK_SUCCESS:
@@ -512,9 +417,6 @@ void Scheduler::InvalidateState() {
 
 void Scheduler::EndPendingOperations() {
     query_cache->CounterReset(VideoCommon::QueryType::ZPassPixelCount64);
-    if (state.renderpass) {
-        PomegradeDiagnostics::CountPassEnd("submit", 0); // Pomegrade: TEMPORARY
-    }
     EndRenderPass();
 }
 

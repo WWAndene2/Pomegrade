@@ -9,12 +9,9 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
-import android.widget.FrameLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.widget.Toolbar
-import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.ContextCompat
 import androidx.core.text.inSpans
 import androidx.core.widget.NestedScrollView
@@ -47,78 +44,57 @@ class PunicaToolbar @JvmOverloads constructor(
         setBackgroundColor(0)
     }
 
-    private var overlaidAppBar: AppBarLayout? = null
-    private val overlayLayoutListener = ViewTreeObserver.OnGlobalLayoutListener { padPagesUnderHeader() }
+    private var hostAppBar: AppBarLayout? = null
+    private val pageLayoutListener = ViewTreeObserver.OnGlobalLayoutListener { addPageMargins() }
 
     /**
-     * In the cores' screens the header sits in Material's AppBarLayout, which lays the page out below it, opaque, and
-     * scrolls away with the list. Punica's header is transparent and the page scrolls under it, as in the DS's settings
-     * (owner's request, 1 November): the bar is made transparent and fixed, the page re-anchored to the top of the
-     * screen, and its list given the bar's height as top padding (clipToPadding off), so it starts below the header and
-     * scrolls under it. Pages that are not lists (a form, a label) stay below the bar.
+     * In the cores' screens the header sits in Material's AppBarLayout: it is made transparent (the page's colour shows
+     * through) and fixed, as in the app's screens, and the page stays laid out below it as the core placed it.
+     * Drawing the page under the header (1 November) is undone: forms and fragment pages ended up hidden under it and
+     * some lists stopped scrolling (owner, 1 November).
      */
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         val appBar = parent as? AppBarLayout ?: return
-        overlaidAppBar = appBar
+        hostAppBar = appBar
         appBar.background = null
         appBar.stateListAnimator = null
         appBar.elevation = 0f
         (layoutParams as? AppBarLayout.LayoutParams)?.scrollFlags = 0
-        val host = appBar.parent as? ViewGroup ?: return
-        for (i in 0 until host.childCount) {
-            val page = host.getChildAt(i)
-            if (page === appBar || !isPage(page)) continue
-            when (val lp = page.layoutParams) {
-                is CoordinatorLayout.LayoutParams -> if (lp.behavior is AppBarLayout.ScrollingViewBehavior) {
-                    lp.behavior = null
-                    page.layoutParams = lp
-                }
-                is ConstraintLayout.LayoutParams -> if (lp.topToBottom == appBar.id) {
-                    lp.topToBottom = ConstraintLayout.LayoutParams.UNSET
-                    lp.topToTop = ConstraintLayout.LayoutParams.PARENT_ID
-                    page.layoutParams = lp
-                }
-            }
-        }
-        // drawn over the page
-        appBar.bringToFront()
-        appBar.viewTreeObserver.addOnGlobalLayoutListener(overlayLayoutListener)
+        appBar.viewTreeObserver.addOnGlobalLayoutListener(pageLayoutListener)
     }
 
     override fun onDetachedFromWindow() {
-        overlaidAppBar?.viewTreeObserver?.removeOnGlobalLayoutListener(overlayLayoutListener)
-        overlaidAppBar = null
+        hostAppBar?.viewTreeObserver?.removeOnGlobalLayoutListener(pageLayoutListener)
+        hostAppBar = null
         super.onDetachedFromWindow()
     }
 
-    /** A list, or a host of one (a fragment's frame, a sliding pane): the views the header floats over. */
-    private fun isPage(view: View): Boolean =
-        isList(view) || view is FrameLayout && view !is ScrollView || view.javaClass.name == "androidx.slidingpanelayout.widget.SlidingPaneLayout"
-
     private fun isList(view: View): Boolean = view is RecyclerView || view is NestedScrollView || view is ScrollView
 
-    /** Re-run on every layout: fragments put their lists in the page later, and their own insets code may change padding. */
-    private fun padPagesUnderHeader() {
-        val appBar = overlaidAppBar ?: return
+    /**
+     * The page's 16 dp margin above the first item and under the last item of its lists, on top of the paddings the
+     * core sets (usually the navigation bar's inset at the bottom), as in the app's pages (owner, 1 November). Re-run on
+     * every layout: fragments put their lists in the page later, and a padding other than the one set here last means
+     * the core's insets code changed it, so the margin goes on top of its new value.
+     */
+    private fun addPageMargins() {
+        val appBar = hostAppBar ?: return
         val host = appBar.parent as? ViewGroup ?: return
-        val top = appBar.height
         val margin = resources.getDimensionPixelSize(R.dimen.emulator_settings_margin)
         for (i in 0 until host.childCount) {
             val page = host.getChildAt(i)
-            if (page === appBar || page.top != 0 || !isPage(page)) continue
+            if (page === appBar) continue
             forEachList(page) { list ->
-                // the list's own top padding (its styled one) is kept on top of the header's height
-                val base = list.getTag(R.id.punica_header_base_padding) as? Int ?: list.paddingTop.also { list.setTag(R.id.punica_header_base_padding, it) }
-                // bottom: whatever the core set (usually the navigation bar's inset), then the page's 16 dp margin
-                // under the last item, as in the app's settings (owner, 1 November). A bottom other than the one set
-                // here last means the core's insets code changed it: the margin goes on top of its new value
-                val applied = list.getTag(R.id.punica_header_applied_bottom) as? Int
-                val bottom = if (applied != null && list.paddingBottom == applied) applied else list.paddingBottom + margin
-                if (list.paddingTop != base + top || list.paddingBottom != bottom) {
+                val appliedTop = list.getTag(R.id.punica_header_applied_top) as? Int
+                val top = if (appliedTop != null && list.paddingTop == appliedTop) appliedTop else list.paddingTop + margin
+                val appliedBottom = list.getTag(R.id.punica_header_applied_bottom) as? Int
+                val bottom = if (appliedBottom != null && list.paddingBottom == appliedBottom) appliedBottom else list.paddingBottom + margin
+                if (list.paddingTop != top || list.paddingBottom != bottom) {
                     (list as ViewGroup).clipToPadding = false
-                    list.setPadding(list.paddingLeft, base + top, list.paddingRight, bottom)
+                    list.setPadding(list.paddingLeft, top, list.paddingRight, bottom)
                 }
+                list.setTag(R.id.punica_header_applied_top, top)
                 list.setTag(R.id.punica_header_applied_bottom, bottom)
             }
         }

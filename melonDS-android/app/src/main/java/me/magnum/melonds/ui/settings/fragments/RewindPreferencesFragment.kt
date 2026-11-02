@@ -27,7 +27,8 @@ class RewindPreferencesFragment : MasterSwitchPreferenceFragment(), PreferenceFr
         listView.clipToPadding = false
         ViewCompat.setOnApplyWindowInsetsListener(listView) { list, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            list.updatePadding(top = insets.top, bottom = insets.bottom)
+            // bottom: the navigation bar, then the page's 16 dp margin under the last row, as on every settings page
+            list.updatePadding(top = insets.top, bottom = insets.bottom + list.resources.getDimensionPixelSize(R.dimen.punica_margin))
             WindowInsetsCompat.CONSUMED
         }
     }

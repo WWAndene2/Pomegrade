@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -124,7 +123,6 @@ fun BackgroundListScreen(
     ) { padding ->
         if (backgrounds == null) {
             Loading(Modifier
-                .systemBarsPadding()
                 .padding(padding)
                 .fillMaxSize())
         } else {

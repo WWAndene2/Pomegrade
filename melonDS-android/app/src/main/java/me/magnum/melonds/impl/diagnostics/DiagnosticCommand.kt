@@ -2,15 +2,15 @@ package me.magnum.melonds.impl.diagnostics
 
 /**
  * The only commands Punica runs over wireless debugging (owner's decision, 29 October: diagnostics only). Each is a
- * fixed string; the only values put into one are Punica's package name and the output folder, both from the app
- * itself, never typed by the user. Their output goes to Punica/Switch/Core/log, beside Eden's log.
+ * fixed string; the only values put into one are Punica's package name and a time stamp, both from the app itself,
+ * never typed by the user. Their output goes to Punica/Switch/Core/log, beside Eden's log.
  */
 enum class DiagnosticCommand {
     /**
      * A Perfetto system trace of [TRACE_SECONDS] seconds after a delay (the time to start a game and reach the
      * part to measure): every thread's scheduling and the cores' clocks, the GPU's clock, and Punica's own trace
-     * sections (Eden's GPU waits, submissions, transform feedback runs, frame ends). It runs detached from the
-     * connection, so it carries on while Punica is in a game, then copies the trace into the output folder.
+     * sections (Eden's GPU waits, submissions, transform feedback runs, frame ends). Punica runs it from
+     * its own process, so it carries on while Punica is in a game, then writes the trace into the output folder.
      */
     SYSTEM_TRACE,
 
@@ -21,39 +21,43 @@ enum class DiagnosticCommand {
     DRIVER_LOG,
 
     /**
-     * Everything in one go, detached as the system trace is (owner's request, 31 October: one run, not one per
+     * Everything in one go, delayed as the system trace is (owner's request, 31 October: one run, not one per
      * diagnostic): after the delay, the GPU state, the system trace, the GPU state again and the driver's messages,
      * each in its own file. Eden's own counters (transform feedback shapes among them) are in Eden's log meanwhile.
      */
     FULL_ANALYSIS;
 
-    /** The shell command, for Punica's [packageName] and an [outputFolder] without quotes. */
-    fun shellCommand(packageName: String, outputFolder: String, delaySeconds: Int, stamp: String): String {
-        require(SHELL_SPECIALS.none { it in outputFolder || it in packageName }) { "shell character in a diagnostic argument" }
+    /** One shell command of a diagnostic and the file its output is written to, in the output folder. */
+    class Step(val fileName: String, val shell: String)
+
+    /**
+     * Whether the diagnostic starts after the delay and goes on while Punica is in a game: Punica runs its steps from
+     * its own process (WirelessDebugDiagnostics), not the shell, so nothing is left to a detached shell that the system
+     * may stop, and every file is written by Punica itself.
+     */
+    val isDelayed: Boolean get() = this == SYSTEM_TRACE || this == FULL_ANALYSIS
+
+    /**
+     * The commands, in order, for Punica's [packageName]; their outputs are named after [stamp]. The trace is taken in
+     * two steps: perfetto writes it in its own folder (its messages are kept, to see why a trace is missing), then
+     * it is read back and deleted.
+     */
+    fun steps(packageName: String, stamp: String): List<Step> {
+        require(SHELL_SPECIALS.none { it in packageName }) { "shell character in a diagnostic argument" }
         val gpuState = "dumpsys gpu; dumpsys gfxinfo $packageName"
         val driverLog = "logcat -d -v time -s mali:V Mali:V libmali:V GraphicsEnv:V vulkan:V libEGL:V AdrenoVK:V"
         val trace = "/data/misc/perfetto-traces/punica-$stamp.perfetto-trace"
-        // the config is fed on perfetto's standard input; the trace is copied out of perfetto's own folder
-        val traced = "echo \"${perfettoConfig(packageName)}\" | perfetto --txt -c - -o $trace; " +
-            "cp $trace \"$outputFolder/punica-$stamp.perfetto-trace\"; rm $trace"
-        // setsid: the commands outlive the connection's shell, so they go on while Punica is in a game
-        fun detached(commands: String) = "setsid sh -c 'sleep $delaySeconds; $commands' > /dev/null 2>&1 < /dev/null &"
-        fun into(commands: String, name: String) = "{ $commands; } > \"$outputFolder/punica-$stamp-$name.txt\" 2>&1"
+        val traceSteps = listOf(
+            Step("punica-$stamp-trace-log.txt", "echo \"${perfettoConfig(packageName)}\" | perfetto --txt -c - -o $trace 2>&1"),
+            Step("punica-$stamp.perfetto-trace", "cat $trace; rm -f $trace"),
+        )
         return when (this) {
-            SYSTEM_TRACE -> detached(traced)
-            GPU_STATE -> gpuState
-            DRIVER_LOG -> driverLog
-            FULL_ANALYSIS -> detached(
-                "${into(gpuState, "gpu-before")}; $traced; ${into(gpuState, "gpu-after")}; ${into(driverLog, "driver-log")}"
-            )
+            SYSTEM_TRACE -> traceSteps
+            GPU_STATE -> listOf(Step("punica-$stamp-gpu.txt", gpuState))
+            DRIVER_LOG -> listOf(Step("punica-$stamp-driver-log.txt", driverLog))
+            FULL_ANALYSIS -> listOf(Step("punica-$stamp-gpu-before.txt", gpuState)) + traceSteps +
+                Step("punica-$stamp-gpu-after.txt", gpuState) + Step("punica-$stamp-driver-log.txt", driverLog)
         }
-    }
-
-    /** The file the output of a command run in the foreground is written to (the trace names its own). */
-    fun outputName(stamp: String): String? = when (this) {
-        SYSTEM_TRACE, FULL_ANALYSIS -> null
-        GPU_STATE -> "punica-$stamp-gpu.txt"
-        DRIVER_LOG -> "punica-$stamp-driver-log.txt"
     }
 
     companion object {

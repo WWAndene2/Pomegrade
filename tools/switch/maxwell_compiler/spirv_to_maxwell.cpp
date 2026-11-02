@@ -45,6 +45,7 @@ int main(int argc, char **argv) {
   NIR_PASS(_, s, nir_lower_vars_to_ssa);
   NIR_PASS(_, s, nir_shader_intrinsics_pass, lower_vk_res, nir_metadata_control_flow, NULL);
   NIR_PASS(_, s, nir_lower_explicit_io, nir_var_mem_ubo, nir_address_format_32bit_index_offset);
+  NIR_PASS(_, s, nir_lower_explicit_io, nir_var_mem_ssbo, nir_address_format_32bit_index_offset);
   NIR_PASS(_, s, nir_lower_explicit_io, nir_var_mem_global, nir_address_format_64bit_global);
   NIR_PASS(_, s, nir_lower_system_values);
   nir_lower_compute_system_values_options cso = {}; cso.global_id_is_32bit = true;
@@ -55,8 +56,10 @@ int main(int argc, char **argv) {
   info.type = MESA_SHADER_COMPUTE; info.target = chip; info.optLevel = 3;
   info.dbgFlags = getenv("DBG") ? atoi(getenv("DBG")) : 0;
   info.bin.nir = s;
-  info.io.auxCBSlot = 7; info.io.msInfoCBSlot = 7;
-  info.io.uboInfoBase = 0x200; info.io.bufInfoBase = 0x100; info.io.suInfoBase = 0x300;
+  // NVN's compute ABI (seen in the game's gpu_instancing_culling): storage buffer i's address and size
+  // are at c0[0x310 + 16 * i], so nouveau's aux constant buffer is slot 0 with buffer info at 0x310.
+  info.io.auxCBSlot = 0; info.io.msInfoCBSlot = 0;
+  info.io.uboInfoBase = 0x200; info.io.bufInfoBase = 0x310; info.io.suInfoBase = 0x300;
   info.io.texBindBase = 0x400; info.io.bindlessBase = 0x500;
   info.prop.cp.gridInfoBase = 0x10;
   nv50_ir_prog_info_out out = {};

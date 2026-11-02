@@ -6,23 +6,19 @@
 
 #pragma once
 
-#include <array>
 #include <condition_variable>
 #include <cstddef>
-#include <deque>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <thread>
 #include <utility>
-#include <vector>
 #include <queue>
 
 #include "common/alignment.h"
 #include "common/common_types.h"
 #include "common/polyfill_thread.h"
 #include "common/settings.h"
-#include "common/pomegrade_diagnostics.h" // Pomegrade: TEMPORARY
+#include "video_core/gpu_split.h"
 #include "video_core/renderer_vulkan/vk_master_semaphore.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
 
@@ -82,13 +78,6 @@ public:
         return null_framebuffer;
     }
 
-    /// Pomegrade: TEMPORARY, a pair of GPU timestamps around recorded work (common/pomegrade_diagnostics.h):
-    /// begin returns the pair, or PomegradeNoTimestamp when none is free; end adds its time to `kind`
-    static constexpr u32 PomegradeNoTimestamp = ~u32{0};
-    enum class PomegradeTimed { CommandBuffer, TransformFeedbackRun };
-    u32 PomegradeTimestampBegin();
-    void PomegradeTimestampEnd(u32 pair, PomegradeTimed kind);
-
     /// Pomegrade: a "wait for idle" made at the end of the current render pass (a full memory barrier after it)
     /// instead of ending it now (setting pomegrade_defer_wait_for_idle)
     void DeferWaitForIdle() noexcept {
@@ -97,9 +86,7 @@ public:
 
     /// Requests the current execution context to be able to execute operations only allowed outside
     /// of a renderpass.
-    /// Pomegrade: the caller's file and line are counted when it ends a render pass (TEMPORARY diagnostic)
-    void RequestOutsideRenderPassOperationContext(const char* file = __builtin_FILE(),
-                                                  int line = __builtin_LINE());
+    void RequestOutsideRenderPassOperationContext();
 
     /// Returns true when a render pass is currently active in the scheduler state.
     bool IsRenderPassActive() const {
@@ -132,6 +119,9 @@ public:
     template <typename T>
         requires std::is_invocable_v<T, vk::CommandBuffer, vk::CommandBuffer>
     void RecordWithUploadBuffer(T&& command) {
+        if (VideoCommon::GpuSplit::check_owner) [[unlikely]] {
+            VideoCommon::GpuSplit::CheckOwner("Scheduler::Record");
+        }
         if (chunk->Record(command)) {
             return;
         }
@@ -148,6 +138,18 @@ public:
             });
     }
 
+    /// Whether the recording thread submitted `tick` within 20 ms.
+    [[nodiscard]] bool WaitForSubmission(u64 tick) const {
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds{20};
+        while (tick >= master_semaphore->CurrentTick()) {
+            if (std::chrono::steady_clock::now() >= deadline) {
+                return false;
+            }
+            std::this_thread::sleep_for(std::chrono::microseconds{100});
+        }
+        return true;
+    }
+
     /// Returns the current command buffer tick.
     [[nodiscard]] u64 CurrentTick() const noexcept {
         return master_semaphore->CurrentTick();
@@ -158,17 +160,17 @@ public:
         return master_semaphore->IsFree(tick);
     }
 
-    /// Waits for the given GPU tick, optionally pacing frames.
-    void Wait(u64 tick, double target_fps = 0.0, const char* file = __builtin_FILE(),
-              int line = __builtin_LINE()) {
-        if (tick > 0) {
+    /// Waits for the given GPU tick, optionally pacing frames. Threads other than the one that
+    /// records (the async present thread) pass may_flush = false: flushing from there records
+    /// into the current chunk while that thread does (corrupt command buffers, crashes). They
+    /// wait for the recording thread to submit the tick instead, and give up after 20 ms (it may
+    /// be waiting for them).
+    void Wait(u64 tick, double target_fps = 0.0, bool may_flush = true) {
+        if (tick > 0 && (may_flush || WaitForSubmission(tick))) {
             if (tick >= master_semaphore->CurrentTick()) {
                 Flush();
             }
-            PomegradeDiagnostics::wait_file = file; // Pomegrade: TEMPORARY, who waits (CountWaitSite)
-            PomegradeDiagnostics::wait_line = line;
             master_semaphore->Wait(tick);
-            PomegradeDiagnostics::wait_file = nullptr;
         }
         if (Settings::values.use_speed_limit.GetValue() && target_fps > 0.0) {
             auto now = std::chrono::steady_clock::now();
@@ -350,18 +352,6 @@ private:
 
     u32 num_renderpass_images = 0;
     const Framebuffer* null_framebuffer = nullptr;
-
-    // Pomegrade: TEMPORARY, the GPU timestamps (PomegradeTimestampBegin), read back after each submission
-    void PomegradeTimestampWrite(vk::CommandBuffer cmdbuf, u32 query, bool is_begin) const;
-    u32 PomegradeTakePair();
-    void PomegradeCollectTimestamps();
-    static constexpr u32 POMEGRADE_TIMESTAMP_PAIRS = 2048;
-    vk::QueryPool pomegrade_timestamps;
-    double pomegrade_timestamp_period = 0.0;
-    std::mutex pomegrade_timestamp_mutex;
-    std::vector<u32> pomegrade_free_pairs;
-    std::deque<std::pair<u32, PomegradeTimed>> pomegrade_pending_pairs;
-    u32 pomegrade_cmdbuf_pair = PomegradeNoTimestamp;
     std::array<VkImage, 9> renderpass_images{};
     std::array<VkImageSubresourceRange, 9> renderpass_image_ranges{};
 
@@ -371,6 +361,7 @@ private:
     std::mutex reserve_mutex;
     std::mutex queue_mutex;
     std::condition_variable_any event_cv;
+    bool worker_waiting{}; ///< The worker is waiting for work (guarded by queue_mutex)
     std::jthread worker_thread;
 
     std::chrono::steady_clock::duration frame_interval{};
