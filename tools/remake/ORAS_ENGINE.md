@@ -26,17 +26,14 @@ during an asset load (unreliable): the two runs disagree, settle that first. **N
 and what ends it (the field's event list, +0x88 of the context); compare with the mod; fix; then the quiz, the lifts
 between floors, the trainers, Clemont's battle and the badge. Other gyms may need the same model-slot fix (not scanned:
 X's model classes have 5 virtual methods fewer, X +0xA0..0xF0 = Omega Ruby +0xB8..0x108; slots up to +0x70 the same).
-**Later the same day (runs xs5, ms11-ms23, interpreter, mod elec7):** X's and the mod's script paths are the same up
-to the third `_Suspend`, after GymElecStandAnm; X resumes, the mod never does. The suspend itself is not the cause
-(the context's wait at +0x88 reads 0): **the field stops running** about 455 frames after the state (traces per 5
-frames: about 1,430 DllField blocks per window, then none, no error logged, no code run at a strange address). In the
-window it stops, system code deletes the events (StandAnm's destructor from the event manager 0x10E3F0 / 0x117ECC),
-as a field closing would. Not found yet: why the field ends or what it then waits for (the zone change at frame
-325-350, the lift's, had worked). Found and fixed on the way: the empty functions mapped to 0x1F9544, a float
-conversion, now 0x1E8294 (commit "a bare return mapped to 0x1E8294"); it did not change the stop. Ruled out: the
-StandAnm native (the same as X's 0x10294040), the heap's allocator, new and registration (identical to X's), the stand's
-animation (reaches 18 of 18 frames), the fade test 0x3580AC (identical, both screens idle), the main loop's flags at
-0x616DF8 (unchanged).
+**Fixed the same day: the quiz room's arrival runs** (fast_run.sh from a fresh title state, runs b4/b5): Bonnie on the
+stand and her first line, as in X. The cause: X's empty functions (the base event's destructor 0x1D4744 ...) were mapped
+to 0x1F9544, a float conversion that changed r0, so a destroyed event handed delete a wrong pointer and the field
+stopped; now 0x1E8294, a bare return (commit "a bare return mapped to 0x1E8294"). Checked both ways: the mod before the
+fix (elec6) stops on a black screen, after it (elec7) the scene plays. **Trap**: a state saved with an older mod
+(runs/ms3/pre.state) keeps that mod's code patches (the natives) in memory; a rebuilt mod is tested from its own title
+state (fast_run.sh), never from such a state, or the test runs the old code. Next: the quiz itself, the lifts between
+floors, the trainers, Clemont's battle, the badge; the other gyms with the same fix, not rerun yet.
 
 **The interpreter and our patches.** `POMEGRADE_INTERPRETER=1` (needed by `readers`, `writers`, `trace`) stops at boot
 ("Decode failure") on mods built with `--xy-player-scale`, `--xy-footsteps` or `--xy-sequences`/`--xy-sounds`: their
