@@ -5,12 +5,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -62,6 +63,9 @@ fun AboutScreen(
             PunicaHeader(subtitle = stringResource(R.string.pomegrade_about), onBack = onNavigateBack)
         },
         backgroundColor = Color.Transparent,
+        // the system bars and the cutout reach the content as Scaffold's padding: the list's bottom clears the
+        // navigation bar, then its 16 dp margin (as every page)
+        contentWindowInsets = WindowInsets.safeDrawing,
     ) { padding ->
         // the list scrolls under the transparent header: the header's height is padding inside the list, not around it
         val direction = LocalLayoutDirection.current
@@ -90,8 +94,7 @@ fun AboutScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { uriHandler.openUri(GPL_LICENCES_URL) }
-                        .padding(vertical = 16.dp)
-                        .navigationBarsPadding(),
+                        .padding(vertical = 16.dp),
                     style = MaterialTheme.typography.caption,
                     color = MaterialTheme.colors.onBackground,
                     textAlign = TextAlign.Center,

@@ -10,12 +10,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -89,6 +91,8 @@ fun GameDataScreen(
         modifier = Modifier.punicaBackground(),
         topBar = { PunicaHeader(subtitle = stringResource(R.string.game_data_title), onBack = onBack) },
         backgroundColor = Color.Transparent,
+        // the system bars and the cutout reach the content as Scaffold's padding (bottom: navigation bar + margin)
+        contentWindowInsets = WindowInsets.safeDrawing,
     ) { padding ->
         val direction = LocalLayoutDirection.current
         LazyColumn(
