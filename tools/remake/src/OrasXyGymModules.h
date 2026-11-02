@@ -78,7 +78,9 @@ struct XyModulePort
     // offset to the top and the type info 0, then the slots: a copy, or Omega Ruby's same method through Field and a
     // veneer), each slot a new internal relocation; the words the module's import of X's vtable (XImport, the DllField
     // data address its words add 8 to) wrote now point at it
-    struct FieldVtable { uint32_t XImport; std::vector<uint32_t> XSlots; };
+    // XImport 0: a vtable no import of the module names, whose objects a native builds (Clemont's events, 2 November): built
+    // the same, at the file offset At its native uses (OrasXyGymNatives.cpp), which the port checks
+    struct FieldVtable { uint32_t XImport; std::vector<uint32_t> XSlots; uint32_t At = 0; };
     std::vector<FieldVtable> FieldVtables;
     // the archive the module loads (X's number, a/X/Y/Z by its digits; 0 none) and its words requesting it (`mov rd, #n`,
     // file offsets): given Omega Ruby's number for it (XyGymArchiveNumber)
@@ -154,6 +156,9 @@ const XyModulePort& XyGymIce();
 // Clemont's gym (X zones 77-82, Lumiose; DllUSGymElec, read 20 October): its lifts and doors, three classes (X's area kinds
 // 0x19-0x1B); mapped and ported, not run in the game
 const XyModulePort& XyGymElec();
+// where XyGymElec's port builds its event classes' vtables (their slot 0, file offsets in DllXyGymElec): their natives
+// store the module's handle plus these (OrasXyGymNatives.cpp); the port throws when they move
+constexpr uint32_t XyElecLiftUpVtable = 0x00001F30, XyElecLiftDownVtable = 0x00001F50, XyElecAnswerAnmVtable = 0x00001F70, XyElecBlackAnmVtable = 0x00001F90;
 
 // Viola's gym (X zone 56, Santalune; DllUSGymInsect, mapped 30 October): its imports mapped (xy_import_match.py,
 // xy_callee_map.py), its two X-own helpers and their callees copied (Copies); `xy-gym-module ... insect` builds it.

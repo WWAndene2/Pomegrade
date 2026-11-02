@@ -428,6 +428,8 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
         // each DllField class's vtable in the module: its slots a copy or a veneer to Omega Ruby's method; the words its
         // import wrote (X's vtable + 8) now hold it (an internal relocation each), the import's own relocations a word of
         // their own
+        // the vtables no import names (XImport 0), built after the imported ones: batch 0
+        for (const XyModulePort::FieldVtable& v : port.FieldVtables) if (!v.XImport) vtableBatches.push_back({&v, 0});
         for (const auto& [fv, batch] : vtableBatches)
         {
             const uint32_t start = reserve(8 + 4 * (uint32_t)fv->XSlots.size()), slots = start + 8;
@@ -446,6 +448,12 @@ Bytes XyPortModule(const Bytes& xModule, const XyGameModules& x, const XyGameMod
                     to = fieldVeneer(f->second);
                 }
                 added.push_back({slots + 4 * (uint32_t)i, to});
+            }
+            if (!fv->XImport)
+            {
+                // a native stores this offset (the module's handle + it): the two must agree
+                if (slots != fv->At) throw FormatError(port.XName + ": the vtable of " + Hex(fv->XSlots.at(0)) + " is at " + Hex(slots) + ", its native uses " + Hex(fv->At));
+                continue;
             }
             for (size_t b = batch;; b += 12)
             {
@@ -774,8 +782,61 @@ const XyModulePort& XyGymElec()
         p.Name = "DllXyGymElec";
         p.Static = Merged(SharedStatic(), {
             {0x3D09A0, 0x3F18A4}, {0x425B1C, 0x44FA8C},
+            // called by the event classes copied below (2 November): as the other ports, or by their callers' copies
+            // (xy_callee_map.py, votes)
+            {0x3D037C, 0x3F1324}, {0x4AAF98, 0x4E3D94}, {0x1D4744, 0x1F9544},
+            {0x3D0674, 0x3F1620}, // 10 callers agree
+            {0x425BD4, 0x44FB44}, // 20
+            {0x4AB150, 0x4E3FDC}, // 14
+            {0x3580AC, 0x370778}, // 83
+            {0x358B34, 0x37128C}, // 67
         });
-        p.Field = SharedField();
+        p.Field = Merged(SharedField(), {
+            // the event classes' two DllField callees: Omega Ruby's twins beside each other, the same code with other
+            // members (+0x1FC -> +0x1F8, +0x48 -> +0x44: the object's own layout, so mapped, not copied)
+            {0x10279118, 0x102C910C}, {0x10279158, 0x102C914C},
+        });
+        // Clemont's events (2 November): X's natives _GymElecLiftUp / LiftDown / TopLiftUp / TopLiftDown / AnswerAnm /
+        // BlackAnm build objects of four DllField classes Omega Ruby lacks (EventGymElecLiftUp, LiftDown, AnswerAnm,
+        // BlackAnm); their methods copied here and their vtables built in the module, where the natives
+        // (OrasXyGymNatives.cpp) find them. Their calls into this module go through X DllField's import stubs
+        p.Room = 0x1000; // the copies, veneers and vtables outgrow the room after the code (as Olympia's)
+        p.XLinked = 0x1077F000;
+        p.FieldAnchor = 0x102DDD30;
+        p.FieldStubs = {
+            {0x101F9200, 0x14F220}, {0x101F9978, 0x3D037C}, {0x101FA1E8, 0x4AAF98}, {0x101F94B0, 0x358B34},
+            {0x101F9A80, 0x425BD4}, {0x101F94B8, 0x3580AC}, {0x101F99B8, 0x3D0674}, {0x101F94F8, 0x1D4744},
+            {0x101F91C8, 0x2FF520}, {0x101FA230, 0x4AB150}, {0x101F91F8, 0x425B1C},
+            {0x101FB138, 0x10780264}, {0x101FB140, 0x1077FC84}, {0x101FB228, 0x1077F9B8}, {0x101FB230, 0x1077FAA8},
+            {0x101FB238, 0x1077F2A0}, {0x101FB2D0, 0x1077FAF0}, {0x101FB2D8, 0x1077FC00}, {0x101FB2E0, 0x1077FC24},
+        };
+        p.Copies = {
+            {0x10230094, 0x21C, "EventGymElecLiftUp's methods"},
+            {0x102327C4, 0x248, "EventGymElecBlackAnm's and EventGymElecLiftDown's methods"},
+            {0x10235488, 0xD8, "EventGymElecAnswerAnm's methods"},
+        };
+        // the field's members the copies read: + 0x198 (the area module's object) is Omega Ruby's + 0x1A0 (as the natives'),
+        // + 0x158 Omega Ruby's + 0x164 (2 November: X's 194 reads of + 0x158 and Omega Ruby's 149 of + 0x164 are followed by
+        // the same accesses, + 0xC first, then + 0, + 0x24, + 0x10; no other member of + 0x140 .. + 0x1C0 alike)
+        p.CopyWords = {
+            {0x102300B4, 0xE5901198, 0xE59011A0, "the field's + 0x198 -> + 0x1A0"},
+            {0x102300C4, 0xE5900158, 0xE5900164, "the field's + 0x158 -> + 0x164"},
+            {0x10230150, 0xE5900198, 0xE59001A0, "the field's + 0x198 -> + 0x1A0"},
+            {0x102301BC, 0xE5900198, 0xE59001A0, "the field's + 0x198 -> + 0x1A0"},
+            {0x102327E0, 0xE5906198, 0xE59061A0, "the field's + 0x198 -> + 0x1A0"},
+            {0x10232894, 0xE5901198, 0xE59011A0, "the field's + 0x198 -> + 0x1A0"},
+            {0x102328A4, 0xE5900158, 0xE5900164, "the field's + 0x158 -> + 0x164"},
+            {0x10232914, 0xE5900198, 0xE59001A0, "the field's + 0x198 -> + 0x1A0"},
+            {0x10232984, 0xE5900198, 0xE59001A0, "the field's + 0x198 -> + 0x1A0"},
+            {0x102354A4, 0xE5906198, 0xE59061A0, "the field's + 0x198 -> + 0x1A0"},
+        };
+        p.CopySounds = {0xA00FC}; // the lifts' sound
+        p.FieldVtables = {
+            {0, {0x1023029C, 0x1023028C, 0x10230094, 0x102300A0, 0x102300A4, 0x1023009C}, XyElecLiftUpVtable},
+            {0, {0x102329F8, 0x102329E8, 0x10232878, 0x10232884, 0x10232888, 0x10232880}, XyElecLiftDownVtable},
+            {0, {0x1023554C, 0x1023553C, 0x10235488, 0x10235494, 0x10235498, 0x10235490}, XyElecAnswerAnmVtable},
+            {0, {0x10232874, 0x10232864, 0x102327C4, 0x102327D0, 0x102327D4, 0x102327CC}, XyElecBlackAnmVtable},
+        };
         p.Thunks = {Request};
         p.Words = {LoaderSize(0xEA8), LoaderSize(0x1364), LoaderSize(0x1704),
                    // the field's member Omega Ruby keeps elsewhere (prototype/xy_module_layout.py --words, 30 October)

@@ -1,5 +1,7 @@
 #include "OrasXyGymNatives.h"
 
+#include "OrasXyGymModules.h"
+
 namespace remake
 {
 
@@ -89,6 +91,70 @@ std::vector<uint32_t> EsperWarpEvent()
     a.Op(0xE8BD81F0);           // pop {r4, r5, r6, r7, r8, pc}
     return a.Finish();
 }
+
+// Clemont's event natives (2 November), as X's 0x10293F08 (_GymElecLiftUp), 0x10294660 (TopLiftUp), 0x10294418 (LiftDown),
+// 0x102949B4 (TopLiftDown), 0x102945B8 (AnswerAnm) and 0x10294394 (BlackAnm): an event object from the field's heap, built
+// by the event's base constructor, its vtable the one DllXyGymElec builds for X's class (at `vtable` in the module:
+// OrasXyGymModules.h), registered, then the field at + 0x1C. The lifts (0x28 bytes): + 0x18 and + 0x1C 0, + 0x20 a float
+// (-18.0 up, 0 down: `value`), + 0x24 a byte (1 for the top floor's: `flag`). The answer (0x28): the script's first
+// argument made 0 or 1 at + 0x20, its second (a float) at + 0x24. The black (0x20): nothing more. As X's, no test of the
+// allocation in the registration (X's would crash the same way on a null one)
+enum class ElecEvent { Lift, Answer, Black };
+std::vector<uint32_t> ElecEventNative(ElecEvent kind, uint32_t vtable, uint32_t value, int flag)
+{
+    XyNativeAsm a;
+    a.Op(0xE92D41F0);           // push {r4, r5, r6, r7, r8, lr}
+    if (kind == ElecEvent::Answer)
+    {
+        a.Op(0xE5918004);       // ldr r8, [r1, #4]                the first argument
+        a.Op(0xE3580000);       // cmp r8, #0
+        a.Op(0x13A08001);       // movne r8, #1
+        a.Op(0xE5917008);       // ldr r7, [r1, #8]                the second (a float's bits)
+    }
+    a.Call(ScriptContext);
+    a.Op(0xE590000C);           // ldr r0, [r0, #0xc]
+    a.Op(0xE5905048);           // ldr r5, [r0, #0x48]          the field
+    a.Op(0xE5950060);           // ldr r0, [r5, #0x60]          (X's + 0x50)
+    a.Op(0xE5906018);           // ldr r6, [r0, #0x18]          its heap
+    a.Op(0xE1A00006);           // mov r0, r6
+    a.Call(0x12BB54);           // the heap's allocator
+    a.Op(0xE1A01000);           // mov r1, r0
+    a.Op(kind == ElecEvent::Black ? 0xE3A00020 : 0xE3A00028); // mov r0, #size
+    a.Call(0x123480);           // new
+    a.Op(0xE1A04000);           // mov r4, r0
+    a.Op(0xE1A00006);           // mov r0, r6
+    a.Call(0x12BB54);
+    a.Op(0xE1A01000);           // mov r1, r0
+    a.Op(0xE1A00004);           // mov r0, r4
+    a.Call(0x109434);           // the event's base constructor
+    a.Op(0xE59521A4);           // ldr r2, [r5, #0x1a4]         the module's handle
+    a.Literal(3, vtable);       // ldr r3, =the vtable's offset
+    a.Op(0xE0822003);           // add r2, r2, r3
+    a.Op(0xE3A01000);           // mov r1, #0
+    a.Op(0xE5802000);           // str r2, [r0]
+    a.Op(0xE5801018);           // str r1, [r0, #0x18]
+    a.Op(0xE580101C);           // str r1, [r0, #0x1c]
+    if (kind == ElecEvent::Lift)
+    {
+        a.Literal(2, value);    // ldr r2, =the float
+        a.Op(0xE5802020);       // str r2, [r0, #0x20]
+        a.Op(flag ? 0xE3A02001 : 0xE3A02000); // mov r2, #flag
+        a.Op(0xE5C02024);       // strb r2, [r0, #0x24]
+    }
+    if (kind == ElecEvent::Answer)
+    {
+        a.Op(0xE5C08020);       // strb r8, [r0, #0x20]
+        a.Op(0xE5807024);       // str r7, [r0, #0x24]          the float
+    }
+    a.Op(0xE1A04000);           // mov r4, r0
+    a.Op(0xE1A01000);           // mov r1, r0
+    a.Op(0xE1A00006);           // mov r0, r6
+    a.Call(0x108CB0);           // the event registered
+    a.Op(0xE584501C);           // str r5, [r4, #0x1c]          the field
+    a.Op(0xE3A00000);           // mov r0, #0
+    a.Op(0xE8BD81F0);           // pop {r4, r5, r6, r7, r8, pc}
+    return a.Finish();
+}
 }
 
 std::vector<XyNative> XyGymNatives()
@@ -102,6 +168,12 @@ std::vector<XyNative> XyGymNatives()
         {"_GymElecIsEndMissAnm", ModuleCall(0x994, 0, 0, false, true)},
         {"_GymElecSetBlackFace", ModuleCall(0x2A0, 0, 0, true, false)},
         {"_GymElecBtmIsEndDoorAnm", ModuleCall(0x1630, 0, 0, false, true)},
+        {"_GymElecLiftUp", ElecEventNative(ElecEvent::Lift, XyElecLiftUpVtable, 0xC1900000, 0)},       // -18.0
+        {"_GymElecTopLiftUp", ElecEventNative(ElecEvent::Lift, XyElecLiftUpVtable, 0xC1900000, 1)},
+        {"_GymElecLiftDown", ElecEventNative(ElecEvent::Lift, XyElecLiftDownVtable, 0, 0)},
+        {"_GymElecTopLiftDown", ElecEventNative(ElecEvent::Lift, XyElecLiftDownVtable, 0, 1)},
+        {"_GymElecAnswerAnm", ElecEventNative(ElecEvent::Answer, XyElecAnswerAnmVtable, 0, 0)},
+        {"_GymElecBlackAnm", ElecEventNative(ElecEvent::Black, XyElecBlackAnmVtable, 0, 0)},
         // Ramos's (31 October): X's 0x10294B4C and 0x10294CCC, each a call of a function of DllUSGymGrass with the
         // module's object (X's DllField stubs 0x101FD3D8 and 0x101FD3E0: its 0x69C, then 0 returned; its 0x780, its
         // answer returned)
