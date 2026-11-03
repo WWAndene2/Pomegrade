@@ -166,6 +166,7 @@ void Load(VkDevice device, DeviceDispatch& dld) noexcept {
     X(vkCmdSetColorBlendEnableEXT);
     X(vkCmdSetColorBlendEquationEXT);
     X(vkCmdResetQueryPool);
+    X(vkCmdWriteTimestamp); // Pomegrade: TEMPORARY, the per-pass GPU timer (vk_scheduler.h)
     X(vkCmdResolveImage);
     X(vkCreateBuffer);
     X(vkCreateBufferView);
