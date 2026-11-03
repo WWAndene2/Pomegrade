@@ -21,4 +21,10 @@ namespace scarlet::nvn_slots {
     constexpr Slot kCommandBufferBeginTransformFeedback{0x475d688, 0x46e0c10};
     constexpr Slot kCommandBufferEndTransformFeedback{0x475d690, 0x46e0c18};
     constexpr Slot kCommandBufferDrawArrays{0x475d6b0, 0x46e0c20};
+    // the other draws of the game's draw executor (FUN_00c51ef8 in Ghidra): the first probe that ran (owner's log,
+    // 3 November) saw about 1,700 transform feedback passes a second in Eden and none through DrawArrays
+    constexpr Slot kCommandBufferDrawElements{0x475d6b8, 0x46e0c28};
+    constexpr Slot kCommandBufferDrawElementsInstanced{0x475d6d0, 0x46e0c40};
+    constexpr Slot kCommandBufferDrawArraysInstanced{0x475d6c8, 0x46e0c50};
+    constexpr Slot kCommandBufferDrawElementsIndirect{0x475d6e0, 0x46e0c58};
 }

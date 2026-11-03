@@ -40,12 +40,17 @@ T* Slot(const scarlet::nvn_slots::Slot& slot) {
 using BindProgramFn = void (*)(void* cmd, const void* program, int stages);
 using BeginXfbFn = void (*)(void* cmd, u64 address);
 using EndXfbFn = void (*)(void* cmd, u64 address);
-using DrawArraysFn = void (*)(void* cmd, int primitive, int first, int count);
+// The draws are forwarded with the eight argument registers as they came, so a wrapper does not depend on each draw's
+// exact parameter list; the count of vertices or indices is the fourth argument of the four non-indirect draws.
+using DrawFn = void (*)(void* cmd, u64, u64, u64, u64, u64, u64, u64);
+using DrawArraysFn = DrawFn;
 
 BindProgramFn g_bind_program;
 BeginXfbFn g_begin_xfb;
 EndXfbFn g_end_xfb;
-DrawArraysFn g_draw_arrays;
+enum DrawKind { kDrawArrays, kDrawElements, kDrawArraysInstanced, kDrawElementsInstanced, kDrawElementsIndirect, kDrawKinds };
+DrawFn g_draws[kDrawKinds];
+std::atomic<u64> g_xfb_draws_by_kind[kDrawKinds];
 
 // The game records each draw into its own command buffer on one thread (FUN_00c4fa44), so the state of a command
 // buffer is the program last bound and whether transform feedback is active. A small table keyed by the command
@@ -76,12 +81,14 @@ struct ProgramStats {
     std::atomic<const void*> program;
     std::atomic<u64> draws;
     std::atomic<u64> vertices;
+    std::atomic<u64> by_kind[kDrawKinds];
 };
 constexpr size_t kPrograms = 64;
 ProgramStats g_programs[kPrograms];
 std::atomic<u64> g_xfb_draws;
 
-void CountXfbDraw(const void* program, int count) {
+void CountXfbDraw(const void* program, int count, DrawKind kind) {
+    g_xfb_draws_by_kind[kind].fetch_add(1, std::memory_order_relaxed);
     for (auto& stats : g_programs) {
         const void* owner = stats.program.load(std::memory_order_acquire);
         if (owner == nullptr) {
@@ -92,11 +99,16 @@ void CountXfbDraw(const void* program, int count) {
         }
         stats.draws.fetch_add(1, std::memory_order_relaxed);
         stats.vertices.fetch_add(static_cast<u64>(count), std::memory_order_relaxed);
+        stats.by_kind[kind].fetch_add(1, std::memory_order_relaxed);
         break;
     }
     u64 total = g_xfb_draws.fetch_add(1, std::memory_order_relaxed) + 1;
-    if (total % 20000 == 0) {
-        Log("[scarlet_mali] %llu transform feedback draws so far, by program:", static_cast<unsigned long long>(total));
+    if (total % 5000 == 0) {
+        Log("[scarlet_mali] %llu transform feedback draws so far: %llu DrawArrays, %llu DrawElements, %llu DrawArraysInstanced, "
+            "%llu DrawElementsInstanced, %llu DrawElementsIndirect; by program:",
+            static_cast<unsigned long long>(total), static_cast<unsigned long long>(g_xfb_draws_by_kind[0].load()),
+            static_cast<unsigned long long>(g_xfb_draws_by_kind[1].load()), static_cast<unsigned long long>(g_xfb_draws_by_kind[2].load()),
+            static_cast<unsigned long long>(g_xfb_draws_by_kind[3].load()), static_cast<unsigned long long>(g_xfb_draws_by_kind[4].load()));
         for (auto& stats : g_programs) {
             const void* program_seen = stats.program.load(std::memory_order_acquire);
             if (program_seen == nullptr) break;
@@ -121,10 +133,14 @@ void EndXfb(void* cmd, u64 address) {
     g_end_xfb(cmd, address);
 }
 
-void DrawArrays(void* cmd, int primitive, int first, int count) {
-    if (CommandState* state = StateOf(cmd); state != nullptr && state->in_xfb) CountXfbDraw(state->program, count);
-    g_draw_arrays(cmd, primitive, first, count);
+template <DrawKind kKind>
+void Draw(void* cmd, u64 a1, u64 a2, u64 a3, u64 a4, u64 a5, u64 a6, u64 a7) {
+    if (CommandState* state = StateOf(cmd); state != nullptr && state->in_xfb) {
+        CountXfbDraw(state->program, kKind == kDrawElementsIndirect ? 0 : static_cast<int>(a3), kKind);
+    }
+    g_draws[kKind](cmd, a1, a2, a3, a4, a5, a6, a7);
 }
+constexpr DrawFn DrawArrays = &Draw<kDrawArrays>;
 
 template <typename Fn>
 void Swap(const scarlet::nvn_slots::Slot& where, Fn& original, Fn replacement) {
@@ -142,8 +158,12 @@ void SwapAll(const char* when) {
     Swap(scarlet::nvn_slots::kCommandBufferBindProgram, g_bind_program, BindProgram);
     Swap(scarlet::nvn_slots::kCommandBufferBeginTransformFeedback, g_begin_xfb, BeginXfb);
     Swap(scarlet::nvn_slots::kCommandBufferEndTransformFeedback, g_end_xfb, EndXfb);
-    Swap(scarlet::nvn_slots::kCommandBufferDrawArrays, g_draw_arrays, DrawArrays);
-    Log("[scarlet_mali] 4 NVN calls intercepted %s (probe build, nothing drawn differently)", when);
+    Swap(scarlet::nvn_slots::kCommandBufferDrawArrays, g_draws[kDrawArrays], &Draw<kDrawArrays>);
+    Swap(scarlet::nvn_slots::kCommandBufferDrawElements, g_draws[kDrawElements], &Draw<kDrawElements>);
+    Swap(scarlet::nvn_slots::kCommandBufferDrawArraysInstanced, g_draws[kDrawArraysInstanced], &Draw<kDrawArraysInstanced>);
+    Swap(scarlet::nvn_slots::kCommandBufferDrawElementsInstanced, g_draws[kDrawElementsInstanced], &Draw<kDrawElementsInstanced>);
+    Swap(scarlet::nvn_slots::kCommandBufferDrawElementsIndirect, g_draws[kDrawElementsIndirect], &Draw<kDrawElementsIndirect>);
+    Log("[scarlet_mali] 8 NVN calls intercepted %s (probe build, nothing drawn differently)", when);
 }
 
 
@@ -160,7 +180,7 @@ void WatchNvnSetup(void*) {
         DrawArraysFn current = slot != nullptr ? *slot : nullptr;
         if (current != nullptr && current != DrawArrays) {
             svcSleepThread(50'000'000);  // the loader fills the rest of its 532 pointers in the meantime
-            SwapAll(g_draw_arrays == nullptr ? "once the game had set NVN up" : "again, after the game set NVN up again");
+            SwapAll(g_draws[kDrawArrays] == nullptr ? "once the game had set NVN up" : "again, after the game set NVN up again");
         }
         svcSleepThread(current == nullptr ? 50'000'000 : 500'000'000);
     }
