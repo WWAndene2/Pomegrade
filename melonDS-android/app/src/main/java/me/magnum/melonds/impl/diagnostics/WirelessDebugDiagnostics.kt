@@ -16,9 +16,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import me.magnum.melonds.impl.PomegradeFolder
 import me.magnum.melonds.impl.PunicaLayout
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
+import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -90,15 +90,14 @@ object WirelessDebugDiagnostics {
     }
 
     /**
-     * The whole output of [stream], up to adbd closing it. libadb-android (3.1.1, AdbStream.read) reports that close
+     * The whole output of [stream] copied into [output], up to adbd closing it. libadb-android (3.1.1, AdbStream.read) reports that close
      * by throwing IOException("Stream closed.") when it arrives while a read waits, instead of returning -1: every
      * command ended that way, and the detached ones (the system trace, the full analysis), which close at once,
      * always showed "Stream closed" although they had started (owner, 1 November). Once the stream is closed, the
      * exception is its end; before, it is a real failure.
      */
-    private fun readUntilClosed(stream: AdbStream): ByteArray {
-        val output = ByteArrayOutputStream()
-        val buffer = ByteArray(8192)
+    private fun copyUntilClosed(stream: AdbStream, output: OutputStream) {
+        val buffer = ByteArray(65536)
         val input = stream.openInputStream()
         while (true) {
             val read = try {
@@ -109,7 +108,6 @@ object WirelessDebugDiagnostics {
             if (read < 0) break
             output.write(buffer, 0, read)
         }
-        return output.toByteArray()
     }
 
     /**
@@ -151,8 +149,10 @@ object WirelessDebugDiagnostics {
                     error("wireless debugging connection lost and could not be made again (is wireless debugging still on?)")
                 }
                 // the shell service with the command as is (LocalServices.SHELL would quote it, and refuses double quotes)
-                val output = WirelessDebugConnection.instance.openStream("shell:${step.shell}").use { stream -> readUntilClosed(stream) }
-                File(folder, step.fileName).writeBytes(output)
+                // written as it is read: a minute's trace is about 150 MB, too much to hold in Punica's memory first
+                WirelessDebugConnection.instance.openStream("shell:${step.shell}").use { stream ->
+                    File(folder, step.fileName).outputStream().use { file -> copyUntilClosed(stream, file) }
+                }
             }.exceptionOrNull() ?: continue
             val reason = "${step.fileName}: ${failure.message ?: failure.javaClass.simpleName}"
             runCatching { File(folder, "punica-$stamp-error.txt").writeText(reason) }

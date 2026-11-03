@@ -1054,10 +1054,10 @@
     <string name="wireless_debug_traces">Traces</string>
     <string name="wireless_debug_trace_delay">Time before the trace starts</string>
     <string name="wireless_debug_full">Full analysis</string>
-    <string name="wireless_debug_full_summary">GPU state, 20 s trace and driver messages, all at once</string>
+    <string name="wireless_debug_full_summary">GPU state, 1 min trace and driver messages, all at once</string>
     <string name="wireless_debug_full_started">The analysis starts in %1$d seconds; its trace lasts %2$d. Everything will be in %3$s</string>
     <string name="wireless_debug_trace">Record a system trace</string>
-    <string name="wireless_debug_trace_summary">20 s of threads, CPU and GPU clocks, after the delay</string>
+    <string name="wireless_debug_trace_summary">1 min of threads, CPU and GPU clocks, after the delay</string>
     <string name="wireless_debug_gpu_state">Save the GPU\'s state</string>
     <string name="wireless_debug_gpu_state_summary">GPU driver, Vulkan and memory, in Punica/Switch/Core/log</string>
     <string name="wireless_debug_driver_log">Save the GPU driver\'s messages</string>

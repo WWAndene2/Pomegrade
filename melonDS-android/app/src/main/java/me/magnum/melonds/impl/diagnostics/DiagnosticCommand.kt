@@ -61,14 +61,15 @@ enum class DiagnosticCommand {
     }
 
     companion object {
-        const val TRACE_SECONDS = 20
+        // a minute (owner, 3 November; 20 s before): about 150 MB of trace, so its ring buffer is 256 MB
+        const val TRACE_SECONDS = 60
 
         // characters the shell would read in a quoted argument
         private val SHELL_SPECIALS = listOf('\'', '"', '$', '`', '\\')
 
         // Perfetto's text config on one line, its quotes escaped for the shell's double quotes
         private fun perfettoConfig(packageName: String): String = """
-            buffers { size_kb: 131072 fill_policy: RING_BUFFER }
+            buffers { size_kb: 262144 fill_policy: RING_BUFFER }
             buffers { size_kb: 4096 fill_policy: RING_BUFFER }
             data_sources { config { name: "linux.ftrace" target_buffer: 0 ftrace_config {
                 ftrace_events: "sched/sched_switch" ftrace_events: "sched/sched_wakeup"
