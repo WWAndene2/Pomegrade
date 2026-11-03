@@ -641,6 +641,20 @@ Open:
 
 ---
 
+### 10.1 Eden fixes of 3 November, tested on the phone (branch `ccr-9879de3e-a05wfi`)
+
+Owner's tests on the Xiaomi 13T (Eden's GPU accuracy Low), builds 377 to 379:
+- Build 377 (CPU write faults keep the GPU-written ranges of their page, `0bed62d6`; end-of-pass barrier for
+  fragment work only, `0378ad2a`; transform feedback barrier only after capturing passes, `c3d33ade`; texture
+  format 0 bound as the null view, `887b68c6`): the 3D cutscenes and renders are no longer black screens; a slight
+  frame-rate gain (owner, not measured).
+- Build 379 (framebuffers removed off the GPU thread sentenced on it, `ca6bfcf9`): the crash at the same place of
+  the first cutscene (a race between the nvdrv service thread and the GPU thread in the scheduler) is gone; the
+  owner played past the cutscene, the game holding about 22 FPS in play (owner's reading, not a log measurement;
+  1 November's 13 to 15 FPS were at character creation and in the first cutscene, not the same place).
+- Seen in the owner's 60 s Perfetto trace (3 November, build 378): the GPU at its top clock (830 MHz) for 48.6 s of
+  60, Eden's GPU thread at 19 % of a core: GPU-bound. The opening cutscene remains the heaviest part (owner).
+
 ## 11. Next: patching the Switch Pokemon games themselves (plan, 1 November)
 
 Owner's direction (1 November): since Eden is no longer what limits Scarlet on the Mali (section 10), the next work makes
