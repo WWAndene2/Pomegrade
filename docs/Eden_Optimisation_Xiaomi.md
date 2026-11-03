@@ -680,7 +680,9 @@ cutscene); how much visual change is acceptable per effect; whether patch files 
 
 The work done on section 11's plan, by another agent (branch `ccr-0a954b06-a3qep9`), merged with it on 2 November.
 
-**Goal.** Patch the game itself (its code `main` in the exefs, and its shaders) so its GPU work suits the Mali (e.g. skinning in the vertex shader instead of a transform feedback pass), still run by Eden as an Eden mod (IPS patches on the exefs, replaced files), not a recompilation. Patches are tied to one game version. Scarlet first, Z-A later for comparison; long term, an open-world mod (Scarlet, Z-A, the next game).
+**Owner's direction (3 November), replacing section 11's "draw less" and this section's step-by-step plan.** The aim is to make the game *better*, not to lower its quality or remove work: start from the premise that the game's rendering code is poorly written, and correct its development (passes, shaders, buffers, synchronisation) so it suits the Mali, keeping or improving the picture. Order: first Eden's Mali path (fixes of 3 November, branch `ccr-9879de3e-a05wfi`, tested on the phone in one debug build), then the game. The findings and tools below are reused where they serve this.
+
+**Goal (1 November).** Patch the game itself (its code `main` in the exefs, and its shaders) so its GPU work suits the Mali (e.g. skinning in the vertex shader instead of a transform feedback pass), still run by Eden as an Eden mod (IPS patches on the exefs, replaced files), not a recompilation. Patches are tied to one game version. Scarlet first, Z-A later for comparison; long term, an open-world mod (Scarlet, Z-A, the next game).
 
 **Rules.** The owner's dump, keys (`prod.keys`, `title.keys`) and anything extracted from them stay in the session's temporary scratch space, never committed, uploaded or put in an artifact (CLAUDE.md §8). The repository only gets our own scripts, patches and documentation.
 
