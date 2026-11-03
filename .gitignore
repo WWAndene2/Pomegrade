@@ -14,3 +14,4 @@ __pycache__/
 
 # Dolphin copies its Data/Sys into the Android assets at CMake configure time
 /dolphin/Source/Android/app/src/main/assets/Sys/
+tools/switch/scarlet_mali/build/
