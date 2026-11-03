@@ -1390,6 +1390,13 @@ ImageViewId TextureCache<P>::CreateImageView(const TICEntry& raw_config) {
         }
     }
     const TICEntry config = TextureViewHeader(raw_config, native);
+    // Pomegrade: texture format 0 is no format (Tegra::Texture::TextureFormat starts at 1): a descriptor
+    // the game left empty or zeroed. It used to fall back to A8B8G8R8 (format_lookup_table.cpp, the
+    // "texture format=0" warnings in Scarlet's logs) and read whatever memory its address points at as
+    // a picture; it now binds the null view, which samples as zero
+    if (static_cast<u32>(config.format.Value()) == 0) {
+        return NULL_IMAGE_VIEW_ID;
+    }
     const ImageInfo info(config);
     if (info.type == ImageType::Buffer) {
         const ImageViewInfo view_info(config, 0);
