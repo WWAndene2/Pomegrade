@@ -1,6 +1,9 @@
 // Pomegrade's Mali version of Pokemon Scarlet: an exlaunch module (subsdk9) loaded beside the game by Eden.
 //
-// This first build is a probe and changes nothing the game draws. It checks, on the owner's phone, the chain the
+// Probe v9: besides the calls below, it follows each recorded command buffer that holds a transform feedback draw
+// (the skinning) to the queue, and counts per frame how many such captures run, how many distinct ones, and how many
+// run again in the same frame (the same skinning made twice, which a later build could skip with no change to the
+// picture). This build is a probe and changes nothing the game draws. It checks, on the owner's phone, the chain the
 // skinning replacement needs (docs/Eden_Optimisation_Xiaomi.md section 12): the module is loaded, the game's NVN
 // function pointers can be swapped once its loader has filled them, the program bind and transform feedback calls
 // can be intercepted, and which programs the transform feedback draws use. It logs through svcOutputDebugString,
@@ -62,6 +65,8 @@ struct CommandState {
     void* cmd;
     const void* program;
     bool in_xfb;
+    bool recorded_xfb;    // a transform feedback draw since BeginRecording (probe v9)
+    u64 recorded_vertices;
 };
 constexpr size_t kStates = 4096;
 CommandState g_states[kStates];
@@ -130,10 +135,109 @@ void Draw(void* cmd, u64 a1, u64 a2, u64 a3, u64 a4, u64 a5, u64 a6, u64 a7) {
     g_draw_calls.fetch_add(1, std::memory_order_relaxed);
     if (const CommandState& state = SlotOf(cmd); state.cmd == cmd && state.in_xfb) {
         CountXfbDraw(state.program, kKind == kDrawElementsIndirect ? 0 : static_cast<int>(a3), kKind);
+        CommandState& writable = SlotOf(cmd);
+        writable.recorded_xfb = true;
+        writable.recorded_vertices += kKind == kDrawElementsIndirect ? 0 : a3;
     }
     g_draws[kKind](cmd, a1, a2, a3, a4, a5, a6, a7);
 }
 constexpr DrawFn DrawArrays = &Draw<kDrawArrays>;
+
+// Probe v9: the command handles holding a capture, open-addressed by handle; the slot is reused when a handle is
+// recorded again. Per frame (between two presents): captures submitted, distinct ones, ones submitted again.
+using BeginRecordingFn = void (*)(void* cmd);
+using EndRecordingFn = u64 (*)(void* cmd);
+using SubmitCommandsFn = void (*)(void* queue, int count, const u64* handles);
+using PresentTextureFn = void (*)(void* queue, void* window, int index);
+BeginRecordingFn g_begin_recording;
+EndRecordingFn g_end_recording;
+SubmitCommandsFn g_submit_commands;
+PresentTextureFn g_present_texture;
+
+struct CaptureHandle {
+    std::atomic<u64> handle;
+    u64 vertices;
+    u32 frame;        // the frame it last ran in
+    u32 runs_in_frame;
+};
+constexpr size_t kHandles = 16384;
+CaptureHandle g_handles[kHandles];
+std::atomic<u64> g_capture_handles_recorded;
+u32 g_frame = 1;
+// summed over the frames since the last log, and the worst frame
+u64 g_frames, g_capture_runs, g_capture_distinct, g_capture_repeats, g_capture_vertices, g_submitted_handles;
+u64 g_worst_runs, g_worst_repeats;
+u64 g_frame_runs, g_frame_repeats;
+
+CaptureHandle* FindHandle(u64 handle, bool insert) {
+    size_t index = (handle * 0x9E3779B97F4A7C15ull) >> 50;  // 14 bits
+    for (size_t probe = 0; probe < 64; ++probe, index = (index + 1) % kHandles) {
+        u64 key = g_handles[index].handle.load(std::memory_order_acquire);
+        if (key == handle) return &g_handles[index];
+        if (key == 0) {
+            if (!insert) return nullptr;
+            u64 expected = 0;
+            if (g_handles[index].handle.compare_exchange_strong(expected, handle) || expected == handle) {
+                return &g_handles[index];
+            }
+        }
+    }
+    return nullptr;
+}
+
+void BeginRecording(void* cmd) {
+    CommandState& state = SlotOf(cmd);
+    if (state.cmd != cmd) state = CommandState{cmd, nullptr, false, false, 0};
+    state.recorded_xfb = false;
+    state.recorded_vertices = 0;
+    g_begin_recording(cmd);
+}
+
+u64 EndRecording(void* cmd) {
+    const u64 handle = g_end_recording(cmd);
+    CommandState& state = SlotOf(cmd);
+    if (state.cmd == cmd && state.recorded_xfb && handle != 0) {
+        if (CaptureHandle* entry = FindHandle(handle, true)) {
+            entry->vertices = state.recorded_vertices;
+            entry->frame = 0;
+            entry->runs_in_frame = 0;
+            g_capture_handles_recorded.fetch_add(1, std::memory_order_relaxed);
+        }
+    }
+    if (state.cmd == cmd) state.recorded_xfb = false;
+    return handle;
+}
+
+void SubmitCommands(void* queue, int count, const u64* handles) {
+    g_submitted_handles += static_cast<u64>(count > 0 ? count : 0);
+    for (int i = 0; i < count; ++i) {
+        CaptureHandle* entry = FindHandle(handles[i], false);
+        if (entry == nullptr) continue;
+        ++g_frame_runs;
+        g_capture_vertices += entry->vertices;
+        if (entry->frame != g_frame) {
+            entry->frame = g_frame;
+            entry->runs_in_frame = 1;
+            ++g_capture_distinct;
+        } else {
+            ++entry->runs_in_frame;
+            ++g_frame_repeats;
+        }
+    }
+    g_submit_commands(queue, count, handles);
+}
+
+void PresentTexture(void* queue, void* window, int index) {
+    ++g_frames;
+    g_capture_runs += g_frame_runs;
+    g_capture_repeats += g_frame_repeats;
+    if (g_frame_runs > g_worst_runs) g_worst_runs = g_frame_runs;
+    if (g_frame_repeats > g_worst_repeats) g_worst_repeats = g_frame_repeats;
+    g_frame_runs = 0;
+    g_frame_repeats = 0;
+    ++g_frame;
+    g_present_texture(queue, window, index);
+}
 
 template <typename Fn>
 void Swap(const scarlet::nvn_slots::Slot& where, Fn& original, Fn replacement) {
@@ -156,7 +260,11 @@ void SwapAll(const char* when) {
     Swap(scarlet::nvn_slots::kCommandBufferDrawArraysInstanced, g_draws[kDrawArraysInstanced], &Draw<kDrawArraysInstanced>);
     Swap(scarlet::nvn_slots::kCommandBufferDrawElementsInstanced, g_draws[kDrawElementsInstanced], &Draw<kDrawElementsInstanced>);
     Swap(scarlet::nvn_slots::kCommandBufferDrawElementsIndirect, g_draws[kDrawElementsIndirect], &Draw<kDrawElementsIndirect>);
-    Log("[scarlet_mali] 8 NVN calls intercepted %s (probe build, nothing drawn differently)", when);
+    Swap(scarlet::nvn_slots::kCommandBufferBeginRecording, g_begin_recording, BeginRecording);
+    Swap(scarlet::nvn_slots::kCommandBufferEndRecording, g_end_recording, EndRecording);
+    Swap(scarlet::nvn_slots::kQueueSubmitCommands, g_submit_commands, SubmitCommands);
+    Swap(scarlet::nvn_slots::kQueuePresentTexture, g_present_texture, PresentTexture);
+    Log("[scarlet_mali] 12 NVN calls intercepted %s (probe v9, nothing drawn differently)", when);
 }
 
 
@@ -191,6 +299,21 @@ void WatchNvnSetup(void*) {
                 static_cast<unsigned long long>(g_xfb_draws_by_kind[0].load()), static_cast<unsigned long long>(g_xfb_draws_by_kind[1].load()),
                 static_cast<unsigned long long>(g_xfb_draws_by_kind[2].load()), static_cast<unsigned long long>(g_xfb_draws_by_kind[3].load()),
                 static_cast<unsigned long long>(g_xfb_draws_by_kind[4].load()));
+            // probe v9: read without a lock from the render thread's counters: a log may be off by a frame
+            const u64 frames = g_frames;
+            if (frames != 0) {
+                Log("[scarlet_mali] per frame over %llu frames: %llu captures run (worst %llu), %llu distinct, %llu run "
+                    "again in the same frame (worst %llu), %llu capture vertices; %llu command handles submitted; "
+                    "%llu capture recordings so far",
+                    static_cast<unsigned long long>(frames), static_cast<unsigned long long>(g_capture_runs / frames),
+                    static_cast<unsigned long long>(g_worst_runs), static_cast<unsigned long long>(g_capture_distinct / frames),
+                    static_cast<unsigned long long>(g_capture_repeats / frames), static_cast<unsigned long long>(g_worst_repeats),
+                    static_cast<unsigned long long>(g_capture_vertices / frames),
+                    static_cast<unsigned long long>(g_submitted_handles / frames),
+                    static_cast<unsigned long long>(g_capture_handles_recorded.load()));
+                g_frames = g_capture_runs = g_capture_distinct = g_capture_repeats = g_capture_vertices = 0;
+                g_submitted_handles = g_worst_runs = g_worst_repeats = 0;
+            }
             for (auto& stats : g_programs) {
                 const void* program_seen = stats.program.load(std::memory_order_acquire);
                 if (program_seen == nullptr) break;
