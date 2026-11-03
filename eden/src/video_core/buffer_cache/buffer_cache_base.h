@@ -237,6 +237,9 @@ public:
 
     void WriteMemory(DAddr device_addr, u64 size);
 
+    /// Pomegrade: marks a CPU write without dropping the GPU-written ranges it overlaps (Low GPU accuracy)
+    void WriteMemoryKeepingGpuWrites(DAddr device_addr, u64 size);
+
     void CachedWriteMemory(DAddr device_addr, u64 size);
 
     bool OnCPUWrite(DAddr device_addr, u64 size);

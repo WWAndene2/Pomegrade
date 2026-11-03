@@ -1105,11 +1105,16 @@ bool RasterizerVulkan::TryCacheInvalidation(DAddr addr, u64 size) {
         // NCE write faults on pages the transform feedback writes caused about 2,500 such
         // synchronous read-backs in a session, 99 s of the GPU thread waiting (40 ms each), the
         // main cause of its menus and cutscenes running at 6 to 15 FPS. What Low accuracy gives up:
-        // GPU-written data sharing a page with the CPU's write is replaced by guest memory's copy;
-        // reactive flushing being off already leaves that copy stale for CPU reads.
-        if (Settings::IsGPULevelHigh() && buffer_cache.IsRegionGpuModified(addr, size)) return false;
+        // a CPU write landing inside a GPU-written range is not uploaded while it stays GPU-written
+        // (BufferCache::WriteMemoryKeepingGpuWrites); the rest of the page is.
+        const bool gpu_modified = buffer_cache.IsRegionGpuModified(addr, size);
+        if (Settings::IsGPULevelHigh() && gpu_modified) return false;
         texture_cache.WriteMemory(addr, size);
-        buffer_cache.WriteMemory(addr, size);
+        if (gpu_modified) {
+            buffer_cache.WriteMemoryKeepingGpuWrites(addr, size);
+        } else {
+            buffer_cache.WriteMemory(addr, size);
+        }
     }
     pipeline_cache.InvalidateRegion(addr, size);
     return true;
