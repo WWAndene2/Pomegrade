@@ -312,7 +312,10 @@ XyNumbers XyNumbersFor(const std::vector<Bytes>& scripts, const std::set<int>& e
 
 const std::set<std::string>& XyDemoNatives()
 {
-    static const std::set<std::string> natives = {"CallFieldCaptureDemo", "CallFieldNotCaptureDemo", "CallFieldCaptureDemoSimplePoke", "CallCaptureDemo"};
+    // CallFieldCaptureDemoSimplePoke is played (owner, 3 November): it only shows a Pokemon in a window (Clemont's quiz
+    // rooms, X/Y zones 79-82, "Who's that Pokemon?"), with the sequence heap oras-engine now gives the field's demos
+    // (OrasXyFieldDemo.h; without it, Omega Ruby's DllSequence wrote to 0xC: run b42)
+    static const std::set<std::string> natives = {"CallFieldCaptureDemo", "CallFieldNotCaptureDemo", "CallCaptureDemo"};;
     return natives;
 }
 

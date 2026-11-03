@@ -9,6 +9,7 @@
 #include "OrasFlyMap.h"
 #include "NitroCompression.h"
 #include "OrasXyFootsteps.h"
+#include "OrasXyFieldDemo.h"
 #include "OrasXyPlayerScale.h"
 #include "OrasXyMoveCodes.h"
 #include "OrasXyGymModules.h"
@@ -1079,6 +1080,15 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         for (const CodeWord& w : XyFootstepsFieldPatchAt(cave, file)) croWords.push_back({w.Address, w.Expected, w.Value, w.Why});
         snprintf(line, sizeof line, "X/Y's footsteps: X/Y's table in zones %u-%u", U16(file, 0), U16(file, 2));
         log.push_back(line);
+    }
+    if (o.FieldRoom >= 0x1000)
+    {
+        // the field's demos given the sequence heap DllFieldDemo gives them (OrasXyFieldDemo.h): X/Y's quiz picture
+        const CroLayout layout(oras.Read("DllField.cro"));
+        uint32_t cave = DllFieldBase + layout.CodeEnd();
+        for (const CroWord& w : croWords) if (w.Address >= cave) cave = w.Address + 4;
+        for (const CodeWord& w : XyFieldDemoHeapPatchAt(cave)) croWords.push_back({w.Address, w.Expected, w.Value, w.Why});
+        log.push_back("field demos: DllSequence's work heap made and freed around the field's sequence (as DllFieldDemo)");
     }
     if (o.FieldRoom)
     {
