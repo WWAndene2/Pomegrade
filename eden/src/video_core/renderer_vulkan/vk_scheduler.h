@@ -104,9 +104,7 @@ public:
     void RequestNonFragmentDependency();
 
     /// Pomegrade: the open render pass draws into [framebuffer]
-    [[nodiscard]] bool IsRenderPassOn(const Framebuffer* framebuffer) const noexcept {
-        return state.renderpass != VkRenderPass{} && state.framebuffer == framebuffer->Handle();
-    }
+    [[nodiscard]] bool IsRenderPassOn(const Framebuffer* framebuffer) const noexcept;
 
     /// Pomegrade: the open render pass holds a transform feedback draw, so its end makes the captured
     /// data visible to vertex input and transfers (EndRenderPass)

@@ -258,6 +258,10 @@ void Scheduler::RequestRenderpass(const Framebuffer* framebuffer) {
     BeginRenderPassImpl(framebuffer, renderpass, nullptr, 0);
 }
 
+bool Scheduler::IsRenderPassOn(const Framebuffer* framebuffer) const noexcept {
+    return state.renderpass != VkRenderPass{} && state.framebuffer == framebuffer->Handle();
+}
+
 void Scheduler::RequestOutsideRenderPassOperationContext() {
     EndRenderPass();
 }
