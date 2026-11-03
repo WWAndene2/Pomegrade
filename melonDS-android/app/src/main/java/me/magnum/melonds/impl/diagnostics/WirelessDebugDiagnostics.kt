@@ -127,20 +127,29 @@ object WirelessDebugDiagnostics {
         val steps = runCatching { command.steps(context.packageName, stamp) }
             .getOrElse { return@withContext Result.Failed(it.message ?: "bad argument") }
         if (command.isDelayed) {
+            val appContext = context.applicationContext
             scope.launch {
                 delay(delaySeconds * 1000L)
-                runSteps(steps, folder, stamp)
+                runSteps(steps, folder, stamp, appContext)
             }
             return@withContext Result.Started(folder, delaySeconds)
         }
-        runSteps(steps, folder, stamp)?.let { return@withContext Result.Failed(it) }
+        runSteps(steps, folder, stamp, context.applicationContext)?.let { return@withContext Result.Failed(it) }
         Result.Written(File(folder, steps.last().fileName))
     }
 
-    /** Runs [steps] in order, each output into its file; the first failure stops them and is returned (and written). */
-    private fun runSteps(steps: List<DiagnosticCommand.Step>, folder: File, stamp: String): String? {
+    /**
+     * Runs [steps] in order, each output into its file; the first failure stops them and is returned (and written).
+     * The connection is made again first when it was lost: a delayed command runs while Punica is in a game, and by
+     * then adbd had closed it (owner's full analysis, 3 November: "gpu-before.txt: connect() must be called first").
+     * The pairing outlives a lost connection while Punica's process runs, so connecting again needs no new code.
+     */
+    private fun runSteps(steps: List<DiagnosticCommand.Step>, folder: File, stamp: String, context: Context): String? {
         for (step in steps) {
             val failure = runCatching {
+                if (!isConnected && !WirelessDebugConnection.instance.connectTls(context, 5_000)) {
+                    error("wireless debugging connection lost and could not be made again (is wireless debugging still on?)")
+                }
                 // the shell service with the command as is (LocalServices.SHELL would quote it, and refuses double quotes)
                 val output = WirelessDebugConnection.instance.openStream("shell:${step.shell}").use { stream -> readUntilClosed(stream) }
                 File(folder, step.fileName).writeBytes(output)
