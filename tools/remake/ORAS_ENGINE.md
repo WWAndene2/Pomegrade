@@ -35,7 +35,10 @@ picture (CallFieldCaptureDemoSimplePoke, still skipped: played, Omega Ruby's Dll
 +0x268 of its sequence object and wrote to 0xC. Traced (run b51, interpreter, full mod): the function setting it,
 DllSequence 0x10712D34, never ran; only DllFieldDemo, DllPorocCase, DllSangoIntro and DllSangoStaffroll call it (their
 import stubs), and none is loaded in the field. X's DllSequence plays the same demo from the field alone (X's runs load
-only DllSequence): to port, X's way of starting it, or the setup DllFieldDemo does); "le Écolier" (no elision, X not compared);
+only DllSequence): to port, X's way of starting it, or the setup DllFieldDemo does). Tried 3 November (commit de657678, reverted):
+hooks making that heap as DllFieldDemo does; no crash, but both screens stayed black. X's native builds its own
+EventFieldCaptureDemo (X DllField 0x102915B4, its update 0x1027A7C4: 38 of 190 instructions alike with Omega Ruby's)
+and runs X's own DllSequence code for it: the picture needs X's demo code ported whole; "le Écolier" (no elision, X not compared);
 not run on the phone.
 **Fixed the same day: the quiz room's arrival runs** (fast_run.sh from a fresh title state, runs b4/b5): Bonnie on the
 stand and her first line, as in X. The cause: X's empty functions (the base event's destructor 0x1D4744 ...) were mapped
