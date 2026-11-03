@@ -697,6 +697,8 @@ The work done on section 11's plan, by another agent (branch `ccr-0a954b06-a3qep
 | Game data (later) | ooz (powzix, open-source Oodle decompressor; approved 1 November, needed for every file of the asset archive), pkNX (kwsch), the Scarlet/Violet Trinity tools (flatc schemas, TRPAK/TRPFS readers), FlatBuffers flatc, Blender with a Trinity import plugin |
 | Run and measure | Eden headless on Linux, Mesa lavapipe, the GitHub Actions workflow building the mod the owner tests |
 
+Added 3 November (owner's approval), to recompile parts of the game as code loaded beside it rather than patch it by hand: devkitA64 / devkitPro (Switch ARM64 toolchain) and exlaunch (shadowninja108; loads our code as an extra `subsdk` module and hooks the game's functions). Whether Eden loads such a module from its mods folder is to check in `core/file_sys/patch_manager.cpp` first.
+
 Not without asking again: any online service not listed, other emulators or tools, access to the phone (adb).
 
 **Workflow, one step at a time, each merged before the next.**
