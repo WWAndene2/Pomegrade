@@ -32,7 +32,10 @@ battle, lift), then Clemont: scene, battle, "Andene reçoit le Badge Tension de 
 Fixed on the way: X's empty functions mapped to a float conversion (0x1F9544 -> 0x1E8294), the quiz's jingle (X/Y's
 music needs --music on), trainers' numbers passed through a procedure's locals (OrasXyScript.cpp). Left: the quiz's
 picture (CallFieldCaptureDemoSimplePoke, still skipped: played, Omega Ruby's DllSequence allocated from an unset heap at
-+0x268 of its sequence object, linked 0x10712D80 sets it, and wrote to 0xC); "le Écolier" (no elision, X not compared);
++0x268 of its sequence object and wrote to 0xC. Traced (run b51, interpreter, full mod): the function setting it,
+DllSequence 0x10712D34, never ran; only DllFieldDemo, DllPorocCase, DllSangoIntro and DllSangoStaffroll call it (their
+import stubs), and none is loaded in the field. X's DllSequence plays the same demo from the field alone (X's runs load
+only DllSequence): to port, X's way of starting it, or the setup DllFieldDemo does); "le Écolier" (no elision, X not compared);
 not run on the phone.
 **Fixed the same day: the quiz room's arrival runs** (fast_run.sh from a fresh title state, runs b4/b5): Bonnie on the
 stand and her first line, as in X. The cause: X's empty functions (the base event's destructor 0x1D4744 ...) were mapped
