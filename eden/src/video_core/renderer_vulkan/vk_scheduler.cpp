@@ -262,6 +262,32 @@ void Scheduler::RequestOutsideRenderPassOperationContext() {
     EndRenderPass();
 }
 
+void Scheduler::RequestNonFragmentDependency() {
+    if (!fragment_work_unwaited) {
+        return;
+    }
+    // The open pass began after the unwaited one ended, so the barrier must come before it: end it
+    // (its own fragment work is then covered too) and let the draw begin a new one
+    EndRenderPass();
+    fragment_work_unwaited = false;
+    Record([](vk::CommandBuffer cmdbuf) {
+        static constexpr VkMemoryBarrier FRAGMENT_TO_NON_FRAGMENT{
+            .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+            .pNext = nullptr,
+            .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+                             VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT |
+                             VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_INDEX_READ_BIT |
+                             VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_UNIFORM_READ_BIT,
+        };
+        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
+                                   VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                                   VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT |
+                                   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                               vk::PIPELINE_STAGE_GRAPHICS_COMPUTE, 0, FRAGMENT_TO_NON_FRAGMENT);
+    });
+}
+
 bool Scheduler::UpdateGraphicsPipeline(GraphicsPipeline* pipeline) {
     if (state.graphics_pipeline == pipeline) {
         if (pipeline && pipeline->UsesExtendedDynamicState() &&
@@ -506,8 +532,18 @@ void Scheduler::EndRenderPass()
                 };
             }
             cmdbuf.EndRenderPass();
+            // Pomegrade: only the next passes' fragment stages wait here. Waiting with every graphics and
+            // compute stage, as upstream does, kept the Mali from running one pass's vertex work beside
+            // the previous pass's fragment work (Arm: "Avoid fragment to non-fragment barriers ... This
+            // creates a pipeline bubble", Vulkan synchronization on Mali, 2026), at every one of
+            // Scarlet's 230 to 500 passes a frame. Work in other stages that reads what a pass wrote
+            // waits through RequestNonFragmentDependency: shaders of the vertex to geometry stages using
+            // textures, images or storage buffers, and indirect dispatches. Direct dispatches and
+            // transfers keep their own barriers from every graphics stage.
             cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT |
-                                   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, vk::PIPELINE_STAGE_GRAPHICS_COMPUTE,
+                                   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                                   VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                                   VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                                    0, nullptr, nullptr, vk::Span(barriers.data(), num_images));
             if (has_transform_feedback) {
                 static constexpr VkMemoryBarrier XFB_OUTPUT_BARRIER{
@@ -534,6 +570,10 @@ void Scheduler::EndRenderPass()
         });
 
         PomegradePassEnd(); // Pomegrade: TEMPORARY, after the pass's end is recorded
+        // Pomegrade: a pass that wrote attachments leaves fragment work the non-fragment stages have not
+        // waited for (a wait for idle above already covers everything); passes without attachments
+        // (transform feedback captures) run no fragment work
+        fragment_work_unwaited = wait_for_idle ? false : (fragment_work_unwaited || num_renderpass_images != 0);
         state.renderpass = VkRenderPass{};
         num_renderpass_images = 0;
     }
