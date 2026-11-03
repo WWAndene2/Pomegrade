@@ -97,20 +97,7 @@ void CountXfbDraw(const void* program, int count, DrawKind kind) {
         stats.by_kind[kind].fetch_add(1, std::memory_order_relaxed);
         break;
     }
-    u64 total = g_xfb_draws.fetch_add(1, std::memory_order_relaxed) + 1;
-    if (total % 5000 == 0) {
-        Log("[scarlet_mali] %llu transform feedback draws so far: %llu DrawArrays, %llu DrawElements, %llu DrawArraysInstanced, "
-            "%llu DrawElementsInstanced, %llu DrawElementsIndirect; by program:",
-            static_cast<unsigned long long>(total), static_cast<unsigned long long>(g_xfb_draws_by_kind[0].load()),
-            static_cast<unsigned long long>(g_xfb_draws_by_kind[1].load()), static_cast<unsigned long long>(g_xfb_draws_by_kind[2].load()),
-            static_cast<unsigned long long>(g_xfb_draws_by_kind[3].load()), static_cast<unsigned long long>(g_xfb_draws_by_kind[4].load()));
-        for (auto& stats : g_programs) {
-            const void* program_seen = stats.program.load(std::memory_order_acquire);
-            if (program_seen == nullptr) break;
-            Log("[scarlet_mali]   program %p: %llu draws, %llu vertices", program_seen,
-                static_cast<unsigned long long>(stats.draws.load()), static_cast<unsigned long long>(stats.vertices.load()));
-        }
-    }
+    g_xfb_draws.fetch_add(1, std::memory_order_relaxed);
 }
 
 void BindProgram(void* cmd, const void* program, int stages) {
@@ -194,6 +181,20 @@ void WatchNvnSetup(void*) {
                 static_cast<unsigned long long>(g_bind_calls.load()), static_cast<unsigned long long>(g_begin_calls.load()),
                 static_cast<unsigned long long>(g_end_calls.load()), static_cast<unsigned long long>(g_draw_calls.load()),
                 static_cast<unsigned long long>(g_xfb_draws.load()));
+            // the game records each draw once and replays it (the counts above stay in the thousands while Eden sees
+            // hundreds of transform feedback passes a second), so the details are logged here rather than every
+            // 5,000 transform feedback draws, a count the previous probe never reached
+            Log("[scarlet_mali]   inside transform feedback by call: %llu DrawArrays, %llu DrawElements, %llu DrawArraysInstanced, "
+                "%llu DrawElementsInstanced, %llu DrawElementsIndirect",
+                static_cast<unsigned long long>(g_xfb_draws_by_kind[0].load()), static_cast<unsigned long long>(g_xfb_draws_by_kind[1].load()),
+                static_cast<unsigned long long>(g_xfb_draws_by_kind[2].load()), static_cast<unsigned long long>(g_xfb_draws_by_kind[3].load()),
+                static_cast<unsigned long long>(g_xfb_draws_by_kind[4].load()));
+            for (auto& stats : g_programs) {
+                const void* program_seen = stats.program.load(std::memory_order_acquire);
+                if (program_seen == nullptr) break;
+                Log("[scarlet_mali]   program %p: %llu draws, %llu vertices or indices", program_seen,
+                    static_cast<unsigned long long>(stats.draws.load()), static_cast<unsigned long long>(stats.vertices.load()));
+            }
         }
     }
 }
