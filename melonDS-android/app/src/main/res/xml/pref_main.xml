@@ -231,6 +231,11 @@
             <!-- Eden's home screen tools, opened directly (owner's request, 13 October) -->
             <Preference android:key="switch_tool_INSTALLABLE" android:title="@string/manage_yuzu_data" android:summary="@string/manage_yuzu_data_description" app:icon="@drawable/ic_folder" />
             <Preference
+                    android:key="switch_mod_install"
+                    android:title="@string/switch_mod_install"
+                    android:summary="@string/switch_mod_install_summary"
+                    app:icon="@drawable/ic_add" />
+            <Preference
                     android:key="switch_import_data"
                     android:title="@string/switch_import_data"
                     android:summary="@string/switch_import_data_summary"
