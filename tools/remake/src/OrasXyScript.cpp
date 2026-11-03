@@ -312,10 +312,7 @@ XyNumbers XyNumbersFor(const std::vector<Bytes>& scripts, const std::set<int>& e
 
 const std::set<std::string>& XyDemoNatives()
 {
-    // CallFieldCaptureDemoSimplePoke is not skipped (owner, 3 November): it only shows a Pokemon in a window (the quiz
-    // rooms of Clemont's gym, X/Y zones 79-82: "Who's that Pokemon?"); Omega Ruby's native reads the same arguments and
-    // builds the same class (field::EventFieldCaptureDemo, its creation split into 0x102C0718 and 0x102C06E8)
-    static const std::set<std::string> natives = {"CallFieldCaptureDemo", "CallFieldNotCaptureDemo", "CallCaptureDemo"};
+    static const std::set<std::string> natives = {"CallFieldCaptureDemo", "CallFieldNotCaptureDemo", "CallFieldCaptureDemoSimplePoke", "CallCaptureDemo"};
     return natives;
 }
 
