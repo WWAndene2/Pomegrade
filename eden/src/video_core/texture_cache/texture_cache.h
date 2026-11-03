@@ -76,6 +76,20 @@ TextureCache<P>::TextureCache(Runtime& runtime_, Tegra::MaxwellDeviceMemoryManag
             (std::max)((std::min)(device_local_memory - min_vacancy_critical, min_spacing_critical),
                      DEFAULT_CRITICAL_MEMORY));
         minimum_memory = static_cast<u64>((device_local_memory - mem_threshold) / 2);
+#ifdef __ANDROID__
+        // Pomegrade: on a phone the "device local" memory is the phone's own RAM, shared with Android and every other
+        // app. Eden's thresholds from it (Xiaomi 13T, 8 GB: 4 GiB reported, collection from 1638 MiB, hard at
+        // 3276 MiB) let the cache grow until Android swapped Punica out: the owner's trace of 3 November showed
+        // 1.2 GB of Punica in swap, about 80 MB of RAM free and the frame rate falling, with the cache jumping from
+        // 229 to 641 MiB before the end. The cache now collects from 768 MiB and hard at 1280 MiB (setting
+        // pomegrade_texture_memory_budget). What it costs: textures the game uses again after being collected are
+        // decoded and uploaded again.
+        if (Settings::values.pomegrade_texture_memory_budget.GetValue()) {
+            expected_memory = (std::min)(expected_memory, u64{768_MiB});
+            critical_memory = (std::min)(critical_memory, u64{1280_MiB});
+            minimum_memory = (std::min)(minimum_memory, u64{512_MiB});
+        }
+#endif
     } else {
         expected_memory = DEFAULT_EXPECTED_MEMORY + 512_MiB;
         critical_memory = DEFAULT_CRITICAL_MEMORY + 1_GiB;

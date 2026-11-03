@@ -545,6 +545,8 @@ class SettingsFragmentPresenter(
             add(IntSetting.GPU_FENCE_BEHAVIOR.key)
             add(BooleanSetting.POMEGRADE_COMPRESSED_RENDER_TARGETS.key)
             add(BooleanSetting.POMEGRADE_DEFER_WAIT_FOR_IDLE.key)
+            add(BooleanSetting.POMEGRADE_MERGE_CLEARS.key)
+            add(BooleanSetting.POMEGRADE_TEXTURE_MEMORY_BUDGET.key)
             add(IntSetting.RENDERER_VRAM_USAGE_MODE.key)
             add(IntSetting.RENDERER_ASTC_DECODE_METHOD.key)
             add(IntSetting.RENDERER_NVDEC_EMULATION.key)

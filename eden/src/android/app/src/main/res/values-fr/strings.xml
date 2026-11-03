@@ -1146,5 +1146,9 @@
     <string name="pomegrade_compressed_render_targets">Images de rendu compressées (Mali)</string>
     <string name="pomegrade_compressed_render_targets_description">Laisse les GPU Mali compresser les images que le jeu dessine, pour moins de trafic mémoire à chaque image. Expérimental : un effet qu\'un jeu dessine dans l\'une d\'elles par un shader peut disparaître. Prend effet au prochain lancement d\'un jeu</string>
     <string name="pomegrade_defer_wait_for_idle">Moins de coupures de rendu (Mali)</string>
+    <string name="pomegrade_merge_clears">Effacements fusionnés (Mali)</string>
+    <string name="pomegrade_merge_clears_description">Efface une image au début de l\'étape de dessin suivante sur elle au lieu d\'une étape à part : moins de passes de rendu sur les GPU de téléphone, image identique. Activé par défaut ; à désactiver si une surface garde des couleurs fausses ou anciennes</string>
+    <string name="pomegrade_texture_memory_budget">Budget mémoire des textures (téléphone)</string>
+    <string name="pomegrade_texture_memory_budget_description">Libère les textures inutilisées dès 768 Mo au lieu de 1,6 Go, pour qu\'Android ne mette pas l\'émulateur en swap sur les téléphones dont le GPU partage la mémoire. Activé par défaut ; à désactiver si les textures saccadent en se retournant. Effet au prochain lancement du jeu</string>
     <string name="pomegrade_defer_wait_for_idle_description">Quand le jeu demande au GPU d\'attendre en plein dessin, attend à la fin de l\'étape de dessin au lieu de la couper en deux : beaucoup moins de trafic mémoire sur les GPU de téléphone. Expérimental : un effet peut s\'afficher avec une image de retard ou scintiller</string>
 </resources>

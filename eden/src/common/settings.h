@@ -494,6 +494,14 @@ struct Values {
     SwitchableSetting<bool> pomegrade_compressed_render_targets{
         linkage, false, "pomegrade_compressed_render_targets", Category::Renderer,
         Specialization::Default, true, true};
+    // Pomegrade: a full clear while another render pass is open ends that pass and becomes the next pass's load
+    // operation (video_core/renderer_vulkan/vk_rasterizer.cpp, Clear)
+    SwitchableSetting<bool> pomegrade_merge_clears{linkage, true, "pomegrade_merge_clears", Category::Renderer,
+                                                  Specialization::Default, true, true};
+    // Pomegrade: the texture cache collects from 768 MiB and hard at 1280 MiB on phones that share memory with the
+    // GPU (video_core/texture_cache/texture_cache.h, constructor)
+    SwitchableSetting<bool> pomegrade_texture_memory_budget{linkage, true, "pomegrade_texture_memory_budget",
+                                                           Category::Renderer, Specialization::Default, true, true};
 
     SwitchableSetting<bool> use_asynchronous_gpu_emulation{linkage, true, "use_asynchronous_gpu_emulation",
                                                            Category::Renderer};

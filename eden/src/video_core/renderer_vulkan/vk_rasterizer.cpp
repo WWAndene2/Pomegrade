@@ -781,10 +781,20 @@ void RasterizerVulkan::Clear(u32 layer_count) {
         clear_rect.rect.offset.x == 0 && clear_rect.rect.offset.y == 0 &&
         clear_rect.rect.extent.width >= render_area.width &&
         clear_rect.rect.extent.height >= render_area.height;
-    const bool can_defer_clear = ENABLE_DEFERRED_CLEAR && (!regs.clear_control.use_scissor || clear_covers_render_area) &&
-                                 regs.clear_surface.layer == 0 &&
-                                 !scheduler.IsRenderPassActive() &&
-                                 (!use_color || color_full_channels) && ds_deferrable;
+    const bool clear_deferrable = ENABLE_DEFERRED_CLEAR &&
+                                  (!regs.clear_control.use_scissor || clear_covers_render_area) &&
+                                  regs.clear_surface.layer == 0 && (!use_color || color_full_channels) &&
+                                  ds_deferrable;
+    // Pomegrade: a full clear of a framebuffer other than the open pass's ends that pass, so the clear is deferred and
+    // becomes the next pass's load operation. Eden keeps a pass open after its draws, so upstream deferred almost no
+    // clear: each began a pass of its own with a ClearAttachments, left empty when the next draw went to another
+    // target. The owner's logs (3 November) show, beside every pass with draws of Scarlet's down-sampling chain
+    // (480x270 down to 7x4), a pass of the same size with none (setting pomegrade_merge_clears).
+    if (clear_deferrable && Settings::values.pomegrade_merge_clears.GetValue() && scheduler.IsRenderPassActive() &&
+        !scheduler.IsRenderPassOn(framebuffer)) {
+        scheduler.RequestOutsideRenderPassOperationContext();
+    }
+    const bool can_defer_clear = clear_deferrable && !scheduler.IsRenderPassActive();
     if (!can_defer_clear) {
         scheduler.RequestRenderpass(framebuffer);
     }

@@ -31,6 +31,8 @@ enum class BooleanSetting(override val key: String) : AbstractBooleanSetting {
     POMEGRADE_DEEP_BLACK("pomegrade_deep_black"),
     POMEGRADE_COMPRESSED_RENDER_TARGETS("pomegrade_compressed_render_targets"),
     POMEGRADE_DEFER_WAIT_FOR_IDLE("pomegrade_defer_wait_for_idle"),
+    POMEGRADE_MERGE_CLEARS("pomegrade_merge_clears"),
+    POMEGRADE_TEXTURE_MEMORY_BUDGET("pomegrade_texture_memory_budget"),
     ENABLE_BUFFER_HISTORY("enable_buffer_history"),
     USE_OPTIMIZED_VERTEX_BUFFERS("use_optimized_vertex_buffers"),
     SYNC_MEMORY_OPERATIONS("sync_memory_operations"),
