@@ -149,18 +149,22 @@ void Swap(uintptr_t offset, Fn& original, Fn replacement) {
     *slot = replacement;
 }
 
+void SwapAll(const char* when) {
+    Swap(scarlet::nvn_slots::kProgramSetShaders, g_set_shaders, SetShaders);
+    Swap(scarlet::nvn_slots::kCommandBufferBindProgram, g_bind_program, BindProgram);
+    Swap(scarlet::nvn_slots::kCommandBufferBeginTransformFeedback, g_begin_xfb, BeginXfb);
+    Swap(scarlet::nvn_slots::kCommandBufferEndTransformFeedback, g_end_xfb, EndXfb);
+    Swap(scarlet::nvn_slots::kCommandBufferDrawArrays, g_draw_arrays, DrawArrays);
+    Log("[scarlet_mali] 5 NVN calls intercepted %s (probe build, nothing drawn differently)", when);
+}
+
 }  // namespace
 
-// The game's NVN loader: once it has filled the function pointers, a few are swapped for the probe's.
+// The game's NVN loader: each time it fills the function pointers, a few are swapped again for the probe's.
 HOOK_DEFINE_TRAMPOLINE(NvnLoader) {
     static void Callback(void* device, void* get_proc_address) {
         Orig(device, get_proc_address);
-        Swap(scarlet::nvn_slots::kProgramSetShaders, g_set_shaders, SetShaders);
-        Swap(scarlet::nvn_slots::kCommandBufferBindProgram, g_bind_program, BindProgram);
-        Swap(scarlet::nvn_slots::kCommandBufferBeginTransformFeedback, g_begin_xfb, BeginXfb);
-        Swap(scarlet::nvn_slots::kCommandBufferEndTransformFeedback, g_end_xfb, EndXfb);
-        Swap(scarlet::nvn_slots::kCommandBufferDrawArrays, g_draw_arrays, DrawArrays);
-        Log("[scarlet_mali] NVN loader hooked: 5 calls intercepted (probe build, nothing drawn differently)");
+        SwapAll("after the NVN loader ran");
     }
 };
 
@@ -168,6 +172,10 @@ extern "C" void exl_main(void* x0, void* x1) {
     exl::hook::Initialize();
     NvnLoader::InstallAtOffset(scarlet::nvn_slots::kLoader);
     Log("[scarlet_mali] module loaded (main at %p)", reinterpret_cast<void*>(MainBase()));
+    // Under Eden the module starts after the game has set NVN up (owner's log, 3 November: modules loaded at 5.4 s,
+    // this module's start at 11.1 s, no loader call after it), so the pointers already filled are swapped now. A
+    // pointer is one aligned 64-bit store, so a thread calling through it gets the old function or the new one.
+    if (*Slot<DrawArraysFn>(scarlet::nvn_slots::kCommandBufferDrawArrays) != nullptr) SwapAll("at start (NVN already set up)");
 }
 
 extern "C" NORETURN void exl_exception_entry() {
