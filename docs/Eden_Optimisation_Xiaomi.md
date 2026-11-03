@@ -675,10 +675,13 @@ of 1920x1080 with 2 attachments and 1 draw, and 210 with 2 to 10 draws, and in t
 and began it again after (the capture runs in the pass with no attachment): on the Mali each such break writes
 the pass's attachments out of tile memory and reads them back. Build 383 records each capture on its own and
 places it before the open pass instead (setting `pomegrade_hoist_captures`, `Scheduler::BeginIsolation`), so the
-pass stays whole; a capture whose output an earlier draw of the pass read, or that needs an upload or a query
-write, stays where it was. Its log line `[Pomegrade captures]` counts captures hoisted, kept, and passes begun
-again on the attachments just ended. Not yet tested on the phone. The pass timer's per-kind times overlap (Vulkan
-timestamps on a tiler), so they rank passes but do not give each one's cost.
+pass stays whole. **Result: reverted** (commit c0be5bb0). On the phone (build 384, owner's tests of 3
+November) no capture was ever moved ("hoisted 0/s, kept 0/s" all session: each refused by a safety check before the
+new path; which one was not logged), while the change's fixed costs ran on every pass (all drawing state sent again
+at each pass's begin, recorded work held from the worker thread while a pass was open): more lag, glitches, a less
+steady frame rate, about 6 FPS lost on average (owner's reading; the second test also had probe v9 installed). The
+pass timer's per-kind times overlap (Vulkan timestamps on a tiler), so they rank passes but do not give each one's
+cost.
 
 ## 11. Next: patching the Switch Pokemon games themselves (plan, 1 November)
 
