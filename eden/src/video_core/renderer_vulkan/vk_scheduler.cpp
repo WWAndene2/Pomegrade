@@ -493,7 +493,11 @@ void Scheduler::EndRenderPass()
         Record([num_images = num_renderpass_images,
                        images = renderpass_images,
                        ranges = renderpass_image_ranges,
-                       has_transform_feedback = device.IsExtTransformFeedbackSupported(),
+                       // Pomegrade: only after a pass that captured something; upstream added this
+                       // barrier after every pass, a second vertex-waiting barrier on the Mali's 230
+                       // to 500 passes a frame in Scarlet, most of which capture nothing
+                       has_transform_feedback = device.IsExtTransformFeedbackSupported() &&
+                                                pass_has_transform_feedback,
                        wait_for_idle](
                           vk::CommandBuffer cmdbuf) {
             std::array<VkImageMemoryBarrier, 9> barriers;
@@ -575,6 +579,7 @@ void Scheduler::EndRenderPass()
         // (transform feedback captures) run no fragment work
         fragment_work_unwaited = wait_for_idle ? false : (fragment_work_unwaited || num_renderpass_images != 0);
         state.renderpass = VkRenderPass{};
+        pass_has_transform_feedback = false;
         num_renderpass_images = 0;
     }
 

@@ -655,6 +655,9 @@ bool GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
 
     scheduler.RequestRenderpass(uses_null_render_pass ? scheduler.NullFramebuffer()
                                                       : texture_cache.GetFramebuffer());
+    if (regs.transform_feedback_enabled != 0) {
+        scheduler.MarkTransformFeedbackInPass();
+    }
     if (!is_built.load(std::memory_order::relaxed)) {
         // Wait for the pipeline to be built
         scheduler.Record([this](vk::CommandBuffer) {
