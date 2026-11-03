@@ -655,6 +655,13 @@ Owner's tests on the Xiaomi 13T (Eden's GPU accuracy Low), builds 377 to 379:
 - Seen in the owner's 60 s Perfetto trace (3 November, build 378): the GPU at its top clock (830 MHz) for 48.6 s of
   60, Eden's GPU thread at 19 % of a core: GPU-bound. The opening cutscene remains the heaviest part (owner).
 
+**Baseline for the 3 November batch ("before", measured).** Build 380 (`db928cb8`), probe v7 installed (it draws
+nothing differently), Scarlet's opening cutscene, the full analysis's 60 s trace (`punica-20261103-182150`), read by
+`tools/switch/trace_metrics.py`: **15.6 FPS** (933 frames presented by Eden in 60.0 s), frame interval median 60.6 ms,
+90th percentile 75.4 ms, 99th 94.6 ms; GPU clock averaging 693 MHz, at its highest seen (773 MHz, lower than the
+830 MHz of the earlier trace: likely thermal) 83 % of the time; Eden's GPU thread at 18.7 % of a core. The owner's
+readings of 22 to 24.5 FPS were in play, not in this cutscene. The "after" is to be measured at the same place.
+
 ## 11. Next: patching the Switch Pokemon games themselves (plan, 1 November)
 
 Owner's direction (1 November): since Eden is no longer what limits Scarlet on the Mali (section 10), the next work makes
