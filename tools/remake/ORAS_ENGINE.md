@@ -26,7 +26,7 @@ four quiz floors, lifts, battle, badge). Not done:
   October). Next: Valerie's battle in X (`prototype/xy_save_move.py dumps/xsave/main out/xv 203 15.5 4.5 <height>`)
   beside the mod's, then the model conversion (BCH 0x07 -> 0x21) of her arena.
 - **The French article of X/Y's trainer classes** fixed (each text line's grammar word kept: `GameText.h`,
-  `prototype/text_grammar.py`); "Valériane la Championne" to check in game.
+  `prototype/text_grammar.py`); checked headless: "Valériane la Championne veut se battre !" (run va4, gym_leader_run.sh).
 
 **Fixed this session (all on the branch, merged):** X's empty functions mapped to a float conversion (0x1F9544 ->
 0x1E8294: Clemont's lift froze the field); numbers passed through a procedure's locals (`OrasXyScript.cpp`: trainers,
