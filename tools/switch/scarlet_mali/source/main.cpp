@@ -104,7 +104,9 @@ void BindProgram(void* cmd, const void* program, int stages) {
     g_bind_calls.fetch_add(1, std::memory_order_relaxed);
     CommandState& state = SlotOf(cmd);
     if (state.cmd != cmd) state = CommandState{cmd, nullptr, false};
-    state.program = program;
+    // the game binds a program per stage and ends with empty ones for the stages it does not use (FUN_00c4fa44): the
+    // last real program is the one kept, or every draw counts for no program (probe v7, owner's log of 3 November)
+    if (program != nullptr) state.program = program;
     g_bind_program(cmd, program, stages);
 }
 
