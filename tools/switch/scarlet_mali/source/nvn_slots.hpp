@@ -6,8 +6,6 @@
 #include <cstdint>
 
 namespace scarlet::nvn_slots {
-    constexpr uintptr_t kLoader = 0x00cdff20;  // FUN_00cdff20(device, getProcAddress)
-
     constexpr uintptr_t kProgramSetShaders = 0x0485ccc8;
     constexpr uintptr_t kCommandBufferBindProgram = 0x0485d5e0;
     constexpr uintptr_t kCommandBufferBeginTransformFeedback = 0x0485d688;

@@ -1,8 +1,9 @@
 // Pomegrade's Mali version of Pokemon Scarlet: an exlaunch module (subsdk9) loaded beside the game by Eden.
 //
 // This first build is a probe and changes nothing the game draws. It checks, on the owner's phone, the chain the
-// skinning replacement needs (docs/Eden_Optimisation_Xiaomi.md section 12): the module is loaded, the hook on the
-// game's NVN loader runs, the program and transform feedback calls can be intercepted, and which programs the
+// skinning replacement needs (docs/Eden_Optimisation_Xiaomi.md section 12): the module is loaded, the game's NVN
+// function pointers can be swapped once its loader has filled them, the program and transform feedback calls can be
+// intercepted, and which programs the
 // transform feedback draws use. It logs through svcOutputDebugString, which Eden writes to its log as
 // "Debug_Emulated" lines prefixed "[scarlet_mali]".
 #include "lib.hpp"
@@ -145,7 +146,11 @@ void DrawArrays(void* cmd, int primitive, int first, int count) {
 template <typename Fn>
 void Swap(uintptr_t offset, Fn& original, Fn replacement) {
     Fn* slot = Slot<Fn>(offset);
-    original = *slot;
+    Fn current = *slot;
+    // a slot still holding the module's function is left as is: taking it for the game's would make the function
+    // call itself
+    if (current == nullptr || current == replacement) return;
+    original = current;
     *slot = replacement;
 }
 
@@ -158,24 +163,38 @@ void SwapAll(const char* when) {
     Log("[scarlet_mali] 5 NVN calls intercepted %s (probe build, nothing drawn differently)", when);
 }
 
+
+// The pointers are swapped by a thread of the module once the game has filled them, not by a hook on the game's
+// loader: under Eden, the first probe's trampoline hook on FUN_00cdff20 never ran, and the second's (owner's log,
+// 3 November: the module started at 19.4 s with the pointers still empty) stopped the game at 68.7 s, likely when
+// the game reached the patched code. The module now changes no code of the game, only these data pointers.
+alignas(16) u8 g_watch_stack[0x4000];
+
+void WatchNvnSetup(void*) {
+    // DrawArrays is among the last functions the loader fills; checked every 50 ms until it is, then every 500 ms in
+    // case the loader runs again (it has two callers) and puts the game's own functions back: they are swapped again
+    for (;;) {
+        DrawArraysFn current = *Slot<DrawArraysFn>(scarlet::nvn_slots::kCommandBufferDrawArrays);
+        if (current != nullptr && current != DrawArrays) {
+            svcSleepThread(50'000'000);  // the loader fills the rest of its 532 pointers in the meantime
+            SwapAll(g_draw_arrays == nullptr ? "once the game had set NVN up" : "again, after the game set NVN up again");
+        }
+        svcSleepThread(current == nullptr ? 50'000'000 : 500'000'000);
+    }
+}
+
 }  // namespace
 
-// The game's NVN loader: each time it fills the function pointers, a few are swapped again for the probe's.
-HOOK_DEFINE_TRAMPOLINE(NvnLoader) {
-    static void Callback(void* device, void* get_proc_address) {
-        Orig(device, get_proc_address);
-        SwapAll("after the NVN loader ran");
-    }
-};
-
 extern "C" void exl_main(void* x0, void* x1) {
-    exl::hook::Initialize();
-    NvnLoader::InstallAtOffset(scarlet::nvn_slots::kLoader);
     Log("[scarlet_mali] module loaded (main at %p)", reinterpret_cast<void*>(MainBase()));
-    // Under Eden the module starts after the game has set NVN up (owner's log, 3 November: modules loaded at 5.4 s,
-    // this module's start at 11.1 s, no loader call after it), so the pointers already filled are swapped now. A
-    // pointer is one aligned 64-bit store, so a thread calling through it gets the old function or the new one.
-    if (*Slot<DrawArraysFn>(scarlet::nvn_slots::kCommandBufferDrawArrays) != nullptr) SwapAll("at start (NVN already set up)");
+    Handle thread;
+    if (R_SUCCEEDED(svcCreateThread(&thread, reinterpret_cast<void*>(&WatchNvnSetup), nullptr,
+                                    g_watch_stack + sizeof(g_watch_stack), 0x2C, -2)) &&
+        R_SUCCEEDED(svcStartThread(thread))) {
+        Log("[scarlet_mali] waiting for the game to set NVN up");
+    } else {
+        Log("[scarlet_mali] could not start the watch thread: nothing intercepted");
+    }
 }
 
 extern "C" NORETURN void exl_exception_entry() {
