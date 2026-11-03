@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <array>
 #include <condition_variable>
 #include <cstddef>
 #include <functional>
@@ -132,6 +133,14 @@ public:
     [[nodiscard]] bool IsIsolating() const noexcept {
         return isolating;
     }
+    /// Pomegrade: TEMPORARY, why a capture was not hoisted (index into the log's reasons, NoteHoistRefusal)
+    void NoteHoistRefusal(size_t reason) noexcept {
+        if (reason < pomegrade_hoist_refusals.size()) {
+            ++pomegrade_hoist_refusals[reason];
+        }
+    }
+    /// Pomegrade: TEMPORARY, which of CanHoistIntoPass's conditions fails first (0 when none)
+    [[nodiscard]] size_t HoistIntoPassRefusal() const noexcept;
     /// Pomegrade: the open pass's draws' reads are wanted (capture hoisting)
     [[nodiscard]] bool WantsPassReads() const noexcept {
         return pass_prologue != nullptr && !isolating;
@@ -483,6 +492,7 @@ private:
     u64 pomegrade_captures_hoisted = 0;
     u64 pomegrade_captures_kept = 0;
     u64 pomegrade_pass_resumes = 0;
+    std::array<u64, 12> pomegrade_hoist_refusals{};
     std::array<VkImage, 9> renderpass_images{};
     std::array<VkImageSubresourceRange, 9> renderpass_image_ranges{};
 

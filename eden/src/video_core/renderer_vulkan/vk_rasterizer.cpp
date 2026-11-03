@@ -1549,10 +1549,25 @@ void RasterizerVulkan::UpdateDynamicStates() {
 
 bool RasterizerVulkan::CanHoistCapture(const GraphicsPipeline& pipeline) const {
     const auto& regs = maxwell3d->regs;
-    if (!Settings::values.pomegrade_hoist_captures.GetValue() || !pipeline.UsesNullRenderPass() ||
-        regs.transform_feedback_enabled == 0 || !device.IsExtTransformFeedbackSupported() ||
-        regs.zpass_pixel_count_enable != 0 || zpass_counting ||
-        query_cache_runtime.HasHostConditionalRendering() || !scheduler.CanHoistIntoPass()) {
+    if (!Settings::values.pomegrade_hoist_captures.GetValue() || regs.transform_feedback_enabled == 0 ||
+        !device.IsExtTransformFeedbackSupported()) {
+        return false;
+    }
+    // Pomegrade: TEMPORARY, the first failing condition counted for the log (Scheduler::NoteHoistRefusal)
+    if (!pipeline.UsesNullRenderPass()) {
+        scheduler.NoteHoistRefusal(8);
+        return false;
+    }
+    if (regs.zpass_pixel_count_enable != 0 || zpass_counting) {
+        scheduler.NoteHoistRefusal(9);
+        return false;
+    }
+    if (query_cache_runtime.HasHostConditionalRendering()) {
+        scheduler.NoteHoistRefusal(10);
+        return false;
+    }
+    if (const size_t refusal = scheduler.HoistIntoPassRefusal(); refusal != 0) {
+        scheduler.NoteHoistRefusal(refusal);
         return false;
     }
     // the open pass's earlier draws must not have read what the capture overwrites
@@ -1562,6 +1577,7 @@ bool RasterizerVulkan::CanHoistCapture(const GraphicsPipeline& pipeline) const {
         }
         const u64 begin = buffer.Address();
         if (scheduler.MainPassReadOverlaps(begin, begin + static_cast<u64>(buffer.size))) {
+            scheduler.NoteHoistRefusal(11);
             return false;
         }
     }

@@ -316,6 +316,17 @@ void Scheduler::LoadContext(const RecordingContext& context) {
     fragment_work_unwaited = context.fragment_work_unwaited;
 }
 
+size_t Scheduler::HoistIntoPassRefusal() const noexcept {
+    if (!pass_prologue) return 1;
+    if (!IsRenderPassActive()) return 2;
+    if (num_renderpass_images == 0) return 3;
+    if (pass_has_transform_feedback) return 4;
+    if (deferred_wait_for_idle) return 5;
+    if (main_pass_writes_memory) return 6;
+    if (deferred_clear.framebuffer != nullptr) return 7;
+    return 0;
+}
+
 bool Scheduler::CanHoistIntoPass() const noexcept {
     return !isolating && pass_prologue != nullptr && IsRenderPassActive() && num_renderpass_images != 0 &&
            !pass_has_transform_feedback && !deferred_wait_for_idle && !main_pass_writes_memory &&
@@ -872,6 +883,18 @@ void Scheduler::PomegradeCollectPasses() {
     LOG_INFO(Render_Vulkan, "[Pomegrade captures] hoisted {:.0f}/s, kept {:.0f}/s, passes resumed {:.0f}/s",
              pomegrade_captures_hoisted / seconds, pomegrade_captures_kept / seconds,
              pomegrade_pass_resumes / seconds);
+    static constexpr std::array<const char*, 12> REASONS{
+        "",          "no prologue", "no pass open", "pass without attachment", "pass captured",
+        "wait for idle", "pass wrote memory", "clear pending", "not a null-pass capture",
+        "occlusion count", "conditional rendering", "output read by the pass"};
+    std::string refusals;
+    for (size_t reason = 1; reason < REASONS.size(); ++reason) {
+        if (pomegrade_hoist_refusals[reason] != 0) {
+            refusals += fmt::format(" [{}: {:.0f}/s]", REASONS[reason], pomegrade_hoist_refusals[reason] / seconds);
+        }
+    }
+    pomegrade_hoist_refusals.fill(0);
+    LOG_INFO(Render_Vulkan, "[Pomegrade captures] refused:{}", refusals);
     pomegrade_captures_hoisted = 0;
     pomegrade_captures_kept = 0;
     pomegrade_pass_resumes = 0;
