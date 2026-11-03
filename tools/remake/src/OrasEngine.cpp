@@ -1118,7 +1118,7 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         // address; 0 and 0 in the game) gets the ids' bound and a marker address, 0x5EBA18 (the rodata segment's last page,
         // past its 0x71A14 bytes: zeros), and no list: 550 ids would not fit the page (377 words), so FUN_00115984's list
         // load `ldrhi r0, [r2, r0, lsl #2]` (0x1159B4, under its bound check) calls a routine in the .code's cave
-        // (0x579F00-0x579F3F, zeros; 0x579EFC-0x579F7F unused before) that gives category 0's id n the sound n + delta (0x01000000 | ...) from the first id
+        // (0x579F00-0x579F43, zeros; 0x579EFC-0x579F7F unused before) that gives category 0's id n the sound n + delta (0x01000000 | ...) from the first id
         // on, the silence (sound 0) below, and loads the list for any other category; it ends with the flags `bhi` needs
         // (cmp r0, #0: an item is never 0). Id 0 the game's silence, never given
         const auto [first, count] = o.XySounds.value_or(std::pair<uint32_t, uint32_t>{0, 0});
@@ -1131,23 +1131,25 @@ std::vector<std::string> BuildEngineMod(N3dsRom& oras, const OrasEngineOptions& 
         words.push_back({categories, 0, bound, "sound category 0's bound"});
         words.push_back({categories + 4, 0, marker, "sound category 0's marker (no list: FUN_00115984's routine)"});
         words.push_back({hook, 0x87920100, 0x8B000000 | (((routine - hook - 8) >> 2) & 0xFFFFFF), "FUN_00115984's list load -> blhi the category 0 routine"});
-        const auto movw = [](uint32_t reg, uint32_t v) { return 0xE3000000 | (v >> 12 & 0xF) << 16 | reg << 12 | (v & 0xFFF); };
-        const auto movt = [](uint32_t reg, uint32_t v) { return 0xE3400000 | (v >> 12 & 0xF) << 16 | reg << 12 | (v & 0xFFF); };
+        // its constants as literals after the code, loaded pc-relative (ARMv6K: movw / movt are ARMv7, which the 3DS's
+        // ARM11 lacks and the core's interpreter stops at, "Decode failure"; 3 November): 17 words, to 0x579F43
+        const auto literal = [](uint32_t at, uint32_t word) { return 0xE59F3000 | (((word - at - 2) * 4) & 0xFFF); }; // ldr r3, [pc, #...] (words)
         const uint32_t code[] = {
             0xE52D3004,                       // push {r3}             (the game's function leaves r3 alone)
-            movw(3, marker & 0xFFFF), movt(3, marker >> 16),
+            literal(1, 14),                   // ldr r3, =marker
             0xE1520003,                       // cmp r2, r3            category 0's marker?
             0x17920100,                       // ldrne r0, [r2, r0, lsl #2]   another category: its list
-            0x1A000006,                       // bne the end
-            movw(3, lowest),
+            0x1A000005,                       // bne the end (word 11)
+            literal(5, 15),                   // ldr r3, =lowest
             0xE1500003,                       // cmp r0, r3
             0x33A00000,                       // movlo r0, #0          below the first id: the silence
-            movw(3, delta & 0xFFFF), movt(3, delta >> 16),
+            literal(8, 16),                   // ldr r3, =delta
             0x20800003,                       // addhs r0, r0, r3
             0xE3800401,                       // orr r0, r0, #0x01000000
             0xE3500000,                       // cmp r0, #0            the end: hi for bhi
             0xE49D3004,                       // pop {r3}
             0xE12FFF1E,                       // bx lr
+            marker, lowest, delta,
         };
         for (uint32_t k = 0; k < sizeof code / 4; k++) words.push_back({routine + 4 * k, 0, code[k], "sound category 0's routine"});
         snprintf(line, sizeof line, "sound ids: category 0 ids %u-%u play sounds %u-%u (%u X/Y streams, %u X/Y sound effects)", lowest, bound - 1,

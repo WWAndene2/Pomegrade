@@ -1,4 +1,5 @@
 #include "OrasXyFootsteps.h"
+#include "ArmCode.h"
 
 #include <string>
 
@@ -25,7 +26,6 @@ uint32_t Branch(uint32_t cond, uint32_t from, uint32_t to, bool link)
 
 void Put32(Bytes& b, size_t at, uint32_t v) { for (int i = 0; i < 4; i++) b.at(at + i) = (uint8_t)(v >> (8 * i)); }
 
-uint32_t Movw(uint32_t reg, uint32_t value) { return 0xE3000000 | (value >> 12 & 0xF) << 16 | reg << 12 | (value & 0xFFF); }
 
 // rd = pc +- distance (the instruction at `at`): add/sub rd, pc, #...; then rd, rd, #... in 8-bit chunks at even shifts
 void PcRelative(std::vector<uint32_t>& c, uint32_t cave, uint32_t reg, uint32_t target)
@@ -52,7 +52,7 @@ void ZoneAtLeast(std::vector<uint32_t>& c, uint32_t cave, uint32_t reg, uint32_t
     c.push_back(0xE5900000 | reg << 16 | reg << 12);          // ldr reg, [reg]          the global
     c.push_back(0xE590001C | reg << 16 | reg << 12);          // ldr reg, [reg, #0x1C]   the zone
     c.push_back(0xE6FF0070 | reg << 12 | reg);                // uxth reg, reg
-    c.push_back(Movw(tmp, first));
+    ArmLoad(c, tmp, first);
     c.push_back(0xE1500000 | reg << 16 | tmp);                // cmp reg, tmp
 }
 }
@@ -154,20 +154,19 @@ std::vector<CodeWord> XyFootstepsFieldPatchAt(uint32_t cave, const Bytes& file)
     const size_t seedAdr = c.size();
     c.push_back(0); c.push_back(0); c.push_back(0);   // r12 = the seed's address (filled below, three words at most)
     c.push_back(0xE59C2000);                          // ldr r2, [r12]
-    c.push_back(Movw(1, 0x4E6D));
-    c.push_back(0xE3401000 | (0x41C6 >> 12 & 0xF) << 16 | (0x41C6 & 0xFFF)); // movt r1, #0x41C6
+    ArmLoad(c, 1, 0x41C64E6D);
     c.push_back(0xE0020291);                          // mul r2, r1, r2
-    c.push_back(Movw(1, 0x6073));
+    ArmLoad(c, 1, 0x6073);
     c.push_back(0xE0822001);                          // add r2, r2, r1
     c.push_back(0xE58C2000);                          // str r2, [r12]
     {
         constexpr uint32_t lsb = 8, k = 0x3ACCCCCD, field = 4; // +-20%: 0.2 / 128
-        c.push_back(0xE7E70052 | 1u << 12 | lsb << 7);  // ubfx r1, r2, #lsb, #8
+        c.push_back(0xE1A01022 | lsb << 7);             // mov r1, r2, lsr #lsb
+        c.push_back(0xE20110FF);                         // and r1, r1, #0xFF
         c.push_back(0xE2411080);                         // sub r1, r1, #128
         c.push_back(0xEE071A10);                         // vmov s14, r1
         c.push_back(0xEEB87AC7);                         // vcvt.f32.s32 s14, s14
-        c.push_back(Movw(1, k & 0xFFFF));
-        c.push_back(0xE3401000 | (k >> 28) << 16 | (k >> 16 & 0xFFF)); // movt r1, #k >> 16
+        ArmLoad(c, 1, k);
         c.push_back(0xEE071A90);                         // vmov s15, r1
         c.push_back(0xEE277A27);                         // vmul.f32 s14, s14, s15
         c.push_back(0xEDDD7A00 | field / 4);             // vldr s15, [sp, #field]

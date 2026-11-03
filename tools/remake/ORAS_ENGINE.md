@@ -9,6 +9,42 @@ marked **checked** (seen in memory or under the debugger), **read** (from the de
 
 ## 0. Start here (the state on 7 October, for whoever continues)
 
+### 0.0000 Handover of 3 November (read first; then 0.000)
+
+**The gyms, headless (3 November; trainers made one level-1 Magikarp for the tests only, `xy_gym_mod.sh --weak`, never
+committed; nothing run on the phone).** Leader battle, victory lines and badge or TM, no unmapped access, on the current
+build: Viola, Grant, Korrina (`--height 99`), Valerie (`--height 180`, the player at 15.5 4.5), Clemont (the whole gym:
+four quiz floors, lifts, battle, badge). Not done:
+- **Ramos**: his zone stays black (31 October; not looked at since).
+- **Olympia**: only her entrance shows; her space room, puzzle and battle not run.
+- **Wulfric**: battle won on 31 October, not rerun on this build; his cylinders not run.
+- **The puzzles**: Viola's web behaves as X's under the same keys (runs v3 / xv1, the same back-and-forth), not walked
+  to the end; Korrina's rails, Valerie's warps, Wulfric's cylinders not run.
+- **Clemont's quiz picture**: CallFieldCaptureDemoSimplePoke skipped; needs X's demo code ported (0.000 below).
+- **Battle backgrounds of the gyms are dark or missing** (owner, 3 November: "pas de décors"): the numbers are moved and
+  X's light tables copied (`OrasXyBackgrounds.cpp`); the converted arena models look dark (already seen on Grant's, 22
+  October). Next: Valerie's battle in X (`prototype/xy_save_move.py dumps/xsave/main out/xv 203 15.5 4.5 <height>`)
+  beside the mod's, then the model conversion (BCH 0x07 -> 0x21) of her arena.
+- **The French article of X/Y's trainer classes** fixed (each text line's grammar word kept: `GameText.h`,
+  `prototype/text_grammar.py`); checked headless: "Valériane la Championne veut se battre !" (run va4, gym_leader_run.sh).
+
+**Fixed this session (all on the branch, merged):** X's empty functions mapped to a float conversion (0x1F9544 ->
+0x1E8294: Clemont's lift froze the field); numbers passed through a procedure's locals (`OrasXyScript.cpp`: trainers,
+map changes); X/Y's music needed for jingles (`xy_gym_mod.sh --music on`); the code patches ARMv6K only (`ArmCode.h`:
+the core's interpreter now runs full mods, so `trace`, `readers`, `writers` work on them); trainer names' and classes'
+grammar words.
+
+**Traps met:** a state saved with an older mod keeps its code patches (natives) in memory: test a rebuilt mod from its
+own title state (`fast_run.sh`), never an old `pre.state`. A player standing two tiles off a leader, or under a raised
+floor (no `--height`), gets no dialogue. `retro_host` has no position read: the player's position is floats of tile x 18
+(several copies in the heap; the one that moves is to find with `mem` before and after a step).
+
+**Tools added** (prototype/README.md): `headless/gym_leader_run.sh` (a leader's battle in one run),
+`prototype/armv7_scan.py`, `prototype/text_grammar.py`; earlier today `amx_path.py`, `trace_natives.py`,
+`member_offsets.py`. `arm-none-eabi-gcc` (apt, Ubuntu's GCC for ARM; devkitPro's servers are refused by the session's
+proxy) compiles C natives for the 3DS (`-mcpu=mpcore -marm -Os -fPIE -ffreestanding -nostdlib`: literal pools, no
+movw); not used in a patch yet.
+
 ### 0.000 Handover of 2 November (read first; then 0.00)
 
 **Clemont's gym (Lumiose, X's zone 79 and its rooms), state.** Built with `headless/xy_gym_mod.sh`; checked headless
@@ -26,6 +62,28 @@ during an asset load (unreliable): the two runs disagree, settle that first. **N
 and what ends it (the field's event list, +0x88 of the context); compare with the mod; fix; then the quiz, the lifts
 between floors, the trainers, Clemont's battle and the badge. Other gyms may need the same model-slot fix (not scanned:
 X's model classes have 5 virtual methods fewer, X +0xA0..0xF0 = Omega Ruby +0xB8..0x108; slots up to +0x70 the same).
+**Clemont's gym played through, headless (3 November, mod built with xy_gym_mod.sh's options plus --music on; trainers
+made one level-1 Magikarp for the test only):** four quiz floors (arrival, question, the trainer of the right answer,
+battle, lift), then Clemont: scene, battle, "Andene reçoit le Badge Tension de Lem !", TM24 Thunderbolt, control back.
+Fixed on the way: X's empty functions mapped to a float conversion (0x1F9544 -> 0x1E8294), the quiz's jingle (X/Y's
+music needs --music on), trainers' numbers passed through a procedure's locals (OrasXyScript.cpp). Left: the quiz's
+picture (CallFieldCaptureDemoSimplePoke, still skipped: played, Omega Ruby's DllSequence allocated from an unset heap at
++0x268 of its sequence object and wrote to 0xC. Traced (run b51, interpreter, full mod): the function setting it,
+DllSequence 0x10712D34, never ran; only DllFieldDemo, DllPorocCase, DllSangoIntro and DllSangoStaffroll call it (their
+import stubs), and none is loaded in the field. X's DllSequence plays the same demo from the field alone (X's runs load
+only DllSequence): to port, X's way of starting it, or the setup DllFieldDemo does). Tried 3 November (commit de657678, reverted):
+hooks making that heap as DllFieldDemo does; no crash, but both screens stayed black. X's native builds its own
+EventFieldCaptureDemo (X DllField 0x102915B4, its update 0x1027A7C4: 38 of 190 instructions alike with Omega Ruby's)
+and runs X's own DllSequence code for it: the picture needs X's demo code ported whole; "le Écolier" (no elision, X not compared);
+not run on the phone.
+**Fixed the same day: the quiz room's arrival runs** (fast_run.sh from a fresh title state, runs b4/b5): Bonnie on the
+stand and her first line, as in X. The cause: X's empty functions (the base event's destructor 0x1D4744 ...) were mapped
+to 0x1F9544, a float conversion that changed r0, so a destroyed event handed delete a wrong pointer and the field
+stopped; now 0x1E8294, a bare return (commit "a bare return mapped to 0x1E8294"). Checked both ways: the mod before the
+fix (elec6) stops on a black screen, after it (elec7) the scene plays. **Trap**: a state saved with an older mod
+(runs/ms3/pre.state) keeps that mod's code patches (the natives) in memory; a rebuilt mod is tested from its own title
+state (fast_run.sh), never from such a state, or the test runs the old code. Next: the quiz itself, the lifts between
+floors, the trainers, Clemont's battle, the badge; the other gyms with the same fix, not rerun yet.
 
 **The interpreter and our patches.** `POMEGRADE_INTERPRETER=1` (needed by `readers`, `writers`, `trace`) stops at boot
 ("Decode failure") on mods built with `--xy-player-scale`, `--xy-footsteps` or `--xy-sequences`/`--xy-sounds`: their

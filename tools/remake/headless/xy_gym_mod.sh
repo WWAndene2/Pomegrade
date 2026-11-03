@@ -15,6 +15,9 @@
 # the fault in the same JIT run (the heap from 0x08000000, the linear heap from 0x14000000), then the module's object
 # found by its vtable's address (the module's load address, in the log's "LoadCRO ... loaded at", plus the vtable's
 # offset in the ported module).
+# --music on (3 November): X/Y's music and jingles are X/Y's streams appended to Omega Ruby's; without it the scripts keep
+# X/Y's ids, Omega Ruby's other (looping) sounds, and a script waiting for a jingle to end (MEIsFinished: Clemont's quiz,
+# X's 0x50026 -> sound 0xD9) waits for ever.
 set -euo pipefail
 work=$(cd "$1" && pwd); name=$2; matrix=$3; x=$4; z=$5; shift 5
 weak=""; characters=""; height=()
@@ -32,7 +35,7 @@ T=./build-remake/remake_tool
 rm -rf "${work:?}/out/$name" "out/${name}_save"
 mkdir -p out
 $T oras-xy-world dumps/oras.3ds dumps/x.3ds "out/$name" "$here/ghidra/function_names.tsv" --matrices "$matrix" \
-    --character-models 64 --story on > "out/$name.log" 2>&1
+    --character-models 64 --story on --music on > "out/$name.log" 2>&1
 grep -q "^zone 538:" "out/$name.log" || { echo "the matrix's first zone is not 538"; exit 1; }
 if [ -n "$weak" ]; then
     printf 'team %s\npokemon 129 1\nend\n' "$weak" > "out/${name}_weak.txt"
