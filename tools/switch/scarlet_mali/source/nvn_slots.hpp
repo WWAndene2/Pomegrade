@@ -27,11 +27,14 @@ namespace scarlet::nvn_slots {
     constexpr Slot kCommandBufferDrawElementsInstanced{0x475d6d0, 0x46e0c40};
     constexpr Slot kCommandBufferDrawArraysInstanced{0x475d6c8, 0x46e0c50};
     constexpr Slot kCommandBufferDrawElementsIndirect{0x475d6e0, 0x46e0c58};
-    // probe v9: the game records each draw once and replays it, so what runs each frame is seen only at the queue.
-    // GOT entries found as main.elf's R_AARCH64_RELATIVE relocations whose addend is the variable (the same search
-    // gives DrawArrays' 0x46e0c20 above); Ghidra names from the loader's table (nvnQueueSubmitCommands at 0x485cbd0...)
+    // the game records each draw once and replays it, so what runs each frame is seen only at the queue. Each entry
+    // below is read from main.elf's R_AARCH64_RELATIVE relocation at the GOT entry the game's own code loads, its
+    // addend named from the loader's table (Ghidra address - 0x100000): GOT 0x46e0c20 -> 0x475d6b0 DrawArrays checks
+    // the method. Probe v9 took Ghidra's 0x485d580/588 as 0x475d480/488 (0x100 off): it swapped
+    // nvnDepthStencilStateSetStencilFunc and SetStencilOp for its recording wrappers, which passed on one argument
+    // of their three and five, corrupting the game's stencil state (owner's test of 3 November: many glitches)
     constexpr Slot kQueueSubmitCommands{0x475cbd0, 0x46e1980};
     constexpr Slot kQueuePresentTexture{0x475cbe8, 0x46e1988};
-    constexpr Slot kCommandBufferBeginRecording{0x475d480, 0x46e1b20};
-    constexpr Slot kCommandBufferEndRecording{0x475d488, 0x46e1b28};
+    constexpr Slot kCommandBufferBeginRecording{0x475d580, 0x46e0c70};
+    constexpr Slot kCommandBufferEndRecording{0x475d588, 0x46e0c78};
 }

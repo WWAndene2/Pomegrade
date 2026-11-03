@@ -1,6 +1,6 @@
 // Pomegrade's Mali version of Pokemon Scarlet: an exlaunch module (subsdk9) loaded beside the game by Eden.
 //
-// Probe v9: besides the calls below, it follows each recorded command buffer that holds a transform feedback draw
+// Probe v10 (v9 with its two wrong slots fixed, nvn_slots.hpp): besides the calls below, it follows each recorded command buffer that holds a transform feedback draw
 // (the skinning) to the queue, and counts per frame how many such captures run, how many distinct ones, and how many
 // run again in the same frame (the same skinning made twice, which a later build could skip with no change to the
 // picture). This build is a probe and changes nothing the game draws. It checks, on the owner's phone, the chain the
@@ -145,10 +145,12 @@ constexpr DrawFn DrawArrays = &Draw<kDrawArrays>;
 
 // Probe v9: the command handles holding a capture, open-addressed by handle; the slot is reused when a handle is
 // recorded again. Per frame (between two presents): captures submitted, distinct ones, ones submitted again.
-using BeginRecordingFn = void (*)(void* cmd);
-using EndRecordingFn = u64 (*)(void* cmd);
-using SubmitCommandsFn = void (*)(void* queue, int count, const u64* handles);
-using PresentTextureFn = void (*)(void* queue, void* window, int index);
+// every wrapper passes on all eight argument registers as they came, so a wrong reading of a function's parameters
+// cannot drop any (probe v9's mistake, nvn_slots.hpp)
+using BeginRecordingFn = void (*)(void* cmd, u64, u64, u64, u64, u64, u64, u64);
+using EndRecordingFn = u64 (*)(void* cmd, u64, u64, u64, u64, u64, u64, u64);
+using SubmitCommandsFn = void (*)(void* queue, u64 count, const u64* handles, u64, u64, u64, u64, u64);
+using PresentTextureFn = void (*)(void* queue, u64, u64, u64, u64, u64, u64, u64);
 BeginRecordingFn g_begin_recording;
 EndRecordingFn g_end_recording;
 SubmitCommandsFn g_submit_commands;
@@ -185,16 +187,16 @@ CaptureHandle* FindHandle(u64 handle, bool insert) {
     return nullptr;
 }
 
-void BeginRecording(void* cmd) {
+void BeginRecording(void* cmd, u64 a1, u64 a2, u64 a3, u64 a4, u64 a5, u64 a6, u64 a7) {
     CommandState& state = SlotOf(cmd);
     if (state.cmd != cmd) state = CommandState{cmd, nullptr, false, false, 0};
     state.recorded_xfb = false;
     state.recorded_vertices = 0;
-    g_begin_recording(cmd);
+    g_begin_recording(cmd, a1, a2, a3, a4, a5, a6, a7);
 }
 
-u64 EndRecording(void* cmd) {
-    const u64 handle = g_end_recording(cmd);
+u64 EndRecording(void* cmd, u64 a1, u64 a2, u64 a3, u64 a4, u64 a5, u64 a6, u64 a7) {
+    const u64 handle = g_end_recording(cmd, a1, a2, a3, a4, a5, a6, a7);
     CommandState& state = SlotOf(cmd);
     if (state.cmd == cmd && state.recorded_xfb && handle != 0) {
         if (CaptureHandle* entry = FindHandle(handle, true)) {
@@ -208,7 +210,8 @@ u64 EndRecording(void* cmd) {
     return handle;
 }
 
-void SubmitCommands(void* queue, int count, const u64* handles) {
+void SubmitCommands(void* queue, u64 count_register, const u64* handles, u64 a3, u64 a4, u64 a5, u64 a6, u64 a7) {
+    const int count = static_cast<int>(count_register);
     g_submitted_handles += static_cast<u64>(count > 0 ? count : 0);
     for (int i = 0; i < count; ++i) {
         CaptureHandle* entry = FindHandle(handles[i], false);
@@ -224,10 +227,10 @@ void SubmitCommands(void* queue, int count, const u64* handles) {
             ++g_frame_repeats;
         }
     }
-    g_submit_commands(queue, count, handles);
+    g_submit_commands(queue, count_register, handles, a3, a4, a5, a6, a7);
 }
 
-void PresentTexture(void* queue, void* window, int index) {
+void PresentTexture(void* queue, u64 a1, u64 a2, u64 a3, u64 a4, u64 a5, u64 a6, u64 a7) {
     ++g_frames;
     g_capture_runs += g_frame_runs;
     g_capture_repeats += g_frame_repeats;
@@ -236,7 +239,7 @@ void PresentTexture(void* queue, void* window, int index) {
     g_frame_runs = 0;
     g_frame_repeats = 0;
     ++g_frame;
-    g_present_texture(queue, window, index);
+    g_present_texture(queue, a1, a2, a3, a4, a5, a6, a7);
 }
 
 template <typename Fn>
@@ -264,7 +267,7 @@ void SwapAll(const char* when) {
     Swap(scarlet::nvn_slots::kCommandBufferEndRecording, g_end_recording, EndRecording);
     Swap(scarlet::nvn_slots::kQueueSubmitCommands, g_submit_commands, SubmitCommands);
     Swap(scarlet::nvn_slots::kQueuePresentTexture, g_present_texture, PresentTexture);
-    Log("[scarlet_mali] 12 NVN calls intercepted %s (probe v9, nothing drawn differently)", when);
+    Log("[scarlet_mali] 12 NVN calls intercepted %s (probe v10, nothing drawn differently)", when);
 }
 
 
