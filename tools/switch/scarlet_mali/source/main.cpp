@@ -2,10 +2,9 @@
 //
 // This first build is a probe and changes nothing the game draws. It checks, on the owner's phone, the chain the
 // skinning replacement needs (docs/Eden_Optimisation_Xiaomi.md section 12): the module is loaded, the game's NVN
-// function pointers can be swapped once its loader has filled them, the program and transform feedback calls can be
-// intercepted, and which programs the
-// transform feedback draws use. It logs through svcOutputDebugString, which Eden writes to its log as
-// "Debug_Emulated" lines prefixed "[scarlet_mali]".
+// function pointers can be swapped once its loader has filled them, the program bind and transform feedback calls
+// can be intercepted, and which programs the transform feedback draws use. It logs through svcOutputDebugString,
+// which Eden writes to its log as "Debug_Emulated" lines prefixed "[scarlet_mali]".
 #include "lib.hpp"
 #include "nvn_slots.hpp"
 
@@ -28,17 +27,21 @@ void Log(const char* format, ...) {
 
 uintptr_t MainBase() { return exl::util::modules::GetTargetStart(); }
 
+// The variable holding an NVN function (nvn_slots.hpp), or null unless main's GOT entry for it holds exactly its
+// address: a check that this main is the build the offsets were read from, made before anything is written.
 template <typename T>
-T* Slot(uintptr_t offset) { return reinterpret_cast<T*>(MainBase() + offset); }
+T* Slot(const scarlet::nvn_slots::Slot& slot) {
+    uintptr_t expected = MainBase() + slot.variable;
+    if (*reinterpret_cast<const uintptr_t*>(MainBase() + slot.got) != expected) return nullptr;
+    return reinterpret_cast<T*>(expected);
+}
 
 // NVN calls, forwarded with their arguments as the game passes them (every argument fits in a register).
-using SetShadersFn = u8 (*)(void* program, int count, const void* shader_data);
 using BindProgramFn = void (*)(void* cmd, const void* program, int stages);
 using BeginXfbFn = void (*)(void* cmd, u64 address);
 using EndXfbFn = void (*)(void* cmd, u64 address);
 using DrawArraysFn = void (*)(void* cmd, int primitive, int first, int count);
 
-SetShadersFn g_set_shaders;
 BindProgramFn g_bind_program;
 BeginXfbFn g_begin_xfb;
 EndXfbFn g_end_xfb;
@@ -77,7 +80,6 @@ struct ProgramStats {
 constexpr size_t kPrograms = 64;
 ProgramStats g_programs[kPrograms];
 std::atomic<u64> g_xfb_draws;
-std::atomic<u32> g_single_stage_programs;
 
 void CountXfbDraw(const void* program, int count) {
     for (auto& stats : g_programs) {
@@ -104,25 +106,6 @@ void CountXfbDraw(const void* program, int count) {
     }
 }
 
-u8 SetShaders(void* program, int count, const void* shader_data) {
-    // A program with one stage and transform feedback outputs is a capture pass (skinning and the other
-    // deformers, section 12); its NVN control data starts with 0x98761234 and lists the captured outputs from
-    // byte 220 (read from system/skinning's BNSH). Logged here so the probe shows which programs those are.
-    if (count == 1 && shader_data != nullptr) {
-        const u8* control = *reinterpret_cast<const u8* const*>(static_cast<const u8*>(shader_data) + 8);
-        if (control != nullptr) {
-            u32 magic = *reinterpret_cast<const u32*>(control);
-            u32 first_output = *reinterpret_cast<const u32*>(control + 220);
-            u32 seen = g_single_stage_programs.fetch_add(1, std::memory_order_relaxed);
-            if (seen < 200) {
-                Log("[scarlet_mali] one-stage program %p: control magic %08x, first captured output %08x", program, magic,
-                    first_output);
-            }
-        }
-    }
-    return g_set_shaders(program, count, shader_data);
-}
-
 void BindProgram(void* cmd, const void* program, int stages) {
     if (CommandState* state = StateOf(cmd)) state->program = program;
     g_bind_program(cmd, program, stages);
@@ -144,8 +127,9 @@ void DrawArrays(void* cmd, int primitive, int first, int count) {
 }
 
 template <typename Fn>
-void Swap(uintptr_t offset, Fn& original, Fn replacement) {
-    Fn* slot = Slot<Fn>(offset);
+void Swap(const scarlet::nvn_slots::Slot& where, Fn& original, Fn replacement) {
+    Fn* slot = Slot<Fn>(where);
+    if (slot == nullptr) return;
     Fn current = *slot;
     // a slot still holding the module's function is left as is: taking it for the game's would make the function
     // call itself
@@ -155,26 +139,25 @@ void Swap(uintptr_t offset, Fn& original, Fn replacement) {
 }
 
 void SwapAll(const char* when) {
-    Swap(scarlet::nvn_slots::kProgramSetShaders, g_set_shaders, SetShaders);
     Swap(scarlet::nvn_slots::kCommandBufferBindProgram, g_bind_program, BindProgram);
     Swap(scarlet::nvn_slots::kCommandBufferBeginTransformFeedback, g_begin_xfb, BeginXfb);
     Swap(scarlet::nvn_slots::kCommandBufferEndTransformFeedback, g_end_xfb, EndXfb);
     Swap(scarlet::nvn_slots::kCommandBufferDrawArrays, g_draw_arrays, DrawArrays);
-    Log("[scarlet_mali] 5 NVN calls intercepted %s (probe build, nothing drawn differently)", when);
+    Log("[scarlet_mali] 4 NVN calls intercepted %s (probe build, nothing drawn differently)", when);
 }
 
 
-// The pointers are swapped by a thread of the module once the game has filled them, not by a hook on the game's
-// loader: under Eden, the first probe's trampoline hook on FUN_00cdff20 never ran, and the second's (owner's log,
-// 3 November: the module started at 19.4 s with the pointers still empty) stopped the game at 68.7 s, likely when
-// the game reached the patched code. The module now changes no code of the game, only these data pointers.
+// The pointers are swapped by a thread of the module once the game has filled them: the module changes no code of the
+// game, only these data pointers. (A hook on the game's loader, FUN_00cdff20, never ran in the first probe: whether
+// the loader runs after the module starts under Eden is not known.)
 alignas(16) u8 g_watch_stack[0x4000];
 
 void WatchNvnSetup(void*) {
     // DrawArrays is among the last functions the loader fills; checked every 50 ms until it is, then every 500 ms in
     // case the loader runs again (it has two callers) and puts the game's own functions back: they are swapped again
     for (;;) {
-        DrawArraysFn current = *Slot<DrawArraysFn>(scarlet::nvn_slots::kCommandBufferDrawArrays);
+        DrawArraysFn* slot = Slot<DrawArraysFn>(scarlet::nvn_slots::kCommandBufferDrawArrays);
+        DrawArraysFn current = slot != nullptr ? *slot : nullptr;
         if (current != nullptr && current != DrawArrays) {
             svcSleepThread(50'000'000);  // the loader fills the rest of its 532 pointers in the meantime
             SwapAll(g_draw_arrays == nullptr ? "once the game had set NVN up" : "again, after the game set NVN up again");
@@ -187,6 +170,10 @@ void WatchNvnSetup(void*) {
 
 extern "C" void exl_main(void* x0, void* x1) {
     Log("[scarlet_mali] module loaded (main at %p)", reinterpret_cast<void*>(MainBase()));
+    if (Slot<DrawArraysFn>(scarlet::nvn_slots::kCommandBufferDrawArrays) == nullptr) {
+        Log("[scarlet_mali] main's GOT does not match this build's offsets: nothing intercepted");
+        return;
+    }
     Handle thread;
     if (R_SUCCEEDED(svcCreateThread(&thread, reinterpret_cast<void*>(&WatchNvnSetup), nullptr,
                                     g_watch_stack + sizeof(g_watch_stack), 0x2C, -2)) &&
