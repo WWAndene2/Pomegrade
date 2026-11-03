@@ -26,6 +26,14 @@ during an asset load (unreliable): the two runs disagree, settle that first. **N
 and what ends it (the field's event list, +0x88 of the context); compare with the mod; fix; then the quiz, the lifts
 between floors, the trainers, Clemont's battle and the badge. Other gyms may need the same model-slot fix (not scanned:
 X's model classes have 5 virtual methods fewer, X +0xA0..0xF0 = Omega Ruby +0xB8..0x108; slots up to +0x70 the same).
+**Clemont's gym played through, headless (3 November, mod built with xy_gym_mod.sh's options plus --music on; trainers
+made one level-1 Magikarp for the test only):** four quiz floors (arrival, question, the trainer of the right answer,
+battle, lift), then Clemont: scene, battle, "Andene reçoit le Badge Tension de Lem !", TM24 Thunderbolt, control back.
+Fixed on the way: X's empty functions mapped to a float conversion (0x1F9544 -> 0x1E8294), the quiz's jingle (X/Y's
+music needs --music on), trainers' numbers passed through a procedure's locals (OrasXyScript.cpp). Left: the quiz's
+picture (CallFieldCaptureDemoSimplePoke, still skipped: played, Omega Ruby's DllSequence allocated from an unset heap at
++0x268 of its sequence object, linked 0x10712D80 sets it, and wrote to 0xC); "le Écolier" (no elision, X not compared);
+not run on the phone.
 **Fixed the same day: the quiz room's arrival runs** (fast_run.sh from a fresh title state, runs b4/b5): Bonnie on the
 stand and her first line, as in X. The cause: X's empty functions (the base event's destructor 0x1D4744 ...) were mapped
 to 0x1F9544, a float conversion that changed r0, so a destroyed event handed delete a wrong pointer and the field
