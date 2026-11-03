@@ -229,6 +229,26 @@ std::vector<Argument> NumberArguments(const std::vector<Line>& lines, const std:
             if (done.insert({at, flag}).second) out.push_back({at, flag, isOther});
             continue;
         }
+        // a local made by the procedure's opening pushes (3 November, Clemont's quiz room, X/Y zone 79: its trainers' procedures
+        // push 22 constants, then push them again as locals -88 .. -4 for L0018A8, the trainer's number among them): the
+        // local at -4 (k + 1) is the k-th of the pushes right after `proc`, followed when no store writes it
+        if ((l.Op == "push.s" || l.Op == "push.p.s") && l.Words.size() == 2 && std::stol(l.Words[1], nullptr, 0) < 0 && !procOf[at].empty())
+        {
+            const long offset = std::stol(l.Words[1], nullptr, 0);
+            size_t start = at;
+            while (start > 0 && lines[start].Op != "proc") start--;
+            std::vector<size_t> opening;
+            for (size_t k = start + 1; k < at && lines[k].Op.rfind("push", 0) == 0; k++) opening.push_back(k);
+            bool stored = false;
+            for (size_t k = start + 1; k < lines.size() && procOf[k] == procOf[at]; k++)
+                if (lines[k].Op.rfind("stor", 0) == 0 && lines[k].Words.size() >= 2 && std::stol(lines[k].Words.back(), nullptr, 0) == offset) stored = true;
+            const size_t index = (size_t)(-offset / 4 - 1);
+            if (!stored && offset % 4 == 0 && index < opening.size())
+            {
+                todo.emplace_back(opening[index], flag, isOther, depth);
+                continue;
+            }
+        }
         const bool param = (l.Op == "push.s" || l.Op == "push.p.s") && l.Words.size() == 2 && std::stol(l.Words[1], nullptr, 0) >= 12;
         if (!param || depth >= 4 || procOf[at].empty())
         {
