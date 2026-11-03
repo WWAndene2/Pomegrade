@@ -1,4 +1,5 @@
 #include "OrasXyPlayerScale.h"
+#include "ArmCode.h"
 
 #include "Bytes.h"
 
@@ -18,8 +19,6 @@ uint32_t Branch(uint32_t cond, uint32_t from, uint32_t to, bool link)
     return cond << 28 | (link ? 0x0B000000u : 0x0A000000u) | (((to - from - 8) >> 2) & 0xFFFFFF);
 }
 
-uint32_t Movw(uint32_t reg, uint32_t value) { return 0xE3000000 | (value >> 12 & 0xF) << 16 | reg << 12 | (value & 0xFFF); }
-uint32_t Movt(uint32_t reg, uint32_t value) { return 0xE3400000 | (value >> 12 & 0xF) << 16 | reg << 12 | (value & 0xFFF); }
 }
 
 std::vector<CodeWord> XyPlayerScaleFieldPatchAt(uint32_t cave, int firstZone, int lastZone)
@@ -57,25 +56,23 @@ std::vector<CodeWord> XyPlayerScaleFieldPatchAt(uint32_t cave, int firstZone, in
         toDone.push_back(c.size()); c.push_back(0x0);    // beq
     }
     c.push_back(0xE3A00000);                              // mov r0, #0
-    c.push_back(Movw(3, (uint32_t)firstZone));
+    ArmLoad(c, 3, (uint32_t)firstZone);
     c.push_back(0xE1520003);                              // cmp r2, r3
     const size_t below = c.size(); c.push_back(0x3);      // blo (r0 = 0)
-    c.push_back(Movw(3, (uint32_t)lastZone));
+    ArmLoad(c, 3, (uint32_t)lastZone);
     c.push_back(0xE1520003);                              // cmp r2, r3
     c.push_back(0x93A00001);                              // movls r0, #1
     const size_t pick = c.size();
     c[below] = Branch(0x3, cave + 4 * (uint32_t)below, cave + 4 * (uint32_t)pick, false);
     // r3 = 1.08 in X/Y's zones; elsewhere 1.0, but only where the scale is still ours (1.08), so Omega Ruby's own
     // scales are left alone
-    c.push_back(Movw(3, XyPlayerScaleBits & 0xFFFF));
-    c.push_back(Movt(3, XyPlayerScaleBits >> 16));        // r3 = 1.08
+    ArmLoad(c, 3, XyPlayerScaleBits);                     // r3 = 1.08
     c.push_back(0xE3500000);                              // cmp r0, #0
     const size_t inXy = c.size(); c.push_back(0x1);       // bne the stores
     c.push_back(0xE5912168);                              // ldr r2, [r1, #0x168]
     c.push_back(0xE1520003);                              // cmp r2, r3
     toDone.push_back(c.size()); c.push_back(0x1);         // bne the end (not ours)
-    c.push_back(Movw(3, 0x0000));
-    c.push_back(Movt(3, 0x3F80));                         // r3 = 1.0
+    ArmLoad(c, 3, 0x3F800000);                            // r3 = 1.0
     const size_t stores = c.size();
     c[inXy] = Branch(0x1, cave + 4 * (uint32_t)inXy, cave + 4 * (uint32_t)stores, false);
     for (const uint32_t at : {0x168u, 0x16Cu, 0x170u, 0x19Cu, 0x1A0u, 0x1A4u}) c.push_back(0xE5813000 | at); // str r3, [r1, #at]
