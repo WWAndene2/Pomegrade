@@ -1150,7 +1150,5 @@
     <string name="pomegrade_merge_clears_description">Efface une image au début de l\'étape de dessin suivante sur elle au lieu d\'une étape à part : moins de passes de rendu sur les GPU de téléphone, image identique. Activé par défaut ; à désactiver si une surface garde des couleurs fausses ou anciennes</string>
     <string name="pomegrade_texture_memory_budget">Budget mémoire des textures (téléphone)</string>
     <string name="pomegrade_texture_memory_budget_description">Libère les textures inutilisées dès 768 Mo au lieu de 1,6 Go, pour qu\'Android ne mette pas l\'émulateur en swap sur les téléphones dont le GPU partage la mémoire. Activé par défaut ; à désactiver si les textures saccadent en se retournant. Effet au prochain lancement du jeu</string>
-    <string name="pomegrade_hoist_captures">Animation avant le dessin (Mali)</string>
-    <string name="pomegrade_hoist_captures_description">Calcule l\'animation des modèles avant l\'étape de dessin où ils apparaissent au lieu de l\'interrompre : l\'image reste dans la mémoire rapide du GPU sur les téléphones, image identique. Activé par défaut ; à désactiver si des modèles animés gardent une pose ancienne ou clignotent</string>
     <string name="pomegrade_defer_wait_for_idle_description">Quand le jeu demande au GPU d\'attendre en plein dessin, attend à la fin de l\'étape de dessin au lieu de la couper en deux : beaucoup moins de trafic mémoire sur les GPU de téléphone. Expérimental : un effet peut s\'afficher avec une image de retard ou scintiller</string>
 </resources>

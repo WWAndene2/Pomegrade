@@ -286,20 +286,6 @@ void RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_func) {
     std::scoped_lock lock{buffer_cache.mutex, texture_cache.mutex};
     // update engine as channel may be different.
     pipeline->SetEngine(maxwell3d, gpu_memory);
-    // Pomegrade: a capture recorded on its own and placed before the open pass (Scheduler::BeginIsolation)
-    const bool isolate = CanHoistCapture(*pipeline);
-    if (isolate) {
-        scheduler.BeginIsolation();
-    }
-    struct IsolationEnd {
-        Scheduler& scheduler;
-        bool active;
-        ~IsolationEnd() {
-            if (active) {
-                scheduler.EndIsolation();
-            }
-        }
-    } const isolation_end{scheduler, isolate};
     if (Profile::Scope scope{Profile::Zone::Configure}; !pipeline->Configure(is_indexed)) {
         report_failure("configure failed");
         return;
@@ -312,13 +298,10 @@ void RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_func) {
 
     query_cache.NotifySegment(true);
     HandleTransformFeedback();
-    EnableZPassCounter();
+    query_cache.CounterEnable(VideoCommon::QueryType::ZPassPixelCount64, maxwell3d->regs.zpass_pixel_count_enable);
     {
         Profile::Scope scope{Profile::Zone::DrawRecord};
         draw_func();
-    }
-    if (!isolate) {
-        NotePassReads(is_indexed);
     }
     submitted = true;
     static u32 native_capture_count{};
@@ -664,7 +647,7 @@ void RasterizerVulkan::DrawTexture() {
     UpdateDynamicStates();
 
     query_cache.NotifySegment(true);
-    EnableZPassCounter();
+    query_cache.CounterEnable(VideoCommon::QueryType::ZPassPixelCount64, maxwell3d->regs.zpass_pixel_count_enable);
     const auto& draw_texture_state = maxwell3d->draw_manager.draw_texture_state;
     const auto& sampler = texture_cache.GetSampler(draw_texture_state.src_sampler, false);
     const auto& texture = texture_cache.GetImageView(draw_texture_state.src_texture);
@@ -817,7 +800,7 @@ void RasterizerVulkan::Clear(u32 layer_count) {
     }
 
     query_cache.NotifySegment(true);
-    EnableZPassCounter();
+    query_cache.CounterEnable(VideoCommon::QueryType::ZPassPixelCount64, maxwell3d->regs.zpass_pixel_count_enable);
     UpdateViewportsState(regs);
 
     const u32 color_attachment = regs.clear_surface.RT;
@@ -1545,73 +1528,6 @@ void RasterizerVulkan::UpdateDynamicStates() {
             UpdateVertexInput(regs);
         }
     }
-}
-
-bool RasterizerVulkan::CanHoistCapture(const GraphicsPipeline& pipeline) const {
-    const auto& regs = maxwell3d->regs;
-    if (!Settings::values.pomegrade_hoist_captures.GetValue() || regs.transform_feedback_enabled == 0 ||
-        !device.IsExtTransformFeedbackSupported()) {
-        return false;
-    }
-    // Pomegrade: TEMPORARY, the first failing condition counted for the log (Scheduler::NoteHoistRefusal)
-    if (!pipeline.UsesNullRenderPass()) {
-        scheduler.NoteHoistRefusal(8);
-        return false;
-    }
-    if (regs.zpass_pixel_count_enable != 0 || zpass_counting) {
-        scheduler.NoteHoistRefusal(9);
-        return false;
-    }
-    if (query_cache_runtime.HasHostConditionalRendering()) {
-        scheduler.NoteHoistRefusal(10);
-        return false;
-    }
-    if (const size_t refusal = scheduler.HoistIntoPassRefusal(); refusal != 0) {
-        scheduler.NoteHoistRefusal(refusal);
-        return false;
-    }
-    // the open pass's earlier draws must not have read what the capture overwrites
-    for (const auto& buffer : regs.transform_feedback.buffers) {
-        if (buffer.enable == 0 || buffer.size <= 0) {
-            continue;
-        }
-        const u64 begin = buffer.Address();
-        if (scheduler.MainPassReadOverlaps(begin, begin + static_cast<u64>(buffer.size))) {
-            scheduler.NoteHoistRefusal(11);
-            return false;
-        }
-    }
-    return true;
-}
-
-void RasterizerVulkan::NotePassReads(bool is_indexed) {
-    if (!scheduler.WantsPassReads()) {
-        return;
-    }
-    const auto& regs = maxwell3d->regs;
-    for (size_t index = 0; index < Maxwell::NumVertexArrays; ++index) {
-        const auto& stream = regs.vertex_streams[index];
-        if (stream.IsEnabled()) {
-            // the limit is the stream's last byte
-            scheduler.NoteMainPassRead(stream.Address(), regs.vertex_stream_limits[index].Address() + 1);
-        }
-    }
-    if (is_indexed) {
-        const auto& index_buffer = maxwell3d->draw_manager.draw_state.index_buffer;
-        scheduler.NoteMainPassRead(index_buffer.StartAddress(), index_buffer.EndAddress());
-    }
-    for (const auto& stage : maxwell3d->state.shader_stages) {
-        for (const auto& cbuf : stage.const_buffers) {
-            if (cbuf.enabled) {
-                scheduler.NoteMainPassRead(cbuf.address, cbuf.address + cbuf.size);
-            }
-        }
-    }
-}
-
-void RasterizerVulkan::EnableZPassCounter() {
-    zpass_counting = maxwell3d->regs.zpass_pixel_count_enable != 0;
-    query_cache.CounterEnable(VideoCommon::QueryType::ZPassPixelCount64, zpass_counting);
 }
 
 void RasterizerVulkan::HandleTransformFeedback() {

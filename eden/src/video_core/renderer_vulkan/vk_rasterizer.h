@@ -164,16 +164,6 @@ private:
 
     void HandleTransformFeedback();
 
-    /// Pomegrade: the draw about to be made is a capture that can run before the open pass (capture hoisting,
-    /// Scheduler::CanHoistIntoPass)
-    [[nodiscard]] bool CanHoistCapture(const GraphicsPipeline& pipeline) const;
-
-    /// Pomegrade: the guest memory the draw just made reads, for capture hoisting
-    void NotePassReads(bool is_indexed);
-
-    /// Pomegrade: the occlusion counter set as the guest asks, remembered for capture hoisting
-    void EnableZPassCounter();
-
     void UpdateViewportsState(Tegra::Engines::Maxwell3D::Regs& regs);
     void UpdateScissorsState(Tegra::Engines::Maxwell3D::Regs& regs);
     void UpdateDepthBias(Tegra::Engines::Maxwell3D::Regs& regs);
@@ -231,7 +221,6 @@ private:
     BufferCache buffer_cache;
     QueryCacheRuntime query_cache_runtime;
     QueryCache query_cache;
-    bool zpass_counting{}; ///< Pomegrade: the occlusion counter is on (EnableZPassCounter)
     PipelineCache pipeline_cache;
     AccelerateDMA accelerate_dma;
     FenceManager fence_manager;

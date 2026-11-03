@@ -1896,7 +1896,5 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="pomegrade_merge_clears_description">Clears an image as part of the next drawing step on it instead of in a step of its own: fewer render passes on phone GPUs, same picture. On by default; turn it off if a surface shows stale or wrong colours</string>
     <string name="pomegrade_texture_memory_budget">Phone texture memory budget</string>
     <string name="pomegrade_texture_memory_budget_description">Frees unused textures from 768 MB instead of 1.6 GB, so Android does not swap the emulator out on phones that share memory with the GPU. On by default; turn it off if textures stutter when turning around. Takes effect at the next game start</string>
-    <string name="pomegrade_hoist_captures">Animation before drawing (Mali)</string>
-    <string name="pomegrade_hoist_captures_description">Runs the animation of models before the drawing step they belong to instead of interrupting it: the screen stays in the GPU\'s fast on-chip memory on phone GPUs, same picture. On by default; turn it off if animated models show a stale pose or flicker</string>
     <string name="pomegrade_defer_wait_for_idle_description">When the game asks the GPU to wait in the middle of drawing, waits at the end of the drawing step instead of cutting it in two: far less memory traffic on phone GPUs. Experimental: an effect may show a frame late or flicker</string>
 </resources>

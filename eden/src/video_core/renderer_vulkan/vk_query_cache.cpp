@@ -1381,10 +1381,6 @@ void QueryCacheRuntime::EndHostConditionalRendering() {
     impl->hcr_offset = 0;
 }
 
-bool QueryCacheRuntime::HasHostConditionalRendering() const noexcept {
-    return impl->hcr_is_set;
-}
-
 void QueryCacheRuntime::PauseHostConditionalRendering() {
     if (!impl->hcr_is_set) {
         return;
