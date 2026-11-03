@@ -178,7 +178,17 @@ Bytes ReplaceGameTextLine(const Bytes& file, size_t index, const std::string& li
     return out;
 }
 
-Bytes AppendGameTextLine(const Bytes& file, const std::string& line)
+std::vector<uint16_t> GameTextLineFlags(const Bytes& file)
+{
+    if (file.size() < 0x14 || U16(file, 0) != 1 || U32(file, 0x0C) != 0x10) throw FormatError("game text: not a one-section file");
+    const size_t count = U16(file, 2), section = 0x10;
+    if (section + 4 + 8 * count > file.size()) throw FormatError("game text: the line table does not fit the file");
+    std::vector<uint16_t> flags;
+    for (size_t i = 0; i < count; i++) flags.push_back(U16(file, section + 4 + 8 * i + 6));
+    return flags;
+}
+
+Bytes AppendGameTextLine(const Bytes& file, const std::string& line, uint16_t flags)
 {
     if (file.size() < 0x14 || U16(file, 0) != 1 || U32(file, 0x0C) != 0x10) throw FormatError("game text: not a one-section file");
     const size_t count = U16(file, 2), section = 0x10;
@@ -199,7 +209,7 @@ Bytes AppendGameTextLine(const Bytes& file, const std::string& line)
     const uint32_t offset = (uint32_t)(tableSize + text.size());
     for (int k = 0; k < 4; k++) table.push_back((uint8_t)(offset >> (8 * k)));
     table.push_back((uint8_t)units.size()); table.push_back((uint8_t)(units.size() >> 8));
-    table.push_back(0); table.push_back(0);
+    table.push_back((uint8_t)flags); table.push_back((uint8_t)(flags >> 8));
     uint16_t key = (uint16_t)(KeyBase + KeyStep * count);
     for (uint16_t c : units) { const uint16_t e = c ^ key; text.push_back((uint8_t)e); text.push_back((uint8_t)(e >> 8)); key = NextKey(key); }
     while (text.size() % 4) text.push_back(0);

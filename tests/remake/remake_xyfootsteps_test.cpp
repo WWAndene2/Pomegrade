@@ -32,6 +32,31 @@ static uint32_t Chain(std::map<uint32_t, CodeWord>& at, uint32_t& a)
     return r;
 }
 
+// the value a mov / orr sequence into one register builds from `a` (ArmLoad, ArmCode.h), `a` moved past it; `reg` its register
+static uint32_t Loaded(std::map<uint32_t, CodeWord>& at, uint32_t& a, uint32_t& reg)
+{
+    const uint32_t first = at[a].Value;
+    if ((first & 0xFFF00000) != 0xE3A00000) return 0xFFFFFFFF;
+    reg = first >> 12 & 0xF;
+    uint32_t v = Immediate(first);
+    for (a += 4; (at[a].Value & 0xFFF00000) == 0xE3800000 && (at[a].Value >> 12 & 0xF) == reg && (at[a].Value >> 16 & 0xF) == reg; a += 4)
+        v |= Immediate(at[a].Value);
+    return v;
+}
+
+// every value a mov / orr sequence builds in [from, to)
+static std::vector<uint32_t> AllLoaded(std::map<uint32_t, CodeWord>& at, uint32_t from, uint32_t to)
+{
+    std::vector<uint32_t> out;
+    for (uint32_t a = from; a < to;)
+    {
+        uint32_t reg = 0, b = a;
+        const uint32_t v = Loaded(at, b, reg);
+        if (v != 0xFFFFFFFF) { out.push_back(v); a = b; } else a += 4;
+    }
+    return out;
+}
+
 // the same for a chain into r12 padded with nops to three words (the seed's address)
 static uint32_t Chain12(std::map<uint32_t, CodeWord>& at, uint32_t a)
 {
@@ -64,24 +89,31 @@ int main()
         check(tableCode == start + 2 * tableBytes, "the table's code after the tables" + where);
         // on a surface, walking or running: the foot's column a random bit of the LCRNG, its seed past the code
         check(at[tableCode].Value == 0xE3560011 && (at[tableCode + 4].Value >> 24) == 0x3A && at[tableCode + 8].Value == 0xE3550002 &&
-                  (at[tableCode + 12].Value >> 24) == 0x8A && Target(tableCode + 4, at[tableCode + 4].Value) == tableCode + 144 &&
-                  Target(tableCode + 12, at[tableCode + 12].Value) == tableCode + 144,
+                  (at[tableCode + 12].Value >> 24) == 0x8A && Target(tableCode + 4, at[tableCode + 4].Value) > tableCode + 16 &&
+                  Target(tableCode + 12, at[tableCode + 12].Value) == Target(tableCode + 4, at[tableCode + 4].Value),
               "the random foot: ground 17 up and kinds 0-2 only" + where);
         uint32_t s = tableCode + 16;
         const uint32_t seed = Chain12(at, s);
-        check(at[tableCode + 28].Value == 0xE59C2000 && at[tableCode + 40].Value == 0xE0020291 && at[tableCode + 52].Value == 0xE58C2000 &&
-                  at[tableCode + 56].Value == 0xE7E71452 && at[tableCode + 96].Value == 0xEDCD7A01 && at[tableCode + 100].Value == 0xE59C1004 &&
-                  at[tableCode + 108].Value == 0xE3510005 && at[tableCode + 128].Value == 0xED9C7A00 && at[tableCode + 140].Value == 0xEDCD7A02 &&
-                  at.count(seed) && seed > tableCode + 144 && at[seed + 4].Value == 0 && at[seed + 8].Value == 0x3F70A3D7 &&
+        const uint32_t past = Target(tableCode + 4, at[tableCode + 4].Value);
+        std::map<uint32_t, int> words;
+        for (uint32_t k = tableCode; k < past; k += 4) words[at[k].Value]++;
+        const std::vector<uint32_t> built = AllLoaded(at, tableCode + 28, past);
+        const auto has = [&](uint32_t v) { for (uint32_t b : built) if (b == v) return true; return false; };
+        check(words[0xE59C2000] && words[0xE0020291] && words[0xE58C2000] && words[0xE1A01422] && words[0xE20110FF] &&
+                  words[0xEDCD7A01] && words[0xE59C1004] && words[0xE3510005] && words[0xED9C7A00] && words[0xEDCD7A02] &&
+                  has(0x41C64E6D) && has(0x6073) && has(0x3ACCCCCD) &&
+                  at.count(seed) && seed > past && at[seed + 4].Value == 0 && at[seed + 8].Value == 0x3F70A3D7 &&
                   at[seed + 12].Value == 0x3F87AE14 && at[seed + 16].Value == 0x3F800000 && at[seed + 20].Value == 0x3F87AE14 &&
                   at[seed + 24].Value == 0x3F70A3D7,
-              "the variation: the volume (sp + 4) by the LCRNG, the pitch (sp + 8) by the pattern 0.94 1.06 1 1.06 0.94" + where);
-        uint32_t a = tableCode + 144;
+              "the variation: the volume (sp + 4) by the LCRNG, the pitch (sp + 8) by the pattern 0.94 1.06 1 1.06 0.94 (ARMv6K: mov / orr, lsr / and)" + where);
+        uint32_t a = past;
         check(Chain(at, a) == 0x10263D84, "the table: the zone through DllField's word holding the global" + where);
-        check(at[a].Value == 0xE59CC000 && at[a + 4].Value == 0xE59CC01C && at[a + 8].Value == 0xE6FFC07C && at[a + 12].Value == (0xE3002000 | 538) &&
-              at[a + 16].Value == 0xE15C0002,
+        uint32_t z = a + 12, zreg = 0;
+        const uint32_t firstZone = Loaded(at, z, zreg);
+        check(at[a].Value == 0xE59CC000 && at[a + 4].Value == 0xE59CC01C && at[a + 8].Value == 0xE6FFC07C && firstZone == 538 && zreg == 2 &&
+              at[z].Value == 0xE15C0002,
               "the table: r12 the zone, r2 the first zone (r0 the foot kept), cmp" + where);
-        const uint32_t bhs = a + 20;
+        const uint32_t bhs = z + 4;
         check((at[bhs].Value >> 24) == 0x2A, "the table: from the first zone, Kalos's" + where);
         a = bhs + 4;
         check(Chain(at, a) == start, "below it: r1 Hoenn's table" + where);

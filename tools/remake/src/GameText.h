@@ -24,7 +24,12 @@ std::vector<std::string> ReadGameText(const Bytes& file);
 Bytes WriteGameText(const std::vector<std::string>& lines);
 // the file with one line added at its end, every existing line's bytes kept as they are (their offsets moved by the grown
 // table): for files that do not write back identical (a/0/7/1's zero padding)
-Bytes AppendGameTextLine(const Bytes& file, const std::string& line);
+// `flags`: the line's table word after its length, its grammar (3 November, read on the trainer class names, Omega Ruby's
+// a/0/7/4 member 21 and X's a/0/7/5 member 20, French: 0x1 feminine, "la Championne"; 0x4 elided, "l'Écolier"; 0
+// masculine, "le"), which the game's text expansion picks the article by
+Bytes AppendGameTextLine(const Bytes& file, const std::string& line, uint16_t flags = 0);
+// each line's grammar word (see AppendGameTextLine)
+std::vector<uint16_t> GameTextLineFlags(const Bytes& file);
 // the file with line `index` replaced, every other line's bytes kept as they are (for the same files)
 Bytes ReplaceGameTextLine(const Bytes& file, size_t index, const std::string& line);
 

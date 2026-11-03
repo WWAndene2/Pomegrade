@@ -210,8 +210,10 @@ std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const XySounds* music,
         const Bytes was = texts.Sub(21);
         Bytes text = Plain(was);
         if (ReadGameText(text).size() != (size_t)gameClasses) throw FormatError(path + " member 21 does not hold 280 class names");
-        const std::vector<std::string> names = ReadGameText(Plain(Garc(xy.Read("a/0/7/" + std::to_string(a + 1))).Sub(20)));
-        for (size_t c = 0; c < xClasses.Count(); c++) text = AppendGameTextLine(text, c < names.size() ? names[c] : "");
+        const Bytes xText = Plain(Garc(xy.Read("a/0/7/" + std::to_string(a + 1))).Sub(20));
+        const std::vector<std::string> names = ReadGameText(xText);
+        const std::vector<uint16_t> grammar = GameTextLineFlags(xText); // each class's article (X/Y's, kept)
+        for (size_t c = 0; c < xClasses.Count(); c++) text = AppendGameTextLine(text, c < names.size() ? names[c] : "", c < grammar.size() ? grammar[c] : 0);
         for (size_t c = 280 + xClasses.Count(); c < 460; c++) text = AppendGameTextLine(text, ReadGameText(Plain(was)).at(0));
         texts.Set(21, AsWas(was, text));
     }
@@ -514,8 +516,11 @@ std::vector<std::string> AddXyTrainers(OrasWorkspace& ws, const XySounds* music,
         const Bytes was = texts.Sub(22);
         Bytes file = Plain(was);
         if (ReadGameText(file).size() != (size_t)XyTrainerFirst) throw FormatError(path + " member 22 does not hold " + std::to_string(XyTrainerFirst) + " trainer names");
-        const std::vector<std::string> names = ReadGameText(Plain(Garc(xy.Read("a/0/7/" + std::to_string(a + 1))).Sub(21)));
-        for (int n = 0; n < XyTrainerCount; n++) file = AppendGameTextLine(file, (size_t)n < names.size() ? names[(size_t)n] : "");
+        const Bytes xText = Plain(Garc(xy.Read("a/0/7/" + std::to_string(a + 1))).Sub(21));
+        const std::vector<std::string> names = ReadGameText(xText);
+        const std::vector<uint16_t> grammar = GameTextLineFlags(xText); // each name's grammar word (X/Y's, kept)
+        for (int n = 0; n < XyTrainerCount; n++)
+            file = AppendGameTextLine(file, (size_t)n < names.size() ? names[(size_t)n] : "", (size_t)n < grammar.size() ? grammar[(size_t)n] : 0);
         texts.Set(22, AsWas(was, file));
         named = names.size();
     }

@@ -55,12 +55,19 @@ int main()
             if (address != 0x102CE4BC && (w.Value & 0x0F000000) == 0x0A000000)
                 branches = branches && Target(address, w.Value) > address && Target(address, w.Value) <= end;
         check(branches, "every branch of the cave forward, inside it" + where);
-        bool bounds = false, scale = false;
-        for (auto& [address, w] : at)
+        // the values mov / orr sequences into r3 build (ArmLoad, ArmCode.h: ARMv6K, no movw / movt)
+        bool first = false, last = false, scale = false, armv7 = false;
+        for (auto it = at.begin(); it != at.end(); ++it)
         {
-            bounds = bounds || w.Value == (0xE3003000 | (538 & 0xFFF)) || w.Value == (0xE3003000 | (556 & 0xFFF));
-            scale = scale || w.Value == (0xE3403000 | (XyPlayerScaleBits >> 28 & 0xF) << 16 | (XyPlayerScaleBits >> 16 & 0xFFF));
+            const uint32_t w = it->second.Value;
+            armv7 = armv7 || (w & 0x0FF00000) == 0x03000000 || (w & 0x0FF00000) == 0x03400000;
+            if ((w & 0xFFFFF000) != 0xE3A03000) continue;
+            const auto imm = [](uint32_t x) { const uint32_t r = (x >> 8 & 0xF) * 2, v = x & 0xFF; return r ? (v >> r | v << (32 - r)) : v; };
+            uint32_t v = imm(w);
+            for (auto next = std::next(it); next != at.end() && (next->second.Value & 0xFFFFF000) == 0xE3833000; ++next) v |= imm(next->second.Value);
+            first = first || v == 538; last = last || v == 556; scale = scale || v == XyPlayerScaleBits;
         }
+        const bool bounds = first && last && !armv7;
         check(bounds && scale, "the zone bounds and 1.08 in the cave" + where);
     }
     bool threw = false;
