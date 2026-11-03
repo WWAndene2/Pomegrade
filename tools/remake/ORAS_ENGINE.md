@@ -9,6 +9,42 @@ marked **checked** (seen in memory or under the debugger), **read** (from the de
 
 ## 0. Start here (the state on 7 October, for whoever continues)
 
+### 0.0000 Handover of 3 November (read first; then 0.000)
+
+**The gyms, headless (3 November; trainers made one level-1 Magikarp for the tests only, `xy_gym_mod.sh --weak`, never
+committed; nothing run on the phone).** Leader battle, victory lines and badge or TM, no unmapped access, on the current
+build: Viola, Grant, Korrina (`--height 99`), Valerie (`--height 180`, the player at 15.5 4.5), Clemont (the whole gym:
+four quiz floors, lifts, battle, badge). Not done:
+- **Ramos**: his zone stays black (31 October; not looked at since).
+- **Olympia**: only her entrance shows; her space room, puzzle and battle not run.
+- **Wulfric**: battle won on 31 October, not rerun on this build; his cylinders not run.
+- **The puzzles**: Viola's web behaves as X's under the same keys (runs v3 / xv1, the same back-and-forth), not walked
+  to the end; Korrina's rails, Valerie's warps, Wulfric's cylinders not run.
+- **Clemont's quiz picture**: CallFieldCaptureDemoSimplePoke skipped; needs X's demo code ported (0.000 below).
+- **Battle backgrounds of the gyms are dark or missing** (owner, 3 November: "pas de décors"): the numbers are moved and
+  X's light tables copied (`OrasXyBackgrounds.cpp`); the converted arena models look dark (already seen on Grant's, 22
+  October). Next: Valerie's battle in X (`prototype/xy_save_move.py dumps/xsave/main out/xv 203 15.5 4.5 <height>`)
+  beside the mod's, then the model conversion (BCH 0x07 -> 0x21) of her arena.
+- **The French article of X/Y's trainer classes** fixed (each text line's grammar word kept: `GameText.h`,
+  `prototype/text_grammar.py`); "Valériane la Championne" to check in game.
+
+**Fixed this session (all on the branch, merged):** X's empty functions mapped to a float conversion (0x1F9544 ->
+0x1E8294: Clemont's lift froze the field); numbers passed through a procedure's locals (`OrasXyScript.cpp`: trainers,
+map changes); X/Y's music needed for jingles (`xy_gym_mod.sh --music on`); the code patches ARMv6K only (`ArmCode.h`:
+the core's interpreter now runs full mods, so `trace`, `readers`, `writers` work on them); trainer names' and classes'
+grammar words.
+
+**Traps met:** a state saved with an older mod keeps its code patches (natives) in memory: test a rebuilt mod from its
+own title state (`fast_run.sh`), never an old `pre.state`. A player standing two tiles off a leader, or under a raised
+floor (no `--height`), gets no dialogue. `retro_host` has no position read: the player's position is floats of tile x 18
+(several copies in the heap; the one that moves is to find with `mem` before and after a step).
+
+**Tools added** (prototype/README.md): `headless/gym_leader_run.sh` (a leader's battle in one run),
+`prototype/armv7_scan.py`, `prototype/text_grammar.py`; earlier today `amx_path.py`, `trace_natives.py`,
+`member_offsets.py`. `arm-none-eabi-gcc` (apt, Ubuntu's GCC for ARM; devkitPro's servers are refused by the session's
+proxy) compiles C natives for the 3DS (`-mcpu=mpcore -marm -Os -fPIE -ffreestanding -nostdlib`: literal pools, no
+movw); not used in a patch yet.
+
 ### 0.000 Handover of 2 November (read first; then 0.00)
 
 **Clemont's gym (Lumiose, X's zone 79 and its rooms), state.** Built with `headless/xy_gym_mod.sh`; checked headless

@@ -169,3 +169,11 @@ called (retro_host `trace on` / `trace off FILE`; delta: runtime minus linked ba
 labels entered, the last cell read: where it waits). Both need `POMEGRADE_INTERPRETER=1`, so a mod built without
 `--xy-player-scale`, `--xy-footsteps` and `--xy-sequences` (ORAS_ENGINE.md 0.000). `member_offsets.py` matches a class
 member of X with Omega Ruby's by the offsets the code then reads from it (inferred; check the match in the code).
+
+## Gyms, code and texts (`gym_leader_run.sh`, `armv7_scan.py`, `text_grammar.py`, 3 November)
+
+`headless/gym_leader_run.sh <work> <run> <mod> <x> <z> [height] [rounds]` plays a gym leader's battle from a save on
+that tile (the mod from `xy_gym_mod.sh`), A every second, a shot each 15 presses. `armv7_scan.py <file> [offset length]`
+lists the ARM words the 3DS cannot run (movw, movt, ubfx...). `text_grammar.py <text member> [line...]` prints each
+line's grammar word (the French article: 0x1 feminine, 0x4 elided).
+
