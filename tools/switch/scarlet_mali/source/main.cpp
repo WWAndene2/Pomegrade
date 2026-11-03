@@ -53,28 +53,23 @@ DrawFn g_draws[kDrawKinds];
 std::atomic<u64> g_xfb_draws_by_kind[kDrawKinds];
 
 // The game records each draw into its own command buffer on one thread (FUN_00c4fa44), so the state of a command
-// buffer is the program last bound and whether transform feedback is active. A small table keyed by the command
-// buffer's address holds it; a full table only loses probe statistics.
+// buffer is the program last bound and whether transform feedback is active. The table is direct-mapped: a command
+// buffer takes over its slot, replacing whatever was there. The probe before this one kept the first 1,024 command
+// buffers it saw and ignored every later one; the game uses one per draw, so it never counted a transform feedback
+// draw (owner's log, 3 November: about 750 transform feedback passes a second, none counted). A draw follows its
+// bind and Begin on the same command buffer, so a slot taken over in between only loses one probe count.
 struct CommandState {
-    std::atomic<void*> cmd;
+    void* cmd;
     const void* program;
     bool in_xfb;
 };
-constexpr size_t kStates = 1024;
+constexpr size_t kStates = 4096;
 CommandState g_states[kStates];
 
-CommandState* StateOf(void* cmd) {
-    size_t index = (reinterpret_cast<uintptr_t>(cmd) >> 4) % kStates;
-    for (size_t probe = 0; probe < 16; ++probe, index = (index + 1) % kStates) {
-        void* owner = g_states[index].cmd.load(std::memory_order_acquire);
-        if (owner == cmd) return &g_states[index];
-        if (owner == nullptr) {
-            void* expected = nullptr;
-            if (g_states[index].cmd.compare_exchange_strong(expected, cmd) || expected == cmd) return &g_states[index];
-        }
-    }
-    return nullptr;
-}
+CommandState& SlotOf(void* cmd) { return g_states[(reinterpret_cast<uintptr_t>(cmd) >> 6) % kStates]; }
+
+// Raw call counts, logged every 10 s by the watch thread, to show where the calls go even if the logic above is wrong.
+std::atomic<u64> g_bind_calls, g_begin_calls, g_end_calls, g_draw_calls;
 
 // Programs seen in transform feedback draws, with their draw and vertex counts.
 struct ProgramStats {
@@ -119,24 +114,33 @@ void CountXfbDraw(const void* program, int count, DrawKind kind) {
 }
 
 void BindProgram(void* cmd, const void* program, int stages) {
-    if (CommandState* state = StateOf(cmd)) state->program = program;
+    g_bind_calls.fetch_add(1, std::memory_order_relaxed);
+    CommandState& state = SlotOf(cmd);
+    if (state.cmd != cmd) state = CommandState{cmd, nullptr, false};
+    state.program = program;
     g_bind_program(cmd, program, stages);
 }
 
 void BeginXfb(void* cmd, u64 address) {
-    if (CommandState* state = StateOf(cmd)) state->in_xfb = true;
+    g_begin_calls.fetch_add(1, std::memory_order_relaxed);
+    CommandState& state = SlotOf(cmd);
+    if (state.cmd != cmd) state = CommandState{cmd, nullptr, false};
+    state.in_xfb = true;
     g_begin_xfb(cmd, address);
 }
 
 void EndXfb(void* cmd, u64 address) {
-    if (CommandState* state = StateOf(cmd)) state->in_xfb = false;
+    g_end_calls.fetch_add(1, std::memory_order_relaxed);
+    CommandState& state = SlotOf(cmd);
+    if (state.cmd == cmd) state.in_xfb = false;
     g_end_xfb(cmd, address);
 }
 
 template <DrawKind kKind>
 void Draw(void* cmd, u64 a1, u64 a2, u64 a3, u64 a4, u64 a5, u64 a6, u64 a7) {
-    if (CommandState* state = StateOf(cmd); state != nullptr && state->in_xfb) {
-        CountXfbDraw(state->program, kKind == kDrawElementsIndirect ? 0 : static_cast<int>(a3), kKind);
+    g_draw_calls.fetch_add(1, std::memory_order_relaxed);
+    if (const CommandState& state = SlotOf(cmd); state.cmd == cmd && state.in_xfb) {
+        CountXfbDraw(state.program, kKind == kDrawElementsIndirect ? 0 : static_cast<int>(a3), kKind);
     }
     g_draws[kKind](cmd, a1, a2, a3, a4, a5, a6, a7);
 }
@@ -171,6 +175,7 @@ void SwapAll(const char* when) {
 // game, only these data pointers. (A hook on the game's loader, FUN_00cdff20, never ran in the first probe: whether
 // the loader runs after the module starts under Eden is not known.)
 alignas(16) u8 g_watch_stack[0x4000];
+u32 g_watch_ticks;
 
 void WatchNvnSetup(void*) {
     // DrawArrays is among the last functions the loader fills; checked every 50 ms until it is, then every 500 ms in
@@ -183,6 +188,13 @@ void WatchNvnSetup(void*) {
             SwapAll(g_draws[kDrawArrays] == nullptr ? "once the game had set NVN up" : "again, after the game set NVN up again");
         }
         svcSleepThread(current == nullptr ? 50'000'000 : 500'000'000);
+        if (current != nullptr && ++g_watch_ticks % 20 == 0) {
+            Log("[scarlet_mali] calls so far: %llu BindProgram, %llu BeginTransformFeedback, %llu EndTransformFeedback, "
+                "%llu draws, %llu draws inside transform feedback",
+                static_cast<unsigned long long>(g_bind_calls.load()), static_cast<unsigned long long>(g_begin_calls.load()),
+                static_cast<unsigned long long>(g_end_calls.load()), static_cast<unsigned long long>(g_draw_calls.load()),
+                static_cast<unsigned long long>(g_xfb_draws.load()));
+        }
     }
 }
 
