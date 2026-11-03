@@ -719,10 +719,19 @@ FileSys::VirtualDir FileSystemController::GetBCATDirectory(u64 title_id) const {
 }
 
 void FileSystemController::CreateFactories(FileSys::VfsFilesystem& vfs, bool overwrite) {
+    // Pomegrade: the factories being replaced stay alive until the end of this function, after the new ones are
+    // registered in the content provider union. They were destroyed first, leaving the union pointing at freed
+    // objects until then, while another thread may read them: Android calls this from areKeysPresent, and the
+    // owner's Scarlet crashed at launch in ExternalContentProvider::ListUpdateVersions, reached from
+    // GameMetadata.getIsValid through PatchRomFS (3 November). A thread already inside an old provider when the
+    // function ends can still see it go; this narrows the window to that, from the whole recreation.
+    std::unique_ptr<FileSys::BISFactory> replaced_bis_factory;
+    std::unique_ptr<FileSys::SDMCFactory> replaced_sdmc_factory;
+    std::unique_ptr<FileSys::ExternalContentProvider> replaced_external_provider;
     if (overwrite) {
-        bis_factory = nullptr;
-        sdmc_factory = nullptr;
-        external_provider = nullptr;
+        replaced_bis_factory = std::move(bis_factory);
+        replaced_sdmc_factory = std::move(sdmc_factory);
+        replaced_external_provider = std::move(external_provider);
     }
 
     using EdenPath = Common::FS::EdenPath;
