@@ -119,6 +119,11 @@ public:
                                            : nullptr;
     }
 
+    /// Pomegrade: draws in the render pass with no attachment (a capture that rasterizes nothing)
+    [[nodiscard]] bool UsesNullRenderPass() const noexcept {
+        return uses_null_render_pass;
+    }
+
     [[nodiscard]] bool IsBuilt() const noexcept {
         return is_built.load(std::memory_order::relaxed);
     }
@@ -192,6 +197,9 @@ private:
     // Pomegrade: a stage before the fragment one reads or writes textures, images or storage buffers, so its
     // draws wait for earlier passes' fragment work (Scheduler::RequestNonFragmentDependency)
     bool pre_fragment_uses_resources{false};
+    // Pomegrade: a stage writes memory through storage buffers, images or global memory (capture hoisting,
+    // Scheduler::MarkPassWritesMemory)
+    bool writes_memory{false};
 };
 
 } // namespace Vulkan

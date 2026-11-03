@@ -815,6 +815,13 @@ abstract class SettingsItem(
             )
             put(
                 SwitchSetting(
+                    BooleanSetting.POMEGRADE_HOIST_CAPTURES,
+                    titleId = R.string.pomegrade_hoist_captures,
+                    descriptionId = R.string.pomegrade_hoist_captures_description
+                )
+            )
+            put(
+                SwitchSetting(
                     BooleanSetting.RENDERER_ASYNCHRONOUS_SHADERS,
                     titleId = R.string.renderer_asynchronous_shaders,
                     descriptionId = R.string.renderer_asynchronous_shaders_description

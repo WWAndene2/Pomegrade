@@ -502,6 +502,10 @@ struct Values {
     // GPU (video_core/texture_cache/texture_cache.h, constructor)
     SwitchableSetting<bool> pomegrade_texture_memory_budget{linkage, true, "pomegrade_texture_memory_budget",
                                                            Category::Renderer, Specialization::Default, true, true};
+    // Pomegrade: a transform feedback capture made while a render pass is open runs before that pass instead of
+    // ending it (video_core/renderer_vulkan/vk_scheduler.h, BeginIsolation)
+    SwitchableSetting<bool> pomegrade_hoist_captures{linkage, true, "pomegrade_hoist_captures", Category::Renderer,
+                                                    Specialization::Default, true, true};
 
     SwitchableSetting<bool> use_asynchronous_gpu_emulation{linkage, true, "use_asynchronous_gpu_emulation",
                                                            Category::Renderer};

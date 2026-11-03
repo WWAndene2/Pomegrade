@@ -112,6 +112,40 @@ public:
         pass_has_transform_feedback = true;
     }
 
+    /// Pomegrade: capture hoisting (setting pomegrade_hoist_captures). A transform feedback capture that rasterizes
+    /// nothing runs in a pass without attachments (GraphicsPipeline, uses_null_render_pass), so before this each
+    /// one made while the game's pass was open ended that pass and began it again after: on a tiler (Mali) the
+    /// pass's attachments are written out of tile memory and read back in at each, and Pokémon Scarlet makes such
+    /// a capture before each animated model it draws. Instead the capture is recorded on its own (BeginIsolation,
+    /// EndIsolation) and placed before the open pass's begin, in the space each eligible pass keeps in front of
+    /// it (its prologue), so the pass stays whole.
+    ///
+    /// Moving the capture before the pass's earlier draws is only right when those draws did not read what it
+    /// writes (TF output ranges against the vertex, index and uniform ranges they read, NoteMainPassRead) nor
+    /// write memory it may read (MarkPassWritesMemory); textures and storage buffers reading a capture's output
+    /// are not tracked, which is the known limit, hence the setting. A capture that needs anything recorded
+    /// outside a pass (an upload, a copy, a query write) is not moved: it is placed where it was made, after
+    /// the open pass is ended, as before.
+    [[nodiscard]] bool CanHoistIntoPass() const noexcept;
+    void BeginIsolation();
+    void EndIsolation();
+    [[nodiscard]] bool IsIsolating() const noexcept {
+        return isolating;
+    }
+    /// Pomegrade: the open pass's draws' reads are wanted (capture hoisting)
+    [[nodiscard]] bool WantsPassReads() const noexcept {
+        return pass_prologue != nullptr && !isolating;
+    }
+    /// Pomegrade: a draw of the open pass reads guest memory [begin, end) (capture hoisting)
+    void NoteMainPassRead(u64 begin, u64 end);
+    [[nodiscard]] bool MainPassReadOverlaps(u64 begin, u64 end) const noexcept;
+    /// Pomegrade: a draw of the open pass writes memory through a shader (capture hoisting)
+    void MarkPassWritesMemory() noexcept {
+        if (!isolating) {
+            main_pass_writes_memory = true;
+        }
+    }
+
     /// Returns true when a render pass is currently active in the scheduler state.
     bool IsRenderPassActive() const {
         return state.renderpass != VK_NULL_HANDLE;
@@ -145,6 +179,10 @@ public:
     void RecordWithUploadBuffer(T&& command) {
         if (VideoCommon::GpuSplit::check_owner) [[unlikely]] {
             VideoCommon::GpuSplit::CheckOwner("Scheduler::Record");
+        }
+        if (isolating) [[unlikely]] {
+            isolated_commands->Record(command);
+            return;
         }
         if (chunk->Record(command)) {
             return;
@@ -313,6 +351,33 @@ private:
         alignas(std::max_align_t) std::array<u8, 0x8000> data{};
     };
 
+    /// Pomegrade: commands recorded apart from the chunk (an isolated capture, a pass's prologue), executed in
+    /// order where their Execute is recorded
+    class CommandList {
+    public:
+        template <typename T>
+        void Record(T& command) {
+            if (chunks.empty() || !chunks.back()->Record(command)) {
+                chunks.push_back(std::make_unique<CommandChunk>());
+                (void)chunks.back()->Record(command);
+            }
+        }
+        void Append(CommandList&& other) {
+            for (auto& other_chunk : other.chunks) {
+                chunks.push_back(std::move(other_chunk));
+            }
+            other.chunks.clear();
+        }
+        void Execute(vk::CommandBuffer cmdbuf, vk::CommandBuffer upload_cmdbuf) {
+            for (auto& list_chunk : chunks) {
+                list_chunk->ExecuteAll(cmdbuf, upload_cmdbuf);
+            }
+        }
+
+    private:
+        std::vector<std::unique_ptr<CommandChunk>> chunks;
+    };
+
     struct State {
         VkRenderPass renderpass{};
         VkFramebuffer framebuffer{};
@@ -332,6 +397,27 @@ private:
         bool depth_stencil = false;
         VkClearValue depth_stencil_value{};
     };
+
+    /// Pomegrade: what the recording follows of the open pass, swapped while a capture is isolated
+    struct RecordingContext {
+        State state;
+        u32 num_renderpass_images;
+        std::array<VkImage, 9> renderpass_images;
+        std::array<VkImageSubresourceRange, 9> renderpass_image_ranges;
+        bool pass_has_transform_feedback;
+        bool deferred_wait_for_idle;
+        bool fragment_work_unwaited;
+    };
+
+    [[nodiscard]] RecordingContext SaveContext() const;
+    void LoadContext(const RecordingContext& context);
+
+    /// Pomegrade: the work leaves for the worker while a capture is isolated: the capture so far is placed after
+    /// the open pass and continues where it was made (capture hoisting)
+    void AbortIsolation();
+
+    /// Pomegrade: the open pass's prologue takes no more captures; the chunks held for it go to the worker
+    void ClosePassPrologue();
 
     /// Begins a render pass for the given framebuffer, optionally with clear values.
     void BeginRenderPassImpl(const Framebuffer* framebuffer, VkRenderPass renderpass,
@@ -382,6 +468,21 @@ private:
 
     u32 num_renderpass_images = 0;
     const Framebuffer* null_framebuffer = nullptr;
+
+    // Pomegrade: capture hoisting (CanHoistIntoPass)
+    bool isolating = false;
+    bool isolation_left_pass = false; ///< the isolated capture recorded something outside a pass
+    bool skip_query_hooks = false;
+    std::shared_ptr<CommandList> isolated_commands;
+    std::unique_ptr<RecordingContext> main_context;
+    std::shared_ptr<CommandList> pass_prologue; ///< the open pass's, while it can take captures
+    std::vector<std::unique_ptr<CommandChunk>> held_chunks; ///< recorded after the prologue, held until it closes
+    std::vector<std::pair<u64, u64>> main_pass_reads;
+    bool main_pass_writes_memory = false;
+    VkFramebuffer last_ended_framebuffer{};
+    u64 pomegrade_captures_hoisted = 0;
+    u64 pomegrade_captures_kept = 0;
+    u64 pomegrade_pass_resumes = 0;
     std::array<VkImage, 9> renderpass_images{};
     std::array<VkImageSubresourceRange, 9> renderpass_image_ranges{};
 

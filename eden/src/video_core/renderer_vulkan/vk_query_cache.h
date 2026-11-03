@@ -44,6 +44,9 @@ public:
 
     void EndHostConditionalRendering();
 
+    /// Pomegrade: the guest's conditional rendering is done on the host (capture hoisting keeps out of it)
+    [[nodiscard]] bool HasHostConditionalRendering() const noexcept;
+
     void PauseHostConditionalRendering();
 
     void ResumeHostConditionalRendering();

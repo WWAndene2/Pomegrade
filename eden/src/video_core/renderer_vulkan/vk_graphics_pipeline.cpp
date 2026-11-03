@@ -289,6 +289,15 @@ GraphicsPipeline::GraphicsPipeline(
         num_descriptor_entries += NumDescriptorEntries(*info);
     }
     fragment_has_color0_output = stage_infos[NUM_STAGES - 1].stores_frag_color[0];
+    for (const Shader::Info& info : stage_infos) {
+        writes_memory |= info.stores_global_memory ||
+                         std::ranges::any_of(info.storage_buffers_descriptors,
+                                             [](const auto& desc) { return desc.is_written; }) ||
+                         std::ranges::any_of(info.image_descriptors,
+                                             [](const auto& desc) { return desc.is_written; }) ||
+                         std::ranges::any_of(info.image_buffer_descriptors,
+                                             [](const auto& desc) { return desc.is_written; });
+    }
     for (size_t stage = 0; stage + 1 < NUM_STAGES; ++stage) {
         const Shader::Info& info{stage_infos[stage]};
         pre_fragment_uses_resources |= !info.texture_descriptors.empty() || !info.image_descriptors.empty() ||
@@ -545,7 +554,8 @@ bool GraphicsPipeline::ConfigureImpl(bool is_indexed) {
         }
     }
 
-    if (regs.transform_feedback_enabled != 0) {
+    // Pomegrade: an isolated capture has no pass open (Scheduler::BeginIsolation)
+    if (regs.transform_feedback_enabled != 0 && !scheduler.IsIsolating()) {
         scheduler.RequestOutsideRenderPassOperationContext();
     }
     if (pre_fragment_uses_resources) {
@@ -657,6 +667,9 @@ bool GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
                                                       : texture_cache.GetFramebuffer());
     if (maxwell3d->regs.transform_feedback_enabled != 0) {
         scheduler.MarkTransformFeedbackInPass();
+    }
+    if (writes_memory) {
+        scheduler.MarkPassWritesMemory();
     }
     if (!is_built.load(std::memory_order::relaxed)) {
         // Wait for the pipeline to be built

@@ -662,6 +662,24 @@ nothing differently), Scarlet's opening cutscene, the full analysis's 60 s trace
 830 MHz of the earlier trace: likely thermal) 83 % of the time; Eden's GPU thread at 18.7 % of a core. The owner's
 readings of 22 to 24.5 FPS were in play, not in this cutscene. The "after" is to be measured at the same place.
 
+**After (measured).** Build 382 (merged clears, texture budget, launch and closing fixes, probe v8), same cutscene,
+same tool: **15.3 FPS**, frame interval median 56.7 ms, 90th percentile 82.7 ms, 99th 142.7 ms, GPU clock averaging
+742 MHz (highest 830 MHz). No measurable gain: the median is slightly better, the tail worse, and the GPU ran
+hotter-clocked, so the two runs are not under equal conditions. The texture cache stayed at about 197 MiB (budget
+working). The passes with no draw went from 779 to 798 a second: merged clears did not remove them (likely Eden's
+own copy and blit passes, not the game's clears: inferred, not checked).
+
+**Tile memory (3 November, after the batch).** The pass timer of build 382 shows, in play, about 285 passes a second
+of 1920x1080 with 2 attachments and 1 draw, and 210 with 2 to 10 draws, and in the cutscene about 3,100 capture passes
+(1x1, no attachment) a second. A transform feedback capture made while the game's pass is open ended that pass
+and began it again after (the capture runs in the pass with no attachment): on the Mali each such break writes
+the pass's attachments out of tile memory and reads them back. Build 383 records each capture on its own and
+places it before the open pass instead (setting `pomegrade_hoist_captures`, `Scheduler::BeginIsolation`), so the
+pass stays whole; a capture whose output an earlier draw of the pass read, or that needs an upload or a query
+write, stays where it was. Its log line `[Pomegrade captures]` counts captures hoisted, kept, and passes begun
+again on the attachments just ended. Not yet tested on the phone. The pass timer's per-kind times overlap (Vulkan
+timestamps on a tiler), so they rank passes but do not give each one's cost.
+
 ## 11. Next: patching the Switch Pokemon games themselves (plan, 1 November)
 
 Owner's direction (1 November): since Eden is no longer what limits Scarlet on the Mali (section 10), the next work makes

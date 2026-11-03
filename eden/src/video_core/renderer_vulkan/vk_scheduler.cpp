@@ -99,6 +99,10 @@ void Scheduler::Finish(VkSemaphore signal_semaphore, VkSemaphore wait_semaphore)
 }
 
 void Scheduler::WaitWorker() {
+    if (isolating) {
+        AbortIsolation();
+    }
+    ClosePassPrologue();
     DispatchWork();
 
     // Ensure the queue is drained.
@@ -114,6 +118,15 @@ void Scheduler::WaitWorker() {
 void Scheduler::DispatchWork() {
     if (VideoCommon::GpuSplit::check_owner) [[unlikely]] {
         VideoCommon::GpuSplit::CheckOwner("Scheduler::DispatchWork");
+    }
+    if (isolating) [[unlikely]] {
+        AbortIsolation();
+    }
+    if (pass_prologue && chunk && !chunk->Empty()) {
+        // Pomegrade: the open pass's prologue is in this work, still taking captures: held until it closes
+        held_chunks.push_back(std::move(chunk));
+        AcquireNewChunk();
+        return;
     }
     if (chunk && !chunk->Empty()) {
         // Waking the worker is a system call (~2% of the GPU thread at one dispatch per 8
@@ -135,6 +148,25 @@ void Scheduler::BeginRenderPassImpl(const Framebuffer* framebuffer, VkRenderPass
                                     const VkClearValue* clear_values, u32 clear_value_count) {
     const VkFramebuffer framebuffer_handle = framebuffer->Handle();
     const VkExtent2D render_area = framebuffer->RenderArea();
+    if (!isolating) {
+        if (framebuffer->NumImages() != 0 && framebuffer_handle == last_ended_framebuffer) {
+            ++pomegrade_pass_resumes; // Pomegrade: TEMPORARY, the same attachments ended and began again
+        }
+        ClosePassPrologue();
+        main_pass_reads.clear();
+        main_pass_writes_memory = false;
+        if (framebuffer->NumImages() != 0 && Settings::values.pomegrade_hoist_captures.GetValue()) {
+            // Pomegrade: the space before this pass for the captures made while it is open (CanHoistIntoPass).
+            // Its draws are recorded after the begin with all their state, since the captures placed before
+            // it change that state
+            pass_prologue = std::make_shared<CommandList>();
+            RecordWithUploadBuffer([prologue = pass_prologue](vk::CommandBuffer cmdbuf,
+                                                              vk::CommandBuffer upload_cmdbuf) {
+                prologue->Execute(cmdbuf, upload_cmdbuf);
+            });
+            InvalidateState();
+        }
+    }
     state.renderpass = renderpass;
     state.framebuffer = framebuffer_handle;
     state.render_area = render_area;
@@ -263,7 +295,127 @@ bool Scheduler::IsRenderPassOn(const Framebuffer* framebuffer) const noexcept {
 }
 
 void Scheduler::RequestOutsideRenderPassOperationContext() {
+    if (isolating) {
+        isolation_left_pass = true;
+    }
     EndRenderPass();
+}
+
+Scheduler::RecordingContext Scheduler::SaveContext() const {
+    return RecordingContext{state, num_renderpass_images, renderpass_images, renderpass_image_ranges,
+                            pass_has_transform_feedback, deferred_wait_for_idle, fragment_work_unwaited};
+}
+
+void Scheduler::LoadContext(const RecordingContext& context) {
+    state = context.state;
+    num_renderpass_images = context.num_renderpass_images;
+    renderpass_images = context.renderpass_images;
+    renderpass_image_ranges = context.renderpass_image_ranges;
+    pass_has_transform_feedback = context.pass_has_transform_feedback;
+    deferred_wait_for_idle = context.deferred_wait_for_idle;
+    fragment_work_unwaited = context.fragment_work_unwaited;
+}
+
+bool Scheduler::CanHoistIntoPass() const noexcept {
+    return !isolating && pass_prologue != nullptr && IsRenderPassActive() && num_renderpass_images != 0 &&
+           !pass_has_transform_feedback && !deferred_wait_for_idle && !main_pass_writes_memory &&
+           deferred_clear.framebuffer == nullptr;
+}
+
+void Scheduler::BeginIsolation() {
+    main_context = std::make_unique<RecordingContext>(SaveContext());
+    isolated_commands = std::make_shared<CommandList>();
+    isolation_left_pass = false;
+    isolating = true;
+    // the capture records as if no pass were open, with all its state
+    state.renderpass = VkRenderPass{};
+    state.framebuffer = VkFramebuffer{};
+    state.render_area = {0, 0};
+    num_renderpass_images = 0;
+    pass_has_transform_feedback = false;
+    deferred_wait_for_idle = false;
+    InvalidateState();
+}
+
+void Scheduler::EndIsolation() {
+    if (!isolating) {
+        return; // aborted, the capture went on where it was made
+    }
+    EndRenderPass(); // the capture's own pass: transform feedback ended, its barrier after
+    const bool hoist = !isolation_left_pass && pass_prologue != nullptr;
+    std::shared_ptr<CommandList> commands = std::move(isolated_commands);
+    isolating = false;
+    LoadContext(*main_context);
+    if (hoist) {
+        pass_prologue->Append(std::move(*commands));
+        ++pomegrade_captures_hoisted;
+    } else {
+        // as before: the open pass ends, the capture follows
+        EndRenderPass();
+        RecordWithUploadBuffer([commands](vk::CommandBuffer cmdbuf, vk::CommandBuffer upload_cmdbuf) {
+            commands->Execute(cmdbuf, upload_cmdbuf);
+        });
+        ++pomegrade_captures_kept;
+    }
+    InvalidateState();
+}
+
+void Scheduler::AbortIsolation() {
+    const RecordingContext isolated = SaveContext();
+    std::shared_ptr<CommandList> commands = std::move(isolated_commands);
+    isolating = false;
+    LoadContext(*main_context);
+    // the open pass had no capture, query or conditional rendering of its own (CanHoistIntoPass and the
+    // rasterizer's checks): the query state now is the capture's, so its end must not touch it
+    skip_query_hooks = true;
+    EndRenderPass();
+    skip_query_hooks = false;
+    RecordWithUploadBuffer([commands](vk::CommandBuffer cmdbuf, vk::CommandBuffer upload_cmdbuf) {
+        commands->Execute(cmdbuf, upload_cmdbuf);
+    });
+    LoadContext(isolated); // the capture's pass, if open, goes on in the work as it is
+    ++pomegrade_captures_kept;
+}
+
+void Scheduler::ClosePassPrologue() {
+    if (!pass_prologue) {
+        return;
+    }
+    pass_prologue.reset();
+    if (held_chunks.empty()) {
+        return;
+    }
+    bool wake;
+    {
+        std::scoped_lock ql{queue_mutex};
+        for (auto& held : held_chunks) {
+            work_queue.push(std::move(held));
+        }
+        wake = worker_waiting;
+    }
+    held_chunks.clear();
+    if (wake) {
+        event_cv.notify_all();
+    }
+}
+
+void Scheduler::NoteMainPassRead(u64 begin, u64 end) {
+    if (isolating || !pass_prologue || begin >= end) {
+        return;
+    }
+    if (!main_pass_reads.empty() && main_pass_reads.back() == std::pair{begin, end}) {
+        return;
+    }
+    main_pass_reads.emplace_back(begin, end);
+}
+
+bool Scheduler::MainPassReadOverlaps(u64 begin, u64 end) const noexcept {
+    for (const auto& [read_begin, read_end] : main_pass_reads) {
+        if (begin < read_end && read_begin < end) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void Scheduler::RequestNonFragmentDependency() {
@@ -413,6 +565,9 @@ void Scheduler::AllocateWorkerCommandBuffer() {
 }
 
 u64 Scheduler::SubmitExecution(VkSemaphore signal_semaphore, VkSemaphore wait_semaphore) {
+    if (isolating) [[unlikely]] {
+        AbortIsolation();
+    }
     EndPendingOperations();
     InvalidateState();
 
@@ -480,7 +635,9 @@ void Scheduler::EndRenderPass()
             return;
         }
 
-        query_cache->CounterClose(VideoCommon::QueryType::StreamingByteCount);
+        if (!skip_query_hooks) {
+            query_cache->CounterClose(VideoCommon::QueryType::StreamingByteCount);
+        }
 
         // Log render pass end
         if (GPU::Logging::IsActive() &&
@@ -488,8 +645,10 @@ void Scheduler::EndRenderPass()
             GPU::Logging::GPULogger::GetInstance().LogRenderPassEnd();
         }
 
-        query_cache->CounterEnable(VideoCommon::QueryType::ZPassPixelCount64, false);
-        query_cache->NotifySegment(false);
+        if (!skip_query_hooks) {
+            query_cache->CounterEnable(VideoCommon::QueryType::ZPassPixelCount64, false);
+            query_cache->NotifySegment(false);
+        }
 
         // Pomegrade: a "wait for idle" deferred to the end of this pass (DeferWaitForIdle) waits here
         const bool wait_for_idle = deferred_wait_for_idle;
@@ -582,6 +741,10 @@ void Scheduler::EndRenderPass()
         // waited for (a wait for idle above already covers everything); passes without attachments
         // (transform feedback captures) run no fragment work
         fragment_work_unwaited = wait_for_idle ? false : (fragment_work_unwaited || num_renderpass_images != 0);
+        if (!isolating) {
+            last_ended_framebuffer = num_renderpass_images != 0 ? state.framebuffer : VkFramebuffer{};
+            ClosePassPrologue(); // after the pass's end, so held work keeps its order
+        }
         state.renderpass = VkRenderPass{};
         pass_has_transform_feedback = false;
         num_renderpass_images = 0;
@@ -604,6 +767,9 @@ void Scheduler::AcquireNewChunk() {
 // Pomegrade: TEMPORARY, the per-pass GPU timer (vk_scheduler.h). Begin and end timestamps are recorded around the
 // pass's commands; results are read back without waiting, oldest first, once the GPU has written them.
 void Scheduler::PomegradePassBegin(u32 images) {
+    if (isolating) {
+        return; // an isolated capture's pass: the open pass keeps its timer
+    }
     pomegrade_pass_pair = ~u32{0};
     if (!pomegrade_pass_timestamps) {
         return;
@@ -629,6 +795,9 @@ void Scheduler::PomegradePassBegin(u32 images) {
 }
 
 void Scheduler::PomegradePassEnd() {
+    if (isolating) {
+        return;
+    }
     const u32 pair = pomegrade_pass_pair;
     pomegrade_pass_pair = ~u32{0};
     if (pair == ~u32{0}) {
@@ -697,6 +866,15 @@ void Scheduler::PomegradeCollectPasses() {
     LOG_INFO(Render_Vulkan, "[Pomegrade pass time] all passes {:.0f} ms/s (pairs dropped {}):{}",
              total / 1e6 / seconds, pomegrade_dropped, text);
     pomegrade_dropped = 0;
+    // Pomegrade: TEMPORARY, capture hoisting at work: captures placed before the open pass, captures that still
+    // ended it, and passes begun again on the attachments the pass before ended on (each a write out of tile
+    // memory and a read back in on a Mali)
+    LOG_INFO(Render_Vulkan, "[Pomegrade captures] hoisted {:.0f}/s, kept {:.0f}/s, passes resumed {:.0f}/s",
+             pomegrade_captures_hoisted / seconds, pomegrade_captures_kept / seconds,
+             pomegrade_pass_resumes / seconds);
+    pomegrade_captures_hoisted = 0;
+    pomegrade_captures_kept = 0;
+    pomegrade_pass_resumes = 0;
 }
 
 } // namespace Vulkan
