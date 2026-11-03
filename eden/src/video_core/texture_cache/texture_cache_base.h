@@ -524,6 +524,9 @@ private:
     DelayedDestructionRing<Image, TICKS_TO_DESTROY> sentenced_images;
     DelayedDestructionRing<ImageView, TICKS_TO_DESTROY> sentenced_image_view;
     DelayedDestructionRing<Framebuffer, TICKS_TO_DESTROY> sentenced_framebuffers;
+    // Pomegrade: framebuffers removed (RemoveFramebuffers) but not yet sentenced, which TickFrame does on the GPU
+    // thread; guarded by mutex like the rest of the cache
+    std::vector<FramebufferId> removed_framebuffers;
 
     ::Common::unordered_map<GPUVAddr, ImageAllocId> image_allocs_table;
 

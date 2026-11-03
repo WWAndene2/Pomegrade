@@ -198,6 +198,15 @@ void TextureCache<P>::ApplyThresholdOverrides(bool log) {
 
 template <class P>
 void TextureCache<P>::TickFrame() {
+    // Pomegrade: the framebuffers removed since the last frame are sentenced here, on the GPU thread, after the
+    // scheduler has realized a clear it deferred on one of them (see RemoveFramebuffers)
+    if (!removed_framebuffers.empty()) {
+        runtime.FlushDeferredClear();
+        for (const FramebufferId framebuffer_id : removed_framebuffers) {
+            sentenced_framebuffers.Push(std::move(slot_framebuffers[framebuffer_id]));
+        }
+        removed_framebuffers.clear();
+    }
     if constexpr (HAS_DEVICE_MEMORY_INFO) {
         // Switch 2 titles (native tiling) stream far more texture data than Eden's thresholds
         // were tuned for: title 1's attract loop alone keeps ~5.3 GB resident, so the collector
@@ -2745,7 +2754,13 @@ void TextureCache<P>::RemoveImageViewReferences(std::span<const ImageViewId> rem
 
 template <class P>
 void TextureCache<P>::RemoveFramebuffers(std::span<const ImageViewId> removed_views) {
-    runtime.FlushDeferredClear();
+    // Pomegrade: this runs on the thread that unmaps the memory, which is not always the GPU thread: the nvdrv
+    // service thread when the game frees GPU memory (Tegra::MemoryManager::Unmap). Upstream flushed the scheduler's
+    // deferred clear here, recording into the Vulkan scheduler from that thread while the GPU thread records too:
+    // Pokemon Scarlet crashed in its first cutscene, always at the same place, in a scheduler call from this path
+    // (owner's stack trace, 3 November). A removed framebuffer is now only taken out of the lookup and left in its
+    // slot (where a deferred clear's pointer to it stays valid); TickFrame, on the GPU thread, flushes the deferred
+    // clear and then sentences it. The scheduler is no longer touched from this thread.
     auto it = framebuffers.begin();
     while (it != framebuffers.end()) {
         if (it->first.Contains(removed_views)) {
@@ -2755,7 +2770,7 @@ void TextureCache<P>::RemoveFramebuffers(std::span<const ImageViewId> removed_vi
                 last_framebuffer_id = {};
                 last_framebuffer_serial = 0;
             }
-            sentenced_framebuffers.Push(std::move(slot_framebuffers[framebuffer_id]));
+            removed_framebuffers.push_back(framebuffer_id);
             it = framebuffers.erase(it);
         } else {
             ++it;
