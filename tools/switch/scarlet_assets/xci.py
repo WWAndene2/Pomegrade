@@ -1,6 +1,6 @@
 # Reads Scarlet's romfs files straight from the owner's XCI, decrypting only the ranges asked for: the game's 11 GB
 # of data is never extracted to disk. SCARLET_DUMP is the folder holding scarlet.xci and prod.keys (the owner's own
-# dump and keys; never committed, uploaded or put in an artifact, CLAUDE.md section 8).
+# dump and keys; never committed, uploaded or put in an artifact, CLAUDE.md section 7).
 # Formats: XCI (HFS0 partitions), NCA3 (AES-XTS header, key area, AES-CTR sections), RomFS (IVFC level 6).
 import struct, re, os
 from Crypto.Cipher import AES

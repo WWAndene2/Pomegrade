@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.dp
 import me.magnum.melonds.domain.model.rom.RomPlatform
 
 /**
- * A small drawing of [platform]'s console for the quick-access cards, on a 48 x 32 dp canvas (3:2, PerfectSuite;
+ * A small drawing of [platform]'s console for the quick-access cards, on a 48 x 32 dp canvas (3:2;
  * 40 x 28 before): drawn on a 40 x 28 grid, fitted to the canvas's height and centred. No console maker's artwork.
  */
 @Composable
