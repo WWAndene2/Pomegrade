@@ -2,7 +2,8 @@
 #define REMAKE_LANDDATA_H
 
 // One map piece of Pokemon Diamond/Pearl/Platinum (a member of
-// fielddata/land_data/land_data.narc): four u32 section sizes, then
+// fielddata/land_data/land_data.narc) or HeartGold/SoulSilver (a/0/6/5, whose
+// header adds u16 0x1234 and the size of a section skipped here): four u32 section sizes, then
 // - movement permissions: 32x32 tiles, u16 each (low byte: tile behaviour,
 //   e.g. grass, water, ledge; high byte: collision, 0x80 solid),
 // - buildings: 0x30-byte entries (u32 model id in the area's building

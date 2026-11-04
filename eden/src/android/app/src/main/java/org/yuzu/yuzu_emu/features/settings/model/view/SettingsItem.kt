@@ -801,6 +801,20 @@ abstract class SettingsItem(
             )
             put(
                 SwitchSetting(
+                    BooleanSetting.POMEGRADE_MERGE_CLEARS,
+                    titleId = R.string.pomegrade_merge_clears,
+                    descriptionId = R.string.pomegrade_merge_clears_description
+                )
+            )
+            put(
+                SwitchSetting(
+                    BooleanSetting.POMEGRADE_TEXTURE_MEMORY_BUDGET,
+                    titleId = R.string.pomegrade_texture_memory_budget,
+                    descriptionId = R.string.pomegrade_texture_memory_budget_description
+                )
+            )
+            put(
+                SwitchSetting(
                     BooleanSetting.RENDERER_ASYNCHRONOUS_SHADERS,
                     titleId = R.string.renderer_asynchronous_shaders,
                     descriptionId = R.string.renderer_asynchronous_shaders_description

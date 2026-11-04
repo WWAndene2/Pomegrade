@@ -44,6 +44,14 @@ constexpr u32 Hash(TextureFormat format, ComponentType component, bool is_srgb =
 PixelFormat PixelFormatFromTextureInfo(TextureFormat format, ComponentType red, ComponentType green,
                                        ComponentType blue, ComponentType alpha,
                                        bool is_srgb) noexcept {
+    // Pomegrade: format 0 is no format (TextureFormat starts at 1), the format of a descriptor the game left empty
+    // or zeroed: not an unimplemented format. Its texture binds the null view (TextureCache::CreateImageView); the
+    // shader environment and the other callers only need some valid format for it. It went through
+    // UNIMPLEMENTED_MSG, an assert that a debug build turns into an abort message (owner's crash reports of
+    // 3 November show it as the "Abort message")
+    if (static_cast<u32>(format) == 0) {
+        return PixelFormat::A8B8G8R8_UNORM;
+    }
     switch (Hash(format, red, green, blue, alpha, is_srgb)) {
     case Hash(TextureFormat::A8B8G8R8, UNORM):
         return PixelFormat::A8B8G8R8_UNORM;

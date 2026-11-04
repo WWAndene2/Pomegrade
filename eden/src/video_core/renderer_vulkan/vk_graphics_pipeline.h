@@ -189,6 +189,9 @@ private:
     bool uses_descriptor_buffer{false};
     // Pomegrade: built for, and drawn in, the render pass with no attachment (see the constructor)
     bool uses_null_render_pass{false};
+    // Pomegrade: a stage before the fragment one reads or writes textures, images or storage buffers, so its
+    // draws wait for earlier passes' fragment work (Scheduler::RequestNonFragmentDependency)
+    bool pre_fragment_uses_resources{false};
 };
 
 } // namespace Vulkan

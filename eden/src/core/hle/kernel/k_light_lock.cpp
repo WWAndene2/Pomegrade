@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "core/hle/kernel/k_light_lock.h"
+#include "core/hle/kernel/k_process.h"
 #include "core/hle/kernel/k_scheduler.h"
 #include "core/hle/kernel/k_thread.h"
 #include "core/hle/kernel/k_thread_queue.h"
@@ -98,7 +99,20 @@ void KLightLock::UnlockSlowPath(uintptr_t _cur_thread) {
         if (next_owner != nullptr) {
             next_tag = uintptr_t(next_owner) | uintptr_t(has_waiters);
 
-            next_owner->EndWait(m_kernel, ResultSuccess);
+            // Pomegrade: a waiter of a process being torn down whose termination was requested is not woken.
+            // Closing a game, KProcess::Terminate requests every thread's termination and then destroys them; a
+            // thread destroyed there unlocks the page table's light lock, and its next waiter, one of those threads,
+            // was stopped while waiting: its wait queue (a local of LockSlowPath) no longer existed and EndWait
+            // called through it to address 0x1 (owner's crash report on closing Scarlet, 3 November). The lock
+            // still passes to it; it is never run again. Limited to a terminating or terminated process: a thread
+            // ending while its game runs is woken as before.
+            const KProcess* const waiter_process = next_owner->GetOwnerProcess();
+            const bool process_torn_down =
+                waiter_process != nullptr && (waiter_process->GetState() == KProcess::State::Terminating ||
+                                              waiter_process->GetState() == KProcess::State::Terminated);
+            if (!(process_torn_down && next_owner->IsTerminationRequested())) {
+                next_owner->EndWait(m_kernel, ResultSuccess);
+            }
 
             if (next_owner->IsSuspended()) {
                 next_owner->ContinueIfHasKernelWaiters(m_kernel);

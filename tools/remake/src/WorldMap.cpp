@@ -95,7 +95,7 @@ std::string WorldMap::Gltf(const Tex0* tex, const Narc* buildings, const Tex0* b
 {
     // the terrain models, read once, and the cell size they span
     std::map<size_t, Nsbmd> terrain;
-    float widest = 0;
+    std::vector<float> widths;
     for (size_t c = 0; c < Cells.size(); c++)
     {
         if (!Cells[c] || Cells[c]->Model.empty()) continue;
@@ -110,12 +110,21 @@ std::string WorldMap::Gltf(const Tex0* tex, const Narc* buildings, const Tex0* b
             float lo = 1e30f, hi = -1e30f;
             for (const GltfPart& p : parts)
                 for (const GxVertex& v : p.Mesh.Vertices) { lo = std::min(lo, v.Position[0]); hi = std::max(hi, v.Position[0]); }
-            if (hi > lo) widest = std::max(widest, hi - lo);
+            if (hi > lo) widths.push_back(hi - lo);
             terrain.emplace(c, std::move(m));
         }
         catch (const FormatError&) {} // reported by the JSON's model size; the scene skips it
     }
-    const float cell = widest > 0 ? std::exp2(std::round(std::log2(widest))) : 1.0f;
+    // the cell size is the terrain models' typical width (median, rounded to a power of two): the widest was used
+    // before, and one HeartGold piece reaching past its cell (1024 wide, the others 512) doubled every cell's spacing
+    // (4 November); on Platinum, where all pieces have the same width, both give the same size
+    float typical = 0;
+    if (!widths.empty())
+    {
+        std::nth_element(widths.begin(), widths.begin() + widths.size() / 2, widths.end());
+        typical = widths[widths.size() / 2];
+    }
+    const float cell = typical > 0 ? std::exp2(std::round(std::log2(typical))) : 1.0f;
     if (cellSizeOut) *cellSizeOut = cell;
 
     std::vector<GltfPart> parts;

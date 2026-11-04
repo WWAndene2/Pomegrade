@@ -98,6 +98,20 @@ public:
     /// of a renderpass.
     void RequestOutsideRenderPassOperationContext();
 
+    /// Pomegrade: makes the vertex, geometry, compute and indirect stages of the work recorded next wait for
+    /// the fragment work of the render passes ended so far (see EndRenderPass); ends the open pass first
+    /// when one ended before it is still unwaited for
+    void RequestNonFragmentDependency();
+
+    /// Pomegrade: the open render pass draws into [framebuffer]
+    [[nodiscard]] bool IsRenderPassOn(const Framebuffer* framebuffer) const noexcept;
+
+    /// Pomegrade: the open render pass holds a transform feedback draw, so its end makes the captured
+    /// data visible to vertex input and transfers (EndRenderPass)
+    void MarkTransformFeedbackInPass() noexcept {
+        pass_has_transform_feedback = true;
+    }
+
     /// Returns true when a render pass is currently active in the scheduler state.
     bool IsRenderPassActive() const {
         return state.renderpass != VK_NULL_HANDLE;
@@ -359,6 +373,12 @@ private:
     State state;
 
     bool deferred_wait_for_idle = false;
+
+    /// Pomegrade: the open render pass holds a transform feedback draw (MarkTransformFeedbackInPass)
+    bool pass_has_transform_feedback = false;
+
+    /// Pomegrade: a render pass ended whose fragment work the non-fragment stages have not waited for yet
+    bool fragment_work_unwaited = false;
 
     u32 num_renderpass_images = 0;
     const Framebuffer* null_framebuffer = nullptr;

@@ -173,6 +173,19 @@ void BufferCache<P>::WriteMemory(DAddr device_addr, u64 size) {
     memory_tracker.MarkRegionAsCpuModified(device_addr, size);
 }
 
+// Pomegrade: used at Low GPU accuracy for a guest CPU write fault on a page the GPU wrote
+// (RasterizerVulkan::TryCacheInvalidation). The fault covers a whole 4 KiB page while the GPU's
+// data (e.g. Pokemon Scarlet's transform feedback outputs, its skinned vertices) covers only part
+// of it; dropping that data, as WriteMemory does, made the next upload of the page copy guest
+// memory's stale bytes over it. Here the page is marked CPU-modified and the GPU-written ranges
+// are kept, and SynchronizeBuffer uploads around them. Given up: a CPU write that lands inside a
+// GPU-written range is not uploaded while the range stays GPU-written (it was lost before too,
+// replaced by the page's stale copy).
+template <class P>
+void BufferCache<P>::WriteMemoryKeepingGpuWrites(DAddr device_addr, u64 size) {
+    memory_tracker.MarkRegionAsCpuModified(device_addr, size);
+}
+
 template <class P>
 void BufferCache<P>::CachedWriteMemory(DAddr device_addr, u64 size) {
     const bool is_dirty = IsRegionRegistered(device_addr, size);
@@ -1881,14 +1894,26 @@ bool BufferCache<P>::SynchronizeBuffer(Buffer& buffer, DAddr device_addr, u32 si
         u64 total_size_bytes = 0;
         u64 largest_copy = 0;
         DAddr buffer_start = buffer.CpuAddr();
-        memory_tracker.ForEachUploadRange(device_addr, size, [&](u64 device_addr_out, u64 range_size) {
+        const auto add_copy = [&](DAddr start, DAddr end) {
+            if (start == end) return;
+            const u64 range_size = end - start;
             copies.push_back(BufferCopy{
                 .src_offset = total_size_bytes,
-                .dst_offset = device_addr_out - buffer_start,
+                .dst_offset = start - buffer_start,
                 .size = range_size,
             });
             total_size_bytes += range_size;
             largest_copy = (std::max)(largest_copy, range_size);
+        };
+        // Pomegrade: GPU-written ranges are skipped, as in the branch above: the buffer already holds
+        // their newest data (WriteMemoryKeepingGpuWrites can leave them inside a CPU-modified page)
+        memory_tracker.ForEachUploadRange(device_addr, size, [&](u64 device_addr_out, u64 range_size) {
+            DAddr upload_start = device_addr_out;
+            gpu_modified_ranges.ForEachInRange(device_addr_out, range_size, [&](DAddr gpu_start, DAddr gpu_end) {
+                add_copy(upload_start, gpu_start);
+                upload_start = gpu_end;
+            });
+            add_copy(upload_start, device_addr_out + range_size);
         });
         if (total_size_bytes == 0) {
             return true;

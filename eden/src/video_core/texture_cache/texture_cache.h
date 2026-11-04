@@ -76,6 +76,20 @@ TextureCache<P>::TextureCache(Runtime& runtime_, Tegra::MaxwellDeviceMemoryManag
             (std::max)((std::min)(device_local_memory - min_vacancy_critical, min_spacing_critical),
                      DEFAULT_CRITICAL_MEMORY));
         minimum_memory = static_cast<u64>((device_local_memory - mem_threshold) / 2);
+#ifdef __ANDROID__
+        // Pomegrade: on a phone the "device local" memory is the phone's own RAM, shared with Android and every other
+        // app. Eden's thresholds from it (Xiaomi 13T, 8 GB: 4 GiB reported, collection from 1638 MiB, hard at
+        // 3276 MiB) let the cache grow until Android swapped Punica out: the owner's trace of 3 November showed
+        // 1.2 GB of Punica in swap, about 80 MB of RAM free and the frame rate falling, with the cache jumping from
+        // 229 to 641 MiB before the end. The cache now collects from 768 MiB and hard at 1280 MiB (setting
+        // pomegrade_texture_memory_budget). What it costs: textures the game uses again after being collected are
+        // decoded and uploaded again.
+        if (Settings::values.pomegrade_texture_memory_budget.GetValue()) {
+            expected_memory = (std::min)(expected_memory, u64{768_MiB});
+            critical_memory = (std::min)(critical_memory, u64{1280_MiB});
+            minimum_memory = (std::min)(minimum_memory, u64{512_MiB});
+        }
+#endif
     } else {
         expected_memory = DEFAULT_EXPECTED_MEMORY + 512_MiB;
         critical_memory = DEFAULT_CRITICAL_MEMORY + 1_GiB;
@@ -198,6 +212,15 @@ void TextureCache<P>::ApplyThresholdOverrides(bool log) {
 
 template <class P>
 void TextureCache<P>::TickFrame() {
+    // Pomegrade: the framebuffers removed since the last frame are sentenced here, on the GPU thread, after the
+    // scheduler has realized a clear it deferred on one of them (see RemoveFramebuffers)
+    if (!removed_framebuffers.empty()) {
+        runtime.FlushDeferredClear();
+        for (const FramebufferId framebuffer_id : removed_framebuffers) {
+            sentenced_framebuffers.Push(std::move(slot_framebuffers[framebuffer_id]));
+        }
+        removed_framebuffers.clear();
+    }
     if constexpr (HAS_DEVICE_MEMORY_INFO) {
         // Switch 2 titles (native tiling) stream far more texture data than Eden's thresholds
         // were tuned for: title 1's attract loop alone keeps ~5.3 GB resident, so the collector
@@ -1390,6 +1413,13 @@ ImageViewId TextureCache<P>::CreateImageView(const TICEntry& raw_config) {
         }
     }
     const TICEntry config = TextureViewHeader(raw_config, native);
+    // Pomegrade: texture format 0 is no format (Tegra::Texture::TextureFormat starts at 1): a descriptor
+    // the game left empty or zeroed. It used to fall back to A8B8G8R8 (format_lookup_table.cpp, the
+    // "texture format=0" warnings in Scarlet's logs) and read whatever memory its address points at as
+    // a picture; it now binds the null view, which samples as zero
+    if (static_cast<u32>(config.format.Value()) == 0) {
+        return NULL_IMAGE_VIEW_ID;
+    }
     const ImageInfo info(config);
     if (info.type == ImageType::Buffer) {
         const ImageViewInfo view_info(config, 0);
@@ -2738,7 +2768,13 @@ void TextureCache<P>::RemoveImageViewReferences(std::span<const ImageViewId> rem
 
 template <class P>
 void TextureCache<P>::RemoveFramebuffers(std::span<const ImageViewId> removed_views) {
-    runtime.FlushDeferredClear();
+    // Pomegrade: this runs on the thread that unmaps the memory, which is not always the GPU thread: the nvdrv
+    // service thread when the game frees GPU memory (Tegra::MemoryManager::Unmap). Upstream flushed the scheduler's
+    // deferred clear here, recording into the Vulkan scheduler from that thread while the GPU thread records too:
+    // Pokemon Scarlet crashed in its first cutscene, always at the same place, in a scheduler call from this path
+    // (owner's stack trace, 3 November). A removed framebuffer is now only taken out of the lookup and left in its
+    // slot (where a deferred clear's pointer to it stays valid); TickFrame, on the GPU thread, flushes the deferred
+    // clear and then sentences it. The scheduler is no longer touched from this thread.
     auto it = framebuffers.begin();
     while (it != framebuffers.end()) {
         if (it->first.Contains(removed_views)) {
@@ -2748,7 +2784,7 @@ void TextureCache<P>::RemoveFramebuffers(std::span<const ImageViewId> removed_vi
                 last_framebuffer_id = {};
                 last_framebuffer_serial = 0;
             }
-            sentenced_framebuffers.Push(std::move(slot_framebuffers[framebuffer_id]));
+            removed_framebuffers.push_back(framebuffer_id);
             it = framebuffers.erase(it);
         } else {
             ++it;

@@ -781,10 +781,20 @@ void RasterizerVulkan::Clear(u32 layer_count) {
         clear_rect.rect.offset.x == 0 && clear_rect.rect.offset.y == 0 &&
         clear_rect.rect.extent.width >= render_area.width &&
         clear_rect.rect.extent.height >= render_area.height;
-    const bool can_defer_clear = ENABLE_DEFERRED_CLEAR && (!regs.clear_control.use_scissor || clear_covers_render_area) &&
-                                 regs.clear_surface.layer == 0 &&
-                                 !scheduler.IsRenderPassActive() &&
-                                 (!use_color || color_full_channels) && ds_deferrable;
+    const bool clear_deferrable = ENABLE_DEFERRED_CLEAR &&
+                                  (!regs.clear_control.use_scissor || clear_covers_render_area) &&
+                                  regs.clear_surface.layer == 0 && (!use_color || color_full_channels) &&
+                                  ds_deferrable;
+    // Pomegrade: a full clear of a framebuffer other than the open pass's ends that pass, so the clear is deferred and
+    // becomes the next pass's load operation. Eden keeps a pass open after its draws, so upstream deferred almost no
+    // clear: each began a pass of its own with a ClearAttachments, left empty when the next draw went to another
+    // target. The owner's logs (3 November) show, beside every pass with draws of Scarlet's down-sampling chain
+    // (480x270 down to 7x4), a pass of the same size with none (setting pomegrade_merge_clears).
+    if (clear_deferrable && Settings::values.pomegrade_merge_clears.GetValue() && scheduler.IsRenderPassActive() &&
+        !scheduler.IsRenderPassOn(framebuffer)) {
+        scheduler.RequestOutsideRenderPassOperationContext();
+    }
+    const bool can_defer_clear = clear_deferrable && !scheduler.IsRenderPassActive();
     if (!can_defer_clear) {
         scheduler.RequestRenderpass(framebuffer);
     }
@@ -900,6 +910,7 @@ void RasterizerVulkan::DispatchCompute() {
         const auto [buffer, offset] =
             buffer_cache.ObtainBuffer(*indirect_address, 12, sync_info, post_op);
         scheduler.RequestOutsideRenderPassOperationContext();
+        scheduler.RequestNonFragmentDependency(); // Pomegrade: no barrier of its own, see EndRenderPass
         scheduler.Record([pipeline, indirect_buffer = buffer->Handle(),
                           indirect_offset = offset](vk::CommandBuffer cmdbuf) {
             if (!pipeline->IsBound()) {
@@ -1105,11 +1116,16 @@ bool RasterizerVulkan::TryCacheInvalidation(DAddr addr, u64 size) {
         // NCE write faults on pages the transform feedback writes caused about 2,500 such
         // synchronous read-backs in a session, 99 s of the GPU thread waiting (40 ms each), the
         // main cause of its menus and cutscenes running at 6 to 15 FPS. What Low accuracy gives up:
-        // GPU-written data sharing a page with the CPU's write is replaced by guest memory's copy;
-        // reactive flushing being off already leaves that copy stale for CPU reads.
-        if (Settings::IsGPULevelHigh() && buffer_cache.IsRegionGpuModified(addr, size)) return false;
+        // a CPU write landing inside a GPU-written range is not uploaded while it stays GPU-written
+        // (BufferCache::WriteMemoryKeepingGpuWrites); the rest of the page is.
+        const bool gpu_modified = buffer_cache.IsRegionGpuModified(addr, size);
+        if (Settings::IsGPULevelHigh() && gpu_modified) return false;
         texture_cache.WriteMemory(addr, size);
-        buffer_cache.WriteMemory(addr, size);
+        if (gpu_modified) {
+            buffer_cache.WriteMemoryKeepingGpuWrites(addr, size);
+        } else {
+            buffer_cache.WriteMemory(addr, size);
+        }
     }
     pipeline_cache.InvalidateRegion(addr, size);
     return true;

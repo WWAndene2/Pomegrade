@@ -17,6 +17,7 @@ import me.magnum.melonds.R
 import me.magnum.melonds.impl.ModInstaller
 import me.magnum.melonds.impl.PomegradeFolder
 import me.magnum.melonds.impl.PunicaLayout
+import me.magnum.melonds.impl.SwitchModInstaller
 import me.magnum.melonds.impl.SwitchUserDataImport
 import org.dolphinemu.dolphinemu.features.settings.ui.MenuTag as GcWiiSettingsMenu
 import org.yuzu.yuzu_emu.features.settings.model.Settings.MenuTag as SwitchSettingsMenu
@@ -30,6 +31,7 @@ import me.magnum.melonds.ui.settings.SettingsActivity
 import me.magnum.melonds.ui.settings.SwitchToolDialogActivity
 import org.citra.citra_emu.activities.EmulationActivity
 import org.citra.citra_emu.utils.PermissionsHandler
+import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.text.DateFormat
@@ -56,6 +58,11 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
     // a 3DS mod's zip, picked with the system's file picker
     private val modZipLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { zip ->
         if (zip != null) readMod(zip)
+    }
+
+    // a Switch mod's zip, picked with the system's file picker
+    private val switchModZipLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { zip ->
+        if (zip != null) readSwitchMod(zip)
     }
 
     // a backup exported by Eden, imported into the Switch folder
@@ -136,6 +143,10 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
                     Toast.makeText(requireContext(), getString(R.string.three_ds_code_trace_on, traces.absolutePath), Toast.LENGTH_LONG).show()
                 }
             }
+            true
+        }
+        findPreference<Preference>("switch_mod_install")?.setOnPreferenceClickListener {
+            withFolder { switchModZipLauncher.launch(arrayOf("application/zip", "application/x-zip-compressed")) }
             true
         }
         findPreference<Preference>("three_ds_mod_install")?.setOnPreferenceClickListener {
@@ -344,8 +355,64 @@ class MainPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTitl
         }
     }
 
-    private fun progressDialog(message: Int) = AlertDialog.Builder(requireContext())
-        .setTitle(R.string.three_ds_mod_install)
+    // the Switch mods folder, Eden's load directory (Punica/Switch/Mods), or null before the folder is set up
+    private fun switchModsFolder() = PomegradeFolder.layoutRoot(requireContext())?.let { PunicaLayout.part(it, PunicaLayout.SWITCH, PunicaLayout.MODS) }
+
+    // a Switch mod: the zip's mods are shown first (game ID, mod name, new or replacing one of the same name)
+    private fun readSwitchMod(zip: Uri) {
+        val resolver = requireContext().contentResolver
+        val open = { resolver.openInputStream(zip) ?: throw IOException("can't open $zip") }
+        val name = runCatching {
+            resolver.query(zip, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null }
+        }.getOrNull()?.removeSuffix(".zip") ?: ""
+        val folder = switchModsFolder()
+        val progress = progressDialog(R.string.switch_mod_reading, R.string.switch_mod_install)
+        viewLifecycleOwner.lifecycleScope.launch {
+            val read = withContext(Dispatchers.IO) {
+                runCatching {
+                    val contents = SwitchModInstaller().inspect(open, name)
+                    contents to (folder?.let { SwitchModInstaller().alreadyInstalled(contents, it) } ?: emptySet())
+                }.getOrNull()
+            }
+            progress.dismiss()
+            val contents = read?.first
+            when {
+                contents == null || folder == null -> toast(R.string.switch_mod_failed)
+                !contents.isMod -> toast(R.string.switch_mod_not_a_mod)
+                else -> {
+                    val mods = contents.mods.sortedWith(compareBy({ it.titleId }, { it.name })).joinToString("\n") { mod ->
+                        getString(if (mod in read.second) R.string.switch_mod_replaces else R.string.switch_mod_new, mod.titleId, mod.name)
+                    }
+                    AlertDialog.Builder(requireContext())
+                        .setTitle(R.string.switch_mod_confirm_title)
+                        .setMessage(getString(R.string.switch_mod_confirm, mods))
+                        .setPositiveButton(R.string.switch_mod_install_action) { _, _ -> installSwitchMod(open, folder, name) }
+                        .setNegativeButton(R.string.cancel, null)
+                        .show()
+                }
+            }
+        }
+    }
+
+    private fun installSwitchMod(open: () -> InputStream, folder: File, name: String) {
+        val progress = progressDialog(R.string.switch_mod_installing, R.string.switch_mod_install)
+        viewLifecycleOwner.lifecycleScope.launch {
+            // a zip the picker's app no longer gives (SecurityException) is a failure, not a crash
+            val result = withContext(Dispatchers.IO) {
+                runCatching { SwitchModInstaller().install(open, folder, name) }.getOrElse { SwitchModInstaller.Result.Failed }
+            }
+            progress.dismiss()
+            when (result) {
+                is SwitchModInstaller.Result.Installed ->
+                    Toast.makeText(requireContext(), getString(R.string.switch_mod_installed, result.files), Toast.LENGTH_LONG).show()
+                SwitchModInstaller.Result.NotAMod -> toast(R.string.switch_mod_not_a_mod)
+                SwitchModInstaller.Result.Failed -> toast(R.string.switch_mod_failed)
+            }
+        }
+    }
+
+    private fun progressDialog(message: Int, title: Int = R.string.three_ds_mod_install) = AlertDialog.Builder(requireContext())
+        .setTitle(title)
         .setMessage(message)
         .setCancelable(false)
         .show()

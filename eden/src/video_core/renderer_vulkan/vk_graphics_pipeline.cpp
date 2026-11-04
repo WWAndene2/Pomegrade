@@ -289,6 +289,13 @@ GraphicsPipeline::GraphicsPipeline(
         num_descriptor_entries += NumDescriptorEntries(*info);
     }
     fragment_has_color0_output = stage_infos[NUM_STAGES - 1].stores_frag_color[0];
+    for (size_t stage = 0; stage + 1 < NUM_STAGES; ++stage) {
+        const Shader::Info& info{stage_infos[stage]};
+        pre_fragment_uses_resources |= !info.texture_descriptors.empty() || !info.image_descriptors.empty() ||
+                                       !info.texture_buffer_descriptors.empty() ||
+                                       !info.image_buffer_descriptors.empty() ||
+                                       !info.storage_buffers_descriptors.empty();
+    }
 
     DescriptorLayoutBuilder builder{MakeBuilder(device, stage_infos)};
     uses_push_descriptor = builder.CanUsePushDescriptor();
@@ -541,6 +548,9 @@ bool GraphicsPipeline::ConfigureImpl(bool is_indexed) {
     if (regs.transform_feedback_enabled != 0) {
         scheduler.RequestOutsideRenderPassOperationContext();
     }
+    if (pre_fragment_uses_resources) {
+        scheduler.RequestNonFragmentDependency();
+    }
 
     {
         Profile::Scope scope{Profile::Zone::UpdateBuffers};
@@ -645,6 +655,9 @@ bool GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
 
     scheduler.RequestRenderpass(uses_null_render_pass ? scheduler.NullFramebuffer()
                                                       : texture_cache.GetFramebuffer());
+    if (maxwell3d->regs.transform_feedback_enabled != 0) {
+        scheduler.MarkTransformFeedbackInPass();
+    }
     if (!is_built.load(std::memory_order::relaxed)) {
         // Wait for the pipeline to be built
         scheduler.Record([this](vk::CommandBuffer) {
