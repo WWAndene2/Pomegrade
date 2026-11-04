@@ -12,6 +12,12 @@ LandData LandData::Read(const Bytes& d)
     if (buildSize % 0x30) throw FormatError("land data: buildings of " + std::to_string(buildSize) + " bytes");
     LandData l;
     size_t at = 16;
+    // HeartGold/SoulSilver: the header goes on with u16 0x1234 and the size of a section before the permissions
+    // (the piece's background sounds), skipped; checked on HeartGold's matrix 0: the five sizes add up to each
+    // piece's length exactly, and the terrain model's "BMD0" falls where they put it (4 November)
+    if (d.size() >= 0x14 && U16(d, 16) == 0x1234 &&
+        0x14 + size_t(U16(d, 18)) + permSize + buildSize + modelSize + heightSize == d.size())
+        at = 0x14 + U16(d, 18);
     for (uint32_t i = 0; i < LandTiles * LandTiles; i++) l.Permissions.push_back(U16(d, at + i * 2));
     at += permSize;
     for (size_t b = 0; b < buildSize / 0x30; b++)
