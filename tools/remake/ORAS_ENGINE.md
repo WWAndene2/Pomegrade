@@ -9,6 +9,25 @@ marked **checked** (seen in memory or under the debugger), **read** (from the de
 
 ## 0. Start here (the state on 7 October, for whoever continues)
 
+### 0.00000 Handover of 4 November (read first; then 0.0000)
+
+**Widescreen field, owner's request (4 November), stopped unfinished by the owner.** Aim: the top screen filling a phone in
+landscape without distortion, the game's camera seeing wider (the image the 3DS draws stays 400 x 240: the game squeezes
+the wider view into it and Azahar stretches it back; Azahar's Android layout "single screen" with the aspect ratio
+"stretch" already does that half, no code). The field camera's projection is **not found**. Measured (Littleroot save
+`headless/saves/main_Trainer_Battle`, Route 102; the owner's `dumps/save/main` is in the opening truck, its top screen
+black even unpatched):
+- Gfx_CameraUpdateProjection (0x14DC6C) runs while the field loads (trace, run ws_tr2): its ortho (0x14DC6C-0x14DD48) and
+  perspective (0x14DDF0, aspect at camera + 0x2C) branches, never the frustum one (0x14DD4C). Widening the aspect it
+  reads (x 4/3, run ws_one) changed nothing on the field; the last camera it builds is a default one (0x082D493C, from
+  0x14DF8C in Gfx_Camera_InitDefaults, aspect 5/3; run ws_log, `prototype/hook_log_ips.py`).
+- The code's eight 5/3 floats (0x14DFA8, 0x36465C, 0x36486C, 0x373E98, 0x3942EC, 0x4790B8, 0x5BFB3C, 0x5F413C; 0x3942EC
+  in the camera defaults of 0x393F20: fov 0.6597 rad, 240, far 10000) all set to 20/9 (run ws_two): the field unchanged.
+- None of the other callers of the sine/cosine routine 0x164608 that run at load builds a projection (read, not run).
+- With the camera still, no projection code runs at all (trace in the field, run ws_tr): it is built once per change.
+- Next, if resumed: log which code writes the vertex shader's projection uniforms (a trace in the rig's Azahar core, the
+  arrival end, rather than the code's many camera classes); gdb on the rig failed again ("target is running", run ws_gdb).
+
 ### 0.0000 Handover of 3 November (read first; then 0.000)
 
 **The gyms, headless (3 November; trainers made one level-1 Magikarp for the tests only, `xy_gym_mod.sh --weak`, never
