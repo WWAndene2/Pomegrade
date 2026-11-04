@@ -177,3 +177,11 @@ that tile (the mod from `xy_gym_mod.sh`), A every second, a shot each 15 presses
 lists the ARM words the 3DS cannot run (movw, movt, ubfx...). `text_grammar.py <text member> [line...]` prints each
 line's grammar word (the French article: 0x1 feminine, 0x4 elided).
 
+
+## A measuring hook (`hook_log_ips.py`, 4 November)
+
+`hook_log_ips.py <code.bin> <out code.ips> --hook ADDRESS [--lr-at OFFSET] [--field OFFSET]...` turns an instruction into a
+call to a routine in the .code's free bytes that logs r0, the caller's return address and up to two words of r0's object
+at 0x579F70 each time it runs, then runs the instruction; `mem 0x579F70 16` in a run's script reads the last one (which
+camera Gfx_CameraUpdateProjection built last, ORAS_ENGINE.md 0.00000). The IPS is applied alone, as a measurement.
+Floats in the code: `code_find.py --word 0x3FD55555` (5/3); a function's callers: `code_find.py --calls`.
