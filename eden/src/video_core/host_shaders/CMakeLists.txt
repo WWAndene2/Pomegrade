@@ -14,6 +14,7 @@ set(GLSL_INCLUDES
 )
 
 set(SHADER_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/vulkan_vertex_repack.comp
     ${CMAKE_CURRENT_SOURCE_DIR}/astc_decoder.comp
     ${CMAKE_CURRENT_SOURCE_DIR}/bc_encoder.comp
     ${CMAKE_CURRENT_SOURCE_DIR}/blit_color_float.frag
@@ -74,6 +75,7 @@ set(SHADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/smaa_blending_weight_calculation.frag
     ${CMAKE_CURRENT_SOURCE_DIR}/smaa_neighborhood_blending.vert
     ${CMAKE_CURRENT_SOURCE_DIR}/smaa_neighborhood_blending.frag
+    ${CMAKE_CURRENT_SOURCE_DIR}/temporal_upscale.frag
     ${CMAKE_CURRENT_SOURCE_DIR}/vulkan_blit_depth_stencil.frag
     ${CMAKE_CURRENT_SOURCE_DIR}/vulkan_color_clear.frag
     ${CMAKE_CURRENT_SOURCE_DIR}/vulkan_color_clear.vert
@@ -95,6 +97,8 @@ set(SHADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/sgsr1_shader.vert
     ${CMAKE_CURRENT_SOURCE_DIR}/sgsr1_shader_mobile.frag
     ${CMAKE_CURRENT_SOURCE_DIR}/sgsr1_shader_mobile_edge_direction.frag
+    ${CMAKE_CURRENT_SOURCE_DIR}/fsr3_optical_flow.comp
+    ${CMAKE_CURRENT_SOURCE_DIR}/fsr3_frame_interpolation.comp
 )
 
 if (HAIKUOS)

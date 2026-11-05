@@ -8,6 +8,8 @@
 #include <type_traits>
 #include <unordered_map>
 
+#include "common/logging.h"
+
 namespace Tegra {
 
 // Native QMD 3.0 dependency scheduling; nonempty grids require a dispatch backend.
@@ -30,13 +32,37 @@ public:
         std::array<Pending, 256> pending{};
         std::size_t count = 1;
         pending[0] = {address, argument & 15, ((argument >> 14) & 0x3ff) + 1};
+        // DK Bananza also writes a second layout: the six words that sit at 38-43 come first
+        // (words 2-7) and words 2-37 follow six words later, so the version word is at 24.
+        // Its releases and dependent QMD line up after moving the words back; its grid and
+        // program fields are not understood yet, so it completes without a dispatch.
+        const auto read_valid = [&](Address qmd_address, Descriptor& qmd) {
+            if (!read(qmd_address, qmd)) return false;
+            if ((qmd[18] & 0xff) == 0x30 || (qmd[24] & 0xff) != 0x30 || (qmd[10] & 0x100)) return true;
+            const Descriptor shifted = qmd;
+            for (std::size_t i = 2; i < 38; ++i) qmd[i] = shifted[i + 6];
+            for (std::size_t i = 0; i < 6; ++i) qmd[38 + i] = shifted[2 + i];
+            qmd[12] = 0;
+            if (static bool logged{}; !logged) {
+                logged = true;
+                LOG_WARNING(HW_GPU, "QMD {:#x} uses the shifted layout; completing it without a dispatch",
+                            qmd_address);
+            }
+            return true;
+        };
         for (std::size_t i = 0; i < count; ++i) {
             const auto request = pending[i];
-            if (states.size() >= 4096 && !states.contains(request.address)) return "QMD cache limit";
+            if (states.size() >= 4096 && !states.contains(request.address)) {
+                // Finished QMDs with nothing deferred are only history, drop them instead of stalling.
+                std::erase_if(states, [](const auto& entry) {
+                    return entry.second.completed && entry.second.deferred == 0;
+                });
+                if (states.size() >= 4096) return "QMD cache limit";
+            }
             auto& state = states[request.address];
             if (request.action == 3 || request.action == 2) {
                 if (request.action == 3 || !state.loaded) {
-                    if (!read(request.address, state.descriptor)) return "unmapped QMD";
+                    if (!read_valid(request.address, state.descriptor)) return "unmapped QMD";
                     const auto& qmd = state.descriptor;
                     if ((qmd[18] & 0xff) != 0x30 || (qmd[4] & 0x100)) return "unsupported QMD version or queue";
                     if constexpr (std::is_same_v<Dispatch, RejectShaderDispatch>) {
@@ -69,7 +95,7 @@ public:
             if (state.dependencies < 0) return "QMD dependency underflow";
             // The SDK patches release payloads while a scheduled QMD is
             // waiting for its remaining dependencies. Fetch them at execution.
-            if (!read(request.address, state.descriptor)) return "unmapped QMD";
+            if (!read_valid(request.address, state.descriptor)) return "unmapped QMD";
             const auto qmd = state.descriptor;
             if ((qmd[18] & 0xff) != 0x30 || (qmd[4] & 0x100)) return "unsupported QMD version or queue";
             // Validate the release slots before making any visible.

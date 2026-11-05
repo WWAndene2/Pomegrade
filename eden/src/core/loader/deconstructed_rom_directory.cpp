@@ -4,11 +4,17 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
+#include <cctype>
+#include <cstdlib>
 #include <cstring>
+#include <map>
+#include <string_view>
 #include "common/logging.h"
 #include "common/random.h"
 #include "common/settings.h"
 #include "core/core.h"
+#include "core/file_sys/common_funcs.h"
 #include "core/file_sys/content_archive.h"
 #include "core/file_sys/control_metadata.h"
 #include "core/file_sys/patch_manager.h"
@@ -94,6 +100,125 @@ FileSys::VirtualFile FindLooseRomFS(const FileSys::VirtualDir& exefs_dir) {
     return nullptr;
 }
 
+// The display version of a dump without control data, from its RomFS: Nintendo EPD titles name
+// their resource size tables after it (System/Resource/ResourceSizeTable.Product.180.* in Mario
+// Kart World 1.8.0). A hotfix can keep its minor version's tables (Product.110 in a 1.1.1).
+std::string RomFSProductVersion(const FileSys::VirtualDir& romfs_dir) {
+    if (romfs_dir == nullptr) {
+        return {};
+    }
+    const auto system_dir = romfs_dir->GetSubdirectory("System");
+    const auto resource_dir = system_dir != nullptr ? system_dir->GetSubdirectory("Resource") : nullptr;
+    if (resource_dir == nullptr) {
+        return {};
+    }
+    constexpr std::string_view Prefix = "ResourceSizeTable.Product.";
+    std::string best;
+    for (const auto& file : resource_dir->GetFiles()) {
+        const std::string file_name = file->GetName();
+        if (!file_name.starts_with(Prefix) || file_name.size() < Prefix.size() + 4) {
+            continue;
+        }
+        const std::string_view digits = std::string_view{file_name}.substr(Prefix.size(), 3);
+        if (file_name[Prefix.size() + 3] != '.' ||
+            !std::all_of(digits.begin(), digits.end(), [](char c) { return c >= '0' && c <= '9'; })) {
+            continue;
+        }
+        if (std::string version{digits}; version > best) {
+            best = version;
+        }
+    }
+    if (best.empty()) {
+        return {};
+    }
+    return fmt::format("{}.{}.{}", best[0], best[1], best[2]);
+}
+
+// Loose ExeFS dumps carry no control data, but icon/nacp sidecars can be dropped next to the
+// ExeFS or in the game folder above it (<game>/exefs/main, <game>/base/exefs/main and
+// <game>/updates/<title id>/exefs/main layouts).
+std::vector<FileSys::VirtualDir> FindSidecarDirs(const FileSys::VirtualDir& exefs_dir) {
+    const auto equals_ignore_case = [](const std::string& a, std::string_view b) {
+        return a.size() == b.size() &&
+               std::equal(a.begin(), a.end(), b.begin(), [](char x, char y) {
+                   return std::tolower(static_cast<unsigned char>(x)) ==
+                          std::tolower(static_cast<unsigned char>(y));
+               });
+    };
+
+    std::vector<FileSys::VirtualDir> dirs{exefs_dir};
+    for (auto dir = exefs_dir; dirs.size() < 4;) {
+        const auto parent = dir->GetParentDirectory();
+        if (parent == nullptr) {
+            break;
+        }
+        const auto& name = parent->GetName();
+        dirs.push_back(parent);
+        const bool storage_level =
+            equals_ignore_case(name, "base") || equals_ignore_case(name, "update") ||
+            equals_ignore_case(name, "updates") ||
+            (!name.empty() && name.find_first_not_of("0123456789abcdefABCDEF") == std::string::npos);
+        if (!storage_level) {
+            break;
+        }
+        dir = parent;
+    }
+    return dirs;
+}
+
+// Add-on content of a loose title: a dlc/ directory in the game folder or up to two levels above
+// it (base/, updates/<version>/ and dlc/ side by side), holding <title id>/<version>/romfs.
+std::map<u64, FileSys::VirtualFile> FindLooseAddOnContent(const FileSys::VirtualDir& exefs_dir,
+                                                         u64 base_title_id) {
+    std::map<u64, FileSys::VirtualFile> entries;
+    FileSys::VirtualDir dlc_dir;
+    auto search = exefs_dir != nullptr ? exefs_dir->GetParentDirectory() : nullptr;
+    for (int level = 0; level < 3 && search != nullptr && dlc_dir == nullptr; ++level) {
+        dlc_dir = search->GetSubdirectory("dlc");
+        search = search->GetParentDirectory();
+    }
+    if (dlc_dir == nullptr) {
+        return entries;
+    }
+    for (const auto& title_dir : dlc_dir->GetSubdirectories()) {
+        const auto& name = title_dir->GetName();
+        char* end = nullptr;
+        const u64 title_id = std::strtoull(name.c_str(), &end, 16);
+        if (name.size() != 16 || *end != '\0' ||
+            FileSys::GetBaseTitleID(title_id) != FileSys::GetBaseTitleID(base_title_id) ||
+            title_id == base_title_id) {
+            continue;
+        }
+        // The highest numbered version directory with a romfs/, else a romfs/ directly inside.
+        FileSys::VirtualDir romfs_dir;
+        u64 best_version = 0;
+        for (const auto& version_dir : title_dir->GetSubdirectories()) {
+            const auto& version_name = version_dir->GetName();
+            char* version_end = nullptr;
+            const u64 version = std::strtoull(version_name.c_str(), &version_end, 10);
+            if (version_name.empty() || *version_end != '\0') {
+                continue;
+            }
+            if (const auto candidate = version_dir->GetSubdirectory("romfs");
+                candidate != nullptr && (romfs_dir == nullptr || version >= best_version)) {
+                romfs_dir = candidate;
+                best_version = version;
+            }
+        }
+        if (romfs_dir == nullptr) {
+            romfs_dir = title_dir->GetSubdirectory("romfs");
+        }
+        if (romfs_dir == nullptr) {
+            continue;
+        }
+        if (auto romfs = FileSys::CreateRomFS(romfs_dir)) {
+            LOG_INFO(Loader, "Using loose add-on content {:016X}", title_id);
+            entries.emplace(title_id, std::move(romfs));
+        }
+    }
+    return entries;
+}
+
 } // namespace
 
 AppLoader_DeconstructedRomDirectory::AppLoader_DeconstructedRomDirectory(FileSys::VirtualFile file_, bool override_update_)
@@ -101,6 +226,7 @@ AppLoader_DeconstructedRomDirectory::AppLoader_DeconstructedRomDirectory(FileSys
     , override_update(override_update_)
 {
     const auto file_dir = file->GetContainingDirectory();
+    const auto sidecar_dirs = FindSidecarDirs(file_dir);
 
     // Title ID
     const auto npdm = file_dir->GetFile("main.npdm");
@@ -112,8 +238,13 @@ AppLoader_DeconstructedRomDirectory::AppLoader_DeconstructedRomDirectory(FileSys
 
     // Icon
     FileSys::VirtualFile icon_file = nullptr;
-    for (const auto& language : FileSys::LANGUAGE_NAMES) {
-        icon_file = file_dir->GetFile("icon_" + std::string(language) + ".dat");
+    for (const auto& sidecar_dir : sidecar_dirs) {
+        for (const auto& language : FileSys::LANGUAGE_NAMES) {
+            icon_file = sidecar_dir->GetFile("icon_" + std::string(language) + ".dat");
+            if (icon_file != nullptr) {
+                break;
+            }
+        }
         if (icon_file != nullptr) {
             icon_data = icon_file->ReadAllBytes();
             break;
@@ -122,33 +253,46 @@ AppLoader_DeconstructedRomDirectory::AppLoader_DeconstructedRomDirectory(FileSys
 
     if (icon_data.empty()) {
         // Any png, jpeg, or bmp file
-        const auto& files = file_dir->GetFiles();
-        const auto icon_iter =
-            std::find_if(files.begin(), files.end(), [](const FileSys::VirtualFile& f) {
-                return f->GetExtension() == "png" || f->GetExtension() == "jpg" ||
-                       f->GetExtension() == "bmp" || f->GetExtension() == "jpeg";
-            });
-        if (icon_iter != files.end())
-            icon_data = (*icon_iter)->ReadAllBytes();
+        for (const auto& sidecar_dir : sidecar_dirs) {
+            const auto& files = sidecar_dir->GetFiles();
+            const auto icon_iter =
+                std::find_if(files.begin(), files.end(), [](const FileSys::VirtualFile& f) {
+                    return f->GetExtension() == "png" || f->GetExtension() == "jpg" ||
+                           f->GetExtension() == "bmp" || f->GetExtension() == "jpeg";
+                });
+            if (icon_iter != files.end()) {
+                icon_data = (*icon_iter)->ReadAllBytes();
+                break;
+            }
+        }
     }
 
     // Metadata
-    FileSys::VirtualFile nacp_file = file_dir->GetFile("control.nacp");
-    if (nacp_file == nullptr) {
-        const auto& files = file_dir->GetFiles();
+    FileSys::VirtualFile nacp_file = nullptr;
+    for (const auto& sidecar_dir : sidecar_dirs) {
+        nacp_file = sidecar_dir->GetFile("control.nacp");
+        if (nacp_file != nullptr) {
+            break;
+        }
+        const auto& files = sidecar_dir->GetFiles();
         const auto nacp_iter =
             std::find_if(files.begin(), files.end(),
                          [](const FileSys::VirtualFile& f) { return f->GetExtension() == "nacp"; });
-        if (nacp_iter != files.end())
+        if (nacp_iter != files.end()) {
             nacp_file = *nacp_iter;
+            break;
+        }
     }
 
     if (nacp_file != nullptr) {
-        FileSys::NACP nacp(nacp_file);
-        name = nacp.GetApplicationName();
+        control.emplace(nacp_file);
+        name = control->GetApplicationName();
     }
 
     romfs = FindLooseRomFS(file_dir);
+    if (const auto title_dir = file_dir->GetParentDirectory()) {
+        romfs_version = RomFSProductVersion(title_dir->GetSubdirectory("romfs"));
+    }
 }
 
 AppLoader_DeconstructedRomDirectory::AppLoader_DeconstructedRomDirectory(
@@ -213,6 +357,24 @@ AppLoader_DeconstructedRomDirectory::LoadResult AppLoader_DeconstructedRomDirect
         return {result2, {}};
     }
     metadata.Print();
+
+    // Loose-ExeFS loads bypass the NCA/NSP loaders, which are the ones that normally apply
+    // LayeredFS to the RomFS; apply it here so mods in user/load/<titleid>/ work too.
+    if (romfs != nullptr) {
+        const FileSys::PatchManager patch_manager(metadata.GetTitleID(),
+                                                  system.GetFileSystemController(),
+                                                  system.GetContentProvider());
+        auto patched = patch_manager.PatchRomFS(nullptr, romfs);
+        if (patched != nullptr) {
+            romfs = std::move(patched);
+            LOG_INFO(Loader, "Applied RomFS patches (LayeredFS) for title {:016X}",
+                     metadata.GetTitleID());
+        }
+    }
+
+    // From the loaded file: a patched ExeFS has no parent directory to search from.
+    FileSys::SetLooseAddOnContent(
+        FindLooseAddOnContent(file->GetContainingDirectory(), metadata.GetTitleID()));
 
     // Enable NCE only for applications with 39-bit address space.
     const bool is_39bit =
@@ -341,6 +503,26 @@ ResultStatus AppLoader_DeconstructedRomDirectory::ReadTitle(std::string& out_tit
 
     out_title = name;
     return ResultStatus::Success;
+}
+
+ResultStatus AppLoader_DeconstructedRomDirectory::ReadControlData(FileSys::NACP& out_control) {
+    if (!control) {
+        return ResultStatus::ErrorNoControl;
+    }
+    out_control = *control;
+    return ResultStatus::Success;
+}
+
+ResultStatus AppLoader_DeconstructedRomDirectory::ReadDisplayVersion(std::string& version) {
+    if (control && !control->GetVersionString().empty()) {
+        version = control->GetVersionString();
+        return ResultStatus::Success;
+    }
+    if (!romfs_version.empty()) {
+        version = romfs_version;
+        return ResultStatus::Success;
+    }
+    return ResultStatus::ErrorNoControl;
 }
 
 bool AppLoader_DeconstructedRomDirectory::IsRomFSUpdatable() const {

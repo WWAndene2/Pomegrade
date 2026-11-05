@@ -52,6 +52,18 @@ android {
         resValue("string", "app_name_suffixed", "Eden")
     }
 
+    buildTypes {
+        named("release") {
+            externalNativeBuild {
+                cmake {
+                    // As the Switch 2 fork's own release builds (Eden SX2A): no reading of EDEN_NX2_* switches from
+                    // nx2_env.txt in the app's folder, a developer knob for debug builds only
+                    arguments += "-DEDEN_NX2_NO_ENV_FILE=ON"
+                }
+            }
+        }
+    }
+
     buildFeatures {
         viewBinding = true
         buildConfig = true

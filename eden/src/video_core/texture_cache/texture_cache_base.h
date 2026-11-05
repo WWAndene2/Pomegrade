@@ -128,6 +128,10 @@ class TextureCache : public VideoCommon::ChannelSetupCaches<TextureCacheChannelI
     u64 gc_download_deletes{}; ///< Evictions that downloaded the image first (a full GPU wait)
     u64 async_decodes_queued{};
     u64 images_created{};
+    u64 images_uploaded{};   ///< Image contents uploaded from guest memory (last 600 frames)
+    u64 uploaded_bytes{};    ///< Guest bytes those uploads read
+    u64 largest_upload{};    ///< Largest of them
+    u64 layer_uploads{};     ///< Of them, uploads of only the written layers
     bool native_thresholds_applied{};
     u64 native_critical_memory{};
     u64 native_expected_memory{};
@@ -150,6 +154,36 @@ class TextureCache : public VideoCommon::ChannelSetupCaches<TextureCacheChannelI
     using Framebuffer = typename P::Framebuffer;
     using AsyncBuffer = typename P::AsyncBuffer;
     using BufferType = typename P::BufferType;
+
+    static constexpr u32 LayerUploadMinSize = 64U << 20;
+    static constexpr size_t LargeScratchCapacity = 64U << 20;
+
+    /// Large layered images whose refresh can decode only the layers written since the last one.
+    [[nodiscard]] bool UploadsByLayer(const ImageBase& image) const noexcept;
+
+    /// Records the layers a write of [cpu_addr, +size) touches.
+    void MarkLayersWritten(Image& image, DAddr cpu_addr, size_t size);
+
+    /// SparseTiles images: notes a written range, uploaded with the next refresh.
+    void MarkRangeWritten(Image& image, DAddr cpu_addr, size_t size);
+
+    /// SparseTiles images: binds and uploads the parts written since the last upload.
+    void RefreshSparseTiles(Image& image);
+
+    /// Image::BindTiles, counting what it binds in total_used_memory.
+    bool BindSparseTiles(Image& image, std::span<const LevelRect> rects);
+
+    /// Image::BackTilesWhole, counting what it binds in total_used_memory.
+    bool BackSparseTilesWhole(Image& image);
+
+    /// Uploads the image's dirty layers. False when it needs a full upload instead.
+    bool UploadWrittenLayers(Image& image);
+
+    /// Gives the written layers of a SparseLayers image memory and uploads them.
+    void RefreshSparseLayers(Image& image);
+
+    /// Uploads `layers` of the image from guest memory.
+    void UploadLayers(Image& image, std::span<const u32> layers);
 
     struct PendingUnswizzle {
         ImageId image_id;
@@ -238,6 +272,13 @@ public:
     bool BlitImage(const Tegra::Engines::Fermi2D::Surface& dst,
                    const Tegra::Engines::Fermi2D::Surface& src,
                    const Tegra::Engines::Fermi2D::Config& copy);
+
+    /// Stand-in for a DLSS evaluation: temporal upscale of src into dst (see the runtime's
+    /// TemporalUpscale). False when the images cannot take it; the caller then blits.
+    bool TemporalUpscale(const Tegra::Engines::Fermi2D::Surface& dst,
+                         const Tegra::Engines::Fermi2D::Surface& src,
+                         const Tegra::Engines::Fermi2D::Surface& motion_vectors,
+                         std::array<f32, 2> jitter, std::array<f32, 2> motion_scale);
 
     /// Try to find a cached image view in the given CPU address
     [[nodiscard]] std::pair<ImageView*, bool> TryFindFramebufferImageView(
@@ -402,6 +443,23 @@ private:
     /// Stop tracking CPU reads and writes for image
     void UntrackImage(ImageBase& image, ImageId image_id);
 
+    /// Records a CPU write into a large 2D image page by page instead of untracking it whole.
+    /// Returns false when the image does not qualify (the caller marks it modified as usual).
+    bool MarkPartialWrite(ImageBase& image, DAddr cpu_addr, size_t size);
+
+    /// Uploads a large plain 2D image in chunks; false if it does not qualify.
+    bool UploadInChunks(Image& image);
+
+    /// Records a GPU remap of a small part of a large 2D image for a partial re-upload instead of
+    /// marking the whole image remapped (which replaces it). False if the image does not qualify.
+    bool MarkPartialRemap(ImageBase& image, GPUVAddr gpu_addr, size_t size);
+
+    /// Tracks the pages of a partial write again and forgets them.
+    void RestorePartialPages(ImageBase& image);
+
+    /// Uploads the block rows the recorded pages cover. Returns false if the layout is not handled.
+    bool RefreshPartialContents(Image& image);
+
     /// Delete image from the cache
     void DeleteImage(ImageId image, bool immediate_delete = false);
 
@@ -441,6 +499,10 @@ private:
     bool ScaleUp(Image& image);
     bool ScaleDown(Image& image);
     u64 GetScaledImageSizeBytes(const ImageBase& image);
+
+    /// Device memory an image holds, as the collector counts it (an unbacked image only what its
+    /// sparse binds gave it).
+    u64 ImageMemoryBytes(const Image& image) const;
 
     void QueueAsyncDecode(Image& image, ImageId image_id);
     void TickAsyncDecode();

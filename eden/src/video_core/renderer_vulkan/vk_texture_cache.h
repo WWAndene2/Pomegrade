@@ -87,6 +87,12 @@ public:
                    Tegra::Engines::Fermi2D::Filter filter,
                    Tegra::Engines::Fermi2D::Operation operation);
 
+    /// Stands in for a DLSS evaluation: temporal upscale of input_color into dst, accumulated with
+    /// a copy of dst's previous contents (the last output). False when dst cannot take it.
+    bool TemporalUpscale(Framebuffer* dst_framebuffer, ImageView& dst, ImageView& input_color,
+                         ImageView& motion_vectors, std::array<f32, 2> jitter,
+                         std::array<f32, 2> motion_scale);
+
     void CopyImage(Image& dst, Image& src, std::span<const VideoCommon::ImageCopy> copies);
 
     void CopyImageMSAA(Image& dst, Image& src, std::span<const VideoCommon::ImageCopy> copies);
@@ -108,6 +114,11 @@ public:
     void AccelerateImageUpload(Image&, const StagingBufferRef&,
                                std::span<const VideoCommon::SwizzleParameters>,
                                u32 z_start, u32 z_count);
+
+    /// Decodes only `layers` of an ASTC array; the staging buffer holds those layers in order.
+    void AccelerateImageUploadLayers(Image&, const StagingBufferRef&,
+                                     std::span<const VideoCommon::SwizzleParameters>,
+                                     std::span<const u32> layers);
 
     void InsertUploadMemoryBarrier() {}
 
@@ -164,6 +175,15 @@ public:
     StagingBufferPool& staging_buffer_pool;
     BlitImageHelper& blit_image_helper;
     RenderPassCache& render_pass_cache;
+
+    /// TemporalUpscale's history: its previous result, copied right after drawing it.
+    struct TemporalHistory {
+        vk::Image image;
+        vk::ImageView view;
+        VkFormat format{};
+        VkExtent2D extent{};
+    } temporal_history;
+
     std::optional<ASTCDecoderPass> astc_decoder_pass;
     std::optional<BcEncoderPass> bc_encoder_pass;
 
@@ -377,6 +397,42 @@ public:
 
     VkImageView StorageImageView(s32 level) noexcept;
 
+    /// A storage view of one layer of a host level (decoding only some layers of an array).
+    VkImageView StorageImageLayerView(s32 level, u32 layer);
+
+    /// SparseLayers images: gives `layers` device memory where they have none yet. Returns the
+    /// layers that have memory afterwards (a cap per image can leave some out).
+    std::vector<u32> BindLayers(std::span<const u32> layers);
+
+    /// SparseTiles images: gives the host sparse blocks under `rects` (and the mip tail, for
+    /// levels in it) device memory where they have none yet. False if that failed.
+    bool BindTiles(std::span<const VideoCommon::LevelRect> rects);
+
+    /// SparseTiles images: the host sparse block, in texels, and the first level of the mip tail.
+    u32 SparseTileWidth() const noexcept {
+        return sparse_layers.tile_width;
+    }
+    u32 SparseTileHeight() const noexcept {
+        return sparse_layers.tile_height;
+    }
+    s32 SparseTailLevel() const noexcept {
+        return static_cast<s32>(sparse_layers.tail_level);
+    }
+
+    /// SparseTiles images whose blocks without memory of their own share one zeroed block.
+    bool SparseTilesShareZeroBlock() const noexcept {
+        return sparse_layers.zero_block != VK_NULL_HANDLE;
+    }
+
+    /// SparseTiles images sharing a zeroed block, before the GPU renders into them: every block
+    /// gets memory of its own, all cleared (the caller loads the data again). False on failure.
+    bool BackTilesWhole();
+
+    /// Device memory BindLayers has bound to the image's layers (an unbacked image has no other).
+    u64 SparseBoundBytes() const noexcept {
+        return sparse_layers.bound_bytes;
+    }
+
     bool IsRescaled() const noexcept;
 
     bool ScaleUp(bool ignore = false);
@@ -395,6 +451,94 @@ private:
     Scheduler* scheduler{};
     TextureCacheRuntime* runtime{};
 
+    /// Memory bound to the layers of a SparseLayers image. Declared before the images, so it is
+    /// released after them.
+    struct SparseLayerMemory {
+        SparseLayerMemory() = default;
+        SparseLayerMemory(const SparseLayerMemory&) = delete;
+        SparseLayerMemory& operator=(const SparseLayerMemory&) = delete;
+        SparseLayerMemory(SparseLayerMemory&& other) noexcept {
+            *this = std::move(other);
+        }
+        SparseLayerMemory& operator=(SparseLayerMemory&& other) noexcept {
+            Release();
+            allocator = std::exchange(other.allocator, nullptr);
+            requirements = other.requirements;
+            sparse = other.sparse;
+            width = other.width;
+            height = other.height;
+            levels = other.levels;
+            tile_width = other.tile_width;
+            tile_height = other.tile_height;
+            layer_bytes = other.layer_bytes;
+            layer_memory = std::move(other.layer_memory);
+            other.layer_memory.clear();
+            level_tiles = std::move(other.level_tiles);
+            other.level_tiles.clear();
+            tail_level = other.tail_level;
+            zero_block = std::exchange(other.zero_block, VK_NULL_HANDLE);
+            tail_memory = std::exchange(other.tail_memory, VK_NULL_HANDLE);
+            bound_bytes = other.bound_bytes;
+            warned = other.warned;
+            return *this;
+        }
+        ~SparseLayerMemory() {
+            Release();
+        }
+        void Release() noexcept {
+            if (allocator == nullptr) {
+                return;
+            }
+            for (const VmaAllocation allocation : layer_memory) {
+                allocator->FreeSparseMemory(allocation);
+            }
+            for (const auto& tiles : level_tiles) {
+                for (const VmaAllocation allocation : tiles) {
+                    allocator->FreeSparseMemory(allocation);
+                }
+            }
+            allocator->FreeSparseMemory(tail_memory);
+            allocator->FreeSparseMemory(zero_block);
+            zero_block = VK_NULL_HANDLE;
+            layer_memory.clear();
+            level_tiles.clear();
+            tail_memory = VK_NULL_HANDLE;
+        }
+
+        const MemoryAllocator* allocator{};
+        VkMemoryRequirements requirements{};
+        VkSparseImageMemoryRequirements sparse{};
+        u32 width{};       ///< Host level 0
+        u32 height{};
+        u32 levels{};      ///< Host levels
+        u32 tile_width{};  ///< Sparse block, in texels
+        u32 tile_height{};
+        VkDeviceSize layer_bytes{}; ///< One layer's levels before the mip tail, and its own tail
+        std::vector<VmaAllocation> layer_memory; ///< Per layer, null until bound
+        /// SparseTiles: per level before the mip tail, per sparse block (rows), null until bound
+        std::vector<std::vector<VmaAllocation>> level_tiles;
+        u32 tail_level{}; ///< SparseTiles: first level of the mip tail
+        /// SparseTiles: the zeroed block every block without memory of its own is bound to, where
+        /// the driver can't sample unbound memory
+        VmaAllocation zero_block{};
+        VmaAllocation tail_memory{};             ///< The mip tail all layers share, if one
+        VkDeviceSize bound_bytes{};
+        bool warned{};
+    };
+    SparseLayerMemory sparse_layers;
+
+    /// Reads the image's sparse requirements; false when it can't be bound by layer.
+    bool InitSparseLayers();
+
+    /// Reads the image's sparse requirements; false when it can't be bound by sparse block.
+    bool InitSparseTiles();
+
+    /// Binds one zeroed block to every block of a SparseTiles image (and memory to its mip tail).
+    bool BindZeroBlock();
+
+    /// Records a clear of the whole image to zero.
+    void ClearTiles();
+
     vk::Image original_image;
     vk::Image scaled_image;
 
@@ -409,6 +553,7 @@ private:
     vk::Image Image::*current_image{};
 
     std::vector<vk::ImageView> storage_image_views;
+    std::vector<vk::ImageView> storage_layer_views; ///< By host level * layers + layer
     VkImageAspectFlags aspect_mask = 0;
     bool initialized = false;
 

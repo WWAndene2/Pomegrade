@@ -38,6 +38,7 @@ enum class SettingsSubscreen {
     GAME_INFO,
     ADDONS,
     GAME_PROPERTIES, // Pomegrade: a game's options opened from Punica's game list
+    SWITCH2_READINESS,
 }
 
 class SettingsSubscreenActivity : AppCompatActivity() {
@@ -137,6 +138,7 @@ class SettingsSubscreenActivity : AppCompatActivity() {
             SettingsSubscreen.GAME_INFO -> R.id.gameInfoFragment
             SettingsSubscreen.ADDONS -> R.id.addonsFragment
             SettingsSubscreen.GAME_PROPERTIES -> R.id.perGamePropertiesFragment
+            SettingsSubscreen.SWITCH2_READINESS -> R.id.switch2ReadinessFragment
         }
 
     private fun createStartDestinationArgs(): Bundle =

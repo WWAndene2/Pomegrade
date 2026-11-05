@@ -250,6 +250,9 @@ struct Values {
 
     // Cpu
     SwitchableSetting<CpuBackend, true> cpu_backend{linkage,
+// Pomegrade: NCE stays the default on Android. The Switch 2 fork (Eden SX2A) made Android default to
+// Dynarmic, 0.5x resolution, asynchronous shaders and no asynchronous presentation for its Switch 2 titles;
+// Punica keeps Eden's defaults here and in the three settings below, so Switch 1 games are not slowed down
 #ifdef HAS_NCE
                                                     CpuBackend::Nce,
 #else
@@ -419,6 +422,15 @@ struct Values {
 
     SwitchableSetting<bool> frame_gen{linkage, false, "frame_gen", Category::Renderer,
                                       Specialization::Default, true, false};
+
+    SwitchableSetting<FrameGenType> frame_gen_type{linkage,
+                                                   FrameGenType::Fsr3,
+                                                   "frame_gen_type",
+                                                   Category::Renderer,
+                                                   Specialization::Default,
+                                                   true,
+                                                   false,
+                                                   &frame_gen};
 
     SwitchableSetting<u32, true> frame_gen_multiplier{linkage,
                                                       2,
@@ -1002,6 +1014,10 @@ bool IsNceEnabled();
 
 void SetCurrentProgramID(u64 program_id);
 u64 GetCurrentProgramID();
+
+// Whether the program being loaded is a Switch 2 one (set by the core before the GPU starts).
+void SetCurrentProgramIsSwitch2(bool is_switch2);
+bool CurrentProgramIsSwitch2();
 
 bool IsOpenGL();
 

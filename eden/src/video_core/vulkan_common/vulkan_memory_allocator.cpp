@@ -248,21 +248,15 @@ vk::Image MemoryAllocator::CreateImage(const VkImageCreateInfo &ci, bool dedicat
     }
     if (result == VK_ERROR_OUT_OF_DEVICE_MEMORY && ci.imageType != VK_IMAGE_TYPE_1D) {
         // Too big to back at all, e.g. title 1's sparse virtual texture arrays (8192x8192,
-        // 68 layers, ~23 GB): on the console only resident tiles have memory. Create a sparse
-        // resident image with nothing bound, so views and copies still work; reads of it return
-        // zero and writes are dropped, instead of aborting.
-        VkImageCreateInfo sparse_ci = ci;
-        sparse_ci.flags |= VK_IMAGE_CREATE_SPARSE_BINDING_BIT | VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT;
-        VkImage sparse{};
-        if (device.GetDispatchLoader().vkCreateImage(*device.GetLogical(), &sparse_ci, nullptr,
-                                                     &sparse) == VK_SUCCESS) {
+        // 68 layers, ~23 GB): on the console only resident tiles have memory. Use an image with
+        // nothing bound, so views and copies still work, instead of aborting.
+        if (vk::Image sparse = CreateUnbackedImage(ci)) {
             LOG_WARNING(Render_Vulkan,
                         "Image {}x{}x{} ({} levels, {} layers, format {}) does not fit; using an "
                         "unbacked sparse image",
                         ci.extent.width, ci.extent.height, ci.extent.depth, ci.mipLevels,
                         ci.arrayLayers, static_cast<u32>(ci.format));
-            return vk::Image(sparse, ci.usage, *device.GetLogical(), allocator, VK_NULL_HANDLE,
-                             device.GetDispatchLoader());
+            return sparse;
         }
     }
     if (result != VK_SUCCESS) {
@@ -286,6 +280,53 @@ vk::Image MemoryAllocator::CreateImage(const VkImageCreateInfo &ci, bool dedicat
                         device.GetDispatchLoader());
 }
 
+vk::Image MemoryAllocator::CreateUnbackedImage(const VkImageCreateInfo &ci, bool aliased) const {
+    if (ci.imageType == VK_IMAGE_TYPE_1D) {
+        return vk::Image{};
+    }
+    VkImageCreateInfo sparse_ci = ci;
+    sparse_ci.flags |= VK_IMAGE_CREATE_SPARSE_BINDING_BIT | VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT;
+    if (aliased) {
+        sparse_ci.flags |= VK_IMAGE_CREATE_SPARSE_ALIASED_BIT;
+    }
+    VkImage sparse{};
+    if (device.GetDispatchLoader().vkCreateImage(*device.GetLogical(), &sparse_ci, nullptr,
+                                                 &sparse) != VK_SUCCESS) {
+        return vk::Image{};
+    }
+    return vk::Image(sparse, ci.usage, *device.GetLogical(), allocator, VK_NULL_HANDLE,
+                     device.GetDispatchLoader());
+}
+
+VmaAllocation MemoryAllocator::AllocateSparseMemory(const VkMemoryRequirements &requirements,
+                                                   VkDeviceMemory &memory,
+                                                   VkDeviceSize &offset) const {
+    const VmaAllocationCreateInfo alloc_ci{
+        .flags = 0,
+        .usage = VMA_MEMORY_USAGE_UNKNOWN,
+        .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        .preferredFlags = 0,
+        .memoryTypeBits = requirements.memoryTypeBits,
+        .pool = VK_NULL_HANDLE,
+        .pUserData = nullptr,
+        .priority = 0.f,
+    };
+    VmaAllocation allocation{};
+    VmaAllocationInfo info{};
+    if (vmaAllocateMemory(allocator, &requirements, &alloc_ci, &allocation, &info) != VK_SUCCESS) {
+        return VK_NULL_HANDLE;
+    }
+    memory = info.deviceMemory;
+    offset = info.offset;
+    return allocation;
+}
+
+void MemoryAllocator::FreeSparseMemory(VmaAllocation allocation) const {
+    if (allocation != VK_NULL_HANDLE) {
+        vmaFreeMemory(allocator, allocation);
+    }
+}
+
 vk::Buffer MemoryAllocator::CreateBuffer(const VkBufferCreateInfo &ci, MemoryUsage usage) const {
     // MESA will do memcpy() if not marked as host cached, so just force mark it for most buffers
     auto const anv_flags = (usage == MemoryUsage::Stream
@@ -307,7 +348,17 @@ vk::Buffer MemoryAllocator::CreateBuffer(const VkBufferCreateInfo &ci, MemoryUsa
     VmaAllocation allocation{};
     VkMemoryPropertyFlags property_flags{};
 
-    vk::Check(vmaCreateBuffer(allocator, &ci, &alloc_ci, &handle, &allocation, &alloc_info));
+    VkResult result = vmaCreateBuffer(allocator, &ci, &alloc_ci, &handle, &allocation, &alloc_info);
+    if (result == VK_ERROR_OUT_OF_DEVICE_MEMORY) {
+        // Video memory is full: place the buffer in system memory the GPU can read.
+        VmaAllocationCreateInfo host_ci = alloc_ci;
+        host_ci.flags &= ~VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT;
+        host_ci.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
+        host_ci.preferredFlags = 0;
+        host_ci.memoryTypeBits = 0;
+        result = vmaCreateBuffer(allocator, &ci, &host_ci, &handle, &allocation, &alloc_info);
+    }
+    vk::Check(result);
     vmaGetAllocationMemoryProperties(allocator, allocation, &property_flags);
 
     // Log GPU memory allocation for buffers
@@ -465,7 +516,7 @@ void LogMemoryStatistics(const Device& device) {
         if (s.blockCount == 0) {
             continue;
         }
-        LOG_INFO(Render_Vulkan, "VMA type {} (heap {}, flags {:#x}): {} blocks {} MiB, {} allocations {} MiB",
+        LOG_DEBUG(Render_Vulkan, "VMA type {} (heap {}, flags {:#x}): {} blocks {} MiB, {} allocations {} MiB",
                  type, properties->memoryTypes[type].heapIndex,
                  static_cast<u32>(properties->memoryTypes[type].propertyFlags), s.blockCount,
                  s.blockBytes >> 20, s.allocationCount, s.allocationBytes >> 20);

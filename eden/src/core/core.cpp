@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <array>
+#include <cstdlib>
 #include <atomic>
 #include <memory>
 #include <utility>
 
 #include "game_settings.h"
+#include "common/cpu_features.h"
 #include "audio_core/audio_core.h"
 #include "common/fs/fs.h"
 #include "common/logging.h"
@@ -23,6 +25,7 @@
 #include "core/debugger/debugger.h"
 #include "core/device_memory.h"
 #include "core/file_sys/fs_filesystem.h"
+#include "core/file_sys/nup_container.h"
 #include "core/file_sys/patch_manager.h"
 #include "core/file_sys/program_metadata.h"
 #include "core/file_sys/registered_cache.h"
@@ -114,9 +117,27 @@ namespace {
 
 // Switch 2 titles boot as a loose ExeFS, with main.npdm next to main.
 bool IsSwitch2Program(const FileSys::VirtualFile& file) {
+    FileSys::ProgramMetadata metadata;
+    if (FileSys::NupContainer::IsNupFile(file)) {
+        FileSys::NupContainer nup{file};
+        if (nup.GetStatus() != Loader::ResultStatus::Success) {
+            return false;
+        }
+        std::optional<std::size_t> program;
+        if (const auto base = nup.FindBasePackage();
+            base && nup.GetExeFSDir(*base) != nullptr) {
+            program = base;
+        } else if (const auto update = nup.FindBestUpdatePackage();
+                   update && nup.GetExeFSDir(*update) != nullptr) {
+            program = update;
+        }
+        const auto exefs = program ? nup.GetExeFSDir(*program) : nullptr;
+        const auto npdm = exefs != nullptr ? exefs->GetFile("main.npdm") : nullptr;
+        return npdm != nullptr && metadata.Load(npdm) == Loader::ResultStatus::Success &&
+               metadata.IsSwitch2();
+    }
     const auto dir = file != nullptr ? file->GetContainingDirectory() : nullptr;
     const auto npdm = dir != nullptr ? dir->GetFile("main.npdm") : nullptr;
-    FileSys::ProgramMetadata metadata;
     return npdm != nullptr && metadata.Load(npdm) == Loader::ResultStatus::Success &&
            metadata.IsSwitch2();
 }
@@ -313,15 +334,33 @@ struct System::Impl {
             fs_controller.InitTempStorage();
         }
 
+        const bool switch2_program =
+            virtual_filesystem != nullptr &&
+            IsSwitch2Program(GetGameFileFromPath(virtual_filesystem, filepath));
+
         // Switch 2 titles size their heap from the total memory and need the 12 GiB layout. Set it
         // as a per-game value, so RestoreGlobalState brings back the configured layout afterwards.
-        if (virtual_filesystem != nullptr &&
-            Settings::values.memory_layout_mode.GetValue() != Settings::MemoryLayout::Memory_12Gb &&
-            IsSwitch2Program(GetGameFileFromPath(virtual_filesystem, filepath))) {
+        Settings::SetCurrentProgramIsSwitch2(switch2_program);
+        if (switch2_program &&
+            Settings::values.memory_layout_mode.GetValue() != Settings::MemoryLayout::Memory_12Gb) {
             LOG_INFO(Core, "Switch 2 program: using the 12 GiB memory layout");
             Settings::values.memory_layout_mode.SetGlobal(false);
             Settings::values.memory_layout_mode.SetValue(Settings::MemoryLayout::Memory_12Gb);
         }
+
+        // The Switch 2 counter runs at 31.25 MHz and its SDK converts ticks with that constant
+        // (nn::os::GetSystemTickFrequency, TickManager::ConvertToTimeSpan/ConvertToTick). At 19.2 MHz
+        // every tick-based time in the game was off by 1.63x: elapsed times read short and a frame
+        // deadline in ticks waited ~27 ms. EDEN_NX2_CNTFRQ=<Hz> overrides it (A/B tests).
+        static const u64 forced_cntfrq = [] {
+            const char* value = std::getenv("EDEN_NX2_CNTFRQ");
+            return value != nullptr ? std::strtoull(value, nullptr, 10) : 0ULL;
+        }();
+        const u64 cntfrq = forced_cntfrq != 0 ? forced_cntfrq
+                           : switch2_program  ? Common::WallClock::Switch2CNTFRQ
+                                              : Common::WallClock::CNTFRQ;
+        Common::g_wall_clock.SetGuestCNTFRQ(cntfrq);
+        LOG_INFO(Core, "Guest counter frequency: {} Hz", cntfrq);
 
         InitializeKernel(system);
 
@@ -480,6 +519,9 @@ struct System::Impl {
     }
 
     PerfStatsResults GetAndResetPerfStats() {
+        if (!perf_stats) {
+            return {};
+        }
         return perf_stats->GetAndResetStats(core_timing.GetGlobalTimeUs());
     }
 
@@ -1040,6 +1082,8 @@ void System::ApplySettings() {
 
     if (IsPoweredOn()) {
         Renderer().RefreshBaseSettings();
+        // Frontends switch docked/handheld through the settings; let the running game know.
+        GetAppletManager().OperationModeChanged();
     }
 }
 

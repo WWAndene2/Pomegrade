@@ -17,6 +17,8 @@
 
 #ifdef ARCHITECTURE_x86_64
 #include "common/x64/xbyak.h"
+#endif
+#if defined(ARCHITECTURE_x86_64) || defined(ARCHITECTURE_arm64)
 #include "video_core/macro_turing_jit.h"
 #endif
 
@@ -1432,8 +1434,12 @@ void MacroEngine::Execute(Core::System& system, Engines::Maxwell3D& maxwell3d, u
                             }
                         }
                     }
-                    if (memory.IsMemoryDirty(source, read_bytes, VideoCommon::CacheType::BufferCache)) {
-                        memory.FlushRegion(source, read_bytes, VideoCommon::CacheType::BufferCache);
+                    // Query reports count too: the driver implements conditional rendering by DMA-reading an
+                    // occlusion query's report into a macro (Mario Tennis Fever's characters), and those results
+                    // sit in the query cache until flushed (read as 0 samples, the draws are skipped).
+                    constexpr auto flush_caches = VideoCommon::CacheType::BufferCache | VideoCommon::CacheType::QueryCache;
+                    if (memory.IsMemoryDirty(source, read_bytes, flush_caches)) {
+                        memory.FlushRegion(source, read_bytes, flush_caches);
                         static u64 flushes{};
                         if (++flushes % 2000 == 1) {
                             LOG_INFO(HW_GPU, "Native MME DMA read flushed GPU-written memory ({} times)", flushes);
@@ -1463,9 +1469,9 @@ void MacroEngine::Execute(Core::System& system, Engines::Maxwell3D& maxwell3d, u
                 }
                 return true;
             };
-#ifdef ARCHITECTURE_x86_64
-        // Macro code runs compiled to x86-64 (macro_turing_jit.h) instead of through the memo
-        // and the interpreter; EDEN_NX2_MME_JIT=0 goes back to those.
+#if defined(ARCHITECTURE_x86_64) || defined(ARCHITECTURE_arm64)
+        // Macro code runs compiled to x86-64 or arm64 (macro_turing_jit.h) instead of through the
+        // memo and the interpreter; EDEN_NX2_MME_JIT=0 goes back to those.
         static const bool use_jit = [] {
             const char* value = std::getenv("EDEN_NX2_MME_JIT");
             return value == nullptr || value[0] != '0';

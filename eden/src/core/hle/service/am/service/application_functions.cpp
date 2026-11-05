@@ -9,11 +9,13 @@
 #include "common/hex_util.h"
 #include "common/settings.h"
 #include "common/uuid.h"
+#include "core/core.h"
 #include "core/file_sys/common_funcs.h"
 #include "core/file_sys/control_metadata.h"
 #include "core/file_sys/patch_manager.h"
 #include "core/file_sys/registered_cache.h"
 #include "core/file_sys/savedata_factory.h"
+#include "core/hle/kernel/k_process.h"
 #include "core/hle/kernel/k_transfer_memory.h"
 #include "core/hle/result.h"
 #include "core/hle/service/am/am_results.h"
@@ -27,6 +29,7 @@
 #include "core/hle/service/ns/application_manager_interface.h"
 #include "core/hle/service/ns/service_getter_interface.h"
 #include "core/hle/service/sm/sm.h"
+#include "core/loader/loader.h"
 
 namespace Service::AM {
 
@@ -114,12 +117,13 @@ IApplicationFunctions::IApplicationFunctions(Core::System& system_, std::shared_
         {181, nullptr, "UpgradeLaunchRequiredVersion"},
         {190, nullptr, "SendServerMaintenanceOverlayNotification"},
         {200, nullptr, "GetLastApplicationExitReason"},
-        {210, D<&IApplicationFunctions::GetUnknownEvent210>, "Unknown210"},
+        {210, D<&IApplicationFunctions::GetOperationModeRefreshEvent>, "GetOperationModeRefreshEvent (guessed)"},
         {220, nullptr, "Unknown220"}, // [20.0.0+]
         {300, nullptr, "CreateMovieWriter"}, // [19.0.0+]
         {310, nullptr, "Unknown310"}, // [20.0.0+]
-        {320, D<&IApplicationFunctions::Unknown320>, "Unknown320"}, // [20.0.0+]
-        {321, D<&IApplicationFunctions::Unknown321>, "Unknown321"}, // Switch 2
+        {320, D<&IApplicationFunctions::GetScreenShotAndContinuousRecordingInitiallyEnabled>,
+         "GetScreenShotAndContinuousRecordingInitiallyEnabled"},
+        {321, D<&IApplicationFunctions::Unknown321>, "Unknown321"}, // NS2: u32 in, no out
         {330, D<&IApplicationFunctions::Unknown330>, "Unknown330"}, // [20.0.0+]
         {500, nullptr, "StartContinuousRecordingFlushForDebug"},
         {1000, nullptr, "CreateMovieMaker"},
@@ -215,18 +219,32 @@ Result IApplicationFunctions::SetTerminateResult(Result terminate_result) {
     R_SUCCEED();
 }
 
+// A loose ExeFS/RomFS dump has no installed control data: its loader's (a control.nacp next to the
+// dump, else the RomFS's version tag). Only for the program it loaded, not for library applets.
+bool IApplicationFunctions::LooseDumpDisplayVersion(std::string& version) {
+    auto& loader = system.GetAppLoader();
+    u64 program_id{};
+    if (loader.ReadProgramId(program_id) != Loader::ResultStatus::Success ||
+        FileSys::GetBaseTitleID(program_id) != FileSys::GetBaseTitleID(m_applet->program_id) ||
+        loader.ReadDisplayVersion(version) != Loader::ResultStatus::Success || version.empty()) {
+        return false;
+    }
+    LOG_INFO(Service_AM, "Display version {} from the dump's files", version);
+    return true;
+}
+
 Result IApplicationFunctions::GetDisplayVersion(Out<DisplayVersion> out_display_version) {
     LOG_DEBUG(Service_AM, "called");
 
     const auto res = GetApplicationMetadata(system, m_applet->program_id);
+    std::string version;
     if (res.first != nullptr) {
-        const auto& version = res.first->GetVersionString();
-        std::memcpy(out_display_version->string.data(), version.data(),
-                    (std::min)(version.size(), out_display_version->string.size()));
-    } else {
-        static constexpr char default_version[]{"1.0.0"};
-        std::memcpy(out_display_version->string.data(), default_version, sizeof(default_version));
+        version = res.first->GetVersionString();
+    } else if (!LooseDumpDisplayVersion(version)) {
+        version = "1.0.0";
     }
+    std::memcpy(out_display_version->string.data(), version.data(),
+                (std::min)(version.size(), out_display_version->string.size()));
 
     out_display_version->string[out_display_version->string.size() - 1] = '\0';
     R_SUCCEED();
@@ -539,22 +557,34 @@ Result IApplicationFunctions::GetHealthWarningDisappearedSystemEvent(
     R_SUCCEED();
 }
 
-Result IApplicationFunctions::GetUnknownEvent210(
+// The Switch 2 nn::oe::GetOperationMode caches the mode and only asks ICommonStateGetter again
+// once this event is signaled, so it has to fire on every docked/handheld change. Switch 1 titles
+// keep the event that never fires, as its use there is unknown.
+Result IApplicationFunctions::GetOperationModeRefreshEvent(
     OutCopyHandle<Kernel::KReadableEvent> out_event) {
     LOG_DEBUG(Service_AM, "called");
-    *out_event = m_applet->unknown_event.GetHandle();
+    const auto* process = m_applet->process ? m_applet->process->GetHandle() : nullptr;
+    if (process != nullptr && process->IsSwitch2()) {
+        *out_event = m_applet->lifecycle_manager.GetOperationModeRefreshEvent().GetHandle();
+    } else {
+        *out_event = m_applet->unknown_event.GetHandle();
+    }
     R_SUCCEED();
 }
 
-Result IApplicationFunctions::Unknown320() {
-    // Called by Switch 2 titles during nn::oe::Initialize; arguments unknown.
-    LOG_WARNING(Service_AM, "(STUBBED) called");
+Result IApplicationFunctions::GetScreenShotAndContinuousRecordingInitiallyEnabled(
+    Out<bool> out_screenshot_enabled, Out<bool> out_recording_enabled) {
+    std::scoped_lock lk{m_applet->lock};
+    *out_screenshot_enabled = m_applet->screenshot_permission != ScreenshotPermission::Disable;
+    *out_recording_enabled = m_applet->game_play_recording_supported &&
+                             m_applet->game_play_recording_state == GamePlayRecordingState::Enabled;
+    LOG_DEBUG(Service_AM, "called, screenshot={}, recording={}", *out_screenshot_enabled,
+              *out_recording_enabled);
     R_SUCCEED();
 }
 
-Result IApplicationFunctions::Unknown321() {
-    // Called by Switch 2 titles right after 320; arguments unknown.
-    LOG_WARNING(Service_AM, "(STUBBED) called");
+Result IApplicationFunctions::Unknown321(u32 in_val) {
+    LOG_WARNING(Service_AM, "(STUBBED) called, in_val={}", in_val);
     R_SUCCEED();
 }
 
