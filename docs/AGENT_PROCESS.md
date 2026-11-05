@@ -50,7 +50,7 @@ Commits: the hashes it concerns.
   `*_test` passing, before any push.
 - In the game: a headless run (`tools/remake/headless/fast_run.sh`) of the change itself: a screenshot, `mem`, `report`,
   `audio NAME` (a WAV of the game's sound). Say in the commit what was run and what was not; "not tested on the phone" for
-  everything user-facing until the owner is back (CLAUDE.md §7).
+  everything user-facing until the owner is back (CLAUDE.md §8).
 - Android app code cannot be compiled in these sessions (no Android SDK): leave it alone, or say it is unbuilt.
 
 ### 3.1 Run recipes (20 October; add yours here, not only in a log)
@@ -103,6 +103,8 @@ A run that does not show the field is first a recipe question: check against the
   one before starting another).
 - **The remake tool's tests** (31 October): `cmake -S tests/remake -B /tmp/rb && make -C /tmp/rb -j8`, then run each
   `/tmp/rb/*_test` (33; a failed check prints `: NO`). `ctest` finds none.
+- **Punica's sizes on the scale** (31 October): `tools/ui-check/check_scale.py --branch` (or file names) lists every dp
+  and sp value off CLAUDE.md §7's scale; corner radii (§7.3) are checked by hand.
 - **An Eden update** (31 October): its resources that clash with another module's take the `eden_` prefix
   (CLAUDE.md §4.2): `tools/android-build/eden_resource_prefix.py carry <old release> eden <names.json>`, then
   `clashes <new tree> <names.json> <all.json>` from the repository's root, then `apply <new tree> <all.json>`. Its

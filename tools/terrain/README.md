@@ -20,7 +20,7 @@ what was tried before it and why it was dropped are in `docs/Terrain_Generation.
 Python 3 with numpy, scipy, numba, pillow, tifffile (+ imagecodecs), pycryptodome; Node with Playwright
 and Chromium (preinstalled in the cloud sessions). Scarlet's assets come from the owner's dump through
 `tools/switch/scarlet_assets/` (README there); the dump, keys and every file extracted from them stay
-outside the repository (CLAUDE.md §7), as does every scene folder made below.
+outside the repository (CLAUDE.md §8), as does every scene folder made below.
 
 ```sh
 T=tools/terrain; A=tools/switch/scarlet_assets; W=/path/to/work        # W: outside the repository

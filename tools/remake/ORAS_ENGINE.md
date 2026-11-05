@@ -269,7 +269,7 @@ the environment's `PkmXY` and `PkmXYsave` hold share links: give the setup and t
 
 **The project**: Pomegrade's remake tooling merges Pokemon X/Y into Omega Ruby ("Equilibrium"): one game with both maps,
 built as a mod (LayeredFS: romfs files, BPS patches, a `.code` IPS) by `remake_tool` (C++, `tools/remake/src`). The
-owner's rules for the merge are in `CLAUDE.md` section 7 (**100% identical = merged, not identical = ported; X/Y is
+owner's rules for the merge are in `CLAUDE.md` section 8 (**100% identical = merged, not identical = ported; X/Y is
 ported whole**) and, since 23 October, **everything of X/Y must work in Omega Ruby and everything of Omega Ruby in X/Y's
 zones** (features X/Y's own content never calls included). The owner writes French: answer in French.
 
@@ -1391,7 +1391,7 @@ another (51 characters passed the count check and stopped on the events buffer).
 ## 1. How the engine is read
 
 - **The dumps** (Drive folder "Pokemon Project - Radiant Platinum": the cartridge, Platinum, the owner's save `main.zip`) are
-  fetched into the session's scratch space, never into the repository (`CLAUDE.md` §7).
+  fetched into the session's scratch space, never into the repository (`CLAUDE.md` §8).
 - **Ghidra** (11.4.2, headless): `remake_tool oras-code` writes the ExeFS `.code` decompressed (5,439,488 bytes, loaded at
   0x100000); imported raw as `ARM:LE:32:v6` at 0x100000 and auto-analysed (256 s on 4 cores): **16,402 functions, 3.9 MB of
   code**. `ghidra/Export.java` lists them (entry, size, callers, callees) and decompiles given addresses:
@@ -2373,7 +2373,7 @@ reader in `tools/remake/src` or `ORAS_LITTLEROOT.md` shows it.
 ## 7. Pokémon X beside ORAS: can their assets be merged (16 October)
 
 Read on the owner's dumps of Pokémon X (Europe, decrypted, program 0004000000055D00, 653 RomFS files) and Omega Ruby in
-a session's scratch space (CLAUDE.md §7: never committed), with `remake_tool oras-list`, `oras-extract`, `garc` and a
+a session's scratch space (CLAUDE.md §8: never committed), with `remake_tool oras-list`, `oras-extract`, `garc` and a
 throwaway script over the members; the scenario that wants it is `docs/Equilibrium_Scenario.md`. `oras-list` and
 `oras-extract` open X's RomFS as they do Omega Ruby's.
 

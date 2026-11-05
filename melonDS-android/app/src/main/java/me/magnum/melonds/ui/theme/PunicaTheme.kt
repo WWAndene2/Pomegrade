@@ -8,8 +8,8 @@ import me.magnum.melonds.R
 
 /**
  * Punica's look, the validated home screen's (owner's choice, 13 October), for every Punica screen: always dark.
- * The XML side has the same values (values-night/colors.xml, drawable/bg_punica_*). The shared sizes
- * live in [PunicaDimens].
+ * The XML side has the same values (values-night/colors.xml, drawable/bg_punica_*). Sizes are on the
+ * PerfectSuite scale (CLAUDE.md section 7) and live in [PunicaDimens].
  */
 object PunicaTheme {
     val background = Color(0xFF111215)
@@ -49,7 +49,7 @@ object PunicaAlpha {
     const val SOFT = 0.8f
 }
 
-/** The shared sizes, in dp (sp for text), one set for every Punica screen. */
+/** The shared sizes, in dp (sp for text), all on the PerfectSuite scale. */
 object PunicaDimens {
     const val HEADER = 64
     const val TOUCH = 48

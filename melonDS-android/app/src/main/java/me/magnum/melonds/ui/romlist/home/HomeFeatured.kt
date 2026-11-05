@@ -70,7 +70,7 @@ internal fun HomeFeatured(games: List<Rom>, actions: GameActions) {
 
 @Composable
 private fun FeaturedCard(rom: Rom, actions: GameActions) {
-    // radius 0.24 x height: 0.24 x 160 = 38 -> 32; the cover, 16 dp inside, takes 32 - 16 = 16 so the two outlines stay parallel
+    // §7.3: 0.24 x 160 = 38 -> 32; the cover, 16 dp inside, takes 32 - 16 = 16 so the two outlines stay parallel
     val shape = RoundedCornerShape(32.dp)
     Row(
         Modifier

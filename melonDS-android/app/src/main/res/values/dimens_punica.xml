@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Punica's shared sizes for the XML screens, the same as ui/theme/PunicaTheme.kt's PunicaDimens; those shared with every console's settings point to :emulator-ui's dimens_settings.xml, one source -->
+    <!-- Punica's shared sizes for the XML screens, the same as ui/theme/PunicaTheme.kt's PunicaDimens (PerfectSuite scale); those shared with every console's settings point to :emulator-ui's dimens_settings.xml, one source -->
     <dimen name="punica_header_height">@dimen/emulator_settings_header_height</dimen>
     <dimen name="punica_header_edge">@dimen/emulator_settings_header_edge</dimen>
     <dimen name="punica_touch">@dimen/emulator_settings_touch</dimen>

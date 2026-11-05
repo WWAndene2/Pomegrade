@@ -40,7 +40,7 @@ weight is on sections 5.2 and 5.4. Working on binary code to make a Switch game 
 | Memory tracking | Write-protected pages and faults | **No**: a cost a native game never pays | Disappears for buffers D7 hands straight to Vulkan; coarser tracking (D4, O10) otherwise |
 
 Patches apply to the owner's own dumps, at load or in the session's scratch space; game and firmware code is never
-committed, uploaded or put in an artifact (CLAUDE.md §7). A patch targets a library version (NVN, SDK), not a game's
+committed, uploaded or put in an artifact (CLAUDE.md §8). A patch targets a library version (NVN, SDK), not a game's
 behaviour, so it is a translation layer, not a game-specific hack.
 
 ---
@@ -472,7 +472,7 @@ holds the system modules (sysmodules) that Eden replaces with its own C++ (HLE) 
 (fonts, applets). Running those modules from the firmware (LLE) would be slower, not faster. Its use here is as a
 **reference**: checking that a faster HLE path (D4) returns what the real module returns, and reading the system
 NVN and nvservices binaries to understand the GPU syscalls D3 and D7 depend on. The owner's firmware and keys are
-never committed or uploaded (same rule as the game dumps, CLAUDE.md §7).
+never committed or uploaded (same rule as the game dumps, CLAUDE.md §8).
 
 ### 5.3 Not proposed
 
@@ -621,7 +621,7 @@ Read from it, inferred from the measurements above:
   resolution is not a fix (owner, 1 November; section 5.3).
 - So on the 13T, Sword/Shield holds 22 to 25 FPS and Scarlet 13 to 18; going further means changing what the game draws
   (its passes, effects, animated characters), not Eden. That is the owner's next direction: patches of the game made
-  from the owner's dumps in scratch space (CLAUDE.md section 7), loaded as Eden mods, each measured on the phone.
+  from the owner's dumps in scratch space (CLAUDE.md section 8), loaded as Eden mods, each measured on the phone.
 
 Fixed alongside (1 November), untested on the phone unless said:
 - Texture read-backs (O4): Eden's update (48fea858) had put upstream's per-image staging buffer back inside the batched
@@ -690,7 +690,7 @@ the games draw less. Nothing below is started; each point is marked as in the re
 
 **Rules.**
 - The owner's dumps, keys and firmware are fetched into the session's scratch space only, never committed, uploaded
-  or put in an artifact (CLAUDE.md section 7). What is committed is tooling (`tools/`) and documentation; a patch file
+  or put in an artifact (CLAUDE.md section 8). What is committed is tooling (`tools/`) and documentation; a patch file
   made from the game's code is handed to the owner as a CI artifact only if the owner agrees first.
 - A patch removes or lowers work the game does (passes, effects, animated characters, draw distance) while leaving the
   picture recognisably the game's. Lowering the resolution is not the fix (owner). Every patch is a separate mod the
@@ -726,7 +726,7 @@ The work done on section 11's plan, by another agent (branch `ccr-0a954b06-a3qep
 
 **Goal (1 November).** Patch the game itself (its code `main` in the exefs, and its shaders) so its GPU work suits the Mali (e.g. skinning in the vertex shader instead of a transform feedback pass), still run by Eden as an Eden mod (IPS patches on the exefs, replaced files), not a recompilation. Patches are tied to one game version. Scarlet first, Z-A later for comparison; long term, an open-world mod (Scarlet, Z-A, the next game).
 
-**Rules.** The owner's dump, keys (`prod.keys`, `title.keys`) and anything extracted from them stay in the session's temporary scratch space, never committed, uploaded or put in an artifact (CLAUDE.md §7). The repository only gets our own scripts, patches and documentation.
+**Rules.** The owner's dump, keys (`prod.keys`, `title.keys`) and anything extracted from them stay in the session's temporary scratch space, never committed, uploaded or put in an artifact (CLAUDE.md §8). The repository only gets our own scripts, patches and documentation.
 
 **Approved tools (owner, 1 November, once for all).** Using anything not on this list needs the owner's approval first. No file or information of the owner's goes to an outside service, except the services named here.
 

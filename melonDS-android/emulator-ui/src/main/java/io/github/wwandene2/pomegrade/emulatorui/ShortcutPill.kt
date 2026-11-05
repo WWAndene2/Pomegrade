@@ -424,7 +424,7 @@ class ShortcutPill private constructor(
             scrim.animate().alpha(1f).setDuration(120).start()
         }
         val items = if (settings) settingsTiles() else mainTiles()
-        val tileWidth = dp(96) // two-line labels fit
+        val tileWidth = dp(96) // PerfectSuite: 64 + 32 (§7.2), two-line labels fit
         val padding = dp(12)
         val grid = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL

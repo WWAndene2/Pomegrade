@@ -280,14 +280,82 @@ If a request explicitly scopes a feature down ("just the color swatches, no pick
 
 ---
 
-## 7. Project-Specific Standards
+## 7. Design System — design-token governance
+
+Discipline: **design-token systems**, the standard mechanism (used across major design systems, e.g. Material Design, Salesforce Lightning) for enforcing a single source of truth for spacing, sizing, and typography scales, ensuring pixel-accurate consistency across a UI.
+
+> Define a single numeric scale for the project. This template uses "PerfectSuite" as an example instance — swap in the project's own scale if different, but keep the same enforcement structure below.
+
+> **In Pomegrade this scale is a graphic guideline, not a hard gate** (owner's decision): apply it to Pomegrade's own screens and judge it by the visual result. Upstream melonDS and Azahar layouts keep their values unless a Pomegrade change redesigns them (see the standing exceptions in §4.9). Android dimensions are in `dp`/`sp`, where the scale applies to the number.
+
+Every numeric dimension in the app — font-size, width, height, padding, margin, gap, icon size, border-radius input, anything measured in px — **must** resolve to one of the scale's defined values. Example scale organized in three tiers per power-of-2 octave — `[Primary]`, `(Secondary)`, `{Tertiary}`:
+
+```
+[1]
+[2]  (3)
+[4]  (6)
+[8]  (12)  {14}
+[16] (24)  {30}
+[32] (48)  {62}
+[64] (96)  {126}
+[128] (192) {254}
+[256] (384) {510}
+[512] (768) {1022}
+[1024]
+```
+
+No other number is permitted. This applies to existing code as well as new code — when an off-scale value is touched, correct it to the nearest scale value as part of that change rather than leaving it.
+
+**Before setting any dimension:**
+- Never assume a default utility class is compliant — verify its computed px value against the defined scale. A framework's default spacing/typography scale will often not map cleanly onto a project's own token system.
+- If a token (`--font-*`, `--size-*`, `--space-*`, etc.) already resolves to a scale value, use it — this is the token layer doing its job.
+- If the nearest existing token is off-scale, either correct the token (when the change should propagate to every usage) or apply an explicit, scoped override for just that element (when the change is local only).
+
+### 7.1 Rounding priority (tie-breaking)
+
+When correcting an off-scale value, round to the mathematically nearest scale value. When two candidates are **equidistant**, resolve the tie by a defined priority order. Example, for the PerfectSuite scale above — **Nearest beats Primary beats Secondary beats Tertiary**:
+
+- **`[Primary]`** (base 2): `1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024`
+- **`(Secondary)`** (base 2 intermediate — the midpoint between two consecutive primaries): `3, 6, 12, 24, 48, 96, 192, 384, 768`
+- **`{Tertiary}`** (base 2 additional — sum of the primary steps below the next primary, e.g. `8+4+2=14`, `16+8+4+2=30`): `14, 30, 62, 126, 254, 510, 1022`
+
+Worked examples:
+- `10` → tie between `8` (primary) and `12` (secondary), both distance 2 → primary wins → **8**
+- `13` → tie between `12` (secondary) and `14` (tertiary), both distance 1 → secondary wins → **12**
+- `15` → tie between `14` (tertiary) and `16` (primary), both distance 1 → primary wins → **16**
+- `11` → `12` is distance 1, `8` is distance 3 → not a tie, nearest wins → **12**
+- `17` → `16` is distance 1, `24` is distance 7 → not a tie, nearest wins → **16**
+
+This can and will collapse previously-distinct values onto the same scale number (e.g. two font sizes both rounding to `12`) — that is an accepted outcome of strict scale compliance, not a bug to work around by picking a different rounding.
+
+### 7.2 Exception — values above the first primary-doubling threshold
+
+For a value greater than the scale's second primary step (e.g. `16` in the example scale), do not snap to the single nearest scale number. Instead: take the nearest `[Primary]` at or below the value, then add another `[Primary]` on top to close the remaining gap as tightly as possible.
+
+- Example (PerfectSuite scale): `150` → nearest primary at/below is `128`; `128 + 16 = 144` is the closest reachable primary+primary sum → **144**.
+
+### 7.3 Corner radius
+
+Define a formula relating radius to a component's own dimensions, e.g. `radius = 0.24 × the element's height`, then round to the nearest scale value (apply the tie-break priority in §7.1).
+
+### 7.4 Aspect ratios — preferred, not mandatory
+
+Define a short priority list of preferred aspect ratios to reach for — not a hard constraint; apply engineering judgment rather than forcing a mismatch. Example: `3:2`, `4:3`, `5:4`, `3:1` (the last reserved for wide/short bars).
+
+### 7.5 Design objectives behind the design-token system
+
+Standardization · coherency · consistency · pixel-accurate precision · symmetry · disciplined aesthetic proportion · deliberate, documented art-direction decisions — never a default or "close enough" value.
+
+---
+
+## 8. Project-Specific Standards
 
 Use this section to record any reference proportions, component precedents, or exceptions unique to this project (e.g. header/navbar reference dimensions, known off-scale tokens not yet fixed, other standing exceptions). Keep such content isolated here so it stays easy to identify and to strip out when reusing this document as a template for a different project.
 
 - **Builds are expensive.** A clean build compiles two emulator cores (~2,500 C++ files). Verify locally (`POMEGRADE_ABIS=arm64-v8a ./gradlew :app:assembleProdDebug`) before pushing; GitHub Actions only builds `main` and manual runs, to spare the owner's Actions minutes.
 - **Nothing in this container runs the app.** "Verified" for user-facing behaviour (§2.5) means tested on the owner's phone; until then, report it as untested.
 - **Remake mods (`tools/remake/`):** a mod is built by `remake_tool oras-town`, which runs the design rules in `tools/remake/ORAS_LITTLEROOT.md` §8 (textures present in the area pack, size against the game's largest piece, archive members replaced only through `ReplaceMember`). The owner's game dumps (Drive folder "Pokemon Project - Radiant Platinum") may be fetched into a session's temporary scratch space, outside the repository, to build, inspect and run the game headless there (owner's decision, 7 October); they are never committed, uploaded or put in an artifact. The `Remake mod` workflow remains the way to build the mods the owner tests (how, and the phone test protocol: `ORAS_LITTLEROOT.md` section 0). Never write an ORAS archive member by hand or override those checks without saying why; what a format does is recorded there as checked, seen, inferred or unknown, and is not stated as fact otherwise.
-- **Launcher icon:** pomegranate on a white adaptive-icon background (owner's choice, 13 October: the transparent one showed black on HyperOS), generated from the owner's logo (11 October; `assets/branding/pomegrade_logo.png` now holds the coral version with its shadow and highlights at 1800 px, the flat original is in commit cfb838f4); foreground 62dp tall inside the 66dp safe zone of the 108dp canvas, placed so the crown's central point and the edge of the inner red slice lie on the vertical axis; coral red `#DC4249` (owner's choice, 13 October, softer than the logo's `#A20F27`), with a darker copy offset down-right (7, 9 px at 432 px) shown only outside the fruit, and highlights on the top-left rims (light from the top left); themed (monochrome) layer provided; the legacy `ic_launcher.png` is the same render in a rounded square (radius 0.24 × height).
+- **Launcher icon:** pomegranate on a white adaptive-icon background (owner's choice, 13 October: the transparent one showed black on HyperOS), generated from the owner's logo (11 October; `assets/branding/pomegrade_logo.png` now holds the coral version with its shadow and highlights at 1800 px, the flat original is in commit cfb838f4); foreground 62dp tall inside the 66dp safe zone of the 108dp canvas, placed so the crown's central point and the edge of the inner red slice lie on the vertical axis; coral red `#DC4249` (owner's choice, 13 October, softer than the logo's `#A20F27`), with a darker copy offset down-right (7, 9 px at 432 px) shown only outside the fruit, and highlights on the top-left rims (light from the top left); themed (monochrome) layer provided; the legacy `ic_launcher.png` is the same render in a rounded square (radius 0.24 × height, §7.3).
 - **The user's folder is named Punica on the phone** (owner's decision, 13 October; folders made before were named Pomegrade and are renamed at the next start, `PunicaFolderRename`). The code keeps the `Pomegrade` name for it (`PomegradeFolder`, `PomegradeFolder.SWITCH`...): user-visible text says Punica.
 - **Look: always dark** (owner's decision, 13 October): the home screen's palette (`ui/romlist/home/HomeTheme.kt`: background `#111215`, cards `#191B20`, red `#EC2B39`) is the app's dark resources (`values-night`), the night mode is forced (`MelonDSApplication.applyTheme`, the upstream theme setting hidden), `:emulator-ui` has the same palette with no light variant; titles in Bricolage Grotesque (`:emulator-ui` `res/font`, shared with the app). One header (`PunicaHeader` / `PunicaToolbar`), the shared sizes in `PunicaDimens` / `dimens_punica.xml`, the shared controls in `ui/common/component/`: new screens use them rather than their own.
 - **Requirements:** Android 10+ (3DS core); 3DS games need a 64-bit device.
