@@ -12,6 +12,12 @@ tests of 8 October needed and did with throwaway scripts.
   oras_save.py move <save> <out> <slot> <index> <move>
                                                   a party Pokemon (slot 0-5) given a move at index 0-3 (its PP 15), its
                                                   data decrypted and encrypted again (28 October: Fly, 19, for a fly test)
+  oras_save.py item <save> <out> <pouch> <item> <count>
+                                                  an item put in a bag pouch (items, key, tm, medicine, berry: MYITEM, block 1,
+                                                  pouches at +0, +0x640, +0x7C0, +0x970, +0xA70 of u16 item, u16 count entries,
+                                                  PKHeX's ORAS layout; checked on the owner's save: its Potion, item 17, first in
+                                                  medicine), added to the item's entry or the first empty one (5 November: Poke
+                                                  Balls and Rare Candies for test saves, Pkm Origins)
   oras_save.py badges <save> <out> <mask>        the badges byte (Misc block 11 + 0xC, one bit a badge: 0xFF all eight)
   oras_save.py flag <save> <out> <flag>[,<flag>...]
                                                   sets event flags: 1-0xCFF in EventWork (block 19 from +0x2F0; 30 October: the
@@ -229,11 +235,32 @@ def cmd_badges(path, out, mask):
     print(f"{out}: badges 0x{int(mask, 0) & 0xFF:02X}, checksums rewritten")
 
 
+POUCHES = {"items": (0x000, 400), "key": (0x640, 96), "tm": (0x7C0, 108), "medicine": (0x970, 64), "berry": (0xA70, 72)}
+
+
+def cmd_item(path, out, pouch, item, count):
+    data = read(path)
+    _, _, offset, _, _ = block_at(data, 1)
+    start, n = POUCHES[pouch]
+    item, count = int(item, 0), int(count, 0)
+    for k in range(n):
+        at = offset + start + 4 * k
+        i, c = struct.unpack_from("<HH", data, at)
+        if i == item or i == 0:
+            struct.pack_into("<HH", data, at, item, min(999, (c if i == item else 0) + count))
+            break
+    else:
+        sys.exit(f"pouch {pouch} full")
+    write_checksums(data)
+    open(out, "wb").write(data)
+    print(f"{out}: item {item} x{count} in {pouch} (entry {k}), checksums rewritten")
+
+
 def main():
     a = sys.argv[1:]
     commands = {("blocks", 1): cmd_blocks, ("diff", 2): cmd_diff, ("characters", 1): cmd_characters,
                 ("take", 4): cmd_take, ("records", 4): cmd_records, ("flag", 3): cmd_flag,
-                ("move", 5): cmd_move, ("badges", 3): cmd_badges}
+                ("move", 5): cmd_move, ("badges", 3): cmd_badges, ("item", 5): cmd_item}
     if not a or (a[0], len(a) - 1) not in commands:
         sys.exit(__doc__)
     commands[(a[0], len(a) - 1)](*a[1:])
